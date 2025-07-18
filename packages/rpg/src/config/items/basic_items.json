@@ -1,0 +1,613 @@
+[
+  {
+    "id": 995,
+    "name": "Coins",
+    "examine": "Lovely money!",
+    "value": 1,
+    "weight": 0,
+    "stackable": true,
+    "equipable": false,
+    "tradeable": true,
+    "members": false,
+    "model": "coins",
+    "icon": "coins"
+  },
+  {
+    "id": 1,
+    "name": "Bronze Sword",
+    "examine": "A simple bronze sword.",
+    "value": 10,
+    "weight": 2.2,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "weapon",
+      "requirements": { "attack": 1 },
+      "bonuses": {
+        "attackStab": 1,
+        "attackSlash": 3,
+        "attackCrush": -2,
+        "meleeStrength": 3
+      },
+      "weaponType": "sword",
+      "attackSpeed": 4
+    },
+    "model": "bronze_sword",
+    "icon": "bronze_sword"
+  },
+  {
+    "id": 2,
+    "name": "Steel Sword",
+    "examine": "A razor sharp steel sword.",
+    "value": 100,
+    "weight": 2.2,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "weapon",
+      "requirements": { "attack": 10 },
+      "bonuses": {
+        "attackStab": 4,
+        "attackSlash": 8,
+        "attackCrush": -2,
+        "meleeStrength": 7
+      },
+      "weaponType": "sword",
+      "attackSpeed": 4
+    },
+    "model": "steel_sword",
+    "icon": "steel_sword"
+  },
+  {
+    "id": 3,
+    "name": "Mithril Sword",
+    "examine": "A magical mithril sword.",
+    "value": 1000,
+    "weight": 2.2,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "weapon",
+      "requirements": { "attack": 20 },
+      "bonuses": {
+        "attackStab": 6,
+        "attackSlash": 12,
+        "attackCrush": -2,
+        "meleeStrength": 11
+      },
+      "weaponType": "sword",
+      "attackSpeed": 4
+    },
+    "model": "mithril_sword",
+    "icon": "mithril_sword"
+  },
+  {
+    "id": 4,
+    "name": "Wood Bow",
+    "examine": "A simple wooden bow.",
+    "value": 10,
+    "weight": 1.5,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "weapon",
+      "requirements": { "range": 1 },
+      "bonuses": {
+        "attackRanged": 3,
+        "rangedStrength": 8
+      },
+      "weaponType": "bow",
+      "attackSpeed": 5
+    },
+    "model": "wood_bow",
+    "icon": "wood_bow"
+  },
+  {
+    "id": 5,
+    "name": "Oak Bow",
+    "examine": "A sturdy oak bow.",
+    "value": 100,
+    "weight": 1.5,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "weapon",
+      "requirements": { "range": 10 },
+      "bonuses": {
+        "attackRanged": 6,
+        "rangedStrength": 12
+      },
+      "weaponType": "bow",
+      "attackSpeed": 5
+    },
+    "model": "oak_bow",
+    "icon": "oak_bow"
+  },
+  {
+    "id": 6,
+    "name": "Willow Bow",
+    "examine": "A flexible willow bow.",
+    "value": 1000,
+    "weight": 1.5,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "weapon",
+      "requirements": { "range": 20 },
+      "bonuses": {
+        "attackRanged": 9,
+        "rangedStrength": 16
+      },
+      "weaponType": "bow",
+      "attackSpeed": 5
+    },
+    "model": "willow_bow",
+    "icon": "willow_bow"
+  },
+  {
+    "id": 7,
+    "name": "Arrows",
+    "examine": "Sharp arrows for bows.",
+    "value": 1,
+    "weight": 0.1,
+    "stackable": true,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "arrows",
+      "requirements": {},
+      "bonuses": {}
+    },
+    "model": "arrows",
+    "icon": "arrows"
+  },
+  {
+    "id": 8,
+    "name": "Bronze Hatchet",
+    "examine": "A tool for cutting trees.",
+    "value": 15,
+    "weight": 1.8,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "weapon",
+      "requirements": {},
+      "bonuses": {
+        "attackStab": 1,
+        "attackSlash": 1,
+        "attackCrush": 1,
+        "meleeStrength": 1
+      },
+      "weaponType": "hatchet",
+      "attackSpeed": 5
+    },
+    "model": "bronze_hatchet",
+    "icon": "bronze_hatchet"
+  },
+  {
+    "id": 9,
+    "name": "Fishing Rod",
+    "examine": "A tool for catching fish.",
+    "value": 10,
+    "weight": 0.5,
+    "stackable": false,
+    "equipable": false,
+    "tradeable": true,
+    "members": false,
+    "model": "fishing_rod",
+    "icon": "fishing_rod"
+  },
+  {
+    "id": 10,
+    "name": "Tinderbox",
+    "examine": "A tool for making fires.",
+    "value": 5,
+    "weight": 0.1,
+    "stackable": false,
+    "equipable": false,
+    "tradeable": true,
+    "members": false,
+    "model": "tinderbox",
+    "icon": "tinderbox"
+  },
+  {
+    "id": 11,
+    "name": "Logs",
+    "examine": "Cut from trees.",
+    "value": 2,
+    "weight": 0.5,
+    "stackable": true,
+    "equipable": false,
+    "tradeable": true,
+    "members": false,
+    "model": "logs",
+    "icon": "logs"
+  },
+  {
+    "id": 12,
+    "name": "Raw Fish",
+    "examine": "Fresh caught fish.",
+    "value": 3,
+    "weight": 0.3,
+    "stackable": true,
+    "equipable": false,
+    "tradeable": true,
+    "members": false,
+    "model": "raw_fish",
+    "icon": "raw_fish"
+  },
+  {
+    "id": 13,
+    "name": "Cooked Fish",
+    "examine": "Delicious cooked fish.",
+    "value": 5,
+    "weight": 0.3,
+    "stackable": true,
+    "equipable": false,
+    "tradeable": true,
+    "members": false,
+    "heals": 4,
+    "model": "cooked_fish",
+    "icon": "cooked_fish"
+  },
+  {
+    "id": 14,
+    "name": "Bronze Shield",
+    "examine": "A simple bronze shield.",
+    "value": 20,
+    "weight": 2.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "shield",
+      "requirements": { "defense": 1 },
+      "bonuses": {
+        "defenseStab": 4,
+        "defenseSlash": 5,
+        "defenseCrush": 3,
+        "defenseRanged": 4
+      }
+    },
+    "model": "bronze_shield",
+    "icon": "bronze_shield"
+  },
+  {
+    "id": 15,
+    "name": "Steel Shield",
+    "examine": "A sturdy steel shield.",
+    "value": 200,
+    "weight": 2.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "shield",
+      "requirements": { "defense": 10 },
+      "bonuses": {
+        "defenseStab": 8,
+        "defenseSlash": 9,
+        "defenseCrush": 6,
+        "defenseRanged": 8
+      }
+    },
+    "model": "steel_shield",
+    "icon": "steel_shield"
+  },
+  {
+    "id": 16,
+    "name": "Mithril Shield",
+    "examine": "A magical mithril shield.",
+    "value": 2000,
+    "weight": 2.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "shield",
+      "requirements": { "defense": 20 },
+      "bonuses": {
+        "defenseStab": 12,
+        "defenseSlash": 13,
+        "defenseCrush": 9,
+        "defenseRanged": 12
+      }
+    },
+    "model": "mithril_shield",
+    "icon": "mithril_shield"
+  },
+  {
+    "id": 17,
+    "name": "Leather Helmet",
+    "examine": "Basic leather head protection.",
+    "value": 15,
+    "weight": 0.5,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "helmet",
+      "requirements": {},
+      "bonuses": {
+        "defenseStab": 2,
+        "defenseSlash": 3,
+        "defenseCrush": 1,
+        "defenseRanged": 2
+      }
+    },
+    "model": "leather_helmet",
+    "icon": "leather_helmet"
+  },
+  {
+    "id": 18,
+    "name": "Leather Body",
+    "examine": "Basic leather body protection.",
+    "value": 25,
+    "weight": 3.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "body",
+      "requirements": {},
+      "bonuses": {
+        "defenseStab": 9,
+        "defenseSlash": 11,
+        "defenseCrush": 10,
+        "defenseRanged": 11
+      }
+    },
+    "model": "leather_body",
+    "icon": "leather_body"
+  },
+  {
+    "id": 19,
+    "name": "Leather Legs",
+    "examine": "Basic leather leg protection.",
+    "value": 20,
+    "weight": 2.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "legs",
+      "requirements": {},
+      "bonuses": {
+        "defenseStab": 6,
+        "defenseSlash": 7,
+        "defenseCrush": 5,
+        "defenseRanged": 6
+      }
+    },
+    "model": "leather_legs",
+    "icon": "leather_legs"
+  },
+  {
+    "id": 20,
+    "name": "Bronze Helmet",
+    "examine": "A bronze helmet.",
+    "value": 30,
+    "weight": 1.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "helmet",
+      "requirements": { "defense": 1 },
+      "bonuses": {
+        "defenseStab": 4,
+        "defenseSlash": 5,
+        "defenseCrush": 3,
+        "defenseRanged": 4
+      }
+    },
+    "model": "bronze_helmet",
+    "icon": "bronze_helmet"
+  },
+  {
+    "id": 21,
+    "name": "Bronze Body",
+    "examine": "A bronze body.",
+    "value": 50,
+    "weight": 6.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "body",
+      "requirements": { "defense": 1 },
+      "bonuses": {
+        "defenseStab": 18,
+        "defenseSlash": 20,
+        "defenseCrush": 15,
+        "defenseRanged": 18
+      }
+    },
+    "model": "bronze_body",
+    "icon": "bronze_body"
+  },
+  {
+    "id": 22,
+    "name": "Bronze Legs",
+    "examine": "Bronze leg protection.",
+    "value": 40,
+    "weight": 4.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "legs",
+      "requirements": { "defense": 1 },
+      "bonuses": {
+        "defenseStab": 12,
+        "defenseSlash": 14,
+        "defenseCrush": 10,
+        "defenseRanged": 12
+      }
+    },
+    "model": "bronze_legs",
+    "icon": "bronze_legs"
+  },
+  {
+    "id": 23,
+    "name": "Steel Helmet",
+    "examine": "A steel helmet.",
+    "value": 300,
+    "weight": 1.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "helmet",
+      "requirements": { "defense": 10 },
+      "bonuses": {
+        "defenseStab": 8,
+        "defenseSlash": 9,
+        "defenseCrush": 6,
+        "defenseRanged": 8
+      }
+    },
+    "model": "steel_helmet",
+    "icon": "steel_helmet"
+  },
+  {
+    "id": 24,
+    "name": "Steel Body",
+    "examine": "A steel body.",
+    "value": 500,
+    "weight": 6.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "body",
+      "requirements": { "defense": 10 },
+      "bonuses": {
+        "defenseStab": 36,
+        "defenseSlash": 40,
+        "defenseCrush": 30,
+        "defenseRanged": 36
+      }
+    },
+    "model": "steel_body",
+    "icon": "steel_body"
+  },
+  {
+    "id": 25,
+    "name": "Steel Legs",
+    "examine": "Steel leg protection.",
+    "value": 400,
+    "weight": 4.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "legs",
+      "requirements": { "defense": 10 },
+      "bonuses": {
+        "defenseStab": 24,
+        "defenseSlash": 28,
+        "defenseCrush": 20,
+        "defenseRanged": 24
+      }
+    },
+    "model": "steel_legs",
+    "icon": "steel_legs"
+  },
+  {
+    "id": 26,
+    "name": "Mithril Helmet",
+    "examine": "A mithril helmet.",
+    "value": 3000,
+    "weight": 1.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "helmet",
+      "requirements": { "defense": 20 },
+      "bonuses": {
+        "defenseStab": 12,
+        "defenseSlash": 13,
+        "defenseCrush": 9,
+        "defenseRanged": 12
+      }
+    },
+    "model": "mithril_helmet",
+    "icon": "mithril_helmet"
+  },
+  {
+    "id": 27,
+    "name": "Mithril Body",
+    "examine": "A mithril body.",
+    "value": 5000,
+    "weight": 6.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "body",
+      "requirements": { "defense": 20 },
+      "bonuses": {
+        "defenseStab": 54,
+        "defenseSlash": 60,
+        "defenseCrush": 45,
+        "defenseRanged": 54
+      }
+    },
+    "model": "mithril_body",
+    "icon": "mithril_body"
+  },
+  {
+    "id": 28,
+    "name": "Mithril Legs",
+    "examine": "Mithril leg protection.",
+    "value": 4000,
+    "weight": 4.0,
+    "stackable": false,
+    "equipable": true,
+    "tradeable": true,
+    "members": false,
+    "equipment": {
+      "slot": "legs",
+      "requirements": { "defense": 20 },
+      "bonuses": {
+        "defenseStab": 36,
+        "defenseSlash": 42,
+        "defenseCrush": 30,
+        "defenseRanged": 36
+      }
+    },
+    "model": "mithril_legs",
+    "icon": "mithril_legs"
+  }
+]

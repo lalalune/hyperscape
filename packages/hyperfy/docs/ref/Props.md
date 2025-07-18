@@ -12,7 +12,7 @@ app.configure([
     key: 'name',
     type: 'text',
     label: 'Name',
-  },
+  }
 ])
 ```
 
@@ -150,7 +150,7 @@ The type of file you collect depends on how you would use it. For example you ca
 
 ```jsx
 const audio = app.create('audio', {
-  src: props.audio?.url,
+  src: props.audio?.url
 })
 audio.play()
 ```

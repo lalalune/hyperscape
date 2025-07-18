@@ -9,12 +9,12 @@ export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
   WARN = 2,
-  ERROR = 3,
+  ERROR = 3
 }
 
 export interface LoggerOptions {
-  prefix?: string
-  logLevel?: keyof typeof LogLevel
+  prefix?: string;
+  logLevel?: keyof typeof LogLevel;
 }
 
 class Logger {
@@ -24,7 +24,7 @@ class Logger {
 
   constructor(options: LoggerOptions = {}) {
     this.prefix = options.prefix || '';
-
+    
     // Use global log level if set, otherwise use config
     if (Logger.globalLogLevel !== null) {
       this.logLevel = Logger.globalLogLevel;
@@ -47,7 +47,7 @@ class Logger {
   child(prefix: string): Logger {
     return new Logger({
       prefix: this.prefix ? `${this.prefix}:${prefix}` : prefix,
-      logLevel: LogLevel[this.logLevel] as keyof typeof LogLevel,
+      logLevel: LogLevel[this.logLevel] as keyof typeof LogLevel
     });
   }
 
@@ -118,4 +118,4 @@ export const logger = new Logger();
 // Export factory function for creating named loggers
 export function createLogger(prefix: string, options?: Omit<LoggerOptions, 'prefix'>): Logger {
   return new Logger({ ...options, prefix });
-}
+} 

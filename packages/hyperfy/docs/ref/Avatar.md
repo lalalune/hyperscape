@@ -23,7 +23,7 @@ An emote url (eg from props) or an absolute URL to a `.glb` file with an emote a
 
 ### `.getHeight()`: Number
 
-Returns the height of the avatar in meters. This might be `null` if the avatar hasn't loaded yet. Read-only.
+Returns the height of the avatar in meters. This might be `null` if the avatar hasn't loaded yet. Read-only. 
 
 ### `.getBoneTransform(boneName)`: Matrix4
 
@@ -46,3 +46,4 @@ hips, spine, chest, neck, head, leftShoulder, leftUpperArm, leftLowerArm, leftHa
 ### `.{...Node}`
 
 Inherits all [Node](/docs/ref/Node.md) properties
+

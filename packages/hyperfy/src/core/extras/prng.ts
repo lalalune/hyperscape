@@ -5,9 +5,9 @@
  * and modernized to work with newer build tools and ES6+
  */
 
-const DEFAULT_SEED = 149304961039362642461n; // Use BigInt for precision
-const REGISTER_LENGTH = 31;
-const FLUSH_TIMES = 20;
+const DEFAULT_SEED = 149304961039362642461
+const REGISTER_LENGTH = 31
+const FLUSH_TIMES = 20
 
 // export a simplified api
 // export function prng(seed) {
@@ -16,67 +16,65 @@ const FLUSH_TIMES = 20;
 // }
 
 export function prng(seed?: number) {
-  const generator = new PRNG(seed);
+  const generator = new PRNG(seed)
   return (min: number, max?: number, dp = 0) => {
     // single-arg → [0..min]
     if (max === undefined) {
-      max = min;
-      min = 0;
+      max = min
+      min = 0
     }
 
     // swap if out of order
-    if (min > max) {
-      ;[min, max] = [max, min];
-    }
+    if (min > max) [min, max] = [max, min]
 
     // if decimals requested, scale into integer space
     if (dp > 0) {
-      const scale = 10 ** dp;
-      const intMin = Math.ceil(min * scale);
-      const intMax = Math.floor(max * scale);
-      const rndInt = generator.rand(intMin, intMax);
-      return rndInt / scale;
+      const scale = 10 ** dp
+      const intMin = Math.ceil(min * scale)
+      const intMax = Math.floor(max * scale)
+      const rndInt = generator.rand(intMin, intMax)
+      return rndInt / scale
     }
 
     // otherwise just integer mode
-    return generator.rand(min, max);
-  };
+    return generator.rand(min, max)
+  }
 }
 
 class PRNG {
-  lfsr: LFSR;
+  lfsr: LFSR
   constructor(seed?: number) {
-    this.lfsr = new LFSR(REGISTER_LENGTH, seed || Number(DEFAULT_SEED));
+    this.lfsr = new LFSR(REGISTER_LENGTH, seed || DEFAULT_SEED)
     // flush initial state of register because thay may produce
     // weird sequences
-    this.lfsr.seq(FLUSH_TIMES * REGISTER_LENGTH);
+    this.lfsr.seq(FLUSH_TIMES * REGISTER_LENGTH)
   }
   rand(min: number, max?: number): number {
     // if invoked with one value consider min to be 0
-    // rand(16) === rand(0, 16)
+    // rand(16) == rand(0, 16)
     if (!max) {
-      max = min;
-      min = 0;
+      max = min
+      min = 0
     }
 
     // swap if min > max
     if (min > max) {
-      const t = max;
-      max = min;
-      min = t;
+      let t = max
+      max = min
+      min = t
     }
 
-    const offset = min;
+    let offset = min
 
-    const bits = ~~this._log2(max - offset) + 1;
-    let random;
+    let bits = ~~this._log2(max - offset) + 1
+    let random
     do {
-      random = this.lfsr.seq(bits);
-    } while (random > max - offset);
-    return random + offset;
+      random = this.lfsr.seq(bits)
+    } while (random > max - offset)
+    return random + offset
   }
   _log2(n: number): number {
-    return Math.log(n) / Math.LN2;
+    return Math.log(n) / Math.LN2
   }
 }
 
@@ -149,61 +147,59 @@ const TAPS: Record<number, number[]> = {
   // 62: [62, 61, 6, 5],
   // 63: [63, 62],
   // 64: [64, 63, 61, 60]
-};
+}
 
-const DEFAULT_LENGTH = 31;
+const DEFAULT_LENGTH = 31
 
 class LFSR {
-  n: number;
-  taps: number[];
-  register: number;
+  n: number
+  taps: number[]
+  register: number
   constructor(n?: number, seed?: number) {
-    this.n = n || DEFAULT_LENGTH;
-    this.taps = TAPS[this.n];
-    seed = seed || this._defaultSeed(this.n);
+    this.n = n || DEFAULT_LENGTH
+    this.taps = TAPS[this.n]
+    seed = seed || this._defaultSeed(this.n)
     // Get last n bit from the seed if it's longer
-    const mask = parseInt(Array(this.n + 1).join('1'), 2);
-    this.register = seed & mask;
+    const mask = parseInt(Array(this.n + 1).join('1'), 2)
+    this.register = seed & mask
   }
   shift(): number {
-    const tapsNum = this.taps.length;
-    let _i;
-    let bit = this.register >> (this.n - this.taps[0]);
+    let tapsNum = this.taps.length
+    let i
+    let bit = this.register >> (this.n - this.taps[0])
     for (let i = 1; i < tapsNum; i++) {
-      bit = bit ^ (this.register >> (this.n - this.taps[i]));
+      bit = bit ^ (this.register >> (this.n - this.taps[i]))
     }
-    bit = bit & 1;
-    this.register = (this.register >> 1) | (bit << (this.n - 1));
-    return bit & 1;
+    bit = bit & 1
+    this.register = (this.register >> 1) | (bit << (this.n - 1))
+    return bit & 1
   }
   seq(n: number): number {
-    let seq = 0;
+    let seq = 0
     for (let i = 0; i < n; i++) {
-      seq = (seq << 1) | this.shift();
+      seq = (seq << 1) | this.shift()
     }
-    return seq;
+    return seq
   }
   seqString(n: number): string {
-    let seq = '';
+    let seq = ''
     for (let i = 0; i < n; i++) {
-      seq += this.shift();
+      seq += this.shift()
     }
-    return seq;
+    return seq
   }
   maxSeqLen(): number {
-    const initialState = this.register;
-    let counter = 0;
+    let initialState = this.register
+    let counter = 0
     do {
-      this.shift();
-      counter++;
-    } while (initialState !== this.register);
-    return counter;
+      this.shift()
+      counter++
+    } while (initialState != this.register)
+    return counter
   }
   _defaultSeed(n: number): number {
-    if (!n) {
-      throw new Error('n is required');
-    }
-    const lfsr = new LFSR(8, 92914);
-    return lfsr.seq(n);
+    if (!n) throw new Error('n is required')
+    let lfsr = new LFSR(8, 92914)
+    return lfsr.seq(n)
   }
 }

@@ -1,0 +1,33 @@
+{
+  "id": "dark_warrior_drops",
+  "name": "Dark Warrior Loot Table",
+  "description": "Drops from dark warriors",
+  "drops": [
+    {
+      "itemId": 995,
+      "quantity": 50,
+      "weight": 100,
+      "rarity": "common"
+    },
+    {
+      "itemId": 2,
+      "quantity": 1,
+      "weight": 25,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 5,
+      "quantity": 1,
+      "weight": 18,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 15,
+      "quantity": 1,
+      "weight": 15,
+      "rarity": "uncommon"
+    }
+  ],
+  "rareDropTable": false,
+  "maxDrops": 2
+}

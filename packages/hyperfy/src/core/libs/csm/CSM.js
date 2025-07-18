@@ -282,13 +282,14 @@ IncidentLight directLight;
 
 #endif
 `,
-  lights_pars_begin: maxCascades => /* glsl */ `
+  lights_pars_begin: maxCascades =>
+    /* glsl */ `
 #if defined( USE_CSM ) && defined( CSM_CASCADES )
 uniform vec2 CSM_cascades[${maxCascades}]; // This value is the max. number supported of cascades
 uniform float cameraNear;
 uniform float shadowFar;
 #endif
-	${lightParsBeginInitial}`,
+	` + lightParsBeginInitial,
 }
 
 class CSMHelper extends three.Group {
@@ -429,14 +430,14 @@ class CSMFrustum {
     this.vertices.near[1].set(1, -1, -1)
     this.vertices.near[2].set(-1, -1, -1)
     this.vertices.near[3].set(-1, 1, -1)
-    this.vertices.near.forEach(v => {
+    this.vertices.near.forEach(function (v) {
       v.applyMatrix4(inverseProjectionMatrix)
     })
     this.vertices.far[0].set(1, 1, 1)
     this.vertices.far[1].set(1, -1, 1)
     this.vertices.far[2].set(-1, -1, 1)
     this.vertices.far[3].set(-1, 1, 1)
-    this.vertices.far.forEach(v => {
+    this.vertices.far.forEach(function (v) {
       v.applyMatrix4(inverseProjectionMatrix)
       const absZ = Math.abs(v.z)
       if (isOrthographic) {
@@ -516,7 +517,7 @@ const _uniformArray = []
 const _logArray = []
 export class CSM {
   constructor(data) {
-    let _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q
     this.mainFrustum = new CSMFrustum()
     this.frustums = []
     this.breaks = []
@@ -763,7 +764,7 @@ export class CSM {
     }
   }
   dispose() {
-    this.shaders.forEach((shader, material) => {
+    this.shaders.forEach(function (shader, material) {
       delete material.onBeforeCompile
       delete material.defines.USE_CSM
       delete material.defines.CSM_CASCADES

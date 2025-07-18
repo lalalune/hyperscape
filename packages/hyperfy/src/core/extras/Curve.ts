@@ -1,111 +1,97 @@
-import { clamp } from '../utils';
+import { clamp } from '../utils'
 
-let ids = 0;
+let ids = 0
 
-const arr1: number[] = [];
+const arr1: number[] = []
 
 export class Curve {
-  keyframes: Keyframe[];
-  data?: string;
-  firstKeyframe!: Keyframe;
-  lastKeyframe!: Keyframe;
+  keyframes: Keyframe[]
+  data?: string
+  firstKeyframe!: Keyframe
+  lastKeyframe!: Keyframe
 
   constructor() {
-    this.keyframes = [];
+    this.keyframes = []
   }
 
   deserialize(data: string) {
-    if (!data) {
-      return this;
-    }
-    this.data = data;
+    if (!data) return this
+    this.data = data
     this.keyframes = data.split('|').map(kData => {
-      return new Keyframe().deserialize(kData);
-    });
-    this.sort();
-    return this;
+      return new Keyframe().deserialize(kData)
+    })
+    this.sort()
+    return this
   }
 
   serialize() {
     return this.keyframes
       .map(keyframe => {
-        return keyframe.serialize();
+        return keyframe.serialize()
       })
-      .join('|');
+      .join('|')
   }
 
   add(opts: { time: number; value: number; inTangent: number; outTangent: number }) {
-    const keyframe = new Keyframe().set(opts);
-    const foundIndex = this.keyframes.findIndex(k => k.time === keyframe.time);
+    const keyframe = new Keyframe().set(opts)
+    const foundIndex = this.keyframes.findIndex(k => k.time === keyframe.time)
     // if (foundIndex === 0) return console.warn('cant replace first keyframe')
     // if (foundIndex === this.keyframes.length -1) return console.warn('cant replace end keyframe') // prettier-ignore
     if (foundIndex === -1) {
-      this.keyframes.push(keyframe);
+      this.keyframes.push(keyframe)
     } else {
-      this.keyframes[foundIndex] = keyframe;
+      this.keyframes[foundIndex] = keyframe
     }
-    this.sort();
-    return this;
+    this.sort()
+    return this
   }
 
   remove(keyframeId: number) {
-    const idx = this.keyframes.findIndex(keyframe => keyframe.id === keyframeId);
-    if (idx !== -1) {
-      this.keyframes.splice(idx, 1);
-    }
+    const idx = this.keyframes.findIndex(keyframe => keyframe.id === keyframeId)
+    if (idx !== -1) this.keyframes.splice(idx, 1)
   }
 
   removeAtTime(time: number) {
-    const idx = this.keyframes.findIndex(keyframe => keyframe.time === time);
-    if (idx !== -1) {
-      this.keyframes.splice(idx, 1);
-    }
+    const idx = this.keyframes.findIndex(keyframe => keyframe.time === time)
+    if (idx !== -1) this.keyframes.splice(idx, 1)
   }
 
   getClosest(t: number) {
-    t = Math.max(0, Math.min(1, t));
-    let lo = -1;
-    let hi = this.keyframes.length;
+    t = Math.max(0, Math.min(1, t))
+    let lo = -1
+    let hi = this.keyframes.length
     while (hi - lo > 1) {
-      const mid = Math.round((lo + hi) / 2);
-      if (this.keyframes[mid].time <= t) {
-        lo = mid;
-      } else {
-        hi = mid;
-      }
+      let mid = Math.round((lo + hi) / 2)
+      if (this.keyframes[mid].time <= t) lo = mid
+      else hi = mid
     }
-    if (this.keyframes[lo].time === t) {
-      hi = lo;
-    }
+    if (this.keyframes[lo].time === t) hi = lo
     if (lo === hi) {
-      if (lo === 0) {
-        hi++;
-      } else {
-        lo--;
-      }
+      if (lo === 0) hi++
+      else lo--
     }
-    arr1[0] = lo;
-    arr1[1] = hi;
-    return arr1;
+    arr1[0] = lo
+    arr1[1] = hi
+    return arr1
   }
 
   evaluate(time: number) {
     if (time <= this.keyframes[0].time) {
-      return this.keyframes[0].value;
+      return this.keyframes[0].value
     }
 
     if (time >= this.keyframes[this.keyframes.length - 1].time) {
-      return this.keyframes[this.keyframes.length - 1].value;
+      return this.keyframes[this.keyframes.length - 1].value
     }
 
     for (let i = 0; i < this.keyframes.length - 1; i++) {
       // prettier-ignore
-      if (time >= this.keyframes[i].time && time <= this.keyframes[i + 1].time) {
-        const t = (time - this.keyframes[i].time) / (this.keyframes[i + 1].time - this.keyframes[i].time); // prettier-ignore
+      if (time >= this.keyframes[i].time && time <= this.keyframes[i + 1].time) { 
+        const t = (time - this.keyframes[i].time) / (this.keyframes[i + 1].time - this.keyframes[i].time) // prettier-ignore
         const p0 = this.keyframes[i].value;
         const p1 = this.keyframes[i + 1].value;
-        const m0 = this.keyframes[i].outTangent * (this.keyframes[i + 1].time - this.keyframes[i].time); // prettier-ignore
-        const m1 = this.keyframes[i + 1].inTangent * (this.keyframes[i + 1].time - this.keyframes[i].time); // prettier-ignore
+        const m0 = this.keyframes[i].outTangent * (this.keyframes[i + 1].time - this.keyframes[i].time) // prettier-ignore
+        const m1 = this.keyframes[i + 1].inTangent * (this.keyframes[i + 1].time - this.keyframes[i].time) // prettier-ignore
         const t2 = t * t;
         const t3 = t2 * t;
 
@@ -117,7 +103,7 @@ export class Curve {
         return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
       }
     }
-    return 0;
+    return 0
   }
 
   // evaluate(time) {
@@ -189,115 +175,111 @@ export class Curve {
   //   }
 
   ogEvaluate(t: number) {
-    return this.hermite(t, this.keyframes).y;
+    return this.hermite(t, this.keyframes).y
   }
 
   hermite(t: number, keyframes: Keyframe[]) {
-    const n = keyframes.length;
+    const n = keyframes.length
 
-    const [lo, _hi] = this.getClosest(t);
+    const [lo, hi] = this.getClosest(t)
 
-    const i0 = lo;
-    let i1 = i0 + 1;
+    var i0 = lo
+    var i1 = i0 + 1
 
-    if (i0 > n - 1) {
-      throw new Error('Out of bounds');
-    }
-    if (i0 === n - 1) {
-      i1 = i0;
-    }
+    if (i0 > n - 1) throw new Error('Out of bounds')
+    if (i0 === n - 1) i1 = i0
 
-    const scale = keyframes[i1].time - keyframes[i0].time;
+    var scale = keyframes[i1].time - keyframes[i0].time
 
-    t = (t - keyframes[i0].time) / scale;
+    t = (t - keyframes[i0].time) / scale
 
-    const t2 = t * t;
-    const it = 1 - t;
-    const it2 = it * it;
-    const tt = 2 * t;
-    const h00 = (1 + tt) * it2;
-    const h10 = t * it2;
-    const h01 = t2 * (3 - tt);
-    const h11 = t2 * (t - 1);
+    var t2 = t * t
+    var it = 1 - t
+    var it2 = it * it
+    var tt = 2 * t
+    var h00 = (1 + tt) * it2
+    var h10 = t * it2
+    var h01 = t2 * (3 - tt)
+    var h11 = t2 * (t - 1)
 
     const x =
       h00 * keyframes[i0].time +
       h10 * keyframes[i0].outTangent * scale +
       h01 * keyframes[i1].time +
-      h11 * keyframes[i1].inTangent * scale;
+      h11 * keyframes[i1].inTangent * scale
 
     const y =
       h00 * keyframes[i0].value +
       h10 * keyframes[i0].outTangent * scale +
       h01 * keyframes[i1].value +
-      h11 * keyframes[i1].inTangent * scale;
+      h11 * keyframes[i1].inTangent * scale
 
-    return { x, y };
+    return { x, y }
   }
 
   sort() {
-    this.keyframes.sort((a, b) => a.time - b.time);
-    this.firstKeyframe = this.keyframes[0];
-    this.lastKeyframe = this.keyframes[this.keyframes.length - 1];
+    this.keyframes.sort((a, b) => a.time - b.time)
+    this.firstKeyframe = this.keyframes[0]
+    this.lastKeyframe = this.keyframes[this.keyframes.length - 1]
   }
 
   move(keyframe: Keyframe, time: number, value: number, boundFirstLast: boolean) {
-    const keyIndex = this.keyframes.indexOf(keyframe);
+    const keyIndex = this.keyframes.indexOf(keyframe)
 
     if (keyIndex <= 0 || keyIndex >= this.keyframes.length - 1) {
       if (!boundFirstLast) {
-        keyframe.value = value;
+        keyframe.value = value
       }
-      return;
+      return
     }
-    keyframe.value = value;
-    keyframe.time = Math.max(0.001, Math.min(time, 0.999));
+    keyframe.value = value
+    keyframe.time = Math.max(0.001, Math.min(time, 0.999))
 
-    this.sort();
+    this.sort()
   }
 
   clone() {
-    return new Curve().deserialize(this.serialize());
+    return new Curve().deserialize(this.serialize())
   }
 }
 
 export class Keyframe {
-  id: number;
-  time: number;
-  value: number;
-  inTangent: number;
-  outTangent: number;
-  inMagnitude: number;
-  outMagnitude: number;
+  id: number
+  time: number
+  value: number
+  inTangent: number
+  outTangent: number
+  inMagnitude: number
+  outMagnitude: number
 
   constructor() {
-    this.id = ++ids;
-    this.time = 0;
-    this.value = 0;
-    this.inTangent = 0;
-    this.outTangent = 0;
-    this.inMagnitude = -0.1;
-    this.outMagnitude = 0.1;
+    this.id = ++ids
+    this.time = 0
+    this.value = 0
+    this.inTangent = 0
+    this.outTangent = 0
+    this.inMagnitude = -0.1
+    this.outMagnitude = 0.1
   }
 
   set({ time, value, inTangent, outTangent }: { time: number; value: number; inTangent: number; outTangent: number }) {
-    this.time = clamp(time, 0, 1);
-    this.value = value || 0;
-    this.inTangent = inTangent || 0;
-    this.outTangent = outTangent || 0;
-    return this;
+    this.time = clamp(time, 0, 1)
+    this.value = value || 0
+    this.inTangent = inTangent || 0
+    this.outTangent = outTangent || 0
+    return this
   }
 
   deserialize(data: string) {
-    const [time, value, inTangent, outTangent] = data.split(',');
-    this.time = parseFloat(time) || 0;
-    this.value = parseFloat(value) || 0;
-    this.inTangent = parseFloat(inTangent) || 0;
-    this.outTangent = parseFloat(outTangent) || 0;
-    this.id = ++ids;
-    this.inMagnitude = -0.1;
-    this.outMagnitude = 0.1;
-    return this;
+    const [time, value, inTangent, outTangent] = data.split(',')
+    this.time = parseFloat(time) || 0
+    this.value = parseFloat(value) || 0
+    this.inTangent = parseFloat(inTangent) || 0
+    this.outTangent = parseFloat(outTangent) || 0
+    this.id = ++ids
+    this.inMagnitude = -0.1
+    this.outMagnitude = 0.1
+    return this
   }
 
   serialize() {
@@ -306,52 +288,46 @@ export class Keyframe {
       numToString(this.value),
       numToString(this.inTangent),
       numToString(this.outTangent),
-    ].join(',');
+    ].join(',')
   }
 
   getHandles() {
-    return { in: this.getInHandle(), out: this.getOutHandle() };
+    return { in: this.getInHandle(), out: this.getOutHandle() }
   }
 
   getInHandle() {
     return {
       x: this.time + this.inMagnitude,
       y: this.value + this.inMagnitude * this.inTangent,
-    };
+    }
   }
 
   getOutHandle() {
     return {
       x: this.time + this.outMagnitude,
       y: this.value + this.outMagnitude * this.outTangent,
-    };
+    }
   }
 
   setTangentsFromHandles(tangents: { in: { x: number; y: number }; out: { x: number; y: number } }) {
-    this.setInTangentFromHandle(tangents.in.x, tangents.in.y);
-    this.setOutTangentFromHandle(tangents.out.x, tangents.out.y);
+    this.setInTangentFromHandle(tangents.in.x, tangents.in.y)
+    this.setOutTangentFromHandle(tangents.out.x, tangents.out.y)
   }
 
   setInTangentFromHandle(x: number, y: number) {
-    if (x >= this.time) {
-      return;
-    }
-    this.inMagnitude = x - this.time;
-    this.inTangent = (y - this.value) / this.inMagnitude;
+    if (x >= this.time) return
+    this.inMagnitude = x - this.time
+    this.inTangent = (y - this.value) / this.inMagnitude
   }
 
   setOutTangentFromHandle(x: number, y: number) {
-    if (x <= this.time) {
-      return;
-    }
-    this.outMagnitude = x - this.time;
-    this.outTangent = (y - this.value) / this.outMagnitude;
+    if (x <= this.time) return
+    this.outMagnitude = x - this.time
+    this.outTangent = (y - this.value) / this.outMagnitude
   }
 }
 
 function numToString(num: number) {
-  if (Number.isInteger(num)) {
-    return num.toString();
-  }
-  return num.toFixed(3);
+  if (Number.isInteger(num)) return num.toString()
+  return num.toFixed(3)
 }

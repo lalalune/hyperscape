@@ -40,7 +40,8 @@ class Panel {
     this.context = this.canvas.getContext('2d')
 
     if (this.context) {
-      this.context.font = `bold ${9 * this.PR}px Helvetica,Arial,sans-serif`
+      this.context.font =
+        'bold ' + 9 * this.PR + 'px Helvetica,Arial,sans-serif'
       this.context.textBaseline = 'top'
 
       this.context.fillStyle = this.bg
@@ -48,11 +49,21 @@ class Panel {
 
       this.context.fillStyle = this.fg
       this.context.fillText(this.name, this.TEXT_X, this.TEXT_Y)
-      this.context.fillRect(this.GRAPH_X, this.GRAPH_Y, this.GRAPH_WIDTH, this.GRAPH_HEIGHT)
+      this.context.fillRect(
+        this.GRAPH_X,
+        this.GRAPH_Y,
+        this.GRAPH_WIDTH,
+        this.GRAPH_HEIGHT
+      )
 
       this.context.fillStyle = this.bg
       this.context.globalAlpha = 0.9
-      this.context.fillRect(this.GRAPH_X, this.GRAPH_Y, this.GRAPH_WIDTH, this.GRAPH_HEIGHT)
+      this.context.fillRect(
+        this.GRAPH_X,
+        this.GRAPH_Y,
+        this.GRAPH_WIDTH,
+        this.GRAPH_HEIGHT
+      )
     }
   }
 
@@ -60,9 +71,7 @@ class Panel {
     let min = Infinity,
       max = 0
 
-    if (!this.context) {
-      return
-    }
+    if (!this.context) return
 
     min = Math.min(min, value)
     max = Math.max(maxValue, value)
@@ -73,7 +82,14 @@ class Panel {
     this.context.fillRect(0, 0, this.WIDTH, this.GRAPH_Y)
     this.context.fillStyle = this.fg
     this.context.fillText(
-      `${value.toFixed(decimals)} ${this.name} (${min.toFixed(decimals)}-${parseFloat(max.toFixed(decimals))})`,
+      value.toFixed(decimals) +
+        ' ' +
+        this.name +
+        ' (' +
+        min.toFixed(decimals) +
+        '-' +
+        parseFloat(max.toFixed(decimals)) +
+        ')',
       this.TEXT_X,
       this.TEXT_Y
     )
@@ -90,7 +106,12 @@ class Panel {
       this.GRAPH_HEIGHT
     )
 
-    this.context.fillRect(this.GRAPH_X + this.GRAPH_WIDTH - this.PR, this.GRAPH_Y, this.PR, this.GRAPH_HEIGHT)
+    this.context.fillRect(
+      this.GRAPH_X + this.GRAPH_WIDTH - this.PR,
+      this.GRAPH_Y,
+      this.PR,
+      this.GRAPH_HEIGHT
+    )
 
     this.context.fillStyle = this.bg
     this.context.globalAlpha = 0.9

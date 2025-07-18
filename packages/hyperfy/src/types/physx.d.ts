@@ -3,11 +3,11 @@
 declare global {
   const PHYSX: any;
   interface Window {
-    PHYSX?: any
+    PHYSX?: any;
   }
   interface GlobalThis {
-    PHYSX?: any
+    PHYSX?: any;
   }
 }
 
-export {};
+export {}; 

@@ -1,0 +1,33 @@
+{
+  "id": "hobgoblin_drops",
+  "name": "Hobgoblin Loot Table",
+  "description": "Drops from hobgoblins",
+  "drops": [
+    {
+      "itemId": 995,
+      "quantity": 25,
+      "weight": 100,
+      "rarity": "common"
+    },
+    {
+      "itemId": 2,
+      "quantity": 1,
+      "weight": 15,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 15,
+      "quantity": 1,
+      "weight": 12,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 23,
+      "quantity": 1,
+      "weight": 8,
+      "rarity": "uncommon"
+    }
+  ],
+  "rareDropTable": false,
+  "maxDrops": 2
+}

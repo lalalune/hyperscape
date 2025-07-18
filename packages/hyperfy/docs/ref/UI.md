@@ -21,7 +21,7 @@ NOTE: when using `screen`, the `.position` value now represents a ratio from 0 t
 ```jsx
 /**
  * Example:
- * The following screen-space UI is rendered in the top left of the
+ * The following screen-space UI is rendered in the top left of the 
  * screen, 20px away from both edges.
 */
 const ui = app.create('ui', {
@@ -42,7 +42,7 @@ The height of the UI canvas in pixels. Defaults to `100`.
 
 ### `.size`: Number
 
-This value converts pixels to meters.
+This value converts pixels to meters. 
 For example if you set `width = 100` and `size = 0.01` your UI will have a width of one meter.
 This allows you to build UI while thinking in pixels instead of meters, and makes it easier to resize things later.
 Defaults to `0.01`.
@@ -91,7 +91,7 @@ If you are building informational screen-space UI that does not need to respond 
 
 ### `.backgroundColor`: String
 
-The background color of the UI.
+The background color of the UI. 
 Can be hex (eg `#000000`) or rgba (eg `rgba(0, 0, 0, 0.5)`).
 Defaults to `null`.
 
@@ -144,3 +144,4 @@ Defaults to `0`.
 ### `.{...Node}`
 
 Inherits all [Node](/docs/ref/Node.md) properties
+

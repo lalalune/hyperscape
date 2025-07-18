@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Bronze Hatchet",
+    "description": "A basic bronze hatchet with wooden handle for chopping trees and basic combat",
+    "type": "tool",
+    "subtype": "axe",
+    "style": "realistic",
+    "metadata": {
+      "tier": "bronze",
+      "level": 1,
+      "gameId": 8,
+      "rarity": "common",
+      "toolType": "hatchet"
+    }
+  },
+  {
+    "name": "Fishing Rod",
+    "description": "A simple fishing rod with wooden pole and basic line for catching fish",
+    "type": "tool",
+    "subtype": "fishing_rod",
+    "style": "realistic",
+    "metadata": {
+      "tier": "basic",
+      "level": 1,
+      "gameId": 9,
+      "rarity": "common",
+      "toolType": "fishing"
+    }
+  },
+  {
+    "name": "Tinderbox",
+    "description": "A small metal tinderbox with flint and steel for making fires",
+    "type": "tool",
+    "subtype": "tinderbox",
+    "style": "realistic",
+    "metadata": {
+      "tier": "basic",
+      "level": 1,
+      "gameId": 10,
+      "rarity": "common",
+      "toolType": "firemaking"
+    }
+  }
+]

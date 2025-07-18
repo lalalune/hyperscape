@@ -11,12 +11,12 @@ text.value = 'Hello world'
 
 ### `.display`: String
 
-Either `none` or `flex`.
+Either `none` or `flex`. 
 Defaults to `flex`.
 
 ### `.backgroundColor`: String
 
-The background color of the view.
+The background color of the view. 
 Can be hex (eg `#000000`) or rgba (eg `rgba(0, 0, 0, 0.5)`).
 Defaults to `null`.
 
@@ -69,3 +69,4 @@ Defaults to `normal`, can also be a number like `100` or string like `bold`.
 ### `.{...Node}`
 
 Inherits all [Node](/docs/ref/Node.md) properties
+

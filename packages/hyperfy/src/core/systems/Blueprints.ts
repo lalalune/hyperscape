@@ -1,6 +1,6 @@
-import { isEqual } from 'lodash-es';
+import { isEqual, merge } from 'lodash-es';
 import { System } from './System.js';
-import type { World, Blueprint } from '../../types/index.js';
+import type { World, Blueprint, Entity } from '../../types/index.js';
 
 /**
  * Blueprints System
@@ -34,9 +34,7 @@ export class Blueprints extends System {
 
   modify(data: Partial<Blueprint> & { id: string }): void {
     const blueprint = this.items.get(data.id);
-    if (!blueprint) {
-      return;
-    }
+    if (!blueprint) return;
 
     const modified: Blueprint = {
       ...blueprint,
@@ -44,18 +42,16 @@ export class Blueprints extends System {
     } as Blueprint;
 
     const changed = !isEqual(blueprint, modified);
-    if (!changed) {
-      return;
-    }
+    if (!changed) return;
 
     this.items.set(blueprint.id, modified);
 
     // Update all entities using this blueprint
     for (const [_, entity] of this.world.entities.items) {
       if ((entity as any).data?.blueprint === blueprint.id) {
-        ;(entity as any).data.state = {};
+        (entity as any).data.state = {};
         if ((entity as any).build) {
-          ;(entity as any).build();
+          (entity as any).build();
         }
       }
     }
@@ -80,4 +76,4 @@ export class Blueprints extends System {
   override destroy(): void {
     this.items.clear();
   }
-}
+} 

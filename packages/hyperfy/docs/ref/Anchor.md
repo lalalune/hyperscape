@@ -18,3 +18,4 @@ control.setEffect({ anchor: seat })
 ### `.{...Node}`
 
 Inherits all [Node](/docs/ref/Node.md) properties
+

@@ -1,0 +1,28 @@
+[
+  {
+    "id": 100,
+    "name": "General Store Keeper",
+    "examine": "Runs the general store.",
+    "npcType": "shopkeeper",
+    "behavior": "friendly",
+    "level": 1,
+    "shop": {
+      "name": "General Store",
+      "stock": [
+        { "itemId": 8, "stock": -1 },
+        { "itemId": 9, "stock": -1 },
+        { "itemId": 10, "stock": -1 },
+        { "itemId": 7, "stock": -1 }
+      ],
+      "currency": "coins",
+      "buyModifier": 0.4,
+      "sellModifier": 1.0,
+      "restock": true,
+      "restockTime": 600000
+    },
+    "dialogue": {
+      "greeting": "Welcome to the general store!",
+      "idle": ["Get your tools here!", "Everything an adventurer needs."]
+    }
+  }
+]

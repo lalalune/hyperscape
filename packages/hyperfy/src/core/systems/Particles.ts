@@ -1,166 +1,128 @@
-import { System } from './System';
-import { THREE } from '../extras/three';
-import CustomShaderMaterial from '../libs/three-custom-shader-material';
-import { DEG2RAD } from '../extras/general';
-import { uuid } from '../utils';
+import { System } from './System'
+import * as THREE from 'three'
+import CustomShaderMaterial from '../libs/three-custom-shader-material'
+import { DEG2RAD } from '../extras/general'
+import { uuid } from '../utils'
 
-const v1 = new THREE.Vector3();
-const v2 = new THREE.Vector3();
-const e1 = new THREE.Euler(0, 0, 0, 'YXZ');
-const arr1: number[] = [];
-const arr2: number[] = [];
+const v1 = new THREE.Vector3()
+const v2 = new THREE.Vector3()
+const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
+const arr1: number[] = []
+const arr2: number[] = []
 
 const billboardModeInts: Record<string, number> = {
   full: 0,
   y: 1,
   direction: 2,
-};
+}
 
-let worker: Worker | null = null;
-let workerDisabled = false;
-
+let worker: Worker | null = null
 function getWorker() {
-  if (workerDisabled) {
-    return null;
-  }
-  
   if (!worker) {
-    const particlesPath = (window as any).PARTICLES_PATH;
-    if (particlesPath === null) {
-      console.log('[Particles] Particles disabled in development mode');
-      workerDisabled = true;
-      return null;
-    } else if (!particlesPath || particlesPath === '{particlesPath}') {
-      console.warn('[Particles] PARTICLES_PATH not set, disabling particles');
-      workerDisabled = true;
-      return null;
+    const particlesPath = (window as any).PARTICLES_PATH
+    if (!particlesPath || particlesPath === '{particlesPath}') {
+      console.warn('[Particles] PARTICLES_PATH not set, using default')
+      // Use a default path for development
+      worker = new Worker('/particles.js')
     } else {
-      try {
-        worker = new Worker(particlesPath);
-      } catch (error) {
-        console.error('[Particles] Failed to create worker with path:', particlesPath, error);
-        workerDisabled = true;
-        return null;
-      }
+      worker = new Worker(particlesPath)
     }
   }
-  return worker;
+  return worker
 }
 
 export class Particles extends System {
-  worker: Worker | null;
-  uOrientationFull: { value: THREE.QuaternionType };
-  uOrientationY: { value: THREE.QuaternionType };
-  emitters: Map<string, any>;
-
+  worker: Worker | null
+  uOrientationFull: { value: THREE.Quaternion }
+  uOrientationY: { value: THREE.Quaternion }
+  emitters: Map<string, any>
+  
   constructor(world: any) {
-    super(world);
-    this.worker = null;
-    this.uOrientationFull = { value: this.world.rig.quaternion };
-    this.uOrientationY = { value: new THREE.Quaternion() };
-    this.emitters = new Map(); // id -> emitter
+    super(world)
+    this.worker = null
+    this.uOrientationFull = { value: this.world.rig.quaternion }
+    this.uOrientationY = { value: new THREE.Quaternion() }
+    this.emitters = new Map() // id -> emitter
   }
 
   async init(): Promise<void> {
-    this.worker = getWorker();
-    if (this.worker) {
-      this.worker.onmessage = this.onMessage;
-      this.worker.onerror = this.onError;
-    }
+    this.worker = getWorker()
+    this.worker.onmessage = this.onMessage
+    this.worker.onerror = this.onError
   }
 
   start() {
-    this.world.on?.('xrSession', this.onXRSession);
+    this.world.on?.('xrSession', this.onXRSession)
   }
 
   register(node: any) {
-    // If particles are disabled, return a mock emitter
-    if (workerDisabled || !this.worker) {
-      return {
-        id: uuid(),
-        node,
-        send: () => {},
-        setEmitting: () => {},
-        onMessage: () => {},
-        update: () => {},
-        destroy: () => {},
-      };
-    }
-    return createEmitter(this.world, this, node);
+    return createEmitter(this.world, this, node)
   }
 
-  update(_delta: number) {
-    // Skip update if particles are disabled
-    if (workerDisabled || !this.worker) {
-      return;
-    }
-
-    e1.setFromQuaternion(this.uOrientationFull.value);
-    e1.x = 0;
-    e1.z = 0;
-    this.uOrientationY.value.setFromEuler(e1);
+  update(delta: number) {
+    e1.setFromQuaternion(this.uOrientationFull.value)
+    e1.x = 0
+    e1.z = 0
+    this.uOrientationY.value.setFromEuler(e1)
 
     this.emitters.forEach(emitter => {
-      emitter.update(_delta);
-    });
+      emitter.update(delta)
+    })
   }
 
   onMessage = (msg: MessageEvent) => {
-    const data = msg.data;
+    const data = msg.data
     // console.log('[Particles] onMessage', data)
-    this.emitters.get(data.emitterId)?.onMessage(data);
-  };
+    this.emitters.get(data.emitterId)?.onMessage(data)
+  }
 
   onError = (err: ErrorEvent) => {
-    console.error('[ParticleSystem] Error:', err.message || err);
-    // Disable particles on error to prevent repeated errors
-    workerDisabled = true;
-    this.worker = null;
-  };
+    console.error('[ParticleSystem]', err)
+  }
 
   onXRSession = (session: any) => {
-    const xr = (this.world as any).xr;
-    this.uOrientationFull.value = session ? xr?.camera.quaternion : this.world.rig.quaternion;
-  };
+    const xr = (this.world as any).xr
+    this.uOrientationFull.value = session ? xr?.camera.quaternion : this.world.rig.quaternion
+  }
 }
 
 function createEmitter(world: any, system: Particles, node: any) {
-  const id = uuid();
-  const config = node.getConfig();
+  const id = uuid()
+  const config = node.getConfig()
 
-  const geometry = new THREE.PlaneGeometry(1, 1);
+  const geometry = new THREE.PlaneGeometry(1, 1)
 
-  const aPosition = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 3), 3);
-  aPosition.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('aPosition', aPosition);
+  const aPosition = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 3), 3)
+  aPosition.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('aPosition', aPosition)
 
-  const aRotation = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 1), 1);
-  aRotation.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('aRotation', aRotation);
+  const aRotation = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 1), 1)
+  aRotation.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('aRotation', aRotation)
 
-  const aDirection = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 3), 3);
-  aDirection.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('aDirection', aDirection);
+  const aDirection = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 3), 3)
+  aDirection.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('aDirection', aDirection)
 
-  const aSize = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 1), 1);
-  aSize.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('aSize', aSize);
+  const aSize = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 1), 1)
+  aSize.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('aSize', aSize)
 
-  const aColor = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 3), 3);
-  aColor.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('aColor', aColor);
+  const aColor = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 3), 3)
+  aColor.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('aColor', aColor)
 
-  const aAlpha = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 1), 1);
-  aAlpha.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('aAlpha', aAlpha);
+  const aAlpha = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 1), 1)
+  aAlpha.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('aAlpha', aAlpha)
 
-  const aEmissive = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 1), 1);
-  aEmissive.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('aEmissive', aEmissive);
+  const aEmissive = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 1), 1)
+  aEmissive.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('aEmissive', aEmissive)
 
-  const aUV = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 4), 4);
-  aUV.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('aUV', aUV);
+  const aUV = new THREE.InstancedBufferAttribute(new Float32Array(node._max * 4), 4)
+  aUV.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('aUV', aUV)
 
   // ping-pong buffers
   const next = {
@@ -172,23 +134,23 @@ function createEmitter(world: any, system: Particles, node: any) {
     aAlpha: new Float32Array(node._max * 1),
     aEmissive: new Float32Array(node._max * 1),
     aUV: new Float32Array(node._max * 4),
-  };
+  }
 
-  const texture = new THREE.Texture();
-  texture.colorSpace = THREE.SRGBColorSpace;
+  const texture = new THREE.Texture()
+  texture.colorSpace = THREE.SRGBColorSpace
 
   const uniforms = {
     uTexture: { value: texture },
     uBillboard: { value: billboardModeInts[node._billboard as string] || 0 },
     uOrientation: node._billboard === 'full' ? system.uOrientationFull : system.uOrientationY,
-  };
-  world.loader.load('texture', node._image).then((texture: THREE.TextureType) => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    uniforms.uTexture.value = texture;
+  }
+  world.loader.load('texture', node._image).then((texture: THREE.Texture) => {
+    texture.colorSpace = THREE.SRGBColorSpace
+    uniforms.uTexture.value = texture
     // console.log(t)
     // texture.image = t.image
     // texture.needsUpdate = true
-  });
+  })
 
   const material = new CustomShaderMaterial({
     baseMaterial: node._lit ? THREE.MeshStandardMaterial : THREE.MeshBasicMaterial,
@@ -198,7 +160,7 @@ function createEmitter(world: any, system: Particles, node: any) {
     premultipliedAlpha: true,
     color: 'white',
     side: THREE.DoubleSide,
-    // side: FrontSide,
+    // side: THREE.FrontSide,
     depthWrite: false,
     depthTest: true,
     uniforms,
@@ -306,110 +268,110 @@ function createEmitter(world: any, system: Particles, node: any) {
         csm_DiffuseColor = baseColor;
       }
     `,
-  });
-  const mesh = new THREE.InstancedMesh(geometry, material, node._max) as any;
-  mesh._node = node;
-  mesh.count = 0;
-  mesh.instanceMatrix.needsUpdate = true;
-  mesh.frustumCulled = false;
-  mesh.matrixAutoUpdate = false;
-  mesh.matrixWorldAutoUpdate = false;
-  world.stage.scene.add(mesh);
+  })
+  const mesh = new THREE.InstancedMesh(geometry, material, node._max) as any
+  mesh._node = node
+  mesh.count = 0
+  mesh.instanceMatrix.needsUpdate = true
+  mesh.frustumCulled = false
+  mesh.matrixAutoUpdate = false
+  mesh.matrixWorldAutoUpdate = false
+  world.stage.scene.add(mesh)
 
-  const matrixWorld = node.matrixWorld;
+  let matrixWorld = node.matrixWorld
 
-  let pending = false;
-  let skippedDelta = 0;
+  let pending = false
+  let skippedDelta = 0
 
   function send(msg: any, transfers?: Transferable[]) {
-    msg.emitterId = id;
+    msg.emitterId = id
     if (system.worker) {
       if (transfers) {
-        system.worker.postMessage(msg, transfers);
+        system.worker.postMessage(msg, transfers)
       } else {
-        system.worker.postMessage(msg);
+        system.worker.postMessage(msg)
       }
     }
   }
 
   function setEmitting(value: boolean) {
-    send({ op: 'emitting', value });
+    send({ op: 'emitting', value })
   }
 
   function onMessage(msg: any) {
     if (msg.op === 'update') {
-      const n = msg.n;
+      const n = msg.n
 
       // Store current arrays in next before replacing
-      next.aPosition = new Float32Array(aPosition.array as unknown as ArrayBuffer);
-      next.aRotation = new Float32Array(aRotation.array as unknown as ArrayBuffer);
-      next.aDirection = new Float32Array(aDirection.array as unknown as ArrayBuffer);
-      next.aSize = new Float32Array(aSize.array as unknown as ArrayBuffer);
-      next.aColor = new Float32Array(aColor.array as unknown as ArrayBuffer);
-      next.aAlpha = new Float32Array(aAlpha.array as unknown as ArrayBuffer);
-      next.aEmissive = new Float32Array(aEmissive.array as unknown as ArrayBuffer);
-      next.aUV = new Float32Array(aUV.array as unknown as ArrayBuffer);
+      next.aPosition = new Float32Array(aPosition.array as unknown as ArrayBuffer)
+      next.aRotation = new Float32Array(aRotation.array as unknown as ArrayBuffer)
+      next.aDirection = new Float32Array(aDirection.array as unknown as ArrayBuffer)
+      next.aSize = new Float32Array(aSize.array as unknown as ArrayBuffer)
+      next.aColor = new Float32Array(aColor.array as unknown as ArrayBuffer)
+      next.aAlpha = new Float32Array(aAlpha.array as unknown as ArrayBuffer)
+      next.aEmissive = new Float32Array(aEmissive.array as unknown as ArrayBuffer)
+      next.aUV = new Float32Array(aUV.array as unknown as ArrayBuffer)
 
-      aPosition.array = msg.aPosition as any;
-      aPosition.addUpdateRange(0, n * 3);
-      aPosition.needsUpdate = true;
-      aRotation.array = msg.aRotation as any;
-      aRotation.addUpdateRange(0, n * 1);
-      aRotation.needsUpdate = true;
-      aDirection.array = msg.aDirection as any;
-      aDirection.addUpdateRange(0, n * 3);
-      aDirection.needsUpdate = true;
-      aSize.array = msg.aSize as any;
-      aSize.addUpdateRange(0, n * 1);
-      aSize.needsUpdate = true;
-      aColor.array = msg.aColor as any;
-      aColor.addUpdateRange(0, n * 3);
-      aColor.needsUpdate = true;
-      aAlpha.array = msg.aAlpha as any;
-      aAlpha.addUpdateRange(0, n * 1);
-      aAlpha.needsUpdate = true;
-      aEmissive.array = msg.aEmissive as any;
-      aEmissive.addUpdateRange(0, n * 1);
-      aEmissive.needsUpdate = true;
-      aUV.array = msg.aUV as any;
-      aUV.addUpdateRange(0, n * 4);
-      aUV.needsUpdate = true;
+      aPosition.array = msg.aPosition as any
+      aPosition.addUpdateRange(0, n * 3)
+      aPosition.needsUpdate = true
+      aRotation.array = msg.aRotation as any
+      aRotation.addUpdateRange(0, n * 1)
+      aRotation.needsUpdate = true
+      aDirection.array = msg.aDirection as any
+      aDirection.addUpdateRange(0, n * 3)
+      aDirection.needsUpdate = true
+      aSize.array = msg.aSize as any
+      aSize.addUpdateRange(0, n * 1)
+      aSize.needsUpdate = true
+      aColor.array = msg.aColor as any
+      aColor.addUpdateRange(0, n * 3)
+      aColor.needsUpdate = true
+      aAlpha.array = msg.aAlpha as any
+      aAlpha.addUpdateRange(0, n * 1)
+      aAlpha.needsUpdate = true
+      aEmissive.array = msg.aEmissive as any
+      aEmissive.addUpdateRange(0, n * 1)
+      aEmissive.needsUpdate = true
+      aUV.array = msg.aUV as any
+      aUV.addUpdateRange(0, n * 4)
+      aUV.needsUpdate = true
 
-      mesh.count = n;
-      pending = false;
+      mesh.count = n
+      pending = false
     }
     if (msg.op === 'end') {
-      node._onEnd?.();
+      node._onEnd?.()
     }
   }
 
-  function update(_delta: number) {
-    const camPosition = v1.setFromMatrixPosition(world.camera.matrixWorld);
-    const worldPosition = v2.setFromMatrixPosition(matrixWorld);
+  function update(delta: number) {
+    const camPosition = v1.setFromMatrixPosition(world.camera.matrixWorld)
+    const worldPosition = v2.setFromMatrixPosition(matrixWorld)
 
     // draw emitter back-to-front
-    const distance = camPosition.distanceTo(worldPosition);
-    mesh.renderOrder = -distance;
+    const distance = camPosition.distanceTo(worldPosition)
+    mesh.renderOrder = -distance
 
     if (pending) {
-      skippedDelta += _delta;
+      skippedDelta += delta
     } else {
-      _delta += skippedDelta;
-      skippedDelta = 0;
-      const aPosition = next.aPosition;
-      const aRotation = next.aRotation;
-      const aDirection = next.aDirection;
-      const aSize = next.aSize;
-      const aColor = next.aColor;
-      const aAlpha = next.aAlpha;
-      const aEmissive = next.aEmissive;
-      const aUV = next.aUV;
-      pending = true;
+      delta += skippedDelta
+      skippedDelta = 0
+      const aPosition = next.aPosition
+      const aRotation = next.aRotation
+      const aDirection = next.aDirection
+      const aSize = next.aSize
+      const aColor = next.aColor
+      const aAlpha = next.aAlpha
+      const aEmissive = next.aEmissive
+      const aUV = next.aUV
+      pending = true
       // console.log('update', node.matrixWorld.toArray(arr2))
       send(
         {
           op: 'update',
-          _delta,
+          delta,
           camPosition: camPosition.toArray(arr1),
           matrixWorld: matrixWorld.toArray(arr2),
           aPosition,
@@ -432,18 +394,18 @@ function createEmitter(world: any, system: Particles, node: any) {
           aEmissive.buffer,
           aUV.buffer,
         ]
-      );
+      )
     }
   }
 
   function destroy() {
-    system.emitters.delete(id);
+    system.emitters.delete(id)
     if (system.worker) {
-      system.worker.postMessage({ op: 'destroy', emitterId: id });
+      system.worker.postMessage({ op: 'destroy', emitterId: id })
     }
-    world.stage.scene.remove(mesh);
-    mesh.material.dispose();
-    mesh.geometry.dispose();
+    world.stage.scene.remove(mesh)
+    mesh.material.dispose()
+    mesh.geometry.dispose()
   }
 
   const handle = {
@@ -454,10 +416,10 @@ function createEmitter(world: any, system: Particles, node: any) {
     onMessage,
     update,
     destroy,
-  };
-  system.emitters.set(id, handle);
-  if (system.worker) {
-    system.worker.postMessage({ op: 'create', id, ...config });
   }
-  return handle;
+  system.emitters.set(id, handle)
+  if (system.worker) {
+    system.worker.postMessage({ op: 'create', id, ...config })
+  }
+  return handle
 }

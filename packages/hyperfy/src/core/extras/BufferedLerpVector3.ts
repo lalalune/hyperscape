@@ -6,30 +6,30 @@ interface Sample {
 }
 
 export class BufferedLerpVector3 {
-  value: any;
-  buffer: number;
-  localTime: number;
-  snapToken: any;
-  lastPush: number;
-  samples: Sample[];
-  writeIndex: number;
-
+  value: any
+  buffer: number
+  localTime: number
+  snapToken: any
+  lastPush: number
+  samples: Sample[]
+  writeIndex: number
+  
   constructor(value: any, buffer = 0.2) {
-    this.value = value; // this gets written-to each update
-    this.buffer = buffer;
-    this.localTime = 0;
-    this.snapToken = null;
-    this.lastPush = 0;
+    this.value = value // this gets written-to each update
+    this.buffer = buffer
+    this.localTime = 0
+    this.snapToken = null
+    this.lastPush = 0
 
     // fixed‐size ring of 3 { time, value } samples:
-    this.samples = [];
+    this.samples = []
     for (let i = 0; i < 3; i++) {
       this.samples.push({
         time: 0,
         value: value.clone(),
-      });
+      })
     }
-    this.writeIndex = 0;
+    this.writeIndex = 0
   }
 
   push(inV, snapToken = null) {
@@ -38,67 +38,67 @@ export class BufferedLerpVector3 {
     // console.log(timeSinceLast)
     // if snapshot changed, reset all three to new value
     if (this.snapToken !== snapToken) {
-      this.snapToken = snapToken;
-      for (const samp of this.samples) {
+      this.snapToken = snapToken
+      for (let samp of this.samples) {
         if (Array.isArray(inV)) {
-          samp.value.fromArray(inV);
+          samp.value.fromArray(inV)
         } else {
-          samp.value.copy(inV);
+          samp.value.copy(inV)
         }
-        samp.time = this.localTime;
+        samp.time = this.localTime
       }
-      this.writeIndex = 0;
+      this.writeIndex = 0
     } else {
       // rotate to next slot
-      this.writeIndex = (this.writeIndex + 1) % 3;
-      const samp = this.samples[this.writeIndex];
+      this.writeIndex = (this.writeIndex + 1) % 3
+      const samp = this.samples[this.writeIndex]
       if (Array.isArray(inV)) {
-        samp.value.fromArray(inV);
+        samp.value.fromArray(inV)
       } else {
-        samp.value.copy(inV);
+        samp.value.copy(inV)
       }
-      samp.time = this.localTime;
+      samp.time = this.localTime
     }
   }
 
   /**
-   * Call once per frame with your frame‐_delta in seconds.
+   * Call once per frame with your frame‐delta in seconds.
    */
-  update(_delta) {
-    this.localTime += _delta;
-    const tRender = this.localTime - this.buffer;
+  update(delta) {
+    this.localTime += delta
+    const tRender = this.localTime - this.buffer
 
     // find the two samples that straddle tRender:
     let older: Sample | null = null,
-      newer: Sample | null = null;
+      newer: Sample | null = null
     let tOlder = -Infinity,
-      tNewer = Infinity;
+      tNewer = Infinity
 
-    for (const samp of this.samples) {
-      const t = samp.time;
+    for (let samp of this.samples) {
+      const t = samp.time
       if (t <= tRender && t > tOlder) {
-        tOlder = t;
-        older = samp;
+        tOlder = t
+        older = samp
       }
       if (t >= tRender && t < tNewer) {
-        tNewer = t;
-        newer = samp;
+        tNewer = t
+        newer = samp
       }
     }
 
     if (older && newer && newer !== older && tNewer > tOlder) {
-      let alpha = (tRender - tOlder) / (tNewer - tOlder);
-      alpha = Math.min(Math.max(alpha, 0), 1);
-      this.value.lerpVectors(older.value, newer.value, alpha);
+      let alpha = (tRender - tOlder) / (tNewer - tOlder)
+      alpha = Math.min(Math.max(alpha, 0), 1)
+      this.value.lerpVectors(older.value, newer.value, alpha)
     } else if (older) {
       // too far in the past → hold at oldest
-      this.value.copy(older.value);
+      this.value.copy(older.value)
     } else if (newer) {
       // too far in the future → snap to newest
-      this.value.copy(newer.value);
+      this.value.copy(newer.value)
     }
 
-    return this;
+    return this
   }
 
   /**
@@ -106,14 +106,12 @@ export class BufferedLerpVector3 {
    */
   snapToLatest() {
     // find the sample with max time
-    let latest = this.samples[0];
-    for (const samp of this.samples) {
-      if (samp.time > latest.time) {
-        latest = samp;
-      }
+    let latest = this.samples[0]
+    for (let samp of this.samples) {
+      if (samp.time > latest.time) latest = samp
     }
-    this.localTime = latest.time + this.buffer;
-    this.value.copy(latest.value);
+    this.localTime = latest.time + this.buffer
+    this.value.copy(latest.value)
   }
 }
 
@@ -154,7 +152,7 @@ export class BufferedLerpVector3 {
 //     }
 //   }
 
-//   update(_delta) {
+//   update(delta) {
 //     this.localTime += delta
 //     // where in time we should render
 //     const tRender = this.localTime - this.buffer

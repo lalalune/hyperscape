@@ -1,0 +1,59 @@
+[
+  {
+    "name": "Logs",
+    "description": "Cut wooden logs from trees, suitable for firemaking and construction",
+    "type": "resource",
+    "subtype": "log",
+    "style": "realistic",
+    "metadata": {
+      "tier": "basic",
+      "level": 1,
+      "gameId": 11,
+      "rarity": "common",
+      "stackable": true
+    }
+  },
+  {
+    "name": "Raw Fish",
+    "description": "Fresh caught fish with scales and natural appearance, ready for cooking",
+    "type": "resource",
+    "subtype": "fish",
+    "style": "realistic",
+    "metadata": {
+      "tier": "basic",
+      "level": 1,
+      "gameId": 12,
+      "rarity": "common",
+      "stackable": true
+    }
+  },
+  {
+    "name": "Cooked Fish",
+    "description": "Delicious cooked fish with golden-brown appearance and steam rising",
+    "type": "consumable",
+    "subtype": "food",
+    "style": "realistic",
+    "metadata": {
+      "tier": "basic",
+      "level": 1,
+      "gameId": 13,
+      "rarity": "common",
+      "stackable": true,
+      "heals": 4
+    }
+  },
+  {
+    "name": "Coins",
+    "description": "Gold coins with detailed engravings and metallic shine, universal currency",
+    "type": "misc",
+    "subtype": "currency",
+    "style": "realistic",
+    "metadata": {
+      "tier": "basic",
+      "level": 1,
+      "gameId": 995,
+      "rarity": "common",
+      "stackable": true
+    }
+  }
+]

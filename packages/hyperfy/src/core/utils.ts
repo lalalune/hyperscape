@@ -1,6 +1,6 @@
-import { customAlphabet } from 'nanoid';
+import { customAlphabet } from 'nanoid'
 
-const ALPHABET = '1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const ALPHABET = '1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 /**
  * UUID
@@ -13,41 +13,39 @@ const ALPHABET = '1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
  * see: https://zelark.github.io/nano-id-cc/
  *
  */
-export const uuid = customAlphabet(ALPHABET, 10);
+export const uuid = customAlphabet(ALPHABET, 10)
 
 export function clamp(n: number, low: number, high: number): number {
-  return Math.max(Math.min(n, high), low);
+  return Math.max(Math.min(n, high), low)
 }
 
 export function hasRole(arr: string[] | null | undefined, ...roles: string[]): boolean {
-  if (!arr) {
-    return false;
-  }
+  if (!arr) return false
   // also includes temporary roles (prefixed with `~`)
-  return roles.some((role: string) => arr.includes(role) || arr.includes(`~${role}`));
+  return roles.some((role: string) => arr.includes(role) || arr.includes(`~${role}`))
 }
 
 export function addRole(arr: string[], role: string): void {
   if (!hasRole(arr, role)) {
-    arr.push(role);
+    arr.push(role)
   }
 }
 
 export function removeRole(arr: string[], role: string): void {
-  const idx = arr.indexOf(role);
+  const idx = arr.indexOf(role)
   if (idx !== -1) {
-    arr.splice(idx, 1);
+    arr.splice(idx, 1)
   }
 }
 
 export function serializeRoles(roles: string[]): string {
   // remove temporary (~) roles
-  roles = roles.filter((role: string) => !role.startsWith('~'));
+  roles = roles.filter((role: string) => !role.startsWith('~'))
   // convert to string
-  return roles.join(',');
+  return roles.join(',')
 }
 
 export function num(min: number, max: number, dp: number = 0): number {
-  const value = Math.random() * (max - min) + min;
-  return parseFloat(value.toFixed(dp));
+  const value = Math.random() * (max - min) + min
+  return parseFloat(value.toFixed(dp))
 }

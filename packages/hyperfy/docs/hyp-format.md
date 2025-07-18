@@ -7,11 +7,9 @@ The `.hyp` file format is a custom binary format used for Hyperfy Apps that bund
 A `.hyp` file consists of three main sections:
 
 1. Header Size (4 bytes)
-
    - Uint32 value (little-endian) indicating the size of the header JSON in bytes
 
 2. Header (JSON)
-
    - Contains two main objects:
      - `blueprint`: The app configuration
      - `assets`: Metadata for all bundled assets
@@ -59,7 +57,6 @@ The header is a JSON object with the following structure:
 ### Asset Types
 
 Assets can be of different types:
-
 - `model`: 3D model files (e.g., .glb)
 - `avatar`: VRM avatar files
 - `script`: JavaScript files
@@ -69,7 +66,6 @@ Assets can be of different types:
 ### Exporting
 
 When creating a .hyp file:
-
 1. The blueprint is cloned
 2. All assets are collected from:
    - Main model file
@@ -83,7 +79,6 @@ When creating a .hyp file:
 ### Importing
 
 When reading a .hyp file:
-
 1. First 4 bytes are read to determine header size
 2. Header JSON is parsed from the next bytes
 3. Remaining bytes are split into individual asset files based on size metadata

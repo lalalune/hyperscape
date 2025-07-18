@@ -48,7 +48,7 @@ Whether the video should receive shadows. Defaults to `false`.
 
 ### `.aspect`: Number
 
-The aspect ratio.
+The aspect ratio. 
 
 When using a video plane (eg not using the `.geometry` property) before the video loads this aspect ratio will be used to calculate any `width` or `height` values that are set to null in order to maintain the correct pre-video aspect ratio of the plane. Once the video is playing the video's actual aspect ratio will take over and re-calculate any missing `width` or `height` values set to null and resize itself to maintain the videos aspect ratio.
 
@@ -132,7 +132,7 @@ Inherits all [Node](/docs/ref/Node.md) properties
 
 ### `.play()`
 
-Plays the audio.
+Plays the audio. 
 
 ### `.pause()`
 

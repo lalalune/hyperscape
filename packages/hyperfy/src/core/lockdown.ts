@@ -17,4 +17,4 @@ lockdown({
   // specifically the theming seems to be broken.
   // this shouldn't be an issue as we are not using harden()
   __hardenTaming__: 'unsafe',
-});
+})

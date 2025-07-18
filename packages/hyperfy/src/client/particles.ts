@@ -1,330 +1,34 @@
-const emitters: { [key: string]: ParticleEmitter | null } = {};
+const emitters: { [key: string]: ParticleEmitter | null } = {}
 
-// Inline the necessary constants and classes since we can't import in a worker
-const DEG2RAD = Math.PI / 180;
+import { DEG2RAD } from '../core/extras/general'
+import { Vector3, Quaternion, Matrix4, Color } from '../core/extras/three'
 
-// Simple Vector3 implementation for the worker
-class Vector3Enhanced {
-  x: number;
-  y: number;
-  z: number;
+const v1 = new Vector3()
+const v2 = new Vector3()
+const v3 = new Vector3()
+const v4 = new Vector3()
+const v5 = new Vector3()
+const q1 = new Quaternion()
+const q2 = new Quaternion()
+const q3 = new Quaternion()
+const m1 = new Matrix4()
+const color1 = new Color()
 
-  constructor(x = 0, y = 0, z = 0) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-  }
-
-  set(x: number, y: number, z: number) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    return this;
-  }
-
-  copy(v: Vector3Enhanced) {
-    this.x = v.x;
-    this.y = v.y;
-    this.z = v.z;
-    return this;
-  }
-
-  add(v: Vector3Enhanced) {
-    this.x += v.x;
-    this.y += v.y;
-    this.z += v.z;
-    return this;
-  }
-
-  sub(v: Vector3Enhanced) {
-    this.x -= v.x;
-    this.y -= v.y;
-    this.z -= v.z;
-    return this;
-  }
-
-  multiplyScalar(scalar: number) {
-    this.x *= scalar;
-    this.y *= scalar;
-    this.z *= scalar;
-    return this;
-  }
-
-  divideScalar(scalar: number) {
-    return this.multiplyScalar(1 / scalar);
-  }
-
-  normalize() {
-    return this.divideScalar(this.length() || 1);
-  }
-
-  length() {
-    return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
-  }
-
-  lengthSq() {
-    return this.x * this.x + this.y * this.y + this.z * this.z;
-  }
-
-  distanceTo(v: Vector3Enhanced) {
-    return Math.sqrt(this.distanceToSquared(v));
-  }
-
-  distanceToSquared(v: Vector3Enhanced) {
-    const dx = this.x - v.x;
-    const dy = this.y - v.y;
-    const dz = this.z - v.z;
-    return dx * dx + dy * dy + dz * dz;
-  }
-
-  lerp(v: Vector3Enhanced, alpha: number) {
-    this.x += (v.x - this.x) * alpha;
-    this.y += (v.y - this.y) * alpha;
-    this.z += (v.z - this.z) * alpha;
-    return this;
-  }
-
-  fromArray(array: number[]) {
-    this.x = array[0];
-    this.y = array[1];
-    this.z = array[2];
-    return this;
-  }
-
-  toArray(array: number[] = []) {
-    array[0] = this.x;
-    array[1] = this.y;
-    array[2] = this.z;
-    return array;
-  }
-
-  clone() {
-    return new Vector3Enhanced(this.x, this.y, this.z);
-  }
-
-  applyMatrix4(m: Matrix4) {
-    const x = this.x, y = this.y, z = this.z;
-    const e = m.elements;
-
-    const w = 1 / (e[3] * x + e[7] * y + e[11] * z + e[15]);
-
-    this.x = (e[0] * x + e[4] * y + e[8] * z + e[12]) * w;
-    this.y = (e[1] * x + e[5] * y + e[9] * z + e[13]) * w;
-    this.z = (e[2] * x + e[6] * y + e[10] * z + e[14]) * w;
-
-    return this;
-  }
-
-  applyQuaternion(q: Quaternion) {
-    const x = this.x, y = this.y, z = this.z;
-    const qx = q.x, qy = q.y, qz = q.z, qw = q.w;
-
-    const ix = qw * x + qy * z - qz * y;
-    const iy = qw * y + qz * x - qx * z;
-    const iz = qw * z + qx * y - qy * x;
-    const iw = -qx * x - qy * y - qz * z;
-
-    this.x = ix * qw + iw * -qx + iy * -qz - iz * -qy;
-    this.y = iy * qw + iw * -qy + iz * -qx - ix * -qz;
-    this.z = iz * qw + iw * -qz + ix * -qy - iy * -qx;
-
-    return this;
-  }
-
-  setFromMatrixPosition(m: Matrix4) {
-    const e = m.elements;
-    this.x = e[12];
-    this.y = e[13];
-    this.z = e[14];
-    return this;
-  }
-
-  crossVectors(a: Vector3Enhanced, b: Vector3Enhanced) {
-    const ax = a.x, ay = a.y, az = a.z;
-    const bx = b.x, by = b.y, bz = b.z;
-
-    this.x = ay * bz - az * by;
-    this.y = az * bx - ax * bz;
-    this.z = ax * by - ay * bx;
-
-    return this;
-  }
-}
-
-// Simple Quaternion implementation
-class Quaternion {
-  x: number;
-  y: number;
-  z: number;
-  w: number;
-
-  constructor(x = 0, y = 0, z = 0, w = 1) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    this.w = w;
-  }
-
-  setFromRotationMatrix(m: Matrix4) {
-    const te = m.elements;
-    const m11 = te[0], m12 = te[4], m13 = te[8];
-    const m21 = te[1], m22 = te[5], m23 = te[9];
-    const m31 = te[2], m32 = te[6], m33 = te[10];
-    const trace = m11 + m22 + m33;
-
-    if (trace > 0) {
-      const s = 0.5 / Math.sqrt(trace + 1.0);
-      this.w = 0.25 / s;
-      this.x = (m32 - m23) * s;
-      this.y = (m13 - m31) * s;
-      this.z = (m21 - m12) * s;
-    } else if (m11 > m22 && m11 > m33) {
-      const s = 2.0 * Math.sqrt(1.0 + m11 - m22 - m33);
-      this.w = (m32 - m23) / s;
-      this.x = 0.25 * s;
-      this.y = (m12 + m21) / s;
-      this.z = (m13 + m31) / s;
-    } else if (m22 > m33) {
-      const s = 2.0 * Math.sqrt(1.0 + m22 - m11 - m33);
-      this.w = (m13 - m31) / s;
-      this.x = (m12 + m21) / s;
-      this.y = 0.25 * s;
-      this.z = (m23 + m32) / s;
-    } else {
-      const s = 2.0 * Math.sqrt(1.0 + m33 - m11 - m22);
-      this.w = (m21 - m12) / s;
-      this.x = (m13 + m31) / s;
-      this.y = (m23 + m32) / s;
-      this.z = 0.25 * s;
-    }
-
-    return this;
-  }
-
-  setFromAxisAngle(axis: Vector3Enhanced, angle: number) {
-    const halfAngle = angle / 2;
-    const s = Math.sin(halfAngle);
-
-    this.x = axis.x * s;
-    this.y = axis.y * s;
-    this.z = axis.z * s;
-    this.w = Math.cos(halfAngle);
-
-    return this;
-  }
-}
-
-// Simple Matrix4 implementation
-class Matrix4 {
-  elements: number[];
-
-  constructor() {
-    this.elements = [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1
-    ];
-  }
-
-  fromArray(array: number[]) {
-    for (let i = 0; i < 16; i++) {
-      this.elements[i] = array[i];
-    }
-    return this;
-  }
-
-  copy(m: Matrix4) {
-    const te = this.elements;
-    const me = m.elements;
-
-    for (let i = 0; i < 16; i++) {
-      te[i] = me[i];
-    }
-
-    return this;
-  }
-
-  setPosition(v: Vector3Enhanced) {
-    const te = this.elements;
-    te[12] = v.x;
-    te[13] = v.y;
-    te[14] = v.z;
-    return this;
-  }
-}
-
-// Simple Color implementation
-class Color {
-  r: number;
-  g: number;
-  b: number;
-
-  constructor(r = 1, g = 1, b = 1) {
-    this.r = r;
-    this.g = g;
-    this.b = b;
-  }
-
-  set(value: string | number) {
-    if (typeof value === 'string') {
-      // Simple hex color parsing
-      if (value.startsWith('#')) {
-        const hex = value.substring(1);
-        if (hex.length === 3) {
-          this.r = parseInt(hex[0] + hex[0], 16) / 255;
-          this.g = parseInt(hex[1] + hex[1], 16) / 255;
-          this.b = parseInt(hex[2] + hex[2], 16) / 255;
-        } else if (hex.length === 6) {
-          this.r = parseInt(hex.substring(0, 2), 16) / 255;
-          this.g = parseInt(hex.substring(2, 4), 16) / 255;
-          this.b = parseInt(hex.substring(4, 6), 16) / 255;
-        }
-      } else if (value === 'white') {
-        this.r = this.g = this.b = 1;
-      } else if (value === 'black') {
-        this.r = this.g = this.b = 0;
-      } else if (value === 'red') {
-        this.r = 1; this.g = 0; this.b = 0;
-      } else if (value === 'green') {
-        this.r = 0; this.g = 1; this.b = 0;
-      } else if (value === 'blue') {
-        this.r = 0; this.g = 0; this.b = 1;
-      } else {
-        // Default to white for unknown colors
-        this.r = this.g = this.b = 1;
-      }
-    }
-    return this;
-  }
-}
-
-const v1 = new Vector3Enhanced();
-const v2 = new Vector3Enhanced();
-const v3 = new Vector3Enhanced();
-const v4 = new Vector3Enhanced();
-const _v5 = new Vector3Enhanced();
-const q1 = new Quaternion();
-const q2 = new Quaternion();
-const _q3 = new Quaternion();
-const m1 = new Matrix4();
-const color1 = new Color();
-
-const xAxis = new Vector3Enhanced(1, 0, 0);
-const yAxis = new Vector3Enhanced(0, 1, 0);
-const zAxis = new Vector3Enhanced(0, 0, 1);
+const xAxis = new Vector3(1, 0, 0)
+const yAxis = new Vector3(0, 1, 0)
+const zAxis = new Vector3(0, 0, 1)
 
 interface Particle {
   age: number
   life: number
-  direction: Vector3Enhanced
-  velocity: Vector3Enhanced
+  direction: Vector3
+  velocity: Vector3
   distance: number
   speed: number
-  finalPosition: Vector3Enhanced
+  finalPosition: Vector3
   frameTime: number
   uv: number[]
-  position: Vector3Enhanced
+  position: Vector3
   rotation: number
   startRotation: number
   size: number
@@ -344,7 +48,7 @@ interface ParticleEmitter {
 }
 
 interface UpdateData {
-  _delta: number
+  delta: number
   camPosition: number[]
   matrixWorld: number[]
   aPosition: Float32Array
@@ -401,16 +105,16 @@ interface WorkerMessage {
 }
 
 self.onmessage = (msg: WorkerMessage) => {
-  const data = msg.data;
+  const data = msg.data
   switch (data.op) {
     case 'create':
       // console.log('create!!')
-      const system = createEmitter(data as unknown as EmitterConfig);
-      emitters[data.id!] = system;
-      break;
+      const system = createEmitter(data as unknown as EmitterConfig)
+      emitters[data.id!] = system
+      break
     case 'emitting':
-      emitters[data.emitterId!]?.setEmitting(data.value!);
-      break;
+      emitters[data.emitterId!]?.setEmitting(data.value!)
+      break
     // case 'play':
     //   emitters[msg.emitterId]?.play()
     //   break
@@ -421,49 +125,49 @@ self.onmessage = (msg: WorkerMessage) => {
     //   emitters[msg.emitterId]?.stop(msg)
     //   break
     case 'update':
-      emitters[data.emitterId!]?.update(data as unknown as UpdateData);
-      break;
+      emitters[data.emitterId!]?.update(data as unknown as UpdateData)
+      break
     // case 'emitCustom':
     //   emitters[msg.emitterId]?.emitCustom(msg)
     //   break
     case 'destroy':
-      emitters[data.emitterId!]?.destroy();
-      emitters[data.emitterId!] = null;
-      break;
+      emitters[data.emitterId!]?.destroy()
+      emitters[data.emitterId!] = null
+      break
   }
-};
+}
 
 function createEmitter(config: EmitterConfig): ParticleEmitter {
-  config.bursts.sort((a: any, b: any) => a.time - b.time);
+  config.bursts.sort((a: any, b: any) => a.time - b.time)
 
-  let elapsed = 0;
-  const duration = config.duration;
-  let newParticlesByTime = 0;
-  const _newParticlesByDist = 0;
-  let emitting = config.emitting;
-  let bursts = config.bursts.slice();
-  let ended = false;
-  const rateOverDistance = config.rateOverDistance;
-  let distanceRemainder = 0;
-  let lastWorldPos: Vector3Enhanced | null = null;
-  const moveDir = new Vector3Enhanced();
+  let elapsed = 0
+  let duration = config.duration
+  let newParticlesByTime = 0
+  let newParticlesByDist = 0
+  let emitting = config.emitting
+  let bursts = config.bursts.slice()
+  let ended = false
+  let rateOverDistance = config.rateOverDistance
+  let distanceRemainder = 0
+  let lastWorldPos: Vector3 | null = null
+  let moveDir = new Vector3()
 
-  const particles: Particle[] = [];
+  const particles: Particle[] = []
 
   // initialize pool
   for (let i = 0; i < config.max; i++) {
     particles.push({
       age: 0,
       life: 0,
-      direction: new Vector3Enhanced(),
-      velocity: new Vector3Enhanced(),
+      direction: new Vector3(),
+      velocity: new Vector3(),
       distance: 0,
       speed: 10,
-      finalPosition: new Vector3Enhanced(),
+      finalPosition: new Vector3(),
       frameTime: 0,
       uv: [0, 0, 1, 1],
 
-      position: new Vector3Enhanced(),
+      position: new Vector3(),
       rotation: 0,
       startRotation: 0,
       size: 1,
@@ -474,83 +178,81 @@ function createEmitter(config: EmitterConfig): ParticleEmitter {
       startAlpha: 1,
       emissive: 1,
       startEmissive: 1,
-    });
+    })
   }
 
   // create starters
-  const life = createNumericStarter(config.life);
-  const speed = createNumericStarter(config.speed);
-  const size = createNumericStarter(config.size);
-  const rotation = createNumericStarter(config.rotate);
-  const color = createColorStarter(config.color);
-  const alpha = createNumericStarter(config.alpha);
-  const emissive = createNumericStarter(config.emissive);
+  const life = createNumericStarter(config.life)
+  const speed = createNumericStarter(config.speed)
+  const size = createNumericStarter(config.size)
+  const rotation = createNumericStarter(config.rotate)
+  const color = createColorStarter(config.color)
+  const alpha = createNumericStarter(config.alpha)
+  const emissive = createNumericStarter(config.emissive)
 
-  const shape = createShape(config.shape);
-  const spritesheet = createSpritesheet(config.spritesheet);
-  const force = config.force ? new Vector3Enhanced().fromArray(config.force) : null;
-  const velocityLinear = config.velocityLinear ? new Vector3Enhanced().fromArray(config.velocityLinear) : null;
-  const velocityOrbital = config.velocityOrbital ? new Vector3Enhanced().fromArray(config.velocityOrbital) : null;
-  const velocityRadial = config.velocityRadial || null;
+  const shape = createShape(config.shape)
+  const spritesheet = createSpritesheet(config.spritesheet)
+  const force = config.force ? new Vector3().fromArray(config.force) : null
+  const velocityLinear = config.velocityLinear ? new Vector3().fromArray(config.velocityLinear) : null
+  const velocityOrbital = config.velocityOrbital ? new Vector3().fromArray(config.velocityOrbital) : null
+  const velocityRadial = config.velocityRadial || null
 
-  const sizeOverLife = config.sizeOverLife ? createNumberCurve(config.sizeOverLife) : null;
-  const rotateOverLife = config.rotateOverLife ? createNumberCurve(config.rotateOverLife) : null;
-  const colorOverLife = config.colorOverLife ? createColorCurve(config.colorOverLife) : null;
-  const alphaOverLife = config.alphaOverLife ? createNumberCurve(config.alphaOverLife) : null;
-  const emissiveOverLife = config.emissiveOverLife ? createNumberCurve(config.emissiveOverLife) : null;
+  const sizeOverLife = config.sizeOverLife ? createNumberCurve(config.sizeOverLife) : null
+  const rotateOverLife = config.rotateOverLife ? createNumberCurve(config.rotateOverLife) : null
+  const colorOverLife = config.colorOverLife ? createColorCurve(config.colorOverLife) : null
+  const alphaOverLife = config.alphaOverLife ? createNumberCurve(config.alphaOverLife) : null
+  const emissiveOverLife = config.emissiveOverLife ? createNumberCurve(config.emissiveOverLife) : null
 
   function emit({ amount, matrixWorld }: { amount: number; matrixWorld: any }) {
-    const progress = elapsed / config.duration; // ratio through this cycle (0 to 1)
+    const progress = elapsed / config.duration // ratio through this cycle (0 to 1)
     for (let i = 0; i < amount; i++) {
-      const particle = particles.find(p => p.age >= p.life);
-      if (!particle) {
-        break;
-      }
-      particle.age = 0;
-      particle.life = life(progress);
-      particle.speed = speed(progress);
-      particle.size = size(progress);
-      particle.startSize = particle.size;
-      particle.rotation = rotation(progress);
-      particle.startRotation = particle.rotation;
-      particle.color = color(progress);
-      particle.alpha = alpha(progress);
-      particle.startAlpha = particle.alpha;
-      particle.emissive = emissive(progress);
-      particle.startEmissive = particle.emissive;
+      const particle = particles.find(p => p.age >= p.life)
+      if (!particle) break
+      particle.age = 0
+      particle.life = life(progress)
+      particle.speed = speed(progress)
+      particle.size = size(progress)
+      particle.startSize = particle.size
+      particle.rotation = rotation(progress)
+      particle.startRotation = particle.rotation
+      particle.color = color(progress)
+      particle.alpha = alpha(progress)
+      particle.startAlpha = particle.alpha
+      particle.emissive = emissive(progress)
+      particle.startEmissive = particle.emissive
 
-      particle.frameTime = 0;
-      particle.uv = spritesheet(particle, 0);
+      particle.frameTime = 0
+      particle.uv = spritesheet(particle, 0)
 
-      shape(particle.position, particle.direction);
+      shape(particle.position, particle.direction)
 
       // direction randomization
       if (config.direction > 0) {
-        const randomFactor = config.direction;
-        particle.direction.x += (Math.random() * 2 - 1) * randomFactor;
-        particle.direction.y += (Math.random() * 2 - 1) * randomFactor;
-        particle.direction.z += (Math.random() * 2 - 1) * randomFactor;
-        particle.direction.normalize();
+        const randomFactor = config.direction
+        particle.direction.x += (Math.random() * 2 - 1) * randomFactor
+        particle.direction.y += (Math.random() * 2 - 1) * randomFactor
+        particle.direction.z += (Math.random() * 2 - 1) * randomFactor
+        particle.direction.normalize()
       }
 
       // reset velocity and init based on direction and speed
-      particle.velocity.copy(particle.direction).multiplyScalar(particle.speed);
+      particle.velocity.copy(particle.direction).multiplyScalar(particle.speed)
 
       // particle.direction.set(0, 1, 0)
-      particle.distance = Infinity;
+      particle.distance = Infinity
 
       // particle.position.set(Math.random(), 0, Math.random())
       if (config.space === 'world') {
-        particle.position.applyMatrix4(matrixWorld);
-        q1.setFromRotationMatrix(matrixWorld);
-        particle.direction.applyQuaternion(q1);
-        particle.velocity.applyQuaternion(q1);
+        particle.position.applyMatrix4(matrixWorld)
+        q1.setFromRotationMatrix(matrixWorld)
+        particle.direction.applyQuaternion(q1)
+        particle.velocity.applyQuaternion(q1)
       }
     }
   }
 
   function update({
-    _delta,
+    delta,
     camPosition,
     matrixWorld,
     aPosition,
@@ -562,23 +264,23 @@ function createEmitter(config: EmitterConfig): ParticleEmitter {
     aEmissive,
     aUV,
   }: any) {
-    _delta *= config.timescale;
+    delta *= config.timescale
     // console.time('update')
     // console.log('m1', matrixWorld)
-    matrixWorld = m1.fromArray(matrixWorld);
-    camPosition = v1.fromArray(camPosition);
-    elapsed += _delta;
+    matrixWorld = m1.fromArray(matrixWorld)
+    camPosition = v1.fromArray(camPosition)
+    elapsed += delta
     // track move direction and distance
-    const currWorldPos = v2.setFromMatrixPosition(matrixWorld);
-    let distanceMoved;
+    const currWorldPos = v2.setFromMatrixPosition(matrixWorld)
+    let distanceMoved
     if (lastWorldPos) {
-      distanceMoved = currWorldPos.distanceTo(lastWorldPos);
+      distanceMoved = currWorldPos.distanceTo(lastWorldPos)
       if (distanceMoved > 0.0001) {
-        moveDir.copy(currWorldPos).sub(lastWorldPos).normalize();
+        moveDir.copy(currWorldPos).sub(lastWorldPos).normalize()
       }
     } else {
-      distanceMoved = 0;
-      lastWorldPos = currWorldPos.clone();
+      distanceMoved = 0
+      lastWorldPos = currWorldPos.clone()
     }
 
     // const center = v2.setFromMatrixPosition(matrixWorld) // center in same space as particles
@@ -591,12 +293,10 @@ function createEmitter(config: EmitterConfig): ParticleEmitter {
 
     // emit over time
     if (emitting) {
-      newParticlesByTime += config.rate * _delta;
-      const amount = Math.floor(newParticlesByTime);
-      if (amount > 0) {
-        emit({ amount, matrixWorld });
-      }
-      newParticlesByTime -= amount;
+      newParticlesByTime += config.rate * delta
+      const amount = Math.floor(newParticlesByTime)
+      if (amount > 0) emit({ amount, matrixWorld })
+      newParticlesByTime -= amount
     }
     // emit over distance
     // if (emitting && rateOverDistance && distanceMoved > 0) {
@@ -608,27 +308,27 @@ function createEmitter(config: EmitterConfig): ParticleEmitter {
     // emit over distance
     if (emitting && rateOverDistance && distanceMoved > 0 && lastWorldPos) {
       // Calculate the distance interval between particles
-      const distanceBetweenParticles = 1.0 / rateOverDistance;
+      const distanceBetweenParticles = 1.0 / rateOverDistance
 
       // Add current movement to remainder from previous frames
-      distanceRemainder += distanceMoved;
+      distanceRemainder += distanceMoved
 
       // Calculate how many complete particles we should emit based on distance
-      const particlesToEmit = Math.floor(distanceRemainder / distanceBetweenParticles);
+      const particlesToEmit = Math.floor(distanceRemainder / distanceBetweenParticles)
 
       if (particlesToEmit > 0) {
         // Create particles along the movement path
         for (let i = 0; i < particlesToEmit; i++) {
           // Calculate position along the movement path
           // The +1 ensures we start from the previous position, not the current one
-          const lerpFactor = (i + 1) / (particlesToEmit + 1);
+          const lerpFactor = (i + 1) / (particlesToEmit + 1)
 
           // Create a position vector along the path
-          const emitPosition = new Vector3Enhanced().copy(lastWorldPos).lerp(currWorldPos, lerpFactor);
+          const emitPosition = new Vector3().copy(lastWorldPos).lerp(currWorldPos, lerpFactor)
 
           // Create a temporary matrix with this position
-          const tempMatrix = new Matrix4().copy(matrixWorld);
-          tempMatrix.setPosition(emitPosition as any);
+          const tempMatrix = new Matrix4().copy(matrixWorld)
+          tempMatrix.setPosition(emitPosition as any)
 
           // Emit a single particle at this position
           emit({
@@ -636,186 +336,180 @@ function createEmitter(config: EmitterConfig): ParticleEmitter {
             matrixWorld: tempMatrix,
             // isDistanceEmission: true,
             // movementDirection,
-          });
+          })
         }
 
         // Update remainder for next frame (keep fractional part)
-        distanceRemainder -= particlesToEmit * distanceBetweenParticles;
+        distanceRemainder -= particlesToEmit * distanceBetweenParticles
       }
     }
     // track new pos
     if (lastWorldPos) {
-      lastWorldPos.copy(currWorldPos);
+      lastWorldPos.copy(currWorldPos)
     }
     // emit bursts
     while (bursts.length && bursts[0].time <= elapsed) {
-      const burst = bursts.shift();
+      const burst = bursts.shift()
       if (burst) {
-        emit({ amount: burst.count, matrixWorld });
+        emit({ amount: burst.count, matrixWorld })
       }
     }
     // update particles
     for (const particle of particles) {
-      particle.age += _delta;
+      particle.age += delta
       // skip if dead
-      if (particle.age >= particle.life) {
-        continue;
-      }
+      if (particle.age >= particle.life) continue
       // get life progress (0 to 1)
-      const progress = particle.age / particle.life;
+      const progress = particle.age / particle.life
       // apply force (acceleration) to velocity
       if (force) {
         // F = ma, so a = F/m, but since we don't track mass, just use F as acceleration
-        v3.copy(force).multiplyScalar(_delta);
-        particle.velocity.add(v3);
+        v3.copy(force).multiplyScalar(delta)
+        particle.velocity.add(v3)
       }
       // linear velocity
       if (velocityLinear) {
-        v3.copy(velocityLinear).multiplyScalar(_delta);
+        v3.copy(velocityLinear).multiplyScalar(delta)
         if (config.space === 'world') {
           // Linear velocity is in world space, apply directly
-          particle.position.add(v3);
+          particle.position.add(v3)
         } else {
           // Linear velocity is in local space, apply with emitter rotation
-          v3.applyQuaternion(q1.setFromRotationMatrix(matrixWorld));
-          particle.position.add(v3);
+          v3.applyQuaternion(q1.setFromRotationMatrix(matrixWorld))
+          particle.position.add(v3)
         }
       }
       // orbital velocity
       if (velocityOrbital) {
         // Calculate vector from emitter center to particle
-        v3.copy(particle.position).sub(currWorldPos);
+        v3.copy(particle.position).sub(currWorldPos)
         // For each axis (X, Y, Z), rotate around that axis
         if (velocityOrbital.x !== 0) {
           // Rotate around X axis
-          q2.setFromAxisAngle(xAxis, velocityOrbital.x * _delta);
-          v3.applyQuaternion(q2);
+          q2.setFromAxisAngle(xAxis, velocityOrbital.x * delta)
+          v3.applyQuaternion(q2)
         }
         if (velocityOrbital.y !== 0) {
           // Rotate around Y axis
-          q2.setFromAxisAngle(yAxis, velocityOrbital.y * _delta);
-          v3.applyQuaternion(q2);
+          q2.setFromAxisAngle(yAxis, velocityOrbital.y * delta)
+          v3.applyQuaternion(q2)
         }
         if (velocityOrbital.z !== 0) {
           // Rotate around Z axis
-          q2.setFromAxisAngle(zAxis, velocityOrbital.z * _delta);
-          v3.applyQuaternion(q2);
+          q2.setFromAxisAngle(zAxis, velocityOrbital.z * delta)
+          v3.applyQuaternion(q2)
         }
         // Set particle position to emitter center + rotated offset
-        particle.position.copy(currWorldPos).add(v3);
+        particle.position.copy(currWorldPos).add(v3)
         // Update velocity to match orbital motion
         // This ensures it continues to move in the tangent direction
         if (v3.length() > 0.001) {
           const orbitSpeed =
             v3.length() *
-            Math.max(Math.abs(velocityOrbital.x), Math.abs(velocityOrbital.y), Math.abs(velocityOrbital.z));
+            Math.max(Math.abs(velocityOrbital.x), Math.abs(velocityOrbital.y), Math.abs(velocityOrbital.z))
           // Calculate tangential direction
           v4.crossVectors(
             velocityOrbital.x > 0
-              ? new Vector3Enhanced(1, 0, 0)
+              ? new Vector3(1, 0, 0)
               : velocityOrbital.y > 0
-                ? new Vector3Enhanced(0, 1, 0)
-                : new Vector3Enhanced(0, 0, 1),
+                ? new Vector3(0, 1, 0)
+                : new Vector3(0, 0, 1),
             v3
-          ).normalize();
+          ).normalize()
           // Adjust velocity in the tangential direction
-          v4.multiplyScalar(orbitSpeed);
-          particle.velocity.copy(v4);
+          v4.multiplyScalar(orbitSpeed)
+          particle.velocity.copy(v4)
         }
       }
       // radial velocity (away from emitter center)
       if (velocityRadial) {
         // Get direction from emitter center to particle
-        v3.copy(particle.position).sub(currWorldPos);
+        v3.copy(particle.position).sub(currWorldPos)
         if (v3.length() > 0.001) {
           // Normalize to get direction
-          v3.normalize();
-          // Scale by radial velocity and _delta time
-          v3.multiplyScalar(velocityRadial * _delta);
+          v3.normalize()
+          // Scale by radial velocity and delta time
+          v3.multiplyScalar(velocityRadial * delta)
           // Move particle along this radial direction
-          particle.position.add(v3);
+          particle.position.add(v3)
           // Also add to velocity for consistency
-          particle.velocity.add(v3.divideScalar(_delta));
+          particle.velocity.add(v3.divideScalar(delta))
         }
       }
       // move particles based on current velocity
-      v3.copy(particle.velocity).multiplyScalar(_delta);
-      particle.position.add(v3);
+      v3.copy(particle.velocity).multiplyScalar(delta)
+      particle.position.add(v3)
       // size over life
       if (sizeOverLife) {
-        const multiplier = sizeOverLife(progress);
-        particle.size = particle.startSize * multiplier;
+        const multiplier = sizeOverLife(progress)
+        particle.size = particle.startSize * multiplier
       }
       // rotate over life
       if (rotateOverLife) {
-        const rotation = rotateOverLife(progress);
-        particle.rotation = particle.startRotation + rotation;
+        const rotation = rotateOverLife(progress)
+        particle.rotation = particle.startRotation + rotation
       }
       // color over life
       if (colorOverLife) {
-        particle.color = colorOverLife(progress);
+        particle.color = colorOverLife(progress)
       }
       // alpha over life
       if (alphaOverLife) {
-        const multiplier = alphaOverLife(progress);
-        particle.alpha = particle.startAlpha * multiplier;
+        const multiplier = alphaOverLife(progress)
+        particle.alpha = particle.startAlpha * multiplier
       }
       // emissive over life
       if (emissiveOverLife) {
-        const multiplier = emissiveOverLife(progress);
-        particle.emissive = particle.startEmissive * multiplier;
+        const multiplier = emissiveOverLife(progress)
+        particle.emissive = particle.startEmissive * multiplier
       }
       // final position
-      particle.finalPosition.copy(particle.position);
+      particle.finalPosition.copy(particle.position)
       if (config.space === 'local') {
-        particle.finalPosition.applyMatrix4(matrixWorld);
+        particle.finalPosition.applyMatrix4(matrixWorld)
       }
       // particle.distance = particle.worldPosition.distanceToSquared(camPosition)
-      particle.distance = particle.position.distanceToSquared(camPosition);
+      particle.distance = particle.position.distanceToSquared(camPosition)
 
       // spritesheet
       if (config.spritesheet) {
-        particle.uv = spritesheet(particle, _delta);
+        particle.uv = spritesheet(particle, delta)
       }
     }
     // looping or pausing
     if (elapsed >= duration) {
-      elapsed = 0;
-      bursts = config.bursts.slice();
-      if (!config.loop) {
-        emitting = false;
-      }
+      elapsed = 0
+      bursts = config.bursts.slice()
+      if (!config.loop) emitting = false
     }
     // on end callback
     if (!config.loop && !emitting && !ended) {
-      const activeParticles = particles.filter(p => p.age < p.life).length;
+      const activeParticles = particles.filter(p => p.age < p.life).length
       // if no active particles, trigger onEnd
       if (activeParticles === 0) {
-        ended = true;
+        ended = true
         self.postMessage({
           emitterId: config.id,
           op: 'end',
-        });
+        })
       }
     }
     // sort if needed
     if (config.blending === 'normal') {
-      particles.sort((a, b) => b.distance - a.distance);
+      particles.sort((a, b) => b.distance - a.distance)
     }
     // insert into buffers
-    let n = 0;
+    let n = 0
     for (const particle of particles) {
-      if (particle.age >= particle.life) {
-        continue;
-      }
-      aPosition[n * 3 + 0] = particle.finalPosition.x;
-      aPosition[n * 3 + 1] = particle.finalPosition.y;
-      aPosition[n * 3 + 2] = particle.finalPosition.z;
-      aRotation[n * 1 + 0] = particle.rotation;
+      if (particle.age >= particle.life) continue
+      aPosition[n * 3 + 0] = particle.finalPosition.x
+      aPosition[n * 3 + 1] = particle.finalPosition.y
+      aPosition[n * 3 + 2] = particle.finalPosition.z
+      aRotation[n * 1 + 0] = particle.rotation
 
-      aDirection[n * 3 + 0] = particle.direction.x;
-      aDirection[n * 3 + 1] = particle.direction.y;
-      aDirection[n * 3 + 2] = particle.direction.z;
+      aDirection[n * 3 + 0] = particle.direction.x
+      aDirection[n * 3 + 1] = particle.direction.y
+      aDirection[n * 3 + 2] = particle.direction.z
 
       // // For direction billboarding, use normalized velocity if it has magnitude
       // // otherwise fall back to the initial direction
@@ -840,17 +534,17 @@ function createEmitter(config: EmitterConfig): ParticleEmitter {
       // aDirection[n * 3 + 1] = dy
       // aDirection[n * 3 + 2] = dz
 
-      aSize[n * 1 + 0] = particle.size;
-      aColor[n * 3 + 0] = particle.color[0];
-      aColor[n * 3 + 1] = particle.color[1];
-      aColor[n * 3 + 2] = particle.color[2];
-      aAlpha[n * 1 + 0] = particle.alpha;
-      aEmissive[n * 1 + 0] = particle.emissive;
-      aUV[n * 4 + 0] = particle.uv[0]; // u0
-      aUV[n * 4 + 1] = particle.uv[1]; // v0
-      aUV[n * 4 + 2] = particle.uv[2]; // u1
-      aUV[n * 4 + 3] = particle.uv[3]; // v1
-      n++;
+      aSize[n * 1 + 0] = particle.size
+      aColor[n * 3 + 0] = particle.color[0]
+      aColor[n * 3 + 1] = particle.color[1]
+      aColor[n * 3 + 2] = particle.color[2]
+      aAlpha[n * 1 + 0] = particle.alpha
+      aEmissive[n * 1 + 0] = particle.emissive
+      aUV[n * 4 + 0] = particle.uv[0] // u0
+      aUV[n * 4 + 1] = particle.uv[1] // v0
+      aUV[n * 4 + 2] = particle.uv[2] // u1
+      aUV[n * 4 + 3] = particle.uv[3] // v1
+      n++
     }
     // send
     self.postMessage(
@@ -878,71 +572,71 @@ function createEmitter(config: EmitterConfig): ParticleEmitter {
         aEmissive.buffer,
         aUV.buffer,
       ] as any
-    );
+    )
     // console.timeEnd('update')
   }
 
   function destroy() {
-    particles.length = 0;
+    particles.length = 0
   }
 
   return {
     setEmitting(value: boolean) {
-      emitting = value;
+      emitting = value
     },
     update,
     destroy,
-  };
+  }
 }
 
 function createNumericStarter(str: string) {
   if (str.includes('-')) {
-    const [start, end] = str.split('-').map(n => parseFloat(n));
-    return createNumericStarterLinear(start, end);
+    const [start, end] = str.split('-').map(n => parseFloat(n))
+    return createNumericStarterLinear(start, end)
   }
   if (str.includes('~')) {
-    const [from, to] = str.split('~').map(n => parseFloat(n));
-    return createNumericStarterRandom(from, to);
+    const [from, to] = str.split('~').map(n => parseFloat(n))
+    return createNumericStarterRandom(from, to)
   }
-  const n = parseFloat(str);
-  return createNumericStarterFixed(n);
+  const n = parseFloat(str)
+  return createNumericStarterFixed(n)
 }
 
 function createNumericStarterLinear(start: number, end: number) {
   const fn = (progress: number) => {
-    return start + (end - start) * progress;
-  };
-  fn.kind = 'linear';
-  return fn;
+    return start + (end - start) * progress
+  }
+  fn.kind = 'linear'
+  return fn
 }
 
 function createNumericStarterRandom(from: number, to: number) {
   const fn = () => {
-    return from + Math.random() * (to - from);
-  };
-  fn.kind = 'random';
-  return fn;
+    return from + Math.random() * (to - from)
+  }
+  fn.kind = 'random'
+  return fn
 }
 
 function createNumericStarterFixed(n: number) {
   const fn = () => {
-    return n;
-  };
-  fn.kind = 'fixed';
-  return fn;
+    return n
+  }
+  fn.kind = 'fixed'
+  return fn
 }
 
 function createColorStarter(str: string) {
   if (str.includes('-')) {
-    const [start, end] = str.split('-').map(toRGB);
-    return createColorStarterLinear(start, end);
+    const [start, end] = str.split('-').map(toRGB)
+    return createColorStarterLinear(start, end)
   }
   if (str.includes('~')) {
-    const [from, to] = str.split('~').map(toRGB);
-    return createColorStarterRandom(from, to);
+    const [from, to] = str.split('~').map(toRGB)
+    return createColorStarterRandom(from, to)
   }
-  const rgb = toRGB(str);
-  return createColorStarterFixed(rgb);
+  const rgb = toRGB(str)
+  return createColorStarterFixed(rgb)
 }
 
 function createColorStarterLinear(start: number[], end: number[]) {
@@ -951,120 +645,120 @@ function createColorStarterLinear(start: number[], end: number[]) {
       start[0] + (end[0] - start[0]) * progress,
       start[1] + (end[1] - start[1]) * progress,
       start[2] + (end[2] - start[2]) * progress,
-    ];
-  };
-  fn.kind = 'linear';
-  return fn;
+    ]
+  }
+  fn.kind = 'linear'
+  return fn
 }
 
 function createColorStarterRandom(from: number[], to: number[]) {
   const fn = () => {
-    const t = Math.random();
-    return [from[0] + t * (to[0] - from[0]), from[1] + t * (to[1] - from[1]), from[2] + t * (to[2] - from[2])];
-  };
-  fn.kind = 'random';
-  return fn;
+    const t = Math.random()
+    return [from[0] + t * (to[0] - from[0]), from[1] + t * (to[1] - from[1]), from[2] + t * (to[2] - from[2])]
+  }
+  fn.kind = 'random'
+  return fn
 }
 
 function createColorStarterFixed(rgb: number[]) {
   const fn = () => {
-    return rgb;
-  };
-  fn.kind = 'fixed';
-  return fn;
+    return rgb
+  }
+  fn.kind = 'fixed'
+  return fn
 }
 
 // Helper function to convert a color string to RGB array [r, g, b] (values 0-1)
 function toRGB(color: string) {
   try {
-    color1.set(color);
-    return [color1.r, color1.g, color1.b];
+    color1.set(color)
+    return [color1.r, color1.g, color1.b]
   } catch (error) {
     // If parsing fails, default to white and warn
-    console.warn(`[particles] color '${color}' could not be parsed, using white instead.`);
-    return [1, 1, 1];
+    console.warn(`[particles] color '${color}' could not be parsed, using white instead.`)
+    return [1, 1, 1]
   }
 }
 
 function createShape(config: any) {
-  const [type, ...args] = config;
-  const _v = new Vector3Enhanced();
-  const normal = new Vector3Enhanced();
+  const [type, ...args] = config
+  const v = new Vector3()
+  const normal = new Vector3()
 
   switch (type) {
     case 'point':
       // Point shape - always at origin with upward direction
-      return (pos: Vector3Enhanced, dir: Vector3Enhanced) => {
-        pos.set(0, 0, 0);
-        dir.set(0, 1, 0);
-      };
+      return (pos: Vector3, dir: Vector3) => {
+        pos.set(0, 0, 0)
+        dir.set(0, 1, 0)
+      }
 
     case 'sphere':
       // Sphere shape - position on or within sphere, direction points outward
-      return (pos: Vector3Enhanced, dir: Vector3Enhanced) => {
-        const [radius, thickness] = args;
+      return (pos: Vector3, dir: Vector3) => {
+        const [radius, thickness] = args
         // Random point on unit sphere
-        const u = Math.random();
-        const v = Math.random();
-        const theta = 2 * Math.PI * u;
-        const phi = Math.acos(2 * v - 1);
+        const u = Math.random()
+        const v = Math.random()
+        const theta = 2 * Math.PI * u
+        const phi = Math.acos(2 * v - 1)
 
-        dir.set(Math.sin(phi) * Math.cos(theta), Math.sin(phi) * Math.sin(theta), Math.cos(phi));
+        dir.set(Math.sin(phi) * Math.cos(theta), Math.sin(phi) * Math.sin(theta), Math.cos(phi))
 
         // Apply thickness (0 = surface only, 1 = anywhere inside)
-        const radiusScale = thickness === 0 ? 1 : Math.pow(Math.random(), 1 / 3) * thickness + (1 - thickness);
+        const radiusScale = thickness === 0 ? 1 : Math.pow(Math.random(), 1 / 3) * thickness + (1 - thickness)
 
         // Set position
-        pos.copy(dir).multiplyScalar(radius * radiusScale);
-      };
+        pos.copy(dir).multiplyScalar(radius * radiusScale)
+      }
 
     case 'hemisphere':
       // Hemisphere shape - position on or within hemisphere, flat base on XZ plane
-      return (pos: Vector3Enhanced, dir: Vector3Enhanced) => {
-        const [radius, thickness] = args;
+      return (pos: Vector3, dir: Vector3) => {
+        const [radius, thickness] = args
         // Random point on unit hemisphere (positive Y)
-        const u = Math.random();
-        const cosTheta = Math.random(); // Range [0,1] for upper hemisphere only
-        const theta = 2 * Math.PI * u;
-        const phi = Math.acos(cosTheta); // Range [0,π/2]
+        const u = Math.random()
+        const cosTheta = Math.random() // Range [0,1] for upper hemisphere only
+        const theta = 2 * Math.PI * u
+        const phi = Math.acos(cosTheta) // Range [0,π/2]
 
         normal.set(
           Math.sin(phi) * Math.cos(theta),
           Math.cos(phi), // This is always positive (y >= 0)
           Math.sin(phi) * Math.sin(theta)
-        );
+        )
 
         // Apply thickness (0 = surface only, 1 = anywhere inside)
-        const radiusScale = thickness === 0 ? 1 : Math.pow(Math.random(), 1 / 3) * thickness + (1 - thickness);
+        const radiusScale = thickness === 0 ? 1 : Math.pow(Math.random(), 1 / 3) * thickness + (1 - thickness)
 
         // Set position
-        pos.copy(normal).multiplyScalar(radius * radiusScale);
-        dir.copy(normal);
-      };
+        pos.copy(normal).multiplyScalar(radius * radiusScale)
+        dir.copy(normal)
+      }
 
     case 'cone':
       // Cone shape - position on base circle, direction based on cone angle
-      return (pos: Vector3Enhanced, dir: Vector3Enhanced) => {
-        const [baseRadius, thickness, angleFromCenterDeg] = args;
-        const angleFromCenter = angleFromCenterDeg * DEG2RAD;
+      return (pos: Vector3, dir: Vector3) => {
+        let [baseRadius, thickness, angleFromCenter] = args
+        angleFromCenter *= DEG2RAD
 
         // Random angle around the circle
-        const angle = Math.random() * Math.PI * 2;
+        const angle = Math.random() * Math.PI * 2
 
         // Apply thickness (0 = edges only, 1 = anywhere in circle)
-        let radiusScale;
+        let radiusScale
         if (thickness === 0) {
-          radiusScale = 1; // Edge only
+          radiusScale = 1 // Edge only
         } else {
           // Square root for uniform distribution on disk
-          radiusScale = Math.sqrt(Math.random()) * thickness + (1 - thickness);
+          radiusScale = Math.sqrt(Math.random()) * thickness + (1 - thickness)
         }
 
-        const x = Math.cos(angle) * baseRadius * radiusScale;
-        const z = Math.sin(angle) * baseRadius * radiusScale;
+        const x = Math.cos(angle) * baseRadius * radiusScale
+        const z = Math.sin(angle) * baseRadius * radiusScale
 
         // Position at base of cone
-        pos.set(x, 0, z);
+        pos.set(x, 0, z)
 
         // Direction follows cone angle
         dir
@@ -1073,342 +767,326 @@ function createShape(config: any) {
             Math.cos(angleFromCenter),
             Math.sin(angleFromCenter) * Math.sin(angle)
           )
-          .normalize();
-      };
+          .normalize()
+      }
 
     case 'box':
       // Box shape - position on or within box, direction points outward
-      return (pos: Vector3Enhanced, dir: Vector3Enhanced) => {
-        const [width, height, depth, thickness, origin, spherize] = args;
+      return (pos: Vector3, dir: Vector3) => {
+        const [width, height, depth, thickness, origin, spherize] = args
 
         // Handle different origin types: volume, edge, or shell
         if (origin === 'volume') {
           // Full volume sampling with thickness consideration
           if (thickness === 0 || Math.random() > thickness) {
             // Surface point
-            const face = Math.floor(Math.random() * 6);
+            const face = Math.floor(Math.random() * 6)
             switch (face) {
               case 0: // +X face
-                pos.set(width / 2, (Math.random() - 0.5) * height, (Math.random() - 0.5) * depth);
-                if (!spherize) {
-                  dir.set(1, 0, 0);
-                }
-                break;
+                pos.set(width / 2, (Math.random() - 0.5) * height, (Math.random() - 0.5) * depth)
+                if (!spherize) dir.set(1, 0, 0)
+                break
               case 1: // -X face
-                pos.set(-width / 2, (Math.random() - 0.5) * height, (Math.random() - 0.5) * depth);
-                if (!spherize) {
-                  dir.set(-1, 0, 0);
-                }
-                break;
+                pos.set(-width / 2, (Math.random() - 0.5) * height, (Math.random() - 0.5) * depth)
+                if (!spherize) dir.set(-1, 0, 0)
+                break
               case 2: // +Y face
-                pos.set((Math.random() - 0.5) * width, height / 2, (Math.random() - 0.5) * depth);
-                if (!spherize) {
-                  dir.set(0, 1, 0);
-                }
-                break;
+                pos.set((Math.random() - 0.5) * width, height / 2, (Math.random() - 0.5) * depth)
+                if (!spherize) dir.set(0, 1, 0)
+                break
               case 3: // -Y face
-                pos.set((Math.random() - 0.5) * width, -height / 2, (Math.random() - 0.5) * depth);
-                if (!spherize) {
-                  dir.set(0, -1, 0);
-                }
-                break;
+                pos.set((Math.random() - 0.5) * width, -height / 2, (Math.random() - 0.5) * depth)
+                if (!spherize) dir.set(0, -1, 0)
+                break
               case 4: // +Z face
-                pos.set((Math.random() - 0.5) * width, (Math.random() - 0.5) * height, depth / 2);
-                if (!spherize) {
-                  dir.set(0, 0, 1);
-                }
-                break;
+                pos.set((Math.random() - 0.5) * width, (Math.random() - 0.5) * height, depth / 2)
+                if (!spherize) dir.set(0, 0, 1)
+                break
               case 5: // -Z face
-                pos.set((Math.random() - 0.5) * width, (Math.random() - 0.5) * height, -depth / 2);
-                if (!spherize) {
-                  dir.set(0, 0, -1);
-                }
-                break;
+                pos.set((Math.random() - 0.5) * width, (Math.random() - 0.5) * height, -depth / 2)
+                if (!spherize) dir.set(0, 0, -1)
+                break
             }
 
             // Apply spherize if enabled
             if (spherize) {
-              dir.copy(pos).normalize();
+              dir.copy(pos).normalize()
               if (dir.length() === 0) {
                 // Handle the case when pos is at exact center
-                dir.set(0, 1, 0);
+                dir.set(0, 1, 0)
               }
             }
           } else {
             // Interior point with proper thickness consideration
             // First pick a random position within the box
-            const randomX = (Math.random() - 0.5) * width;
-            const randomY = (Math.random() - 0.5) * height;
-            const randomZ = (Math.random() - 0.5) * depth;
+            const randomX = (Math.random() - 0.5) * width
+            const randomY = (Math.random() - 0.5) * height
+            const randomZ = (Math.random() - 0.5) * depth
 
             // Calculate distances from each face as a proportion of max possible distance
-            const distToRight = (width / 2 - Math.abs(randomX)) / (width / 2);
-            const distToTop = (height / 2 - Math.abs(randomY)) / (height / 2);
-            const distToFront = (depth / 2 - Math.abs(randomZ)) / (depth / 2);
+            const distToRight = (width / 2 - Math.abs(randomX)) / (width / 2)
+            const distToTop = (height / 2 - Math.abs(randomY)) / (height / 2)
+            const distToFront = (depth / 2 - Math.abs(randomZ)) / (depth / 2)
 
             // Find minimum distance to any face (0 = on surface, 1 = at center)
-            const minDist = Math.min(distToRight, distToTop, distToFront);
+            const minDist = Math.min(distToRight, distToTop, distToFront)
 
             // Only use this point if it's within our thickness threshold
             // For thickness t, we want points where minDist <= t
             if (minDist <= thickness) {
-              pos.set(randomX, randomY, randomZ);
+              pos.set(randomX, randomY, randomZ)
 
               // Direction depends on spherize parameter
               if (spherize) {
                 // Direction points outward from center
-                dir.copy(pos).normalize();
+                dir.copy(pos).normalize()
                 if (dir.length() === 0) {
                   // Handle the case when pos is at exact center
-                  dir.set(0, 1, 0);
+                  dir.set(0, 1, 0)
                 }
               } else {
                 // Direction points outward from nearest face
-                if (distToRight === minDist) {
-                  dir.set(Math.sign(randomX), 0, 0);
-                } else if (distToTop === minDist) {
-                  dir.set(0, Math.sign(randomY), 0);
-                } else if (distToFront === minDist) {
-                  dir.set(0, 0, Math.sign(randomZ));
-                }
+                if (distToRight === minDist) dir.set(Math.sign(randomX), 0, 0)
+                else if (distToTop === minDist) dir.set(0, Math.sign(randomY), 0)
+                else if (distToFront === minDist) dir.set(0, 0, Math.sign(randomZ))
               }
             } else {
               // If point is too far from surface, recursively try again
               // Using a safer approach to avoid infinite recursion
-              return createShape(['box', width, height, depth, thickness, origin, spherize])(pos, dir);
+              return createShape(['box', width, height, depth, thickness, origin, spherize])(pos, dir)
             }
           }
         } else if (origin === 'edge') {
           // Only generate particles along the 12 edges of the box
-          const edge = Math.floor(Math.random() * 12);
-          let x, y, z;
+          const edge = Math.floor(Math.random() * 12)
+          let x, y, z
 
           // Select one of the 12 edges
           switch (edge) {
             // Bottom edges
             case 0: // Bottom X-aligned edge (front)
-              x = (Math.random() - 0.5) * width;
-              y = -height / 2;
-              z = depth / 2;
-              break;
+              x = (Math.random() - 0.5) * width
+              y = -height / 2
+              z = depth / 2
+              break
             case 1: // Bottom X-aligned edge (back)
-              x = (Math.random() - 0.5) * width;
-              y = -height / 2;
-              z = -depth / 2;
-              break;
+              x = (Math.random() - 0.5) * width
+              y = -height / 2
+              z = -depth / 2
+              break
             case 2: // Bottom Z-aligned edge (left)
-              x = -width / 2;
-              y = -height / 2;
-              z = (Math.random() - 0.5) * depth;
-              break;
+              x = -width / 2
+              y = -height / 2
+              z = (Math.random() - 0.5) * depth
+              break
             case 3: // Bottom Z-aligned edge (right)
-              x = width / 2;
-              y = -height / 2;
-              z = (Math.random() - 0.5) * depth;
-              break;
+              x = width / 2
+              y = -height / 2
+              z = (Math.random() - 0.5) * depth
+              break
 
             // Top edges
             case 4: // Top X-aligned edge (front)
-              x = (Math.random() - 0.5) * width;
-              y = height / 2;
-              z = depth / 2;
-              break;
+              x = (Math.random() - 0.5) * width
+              y = height / 2
+              z = depth / 2
+              break
             case 5: // Top X-aligned edge (back)
-              x = (Math.random() - 0.5) * width;
-              y = height / 2;
-              z = -depth / 2;
-              break;
+              x = (Math.random() - 0.5) * width
+              y = height / 2
+              z = -depth / 2
+              break
             case 6: // Top Z-aligned edge (left)
-              x = -width / 2;
-              y = height / 2;
-              z = (Math.random() - 0.5) * depth;
-              break;
+              x = -width / 2
+              y = height / 2
+              z = (Math.random() - 0.5) * depth
+              break
             case 7: // Top Z-aligned edge (right)
-              x = width / 2;
-              y = height / 2;
-              z = (Math.random() - 0.5) * depth;
-              break;
+              x = width / 2
+              y = height / 2
+              z = (Math.random() - 0.5) * depth
+              break
 
             // Vertical edges
             case 8: // Vertical Y-aligned edge (front left)
-              x = -width / 2;
-              y = (Math.random() - 0.5) * height;
-              z = depth / 2;
-              break;
+              x = -width / 2
+              y = (Math.random() - 0.5) * height
+              z = depth / 2
+              break
             case 9: // Vertical Y-aligned edge (front right)
-              x = width / 2;
-              y = (Math.random() - 0.5) * height;
-              z = depth / 2;
-              break;
+              x = width / 2
+              y = (Math.random() - 0.5) * height
+              z = depth / 2
+              break
             case 10: // Vertical Y-aligned edge (back left)
-              x = -width / 2;
-              y = (Math.random() - 0.5) * height;
-              z = -depth / 2;
-              break;
+              x = -width / 2
+              y = (Math.random() - 0.5) * height
+              z = -depth / 2
+              break
             case 11: // Vertical Y-aligned edge (back right)
-              x = width / 2;
-              y = (Math.random() - 0.5) * height;
-              z = -depth / 2;
-              break;
+              x = width / 2
+              y = (Math.random() - 0.5) * height
+              z = -depth / 2
+              break
           }
 
-          pos.set(x, y, z);
+          pos.set(x, y, z)
 
           if (spherize) {
             // Direction points outward from center
-            dir.copy(pos).normalize();
+            dir.copy(pos).normalize()
             if (dir.length() === 0) {
               // Handle the case when pos is at exact center
-              dir.set(0, 1, 0);
+              dir.set(0, 1, 0)
             }
           } else {
             // Direction points outward perpendicular to the edge
             // For simplicity, we'll use the two coordinates that are at their extremes
             if (Math.abs(x) === width / 2 && Math.abs(z) === depth / 2) {
               // Corner edge - use diagonal direction
-              dir.set(Math.sign(x), 0, Math.sign(z)).normalize();
+              dir.set(Math.sign(x), 0, Math.sign(z)).normalize()
             } else if (Math.abs(x) === width / 2) {
               // Edge along X face
-              dir.set(Math.sign(x), 0, 0);
+              dir.set(Math.sign(x), 0, 0)
             } else if (Math.abs(y) === height / 2) {
               // Edge along Y face
-              dir.set(0, Math.sign(y), 0);
+              dir.set(0, Math.sign(y), 0)
             } else if (Math.abs(z) === depth / 2) {
               // Edge along Z face
-              dir.set(0, 0, Math.sign(z));
+              dir.set(0, 0, Math.sign(z))
             }
           }
         }
-      };
+      }
 
     case 'circle':
       // Circle shape - position on or within circle in XZ plane
-      return (pos: Vector3Enhanced, dir: Vector3Enhanced) => {
-        const [radius, thickness, spherize] = args;
+      return (pos: Vector3, dir: Vector3) => {
+        const [radius, thickness, spherize] = args
 
         // Random angle around the circle
-        const angle = Math.random() * Math.PI * 2;
+        const angle = Math.random() * Math.PI * 2
 
         // Apply thickness (0 = edges only, 1 = anywhere in circle)
-        let radiusScale;
+        let radiusScale
         if (thickness === 0) {
-          radiusScale = 1; // Edge only
+          radiusScale = 1 // Edge only
         } else {
           // Square root for uniform distribution on disk
-          radiusScale = Math.sqrt(Math.random()) * thickness + (1 - thickness);
+          radiusScale = Math.sqrt(Math.random()) * thickness + (1 - thickness)
         }
 
-        const x = Math.cos(angle) * radius * radiusScale;
-        const z = Math.sin(angle) * radius * radiusScale;
+        const x = Math.cos(angle) * radius * radiusScale
+        const z = Math.sin(angle) * radius * radiusScale
 
-        pos.set(x, 0, z);
+        pos.set(x, 0, z)
 
         // Set direction based on spherize parameter
         if (spherize) {
           // Direction points outward from center
-          dir.set(x, 0, z).normalize();
+          dir.set(x, 0, z).normalize()
           if (dir.length() === 0) {
             // Handle the case when position is at exact center
-            dir.set(0, 1, 0);
+            dir.set(0, 1, 0)
           }
         } else {
           // Default upward direction
-          dir.set(0, 1, 0);
+          dir.set(0, 1, 0)
         }
-      };
+      }
 
     case 'rectangle':
       // Rectangle shape - position on rectangular plane in XZ plane
-      return (pos: Vector3Enhanced, dir: Vector3Enhanced) => {
-        const [width, depth, thickness, spherize = false] = args;
+      return (pos: Vector3, dir: Vector3) => {
+        const [width, depth, thickness, spherize = false] = args
 
         // Determine if on edge or inside based on thickness
-        const useEdge = thickness === 0 || Math.random() > thickness;
+        const useEdge = thickness === 0 || Math.random() > thickness
 
-        let x, z;
+        let x, z
 
         if (useEdge) {
           // Position on edge
-          const edge = Math.floor(Math.random() * 4);
+          const edge = Math.floor(Math.random() * 4)
           switch (edge) {
             case 0: // +X edge
-              x = width / 2;
-              z = (Math.random() - 0.5) * depth;
-              break;
+              x = width / 2
+              z = (Math.random() - 0.5) * depth
+              break
             case 1: // -X edge
-              x = -width / 2;
-              z = (Math.random() - 0.5) * depth;
-              break;
+              x = -width / 2
+              z = (Math.random() - 0.5) * depth
+              break
             case 2: // +Z edge
-              x = (Math.random() - 0.5) * width;
-              z = depth / 2;
-              break;
+              x = (Math.random() - 0.5) * width
+              z = depth / 2
+              break
             case 3: // -Z edge
-              x = (Math.random() - 0.5) * width;
-              z = -depth / 2;
-              break;
+              x = (Math.random() - 0.5) * width
+              z = -depth / 2
+              break
           }
         } else {
           // Position inside rectangle
-          x = (Math.random() - 0.5) * width;
-          z = (Math.random() - 0.5) * depth;
+          x = (Math.random() - 0.5) * width
+          z = (Math.random() - 0.5) * depth
         }
 
-        pos.set(x, 0, z);
+        pos.set(x, 0, z)
 
         // Set direction based on spherize parameter
         if (spherize) {
           // Direction from center (adjusted for 2D rectangle)
-          dir.set(x, 0, z).normalize();
+          dir.set(x, 0, z).normalize()
           if (dir.length() === 0) {
             // Handle center case
-            dir.set(0, 1, 0);
+            dir.set(0, 1, 0)
           }
         } else {
           // Default upward direction
-          dir.set(0, 1, 0);
+          dir.set(0, 1, 0)
         }
-      };
+      }
 
     default:
-      console.warn(`[particles] unknown shape: ${type}, using 'point' as fallback`);
-      return createShape(['point']);
+      console.warn(`[particles] unknown shape: ${type}, using 'point' as fallback`)
+      return createShape(['point'])
   }
 }
 
 function createSpritesheet(options: any) {
   // no spritesheet, return full UVs
   if (!options) {
-    return () => [0, 0, 1, 1];
+    return () => [0, 0, 1, 1]
   }
-  const [rows, cols, frameRate, loop] = options;
-  const totalFrames = rows * cols;
+  const [rows, cols, frameRate, loop] = options
+  const totalFrames = rows * cols
   // pre-calculate all uv frames
-  const uvFrames: number[][] = [];
+  const uvFrames: number[][] = []
   for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
     // calc grid position (reading order: left-to-right, top-to-bottom)
-    const col = frameIndex % cols;
-    const row = Math.floor(frameIndex / cols);
+    const col = frameIndex % cols
+    const row = Math.floor(frameIndex / cols)
     // calc UV coords with inverted row calculation for top-to-bottom order
     // V coords in textures start at bottom (0) and go to top (1)
-    const u0 = col / cols;
-    const v0 = (rows - row - 1) / rows; // inverted to start from top
-    const u1 = (col + 1) / cols;
-    const v1 = (rows - row) / rows; // inverted to start from top
-    uvFrames.push([u0, v0, u1, v1]);
+    const u0 = col / cols
+    const v0 = (rows - row - 1) / rows // inverted to start from top
+    const u1 = (col + 1) / cols
+    const v1 = (rows - row) / rows // inverted to start from top
+    uvFrames.push([u0, v0, u1, v1])
   }
-  return (particle: Particle, _delta: number) => {
-    particle.frameTime += _delta;
-    const frameDuration = 1 / frameRate;
-    const rawFrame = particle.frameTime / frameDuration;
-    let idx;
+  return (particle: Particle, delta: number) => {
+    particle.frameTime += delta
+    const frameDuration = 1 / frameRate
+    const rawFrame = particle.frameTime / frameDuration
+    let idx
     if (loop) {
-      idx = Math.floor(rawFrame) % totalFrames;
+      idx = Math.floor(rawFrame) % totalFrames
     } else {
-      idx = Math.min(Math.floor(rawFrame), totalFrames - 1);
+      idx = Math.min(Math.floor(rawFrame), totalFrames - 1)
     }
-    return uvFrames[idx];
-  };
+    return uvFrames[idx]
+  }
 }
 
 function createNumberCurve(str: string) {
@@ -1416,75 +1094,65 @@ function createNumberCurve(str: string) {
   // Each point is defined by an alpha (0-1) and a corresponding value
   //
   // Split the string by '|' to get individual points
-  const pointsStr = str.split('|');
+  const pointsStr = str.split('|')
   // Parse each point into [alpha, value] pairs
   const points = pointsStr.map(point => {
-    const [alpha, value] = point.split(',').map(parseFloat);
-    return { alpha, value };
-  });
+    const [alpha, value] = point.split(',').map(parseFloat)
+    return { alpha, value }
+  })
   // Sort points by alpha (just in case they're not in order)
-  points.sort((a, b) => a.alpha - b.alpha);
+  points.sort((a, b) => a.alpha - b.alpha)
   // Return a function that takes an alpha value and returns interpolated value
   return function (alpha: number) {
     // Handle edge cases
-    if (alpha <= points[0].alpha) {
-      return points[0].value;
-    }
-    if (alpha >= points[points.length - 1].alpha) {
-      return points[points.length - 1].value;
-    }
+    if (alpha <= points[0].alpha) return points[0].value
+    if (alpha >= points[points.length - 1].alpha) return points[points.length - 1].value
     // Find the two points to interpolate between
-    let i = 0;
+    let i = 0
     while (i < points.length - 1 && alpha > points[i + 1].alpha) {
-      i++;
+      i++
     }
-    const p1 = points[i];
-    const p2 = points[i + 1];
+    const p1 = points[i]
+    const p2 = points[i + 1]
     // Calculate interpolation factor (t) between the two points
-    const t = (alpha - p1.alpha) / (p2.alpha - p1.alpha);
+    const t = (alpha - p1.alpha) / (p2.alpha - p1.alpha)
     // Linear interpolation between the two values
-    return p1.value + t * (p2.value - p1.value);
-  };
+    return p1.value + t * (p2.value - p1.value)
+  }
 }
 
 function createColorCurve(str: string) {
   // Parse the string format: `alpha1,color1|alpha2,color2|...`
-  const pointsStr = str.split('|');
-  const points: { alpha: number; color: number[] }[] = [];
+  const pointsStr = str.split('|')
+  const points: { alpha: number; color: number[] }[] = []
   // Parse each point into {alpha,color} pairs
   for (const point of pointsStr) {
-    const parts = point.split(',');
-    const alpha = parseFloat(parts[0]);
-    const color = toRGB(parts[1]);
+    const parts = point.split(',')
+    const alpha = parseFloat(parts[0])
+    const color = toRGB(parts[1])
     points.push({
       alpha,
       color,
-    });
+    })
   }
   // Sort points by position (just in case they're not in order)
-  points.sort((a, b) => a.alpha - b.alpha);
+  points.sort((a, b) => a.alpha - b.alpha)
   // Return interpolation function as before
   return function (alpha: number) {
-    if (points.length === 0) {
-      return [1, 1, 1];
-    } // Default to white
-    if (alpha <= points[0].alpha) {
-      return [...points[0].color];
-    }
-    if (alpha >= points[points.length - 1].alpha) {
-      return [...points[points.length - 1].color];
-    }
-    let i = 0;
+    if (points.length === 0) return [1, 1, 1] // Default to white
+    if (alpha <= points[0].alpha) return [...points[0].color]
+    if (alpha >= points[points.length - 1].alpha) return [...points[points.length - 1].color]
+    let i = 0
     while (i < points.length - 1 && alpha > points[i + 1].alpha) {
-      i++;
+      i++
     }
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const t = (alpha - p1.alpha) / (p2.alpha - p1.alpha);
+    const p1 = points[i]
+    const p2 = points[i + 1]
+    const t = (alpha - p1.alpha) / (p2.alpha - p1.alpha)
     return [
       p1.color[0] + t * (p2.color[0] - p1.color[0]),
       p1.color[1] + t * (p2.color[1] - p1.color[1]),
       p1.color[2] + t * (p2.color[2] - p1.color[2]),
-    ];
-  };
+    ]
+  }
 }

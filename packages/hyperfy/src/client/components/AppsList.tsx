@@ -7,19 +7,19 @@ import {
   HashIcon,
   OctagonXIcon,
   TriangleIcon,
-} from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 
 // import { orderBy } from 'lodash-es' // Not available, using manual sort
-import { formatBytes } from '../../core/extras/formatBytes';
-import { cls } from './cls';
+import { formatBytes } from '../../core/extras/formatBytes'
+import { cls } from './cls'
 
 const defaultStats = {
   geometries: 0,
   triangles: 0,
   textureBytes: 0,
   fileBytes: 0,
-};
+}
 
 interface AppsListProps {
   world: any
@@ -30,30 +30,24 @@ interface AppsListProps {
 }
 
 export function AppsList({ world, query, perf, refresh, setRefresh }: AppsListProps) {
-  const [sort, setSort] = useState('count');
-  const [asc, setAsc] = useState(false);
-  const [target, setTarget] = useState<any>(null);
+  const [sort, setSort] = useState('count')
+  const [asc, setAsc] = useState(false)
+  const [target, setTarget] = useState<any>(null)
   let items = useMemo(() => {
-    const itemMap = new Map(); // id -> { blueprint, count }
-    const items: any[] = [];
+    const itemMap = new Map() // id -> { blueprint, count }
+    let items: any[] = []
     for (const [_, entity] of world.entities.items) {
-      if (!entity.isApp) {
-        continue;
-      }
-      const blueprint = world.blueprints.get(entity.data.blueprint);
-      if (!blueprint) {
-        continue;
-      } // still loading?
-      if (!blueprint.model) {
-        continue;
-      } // corrupt app?
-      let item = itemMap.get(blueprint.id);
+      if (!entity.isApp) continue
+      const blueprint = world.blueprints.get(entity.data.blueprint)
+      if (!blueprint) continue // still loading?
+      if (!blueprint.model) continue // corrupt app?
+      let item = itemMap.get(blueprint.id)
       if (!item) {
-        const count = 0;
-        const type = blueprint.model.endsWith('.vrm') ? 'avatar' : 'model';
-        const model = world.loader.get(type, blueprint.model);
-        const stats = model?.getStats() || defaultStats;
-        const name = blueprint.name || '-';
+        let count = 0
+        const type = blueprint.model.endsWith('.vrm') ? 'avatar' : 'model'
+        const model = world.loader.get(type, blueprint.model)
+        const stats = model?.getStats() || defaultStats
+        const name = blueprint.name || '-'
         item = {
           blueprint,
           keywords: name.toLowerCase(),
@@ -66,90 +60,88 @@ export function AppsList({ world, query, perf, refresh, setRefresh }: AppsListPr
           code: blueprint.script ? 1 : 0,
           fileBytes: stats.fileBytes,
           fileSize: formatBytes(stats.fileBytes),
-        };
-        itemMap.set(blueprint.id, item);
+        }
+        itemMap.set(blueprint.id, item)
       }
-      item.count++;
+      item.count++
     }
     for (const [_, item] of itemMap) {
-      items.push(item);
+      items.push(item)
     }
-    return items;
-  }, [refresh]);
+    return items
+  }, [refresh])
   items = useMemo(() => {
-    let newItems = items;
+    let newItems = items
     if (query) {
-      query = query.toLowerCase();
-      newItems = newItems.filter((item: any) => item.keywords.includes(query));
+      query = query.toLowerCase()
+      newItems = newItems.filter((item: any) => item.keywords.includes(query))
     }
     newItems = newItems.sort((a, b) => {
-      const aVal = a[sort];
-      const bVal = b[sort];
-      let comparison = 0;
-      if (aVal < bVal) {
-        comparison = -1;
-      } else if (aVal > bVal) {
-        comparison = 1;
-      }
-      return asc ? comparison : -comparison;
-    });
-    return newItems;
-  }, [items, sort, asc, query]);
+      const aVal = a[sort]
+      const bVal = b[sort]
+      let comparison = 0
+      if (aVal < bVal) comparison = -1
+      else if (aVal > bVal) comparison = 1
+      return asc ? comparison : -comparison
+    })
+    return newItems
+  }, [items, sort, asc, query])
   const reorder = (key: string) => {
     if (sort === key) {
-      setAsc(!asc);
+      setAsc(!asc)
     } else {
-      setSort(key);
-      setAsc(false);
+      setSort(key)
+      setAsc(false)
     }
-  };
+  }
   useEffect(() => {
-    return () => world.target.hide();
-  }, []);
+    return () => world.target.hide()
+  }, [])
   const getClosest = (item: any) => {
     // find closest entity
-    const playerPosition = world.rig.position;
-    let closestEntity;
-    let closestDistance = null;
+    const playerPosition = world.rig.position
+    let closestEntity
+    let closestDistance = null
     for (const [_, entity] of world.entities.items) {
       if (entity.blueprint === item.blueprint) {
-        const distance = playerPosition.distanceTo(entity.root.position);
+        const distance = playerPosition.distanceTo(entity.root.position)
         if (closestDistance === null || closestDistance > distance) {
-          closestEntity = entity;
-          closestDistance = distance;
+          closestEntity = entity
+          closestDistance = distance
         }
       }
     }
-    return closestEntity;
-  };
+    return closestEntity
+  }
   const toggleTarget = (item: any) => {
     if (target === item) {
-      world.target.hide();
-      setTarget(null);
-      return;
+      world.target.hide()
+      setTarget(null)
+      return
     }
-    const entity = getClosest(item);
-    if (!entity) {
-      return;
-    }
-    world.target.show(entity.root.position);
-    setTarget(item);
-  };
+    const entity = getClosest(item)
+    if (!entity) return
+    world.target.show(entity.root.position)
+    setTarget(item)
+  }
   const inspect = (item: any) => {
-    const entity = getClosest(item);
-    world.ui.setApp(entity);
+    const entity = getClosest(item)
+    world.ui.setApp(entity)
     // world.ui.setMenu({ type: 'app', app: entity })
-  };
+  }
   const toggle = (item: any) => {
-    const blueprint = world.blueprints.get(item.blueprint.id);
-    const version = blueprint.version + 1;
-    const disabled = !blueprint.disabled;
-    world.blueprints.modify({ id: blueprint.id, version, disabled });
-    world.network.send('blueprintModified', { id: blueprint.id, version, disabled });
-    setRefresh(n => n + 1);
-  };
+    const blueprint = world.blueprints.get(item.blueprint.id)
+    const version = blueprint.version + 1
+    const disabled = !blueprint.disabled
+    world.blueprints.modify({ id: blueprint.id, version, disabled })
+    world.network.send('blueprintModified', { id: blueprint.id, version, disabled })
+    setRefresh(n => n + 1)
+  }
   return (
-    <div className={cls('appslist', { hideperf: !perf })} style={{ flex: 1 }}>
+    <div
+      className={cls('appslist', { hideperf: !perf })}
+      style={{ flex: 1 }}
+    >
       <style>{`
         .appslist {
           flex: 1;
@@ -266,80 +258,80 @@ export function AppsList({ world, query, perf, refresh, setRefresh }: AppsListPr
           display: none;
         }
       `}</style>
-      <div className="appslist-head">
+      <div className='appslist-head'>
         <div
           className={cls('appslist-headitem name', { active: sort === 'name' })}
           onClick={() => reorder('name')}
-          title="Name"
+          title='Name'
         >
           <span></span>
         </div>
         <div
           className={cls('appslist-headitem count', { active: sort === 'count' })}
           onClick={() => reorder('count')}
-          title="Instances"
+          title='Instances'
         >
           <HashIcon size={18} />
         </div>
         <div
           className={cls('appslist-headitem geometries', { active: sort === 'geometries' })}
           onClick={() => reorder('geometries')}
-          title="Geometries"
+          title='Geometries'
         >
           <BoxIcon size={18} />
         </div>
         <div
           className={cls('appslist-headitem triangles', { active: sort === 'triangles' })}
           onClick={() => reorder('triangles')}
-          title="Triangles"
+          title='Triangles'
         >
           <TriangleIcon size={18} />
         </div>
         <div
           className={cls('appslist-headitem textureSize', { active: sort === 'textureBytes' })}
           onClick={() => reorder('textureBytes')}
-          title="Texture Memory Size"
+          title='Texture Memory Size'
         >
           <BrickWallIcon size={18} />
         </div>
         <div
           className={cls('appslist-headitem code', { active: sort === 'code' })}
           onClick={() => reorder('code')}
-          title="Code"
+          title='Code'
         >
           <FileCode2Icon size={18} />
         </div>
         <div
           className={cls('appslist-headitem fileSize', { active: sort === 'fileBytes' })}
           onClick={() => reorder('fileBytes')}
-          title="File Size"
+          title='File Size'
         >
           <HardDriveIcon size={16} />
         </div>
-        <div className="appslist-headitem actions" />
+        <div className='appslist-headitem actions' />
       </div>
-      <div className="appslist-rows">
+      <div className='appslist-rows'>
         {items.map((item: any) => (
-          <div key={item.blueprint.id} className="appslist-row">
-            <div className="appslist-rowitem name" onClick={() => inspect(item)}>
+          <div key={item.blueprint.id} className='appslist-row'>
+            <div className='appslist-rowitem name' onClick={() => inspect(item)}>
               <span>{item.name}</span>
             </div>
-            <div className="appslist-rowitem count">
+            <div className='appslist-rowitem count'>
               <span>{item.count}</span>
             </div>
-            <div className="appslist-rowitem geometries">
+            <div className='appslist-rowitem geometries'>
               <span>{item.geometries}</span>
             </div>
-            <div className="appslist-rowitem triangles">
+            <div className='appslist-rowitem triangles'>
               <span>{formatNumber(item.triangles)}</span>
             </div>
-            <div className="appslist-rowitem textureSize">
+            <div className='appslist-rowitem textureSize'>
               <span>{item.textureSize}</span>
             </div>
-            <div className="appslist-rowitem code">
+            <div className='appslist-rowitem code'>
               <span>{item.code ? 'Yes' : 'No'}</span>
             </div>
-            <div className="appslist-rowitem fileSize">
+            <div className='appslist-rowitem fileSize'>
               <span>{item.fileSize}</span>
             </div>
             <div className={'appslist-rowitem actions'}>
@@ -354,24 +346,24 @@ export function AppsList({ world, query, perf, refresh, setRefresh }: AppsListPr
         ))}
       </div>
     </div>
-  );
+  )
 }
 
 function formatNumber(num: number | null | undefined): string {
   if (num === null || num === undefined || isNaN(num)) {
-    return '0';
+    return '0'
   }
-  const million = 1000000;
-  const thousand = 1000;
-  let result;
+  const million = 1000000
+  const thousand = 1000
+  let result
   if (num >= million) {
-    result = `${(num / million).toFixed(1)}M`;
+    result = (num / million).toFixed(1) + 'M'
   } else if (num >= thousand) {
-    result = `${(num / thousand).toFixed(1)}K`;
+    result = (num / thousand).toFixed(1) + 'K'
   } else {
-    result = Math.round(num).toString();
+    result = Math.round(num).toString()
   }
   return result
     .replace(/\.0+([KM])?$/, '$1') // Replace .0K with K or .0M with M
-    .replace(/(\.\d+[1-9])0+([KM])?$/, '$1$2'); // Trim trailing zeros (1.50M → 1.5M)
+    .replace(/(\.\d+[1-9])0+([KM])?$/, '$1$2') // Trim trailing zeros (1.50M → 1.5M)
 }

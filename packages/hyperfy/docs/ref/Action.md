@@ -31,3 +31,4 @@ The function call if the interact button is released before the full `duration`.
 ### `.{...Node}`
 
 Inherits all [Node](/docs/ref/Node.md) properties
+

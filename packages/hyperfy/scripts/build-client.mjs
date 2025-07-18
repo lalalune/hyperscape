@@ -30,7 +30,7 @@ const buildDirectory = path.join(rootDir, 'build')
     sourcemap: 'inline',
     metafile: true,
     jsx: 'automatic',
-    jsxImportSource: 'react',
+          jsxImportSource: 'react',
     // define: {
     //   // 'process.env.NODE_ENV': '"development"',
     // },

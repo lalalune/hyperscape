@@ -1,30 +1,30 @@
-// import * as THREE from '../extras/three';
+import * as THREE from '../extras/three'
 
-import { System } from './System';
+import { System } from './System'
 
-// import { isNumber, isString } from 'lodash-es';
-import type { World } from '../../types';
+import { isNumber, isString } from 'lodash-es'
+import type { World } from '../../types'
 
 export class NodeEnvironment extends System {
-  model: any = null;
-  skys: any[] = [];
-  sky: any = null;
-  skyN: number = 0;
-  bgUrl: string | null = null;
-  hdrUrl: string | null = null;
-  base: any;
+  model: any = null
+  skys: any[] = []
+  sky: any = null
+  skyN: number = 0
+  bgUrl: string | null = null
+  hdrUrl: string | null = null
+  base: any
   constructor(world: World) {
-    super(world);
+    super(world)
 
-    this.model = null;
-    this.skys = [];
-    this.sky = null;
-    this.skyN = 0;
-    this.bgUrl = null;
-    this.hdrUrl = null;
+    this.model = null
+    this.skys = []
+    this.sky = null
+    this.skyN = 0
+    this.bgUrl = null
+    this.hdrUrl = null
   }
 
   async init(options: any): Promise<void> {
-    this.base = options.baseEnvironment;
+    this.base = options.baseEnvironment
   }
 }

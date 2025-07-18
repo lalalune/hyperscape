@@ -1,93 +1,91 @@
 // import { css } from '../utils/css' // Removed css utility
-import { MessageSquareIcon, RefreshCwIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { MessageSquareIcon, RefreshCwIcon } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 // import { CodeEditor } from './CodeEditor'
-import { buttons, propToLabel } from '../../core/extras/buttons';
-import { ControlPriorities } from '../../core/extras/ControlPriorities';
-import { cls, isTouch } from '../utils';
-import { AvatarPane } from './AvatarPane';
-import { MouseLeftIcon } from './MouseLeftIcon';
-import { MouseRightIcon } from './MouseRightIcon';
-import { MouseWheelIcon } from './MouseWheelIcon';
+import { buttons, propToLabel } from '../../core/extras/buttons'
+import { ControlPriorities } from '../../core/extras/ControlPriorities'
+import { cls, isTouch } from '../utils'
+import { AvatarPane } from './AvatarPane'
+import { MouseLeftIcon } from './MouseLeftIcon'
+import { MouseRightIcon } from './MouseRightIcon'
+import { MouseWheelIcon } from './MouseWheelIcon'
 // import { AppsPane } from './AppsPane'
 // import { MenuMain } from './MenuMain'
 // import { MenuApp } from './MenuApp'
-import { ChevronDoubleUpIcon, HandIcon } from './Icons';
-import { Sidebar } from './Sidebar';
+import { ChevronDoubleUpIcon, HandIcon } from './Icons'
+import { Sidebar } from './Sidebar'
 
 export function CoreUI({ world }: { world: any }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [ready, setReady] = useState(false);
-  const [_player, setPlayer] = useState(() => world.entities.player);
-  const [ui, setUI] = useState(world.ui.state);
-  const [_menu, setMenu] = useState(null);
-  const [_code, setCode] = useState(false);
-  const [_settings, _setSettings] = useState(false);
-  const [avatar, setAvatar] = useState<any>(null);
-  const [disconnected, setDisconnected] = useState(false);
-  const [_apps, setApps] = useState(false);
-  const [kicked, setKicked] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [ready, setReady] = useState(false)
+  const [player, setPlayer] = useState(() => world.entities.player)
+  const [ui, setUI] = useState(world.ui.state)
+  const [menu, setMenu] = useState(null)
+  const [code, setCode] = useState(false)
+  const [settings, setSettings] = useState(false)
+  const [avatar, setAvatar] = useState<any>(null)
+  const [disconnected, setDisconnected] = useState(false)
+  const [apps, setApps] = useState(false)
+  const [kicked, setKicked] = useState<string | null>(null)
   useEffect(() => {
-    world.on('ready', setReady);
-    world.on('player', setPlayer);
-    world.on('ui', setUI);
-    world.on('menu', setMenu);
-    world.on('code', setCode);
-    world.on('apps', setApps);
-    world.on('avatar', setAvatar);
-    world.on('kick', setKicked);
-    world.on('disconnect', setDisconnected);
+    world.on('ready', setReady)
+    world.on('player', setPlayer)
+    world.on('ui', setUI)
+    world.on('menu', setMenu)
+    world.on('code', setCode)
+    world.on('apps', setApps)
+    world.on('avatar', setAvatar)
+    world.on('kick', setKicked)
+    world.on('disconnect', setDisconnected)
     return () => {
-      world.off('ready', setReady);
-      world.off('player', setPlayer);
-      world.off('ui', setUI);
-      world.off('menu', setMenu);
-      world.off('code', setCode);
-      world.off('apps', setApps);
-      world.off('avatar', setAvatar);
-      world.off('kick', setKicked);
-      world.off('disconnect', setDisconnected);
-    };
-  }, []);
+      world.off('ready', setReady)
+      world.off('player', setPlayer)
+      world.off('ui', setUI)
+      world.off('menu', setMenu)
+      world.off('code', setCode)
+      world.off('apps', setApps)
+      world.off('avatar', setAvatar)
+      world.off('kick', setKicked)
+      world.off('disconnect', setDisconnected)
+    }
+  }, [])
 
   useEffect(() => {
-    const elem = ref.current;
-    if (!elem) {
-      return;
-    }
+    const elem = ref.current
+    if (!elem) return
     const onEvent = (e: any) => {
-      ;(e as any).isCoreUI = true;
-    };
-    elem.addEventListener('wheel', onEvent);
-    elem.addEventListener('click', onEvent);
-    elem.addEventListener('pointerdown', onEvent);
-    elem.addEventListener('pointermove', onEvent);
-    elem.addEventListener('pointerup', onEvent);
-    elem.addEventListener('touchstart', onEvent);
+      (e as any).isCoreUI = true
+    }
+    elem.addEventListener('wheel', onEvent)
+    elem.addEventListener('click', onEvent)
+    elem.addEventListener('pointerdown', onEvent)
+    elem.addEventListener('pointermove', onEvent)
+    elem.addEventListener('pointerup', onEvent)
+    elem.addEventListener('touchstart', onEvent)
     // elem.addEventListener('touchmove', onEvent)
     // elem.addEventListener('touchend', onEvent)
-  }, []);
+  }, [])
   useEffect(() => {
-    document.documentElement.style.fontSize = `${16 * world.prefs.ui}px`;
+    document.documentElement.style.fontSize = `${16 * world.prefs.ui}px`
     function onChange(changes: any) {
       if (changes.ui) {
-        document.documentElement.style.fontSize = `${16 * world.prefs.ui}px`;
+        document.documentElement.style.fontSize = `${16 * world.prefs.ui}px`
       }
     }
-    world.prefs.on('change', onChange);
+    world.prefs.on('change', onChange)
     return () => {
-      world.prefs.off('change', onChange);
-    };
-  }, []);
+      world.prefs.off('change', onChange)
+    }
+  }, [])
   return (
     <div
       ref={ref}
-      className="coreui"
+      className='coreui'
       style={{
         position: 'absolute',
         inset: '0',
-        overflow: 'hidden',
+        overflow: 'hidden'
       }}
     >
       {disconnected && <Disconnected />}
@@ -105,9 +103,9 @@ export function CoreUI({ world }: { world: any }) {
       {!ready && <LoadingOverlay world={world} />}
       {kicked && <KickedOverlay code={kicked} />}
       {ready && isTouch && <TouchBtns world={world} />}
-      <div id="core-ui-portal" />
+      <div id='core-ui-portal' />
     </div>
-  );
+  )
 }
 
 // function Side({ world, menu }) {
@@ -312,7 +310,7 @@ export function CoreUI({ world }: { world: any }) {
 //                 send(e)
 //               }
 //             }}
-//             onBlur={_e => {
+//             onBlur={e => {
 //               if (!isTouch) {
 //                 setChat(false)
 //               }
@@ -325,66 +323,62 @@ export function CoreUI({ world }: { world: any }) {
 // }
 
 function Chat({ world }: { world: any }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [msg, setMsg] = useState('');
-  const [active, setActive] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [msg, setMsg] = useState('')
+  const [active, setActive] = useState(false)
   useEffect(() => {
     const onToggle = () => {
-      setActive(!active);
-    };
-    world.on('sidebar-chat-toggle', onToggle);
+      setActive(!active)
+    }
+    world.on('sidebar-chat-toggle', onToggle)
     return () => {
-      world.off('sidebar-chat-toggle', onToggle);
-    };
-  }, []);
+      world.off('sidebar-chat-toggle', onToggle)
+    }
+  }, [])
   useEffect(() => {
-    const control = world.controls.bind({ priority: ControlPriorities.CORE_UI });
+    const control = world.controls.bind({ priority: ControlPriorities.CORE_UI })
     control.slash.onPress = () => {
-      if (!active) {
-        setActive(true);
-      }
-    };
+      if (!active) setActive(true)
+    }
     control.enter.onPress = () => {
-      if (!active) {
-        setActive(true);
-      }
-    };
+      if (!active) setActive(true)
+    }
     control.mouseLeft.onPress = () => {
       if (control.pointer.locked && active) {
-        setActive(false);
+        setActive(false)
       }
-    };
-    return () => control.release();
-  }, [active]);
+    }
+    return () => control.release()
+  }, [active])
   useEffect(() => {
     if (active && inputRef.current) {
-      inputRef.current.focus();
+      inputRef.current.focus()
     } else if (inputRef.current) {
-      inputRef.current.blur();
+      inputRef.current.blur()
     }
-  }, [active]);
+  }, [active])
   const send = async (e: any) => {
     if (world.controls.pointer.locked) {
-      setTimeout(() => setActive(false), 10);
+      setTimeout(() => setActive(false), 10)
     }
     if (!msg) {
-      e.preventDefault();
-      return setActive(false);
+      e.preventDefault()
+      return setActive(false)
     }
-    setMsg('');
+    setMsg('')
     // check for commands
     if (msg.startsWith('/')) {
-      world.chat.command(msg);
-      return;
+      world.chat.command(msg)
+      return
     }
     // otherwise post it
-    world.chat.send(msg);
+    world.chat.send(msg)
     if (isTouch) {
       // setActive(false)
-      e.target.blur();
-      setTimeout(() => setActive(false), 10);
+      e.target.blur()
+      setTimeout(() => setActive(false), 10)
     }
-  };
+  }
   return (
     <div
       className={cls('mainchat', { active })}
@@ -435,117 +429,111 @@ function Chat({ world }: { world: any }) {
           line-height: 1;
         }
       `}</style>
-      <div className="mainchat-msgs">
+      <div className='mainchat-msgs'>
         {isTouch && !active && <MiniMessages world={world} />}
         {(!isTouch || active) && <Messages world={world} active={active} />}
       </div>
       <div
-        className="mainchat-btn"
+        className='mainchat-btn'
         onClick={() => {
-          setActive(true);
+          setActive(true)
         }}
       >
-        <MessageSquareIcon size="1.125rem" />
+        <MessageSquareIcon size='1.125rem' />
       </div>
-      <label className="mainchat-entry">
+      <label className='mainchat-entry'>
         <input
           ref={inputRef}
-          className="side-chatbox-input"
-          type="text"
-          placeholder="Say something..."
+          className='side-chatbox-input'
+          type='text'
+          placeholder='Say something...'
           value={msg}
           onChange={e => setMsg(e.target.value)}
           onKeyDown={e => {
             if (e.code === 'Escape') {
-              setActive(false);
+              setActive(false)
             }
             // meta quest 3 isn't spec complaint and instead has e.code = '' and e.key = 'Enter'
             // spec says e.code should be a key code and e.key should be the text output of the key eg 'b', 'B', and '\n'
             if (e.code === 'Enter' || e.key === 'Enter') {
-              send(e);
+              send(e)
             }
           }}
-          onBlur={_e => {
+          onBlur={e => {
             if (!isTouch) {
-              setActive(false);
+              setActive(false)
             }
           }}
         />
       </label>
     </div>
-  );
+  )
 }
 
 function MiniMessages({ world }: { world: any }) {
-  const [msg, setMsg] = useState<any>(null);
+  const [msg, setMsg] = useState<any>(null)
   useEffect(() => {
-    let init: boolean;
+    let init: boolean
     return world.chat.subscribe((msgs: any[]) => {
       if (!init) {
-        init = true;
-        return; // skip first
+        init = true
+        return // skip first
       }
-      const msg = msgs[msgs.length - 1];
-      if (msg.fromId === world.network.id) {
-        return;
-      }
-      setMsg(msg);
-    });
-  }, []);
-  if (!msg) {
-    return null;
-  }
+      const msg = msgs[msgs.length - 1]
+      if (msg.fromId === world.network.id) return
+      setMsg(msg)
+    })
+  }, [])
+  if (!msg) return null
   return (
-    <div className="minimessages">
+    <div className='minimessages'>
       <Message msg={msg} />
     </div>
-  );
+  )
 }
 
-const _MESSAGES_REFRESH_RATE = 30; // every x seconds
+const MESSAGES_REFRESH_RATE = 30 // every x seconds
 
 function Messages({ world, active }: { world: any; active: boolean }) {
-  const initRef = useRef<boolean>(false);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const spacerRef = useRef<HTMLDivElement | null>(null);
+  const initRef = useRef<boolean>(false)
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const spacerRef = useRef<HTMLDivElement | null>(null)
   // const [now, setNow] = useState(() => moment())
-  const [msgs, setMsgs] = useState<any[]>([]);
+  const [msgs, setMsgs] = useState<any[]>([])
   useEffect(() => {
-    return world.chat.subscribe(setMsgs);
-  }, []);
+    return world.chat.subscribe(setMsgs)
+  }, [])
   // useEffect(() => {
-  //   const interval = setInterval(() => setNow(moment()), _MESSAGES_REFRESH_RATE * 1000)
+  //   const interval = setInterval(() => setNow(moment()), MESSAGES_REFRESH_RATE * 1000)
   //   return () => clearInterval(interval)
   // }, [])
   useEffect(() => {
     setTimeout(() => {
-      const didInit = initRef.current;
-      initRef.current = true;
+      const didInit = initRef.current
+      initRef.current = true
       contentRef.current?.scroll({
         top: 9999999,
         behavior: (didInit ? 'instant' : 'smooth') as ScrollBehavior,
-      });
-    }, 10);
-  }, [msgs]);
+      })
+    }, 10)
+  }, [msgs])
   useEffect(() => {
-    const content = contentRef.current;
-    if (!content) {
-      return;
-    }
+    const content = contentRef.current
+    if (!content) return
     const observer = new MutationObserver(() => {
       if (spacerRef.current && contentRef.current) {
-        spacerRef.current.style.height = `${contentRef.current.offsetHeight}px`;
+        spacerRef.current.style.height = contentRef.current.offsetHeight + 'px'
       }
       contentRef.current?.scroll({
         top: 9999999,
         behavior: 'instant' as ScrollBehavior,
-      });
-    });
-    observer.observe(content, { childList: true });
+      })
+    })
+    observer.observe(content, { childList: true })
     return () => {
-      observer.disconnect();
-    };
-  }, []);
+      observer.disconnect()
+    }
+  }, [])
   return (
     <div
       ref={contentRef}
@@ -568,12 +556,12 @@ function Messages({ world, active }: { world: any; active: boolean }) {
           flex-shrink: 0;
         }
       `}</style>
-      <div className="messages-spacer" ref={spacerRef} />
+      <div className='messages-spacer' ref={spacerRef} />
       {msgs.map(msg => (
         <Message key={msg.id} msg={msg} />
       ))}
     </div>
-  );
+  )
 }
 
 function Message({ msg }: { msg: any }) {
@@ -593,7 +581,7 @@ function Message({ msg }: { msg: any }) {
   // }, [now])
   return (
     <div
-      className="message"
+      className='message'
       style={{
         padding: '0.25rem 0',
         lineHeight: 1.4,
@@ -607,11 +595,11 @@ function Message({ msg }: { msg: any }) {
           margin-right: 0.25rem;
         }
       `}</style>
-      {msg.from && <span className="message-from">[{msg.from}]</span>}
-      <span className="message-body">{msg.body}</span>
+      {msg.from && <span className='message-from'>[{msg.from}]</span>}
+      <span className='message-body'>{msg.body}</span>
       {/* <span>{timeAgo}</span> */}
     </div>
-  );
+  )
 }
 
 function Disconnected() {
@@ -675,27 +663,27 @@ function Disconnected() {
         <span>Reconnect</span>
       </div>
     </>
-  );
+  )
 }
 
 function LoadingOverlay({ world }: { world: any }) {
-  const [progress, setProgress] = useState(0);
-  const { title, desc, image } = world.settings;
+  const [progress, setProgress] = useState(0)
+  const { title, desc, image } = world.settings
   useEffect(() => {
-    console.log('[LoadingOverlay] Mounted, listening for progress events');
+    console.log('[LoadingOverlay] Mounted, listening for progress events')
     const handleProgress = (value: number) => {
-      console.log('[LoadingOverlay] Progress update:', value);
-      setProgress(value);
-    };
-    world.on('progress', handleProgress);
+      console.log('[LoadingOverlay] Progress update:', value)
+      setProgress(value)
+    }
+    world.on('progress', handleProgress)
     return () => {
-      console.log('[LoadingOverlay] Unmounted');
-      world.off('progress', handleProgress);
-    };
-  }, []);
+      console.log('[LoadingOverlay] Unmounted')
+      world.off('progress', handleProgress)
+    }
+  }, [])
   useEffect(() => {
-    console.log('[LoadingOverlay] Progress changed to:', progress);
-  }, [progress]);
+    console.log('[LoadingOverlay] Progress changed to:', progress)
+  }, [progress])
   return (
     <div
       style={{
@@ -768,24 +756,24 @@ function LoadingOverlay({ world }: { world: any }) {
           transition: width 0.2s ease-out;
         }
       `}</style>
-      <div className="loading-image" />
-      <div className="loading-shade" />
-      <div className="loading-info">
-        {title && <div className="loading-title">{title}</div>}
-        {desc && <div className="loading-desc">{desc}</div>}
-        <div className="loading-track">
-          <div className="loading-bar" />
+      <div className='loading-image' />
+      <div className='loading-shade' />
+      <div className='loading-info'>
+        {title && <div className='loading-title'>{title}</div>}
+        {desc && <div className='loading-desc'>{desc}</div>}
+        <div className='loading-track'>
+          <div className='loading-bar' />
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 const kickMessages: Record<string, string> = {
   duplicate_user: 'Player already active on another device or window.',
   player_limit: 'Player limit reached.',
   unknown: 'You were kicked.',
-};
+}
 function KickedOverlay({ code }: { code: string }) {
   return (
     <div
@@ -814,28 +802,22 @@ function KickedOverlay({ code }: { code: string }) {
       `}</style>
       <div className="kicked-overlay">{kickMessages[code] || kickMessages.unknown}</div>
     </div>
-  );
+  )
 }
 
 function ActionsBlock({ world }: { world: any }) {
-  const [showActions, setShowActions] = useState(() => world.prefs.actions);
+  const [showActions, setShowActions] = useState(() => world.prefs.actions)
   useEffect(() => {
     const onPrefsChange = (changes: any) => {
-      if (changes.actions) {
-        setShowActions(changes.actions.value);
-      }
-    };
-    world.prefs.on('change', onPrefsChange);
+      if (changes.actions) setShowActions(changes.actions.value)
+    }
+    world.prefs.on('change', onPrefsChange)
     return () => {
-      world.prefs.off('change', onPrefsChange);
-    };
-  }, []);
-  if (isTouch) {
-    return null;
-  }
-  if (!showActions) {
-    return null;
-  }
+      world.prefs.off('change', onPrefsChange)
+    }
+  }, [])
+  if (isTouch) return null
+  if (!showActions) return null
   return (
     <div
       className="actions-block"
@@ -860,18 +842,18 @@ function ActionsBlock({ world }: { world: any }) {
       `}</style>
       <Actions world={world} />
     </div>
-  );
+  )
 }
 
 function Actions({ world }: { world: any }) {
-  const [actions, setActions] = useState(() => world.controls.actions);
+  const [actions, setActions] = useState(() => world.controls.actions)
   useEffect(() => {
-    world.on('actions', setActions);
-    return () => world.off('actions', setActions);
-  }, []);
+    world.on('actions', setActions)
+    return () => world.off('actions', setActions)
+  }, [])
   return (
     <div
-      className="actions"
+      className='actions'
       style={{
         flex: 1,
         display: 'flex',
@@ -892,41 +874,41 @@ function Actions({ world }: { world: any }) {
         }
       `}</style>
       {actions.map((action: any) => (
-        <div className="actions-item" key={action.id}>
-          <div className="actions-item-icon">{getActionIcon(action)}</div>
-          <div className="actions-item-label">{action.label}</div>
+        <div className='actions-item' key={action.id}>
+          <div className='actions-item-icon'>{getActionIcon(action)}</div>
+          <div className='actions-item-label'>{action.label}</div>
         </div>
       ))}
     </div>
-  );
+  )
 }
 
 function getActionIcon(action: any) {
   if (action.type === 'custom') {
-    return <ActionPill label={action.btn} />;
+    return <ActionPill label={action.btn} />
   }
   if (action.type === 'controlLeft') {
-    return <ActionPill label="Ctrl" />;
+    return <ActionPill label='Ctrl' />
   }
   if (action.type === 'mouseLeft') {
-    return <ActionIcon icon={MouseLeftIcon} />;
+    return <ActionIcon icon={MouseLeftIcon} />
   }
   if (action.type === 'mouseRight') {
-    return <ActionIcon icon={MouseRightIcon} />;
+    return <ActionIcon icon={MouseRightIcon} />
   }
   if (action.type === 'mouseWheel') {
-    return <ActionIcon icon={MouseWheelIcon} />;
+    return <ActionIcon icon={MouseWheelIcon} />
   }
   if (buttons.has(action.type)) {
-    return <ActionPill label={propToLabel[action.type]} />;
+    return <ActionPill label={propToLabel[action.type]} />
   }
-  return <ActionPill label="?" />;
+  return <ActionPill label='?' />
 }
 
 function ActionPill({ label }: { label: string }) {
   return (
     <div
-      className="actionpill"
+      className='actionpill'
       style={{
         border: '0.0625rem solid white',
         borderRadius: '0.25rem',
@@ -940,14 +922,14 @@ function ActionPill({ label }: { label: string }) {
     >
       {label}
     </div>
-  );
+  )
 }
 
 function ActionIcon({ icon }: { icon: any }) {
   const Icon = icon;
   return (
     <div
-      className="actionicon"
+      className='actionicon'
       style={{
         lineHeight: 0,
       }}
@@ -957,28 +939,26 @@ function ActionIcon({ icon }: { icon: any }) {
           filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
         }
       `}</style>
-      <Icon size="1.5rem" />
+      <Icon size='1.5rem' />
     </div>
-  );
+  )
 }
 
 function Reticle({ world }: { world: any }) {
-  const [visible, setVisible] = useState(world.controls.pointer.locked);
-  const [buildMode, setBuildMode] = useState(world.builder.enabled);
+  const [visible, setVisible] = useState(world.controls.pointer.locked)
+  const [buildMode, setBuildMode] = useState(world.builder.enabled)
   useEffect(() => {
-    world.on('pointer-lock', setVisible);
-    world.on('build-mode', setBuildMode);
+    world.on('pointer-lock', setVisible)
+    world.on('build-mode', setBuildMode)
     return () => {
-      world.off('pointer-lock', setVisible);
-      world.off('build-mode', setBuildMode);
-    };
-  }, []);
-  if (!visible) {
-    return null;
-  }
+      world.off('pointer-lock', setVisible)
+      world.off('build-mode', setBuildMode)
+    }
+  }, [])
+  if (!visible) return null
   return (
     <div
-      className="reticle"
+      className='reticle'
       style={{
         position: 'absolute',
         inset: 0,
@@ -988,36 +968,31 @@ function Reticle({ world }: { world: any }) {
         fontSize: '1rem',
       }}
     >
-      <div
-        className="reticle-item"
-        style={{
-          width: '1.25rem',
-          height: '1.25rem',
-          borderRadius: '0.625rem',
-          border: `0.125rem solid ${buildMode ? '#ff4d4d' : 'white'}`,
-          mixBlendMode: buildMode ? 'normal' : 'difference',
-        }}
-      />
+      <div className='reticle-item' style={{
+        width: '1.25rem',
+        height: '1.25rem',
+        borderRadius: '0.625rem',
+        border: `0.125rem solid ${buildMode ? '#ff4d4d' : 'white'}`,
+        mixBlendMode: buildMode ? 'normal' : 'difference',
+      }} />
     </div>
-  );
+  )
 }
 
 function Toast({ world }: { world: any }) {
-  const [msg, setMsg] = useState<{ text: string; id: number } | null>(null);
+  const [msg, setMsg] = useState<{ text: string; id: number } | null>(null)
   useEffect(() => {
-    let ids = 0;
+    let ids = 0
     const onToast = (text: string) => {
-      setMsg({ text, id: ++ids });
-    };
-    world.on('toast', onToast);
-    return () => world.off('toast', onToast);
-  }, []);
-  if (!msg) {
-    return null;
-  }
+      setMsg({ text, id: ++ids })
+    }
+    world.on('toast', onToast)
+    return () => world.off('toast', onToast)
+  }, [])
+  if (!msg) return null
   return (
     <div
-      className="toast"
+      className='toast'
       style={{
         position: 'absolute',
         top: 'calc(50% - 4.375rem)',
@@ -1060,29 +1035,29 @@ function Toast({ world }: { world: any }) {
       `}</style>
       {msg && <ToastMsg key={msg.id} text={msg.text} />}
     </div>
-  );
+  )
 }
 
 function ToastMsg({ text }: { text: string }) {
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(true)
   useEffect(() => {
-    setTimeout(() => setVisible(false), 1000);
-  }, []);
-  return <div className={cls('toast-msg', { visible })}>{text}</div>;
+    setTimeout(() => setVisible(false), 1000)
+  }, [])
+  return <div className={cls('toast-msg', { visible })}>{text}</div>
 }
 
 function TouchBtns({ world }: { world: any }) {
-  const [isAction, setIsAction] = useState(() => world.prefs.touchAction);
+  const [isAction, setIsAction] = useState(() => world.prefs.touchAction)
   useEffect(() => {
     function onChange(isAction: boolean) {
-      setIsAction(isAction);
+      setIsAction(isAction)
     }
-    world.prefs.on('touchAction', onChange);
-    return () => world.prefs.off('touchAction', onChange);
-  }, []);
+    world.prefs.on('touchAction', onChange)
+    return () => world.prefs.off('touchAction', onChange)
+  }, [])
   return (
     <div
-      className="touchbtns"
+      className='touchbtns'
       style={{
         position: 'absolute',
         bottom: 'calc(1rem + env(safe-area-inset-bottom))',
@@ -1118,22 +1093,22 @@ function TouchBtns({ world }: { world: any }) {
       `}</style>
       {isAction && (
         <div
-          className="touchbtns-btn action"
+          className='touchbtns-btn action'
           onClick={() => {
-            world.controls.action.onPress();
+            world.controls.action.onPress()
           }}
         >
           <HandIcon size={24} />
         </div>
       )}
       <div
-        className="touchbtns-btn"
+        className='touchbtns-btn'
         onClick={() => {
-          world.controls.jump.onPress();
+          world.controls.jump.onPress()
         }}
       >
         <ChevronDoubleUpIcon size={24} />
       </div>
     </div>
-  );
+  )
 }

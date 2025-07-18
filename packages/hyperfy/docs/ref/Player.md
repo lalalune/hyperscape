@@ -36,7 +36,7 @@ The players rotation in the world.
 
 ### `.teleport(position, rotationY)`
 
-Teleports the player instantly to the new position. The `rotationY` value is in radians, and if omitted the player will continue facing their current direction.
+Teleports the player instantly to the new position. The `rotationY` value is in radians, and if omitted the player will continue facing their current direction.    
 
 ### `.getBoneTransform(boneName)`: Matrix4
 
@@ -79,3 +79,4 @@ All options are optional.
 Can only be called on a local player.
 
 Prompts the player to share their screen, and then casts it to all video nodes that have a matching `.screenId` property.
+

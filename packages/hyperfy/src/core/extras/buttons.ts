@@ -70,7 +70,7 @@ export const buttons = new Set([
   'mouseLeft',
   'mouseRight',
   'metaLeft',
-]);
+])
 
 export const codeToProp = {
   KeyA: 'keyA',
@@ -144,7 +144,7 @@ export const codeToProp = {
   MouseLeft: 'mouseLeft',
   MouseRight: 'mouseRight',
   MetaLeft: 'metaLeft',
-};
+}
 
 export const propToCode = {
   keyA: 'KeyA',
@@ -218,7 +218,7 @@ export const propToCode = {
   mouseLeft: 'MouseLeft',
   mouseRight: 'MouseRight',
   metaLeft: 'MetaLeft',
-};
+}
 
 export const propToLabel = {
   keyA: 'A',
@@ -292,4 +292,4 @@ export const propToLabel = {
   mouseLeft: 'LMB',
   mouseRight: 'RMB',
   metaLeft: 'Cmd',
-};
+}

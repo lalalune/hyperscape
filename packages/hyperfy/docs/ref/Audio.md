@@ -70,7 +70,7 @@ Inherits all [Node](/docs/ref/Node.md) properties
 
 ### `.play()`
 
-Plays the audio.
+Plays the audio. 
 
 NOTE: If no click gesture has ever happened within the world, playback won't begin until it has.
 

@@ -19,7 +19,6 @@ docker build -t hyperfydemo . && docker run -d -p 3000:3000 \
 ```
 
 This command:
-
 - Builds the Docker image tagged as 'hyperfydemo'
 - Mounts local src/, world/ directories and .env file into the container
 - Exposes port 3000

@@ -1,46 +1,40 @@
-import { THREE } from './three';
-import { Layers } from './Layers';
+import * as THREE from './three'
+import { Layers } from './Layers'
 
 // Global PHYSX declaration
 declare const PHYSX: any;
 
-const BACKWARD = new THREE.Vector3(0, 0, 1);
+const BACKWARD = new THREE.Vector3(0, 0, 1)
 
-const v1 = new THREE.Vector3();
-const v2 = new THREE.Vector3();
+const v1 = new THREE.Vector3()
+const v2= new THREE.Vector3()
 
-let sweepGeometry: any;
+let sweepGeometry: any
 
-const smoothing = 20;
+const smoothing = 20
 
 interface CameraTarget {
-  position: any
-  quaternion: any
-  zoom: number
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  zoom: number;
 }
 
 interface Camera {
-  position: any
-  quaternion: any
-  zoom: number
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  zoom: number;
 }
 
 interface World {
   physics: {
-    sweep: (
-      geometry: any,
-      origin: any,
-      direction: any,
-      distance: number,
-      layerMask: number
-    ) => { distance: number } | null
-  }
+    sweep: (geometry: any, origin: THREE.Vector3, direction: THREE.Vector3, distance: number, layerMask: number) => { distance: number } | null;
+  };
 }
 
-export function simpleCamLerp(world: World, camera: Camera, target: CameraTarget, _delta: number) {
+export function simpleCamLerp(world: World, camera: Camera, target: CameraTarget, delta: number) {
   // interpolate camera rotation
-  const alpha = 1.0 - Math.exp(-smoothing * _delta);
-  camera.quaternion.slerp(target.quaternion, alpha);
+  const alpha = 1.0 - Math.exp(-smoothing * delta)
+  camera.quaternion.slerp(target.quaternion, alpha)
 
   // interpolate camera position
   // camera.position.lerp(target.position, alpha)
@@ -52,24 +46,22 @@ export function simpleCamLerp(world: World, camera: Camera, target: CameraTarget
   // }
 
   // EXPERIMENTAL: snap camera position instead
-  camera.position = v2.copy(target.position);
+  camera.position = v2.copy(target.position)
 
   // raycast backward to check for zoom collision
-  if (!sweepGeometry) {
-    sweepGeometry = new PHYSX.PxSphereGeometry(0.2);
-  }
-  const origin = camera.position;
-  const direction = v1.copy(BACKWARD).applyQuaternion(camera.quaternion);
-  const layerMask = (Layers as any).camera.mask; // hit everything the camera should hit
-  const hit = world.physics.sweep(sweepGeometry, origin, direction, 200, layerMask);
+  if (!sweepGeometry) sweepGeometry = new PHYSX.PxSphereGeometry(0.2)
+  const origin = camera.position
+  const direction = v1.copy(BACKWARD).applyQuaternion(camera.quaternion)
+  const layerMask = (Layers as any).camera.mask // hit everything the camera should hit
+  const hit = world.physics.sweep(sweepGeometry, origin, direction, 200, layerMask)
 
   // lerp to target zoom distance
-  const distance = target.zoom;
+  let distance = target.zoom
   // but if we hit something snap it in so we don't end up in the wall
   if (hit && hit.distance < distance) {
-    camera.zoom = hit.distance;
+    camera.zoom = hit.distance
   } else {
-    const alpha = 6 * _delta;
-    camera.zoom += (distance - camera.zoom) * alpha; // regular lerp
+    const alpha = 6 * delta
+    camera.zoom += (distance - camera.zoom) * alpha // regular lerp
   }
 }

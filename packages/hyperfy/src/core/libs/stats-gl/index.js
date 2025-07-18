@@ -158,10 +158,10 @@ class Stats {
       panel.canvas.style.display = 'block'
       if (this.horizontal) {
         panel.canvas.style.top = '0px'
-        panel.canvas.style.left = `${(offset * panel.WIDTH) / panel.PR}px`
+        panel.canvas.style.left = (offset * panel.WIDTH) / panel.PR + 'px'
       } else {
         panel.canvas.style.left = '0px'
-        panel.canvas.style.top = `${(offset * panel.HEIGHT) / panel.PR}px`
+        panel.canvas.style.top = (offset * panel.HEIGHT) / panel.PR + 'px'
       }
     }
   }
@@ -246,9 +246,7 @@ class Stats {
       this.beginProfiling('cpu-started')
     }
 
-    if (!this.gl || !this.ext) {
-      return
-    }
+    if (!this.gl || !this.ext) return
 
     if (this.gl && this.ext) {
       if (this.activeQuery) {
@@ -276,9 +274,7 @@ class Stats {
   }
 
   processGpuQueries() {
-    if (!this.gl || !this.ext) {
-      return
-    }
+    if (!this.gl || !this.ext) return
 
     this.totalGpuDuration = 0
 

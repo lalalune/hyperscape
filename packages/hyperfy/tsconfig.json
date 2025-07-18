@@ -1,57 +1,63 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    // Hyperfy-specific overrides
-    "baseUrl": ".",
-    "paths": {
-      "*": ["src/types/*"],
-      "@/*": ["src/*"],
-      "@client/*": ["src/client/*"],
-      "@core/*": ["src/core/*"],
-      "@types/*": ["src/types/*"]
-    },
+    // Language and Environment
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "target": "ES2022",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
+    "moduleResolution": "node",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    
+    // Type Checking
+    "strict": true,
+    
+    // Modules
+    "baseUrl": ".",
+    "paths": {
+      "*": ["src/types/*"]
+    },
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    
+    // Emit
     "declaration": true,
     "declarationMap": true,
+    "sourceMap": true,
     "outDir": "./build",
     "removeComments": false,
     "importHelpers": true,
     "downlevelIteration": true,
+    
+    // JavaScript Support
     "allowJs": true,
     "checkJs": false,
+
     "noImplicitAny": false,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": false,
-    "resolveJsonModule": true,
+    
+    // Interop Constraints
     "isolatedModules": true,
-    "types": ["node", "three", "vite/client"],
-    "typeRoots": ["./node_modules/@types", "../../node_modules/@types", "./src/types"]
+    "forceConsistentCasingInFileNames": true,
+    
+    // Skip Lib Check - needed due to conflicting types from parent directories
+    "skipLibCheck": true,
+    
+    // Advanced
+    "types": ["node", "vitest/globals"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
   "include": [
-    "src/**/*", 
-    "src/types/**/*.d.ts", 
-    "src/__tests__/**/*.ts",
-    "src/__tests__/**/*.d.ts",
-    "src/__tests__/types/**/*.d.ts",
-    "globals.d.ts"
+    "src/**/*",
+    "src/types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
+    "dist",
     "build",
-    "dist"
   ],
   "ts-node": {
     "esm": true,
     "experimentalSpecifierResolution": "node"
   }
-}
+} 

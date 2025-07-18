@@ -26,7 +26,7 @@ Inherits all [Node](/docs/ref/Node.md) properties
 
 ### `.play({ name: String, fade: Number, loop: Boolean, speed: Number })`
 
-Plays an animation.
+Plays an animation. 
 If a previous animation was playing it will stop/fade.
 
 **name**: The name of the animation to play

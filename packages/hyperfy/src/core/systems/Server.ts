@@ -1,6 +1,6 @@
-import { System } from './System';
+import { System } from './System'
 
-const TICK_RATE = 1 / 30;
+const TICK_RATE = 1 / 30
 
 /**
  * Server System
@@ -10,26 +10,26 @@ const TICK_RATE = 1 / 30;
  *
  */
 export class Server extends System {
-  private timerId: NodeJS.Timeout | null;
-
+  private timerId: NodeJS.Timeout | null
+  
   constructor(world: any) {
-    super(world);
-    this.timerId = null;
+    super(world)
+    this.timerId = null
   }
 
   start() {
-    this.tick();
+    this.tick()
   }
 
   tick = () => {
-    const time = performance.now();
-    this.world.tick(time);
-    this.timerId = setTimeout(this.tick, TICK_RATE * 1000);
-  };
+    const time = performance.now()
+    this.world.tick(time)
+    this.timerId = setTimeout(this.tick, TICK_RATE * 1000)
+  }
 
   destroy() {
     if (this.timerId) {
-      clearTimeout(this.timerId);
+      clearTimeout(this.timerId)
     }
   }
 }

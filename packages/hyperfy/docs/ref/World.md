@@ -53,3 +53,4 @@ Returns a player. If no `playerId` is provided it returns the local player.
 ### `.getPlayers()`: [...Player]
 
 Returns an array of all players.
+

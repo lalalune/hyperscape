@@ -1,0 +1,27 @@
+{
+  "id": "goblin_drops",
+  "name": "Goblin Loot Table",
+  "description": "Drops from goblins",
+  "drops": [
+    {
+      "itemId": 995,
+      "quantity": 5,
+      "weight": 100,
+      "rarity": "common"
+    },
+    {
+      "itemId": 1,
+      "quantity": 1,
+      "weight": 5,
+      "rarity": "rare"
+    },
+    {
+      "itemId": 14,
+      "quantity": 1,
+      "weight": 3,
+      "rarity": "rare"
+    }
+  ],
+  "rareDropTable": false,
+  "maxDrops": 2
+}

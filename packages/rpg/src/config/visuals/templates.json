@@ -1,0 +1,159 @@
+{
+  "items": {
+    "sword": {
+      "color": 16729156,
+      "size": { "width": 0.15, "height": 1.2, "depth": 0.1 },
+      "animations": ["swing_down", "idle"],
+      "material": { "metalness": 0.8, "roughness": 0.2 }
+    },
+    "bow": {
+      "color": 9127187,
+      "size": { "width": 0.2, "height": 1, "depth": 0.1 },
+      "animations": ["draw", "idle"]
+    },
+    "shield": {
+      "color": 8421504,
+      "size": { "width": 0.8, "height": 1, "depth": 0.2 },
+      "animations": ["block", "idle"],
+      "material": { "metalness": 0.9, "roughness": 0.3 }
+    },
+    "hatchet": {
+      "color": 9127187,
+      "size": { "width": 0.3, "height": 0.8, "depth": 0.1 },
+      "animations": ["chop", "idle"],
+      "material": { "metalness": 0.6, "roughness": 0.4 }
+    },
+    "fishing_rod": {
+      "color": 6631201,
+      "size": { "width": 0.1, "height": 1.5, "depth": 0.1 },
+      "animations": ["cast", "idle"]
+    },
+    "tinderbox": {
+      "color": 14596231,
+      "size": { "width": 0.2, "height": 0.1, "depth": 0.3 },
+      "animations": ["spark", "idle"]
+    },
+    "arrows": {
+      "color": 6631201,
+      "size": { "width": 0.05, "height": 0.6, "depth": 0.05 },
+      "animations": ["idle"]
+    },
+    "coin": {
+      "color": 16766720,
+      "size": { "width": 0.3, "height": 0.05, "depth": 0.3 },
+      "animations": ["rotate", "bounce"],
+      "material": { "metalness": 1, "roughness": 0.1 },
+      "geometryType": "cylinder"
+    },
+    "logs": {
+      "color": 9127187,
+      "size": { "width": 0.4, "height": 0.2, "depth": 0.2 },
+      "animations": ["idle"]
+    },
+    "raw_fish": {
+      "color": 8388736,
+      "size": { "width": 0.3, "height": 0.1, "depth": 0.2 },
+      "animations": ["idle"]
+    },
+    "cooked_fish": {
+      "color": 16766720,
+      "size": { "width": 0.3, "height": 0.1, "depth": 0.2 },
+      "animations": ["idle"]
+    }
+  },
+  "npcs": {
+    "goblin": {
+      "color": 2263842,
+      "size": { "width": 0.6, "height": 0.8, "depth": 0.6 },
+      "animations": ["walk", "attack", "die", "idle"]
+    },
+    "bandit": {
+      "color": 6631201,
+      "size": { "width": 0.7, "height": 1.6, "depth": 0.7 },
+      "animations": ["walk", "attack", "die", "idle"]
+    },
+    "barbarian": {
+      "color": 9127187,
+      "size": { "width": 0.8, "height": 1.8, "depth": 0.8 },
+      "animations": ["walk", "attack", "die", "idle"]
+    },
+    "hobgoblin": {
+      "color": 4356961,
+      "size": { "width": 0.8, "height": 1.2, "depth": 0.8 },
+      "animations": ["walk", "attack", "die", "idle"]
+    },
+    "guard": {
+      "color": 8421504,
+      "size": { "width": 0.7, "height": 1.8, "depth": 0.7 },
+      "animations": ["walk", "attack", "die", "idle"]
+    },
+    "dark_warrior": {
+      "color": 1052688,
+      "size": { "width": 0.8, "height": 1.8, "depth": 0.8 },
+      "animations": ["walk", "attack", "die", "idle"]
+    },
+    "black_knight": {
+      "color": 0,
+      "size": { "width": 0.8, "height": 1.9, "depth": 0.8 },
+      "animations": ["walk", "attack", "die", "idle"],
+      "material": { "metalness": 0.9, "roughness": 0.1 }
+    },
+    "ice_warrior": {
+      "color": 11579135,
+      "size": { "width": 0.8, "height": 1.8, "depth": 0.8 },
+      "animations": ["walk", "attack", "die", "idle"],
+      "material": { "opacity": 0.8 }
+    },
+    "dark_ranger": {
+      "color": 3355443,
+      "size": { "width": 0.7, "height": 1.7, "depth": 0.7 },
+      "animations": ["walk", "attack", "die", "idle"]
+    },
+    "general_store_keeper": {
+      "color": 14329120,
+      "size": { "width": 0.7, "height": 1.6, "depth": 0.7 },
+      "animations": ["idle", "gesture"]
+    }
+  },
+  "containers": {
+    "bank_chest": {
+      "color": 16766720,
+      "size": { "width": 1.2, "height": 1, "depth": 1 },
+      "animations": ["open", "close", "shimmer", "idle"],
+      "material": { "metalness": 0.9, "roughness": 0.1 }
+    }
+  },
+  "resources": {
+    "tree": {
+      "color": 2263842,
+      "size": { "width": 0.8, "height": 2.5, "depth": 0.8 },
+      "animations": ["sway", "idle"],
+      "geometryType": "cylinder"
+    },
+    "fishing_spot": {
+      "color": 65535,
+      "size": { "width": 1.5, "height": 0.1, "depth": 1.5 },
+      "animations": ["ripple", "idle"],
+      "material": { "opacity": 0.6 }
+    }
+  },
+  "special": {
+    "player": {
+      "color": 16729411,
+      "size": { "width": 0.6, "height": 1.8, "depth": 0.6 },
+      "animations": ["walk", "run", "attack", "idle"],
+      "material": { "metalness": 0.1, "roughness": 0.8 }
+    },
+    "spawn_point": {
+      "color": 65280,
+      "size": { "width": 0.5, "height": 2, "depth": 0.5 },
+      "animations": ["pulse", "rotate"],
+      "material": { "opacity": 0.5 }
+    },
+    "default": {
+      "color": 8947848,
+      "size": { "width": 0.5, "height": 0.5, "depth": 0.5 },
+      "animations": ["pulse"]
+    }
+  }
+}

@@ -2,61 +2,61 @@ import { isNumber } from 'lodash-es';
 
 import type { Stage as IStage, World } from '../../types/index.js';
 import { LooseOctree } from '../extras/LooseOctree.js';
-import { THREE } from '../extras/three.js';
+import * as THREE from '../extras/three.js';
 import { System } from './System.js';
 
 const vec2 = new THREE.Vector2();
 
 // Type definitions
-interface _StageOptions {
-  viewport?: HTMLElement
+interface StageOptions {
+  viewport?: HTMLElement;
 }
 
 interface InsertOptions {
-  linked?: boolean
-  geometry: THREE.BufferGeometry
-  material: THREE.Material
-  castShadow?: boolean
-  receiveShadow?: boolean
-  node: any // Node type from the node system
-  matrix: THREE.Matrix4
+  linked?: boolean;
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+  node: any; // Node type from the node system
+  matrix: THREE.Matrix4;
 }
 
 interface StageItem {
-  matrix: THREE.Matrix4
-  geometry: THREE.BufferGeometry
-  material: THREE.Material
-  getEntity: () => any
-  node: any
+  matrix: THREE.Matrix4;
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  getEntity: () => any;
+  node: any;
 }
 
 interface StageHandle {
-  material: MaterialProxy
-  move: (matrix: THREE.Matrix4) => void
-  destroy: () => void
+  material: MaterialProxy;
+  move: (matrix: THREE.Matrix4) => void;
+  destroy: () => void;
 }
 
 interface MaterialOptions {
-  raw?: THREE.Material
-  unlit?: boolean
-  color?: string | number
-  metalness?: number
-  roughness?: number
+  raw?: THREE.Material;
+  unlit?: boolean;
+  color?: string | number;
+  metalness?: number;
+  roughness?: number;
 }
 
 interface MaterialProxy {
-  readonly id: string
-  textureX: number
-  textureY: number
-  color: string
-  emissiveIntensity: number
-  fog: boolean
-  readonly _ref?: any
+  readonly id: string;
+  textureX: number;
+  textureY: number;
+  color: string;
+  emissiveIntensity: number;
+  fog: boolean;
+  readonly _ref?: any;
 }
 
 interface MaterialWrapper {
-  raw: THREE.Material
-  proxy: MaterialProxy
+  raw: THREE.Material;
+  proxy: MaterialProxy;
 }
 
 /**
@@ -72,7 +72,7 @@ export class Stage extends System implements IStage {
   scene: THREE.Scene;
   environment: any;
   private models: Map<string, Model>;
-  octree: LooseOctree; // Made public for Model access
+  octree: LooseOctree;  // Made public for Model access
   private defaultMaterial: MaterialWrapper | null = null;
   private raycaster: THREE.Raycaster;
   private raycastHits: any[] = [];
@@ -90,7 +90,6 @@ export class Stage extends System implements IStage {
       size: 10,
     });
     this.raycaster = new THREE.Raycaster();
-    this.raycaster.firstHitOnly = true;
     this.maskNone = new THREE.Layers();
     this.maskNone.enableAll();
   }
@@ -102,7 +101,7 @@ export class Stage extends System implements IStage {
     }
   }
 
-  override update(_delta: number): void {
+  override update(delta: number): void {
     this.models.forEach(model => model.clean());
   }
 
@@ -139,12 +138,12 @@ export class Stage extends System implements IStage {
   private insertLinked(options: InsertOptions): StageHandle {
     const { geometry, material, castShadow = false, receiveShadow = false, node, matrix } = options;
     const id = `${geometry.uuid}/${material.uuid}/${castShadow}/${receiveShadow}`;
-
+    
     if (!this.models.has(id)) {
       const model = new Model(this, geometry, material, castShadow, receiveShadow);
       this.models.set(id, model);
     }
-
+    
     return this.models.get(id)!.create(node, matrix);
   }
 
@@ -152,13 +151,13 @@ export class Stage extends System implements IStage {
     const { geometry, material, castShadow = false, receiveShadow = false, node, matrix } = options;
     const materialWrapper = this.createMaterial({ raw: material });
     const mesh = new THREE.Mesh(geometry, materialWrapper.raw);
-
+    
     mesh.castShadow = castShadow;
     mesh.receiveShadow = receiveShadow;
     mesh.matrixWorld.copy(matrix);
     mesh.matrixAutoUpdate = false;
     mesh.matrixWorldAutoUpdate = false;
-
+    
     const sItem: StageItem = {
       matrix,
       geometry,
@@ -166,10 +165,10 @@ export class Stage extends System implements IStage {
       getEntity: () => node.ctx?.entity,
       node,
     };
-
-    this.scene.add(mesh);
+    
+    this.scene.add(mesh as any);
     this.octree.insert(sItem);
-
+    
     return {
       material: materialWrapper.proxy,
       move: (newMatrix: THREE.Matrix4) => {
@@ -177,7 +176,7 @@ export class Stage extends System implements IStage {
         this.octree.move(sItem);
       },
       destroy: () => {
-        this.scene.remove(mesh);
+        this.scene.remove(mesh as any);
         this.octree.remove(sItem);
       },
     };
@@ -187,10 +186,10 @@ export class Stage extends System implements IStage {
     const self = this;
     const material: any = {};
     let raw: THREE.Material;
-
+    
     if (options.raw) {
-      raw = options.raw.clone()
-      ;(raw as any).onBeforeCompile = (options.raw as any).onBeforeCompile;
+      raw = options.raw.clone();
+      (raw as any).onBeforeCompile = (options.raw as any).onBeforeCompile;
     } else if (options.unlit) {
       raw = new THREE.MeshBasicMaterial({
         color: options.color || 'white',
@@ -202,37 +201,37 @@ export class Stage extends System implements IStage {
         roughness: isNumber(options.roughness) ? options.roughness : 1,
       });
     }
-
-    ;(raw as any).shadowSide = THREE.BackSide; // fix csm shadow banding
+    
+    (raw as any).shadowSide = THREE.BackSide; // fix csm shadow banding
     const textures: THREE.Texture[] = [];
-
+    
     if ((raw as any).map) {
-      ;(raw as any).map = (raw as any).map.clone();
+      (raw as any).map = (raw as any).map.clone();
       textures.push((raw as any).map);
     }
     if ((raw as any).emissiveMap) {
-      ;(raw as any).emissiveMap = (raw as any).emissiveMap.clone();
+      (raw as any).emissiveMap = (raw as any).emissiveMap.clone();
       textures.push((raw as any).emissiveMap);
     }
     if ((raw as any).normalMap) {
-      ;(raw as any).normalMap = (raw as any).normalMap.clone();
+      (raw as any).normalMap = (raw as any).normalMap.clone();
       textures.push((raw as any).normalMap);
     }
     if ((raw as any).bumpMap) {
-      ;(raw as any).bumpMap = (raw as any).bumpMap.clone();
+      (raw as any).bumpMap = (raw as any).bumpMap.clone();
       textures.push((raw as any).bumpMap);
     }
     if ((raw as any).roughnessMap) {
-      ;(raw as any).roughnessMap = (raw as any).roughnessMap.clone();
+      (raw as any).roughnessMap = (raw as any).roughnessMap.clone();
       textures.push((raw as any).roughnessMap);
     }
     if ((raw as any).metalnessMap) {
-      ;(raw as any).metalnessMap = (raw as any).metalnessMap.clone();
+      (raw as any).metalnessMap = (raw as any).metalnessMap.clone();
       textures.push((raw as any).metalnessMap);
     }
-
+    
     this.world.setupMaterial(raw);
-
+    
     const proxy: MaterialProxy = {
       get id() {
         return raw.uuid;
@@ -262,7 +261,7 @@ export class Stage extends System implements IStage {
         if (typeof val !== 'string') {
           throw new Error('[material] color must be a string (e.g. "red", "#ff0000", "rgb(255,0,0)")');
         }
-        ;(raw as any).color.set(val);
+        (raw as any).color.set(val);
         raw.needsUpdate = true;
       },
       get emissiveIntensity() {
@@ -272,68 +271,57 @@ export class Stage extends System implements IStage {
         if (!isNumber(value)) {
           throw new Error('[material] emissiveIntensity not a number');
         }
-        ;(raw as any).emissiveIntensity = value;
+        (raw as any).emissiveIntensity = value;
         raw.needsUpdate = true;
       },
       get fog() {
         return (raw as any).fog ?? true;
       },
       set fog(value: boolean) {
-        ;(raw as any).fog = value;
+        (raw as any).fog = value;
         raw.needsUpdate = true;
       },
       get _ref() {
-        if ((self.world as any)._allowMaterial) {
-          return material;
-        }
+        if ((self.world as any)._allowMaterial) return material;
         return undefined;
       },
     };
-
+    
     material.raw = raw;
     material.proxy = proxy;
     return material as MaterialWrapper;
   }
 
-  raycastPointer(
-    position: { x: number; y: number },
-    layers: THREE.Layers = this.maskNone,
-    min = 0,
-    max = Infinity
-  ): any[] {
-    if (!this.viewport) {
-      throw new Error('no viewport');
-    }
-
+  raycastPointer(position: { x: number; y: number }, layers: THREE.Layers = this.maskNone, min = 0, max = Infinity): any[] {
+    if (!this.viewport) throw new Error('no viewport');
+    
     const rect = this.viewport.getBoundingClientRect();
     vec2.x = ((position.x - rect.left) / rect.width) * 2 - 1;
     vec2.y = -((position.y - rect.top) / rect.height) * 2 + 1;
-
+    
     this.raycaster.setFromCamera(vec2, this.world.camera);
     this.raycaster.layers = layers;
     this.raycaster.near = min;
     this.raycaster.far = max;
     this.raycastHits.length = 0;
     this.octree.raycast(this.raycaster, this.raycastHits);
-
+    
     return this.raycastHits;
   }
 
   raycastReticle(layers: THREE.Layers = this.maskNone, min = 0, max = Infinity): any[] {
-    if (!this.viewport) {
-      throw new Error('no viewport');
-    }
-
+    if (!this.viewport) throw new Error('no viewport');
+    
     vec2.x = 0;
     vec2.y = 0;
-
+    
     this.raycaster.setFromCamera(vec2, this.world.camera);
     this.raycaster.layers = layers;
     this.raycaster.near = min;
     this.raycaster.far = max;
     this.raycastHits.length = 0;
     this.octree.raycast(this.raycaster, this.raycastHits);
-
+    
     return this.raycastHits;
   }
 
@@ -374,13 +362,7 @@ class Model {
   private items: Array<{ idx: number; node: any; matrix: THREE.Matrix4 }> = [];
   private dirty = true;
 
-  constructor(
-    stage: Stage,
-    geometry: THREE.BufferGeometry,
-    material: THREE.Material,
-    castShadow: boolean,
-    receiveShadow: boolean
-  ) {
+  constructor(stage: Stage, geometry: THREE.BufferGeometry, material: THREE.Material, castShadow: boolean, receiveShadow: boolean) {
     this.stage = stage;
     this.geometry = geometry;
     this.material = stage.createMaterial({ raw: material });
@@ -388,7 +370,7 @@ class Model {
     this.receiveShadow = receiveShadow;
 
     if (!(this.geometry as any).boundsTree) {
-      ;(this.geometry as any).computeBoundsTree();
+      (this.geometry as any).computeBoundsTree();
     }
 
     this.iMesh = new THREE.InstancedMesh(this.geometry, this.material.raw, 10);
@@ -396,8 +378,8 @@ class Model {
     this.iMesh.receiveShadow = this.receiveShadow;
     this.iMesh.matrixAutoUpdate = false;
     this.iMesh.matrixWorldAutoUpdate = false;
-    this.iMesh.frustumCulled = false
-    ;(this.iMesh as any).getEntity = this.getEntity.bind(this);
+    this.iMesh.frustumCulled = false;
+    (this.iMesh as any).getEntity = this.getEntity.bind(this);
   }
 
   create(node: any, matrix: THREE.Matrix4): StageHandle {
@@ -406,11 +388,11 @@ class Model {
       node,
       matrix,
     };
-
+    
     this.items.push(item);
     this.iMesh.setMatrixAt(item.idx, item.matrix);
     this.dirty = true;
-
+    
     const sItem: StageItem = {
       matrix,
       geometry: this.geometry,
@@ -418,9 +400,9 @@ class Model {
       getEntity: () => this.items[item.idx]?.node.ctx?.entity,
       node,
     };
-
+    
     this.stage.octree.insert(sItem);
-
+    
     return {
       material: this.material.proxy,
       move: (newMatrix: THREE.Matrix4) => {
@@ -444,7 +426,7 @@ class Model {
     const last = this.items[this.items.length - 1];
     const isOnly = this.items.length === 1;
     const isLast = item === last;
-
+    
     if (isOnly) {
       this.items = [];
       this.dirty = true;
@@ -461,16 +443,14 @@ class Model {
   }
 
   clean(): void {
-    if (!this.dirty) {
-      return;
-    }
-
+    if (!this.dirty) return;
+    
     const size = this.iMesh.instanceMatrix.array.length / 16;
     const count = this.items.length;
-
+    
     if (size < this.items.length) {
-      const newSize = count + 100
-      ;(this.iMesh as any).resize(newSize);
+      const newSize = count + 100;
+      (this.iMesh as any).resize(newSize);
       for (let i = size; i < count; i++) {
         const item = this.items[i];
         if (item) {
@@ -478,19 +458,19 @@ class Model {
         }
       }
     }
-
+    
     this.iMesh.count = count;
-
+    
     if (this.iMesh.parent && !count) {
-      this.stage.scene.remove(this.iMesh);
+      this.stage.scene.remove(this.iMesh as any);
       this.dirty = false;
       return;
     }
-
+    
     if (!this.iMesh.parent && count) {
-      this.stage.scene.add(this.iMesh);
+      this.stage.scene.add(this.iMesh as any);
     }
-
+    
     this.iMesh.instanceMatrix.needsUpdate = true;
     this.dirty = false;
   }
@@ -509,4 +489,4 @@ class Model {
       return position ? position.count / 3 : 0;
     }
   }
-}
+} 

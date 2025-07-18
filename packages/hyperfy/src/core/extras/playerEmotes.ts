@@ -6,6 +6,6 @@ export const Emotes = {
   FALL: 'asset://emote-fall.glb',
   FLIP: 'asset://emote-flip.glb?s=1.5',
   TALK: 'asset://emote-talk.glb',
-};
+}
 
-export const emoteUrls = [Emotes.IDLE, Emotes.WALK, Emotes.RUN, Emotes.FLOAT, Emotes.FALL, Emotes.FLIP, Emotes.TALK];
+export const emoteUrls = [Emotes.IDLE, Emotes.WALK, Emotes.RUN, Emotes.FLOAT, Emotes.FALL, Emotes.FLIP, Emotes.TALK]

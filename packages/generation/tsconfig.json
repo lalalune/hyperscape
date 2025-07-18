@@ -15,8 +15,8 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "types": ["node", "jest"]
+    "types": ["node"]
   },
-  "include": ["src/**/*", "cli/**/*", "viewer/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "include": ["src/**/*", "cli/**/*"],
+  "exclude": ["node_modules", "dist", "tests", "viewer/**/*"]
 } 

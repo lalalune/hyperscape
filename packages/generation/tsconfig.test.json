@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "jest", "@playwright/test"],
+    "outDir": "./dist/tests",
+    "rootDir": "./tests"
+  },
+  "include": ["tests/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

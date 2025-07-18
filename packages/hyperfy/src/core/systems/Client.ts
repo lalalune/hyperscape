@@ -1,10 +1,10 @@
-import { System } from './System';
+import { System } from './System'
 
-import * as THREE from '../extras/three';
-import { initYoga } from '../extras/yoga';
-import type { World } from '../../types';
+import * as THREE from '../extras/three'
+import { initYoga } from '../extras/yoga'
+import type { World } from '../../types'
 
-let worker: Worker | null = null;
+let worker: Worker | null = null
 
 /**
  * Client System
@@ -17,25 +17,26 @@ export class Client extends System {
   constructor(world: World) {
     super(world)
     ;(window as any).world = world
-    ;(window as any).THREE = THREE;
+    ;(window as any).THREE = THREE
   }
 
   async init(options: any): Promise<void> {
-    await options.loadYoga;
-    initYoga();
+    await options.loadYoga
+    initYoga()
   }
 
   start() {
-    ;(this.world as any).graphics?.renderer.setAnimationLoop((this.world as any).tick);
+    ;(this.world as any).graphics?.renderer.setAnimationLoop((this.world as any).tick)
     document.addEventListener('visibilitychange', this.onVisibilityChange)
-    ;(this.world.settings as any).on('change', this.onSettingsChange);
+
+    ;(this.world.settings as any).on('change', this.onSettingsChange)
   }
 
   onSettingsChange = (changes: any) => {
     if (changes.title) {
-      document.title = changes.title.value || 'World';
+      document.title = changes.title.value || 'World'
     }
-  };
+  }
 
   onVisibilityChange = () => {
     // if the tab is no longer active, browsers stop triggering requestAnimationFrame.
@@ -63,31 +64,31 @@ export class Client extends System {
             console.log('[worker] tick stopped')
           }
         }
-      `;
-      const blob = new Blob([script], { type: 'application/javascript' });
-      worker = new Worker(URL.createObjectURL(blob));
+      `
+      const blob = new Blob([script], { type: 'application/javascript' })
+      worker = new Worker(URL.createObjectURL(blob))
       worker.onmessage = () => {
         const time = performance.now()
-        ;(this.world as any).tick(time);
-      };
+        ;(this.world as any).tick(time)
+      }
     }
     if (document.hidden) {
       // stop rAF
-      ;(this.world as any).graphics?.renderer.setAnimationLoop(null);
+      ;(this.world as any).graphics?.renderer.setAnimationLoop(null)
       // tell the worker to start
-      worker.postMessage('start');
+      worker.postMessage('start')
     } else {
       // tell the worker to stop
       worker.postMessage('stop')
       // resume rAF
-      ;(this.world as any).graphics?.renderer.setAnimationLoop((this.world as any).tick);
+      ;(this.world as any).graphics?.renderer.setAnimationLoop((this.world as any).tick)
     }
-  };
+  }
 
   destroy() {
-    ;(this.world as any).graphics?.renderer.setAnimationLoop(null);
-    worker?.postMessage('stop');
-    worker = null;
-    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    ;(this.world as any).graphics?.renderer.setAnimationLoop(null)
+    worker?.postMessage('stop')
+    worker = null
+    document.removeEventListener('visibilitychange', this.onVisibilityChange)
   }
 }

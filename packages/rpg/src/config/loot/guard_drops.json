@@ -1,0 +1,33 @@
+{
+  "id": "guard_drops",
+  "name": "Guard Loot Table",
+  "description": "Drops from guards",
+  "drops": [
+    {
+      "itemId": 995,
+      "quantity": 35,
+      "weight": 100,
+      "rarity": "common"
+    },
+    {
+      "itemId": 2,
+      "quantity": 1,
+      "weight": 20,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 24,
+      "quantity": 1,
+      "weight": 15,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 25,
+      "quantity": 1,
+      "weight": 12,
+      "rarity": "uncommon"
+    }
+  ],
+  "rareDropTable": false,
+  "maxDrops": 2
+}

@@ -24,13 +24,13 @@ for obj in bpy.context.scene.objects:
    if not obj.parent and obj.visible_get():  # Only visible top-level objects
        orig_location = obj.location.copy()
        obj.location = (0, 0, 0)
-
+       
        obj.select_set(True)
        for child in obj.children_recursive:
            child.select_set(True)
-
+       
        bpy.context.view_layer.objects.active = obj
-
+       
        export_path = os.path.join(export_dir, f"{obj.name}.glb")
        bpy.ops.export_scene.gltf(
            filepath=export_path,
@@ -38,7 +38,7 @@ for obj in bpy.context.scene.objects:
            export_format='GLB',
            export_extras=True  # Enables custom properties export
        )
-
+       
        obj.location = orig_location
        bpy.ops.object.select_all(action='DESELECT')
 
@@ -47,4 +47,4 @@ for obj in orig_selected:
 bpy.context.view_layer.objects.active = orig_active
 ```
 
-To use it, go to the scripting tab in blender, click + New, paste it in, and hit the play button to run it.
+To use it, go to the scripting tab in blender, click + New, paste it in, and hit the play button to run it. 

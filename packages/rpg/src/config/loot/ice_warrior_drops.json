@@ -1,0 +1,39 @@
+{
+  "id": "ice_warrior_drops",
+  "name": "Ice Warrior Loot Table",
+  "description": "Drops from ice warriors",
+  "drops": [
+    {
+      "itemId": 995,
+      "quantity": 120,
+      "weight": 100,
+      "rarity": "common"
+    },
+    {
+      "itemId": 3,
+      "quantity": 1,
+      "weight": 18,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 16,
+      "quantity": 1,
+      "weight": 15,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 27,
+      "quantity": 1,
+      "weight": 12,
+      "rarity": "uncommon"
+    },
+    {
+      "itemId": 28,
+      "quantity": 1,
+      "weight": 10,
+      "rarity": "uncommon"
+    }
+  ],
+  "rareDropTable": false,
+  "maxDrops": 2
+}

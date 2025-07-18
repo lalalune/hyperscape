@@ -140,4 +140,160 @@ export function getPolycountForType(type: string): number {
   }
   
   return polycounts[type] || 5000
-} 
+}
+
+/**
+ * Material tier definitions for RPG assets
+ */
+export const MATERIAL_TIERS = {
+  // Weapon/Armor material tiers
+  bronze: {
+    name: 'Bronze',
+    level: 1,
+    description: 'Basic bronze metal with copper-brown coloring',
+    color: '#CD7F32',
+    rarity: 'common',
+    adjectives: ['simple', 'basic', 'crude', 'tarnished']
+  },
+  steel: {
+    name: 'Steel',
+    level: 10,
+    description: 'Strong steel metal with silver-gray finish',
+    color: '#C0C0C0',
+    rarity: 'uncommon',
+    adjectives: ['razor sharp', 'polished', 'reinforced', 'sturdy']
+  },
+  mithril: {
+    name: 'Mithril',
+    level: 20,
+    description: 'Magical silvery-blue metal with glowing properties',
+    color: '#87CEEB',
+    rarity: 'rare',
+    adjectives: ['magical', 'shimmering', 'ethereal', 'enchanted']
+  },
+  
+  // Bow material tiers
+  wood: {
+    name: 'Wood',
+    level: 1,
+    description: 'Simple wooden construction',
+    color: '#8B4513',
+    rarity: 'common',
+    adjectives: ['simple', 'basic', 'crude', 'rough']
+  },
+  oak: {
+    name: 'Oak',
+    level: 10,
+    description: 'Sturdy oak wood with reinforced construction',
+    color: '#D2691E',
+    rarity: 'uncommon',
+    adjectives: ['sturdy', 'reinforced', 'quality', 'durable']
+  },
+  willow: {
+    name: 'Willow',
+    level: 20,
+    description: 'Flexible willow wood with elegant design',
+    color: '#DEB887',
+    rarity: 'rare',
+    adjectives: ['flexible', 'elegant', 'graceful', 'masterwork']
+  },
+  
+  // Armor material tiers
+  leather: {
+    name: 'Leather',
+    level: 1,
+    description: 'Basic leather construction with simple stitching',
+    color: '#8B4513',
+    rarity: 'common',
+    adjectives: ['basic', 'simple', 'crude', 'worn']
+  }
+} as const
+
+/**
+ * Generate material-specific description for items
+ */
+export function generateMaterialDescription(
+  baseDescription: string,
+  materialTier: keyof typeof MATERIAL_TIERS,
+  itemType: 'weapon' | 'armor' | 'tool'
+): string {
+  const tier = MATERIAL_TIERS[materialTier]
+  const adjective = tier.adjectives[Math.floor(Math.random() * tier.adjectives.length)]
+  
+  // Add material-specific details
+  let description = baseDescription
+  
+  // Add material description
+  if (itemType === 'weapon') {
+    description += ` with ${tier.description.toLowerCase()}`
+  } else if (itemType === 'armor') {
+    description += ` made from ${tier.description.toLowerCase()}`
+  } else if (itemType === 'tool') {
+    description += ` crafted from ${tier.description.toLowerCase()}`
+  }
+  
+  // Add special effects for higher tiers
+  if (materialTier === 'mithril') {
+    description += ' and glowing magical runes'
+  } else if (materialTier === 'steel') {
+    description += ' and professional craftsmanship'
+  }
+  
+  return description
+}
+
+/**
+ * Generate tier-based batch for a specific item type
+ */
+export function generateTierBatch(
+  baseItem: {
+    name: string
+    description: string
+    type: string
+    subtype?: string
+    style?: string
+    metadata?: any
+  },
+  materialTiers: (keyof typeof MATERIAL_TIERS)[],
+  itemType: 'weapon' | 'armor' | 'tool'
+) {
+  return materialTiers.map(tier => {
+    const tierInfo = MATERIAL_TIERS[tier]
+    return {
+      ...baseItem,
+      name: `${tierInfo.name} ${baseItem.name}`,
+      description: generateMaterialDescription(baseItem.description, tier, itemType),
+      metadata: {
+        ...baseItem.metadata,
+        tier,
+        level: tierInfo.level,
+        rarity: tierInfo.rarity,
+        color: tierInfo.color
+      }
+    }
+  })
+}
+
+/**
+ * Difficulty level definitions for monsters
+ */
+export const DIFFICULTY_LEVELS = {
+  1: {
+    name: 'Beginner',
+    description: 'Low-level enemies for new players',
+    levelRange: [1, 5],
+    examples: ['Goblin', 'Bandit', 'Barbarian']
+  },
+  2: {
+    name: 'Intermediate', 
+    description: 'Mid-level enemies for experienced players',
+    levelRange: [6, 15],
+    examples: ['Hobgoblin', 'Guard', 'Dark Warrior']
+  },
+  3: {
+    name: 'Advanced',
+    description: 'High-level enemies for skilled players',
+    levelRange: [16, 25],
+    examples: ['Black Knight', 'Ice Warrior', 'Dark Ranger']
+  }
+} as const 

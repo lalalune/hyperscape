@@ -1,6 +1,6 @@
-import { THREE } from '../extras/three';
+import * as THREE from 'three'
 
-import { System } from './System';
+import { System } from './System'
 
 interface WindUniforms {
   time: { value: number }
@@ -13,10 +13,10 @@ interface WindUniforms {
 }
 
 export class Wind extends System {
-  uniforms: WindUniforms;
-
+  uniforms: WindUniforms
+  
   constructor(world: any) {
-    super(world);
+    super(world)
     this.uniforms = {
       time: { value: 0 },
       strength: { value: 1 }, // 3 nice for pine
@@ -25,10 +25,10 @@ export class Wind extends System {
       noiseScale: { value: 1 }, // 0.5 nice for pine
       ampScale: { value: 0.2 },
       freqMultiplier: { value: 1 },
-    };
+    }
   }
 
-  update(_delta: number) {
-    this.uniforms.time.value += _delta;
+  update(delta: number) {
+    this.uniforms.time.value += delta
   }
 }

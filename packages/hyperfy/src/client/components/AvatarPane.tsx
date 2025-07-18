@@ -1,7 +1,7 @@
-import { XIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { XIcon } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
-import { AvatarPreview } from '../AvatarPreview';
+import { AvatarPreview } from '../AvatarPreview'
 
 interface AvatarPaneProps {
   world: any
@@ -14,25 +14,23 @@ interface AvatarPaneProps {
 }
 
 export function AvatarPane({ world, info }: AvatarPaneProps) {
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const previewRef = useRef<AvatarPreview | null>(null);
-  const [_stats, setStats] = useState<any>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const previewRef = useRef<AvatarPreview | null>(null)
+  const [_stats, setStats] = useState<any>(null)
   useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) {
-      return;
-    }
-    const preview = new AvatarPreview(world, viewport);
-    previewRef.current = preview;
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const preview = new AvatarPreview(world, viewport)
+    previewRef.current = preview
     preview.load(info.file, info.url).then(stats => {
-      console.log('stats', stats);
-      setStats(stats);
-    });
-    return () => preview.destroy();
-  }, [world, info.file, info.url]);
+      console.log('stats', stats)
+      setStats(stats)
+    })
+    return () => preview.destroy()
+  }, [world, info.file, info.url])
   return (
     <div
-      className="vpane"
+      className='vpane'
       style={{
         position: 'absolute',
         top: '50%',
@@ -110,24 +108,24 @@ export function AvatarPane({ world, info }: AvatarPaneProps) {
           cursor: pointer;
         }
       `}</style>
-      <div className="vpane-head">
-        <div className="vpane-head-title">Avatar</div>
-        <div className="vpane-head-close" onClick={() => world.emit('avatar', null)}>
+      <div className='vpane-head'>
+        <div className='vpane-head-title'>Avatar</div>
+        <div className='vpane-head-close' onClick={() => world.emit('avatar', null)}>
           <XIcon size={20} />
         </div>
       </div>
-      <div className="vpane-content">
-        <div className="vpane-viewport" ref={viewportRef}>
-          <div className="vpane-actions">
-            <div className="vpane-action" onClick={info.onEquip}>
+      <div className='vpane-content'>
+        <div className='vpane-viewport' ref={viewportRef}>
+          <div className='vpane-actions'>
+            <div className='vpane-action' onClick={info.onEquip}>
               <span>Equip</span>
             </div>
-            <div className="vpane-action" onClick={info.onPlace}>
+            <div className='vpane-action' onClick={info.onPlace}>
               <span>Place</span>
             </div>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

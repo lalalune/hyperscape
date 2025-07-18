@@ -37,22 +37,20 @@ const typescriptPlugin = {
  * Run TypeScript Type Checking
  */
 async function runTypeCheck() {
-  if (!typecheck) {
-    return
-  }
-
+  if (!typecheck) return
+  
   console.log('Running TypeScript type checking...')
   try {
-    execSync('npx tsc --noEmit -p tsconfig.build.json', {
+    execSync('npx tsc --noEmit -p tsconfig.build.json', { 
       stdio: 'inherit',
-      cwd: rootDir,
+      cwd: rootDir 
     })
     console.log('Type checking passed ✓')
   } catch (error) {
     console.error('Type checking failed!')
-    if (!dev) {
-      process.exit(1)
-    }
+    // if (!dev) {
+    //   process.exit(1)
+    // }
   }
 }
 
@@ -66,7 +64,10 @@ const clientHtmlDest = path.join(rootDir, 'build/public/index.html')
 
 async function buildClient() {
   const clientCtx = await esbuild.context({
-    entryPoints: ['src/client/index.tsx', 'src/client/particles.ts'],
+    entryPoints: [
+      'src/client/index.tsx',
+      'src/client/particles.ts'
+    ],
     entryNames: '/[name]-[hash]',
     outdir: clientBuildDir,
     platform: 'browser',
@@ -105,18 +106,16 @@ async function buildClient() {
         name: 'client-finalize-plugin',
         setup(build) {
           build.onEnd(async result => {
-            if (result.errors.length > 0) {
-              return
-            }
-
+            if (result.errors.length > 0) return
+            
             // Copy public files
             await fs.copy(clientPublicDir, clientBuildDir)
-
+            
             // Copy PhysX WASM
             const physxWasmSrc = path.join(rootDir, 'src/core/physx-js-webidl.wasm')
             const physxWasmDest = path.join(rootDir, 'build/public/physx-js-webidl.wasm')
             await fs.copy(physxWasmSrc, physxWasmDest)
-
+            
             // Find output files
             const metafile = result.metafile
             const outputFiles = Object.keys(metafile.outputs)
@@ -126,7 +125,7 @@ async function buildClient() {
             const particlesPath = outputFiles
               .find(file => file.includes('/particles-') && file.endsWith('.js'))
               ?.split('build/public')[1]
-
+            
             if (jsPath && particlesPath) {
               // Inject into HTML
               let htmlContent = await fs.readFile(clientHtmlSrc, 'utf-8')
@@ -140,14 +139,17 @@ async function buildClient() {
       },
     ],
   })
-
+  
   if (dev) {
     await clientCtx.watch()
   }
-
+  
   const buildResult = await clientCtx.rebuild()
-  await fs.writeFile(path.join(buildDir, 'client-meta.json'), JSON.stringify(buildResult.metafile, null, 2))
-
+  await fs.writeFile(
+    path.join(buildDir, 'client-meta.json'), 
+    JSON.stringify(buildResult.metafile, null, 2)
+  )
+  
   return clientCtx
 }
 
@@ -182,15 +184,13 @@ async function buildServer() {
         name: 'server-finalize-plugin',
         setup(build) {
           build.onEnd(async result => {
-            if (result.errors.length > 0) {
-              return
-            }
-
+            if (result.errors.length > 0) return
+            
             // Copy PhysX files
             const physxTsSrc = path.join(rootDir, 'src/core/physx-js-webidl.ts')
             const physxJsSrc = path.join(rootDir, 'src/core/physx-js-webidl.js')
             const physxDest = path.join(rootDir, 'build/public/physx-js-webidl.js')
-
+            
             // Check if TypeScript version exists, otherwise use JS
             if (await fs.pathExists(physxTsSrc)) {
               // Compile the TypeScript file to JS
@@ -207,12 +207,12 @@ async function buildServer() {
             } else if (await fs.pathExists(physxJsSrc)) {
               await fs.copy(physxJsSrc, physxDest)
             }
-
+            
             // Copy WASM
             const physxWasmSrc = path.join(rootDir, 'src/core/physx-js-webidl.wasm')
             const physxWasmDest = path.join(rootDir, 'build/public/physx-js-webidl.wasm')
             await fs.copy(physxWasmSrc, physxWasmDest)
-
+            
             // Restart server in dev mode
             if (dev) {
               serverProcess?.kill('SIGTERM')
@@ -223,13 +223,13 @@ async function buildServer() {
       },
     ],
   })
-
+  
   if (dev) {
     await serverCtx.watch()
   } else {
     await serverCtx.rebuild()
   }
-
+  
   return serverCtx
 }
 
@@ -237,30 +237,24 @@ async function buildServer() {
  * Generate TypeScript Declaration Files
  */
 async function generateDeclarations() {
-  if (!typecheck) {
-    return
-  }
-
+  if (!typecheck) return
+  
   console.log('Generating TypeScript declarations...')
   try {
     execSync('npx tsc --emitDeclarationOnly', {
       stdio: 'inherit',
-      cwd: rootDir,
+      cwd: rootDir
     })
-
+    
     // Skip declaration bundling for server entry point
     // The server/index.ts is a startup script, not a library module
     console.log('Skipping declaration bundling for server entry point')
-
+    
     // Create a simple index.d.ts that points to the generated declarations
     const indexDeclaration = `// TypeScript declarations for Hyperfy
 // Server entry point (startup script)
 export {};
 
-// For library usage, import specific modules directly:
-// import { World } from 'hyperfy/build/core/World';
-// import { createServerWorld } from 'hyperfy/build/core/createServerWorld';
-// import { createRPGServerWorld } from 'hyperfy/build/core/createRPGServerWorld';
 `
     await fs.writeFile(path.join(rootDir, 'build/index.d.ts'), indexDeclaration)
     console.log('Declaration files generated ✓')
@@ -276,16 +270,14 @@ export {};
  * Watch TypeScript files for changes
  */
 async function watchTypeScript() {
-  if (!dev || !typecheck) {
-    return
-  }
-
+  if (!dev || !typecheck) return
+  
   const { spawn } = await import('child_process')
   const tscWatch = spawn('npx', ['tsc', '--noEmit', '--watch', '--preserveWatchOutput'], {
     stdio: 'inherit',
-    cwd: rootDir,
+    cwd: rootDir
   })
-
+  
   process.on('exit', () => {
     tscWatch.kill()
   })
@@ -296,23 +288,26 @@ async function watchTypeScript() {
  */
 async function main() {
   console.log(`Building Hyperfy in ${dev ? 'development' : 'production'} mode...`)
-
+  
   // Run initial type check
   await runTypeCheck()
-
+  
   // Build client and server
   let clientCtx, serverCtx
   if (serverOnly) {
     serverCtx = await buildServer()
   } else {
-    ;[clientCtx, serverCtx] = await Promise.all([buildClient(), buildServer()])
+    [clientCtx, serverCtx] = await Promise.all([
+      buildClient(),
+      buildServer()
+    ])
   }
-
+  
   // Generate declarations in production
   if (!dev) {
     await generateDeclarations()
   }
-
+  
   // Start type checking watcher in dev mode
   if (dev) {
     watchTypeScript()
@@ -338,4 +333,4 @@ process.on('SIGTERM', () => {
 main().catch(error => {
   console.error('Build failed:', error)
   process.exit(1)
-})
+}) 

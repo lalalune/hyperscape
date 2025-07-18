@@ -32,3 +32,11 @@ alwaysApply: true
 - Don't work around problems -- fix the root cause. Don't just write code to avoid something that isn't doing what you want, lets make it work how we want it to
 - Instead of writing new abstractions, deepy research Hyperfy and how we can use the existing code and systems to achieve our goals
 - Always separate data from logic -- DON'T hardcode data or examples into the code. Move it to a JSON if necessary, and don't just make up examples
+
+## VERY IMPORTANT
+
+Don't create new files. Especialy don't create "check-*.ts", "test-*.mjs", "fix-*.js" etc. NO files like that. You can run shell commands, you can change the code and run it, but creating new files adds confusing and bloat. Don't save reports or guides or any markdown files either, OTHER than modifying the README.md when you make a significant feature change that changes the docs.
+
+You VERY rarely need to create new files, if you're creating a new file you might be accidentally recreating a file that exists or causing bloat and should do some research first.
+
+Clean up after yourself. If you do create any test files, delete them when you're done.

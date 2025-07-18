@@ -23,4 +23,4 @@ This is currently the only way to change your name, until the UI for it is built
 
 ### `/chat clear`
 
-Clears all chat messages. Requires admin privledges to use.
+Clears all chat messages. Requires admin privledges to use. 

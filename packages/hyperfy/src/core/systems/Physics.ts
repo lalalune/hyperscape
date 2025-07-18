@@ -1,78 +1,70 @@
 /// <reference path="../../types/physx.d.ts" />
 
-import { THREE } from '../extras/three.js';
+import * as THREE from '../extras/three.js';
 import { extendThreePhysX } from '../extras/extendThreePhysX.js';
 import { System } from './System.js';
 import { Layers } from '../extras/Layers.js';
 import { loadPhysX } from '../loadPhysX.js';
-import type {
-  World,
-  Physics as IPhysics,
-  RigidBody,
-  Collider,
-  PhysicsMaterial,
-  Vector3,
-  Quaternion,
-} from '../../types/index.js';
+import type { World, Physics as IPhysics, RigidBody, Collider, PhysicsMaterial, Vector3, Quaternion } from '../../types/index.js';
 
 // Hit result interfaces
 interface RaycastHit {
-  handle?: PhysicsHandle
-  point: Vector3
-  normal: Vector3
-  distance: number | null
+  handle?: PhysicsHandle;
+  point: THREE.Vector3;
+  normal: THREE.Vector3;
+  distance: number | null;
 }
 
 interface SweepHit {
-  actor: any
-  point: Vector3
-  normal: Vector3
-  distance: number | null
+  actor: any;
+  point: THREE.Vector3;
+  normal: THREE.Vector3;
+  distance: number | null;
 }
 
 interface OverlapHit {
-  actor: any
-  handle: PhysicsHandle | null
+  actor: any;
+  handle: PhysicsHandle | null;
   proxy?: {
-    get tag(): string | null
-    get playerId(): string | null
-  }
+    get tag(): string | null;
+    get playerId(): string | null;
+  };
 }
 
 // Physics handle for tracking actors
 interface PhysicsHandle {
-  actor?: any
-  tag?: string
-  playerId?: string
-  controller?: boolean
-  onInterpolate?: (position: Vector3, quaternion: Quaternion) => void
-  onContactStart?: (event: ContactEvent) => void
-  onContactEnd?: (event: ContactEvent) => void
-  onTriggerEnter?: (event: TriggerEvent) => void
-  onTriggerLeave?: (event: TriggerEvent) => void
-  contactedHandles: Set<PhysicsHandle>
-  triggeredHandles: Set<PhysicsHandle>
+  actor?: any;
+  tag?: string;
+  playerId?: string;
+  controller?: boolean;
+  onInterpolate?: (position: THREE.Vector3, quaternion: THREE.Quaternion) => void;
+  onContactStart?: (event: ContactEvent) => void;
+  onContactEnd?: (event: ContactEvent) => void;
+  onTriggerEnter?: (event: TriggerEvent) => void;
+  onTriggerLeave?: (event: TriggerEvent) => void;
+  contactedHandles: Set<PhysicsHandle>;
+  triggeredHandles: Set<PhysicsHandle>;
   interpolation?: {
-    prev: { position: Vector3; quaternion: Quaternion }
-    next: { position: Vector3; quaternion: Quaternion }
-    curr: { position: Vector3; quaternion: Quaternion }
-    skip?: boolean
-  }
+    prev: { position: THREE.Vector3; quaternion: THREE.Quaternion };
+    next: { position: THREE.Vector3; quaternion: THREE.Quaternion };
+    curr: { position: THREE.Vector3; quaternion: THREE.Quaternion };
+    skip?: boolean;
+  };
 }
 
 interface ContactEvent {
-  tag: string | null
-  playerId: string | null
+  tag: string | null;
+  playerId: string | null;
   contacts?: Array<{
-    position: Vector3
-    normal: Vector3
-    impulse: Vector3
-  }>
+    position: THREE.Vector3;
+    normal: THREE.Vector3;
+    impulse: THREE.Vector3;
+  }>;
 }
 
 interface TriggerEvent {
-  tag: string | null
-  playerId: string | null
+  tag: string | null;
+  playerId: string | null;
 }
 
 // Static hit objects
@@ -270,16 +262,14 @@ export class Physics extends System implements IPhysics {
   private setupScene(): void {
     const contactPoints = new PHYSX.PxArray_PxContactPairPoint(64);
     const simulationEventCallback = new PHYSX.PxSimulationEventCallbackImpl();
-
+    
     // Contact callback
     simulationEventCallback.onContact = (pairHeader: any, pairs: any, count: number) => {
       pairHeader = PHYSX.wrapPointer(pairHeader, PHYSX.PxContactPairHeader);
       const handle0 = this.handles.get(pairHeader.get_actors(0)?.ptr);
       const handle1 = this.handles.get(pairHeader.get_actors(1)?.ptr);
-      if (!handle0 || !handle1) {
-        return;
-      }
-
+      if (!handle0 || !handle1) return;
+      
       for (let i = 0; i < count; i++) {
         const pair = PHYSX.NativeArrayHelpers.prototype.getContactPairAt(pairs, i);
         if (pair.events.isSet(PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND)) {
@@ -345,10 +335,8 @@ export class Physics extends System implements IPhysics {
         }
         const triggerHandle = this.handles.get(pair.triggerShape.getActor().ptr);
         const otherHandle = this.handles.get(pair.otherShape.getActor().ptr);
-        if (!triggerHandle || !otherHandle) {
-          continue;
-        }
-
+        if (!triggerHandle || !otherHandle) continue;
+        
         if (pair.status === PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND) {
           if (!otherHandle.triggeredHandles.has(triggerHandle)) {
             if (triggerHandle.onTriggerEnter) {
@@ -409,9 +397,9 @@ export class Physics extends System implements IPhysics {
     this.controllerManager = PHYSX.PxTopLevelFunctions.prototype.CreateControllerManager(this.scene);
     this.controllerFilters = new PHYSX.PxControllerFilters();
     this.controllerFilters.mFilterData = new PHYSX.PxFilterData(Layers.player!.group, Layers.player!.mask, 0, 0);
-
+    
     const filterCallback = new PHYSX.PxQueryFilterCallbackImpl();
-    filterCallback.simplePreFilter = (filterDataPtr: any, shapePtr: any, _actor: any) => {
+    filterCallback.simplePreFilter = (filterDataPtr: any, shapePtr: any, actor: any) => {
       const filterData = PHYSX.wrapPointer(filterDataPtr, PHYSX.PxFilterData);
       const shape = PHYSX.wrapPointer(shapePtr, PHYSX.PxShape);
       const shapeFilterData = shape.getQueryFilterData();
@@ -421,9 +409,9 @@ export class Physics extends System implements IPhysics {
       return PHYSX.PxQueryHitType.eNONE;
     };
     this.controllerFilters.mFilterCallback = filterCallback;
-
+    
     const cctFilterCallback = new PHYSX.PxControllerFilterCallbackImpl();
-    cctFilterCallback.filter = (_aPtr: any, _bPtr: any) => {
+    cctFilterCallback.filter = (aPtr: any, bPtr: any) => {
       return true; // For now ALL CCTs collide
     };
     this.controllerFilters.mCCTFilterCallback = cctFilterCallback;
@@ -434,9 +422,7 @@ export class Physics extends System implements IPhysics {
     const size = 1000;
     const geometry = new PHYSX.PxBoxGeometry(size / 2, 1 / 2, size / 2);
     const material = this.physics.createMaterial(0.6, 0.6, 0);
-    const flags = new PHYSX.PxShapeFlags(
-      PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
-    );
+    const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE);
     const shape = this.physics.createShape(geometry, material, true, flags);
     const layer = Layers.environment!;
     const filterData = new PHYSX.PxFilterData(layer.group, layer.mask, 0, 0);
@@ -453,7 +439,7 @@ export class Physics extends System implements IPhysics {
     handle.actor = actor;
     handle.contactedHandles = new Set();
     handle.triggeredHandles = new Set();
-
+    
     if (handle.onInterpolate) {
       handle.interpolation = {
         prev: {
@@ -470,26 +456,24 @@ export class Physics extends System implements IPhysics {
         },
       };
       const pose = actor.getGlobalPose();
-      handle.interpolation.prev.position.copy!(pose.p);
-      handle.interpolation.prev.quaternion.copy!(pose.q);
-      handle.interpolation.next.position.copy!(pose.p);
-      handle.interpolation.next.quaternion.copy!(pose.q);
-      handle.interpolation.curr.position.copy!(pose.p);
-      handle.interpolation.curr.quaternion.copy!(pose.q);
+      handle.interpolation.prev.position.copy(pose.p);
+      handle.interpolation.prev.quaternion.copy(pose.q);
+      handle.interpolation.next.position.copy(pose.p);
+      handle.interpolation.next.quaternion.copy(pose.q);
+      handle.interpolation.curr.position.copy(pose.p);
+      handle.interpolation.curr.quaternion.copy(pose.q);
     }
-
+    
     this.handles.set(actor.ptr, handle);
     if (!handle.controller) {
       this.scene.addActor(actor);
     }
-
+    
     return {
       move: (matrix: any) => {
         if (this.ignoreSetGlobalPose) {
           const isDynamic = !actor.getRigidBodyFlags?.().isSet(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC);
-          if (isDynamic) {
-            return;
-          }
+          if (isDynamic) return;
           return;
         }
         // Use the extension method if available, otherwise fall back to manual conversion
@@ -514,12 +498,12 @@ export class Physics extends System implements IPhysics {
       snap: (pose: any) => {
         actor.setGlobalPose(pose);
         if (handle.interpolation) {
-          handle.interpolation.prev.position.copy!(pose.p);
-          handle.interpolation.prev.quaternion.copy!(pose.q);
-          handle.interpolation.next.position.copy!(pose.p);
-          handle.interpolation.next.quaternion.copy!(pose.q);
-          handle.interpolation.curr.position.copy!(pose.p);
-          handle.interpolation.curr.quaternion.copy!(pose.q);
+          handle.interpolation.prev.position.copy(pose.p);
+          handle.interpolation.prev.quaternion.copy(pose.q);
+          handle.interpolation.next.position.copy(pose.p);
+          handle.interpolation.next.quaternion.copy(pose.q);
+          handle.interpolation.curr.position.copy(pose.p);
+          handle.interpolation.curr.quaternion.copy(pose.q);
           handle.interpolation.skip = true;
         }
       },
@@ -566,12 +550,12 @@ export class Physics extends System implements IPhysics {
     }
   }
 
-  override postFixedUpdate(_delta: number): void {
-    this.scene.simulate(_delta);
+  override postFixedUpdate(delta: number): void {
+    this.scene.simulate(delta);
     this.scene.fetchResults(true);
     this.processContactCallbacks();
     this.processTriggerCallbacks();
-
+    
     const activeActors = PHYSX.SupportFunctions.prototype.PxScene_getActiveActors(this.scene);
     const size = activeActors.size();
     for (let i = 0; i < size; i++) {
@@ -581,14 +565,12 @@ export class Physics extends System implements IPhysics {
         continue;
       }
       const lerp = handle.interpolation;
-      if (!lerp) {
-        continue;
-      }
-      lerp.prev.position.copy!(lerp.next.position);
-      lerp.prev.quaternion.copy!(lerp.next.quaternion);
+      if (!lerp) continue;
+      lerp.prev.position.copy(lerp.next.position);
+      lerp.prev.quaternion.copy(lerp.next.quaternion);
       const pose = handle.actor.getGlobalPose();
-      lerp.next.position.copy!(pose.p);
-      lerp.next.quaternion.copy!(pose.q);
+      lerp.next.position.copy(pose.p);
+      lerp.next.quaternion.copy(pose.q);
       this.active.add(handle);
     }
   }
@@ -596,15 +578,13 @@ export class Physics extends System implements IPhysics {
   override preUpdate(alpha: number): void {
     for (const handle of this.active) {
       const lerp = handle.interpolation;
-      if (!lerp) {
-        continue;
-      }
+      if (!lerp) continue;
       if (lerp.skip) {
         lerp.skip = false;
         continue;
       }
-      lerp.curr.position.lerpVectors!(lerp.prev.position, lerp.next.position, alpha);
-      lerp.curr.quaternion.slerpQuaternions!(lerp.prev.quaternion, lerp.next.quaternion, alpha);
+      lerp.curr.position.lerpVectors(lerp.prev.position, lerp.next.position, alpha);
+      lerp.curr.quaternion.slerpQuaternions(lerp.prev.quaternion, lerp.next.quaternion, alpha);
       handle.onInterpolate!(lerp.curr.position, lerp.curr.quaternion);
     }
     // Finalize any physics updates immediately
@@ -615,26 +595,21 @@ export class Physics extends System implements IPhysics {
   }
 
   // Internal raycast method with layer mask support
-  private _raycast(
-    origin: any,
-    direction: any,
-    maxDistance: number = Infinity,
-    layerMask: number = 0xffffffff
-  ): RaycastHit | null {
-    origin.toPxVec3(this._pv1);
-    direction.toPxVec3(this._pv2);
+  private _raycast(origin: any, direction: any, maxDistance: number = Infinity, layerMask: number = 0xFFFFFFFF): RaycastHit | null {
+    origin = origin.toPxVec3(this._pv1);
+    direction = direction.toPxVec3(this._pv2);
     this.queryFilterData.data.word0 = layerMask;
     this.queryFilterData.data.word1 = 0;
-
+    
     const didHit = this.scene.raycast(
-      this._pv1,
-      this._pv2,
+      origin,
+      direction,
       maxDistance,
       this.raycastResult,
       PHYSX.PxHitFlagEnum.eNORMAL,
       this.queryFilterData
     );
-
+    
     if (didHit) {
       const numHits = this.raycastResult.getNbAnyHits();
       let hit: any = null;
@@ -645,8 +620,8 @@ export class Physics extends System implements IPhysics {
         }
       }
       _raycastHit.handle = this.handles.get(hit.actor.ptr);
-      _raycastHit.point.set!(hit.position.x, hit.position.y, hit.position.z);
-      _raycastHit.normal.set!(hit.normal.x, hit.normal.y, hit.normal.z);
+      _raycastHit.point.set(hit.position.x, hit.position.y, hit.position.z);
+      _raycastHit.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
       _raycastHit.distance = hit.distance;
       return _raycastHit;
     }
@@ -655,15 +630,9 @@ export class Physics extends System implements IPhysics {
 
   // Interface-compliant raycast method
   raycast(origin: Vector3, direction: Vector3, maxDistance?: number): import('../../types/index.js').RaycastHit | null {
-    // Convert generic Vector3 objects to Three.js Vector3 objects with toPxVec3 method
-    const threeOrigin = new THREE.Vector3(origin.x, origin.y, origin.z);
-    const threeDirection = new THREE.Vector3(direction.x, direction.y, direction.z);
-
-    const hit = this._raycast(threeOrigin, threeDirection, maxDistance || Infinity);
-    if (!hit) {
-      return null;
-    }
-
+    const hit = this._raycast(origin, direction, maxDistance || Infinity);
+    if (!hit) return null;
+    
     // Convert internal RaycastHit to interface-compliant RaycastHit
     return {
       point: hit.point,
@@ -676,33 +645,25 @@ export class Physics extends System implements IPhysics {
 
   // Extended raycast with layer mask (not in interface)
   raycastWithMask(origin: any, direction: any, maxDistance: number, layerMask: number): RaycastHit | null {
-    // Convert to Three.js Vector3 if needed
-    const threeOrigin = origin.isVector3 ? origin : new THREE.Vector3(origin.x, origin.y, origin.z);
-    const threeDirection = direction.isVector3 ? direction : new THREE.Vector3(direction.x, direction.y, direction.z);
-
-    return this._raycast(threeOrigin, threeDirection, maxDistance, layerMask);
+    return this._raycast(origin, direction, maxDistance, layerMask);
   }
 
   sweep(geometry: any, origin: any, direction: any, maxDistance: number, layerMask: number): SweepHit | null {
-    // Convert to Three.js Vector3 if needed
-    const threeOrigin = origin.isVector3 ? origin : new THREE.Vector3(origin.x, origin.y, origin.z);
-    const threeDirection = direction.isVector3 ? direction : new THREE.Vector3(direction.x, direction.y, direction.z);
-
-    threeOrigin.toPxVec3(this.sweepPose.p);
-    threeDirection.toPxVec3(this._pv2);
+    origin.toPxVec3(this.sweepPose.p);
+    direction = direction.toPxVec3(this._pv2);
     this.queryFilterData.data.word0 = layerMask;
     this.queryFilterData.data.word1 = 0;
-
+    
     const didHit = this.scene.sweep(
       geometry,
       this.sweepPose,
-      this._pv2,
+      direction,
       maxDistance,
       this.sweepResult,
       PHYSX.PxHitFlagEnum.eDEFAULT,
       this.queryFilterData
     );
-
+    
     if (didHit) {
       const numHits = this.sweepResult.getNbAnyHits();
       let hit: any = null;
@@ -713,8 +674,8 @@ export class Physics extends System implements IPhysics {
         }
       }
       _sweepHit.actor = hit.actor;
-      _sweepHit.point.set!(hit.position.x, hit.position.y, hit.position.z);
-      _sweepHit.normal.set!(hit.normal.x, hit.normal.y, hit.normal.z);
+      _sweepHit.point.set(hit.position.x, hit.position.y, hit.position.z);
+      _sweepHit.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
       _sweepHit.distance = hit.distance;
       return _sweepHit;
     }
@@ -722,20 +683,15 @@ export class Physics extends System implements IPhysics {
   }
 
   // Internal overlap sphere method with layer mask support
-  private _overlapSphere(radius: number, origin: any, layerMask: number = 0xffffffff): OverlapHit[] {
-    // Convert to Three.js Vector3 if needed
-    const threeOrigin = origin.isVector3 ? origin : new THREE.Vector3(origin.x, origin.y, origin.z);
-
-    threeOrigin.toPxVec3(this.overlapPose.p);
+  private _overlapSphere(radius: number, origin: any, layerMask: number = 0xFFFFFFFF): OverlapHit[] {
+    origin.toPxVec3(this.overlapPose.p);
     const geometry = getSphereGeometry(radius);
     this.queryFilterData.data.word0 = layerMask;
     this.queryFilterData.data.word1 = 0;
-
+    
     const didHit = this.scene.overlap(geometry, this.overlapPose, this.overlapResult, this.queryFilterData);
-    if (!didHit) {
-      return [];
-    }
-
+    if (!didHit) return [];
+    
     overlapHits.length = 0;
     const numHits = this.overlapResult.getNbAnyHits();
     for (let n = 0; n < numHits; n++) {
@@ -749,7 +705,7 @@ export class Physics extends System implements IPhysics {
   }
 
   // Interface-compliant overlapSphere method
-  overlapSphere(_position: Vector3, _radius: number): Collider[] {
+  overlapSphere(position: Vector3, radius: number): Collider[] {
     // Note: This returns empty array as we don't have Collider objects in this implementation
     // The actual physics implementation uses OverlapHit objects instead
     return [];
@@ -772,11 +728,11 @@ export class Physics extends System implements IPhysics {
   }
 
   // IPhysics interface methods
-  createRigidBody(_type: 'static' | 'dynamic' | 'kinematic', _position?: Vector3, _rotation?: Quaternion): RigidBody {
+  createRigidBody(type: 'static' | 'dynamic' | 'kinematic', position?: Vector3, rotation?: Quaternion): RigidBody {
     throw new Error('Not implemented - use addActor instead');
   }
 
-  createCollider(_geometry: any, _material?: PhysicsMaterial, _isTrigger?: boolean): Collider {
+  createCollider(geometry: any, material?: PhysicsMaterial, isTrigger?: boolean): Collider {
     throw new Error('Not implemented - use PhysX geometry directly');
   }
 
@@ -786,10 +742,10 @@ export class Physics extends System implements IPhysics {
 
   sphereCast(origin: Vector3, radius: number, direction: Vector3, maxDistance?: number, layerMask?: number): any {
     const geometry = getSphereGeometry(radius);
-    return this.sweep(geometry, origin, direction, maxDistance || 1000, layerMask || 0xffffffff);
+    return this.sweep(geometry, origin, direction, maxDistance || 1000, layerMask || 0xFFFFFFFF);
   }
 
-  simulate(_deltaTime: number): void {
+  simulate(deltaTime: number): void {
     // Handled in postFixedUpdate
   }
 }

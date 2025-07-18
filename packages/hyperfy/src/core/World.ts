@@ -1,10 +1,10 @@
-import { THREE } from './extras/three';
+import * as THREE from 'three';
 import EventEmitter from 'eventemitter3';
-import type {
-  World as IWorld,
-  WorldOptions,
-  System,
-  SystemConstructor,
+import type { 
+  World as IWorld, 
+  WorldOptions, 
+  System, 
+  SystemConstructor, 
   HotReloadable,
   Settings,
   Collections,
@@ -16,7 +16,7 @@ import type {
   Entities,
   Physics,
   Stage,
-  Scripts,
+  Scripts
 } from '../types';
 
 import { Settings as SettingsSystem } from './systems/Settings';
@@ -38,18 +38,18 @@ export class World extends EventEmitter implements IWorld {
   frame = 0;
   time = 0;
   accumulator = 0;
-
+  
   // Core properties
   systems: System[] = [];
   networkRate = 1 / 8; // 8Hz
   assetsUrl: string | null = null;
   assetsDir: string | null = null;
   hot = new Set<HotReloadable>();
-
+  
   // Three.js objects
-  rig: any; // Object3D with any event map
-  camera: THREE.PerspectiveCameraType;
-
+  rig: any; // THREE.Object3D with any event map
+  camera: THREE.PerspectiveCamera;
+  
   // Systems
   settings!: Settings;
   collections!: Collections;
@@ -62,7 +62,7 @@ export class World extends EventEmitter implements IWorld {
   entities!: Entities;
   physics!: Physics;
   stage!: Stage;
-
+  
   // Optional properties from interface
   ui?: any;
   loader?: any;
@@ -77,7 +77,7 @@ export class World extends EventEmitter implements IWorld {
   controls: any;
   prefs: any;
   audio: any = null;
-
+  
   // Storage
   storage?: any;
 
@@ -106,8 +106,8 @@ export class World extends EventEmitter implements IWorld {
 
   register(key: string, SystemClass: SystemConstructor): System {
     const system = new SystemClass(this);
-    this.systems.push(system)
-    ;(this as any)[key] = system;
+    this.systems.push(system);
+    (this as any)[key] = system;
     return system;
   }
 
@@ -115,11 +115,11 @@ export class World extends EventEmitter implements IWorld {
     this.storage = options.storage;
     this.assetsDir = options.assetsDir || null;
     this.assetsUrl = options.assetsUrl || null;
-
+    
     for (const system of this.systems) {
       await system.init(options);
     }
-
+    
     this.start();
   }
 
@@ -132,25 +132,23 @@ export class World extends EventEmitter implements IWorld {
   tick = (time: number): void => {
     // begin any stats/performance monitors
     this.preTick();
-
-    // update time, _delta, frame and accumulator
+    
+    // update time, delta, frame and accumulator
     time /= 1000;
-    let _delta = time - this.time;
-    if (_delta < 0) {
-      _delta = 0;
+    let delta = time - this.time;
+    if (delta < 0) delta = 0;
+    if (delta > this.maxDeltaTime) {
+      delta = this.maxDeltaTime;
     }
-    if (_delta > this.maxDeltaTime) {
-      _delta = this.maxDeltaTime;
-    }
-
+    
     this.frame++;
     this.time = time;
-    this.accumulator += _delta;
-
+    this.accumulator += delta;
+    
     // prepare physics
     const willFixedStep = this.accumulator >= this.fixedDeltaTime;
     this.preFixedUpdate(willFixedStep);
-
+    
     // run as many fixed updates as we can for this ticks delta
     while (this.accumulator >= this.fixedDeltaTime) {
       // run all fixed updates
@@ -160,29 +158,29 @@ export class World extends EventEmitter implements IWorld {
       // decrement accumulator
       this.accumulator -= this.fixedDeltaTime;
     }
-
-    // interpolate physics for remaining _delta time
+    
+    // interpolate physics for remaining delta time
     const alpha = this.accumulator / this.fixedDeltaTime;
     this.preUpdate(alpha);
-
+    
     // run all updates
-    this.update(_delta, alpha);
-
+    this.update(delta, alpha);
+    
     // run post updates, eg cleaning all node matrices
-    this.postUpdate(_delta);
-
+    this.postUpdate(delta);
+    
     // run all late updates
-    this.lateUpdate(_delta, alpha);
-
+    this.lateUpdate(delta, alpha);
+    
     // run post late updates, eg cleaning all node matrices
-    this.postLateUpdate(_delta);
-
+    this.postLateUpdate(delta);
+    
     // commit all changes, eg render on the client
     this.commit();
-
+    
     // end any stats/performance monitors
     this.postTick();
-  };
+  }
 
   private preTick(): void {
     for (const system of this.systems) {
@@ -196,18 +194,18 @@ export class World extends EventEmitter implements IWorld {
     }
   }
 
-  private fixedUpdate(_delta: number): void {
+  private fixedUpdate(delta: number): void {
     for (const item of Array.from(this.hot)) {
-      item.fixedUpdate?.(_delta);
+      item.fixedUpdate?.(delta);
     }
     for (const system of this.systems) {
-      system.fixedUpdate(_delta);
+      system.fixedUpdate(delta);
     }
   }
 
-  private postFixedUpdate(_delta: number): void {
+  private postFixedUpdate(delta: number): void {
     for (const system of this.systems) {
-      system.postFixedUpdate(_delta);
+      system.postFixedUpdate(delta);
     }
   }
 
@@ -217,36 +215,36 @@ export class World extends EventEmitter implements IWorld {
     }
   }
 
-  private update(_delta: number, _alpha: number): void {
+  private update(delta: number, _alpha: number): void {
     for (const item of Array.from(this.hot)) {
-      item.update?.(_delta);
+      item.update?.(delta);
     }
     for (const system of this.systems) {
-      system.update(_delta);
+      system.update(delta);
     }
   }
 
-  private postUpdate(_delta: number): void {
+  private postUpdate(delta: number): void {
     for (const system of this.systems) {
-      system.postUpdate(_delta);
+      system.postUpdate(delta);
     }
   }
 
-  private lateUpdate(_delta: number, _alpha: number): void {
+  private lateUpdate(delta: number, _alpha: number): void {
     for (const item of Array.from(this.hot)) {
-      item.lateUpdate?.(_delta);
+      item.lateUpdate?.(delta);
     }
     for (const system of this.systems) {
-      system.lateUpdate(_delta);
+      system.lateUpdate(delta);
     }
   }
 
-  private postLateUpdate(_delta: number): void {
+  private postLateUpdate(delta: number): void {
     for (const item of Array.from(this.hot)) {
-      item.postLateUpdate?.(_delta);
+      item.postLateUpdate?.(delta);
     }
     for (const system of this.systems) {
-      system.postLateUpdate(_delta);
+      system.postLateUpdate(delta);
     }
   }
 
@@ -263,8 +261,9 @@ export class World extends EventEmitter implements IWorld {
   }
 
   setupMaterial = (material: THREE.Material): void => {
+    // @ts-ignore - CSM is added by environment system
     this.environment?.csm?.setupMaterial(material);
-  };
+  }
 
   setHot(item: HotReloadable, hot: boolean): void {
     if (hot) {
@@ -275,40 +274,40 @@ export class World extends EventEmitter implements IWorld {
   }
 
   resolveURL(url: string, allowLocal?: boolean): string {
-    if (!url) {
-      return url;
-    }
+    if (!url) return url;
     url = url.trim();
-
+    
     if (url.startsWith('blob')) {
       return url;
     }
-
+    
     if (url.startsWith('asset://')) {
       if (this.assetsDir && allowLocal) {
         // Ensure assetsDir has trailing slash for proper URL construction
-        const assetsDir = this.assetsDir.endsWith('/') ? this.assetsDir : `${this.assetsDir}/`;
+        const assetsDir = this.assetsDir.endsWith('/') ? this.assetsDir : this.assetsDir + '/';
         return url.replace('asset://', assetsDir);
       } else if (this.assetsUrl) {
-        return url.replace('asset://', this.assetsUrl);
+        // Ensure assetsUrl has trailing slash for proper URL construction
+        const assetsUrl = this.assetsUrl.endsWith('/') ? this.assetsUrl : this.assetsUrl + '/';
+        return url.replace('asset://', assetsUrl);
       } else {
         console.error('resolveURL: no assetsUrl or assetsDir defined');
         return url;
       }
     }
-
+    
     if (url.match(/^https?:\/\//i)) {
       return url;
     }
-
+    
     if (url.startsWith('//')) {
       return `https:${url}`;
     }
-
+    
     if (url.startsWith('/')) {
       return url;
     }
-
+    
     return `https://${url}`;
   }
 
@@ -316,34 +315,13 @@ export class World extends EventEmitter implements IWorld {
     this.apps.inject(runtime);
   }
 
-  getSystem<T extends System>(name: string): T | undefined {
-    // Check if the system is directly accessible as a property
-    if ((this as any)[name]) {
-      return (this as any)[name] as T;
-    }
-
-    // Otherwise search in the systems array
-    return this.systems.find(s => s.constructor.name.toLowerCase() === name.toLowerCase()) as T | undefined;
-  }
-
-  getSystemByType<T extends System>(constructor: new (world: World) => T): T | undefined {
-    return this.systems.find(s => s instanceof constructor) as T | undefined;
-  }
-
-  /**
-   * Get an entity by its ID
-   */
-  getEntityById(id: string): any | null {
-    return this.entities.get(id);
-  }
-
   destroy(): void {
     for (const system of this.systems) {
       system.destroy();
     }
-
+    
     this.systems = [];
     this.hot.clear();
     this.removeAllListeners();
   }
-}
+} 

@@ -29,7 +29,7 @@ Inherits all [Node](/docs/ref/Node.md) properties
 
 Subscribes to custom networked app events and engine update events like `update`, `fixedUpdate` and `lateUpdate`.
 
-Custom networked events are received when a different client/server sends an event with `app.send(event, data)`.
+Custom networked events are received when a different client/server sends an event with `app.send(event, data)`. 
 
 IMPORTANT: Only subscribe to update events when they are needed. The engine is optimized to completely skip over large amounts of apps that don't need to receive update events.
 
@@ -63,3 +63,4 @@ TODO: provides control to a client to respond to inputs and move the camera etc
 #### `.configure(fields)`
 
 Configures custom UI for your app. See [Props](/docs/ref/Props.md) for more info.
+

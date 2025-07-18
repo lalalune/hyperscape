@@ -1,5 +1,5 @@
 import { System } from './System.js';
-import { THREE } from '../extras/three.js';
+import * as THREE from '../extras/three.js';
 import { DEG2RAD, RAD2DEG } from '../extras/general.js';
 import { clamp, num, uuid } from '../utils.js';
 import { LerpVector3 } from '../extras/LerpVector3.js';
@@ -22,8 +22,8 @@ declare const Compartment: any;
  */
 
 export interface ScriptResult {
-  exec: (...args: any[]) => any
-  code: string
+  exec: (...args: any[]) => any;
+  code: string;
 }
 
 export class Scripts extends System {
@@ -31,7 +31,7 @@ export class Scripts extends System {
 
   constructor(world: World) {
     super(world);
-
+    
     // Check if Compartment is available (SES needs to be initialized)
     if (typeof Compartment === 'undefined') {
       // Only warn on server side where scripts are expected to be sandboxed
@@ -90,8 +90,7 @@ export class Scripts extends System {
         exec: (...args: any[]) => {
           // Create a basic evaluation context
           const wrappedCode = wrapRawCode(code);
-          // eslint-disable-next-line no-new-func
-          const evalFunc = new Function(`return ${wrappedCode}`)();
+          const evalFunc = new Function('return ' + wrappedCode)();
           return evalFunc(...args);
         },
         code,
@@ -99,7 +98,7 @@ export class Scripts extends System {
     }
 
     let value: ((...args: any[]) => any) | undefined;
-
+    
     const result: ScriptResult = {
       exec: (...args: any[]) => {
         if (!value) {
@@ -112,7 +111,7 @@ export class Scripts extends System {
       },
       code,
     };
-
+    
     return result;
   }
 }
@@ -128,4 +127,4 @@ function wrapRawCode(code: string): string {
     }
   })()
   `;
-}
+} 

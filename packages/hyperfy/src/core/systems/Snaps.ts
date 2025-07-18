@@ -1,6 +1,6 @@
-import { SnapOctree } from '../extras/SnapOctree';
-import { THREE } from '../extras/three';
-import { System } from './System';
+import { SnapOctree } from '../extras/SnapOctree'
+import * as THREE from '../extras/three'
+import { System } from './System'
 
 /**
  * Snaps System
@@ -12,30 +12,30 @@ import { System } from './System';
  */
 
 export class Snaps extends System {
-  private octree: SnapOctree;
-
+  private octree: SnapOctree
+  
   constructor(world: any) {
-    super(world);
+    super(world)
     this.octree = new SnapOctree({
       center: new THREE.Vector3(0, 0, 0),
       size: 10,
-    });
+    })
   }
 
   create(position: any, active: boolean) {
     const point = {
       position,
       active,
-    };
-    this.octree.insert(point);
+    }
+    this.octree.insert(point)
     const handle = {
       move: () => {
-        this.octree.move(point);
+        this.octree.move(point)
       },
       destroy: () => {
-        this.octree.remove(point);
+        this.octree.remove(point)
       },
-    };
-    return handle;
+    }
+    return handle
   }
 }

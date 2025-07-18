@@ -1,46 +1,45 @@
-import { THREE } from '../extras/three';
-// Using THREE namespace types
-import { Node } from './Node';
+import * as THREE from 'three'
+import { Node } from './Node'
 
 export class Snap extends Node {
-  worldPosition: THREE.Vector3;
-  handle: any;
+  worldPosition: THREE.Vector3
+  handle: any
   constructor(data = {}) {
-    super(data);
-    this.name = 'snap';
-    this.worldPosition = new THREE.Vector3();
+    super(data)
+    this.name = 'snap'
+    this.worldPosition = new THREE.Vector3()
   }
 
   mount() {
-    this.worldPosition.setFromMatrixPosition(this.matrixWorld);
-    this.handle = this.ctx.world.snaps?.create(this.worldPosition, !this.ctx.moving);
+    this.worldPosition.setFromMatrixPosition(this.matrixWorld)
+    this.handle = this.ctx.world.snaps?.create(this.worldPosition, !this.ctx.moving)
   }
 
   commit(didMove) {
     if (didMove) {
-      this.worldPosition.setFromMatrixPosition(this.matrixWorld);
-      this.handle?.move();
+      this.worldPosition.setFromMatrixPosition(this.matrixWorld)
+      this.handle?.move()
     }
   }
 
   unmount() {
-    this.handle?.destroy();
-    this.handle = null;
+    this.handle?.destroy()
+    this.handle = null
   }
 
   copy(source, recursive) {
-    super.copy(source, recursive);
-    return this;
+    super.copy(source, recursive)
+    return this
   }
 
   getProxy() {
     if (!this.proxy) {
       let proxy = {
         // ...
-      };
-      proxy = Object.defineProperties(proxy, Object.getOwnPropertyDescriptors(super.getProxy())); // inherit Node properties
-      this.proxy = proxy;
+      }
+      proxy = Object.defineProperties(proxy, Object.getOwnPropertyDescriptors(super.getProxy())) // inherit Node properties
+      this.proxy = proxy
     }
-    return this.proxy;
+    return this.proxy
   }
 }

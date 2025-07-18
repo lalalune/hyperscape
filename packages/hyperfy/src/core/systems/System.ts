@@ -18,7 +18,7 @@ export abstract class System extends EventEmitter implements ISystem {
    * Initialize the system with world options
    * Called once when the world is initialized
    */
-  async init(_options: WorldOptions): Promise<void> {
+  async init(options: WorldOptions): Promise<void> {
     // Override in subclasses if needed
   }
 
@@ -49,56 +49,56 @@ export abstract class System extends EventEmitter implements ISystem {
   /**
    * Called before fixed update steps
    */
-  preFixedUpdate(_willFixedStep: boolean): void {
+  preFixedUpdate(willFixedStep: boolean): void {
     // Override in subclasses if needed
   }
 
   /**
    * Fixed timestep update for physics and deterministic logic
    */
-  fixedUpdate(_delta: number): void {
+  fixedUpdate(delta: number): void {
     // Override in subclasses if needed
   }
 
   /**
    * Called after fixed update steps
    */
-  postFixedUpdate(_delta: number): void {
+  postFixedUpdate(delta: number): void {
     // Override in subclasses if needed
   }
 
   /**
    * Called before main update with interpolation alpha
    */
-  preUpdate(_alpha: number): void {
+  preUpdate(alpha: number): void {
     // Override in subclasses if needed
   }
 
   /**
    * Main update loop
    */
-  update(_delta: number): void {
+  update(delta: number): void {
     // Override in subclasses if needed
   }
 
   /**
    * Called after main update
    */
-  postUpdate(_delta: number): void {
+  postUpdate(delta: number): void {
     // Override in subclasses if needed
   }
 
   /**
    * Late update for camera and final adjustments
    */
-  lateUpdate(_delta: number): void {
+  lateUpdate(delta: number): void {
     // Override in subclasses if needed
   }
 
   /**
    * Called after late update
    */
-  postLateUpdate(_delta: number): void {
+  postLateUpdate(delta: number): void {
     // Override in subclasses if needed
   }
 
@@ -115,4 +115,4 @@ export abstract class System extends EventEmitter implements ISystem {
   postTick(): void {
     // Override in subclasses if needed
   }
-}
+} 

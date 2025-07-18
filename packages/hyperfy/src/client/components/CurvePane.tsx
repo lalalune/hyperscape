@@ -1,116 +1,105 @@
-import { useEffect, useRef } from 'react';
-import { Curve } from '../../core/extras/Curve';
-import { usePane } from './usePane';
+import React from 'react'
+import { useEffect, useRef } from 'react'
+import { Curve } from '../../core/extras/Curve'
+import { usePane } from './usePane'
 // import { X } from 'lucide-react'
 
 interface CurvePaneProps {
-  curve: Curve
-  xLabel: string
-  xRange?: [number, number]
-  yLabel: string
-  yMin: number
-  yMax: number
-  onCommit: () => void
-  onCancel: () => void
+  curve: Curve;
+  xLabel: string;
+  xRange?: [number, number];
+  yLabel: string;
+  yMin: number;
+  yMax: number;
+  onCommit: () => void;
+  onCancel: () => void;
 }
 
 export function CurvePane({ curve, xLabel, xRange, yLabel, yMin, yMax, onCommit, onCancel }: CurvePaneProps) {
-  const paneRef = useRef<HTMLDivElement | null>(null);
-  const headRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const editorRef = useRef<{ curve: Curve; canvas: HTMLCanvasElement } | null>(null);
+  const paneRef = useRef<HTMLDivElement | null>(null)
+  const headRef = useRef<HTMLDivElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const editorRef = useRef<{ curve: Curve; canvas: HTMLCanvasElement } | null>(null)
 
-  usePane('curve', paneRef, headRef);
+  usePane('curve', paneRef, headRef)
 
   useEffect(() => {
-    if (!canvasRef.current) {
-      return;
-    }
+    if (!canvasRef.current) return
 
     // Initialize curve editor
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return;
-    }
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
 
     // Set canvas size
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = rect.width * window.devicePixelRatio
+    canvas.height = rect.height * window.devicePixelRatio
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
 
     // Create editor
     const editor = {
       curve,
       canvas,
-    };
-    editorRef.current = editor;
+    }
+    editorRef.current = editor
 
     // Render curve
-    renderCurve(ctx, curve, rect.width, rect.height, xRange, yMin, yMax);
+    renderCurve(ctx, curve, rect.width, rect.height, xRange, yMin, yMax)
 
     return () => {
-      editorRef.current = null;
-    };
-  }, [curve, xRange, yMin, yMax]);
+      editorRef.current = null
+    }
+  }, [curve, xRange, yMin, yMax])
 
-  const renderCurve = (
-    ctx: CanvasRenderingContext2D,
-    curve: Curve,
-    width: number,
-    height: number,
-    xRange: [number, number] | undefined,
-    yMin: number,
-    yMax: number
-  ) => {
-    ctx.clearRect(0, 0, width, height);
-
+  const renderCurve = (ctx: CanvasRenderingContext2D, curve: Curve, width: number, height: number, xRange: [number, number] | undefined, yMin: number, yMax: number) => {
+    ctx.clearRect(0, 0, width, height)
+    
     // Draw grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'
+    ctx.lineWidth = 1
 
     for (let i = 0; i <= 10; i++) {
-      const x = (i / 10) * width;
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
+      const x = (i / 10) * width
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, height)
+      ctx.stroke()
 
-      const y = (i / 10) * height;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
+      const y = (i / 10) * height
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(width, y)
+      ctx.stroke()
     }
 
     // Draw curve
     if (curve) {
-      ctx.strokeStyle = '#00a7ff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
+      ctx.strokeStyle = '#00a7ff'
+      ctx.lineWidth = 2
+      ctx.beginPath()
 
-      const range = xRange || [0, 1];
+      const range = xRange || [0, 1]
       for (let x = 0; x < width; x++) {
-        const t = (x / width) * (range[1] - range[0]) + range[0];
-        const y = curve.evaluate(t);
-        const normalizedY = 1 - (y - yMin) / (yMax - yMin);
-        const pixelY = normalizedY * height;
-
+        const t = (x / width) * (range[1] - range[0]) + range[0]
+        const y = curve.evaluate(t)
+        const normalizedY = 1 - ((y - yMin) / (yMax - yMin))
+        const pixelY = normalizedY * height
+        
         if (x === 0) {
-          ctx.moveTo(x, pixelY);
+          ctx.moveTo(x, pixelY)
         } else {
-          ctx.lineTo(x, pixelY);
+          ctx.lineTo(x, pixelY)
         }
       }
-      ctx.stroke();
+      ctx.stroke()
     }
-  };
+  }
 
   return (
     <div
       ref={paneRef}
-      className="curvepane"
+      className='curvepane'
       style={{
         position: 'absolute',
         top: '20px',
@@ -194,31 +183,28 @@ export function CurvePane({ curve, xLabel, xRange, yLabel, yMin, yMax, onCommit,
           color: white;
         }
       `}</style>
-      <div className="curvepane-head" ref={headRef}>
-        <div className="curvepane-head-title">Curve Editor</div>
-        <div className="curvepane-head-close" onClick={onCancel}>
+      <div className='curvepane-head' ref={headRef}>
+        <div className='curvepane-head-title'>Curve Editor</div>
+        <div className='curvepane-head-close' onClick={onCancel}>
           ×
         </div>
       </div>
-      <div className="curvepane-content">
-        <canvas ref={canvasRef} className="curvepane-canvas" />
-        <div className="curvepane-labels">
-          <span>
-            {xLabel} ({xRange ? `${xRange[0]} - ${xRange[1]}` : '0 - 1'})
-          </span>
-          <span>
-            {yLabel} ({yMin} - {yMax})
-          </span>
+      <div className='curvepane-content'>
+        <canvas ref={canvasRef} className='curvepane-canvas' />
+        <div className='curvepane-labels'>
+          <span>{xLabel} ({xRange ? `${xRange[0]} - ${xRange[1]}` : '0 - 1'})</span>
+          <span>{yLabel} ({yMin} - {yMax})</span>
         </div>
       </div>
-      <div className="curvepane-footer">
-        <button className="curvepane-btn curvepane-btn-cancel" onClick={onCancel}>
+      <div className='curvepane-footer'>
+        <button className='curvepane-btn curvepane-btn-cancel' onClick={onCancel}>
           Cancel
         </button>
-        <button className="curvepane-btn curvepane-btn-commit" onClick={onCommit}>
+        <button className='curvepane-btn curvepane-btn-commit' onClick={onCommit}>
           Apply
         </button>
       </div>
     </div>
-  );
+  )
 }
+

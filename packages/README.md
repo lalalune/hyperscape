@@ -4,7 +4,7 @@ This directory contains the modular packages for the Hyperscape RPG project.
 
 ## Package Structure
 
-### @hyperscape/rpg-core
+### @hyperscape/rpg
 The core RPG game logic packaged as a Hyperfy plugin. This includes:
 - All game systems (combat, inventory, skills, etc.)
 - Entity definitions

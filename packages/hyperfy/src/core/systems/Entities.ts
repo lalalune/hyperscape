@@ -6,19 +6,19 @@ import { App } from '../entities/App.js';
 
 // Entity data structure
 interface EntityData {
-  id: string
-  type: string
-  name?: string
-  owner?: string
-  position?: any // Can be object or array
-  rotation?: any // Can be object or array
-  scale?: any // Can be object or array
-  [key: string]: any
+  id: string;
+  type: string;
+  name?: string;
+  owner?: string;
+  position?: any; // Can be object or array
+  rotation?: any; // Can be object or array
+  scale?: any; // Can be object or array
+  [key: string]: any;
 }
 
 // Entity constructor type
 interface EntityConstructor {
-  new (world: World, data: EntityData, local?: boolean): Entity
+  new (world: World, data: EntityData, local?: boolean): Entity;
 }
 
 // Temporary entity implementation until we convert the actual entity classes
@@ -54,21 +54,23 @@ class BaseEntity implements Entity {
     this.data = {
       ...data,
       name: this.name,
-      position: Array.isArray(data.position)
-        ? data.position
-        : [data.position?.x || 0, data.position?.y || 0, data.position?.z || 0],
+      position: Array.isArray(data.position) ? data.position : [
+        data.position?.x || 0,
+        data.position?.y || 0,
+        data.position?.z || 0
+      ],
       quaternion: Array.isArray(data.quaternion) ? data.quaternion : [0, 0, 0, 1],
     };
 
     if (local && 'network' in world) {
-      ;(world as any).network?.send('entityAdded', this.serialize());
+      (world as any).network?.send('entityAdded', this.serialize());
     }
   }
 
   addComponent(type: string, data?: any): any {
-    // Store component data directly for easier access
-    this.components.set(type, data || {});
-    return data || {};
+    const component = { type, data };
+    this.components.set(type, component);
+    return component;
   }
 
   removeComponent(type: string): void {
@@ -76,18 +78,18 @@ class BaseEntity implements Entity {
   }
 
   getComponent<T>(type: string): T | null {
-    return (this.components.get(type) as T) || null;
+    return this.components.get(type) || null;
   }
 
   hasComponent(type: string): boolean {
     return this.components.has(type);
   }
 
-  applyForce(_force: any): void {
+  applyForce(force: any): void {
     // Physics implementation
   }
 
-  applyImpulse(_impulse: any): void {
+  applyImpulse(impulse: any): void {
     // Physics implementation
   }
 
@@ -103,7 +105,7 @@ class BaseEntity implements Entity {
     Object.assign(this.data, data);
   }
 
-  onEvent(_version: number, _name: string, _data: any, _networkId: string): void {
+  onEvent(version: number, name: string, data: any, networkId: string): void {
     // Handle events
   }
 
@@ -111,13 +113,13 @@ class BaseEntity implements Entity {
     return this.data;
   }
 
-  fixedUpdate?(_delta: number): void
-  update?(_delta: number): void
-  lateUpdate?(_delta: number): void
+  fixedUpdate?(delta: number): void;
+  update?(delta: number): void;
+  lateUpdate?(delta: number): void;
 
   destroy(local?: boolean): void {
     if (local && 'network' in this.world) {
-      ;(this.world as any).network?.send('entityRemoved', this.id);
+      (this.world as any).network?.send('entityRemoved', this.id);
     }
   }
 }
@@ -180,14 +182,14 @@ export class Entities extends System implements IEntities {
       id: `entity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: options?.type || 'app',
       name,
-      ...options,
+      ...options
     };
     return this.add(data, true);
   }
 
   add(data: EntityData, local?: boolean): Entity {
     let EntityClass: EntityConstructor = BaseEntity;
-
+    
     if (data.type === 'player') {
       const isLocal = 'network' in this.world && data.owner === (this.world as any).network?.id;
       EntityClass = EntityTypes[isLocal ? 'playerLocal' : 'playerRemote'] as EntityConstructor;
@@ -200,7 +202,7 @@ export class Entities extends System implements IEntities {
 
     if (data.type === 'player') {
       this.players.set(entity.id, entity as Player);
-
+      
       // On the client, remote players emit enter events here.
       // On the server, enter events are delayed for players entering until after their snapshot is sent
       // so they can respond correctly to follow-through events.
@@ -212,14 +214,14 @@ export class Entities extends System implements IEntities {
     }
 
     if ('network' in this.world && data.owner === (this.world as any).network?.id) {
-      this.player = entity as Player
-      ;(this.world as any).emit('player', entity);
+      this.player = entity as Player;
+      (this.world as any).emit('player', entity);
     }
 
     // Initialize the entity if it has an init method
     if ('init' in entity && typeof (entity as any).init === 'function') {
-      console.log(`[Entities] Initializing entity ${entity.id} of type ${data.type}`)
-      ;(entity as any).init();
+      console.log(`[Entities] Initializing entity ${entity.id} of type ${data.type}`);
+      (entity as any).init();
     }
 
     return entity;
@@ -227,12 +229,8 @@ export class Entities extends System implements IEntities {
 
   remove(id: string): void {
     const entity = this.items.get(id);
-    if (!entity) {
-      return console.warn(`Tried to remove entity that did not exist: ${id}`);
-    }
-    if (entity.isPlayer) {
-      this.players.delete(entity.id);
-    }
+    if (!entity) return console.warn(`Tried to remove entity that did not exist: ${id}`);
+    if (entity.isPlayer) this.players.delete(entity.id);
     entity.destroy(true);
     this.items.delete(id);
     this.removed.push(id);
@@ -251,24 +249,24 @@ export class Entities extends System implements IEntities {
     }
   }
 
-  override fixedUpdate(_delta: number): void {
+  override fixedUpdate(delta: number): void {
     const hotEntities = Array.from(this.hot);
     for (const entity of hotEntities) {
-      entity.fixedUpdate?.(_delta);
+      entity.fixedUpdate?.(delta);
     }
   }
 
-  override update(_delta: number): void {
+  override update(delta: number): void {
     const hotEntities = Array.from(this.hot);
     for (const entity of hotEntities) {
-      entity.update?.(_delta);
+      entity.update?.(delta);
     }
   }
 
-  override lateUpdate(_delta: number): void {
+  override lateUpdate(delta: number): void {
     const hotEntities = Array.from(this.hot);
     for (const entity of hotEntities) {
-      entity.lateUpdate?.(_delta);
+      entity.lateUpdate?.(delta);
     }
   }
 
@@ -285,7 +283,7 @@ export class Entities extends System implements IEntities {
     for (const data of datas) {
       this.add(data);
     }
-    console.log('[Entities] Deserialization complete');
+    console.log(`[Entities] Deserialization complete`);
   }
 
   override destroy(): void {
@@ -294,7 +292,7 @@ export class Entities extends System implements IEntities {
     for (const id of entityIds) {
       this.remove(id);
     }
-
+    
     this.items.clear();
     this.players.clear();
     this.hot.clear();
@@ -319,4 +317,4 @@ export class Entities extends System implements IEntities {
     this.removed = [];
     return ids;
   }
-}
+} 

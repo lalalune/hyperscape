@@ -1,16 +1,24 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Remove vitest types for build
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*"
+  ],
   "exclude": [
+    "node_modules",
+    "dist",
+    "build",
     "**/*.test.ts",
     "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
     "src/__tests__/**/*",
     "src/**/__tests__/**/*",
-    "src/rpg/ai-creation/**/*",
-    "src/rpg/testing/**/*",
-    "scripts/**/*",
-    "cypress/**/*",
-    "node_modules",
-    "build",
-    "dist"
+    "vitest.config.ts",
+    "vitest.config.e2e.ts",
+    "playwright.config.js"
   ]
-}
+} 

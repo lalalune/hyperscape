@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   BlendIcon,
@@ -11,11 +11,11 @@ import {
   MagnetIcon,
   PersonStandingIcon,
   Rows3Icon,
-  XIcon,
-} from 'lucide-react';
-import { storage } from '../../core/storage';
-import { hashFile } from '../../core/utils-client';
-import { cls } from './cls';
+  XIcon
+} from 'lucide-react'
+import { storage } from '../../core/storage'
+import { hashFile } from '../../core/utils-client'
+import { cls } from './cls'
 
 interface CodeEditorProps {
   app: any
@@ -23,54 +23,46 @@ interface CodeEditorProps {
   onClose: () => void
 }
 
-export function CodeEditor({ app, blur, onClose: _onClose }: CodeEditorProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const resizeRef = useRef<HTMLDivElement | null>(null);
-  const [nodes, setNodes] = useState(false);
-  const world = app.world;
+export function CodeEditor({ app, blur, onClose }: CodeEditorProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const resizeRef = useRef<HTMLDivElement | null>(null)
+  const [nodes, setNodes] = useState(false)
+  const world = app.world
   useEffect(() => {
-    const elem = resizeRef.current;
-    const container = containerRef.current;
-    if (!elem || !container) {
-      return;
-    }
-
-    container.style.width = `${storage?.get('code-editor-width', 640) || 640}px`;
-    let _active = false;
+    const elem = resizeRef.current
+    const container = containerRef.current
+    if (!elem || !container) return
+    
+    container.style.width = `${storage?.get('code-editor-width', 640) || 640}px`
+    let active = false
     function onPointerDown(e: PointerEvent) {
-      if (!elem) {
-        return;
-      }
-      _active = true;
-      elem.addEventListener('pointermove', onPointerMove);
+      if (!elem) return
+      active = true
+      elem.addEventListener('pointermove', onPointerMove)
       elem.addEventListener('pointerup', onPointerUp)
-      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     }
     function onPointerMove(e: PointerEvent) {
-      if (!container) {
-        return;
-      }
-      const newWidth = container.offsetWidth - e.movementX;
-      container.style.width = `${newWidth}px`;
-      storage?.set('code-editor-width', newWidth);
+      if (!container) return
+      const newWidth = container.offsetWidth - e.movementX
+      container.style.width = `${newWidth}px`
+      storage?.set('code-editor-width', newWidth)
     }
     function onPointerUp(e: PointerEvent) {
-      if (!elem) {
-        return;
-      }
-      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      elem.removeEventListener('pointermove', onPointerMove);
-      elem.removeEventListener('pointerup', onPointerUp);
+      if (!elem) return
+      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+      elem.removeEventListener('pointermove', onPointerMove)
+      elem.removeEventListener('pointerup', onPointerUp)
     }
-    elem.addEventListener('pointerdown', onPointerDown);
+    elem.addEventListener('pointerdown', onPointerDown)
     return () => {
-      elem.removeEventListener('pointerdown', onPointerDown);
-    };
-  }, []);
+      elem.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [])
   return (
     <div
       ref={containerRef}
-      className="acode"
+      className='acode'
       style={{
         position: 'absolute',
         top: 0,
@@ -138,57 +130,55 @@ export function CodeEditor({ app, blur, onClose: _onClose }: CodeEditorProps) {
           --vscode-focusBorder: #00000000 !important;
         }
       `}</style>
-      <div className="acode-head">
-        <div className="acode-head-title">Code</div>
+      <div className='acode-head'>
+        <div className='acode-head-title'>Code</div>
         <div className={cls('acode-head-btn', { selected: nodes })} onClick={() => setNodes(!nodes)}>
           <Rows3Icon size={20} />
         </div>
-        <div className="acode-head-close" onClick={() => world.ui.toggleCode()}>
+        <div className='acode-head-close' onClick={() => world.ui.toggleCode()}>
           <XIcon size={24} />
         </div>
       </div>
       {!nodes && <Editor app={app} />}
       {nodes && <Nodes app={app} />}
-      <div className="acode-resizer" ref={resizeRef} />
+      <div className='acode-resizer' ref={resizeRef} />
     </div>
-  );
+  )
 }
 
 function Editor({ app }: { app: any }) {
-  const mountRef = useRef<HTMLDivElement | null>(null);
-  const codeRef = useRef<string>('');
-  const [_editor, setEditor] = useState<any>(null);
+  const mountRef = useRef<HTMLDivElement | null>(null)
+  const codeRef = useRef<string>('')
+  const [editor, setEditor] = useState<any>(null)
   const save = async () => {
-    const world = app.world;
-    const blueprint = app.blueprint;
-    const code = codeRef.current;
+    const world = app.world
+    const blueprint = app.blueprint
+    const code = codeRef.current
     // convert to file
-    const blob = new Blob([code], { type: 'text/plain' });
-    const file = new File([blob], 'script.js', { type: 'text/plain' });
+    const blob = new Blob([code], { type: 'text/plain' })
+    const file = new File([blob], 'script.js', { type: 'text/plain' })
     // immutable hash the file
-    const hash = await hashFile(file);
+    const hash = await hashFile(file)
     // use hash as glb filename
-    const filename = `${hash}.js`;
+    const filename = `${hash}.js`
     // canonical url to this file
-    const url = `asset://${filename}`;
+    const url = `asset://${filename}`
     // cache file locally so this client can insta-load it
-    world.loader.insert('script', url, file);
+    world.loader.insert('script', url, file)
     // update blueprint locally (also rebuilds apps)
-    const version = blueprint.version + 1;
-    world.blueprints.modify({ id: blueprint.id, version, script: url });
+    const version = blueprint.version + 1
+    world.blueprints.modify({ id: blueprint.id, version, script: url })
     // upload script
-    await world.network.upload(file);
+    await world.network.upload(file)
     // broadcast blueprint change to server + other clients
-    world.network.send('blueprintModified', { id: blueprint.id, version, script: url });
-  };
+    world.network.send('blueprintModified', { id: blueprint.id, version, script: url })
+  }
   useEffect(() => {
-    let dead = false;
+    let dead = false
     load().then((monaco: any) => {
-      if (dead) {
-        return;
-      }
-      codeRef.current = app.script?.code || '// ...';
-      const mount = mountRef.current;
+      if (dead) return
+      codeRef.current = app.script?.code || '// ...'
+      const mount = mountRef.current
       const editor = monaco.editor.create(mount, {
         value: codeRef.current,
         language: 'javascript',
@@ -200,26 +190,26 @@ function Editor({ app }: { app: any }) {
         automaticLayout: true,
         tabSize: 2,
         insertSpaces: true,
-      });
-      editor.onDidChangeModelContent((_event: any) => {
-        codeRef.current = editor.getValue();
-      });
+      })
+      editor.onDidChangeModelContent((event: any) => {
+        codeRef.current = editor.getValue()
+      })
       editor.addAction({
         id: 'save',
         label: 'Save',
         keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
         run: save,
-      });
-      setEditor(editor);
-    });
+      })
+      setEditor(editor)
+    })
     return () => {
-      dead = true;
-    };
-  }, []);
+      dead = true
+    }
+  }, [])
 
   return (
     <div
-      className="editor"
+      className='editor'
       style={{
         flex: 1,
         position: 'relative',
@@ -234,41 +224,39 @@ function Editor({ app }: { app: any }) {
           inset: 0;
         }
       `}</style>
-      <div className="editor-mount" ref={mountRef} />
+      <div className='editor-mount' ref={mountRef} />
     </div>
-  );
+  )
 }
 
 function Nodes({ app }: { app: any }) {
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const rootNode = useMemo(() => app.getNodes(), []);
+  const [selectedNode, setSelectedNode] = useState<any>(null)
+  const rootNode = useMemo(() => app.getNodes(), [])
 
   useEffect(() => {
     if (rootNode && !selectedNode) {
-      setSelectedNode(rootNode);
+      setSelectedNode(rootNode)
     }
-  }, [rootNode]);
+  }, [rootNode])
 
   // Helper function to safely get vector string
   const getVectorString = (vec: any) => {
-    if (!vec || typeof vec.x !== 'number') {
-      return null;
-    }
-    return `${vec.x.toFixed(2)}, ${vec.y.toFixed(2)}, ${vec.z.toFixed(2)}`;
-  };
+    if (!vec || typeof vec.x !== 'number') return null
+    return `${vec.x.toFixed(2)}, ${vec.y.toFixed(2)}, ${vec.z.toFixed(2)}`
+  }
 
   // Helper function to safely check if a property exists
   const hasProperty = (obj: any, prop: string) => {
     try {
-      return obj && typeof obj[prop] !== 'undefined';
-    } catch (_err) {
-      return false;
+      return obj && typeof obj[prop] !== 'undefined'
+    } catch (err) {
+      return false
     }
-  };
+  }
 
   return (
     <div
-      className="anodes noscrollbar"
+      className='anodes noscrollbar'
       style={{
         flex: 1,
         padding: '20px',
@@ -344,11 +332,11 @@ function Nodes({ app }: { app: any }) {
           cursor: pointer;
         }
       `}</style>
-      <div className="anodes-tree">
+      <div className='anodes-tree'>
         {rootNode ? (
           renderHierarchy([rootNode], 0, selectedNode, setSelectedNode)
         ) : (
-          <div className="anodes-empty">
+          <div className='anodes-empty'>
             <LayersIcon size={24} />
             <div>No nodes found</div>
           </div>
@@ -356,32 +344,32 @@ function Nodes({ app }: { app: any }) {
       </div>
 
       {selectedNode && (
-        <div className="anodes-details">
-          <HierarchyDetail label="ID" value={selectedNode.id} copy />
-          <HierarchyDetail label="Name" value={selectedNode.name} copy={false} />
+        <div className='anodes-details'>
+          <HierarchyDetail label='ID' value={selectedNode.id} copy />
+          <HierarchyDetail label='Name' value={selectedNode.name} copy={false} />
 
           {/* Position */}
           {hasProperty(selectedNode, 'position') && getVectorString(selectedNode.position) && (
-            <HierarchyDetail label="Position" value={getVectorString(selectedNode.position)} copy={false} />
+            <HierarchyDetail label='Position' value={getVectorString(selectedNode.position)} copy={false} />
           )}
 
           {/* Rotation */}
           {hasProperty(selectedNode, 'rotation') && getVectorString(selectedNode.rotation) && (
-            <HierarchyDetail label="Rotation" value={getVectorString(selectedNode.rotation)} copy={false} />
+            <HierarchyDetail label='Rotation' value={getVectorString(selectedNode.rotation)} copy={false} />
           )}
 
           {/* Scale */}
           {hasProperty(selectedNode, 'scale') && getVectorString(selectedNode.scale) && (
-            <HierarchyDetail label="Scale" value={getVectorString(selectedNode.scale)} copy={false} />
+            <HierarchyDetail label='Scale' value={getVectorString(selectedNode.scale)} copy={false} />
           )}
 
           {/* Material */}
           {hasProperty(selectedNode, 'material') && selectedNode.material && (
             <>
-              <HierarchyDetail label="Material" value={selectedNode.material.type || 'Standard'} copy={false} />
+              <HierarchyDetail label='Material' value={selectedNode.material.type || 'Standard'} copy={false} />
               {hasProperty(selectedNode.material, 'color') && selectedNode.material.color && (
                 <HierarchyDetail
-                  label="Color"
+                  label='Color'
                   value={
                     selectedNode.material.color.getHexString
                       ? `#${selectedNode.material.color.getHexString()}`
@@ -395,24 +383,24 @@ function Nodes({ app }: { app: any }) {
 
           {/* Geometry */}
           {hasProperty(selectedNode, 'geometry') && selectedNode.geometry && (
-            <HierarchyDetail label="Geometry" value={selectedNode.geometry.type || 'Custom'} copy={false} />
+            <HierarchyDetail label='Geometry' value={selectedNode.geometry.type || 'Custom'} copy={false} />
           )}
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function HierarchyDetail({ label, value, copy = false }: { label: string; value: any; copy?: boolean }) {
-  const handleCopy = copy ? () => navigator.clipboard.writeText(value) : undefined;
+  let handleCopy = copy ? () => navigator.clipboard.writeText(value) : undefined
   return (
-    <div className="anodes-detail">
-      <div className="anodes-detail-label">{label}</div>
+    <div className='anodes-detail'>
+      <div className='anodes-detail-label'>{label}</div>
       <div className={cls('anodes-detail-value', { copy })} onClick={handleCopy}>
         {value}
       </div>
     </div>
-  );
+  )
 }
 
 const nodeIcons: Record<string, any> = {
@@ -424,30 +412,26 @@ const nodeIcons: Record<string, any> = {
   lod: EyeIcon,
   avatar: PersonStandingIcon,
   snap: MagnetIcon,
-};
+}
 
 function renderHierarchy(nodes: any[], depth = 0, selectedNode: any, setSelectedNode: (node: any) => void) {
-  if (!Array.isArray(nodes)) {
-    return null;
-  }
+  if (!Array.isArray(nodes)) return null
 
   return (
     <>
       {nodes.map(node => {
-        if (!node) {
-          return null;
-        }
+        if (!node) return null
 
         // Skip the root node but show its children
         // if (depth === 0 && node.id === '$root') {
-        //   return renderHierarchy(node.children || [] depth, selectedNode, setSelectedNode)
+        //   return renderHierarchy(node.children || [], depth, selectedNode, setSelectedNode)
         // }
 
         // Safely get children
-        const children = node.children || [];
-        const hasChildren = Array.isArray(children) && children.length > 0;
-        const isSelected = selectedNode?.id === node.id;
-        const Icon = nodeIcons[node.name] || nodeIcons['default'];
+        const children = node.children || []
+        const hasChildren = Array.isArray(children) && children.length > 0
+        const isSelected = selectedNode?.id === node.id
+        const Icon = nodeIcons[node.name] || nodeIcons['default']
 
         return (
           <div key={node.id}>
@@ -464,50 +448,41 @@ function renderHierarchy(nodes: any[], depth = 0, selectedNode: any, setSelected
             </div>
             {hasChildren && renderHierarchy(children, depth + 1, selectedNode, setSelectedNode)}
           </div>
-        );
+        )
       })}
     </>
-  );
+  )
 }
 
-let promise: Promise<any> | undefined;
+let promise: Promise<any> | undefined
 const load = () => {
-  if (promise) {
-    return promise;
-  }
-  promise = new Promise(resolve => {
+  if (promise) return promise
+  promise = new Promise(async resolve => {
     // init require
-    ;(window as any).require = {
+    (window as any).require = {
       paths: {
         vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.49.0/min/vs',
       },
-    };
-
-    // Create async function to handle the async logic
-    const loadMonaco = async () => {
-      // load loader
-      await new Promise<void>(resolve => {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.49.0/min/vs/loader.js'; // prettier-ignore
-        script.onload = () => resolve();
-        document.head.appendChild(script);
-      });
-      // load editor
-      await new Promise<void>(resolve => {
-        ;(window as any).require(['vs/editor/editor.main'], () => {
-          resolve();
-        });
+    }
+    // load loader
+    await new Promise<void>(resolve => {
+      const script = document.createElement('script')
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.49.0/min/vs/loader.js' // prettier-ignore
+      script.onload = () => resolve()
+      document.head.appendChild(script)
+    })
+    // load editor
+    await new Promise<void>(resolve => {
+      (window as any).require(['vs/editor/editor.main'], () => {
+        resolve()
       })
-      ;(window as any).monaco.editor.defineTheme('default', darkPlusTheme)
-      ;(window as any).monaco.editor.setTheme('default');
-      resolve((window as any).monaco);
-    };
-
-    // Call the async function
-    loadMonaco().catch(console.error);
-  });
-  return promise;
-};
+    })
+    ;(window as any).monaco.editor.defineTheme('default', darkPlusTheme)
+    ;(window as any).monaco.editor.setTheme('default')
+    resolve((window as any).monaco)
+  })
+  return promise
+}
 
 // see https://stackoverflow.com/questions/65921179/vs-code-theme-dark-plus-css-for-monaco-editor
 // see https://github.com/ChristopherHButler/vscode-themes-in-monaco
@@ -866,4 +841,4 @@ const darkPlusTheme = {
     // 'editor.selectionHighlightBorder': '#222218',
   },
   encodedTokensColors: [],
-};
+}

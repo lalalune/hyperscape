@@ -2,22 +2,22 @@ import type { Settings as ISettings, World } from '../../types/index.js';
 import { System } from './System.js';
 
 interface SettingsData {
-  title?: string | null
-  desc?: string | null
-  image?: string | null
-  model?: string | null
-  avatar?: string | null
-  public?: boolean | null
-  playerLimit?: number | null
+  title?: string | null;
+  desc?: string | null;
+  image?: string | null;
+  model?: string | null;
+  avatar?: string | null;
+  public?: boolean | null;
+  playerLimit?: number | null;
 }
 
 interface SettingsChange {
-  prev: any
-  value: any
+  prev: any;
+  value: any;
 }
 
 interface SettingsChanges {
-  [key: string]: SettingsChange
+  [key: string]: SettingsChange;
 }
 
 export class Settings extends System implements ISettings {
@@ -42,7 +42,7 @@ export class Settings extends System implements ISettings {
   set(key: string, value: any, broadcast = false): void {
     this.modify(key, value);
     if (broadcast && 'network' in this.world) {
-      ;(this.world as any).network?.send('settingsModified', { key, value });
+      (this.world as any).network?.send('settingsModified', { key, value });
     }
   }
 
@@ -54,7 +54,7 @@ export class Settings extends System implements ISettings {
     this.avatar = data.avatar ?? null;
     this.public = data.public === null ? undefined : data.public;
     this.playerLimit = data.playerLimit ?? null;
-
+    
     this.emit('change', {
       title: { value: this.title },
       desc: { value: this.desc },
@@ -79,26 +79,20 @@ export class Settings extends System implements ISettings {
   }
 
   override preFixedUpdate(): void {
-    if (!this.changes) {
-      return;
-    }
+    if (!this.changes) return;
     this.emit('change', this.changes);
     this.changes = null;
   }
 
   private modify(key: string, value: any): void {
-    if ((this as any)[key] === value) {
-      return;
-    }
-    const prev = (this as any)[key]
-    ;(this as any)[key] = value;
-
-    if (!this.changes) {
-      this.changes = {};
-    }
-    if (!this.changes[key]) {
-      this.changes[key] = { prev, value: null };
-    }
+    if ((this as any)[key] === value) return;
+    const prev = (this as any)[key];
+    (this as any)[key] = value;
+    
+    if (!this.changes) this.changes = {};
+    if (!this.changes[key]) this.changes[key] = { prev, value: null };
     this.changes[key].value = value;
   }
-}
+
+
+} 

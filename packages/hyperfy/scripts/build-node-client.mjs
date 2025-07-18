@@ -56,9 +56,7 @@ async function buildNodeClient() {
             build.onEnd(async result => {
               if (result.errors.length > 0) {
                 console.error('Build failed with errors:', result.errors)
-                if (!dev) {
-                  process.exit(1)
-                }
+                if (!dev) process.exit(1)
                 return
               }
 
@@ -84,20 +82,26 @@ async function buildNodeClient() {
                 main: 'index.js',
                 types: 'index.d.ts',
                 type: 'module',
-                files: ['index.js', 'index.d.ts', 'vendor/', 'README.md', 'LICENSE'],
+                files: [
+                  'index.js',
+                  'index.d.ts',
+                  'vendor/',
+                  'README.md',
+                  'LICENSE',
+                ],
                 // Dependencies that are truly bundled or very core could be here
                 // For 'three' and 'eventemitter3', peerDependencies are better.
                 dependencies: {
                   // 'ses': rootPackageJson.dependencies?.ses, // If needed and not externalized correctly
                 },
                 peerDependencies: {
-                  three: rootPackageJson.dependencies?.three || '>=0.173.0 <0.174.0',
-                  eventemitter3: rootPackageJson.dependencies?.eventemitter3 || '^5.0.0',
+                  'three': rootPackageJson.dependencies?.three || '>=0.173.0 <0.174.0',
+                  'eventemitter3': rootPackageJson.dependencies?.eventemitter3 || '^5.0.0',
                   'lodash-es': rootPackageJson.dependencies?.['lodash-es'] || '^4.17.0', // if used by the client bundle directly
                 },
                 peerDependenciesMeta: {
-                  three: { optional: false },
-                  eventemitter3: { optional: false },
+                  'three': { optional: false },
+                  'eventemitter3': { optional: false },
                   'lodash-es': { optional: true }, // Make optional if not strictly required
                 },
                 engines: {
@@ -135,20 +139,13 @@ async function buildNodeClient() {
 
               try {
                 if (!fs.existsSync(tsconfigPath)) {
-                  throw new Error(
-                    `tsconfig.dts.json not found at ${tsconfigPath}. Please create it or ensure it's correctly named.`
-                  )
+                  throw new Error(`tsconfig.dts.json not found at ${tsconfigPath}. Please create it or ensure it's correctly named.`)
                 }
-                console.log(
-                  `Attempting to generate index.d.ts using dts-bundle-generator with tsconfig: ${tsconfigPath}`
-                )
-                execSync(
-                  `npx dts-bundle-generator --project "${tsconfigPath}" -o "${outputFileDts}" "${inputFileForDts}"`,
-                  {
-                    stdio: 'inherit',
-                    cwd: rootDir, // Important: run from project root
-                  }
-                )
+                console.log(`Attempting to generate index.d.ts using dts-bundle-generator with tsconfig: ${tsconfigPath}`)
+                execSync(`npx dts-bundle-generator --project "${tsconfigPath}" -o "${outputFileDts}" "${inputFileForDts}"`, {
+                  stdio: 'inherit',
+                  cwd: rootDir, // Important: run from project root
+                })
                 console.log('index.d.ts generated successfully using dts-bundle-generator.')
               } catch (error) {
                 console.error('Error generating index.d.ts with dts-bundle-generator:', error.message)
@@ -355,16 +352,12 @@ export declare function getPhysXAssetPath(assetName: string): string
     }
   } catch (error) {
     console.error('Unhandled error during build process:', error)
-    if (!dev) {
-      process.exit(1)
-    }
+    if (!dev) process.exit(1)
   }
 }
 
 // Execute the build
 buildNodeClient().catch(err => {
   console.error('Failed to execute buildNodeClient:', err)
-  if (!dev) {
-    process.exit(1)
-  }
+  if (!dev) process.exit(1)
 })

@@ -7,7 +7,7 @@ AI-powered virtual world platform with RPG elements, built on Hyperfy.
 This monorepo contains all the packages for the Hyperscape ecosystem:
 
 - **@hyperscape/hyperfy** - Core 3D virtual world engine
-- **@hyperscape/rpg-core** - Core RPG game logic
+- **@hyperscape/rpg** - Core RPG game logic
 - **@elizaos/plugin-hyperfy** - ElizaOS integration plugin
 - **@hyperscape/ai-creation** - AI-powered content generation
 - **@hyperscape/rpg-tests** - RPG test scenarios

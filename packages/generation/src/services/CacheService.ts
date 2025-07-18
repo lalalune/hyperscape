@@ -27,12 +27,12 @@ export class CacheService {
     })
 
     // Monitor cache size
-    this.cache.on('set', (key, value) => {
+    this.cache.on('set', (key: string, value: any) => {
       this.currentSize += this.estimateSize(value)
       this.enforceMaxSize()
     })
 
-    this.cache.on('del', (key, value) => {
+    this.cache.on('del', (key: string, value: any) => {
       this.currentSize -= this.estimateSize(value)
     })
   }
@@ -111,7 +111,7 @@ export class CacheService {
     if (!pattern) return allKeys
     
     const regex = new RegExp(pattern)
-    return allKeys.filter(key => regex.test(key))
+    return allKeys.filter((key: string) => regex.test(key))
   }
 
   /**

@@ -1,0 +1,147 @@
+[
+  {
+    "name": "Bronze Sword",
+    "description": "A simple bronze sword with leather grip, basic starter weapon with bronze metal finish",
+    "type": "weapon",
+    "subtype": "sword",
+    "style": "realistic",
+    "metadata": {
+      "tier": "bronze",
+      "level": 1,
+      "gameId": 1,
+      "rarity": "common"
+    }
+  },
+  {
+    "name": "Steel Sword",
+    "description": "A razor sharp steel sword with polished steel blade and leather-wrapped handle",
+    "type": "weapon",
+    "subtype": "sword",
+    "style": "realistic",
+    "metadata": {
+      "tier": "steel",
+      "level": 10,
+      "gameId": 2,
+      "rarity": "uncommon"
+    }
+  },
+  {
+    "name": "Mithril Sword",
+    "description": "A magical mithril sword with silvery-blue metal and glowing runes along the blade",
+    "type": "weapon",
+    "subtype": "sword",
+    "style": "realistic",
+    "metadata": {
+      "tier": "mithril",
+      "level": 20,
+      "gameId": 3,
+      "rarity": "rare"
+    }
+  },
+  {
+    "name": "Wood Bow",
+    "description": "A simple wooden bow made from curved wood with basic string",
+    "type": "weapon",
+    "subtype": "bow",
+    "style": "realistic",
+    "metadata": {
+      "tier": "wood",
+      "level": 1,
+      "gameId": 4,
+      "rarity": "common"
+    }
+  },
+  {
+    "name": "Oak Bow",
+    "description": "A sturdy oak bow with reinforced wood and quality bowstring",
+    "type": "weapon",
+    "subtype": "bow",
+    "style": "realistic",
+    "metadata": {
+      "tier": "oak",
+      "level": 10,
+      "gameId": 5,
+      "rarity": "uncommon"
+    }
+  },
+  {
+    "name": "Willow Bow",
+    "description": "A flexible willow bow with elegant curved design and high-quality string",
+    "type": "weapon",
+    "subtype": "bow",
+    "style": "realistic",
+    "metadata": {
+      "tier": "willow",
+      "level": 20,
+      "gameId": 6,
+      "rarity": "rare"
+    }
+  },
+  {
+    "name": "Bronze Shield",
+    "description": "A simple bronze shield with leather grip and basic bronze construction",
+    "type": "weapon",
+    "subtype": "shield",
+    "style": "realistic",
+    "metadata": {
+      "tier": "bronze",
+      "level": 1,
+      "gameId": 14,
+      "rarity": "common"
+    }
+  },
+  {
+    "name": "Steel Shield",
+    "description": "A sturdy steel shield with reinforced steel plates and comfortable grip",
+    "type": "weapon",
+    "subtype": "shield",
+    "style": "realistic",
+    "metadata": {
+      "tier": "steel",
+      "level": 10,
+      "gameId": 15,
+      "rarity": "uncommon"
+    }
+  },
+  {
+    "name": "Mithril Shield",
+    "description": "A magical mithril shield with silvery-blue metal and protective runes",
+    "type": "weapon",
+    "subtype": "shield",
+    "style": "realistic",
+    "metadata": {
+      "tier": "mithril",
+      "level": 20,
+      "gameId": 16,
+      "rarity": "rare"
+    }
+  },
+  {
+    "name": "Bronze Hatchet",
+    "description": "A basic bronze hatchet with wooden handle, used for woodcutting and basic combat",
+    "type": "weapon",
+    "subtype": "axe",
+    "style": "realistic",
+    "metadata": {
+      "tier": "bronze",
+      "level": 1,
+      "gameId": 8,
+      "rarity": "common",
+      "toolType": "hatchet"
+    }
+  },
+  {
+    "name": "Arrows",
+    "description": "Sharp wooden arrows with metal tips and feathered fletching for bow usage",
+    "type": "consumable",
+    "subtype": "arrows",
+    "style": "realistic",
+    "metadata": {
+      "tier": "basic",
+      "level": 1,
+      "gameId": 7,
+      "rarity": "common",
+      "stackable": true
+    }
+  }
+]

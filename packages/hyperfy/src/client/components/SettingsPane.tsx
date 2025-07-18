@@ -1,22 +1,23 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Settings, Sun, User, Volume2, X } from 'lucide-react';
+import React from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Settings, Sun, User, Volume2, X } from 'lucide-react'
 
-import { hasRole } from '../../core/utils';
-import { InputDropdown, InputRange, InputSwitch, InputText } from './Inputs';
-import { usePane } from './usePane';
+import { hasRole } from '../../core/utils'
+import { InputDropdown, InputNumber, InputRange, InputSwitch, InputText } from './Inputs'
+import { usePane } from './usePane'
 
 export function SettingsPane({ world, player, close }) {
-  const paneRef = useRef<HTMLDivElement | null>(null);
-  const headRef = useRef<HTMLDivElement | null>(null);
-  usePane('settings', paneRef, headRef);
-  const [tab, _setTab] = useState('general');
-  const _canBuild = useMemo(() => {
-    return hasRole(player.data.roles, 'admin', 'builder');
-  }, [player]);
+  const paneRef = useRef<HTMLDivElement | null>(null)
+  const headRef = useRef<HTMLDivElement | null>(null)
+  usePane('settings', paneRef, headRef)
+  const [tab, setTab] = useState('general')
+  const canBuild = useMemo(() => {
+    return hasRole(player.data.roles, 'admin', 'builder')
+  }, [player])
   return (
     <div
       ref={paneRef}
-      className="spane"
+      className='spane'
       style={{
         position: 'absolute',
         top: '20px',
@@ -86,9 +87,9 @@ export function SettingsPane({ world, player, close }) {
           overflow-y: auto;
         }
       `}</style>
-      <div className="spane-head" ref={headRef}>
+      <div className='spane-head' ref={headRef}>
         <Settings size={16} />
-        <div className="spane-head-title">Settings</div>
+        <div className='spane-head-title'>Settings</div>
         {/* <div className='spane-head-tabs'>
           {canBuild && (
             <>
@@ -101,14 +102,14 @@ export function SettingsPane({ world, player, close }) {
             </>
           )}
         </div> */}
-        <div className="spane-head-close" onClick={close}>
+        <div className='spane-head-close' onClick={close}>
           <X size={20} />
         </div>
       </div>
       {tab === 'general' && <GeneralSettings world={world} player={player} />}
       {tab === 'world' && <WorldSettings world={world} />}
     </div>
-  );
+  )
 }
 
 const shadowOptions = [
@@ -116,74 +117,56 @@ const shadowOptions = [
   { label: 'Low', value: 'low' },
   { label: 'Med', value: 'med' },
   { label: 'High', value: 'high' },
-];
-const _onOffOptions = [
+]
+const onOffOptions = [
   { label: 'Off', value: false },
   { label: 'On', value: true },
-];
+]
 function GeneralSettings({ world, player }) {
-  const [name, setName] = useState(() => player.data.name);
-  const [dpr, setDPR] = useState(world.prefs.dpr);
-  const [shadows, setShadows] = useState(world.prefs.shadows);
-  const [postprocessing, setPostprocessing] = useState(world.prefs.postprocessing);
-  const [bloom, setBloom] = useState(world.prefs.bloom);
-  const [music, setMusic] = useState(world.prefs.music);
-  const [sfx, setSFX] = useState(world.prefs.sfx);
-  const [voice, setVoice] = useState(world.prefs.voice);
+  const [name, setName] = useState(() => player.data.name)
+  const [dpr, setDPR] = useState(world.prefs.dpr)
+  const [shadows, setShadows] = useState(world.prefs.shadows)
+  const [postprocessing, setPostprocessing] = useState(world.prefs.postprocessing)
+  const [bloom, setBloom] = useState(world.prefs.bloom)
+  const [music, setMusic] = useState(world.prefs.music)
+  const [sfx, setSFX] = useState(world.prefs.sfx)
+  const [voice, setVoice] = useState(world.prefs.voice)
   const dprOptions = useMemo(() => {
-    const width = world.graphics.width;
-    const height = world.graphics.height;
-    const dpr = window.devicePixelRatio;
-    const options: { label: string; value: string }[] = [];
+    const width = world.graphics.width
+    const height = world.graphics.height
+    const dpr = window.devicePixelRatio
+    const options: { label: string; value: string }[] = []
     const add = (label: string, dpr: number) => {
       options.push({
         label: `${label} (${Math.round(width * dpr)} x ${Math.round(height * dpr)})`,
         value: dpr.toString(),
-      });
-    };
-    add('Low', 0.5);
-    add('High', 1);
-    if (dpr >= 2) {
-      add('Ultra', 2);
+      })
     }
-    if (dpr >= 3) {
-      add('Insane', dpr);
-    }
-    return options;
-  }, []);
+    add('Low', 0.5)
+    add('High', 1)
+    if (dpr >= 2) add('Ultra', 2)
+    if (dpr >= 3) add('Insane', dpr)
+    return options
+  }, [])
   useEffect(() => {
     const onChange = changes => {
       // TODO: rename .dpr
-      if (changes.dpr) {
-        setDPR(changes.dpr.value);
-      }
-      if (changes.shadows) {
-        setShadows(changes.shadows.value);
-      }
-      if (changes.postprocessing) {
-        setPostprocessing(changes.postprocessing.value);
-      }
-      if (changes.bloom) {
-        setBloom(changes.bloom.value);
-      }
-      if (changes.music) {
-        setMusic(changes.music.value);
-      }
-      if (changes.sfx) {
-        setSFX(changes.sfx.value);
-      }
-      if (changes.voice) {
-        setVoice(changes.voice.value);
-      }
-    };
-    world.prefs.on('change', onChange);
+      if (changes.dpr) setDPR(changes.dpr.value)
+      if (changes.shadows) setShadows(changes.shadows.value)
+      if (changes.postprocessing) setPostprocessing(changes.postprocessing.value)
+      if (changes.bloom) setBloom(changes.bloom.value)
+      if (changes.music) setMusic(changes.music.value)
+      if (changes.sfx) setSFX(changes.sfx.value)
+      if (changes.voice) setVoice(changes.voice.value)
+    }
+    world.prefs.on('change', onChange)
     return () => {
-      world.prefs.off('change', onChange);
-    };
-  }, []);
+      world.prefs.off('change', onChange)
+    }
+  }, [])
   return (
     <div
-      className="general noscrollbar"
+      className='general noscrollbar'
       style={{
         padding: '20px 20px 10px',
         maxHeight: '500px',
@@ -224,51 +207,51 @@ function GeneralSettings({ world, player }) {
           flex: 1;
         }
       `}</style>
-      <div className="general-section">
+      <div className='general-section'>
         <User size={16} />
         <span>Player</span>
       </div>
-      <div className="general-field">
-        <div className="general-field-label">Name</div>
-        <div className="general-field-input">
+      <div className='general-field'>
+        <div className='general-field-label'>Name</div>
+        <div className='general-field-input'>
           <InputText
             value={name}
             onChange={name => {
               if (!name) {
-                return setName(player.data.name);
+                return setName(player.data.name)
               }
-              player.modify({ name });
+              player.modify({ name })
             }}
           />
         </div>
       </div>
-      <div className="general-section">
+      <div className='general-section'>
         <Sun size={16} />
         <span>Graphics</span>
       </div>
-      <div className="general-field">
-        <div className="general-field-label">Resolution</div>
-        <div className="general-field-input">
-          <InputDropdown
-            options={dprOptions}
-            value={dpr.toString()}
-            onChange={dpr => world.prefs.setDPR(parseFloat(dpr))}
+      <div className='general-field'>
+        <div className='general-field-label'>Resolution</div>
+        <div className='general-field-input'>
+          <InputDropdown 
+            options={dprOptions} 
+            value={dpr.toString()} 
+            onChange={dpr => world.prefs.setDPR(parseFloat(dpr))} 
           />
         </div>
       </div>
-      <div className="general-field">
-        <div className="general-field-label">Shadows</div>
-        <div className="general-field-input">
-          <InputDropdown
-            options={shadowOptions}
-            value={shadows}
-            onChange={shadows => world.prefs.setShadows(shadows)}
+      <div className='general-field'>
+        <div className='general-field-label'>Shadows</div>
+        <div className='general-field-input'>
+          <InputDropdown 
+            options={shadowOptions} 
+            value={shadows} 
+            onChange={shadows => world.prefs.setShadows(shadows)} 
           />
         </div>
       </div>
-      <div className="general-field">
-        <div className="general-field-label">Postprocessing</div>
-        <div className="general-field-input">
+      <div className='general-field'>
+        <div className='general-field-label'>Postprocessing</div>
+        <div className='general-field-input'>
           <InputSwitch
             value={postprocessing}
             onChange={postprocessing => world.prefs.setPostprocessing(postprocessing)}
@@ -276,20 +259,20 @@ function GeneralSettings({ world, player }) {
         </div>
       </div>
       {postprocessing && (
-        <div className="general-field">
-          <div className="general-field-label">Bloom</div>
-          <div className="general-field-input">
+        <div className='general-field'>
+          <div className='general-field-label'>Bloom</div>
+          <div className='general-field-input'>
             <InputSwitch value={bloom} onChange={bloom => world.prefs.setBloom(bloom)} />
           </div>
         </div>
       )}
-      <div className="general-section">
+      <div className='general-section'>
         <Volume2 size={16} />
         <span>Audio</span>
       </div>
-      <div className="general-field">
-        <div className="general-field-label">Music</div>
-        <div className="general-field-input">
+      <div className='general-field'>
+        <div className='general-field-label'>Music</div>
+        <div className='general-field-input'>
           <InputRange
             value={music * 100}
             onChange={volume => world.prefs.setMusic(volume / 100)}
@@ -299,21 +282,21 @@ function GeneralSettings({ world, player }) {
           />
         </div>
       </div>
-      <div className="general-field">
-        <div className="general-field-label">SFX</div>
-        <div className="general-field-input">
-          <InputRange
-            value={sfx * 100}
-            onChange={volume => world.prefs.setSFX(volume / 100)}
-            min={0}
-            max={200}
-            step={5}
+      <div className='general-field'>
+        <div className='general-field-label'>SFX</div>
+        <div className='general-field-input'>
+          <InputRange 
+            value={sfx * 100} 
+            onChange={volume => world.prefs.setSFX(volume / 100)} 
+            min={0} 
+            max={200} 
+            step={5} 
           />
         </div>
       </div>
-      <div className="general-field">
-        <div className="general-field-label">Voice</div>
-        <div className="general-field-input">
+      <div className='general-field'>
+        <div className='general-field-label'>Voice</div>
+        <div className='general-field-input'>
           <InputRange
             value={voice * 100}
             onChange={volume => world.prefs.setVoice(volume / 100)}
@@ -324,9 +307,9 @@ function GeneralSettings({ world, player }) {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-function WorldSettings({ world: _world }) {
-  return <div>World settings coming soon...</div>;
+function WorldSettings({ world }) {
+  return <div>World settings coming soon...</div>
 }

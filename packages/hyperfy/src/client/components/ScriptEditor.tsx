@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { hashFile } from '../../core/utils-client';
+import React from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { hashFile } from '../../core/utils-client'
 
 // editor will remember a single script so you can flip between tabs without hitting save (eg viewing docs)
 const cached = {
@@ -7,70 +8,68 @@ const cached = {
   viewState: null,
   value: null,
   model: null,
-};
+}
 
 export function ScriptEditor({ app, onHandle }) {
-  const key = app.data.id;
-  const mountRef = useRef<HTMLDivElement | null>(null);
-  const codeRef = useRef<string>('');
-  const [editor, setEditor] = useState<any>(null);
+  const key = app.data.id
+  const mountRef = useRef<HTMLDivElement | null>(null)
+  const codeRef = useRef<string>('')
+  const [editor, setEditor] = useState<any>(null)
   const save = async () => {
-    const world = app.world;
-    const blueprint = app.blueprint;
-    const code = codeRef.current;
+    const world = app.world
+    const blueprint = app.blueprint
+    const code = codeRef.current
     // convert to file
-    const blob = new Blob([code], { type: 'text/plain' });
-    const file = new File([blob], 'script.js', { type: 'text/plain' });
+    const blob = new Blob([code], { type: 'text/plain' })
+    const file = new File([blob], 'script.js', { type: 'text/plain' })
     // immutable hash the file
-    const hash = await hashFile(file);
+    const hash = await hashFile(file)
     // use hash as glb filename
-    const filename = `${hash}.js`;
+    const filename = `${hash}.js`
     // canonical url to this file
-    const url = `asset://${filename}`;
+    const url = `asset://${filename}`
     // cache file locally so this client can insta-load it
-    world.loader.insert('script', url, file);
+    world.loader.insert('script', url, file)
     // update blueprint locally (also rebuilds apps)
-    const version = blueprint.version + 1;
-    world.blueprints.modify({ id: blueprint.id, version, script: url });
+    const version = blueprint.version + 1
+    world.blueprints.modify({ id: blueprint.id, version, script: url })
     // upload script
-    await world.network.upload(file);
+    await world.network.upload(file)
     // broadcast blueprint change to server + other clients
-    world.network.send('blueprintModified', { id: blueprint.id, version, script: url });
-  };
+    world.network.send('blueprintModified', { id: blueprint.id, version, script: url })
+  }
   const saveState = () => {
     if (editor) {
-      cached.key = key;
-      cached.viewState = editor.saveViewState();
-      cached.model = editor.getModel();
-      cached.value = editor.getValue();
+      cached.key = key
+      cached.viewState = editor.saveViewState()
+      cached.model = editor.getModel()
+      cached.value = editor.getValue()
     }
-  };
+  }
   useEffect(() => {
-    onHandle({ save });
-  }, []);
+    onHandle({ save })
+  }, [])
   useEffect(() => {
     return () => {
-      saveState();
-      editor?.dispose();
-    };
-  }, [editor]);
+      saveState()
+      editor?.dispose()
+    }
+  }, [editor])
   useEffect(() => {
-    let dead;
+    let dead
     load().then(monaco => {
-      if (dead) {
-        return;
-      }
+      if (dead) return
       // only use cached if it matches this key
-      const state = cached.key === key ? cached : null;
-      const initialCode = state?.value ?? app.script?.code ?? '// …';
-      const uri = monaco.Uri.parse(`inmemory://model/${key}`);
-      let model = monaco.editor.getModel(uri);
+      const state = cached.key === key ? cached : null
+      const initialCode = state?.value ?? app.script?.code ?? '// …'
+      const uri = monaco.Uri.parse(`inmemory://model/${key}`)
+      let model = monaco.editor.getModel(uri)
       if (!model) {
-        model = monaco.editor.createModel(initialCode, 'javascript', uri);
+        model = monaco.editor.createModel(initialCode, 'javascript', uri)
       } else if (model.getValue() !== initialCode) {
-        model.setValue(initialCode);
+        model.setValue(initialCode)
       }
-      codeRef.current = initialCode;
+      codeRef.current = initialCode
       const editor = monaco.editor.create(mountRef.current, {
         model,
         // value: codeRef.current,
@@ -81,30 +80,30 @@ export function ScriptEditor({ app, onHandle }) {
         automaticLayout: true,
         tabSize: 2,
         insertSpaces: true,
-      });
+      })
       if (state?.viewState) {
-        editor.restoreViewState(state.viewState);
-        editor.focus();
+        editor.restoreViewState(state.viewState)
+        editor.focus()
       }
-      editor.onDidChangeModelContent(_event => {
-        codeRef.current = editor.getValue();
-      });
+      editor.onDidChangeModelContent(event => {
+        codeRef.current = editor.getValue()
+      })
       editor.addAction({
         id: 'save',
         label: 'Save',
         keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
         run: save,
-      });
-      setEditor(editor);
-    });
+      })
+      setEditor(editor)
+    })
     return () => {
-      dead = true;
-    };
-  }, []);
+      dead = true
+    }
+  }, [])
 
   return (
     <div
-      className="editor"
+      className='editor'
       style={{
         flex: 1,
         position: 'relative',
@@ -124,44 +123,40 @@ export function ScriptEditor({ app, onHandle }) {
           --vscode-focusBorder: #00000000 !important;
         }
       `}</style>
-      <div className="editor-mount" ref={mountRef} />
+      <div className='editor-mount' ref={mountRef} />
     </div>
-  );
+  )
 }
 
-let promise: Promise<any> | undefined;
+let promise: Promise<any> | undefined
 const load = () => {
-  if (promise) {
-    return promise;
-  }
-  promise = new Promise<any>(resolve => {
+  if (promise) return promise
+  promise = new Promise<any>(async resolve => {
     // init require
     window.require = {
       paths: {
         vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.49.0/min/vs',
       },
     }
-    // load loader - use async IIFE pattern instead of async executor
-    ;(async () => {
-      await new Promise<void>(resolve => {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.49.0/min/vs/loader.js'; // prettier-ignore
-        script.onload = () => resolve();
-        document.head.appendChild(script);
-      });
-      // load editor
-      await new Promise<void>(resolve => {
-        window.require(['vs/editor/editor.main'], () => {
-          resolve();
-        });
-      });
-      window.monaco.editor.defineTheme('default', darkPlusTheme);
-      window.monaco.editor.setTheme('default');
-      resolve(window.monaco);
-    })();
-  });
-  return promise;
-};
+    // load loader
+    await new Promise<void>(resolve => {
+      const script = document.createElement('script')
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.49.0/min/vs/loader.js' // prettier-ignore
+      script.onload = () => resolve()
+      document.head.appendChild(script)
+    })
+    // load editor
+    await new Promise<void>(resolve => {
+      window.require(['vs/editor/editor.main'], () => {
+        resolve()
+      })
+    })
+    window.monaco.editor.defineTheme('default', darkPlusTheme)
+    window.monaco.editor.setTheme('default')
+    resolve(window.monaco)
+  })
+  return promise
+}
 
 // see https://stackoverflow.com/questions/65921179/vs-code-theme-dark-plus-css-for-monaco-editor
 // see https://github.com/ChristopherHButler/vscode-themes-in-monaco
@@ -520,4 +515,4 @@ const darkPlusTheme = {
     // 'editor.selectionHighlightBorder': '#222218',
   },
   encodedTokensColors: [],
-};
+}

@@ -1,6 +1,5 @@
 import { isNumber } from 'lodash-es';
 import moment from 'moment';
-import { eq } from 'drizzle-orm';
 
 import type { Blueprint, World } from '../../types/index.js';
 import { writePacket } from '../packets.js';
@@ -8,10 +7,6 @@ import { Socket } from '../Socket.js';
 import { createJWT, verifyJWT } from '../utils-server.js';
 import { addRole, hasRole, removeRole, serializeRoles, uuid } from '../utils.js';
 import { System } from './System.js';
-import { ENV } from '../env.js';
-import { ENV_SERVER } from '../env-server.js';
-import type { DB } from '../../server/db.js';
-import * as schema from '../../server/db-schema.js';
 
 const SAVE_INTERVAL = parseInt(process.env.SAVE_INTERVAL || '60'); // seconds
 const PING_RATE = 1; // seconds
@@ -21,37 +16,37 @@ const HEALTH_MAX = 100;
 
 // Type definitions
 export interface User {
-  id: string
-  name: string
-  avatar: string | null
-  roles: string | string[]
-  createdAt: string
+  id: string;
+  name: string;
+  avatar: string | null;
+  roles: string | string[];
+  createdAt: string;
 }
 
 export interface ConnectionParams {
-  authToken?: string
-  name?: string
-  avatar?: string
+  authToken?: string;
+  name?: string;
+  avatar?: string;
 }
 
 export interface SpawnData {
-  position: [number, number, number]
-  quaternion: [number, number, number, number]
+  position: [number, number, number];
+  quaternion: [number, number, number, number];
 }
 
 export interface SaveCounts {
-  upsertedBlueprints: number
-  upsertedApps: number
-  deletedApps: number
+  upsertedBlueprints: number;
+  upsertedApps: number;
+  deletedApps: number;
 }
 
 export interface ServerStats {
-  currentCPU: number
-  currentMemory: number
-  maxMemory: number
+  currentCPU: number;
+  currentMemory: number;
+  maxMemory: number;
 }
 
-type QueueItem = [Socket, string, any]
+type QueueItem = [Socket, string, any];
 
 /**
  * Server Network System
@@ -70,7 +65,7 @@ export class ServerNetwork extends System {
   dirtyApps: Set<string>;
   isServer: boolean;
   queue: QueueItem[];
-  db!: DB; // Drizzle database instance
+  db: any; // Knex database instance
   spawn: SpawnData;
 
   constructor(world: World) {
@@ -93,41 +88,41 @@ export class ServerNetwork extends System {
 
   async start(): Promise<void> {
     // get spawn
-    const spawnRow = await this.db.select().from(schema.config).where(eq(schema.config.key, 'spawn')).get();
+    const spawnRow = await this.db('config').where('key', 'spawn').first();
     this.spawn = JSON.parse(spawnRow?.value || defaultSpawn);
-
+    
     // hydrate blueprints
-    const blueprints = await this.db.select().from(schema.blueprints);
+    const blueprints = await this.db('blueprints');
     for (const blueprint of blueprints) {
-      const data = JSON.parse(blueprint.data)
-      ;(this.world as any).blueprints.add(data, true);
+      const data = JSON.parse(blueprint.data);
+      (this.world as any).blueprints.add(data, true);
     }
-
+    
     // hydrate entities
-    const entities = await this.db.select().from(schema.entities);
+    const entities = await this.db('entities');
     for (const entity of entities) {
       const data = JSON.parse(entity.data);
-      data.state = {}
-      ;(this.world as any).entities.add(data, true);
+      data.state = {};
+      (this.world as any).entities.add(data, true);
     }
-
+    
     // hydrate settings
-    const settingsRow = await this.db.select().from(schema.config).where(eq(schema.config.key, 'settings')).get();
+    const settingsRow = await this.db('config').where('key', 'settings').first();
     try {
-      const settings = JSON.parse(settingsRow?.value || '{}')
-      ;(this.world as any).settings.deserialize(settings);
+      const settings = JSON.parse(settingsRow?.value || '{}');
+      (this.world as any).settings.deserialize(settings);
     } catch (err) {
       console.error(err);
     }
-
+    
     // watch settings changes
-    ;(this.world as any).settings.on('change', this.saveSettings);
-
+    (this.world as any).settings.on('change', this.saveSettings);
+    
     // queue first save
     if (SAVE_INTERVAL) {
       this.saveTimerId = setTimeout(this.save, SAVE_INTERVAL * 1000);
     }
-
+    
     // Environment model loading is handled by ServerEnvironment.start()
   }
 
@@ -139,9 +134,7 @@ export class ServerNetwork extends System {
     // console.log('->>>', name, data)
     const packet = writePacket(name, data);
     this.sockets.forEach(socket => {
-      if (socket.id === ignoreSocketId) {
-        return;
-      }
+      if (socket.id === ignoreSocketId) return;
       socket.sendPacket(packet);
     });
   }
@@ -193,30 +186,21 @@ export class ServerNetwork extends System {
       deletedApps: 0,
     };
     const now = moment().toISOString();
-
+    
     // blueprints
     for (const id of this.dirtyBlueprints) {
       const blueprint = (this.world as any).blueprints.get(id);
-      if (!blueprint) {
-        continue;
-      }
-
+      if (!blueprint) continue;
+      
       try {
-        await this.db
-          .insert(schema.blueprints)
-          .values({
-            id: blueprint.id,
-            data: JSON.stringify(blueprint),
-            createdAt: now,
-            updatedAt: now,
-          })
-          .onConflictDoUpdate({
-            target: schema.blueprints.id,
-            set: {
-              data: JSON.stringify(blueprint),
-              updatedAt: now,
-            },
-          });
+        const record = {
+          id: blueprint.id,
+          data: JSON.stringify(blueprint),
+        };
+        await this.db('blueprints')
+          .insert({ ...record, createdAt: now, updatedAt: now })
+          .onConflict('id')
+          .merge({ ...record, updatedAt: now });
         counts.upsertedBlueprints++;
         this.dirtyBlueprints.delete(id);
       } catch (err) {
@@ -224,7 +208,7 @@ export class ServerNetwork extends System {
         console.error(err);
       }
     }
-
+    
     // app entities
     for (const id of this.dirtyApps) {
       const entity = (this.world as any).entities.get(id);
@@ -236,21 +220,14 @@ export class ServerNetwork extends System {
         try {
           const data = JSON.parse(JSON.stringify(entity.data)); // Deep clone alternative
           data.state = null;
-          await this.db
-            .insert(schema.entities)
-            .values({
-              id: entity.data.id,
-              data: JSON.stringify(entity.data),
-              createdAt: now,
-              updatedAt: now,
-            })
-            .onConflictDoUpdate({
-              target: schema.entities.id,
-              set: {
-                data: JSON.stringify(entity.data),
-                updatedAt: now,
-              },
-            });
+          const record = {
+            id: entity.data.id,
+            data: JSON.stringify(entity.data),
+          };
+          await this.db('entities')
+            .insert({ ...record, createdAt: now, updatedAt: now })
+            .onConflict('id')
+            .merge({ ...record, updatedAt: now });
           counts.upsertedApps++;
           this.dirtyApps.delete(id);
         } catch (err) {
@@ -259,12 +236,12 @@ export class ServerNetwork extends System {
         }
       } else {
         // it was removed
-        await this.db.delete(schema.entities).where(eq(schema.entities.id, id));
+        await this.db('entities').where('id', id).delete();
         counts.deletedApps++;
         this.dirtyApps.delete(id);
       }
     }
-
+    
     // log
     const didSave = counts.upsertedBlueprints > 0 || counts.upsertedApps > 0 || counts.deletedApps > 0;
     if (didSave) {
@@ -272,7 +249,7 @@ export class ServerNetwork extends System {
         `world saved (${counts.upsertedBlueprints} blueprints, ${counts.upsertedApps} apps, ${counts.deletedApps} apps removed)`
       );
     }
-
+    
     // queue again
     this.saveTimerId = setTimeout(this.save, SAVE_INTERVAL * 1000);
   };
@@ -280,17 +257,14 @@ export class ServerNetwork extends System {
   saveSettings = async (): Promise<void> => {
     const data = (this.world as any).settings.serialize();
     const value = JSON.stringify(data);
-    await this.db
-      .insert(schema.config)
-      .values({
+    await this.db('config')
+      .insert({
         key: 'settings',
         value,
       })
-      .onConflictDoUpdate({
-        target: schema.config.key,
-        set: {
-          value,
-        },
+      .onConflict('key')
+      .merge({
+        value,
       });
   };
 
@@ -315,15 +289,15 @@ export class ServerNetwork extends System {
 
       // check connection params
       let authToken = params.authToken;
-      const name = params.name;
-      const avatar = params.avatar;
+      let name = params.name;
+      let avatar = params.avatar;
 
       // get or create user
       let user: User | undefined;
       if (authToken) {
         try {
           const { userId } = await verifyJWT(authToken);
-          user = await this.db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+          user = await this.db('users').where('id', userId).first();
         } catch (err) {
           console.error('failed to read authToken:', authToken);
         }
@@ -336,13 +310,10 @@ export class ServerNetwork extends System {
           roles: '',
           createdAt: moment().toISOString(),
         };
-        await this.db.insert(schema.users).values({
-          ...user,
-          roles: typeof user.roles === 'string' ? user.roles : user.roles.join(','),
-        });
+        await this.db('users').insert(user);
         authToken = await createJWT({ userId: user.id });
       }
-
+      
       // Convert roles string to array
       if (typeof user.roles === 'string') {
         user.roles = user.roles.split(',').filter(r => r);
@@ -358,8 +329,8 @@ export class ServerNetwork extends System {
 
       // if there is no admin code, everyone is a temporary admin (eg for local dev)
       // all roles prefixed with `~` are temporary and not persisted to db
-      if (!ENV_SERVER.ADMIN_CODE) {
-        ;(user.roles as string[]).push('~admin');
+      if (!process.env.ADMIN_CODE) {
+        (user.roles as string[]).push('~admin');
       }
 
       // livekit options
@@ -390,9 +361,9 @@ export class ServerNetwork extends System {
       socket.send('snapshot', {
         id: socket.id,
         serverTime: performance.now(),
-        assetsUrl: ENV.PUBLIC_ASSETS_URL,
-        apiUrl: ENV.PUBLIC_API_URL,
-        maxUploadSize: ENV.PUBLIC_MAX_UPLOAD_SIZE,
+        assetsUrl: process.env.PUBLIC_ASSETS_URL,
+        apiUrl: process.env.PUBLIC_API_URL,
+        maxUploadSize: process.env.PUBLIC_MAX_UPLOAD_SIZE,
         collections: (this.world as any).collections.serialize(),
         settings: (this.world as any).settings.serialize(),
         chat: (this.world as any).chat.serialize(),
@@ -402,18 +373,18 @@ export class ServerNetwork extends System {
         authToken,
       });
 
-      this.sockets.set(socket.id, socket)
+      this.sockets.set(socket.id, socket);
 
       // enter events on the server are sent after the snapshot.
       // on the client these are sent during PlayerRemote.js entity instantiation!
-      ;(this.world as any).events.emit('enter', { playerId: socket.player.data.id });
+      (this.world as any).events.emit('enter', { playerId: socket.player.data.id });
     } catch (err) {
       console.error(err);
     }
   }
 
   onChatAdded = async (socket: Socket, msg: any): Promise<void> => {
-    ;(this.world as any).chat.add(msg, false);
+    (this.world as any).chat.add(msg, false);
     this.send('chatAdded', msg, socket.id);
   };
 
@@ -423,11 +394,11 @@ export class ServerNetwork extends System {
     const player = socket.player;
     const playerId = player.data.id;
     const [cmd, arg1, arg2] = args;
-
+    
     // become admin command
     if (cmd === 'admin') {
       const code = arg1;
-      if (ENV_SERVER.ADMIN_CODE && ENV_SERVER.ADMIN_CODE === code) {
+      if (process.env.ADMIN_CODE && process.env.ADMIN_CODE === code) {
         const id = player.data.id;
         const userId = player.data.userId;
         const roles = player.data.roles;
@@ -446,13 +417,12 @@ export class ServerNetwork extends System {
           body: granting ? 'Admin granted!' : 'Admin revoked!',
           createdAt: moment().toISOString(),
         });
-        await this.db
-          .update(schema.users)
-          .set({ roles: serializeRoles(roles) })
-          .where(eq(schema.users.id, userId));
+        await this.db('users')
+          .where('id', userId)
+          .update({ roles: serializeRoles(roles) });
       }
     }
-
+    
     if (cmd === 'name') {
       const name = arg1;
       if (name) {
@@ -468,22 +438,22 @@ export class ServerNetwork extends System {
           body: `Name set to ${name}!`,
           createdAt: moment().toISOString(),
         });
-        await this.db.update(schema.users).set({ name }).where(eq(schema.users.id, userId));
+        await this.db('users').where('id', userId).update({ name });
       }
     }
-
+    
     if (cmd === 'spawn') {
       const op = arg1;
       this.onSpawnModified(socket, op);
     }
-
+    
     if (cmd === 'chat') {
       const op = arg1;
       if (op === 'clear' && this.isBuilder(socket.player)) {
-        ;(this.world as any).chat.clear(true);
+        (this.world as any).chat.clear(true);
       }
     }
-
+    
     if (cmd === 'server') {
       const op = arg1;
       if (op === 'stats') {
@@ -503,10 +473,10 @@ export class ServerNetwork extends System {
         );
       }
     }
-
+    
     // emit event for all except admin
     if (cmd !== 'admin') {
-      ;(this.world as any).events.emit('command', { playerId, args });
+      (this.world as any).events.emit('command', { playerId, args });
     }
   };
 
@@ -514,7 +484,7 @@ export class ServerNetwork extends System {
     if (!this.isBuilder(socket.player)) {
       return console.error('player attempted to add blueprint without builder permission');
     }
-    ;(this.world as any).blueprints.add(blueprint);
+    (this.world as any).blueprints.add(blueprint);
     this.send('blueprintAdded', blueprint, socket.id);
     this.dirtyBlueprints.add(blueprint.id);
   };
@@ -526,7 +496,7 @@ export class ServerNetwork extends System {
     const blueprint = (this.world as any).blueprints.get(data.id);
     // if new version is greater than current version, allow it
     if (data.version > blueprint.version) {
-      ;(this.world as any).blueprints.modify(data);
+      (this.world as any).blueprints.modify(data);
       this.send('blueprintModified', data, socket.id);
       this.dirtyBlueprints.add(data.id);
     }
@@ -542,16 +512,12 @@ export class ServerNetwork extends System {
     }
     const entity = (this.world as any).entities.add(data);
     this.send('entityAdded', data, socket.id);
-    if (entity.isApp) {
-      this.dirtyApps.add(entity.data.id);
-    }
+    if (entity.isApp) this.dirtyApps.add(entity.data.id);
   };
 
   onEntityModified = async (socket: Socket, data: any): Promise<void> => {
     const entity = (this.world as any).entities.get(data.id);
-    if (!entity) {
-      return console.error('onEntityModified: no entity found', data);
-    }
+    if (!entity) return console.error('onEntityModified: no entity found', data);
     entity.modify(data);
     this.send('entityModified', data, socket.id);
     if (entity.isApp) {
@@ -571,7 +537,7 @@ export class ServerNetwork extends System {
         changed = true;
       }
       if (changed) {
-        await this.db.update(schema.users).set(changes).where(eq(schema.users.id, entity.data.userId));
+        await this.db('users').where('id', entity.data.userId).update(changes);
       }
     }
   };
@@ -586,19 +552,17 @@ export class ServerNetwork extends System {
     if (!this.isBuilder(socket.player)) {
       return console.error('player attempted to remove entity without builder permission');
     }
-    const entity = (this.world as any).entities.get(id)
-    ;(this.world as any).entities.remove(id);
+    const entity = (this.world as any).entities.get(id);
+    (this.world as any).entities.remove(id);
     this.send('entityRemoved', id, socket.id);
-    if (entity?.isApp) {
-      this.dirtyApps.add(id);
-    }
+    if (entity?.isApp) this.dirtyApps.add(id);
   };
 
   onSettingsModified = (socket: Socket, data: { key: string; value: any }): void => {
     if (!this.isBuilder(socket.player)) {
       return console.error('player attempted to modify settings without builder permission');
     }
-    ;(this.world as any).settings.set(data.key, data.value);
+    (this.world as any).settings.set(data.key, data.value);
     this.send('settingsModified', data, socket.id);
   };
 
@@ -608,9 +572,9 @@ export class ServerNetwork extends System {
     }
     const player = socket.player;
     if (op === 'set') {
-      this.spawn = {
-        position: player.data.position.slice() as [number, number, number],
-        quaternion: player.data.quaternion.slice() as [number, number, number, number],
+      this.spawn = { 
+        position: player.data.position.slice() as [number, number, number], 
+        quaternion: player.data.quaternion.slice() as [number, number, number, number] 
       };
     } else if (op === 'clear') {
       this.spawn = { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
@@ -618,17 +582,14 @@ export class ServerNetwork extends System {
       return;
     }
     const data = JSON.stringify(this.spawn);
-    await this.db
-      .insert(schema.config)
-      .values({
+    await this.db('config')
+      .insert({
         key: 'spawn',
         value: data,
       })
-      .onConflictDoUpdate({
-        target: schema.config.key,
-        set: {
-          value: data,
-        },
+      .onConflict('key')
+      .merge({
+        value: data,
       });
     socket.send('chatAdded', {
       id: uuid(),
@@ -670,4 +631,4 @@ export class ServerNetwork extends System {
     this.sockets.forEach(socket => socket.disconnect());
     this.sockets.clear();
   }
-}
+} 

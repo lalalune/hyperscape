@@ -1,23 +1,23 @@
-import { createNode } from './createNode';
-import { THREE } from './three';
-import CustomShaderMaterial from '../libs/three-custom-shader-material';
+import { createNode } from './createNode'
+import * as THREE from 'three'
+import CustomShaderMaterial from '../libs/three-custom-shader-material'
 
-const groupTypes = ['Scene', 'Group', 'Object3D'];
+const groupTypes = ['Scene', 'Group', 'Object3D']
 
 interface NodeData {
-  id: string
-  [key: string]: any
+  id: string;
+  [key: string]: any;
 }
 
 export function glbToNodes(glb: any, world: any) {
   function registerNode(name: string, data: NodeData) {
-    const node = createNode(name, data);
-    return node;
+    const node = createNode(name, data)
+    return node
   }
-  function parse(object3ds: any[], parentNode: any) {
+  function parse(object3ds: THREE.Object3D[], parentNode: any) {
     for (const object3d of object3ds) {
-      const props = object3d.userData || {};
-      const isSkinnedMeshRoot = !!object3d.children.find(c => (c as any).isSkinnedMesh);
+      const props = object3d.userData || {}
+      const isSkinnedMeshRoot = !!object3d.children.find(c => (c as any).isSkinnedMesh)
       // SkinnedMesh (root)
       if (isSkinnedMeshRoot) {
         const node = registerNode('skinnedmesh', {
@@ -30,11 +30,11 @@ export function glbToNodes(glb: any, world: any) {
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
-        });
+        })
         if (parentNode.name === 'lod' && props.maxDistance) {
-          parentNode.insert(node, props.maxDistance);
+          parentNode.insert(node, props.maxDistance)
         } else {
-          parentNode.add(node);
+          parentNode.add(node)
         }
         // parse(object3d.children, node)
       }
@@ -45,9 +45,9 @@ export function glbToNodes(glb: any, world: any) {
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
-        });
-        parentNode.add(node);
-        parse(object3d.children as unknown as any[], node);
+        })
+        parentNode.add(node)
+        parse(object3d.children as unknown as THREE.Object3D[], node)
       }
       // LOD (custom node)
       else if (props.node === 'lod') {
@@ -57,9 +57,9 @@ export function glbToNodes(glb: any, world: any) {
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
           scaleAware: props.scaleAware,
-        });
-        parentNode.add(node);
-        parse(object3d.children as unknown as any[], node);
+        })
+        parentNode.add(node)
+        parse(object3d.children as unknown as THREE.Object3D[], node)
       }
       // RigidBody (custom node)
       else if (props.node === 'rigidbody') {
@@ -70,9 +70,9 @@ export function glbToNodes(glb: any, world: any) {
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
-        });
-        parentNode.add(node);
-        parse(object3d.children as unknown as any[], node);
+        })
+        parentNode.add(node)
+        parse(object3d.children as unknown as THREE.Object3D[], node)
       }
       // Collider (custom node)
       else if (props.node === 'collider' && (object3d as any).isMesh) {
@@ -80,7 +80,7 @@ export function glbToNodes(glb: any, world: any) {
         // but since the Group is the one that has the collider custom property, it won't work as expected. we could hack to fix this, but i think it adds a layer of indirection.
         // colliders should not have materials on them.
         // console.error('TODO: glbToNodes collider for box/sphere in blender?')
-        const mesh = object3d as unknown as any;
+        const mesh = (object3d as unknown) as THREE.Mesh
         const node = registerNode('collider', {
           id: mesh.name,
           type: 'geometry',
@@ -90,22 +90,22 @@ export function glbToNodes(glb: any, world: any) {
           position: mesh.position.toArray(),
           quaternion: mesh.quaternion.toArray(),
           scale: mesh.scale.toArray(),
-        });
-        parentNode.add(node);
-        parse(mesh.children as unknown as any[], node);
+        })
+        parentNode.add(node)
+        parse(mesh.children as unknown as THREE.Object3D[], node)
       }
       // Mesh
       else if (object3d.type === 'Mesh') {
-        const mesh = object3d as unknown as any;
+        const mesh = (object3d as unknown) as THREE.Mesh
         // experimental splatmaps
         if (props.exp_splatmap && !world.network.isServer) {
-          setupSplatmap(mesh);
+          setupSplatmap(mesh)
         }
         // wind effect
         else if ((mesh.material as any).userData.wind) {
-          addWind(mesh, world);
+          addWind(mesh, world)
         }
-        const hasMorphTargets = (mesh as any).morphTargetDictionary || (mesh as any).morphTargetInfluences?.length > 0;
+        const hasMorphTargets = (mesh as any).morphTargetDictionary || (mesh as any).morphTargetInfluences?.length > 0
         const node = registerNode('mesh', {
           id: mesh.name,
           type: 'geometry',
@@ -119,13 +119,13 @@ export function glbToNodes(glb: any, world: any) {
           position: mesh.position.toArray(),
           quaternion: mesh.quaternion.toArray(),
           scale: mesh.scale.toArray(),
-        });
+        })
         if (parentNode.name === 'lod' && props.maxDistance) {
-          parentNode.insert(node, props.maxDistance);
+          parentNode.insert(node, props.maxDistance)
         } else {
-          parentNode.add(node);
+          parentNode.add(node)
         }
-        parse(mesh.children as unknown as any[], node);
+        parse(mesh.children as unknown as THREE.Object3D[], node)
       }
       // SkinnedMesh
       else if (object3d.type === 'SkinnedMesh') {
@@ -138,48 +138,42 @@ export function glbToNodes(glb: any, world: any) {
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
-        });
-        parentNode.add(node);
-        parse(object3d.children as unknown as any[], node);
+        })
+        parentNode.add(node)
+        parse(object3d.children as unknown as THREE.Object3D[], node)
       }
     }
   }
   const root = registerNode('group', {
     id: '$root',
-  });
-  parse(glb.scene.children as unknown as any[], root);
+  })
+  parse(glb.scene.children as unknown as THREE.Object3D[], root)
   // console.log('$root', root)
-  return root;
+  return root
 }
 
-function addWind(mesh: any, world: any) {
-  if (!world.wind) {
-    return;
-  }
-  const uniforms = world.wind.uniforms;
-  const material = mesh.material as any;
-  if (material.hasWind) {
-    return;
-  }
-  material.hasWind = true;
+function addWind(mesh: THREE.Mesh, world: any) {
+  if (!world.wind) return
+  const uniforms = world.wind.uniforms
+  const material = mesh.material as any
+  if (material.hasWind) return
+  material.hasWind = true
   // console.log('added wind to', mesh.name)
   material.onBeforeCompile = (shader: any) => {
-    if (!shader.defines) {
-      shader.defines = {};
-    }
-    shader.defines.USE_WIND = 1;
-    shader.uniforms.time = uniforms.time;
-    shader.uniforms.strength = uniforms.strength;
-    shader.uniforms.direction = uniforms.direction;
-    shader.uniforms.speed = uniforms.speed;
-    shader.uniforms.noiseScale = uniforms.noiseScale;
-    shader.uniforms.ampScale = uniforms.ampScale;
-    shader.uniforms.freqMultiplier = uniforms.freqMultiplier;
+    if (!shader.defines) shader.defines = {}
+    shader.defines.USE_WIND = 1
+    shader.uniforms.time = uniforms.time
+    shader.uniforms.strength = uniforms.strength
+    shader.uniforms.direction = uniforms.direction
+    shader.uniforms.speed = uniforms.speed
+    shader.uniforms.noiseScale = uniforms.noiseScale
+    shader.uniforms.ampScale = uniforms.ampScale
+    shader.uniforms.freqMultiplier = uniforms.freqMultiplier
 
-    const height = mesh.geometry.boundingBox!.max.y * mesh.scale.y;
+    const height = mesh.geometry.boundingBox!.max.y * mesh.scale.y
 
-    shader.uniforms.height = { value: height }; // prettier-ignore
-    shader.uniforms.stiffness = { value: 0 };
+    shader.uniforms.height = { value: height } // prettier-ignore
+    shader.uniforms.stiffness = { value: 0 }
 
     // BUG: somehow the wind shader code below is added to other meshes
     // so we wrap it in an ifdef. this might be a bug with CSM because disabling
@@ -205,7 +199,7 @@ function addWind(mesh: any, world: any) {
 
       #include <common>
       `
-    );
+    )
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <begin_vertex>',
@@ -225,8 +219,8 @@ function addWind(mesh: any, world: any) {
         transformed += strength * displacement * direction;
       #endif
       `
-    );
-  };
+    )
+  }
 }
 
 const snoise = `
@@ -308,9 +302,9 @@ const snoise = `
   return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), 
                                 dot(p2,x2), dot(p3,x3) ) );
   }
-`;
+`
 
-function setupSplatmap(mesh: any) {
+function setupSplatmap(mesh: THREE.Mesh) {
   /**
    * TODO
    * - vertex colors should shade terrain
@@ -321,19 +315,11 @@ function setupSplatmap(mesh: any) {
    *   so we force the splat and rgba textures into random material slots and
    *   reconstruct them here.
    */
-  const original = mesh.material as any;
-  if (original.specularIntensityMap) {
-    original.specularIntensityMap.colorSpace = THREE.SRGBColorSpace;
-  }
-  if (original.transmissionMap) {
-    original.transmissionMap.colorSpace = THREE.SRGBColorSpace;
-  }
-  if (original.emissiveMap) {
-    original.emissiveMap.colorSpace = THREE.SRGBColorSpace;
-  }
-  if (original.normalMap) {
-    original.normalMap.colorSpace = THREE.SRGBColorSpace;
-  }
+  const original = mesh.material as any
+  if (original.specularIntensityMap) original.specularIntensityMap.colorSpace = THREE.SRGBColorSpace
+  if (original.transmissionMap) original.transmissionMap.colorSpace = THREE.SRGBColorSpace
+  if (original.emissiveMap) original.emissiveMap.colorSpace = THREE.SRGBColorSpace
+  if (original.normalMap) original.normalMap.colorSpace = THREE.SRGBColorSpace
   const uniforms = {
     splatTex: { value: original.map },
     rTex: { value: original.specularIntensityMap },
@@ -344,7 +330,7 @@ function setupSplatmap(mesh: any) {
     gScale: { value: mesh.userData.green_scale || 1 },
     bScale: { value: mesh.userData.blue_scale || 1 },
     aScale: { value: mesh.userData.alpha_scale || 1 },
-  };
+  }
   // if (mesh.geometry.hasAttribute('_color')) {
   //   terrain.geometry.setAttribute('color', terrain.geometry.attributes._color)
   //   terrain.geometry.deleteAttribute('_color')
@@ -409,5 +395,5 @@ function setupSplatmap(mesh: any) {
           csm_DiffuseColor *= result;
       }
     `,
-  } as any);
+  } as any)
 }

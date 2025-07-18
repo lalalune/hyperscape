@@ -79,7 +79,7 @@ Please follow these guidelines for component development:
  */
 export default function InteractiveComponent(props) {
   const { position, onInteract } = props
-
+  
   useEffect(() => {
     // Setup component
     return () => {
@@ -88,7 +88,10 @@ export default function InteractiveComponent(props) {
   }, [])
 
   return (
-    <component position={position} onClick={onInteract}>
+    <component
+      position={position}
+      onClick={onInteract}
+    >
       {/* Component content */}
     </component>
   )

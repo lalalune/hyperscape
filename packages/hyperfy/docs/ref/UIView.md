@@ -11,7 +11,7 @@ view.backgroundColor = 'rgba(0, 0, 0, 0.5)'
 
 ### `.display`: String
 
-Either `none` or `flex`.
+Either `none` or `flex`. 
 Defaults to `flex`.
 
 ### `.width`: Number
@@ -24,7 +24,7 @@ The height of the view in pixels. Defaults to `100`.
 
 ### `.backgroundColor`: String
 
-The background color of the view.
+The background color of the view. 
 Can be hex (eg `#000000`) or rgba (eg `rgba(0, 0, 0, 0.5)`).
 Defaults to `null`.
 
@@ -94,3 +94,4 @@ Defaults to `0`.
 ### `.{...Node}`
 
 Inherits all [Node](/docs/ref/Node.md) properties
+

@@ -44,6 +44,10 @@ The primary utility of a controller. Will move the controller in the direction a
 
 Note that controllers do not have gravity by default, but you can simulate this by setting vec3.y = -9.81 for example.
 
-### `.teleport(vec3)`
+### `.teleport(vec3)` 
 
 Teleports the controller to a new position.
+
+
+
+

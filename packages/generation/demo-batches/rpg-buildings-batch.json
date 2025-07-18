@@ -1,0 +1,86 @@
+[
+  {
+    "name": "Brookhaven Bank",
+    "description": "Small town bank with wooden construction, stone vault, and friendly appearance",
+    "type": "building",
+    "subtype": "bank",
+    "style": "realistic",
+    "metadata": {
+      "tier": "starter",
+      "level": 1,
+      "gameId": "bank_1",
+      "rarity": "common",
+      "location": "Brookhaven"
+    }
+  },
+  {
+    "name": "Millharbor Bank",
+    "description": "Watermill-adjacent bank with stone construction, iron vault, and mill-wheel decoration",
+    "type": "building",
+    "subtype": "bank",
+    "style": "realistic",
+    "metadata": {
+      "tier": "starter",
+      "level": 1,
+      "gameId": "bank_2",
+      "rarity": "common",
+      "location": "Millharbor"
+    }
+  },
+  {
+    "name": "Crosshill Bank",
+    "description": "Trade route bank with sturdy construction, large vault, and merchant-friendly design",
+    "type": "building",
+    "subtype": "bank",
+    "style": "realistic",
+    "metadata": {
+      "tier": "starter",
+      "level": 1,
+      "gameId": "bank_3",
+      "rarity": "common",
+      "location": "Crosshill"
+    }
+  },
+  {
+    "name": "Brookhaven General Store",
+    "description": "Cozy general store with wooden shelves, display windows, and welcoming storefront",
+    "type": "building",
+    "subtype": "store",
+    "style": "realistic",
+    "metadata": {
+      "tier": "starter",
+      "level": 1,
+      "gameId": "store_1",
+      "rarity": "common",
+      "location": "Brookhaven"
+    }
+  },
+  {
+    "name": "Millharbor General Store",
+    "description": "Mill-town store with water-powered equipment, stone foundation, and practical design",
+    "type": "building",
+    "subtype": "store",
+    "style": "realistic",
+    "metadata": {
+      "tier": "starter",
+      "level": 1,
+      "gameId": "store_2",
+      "rarity": "common",
+      "location": "Millharbor"
+    }
+  },
+  {
+    "name": "Crosshill General Store",
+    "description": "Large crossroads store with multiple entrances, extensive displays, and trade goods",
+    "type": "building",
+    "subtype": "store",
+    "style": "realistic",
+    "metadata": {
+      "tier": "starter",
+      "level": 1,
+      "gameId": "store_3",
+      "rarity": "common",
+      "location": "Crosshill"
+    }
+  }
+]

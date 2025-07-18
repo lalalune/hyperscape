@@ -391,9 +391,7 @@ const D =
   }
 function U(M) {
   let n = 0
-  for (let m = 0; m < M.length; m++) {
-    n = M.charCodeAt(m) + (n << 6) + (n << 16) - n
-  }
+  for (let m = 0; m < M.length; m++) n = M.charCodeAt(m) + (n << 6) + (n << 16) - n
   const S = n >>> 0
   return String(S)
 }
@@ -401,9 +399,7 @@ function k(M) {
   try {
     new M()
   } catch (n) {
-    if (n.message.indexOf('is not a constructor') >= 0) {
-      return !1
-    }
+    if (n.message.indexOf('is not a constructor') >= 0) return !1
   }
   return !0
 }
@@ -412,19 +408,14 @@ function L(M) {
 }
 class B extends T.Material {
   constructor({ baseMaterial: n, vertexShader: S, fragmentShader: h, uniforms: m, patchMap: I, cacheKey: f, ...r }) {
-    if (!n) {
-      throw new Error('CustomShaderMaterial: baseMaterial is required.')
-    }
+    if (!n) throw new Error('CustomShaderMaterial: baseMaterial is required.')
     let i
     if (k(n)) {
       const _ = Object.keys(r).length === 0
       i = new n(_ ? void 0 : r)
-    } else {
-      ;(i = n), Object.assign(i, r)
-    }
-    if (['ShaderMaterial', 'RawShaderMaterial'].includes(i.type)) {
+    } else (i = n), Object.assign(i, r)
+    if (['ShaderMaterial', 'RawShaderMaterial'].includes(i.type))
       throw new Error(`CustomShaderMaterial does not support ${i.type} as a base material.`)
-    }
     super(), (this.uniforms = {}), (this.vertexShader = ''), (this.fragmentShader = '')
     const t = i
     ;(t.name = `CustomShaderMaterial<${i.name}>`),
@@ -460,7 +451,7 @@ class B extends T.Material {
       })
     const p = i.__csm.prevOnBeforeCompile,
       t = (a, o, _) => {
-        let c
+        var c
         let s,
           d = ''
         if (o) {
@@ -474,8 +465,9 @@ class B extends T.Material {
             o &&
             o.includes(e.fragColor) &&
             s &&
-            (s = `csm_UnlitFac = 1.0;
-${s}`),
+            (s =
+              `csm_UnlitFac = 1.0;
+` + s),
           a.includes('//~CSM_DEFAULTS'))
         ) {
           a = a.replace(
@@ -531,10 +523,16 @@ ${s}`),
 `
           : `#define IS_UNKNOWN;
 `
-      ;(a.vertexShader = `${R}#define IS_VERTEX
-${a.vertexShader}`),
-        (a.fragmentShader = `${R}#define IS_FRAGMENT
-${a.fragmentShader}`)
+      ;(a.vertexShader =
+        R +
+        `#define IS_VERTEX
+` +
+        a.vertexShader),
+        (a.fragmentShader =
+          R +
+          `#define IS_FRAGMENT
+` +
+          a.fragmentShader)
       for (const c in s) {
         const l = c === '*' || (f && f.includes(c))
         if (c === '*' || (r && r.includes(c)) || l) {
@@ -546,16 +544,15 @@ ${a.fragmentShader}`)
           const C = s[c]
           for (const g in C) {
             const A = C[g]
-            if (typeof A === 'object') {
+            if (typeof A == 'object') {
               const $ = A.type,
                 N = A.value
               $ === 'fs'
                 ? (a.fragmentShader = a.fragmentShader.replace(g, N))
                 : $ === 'vs' && (a.vertexShader = a.vertexShader.replace(g, N))
-            } else {
+            } else
               A &&
                 ((a.vertexShader = a.vertexShader.replace(g, A)), (a.fragmentShader = a.fragmentShader.replace(g, A)))
-            }
           }
         }
       }

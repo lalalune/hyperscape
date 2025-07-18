@@ -2,16 +2,16 @@ import { System } from './System.js';
 import type { World, Collections as ICollections } from '../../types/index.js';
 
 interface Collection {
-  id: string
-  name?: string
-  description?: string
-  items?: any[]
-  [key: string]: any
+  id: string;
+  name?: string;
+  description?: string;
+  items?: any[];
+  [key: string]: any;
 }
 
 /**
  * Collections System
- *
+ * 
  * Manages collections of items/assets in the world
  */
 export class Collections extends System implements ICollections {
@@ -72,4 +72,4 @@ export class Collections extends System implements ICollections {
     this.collections = [];
     this.items.clear();
   }
-}
+} 

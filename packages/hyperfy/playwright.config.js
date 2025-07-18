@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test'
+import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/visual',
@@ -16,9 +16,9 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: {
+      use: { 
         browserName: 'chromium',
-        viewport: { width: 1920, height: 1080 },
+        viewport: { width: 1920, height: 1080 }
       },
     },
   ],
@@ -28,4 +28,4 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
   },
-})
+}); 

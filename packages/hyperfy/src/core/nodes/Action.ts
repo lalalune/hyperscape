@@ -1,7 +1,7 @@
-import { THREE } from '../extras/three';
-import { isFunction, isNumber, isString } from 'lodash-es';
+import * as THREE from 'three'
+import { isFunction, isNumber, isString } from 'lodash-es'
 
-import { Node } from './Node';
+import { Node } from './Node'
 
 const defaults = {
   label: 'Interact',
@@ -10,180 +10,170 @@ const defaults = {
   onStart: () => {},
   onTrigger: () => {},
   onCancel: () => {},
-};
+}
 
 export class Action extends Node {
-  worldPos: THREE.Vector3;
-  progress: number;
-  _label: any;
-  _distance: any;
-  _duration: any;
-  _onStart: any;
-  _onTrigger: any;
-  _onCancel: any;
+  worldPos: THREE.Vector3
+  progress: number
+  _label: any
+  _distance: any
+  _duration: any
+  _onStart: any
+  _onTrigger: any
+  _onCancel: any
   constructor(data: any = {}) {
-    super(data);
-    this.name = 'action';
+    super(data)
+    this.name = 'action'
 
-    this.label = data.label;
-    this.distance = data.distance;
-    this.duration = data.duration;
-    this.onStart = data.onStart;
-    this.onTrigger = data.onTrigger;
-    this.onCancel = data.onCancel;
+    this.label = data.label
+    this.distance = data.distance
+    this.duration = data.duration
+    this.onStart = data.onStart
+    this.onTrigger = data.onTrigger
+    this.onCancel = data.onCancel
 
-    this.worldPos = new THREE.Vector3();
-    this.progress = 0;
+    this.worldPos = new THREE.Vector3()
+    this.progress = 0
   }
 
   mount() {
-    this.ctx.world.actions?.register(this);
-    this.worldPos.setFromMatrixPosition(this.matrixWorld);
+    this.ctx.world.actions?.register(this)
+    this.worldPos.setFromMatrixPosition(this.matrixWorld)
   }
 
   commit(didMove) {
     if (didMove) {
-      this.worldPos.setFromMatrixPosition(this.matrixWorld);
+      this.worldPos.setFromMatrixPosition(this.matrixWorld)
     }
   }
 
   unmount() {
-    this.ctx.world.actions?.unregister(this);
+    this.ctx.world.actions?.unregister(this)
   }
 
   copy(source, recursive) {
-    super.copy(source, recursive);
-    this._label = source._label;
-    this._distance = source._distance;
-    this._duration = source._duration;
-    this._onStart = source._onStart;
-    this._onTrigger = source._onTrigger;
-    this._onCancel = source._onCancel;
-    return this;
+    super.copy(source, recursive)
+    this._label = source._label
+    this._distance = source._distance
+    this._duration = source._duration
+    this._onStart = source._onStart
+    this._onTrigger = source._onTrigger
+    this._onCancel = source._onCancel
+    return this
   }
 
   get label() {
-    return this._label;
+    return this._label
   }
 
   set label(value) {
-    this._label = isString(value) ? value : isNumber(value) ? `${value}` : defaults.label;
+    this._label = isString(value) ? value : isNumber(value) ? value + '' : defaults.label
   }
 
   get distance() {
-    return this._distance;
+    return this._distance
   }
 
   set distance(value: number) {
-    if (!value && value !== 0) {
-      value = defaults.distance;
-    }
+    if (!value && value !== 0) value = defaults.distance
     if (!isNumber(value)) {
-      throw new Error('[action] distance not a number');
+      throw new Error('[action] distance not a number')
     }
-    this._distance = value;
+    this._distance = value
   }
 
   get duration() {
-    return this._duration;
+    return this._duration
   }
 
   set duration(value: number) {
-    if (!value && value !== 0) {
-      value = defaults.duration;
-    }
+    if (!value && value !== 0) value = defaults.duration
     if (!isNumber(value)) {
-      throw new Error('[action] duration not a number');
+      throw new Error('[action] duration not a number')
     }
-    this._duration = value;
+    this._duration = value
   }
 
   get onStart() {
-    return this._onStart;
+    return this._onStart
   }
 
   set onStart(value: any) {
-    if (!value) {
-      value = defaults.onStart;
-    }
+    if (!value) value = defaults.onStart
     if (!isFunction(value)) {
-      throw new Error('[action] onStart not a function');
+      throw new Error('[action] onStart not a function')
     }
-    this._onStart = value;
+    this._onStart = value
   }
 
   get onTrigger() {
-    return this._onTrigger;
+    return this._onTrigger
   }
 
   set onTrigger(value: any) {
-    if (!value) {
-      value = defaults.onTrigger;
-    }
+    if (!value) value = defaults.onTrigger
     if (!isFunction(value)) {
-      throw new Error('[action] onTrigger not a function');
+      throw new Error('[action] onTrigger not a function')
     }
-    this._onTrigger = value;
+    this._onTrigger = value
   }
 
   get onCancel() {
-    return this._onCancel;
+    return this._onCancel
   }
 
   set onCancel(value: any) {
-    if (!value) {
-      value = defaults.onCancel;
-    }
+    if (!value) value = defaults.onCancel
     if (!isFunction(value)) {
-      throw new Error('[action] onCancel not a function');
+      throw new Error('[action] onCancel not a function')
     }
-    this._onCancel = value;
+    this._onCancel = value
   }
 
   getProxy() {
-    const self = this;
+    var self = this
     if (!this.proxy) {
       let proxy = {
         get label() {
-          return self.label;
+          return self.label
         },
         set label(value) {
-          self.label = value;
+          self.label = value
         },
         get distance() {
-          return self.distance;
+          return self.distance
         },
         set distance(value) {
-          self.distance = value;
+          self.distance = value
         },
         get duration() {
-          return self.duration;
+          return self.duration
         },
         set duration(value) {
-          self.duration = value;
+          self.duration = value
         },
         get onStart() {
-          return self.onStart;
+          return self.onStart
         },
         set onStart(value) {
-          self.onStart = value;
+          self.onStart = value
         },
         get onTrigger() {
-          return self.onTrigger;
+          return self.onTrigger
         },
         set onTrigger(value) {
-          self.onTrigger = value;
+          self.onTrigger = value
         },
         get onCancel() {
-          return self.onCancel;
+          return self.onCancel
         },
         set onCancel(value) {
-          self.onCancel = value;
+          self.onCancel = value
         },
-      };
-      proxy = Object.defineProperties(proxy, Object.getOwnPropertyDescriptors(super.getProxy())); // inherit Node properties
-      this.proxy = proxy;
+      }
+      proxy = Object.defineProperties(proxy, Object.getOwnPropertyDescriptors(super.getProxy())) // inherit Node properties
+      this.proxy = proxy
     }
-    return this.proxy;
+    return this.proxy
   }
 }

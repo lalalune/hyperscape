@@ -16,16 +16,16 @@ import {
   SparkleIcon,
   Trash2Icon,
   XIcon,
-  ZapIcon,
-} from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+  ZapIcon
+} from 'lucide-react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
-import { isArray } from 'lodash-es';
-import { exportApp } from '../../core/extras/appTools';
-import { downloadFile } from '../../core/extras/downloadFile';
-import { hasRole } from '../../core/utils';
-import { hashFile } from '../../core/utils-client';
-import { cls } from './cls';
+import { isArray } from 'lodash-es'
+import { exportApp } from '../../core/extras/appTools'
+import { downloadFile } from '../../core/extras/downloadFile'
+import { hasRole } from '../../core/utils'
+import { hashFile } from '../../core/utils-client'
+import { cls } from './cls'
 import {
   fileKinds,
   InputDropdown,
@@ -35,70 +35,68 @@ import {
   InputSwitch,
   InputText,
   InputTextarea,
-} from './Inputs';
-import { usePane } from './usePane';
+} from './Inputs'
+import { usePane } from './usePane'
 
 interface InspectPaneProps {
-  world: any
-  entity: any
+  world: any;
+  entity: any;
 }
 
 export function InspectPane({ world, entity }: InspectPaneProps) {
   if (entity.isApp) {
-    return <AppPane world={world} app={entity} />;
+    return <AppPane world={world} app={entity} />
   }
   if (entity.isPlayer) {
-    return <PlayerPane _world={world} _player={entity} />;
+    return <PlayerPane world={world} player={entity} />
   }
-  return null;
+  return null
 }
 
 const extToType: Record<string, string> = {
   glb: 'model',
   vrm: 'avatar',
-};
-const allowedModels = ['glb', 'vrm'];
+}
+const allowedModels = ['glb', 'vrm']
 
 interface AppPaneProps {
-  world: any
-  app: any
+  world: any;
+  app: any;
 }
 
 export function AppPane({ world, app }: AppPaneProps) {
-  const paneRef = useRef<HTMLDivElement | null>(null);
-  const headRef = useRef<HTMLDivElement | null>(null);
-  const [blueprint, setBlueprint] = useState(app.blueprint);
-  const canEdit = !blueprint.frozen && hasRole(world.entities.player.data.roles, 'admin', 'builder');
-  const [tab, setTab] = useState('main');
-  usePane('inspect', paneRef, headRef);
+  const paneRef = useRef<HTMLDivElement | null>(null)
+  const headRef = useRef<HTMLDivElement | null>(null)
+  const [blueprint, setBlueprint] = useState(app.blueprint)
+  const canEdit = !blueprint.frozen && hasRole(world.entities.player.data.roles, 'admin', 'builder')
+  const [tab, setTab] = useState('main')
+  usePane('inspect', paneRef, headRef)
   useEffect(() => {
-    ;(window as any).app = app;
-  }, [app]);
+    (window as any).app = app
+  }, [app])
   useEffect(() => {
     const onModify = (bp: any) => {
-      if (bp.id !== blueprint.id) {
-        return;
-      }
-      setBlueprint(bp);
-    };
-    world.blueprints.on('modify', onModify);
+      if (bp.id !== blueprint.id) return
+      setBlueprint(bp)
+    }
+    world.blueprints.on('modify', onModify)
     return () => {
-      world.blueprints.off('modify', onModify);
-    };
-  }, [world.blueprints, blueprint.id]);
+      world.blueprints.off('modify', onModify)
+    }
+  }, [world.blueprints, blueprint.id])
   const download = async () => {
     try {
-      const file = await exportApp(app.blueprint, world.loader.loadFile);
-      downloadFile(file);
+      const file = await exportApp(app.blueprint, world.loader.loadFile)
+      downloadFile(file)
     } catch (err) {
-      console.error(err);
+      console.error(err)
     }
-  };
+  }
 
   return (
     <div
       ref={paneRef}
-      className="apane"
+      className='apane'
       style={{
         position: 'absolute',
         top: '20px',
@@ -402,11 +400,11 @@ export function AppPane({ world, app }: AppPaneProps) {
           background: #30323e;
         }
       `}</style>
-      <div className="apane-head" ref={headRef}>
-        <div className="apane-head-icon">
+      <div className='apane-head' ref={headRef}>
+        <div className='apane-head-icon'>
           <ZapIcon size={16} />
         </div>
-        <div className="apane-head-tabs">
+        <div className='apane-head-tabs'>
           <div className={cls('apane-head-tab', { active: tab === 'main' })} onClick={() => setTab('main')}>
             <span>App</span>
           </div>
@@ -419,19 +417,19 @@ export function AppPane({ world, app }: AppPaneProps) {
             <span>Nodes</span>
           </div>
         </div>
-        <div className="apane-head-btns right">
+        <div className='apane-head-btns right'>
           {canEdit && (
             <div
-              className="apane-head-btn"
+              className='apane-head-btn'
               onClick={() => {
-                world.emit('inspect', null);
-                app.destroy(true);
+                world.emit('inspect', null)
+                app.destroy(true)
               }}
             >
               <Trash2Icon size={16} />
             </div>
           )}
-          <div className="apane-head-btn" onClick={() => world.emit('inspect', null)}>
+          <div className='apane-head-btn' onClick={() => world.emit('inspect', null)}>
             <XIcon size={20} />
           </div>
         </div>
@@ -439,7 +437,7 @@ export function AppPane({ world, app }: AppPaneProps) {
       {tab === 'main' && (
         <>
           <AppPaneMain world={world} app={app} blueprint={blueprint} canEdit={canEdit} />
-          <div className="apane-download" onClick={download}>
+          <div className='apane-download' onClick={download}>
             <DownloadIcon size={16} />
             <span>Download</span>
           </div>
@@ -448,67 +446,61 @@ export function AppPane({ world, app }: AppPaneProps) {
       {tab === 'meta' && <AppPaneMeta world={world} app={app} blueprint={blueprint} />}
       {tab === 'nodes' && <AppPaneNodes app={app} />}
     </div>
-  );
+  )
 }
 
 interface AppPaneMainProps {
-  world: any
-  app: any
-  blueprint: any
-  canEdit: boolean
+  world: any;
+  app: any;
+  blueprint: any;
+  canEdit: boolean;
 }
 
 function AppPaneMain({ world, app, blueprint, canEdit }: AppPaneMainProps) {
-  const [fileInputKey, setFileInputKey] = useState(0);
+  const [fileInputKey, setFileInputKey] = useState(0)
   const downloadModel = (e: React.MouseEvent) => {
     if (e.shiftKey) {
-      e.preventDefault();
-      const file = world.loader.getFile(blueprint.model);
-      if (!file) {
-        return;
-      }
-      downloadFile(file);
+      e.preventDefault()
+      const file = world.loader.getFile(blueprint.model)
+      if (!file) return
+      downloadFile(file)
     }
-  };
+  }
   const changeModel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFileInputKey(n => n + 1);
-    const file = e.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!ext || !allowedModels.includes(ext)) {
-      return;
-    }
+    setFileInputKey(n => n + 1)
+    const file = e.target.files?.[0]
+    if (!file) return
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (!ext || !allowedModels.includes(ext)) return
     // immutable hash the file
-    const hash = await hashFile(file);
+    const hash = await hashFile(file)
     // use hash as glb filename
-    const filename = `${hash}.${ext}`;
+    const filename = `${hash}.${ext}`
     // canonical url to this file
-    const url = `asset://${filename}`;
+    const url = `asset://${filename}`
     // cache file locally so this client can insta-load it
-    const type = extToType[ext];
-    world.loader.insert(type, url, file);
+    const type = extToType[ext]
+    world.loader.insert(type, url, file)
     // update blueprint locally (also rebuilds apps)
-    const version = blueprint.version + 1;
-    world.blueprints.modify({ id: blueprint.id, version, model: url });
+    const version = blueprint.version + 1
+    world.blueprints.modify({ id: blueprint.id, version, model: url })
     // upload model
-    await world.network.upload(file);
+    await world.network.upload(file)
     // broadcast blueprint change to server + other clients
-    world.network.send('blueprintModified', { id: blueprint.id, version, model: url });
-  };
+    world.network.send('blueprintModified', { id: blueprint.id, version, model: url })
+  }
   const editCode = () => {
-    world.emit('code', true);
-  };
+    world.emit('code', true)
+  }
   const toggle = async (key: string) => {
-    const value = !blueprint[key];
-    const version = blueprint.version + 1;
-    world.blueprints.modify({ id: blueprint.id, version, [key]: value });
-    world.network.send('blueprintModified', { id: blueprint.id, version, [key]: value });
-  };
+    const value = !blueprint[key]
+    const version = blueprint.version + 1
+    world.blueprints.modify({ id: blueprint.id, version, [key]: value })
+    world.network.send('blueprintModified', { id: blueprint.id, version, [key]: value })
+  }
   return (
     <div
-      className="amain noscrollbar"
+      className='amain noscrollbar'
       style={{
         flex: 1,
         padding: '0 20px 10px',
@@ -521,7 +513,7 @@ function AppPaneMain({ world, app, blueprint, canEdit }: AppPaneMainProps) {
     >
       {blueprint.image && (
         <div
-          className="amain-image"
+          className='amain-image'
           style={{
             alignSelf: 'center',
             width: '120px',
@@ -534,34 +526,34 @@ function AppPaneMain({ world, app, blueprint, canEdit }: AppPaneMainProps) {
           }}
         />
       )}
-      {blueprint.name && <div className="amain-name">{blueprint.name}</div>}
+      {blueprint.name && <div className='amain-name'>{blueprint.name}</div>}
       {blueprint.author && (
-        <div className="amain-author">
+        <div className='amain-author'>
           <span>by </span>
           {blueprint.url && (
-            <a href={world.resolveURL(blueprint.url)} target="_blank" rel="noreferrer">
+            <a href={world.resolveURL(blueprint.url)} target='_blank' rel='noreferrer'>
               {blueprint.author || 'Unknown'}
             </a>
           )}
           {!blueprint.url && <span>{blueprint.author || 'Unknown'}</span>}
         </div>
       )}
-      {blueprint.desc && <div className="amain-desc">{blueprint.desc}</div>}
+      {blueprint.desc && <div className='amain-desc'>{blueprint.desc}</div>}
       {canEdit && (
         <>
-          <div className="amain-line mt mb" />
-          <div className="amain-btns">
-            <label className="amain-btns-btn" onClick={downloadModel}>
-              <input key={fileInputKey} type="file" accept=".glb,.vrm" onChange={changeModel} />
+          <div className='amain-line mt mb' />
+          <div className='amain-btns'>
+            <label className='amain-btns-btn' onClick={downloadModel}>
+              <input key={fileInputKey} type='file' accept='.glb,.vrm' onChange={changeModel} />
               <BoxIcon size={16} />
               <span>Model</span>
             </label>
-            <div className="amain-btns-btn" onClick={editCode}>
+            <div className='amain-btns-btn' onClick={editCode}>
               <FileCode2Icon size={16} />
               <span>Code</span>
             </div>
           </div>
-          <div className="amain-btns2">
+          <div className='amain-btns2'>
             <div
               className={cls('amain-btns2-btn green', { active: blueprint.preload })}
               onClick={() => toggle('preload')}
@@ -585,31 +577,31 @@ function AppPaneMain({ world, app, blueprint, canEdit }: AppPaneMainProps) {
               <span>Unique</span>
             </div>
           </div>
-          {app.fields.length > 0 && <div className="amain-line mt" />}
-          <div className="amain-fields">
+          {app.fields.length > 0 && <div className='amain-line mt' />}
+          <div className='amain-fields'>
             <Fields app={app} blueprint={blueprint} />
           </div>
         </>
       )}
     </div>
-  );
+  )
 }
 
 interface AppPaneMetaProps {
-  world: any
-  app: any
-  blueprint: any
+  world: any;
+  app: any;
+  blueprint: any;
 }
 
-function AppPaneMeta({ world, app: _app, blueprint }: AppPaneMetaProps) {
+function AppPaneMeta({ world, app, blueprint }: AppPaneMetaProps) {
   const set = async (key: string, value: any) => {
-    const version = blueprint.version + 1;
-    world.blueprints.modify({ id: blueprint.id, version, [key]: value });
-    world.network.send('blueprintModified', { id: blueprint.id, version, [key]: value });
-  };
+    const version = blueprint.version + 1
+    world.blueprints.modify({ id: blueprint.id, version, [key]: value })
+    world.network.send('blueprintModified', { id: blueprint.id, version, [key]: value })
+  }
   return (
     <div
-      className="ameta noscrollbar"
+      className='ameta noscrollbar'
       style={{
         flex: 1,
         padding: '20px 20px 10px',
@@ -617,74 +609,72 @@ function AppPaneMeta({ world, app: _app, blueprint }: AppPaneMetaProps) {
         overflowY: 'auto',
       }}
     >
-      <div className="ameta-field">
-        <div className="ameta-field-label">Name</div>
-        <div className="ameta-field-input">
+      <div className='ameta-field'>
+        <div className='ameta-field-label'>Name</div>
+        <div className='ameta-field-input'>
           <InputText value={blueprint.name} onChange={name => set('name', name)} />
         </div>
       </div>
-      <div className="ameta-field">
-        <div className="ameta-field-label">Image</div>
-        <div className="ameta-field-input">
-          <InputFile accept="image/*" value={blueprint.image} onChange={image => set('image', image)} />
+      <div className='ameta-field'>
+        <div className='ameta-field-label'>Image</div>
+        <div className='ameta-field-input'>
+          <InputFile accept='image/*' value={blueprint.image} onChange={image => set('image', image)} />
         </div>
       </div>
-      <div className="ameta-field">
-        <div className="ameta-field-label">Author</div>
-        <div className="ameta-field-input">
+      <div className='ameta-field'>
+        <div className='ameta-field-label'>Author</div>
+        <div className='ameta-field-input'>
           <InputText value={blueprint.author} onChange={author => set('author', author)} />
         </div>
       </div>
-      <div className="ameta-field">
-        <div className="ameta-field-label">URL</div>
-        <div className="ameta-field-input">
+      <div className='ameta-field'>
+        <div className='ameta-field-label'>URL</div>
+        <div className='ameta-field-input'>
           <InputText value={blueprint.url} onChange={url => set('url', url)} />
         </div>
       </div>
-      <div className="ameta-field">
-        <div className="ameta-field-label">Description</div>
-        <div className="ameta-field-input">
+      <div className='ameta-field'>
+        <div className='ameta-field-label'>Description</div>
+        <div className='ameta-field-input'>
           <InputTextarea value={blueprint.desc} onChange={desc => set('desc', desc)} />
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 interface AppPaneNodesProps {
-  app: any
+  app: any;
 }
 
 function AppPaneNodes({ app }: AppPaneNodesProps) {
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const rootNode = useMemo(() => app.getNodes(), [app]);
+  const [selectedNode, setSelectedNode] = useState<any>(null)
+  const rootNode = useMemo(() => app.getNodes(), [app])
 
   useEffect(() => {
     if (rootNode && !selectedNode) {
-      setSelectedNode(rootNode);
+      setSelectedNode(rootNode)
     }
-  }, [rootNode, selectedNode]);
+  }, [rootNode, selectedNode])
 
   // Helper function to safely get vector string
   const getVectorString = (vec: any) => {
-    if (!vec || typeof vec.x !== 'number') {
-      return null;
-    }
-    return `${vec.x.toFixed(2)}, ${vec.y.toFixed(2)}, ${vec.z.toFixed(2)}`;
-  };
+    if (!vec || typeof vec.x !== 'number') return null
+    return `${vec.x.toFixed(2)}, ${vec.y.toFixed(2)}, ${vec.z.toFixed(2)}`
+  }
 
   // Helper function to safely check if a property exists
   const hasProperty = (obj: any, prop: string) => {
     try {
-      return obj && typeof obj[prop] !== 'undefined';
-    } catch (_err) {
-      return false;
+      return obj && typeof obj[prop] !== 'undefined'
+    } catch (err) {
+      return false
     }
-  };
+  }
 
   return (
     <div
-      className="anodes noscrollbar"
+      className='anodes noscrollbar'
       style={{
         flex: 1,
         padding: '20px',
@@ -694,11 +684,11 @@ function AppPaneNodes({ app }: AppPaneNodesProps) {
         overflow: 'hidden',
       }}
     >
-      <div className="anodes-tree">
+      <div className='anodes-tree'>
         {rootNode ? (
           renderHierarchy([rootNode], 0, selectedNode, setSelectedNode)
         ) : (
-          <div className="anodes-empty">
+          <div className='anodes-empty'>
             <LayersIcon size={24} />
             <div>No nodes found</div>
           </div>
@@ -706,32 +696,32 @@ function AppPaneNodes({ app }: AppPaneNodesProps) {
       </div>
 
       {selectedNode && (
-        <div className="anodes-details">
-          <HierarchyDetail label="ID" value={selectedNode.id} copy />
-          <HierarchyDetail label="Name" value={selectedNode.name} copy={false} />
+        <div className='anodes-details'>
+          <HierarchyDetail label='ID' value={selectedNode.id} copy />
+          <HierarchyDetail label='Name' value={selectedNode.name} copy={false} />
 
           {/* Position */}
           {hasProperty(selectedNode, 'position') && getVectorString(selectedNode.position) && (
-            <HierarchyDetail label="Position" value={getVectorString(selectedNode.position)} copy={false} />
+            <HierarchyDetail label='Position' value={getVectorString(selectedNode.position)} copy={false} />
           )}
 
           {/* Rotation */}
           {hasProperty(selectedNode, 'rotation') && getVectorString(selectedNode.rotation) && (
-            <HierarchyDetail label="Rotation" value={getVectorString(selectedNode.rotation)} copy={false} />
+            <HierarchyDetail label='Rotation' value={getVectorString(selectedNode.rotation)} copy={false} />
           )}
 
           {/* Scale */}
           {hasProperty(selectedNode, 'scale') && getVectorString(selectedNode.scale) && (
-            <HierarchyDetail label="Scale" value={getVectorString(selectedNode.scale)} copy={false} />
+            <HierarchyDetail label='Scale' value={getVectorString(selectedNode.scale)} copy={false} />
           )}
 
           {/* Material */}
           {hasProperty(selectedNode, 'material') && selectedNode.material && (
             <>
-              <HierarchyDetail label="Material" value={selectedNode.material.type || 'Standard'} copy={false} />
+              <HierarchyDetail label='Material' value={selectedNode.material.type || 'Standard'} copy={false} />
               {hasProperty(selectedNode.material, 'color') && selectedNode.material.color && (
                 <HierarchyDetail
-                  label="Color"
+                  label='Color'
                   value={
                     selectedNode.material.color.getHexString
                       ? `#${selectedNode.material.color.getHexString()}`
@@ -745,29 +735,29 @@ function AppPaneNodes({ app }: AppPaneNodesProps) {
 
           {/* Geometry */}
           {hasProperty(selectedNode, 'geometry') && selectedNode.geometry && (
-            <HierarchyDetail label="Geometry" value={selectedNode.geometry.type || 'Custom'} copy={false} />
+            <HierarchyDetail label='Geometry' value={selectedNode.geometry.type || 'Custom'} copy={false} />
           )}
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function HierarchyDetail({ label, value, copy }: { label: any; value: any; copy: any }) {
-  const handleCopy = copy
+  let handleCopy = copy 
     ? (e: React.MouseEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      navigator.clipboard.writeText(value);
-    }
-    : undefined;
+        e.preventDefault()
+        navigator.clipboard.writeText(value)
+      }
+    : undefined
   return (
-    <div className="anodes-detail">
-      <div className="anodes-detail-label">{label}</div>
+    <div className='anodes-detail'>
+      <div className='anodes-detail-label'>{label}</div>
       <div className={cls('anodes-detail-value', { copy })} onClick={handleCopy}>
         {value}
       </div>
     </div>
-  );
+  )
 }
 
 const nodeIcons = {
@@ -779,28 +769,24 @@ const nodeIcons = {
   lod: EyeIcon,
   avatar: PersonStandingIcon,
   snap: MagnetIcon,
-};
+}
 
 function renderHierarchy(nodes, depth = 0, selectedNode, setSelectedNode) {
-  if (!Array.isArray(nodes)) {
-    return null;
-  }
+  if (!Array.isArray(nodes)) return null
 
   return nodes.map(node => {
-    if (!node) {
-      return null;
-    }
+    if (!node) return null
 
     // Skip the root node but show its children
     // if (depth === 0 && node.id === '$root') {
-    //   return renderHierarchy(node.children || [] depth, selectedNode, setSelectedNode)
+    //   return renderHierarchy(node.children || [], depth, selectedNode, setSelectedNode)
     // }
 
     // Safely get children
-    const children = node.children || [];
-    const hasChildren = Array.isArray(children) && children.length > 0;
-    const isSelected = selectedNode?.id === node.id;
-    const Icon = nodeIcons[node.name] || nodeIcons.default;
+    const children = node.children || []
+    const hasChildren = Array.isArray(children) && children.length > 0
+    const isSelected = selectedNode?.id === node.id
+    const Icon = nodeIcons[node.name] || nodeIcons.default
 
     return (
       <div key={node.id}>
@@ -817,39 +803,37 @@ function renderHierarchy(nodes, depth = 0, selectedNode, setSelectedNode) {
         </div>
         {hasChildren && renderHierarchy(children, depth + 1, selectedNode, setSelectedNode)}
       </div>
-    );
-  });
+    )
+  })
 }
 
-function PlayerPane({ _world, _player }) {
-  return <div>PLAYER INSPECT</div>;
+function PlayerPane({ world, player }) {
+  return <div>PLAYER INSPECT</div>
 }
 
 function Fields({ app, blueprint }) {
-  const world = app.world;
-  const [fields, setFields] = useState(app.fields);
-  const props = blueprint.props;
+  const world = app.world
+  const [fields, setFields] = useState(app.fields)
+  const props = blueprint.props
   useEffect(() => {
-    app.onFields = setFields;
+    app.onFields = setFields
     return () => {
-      app.onFields = null;
-    };
-  }, []);
-  const modify = (key, value) => {
-    if (props[key] === value) {
-      return;
+      app.onFields = null
     }
-    props[key] = value;
+  }, [])
+  const modify = (key, value) => {
+    if (props[key] === value) return
+    props[key] = value
     // update blueprint locally (also rebuilds apps)
-    const id = blueprint.id;
-    const version = blueprint.version + 1;
-    world.blueprints.modify({ id, version, props });
+    const id = blueprint.id
+    const version = blueprint.version + 1
+    world.blueprints.modify({ id, version, props })
     // broadcast blueprint change to server + other clients
-    world.network.send('blueprintModified', { id, version, props });
-  };
+    world.network.send('blueprintModified', { id, version, props })
+  }
   return fields.map(field => (
     <Field key={field.key} world={world} props={props} field={field} value={props[field.key]} modify={modify} />
-  ));
+  ))
 }
 
 const fieldTypes = {
@@ -863,94 +847,86 @@ const fieldTypes = {
   range: FieldRange,
   button: FieldButton,
   buttons: FieldButtons,
-};
+}
 
 function Field({ world, props, field, value, modify }) {
   if (field.hidden) {
-    return null;
+    return null
   }
   if (field.when && isArray(field.when)) {
     for (const rule of field.when) {
       if (rule.op === 'eq' && props[rule.key] !== rule.value) {
-        return null;
+        return null
       }
     }
   }
-  const FieldControl = fieldTypes[field.type];
-  if (!FieldControl) {
-    return null;
-  }
-  return <FieldControl world={world} field={field} value={value} modify={modify} />;
+  const FieldControl = fieldTypes[field.type]
+  if (!FieldControl) return null
+  return <FieldControl world={world} field={field} value={value} modify={modify} />
 }
 
 function FieldWithLabel({ label, children }) {
   return (
     <div
-      className="fieldwlabel"
+      className='fieldwlabel'
       style={{
         display: 'flex',
         alignItems: 'center',
         margin: '0 0 10px',
       }}
     >
-      <div
-        className="fieldwlabel-label"
-        style={{
-          width: '90px',
-          fontSize: '14px',
-          color: 'rgba(255, 255, 255, 0.5)',
-        }}
-      >
+      <div className='fieldwlabel-label' style={{
+        width: '90px',
+        fontSize: '14px',
+        color: 'rgba(255, 255, 255, 0.5)',
+      }}>
         {label}
       </div>
-      <div className="fieldwlabel-content" style={{ flex: 1 }}>
+      <div className='fieldwlabel-content' style={{ flex: 1 }}>
         {children}
       </div>
     </div>
-  );
+  )
 }
 
-function FieldSection({ field }) {
+function FieldSection({ world, field, value, modify }) {
   return (
     <div
-      className="fieldsection"
+      className='fieldsection'
       style={{
         borderTop: '1px solid rgba(255, 255, 255, 0.05)',
         margin: '20px 0 14px',
         padding: '16px 0 0 0',
       }}
     >
-      <div
-        className="fieldsection-label"
-        style={{
-          fontSize: '14px',
-          fontWeight: '400',
-          lineHeight: '1',
-        }}
-      >
+      <div className='fieldsection-label' style={{
+        fontSize: '14px',
+        fontWeight: '400',
+        lineHeight: '1',
+      }}>
         {field.label}
       </div>
     </div>
-  );
+  )
 }
 
-function FieldText({ field, value, modify }) {
+function FieldText({ world, field, value, modify }) {
   return (
     <FieldWithLabel label={field.label}>
       <InputText value={value} onChange={value => modify(field.key, value)} placeholder={field.placeholder} />
     </FieldWithLabel>
-  );
+  )
 }
 
-function FieldTextArea({ field, value, modify }) {
+function FieldTextArea({ world, field, value, modify }) {
   return (
     <FieldWithLabel label={field.label}>
       <InputTextarea value={value} onChange={value => modify(field.key, value)} placeholder={field.placeholder} />
     </FieldWithLabel>
-  );
+  )
 }
 
-function FieldNumber({ field, value, modify }) {
+function FieldNumber({ world, field, value, modify }) {
   return (
     <FieldWithLabel label={field.label}>
       <InputNumber
@@ -961,10 +937,10 @@ function FieldNumber({ field, value, modify }) {
         step={field.step}
       />
     </FieldWithLabel>
-  );
+  )
 }
 
-function FieldRange({ field, value, modify }) {
+function FieldRange({ world, field, value, modify }) {
   return (
     <FieldWithLabel label={field.label}>
       <InputRange
@@ -975,38 +951,36 @@ function FieldRange({ field, value, modify }) {
         step={field.step}
       />
     </FieldWithLabel>
-  );
+  )
 }
 
-function FieldFile({ field, value, modify }) {
-  const kind = fileKinds[field.kind];
-  if (!kind) {
-    return null;
-  }
+function FieldFile({ world, field, value, modify }) {
+  const kind = fileKinds[field.kind]
+  if (!kind) return null
   return (
     <FieldWithLabel label={field.label}>
       <InputFile accept={kind.accept} value={value} onChange={value => modify(field.key, value)} />
     </FieldWithLabel>
-  );
+  )
 }
 
-function FieldSwitch({ field, value, modify }) {
+function FieldSwitch({ world, field, value, modify }) {
   return (
     <FieldWithLabel label={field.label}>
       <InputSwitch value={value} onChange={value => modify(field.key, value)} />
     </FieldWithLabel>
-  );
+  )
 }
 
-function FieldDropdown({ field, value, modify }) {
+function FieldDropdown({ world, field, value, modify }) {
   return (
     <FieldWithLabel label={field.label}>
       <InputDropdown options={field.options} value={value} onChange={value => modify(field.key, value)} />
     </FieldWithLabel>
-  );
+  )
 }
 
-function FieldButton({ field }) {
+function FieldButton({ world, field, value, modify }) {
   return (
     <FieldWithLabel label={''}>
       <div
@@ -1024,10 +998,10 @@ function FieldButton({ field }) {
         <span>{field.label}</span>
       </div>
     </FieldWithLabel>
-  );
+  )
 }
 
-function FieldButtons({ field }) {
+function FieldButtons({ world, field, value, modify }) {
   return (
     <FieldWithLabel label={field.label}>
       <div
@@ -1038,26 +1012,21 @@ function FieldButtons({ field }) {
         }}
       >
         {field.buttons.map(button => (
-          <div
-            key={button.label}
-            className="fieldbuttons-button"
-            onClick={button.onClick}
-            style={{
-              flex: 1,
-              background: '#252630',
-              borderRadius: '10px',
-              height: '34px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px',
-              cursor: 'pointer',
-            }}
-          >
+          <div key={button.label} className='fieldbuttons-button' onClick={button.onClick} style={{
+            flex: 1,
+            background: '#252630',
+            borderRadius: '10px',
+            height: '34px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '14px',
+            cursor: 'pointer',
+          }}>
             <span>{button.label}</span>
           </div>
         ))}
       </div>
     </FieldWithLabel>
-  );
+  )
 }
