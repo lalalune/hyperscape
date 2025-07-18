@@ -1,0 +1,7 @@
+{
+  "name": "@eliza/hyperfy-core",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Hyperfy core modules for ElizaOS plugin"
+}

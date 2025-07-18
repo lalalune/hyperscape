@@ -1,0 +1,57 @@
+{
+  "name": "@hyperfy/rpg",
+  "version": "1.0.0",
+  "description": "RuneScape-style RPG for Hyperfy virtual worlds",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "hyperfy",
+    "rpg",
+    "runescape",
+    "mmorpg",
+    "virtual-world",
+    "ugc",
+    "elizaos"
+  ],
+  "author": "Hyperfy Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hyperfy/hyperfy-rpg.git"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@elizaos/core": "^0.13.0"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.28.6",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.5",
+    "@types/node": "^20.8.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.5",
+    "@typescript-eslint/parser": "^6.7.5",
+    "eslint": "^8.51.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

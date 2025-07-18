@@ -1,0 +1,30 @@
+{
+  "name": "@hyperscape/rpg-tests",
+  "version": "1.0.0",
+  "description": "Test scenarios for the Hyperscape RPG",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "hyperfy-test run -p @hyperscape/rpg-core",
+    "test:combat": "hyperfy-test run -p @hyperscape/rpg-core -c combat",
+    "test:banking": "hyperfy-test run -p @hyperscape/rpg-core -c banking",
+    "test:movement": "hyperfy-test run -p @hyperscape/rpg-core -c movement"
+  },
+  "keywords": ["hyperfy", "rpg", "testing", "scenarios"],
+  "author": "Hyperscape Team",
+  "license": "MIT",
+  "dependencies": {
+    "@hyperscape/rpg-core": "workspace:*",
+    "@hyperscape/test-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+} 

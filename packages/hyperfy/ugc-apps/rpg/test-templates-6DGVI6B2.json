@@ -1,0 +1,82 @@
+{
+  "quest_entities": {
+    "quest_giver": {
+      "color": 16711680,
+      "size": { "width": 0.7, "height": 1.7, "depth": 0.7 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "sword": {
+      "color": 65280,
+      "size": { "width": 0.15, "height": 1.2, "depth": 0.1 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "goblin": {
+      "color": 255,
+      "size": { "width": 0.6, "height": 0.8, "depth": 0.6 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "chest": {
+      "color": 16776960,
+      "size": { "width": 1, "height": 0.8, "depth": 0.8 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "player": {
+      "color": 16711935,
+      "size": { "width": 0.6, "height": 1.8, "depth": 0.6 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "resource": {
+      "color": 8388736,
+      "size": { "width": 0.8, "height": 1.5, "depth": 0.8 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "npc_1": {
+      "color": 255,
+      "size": { "width": 0.6, "height": 0.8, "depth": 0.6 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "npc_2": {
+      "color": 32768,
+      "size": { "width": 0.7, "height": 1.8, "depth": 0.7 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "npc_100": {
+      "color": 16711680,
+      "size": { "width": 0.7, "height": 1.7, "depth": 0.7 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    },
+    "default": {
+      "color": 8947848,
+      "size": { "width": 0.5, "height": 0.5, "depth": 0.5 },
+      "material": { "metalness": 0, "roughness": 1 },
+      "geometryType": "box",
+      "animations": ["idle"]
+    }
+  },
+  "color_map": {
+    "quest_giver": { "rgb": [255, 0, 0], "hex": "#FF0000", "expected_pixels": 4 },
+    "sword": { "rgb": [0, 255, 0], "hex": "#00FF00", "expected_pixels": 4 },
+    "goblin": { "rgb": [0, 0, 255], "hex": "#0000FF", "expected_pixels": 4 },
+    "chest": { "rgb": [255, 255, 0], "hex": "#FFFF00", "expected_pixels": 4 },
+    "player": { "rgb": [255, 0, 255], "hex": "#FF00FF", "expected_pixels": 4 },
+    "resource": { "rgb": [128, 0, 128], "hex": "#800080", "expected_pixels": 4 }
+  }
+}

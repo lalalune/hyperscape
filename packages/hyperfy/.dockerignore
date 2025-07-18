@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+world
+.git
+.gitignore
+.env.*
+!.env.example
+*.md
+.eslintrc
+.prettierrc
+.eslintignore 

@@ -1,0 +1,22 @@
+---
+description: When using LLM models like OpenAI or Anthropic, for image recogntion, image generation,text generation and embeddnigs
+alwaysApply: false
+---
+For text and image generation, as well as image desciption, use gpt-4o and gpt-4o-mini from OpenAI.
+
+For 3D item generation, remeshing, retexturing, avatar creation and rigging, we are using meshy.ai
+
+The API keys for these are available in the root project .env, so use dotenv to access environment variables
+
+Current Anthropic models:
+Claude Opus 4 claude-opus-4-20250514
+Claude Sonnet 4	claude-sonnet-4-20250514
+
+Current OpenAI models:
+'gpt-4o'
+'gpt-4o-mini'
+'o1-2024-12-17'
+
+Current OpenAI image models:
+'gpt-image-1' // newer and better, more controllable but needs special API key access / KYC
+'dall-e-3'

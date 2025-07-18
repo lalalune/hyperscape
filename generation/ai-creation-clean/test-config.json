@@ -1,0 +1,13 @@
+{
+  "openai": {
+    "apiKey": "test-openai-key",
+    "model": "dall-e-3"
+  },
+  "meshy": {
+    "apiKey": "test-meshy-key"
+  },
+  "cache": {
+    "enabled": true,
+    "ttl": 3600
+  }
+} 

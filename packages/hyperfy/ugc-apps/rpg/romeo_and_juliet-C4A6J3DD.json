@@ -1,0 +1,102 @@
+{
+  "id": "romeo_and_juliet",
+  "name": "Romeo & Juliet",
+  "description": "Help Romeo and Juliet with their star-crossed love.",
+  "difficulty": "Novice",
+  "questPoints": 5,
+  "requirements": {
+    "skills": {},
+    "quests": [],
+    "items": []
+  },
+  "startNpc": "romeo",
+  "stages": [
+    {
+      "id": "start",
+      "description": "Talk to Romeo in Varrock Square",
+      "objectives": [
+        {
+          "type": "talk_to_npc",
+          "npcId": "romeo",
+          "dialogue": "Oh Juliet! Please, deliver this message to my dear Juliet!"
+        }
+      ]
+    },
+    {
+      "id": "deliver_message",
+      "description": "Deliver Romeo's message to Juliet",
+      "objectives": [
+        {
+          "type": "talk_to_npc",
+          "npcId": "juliet",
+          "dialogue": "Oh Romeo! Tell him I'll need Father Lawrence's help."
+        }
+      ]
+    },
+    {
+      "id": "father_lawrence",
+      "description": "Talk to Father Lawrence in Varrock Church",
+      "objectives": [
+        {
+          "type": "talk_to_npc",
+          "npcId": "father_lawrence",
+          "dialogue": "I'll need a cadava potion. The Apothecary can make one."
+        }
+      ]
+    },
+    {
+      "id": "get_cadava_berries",
+      "description": "Get Cadava berries from the bushes near Varrock",
+      "objectives": [
+        {
+          "type": "collect_items",
+          "itemId": "cadava_berries",
+          "quantity": 1,
+          "description": "Pick Cadava berries"
+        }
+      ]
+    },
+    {
+      "id": "apothecary",
+      "description": "Take the berries to the Apothecary",
+      "objectives": [
+        {
+          "type": "deliver_items",
+          "npcId": "apothecary",
+          "items": [
+            { "itemId": "cadava_berries", "quantity": 1 }
+          ],
+          "dialogue": "Here's your cadava potion. Be careful with it!"
+        }
+      ]
+    },
+    {
+      "id": "deliver_potion",
+      "description": "Deliver the potion to Juliet",
+      "objectives": [
+        {
+          "type": "deliver_items",
+          "npcId": "juliet",
+          "items": [
+            { "itemId": "cadava_potion", "quantity": 1 }
+          ],
+          "dialogue": "Thank you! I'll drink this and fake my death."
+        }
+      ]
+    },
+    {
+      "id": "return_to_romeo",
+      "description": "Return to Romeo with the news",
+      "objectives": [
+        {
+          "type": "talk_to_npc",
+          "npcId": "romeo",
+          "dialogue": "What? She's... oh wait, Father Lawrence's plan! Thank you!"
+        }
+      ]
+    }
+  ],
+  "rewards": {
+    "questPoints": 5
+  }
+}

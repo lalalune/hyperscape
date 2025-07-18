@@ -1,0 +1,56 @@
+# Hyperfy RPG World Production Dockerfile
+FROM node:22.11.0-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    git \
+    python3 \
+    make \
+    g++ \
+    sqlite \
+    bash
+
+# Copy package files
+COPY package*.json ./
+COPY bun.lockb* ./
+
+# Install dependencies
+RUN npm install --production
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Create necessary directories
+RUN mkdir -p /app/world/assets
+RUN mkdir -p /app/world/collections
+RUN mkdir -p /app/logs
+
+# Copy world assets
+COPY world/ /app/world/
+
+# Set permissions
+RUN chmod +x /app/scripts/*.mjs
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
+
+# Expose ports
+EXPOSE 3000 3001
+
+# Environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV WS_PORT=3001
+ENV RPG_MODE=true
+ENV AUTO_START_RPG=true
+ENV AGENTS_ENABLED=true
+
+# Start command
+CMD ["npm", "run", "start:production"]

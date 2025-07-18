@@ -1,0 +1,50 @@
+import { System } from '@hyperfy/sdk';
+import type { World } from '../types';
+import type { Vector3 } from '../types';
+export declare class MovementSystem extends System {
+    private static readonly WALK_SPEED;
+    private static readonly RUN_SPEED;
+    private static readonly RUN_ENERGY_DRAIN;
+    private static readonly RUN_ENERGY_RESTORE;
+    private static readonly PATHFINDING_GRID_SIZE;
+    private static readonly MAX_PATH_LENGTH;
+    private static readonly COLLISION_CHECK_RADIUS;
+    private movingEntities;
+    private spatialIndex;
+    constructor(world: World);
+    init(_options: any): Promise<void>;
+    private setupEventListeners;
+    update(deltaTime: number): void;
+    private handlePlayerMove;
+    private handleToggleRun;
+    private handlePlayerStop;
+    private moveAlongPath;
+    private findPathOptimized;
+    private checkCollisionOptimized;
+    private hasLineOfSightOptimized;
+    private findPath;
+    getPerformanceMetrics(): {
+        activeMovements: number;
+        spatialIndexAvailable: boolean;
+        averagePathLength: number;
+    };
+    private getNeighbors;
+    private isWalkable;
+    private checkCollision;
+    private isInBounds;
+    private reconstructPath;
+    private smoothPath;
+    private hasLineOfSight;
+    private onReachedDestination;
+    private stopMovement;
+    private recalculatePath;
+    private getDistance;
+    private getDirection;
+    private snapToGrid;
+    private getNodeKey;
+    moveEntity(entityId: string, targetPosition: Vector3): void;
+    stopEntity(entityId: string): void;
+    setRunning(entityId: string, isRunning: boolean): void;
+    teleportEntity(entityId: string, position: Vector3): void;
+}
+//# sourceMappingURL=MovementSystem.d.ts.map

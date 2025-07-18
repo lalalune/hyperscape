@@ -1,0 +1,31 @@
+{
+  "id": "cow_drops",
+  "name": "Cow Drops",
+  "description": "Items dropped by cows",
+  "drops": [
+    {
+      "itemId": 2132,
+      "itemName": "Raw beef",
+      "chance": 1.0,
+      "minQuantity": 1,
+      "maxQuantity": 1,
+      "description": "Raw meat from a cow"
+    },
+    {
+      "itemId": 1739,
+      "itemName": "Cowhide",
+      "chance": 1.0,
+      "minQuantity": 1,
+      "maxQuantity": 1,
+      "description": "Hide from a cow, used for crafting leather"
+    },
+    {
+      "itemId": 526,
+      "itemName": "Bones",
+      "chance": 1.0,
+      "minQuantity": 1,
+      "maxQuantity": 1,
+      "description": "Bones from the cow"
+    }
+  ]
+}

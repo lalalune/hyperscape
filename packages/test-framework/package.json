@@ -1,0 +1,33 @@
+{
+  "name": "@hyperscape/test-framework",
+  "version": "1.0.0",
+  "description": "Testing framework for Hyperfy applications",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rm -rf dist",
+    "test": "node dist/cli.js"
+  },
+  "keywords": ["hyperfy", "testing", "framework", "e2e"],
+  "author": "Hyperscape Team",
+  "license": "MIT",
+  "dependencies": {
+    "@hyperfy/sdk": "*",
+    "chalk": "^5.3.0",
+    "commander": "^11.0.0",
+    "ora": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "bin": {
+    "hyperfy-test": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+} 

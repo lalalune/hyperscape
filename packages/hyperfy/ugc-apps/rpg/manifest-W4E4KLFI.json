@@ -1,0 +1,73 @@
+{
+  "id": "hyperfy-rpg",
+  "name": "Hyperfy RPG",
+  "version": "1.0.0",
+  "description": "A Runescape-style RPG world for Hyperfy with AI agent support",
+  "main": "./bundle.js",
+  "type": "world",
+  "capabilities": {
+    "actions": [
+      "MOVE_TO_LOCATION",
+      "ATTACK_TARGET",
+      "PICKUP_ITEM",
+      "TALK_TO_NPC",
+      "OPEN_BANK",
+      "HARVEST_RESOURCE",
+      "ACCEPT_QUEST",
+      "EQUIP_ITEM",
+      "USE_SKILL",
+      "TRADE",
+      "CAST_SPELL",
+      "USE_ITEM",
+      "CRAFT_ITEM",
+      "DEPOSIT_ITEM",
+      "WITHDRAW_ITEM",
+      "COMPLETE_QUEST"
+    ],
+    "providers": [
+      "PlayerStatusProvider",
+      "WorldStateProvider",
+      "QuestProgressProvider",
+      "NearbyEntitiesProvider",
+      "SkillProgressProvider",
+      "MarketPricesProvider"
+    ],
+    "systems": [
+      "combat",
+      "inventory",
+      "quest",
+      "skills",
+      "banking",
+      "trading",
+      "navigation",
+      "loot",
+      "spawning",
+      "npc",
+      "stats",
+      "economy",
+      "construction",
+      "minigames",
+      "pvp",
+      "magic",
+      "achievements",
+      "grandExchange",
+      "clan",
+      "housing",
+      "death",
+      "equipment",
+      "itemRegistry"
+    ],
+    "evaluators": [
+      "CombatEvaluator",
+      "QuestEvaluator",
+      "SkillProgressEvaluator",
+      "InventoryManagementEvaluator",
+      "EconomyEvaluator"
+    ]
+  },
+  "metadata": {
+    "author": "Hyperfy Team",
+    "tags": ["rpg", "mmorpg", "runescape", "ai-agents"],
+    "minHyperfyVersion": "1.0.0"
+  }
+} 

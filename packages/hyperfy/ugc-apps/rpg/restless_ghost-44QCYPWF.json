@@ -1,0 +1,82 @@
+{
+  "id": "restless_ghost",
+  "name": "The Restless Ghost",
+  "description": "A ghost haunts the graveyard of Lumbridge Church.",
+  "difficulty": "Novice",
+  "questPoints": 1,
+  "requirements": {
+    "skills": {},
+    "quests": [],
+    "items": []
+  },
+  "startNpc": "father_aereck",
+  "stages": [
+    {
+      "id": "start",
+      "description": "Talk to Father Aereck in Lumbridge Church",
+      "objectives": [
+        {
+          "type": "talk_to_npc",
+          "npcId": "father_aereck",
+          "dialogue": "A ghost haunts the graveyard! Father Urhney might help."
+        }
+      ]
+    },
+    {
+      "id": "get_amulet",
+      "description": "Get the Ghostspeak amulet from Father Urhney",
+      "objectives": [
+        {
+          "type": "talk_to_npc",
+          "npcId": "father_urhney",
+          "dialogue": "Take this amulet. It will let you speak to ghosts."
+        }
+      ]
+    },
+    {
+      "id": "talk_to_ghost",
+      "description": "Talk to the ghost in Lumbridge graveyard",
+      "objectives": [
+        {
+          "type": "talk_to_npc",
+          "npcId": "restless_ghost",
+          "dialogue": "My skull was stolen! It's in the Wizard's Tower basement.",
+          "requiresItem": "ghostspeak_amulet"
+        }
+      ]
+    },
+    {
+      "id": "get_skull",
+      "description": "Retrieve the skull from the Wizard's Tower",
+      "objectives": [
+        {
+          "type": "collect_items",
+          "itemId": "ghost_skull",
+          "quantity": 1,
+          "description": "Search the altar in the Wizard's Tower basement"
+        }
+      ]
+    },
+    {
+      "id": "return_skull",
+      "description": "Return the skull to the ghost's coffin",
+      "objectives": [
+        {
+          "type": "use_item_on",
+          "itemId": "ghost_skull",
+          "targetId": "ghost_coffin",
+          "description": "Place the skull in the ghost's coffin"
+        }
+      ]
+    }
+  ],
+  "rewards": {
+    "experience": {
+      "prayer": 1125
+    },
+    "items": [
+      { "itemId": "ghostspeak_amulet", "quantity": 1 }
+    ],
+    "questPoints": 1
+  }
+}

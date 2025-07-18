@@ -1,0 +1,188 @@
+{
+    "items": {
+        "sword": {
+            "color": 16729156,
+            "size": { "width": 0.15, "height": 1.2, "depth": 0.1 },
+            "animations": ["swing_down", "idle"],
+            "material": { "metalness": 0.8, "roughness": 0.2 }
+        },
+        "bow": {
+            "color": 9127187,
+            "size": { "width": 0.2, "height": 1, "depth": 0.1 },
+            "animations": ["draw", "idle"]
+        },
+        "staff": {
+            "color": 9699539,
+            "size": { "width": 0.15, "height": 1.5, "depth": 0.15 },
+            "animations": ["cast", "idle"],
+            "material": { "emissive": 3355443 }
+        },
+        "shield": {
+            "color": 8421504,
+            "size": { "width": 0.8, "height": 1, "depth": 0.2 },
+            "animations": ["block", "idle"],
+            "material": { "metalness": 0.9, "roughness": 0.3 }
+        },
+        "potion": {
+            "color": 65280,
+            "size": { "width": 0.3, "height": 0.4, "depth": 0.3 },
+            "animations": ["bubble", "idle"],
+            "material": { "opacity": 0.8 },
+            "geometryType": "cylinder"
+        },
+        "coin": {
+            "color": 16766720,
+            "size": { "width": 0.3, "height": 0.05, "depth": 0.3 },
+            "animations": ["rotate", "bounce"],
+            "material": { "metalness": 1, "roughness": 0.1 },
+            "geometryType": "cylinder"
+        },
+        "gem": {
+            "color": 65535,
+            "size": { "width": 0.2, "height": 0.2, "depth": 0.2 },
+            "animations": ["sparkle", "rotate"],
+            "material": { "opacity": 0.9 }
+        }
+    },
+    "npcs": {
+        "goblin": {
+            "color": 2263842,
+            "size": { "width": 0.6, "height": 0.8, "depth": 0.6 },
+            "animations": ["walk", "attack", "die", "idle"]
+        },
+        "skeleton": {
+            "color": 16119260,
+            "size": { "width": 0.5, "height": 1.5, "depth": 0.5 },
+            "animations": ["walk", "attack", "die", "idle"]
+        },
+        "hill_giant": {
+            "color": 9127187,
+            "size": { "width": 1.2, "height": 2.5, "depth": 1.2 },
+            "animations": ["walk", "attack", "die", "stomp", "idle"]
+        },
+        "guard": {
+            "color": 4356961,
+            "size": { "width": 0.7, "height": 1.8, "depth": 0.7 },
+            "animations": ["walk", "patrol", "attack", "idle"]
+        },
+        "merchant": {
+            "color": 14329120,
+            "size": { "width": 0.7, "height": 1.6, "depth": 0.7 },
+            "animations": ["idle", "gesture"]
+        },
+        "quest_giver": {
+            "color": 16716947,
+            "size": { "width": 0.7, "height": 1.7, "depth": 0.7 },
+            "animations": ["idle", "wave", "point"]
+        },
+        "king_black_dragon": {
+            "color": 1052688,
+            "size": { "width": 3.0, "height": 4.0, "depth": 3.0 },
+            "animations": ["idle", "attack", "fly", "roar"],
+            "material": { "metalness": 0.3, "roughness": 0.7, "emissive": 1052688 }
+        },
+        "wizard": {
+            "color": 9699539,
+            "size": { "width": 0.7, "height": 1.8, "depth": 0.7 },
+            "animations": ["idle", "cast", "walk"],
+            "material": { "emissive": 3355443 }
+        }
+    },
+    "containers": {
+        "chest": {
+            "color": 9127187,
+            "size": { "width": 1, "height": 0.8, "depth": 0.8 },
+            "animations": ["open", "close", "idle"]
+        },
+        "chest_common": {
+            "color": 9127187,
+            "size": { "width": 1, "height": 0.8, "depth": 0.8 },
+            "animations": ["open", "close", "idle"]
+        },
+        "chest_rare": {
+            "color": 8388736,
+            "size": { "width": 1.1, "height": 0.9, "depth": 0.9 },
+            "animations": ["open", "close", "shimmer", "idle"],
+            "material": { "metalness": 0.6, "roughness": 0.3 }
+        },
+        "chest_epic": {
+            "color": 16766720,
+            "size": { "width": 1.2, "height": 1.0, "depth": 1.0 },
+            "animations": ["open", "close", "shimmer", "pulse", "idle"],
+            "material": { "metalness": 0.9, "roughness": 0.1, "emissive": 16766720 }
+        },
+        "barrel": {
+            "color": 6631201,
+            "size": { "width": 0.6, "height": 0.8, "depth": 0.6 },
+            "animations": ["wobble", "idle"],
+            "geometryType": "cylinder"
+        },
+        "crate": {
+            "color": 14596231,
+            "size": { "width": 0.8, "height": 0.8, "depth": 0.8 },
+            "animations": ["shake", "idle"]
+        },
+        "bank_chest": {
+            "color": 16766720,
+            "size": { "width": 1.2, "height": 1, "depth": 1 },
+            "animations": ["open", "close", "shimmer", "idle"],
+            "material": { "metalness": 0.9, "roughness": 0.1 }
+        }
+    },
+    "resources": {
+        "tree": {
+            "color": 2263842,
+            "size": { "width": 0.8, "height": 2.5, "depth": 0.8 },
+            "animations": ["sway", "idle"],
+            "geometryType": "cylinder"
+        },
+        "oak_tree": {
+            "color": 6631201,
+            "size": { "width": 1.0, "height": 3.0, "depth": 1.0 },
+            "animations": ["sway", "idle"],
+            "geometryType": "cylinder"
+        },
+        "rock": {
+            "color": 8421504,
+            "size": { "width": 1, "height": 0.6, "depth": 1 },
+            "animations": ["idle"]
+        },
+        "iron_rock": {
+            "color": 4210752,
+            "size": { "width": 1.2, "height": 0.8, "depth": 1.2 },
+            "animations": ["idle"],
+            "material": { "metalness": 0.7, "roughness": 0.4 }
+        },
+        "gold_rock": {
+            "color": 16766720,
+            "size": { "width": 1.0, "height": 0.7, "depth": 1.0 },
+            "animations": ["idle"],
+            "material": { "metalness": 0.9, "roughness": 0.1 }
+        },
+        "fishing_spot": {
+            "color": 65535,
+            "size": { "width": 1.5, "height": 0.1, "depth": 1.5 },
+            "animations": ["ripple", "idle"],
+            "material": { "opacity": 0.6 }
+        }
+    },
+    "special": {
+        "player": {
+            "color": 16729411,
+            "size": { "width": 0.6, "height": 1.8, "depth": 0.6 },
+            "animations": ["walk", "run", "attack", "idle"],
+            "material": { "metalness": 0.1, "roughness": 0.8 }
+        },
+        "spawn_point": {
+            "color": 65280,
+            "size": { "width": 0.5, "height": 2, "depth": 0.5 },
+            "animations": ["pulse", "rotate"],
+            "material": { "opacity": 0.5 }
+        },
+        "default": {
+            "color": 8947848,
+            "size": { "width": 0.5, "height": 0.5, "depth": 0.5 },
+            "animations": ["pulse"]
+        }
+    }
+}

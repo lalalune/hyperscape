@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "src/__tests__/**/*",
+    "src/**/__tests__/**/*",
+    "src/rpg/ai-creation/**/*",
+    "src/rpg/testing/**/*",
+    "scripts/**/*",
+    "cypress/**/*",
+    "node_modules",
+    "build",
+    "dist"
+  ]
+}

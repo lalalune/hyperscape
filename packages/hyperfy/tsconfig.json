@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    // Hyperfy-specific overrides
+    "baseUrl": ".",
+    "paths": {
+      "*": ["src/types/*"],
+      "@/*": ["src/*"],
+      "@client/*": ["src/client/*"],
+      "@core/*": ["src/core/*"],
+      "@types/*": ["src/types/*"]
+    },
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./build",
+    "removeComments": false,
+    "importHelpers": true,
+    "downlevelIteration": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noImplicitAny": false,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "types": ["node", "three", "vite/client"],
+    "typeRoots": ["./node_modules/@types", "./src/types"]
+  },
+  "include": [
+    "src/**/*", 
+    "src/types/**/*.d.ts", 
+    "src/__tests__/**/*.ts",
+    "src/__tests__/**/*.d.ts",
+    "src/__tests__/types/**/*.d.ts",
+    "globals.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist"
+  ],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./build/lib",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": false,
+    "tsBuildInfoFile": null,
+    "types": ["node"]
+  },
+  "include": ["src/index.ts", "src/core/**/*", "src/types/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/server/**/*",
+    "src/client/**/*",
+    "src/rpg/**/*",
+    "src/world/**/*",
+    "src/__tests__/**/*"
+  ]
+}

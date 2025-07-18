@@ -1,0 +1,27 @@
+{
+  "name": "@hyperscape/rpg-core",
+  "version": "1.0.0",
+  "description": "Core RPG game logic for Hyperfy",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "keywords": ["hyperfy", "rpg", "game", "mmorpg"],
+  "author": "Hyperscape Team",
+  "license": "MIT",
+  "dependencies": {
+    "@hyperfy/sdk": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+} 

@@ -1,0 +1,76 @@
+{
+  "id": "doric_quest",
+  "name": "Doric's Quest",
+  "description": "Doric the dwarf needs materials to help him get started.",
+  "difficulty": "Novice",
+  "questPoints": 1,
+  "requirements": {
+    "skills": {},
+    "quests": [],
+    "items": []
+  },
+  "startNpc": "doric",
+  "stages": [
+    {
+      "id": "start",
+      "description": "Talk to Doric north of Falador",
+      "objectives": [
+        {
+          "type": "talk_to_npc",
+          "npcId": "doric",
+          "dialogue": "I need clay, copper ore, and iron ore to get my workshop running."
+        }
+      ]
+    },
+    {
+      "id": "collect_materials",
+      "description": "Collect materials for Doric",
+      "objectives": [
+        {
+          "type": "collect_items",
+          "itemId": "clay",
+          "quantity": 6,
+          "description": "Mine 6 clay"
+        },
+        {
+          "type": "collect_items",
+          "itemId": "copper_ore",
+          "quantity": 4,
+          "description": "Mine 4 copper ore"
+        },
+        {
+          "type": "collect_items",
+          "itemId": "iron_ore",
+          "quantity": 2,
+          "description": "Mine 2 iron ore"
+        }
+      ]
+    },
+    {
+      "id": "return_materials",
+      "description": "Return to Doric with the materials",
+      "objectives": [
+        {
+          "type": "deliver_items",
+          "npcId": "doric",
+          "items": [
+            { "itemId": "clay", "quantity": 6 },
+            { "itemId": "copper_ore", "quantity": 4 },
+            { "itemId": "iron_ore", "quantity": 2 }
+          ],
+          "dialogue": "Perfect! You can use my anvils anytime. Here's some money and experience."
+        }
+      ]
+    }
+  ],
+  "rewards": {
+    "experience": {
+      "mining": 1300
+    },
+    "items": [
+      { "itemId": "coins", "quantity": 180 }
+    ],
+    "questPoints": 1,
+    "unlocks": ["doric_anvils"]
+  }
+} 
