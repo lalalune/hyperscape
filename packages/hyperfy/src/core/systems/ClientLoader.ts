@@ -64,6 +64,7 @@ export class ClientLoader extends System {
   }
 
   execPreload() {
+    console.log('[ClientLoader] execPreload called with', this.preloadItems.length, 'items');
     if (this.preloadItems.length === 0) {
       console.log('[ClientLoader] No items to preload');
       this.world.emit?.('progress', 100);
@@ -94,7 +95,7 @@ export class ClientLoader extends System {
       if (failed.length > 0) {
         console.error('[ClientLoader] Some assets failed to load:', failed);
       }
-      console.log('[ClientLoader] Preload complete');
+      console.log('[ClientLoader] Preload complete - setting preloader to null');
       this.preloader = null;
       // Don't emit ready here - let PlayerLocal do it after it's initialized
       // this.world.emit?.('ready', true)
@@ -141,11 +142,14 @@ export class ClientLoader extends System {
   };
 
   async load(type, url) {
+    console.log('[ClientLoader] load called:', type, url);
     if (this.preloader) {
+      console.log('[ClientLoader] Waiting for existing preloader...');
       await this.preloader;
     }
     const key = `${type}/${url}`;
     if (this.promises.has(key)) {
+      console.log('[ClientLoader] Returning existing promise for:', key);
       return this.promises.get(key);
     }
     if (type === 'video') {

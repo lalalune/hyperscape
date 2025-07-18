@@ -1,4 +1,4 @@
-import { System } from '@hyperfy/sdk'
+import { System } from '@hyperscape/hyperfy'
 import type { World } from '../types'
 import type { NPCEntity, PlayerEntity, Vector3, Entity } from '../types'
 import { SpawnArea, SpawnerType, NPCType, NPCBehavior, NPCState, AttackType } from '../types'

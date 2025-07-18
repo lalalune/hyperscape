@@ -1,4 +1,4 @@
-import { System } from '@hyperfy/sdk'
+import { System } from '@hyperscape/hyperfy'
 import type { World } from '../types'
 import {
   CombatSession,

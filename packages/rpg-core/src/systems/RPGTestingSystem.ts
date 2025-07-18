@@ -1,4 +1,4 @@
-import { World } from '@hyperfy/sdk'
+import { World } from '@hyperscape/hyperfy'
 /**
  * RPG Testing System - Hyperfy Native Implementation
  *

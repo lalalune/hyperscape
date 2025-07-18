@@ -1,0 +1,17 @@
+{
+  "name": "@hyperscape/rpg-app",
+  "version": "1.0.0",
+  "description": "Hyperfy RPG Application",
+  "private": true,
+  "scripts": {
+    "build": "bun build.js",
+    "dev": "bun build.js --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@hyperscape/rpg-core": "file:../rpg-core"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.0"
+  }
+} 

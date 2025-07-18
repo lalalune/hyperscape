@@ -17,44 +17,30 @@ const billboardModeInts: Record<string, number> = {
 };
 
 let worker: Worker | null = null;
+let workerDisabled = false;
+
 function getWorker() {
+  if (workerDisabled) {
+    return null;
+  }
+  
   if (!worker) {
     const particlesPath = (window as any).PARTICLES_PATH;
     if (particlesPath === null) {
       console.log('[Particles] Particles disabled in development mode');
-      // Return a mock worker that does nothing
-      const workerCode = `
-        self.onmessage = function(e) {
-          // Do nothing in development mode
-        };
-      `;
-      const blob = new Blob([workerCode], { type: 'application/javascript' });
-      worker = new Worker(URL.createObjectURL(blob));
+      workerDisabled = true;
+      return null;
     } else if (!particlesPath || particlesPath === '{particlesPath}') {
-      console.warn('[Particles] PARTICLES_PATH not set, falling back to inline worker');
-      // Create a simple inline worker for development fallback
-      const workerCode = `
-        // Simple fallback particle worker
-        self.onmessage = function(e) {
-          // Echo back for now - replace with actual particle logic
-          self.postMessage({ type: 'particles', data: e.data });
-        };
-      `;
-      const blob = new Blob([workerCode], { type: 'application/javascript' });
-      worker = new Worker(URL.createObjectURL(blob));
+      console.warn('[Particles] PARTICLES_PATH not set, disabling particles');
+      workerDisabled = true;
+      return null;
     } else {
       try {
         worker = new Worker(particlesPath);
       } catch (error) {
         console.error('[Particles] Failed to create worker with path:', particlesPath, error);
-        // Fallback to inline worker
-        const workerCode = `
-          self.onmessage = function(e) {
-            self.postMessage({ type: 'particles', data: e.data });
-          };
-        `;
-        const blob = new Blob([workerCode], { type: 'application/javascript' });
-        worker = new Worker(URL.createObjectURL(blob));
+        workerDisabled = true;
+        return null;
       }
     }
   }
@@ -77,8 +63,10 @@ export class Particles extends System {
 
   async init(): Promise<void> {
     this.worker = getWorker();
-    this.worker.onmessage = this.onMessage;
-    this.worker.onerror = this.onError;
+    if (this.worker) {
+      this.worker.onmessage = this.onMessage;
+      this.worker.onerror = this.onError;
+    }
   }
 
   start() {
@@ -86,10 +74,27 @@ export class Particles extends System {
   }
 
   register(node: any) {
+    // If particles are disabled, return a mock emitter
+    if (workerDisabled || !this.worker) {
+      return {
+        id: uuid(),
+        node,
+        send: () => {},
+        setEmitting: () => {},
+        onMessage: () => {},
+        update: () => {},
+        destroy: () => {},
+      };
+    }
     return createEmitter(this.world, this, node);
   }
 
   update(_delta: number) {
+    // Skip update if particles are disabled
+    if (workerDisabled || !this.worker) {
+      return;
+    }
+
     e1.setFromQuaternion(this.uOrientationFull.value);
     e1.x = 0;
     e1.z = 0;
@@ -107,7 +112,10 @@ export class Particles extends System {
   };
 
   onError = (err: ErrorEvent) => {
-    console.error('[ParticleSystem]', err);
+    console.error('[ParticleSystem] Error:', err.message || err);
+    // Disable particles on error to prevent repeated errors
+    workerDisabled = true;
+    this.worker = null;
   };
 
   onXRSession = (session: any) => {

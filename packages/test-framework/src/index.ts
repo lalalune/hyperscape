@@ -17,7 +17,7 @@ export * from './runners/ScenarioRunner'
 export * from './runners/LoadTestRunner'
 export * from './runners/VisualTestRunner'
 
-export * from './types'
+// Types are already exported through individual modules above
 
 import { TestFramework } from './core/TestFramework'
 

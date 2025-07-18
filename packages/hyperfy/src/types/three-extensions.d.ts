@@ -1,9 +1,21 @@
-// declare module 'three' {
-//   // Vector3 augmentations removed because Vector3Enhanced already has these methods
+import * as THREE from 'three';
 
-//   interface Quaternion {
-//     toPxTransform?(pxTransform: any): void;
-//     toPxQuat?(pxQuat?: any): any;
-//     fromPxQuat?(pxQuat: any): this;
-//   }
-// }
+// Extend three.js types with three-mesh-bvh extensions
+declare module 'three' {
+  interface BufferGeometry {
+    computeBoundsTree(): void;
+    disposeBoundsTree(): void;
+    boundsTree?: any;
+  }
+  
+  interface Raycaster {
+    firstHitOnly?: boolean;
+  }
+  
+  interface InstancedMesh {
+    resize(size: number): void;
+  }
+}
+
+// Re-export enhanced types
+export {};

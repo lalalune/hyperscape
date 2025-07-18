@@ -83,11 +83,11 @@ export function curveManager({ curve, width, height, xLabel, yLabel, yMin = 0, y
     .attr('stroke-linecap', 'round');
 
   // Updated to use d3.pointer instead of d3.mouse
-  svg.on('click', function (event) {
+  svg.on('click', function (this: SVGElement, event) {
     if (event.defaultPrevented) {
       return;
     }
-    const pointer = d3.pointer(event, this as any);
+    const pointer = d3.pointer(event, this);
     curve!.add({
       time: x.invert(pointer[0]),
       value: y.invert(pointer[1]),

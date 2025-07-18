@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Health Potion",
+    "description": "A red glowing potion in a crystal vial",
+    "type": "consumable",
+    "subtype": "potion"
+  },
+  {
+    "name": "Bread Loaf",
+    "description": "Fresh baked bread with golden crust",
+    "type": "consumable",
+    "subtype": "food"
+  },
+  {
+    "name": "Mana Crystal",
+    "description": "A blue crystal that restores magical energy",
+    "type": "consumable",
+    "subtype": "potion"
+  },
+  {
+    "name": "Cooked Fish",
+    "description": "Grilled fish on a wooden plate",
+    "type": "consumable",
+    "subtype": "food"
+  },
+  {
+    "name": "Stamina Elixir",
+    "description": "Green energizing drink in a flask",
+    "type": "consumable",
+    "subtype": "potion"
+  }
+]

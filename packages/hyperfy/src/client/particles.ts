@@ -1,19 +1,314 @@
 const emitters: { [key: string]: ParticleEmitter | null } = {};
 
-import { DEG2RAD } from '../core/extras/general';
-import { THREE } from '../core/extras/three';
-import { Vector3Enhanced } from '../core/extras/Vector3Enhanced';
+// Inline the necessary constants and classes since we can't import in a worker
+const DEG2RAD = Math.PI / 180;
+
+// Simple Vector3 implementation for the worker
+class Vector3Enhanced {
+  x: number;
+  y: number;
+  z: number;
+
+  constructor(x = 0, y = 0, z = 0) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+  }
+
+  set(x: number, y: number, z: number) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    return this;
+  }
+
+  copy(v: Vector3Enhanced) {
+    this.x = v.x;
+    this.y = v.y;
+    this.z = v.z;
+    return this;
+  }
+
+  add(v: Vector3Enhanced) {
+    this.x += v.x;
+    this.y += v.y;
+    this.z += v.z;
+    return this;
+  }
+
+  sub(v: Vector3Enhanced) {
+    this.x -= v.x;
+    this.y -= v.y;
+    this.z -= v.z;
+    return this;
+  }
+
+  multiplyScalar(scalar: number) {
+    this.x *= scalar;
+    this.y *= scalar;
+    this.z *= scalar;
+    return this;
+  }
+
+  divideScalar(scalar: number) {
+    return this.multiplyScalar(1 / scalar);
+  }
+
+  normalize() {
+    return this.divideScalar(this.length() || 1);
+  }
+
+  length() {
+    return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+  }
+
+  lengthSq() {
+    return this.x * this.x + this.y * this.y + this.z * this.z;
+  }
+
+  distanceTo(v: Vector3Enhanced) {
+    return Math.sqrt(this.distanceToSquared(v));
+  }
+
+  distanceToSquared(v: Vector3Enhanced) {
+    const dx = this.x - v.x;
+    const dy = this.y - v.y;
+    const dz = this.z - v.z;
+    return dx * dx + dy * dy + dz * dz;
+  }
+
+  lerp(v: Vector3Enhanced, alpha: number) {
+    this.x += (v.x - this.x) * alpha;
+    this.y += (v.y - this.y) * alpha;
+    this.z += (v.z - this.z) * alpha;
+    return this;
+  }
+
+  fromArray(array: number[]) {
+    this.x = array[0];
+    this.y = array[1];
+    this.z = array[2];
+    return this;
+  }
+
+  toArray(array: number[] = []) {
+    array[0] = this.x;
+    array[1] = this.y;
+    array[2] = this.z;
+    return array;
+  }
+
+  clone() {
+    return new Vector3Enhanced(this.x, this.y, this.z);
+  }
+
+  applyMatrix4(m: Matrix4) {
+    const x = this.x, y = this.y, z = this.z;
+    const e = m.elements;
+
+    const w = 1 / (e[3] * x + e[7] * y + e[11] * z + e[15]);
+
+    this.x = (e[0] * x + e[4] * y + e[8] * z + e[12]) * w;
+    this.y = (e[1] * x + e[5] * y + e[9] * z + e[13]) * w;
+    this.z = (e[2] * x + e[6] * y + e[10] * z + e[14]) * w;
+
+    return this;
+  }
+
+  applyQuaternion(q: Quaternion) {
+    const x = this.x, y = this.y, z = this.z;
+    const qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+
+    const ix = qw * x + qy * z - qz * y;
+    const iy = qw * y + qz * x - qx * z;
+    const iz = qw * z + qx * y - qy * x;
+    const iw = -qx * x - qy * y - qz * z;
+
+    this.x = ix * qw + iw * -qx + iy * -qz - iz * -qy;
+    this.y = iy * qw + iw * -qy + iz * -qx - ix * -qz;
+    this.z = iz * qw + iw * -qz + ix * -qy - iy * -qx;
+
+    return this;
+  }
+
+  setFromMatrixPosition(m: Matrix4) {
+    const e = m.elements;
+    this.x = e[12];
+    this.y = e[13];
+    this.z = e[14];
+    return this;
+  }
+
+  crossVectors(a: Vector3Enhanced, b: Vector3Enhanced) {
+    const ax = a.x, ay = a.y, az = a.z;
+    const bx = b.x, by = b.y, bz = b.z;
+
+    this.x = ay * bz - az * by;
+    this.y = az * bx - ax * bz;
+    this.z = ax * by - ay * bx;
+
+    return this;
+  }
+}
+
+// Simple Quaternion implementation
+class Quaternion {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+
+  constructor(x = 0, y = 0, z = 0, w = 1) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.w = w;
+  }
+
+  setFromRotationMatrix(m: Matrix4) {
+    const te = m.elements;
+    const m11 = te[0], m12 = te[4], m13 = te[8];
+    const m21 = te[1], m22 = te[5], m23 = te[9];
+    const m31 = te[2], m32 = te[6], m33 = te[10];
+    const trace = m11 + m22 + m33;
+
+    if (trace > 0) {
+      const s = 0.5 / Math.sqrt(trace + 1.0);
+      this.w = 0.25 / s;
+      this.x = (m32 - m23) * s;
+      this.y = (m13 - m31) * s;
+      this.z = (m21 - m12) * s;
+    } else if (m11 > m22 && m11 > m33) {
+      const s = 2.0 * Math.sqrt(1.0 + m11 - m22 - m33);
+      this.w = (m32 - m23) / s;
+      this.x = 0.25 * s;
+      this.y = (m12 + m21) / s;
+      this.z = (m13 + m31) / s;
+    } else if (m22 > m33) {
+      const s = 2.0 * Math.sqrt(1.0 + m22 - m11 - m33);
+      this.w = (m13 - m31) / s;
+      this.x = (m12 + m21) / s;
+      this.y = 0.25 * s;
+      this.z = (m23 + m32) / s;
+    } else {
+      const s = 2.0 * Math.sqrt(1.0 + m33 - m11 - m22);
+      this.w = (m21 - m12) / s;
+      this.x = (m13 + m31) / s;
+      this.y = (m23 + m32) / s;
+      this.z = 0.25 * s;
+    }
+
+    return this;
+  }
+
+  setFromAxisAngle(axis: Vector3Enhanced, angle: number) {
+    const halfAngle = angle / 2;
+    const s = Math.sin(halfAngle);
+
+    this.x = axis.x * s;
+    this.y = axis.y * s;
+    this.z = axis.z * s;
+    this.w = Math.cos(halfAngle);
+
+    return this;
+  }
+}
+
+// Simple Matrix4 implementation
+class Matrix4 {
+  elements: number[];
+
+  constructor() {
+    this.elements = [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ];
+  }
+
+  fromArray(array: number[]) {
+    for (let i = 0; i < 16; i++) {
+      this.elements[i] = array[i];
+    }
+    return this;
+  }
+
+  copy(m: Matrix4) {
+    const te = this.elements;
+    const me = m.elements;
+
+    for (let i = 0; i < 16; i++) {
+      te[i] = me[i];
+    }
+
+    return this;
+  }
+
+  setPosition(v: Vector3Enhanced) {
+    const te = this.elements;
+    te[12] = v.x;
+    te[13] = v.y;
+    te[14] = v.z;
+    return this;
+  }
+}
+
+// Simple Color implementation
+class Color {
+  r: number;
+  g: number;
+  b: number;
+
+  constructor(r = 1, g = 1, b = 1) {
+    this.r = r;
+    this.g = g;
+    this.b = b;
+  }
+
+  set(value: string | number) {
+    if (typeof value === 'string') {
+      // Simple hex color parsing
+      if (value.startsWith('#')) {
+        const hex = value.substring(1);
+        if (hex.length === 3) {
+          this.r = parseInt(hex[0] + hex[0], 16) / 255;
+          this.g = parseInt(hex[1] + hex[1], 16) / 255;
+          this.b = parseInt(hex[2] + hex[2], 16) / 255;
+        } else if (hex.length === 6) {
+          this.r = parseInt(hex.substring(0, 2), 16) / 255;
+          this.g = parseInt(hex.substring(2, 4), 16) / 255;
+          this.b = parseInt(hex.substring(4, 6), 16) / 255;
+        }
+      } else if (value === 'white') {
+        this.r = this.g = this.b = 1;
+      } else if (value === 'black') {
+        this.r = this.g = this.b = 0;
+      } else if (value === 'red') {
+        this.r = 1; this.g = 0; this.b = 0;
+      } else if (value === 'green') {
+        this.r = 0; this.g = 1; this.b = 0;
+      } else if (value === 'blue') {
+        this.r = 0; this.g = 0; this.b = 1;
+      } else {
+        // Default to white for unknown colors
+        this.r = this.g = this.b = 1;
+      }
+    }
+    return this;
+  }
+}
 
 const v1 = new Vector3Enhanced();
 const v2 = new Vector3Enhanced();
 const v3 = new Vector3Enhanced();
 const v4 = new Vector3Enhanced();
 const _v5 = new Vector3Enhanced();
-const q1 = new THREE.Quaternion();
-const q2 = new THREE.Quaternion();
-const _q3 = new THREE.Quaternion();
-const m1 = new THREE.Matrix4();
-const color1 = new THREE.Color();
+const q1 = new Quaternion();
+const q2 = new Quaternion();
+const _q3 = new Quaternion();
+const m1 = new Matrix4();
+const color1 = new Color();
 
 const xAxis = new Vector3Enhanced(1, 0, 0);
 const yAxis = new Vector3Enhanced(0, 1, 0);
@@ -332,7 +627,7 @@ function createEmitter(config: EmitterConfig): ParticleEmitter {
           const emitPosition = new Vector3Enhanced().copy(lastWorldPos).lerp(currWorldPos, lerpFactor);
 
           // Create a temporary matrix with this position
-          const tempMatrix = new THREE.Matrix4().copy(matrixWorld);
+          const tempMatrix = new Matrix4().copy(matrixWorld);
           tempMatrix.setPosition(emitPosition as any);
 
           // Emit a single particle at this position

@@ -13,7 +13,7 @@ import { ENV_SERVER } from '../env-server.js';
 import type { DB } from '../../server/db.js';
 import * as schema from '../../server/db-schema.js';
 
-const SAVE_INTERVAL = parseInt(ENV.SAVE_INTERVAL || '60'); // seconds
+const SAVE_INTERVAL = parseInt(process.env.SAVE_INTERVAL || '60'); // seconds
 const PING_RATE = 1; // seconds
 const defaultSpawn = '{ "position": [0, 0, 0], "quaternion": [0, 0, 0, 1] }';
 

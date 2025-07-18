@@ -1,30 +1,32 @@
 {
   "name": "@hyperscape/rpg-tests",
   "version": "1.0.0",
-  "description": "Test scenarios for the Hyperscape RPG",
+  "description": "Test scenarios for Hyperscape RPG",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
-    "watch": "tsc -w",
-    "test": "hyperfy-test run -p @hyperscape/rpg-core",
-    "test:combat": "hyperfy-test run -p @hyperscape/rpg-core -c combat",
-    "test:banking": "hyperfy-test run -p @hyperscape/rpg-core -c banking",
-    "test:movement": "hyperfy-test run -p @hyperscape/rpg-core -c movement"
+    "dev": "tsc -w",
+    "clean": "rm -rf dist",
+    "test": "node dist/index.js",
+    "lint": "eslint src --max-warnings 0",
+    "lint:fix": "eslint src --fix"
   },
   "keywords": ["hyperfy", "rpg", "testing", "scenarios"],
   "author": "Hyperscape Team",
   "license": "MIT",
   "dependencies": {
-    "@hyperscape/rpg-core": "workspace:*",
-    "@hyperscape/test-framework": "workspace:*"
+    "@hyperscape/rpg-core": "file:../rpg-core",
+    "@hyperscape/test-framework": "file:../test-framework"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "eslint": "^8.0.0",
     "typescript": "^5.0.0"
-  },
-  "files": [
-    "dist",
-    "src"
-  ]
+  }
 } 

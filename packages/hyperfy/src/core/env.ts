@@ -37,6 +37,8 @@ export const ENV = {
   TEST: getEnvVar('TEST') === 'true' || getEnvVar('NODE_ENV') === 'test' || getEnvVar('VITEST') === 'true',
 
   // Server
+  PORT: getEnvVar('PORT', '8787')!,
+  WORLD: getEnvVar('WORLD', 'world')!,
   SERVER_URL: getEnvVar('SERVER_URL', 'http://localhost:8787')!,
   WORLD_SLUG: getEnvVar('WORLD_SLUG')!,
   ENABLE_HOT_RELOAD: getEnvVar('ENABLE_HOT_RELOAD', 'true')!,

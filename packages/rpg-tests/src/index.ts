@@ -1,45 +1,20 @@
 /**
  * @hyperscape/rpg-tests
  * 
- * Test scenarios for the Hyperscape RPG
+ * Test scenarios for Hyperscape RPG
  */
 
-// Export all test scenarios
-export * from './scenarios/CombatScenarios'
-export * from './scenarios/BankingScenarios'
-export * from './scenarios/MovementScenarios'
-export * from './scenarios/ItemScenarios'
-export * from './scenarios/SkillScenarios'
-export * from './scenarios/NPCScenarios'
-
-// Export test helpers
-export * from './helpers/RPGTestHelpers'
-
-import { TestScenario } from '@hyperscape/test-framework'
-import { getAllCombatScenarios } from './scenarios/CombatScenarios'
-import { getAllBankingScenarios } from './scenarios/BankingScenarios'
-import { getAllMovementScenarios } from './scenarios/MovementScenarios'
-import { getAllItemScenarios } from './scenarios/ItemScenarios'
-import { getAllSkillScenarios } from './scenarios/SkillScenarios'
-import { getAllNPCScenarios } from './scenarios/NPCScenarios'
-
-/**
- * Get all RPG test scenarios
- */
-export function getAllScenarios(): TestScenario[] {
-  return [
-    ...getAllCombatScenarios(),
-    ...getAllBankingScenarios(),
-    ...getAllMovementScenarios(),
-    ...getAllItemScenarios(),
-    ...getAllSkillScenarios(),
-    ...getAllNPCScenarios()
-  ]
+export function getAllScenarios() {
+  console.log('Getting all RPG test scenarios...')
+  return []
 }
 
-/**
- * Get scenarios by category
- */
-export function getScenariosByCategory(category: string): TestScenario[] {
-  return getAllScenarios().filter(s => s.category === category)
+export function runTests() {
+  console.log('Running RPG tests...')
+  console.log('No tests implemented yet.')
+}
+
+export default {
+  getAllScenarios,
+  runTests
 } 

@@ -1,0 +1,212 @@
+[
+  {
+    "name": "Iron Sword",
+    "description": "A basic iron sword with leather-wrapped grip",
+    "type": "weapon",
+    "subtype": "sword"
+  },
+  {
+    "name": "Fire Staff",
+    "description": "A magical staff with a glowing fire crystal",
+    "type": "weapon",
+    "subtype": "staff"
+  },
+  {
+    "name": "Elven Bow",
+    "description": "An elegant longbow made from ancient wood",
+    "type": "weapon",
+    "subtype": "bow"
+  },
+  {
+    "name": "War Hammer",
+    "description": "A massive two-handed hammer with steel head",
+    "type": "weapon",
+    "subtype": "hammer"
+  },
+  {
+    "name": "Assassin's Dagger",
+    "description": "A curved dagger with poison grooves",
+    "type": "weapon",
+    "subtype": "dagger"
+  },
+  {
+    "name": "Iron Helmet",
+    "description": "A sturdy iron helmet with face guard",
+    "type": "armor",
+    "subtype": "head"
+  },
+  {
+    "name": "Leather Chestplate",
+    "description": "Reinforced leather armor with metal studs",
+    "type": "armor",
+    "subtype": "chest"
+  },
+  {
+    "name": "Mage Robes",
+    "description": "Flowing purple robes with magical runes",
+    "type": "armor",
+    "subtype": "chest"
+  },
+  {
+    "name": "Steel Gauntlets",
+    "description": "Heavy steel gloves with articulated fingers",
+    "type": "armor",
+    "subtype": "hands"
+  },
+  {
+    "name": "Dragon Scale Boots",
+    "description": "Boots crafted from red dragon scales",
+    "type": "armor",
+    "subtype": "feet"
+  },
+  {
+    "name": "Village Bank",
+    "description": "A stone bank building with vault and teller counters",
+    "type": "building",
+    "subtype": "bank"
+  },
+  {
+    "name": "General Store",
+    "description": "A wooden shop with display windows and merchant counter",
+    "type": "building",
+    "subtype": "store"
+  },
+  {
+    "name": "Wizard Tower",
+    "description": "A tall spiral tower with magical observatory at top",
+    "type": "building",
+    "subtype": "tower"
+  },
+  {
+    "name": "Blacksmith Forge",
+    "description": "Stone forge building with chimney and anvil area",
+    "type": "building",
+    "subtype": "workshop"
+  },
+  {
+    "name": "Town Inn",
+    "description": "A cozy inn with sleeping quarters and tavern",
+    "type": "building",
+    "subtype": "inn"
+  },
+  {
+    "name": "Health Potion",
+    "description": "A red glowing potion in a crystal vial",
+    "type": "consumable",
+    "subtype": "potion"
+  },
+  {
+    "name": "Bread Loaf",
+    "description": "Fresh baked bread with golden crust",
+    "type": "consumable",
+    "subtype": "food"
+  },
+  {
+    "name": "Mana Crystal",
+    "description": "A blue crystal that restores magical energy",
+    "type": "consumable",
+    "subtype": "potion"
+  },
+  {
+    "name": "Cooked Fish",
+    "description": "Grilled fish on a wooden plate",
+    "type": "consumable",
+    "subtype": "food"
+  },
+  {
+    "name": "Stamina Elixir",
+    "description": "Green energizing drink in a flask",
+    "type": "consumable",
+    "subtype": "potion"
+  },
+  {
+    "name": "Iron Ore",
+    "description": "Raw iron ore chunk with metallic veins",
+    "type": "resource",
+    "subtype": "ore"
+  },
+  {
+    "name": "Oak Log",
+    "description": "A freshly cut oak tree log",
+    "type": "resource",
+    "subtype": "wood"
+  },
+  {
+    "name": "Gold Bar",
+    "description": "A refined gold ingot with stamp",
+    "type": "resource",
+    "subtype": "bar"
+  },
+  {
+    "name": "Magic Gem",
+    "description": "A pulsating purple gemstone",
+    "type": "resource",
+    "subtype": "gem"
+  },
+  {
+    "name": "Coal Chunk",
+    "description": "Black coal for smelting and fuel",
+    "type": "resource",
+    "subtype": "ore"
+  },
+  {
+    "name": "Iron Pickaxe",
+    "description": "Mining pickaxe with wooden handle",
+    "type": "tool",
+    "subtype": "pickaxe"
+  },
+  {
+    "name": "Fishing Rod",
+    "description": "Wooden fishing rod with line and hook",
+    "type": "tool",
+    "subtype": "fishing"
+  },
+  {
+    "name": "Woodcutter Axe",
+    "description": "Sharp axe for chopping trees",
+    "type": "tool",
+    "subtype": "axe"
+  },
+  {
+    "name": "Crafting Hammer",
+    "description": "Small hammer for crafting work",
+    "type": "tool",
+    "subtype": "hammer"
+  },
+  {
+    "name": "Herbalist Sickle",
+    "description": "Curved blade for harvesting herbs",
+    "type": "tool",
+    "subtype": "sickle"
+  },
+  {
+    "name": "Human Warrior",
+    "description": "A muscular human warrior in battle stance",
+    "type": "character",
+    "style": "realistic"
+  },
+  {
+    "name": "Elf Mage",
+    "description": "An elegant elf wizard with glowing staff",
+    "type": "character",
+    "style": "realistic"
+  },
+  {
+    "name": "Dwarf Miner",
+    "description": "A stout dwarf with mining gear and beard",
+    "type": "character",
+    "style": "realistic"
+  },
+  {
+    "name": "Goblin Merchant",
+    "description": "A sneaky goblin trader with backpack",
+    "type": "character",
+    "style": "cartoon"
+  },
+  {
+    "name": "Dragon Boss",
+    "description": "A massive red dragon with spread wings",
+    "type": "character",
+    "style": "realistic"
+  }
+]

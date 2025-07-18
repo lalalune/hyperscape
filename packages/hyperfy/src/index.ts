@@ -15,6 +15,7 @@ export { Node } from './core/nodes/Node.js';
 
 // Core classes
 export { World } from './core/World.js';
+export { Entity } from './core/entities/Entity.js';
 export { Socket } from './core/Socket.js';
 
 // Extras - Vector and math utilities

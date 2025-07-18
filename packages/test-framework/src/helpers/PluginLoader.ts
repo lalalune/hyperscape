@@ -1,4 +1,4 @@
-import { World, Plugin } from '@hyperfy/sdk'
+import { World, Plugin } from '@hyperscape/hyperfy'
 
 /**
  * Helper class for loading Hyperfy plugins

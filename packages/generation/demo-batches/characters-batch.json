@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Human Warrior",
+    "description": "A muscular human warrior in battle stance",
+    "type": "character",
+    "style": "realistic"
+  },
+  {
+    "name": "Elf Mage",
+    "description": "An elegant elf wizard with glowing staff",
+    "type": "character",
+    "style": "realistic"
+  },
+  {
+    "name": "Dwarf Miner",
+    "description": "A stout dwarf with mining gear and beard",
+    "type": "character",
+    "style": "realistic"
+  },
+  {
+    "name": "Goblin Merchant",
+    "description": "A sneaky goblin trader with backpack",
+    "type": "character",
+    "style": "cartoon"
+  },
+  {
+    "name": "Dragon Boss",
+    "description": "A massive red dragon with spread wings",
+    "type": "character",
+    "style": "realistic"
+  }
+]

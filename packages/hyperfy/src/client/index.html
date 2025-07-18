@@ -35,15 +35,20 @@
         }
       }
       // Set particles worker path - different for dev vs production
-      // In development, check if we're in Vite by looking for Vite-specific elements
-      const isViteDev = document.querySelector('script[src*="@vite/client"]') !== null
-      if (isViteDev) {
+      // Check multiple ways to detect development mode
+      const isViteDev = document.querySelector('script[src*="@vite/client"]') !== null;
+      const isDevelopment = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1' ||
+                           window.location.port === '4445' || // Vite dev port
+                           window.location.port === '3000';   // Server dev port
+      
+      if (isViteDev || isDevelopment) {
         // Development: Disable particles to avoid worker loading issues
-        window.PARTICLES_PATH = null
-        console.log('[Development] Particles disabled for development mode')
+        window.PARTICLES_PATH = null;
+        console.log('[Development] Particles disabled for development mode');
       } else {
         // Production: Will be replaced during build with actual hashed filename
-        window.PARTICLES_PATH = '/client-assets/particles.js'
+        window.PARTICLES_PATH = '/client-assets/particles.js';
       }
     </script>
     <div id="root"></div>

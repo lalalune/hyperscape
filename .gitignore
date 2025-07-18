@@ -1,2 +1,7 @@
 .env
 node_modules
+.turbo
+dist
+build
+*.log
+build

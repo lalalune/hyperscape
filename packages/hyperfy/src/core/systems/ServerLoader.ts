@@ -37,7 +37,7 @@ export class ServerLoader extends System {
     this.promises = new Map();
     this.results = new Map();
     this.rgbeLoader = new RGBELoader();
-    this.gltfLoader = new GLTFLoader();
+    this.gltfLoader = new GLTFLoader(null as any);
     this.preloadItems = []
     // this.gltfLoader.register(parser => new VRMLoaderPlugin(parser))
 
@@ -131,6 +131,8 @@ export class ServerLoader extends System {
             };
             this.results.set(key, model);
             resolve(model);
+          }, (error: any) => {
+            reject(error);
           });
         } catch (err) {
           reject(err);
@@ -150,6 +152,8 @@ export class ServerLoader extends System {
             };
             this.results.set(key, emote);
             resolve(emote);
+          }, (error: any) => {
+            reject(error);
           });
         } catch (err) {
           reject(err);

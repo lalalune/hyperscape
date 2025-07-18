@@ -1,9 +1,9 @@
 /**
  * Stub type definitions for Hyperfy SDK
- * These should be replaced with actual @hyperfy/sdk types when available
+ * These should be replaced with actual @hyperscape/hyperfy types when available
  */
 
-declare module '@hyperfy/sdk' {
+declare module '@hyperscape/hyperfy' {
   export interface World {
     entities: {
       items: Map<string, any>

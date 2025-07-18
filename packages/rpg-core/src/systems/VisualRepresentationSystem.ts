@@ -1,7 +1,7 @@
 // Remove direct three imports - use THREE namespace instead
 // THREE import removed - needs to be provided by runtime
 import { World } from '../types'
-import { System } from '@hyperfy/sdk'
+import { System } from '@hyperscape/hyperfy'
 import { RPGEntity } from '../entities/RPGEntity'
 import { Mesh } from '../../core/nodes/Mesh'
 import { Group } from '../../core/nodes/Group'

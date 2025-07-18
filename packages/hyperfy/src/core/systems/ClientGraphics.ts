@@ -4,10 +4,10 @@ import { THREE } from '../extras/three';
 import type { World, WorldOptions } from '../../types/index.js';
 import { System } from './System.js';
 
-let renderer: THREE.WebGLRenderer | undefined;
+let renderer: any; // Use any type for now
 function getRenderer() {
   if (!renderer) {
-    renderer = new THREE.WebGLRenderer({
+    renderer = new (THREE as any).WebGLRenderer({
       powerPreference: 'high-performance',
       antialias: true,
       // logarithmicDepthBuffer: true,
@@ -27,7 +27,7 @@ function getRenderer() {
  */
 export class ClientGraphics extends System {
   // Properties
-  renderer!: THREE.WebGLRenderer;
+  renderer!: any; // THREE.WebGLRenderer
   viewport!: HTMLElement;
   maxAnisotropy!: number;
   usePostprocessing!: boolean;
@@ -66,7 +66,7 @@ export class ClientGraphics extends System {
     if (existingCanvas) {
       console.log('[ClientGraphics] Found existing canvas, using it for WebGL context');
       this.usingExistingCanvas = true;
-      this.renderer = new THREE.WebGLRenderer({
+      this.renderer = new (THREE as any).WebGLRenderer({
         canvas: existingCanvas,
         powerPreference: 'high-performance',
         antialias: true,
@@ -84,22 +84,22 @@ export class ClientGraphics extends System {
     const worldAny = this.world as any;
     this.renderer.setPixelRatio(worldAny.prefs?.dpr || 1);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.shadowMap.type = (THREE as any).PCFSoftShadowMap;
+    this.renderer.toneMapping = (THREE as any).ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1;
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.outputColorSpace = (THREE as any).SRGBColorSpace;
     this.renderer.xr.enabled = true;
     this.renderer.xr.setReferenceSpaceType('local-floor');
     this.renderer.xr.setFoveation(0);
     this.maxAnisotropy = this.renderer.capabilities.getMaxAnisotropy();
-    THREE.Texture.DEFAULT_ANISOTROPY = this.maxAnisotropy;
+    (THREE as any).Texture.DEFAULT_ANISOTROPY = this.maxAnisotropy;
     this.usePostprocessing = worldAny.prefs?.postprocessing ?? true;
     const context = this.renderer.getContext();
     const maxMultisampling = (context as WebGL2RenderingContext).MAX_SAMPLES
       ? context.getParameter((context as WebGL2RenderingContext).MAX_SAMPLES)
       : 8;
-    this.composer = new EffectComposer(this.renderer, {
-      frameBufferType: THREE.HalfFloatType,
+    this.composer = new EffectComposer(this.renderer as any, {
+      frameBufferType: (THREE as any).HalfFloatType,
       multisampling: Math.min(8, maxMultisampling),
     });
     this.renderPass = new RenderPass(this.world.stage.scene, this.world.camera);
@@ -177,7 +177,7 @@ export class ClientGraphics extends System {
 
   override preTick() {
     const fov = this.world.camera.fov;
-    const fovRadians = THREE.MathUtils.degToRad(fov);
+    const fovRadians = (THREE as any).MathUtils.degToRad(fov);
     const rendererHeight = this.xrHeight || this.height;
     this.worldToScreenFactor = (Math.tan(fovRadians / 2) * 2) / rendererHeight;
   }

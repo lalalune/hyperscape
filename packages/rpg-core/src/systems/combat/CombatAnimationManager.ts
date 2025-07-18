@@ -1,4 +1,4 @@
-import { World } from '@hyperfy/sdk'
+import { World } from '@hyperscape/hyperfy'
 import type { World } from '../../../types'
 import { AttackType, RPGEntity, CombatStyle, InventoryComponent, EquipmentSlot, WeaponType } from '../../types/index'
 

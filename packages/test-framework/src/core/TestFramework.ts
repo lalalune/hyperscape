@@ -1,4 +1,4 @@
-import { World } from '@hyperfy/sdk'
+import { World } from '@hyperscape/hyperfy'
 import { TestScenario, TestContext, TestHelpers, TestMetrics } from '../types'
 import { TestRunner } from './TestRunner'
 import { PluginLoader } from '../helpers/PluginLoader'

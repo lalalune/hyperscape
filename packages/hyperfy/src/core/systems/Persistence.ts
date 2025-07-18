@@ -5,85 +5,77 @@ import { Database } from 'bun:sqlite';
 import { eq, and } from 'drizzle-orm';
 import { uuid } from '../utils';
 import {
+  players,
+  playerStates,
+  playerWorldState,
+  ugcAppStorage,
+  worldState,
+  playerSessions,
   entityStates,
   nodeStates,
-  playerStates,
+  type Player,
+  type PlayerState,
   type EntityState,
-  type NodeState,
-  type PlayerState as DbPlayerState
+  type WorldState,
+  type UgcAppStorage,
+  type PlayerSession,
+  type NodeState
 } from '../../server/db-persistence-schema';
 
-export interface PlayerState {
+interface PersistedPlayerState {
   position: { x: number; y: number; z: number };
-  rotation: { y: number };
-  health: number;
+  rotation: { x: number; y: number; z: number; w: number };
+  health?: number;
+  [key: string]: any; // Allow any custom state
 }
 
 export interface WorldStateData {
   entities: any[];
-  metadata: Record<string, any>;
+  nodes: any[];
 }
 
-export interface QueryParams {
-  where?: Record<string, any>;
-  limit?: number;
-  offset?: number;
-}
-
-export interface StorageOptions {
-  ttl?: number;
-  overwrite?: boolean;
-}
-
-export interface ResetOptions {
-  scope: 'full' | 'players' | 'world' | 'scheduled';
-  preserveData?: string[];
-  notifications?: boolean;
-}
-
+/**
+ * Handles persistence for world state, entities, and players
+ */
 export class PersistenceSystem extends System {
   private db: ReturnType<typeof drizzle>;
+  private sqliteDb: Database;
   private worldId: string;
-  private saveTimers: Map<string, NodeJS.Timeout> = new Map();
-  private batchQueue: Map<string, any> = new Map();
-  private batchTimer?: NodeJS.Timeout;
-
+  
   constructor(world: any) {
     super(world);
     this.worldId = world.id || 'default';
-
-    // Initialize database
-    const sqlite = new Database('world/persistence.db');
-    this.db = drizzle(sqlite);
-
-    // Create tables if they don't exist
-    this.initializeTables();
-
-    // Start auto-save timer
-    this.startAutoSave();
   }
 
-  private initializeTables() {
-    // SQLite doesn't support CREATE TABLE IF NOT EXISTS with Drizzle,
-    // so we'll handle this in migrations
-    console.log('[Persistence] Database initialized');
+  async init(options: any): Promise<void> {
+    // Initialize SQLite database
+    const dbPath = options.dbPath || './persistence.db';
+    this.sqliteDb = new Database(dbPath);
+    this.db = drizzle(this.sqliteDb);
+    
+    console.log('[Persistence] Initialized with database:', dbPath);
   }
 
-  private startAutoSave() {
-    // Auto-save player states every 30 seconds
-    setInterval(() => {
-      this.saveAllPlayerStates();
-    }, 30000);
-
-    // Process batch queue every 5 seconds
-    this.batchTimer = setInterval(() => {
-      this.processBatchQueue();
-    }, 5000);
+  destroy(): void {
+    if (this.sqliteDb) {
+      this.sqliteDb.close();
+    }
   }
 
-  // Player operations
-  async savePlayerState(playerId: string, state: PlayerState): Promise<void> {
+  // Player state management
+  async savePlayerState(playerId: string, state: PersistedPlayerState): Promise<void> {
     try {
+      const playerData = {
+        id: uuid(),
+        playerId,
+        worldId: this.worldId,
+        username: playerId, // TODO: Get actual username
+        position: JSON.stringify(state.position),
+        rotation: JSON.stringify(state.rotation),
+        state: state.health ? JSON.stringify({ health: state.health }) : null
+      };
+
+      // Check if player state exists
       const existing = await this.db
         .select()
         .from(playerStates)
@@ -95,21 +87,14 @@ export class PersistenceSystem extends System {
         )
         .limit(1);
 
-      const stateData = {
-        playerId,
-        worldId: this.worldId,
-        positionX: state.position.x,
-        positionY: state.position.y,
-        positionZ: state.position.z,
-        rotationY: state.rotation.y,
-        health: state.health,
-        lastUpdated: new Date().toISOString()
-      };
-
       if (existing.length > 0) {
         await this.db
           .update(playerStates)
-          .set(stateData)
+          .set({
+            position: playerData.position,
+            rotation: playerData.rotation,
+            state: playerData.state
+          })
           .where(
             and(
               eq(playerStates.playerId, playerId),
@@ -117,7 +102,7 @@ export class PersistenceSystem extends System {
             )
           );
       } else {
-        await this.db.insert(playerStates).values(stateData);
+        await this.db.insert(playerStates).values(playerData);
       }
 
       console.log(`[Persistence] Saved player state for ${playerId}`);
@@ -126,7 +111,7 @@ export class PersistenceSystem extends System {
     }
   }
 
-  async loadPlayerState(playerId: string): Promise<PlayerState | null> {
+  async loadPlayerState(playerId: string): Promise<PersistedPlayerState | null> {
     try {
       const result = await this.db
         .select()
@@ -139,19 +124,17 @@ export class PersistenceSystem extends System {
         )
         .limit(1);
 
-      if (result.length === 0) {return null;}
+      if (result.length === 0) return null;
 
       const state = result[0];
+      const position = JSON.parse(state.position);
+      const rotation = JSON.parse(state.rotation);
+      const customState = state.state ? JSON.parse(state.state) : {};
+
       return {
-        position: {
-          x: state.positionX || 0,
-          y: state.positionY || 0,
-          z: state.positionZ || 0
-        },
-        rotation: {
-          y: state.rotationY || 0
-        },
-        health: state.health || 100
+        position,
+        rotation,
+        customState
       };
     } catch (error) {
       console.error('[Persistence] Failed to load player state:', error);
@@ -159,105 +142,154 @@ export class PersistenceSystem extends System {
     }
   }
 
-  // UGC app storage
-  async setAppData(appId: string, key: string, value: any, playerId?: string): Promise<void> {
+  // Entity state management
+  async saveEntity(entity: Entity): Promise<void> {
     try {
+      const serialized = entity.serialize();
+      const entityData = {
+        id: uuid(),
+        entityId: entity.id,
+        worldId: this.worldId,
+        playerId: entity.isPlayer ? entity.id : null,
+        position: JSON.stringify(entity.position),
+        rotation: JSON.stringify(entity.rotation),
+        components: JSON.stringify(Array.from(entity.components.entries())),
+        metadata: JSON.stringify({
+          type: entity.type,
+          name: entity.name,
+          data: serialized
+        })
+      };
+
+      // Check if entity exists
       const existing = await this.db
         .select()
-        .from(ugcAppStorage)
+        .from(entityStates)
         .where(
           and(
-            eq(ugcAppStorage.appId, appId),
-            eq(ugcAppStorage.worldId, this.worldId),
-            eq(ugcAppStorage.key, key),
-            playerId ? eq(ugcAppStorage.playerId, playerId) : eq(ugcAppStorage.playerId, '')
+            eq(entityStates.entityId, entity.id),
+            eq(entityStates.worldId, this.worldId)
           )
         )
         .limit(1);
 
-      const data = {
-        appId,
-        worldId: this.worldId,
-        key,
-        value: JSON.stringify(value),
-        playerId: playerId || null,
-        updatedAt: new Date().toISOString()
-      };
-
       if (existing.length > 0) {
         await this.db
-          .update(ugcAppStorage)
-          .set(data)
+          .update(entityStates)
+          .set({
+            position: entityData.position,
+            rotation: entityData.rotation,
+            components: entityData.components,
+            metadata: entityData.metadata
+          })
           .where(
             and(
-              eq(ugcAppStorage.appId, appId),
-              eq(ugcAppStorage.worldId, this.worldId),
-              eq(ugcAppStorage.key, key),
-              playerId ? eq(ugcAppStorage.playerId, playerId) : eq(ugcAppStorage.playerId, '')
+              eq(entityStates.entityId, entity.id),
+              eq(entityStates.worldId, this.worldId)
             )
           );
       } else {
-        await this.db.insert(ugcAppStorage).values({
-          ...data,
-          createdAt: new Date().toISOString()
-        });
+        await this.db.insert(entityStates).values(entityData);
       }
-
-      console.log(`[Persistence] Saved app data: ${appId}:${key}`);
     } catch (error) {
-      console.error('[Persistence] Failed to save app data:', error);
+      console.error('[Persistence] Failed to save entity:', error);
     }
   }
 
-  async getAppData(appId: string, key: string, playerId?: string): Promise<any> {
+  async loadEntities(): Promise<EntityState[]> {
     try {
       const result = await this.db
         .select()
-        .from(ugcAppStorage)
+        .from(entityStates)
+        .where(eq(entityStates.worldId, this.worldId));
+
+      return result;
+    } catch (error) {
+      console.error('[Persistence] Failed to load entities:', error);
+      return [];
+    }
+  }
+
+  // Node state management
+  async saveNode(node: any): Promise<void> {
+    try {
+      const nodeData = {
+        id: uuid(),
+        nodeId: node.id || uuid(),
+        worldId: this.worldId,
+        parentId: node.parent?.id || null,
+        position: JSON.stringify(node.position || { x: 0, y: 0, z: 0 }),
+        rotation: JSON.stringify(node.rotation || { x: 0, y: 0, z: 0 }),
+        scale: JSON.stringify(node.scale || { x: 1, y: 1, z: 1 }),
+        properties: JSON.stringify(node.properties || {}),
+        metadata: JSON.stringify({
+          type: node.type || 'unknown',
+          name: node.name
+        })
+      };
+
+      // Check if node exists
+      const existing = await this.db
+        .select()
+        .from(nodeStates)
         .where(
           and(
-            eq(ugcAppStorage.appId, appId),
-            eq(ugcAppStorage.worldId, this.worldId),
-            eq(ugcAppStorage.key, key),
-            playerId ? eq(ugcAppStorage.playerId, playerId) : eq(ugcAppStorage.playerId, '')
+            eq(nodeStates.nodeId, nodeData.nodeId),
+            eq(nodeStates.worldId, this.worldId)
           )
         )
         .limit(1);
 
-      if (result.length === 0) {return null;}
-
-      return JSON.parse(result[0].value || 'null');
+      if (existing.length > 0) {
+        await this.db
+          .update(nodeStates)
+          .set({
+            parentId: nodeData.parentId,
+            position: nodeData.position,
+            rotation: nodeData.rotation,
+            scale: nodeData.scale,
+            properties: nodeData.properties,
+            metadata: nodeData.metadata
+          })
+          .where(
+            and(
+              eq(nodeStates.nodeId, nodeData.nodeId),
+              eq(nodeStates.worldId, this.worldId)
+            )
+          );
+      } else {
+        await this.db.insert(nodeStates).values(nodeData);
+      }
     } catch (error) {
-      console.error('[Persistence] Failed to get app data:', error);
-      return null;
+      console.error('[Persistence] Failed to save node:', error);
     }
   }
 
-  // World state
-  async saveWorldState(state: WorldStateData): Promise<void> {
+  async loadNodes(): Promise<NodeState[]> {
     try {
-      const existing = await this.db
+      const result = await this.db
         .select()
-        .from(worldState)
-        .where(eq(worldState.worldId, this.worldId))
-        .limit(1);
+        .from(nodeStates)
+        .where(eq(nodeStates.worldId, this.worldId));
 
-      const data = {
-        worldId: this.worldId,
-        state: JSON.stringify(state),
-        updatedAt: new Date().toISOString()
-      };
+      return result;
+    } catch (error) {
+      console.error('[Persistence] Failed to load nodes:', error);
+      return [];
+    }
+  }
 
-      if (existing.length > 0) {
-        await this.db
-          .update(worldState)
-          .set(data)
-          .where(eq(worldState.worldId, this.worldId));
-      } else {
-        await this.db.insert(worldState).values({
-          ...data,
-          createdAt: new Date().toISOString()
-        });
+  // World state management
+  async saveWorldState(data: WorldStateData): Promise<void> {
+    try {
+      // Save all entities
+      for (const entity of data.entities) {
+        await this.saveEntity(entity);
+      }
+
+      // Save all nodes
+      for (const node of data.nodes) {
+        await this.saveNode(node);
       }
 
       console.log('[Persistence] Saved world state');
@@ -266,609 +298,55 @@ export class PersistenceSystem extends System {
     }
   }
 
-  async loadWorldState(): Promise<WorldStateData | null> {
+  async loadWorldState(): Promise<WorldStateData> {
     try {
-      const result = await this.db
-        .select()
-        .from(worldState)
-        .where(eq(worldState.worldId, this.worldId))
-        .limit(1);
+      const entities = await this.loadEntities();
+      const nodes = await this.loadNodes();
 
-      if (result.length === 0) {return null;}
-
-      return JSON.parse(result[0].state || '{}');
+      return {
+        entities: entities as any[],
+        nodes: nodes as any[]
+      };
     } catch (error) {
       console.error('[Persistence] Failed to load world state:', error);
-      return null;
+      return {
+        entities: [],
+        nodes: []
+      };
     }
-  }
-
-  // Session management
-  async createSession(playerId: string): Promise<string> {
-    const sessionId = uuid();
-
-    try {
-      await this.db.insert(playerSessions).values({
-        id: sessionId,
-        playerId,
-        worldId: this.worldId,
-        connectedAt: new Date().toISOString()
-      });
-
-      // Update last seen
-      await this.db
-        .update(players)
-        .set({ lastSeen: new Date().toISOString() })
-        .where(eq(players.id, playerId));
-
-      return sessionId;
-    } catch (error) {
-      console.error('[Persistence] Failed to create session:', error);
-      return sessionId;
-    }
-  }
-
-  async endSession(sessionId: string): Promise<void> {
-    try {
-      await this.db
-        .update(playerSessions)
-        .set({ disconnectedAt: new Date().toISOString() })
-        .where(eq(playerSessions.id, sessionId));
-    } catch (error) {
-      console.error('[Persistence] Failed to end session:', error);
-    }
-  }
-
-  // Player management
-  async createOrUpdatePlayer(playerId: string, username: string): Promise<void> {
-    try {
-      const existing = await this.db
-        .select()
-        .from(players)
-        .where(eq(players.id, playerId))
-        .limit(1);
-
-      if (existing.length > 0) {
-        await this.db
-          .update(players)
-          .set({
-            username,
-            lastSeen: new Date().toISOString()
-          })
-          .where(eq(players.id, playerId));
-      } else {
-        await this.db.insert(players).values({
-          id: playerId,
-          username,
-          createdAt: new Date().toISOString(),
-          lastSeen: new Date().toISOString()
-        });
-      }
-    } catch (error) {
-      console.error('[Persistence] Failed to create/update player:', error);
-    }
-  }
-
-  // Batch operations
-  queueBatchOperation(operation: any) {
-    const key = `${operation.type}:${operation.id}`;
-    this.batchQueue.set(key, operation);
-  }
-
-  private async processBatchQueue() {
-    if (this.batchQueue.size === 0) {return;}
-
-    const operations = Array.from(this.batchQueue.values());
-    this.batchQueue.clear();
-
-    for (const op of operations) {
-      try {
-        switch (op.type) {
-          case 'playerState':
-            await this.savePlayerState(op.id, op.data);
-            break;
-          case 'appData':
-            await this.setAppData(op.appId, op.key, op.value, op.playerId);
-            break;
-          // Add more batch operation types as needed
-        }
-      } catch (error) {
-        console.error('[Persistence] Batch operation failed:', error);
-      }
-    }
-  }
-
-  // Helper methods for entities
-  private async saveAllPlayerStates() {
-    const world = this.world as any;
-    const entities = world.getSystem('entities');
-    if (!entities) {return;}
-
-    // Use getAllPlayers() method from the Entities system
-    const playerEntities = entities.getAllPlayers ? entities.getAllPlayers() : [];
-
-    for (const player of playerEntities) {
-      const p = player as any;
-      if (p.id && p.position && p.health !== undefined) {
-        this.queueBatchOperation({
-          type: 'playerState',
-          id: p.id,
-          data: {
-            position: p.position,
-            rotation: { y: p.rotation?.y || 0 },
-            health: p.health
-          }
-        });
-      }
-    }
-  }
-
-  // System lifecycle
-  tick(dt: number) {
-    // Handle any real-time persistence needs
-  }
-
-  cleanup() {
-    // Clear timers
-    this.saveTimers.forEach(timer => clearTimeout(timer));
-    if (this.batchTimer) {clearInterval(this.batchTimer);}
-
-    // Process remaining batch operations
-    this.processBatchQueue();
   }
 
   // Public API for UGC apps
   getStorage(appId: string) {
     return {
-      set: (key: string, value: any, options?: StorageOptions) =>
-        this.setAppData(appId, key, value),
-      get: (key: string) =>
-        this.getAppData(appId, key),
-      setPlayerData: (playerId: string, key: string, value: any) =>
-        this.setAppData(appId, key, value, playerId),
-      getPlayerData: (playerId: string, key: string) =>
-        this.getAppData(appId, key, playerId)
-    };
-  }
-
-  // =================
-  // RPG PERSISTENCE
-  // =================
-
-  // Player skills
-  async savePlayerSkills(playerId: string, skills: Array<{ type: string; level: number; experience: number }>): Promise<void> {
-    try {
-      await this.db.transaction(async (tx: any) => {
-        // Delete existing skills
-        await tx
-          .delete(playerSkills)
-          .where(
-            and(
-              eq(playerSkills.playerId, playerId),
-              eq(playerSkills.worldId, this.worldId)
-            )
-          );
-
-        // Insert new skills
-        for (const skill of skills) {
-          await tx.insert(playerSkills).values({
-            playerId,
-            worldId: this.worldId,
-            skillType: skill.type,
-            level: skill.level,
-            experience: skill.experience,
-            updatedAt: new Date().toISOString()
-          });
-        }
-      });
-
-      console.log(`[Persistence] Saved skills for player ${playerId}`);
-    } catch (error) {
-      console.error('[Persistence] Failed to save skills:', error);
-    }
-  }
-
-  async loadPlayerSkills(playerId: string): Promise<Array<{ type: string; level: number; experience: number }>> {
-    try {
-      const skills = await this.db
-        .select()
-        .from(playerSkills)
-        .where(
-          and(
-            eq(playerSkills.playerId, playerId),
-            eq(playerSkills.worldId, this.worldId)
-          )
-        );
-
-      return skills.map((s: PlayerSkills) => ({
-        type: s.skillType,
-        level: s.level || 1,
-        experience: s.experience || 0
-      }));
-    } catch (error) {
-      console.error('[Persistence] Failed to load skills:', error);
-      return [];
-    }
-  }
-
-  // Player inventory
-  async savePlayerInventory(playerId: string, inventory: Array<{ slot: number; itemId: number; quantity: number; metadata?: any }>): Promise<void> {
-    try {
-      await this.db.transaction(async (tx: any) => {
-        // Delete existing inventory
-        await tx
-          .delete(playerInventory)
-          .where(
-            and(
-              eq(playerInventory.playerId, playerId),
-              eq(playerInventory.worldId, this.worldId)
-            )
-          );
-
-        // Insert new inventory
-        for (const item of inventory) {
-          if (item.itemId && item.quantity > 0) {
-            await tx.insert(playerInventory).values({
-              playerId,
-              worldId: this.worldId,
-              slot: item.slot,
-              itemId: item.itemId,
-              quantity: item.quantity,
-              metadata: item.metadata ? JSON.stringify(item.metadata) : null
-            });
-          }
-        }
-      });
-
-      console.log(`[Persistence] Saved inventory for player ${playerId}`);
-    } catch (error) {
-      console.error('[Persistence] Failed to save inventory:', error);
-    }
-  }
-
-  async loadPlayerInventory(playerId: string): Promise<Array<{ slot: number; itemId: number; quantity: number; metadata?: any }>> {
-    try {
-      const items = await this.db
-        .select()
-        .from(playerInventory)
-        .where(
-          and(
-            eq(playerInventory.playerId, playerId),
-            eq(playerInventory.worldId, this.worldId)
-          )
-        );
-
-      return items.map((i: PlayerInventory) => ({
-        slot: i.slot,
-        itemId: i.itemId,
-        quantity: i.quantity || 1,
-        metadata: i.metadata ? JSON.parse(i.metadata) : undefined
-      }));
-    } catch (error) {
-      console.error('[Persistence] Failed to load inventory:', error);
-      return [];
-    }
-  }
-
-  // Player equipment
-  async savePlayerEquipment(playerId: string, equipment: Array<{ slot: string; itemId: number; metadata?: any }>): Promise<void> {
-    try {
-      await this.db.transaction(async (tx: any) => {
-        // Delete existing equipment
-        await tx
-          .delete(playerEquipment)
-          .where(
-            and(
-              eq(playerEquipment.playerId, playerId),
-              eq(playerEquipment.worldId, this.worldId)
-            )
-          );
-
-        // Insert new equipment
-        for (const item of equipment) {
-          if (item.itemId) {
-            await tx.insert(playerEquipment).values({
-              playerId,
-              worldId: this.worldId,
-              slot: item.slot,
-              itemId: item.itemId,
-              metadata: item.metadata ? JSON.stringify(item.metadata) : null
-            });
-          }
-        }
-      });
-
-      console.log(`[Persistence] Saved equipment for player ${playerId}`);
-    } catch (error) {
-      console.error('[Persistence] Failed to save equipment:', error);
-    }
-  }
-
-  async loadPlayerEquipment(playerId: string): Promise<Array<{ slot: string; itemId: number; metadata?: any }>> {
-    try {
-      const items = await this.db
-        .select()
-        .from(playerEquipment)
-        .where(
-          and(
-            eq(playerEquipment.playerId, playerId),
-            eq(playerEquipment.worldId, this.worldId)
-          )
-        );
-
-      return items.map((i: PlayerEquipment) => ({
-        slot: i.slot,
-        itemId: i.itemId,
-        metadata: i.metadata ? JSON.parse(i.metadata) : undefined
-      }));
-    } catch (error) {
-      console.error('[Persistence] Failed to load equipment:', error);
-      return [];
-    }
-  }
-
-  // Player bank
-  async savePlayerBank(playerId: string, bank: Array<{ itemId: number; quantity: number }>): Promise<void> {
-    try {
-      await this.db.transaction(async (tx: any) => {
-        // Delete existing bank items
-        await tx
-          .delete(playerBank)
-          .where(
-            and(
-              eq(playerBank.playerId, playerId),
-              eq(playerBank.worldId, this.worldId)
-            )
-          );
-
-        // Insert new bank items
-        for (const item of bank) {
-          if (item.quantity > 0) {
-            await tx.insert(playerBank).values({
-              playerId,
-              worldId: this.worldId,
-              itemId: item.itemId,
-              quantity: item.quantity
-            });
-          }
-        }
-      });
-
-      console.log(`[Persistence] Saved bank for player ${playerId}`);
-    } catch (error) {
-      console.error('[Persistence] Failed to save bank:', error);
-    }
-  }
-
-  async loadPlayerBank(playerId: string): Promise<Array<{ itemId: number; quantity: number }>> {
-    try {
-      const items = await this.db
-        .select()
-        .from(playerBank)
-        .where(
-          and(
-            eq(playerBank.playerId, playerId),
-            eq(playerBank.worldId, this.worldId)
-          )
-        );
-
-      return items.map((i: PlayerBank) => ({
-        itemId: i.itemId,
-        quantity: i.quantity || 0
-      }));
-    } catch (error) {
-      console.error('[Persistence] Failed to load bank:', error);
-      return [];
-    }
-  }
-
-  // Player quests
-  async savePlayerQuests(playerId: string, quests: Array<{ questId: string; status: string; progress?: any; startedAt?: string; completedAt?: string }>): Promise<void> {
-    try {
-      await this.db.transaction(async (tx: any) => {
-        for (const quest of quests) {
-          await tx
-            .insert(playerQuests)
-            .values({
-              playerId,
-              worldId: this.worldId,
-              questId: quest.questId,
-              status: quest.status,
-              progress: quest.progress ? JSON.stringify(quest.progress) : null,
-              startedAt: quest.startedAt,
-              completedAt: quest.completedAt
-            })
-            .onConflictDoUpdate({
-              target: [playerQuests.playerId, playerQuests.worldId, playerQuests.questId],
-              set: {
-                status: quest.status,
-                progress: quest.progress ? JSON.stringify(quest.progress) : null,
-                completedAt: quest.completedAt
-              }
-            });
-        }
-      });
-
-      console.log(`[Persistence] Saved quests for player ${playerId}`);
-    } catch (error) {
-      console.error('[Persistence] Failed to save quests:', error);
-    }
-  }
-
-  async loadPlayerQuests(playerId: string): Promise<Array<{ questId: string; status: string; progress?: any; startedAt?: string; completedAt?: string }>> {
-    try {
-      const quests = await this.db
-        .select()
-        .from(playerQuests)
-        .where(
-          and(
-            eq(playerQuests.playerId, playerId),
-            eq(playerQuests.worldId, this.worldId)
-          )
-        );
-
-      return quests.map((q: PlayerQuest) => ({
-        questId: q.questId,
-        status: q.status || 'not_started',
-        progress: q.progress ? JSON.parse(q.progress) : undefined,
-        startedAt: q.startedAt || undefined,
-        completedAt: q.completedAt || undefined
-      }));
-    } catch (error) {
-      console.error('[Persistence] Failed to load quests:', error);
-      return [];
-    }
-  }
-
-  // World entities
-  async saveWorldEntity(entity: { entityId: string; entityType: string; position: { x: number; y: number; z: number }; data?: any; respawnAt?: string }): Promise<void> {
-    try {
-      await this.db
-        .insert(worldEntities)
-        .values({
-          entityId: entity.entityId,
-          worldId: this.worldId,
-          entityType: entity.entityType,
-          positionX: entity.position.x,
-          positionY: entity.position.y,
-          positionZ: entity.position.z,
-          data: entity.data ? JSON.stringify(entity.data) : null,
-          respawnAt: entity.respawnAt,
-          updatedAt: new Date().toISOString()
-        })
-        .onConflictDoUpdate({
-          target: worldEntities.entityId,
-          set: {
-            positionX: entity.position.x,
-            positionY: entity.position.y,
-            positionZ: entity.position.z,
-            data: entity.data ? JSON.stringify(entity.data) : null,
-            respawnAt: entity.respawnAt,
-            updatedAt: new Date().toISOString()
+      set: async (key: string, value: any) => {
+        // Store as metadata in a node
+        const nodeId = `storage_${appId}_${key}`;
+        await this.saveNode({
+          id: nodeId,
+          type: 'storage',
+          name: key,
+          properties: { appId, key, value }
+        });
+      },
+      get: async (key: string) => {
+        // Retrieve from nodes
+        const nodes = await this.loadNodes();
+        const storageNode = nodes.find(n => {
+          try {
+            const props = JSON.parse(n.properties);
+            return props.appId === appId && props.key === key;
+          } catch {
+            return false;
           }
         });
-
-      console.log(`[Persistence] Saved entity ${entity.entityId}`);
-    } catch (error) {
-      console.error('[Persistence] Failed to save entity:', error);
-    }
-  }
-
-  async loadWorldEntities(): Promise<Array<{ entityId: string; entityType: string; position: { x: number; y: number; z: number }; data?: any; respawnAt?: string }>> {
-    try {
-      const entities = await this.db
-        .select()
-        .from(worldEntities)
-        .where(eq(worldEntities.worldId, this.worldId));
-
-      return entities.map((e: WorldEntity) => ({
-        entityId: e.entityId,
-        entityType: e.entityType,
-        position: {
-          x: e.positionX || 0,
-          y: e.positionY || 0,
-          z: e.positionZ || 0
-        },
-        data: e.data ? JSON.parse(e.data) : undefined,
-        respawnAt: e.respawnAt || undefined
-      }));
-    } catch (error) {
-      console.error('[Persistence] Failed to load entities:', error);
-      return [];
-    }
-  }
-
-  // Ground items
-  async saveGroundItem(item: { itemType: number; position: { x: number; y: number; z: number }; quantity: number; ownerId?: string; expiresAt?: string }): Promise<string> {
-    const itemId = uuid();
-
-    try {
-      await this.db.insert(worldItems).values({
-        itemId,
-        worldId: this.worldId,
-        itemType: item.itemType,
-        positionX: item.position.x,
-        positionY: item.position.y,
-        positionZ: item.position.z,
-        quantity: item.quantity,
-        ownerId: item.ownerId,
-        expiresAt: item.expiresAt
-      });
-
-      console.log(`[Persistence] Saved ground item ${itemId}`);
-      return itemId;
-    } catch (error) {
-      console.error('[Persistence] Failed to save ground item:', error);
-      return itemId;
-    }
-  }
-
-  async loadGroundItems(): Promise<Array<{ itemId?: string; itemType: number; position: { x: number; y: number; z: number }; quantity: number; ownerId?: string; expiresAt?: string }>> {
-    try {
-      const items = await this.db
-        .select()
-        .from(worldItems)
-        .where(eq(worldItems.worldId, this.worldId));
-
-      return items.map((i: WorldItem) => ({
-        itemId: i.itemId,
-        itemType: i.itemType,
-        position: {
-          x: i.positionX || 0,
-          y: i.positionY || 0,
-          z: i.positionZ || 0
-        },
-        quantity: i.quantity || 1,
-        ownerId: i.ownerId || undefined,
-        expiresAt: i.expiresAt || undefined
-      }));
-    } catch (error) {
-      console.error('[Persistence] Failed to load ground items:', error);
-      return [];
-    }
-  }
-
-  // Market data
-  async saveGrandExchangeOffer(offer: { playerId: string; itemId: number; offerType: 'buy' | 'sell'; quantity: number; pricePerItem: number }): Promise<string> {
-    const offerId = uuid();
-
-    try {
-      await this.db.insert(grandExchangeOffers).values({
-        offerId,
-        playerId: offer.playerId,
-        worldId: this.worldId,
-        itemId: offer.itemId,
-        offerType: offer.offerType,
-        quantity: offer.quantity,
-        pricePerItem: offer.pricePerItem,
-        quantityFilled: 0,
-        status: 'active'
-      });
-
-      console.log(`[Persistence] Saved GE offer ${offerId}`);
-      return offerId;
-    } catch (error) {
-      console.error('[Persistence] Failed to save GE offer:', error);
-      return offerId;
-    }
-  }
-
-  async loadActiveOffers(): Promise<GrandExchangeOffer[]> {
-    try {
-      const offers = await this.db
-        .select()
-        .from(grandExchangeOffers)
-        .where(
-          and(
-            eq(grandExchangeOffers.worldId, this.worldId),
-            eq(grandExchangeOffers.status, 'active')
-          )
-        );
-
-      return offers;
-    } catch (error) {
-      console.error('[Persistence] Failed to load offers:', error);
-      return [];
-    }
+        
+        if (storageNode) {
+          const props = JSON.parse(storageNode.properties);
+          return props.value;
+        }
+        return null;
+      }
+    };
   }
 }

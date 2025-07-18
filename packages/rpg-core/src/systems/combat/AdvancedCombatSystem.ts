@@ -3,7 +3,7 @@
  * Handles melee, ranged, and magic combat with proper timing, range, and damage
  */
 
-import { System } from '@hyperfy/sdk'
+import { System } from '@hyperscape/hyperfy'
 import type { World } from '../../../types'
 import {
   CombatStyle,

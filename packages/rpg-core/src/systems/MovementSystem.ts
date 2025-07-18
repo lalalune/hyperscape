@@ -1,4 +1,4 @@
-import { System } from '@hyperfy/sdk'
+import { System } from '@hyperscape/hyperfy'
 import type { World } from '../types'
 import type { Vector3, MovementComponent, Entity } from '../types'
 import type { SpatialIndex } from '../../core/systems/SpatialIndex'

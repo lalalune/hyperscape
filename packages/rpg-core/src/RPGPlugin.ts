@@ -1,4 +1,4 @@
-import { Plugin, World } from '@hyperfy/sdk'
+import { Plugin, World } from '@hyperscape/hyperfy'
 import { RPGPluginConfig } from './index'
 import { RPGWorldManager } from './world/RPGWorldManager'
 import { RPGPublicAPI } from './api/RPGPublicAPI'

@@ -236,10 +236,13 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.cam.quaternion.copy(this.base.quaternion);
     this.cam.rotation.x += -15 * DEG2RAD;
 
+    console.log('[PlayerLocal] Checking for preloader...', !!this.world.loader?.preloader);
     if (this.world.loader?.preloader) {
       console.log('[PlayerLocal] Waiting for preloader...');
       await this.world.loader.preloader;
       console.log('[PlayerLocal] Preloader complete');
+    } else {
+      console.log('[PlayerLocal] No preloader found, continuing...');
     }
 
     this.applyAvatar();

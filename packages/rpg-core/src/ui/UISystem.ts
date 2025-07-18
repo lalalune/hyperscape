@@ -3,7 +3,7 @@
  * Provides HUD, inventory, chat, and other game interfaces
  */
 
-import { System } from '@hyperfy/sdk'
+import { System } from '@hyperscape/hyperfy'
 import type { World } from '../types'
 import type { Vector3 as Vector2 } from '../types'
 

@@ -159,6 +159,7 @@ export class ClientNetwork extends System {
     this.world.assetsUrl = data.assetsUrl;
 
     const loader = this.world.loader;
+    console.log('[ClientNetwork] Checking loader:', !!loader, typeof loader?.preload, typeof loader?.execPreload);
     if (loader && typeof loader.preload === 'function' && typeof loader.execPreload === 'function') {
       console.log('[ClientNetwork] Starting preload...');
       // preload environment model and avatar
@@ -207,6 +208,9 @@ export class ClientNetwork extends System {
       }
       console.log('[ClientNetwork] Executing preload...');
       loader.execPreload();
+      console.log('[ClientNetwork] execPreload called successfully');
+    } else {
+      console.log('[ClientNetwork] Loader not available or missing methods');
     }
 
     console.log('[ClientNetwork] Deserializing world data...')

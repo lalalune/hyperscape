@@ -1,7 +1,7 @@
 import prettierConfig from '../core/configs/prettier/prettier.config.js';
 
 /**
- * Prettier configuration for @elizaos/hyperfy
+ * Prettier configuration for @hyperscape/hyperfy
  * Uses the standardized configuration from core/configs with overrides
  */
 export default {

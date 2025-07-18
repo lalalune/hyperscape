@@ -1,0 +1,48 @@
+{
+  "name": "@hyperscape/monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hyperscape - AI-powered virtual world with RPG elements",
+  "keywords": [
+    "hyperfy",
+    "virtual-worlds",
+    "rpg",
+    "ai",
+    "elizaos",
+    "3d",
+    "metaverse"
+  ],
+  "author": "Hyperscape Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "clean": "turbo run clean",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "build:rpg-app": "npm run build --workspace=@hyperscape/rpg-app"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.3",
+    "eslint": "^8.0.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.4.2",
+    "ts-jest": "^29.1.1",
+    "turbo": "^2.5.5",
+    "typescript": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0"
+  },
+  "overrides": {
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7"
+  },
+  "packageManager": "npm@10.9.0"
+}

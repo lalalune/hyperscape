@@ -2,7 +2,7 @@ import frontendConfig from '../core/configs/eslint/eslint.config.frontend.js';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 
 /**
- * ESLint configuration for @elizaos/hyperfy
+ * ESLint configuration for @hyperscape/hyperfy
  * Uses the standardized frontend configuration from core/configs
  * 
  * Note: Hyperfy has legacy JS libraries and complex 3D graphics code
