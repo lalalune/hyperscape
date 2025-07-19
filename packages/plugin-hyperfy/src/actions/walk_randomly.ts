@@ -7,7 +7,7 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 // No longer need THREE here
 import { AgentControls } from '../systems/controls' // Still need type for casting
 import { HyperfyService } from '../service'
@@ -58,10 +58,12 @@ export const hyperfyWalkRandomlyAction: Action = {
       if (callback) {
         await callback({
           text: 'Error: Cannot wander. Hyperfy connection/controls unavailable.',
+          success: false
         })
       }
       return {
         text: 'Error: Cannot wander. Hyperfy connection/controls unavailable.',
+        success: false,
         values: { success: false, error: 'connection_unavailable' },
         data: { action: 'HYPERFY_WALK_RANDOMLY' },
       }
@@ -78,10 +80,12 @@ export const hyperfyWalkRandomlyAction: Action = {
       if (callback) {
         await callback({
           text: 'Error: Wander functionality not available in controls.',
+          success: false
         })
       }
       return {
         text: 'Error: Wander functionality not available in controls.',
+        success: false,
         values: { success: false, error: 'wander_function_unavailable' },
         data: { action: 'HYPERFY_WALK_RANDOMLY' },
       }
@@ -99,12 +103,14 @@ export const hyperfyWalkRandomlyAction: Action = {
         controls.stopRandomWalk()
         return {
           text: 'Stopped wandering.',
+          success: true,
           values: { success: true, command: 'stop', wasWandering: true },
           data: { action: 'HYPERFY_WALK_RANDOMLY', status: 'stopped' },
         }
       } else {
         return {
           text: 'Was not wandering.',
+          success: true,
           values: { success: true, command: 'stop', wasWandering: false },
           data: { action: 'HYPERFY_WALK_RANDOMLY', status: 'already_stopped' },
         }

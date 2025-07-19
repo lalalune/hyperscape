@@ -4,7 +4,7 @@ import {
   type State,
   UUID,
   type TestSuite,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { hyperfyPlugin } from '../../index'
 
 /**

@@ -7,7 +7,7 @@
 
 import type { HyperfyWorld } from '../types/hyperfy'
 import { PuppeteerManager } from '../managers/puppeteer-manager'
-import { logger } from '../types/eliza-mock'
+import { logger } from '@elizaos/core'
 
 export interface VisualTestConfig {
   useColorDetection: boolean

@@ -1,4 +1,4 @@
-import { logger } from '../types/eliza-mock'
+import { logger } from '@elizaos/core'
 import * as THREE from 'three'
 import type {
   HyperfyWorld,

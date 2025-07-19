@@ -177,7 +177,6 @@ const playerMesh = app.create('mesh')
 playerMesh.type = 'box'
 playerMesh.scale.set(0.8, 1.8, 0.8)
 playerMesh.position.set(0, 0.9, 0)
-playerMesh.material = 'unlit'
 playerMesh.color = '#0000FF' // Bright blue for visual testing
 playerMesh.castShadow = false
 playerMesh.receiveShadow = false

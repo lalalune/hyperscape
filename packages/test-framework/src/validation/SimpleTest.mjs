@@ -16,7 +16,7 @@ try {
   await framework.startBrowser();
   
   console.log('🏠 Loading world...');
-  await framework.page.goto('http://localhost:3001', {
+  await framework.page.goto('http://localhost:3000', {
     waitUntil: 'networkidle0',
     timeout: 10000
   });

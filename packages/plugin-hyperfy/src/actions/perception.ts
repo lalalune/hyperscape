@@ -10,7 +10,7 @@ import {
   parseKeyValueXml,
   composePromptFromState,
   ModelType,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 
 import { HyperfyService } from '../service'
 export enum SnapshotType {
@@ -109,7 +109,7 @@ Your task is to observe, interpret, and respond to the current moment as a fully
 {{hyperfyAnimations}}
 
 ## In-World Visual Report (what you currently see)
-This is your live visual understanding of the environment based on a recent in-world snapshot. Treat it as your own sensory input — as if you're looking at the scene right now:
+This is your live visual understanding of the environment based on a recent in-world snapshot. Treat it as your own sensory input — as if you\'re looking at the scene right now:
 
 ${sceneDescription}
 
@@ -121,7 +121,7 @@ You are in a live, dynamic game world. Think like a character inside it.
 
 Before responding:
 1. Carefully **read the current Hyperfy World State**.
-2. Think about what's happening *right now*, and what the user is asking *in this moment*.
+2. Think about what\'s happening *right now*, and what the user is asking *in this moment*.
 4. Choose one appropriate **emote** only if it adds emotional or expressive value.
 </instructions>
 
@@ -192,10 +192,12 @@ export const hyperfyScenePerceptionAction: Action = {
       if (callback) {
         await callback({
           text: 'Unable to observe environment. Hyperfy world not available.',
+          success: false
         })
       }
       return {
         text: 'Unable to observe environment. Hyperfy world not available.',
+        success: false,
         values: { success: false, error: 'world_unavailable' },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -205,10 +207,12 @@ export const hyperfyScenePerceptionAction: Action = {
       if (callback) {
         await callback({
           text: 'Unable to capture visual. Screenshot service not available.',
+          success: false
         })
       }
       return {
         text: 'Unable to capture visual. Screenshot service not available.',
+        success: false,
         values: { success: false, error: 'screenshot_service_unavailable' },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -232,11 +236,14 @@ export const hyperfyScenePerceptionAction: Action = {
         const errorResponse = {
           thought: 'Cannot decide how to look.',
           metadata: { error: 'selector_failure' },
+          text: 'Unable to determine how to observe the scene.',
+          success: false
         }
         await callback(errorResponse)
       }
       return {
         text: 'Unable to determine how to observe the scene.',
+        success: false,
         values: { success: false, error: 'selector_failure' },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -251,6 +258,7 @@ export const hyperfyScenePerceptionAction: Action = {
             selection?.parameter ||
             'Can you clarify what you want me to observe?',
           thought: 'Unable to determine observation type',
+          success: false
         }
         await callback(clarificationResponse)
       }
@@ -258,6 +266,7 @@ export const hyperfyScenePerceptionAction: Action = {
         text:
           selection?.parameter ||
           'Can you clarify what you want me to observe?',
+        success: false,
         values: { success: false, needsClarification: true },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -271,11 +280,13 @@ export const hyperfyScenePerceptionAction: Action = {
         const clarificationResponse = {
           text: parameter || 'Can you clarify what you want me to observe?',
           thought: 'Unable to determine observation type',
+          success: false
         }
         await callback(clarificationResponse)
       }
       return {
         text: parameter || 'Can you clarify what you want me to observe?',
+        success: false,
         values: { success: false, needsClarification: true },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -324,11 +335,14 @@ export const hyperfyScenePerceptionAction: Action = {
         const snapshotErrorResponse = {
           thought: 'Snapshot failed.',
           metadata: { error: 'snapshot_failure', snapshotType },
+          text: 'Unable to capture visual snapshot.',
+          success: false
         }
         await callback(snapshotErrorResponse)
       }
       return {
         text: 'Unable to capture visual snapshot.',
+        success: false,
         values: { success: false, error: 'snapshot_failure', snapshotType },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -353,11 +367,14 @@ export const hyperfyScenePerceptionAction: Action = {
         const visionErrorResponse = {
           thought: 'Cannot understand the scene.',
           metadata: { error: 'vision_failure' },
+          text: 'Unable to analyze the visual scene.',
+          success: false
         }
         await callback(visionErrorResponse)
       }
       return {
         text: 'Unable to analyze the visual scene.',
+        success: false,
         values: { success: false, error: 'vision_failure' },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -400,11 +417,14 @@ export const hyperfyScenePerceptionAction: Action = {
         const responseErrorResponse = {
           thought: 'No response generated.',
           metadata: { error: 'text_large_failure' },
+          text: 'Unable to generate response to visual scene.',
+          success: false
         }
         await callback(responseErrorResponse)
       }
       return {
         text: 'Unable to generate response to visual scene.',
+        success: false,
         values: { success: false, error: 'text_large_failure' },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -417,11 +437,14 @@ export const hyperfyScenePerceptionAction: Action = {
         const parseErrorResponse = {
           thought: 'Malformed XML.',
           metadata: { error: 'xml_parse_failure', xmlRaw },
+          text: 'Unable to process response.',
+          success: false
         }
         await callback(parseErrorResponse)
       }
       return {
         text: 'Unable to process response.',
+        success: false,
         values: { success: false, error: 'xml_parse_failure' },
         data: { action: 'HYPERFY_SCENE_PERCEPTION' },
       }
@@ -434,12 +457,14 @@ export const hyperfyScenePerceptionAction: Action = {
         text: parsed.text || '',
         emote: parsed.emote || '',
         metadata: { snapshotType, sceneDescription },
+        success: true
       }
       await callback(finalResponse)
     }
 
     return {
       text: parsed.text || '',
+      success: true,
       values: {
         success: true,
         snapshotType,
@@ -459,179 +484,107 @@ export const hyperfyScenePerceptionAction: Action = {
   examples: [
     // General observation
     [
-      { name: '{{user}}', content: { text: "What's around you right now?" } },
-      {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User wants me to observe my current surroundings - I should take a comprehensive look around',
-          text: 'Looking around...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+      { 
+        user: 'What\'s around you right now?', 
+        assistant: 'Looking around, I notice several players nearby and some interactive objects.' 
       },
+      {
+        user: 'Can you see what\'s behind you?',
+        assistant: 'Checking behind me, I can see a crafting bench and a treasure chest.'
+      }
     ],
 
     // Spatial direction
     [
-      { name: '{{user}}', content: { text: "Can you see what's behind you?" } },
-      {
-        name: '{{agent}}',
-        content: {
-          thought: 'User wants me to look in a specific direction - behind me',
-          text: 'Checking behind me...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+      { 
+        user: 'Look to your left',
+        assistant: 'Turning left, I can see a merchant stall and some players trading.' 
       },
+      {
+        user: 'What\'s to the north?',
+        assistant: 'To the north, I can see the entrance to a large building, possibly a guild hall.'
+      }
     ],
 
     // Exploration or scouting
     [
       {
-        name: '{{user}}',
-        content: { text: 'Scan the area for any threats or movement.' },
+        user: 'Scan the area for any threats or movement.',
+        assistant: 'Scanning the surroundings now, I notice a player approaching from the north.'
       },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User wants me to do a tactical scan - I should look around carefully for potential dangers',
-          text: 'Scanning the surroundings now...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+        user: 'Look at that glowing statue over there?',
+        assistant: 'Inspecting the statue, I can see it\'s a golden statue with intricate carvings.'
       },
     ],
 
     // Object-centric look
     [
       {
-        name: '{{user}}',
-        content: {
-          text: 'Can you take a look at that glowing statue over there?',
-        },
+        user: 'Look at that glowing statue over there?',
+        assistant: 'Inspecting the statue, I can see it\'s a golden statue with intricate carvings.'
       },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User wants me to examine a specific object - I should focus my vision on the glowing statue',
-          text: 'Inspecting the statue...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+        user: 'Turn to your left. What\'s over there?',
+        assistant: 'Turning left, I can see a crafting bench and a treasure chest.'
       },
     ],
 
     // Directional command
     [
       {
-        name: '{{user}}',
-        content: { text: "Look to your left. What's over there?" },
+        user: 'Turn to your left. What\'s over there?',
+        assistant: 'Turning left, I can see a crafting bench and a treasure chest.'
       },
       {
-        name: '{{agent}}',
-        content: {
-          thought: 'User wants me to look in a specific direction - to my left',
-          text: 'Turning left...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+        user: 'Anything interesting nearby?',
+        assistant: 'Let me check the surroundings, I notice a player approaching from the south.'
       },
     ],
 
     // Subtle curiosity
     [
-      { name: '{{user}}', content: { text: 'Anything interesting nearby?' } },
+      { user: 'Anything interesting nearby?', assistant: 'Let me check the surroundings, I notice a player approaching from the south.' },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User is asking about interesting things nearby - I should do a general observation',
-          text: 'Let me check the surroundings...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+        user: 'Tell me everything you perceive',
+        assistant: '*scans the area thoroughly* I see 3 players nearby, various buildings, NPCs going about their routines, and a quest marker to the west.'
       },
     ],
 
     // Tactical evaluation
     [
       {
-        name: '{{name1}}',
-        content: {
-          text: "Before we move forward, can you check what's up ahead?",
-        },
+        user: 'Before we move forward, can you check what\'s up ahead?',
+        assistant: 'Checking forward path, I can see a portal to the east.'
       },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User wants me to scout ahead before we proceed - I should look forward',
-          text: 'Checking forward path...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+        user: 'I feel like we\'re being watched. Can you look around?',
+        assistant: 'Doing a quick scan, I notice a player hiding behind a crate.'
       },
     ],
 
     // Emotional tone: concern
     [
       {
-        name: '{{name1}}',
-        content: {
-          text: "I feel like we're being watched. Can you look around?",
-        },
+        user: 'I feel like we\'re being watched. Can you look around?',
+        assistant: 'Doing a quick scan, I notice a player hiding behind a crate.'
       },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User feels unsafe and wants me to check for threats - I should do a careful scan',
-          text: 'Doing a quick scan...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+        user: 'Pretend you\'re a security camera and scan the area!',
+        assistant: 'Activating security cam mode! Scanning... I notice a player approaching from the north.'
       },
     ],
 
     // Humor or roleplay
     [
       {
-        name: '{{name1}}',
-        content: {
-          text: "Pretend you're a security camera and scan the area!",
-        },
+        user: 'Pretend you\'re a security camera and scan the area!',
+        assistant: 'Activating security cam mode! Scanning... I notice a player approaching from the north.'
       },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User wants me to roleplay as a security camera - I should scan systematically',
-          text: 'Activating security cam mode! Scanning...',
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
+        user: 'Is there anything behind that large crate?',
+        assistant: "I'll take a look behind it... I can see a crafting bench and a treasure chest."
       },
     ],
-
-    // Checking behind an object
-    [
-      {
-        name: '{{user}}',
-        content: { text: 'Is there anything behind that large crate?' },
-      },
-      {
-        name: '{{agent}}',
-        content: {
-          thought:
-            "User wants me to check what's hidden behind a specific object - I should focus on that area",
-          text: "I'll take a look behind it...",
-          actions: ['HYPERFY_SCENE_PERCEPTION'],
-          source: 'hyperfy',
-        },
-      },
-    ],
-  ],
+  ] as ActionExample[][],
 }

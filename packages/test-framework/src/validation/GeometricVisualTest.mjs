@@ -32,7 +32,7 @@ class GeometricVisualTest {
         const output = data.toString();
         
         if (output.includes('running on port')) {
-          console.log('✅ Server ready on port 3001');
+          console.log('✅ Server ready on port 3000');
           serverReady = true;
           setTimeout(resolve, 3000);
         }
@@ -72,7 +72,7 @@ class GeometricVisualTest {
 
   async navigateAndCapture() {
     console.log('🏠 Navigating to geometric test world...');
-    await this.page.goto('http://localhost:3001', { 
+    await this.page.goto('http://localhost:3000', { 
       waitUntil: 'networkidle',
       timeout: 30000 
     });

@@ -4,12 +4,12 @@ import type {
   Memory,
   Provider,
   State,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import {
   addHeader,
   composeActionExamples,
   formatActionNames,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { getHyperfyActions, formatActions } from '../utils'
 
 /**

@@ -71,7 +71,7 @@ export class VisualTestRunner {
 
   constructor(
     private config: VisualTestConfig,
-    private hyperfyUrl: string = 'http://localhost:3001'
+    private hyperfyUrl: string = 'http://localhost:3000'
   ) {}
 
   async initialize(): Promise<void> {

@@ -7,7 +7,7 @@ import {
   type Memory,
   type State,
   logger,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { AgentControls } from '../systems/controls' // Import AgentControls type
 
@@ -51,10 +51,12 @@ export const hyperfyStopMovingAction: Action = {
       if (callback) {
         await callback({
           text: 'Error: Cannot stop movement. Hyperfy connection/controls unavailable.',
+          success: false
         })
       }
       return {
         text: 'Error: Cannot stop movement. Hyperfy connection/controls unavailable.',
+        success: false,
         values: { success: false, error: 'controls_unavailable' },
         data: { action: 'HYPERFY_STOP_MOVING' },
       }
@@ -64,10 +66,12 @@ export const hyperfyStopMovingAction: Action = {
       if (callback) {
         await callback({
           text: 'Error: Stop functionality not available in controls.',
+          success: false
         })
       }
       return {
         text: 'Error: Stop functionality not available in controls.',
+        success: false,
         values: { success: false, error: 'stop_function_unavailable' },
         data: { action: 'HYPERFY_STOP_MOVING' },
       }
@@ -85,23 +89,26 @@ export const hyperfyStopMovingAction: Action = {
           actions: ['HYPERFY_STOP_MOVING'],
           source: 'hyperfy',
           metadata: { status: 'movement_stopped', reason },
+          success: true
         }
         await callback(successResponse)
       }
 
       return {
         text: '',
+        success: true,
         values: { success: true, status: 'movement_stopped', reason },
         data: { action: 'HYPERFY_STOP_MOVING', reason },
       }
     } catch (error: any) {
       logger.error('Error during HYPERFY_STOP_MOVING:', error)
       if (callback) {
-        await callback({ text: `Error stopping movement: ${error.message}` })
+        await callback({ text: `Error stopping movement: ${error.message}`, success: false })
       }
 
       return {
         text: `Error stopping movement: ${error.message}`,
+        success: false,
         values: {
           success: false,
           error: 'stop_execution_failed',
@@ -113,30 +120,24 @@ export const hyperfyStopMovingAction: Action = {
   },
   examples: [
     [
-      { name: '{{user}}', content: { text: 'Stop walking.' } },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User wants me to halt my current movement - I should stop all navigation actions',
-          text: 'Stopped current movement. Reason: stop action called',
-          actions: ['HYPERFY_STOP_MOVING'],
-          source: 'hyperfy',
-        },
+        user: 'Stop walking.',
+        assistant: 'Stopped current movement.'
       },
+      {
+        user: 'Halt!',
+        assistant: 'Movement halted immediately.'
+      }
     ],
     [
-      { name: '{{user}}', content: { text: 'Halt!' } },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'Urgent stop command - I need to immediately cease all movement',
-          text: 'Stopped current movement. Reason: stop action called',
-          actions: ['HYPERFY_STOP_MOVING'],
-          source: 'hyperfy',
-        },
+        user: 'Stop moving',
+        assistant: 'I\'ve stopped all movement.'
       },
-    ],
-  ],
+      {
+        user: 'Freeze',
+        assistant: 'Frozen in place.'
+      }
+    ]
+  ] as ActionExample[][],
 }

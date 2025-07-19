@@ -14,11 +14,11 @@ describe('HYPERFY_GOTO_ENTITY Action', () => {
     mockWorld = createMockWorld()
 
     mockService = {
-      isConnected: mock().mockReturnValue(true),
-      getWorld: mock().mockReturnValue(mockWorld),
+      isConnected: vi.fn().mockReturnValue(true),
+      getWorld: vi.fn().mockReturnValue(mockWorld),
     }
 
-    mockRuntime.getService = mock().mockReturnValue(mockService)
+    mockRuntime.getService = vi.fn().mockReturnValue(mockService)
   })
 
   describe('validate', () => {
@@ -90,16 +90,16 @@ describe('HYPERFY_GOTO_ENTITY Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
 
       // Mock composeState to return state with world info
-      mockRuntime.composeState = mock().mockResolvedValue({
+      mockRuntime.composeState = vi.fn().mockResolvedValue({
         ...mockState,
         hyperfyStatus: 'Connected to world',
       })
 
       // Mock model response for navigation extraction
-      mockRuntime.useModel = mock().mockResolvedValue({
+      mockRuntime.useModel = vi.fn().mockResolvedValue({
         navigationType: 'entity',
         parameter: { entityId: 'entity-1' },
       })

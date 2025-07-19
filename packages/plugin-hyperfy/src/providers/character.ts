@@ -3,8 +3,8 @@ import type {
   Memory,
   Provider,
   State,
-} from '../types/eliza-mock'
-import { addHeader, ChannelType } from '../types/eliza-mock'
+} from '@elizaos/core'
+import { addHeader, ChannelType } from '@elizaos/core'
 
 /**
  * Character provider object.

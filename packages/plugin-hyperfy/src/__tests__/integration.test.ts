@@ -2,7 +2,7 @@ import {
   describe,
   expect,
   it,
-  mock,
+  vi,
   beforeEach,
   afterAll,
   beforeAll,
@@ -17,7 +17,7 @@ import {
   State,
   UUID,
   logger,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 
 /**
  * Integration tests demonstrate how multiple components of the plugin work together.
@@ -30,7 +30,7 @@ import {
 
 // Set up spies on logger
 beforeAll(() => {
-  setupLoggerSpies(mock)
+  setupLoggerSpies(vi.fn)
 })
 
 afterAll(() => {
@@ -46,33 +46,33 @@ describe('Integration: Hyperfy Action with HyperfyService', () => {
     const mockService = {
       capabilityDescription:
         'This is a hyperfy service which connects agents to Hyperfy virtual worlds.',
-      stop: mock().mockResolvedValue(undefined),
-      isConnected: mock().mockReturnValue(true),
-      getWorld: mock().mockReturnValue({
+      stop: vi.fn().mockResolvedValue(undefined),
+      isConnected: vi.fn().mockReturnValue(true),
+      getWorld: vi.fn().mockReturnValue({
         entities: {
           player: { data: { position: { x: 0, y: 0, z: 0 } } },
           items: new Map(),
         },
         controls: {
-          stopAllActions: mock(),
-          followEntity: mock(),
+          stopAllActions: vi.fn(),
+          followEntity: vi.fn(),
         },
       }),
-      getPuppeteerManager: mock().mockReturnValue({
-        snapshotEquirectangular: mock().mockResolvedValue(
+      getPuppeteerManager: vi.fn().mockReturnValue({
+        snapshotEquirectangular: vi.fn().mockResolvedValue(
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
         ),
-        snapshotFacingDirection: mock().mockResolvedValue(
+        snapshotFacingDirection: vi.fn().mockResolvedValue(
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
         ),
-        snapshotViewToTarget: mock().mockResolvedValue(
+        snapshotViewToTarget: vi.fn().mockResolvedValue(
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
         ),
       }),
     }
 
     // Create a mock runtime with a spied getService method
-    getServiceSpy = mock().mockImplementation(serviceType => {
+    getServiceSpy = vi.fn().mockImplementation(serviceType => {
       if (serviceType === 'hyperfy') {
         return mockService
       }
@@ -81,7 +81,7 @@ describe('Integration: Hyperfy Action with HyperfyService', () => {
 
     mockRuntime = createMockRuntime({
       getService: getServiceSpy,
-      useModel: mock()
+      useModel: vi.fn()
         .mockResolvedValueOnce(
           `
           <response>
@@ -129,7 +129,7 @@ describe('Integration: Hyperfy Action with HyperfyService', () => {
     }
 
     // Create a mock callback to capture the response
-    const callbackFn = mock()
+    const callbackFn = vi.fn()
 
     // Execute the action
     await perceptionAction?.handler(
@@ -167,7 +167,7 @@ describe('Integration: Plugin initialization and service registration', () => {
     const mockRuntime = createMockRuntime()
 
     // Create and install a spy on registerService
-    const registerServiceSpy = mock()
+    const registerServiceSpy = vi.fn()
     mockRuntime.registerService = registerServiceSpy
 
     // Run a minimal simulation of the plugin initialization process

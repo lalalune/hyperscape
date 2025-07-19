@@ -1,5 +1,5 @@
 import { HyperfyService } from '../service'
-import { elizaLogger } from '../types/eliza-mock'
+import { elizaLogger } from '@elizaos/core'
 
 export class HyperfyGameService {
   private hyperfyService: HyperfyService

@@ -10,7 +10,7 @@ import { PuppeteerManager } from '../managers/puppeteer-manager.js'
 import { resolveUrl } from '../utils.js'
 import { AgentAvatar } from './avatar.js'
 import type { HyperfyWorld } from '../types/hyperfy.js'
-import { logger } from '../types/eliza-mock'
+import { logger } from '@elizaos/core'
 
 // import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 // --- Mock Browser Environment for Loaders ---

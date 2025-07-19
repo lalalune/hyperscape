@@ -16,7 +16,7 @@ export class SimpleConnectionTest {
     await this.page.setViewportSize({ width: 1920, height: 1080 })
   }
 
-  async testConnection(url: string = 'http://localhost:3001'): Promise<boolean> {
+  async testConnection(url: string = 'http://localhost:3000'): Promise<boolean> {
     if (!this.page) throw new Error('Page not initialized')
 
     try {

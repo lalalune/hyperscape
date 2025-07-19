@@ -19,19 +19,19 @@ describe('HYPERFY_WALK_RANDOMLY Action', () => {
     mockWorld = createMockWorld()
 
     mockControls = {
-      startRandomWalk: mock(),
-      stopRandomWalk: mock(),
-      getIsWalkingRandomly: mock().mockReturnValue(false),
+      startRandomWalk: vi.fn(),
+      stopRandomWalk: vi.fn(),
+      getIsWalkingRandomly: vi.fn().mockReturnValue(false),
     }
 
     mockWorld.controls = mockControls
 
     mockService = {
-      isConnected: mock().mockReturnValue(true),
-      getWorld: mock().mockReturnValue(mockWorld),
+      isConnected: vi.fn().mockReturnValue(true),
+      getWorld: vi.fn().mockReturnValue(mockWorld),
     }
 
-    mockRuntime.getService = mock().mockReturnValue(mockService)
+    mockRuntime.getService = vi.fn().mockReturnValue(mockService)
   })
 
   describe('validate', () => {
@@ -95,7 +95,7 @@ describe('HYPERFY_WALK_RANDOMLY Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
     })
 
     it('should start random walk with default parameters', async () => {

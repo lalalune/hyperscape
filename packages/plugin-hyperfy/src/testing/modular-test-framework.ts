@@ -1,4 +1,4 @@
-import { IAgentRuntime, logger } from '../types/eliza-mock'
+import { IAgentRuntime, logger } from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { ContentPackLoader } from '../managers/content-pack-loader'
 import { IContentPack } from '../types/content-pack'

@@ -4,7 +4,7 @@ import {
   type State,
   UUID,
   createUniqueUuid,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../../service'
 import type { HyperfyWorld } from '../../types/hyperfy'
 

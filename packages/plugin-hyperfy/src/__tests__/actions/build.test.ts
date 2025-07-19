@@ -19,24 +19,24 @@ describe('HYPERFY_EDIT_ENTITY Action', () => {
     mockWorld = createMockWorld()
 
     mockBuildManager = {
-      translate: mock().mockResolvedValue(true),
-      rotate: mock().mockResolvedValue(true),
-      scale: mock().mockResolvedValue(true),
-      duplicate: mock().mockResolvedValue(true),
-      delete: mock().mockResolvedValue(true),
-      importEntity: mock().mockResolvedValue(true),
+      translate: vi.fn().mockResolvedValue(true),
+      rotate: vi.fn().mockResolvedValue(true),
+      scale: vi.fn().mockResolvedValue(true),
+      duplicate: vi.fn().mockResolvedValue(true),
+      delete: vi.fn().mockResolvedValue(true),
+      importEntity: vi.fn().mockResolvedValue(true),
     }
 
     mockService = {
-      isConnected: mock().mockReturnValue(true),
-      getWorld: mock().mockReturnValue(mockWorld),
-      getBuildManager: mock().mockReturnValue(mockBuildManager),
-      getMessageManager: mock().mockReturnValue({
-        sendMessage: mock(),
+      isConnected: vi.fn().mockReturnValue(true),
+      getWorld: vi.fn().mockReturnValue(mockWorld),
+      getBuildManager: vi.fn().mockReturnValue(mockBuildManager),
+      getMessageManager: vi.fn().mockReturnValue({
+        sendMessage: vi.fn(),
       }),
     }
 
-    mockRuntime.getService = mock().mockReturnValue(mockService)
+    mockRuntime.getService = vi.fn().mockReturnValue(mockService)
   })
 
   describe('validate', () => {
@@ -102,16 +102,16 @@ describe('HYPERFY_EDIT_ENTITY Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
 
       // Mock composeState
-      mockRuntime.composeState = mock().mockResolvedValue({
+      mockRuntime.composeState = vi.fn().mockResolvedValue({
         ...mockState,
         hyperfyStatus: 'Connected to world',
       })
 
       // Mock model response for operation extraction
-      mockRuntime.useModel = mock()
+      mockRuntime.useModel = vi.fn()
         .mockResolvedValueOnce({
           operations: [
             {

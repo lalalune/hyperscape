@@ -1,4 +1,3 @@
-// @ts-nocheck - Suppressing TypeScript errors for legacy compatibility
 import {
   Content,
   EventType,
@@ -11,7 +10,7 @@ import {
   logger,
   parseKeyValueXml,
   truncateToCompleteSentence,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { v4 } from 'uuid'
 import {
   hyperfyMessageHandlerTemplate,

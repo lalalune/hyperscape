@@ -1,8 +1,5 @@
-import { IAgentRuntime, logger } from '../types/eliza-mock'
+import { IAgentRuntime, logger } from '@elizaos/core'
 import { HyperfyService } from '../service'
-// Mock types until rpg-state-manager is available
-type RPGStateManager = any
-type RPGPlayerState = any
 
 /**
  * Visual test verification types

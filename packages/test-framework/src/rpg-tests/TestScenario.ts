@@ -31,7 +31,7 @@ export abstract class TestScenario {
   protected endTime: number = 0
 
   constructor(
-    protected hyperfyUrl: string = 'http://localhost:3001',
+    protected hyperfyUrl: string = 'http://localhost:3000',
     protected outputDir: string = './test-results'
   ) {}
 

@@ -5,7 +5,7 @@ import {
   createMockMemory,
   createMockState,
 } from '../test-utils'
-import type { IAgentRuntime } from '../../types/eliza-mock'
+import type { IAgentRuntime } from '@elizaos/core'
 
 describe('hyperfyUnuseItemAction', () => {
   let mockRuntime: IAgentRuntime
@@ -18,7 +18,7 @@ describe('hyperfyUnuseItemAction', () => {
 
     // Create mock actions
     mockActions = {
-      releaseAction: mock(),
+      releaseAction: vi.fn(),
     }
 
     // Create mock world
@@ -33,13 +33,13 @@ describe('hyperfyUnuseItemAction', () => {
 
     // Create mock service
     mockService = {
-      isConnected: mock().mockReturnValue(true),
-      getWorld: mock().mockReturnValue(mockWorld),
+      isConnected: vi.fn().mockReturnValue(true),
+      getWorld: vi.fn().mockReturnValue(mockWorld),
     }
 
     // Create mock runtime with service
     mockRuntime = createMockRuntime({
-      getService: mock().mockReturnValue(mockService),
+      getService: vi.fn().mockReturnValue(mockService),
     })
   })
 
@@ -58,7 +58,7 @@ describe('hyperfyUnuseItemAction', () => {
     })
 
     it('should return false when service is not available', async () => {
-      mockRuntime.getService = mock().mockReturnValue(null)
+      mockRuntime.getService = vi.fn().mockReturnValue(null)
 
       const isValid = await hyperfyUnuseItemAction.validate(
         mockRuntime,
@@ -110,7 +110,7 @@ describe('hyperfyUnuseItemAction', () => {
     it('should release action and send success callback', async () => {
       const mockMessage = createMockMemory()
       const mockState = createMockState()
-      const mockCallback = mock()
+      const mockCallback = vi.fn()
 
       await hyperfyUnuseItemAction.handler(
         mockRuntime,
@@ -130,10 +130,10 @@ describe('hyperfyUnuseItemAction', () => {
     })
 
     it('should handle missing service gracefully', async () => {
-      mockRuntime.getService = mock().mockReturnValue(null)
+      mockRuntime.getService = vi.fn().mockReturnValue(null)
       const mockMessage = createMockMemory()
       const mockState = createMockState()
-      const mockCallback = mock()
+      const mockCallback = vi.fn()
 
       await hyperfyUnuseItemAction.handler(
         mockRuntime,
@@ -153,7 +153,7 @@ describe('hyperfyUnuseItemAction', () => {
       mockService.getWorld.mockReturnValue(null)
       const mockMessage = createMockMemory()
       const mockState = createMockState()
-      const mockCallback = mock()
+      const mockCallback = vi.fn()
 
       await hyperfyUnuseItemAction.handler(
         mockRuntime,
@@ -173,7 +173,7 @@ describe('hyperfyUnuseItemAction', () => {
       mockWorld.actions = undefined
       const mockMessage = createMockMemory()
       const mockState = createMockState()
-      const mockCallback = mock()
+      const mockCallback = vi.fn()
 
       await hyperfyUnuseItemAction.handler(
         mockRuntime,
@@ -212,7 +212,7 @@ describe('hyperfyUnuseItemAction', () => {
     })
 
     it('should log error when service is unavailable', async () => {
-      mockRuntime.getService = mock().mockReturnValue(null)
+      mockRuntime.getService = vi.fn().mockReturnValue(null)
       const mockMessage = createMockMemory()
       const mockState = createMockState()
 

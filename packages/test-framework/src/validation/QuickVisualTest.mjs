@@ -38,7 +38,7 @@ class QuickVisualTest {
         const output = data.toString();
         
         if (output.includes('running on port')) {
-          console.log('✅ Server ready on port 3001');
+          console.log('✅ Server ready on port 3000');
           serverReady = true;
           setTimeout(resolve, 2000); // Wait for full initialization
         }
@@ -74,7 +74,7 @@ class QuickVisualTest {
 
   async navigateAndTest() {
     console.log('🏠 Navigating to world...');
-    await this.page.goto('http://localhost:3001', { 
+    await this.page.goto('http://localhost:3000', { 
       waitUntil: 'networkidle',
       timeout: 30000 
     });

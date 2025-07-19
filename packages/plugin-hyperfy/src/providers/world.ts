@@ -8,7 +8,7 @@ import {
   logger,
   createUniqueUuid,
   type State,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service.js'
 import * as THREE from 'three'
 // Vector3Enhanced import removed as it doesn't exist

@@ -13,7 +13,7 @@ export class ComprehensiveRPGTests {
   constructor(
     private runner: UnifiedVisualTestRunner,
     private serverManager: HyperfyServerManager,
-    private baseUrl: string = 'http://localhost:3001'
+    private baseUrl: string = 'http://localhost:3000'
   ) {}
 
   // 1. BASIC RENDERING AND SCENE TESTS

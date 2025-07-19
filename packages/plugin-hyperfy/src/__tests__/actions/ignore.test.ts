@@ -40,7 +40,7 @@ describe('IGNORE Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
     })
 
     it('should return true and call callback with response content', async () => {
@@ -59,8 +59,7 @@ describe('IGNORE Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback,
-        responses as any
+        mockCallback
       )
 
       expect(result).toBeDefined()
@@ -106,8 +105,7 @@ describe('IGNORE Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback,
-        responses as any
+        mockCallback
       )
 
       expect(result).toBeDefined()

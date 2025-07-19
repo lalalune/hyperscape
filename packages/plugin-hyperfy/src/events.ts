@@ -1,4 +1,4 @@
-import { MessagePayload, HandlerCallback } from '../types/eliza-mock'
+import { MessagePayload, HandlerCallback } from '@elizaos/core'
 import { hyperfyMessageReceivedHandler } from './handlers/messageReceivedHandler'
 
 export enum hyperfyEventType {

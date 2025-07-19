@@ -37,16 +37,16 @@ describe('REPLY Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
 
       // Mock composeState
-      mockRuntime.composeState = mock().mockResolvedValue({
+      mockRuntime.composeState = vi.fn().mockResolvedValue({
         ...mockState,
         conversationContext: 'User greeted the agent',
       })
 
       // Mock useModel for reply generation
-      mockRuntime.useModel = mock().mockResolvedValue({
+      mockRuntime.useModel = vi.fn().mockResolvedValue({
         thought: 'User is greeting me, I should respond politely',
         message:
           "I'm doing great, thank you for asking! How can I help you today?",
@@ -89,8 +89,7 @@ describe('REPLY Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback,
-        existingResponses as any
+        mockCallback
       )
 
       expect(mockRuntime.useModel).not.toHaveBeenCalled()
@@ -124,8 +123,7 @@ describe('REPLY Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback,
-        existingResponses as any
+        mockCallback
       )
 
       expect(mockCallback).toHaveBeenCalledTimes(2)
@@ -158,8 +156,7 @@ describe('REPLY Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback,
-        existingResponses as any
+        mockCallback
       )
 
       expect(mockRuntime.useModel).toHaveBeenCalled()
@@ -209,8 +206,7 @@ describe('REPLY Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback,
-        existingResponses as any
+        mockCallback
       )
 
       // Since replyFieldKeys is ['message', 'text'], it will use message first

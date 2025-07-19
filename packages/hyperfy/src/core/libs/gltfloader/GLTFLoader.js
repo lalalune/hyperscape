@@ -3292,7 +3292,10 @@ class GLTFParser {
 
 		const sourceDef = json.images[ sourceIndex ];
 
-		const URL = self.URL || self.webkitURL;
+		// Handle Node.js environment where self is not defined
+		const URL = (typeof self !== 'undefined' && (self.URL || self.webkitURL)) || 
+		           (typeof globalThis !== 'undefined' && globalThis.URL) ||
+		           (typeof window !== 'undefined' && window.URL);
 
 		let sourceURI = sourceDef.uri || '';
 		let isObjectURL = false;
@@ -3331,6 +3334,18 @@ class GLTFParser {
 		}
 
 		const promise = Promise.resolve( sourceURI ).then( function ( sourceURI ) {
+
+			// Check if we're in a Node.js environment
+			const isNode = typeof window === 'undefined' && typeof process !== 'undefined';
+			
+			if ( isNode ) {
+				// In Node.js, return a placeholder texture instead of trying to load
+				console.warn( 'THREE.GLTFLoader: Skipping texture load in Node.js environment:', sourceURI );
+				
+				const texture = new Texture();
+				texture.name = 'node_placeholder_' + sourceIndex;
+				return texture;
+			}
 
 			return new Promise( function ( resolve, reject ) {
 

@@ -19,12 +19,12 @@ describe('HYPERFY_SCENE_PERCEPTION Action', () => {
     mockPuppeteerManager = createMockPuppeteerManager()
 
     mockService = {
-      isConnected: mock().mockReturnValue(true),
-      getWorld: mock().mockReturnValue(mockWorld),
-      getPuppeteerManager: mock().mockReturnValue(mockPuppeteerManager),
+      isConnected: vi.fn().mockReturnValue(true),
+      getWorld: vi.fn().mockReturnValue(mockWorld),
+      getPuppeteerManager: vi.fn().mockReturnValue(mockPuppeteerManager),
     }
 
-    mockRuntime.getService = mock().mockReturnValue(mockService)
+    mockRuntime.getService = vi.fn().mockReturnValue(mockService)
   })
 
   describe('validate', () => {
@@ -96,16 +96,16 @@ describe('HYPERFY_SCENE_PERCEPTION Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
 
       // Mock composeState
-      mockRuntime.composeState = mock().mockResolvedValue({
+      mockRuntime.composeState = vi.fn().mockResolvedValue({
         ...mockState,
         hyperfyStatus: 'Connected to world',
       })
 
       // Mock model responses
-      mockRuntime.useModel = mock()
+      mockRuntime.useModel = vi.fn()
         .mockResolvedValueOnce(
           '<response><snapshotType>LOOK_AROUND</snapshotType><parameter></parameter></response>'
         ) // Snapshot selection

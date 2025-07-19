@@ -29,7 +29,7 @@ class RealHyperfyTest {
     this.testResults = [];
   }
 
-  async startServer(worldFile, port = 3001) {
+  async startServer(worldFile, port = 3000) {
     console.log(`🚀 Starting Hyperfy server with world: ${worldFile}`);
     
     return new Promise((resolve, reject) => {
@@ -39,7 +39,10 @@ class RealHyperfyTest {
         '--headless'
       ], {
         cwd: '/Users/shawwalters/hyperscape/packages/hyperfy',
-        env: { ...process.env }
+        env: { 
+          ...process.env,
+          PORT: port.toString() // Set PORT env var to override default
+        }
       });
 
       let serverReady = false;
@@ -120,10 +123,10 @@ class RealHyperfyTest {
       await this.browser.close();
       this.browser = null;
       this.page = null;
-    }
+    }3000
   }
 
-  async navigateToWorld(port = 3001) {
+  async navigateToWorld(port = 3000) {
     console.log(`🏠 Navigating to world at localhost:${port}`);
     await this.page.goto(`http://localhost:${port}`, { 
       waitUntil: 'networkidle',

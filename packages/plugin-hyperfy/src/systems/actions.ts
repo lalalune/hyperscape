@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import type {
-  HyperfyWorld,
-  HyperfyPlayer,
-  HyperfySystem,
-} from '../types/hyperfy.js'
+  World as HyperfyWorld,
+  Player as HyperfyPlayer,
+  System as HyperfySystem,
+} from '@hyperscape/hyperfy'
 
 interface ActionNode extends THREE.Object3D {
   [key: string]: any

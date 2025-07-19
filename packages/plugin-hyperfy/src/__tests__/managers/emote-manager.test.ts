@@ -21,7 +21,7 @@ describe('EmoteManager', () => {
         },
       },
       actions: {
-        execute: mock(),
+        execute: vi.fn(),
       },
     }
     emoteManager = new EmoteManager(mockRuntime)
@@ -29,9 +29,9 @@ describe('EmoteManager', () => {
 
   describe('playEmote', () => {
     it('should play an emote when world and player exist', () => {
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorld),
-        isConnected: mock().mockReturnValue(true),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorld),
+        isConnected: vi.fn().mockReturnValue(true),
       })
 
       emoteManager.playEmote('wave')
@@ -41,24 +41,24 @@ describe('EmoteManager', () => {
     })
 
     it('should handle missing world gracefully', () => {
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(null),
-        isConnected: mock().mockReturnValue(false),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(null),
+        isConnected: vi.fn().mockReturnValue(false),
       })
 
       expect(() => emoteManager.playEmote('wave')).not.toThrow()
     })
 
     it('should handle missing service gracefully', () => {
-      mockRuntime.getService = mock().mockReturnValue(null)
+      mockRuntime.getService = vi.fn().mockReturnValue(null)
 
       expect(() => emoteManager.playEmote('wave')).not.toThrow()
     })
 
     it('should handle empty emote name', () => {
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorld),
-        isConnected: mock().mockReturnValue(true),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorld),
+        isConnected: vi.fn().mockReturnValue(true),
       })
 
       emoteManager.playEmote('')
@@ -70,9 +70,9 @@ describe('EmoteManager', () => {
 
   describe('playEmote with duration', () => {
     it('should set up emote correctly', () => {
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorld),
-        isConnected: mock().mockReturnValue(true),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorld),
+        isConnected: vi.fn().mockReturnValue(true),
       })
 
       emoteManager.playEmote('wave')
@@ -88,14 +88,14 @@ describe('EmoteManager', () => {
       const mockWorldWithNetwork = {
         ...mockWorld,
         network: {
-          upload: mock().mockResolvedValue('success'),
+          upload: vi.fn().mockResolvedValue('success'),
         },
         assetsUrl: 'https://test.com/assets',
       }
 
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorldWithNetwork),
-        isConnected: mock().mockReturnValue(true),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorldWithNetwork),
+        isConnected: vi.fn().mockReturnValue(true),
       })
 
       // Test that uploadEmotes can be called (it will fail due to missing files but shouldn't crash)
@@ -121,9 +121,9 @@ describe('EmoteManager', () => {
         },
       }
 
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorldWithPlayer),
-        isConnected: mock().mockReturnValue(true),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorldWithPlayer),
+        isConnected: vi.fn().mockReturnValue(true),
       })
 
       // Play the emote

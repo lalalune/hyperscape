@@ -1,4 +1,3 @@
-// @ts-nocheck - Suppressing TypeScript errors for legacy compatibility
 // @ts-ignore - Comprehensive type issues
 import {
   ChannelType,
@@ -10,7 +9,7 @@ import {
   UUID,
   createUniqueUuid,
   logger,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { convertToAudioBuffer } from '../utils'
 

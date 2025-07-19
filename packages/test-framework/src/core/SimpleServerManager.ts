@@ -25,7 +25,7 @@ export class SimpleServerManager {
 
   async startServer(config: Partial<SimpleServerConfig> = {}): Promise<SimpleServerStatus> {
     const fullConfig: SimpleServerConfig = {
-      port: 3001,
+      port: 3000,
       timeout: 15000,
       healthCheckInterval: 500,
       maxRetries: 30,

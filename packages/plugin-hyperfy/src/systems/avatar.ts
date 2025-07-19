@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { logger } from '../types/eliza-mock'
+import { logger } from '@elizaos/core'
 
 // Create a base Node class since @hyperscape/hyperfy is not available
 class Node extends THREE.Object3D {

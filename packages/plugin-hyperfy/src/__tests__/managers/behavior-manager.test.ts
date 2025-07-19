@@ -26,25 +26,25 @@ describe('BehaviorManager', () => {
 
     // Create mock service
     mockService = {
-      getWorld: mock().mockReturnValue(mockWorld),
+      getWorld: vi.fn().mockReturnValue(mockWorld),
       currentWorldId: 'test-world-id',
-      getEmoteManager: mock().mockReturnValue({
-        playEmote: mock(),
+      getEmoteManager: vi.fn().mockReturnValue({
+        playEmote: vi.fn(),
       }),
-      getMessageManager: mock().mockReturnValue({
-        sendMessage: mock(),
+      getMessageManager: vi.fn().mockReturnValue({
+        sendMessage: vi.fn(),
       }),
     }
 
     // Create mock runtime with service
     mockRuntime = createMockRuntime({
-      getService: mock().mockReturnValue(mockService),
-      composeState: mock().mockResolvedValue({
+      getService: vi.fn().mockReturnValue(mockService),
+      composeState: vi.fn().mockResolvedValue({
         values: {},
         data: {},
         text: 'test state',
       }),
-      useModel: mock().mockResolvedValue(`
+      useModel: vi.fn().mockResolvedValue(`
         <response>
           <thought>I should explore the area</thought>
           <text>Let me look around</text>
@@ -52,10 +52,10 @@ describe('BehaviorManager', () => {
           <emote>looking around</emote>
         </response>
       `),
-      ensureConnection: mock().mockResolvedValue(true),
-      createMemory: mock().mockResolvedValue(true),
-      processActions: mock().mockResolvedValue(true),
-      evaluate: mock().mockResolvedValue(true),
+      ensureConnection: vi.fn().mockResolvedValue(true),
+      createMemory: vi.fn().mockResolvedValue(true),
+      processActions: vi.fn().mockResolvedValue(true),
+      evaluate: vi.fn().mockResolvedValue(true),
     })
 
     behaviorManager = new BehaviorManager(mockRuntime)
@@ -111,7 +111,7 @@ describe('BehaviorManager', () => {
       behaviorManager.setMaxIterations(2)
 
       // Replace the mock with one that returns a rejected promise when called
-      mockRuntime.useModel = mock(() =>
+      mockRuntime.useModel = vi.fn(() =>
         Promise.reject(new Error('Model error'))
       )
 

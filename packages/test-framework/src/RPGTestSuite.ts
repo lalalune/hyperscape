@@ -36,7 +36,7 @@ export class RPGTestSuite {
 
   constructor(config: Partial<TestSuiteConfig> = {}) {
     this.config = {
-      hyperfyUrl: config.hyperfyUrl || 'http://localhost:3001',
+      hyperfyUrl: config.hyperfyUrl || 'http://localhost:3000',
       outputDir: config.outputDir || './test-results',
       screenshotDir: config.screenshotDir || './test-results/screenshots',
       parallel: config.parallel || false,

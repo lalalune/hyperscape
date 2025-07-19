@@ -1,10 +1,9 @@
-// @ts-nocheck - Suppressing TypeScript errors for legacy compatibility
 import {
   IAgentRuntime,
   logger,
   UUID,
   createUniqueUuid,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { EventEmitter } from 'events'
 

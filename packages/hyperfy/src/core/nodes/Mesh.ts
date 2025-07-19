@@ -390,9 +390,13 @@ export class Mesh extends Node {
         },
         set material(value) {
           if (!value) throw new Error('[mesh] material cannot be unset')
-          self.ctx.world._allowMaterial = true
-          self.material = value._ref || value
-          self.ctx.world._allowMaterial = false
+          if (self.ctx && self.ctx.world) {
+            self.ctx.world._allowMaterial = true
+            self.material = value._ref || value
+            self.ctx.world._allowMaterial = false
+          } else {
+            self.material = value._ref || value
+          }
           self.needsRebuild = true
           self.setDirty()
         },

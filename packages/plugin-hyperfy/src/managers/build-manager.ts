@@ -1,4 +1,4 @@
-import type { IAgentRuntime } from '../types/eliza-mock'
+import type { IAgentRuntime } from '@elizaos/core'
 import { HyperfyService } from '../service.js'
 import { resolveUrl } from '../utils.js'
 import type { HyperfyWorld, HyperfyEntity } from '../types/hyperfy.js'

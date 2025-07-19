@@ -1,4 +1,4 @@
-import { mock } from 'vitest'
+import { vi } from 'vitest'
 import * as THREE from 'three'
 
 /**
@@ -23,9 +23,9 @@ export function createMockWorld(overrides: any = {}) {
       scale: new THREE.Vector3(1, 1, 1),
     },
     moving: false,
-    teleport: mock(),
-    setSessionAvatar: mock(),
-    modify: mock(),
+    teleport: vi.fn(),
+    setSessionAvatar: vi.fn(),
+    modify: vi.fn(),
   }
 
   const defaultEntities = new Map([
@@ -42,28 +42,28 @@ export function createMockWorld(overrides: any = {}) {
             x: 0,
             y: 0,
             z: 0,
-            fromArray: mock(),
-            toArray: mock().mockReturnValue([0, 0, 0]),
+            fromArray: vi.fn(),
+            toArray: vi.fn().mockReturnValue([0, 0, 0]),
           },
           quaternion: {
             x: 0,
             y: 0,
             z: 0,
             w: 1,
-            fromArray: mock(),
-            toArray: mock().mockReturnValue([0, 0, 0, 1]),
+            fromArray: vi.fn(),
+            toArray: vi.fn().mockReturnValue([0, 0, 0, 1]),
           },
           scale: {
             x: 1,
             y: 1,
             z: 1,
-            fromArray: mock(),
-            toArray: mock().mockReturnValue([1, 1, 1]),
+            fromArray: vi.fn(),
+            toArray: vi.fn().mockReturnValue([1, 1, 1]),
           },
         },
         blueprint: { name: 'block', unique: false },
         isApp: true,
-        destroy: mock(),
+        destroy: vi.fn(),
       },
     ],
     [
@@ -79,28 +79,28 @@ export function createMockWorld(overrides: any = {}) {
             x: 5,
             y: 0,
             z: 5,
-            fromArray: mock(),
-            toArray: mock().mockReturnValue([5, 0, 5]),
+            fromArray: vi.fn(),
+            toArray: vi.fn().mockReturnValue([5, 0, 5]),
           },
           quaternion: {
             x: 0,
             y: 0,
             z: 0,
             w: 1,
-            fromArray: mock(),
-            toArray: mock().mockReturnValue([0, 0, 0, 1]),
+            fromArray: vi.fn(),
+            toArray: vi.fn().mockReturnValue([0, 0, 0, 1]),
           },
           scale: {
             x: 1,
             y: 1,
             z: 1,
-            fromArray: mock(),
-            toArray: mock().mockReturnValue([1, 1, 1]),
+            fromArray: vi.fn(),
+            toArray: vi.fn().mockReturnValue([1, 1, 1]),
           },
         },
         blueprint: { name: 'sphere', unique: false },
         isApp: true,
-        destroy: mock(),
+        destroy: vi.fn(),
       },
     ],
   ])
@@ -114,17 +114,17 @@ export function createMockWorld(overrides: any = {}) {
       player: overrides.player || defaultPlayer,
       players: new Map(),
       items: overrides.entities || defaultEntities,
-      add: mock(),
-      remove: mock(),
-      getPlayer: mock(id => defaultPlayer),
+      add: vi.fn(),
+      remove: vi.fn(),
+      getPlayer: vi.fn(id => defaultPlayer),
     },
 
     // Network system
     network: {
       id: 'test-network-id',
-      send: mock(),
-      upload: mock().mockResolvedValue(true),
-      disconnect: mock(),
+      send: vi.fn(),
+      upload: vi.fn().mockResolvedValue(true),
+      disconnect: vi.fn(),
       maxUploadSize: 100, // MB
     },
 
@@ -132,11 +132,11 @@ export function createMockWorld(overrides: any = {}) {
     chat: {
       msgs: [],
       listeners: [],
-      add: mock((msg, broadcast) => {
+      add: vi.fn((msg, broadcast) => {
         mockWorld.chat.msgs.push(msg)
         mockWorld.chat.listeners.forEach((cb: any) => cb(mockWorld.chat.msgs))
       }),
-      subscribe: mock(callback => {
+      subscribe: vi.fn(callback => {
         mockWorld.chat.listeners.push(callback)
         return () => {
           const idx = mockWorld.chat.listeners.indexOf(callback)
@@ -149,41 +149,41 @@ export function createMockWorld(overrides: any = {}) {
 
     // Controls system
     controls: {
-      goto: mock().mockResolvedValue(true),
-      followEntity: mock().mockResolvedValue(true),
-      stopAllActions: mock(),
-      stopNavigation: mock(),
-      stopRotation: mock(),
-      rotateTo: mock().mockResolvedValue(true),
-      startRandomWalk: mock(),
-      stopRandomWalk: mock(),
-      getIsNavigating: mock().mockReturnValue(false),
-      getIsWalkingRandomly: mock().mockReturnValue(false),
-      setKey: mock(),
+      goto: vi.fn().mockResolvedValue(true),
+      followEntity: vi.fn().mockResolvedValue(true),
+      stopAllActions: vi.fn(),
+      stopNavigation: vi.fn(),
+      stopRotation: vi.fn(),
+      rotateTo: vi.fn().mockResolvedValue(true),
+      startRandomWalk: vi.fn(),
+      stopRandomWalk: vi.fn(),
+      getIsNavigating: vi.fn().mockReturnValue(false),
+      getIsWalkingRandomly: vi.fn().mockReturnValue(false),
+      setKey: vi.fn(),
     },
 
     // Actions system
     actions: {
-      getNearby: mock().mockReturnValue([
+      getNearby: vi.fn().mockReturnValue([
         {
           ctx: { entity: defaultEntities.get('entity-1') },
           _label: 'Pick up',
           _duration: 1000,
-          _onTrigger: mock(),
-          _onCancel: mock(),
+          _onTrigger: vi.fn(),
+          _onCancel: vi.fn(),
         },
       ]),
-      performAction: mock(),
-      releaseAction: mock(),
+      performAction: vi.fn(),
+      releaseAction: vi.fn(),
       currentNode: null,
     },
 
     // Loader system
     loader: {
-      get: mock(),
-      load: mock().mockResolvedValue({
+      get: vi.fn(),
+      load: vi.fn().mockResolvedValue({
         gltf: {},
-        toNodes: mock(),
+        toNodes: vi.fn(),
         factory: {},
       }),
     },
@@ -191,9 +191,9 @@ export function createMockWorld(overrides: any = {}) {
     // Stage/Scene
     stage: {
       scene: {
-        add: mock(),
-        remove: mock(),
-        toJSON: mock().mockReturnValue({}),
+        add: vi.fn(),
+        remove: vi.fn(),
+        toJSON: vi.fn().mockReturnValue({}),
         environment: null,
         background: null,
         fog: null,
@@ -213,25 +213,25 @@ export function createMockWorld(overrides: any = {}) {
 
     // LiveKit integration
     livekit: {
-      on: mock(),
-      publishAudioStream: mock().mockResolvedValue(true),
+      on: vi.fn(),
+      publishAudioStream: vi.fn().mockResolvedValue(true),
     },
 
     // Event system
     events: {
-      emit: mock(),
-      on: mock(),
-      off: mock(),
+      emit: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
     },
 
     // Blueprints
     blueprints: {
-      add: mock(),
+      add: vi.fn(),
     },
 
     // Settings
     settings: {
-      on: mock(),
+      on: vi.fn(),
       model: null,
     },
 
@@ -239,10 +239,10 @@ export function createMockWorld(overrides: any = {}) {
     systems: [],
 
     // World lifecycle
-    init: mock().mockResolvedValue(true),
-    destroy: mock(),
-    on: mock(),
-    off: mock(),
+    init: vi.fn().mockResolvedValue(true),
+    destroy: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
 
     // Apply overrides
     ...overrides,
@@ -263,66 +263,66 @@ export function createMockHyperfyService(overrides: any = {}) {
       'Manages connection and interaction with a Hyperfy world.',
 
     // Connection state
-    isConnected: mock().mockReturnValue(true),
-    connect: mock().mockResolvedValue(true),
-    disconnect: mock().mockResolvedValue(true),
+    isConnected: vi.fn().mockReturnValue(true),
+    connect: vi.fn().mockResolvedValue(true),
+    disconnect: vi.fn().mockResolvedValue(true),
 
     // World access
-    getWorld: mock().mockReturnValue(mockWorld),
+    getWorld: vi.fn().mockReturnValue(mockWorld),
     currentWorldId: 'test-world-id',
 
     // Entity methods
-    getEntityById: mock(id => mockWorld.entities.items.get(id)),
-    getEntityName: mock(id => {
+    getEntityById: vi.fn(id => mockWorld.entities.items.get(id)),
+    getEntityName: vi.fn(id => {
       const entity = mockWorld.entities.items.get(id)
       return entity?.data?.name || entity?.blueprint?.name || 'Unnamed'
     }),
 
     // Manager access
-    getEmoteManager: mock().mockReturnValue({
-      playEmote: mock(),
-      uploadEmotes: mock().mockResolvedValue(true),
+    getEmoteManager: vi.fn().mockReturnValue({
+      playEmote: vi.fn(),
+      uploadEmotes: vi.fn().mockResolvedValue(true),
     }),
-    getBehaviorManager: mock().mockReturnValue({
-      start: mock(),
-      stop: mock(),
+    getBehaviorManager: vi.fn().mockReturnValue({
+      start: vi.fn(),
+      stop: vi.fn(),
     }),
-    getMessageManager: mock().mockReturnValue({
-      sendMessage: mock(),
-      handleMessage: mock().mockResolvedValue(true),
-      getRecentMessages: mock().mockResolvedValue({
+    getMessageManager: vi.fn().mockReturnValue({
+      sendMessage: vi.fn(),
+      handleMessage: vi.fn().mockResolvedValue(true),
+      getRecentMessages: vi.fn().mockResolvedValue({
         formattedHistory: '',
         lastResponseText: null,
         lastActions: [],
       }),
     }),
-    getVoiceManager: mock().mockReturnValue({
-      start: mock(),
-      handleUserBuffer: mock(),
-      playAudio: mock().mockResolvedValue(true),
+    getVoiceManager: vi.fn().mockReturnValue({
+      start: vi.fn(),
+      handleUserBuffer: vi.fn(),
+      playAudio: vi.fn().mockResolvedValue(true),
     }),
-    getPuppeteerManager: mock().mockReturnValue({
-      snapshotEquirectangular: mock().mockResolvedValue(
+    getPuppeteerManager: vi.fn().mockReturnValue({
+      snapshotEquirectangular: vi.fn().mockResolvedValue(
         'data:image/jpeg;base64,mock'
       ),
-      snapshotFacingDirection: mock().mockResolvedValue(
+      snapshotFacingDirection: vi.fn().mockResolvedValue(
         'data:image/jpeg;base64,mock'
       ),
-      snapshotViewToTarget: mock().mockResolvedValue(
+      snapshotViewToTarget: vi.fn().mockResolvedValue(
         'data:image/jpeg;base64,mock'
       ),
     }),
-    getBuildManager: mock().mockReturnValue({
-      translate: mock().mockResolvedValue(true),
-      rotate: mock().mockResolvedValue(true),
-      scale: mock().mockResolvedValue(true),
-      duplicate: mock().mockResolvedValue(true),
-      delete: mock().mockResolvedValue(true),
-      importEntity: mock().mockResolvedValue(true),
+    getBuildManager: vi.fn().mockReturnValue({
+      translate: vi.fn().mockResolvedValue(true),
+      rotate: vi.fn().mockResolvedValue(true),
+      scale: vi.fn().mockResolvedValue(true),
+      duplicate: vi.fn().mockResolvedValue(true),
+      delete: vi.fn().mockResolvedValue(true),
+      importEntity: vi.fn().mockResolvedValue(true),
     }),
 
     // Name/appearance
-    changeName: mock().mockResolvedValue(true),
+    changeName: vi.fn().mockResolvedValue(true),
 
     // Apply overrides
     ...overrides,
@@ -353,26 +353,26 @@ export function simulateWorldEvent(world: any, event: string, data: any) {
 
 export function createMockPuppeteerManager() {
   return {
-    snapshotEquirectangular: mock().mockResolvedValue(
+    snapshotEquirectangular: vi.fn().mockResolvedValue(
       'data:image/png;base64,test'
     ),
-    snapshotFacingDirection: mock().mockResolvedValue(
+    snapshotFacingDirection: vi.fn().mockResolvedValue(
       'data:image/png;base64,test'
     ),
-    snapshotViewToTarget: mock().mockResolvedValue(
+    snapshotViewToTarget: vi.fn().mockResolvedValue(
       'data:image/png;base64,test'
     ),
-    start: mock(),
-    stop: mock(),
+    start: vi.fn(),
+    stop: vi.fn(),
   }
 }
 
 export function createMockEmoteManager() {
   return {
-    playEmote: mock(),
-    stopEmote: mock(),
-    uploadEmotes: mock().mockResolvedValue(true),
-    getEmoteList: mock().mockReturnValue([
+    playEmote: vi.fn(),
+    stopEmote: vi.fn(),
+    uploadEmotes: vi.fn().mockResolvedValue(true),
+    getEmoteList: vi.fn().mockReturnValue([
       {
         name: 'wave',
         path: '/emotes/wave.glb',
@@ -391,40 +391,40 @@ export function createMockEmoteManager() {
 
 export function createMockMessageManager() {
   return {
-    sendMessage: mock(),
-    processMessage: mock(),
-    getHistory: mock().mockReturnValue([]),
+    sendMessage: vi.fn(),
+    processMessage: vi.fn(),
+    getHistory: vi.fn().mockReturnValue([]),
   }
 }
 
 export function createMockVoiceManager() {
   return {
-    start: mock(),
-    stop: mock(),
-    joinChannel: mock(),
-    leaveChannel: mock(),
-    mute: mock(),
-    unmute: mock(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    joinChannel: vi.fn(),
+    leaveChannel: vi.fn(),
+    mute: vi.fn(),
+    unmute: vi.fn(),
   }
 }
 
 export function createMockBehaviorManager() {
   return {
-    start: mock(),
-    stop: mock(),
+    start: vi.fn(),
+    stop: vi.fn(),
     isRunning: false,
   }
 }
 
 export function createMockBuildManager() {
   return {
-    duplicate: mock(),
-    translate: mock(),
-    rotate: mock(),
-    scale: mock(),
-    delete: mock(),
-    importEntity: mock(),
-    findNearbyEntities: mock().mockReturnValue([]),
-    getEntityInfo: mock(),
+    duplicate: vi.fn(),
+    translate: vi.fn(),
+    rotate: vi.fn(),
+    scale: vi.fn(),
+    delete: vi.fn(),
+    importEntity: vi.fn(),
+    findNearbyEntities: vi.fn().mockReturnValue([]),
+    getEntityInfo: vi.fn(),
   }
 }

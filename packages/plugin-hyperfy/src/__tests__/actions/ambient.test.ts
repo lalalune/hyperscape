@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { hyperfyAmbientSpeechAction } from '../../actions/ambient'
+import { ambientAction } from '../../actions/ambient'
 import { createMockRuntime } from '../test-utils'
 
 describe('HYPERFY_AMBIENT_SPEECH Action', () => {
@@ -13,7 +13,7 @@ describe('HYPERFY_AMBIENT_SPEECH Action', () => {
   describe('validate', () => {
     it('should always return true', async () => {
       const mockMessage = { id: 'msg-123', content: { text: 'test' } }
-      const result = await hyperfyAmbientSpeechAction.validate(
+      const result = await ambientAction.validate(
         mockRuntime,
         mockMessage as any
       )
@@ -41,23 +41,23 @@ describe('HYPERFY_AMBIENT_SPEECH Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
 
       // Mock composeState
-      mockRuntime.composeState = mock().mockResolvedValue({
+      mockRuntime.composeState = vi.fn().mockResolvedValue({
         ...mockState,
         hyperfyStatus: 'Connected to world',
       })
 
       // Mock useModel for ambient speech generation
-      mockRuntime.useModel = mock().mockResolvedValue({
+      mockRuntime.useModel = vi.fn().mockResolvedValue({
         thought: 'Observing the peaceful environment',
         message: 'This place feels ancient... wonder what stories it holds.',
       })
     })
 
     it('should generate ambient speech without existing responses', async () => {
-      await hyperfyAmbientSpeechAction.handler(
+      await ambientAction.handler(
         mockRuntime,
         mockMessage,
         mockState,
@@ -92,13 +92,12 @@ describe('HYPERFY_AMBIENT_SPEECH Action', () => {
         },
       ]
 
-      await hyperfyAmbientSpeechAction.handler(
+      await ambientAction.handler(
         mockRuntime,
         mockMessage,
         mockState,
         {},
-        mockCallback,
-        existingResponses as any
+        mockCallback
       )
 
       expect(mockRuntime.useModel).not.toHaveBeenCalled()
@@ -127,7 +126,7 @@ describe('HYPERFY_AMBIENT_SPEECH Action', () => {
         },
       ]
 
-      await hyperfyAmbientSpeechAction.handler(
+      await ambientAction.handler(
         mockRuntime,
         mockMessage,
         mockState,
@@ -161,7 +160,7 @@ describe('HYPERFY_AMBIENT_SPEECH Action', () => {
         },
       ]
 
-      await hyperfyAmbientSpeechAction.handler(
+      await ambientAction.handler(
         mockRuntime,
         mockMessage,
         mockState,
@@ -184,7 +183,7 @@ describe('HYPERFY_AMBIENT_SPEECH Action', () => {
         message: '',
       })
 
-      await hyperfyAmbientSpeechAction.handler(
+      await ambientAction.handler(
         mockRuntime,
         mockMessage,
         mockState,
@@ -210,7 +209,7 @@ describe('HYPERFY_AMBIENT_SPEECH Action', () => {
         },
       }
 
-      await hyperfyAmbientSpeechAction.handler(
+      await ambientAction.handler(
         mockRuntime,
         customMessage,
         mockState,
@@ -231,13 +230,13 @@ describe('HYPERFY_AMBIENT_SPEECH Action', () => {
 
   describe('examples', () => {
     it('should have valid examples array', () => {
-      expect(hyperfyAmbientSpeechAction.examples).toBeDefined()
-      expect(Array.isArray(hyperfyAmbientSpeechAction.examples)).toBe(true)
-      expect(hyperfyAmbientSpeechAction.examples!.length).toBeGreaterThan(0)
+      expect(ambientAction.examples).toBeDefined()
+      expect(Array.isArray(ambientAction.examples)).toBe(true)
+      expect(ambientAction.examples!.length).toBeGreaterThan(0)
     })
 
     it('should have properly formatted examples', () => {
-      hyperfyAmbientSpeechAction.examples!.forEach((example: any[]) => {
+      ambientAction.examples!.forEach((example: any[]) => {
         expect(Array.isArray(example)).toBe(true)
         expect(example.length).toBe(2)
 

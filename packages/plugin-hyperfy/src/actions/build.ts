@@ -1,4 +1,3 @@
-// @ts-nocheck - Suppressing TypeScript errors for legacy compatibility
 import {
   type Action,
   type ActionResult,
@@ -11,7 +10,7 @@ import {
   composePromptFromState,
   ModelType,
   parseKeyValueXml,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { AgentControls } from '../systems/controls'
 const MAX_RETRIES = 3
@@ -195,6 +194,7 @@ export const hyperfyEditEntityAction: Action = {
       )
       return {
         text: 'Error: Cannot perform scene edits. Required systems unavailable.',
+        success: false,
         values: { success: false, error: 'service_unavailable' },
         data: { action: 'HYPERFY_EDIT_ENTITY' },
       }
@@ -239,6 +239,7 @@ export const hyperfyEditEntityAction: Action = {
       )
       return {
         text: 'Sorry, I could not understand the scene editing instructions.',
+        success: false,
         values: { success: false, error: 'instruction_parsing_failed' },
         data: { action: 'HYPERFY_EDIT_ENTITY' },
       }
@@ -325,6 +326,7 @@ export const hyperfyEditEntityAction: Action = {
       await callback(errorResponse)
       return {
         text: errorResponse.text,
+        success: true,
         values: { success: true, summaryFailed: true },
         data: { action: 'HYPERFY_EDIT_ENTITY', thought: errorResponse.thought },
       }
@@ -340,6 +342,7 @@ export const hyperfyEditEntityAction: Action = {
       await callback(parseErrorResponse)
       return {
         text: parseErrorResponse.text,
+        success: true,
         values: { success: true, parseError: true },
         data: {
           action: 'HYPERFY_EDIT_ENTITY',
@@ -359,6 +362,7 @@ export const hyperfyEditEntityAction: Action = {
 
     return {
       text: finalResponse.text,
+      success: true,
       values: {
         success: true,
         operationsCompleted: operationResults.operations.length,

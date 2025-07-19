@@ -1,65 +1,37 @@
-// @ts-nocheck - Suppressing TypeScript errors for legacy compatibility
 import {
+  createUniqueUuid,
+  EventType,
   IAgentRuntime,
   logger,
-  type Memory,
-  type UUID,
-  type HandlerCallback,
-  type State,
-  type Content,
   Service,
-  createUniqueUuid,
-  ServiceType,
-  EventType,
-} from './types/eliza-mock'
+  type UUID
+} from '@elizaos/core'
 // import { createNodeClientWorld } from '@hyperscape/hyperfy'; // Not available
 import { promises as fsPromises } from 'fs'
 import path from 'path'
-import { hyperfyMessageReceivedHandler } from './handlers/messageReceivedHandler.js'
-import { EmoteManager } from './managers/emote-manager.js'
-import { MessageManager } from './managers/message-manager.js'
 import { BehaviorManager } from './managers/behavior-manager.js'
-import { VoiceManager } from './managers/voice-manager.js'
-import { PuppeteerManager } from './managers/puppeteer-manager.js'
 import { BuildManager } from './managers/build-manager.js'
 import { DynamicActionLoader } from './managers/dynamic-action-loader.js'
+import { EmoteManager } from './managers/emote-manager.js'
+import { MessageManager } from './managers/message-manager.js'
+import { PuppeteerManager } from './managers/puppeteer-manager.js'
+import { VoiceManager } from './managers/voice-manager.js'
 import { loadPhysX } from './physx/loadPhysX.js'
-import { hashFileBuffer, getModuleDirectory } from './utils.js'
-import { AgentAvatar } from './systems/avatar.js'
+import { AgentActions } from './systems/actions.js'
 import { AgentControls } from './systems/controls.js'
 import { EnvironmentSystem } from './systems/environment.js'
-import { AgentActions } from './systems/actions.js'
 import { AgentLiveKit } from './systems/liveKit.js'
 import { AgentLoader } from './systems/loader.js'
 import type {
-  HyperfyWorld,
-  HyperfyEntity,
-  HyperfyChatMessage,
-  HyperfyWorldConfig,
-} from './types/hyperfy'
-import { EventEmitter } from 'events'
-import { isHyperfyChatMessage } from './types/hyperfy.js'
-import { MultiAgentManager } from './managers/multi-agent-manager'
-
-// Type augmentation for HyperfyEntity
-declare module '../types/hyperfy' {
-  interface HyperfyEntity {
-    root?: any
-    base?: any
-    ctx?: any
-    _label?: string
-    isApp?: boolean
-    destroy?: () => void
-  }
-}
+  World as HyperfyWorld
+} from '@hyperscape/hyperfy'
+import { getModuleDirectory, hashFileBuffer } from './utils.js'
 
 const moduleDirPath = getModuleDirectory()
 const LOCAL_AVATAR_PATH = `${moduleDirPath}/avatars/avatar.vrm`
 
 const HYPERFY_WS_URL = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
 const HYPERFY_APPEARANCE_POLL_INTERVAL = 30000
-const HYPERFY_USERNAME = process.env.HYPERFY_USERNAME || 'agent-eliza'
-const AVATAR_URL = process.env.AVATAR_URL || './public/avatars/avatar.vrm'
 
 export class HyperfyService extends Service {
   static serviceName = 'hyperfy'
@@ -535,9 +507,7 @@ Hyperfy world integration service that enables agents to:
       console.log('agentPlayerIdReady', agentPlayerIdReady)
       console.log('networkReady', networkReady)
       if (agentPlayerReady && agentPlayerIdReady && networkReady) {
-        // @ts-ignore - Runtime property access
         const entityId = createUniqueUuid(this.runtime, this.runtime.agentId)
-        // @ts-ignore - Runtime property access
         const entity = await this.runtime.getEntityById(entityId)
 
         if (entity) {
@@ -554,6 +524,8 @@ Hyperfy world integration service that enables agents to:
             entity.components.push({
               type: 'appearance',
               data: { appearance: this.world.entities.player.data.appearance },
+              
+              createdAt: 0
             })
           }
           // @ts-ignore - Runtime property access

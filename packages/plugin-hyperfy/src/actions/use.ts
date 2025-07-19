@@ -9,7 +9,7 @@ import {
   logger,
   composePromptFromState,
   ModelType,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { AgentActions } from '../systems/actions'
 import { AgentControls } from '../systems/controls'
@@ -71,10 +71,12 @@ export const hyperfyUseItemAction: Action = {
       if (callback) {
         await callback({
           text: 'Error: Cannot use item. Agent action system unavailable.',
+          success: false,
         })
       }
       return {
         text: 'Error: Cannot use item. Agent action system unavailable.',
+        success: false,
         values: { success: false, error: 'action_system_unavailable' },
         data: { action: 'HYPERFY_USE_ITEM' },
       }
@@ -121,6 +123,7 @@ export const hyperfyUseItemAction: Action = {
       )
       return {
         text: 'No suitable item found to use based on the context.',
+        success: false,
         values: { success: false, error: 'no_item_found' },
         data: { action: 'HYPERFY_USE_ITEM' },
       }
@@ -133,11 +136,13 @@ export const hyperfyUseItemAction: Action = {
         const errorResponse = {
           text: `Could not locate entity ${targetEntityId}.`,
           metadata: { error: 'entity_not_found' },
+          success: false,
         }
         await callback(errorResponse)
       }
       return {
         text: `Could not locate entity ${targetEntityId}.`,
+        success: false,
         values: { success: false, error: 'entity_not_found', targetEntityId },
         data: { action: 'HYPERFY_USE_ITEM' },
       }
@@ -156,12 +161,14 @@ export const hyperfyUseItemAction: Action = {
         actions: ['HYPERFY_USE_ITEM'],
         source: 'hyperfy',
         metadata: { targetEntityId, status: 'triggered' },
+        success: true,
       }
       await callback(successResponse)
     }
 
     return {
       text: `Using item: ${targetEntityId}`,
+      success: true,
       values: { success: true, targetEntityId, status: 'triggered' },
       data: {
         action: 'HYPERFY_USE_ITEM',
@@ -172,44 +179,34 @@ export const hyperfyUseItemAction: Action = {
   },
   examples: [
     [
-      { name: '{{user}}', content: { text: 'Pick up the book.' } },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User wants me to pick up a book - I need to find the book entity and interact with it',
-          text: 'Using item: book123',
-          actions: ['HYPERFY_USE_ITEM'],
-          source: 'hyperfy',
-        },
+        user: 'Pick up the book.',
+        assistant: 'Using the book.'
       },
-    ],
-    [
-      { name: '{{user}}', content: { text: 'Interact with the glowing orb.' } },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'The user wants me to interact with a glowing orb - I should navigate to it and activate it',
-          text: 'Using item: orb888',
-          actions: ['HYPERFY_USE_ITEM'],
-          source: 'hyperfy',
-        },
-      },
+        user: 'Interact with the glowing orb.',
+        assistant: 'Activating the glowing orb.'
+      }
     ],
     [
       {
-        name: '{{user}}',
-        content: { text: 'Do we need to pick something up?' },
+        user: 'Use the lever',
+        assistant: 'Pulling the lever.'
       },
       {
-        name: '{{agent}}',
-        content: {
-          thought:
-            "The user is asking if there's something to pick up, but I don't see any obvious interactive items nearby",
-          text: 'No suitable item found to use based on the context.',
-        },
-      },
+        user: 'Open that chest',
+        assistant: 'Opening the chest.'
+      }
     ],
-  ],
+    [
+      {
+        user: 'Do we need to pick something up?',
+        assistant: 'I don\'t see any obvious interactive items nearby.'
+      },
+      {
+        user: 'Use the nearest object',
+        assistant: 'Using the nearby crafting bench.'
+      }
+    ]
+  ] as ActionExample[][],
 }

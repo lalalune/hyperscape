@@ -370,7 +370,7 @@ export class VisualTestOrchestrator {
 // Helper function to create and run orchestrator
 export async function runComprehensiveVisualTests(config: Partial<OrchestratorConfig> = {}): Promise<TestReport> {
   const fullConfig: OrchestratorConfig = {
-    serverPort: 3001,
+    serverPort: 3000,
     hyperfyPath: '../hyperfy',
     headless: false,
     timeout: 60000,
@@ -386,7 +386,7 @@ export async function runComprehensiveVisualTests(config: Partial<OrchestratorCo
 
 export async function runValidationOnly(config: Partial<OrchestratorConfig> = {}): Promise<TestReport> {
   const fullConfig: OrchestratorConfig = {
-    serverPort: 3001,
+    serverPort: 3000,
     hyperfyPath: '../hyperfy', 
     headless: false,
     timeout: 30000,

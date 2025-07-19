@@ -16,11 +16,11 @@ describe('HYPERFY_USE_ITEM Action', () => {
     mockWorld = createMockWorld()
 
     mockControls = {
-      goto: mock().mockResolvedValue(true),
+      goto: vi.fn().mockResolvedValue(true),
     }
 
     mockActions = {
-      performAction: mock(),
+      performAction: vi.fn(),
     }
 
     mockWorld.controls = mockControls
@@ -34,11 +34,11 @@ describe('HYPERFY_USE_ITEM Action', () => {
     })
 
     mockService = {
-      isConnected: mock().mockReturnValue(true),
-      getWorld: mock().mockReturnValue(mockWorld),
+      isConnected: vi.fn().mockReturnValue(true),
+      getWorld: vi.fn().mockReturnValue(mockWorld),
     }
 
-    mockRuntime.getService = mock().mockReturnValue(mockService)
+    mockRuntime.getService = vi.fn().mockReturnValue(mockService)
   })
 
   describe('validate', () => {
@@ -108,16 +108,16 @@ describe('HYPERFY_USE_ITEM Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
 
       // Mock composeState
-      mockRuntime.composeState = mock().mockResolvedValue({
+      mockRuntime.composeState = vi.fn().mockResolvedValue({
         ...mockState,
         hyperfyWorldState: 'World state with items',
       })
 
       // Mock useModel for entity extraction
-      mockRuntime.useModel = mock().mockResolvedValue({
+      mockRuntime.useModel = vi.fn().mockResolvedValue({
         entityId: 'item-123',
       })
     })

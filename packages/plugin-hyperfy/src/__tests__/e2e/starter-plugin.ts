@@ -1,4 +1,4 @@
-import { type Content, type HandlerCallback } from '../types/eliza-mock'
+import { type Content, type HandlerCallback } from '@elizaos/core'
 
 /**
  * E2E (End-to-End) Test Suite for ElizaOS Plugins

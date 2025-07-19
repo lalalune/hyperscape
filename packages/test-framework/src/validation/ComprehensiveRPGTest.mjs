@@ -20,7 +20,7 @@ import sharp from 'sharp';
 import { setTimeout } from 'timers/promises';
 
 const HYPERFY_DIR = '/Users/shawwalters/hyperscape/packages/hyperfy';
-const SERVER_PORT = 3001;
+const SERVER_PORT = 3000;
 const STARTUP_DELAY = 8000; // Time for server to fully initialize
 const PAGE_LOAD_DELAY = 6000; // Time for RPG entities to spawn in browser
 

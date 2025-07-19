@@ -1,4 +1,4 @@
-import { Client, IAgentRuntime, Memory, UUID } from '../types/eliza-mock'
+import { Client, IAgentRuntime, Memory, UUID, generateUUID } from '@elizaos/core'
 import WebSocket from 'ws'
 import { EventEmitter } from 'events'
 
@@ -130,16 +130,16 @@ export class HyperfyClientInterface extends EventEmitter implements Client {
         // Process incoming chat message
         if (message.data.playerId !== this.agentId) {
           const memory: Memory = {
-            id: UUID(),
-            userId: message.data.playerId,
-            agentId: this.agentId,
-            roomId: 'amongus-game',
+            id: generateUUID(),
+            userId: message.data.playerId as UUID,
+            agentId: this.agentId as UUID,
+            roomId: generateUUID(),
             content: {
               text: message.data.text,
               playerName: message.data.playerName,
               playerEmoji: message.data.playerEmoji,
             },
-            createdAt: new Date(message.data.timestamp),
+            createdAt: new Date(message.data.timestamp).getTime(),
           }
 
           // Process the message and potentially respond

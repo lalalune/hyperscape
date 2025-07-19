@@ -6,7 +6,7 @@ import type {
   Memory,
   HandlerCallback,
   State,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 
 /**
  * Action representing the IGNORE action. This action is used when ignoring the user in a conversation.
@@ -50,11 +50,17 @@ export const ignoreAction: Action = {
     // If a callback and the agent's response content are available, call the callback
     if (callback && responses?.[0]?.content) {
       // Pass the agent's original response content (thought, IGNORE action, etc.)
-      await callback(responses[0].content)
+      const result: ActionResult = {
+        ...responses[0].content,
+        text: responses[0].content.text || '',
+        success: true
+      }
+      await callback(result)
     }
 
     return {
       text: '',
+      success: true,
       values: { ignored: true, reason: 'conversation_ended_or_inappropriate' },
       data: { action: 'IGNORE', hasResponse: !!responses?.[0]?.content },
     }
@@ -62,33 +68,15 @@ export const ignoreAction: Action = {
   examples: [
     [
       {
-        name: '{{user}}',
-        content: { text: 'Go screw yourself' },
-      },
-      {
-        name: '{{agent}}',
-        content: {
-          thought:
-            'User is being hostile and inappropriate - I should ignore this message',
-          text: '',
-          actions: ['IGNORE'],
-        },
-      },
+        user: 'Go screw yourself',
+        assistant: ''
+      }
     ],
-
     [
       {
-        name: '{{user}}',
-        content: { text: 'Shut up, bot' },
-      },
-      {
-        name: '{{agent}}',
-        content: {
-          thought: 'User is being rude and dismissive - best to ignore this',
-          text: '',
-          actions: ['IGNORE'],
-        },
-      },
+        user: 'Shut up, bot',
+        assistant: ''
+      }
     ],
 
     [

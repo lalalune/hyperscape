@@ -111,7 +111,7 @@ class ActualRPGTest {
     
     // Navigate to RPG world
     console.log('🏠 Loading RPG world...');
-    await this.page.goto('http://localhost:3001', { 
+    await this.page.goto('http://localhost:3000', { 
       waitUntil: 'networkidle',
       timeout: 30000 
     });

@@ -5,7 +5,7 @@ import {
   State,
   HandlerCallback,
   createUniqueUuid,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../../service'
 import { loadRPGAction } from '../../actions/load-rpg'
 

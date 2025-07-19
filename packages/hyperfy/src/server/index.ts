@@ -1,6 +1,6 @@
+import './bootstrap'
 import 'ses'
 import '../core/lockdown'
-import './bootstrap'
 
 import compress from '@fastify/compress'
 import cors from '@fastify/cors'

@@ -15,19 +15,19 @@ describe('HYPERFY_STOP_MOVING Action', () => {
     mockWorld = createMockWorld()
 
     mockControls = {
-      stopAllActions: mock(),
-      getIsNavigating: mock().mockReturnValue(true),
-      getIsWalkingRandomly: mock().mockReturnValue(false),
+      stopAllActions: vi.fn(),
+      getIsNavigating: vi.fn().mockReturnValue(true),
+      getIsWalkingRandomly: vi.fn().mockReturnValue(false),
     }
 
     mockWorld.controls = mockControls
 
     mockService = {
-      isConnected: mock().mockReturnValue(true),
-      getWorld: mock().mockReturnValue(mockWorld),
+      isConnected: vi.fn().mockReturnValue(true),
+      getWorld: vi.fn().mockReturnValue(mockWorld),
     }
 
-    mockRuntime.getService = mock().mockReturnValue(mockService)
+    mockRuntime.getService = vi.fn().mockReturnValue(mockService)
   })
 
   describe('validate', () => {
@@ -84,7 +84,7 @@ describe('HYPERFY_STOP_MOVING Action', () => {
         text: 'test state',
       }
 
-      mockCallback = mock()
+      mockCallback = vi.fn()
     })
 
     it('should stop movement when navigating', async () => {

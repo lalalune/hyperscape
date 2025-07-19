@@ -7,7 +7,7 @@ import {
   type Memory,
   type State,
   logger,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { AgentActions } from '../systems/actions'
 
@@ -45,6 +45,7 @@ export const hyperfyUnuseItemAction: Action = {
       }
       return {
         text: 'Error: Cannot unuse item. Required systems are unavailable.',
+        success: false,
         values: { success: false, error: 'systems_unavailable' },
         data: { action: 'HYPERFY_UNUSE_ITEM' },
       }

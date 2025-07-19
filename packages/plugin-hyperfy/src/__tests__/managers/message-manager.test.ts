@@ -17,8 +17,8 @@ describe('MessageManager', () => {
 
   describe('sendMessage', () => {
     it('should send a message to the world chat', () => {
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorld),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorld),
       })
 
       messageManager.sendMessage('Hello world!')
@@ -36,22 +36,22 @@ describe('MessageManager', () => {
     })
 
     it('should handle missing world gracefully', () => {
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(null),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(null),
       })
 
       expect(() => messageManager.sendMessage('Test')).not.toThrow()
     })
 
     it('should handle missing service gracefully', () => {
-      mockRuntime.getService = mock().mockReturnValue(null)
+      mockRuntime.getService = vi.fn().mockReturnValue(null)
 
       expect(() => messageManager.sendMessage('Test')).not.toThrow()
     })
 
     it('should handle empty messages', () => {
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorld),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorld),
       })
 
       messageManager.sendMessage('')
@@ -69,8 +69,8 @@ describe('MessageManager', () => {
     })
 
     it('should include timestamp in message', () => {
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorld),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorld),
       })
 
       const beforeTime = Date.now()
@@ -101,17 +101,17 @@ describe('MessageManager', () => {
         body: 'Hello agent!',
         fromId: 'user-123',
         from: 'Alice',
-        createdAt: Date.now().toISOString(),
+        createdAt: new Date().toISOString(),
       }
 
       const mockService = {
-        getWorld: mock().mockReturnValue(mockWorld),
+        getWorld: vi.fn().mockReturnValue(mockWorld),
         currentWorldId: 'world-123',
-        getEmoteManager: mock().mockReturnValue({
-          playEmote: mock(),
+        getEmoteManager: vi.fn().mockReturnValue({
+          playEmote: vi.fn(),
         }),
       }
-      mockRuntime.getService = mock().mockReturnValue(mockService)
+      mockRuntime.getService = vi.fn().mockReturnValue(mockService)
 
       await messageManager.handleMessage(mockMessage)
 
@@ -141,11 +141,11 @@ describe('MessageManager', () => {
         body: 'My own message',
         fromId: 'test-player-id', // Same as agent's player ID
         from: 'TestAgent',
-        createdAt: Date.now().toISOString(),
+        createdAt: new Date().toISOString(),
       }
 
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorld),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorld),
         currentWorldId: 'world-123',
       })
 
@@ -161,11 +161,11 @@ describe('MessageManager', () => {
         body: 'System message',
         // No fromId
         from: 'System',
-        createdAt: Date.now().toISOString(),
+        createdAt: new Date().toISOString(),
       }
 
-      mockRuntime.getService = mock().mockReturnValue({
-        getWorld: mock().mockReturnValue(mockWorld),
+      mockRuntime.getService = vi.fn().mockReturnValue({
+        getWorld: vi.fn().mockReturnValue(mockWorld),
         currentWorldId: 'world-123',
       })
 
@@ -180,16 +180,16 @@ describe('MessageManager', () => {
         body: 'Tell me a joke!',
         fromId: 'user-123',
         from: 'Alice',
-        createdAt: Date.now().toISOString(),
+        createdAt: new Date().toISOString(),
       }
 
-      const mockEmoteManager = { playEmote: mock() }
+      const mockEmoteManager = { playEmote: vi.fn() }
       const mockService = {
-        getWorld: mock().mockReturnValue(mockWorld),
+        getWorld: vi.fn().mockReturnValue(mockWorld),
         currentWorldId: 'world-123',
-        getEmoteManager: mock().mockReturnValue(mockEmoteManager),
+        getEmoteManager: vi.fn().mockReturnValue(mockEmoteManager),
       }
-      mockRuntime.getService = mock().mockReturnValue(mockService)
+      mockRuntime.getService = vi.fn().mockReturnValue(mockService)
 
       await messageManager.handleMessage(mockMessage)
 

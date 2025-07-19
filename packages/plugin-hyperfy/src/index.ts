@@ -1,7 +1,7 @@
 import 'ses'
 
-import type { Plugin } from './types/eliza-mock'
-import { logger } from './types/eliza-mock'
+import type { Plugin } from '@elizaos/core'
+import { logger } from '@elizaos/core'
 import { HyperfyService } from './service'
 import { z } from 'zod'
 // import { hyperfyChatAction } from './actions/chat';
@@ -10,7 +10,7 @@ import { hyperfyUseItemAction } from './actions/use'
 import { hyperfyUnuseItemAction } from './actions/unuse'
 import { hyperfyStopMovingAction } from './actions/stop'
 import { hyperfyWalkRandomlyAction } from './actions/walk_randomly'
-import { hyperfyAmbientSpeechAction } from './actions/ambient'
+import { ambientAction } from './actions/ambient'
 import { hyperfyScenePerceptionAction } from './actions/perception'
 import { hyperfyEditEntityAction } from './actions/build'
 import { replyAction } from './actions/reply'
@@ -69,7 +69,7 @@ export const hyperfyPlugin: Plugin = {
     hyperfyUnuseItemAction,
     hyperfyStopMovingAction,
     hyperfyWalkRandomlyAction,
-    hyperfyAmbientSpeechAction,
+    ambientAction,
     hyperfyEditEntityAction,
     replyAction,
     ignoreAction,

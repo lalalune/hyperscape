@@ -3,7 +3,7 @@ import path from 'path'
 import { EMOTES_LIST } from '../constants.js'
 import { playerEmotes, emoteMap } from '../hyperfy/core/extras/playerEmotes.js'
 import { hashFileBuffer, getModuleDirectory } from '../utils.js'
-import type { IAgentRuntime } from '../types/eliza-mock'
+import type { IAgentRuntime } from '@elizaos/core'
 import type { HyperfyWorld, HyperfyPlayer } from '../types/hyperfy.js'
 import { HyperfyService } from '../service.js'
 

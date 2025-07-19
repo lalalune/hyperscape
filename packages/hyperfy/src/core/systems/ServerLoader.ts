@@ -32,13 +32,8 @@ export class ServerLoader extends System {
     this.gltfLoader = new GLTFLoader()
     this.preloadItems = []
     // this.gltfLoader.register(parser => new VRMLoaderPlugin(parser))
-
-    // mock globals to allow gltf loader to work in nodejs
-    ;(globalThis as any).self = { URL }
-    ;(globalThis as any).window = {}
-    ;(globalThis as any).document = {
-      createElementNS: () => ({ style: {} }),
-    }
+    
+    // The global polyfills are now applied in server-polyfills.ts before this module loads
   }
 
   start() {

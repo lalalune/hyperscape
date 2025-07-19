@@ -1,4 +1,4 @@
-import { IAgentRuntime, Memory, UUID } from '../types/eliza-mock'
+import { IAgentRuntime, Memory, UUID } from '@elizaos/core'
 import {
   VisualTestFramework,
   RPGTestHelpers,

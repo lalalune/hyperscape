@@ -11,7 +11,7 @@ import {
 } from 'vitest'
 import { hyperfyPlugin } from '../index'
 import { HyperfyService } from '../service'
-import { ModelType, logger } from '../types/eliza-mock'
+import { ModelType, logger } from '@elizaos/core'
 import { createMockRuntime } from './test-utils'
 import dotenv from 'dotenv'
 

@@ -9,7 +9,7 @@ import {
   formatTimestamp,
   createUniqueUuid,
   getEntityDetails,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service.js'
 import { agentActivityLock } from './guards'
 import { hyperfyEventType } from '../events'

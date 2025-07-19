@@ -10,7 +10,7 @@ export {
   WorldManager,
   ConfigManager,
   StorageManager
-} from './framework/index.js';
+} from './framework/index';
 
 // Export framework types
 export type {
@@ -21,13 +21,13 @@ export type {
   AssetConfig,
   SystemConfig,
   StorageConfig
-} from './framework/index.js';
+} from './framework/index';
 
 // Export specific core components
-export { World } from './core/World.js';
-export { createServerWorld } from './core/createServerWorld.js';
-export { createClientWorld } from './core/createClientWorld.js';
-export { createViewerWorld } from './core/createViewerWorld.js';
+export { World } from './core/World';
+export { createServerWorld } from './core/createServerWorld';
+export { createClientWorld } from './core/createClientWorld';
+export { createViewerWorld } from './core/createViewerWorld';
 
 // Export node client components explicitly to avoid conflicts
 export {
@@ -49,13 +49,13 @@ export {
   GLTFLoader,
   CSM,
   getPhysXAssetPath
-} from './node-client/index.js';
+} from './node-client/index';
 
 // Export THREE separately to avoid naming conflicts
 export * as THREE from 'three';
 
 // Export System from core (single source to avoid duplicates)
-export { System } from './core/systems/System.js';
+export { System } from './core/systems/System';
 
 // Default export is the framework
-export { HyperfyFramework as default } from './framework/index.js';
+export { HyperfyFramework as default } from './framework/index';

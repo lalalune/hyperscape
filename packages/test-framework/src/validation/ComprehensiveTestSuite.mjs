@@ -80,7 +80,7 @@ class ComprehensiveTestSuite {
       
       // Navigate and test
       console.log('🏠 Navigating to world...');
-      await page.goto('http://localhost:3001', { 
+      await page.goto('http://localhost:3000', { 
         waitUntil: 'networkidle',
         timeout: 30000 
       });
@@ -163,7 +163,7 @@ class ComprehensiveTestSuite {
       
       // Navigate
       console.log('🏠 Navigating to world...');
-      await page.goto('http://localhost:3001', { 
+      await page.goto('http://localhost:3000', { 
         waitUntil: 'networkidle',
         timeout: 30000 
       });

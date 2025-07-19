@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream'
 import { promises as fsPromises } from 'fs'
-import type { Action, IAgentRuntime, Memory, State } from './types/eliza-mock'
+import type { Action, IAgentRuntime, Memory, State } from '@elizaos/core'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import path from 'path'

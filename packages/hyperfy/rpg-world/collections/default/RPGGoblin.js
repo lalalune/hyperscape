@@ -76,7 +76,6 @@ const goblinMesh = app.create('mesh')
 goblinMesh.type = 'box'
 goblinMesh.scale.set(0.8, 1.2, 0.8)
 goblinMesh.position.set(0, 0.6, 0)
-goblinMesh.material = 'unlit'
 goblinMesh.color = '#00FF00' // Bright green for visual testing
 goblinMesh.castShadow = false
 goblinMesh.receiveShadow = false

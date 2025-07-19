@@ -1,4 +1,3 @@
-// @ts-nocheck - Suppressing TypeScript errors for legacy compatibility
 import {
   ChannelType,
   Content,
@@ -11,7 +10,7 @@ import {
   createUniqueUuid,
   parseKeyValueXml,
   logger,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { agentActivityLock } from './guards'
 import { getHyperfyActions, formatActions } from '../utils'
@@ -253,16 +252,15 @@ export class BehaviorManager {
       await this.runtime.createMemory(callbackMemory, 'messages')
 
       if (parsedXml?.emote) {
-        const service = this.getService()
+        const service = this.getService() as any
         const emoteManager = service?.emoteManager
         if (emoteManager) {
-          // @ts-ignore - Manager access
           emoteManager.playEmote(parsedXml.emote)
         }
       }
 
       if (parsedXml?.message) {
-        const service = this.getService()
+        const service = this.getService() as any
         const messageManager = service?.messageManager
         if (messageManager) {
           // @ts-ignore - Manager access

@@ -722,7 +722,7 @@ program
 program
   .command('connection')
   .description('Test basic connection to Hyperfy server')
-  .option('-u, --url <url>', 'Hyperfy server URL', 'http://localhost:3001')
+  .option('-u, --url <url>', 'Hyperfy server URL', 'http://localhost:3000')
   .action(async (options) => {
     console.log(chalk.blue('🔌 Testing Hyperfy Server Connection...'));
     
@@ -738,7 +738,7 @@ program
   .command('visual-comprehensive')
   .description('Run comprehensive visual testing with unified system')
   .option('--headless', 'Run browser in headless mode', false)
-  .option('-p, --port <port>', 'Hyperfy server port', '3001')
+  .option('-p, --port <port>', 'Hyperfy server port', '3000')
   .option('--hyperfy-path <path>', 'Path to Hyperfy directory', '../hyperfy')
   .option('-o, --output <dir>', 'Output directory for results', './test-results')
   .option('--server-timeout <ms>', 'Server start timeout', '45000')
@@ -798,7 +798,7 @@ program
   .command('visual-validate')
   .description('Run validation tests to prove visual testing works')
   .option('--headless', 'Run browser in headless mode', false)
-  .option('-p, --port <port>', 'Hyperfy server port', '3001')
+  .option('-p, --port <port>', 'Hyperfy server port', '3000')
   .option('--hyperfy-path <path>', 'Path to Hyperfy directory', '../hyperfy')
   .option('-o, --output <dir>', 'Output directory for results', './test-results')
   .option('--server-timeout <ms>', 'Server start timeout', '30000')

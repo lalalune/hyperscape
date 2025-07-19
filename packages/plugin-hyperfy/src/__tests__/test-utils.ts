@@ -1,4 +1,4 @@
-import type { IAgentRuntime, Memory, State, UUID } from '../types/eliza-mock'
+import type { IAgentRuntime, Memory, State, UUID } from '@elizaos/core'
 import { vi } from 'vitest'
 
 /**

@@ -55,7 +55,7 @@ try {
   
   // Navigate to world
   console.log('🏠 Loading RPG world...')
-  await page.goto('http://localhost:3001/', { waitUntil: 'networkidle' })
+  await page.goto('http://localhost:3000/', { waitUntil: 'networkidle' })
   
   // Wait for world to load
   await delay(3000)

@@ -3694,7 +3694,7 @@ const MToonMaterialOutlineWidthMode = {
 
 const encodingColorSpaceMap = {
     3000: '',
-    3001: 'srgb',
+    3000: 'srgb',
 };
 /**
  * A compat function to get texture color space.
@@ -4219,7 +4219,7 @@ class MToonMaterial extends THREE.ShaderMaterial {
 
 const colorSpaceEncodingMap = {
     '': 3000,
-    srgb: 3001,
+    srgb: 3000,
 };
 /**
  * A compat function to set texture color space.

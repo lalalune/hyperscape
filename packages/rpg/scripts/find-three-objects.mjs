@@ -11,7 +11,7 @@ async function findThreeObjects() {
   
   // Navigate to Hyperfy
   console.log('🌐 Navigating to Hyperfy...');
-  await page.goto('http://localhost:3001');
+  await page.goto('http://localhost:3000');
   
   // Wait for world to load
   console.log('⏳ Waiting for world to load...');

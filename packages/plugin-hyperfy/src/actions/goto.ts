@@ -11,7 +11,7 @@ import {
   logger,
   EventType,
   type EventHandler,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { HyperfyService } from '../service'
 import { AgentControls } from '../systems/controls' // Import AgentControls type
 // Import THREE types if needed, e.g., for metadata typing
@@ -134,18 +134,17 @@ export const hyperfyGotoEntityAction: Action = {
         '[GOTO Action] Error during navigation target extraction:',
         error
       )
-      const errorResponse = {
-        thought: 'Failed to extract navigation target.',
+      const errorResponse: ActionResult = {
         text: 'Action failed: Could not determine a navigation target.',
-        metadata: { error: 'extraction_failed' },
+        success: false,
+        values: { error: 'extraction_failed' },
+        data: { 
+          action: 'HYPERFY_GOTO_ENTITY',
+          thought: 'Failed to extract navigation target.'
+        },
       }
       await callback(errorResponse)
-      return {
-        text: errorResponse.text,
-        success: false,
-        values: { success: false, error: 'extraction_failed' },
-        data: { action: 'HYPERFY_GOTO_ENTITY', thought: errorResponse.thought },
-      }
+      return errorResponse
     }
 
     if (
@@ -269,58 +268,35 @@ export const hyperfyGotoEntityAction: Action = {
   examples: [
     [
       {
-        user: 'Go to Bob',
-        assistant: 'Navigating towards Bob...',
+        name: "user",
+        content: {
+          text: 'Go to Bob',
+        },
+      },
+      {
+        name: "agent",
         content: {
           text: 'Navigating towards Bob...',
-          action: 'HYPERFY_GOTO_ENTITY',
+          actions: ['HYPERFY_GOTO_ENTITY'],
           thought: "User wants me to go to Bob - I need to find Bob's entity in the world and navigate there"
         },
       },
     ],
     [
       {
-        user: 'Find entity abcdef',
-        assistant: 'Navigating towards entity abcdef...',
+        name: "user",
+        content: {
+          text: 'Find entity abcdef',
+        },
+      },
+      {
+        name: "agent",
         content: {
           text: 'Navigating towards entity abcdef...',
-          action: 'HYPERFY_GOTO_ENTITY',
+          actions: ['HYPERFY_GOTO_ENTITY'],
           thought: 'User is asking me to navigate to a specific entity ID - I should move to that location'
         },
       },
     ],
-    [
-      {
-        user: 'Go to the fountain at 12, 8',
-        assistant: 'Navigating to position (12, 8)...',
-        content: {
-          text: 'Navigating to position (12, 8)...',
-          action: 'HYPERFY_GOTO_ENTITY',
-          thought: 'User gave me specific coordinates - I should navigate to position x:12, z:8'
-        },
-      },
-    ],
-    [
-      {
-        user: 'Walk to coordinate x: 5 z: -3',
-        assistant: 'Moving to position (5, -3)...',
-        content: {
-          text: 'Moving to position (5, -3)...',
-          action: 'HYPERFY_GOTO_ENTITY',
-          thought: 'Clear coordinates provided - moving to x:5, z:-3'
-        },
-      },
-    ],
-    [
-      {
-        user: 'Move to 0, 0 in the world',
-        assistant: 'Navigating to position (0, 0)...',
-        content: {
-          text: 'Navigating to position (0, 0)...',
-          action: 'HYPERFY_GOTO_ENTITY',
-          thought: 'Going to the world origin point at coordinates 0,0'
-        },
-      },
-    ],
-  ],
+  ] as ActionExample[][],
 }

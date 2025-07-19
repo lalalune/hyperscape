@@ -1,4 +1,4 @@
-import { Content } from '../types/eliza-mock'
+import { Content } from '@elizaos/core'
 import {
   type Action,
   type ActionExample,
@@ -9,7 +9,7 @@ import {
   type Memory,
   ModelType,
   type State,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 
 /**
  * Template for generating dialog and actions for a character.
@@ -106,7 +106,17 @@ export const replyAction = {
 
     if (existingReplies.length > 0) {
       for (const reply of existingReplies) {
-        await callback(reply)
+        const result: ActionResult = {
+          text: reply.text || '',
+          success: true,
+          values: { replied: true, replyText: reply.text },
+          data: { source: 'hyperfy', action: 'REPLY' }
+        }
+        await callback({
+          text: result.text,
+          actions: ['HYPERFY_REPLY'],
+          source: 'hyperfy'
+        })
       }
       return {
         text: existingReplies[0].text || '',
@@ -128,16 +138,23 @@ export const replyAction = {
       prompt,
     })
 
-    const responseContent = {
-      // @ts-ignore - Response type is unknown
-      thought: response.thought,
-      // @ts-ignore - Response type is unknown
+    const responseContent: ActionResult = {
       text: (response.message as string) || '',
-      actions: ['REPLY'],
-      source: 'hyperfy',
+      success: true,
+      values: { replied: true, replyText: (response.message as string) || '' },
+      data: {
+        source: 'hyperfy',
+        action: 'REPLY',
+        thought: response.thought,
+        actions: ['REPLY']
+      }
     }
 
-    await callback(responseContent)
+    await callback({
+      text: responseContent.text,
+      actions: ['HYPERFY_REPLY'],
+      source: 'hyperfy'
+    })
 
     return {
       text: responseContent.text,
@@ -146,7 +163,7 @@ export const replyAction = {
       data: {
         source: 'hyperfy',
         action: 'REPLY',
-        thought: responseContent.thought,
+        thought: response.thought,
       },
     }
   },

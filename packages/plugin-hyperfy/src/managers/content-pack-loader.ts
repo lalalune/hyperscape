@@ -1,4 +1,4 @@
-import { IAgentRuntime, logger } from '../types/eliza-mock'
+import { IAgentRuntime, logger } from '@elizaos/core'
 import {
   IContentPack,
   IContentPackLoader,

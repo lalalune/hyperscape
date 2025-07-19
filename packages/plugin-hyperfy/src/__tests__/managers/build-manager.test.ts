@@ -23,14 +23,14 @@ describe('BuildManager', () => {
                   x: 0,
                   y: 0,
                   z: 0,
-                  toArray: mock().mockReturnValue([0, 0, 0]),
+                  toArray: vi.fn().mockReturnValue([0, 0, 0]),
                 },
                 quaternion: {
                   x: 0,
                   y: 0,
                   z: 0,
                   w: 1,
-                  toArray: mock().mockReturnValue([0, 0, 0, 1]),
+                  toArray: vi.fn().mockReturnValue([0, 0, 0, 1]),
                 },
               },
               blueprint: { name: 'block' },
@@ -45,14 +45,14 @@ describe('BuildManager', () => {
                   x: 5,
                   y: 0,
                   z: 5,
-                  toArray: mock().mockReturnValue([5, 0, 5]),
+                  toArray: vi.fn().mockReturnValue([5, 0, 5]),
                 },
                 quaternion: {
                   x: 0,
                   y: 0,
                   z: 0,
                   w: 1,
-                  toArray: mock().mockReturnValue([0, 0, 0, 1]),
+                  toArray: vi.fn().mockReturnValue([0, 0, 0, 1]),
                 },
               },
               blueprint: { name: 'sphere' },
@@ -66,22 +66,22 @@ describe('BuildManager', () => {
               x: 10,
               y: 0,
               z: 10,
-              toArray: mock().mockReturnValue([10, 0, 10]),
+              toArray: vi.fn().mockReturnValue([10, 0, 10]),
             },
           },
         },
       },
       network: {
-        send: mock(),
+        send: vi.fn(),
       },
     }
 
     mockRuntime = createMockRuntime()
 
     // Mock the service to return the world
-    mockRuntime.getService = mock().mockReturnValue({
-      getWorld: mock().mockReturnValue(mockWorld),
-      isConnected: mock().mockReturnValue(true),
+    mockRuntime.getService = vi.fn().mockReturnValue({
+      getWorld: vi.fn().mockReturnValue(mockWorld),
+      isConnected: vi.fn().mockReturnValue(true),
     })
 
     buildManager = new BuildManager(mockRuntime)
@@ -90,9 +90,9 @@ describe('BuildManager', () => {
   describe('duplicate', () => {
     it('should duplicate an entity', async () => {
       // Mock world methods
-      mockWorld.blueprints = { add: mock() }
-      mockWorld.entities.add = mock()
-      mockWorld.controls = { goto: mock() }
+      mockWorld.blueprints = { add: vi.fn() }
+      mockWorld.entities.add = vi.fn()
+      mockWorld.controls = { goto: vi.fn() }
 
       // Set up entity to be duplicatable
       const entity = mockWorld.entities.items.get('entity-1')
@@ -104,16 +104,16 @@ describe('BuildManager', () => {
           x: 0,
           y: 0,
           z: 0,
-          toArray: mock().mockReturnValue([0, 0, 0]),
+          toArray: vi.fn().mockReturnValue([0, 0, 0]),
         },
         quaternion: {
           x: 0,
           y: 0,
           z: 0,
           w: 1,
-          toArray: mock().mockReturnValue([0, 0, 0, 1]),
+          toArray: vi.fn().mockReturnValue([0, 0, 0, 1]),
         },
-        scale: { x: 1, y: 1, z: 1, toArray: mock().mockReturnValue([1, 1, 1]) },
+        scale: { x: 1, y: 1, z: 1, toArray: vi.fn().mockReturnValue([1, 1, 1]) },
       }
 
       await buildManager.duplicate('entity-1')
@@ -135,9 +135,9 @@ describe('BuildManager', () => {
     })
 
     it('should duplicate unique blueprints', async () => {
-      mockWorld.blueprints = { add: mock() }
-      mockWorld.entities.add = mock()
-      mockWorld.controls = { goto: mock() }
+      mockWorld.blueprints = { add: vi.fn() }
+      mockWorld.entities.add = vi.fn()
+      mockWorld.controls = { goto: vi.fn() }
 
       // Make entity have unique blueprint
       mockWorld.entities.items.get('entity-1').isApp = true
@@ -151,19 +151,19 @@ describe('BuildManager', () => {
 
   describe('translate', () => {
     it('should translate an entity', async () => {
-      mockWorld.controls = { goto: mock() }
+      mockWorld.controls = { goto: vi.fn() }
       const entity = mockWorld.entities.items.get('entity-1')
       entity.root = {
         position: {
-          fromArray: mock(),
-          toArray: mock().mockReturnValue([5, 0, 0]),
+          fromArray: vi.fn(),
+          toArray: vi.fn().mockReturnValue([5, 0, 0]),
         },
         quaternion: {
           ...entity.base.quaternion,
-          toArray: mock().mockReturnValue([0, 0, 0, 1]),
+          toArray: vi.fn().mockReturnValue([0, 0, 0, 1]),
         },
         scale: {
-          toArray: mock().mockReturnValue([1, 1, 1]),
+          toArray: vi.fn().mockReturnValue([1, 1, 1]),
         },
       }
 
@@ -197,8 +197,8 @@ describe('BuildManager', () => {
       const entity = mockWorld.entities.items.get('entity-1')
       entity.isApp = true
       entity.data.pinned = false
-      entity.destroy = mock()
-      mockWorld.controls = { goto: mock() }
+      entity.destroy = vi.fn()
+      mockWorld.controls = { goto: vi.fn() }
 
       await buildManager.delete('entity-1')
 
@@ -209,7 +209,7 @@ describe('BuildManager', () => {
       const entity = mockWorld.entities.items.get('entity-1')
       entity.isApp = true
       entity.data.pinned = true
-      entity.destroy = mock()
+      entity.destroy = vi.fn()
 
       await buildManager.delete('entity-1')
 
@@ -219,19 +219,19 @@ describe('BuildManager', () => {
 
   describe('rotate', () => {
     it('should rotate an entity', async () => {
-      mockWorld.controls = { goto: mock() }
+      mockWorld.controls = { goto: vi.fn() }
       const entity = mockWorld.entities.items.get('entity-1')
       entity.root = {
         position: {
           ...entity.base.position,
-          toArray: mock().mockReturnValue([0, 0, 0]),
+          toArray: vi.fn().mockReturnValue([0, 0, 0]),
         },
         quaternion: {
-          fromArray: mock(),
-          toArray: mock().mockReturnValue([0, 0.707, 0, 0.707]),
+          fromArray: vi.fn(),
+          toArray: vi.fn().mockReturnValue([0, 0.707, 0, 0.707]),
         },
         scale: {
-          toArray: mock().mockReturnValue([1, 1, 1]),
+          toArray: vi.fn().mockReturnValue([1, 1, 1]),
         },
       }
 
@@ -245,19 +245,19 @@ describe('BuildManager', () => {
 
   describe('scale', () => {
     it('should scale an entity', async () => {
-      mockWorld.controls = { goto: mock() }
+      mockWorld.controls = { goto: vi.fn() }
       const entity = mockWorld.entities.items.get('entity-1')
       entity.root = {
         position: {
           ...entity.base.position,
-          toArray: mock().mockReturnValue([0, 0, 0]),
+          toArray: vi.fn().mockReturnValue([0, 0, 0]),
         },
         quaternion: {
-          toArray: mock().mockReturnValue([0, 0, 0, 1]),
+          toArray: vi.fn().mockReturnValue([0, 0, 0, 1]),
         },
         scale: {
-          fromArray: mock(),
-          toArray: mock().mockReturnValue([2, 2, 2]),
+          fromArray: vi.fn(),
+          toArray: vi.fn().mockReturnValue([2, 2, 2]),
         },
       }
 

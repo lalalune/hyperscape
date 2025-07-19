@@ -2,7 +2,7 @@ import {
   type Provider,
   type IAgentRuntime,
   type Memory,
-} from '../types/eliza-mock'
+} from '@elizaos/core'
 import { EMOTES_LIST } from '../constants'
 
 /**

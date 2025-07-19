@@ -27,7 +27,7 @@ export class HyperfyServerManager {
 
   async startServer(config: Partial<ServerConfig> = {}): Promise<ServerStatus> {
     const fullConfig: ServerConfig = {
-      port: 3001,
+      port: 3000,
       hyperfyPath: '../hyperfy',
       worldPath: 'world',
       timeout: 30000,
