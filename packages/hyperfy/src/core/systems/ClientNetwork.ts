@@ -202,7 +202,9 @@ export class ClientNetwork extends System {
     }
 
     console.log('[ClientNetwork] Deserializing world data...')
+    console.log('[ClientNetwork] Collections data received:', data.collections)
     ;(this.world.collections as any).deserialize(data.collections)
+    console.log('[ClientNetwork] Collections after deserialize:', this.world.collections)
     ;(this.world.settings as any).deserialize(data.settings)
     ;(this.world.chat as any).deserialize(data.chat)
     ;(this.world.blueprints as any).deserialize(data.blueprints)

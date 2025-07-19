@@ -3304,7 +3304,21 @@ class GLTFParser {
 			sourceURI = parser.getDependency( 'bufferView', sourceDef.bufferView ).then( function ( bufferView ) {
 
 				isObjectURL = true;
-				const blob = new Blob( [ bufferView ], { type: sourceDef.mimeType } );
+				// Ensure we have a valid mimeType, fallback to common image types
+				let mimeType = sourceDef.mimeType;
+				if (!mimeType) {
+					// Try to detect from buffer signature
+					const view = new Uint8Array(bufferView, 0, 4);
+					if (view[0] === 0x89 && view[1] === 0x50 && view[2] === 0x4E && view[3] === 0x47) {
+						mimeType = 'image/png';
+					} else if (view[0] === 0xFF && view[1] === 0xD8 && view[2] === 0xFF) {
+						mimeType = 'image/jpeg';
+					} else {
+						mimeType = 'image/png'; // Default fallback
+					}
+				}
+				
+				const blob = new Blob( [ bufferView ], { type: mimeType } );
 				sourceURI = URL.createObjectURL( blob );
 				return sourceURI;
 
@@ -3358,7 +3372,22 @@ class GLTFParser {
 		} ).catch( function ( error ) {
 
 			console.error( 'THREE.GLTFLoader: Couldn\'t load texture', sourceURI );
-			throw error;
+			console.error( 'THREE.GLTFLoader: Source definition:', sourceDef );
+			console.error( 'THREE.GLTFLoader: Texture loading error:', error );
+			
+			// Return a placeholder texture instead of throwing to prevent app crashes
+			const canvas = document.createElement('canvas');
+			canvas.width = canvas.height = 1;
+			const context = canvas.getContext('2d');
+			context.fillStyle = '#ff00ff'; // Magenta placeholder
+			context.fillRect(0, 0, 1, 1);
+			
+			const texture = new Texture(canvas);
+			texture.needsUpdate = true;
+			texture.name = 'placeholder_texture_' + sourceIndex;
+			
+			console.warn( 'THREE.GLTFLoader: Using placeholder texture for failed load' );
+			return texture;
 
 		} );
 

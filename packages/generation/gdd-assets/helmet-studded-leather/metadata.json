@@ -1,0 +1,37 @@
+{
+  "name": "Studded Leather Helmet",
+  "description": "A studded_leather leather helmet, front view, clean white background, no head or mannequin, just the helmet, game asset style",
+  "type": "armor",
+  "subtype": "helmet",
+  "style": "realistic",
+  "metadata": {
+    "tier": "studded_leather",
+    "level": 5,
+    "gameId": "studded_leather_helmet",
+    "rarity": "common",
+    "defenseLevel": 5,
+    "slot": "head"
+  },
+  "id": "helmet-studded-leather",
+  "analysisResult": {
+    "slot": "helmet",
+    "attachmentPoint": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T09:39:35.108Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/helmet-studded-leather/Studded Leather Helmet.glb"
+}

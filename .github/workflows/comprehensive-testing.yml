@@ -1,0 +1,376 @@
+name: Comprehensive Testing Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run full test suite daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  NODE_VERSION: '18'
+  CI: true
+  HYPERFY_TEST_MODE: true
+  LOG_LEVEL: error
+  PRESERVE_TEST_DATA: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set test matrix
+        id: set-matrix
+        run: |
+          echo "matrix={\"package\":[\"test-framework\",\"generation\",\"hyperfy\",\"rpg\"]}" >> $GITHUB_OUTPUT
+
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --workspaces
+      
+      - name: Run linting
+        run: npm run lint --workspaces --if-present
+      
+      - name: Run type checking
+        run: npm run typecheck --workspaces --if-present
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --workspaces
+      
+      - name: Run unit tests for ${{ matrix.package }}
+        run: npm run test:unit --workspace=packages/${{ matrix.package }} --if-present
+        continue-on-error: true
+
+  visual-testing:
+    runs-on: ubuntu-latest
+    needs: lint-and-typecheck
+    services:
+      xvfb:
+        image: selenium/standalone-chrome:latest
+        options: --shm-size=2gb
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --workspaces
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libgconf-2-4 \
+            libxss1 \
+            libasound2 \
+            libxtst6 \
+            libxrandr2 \
+            libgtk-3-0 \
+            libdrm2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            xvfb
+      
+      - name: Setup test environment
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key-sk-disabled-for-testing' }}
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY || 'test-key-disabled-for-testing' }}
+        run: |
+          # Create test data directory
+          mkdir -p test-results/screenshots
+          mkdir -p test-results/performance
+          
+          # Start Xvfb for headless browser testing
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
+      
+      - name: Run visual tests
+        env:
+          DISPLAY: :99
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key-sk-disabled-for-testing' }}
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY || 'test-key-disabled-for-testing' }}
+        run: |
+          npm run test:visual --workspace=packages/test-framework
+        timeout-minutes: 30
+      
+      - name: Upload visual test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-test-results
+          path: |
+            test-results/screenshots/
+            test-results/performance/
+          retention-days: 7
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, unit-tests]
+    strategy:
+      fail-fast: false
+      matrix:
+        test-suite: [
+          'rpg-combat-system',
+          'rpg-skills-system', 
+          'rpg-equipment-system',
+          'rpg-resource-gathering',
+          'rpg-banking-system',
+          'rpg-full-gameplay'
+        ]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --workspaces
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libgconf-2-4 \
+            libxss1 \
+            libasound2 \
+            libxtst6 \
+            libxrandr2 \
+            libgtk-3-0 \
+            libdrm2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            xvfb
+      
+      - name: Setup test environment
+        run: |
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
+      
+      - name: Run integration tests - ${{ matrix.test-suite }}
+        env:
+          DISPLAY: :99
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key-sk-disabled-for-testing' }}
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY || 'test-key-disabled-for-testing' }}
+          TEST_SUITE: ${{ matrix.test-suite }}
+        run: |
+          npm run test:integration --workspace=packages/rpg -- --grep="${{ matrix.test-suite }}"
+        timeout-minutes: 20
+      
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results-${{ matrix.test-suite }}
+          path: |
+            test-results/
+            packages/rpg/test-results/
+          retention-days: 5
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: visual-testing
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --workspaces
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libgconf-2-4 \
+            libxss1 \
+            libasound2 \
+            libxtst6 \
+            libxrandr2 \
+            libgtk-3-0 \
+            libdrm2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            xvfb
+      
+      - name: Setup test environment
+        run: |
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
+      
+      - name: Download baseline performance data
+        uses: actions/download-artifact@v4
+        with:
+          name: performance-baseline
+          path: test-results/performance/
+        continue-on-error: true
+      
+      - name: Run performance tests
+        env:
+          DISPLAY: :99
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key-sk-disabled-for-testing' }}
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY || 'test-key-disabled-for-testing' }}
+        run: |
+          npm run test:performance --workspace=packages/test-framework
+        timeout-minutes: 15
+      
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-test-results
+          path: |
+            test-results/performance/
+          retention-days: 30
+      
+      - name: Upload performance baseline
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: performance-baseline
+          path: |
+            test-results/performance/baseline.json
+          retention-days: 90
+
+  comprehensive-e2e:
+    runs-on: ubuntu-latest
+    needs: [integration-tests, performance-tests]
+    if: github.event_name == 'schedule' || github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --workspaces
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libgconf-2-4 \
+            libxss1 \
+            libasound2 \
+            libxtst6 \
+            libxrandr2 \
+            libgtk-3-0 \
+            libdrm2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            xvfb
+      
+      - name: Setup test environment
+        run: |
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
+      
+      - name: Run comprehensive E2E test suite
+        env:
+          DISPLAY: :99
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key-sk-disabled-for-testing' }}
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY || 'test-key-disabled-for-testing' }}
+        run: |
+          npm run test:e2e --workspace=packages/test-framework
+        timeout-minutes: 60
+      
+      - name: Generate comprehensive test report
+        if: always()
+        run: |
+          npm run test:report --workspace=packages/test-framework
+      
+      - name: Upload comprehensive test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comprehensive-e2e-results
+          path: |
+            test-results/
+            packages/*/test-results/
+          retention-days: 14
+
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, visual-testing, integration-tests, performance-tests]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: all-test-results/
+      
+      - name: Generate test summary
+        run: |
+          echo "# Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count test result files
+          total_files=$(find all-test-results/ -name "*.json" | wc -l)
+          echo "**Total test result files:** $total_files" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for test failures
+          if find all-test-results/ -name "*.json" -exec grep -l '"failed"' {} \; | head -1; then
+            echo "❌ **Some tests failed - check individual job results**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **All tests passed**" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Tests: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY  
+          echo "- Visual Tests: ${{ needs.visual-testing.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration Tests: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Tests: ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY

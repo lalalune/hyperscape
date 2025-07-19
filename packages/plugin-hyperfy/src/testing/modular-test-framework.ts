@@ -1,32 +1,38 @@
-import { IAgentRuntime, logger } from '../types/eliza-mock';
-import { HyperfyService } from '../service';
-import { ContentPackLoader } from '../managers/content-pack-loader';
-import { IContentPack } from '../types/content-pack';
-import { VisualTestFramework, TestVerification, TestResult } from './visual-test-framework';
+import { IAgentRuntime, logger } from '../types/eliza-mock'
+import { HyperfyService } from '../service'
+import { ContentPackLoader } from '../managers/content-pack-loader'
+import { IContentPack } from '../types/content-pack'
+import {
+  VisualTestFramework,
+  TestVerification,
+  TestResult,
+} from './visual-test-framework'
 
 /**
  * Test framework for modular content packs
  * Supports testing any content pack with visual and state verification
  */
 export class ModularTestFramework {
-  private runtime: IAgentRuntime;
-  private service: HyperfyService;
-  private contentLoader: ContentPackLoader;
-  private visualTest: VisualTestFramework;
+  private runtime: IAgentRuntime
+  private service: HyperfyService
+  private contentLoader: ContentPackLoader
+  private visualTest: VisualTestFramework
 
   constructor(runtime: IAgentRuntime) {
-    this.runtime = runtime;
-    this.service = runtime.getService<HyperfyService>(HyperfyService.serviceName)!;
-    this.contentLoader = new ContentPackLoader(runtime);
-    this.visualTest = new VisualTestFramework(runtime);
+    this.runtime = runtime
+    this.service = runtime.getService<HyperfyService>(
+      HyperfyService.serviceName
+    )!
+    this.contentLoader = new ContentPackLoader(runtime)
+    this.visualTest = new VisualTestFramework(runtime)
   }
 
   /**
    * Initialize test framework
    */
   async initialize(): Promise<void> {
-    await this.visualTest.initialize();
-    logger.info('[ModularTestFramework] Initialized');
+    await this.visualTest.initialize()
+    logger.info('[ModularTestFramework] Initialized')
   }
 
   /**
@@ -36,8 +42,8 @@ export class ModularTestFramework {
     pack: IContentPack,
     testSuites: IContentPackTestSuite[]
   ): Promise<IContentPackTestResult> {
-    logger.info(`[ModularTestFramework] Testing content pack: ${pack.name}`);
-    
+    logger.info(`[ModularTestFramework] Testing content pack: ${pack.name}`)
+
     const result: IContentPackTestResult = {
       packId: pack.id,
       packName: pack.name,
@@ -46,29 +52,35 @@ export class ModularTestFramework {
         total: 0,
         passed: 0,
         failed: 0,
-        skipped: 0
-      }
-    };
+        skipped: 0,
+      },
+    }
 
     try {
       // Load the content pack
-      await this.contentLoader.loadPack(pack);
-      logger.info(`[ModularTestFramework] Loaded pack: ${pack.id}`);
+      await this.contentLoader.loadPack(pack)
+      logger.info(`[ModularTestFramework] Loaded pack: ${pack.id}`)
 
       // Run each test suite
       for (const suite of testSuites) {
-        const suiteResult = await this.runTestSuite(pack, suite);
-        result.testResults.push(...suiteResult.tests);
-        
-        // Update summary
-        result.summary.total += suiteResult.tests.length;
-        result.summary.passed += suiteResult.tests.filter(t => t.passed).length;
-        result.summary.failed += suiteResult.tests.filter(t => !t.passed && !t.skipped).length;
-        result.summary.skipped += suiteResult.tests.filter(t => t.skipped).length;
-      }
+        const suiteResult = await this.runTestSuite(pack, suite)
+        result.testResults.push(...suiteResult.tests)
 
+        // Update summary
+        result.summary.total += suiteResult.tests.length
+        result.summary.passed += suiteResult.tests.filter(t => t.passed).length
+        result.summary.failed += suiteResult.tests.filter(
+          t => !t.passed && !t.skipped
+        ).length
+        result.summary.skipped += suiteResult.tests.filter(
+          t => t.skipped
+        ).length
+      }
     } catch (error) {
-      logger.error(`[ModularTestFramework] Failed to test pack ${pack.id}:`, error);
+      logger.error(
+        `[ModularTestFramework] Failed to test pack ${pack.id}:`,
+        error
+      )
       result.testResults.push({
         name: 'Pack Loading',
         passed: false,
@@ -76,19 +88,19 @@ export class ModularTestFramework {
         screenshots: [],
         stateSnapshot: null,
         timestamp: new Date(),
-        skipped: false
-      });
-      result.summary.total = 1;
-      result.summary.failed = 1;
+        skipped: false,
+      })
+      result.summary.total = 1
+      result.summary.failed = 1
     } finally {
       // Unload the pack after testing
-      await this.contentLoader.unloadPack(pack.id);
+      await this.contentLoader.unloadPack(pack.id)
     }
 
     // Generate report
-    this.generateTestReport(result);
-    
-    return result;
+    this.generateTestReport(result)
+
+    return result
   }
 
   /**
@@ -98,13 +110,13 @@ export class ModularTestFramework {
     pack: IContentPack,
     suite: IContentPackTestSuite
   ): Promise<{ suite: string; tests: ITestCaseResult[] }> {
-    logger.info(`[ModularTestFramework] Running test suite: ${suite.name}`);
-    
-    const results: ITestCaseResult[] = [];
+    logger.info(`[ModularTestFramework] Running test suite: ${suite.name}`)
+
+    const results: ITestCaseResult[] = []
 
     // Setup suite
     if (suite.setup) {
-      await suite.setup(this.runtime, this.service);
+      await suite.setup(this.runtime, this.service)
     }
 
     // Run each test case
@@ -119,37 +131,39 @@ export class ModularTestFramework {
             screenshots: [],
             stateSnapshot: null,
             timestamp: new Date(),
-            skipped: true
-          });
-          continue;
+            skipped: true,
+          })
+          continue
         }
 
         // Setup test
         if (testCase.setup) {
-          await testCase.setup(this.runtime, this.service);
+          await testCase.setup(this.runtime, this.service)
         }
 
         // Execute test actions
-        await testCase.execute(this.runtime, this.service);
+        await testCase.execute(this.runtime, this.service)
 
         // Perform verification
         const testResult = await this.visualTest.runTest(
           testCase.name,
           testCase.verification
-        );
+        )
 
         results.push({
           ...testResult,
-          skipped: false
-        });
+          skipped: false,
+        })
 
         // Teardown test
         if (testCase.teardown) {
-          await testCase.teardown(this.runtime, this.service);
+          await testCase.teardown(this.runtime, this.service)
         }
-
       } catch (error) {
-        logger.error(`[ModularTestFramework] Test ${testCase.name} failed:`, error);
+        logger.error(
+          `[ModularTestFramework] Test ${testCase.name} failed:`,
+          error
+        )
         results.push({
           name: testCase.name,
           passed: false,
@@ -157,49 +171,50 @@ export class ModularTestFramework {
           screenshots: [],
           stateSnapshot: null,
           timestamp: new Date(),
-          skipped: false
-        });
+          skipped: false,
+        })
       }
     }
 
     // Teardown suite
     if (suite.teardown) {
-      await suite.teardown(this.runtime, this.service);
+      await suite.teardown(this.runtime, this.service)
     }
 
-    return { suite: suite.name, tests: results };
+    return { suite: suite.name, tests: results }
   }
 
   /**
    * Generate test report
    */
   private generateTestReport(result: IContentPackTestResult): void {
-    const passRate = result.summary.total > 0 
-      ? (result.summary.passed / result.summary.total * 100).toFixed(2)
-      : '0';
+    const passRate =
+      result.summary.total > 0
+        ? ((result.summary.passed / result.summary.total) * 100).toFixed(2)
+        : '0'
 
-    console.log('\n' + '='.repeat(60));
-    console.log(`Content Pack Test Report: ${result.packName}`);
-    console.log('='.repeat(60));
-    console.log(`Total Tests: ${result.summary.total}`);
-    console.log(`Passed: ${result.summary.passed} ✅`);
-    console.log(`Failed: ${result.summary.failed} ❌`);
-    console.log(`Skipped: ${result.summary.skipped} ⏭️`);
-    console.log(`Pass Rate: ${passRate}%`);
-    console.log('='.repeat(60));
+    console.log('\n' + '='.repeat(60))
+    console.log(`Content Pack Test Report: ${result.packName}`)
+    console.log('='.repeat(60))
+    console.log(`Total Tests: ${result.summary.total}`)
+    console.log(`Passed: ${result.summary.passed} ✅`)
+    console.log(`Failed: ${result.summary.failed} ❌`)
+    console.log(`Skipped: ${result.summary.skipped} ⏭️`)
+    console.log(`Pass Rate: ${passRate}%`)
+    console.log('='.repeat(60))
 
     // List failed tests
     if (result.summary.failed > 0) {
-      console.log('\nFailed Tests:');
+      console.log('\nFailed Tests:')
       result.testResults
         .filter(t => !t.passed && !t.skipped)
         .forEach(test => {
-          console.log(`\n❌ ${test.name}`);
-          test.failures.forEach(f => console.log(`   - ${f}`));
-        });
+          console.log(`\n❌ ${test.name}`)
+          test.failures.forEach(f => console.log(`   - ${f}`))
+        })
     }
 
-    console.log('\n' + '='.repeat(60) + '\n');
+    console.log('\n' + '='.repeat(60) + '\n')
   }
 
   /**
@@ -208,51 +223,55 @@ export class ModularTestFramework {
   async testMultiplePacks(
     packs: Array<{ pack: IContentPack; suites: IContentPackTestSuite[] }>
   ): Promise<IContentPackTestResult[]> {
-    const results: IContentPackTestResult[] = [];
+    const results: IContentPackTestResult[] = []
 
     for (const { pack, suites } of packs) {
-      const result = await this.testContentPack(pack, suites);
-      results.push(result);
+      const result = await this.testContentPack(pack, suites)
+      results.push(result)
     }
 
     // Generate summary report
-    this.generateSummaryReport(results);
+    this.generateSummaryReport(results)
 
-    return results;
+    return results
   }
 
   /**
    * Generate summary report for multiple packs
    */
   private generateSummaryReport(results: IContentPackTestResult[]): void {
-    console.log('\n' + '='.repeat(60));
-    console.log('Content Pack Test Summary');
-    console.log('='.repeat(60));
+    console.log('\n' + '='.repeat(60))
+    console.log('Content Pack Test Summary')
+    console.log('='.repeat(60))
 
-    let totalTests = 0;
-    let totalPassed = 0;
-    let totalFailed = 0;
+    let totalTests = 0
+    let totalPassed = 0
+    let totalFailed = 0
 
     results.forEach(result => {
-      totalTests += result.summary.total;
-      totalPassed += result.summary.passed;
-      totalFailed += result.summary.failed;
+      totalTests += result.summary.total
+      totalPassed += result.summary.passed
+      totalFailed += result.summary.failed
 
-      const passRate = result.summary.total > 0
-        ? (result.summary.passed / result.summary.total * 100).toFixed(2)
-        : '0';
+      const passRate =
+        result.summary.total > 0
+          ? ((result.summary.passed / result.summary.total) * 100).toFixed(2)
+          : '0'
 
-      console.log(`\n${result.packName}:`);
-      console.log(`  Tests: ${result.summary.total} | Passed: ${result.summary.passed} | Failed: ${result.summary.failed} | Pass Rate: ${passRate}%`);
-    });
+      console.log(`\n${result.packName}:`)
+      console.log(
+        `  Tests: ${result.summary.total} | Passed: ${result.summary.passed} | Failed: ${result.summary.failed} | Pass Rate: ${passRate}%`
+      )
+    })
 
-    const overallPassRate = totalTests > 0
-      ? (totalPassed / totalTests * 100).toFixed(2)
-      : '0';
+    const overallPassRate =
+      totalTests > 0 ? ((totalPassed / totalTests) * 100).toFixed(2) : '0'
 
-    console.log('\n' + '-'.repeat(60));
-    console.log(`Overall: ${totalTests} tests | ${totalPassed} passed | ${totalFailed} failed | ${overallPassRate}% pass rate`);
-    console.log('='.repeat(60) + '\n');
+    console.log('\n' + '-'.repeat(60))
+    console.log(
+      `Overall: ${totalTests} tests | ${totalPassed} passed | ${totalFailed} failed | ${overallPassRate}% pass rate`
+    )
+    console.log('='.repeat(60) + '\n')
   }
 }
 
@@ -260,37 +279,37 @@ export class ModularTestFramework {
  * Interfaces for content pack testing
  */
 export interface IContentPackTestSuite {
-  name: string;
-  description: string;
-  tests: ITestCase[];
-  setup?: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>;
-  teardown?: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>;
+  name: string
+  description: string
+  tests: ITestCase[]
+  setup?: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>
+  teardown?: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>
 }
 
 export interface ITestCase {
-  name: string;
-  description: string;
-  skip?: boolean;
-  setup?: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>;
-  execute: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>;
-  verification: TestVerification;
-  teardown?: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>;
+  name: string
+  description: string
+  skip?: boolean
+  setup?: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>
+  execute: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>
+  verification: TestVerification
+  teardown?: (runtime: IAgentRuntime, service: HyperfyService) => Promise<void>
 }
 
 export interface ITestCaseResult extends TestResult {
-  skipped: boolean;
+  skipped: boolean
 }
 
 export interface IContentPackTestResult {
-  packId: string;
-  packName: string;
-  testResults: ITestCaseResult[];
+  packId: string
+  packName: string
+  testResults: ITestCaseResult[]
   summary: {
-    total: number;
-    passed: number;
-    failed: number;
-    skipped: number;
-  };
+    total: number
+    passed: number
+    failed: number
+    skipped: number
+  }
 }
 
 /**
@@ -303,49 +322,74 @@ export class RPGTestSuiteBuilder {
   static createCombatTestSuite(): IContentPackTestSuite {
     return {
       name: 'Combat System',
-      description: 'Tests combat mechanics including damage, healing, and death',
+      description:
+        'Tests combat mechanics including damage, healing, and death',
       tests: [
         {
           name: 'Basic Attack Damage',
           description: 'Verify attacking deals damage',
           execute: async (runtime, service) => {
-            const world = service.getWorld();
-            await world?.actions?.execute('ATTACK_TARGET', { target: 'goblin' });
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const world = service.getWorld()
+            await world?.actions?.execute('ATTACK_TARGET', { target: 'goblin' })
+            await new Promise(resolve => setTimeout(resolve, 2000))
           },
           verification: {
             type: 'both',
             visualChecks: [
-              { entityType: 'npcs.goblin', expectedColor: 2263842, shouldExist: true },
-              { entityType: 'effects.damage', expectedColor: 16711680, shouldExist: true }
+              {
+                entityType: 'npcs.goblin',
+                expectedColor: 2263842,
+                shouldExist: true,
+              },
+              {
+                entityType: 'effects.damage',
+                expectedColor: 16711680,
+                shouldExist: true,
+              },
             ],
             stateChecks: [
-              { property: 'combat.inCombat', expectedValue: true, operator: 'equals' },
-              { property: 'combat.target', expectedValue: 'goblin', operator: 'contains' }
+              {
+                property: 'combat.inCombat',
+                expectedValue: true,
+                operator: 'equals',
+              },
+              {
+                property: 'combat.target',
+                expectedValue: 'goblin',
+                operator: 'contains',
+              },
             ],
-            screenshot: true
-          }
+            screenshot: true,
+          },
         },
         {
           name: 'Healing Effect',
           description: 'Verify healing restores health',
           execute: async (runtime, service) => {
-            const world = service.getWorld();
-            await world?.actions?.execute('USE_ITEM', { item: 'health_potion' });
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const world = service.getWorld()
+            await world?.actions?.execute('USE_ITEM', { item: 'health_potion' })
+            await new Promise(resolve => setTimeout(resolve, 1000))
           },
           verification: {
             type: 'both',
             visualChecks: [
-              { entityType: 'effects.heal', expectedColor: 65280, shouldExist: true }
+              {
+                entityType: 'effects.heal',
+                expectedColor: 65280,
+                shouldExist: true,
+              },
             ],
             stateChecks: [
-              { property: 'health.current', expectedValue: 50, operator: 'greater' }
-            ]
-          }
-        }
-      ]
-    };
+              {
+                property: 'health.current',
+                expectedValue: 50,
+                operator: 'greater',
+              },
+            ],
+          },
+        },
+      ],
+    }
   }
 
   /**
@@ -360,18 +404,24 @@ export class RPGTestSuiteBuilder {
           name: 'Item Pickup',
           description: 'Verify items can be picked up',
           execute: async (runtime, service) => {
-            const world = service.getWorld();
-            await world?.actions?.execute('PICKUP_ITEM', { itemId: 'sword_001' });
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const world = service.getWorld()
+            await world?.actions?.execute('PICKUP_ITEM', {
+              itemId: 'sword_001',
+            })
+            await new Promise(resolve => setTimeout(resolve, 1000))
           },
           verification: {
             type: 'state',
             stateChecks: [
-              { property: 'inventory.items', expectedValue: 'sword', operator: 'contains' }
-            ]
-          }
-        }
-      ]
-    };
+              {
+                property: 'inventory.items',
+                expectedValue: 'sword',
+                operator: 'contains',
+              },
+            ],
+          },
+        },
+      ],
+    }
   }
-} 
+}

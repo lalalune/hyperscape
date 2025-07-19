@@ -1,0 +1,37 @@
+{
+  "name": "Leather Helmet",
+  "description": "A leather leather helmet, front view, clean white background, no head or mannequin, just the helmet, game asset style, brown leather helmet with simple stitching",
+  "type": "armor",
+  "subtype": "helmet",
+  "style": "realistic",
+  "metadata": {
+    "tier": "leather",
+    "level": 1,
+    "gameId": "leather_helmet",
+    "rarity": "common",
+    "defenseLevel": 1,
+    "slot": "head"
+  },
+  "id": "helmet-leather",
+  "analysisResult": {
+    "slot": "helmet",
+    "attachmentPoint": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T19:32:40.537Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/helmet-leather/Leather Helmet.glb"
+}

@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Load environment variables
+import 'dotenv/config'
+
 /**
  * AI Creation CLI
  * Command-line interface for asset generation

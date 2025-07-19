@@ -1,0 +1,7 @@
+{
+  "name": "RPGComplete",
+  "apps": [
+    "RPGPlayer.hyp",
+    "RPGGoblin.hyp"
+  ]
+}

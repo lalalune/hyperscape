@@ -1,5 +1,5 @@
-import type { IAgentRuntime, Memory, State, UUID } from '../types/eliza-mock';
-import { mock } from 'bun:test';
+import type { IAgentRuntime, Memory, State, UUID } from '../types/eliza-mock'
+import { vi } from 'vitest'
 
 /**
  * Creates a mock runtime for testing hyperfy plugin
@@ -8,7 +8,9 @@ import { mock } from 'bun:test';
  * @param overrides - Optional overrides for the default mock methods and properties
  * @returns A mock runtime for testing
  */
-export function createMockRuntime(overrides: Partial<IAgentRuntime> = {}): IAgentRuntime {
+export function createMockRuntime(
+  overrides: Partial<IAgentRuntime> = {}
+): IAgentRuntime {
   return {
     character: {
       name: 'HyperfyTestAgent',
@@ -33,13 +35,16 @@ export function createMockRuntime(overrides: Partial<IAgentRuntime> = {}): IAgen
         API_KEY: 'test-api-key',
         SECRET_KEY: 'test-secret',
         ...(overrides as any)?.settings,
-      };
-      return settings[key];
+      }
+      return settings[key]
     },
 
     // Hyperfy-specific services
     getService: ((nameOrClass: any) => {
-      const name = typeof nameOrClass === 'string' ? nameOrClass : (nameOrClass.serviceName || nameOrClass.name);
+      const name =
+        typeof nameOrClass === 'string'
+          ? nameOrClass
+          : nameOrClass.serviceName || nameOrClass.name
       const services: Record<string, any> = {
         'test-service': {
           start: async () => {},
@@ -53,8 +58,8 @@ export function createMockRuntime(overrides: Partial<IAgentRuntime> = {}): IAgen
           spawnEntity: async () => true,
         },
         ...(overrides as any)?.services,
-      };
-      return services[name];
+      }
+      return services[name]
     }) as any,
 
     // Mock other required runtime methods
@@ -62,11 +67,11 @@ export function createMockRuntime(overrides: Partial<IAgentRuntime> = {}): IAgen
       init: async () => {},
       close: async () => {},
       getMemories: async () => [],
-      createMemory: async () => ({} as Memory),
+      createMemory: async () => ({}) as Memory,
       removeMemory: async () => {},
       searchMemories: async () => [],
       getGoals: async () => [],
-      createGoal: async () => ({} as any),
+      createGoal: async () => ({}) as any,
       removeGoal: async () => {},
       updateGoal: async () => {},
       searchGoals: async () => [],
@@ -77,7 +82,7 @@ export function createMockRuntime(overrides: Partial<IAgentRuntime> = {}): IAgen
       getParticipantsForAccount: async () => [],
       getParticipantsForRoom: async () => [],
       getAccountById: async () => null,
-      createAccount: async () => ({} as any),
+      createAccount: async () => ({}) as any,
       getMemoriesByRoomIds: async () => [],
       createRelationship: async () => true,
       getRelationship: async () => null,
@@ -91,34 +96,40 @@ export function createMockRuntime(overrides: Partial<IAgentRuntime> = {}): IAgen
     // Mock action methods
     async initialize() {},
     async stop() {},
-    async evaluate() { return []; },
-    async composeState() { return {} as State; },
-    async updateRecentMessageState() { return {} as State; },
+    async evaluate() {
+      return []
+    },
+    async composeState() {
+      return {} as State
+    },
+    async updateRecentMessageState() {
+      return {} as State
+    },
 
     // Additional runtime methods needed by tests
-    ensureConnection: mock().mockResolvedValue(true),
-    getMemories: mock().mockResolvedValue([]),
-    getRoom: mock().mockResolvedValue(null),
-    emitEvent: mock(),
-    useModel: mock().mockResolvedValue({}),
-    generateText: mock().mockResolvedValue('generated text'),
-    getEntityById: mock().mockResolvedValue(null),
-    createMemory: mock().mockResolvedValue({}),
-    getEntitiesForRoom: mock().mockResolvedValue([]),
-    createEntity: mock().mockResolvedValue({}),
-    
+    ensureConnection: vi.fn().mockResolvedValue(true),
+    getMemories: vi.fn().mockResolvedValue([]),
+    getRoom: vi.fn().mockResolvedValue(null),
+    emitEvent: vi.fn(),
+    useModel: vi.fn().mockResolvedValue({}),
+    generateText: vi.fn().mockResolvedValue('generated text'),
+    getEntityById: vi.fn().mockResolvedValue(null),
+    createMemory: vi.fn().mockResolvedValue({}),
+    getEntitiesForRoom: vi.fn().mockResolvedValue([]),
+    createEntity: vi.fn().mockResolvedValue({}),
+
     // Message manager
     messageManager: {
-      createMemory: mock().mockResolvedValue(true),
-      getMemories: mock().mockResolvedValue([]),
-      updateMemory: mock().mockResolvedValue(true),
-      deleteMemory: mock().mockResolvedValue(true),
-      searchMemories: mock().mockResolvedValue([]),
-      getLastMessages: mock().mockResolvedValue([]),
+      createMemory: vi.fn().mockResolvedValue(true),
+      getMemories: vi.fn().mockResolvedValue([]),
+      updateMemory: vi.fn().mockResolvedValue(true),
+      deleteMemory: vi.fn().mockResolvedValue(true),
+      searchMemories: vi.fn().mockResolvedValue([]),
+      getLastMessages: vi.fn().mockResolvedValue([]),
     },
 
     // State
-    updateState: mock().mockResolvedValue(true),
+    updateState: vi.fn().mockResolvedValue(true),
 
     // Actions & Providers
     actions: [],
@@ -126,28 +137,28 @@ export function createMockRuntime(overrides: Partial<IAgentRuntime> = {}): IAgen
     evaluators: [],
 
     // Components
-    createComponent: mock().mockResolvedValue(true),
-    getComponents: mock().mockResolvedValue([]),
-    updateComponent: mock().mockResolvedValue(true),
+    createComponent: vi.fn().mockResolvedValue(true),
+    getComponents: vi.fn().mockResolvedValue([]),
+    updateComponent: vi.fn().mockResolvedValue(true),
 
     // Database
     db: {
-      query: mock().mockResolvedValue([]),
-      execute: mock().mockResolvedValue({ changes: 1 }),
-      getWorlds: mock().mockResolvedValue([]),
-      getWorld: mock().mockResolvedValue(null),
+      query: vi.fn().mockResolvedValue([]),
+      execute: vi.fn().mockResolvedValue({ changes: 1 }),
+      getWorlds: vi.fn().mockResolvedValue([]),
+      getWorld: vi.fn().mockResolvedValue(null),
     },
 
     // Logging
     logger: {
-      info: mock(),
-      warn: mock(),
-      error: mock(),
-      debug: mock(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
     },
 
     ...overrides,
-  } as unknown as IAgentRuntime;
+  } as unknown as IAgentRuntime
 }
 
 /**
@@ -167,7 +178,7 @@ export function createMockMemory(overrides: Partial<Memory> = {}): Memory {
     embedding: new Float32Array([0.1, 0.2, 0.3]),
     createdAt: Date.now(),
     ...overrides,
-  } as Memory;
+  } as Memory
 }
 
 /**
@@ -182,14 +193,14 @@ export function createMockState(overrides: Partial<State> = {}): State {
     },
     text: 'Hyperfy RPG world context',
     ...overrides,
-  } as State;
+  } as State
 }
 
 /**
  * Creates a mock Hyperfy world object
  */
 export function createMockWorld(): any {
-  const mockEntities = new Map();
+  const mockEntities = new Map()
 
   // Add some test entities
   mockEntities.set('entity-1', {
@@ -210,7 +221,13 @@ export function createMockWorld(): any {
         fromArray: () => {},
         toArray: () => [0, 0, 0, 1],
       },
-      scale: { x: 1, y: 1, z: 1, fromArray: () => {}, toArray: () => [1, 1, 1] },
+      scale: {
+        x: 1,
+        y: 1,
+        z: 1,
+        fromArray: () => {},
+        toArray: () => [1, 1, 1],
+      },
     },
     root: {
       position: {
@@ -228,10 +245,16 @@ export function createMockWorld(): any {
         fromArray: () => {},
         toArray: () => [0, 0, 0, 1],
       },
-      scale: { x: 1, y: 1, z: 1, fromArray: () => {}, toArray: () => [1, 1, 1] },
+      scale: {
+        x: 1,
+        y: 1,
+        z: 1,
+        fromArray: () => {},
+        toArray: () => [1, 1, 1],
+      },
     },
-    destroy: mock(),
-  });
+    destroy: vi.fn(),
+  })
 
   mockEntities.set('entity-2', {
     data: { id: 'entity-2', name: 'Sphere', type: 'sphere' },
@@ -251,7 +274,13 @@ export function createMockWorld(): any {
         fromArray: () => {},
         toArray: () => [0, 0, 0, 1],
       },
-      scale: { x: 1, y: 1, z: 1, fromArray: () => {}, toArray: () => [1, 1, 1] },
+      scale: {
+        x: 1,
+        y: 1,
+        z: 1,
+        fromArray: () => {},
+        toArray: () => [1, 1, 1],
+      },
     },
     root: {
       position: {
@@ -269,10 +298,16 @@ export function createMockWorld(): any {
         fromArray: () => {},
         toArray: () => [0, 0, 0, 1],
       },
-      scale: { x: 1, y: 1, z: 1, fromArray: () => {}, toArray: () => [1, 1, 1] },
+      scale: {
+        x: 1,
+        y: 1,
+        z: 1,
+        fromArray: () => {},
+        toArray: () => [1, 1, 1],
+      },
     },
-    destroy: mock(),
-  });
+    destroy: vi.fn(),
+  })
 
   return {
     entities: {
@@ -293,26 +328,26 @@ export function createMockWorld(): any {
       items: mockEntities,
     },
     chat: {
-      add: mock(),
+      add: vi.fn(),
       msgs: [],
     },
     controls: {
-      goto: mock(),
-      stopAllActions: mock(),
+      goto: vi.fn(),
+      stopAllActions: vi.fn(),
     },
     actions: {
-      execute: mock(),
-      getNearby: mock().mockReturnValue([]),
+      execute: vi.fn(),
+      getNearby: vi.fn().mockReturnValue([]),
     },
     network: {
-      upload: mock(),
-      send: mock(),
+      upload: vi.fn(),
+      send: vi.fn(),
     },
     assetsUrl: 'https://test.hyperfy.io/assets',
     blueprints: {
-      add: mock(),
+      add: vi.fn(),
     },
-  };
+  }
 }
 
 /**
@@ -357,7 +392,7 @@ export function createMockHyperfyService(): any {
     currentWorldId: 'test-world-123',
     connect: async () => true,
     disconnect: async () => true,
-  };
+  }
 }
 
 /**
@@ -369,20 +404,20 @@ export function setupLoggerSpies(mockFn?: any) {
     error: console.error,
     warn: console.warn,
     debug: console.debug,
-  };
+  }
 
   if (mockFn) {
-    console.info = mockFn(() => {});
-    console.error = mockFn(() => {});
-    console.warn = mockFn(() => {});
-    console.debug = mockFn(() => {});
+    console.info = mockFn(() => {})
+    console.error = mockFn(() => {})
+    console.warn = mockFn(() => {})
+    console.debug = mockFn(() => {})
   }
 
   // Allow tests to restore originals
   return () => {
-    console.info = originalConsole.info;
-    console.error = originalConsole.error;
-    console.warn = originalConsole.warn;
-    console.debug = originalConsole.debug;
-  };
+    console.info = originalConsole.info
+    console.error = originalConsole.error
+    console.warn = originalConsole.warn
+    console.debug = originalConsole.debug
+  }
 }

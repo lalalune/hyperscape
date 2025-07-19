@@ -1,0 +1,51 @@
+{
+  "name": "Mithril Sword",
+  "description": "A mithril sword with shimmering silver-blue blade and ornate crossguard, high-level weapon for level 20+ adventurers",
+  "type": "weapon",
+  "subtype": "sword",
+  "style": "realistic",
+  "metadata": {
+    "tier": "mithril",
+    "level": 20,
+    "gameId": "mithril_sword",
+    "rarity": "rare",
+    "attackLevel": 20,
+    "strengthLevel": 20
+  },
+  "id": "mithril-sword",
+  "analysisResult": {
+    "weaponType": "sword",
+    "primaryGrip": {
+      "position": {
+        "x": 0,
+        "y": -0.6,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.9
+    },
+    "attachmentPoints": [
+      {
+        "name": "blade_tip",
+        "position": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    ]
+  },
+  "generatedAt": "2025-07-18T07:47:51.020Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/mithril-sword/Mithril Sword.glb"
+}

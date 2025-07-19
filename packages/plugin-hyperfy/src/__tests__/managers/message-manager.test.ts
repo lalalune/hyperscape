@@ -1,27 +1,27 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
-import { MessageManager } from '../../managers/message-manager';
-import { createMockRuntime } from '../test-utils';
-import { createMockWorld } from '../helpers/mock-world';
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MessageManager } from '../../managers/message-manager'
+import { createMockRuntime } from '../test-utils'
+import { createMockWorld } from '../helpers/mock-world'
 
 describe('MessageManager', () => {
-  let mockRuntime: any;
-  let messageManager: MessageManager;
-  let mockWorld: any;
+  let mockRuntime: any
+  let messageManager: MessageManager
+  let mockWorld: any
 
   beforeEach(() => {
-    mock.restore();
-    mockRuntime = createMockRuntime();
-    mockWorld = createMockWorld();
-    messageManager = new MessageManager(mockRuntime);
-  });
+    vi.restoreAllMocks()
+    mockRuntime = createMockRuntime()
+    mockWorld = createMockWorld()
+    messageManager = new MessageManager(mockRuntime)
+  })
 
   describe('sendMessage', () => {
     it('should send a message to the world chat', () => {
       mockRuntime.getService = mock().mockReturnValue({
         getWorld: mock().mockReturnValue(mockWorld),
-      });
+      })
 
-      messageManager.sendMessage('Hello world!');
+      messageManager.sendMessage('Hello world!')
 
       expect(mockWorld.chat.add).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -32,29 +32,29 @@ describe('MessageManager', () => {
           timestamp: expect.any(Number),
         }),
         true
-      );
-    });
+      )
+    })
 
     it('should handle missing world gracefully', () => {
       mockRuntime.getService = mock().mockReturnValue({
         getWorld: mock().mockReturnValue(null),
-      });
+      })
 
-      expect(() => messageManager.sendMessage('Test')).not.toThrow();
-    });
+      expect(() => messageManager.sendMessage('Test')).not.toThrow()
+    })
 
     it('should handle missing service gracefully', () => {
-      mockRuntime.getService = mock().mockReturnValue(null);
+      mockRuntime.getService = mock().mockReturnValue(null)
 
-      expect(() => messageManager.sendMessage('Test')).not.toThrow();
-    });
+      expect(() => messageManager.sendMessage('Test')).not.toThrow()
+    })
 
     it('should handle empty messages', () => {
       mockRuntime.getService = mock().mockReturnValue({
         getWorld: mock().mockReturnValue(mockWorld),
-      });
+      })
 
-      messageManager.sendMessage('');
+      messageManager.sendMessage('')
 
       expect(mockWorld.chat.add).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -65,17 +65,17 @@ describe('MessageManager', () => {
           timestamp: expect.any(Number),
         }),
         true
-      );
-    });
+      )
+    })
 
     it('should include timestamp in message', () => {
       mockRuntime.getService = mock().mockReturnValue({
         getWorld: mock().mockReturnValue(mockWorld),
-      });
+      })
 
-      const beforeTime = Date.now();
-      messageManager.sendMessage('Test message');
-      const afterTime = Date.now();
+      const beforeTime = Date.now()
+      messageManager.sendMessage('Test message')
+      const afterTime = Date.now()
 
       expect(mockWorld.chat.add).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -86,13 +86,13 @@ describe('MessageManager', () => {
           timestamp: expect.any(Number),
         }),
         true
-      );
+      )
 
-      const call = mockWorld.chat.add.mock.calls[0][0];
-      expect(call.timestamp).toBeGreaterThanOrEqual(beforeTime);
-      expect(call.timestamp).toBeLessThanOrEqual(afterTime);
-    });
-  });
+      const call = mockWorld.chat.add.mock.calls[0][0]
+      expect(call.timestamp).toBeGreaterThanOrEqual(beforeTime)
+      expect(call.timestamp).toBeLessThanOrEqual(afterTime)
+    })
+  })
 
   describe('handleMessage', () => {
     it('should process incoming messages', async () => {
@@ -102,7 +102,7 @@ describe('MessageManager', () => {
         fromId: 'user-123',
         from: 'Alice',
         createdAt: Date.now().toISOString(),
-      };
+      }
 
       const mockService = {
         getWorld: mock().mockReturnValue(mockWorld),
@@ -110,10 +110,10 @@ describe('MessageManager', () => {
         getEmoteManager: mock().mockReturnValue({
           playEmote: mock(),
         }),
-      };
-      mockRuntime.getService = mock().mockReturnValue(mockService);
+      }
+      mockRuntime.getService = mock().mockReturnValue(mockService)
 
-      await messageManager.handleMessage(mockMessage);
+      await messageManager.handleMessage(mockMessage)
 
       expect(mockRuntime.ensureConnection).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -121,7 +121,7 @@ describe('MessageManager', () => {
           userName: 'Alice',
           source: 'hyperfy',
         })
-      );
+      )
 
       expect(mockRuntime.emitEvent).toHaveBeenCalledWith(
         expect.any(String),
@@ -132,8 +132,8 @@ describe('MessageManager', () => {
             }),
           }),
         })
-      );
-    });
+      )
+    })
 
     it('should skip processing own messages', async () => {
       const mockMessage = {
@@ -142,18 +142,18 @@ describe('MessageManager', () => {
         fromId: 'test-player-id', // Same as agent's player ID
         from: 'TestAgent',
         createdAt: Date.now().toISOString(),
-      };
+      }
 
       mockRuntime.getService = mock().mockReturnValue({
         getWorld: mock().mockReturnValue(mockWorld),
         currentWorldId: 'world-123',
-      });
+      })
 
-      await messageManager.handleMessage(mockMessage);
+      await messageManager.handleMessage(mockMessage)
 
       // Should not process messages from the agent itself
-      expect(mockRuntime.ensureConnection).not.toHaveBeenCalled();
-    });
+      expect(mockRuntime.ensureConnection).not.toHaveBeenCalled()
+    })
 
     it('should handle messages without fromId', async () => {
       const mockMessage = {
@@ -162,17 +162,17 @@ describe('MessageManager', () => {
         // No fromId
         from: 'System',
         createdAt: Date.now().toISOString(),
-      };
+      }
 
       mockRuntime.getService = mock().mockReturnValue({
         getWorld: mock().mockReturnValue(mockWorld),
         currentWorldId: 'world-123',
-      });
+      })
 
-      await messageManager.handleMessage(mockMessage);
+      await messageManager.handleMessage(mockMessage)
 
-      expect(mockRuntime.emitEvent).not.toHaveBeenCalled();
-    });
+      expect(mockRuntime.emitEvent).not.toHaveBeenCalled()
+    })
 
     it('should handle callback responses with emotes', async () => {
       const mockMessage = {
@@ -181,29 +181,29 @@ describe('MessageManager', () => {
         fromId: 'user-123',
         from: 'Alice',
         createdAt: Date.now().toISOString(),
-      };
+      }
 
-      const mockEmoteManager = { playEmote: mock() };
+      const mockEmoteManager = { playEmote: mock() }
       const mockService = {
         getWorld: mock().mockReturnValue(mockWorld),
         currentWorldId: 'world-123',
         getEmoteManager: mock().mockReturnValue(mockEmoteManager),
-      };
-      mockRuntime.getService = mock().mockReturnValue(mockService);
+      }
+      mockRuntime.getService = mock().mockReturnValue(mockService)
 
-      await messageManager.handleMessage(mockMessage);
+      await messageManager.handleMessage(mockMessage)
 
       // Get the callback from emitEvent
-      const emitCall = mockRuntime.emitEvent.mock.calls[0];
-      const callback = emitCall[1].callback;
+      const emitCall = mockRuntime.emitEvent.mock.calls[0]
+      const callback = emitCall[1].callback
 
       // Call the callback with a response containing an emote
       await callback({
         text: 'Here is a joke!',
         emote: 'laugh',
-      });
+      })
 
-      expect(mockEmoteManager.playEmote).toHaveBeenCalledWith('laugh');
+      expect(mockEmoteManager.playEmote).toHaveBeenCalledWith('laugh')
       expect(mockWorld.chat.add).toHaveBeenCalledWith(
         expect.objectContaining({
           id: expect.any(String),
@@ -213,21 +213,21 @@ describe('MessageManager', () => {
           timestamp: expect.any(Number),
         }),
         true
-      );
-    });
-  });
+      )
+    })
+  })
 
   describe('getRecentMessages', () => {
     it('should handle getRecentMessages method', async () => {
       // Test that the method exists and can be called
-      const result = await messageManager.getRecentMessages('room-123' as any);
+      const result = await messageManager.getRecentMessages('room-123' as any)
 
-      expect(result).toBeDefined();
-      expect(result).toHaveProperty('formattedHistory');
-      expect(result).toHaveProperty('lastResponseText');
-      expect(result).toHaveProperty('lastActions');
-    });
-  });
+      expect(result).toBeDefined()
+      expect(result).toHaveProperty('formattedHistory')
+      expect(result).toHaveProperty('lastResponseText')
+      expect(result).toHaveProperty('lastActions')
+    })
+  })
 
   describe('formatMessages', () => {
     it('should format messages with entity names', () => {
@@ -238,22 +238,27 @@ describe('MessageManager', () => {
           content: { text: 'Hello!' },
           createdAt: new Date('2024-01-01T10:30:00').getTime(),
         },
-      ];
+      ]
 
       const entities = [
         {
           id: 'entity-1',
           names: ['Alice'],
-          data: JSON.stringify({ hyperfy: { id: 'user-1', userName: 'Alice' } }),
+          data: JSON.stringify({
+            hyperfy: { id: 'user-1', userName: 'Alice' },
+          }),
         },
-      ];
+      ]
 
-      const formatted = messageManager.formatMessages({ messages, entities } as any);
+      const formatted = messageManager.formatMessages({
+        messages,
+        entities,
+      } as any)
 
-      expect(formatted).toContain('Alice');
-      expect(formatted).toContain('Hello!');
-      expect(formatted).toContain('10:30');
-    });
+      expect(formatted).toContain('Alice')
+      expect(formatted).toContain('Hello!')
+      expect(formatted).toContain('10:30')
+    })
 
     it('should handle missing entity data', () => {
       const messages = [
@@ -263,7 +268,7 @@ describe('MessageManager', () => {
           content: { text: 'Test' },
           createdAt: Date.now(),
         },
-      ];
+      ]
 
       const entities = [
         {
@@ -271,12 +276,15 @@ describe('MessageManager', () => {
           names: ['Fallback Name'],
           data: null,
         },
-      ];
+      ]
 
-      const formatted = messageManager.formatMessages({ messages, entities } as any);
+      const formatted = messageManager.formatMessages({
+        messages,
+        entities,
+      } as any)
 
-      expect(formatted).toContain('Fallback Name');
-      expect(formatted).toContain('Test');
-    });
-  });
-});
+      expect(formatted).toContain('Fallback Name')
+      expect(formatted).toContain('Test')
+    })
+  })
+})

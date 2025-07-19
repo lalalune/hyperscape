@@ -1,1 +1,9 @@
-export { default } from '../core/configs/prettier/prettier.config.js';
+export default {
+  semi: false,
+  singleQuote: true,
+  tabWidth: 2,
+  trailingComma: 'es5',
+  printWidth: 80,
+  bracketSpacing: true,
+  arrowParens: 'avoid',
+};

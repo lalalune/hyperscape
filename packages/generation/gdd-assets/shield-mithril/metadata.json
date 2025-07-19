@@ -1,0 +1,51 @@
+{
+  "name": "Mithril Shield",
+  "description": "A mithril shield viewed straight on, centered, round or kite shape, clean white background, no straps visible, game asset style, gleaming mithril shield with intricate boss, magical shimmer",
+  "type": "weapon",
+  "subtype": "shield",
+  "style": "realistic",
+  "metadata": {
+    "tier": "mithril",
+    "level": 20,
+    "gameId": "mithril_shield",
+    "rarity": "rare",
+    "defenseLevel": 20,
+    "slot": "shield"
+  },
+  "id": "shield-mithril",
+  "analysisResult": {
+    "weaponType": "shield",
+    "primaryGrip": {
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.9
+    },
+    "attachmentPoints": [
+      {
+        "name": "arm_strap",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    ]
+  },
+  "generatedAt": "2025-07-18T19:29:01.029Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/shield-mithril/Mithril Shield.glb"
+}

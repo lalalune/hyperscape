@@ -1,5 +1,5 @@
-import { mock } from 'bun:test';
-import * as THREE from 'three';
+import { mock } from 'vitest'
+import * as THREE from 'three'
 
 /**
  * Creates a mock Hyperfy world for testing
@@ -26,7 +26,7 @@ export function createMockWorld(overrides: any = {}) {
     teleport: mock(),
     setSessionAvatar: mock(),
     modify: mock(),
-  };
+  }
 
   const defaultEntities = new Map([
     [
@@ -103,7 +103,7 @@ export function createMockWorld(overrides: any = {}) {
         destroy: mock(),
       },
     ],
-  ]);
+  ])
 
   const mockWorld = {
     // Basic properties
@@ -116,7 +116,7 @@ export function createMockWorld(overrides: any = {}) {
       items: overrides.entities || defaultEntities,
       add: mock(),
       remove: mock(),
-      getPlayer: mock((id) => defaultPlayer),
+      getPlayer: mock(id => defaultPlayer),
     },
 
     // Network system
@@ -133,17 +133,17 @@ export function createMockWorld(overrides: any = {}) {
       msgs: [],
       listeners: [],
       add: mock((msg, broadcast) => {
-        mockWorld.chat.msgs.push(msg);
-        mockWorld.chat.listeners.forEach((cb: any) => cb(mockWorld.chat.msgs));
+        mockWorld.chat.msgs.push(msg)
+        mockWorld.chat.listeners.forEach((cb: any) => cb(mockWorld.chat.msgs))
       }),
-      subscribe: mock((callback) => {
-        mockWorld.chat.listeners.push(callback);
+      subscribe: mock(callback => {
+        mockWorld.chat.listeners.push(callback)
         return () => {
-          const idx = mockWorld.chat.listeners.indexOf(callback);
+          const idx = mockWorld.chat.listeners.indexOf(callback)
           if (idx > -1) {
-            mockWorld.chat.listeners.splice(idx, 1);
+            mockWorld.chat.listeners.splice(idx, 1)
           }
-        };
+        }
       }),
     },
 
@@ -246,20 +246,21 @@ export function createMockWorld(overrides: any = {}) {
 
     // Apply overrides
     ...overrides,
-  };
+  }
 
-  return mockWorld;
+  return mockWorld
 }
 
 /**
  * Creates a mock Hyperfy service for testing
  */
 export function createMockHyperfyService(overrides: any = {}) {
-  const mockWorld = createMockWorld(overrides.world);
+  const mockWorld = createMockWorld(overrides.world)
 
   return {
     serviceType: 'hyperfy',
-    capabilityDescription: 'Manages connection and interaction with a Hyperfy world.',
+    capabilityDescription:
+      'Manages connection and interaction with a Hyperfy world.',
 
     // Connection state
     isConnected: mock().mockReturnValue(true),
@@ -271,10 +272,10 @@ export function createMockHyperfyService(overrides: any = {}) {
     currentWorldId: 'test-world-id',
 
     // Entity methods
-    getEntityById: mock((id) => mockWorld.entities.items.get(id)),
-    getEntityName: mock((id) => {
-      const entity = mockWorld.entities.items.get(id);
-      return entity?.data?.name || entity?.blueprint?.name || 'Unnamed';
+    getEntityById: mock(id => mockWorld.entities.items.get(id)),
+    getEntityName: mock(id => {
+      const entity = mockWorld.entities.items.get(id)
+      return entity?.data?.name || entity?.blueprint?.name || 'Unnamed'
     }),
 
     // Manager access
@@ -301,9 +302,15 @@ export function createMockHyperfyService(overrides: any = {}) {
       playAudio: mock().mockResolvedValue(true),
     }),
     getPuppeteerManager: mock().mockReturnValue({
-      snapshotEquirectangular: mock().mockResolvedValue('data:image/jpeg;base64,mock'),
-      snapshotFacingDirection: mock().mockResolvedValue('data:image/jpeg;base64,mock'),
-      snapshotViewToTarget: mock().mockResolvedValue('data:image/jpeg;base64,mock'),
+      snapshotEquirectangular: mock().mockResolvedValue(
+        'data:image/jpeg;base64,mock'
+      ),
+      snapshotFacingDirection: mock().mockResolvedValue(
+        'data:image/jpeg;base64,mock'
+      ),
+      snapshotViewToTarget: mock().mockResolvedValue(
+        'data:image/jpeg;base64,mock'
+      ),
     }),
     getBuildManager: mock().mockReturnValue({
       translate: mock().mockResolvedValue(true),
@@ -319,7 +326,7 @@ export function createMockHyperfyService(overrides: any = {}) {
 
     // Apply overrides
     ...overrides,
-  };
+  }
 }
 
 /**
@@ -333,25 +340,31 @@ export function createMockChatMessage(overrides: any = {}) {
     body: overrides.body || 'Hello agent!',
     createdAt: overrides.createdAt || new Date().toISOString(),
     ...overrides,
-  };
+  }
 }
 
 /**
  * Helper to simulate world events
  */
 export function simulateWorldEvent(world: any, event: string, data: any) {
-  const listeners = world._eventListeners?.[event] || [];
-  listeners.forEach((listener: Function) => listener(data));
+  const listeners = world._eventListeners?.[event] || []
+  listeners.forEach((listener: Function) => listener(data))
 }
 
 export function createMockPuppeteerManager() {
   return {
-    snapshotEquirectangular: mock().mockResolvedValue('data:image/png;base64,test'),
-    snapshotFacingDirection: mock().mockResolvedValue('data:image/png;base64,test'),
-    snapshotViewToTarget: mock().mockResolvedValue('data:image/png;base64,test'),
+    snapshotEquirectangular: mock().mockResolvedValue(
+      'data:image/png;base64,test'
+    ),
+    snapshotFacingDirection: mock().mockResolvedValue(
+      'data:image/png;base64,test'
+    ),
+    snapshotViewToTarget: mock().mockResolvedValue(
+      'data:image/png;base64,test'
+    ),
     start: mock(),
     stop: mock(),
-  };
+  }
 }
 
 export function createMockEmoteManager() {
@@ -360,10 +373,20 @@ export function createMockEmoteManager() {
     stopEmote: mock(),
     uploadEmotes: mock().mockResolvedValue(true),
     getEmoteList: mock().mockReturnValue([
-      { name: 'wave', path: '/emotes/wave.glb', duration: 2000, description: 'Wave gesture' },
-      { name: 'dance', path: '/emotes/dance.glb', duration: 5000, description: 'Dance animation' },
+      {
+        name: 'wave',
+        path: '/emotes/wave.glb',
+        duration: 2000,
+        description: 'Wave gesture',
+      },
+      {
+        name: 'dance',
+        path: '/emotes/dance.glb',
+        duration: 5000,
+        description: 'Dance animation',
+      },
     ]),
-  };
+  }
 }
 
 export function createMockMessageManager() {
@@ -371,7 +394,7 @@ export function createMockMessageManager() {
     sendMessage: mock(),
     processMessage: mock(),
     getHistory: mock().mockReturnValue([]),
-  };
+  }
 }
 
 export function createMockVoiceManager() {
@@ -382,7 +405,7 @@ export function createMockVoiceManager() {
     leaveChannel: mock(),
     mute: mock(),
     unmute: mock(),
-  };
+  }
 }
 
 export function createMockBehaviorManager() {
@@ -390,7 +413,7 @@ export function createMockBehaviorManager() {
     start: mock(),
     stop: mock(),
     isRunning: false,
-  };
+  }
 }
 
 export function createMockBuildManager() {
@@ -403,5 +426,5 @@ export function createMockBuildManager() {
     importEntity: mock(),
     findNearbyEntities: mock().mockReturnValue([]),
     getEntityInfo: mock(),
-  };
+  }
 }

@@ -1,0 +1,115 @@
+{
+  "name": "Bank",
+  "description": "A medieval bank building, front view, clean white background, stone construction, game building style, stone bank building with secure vault doors and medieval architecture",
+  "type": "building",
+  "subtype": "bank",
+  "style": "realistic",
+  "metadata": {
+    "tier": "basic",
+    "level": 1,
+    "gameId": "bank",
+    "rarity": "common",
+    "function": "storage",
+    "capacity": "unlimited"
+  },
+  "id": "bank-basic",
+  "analysisResult": {
+    "buildingType": "bank",
+    "entryPoints": [
+      {
+        "name": "main_entrance",
+        "position": {
+          "x": 0,
+          "y": -1,
+          "z": 0.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        },
+        "isMain": true
+      }
+    ],
+    "functionalAreas": [
+      {
+        "name": "teller_counter",
+        "type": "counter",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "size": {
+          "x": 1.6,
+          "y": 1,
+          "z": 0.5
+        }
+      },
+      {
+        "name": "vault",
+        "type": "vault",
+        "position": {
+          "x": 0,
+          "y": -1,
+          "z": -0.6
+        },
+        "size": {
+          "x": 0.8,
+          "y": 1.6,
+          "z": 0.6
+        }
+      }
+    ],
+    "npcPositions": [
+      {
+        "role": "bank_teller",
+        "position": {
+          "x": -0.4,
+          "y": -1,
+          "z": -0.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      },
+      {
+        "role": "bank_teller",
+        "position": {
+          "x": 0.4,
+          "y": -1,
+          "z": -0.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    ],
+    "metadata": {
+      "floors": 1,
+      "hasBasement": false,
+      "hasRoof": true
+    },
+    "interiorSpace": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "size": {
+        "x": 1.8,
+        "y": 1.8,
+        "z": 1.8
+      }
+    }
+  },
+  "generatedAt": "2025-07-18T18:11:01.673Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/bank-basic/Bank.glb"
+}

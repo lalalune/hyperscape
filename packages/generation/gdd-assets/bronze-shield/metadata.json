@@ -1,0 +1,51 @@
+{
+  "name": "Bronze Shield",
+  "description": "A bronze shield with simple design and leather strapping, basic defense for level 1+ adventurers",
+  "type": "weapon",
+  "subtype": "shield",
+  "style": "realistic",
+  "metadata": {
+    "tier": "bronze",
+    "level": 1,
+    "gameId": "bronze_shield",
+    "rarity": "common",
+    "defenseLevel": 1,
+    "slot": "shield"
+  },
+  "id": "bronze-shield",
+  "analysisResult": {
+    "weaponType": "shield",
+    "primaryGrip": {
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.9
+    },
+    "attachmentPoints": [
+      {
+        "name": "arm_strap",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    ]
+  },
+  "generatedAt": "2025-07-18T07:59:51.227Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/bronze-shield/Bronze Shield.glb"
+}

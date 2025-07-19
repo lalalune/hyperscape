@@ -1,0 +1,119 @@
+{"blueprint":{"id":"RPGBank001","version":1,"name":"RPG Bank","author":"RPG System","url":null,"desc":"A banking system for item storage with unlimited slots","model":null,"script":null,"props":{"bankName":"Bank of Hyperia","visualColor":"blue"},"preload":false,"public":true,"locked":false,"unique":false,"disabled":false},"assets":[]}
+
+// RPG Bank App for Hyperfy
+// Banking system with unlimited storage per the GDD
+
+console.log('🏦 Initializing RPG Bank Hyperfy App...');
+
+app.configure([
+  {
+    key: 'bankName',
+    type: 'text',
+    label: 'Bank Name',
+    initial: 'Bank of Hyperia',
+    hint: 'The name of the bank'
+  },
+  {
+    key: 'visualColor',
+    type: 'text',
+    label: 'Visual Color',
+    initial: 'blue',
+    hint: 'Color of the bank representation'
+  }
+])
+
+// Bank storage - unlimited slots per bank per GDD
+let bankStorage = {}
+
+// Create bank visual representation
+const bankMesh = app.create('mesh')
+bankMesh.geometry = 'box'
+bankMesh.scale.set(1.5, 2, 1.5)
+bankMesh.position.set(0, 1, 0)
+bankMesh.material.color = props.visualColor
+bankMesh.castShadow = true
+
+// Create bank sign
+const bankSign = app.create('ui', {
+  text: props.bankName,
+  fontSize: 16,
+  color: 'white',
+  backgroundColor: 'rgba(0,0,0,0.8)',
+  padding: 6,
+  borderRadius: 4
+})
+bankSign.position.set(0, 2.5, 0)
+bankSign.billboard = true
+
+// Add to app
+app.add(bankMesh)
+app.add(bankSign)
+
+// Create banking actions
+const depositAction = app.create('action')
+depositAction.label = 'Use Bank'
+depositAction.distance = 3
+depositAction.onTrigger = (player) => {
+  // For now, just send a message. In a full implementation,
+  // this would open a banking interface
+  world.chat.send(`Welcome to ${props.bankName}! Banking interface would open here.`)
+  world.chat.send('Features: Unlimited storage, deposit/withdraw items, safe keeping')
+}
+
+const infoAction = app.create('action')
+infoAction.label = 'Bank Info'
+infoAction.distance = 4
+infoAction.onTrigger = (player) => {
+  world.chat.send('🏦 Bank Features:')
+  world.chat.send('• Unlimited storage slots')
+  world.chat.send('• Safe item storage')
+  world.chat.send('• Each bank is independent')
+  world.chat.send('• Located in starter towns')
+}
+
+bankMesh.add(depositAction)
+bankMesh.add(infoAction)
+
+// Banking API functions that other apps can use
+app.depositItem = (playerId, itemId, quantity) => {
+  if (!bankStorage[playerId]) {
+    bankStorage[playerId] = []
+  }
+  
+  // Find existing item or create new slot
+  const existingItem = bankStorage[playerId].find(item => item.id === itemId)
+  if (existingItem) {
+    existingItem.quantity += quantity
+  } else {
+    bankStorage[playerId].push({ id: itemId, quantity })
+  }
+  
+  return true
+}
+
+app.withdrawItem = (playerId, itemId, quantity) => {
+  if (!bankStorage[playerId]) return false
+  
+  const item = bankStorage[playerId].find(item => item.id === itemId)
+  if (!item || item.quantity < quantity) return false
+  
+  item.quantity -= quantity
+  if (item.quantity === 0) {
+    const index = bankStorage[playerId].indexOf(item)
+    bankStorage[playerId].splice(index, 1)
+  }
+  
+  return true
+}
+
+app.getBankContents = (playerId) => {
+  return bankStorage[playerId] || []
+}
+
+app.getBankSlotCount = (playerId) => {
+  return bankStorage[playerId] ? bankStorage[playerId].length : 0
+}
+
+// Display bank info
+world.chat.send(`🏦 ${props.bankName} is now operational!`)
+world.chat.send('Features: Unlimited storage, safe keeping, deposit/withdraw')

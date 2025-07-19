@@ -1,14 +1,794 @@
+### 1. How do .hyp apps interact with each other?
+
+**Technical Implementation:**
+
+Hyperfy apps communicate through multiple mechanisms:
+
+**Direct Method Invocation:**
+```javascript
+// Apps can call methods directly on other apps
+const rpgApps = world.apps.getAll().filter(app => app.getRPGStats)
+const playerApp = rpgApps.find(app => app.getRPGStats().name === player.name)
+
+if (playerApp) {
+  playerApp.takeDamage(damage)
+  const success = playerApp.addItem(itemId, quantity)
+  const levelledUp = playerApp.grantXP('attack', xpAmount)
+}
+```
+
+**Event-Based Communication:**
+```javascript
+// Send events to all clients/server
+app.send('eventName', data)
+
+// Listen for events from other apps
+app.on('eventName', (data) => {
+  // Handle event
+})
+```
+
+**Shared State Access:**
+```javascript
+// Apps can read each other's state
+const otherAppState = otherApp.state
+const sharedData = world.get('sharedKey')
+```
+
+**Service Discovery Pattern:**
+```javascript
+// Find apps by capability rather than type
+const combatApps = world.apps.getAll().filter(app => 
+  app.takeDamage && app.getCurrentHealth
+)
+```
+
+**Critical Implementation Requirements:**
+- Use capability-based detection instead of type checking
+- Implement loose coupling between apps
+- Handle missing dependencies gracefully
+- Use event-driven communication for complex interactions
+
+### 2. How do we save, load, create and persist different worlds?
+
+**World Management Architecture:**
+
+**World Directory Structure:**
+```
+world/
+├── assets/          # 3D models, images, audio files
+├── collections/     # App collections and manifests  
+├── db.sqlite        # SQLite database for persistence
+├── storage.json     # Key-value world storage
+└── world.json       # World configuration
+```
+
+**World Creation:**
+```typescript
+// WorldManager handles multiple worlds
+const worldManager = new WorldManager();
+const world = await worldManager.createWorld({
+  id: 'rpg-world-1',
+  name: 'RPG World',
+  type: 'server',
+  settings: { playerLimit: 100 },
+  persistence: { type: 'sqlite', path: './world/db.sqlite' }
+});
+```
+
+**Database Persistence:**
+- `users` table: Player accounts and avatars
+- `entities` table: World object instances
+- `blueprints` table: App/object templates
+- `config` table: World settings and spawn points
+
+**World Loading:**
+```bash
+# Environment variable controls which world directory
+WORLD=rpg-world npm run dev
+
+# Loads from ./rpg-world/ directory
+```
+
+**Multi-World Support:**
+- Each world completely isolated with own database
+- Asset management with hashed filenames for caching
+- Automatic cleanup of unused assets and entities
+- Hot reloading for development
+
+### 3. How can we spawn a player with overhead camera or force camera into overhead?
+
+**Camera System Architecture:**
+
+**Camera Hierarchy:**
+- `world.camera` - THREE.PerspectiveCamera (FOV 70°, near 0.2, far 1200)
+- `world.rig` - THREE.Object3D containing camera
+- `world.rig.position` controls world position
+- `world.camera.position.z` controls zoom distance
+
+**Overhead Camera Implementation:**
+```javascript
+// Set overhead view for testing
+function setOverheadCamera(world, height = 50) {
+  // Position camera high above world
+  world.rig.position.set(0, height, 0);
+  
+  // Rotate to look down
+  world.rig.rotation.set(-Math.PI/2, 0, 0);
+  
+  // Remove zoom offset
+  world.camera.position.z = 0;
+  
+  // For orthographic projection (requires engine modification)
+  const orthoCamera = new THREE.OrthographicCamera(
+    -50, 50, 50, -50, 0.1, 1000
+  );
+  // Replace world.camera with orthoCamera
+}
+```
+
+**Camera Control API:**
+```javascript
+// Get camera control with high priority
+const controls = world.controls.bind({
+  priority: 100  // High priority for testing
+});
+
+// Apply camera changes
+controls.camera.position.set(x, y, z);
+controls.camera.quaternion.set(x, y, z, w);
+controls.camera.zoom = distance;
+controls.camera.write = true;  // Apply changes
+```
+
+### 4. How do we remove bloom and post-processing for visual pixel testing?
+
+**Post-Processing Control:**
+
+**Disable via Preferences:**
+```javascript
+// Disable all post-processing effects
+world.prefs.setPostprocessing(false);
+
+// Disable just bloom
+world.prefs.setBloom(false);
+
+// Set device pixel ratio for consistent testing
+world.prefs.setDpr(1.0);
+```
+
+**Technical Implementation:**
+- Graphics system uses `postprocessing` library with EffectComposer
+- Bloom effect uses SelectiveBloomEffect on layer 14 (NO_BLOOM)
+- Render path: `RenderPass` → `BloomPass` → `EffectPass`
+- Controlled via `ClientGraphics.usePostprocessing` flag
+
+**Visual Testing Configuration:**
+```javascript
+// Configure for pixel testing
+function setupVisualTesting(world) {
+  world.prefs.setPostprocessing(false);  // No effects
+  world.prefs.setBloom(false);          // No bloom
+  world.prefs.setShadows(0);            // No shadows
+  world.prefs.setDpr(1.0);              // 1:1 pixel ratio
+}
+```
+
+### 5. How do we create portals between worlds?
+
+**Portal Implementation Strategy:**
+
+Currently, Hyperfy doesn't have built-in portals, but we can implement them:
+
+**Portal App Structure:**
+```javascript
+// Portal.hyp
+app.configure([
+  {
+    type: 'text',
+    key: 'targetWorld',
+    label: 'Target World ID',
+    initial: 'world-2'
+  },
+  {
+    type: 'text', 
+    key: 'spawnPoint',
+    label: 'Spawn Point',
+    initial: 'town-center'
+  }
+]);
+
+// Create trigger zone
+const trigger = app.create('trigger');
+trigger.radius = 2;
+
+trigger.onEnter = (player) => {
+  // Send portal request to server
+  app.send('portal:transport', {
+    playerId: player.id,
+    targetWorld: props.targetWorld,
+    spawnPoint: props.spawnPoint
+  });
+};
+```
+
+**Server-Side Portal System:**
+```javascript
+// Handle world transitions
+world.on('portal:transport', (data) => {
+  if (world.isServer) {
+    // Save player state
+    const playerData = savePlayerState(data.playerId);
+    
+    // Transfer to new world
+    transferPlayerToWorld(data.playerId, data.targetWorld, playerData);
+  }
+});
+```
+
+**Multi-World Architecture Required:**
+- WorldManager to handle multiple world instances
+- Player state serialization/deserialization
+- Cross-world communication protocols
+- Load balancing for world distribution
+
+### 6. How do we persist data and store player XP, level, items, etc?
+
+**Extended Database Schema Required:**
+
+```sql
+-- Player progression data
+CREATE TABLE rpg_players (
+  id VARCHAR PRIMARY KEY,
+  user_id VARCHAR REFERENCES users(id),
+  character_name VARCHAR,
+  level INTEGER DEFAULT 1,
+  experience BIGINT DEFAULT 0,
+  health INTEGER DEFAULT 100,
+  position JSON,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+-- Skills system
+CREATE TABLE rpg_skills (
+  player_id VARCHAR REFERENCES rpg_players(id),
+  skill_name VARCHAR,
+  level INTEGER DEFAULT 1,
+  experience BIGINT DEFAULT 0,
+  PRIMARY KEY (player_id, skill_name)
+);
+
+-- Inventory system  
+CREATE TABLE rpg_inventory (
+  player_id VARCHAR REFERENCES rpg_players(id),
+  slot_index INTEGER,
+  item_id VARCHAR,
+  quantity INTEGER,
+  item_data JSON,
+  PRIMARY KEY (player_id, slot_index)
+);
+
+-- Equipment system
+CREATE TABLE rpg_equipment (
+  player_id VARCHAR REFERENCES rpg_players(id),
+  slot_name VARCHAR,
+  item_id VARCHAR,
+  item_data JSON,
+  PRIMARY KEY (player_id, slot_name)
+);
+```
+
+**Persistence System Implementation:**
+```javascript
+// RPG persistence manager
+class RPGPersistenceSystem extends System {
+  async savePlayerData(playerId, data) {
+    const db = this.world.db;
+    
+    // Save character progression
+    await db.prepare(`
+      UPDATE rpg_players 
+      SET level = ?, experience = ?, health = ?, position = ?
+      WHERE id = ?
+    `).run(data.level, data.experience, data.health, 
+           JSON.stringify(data.position), playerId);
+    
+    // Save skills
+    for (const [skillName, skillData] of Object.entries(data.skills)) {
+      await db.prepare(`
+        INSERT OR REPLACE INTO rpg_skills 
+        (player_id, skill_name, level, experience)
+        VALUES (?, ?, ?, ?)
+      `).run(playerId, skillName, skillData.level, skillData.experience);
+    }
+    
+    // Save inventory
+    for (let i = 0; i < data.inventory.length; i++) {
+      const item = data.inventory[i];
+      if (item) {
+        await db.prepare(`
+          INSERT OR REPLACE INTO rpg_inventory
+          (player_id, slot_index, item_id, quantity, item_data)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(playerId, i, item.id, item.quantity, JSON.stringify(item.data));
+      }
+    }
+  }
+}
+```
+
+### 7. How can we do that in such a way that players can't hack?
+
+**Security Architecture Implementation:**
+
+**Server Authority Model:**
+```javascript
+// All critical operations validated server-side
+class SecuritySystem extends System {
+  validatePlayerAction(player, action) {
+    // Validate movement (speed limits)
+    if (action.type === 'move') {
+      const distance = calculateDistance(player.lastPosition, action.position);
+      const maxSpeed = 10; // units per second
+      const timeDelta = action.timestamp - player.lastActionTime;
+      
+      if (distance / timeDelta > maxSpeed) {
+        this.logSuspiciousActivity(player, 'speed_hack_detected');
+        return false;
+      }
+    }
+    
+    // Validate combat actions
+    if (action.type === 'attack') {
+      const target = this.world.entities.get(action.targetId);
+      const distance = calculateDistance(player.position, target.position);
+      
+      if (distance > 2) { // Max attack range
+        return false;
+      }
+      
+      // Check attack cooldown
+      if (Date.now() - player.lastAttack < 600) { // 600ms cooldown
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  // Rate limiting
+  rateLimitAction(player, actionType) {
+    const now = Date.now();
+    const key = `${player.id}:${actionType}`;
+    
+    if (!this.actionTimestamps.has(key)) {
+      this.actionTimestamps.set(key, []);
+    }
+    
+    const timestamps = this.actionTimestamps.get(key);
+    
+    // Remove old timestamps (1 second window)
+    const cutoff = now - 1000;
+    while (timestamps.length > 0 && timestamps[0] < cutoff) {
+      timestamps.shift();
+    }
+    
+    // Check rate limit (max 10 actions per second)
+    if (timestamps.length >= 10) {
+      return false;
+    }
+    
+    timestamps.push(now);
+    return true;
+  }
+}
+```
+
+**Cryptographic Protection:**
+```javascript
+// Item signature system
+class ItemSecuritySystem {
+  signItem(item) {
+    const payload = JSON.stringify({
+      id: item.id,
+      quantity: item.quantity,
+      stats: item.stats,
+      timestamp: Date.now()
+    });
+    
+    const signature = crypto
+      .createHmac('sha256', process.env.ITEM_SECRET)
+      .update(payload)
+      .digest('hex');
+    
+    return { ...item, signature };
+  }
+  
+  validateItem(item) {
+    const { signature, ...itemData } = item;
+    const expectedSignature = this.signItem(itemData).signature;
+    
+    return signature === expectedSignature;
+  }
+}
+```
+
+**Anti-Cheat Measures:**
+- Server-side damage calculation and validation
+- Movement speed and physics validation
+- Rate limiting on all player actions
+- Cryptographic item signatures
+- Audit logging for suspicious activities
+- Regular client-server state reconciliation
+
+### 8. How do we query the current game state to check things like goblin health or player HP?
+
+**Game State Querying System:**
+
+**Entity State Access:**
+```javascript
+// Get entity by ID
+const goblin = world.entities.get(goblinId);
+
+// Check health component
+const healthComponent = goblin.getComponent('health');
+const currentHealth = healthComponent?.data.currentHealth;
+const isAlive = currentHealth > 0;
+
+// Get all entities of type
+const allGoblins = world.entities.getAll()
+  .filter(entity => entity.blueprint?.name === 'RPGGoblin');
+
+// Spatial queries
+const nearbyEnemies = world.entities.getAll()
+  .filter(entity => {
+    const distance = calculateDistance(player.position, entity.position);
+    return distance < 10 && entity.type === 'enemy';
+  });
+```
+
+**Component System Queries:**
+```javascript
+// Query entities with specific components
+function getEntitiesWithComponents(world, componentTypes) {
+  return world.entities.getAll().filter(entity => 
+    componentTypes.every(type => entity.hasComponent(type))
+  );
+}
+
+// Example: Find all entities with health and combat components
+const combatEntities = getEntitiesWithComponents(world, ['health', 'combat']);
+```
+
+**RPG-Specific State Queries:**
+```javascript
+// RPG game state querying
+class RPGStateQuerySystem {
+  getPlayerStats(playerId) {
+    const player = world.entities.get(playerId);
+    const statsComponent = player.getComponent('rpgStats');
+    
+    return {
+      level: statsComponent.data.level,
+      health: statsComponent.data.health,
+      experience: statsComponent.data.experience,
+      skills: statsComponent.data.skills,
+      inventory: statsComponent.data.inventory
+    };
+  }
+  
+  getMobsInRange(position, range) {
+    return world.entities.getAll()
+      .filter(entity => entity.type === 'mob')
+      .filter(entity => {
+        const distance = calculateDistance(position, entity.position);
+        return distance <= range;
+      })
+      .map(mob => ({
+        id: mob.id,
+        type: mob.blueprint.name,
+        health: mob.getComponent('health')?.data.currentHealth,
+        position: mob.position,
+        state: mob.getComponent('ai')?.data.state
+      }));
+  }
+  
+  getCombatState(entityId) {
+    const entity = world.entities.get(entityId);
+    const combat = entity.getComponent('combat');
+    const health = entity.getComponent('health');
+    
+    return {
+      inCombat: combat?.data.inCombat || false,
+      target: combat?.data.target,
+      health: health?.data.currentHealth || 0,
+      maxHealth: health?.data.maxHealth || 0,
+      lastAttack: combat?.data.lastAttack || 0
+    };
+  }
+}
+```
+
+**Visual Testing State Queries:**
+```javascript
+// For automated testing
+function verifyGameState(world, expectedState) {
+  const player = world.entities.player;
+  const playerPos = player.position;
+  
+  // Check player movement
+  const hasMoved = calculateDistance(playerPos, expectedState.playerStartPos) > 0.1;
+  
+  // Check mob states
+  const goblins = world.entities.getAll()
+    .filter(e => e.blueprint?.name === 'RPGGoblin');
+  
+  const deadGoblins = goblins.filter(g => 
+    g.getComponent('health')?.data.currentHealth <= 0
+  );
+  
+  return {
+    playerMoved: hasMoved,
+    goblinsAlive: goblins.length - deadGoblins.length,
+    goblinsKilled: deadGoblins.length
+  };
+}
+```
+
+### 9. What does Hyperfy NOT give us that we need to build an MMORPG?
+
+**Critical Missing Systems (Estimated 60-70% of total MMORPG functionality):**
+
+**1. Game Logic Systems (16-20 weeks development):**
+- Character progression and leveling systems
+- Combat mechanics and damage calculation  
+- Inventory and equipment management
+- Skill trees and ability systems
+- Quest and dialogue systems
+- Loot generation and item systems
+- Economy and trading systems
+- NPC AI and behavior trees
+
+**2. Scalability Infrastructure (6-8 weeks):**
+- Horizontal scaling and load balancing
+- Multi-server architecture  
+- Database clustering and optimization
+- Memory management and entity pooling
+- Network optimization and delta compression
+
+**3. Security & Anti-Cheat (4-6 weeks):**
+- Server-side validation of all actions
+- Advanced cheat detection systems
+- Rate limiting and DDoS protection
+- Cryptographic protection for items/currency
+- Audit logging and monitoring
+
+**4. User Interface Framework (8-10 weeks):**
+- Game-specific UI components (inventory, character sheet, skill tree)
+- HUD systems (health bars, minimaps, action bars)
+- Menu systems and settings
+- Tooltips and help systems
+- Accessibility features
+
+**5. Database Extensions (3-4 weeks):**
+- Complex schema for player progression
+- Optimized queries for MMORPG operations
+- Data migration and backup systems
+- Analytics and telemetry collection
+
+**Performance Limitations:**
+- Single-server architecture (no horizontal scaling)
+- 8Hz network update rate (may be too slow for fast combat)
+- SQLite database (won't scale beyond ~100 concurrent players)
+- No entity pooling or advanced memory management
+- Limited spatial indexing for large worlds
+
+### 10. How do we actually start the RPG and get into the world?
+
+**Complete Launch Procedure:**
+
+**1. Development Setup:**
+```bash
+# Navigate to hyperfy directory
+cd packages/hyperfy
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Server starts on http://localhost:3000
+```
+
+**2. Production Deployment:**
+```bash
+# Build the application
+npm run build
+
+# Start production server
+npm start
+
+# Or with environment variables
+WORLD=rpg-world PORT=3000 npm start
+```
+
+**3. Client Connection Flow:**
+- Browser navigates to server URL
+- WebSocket connection established to `/ws` endpoint
+- Authentication with JWT tokens (auto-created for new users)
+- World snapshot received (settings, entities, collections)
+- PhysX physics engine initialized
+- Assets preloaded (models, textures, avatars)
+- Player entity spawned at configured spawn point
+- Game session begins
+
+**4. RPG-Specific Initialization:**
+```javascript
+// RPG collections loaded automatically
+world/collections/default/
+├── RPGPlayer.js        # Player stats and inventory
+├── RPGGoblin.js        # Enemy AI and combat
+├── RPGTree.js          # Resource gathering
+├── RPGBank.js          # Storage systems
+└── manifest.json       # Collection definition
+```
+
+**5. World Configuration:**
+```bash
+# Environment variables
+WORLD=rpg-world         # World directory name
+PORT=3000               # Server port
+ADMIN_CODE=secret123    # Admin access code
+SAVE_INTERVAL=60000     # Auto-save frequency
+```
+
+**6. Player Spawning Process:**
+- New players spawn at configurable spawn point (default: origin)
+- Spawn point set via `/spawn set` admin command
+- Starting equipment and stats defined in RPGPlayer.js
+- Persistent character data loaded from database
+- Multiplayer synchronization established
+
+### 11. How does player spawning and position in the world work?
+
+**Player Spawning Architecture:**
+
+**1. Spawn Point Management:**
+```javascript
+// Default spawn configuration
+const defaultSpawn = {
+  position: [0, 0, 0],
+  quaternion: [0, 0, 0, 1]
+};
+
+// Admin commands to set spawn
+world.on('command', (data) => {
+  if (data.command === '/spawn set' && isAdmin(data.player)) {
+    const newSpawn = {
+      position: data.player.position.slice(),
+      quaternion: data.player.quaternion.slice()
+    };
+    
+    // Save to database
+    world.db.prepare(`
+      INSERT OR REPLACE INTO config (key, value)
+      VALUES ('spawn', ?)
+    `).run(JSON.stringify(newSpawn));
+  }
+});
+```
+
+**2. Player Entity Creation:**
+```javascript
+// ServerNetwork.onConnection
+socket.player = world.entities.add({
+  id: user.id,
+  type: 'player',
+  position: this.spawn.position.slice(),  // Spawn point position
+  quaternion: this.spawn.quaternion.slice(), // Spawn point rotation  
+  name: name || user.name,
+  health: 100,
+  avatar: user.avatar || settings.avatar?.url || 'asset://avatar.vrm',
+  roles: user.roles
+}, true); // true = broadcast to all clients
+```
+
+**3. Player Types:**
+
+**PlayerLocal (controlling player):**
+- Physics-enabled capsule controller
+- Input handling (WASD movement, mouse look)
+- Camera control and rig positioning
+- Network state transmission to server
+
+**PlayerRemote (other players):**
+- Interpolated movement from network updates
+- Avatar rendering and animation
+- No physics simulation (receives positions)
+- Limited interaction capabilities
+
+**4. Position Synchronization:**
+```javascript
+// Client sends position updates
+world.network.send('playerUpdate', {
+  position: player.position.toArray(),
+  quaternion: player.quaternion.toArray(),
+  velocity: player.velocity.toArray(),
+  input: player.input
+});
+
+// Server validates and broadcasts
+world.network.broadcast('playerUpdate', {
+  playerId: player.id,
+  position: validatedPosition,
+  quaternion: validatedQuaternion
+});
+```
+
+**5. Multi-Player Spawning:**
+- All players spawn at same configured spawn point
+- No spawn point randomization (would need custom implementation)
+- Supports unlimited concurrent players (hardware dependent)
+- Player limit configurable via world settings
+- Automatic cleanup on disconnect
+
+**6. RPG-Specific Spawning:**
+```javascript
+// RPGPlayer.js initialization
+app.on('init', () => {
+  // Load persistent character data
+  const playerData = loadPlayerData(player.id);
+  
+  if (playerData) {
+    // Existing character - restore state
+    app.state = {
+      level: playerData.level,
+      health: playerData.health,
+      inventory: playerData.inventory,
+      skills: playerData.skills,
+      equipment: playerData.equipment
+    };
+    
+    // Restore position if saved
+    if (playerData.lastPosition) {
+      player.position.copy(playerData.lastPosition);
+    }
+  } else {
+    // New character - default stats
+    app.state = {
+      level: 1,
+      health: 100,
+      inventory: new Array(28).fill(null),
+      skills: { attack: 1, strength: 1, defense: 1 },
+      equipment: { weapon: 'bronze_sword', shield: null }
+    };
+  }
+});
+```
+
+### Technical Risks:
+1. **Scalability Bottlenecks**: Hyperfy's single-server architecture may limit player count
+   - *Mitigation*: Implement load balancing and horizontal scaling early
+   
+2. **Database Performance**: SQLite won't scale beyond ~100 concurrent players
+   - *Mitigation*: Plan PostgreSQL migration for production
+   
+3. **Network Latency**: 8Hz update rate may feel unresponsive for combat
+   - *Mitigation*: Implement client-side prediction and lag compensation
+
+### Development Risks:
+1. **Scope Creep**: MMORPG feature requests beyond GDD scope
+   - *Mitigation*: Strict adherence to GDD, phased implementation
+   
+2. **Testing Complexity**: No mocks allowed, all real-world testing
+   - *Mitigation*: Invest heavily in test framework and automation
+
+3. **Security Vulnerabilities**: Online game attracts hackers and exploiters
+   - *Mitigation*: Security-first development, regular penetration testing
+
 # ElizaOS Actions, Providers, and Services Architecture
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Actions](#actions)
-3. [Providers](#providers)
-4. [Services](#services)
-5. [Hyperfy Integration](#hyperfy-integration)
-6. [Architecture Flow](#architecture-flow)
-7. [Best Practices](#best-practices)
 
 ## Overview
 

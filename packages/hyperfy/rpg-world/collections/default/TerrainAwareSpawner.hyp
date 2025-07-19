@@ -1,0 +1,29 @@
+{
+  "name": "TerrainAwareSpawner",
+  "description": "Terrain-aware entity spawning system that ensures proper placement above ground level",
+  "script": "TerrainAwareSpawner.js",
+  "properties": {
+    "spawnRadius": {
+      "type": "number",
+      "default": 50,
+      "min": 10,
+      "max": 200
+    },
+    "minimumHeight": {
+      "type": "number", 
+      "default": 1.0,
+      "min": 0.1,
+      "max": 10.0
+    },
+    "testEntityCount": {
+      "type": "number",
+      "default": 10,
+      "min": 1,
+      "max": 20
+    },
+    "enableDebugMode": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

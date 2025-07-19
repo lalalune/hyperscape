@@ -8,6 +8,19 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],
     
+    // Include patterns - exclude Playwright tests
+    include: ['**/*.test.{js,ts}'], // Only include .test files, not .spec files
+    exclude: [
+      'node_modules/**',
+      '**/*.spec.{js,ts}', // Exclude .spec files (Playwright convention)
+      'rpg-world/**/*.spec.js', // Explicitly exclude Playwright specs
+      'rpg-world/test-geometric-validation.spec.js', // Specific exclusion
+      'rpg-world/test-dynamic-items-real.spec.js', // Specific exclusion  
+      'rpg-world/test-weapon-grip-system.spec.js', // Specific exclusion
+      'e2e/**',
+      'tests/e2e/**'
+    ],
+    
     // Performance optimizations for physics/rendering tests
     pool: 'threads',
     poolOptions: {

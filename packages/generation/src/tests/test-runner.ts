@@ -1,515 +1,244 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import { spawn } from 'child_process'
-import { config } from 'dotenv'
-
-// Load test environment
-config({ path: '.env.test' })
+import 'dotenv/config'
+import chalk from 'chalk'
+import { GDDAssetGenerator } from '../generators/GDDAssetGenerator'
+import { ProgressTracker } from '../utils/ProgressTracker'
+import { AssetPrompts } from '../config/AssetPrompts'
 
 interface TestResult {
   name: string
   passed: boolean
-  errors: string[]
+  error?: string
   duration: number
-  details?: any
 }
 
-class TestRunner {
-  private results: TestResult[] = []
-  private outputDir: string
-  private batchDir: string
+export async function runTests(): Promise<void> {
+  console.log(chalk.blue('🧪 AI Creation System Tests'))
+  console.log(chalk.blue('=' .repeat(40)))
   
-  constructor() {
-    this.outputDir = process.env.TEST_OUTPUT_DIR || 'test-output'
-    this.batchDir = process.env.BATCH_OUTPUT_DIR || 'test-batches'
-  }
+  const tests: TestResult[] = []
   
-  async runCompleteTestSuite(): Promise<void> {
-    console.log('🚀 Starting Complete RPG Asset Generation Test Suite')
-    console.log('=' .repeat(60))
-    
-    try {
-      // Step 1: Setup test environment
-      await this.setupTestEnvironment()
-      
-      // Step 2: Build the project
-      await this.buildProject()
-      
-      // Step 3: Run batch file validation
-      await this.runBatchFileValidation()
-      
-      // Step 4: Run generation pipeline
-      await this.runGenerationPipeline()
-      
-      // Step 5: Run validation tests
-      await this.runValidationTests()
-      
-      // Step 6: Run viewer tests
-      await this.runViewerTests()
-      
-      // Step 7: Generate final report
-      await this.generateReport()
-      
-    } catch (error) {
-      console.error('❌ Test suite failed:', error)
-      process.exit(1)
-    }
-  }
+  // Test 1: Environment Variables
+  tests.push(await testEnvironmentVariables())
   
-  private async setupTestEnvironment(): Promise<void> {
-    console.log('🔧 Setting up test environment...')
-    
-    // Create output directories
-    if (!fs.existsSync(this.outputDir)) {
-      fs.mkdirSync(this.outputDir, { recursive: true })
-    }
-    
-    if (!fs.existsSync(this.batchDir)) {
-      fs.mkdirSync(this.batchDir, { recursive: true })
-    }
-    
-    // Create test results directory
-    const testResultsDir = 'test-results'
-    if (!fs.existsSync(testResultsDir)) {
-      fs.mkdirSync(testResultsDir, { recursive: true })
-    }
-    
-    console.log('✅ Test environment setup complete')
-  }
+  // Test 2: Asset Prompts
+  tests.push(await testAssetPrompts())
   
-  private async buildProject(): Promise<void> {
-    console.log('🔨 Building project...')
-    
-    const buildResult = await this.runCommand('npm', ['run', 'build'])
-    
-    if (!buildResult.success) {
-      throw new Error(`Build failed: ${buildResult.error}`)
-    }
-    
-    console.log('✅ Project built successfully')
-  }
+  // Test 3: Progress Tracking
+  tests.push(await testProgressTracking())
   
-  private async runBatchFileValidation(): Promise<void> {
-    console.log('📋 Validating batch files...')
-    
-    const startTime = Date.now()
-    const errors: string[] = []
-    
-    try {
-      // Check if batch files exist
-      const batchFiles = [
-        'rpg-weapons-batch.json',
-        'rpg-armor-batch.json',
-        'rpg-monsters-batch.json',
-        'rpg-tools-batch.json',
-        'rpg-resources-batch.json',
-        'rpg-buildings-batch.json',
-        'rpg-complete-batch.json'
-      ]
-      
-      for (const batchFile of batchFiles) {
-        const filePath = path.join('demo-batches', batchFile)
-        if (!fs.existsSync(filePath)) {
-          errors.push(`Missing batch file: ${batchFile}`)
-          continue
-        }
-        
-        // Validate JSON structure
-        try {
-          const content = fs.readFileSync(filePath, 'utf-8')
-          const batch = JSON.parse(content)
-          
-          if (!Array.isArray(batch)) {
-            errors.push(`${batchFile} is not an array`)
-            continue
-          }
-          
-          if (batch.length === 0) {
-            errors.push(`${batchFile} is empty`)
-            continue
-          }
-          
-          // Validate each item
-          for (const item of batch) {
-            if (!item.name || !item.description || !item.type) {
-              errors.push(`${batchFile} contains invalid item: ${JSON.stringify(item)}`)
-              break
-            }
-          }
-          
-        } catch (error) {
-          errors.push(`${batchFile} contains invalid JSON: ${error instanceof Error ? error.message : String(error)}`)
-        }
-      }
-      
-      const duration = Date.now() - startTime
-      const passed = errors.length === 0
-      
-      this.results.push({
-        name: 'Batch File Validation',
-        passed,
-        errors,
-        duration,
-        details: { checkedFiles: batchFiles.length }
-      })
-      
-      if (passed) {
-        console.log('✅ Batch file validation passed')
-      } else {
-        console.log('❌ Batch file validation failed')
-        errors.forEach(error => console.log(`  - ${error}`))
-      }
-      
-    } catch (error) {
-      this.results.push({
-        name: 'Batch File Validation',
-        passed: false,
-        errors: [error instanceof Error ? error.message : String(error)],
-        duration: Date.now() - startTime
-      })
-      console.log('❌ Batch file validation failed:', error instanceof Error ? error.message : String(error))
-    }
-  }
+  // Test 4: GDD Asset Loading
+  tests.push(await testGDDAssetLoading())
   
-  private async runGenerationPipeline(): Promise<void> {
-    console.log('🎨 Running generation pipeline...')
-    
-    const startTime = Date.now()
-    const errors: string[] = []
-    
-    try {
-      // Run a small test batch to verify generation works
-      const testBatch = [
-        {
-          name: 'Test Bronze Sword',
-          description: 'A basic bronze sword for testing',
-          type: 'weapon',
-          subtype: 'sword',
-          style: 'realistic',
-          metadata: {
-            material: 'bronze',
-            level: 1,
-            attackBonus: 5
-          }
-        }
-      ]
-      
-      // Write test batch file
-      const testBatchPath = path.join(this.batchDir, 'test-batch.json')
-      fs.writeFileSync(testBatchPath, JSON.stringify(testBatch, null, 2))
-      
-      // Run generation (this would call the actual generation service)
-      // For now, we'll simulate it by creating the expected output structure
-      const testAssetId = 'test-bronze-sword'
-      const testAssetDir = path.join(this.outputDir, testAssetId)
-      
-      if (!fs.existsSync(testAssetDir)) {
-        fs.mkdirSync(testAssetDir, { recursive: true })
-      }
-      
-      // Create mock files to simulate successful generation
-      const mockMetadata = {
-        name: 'Test Bronze Sword',
-        type: 'weapon',
-        subtype: 'sword',
-        description: 'A basic bronze sword for testing',
-        generatedAt: new Date().toISOString(),
-        stages: ['image', 'model', 'remesh', 'analysis', 'final'],
-        polycount: 2000,
-        format: 'glb'
-      }
-      
-      fs.writeFileSync(
-        path.join(testAssetDir, 'metadata.json'),
-        JSON.stringify(mockMetadata, null, 2)
-      )
-      
-      // Create empty GLB file to simulate model
-      fs.writeFileSync(path.join(testAssetDir, 'test-bronze-sword.glb'), '')
-      
-      const duration = Date.now() - startTime
-      
-      this.results.push({
-        name: 'Generation Pipeline Test',
-        passed: true,
-        errors: [],
-        duration,
-        details: { assetsGenerated: 1, testBatchPath }
-      })
-      
-      console.log('✅ Generation pipeline test passed')
-      
-    } catch (error) {
-      const duration = Date.now() - startTime
-      errors.push(error instanceof Error ? error.message : String(error))
-      
-      this.results.push({
-        name: 'Generation Pipeline Test',
-        passed: false,
-        errors,
-        duration
-      })
-      
-      console.log('❌ Generation pipeline test failed:', error instanceof Error ? error.message : String(error))
-    }
-  }
+  // Test 5: Service Initialization
+  tests.push(await testServiceInitialization())
   
-  private async runValidationTests(): Promise<void> {
-    console.log('🔍 Running validation tests...')
-    
-    const startTime = Date.now()
-    
-    try {
-      // Run Playwright tests for file validation
-      const playwrightResult = await this.runCommand('npx', [
-        'playwright',
-        'test',
-        'tests/validation/file-existence.spec.ts',
-        '--config=playwright.config.ts'
-      ])
-      
-      const duration = Date.now() - startTime
-      
-      this.results.push({
-        name: 'Validation Tests',
-        passed: playwrightResult.success,
-        errors: playwrightResult.success ? [] : [playwrightResult.error || 'Validation tests failed'],
-        duration,
-        details: { 
-          stdout: playwrightResult.stdout,
-          stderr: playwrightResult.stderr
-        }
-      })
-      
-      if (playwrightResult.success) {
-        console.log('✅ Validation tests passed')
-      } else {
-        console.log('❌ Validation tests failed')
-        if (playwrightResult.stderr) {
-          console.log('Error output:', playwrightResult.stderr)
-        }
-      }
-      
-    } catch (error) {
-      const duration = Date.now() - startTime
-      
-      this.results.push({
-        name: 'Validation Tests',
-        passed: false,
-        errors: [error instanceof Error ? error.message : String(error)],
-        duration
-      })
-      
-      console.log('❌ Validation tests failed:', error instanceof Error ? error.message : String(error))
-    }
-  }
+  // Display results
+  displayTestResults(tests)
   
-  private async runViewerTests(): Promise<void> {
-    console.log('🖥️  Running viewer tests...')
-    
-    const startTime = Date.now()
-    
-    try {
-      // Run Playwright tests for viewer
-      const playwrightResult = await this.runCommand('npx', [
-        'playwright',
-        'test',
-        'tests/e2e/viewer.spec.ts',
-        '--config=playwright.config.ts'
-      ])
-      
-      const duration = Date.now() - startTime
-      
-      this.results.push({
-        name: 'Viewer Tests',
-        passed: playwrightResult.success,
-        errors: playwrightResult.success ? [] : [playwrightResult.error || 'Viewer tests failed'],
-        duration,
-        details: { 
-          stdout: playwrightResult.stdout,
-          stderr: playwrightResult.stderr
-        }
-      })
-      
-      if (playwrightResult.success) {
-        console.log('✅ Viewer tests passed')
-      } else {
-        console.log('❌ Viewer tests failed')
-        if (playwrightResult.stderr) {
-          console.log('Error output:', playwrightResult.stderr)
-        }
-      }
-      
-    } catch (error) {
-      const duration = Date.now() - startTime
-      
-      this.results.push({
-        name: 'Viewer Tests',
-        passed: false,
-        errors: [error instanceof Error ? error.message : String(error)],
-        duration
-      })
-      
-      console.log('❌ Viewer tests failed:', error instanceof Error ? error.message : String(error))
-    }
-  }
-  
-  private async generateReport(): Promise<void> {
-    console.log('📊 Generating test report...')
-    
-    const totalTests = this.results.length
-    const passedTests = this.results.filter(r => r.passed).length
-    const failedTests = totalTests - passedTests
-    const totalDuration = this.results.reduce((sum, r) => sum + r.duration, 0)
-    
-    const report = {
-      summary: {
-        total: totalTests,
-        passed: passedTests,
-        failed: failedTests,
-        passRate: (passedTests / totalTests * 100).toFixed(1),
-        totalDuration: `${(totalDuration / 1000).toFixed(2)}s`
-      },
-      results: this.results,
-      generatedAt: new Date().toISOString()
-    }
-    
-    // Write report to file
-    const reportPath = path.join('test-results', 'test-report.json')
-    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2))
-    
-    // Generate HTML report
-    const htmlReport = this.generateHtmlReport(report)
-    fs.writeFileSync(path.join('test-results', 'test-report.html'), htmlReport)
-    
-    console.log('📋 Test Report Summary:')
-    console.log('=' .repeat(60))
-    console.log(`Total Tests: ${totalTests}`)
-    console.log(`Passed: ${passedTests}`)
-    console.log(`Failed: ${failedTests}`)
-    console.log(`Pass Rate: ${report.summary.passRate}%`)
-    console.log(`Total Duration: ${report.summary.totalDuration}`)
-    console.log(`Report saved to: ${reportPath}`)
-    
-    if (failedTests > 0) {
-      console.log('\\n❌ Failed Tests:')
-      this.results.filter(r => !r.passed).forEach(result => {
-        console.log(`  - ${result.name}: ${result.errors.join(', ')}`)
-      })
-    }
-    
-    console.log('\\n📊 Complete test report available at:', reportPath)
-  }
-  
-  private generateHtmlReport(report: any): string {
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>RPG Asset Generation Test Report</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .summary { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .passed { color: #28a745; }
-        .failed { color: #dc3545; }
-        .test-result { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        .test-result.passed { border-color: #28a745; background: #f8fff8; }
-        .test-result.failed { border-color: #dc3545; background: #fff8f8; }
-        .errors { color: #dc3545; font-size: 0.9em; margin-top: 5px; }
-        .duration { color: #666; font-size: 0.8em; }
-    </style>
-</head>
-<body>
-    <h1>RPG Asset Generation Test Report</h1>
-    
-    <div class="summary">
-        <h2>Summary</h2>
-        <p><strong>Total Tests:</strong> ${report.summary.total}</p>
-        <p><strong>Passed:</strong> <span class="passed">${report.summary.passed}</span></p>
-        <p><strong>Failed:</strong> <span class="failed">${report.summary.failed}</span></p>
-        <p><strong>Pass Rate:</strong> ${report.summary.passRate}%</p>
-        <p><strong>Total Duration:</strong> ${report.summary.totalDuration}</p>
-        <p><strong>Generated At:</strong> ${report.generatedAt}</p>
-    </div>
-    
-    <h2>Test Results</h2>
-    ${report.results.map((result: any) => `
-        <div class="test-result ${result.passed ? 'passed' : 'failed'}">
-            <h3>${result.name} ${result.passed ? '✅' : '❌'}</h3>
-            <p class="duration">Duration: ${(result.duration / 1000).toFixed(2)}s</p>
-            ${result.errors.length > 0 ? `
-                <div class="errors">
-                    <strong>Errors:</strong>
-                    <ul>
-                        ${result.errors.map((error: string) => `<li>${error}</li>`).join('')}
-                    </ul>
-                </div>
-            ` : ''}
-            ${result.details ? `
-                <details>
-                    <summary>Details</summary>
-                    <pre>${JSON.stringify(result.details, null, 2)}</pre>
-                </details>
-            ` : ''}
-        </div>
-    `).join('')}
-    
-</body>
-</html>
-    `.trim()
-  }
-  
-  private runCommand(command: string, args: string[] = []): Promise<{success: boolean, stdout: string, stderr: string, error?: string}> {
-    return new Promise((resolve) => {
-      const proc = spawn(command, args, { 
-        stdio: 'pipe',
-        shell: true
-      })
-      
-      let stdout = ''
-      let stderr = ''
-      
-      proc.stdout?.on('data', (data) => {
-        stdout += data.toString()
-      })
-      
-      proc.stderr?.on('data', (data) => {
-        stderr += data.toString()
-      })
-      
-      proc.on('close', (code) => {
-        resolve({
-          success: code === 0,
-          stdout,
-          stderr,
-          error: code !== 0 ? `Command failed with code ${code}` : undefined
-        })
-      })
-      
-      proc.on('error', (error) => {
-        resolve({
-          success: false,
-          stdout,
-          stderr,
-          error: error.message
-        })
-      })
-    })
+  const failedTests = tests.filter(test => !test.passed)
+  if (failedTests.length > 0) {
+    throw new Error(`${failedTests.length} tests failed`)
   }
 }
 
-// Run the test suite if this file is executed directly
-if (require.main === module) {
-  const runner = new TestRunner()
-  runner.runCompleteTestSuite()
-    .then(() => {
-      console.log('🎉 Test suite completed successfully!')
-      process.exit(0)
-    })
-    .catch((error) => {
-      console.error('💥 Test suite failed:', error)
-      process.exit(1)
-    })
+async function testEnvironmentVariables(): Promise<TestResult> {
+  const start = Date.now()
+  
+  try {
+    const hasOpenAI = !!process.env.OPENAI_API_KEY
+    const hasMeshy = !!process.env.MESHY_API_KEY
+    
+    if (!hasOpenAI) {
+      throw new Error('OPENAI_API_KEY not found in environment')
+    }
+    
+    if (!hasMeshy) {
+      throw new Error('MESHY_API_KEY not found in environment')
+    }
+    
+    return {
+      name: 'Environment Variables',
+      passed: true,
+      duration: Date.now() - start
+    }
+  } catch (error) {
+    return {
+      name: 'Environment Variables',
+      passed: false,
+      error: error instanceof Error ? error.message : String(error),
+      duration: Date.now() - start
+    }
+  }
 }
 
-export { TestRunner }
+async function testAssetPrompts(): Promise<TestResult> {
+  const start = Date.now()
+  
+  try {
+    const supportedTypes = AssetPrompts.getSupportedTypes()
+    
+    if (supportedTypes.length === 0) {
+      throw new Error('No supported asset types found')
+    }
+    
+    // Test some common types
+    const testTypes = ['sword', 'helmet', 'goblin', 'logs']
+    
+    for (const type of testTypes) {
+      if (!AssetPrompts.hasSupportFor(type)) {
+        throw new Error(`No support for asset type: ${type}`)
+      }
+    }
+    
+    // Test prompt generation
+    const testAsset = {
+      name: 'Test Sword',
+      description: 'Test',
+      type: 'weapon',
+      subtype: 'sword',
+      metadata: { tier: 'bronze' }
+    }
+    
+    const prompt = AssetPrompts.getPrompt(testAsset)
+    
+    if (!prompt) {
+      throw new Error('Failed to generate prompt for test asset')
+    }
+    
+    if (!prompt.includes('bronze')) {
+      throw new Error('Prompt does not include tier information')
+    }
+    
+    return {
+      name: 'Asset Prompts',
+      passed: true,
+      duration: Date.now() - start
+    }
+  } catch (error) {
+    return {
+      name: 'Asset Prompts',
+      passed: false,
+      error: error instanceof Error ? error.message : String(error),
+      duration: Date.now() - start
+    }
+  }
+}
+
+async function testProgressTracking(): Promise<TestResult> {
+  const start = Date.now()
+  
+  try {
+    const tracker = new ProgressTracker()
+    
+    // Test progress report generation
+    const report = await tracker.generateReport()
+    
+    if (typeof report.totalAssets !== 'number') {
+      throw new Error('Invalid total assets count')
+    }
+    
+    if (typeof report.successRate !== 'number') {
+      throw new Error('Invalid success rate')
+    }
+    
+    if (!Array.isArray(report.remainingAssets)) {
+      throw new Error('Invalid remaining assets array')
+    }
+    
+    return {
+      name: 'Progress Tracking',
+      passed: true,
+      duration: Date.now() - start
+    }
+  } catch (error) {
+    return {
+      name: 'Progress Tracking',
+      passed: false,
+      error: error instanceof Error ? error.message : String(error),
+      duration: Date.now() - start
+    }
+  }
+}
+
+async function testGDDAssetLoading(): Promise<TestResult> {
+  const start = Date.now()
+  
+  try {
+    // This will throw if GDD batch file is missing
+    const generator = new GDDAssetGenerator()
+    
+    // Test getting remaining assets
+    const tracker = new ProgressTracker()
+    const remainingAssets = await tracker.getRemainingAssets()
+    
+    if (!Array.isArray(remainingAssets)) {
+      throw new Error('Failed to load remaining assets')
+    }
+    
+    return {
+      name: 'GDD Asset Loading',
+      passed: true,
+      duration: Date.now() - start
+    }
+  } catch (error) {
+    return {
+      name: 'GDD Asset Loading',
+      passed: false,
+      error: error instanceof Error ? error.message : String(error),
+      duration: Date.now() - start
+    }
+  }
+}
+
+async function testServiceInitialization(): Promise<TestResult> {
+  const start = Date.now()
+  
+  try {
+    const generator = new GDDAssetGenerator()
+    
+    // Test that generator can be created without errors
+    if (!generator) {
+      throw new Error('Failed to create GDD Asset Generator')
+    }
+    
+    return {
+      name: 'Service Initialization',
+      passed: true,
+      duration: Date.now() - start
+    }
+  } catch (error) {
+    return {
+      name: 'Service Initialization',
+      passed: false,
+      error: error instanceof Error ? error.message : String(error),
+      duration: Date.now() - start
+    }
+  }
+}
+
+function displayTestResults(tests: TestResult[]): void {
+  console.log(chalk.cyan('\n📊 Test Results:'))
+  
+  tests.forEach(test => {
+    const status = test.passed ? chalk.green('✅ PASS') : chalk.red('❌ FAIL')
+    const duration = chalk.gray(`(${test.duration}ms)`)
+    
+    console.log(`  ${status} ${test.name} ${duration}`)
+    
+    if (!test.passed && test.error) {
+      console.log(chalk.red(`    Error: ${test.error}`))
+    }
+  })
+  
+  const passedCount = tests.filter(test => test.passed).length
+  const totalCount = tests.length
+  const successRate = Math.round((passedCount / totalCount) * 100)
+  
+  console.log(chalk.cyan(`\n📈 Summary: ${passedCount}/${totalCount} tests passed (${successRate}%)`))
+  
+  if (passedCount === totalCount) {
+    console.log(chalk.green('🎉 All tests passed!'))
+  } else {
+    console.log(chalk.red(`❌ ${totalCount - passedCount} tests failed`))
+  }
+}

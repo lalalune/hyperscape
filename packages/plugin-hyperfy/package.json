@@ -88,13 +88,13 @@
     "vitest": "^1.1.0"
   },
   "scripts": {
-    "start": "npm run minigames",
     "build": "bun run build.ts",
     "dev": "bun run build.ts --watch",
-    "clean": "rm -rf dist && rm -rf .turbo",
-    "lint": "eslint src --fix && prettier --write ./src",
-    "typecheck": "tsc --noEmit",
-    "test": "npm run test:all"
+    "start": "echo 'Plugin built and ready'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --fix --max-warnings 2000 && prettier --write ./src"
   },
   "publishConfig": {
     "access": "public"

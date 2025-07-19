@@ -1,20 +1,26 @@
-import { IAgentRuntime, logger } from '../types/eliza-mock';
-import { IContentPack, IContentPackLoader, IGameSystem } from '../types/content-pack';
-import { HyperfyService } from '../service';
-import { DynamicActionLoader } from './dynamic-action-loader';
+import { IAgentRuntime, logger } from '../types/eliza-mock'
+import {
+  IContentPack,
+  IContentPackLoader,
+  IGameSystem,
+} from '../types/content-pack'
+import { HyperfyService } from '../service'
+import { DynamicActionLoader } from './dynamic-action-loader'
 
 /**
  * Manages loading and unloading of modular content packs
  */
 export class ContentPackLoader implements IContentPackLoader {
-  private runtime: IAgentRuntime;
-  private service: HyperfyService;
-  private loadedPacks: Map<string, IContentPack> = new Map();
-  private activeSystems: Map<string, IGameSystem[]> = new Map();
+  private runtime: IAgentRuntime
+  private service: HyperfyService
+  private loadedPacks: Map<string, IContentPack> = new Map()
+  private activeSystems: Map<string, IGameSystem[]> = new Map()
 
   constructor(runtime: IAgentRuntime) {
-    this.runtime = runtime;
-    this.service = runtime.getService<HyperfyService>(HyperfyService.serviceName)!;
+    this.runtime = runtime
+    this.service = runtime.getService<HyperfyService>(
+      HyperfyService.serviceName
+    )!
   }
 
   /**
@@ -22,76 +28,80 @@ export class ContentPackLoader implements IContentPackLoader {
    */
   async loadPack(pack: IContentPack, runtime?: IAgentRuntime): Promise<void> {
     if (this.loadedPacks.has(pack.id)) {
-      logger.warn(`[ContentPackLoader] Pack ${pack.id} already loaded`);
-      return;
+      logger.warn(`[ContentPackLoader] Pack ${pack.id} already loaded`)
+      return
     }
 
-    logger.info(`[ContentPackLoader] Loading content pack: ${pack.name} v${pack.version}`);
+    logger.info(
+      `[ContentPackLoader] Loading content pack: ${pack.name} v${pack.version}`
+    )
 
     try {
-      const world = this.service.getWorld();
-      const targetRuntime = runtime || this.runtime;
+      const world = this.service.getWorld()
+      const targetRuntime = runtime || this.runtime
 
       // Execute onLoad hook if provided
       if (pack.onLoad) {
-        await pack.onLoad(targetRuntime, world);
+        await pack.onLoad(targetRuntime, world)
       }
 
       // Load visual configuration
       if (pack.visuals) {
-        this.loadVisualConfig(pack.visuals);
+        this.loadVisualConfig(pack.visuals)
       }
 
       // Initialize game systems
       if (pack.systems && pack.systems.length > 0) {
-        const systems = await this.initializeSystems(pack.systems, world);
-        this.activeSystems.set(pack.id, systems);
+        const systems = await this.initializeSystems(pack.systems, world)
+        this.activeSystems.set(pack.id, systems)
       }
 
       // Register actions dynamically
       if (pack.actions && pack.actions.length > 0) {
-        const actionLoader = this.service.getDynamicActionLoader?.();
+        const actionLoader = this.service.getDynamicActionLoader?.()
         if (actionLoader) {
           for (const action of pack.actions) {
-            await actionLoader.registerAction(action);
+            await actionLoader.registerAction(action)
           }
         } else {
           // Fallback to runtime registration
           pack.actions.forEach(action => {
-            if ('registerAction' in targetRuntime && typeof targetRuntime.registerAction === 'function') {
-              targetRuntime.registerAction(action);
+            if (
+              'registerAction' in targetRuntime &&
+              typeof targetRuntime.registerAction === 'function'
+            ) {
+              targetRuntime.registerAction(action)
             }
-          });
+          })
         }
       }
 
       // Register providers
       if (pack.providers && pack.providers.length > 0) {
         pack.providers.forEach(provider => {
-          targetRuntime.registerProvider(provider);
-        });
+          targetRuntime.registerProvider(provider)
+        })
       }
 
       // Register evaluators
       if (pack.evaluators && pack.evaluators.length > 0) {
         pack.evaluators.forEach(evaluator => {
-          targetRuntime.registerEvaluator(evaluator);
-        });
+          targetRuntime.registerEvaluator(evaluator)
+        })
       }
 
       // Initialize state manager
       if (pack.stateManager) {
         // Initialize for current player
-        const playerId = world?.player?.id || 'default';
-        pack.stateManager.initPlayerState(playerId);
+        const playerId = world?.player?.id || 'default'
+        pack.stateManager.initPlayerState(playerId)
       }
 
-      this.loadedPacks.set(pack.id, pack);
-      logger.info(`[ContentPackLoader] Successfully loaded pack: ${pack.id}`);
-
+      this.loadedPacks.set(pack.id, pack)
+      logger.info(`[ContentPackLoader] Successfully loaded pack: ${pack.id}`)
     } catch (error) {
-      logger.error(`[ContentPackLoader] Failed to load pack ${pack.id}:`, error);
-      throw error;
+      logger.error(`[ContentPackLoader] Failed to load pack ${pack.id}:`, error)
+      throw error
     }
   }
 
@@ -99,40 +109,42 @@ export class ContentPackLoader implements IContentPackLoader {
    * Unload a content pack
    */
   async unloadPack(packId: string): Promise<void> {
-    const pack = this.loadedPacks.get(packId);
+    const pack = this.loadedPacks.get(packId)
     if (!pack) {
-      logger.warn(`[ContentPackLoader] Pack ${packId} not loaded`);
-      return;
+      logger.warn(`[ContentPackLoader] Pack ${packId} not loaded`)
+      return
     }
 
-    logger.info(`[ContentPackLoader] Unloading content pack: ${pack.name}`);
+    logger.info(`[ContentPackLoader] Unloading content pack: ${pack.name}`)
 
     try {
-      const world = this.service.getWorld();
+      const world = this.service.getWorld()
 
       // Execute onUnload hook if provided
       if (pack.onUnload) {
-        await pack.onUnload(this.runtime, world);
+        await pack.onUnload(this.runtime, world)
       }
 
       // Cleanup game systems
-      const systems = this.activeSystems.get(packId);
+      const systems = this.activeSystems.get(packId)
       if (systems) {
         for (const system of systems) {
-          system.cleanup();
+          system.cleanup()
         }
-        this.activeSystems.delete(packId);
+        this.activeSystems.delete(packId)
       }
 
       // TODO: Unregister actions, providers, evaluators
       // This requires tracking in the runtime
 
-      this.loadedPacks.delete(packId);
-      logger.info(`[ContentPackLoader] Successfully unloaded pack: ${packId}`);
-
+      this.loadedPacks.delete(packId)
+      logger.info(`[ContentPackLoader] Successfully unloaded pack: ${packId}`)
     } catch (error) {
-      logger.error(`[ContentPackLoader] Failed to unload pack ${packId}:`, error);
-      throw error;
+      logger.error(
+        `[ContentPackLoader] Failed to unload pack ${packId}:`,
+        error
+      )
+      throw error
     }
   }
 
@@ -140,40 +152,42 @@ export class ContentPackLoader implements IContentPackLoader {
    * Get all loaded packs
    */
   getLoadedPacks(): IContentPack[] {
-    return Array.from(this.loadedPacks.values());
+    return Array.from(this.loadedPacks.values())
   }
 
   /**
    * Check if a pack is loaded
    */
   isPackLoaded(packId: string): boolean {
-    return this.loadedPacks.has(packId);
+    return this.loadedPacks.has(packId)
   }
 
   /**
    * Load visual configuration into the world
    */
   private loadVisualConfig(visuals: any): void {
-    const world = this.service.getWorld();
-    
+    const world = this.service.getWorld()
+
     // Register entity colors for visual detection
     if (visuals.entityColors && world?.colorDetector) {
-      Object.entries(visuals.entityColors).forEach(([entityType, config]: [string, any]) => {
-        world.colorDetector.registerEntityColor(entityType, config);
-      });
+      Object.entries(visuals.entityColors).forEach(
+        ([entityType, config]: [string, any]) => {
+          world.colorDetector.registerEntityColor(entityType, config)
+        }
+      )
     }
 
     // Apply UI theme if provided
     if (visuals.uiTheme && world?.ui) {
-      world.ui.applyTheme(visuals.uiTheme);
+      world.ui.applyTheme(visuals.uiTheme)
     }
 
     // Load assets
     if (visuals.assets && world?.assetLoader) {
       if (visuals.assets.models) {
         visuals.assets.models.forEach((url: string) => {
-          world.assetLoader.loadModel(url);
-        });
+          world.assetLoader.loadModel(url)
+        })
       }
       // Load other asset types...
     }
@@ -182,20 +196,26 @@ export class ContentPackLoader implements IContentPackLoader {
   /**
    * Initialize game systems
    */
-  private async initializeSystems(systems: IGameSystem[], world: any): Promise<IGameSystem[]> {
-    const initialized: IGameSystem[] = [];
+  private async initializeSystems(
+    systems: IGameSystem[],
+    world: any
+  ): Promise<IGameSystem[]> {
+    const initialized: IGameSystem[] = []
 
     for (const system of systems) {
       try {
-        await system.init(world);
-        initialized.push(system);
-        logger.info(`[ContentPackLoader] Initialized system: ${system.name}`);
+        await system.init(world)
+        initialized.push(system)
+        logger.info(`[ContentPackLoader] Initialized system: ${system.name}`)
       } catch (error) {
-        logger.error(`[ContentPackLoader] Failed to initialize system ${system.name}:`, error);
+        logger.error(
+          `[ContentPackLoader] Failed to initialize system ${system.name}:`,
+          error
+        )
       }
     }
 
-    return initialized;
+    return initialized
   }
 
   /**
@@ -206,9 +226,12 @@ export class ContentPackLoader implements IContentPackLoader {
       for (const system of systems) {
         if (system.update) {
           try {
-            system.update(deltaTime);
+            system.update(deltaTime)
           } catch (error) {
-            logger.error(`[ContentPackLoader] Error updating system in pack ${packId}:`, error);
+            logger.error(
+              `[ContentPackLoader] Error updating system in pack ${packId}:`,
+              error
+            )
           }
         }
       }
@@ -219,7 +242,7 @@ export class ContentPackLoader implements IContentPackLoader {
    * Get state manager for a loaded pack
    */
   getPackStateManager(packId: string): any {
-    const pack = this.loadedPacks.get(packId);
-    return pack?.stateManager;
+    const pack = this.loadedPacks.get(packId)
+    return pack?.stateManager
   }
-} 
+}

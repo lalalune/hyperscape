@@ -1,0 +1,249 @@
+{"blueprint":{"id":"RPGBarbarian001","version":1,"name":"RPG Barbarian","author":"RPG System","url":null,"desc":"A wild barbarian enemy - tougher than bandits","model":null,"script":null,"props":{"barbarianName":"Barbarian","level":5,"health":40,"visualColor":"orange"},"preload":false,"public":true,"locked":false,"unique":false,"disabled":false},"assets":[]}
+
+// RPG Barbarian App for Hyperfy
+// A wild barbarian enemy according to the GDD
+
+console.log('🪓 Initializing RPG Barbarian Hyperfy App...');
+
+app.configure([
+  {
+    key: 'barbarianName',
+    type: 'text',
+    label: 'Barbarian Name',
+    initial: 'Barbarian',
+    hint: 'The name of the barbarian'
+  },
+  {
+    key: 'level',
+    type: 'number',
+    label: 'Level',
+    initial: 5,
+    min: 1,
+    max: 15,
+    hint: 'Combat level of the barbarian'
+  },
+  {
+    key: 'health',
+    type: 'number',
+    label: 'Health Points',
+    initial: 40,
+    min: 20,
+    max: 100,
+    hint: 'Starting health points'
+  },
+  {
+    key: 'visualColor',
+    type: 'text',
+    label: 'Visual Color',
+    initial: 'orange',
+    hint: 'Color of the barbarian representation'
+  }
+])
+
+// Barbarian stats and data
+let barbarianStats = {
+  name: props.barbarianName,
+  level: props.level,
+  hitpoints: { current: props.health, max: props.health },
+  attack: 8,
+  strength: 10,
+  defense: 5,
+  inCombat: false,
+  target: null,
+  lastAttack: 0,
+  aggroRange: 6,
+  respawnTime: 45000,
+  isDead: false
+}
+
+// Create barbarian visual representation
+const barbarianMesh = app.create('mesh')
+barbarianMesh.geometry = 'box'
+barbarianMesh.scale.set(0.9, 1.8, 0.9)
+barbarianMesh.position.set(0, 0.9, 0)
+barbarianMesh.material.color = props.visualColor
+barbarianMesh.castShadow = true
+
+// Create name tag
+const nameTag = app.create('ui', {
+  text: barbarianStats.name,
+  fontSize: 14,
+  color: 'white',
+  backgroundColor: 'rgba(0,0,0,0.8)',
+  padding: 4,
+  borderRadius: 4
+})
+nameTag.position.set(0, 2.2, 0)
+nameTag.billboard = true
+
+// Create health bar
+const healthBarBg = app.create('ui', {
+  width: 70,
+  height: 8,
+  backgroundColor: 'rgba(0,0,0,0.8)',
+  borderRadius: 4
+})
+healthBarBg.position.set(0, 1.9, 0)
+healthBarBg.billboard = true
+
+const healthBarFill = app.create('ui', {
+  width: 66,
+  height: 4,
+  backgroundColor: 'red',
+  borderRadius: 2
+})
+healthBarFill.position.set(0, 0, 0)
+healthBarBg.add(healthBarFill)
+
+// Add to app
+app.add(barbarianMesh)
+app.add(nameTag)
+app.add(healthBarBg)
+
+// Create combat action
+const attackAction = app.create('action')
+attackAction.label = 'Attack Barbarian'
+attackAction.distance = 2
+attackAction.duration = 1.5
+attackAction.onTrigger = (player) => {
+  if (barbarianStats.isDead) return
+  
+  // Calculate damage (barbarians are tougher)
+  const damage = Math.floor(Math.random() * 12) + 3
+  barbarianStats.hitpoints.current -= damage
+  
+  world.chat.send(`You hit the ${barbarianStats.name} for ${damage} damage!`)
+  
+  // Update health bar
+  const healthPercentage = barbarianStats.hitpoints.current / barbarianStats.hitpoints.max
+  healthBarFill.width = 66 * healthPercentage
+  healthBarFill.backgroundColor = healthPercentage > 0.3 ? 'red' : 'darkred'
+  
+  if (barbarianStats.hitpoints.current <= 0) {
+    handleDeath()
+  }
+}
+
+barbarianMesh.add(attackAction)
+
+// Loot table for barbarians (GDD: coins, basic equipment bronze tier)
+const lootTable = [
+  { id: 995, quantity: 8, chance: 1.0 }, // More coins than bandits
+  { id: 995, quantity: 5, chance: 0.7 }, // Extra coins (70% chance)
+  { id: 1, quantity: 1, chance: 0.1 },   // Bronze sword (10% chance)
+  { id: 70, quantity: 1, chance: 0.05 }  // Hatchet (5% chance)
+]
+
+function dropLoot() {
+  const drops = []
+  
+  for (const lootItem of lootTable) {
+    if (Math.random() < lootItem.chance) {
+      drops.push(lootItem)
+    }
+  }
+  
+  if (drops.length > 0) {
+    // Create loot pile
+    const lootPile = app.create('mesh')
+    lootPile.geometry = 'sphere'
+    lootPile.scale.set(0.4, 0.4, 0.4)
+    lootPile.position.set(0, 0.2, 0)
+    lootPile.material.color = 'gold'
+    
+    const lootAction = app.create('action')
+    lootAction.label = 'Take loot'
+    lootAction.distance = 2
+    lootAction.onTrigger = (player) => {
+      let lootDescription = []
+      for (const drop of drops) {
+        if (drop.id === 995) {
+          lootDescription.push(`${drop.quantity} coins`)
+        } else if (drop.id === 1) {
+          lootDescription.push('Bronze sword')
+        } else if (drop.id === 70) {
+          lootDescription.push('Hatchet')
+        }
+      }
+      world.chat.send(`You collected: ${lootDescription.join(', ')}!`)
+      app.remove(lootPile)
+    }
+    
+    lootPile.add(lootAction)
+    app.add(lootPile)
+    
+    // Remove loot after 2 minutes
+    setTimeout(() => {
+      app.remove(lootPile)
+    }, 120000)
+  }
+}
+
+function handleDeath() {
+  barbarianStats.isDead = true
+  barbarianStats.inCombat = false
+  
+  world.chat.send(`${barbarianStats.name} has been defeated!`)
+  
+  // Hide the barbarian
+  barbarianMesh.visible = false
+  nameTag.visible = false
+  healthBarBg.visible = false
+  
+  // Drop loot
+  dropLoot()
+  
+  // Respawn after delay
+  setTimeout(() => {
+    barbarianStats.hitpoints.current = barbarianStats.hitpoints.max
+    barbarianStats.isDead = false
+    barbarianMesh.visible = true
+    nameTag.visible = true
+    healthBarBg.visible = true
+    
+    // Reset health bar
+    healthBarFill.width = 66
+    healthBarFill.backgroundColor = 'red'
+    
+    world.chat.send(`A new ${barbarianStats.name} has appeared!`)
+  }, barbarianStats.respawnTime)
+}
+
+// Basic AI behavior - barbarians are more aggressive
+let aiState = 'idle'
+let wanderTarget = null
+let aiUpdateInterval = setInterval(() => {
+  if (barbarianStats.isDead) return
+  
+  switch (aiState) {
+    case 'idle':
+      // Higher chance to start wandering (more active)
+      if (Math.random() < 0.2) {
+        aiState = 'wandering'
+        wanderTarget = {
+          x: Math.random() * 8 - 4,
+          z: Math.random() * 8 - 4
+        }
+      }
+      break
+      
+    case 'wandering':
+      // Simple movement toward target
+      if (wanderTarget) {
+        const distance = Math.sqrt(
+          Math.pow(wanderTarget.x, 2) + Math.pow(wanderTarget.z, 2)
+        )
+        
+        if (distance < 0.5) {
+          aiState = 'idle'
+          wanderTarget = null
+        }
+      }
+      break
+  }
+}, 1500) // Faster AI updates
+
+// Cleanup on destroy
+app.on('destroy', () => {
+  clearInterval(aiUpdateInterval)
+})

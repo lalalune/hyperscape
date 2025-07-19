@@ -44,6 +44,34 @@ export interface GenerationRequest {
   metadata?: Record<string, any>
 }
 
+// GDD Asset specification
+export interface GDDAsset {
+  name: string
+  description: string
+  type: string
+  subtype?: string
+  style?: string
+  metadata?: {
+    tier?: string
+    level?: number
+    gameId?: string
+    rarity?: string
+    attackLevel?: number
+    strengthLevel?: number
+    defenseLevel?: number
+    [key: string]: any
+  }
+}
+
+// Simple generation result for CLI
+export interface SimpleGenerationResult {
+  success: boolean
+  assetId: string
+  fileSize?: string
+  modelUrl?: string
+  error?: string
+}
+
 // Generation stages
 export interface GenerationStage {
   stage: 'description' | 'image' | 'model' | 'remesh' | 'analysis' | 'final'

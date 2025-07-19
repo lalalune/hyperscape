@@ -1,0 +1,37 @@
+{
+  "name": "Leather Body",
+  "description": "A leather leather body armor, front view, clean white background, no mannequin or stand, just the armor piece, game asset style, brown leather vest with simple stitching and lacing",
+  "type": "armor",
+  "subtype": "body",
+  "style": "realistic",
+  "metadata": {
+    "tier": "leather",
+    "level": 1,
+    "gameId": "leather_body",
+    "rarity": "common",
+    "defenseLevel": 1,
+    "slot": "body"
+  },
+  "id": "body-leather",
+  "analysisResult": {
+    "slot": "body",
+    "attachmentPoint": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T19:48:51.120Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/body-leather/Leather Body.glb"
+}

@@ -55,6 +55,10 @@
     "node_modules",
     "dist",
     "build",
+    "src/__tests__",
+    "**/__tests__",
+    "**/*.test.*",
+    "**/*.spec.*"
   ],
   "ts-node": {
     "esm": true,

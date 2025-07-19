@@ -63,7 +63,7 @@ Respond using XML format like this:
 </response>
 
 Your response must ONLY include the <response></response> XML block.
-</instructions>`;
+</instructions>`
 
 export const hyperfyMessageHandlerTemplate = `<task>
 You are {{agentName}}, a visible in-world AI character in Hyperfy — a real-time, multiplayer 3D simulation.
@@ -138,7 +138,7 @@ Respond using this format:
 - **Nearby Interactable Objects** section lists interactive entities that are both nearby and currently interactable — like items that can be picked up or activated.
 - When asked about someone's appearance or visible elements of the world, use HYPERFY_SCENE_PERCEPTION to simulate looking at them before replying. You are fully embodied and should act like you can see everything around you.
 </rules>
-`;
+`
 
 export const hyperfyShouldRespondTemplate = `
 <task>Decide on behalf of {{agentName}} whether they should respond to the message, ignore it or stop the conversation.</task>
@@ -170,4 +170,4 @@ Respond using XML format like this:
 </response>
 
 Your response should ONLY include the <response></response> XML block.
-</output>`;
+</output>`

@@ -89,21 +89,29 @@ export class ServerNetwork extends System {
   async start(): Promise<void> {
     // get spawn
     const spawnRow = await this.db('config').where('key', 'spawn').first();
-    this.spawn = JSON.parse(spawnRow?.value || defaultSpawn);
+    console.log('[ServerNetwork] Spawn row:', spawnRow);
+    const spawnValue = spawnRow?.value || defaultSpawn;
+    console.log('[ServerNetwork] Spawn value:', spawnValue);
+    this.spawn = JSON.parse(spawnValue);
+    console.log('[ServerNetwork] Parsed spawn:', this.spawn);
     
     // hydrate blueprints
     const blueprints = await this.db('blueprints');
-    for (const blueprint of blueprints) {
-      const data = JSON.parse(blueprint.data);
-      (this.world as any).blueprints.add(data, true);
+    if (blueprints && Array.isArray(blueprints)) {
+      for (const blueprint of blueprints) {
+        const data = JSON.parse(blueprint.data);
+        (this.world as any).blueprints.add(data, true);
+      }
     }
     
     // hydrate entities
     const entities = await this.db('entities');
-    for (const entity of entities) {
+    if (entities && Array.isArray(entities)) {
+      for (const entity of entities) {
       const data = JSON.parse(entity.data);
       data.state = {};
-      (this.world as any).entities.add(data, true);
+        (this.world as any).entities.add(data, true);
+      }
     }
     
     // hydrate settings
@@ -364,7 +372,11 @@ export class ServerNetwork extends System {
         assetsUrl: process.env.PUBLIC_ASSETS_URL,
         apiUrl: process.env.PUBLIC_API_URL,
         maxUploadSize: process.env.PUBLIC_MAX_UPLOAD_SIZE,
-        collections: (this.world as any).collections.serialize(),
+        collections: (() => {
+          const serialized = (this.world as any).collections.serialize()
+          console.log('[ServerNetwork] Sending collections:', serialized)
+          return serialized
+        })(),
         settings: (this.world as any).settings.serialize(),
         chat: (this.world as any).chat.serialize(),
         blueprints: (this.world as any).blueprints.serialize(),

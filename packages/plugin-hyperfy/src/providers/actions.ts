@@ -1,6 +1,16 @@
-import type { Action, IAgentRuntime, Memory, Provider, State } from '../types/eliza-mock';
-import { addHeader, composeActionExamples, formatActionNames } from '../types/eliza-mock';
-import { getHyperfyActions, formatActions } from '../utils';
+import type {
+  Action,
+  IAgentRuntime,
+  Memory,
+  Provider,
+  State,
+} from '../types/eliza-mock'
+import {
+  addHeader,
+  composeActionExamples,
+  formatActionNames,
+} from '../types/eliza-mock'
+import { getHyperfyActions, formatActions } from '../utils'
 
 /**
  * A provider object that fetches possible response actions based on the provided runtime, message, and state.
@@ -39,21 +49,25 @@ export const hyperfyActionsProvider: Provider = {
   description: 'Possible response actions',
   position: -1,
   get: async (runtime: IAgentRuntime, message: Memory, state: State) => {
-    const actionsData = await getHyperfyActions(runtime, message, state); // ← no includeList passed here
+    const actionsData = await getHyperfyActions(runtime, message, state) // ← no includeList passed here
 
-    const actionNames = `Possible response actions: ${formatActionNames(actionsData)}`;
+    const actionNames = `Possible response actions: ${formatActionNames(actionsData)}`
     const actions =
-      actionsData.length > 0 ? addHeader('# Available Actions', formatActions(actionsData)) : '';
+      actionsData.length > 0
+        ? addHeader('# Available Actions', formatActions(actionsData))
+        : ''
     const actionExamples =
       actionsData.length > 0
         ? // @ts-ignore - Function signature mismatch
-        addHeader('# Action Examples', composeActionExamples(actionsData, 10))
-        : '';
+          addHeader('# Action Examples', composeActionExamples(actionsData, 10))
+        : ''
 
-    const data = { actionsData };
-    const values = { actions, actionNames, actionExamples };
-    const text = [actionNames, actionExamples, actions].filter(Boolean).join('\n\n');
+    const data = { actionsData }
+    const values = { actions, actionNames, actionExamples }
+    const text = [actionNames, actionExamples, actions]
+      .filter(Boolean)
+      .join('\n\n')
 
-    return { data, values, text };
+    return { data, values, text }
   },
-};
+}

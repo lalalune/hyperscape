@@ -1,0 +1,24 @@
+{
+  "name": "RPGWorldTest",
+  "description": "Test world that spawns RPG player and goblin entities for visual testing",
+  "category": "testing",
+  "tags": ["rpg", "test", "entities", "spawning"],
+  "script": "RPGWorldTest.js",
+  "properties": {
+    "spawnPlayer": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to spawn an RPG player"
+    },
+    "spawnGoblin": {
+      "type": "boolean", 
+      "default": true,
+      "description": "Whether to spawn an RPG goblin"
+    },
+    "playerColor": {
+      "type": "string",
+      "default": "blue",
+      "description": "Color for the RPG player entity"
+    }
+  }
+}

@@ -86,12 +86,26 @@ export class Scripts extends System {
     if (!this.compartment) {
       // Fallback to unsafe evaluation on client side
       console.warn('Scripts: Using unsafe evaluation (no SES sandbox)');
+      let evalFunc: ((...args: any[]) => any) | undefined;
+      
       return {
         exec: (...args: any[]) => {
-          // Create a basic evaluation context
-          const wrappedCode = wrapRawCode(code);
-          const evalFunc = new Function('return ' + wrappedCode)();
-          return evalFunc(...args);
+          try {
+            if (!evalFunc) {
+              // Create evaluation context that matches server behavior
+              const wrappedCode = wrapRawCode(code);
+              // Use eval instead of new Function to match compartment behavior
+              evalFunc = eval('(' + wrappedCode + ')');
+              if (typeof evalFunc !== 'function') {
+                throw new Error(`Script evaluation did not return a function, got: ${typeof evalFunc}`);
+              }
+            }
+            return evalFunc(...args);
+          } catch (error) {
+            console.error('Script execution error:', error);
+            console.error('Script code:', code);
+            throw error;
+          }
         },
         code,
       };

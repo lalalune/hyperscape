@@ -1,0 +1,31 @@
+{
+  "name": "Bronze Sword",
+  "description": "A bronze sword with worn leather grip, basic starter weapon with bronze metal finish, rustic appearance suitable for level 1 adventurers",
+  "type": "weapon",
+  "subtype": "sword",
+  "style": "realistic",
+  "metadata": {
+    "tier": "bronze",
+    "level": 1,
+    "gameId": "bronze_sword",
+    "rarity": "common",
+    "attackLevel": 1,
+    "strengthLevel": 1
+  },
+  "id": "sword-bronze",
+  "tier": "bronze",
+  "prompt": "A medieval bronze sword, blade pointing straight up, handle at bottom, centered on white background, clean simple design, no extras, game asset style, bronze metal with worn leather grip, rustic patina finish",
+  "imageUrl": "https://oaidalleapiprodscus.blob.core.windows.net/private/org-0KpQwkWNb8yCBtJDdBgF3Dif/user-TcczT8Ti9is6Fv0FGIHH6IJf/img-zwPPlHheu4FGaQ8hH8q2ZB43.png?st=2025-07-18T07%3A57%3A23Z&se=2025-07-18T09%3A57%3A23Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=475fd488-6c59-44a5-9aa9-31c4db451bea&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-07-18T07%3A13%3A04Z&ske=2025-07-19T07%3A13%3A04Z&sks=b&skv=2024-08-04&sig=PTi6G50n1yWD/6XjUStlWpcVNevnCUWkg78HXqQl4DU%3D",
+  "modelUrl": "https://assets.meshy.ai/google-oauth2%7C106130637686599147823/tasks/01981cc0-a6b8-7381-93d9-61fcc7201313/output/model.glb?Expires=1753088377&Signature=CCsoyuRhIzPxvVPkX-XXTjLm3JwlN0N16KkZTPOgpBO7jCkIUuEP8FR-nU9ECahSdS~v5OttZT2USe~pWf-ZCEQBVaS1xC424sUZ5b1nBihWl5quST7eCpDDE4iUPwV-j~9~dADitWXtHA7Z~Ods4bn2EqkerqeP9r48Cr5kLx1MvUnOH4nSNOOp-pXpPTwv6pS-bBPWTvwB2RNoOJmj1~jZVNr87r2J0NDjMjZr2cPMWgnwjpN0VuWYfwhDg5XrkiU5WUH-N2SL4Dl5wMQ9C07K8KqdCyrPtR7iY8sD8ZXGJGaT2JmdhW1425LZcOybxK4nQ~ALzet9ILWFIBdN3g__&Key-Pair-Id=KL5I0C8H7HX83",
+  "optimizations": {
+    "ai_model": "meshy-4",
+    "enable_pbr": true,
+    "negative_prompt": "low quality, blurry, distorted, extra objects, mannequin, stand, background elements",
+    "topology": "quad",
+    "target_polycount": 2000,
+    "texture_resolution": 512
+  },
+  "generatedAt": "2025-07-18T08:59:39.757Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/sword-bronze/sword-bronze.glb",
+  "imagePath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/sword-bronze/concept.png"
+}

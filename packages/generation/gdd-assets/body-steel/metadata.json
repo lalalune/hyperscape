@@ -1,0 +1,37 @@
+{
+  "name": "Steel Body",
+  "description": "A steel metal body armor, front view, clean white background, no mannequin or stand, just the armor piece, game asset style, polished steel plate armor with articulated joints",
+  "type": "armor",
+  "subtype": "body",
+  "style": "realistic",
+  "metadata": {
+    "tier": "steel",
+    "level": 10,
+    "gameId": "steel_body",
+    "rarity": "uncommon",
+    "defenseLevel": 10,
+    "slot": "body"
+  },
+  "id": "body-steel",
+  "analysisResult": {
+    "slot": "body",
+    "attachmentPoint": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T19:57:07.512Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/body-steel/Steel Body.glb"
+}

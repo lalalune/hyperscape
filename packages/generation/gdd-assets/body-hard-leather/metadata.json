@@ -1,0 +1,37 @@
+{
+  "name": "Hard Leather Body",
+  "description": "A hard_leather leather body armor, front view, clean white background, no mannequin or stand, just the armor piece, game asset style",
+  "type": "armor",
+  "subtype": "body",
+  "style": "realistic",
+  "metadata": {
+    "tier": "hard_leather",
+    "level": 3,
+    "gameId": "hard_leather_body",
+    "rarity": "common",
+    "defenseLevel": 3,
+    "slot": "body"
+  },
+  "id": "body-hard-leather",
+  "analysisResult": {
+    "slot": "body",
+    "attachmentPoint": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T09:43:04.420Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/body-hard-leather/Hard Leather Body.glb"
+}

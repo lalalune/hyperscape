@@ -1,0 +1,53 @@
+{
+  "id": "hyperscape-rpg",
+  "name": "Hyperscape RPG",
+  "version": "1.0.0",
+  "description": "A comprehensive RuneScape-style RPG for Hyperfy worlds",
+  "main": "./bundle.js",
+  "type": "app",
+  "permissions": [
+    "world:read",
+    "world:write",
+    "entities:create",
+    "entities:modify",
+    "entities:delete",
+    "systems:register",
+    "events:emit",
+    "events:listen",
+    "storage:read",
+    "storage:write"
+  ],
+  "dependencies": {
+    "three": "^0.178.0"
+  },
+  "config": {
+    "debug": false,
+    "worldGen": {
+      "generateDefault": true
+    },
+    "systems": {
+      "combat": true,
+      "banking": true,
+      "skills": true
+    },
+    "visuals": {
+      "enableShadows": true,
+      "maxViewDistance": 100
+    }
+  },
+  "metadata": {
+    "author": "Hyperscape Team",
+    "tags": [
+      "rpg",
+      "game",
+      "mmorpg",
+      "combat",
+      "skills",
+      "banking"
+    ],
+    "minHyperfyVersion": "1.0.0",
+    "gameDesignDocument": "https://github.com/hyperscape/rpg/blob/main/docs/game-design.md",
+    "aiAgentCompatible": true,
+    "testingFramework": "playwright-visual"
+  }
+}

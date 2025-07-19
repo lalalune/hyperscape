@@ -1,4 +1,4 @@
-import { World } from '@hyperscape/hyperfy'
+import { World } from '../hyperfy'
 import { TestHelpers as ITestHelpers, TestMetrics } from '../types'
 
 /**

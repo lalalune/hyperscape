@@ -11,14 +11,17 @@ import {
   logger,
   parseKeyValueXml,
   truncateToCompleteSentence,
-} from '../types/eliza-mock';
-import { v4 } from 'uuid';
-import { hyperfyMessageHandlerTemplate, hyperfyShouldRespondTemplate } from '../templates';
+} from '../types/eliza-mock'
+import { v4 } from 'uuid'
+import {
+  hyperfyMessageHandlerTemplate,
+  hyperfyShouldRespondTemplate,
+} from '../templates'
 
 // Track latest response IDs per room to prevent race conditions
-const agentResponses = new Map<string, string>();
+const agentResponses = new Map<string, string>()
 
-const latestResponseIds = new Map<string, Map<string, string>>();
+const latestResponseIds = new Map<string, Map<string, string>>()
 
 /**
  * Handles incoming messages and generates responses based on the provided runtime and message information.
@@ -36,25 +39,27 @@ export async function hyperfyMessageReceivedHandler({
   onComplete,
 }: MessageReceivedHandlerParams): Promise<void> {
   // @ts-ignore - Type safety issues
-  logger.info(`[Bootstrap] Message received from ${message?.entityId} in room ${message?.roomId}`);
+  logger.info(
+    `[Bootstrap] Message received from ${message?.entityId} in room ${message?.roomId}`
+  )
 
   // Skip processing if message is from the agent itself
   if (message?.entityId === runtime.agentId) {
-    return; // Skip messages from self
+    return // Skip messages from self
   }
 
   // @ts-ignore - Response and message typing issues
-  const responseId = asUUID(`response-${message?.roomId}-${Date.now()}`);
+  const responseId = asUUID(`response-${message?.roomId}-${Date.now()}`)
 
   // Store this response ID for the room
   // @ts-ignore - Type safety
-  agentResponses.set(message?.roomId, responseId);
+  agentResponses.set(message?.roomId, responseId)
 
   try {
     // @ts-ignore - Type safety issues
     logger.debug(
       `[Bootstrap] Processing message: ${truncateToCompleteSentence(message?.content?.text || '', 50)}...`
-    );
+    )
 
     // Process memory and embedding
     await Promise.all([
@@ -62,19 +67,24 @@ export async function hyperfyMessageReceivedHandler({
       runtime.addEmbeddingToMemory(message),
       // @ts-ignore - Message type issues
       runtime.createMemory(message, 'messages'),
-    ]);
+    ])
 
     // @ts-ignore - Type safety
-    const agentUserState = await runtime.getParticipantUserState(message?.roomId, runtime.agentId);
-    const isUserMuted = agentUserState?.muted || false;
+    const agentUserState = await runtime.getParticipantUserState(
+      message?.roomId,
+      runtime.agentId
+    )
+    const isUserMuted = agentUserState?.muted || false
 
     if (
       isUserMuted &&
-      !message?.content?.text?.toLowerCase().includes(runtime.character.name.toLowerCase())
+      !message?.content?.text
+        ?.toLowerCase()
+        .includes(runtime.character.name.toLowerCase())
     ) {
       // @ts-ignore - Type safety
-      logger.debug(`[Bootstrap] Ignoring muted room ${message?.roomId}`);
-      return;
+      logger.debug(`[Bootstrap] Ignoring muted room ${message?.roomId}`)
+      return
     }
 
     // @ts-ignore - Message type issues
@@ -82,47 +92,48 @@ export async function hyperfyMessageReceivedHandler({
       message,
       ['worldProvider', 'actionsProvider', 'characterProvider'],
       true
-    );
+    )
 
     // @ts-ignore - Type safety
-    const room = await runtime.getRoom(message?.roomId);
+    const room = await runtime.getRoom(message?.roomId)
 
     if (room?.type === 'DM') {
       // Skip should respond check for DMs
       const shouldRespondPrompt = composePromptFromState({
         state,
         template: hyperfyShouldRespondTemplate,
-      });
+      })
 
       const shouldRespondResult = await runtime.useModel(ModelType.TEXT_SMALL, {
         prompt: shouldRespondPrompt,
         max_tokens: 512,
         temperature: 0.1,
-      });
+      })
 
       // @ts-ignore - Response type is unknown but parseKeyValueXml handles it
-      const responseObject = parseKeyValueXml(shouldRespondResult);
-      const shouldRespond = responseObject?.should_respond?.toLowerCase() === 'true';
+      const responseObject = parseKeyValueXml(shouldRespondResult)
+      const shouldRespond =
+        responseObject?.should_respond?.toLowerCase() === 'true'
 
       if (shouldRespond) {
         // @ts-ignore - Message type issues
-        const responseState = await runtime.composeState(message);
+        const responseState = await runtime.composeState(message)
 
         const prompt = composePromptFromState({
           state: responseState,
           template: hyperfyMessageHandlerTemplate,
-        });
+        })
 
         const response = await runtime.useModel(ModelType.TEXT_LARGE, {
           prompt,
           max_tokens: 2048,
           temperature: 0.7,
-        });
+        })
 
-        let responseContent;
+        let responseContent
         if (response) {
           // @ts-ignore - Response type is unknown but parseKeyValueXml handles it
-          const parsedXml = parseKeyValueXml(response);
+          const parsedXml = parseKeyValueXml(response)
 
           if (parsedXml) {
             responseContent = {
@@ -138,53 +149,71 @@ export async function hyperfyMessageReceivedHandler({
                 : [],
               emote: parsedXml.emote || '',
               source: 'hyperfy',
-            };
+            }
           }
         }
 
         // @ts-ignore - Type safety
-        const currentResponseId = agentResponses.get(message?.roomId);
+        const currentResponseId = agentResponses.get(message?.roomId)
         if (currentResponseId !== responseId) {
           // @ts-ignore - Type safety
           logger.debug(
             `Response discarded - newer message being processed for agent: ${runtime.agentId}, room: ${message?.roomId}`
-          );
-          return;
+          )
+          return
         }
 
         if (responseContent && message?.id) {
           // @ts-ignore - Type safety
-          responseContent.inReplyTo = createUniqueUuid(runtime, message.id);
+          responseContent.inReplyTo = createUniqueUuid(runtime, message.id)
         }
 
         const responseMessages = responseContent
           ? // @ts-ignore - Callback type issue
-          await callback({
-            ...responseContent,
-            // @ts-ignore - Type safety
-            roomId: message?.roomId,
-          })
-          : [];
+            await callback({
+              ...responseContent,
+              // @ts-ignore - Type safety
+              roomId: message?.roomId,
+            })
+          : []
 
         // Clean up the response tracking
         // @ts-ignore - Type safety
-        agentResponses.delete(message?.roomId);
+        agentResponses.delete(message?.roomId)
 
-        if (responseMessages && responseMessages.length > 0 && responseContent) {
+        if (
+          responseMessages &&
+          responseMessages.length > 0 &&
+          responseContent
+        ) {
           // @ts-ignore - Message type issues
-          const finalState = await runtime.composeState(message, responseContent?.providers || []);
+          const finalState = await runtime.composeState(
+            message,
+            responseContent?.providers || []
+          )
 
           // @ts-ignore - Message type issues
-          await runtime.processActions(message, responseMessages, finalState, callback);
+          await runtime.processActions(
+            message,
+            responseMessages,
+            finalState,
+            callback
+          )
 
           // @ts-ignore - Message type issues
-          await runtime.evaluate(message, finalState, shouldRespond, callback, responseMessages);
+          await runtime.evaluate(
+            message,
+            finalState,
+            shouldRespond,
+            callback,
+            responseMessages
+          )
         }
       } else {
         // Handle ignore case
         // @ts-ignore - Type safety
         if (!message?.id) {
-          return;
+          return
         }
 
         const ignoreContent = {
@@ -196,27 +225,27 @@ export async function hyperfyMessageReceivedHandler({
           source: 'hyperfy',
           // @ts-ignore - Type safety
           inReplyTo: createUniqueUuid(runtime, message.id),
-        };
+        }
 
         // @ts-ignore - Callback type issue
-        await callback(ignoreContent);
+        await callback(ignoreContent)
 
         await runtime.createMemory({
           entityId: runtime.agentId,
           // @ts-ignore - Type safety
           roomId: message?.roomId,
           content: ignoreContent,
-        });
+        })
 
         // @ts-ignore - Type safety
-        agentResponses.delete(message?.roomId);
+        agentResponses.delete(message?.roomId)
       }
     }
   } catch (error) {
-    logger.error('Error in hyperfy message handler:', error);
+    logger.error('Error in hyperfy message handler:', error)
   } finally {
     if (onComplete) {
-      onComplete();
+      onComplete()
     }
   }
 }

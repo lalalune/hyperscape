@@ -1,0 +1,37 @@
+{
+  "name": "Bronze Body",
+  "description": "A bronze metal body armor, front view, clean white background, no mannequin or stand, just the armor piece, game asset style, bronze plate armor with simple design and leather straps",
+  "type": "armor",
+  "subtype": "body",
+  "style": "realistic",
+  "metadata": {
+    "tier": "bronze",
+    "level": 1,
+    "gameId": "bronze_body",
+    "rarity": "common",
+    "defenseLevel": 1,
+    "slot": "body"
+  },
+  "id": "body-bronze",
+  "analysisResult": {
+    "slot": "body",
+    "attachmentPoint": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T19:53:26.266Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/body-bronze/Bronze Body.glb"
+}

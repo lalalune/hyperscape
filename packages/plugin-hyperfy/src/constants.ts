@@ -104,4 +104,4 @@ export const EMOTES_LIST = [
     description:
       "Waves enthusiastically with both hands. Use to say hi, goodbye, or draw attention like 'I'm over here!'",
   },
-];
+]

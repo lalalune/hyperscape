@@ -1,0 +1,6 @@
+{
+  "name": "MinimalVisualTest",
+  "description": "Absolutely minimal test for visual validation",
+  "version": "1.0.0",
+  "script": "MinimalVisualTest.js"
+}

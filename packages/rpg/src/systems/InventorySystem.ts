@@ -1,1081 +1,520 @@
-import { System } from "../types/hyperfy"
-import type { World } from '../types'
 import {
-  CombatBonuses,
-  Equipment,
-  EquipmentSlot,
-  InventoryComponent,
-  ItemStack,
-  RPGEntity,
-  StatsComponent,
-  MovementComponent,
-  Vector3,
-  // ItemDefinition
-} from '../types/index'
-import { EquipmentBonusCalculator } from './inventory/EquipmentBonusCalculator'
-import { ItemRegistry } from './inventory/ItemRegistry'
+  RPGInventorySystem,
+  PlayerState,
+  Inventory,
+  InventorySlot,
+  RPGItem,
+  GAME_CONSTANTS,
+  RPGEventEmitter,
+  ItemDropEvent,
+  ItemPickupEvent
+} from '../types/index.js'
+import { getItem } from '../data/items.js'
 
-export class InventorySystem extends System {
-  // Core management
-  private inventories: Map<string, InventoryComponent> = new Map()
-  private itemRegistry: ItemRegistry
-  private equipmentCalculator: EquipmentBonusCalculator
+export class RPGInventorySystemImpl implements RPGInventorySystem {
+  public name = 'InventorySystem'
+  public initialized = false
 
-  // Configuration
-  private readonly MAX_STACK_SIZE = 2147483647 // Max int32
+  private players: Map<string, PlayerState> = new Map()
+  private eventEmitter: RPGEventEmitter | null = null
 
-  // Persistence
-  private pendingSaves: Set<string> = new Set()
-  private saveTimer?: NodeJS.Timeout
-
-  constructor(world: World) {
-    super(world)
-    this.itemRegistry = new ItemRegistry()
-    this.equipmentCalculator = new EquipmentBonusCalculator(this.itemRegistry)
-
-    // Register default items
-    this.itemRegistry.loadDefaults()
+  constructor(eventEmitter?: RPGEventEmitter) {
+    this.eventEmitter = eventEmitter || null
   }
 
-  /**
-   * Initialize the system
-   */
-  override async init(_options: any): Promise<void> {
-    console.log('[InventorySystem] Initializing...')
-
-    // Listen for entity creation to add inventory components
-    this.world.events.on('entity:created', (event: any) => {
-      const entity = this.getEntity(event.entityId)
-      if (entity && this.shouldHaveInventory(entity)) {
-        this.createInventoryInternal(event.entityId)
-      }
-    })
-
-    // Listen for entity destruction to clean up
-    this.world.events.on('entity:destroyed', (event: any) => {
-      this.inventories.delete(event.entityId)
-    })
-
-    // Listen for player events
-    this.world.events.on('player:connect', this.handlePlayerConnect.bind(this))
-    this.world.events.on('player:disconnect', this.handlePlayerDisconnect.bind(this))
-
-    // Start auto-save timer
-    this.startAutoSave()
+  async init(): Promise<void> {
+    console.log('[InventorySystem] Initializing inventory system...')
+    this.initialized = true
+    console.log('[InventorySystem] Inventory system initialized')
   }
 
-  /**
-   * Start auto-save timer
-   */
-  private startAutoSave(): void {
-    // Save pending inventories every 10 seconds
-    this.saveTimer = setInterval(() => {
-      this.savePendingInventories()
-    }, 10000)
+  async update(deltaTime: number): Promise<void> {
+    // Inventory system doesn't need per-frame updates
+    // All operations are event-driven
   }
 
-  /**
-   * Handle player connect event
-   */
-  private async handlePlayerConnect(data: { playerId: string }): Promise<void> {
-    await this.loadPlayerInventory(data.playerId)
+  async cleanup(): Promise<void> {
+    console.log('[InventorySystem] Cleaning up inventory system...')
+    this.players.clear()
+    this.initialized = false
   }
 
-  /**
-   * Handle player disconnect event
-   */
-  private async handlePlayerDisconnect(data: { playerId: string }): Promise<void> {
-    // Save inventory immediately on disconnect
-    await this.savePlayerInventory(data.playerId)
-    this.pendingSaves.delete(data.playerId)
-  }
+  // ===== PUBLIC API =====
 
-  /**
-   * Load player inventory from persistence
-   */
-  private async loadPlayerInventory(playerId: string): Promise<void> {
-    const persistence = (this.world as any).getSystem('persistence')
-    if (!persistence) return
+  async addItem(playerId: string, itemId: string, quantity: number): Promise<boolean> {
+    const player = this.players.get(playerId)
+    if (!player) {
+      console.log(`[InventorySystem] Player ${playerId} not found`)
+      return false
+    }
 
-    try {
-      // Load inventory items
-      const items = await persistence.loadPlayerInventory(playerId)
-      const equipment = await persistence.loadPlayerEquipment(playerId)
-      
-      // Get or create inventory
-      let inventory = this.inventories.get(playerId)
-      if (!inventory) {
-        this.createInventoryInternal(playerId)
-        inventory = this.inventories.get(playerId)
-      }
-      if (!inventory) return
+    const item = getItem(itemId)
+    if (!item) {
+      console.log(`[InventorySystem] Item ${itemId} not found`)
+      return false
+    }
 
-      // Clear and load items
-      inventory.items = new Array(inventory.maxSlots).fill(null)
-      for (const item of items) {
-        if (item.slot >= 0 && item.slot < inventory.maxSlots) {
-          inventory.items[item.slot] = {
-            itemId: item.itemId,
-            quantity: item.quantity,
-            metadata: item.metadata
+    if (quantity <= 0) {
+      console.log(`[InventorySystem] Invalid quantity: ${quantity}`)
+      return false
+    }
+
+    const inventory = player.inventory
+
+    // Try to stack with existing items if stackable
+    if (item.stackable) {
+      for (let i = 0; i < inventory.slots.length; i++) {
+        const slot = inventory.slots[i]
+        if (slot && slot.item.id === itemId) {
+          const newQuantity = slot.quantity + quantity
+          const maxStack = item.maxStack || GAME_CONSTANTS.MAX_STACK_SIZE
+          
+          if (newQuantity <= maxStack) {
+            slot.quantity = newQuantity
+            console.log(`[InventorySystem] Added ${quantity} ${item.name} to existing stack (slot ${i})`)
+            return true
+          } else {
+            // Partial stack
+            const canAdd = maxStack - slot.quantity
+            slot.quantity = maxStack
+            quantity -= canAdd
+            console.log(`[InventorySystem] Partially stacked ${canAdd} ${item.name} in slot ${i}, ${quantity} remaining`)
+            
+            // Continue to find more slots for remaining quantity
           }
         }
       }
+    }
 
-      // Load equipment
-      for (const equipItem of equipment) {
-        const slot = equipItem.slot as EquipmentSlot
-        const itemDef = this.itemRegistry.get(equipItem.itemId)
-        if (itemDef && itemDef.equipment) {
-          inventory.equipment[slot] = {
-            ...itemDef,
-            metadata: equipItem.metadata
-          } as Equipment
-        }
+    // Find empty slots for remaining items
+    while (quantity > 0) {
+      const emptySlotIndex = this.findEmptySlot(inventory)
+      if (emptySlotIndex === -1) {
+        console.log(`[InventorySystem] No space in inventory for ${quantity} ${item.name}`)
+        return false
       }
 
-      // Update weight and bonuses
-      this.updateWeight(inventory)
-      this.updateEquipmentBonuses(inventory)
+      const maxStack = item.maxStack || (item.stackable ? GAME_CONSTANTS.MAX_STACK_SIZE : 1)
+      const quantityToAdd = Math.min(quantity, maxStack)
 
-      console.log(`[InventorySystem] Loaded inventory for player ${playerId}`)
-    } catch (error) {
-      console.error(`[InventorySystem] Failed to load inventory for ${playerId}:`, error)
-    }
-  }
-
-  /**
-   * Save player inventory to persistence
-   */
-  private async savePlayerInventory(playerId: string): Promise<void> {
-    const persistence = (this.world as any).getSystem('persistence')
-    if (!persistence) return
-
-    const inventory = this.inventories.get(playerId)
-    if (!inventory) return
-
-    try {
-      // Prepare inventory items
-      const items: Array<{ slot: number; itemId: number; quantity: number; metadata?: any }> = []
-      for (let i = 0; i < inventory.items.length; i++) {
-        const item = inventory.items[i]
-        if (item) {
-          items.push({
-            slot: i,
-            itemId: item.itemId,
-            quantity: item.quantity,
-            metadata: item.metadata
-          })
-        }
+      inventory.slots[emptySlotIndex] = {
+        item: item,
+        quantity: quantityToAdd
       }
 
-      // Prepare equipment
-      const equipment: Array<{ slot: string; itemId: number; metadata?: any }> = []
-      for (const [slot, equip] of Object.entries(inventory.equipment)) {
-        if (equip) {
-          equipment.push({
-            slot,
-            itemId: equip.id,
-            metadata: equip.metadata
-          })
-        }
-      }
-
-      // Save to persistence
-      await persistence.savePlayerInventory(playerId, items)
-      await persistence.savePlayerEquipment(playerId, equipment)
-
-      console.log(`[InventorySystem] Saved inventory for player ${playerId}`)
-    } catch (error) {
-      console.error(`[InventorySystem] Failed to save inventory for ${playerId}:`, error)
-    }
-  }
-
-  /**
-   * Save all pending inventories
-   */
-  private async savePendingInventories(): Promise<void> {
-    if (this.pendingSaves.size === 0) return
-
-    const persistence = (this.world as any).getSystem('persistence')
-    if (!persistence) return
-
-    const toSave = Array.from(this.pendingSaves)
-    this.pendingSaves.clear()
-
-    for (const entityId of toSave) {
-      // Only save if it's a player entity
-      const entity = this.getEntity(entityId)
-      if (entity && entity.type === 'player') {
-        await this.savePlayerInventory(entityId)
-      }
-    }
-  }
-
-  /**
-   * Mark entity for saving
-   */
-  private markForSave(entityId: string): void {
-    this.pendingSaves.add(entityId)
-  }
-
-  /**
-   * Update method
-   */
-  override update(_delta: number): void {
-    // Update weight calculations periodically
-    for (const [_entityId, inventory] of Array.from(this.inventories)) {
-      this.updateWeight(inventory)
-    }
-  }
-
-  /**
-   * Add item to entity inventory
-   */
-  addItem(entityId: string, itemId: number, quantity: number): boolean {
-    const entity = this.getEntity(entityId)
-    if (!entity) {
-      return false
+      quantity -= quantityToAdd
+      console.log(`[InventorySystem] Added ${quantityToAdd} ${item.name} to slot ${emptySlotIndex}`)
     }
 
-    const inventory = entity.getComponent<InventoryComponent>('inventory')
-    if (!inventory) {
-      return false
-    }
-
-    const itemDef = this.itemRegistry.get(itemId)
-    if (!itemDef) {
-      return false
-    }
-
-    // Try to stack with existing items
-    if (itemDef.stackable) {
-      const existingStack = inventory.items.find(stack => stack?.itemId === itemId)
-      if (existingStack) {
-        existingStack.quantity += quantity
-        this.markForSave(entityId)
-        return true
-      }
-    }
-
-    // Find free slot
-    const freeSlot = inventory.items.findIndex(slot => !slot)
-    if (freeSlot === -1) {
-      return false
-    }
-
-    // Add to inventory
-    inventory.items[freeSlot] = {
-      itemId,
-      quantity,
-    }
-
-    this.markForSave(entityId)
     return true
   }
 
-  /**
-   * Remove item from inventory by slot
-   */
-  removeItem(entityId: string, slot: number, quantity?: number): ItemStack | null {
-    const inventory = this.inventories.get(entityId)
-    if (!inventory) {
-      return null
-    }
-
-    const item = inventory.items[slot]
-    if (!item) {
-      return null
-    }
-
-    const removeQuantity = quantity || item.quantity
-
-    if (removeQuantity >= item.quantity) {
-      // Remove entire stack
-      inventory.items[slot] = null
-      this.updateWeight(inventory)
-      this.syncInventory(entityId)
-      this.markForSave(entityId)
-
-      this.world.events.emit('inventory:item-removed', {
-        entityId,
-        itemId: item.itemId,
-        quantity: item.quantity,
-        slot,
-      })
-
-      return { ...item }
-    } else {
-      // Remove partial stack
-      item.quantity -= removeQuantity
-      this.updateWeight(inventory)
-      this.syncInventory(entityId)
-      this.markForSave(entityId)
-
-      this.world.events.emit('inventory:item-removed', {
-        entityId,
-        itemId: item.itemId,
-        quantity: removeQuantity,
-        slot,
-      })
-
-      return {
-        itemId: item.itemId,
-        quantity: removeQuantity,
-      }
-    }
-  }
-
-  /**
-   * Remove item from inventory by item ID and quantity
-   */
-  removeItemById(entityId: string, itemId: number, quantity: number): boolean {
-    const inventory = this.inventories.get(entityId)
-    if (!inventory) {
+  async removeItem(playerId: string, itemId: string, quantity: number): Promise<boolean> {
+    const player = this.players.get(playerId)
+    if (!player) {
+      console.log(`[InventorySystem] Player ${playerId} not found`)
       return false
     }
 
-    let remainingToRemove = quantity
-
-    for (let i = 0; i < inventory.items.length && remainingToRemove > 0; i++) {
-      const item = inventory.items[i]
-      if (item && item.itemId === itemId) {
-        const toRemove = Math.min(item.quantity, remainingToRemove)
-        
-        if (toRemove === item.quantity) {
-          // Remove entire stack
-          inventory.items[i] = null
-        } else {
-          // Reduce quantity
-          item.quantity -= toRemove
-        }
-        
-        remainingToRemove -= toRemove
-        
-        this.world.events.emit('inventory:item-removed', {
-          entityId,
-          itemId: item.itemId,
-          quantity: toRemove,
-          slot: i,
-        })
-      }
+    if (quantity <= 0) {
+      console.log(`[InventorySystem] Invalid quantity: ${quantity}`)
+      return false
     }
 
-    this.updateWeight(inventory)
-    this.syncInventory(entityId)
-    
-    if (remainingToRemove === 0) {
-      this.markForSave(entityId)
+    const inventory = player.inventory
+    let remainingToRemove = quantity
+
+    // Check if player has enough of the item
+    const totalQuantity = this.getItemQuantity(playerId, itemId)
+    if (totalQuantity < quantity) {
+      console.log(`[InventorySystem] Player ${playerId} doesn't have enough ${itemId} (has ${totalQuantity}, needs ${quantity})`)
+      return false
+    }
+
+    // Remove items from inventory
+    for (let i = 0; i < inventory.slots.length && remainingToRemove > 0; i++) {
+      const slot = inventory.slots[i]
+      if (slot && slot.item.id === itemId) {
+        if (slot.quantity <= remainingToRemove) {
+          // Remove entire slot
+          remainingToRemove -= slot.quantity
+          inventory.slots[i] = null
+          console.log(`[InventorySystem] Removed ${slot.quantity} ${itemId} from slot ${i} (slot cleared)`)
+        } else {
+          // Partial removal
+          slot.quantity -= remainingToRemove
+          console.log(`[InventorySystem] Removed ${remainingToRemove} ${itemId} from slot ${i} (${slot.quantity} remaining)`)
+          remainingToRemove = 0
+        }
+      }
     }
 
     return remainingToRemove === 0
   }
 
-  /**
-   * Get the total quantity of a specific item in inventory
-   */
-  getItemQuantity(entityId: string, itemId: number): number {
-    const inventory = this.inventories.get(entityId)
-    if (!inventory) {
-      // Try getting from entity component as fallback
-      const entity = this.getEntity(entityId)
-      if (entity) {
-        const entityInventory = entity.getComponent<InventoryComponent>('inventory')
-        if (entityInventory) {
-          let totalQuantity = 0
-          for (const item of entityInventory.items) {
-            if (item && item.itemId === itemId) {
-              totalQuantity += item.quantity
-            }
-          }
-          return totalQuantity
-        }
-      }
-      return 0
+  async moveItem(playerId: string, fromSlot: number, toSlot: number): Promise<boolean> {
+    const player = this.players.get(playerId)
+    if (!player) {
+      console.log(`[InventorySystem] Player ${playerId} not found`)
+      return false
     }
 
+    const inventory = player.inventory
+
+    if (fromSlot < 0 || fromSlot >= inventory.slots.length ||
+        toSlot < 0 || toSlot >= inventory.slots.length) {
+      console.log(`[InventorySystem] Invalid slot indices: ${fromSlot} -> ${toSlot}`)
+      return false
+    }
+
+    if (fromSlot === toSlot) {
+      return true // No-op
+    }
+
+    const fromSlotItem = inventory.slots[fromSlot]
+    const toSlotItem = inventory.slots[toSlot]
+
+    if (!fromSlotItem) {
+      console.log(`[InventorySystem] Source slot ${fromSlot} is empty`)
+      return false
+    }
+
+    // If destination is empty, just move
+    if (!toSlotItem) {
+      inventory.slots[toSlot] = fromSlotItem
+      inventory.slots[fromSlot] = null
+      console.log(`[InventorySystem] Moved ${fromSlotItem.item.name} from slot ${fromSlot} to ${toSlot}`)
+      return true
+    }
+
+    // If same item and stackable, try to stack
+    if (fromSlotItem.item.id === toSlotItem.item.id && fromSlotItem.item.stackable) {
+      const maxStack = fromSlotItem.item.maxStack || GAME_CONSTANTS.MAX_STACK_SIZE
+      const totalQuantity = fromSlotItem.quantity + toSlotItem.quantity
+
+      if (totalQuantity <= maxStack) {
+        // Can combine completely
+        toSlotItem.quantity = totalQuantity
+        inventory.slots[fromSlot] = null
+        console.log(`[InventorySystem] Combined ${fromSlotItem.item.name} stacks (total: ${totalQuantity})`)
+        return true
+      } else {
+        // Partial combination
+        const canStack = maxStack - toSlotItem.quantity
+        if (canStack > 0) {
+          toSlotItem.quantity = maxStack
+          fromSlotItem.quantity -= canStack
+          console.log(`[InventorySystem] Partially combined ${fromSlotItem.item.name} stacks`)
+          return true
+        }
+      }
+    }
+
+    // Swap items
+    inventory.slots[toSlot] = fromSlotItem
+    inventory.slots[fromSlot] = toSlotItem
+    console.log(`[InventorySystem] Swapped items between slots ${fromSlot} and ${toSlot}`)
+    return true
+  }
+
+  async getInventory(playerId: string): Promise<Inventory | null> {
+    const player = this.players.get(playerId)
+    return player ? player.inventory : null
+  }
+
+  async hasSpace(playerId: string, itemId: string, quantity: number): Promise<boolean> {
+    const player = this.players.get(playerId)
+    if (!player) return false
+
+    const item = getItem(itemId)
+    if (!item) return false
+
+    const inventory = player.inventory
+    let remainingQuantity = quantity
+
+    // Check existing stacks if stackable
+    if (item.stackable) {
+      for (const slot of inventory.slots) {
+        if (slot && slot.item.id === itemId) {
+          const maxStack = item.maxStack || GAME_CONSTANTS.MAX_STACK_SIZE
+          const canAdd = maxStack - slot.quantity
+          remainingQuantity -= Math.min(canAdd, remainingQuantity)
+          
+          if (remainingQuantity <= 0) {
+            return true
+          }
+        }
+      }
+    }
+
+    // Check empty slots
+    const emptySlots = this.getEmptySlotCount(inventory)
+    if (!item.stackable) {
+      return emptySlots >= remainingQuantity
+    } else {
+      const maxStack = item.maxStack || GAME_CONSTANTS.MAX_STACK_SIZE
+      const slotsNeeded = Math.ceil(remainingQuantity / maxStack)
+      return emptySlots >= slotsNeeded
+    }
+  }
+
+  async dropItem(playerId: string, itemId: string, quantity: number): Promise<boolean> {
+    const player = this.players.get(playerId)
+    if (!player) {
+      console.log(`[InventorySystem] Player ${playerId} not found`)
+      return false
+    }
+
+    // Remove item from inventory
+    const removed = await this.removeItem(playerId, itemId, quantity)
+    if (!removed) {
+      return false
+    }
+
+    // Emit drop event
+    if (this.eventEmitter) {
+      await this.eventEmitter.emit({
+        type: 'item:drop',
+        timestamp: Date.now(),
+        data: {
+          itemId,
+          quantity,
+          position: player.position,
+          droppedBy: playerId
+        }
+      } as ItemDropEvent)
+    }
+
+    console.log(`[InventorySystem] Player ${playerId} dropped ${quantity} ${itemId}`)
+    return true
+  }
+
+  // ===== UTILITY METHODS =====
+
+  public registerPlayer(player: PlayerState): void {
+    this.players.set(player.id, player)
+  }
+
+  public unregisterPlayer(playerId: string): void {
+    this.players.delete(playerId)
+  }
+
+  public getItemQuantity(playerId: string, itemId: string): number {
+    const player = this.players.get(playerId)
+    if (!player) return 0
+
     let totalQuantity = 0
-    for (const item of inventory.items) {
-      if (item && item.itemId === itemId) {
-        totalQuantity += item.quantity
+    for (const slot of player.inventory.slots) {
+      if (slot && slot.item.id === itemId) {
+        totalQuantity += slot.quantity
       }
     }
 
     return totalQuantity
   }
 
-  /**
-   * Move item between slots
-   */
-  moveItem(entityId: string, fromSlot: number, toSlot: number): boolean {
-    const inventory = this.inventories.get(entityId)
-    if (!inventory) {
-      return false
-    }
-
-    if (fromSlot < 0 || fromSlot >= inventory.maxSlots || toSlot < 0 || toSlot >= inventory.maxSlots) {
-      return false
-    }
-
-    const fromItem = inventory.items[fromSlot] || null
-    const toItem = inventory.items[toSlot] || null
-
-    // Simple swap
-    inventory.items[fromSlot] = toItem
-    inventory.items[toSlot] = fromItem
-
-    this.syncInventory(entityId)
-    this.markForSave(entityId)
-
-    this.world.events.emit('inventory:item-moved', {
-      entityId,
-      fromSlot,
-      toSlot,
-    })
-
-    return true
+  public hasItem(playerId: string, itemId: string, quantity = 1): boolean {
+    return this.getItemQuantity(playerId, itemId) >= quantity
   }
 
-  /**
-   * Equip item to slot
-   */
-  equipItem(entity: RPGEntity, inventorySlot: number, equipmentSlot: EquipmentSlot): boolean {
-    const inventory = entity.getComponent<InventoryComponent>('inventory')
-    if (!inventory) {
-      return false
-    }
+  public getInventoryWeight(playerId: string): number {
+    const player = this.players.get(playerId)
+    if (!player) return 0
 
-    const stack = inventory.items[inventorySlot]
-    if (!stack) {
-      return false
-    }
-
-    const itemDef = this.itemRegistry.get(stack.itemId)
-    if (!itemDef || !itemDef.equipment) {
-      return false
-    }
-
-    // Check if slot matches item type
-    if (itemDef.equipment.slot !== equipmentSlot) {
-      return false
-    }
-
-    // Unequip current item if any
-    const currentEquipped = inventory.equipment[equipmentSlot]
-    if (currentEquipped) {
-      this.unequipItem(entity, equipmentSlot)
-    }
-
-    // Remove from inventory
-    const removedStack = this.removeFromSlot(inventory, inventorySlot, 1)
-    if (!removedStack) {
-      return false
-    }
-
-    // Equip item (convert ItemDefinition to Equipment)
-    const equipment: Equipment = {
-      ...itemDef,
-      metadata: stack.metadata,
-    } as Equipment
-
-    inventory.equipment[equipmentSlot] = equipment
-
-    // Sync network if available
-    this.syncEquipNetwork(entity, equipmentSlot, equipment)
-
-    // Update combat bonuses
-    this.updateCombatBonuses(entity)
-    
-    // Mark for save
-    this.markForSave(entity.data.id)
-
-    // Emit event
-    this.world.events.emit('inventory:item-equipped', {
-      entity,
-      item: removedStack,
-      slot: equipmentSlot,
-    })
-
-    return true
-  }
-
-  /**
-   * Unequip item from slot
-   */
-  unequipItem(entity: RPGEntity, slot: EquipmentSlot): boolean {
-    const inventory = entity.getComponent<InventoryComponent>('inventory')
-    if (!inventory) {
-      return false
-    }
-
-    const equipment = inventory.equipment[slot]
-    if (!equipment) {
-      return false
-    }
-
-    // Add to inventory
-    if (!this.addItem(entity.data.id, equipment.id, 1)) {
-      // Inventory full
-      return false
-    }
-
-    // Remove from equipment
-    inventory.equipment[slot] = null
-
-    // Sync network if available
-    this.syncUnequipNetwork(entity, slot)
-
-    // Update combat bonuses
-    this.updateCombatBonuses(entity)
-    
-    // Mark for save
-    this.markForSave(entity.data.id)
-
-    // Emit event
-    this.world.events.emit('inventory:item-unequipped', {
-      entity,
-      item: equipment,
-      slot,
-    })
-
-    return true
-  }
-
-  /**
-   * Drop item from inventory
-   */
-  dropItem(entity: RPGEntity, slotIndex: number, quantity: number = 1): boolean {
-    const inventory = entity.getComponent<InventoryComponent>('inventory')
-    if (!inventory) {
-      return false
-    }
-
-    const stack = inventory.items[slotIndex]
-    if (!stack) {
-      return false
-    }
-
-    // Remove from inventory
-    const droppedStack = this.removeFromSlot(inventory, slotIndex, quantity)
-    if (!droppedStack) {
-      return false
-    }
-
-    // Get entity position from movement component
-    const position = this.getEntityPosition(entity)
-    if (!position) {
-      // If no position, put item back and fail
-      this.addItem(entity.data.id, droppedStack.itemId, droppedStack.quantity)
-      return false
-    }
-
-    // Create dropped item entity
-    const droppedEntity = {
-      id: `dropped_${Date.now()}_${Math.random()}`,
-      type: 'item',
-      itemId: droppedStack.itemId,
-      quantity: droppedStack.quantity,
-      position: {
-        x: position.x + (Math.random() - 0.5) * 2,
-        y: position.y,
-        z: position.z + (Math.random() - 0.5) * 2,
-      },
-      droppedBy: entity.data.id,
-      droppedAt: Date.now(),
-    }
-
-    // Add to world entities
-    ;(this.world as any).entities?.set(droppedEntity.id, droppedEntity)
-
-    // Sync network if available
-    this.syncDropItemNetwork(entity, droppedStack, droppedEntity)
-    
-    // Mark for save
-    this.markForSave(entity.data.id)
-
-    // Emit event
-    this.world.events.emit('inventory:item-dropped', {
-      entity,
-      item: droppedStack,
-      position,
-      droppedEntity,
-    })
-
-    return true
-  }
-
-  /**
-   * Get total weight
-   */
-  getWeight(entityId: string): number {
-    const inventory = this.inventories.get(entityId)
-    return inventory ? inventory.totalWeight : 0
-  }
-
-  /**
-   * Get number of free slots
-   */
-  getFreeSlots(entityId: string): number {
-    const inventory = this.inventories.get(entityId)
-    if (!inventory) {
-      return 0
-    }
-
-    return inventory.items.filter(item => item === null).length
-  }
-
-  /**
-   * Find item in inventory
-   */
-  findItem(entityId: string, itemId: number): number | null {
-    const inventory = this.inventories.get(entityId)
-    if (!inventory) {
-      return null
-    }
-
-    for (let i = 0; i < inventory.items.length; i++) {
-      if (inventory.items[i]?.itemId === itemId) {
-        return i
+    let totalWeight = 0
+    for (const slot of player.inventory.slots) {
+      if (slot) {
+        totalWeight += (slot.item.weight || 0) * slot.quantity
       }
     }
 
-    return null
+    return totalWeight
   }
 
-  /**
-   * Create inventory for entity (private helper)
-   */
-  private createInventoryInternal(entityId: string): void {
-    const entity = this.world.entities.get(entityId)
-    if (!entity) {
-      return
+  public getInventoryValue(playerId: string): number {
+    const player = this.players.get(playerId)
+    if (!player) return 0
+
+    let totalValue = 0
+    for (const slot of player.inventory.slots) {
+      if (slot) {
+        totalValue += (slot.item.value || 0) * slot.quantity
+      }
     }
 
-    const inventory: InventoryComponent = {
-      type: 'inventory',
-      entity: entity as any,
-      data: {},
-      items: new Array(28).fill(null),
-      maxSlots: 28,
-      equipment: {
-        [EquipmentSlot.HEAD]: null,
-        [EquipmentSlot.CAPE]: null,
-        [EquipmentSlot.AMULET]: null,
-        [EquipmentSlot.WEAPON]: null,
-        [EquipmentSlot.BODY]: null,
-        [EquipmentSlot.SHIELD]: null,
-        [EquipmentSlot.LEGS]: null,
-        [EquipmentSlot.GLOVES]: null,
-        [EquipmentSlot.BOOTS]: null,
-        [EquipmentSlot.RING]: null,
-        [EquipmentSlot.AMMO]: null,
-      },
-      totalWeight: 0,
-      equipmentBonuses: {
-        attackStab: 0,
-        attackSlash: 0,
-        attackCrush: 0,
-        attackMagic: 0,
-        attackRanged: 0,
-        defenseStab: 0,
-        defenseSlash: 0,
-        defenseCrush: 0,
-        defenseMagic: 0,
-        defenseRanged: 0,
-        meleeStrength: 0,
-        rangedStrength: 0,
-        magicDamage: 0,
-        prayerBonus: 0,
-      },
-    }
-
-    // Check if entity is an RPGEntity with addComponent method
-    if ('addComponent' in entity && typeof entity.addComponent === 'function') {
-      entity.addComponent('inventory', inventory)
-    }
-
-    this.inventories.set(entityId, inventory)
+    return totalValue
   }
 
-  /**
-   * Find first free slot
-   */
-  private findFreeSlot(inventory: InventoryComponent): number {
-    for (let i = 0; i < inventory.items.length; i++) {
-      if (inventory.items[i] === null) {
+  public getEmptySlotCount(inventory: Inventory): number {
+    return inventory.slots.filter(slot => slot === null).length
+  }
+
+  public getUsedSlotCount(inventory: Inventory): number {
+    return inventory.slots.filter(slot => slot !== null).length
+  }
+
+  public findEmptySlot(inventory: Inventory): number {
+    for (let i = 0; i < inventory.slots.length; i++) {
+      if (inventory.slots[i] === null) {
         return i
       }
     }
     return -1
   }
 
-  /**
-   * Update total weight
-   */
-  private updateWeight(inventory: InventoryComponent): void {
-    let totalWeight = 0
-
-    // Items weight
-    for (const item of inventory.items) {
-      if (item) {
-        const itemDef = this.itemRegistry.get(item.itemId)
-        if (itemDef) {
-          totalWeight += itemDef.weight * item.quantity
-        }
+  public findItemSlot(inventory: Inventory, itemId: string): number {
+    for (let i = 0; i < inventory.slots.length; i++) {
+      const slot = inventory.slots[i]
+      if (slot && slot.item.id === itemId) {
+        return i
       }
     }
-
-    // Equipment weight
-    for (const slot in inventory.equipment) {
-      const equipped = inventory.equipment[slot as EquipmentSlot]
-      if (equipped) {
-        totalWeight += equipped.weight
-      }
-    }
-
-    inventory.totalWeight = totalWeight
+    return -1
   }
 
-  /**
-   * Update equipment bonuses
-   */
-  private updateEquipmentBonuses(inventory: InventoryComponent): void {
-    inventory.equipmentBonuses = this.equipmentCalculator.calculateTotalBonuses(inventory.equipment)
-
-    // Update stats component if exists
-    const entity = this.getEntityByInventory(inventory)
-    if (entity) {
-      const stats = entity.getComponent<StatsComponent>('stats')
-      if (stats) {
-        stats.combatBonuses = inventory.equipmentBonuses
-      }
-    }
-  }
-
-  /**
-   * Sync inventory to client
-   */
-  private syncInventory(entityId: string): void {
-    const inventory = this.inventories.get(entityId)
-    if (!inventory) {
-      return
-    }
-
-    // Network sync if available
-    const network = (this.world as any).network
-    if (network) {
-      network.send(entityId, 'inventory:update', {
-        items: inventory.items,
-        equipment: inventory.equipment,
-        weight: inventory.totalWeight,
-        bonuses: inventory.equipmentBonuses,
-      })
-    }
-
-    // Also emit event for local systems
-    this.world.events.emit('inventory:sync', {
-      entityId,
-      items: inventory.items,
-      equipment: inventory.equipment,
-      weight: inventory.totalWeight,
-      bonuses: inventory.equipmentBonuses,
-    })
-  }
-
-  /**
-   * Send message to entity
-   */
-  private sendMessage(entityId: string, message: string): void {
-    this.world.events.emit('chat:system', {
-      targetId: entityId,
-      message,
-    })
-  }
-
-  /**
-   * Public method to create inventory for an entity
-   */
-  public createInventory(entityId: string): InventoryComponent | null {
-    this.createInventoryInternal(entityId)
-    return this.inventories.get(entityId) || null
-  }
-
-  /**
-   * Check if entity should have inventory
-   */
-  private shouldHaveInventory(entity: any): boolean {
-    // Players always have inventory
-    if (entity.data?.type === 'player' || entity.type === 'player') {
-      return true
-    }
-
-    // Some NPCs might have inventory (shopkeepers, etc)
-    const npcComponent = entity.getComponent?.('npc')
-    if (npcComponent && npcComponent.hasInventory) {
-      return true
-    }
-
-    return false
-  }
-
-  /**
-   * Get entity from world
-   */
-  private getEntity(entityId: string): RPGEntity | undefined {
-    // Handle test environment where entities are in a Map
-    if (this.world.entities.items instanceof Map) {
-      const entity = this.world.entities.items.get(entityId)
-      if (!entity || typeof entity.getComponent !== 'function') {
-        return undefined
-      }
-      return entity as unknown as RPGEntity
-    }
-
-    // Handle production environment
-    const entity = this.world.entities.get?.(entityId)
-    if (!entity || typeof entity.getComponent !== 'function') {
-      return undefined
-    }
-    return entity as unknown as RPGEntity
-  }
-
-  /**
-   * Get entity by inventory component
-   */
-  private getEntityByInventory(inventory: InventoryComponent): RPGEntity | undefined {
-    for (const [entityId, inv] of Array.from(this.inventories)) {
-      if (inv === inventory) {
-        return this.getEntity(entityId)
-      }
-    }
-    return undefined
-  }
-
-  /**
-   * Create empty combat bonuses
-   */
-  private createEmptyBonuses(): CombatBonuses {
+  public createEmptyInventory(): Inventory {
     return {
-      attackStab: 0,
-      attackSlash: 0,
-      attackCrush: 0,
-      attackMagic: 0,
-      attackRanged: 0,
-      defenseStab: 0,
-      defenseSlash: 0,
-      defenseCrush: 0,
-      defenseMagic: 0,
-      defenseRanged: 0,
-      meleeStrength: 0,
-      rangedStrength: 0,
-      magicDamage: 0,
-      prayerBonus: 0,
+      slots: new Array(GAME_CONSTANTS.INVENTORY_SIZE).fill(null),
+      maxSlots: GAME_CONSTANTS.INVENTORY_SIZE
     }
   }
 
-  /**
-   * Register default items
-   */
-  private registerDefaultItems(): void {
-    // Example items
-    this.itemRegistry.register({
-      id: 1,
-      name: 'Coins',
-      examine: 'Lovely money!',
-      value: 1,
-      weight: 0,
-      stackable: true,
-      equipable: false,
-      tradeable: true,
-      members: false,
-      model: 'coins.glb',
-      icon: 'coins.png',
-    })
+  public getInventorySummary(playerId: string): { [itemId: string]: number } {
+    const player = this.players.get(playerId)
+    if (!player) return {}
 
-    this.itemRegistry.register({
-      id: 1038,
-      name: 'Red partyhat',
-      examine: 'A nice hat from a cracker.',
-      value: 1,
-      weight: 0,
-      stackable: false,
-      equipable: true,
-      tradeable: true,
-      members: false,
-      equipment: {
-        slot: EquipmentSlot.HEAD,
-        requirements: {},
-        bonuses: this.createEmptyBonuses(),
-      },
-      model: 'red_partyhat.glb',
-      icon: 'red_partyhat.png',
-    })
+    const summary: { [itemId: string]: number } = {}
+    
+    for (const slot of player.inventory.slots) {
+      if (slot) {
+        summary[slot.item.id] = (summary[slot.item.id] || 0) + slot.quantity
+      }
+    }
 
-    // Add more default items...
+    return summary
   }
 
-  /**
-   * Get entity position from movement component
-   */
-  private getEntityPosition(entity: RPGEntity): Vector3 | null {
-    // Try movement component first
-    const movement = entity.getComponent<MovementComponent>('movement')
-    if (movement?.position) {
-      return movement.position
+  public validateInventory(inventory: Inventory): { valid: boolean, errors: string[] } {
+    const errors: string[] = []
+
+    if (inventory.slots.length !== inventory.maxSlots) {
+      errors.push(`Inventory slot count mismatch: ${inventory.slots.length} vs ${inventory.maxSlots}`)
     }
 
-    // Fall back to entity position
-    if (entity.position) {
-      return entity.position
-    }
-
-    // Try data position
-    if (entity.data?.position) {
-      if (Array.isArray(entity.data.position)) {
-        return {
-          x: entity.data.position[0] || 0,
-          y: entity.data.position[1] || 0,
-          z: entity.data.position[2] || 0,
+    for (let i = 0; i < inventory.slots.length; i++) {
+      const slot = inventory.slots[i]
+      if (slot) {
+        if (!slot.item) {
+          errors.push(`Slot ${i} has no item`)
+        }
+        if (slot.quantity <= 0) {
+          errors.push(`Slot ${i} has invalid quantity: ${slot.quantity}`)
+        }
+        if (slot.item && !slot.item.stackable && slot.quantity > 1) {
+          errors.push(`Slot ${i} has non-stackable item with quantity > 1: ${slot.quantity}`)
+        }
+        if (slot.item && slot.item.maxStack && slot.quantity > slot.item.maxStack) {
+          errors.push(`Slot ${i} exceeds max stack: ${slot.quantity} > ${slot.item.maxStack}`)
         }
       }
-      return entity.data.position
     }
 
-    return null
+    return {
+      valid: errors.length === 0,
+      errors
+    }
   }
 
-  /**
-   * Sync drop item over network
-   */
-  private syncDropItemNetwork(entity: RPGEntity, stack: ItemStack, droppedEntity: any): void {
-    const network = (this.world as any).network
-    if (!network) {
-      return
-    }
+  public sortInventory(playerId: string): boolean {
+    const player = this.players.get(playerId)
+    if (!player) return false
 
-    const itemDef = this.itemRegistry.get(stack.itemId)
+    const inventory = player.inventory
+    const items: InventorySlot[] = []
 
-    network.broadcast('item_dropped', {
-      entityId: entity.data.id,
-      item: {
-        id: stack.itemId,
-        name: itemDef?.name || 'Unknown item',
-        quantity: stack.quantity,
-      },
-      droppedEntityId: droppedEntity.id,
-      position: droppedEntity.position,
-    })
-  }
-
-  /**
-   * Sync equip item over network
-   */
-  private syncEquipNetwork(entity: RPGEntity, slot: EquipmentSlot, equipment: Equipment): void {
-    const network = (this.world as any).network
-    if (!network) {
-      return
-    }
-
-    network.broadcast('item_equipped', {
-      entityId: entity.data.id,
-      slot,
-      equipment: {
-        id: equipment.id,
-        name: equipment.name,
-        bonuses: equipment.equipment?.bonuses,
-      },
-    })
-  }
-
-  /**
-   * Sync unequip item over network
-   */
-  private syncUnequipNetwork(entity: RPGEntity, slot: EquipmentSlot): void {
-    const network = (this.world as any).network
-    if (!network) {
-      return
-    }
-
-    network.broadcast('item_unequipped', {
-      entityId: entity.data.id,
-      slot,
-    })
-  }
-
-  /**
-   * Update combat bonuses
-   */
-  private updateCombatBonuses(entity: RPGEntity): void {
-    const inventory = entity.getComponent<InventoryComponent>('inventory')
-    const stats = entity.getComponent<StatsComponent>('stats')
-
-    if (!inventory || !stats) {
-      return
-    }
-
-    // Calculate bonuses from equipment
-    const bonuses = this.equipmentCalculator.calculateTotalBonuses(inventory.equipment)
-
-    // Update the inventory's equipment bonuses
-    inventory.equipmentBonuses = bonuses
-
-    // Apply to stats
-    stats.combatBonuses = bonuses
-  }
-
-  /**
-   * Remove item from slot
-   */
-  private removeFromSlot(inventory: InventoryComponent, slot: number, quantity: number): ItemStack | null {
-    const stack = inventory.items[slot]
-    if (!stack || stack.quantity < quantity) {
-      return null
-    }
-
-    if (stack.quantity === quantity) {
-      // Remove entire stack
-      inventory.items[slot] = null
-      return stack
-    } else {
-      // Split stack
-      stack.quantity -= quantity
-      return {
-        itemId: stack.itemId,
-        quantity,
+    // Collect all items
+    for (const slot of inventory.slots) {
+      if (slot) {
+        items.push(slot)
       }
     }
+
+    // Sort by item type, then by name
+    items.sort((a, b) => {
+      if (a.item.type !== b.item.type) {
+        return a.item.type.localeCompare(b.item.type)
+      }
+      return a.item.name.localeCompare(b.item.name)
+    })
+
+    // Clear inventory
+    inventory.slots.fill(null)
+
+    // Place sorted items back
+    for (let i = 0; i < items.length && i < inventory.maxSlots; i++) {
+      inventory.slots[i] = items[i]
+    }
+
+    console.log(`[InventorySystem] Sorted inventory for player ${playerId}`)
+    return true
   }
 
-  /**
-   * Check if item can be equipped to slot
-   */
-  private canEquipToSlot(itemStack: ItemStack, slot: EquipmentSlot): boolean {
-    const itemDef = this.itemRegistry.get(itemStack.itemId)
-    if (!itemDef || !itemDef.equipment) {
-      return false
+  public compactInventory(playerId: string): boolean {
+    const player = this.players.get(playerId)
+    if (!player) return false
+
+    const inventory = player.inventory
+    const compactedSlots: (InventorySlot | null)[] = []
+
+    // Collect all non-null slots
+    for (const slot of inventory.slots) {
+      if (slot) {
+        compactedSlots.push(slot)
+      }
     }
 
-    const equipmentSlot = itemDef.equipment.slot
-    return equipmentSlot === slot
+    // Fill remaining slots with null
+    while (compactedSlots.length < inventory.maxSlots) {
+      compactedSlots.push(null)
+    }
+
+    inventory.slots = compactedSlots
+    console.log(`[InventorySystem] Compacted inventory for player ${playerId}`)
+    return true
   }
 
-  /**
-   * Add item to specific entity
-   */
-  private addItemToEntity(entity: RPGEntity, itemStack: ItemStack): boolean {
-    const inventory = entity.getComponent<InventoryComponent>('inventory')
-    if (!inventory) {
+  public async transferItem(
+    fromPlayerId: string, 
+    toPlayerId: string, 
+    itemId: string, 
+    quantity: number
+  ): Promise<boolean> {
+    // Check if fromPlayer has the item
+    if (!this.hasItem(fromPlayerId, itemId, quantity)) {
       return false
     }
 
-    // Find free slot
-    const freeSlot = inventory.items.findIndex(slot => !slot)
-    if (freeSlot === -1) {
+    // Check if toPlayer has space
+    const hasSpace = await this.hasSpace(toPlayerId, itemId, quantity)
+    if (!hasSpace) {
       return false
     }
 
-    // Add to inventory
-    inventory.items[freeSlot] = itemStack
+    // Remove from source
+    const removed = await this.removeItem(fromPlayerId, itemId, quantity)
+    if (!removed) {
+      return false
+    }
+
+    // Add to destination
+    const added = await this.addItem(toPlayerId, itemId, quantity)
+    if (!added) {
+      // Rollback: add back to source
+      await this.addItem(fromPlayerId, itemId, quantity)
+      return false
+    }
+
+    console.log(`[InventorySystem] Transferred ${quantity} ${itemId} from ${fromPlayerId} to ${toPlayerId}`)
     return true
   }
 }

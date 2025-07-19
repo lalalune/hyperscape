@@ -1,0 +1,18 @@
+{
+  "name": "Bronze Hatchet",
+  "description": "A bronze hatchet, handle pointing down, axe head at top, centered on white background, simple woodcutting tool, game asset style, bronze axe head with wooden handle, utilitarian design",
+  "type": "tool",
+  "subtype": "hatchet",
+  "style": "realistic",
+  "metadata": {
+    "tier": "bronze",
+    "level": 1,
+    "gameId": "bronze_hatchet",
+    "rarity": "common",
+    "skill": "woodcutting",
+    "woodcuttingLevel": 1
+  },
+  "id": "hatchet-bronze",
+  "generatedAt": "2025-07-18T09:57:40.538Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/hatchet-bronze/Bronze Hatchet.glb"
+}

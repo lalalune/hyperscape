@@ -1,19 +1,25 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { IAgentRuntime, Memory, UUID, Action, Provider } from '../types/eliza-mock';
-import { HyperfyService } from '../../service';
-import { ContentPackLoader } from '../../managers/content-pack-loader';
-import { IContentPack } from '../../types/content-pack';
-import WebSocket from 'ws';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import {
+  IAgentRuntime,
+  Memory,
+  UUID,
+  Action,
+  Provider,
+} from '../types/eliza-mock'
+import { HyperfyService } from '../../service'
+import { ContentPackLoader } from '../../managers/content-pack-loader'
+import { IContentPack } from '../../types/content-pack'
+import WebSocket from 'ws'
 
 // Mock WebSocket
-vi.mock('ws');
+vi.mock('ws')
 
 describe('Content Pack E2E Integration', () => {
-  let runtime: IAgentRuntime;
-  let service: HyperfyService;
-  let mockWs: any;
-  let registeredActions: Map<string, Action>;
-  let registeredProviders: Map<string, Provider>;
+  let runtime: IAgentRuntime
+  let service: HyperfyService
+  let mockWs: any
+  let registeredActions: Map<string, Action>
+  let registeredProviders: Map<string, Provider>
 
   // Create a test content pack
   const testRPGPack: IContentPack = {
@@ -21,7 +27,7 @@ describe('Content Pack E2E Integration', () => {
     name: 'Test RPG Module',
     description: 'Test RPG content pack',
     version: '1.0.0',
-    
+
     actions: [
       {
         name: 'ATTACK_TARGET',
@@ -29,19 +35,22 @@ describe('Content Pack E2E Integration', () => {
         similes: ['attack', 'hit', 'fight', 'combat'],
         examples: [
           { user: 'user', content: { text: 'Attack the goblin' } },
-          { user: 'assistant', content: { text: 'I attack the goblin with my sword' } }
+          {
+            user: 'assistant',
+            content: { text: 'I attack the goblin with my sword' },
+          },
         ],
         handler: async (runtime, message, state) => {
-          const target = state?.target || 'unknown';
+          const target = state?.target || 'unknown'
           return {
             success: true,
             response: `Attacking ${target}!`,
-            data: { damage: 10, target }
-          };
+            data: { damage: 10, target },
+          }
         },
         validate: async (runtime, message, state) => {
-          return state?.target ? true : false;
-        }
+          return state?.target ? true : false
+        },
       },
       {
         name: 'MINE_RESOURCE',
@@ -49,19 +58,22 @@ describe('Content Pack E2E Integration', () => {
         similes: ['mine', 'gather', 'extract'],
         examples: [
           { user: 'user', content: { text: 'Mine the iron rock' } },
-          { user: 'assistant', content: { text: 'I start mining the iron ore' } }
+          {
+            user: 'assistant',
+            content: { text: 'I start mining the iron ore' },
+          },
         ],
         handler: async (runtime, message, state) => {
           return {
             success: true,
             response: 'Mining resource...',
-            data: { resource: 'iron_ore', quantity: 3 }
-          };
+            data: { resource: 'iron_ore', quantity: 3 },
+          }
         },
-        validate: async () => true
-      }
+        validate: async () => true,
+      },
     ],
-    
+
     providers: [
       {
         name: 'rpgStats',
@@ -72,53 +84,53 @@ describe('Content Pack E2E Integration', () => {
             health: { current: 85, max: 100 },
             skills: {
               mining: { level: 5, experience: 1250 },
-              combat: { level: 8, experience: 3400 }
-            }
-          });
-        }
-      }
+              combat: { level: 8, experience: 3400 },
+            },
+          })
+        },
+      },
     ],
-    
+
     visuals: {
       entityColors: {
         'npcs.goblin': { color: 2263842, hex: '#228822' },
         'items.sword': { color: 16729156, hex: '#FF4444' },
-        'resources.iron_rock': { color: 4210752, hex: '#404040' }
-      }
+        'resources.iron_rock': { color: 4210752, hex: '#404040' },
+      },
     },
-    
+
     stateManager: {
       initPlayerState: (playerId: string) => ({
         playerId,
         level: 1,
         health: { current: 100, max: 100 },
-        inventory: { items: [], gold: 0 }
+        inventory: { items: [], gold: 0 },
       }),
       getState: (playerId: string) => ({
         playerId,
         level: 10,
-        health: { current: 85, max: 100 }
+        health: { current: 85, max: 100 },
       }),
       updateState: (playerId: string, updates: any) => {},
       subscribe: (playerId: string, callback: Function) => () => {},
       serialize: (playerId: string) => '{}',
-      deserialize: (playerId: string, data: string) => {}
+      deserialize: (playerId: string, data: string) => {},
     },
-    
+
     onLoad: async (runtime, world) => {
-      console.log('[TestRPG] Content pack loaded');
+      console.log('[TestRPG] Content pack loaded')
     },
-    
+
     onUnload: async (runtime, world) => {
-      console.log('[TestRPG] Content pack unloaded');
-    }
-  };
+      console.log('[TestRPG] Content pack unloaded')
+    },
+  }
 
   beforeEach(() => {
     // Create mock runtime with action/provider tracking
-    registeredActions = new Map();
-    registeredProviders = new Map();
-    
+    registeredActions = new Map()
+    registeredProviders = new Map()
+
     runtime = {
       agentId: UUID(),
       serverUrl: 'http://localhost:3000',
@@ -126,36 +138,36 @@ describe('Content Pack E2E Integration', () => {
       modelProvider: 'openai',
       character: {
         name: 'TestAgent',
-        description: 'Test agent for content pack loading'
+        description: 'Test agent for content pack loading',
       },
-      
+
       // Track registered actions
       registerAction: vi.fn((action: Action) => {
-        registeredActions.set(action.name, action);
-        console.log(`[Runtime] Registered action: ${action.name}`);
+        registeredActions.set(action.name, action)
+        console.log(`[Runtime] Registered action: ${action.name}`)
       }),
-      
+
       // Track registered providers
       registerProvider: vi.fn((provider: Provider) => {
-        registeredProviders.set(provider.name, provider);
-        console.log(`[Runtime] Registered provider: ${provider.name}`);
+        registeredProviders.set(provider.name, provider)
+        console.log(`[Runtime] Registered provider: ${provider.name}`)
       }),
-      
+
       getAction: vi.fn((name: string) => registeredActions.get(name)),
       getProvider: vi.fn((name: string) => registeredProviders.get(name)),
-      
+
       registerEvaluator: vi.fn(),
       getService: vi.fn((name: string) => {
-        if (name === HyperfyService.serviceName) return service;
-        return null;
+        if (name === HyperfyService.serviceName) return service
+        return null
       }),
-      
+
       getSetting: vi.fn(),
       getConversationLength: vi.fn(() => 0),
       processActions: vi.fn(),
       evaluate: vi.fn(),
       findNearestCachedMemory: vi.fn(),
-      
+
       databaseAdapter: {
         db: null,
         init: vi.fn(),
@@ -182,32 +194,32 @@ describe('Content Pack E2E Integration', () => {
         removeParticipantFromRoom: vi.fn(() => Promise.resolve()),
         createRelationship: vi.fn(() => Promise.resolve()),
         getRelationship: vi.fn(() => Promise.resolve(null)),
-        getRelationships: vi.fn(() => Promise.resolve([]))
+        getRelationships: vi.fn(() => Promise.resolve([])),
       },
-      
+
       messageManager: {
         createMemory: vi.fn(),
         addEmbeddingToMemory: vi.fn(),
-        getMemories: vi.fn(() => Promise.resolve([]))
+        getMemories: vi.fn(() => Promise.resolve([])),
       },
-      
+
       descriptionManager: {
-        getDescription: vi.fn(() => 'Test description')
+        getDescription: vi.fn(() => 'Test description'),
       },
-      
+
       loreManager: {
-        getLore: vi.fn(() => [])
+        getLore: vi.fn(() => []),
       },
-      
+
       providers: [],
       actions: [],
       evaluators: [],
-      plugins: []
-    } as any;
+      plugins: [],
+    } as any
 
     // Create service instance
-    service = new HyperfyService();
-    
+    service = new HyperfyService()
+
     // Mock WebSocket connection
     mockWs = {
       readyState: WebSocket.OPEN,
@@ -216,34 +228,34 @@ describe('Content Pack E2E Integration', () => {
       on: vi.fn(),
       once: vi.fn(),
       removeListener: vi.fn(),
-      ping: vi.fn()
-    };
-    
+      ping: vi.fn(),
+    }
+
     // Replace WebSocket constructor
-    (WebSocket as any).mockImplementation(() => mockWs);
-  });
+    ;(WebSocket as any).mockImplementation(() => mockWs)
+  })
 
   afterEach(() => {
-    vi.clearAllMocks();
-  });
+    vi.clearAllMocks()
+  })
 
   describe('Full Content Pack Loading Flow', () => {
     it('should complete the entire flow from connection to action availability', async () => {
       // Step 1: Initialize service
-      await service.initialize(runtime);
-      expect(service).toBeDefined();
-      
+      await service.initialize(runtime)
+      expect(service).toBeDefined()
+
       // Step 2: Connect to world (simulate connection)
-      const connectPromise = service.connect('test-world-id');
-      
+      const connectPromise = service.connect('test-world-id')
+
       // Simulate WebSocket connection events
-      const onCall = mockWs.on.mock.calls.find(call => call[0] === 'open');
+      const onCall = mockWs.on.mock.calls.find(call => call[0] === 'open')
       if (onCall && onCall[1]) {
-        onCall[1](); // Trigger 'open' event
+        onCall[1]() // Trigger 'open' event
       }
-      
-      await connectPromise;
-      
+
+      await connectPromise
+
       // Step 3: Simulate receiving world bundle with RPG content flag
       const worldBundle = {
         type: 'world-state',
@@ -257,9 +269,7 @@ describe('Content Pack E2E Integration', () => {
               name: 'Attack Target',
               description: 'Attack a target entity',
               category: 'combat',
-              parameters: [
-                { name: 'target', type: 'entity', required: true }
-              ]
+              parameters: [{ name: 'target', type: 'entity', required: true }],
             },
             {
               id: 'MINE_RESOURCE',
@@ -267,179 +277,188 @@ describe('Content Pack E2E Integration', () => {
               description: 'Mine a resource node',
               category: 'skills',
               parameters: [
-                { name: 'resourceId', type: 'string', required: true }
-              ]
-            }
-          ]
-        }
-      };
-      
-      // Simulate receiving world state
-      const messageHandler = mockWs.on.mock.calls.find(call => call[0] === 'message')?.[1];
-      if (messageHandler) {
-        messageHandler(JSON.stringify(worldBundle));
+                { name: 'resourceId', type: 'string', required: true },
+              ],
+            },
+          ],
+        },
       }
-      
+
+      // Simulate receiving world state
+      const messageHandler = mockWs.on.mock.calls.find(
+        call => call[0] === 'message'
+      )?.[1]
+      if (messageHandler) {
+        messageHandler(JSON.stringify(worldBundle))
+      }
+
       // Step 4: Load content pack
-      const contentLoader = new ContentPackLoader(runtime);
-      await contentLoader.loadPack(testRPGPack, runtime);
-      
+      const contentLoader = new ContentPackLoader(runtime)
+      await contentLoader.loadPack(testRPGPack, runtime)
+
       // Step 5: Verify actions were registered
-      expect(runtime.registerAction).toHaveBeenCalledTimes(2);
-      expect(registeredActions.has('ATTACK_TARGET')).toBe(true);
-      expect(registeredActions.has('MINE_RESOURCE')).toBe(true);
-      
+      expect(runtime.registerAction).toHaveBeenCalledTimes(2)
+      expect(registeredActions.has('ATTACK_TARGET')).toBe(true)
+      expect(registeredActions.has('MINE_RESOURCE')).toBe(true)
+
       // Step 6: Verify providers were registered
-      expect(runtime.registerProvider).toHaveBeenCalledTimes(1);
-      expect(registeredProviders.has('rpgStats')).toBe(true);
-      
+      expect(runtime.registerProvider).toHaveBeenCalledTimes(1)
+      expect(registeredProviders.has('rpgStats')).toBe(true)
+
       // Step 7: Test action execution
-      const attackAction = registeredActions.get('ATTACK_TARGET');
-      expect(attackAction).toBeDefined();
-      
+      const attackAction = registeredActions.get('ATTACK_TARGET')
+      expect(attackAction).toBeDefined()
+
       const attackResult = await attackAction!.handler(
         runtime,
         { content: { text: 'Attack the goblin' } } as any,
         { target: 'goblin' }
-      );
-      
-      expect(attackResult.success).toBe(true);
-      expect(attackResult.response).toBe('Attacking goblin!');
-      expect(attackResult.data).toEqual({ damage: 10, target: 'goblin' });
-      
+      )
+
+      expect(attackResult.success).toBe(true)
+      expect(attackResult.response).toBe('Attacking goblin!')
+      expect(attackResult.data).toEqual({ damage: 10, target: 'goblin' })
+
       // Step 8: Test provider access
-      const statsProvider = registeredProviders.get('rpgStats');
-      expect(statsProvider).toBeDefined();
-      
-      const stats = await statsProvider!.get(runtime, {} as any, {});
-      const parsedStats = JSON.parse(stats);
-      expect(parsedStats.level).toBe(10);
-      expect(parsedStats.health.current).toBe(85);
-      
+      const statsProvider = registeredProviders.get('rpgStats')
+      expect(statsProvider).toBeDefined()
+
+      const stats = await statsProvider!.get(runtime, {} as any, {})
+      const parsedStats = JSON.parse(stats)
+      expect(parsedStats.level).toBe(10)
+      expect(parsedStats.health.current).toBe(85)
+
       // Step 9: Verify content pack is tracked as loaded
-      expect(contentLoader.isPackLoaded('test-rpg')).toBe(true);
-      expect(contentLoader.getLoadedPacks()).toHaveLength(1);
-      
+      expect(contentLoader.isPackLoaded('test-rpg')).toBe(true)
+      expect(contentLoader.getLoadedPacks()).toHaveLength(1)
+
       // Step 10: Test unloading
-      await contentLoader.unloadPack('test-rpg');
-      expect(contentLoader.isPackLoaded('test-rpg')).toBe(false);
-    });
+      await contentLoader.unloadPack('test-rpg')
+      expect(contentLoader.isPackLoaded('test-rpg')).toBe(false)
+    })
 
     it('should handle dynamic action discovery from world', async () => {
-      await service.initialize(runtime);
-      
+      await service.initialize(runtime)
+
       // Mock the dynamic action loader
       const mockDynamicLoader = {
-        discoverActions: vi.fn(() => Promise.resolve([
-          {
-            id: 'CUSTOM_ACTION',
-            name: 'Custom Action',
-            description: 'Dynamically discovered action',
-            category: 'custom',
-            parameters: []
-          }
-        ])),
+        discoverActions: vi.fn(() =>
+          Promise.resolve([
+            {
+              id: 'CUSTOM_ACTION',
+              name: 'Custom Action',
+              description: 'Dynamically discovered action',
+              category: 'custom',
+              parameters: [],
+            },
+          ])
+        ),
         registerAction: vi.fn(),
         createActionHandler: vi.fn(() => ({
           name: 'CUSTOM_ACTION',
-          handler: async () => ({ success: true, response: 'Custom action executed' })
-        }))
-      };
-      
-      // Override the service method to return our mock
-      service.getDynamicActionLoader = () => mockDynamicLoader as any;
-      
-      // Discover and register actions
-      const discovered = await mockDynamicLoader.discoverActions();
-      expect(discovered).toHaveLength(1);
-      
-      for (const actionDesc of discovered) {
-        const action = mockDynamicLoader.createActionHandler(actionDesc);
-        await runtime.registerAction(action);
+          handler: async () => ({
+            success: true,
+            response: 'Custom action executed',
+          }),
+        })),
       }
-      
+
+      // Override the service method to return our mock
+      service.getDynamicActionLoader = () => mockDynamicLoader as any
+
+      // Discover and register actions
+      const discovered = await mockDynamicLoader.discoverActions()
+      expect(discovered).toHaveLength(1)
+
+      for (const actionDesc of discovered) {
+        const action = mockDynamicLoader.createActionHandler(actionDesc)
+        await runtime.registerAction(action)
+      }
+
       // Verify the custom action is available
-      expect(registeredActions.has('CUSTOM_ACTION')).toBe(true);
-    });
+      expect(registeredActions.has('CUSTOM_ACTION')).toBe(true)
+    })
 
     it('should provide visual configuration to ColorDetector', async () => {
-      await service.initialize(runtime);
-      
+      await service.initialize(runtime)
+
       // Create a mock world with ColorDetector
       const mockColorDetector = {
-        registerEntityColor: vi.fn()
-      };
-      
+        registerEntityColor: vi.fn(),
+      }
+
       const mockWorld = {
         colorDetector: mockColorDetector,
         actions: {
-          execute: vi.fn()
-        }
-      };
-      
+          execute: vi.fn(),
+        },
+      }
+
       // Override getWorld to return our mock
-      service.getWorld = () => mockWorld as any;
-      
+      service.getWorld = () => mockWorld as any
+
       // Load content pack
-      const contentLoader = new ContentPackLoader(runtime);
-      await contentLoader.loadPack(testRPGPack, runtime);
-      
+      const contentLoader = new ContentPackLoader(runtime)
+      await contentLoader.loadPack(testRPGPack, runtime)
+
       // Verify visual colors were registered
       expect(mockColorDetector.registerEntityColor).toHaveBeenCalledWith(
         'npcs.goblin',
         { color: 2263842, hex: '#228822' }
-      );
+      )
       expect(mockColorDetector.registerEntityColor).toHaveBeenCalledWith(
         'items.sword',
         { color: 16729156, hex: '#FF4444' }
-      );
-    });
+      )
+    })
 
     it('should handle state management lifecycle', async () => {
-      await service.initialize(runtime);
-      
-      const contentLoader = new ContentPackLoader(runtime);
-      await contentLoader.loadPack(testRPGPack, runtime);
-      
+      await service.initialize(runtime)
+
+      const contentLoader = new ContentPackLoader(runtime)
+      await contentLoader.loadPack(testRPGPack, runtime)
+
       // Get state manager
-      const stateManager = contentLoader.getPackStateManager('test-rpg');
-      expect(stateManager).toBeDefined();
-      
+      const stateManager = contentLoader.getPackStateManager('test-rpg')
+      expect(stateManager).toBeDefined()
+
       // Test state operations
-      const playerId = 'test-player';
-      const initialState = stateManager.initPlayerState(playerId);
-      expect(initialState.playerId).toBe(playerId);
-      expect(initialState.level).toBe(1);
-      
-      const currentState = stateManager.getState(playerId);
-      expect(currentState.level).toBe(10);
-    });
-  });
+      const playerId = 'test-player'
+      const initialState = stateManager.initPlayerState(playerId)
+      expect(initialState.playerId).toBe(playerId)
+      expect(initialState.level).toBe(1)
+
+      const currentState = stateManager.getState(playerId)
+      expect(currentState.level).toBe(10)
+    })
+  })
 
   describe('Error Handling', () => {
     it('should handle connection failures gracefully', async () => {
-      await service.initialize(runtime);
-      
+      await service.initialize(runtime)
+
       // Simulate connection error
-      const connectPromise = service.connect('test-world-id');
-      
-      const errorHandler = mockWs.on.mock.calls.find(call => call[0] === 'error')?.[1];
+      const connectPromise = service.connect('test-world-id')
+
+      const errorHandler = mockWs.on.mock.calls.find(
+        call => call[0] === 'error'
+      )?.[1]
       if (errorHandler) {
-        errorHandler(new Error('Connection failed'));
+        errorHandler(new Error('Connection failed'))
       }
-      
+
       // Should not throw, but handle gracefully
-      await expect(connectPromise).rejects.toThrow('Connection failed');
-    });
+      await expect(connectPromise).rejects.toThrow('Connection failed')
+    })
 
     it('should handle malformed content packs', async () => {
       const badPack = {
         id: 'bad-pack',
         // Missing required fields
-      } as any;
-      
-      const contentLoader = new ContentPackLoader(runtime);
-      await expect(contentLoader.loadPack(badPack)).rejects.toThrow();
-    });
-  });
-}); 
+      } as any
+
+      const contentLoader = new ContentPackLoader(runtime)
+      await expect(contentLoader.loadPack(badPack)).rejects.toThrow()
+    })
+  })
+})

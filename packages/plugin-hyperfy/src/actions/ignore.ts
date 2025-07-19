@@ -6,7 +6,7 @@ import type {
   Memory,
   HandlerCallback,
   State,
-} from '../types/eliza-mock';
+} from '../types/eliza-mock'
 
 /**
  * Action representing the IGNORE action. This action is used when ignoring the user in a conversation.
@@ -35,7 +35,7 @@ export const ignoreAction: Action = {
   name: 'IGNORE',
   similes: ['STOP_TALKING', 'STOP_CHATTING', 'STOP_CONVERSATION'],
   validate: async (_runtime: IAgentRuntime, _message: Memory) => {
-    return true;
+    return true
   },
   description:
     'Call this action if ignoring the user. If the user is aggressive, creepy or is finished with the conversation, use this action. Or, if both you and the user have already said goodbye, use this action instead of saying bye again. Use IGNORE any time the conversation has naturally ended. Do not use IGNORE if the user has engaged directly, or if something went wrong an you need to tell them. Only ignore if the user should be ignored. Can end action chains when no further response is needed.',
@@ -50,14 +50,14 @@ export const ignoreAction: Action = {
     // If a callback and the agent's response content are available, call the callback
     if (callback && responses?.[0]?.content) {
       // Pass the agent's original response content (thought, IGNORE action, etc.)
-      await callback(responses[0].content);
+      await callback(responses[0].content)
     }
 
     return {
       text: '',
       values: { ignored: true, reason: 'conversation_ended_or_inappropriate' },
       data: { action: 'IGNORE', hasResponse: !!responses?.[0]?.content },
-    };
+    }
   },
   examples: [
     [
@@ -68,7 +68,8 @@ export const ignoreAction: Action = {
       {
         name: '{{agent}}',
         content: {
-          thought: 'User is being hostile and inappropriate - I should ignore this message',
+          thought:
+            'User is being hostile and inappropriate - I should ignore this message',
           text: '',
           actions: ['IGNORE'],
         },
@@ -206,7 +207,8 @@ export const ignoreAction: Action = {
       {
         name: '{{agent}}',
         content: {
-          thought: 'User is being insulting - I should ignore this inappropriate behavior',
+          thought:
+            'User is being insulting - I should ignore this inappropriate behavior',
           text: '',
           actions: ['IGNORE'],
         },
@@ -234,7 +236,8 @@ export const ignoreAction: Action = {
       {
         name: '{{agent}}',
         content: {
-          thought: 'User said goodbye rudely but conversation is over - no further response needed',
+          thought:
+            'User said goodbye rudely but conversation is over - no further response needed',
           text: '',
           actions: ['IGNORE'],
         },
@@ -301,11 +304,12 @@ export const ignoreAction: Action = {
       {
         name: '{{agent}}',
         content: {
-          thought: 'User resolved their issue and no longer needs help - no response needed',
+          thought:
+            'User resolved their issue and no longer needs help - no response needed',
           text: '',
           actions: ['IGNORE'],
         },
       },
     ],
   ] as ActionExample[][],
-} as Action;
+} as Action

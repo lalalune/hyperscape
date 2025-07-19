@@ -1,5 +1,9 @@
-import { type Provider, type IAgentRuntime, type Memory } from '../types/eliza-mock';
-import { EMOTES_LIST } from '../constants';
+import {
+  type Provider,
+  type IAgentRuntime,
+  type Memory,
+} from '../types/eliza-mock'
+import { EMOTES_LIST } from '../constants'
 
 /**
  * A provider that lists all available emotes with descriptions.
@@ -9,10 +13,10 @@ export const hyperfyEmoteProvider: Provider = {
   name: 'HYPERFY_EMOTE_LIST',
   description: 'Lists all available emotes and their descriptions',
   get: async (_runtime: IAgentRuntime, _message: Memory) => {
-    const animationListText = EMOTES_LIST.map((e) => `- **${e.name}**: ${e.description}`).join(
-      '\n'
-    );
-    const animationText = `## Available Animations\n${animationListText}`;
+    const animationListText = EMOTES_LIST.map(
+      e => `- **${e.name}**: ${e.description}`
+    ).join('\n')
+    const animationText = `## Available Animations\n${animationListText}`
 
     return {
       data: {
@@ -22,6 +26,6 @@ export const hyperfyEmoteProvider: Provider = {
         hyperfyAnimations: animationText,
       },
       text: animationText,
-    };
+    }
   },
-};
+}

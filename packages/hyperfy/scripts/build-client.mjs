@@ -20,7 +20,7 @@ const buildDirectory = path.join(rootDir, 'build')
 
 {
   const clientCtx = await esbuild.context({
-    entryPoints: ['src/client/world-client.js'],
+    entryPoints: ['src/client/index.tsx'],
     outfile: 'build/world-client.js',
     platform: 'browser',
     format: 'esm',
@@ -37,7 +37,7 @@ const buildDirectory = path.join(rootDir, 'build')
     loader: {
       '.js': 'jsx',
     },
-    external: ['three', 'react', 'react-dom', 'ses'],
+    external: [],
     // alias: {
     //   react: 'react', // always use our own local react (jsx)
     // },

@@ -1,0 +1,51 @@
+{
+  "name": "Mithril Shield",
+  "description": "A mithril shield with shimmering silver-blue surface and ornate decorations, high-level defense for level 20+ adventurers",
+  "type": "weapon",
+  "subtype": "shield",
+  "style": "realistic",
+  "metadata": {
+    "tier": "mithril",
+    "level": 20,
+    "gameId": "mithril_shield",
+    "rarity": "rare",
+    "defenseLevel": 20,
+    "slot": "shield"
+  },
+  "id": "mithril-shield",
+  "analysisResult": {
+    "weaponType": "shield",
+    "primaryGrip": {
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.9
+    },
+    "attachmentPoints": [
+      {
+        "name": "arm_strap",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    ]
+  },
+  "generatedAt": "2025-07-18T08:06:57.578Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/mithril-shield/Mithril Shield.glb"
+}

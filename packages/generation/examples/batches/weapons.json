@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Bronze Sword",
+    "description": "A bronze sword with worn leather grip, basic starter weapon with bronze metal finish, rustic appearance suitable for level 1 adventurers",
+    "type": "weapon",
+    "subtype": "sword",
+    "style": "realistic",
+    "metadata": {
+      "tier": "bronze",
+      "level": 1,
+      "gameId": "bronze_sword",
+      "rarity": "common",
+      "attackLevel": 1,
+      "strengthLevel": 1
+    }
+  },
+  {
+    "name": "Wood Bow",
+    "description": "A simple wooden bow with basic string, starter ranged weapon for level 1+ adventurers",
+    "type": "weapon",
+    "subtype": "bow",
+    "style": "realistic",
+    "metadata": {
+      "tier": "wood",
+      "level": 1,
+      "gameId": "wood_bow",
+      "rarity": "common",
+      "rangeLevel": 1,
+      "requiresAmmo": "arrows"
+    }
+  },
+  {
+    "name": "Bronze Shield",
+    "description": "A bronze shield with simple design and leather strapping, basic defense for level 1+ adventurers",
+    "type": "weapon",
+    "subtype": "shield",
+    "style": "realistic",
+    "metadata": {
+      "tier": "bronze",
+      "level": 1,
+      "gameId": "bronze_shield",
+      "rarity": "common",
+      "defenseLevel": 1,
+      "slot": "shield"
+    }
+  }
+] 

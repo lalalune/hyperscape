@@ -122,10 +122,15 @@ export class App extends Entity implements HotReloadable {
       // fetch script (if any)
       if (blueprint.script) {
         try {
+          console.log(`[App] Loading script: ${blueprint.script}`)
           script = this.world.loader?.get('script', blueprint.script)
-          if (!script) script = await this.world.loader?.load('script', blueprint.script)
+          if (!script) {
+            console.log(`[App] Script not cached, loading from: ${blueprint.script}`)
+            script = await this.world.loader?.load('script', blueprint.script)
+          }
+          console.log(`[App] Script loaded successfully for: ${blueprint.script}`)
         } catch (err) {
-          console.error(err)
+          console.error(`[App] Script loading failed for: ${blueprint.script}`, err)
           crashed = true
         }
       }

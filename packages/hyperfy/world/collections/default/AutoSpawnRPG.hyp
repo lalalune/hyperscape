@@ -1,0 +1,8 @@
+{
+  "name": "AutoSpawnRPG",
+  "description": "Auto-spawning RPG world that places player and goblin entities at world startup",
+  "category": "rpg",
+  "tags": ["rpg", "auto-spawn", "entities", "world", "test"],
+  "script": "AutoSpawnRPG.js",
+  "properties": {}
+}

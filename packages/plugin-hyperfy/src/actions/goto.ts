@@ -11,9 +11,9 @@ import {
   logger,
   EventType,
   type EventHandler,
-} from '../types/eliza-mock';
-import { HyperfyService } from '../service';
-import { AgentControls } from '../systems/controls'; // Import AgentControls type
+} from '../types/eliza-mock'
+import { HyperfyService } from '../service'
+import { AgentControls } from '../systems/controls' // Import AgentControls type
 // Import THREE types if needed, e.g., for metadata typing
 // import type * as THREE from 'three';
 
@@ -65,8 +65,8 @@ or
 \`\`\`
 
 Only return the JSON object. Do not include any extra text or comments.
-  `.trim();
-};
+  `.trim()
+}
 
 export const hyperfyGotoEntityAction: Action = {
   name: 'HYPERFY_GOTO_ENTITY',
@@ -74,9 +74,11 @@ export const hyperfyGotoEntityAction: Action = {
   description:
     'Moves your character to a specified player, object, or world position; use when you need to approach something or go somewhere before interacting. Can be chained with USE_ITEM or PERCEPTION actions for complex navigation scenarios.',
   validate: async (runtime: IAgentRuntime): Promise<boolean> => {
-    const service = runtime.getService<HyperfyService>(HyperfyService.serviceName);
+    const service = runtime.getService<HyperfyService>(
+      HyperfyService.serviceName
+    )
     // Check if connected and if controls are available
-    return !!service && service.isConnected() && !!service.getWorld()?.controls;
+    return !!service && service.isConnected() && !!service.getWorld()?.controls
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -88,212 +90,237 @@ export const hyperfyGotoEntityAction: Action = {
   ): Promise<ActionResult> => {
     const thoughtSnippets =
       responses
-        ?.map((res) => res.content?.thought)
+        ?.map(res => res.content?.thought)
         .filter(Boolean)
-        .join('\n') ?? '';
+        .join('\n') ?? ''
 
-    const service = runtime.getService<HyperfyService>(HyperfyService.serviceName);
-    const world = service?.getWorld(); // Use the getter
-    const controls = world?.controls as unknown as AgentControls | undefined; // Get controls and cast type
-    const player = world?.entities?.player;
+    const service = runtime.getService<HyperfyService>(
+      HyperfyService.serviceName
+    )
+    const world = service?.getWorld() // Use the getter
+    const controls = world?.controls as unknown as AgentControls | undefined // Get controls and cast type
+    const player = world?.entities?.player
 
     if (!service || !world || !controls || !callback) {
-      logger.error('[GOTO Action] Hyperfy service, world, controls, or callback not found.');
+      logger.error(
+        '[GOTO Action] Hyperfy service, world, controls, or callback not found.'
+      )
       return {
         text: 'Error: Cannot navigate. Hyperfy connection/controls unavailable.',
+        success: false,
         values: { success: false, error: 'service_unavailable' },
         data: { action: 'HYPERFY_GOTO_ENTITY' },
-      };
+      }
     }
 
-    let navigationResult: any = null;
+    let navigationResult: any = null
 
     try {
-      const extractionState = await runtime.composeState(message);
+      const extractionState = await runtime.composeState(message)
       const prompt = composePromptFromState({
         state: extractionState,
         template: navigationTargetExtractionTemplate(thoughtSnippets),
-      });
+      })
 
-      navigationResult = await runtime.useModel(ModelType.OBJECT_LARGE, { prompt });
-      logger.info('[GOTO Action] Navigation target extracted:', navigationResult);
+      navigationResult = await runtime.useModel(ModelType.OBJECT_LARGE, {
+        prompt,
+      })
+      logger.info(
+        '[GOTO Action] Navigation target extracted:',
+        navigationResult
+      )
     } catch (error) {
-      logger.error('[GOTO Action] Error during navigation target extraction:', error);
+      logger.error(
+        '[GOTO Action] Error during navigation target extraction:',
+        error
+      )
       const errorResponse = {
         thought: 'Failed to extract navigation target.',
         text: 'Action failed: Could not determine a navigation target.',
         metadata: { error: 'extraction_failed' },
-      };
-      await callback(errorResponse);
+      }
+      await callback(errorResponse)
       return {
         text: errorResponse.text,
+        success: false,
         values: { success: false, error: 'extraction_failed' },
         data: { action: 'HYPERFY_GOTO_ENTITY', thought: errorResponse.thought },
-      };
+      }
     }
 
-    if (!navigationResult || !navigationResult.navigationType || !navigationResult.parameter) {
+    if (
+      !navigationResult ||
+      !navigationResult.navigationType ||
+      !navigationResult.parameter
+    ) {
       const invalidResponse = {
         thought: 'Navigation target missing or malformed.',
         text: 'Action failed: Invalid navigation target.',
         metadata: { error: 'invalid_navigation_target' },
-      };
-      await callback(invalidResponse);
+      }
+      await callback(invalidResponse)
       return {
         text: invalidResponse.text,
+        success: false,
         values: { success: false, error: 'invalid_navigation_target' },
-        data: { action: 'HYPERFY_GOTO_ENTITY', thought: invalidResponse.thought },
-      };
+        data: {
+          action: 'HYPERFY_GOTO_ENTITY',
+          thought: invalidResponse.thought,
+        },
+      }
     }
 
-    const { navigationType, parameter } = navigationResult;
+    const { navigationType, parameter } = navigationResult
 
     try {
       switch (navigationType) {
         case NavigationType.ENTITY: {
-          const entityId = parameter?.entityId;
+          const entityId = parameter?.entityId
           if (!entityId) {
-            throw new Error('Missing entityId in parameter.');
+            throw new Error('Missing entityId in parameter.')
           }
 
-          logger.info(`Navigating to entity ${entityId}`);
-          await controls.followEntity(entityId);
+          logger.info(`Navigating to entity ${entityId}`)
+          await controls.followEntity(entityId)
 
-          const targetEntity = world.entities.items.get(parameter.entityId);
+          const targetEntity = world.entities.items.get(parameter.entityId)
           const entityName =
-            targetEntity?.data?.name || targetEntity?.blueprint?.name || `entity ${entityId}`;
+            targetEntity?.data?.name ||
+            targetEntity?.blueprint?.name ||
+            `entity ${entityId}`
 
           const successResponse = {
             text: `Arrived at ${entityName}.`,
             actions: ['HYPERFY_GOTO_ENTITY'],
             source: 'hyperfy',
-          };
-          await callback(successResponse);
+          }
+          await callback(successResponse)
 
           return {
             text: successResponse.text,
-            values: { success: true, navigationType: 'entity', targetEntity: entityId, entityName },
+            success: true,
+            values: {
+              success: true,
+              navigationType: 'entity',
+              targetEntity: entityId,
+              entityName,
+            },
             data: { action: 'HYPERFY_GOTO_ENTITY', targetEntityId: entityId },
-          };
-          break;
+          }
+          break
         }
 
         case NavigationType.POSITION: {
-          const pos = parameter?.position;
+          const pos = parameter?.position
           if (!pos || typeof pos.x !== 'number' || typeof pos.z !== 'number') {
-            throw new Error('Invalid position coordinates.');
+            throw new Error('Invalid position coordinates.')
           }
 
-          logger.info(`Navigating to position (${pos.x}, ${pos.z})`);
-          await controls.goto(pos.x, pos.z);
+          logger.info(`Navigating to position (${pos.x}, ${pos.z})`)
+          await controls.goto(pos.x, pos.z)
 
           const positionResponse = {
             text: `Reached position (${pos.x}, ${pos.z}).`,
             actions: ['HYPERFY_GOTO_ENTITY'],
             source: 'hyperfy',
-          };
-          await callback(positionResponse);
+          }
+          await callback(positionResponse)
 
           return {
             text: positionResponse.text,
-            values: { success: true, navigationType: 'position', targetPosition: pos },
-            data: { action: 'HYPERFY_GOTO_ENTITY', targetX: pos.x, targetZ: pos.z },
-          };
-          break;
+            success: true,
+            values: {
+              success: true,
+              navigationType: 'position',
+              targetPosition: pos,
+            },
+            data: {
+              action: 'HYPERFY_GOTO_ENTITY',
+              targetX: pos.x,
+              targetZ: pos.z,
+            },
+          }
+          break
         }
 
         default:
-          throw new Error(`Unsupported navigation type: ${navigationType}`);
+          throw new Error(`Unsupported navigation type: ${navigationType}`)
       }
     } catch (error: any) {
-      logger.error('[GOTO Action] Navigation failed:', error);
+      logger.error('[GOTO Action] Navigation failed:', error)
       const navigationErrorResponse = {
         text: `Navigation failed: ${error.message}`,
         metadata: { error: 'navigation_error', detail: error.message },
-      };
-      await callback(navigationErrorResponse);
+      }
+      await callback(navigationErrorResponse)
 
       return {
         text: navigationErrorResponse.text,
-        values: { success: false, error: 'navigation_error', detail: error.message },
+        success: false,
+        values: {
+          success: false,
+          error: 'navigation_error',
+          detail: error.message,
+        },
         data: { action: 'HYPERFY_GOTO_ENTITY' },
-      };
+      }
     }
   },
   examples: [
-    // Example assumes an entity "Bob" exists with ID "entity123"
     [
-      { name: '{{user}}', content: { text: 'Go to Bob' } },
       {
-        name: '{{agent}}',
+        user: 'Go to Bob',
+        assistant: 'Navigating towards Bob...',
         content: {
-          thought:
-            "User wants me to go to Bob - I need to find Bob's entity in the world and navigate there",
           text: 'Navigating towards Bob...',
-          actions: ['HYPERFY_GOTO_ENTITY'],
-          source: 'hyperfy',
+          action: 'HYPERFY_GOTO_ENTITY',
+          thought: "User wants me to go to Bob - I need to find Bob's entity in the world and navigate there"
         },
       },
     ],
     [
-      { name: '{{user}}', content: { text: 'Find entity abcdef' } },
       {
-        name: '{{agent}}',
+        user: 'Find entity abcdef',
+        assistant: 'Navigating towards entity abcdef...',
         content: {
-          thought:
-            'User is asking me to navigate to a specific entity ID - I should move to that location',
           text: 'Navigating towards entity abcdef...',
-          actions: ['HYPERFY_GOTO_ENTITY'],
-          source: 'hyperfy',
-        },
-      },
-    ],
-    // Example for failure (entity not found)
-    [
-      { name: '{{user}}', content: { text: 'Go to the missing chair' } },
-      {
-        name: '{{agent}}',
-        content: {
-          thought: 'I cannot find any chair entity in the current world state',
-          text: 'Error: Cannot navigate. Could not find location for entity chair999.',
+          action: 'HYPERFY_GOTO_ENTITY',
+          thought: 'User is asking me to navigate to a specific entity ID - I should move to that location'
         },
       },
     ],
     [
-      { name: '{{user}}', content: { text: 'Go to the fountain at 12, 8' } },
       {
-        name: '{{agent}}',
+        user: 'Go to the fountain at 12, 8',
+        assistant: 'Navigating to position (12, 8)...',
         content: {
-          thought: 'User gave me specific coordinates - I should navigate to position x:12, z:8',
           text: 'Navigating to position (12, 8)...',
-          actions: ['HYPERFY_GOTO_ENTITY'],
-          source: 'hyperfy',
+          action: 'HYPERFY_GOTO_ENTITY',
+          thought: 'User gave me specific coordinates - I should navigate to position x:12, z:8'
         },
       },
     ],
     [
-      { name: '{{user}}', content: { text: 'Walk to coordinate x: 5 z: -3' } },
       {
-        name: '{{agent}}',
+        user: 'Walk to coordinate x: 5 z: -3',
+        assistant: 'Moving to position (5, -3)...',
         content: {
-          thought: 'Clear coordinates provided - moving to x:5, z:-3',
-          text: 'Navigating to position (5, -3)...',
-          actions: ['HYPERFY_GOTO_ENTITY'],
-          source: 'hyperfy',
+          text: 'Moving to position (5, -3)...',
+          action: 'HYPERFY_GOTO_ENTITY',
+          thought: 'Clear coordinates provided - moving to x:5, z:-3'
         },
       },
     ],
     [
-      { name: '{{user}}', content: { text: 'Move to 0, 0 in the world' } },
       {
-        name: '{{agent}}',
+        user: 'Move to 0, 0 in the world',
+        assistant: 'Navigating to position (0, 0)...',
         content: {
-          thought: 'Going to the world origin point at coordinates 0,0',
           text: 'Navigating to position (0, 0)...',
-          actions: ['HYPERFY_GOTO_ENTITY'],
-          source: 'hyperfy',
+          action: 'HYPERFY_GOTO_ENTITY',
+          thought: 'Going to the world origin point at coordinates 0,0'
         },
       },
     ],
   ],
-};
+}

@@ -1,4 +1,4 @@
-import { Content } from '../types/eliza-mock';
+import { Content } from '../types/eliza-mock'
 import {
   type Action,
   type ActionExample,
@@ -9,7 +9,7 @@ import {
   type Memory,
   ModelType,
   type State,
-} from '../types/eliza-mock';
+} from '../types/eliza-mock'
 
 /**
  * Template for generating dialog and actions for a character.
@@ -35,23 +35,29 @@ Response format should be formatted in a valid JSON block like this:
 }
 \`\`\`
 
-Your response should include the valid JSON block and nothing else.`;
+Your response should include the valid JSON block and nothing else.`
 
-function getFirstAvailableField(obj: Record<string, any>, fields: string[]): string | null {
+function getFirstAvailableField(
+  obj: Record<string, unknown>,
+  fields: string[]
+): string | null {
   for (const field of fields) {
     if (typeof obj[field] === 'string' && obj[field].trim() !== '') {
-      return obj[field];
+      return obj[field]
     }
   }
-  return null;
+  return null
 }
 
-function extractReplyContent(response: Memory, replyFieldKeys: string[]): Content | null {
-  const hasReplyAction = response.content.actions?.includes('REPLY');
-  const text = getFirstAvailableField(response.content, replyFieldKeys);
+function extractReplyContent(
+  response: Memory,
+  replyFieldKeys: string[]
+): Content | null {
+  const hasReplyAction = response.content.actions?.includes('REPLY')
+  const text = getFirstAvailableField(response.content, replyFieldKeys)
 
   if (!hasReplyAction || !text) {
-    return null;
+    return null
   }
 
   return {
@@ -59,7 +65,7 @@ function extractReplyContent(response: Memory, replyFieldKeys: string[]): Conten
     thought: response.content.thought,
     text,
     actions: ['REPLY'],
-  };
+  }
 }
 
 /**
@@ -81,7 +87,7 @@ export const replyAction = {
   description:
     "Sends a direct message into in-game chat to a player; always use this first when you're speaking in response to someone. Can be chained with other metaverse actions for complex scenarios.",
   validate: async (_runtime: IAgentRuntime) => {
-    return true;
+    return true
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -91,35 +97,36 @@ export const replyAction = {
     callback: HandlerCallback,
     responses?: Memory[]
   ): Promise<ActionResult> => {
-    const replyFieldKeys = ['message', 'text'];
+    const replyFieldKeys = ['message', 'text']
 
     const existingReplies =
       responses
-        ?.map((r) => extractReplyContent(r, replyFieldKeys))
-        .filter((reply): reply is Content => reply !== null) ?? [];
+        ?.map(r => extractReplyContent(r, replyFieldKeys))
+        .filter((reply): reply is Content => reply !== null) ?? []
 
     if (existingReplies.length > 0) {
       for (const reply of existingReplies) {
-        await callback(reply);
+        await callback(reply)
       }
       return {
         text: existingReplies[0].text || '',
+        success: true,
         values: { replied: true, replyText: existingReplies[0].text },
         data: { source: 'hyperfy', action: 'REPLY' },
-      };
+      }
     }
 
     // Only generate response using LLM if no suitable response was found
-    state = await runtime.composeState(message);
+    state = await runtime.composeState(message)
 
     const prompt = composePromptFromState({
       state,
       template: replyTemplate,
-    });
+    })
 
     const response = await runtime.useModel(ModelType.OBJECT_LARGE, {
       prompt,
-    });
+    })
 
     const responseContent = {
       // @ts-ignore - Response type is unknown
@@ -128,15 +135,20 @@ export const replyAction = {
       text: (response.message as string) || '',
       actions: ['REPLY'],
       source: 'hyperfy',
-    };
+    }
 
-    await callback(responseContent);
+    await callback(responseContent)
 
     return {
       text: responseContent.text,
+      success: true,
       values: { replied: true, replyText: responseContent.text },
-      data: { source: 'hyperfy', action: 'REPLY', thought: responseContent.thought },
-    };
+      data: {
+        source: 'hyperfy',
+        action: 'REPLY',
+        thought: responseContent.thought,
+      },
+    }
   },
   examples: [
     [
@@ -194,11 +206,12 @@ export const replyAction = {
       {
         name: '{{agent}}',
         content: {
-          thought: 'User needs help with math - I should engage and offer assistance',
+          thought:
+            'User needs help with math - I should engage and offer assistance',
           text: "Of course! Let's work through it step by step.",
           actions: ['REPLY'],
         },
       },
     ],
   ] as ActionExample[][],
-} as Action;
+} as Action

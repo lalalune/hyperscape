@@ -1,0 +1,65 @@
+{
+  "name": "Wood Bow",
+  "description": "A wood bow, positioned vertically with string on the right side, bow grip in center, clean white background, no arrows, game asset style, simple wooden longbow with natural wood grain, basic string",
+  "type": "weapon",
+  "subtype": "bow",
+  "style": "realistic",
+  "metadata": {
+    "tier": "wood",
+    "level": 1,
+    "gameId": "wood_bow",
+    "rarity": "common",
+    "rangeLevel": 1,
+    "requiresAmmo": "arrows"
+  },
+  "id": "bow-wood",
+  "analysisResult": {
+    "weaponType": "bow",
+    "primaryGrip": {
+      "position": {
+        "x": 0,
+        "y": -0.6,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.9
+    },
+    "attachmentPoints": [
+      {
+        "name": "arrow_nock",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    ],
+    "secondaryGrip": {
+      "position": {
+        "x": 0,
+        "y": 0.4,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.85
+    }
+  },
+  "generatedAt": "2025-07-18T19:09:23.224Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/bow-wood/Wood Bow.glb"
+}

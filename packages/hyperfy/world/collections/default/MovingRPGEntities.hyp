@@ -1,0 +1,19 @@
+{
+  "name": "MovingRPGEntities",
+  "description": "Direct implementation of moving RPG player and goblin entities with combat",
+  "category": "rpg",
+  "tags": ["rpg", "entities", "movement", "combat", "test"],
+  "script": "MovingRPGEntities.js",
+  "properties": {
+    "playerColor": {
+      "type": "string",
+      "default": "blue",
+      "description": "Color of the player entity"
+    },
+    "goblinColor": {
+      "type": "string", 
+      "default": "green",
+      "description": "Color of the goblin entity"
+    }
+  }
+}

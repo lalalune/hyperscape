@@ -13,6 +13,8 @@
     "emitDecoratorMetadata": true,
     "declaration": true,
     "declarationMap": true,
+    "skipLibCheck": true,
+    "types": [],
     "paths": {
       "@elizaos/core": ["../../packages/core/dist"],
       "@elizaos/core/*": ["../../packages/core/dist/*"],
@@ -20,6 +22,6 @@
       "@hyperscape/hyperfy/*": ["../hyperfy/build/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*.ts", "!src/**/*.test.ts", "!src/__tests__/**"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**"]
 }

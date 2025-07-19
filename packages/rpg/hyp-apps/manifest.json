@@ -1,0 +1,13 @@
+{
+  "name": "RPG System",
+  "apps": [
+    "RPGPlayer.hyp",
+    "RPGGoblin.hyp",
+    "RPGBandit.hyp",
+    "RPGBarbarian.hyp",
+    "RPGBank.hyp",
+    "RPGGeneralStore.hyp",
+    "RPGTree.hyp",
+    "RPGFishingSpot.hyp"
+  ]
+}

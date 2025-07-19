@@ -9,11 +9,18 @@ import { ServerMonitor } from './systems/ServerMonitor'
 
 export function createServerWorld() {
   const world = new World()
-  world.register('server', Server)
-  world.register('livekit', ServerLiveKit)
-  world.register('network', ServerNetwork)
-  world.register('loader', ServerLoader)
-  world.register('environment', ServerEnvironment)
-  world.register('monitor', ServerMonitor)
-  return world
+  world.register('server', Server);
+  world.register('livekit', ServerLiveKit);
+  world.register('network', ServerNetwork);
+  world.register('loader', ServerLoader);
+  world.register('environment', ServerEnvironment);
+  world.register('monitor', ServerMonitor);
+  
+  // Add plugin loading hook
+  (world as any).loadPlugin = async (plugin: any) => {
+    await world.registerPlugin(plugin);
+  };
+  
+  console.log('[World] Server world created with plugin support');
+  return world;
 }

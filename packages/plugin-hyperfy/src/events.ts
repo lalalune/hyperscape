@@ -1,12 +1,12 @@
-import { MessagePayload, HandlerCallback } from '../types/eliza-mock';
-import { hyperfyMessageReceivedHandler } from './handlers/messageReceivedHandler';
+import { MessagePayload, HandlerCallback } from '../types/eliza-mock'
+import { hyperfyMessageReceivedHandler } from './handlers/messageReceivedHandler'
 
 export enum hyperfyEventType {
   MESSAGE_RECEIVED = 'HYPERFY_MESSAGE_RECEIVED',
   VOICE_MESSAGE_RECEIVED = 'HYPERFY_VOICE_MESSAGE_RECEIVED',
 }
 
-const defaultCallback: HandlerCallback = async () => [];
+const defaultCallback: HandlerCallback = async () => []
 
 export const hyperfyEvents = {
   [hyperfyEventType.MESSAGE_RECEIVED]: [
@@ -17,7 +17,7 @@ export const hyperfyEvents = {
         message: payload.message,
         callback: payload.callback || defaultCallback,
         onComplete: payload.onComplete,
-      });
+      })
     },
   ],
 
@@ -29,9 +29,9 @@ export const hyperfyEvents = {
         message: payload.message,
         callback: payload.callback || defaultCallback,
         onComplete: payload.onComplete,
-      });
+      })
     },
   ],
 
   CONTROL_MESSAGE: [],
-};
+}

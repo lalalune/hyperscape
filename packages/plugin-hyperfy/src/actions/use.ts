@@ -9,10 +9,10 @@ import {
   logger,
   composePromptFromState,
   ModelType,
-} from '../types/eliza-mock';
-import { HyperfyService } from '../service';
-import { AgentActions } from '../systems/actions';
-import { AgentControls } from '../systems/controls';
+} from '../types/eliza-mock'
+import { HyperfyService } from '../service'
+import { AgentActions } from '../systems/actions'
+import { AgentControls } from '../systems/controls'
 
 // Template to extract entity to interact with
 const useItemTemplate = `
@@ -31,7 +31,7 @@ Response format:
   "entityId": "<string>" // or null if none
 }
 \`\`\`
-`;
+`
 
 export const hyperfyUseItemAction: Action = {
   name: 'HYPERFY_USE_ITEM',
@@ -39,90 +39,116 @@ export const hyperfyUseItemAction: Action = {
   description:
     'Walks to and interacts with a nearby usable item (like picking it up); use when a player asks you to use or grab something. Can be chained with GOTO actions for complex interaction sequences.',
   validate: async (runtime: IAgentRuntime): Promise<boolean> => {
-    const service = runtime.getService<HyperfyService>(HyperfyService.serviceName);
-    const world = service?.getWorld();
-    return !!service && service.isConnected() && !!world?.controls && !!world?.actions;
+    const service = runtime.getService<HyperfyService>(
+      HyperfyService.serviceName
+    )
+    const world = service?.getWorld()
+    return (
+      !!service &&
+      service.isConnected() &&
+      !!world?.controls &&
+      !!world?.actions
+    )
   },
-  handler: async (runtime: IAgentRuntime, message: Memory, _state?: State, options?: { entityId?: string }, callback?: HandlerCallback): Promise<ActionResult> => {
-    const service = runtime.getService<HyperfyService>(HyperfyService.serviceName);
-    const world = service?.getWorld();
-    const controls = world?.controls as unknown as AgentControls;
-    const actions = world?.actions as unknown as AgentActions | undefined;
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state?: State,
+    options?: { entityId?: string },
+    callback?: HandlerCallback
+  ): Promise<ActionResult> => {
+    const service = runtime.getService<HyperfyService>(
+      HyperfyService.serviceName
+    )
+    const world = service?.getWorld()
+    const controls = world?.controls as unknown as AgentControls
+    const actions = world?.actions as unknown as AgentActions | undefined
 
     if (!service || !world || !actions || !callback) {
       logger.error(
         '[USE Action] Hyperfy service, world, or actions not found for HYPERFY_USE_ITEM action.'
-      );
+      )
       if (callback) {
-        await callback({ text: 'Error: Cannot use item. Agent action system unavailable.' });
+        await callback({
+          text: 'Error: Cannot use item. Agent action system unavailable.',
+        })
       }
       return {
         text: 'Error: Cannot use item. Agent action system unavailable.',
         values: { success: false, error: 'action_system_unavailable' },
         data: { action: 'HYPERFY_USE_ITEM' },
-      };
+      }
     }
 
-    let targetEntityId = options?.entityId;
+    let targetEntityId = options?.entityId
 
     if (!targetEntityId) {
-      logger.info('[USE ITEM] No entityId provided, attempting LLM extraction...');
+      logger.info(
+        '[USE ITEM] No entityId provided, attempting LLM extraction...'
+      )
       try {
         const useState = await runtime.composeState(
           message,
           ['HYPERFY_WORLD_STATE', 'RECENT_MESSAGES'],
           true
-        );
-        const prompt = composePromptFromState({ state: useState, template: useItemTemplate });
+        )
+        const prompt = composePromptFromState({
+          state: useState,
+          template: useItemTemplate,
+        })
         const response = await runtime.useModel(ModelType.TEXT_LARGE, {
           prompt,
           max_tokens: 512,
           temperature: 0.1,
-        });
+        })
 
         // @ts-ignore - Response type is unknown
         if (response?.entityId && typeof response.entityId === 'string') {
           // @ts-ignore - Response type is unknown
-          targetEntityId = response.entityId;
-          logger.info(`[USE ITEM] Extracted entity ID: ${targetEntityId}`);
+          targetEntityId = response.entityId
+          logger.info(`[USE ITEM] Extracted entity ID: ${targetEntityId}`)
         } else {
-          logger.warn('[USE ITEM] No valid entityId extracted.');
+          logger.warn('[USE ITEM] No valid entityId extracted.')
         }
       } catch (err) {
-        logger.error('[USE ITEM] Extraction failed:', err);
+        logger.error('[USE ITEM] Extraction failed:', err)
       }
     }
 
     if (!targetEntityId) {
-      logger.warn('[USE ITEM] No suitable item found to use based on the context.');
+      logger.warn(
+        '[USE ITEM] No suitable item found to use based on the context.'
+      )
       return {
         text: 'No suitable item found to use based on the context.',
         values: { success: false, error: 'no_item_found' },
         data: { action: 'HYPERFY_USE_ITEM' },
-      };
+      }
     }
 
-    const entity = world.entities.items.get(targetEntityId);
-    const targetPosition = entity?.root?.position;
+    const entity = world.entities.items.get(targetEntityId)
+    const targetPosition = entity?.root?.position
     if (!targetPosition) {
       if (callback) {
         const errorResponse = {
           text: `Could not locate entity ${targetEntityId}.`,
           metadata: { error: 'entity_not_found' },
-        };
-        await callback(errorResponse);
+        }
+        await callback(errorResponse)
       }
       return {
         text: `Could not locate entity ${targetEntityId}.`,
         values: { success: false, error: 'entity_not_found', targetEntityId },
         data: { action: 'HYPERFY_USE_ITEM' },
-      };
+      }
     }
 
-    await controls.goto(targetPosition.x, targetPosition.z);
+    await controls.goto(targetPosition.x, targetPosition.z)
 
-    logger.info(`[USE ITEM] Attempting to use item with entity ID: ${targetEntityId}`);
-    actions.performAction(targetEntityId);
+    logger.info(
+      `[USE ITEM] Attempting to use item with entity ID: ${targetEntityId}`
+    )
+    actions.performAction(targetEntityId)
 
     if (callback) {
       const successResponse = {
@@ -130,8 +156,8 @@ export const hyperfyUseItemAction: Action = {
         actions: ['HYPERFY_USE_ITEM'],
         source: 'hyperfy',
         metadata: { targetEntityId, status: 'triggered' },
-      };
-      await callback(successResponse);
+      }
+      await callback(successResponse)
     }
 
     return {
@@ -142,7 +168,7 @@ export const hyperfyUseItemAction: Action = {
         targetEntityId,
         position: { x: targetPosition.x, z: targetPosition.z },
       },
-    };
+    }
   },
   examples: [
     [
@@ -172,7 +198,10 @@ export const hyperfyUseItemAction: Action = {
       },
     ],
     [
-      { name: '{{user}}', content: { text: 'Do we need to pick something up?' } },
+      {
+        name: '{{user}}',
+        content: { text: 'Do we need to pick something up?' },
+      },
       {
         name: '{{agent}}',
         content: {
@@ -183,4 +212,4 @@ export const hyperfyUseItemAction: Action = {
       },
     ],
   ],
-};
+}

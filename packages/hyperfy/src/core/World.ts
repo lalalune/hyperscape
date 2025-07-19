@@ -19,6 +19,27 @@ import type {
   Scripts
 } from '../types';
 
+import { ActionRegistry } from './ActionRegistry';
+
+export interface PluginSystemDefinition {
+  name: string;
+  systemClass: SystemConstructor;
+  dependencies?: string[];
+}
+
+export interface HyperfyPlugin {
+  name: string;
+  version: string;
+  systems?: PluginSystemDefinition[];
+  init?: (world: World) => Promise<void>;
+}
+
+export interface StateQueryDefinition {
+  name: string;
+  description: string;
+  handler: (context: any) => any;
+}
+
 import { Settings as SettingsSystem } from './systems/Settings';
 import { Collections as CollectionsSystem } from './systems/Collections';
 import { Apps as AppsSystem } from './systems/Apps';
@@ -44,6 +65,7 @@ export class World extends EventEmitter implements IWorld {
   networkRate = 1 / 8; // 8Hz
   assetsUrl: string | null = null;
   assetsDir: string | null = null;
+  collectionsDir: string | null = null;
   hot = new Set<HotReloadable>();
   
   // Three.js objects
@@ -80,6 +102,11 @@ export class World extends EventEmitter implements IWorld {
   
   // Storage
   storage?: any;
+  
+  // Plugin system
+  private plugins = new Map<string, HyperfyPlugin>();
+  private stateQueries = new Map<string, StateQueryDefinition>();
+  public actionRegistry = new ActionRegistry();
 
   constructor() {
     super();
@@ -115,6 +142,7 @@ export class World extends EventEmitter implements IWorld {
     this.storage = options.storage;
     this.assetsDir = options.assetsDir || null;
     this.assetsUrl = options.assetsUrl || null;
+    this.collectionsDir = (options as any).collectionsDir || null;
     
     for (const system of this.systems) {
       await system.init(options);
@@ -296,6 +324,12 @@ export class World extends EventEmitter implements IWorld {
       }
     }
     
+    if (url.startsWith('/collections/') && this.collectionsDir && allowLocal) {
+      // Handle collections scripts on server side
+      const collectionsDir = this.collectionsDir.endsWith('/') ? this.collectionsDir : this.collectionsDir + '/';
+      return url.replace('/collections/', collectionsDir);
+    }
+    
     if (url.match(/^https?:\/\//i)) {
       return url;
     }
@@ -313,6 +347,57 @@ export class World extends EventEmitter implements IWorld {
 
   inject(runtime: any): void {
     this.apps.inject(runtime);
+  }
+  
+  async registerPlugin(plugin: HyperfyPlugin): Promise<void> {
+    console.log(`[World] Registering plugin: ${plugin.name} v${plugin.version}`);
+    
+    // Register systems
+    if (plugin.systems) {
+      for (const systemDef of plugin.systems) {
+        // Check if system already exists
+        if (this.systems.find(s => s.constructor.name === systemDef.systemClass.name)) {
+          console.warn(`[World] System ${systemDef.systemClass.name} already registered, skipping`);
+          continue;
+        }
+        
+        this.register(systemDef.name, systemDef.systemClass);
+        console.log(`[World] Registered system: ${systemDef.name}`);
+      }
+    }
+    
+    // Run plugin initialization
+    if (plugin.init) {
+      await plugin.init(this);
+    }
+    
+    this.plugins.set(plugin.name, plugin);
+    console.log(`[World] Plugin registered successfully: ${plugin.name}`);
+  }
+  
+  getPlugin(name: string): HyperfyPlugin | undefined {
+    return this.plugins.get(name);
+  }
+  
+  getLoadedPlugins(): HyperfyPlugin[] {
+    return Array.from(this.plugins.values());
+  }
+  
+  registerStateQuery(query: StateQueryDefinition): void {
+    this.stateQueries.set(query.name, query);
+    console.log(`[World] Registered state query: ${query.name}`);
+  }
+  
+  queryState(name: string, context: any): any {
+    const query = this.stateQueries.get(name);
+    if (!query) {
+      throw new Error(`State query not found: ${name}`);
+    }
+    return query.handler(context);
+  }
+  
+  getAllStateQueries(): StateQueryDefinition[] {
+    return Array.from(this.stateQueries.values());
   }
 
   destroy(): void {

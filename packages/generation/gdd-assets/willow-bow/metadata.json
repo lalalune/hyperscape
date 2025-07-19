@@ -1,0 +1,65 @@
+{
+  "name": "Willow Bow",
+  "description": "A willow bow with flexible wood and high-quality string, advanced ranged weapon for level 20+ adventurers",
+  "type": "weapon",
+  "subtype": "bow",
+  "style": "realistic",
+  "metadata": {
+    "tier": "willow",
+    "level": 20,
+    "gameId": "willow_bow",
+    "rarity": "rare",
+    "rangeLevel": 20,
+    "requiresAmmo": "arrows"
+  },
+  "id": "willow-bow",
+  "analysisResult": {
+    "weaponType": "bow",
+    "primaryGrip": {
+      "position": {
+        "x": 0,
+        "y": -0.6,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.9
+    },
+    "attachmentPoints": [
+      {
+        "name": "arrow_nock",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    ],
+    "secondaryGrip": {
+      "position": {
+        "x": 0,
+        "y": 0.4,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.85
+    }
+  },
+  "generatedAt": "2025-07-18T07:56:30.874Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/willow-bow/Willow Bow.glb"
+}

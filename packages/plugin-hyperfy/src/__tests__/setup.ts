@@ -1,24 +1,24 @@
-import '@testing-library/jest-dom';
-import { expect, afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import * as matchers from '@testing-library/jest-dom/matchers';
+import '@testing-library/jest-dom'
+import { expect, afterEach, beforeEach, vi } from 'vitest'
+import { cleanup } from '@testing-library/react'
+import * as matchers from '@testing-library/jest-dom/matchers'
 
 // Extend Vitest's expect with jest-dom matchers
-expect.extend(matchers);
+expect.extend(matchers)
 
 // Cleanup after each test
 afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
+  cleanup()
+  vi.clearAllMocks()
+})
 
 // Mock WebSocket
 global.WebSocket = vi.fn(() => ({
   send: vi.fn(),
   close: vi.fn(),
   addEventListener: vi.fn(),
-  removeEventListener: vi.fn()
-})) as any;
+  removeEventListener: vi.fn(),
+})) as any
 
 // Mock fetch
 global.fetch = vi.fn(() =>
@@ -26,9 +26,9 @@ global.fetch = vi.fn(() =>
     ok: true,
     json: () => Promise.resolve({}),
     text: () => Promise.resolve(''),
-    headers: new Headers()
+    headers: new Headers(),
   })
-) as any;
+) as any
 
 // Mock console methods to reduce noise during tests
 global.console = {
@@ -37,8 +37,8 @@ global.console = {
   debug: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
-  error: vi.fn()
-};
+  error: vi.fn(),
+}
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -53,27 +53,27 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })),
-});
+})
 
 // Mock IntersectionObserver
 global.IntersectionObserver = vi.fn(() => ({
   disconnect: vi.fn(),
   observe: vi.fn(),
   unobserve: vi.fn(),
-  takeRecords: vi.fn()
-})) as any;
+  takeRecords: vi.fn(),
+})) as any
 
 // Mock performance.now for consistent timing in tests
-let mockTime = 0;
+let mockTime = 0
 global.performance.now = vi.fn(() => {
-  mockTime += 16; // Simulate 60fps
-  return mockTime;
-});
+  mockTime += 16 // Simulate 60fps
+  return mockTime
+})
 
 // Reset mock time before each test
 beforeEach(() => {
-  mockTime = 0;
-});
+  mockTime = 0
+})
 
 // Custom test utilities
 export const waitForCondition = async (
@@ -81,15 +81,15 @@ export const waitForCondition = async (
   timeout = 5000,
   interval = 50
 ): Promise<void> => {
-  const startTime = Date.now();
-  
+  const startTime = Date.now()
+
   while (!condition()) {
     if (Date.now() - startTime > timeout) {
-      throw new Error('Condition not met within timeout');
+      throw new Error('Condition not met within timeout')
     }
-    await new Promise(resolve => setTimeout(resolve, interval));
+    await new Promise(resolve => setTimeout(resolve, interval))
   }
-};
+}
 
 export const createMockGameState = () => ({
   id: 'test-game',
@@ -99,8 +99,8 @@ export const createMockGameState = () => ({
   bodies: new Map(),
   votes: new Map(),
   minPlayers: 5,
-  maxPlayers: 8
-});
+  maxPlayers: 8,
+})
 
 export const createMockPlayer = (id: string, role?: string) => ({
   id,
@@ -111,8 +111,8 @@ export const createMockPlayer = (id: string, role?: string) => ({
   role: role || null,
   color: 'red',
   isMoving: false,
-  speed: 5
-});
+  speed: 5,
+})
 
 export const createMockTask = (id: string) => ({
   id,
@@ -120,47 +120,51 @@ export const createMockTask = (id: string) => ({
   position: { x: 10, y: 0, z: 10 },
   duration: 5000,
   completedBy: new Set(),
-  inProgress: new Map()
-});
+  inProgress: new Map(),
+})
 
 // Test data generators
 export const generatePlayers = (count: number) => {
-  const players = [];
+  const players = []
   for (let i = 0; i < count; i++) {
-    players.push(createMockPlayer(`p${i}`));
+    players.push(createMockPlayer(`p${i}`))
   }
-  return players;
-};
+  return players
+}
 
 export const generateTasks = (count: number) => {
-  const tasks = [];
+  const tasks = []
   for (let i = 0; i < count; i++) {
-    tasks.push(createMockTask(`t${i}`));
+    tasks.push(createMockTask(`t${i}`))
   }
-  return tasks;
-};
+  return tasks
+}
 
 // Mock environment variables
-process.env.WS_URL = 'wss://test.hyperfy.xyz/ws';
-process.env.HYPERFY_USERNAME = 'test-agent';
-process.env.AVATAR_URL = './public/test-avatar.vrm';
+process.env.WS_URL = 'wss://test.hyperfy.xyz/ws'
+process.env.HYPERFY_USERNAME = 'test-agent'
+process.env.AVATAR_URL = './public/test-avatar.vrm'
 
 // Global mocks for browser APIs that might be used
-global.crypto = {
-  ...global.crypto,
-  subtle: {
-    digest: vi.fn(() => Promise.resolve(new ArrayBuffer(32)))
-  } as any
-};
+if (!global.crypto) {
+  Object.defineProperty(global, 'crypto', {
+    value: {
+      subtle: {
+        digest: vi.fn(() => Promise.resolve(new ArrayBuffer(32))),
+      } as any,
+    },
+    writable: true
+  })
+}
 
 // Mock File constructor for Node environment
 global.File = class File extends Blob {
-  name: string;
-  lastModified: number;
+  name: string
+  lastModified: number
 
   constructor(chunks: any[], filename: string, options?: any) {
-    super(chunks, options);
-    this.name = filename;
-    this.lastModified = Date.now();
+    super(chunks, options)
+    this.name = filename
+    this.lastModified = Date.now()
   }
-} as any; 
+} as any

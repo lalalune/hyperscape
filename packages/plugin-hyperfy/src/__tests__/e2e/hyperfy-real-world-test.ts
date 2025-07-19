@@ -1,6 +1,12 @@
-import { type IAgentRuntime, type Memory, type State, UUID, createUniqueUuid } from '../types/eliza-mock';
-import { HyperfyService } from '../../service';
-import type { HyperfyWorld } from '../../types/hyperfy';
+import {
+  type IAgentRuntime,
+  type Memory,
+  type State,
+  UUID,
+  createUniqueUuid,
+} from '../types/eliza-mock'
+import { HyperfyService } from '../../service'
+import type { HyperfyWorld } from '../../types/hyperfy'
 
 /**
  * Real World E2E Test Suite for Hyperfy Plugin
@@ -15,17 +21,17 @@ import type { HyperfyWorld } from '../../types/hyperfy';
  */
 
 interface TestCase {
-  name: string;
-  fn: (runtime: IAgentRuntime) => Promise<void> | void;
+  name: string
+  fn: (runtime: IAgentRuntime) => Promise<void> | void
 }
 
 interface TestSuite {
-  name: string;
-  tests: TestCase[];
+  name: string
+  tests: TestCase[]
 }
 
 // Helper to wait for async operations
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export const HyperfyRealWorldTestSuite: TestSuite = {
   name: 'hyperfy_real_world_test_suite',
@@ -38,18 +44,18 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
     {
       name: 'hyperfy_real_world_connection',
       fn: async (runtime: IAgentRuntime) => {
-        console.log('Testing real world connection...');
+        console.log('Testing real world connection...')
 
-        const service = runtime.getService('hyperfy') as HyperfyService;
+        const service = runtime.getService('hyperfy') as HyperfyService
         if (!service) {
-          throw new Error('HyperfyService not found');
+          throw new Error('HyperfyService not found')
         }
 
         // Get WebSocket URL from environment or use default
-        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws';
-        const worldId = createUniqueUuid(runtime, 'test-world') as UUID;
+        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
+        const worldId = createUniqueUuid(runtime, 'test-world') as UUID
 
-        console.log(`Attempting to connect to: ${wsUrl}`);
+        console.log(`Attempting to connect to: ${wsUrl}`)
 
         try {
           // Connect to the real world
@@ -57,37 +63,43 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
             wsUrl,
             worldId,
             authToken: process.env.HYPERFY_AUTH_TOKEN,
-          });
+          })
 
           // Verify connection
           if (!service.isConnected()) {
-            throw new Error('Service reports not connected after connect()');
+            throw new Error('Service reports not connected after connect()')
           }
 
           // Get the world instance
-          const world = service.getWorld();
+          const world = service.getWorld()
           if (!world) {
-            throw new Error('World instance is null after connection');
+            throw new Error('World instance is null after connection')
           }
 
           // Verify world properties
           if (!world.network || !world.network.id) {
-            throw new Error('World network not initialized');
+            throw new Error('World network not initialized')
           }
 
-          console.log(`✅ Connected to world with network ID: ${world.network.id}`);
+          console.log(
+            `✅ Connected to world with network ID: ${world.network.id}`
+          )
 
           // Wait for player entity to be created
-          await wait(2000);
+          await wait(2000)
 
           if (world.entities.player) {
-            console.log(`✅ Player entity created with ID: ${world.entities.player.data.id}`);
+            console.log(
+              `✅ Player entity created with ID: ${world.entities.player.data.id}`
+            )
           } else {
-            console.log('⚠️  Player entity not yet created (may take more time)');
+            console.log(
+              '⚠️  Player entity not yet created (may take more time)'
+            )
           }
         } finally {
           // Always disconnect after test
-          await service.disconnect();
+          await service.disconnect()
         }
       },
     },
@@ -99,32 +111,32 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
     {
       name: 'hyperfy_real_chat_system',
       fn: async (runtime: IAgentRuntime) => {
-        console.log('Testing real chat system...');
+        console.log('Testing real chat system...')
 
-        const service = runtime.getService('hyperfy') as HyperfyService;
+        const service = runtime.getService('hyperfy') as HyperfyService
         if (!service) {
-          throw new Error('HyperfyService not found');
+          throw new Error('HyperfyService not found')
         }
 
-        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws';
-        const worldId = createUniqueUuid(runtime, 'test-world') as UUID;
+        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
+        const worldId = createUniqueUuid(runtime, 'test-world') as UUID
 
         try {
-          await service.connect({ wsUrl, worldId });
+          await service.connect({ wsUrl, worldId })
 
-          const world = service.getWorld();
+          const world = service.getWorld()
           if (!world || !world.chat) {
-            throw new Error('World chat system not available');
+            throw new Error('World chat system not available')
           }
 
           // Subscribe to chat messages
-          let messageReceived = false;
+          let messageReceived = false
           const unsubscribe = world.chat.subscribe((messages: any[]) => {
-            console.log(`Chat updated: ${messages.length} total messages`);
+            console.log(`Chat updated: ${messages.length} total messages`)
             if (messages.length > 0) {
-              messageReceived = true;
+              messageReceived = true
             }
-          });
+          })
 
           // Send a test message
           const testMessage = {
@@ -133,26 +145,28 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
             text: `Test message from ${runtime.character.name} at ${new Date().toISOString()}`,
             timestamp: Date.now(),
             from: runtime.character.name,
-          };
-
-          console.log('Sending test message...');
-          world.chat.add(testMessage, true); // broadcast = true
-
-          // Wait for message propagation
-          await wait(1000);
-
-          // Check if message was added
-          const foundMessage = world.chat.msgs.find((m: any) => m.id === testMessage.id);
-          if (!foundMessage) {
-            throw new Error('Test message not found in chat history');
           }
 
-          console.log('✅ Chat message sent and stored successfully');
+          console.log('Sending test message...')
+          world.chat.add(testMessage, true) // broadcast = true
+
+          // Wait for message propagation
+          await wait(1000)
+
+          // Check if message was added
+          const foundMessage = world.chat.msgs.find(
+            (m: any) => m.id === testMessage.id
+          )
+          if (!foundMessage) {
+            throw new Error('Test message not found in chat history')
+          }
+
+          console.log('✅ Chat message sent and stored successfully')
 
           // Cleanup
-          unsubscribe();
+          unsubscribe()
         } finally {
-          await service.disconnect();
+          await service.disconnect()
         }
       },
     },
@@ -164,49 +178,53 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
     {
       name: 'hyperfy_real_entity_system',
       fn: async (runtime: IAgentRuntime) => {
-        console.log('Testing real entity system...');
+        console.log('Testing real entity system...')
 
-        const service = runtime.getService('hyperfy') as HyperfyService;
+        const service = runtime.getService('hyperfy') as HyperfyService
         if (!service) {
-          throw new Error('HyperfyService not found');
+          throw new Error('HyperfyService not found')
         }
 
-        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws';
-        const worldId = createUniqueUuid(runtime, 'test-world') as UUID;
+        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
+        const worldId = createUniqueUuid(runtime, 'test-world') as UUID
 
         try {
-          await service.connect({ wsUrl, worldId });
+          await service.connect({ wsUrl, worldId })
 
-          const world = service.getWorld();
+          const world = service.getWorld()
           if (!world) {
-            throw new Error('World not available');
+            throw new Error('World not available')
           }
 
           // Wait for world to populate
-          await wait(3000);
+          await wait(3000)
 
           // Check for entities
-          console.log(`Found ${world.entities.items.size} entities in the world`);
-          console.log(`Found ${world.entities.players.size} players in the world`);
+          console.log(
+            `Found ${world.entities.items.size} entities in the world`
+          )
+          console.log(
+            `Found ${world.entities.players.size} players in the world`
+          )
 
           // List some entities
-          let entityCount = 0;
+          let entityCount = 0
           world.entities.items.forEach((entity: any, id: string) => {
             if (entityCount < 5) {
               console.log(
                 `  Entity ${id}: ${entity.data.name || 'Unnamed'} (type: ${entity.data.type || 'unknown'})`
-              );
-              entityCount++;
+              )
+              entityCount++
             }
-          });
+          })
 
           if (world.entities.items.size === 0) {
-            console.log('⚠️  No entities found (world may be empty)');
+            console.log('⚠️  No entities found (world may be empty)')
           } else {
-            console.log('✅ Entity system working correctly');
+            console.log('✅ Entity system working correctly')
           }
         } finally {
-          await service.disconnect();
+          await service.disconnect()
         }
       },
     },
@@ -218,50 +236,52 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
     {
       name: 'hyperfy_real_action_system',
       fn: async (runtime: IAgentRuntime) => {
-        console.log('Testing real action system...');
+        console.log('Testing real action system...')
 
-        const service = runtime.getService('hyperfy') as HyperfyService;
+        const service = runtime.getService('hyperfy') as HyperfyService
         if (!service) {
-          throw new Error('HyperfyService not found');
+          throw new Error('HyperfyService not found')
         }
 
-        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws';
-        const worldId = createUniqueUuid(runtime, 'test-world') as UUID;
+        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
+        const worldId = createUniqueUuid(runtime, 'test-world') as UUID
 
         try {
-          await service.connect({ wsUrl, worldId });
+          await service.connect({ wsUrl, worldId })
 
-          const world = service.getWorld();
+          const world = service.getWorld()
           if (!world || !world.actions) {
-            throw new Error('World actions system not available');
+            throw new Error('World actions system not available')
           }
 
           // Wait for player to be ready
-          await wait(3000);
+          await wait(3000)
 
           if (!world.entities.player) {
-            console.log('⚠️  Player not ready, skipping action test');
-            return;
+            console.log('⚠️  Player not ready, skipping action test')
+            return
           }
 
           // Try to execute an emote action
-          console.log('Executing wave emote...');
+          console.log('Executing wave emote...')
           if (world.actions?.execute) {
-            world.actions.execute('emote', 'wave');
+            world.actions.execute('emote', 'wave')
           } else {
-            console.log('⚠️  Actions system not available');
+            console.log('⚠️  Actions system not available')
           }
 
           // Wait for action to process
-          await wait(1000);
+          await wait(1000)
 
           // Check if emote was applied
-          const playerEmote = world.entities.player.data.effect?.emote;
-          console.log(`Player emote state: ${playerEmote || 'none'}`);
+          const playerEmote = world.entities.player.data.effect?.emote
+          console.log(`Player emote state: ${playerEmote || 'none'}`)
 
-          console.log('✅ Action system executed (check world for visual confirmation)');
+          console.log(
+            '✅ Action system executed (check world for visual confirmation)'
+          )
         } finally {
-          await service.disconnect();
+          await service.disconnect()
         }
       },
     },
@@ -273,30 +293,30 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
     {
       name: 'hyperfy_real_movement_system',
       fn: async (runtime: IAgentRuntime) => {
-        console.log('Testing real movement system...');
+        console.log('Testing real movement system...')
 
-        const service = runtime.getService('hyperfy') as HyperfyService;
+        const service = runtime.getService('hyperfy') as HyperfyService
         if (!service) {
-          throw new Error('HyperfyService not found');
+          throw new Error('HyperfyService not found')
         }
 
-        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws';
-        const worldId = createUniqueUuid(runtime, 'test-world') as UUID;
+        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
+        const worldId = createUniqueUuid(runtime, 'test-world') as UUID
 
         try {
-          await service.connect({ wsUrl, worldId });
+          await service.connect({ wsUrl, worldId })
 
-          const world = service.getWorld();
+          const world = service.getWorld()
           if (!world || !world.controls) {
-            throw new Error('World controls not available');
+            throw new Error('World controls not available')
           }
 
           // Wait for player to be ready
-          await wait(3000);
+          await wait(3000)
 
           if (!world.entities.player) {
-            console.log('⚠️  Player not ready, skipping movement test');
-            return;
+            console.log('⚠️  Player not ready, skipping movement test')
+            return
           }
 
           // Get initial position
@@ -304,45 +324,48 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
             x: world.entities.player.position.x,
             y: world.entities.player.position.y,
             z: world.entities.player.position.z,
-          };
+          }
 
           console.log(
             `Initial position: (${initialPos.x.toFixed(2)}, ${initialPos.y.toFixed(2)}, ${initialPos.z.toFixed(2)})`
-          );
+          )
 
           // Move to a new position
-          const targetX = initialPos.x + 5;
-          const targetZ = initialPos.z + 5;
+          const targetX = initialPos.x + 5
+          const targetZ = initialPos.z + 5
 
           console.log(
             `Moving to: (${targetX.toFixed(2)}, ${initialPos.y.toFixed(2)}, ${targetZ.toFixed(2)})`
-          );
-          await world.controls.goto(targetX, initialPos.y, targetZ);
+          )
+          await world.controls.goto(targetX, initialPos.y, targetZ)
 
           // Wait for movement
-          await wait(5000);
+          await wait(5000)
 
           // Check new position
           const newPos = {
             x: world.entities.player.position.x,
             y: world.entities.player.position.y,
             z: world.entities.player.position.z,
-          };
+          }
 
           console.log(
             `New position: (${newPos.x.toFixed(2)}, ${newPos.y.toFixed(2)}, ${newPos.z.toFixed(2)})`
-          );
+          )
 
           const moved =
-            Math.abs(newPos.x - initialPos.x) > 0.1 || Math.abs(newPos.z - initialPos.z) > 0.1;
+            Math.abs(newPos.x - initialPos.x) > 0.1 ||
+            Math.abs(newPos.z - initialPos.z) > 0.1
 
           if (moved) {
-            console.log('✅ Movement system working correctly');
+            console.log('✅ Movement system working correctly')
           } else {
-            console.log('⚠️  Player did not move (may be blocked or movement disabled)');
+            console.log(
+              '⚠️  Player did not move (may be blocked or movement disabled)'
+            )
           }
         } finally {
-          await service.disconnect();
+          await service.disconnect()
         }
       },
     },
@@ -354,42 +377,42 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
     {
       name: 'hyperfy_real_event_system',
       fn: async (runtime: IAgentRuntime) => {
-        console.log('Testing real event system...');
+        console.log('Testing real event system...')
 
-        const service = runtime.getService('hyperfy') as HyperfyService;
+        const service = runtime.getService('hyperfy') as HyperfyService
         if (!service) {
-          throw new Error('HyperfyService not found');
+          throw new Error('HyperfyService not found')
         }
 
-        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws';
-        const worldId = createUniqueUuid(runtime, 'test-world') as UUID;
+        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
+        const worldId = createUniqueUuid(runtime, 'test-world') as UUID
 
         try {
-          await service.connect({ wsUrl, worldId });
+          await service.connect({ wsUrl, worldId })
 
-          const world = service.getWorld();
+          const world = service.getWorld()
           if (!world || !world.events) {
-            throw new Error('World events system not available');
+            throw new Error('World events system not available')
           }
 
           // Track events
-          const receivedEvents: string[] = [];
+          const receivedEvents: string[] = []
 
           // Subscribe to various events
           world.events.on('chat', (data: any) => {
-            receivedEvents.push('chat');
-            console.log('Received chat event:', data);
-          });
+            receivedEvents.push('chat')
+            console.log('Received chat event:', data)
+          })
 
           world.events.on('playerJoined', (data: any) => {
-            receivedEvents.push('playerJoined');
-            console.log('Received playerJoined event:', data);
-          });
+            receivedEvents.push('playerJoined')
+            console.log('Received playerJoined event:', data)
+          })
 
           world.events.on('entityAdded', (data: any) => {
-            receivedEvents.push('entityAdded');
-            console.log('Received entityAdded event:', data);
-          });
+            receivedEvents.push('entityAdded')
+            console.log('Received entityAdded event:', data)
+          })
 
           // Trigger a chat event
           world.chat.add(
@@ -400,20 +423,24 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
               timestamp: Date.now(),
             },
             false
-          );
+          )
 
           // Wait for events
-          await wait(2000);
+          await wait(2000)
 
-          console.log(`Received ${receivedEvents.length} events: ${receivedEvents.join(', ')}`);
+          console.log(
+            `Received ${receivedEvents.length} events: ${receivedEvents.join(', ')}`
+          )
 
           if (receivedEvents.length > 0) {
-            console.log('✅ Event system working correctly');
+            console.log('✅ Event system working correctly')
           } else {
-            console.log('⚠️  No events received (may need more activity in world)');
+            console.log(
+              '⚠️  No events received (may need more activity in world)'
+            )
           }
         } finally {
-          await service.disconnect();
+          await service.disconnect()
         }
       },
     },
@@ -425,46 +452,46 @@ export const HyperfyRealWorldTestSuite: TestSuite = {
     {
       name: 'hyperfy_real_network_communication',
       fn: async (runtime: IAgentRuntime) => {
-        console.log('Testing real network communication...');
+        console.log('Testing real network communication...')
 
-        const service = runtime.getService('hyperfy') as HyperfyService;
+        const service = runtime.getService('hyperfy') as HyperfyService
         if (!service) {
-          throw new Error('HyperfyService not found');
+          throw new Error('HyperfyService not found')
         }
 
-        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws';
-        const worldId = createUniqueUuid(runtime, 'test-world') as UUID;
+        const wsUrl = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
+        const worldId = createUniqueUuid(runtime, 'test-world') as UUID
 
         try {
-          await service.connect({ wsUrl, worldId });
+          await service.connect({ wsUrl, worldId })
 
-          const world = service.getWorld();
+          const world = service.getWorld()
           if (!world || !world.network) {
-            throw new Error('World network not available');
+            throw new Error('World network not available')
           }
 
-          console.log(`Network ID: ${world.network.id}`);
-          console.log(`Max upload size: ${world.network.maxUploadSize} MB`);
+          console.log(`Network ID: ${world.network.id}`)
+          console.log(`Max upload size: ${world.network.maxUploadSize} MB`)
 
           // Send a custom network message
-          console.log('Sending custom network message...');
+          console.log('Sending custom network message...')
           world.network.send('customTest', {
             timestamp: Date.now(),
             message: 'Testing network communication',
             agentId: runtime.agentId,
-          });
+          })
 
           // Wait for any responses
-          await wait(1000);
+          await wait(1000)
 
-          console.log('✅ Network communication test completed');
+          console.log('✅ Network communication test completed')
         } finally {
-          await service.disconnect();
+          await service.disconnect()
         }
       },
     },
   ],
-};
+}
 
 // Export default instance for test runner
-export default HyperfyRealWorldTestSuite;
+export default HyperfyRealWorldTestSuite

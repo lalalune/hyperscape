@@ -1,0 +1,37 @@
+{
+  "name": "Steel Helmet",
+  "description": "A steel helmet with reinforced metal construction and improved protection",
+  "type": "armor",
+  "subtype": "helmet",
+  "style": "realistic",
+  "metadata": {
+    "tier": "steel",
+    "level": 10,
+    "gameId": "steel_helmet",
+    "rarity": "uncommon",
+    "defenseLevel": 10,
+    "slot": "head"
+  },
+  "id": "steel-helmet",
+  "analysisResult": {
+    "slot": "helmet",
+    "attachmentPoint": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T08:29:32.484Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/steel-helmet/Steel Helmet.glb"
+}

@@ -19,11 +19,5 @@ export type {
   StorageConfig
 } from './HyperfyFramework';
 
-// Re-export core types for convenience
-export { World } from '../core/World';
-export { System } from '../core/systems/System';
-
-// Convenience functions
-export { createServerWorld } from '../core/createServerWorld';
-export { createClientWorld } from '../core/createClientWorld';
-export { createViewerWorld } from '../core/createViewerWorld';
+// Note: World, System, and create functions are exported from main index.ts
+// to avoid duplicate exports and conflicts

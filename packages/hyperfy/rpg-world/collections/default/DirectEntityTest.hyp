@@ -1,0 +1,8 @@
+{
+  "name": "DirectEntityTest",
+  "description": "Direct entity creation test - 3 colored cubes",
+  "category": "testing",
+  "tags": ["testing", "cubes", "direct"],
+  "script": "DirectEntityTest.js",
+  "properties": {}
+}

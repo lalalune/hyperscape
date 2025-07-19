@@ -1,4 +1,11 @@
-import { World, Plugin } from '@hyperscape/hyperfy'
+import { World, createServerWorld } from '../hyperfy'
+
+// Plugin interface - since we don't have this defined in our exports yet
+interface Plugin {
+  name: string
+  version?: string
+  [key: string]: any
+}
 
 /**
  * Helper class for loading Hyperfy plugins
@@ -39,10 +46,12 @@ export class PluginLoader {
     }
     
     // Create world
-    const world = this.createTestWorld()
+    const world = await this.createTestWorld()
     
-    // Initialize plugin
-    await plugin.init(world)
+    // Initialize plugin if it has an init method
+    if (plugin.init) {
+      await plugin.init(world)
+    }
     
     console.log('[PluginLoader] Plugin loaded successfully')
     
@@ -52,55 +61,9 @@ export class PluginLoader {
   /**
    * Create a test world instance
    */
-  private createTestWorld(): World {
-    const entities = new Map<string, any>()
-    const events = new EventEmitter()
-    const systems: any[] = []
-    
-    return {
-      entities: {
-        items: entities,
-        create: (type: string, data?: any) => {
-          const id = `${type}_${Date.now()}_${Math.random()}`
-          const entity = { id, type, ...data }
-          entities.set(id, entity)
-          return entity
-        },
-        destroy: (id: string) => {
-          entities.delete(id)
-        }
-      },
-      events,
-      systems,
-      data: {}
-    }
-  }
-}
-
-/**
- * Simple event emitter for test world
- */
-class EventEmitter {
-  private listeners = new Map<string, Set<Function>>()
-  
-  on(event: string, handler: Function): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set())
-    }
-    this.listeners.get(event)!.add(handler)
-  }
-  
-  off(event: string, handler: Function): void {
-    this.listeners.get(event)?.delete(handler)
-  }
-  
-  emit(event: string, data?: any): void {
-    this.listeners.get(event)?.forEach(handler => {
-      try {
-        handler(data)
-      } catch (error) {
-        console.error(`Error in event handler for ${event}:`, error)
-      }
-    })
+  private async createTestWorld(): Promise<World> {
+    // Use the real Hyperfy world creation function
+    const world = await createServerWorld()
+    return world
   }
 } 

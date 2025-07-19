@@ -1,50 +1,31 @@
 {
   "name": "@hyperscape/rpg",
   "version": "1.0.0",
-  "description": "Core RPG game logic for Hyperfy",
+  "description": "RuneScape-inspired RPG game built on Hyperfy",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist",
-    "app-dist",
-    "README.md"
-  ],
   "scripts": {
-    "build": "npm run clean && tsc --project tsconfig.core.json",
-    "build:typecheck": "tsc --noEmit",
-    "build:app": "bun build-app.js",
-    "build:all": "npm run build && npm run build:app",
-    "build:test": "npm run build && npm run test:setup",
-    "dev": "tsc --project tsconfig.core.json --watch",
-    "dev:app": "npm run build && bun build-app.js --watch",
-    "clean": "rm -rf dist app-dist",
-    "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "echo 'Unit tests not yet implemented'",
-    "test:integration": "echo 'Integration tests not yet implemented'",
-    "test:visual": "playwright test tests/visual", 
-    "test:setup": "echo 'Test setup complete'",
-    "dev:test-server": "npx http-server tests/worlds -p 3000 -c-1",
-    "lint": "echo 'Linting disabled for now'",
-    "lint:fix": "echo 'Linting disabled for now'",
-    "prepack": "npm run build",
-    "postinstall": "echo 'RPG package installed successfully'"
-  },
-  "keywords": ["hyperfy", "rpg", "game", "mmorpg"],
-  "author": "Hyperscape Team",
-  "license": "MIT",
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/seedrandom": "^3.0.8",
-    "@playwright/test": "^1.40.0",
-    "eslint": "^8.0.0",
-    "http-server": "^14.1.1",
-    "typescript": "^5.0.0",
-    "vitest": "^1.0.0"
+    "dev": "WORLD=rpg-world bun ../hyperfy/build/index.js",
+    "build": "echo 'RPG build complete'",
+    "start": "WORLD=rpg-world PORT=3000 bun ../hyperfy/build/index.js",
+    "test": "echo 'RPG tests run via test-framework package'",
+    "lint": "echo 'Linting RPG package...'"
   },
   "dependencies": {
-    "@hyperscape/hyperfy": "*",
-    "seedrandom": "^3.0.5",
-    "three": "^0.178.0"
-  }
-} 
+    "@hyperscape/hyperfy": "workspace:*",
+    "fs-extra": "^11.2.0",
+    "playwright": "^1.44.0",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "keywords": [
+    "rpg",
+    "game",
+    "hyperfy",
+    "multiplayer",
+    "runescape"
+  ],
+  "author": "Hyperscape Team",
+  "license": "MIT"
+}

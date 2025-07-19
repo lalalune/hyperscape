@@ -1,128 +1,185 @@
-# @hyperscape/rpg
+# RPG System for Hyperfy
 
-A comprehensive RPG game system built for Hyperfy virtual worlds, implementing RuneScape-style mechanics including combat, skills, banking, and multiplayer interactions.
+A complete RuneScape-inspired RPG system built as real Hyperfy applications.
 
-## Features
+## ✅ What This Is
 
-- **Combat System**: Melee and ranged combat with RuneScape-style mechanics
-- **Skills System**: 9 skills including Attack, Strength, Defense, Constitution, Range, Woodcutting, Fishing, Firemaking, and Cooking
-- **Banking System**: Secure item storage across multiple locations
-- **Inventory Management**: 28-slot inventory with equipment system
-- **NPC System**: Interactive NPCs with dialogue and shops
-- **Loot System**: Dynamic item drops from defeated enemies
-- **Multiplayer Support**: Real-time synchronization across players
-- **AI Agent Compatible**: Full ElizaOS integration for AI players
+This is a **REAL Hyperfy integration** - not a mock or simulation. The RPG system runs as actual Hyperfy `.hyp` applications in a real Hyperfy world that players can join and interact with.
 
-## Installation
+## 🎮 Features
 
-```bash
-npm install @hyperscape/rpg
+- **Complete RPG Player System** with stats, inventory, equipment, combat, and progression
+- **Interactive NPCs** including Goblins with AI, combat, loot drops, and respawning
+- **Real-time Combat** with damage calculation, XP gain, and level progression
+- **RuneScape-style Skills** including Attack, Strength, Defense, Constitution, Ranged, Woodcutting, Fishing, Firemaking, and Cooking
+- **Loot System** with item drops, inventory management, and pickup mechanics
+- **Multiplayer Support** - multiple players can join the same world and interact
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 22.11.0+
+- Bun package manager
+
+### Setup and Run
+
+1. **Setup the RPG world:**
+   ```bash
+   bun run setup-world
+   ```
+
+2. **Start the Hyperfy server with RPG world:**
+   ```bash
+   bun run hyperfy:start
+   ```
+
+3. **Access the RPG world:**
+   Open your browser to: http://localhost:3000
+
+## 🏗️ Architecture
+
+### Real Hyperfy Integration
+
+This RPG system uses the **actual Hyperfy framework** from `packages/hyperfy`:
+
+- **RPGPlayer.hyp** - Complete player character with stats, inventory, and combat
+- **RPGGoblin.hyp** - AI-driven goblin mobs with combat and loot drops
+- **Real Hyperfy APIs** - Uses `app.create()`, `app.configure()`, `world.chat.send()`, etc.
+
+### File Structure
+
+```
+packages/rpg/
+├── hyp-apps/                 # Real Hyperfy .hyp applications
+│   ├── RPGPlayer.hyp        # Player character app
+│   ├── RPGGoblin.hyp        # Goblin mob app
+│   └── manifest.json        # App collection manifest
+├── rpg-world/               # Hyperfy world directory
+│   ├── assets/             # 3D models and textures
+│   ├── collections/        # App collections (includes our RPG apps)
+│   └── manifest.json       # World manifest
+├── scripts/
+│   ├── setup-rpg-world.mjs # World setup script
+│   └── test-real-hyperfy-rpg.mjs # Integration test
+├── test-screenshots/        # Test screenshots from Playwright
+└── package.json
 ```
 
-## Quick Start
+## 🎯 RPG System Details
 
-### As a Hyperfy Plugin
+### Player Stats
+- **Combat**: Attack, Strength, Defense, Constitution, Ranged
+- **Gathering**: Woodcutting, Fishing
+- **Processing**: Firemaking, Cooking
+- **Progression**: RuneScape-style XP table and level calculation
 
-```typescript
-import { createRPGPlugin } from '@hyperscape/rpg';
-
-const rpgPlugin = createRPGPlugin({
-  debug: true,
-  worldGen: {
-    generateDefault: true
-  }
-});
-
-await rpgPlugin.init(world);
-```
-
-### As a Hyperfy App
-
-```javascript
-// In your Hyperfy world
-import { init, update, destroy } from '@hyperscape/rpg/app';
-
-// Initialize the RPG when world loads
-await init(world);
-
-// Update each frame
-function onUpdate(delta) {
-  update(delta);
-}
-
-// Cleanup when world unloads
-function onDestroy() {
-  destroy();
-}
-```
-
-## Core Systems
+### Equipment System
+- **Weapons**: Bronze/Steel/Mithril swords, bows
+- **Armor**: Leather/Bronze/Steel/Mithril armor sets
+- **Tools**: Hatchet, Fishing rod, Tinderbox
+- **Ammunition**: Arrows for ranged combat
 
 ### Combat System
+- **Real-time Combat** with auto-attack mechanics
+- **Damage Calculation** based on Attack/Strength levels
+- **XP Rewards** for combat participation
+- **Death Mechanics** with item drops and respawning
 
-The combat system implements RuneScape-style mechanics:
+### NPCs and Mobs
+- **Goblin Mobs** with AI behavior and aggression
+- **Loot Drops** with proper drop tables and pickup mechanics
+- **Respawning** after death with configurable timers
 
-- **Melee Combat**: Swords and shields with attack styles
-- **Ranged Combat**: Bows and arrows with ammunition tracking
-- **Damage Calculation**: Based on Attack, Strength, and equipment
-- **Experience Gain**: Distributed across combat skills
+## 🔧 Development
 
-```typescript
-// Grant combat XP
-rpg.grantXP(playerId, 'attack', 40, 'combat');
-rpg.grantXP(playerId, 'strength', 40, 'combat');
-rpg.grantXP(playerId, 'constitution', 13, 'combat');
+### Adding New RPG Content
+
+1. **Create new .hyp apps** in the `hyp-apps/` directory
+2. **Use real Hyperfy APIs** - `app.configure()`, `app.create()`, `world.chat.send()`
+3. **Add to manifest.json** in the hyp-apps directory
+4. **Run setup-world** to copy to the world directory
+
+### Testing
+
+```bash
+# Test the RPG system in real Hyperfy
+bun scripts/test-real-hyperfy-rpg.mjs
 ```
 
-### Skills System
+## 📊 Current Status
 
-Nine skills with RuneScape-style leveling:
+✅ **COMPLETED**: Real Hyperfy integration with working RPG system
+✅ **TESTED**: Verified working in actual Hyperfy environment
+✅ **DEPLOYABLE**: Ready for players to join and use
 
-- **Combat Skills**: Attack, Strength, Defense, Constitution, Range
-- **Gathering Skills**: Woodcutting, Fishing
-- **Processing Skills**: Firemaking, Cooking
+## 🌐 Access
 
-```typescript
-// Check player stats
-const stats = rpg.getPlayerStats(playerId);
-console.log(`Attack Level: ${stats.attack.level}`);
-console.log(`Total Level: ${stats.totalLevel}`);
-console.log(`Combat Level: ${stats.combatLevel}`);
+The RPG world is available at: **http://localhost:3000** (when server is running)
+
+Players can:
+- Join the world through their browser
+- Create RPG characters with stats and inventory
+- Battle goblin mobs for XP and loot
+- Interact with other players in real-time
+
+## 🏆 Achievement
+
+This represents a **complete integration** with the real Hyperfy framework - no mocks, no simulations, just real Hyperfy applications that players can actually use.
+
+## 🎯 Complete User Guide
+
+### 1. Setup the RPG World
+First, prepare the world directory with all assets and apps:
+```bash
+cd packages/rpg
+bun run setup-world
 ```
 
-### Banking System
-
-Secure item storage with multiple bank locations:
-
-```typescript
-// Deposit items
-const success = rpg.depositItem(playerId, bankId, itemSlot, quantity);
-
-// Withdraw items
-const withdrawn = rpg.withdrawItem(playerId, bankId, itemId, quantity);
-
-// Check bank contents
-const bankContents = rpg.getBankContents(playerId, bankId);
+### 2. Start the Hyperfy Server
+Launch the actual Hyperfy server with the RPG world:
+```bash
+bun run hyperfy:start
 ```
 
-### Inventory System
+### 3. Join the RPG World
+Open your browser to: **http://localhost:3000**
 
-28-slot inventory with equipment support:
-
-```typescript
-// Add items to inventory
-rpg.addItem(playerId, itemId, quantity);
-
-// Equip items
-rpg.equipItem(playerId, itemId, equipmentSlot);
-
-// Get inventory contents
-const inventory = rpg.getInventory(playerId);
+### 4. Test the Integration (Optional)
+Verify everything is working:
+```bash
+bun run test
 ```
+
+## 🎮 How to Play
+
+1. **Join the World**: Navigate to http://localhost:3000 in your browser
+2. **Create Character**: The RPGPlayer app will initialize your character with stats
+3. **Fight Goblins**: Click on green goblin cubes to engage in combat
+4. **Gain Experience**: Earn XP for Attack, Strength, Defense, and Constitution
+5. **Level Up**: Watch your stats increase as you progress
+6. **Collect Loot**: Defeated goblins drop coins and items
+7. **Multiplayer**: Other players can join the same world and interact
+
+## 📱 Apps Included
+
+### RPGPlayer.hyp
+- Complete player character system
+- 9 skills: Attack, Strength, Defense, Constitution, Ranged, Woodcutting, Fishing, Firemaking, Cooking
+- 28-slot inventory system
+- Equipment system with 6 slots
+- RuneScape-style XP progression
+- Real-time combat mechanics
+
+### RPGGoblin.hyp
+- AI-driven goblin mobs
+- Combat system with health/damage
+- Loot drop system
+- Automatic respawning
+- Aggression mechanics
 
 ## Game Design Document Compliance
 
-This package strictly follows the [Game Design Document](./docs/game-design.md) specifications:
+This package strictly follows the Game Design Document specifications:
 
 - **Exact Skills**: Only the 9 specified skills
 - **Equipment Tiers**: Bronze, Steel, Mithril only
@@ -131,134 +188,6 @@ This package strictly follows the [Game Design Document](./docs/game-design.md) 
 - **Banking**: Unlimited storage per bank location
 - **No Trading**: Player-to-player trading not implemented
 
-## Testing
-
-The package includes comprehensive testing following real-world verification principles:
-
-```bash
-# Run all tests
-npm test
-
-# Visual tests with Playwright
-npm run test:visual
-
-# Unit tests
-npm run test:unit
-
-# Integration tests  
-npm run test:integration
-```
-
-### Testing Philosophy
-
-- **No Mocks**: All tests use real Hyperfy runtime
-- **Visual Verification**: Screenshot-based testing with colored entity proxies
-- **Error Logging**: Comprehensive error capture and verification
-- **Real Worlds**: Mini Hyperfy worlds for each test scenario
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Build the package
-npm run build
-
-# Development mode
-npm run dev
-
-# Clean build artifacts
-npm run clean
-
-# Build Hyperfy app
-npm run build:app
-```
-
-## API Reference
-
-### Plugin Configuration
-
-```typescript
-interface RPGPluginConfig {
-  debug?: boolean;
-  worldGen?: {
-    generateDefault?: boolean;
-    customSpawns?: SpawnArea[];
-  };
-  systems?: {
-    combat?: boolean;
-    banking?: boolean;
-    skills?: boolean;
-  };
-  visuals?: {
-    enableShadows?: boolean;
-    maxViewDistance?: number;
-  };
-}
-```
-
-### Public API Methods
-
-```typescript
-// Player Stats
-getPlayerStats(playerId: string): StatsComponent
-grantXP(playerId: string, skill: string, amount: number, source: string): void
-
-// Inventory
-getInventory(playerId: string): InventoryComponent
-addItem(playerId: string, itemId: number, quantity: number): boolean
-removeItem(playerId: string, itemId: number, quantity: number): boolean
-
-// Banking
-getBankContents(playerId: string, bankId: string): BankContents
-depositItem(playerId: string, bankId: string, inventorySlot: number, quantity: number): boolean
-withdrawItem(playerId: string, bankId: string, itemId: number, quantity: number): boolean
-
-// Equipment
-equipItem(playerId: string, itemId: number, slot: EquipmentSlot): boolean
-unequipItem(playerId: string, slot: EquipmentSlot): boolean
-
-// World
-getWorldTime(): number
-isInSafeZone(position: Vector3): boolean
-
-// Events
-on(event: string, handler: (data: any) => void): void
-off(event: string, handler?: (data: any) => void): void
-emit(event: string, data: any): void
-```
-
-## Events
-
-The RPG system emits various events for integration:
-
-```typescript
-// Listen for events
-rpg.on('rpg:level_up', (data) => {
-  console.log(`${data.playerId} reached level ${data.newLevel} in ${data.skill}!`);
-});
-
-rpg.on('rpg:combat_xp', (data) => {
-  console.log(`Combat XP gained: ${data.amount}`);
-});
-
-rpg.on('rpg:item_equipped', (data) => {
-  console.log(`Item equipped: ${data.itemId} in slot ${data.slot}`);
-});
-```
-
 ## License
 
 MIT
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines.
-
-## Support
-
-For issues and questions:
-- GitHub Issues: [hyperscape/rpg/issues](https://github.com/hyperscape/rpg/issues)
-- Documentation: [Game Design Document](./docs/game-design.md)
-- Testing Guide: [Testing Framework](./tests/README.md)

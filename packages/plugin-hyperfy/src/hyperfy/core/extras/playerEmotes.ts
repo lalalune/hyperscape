@@ -4,11 +4,11 @@
  */
 
 export interface EmoteDefinition {
-  name: string;
-  path: string;
-  duration: number;
-  description: string;
-  loop?: boolean;
+  name: string
+  path: string
+  duration: number
+  description: string
+  loop?: boolean
 }
 
 export const playerEmotes: EmoteDefinition[] = [
@@ -117,19 +117,19 @@ export const playerEmotes: EmoteDefinition[] = [
     description: 'Squat exercise',
     loop: true,
   },
-];
+]
 
 // Export a map for easy lookup
 export const emoteMap = new Map<string, EmoteDefinition>(
-  playerEmotes.map((emote) => [emote.name, emote])
-);
+  playerEmotes.map(emote => [emote.name, emote])
+)
 
 // Helper to get emote by name
 export function getEmoteByName(name: string): EmoteDefinition | undefined {
-  return emoteMap.get(name);
+  return emoteMap.get(name)
 }
 
 // Helper to get all emote names
 export function getEmoteNames(): string[] {
-  return playerEmotes.map((e) => e.name);
+  return playerEmotes.map(e => e.name)
 }

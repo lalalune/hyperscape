@@ -1,0 +1,18 @@
+{
+  "name": "Arrows",
+  "description": "A bundle of arrows, tips pointing up, clean white background, simple medieval arrows, game asset style, bundle of wooden arrows with simple metal tips and feather fletching",
+  "type": "consumable",
+  "subtype": "ammunition",
+  "style": "realistic",
+  "metadata": {
+    "tier": "basic",
+    "level": 1,
+    "gameId": "arrows",
+    "rarity": "common",
+    "stackable": true,
+    "usedBy": "bows"
+  },
+  "id": "ammunition-basic",
+  "generatedAt": "2025-07-18T18:21:50.999Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/ammunition-basic/Arrows.glb"
+}

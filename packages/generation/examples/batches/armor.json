@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Leather Helmet",
+    "description": "A basic leather helmet with simple stitching and brown color, basic head protection for new adventurers",
+    "type": "armor",
+    "subtype": "helmet",
+    "style": "realistic",
+    "metadata": {
+      "tier": "leather",
+      "level": 1,
+      "gameId": "leather_helmet",
+      "rarity": "common",
+      "defenseLevel": 1,
+      "slot": "head"
+    }
+  },
+  {
+    "name": "Leather Body",
+    "description": "A basic leather body armor with simple construction and brown color, basic torso protection",
+    "type": "armor",
+    "subtype": "body",
+    "style": "realistic",
+    "metadata": {
+      "tier": "leather",
+      "level": 1,
+      "gameId": "leather_body",
+      "rarity": "common",
+      "defenseLevel": 1,
+      "slot": "body"
+    }
+  },
+  {
+    "name": "Leather Legs",
+    "description": "Basic leather leg armor with simple construction and brown color, basic leg protection",
+    "type": "armor",
+    "subtype": "legs",
+    "style": "realistic",
+    "metadata": {
+      "tier": "leather",
+      "level": 1,
+      "gameId": "leather_legs",
+      "rarity": "common",
+      "defenseLevel": 1,
+      "slot": "legs"
+    }
+  }
+] 

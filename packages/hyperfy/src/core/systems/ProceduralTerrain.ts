@@ -342,13 +342,131 @@ export class ProceduralTerrain extends Terrain {
       heightMap,
       typeMap,
       resolution,
-      size: this.chunkSize
+      size: this.chunkSize,
+      mesh: null,
+      rigidBody: null
     };
     
     const key = `${chunkX},${chunkZ}`;
     this.chunks.set(key, chunk);
     
+    // Generate visual mesh and physics
+    this.generateChunkMesh(chunk);
+    this.generateChunkPhysics(chunk);
+    
     return chunk;
+  }
+
+  // Generate THREE.js mesh for chunk
+  private generateChunkMesh(chunk: any): void {
+    // Import THREE.js dynamically since it may not be available in all environments
+    if (typeof THREE === 'undefined') {
+      console.warn('[ProceduralTerrain] THREE.js not available, skipping mesh generation');
+      return;
+    }
+
+    const geometry = new THREE.PlaneGeometry(
+      this.chunkSize,
+      this.chunkSize,
+      chunk.resolution - 1,
+      chunk.resolution - 1
+    );
+
+    const vertices = geometry.attributes.position.array;
+    const colors = new Float32Array(vertices.length);
+
+    // Apply heightmap to vertices and set biome-based colors
+    for (let i = 0; i < vertices.length; i += 3) {
+      const localX = vertices[i];
+      const localZ = vertices[i + 1];
+      
+      // Convert local coordinates to heightmap indices
+      const x = Math.floor((localX + this.chunkSize/2) / this.chunkSize * chunk.resolution);
+      const z = Math.floor((localZ + this.chunkSize/2) / this.chunkSize * chunk.resolution);
+      const index = Math.max(0, Math.min(chunk.resolution * chunk.resolution - 1, z * chunk.resolution + x));
+      
+      // Set height from heightmap
+      vertices[i + 2] = chunk.heightMap[index];
+      
+      // Set biome-based color
+      const terrainType = chunk.typeMap[index];
+      const color = this.getTerrainColor(terrainType);
+      colors[i] = color.r;
+      colors[i + 1] = color.g;
+      colors[i + 2] = color.b;
+    }
+
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.rotateX(-Math.PI / 2); // Make terrain horizontal
+    geometry.computeVertexNormals();
+
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      side: THREE.DoubleSide,
+      wireframe: false
+    });
+
+    chunk.mesh = new THREE.Mesh(geometry, material);
+    chunk.mesh.position.set(
+      chunk.x * this.chunkSize,
+      0,
+      chunk.z * this.chunkSize
+    );
+    chunk.mesh.receiveShadow = true;
+    chunk.mesh.castShadow = false;
+
+    // Add mesh to world scene (will be handled by world loading system)
+    // The mesh is stored in chunk.mesh for the world to access
+    console.log(`[ProceduralTerrain] Generated mesh for chunk (${chunk.x}, ${chunk.z})`);
+    
+    // TODO: Integrate with Hyperfy's scene management
+    // if (this.world && this.world.scene) {
+    //   this.world.scene.add(chunk.mesh);
+    // }
+  }
+
+  // Generate PhysX collision for chunk
+  private generateChunkPhysics(chunk: any): void {
+    // This would integrate with Hyperfy's physics system
+    // For now, we'll store the physics data for later integration
+    try {
+      if (this.world && chunk.mesh) {
+        const rigidBodyConfig = {
+          type: 'static',
+          position: {
+            x: chunk.x * this.chunkSize,
+            y: 0,
+            z: chunk.z * this.chunkSize
+          },
+          geometry: chunk.mesh.geometry
+        };
+
+        // Store physics config for integration with Hyperfy's physics system
+        chunk.physicsConfig = rigidBodyConfig;
+        console.log(`[ProceduralTerrain] Prepared physics config for chunk (${chunk.x}, ${chunk.z})`);
+        
+        // TODO: Integrate with Hyperfy's physics system
+        // chunk.rigidBody = this.world.physics.createRigidBody(rigidBodyConfig);
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn('[ProceduralTerrain] Physics generation failed:', errorMessage);
+    }
+  }
+
+  // Get terrain color based on terrain type
+  private getTerrainColor(terrainType: number): { r: number; g: number; b: number } {
+    const colors = {
+      0: { r: 0.3, g: 0.6, b: 0.3 }, // Grass - green
+      1: { r: 0.5, g: 0.4, b: 0.2 }, // Dirt - brown
+      2: { r: 0.6, g: 0.6, b: 0.6 }, // Stone - gray
+      3: { r: 0.2, g: 0.4, b: 0.8 }, // Water - blue
+      4: { r: 0.9, g: 0.8, b: 0.4 }, // Sand - yellow
+      5: { r: 0.9, g: 0.9, b: 0.9 }, // Snow - white
+      6: { r: 0.7, g: 0.9, b: 0.9 }, // Ice - light blue
+      7: { r: 0.8, g: 0.2, b: 0.0 }  // Lava - red
+    };
+    return colors[terrainType] || colors[0];
   }
 
   // Get terrain type value based on biome and height

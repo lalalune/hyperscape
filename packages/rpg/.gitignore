@@ -34,3 +34,5 @@ coverage/
 
 # Cache
 .eslintcache 
+
+test-screenshots

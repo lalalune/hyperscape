@@ -1,0 +1,140 @@
+{"blueprint":{"id":"RPGFishingSpot001","version":1,"name":"RPG Fishing Spot","author":"RPG System","url":null,"desc":"A fishing spot for resource gathering","model":null,"script":null,"props":{"spotName":"Lake Shore","visualColor":"blue","fishType":"Raw Fish"},"preload":false,"public":true,"locked":false,"unique":false,"disabled":false},"assets":[]}
+
+// RPG Fishing Spot App for Hyperfy
+// Fishing resource gathering per the GDD
+
+console.log('🎣 Initializing RPG Fishing Spot Hyperfy App...');
+
+app.configure([
+  {
+    key: 'spotName',
+    type: 'text',
+    label: 'Fishing Spot Name',
+    initial: 'Lake Shore',
+    hint: 'The name of the fishing spot'
+  },
+  {
+    key: 'visualColor',
+    type: 'text',
+    label: 'Visual Color',
+    initial: 'blue',
+    hint: 'Color of the water representation'
+  },
+  {
+    key: 'fishType',
+    type: 'text',
+    label: 'Fish Type',
+    initial: 'Raw Fish',
+    hint: 'Type of fish this spot produces'
+  }
+])
+
+// Fishing spot state
+let fishAvailable = true
+let fishingCooldown = 5000 // 5 seconds between catches
+
+// Create water visual representation
+const waterMesh = app.create('mesh')
+waterMesh.geometry = 'box'
+waterMesh.scale.set(3, 0.2, 3)
+waterMesh.position.set(0, 0.1, 0)
+waterMesh.material.color = props.visualColor
+waterMesh.material.transparent = true
+waterMesh.material.opacity = 0.7
+
+// Create fishing spot indicator
+const bobberMesh = app.create('mesh')
+bobberMesh.geometry = 'box'
+bobberMesh.scale.set(0.2, 0.2, 0.2)
+bobberMesh.position.set(0, 0.3, 0)
+bobberMesh.material.color = 'red'
+
+// Create fishing spot sign
+const spotSign = app.create('ui', {
+  text: props.spotName,
+  fontSize: 14,
+  color: 'white',
+  backgroundColor: 'rgba(0,0,0,0.7)',
+  padding: 4,
+  borderRadius: 3
+})
+spotSign.position.set(0, 2, 0)
+spotSign.billboard = true
+
+// Add to app
+app.add(waterMesh)
+app.add(bobberMesh)
+app.add(spotSign)
+
+// Create fishing action
+const fishAction = app.create('action')
+fishAction.label = `Fish at ${props.spotName}`
+fishAction.distance = 3
+fishAction.onTrigger = (player) => {
+  if (!fishAvailable) {
+    world.chat.send('🎣 Wait a moment before fishing again...')
+    return
+  }
+  
+  // Check if player has fishing rod (in full implementation)
+  world.chat.send(`🎣 You cast your line into the ${props.spotName}...`)
+  
+  fishAvailable = false
+  
+  // Simulate fishing time
+  setTimeout(() => {
+    const success = Math.random() > 0.3 // 70% success rate
+    
+    if (success) {
+      world.chat.send(`🐟 You caught a ${props.fishType}!`)
+      world.chat.send('🍳 Use it on a fire to cook it')
+    } else {
+      world.chat.send('🎣 The fish got away... try again!')
+    }
+    
+    // Reset fishing availability
+    setTimeout(() => {
+      fishAvailable = true
+    }, fishingCooldown)
+  }, 3000) // 3 second fishing time
+}
+
+const inspectAction = app.create('action')
+inspectAction.label = 'Inspect Fishing Spot'
+inspectAction.distance = 4
+inspectAction.onTrigger = (player) => {
+  world.chat.send(`🎣 ${props.spotName}`)
+  world.chat.send(`• Produces: ${props.fishType}`)
+  world.chat.send('• Requires: Fishing Rod')
+  world.chat.send('• Success rate: 70%')
+  world.chat.send('• Cooldown: 5 seconds')
+}
+
+waterMesh.add(fishAction)
+waterMesh.add(inspectAction)
+
+// Fishing API functions
+app.catchFish = (playerId) => {
+  if (!fishAvailable) return { success: false, message: 'Fishing on cooldown' }
+  
+  fishAvailable = false
+  const success = Math.random() > 0.3
+  
+  setTimeout(() => {
+    fishAvailable = true
+  }, fishingCooldown)
+  
+  return { 
+    success,
+    message: success ? `Caught ${props.fishType}` : 'Fish got away',
+    reward: success ? props.fishType : null,
+    experience: success ? 20 : 5
+  }
+}
+
+app.isAvailable = () => fishAvailable
+app.getFishType = () => props.fishType
+
+// Display fishing spot info
+world.chat.send(`🎣 ${props.spotName} is ready for fishing!`)
+world.chat.send(`Produces: ${props.fishType} (requires Fishing Rod)`)

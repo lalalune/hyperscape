@@ -1,313 +1,200 @@
-# AI Creation System
+# AI Creation System for Hyperscape RPG
 
-A complete AI-powered asset generation pipeline for Hyperscape RPG. Generate 3D models, detect hardpoints, place armor, rig characters, and analyze buildings - all from text descriptions.
+AI-powered 3D asset generation system that transforms text descriptions into game-ready 3D models using OpenAI DALL-E 3 and Meshy AI.
 
 ## Features
 
-- 🎨 **Image Generation** - Generate concept images using GPT-4 vision
-- 🎯 **3D Model Creation** - Convert images to 3D models using Meshy AI
-- 🔧 **Model Optimization** - Automatic remeshing for game-ready assets
-- ⚔️ **Weapon Hardpoints** - Detect grip positions and attachment points
-- 🛡️ **Armor Placement** - Automatic armor fitting and scaling
-- 🏛️ **Building Analysis** - Entry points, NPC positions, functional areas
-- 🦴 **Auto-Rigging** - Generate rigs for bipeds, quadrupeds, and more
-- 💾 **Smart Caching** - Cache results at every stage
-- 🖥️ **Interactive Viewer** - Web-based preview and management
-- 📦 **Batch Processing** - Generate multiple assets efficiently
-
-## Supported Asset Types
-
-### Core Assets
-- **Weapons**: swords, axes, bows, staffs, shields, daggers, maces, spears, crossbows, wands
-- **Armor**: helmets, chest pieces, legs, boots, gloves, rings, amulets, capes
-- **Buildings**: banks, stores, houses, castles, temples, guilds, inns, towers
-- **Tools**: pickaxes, hatchets, fishing rods, hammers, knives, chisels
-- **Consumables**: food, potions, runes, scrolls, teleport items
-- **Resources**: ores, bars, logs, planks, fish, herbs, gems
-- **Characters**: NPCs, monsters, bosses (biped, quadruped, flying creatures)
-- **Misc**: coins, quest items, decorations
-
-### Special Building Types
-
-#### Banks 🏦
-- Secure vault areas
-- Teller counter positions
-- Multiple NPC banker placements
-- Grand entrance detection
-- Interior space mapping
-
-#### Stores 🏪
-- Shop counter placement
-- Display area detection
-- Shopkeeper NPC position
-- Storefront analysis
-- Different store types (general, magic, armor, etc.)
-
-## Installation
-
-```bash
-npm install @hyperscape/ai-creation
-```
-
-Or install globally for CLI access:
-
-```bash
-npm install -g @hyperscape/ai-creation
-```
+- 🎨 **Text-to-3D Pipeline**: Generate complete 3D assets from text descriptions
+- 🤖 **AI-Powered**: Uses GPT-4, DALL-E 3, and Meshy AI
+- 🎮 **Game-Ready**: Outputs optimized GLB models with metadata
+- 🔄 **Batch Processing**: Generate multiple assets in parallel
+- 📊 **Interactive Viewer**: Web-based 3D model viewer
+- 🔧 **Extensible**: Plugin architecture for custom workflows
 
 ## Quick Start
 
-### CLI Usage
+### 1. Install
 
-Generate a single asset:
 ```bash
-hyperscape-ai generate "a legendary fire sword with dragon motifs"
+npm install
 ```
 
-Generate a bank:
+### 2. Configure API Keys
+
 ```bash
-hyperscape-ai generate "Grand bank with marble columns" --type building --subtype bank
+cp env.example .env
+# Edit .env and add your API keys:
+# OPENAI_API_KEY=sk-...
+# MESHY_API_KEY=...
 ```
 
-Generate a store:
+### 3. Generate Assets
+
 ```bash
-hyperscape-ai generate "Cozy general store" --type building --subtype store
+# Single asset
+npm run generate "A bronze sword with leather grip" -- --type weapon
+
+# Batch generation
+npm run batch examples/batches/weapons.json
+
+# View generated assets
+npm run viewer
 ```
 
-Generate with specific options:
+## CLI Commands
+
+The package provides a unified CLI with the following commands:
+
+### `generate <description>`
+Generate a single asset from a text description.
+
 ```bash
-hyperscape-ai generate "heavy plate armor" --type armor --style realistic --name "Dragon Plate"
+npx hyperscape-generate generate "A magical fire sword" --type weapon --name "Flameblade"
 ```
 
-Batch generation:
+Options:
+- `-t, --type <type>` - Asset type (weapon, armor, character, etc.)
+- `-s, --style <style>` - Visual style (realistic, cartoon, low-poly)
+- `-n, --name <name>` - Asset name
+
+### `batch <file>`
+Generate multiple assets from a JSON batch file.
+
 ```bash
-hyperscape-ai batch items.json
+npx hyperscape-generate batch examples/batches/armor.json --parallel 3
 ```
 
-Start the interactive viewer:
+Options:
+- `--parallel <count>` - Number of parallel generations (default: 5)
+
+### `viewer`
+Start the interactive 3D viewer.
+
 ```bash
-hyperscape-ai viewer --port 3000
+npx hyperscape-generate viewer --port 3000
 ```
 
-### Programmatic Usage
+### `config`
+Display current configuration.
 
-```typescript
-import { AICreationService, GenerationRequest } from '@hyperscape/ai-creation'
+```bash
+npx hyperscape-generate config
+```
 
-// Initialize service
-const service = new AICreationService({
-  openai: { apiKey: 'your-openai-key' },
-  meshy: { apiKey: 'your-meshy-key' },
-  cache: { enabled: true, ttl: 3600, maxSize: 500 },
-  output: { directory: './output', format: 'glb' }
-})
+## NPM Scripts
 
-// Generate a weapon
-const weapon: GenerationRequest = {
-  id: 'sword-001',
-  name: 'Flamebrand',
-  description: 'A legendary fire sword with dragon motifs',
-  type: 'weapon',
-  subtype: 'sword',
-  style: 'realistic'
-}
+```bash
+npm run build        # Build TypeScript
+npm run dev          # Watch mode
+npm run test         # Run tests
+npm run generate     # Generate single asset
+npm run batch        # Batch generation
+npm run viewer       # Start viewer
+npm run lint         # Type checking
+```
 
-// Generate a bank
-const bank: GenerationRequest = {
-  id: 'bank-001',
-  name: 'Grand Bank of Varrock',
-  description: 'Impressive bank with columns and vault',
-  type: 'building',
-  subtype: 'bank',
-  style: 'realistic'
-}
+## Asset Types
 
-// Listen to progress events
-service.on('stage-start', ({ stage }) => {
-  console.log(`Starting ${stage}...`)
-})
+| Type | Description | Polycount |
+|------|-------------|-----------|
+| weapon | Swords, bows, shields | 2,000-5,000 |
+| armor | Helmets, chest, legs | 3,000-8,000 |
+| character | NPCs, enemies | 8,000-15,000 |
+| building | Structures | 10,000-30,000 |
+| tool | Pickaxes, fishing rods | 1,500-3,000 |
+| resource | Ores, logs, gems | 500-1,500 |
+| consumable | Potions, food | 800-2,000 |
+| misc | Currency, quest items | 1,000-3,000 |
 
-service.on('stage-complete', ({ stage }) => {
-  console.log(`Completed ${stage}!`)
-})
+## Generation Pipeline
 
-// Generate!
-const result = await service.generate(weapon)
-console.log('Generated:', result.finalAsset?.modelUrl)
+1. **Text Analysis** - Parse description and extract features
+2. **Image Generation** - Create concept art with DALL-E 3
+3. **3D Generation** - Convert to 3D model with Meshy AI
+4. **Optimization** - Remesh and optimize polycount
+5. **Analysis** - Extract metadata and attachment points
+6. **Export** - Save as GLB with textures
+
+## Examples
+
+See the `examples/` directory for:
+- Batch file templates
+- Sample asset descriptions
+- Integration examples
+
+## Output Structure
+
+```
+output/
+├── <asset-name>/
+│   ├── image.png         # Concept art
+│   ├── model.glb         # 3D model
+│   ├── metadata.json     # Asset metadata
+│   └── textures/         # PBR textures
+└── batch-summary.json    # Generation report
 ```
 
 ## Configuration
 
-Create an `ai-creation.config.json` file:
+Create `ai-creation.config.json` for custom settings:
 
 ```json
 {
   "openai": {
-    "apiKey": "sk-...",
-    "model": "dall-e-3"
+    "model": "dall-e-3",
+    "size": "1024x1024",
+    "quality": "standard"
   },
   "meshy": {
-    "apiKey": "your-meshy-key",
-    "baseUrl": "https://api.meshy.ai"
-  },
-  "cache": {
-    "enabled": true,
-    "ttl": 3600,
-    "maxSize": 500
+    "mode": "preview",
+    "aiModel": "meshy-4"
   },
   "output": {
-    "directory": "./generated-assets",
+    "directory": "./output",
     "format": "glb"
   }
 }
 ```
 
-Or use environment variables:
-- `OPENAI_API_KEY`
-- `MESHY_API_KEY`
+## API Requirements
 
-## Generation Pipeline
+- **OpenAI API**: For GPT-4 and DALL-E 3
+- **Meshy AI API**: For 3D model generation
 
-1. **Description → Image**: Generate concept art from text description
-2. **Image → 3D Model**: Create 3D model using Meshy AI
-3. **Model Remeshing**: Optimize polycount for game use
-4. **Analysis**:
-   - Weapons: Detect grip points and attachment positions
-   - Armor: Determine placement and scaling
-   - Buildings: Analyze structure, entry points, NPC positions
-   - Characters: Generate rig skeleton
-5. **Finalization**: Save model with metadata
-
-## Building-Specific Features
-
-### Bank Generation
-Banks are generated with:
-- Main entrance detection
-- Vault area identification
-- Teller counter placement
-- Multiple banker NPC positions
-- Secure architecture elements
-
-### Store Generation
-Stores are generated with:
-- Storefront and display windows
-- Shop counter placement
-- Display area mapping
-- Shopkeeper position
-- Interior layout optimization
-
-## Batch Generation
-
-Create a JSON file with multiple items:
-
-```json
-[
-  {
-    "name": "Fire Sword",
-    "description": "A flaming sword with intricate runes",
-    "type": "weapon",
-    "style": "realistic"
-  },
-  {
-    "name": "Bank of Lumbridge",
-    "description": "Small town bank with vault",
-    "type": "building",
-    "subtype": "bank"
-  },
-  {
-    "name": "General Store",
-    "description": "Shop selling everyday items",
-    "type": "building",
-    "subtype": "store"
-  }
-]
-```
-
-Run batch generation:
-```bash
-hyperscape-ai batch items.json
-```
-
-## API Reference
-
-### `AICreationService`
-
-Main service class for asset generation.
-
-#### Methods
-
-- `generate(request: GenerationRequest): Promise<GenerationResult>` - Generate a single asset
-- `batchGenerate(requests: GenerationRequest[]): Promise<GenerationResult[]>` - Generate multiple assets
-- `regenerateStage(id: string, stage: string): Promise<GenerationResult>` - Regenerate from specific stage
-- `getGeneration(id: string): Promise<GenerationResult>` - Get existing generation
-- `getActiveGenerations(): GenerationResult[]` - Get currently processing items
-
-#### Events
-
-- `stage-start` - Emitted when a stage begins
-- `stage-complete` - Emitted when a stage completes
-- `complete` - Emitted when generation finishes
-- `error` - Emitted on errors
-
-### Types
-
-```typescript
-interface GenerationRequest {
-  id?: string
-  name: string
-  description: string
-  type: AssetType
-  subtype?: WeaponType | ArmorSlot | BuildingType | ToolType | ResourceType | ConsumableType
-  style?: 'realistic' | 'cartoon' | 'low-poly' | 'stylized'
-  metadata?: Record<string, any>
-}
-
-type AssetType = 'weapon' | 'armor' | 'consumable' | 'tool' | 'decoration' | 
-                 'character' | 'building' | 'resource' | 'misc'
-
-type BuildingType = 'bank' | 'store' | 'house' | 'castle' | 'temple' | 
-                    'guild' | 'inn' | 'tower' | 'dungeon'
-```
-
-## Interactive Viewer
-
-The viewer provides a web interface for:
-- Real-time generation progress
-- 3D model preview
-- Stage output inspection
-- Regeneration controls
-- Building structure visualization
-
-Start the viewer:
-```bash
-hyperscape-ai viewer
-```
-
-Then visit http://localhost:3000
-
-## Performance Tips
-
-1. **Batch Processing**: Process multiple items together for efficiency
-2. **Caching**: Enable caching to avoid regenerating identical items
-3. **Polycount**: Optimized defaults per asset type
-4. **Parallel Generation**: Configure concurrent generation limits
+Both APIs are paid services. Monitor your usage to control costs.
 
 ## Troubleshooting
 
 ### API Key Issues
-- Ensure API keys are set in config or environment
-- Check key permissions and quotas
+- Ensure `.env` file exists with valid keys
+- Check key format (OpenAI keys start with `sk-`)
 
 ### Generation Failures
-- Check stage-specific errors in the result
-- Use `regenerateStage` to retry failed stages
-- Enable verbose logging for debugging
+- Check `batch-summary-*.json` for error details
+- Reduce parallel count for stability
+- Verify API quotas haven't been exceeded
 
 ### Memory Issues
-- Reduce cache size in config
+- Reduce `--parallel` count
 - Process smaller batches
-- Lower target polycounts
+- Close other applications
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run in development mode
+npm run dev
+
+# Run tests
+npm test
+
+# Type checking
+npm run typecheck
+```
 
 ## License
 
-MIT 
+MIT © Hyperscape Team

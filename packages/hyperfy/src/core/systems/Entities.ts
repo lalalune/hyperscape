@@ -4,6 +4,12 @@ import { PlayerLocal } from '../entities/PlayerLocal.js';
 import { PlayerRemote } from '../entities/PlayerRemote.js';
 import { App } from '../entities/App.js';
 
+export interface ComponentDefinition {
+  type: string;
+  create: (entity: Entity, data?: any) => any;
+  validate?: (data: any) => boolean;
+}
+
 // Entity data structure
 interface EntityData {
   id: string;
@@ -68,8 +74,23 @@ class BaseEntity implements Entity {
   }
 
   addComponent(type: string, data?: any): any {
-    const component = { type, data };
+    const entities = this.world.entities as Entities;
+    const definition = entities.getComponentDefinition(type);
+    let component;
+    
+    if (definition) {
+      // Validate data if validator exists
+      if (definition.validate && !definition.validate(data)) {
+        throw new Error(`Invalid data for component type: ${type}`);
+      }
+      component = definition.create(this, data);
+    } else {
+      // Fallback to simple object for unregistered types
+      component = { type, data };
+    }
+    
     this.components.set(type, component);
+    entities.emit('componentAdded', { entity: this, type, component });
     return component;
   }
 
@@ -146,6 +167,7 @@ export class Entities extends System implements IEntities {
   apps: Map<string, Entity>;
   private hot: Set<Entity>;
   private removed: string[];
+  private componentRegistry = new Map<string, ComponentDefinition>();
 
   constructor(world: World) {
     super(world);
@@ -165,6 +187,15 @@ export class Entities extends System implements IEntities {
     return this.players.get(entityId) || null;
   }
 
+  registerComponentType(definition: ComponentDefinition): void {
+    this.componentRegistry.set(definition.type, definition);
+    console.log(`[Entities] Registered component type: ${definition.type}`);
+  }
+  
+  getComponentDefinition(type: string): ComponentDefinition | undefined {
+    return this.componentRegistry.get(type);
+  }
+  
   // TypeScript-specific methods for interface compliance
   has(entityId: string): boolean {
     return this.items.has(entityId);

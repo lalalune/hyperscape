@@ -1,758 +1,350 @@
-import { System } from "../types/hyperfy"
-import type { World } from '../types'
-import type {
-  SkillType,
-  StatsComponent,
-  Entity,
-  SkillData,
-  // PlayerEntity,
-  InventoryComponent,
-} from '../types'
+import {
+  RPGSkillsSystem,
+  PlayerState,
+  RPGSkill,
+  SkillState,
+  ItemRequirement,
+  EXPERIENCE_TABLE,
+  GAME_CONSTANTS,
+  RPGEventEmitter,
+  SkillLevelUpEvent
+} from '../types/index.js'
 
-interface XPDrop {
-  entityId: string
-  skill: SkillType
-  amount: number
-  timestamp: number
-}
+export class RPGSkillsSystemImpl implements RPGSkillsSystem {
+  public name = 'SkillsSystem'
+  public initialized = false
 
-interface SkillMilestone {
-  level: number
-  name: string
-  message: string
-}
+  private players: Map<string, PlayerState> = new Map()
+  private eventEmitter: RPGEventEmitter | null = null
 
-export class SkillsSystem extends System {
-  private static readonly MAX_LEVEL = 99
-  private static readonly MAX_XP = 200_000_000 // 200M XP cap
-  private static readonly COMBAT_SKILLS: SkillType[] = [
-    'attack',
-    'strength',
-    'defense',
-    'ranged',
-    'magic',
-    'hitpoints',
-    'prayer',
-  ]
-
-  private xpTable: number[] = []
-  private xpDrops: XPDrop[] = []
-  private skillMilestones: Map<SkillType, SkillMilestone[]> = new Map()
-  private pendingSaves: Set<string> = new Set() // Track entities with pending saves
-  private saveTimer?: NodeJS.Timeout
-
-  constructor(world: World) {
-    super(world)
-    this.generateXPTable()
-    this.setupSkillMilestones()
-    this.setupEventListeners()
-    this.startAutoSave()
+  constructor(eventEmitter?: RPGEventEmitter) {
+    this.eventEmitter = eventEmitter || null
   }
 
-  private setupEventListeners(): void {
-    // Listen for XP gain events from other systems
-    this.world.events.on('combat:kill', this.handleCombatKill.bind(this))
-    this.world.events.on('skill:action', this.handleSkillAction.bind(this))
-    this.world.events.on('quest:complete', this.handleQuestComplete.bind(this))
-    
-    // Listen for player events
-    this.world.events.on('player:disconnect', this.handlePlayerDisconnect.bind(this))
-    this.world.events.on('player:connect', this.handlePlayerConnect.bind(this))
+  async init(): Promise<void> {
+    console.log('[SkillsSystem] Initializing skills system...')
+    this.initialized = true
+    console.log('[SkillsSystem] Skills system initialized')
   }
 
-  private startAutoSave(): void {
-    // Save pending skill changes every 10 seconds
-    this.saveTimer = setInterval(() => {
-      this.savePendingSkills()
-    }, 10000)
+  async update(deltaTime: number): Promise<void> {
+    // Skills system doesn't need per-frame updates
+    // All skill operations are event-driven
   }
 
-  update(_deltaTime: number): void {
-    // Clean up old XP drops (for UI)
-    const currentTime = Date.now()
-    this.xpDrops = this.xpDrops.filter(
-      drop => currentTime - drop.timestamp < 3000 // Keep for 3 seconds
-    )
+  async cleanup(): Promise<void> {
+    console.log('[SkillsSystem] Cleaning up skills system...')
+    this.players.clear()
+    this.initialized = false
   }
 
-  /**
-   * Grant XP to a specific skill
-   */
-  public grantXP(entityId: string, skill: SkillType, amount: number): void {
-    const entity = this.world.entities.get(entityId)
-    if (!entity) {
-      return
-    }
+  // ===== PUBLIC API =====
 
-    const stats = entity.getComponent('stats') as any
-    if (!stats) {
-      return
-    }
-
-    const skillData = stats[skill] as SkillData
-    if (!skillData) {
-      console.warn(`Skill ${skill} not found on entity ${entityId}`)
-      return
-    }
-
-    // Apply XP modifiers (e.g., from equipment, prayers, etc.)
-    const modifiedAmount = this.calculateModifiedXP(entity, skill, amount)
-
-    // Check XP cap
-    const oldXP = skillData.xp
-    const newXP = Math.min(oldXP + modifiedAmount, SkillsSystem.MAX_XP)
-    const actualGain = newXP - oldXP
-
-    if (actualGain <= 0) {
-      return
-    }
-
-    // Update XP
-    skillData.xp = newXP
-
-    // Check for level up
-    const oldLevel = skillData.level
-    const newLevel = this.getLevelForXP(newXP)
-
-    if (newLevel > oldLevel) {
-      this.handleLevelUp(entity, skill, oldLevel, newLevel)
-    }
-
-    // Update combat level if it's a combat skill
-    if (SkillsSystem.COMBAT_SKILLS.includes(skill)) {
-      this.updateCombatLevel(entity, stats)
-    }
-
-    // Update total level
-    this.updateTotalLevel(entity, stats)
-
-    // Add XP drop for UI
-    this.xpDrops.push({
-      entityId,
-      skill,
-      amount: actualGain,
-      timestamp: Date.now(),
-    })
-
-    // Mark entity for saving
-    this.pendingSaves.add(entityId)
-
-    // Emit XP gained event
-    this.world.events.emit('xp:gained', {
-      entityId,
-      skill,
-      amount: actualGain,
-      totalXP: newXP,
-      level: skillData.level,
-    })
-  }
-
-  /**
-   * Get the level for a given amount of XP
-   */
-  public getLevelForXP(xp: number): number {
-    for (let level = SkillsSystem.MAX_LEVEL; level >= 1; level--) {
-      if (xp >= this.xpTable[level]) {
-        return level
-      }
-    }
-    return 1
-  }
-
-  /**
-   * Get the XP required for a specific level
-   */
-  public getXPForLevel(level: number): number {
-    if (level < 1) {
-      return 0
-    }
-    if (level > SkillsSystem.MAX_LEVEL) {
-      return this.xpTable[SkillsSystem.MAX_LEVEL]
-    }
-    return this.xpTable[level]
-  }
-
-  /**
-   * Get XP remaining to next level
-   */
-  public getXPToNextLevel(skill: SkillData): number {
-    if (skill.level >= SkillsSystem.MAX_LEVEL) {
-      return 0
-    }
-
-    const nextLevelXP = this.getXPForLevel(skill.level + 1)
-    return nextLevelXP - skill.xp
-  }
-
-  /**
-   * Get XP progress percentage to next level
-   */
-  public getXPProgress(skill: SkillData): number {
-    if (skill.level >= SkillsSystem.MAX_LEVEL) {
-      return 100
-    }
-
-    const currentLevelXP = this.getXPForLevel(skill.level)
-    const nextLevelXP = this.getXPForLevel(skill.level + 1)
-    const progressXP = skill.xp - currentLevelXP
-    const requiredXP = nextLevelXP - currentLevelXP
-
-    return (progressXP / requiredXP) * 100
-  }
-
-  /**
-   * Check if entity meets skill requirements
-   */
-  public meetsRequirements(entity: Entity, requirements: Partial<Record<SkillType, number>>): boolean {
-    const stats = entity.getComponent('stats') as any
-    if (!stats) {
+  async grantExperience(playerId: string, skill: RPGSkill, amount: number): Promise<boolean> {
+    const player = this.players.get(playerId)
+    if (!player) {
+      console.log(`[SkillsSystem] Player ${playerId} not found`)
       return false
     }
 
-    for (const [skill, requiredLevel] of Object.entries(requirements)) {
-      const skillData = stats[skill as SkillType] as SkillData
-      if (!skillData || skillData.level < requiredLevel) {
-        return false
+    if (amount <= 0) {
+      console.log(`[SkillsSystem] Invalid experience amount: ${amount}`)
+      return false
+    }
+
+    const skillState = player.skills[skill]
+    if (!skillState) {
+      console.log(`[SkillsSystem] Skill ${skill} not found for player ${playerId}`)
+      return false
+    }
+
+    const oldLevel = skillState.level
+    const oldExperience = skillState.experience
+
+    // Add experience
+    skillState.experience += amount
+
+    // Check for level up
+    const newLevel = this.calculateLevel(skillState.experience)
+    const levelledUp = newLevel > oldLevel
+
+    if (levelledUp) {
+      skillState.level = newLevel
+      console.log(`[SkillsSystem] Player ${playerId} leveled up ${skill}: ${oldLevel} -> ${newLevel}`)
+
+      // Emit level up event
+      if (this.eventEmitter) {
+        await this.eventEmitter.emit({
+          type: 'skill:levelup',
+          timestamp: Date.now(),
+          data: {
+            playerId,
+            skill,
+            newLevel,
+            oldLevel
+          }
+        } as SkillLevelUpEvent)
+      }
+
+      // Update constitution health if constitution leveled up
+      if (skill === RPGSkill.CONSTITUTION) {
+        const healthIncrease = (newLevel - oldLevel) * 4 // +4 HP per constitution level
+        player.health.max += healthIncrease
+        player.health.current += healthIncrease
+        console.log(`[SkillsSystem] Player ${playerId} health increased by ${healthIncrease} (${player.health.current}/${player.health.max})`)
       }
     }
 
+    console.log(`[SkillsSystem] Player ${playerId} gained ${amount} ${skill} XP (${oldExperience} -> ${skillState.experience})`)
     return true
   }
 
-  /**
-   * Get combat level for an entity
-   */
-  public getCombatLevel(stats: StatsComponent): number {
+  calculateLevel(experience: number): number {
+    // Use RuneScape experience table
+    for (let level = EXPERIENCE_TABLE.length - 1; level >= 0; level--) {
+      if (experience >= EXPERIENCE_TABLE[level]) {
+        return level + 1 // Levels are 1-based
+      }
+    }
+    return 1 // Minimum level is 1
+  }
+
+  getRequiredExperience(level: number): number {
+    if (level < 1) return 0
+    if (level > EXPERIENCE_TABLE.length) return EXPERIENCE_TABLE[EXPERIENCE_TABLE.length - 1]
+    return EXPERIENCE_TABLE[level - 1] // Convert to 0-based index
+  }
+
+  async checkLevelUp(playerId: string, skill: RPGSkill): Promise<boolean> {
+    const player = this.players.get(playerId)
+    if (!player) return false
+
+    const skillState = player.skills[skill]
+    if (!skillState) return false
+
+    const currentLevel = skillState.level
+    const calculatedLevel = this.calculateLevel(skillState.experience)
+
+    return calculatedLevel > currentLevel
+  }
+
+  async meetsRequirement(playerId: string, requirement: ItemRequirement): Promise<boolean> {
+    const player = this.players.get(playerId)
+    if (!player) return false
+
+    const skillState = player.skills[requirement.skill]
+    if (!skillState) return false
+
+    return skillState.level >= requirement.level
+  }
+
+  // ===== UTILITY METHODS =====
+
+  public registerPlayer(player: PlayerState): void {
+    this.players.set(player.id, player)
+  }
+
+  public unregisterPlayer(playerId: string): void {
+    this.players.delete(playerId)
+  }
+
+  public getPlayerSkills(playerId: string): PlayerState['skills'] | null {
+    const player = this.players.get(playerId)
+    return player ? player.skills : null
+  }
+
+  public getSkillLevel(playerId: string, skill: RPGSkill): number | null {
+    const player = this.players.get(playerId)
+    return player ? player.skills[skill].level : null
+  }
+
+  public getSkillExperience(playerId: string, skill: RPGSkill): number | null {
+    const player = this.players.get(playerId)
+    return player ? player.skills[skill].experience : null
+  }
+
+  public getTotalLevel(playerId: string): number | null {
+    const player = this.players.get(playerId)
+    if (!player) return null
+
+    let totalLevel = 0
+    for (const skillState of Object.values(player.skills)) {
+      totalLevel += skillState.level
+    }
+    return totalLevel
+  }
+
+  public getCombatLevel(playerId: string): number | null {
+    const player = this.players.get(playerId)
+    if (!player) return null
+
+    const { attack, strength, defense, range, constitution } = player.skills
+
     // RuneScape combat level formula
-    const base = 0.25 * (stats.defense.level + stats.hitpoints.level + Math.floor(stats.prayer.level / 2))
-
-    const melee = 0.325 * (stats.attack.level + stats.strength.level)
-    const ranged = 0.325 * Math.floor(stats.ranged.level * 1.5)
-    const magic = 0.325 * Math.floor(stats.magic.level * 1.5)
-
+    const base = 0.25 * (defense.level + constitution.level + Math.floor(constitution.level / 2))
+    const melee = 0.325 * (attack.level + strength.level)
+    const ranged = 0.325 * (Math.floor(range.level * 1.5))
+    const magic = 0 // No magic in MVP
+    
     return Math.floor(base + Math.max(melee, ranged, magic))
   }
 
-  /**
-   * Get total level (sum of all skill levels)
-   */
-  public getTotalLevel(stats: StatsComponent): number {
-    let total = 0
+  public getExperienceToNextLevel(playerId: string, skill: RPGSkill): number | null {
+    const player = this.players.get(playerId)
+    if (!player) return null
 
-    // Sum all skill levels
-    const skills: SkillType[] = [
-      'attack',
-      'strength',
-      'defense',
-      'ranged',
-      'magic',
-      'prayer',
-      'hitpoints',
-      'mining',
-      'smithing',
-      'fishing',
-      'cooking',
-      'woodcutting',
-      'firemaking',
-      'crafting',
-      'herblore',
-      'agility',
-      'thieving',
-      'slayer',
-      'farming',
-      'runecrafting',
-      'hunter',
-      'construction',
-    ]
+    const skillState = player.skills[skill]
+    const currentLevel = skillState.level
+    
+    if (currentLevel >= GAME_CONSTANTS.MAX_LEVEL) {
+      return 0 // Already at max level
+    }
 
-    for (const skill of skills) {
-      const skillData = stats[skill] as SkillData
-      if (skillData) {
-        total += skillData.level
+    const nextLevelExperience = this.getRequiredExperience(currentLevel + 1)
+    return nextLevelExperience - skillState.experience
+  }
+
+  public getSkillProgress(playerId: string, skill: RPGSkill): { level: number, experience: number, toNext: number, percentage: number } | null {
+    const player = this.players.get(playerId)
+    if (!player) return null
+
+    const skillState = player.skills[skill]
+    const currentLevel = skillState.level
+    const currentExperience = skillState.experience
+    
+    if (currentLevel >= GAME_CONSTANTS.MAX_LEVEL) {
+      return {
+        level: currentLevel,
+        experience: currentExperience,
+        toNext: 0,
+        percentage: 100
       }
     }
 
-    return total
+    const currentLevelExperience = this.getRequiredExperience(currentLevel)
+    const nextLevelExperience = this.getRequiredExperience(currentLevel + 1)
+    const experienceInCurrentLevel = currentExperience - currentLevelExperience
+    const experienceNeededForLevel = nextLevelExperience - currentLevelExperience
+    const toNext = nextLevelExperience - currentExperience
+    const percentage = (experienceInCurrentLevel / experienceNeededForLevel) * 100
+
+    return {
+      level: currentLevel,
+      experience: currentExperience,
+      toNext,
+      percentage: Math.min(100, Math.max(0, percentage))
+    }
   }
 
-  /**
-   * Get total XP across all skills
-   */
-  public getTotalXP(stats: StatsComponent): number {
-    let total = 0
+  public createStartingSkills(): PlayerState['skills'] {
+    const startingSkills: PlayerState['skills'] = {
+      [RPGSkill.ATTACK]: { level: GAME_CONSTANTS.STARTING_LEVEL, experience: 0 },
+      [RPGSkill.STRENGTH]: { level: GAME_CONSTANTS.STARTING_LEVEL, experience: 0 },
+      [RPGSkill.DEFENSE]: { level: GAME_CONSTANTS.STARTING_LEVEL, experience: 0 },
+      [RPGSkill.RANGE]: { level: GAME_CONSTANTS.STARTING_LEVEL, experience: 0 },
+      [RPGSkill.CONSTITUTION]: { level: 10, experience: 1154 }, // Start at level 10 (like RuneScape)
+      [RPGSkill.WOODCUTTING]: { level: GAME_CONSTANTS.STARTING_LEVEL, experience: 0 },
+      [RPGSkill.FISHING]: { level: GAME_CONSTANTS.STARTING_LEVEL, experience: 0 },
+      [RPGSkill.FIREMAKING]: { level: GAME_CONSTANTS.STARTING_LEVEL, experience: 0 },
+      [RPGSkill.COOKING]: { level: GAME_CONSTANTS.STARTING_LEVEL, experience: 0 }
+    }
 
-    const skills: SkillType[] = [
-      'attack',
-      'strength',
-      'defense',
-      'ranged',
-      'magic',
-      'prayer',
-      'hitpoints',
-      'mining',
-      'smithing',
-      'fishing',
-      'cooking',
-      'woodcutting',
-      'firemaking',
-      'crafting',
-      'herblore',
-      'agility',
-      'thieving',
-      'slayer',
-      'farming',
-      'runecrafting',
-      'hunter',
-      'construction',
-    ]
+    return startingSkills
+  }
 
-    for (const skill of skills) {
-      const skillData = stats[skill] as SkillData
-      if (skillData) {
-        total += skillData.xp
+  public validateSkillExperience(skills: PlayerState['skills']): boolean {
+    for (const [skillName, skillState] of Object.entries(skills)) {
+      const calculatedLevel = this.calculateLevel(skillState.experience)
+      if (calculatedLevel !== skillState.level) {
+        console.warn(`[SkillsSystem] Skill ${skillName} level mismatch: stored=${skillState.level}, calculated=${calculatedLevel}`)
+        return false
       }
     }
-
-    return total
+    return true
   }
 
-  /**
-   * Reset a skill to level 1
-   */
-  public resetSkill(entityId: string, skill: SkillType): void {
-    const entity = this.world.entities.get(entityId)
-    if (!entity) {
-      return
-    }
-
-    const stats = entity.getComponent('stats') as any
-    if (!stats) {
-      return
-    }
-
-    const skillData = stats[skill] as SkillData
-    if (!skillData) {
-      return
-    }
-
-    skillData.level = 1
-    skillData.xp = 0
-
-    // Update combat level if needed
-    if (SkillsSystem.COMBAT_SKILLS.includes(skill)) {
-      this.updateCombatLevel(entity, stats)
-    }
-
-    this.updateTotalLevel(entity, stats)
-
-    this.world.events.emit('skill:reset', {
-      entityId,
-      skill,
-    })
-  }
-
-  /**
-   * Set skill level directly (for admin commands)
-   */
-  public setSkillLevel(entityId: string, skill: SkillType, level: number): void {
-    if (level < 1 || level > SkillsSystem.MAX_LEVEL) {
-      console.warn(`Invalid level ${level} for skill ${skill}`)
-      return
-    }
-
-    const entity = this.world.entities.get(entityId)
-    if (!entity) {
-      return
-    }
-
-    const stats = entity.getComponent('stats') as any
-    if (!stats) {
-      return
-    }
-
-    const skillData = stats[skill] as SkillData
-    if (!skillData) {
-      return
-    }
-
-    const oldLevel = skillData.level
-    skillData.level = level
-    skillData.xp = this.getXPForLevel(level)
-
-    if (level > oldLevel) {
-      this.handleLevelUp(entity, skill, oldLevel, level)
-    }
-
-    // Update combat level if needed
-    if (SkillsSystem.COMBAT_SKILLS.includes(skill)) {
-      this.updateCombatLevel(entity, stats)
-    }
-
-    this.updateTotalLevel(entity, stats)
-  }
-
-  private generateXPTable(): void {
-    this.xpTable = [0, 0] // Levels 0 and 1
-
-    for (let level = 2; level <= SkillsSystem.MAX_LEVEL; level++) {
-      const xp = Math.floor(level - 1 + 300 * Math.pow(2, (level - 1) / 7)) / 4
-      this.xpTable.push(Math.floor(this.xpTable[level - 1] + xp))
+  public fixSkillLevels(skills: PlayerState['skills']): void {
+    for (const skillState of Object.values(skills)) {
+      skillState.level = this.calculateLevel(skillState.experience)
     }
   }
 
-  private setupSkillMilestones(): void {
-    // Define special milestones for each skill
-    const commonMilestones: SkillMilestone[] = [
-      { level: 50, name: 'Halfway', message: 'Halfway to mastery!' },
-      { level: 92, name: 'Half XP', message: 'Halfway to 99 in XP!' },
-      { level: 99, name: 'Mastery', message: 'Skill mastered!' },
-    ]
-
-    // Apply common milestones to all skills
-    const skills: SkillType[] = [
-      'attack',
-      'strength',
-      'defense',
-      'ranged',
-      'magic',
-      'prayer',
-      'hitpoints',
-      'mining',
-      'smithing',
-      'fishing',
-      'cooking',
-      'woodcutting',
-      'firemaking',
-      'crafting',
-      'herblore',
-      'agility',
-      'thieving',
-      'slayer',
-      'farming',
-      'runecrafting',
-      'hunter',
-      'construction',
-    ]
-
-    for (const skill of skills) {
-      this.skillMilestones.set(skill, [...commonMilestones])
-    }
-
-    // Add skill-specific milestones
-    const combatMilestones = this.skillMilestones.get('attack')!
-    combatMilestones.push(
-      { level: 40, name: 'Rune Weapons', message: 'You can now wield rune weapons!' },
-      { level: 60, name: 'Dragon Weapons', message: 'You can now wield dragon weapons!' }
-    )
+  public getSkillRank(experience: number): string {
+    const level = this.calculateLevel(experience)
+    
+    if (level >= 99) return 'Grandmaster'
+    if (level >= 90) return 'Master'
+    if (level >= 80) return 'Expert'
+    if (level >= 70) return 'Adept'
+    if (level >= 60) return 'Skilled'
+    if (level >= 50) return 'Experienced'
+    if (level >= 40) return 'Competent'
+    if (level >= 30) return 'Proficient'
+    if (level >= 20) return 'Apprentice'
+    if (level >= 10) return 'Novice'
+    return 'Beginner'
   }
 
-  private handleLevelUp(entity: Entity, skill: SkillType, oldLevel: number, newLevel: number): void {
-    const stats = entity.getComponent('stats') as any
-    if (!stats) {
-      return
-    }
-
-    const skillData = stats[skill] as SkillData
-    skillData.level = newLevel
-
-    // Check for milestones
-    const milestones = this.skillMilestones.get(skill) || []
-    for (const milestone of milestones) {
-      if (milestone.level > oldLevel && milestone.level <= newLevel) {
-        this.world.events.emit('skill:milestone', {
-          entityId: entity.id,
-          skill,
-          milestone,
-        })
-      }
-    }
-
-    // Special handling for HP level up
-    if (skill === 'hitpoints') {
-      const newMax = this.calculateMaxHitpoints(newLevel)
-      stats.hitpoints.max = newMax
-      // Heal to full on HP level up
-      stats.hitpoints.current = newMax
-    }
-
-    // Special handling for Prayer level up
-    if (skill === 'prayer') {
-      const newMax = newLevel
-      stats.prayer.maxPoints = newMax
-    }
-
-    this.world.events.emit('skill:levelup', {
-      entityId: entity.id,
-      skill,
-      oldLevel,
-      newLevel,
-      totalLevel: stats.totalLevel,
-    })
+  public calculateSkillBonus(level: number): number {
+    // Calculate effective skill bonus for equipment/combat calculations
+    return Math.floor(level / 10) + level
   }
 
-  private calculateMaxHitpoints(level: number): number {
-    // RuneScape formula: 10 + level
-    return 10 + level
+  public getRandomSkillExperience(baseAmount: number, variance = 0.2): number {
+    const minAmount = Math.floor(baseAmount * (1 - variance))
+    const maxAmount = Math.floor(baseAmount * (1 + variance))
+    return Math.floor(Math.random() * (maxAmount - minAmount + 1)) + minAmount
   }
 
-  private updateCombatLevel(entity: Entity, stats: StatsComponent): void {
-    const oldCombatLevel = stats.combatLevel
-    const newCombatLevel = this.getCombatLevel(stats)
+  // ===== SKILL-SPECIFIC METHODS =====
 
-    if (newCombatLevel !== oldCombatLevel) {
-      stats.combatLevel = newCombatLevel
+  public async grantCombatExperience(
+    playerId: string, 
+    damage: number, 
+    style: 'accurate' | 'aggressive' | 'defensive' | 'controlled' = 'accurate'
+  ): Promise<void> {
+    const baseXP = damage * 4 // RuneScape-style XP calculation
 
-      this.world.events.emit('combat:levelChanged', {
-        entityId: entity.id,
-        oldLevel: oldCombatLevel,
-        newLevel: newCombatLevel,
-      })
-    }
-  }
-
-  private updateTotalLevel(entity: Entity, stats: StatsComponent): void {
-    const oldTotalLevel = stats.totalLevel
-    const newTotalLevel = this.getTotalLevel(stats)
-
-    if (newTotalLevel !== oldTotalLevel) {
-      stats.totalLevel = newTotalLevel
-
-      this.world.events.emit('total:levelChanged', {
-        entityId: entity.id,
-        oldLevel: oldTotalLevel,
-        newLevel: newTotalLevel,
-      })
-    }
-  }
-
-  private calculateModifiedXP(entity: Entity, skill: SkillType, baseXP: number): number {
-    let modifier = 1.0
-
-    // Check for XP-boosting equipment
-    const inventory = entity.getComponent('inventory') as any
-    if (inventory && inventory.equipment) {
-      // Example: Wisdom amulet gives 5% XP boost
-      if ((inventory.equipment.amulet as any)?.name === 'wisdom_amulet') {
-        modifier += 0.05
-      }
-    }
-
-    // Check for active XP events (if events system exists)
-    const eventsSystem = (this.world as any).getSystem?.('events')
-    if (eventsSystem && typeof eventsSystem.getActiveEvents === 'function') {
-      const activeEvents = eventsSystem.getActiveEvents() || []
-      for (const event of activeEvents) {
-        if (event.type === 'double_xp') {
-          modifier *= 2
-        } else if (event.type === 'bonus_xp' && event.skills?.includes(skill)) {
-          modifier += event.bonusRate || 0.5
-        }
-      }
-    }
-
-    return Math.floor(baseXP * modifier)
-  }
-
-  // Event handlers
-  private handleCombatKill(data: {
-    attackerId: string
-    targetId: string
-    damageDealt: number
-    attackStyle: string
-  }): void {
-    const { attackerId, targetId, damageDealt, attackStyle } = data
-
-    const target = this.world.entities.get(targetId)
-    if (!target) {
-      return
-    }
-
-    const targetStats = target.getComponent('stats') as any
-    if (!targetStats) {
-      return
-    }
-
-    // Calculate XP based on target's hitpoints
-    const baseXP = targetStats.hitpoints.max * 4 // 4 XP per hitpoint
-
-    // Grant XP based on attack style
-    switch (attackStyle) {
+    switch (style) {
       case 'accurate':
-        this.grantXP(attackerId, 'attack', baseXP)
+        await this.grantExperience(playerId, RPGSkill.ATTACK, baseXP)
         break
       case 'aggressive':
-        this.grantXP(attackerId, 'strength', baseXP)
+        await this.grantExperience(playerId, RPGSkill.STRENGTH, baseXP)
         break
       case 'defensive':
-        this.grantXP(attackerId, 'defense', baseXP)
+        await this.grantExperience(playerId, RPGSkill.DEFENSE, baseXP)
         break
       case 'controlled':
-        // Split XP between attack, strength, and defense
-        this.grantXP(attackerId, 'attack', baseXP / 3)
-        this.grantXP(attackerId, 'strength', baseXP / 3)
-        this.grantXP(attackerId, 'defense', baseXP / 3)
-        break
-      case 'ranged':
-        this.grantXP(attackerId, 'ranged', baseXP)
-        break
-      case 'magic':
-        this.grantXP(attackerId, 'magic', baseXP)
+        const splitXP = Math.floor(baseXP / 3)
+        await this.grantExperience(playerId, RPGSkill.ATTACK, splitXP)
+        await this.grantExperience(playerId, RPGSkill.STRENGTH, splitXP)
+        await this.grantExperience(playerId, RPGSkill.DEFENSE, splitXP)
         break
     }
 
-    // Always grant HP XP
-    this.grantXP(attackerId, 'hitpoints', baseXP / 3)
+    // Always grant Constitution XP (1/3 of base)
+    await this.grantExperience(playerId, RPGSkill.CONSTITUTION, Math.floor(baseXP / 3))
   }
 
-  private handleSkillAction(data: { entityId: string; skill: SkillType; xp: number }): void {
-    this.grantXP(data.entityId, data.skill, data.xp)
+  public async grantGatheringExperience(
+    playerId: string, 
+    skill: RPGSkill.WOODCUTTING | RPGSkill.FISHING, 
+    resourceLevel: number
+  ): Promise<void> {
+    // Grant XP based on resource level
+    const baseXP = resourceLevel * 10
+    const bonusXP = Math.floor(Math.random() * (resourceLevel * 5)) // Random bonus
+    await this.grantExperience(playerId, skill, baseXP + bonusXP)
   }
 
-  private handleQuestComplete(data: {
-    playerId: string
-    questId: string
-    rewards: {
-      xp?: Record<SkillType, number>
-    }
-  }): void {
-    if (!data.rewards.xp) {
-      return
-    }
-
-    for (const [skill, xp] of Object.entries(data.rewards.xp)) {
-      this.grantXP(data.playerId, skill as SkillType, xp)
-    }
-  }
-
-  // Public getters
-  public getXPDrops(): XPDrop[] {
-    return [...this.xpDrops]
-  }
-
-  public getSkillData(entityId: string, skill: SkillType): SkillData | null {
-    const entity = this.world.entities.get(entityId)
-    if (!entity) {
-      return null
-    }
-
-    const stats = entity.getComponent('stats') as any
-    if (!stats) {
-      return null
-    }
-
-    return (stats[skill] as SkillData) || null
-  }
-
-  /**
-   * Load player skills from persistence
-   */
-  private async loadPlayerSkills(playerId: string): Promise<void> {
-    const persistence = (this.world as any).getSystem('persistence')
-    if (!persistence) return
-
-    try {
-      const skills = await persistence.loadPlayerSkills(playerId)
-      const entity = this.world.entities.get(playerId)
-      if (!entity) return
-
-      const stats = entity.getComponent('stats') as any
-      if (!stats) return
-
-      // Apply loaded skills
-      for (const skillData of skills) {
-        const skill = stats[skillData.type]
-        if (skill) {
-          skill.level = skillData.level
-          skill.xp = skillData.experience
-        }
-      }
-
-      // Update derived stats
-      this.updateCombatLevel(entity, stats)
-      this.updateTotalLevel(entity, stats)
-
-      console.log(`[SkillsSystem] Loaded skills for player ${playerId}`)
-    } catch (error) {
-      console.error(`[SkillsSystem] Failed to load skills for ${playerId}:`, error)
-    }
-  }
-
-  /**
-   * Save player skills to persistence
-   */
-  private async savePlayerSkills(playerId: string): Promise<void> {
-    const persistence = (this.world as any).getSystem('persistence')
-    if (!persistence) return
-
-    const entity = this.world.entities.get(playerId)
-    if (!entity) return
-
-    const stats = entity.getComponent('stats') as any
-    if (!stats) return
-
-    try {
-      const skills: Array<{ type: string; level: number; experience: number }> = []
-      
-      // Collect all skills
-      const skillTypes: SkillType[] = [
-        'attack', 'strength', 'defense', 'ranged', 'magic', 'prayer', 'hitpoints',
-        'mining', 'smithing', 'fishing', 'cooking', 'woodcutting', 'firemaking',
-        'crafting', 'herblore', 'agility', 'thieving', 'slayer', 'farming',
-        'runecrafting', 'hunter', 'construction'
-      ]
-
-      for (const skillType of skillTypes) {
-        const skill = stats[skillType]
-        if (skill) {
-          skills.push({
-            type: skillType,
-            level: skill.level,
-            experience: skill.xp
-          })
-        }
-      }
-
-      await persistence.savePlayerSkills(playerId, skills)
-      console.log(`[SkillsSystem] Saved skills for player ${playerId}`)
-    } catch (error) {
-      console.error(`[SkillsSystem] Failed to save skills for ${playerId}:`, error)
-    }
-  }
-
-  /**
-   * Save all pending skill updates
-   */
-  private async savePendingSkills(): Promise<void> {
-    if (this.pendingSaves.size === 0) return
-
-    const persistence = (this.world as any).getSystem('persistence')
-    if (!persistence) return
-
-    const toSave = Array.from(this.pendingSaves)
-    this.pendingSaves.clear()
-
-    for (const entityId of toSave) {
-      // Only save if it's a player entity
-      const entity = this.world.entities.get(entityId)
-      if (entity && entity.type === 'player') {
-        await this.savePlayerSkills(entityId)
-      }
-    }
-  }
-
-  /**
-   * Handle player connect event
-   */
-  private async handlePlayerConnect(data: { playerId: string }): Promise<void> {
-    await this.loadPlayerSkills(data.playerId)
-  }
-
-  /**
-   * Handle player disconnect event
-   */
-  private async handlePlayerDisconnect(data: { playerId: string }): Promise<void> {
-    // Save skills immediately on disconnect
-    await this.savePlayerSkills(data.playerId)
-    this.pendingSaves.delete(data.playerId)
+  public async grantProcessingExperience(
+    playerId: string,
+    skill: RPGSkill.FIREMAKING | RPGSkill.COOKING,
+    itemLevel: number,
+    quantity = 1
+  ): Promise<void> {
+    const baseXP = itemLevel * 8 * quantity
+    await this.grantExperience(playerId, skill, baseXP)
   }
 }

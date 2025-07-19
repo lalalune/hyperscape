@@ -2,7 +2,7 @@
  * Test framework type definitions
  */
 
-import { World } from '@hyperscape/hyperfy'
+import { World } from '../hyperfy'
 
 /**
  * Test scenario configuration

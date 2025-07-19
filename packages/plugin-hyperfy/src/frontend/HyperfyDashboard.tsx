@@ -1,110 +1,126 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
-import { Button } from './components/ui/button';
-import { Badge } from './components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar';
-import { Input } from './components/ui/input';
-import { Label } from './components/ui/label';
-import { Globe, User, MapPin, Activity, Upload, Link, Eye, Move, Hammer } from 'lucide-react';
+import React, { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from './components/ui/card'
+import { Button } from './components/ui/button'
+import { Badge } from './components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
+import { Input } from './components/ui/input'
+import { Label } from './components/ui/label'
+import {
+  Globe,
+  User,
+  MapPin,
+  Activity,
+  Upload,
+  Link,
+  Eye,
+  Move,
+  Hammer,
+} from 'lucide-react'
 
 interface WorldStatus {
-  connected: boolean;
-  worldId: string;
-  worldName: string;
-  playerCount: number;
-  wsUrl: string;
+  connected: boolean
+  worldId: string
+  worldName: string
+  playerCount: number
+  wsUrl: string
 }
 
 interface AgentPosition {
-  x: number;
-  y: number;
-  z: number;
+  x: number
+  y: number
+  z: number
 }
 
 interface AgentStatus {
-  position: AgentPosition;
-  currentAction: string;
-  recentPerceptions: string[];
-  emoteActive: string | null;
+  position: AgentPosition
+  currentAction: string
+  recentPerceptions: string[]
+  emoteActive: string | null
 }
 
 interface AvatarInfo {
-  url: string;
-  name: string;
+  url: string
+  name: string
 }
 
 export function HyperfyDashboard() {
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [worldUrl, setWorldUrl] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [worldUrl, setWorldUrl] = useState('')
 
   // Fetch world status
   const { data: worldStatus, isLoading: worldLoading } = useQuery<WorldStatus>({
     queryKey: ['hyperfy-world-status'],
     queryFn: async () => {
-      const response = await fetch('/api/hyperfy/world-status');
-      return response.json();
+      const response = await fetch('/api/hyperfy/world-status')
+      return response.json()
     },
     refetchInterval: 5000,
-  });
+  })
 
   // Fetch agent status
   const { data: agentStatus, isLoading: agentLoading } = useQuery<AgentStatus>({
     queryKey: ['hyperfy-agent-status'],
     queryFn: async () => {
-      const response = await fetch('/api/hyperfy/agent-status');
-      return response.json();
+      const response = await fetch('/api/hyperfy/agent-status')
+      return response.json()
     },
     refetchInterval: 1000,
-  });
+  })
 
   // Fetch avatar info
   const { data: avatarInfo } = useQuery<AvatarInfo>({
     queryKey: ['hyperfy-avatar-info'],
     queryFn: async () => {
-      const response = await fetch('/api/hyperfy/avatar-info');
-      return response.json();
+      const response = await fetch('/api/hyperfy/avatar-info')
+      return response.json()
     },
-  });
+  })
 
   const handleJoinWorld = async () => {
     if (!worldUrl) {
-      return;
+      return
     }
 
     await fetch('/api/hyperfy/join-world', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: worldUrl }),
-    });
-  };
+    })
+  }
 
   const handleUploadAvatar = async () => {
     if (!avatarFile) {
-      return;
+      return
     }
 
-    const formData = new FormData();
-    formData.append('avatar', avatarFile);
+    const formData = new FormData()
+    formData.append('avatar', avatarFile)
 
     await fetch('/api/hyperfy/upload-avatar', {
       method: 'POST',
       body: formData,
-    });
-  };
+    })
+  }
 
   const getActionIcon = (action: string) => {
     if (action.includes('PERCEPTION')) {
-      return <Eye className="w-4 h-4" />;
+      return <Eye className="w-4 h-4" />
     }
     if (action.includes('GOTO') || action.includes('WALK')) {
-      return <Move className="w-4 h-4" />;
+      return <Move className="w-4 h-4" />
     }
     if (action.includes('EDIT') || action.includes('BUILD')) {
-      return <Hammer className="w-4 h-4" />;
+      return <Hammer className="w-4 h-4" />
     }
-    return <Activity className="w-4 h-4" />;
-  };
+    return <Activity className="w-4 h-4" />
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -134,15 +150,21 @@ export function HyperfyDashboard() {
             ) : worldStatus?.connected ? (
               <div className="space-y-2">
                 <p className="text-sm">
-                  <span className="font-medium">World:</span> {worldStatus.worldName}
+                  <span className="font-medium">World:</span>{' '}
+                  {worldStatus.worldName}
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium">Players:</span> {worldStatus.playerCount}
+                  <span className="font-medium">Players:</span>{' '}
+                  {worldStatus.playerCount}
                 </p>
-                <p className="text-sm text-muted-foreground truncate">{worldStatus.wsUrl}</p>
+                <p className="text-sm text-muted-foreground truncate">
+                  {worldStatus.wsUrl}
+                </p>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Not connected to any world</p>
+              <p className="text-sm text-muted-foreground">
+                Not connected to any world
+              </p>
             )}
           </CardContent>
         </Card>
@@ -164,9 +186,15 @@ export function HyperfyDashboard() {
               </div>
             ) : agentStatus && agentStatus.position ? (
               <div className="space-y-2">
-                <div className="font-mono text-sm">X: {agentStatus.position.x.toFixed(2)}</div>
-                <div className="font-mono text-sm">Y: {agentStatus.position.y.toFixed(2)}</div>
-                <div className="font-mono text-sm">Z: {agentStatus.position.z.toFixed(2)}</div>
+                <div className="font-mono text-sm">
+                  X: {agentStatus.position.x.toFixed(2)}
+                </div>
+                <div className="font-mono text-sm">
+                  Y: {agentStatus.position.y.toFixed(2)}
+                </div>
+                <div className="font-mono text-sm">
+                  Z: {agentStatus.position.z.toFixed(2)}
+                </div>
                 {agentStatus.currentAction && (
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t">
                     {getActionIcon(agentStatus.currentAction)}
@@ -194,11 +222,15 @@ export function HyperfyDashboard() {
               <div className="flex items-center gap-4">
                 <Avatar className="w-16 h-16">
                   <AvatarImage src={avatarInfo?.url} />
-                  <AvatarFallback>{avatarInfo?.name?.[0] || 'A'}</AvatarFallback>
+                  <AvatarFallback>
+                    {avatarInfo?.name?.[0] || 'A'}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="font-medium">{avatarInfo?.name || 'Agent'}</p>
-                  <p className="text-sm text-muted-foreground">Current avatar</p>
+                  <p className="text-sm text-muted-foreground">
+                    Current avatar
+                  </p>
                 </div>
               </div>
 
@@ -209,10 +241,14 @@ export function HyperfyDashboard() {
                     id="avatar-upload"
                     type="file"
                     accept=".vrm"
-                    onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                    onChange={e => setAvatarFile(e.target.files?.[0] || null)}
                     className="flex-1"
                   />
-                  <Button size="sm" onClick={handleUploadAvatar} disabled={!avatarFile}>
+                  <Button
+                    size="sm"
+                    onClick={handleUploadAvatar}
+                    disabled={!avatarFile}
+                  >
                     <Upload className="w-4 h-4" />
                   </Button>
                 </div>
@@ -231,7 +267,8 @@ export function HyperfyDashboard() {
             <CardDescription>What the agent has observed</CardDescription>
           </CardHeader>
           <CardContent>
-            {agentStatus?.recentPerceptions && agentStatus.recentPerceptions.length > 0 ? (
+            {agentStatus?.recentPerceptions &&
+            agentStatus.recentPerceptions.length > 0 ? (
               <ul className="space-y-2">
                 {agentStatus.recentPerceptions.map((perception, index) => (
                   <li key={index} className="text-sm p-2 bg-muted rounded">
@@ -240,7 +277,9 @@ export function HyperfyDashboard() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">No recent perceptions</p>
+              <p className="text-sm text-muted-foreground">
+                No recent perceptions
+              </p>
             )}
           </CardContent>
         </Card>
@@ -263,7 +302,7 @@ export function HyperfyDashboard() {
                   type="url"
                   placeholder="wss://world.hyperfy.xyz/ws"
                   value={worldUrl}
-                  onChange={(e) => setWorldUrl(e.target.value)}
+                  onChange={e => setWorldUrl(e.target.value)}
                 />
               </div>
               <Button
@@ -278,7 +317,10 @@ export function HyperfyDashboard() {
                   variant="outline"
                   className="w-full"
                   onClick={() =>
-                    window.open(`https://hyperfy.xyz/world/${worldStatus.worldId}`, '_blank')
+                    window.open(
+                      `https://hyperfy.xyz/world/${worldStatus.worldId}`,
+                      '_blank'
+                    )
                   }
                 >
                   Open in Browser
@@ -289,5 +331,5 @@ export function HyperfyDashboard() {
         </Card>
       </div>
     </div>
-  );
+  )
 }

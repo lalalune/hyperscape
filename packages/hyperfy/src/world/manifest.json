@@ -1,0 +1,10 @@
+{
+  "collections": {
+    "rpg": {
+      "BankBooth": "./collections/rpg/BankBooth.js",
+      "GoblinNPC": "./collections/rpg/GoblinNPC.js",
+      "SpawnArea": "./collections/rpg/SpawnArea.js",
+      "TestRPG": "./collections/rpg/TestRPG.js"
+    }
+  }
+}

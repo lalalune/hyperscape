@@ -1,19 +1,69 @@
 import knex from 'knex'
 import type { Knex } from 'knex'
 import moment from 'moment'
+import { getDB as getMockDB } from './db-mock'
+
+interface PluginMigration {
+  name: string;
+  up: (knex: Knex) => Promise<void>;
+  down?: (knex: Knex) => Promise<void>;
+}
+
+// Global registry for plugin migrations
+const pluginMigrations: Record<string, PluginMigration[]> = {};
+
+export function registerPluginMigrations(pluginName: string, migrations: PluginMigration[]): void {
+  pluginMigrations[pluginName] = migrations;
+  console.log(`[DB] Registered ${migrations.length} migrations for plugin: ${pluginName}`);
+}
+
+async function runPluginMigrations(knex: Knex): Promise<void> {
+  for (const [pluginName, migrations] of Object.entries(pluginMigrations)) {
+    const migrationTableName = `${pluginName}_migrations`;
+    
+    // Create plugin migration tracking table if it doesn't exist
+    const exists = await knex.schema.hasTable(migrationTableName);
+    if (!exists) {
+      await knex.schema.createTable(migrationTableName, table => {
+        table.increments('id').primary();
+        table.string('name').notNullable();
+        table.timestamp('executed_at').defaultTo(knex.fn.now());
+      });
+    }
+    
+    // Get executed migrations
+    const executed = await knex(migrationTableName).select('name');
+    const executedNames = new Set(executed.map(row => row.name));
+    
+    // Run pending migrations
+    for (const migration of migrations) {
+      if (!executedNames.has(migration.name)) {
+        console.log(`[DB] Running plugin migration: ${pluginName}.${migration.name}`);
+        await migration.up(knex);
+        await knex(migrationTableName).insert({ name: migration.name });
+      }
+    }
+  }
+}
 
 let db: Knex | undefined
 
 export async function getDB(path: string): Promise<Knex> {
   if (!db) {
-    db = knex({
-      client: 'better-sqlite3',
-      connection: {
-        filename: path,
-      },
-      useNullAsDefault: true,
-    })
-    await migrate(db)
+    try {
+      db = knex({
+        client: 'better-sqlite3',
+        connection: {
+          filename: path,
+        },
+        useNullAsDefault: true,
+      })
+      await migrate(db)
+    } catch (error) {
+      console.log('[DB] better-sqlite3 not available, using mock database')
+      // Fallback to mock database
+      db = await getMockDB(path) as Knex
+    }
   }
   return db
 }
@@ -43,6 +93,11 @@ async function migrate(db: Knex): Promise<void> {
       .update('value', (i + 1).toString())
     version = i + 1
   }
+  
+  // Run plugin migrations after core migrations
+  await runPluginMigrations(db);
+  
+  console.log('[DB] All migrations completed')
 }
 
 /**

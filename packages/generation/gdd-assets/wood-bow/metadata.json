@@ -1,0 +1,65 @@
+{
+  "name": "Wood Bow",
+  "description": "A simple wooden bow with basic string, starter ranged weapon for level 1+ adventurers",
+  "type": "weapon",
+  "subtype": "bow",
+  "style": "realistic",
+  "metadata": {
+    "tier": "wood",
+    "level": 1,
+    "gameId": "wood_bow",
+    "rarity": "common",
+    "rangeLevel": 1,
+    "requiresAmmo": "arrows"
+  },
+  "id": "wood-bow",
+  "analysisResult": {
+    "weaponType": "bow",
+    "primaryGrip": {
+      "position": {
+        "x": 0,
+        "y": -0.6,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.9
+    },
+    "attachmentPoints": [
+      {
+        "name": "arrow_nock",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    ],
+    "secondaryGrip": {
+      "position": {
+        "x": 0,
+        "y": 0.4,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 1
+      },
+      "confidence": 0.85
+    }
+  },
+  "generatedAt": "2025-07-18T07:50:42.815Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/wood-bow/Wood Bow.glb"
+}

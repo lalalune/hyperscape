@@ -107,11 +107,12 @@ interface WorkerMessage {
 self.onmessage = (msg: WorkerMessage) => {
   const data = msg.data
   switch (data.op) {
-    case 'create':
+    case 'create': {
       // console.log('create!!')
       const system = createEmitter(data as unknown as EmitterConfig)
       emitters[data.id!] = system
       break
+    }
     case 'emitting':
       emitters[data.emitterId!]?.setEmitting(data.value!)
       break

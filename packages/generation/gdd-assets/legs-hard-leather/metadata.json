@@ -1,0 +1,37 @@
+{
+  "name": "Hard Leather Legs",
+  "description": "A hard_leather leather leg armor, front view, clean white background, no mannequin or stand, just the leg pieces, game asset style",
+  "type": "armor",
+  "subtype": "legs",
+  "style": "realistic",
+  "metadata": {
+    "tier": "hard_leather",
+    "level": 3,
+    "gameId": "hard_leather_legs",
+    "rarity": "common",
+    "defenseLevel": 3,
+    "slot": "legs"
+  },
+  "id": "legs-hard-leather",
+  "analysisResult": {
+    "slot": "legs",
+    "attachmentPoint": {
+      "x": 0,
+      "y": -0.4,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T09:50:55.829Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/legs-hard-leather/Hard Leather Legs.glb"
+}

@@ -1,0 +1,37 @@
+{
+  "name": "Mithril Helmet",
+  "description": "A mithril helmet with shimmering silver-blue metal and ornate design, high-level head protection",
+  "type": "armor",
+  "subtype": "helmet",
+  "style": "realistic",
+  "metadata": {
+    "tier": "mithril",
+    "level": 20,
+    "gameId": "mithril_helmet",
+    "rarity": "rare",
+    "defenseLevel": 20,
+    "slot": "head"
+  },
+  "id": "mithril-helmet",
+  "analysisResult": {
+    "slot": "helmet",
+    "attachmentPoint": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  },
+  "generatedAt": "2025-07-18T08:33:12.031Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/mithril-helmet/Mithril Helmet.glb"
+}

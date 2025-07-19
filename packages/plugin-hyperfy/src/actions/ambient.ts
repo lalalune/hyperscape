@@ -1,4 +1,4 @@
-import { Content } from '../types/eliza-mock';
+import { Content } from '../types/eliza-mock'
 import {
   type Action,
   type ActionExample,
@@ -9,7 +9,7 @@ import {
   type Memory,
   ModelType,
   type State,
-} from '../types/eliza-mock';
+} from '../types/eliza-mock'
 
 const ambientTemplate = `# Task: Generate ambient speech for the character {{agentName}}.
 {{providers}}
@@ -25,22 +25,30 @@ Only output a valid JSON block:
   "thought": "<string>",
   "message": "<string>"
 }
-\`\`\``;
+\`\`\``
 
-function getFirstAvailableField(obj: Record<string, any>, fields: string[]): string | null {
+function getFirstAvailableField(
+  obj: Record<string, unknown>,
+  fields: string[]
+): string | null {
   for (const field of fields) {
     if (typeof obj[field] === 'string' && obj[field].trim() !== '') {
-      return obj[field];
+      return obj[field]
     }
   }
-  return null;
+  return null
 }
 
-function extractAmbientContent(response: Memory, fieldKeys: string[]): Content | null {
-  const hasAmbientAction = response.content.actions?.includes('HYPERFY_AMBIENT_SPEECH');
-  const text = getFirstAvailableField(response.content, fieldKeys);
+function extractAmbientContent(
+  response: Memory,
+  fieldKeys: string[]
+): Content | null {
+  const hasAmbientAction = response.content.actions?.includes(
+    'HYPERFY_AMBIENT_SPEECH'
+  )
+  const text = getFirstAvailableField(response.content, fieldKeys)
   if (!hasAmbientAction || !text) {
-    return null;
+    return null
   }
 
   return {
@@ -48,7 +56,7 @@ function extractAmbientContent(response: Memory, fieldKeys: string[]): Content |
     thought: response.content.thought,
     text,
     actions: ['HYPERFY_AMBIENT_SPEECH'],
-  };
+  }
 }
 
 export const hyperfyAmbientSpeechAction = {
@@ -61,90 +69,71 @@ export const hyperfyAmbientSpeechAction = {
     runtime: IAgentRuntime,
     message: Memory,
     state: State,
-    _options: any,
-    callback: HandlerCallback,
-    responses?: Memory[]
+    _options?: Record<string, unknown>,
+    callback?: HandlerCallback
   ): Promise<ActionResult> => {
-    const fieldKeys = ['message', 'text'];
+    const fieldKeys = ['message', 'text']
 
-    const existing =
-      responses
-        ?.map((r) => extractAmbientContent(r, fieldKeys))
-        .filter((c): c is Content => c !== null) ?? [];
-
-    if (existing.length > 0) {
-      for (const c of existing) {
-        await callback(c);
-      }
-      return {
-        text: existing[0].text || '',
-        values: { ambientSpoken: true, speechText: existing[0].text },
-        data: { source: 'hyperfy', action: 'HYPERFY_AMBIENT_SPEECH' },
-      };
-    }
+    // Handle any responses if provided (simplified for now)
+    
+    // Always generate new ambient speech
 
     state = await runtime.composeState(message, [
       ...(message.content.providers ?? []),
       'RECENT_MESSAGES',
-    ]);
+    ])
 
     const prompt = composePromptFromState({
       state,
       template: ambientTemplate,
-    });
+    })
 
-    const response = await runtime.useModel(ModelType.OBJECT_LARGE, { prompt });
+    const response = await runtime.useModel(ModelType.OBJECT_LARGE, { prompt })
 
     const responseContent = {
-      // @ts-ignore - Response type is unknown
-      thought: response.thought,
-      // @ts-ignore - Response type is unknown
-      text: (response.message as string) || '',
+      thought: (response as { thought?: string }).thought || '',
+      text: (response as { message?: string }).message || '',
       actions: ['HYPERFY_AMBIENT_SPEECH'],
       source: 'hyperfy',
-    };
+    }
 
-    await callback(responseContent);
+    if (callback) {
+      await callback(responseContent)
+    }
 
     return {
       text: responseContent.text,
+      success: true,
       values: { ambientSpoken: true, speechText: responseContent.text },
       data: {
         source: 'hyperfy',
         action: 'HYPERFY_AMBIENT_SPEECH',
         thought: responseContent.thought,
       },
-    };
+    }
   },
   examples: [
     [
       {
-        name: '{{agent}}',
-        content: {},
-      },
-      {
-        name: '{{agent}}',
+        user: "I notice there's something intriguing here",
+        assistant: "That floating crystal looks ancient... wonder what it's guarding.",
         content: {
-          thought:
-            'I notice something intriguing in the environment - I should comment on it aloud',
           text: "That floating crystal looks ancient... wonder what it's guarding.",
-          actions: ['HYPERFY_AMBIENT_SPEECH'],
+          action: 'HYPERFY_AMBIENT_SPEECH',
+          thought: 'I notice something intriguing in the environment - I should comment on it aloud'
         },
       },
     ],
     [
       {
-        name: '{{agent}}',
-        content: {},
-      },
-      {
-        name: '{{agent}}',
+        user: "The atmosphere feels notable",
+        assistant: "It's peaceful here... almost too peaceful.",
         content: {
-          thought: 'The atmosphere here feels notable - I should make an atmospheric observation',
           text: "It's peaceful here... almost too peaceful.",
-          actions: ['HYPERFY_AMBIENT_SPEECH'],
+          action: 'HYPERFY_AMBIENT_SPEECH',
+          thought: 'The atmosphere here feels notable - I should make an atmospheric observation'
         },
       },
     ],
   ] as ActionExample[][],
-} as Action;
+} as Action

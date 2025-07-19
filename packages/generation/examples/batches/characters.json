@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Goblin",
+    "description": "Small green humanoid creature with crude tribal clothing, pointed ears, yellow eyes, and aggressive stance",
+    "type": "character",
+    "subtype": "biped",
+    "style": "realistic",
+    "metadata": {
+      "tier": "level1",
+      "level": 2,
+      "gameId": "goblin",
+      "rarity": "common",
+      "creatureType": "biped",
+      "combatLevel": 2,
+      "maxHitpoints": 5,
+      "attackStyle": "melee",
+      "difficultyLevel": 1
+    }
+  },
+  {
+    "name": "Desperate Bandit",
+    "description": "Human who turned to crime after the Calamity, wearing tattered clothes and carrying crude weapons",
+    "type": "character",
+    "subtype": "biped",
+    "style": "realistic",
+    "metadata": {
+      "tier": "level1",
+      "level": 2,
+      "gameId": "desperate_bandit",
+      "rarity": "common",
+      "creatureType": "biped",
+      "combatLevel": 2,
+      "maxHitpoints": 7,
+      "attackStyle": "melee",
+      "difficultyLevel": 1
+    }
+  },
+  {
+    "name": "Black Knight",
+    "description": "Elite dark warrior in pitch-black armor, master of combat and feared across the realm",
+    "type": "character",
+    "subtype": "biped",
+    "style": "realistic",
+    "metadata": {
+      "tier": "level3",
+      "level": 20,
+      "gameId": "black_knight",
+      "rarity": "rare",
+      "creatureType": "biped",
+      "combatLevel": 20,
+      "maxHitpoints": 40,
+      "attackStyle": "melee",
+      "difficultyLevel": 3
+    }
+  }
+] 

@@ -1,119 +1,181 @@
-# Hyperscape Monorepo
+# Hyperscape - AI-Generated RPG
 
-AI-powered virtual world platform with RPG elements, built on Hyperfy.
+A RuneScape-inspired MMORPG where everything is AI-generated: items, mobs, lore, and world content. Built on [Hyperfy](https://hyperfy.io/), the 3D metaverse engine.
 
-## Overview
+## 🚀 Quick Start
 
-This monorepo contains all the packages for the Hyperscape ecosystem:
+### Prerequisites
 
-- **@hyperscape/hyperfy** - Core 3D virtual world engine
-- **@hyperscape/rpg** - Core RPG game logic
-- **@elizaos/plugin-hyperfy** - ElizaOS integration plugin
-- **@hyperscape/ai-creation** - AI-powered content generation
-- **@hyperscape/rpg-tests** - RPG test scenarios
-- **@hyperscape/test-framework** - Testing utilities
+- Node.js 18+ 
+- npm 10+
 
-## Tech Stack
+### Installation
 
-- **Build System**: [Turborepo](https://turbo.build/)
-- **Package Manager**: npm workspaces
-- **Language**: TypeScript
-- **3D Engine**: Three.js
-- **Runtime**: Node.js 22.11.0
+```bash
+# Clone and install
+git clone [repository-url]
+cd hyperscape
+npm install
+```
 
-## Getting Started
+### Build Everything
 
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+```bash
+npm run build
+```
 
-2. **Build all packages**:
-   ```bash
-   npm run build
-   ```
+### Start the RPG
 
-3. **Start development mode**:
-   ```bash
-   npm run dev
-   ```
+```bash
+npm start
+```
 
-## Available Commands
+The RPG server will start at `http://localhost:3000`
 
-### Global Commands
+## 🎮 How to Play
 
-- `npm run build` - Build all packages with caching
-- `npm run dev` - Start development mode for all packages
-- `npm run test` - Run tests across all packages
-- `npm run lint` - Lint all packages
-- `npm run clean` - Clean build artifacts
-- `npm run typecheck` - Type check all TypeScript code
+1. **Open your browser** to `http://localhost:3000`
+2. **Create a character** - you'll spawn in a random starter town
+3. **Explore the world** - use WASD keys to move, click to interact
+4. **Fight monsters** - attack goblins and other creatures for XP and loot
+5. **Level up skills** - gain experience in Attack, Strength, Defense, Constitution
+6. **Gather resources** - chop trees, fish at lakes, cook food
+7. **Bank your items** - visit banks in starter towns to store valuables
+8. **Progress to stronger areas** - as you level up, venture into more dangerous zones
 
-### Package-specific Commands
+### Game Features
 
-- `npm run build:hyperfy` - Build only the Hyperfy engine
-- `npm run build:rpg-core` - Build only the RPG core
-- `npm run dev:hyperfy` - Run Hyperfy in dev mode
+- **Real-time combat** with RuneScape-style mechanics
+- **Multiple skills**: Combat, Woodcutting, Fishing, Cooking, Firemaking
+- **Equipment tiers**: Bronze → Steel → Mithril
+- **Multiplayer** - see other players in the same world
+- **Persistent progression** - your character data is saved
+- **AI agents** can also play alongside humans
 
-### Utilities
+## 🧪 Testing
 
-- `npm run graph` - Visualize the build dependency graph
-- `npm run list:workspaces` - List all workspace packages
+### Run All Tests
 
-## Package Structure
+```bash
+npm test
+```
+
+This runs comprehensive tests across all packages:
+
+- **Visual testing** - Screenshots and pixel analysis to verify entities appear correctly
+- **RPG system testing** - Combat, skills, inventory, banking systems
+- **Integration testing** - Real gameplay scenarios in browser
+- **No mocks** - All tests use real Hyperfy instances and actual game code
+
+### Test Reports
+
+Tests generate detailed reports showing:
+- Entity detection and positioning
+- RPG system validation (health, skills, inventory)
+- Visual confirmation via screenshots
+- Performance metrics
+
+## 🏗️ Development
+
+### Core Commands
+
+```bash
+npm run dev     # Start development mode (hot reload)
+npm run build   # Build all packages
+npm start       # Start the RPG game
+npm test        # Run all tests
+npm run lint    # Lint all code
+```
+
+### Architecture
+
+- **Hyperfy Engine** (`packages/hyperfy`) - 3D world engine with physics, networking, scripting
+- **RPG Game** (`packages/rpg`) - RuneScape-inspired game logic and content
+- **AI Generation** (`packages/generation`) - Procedural content creation with GPT-4 and MeshyAI
+- **Test Framework** (`packages/test-framework`) - Visual and integration testing tools
+- **ElizaOS Plugin** (`packages/plugin-hyperfy`) - AI agent integration
+
+### Key Directories
 
 ```
 hyperscape/
 ├── packages/
-│   ├── hyperfy/           # Core virtual world engine
-│   ├── rpg-core/          # RPG game logic
-│   ├── rpg-tests/         # Test scenarios
-│   ├── test-framework/    # Testing utilities
+│   ├── hyperfy/           # Core 3D engine
+│   │   ├── src/           # Engine source code
+│   │   └── world/         # Game world and RPG entities
+│   ├── rpg/               # RPG game package
+│   ├── generation/        # AI content generation
+│   ├── test-framework/    # Testing infrastructure
 │   └── plugin-hyperfy/    # ElizaOS integration
-├── turbo.json             # Turborepo configuration
-├── package.json           # Root workspace config
-└── .npmrc                 # npm configuration
+└── README.md              # This file
 ```
 
-## Turbo Features
+## 🤖 AI Agent Integration
 
-This monorepo uses Turborepo for:
+Human players and AI agents can play together in the same world:
 
-- **Incremental Builds**: Only rebuild what changed
-- **Parallel Execution**: Run tasks in parallel when possible
-- **Smart Caching**: Cache build outputs locally
-- **Dependency Graph**: Automatic task ordering based on dependencies
+1. **Start an ElizaOS agent** with the Hyperfy plugin
+2. **Agent connects** to the same world server
+3. **Agent plays the game** using the same mechanics as humans
+4. **Agents can**: fight mobs, gather resources, level skills, interact with other players
 
-## Development Tips
+## 🧑‍💻 Technical Details
 
-1. **Faster Builds**: Turbo caches build outputs. After the first build, subsequent builds only rebuild changed packages.
+### Built With
 
-2. **Filtered Builds**: Build specific packages:
-   ```bash
-   npx turbo run build --filter=@hyperscape/hyperfy
-   ```
+- **[Hyperfy](https://hyperfy.io/)** - 3D metaverse engine (Three.js + physics)
+- **[ElizaOS](https://elizaos.ai/)** - AI agent framework
+- **TypeScript** - Type-safe development
+- **Playwright** - Browser automation and testing
+- **Sharp** - Image processing for visual tests
 
-3. **Watch Mode**: Most packages support watch mode:
-   ```bash
-   npm run dev
-   ```
+### Game Design
 
-4. **Dependency Graph**: Visualize package dependencies:
-   ```bash
-   npm run graph
-   ```
+Based on classic RuneScape mechanics:
+- **Click-to-move** navigation
+- **Auto-combat** when in range
+- **Skill-based progression** (no character levels)
+- **Equipment requirements** based on skill levels
+- **Resource gathering** and processing
+- **Banking system** for item storage
 
-## Missing Dependencies
+### Testing Philosophy
 
-Some packages reference private @elizaos packages that aren't in the public npm registry. See `workspace-setup.md` for details on handling these.
+- **No mocks or simulations** - all tests use real game instances
+- **Visual verification** - screenshots prove entities render correctly  
+- **Multi-modal testing** - browser automation, image analysis, data validation
+- **Comprehensive coverage** - every GDD feature has corresponding tests
 
-## Contributing
+## 📖 Game Design Document
 
-1. Make changes in the relevant package
-2. Run `npm run build` to verify everything builds
-3. Run `npm run test` to ensure tests pass
-4. Commit your changes
+See the full [Game Design Document](CLAUDE.md) for detailed mechanics, items, mobs, and world design.
 
-## License
+## 🐛 Troubleshooting
 
-MIT 
+### Common Issues
+
+**Port already in use**: Kill existing processes on port 3000/3001
+```bash
+lsof -ti:3000 | xargs kill -9
+lsof -ti:3001 | xargs kill -9
+```
+
+**Tests failing**: Ensure no other Hyperfy instances are running
+```bash
+pkill -f "hyperfy"
+npm test
+```
+
+**Build errors**: Clean and rebuild
+```bash
+rm -rf packages/*/build packages/*/dist
+npm run build
+```
+
+## 📝 License
+
+MIT License - see LICENSE file for details.
+
+---
+
+**Ready to explore the AI-generated world of Hyperscape?** Run `npm start` and dive in! 🎮

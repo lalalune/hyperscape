@@ -1,6 +1,7 @@
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh'
 
 import * as THREE from 'three'
+import type { Intersection, Raycaster } from 'three'
 
 // Re-export everything from three
 export * from 'three'
@@ -16,6 +17,15 @@ export { Vector3Enhanced as Vector3 }
 declare module 'three' {
   interface InstancedMesh {
     resize(size: number): void
+  }
+  
+  interface BufferGeometry {
+    computeBoundsTree(): void
+    disposeBoundsTree(): void
+  }
+  
+  interface Mesh {
+    raycast: (raycaster: Raycaster, intersects: Intersection[]) => void
   }
 }
 

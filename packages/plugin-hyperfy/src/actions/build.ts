@@ -11,10 +11,10 @@ import {
   composePromptFromState,
   ModelType,
   parseKeyValueXml,
-} from '../types/eliza-mock';
-import { HyperfyService } from '../service';
-import { AgentControls } from '../systems/controls';
-const MAX_RETRIES = 3;
+} from '../types/eliza-mock'
+import { HyperfyService } from '../service'
+import { AgentControls } from '../systems/controls'
+const MAX_RETRIES = 3
 
 export enum EditOperationType {
   DUPLICATE = 'duplicate',
@@ -113,7 +113,7 @@ const sceneEditOperationExtractionTemplate = `
   - Format all vector parameters as arrays (e.g., [x, y, z]).
   - Maintain the order of operations as implied by the user.
   - Return only the final JSON object as shown above — no additional text, comments, or wrappers.
-`;
+`
 
 const sceneEditSummaryResponseTemplate = (summary: string) => `
 <task>
@@ -162,7 +162,7 @@ ${summary}
   <emote>Optional visible animation (like "shrug", "nod", "wave")</emote>
 </response>
 </output>
-`;
+`
 
 export const hyperfyEditEntityAction: Action = {
   name: 'HYPERFY_EDIT_ENTITY',
@@ -170,8 +170,10 @@ export const hyperfyEditEntityAction: Action = {
   description:
     'Performs scene edits in Hyperfy, including duplicating, moving, rotating, scaling, deleting, or importing entities. Use when the user asks to modify or add something in the 3D world. Can be chained with movement or perception actions for complex building scenarios.',
   validate: async (runtime: IAgentRuntime): Promise<boolean> => {
-    const service = runtime.getService<HyperfyService>(HyperfyService.serviceName);
-    return !!service && service.isConnected() && !!service.getWorld()?.controls;
+    const service = runtime.getService<HyperfyService>(
+      HyperfyService.serviceName
+    )
+    return !!service && service.isConnected() && !!service.getWorld()?.controls
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -181,148 +183,169 @@ export const hyperfyEditEntityAction: Action = {
     callback?: HandlerCallback,
     responses?: Memory[]
   ): Promise<ActionResult> => {
-    const service = runtime.getService<HyperfyService>(HyperfyService.serviceName);
-    const world = service?.getWorld();
-    const buildManager = service?.getBuildManager();
+    const service = runtime.getService<HyperfyService>(
+      HyperfyService.serviceName
+    )
+    const world = service?.getWorld()
+    const buildManager = service?.getBuildManager()
 
     if (!service || !world || !buildManager || !callback) {
       logger.error(
         '[EDIT_ENTITY Action] Hyperfy service, world, buildManager, or callback not found.'
-      );
+      )
       return {
         text: 'Error: Cannot perform scene edits. Required systems unavailable.',
         values: { success: false, error: 'service_unavailable' },
         data: { action: 'HYPERFY_EDIT_ENTITY' },
-      };
+      }
     }
 
-    let operationResults: any = null;
-    let attempts = 0;
+    let operationResults: any = null
+    let attempts = 0
 
     while (attempts < MAX_RETRIES) {
       try {
-        const extractionState = await runtime.composeState(message);
+        const extractionState = await runtime.composeState(message)
         const prompt = composePromptFromState({
           state: extractionState,
           template: sceneEditOperationExtractionTemplate,
-        });
+        })
 
-        operationResults = await runtime.useModel(ModelType.OBJECT_LARGE, { prompt });
+        operationResults = await runtime.useModel(ModelType.OBJECT_LARGE, {
+          prompt,
+        })
 
         if (Array.isArray(operationResults?.operations)) {
-          break;
+          break
         }
 
         logger.warn(
           `[EDIT_ENTITY Action] Unexpected structure on attempt ${attempts + 1}:`,
           operationResults
-        );
+        )
       } catch (error) {
-        logger.error(`[EDIT_ENTITY Action] Model error on attempt ${attempts + 1}:`, error);
+        logger.error(
+          `[EDIT_ENTITY Action] Model error on attempt ${attempts + 1}:`,
+          error
+        )
       }
 
-      attempts++;
+      attempts++
     }
 
     if (!Array.isArray(operationResults?.operations)) {
       logger.error(
         '[EDIT_ENTITY Action] Scene editing failed — could not understand instructions properly.'
-      );
+      )
       return {
         text: 'Sorry, I could not understand the scene editing instructions.',
         values: { success: false, error: 'instruction_parsing_failed' },
         data: { action: 'HYPERFY_EDIT_ENTITY' },
-      };
+      }
     }
 
     for (const op of operationResults.operations) {
       if (!op?.success) {
-        logger.warn('[EDIT_ENTITY Action] Skipping failed operation:', op?.reason || op);
-        continue;
+        logger.warn(
+          '[EDIT_ENTITY Action] Skipping failed operation:',
+          op?.reason || op
+        )
+        continue
       }
 
-      const { operation, target, parameters, description } = op;
+      const { operation, target, parameters, description } = op
 
       switch (operation) {
         case EditOperationType.TRANSLATE:
-          await buildManager.translate(target, parameters?.position);
-          break;
+          await buildManager.translate(target, parameters?.position)
+          break
 
         case EditOperationType.ROTATE:
-          await buildManager.rotate(target, parameters?.rotation);
-          break;
+          await buildManager.rotate(target, parameters?.rotation)
+          break
 
         case EditOperationType.SCALE:
-          await buildManager.scale(target, parameters?.scale);
-          break;
+          await buildManager.scale(target, parameters?.scale)
+          break
 
         case EditOperationType.DUPLICATE:
-          await buildManager.duplicate(target);
-          break;
+          await buildManager.duplicate(target)
+          break
 
         case EditOperationType.DELETE:
-          await buildManager.delete(target);
-          break;
+          await buildManager.delete(target)
+          break
 
         case EditOperationType.IMPORT:
-          await buildManager.importEntity(target, parameters?.position, parameters?.rotation);
-          break;
+          await buildManager.importEntity(
+            target,
+            parameters?.position,
+            parameters?.rotation
+          )
+          break
 
         default:
-          logger.warn(`[EDIT_ENTITY Action] Unsupported operation type: ${operation}`);
-          break;
+          logger.warn(
+            `[EDIT_ENTITY Action] Unsupported operation type: ${operation}`
+          )
+          break
       }
       if (description) {
-        const messageManager = service.getMessageManager();
-        messageManager.sendMessage(description);
+        const messageManager = service.getMessageManager()
+        messageManager.sendMessage(description)
       }
     }
     const summaryText = operationResults.operations
-      .map((op) => {
+      .map(op => {
         if (op?.success) {
-          return `SUCCESS: ${op.description}`;
+          return `SUCCESS: ${op.description}`
         } else {
-          return `FAILURE: Tried to ${op.operation} "${op.requestedEntityName}" → ${op.reason}`;
+          return `FAILURE: Tried to ${op.operation} "${op.requestedEntityName}" → ${op.reason}`
         }
       })
-      .join('\n');
+      .join('\n')
 
-    const stateForResponse = await runtime.composeState(message);
+    const stateForResponse = await runtime.composeState(message)
     const agentResponsePrompt = composePromptFromState({
       state: stateForResponse,
       template: sceneEditSummaryResponseTemplate(summaryText),
-    });
+    })
 
-    let finalXml: string;
+    let finalXml: string
     try {
-      finalXml = await runtime.useModel(ModelType.TEXT_SMALL, { prompt: agentResponsePrompt });
+      finalXml = await runtime.useModel(ModelType.TEXT_SMALL, {
+        prompt: agentResponsePrompt,
+      })
     } catch (err) {
-      logger.error('[EDIT_ENTITY Action] Final summarization failed:', err);
+      logger.error('[EDIT_ENTITY Action] Final summarization failed:', err)
       const errorResponse = {
         thought: 'Scene edits completed, but final summary generation failed.',
         text: 'Edits are done, but I had trouble summarizing the results clearly.',
-      };
-      await callback(errorResponse);
+      }
+      await callback(errorResponse)
       return {
         text: errorResponse.text,
         values: { success: true, summaryFailed: true },
         data: { action: 'HYPERFY_EDIT_ENTITY', thought: errorResponse.thought },
-      };
+      }
     }
 
-    const response = parseKeyValueXml(finalXml);
+    const response = parseKeyValueXml(finalXml)
     if (!response) {
-      logger.error('[EDIT_ENTITY Action] Failed to parse summary XML.');
+      logger.error('[EDIT_ENTITY Action] Failed to parse summary XML.')
       const parseErrorResponse = {
         thought: 'Could not interpret response XML.',
         text: "Edits completed, but I couldn't finish the summary properly.",
-      };
-      await callback(parseErrorResponse);
+      }
+      await callback(parseErrorResponse)
       return {
         text: parseErrorResponse.text,
         values: { success: true, parseError: true },
-        data: { action: 'HYPERFY_EDIT_ENTITY', thought: parseErrorResponse.thought },
-      };
+        data: {
+          action: 'HYPERFY_EDIT_ENTITY',
+          thought: parseErrorResponse.thought,
+        },
+      }
     }
 
     const finalResponse = {
@@ -330,9 +353,9 @@ export const hyperfyEditEntityAction: Action = {
       thought: response.thought || 'Finished with scene edits.',
       text: response.text || 'Scene updates complete!',
       emote: response.emote || '',
-    };
+    }
 
-    await callback(finalResponse);
+    await callback(finalResponse)
 
     return {
       text: finalResponse.text,
@@ -347,11 +370,14 @@ export const hyperfyEditEntityAction: Action = {
         thought: finalResponse.thought,
         emote: finalResponse.emote,
       },
-    };
+    }
   },
   examples: [
     [
-      { name: '{{user}}', content: { text: 'Can you put another block on top of the water?' } },
+      {
+        name: '{{user}}',
+        content: { text: 'Can you put another block on top of the water?' },
+      },
       {
         name: '{{agent}}',
         content: {
@@ -364,7 +390,10 @@ export const hyperfyEditEntityAction: Action = {
       },
     ],
     [
-      { name: '{{user}}', content: { text: 'Move the tree next to the house.' } },
+      {
+        name: '{{user}}',
+        content: { text: 'Move the tree next to the house.' },
+      },
       {
         name: '{{agent}}',
         content: {
@@ -390,4 +419,4 @@ export const hyperfyEditEntityAction: Action = {
       },
     ],
   ],
-};
+}

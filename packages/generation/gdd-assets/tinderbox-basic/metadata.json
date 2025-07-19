@@ -1,0 +1,18 @@
+{
+  "name": "Tinderbox",
+  "description": "A small tinderbox, rectangular metal container, viewed from slight angle, clean white background, medieval fire-starting tool, game asset style, simple metal tinderbox with flint and steel, weathered surface",
+  "type": "tool",
+  "subtype": "tinderbox",
+  "style": "realistic",
+  "metadata": {
+    "tier": "basic",
+    "level": 1,
+    "gameId": "tinderbox",
+    "rarity": "common",
+    "skill": "firemaking",
+    "firemakingLevel": 1
+  },
+  "id": "tinderbox-basic",
+  "generatedAt": "2025-07-18T10:11:47.389Z",
+  "modelPath": "/Users/shawwalters/hyperscape/packages/generation/gdd-assets/tinderbox-basic/Tinderbox.glb"
+}
