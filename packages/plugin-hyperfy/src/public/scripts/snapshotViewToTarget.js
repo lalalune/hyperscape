@@ -1,8 +1,7 @@
 window.snapshotViewToTarget = async function (playerData, targetPosition) {
-  const win = window
-  const THREE = win.THREE
-  const camera = win.camera
-  const renderer = win.renderer
+  // THREE is already available via import maps in index.html
+  const camera = window.camera
+  const renderer = window.renderer
 
   // Positions
   const playerPos = new THREE.Vector3(...playerData.position)
@@ -28,7 +27,7 @@ window.snapshotViewToTarget = async function (playerData, targetPosition) {
   camera.updateMatrixWorld()
 
   // Render
-  renderer.render(win.scene, camera)
+  renderer.render(window.scene, camera)
 
   return renderer.domElement.toDataURL('image/jpeg').split(',')[1]
 }

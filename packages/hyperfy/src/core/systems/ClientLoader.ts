@@ -1,6 +1,6 @@
 import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 import Hls from 'hls.js/dist/hls.js'
-import { TextureLoader } from 'three'
+import { TextureLoader } from '../extras/three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { createEmoteFactory } from '../extras/createEmoteFactory'
@@ -318,10 +318,10 @@ export class ClientLoader extends System {
         }
       }
       if (type === 'script') {
-        const code = await file.text()
-        const script = this.world.scripts.evaluate(code)
-        this.results.set(key, script)
-        return script
+        // DISABLED: Script loading from external files
+        console.warn(`[ClientLoader] ⚠️ Script loading disabled - Attempted to load from file`)
+        console.warn(`[ClientLoader] Scripts must now be implemented as TypeScript RPGApp classes`)
+        throw new Error('Script loading is disabled. Use TypeScript RPGApp classes instead.')
       }
       if (type === 'audio') {
         const buffer = await file.arrayBuffer()
@@ -425,15 +425,11 @@ export class ClientLoader extends System {
       })
     }
     if (type === 'script') {
+      // DISABLED: Script loading from external files
       promise = new Promise(async (resolve, reject) => {
-        try {
-          const code = await file.text()
-          const script = this.world.scripts.evaluate(code)
-          this.results.set(key, script)
-          resolve(script)
-        } catch (err) {
-          reject(err)
-        }
+        console.warn(`[ClientLoader] ⚠️ Script loading disabled - Attempted to load: ${url}`)
+        console.warn(`[ClientLoader] Scripts must now be implemented as TypeScript RPGApp classes`)
+        reject(new Error('Script loading is disabled. Use TypeScript RPGApp classes instead.'))
       })
     }
     if (type === 'audio') {

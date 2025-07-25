@@ -82,7 +82,6 @@ export class ModularTestFramework {
         error
       )
       result.testResults.push({
-        name: 'Pack Loading',
         passed: false,
         failures: [`Failed to load pack: ${error.message}`],
         screenshots: [],
@@ -125,7 +124,6 @@ export class ModularTestFramework {
         // Check if test should be skipped
         if (testCase.skip) {
           results.push({
-            name: testCase.name,
             passed: false,
             failures: [],
             screenshots: [],
@@ -165,7 +163,6 @@ export class ModularTestFramework {
           error
         )
         results.push({
-          name: testCase.name,
           passed: false,
           failures: [`Test error: ${error.message}`],
           screenshots: [],
@@ -208,8 +205,8 @@ export class ModularTestFramework {
       console.log('\nFailed Tests:')
       result.testResults
         .filter(t => !t.passed && !t.skipped)
-        .forEach(test => {
-          console.log(`\n❌ ${test.name}`)
+        .forEach((test, index) => {
+          console.log(`\n❌ Test ${index + 1}`)
           test.failures.forEach(f => console.log(`   - ${f}`))
         })
     }

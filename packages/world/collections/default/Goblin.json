@@ -1,0 +1,6 @@
+{
+  "name": "Goblin",
+  "description": "Production RPG goblin enemy",
+  "version": "1.0.0",
+  "script": "Goblin.js"
+}

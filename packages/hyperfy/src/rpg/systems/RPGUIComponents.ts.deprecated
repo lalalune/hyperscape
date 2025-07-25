@@ -1,0 +1,723 @@
+/**
+ * RPG UI Components System
+ * Creates and manages all RPG UI elements:
+ * - Health bar with current/max HP
+ * - XP bar and level displays  
+ * - Inventory panel (28 slots)
+ * - Equipment panel (weapon, shield, helmet, body, legs, arrows)
+ * - Minimap
+ * - Chat/combat log
+ * - Action bars
+ */
+
+import { System } from '../../core/systems/System';
+import { PlayerStats, RPGItem } from '../types/index';
+
+interface UIPanel {
+  element: HTMLElement;
+  visible: boolean;
+  draggable: boolean;
+}
+
+interface InventorySlot {
+  element: HTMLElement;
+  index: number;
+  item: RPGItem | null;
+  quantity: number;
+}
+
+interface EquipmentSlot {
+  element: HTMLElement;
+  slot: 'weapon' | 'shield' | 'helmet' | 'body' | 'legs' | 'arrows';
+  item: RPGItem | null;
+  quantity: number;
+}
+
+export class RPGUIComponents extends System {
+  private uiContainer: HTMLElement | null = null;
+  private panels = new Map<string, UIPanel>();
+  private inventorySlots: InventorySlot[] = [];
+  private equipmentSlots = new Map<string, EquipmentSlot>();
+  private playerStats: PlayerStats | null = null;
+  
+  // UI Elements
+  private healthBar: HTMLElement | null = null;
+  private xpBar: HTMLElement | null = null;
+  private inventoryPanel: HTMLElement | null = null;
+  private equipmentPanel: HTMLElement | null = null;
+  private minimapPanel: HTMLElement | null = null;
+  private chatPanel: HTMLElement | null = null;
+
+  constructor(world: any) {
+    super(world);
+  }
+
+  async init(): Promise<void> {
+    console.log('[RPGUIComponents] Initializing RPG UI components...');
+    
+    // Only run on client
+    if (!this.world.isClient) {
+      console.log('[RPGUIComponents] Server detected, skipping client-only UI system');
+      return;
+    }
+
+    // Create main UI container
+    this.createUIContainer();
+    
+    // Create individual UI components
+    this.createHealthBar();
+    this.createXPBar();
+    this.createInventoryPanel();
+    this.createEquipmentPanel();
+    this.createMinimapPanel();
+    this.createChatPanel();
+    
+    // Listen for game events
+    this.world.on?.('rpg:ui:update', this.handleUIUpdate.bind(this));
+    this.world.on?.('rpg:ui:message', this.addChatMessage.bind(this));
+    this.world.on?.('rpg:player:stats:update', this.updatePlayerStats.bind(this));
+    this.world.on?.('rpg:inventory:update', this.updateInventory.bind(this));
+    this.world.on?.('rpg:equipment:update', this.updateEquipment.bind(this));
+    
+    // Set up keyboard shortcuts
+    this.setupKeyboardShortcuts();
+    
+    console.log('[RPGUIComponents] UI components initialized');
+  }
+
+  start(): void {
+    console.log('[RPGUIComponents] UI components started');
+  }
+
+  /**
+   * Create main UI container
+   */
+  private createUIContainer(): void {
+    this.uiContainer = document.createElement('div');
+    this.uiContainer.id = 'rpg-ui';
+    this.uiContainer.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+      font-family: 'Courier New', monospace;
+      user-select: none;
+    `;
+    document.body.appendChild(this.uiContainer);
+  }
+
+  /**
+   * Create health bar
+   */
+  private createHealthBar(): void {
+    const healthContainer = document.createElement('div');
+    healthContainer.style.cssText = `
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 200px;
+      height: 24px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #444;
+      border-radius: 4px;
+      pointer-events: auto;
+    `;
+
+    this.healthBar = document.createElement('div');
+    this.healthBar.style.cssText = `
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to right, #ff4444, #ff8888);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      position: relative;
+    `;
+
+    const healthText = document.createElement('div');
+    healthText.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+    `;
+    healthText.textContent = '100 / 100';
+
+    this.healthBar.appendChild(healthText);
+    healthContainer.appendChild(this.healthBar);
+    this.uiContainer!.appendChild(healthContainer);
+
+    // Store references
+    (this.healthBar as any).textElement = healthText;
+  }
+
+  /**
+   * Create XP bar
+   */
+  private createXPBar(): void {
+    const xpContainer = document.createElement('div');
+    xpContainer.style.cssText = `
+      position: absolute;
+      top: 50px;
+      left: 20px;
+      width: 200px;
+      height: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #444;
+      border-radius: 4px;
+      pointer-events: auto;
+    `;
+
+    this.xpBar = document.createElement('div');
+    this.xpBar.style.cssText = `
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(to right, #4444ff, #8888ff);
+      border-radius: 2px;
+      transition: width 0.5s ease;
+      position: relative;
+    `;
+
+    const xpText = document.createElement('div');
+    xpText.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 10px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+      width: 200px;
+      text-align: center;
+    `;
+    xpText.textContent = 'Level 1 - 0 XP';
+
+    this.xpBar.appendChild(xpText);
+    xpContainer.appendChild(this.xpBar);
+    this.uiContainer!.appendChild(xpContainer);
+
+    // Store references
+    (this.xpBar as any).textElement = xpText;
+  }
+
+  /**
+   * Create inventory panel
+   */
+  private createInventoryPanel(): void {
+    this.inventoryPanel = document.createElement('div');
+    this.inventoryPanel.style.cssText = `
+      position: absolute;
+      top: 100px;
+      right: 20px;
+      width: 280px;
+      height: 224px;
+      background: rgba(0, 0, 0, 0.9);
+      border: 2px solid #666;
+      border-radius: 8px;
+      padding: 10px;
+      display: none;
+      pointer-events: auto;
+    `;
+
+    // Title bar
+    const titleBar = document.createElement('div');
+    titleBar.style.cssText = `
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-align: center;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+    `;
+    titleBar.textContent = 'Inventory';
+
+    // Inventory grid (28 slots, 7x4)
+    const inventoryGrid = document.createElement('div');
+    inventoryGrid.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 2px;
+      width: 100%;
+      height: 180px;
+    `;
+
+    // Create inventory slots
+    for (let i = 0; i < 28; i++) {
+      const slot = this.createInventorySlot(i);
+      inventoryGrid.appendChild(slot.element);
+      this.inventorySlots.push(slot);
+    }
+
+    this.inventoryPanel.appendChild(titleBar);
+    this.inventoryPanel.appendChild(inventoryGrid);
+    this.uiContainer!.appendChild(this.inventoryPanel);
+
+    this.panels.set('inventory', {
+      element: this.inventoryPanel,
+      visible: false,
+      draggable: true
+    });
+  }
+
+  /**
+   * Create equipment panel
+   */
+  private createEquipmentPanel(): void {
+    this.equipmentPanel = document.createElement('div');
+    this.equipmentPanel.style.cssText = `
+      position: absolute;
+      top: 100px;
+      left: 20px;
+      width: 200px;
+      height: 280px;
+      background: rgba(0, 0, 0, 0.9);
+      border: 2px solid #666;
+      border-radius: 8px;
+      padding: 10px;
+      display: none;
+      pointer-events: auto;
+    `;
+
+    // Title bar
+    const titleBar = document.createElement('div');
+    titleBar.style.cssText = `
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-align: center;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+    `;
+    titleBar.textContent = 'Equipment';
+
+    // Equipment layout
+    const equipmentLayout = document.createElement('div');
+    equipmentLayout.style.cssText = `
+      display: grid;
+      grid-template-columns: 60px 60px 60px;
+      grid-template-rows: repeat(4, 60px);
+      gap: 5px;
+      justify-content: center;
+      margin-top: 10px;
+    `;
+
+    // Create equipment slots
+    const slots = [
+      { slot: 'helmet', row: 1, col: 2, name: 'Helmet' },
+      { slot: 'weapon', row: 2, col: 1, name: 'Weapon' },
+      { slot: 'body', row: 2, col: 2, name: 'Body' },
+      { slot: 'shield', row: 2, col: 3, name: 'Shield' },
+      { slot: 'legs', row: 3, col: 2, name: 'Legs' },
+      { slot: 'arrows', row: 4, col: 3, name: 'Arrows' }
+    ];
+
+    slots.forEach(({ slot, row, col, name }) => {
+      const equipSlot = this.createEquipmentSlot(slot as any, name);
+      equipSlot.element.style.gridRow = row.toString();
+      equipSlot.element.style.gridColumn = col.toString();
+      equipmentLayout.appendChild(equipSlot.element);
+      this.equipmentSlots.set(slot, equipSlot);
+    });
+
+    this.equipmentPanel.appendChild(titleBar);
+    this.equipmentPanel.appendChild(equipmentLayout);
+    this.uiContainer!.appendChild(this.equipmentPanel);
+
+    this.panels.set('equipment', {
+      element: this.equipmentPanel,
+      visible: false,
+      draggable: true
+    });
+  }
+
+  /**
+   * Create minimap panel
+   */
+  private createMinimapPanel(): void {
+    this.minimapPanel = document.createElement('div');
+    this.minimapPanel.style.cssText = `
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 150px;
+      height: 150px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #666;
+      border-radius: 8px;
+      pointer-events: auto;
+    `;
+
+    const minimapCanvas = document.createElement('canvas');
+    minimapCanvas.width = 146;
+    minimapCanvas.height = 146;
+    minimapCanvas.style.cssText = `
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+    `;
+
+    this.minimapPanel.appendChild(minimapCanvas);
+    this.uiContainer!.appendChild(this.minimapPanel);
+
+    this.panels.set('minimap', {
+      element: this.minimapPanel,
+      visible: true,
+      draggable: false
+    });
+  }
+
+  /**
+   * Create chat panel
+   */
+  private createChatPanel(): void {
+    this.chatPanel = document.createElement('div');
+    this.chatPanel.style.cssText = `
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 400px;
+      height: 150px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #444;
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      pointer-events: auto;
+    `;
+
+    const chatMessages = document.createElement('div');
+    chatMessages.style.cssText = `
+      flex: 1;
+      overflow-y: auto;
+      color: white;
+      font-size: 12px;
+      line-height: 1.4;
+    `;
+
+    const chatInput = document.createElement('input');
+    chatInput.type = 'text';
+    chatInput.placeholder = 'Press Enter to chat...';
+    chatInput.style.cssText = `
+      margin-top: 5px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #666;
+      border-radius: 4px;
+      color: white;
+      font-size: 12px;
+      font-family: inherit;
+    `;
+
+    this.chatPanel.appendChild(chatMessages);
+    this.chatPanel.appendChild(chatInput);
+    this.uiContainer!.appendChild(this.chatPanel);
+
+    // Store references
+    (this.chatPanel as any).messagesElement = chatMessages;
+    (this.chatPanel as any).inputElement = chatInput;
+
+    this.panels.set('chat', {
+      element: this.chatPanel,
+      visible: true,
+      draggable: false
+    });
+  }
+
+  /**
+   * Create inventory slot
+   */
+  private createInventorySlot(index: number): InventorySlot {
+    const element = document.createElement('div');
+    element.style.cssText = `
+      width: 36px;
+      height: 36px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #666;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: background-color 0.2s;
+    `;
+
+    element.addEventListener('mouseenter', () => {
+      element.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    element.addEventListener('mouseleave', () => {
+      element.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+    });
+
+    return {
+      element,
+      index,
+      item: null,
+      quantity: 0
+    };
+  }
+
+  /**
+   * Create equipment slot
+   */
+  private createEquipmentSlot(slot: string, name: string): EquipmentSlot {
+    const element = document.createElement('div');
+    element.style.cssText = `
+      width: 60px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #666;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: background-color 0.2s;
+    `;
+
+    const label = document.createElement('div');
+    label.style.cssText = `
+      color: #aaa;
+      font-size: 8px;
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+    `;
+    label.textContent = name;
+
+    element.appendChild(label);
+
+    element.addEventListener('mouseenter', () => {
+      element.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    element.addEventListener('mouseleave', () => {
+      element.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+    });
+
+    return {
+      element,
+      slot: slot as any,
+      item: null,
+      quantity: 0
+    };
+  }
+
+  /**
+   * Set up keyboard shortcuts
+   */
+  private setupKeyboardShortcuts(): void {
+    document.addEventListener('keydown', (event) => {
+      switch (event.code) {
+        case 'KeyI':
+          this.togglePanel('inventory');
+          event.preventDefault();
+          break;
+        case 'KeyE':
+          this.togglePanel('equipment');
+          event.preventDefault();
+          break;
+        case 'KeyM':
+          this.togglePanel('minimap');
+          event.preventDefault();
+          break;
+      }
+    });
+  }
+
+  /**
+   * Toggle panel visibility
+   */
+  private togglePanel(panelName: string): void {
+    const panel = this.panels.get(panelName);
+    if (!panel) return;
+
+    panel.visible = !panel.visible;
+    panel.element.style.display = panel.visible ? 'block' : 'none';
+    
+    console.log(`[RPGUIComponents] Toggled ${panelName} panel: ${panel.visible ? 'visible' : 'hidden'}`);
+  }
+
+  /**
+   * Handle UI updates from game systems
+   */
+  private handleUIUpdate(data: any): void {
+    switch (data.component) {
+      case 'health':
+        this.updateHealthBar(data.data);
+        break;
+      case 'skills':
+        this.updateXPBar(data.data);
+        break;
+      case 'inventory':
+        this.updateInventory(data.data);
+        break;
+      case 'equipment':
+        this.updateEquipment(data.data);
+        break;
+    }
+  }
+
+  /**
+   * Update health bar
+   */
+  private updateHealthBar(data: { current: number; max: number }): void {
+    if (!this.healthBar) return;
+
+    const percentage = (data.current / data.max) * 100;
+    this.healthBar.style.width = `${percentage}%`;
+    
+    const textElement = (this.healthBar as any).textElement;
+    if (textElement) {
+      textElement.textContent = `${Math.floor(data.current)} / ${data.max}`;
+    }
+
+    // Change color based on health percentage
+    if (percentage > 50) {
+      this.healthBar.style.background = 'linear-gradient(to right, #44ff44, #88ff88)';
+    } else if (percentage > 25) {
+      this.healthBar.style.background = 'linear-gradient(to right, #ffaa44, #ffcc88)';
+    } else {
+      this.healthBar.style.background = 'linear-gradient(to right, #ff4444, #ff8888)';
+    }
+  }
+
+  /**
+   * Update XP bar
+   */
+  private updateXPBar(data: any): void {
+    if (!this.xpBar) return;
+
+    // Calculate XP percentage for current level
+    const currentLevel = data.constitution?.level || 1;
+    const currentXP = data.constitution?.xp || 0;
+    
+    // Simplified XP calculation - in real game this would use XP tables
+    const xpForCurrentLevel = (currentLevel - 1) * 1000;
+    const xpForNextLevel = currentLevel * 1000;
+    const xpInLevel = currentXP - xpForCurrentLevel;
+    const xpNeededForLevel = xpForNextLevel - xpForCurrentLevel;
+    
+    const percentage = (xpInLevel / xpNeededForLevel) * 100;
+    this.xpBar.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
+    
+    const textElement = (this.xpBar as any).textElement;
+    if (textElement) {
+      textElement.textContent = `Level ${currentLevel} - ${currentXP} XP`;
+    }
+  }
+
+  /**
+   * Update inventory display
+   */
+  private updateInventory(data: any): void {
+    // Update inventory slots based on data
+    // Implementation would populate slots with item icons and quantities
+    console.log('[RPGUIComponents] Inventory updated:', data);
+  }
+
+  /**
+   * Update equipment display
+   */
+  private updateEquipment(data: any): void {
+    // Update equipment slots based on data
+    // Implementation would show equipped items in their respective slots
+    console.log('[RPGUIComponents] Equipment updated:', data);
+  }
+
+  /**
+   * Add chat message
+   */
+  private addChatMessage(data: { message: string; type?: string; playerId?: string }): void {
+    const messagesElement = (this.chatPanel as any)?.messagesElement;
+    if (!messagesElement) return;
+
+    const messageElement = document.createElement('div');
+    messageElement.style.cssText = `
+      margin-bottom: 2px;
+      word-wrap: break-word;
+    `;
+
+    const timestamp = new Date().toLocaleTimeString();
+    const typeColor = this.getMessageColor(data.type || 'info');
+    
+    messageElement.innerHTML = `
+      <span style="color: #888; font-size: 10px;">[${timestamp}]</span>
+      <span style="color: ${typeColor};">${data.message}</span>
+    `;
+
+    messagesElement.appendChild(messageElement);
+    messagesElement.scrollTop = messagesElement.scrollHeight;
+
+    // Limit message history
+    while (messagesElement.children.length > 50) {
+      messagesElement.removeChild(messagesElement.firstChild!);
+    }
+  }
+
+  /**
+   * Get message color based on type
+   */
+  private getMessageColor(type: string): string {
+    switch (type) {
+      case 'error': return '#ff4444';
+      case 'warning': return '#ffaa44';
+      case 'success': return '#44ff44';
+      case 'info': return '#4444ff';
+      case 'combat': return '#ff8844';
+      default: return '#ffffff';
+    }
+  }
+
+  /**
+   * Update player stats
+   */
+  private updatePlayerStats(data: PlayerStats): void {
+    this.playerStats = data;
+    this.updateHealthBar({ current: data.health, max: data.maxHealth });
+  }
+
+  destroy(): void {
+    // Remove UI container
+    if (this.uiContainer && this.uiContainer.parentNode) {
+      this.uiContainer.parentNode.removeChild(this.uiContainer);
+    }
+    
+    // Clear references
+    this.panels.clear();
+    this.inventorySlots = [];
+    this.equipmentSlots.clear();
+    
+    console.log('[RPGUIComponents] System destroyed');
+  }
+
+  // Required System lifecycle methods
+  preTick(): void {}
+  preFixedUpdate(): void {}
+  fixedUpdate(dt: number): void {}
+  postFixedUpdate(): void {}
+  preUpdate(): void {}
+  update(dt: number): void {}
+  postUpdate(): void {}
+  lateUpdate(): void {}
+  postLateUpdate(): void {}
+  commit(): void {}
+  postTick(): void {}
+}

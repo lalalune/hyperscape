@@ -1,5 +1,3 @@
-import 'ses'
-
 import type { Plugin } from '@elizaos/core'
 import { logger } from '@elizaos/core'
 import { HyperfyService } from './service'
@@ -21,9 +19,7 @@ import { hyperfyActionsProvider } from './providers/actions'
 import { characterProvider } from './providers/character'
 import { hyperfyEvents } from './events'
 
-// --- Hardcoded values matching agent/index.mjs ---
-const HYPERFY_WS_URL = process.env.WS_URL || 'wss://chill.hyperfy.xyz/ws'
-// ---------------------------------------------
+import { NETWORK_CONFIG } from './config/constants'
 
 // Define the plugin configuration schema (optional, adjust as needed)
 // Renamed this one to avoid conflict
@@ -37,7 +33,7 @@ export const hyperfyPlugin: Plugin = {
   description: 'Integrates ElizaOS agents with Hyperfy worlds',
   config: {
     // Map environment variables to config keys
-    DEFAULT_HYPERFY_WS_URL: HYPERFY_WS_URL,
+    DEFAULT_HYPERFY_WS_URL: NETWORK_CONFIG.DEFAULT_WS_URL,
   },
   async init(config: Record<string, string | undefined>) {
     logger.info('*** Initializing Hyperfy Integration plugin ***')

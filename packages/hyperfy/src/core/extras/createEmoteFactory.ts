@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from './three.js'
 
 const q1 = new THREE.Quaternion()
 const restRotationInverse = new THREE.Quaternion()

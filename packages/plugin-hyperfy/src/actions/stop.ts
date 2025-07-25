@@ -6,6 +6,7 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
+  type Content,
   logger,
 } from '@elizaos/core'
 import { HyperfyService } from '../service'
@@ -81,7 +82,7 @@ export const hyperfyStopMovingAction: Action = {
 
     try {
       // Call the stop navigation method
-      controls.stopAllActions(reason)
+      controls.stopAllActions()
 
       if (callback) {
         const successResponse = {
@@ -91,7 +92,7 @@ export const hyperfyStopMovingAction: Action = {
           metadata: { status: 'movement_stopped', reason },
           success: true
         }
-        await callback(successResponse)
+        await callback(successResponse as Content)
       }
 
       return {
@@ -121,22 +122,32 @@ export const hyperfyStopMovingAction: Action = {
   examples: [
     [
       {
-        user: 'Stop walking.',
-        assistant: 'Stopped current movement.'
+        name: '{{user}}',
+        content: {
+          text: 'Stop walking.'
+        }
       },
       {
-        user: 'Halt!',
-        assistant: 'Movement halted immediately.'
+        name: '{{agent}}',
+        content: {
+          text: 'Stopped current movement.',
+          actions: ['HYPERFY_STOP_MOVE']
+        }
       }
     ],
     [
       {
-        user: 'Stop moving',
-        assistant: 'I\'ve stopped all movement.'
+        name: '{{user}}',
+        content: {
+          text: 'Stop moving'
+        }
       },
       {
-        user: 'Freeze',
-        assistant: 'Frozen in place.'
+        name: '{{agent}}',
+        content: {
+          text: 'I\'ve stopped all movement.',
+          actions: ['HYPERFY_STOP_MOVE']
+        }
       }
     ]
   ] as ActionExample[][],

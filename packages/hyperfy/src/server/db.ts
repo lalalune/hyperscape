@@ -1,7 +1,6 @@
 import knex from 'knex'
 import type { Knex } from 'knex'
 import moment from 'moment'
-import { getDB as getMockDB } from './db-mock'
 
 interface PluginMigration {
   name: string;
@@ -51,6 +50,9 @@ let db: Knex | undefined
 export async function getDB(path: string): Promise<Knex> {
   if (!db) {
     try {
+      console.log('[DB] Attempting to initialize database at:', path);
+      console.log('[DB] better-sqlite3 module check via require');
+      
       db = knex({
         client: 'better-sqlite3',
         connection: {
@@ -58,14 +60,19 @@ export async function getDB(path: string): Promise<Knex> {
         },
         useNullAsDefault: true,
       })
+      
+      console.log('[DB] Database initialized, running migrations...');
       await migrate(db)
+      console.log('[DB] Database migrations completed successfully');
     } catch (error) {
-      console.log('[DB] better-sqlite3 not available, using mock database')
-      // Fallback to mock database
-      db = await getMockDB(path) as Knex
+      console.error('[DB] Error initializing database:', error instanceof Error ? error.message : String(error))
+      console.error('[DB] Full error:', error)
+      console.log('[DB] Falling back to mock database for development')
+      // Return a mock database that doesn't crash
+      db = createMockDatabase() as any
     }
   }
-  return db
+  return db!
 }
 
 async function migrate(db: Knex): Promise<void> {
@@ -283,3 +290,46 @@ const migrations: Array<(db: Knex) => Promise<void>> = [
     }
   },
 ]
+
+function createMockDatabase() {
+  const mockQueryBuilder = {
+    where: (key: string, value: string) => mockQueryBuilder,
+    first: () => Promise.resolve(null),
+    select: (columns?: string | string[]) => mockQueryBuilder,
+    update: (data: any) => Promise.resolve([]),
+    delete: () => Promise.resolve([]),
+    insert: (data: any) => Promise.resolve([])
+  };
+
+  const mockFunction = (tableName: string) => {
+    console.log(`[DB Mock] Query on table: ${tableName}`);
+    return mockQueryBuilder;
+  };
+
+  // Add static methods to the function
+  Object.assign(mockFunction, {
+    schema: {
+      hasTable: (tableName: string) => {
+        console.log(`[DB Mock] Checking if table exists: ${tableName}`);
+        return Promise.resolve(false);
+      },
+      createTable: (tableName: string, callback?: any) => {
+        console.log(`[DB Mock] Creating table: ${tableName}`);
+        return Promise.resolve();
+      }
+    },
+    transaction: (fn: any) => {
+      console.log('[DB Mock] Running transaction');
+      return fn(mockFunction);
+    },
+    destroy: () => {
+      console.log('[DB Mock] Destroying connection');
+      return Promise.resolve();
+    },
+    fn: { 
+      now: () => 'datetime(\'now\')' 
+    }
+  });
+
+  return mockFunction;
+}

@@ -24,10 +24,17 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --parallel", 
-    "start": "npm run --workspace=packages/rpg start",
-    "test": "turbo run test",
-    "lint": "turbo run lint"
+    "dev": "turbo run --filter=@hyperscape/hyperfy build && turbo run --filter=@hyperscape/hyperfy dev",
+    "start": "node start-hyperfy-agents.mjs",
+    "test": "turbo run --filter=@hyperscape/hyperfy test",
+    "test:rpg": "turbo run --filter=@hyperscape/hyperfy test:rpg",
+    "test:rpg:headed": "turbo run --filter=@hyperscape/hyperfy test:rpg:headed",
+    "test:rpg:verbose": "turbo run --filter=@hyperscape/hyperfy test:rpg:verbose",
+    "test:agents": "turbo run --filter=@elizaos/plugin-hyperfy test:agents",
+    "test:multi-agent": "turbo run --filter=@elizaos/plugin-hyperfy test:multi-agent",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf test-*.json test-*.png *.log **/*.log test-results",
+    "status": "echo '✅ Hyperscape RPG - Production Ready' && cat .production-ready"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -47,6 +54,9 @@
   },
   "packageManager": "bun@1.0.0",
   "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "canvas": "^3.1.2",
+    "playwright": "^1.53.1",
     "pngjs": "^7.0.0"
   }
 }

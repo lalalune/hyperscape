@@ -8,7 +8,6 @@ import type {
   HotReloadable,
   Settings,
   Collections,
-  Apps,
   Anchors,
   Events,
   Chat,
@@ -19,30 +18,8 @@ import type {
   Scripts
 } from '../types';
 
-import { ActionRegistry } from './ActionRegistry';
-
-export interface PluginSystemDefinition {
-  name: string;
-  systemClass: SystemConstructor;
-  dependencies?: string[];
-}
-
-export interface HyperfyPlugin {
-  name: string;
-  version: string;
-  systems?: PluginSystemDefinition[];
-  init?: (world: World) => Promise<void>;
-}
-
-export interface StateQueryDefinition {
-  name: string;
-  description: string;
-  handler: (context: any) => any;
-}
-
 import { Settings as SettingsSystem } from './systems/Settings';
 import { Collections as CollectionsSystem } from './systems/Collections';
-import { Apps as AppsSystem } from './systems/Apps';
 import { Anchors as AnchorsSystem } from './systems/Anchors';
 import { Events as EventsSystem } from './systems/Events';
 import { Chat as ChatSystem } from './systems/Chat';
@@ -65,7 +42,6 @@ export class World extends EventEmitter implements IWorld {
   networkRate = 1 / 8; // 8Hz
   assetsUrl: string | null = null;
   assetsDir: string | null = null;
-  collectionsDir: string | null = null;
   hot = new Set<HotReloadable>();
   
   // Three.js objects
@@ -75,7 +51,6 @@ export class World extends EventEmitter implements IWorld {
   // Systems
   settings!: Settings;
   collections!: Collections;
-  apps!: Apps;
   anchors!: Anchors;
   events!: Events;
   scripts!: Scripts;
@@ -102,11 +77,15 @@ export class World extends EventEmitter implements IWorld {
   
   // Storage
   storage?: any;
-  
-  // Plugin system
-  private plugins = new Map<string, HyperfyPlugin>();
-  private stateQueries = new Map<string, StateQueryDefinition>();
-  public actionRegistry = new ActionRegistry();
+
+  // Helper properties for common access patterns
+  get isServer(): boolean {
+    return this.network?.isServer ?? false;
+  }
+
+  get isClient(): boolean {
+    return this.network?.isClient ?? true;
+  }
 
   constructor() {
     super();
@@ -120,7 +99,6 @@ export class World extends EventEmitter implements IWorld {
     // Register core systems
     this.register('settings', SettingsSystem);
     this.register('collections', CollectionsSystem);
-    this.register('apps', AppsSystem);
     this.register('anchors', AnchorsSystem);
     this.register('events', EventsSystem);
     this.register('scripts', ScriptsSystem);
@@ -142,10 +120,16 @@ export class World extends EventEmitter implements IWorld {
     this.storage = options.storage;
     this.assetsDir = options.assetsDir || null;
     this.assetsUrl = options.assetsUrl || null;
-    this.collectionsDir = (options as any).collectionsDir || null;
     
     for (const system of this.systems) {
+      console.log(`[World] Initializing system: ${system.constructor.name}`);
+      if (typeof system.init !== 'function') {
+        console.error(`[World] ERROR: System ${system.constructor.name} does not have an init method!`);
+        console.error(`[World] System prototype:`, Object.getOwnPropertyNames(Object.getPrototypeOf(system)));
+        throw new Error(`System ${system.constructor.name} does not have an init method`);
+      }
       await system.init(options);
+      console.log(`[World] ✅ System ${system.constructor.name} initialized`);
     }
     
     this.start();
@@ -248,7 +232,12 @@ export class World extends EventEmitter implements IWorld {
       item.update?.(delta);
     }
     for (const system of this.systems) {
-      system.update(delta);
+      try {
+        system.update(delta);
+      } catch (error) {
+        console.error(`[World] Error in system update:`, system.constructor.name, error);
+        throw error;
+      }
     }
   }
 
@@ -324,12 +313,6 @@ export class World extends EventEmitter implements IWorld {
       }
     }
     
-    if (url.startsWith('/collections/') && this.collectionsDir && allowLocal) {
-      // Handle collections scripts on server side
-      const collectionsDir = this.collectionsDir.endsWith('/') ? this.collectionsDir : this.collectionsDir + '/';
-      return url.replace('/collections/', collectionsDir);
-    }
-    
     if (url.match(/^https?:\/\//i)) {
       return url;
     }
@@ -346,58 +329,53 @@ export class World extends EventEmitter implements IWorld {
   }
 
   inject(runtime: any): void {
-    this.apps.inject(runtime);
+    // This method is no longer needed as apps property is removed
+    // this.apps.inject(runtime);
   }
-  
-  async registerPlugin(plugin: HyperfyPlugin): Promise<void> {
-    console.log(`[World] Registering plugin: ${plugin.name} v${plugin.version}`);
-    
-    // Register systems
-    if (plugin.systems) {
-      for (const systemDef of plugin.systems) {
-        // Check if system already exists
-        if (this.systems.find(s => s.constructor.name === systemDef.systemClass.name)) {
-          console.warn(`[World] System ${systemDef.systemClass.name} already registered, skipping`);
-          continue;
-        }
-        
-        this.register(systemDef.name, systemDef.systemClass);
-        console.log(`[World] Registered system: ${systemDef.name}`);
-      }
+
+  // Helper methods for common access patterns
+  getPlayer(playerId?: string): any {
+    if (playerId) {
+      return this.entities?.getPlayer?.(playerId);
     }
-    
-    // Run plugin initialization
-    if (plugin.init) {
-      await plugin.init(this);
-    }
-    
-    this.plugins.set(plugin.name, plugin);
-    console.log(`[World] Plugin registered successfully: ${plugin.name}`);
+    // If no playerId provided, try to get local player
+    return this.entities?.getLocalPlayer?.();
   }
-  
-  getPlugin(name: string): HyperfyPlugin | undefined {
-    return this.plugins.get(name);
+
+  getPlayers(): any[] {
+    return this.entities?.getPlayers?.() || [];
   }
-  
-  getLoadedPlugins(): HyperfyPlugin[] {
-    return Array.from(this.plugins.values());
+
+  raycast(origin: any, direction: any, maxDistance?: number, layerMask?: number): any {
+    return this.physics?.raycast?.(origin, direction, maxDistance, layerMask);
   }
-  
-  registerStateQuery(query: StateQueryDefinition): void {
-    this.stateQueries.set(query.name, query);
-    console.log(`[World] Registered state query: ${query.name}`);
+
+  createLayerMask(...layers: string[]): any {
+    // This would need to be implemented in the physics system
+    // For now, return a placeholder
+    console.warn('createLayerMask not implemented yet');
+    return 0;
   }
-  
-  queryState(name: string, context: any): any {
-    const query = this.stateQueries.get(name);
-    if (!query) {
-      throw new Error(`State query not found: ${name}`);
-    }
-    return query.handler(context);
+
+  queryState(queryName: string, context?: any): any {
+    // This would need to be implemented for state queries
+    console.warn('queryState not implemented yet');
+    return null;
   }
-  
-  getAllStateQueries(): StateQueryDefinition[] {
-    return Array.from(this.stateQueries.values());
+
+  getAllStateQueries(): string[] {
+    // This would need to be implemented for state queries
+    console.warn('getAllStateQueries not implemented yet');
+    return [];
+  }
+
+  async registerPlugin(plugin: any): Promise<void> {
+    // Plugin registration would need to be implemented
+    console.warn('registerPlugin not implemented yet');
+  }
+
+  getTime(): number {
+    return this.time;
   }
 
   destroy(): void {

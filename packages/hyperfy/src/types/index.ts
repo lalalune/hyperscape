@@ -1,4 +1,7 @@
-import * as THREE from 'three';
+import * as THREE from '../core/extras/three.js';
+
+// Export core types
+export type { EntityData } from './core';
 
 // Core World Types
 export interface WorldOptions {
@@ -30,7 +33,6 @@ export interface World {
   // Systems
   settings: Settings;
   collections: Collections;
-  apps: Apps;
   anchors: Anchors;
   events: Events;
   scripts: Scripts;
@@ -91,10 +93,23 @@ export interface World {
     };
   };
   
-  // Add emit and on methods
-  emit?: (event: string, ...args: any[]) => boolean;
-  on?: <T extends string | symbol>(event: T, fn: (...args: any[]) => void, context?: any) => any;
-  off?: <T extends string | symbol>(event: T, fn?: (...args: any[]) => void, context?: any, once?: boolean) => any;
+  // EventEmitter methods (since World extends EventEmitter)
+  emit: (event: string, ...args: any[]) => boolean;
+  on: <T extends string | symbol>(event: T, fn: (...args: any[]) => void, context?: any) => any;
+  off: <T extends string | symbol>(event: T, fn?: (...args: any[]) => void, context?: any, once?: boolean) => any;
+  
+  // Helper properties for common access patterns
+  isClient?: boolean;
+  isServer?: boolean;
+  
+  // Helper methods for common access patterns
+  getPlayer?: (playerId?: string) => Player | null;
+  getPlayers?: () => Player[];
+  createLayerMask?: (...layers: string[]) => number;
+  raycast?: (origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number) => RaycastHit | null;
+  queryState?: (queryName: string, context?: any) => any;
+  getAllStateQueries?: () => string[];
+  registerPlugin?: (plugin: any) => Promise<void>;
 }
 
 // System Types
@@ -137,10 +152,13 @@ export interface Entity {
   scale: Vector3;
   velocity?: Vector3;
   isPlayer: boolean;
+  active: boolean;
+  destroyed: boolean;
   
   // Component management
   addComponent(type: string, data?: any): Component;
   removeComponent(type: string): void;
+  removeAllComponents(): void;
   getComponent<T extends Component>(type: string): T | null;
   hasComponent(type: string): boolean;
   
@@ -181,6 +199,8 @@ export interface Vector3 {
   x: number;
   y: number;
   z: number;
+  distanceTo?(vector: Vector3): number;
+  clone?(): Vector3;
 }
 
 export interface Quaternion {
@@ -416,6 +436,7 @@ export interface Entities extends System {
   // Add methods
   getLocalPlayer(): Player | null;
   getPlayer(id: string): Player | null;
+  getPlayers(): Player[];
   
   create(name: string, options?: any): Entity;
   destroyEntity(entityId: string): void;
@@ -441,6 +462,7 @@ export interface Physics extends System {
   overlapSphere(position: Vector3, radius: number): Collider[];
   sweep(geometry: any, origin: Vector3, direction: Vector3, maxDistance: number, layerMask: number): any;
   addActor(actor: any, handle: any): any;
+  removeCollider(collider: any): void;
 }
 
 export interface RaycastHit {
@@ -456,5 +478,7 @@ export interface Stage extends System {
   octree: any;
   scene: any; // THREE.Scene
   environment: any;
+  camera?: any; // THREE.Camera
   clean(): void;
+  insert(options: any): any; // Returns StageHandle
 } 

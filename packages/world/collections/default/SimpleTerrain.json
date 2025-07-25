@@ -1,0 +1,28 @@
+{
+  "name": "SimpleTerrain",
+  "description": "Simple Terrain Generator - Creates a basic heightmap terrain without complex imports",
+  "category": "terrain",
+  "tags": ["terrain", "heightmap", "procedural"],
+  "script": "SimpleTerrain.js",
+  "properties": {
+    "worldSize": {
+      "type": "number",
+      "default": 75,
+      "min": 10,
+      "max": 200,
+      "description": "Size of the generated world"
+    },
+    "heightScale": {
+      "type": "number", 
+      "default": 10,
+      "min": 1,
+      "max": 50,
+      "description": "Maximum height of terrain"
+    },
+    "showDebug": {
+      "type": "toggle",
+      "default": false,
+      "description": "Show debug information"
+    }
+  }
+}

@@ -6,8 +6,8 @@ import puppeteer from 'puppeteer'
 import { IAgentRuntime, ModelType } from '@elizaos/core'
 import { HyperfyService } from '../service.js'
 import * as THREE from 'three'
-import { resolveUrl } from '../utils.js'
-import { getModuleDirectory } from '../utils.js'
+import { resolveUrl } from '../utils'
+import { getModuleDirectory } from '../utils'
 
 export class PuppeteerManager {
   private static instance: PuppeteerManager | null = null
@@ -78,9 +78,9 @@ export class PuppeteerManager {
 
           await this.page.waitForFunction(
             () =>
-              window.THREE !== undefined &&
               window.scene !== undefined &&
-              window.camera !== undefined
+              window.camera !== undefined &&
+              window.renderer !== undefined
           )
         } catch (error) {
           console.warn(
@@ -372,8 +372,8 @@ export class PuppeteerManager {
     const STRIP_SLOTS = this.STRIP_SLOTS
     await this.page.evaluate(
       async (sceneJson, STRIP_SLOTS, players) => {
-        const THREE = window.THREE
-        const loader = new window.THREE.ObjectLoader()
+        // THREE is available via import maps in index.html
+        const loader = new THREE.ObjectLoader()
         const loadedScene = loader.parse(sceneJson)
 
         // Rehydrate materials

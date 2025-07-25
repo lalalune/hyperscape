@@ -1,5 +1,5 @@
-import { System } from './System.js';
-import type { World } from '../../types/index.js';
+import { System } from './System';
+import type { World } from '../../types';
 
 const BATCH_SIZE = 1000;
 

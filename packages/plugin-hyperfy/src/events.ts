@@ -4,7 +4,12 @@ import { hyperfyMessageReceivedHandler } from './handlers/messageReceivedHandler
 export enum hyperfyEventType {
   MESSAGE_RECEIVED = 'HYPERFY_MESSAGE_RECEIVED',
   VOICE_MESSAGE_RECEIVED = 'HYPERFY_VOICE_MESSAGE_RECEIVED',
+  CONTENT_LOADED = 'HYPERFY_CONTENT_LOADED',
+  CONTENT_UNLOADED = 'HYPERFY_CONTENT_UNLOADED',
 }
+
+// Alias for backward compatibility
+export const EventType = hyperfyEventType
 
 const defaultCallback: HandlerCallback = async () => []
 

@@ -15,6 +15,7 @@ import { MouseWheelIcon } from './MouseWheelIcon'
 // import { MenuApp } from './MenuApp'
 import { ChevronDoubleUpIcon, HandIcon } from './Icons'
 import { Sidebar } from './Sidebar'
+import { RPGInterface } from './RPGInterface'
 
 export function CoreUI({ world }: { world: any }) {
   const ref = useRef<HTMLDivElement | null>(null)
@@ -94,6 +95,7 @@ export function CoreUI({ world }: { world: any }) {
       {ready && <ActionsBlock world={world} />}
       {ready && <Sidebar world={world} ui={ui} />}
       {ready && <Chat world={world} />}
+      {ready && <RPGInterface world={world} />}
       {/* {ready && <Side world={world} player={player} menu={menu} />} */}
       {/* {ready && menu?.type === 'app' && code && (
         <CodeEditor key={`code-${menu.app.data.id}`} world={world} app={menu.app} blur={menu.blur} />
@@ -276,11 +278,11 @@ export function CoreUI({ world }: { world: any }) {
 //               {livekit.mic ? <MicIcon size='1.5rem' /> : <MicOffIcon size='1.5rem' />}
 //             </div>
 //           )}
-//           {world.xr.supportsVR && (
+//           {world.xr?.supportsVR && (
 //             <div
 //               className='side-btn'
 //               onClick={() => {
-//                 world.xr.enter()
+//                 world.xr?.enter()
 //               }}
 //             >
 //               <VRIcon size='1.5rem' />

@@ -1,6 +1,7 @@
 import { HyperfyService } from '../service'
 import { PuppeteerManager } from './puppeteer-manager'
-import type { HyperfyWorld } from '../types/hyperfy'
+import type { WorldInterface as HyperfyWorld } from '@hyperscape/hyperfy'
+import { GAME_CONFIG } from '../config/constants'
 
 // Mock logger until @elizaos/core is available
 const logger = {
@@ -163,7 +164,7 @@ export class EnhancedObserver {
    */
   async highlightAction(
     actionName: string,
-    duration: number = 3000
+    duration: number = GAME_CONFIG.OBSERVATION_DURATION_MS
   ): Promise<void> {
     if (!this.config.highlightActions) return
 
@@ -241,7 +242,7 @@ export class EnhancedObserver {
         bubble.innerHTML = `<strong>Thinking:</strong> ${thoughtText}`
         document.body.appendChild(bubble)
 
-        setTimeout(() => bubble.remove(), 5000)
+        setTimeout(() => bubble.remove(), GAME_CONFIG.BUBBLE_DURATION_MS)
       }, thought)
     }
   }

@@ -1,12 +1,13 @@
 import type { EntityData } from '../../types/core';
 import type { 
-  Component,
   Vector3,
   Quaternion,
   World,
-  Entity as IEntity
+  Entity as IEntity,
+  Component as IComponent
 } from '../../types';
-import * as THREE from 'three';
+import * as THREE from '../extras/three.js';
+import { Component, createComponent, TransformComponent } from '../components';
 
 export class Entity implements IEntity {
   world: World;
@@ -15,9 +16,11 @@ export class Entity implements IEntity {
   name: string;
   type: string;
   node: any; // THREE.Object3D - using any to avoid type conflicts
-  components: Map<string, Component>;
+  components: Map<string, any>;
   velocity: Vector3;
   isPlayer: boolean;
+  active: boolean = true;
+  destroyed: boolean = false;
   
   // Physics body reference
   private rigidBody?: any;
@@ -49,13 +52,20 @@ export class Entity implements IEntity {
       this.node.scale.set(data.scale[0], data.scale[1], data.scale[2]);
     }
     
-    // Initialize velocity
-    this.velocity = { x: 0, y: 0, z: 0 };
+    // Initialize velocity as THREE.Vector3
+    this.velocity = new THREE.Vector3(0, 0, 0);
     
     // Add to world scene
     if (this.world.stage?.scene) {
       this.world.stage.scene.add(this.node);
     }
+    
+    // Automatically add transform component for ECS architecture
+    this.addComponent('transform', {
+      position: this.position,
+      rotation: this.rotation,
+      scale: this.scale
+    });
     
     // Network sync for local entities
     if (local && (this.world as any).network) {
@@ -63,13 +73,9 @@ export class Entity implements IEntity {
     }
   }
   
-  // Transform getters
+  // Transform getters - return THREE.Vector3 instances
   get position(): Vector3 {
-    return {
-      x: this.node.position.x,
-      y: this.node.position.y,
-      z: this.node.position.z
-    };
+    return this.node.position;
   }
   
   set position(value: Vector3) {
@@ -92,11 +98,7 @@ export class Entity implements IEntity {
   }
   
   get scale(): Vector3 {
-    return {
-      x: this.node.scale.x,
-      y: this.node.scale.y,
-      z: this.node.scale.z
-    };
+    return this.node.scale;
   }
   
   set scale(value: Vector3) {
@@ -104,19 +106,18 @@ export class Entity implements IEntity {
   }
   
   // Component management
-  addComponent(type: string, data?: any): Component {
+  addComponent(type: string, data?: any): any {
     // Check if component already exists
     if (this.components.has(type)) {
       console.warn(`Entity ${this.id} already has component ${type}`);
       return this.components.get(type)!;
     }
     
-    // Create component
-    const component: Component = {
-      type,
-      entity: this,
-      data: data || {}
-    };
+    // Create component using the registry
+    const component = createComponent(type, this, data);
+    if (!component) {
+      throw new Error(`Failed to create component of type: ${type}`);
+    }
     
     // Store component
     this.components.set(type, component);
@@ -126,7 +127,7 @@ export class Entity implements IEntity {
       component.init();
     }
     
-    // Handle special component types
+    // Handle special component types (legacy compatibility)
     this.handleSpecialComponent(type, component);
     
     // Emit event
@@ -161,12 +162,19 @@ export class Entity implements IEntity {
     });
   }
   
-  getComponent<T extends Component>(type: string): T | null {
+  getComponent<T = any>(type: string): T | null {
     return (this.components.get(type) as T) || null;
   }
   
   hasComponent(type: string): boolean {
     return this.components.has(type);
+  }
+  
+  removeAllComponents(): void {
+    // Remove all components
+    for (const type of Array.from(this.components.keys())) {
+      this.removeComponent(type);
+    }
   }
   
   // Physics methods
@@ -190,23 +198,24 @@ export class Entity implements IEntity {
     }
   }
   
-  setVelocity(velocity: Vector3): void {
-    this.velocity = { ...velocity };
+  // Set velocity using THREE.Vector3
+  setVelocity(vel: Vector3): void {
+    if (vel instanceof THREE.Vector3) {
+      (this.velocity as THREE.Vector3).copy(vel);
+    } else {
+      (this.velocity as THREE.Vector3).set(vel.x, vel.y, vel.z);
+    }
     
-    if (this.rigidBody && this.world.physics?.world) {
-      const physicsVelocity = new this.world.physics.world.PxVec3(velocity.x, velocity.y, velocity.z);
-      this.rigidBody.setLinearVelocity(physicsVelocity);
-      physicsVelocity.delete();
+    // Apply to physics body if available
+    if (this.rigidBody && this.world.physics) {
+      const physics = this.world.physics as any;
+      physics.setLinearVelocity?.(this.rigidBody, this.velocity);
     }
   }
   
+  // Get velocity returns the THREE.Vector3 instance
   getVelocity(): Vector3 {
-    if (this.rigidBody && this.world.physics?.world) {
-      const vel = this.rigidBody.getLinearVelocity();
-      this.velocity = { x: vel.x, y: vel.y, z: vel.z };
-    }
-    
-    return { ...this.velocity };
+    return this.velocity;
   }
   
   // Update methods
@@ -337,7 +346,7 @@ export class Entity implements IEntity {
   }
   
   // Helper methods
-  private syncPhysicsTransform(): void {
+  syncPhysicsTransform(): void {
     if (!this.rigidBody || !this.world.physics?.world) return;
     
     // Sync Three.js transform to physics body
@@ -356,7 +365,7 @@ export class Entity implements IEntity {
     transform.delete();
   }
   
-  private handleSpecialComponent(type: string, component: Component): void {
+  handleSpecialComponent(type: string, component: Component): void {
     switch (type) {
       case 'rigidbody':
         this.createPhysicsBody(component);

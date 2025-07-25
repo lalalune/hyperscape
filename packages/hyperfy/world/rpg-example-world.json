@@ -1,0 +1,389 @@
+{
+  "name": "RPG World Example",
+  "description": "A complete RuneScape-inspired RPG world with all systems enabled",
+  "spawn": {
+    "position": [0, 3, 0],
+    "rotation": [0, 0, 0]
+  },
+  "settings": {
+    "title": "Hyperfy RPG - Brookhaven",
+    "description": "A persistent multiplayer RPG world",
+    "maxPlayers": 100,
+    "worldSize": 500,
+    "difficulty": "progressive",
+    "pvpEnabled": false,
+    "rpgSystemsEnabled": true
+  },
+  "terrain": {
+    "type": "heightmap",
+    "size": 500,
+    "heightScale": 20,
+    "biomesEnabled": true,
+    "physicsEnabled": true,
+    "collisionEnabled": true
+  },
+  "systems": {
+    "rpg": {
+      "enabled": true,
+      "startingTowns": 5,
+      "mobSpawning": true,
+      "resourceSpawning": true,
+      "combatEnabled": true,
+      "skillsEnabled": true,
+      "bankingEnabled": true,
+      "tradingEnabled": false
+    },
+    "weather": {
+      "enabled": true,
+      "dynamicWeather": true
+    },
+    "dayNight": {
+      "enabled": true,
+      "cycleLength": 1800
+    }
+  },
+  "entities": [
+    {
+      "id": "rpg-player-spawn-brookhaven",
+      "type": "spawn_point",
+      "position": [0, 3, 0],
+      "rotation": [0, 0, 0],
+      "data": {
+        "spawnType": "player",
+        "townId": "town_central",
+        "townName": "Brookhaven",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "rpg-player-spawn-eastport",
+      "type": "spawn_point", 
+      "position": [100, 3, 0],
+      "rotation": [0, 0, 0],
+      "data": {
+        "spawnType": "player",
+        "townId": "town_eastern", 
+        "townName": "Eastport",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "rpg-player-spawn-westfall",
+      "type": "spawn_point",
+      "position": [-100, 3, 0], 
+      "rotation": [0, 0, 0],
+      "data": {
+        "spawnType": "player",
+        "townId": "town_western",
+        "townName": "Westfall", 
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "rpg-player-spawn-northridge",
+      "type": "spawn_point",
+      "position": [0, 3, 100],
+      "rotation": [0, 0, 0], 
+      "data": {
+        "spawnType": "player",
+        "townId": "town_northern",
+        "townName": "Northridge",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "rpg-player-spawn-southmere",
+      "type": "spawn_point",
+      "position": [0, 3, -100],
+      "rotation": [0, 0, 0],
+      "data": {
+        "spawnType": "player", 
+        "townId": "town_southern",
+        "townName": "Southmere",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "terrain-base",
+      "type": "terrain",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "data": {
+        "terrainType": "rpg_world",
+        "size": 500,
+        "biomes": [
+          {
+            "name": "Mistwood Valley",
+            "area": { "x": 0, "z": 0, "radius": 150 },
+            "difficulty": 1,
+            "description": "Foggy forests with goblin camps"
+          },
+          {
+            "name": "Goblin Wastes", 
+            "area": { "x": 200, "z": 200, "radius": 100 },
+            "difficulty": 2,
+            "description": "Barren lands dominated by goblin tribes"
+          },
+          {
+            "name": "Darkwood Forest",
+            "area": { "x": -200, "z": 200, "radius": 100 },
+            "difficulty": 2,
+            "description": "Dense, shadowy woods hiding dark warriors"
+          },
+          {
+            "name": "Northern Reaches",
+            "area": { "x": 0, "z": 300, "radius": 80 },
+            "difficulty": 3,
+            "description": "Frozen tundra with ice caves"
+          },
+          {
+            "name": "Blasted Lands",
+            "area": { "x": -300, "z": -200, "radius": 120 },
+            "difficulty": 3,
+            "description": "Desolate areas corrupted by dark magic"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zone-marker-beginner",
+      "type": "zone_marker",
+      "position": [0, 5, 0],
+      "rotation": [0, 0, 0],
+      "data": {
+        "zoneName": "Beginner Zone",
+        "level": "1-5",
+        "radius": 150,
+        "safeZone": false,
+        "description": "Safe area for new adventurers"
+      }
+    },
+    {
+      "id": "zone-marker-intermediate", 
+      "type": "zone_marker",
+      "position": [200, 5, 0],
+      "rotation": [0, 0, 0],
+      "data": {
+        "zoneName": "Intermediate Zone",
+        "level": "5-10", 
+        "radius": 100,
+        "safeZone": false,
+        "description": "Moderate challenge for experienced players"
+      }
+    },
+    {
+      "id": "zone-marker-advanced",
+      "type": "zone_marker", 
+      "position": [-200, 5, 0],
+      "rotation": [0, 0, 0],
+      "data": {
+        "zoneName": "Advanced Zone",
+        "level": "10-15",
+        "radius": 100, 
+        "safeZone": false,
+        "description": "High-level area with dangerous enemies"
+      }
+    }
+  ],
+  "spawnConfiguration": {
+    "playerSpawns": {
+      "method": "random_town",
+      "availableTowns": [
+        "town_central",
+        "town_eastern", 
+        "town_western",
+        "town_northern",
+        "town_southern"
+      ]
+    },
+    "mobSpawns": {
+      "enabled": true,
+      "spawnRate": 1.0,
+      "maxMobs": 200,
+      "respawnTime": 900,
+      "areas": [
+        {
+          "center": [50, 2, 50],
+          "radius": 30,
+          "mobTypes": ["goblin", "bandit", "barbarian"],
+          "difficulty": 1,
+          "spawnCount": 8
+        },
+        {
+          "center": [-50, 2, 50],
+          "radius": 30, 
+          "mobTypes": ["goblin", "bandit"],
+          "difficulty": 1,
+          "spawnCount": 6
+        },
+        {
+          "center": [50, 2, -50],
+          "radius": 30,
+          "mobTypes": ["barbarian", "goblin"],
+          "difficulty": 1,
+          "spawnCount": 8
+        },
+        {
+          "center": [-50, 2, -50],
+          "radius": 30,
+          "mobTypes": ["bandit", "barbarian"], 
+          "difficulty": 1,
+          "spawnCount": 6
+        },
+        {
+          "center": [150, 2, 150],
+          "radius": 40,
+          "mobTypes": ["hobgoblin", "guard"],
+          "difficulty": 2,
+          "spawnCount": 10
+        },
+        {
+          "center": [-150, 2, 150], 
+          "radius": 40,
+          "mobTypes": ["dark_warrior", "hobgoblin"],
+          "difficulty": 2,
+          "spawnCount": 10
+        },
+        {
+          "center": [150, 2, -150],
+          "radius": 40,
+          "mobTypes": ["guard", "dark_warrior"],
+          "difficulty": 2, 
+          "spawnCount": 8
+        },
+        {
+          "center": [250, 2, 250],
+          "radius": 50,
+          "mobTypes": ["black_knight", "ice_warrior"],
+          "difficulty": 3,
+          "spawnCount": 12
+        },
+        {
+          "center": [-250, 2, 250],
+          "radius": 50,
+          "mobTypes": ["dark_ranger", "black_knight"],
+          "difficulty": 3,
+          "spawnCount": 12
+        },
+        {
+          "center": [0, 2, 300],
+          "radius": 60, 
+          "mobTypes": ["ice_warrior", "dark_ranger"],
+          "difficulty": 3,
+          "spawnCount": 15
+        }
+      ]
+    },
+    "resourceSpawns": {
+      "enabled": true,
+      "method": "procedural_noise",
+      "description": "Resources are generated using noise layers integrated with terrain system",
+      "trees": {
+        "method": "noise_based",
+        "noiseScale": 0.01,
+        "densityThreshold": {
+          "forest": -0.3,
+          "grassland": 0.1
+        },
+        "avoidTowns": true,
+        "townExclusionRadius": 50
+      },
+      "fishingSpots": {
+        "method": "noise_based", 
+        "noiseScale": 0.005,
+        "densityThreshold": 0.6,
+        "requireWater": true,
+        "maxHeight": 3
+      },
+      "rocks": {
+        "method": "noise_based",
+        "noiseScale": 0.015,
+        "densityThreshold": {
+          "mountains": -0.1,
+          "hills": 0.3
+        },
+        "minHeight": 5,
+        "oreChance": 0.3
+      }
+    }
+  },
+  "gameSettings": {
+    "startingItems": [
+      {
+        "item": "bronze_sword", 
+        "quantity": 1,
+        "equipped": true,
+        "slot": "weapon"
+      }
+    ],
+    "startingSkills": {
+      "attack": { "level": 1, "xp": 0 },
+      "strength": { "level": 1, "xp": 0 },
+      "defense": { "level": 1, "xp": 0 },
+      "constitution": { "level": 10, "xp": 1154 },
+      "ranged": { "level": 1, "xp": 0 },
+      "woodcutting": { "level": 1, "xp": 0 },
+      "fishing": { "level": 1, "xp": 0 },
+      "firemaking": { "level": 1, "xp": 0 },
+      "cooking": { "level": 1, "xp": 0 }
+    },
+    "economySettings": {
+      "bankingEnabled": true,
+      "storePrices": {
+        "hatchet_bronze": 1,
+        "fishing_rod": 5, 
+        "tinderbox": 1,
+        "arrows": 1
+      },
+      "dropRates": {
+        "level1": {
+          "coins": { "min": 1, "max": 5, "chance": 1.0 },
+          "bronze_equipment": { "chance": 0.1 }
+        },
+        "level2": {
+          "coins": { "min": 5, "max": 15, "chance": 1.0 },
+          "steel_equipment": { "chance": 0.15 }
+        },
+        "level3": {
+          "coins": { "min": 15, "max": 35, "chance": 1.0 },
+          "mithril_equipment": { "chance": 0.2 }
+        }
+      }
+    },
+    "combatSettings": {
+      "autoAttack": true,
+      "attackRange": 1.5,
+      "rangedAttackRange": 10.0,
+      "combatCooldown": 2.4,
+      "deathPenalty": "drop_items",
+      "respawnTime": 5,
+      "safezoneProtection": true
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "created": "2024-01-01T00:00:00Z",
+    "author": "Hyperfy RPG System",
+    "description": "Complete RPG world configuration with all systems enabled",
+    "tags": ["rpg", "runescape", "multiplayer", "persistent", "skills", "combat"],
+    "requiredSystems": [
+      "RPGPlayerSystem",
+      "RPGCombatSystem", 
+      "RPGInventorySystem",
+      "RPGXPSystem",
+      "RPGMobSystem",
+      "RPGBankingSystem",
+      "RPGStoreSystem",
+      "RPGResourceSystem",
+      "RPGMovementSystem",
+      "RPGWorldGenerationSystem",
+      "TerrainSystem"
+    ]
+  }
+}

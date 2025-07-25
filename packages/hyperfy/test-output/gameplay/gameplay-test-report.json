@@ -1,0 +1,183 @@
+{
+  "summary": {
+    "total": 13,
+    "passed": 0,
+    "failed": 13,
+    "passRate": 0
+  },
+  "results": [
+    {
+      "name": "Setup Test World",
+      "status": "FAILED",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3333/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3333/\", waiting until \"load\"\u001b[22m\n",
+      "stack": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3333/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3333/\", waiting until \"load\"\u001b[22m\n\n    at RPGGameplayTest.testSetupWorld (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:201:21)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:18)",
+      "timestamp": 1753400761179
+    },
+    {
+      "name": "Player Spawn",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'spawnTestPlayer')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:41)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'spawnTestPlayer')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:41)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testPlayerSpawn (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:322:43)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761249
+    },
+    {
+      "name": "Combat Mechanics",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'spawnTestPlayer')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:41)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'spawnTestPlayer')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:41)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testCombatMechanics (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:350:41)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761286
+    },
+    {
+      "name": "Loot System",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'spawnTestPlayer')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:26)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'spawnTestPlayer')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:26)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testLootSystem (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:422:21)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761320
+    },
+    {
+      "name": "Inventory Management",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testInventoryManagement (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:478:43)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761369
+    },
+    {
+      "name": "Equipment System",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testEquipmentSystem (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:530:39)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761402
+    },
+    {
+      "name": "Resource Gathering",
+      "status": "FAILED",
+      "error": "page.evaluate: ReferenceError: THREE is not defined\n    at eval (eval at evaluate (:291:30), <anonymous>:3:28)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: THREE is not defined\n    at eval (eval at evaluate (:291:30), <anonymous>:3:28)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testResourceGathering (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:589:21)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761436
+    },
+    {
+      "name": "Banking Operations",
+      "status": "FAILED",
+      "error": "page.evaluate: ReferenceError: THREE is not defined\n    at eval (eval at evaluate (:291:30), <anonymous>:2:28)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: THREE is not defined\n    at eval (eval at evaluate (:291:30), <anonymous>:2:28)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testBankingOperations (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:703:21)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761485
+    },
+    {
+      "name": "Store Transactions",
+      "status": "FAILED",
+      "error": "page.evaluate: ReferenceError: THREE is not defined\n    at eval (eval at evaluate (:291:30), <anonymous>:2:29)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: THREE is not defined\n    at eval (eval at evaluate (:291:30), <anonymous>:2:29)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testStoreTransactions (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:777:21)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761519
+    },
+    {
+      "name": "Skill Progression",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testSkillProgression (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:875:39)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761553
+    },
+    {
+      "name": "Death and Respawn",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testDeathAndRespawn (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:947:21)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761601
+    },
+    {
+      "name": "Visual Elements",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:2:35)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testVisualElements (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1054:21)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761635
+    },
+    {
+      "name": "Full Gameplay Loop",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:3:20)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'stage')\n    at eval (eval at evaluate (:291:30), <anonymous>:3:20)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGGameplayTest.testFullGameplayLoop (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1167:44)\n    at RPGGameplayTest.runAllGameplayTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:174:27)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-gameplay.mjs:1438:5)",
+      "timestamp": 1753400761669
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "error-setup-test-world",
+      "filename": "error-setup-test-world-1753400761179.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-setup-test-world-1753400761179.png",
+      "timestamp": "2025-07-24T23:46:01.247Z"
+    },
+    {
+      "name": "error-player-spawn",
+      "filename": "error-player-spawn-1753400761249.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-player-spawn-1753400761249.png",
+      "timestamp": "2025-07-24T23:46:01.285Z"
+    },
+    {
+      "name": "error-combat-mechanics",
+      "filename": "error-combat-mechanics-1753400761286.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-combat-mechanics-1753400761286.png",
+      "timestamp": "2025-07-24T23:46:01.319Z"
+    },
+    {
+      "name": "error-loot-system",
+      "filename": "error-loot-system-1753400761320.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-loot-system-1753400761320.png",
+      "timestamp": "2025-07-24T23:46:01.369Z"
+    },
+    {
+      "name": "error-inventory-management",
+      "filename": "error-inventory-management-1753400761370.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-inventory-management-1753400761370.png",
+      "timestamp": "2025-07-24T23:46:01.402Z"
+    },
+    {
+      "name": "error-equipment-system",
+      "filename": "error-equipment-system-1753400761403.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-equipment-system-1753400761403.png",
+      "timestamp": "2025-07-24T23:46:01.435Z"
+    },
+    {
+      "name": "error-resource-gathering",
+      "filename": "error-resource-gathering-1753400761436.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-resource-gathering-1753400761436.png",
+      "timestamp": "2025-07-24T23:46:01.484Z"
+    },
+    {
+      "name": "error-banking-operations",
+      "filename": "error-banking-operations-1753400761485.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-banking-operations-1753400761485.png",
+      "timestamp": "2025-07-24T23:46:01.518Z"
+    },
+    {
+      "name": "error-store-transactions",
+      "filename": "error-store-transactions-1753400761519.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-store-transactions-1753400761519.png",
+      "timestamp": "2025-07-24T23:46:01.552Z"
+    },
+    {
+      "name": "error-skill-progression",
+      "filename": "error-skill-progression-1753400761553.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-skill-progression-1753400761553.png",
+      "timestamp": "2025-07-24T23:46:01.601Z"
+    },
+    {
+      "name": "error-death-and-respawn",
+      "filename": "error-death-and-respawn-1753400761601.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-death-and-respawn-1753400761601.png",
+      "timestamp": "2025-07-24T23:46:01.634Z"
+    },
+    {
+      "name": "error-visual-elements",
+      "filename": "error-visual-elements-1753400761635.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-visual-elements-1753400761635.png",
+      "timestamp": "2025-07-24T23:46:01.667Z"
+    },
+    {
+      "name": "error-full-gameplay-loop",
+      "filename": "error-full-gameplay-loop-1753400761669.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/gameplay/error-full-gameplay-loop-1753400761669.png",
+      "timestamp": "2025-07-24T23:46:01.718Z"
+    }
+  ],
+  "errors": [],
+  "timestamp": "2025-07-24T23:46:01.719Z"
+}

@@ -12,7 +12,7 @@ interface CacheItem {
 
 const cache = new Map<string, CacheItem>() // id -> { id, pmesh, refs }
 
-class PMeshHandle {
+export class PMeshHandle {
   value: any;
   item: CacheItem;
   released: boolean;

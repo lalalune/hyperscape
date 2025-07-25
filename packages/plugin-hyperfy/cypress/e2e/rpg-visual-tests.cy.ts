@@ -18,7 +18,7 @@ const VISUAL_COLORS = {
 describe('Hyperfy RPG Visual Tests', () => {
   beforeEach(() => {
     // Connect to Hyperfy world
-    cy.visit('http://localhost:3000');
+    cy.visit('http://localhost:3333');
     
     // Wait for world to load
     cy.get('#hyperfy-world-canvas', { timeout: 10000 }).should('be.visible');

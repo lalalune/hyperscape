@@ -19,10 +19,10 @@ export default defineConfig({
     outDir: path.resolve(__dirname, 'dist/client'),
     emptyOutDir: true,
     target: 'esnext', // Support top-level await
+    minify: false, // Disable minification for debugging
+    sourcemap: true, // Enable source maps for better debugging
     rollupOptions: {
-      input: {
-        main: path.resolve(__dirname, 'src/client/index.html')
-      }
+      input: path.resolve(__dirname, 'src/client/index.html')
     }
   },
   
@@ -36,7 +36,7 @@ export default defineConfig({
   },
   
   server: {
-    port: Number(process.env.VITE_PORT) || 3000,
+    port: Number(process.env.VITE_PORT) || 3001,
     open: false,
     host: true
   },

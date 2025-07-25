@@ -1,0 +1,211 @@
+import { defineConfig, Plugin } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Node.js polyfill plugin to handle server-only imports in the browser
+const nodePolyfillPlugin = (): Plugin => ({
+  name: 'node-polyfill-plugin',
+  resolveId(id, importer) {
+    // Node.js built-in modules that need polyfills
+    const nodeModules = ['fs', 'path', 'url', 'crypto', 'stream', 'buffer', 'process', 'os', 'querystring', 'module', 'util']
+    
+    if (nodeModules.includes(id)) {
+      console.warn(`[Vite] Polyfilling Node.js module: ${id} for: ${importer}`)
+      return { id: `virtual:node-${id}` }
+    }
+    
+    // Server-only packages that should be blocked entirely
+    const serverOnlyPackages = ['jsonwebtoken', 'better-sqlite3', 'fastify', 'knex']
+    if (serverOnlyPackages.includes(id)) {
+      console.warn(`[Vite] Blocking server-only package: ${id} imported by: ${importer}`)
+      return { id: `virtual:blocked-${id}` }
+    }
+    
+    // Block server-specific modules
+    if (id.includes('utils-server') || id.includes('ServerNetwork')) {
+      console.warn(`[Vite] Blocking server module: ${id} imported by: ${importer}`)
+      return { id: `virtual:blocked-${id}` }
+    }
+  },
+  load(id) {
+    // Util polyfill
+    if (id === 'virtual:node-util') {
+      return `
+        console.warn('[Browser] Using Node.js util polyfill');
+        export const promisify = (fn) => {
+          if (!fn || typeof fn !== 'function') {
+            console.error('[Browser] promisify - not a function:', fn);
+            return (...args) => Promise.resolve();
+          }
+          return (...args) => {
+            return new Promise((resolve, reject) => {
+              try {
+                const callback = (err, result) => {
+                  if (err) reject(err);
+                  else resolve(result);
+                };
+                fn(...args, callback);
+              } catch (error) {
+                reject(error);
+              }
+            });
+          };
+        };
+        export default { promisify };
+      `
+    }
+    
+    // Path polyfill
+    if (id === 'virtual:node-path') {
+      return `
+        console.warn('[Browser] Using Node.js path polyfill');
+        export const join = (...args) => args.filter(Boolean).join('/').replace(/\\/+/g, '/');
+        export const resolve = (...args) => args.filter(Boolean).join('/').replace(/\\/+/g, '/');
+        export const dirname = (path) => path.split('/').slice(0, -1).join('/') || '/';
+        export const basename = (path, ext) => {
+          const base = path.split('/').pop() || '';
+          return ext && base.endsWith(ext) ? base.slice(0, -ext.length) : base;
+        };
+        export const extname = (path) => {
+          const base = path.split('/').pop() || '';
+          const idx = base.lastIndexOf('.');
+          return idx > 0 ? base.slice(idx) : '';
+        };
+        export const sep = '/';
+        export default { join, resolve, dirname, basename, extname, sep };
+      `
+    }
+    
+    // URL polyfill
+    if (id === 'virtual:node-url') {
+      return `
+        console.warn('[Browser] Using Node.js url polyfill');
+        export const fileURLToPath = (url) => {
+          const urlStr = typeof url === 'string' ? url : url.href;
+          return urlStr.replace(/^file:\\/+/, '/');
+        };
+        export const pathToFileURL = (path) => new URL('file://' + path);
+        export default { fileURLToPath, pathToFileURL };
+      `
+    }
+    
+    // FS polyfill
+    if (id === 'virtual:node-fs') {
+      return `
+        console.warn('[Browser] Using Node.js fs polyfill (read-only operations)');
+        const throwError = () => { throw new Error('File system operations not available in browser'); };
+        export const readFile = throwError;
+        export const readFileSync = throwError;
+        export const writeFile = throwError;
+        export const writeFileSync = throwError;
+        export const existsSync = () => false;
+        export const mkdirSync = throwError;
+        export const promises = { readFile: throwError, writeFile: throwError };
+        export default { readFile, readFileSync, writeFile, writeFileSync, existsSync, mkdirSync, promises };
+      `
+    }
+    
+    // Other Node.js modules
+    if (id.startsWith('virtual:node-')) {
+      const moduleName = id.replace('virtual:node-', '');
+      return `
+        console.warn('[Browser] Using empty polyfill for Node.js module: ${moduleName}');
+        export default {};
+      `
+    }
+    
+    // Blocked server-only packages
+    if (id.startsWith('virtual:blocked-')) {
+      const moduleName = id.replace('virtual:blocked-', '');
+      return `
+        console.error('[Browser] Attempted to use blocked server-only module: ${moduleName}');
+        throw new Error('Server-only module "' + '${moduleName}' + '" cannot be used in browser');
+      `
+    }
+  }
+})
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react(), nodePolyfillPlugin()],
+  
+  // Define which env variables are exposed to client
+  envPrefix: 'PUBLIC_', // Only expose env vars starting with PUBLIC_
+  
+  root: path.resolve(__dirname, 'src/client'),
+  publicDir: 'public',
+  
+  build: {
+    outDir: path.resolve(__dirname, 'dist/client'),
+    emptyOutDir: true,
+    target: 'es2018', // Change from esnext to avoid module issues
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'src/client/index.html')
+      },
+      output: {
+        format: 'es', // Use ES modules for proper import.meta support
+        inlineDynamicImports: true
+      },
+      external: [
+        // Only mark packages that should never be bundled as external
+        '@fastify/compress',
+        '@fastify/cors',
+        '@fastify/multipart',
+        '@fastify/static',
+        '@fastify/websocket',
+        'commander',
+        'dotenv-flow',
+        'fs-extra',
+        'find-cache-dir',
+        'source-map-support'
+      ]
+    }
+  },
+  
+  esbuild: {
+    target: 'esnext' // Support top-level await
+  },
+  
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+    'process.env': '{}', // Replace process.env with empty object for other vars
+    'global': 'globalThis', // Use globalThis instead of global
+    'import.meta.env.DEV': JSON.stringify(process.env.NODE_ENV !== 'production'),
+    'import.meta.env.PROD': JSON.stringify(process.env.NODE_ENV === 'production'),
+    // Replace Node.js modules with browser-compatible alternatives
+    '__dirname': '""',
+    '__filename': '""',
+    'require': '(() => { throw new Error("require() is not available in browser") })',
+  },
+  
+  server: {
+    port: Number(process.env.VITE_PORT) || 3333,
+    open: false,
+    host: true
+  },
+  
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+      '@client': path.resolve('./src/client'),
+      '@core': path.resolve('./src/core'),
+      '@types': path.resolve('./src/types'),
+    },
+    dedupe: ['three']
+  },
+  
+  optimizeDeps: {
+    include: ['three', 'react', 'react-dom'],
+    exclude: [
+      // Only exclude packages that should never be processed for browser
+      'jsonwebtoken', 'better-sqlite3', 'fastify', 'knex'
+    ],
+    esbuildOptions: {
+      target: 'esnext' // Support top-level await
+    }
+  },
+}) 

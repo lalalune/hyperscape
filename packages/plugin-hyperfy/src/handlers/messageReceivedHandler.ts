@@ -73,7 +73,7 @@ export async function hyperfyMessageReceivedHandler({
       message?.roomId,
       runtime.agentId
     )
-    const isUserMuted = agentUserState?.muted || false
+    const isUserMuted = (agentUserState as any)?.muted || false
 
     if (
       isUserMuted &&
@@ -229,12 +229,10 @@ export async function hyperfyMessageReceivedHandler({
         // @ts-ignore - Callback type issue
         await callback(ignoreContent)
 
-        await runtime.createMemory({
-          entityId: runtime.agentId,
-          // @ts-ignore - Type safety
-          roomId: message?.roomId,
-          content: ignoreContent,
-        })
+        await runtime.createMemory(
+          ignoreContent as any,
+          message?.roomId
+        )
 
         // @ts-ignore - Type safety
         agentResponses.delete(message?.roomId)

@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import React from 'react'
 import type { UUID } from '@elizaos/core'
+import { NETWORK_CONFIG } from '../config/constants'
 
 const queryClient = new QueryClient()
 
@@ -84,7 +85,7 @@ function TimeDisplay({ apiBase }: { apiBase: string }) {
 function ExampleRoute() {
   const config = (window as any).ELIZA_CONFIG as ElizaConfig | undefined
   const agentId = config?.agentId
-  const apiBase = config?.apiBase || 'http://localhost:3000'
+  const apiBase = config?.apiBase || NETWORK_CONFIG.DEFAULT_API_BASE
 
   // Apply dark mode to the root element
   React.useEffect(() => {

@@ -1,6 +1,10 @@
 import EventEmitter from 'eventemitter3';
 
-import type { World, WorldOptions, System as ISystem } from '../../types/index.js';
+import type { World, WorldOptions, System as ISystem } from '../../types/index';
+
+export interface SystemConstructor {
+  new (world: World): System;
+}
 
 /**
  * Base class for all game systems

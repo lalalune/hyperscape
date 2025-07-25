@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from '../extras/three'
 
 import { System } from './System'
 import { ControlPriorities } from '../extras/ControlPriorities'
@@ -178,7 +178,7 @@ function createAction(world: any): ActionHandler {
         const qua = q1
         const sca = v2
         node.matrixWorld.decompose(pos, qua, sca)
-        const camPosition = v3.setFromMatrixPosition((world as any).xr.camera.matrixWorld)
+        const camPosition = v3.setFromMatrixPosition((world as any).xr?.camera.matrixWorld)
         distance = camPosition.distanceTo(pos)
         v4.subVectors(camPosition, pos).normalize()
         qua.setFromUnitVectors(FORWARD, v4)

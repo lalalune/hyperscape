@@ -1,11 +1,9 @@
-import { CSM } from '../../../hyperfy/src/core/libs/csm/CSM.js'
-import { isNumber, isString } from 'lodash-es'
-import type { HyperfySystem } from '../types/hyperfy.js'
 import { logger } from '@elizaos/core'
+import { isNumber, isString } from 'lodash-es'
 import * as THREE from 'three'
-import { PuppeteerManager } from '../managers/puppeteer-manager.js'
-import { resolveUrl } from '../utils.js'
-import type { HyperfyWorld } from '../types/hyperfy.js'
+import { CSM } from '@hyperscape/hyperfy'
+import { PuppeteerManager } from '../managers/puppeteer-manager'
+import { resolveUrl } from '../utils'
 
 interface SkyHandle {
   node: any
@@ -24,7 +22,7 @@ interface EnvironmentConfig {
   model?: string
 }
 
-export class EnvironmentSystem implements HyperfySystem {
+export class EnvironmentSystem {
   declare world: any
   model: any = null
   skys: SkyHandle[] = []
@@ -46,7 +44,7 @@ export class EnvironmentSystem implements HyperfySystem {
       model: 'assets/base-environment.glb',
       bg: 'assets/day2-2k.jpg',
       hdr: 'assets/day2.hdr',
-      sunDirection: new THREE.Vector3(-1, -2, -2).normalize(),
+      sunDirection: new (THREE as any).Vector3(-1, -2, -2).normalize(),
       sunIntensity: 1,
       sunColor: 0xffffff,
       fogNear: undefined,
@@ -62,6 +60,7 @@ export class EnvironmentSystem implements HyperfySystem {
     // this.world.prefs.on('change', this.onPrefsChange)
     // this.world.graphics.on('resize', this.onViewportResize)
   }
+
 
   private setSkyboxToBlack() {
     if (this.world.stage) {
@@ -334,7 +333,7 @@ export class EnvironmentSystem implements HyperfySystem {
     } else {
       this.csm = new CSM({
         mode: 'practical',
-        lightDirection: new THREE.Vector3(0, -1, 0).normalize(),
+        lightDirection: new (THREE as any).Vector3(0, -1, 0).normalize(),
         parent: this.world.stage.scene,
         camera: this.world.camera,
         cascades: options.cascades,

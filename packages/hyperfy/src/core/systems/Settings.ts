@@ -1,5 +1,5 @@
-import type { Settings as ISettings, World } from '../../types/index.js';
-import { System } from './System.js';
+import type { Settings as ISettings, World } from '../../types/index';
+import { System } from './System';
 
 interface SettingsData {
   title?: string | null;

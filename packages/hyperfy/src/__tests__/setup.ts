@@ -6,7 +6,7 @@ import { JSDOM } from 'jsdom'
 
 // Set up DOM environment
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
-  url: 'http://localhost:3000',
+  url: 'http://localhost:3333',
   pretendToBeVisual: true,
   resources: 'usable'
 })

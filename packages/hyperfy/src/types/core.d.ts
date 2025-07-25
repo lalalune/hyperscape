@@ -1,6 +1,6 @@
 // Core type definitions used throughout the codebase
 
-import * as THREE from 'three';
+import * as THREE from '../core/extras/three.js';
 import type { World, Entity, Component, System } from './index';
 
 // Extend existing types with additional properties
@@ -9,7 +9,13 @@ declare module './index' {
     // Client-specific properties
     ui?: any;
     loader?: any;
-    network?: any;
+    network?: {
+      isClient: boolean;
+      isServer: boolean;
+      id: string;
+      send(type: string, data: any): void;
+      upload(file: File): Promise<void>;
+    };
     target?: any;
 
     // Server-specific properties
@@ -18,7 +24,44 @@ declare module './index' {
     server?: any;
     monitor?: any;
     livekit?: any;
-    environment?: any;
+    environment?: {
+      csm?: {
+        setupMaterial(material: THREE.Material): void;
+      };
+    };
+    
+    // Additional properties
+    rpg?: {
+      systems: Record<string, any>;
+      actions: Record<string, any>;
+    };
+    
+    // Plugin system
+    loadPlugin?: (plugin: any) => Promise<void>;
+    registerPlugin?: (plugin: any) => Promise<void>;
+    
+    // Event emitter method (should already be there but making it explicit)
+    emit?: (event: string, data?: any) => boolean | void;
+  }
+  
+  interface Stage extends System {
+    scene: THREE.Scene;
+    THREE?: typeof THREE;
+  }
+  
+  interface Physics extends System {
+    world: any; // PhysX world object
+    physics: any; // PhysX physics object
+    createCollider?: (shapeData: any) => any;
+    updateCollider?: (handle: any, properties: any) => void;
+    removeCollider?: (handle: any) => void;
+    isColliding?: (handle1: any, handle2: any) => boolean;
+    getCollisions?: (handle: any) => any[];
+    setLinearVelocity?: (body: any, velocity: THREE.Vector3) => void;
+  }
+  
+  interface Entities extends System {
+    player?: Entity; // Local player on client
   }
   
   interface Entity {
@@ -33,6 +76,7 @@ declare module './index' {
     isDead?: boolean;
     on?: (event: string, callback: Function) => void;
     off?: (event: string, callback: Function) => void;
+    emit?: (event: string, data?: any) => void;
   }
 }
 
@@ -42,6 +86,19 @@ declare module 'three' {
     ctx?: {
       entity?: Entity;
     };
+    activate?: (context: { world: World; entity?: Entity }) => void;
+    deactivate?: () => void;
+    clean?: () => void;
+  }
+  
+  interface Vector3 {
+    toPxTransform?: (transform: any) => void;
+    toPxVec3?: () => any;
+  }
+  
+  interface Quaternion {
+    toPxTransform?: (transform: any) => void;
+    toPxQuat?: () => any;
   }
   
   interface Material {
@@ -49,11 +106,55 @@ declare module 'three' {
   }
 }
 
+// PhysX type definitions
+interface PxTransform {
+  p: { x: number; y: number; z: number };
+  q: { x: number; y: number; z: number; w: number };
+}
+
+interface PxVec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface PxQuat {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+}
+
+// Layers type
+interface LayersStatic {
+  player: {
+    group: number;
+    mask: number;
+  };
+  environment: {
+    group: number;
+    mask: number;
+  };
+  prop: {
+    group: number;
+    mask: number;
+  };
+}
+
 // Global types
 declare global {
   interface Window {
     world?: World;
     preview?: any;
+    THREE?: typeof THREE;
+  }
+  
+  interface GlobalThis {
+    THREE?: typeof THREE;
+    PHYSX?: any;
+    env?: {
+      PLUGIN_PATH?: string;
+    };
   }
   
   const world: World;
@@ -61,211 +162,94 @@ declare global {
   const PHYSX: any;
 }
 
+// Export Layers type
+export const Layers: LayersStatic;
+
 // Utility types
 export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
-export type Nullable<T> = T | null;
-
-export type Optional<T> = T | undefined;
-
-// Component props types
-export interface BaseComponentProps {
-  world: World;
-  children?: React.ReactNode;
-}
-
-export interface EntityComponentProps extends BaseComponentProps {
-  entity: Entity;
-}
-
-// Network types
-export interface NetworkMessage {
-  type: string;
-  data: any;
-  from?: string;
-  to?: string;
-  timestamp?: number;
-}
-
-// Storage types
-export interface StorageData {
-  [key: string]: any;
-}
-
-// Blueprint types
-export interface Blueprint {
-  id: string;
-  name?: string;
-  version: number;
-  disabled?: boolean;
-  model?: string;
-  script?: string;
-  components?: ComponentDefinition[];
-  props?: any;
-}
-
-export interface ComponentDefinition {
-  type: string;
-  data: any;
-}
-
-// Script types
-export interface ScriptResult {
-  code: string;
-  exec: (world?: any, app?: any, fetch?: any, props?: any, setTimeout?: any) => any;
-}
-
-// Material types
-export interface MaterialProxy {
-  color?: string;
-  textureX?: number;
-  textureY?: number;
-  [key: string]: any;
-}
-
-export interface MaterialWrapper {
-  raw: THREE.Material;
-  proxy: MaterialProxy;
-}
-
-// Loader types
-export interface LoaderAsset {
-  url: string;
-  type: string;
-  data?: any;
-  getStats?: () => AssetStats;
-}
-
-export interface AssetStats {
-  geometries: { size: number };
-  triangles: number;
-  textureBytes: number;
-  fileBytes: number;
-}
-
-// UI State types
-export interface UIState {
-  visible: boolean;
-  menu?: any;
-  app?: Entity;
-  code?: boolean;
-  [key: string]: any;
-}
-
-// Core Entity Types
+// Entity data types
 export interface EntityData {
   id: string;
-  type: string;
   name?: string;
-  position: number[];
-  quaternion: number[];
+  type?: string;
+  position?: number[];
+  quaternion?: number[];
   scale?: number[];
+  blueprint?: string;
+  state?: any;
   health?: number;
   avatar?: string;
   sessionAvatar?: string;
   roles?: string[];
-  emote?: string;
   effect?: {
     anchorId?: string;
-    freeze?: boolean;
     snare?: number;
-    turn?: boolean;
+    freeze?: boolean;
     emote?: string;
+    turn?: boolean;
     duration?: number;
     cancellable?: boolean;
   };
-  blueprint?: string;
-  uploader?: string;
-  mover?: string;
-  pinned?: boolean;
-  state?: any;
+  emote?: string;
 }
 
-// App Entity Types
-export interface AppData extends EntityData {
-  blueprint: string;
-  uploader?: string;
-  mover?: string;
-  pinned?: boolean;
-  state?: any;
+// Network data types
+export interface NetworkData {
+  id: string;
+  p?: number[]; // position
+  q?: number[]; // quaternion
+  e?: string | null; // emote
+  t?: boolean; // teleport
+  ef?: any; // effect
+  name?: string;
+  health?: number;
+  avatar?: string;
+  sessionAvatar?: string;
+  roles?: string[];
 }
 
-// Layer Types
-export interface Layer {
-  group: number;
-  mask: number;
+// Touch interface
+export interface Touch {
+  position?: { x: number; y: number };
+  delta?: { x: number; y: number };
 }
 
-export interface Layers {
-  camera: Layer;
-  player: Layer;
-  environment: Layer;
-  prop: Layer;
-  tool: Layer;
-  [key: string]: Layer;
-}
-
-// Control Types
+// Control interface
 export interface Control {
-  screen: { width: number; height: number };
-  camera: {
+  screen?: { width: number; height: number };
+  camera?: {
     write: boolean;
-    position: any; // THREE.Vector3
-    quaternion: any; // THREE.Quaternion
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
     zoom: number;
   };
-  pointer: {
+  pointer?: {
     locked: boolean;
-    delta: { x: number; y: number };
+    delta?: { x: number; y: number };
   };
-  scrollDelta: { value: number };
-  space: { down: boolean; pressed: boolean };
-  touchA: { down: boolean; pressed: boolean };
+  scrollDelta?: { value: number };
+  space?: { down: boolean; pressed: boolean };
+  touchA?: { down: boolean; pressed: boolean };
   keyW: { down: boolean };
   keyS: { down: boolean };
   keyA: { down: boolean };
   keyD: { down: boolean };
-  keyC: { down: boolean };
+  keyC?: { down: boolean };
   arrowUp: { down: boolean };
   arrowDown: { down: boolean };
   arrowLeft: { down: boolean };
   arrowRight: { down: boolean };
   shiftLeft: { down: boolean };
   shiftRight: { down: boolean };
-  xrLeftStick: { value: { x: number; z: number } };
-  xrRightStick: { value: { x: number } };
-  xrRightBtn1: { down: boolean; pressed: boolean };
-  setActions?: (actions: any[]) => void;
-  release?: () => void;
+  xrLeftStick?: { value?: { x: number; z: number } };
+  xrRightStick?: { value?: { x: number } };
+  xrRightBtn1?: { down: boolean; pressed: boolean };
 }
 
-// Touch Types
-export interface Touch {
-  position: { x: number; y: number; clone: () => { x: number; y: number } };
-  delta: { x: number; y: number };
-}
-
-// Network Types
-export interface NetworkData {
-  id?: string;
-  p?: number[];
-  q?: number[];
-  e?: string;
-  t?: boolean;
-  ef?: any;
-  name?: string;
-  health?: number;
-  avatar?: string;
-  sessionAvatar?: string;
-  roles?: string[];
-}
-
-// Event Listener Types
-export type EventCallback = (data?: any, networkId?: string) => void;
-
-// Hot Reloadable Interface
+// HotReloadable interface
 export interface HotReloadable {
   fixedUpdate?(delta: number): void;
   update?(delta: number): void;
@@ -273,24 +257,19 @@ export interface HotReloadable {
   postLateUpdate?(delta: number): void;
 }
 
-// Vector3 Enhanced Extensions
-declare module 'three' {
-  interface Vector3 {
-    toPxVec3?(pxVec3?: any): any;
-    toPxExtVec3?(pxExtVec3?: any): any;
-    toPxTransform?(pxTransform: any): void;
-    fromPxVec3?(pxVec3: any): this;
-    fromArray(array: number[], offset?: number): this;
-  }
-  
-  interface Quaternion {
-    toPxTransform?(pxTransform: any): void;
-    fromArray(array: number[], offset?: number): this;
-  }
-  
-  interface Matrix4 {
-    toPxTransform?(pxTransform: any): void;
-  }
+// Create node function return type
+export interface Node {
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  add(child: Node): void;
+  activate(context: { world: World; entity?: Entity }): void;
+  deactivate(): void;
+  active?: boolean;
+  visible?: boolean;
+  label?: string;
+  value?: string;
+  health?: number;
 }
 
-export {}; // Make this a module 
+// Export layer types
+export type { LayersStatic }; 

@@ -12,7 +12,7 @@ interface TimeResponse {
 
 // Enhanced Panel Component with time display
 const EnhancedPanelComponent: React.FC<{ agentId: string }> = ({ agentId }) => {
-  const apiBase = window.ELIZA_CONFIG?.apiBase || 'http://localhost:3000';
+  const apiBase = window.ELIZA_CONFIG?.apiBase || 'http://localhost:3333';
 
   const {
     data: timeData,
@@ -114,7 +114,7 @@ describe('PanelComponent Tests', () => {
       cy.window().then((win) => {
         win.ELIZA_CONFIG = {
           agentId: 'test-agent',
-          apiBase: 'http://localhost:3000',
+          apiBase: 'http://localhost:3333',
         };
       });
     });

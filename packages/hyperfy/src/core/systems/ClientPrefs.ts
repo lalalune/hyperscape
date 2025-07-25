@@ -28,7 +28,13 @@ export class ClientPrefs extends System {
 
     const isQuest = typeof navigator !== 'undefined' && navigator.userAgent ? /OculusBrowser/.test(navigator.userAgent) : false;
 
-    const data = storage?.get('prefs', {}) || {}
+    let data: any = {};
+    try {
+      data = storage?.get('prefs') || {};
+    } catch (e) {
+      // Use default if key doesn't exist
+      data = {};
+    }
 
     // v2: reset ui scale for new mobile default (0.9)
     if (!data.v) {

@@ -1,7 +1,13 @@
 import type { BuildConfig } from 'bun';
 
 export const buildConfig: BuildConfig = {
-  entrypoints: ['./src/index.ts'],
+  entrypoints: [
+    './src/index.ts',
+    './src/testing/visual-test-framework.ts',
+    './src/testing/rpg-concrete-tests.ts', 
+    './src/testing/test-runtime-factory.ts',
+    './src/testing/modular-test-framework.ts'
+  ],
   outdir: './dist',
   target: 'node',
   format: 'esm',
@@ -29,7 +35,7 @@ export const buildConfig: BuildConfig = {
     'puppeteer',
     'three',
     '@pixiv/three-vrm',
-    'ses',
+    '@hyperscape/hyperfy',
   ],
   naming: '[dir]/[name].[ext]',
 };

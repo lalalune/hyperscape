@@ -185,7 +185,9 @@ export function createVRMFactory(glb, setupMaterial) {
         should = elapsed >= rate
       }
       if (should) {
-        mixer.update(elapsed)
+        if (mixer) {
+          mixer.update(elapsed)
+        }
         skeleton.bones.forEach(bone => bone.updateMatrixWorld())
         skeleton.update = THREE.Skeleton.prototype.update
         // tvrm.humanoid.update(elapsed)

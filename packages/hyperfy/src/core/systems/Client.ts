@@ -16,7 +16,56 @@ let worker: Worker | null = null
 export class Client extends System {
   constructor(world: World) {
     super(world)
-    ;(window as any).world = world
+    
+    // Create a proxy for the world object that includes Apps system methods
+    const worldProxy = new Proxy(world, {
+      get: (target, prop) => {
+        // First check if the property exists on the world object itself
+        if (prop in target) {
+          return (target as any)[prop]
+        }
+        
+        // Then check Apps system world methods
+        const apps = (target as any).apps
+        if (apps && apps.worldMethods && prop in apps.worldMethods) {
+          const method = apps.worldMethods[prop as string]
+          // Create a temporary entity for the method call (since Apps methods expect an entity)
+          const tempEntity = { 
+            getPlayerProxy: (playerId?: string) => {
+              // If no playerId provided, use the local player
+              if (playerId === undefined) {
+                playerId = (target as any).entities?.player?.data?.id
+              }
+              if (!playerId) return null
+              return (target as any).entities?.getPlayer(playerId)
+            }
+          }
+          return (...args: any[]) => {
+            return method(tempEntity, ...args)
+          }
+        }
+        
+        // Check Apps system world getters
+        if (apps && apps.worldGetters && prop in apps.worldGetters) {
+          const getter = apps.worldGetters[prop as string]
+          const tempEntity = { 
+            getPlayerProxy: (playerId?: string) => {
+              // If no playerId provided, use the local player
+              if (playerId === undefined) {
+                playerId = (target as any).entities?.player?.data?.id
+              }
+              if (!playerId) return null
+              return (target as any).entities?.getPlayer(playerId)
+            }
+          }
+          return getter(tempEntity)
+        }
+        
+        return undefined
+      }
+    })
+    
+    ;(window as any).world = worldProxy
     ;(window as any).THREE = THREE
   }
 

@@ -32,8 +32,8 @@ export class XR extends System {
 
   override async init() {
     if (typeof navigator !== 'undefined' && navigator.xr) {
-      this.supportsVR = await navigator.xr.isSessionSupported?.('immersive-vr')
-      this.supportsAR = await navigator.xr.isSessionSupported?.('immersive-ar')
+      this.supportsVR = await navigator.xr?.isSessionSupported?.('immersive-vr')
+      this.supportsAR = await navigator.xr?.isSessionSupported?.('immersive-ar')
     } else {
       this.supportsVR = false
       this.supportsAR = false
@@ -45,7 +45,7 @@ export class XR extends System {
       console.warn('XR.enter() called in an environment without navigator.xr support.')
       return
     }
-    const session = await navigator.xr.requestSession?.('immersive-vr', {
+    const session = await navigator.xr?.requestSession?.('immersive-vr', {
       requiredFeatures: ['local-floor'],
     })
     try {
@@ -60,10 +60,10 @@ export class XR extends System {
       localPlayer.avatar.unmount()
     }
     if (this.world.graphics?.renderer) {
-      this.world.graphics.renderer.xr.setSession(session)
-      this.camera = this.world.graphics.renderer.xr.getCamera()
+      this.world.graphics.renderer.xr?.setSession(session)
+      this.camera = this.world.graphics.renderer.xr?.getCamera()
       
-      const grip1 = this.world.graphics.renderer.xr.getControllerGrip(0)
+      const grip1 = this.world.graphics.renderer.xr?.getControllerGrip(0)
       if (grip1) {
         this.controller1Model = grip1 as THREE.Object3D
         const model1 = this.controllerModelFactory.createControllerModel(grip1 as any)
@@ -73,7 +73,7 @@ export class XR extends System {
         this.world.rig.add(this.controller1Model)
       }
 
-      const grip2 = this.world.graphics.renderer.xr.getControllerGrip(1)
+      const grip2 = this.world.graphics.renderer.xr?.getControllerGrip(1)
       if (grip2) {
         this.controller2Model = grip2 as THREE.Object3D
         const model2 = this.controllerModelFactory.createControllerModel(grip2 as any)

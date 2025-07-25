@@ -6,8 +6,8 @@ import {
 } from 'postprocessing'
 import * as THREE from '../extras/three'
 
-import type { World, WorldOptions } from '../../types/index.js'
-import { System } from './System.js'
+import type { World, WorldOptions } from '../../types/index'
+import { System } from './System'
 
 let renderer: THREE.WebGLRenderer | undefined
 function getRenderer() {
@@ -74,9 +74,11 @@ export class ClientGraphics extends System {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
-    this.renderer.xr.enabled = true
-    this.renderer.xr.setReferenceSpaceType('local-floor')
-    this.renderer.xr.setFoveation(0)
+    if (this.renderer.xr) {
+      this.renderer.xr.enabled = true
+      this.renderer.xr.setReferenceSpaceType('local-floor')
+      this.renderer.xr.setFoveation(0)
+    }
     this.maxAnisotropy = this.renderer.capabilities.getMaxAnisotropy()
     THREE.Texture.DEFAULT_ANISOTROPY = this.maxAnisotropy
     this.usePostprocessing = worldAny.prefs?.postprocessing ?? true
@@ -138,13 +140,41 @@ export class ClientGraphics extends System {
   }
 
   render() {
-    if (this.renderer.xr.isPresenting || !this.usePostprocessing) {
-      this.renderer.render(this.world.stage.scene, this.world.camera)
-    } else {
-      this.composer.render()
-    }
-    if (this.xrDimensionsNeeded) {
-      this.updateXRDimensions()
+    try {
+      // Debug: Log rendering info periodically
+      if (Math.random() < 0.001) { // 0.1% chance to log
+        console.log('[ClientGraphics] Render debug:', {
+          usePostprocessing: this.usePostprocessing,
+          sceneChildren: this.world.stage.scene.children.length,
+          cameraPosition: this.world.camera.position.toArray(),
+          cameraRotation: this.world.camera.rotation.toArray(),
+          rendererSize: [this.width, this.height],
+          clearColor: this.renderer.getClearColor(new THREE.Color()).getHex(),
+          clearAlpha: this.renderer.getClearAlpha()
+        });
+      }
+      
+      if (this.renderer.xr?.isPresenting || !this.usePostprocessing) {
+        this.renderer.render(this.world.stage.scene, this.world.camera)
+      } else {
+        this.composer.render()
+      }
+      if (this.xrDimensionsNeeded) {
+        this.updateXRDimensions()
+      }
+    } catch (error) {
+      console.error('[ClientGraphics] Render error:', error);
+      // If postprocessing is causing issues, fall back to regular rendering
+      if (this.usePostprocessing && error instanceof Error && error.message.includes('test')) {
+        console.warn('[ClientGraphics] Disabling postprocessing due to error');
+        this.usePostprocessing = false;
+        // Try to render without postprocessing
+        try {
+          this.renderer.render(this.world.stage.scene, this.world.camera);
+        } catch (fallbackError) {
+          console.error('[ClientGraphics] Fallback render also failed:', fallbackError);
+        }
+      }
     }
   }
 
@@ -190,9 +220,9 @@ export class ClientGraphics extends System {
   }
 
   updateXRDimensions() {
-    const referenceSpace = this.renderer.xr.getReferenceSpace()
+    const referenceSpace = this.renderer.xr?.getReferenceSpace()
     if (!referenceSpace) return
-    const frame = this.renderer.xr.getFrame()
+    const frame = this.renderer.xr?.getFrame()
     const pose = frame.getViewerPose(referenceSpace)
     if (pose && pose.views.length > 0) {
       const view = pose.views[0]

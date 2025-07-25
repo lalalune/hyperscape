@@ -7,6 +7,7 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
+  type Content,
 } from '@elizaos/core'
 // No longer need THREE here
 import { AgentControls } from '../systems/controls' // Still need type for casting
@@ -117,7 +118,7 @@ export const hyperfyWalkRandomlyAction: Action = {
       }
     } else {
       // command === 'start'
-      controls.startRandomWalk(intervalMs, maxDistance)
+      controls.startRandomWalk()
 
       if (callback) {
         const startResponse = {
@@ -126,11 +127,12 @@ export const hyperfyWalkRandomlyAction: Action = {
           source: 'hyperfy',
           metadata: { status: 'started', intervalMs, maxDistance },
         }
-        await callback(startResponse)
+        await callback(startResponse as Content)
       }
 
       return {
         text: '',
+        success: true,
         values: { success: true, command: 'start', intervalMs, maxDistance },
         data: {
           action: 'HYPERFY_WALK_RANDOMLY',

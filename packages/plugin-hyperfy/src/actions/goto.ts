@@ -143,7 +143,11 @@ export const hyperfyGotoEntityAction: Action = {
           thought: 'Failed to extract navigation target.'
         },
       }
-      await callback(errorResponse)
+      await callback({
+        text: errorResponse.text,
+        actions: ['HYPERFY_GOTO_ENTITY'],
+        source: 'hyperfy'
+      })
       return errorResponse
     }
 

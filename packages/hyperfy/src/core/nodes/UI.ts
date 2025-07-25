@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from '../extras/three'
 import { every, isArray, isBoolean, isNumber, isString } from 'lodash-es'
 import Yoga from 'yoga-layout'
 
@@ -165,6 +165,11 @@ export class UI extends Node {
 
     this.ui = this
     
+    // Initialize transform object to prevent undefined access in lateUpdate
+    this.transform = {
+      position: new THREE.Vector3()
+    }
+    
     // Note: We can't override _offset methods since it would break THREE.Vector3 functionality
     // offset changes should be tracked through the setter
   }
@@ -282,6 +287,10 @@ export class UI extends Node {
 
   draw() {
     if (!isBrowser) return
+    if (!this.yogaNode) {
+      console.warn('UI.draw() called on unmounted or improperly initialized UI element')
+      return
+    }
     this.yogaNode.calculateLayout(this._width * this._res, this._height * this._res, Yoga.DIRECTION_LTR)
     const ctx = this.canvasCtx
     if (!ctx) return
@@ -389,7 +398,7 @@ export class UI extends Node {
       const sca = v4
       this.matrixWorld.decompose(pos as any, qua, sca as any)
       if (this._billboard === 'full') {
-        if (world.xr.session) {
+        if (world.xr?.session) {
           // full in XR means lookAt camera (excludes roll)
           v5.subVectors(camPosition, pos).normalize()
           qua.setFromUnitVectors(FORWARD as any, v5)
@@ -401,7 +410,7 @@ export class UI extends Node {
           qua.copy(world.rig.quaternion)
         }
       } else if (this._billboard === 'y') {
-        if (world.xr.session) {
+        if (world.xr?.session) {
           // full in XR means lookAt camera (only y)
           v5.subVectors(camPosition, pos).normalize()
           qua.setFromUnitVectors(FORWARD as any, v5)
@@ -425,7 +434,7 @@ export class UI extends Node {
         // When distance is at min, scale is 1.0 (or some other base scale)
         // When distance is at max, scale adjusts proportionally
         let scaleFactor = (baseScale * (worldToScreenFactor * clampedDistance)) / this._size
-        // if (world.xr.session) scaleFactor *= 0.3 // roughly matches desktop fov etc
+        // if (world.xr?.session) scaleFactor *= 0.3 // roughly matches desktop fov etc
         sca.setScalar(scaleFactor)
       }
       this.matrixWorld.compose(pos as any, qua, sca as any)

@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from '../extras/three'
 import { isBoolean, isNumber } from 'lodash-es'
 
 import { getRef, Node, secureRef } from './Node'

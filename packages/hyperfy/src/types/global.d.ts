@@ -9,17 +9,10 @@ declare global {
   var env: Record<string, string> | undefined;
   var physx: any;
   var PhysX: any;
-  var ses: any;
   var repairIntrinsics: any;
-  var lockdown: any;
-  var harden: any;
   
   // Window extensions
   interface Window {
-    ses?: any;
-    lockdown?: any;
-    Compartment?: any;
-    harden?: any;
     require?: any;
     monaco?: any;
     env?: Record<string, string>;

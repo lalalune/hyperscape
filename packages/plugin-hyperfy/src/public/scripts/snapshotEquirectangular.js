@@ -1,5 +1,5 @@
 window.snapshotEquirectangular = async function (playerData) {
-  const THREE = window.THREE
+  // THREE is already available via import maps in index.html
   const renderer = window.renderer
   const scene = window.scene
 

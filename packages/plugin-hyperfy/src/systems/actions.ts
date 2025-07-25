@@ -1,15 +1,16 @@
 import * as THREE from 'three'
 import type {
-  World as HyperfyWorld,
+  WorldInterface as HyperfyWorld,
   Player as HyperfyPlayer,
-  System as HyperfySystem,
+  SystemInterface as HyperfySystem,
 } from '@hyperscape/hyperfy'
+import { CONTROLS_CONFIG } from '../config/constants'
 
 interface ActionNode extends THREE.Object3D {
   [key: string]: any
 }
 
-export class AgentActions implements HyperfySystem {
+export class AgentActions {
   world: any
   private nodes: ActionNode[] = []
   private currentNode: ActionNode | null = null
@@ -18,6 +19,20 @@ export class AgentActions implements HyperfySystem {
     this.world = world
     this.nodes = []
   }
+
+  // Implement required System interface methods
+  async init(options: any): Promise<void> {
+    // Initialize the actions system
+  }
+
+  start(): void {
+    // Start the actions system
+  }
+
+  destroy(): void {
+    // Cleanup actions system
+  }
+
 
   register(node: ActionNode) {
     this.nodes.push(node)
@@ -98,7 +113,7 @@ export class AgentActions implements HyperfySystem {
         control.setKey('keyE', false)
       }
       this.currentNode = target
-    }, target._duration ?? 3000)
+    }, target._duration ?? CONTROLS_CONFIG.ACTION_DEFAULT_DURATION_MS)
   }
 
   releaseAction() {
@@ -139,17 +154,17 @@ export class AgentActions implements HyperfySystem {
   }
 
   // Framework stubs
-  // init() {}
-  start() {}
-  preTick() {}
-  preFixedUpdate() {}
-  fixedUpdate() {}
-  postFixedUpdate() {}
-  preUpdate() {}
-  update() {}
-  postUpdate() {}
-  lateUpdate() {}
-  postLateUpdate() {}
-  commit() {}
-  postTick() {}
+  // init() {} - implemented above
+  // start() {} - implemented above  
+  preTick(): void {}
+  preFixedUpdate(willFixedStep: boolean): void {}
+  fixedUpdate(delta: number): void {}
+  postFixedUpdate(delta: number): void {}
+  preUpdate(alpha: number): void {}
+  update(delta: number): void {}
+  postUpdate(delta: number): void {}
+  lateUpdate(delta: number): void {}
+  postLateUpdate(delta: number): void {}
+  commit(): void {}
+  postTick(): void {}
 }

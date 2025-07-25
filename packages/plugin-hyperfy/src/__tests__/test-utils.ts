@@ -1,5 +1,31 @@
-import type { IAgentRuntime, Memory, State, UUID } from '@elizaos/core'
+import { IAgentRuntime, Service, Memory, UUID, State } from '@elizaos/core'
 import { vi } from 'vitest'
+
+// Helper to generate valid UUID format
+export function generateTestUUID(): UUID {
+  const segments = [8, 4, 4, 4, 12];
+  return segments.map(len => 
+    Array(len).fill(0).map(() => 
+      Math.floor(Math.random() * 16).toString(16)
+    ).join('')
+  ).join('-') as UUID;
+}
+
+// Helper to convert string to UUID format
+export function toUUID(str: string): UUID {
+  // If already in UUID format, return as is
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+    return str as UUID;
+  }
+  
+  // Convert string to UUID format by padding/hashing
+  const hash = str.split('').reduce((acc, char) => {
+    return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+  }, 0);
+  
+  const hex = Math.abs(hash).toString(16).padStart(32, '0');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}` as UUID;
+}
 
 /**
  * Creates a mock runtime for testing hyperfy plugin
@@ -29,7 +55,7 @@ export function createMockRuntime(
       const settings: Record<string, string> = {
         HYPERFY_API_KEY: 'test-hyperfy-api-key',
         HYPERFY_WORLD_ID: 'test-world-123',
-        HYPERFY_SERVER_URL: 'http://localhost:3000',
+        HYPERFY_SERVER_URL: 'http://localhost:3333',
         RPG_WORLD_NAME: 'TestWorld',
         RPG_MAX_PLAYERS: '50',
         API_KEY: 'test-api-key',
@@ -62,35 +88,8 @@ export function createMockRuntime(
       return services[name]
     }) as any,
 
-    // Mock other required runtime methods
-    databaseAdapter: {
-      init: async () => {},
-      close: async () => {},
-      getMemories: async () => [],
-      createMemory: async () => ({}) as Memory,
-      removeMemory: async () => {},
-      searchMemories: async () => [],
-      getGoals: async () => [],
-      createGoal: async () => ({}) as any,
-      removeGoal: async () => {},
-      updateGoal: async () => {},
-      searchGoals: async () => [],
-      createRoom: async () => '',
-      removeRoom: async () => {},
-      getRoomsForParticipant: async () => [],
-      getRoomsForParticipants: async () => [],
-      getParticipantsForAccount: async () => [],
-      getParticipantsForRoom: async () => [],
-      getAccountById: async () => null,
-      createAccount: async () => ({}) as any,
-      getMemoriesByRoomIds: async () => [],
-      createRelationship: async () => true,
-      getRelationship: async () => null,
-      getRelationships: async () => [],
-    },
-
     agentId: 'test-agent-id' as UUID,
-    serverUrl: 'http://localhost:3000',
+    serverUrl: 'http://localhost:3333',
     token: 'test-token',
 
     // Mock action methods
@@ -168,7 +167,7 @@ export function createMockRuntime(
 export function createMockMemory(overrides: Partial<Memory> = {}): Memory {
   return {
     id: 'test-memory-id' as UUID,
-    userId: 'test-user-id' as UUID,
+    entityId: 'test-entity-id' as UUID,
     agentId: 'test-agent-id' as UUID,
     roomId: 'test-room-id' as UUID,
     content: {

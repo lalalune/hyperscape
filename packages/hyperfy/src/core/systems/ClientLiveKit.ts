@@ -1,5 +1,5 @@
 import { ParticipantEvent, Room, RoomEvent, ScreenSharePresets } from 'livekit-client'
-import type { World } from '../../types/index.js'
+import type { World } from '../../types/index'
 import { System } from './System'
 
 export class ClientLiveKit extends System {
@@ -62,7 +62,7 @@ export class ClientLiveKit extends System {
       // @ts-ignore - setSpeaking might not exist
       this.world.entities.player?.setSpeaking?.(speaking)
     })
-    await this.room.connect(window.env?.LIVEKIT_URL || import.meta.env?.LIVEKIT_URL || '', token)
+    await this.room.connect((window as any).env?.LIVEKIT_URL || process.env.LIVEKIT_URL || '', token)
   }
 
   async enableAudio() {

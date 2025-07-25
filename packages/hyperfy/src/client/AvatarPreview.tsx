@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from '../core/extras/three.js'
 import { Emotes } from '../core/extras/playerEmotes'
 import type { World } from '../types'
 

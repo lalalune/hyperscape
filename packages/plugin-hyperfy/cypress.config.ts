@@ -15,7 +15,7 @@ export default defineConfig({
     videosFolder: 'cypress/videos/component',
   },
   e2e: {
-    baseUrl: 'http://localhost:3000',
+    baseUrl: 'http://localhost:3333',
     supportFile: 'cypress/support/e2e.ts',
     specPattern: 'cypress/e2e/**/*.cy.{js,jsx,ts,tsx}',
     video: false,

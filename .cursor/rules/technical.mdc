@@ -603,7 +603,7 @@ npm install
 # Start development server
 npm run dev
 
-# Server starts on http://localhost:3000
+# Server starts on http://localhost:3333
 ```
 
 **2. Production Deployment:**
@@ -615,7 +615,7 @@ npm run build
 npm start
 
 # Or with environment variables
-WORLD=rpg-world PORT=3000 npm start
+WORLD=rpg-world PORT=3333 npm start
 ```
 
 **3. Client Connection Flow:**
@@ -643,7 +643,7 @@ world/collections/default/
 ```bash
 # Environment variables
 WORLD=rpg-world         # World directory name
-PORT=3000               # Server port
+PORT=3333               # Server port
 ADMIN_CODE=secret123    # Admin access code
 SAVE_INTERVAL=60000     # Auto-save frequency
 ```
@@ -1393,7 +1393,7 @@ npm install
 # Start development server
 npm run dev
 
-# Server starts on http://localhost:3000
+# Server starts on http://localhost:3333
 ```
 
 **2. Production Deployment:**
@@ -1405,7 +1405,7 @@ npm run build
 npm start
 
 # Or with environment variables
-WORLD=rpg-world PORT=3000 npm start
+WORLD=rpg-world PORT=3333 npm start
 ```
 
 **3. Client Connection Flow:**
@@ -1433,7 +1433,7 @@ world/collections/default/
 ```bash
 # Environment variables
 WORLD=rpg-world         # World directory name
-PORT=3000               # Server port
+PORT=3333               # Server port
 ADMIN_CODE=secret123    # Admin access code
 SAVE_INTERVAL=60000     # Auto-save frequency
 ```

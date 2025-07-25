@@ -1,23 +1,22 @@
-import { System } from './System.js';
-import * as THREE from '../extras/three.js';
-import { DEG2RAD, RAD2DEG } from '../extras/general.js';
-import { clamp, num, uuid } from '../utils.js';
-import { LerpVector3 } from '../extras/LerpVector3.js';
-import { LerpQuaternion } from '../extras/LerpQuaternion.js';
-import { Curve } from '../extras/Curve.js';
-import { prng } from '../extras/prng.js';
-import { BufferedLerpVector3 } from '../extras/BufferedLerpVector3.js';
-import { BufferedLerpQuaternion } from '../extras/BufferedLerpQuaternion.js';
-import type { World } from '../../types/index.js';
-
-// SES global Compartment - available after lockdown()
-declare const Compartment: any;
+import { System } from './System';
+import * as THREE from '../extras/three';
+import { DEG2RAD, RAD2DEG } from '../extras/general';
+import { clamp, num, uuid } from '../utils';
+import { LerpVector3 } from '../extras/LerpVector3';
+import { LerpQuaternion } from '../extras/LerpQuaternion';
+import { Curve } from '../extras/Curve';
+import { prng } from '../extras/prng';
+import { BufferedLerpVector3 } from '../extras/BufferedLerpVector3';
+import { BufferedLerpQuaternion } from '../extras/BufferedLerpQuaternion';
+import type { World } from '../../types/index';
 
 /**
- * Script System
+ * Script System - UNRESTRICTED
  *
  * - Runs on both the server and client.
- * - Executes scripts inside secure compartments
+ * - Executes scripts with NO sandbox restrictions
+ * - Full access to Three.js and all globals
+ * - SES lockdown REMOVED for pure ECS architecture
  *
  */
 
@@ -27,118 +26,79 @@ export interface ScriptResult {
 }
 
 export class Scripts extends System {
-  private compartment: any;
+  private scriptGlobals: any;
 
   constructor(world: World) {
     super(world);
     
-    // Check if Compartment is available (SES needs to be initialized)
-    if (typeof Compartment === 'undefined') {
-      // Only warn on server side where scripts are expected to be sandboxed
-      if (typeof window === 'undefined') {
-        console.warn('Scripts system: Compartment not available. SES may not be initialized.');
-      }
-      return;
-    }
-
-    this.compartment = new Compartment({
-      console: {
-        log: (...args: any[]) => console.log(...args),
-        warn: (...args: any[]) => console.warn(...args),
-        error: (...args: any[]) => console.error(...args),
-        time: (...args: any[]) => console.time(...args),
-        timeEnd: (...args: any[]) => console.timeEnd(...args),
-      },
-      Date: {
-        now: () => Date.now(),
-      },
-      URL: {
-        createObjectURL: (blob: Blob) => URL.createObjectURL(blob),
-      },
+    // NO RESTRICTIONS - Full access to all globals and Three.js
+    this.scriptGlobals = {
+      // Full console access (no restrictions)
+      console,
+      // Full Math access
       Math,
-      eval: undefined,
-      harden: undefined,
-      lockdown: undefined,
-      num,
-      prng,
-      clamp,
-      // Layers,
-      Object3D: THREE.Object3D,
-      Quaternion: THREE.Quaternion,
-      Vector3: THREE.Vector3,
-      Euler: THREE.Euler,
-      Matrix4: THREE.Matrix4,
-      LerpVector3, // deprecated - use BufferedLerpVector3
-      LerpQuaternion, // deprecated - use BufferedLerpQuaternion
-      BufferedLerpVector3,
-      BufferedLerpQuaternion,
-      // Material: Material,
-      Curve,
-      // Gradient: Gradient,
+      // Direct Three.js access (no wrapper)
+      THREE,
+      // Utility constants and functions
       DEG2RAD,
       RAD2DEG,
+      clamp,
+      num,
       uuid,
-      // pause: () => this.world.pause(),
-    });
-  }
-
-  evaluate(code: string): ScriptResult {
-    if (!this.compartment) {
-      // Fallback to unsafe evaluation on client side
-      console.warn('Scripts: Using unsafe evaluation (no SES sandbox)');
-      let evalFunc: ((...args: any[]) => any) | undefined;
-      
-      return {
-        exec: (...args: any[]) => {
-          try {
-            if (!evalFunc) {
-              // Create evaluation context that matches server behavior
-              const wrappedCode = wrapRawCode(code);
-              // Use eval instead of new Function to match compartment behavior
-              evalFunc = eval('(' + wrappedCode + ')');
-              if (typeof evalFunc !== 'function') {
-                throw new Error(`Script evaluation did not return a function, got: ${typeof evalFunc}`);
-              }
-            }
-            return evalFunc(...args);
-          } catch (error) {
-            console.error('Script execution error:', error);
-            console.error('Script code:', code);
-            throw error;
-          }
-        },
-        code,
-      };
-    }
-
-    let value: ((...args: any[]) => any) | undefined;
-    
-    const result: ScriptResult = {
-      exec: (...args: any[]) => {
-        if (!value) {
-          value = this.compartment.evaluate(wrapRawCode(code));
-        }
-        if (!value) {
-          throw new Error('Failed to evaluate script');
-        }
-        return value(...args);
-      },
-      code,
+      LerpVector3,
+      LerpQuaternion,
+      Curve,
+      prng,
+      BufferedLerpVector3,
+      BufferedLerpQuaternion,
+      // Expose window object for client-side scripts
+      ...(typeof window !== 'undefined' ? { window } : {}),
+      // Expose global object for server-side scripts
+      ...(typeof global !== 'undefined' ? { global } : {}),
     };
     
-    return result;
+    console.log('[Scripts] UNRESTRICTED script system initialized - no sandbox');
   }
-}
 
-// NOTE: config is deprecated and renamed to props
-function wrapRawCode(code: string): string {
-  return `
-  (function() {
-    const shared = {}
-    return (world, app, fetch, props, setTimeout) => {
-      const config = props // deprecated
-      ${code}
+  exec(code: string): ScriptResult {
+    let value;
+    const { scriptGlobals } = this;
+
+    try {
+      // UNRESTRICTED execution - direct access to all globals
+      console.log('[Scripts] Executing script with full access (no sandbox)');
+      
+      // Create a function with the script globals in scope
+      const scriptFunction = new Function(
+        ...Object.keys(scriptGlobals),
+        `
+        // UNRESTRICTED SCRIPT EXECUTION
+        // Full access to Three.js, console, Math, window, etc.
+        
+        ${code}
+        
+        // Return the function if it exists
+        if (typeof exec === 'function') {
+          return exec;
+        }
+        `
+      );
+      
+      // Execute with full globals access - no restrictions
+      value = scriptFunction(...Object.values(scriptGlobals));
+    } catch (error: any) {
+      console.error('[Scripts] Script execution error (unrestricted mode):', error);
+      throw error;
     }
-  })()
-  `;
+
+    if (typeof value !== 'function') {
+      throw new Error('Script must export an exec() function for unrestricted execution');
+    }
+
+    console.log('[Scripts] Script executed successfully with unrestricted access');
+    return {
+      exec: value,
+      code,
+    };
+  }
 } 

@@ -1,5 +1,4 @@
-import 'ses'
-import '../core/lockdown'
+
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -7,30 +6,30 @@ import { fileURLToPath } from 'url'
 globalThis.__dirname = path.dirname(fileURLToPath(import.meta.url))
 
 
-export * as THREE from 'three';
+export * as THREE from '../core/extras/three.js';
 
 export { createNodeClientWorld } from '../core/createNodeClientWorld'
 export { storage } from '../core/storage'
-export { World } from '../core/World.js'
-export { loadPhysX } from '../core/loadPhysX.js'
-export { uuid } from '../core/utils.js'
+export { World } from '../core/World'
+export { loadPhysX } from '../core/loadPhysX'
+export { uuid } from '../core/utils'
 
 export { System } from '../core/systems/System'
-export { NodeClient } from '../core/systems/NodeClient.js'
-export { ClientControls } from '../core/systems/ClientControls.js'
-export { ClientNetwork } from '../core/systems/ClientNetwork.js'
-export { ServerLoader } from '../core/systems/ServerLoader.js'
-export { NodeEnvironment } from '../core/systems/NodeEnvironment.js'
+export { NodeClient } from '../core/systems/NodeClient'
+export { ClientControls } from '../core/systems/ClientControls'
+export { ClientNetwork } from '../core/systems/ClientNetwork'
+export { ServerLoader } from '../core/systems/ServerLoader'
+export { NodeEnvironment } from '../core/systems/NodeEnvironment'
 
-export { Node } from '../core/nodes/Node.js'
+export { Node } from '../core/nodes/Node'
 
-export { Emotes } from '../core/extras/playerEmotes.js'
-export { createEmoteFactory } from '../core/extras/createEmoteFactory.js'
-export { createNode } from '../core/extras/createNode.js'
-export { glbToNodes } from '../core/extras/glbToNodes.js'
-export { Vector3Enhanced } from '../core/extras/Vector3Enhanced.js'
+export { Emotes } from '../core/extras/playerEmotes'
+export { createEmoteFactory } from '../core/extras/createEmoteFactory'
+export { createNode } from '../core/extras/createNode'
+export { glbToNodes } from '../core/extras/glbToNodes'
+export { Vector3Enhanced } from '../core/extras/Vector3Enhanced'
 
-export { GLTFLoader } from '../core/libs/gltfloader/GLTFLoader.js'
+export { GLTFLoader } from '../core/libs/gltfloader/GLTFLoader'
 export { CSM } from '../core/libs/csm/CSM'
 
 /**

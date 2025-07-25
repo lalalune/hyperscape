@@ -15,9 +15,10 @@ import { HyperfyService } from '../service'
 import { agentActivityLock } from './guards'
 import { getHyperfyActions, formatActions } from '../utils'
 import { autoTemplate } from '../templates'
+import { AGENT_CONFIG } from '../config/constants'
 
-const TIME_INTERVAL_MIN = 15000 // 15 seconds
-const TIME_INTERVAL_MAX = 30000 // 30 seconds
+const TIME_INTERVAL_MIN = AGENT_CONFIG.BEHAVIOR_TIME_INTERVAL_MIN_MS
+const TIME_INTERVAL_MAX = AGENT_CONFIG.BEHAVIOR_TIME_INTERVAL_MAX_MS
 
 export class BehaviorManager {
   private isRunning: boolean = false

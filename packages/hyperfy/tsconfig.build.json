@@ -1,8 +1,48 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
-    // Remove vitest types for build
-    "types": ["node"]
+    // Language and Environment
+    "target": "ES2021",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    
+    // Type Checking
+    "strict": true,
+    
+    // Modules
+    "baseUrl": ".",
+    "paths": {
+      "*": ["src/types/*"]
+    },
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    
+    // Emit - only declarations for build
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./build",
+    
+    // JavaScript Support
+    "allowJs": true,
+    "checkJs": false,
+
+    "noImplicitAny": false,
+    
+    // Interop Constraints
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    // Skip Lib Check - needed due to conflicting types from parent directories
+    "skipLibCheck": true,
+    
+    // Advanced - build only needs node types
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
   "include": [
     "src/**/*"
@@ -19,6 +59,7 @@
     "src/**/__tests__/**/*",
     "vitest.config.ts",
     "vitest.config.e2e.ts",
-    "playwright.config.js"
+    "playwright.config.js",
+    "src/core/libs/**/*.js"
   ]
 } 

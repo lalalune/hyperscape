@@ -66,6 +66,7 @@ export const hyperfyUnuseItemAction: Action = {
 
     return {
       text: 'Item released.',
+      success: true,
       values: { success: true, status: 'released' },
       data: { action: 'HYPERFY_UNUSE_ITEM' },
     }

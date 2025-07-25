@@ -1,7 +1,7 @@
 import moment from 'moment';
-import type { World } from '../../types/index.js';
-import { uuid } from '../utils.js';
-import { System } from './System.js';
+import type { World } from '../../types/index';
+import { uuid } from '../utils';
+import { System } from './System';
 
 /**
  * Chat System

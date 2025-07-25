@@ -1,7 +1,8 @@
 import type { IAgentRuntime } from '@elizaos/core'
-import { HyperfyService } from '../service.js'
-import { resolveUrl } from '../utils.js'
-import type { HyperfyWorld, HyperfyEntity } from '../types/hyperfy.js'
+import { HyperfyService } from '../service'
+import { resolveUrl } from '../utils'
+import type { WorldInterface as HyperfyWorld, EntityInterface as HyperfyEntity } from '@hyperscape/hyperfy'
+import { NETWORK_CONFIG } from '../config/constants'
 
 export class BuildManager {
   private runtime: IAgentRuntime
@@ -26,7 +27,7 @@ export class BuildManager {
         await controls.goto(entity.root.position.x, entity.root.position.z)
       }
       entity.root.position.fromArray(position)
-      this.entityUpdate(entity)
+      this.entityUpdate(entity as any)
     }
   }
 
@@ -46,7 +47,7 @@ export class BuildManager {
         await controls.goto(entity.root.position.x, entity.root.position.z)
       }
       entity.root.quaternion.fromArray(quaternion)
-      this.entityUpdate(entity)
+      this.entityUpdate(entity as any)
     }
   }
 
@@ -66,7 +67,7 @@ export class BuildManager {
         await controls.goto(entity.root.position.x, entity.root.position.z)
       }
       entity.root.scale.fromArray(scale)
-      this.entityUpdate(entity)
+      this.entityUpdate(entity as any)
     }
   }
 
@@ -154,7 +155,7 @@ export class BuildManager {
       if (entity.destroy) {
         entity.destroy(true)
       }
-      this.entityUpdate(entity)
+      this.entityUpdate(entity as any)
     }
   }
 
@@ -190,7 +191,7 @@ export class BuildManager {
 
       await new Promise(resolve => setTimeout(resolve, 100))
 
-      const maxSize = world.network.maxUploadSize * 1024 * 1024
+      const maxSize = ((world.network as any).maxUploadSize || NETWORK_CONFIG.MAX_UPLOAD_SIZE_MB) * 1024 * 1024
 
       if (file.size > maxSize) {
         console.error(
@@ -308,7 +309,7 @@ export class BuildManager {
     const url = `${baseUrl}/${filename}`
     const uploadPromise = world.network.upload(file)
     const timeoutPromise = new Promise((_resolve, reject) =>
-      setTimeout(() => reject(new Error('Upload timed out')), 30000)
+      setTimeout(() => reject(new Error('Upload timed out')), NETWORK_CONFIG.UPLOAD_TIMEOUT_MS)
     )
 
     await Promise.race([uploadPromise, timeoutPromise])
@@ -354,15 +355,15 @@ export class BuildManager {
       return
     }
     const world = service.getWorld()
-    if (!world || !entity.root) {
+    if (!world || !(entity as any).root) {
       return
     }
 
     world.network.send('entityModified', {
       id: entity.data.id,
-      position: entity.root.position.toArray(),
-      quaternion: entity.root.quaternion.toArray(),
-      scale: entity.root.scale.toArray(),
+      position: (entity as any).root.position.toArray(),
+      quaternion: (entity as any).root.quaternion.toArray(),
+      scale: (entity as any).root.scale.toArray(),
     })
   }
 

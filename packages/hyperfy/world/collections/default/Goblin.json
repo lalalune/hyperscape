@@ -1,0 +1,26 @@
+{
+  "name": "Goblin",
+  "description": "Production RPG goblin enemy with full combat AI, health bars, loot drops, and respawn mechanics per Game Design Document specifications",
+  "version": "2.0.0",
+  "script": "Goblin.js",
+  "features": [
+    "GDD-compliant combat stats (ATK/STR/DEF/CON/RANGE)",
+    "AI state machine (idle/chasing/attacking/returning)",
+    "Dynamic health bars with color-coded states",
+    "Level-based aggro system", 
+    "Loot drops with coin and equipment rewards",
+    "15-minute respawn cycle per GDD",
+    "Visual damage feedback and death animations",
+    "Player interaction through attack actions",
+    "Home position and chase distance limits",
+    "Configurable level and aggression settings"
+  ],
+  "compatibility": {
+    "rpgSystem": "2.0.0",
+    "combatSystem": "required",
+    "lootSystem": "required"
+  },
+  "author": "Hyperfy RPG System",
+  "category": "mob",
+  "difficulty": "level_1"
+}

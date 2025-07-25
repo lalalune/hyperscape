@@ -3,7 +3,7 @@
  * This fixes the "image.addEventListener is not a function" error in GLTFLoader
  */
 
-import * as THREE from 'three'
+import * as THREE from './three.js'
 
 let isPatched = false
 

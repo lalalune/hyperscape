@@ -1,7 +1,7 @@
 import fs from 'fs-extra'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { GLTFLoader } from '../libs/gltfloader/GLTFLoader.js'
+// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js.js'
+import { GLTFLoader } from '../libs/gltfloader/GLTFLoader'
 // import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 
 import { createEmoteFactory } from '../extras/createEmoteFactory'
@@ -166,16 +166,12 @@ export class ServerLoader extends System {
       })
     }
     if (type === 'script') {
+      // DISABLED: Script loading from external files
+      // Scripts are now part of TypeScript RPGApp classes created by Systems
       promise = new Promise(async (resolve, reject) => {
-        try {
-          const code = await this.fetchText(url)
-          const scripts = this.world.scripts as any
-          const script = scripts.evaluate ? scripts.evaluate(code) : null
-          this.results.set(key, script)
-          resolve(script)
-        } catch (err) {
-          reject(err)
-        }
+        console.warn(`[ServerLoader] ⚠️ Script loading disabled - Attempted to load: ${url}`)
+        console.warn(`[ServerLoader] Scripts must now be implemented as TypeScript RPGApp classes`)
+        reject(new Error('Script loading is disabled. Use TypeScript RPGApp classes instead.'))
       })
     }
     if (type === 'audio') {

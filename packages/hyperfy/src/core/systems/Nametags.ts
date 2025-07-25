@@ -1,5 +1,5 @@
 import { fillRoundRect } from '../extras/roundRect'
-import * as THREE from 'three'
+import * as THREE from '../extras/three'
 import CustomShaderMaterial from '../libs/three-custom-shader-material'
 import { uuid } from '../utils'
 import { System } from './System'
@@ -56,7 +56,7 @@ export class Nametags extends System {
   uniforms: { uAtlas: { value: any }; uXR: { value: number }; uOrientation: { value: any } }
   material: any
   geometry: THREE.PlaneGeometry
-  mesh: THREE.InstancedMesh<any, any, THREE.InstancedMeshEventMap>
+  mesh: THREE.InstancedMesh
   
   constructor(world: World) {
     super(world)

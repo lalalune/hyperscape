@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from './three.js'
 
 export class LerpVector3 {
   value: THREE.Vector3;

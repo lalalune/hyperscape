@@ -20,7 +20,12 @@ export async function hashFile(file: Buffer | string): Promise<string> {
  * JSON Web Tokens
  */
 
-const jwtSecret = process.env['JWT_SECRET'] as string
+// Use a default JWT secret if none provided (for development only)
+const jwtSecret = process.env['JWT_SECRET'] || 'hyperfy-dev-secret-key-12345'
+
+if (!process.env['JWT_SECRET']) {
+  console.warn('[Security] Using default JWT secret - set JWT_SECRET environment variable in production')
+}
 
 export function createJWT(data: any): Promise<string> {
   return new Promise((resolve, reject) => {

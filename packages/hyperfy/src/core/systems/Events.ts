@@ -1,5 +1,5 @@
-import { System } from './System.js';
-import type { World, Events as IEvents } from '../../types/index.js';
+import { System } from './System';
+import type { World, Events as IEvents } from '../../types/index';
 
 type EventCallback = (data?: any, extra?: any) => void;
 

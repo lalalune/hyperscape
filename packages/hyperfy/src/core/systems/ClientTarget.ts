@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from '../extras/three'
 
 import { System } from './System'
 import type { World } from '../../types'

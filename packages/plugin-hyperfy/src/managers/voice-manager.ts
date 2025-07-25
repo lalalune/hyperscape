@@ -1,4 +1,5 @@
 // @ts-ignore - Comprehensive type issues
+import { VOICE_CONFIG } from '../config/constants'
 import {
   ChannelType,
   Content,
@@ -131,7 +132,7 @@ export class VoiceManager {
   }
 
   async debouncedProcessTranscription(playerId: UUID) {
-    const DEBOUNCE_TRANSCRIPTION_THRESHOLD = 1500 // wait for 1.5 seconds of silence
+    const DEBOUNCE_TRANSCRIPTION_THRESHOLD = VOICE_CONFIG.TRANSCRIPTION_DEBOUNCE_MS
 
     if (this.processingVoice) {
       const state = this.userStates.get(playerId)
@@ -176,7 +177,7 @@ export class VoiceManager {
       state.buffers.length = 0 // Clear the buffers
       state.totalLength = 0
       // Convert Opus to WAV
-      const sampleRate = 48000
+      const sampleRate = VOICE_CONFIG.SAMPLE_RATE
       const numChannels = 1
       const bitsPerSample = 16
       const wavHeader = getWavHeader(

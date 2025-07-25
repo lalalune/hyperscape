@@ -127,21 +127,24 @@ export async function ambient(
     }
 
     // Store the observation in memory for continuity
-    await runtime.createMemory({
-      id: runtime.generateId(),
-      roomId: message.roomId,
-      agentId: runtime.agentId,
-      userId: message.userId,
-      content: {
-        text: actionResult.text,
-        action: 'ambient',
-        metadata: {
-          nearbyPlayers: nearbyPlayers.length,
-          nearbyEntities: nearbyEntities.length,
-          availableActions,
-        },
-      },
-    })
+    try {
+      await runtime.createMemory(
+        {
+          text: actionResult.text,
+          action: 'ambient',
+          metadata: {
+            type: 'ambient_observation' as any,
+            nearbyPlayers: nearbyPlayers.length,
+            nearbyEntities: nearbyEntities.length,
+            availableActions,
+          },
+        } as any,
+        message.roomId || runtime.agentId
+      )
+    } catch (error) {
+      // Memory creation is optional
+      console.debug('Failed to create ambient memory:', error)
+    }
 
     const finalResult: ActionResult = {
       text: actionResult.text,

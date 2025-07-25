@@ -1,5 +1,5 @@
 import { System } from './System'
-import * as THREE from 'three'
+import * as THREE from '../extras/three'
 import CustomShaderMaterial from '../libs/three-custom-shader-material'
 import { DEG2RAD } from '../extras/general'
 import { uuid } from '../utils'
@@ -40,7 +40,7 @@ export class Particles extends System {
   constructor(world: any) {
     super(world)
     this.worker = null
-    this.uOrientationFull = { value: this.world.rig.quaternion }
+    this.uOrientationFull = { value: new THREE.Quaternion() }
     this.uOrientationY = { value: new THREE.Quaternion() }
     this.emitters = new Map() // id -> emitter
   }
@@ -49,6 +49,11 @@ export class Particles extends System {
     this.worker = getWorker()
     this.worker.onmessage = this.onMessage
     this.worker.onerror = this.onError
+    
+    // Set the initial quaternion value after world is initialized
+    if (this.world.rig && this.world.rig.quaternion) {
+      this.uOrientationFull.value = this.world.rig.quaternion
+    }
   }
 
   start() {
@@ -60,13 +65,29 @@ export class Particles extends System {
   }
 
   update(delta: number) {
-    e1.setFromQuaternion(this.uOrientationFull.value)
+    // Ensure we have a valid quaternion
+    const quaternion = this.world.rig?.quaternion || this.uOrientationFull.value;
+    if (!quaternion) {
+      console.warn('[Particles] No quaternion available for orientation');
+      return;
+    }
+    
+    e1.setFromQuaternion(quaternion)
     e1.x = 0
     e1.z = 0
     this.uOrientationY.value.setFromEuler(e1)
 
-    this.emitters.forEach(emitter => {
-      emitter.update(delta)
+    this.emitters.forEach((emitter, id) => {
+      if (!emitter || typeof emitter.update !== 'function') {
+        console.error(`[Particles] Invalid emitter found:`, id, emitter);
+        return;
+      }
+      try {
+        emitter.update(delta)
+      } catch (error) {
+        console.error(`[Particles] Error updating emitter ${id}:`, error);
+        throw error;
+      }
     })
   }
 

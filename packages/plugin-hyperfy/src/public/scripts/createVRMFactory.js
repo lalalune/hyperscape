@@ -1,5 +1,5 @@
 window.createVRMFactory = function (glb, setupMaterial) {
-  const THREE = window.THREE
+  // THREE is already available via import maps in index.html
   const v1 = new THREE.Vector3()
   const v2 = new THREE.Vector3()
 

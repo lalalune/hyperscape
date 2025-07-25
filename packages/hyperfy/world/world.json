@@ -1,0 +1,270 @@
+{
+  "name": "RPG World Example",
+  "description": "A complete RuneScape-inspired RPG world with all systems enabled",
+  "spawn": {
+    "position": [
+      0,
+      3,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ]
+  },
+  "settings": {
+    "title": "Hyperfy RPG - Brookhaven",
+    "description": "A persistent multiplayer RPG world",
+    "maxPlayers": 100,
+    "worldSize": 500,
+    "difficulty": "progressive",
+    "pvpEnabled": false,
+    "rpgSystemsEnabled": true
+  },
+  "entities": [
+    {
+      "id": "rpg-player-spawn-brookhaven",
+      "type": "spawn_point",
+      "position": [
+        0,
+        3,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "data": {
+        "spawnType": "player",
+        "townId": "town_central",
+        "townName": "Brookhaven",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "rpg-player-spawn-eastport",
+      "type": "spawn_point",
+      "position": [
+        100,
+        3,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "data": {
+        "spawnType": "player",
+        "townId": "town_eastern",
+        "townName": "Eastport",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "rpg-player-spawn-westfall",
+      "type": "spawn_point",
+      "position": [
+        -100,
+        3,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "data": {
+        "spawnType": "player",
+        "townId": "town_western",
+        "townName": "Westfall",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "rpg-player-spawn-northridge",
+      "type": "spawn_point",
+      "position": [
+        0,
+        3,
+        100
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "data": {
+        "spawnType": "player",
+        "townId": "town_northern",
+        "townName": "Northridge",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "rpg-player-spawn-southmere",
+      "type": "spawn_point",
+      "position": [
+        0,
+        3,
+        -100
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "data": {
+        "spawnType": "player",
+        "townId": "town_southern",
+        "townName": "Southmere",
+        "safeZone": true,
+        "respawnPoint": true
+      }
+    },
+    {
+      "id": "terrain-base",
+      "type": "terrain",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "data": {
+        "terrainType": "rpg_world",
+        "size": 500,
+        "biomes": [
+          {
+            "name": "Mistwood Valley",
+            "area": {
+              "x": 0,
+              "z": 0,
+              "radius": 150
+            },
+            "difficulty": 1,
+            "description": "Foggy forests with goblin camps"
+          },
+          {
+            "name": "Goblin Wastes",
+            "area": {
+              "x": 200,
+              "z": 200,
+              "radius": 100
+            },
+            "difficulty": 2,
+            "description": "Barren lands dominated by goblin tribes"
+          },
+          {
+            "name": "Darkwood Forest",
+            "area": {
+              "x": -200,
+              "z": 200,
+              "radius": 100
+            },
+            "difficulty": 2,
+            "description": "Dense, shadowy woods hiding dark warriors"
+          },
+          {
+            "name": "Northern Reaches",
+            "area": {
+              "x": 0,
+              "z": 300,
+              "radius": 80
+            },
+            "difficulty": 3,
+            "description": "Frozen tundra with ice caves"
+          },
+          {
+            "name": "Blasted Lands",
+            "area": {
+              "x": -300,
+              "z": -200,
+              "radius": 120
+            },
+            "difficulty": 3,
+            "description": "Desolate areas corrupted by dark magic"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zone-marker-beginner",
+      "type": "zone_marker",
+      "position": [
+        0,
+        5,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "data": {
+        "zoneName": "Beginner Zone",
+        "level": "1-5",
+        "radius": 150,
+        "safeZone": false,
+        "description": "Safe area for new adventurers"
+      }
+    },
+    {
+      "id": "zone-marker-intermediate",
+      "type": "zone_marker",
+      "position": [
+        200,
+        5,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "data": {
+        "zoneName": "Intermediate Zone",
+        "level": "5-10",
+        "radius": 100,
+        "safeZone": false,
+        "description": "Moderate challenge for experienced players"
+      }
+    },
+    {
+      "id": "zone-marker-advanced",
+      "type": "zone_marker",
+      "position": [
+        -200,
+        5,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "data": {
+        "zoneName": "Advanced Zone",
+        "level": "10-15",
+        "radius": 100,
+        "safeZone": false,
+        "description": "High-level area with dangerous enemies"
+      }
+    }
+  ]
+}

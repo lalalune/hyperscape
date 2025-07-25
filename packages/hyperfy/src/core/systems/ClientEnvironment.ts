@@ -126,11 +126,16 @@ export class ClientEnvironment extends System {
   }
 
   override async start() {
-    this.buildCSM()
-    this.updateSky()
+    // Defer CSM creation to ensure stage is ready
+    setTimeout(() => {
+      console.log('[ClientEnvironment] Attempting to build CSM...');
+      this.buildCSM();
+    }, 100);
+    
+    this.updateSky();
     
     // Load initial model
-    await this.updateModel()
+    await this.updateModel();
 
     const worldAny = this.world as any
     worldAny.settings?.on('change', this.onSettingsChange)
@@ -166,6 +171,13 @@ export class ClientEnvironment extends System {
   getSky() {}
 
   async updateSky() {
+    // Check if stage is available
+    if (!this.world.stage || !this.world.stage.scene) {
+      console.warn('[ClientEnvironment] Stage not available for updateSky, deferring...');
+      setTimeout(() => this.updateSky(), 100);
+      return;
+    }
+    
     if (!this.sky) {
       const geometry = new THREE.SphereGeometry(1000, 60, 40)
       const material = new THREE.MeshBasicMaterial({ side: THREE.BackSide })
@@ -220,11 +232,15 @@ export class ClientEnvironment extends System {
       this.world.stage.scene.environment = hdrTexture
     }
 
-    this.csm.lightDirection = sunDirection || new THREE.Vector3(0, -1, 0)
+    if (this.csm) {
+      this.csm.lightDirection = sunDirection || new THREE.Vector3(0, -1, 0)
 
-    for (const light of this.csm.lights) {
-      light.intensity = sunIntensity || 1
-      light.color.set(sunColor || '#ffffff')
+      if (this.csm.lights) {
+        for (const light of this.csm.lights) {
+          light.intensity = sunIntensity || 1
+          light.color.set(sunColor || '#ffffff')
+        }
+      }
     }
 
     if (isNumber(fogNear) && isNumber(fogFar) && fogColor) {
@@ -247,7 +263,13 @@ export class ClientEnvironment extends System {
   }
 
   override update(_delta: number) {
-    this.csm.update()
+    if (this.csm && typeof this.csm.update === 'function') {
+      try {
+        this.csm.update()
+      } catch (error) {
+        console.error('[ClientEnvironment] Error updating CSM:', error);
+      }
+    }
   }
 
   override lateUpdate(_delta: number) {
@@ -265,15 +287,31 @@ export class ClientEnvironment extends System {
     if (this.csm) {
       this.csm.updateCascades(options.cascades)
       this.csm.updateShadowMapSize(options.shadowMapSize)
-      this.csm.lightDirection = this.skyInfo.sunDirection
-      for (const light of this.csm.lights) {
-        light.intensity = this.skyInfo.sunIntensity
-        light.color.set(this.skyInfo.sunColor)
-        light.castShadow = options.castShadow
+      if (this.skyInfo) {
+        this.csm.lightDirection = this.skyInfo.sunDirection
+        if (this.csm.lights) {
+          for (const light of this.csm.lights) {
+            light.intensity = this.skyInfo.sunIntensity
+            light.color.set(this.skyInfo.sunColor)
+            light.castShadow = options.castShadow
+          }
+        }
       }
     } else {
+      // Add error checking for stage and scene
+      if (!this.world.stage) {
+        console.warn('[ClientEnvironment] Stage system not available yet, deferring CSM creation');
+        return;
+      }
+      
       const scene = this.world.stage.scene
       const camera = this.world.camera
+      
+      if (!scene || typeof scene.add !== 'function') {
+        console.error('[ClientEnvironment] Scene is not a valid THREE.Scene:', scene);
+        return;
+      }
+      
       this.csm = new CSM({
         mode: 'practical', // uniform, logarithmic, practical, custom
         // mode: 'custom',

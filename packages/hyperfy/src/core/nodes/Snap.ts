@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from '../extras/three'
 import { Node } from './Node'
 
 export class Snap extends Node {

@@ -1,4 +1,4 @@
-// Type augmentations for HyperfyEntity
+// Type definitions for Hyperfy objects
 import type { HyperfyEntity } from './index'
 
 declare module './index' {
@@ -10,17 +10,15 @@ declare module './index' {
     isApp?: boolean
     destroy?: () => void
   }
-
-  interface HyperfyWorld {
-    player?: any
-    colorDetector?: any
-    ui?: any
-    assetLoader?: any
-  }
-
-  interface HyperfyActions {
-    getAvailableActions?: () => string[]
-  }
 }
 
-export {}
+export interface HyperfyWorld {
+  player?: any
+  colorDetector?: any
+  ui?: any
+  assetLoader?: any
+}
+
+export interface HyperfyActions {
+  getAvailableActions?: () => string[]
+}

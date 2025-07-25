@@ -1,7 +1,7 @@
 /// <reference path="../types/physx.d.ts" />
 
 import PhysXModule from './physx-js-webidl.js'
-import { extendThreePhysX } from './extras/extendThreePhysX.js'
+import { extendThreePhysX } from './extras/extendThreePhysX'
 
 /**
  * PhysX Loader

@@ -138,6 +138,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   async init(): Promise<void> {
+    console.log(`[PlayerLocal] Initializing local player: ${this.data.id}`);
+    
     this.mass = 1
     this.gravity = 20
     this.effectiveGravity = this.gravity * this.mass
@@ -185,6 +187,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.base = createNode('group')
     this.base.position.fromArray(this.data.position)
     this.base.quaternion.fromArray(this.data.quaternion)
+    
+    // Set initial position and make sure player is active
+    this.base.position.set(0, 0, 0);
+    this.base.visible = true;
+    this.active = true;
 
     this.aura = createNode('group')
 
@@ -229,7 +236,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       position: new THREE.Vector3().copy(this.base.position),
       quaternion: new THREE.Quaternion(),
       rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
-      zoom: 1.5
+      zoom: 3.0 // Set reasonable default zoom instead of 1.5
     }
     this.cam.position.y += this.camHeight
     bindRotations(this.cam.quaternion, this.cam.rotation)
@@ -247,6 +254,14 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.initControl()
 
     this.world.setHot(this, true)
+    
+    // Register with RPG systems
+    this.world.emit?.('rpg:player:register', {
+      id: this.data.id,
+      entity: this
+    });
+    
+    console.log(`[PlayerLocal] ✅ Local player initialized: ${this.data.id}`);
     console.log('[PlayerLocal] Emitting ready event')
     this.world.emit?.('ready', true)
   }
@@ -258,24 +273,110 @@ export class PlayerLocal extends Entity implements HotReloadable {
   applyAvatar(): void {
     const avatarUrl = this.getAvatarUrl()
     if (this.avatarUrl === avatarUrl) return
+    
+    console.log(`[PlayerLocal] Loading avatar: ${avatarUrl}`);
+    
     this.world.loader
       ?.load('avatar', avatarUrl)
       .then((src: any) => {
-        if (this.avatar) this.avatar.deactivate()
+        if (this.avatar) {
+          console.log('[PlayerLocal] Deactivating previous avatar');
+          this.avatar.deactivate()
+        }
+        
         this.avatar = src.toNodes().get('avatar')
+        if (!this.avatar) {
+          throw new Error('Avatar node not found in loaded asset');
+        }
+        
         this.avatar.disableRateCheck() // max fps for local player
         this.base.add(this.avatar)
-        this.nametag.position.y = this.avatar.getHeadToHeight() + 0.2
-        this.bubble.position.y = this.avatar.getHeadToHeight() + 0.2
+        
+        // Set up nametag and bubble positioning
+        const headHeight = this.avatar.getHeadToHeight ? this.avatar.getHeadToHeight() : 1.8;
+        this.nametag.position.y = headHeight + 0.2
+        this.bubble.position.y = headHeight + 0.2
         if (!this.bubble.active) {
           this.nametag.active = true
         }
-        this.avatarUrl = avatarUrl
-        this.camHeight = this.avatar.height * 0.9
+        
+        // Set camera height with fallback
+        this.camHeight = this.avatar.height ? this.avatar.height * 0.9 : DEFAULT_CAM_HEIGHT;
+        
+        console.log(`[PlayerLocal] ✅ Avatar loaded successfully, height: ${this.avatar.height}, camHeight: ${this.camHeight}`);
+        
+        // Make avatar visible and ensure proper positioning
+        this.avatar.visible = true;
+        this.avatar.position.set(0, 0, 0);
+        
+        this.avatarUrl = avatarUrl;
+        
+        // Emit avatar ready event for camera system
+        this.world.emit?.('rpg:player:avatar_ready', {
+          playerId: this.data.id,
+          avatar: this.avatar,
+          camHeight: this.camHeight
+        });
+        
+        // Emit camera follow event
+        this.world.emit?.('rpg:camera:follow_player', {
+          player: this
+        });
       })
       .catch((err: any) => {
-        console.error(err)
+        console.error('[PlayerLocal] ❌ Avatar loading failed:', err);
+        
+        // Create fallback avatar using a simple geometry
+        this.createFallbackAvatar();
       })
+  }
+  
+  private createFallbackAvatar(): void {
+    console.log('[PlayerLocal] Creating fallback avatar');
+    
+    try {
+      // Create a simple fallback avatar
+      const fallbackAvatar = {
+        height: 1.8,
+        visible: true,
+        position: { set: (x: number, y: number, z: number) => {} },
+        disableRateCheck: () => {},
+        deactivate: () => {},
+        getHeadToHeight: () => 1.7,
+        setEmote: (emote: string) => {}
+      };
+      
+      this.avatar = fallbackAvatar as any;
+      this.camHeight = DEFAULT_CAM_HEIGHT;
+      this.avatarUrl = this.getAvatarUrl();
+      
+      // Set up nametag and bubble positioning
+      this.nametag.position.y = 1.9;
+      this.bubble.position.y = 1.9;
+      if (!this.bubble.active) {
+        this.nametag.active = true;
+      }
+      
+      console.log('[PlayerLocal] ✅ Fallback avatar created');
+      
+      // Emit avatar ready event even for fallback
+      this.world.emit?.('rpg:player:avatar_ready', {
+        playerId: this.data.id,
+        avatar: this.avatar,
+        camHeight: this.camHeight,
+        isFallback: true
+      });
+      
+      // Emit camera follow event
+      this.world.emit?.('rpg:camera:follow_player', {
+        player: this
+      });
+      
+    } catch (fallbackError) {
+      console.error('[PlayerLocal] ❌ Even fallback avatar creation failed:', fallbackError);
+      // Set minimal defaults
+      this.camHeight = DEFAULT_CAM_HEIGHT;
+    }
   }
 
   initCapsule() {
@@ -313,8 +414,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
     shape.setLocalPose(localPose)
     const filterData = new PHYSX.PxFilterData(
-      (LayersInstance as Layers).player.group,
-      (LayersInstance as Layers).player.mask,
+      (LayersInstance as any).player.group,
+      (LayersInstance as any).player.mask,
       PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND |
         PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_LOST |
         PHYSX.PxPairFlagEnum.eNOTIFY_CONTACT_POINTS |
@@ -382,9 +483,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.control = this.world.controls.bind({
       priority: ControlPriorities.PLAYER,
       onTouch: (touch: Touch) => {
-        if (!this.stick && touch.position.x < this.control.screen.width / 2) {
+        if (!this.stick && touch.position && touch.position.x < (this.control.screen?.width || 0) / 2) {
           this.stick = {
-            center: touch.position.clone(),
+            center: { x: touch.position.x, y: touch.position.y },
             touch,
           }
         } else if (!this.pan) {
@@ -400,10 +501,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
         }
       },
     })
-    this.control.camera.write = true
-    this.control.camera.position.copy(this.cam.position)
-    this.control.camera.quaternion.copy(this.cam.quaternion)
-    this.control.camera.zoom = this.cam.zoom
+    if (this.control.camera) {
+      this.control.camera.write = true
+      this.control.camera.position.copy(this.cam.position)
+      this.control.camera.quaternion.copy(this.cam.quaternion)
+      this.control.camera.zoom = this.cam.zoom
+    }
     // this.control.setActions([{ type: 'space', label: 'Jump / Double-Jump' }])
     // this.control.setActions([{ type: 'escape', label: 'Menu' }])
   }
@@ -462,7 +565,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         const pose = this.capsule.getGlobalPose()
         const origin = v1.copy(pose.p)
         origin.y += 0.2
-        const hitMask = (LayersInstance as Layers).environment.group | (LayersInstance as Layers).prop.group
+        const hitMask = (LayersInstance as any).environment.group | (LayersInstance as any).prop.group
         const hit = this.world.physics.raycast(origin, DOWN, 2, hitMask)
         let actor = hit?.handle?.actor || null
         // if we found a new platform, set it up for tracking
@@ -527,7 +630,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         origin.y += this.groundSweepRadius + 0.12 // move up inside player + a bit
         const direction = DOWN
         const maxDistance = 0.12 + 0.1 // outside player + a bit more
-        const hitMask = (LayersInstance as Layers).environment.group | (LayersInstance as Layers).prop.group
+        const hitMask = (LayersInstance as any).environment.group | (LayersInstance as any).prop.group
         sweepHit = this.world.physics.sweep(geometry, origin, direction, maxDistance, hitMask)
       }
 
@@ -745,13 +848,13 @@ export class PlayerLocal extends Entity implements HotReloadable {
        */
 
       // apply force in the direction we want to go
-      if (this.moving || this.jumpDown || this.control.keyC.down) {
+      if (this.moving || this.jumpDown || this.control.keyC?.down) {
         const flySpeed = this.flyForce * (this.running ? 2 : 1)
         const force = v1.copy(this.flyDir).multiplyScalar(flySpeed)
         // handle vertical movement
         if (this.jumpDown) {
           force.y = flySpeed
-        } else if (this.control.keyC.down) {
+        } else if (this.control.keyC?.down) {
           force.y = -flySpeed
         }
         this.capsule.addForce((force as any).toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
@@ -796,24 +899,24 @@ export class PlayerLocal extends Entity implements HotReloadable {
       // in xr we only track turn here, which is added to the xr camera later on
       this.cam.rotation.x = 0
       this.cam.rotation.z = 0
-      if (this.control.xrRightStick.value.x === 0 && this.didSnapTurn) {
+      if (this.control.xrRightStick?.value?.x === 0 && this.didSnapTurn) {
         this.didSnapTurn = false
-      } else if (this.control.xrRightStick.value.x > 0 && !this.didSnapTurn) {
+      } else if ((this.control.xrRightStick?.value?.x || 0) > 0 && !this.didSnapTurn) {
         this.cam.rotation.y -= 45 * DEG2RAD
         this.didSnapTurn = true
-      } else if (this.control.xrRightStick.value.x < 0 && !this.didSnapTurn) {
+      } else if ((this.control.xrRightStick?.value?.x || 0) < 0 && !this.didSnapTurn) {
         this.cam.rotation.y += 45 * DEG2RAD
         this.didSnapTurn = true
       }
-    } else if (this.control.pointer.locked) {
+    } else if (this.control.pointer?.locked) {
       // or pointer lock, rotate camera with pointer movement
-      this.cam.rotation.x += -this.control.pointer.delta.y * POINTER_LOOK_SPEED * delta
-      this.cam.rotation.y += -this.control.pointer.delta.x * POINTER_LOOK_SPEED * delta
+      this.cam.rotation.x += -(this.control.pointer.delta?.y || 0) * POINTER_LOOK_SPEED * delta
+      this.cam.rotation.y += -(this.control.pointer.delta?.x || 0) * POINTER_LOOK_SPEED * delta
       this.cam.rotation.z = 0
     } else if (this.pan) {
       // or when touch panning
-      this.cam.rotation.x += -this.pan.delta.y * PAN_LOOK_SPEED * delta
-      this.cam.rotation.y += -this.pan.delta.x * PAN_LOOK_SPEED * delta
+      this.cam.rotation.x += -(this.pan.delta?.y || 0) * PAN_LOOK_SPEED * delta
+      this.cam.rotation.y += -(this.pan.delta?.x || 0) * PAN_LOOK_SPEED * delta
       this.cam.rotation.z = 0
     }
 
@@ -824,13 +927,13 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
     // zoom camera if scrolling wheel
     if (!isXR) {
-      this.cam.zoom += -this.control.scrollDelta.value * ZOOM_SPEED * delta
+      this.cam.zoom += -(this.control.scrollDelta?.value || 0) * ZOOM_SPEED * delta
       this.cam.zoom = clamp(this.cam.zoom, MIN_ZOOM, MAX_ZOOM)
     }
 
     // watch jump presses to either fly or air-jump
-    this.jumpDown = isXR ? this.control.xrRightBtn1.down : this.control.space.down || this.control.touchA.down
-    if (isXR ? this.control.xrRightBtn1.pressed : this.control.space.pressed || this.control.touchA.pressed) {
+    this.jumpDown = isXR ? (this.control.xrRightBtn1?.down || false) : (this.control.space?.down || false) || (this.control.touchA?.down || false)
+    if (isXR ? (this.control.xrRightBtn1?.pressed || false) : (this.control.space?.pressed || false) || (this.control.touchA?.pressed || false)) {
       this.jumpPressed = true
     }
 
@@ -838,12 +941,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.moveDir.set(0, 0, 0)
     if (isXR) {
       // in xr use controller input
-      this.moveDir.x = this.control.xrLeftStick.value.x
-      this.moveDir.z = this.control.xrLeftStick.value.z
+      this.moveDir.x = this.control.xrLeftStick?.value?.x || 0
+      this.moveDir.z = this.control.xrLeftStick?.value?.z || 0
     } else if (this.stick) {
       // if we have a touch joystick use that
-      const touchX = this.stick.touch.position.x
-      const touchY = this.stick.touch.position.y
+      const touchX = this.stick.touch?.position?.x || 0
+      const touchY = this.stick.touch?.position?.y || 0
       const centerX = this.stick.center.x
       const centerY = this.stick.center.y
       const dx = centerX - touchX
@@ -1025,11 +1128,15 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
     if (this.world.xr?.session) {
       // in vr snap camera
-      this.control.camera.position.copy(this.cam.position)
-      this.control.camera.quaternion.copy(this.cam.quaternion)
+      if (this.control.camera) {
+        this.control.camera.position.copy(this.cam.position)
+        this.control.camera.quaternion.copy(this.cam.quaternion)
+      }
     } else {
       // otherwise interpolate camera towards target
-      simpleCamLerp(this.world, this.control.camera, this.cam, delta)
+      if (this.control.camera) {
+        simpleCamLerp(this.world, this.control.camera, this.cam, delta)
+      }
     }
     if (this.avatar) {
       const matrix = this.avatar.getBoneTransform('head')
@@ -1057,8 +1164,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.cam.position.copy(this.base.position)
     this.cam.position.y += this.camHeight
     if (hasRotation) this.cam.rotation.y = rotationY!
-    this.control.camera.position.copy(this.cam.position)
-    this.control.camera.quaternion.copy(this.cam.quaternion)
+    if (this.control.camera) {
+      this.control.camera.position.copy(this.cam.position)
+      this.control.camera.quaternion.copy(this.cam.quaternion)
+    }
   }
 
   setEffect(effect: any, onEnd?: () => void) {

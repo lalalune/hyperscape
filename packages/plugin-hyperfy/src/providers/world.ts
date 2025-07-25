@@ -1,16 +1,13 @@
-import 'ses'
-
 import {
+  createUniqueUuid,
+  logger,
   type IAgentRuntime,
   type Memory,
   type Provider,
-  type ProviderResult,
-  logger,
-  createUniqueUuid,
-  type State,
+  type ProviderResult
 } from '@elizaos/core'
-import { HyperfyService } from '../service.js'
 import * as THREE from 'three'
+import { HyperfyService } from '../service'
 // Vector3Enhanced import removed as it doesn't exist
 
 export const hyperfyProvider: Provider = {
@@ -53,7 +50,7 @@ export const hyperfyProvider: Provider = {
         _currentWorldId || 'hyperfy-unknown-world'
       )
       const entities = world?.entities?.items
-      const agentId = world?.entities?.player?.data?.id
+      const agentId = world?.entities?.player?.id
 
       const allEntityIds: string[] = []
       const categorizedEntities: Record<string, string[]> = {}
@@ -62,13 +59,13 @@ export const hyperfyProvider: Provider = {
       if (entities) {
         for (const [id, entity] of entities.entries()) {
           const name =
-            entity?.data?.name || entity?.blueprint?.name || 'Unnamed'
-          const type = entity?.data?.type || 'unknown'
-          const pos = entity?.base?.position || entity?.root?.position
-          const quat = entity?.base?.quaternion || entity?.root?.quaternion
-          const scale = entity?.base?.scale || entity?.root?.scale
+            entity?.name || 'Unnamed'
+          const type = entity?.type || 'unknown'
+          const pos = entity?.position
+          const quat = entity?.rotation
+          const scale = entity?.scale
           const posStr =
-            pos && pos instanceof THREE.Vector3
+            pos && pos instanceof (THREE as any).Vector3
               ? `[${[pos.x, pos.y, pos.z].map(p => p.toFixed(2)).join(', ')}]`
               : 'N/A'
 
@@ -78,7 +75,7 @@ export const hyperfyProvider: Provider = {
               : 'N/A'
 
           const scaleStr =
-            scale && scale instanceof THREE.Vector3
+            scale && scale instanceof (THREE as any).Vector3
               ? `[${[scale.x, scale.y, scale.z].map(s => s.toFixed(2)).join(', ')}]`
               : 'N/A'
 
@@ -115,7 +112,7 @@ export const hyperfyProvider: Provider = {
         const entity = action.ctx?.entity
         const pos = entity?.root?.position
         const posStr =
-          pos && pos instanceof THREE.Vector3
+          pos && pos instanceof (THREE as any).Vector3
             ? `[${[pos.x, pos.y, pos.z].map(p => p.toFixed(2)).join(', ')}]`
             : 'N/A'
 

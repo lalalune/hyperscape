@@ -119,7 +119,7 @@ export class HyperfyGameService {
 
       // Send chat message
       if (world.chat && world.chat.add) {
-        world.chat.add(
+        (world.chat as any).add(
           {
             id: `msg-${Date.now()}`,
             entityId: playerId,

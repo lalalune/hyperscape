@@ -235,7 +235,7 @@ export class VisualTestFramework {
     }
 
     try {
-      const screenshot = await puppeteerManager.page?.screenshot({
+      const screenshot = await (puppeteerManager as any).page?.screenshot({
         encoding: 'base64',
         fullPage: false,
       })

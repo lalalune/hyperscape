@@ -3,13 +3,12 @@ import * as THREE from 'three'
 // import { createNode } from '@hyperscape/hyperfy'; // Not available
 // import { glbToNodes } from '@hyperscape/hyperfy'; // Not available
 // import { GLTFLoader, type GLTF } from '@hyperscape/hyperfy'; // Not available
-import type { HyperfySystem } from '../types/hyperfy.js'
+import type { SystemInterface as HyperfySystem, WorldInterface as HyperfyWorld } from '@hyperscape/hyperfy'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { PuppeteerManager } from '../managers/puppeteer-manager.js'
-import { resolveUrl } from '../utils.js'
-import { AgentAvatar } from './avatar.js'
-import type { HyperfyWorld } from '../types/hyperfy.js'
+import { PuppeteerManager } from '../managers/puppeteer-manager'
+import { resolveUrl } from '../utils'
+import { AgentAvatar } from './avatar'
 import { logger } from '@elizaos/core'
 
 // import { VRMLoaderPlugin } from "@pixiv/three-vrm";
@@ -59,7 +58,7 @@ if (typeof globalThis !== 'undefined') {
 }
 // --- End Mocks ---
 
-export class AgentLoader implements HyperfySystem {
+export class AgentLoader {
   world: any
   promises: Map<any, any>
   results: Map<any, any>
@@ -88,6 +87,7 @@ export class AgentLoader implements HyperfySystem {
     // }
     // ---------------------------------------
   }
+
 
   // --- Dummy Preload Methods ---
   preload(type: string, url: string) {

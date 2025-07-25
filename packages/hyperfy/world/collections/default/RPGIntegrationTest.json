@@ -1,0 +1,9 @@
+{
+  "name": "RPGIntegrationTest",
+  "description": "Visual test app for RPG system integration with colored cube proxies",
+  "author": "RPG Test Framework",
+  "version": "1.0.0",
+  "model": "",
+  "script": "RPGIntegrationTest.js",
+  "props": []
+}

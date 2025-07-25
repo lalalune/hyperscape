@@ -32,7 +32,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
   speaking?: boolean;
   onEffectEnd?: () => void;
   chatTimer?: NodeJS.Timeout;
-  destroyed?: boolean;
+  destroyed: boolean = false;
   
   constructor(world: any, data: EntityData, local?: boolean) {
     super(world, data, local)

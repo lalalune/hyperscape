@@ -1,8 +1,7 @@
-import { System } from './System.js';
-import type { World, Entities as IEntities, Entity, Player } from '../../types/index.js';
-import { PlayerLocal } from '../entities/PlayerLocal.js';
-import { PlayerRemote } from '../entities/PlayerRemote.js';
-import { App } from '../entities/App.js';
+import { System } from './System';
+import type { World, Entities as IEntities, Entity, Player } from '../../types/index';
+import { PlayerLocal } from '../entities/PlayerLocal';
+import { PlayerRemote } from '../entities/PlayerRemote';
 
 export interface ComponentDefinition {
   type: string;
@@ -41,6 +40,8 @@ class BaseEntity implements Entity {
   scale: any;
   velocity: any;
   isPlayer: boolean;
+  active: boolean = true;
+  destroyed: boolean = false;
 
   constructor(world: World, data: EntityData, local?: boolean) {
     this.world = world;
@@ -106,6 +107,13 @@ class BaseEntity implements Entity {
     return this.components.has(type);
   }
 
+  removeAllComponents(): void {
+    // Remove all components
+    for (const type of Array.from(this.components.keys())) {
+      this.removeComponent(type);
+    }
+  }
+
   applyForce(force: any): void {
     // Physics implementation
   }
@@ -147,7 +155,7 @@ class BaseEntity implements Entity {
 
 // Entity type registry
 const EntityTypes: Record<string, EntityConstructor> = {
-  app: App as unknown as EntityConstructor,
+  entity: BaseEntity as unknown as EntityConstructor,
   playerLocal: PlayerLocal as unknown as EntityConstructor,
   playerRemote: PlayerRemote as unknown as EntityConstructor,
 };
@@ -211,7 +219,7 @@ export class Entities extends System implements IEntities {
   create(name: string, options?: any): Entity {
     const data: EntityData = {
       id: `entity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: options?.type || 'app',
+      type: options?.type || 'entity',
       name,
       ...options
     };
@@ -220,6 +228,8 @@ export class Entities extends System implements IEntities {
 
   add(data: EntityData, local?: boolean): Entity {
     let EntityClass: EntityConstructor = BaseEntity;
+    
+    // Entity creation debug logging removed
     
     if (data.type === 'player') {
       const isLocal = 'network' in this.world && data.owner === (this.world as any).network?.id;
@@ -261,7 +271,13 @@ export class Entities extends System implements IEntities {
   remove(id: string): void {
     const entity = this.items.get(id);
     if (!entity) return console.warn(`Tried to remove entity that did not exist: ${id}`);
-    if (entity.isPlayer) this.players.delete(entity.id);
+    
+    if (entity.isPlayer) {
+      this.players.delete(entity.id);
+      // Emit leave event for players
+      this.world.events.emit('leave', { playerId: entity.id });
+    }
+    
     entity.destroy(true);
     this.items.delete(id);
     this.removed.push(id);
@@ -290,7 +306,12 @@ export class Entities extends System implements IEntities {
   override update(delta: number): void {
     const hotEntities = Array.from(this.hot);
     for (const entity of hotEntities) {
-      entity.update?.(delta);
+      try {
+        entity.update?.(delta);
+      } catch (error) {
+        console.error(`[Entities] Error updating entity:`, entity.id || entity, error);
+        throw error;
+      }
     }
   }
 
@@ -341,6 +362,11 @@ export class Entities extends System implements IEntities {
 
   getAllPlayers(): Player[] {
     return Array.from(this.players.values());
+  }
+
+  // Alias for World.ts compatibility
+  getPlayers(): Player[] {
+    return this.getAllPlayers();
   }
 
   getRemovedIds(): string[] {

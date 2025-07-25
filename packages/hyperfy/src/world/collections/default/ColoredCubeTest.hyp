@@ -1,6 +1,0 @@
-{
-  "name": "ColoredCubeTest",
-  "description": "Test with visual markers using large geometric shapes",
-  "version": "1.0.0",
-  "script": "ColoredCubeTest.js"
-}

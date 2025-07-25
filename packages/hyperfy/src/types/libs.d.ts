@@ -1,33 +1,8 @@
 // Type definitions for internal libraries in src/core/libs
 
-// CSM (Cascaded Shadow Maps)
-declare module '*/csm/CSM.js' {
-  import * as THREE from 'three';
-  
-  export class CSM {
-    constructor(data: {
-      maxFar?: number;
-      cascades?: number;
-      mode?: 'practical' | 'uniform' | 'logarithmic' | 'custom';
-      parent?: THREE.Object3D;
-      shadowMapSize?: number;
-      lightDirection?: THREE.Vector3;
-      camera?: THREE.Camera;
-    });
-    
-    fade: boolean;
-    helper: any;
-    
-    update(): void;
-    updateFrustums(): void;
-    remove(): void;
-    dispose(): void;
-  }
-}
-
 // GLTF Loader
 declare module '*/gltfloader/GLTFLoader.js' {
-  import * as THREE from 'three';
+  import * as THREE from '../core/extras/three.js';
   
   export class GLTFLoader extends THREE.Loader {
     constructor(manager?: THREE.LoadingManager);
@@ -93,7 +68,7 @@ declare module '*/stats-gl/index.js' {
 
 // Three Custom Shader Material
 declare module '*/three-custom-shader-material/index.js' {
-  import * as THREE from 'three';
+  import * as THREE from '../core/extras/three.js';
   
   export default class CustomShaderMaterial extends THREE.Material {
     constructor(options: {
@@ -109,7 +84,7 @@ declare module '*/three-custom-shader-material/index.js' {
 
 // Three VRM
 declare module '*/three-vrm/index.js' {
-  import * as THREE from 'three';
+  import * as THREE from '../core/extras/three.js';
   
   export class VRM {
     scene: THREE.Group;

@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from './three.js'
 
 export class LerpQuaternion {
   value: THREE.Quaternion;

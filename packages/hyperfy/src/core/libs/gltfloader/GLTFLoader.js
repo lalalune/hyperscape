@@ -3292,10 +3292,24 @@ class GLTFParser {
 
 		const sourceDef = json.images[ sourceIndex ];
 
-		// Handle Node.js environment where self is not defined
-		const URL = (typeof self !== 'undefined' && (self.URL || self.webkitURL)) || 
-		           (typeof globalThis !== 'undefined' && globalThis.URL) ||
-		           (typeof window !== 'undefined' && window.URL);
+		// HYP_NODE_POLYFILL: Handle Node.js environment where self is not defined
+		const URL = (typeof self !== 'undefined' ? (self.URL || self.webkitURL) : null) || global.URL;
+		
+		// HYP_NODE_POLYFILL: Handle Node.js environment where Blob is not defined
+		const BlobPolyfill = (typeof Blob !== 'undefined' ? Blob : null) || (() => {
+			// In Node.js environment, we'll skip blob creation and use data URLs
+			return class NodeBlob {
+				constructor(parts, options) {
+					this.parts = parts;
+					this.type = options?.type || '';
+				}
+			};
+		})();
+		
+		// HYP_NODE_POLYFILL: Handle Node.js environment where btoa is not defined
+		const btoaPolyfill = (typeof btoa !== 'undefined' ? btoa : null) || ((str) => {
+			return Buffer.from(str, 'binary').toString('base64');
+		});
 
 		let sourceURI = sourceDef.uri || '';
 		let isObjectURL = false;
@@ -3306,24 +3320,19 @@ class GLTFParser {
 
 			sourceURI = parser.getDependency( 'bufferView', sourceDef.bufferView ).then( function ( bufferView ) {
 
-				isObjectURL = true;
-				// Ensure we have a valid mimeType, fallback to common image types
-				let mimeType = sourceDef.mimeType;
-				if (!mimeType) {
-					// Try to detect from buffer signature
-					const view = new Uint8Array(bufferView, 0, 4);
-					if (view[0] === 0x89 && view[1] === 0x50 && view[2] === 0x4E && view[3] === 0x47) {
-						mimeType = 'image/png';
-					} else if (view[0] === 0xFF && view[1] === 0xD8 && view[2] === 0xFF) {
-						mimeType = 'image/jpeg';
-					} else {
-						mimeType = 'image/png'; // Default fallback
-					}
+				// HYP_NODE_POLYFILL: Handle Node.js environment gracefully
+				if (typeof Blob === 'undefined' && typeof URL?.createObjectURL === 'undefined') {
+					// In Node.js, we'll create a data URL directly from the buffer
+					const uint8Array = new Uint8Array( bufferView );
+					const base64 = btoa( String.fromCharCode.apply( null, uint8Array ) );
+					sourceURI = `data:${sourceDef.mimeType || 'application/octet-stream'};base64,${base64}`;
+					return sourceURI;
+				} else {
+					isObjectURL = true;
+					const blob = new BlobPolyfill( [ bufferView ], { type: sourceDef.mimeType } );
+					sourceURI = URL.createObjectURL( blob );
+					return sourceURI;
 				}
-				
-				const blob = new Blob( [ bufferView ], { type: mimeType } );
-				sourceURI = URL.createObjectURL( blob );
-				return sourceURI;
 
 			} );
 
@@ -3334,18 +3343,6 @@ class GLTFParser {
 		}
 
 		const promise = Promise.resolve( sourceURI ).then( function ( sourceURI ) {
-
-			// Check if we're in a Node.js environment
-			const isNode = typeof window === 'undefined' && typeof process !== 'undefined';
-			
-			if ( isNode ) {
-				// In Node.js, return a placeholder texture instead of trying to load
-				console.warn( 'THREE.GLTFLoader: Skipping texture load in Node.js environment:', sourceURI );
-				
-				const texture = new Texture();
-				texture.name = 'node_placeholder_' + sourceIndex;
-				return texture;
-			}
 
 			return new Promise( function ( resolve, reject ) {
 
@@ -3387,22 +3384,7 @@ class GLTFParser {
 		} ).catch( function ( error ) {
 
 			console.error( 'THREE.GLTFLoader: Couldn\'t load texture', sourceURI );
-			console.error( 'THREE.GLTFLoader: Source definition:', sourceDef );
-			console.error( 'THREE.GLTFLoader: Texture loading error:', error );
-			
-			// Return a placeholder texture instead of throwing to prevent app crashes
-			const canvas = document.createElement('canvas');
-			canvas.width = canvas.height = 1;
-			const context = canvas.getContext('2d');
-			context.fillStyle = '#ff00ff'; // Magenta placeholder
-			context.fillRect(0, 0, 1, 1);
-			
-			const texture = new Texture(canvas);
-			texture.needsUpdate = true;
-			texture.name = 'placeholder_texture_' + sourceIndex;
-			
-			console.warn( 'THREE.GLTFLoader: Using placeholder texture for failed load' );
-			return texture;
+			throw error;
 
 		} );
 

@@ -1,11 +1,11 @@
 /// <reference path="../../types/physx.d.ts" />
 
-import * as THREE from '../extras/three.js';
-import { extendThreePhysX } from '../extras/extendThreePhysX.js';
-import { System } from './System.js';
-import { Layers } from '../extras/Layers.js';
-import { loadPhysX } from '../loadPhysX.js';
-import type { World, Physics as IPhysics, RigidBody, Collider, PhysicsMaterial, Vector3, Quaternion } from '../../types/index.js';
+import * as THREE from '../extras/three';
+import { extendThreePhysX } from '../extras/extendThreePhysX';
+import { System } from './System';
+import { Layers } from '../extras/Layers';
+import { loadPhysX } from '../loadPhysX';
+import type { World, Physics as IPhysics, RigidBody, Collider, PhysicsMaterial, Vector3, Quaternion } from '../../types/index';
 
 // Hit result interfaces
 interface RaycastHit {
@@ -590,7 +590,10 @@ export class Physics extends System implements IPhysics {
     // Finalize any physics updates immediately
     // but don't listen to any loopback commits from those actor moves
     this.ignoreSetGlobalPose = true;
-    this.world.stage?.clean();
+    // Check if stage exists and has clean method before calling
+    if (this.world.stage && typeof this.world.stage.clean === 'function') {
+      this.world.stage.clean();
+    }
     this.ignoreSetGlobalPose = false;
   }
 
@@ -747,6 +750,38 @@ export class Physics extends System implements IPhysics {
 
   simulate(deltaTime: number): void {
     // Handled in postFixedUpdate
+  }
+
+  // Add missing methods referenced in World.ts
+  createLayerMask(...layers: string[]): number {
+    // Create a layer mask based on the provided layer names
+    let mask = 0;
+    for (const layerName of layers) {
+      switch (layerName) {
+        case 'environment':
+          mask |= Layers.environment?.group || 1;
+          break;
+        case 'player':
+          mask |= Layers.player?.group || 2;
+          break;
+        default:
+          console.warn(`[Physics] Unknown layer: ${layerName}`);
+          break;
+      }
+    }
+    return mask;
+  }
+
+  // Add removeCollider method referenced in ColliderComponent.ts
+  removeCollider(collider: any): void {
+    // Find and remove the collider from the physics world
+    if (collider && collider.actor) {
+      const handle = this.handles.get(collider.actor.ptr);
+      if (handle) {
+        this.scene.removeActor(collider.actor);
+        this.handles.delete(collider.actor.ptr);
+      }
+    }
   }
 }
 

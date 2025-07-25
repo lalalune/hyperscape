@@ -1,0 +1,17 @@
+{
+  "spawn": {
+    "position": [0, 2, 0],
+    "rotation": [0, 0, 0]
+  },
+  "entities": [
+    {
+      "id": "test-cube",
+      "type": "app",
+      "appId": "default/TestCube.hyp",
+      "position": [0, 1, -3],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "props": {}
+    }
+  ]
+}

@@ -1,5 +1,4 @@
-import type { HyperfySystem } from '../types/hyperfy.js'
-import type { HyperfyWorld } from '../types/hyperfy.js'
+import type { SystemInterface as HyperfySystem, WorldInterface as HyperfyWorld } from '@hyperscape/hyperfy'
 import { spawn } from 'node:child_process'
 
 export interface LiveKitInitOptions {
@@ -21,7 +20,7 @@ interface Room {
   }
 }
 
-export class AgentLiveKit implements HyperfySystem {
+export class AgentLiveKit {
   world: any
   private room: Room | null = null
   private audioSource: any = null
@@ -30,6 +29,7 @@ export class AgentLiveKit implements HyperfySystem {
   constructor(world: any) {
     this.world = world
   }
+
 
   async deserialize(opts: LiveKitInitOptions): Promise<void> {
     console.warn(

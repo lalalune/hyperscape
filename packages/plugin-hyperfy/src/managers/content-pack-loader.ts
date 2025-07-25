@@ -61,7 +61,7 @@ export class ContentPackLoader implements IContentPackLoader {
         const actionLoader = this.service.getDynamicActionLoader?.()
         if (actionLoader) {
           for (const action of pack.actions) {
-            await actionLoader.registerAction(action)
+            await actionLoader.registerAction(action as any, this.runtime)
           }
         } else {
           // Fallback to runtime registration
@@ -179,14 +179,14 @@ export class ContentPackLoader implements IContentPackLoader {
 
     // Apply UI theme if provided
     if (visuals.uiTheme && world?.ui) {
-      world.ui.applyTheme(visuals.uiTheme)
+      (world.ui as any).applyTheme(visuals.uiTheme)
     }
 
     // Load assets
-    if (visuals.assets && world?.assetLoader) {
+    if (visuals.assets && (world as any)?.assetLoader) {
       if (visuals.assets.models) {
         visuals.assets.models.forEach((url: string) => {
-          world.assetLoader.loadModel(url)
+          (world as any).assetLoader.loadModel(url)
         })
       }
       // Load other asset types...

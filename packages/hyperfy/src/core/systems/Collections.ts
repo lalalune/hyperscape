@@ -1,110 +1,65 @@
-import { System } from './System.js';
-import type { World, Collections as ICollections } from '../../types/index.js';
-
-interface Collection {
-  id: string;
-  name?: string;
-  description?: string;
-  items?: any[];
-  [key: string]: any;
-}
+import { System } from './System';
+import type { World, Collections as ICollections } from '../../types/index';
 
 /**
- * Collections System
+ * Collections System - DEPRECATED
  * 
- * Manages collections of items/assets in the world
+ * This system previously managed .hyp file collections and app blueprints.
+ * It has been replaced by the pure ECS Entity system.
+ * This stub is kept for backwards compatibility only.
  */
 export class Collections extends System implements ICollections {
   items: Map<string, any>;
-  private collections: Collection[];
 
   constructor(world: World) {
     super(world);
-    this.collections = [];
     this.items = new Map();
+    console.log('[Collections] DEPRECATED: Collections system no longer loads .hyp files');
+    console.log('[Collections] Use the Entity system and Components instead');
   }
 
   async init(options: any): Promise<void> {
-    console.log('[Collections] Init called');
+    console.log('[Collections] Init called - system is deprecated and does nothing');
     await super.init(options);
   }
 
   start(): void {
     super.start();
-    console.log('[Collections] Start called');
+    console.log('[Collections] Start called - system is deprecated and does nothing');
   }
 
-  get(id: string): Collection | undefined {
-    return this.collections.find(coll => coll.id === id);
+  get(id: string): any {
+    console.log(`[Collections] get(${id}) called - system is deprecated, returning null`);
+    return null;
   }
 
-  add(collection: Collection): void {
-    const existing = this.get(collection.id);
-    if (existing) {
-      // Update existing collection
-      const index = this.collections.indexOf(existing);
-      this.collections[index] = collection;
-    } else {
-      // Add new collection
-      this.collections.push(collection);
-    }
-    this.items.set(collection.id, collection);
+  add(collection: any): void {
+    console.log('[Collections] add() called - system is deprecated, ignoring');
   }
 
   remove(id: string): boolean {
-    const collection = this.get(id);
-    if (collection) {
-      const index = this.collections.indexOf(collection);
-      this.collections.splice(index, 1);
-      this.items.delete(id);
-      return true;
-    }
+    console.log(`[Collections] remove(${id}) called - system is deprecated, returning false`);
     return false;
   }
 
-  getAll(): Collection[] {
-    return [...this.collections];
+  getAll(): any[] {
+    console.log('[Collections] getAll() called - system is deprecated, returning empty array');
+    return [];
   }
 
-  deserialize(data: Collection[]): void {
-    console.log('[Collections.deserialize] Called with data length:', data?.length || 'undefined')
-    this.collections = data || [];
-    this.items.clear();
-    
-    // Register all blueprints from collections with the blueprints system
-    let totalBlueprints = 0;
-    for (const collection of this.collections) {
-      this.items.set(collection.id, collection);
-      
-      // Register blueprints from this collection
-      if (collection.blueprints && Array.isArray(collection.blueprints)) {
-        for (const blueprint of collection.blueprints) {
-          if (blueprint && blueprint.id) {
-            console.log(`[Collections] Registering blueprint: ${blueprint.id}`)
-            ;(this.world.blueprints as any).add(blueprint);
-            totalBlueprints++;
-          }
-        }
-      }
-    }
-    
-    console.log('[Collections.deserialize] After deserialize, collections length:', this.collections.length)
-    console.log('[Collections.deserialize] Registered blueprints:', totalBlueprints)
+  deserialize(data: any[]): void {
+    console.log('[Collections] deserialize() called - system is deprecated, ignoring data');
+    console.log('[Collections] .hyp file loading is no longer supported');
+    console.log('[Collections] Use Entity system with Components instead');
   }
 
-  serialize(): Collection[] {
-    console.log('[Collections.serialize] Called, collections length:', this.collections.length)
-    if (this.collections.length > 0) {
-      console.log('[Collections.serialize] First collection id:', this.collections[0]?.id)
-      console.log('[Collections.serialize] Collections IDs:', this.collections.map(c => c.id))
-    } else {
-      console.log('[Collections.serialize] Collections array is empty!')
-    }
-    return this.collections;
+  serialize(): any[] {
+    console.log('[Collections] serialize() called - system is deprecated, returning empty array');
+    return [];
   }
 
   override destroy(): void {
-    this.collections = [];
     this.items.clear();
+    console.log('[Collections] Destroyed - system was deprecated');
   }
 } 

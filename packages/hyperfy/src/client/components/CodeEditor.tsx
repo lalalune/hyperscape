@@ -33,7 +33,13 @@ export function CodeEditor({ app, blur, onClose }: CodeEditorProps) {
     const container = containerRef.current
     if (!elem || !container) return
     
-    container.style.width = `${storage?.get('code-editor-width', 640) || 640}px`
+    let width = 640;
+    try {
+      width = storage?.get('code-editor-width') || 640;
+    } catch {
+      // Use default if key doesn't exist
+    }
+    container.style.width = `${width}px`
     let active = false
     function onPointerDown(e: PointerEvent) {
       if (!elem) return

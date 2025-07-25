@@ -1,6 +1,6 @@
-import type { World } from '../../types/index.js'
-import * as THREE from '../extras/three.js'
-import { System } from './System.js'
+import type { World } from '../../types/index'
+import * as THREE from '../extras/three'
+import { System } from './System'
 
 /**
  * Anchor System

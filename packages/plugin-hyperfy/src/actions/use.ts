@@ -180,32 +180,32 @@ export const hyperfyUseItemAction: Action = {
   examples: [
     [
       {
-        user: 'Pick up the book.',
-        assistant: 'Using the book.'
+        name: '{{user}}',
+        content: {
+          text: 'Pick up the book.'
+        }
       },
       {
-        user: 'Interact with the glowing orb.',
-        assistant: 'Activating the glowing orb.'
+        name: '{{agent}}',
+        content: {
+          text: 'Using the book.',
+          actions: ['HYPERFY_USE_ITEM']
+        }
       }
     ],
     [
       {
-        user: 'Use the lever',
-        assistant: 'Pulling the lever.'
+        name: '{{user}}',
+        content: {
+          text: 'Use the lever'
+        }
       },
       {
-        user: 'Open that chest',
-        assistant: 'Opening the chest.'
-      }
-    ],
-    [
-      {
-        user: 'Do we need to pick something up?',
-        assistant: 'I don\'t see any obvious interactive items nearby.'
-      },
-      {
-        user: 'Use the nearest object',
-        assistant: 'Using the nearby crafting bench.'
+        name: '{{agent}}',
+        content: {
+          text: 'Pulling the lever.',
+          actions: ['HYPERFY_USE_ITEM']
+        }
       }
     ]
   ] as ActionExample[][],

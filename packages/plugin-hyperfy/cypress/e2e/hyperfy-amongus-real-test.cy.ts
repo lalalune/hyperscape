@@ -39,7 +39,7 @@ describe('Hyperfy Among Us - Real Implementation Tests', () => {
     
     beforeEach(() => {
         // Visit the Hyperfy world
-        cy.visit('http://localhost:3000/hyperfy-amongus.html');
+        cy.visit('http://localhost:3333/hyperfy-amongus.html');
         
         // Wait for world to load
         cy.window().then((win) => {

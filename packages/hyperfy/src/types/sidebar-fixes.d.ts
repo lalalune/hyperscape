@@ -1,6 +1,6 @@
 // Type fixes for Sidebar.tsx
 
-import * as THREE from 'three';
+import * as THREE from '../core/extras/three.js';
 
 // Extend THREE.js Euler to accept number array
 declare module 'three' {

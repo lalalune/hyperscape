@@ -6,7 +6,7 @@ import {
   createUniqueUuid,
 } from '@elizaos/core'
 import { HyperfyService } from '../../service'
-import type { HyperfyWorld } from '../../types/hyperfy'
+import type { HyperfyWorld, Player } from '../../types/hyperfy'
 
 /**
  * Real World E2E Test Suite for Hyperfy Plugin

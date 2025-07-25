@@ -9,7 +9,7 @@ import {
   logger,
 } from '@elizaos/core'
 import { HyperfyService } from '../service'
-import type { HyperfyWorld } from '../types/hyperfy'
+import type { WorldInterface as HyperfyWorld } from '@hyperscape/hyperfy'
 
 /**
  * Represents an action descriptor from a Hyperfy world
@@ -117,7 +117,7 @@ export class DynamicActionLoader {
 
       handler: this.createDynamicHandler(descriptor),
 
-      examples: this.generateExamples(descriptor) as ActionExample[],
+      examples: this.generateExamples(descriptor) as ActionExample[][],
     }
 
     // Store the action
@@ -157,13 +157,13 @@ export class DynamicActionLoader {
     this.registeredActions.delete(actionName)
     this.worldActions.delete(actionName)
 
-    if (runtime.unregisterAction) {
-      await runtime.unregisterAction(actionName)
-    } else if (runtime.actions && Array.isArray(runtime.actions)) {
+    if ('unregisterAction' in runtime && typeof (runtime as any).unregisterAction === 'function') {
+      await (runtime as any).unregisterAction(actionName)
+    } else if ((runtime as any).actions && Array.isArray((runtime as any).actions)) {
       // Fallback: Remove from actions array
-      const index = runtime.actions.findIndex(a => a.name === actionName)
+      const index = (runtime as any).actions.findIndex((a: any) => a.name === actionName)
       if (index !== -1) {
-        runtime.actions.splice(index, 1)
+        (runtime as any).actions.splice(index, 1)
       }
     }
   }

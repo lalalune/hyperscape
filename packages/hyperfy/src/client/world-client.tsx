@@ -1,12 +1,11 @@
 import React from 'react'
-// import 'ses'
-// import '../core/lockdown'
-import * as THREE from 'three'
+import * as THREE from '../core/extras/three.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 // Removed css utility import
 
 import { createClientWorld } from '../core/createClientWorld'
 import { CoreUI } from './components/CoreUI'
+import { errorReporting } from './error-reporting'
 
 export { System } from '../core/systems/System'
 
@@ -18,7 +17,18 @@ interface ClientProps {
 export function Client({ wsUrl, onSetup }: ClientProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const uiRef = useRef<HTMLDivElement | null>(null)
-  const world = useMemo(() => createClientWorld(), [])
+  const world = useMemo(() => {
+    const world = createClientWorld();
+    
+    // Expose world immediately to browser window for testing
+    if (typeof window !== 'undefined') {
+      console.log('[World Client] Exposing world to window immediately');
+      (window as any).world = world;
+      console.log('[World Client] World available at window.world');
+    }
+    
+    return world;
+  }, [])
   const [ui, setUI] = useState(world.ui.state)
   useEffect(() => {
     world.on('ui', setUI)
@@ -26,6 +36,7 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       world.off('ui', setUI)
     }
   }, [])
+  
   useEffect(() => {
     const init = async () => {
       console.log('[Client] Starting initialization...')
@@ -48,7 +59,7 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         finalWsUrl = result instanceof Promise ? await result : result
       } else {
         // Use PUBLIC_WS_URL if available, otherwise construct from current host
-        const publicWsUrl = (import.meta as any).env?.PUBLIC_WS_URL
+        const publicWsUrl = process.env.PUBLIC_WS_URL
         if (publicWsUrl) {
           finalWsUrl = publicWsUrl
         } else {
@@ -58,9 +69,42 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         }
       }
       console.log('[Client] WebSocket URL:', finalWsUrl)
-      const config = { viewport, ui, wsUrl: finalWsUrl, baseEnvironment }
+      
+      // Set assetsUrl from environment variable for asset:// URL resolution
+      const assetsUrl = process.env.PUBLIC_ASSETS_URL || 
+                       window.env?.PUBLIC_ASSETS_URL || 
+                       `${window.location.protocol}//${window.location.host}/assets/`
+      
+      const config = { 
+        viewport, 
+        ui, 
+        wsUrl: finalWsUrl, 
+        baseEnvironment,
+        assetsUrl 
+      }
       onSetup?.(world, config)
       console.log('[Client] Initializing world with config:', config)
+      
+      // Set up error context with world information
+      try {
+        // Hook into world events to get player information for error reporting
+        world.on('player', (playerData: any) => {
+          if (playerData && playerData.id) {
+            console.log('[ErrorReporting] Setting user ID:', playerData.id)
+            errorReporting.setUserId(playerData.id)
+          }
+        })
+        
+        // Report successful world initialization
+        errorReporting.reportCustomError('World client initialized successfully', {
+          type: 'initialization_success',
+          wsUrl: finalWsUrl,
+          assetsUrl: assetsUrl
+        })
+      } catch (error) {
+        console.warn('[ErrorReporting] Failed to set up world error context:', error)
+      }
+      
       ;(world as any).init(config)
     }
     init()

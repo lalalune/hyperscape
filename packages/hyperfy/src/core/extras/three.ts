@@ -1,53 +1,38 @@
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh'
-
 import * as THREE from 'three'
-import type { Intersection, Raycaster } from 'three'
-
-// Re-export everything from three
-export * from 'three'
-
-// Also export THREE namespace for backward compatibility
-export { THREE }
 
 // override THREE.Vector3 with ours to support _onChange
 import { Vector3Enhanced } from './Vector3Enhanced'
+
+// Re-export THREE namespace and all named exports
+export * from 'three'
+export { THREE }
+
+// Override Vector3 export
 export { Vector3Enhanced as Vector3 }
 
-// Extend THREE types to include our custom methods
+// Explicit exports for commonly used types to fix TypeScript issues
+export {
+  Mesh, BufferGeometry, Material, Texture, Object3D, Scene, Camera, 
+  PerspectiveCamera, OrthographicCamera, WebGLRenderer, Color, 
+  Quaternion, Matrix4, Euler, Box3, BufferAttribute, MathUtils,
+  AnimationMixer, AnimationAction, Skeleton, SkinnedMesh, CapsuleGeometry,
+  BoxGeometry, SphereGeometry, PlaneGeometry, MeshBasicMaterial,
+  MeshLambertMaterial, MeshStandardMaterial, DetachedBindMode, BackSide,
+  LoopRepeat, LoopOnce, InstancedBufferAttribute
+} from 'three'
+
+// Module augmentation for three
 declare module 'three' {
   interface InstancedMesh {
     resize(size: number): void
   }
-  
-  interface BufferGeometry {
-    computeBoundsTree(): void
-    disposeBoundsTree(): void
-  }
-  
-  interface Mesh {
-    raycast: (raycaster: Raycaster, intersects: Intersection[]) => void
-  }
-}
-
-// Declare global THREE namespace extensions
-declare global {
-  namespace THREE {
-    interface Raycaster {
-      firstHitOnly?: boolean
-    }
-    
-    // Extend Vector3 to include the missing methods
-    interface Vector3 {
-      lengthManhattan(): number
-      distanceToManhattan(v: Vector3): number
-    }
-  }
 }
 
 // install three-mesh-bvh
-;(THREE.BufferGeometry.prototype as any).computeBoundsTree = computeBoundsTree
-;(THREE.BufferGeometry.prototype as any).disposeBoundsTree = disposeBoundsTree
-;(THREE.Mesh.prototype as any).raycast = acceleratedRaycast
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree
+THREE.Mesh.prototype.raycast = acceleratedRaycast
 
 // utility to resize instanced mesh buffers
 THREE.InstancedMesh.prototype.resize = function (size: number) {

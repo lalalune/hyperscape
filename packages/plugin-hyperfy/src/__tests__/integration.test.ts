@@ -180,11 +180,8 @@ describe('Integration: Plugin initialization and service registration', () => {
       // Directly mock the service registration that happens during initialization
       // because unit tests don't run the full agent initialization flow
       if (hyperfyPlugin.services) {
-        const serviceItem = hyperfyPlugin.services[0]
-        const HyperfyServiceClass =
-          typeof serviceItem === 'function'
-            ? serviceItem
-            : serviceItem.component
+        const HyperfyServiceClass = hyperfyPlugin.services[0]
+        // Services are classes, not objects with component property
         const serviceInstance = await HyperfyServiceClass.start(
           mockRuntime as unknown as IAgentRuntime
         )

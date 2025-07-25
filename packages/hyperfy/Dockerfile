@@ -31,11 +31,11 @@ ENV COMMIT_HASH=${COMMIT_HASH:-local} \
     NODE_ENV=production
 
 # Expose the port
-EXPOSE 3000
+EXPOSE 3333
 
 # Healthcheck
 HEALTHCHECK --interval=2s --timeout=10s --start-period=5s --retries=5 \
-  CMD curl -f http://localhost:3000/status || exit 1
+  CMD curl -f http://localhost:3333/status || exit 1
 
 # Start the application
 CMD ["npm", "run", "start"]

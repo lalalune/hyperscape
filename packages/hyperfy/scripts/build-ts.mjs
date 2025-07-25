@@ -160,11 +160,8 @@ let serverProcess
 
 async function buildServer() {
   const serverCtx = await esbuild.context({
-    entryPoints: {
-      'index': 'src/server/index.ts',
-      'framework': 'src/index.ts'
-    },
-    outdir: 'build',
+    entryPoints: ['src/server/index.ts'],
+    outfile: 'build/index.js',
     platform: 'node',
     format: 'esm',
     bundle: true,
@@ -244,93 +241,22 @@ async function generateDeclarations() {
   
   console.log('Generating TypeScript declarations...')
   try {
-    execSync('npx tsc --emitDeclarationOnly', {
+    execSync('npx tsc -p tsconfig.build.json', {
       stdio: 'inherit',
       cwd: rootDir
     })
     
-    // Create index.d.ts for server entry (simple startup script)
+    // Skip declaration bundling for server entry point
+    // The server/index.ts is a startup script, not a library module
+    console.log('Skipping declaration bundling for server entry point')
+    
+    // Create a simple index.d.ts that points to the generated declarations
     const indexDeclaration = `// TypeScript declarations for Hyperfy
 // Server entry point (startup script)
 export {};
 
 `
     await fs.writeFile(path.join(rootDir, 'build/index.d.ts'), indexDeclaration)
-    
-    // Create framework.d.ts by copying from the generated src/index.d.ts
-    const srcIndexDts = path.join(rootDir, 'build/src/index.d.ts')
-    const frameworkDts = path.join(rootDir, 'build/framework.d.ts')
-    
-    if (await fs.pathExists(srcIndexDts)) {
-      await fs.copy(srcIndexDts, frameworkDts)
-      console.log('Framework declaration file created ✓')
-    } else {
-      console.warn('Source index.d.ts not found, creating manual framework.d.ts')
-      
-      // Create a manual framework.d.ts file that re-exports from the right locations
-      const frameworkDeclaration = `/**
- * @hyperscape/hyperfy Framework Declaration
- */
-
-// Export framework components explicitly to avoid conflicts
-export { 
-  HyperfyFramework,
-  WorldManager,
-  ConfigManager,
-  StorageManager
-} from './framework/index';
-
-// Export framework types
-export type {
-  HyperfyFrameworkOptions,
-  WorldConfig,
-  WorldInfo,
-  PersistenceConfig,
-  AssetConfig,
-  SystemConfig,
-  StorageConfig
-} from './framework/index';
-
-// Export specific core components
-export { World } from './core/World';
-export { createServerWorld } from './core/createServerWorld';
-export { createClientWorld } from './core/createClientWorld';
-export { createViewerWorld } from './core/createViewerWorld';
-
-// Export node client components explicitly to avoid conflicts
-export {
-  createNodeClientWorld,
-  storage,
-  loadPhysX,
-  uuid,
-  NodeClient,
-  ClientControls,
-  ClientNetwork,
-  ServerLoader,
-  NodeEnvironment,
-  Node,
-  Emotes,
-  createEmoteFactory,
-  createNode,
-  glbToNodes,
-  Vector3Enhanced,
-  GLTFLoader,
-  CSM,
-  getPhysXAssetPath
-} from './node-client/index';
-
-// Export THREE separately to avoid naming conflicts
-export * as THREE from 'three';
-
-// Export System from core (single source to avoid duplicates)
-export { System } from './core/systems/System';
-
-// Default export is the framework
-export { HyperfyFramework as default } from './framework/index';
-`
-      await fs.writeFile(frameworkDts, frameworkDeclaration)
-    }
-    
     console.log('Declaration files generated ✓')
   } catch (error) {
     console.error('Declaration generation failed!')

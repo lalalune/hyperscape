@@ -97,21 +97,37 @@ if (ENVIRONMENT_IS_NODE) {
   // the require()` function.  This is only necessary for multi-environment
   // builds, `-sENVIRONMENT=node` emits a static import declaration instead.
   // TODO: Swap all `require()`'s with `import()`'s?
-  const { createRequire } = await import('module');
-  /** @suppress{duplicate} */
-  var require = createRequire(import.meta.url);
-  // These modules will usually be used on Node.js. Load them eagerly to avoid
-  // the complexity of lazy-loading.
-  var fs = require('fs');
-  var nodePath = require('path');
+  
+  // Browser compatibility: Only import Node.js modules if we're actually in Node.js
+  let fs, nodePath, require;
+  if (typeof window === 'undefined' && typeof global !== 'undefined') {
+    // Node.js environment
+    const { createRequire } = await import('module');
+    /** @suppress{duplicate} */
+    require = createRequire(import.meta.url);
+    // These modules will usually be used on Node.js. Load them eagerly to avoid
+    // the complexity of lazy-loading.
+    fs = require('fs');
+    nodePath = require('path');
+  } else {
+    // Browser environment - provide stubs
+    fs = null;
+    nodePath = null;
+    require = null;
+  }
 
   if (ENVIRONMENT_IS_WORKER) {
-    scriptDirectory = nodePath.dirname(scriptDirectory) + '/';
+    scriptDirectory = nodePath ? nodePath.dirname(scriptDirectory) + '/' : './';
   } else {
     // EXPORT_ES6 + ENVIRONMENT_IS_NODE always requires use of import.meta.url,
     // since there's no way getting the current absolute path of the module when
     // support for that is not available.
-    scriptDirectory = require('url').fileURLToPath(new URL('./', import.meta.url)); // includes trailing slash
+    if (require) {
+      scriptDirectory = require('url').fileURLToPath(new URL('./', import.meta.url)); // includes trailing slash
+    } else {
+      // Browser fallback
+      scriptDirectory = './';
+    }
   }
 
 // include: node_shell_read.js

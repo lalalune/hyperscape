@@ -2,8 +2,7 @@ import {
   describe,
   expect,
   it,
-  mock,
-  spyOn,
+  vi,
   beforeEach,
   afterEach,
   beforeAll,
@@ -20,10 +19,10 @@ dotenv.config()
 
 // Need to spy on logger for documentation
 beforeAll(() => {
-  spyOn(logger, 'info')
-  spyOn(logger, 'error')
-  spyOn(logger, 'warn')
-  spyOn(logger, 'debug')
+  vi.spyOn(logger, 'info')
+  vi.spyOn(logger, 'error')
+  vi.spyOn(logger, 'warn')
+  vi.spyOn(logger, 'debug')
 })
 
 afterAll(() => {
@@ -179,7 +178,7 @@ describe('HyperfyService', () => {
     ;(runtime as any).testServices.set(HyperfyService.serviceName, service)
 
     // Spy on the real service's stop method
-    const stopSpy = spyOn(service, 'stop')
+    const stopSpy = vi.spyOn(service, 'stop')
 
     // Call the static stop method
     await HyperfyService.stop(runtime as any)

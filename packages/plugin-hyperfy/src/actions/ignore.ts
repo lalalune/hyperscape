@@ -50,12 +50,11 @@ export const ignoreAction: Action = {
     // If a callback and the agent's response content are available, call the callback
     if (callback && responses?.[0]?.content) {
       // Pass the agent's original response content (thought, IGNORE action, etc.)
-      const result: ActionResult = {
-        ...responses[0].content,
+      await callback({
         text: responses[0].content.text || '',
-        success: true
-      }
-      await callback(result)
+        actions: ['IGNORE'],
+        source: 'hyperfy'
+      })
     }
 
     return {

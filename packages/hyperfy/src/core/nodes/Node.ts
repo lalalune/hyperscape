@@ -119,12 +119,17 @@ export class Node {
   }
 
   activate(ctx?: any): void {
+    console.log('[Node] activate() called on:', this.name, 'active:', this._active, 'mounted:', this.mounted)
+    console.log('[Node] Constructor name:', this.constructor.name)
+    console.log('[Node] Mount method type:', typeof this.mount)
+    console.log('[Node] Mount method toString:', this.mount.toString().substring(0, 100))
     if (ctx) this.ctx = ctx
     if (!this._active) return
     // top down mount
     if (this.mounted) return
     this.updateTransform()
     this.mounted = true
+    console.log('[Node] calling mount() on:', this.name)
     this.mount()
     const children = this.children
     for (let i = 0, l = children.length; i < l; i++) {

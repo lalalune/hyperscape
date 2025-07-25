@@ -1,8 +1,3 @@
-import './bootstrap'
-import 'ses'
-import '../core/lockdown'
-
-import compress from '@fastify/compress'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import statics from '@fastify/static'
@@ -11,28 +6,47 @@ import dotenv from 'dotenv'
 import Fastify from 'fastify'
 import fs from 'fs-extra'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
 dotenv.config()
 
 import { createServerWorld } from '../core/createServerWorld'
 import { hashFile } from '../core/utils-server'
-import { initCollections } from './collections'
 import { getDB } from './db'
 import { Storage } from './Storage'
 
+// Wrap server initialization in async function to avoid top-level await
+async function startServer() {
+
+  // Prevent duplicate server initialization
+  if ((globalThis as any).__HYPERFY_SERVER_STARTING__) {
+    console.log('[Server] Server already starting/started, skipping duplicate initialization');
+    return; // Exit early instead of skipping the rest
+  }
+  
+  (globalThis as any).__HYPERFY_SERVER_STARTING__ = true;
+
+
 // Set default values for required environment variables
 const WORLD = process.env['WORLD'] || 'world'
-const PORT = parseInt(process.env['PORT'] || '3000', 10)
+const PORT = parseInt(process.env['PORT'] || '3333', 10)
 
-const rootDir = path.join(__dirname, '../')
-const worldDir = path.join(rootDir, WORLD)
-const assetsDir = path.join(worldDir, '/assets')
-const collectionsDir = path.join(worldDir, '/collections')
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const rootDir = path.join(__dirname, '../..')
+// Use absolute path if WORLD is absolute, otherwise relative to the hyperfy package root (not rootDir)
+const worldDir = path.isAbsolute(WORLD) ? WORLD : path.join(__dirname, '../..', WORLD)
+const assetsDir = path.join(worldDir, 'assets')
+const collectionsDir = path.join(worldDir, 'collections')
 
 // Log configuration
 console.log('[Hyperfy] Starting server with configuration:')
 console.log(`  WORLD: ${WORLD}`)
 console.log(`  PORT: ${PORT}`)
+console.log(`  RPG_SYSTEMS_PATH: ${process.env.RPG_SYSTEMS_PATH || 'none'}`)
+console.log(`  PLUGIN_PATH: ${process.env.PLUGIN_PATH || 'none'}`)
 console.log(`  Root dir: ${rootDir}`)
 console.log(`  World dir: ${worldDir}`)
 
@@ -41,13 +55,18 @@ await fs.ensureDir(worldDir)
 await fs.ensureDir(assetsDir)
 await fs.ensureDir(collectionsDir)
 
-// copy over built-in assets and collections
-await fs.copy(path.join(rootDir, 'src/world/assets'), path.join(assetsDir))
-await fs.copy(path.join(rootDir, 'src/world/collections'), path.join(collectionsDir))
+// copy over built-in assets and collections (only if they don't exist)
+const hyperfyRoot = path.join(__dirname, '../..')  // From build/server to hyperfy root
+const builtInAssetsDir = path.join(hyperfyRoot, 'src/world/assets')
 
-// init collections
-const collections = await initCollections({ collectionsDir, assetsDir })
-console.log('[Server] Collections returned from initCollections:', collections?.length || 'undefined')
+// Only copy built-in assets if assets directory is empty
+const assetFiles = await fs.readdir(assetsDir).catch(() => [])
+if (assetFiles.length === 0 && await fs.exists(builtInAssetsDir)) {
+  console.log('[Server] Assets directory empty, copying built-in assets...')
+  await fs.copy(builtInAssetsDir, assetsDir)
+} else {
+  console.log(`[Server] Assets directory already has ${assetFiles.length} files, skipping copy`)
+}
 
 // init db
 const db = await getDB(path.join(worldDir, '/db.sqlite'))
@@ -55,8 +74,8 @@ const db = await getDB(path.join(worldDir, '/db.sqlite'))
 // init storage
 const storage = new Storage(path.join(worldDir, '/storage.json'))
 
-const world = createServerWorld()
-console.log('[Server] Created server world, collections still:', collections?.length || 'undefined')
+const world = await createServerWorld()
+
 world.assetsUrl = process.env['PUBLIC_ASSETS_URL'] || '/assets/'
   
 // Ensure assetsUrl ends with slash for proper URL resolution
@@ -81,62 +100,255 @@ if (!(world as any).environment?.base) {
   }
 }
 
-console.log('[Server] About to deserialize collections:', collections?.length || 'undefined', typeof collections)
 try {
-  ;(world.collections as any).deserialize(collections)
+  // ;(world.collections as any).deserialize(collections)
   console.log('[Server] Collections after deserialize:', (world.collections as any).serialize()?.length || 'undefined')
 } catch (error) {
   console.error('[Server] Error during collections deserialize:', error)
 }
 ;(world as any).init({ db, storage, assetsDir, collectionsDir })
 
+// Entities spawn automatically from world.json if present
+await loadWorldEntities()
+
+// Auto-spawn entities from collections if no world.json
+setTimeout(async () => {
+  try {
+    const worldEntityCount = (world as any).entities.getAll().filter((e: any) => e.data.type === 'app').length
+    console.log('[AutoSpawn] Current app entities:', worldEntityCount)
+    
+    if (worldEntityCount === 0) {
+      console.log('[AutoSpawn] No app entities found, auto-spawning from collections...')
+      const collectionsData = (world.collections as any).serialize()
+      console.log('[AutoSpawn] Processing collections:', collectionsData?.length || 0)
+      
+      if (collectionsData && collectionsData.length > 0) {
+        let spawnedCount = 0
+        collectionsData.forEach((collection: any, collectionIndex: number) => {
+          if (collection.blueprints) {
+            collection.blueprints.forEach((blueprint: any, blueprintIndex: number) => {
+              // Spawn each blueprint at different positions  
+              const x = (blueprintIndex * 5) - 10 // -10, -5, 0, 5, etc.
+              const z = (collectionIndex * 5) - 5
+              
+              console.log(`[AutoSpawn] Spawning ${blueprint.name} at position [${x}, 0, ${z}]`)
+              
+              const entityData = {
+                type: 'app',
+                blueprint: blueprint.id,
+                position: [x, 0, z],
+                quaternion: [0, 0, 0, 1],
+                props: blueprint.props || {}
+              }
+              
+              const entity = (world as any).entities.add(entityData, true)
+              console.log(`[AutoSpawn] Created entity: ${entity.data.id} (${blueprint.name})`)
+              spawnedCount++
+            })
+          }
+        })
+        console.log(`[AutoSpawn] Successfully spawned ${spawnedCount} entities`)
+      } else {
+        console.log('[AutoSpawn] No collections data found')
+      }
+    } else {
+      console.log('[AutoSpawn] App entities already exist, skipping auto-spawn')
+    }
+  } catch (error) {
+    console.error('[AutoSpawn] Error during auto-spawn:', error)
+  }
+}, 3000) // Wait 3 seconds for world to fully initialize
+
+async function loadWorldEntities() {
+  const worldConfigPath = path.join(worldDir, 'world.json')
+  
+  try {
+    if (await fs.exists(worldConfigPath)) {
+      console.log('[Server] Loading entities from world.json...')
+      const worldConfig = await fs.readJson(worldConfigPath)
+      
+      if (worldConfig.entities && Array.isArray(worldConfig.entities)) {
+        console.log(`[Server] Found ${worldConfig.entities.length} entities to spawn`)
+        
+        for (const entityData of worldConfig.entities) {
+          try {
+            // Create complete entity data structure
+            const entityToAdd = {
+              id: entityData.id,
+              type: entityData.type || 'app',
+              position: entityData.position || [0, 0, 0],
+              quaternion: entityData.quaternion || [0, 0, 0, 1], // Convert rotation to quaternion
+              scale: entityData.scale || [1, 1, 1],
+              ...entityData,
+              state: {} // Initialize empty state
+            }
+            
+            // Handle rotation field if present (convert to quaternion)
+            if (entityData.rotation && !entityData.quaternion) {
+              // For now, assume rotation is Euler angles in radians and convert to quaternion
+              // This is a simplified conversion - for a more accurate conversion, use Three.js Euler.setFromVector3
+              const [x, y, z] = entityData.rotation;
+              // Create a basic quaternion from Y rotation (most common case)
+              const halfY = y * 0.5;
+              entityToAdd.quaternion = [0, Math.sin(halfY), 0, Math.cos(halfY)];
+            }
+            
+            // Map appId to blueprint for App entities
+            if (entityToAdd.type === 'app' && entityData.appId && !entityToAdd.blueprint) {
+              entityToAdd.blueprint = entityData.appId
+              console.log(`[Server] Mapped appId ${entityData.appId} to blueprint field`)
+            }
+            
+            console.log(`[Server] Spawning entity: ${entityData.id} (${entityData.appId || entityData.type}) with blueprint: ${entityToAdd.blueprint || 'none'}`)
+            ;(world as any).entities.add(entityToAdd, true)
+          } catch (entityError) {
+            console.error(`[Server] Failed to spawn entity ${entityData.id}:`, entityError)
+          }
+        }
+        
+        console.log('[Server] ✅ All world.json entities spawned successfully')
+      } else {
+        console.log('[Server] No entities array found in world.json')
+      }
+    } else {
+      console.log('[Server] No world.json found, skipping entity spawning')
+    }
+  } catch (error) {
+    console.error('[Server] Error loading world.json entities:', error)
+  }
+}
+
+
 const fastify = Fastify({ logger: { level: 'error' } })
 
-fastify.register(cors)
-fastify.register(compress)
+console.log('[Server] Created Fastify instance')
+
+try {
+  await fastify.register(cors, {
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:7777',
+      /^https?:\/\/localhost:\d+$/,
+      true // Allow all origins in development
+    ],
+    credentials: true,
+    methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS']
+  })
+  console.log('[Server] Registered CORS')
+} catch (error) {
+  console.error('[Server] Error registering CORS:', error)
+  throw error
+}
+
+// TEMPORARILY DISABLE COMPRESSION FOR DEBUGGING
+// try {
+//   await fastify.register(compress)
+//   console.log('[Server] Registered compress')
+// } catch (error) {
+//   console.error('[Server] Error registering compress:', error)
+//   throw error
+// }
 fastify.get('/', async (_req: any, reply: any) => {
-  const title = (world.settings as any).title || 'World'
-  const desc = (world.settings as any).desc || ''
-  const image = world.resolveURL((world.settings as any).image?.url) || ''
-  const url = process.env['PUBLIC_ASSETS_URL']
-  const filePath = path.join(__dirname, 'public', 'index.html')
-  let html = fs.readFileSync(filePath, 'utf-8')
-  html = html.replace(/\{url\}/g, url || '')
-  html = html.replace(/\{title\}/g, title)
-  html = html.replace(/\{desc\}/g, desc)
-  html = html.replace(/\{image\}/g, image)
-  reply.type('text/html').send(html)
+  try {
+    const title = (world.settings as any).title || 'Hyperfy'
+    const desc = (world.settings as any).desc || 'A virtual world platform'  
+    const image = world.resolveURL((world.settings as any).image?.url) || ''
+    const url = process.env['PUBLIC_ASSETS_URL']
+    
+    // In built version, __dirname points to build/, so public is at build/public
+    const filePath = path.join(__dirname, 'public', 'index.html')
+    const publicDir = path.join(__dirname, 'public')
+    
+    // Find the actual compiled JS and particles files
+    const files = await fs.readdir(publicDir)
+    const jsFile = files.find(f => f.startsWith('index-') && f.endsWith('.js'))
+    const particlesFile = files.find(f => f.startsWith('particles-') && f.endsWith('.js'))
+    
+    if (!jsFile) {
+      throw new Error('Client JS bundle not found')
+    }
+    if (!particlesFile) {
+      throw new Error('Particles JS bundle not found')
+    }
+    
+    let html = fs.readFileSync(filePath, 'utf-8')
+    html = html.replaceAll('{url}', url || '')
+    html = html.replaceAll('{title}', title)
+    html = html.replaceAll('{desc}', desc)
+    html = html.replaceAll('{image}', image)
+    html = html.replaceAll('{jsPath}', `/${jsFile}`)
+    html = html.replaceAll('{particlesPath}', `/${particlesFile}`)
+    
+    // Set proper headers and send response
+    reply.header('Content-Type', 'text/html; charset=utf-8')
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    reply.header('Pragma', 'no-cache')
+    reply.header('Expires', '0')
+    reply.send(html)
+  } catch (error) {
+    console.error('[Server] Error serving HTML:', error)
+    reply.status(500).send('Internal Server Error')
+  }
 })
-fastify.register(statics, {
-  root: path.join(__dirname, 'public'),
-  prefix: '/',
-  decorateReply: false,
-  setHeaders: res => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-    res.setHeader('Pragma', 'no-cache')
-    res.setHeader('Expires', '0')
-  },
-})
-fastify.register(statics, {
-  root: assetsDir,
-  prefix: '/assets/',
-  decorateReply: false,
-  setHeaders: res => {
-    // all assets are hashed & immutable so we can use aggressive caching
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable') // 1 year
-    res.setHeader('Expires', new Date(Date.now() + 31536000000).toUTCString()) // older browsers
-  },
-})
-fastify.register(statics, {
-  root: collectionsDir,
-  prefix: '/collections/',
-  decorateReply: false,
-  setHeaders: res => {
-    // collections scripts can be cached but not as aggressively as assets
-    res.setHeader('Cache-Control', 'public, max-age=300') // 5 minutes
-    res.setHeader('Pragma', 'no-cache')
-  },
-})
+try {
+  console.log('[Server] Registering static - public files')
+  await fastify.register(statics, {
+    root: path.join(__dirname, 'public'),
+    prefix: '/',
+    decorateReply: false,
+    setHeaders: res => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+      res.setHeader('Pragma', 'no-cache')
+      res.setHeader('Expires', '0')
+    },
+  })
+  console.log('[Server] Registered static - public files')
+} catch (error) {
+  console.error('[Server] Error registering static public:', error)
+  throw error
+}
+
+try {
+  console.log('[Server] Registering static - assets')
+  await fastify.register(statics, {
+    root: assetsDir,
+    prefix: '/assets/',
+    decorateReply: false,
+    setHeaders: res => {
+      // all assets are hashed & immutable so we can use aggressive caching
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable') // 1 year
+      res.setHeader('Expires', new Date(Date.now() + 31536000000).toUTCString()) // older browsers
+    },
+  })
+  console.log('[Server] Registered static - assets')
+} catch (error) {
+  console.error('[Server] Error registering static assets:', error)
+  throw error
+}
+
+// Register RPG systems static serving if available
+if (process.env.RPG_SYSTEMS_PATH) {
+  try {
+    console.log('[Server] Registering static - RPG systems')
+    await fastify.register(statics, {
+      root: process.env.RPG_SYSTEMS_PATH,
+      prefix: '/rpg/dist/',
+      decorateReply: false,
+      setHeaders: res => {
+        // Allow client to load JS modules
+        res.setHeader('Cache-Control', 'public, max-age=300') // 5 minutes
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Access-Control-Allow-Methods', 'GET')
+      },
+    })
+    console.log('[Server] Registered static - RPG systems')
+  } catch (error) {
+    console.error('[Server] Error registering static RPG systems:', error)
+    // Don't throw - RPG systems are optional
+  }
+}
+
 fastify.register(multipart, {
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB
@@ -161,6 +373,14 @@ for (const key in process.env) {
       publicEnvs[key] = value
     }
   }
+}
+
+// Expose plugin paths to client for systems loading
+if (process.env.RPG_SYSTEMS_PATH) {
+  publicEnvs['PLUGIN_PATH'] = process.env.RPG_SYSTEMS_PATH
+}
+if (process.env.PLUGIN_PATH) {
+  publicEnvs['PLUGIN_PATH'] = process.env.PLUGIN_PATH
 }
 const envsCode = `
   if (!globalThis.env) globalThis.env = {}
@@ -361,283 +581,54 @@ fastify.get('/api/state', async (request, reply) => {
   }
 });
 
-// Plugin management endpoints
-fastify.get('/api/plugins', async (request, reply) => {
+// Frontend error reporting endpoint
+fastify.post('/api/errors/frontend', async (request, reply) => {
   try {
-    const plugins = world.getLoadedPlugins();
-    return reply.send({
-      success: true,
-      plugins: plugins.map((p: any) => ({
-        name: p.name,
-        version: p.version
-      }))
-    });
+    const errorData = request.body as any;
+    
+    // Log the frontend error with full context
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      source: 'frontend',
+      ...errorData
+    };
+    
+    // Log the frontend error
+    console.error(`[Frontend Error] ${timestamp}`);
+    console.error('Error:', errorData.message);
+    console.error('Stack:', errorData.stack);
+    console.error('URL:', errorData.url);
+    console.error('User Agent:', errorData.userAgent);
+    if (errorData.context) {
+      console.error('Additional Context:', errorData.context);
+    }
+    
+    // Store error in database if needed (optional)
+    try {
+      const errorLog = {
+        timestamp: Date.now(),
+        source: 'frontend',
+        level: 'error',
+        data: JSON.stringify(logEntry)
+      };
+      
+      // You can uncomment this to store errors in the database
+      // db.prepare('INSERT INTO error_logs (timestamp, source, level, data) VALUES (?, ?, ?, ?)').run(
+      //   errorLog.timestamp, errorLog.source, errorLog.level, errorLog.data
+      // );
+    } catch (dbError) {
+      console.error('[Database] Failed to store frontend error:', dbError);
+    }
+    
+    return reply.send({ success: true, logged: true });
   } catch (error) {
+    console.error('[API] Failed to process frontend error:', error);
     return reply.code(500).send({ 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: 'Failed to log frontend error' 
     });
   }
-});
-
-// Visual testing endpoints
-fastify.get('/test-empty', async (_req, reply) => {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Empty World Test</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      background: linear-gradient(to bottom, #87CEEB, #98FB98);
-      overflow: hidden;
-    }
-  </style>
-</head>
-<body>
-  <!-- Empty world with gradient background -->
-</body>
-</html>
-  `;
-  reply.type('text/html').send(html);
-});
-
-fastify.get('/test-single-entity', async (_req, reply) => {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Single Entity Test</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #87CEEB;
-      overflow: hidden;
-      position: relative;
-    }
-    .entity {
-      position: absolute;
-      width: 50px;
-      height: 50px;
-      border-radius: 4px;
-    }
-    .player {
-      background-color: #0000FF;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-  </style>
-</head>
-<body>
-  <div class="entity player" data-type="PLAYER"></div>
-</body>
-</html>
-  `;
-  reply.type('text/html').send(html);
-});
-
-fastify.get('/test-multi-entity', async (_req, reply) => {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Multi Entity Test</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #87CEEB;
-      overflow: hidden;
-      position: relative;
-    }
-    .entity {
-      position: absolute;
-      width: 40px;
-      height: 40px;
-      border-radius: 4px;
-    }
-    .player {
-      background-color: #0000FF;
-    }
-    .goblin {
-      background-color: #00FF00;
-    }
-    .tree {
-      background-color: #228B22;
-      border-radius: 50%;
-    }
-  </style>
-</head>
-<body>
-  <div class="entity player" data-type="PLAYER" style="top: 45%; left: 45%;"></div>
-  <div class="entity goblin" data-type="GOBLIN" style="top: 30%; left: 60%;"></div>
-  <div class="entity goblin" data-type="GOBLIN" style="top: 70%; left: 30%;"></div>
-  <div class="entity tree" data-type="TREE" style="top: 20%; left: 20%;"></div>
-  <div class="entity tree" data-type="TREE" style="top: 80%; left: 80%;"></div>
-  <div class="entity tree" data-type="TREE" style="top: 60%; left: 15%;"></div>
-</body>
-</html>
-  `;
-  reply.type('text/html').send(html);
-});
-
-fastify.get('/test-melee-combat', async (_req, reply) => {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Melee Combat Test</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #87CEEB;
-      overflow: hidden;
-      position: relative;
-    }
-    .entity {
-      position: absolute;
-      width: 45px;
-      height: 45px;
-      border-radius: 4px;
-    }
-    .player {
-      background-color: #0000FF;
-    }
-    .goblin {
-      background-color: #00FF00;
-    }
-    .combat-effect {
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      background-color: #FF6B6B;
-      border-radius: 50%;
-      animation: flash 0.5s ease-in-out infinite alternate;
-    }
-    @keyframes flash {
-      from { opacity: 0.3; }
-      to { opacity: 1; }
-    }
-  </style>
-</head>
-<body>
-  <div class="entity player" data-type="PLAYER" style="top: 50%; left: 45%;"></div>
-  <div class="entity goblin" data-type="GOBLIN" style="top: 50%; left: 55%;"></div>
-  <div class="combat-effect" style="top: 50%; left: 50%;"></div>
-</body>
-</html>
-  `;
-  reply.type('text/html').send(html);
-});
-
-fastify.get('/test-ranged-combat', async (_req, reply) => {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Ranged Combat Test</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #87CEEB;
-      overflow: hidden;
-      position: relative;
-    }
-    .entity {
-      position: absolute;
-      width: 45px;
-      height: 45px;
-      border-radius: 4px;
-    }
-    .player {
-      background-color: #0000FF;
-    }
-    .goblin {
-      background-color: #00FF00;
-    }
-    .arrow {
-      position: absolute;
-      width: 8px;
-      height: 20px;
-      background-color: #8B4513;
-      border-radius: 2px;
-    }
-  </style>
-</head>
-<body>
-  <div class="entity player" data-type="PLAYER" style="top: 50%; left: 20%;"></div>
-  <div class="entity goblin" data-type="GOBLIN" style="top: 50%; left: 75%;"></div>
-  <div class="arrow" style="top: 50%; left: 50%; transform: rotate(90deg);"></div>
-</body>
-</html>
-  `;
-  reply.type('text/html').send(html);
-});
-
-fastify.get('/test-woodcutting', async (_req, reply) => {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Woodcutting Test</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #87CEEB;
-      overflow: hidden;
-      position: relative;
-    }
-    .entity {
-      position: absolute;
-      border-radius: 4px;
-    }
-    .player {
-      width: 45px;
-      height: 45px;
-      background-color: #0000FF;
-    }
-    .tree {
-      width: 50px;
-      height: 50px;
-      background-color: #228B22;
-      border-radius: 50%;
-    }
-    .tool {
-      width: 25px;
-      height: 25px;
-      background-color: #8B4513;
-    }
-  </style>
-</head>
-<body>
-  <div class="entity player" data-type="PLAYER" style="top: 50%; left: 40%;"></div>
-  <div class="entity tree" data-type="TREE" style="top: 30%; left: 60%;"></div>
-  <div class="entity tree" data-type="TREE" style="top: 70%; left: 65%;"></div>
-  <div class="entity tree" data-type="TREE" style="top: 50%; left: 75%;"></div>
-  <div class="entity tool" data-type="TOOL" style="top: 50%; left: 35%;"></div>
-</body>
-</html>
-  `;
-  reply.type('text/html').send(html);
 });
 
 fastify.setErrorHandler((err, _req, reply) => {
@@ -665,3 +656,11 @@ process.on('SIGTERM', async () => {
   await fastify.close()
   process.exit(0)
 })
+
+} // End of startServer function
+
+// Start the server
+startServer().catch(error => {
+  console.error('[Server] Failed to start server:', error);
+  process.exit(1);
+});

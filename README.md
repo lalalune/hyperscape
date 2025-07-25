@@ -11,7 +11,7 @@ npm run build
 npm start
 ```
 
-**Then open your browser to: `http://localhost:3000`**
+**Then open your browser to: `http://localhost:3333`**
 
 ## 🌟 **What Is This?**
 
@@ -68,7 +68,7 @@ npm start          # Start the RPG server
 ```
 
 ### 2. Join the World
-- Open browser to **`http://localhost:3000`**
+- Open browser to **`http://localhost:3333`**
 - Your character spawns in a random starter town
 - You start with a bronze sword and basic stats
 
@@ -183,7 +183,7 @@ This project uses **real gameplay testing** - no mocks, no simulations:
 **Both humans and AI agents can play together** in the same world:
 
 ### For Human Players
-- Use web browser at `http://localhost:3000`
+- Use web browser at `http://localhost:3333`
 - Standard WASD movement and mouse interaction
 - Full UI with inventory, equipment, skills display
 
@@ -263,8 +263,8 @@ npm run test:integration   # End-to-end gameplay tests
 
 **Port conflicts (3000/3000 in use)**:
 ```bash
-lsof -ti:3000 | xargs kill -9
-lsof -ti:3000 | xargs kill -9
+lsof -ti:3333 | xargs kill -9
+lsof -ti:3333 | xargs kill -9
 npm start
 ```
 
@@ -317,7 +317,7 @@ cd hyperscape
 npm install
 npm run build
 npm start
-# Open browser to http://localhost:3000
+# Open browser to http://localhost:3333
 # Click on green cubes (goblins) to fight and gain XP!
 ```
 
@@ -329,6 +329,6 @@ MIT License - Feel free to use this project as inspiration for your own AI-power
 
 **🎮 Ready to explore the AI-generated world of Hyperscape?** 
 
-**Run `npm start` and open `http://localhost:3000` to begin your adventure!**
+**Run `npm start` and open `http://localhost:3333` to begin your adventure!**
 
 *Fight goblins, master skills, discover an AI-crafted world, and play alongside autonomous AI agents in this unique take on classic RuneScape gameplay.*

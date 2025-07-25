@@ -1,4 +1,4 @@
-import * as THREE from './three'
+import * as THREE from './three.js'
 
 /**
  * This is an enhanced version of THREE.Vector3 to add the _onChange function
@@ -13,9 +13,9 @@ import * as THREE from './three'
 declare const PHYSX: any;
 
 interface Euler {
-	_x: number;
-	_y: number;
-	_z: number;
+	x: number;
+	y: number;
+	z: number;
 	_order?: string;
 }
 
@@ -238,7 +238,7 @@ export class Vector3Enhanced {
 		return this.applyQuaternion(new THREE.Quaternion().setFromEuler(euler as any));
 	}
 
-	applyAxisAngle(axis: { x: number; y: number; z: number }, angle: number): this {
+	applyAxisAngle(axis: THREE.Vector3, angle: number): this {
 		return this.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(axis, angle));
 	}
 
@@ -591,16 +591,10 @@ export class Vector3Enhanced {
 		return this.fromArray(m.elements, index * 3);
 	}
 
-	setFromEuler(e: { _x: number; _y: number; _z: number } | any): this {
-		if ('_x' in e && '_y' in e && '_z' in e) {
-			this._x = e._x;
-			this._y = e._y;
-			this._z = e._z;
-		} else if ('x' in e && 'y' in e && 'z' in e) {
-			this._x = e.x;
-			this._y = e.y;
-			this._z = e.z;
-		}
+	setFromEuler(e: { x: number; y: number; z: number } | any): this {
+		this._x = e.x;
+		this._y = e.y;
+		this._z = e.z;
 
 		this._onChangeCallback();
 

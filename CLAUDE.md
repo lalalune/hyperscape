@@ -1,1233 +1,1776 @@
-### 1. How do .hyp apps interact with each other?
+# Hyperfy Testing Framework
 
-**Technical Implementation:**
+`packages/docs/src/content/docs/ref/Group.md`:
 
-Hyperfy apps communicate through multiple mechanisms:
+```md
+---
+title: Group
+description: A regular old node with no other behavior. Useful for grouping things together under one parent.
+---
 
-**Direct Method Invocation:**
-```javascript
-// Apps can call methods directly on other apps
-const rpgApps = world.apps.getAll().filter(app => app.getRPGStats)
-const playerApp = rpgApps.find(app => app.getRPGStats().name === player.name)
+A regular old node with no other behavior. Useful for grouping things together under one parent.
 
-if (playerApp) {
-  playerApp.takeDamage(damage)
-  const success = playerApp.addItem(itemId, quantity)
-  const levelledUp = playerApp.grantXP('attack', xpAmount)
+## Properties
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/Node) properties
+
+```
+
+`packages/docs/src/content/docs/ref/App.md`:
+
+```md
+---
+title: App
+description: Global app variable in Hyperfy v2.
+---
+
+The global `app` variable is always available within the app scripting runtime.
+
+## Properties
+
+### `.instanceId`: String
+
+The instance ID of the current app.
+Every app has its own unique ID that is shared across all clients and the server.
+
+### `.version`: String
+
+The version of the app instance.
+This number is incremented whenever the app is modified which includes but is not limited to updating scripts and models.
+
+### `.state`: Object
+
+A plain old javascript object that you can use to store state in.
+The servers state object is sent to all new clients that connect in their initial snapshot, allowing clients to initialize correctly, eg in the right position/mode.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/Node) properties
+
+## Methods
+
+### `.on(name, callback)`
+
+Subscribes to custom networked app events and engine update events like `update`, `fixedUpdate` and `lateUpdate`.
+
+Custom networked events are received when a different client/server sends an event with `app.send(event, data)`.
+
+IMPORTANT: Only subscribe to update events when they are needed. The engine is optimized to completely skip over large amounts of apps that don't need to receive update events.
+
+### `.off(name, callback)`
+
+Unsubscribes from custom events and update events.
+
+IMPORTANT: Be sure to unsubscribe from update events when they are not needed. The engine is optimized to completely skip over large amounts of apps that don't need to receive update events.
+
+### `app.emit(key, value)`
+
+Emits/signals a key,value to all apps or the world.
+
+
+### `.send(name, data, skipNetworkId)`
+
+Sends an event across the network.
+If the caller is on the client, the event is sent to the server. The third argument `skipNetworkId` is a no-op here.
+If the caller is on the server, the event is sent to all clients, with the `skipNetworkId` argument allowing you to skip sending to one specific client.
+
+### `.get(nodeId)`: Node
+
+Finds and returns any node with the matching ID from the model the app is using.
+If your model is made with blender, this is the object "name".
+
+NOTE: Blender GLTF exporter renames objects in some cases, eg by removing spaces. Best practice is to simply name everything in UpperCamelCase with no other characters.
+
+### `.create(nodeName)`: Node
+
+Creates and returns a node of the specified name.
+
+#### `.control(options)`: Control
+
+TODO: provides control to a client to respond to inputs and move the camera etc
+
+#### `.configure(fields)`
+
+Configures custom UI for your app. See [Props](/ref/Props) for more info.
+
+
+
+```
+
+`packages/docs/src/content/docs/ref/UI-Image.md`:
+
+```md
+---
+title: UI Image
+description: UI Image in a UI.
+---
+
+# UIImage
+
+Represents an image inside a UI, similar to an img tag in HTML.
+
+```jsx
+const image = app.create('uiimage', {
+  src: 'https://example.com/image.png',
+  width: 200,
+  height: 150,
+  objectFit: 'cover',
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  borderRadius: 10
+});
+```
+
+## Properties
+
+### `.display`: String
+
+Determines whether the image is displayed or hidden. Options are flex or none.
+Defaults to flex.
+
+
+### `.src`: String
+
+The URL of the image to display.
+Defaults to null.
+
+### `.height`: Number
+
+The height of the image in pixels.
+Defaults to null (image’s natural height).
+
+### `.objectFit`: String
+
+How the image should fit within its container. Options are contain, cover, or fill.
+Defaults to contain.
+
+### `.backgroundColor`: String
+
+The radius of the border in pixels.
+Defaults to 0.
+
+### `.flexDirection`: String
+
+The flex direction for the image container. Options are column, column-reverse, row, or row-reverse.
+Inherits from parent UI node by default.
+
+### `.justifyContent`: String
+
+Options: flex-start, flex-end, center.
+Inherits from parent UI node by default.
+
+### `.alignItems`: String
+
+Options: flex-start, flex-end, stretch, center, space-between, space-around, space-evenly.
+Inherits from parent UI node by default.
+
+### `.flexWrap`: String
+
+Options: no-wrap, wrap.
+Inherits from parent UI node by default.
+
+### `.gap`: Number
+
+The gap between child elements in pixels.
+Inherits from parent UI node by default.
+
+### `.margin`: Number
+
+The outer margin of the image container in pixels.
+Defaults to 0.
+
+### `.padding`: Number
+
+The inner padding of the image container in pixels.
+Defaults to 0.
+
+### `.borderWidth`: Number
+
+The width of the border in pixels.
+Defaults to 0.
+
+### `.borderColor`: String
+
+The color of the border.
+Can be hex (e.g., #000000) or rgba (e.g., rgba(0, 0, 0, 0.5)).
+Defaults to null.
+
+---
+
+## Methods
+
+### `.loadImage(src)`: Promise
+
+Loads an image from the specified URL. Returns a promise that resolves when the image is loaded or rejects if loading fails.
+
+```jsx
+image.src = 'https://example.com/new-image.png';
+```
+
+## Example Usage
+
+Here’s an example of creating a responsive UI with an image that covers its container:
+
+```jsx
+// Create a UI node
+const ui = app.create('ui', {
+  space: 'screen',
+  position: [0, 1, 0],
+  width: 300,
+  height: 200,
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  pivot: 'top-left'
+});
+
+// Create an image element
+const image = app.create('uiimage', {
+  src: 'https://example.com/image.png',
+  width: 300,
+  height: 200,
+  objectFit: 'cover',
+  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  borderRadius: 10
+});
+
+// Add the image to the UI node
+ui.add(image);
+```
+
+In this example:
+
+- The image is positioned at the top-left of the screen.
+- The image covers its container while maintaining its aspect ratio.
+- The container has a semi-transparent white background with rounded corners.
+
+You can also make the image configurable using app.configure to allow users to change properties like the source URL or dimensions.
+
+```jsx
+// Configure the app with a file input for images
+app.configure([
+  {
+    type: 'file',
+    key: 'selectedImage',
+    label: 'Upload Image',
+    kind: 'texture' // Specify the kind as 'image' to restrict file types
+  }
+]);
+
+// Create the image element using the selected file
+const image = app.create('uiimage', {
+  src: props.selectedImage?.url, // Use the URL of the selected image
+  width: 300,
+  height: 200,
+  objectFit: 'cover',
+  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  borderRadius: 10
+});
+```
+```
+
+`packages/docs/src/content/docs/ref/Player.md`:
+
+```md
+---
+title: Player
+description: Represents a player. An instance of Player can be retrived from events or via World.getPlayer
+---
+
+Represents a player. An instance of Player can be retrived via [World.getPlayer](/ref/world)
+
+## Properties
+
+### `.id`: String
+
+The players unique ID. This is always the same for the same player, even when they leave and come back.
+
+### `.name`: String
+
+The players name.
+
+### `.local`: Boolean
+
+Whether the player is local to this client.
+
+### `.admin`: Boolean
+
+Whether the player is an admin in this world.
+
+### `.position`: Vector3
+
+The players position in the world.
+
+### `.quaternion`: Quaternion
+
+The players rotation in the world.
+
+### `.rotation`: Euler
+
+The players rotation in the world.
+
+## Methods
+
+### `.teleport(position, rotationY)`
+
+Teleports the player instantly to the new position. The `rotationY` value is in radians, and if omitted the player will continue facing their current direction.
+
+### `.getBoneTransform(boneName)`: Matrix4
+
+Returns a matrix of the bone transform in world space.
+
+See [Avatar](/ref/avatar) for full details.
+
+### `.damage(amount)`
+
+Removes health from the player. Health cannot go below zero.
+
+### `.heal(amount)`
+
+Adds health to the player. Health cannot go above 100.
+
+### `.applyEffect({ anchor, emote, snare, freeze, turn, duration, cancellable, onEnd })`
+
+Applies an effect to the player. If the player already has an effect, it is replaced. If this function is called with `null` it removes any active effect.
+
+All options are optional.
+
+**anchor**: an [Anchor](/ref/anchor) to attach the player to
+
+**emote**: a url to an emote to play while this effect is active
+
+**snare**: a multiplier from 0 to 1 that reduces movement speed, where zero means no snaring and one means entirely snared. when snared, players can still turn and attempt to move.
+
+**freeze**: when true, the player is frozen in place and all movement keys are ignored.
+
+**turn**: when true, the player will continually face the direction the camera is looking in.
+
+**duration**: how long this effect should last in seconds.
+
+**cancellable**: whether any movement keys will cancel the effect. if enabled, freeze is ignored.
+
+**onEnd**: a function that should be called either at the end of the `duration` or when the player moves if `cancellable`.
+
+
+
+
+
+```
+
+`packages/docs/src/content/docs/ref/Collider.mdx`:
+
+```mdx
+---
+title: Collider
+description: A collider connects to its parent rigidbody to simulate under physics.
+---
+import { Aside } from '@astrojs/starlight/components';
+
+A collider connects to its parent rigidbody to simulate under physics.
+
+<Aside>Setting/modifying the geometry are not currently supported, and only be configured within a GLTF (eg via blender).</Aside>
+
+
+## Properties
+
+### `.type`: String
+
+The type of collider, must be `box`, `sphere` or `geometry`. Defaults to `box`.
+
+### `.setSize(width, height, depth)`
+
+When type is `box`, sets the size of the box. Defaults to `1, 1, 1`.
+
+### `.radius`: Number
+
+When type is `sphere`, sets the radius of the sphere. Defaults to `0.5`.
+
+### `.convex`: Boolean
+
+Whether the geometry should be considered "convex". If disabled, the mesh will act as a trimesh. Defaults to `false`
+
+Convex meshes are not only more performant, but also allow two convex dynamic rigidbodies to collide. This is the same behavior that engines like Unity use.
+
+### `.trigger`: Boolean
+
+Whether the collider is a trigger. Defaults to `false`.
+
+A trigger will not collide with anything, and instead will trigger the `onTriggerEnter` and `onTriggerLeave` functions on the parent rigidbody.
+
+NOTE: Triggers are forced to act like convex shapes. This is a limitation in the physics engine.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
+```
+
+`packages/docs/src/content/docs/ref/Video.md`:
+
+```md
+---
+title: Video
+description: Renders a video into the world, either on a simple plane or onto geometry.
+
+---
+
+
+Renders a video into the world, either on a simple plane or onto geometry.
+
+## Properties
+
+### `.src`: String
+
+A url to a video file, or an asset url from a video prop.
+
+Currently only `mp4` and `m3u8` (HLS streams) are supported.
+
+### `.linked`: Number|String
+
+By default, videos are not linked and each node spawns a new video player with its own state and control.
+
+If you plan to show a video multiple times throughout the world and require the state and controls to be synchronized, you can set this property to `true` or use a string ID to link video nodes together. This is allows you to have potentially hundreds of instances of a single video playing within the world all with individual audio emitters with very little overhead.
+
+### `.loop`: Boolean
+
+Whether the video should loop. Defaults to `false`.
+
+### `.visible`: Boolean
+
+Whether the video should be displayed. Defaults to `true`.
+
+This can be used if you just want to play audio headlessly with more control over the audio position.
+
+### `.color`: String
+
+The color of the mesh before the video is playing. Defaults to `black`.
+
+### `.lit`: Boolean
+
+Whether the mesh material is lit (reacts to lighting) or not. Defaults to `false`.
+
+### `.doubleside`: Boolean
+
+Whether the video should play on both sides of the plane. Does not apply to custom geometry. Defaults to `true`.
+
+### `.castShadow`: Boolean
+
+Whether the mesh should cast a shadow. Defaults to `false`.
+
+### `.receiveShadow`: Boolean
+
+Whether the video should receive shadows. Defaults to `false`.
+
+### `.aspect`: Number
+
+The aspect ratio.
+
+When using a video plane (eg not using the `.geometry` property) before the video loads this aspect ratio will be used to calculate any `width` or `height` values that are set to null in order to maintain the correct pre-video aspect ratio of the plane. Once the video is playing the video's actual aspect ratio will take over and re-calculate any missing `width` or `height` values set to null and resize itself to maintain the videos aspect ratio.
+
+When using custom geometry, you should set this to the physical/visual aspect ratio of the geometry you are projecting onto. If your geometry is a curved 16:9 aspect ratio screen, you would set this value to `16 / 9` or `1.777`. If you are making a 360 sphere your aspect ratio should be `2 / 1` as most 360 videos use an aspect ratio of 2:1
+
+This may be slightly confusing but when set up correctly it allows you to swap and play any video with any dimensions and it will display correctly without stretching or distortion.
+
+NOTE: UV's for custom geometry should generally stretch to take up the entire 0,0 -> 1,1 UV texture area, we then use your provided `aspect` value to scale and offset the video.
+
+### `.fit`: Enum("none", "contain", "cover")
+
+The resize strategy for fitting the video onto its surface. `contain` will shrink the video until it is entirely visible. `cover` will expand the video until it covers the entire surface. `none` will apply no logic and preserve existing UVs.
+
+Defaults to `contain`.
+
+### `.width`: Number|null
+
+The fixed width of the plane when not using a custom geometry. Can be set to `null` to be automatic. When automatic, the width will match the `.ratio` value until the video begins playback and will then resize to match the video dimensions. Defaults to `null`.
+
+### `.height`: Number|null
+
+The fixed height of the plane when not using a custom geometry. Can be set to `null` to be automatic. When automatic, the height will match the `.ratio` value until the video begins playback and will then resize to match the video dimensions. Defaults to `null`.
+
+### `.geometry`: Geometry
+
+The custom geometry to use instead of a plane. Geometry can be extracted from a `Mesh` node's `.geometry` property.
+
+### `.volume`: Number
+
+The volume of the videos audio. Defaults to `1`.
+
+### `.group`: String
+
+The audio group this music belongs to. Players can adjust the volume of these groups individually. Must be `music` or `sfx` (`voice` not allowed). Defaults to `music`.
+
+### `.spatial`: Boolean
+
+Whether music should be played spatially and heard by players nearby. Defaults to `true`.
+
+### `.distanceModel`: Enum('linear', 'inverse', 'expontential')
+
+When spatial is enabled, the distance model to use. Defaults to `inverse`.
+
+### `.refDistance`: Number
+
+When spatial is enabled, the reference distance to use. Defaults to `1`.
+
+### `.maxDistance`: Number
+
+When spatial is enabled, the max distance to use. Defaults to `40`.
+
+### `.rolloffFactor`: Number
+
+When spatial is enabled, the rolloff factor to use. Defaults to `3`.
+
+### `.coneInnerAngle`: Number
+
+When spatial is enabled, the cone inner angle to use. Defaults to `360`.
+
+### `.coneOuterAngle`: Number
+
+When spatial is enabled, the cone inner angle to use. Defaults to `360`.
+
+### `.coneOuterGain`: Number
+
+When spatial is enabled, the cone inner angle to use. Defaults to `0`.
+
+### `.isPlaying`: Boolean
+
+Whether the video is currently playing. Read-only.
+
+### `.currentTime`: Number
+
+The current time of the video. Can be used to read and update the current time of the video.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
+## Methods
+
+### `.play()`
+
+Plays the audio.
+
+### `.pause()`
+
+Pauses the audio, retaining the current time.
+
+### `.stop()`
+
+Stops the audio and resets the time back to zero.
+```
+
+`packages/docs/src/content/docs/ref/index.mdx`:
+
+```mdx
+---
+title: Nodes
+description: Docs for Nodes in Hyperfy v2.
+---
+import { Aside } from '@astrojs/starlight/components';
+import { FileTree } from '@astrojs/starlight/components';
+
+<FileTree>
+
+- docs
+  - ref
+    - [Action.md](/ref/action/)
+    - [Anchor.md](/ref/anchor)
+    - [App.md](/ref/app)
+    - [Audio.md](/ref/audio)
+    - [Avatar.md](/ref/avatar)
+    - [Collider.md](/ref/collider)
+    - [Group.md](/ref/group)
+    - [LOD.md](/ref/lod)
+    - [Material.md](/ref/material)
+    - [Mesh.md](/ref/mesh)
+    - [Node.md](/ref/node)
+    - [Num.md](/ref/num)
+    - [Player.md](/ref/player)
+    - [Props.md](/ref/props)
+    - [rigidbody.md](/ref/rigidBody)
+    - [UI.md](/ref/ui)
+    - [UIText.md](/ref/ui-text)
+    - [UIView.md](/ref/ui-view)
+    - [UIImage.md](/ref/ui-image)
+    - [World.md](/ref/world)
+
+
+</FileTree>
+
+
+<Aside type="caution">
+From [17 Mar 25](https://github.com/hyperfy-xyz/hyperfy/tree/main/docs)  - things move fast - may change from in-alpha
+</Aside>
+
+
+### [Action](/ref/action)
+
+An action is something people can interact with in the world.
+
+---
+
+### [Anchor](/ref/anchor)
+
+An anchor can be used to attach players to them, eg for seating or vehicles.
+
+---
+
+### [App](/ref/app)
+Global app variable in Hyperfy v2.
+
+---
+
+
+### [Audio](/ref/audio)
+Represents a single audio clip that can be played in the world.
+
+---
+
+### [Avatar](/ref/avatar)
+Renders a VRM avatar
+
+---
+
+### [Collider](/ref/collider)
+A collider connects to its parent rigidbody to simulate under physics.
+
+---
+
+### [Group](/ref/group)
+A regular old node with no other behavior. Useful for grouping things together underone parent.
+
+---
+
+### [LOD](/ref/lod)
+A LOD can hold multiple child nodes and automatically activate/deactivate them based on their distance from the camera.
+
+---
+
+### [Material](/ref/material)
+A material on a Mesh node.
+
+---
+
+### [Mesh](/ref/mesh)
+Represents a mesh to be rendered.
+
+---
+
+### [Node](/ref/node)
+The base class for all other nodes.
+
+---
+
+### [Num](/ref/num)
+Global num method, to generate random numbers replace Math.random()
+
+---
+
+### [Props](/ref/props)
+Apps can expose a list of custom UI fields allowing non-technical people to configure or change the way your apps work.
+
+---
+
+### [Player](/ref/player)
+Represents a player. An instance of Player can be retrived from events or via World.getPlayer
+
+---
+
+### [RigidBody](/ref/rigidBody)
+A rigidbody that has colliders as children will act under physics.
+
+---
+
+### [UI](/ref/ui)
+Displays a UI plane in-world
+
+---
+
+### [UIText](/ref/ui-text)
+Represents text inside a UI.
+
+---
+
+### [UIView](/ref/ui-view)
+Represents a single view inside a UI, similar to a `div`.
+
+---
+
+### [UIImage](/ref/ui-image)
+
+An image in a UI.
+
+---
+
+### [World](/ref/world)
+The global `world` variable is always available within the app scripting runtime.
+
+---
+```
+
+`packages/docs/src/content/docs/ref/rigid-body.mdx`:
+
+```mdx
+---
+title: rigidbody
+description: A rigidbody that has colliders as children will act under physics.
+---
+import { Aside } from '@astrojs/starlight/components';
+
+A rigidbody that has colliders as children will act under physics.
+
+## Properties
+
+### `.type`: String
+
+The type of rigidbody, either `static`, `kinematic` or `dynamic`. Defaults to `static`.
+
+NOTE: if you plan to move the rigidbody with code without being dynamic, use `kinematic` for performance reasons.
+
+### `.onContactStart`: Function
+
+The function to call when a child collider generates contacts with another rigidbody.
+
+### `.onContactEnd`: Function
+
+The function to call when a child collider ends contacts with another rigidbody.
+
+### `.onTriggerEnter`: Function
+
+The function to call when a child trigger collider is entered.
+
+### `.onTriggerLeave`: Function
+
+The function to call when a child trigger collider is left.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/Node) properties
+
+```
+
+`packages/docs/src/content/docs/ref/Node.md`:
+
+```md
+---
+title: Node
+description: The base class for all other nodes.
+---
+
+
+The base class for all other nodes.
+
+## Properties
+
+### `.id`: String
+
+The ID of the node. This is auto generated when creating nodes via script. For GLTF models converted to nodes, it uses the same object name you would see in blender.
+
+NOTE: Blender GLTF exporter does rename objects in some cases, eg by removing spaces. Best practice is to simply name everything in UpperCamelCase with no other characters.
+
+### `.position`: Vector3
+
+The local position of the node.
+
+### `.quaternion`: Quaternion
+
+The local quaternion rotation of the node. Updating this automatically updates the `rotation` property.
+
+### `.rotation`: Euler
+
+The local euler rotation of the node. Updating this automatically updates the `quaternion` property.
+
+### `.scale`: Vector3
+
+The local scale of the node.
+
+### `.matrixWorld`: Matrix4
+
+The world matrix of this node in global space.
+
+### `.parent`: Node
+
+The parent node, if any.
+
+### `.children`: [Node]
+
+The child nodes.
+
+## Methods
+
+### `.add(otherNode)`: Self
+
+Adds `otherNode` as a child of this node.
+
+### `.remove(otherNode)`: Self
+
+Removes `otherNode` if it is a child of this node.
+
+### `.traverse(callback)`
+
+Traverses this and all descendents calling `callback` with the node in the first argument.
+
+
+
+
+
+```
+
+`packages/docs/src/content/docs/ref/Audio.md`:
+
+```md
+---
+title: Audio
+description: Represents a single audio clip that can be played in the world.
+---
+
+Represents a single audio clip that can be played in the world.
+
+# Audio
+
+Represents a single audio clip that can be played in the world.
+
+## Properties
+
+### `.src`: String
+
+An absolute url to an audio file, or an asset url from an audio file embedded in the app.
+
+Currently only `mp3` files are supported.
+
+### `.volume`: Number
+
+The audio volume. Defaults to `1`.
+
+### `.loop`: Boolean
+
+Whether the audio should loop. Defaults to `false`.
+
+### `.group`: Enum('music', 'sfx')
+
+The type of audio being played. Choose `music` for ambient sounds or live event music etc. Choose `sfx` for short sound effects that happen throughout the world.
+
+Users are able to adjust the global audio volume for these groups independently.
+
+Defaults to `music`.
+
+### `.spatial`: Boolean
+
+Whether music should be played spatially and heard by people nearby. Defaults to `true`.
+
+### `.distanceModel`: Enum('linear', 'inverse', 'expontential')
+
+When spatial is enabled, the distance model to use. Defaults to `inverse`.
+
+### `.refDistance`: Number
+
+When spatial is enabled, the reference distance to use. Defaults to `1`.
+
+### `.maxDistance`: Number
+
+When spatial is enabled, the max distance to use. Defaults to `40`.
+
+### `.rolloffFactor`: Number
+
+When spatial is enabled, the rolloff factor to use. Defaults to `3`.
+
+### `.coneInnerAngle`: Number
+
+When spatial is enabled, the cone inner angle to use. Defaults to `360`.
+
+### `.coneOuterAngle`: Number
+
+When spatial is enabled, the cone inner angle to use. Defaults to `360`.
+
+### `.coneOuterGain`: Number
+
+When spatial is enabled, the cone inner angle to use. Defaults to `0`.
+
+### `.currentTime`: Number
+
+Gets and sets the current playback time, in seconds.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
+## Methods
+
+### `.play()`
+
+Plays the audio.
+
+NOTE: If no click gesture has ever happened within the world, playback won't begin until it has.
+
+### `.pause()`
+
+Pauses the audio, retaining the current time.
+
+### `.stop()`
+
+Stops the audio and resets the time back to zero.
+```
+
+`packages/docs/src/content/docs/ref/LOD.md`:
+
+```md
+---
+title: LOD
+description: A LOD can hold multiple child nodes and automatically activate/deactivate them based on their distance from the camera.
+---
+
+A LOD can hold multiple child nodes and automatically activate/deactivate them based on their distance from the camera.
+
+## Properties
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/Node) properties
+
+## Methods
+
+### `.insert(node, maxDistance)`
+
+Adds `node` as a child of this node and also registers it to be activated/deactivated based on the `maxDistance` value.
+
+
+```
+
+`packages/docs/src/content/docs/ref/Props.mdx`:
+
+```mdx
+---
+title: Props
+description: Apps can expose a list of custom UI fields allowing non-technical people to configure or change the way your apps work.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+
+Apps can expose a list of custom UI fields allowing non-technical people to configure or change the way your apps work.
+
+
+## Configure
+
+To generate custom UI for your app, configure the fields at the top of your app's script like this:
+
+```jsx
+app.configure([
+  {
+    key: 'name',
+    type: 'text',
+    label: 'Name',
+  }
+])
+```
+
+The example above will create a text input for you to enter a name.
+
+## Props
+
+Apps have a global `props` variable for you to read back the values entered in custom fields.
+
+```jsx
+props.name
+```
+
+## Fields
+
+### Text
+
+A text input
+
+```jsx
+{
+  type: 'text',
+  key: String,           // the key on `props` to set this value
+  label: String,         // the label for the text input
+  placeholder: String,   // an optional placeholder displayed inside the input
+  initial: String,       // the initial value to set if not configured
 }
 ```
 
-**Event-Based Communication:**
-```javascript
-// Send events to all clients/server
-app.send('eventName', data)
+### Textarea
 
-// Listen for events from other apps
-app.on('eventName', (data) => {
-  // Handle event
+A multi-line textarea input
+
+```jsx
+{
+  type: 'textarea',
+  key: String,           // the key on `props` to set this value
+  label: String,         // the label for the text input
+  placeholder: String,   // an optional placeholder displayed inside the input
+  initial: String,       // the initial value to set if not configured
+}
+```
+
+### Number
+
+A number input. Also supports math entry and up/down stepping.
+
+```jsx
+{
+  type: 'number',
+  key: String,           // the key on `props` to set this value
+  label: String,         // the label for the text input
+  dp: Number,            // the number of decimal places allowed (default = 0)
+  min: Number,           // the minimum value allowed (default = -Infinity)
+  max: Number,           // the maximum value allowed (default = Infinity)
+  step: Number,          // the amount incremented/decrement when pressing up/down arrows (default = 1)
+  initial: Number,       // the initial value to set if not configured (default = 0)
+}
+```
+
+### Range
+
+A range slider input
+
+```jsx
+{
+  type: 'range',
+  key: String,           // the key on `props` to set this value
+  label: String,         // the label for the slider
+  min: Number,           // the minimum value allowed (default = 0)
+  max: Number,           // the maximum value allowed (default = 1)
+  step: Number,          // the step amount when sliding (default= 0.05)
+  initial: Number,       // the initial value to set if not configured (default = 0)
+}
+```
+
+### Toggle
+
+A boolean toggle field
+
+```jsx
+{
+  type: 'toggle',
+  key: String,           // the key on `props` to set this value
+  label: String,         // the label for the text input
+  trueLabel: String,     // optional, defaults to "Yes"
+  falseLabel: String,    // optional, defaults to "No"
+  initial: String,       // the initial value to set if not configured
+}
+```
+
+### Switch
+
+A switch field with many options
+
+```jsx
+{
+  type: 'switch',
+  key: String,           // the key on `props` to set this value
+  label: String,         // the label for the text input
+  options: [
+    {
+      label: String,     // the label to show on this switch item
+      value: String,     // the value to set on the props when selected
+    }
+  ],
+  initial: String,       // the initial value to set if not configured
+}
+```
+
+### File
+
+A file field for selecting and uploading additional assets that can be used by your app.
+
+```jsx
+{
+  type: 'file',
+  key: String,           // the key on `props` to set this value
+  label: String,         // the label for the text input
+  kind: String,          // the kind of file, must be one of: avatar, emote, model, texture, hdr, audio
+}
+```
+
+Note that the value set on props is an object that looks like this:
+
+```jsx
+{
+  type: String,         // the type of file (avatar, emote, model, texture, hdr, audio)
+  name: String,         // the original files name
+  url: String,          // the url to the file
+}
+```
+
+The type of file you collect depends on how you would use it. For example you can use audio files with an audio node:
+
+```jsx
+const audio = app.create('audio', {
+  src: props.audio?.url
+})
+audio.play()
+```
+
+### Button
+
+Displays a button that when clicked, executes something in the running app.
+
+```jsx
+{
+  type: 'button',
+  key: String,           // a unique `key` for this button
+  label: String,         // the label for the button
+  onClick: Function,
+}
+```
+```
+
+`packages/docs/src/content/docs/ref/Anchor.md`:
+
+```md
+---
+title: Anchor
+description: An anchor can be used to attach players to them, eg for seating or vehicles.
+---
+
+
+For the most part, an anchor acts just like a group node.
+But more importantly they can be used to attach players to them, eg for seating or vehicles.
+
+When creating an anchor, be sure to give it a unique ID within your app to ensure that every client has the same ID for the player to be anchored to:
+
+```jsx
+const seat = app.create('anchor', { id: 'seat' })
+car.add(seat)
+
+// later...
+player.setEffect({ anchor: seat })
+```
+
+For more information about effects, see [Player.setEffect](/ref/player).
+
+## Properties
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
+
+```
+
+`packages/docs/src/content/docs/ref/Material.md`:
+
+```md
+---
+title: Material
+description: A material on a Mesh node.
+---
+
+A material on a [Mesh](/ref/Mesh) node.
+
+## Properties
+
+### `.textureX`: Number
+
+The offset of the texture on the `x` axis. Useful for UV scrolling.
+
+### `.textureY`: Number
+
+The offset of the texture on the `y` axis. Useful for UV scrolling.
+
+### `.emissiveIntensity`: Number
+
+The emissive intensity of the material. Values greater than `1` will activate HDR Bloom, as long as the emissive color is not black.
+```
+
+`packages/docs/src/content/docs/ref/Mesh.mdx`:
+
+```mdx
+---
+title: Mesh
+description: Represents a mesh to be rendered.
+---
+import { Aside } from '@astrojs/starlight/components';
+
+Represents a mesh to be rendered.
+Internally the mesh is automatically instanced for performance.
+
+<Aside>Setting/modifying the geometry or materials are not currently supported, and only be configured within a GLTF (eg via blender).</Aside>
+
+## Properties
+
+### `.castShadow`: Boolean
+
+Whether this mesh should cast a shadow. Defaults to `true`.
+
+### `.receiveShadow`: Boolean
+
+Whether this mesh should receive a shadow. Defaults to `true`.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
+```
+
+`packages/docs/src/content/docs/ref/World.md`:
+
+```md
+---
+title: World
+description: The global `world` variable is always available within the app scripting runtime.
+---
+
+
+The global `world` variable is always available within the app scripting runtime.
+
+
+### `.networkId`: String
+
+A unique ID for the current server or client.
+
+### `.isServer`: Boolean
+
+Whether the script is currently executing on the server.
+
+### `.isClient`: Boolean
+
+Whether the script is currently executing on the client.
+
+### `.add(node)`
+
+Adds a node into world-space, outside of the apps local hierarchy.
+
+### `.remove(node)`
+
+Removes a node from world-space, outside of the apps local hierarchy.
+
+### `.attach(node)`
+
+Adds a node into world-space, maintaining its current world transform.
+
+### `.on(event, callback)`
+
+Subscribes to world events.
+Currently only `enter` and `leave` are available which let you know when a player enters or leaves the world.
+
+### `.off(event, callback)`
+
+Unsubscribes from world events.
+
+### `.raycast(origin: Vector3, direction: Vector3, maxDistance: ?Number, layerMask: ?Number)`
+
+Raycasts the physics scene.
+If `maxDistance` is not specified, max distance is infinite.
+If `layerMask` is not specified, it will hit anything.
+
+### `.createLayerMask(...groups)`
+
+Creates a bitmask to be used in `world.raycast()`.
+Currently the only groups available are `environment` and `player`.
+
+### `.getPlayer(playerId)`: Player
+
+Returns a player. If no `playerId` is provided it returns the local player.
+
+### `.getPlayers()`: [...Player]
+
+Returns an array of all players.
+
+```
+
+`packages/docs/src/content/docs/ref/Avatar.md`:
+
+```md
+---
+title: Avatar
+description: Renders a VRM avatar
+---
+
+Renders a VRM avatar
+
+```jsx
+const src = props.avatar?.url
+const emote = props.emote?.url
+const avatar = app.create('avatar', { src, emote })
+app.add(avatar)
+```
+
+## Properties
+
+### `.src`: String
+
+An asset url (eg from props) or an absolute URL to a `.vrm` file.
+
+### `.emote`: String
+
+An emote url (eg from props) or an absolute URL to a `.glb` file with an emote animation.
+
+## Methods
+
+### `.getHeight()`: Number
+
+Returns the height of the avatar in meters. This might be `null` if the avatar hasn't loaded yet. Read-only.
+
+### `.getBoneTransform(boneName)`: Matrix4
+
+Returns a matrix of the bone transform in world space.
+
+```jsx
+const matrix = avatar.getBoneTransform('rightHand')
+weapon.position.setFromMatrixPosition(matrix)
+weapon.quaternion.setFromRotationMatrix(matrix)
+```
+
+Note that VRM avatars have required and optional bones, and in some cases incuding while avatars are loading this method may return null.
+
+The VRM spec defines the following bones as required:
+
+```
+hips, spine, chest, neck, head, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftUpperLeg, leftLowerLeg, leftFoot, leftToes, rightUpperLeg, rightLowerLeg, rightFoot, rightToes
+```
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
+```
+
+`packages/docs/src/content/docs/ref/Action.md`:
+
+```md
+---
+title: Action
+description: An action is something people can interact with in the world. (v2)
+---
+
+An action is something people can interact with in the world.
+
+## Properties
+
+### `.label`: String
+
+The label shown to the user when they are nearby. Defaults to `Interact`.
+
+### `.distance`: Number
+
+The distance in meters that the action should be displayed. The engine will only ever show this if they are nearby AND there is no other action that is closer. Defaults to `3`.
+
+### `.duration`: Number
+
+How long the player must hold down the interact button to trigger it, in seconds. Defaults to `0.5`
+
+### `.onStart`: Function
+
+The function to call when the interact button is first pressed.
+
+### `.onTrigger`: Function
+
+The function to call when the interact button has been held down for the full `duration`.
+
+### `.onCancel`: Function
+
+The function call if the interact button is released before the full `duration`.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
+```
+
+`packages/docs/src/content/docs/ref/UI-View.md`:
+
+```md
+---
+title: UIView
+description: Represents a single view inside a UI, similar to a `div`.
+---
+
+Represents a single view inside a UI, similar to a `div`.
+
+
+```jsx
+const view = app.create('uiview')
+view.backgroundColor = 'rgba(0, 0, 0, 0.5)'
+```
+
+## Properties
+
+### `.display`: String
+
+Either `none` or `flex`.
+Defaults to `flex`.
+
+### `.width`: Number
+
+The width of the view in pixels. Defaults to `100`.
+
+### `.height`: Number
+
+The height of the view in pixels. Defaults to `100`.
+
+### `.backgroundColor`: String
+
+The background color of the view.
+Can be hex (eg `#000000`) or rgba (eg `rgba(0, 0, 0, 0.5)`).
+Defaults to `null`.
+
+### `.borderWidth`: Number
+
+The width of the border in pixels.
+
+### `.borderColor`: String
+
+The color of the border.
+
+### `.borderRadius`: Number
+
+The radius of the border in pixels.
+
+### `.margin`: Number
+
+The outer margin of the view in pixels.
+Defaults to `0`.
+
+### `.padding`: Number
+
+The inner padding of the view in pixels.
+Defaults to `0`.
+
+### `.flexDirection`: String
+
+The flex direction. `column`, `column-reverse`, `row` or `row-reverse`.
+Defaults to `column`.
+
+### `.justifyContent`: String
+
+Options: `flex-start`, `flex-end`, `center`.
+Defaults to `flex-start`.
+
+### `.alignItems`: String
+
+Options: `stretch`, `flex-start`, `flex-end`, `center`, `baseline`.
+Defaults to `stretch`.
+
+### `.alignContent`: String
+
+Options: `flex-start`, `flex-end`, `stretch`, `center`, `space-between`, `space-around`, `space-evenly`.
+Defaults to `flex-start`.
+
+### `.flexBasis`: Number
+
+Defaults to `null`.
+
+### `.flexGrow`: Number
+
+Defaults to `null`.
+
+### `.flexShrink`: Number
+
+Defaults to `null`.
+
+### `.flexWrap`: String
+
+Options: `no-wrap`, `wrap`.
+Defaults to `no-wrap`.
+
+### `.gap`: Number
+
+Defaults to `0`.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
+```
+
+`packages/docs/src/content/docs/ref/UI-Text.md`:
+
+```md
+---
+title: UIText
+description: Represents text inside a UI.
+---
+
+Represents text inside a UI.
+
+```jsx
+const text = app.create('uitext')
+text.value = 'Hello world'
+```
+
+## Properties
+
+### `.display`: String
+
+Either `none` or `flex`.
+Defaults to `flex`.
+
+### `.backgroundColor`: String
+
+The background color of the view.
+Can be hex (eg `#000000`) or rgba (eg `rgba(0, 0, 0, 0.5)`).
+Defaults to `null`.
+
+### `.borderRadius`: Number
+
+The radius of the border in pixels.
+
+### `.margin`: Number
+
+The outer margin of the view in pixels.
+Defaults to `0`.
+
+### `.padding`: Number
+
+The inner padding of the view in pixels.
+Defaults to `0`.
+
+### `.value`: String
+
+The text to display.
+
+### `.fontSize`: Number
+
+The font size in pixels.
+Defauls to `16`.
+
+### `.color`: Number
+
+The font color.
+Defauls to `#000000`.
+
+### `.lineHeight`: Number
+
+The line height.
+Defaults to `1.2`.
+
+### `.textAlign`: String
+
+Options: `left`, `center`, `right`.
+Defaults to `left`.
+
+### `.fontFamily`: String
+
+Defaults to `Rubik`.
+
+### `.fontWeight`: Number
+
+Defaults to `normal`, can also be a number like `100` or string like `bold`.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/Node) properties
+
+```
+
+`packages/docs/src/content/docs/ref/Num.md`:
+
+```md
+---
+title: Num
+description: Global num method, to generate random numbers replace Math.random()
+---
+
+This is a global method that can be used to generate random numbers, since `Math.random()` is not allowed inside the app script runtime.
+
+```sh frame="none"
+/**
+ * function num(min, max, dp=0)
+ */
+
+// random integer between 0 and 10
+num(0, 10)
+
+// random float between 100 and 1000 with 2 decimal places
+num(100, 1000, 2)
+```
+
+
+```
+
+`packages/docs/src/content/docs/ref/UI.md`:
+
+```md
+---
+title: UI
+description: Displays a UI plane in-world
+---
+
+Displays a UI plane in-world
+
+```jsx
+const ui = app.create('ui')
+ui.backgroundColor = 'rgba(0, 0, 0, 0.5)'
+```
+
+## Properties
+
+### `.space`: String
+
+Whether this UI should be rendered in `world` space or `screen` space.
+When `world`, a plane geometry is physically placed in the world.
+When `screen`, the canvas is drawn directly on the screen.
+Defaults to `world`.
+
+NOTE: when using `screen`, the `.position` value now represents a ratio from 0 to 1 on each axis. For example `position.x = 1` is the far right of the screen and `position.x = 0` is the far left. Use this in combination with the `pivot` and `offset` values.
+
+```jsx
+/**
+ * Example:
+ * The following screen-space UI is rendered in the top left of the
+ * screen, 20px away from both edges.
+*/
+const ui = app.create('ui', {
+  space: 'screen',
+  pivot: 'top-right',
+  position: [1, 0, 0] // far right
+  offset: [-20, 20, 0] // 20px left, 20px down
 })
 ```
 
-**Shared State Access:**
-```javascript
-// Apps can read each other's state
-const otherAppState = otherApp.state
-const sharedData = world.get('sharedKey')
+### `.width`: Number
+
+The width of the UI canvas in pixels. Defaults to `100`.
+
+### `.height`: Number
+
+The height of the UI canvas in pixels. Defaults to `100`.
+
+### `.size`: Number
+
+This value converts pixels to meters.
+For example if you set `width = 100` and `size = 0.01` your UI will have a width of one meter.
+This allows you to build UI while thinking in pixels instead of meters, and makes it easier to resize things later.
+Defaults to `0.01`.
+
+### `.lit`: Boolean
+
+Whether the canvas is affected by lighting. Defaults to `false`.
+
+### `.doubleside`: Boolean
+
+Whether the canvas is doublesided. Defaults to `false`.
+
+### `.billboard`: String
+
+Makes the UI face the camera. Can be `none`, `full` or `y`. Default to `none`.
+
+### `.pivot`: String
+
+Determines where the "center" of the UI is.
+Options are: `top-left`, `top-center`, `top-right`, `center-left`, `center`, `center-right`, `bottom-left`, `bottom-center`, `bottom-right`.
+Defaults to `center`.
+
+### `.offset`: Vector3
+
+Only applicable when using screen-space.
+The offset in pixels applied after the `position` value.
+
+### `.pointerEvents`: Boolean
+
+Whether the UI should receive or ignore pointer events. Defaults to `true`.
+If you are building informational screen-space UI that does not need to respond to pointer events, this should be set to `false` for an improved user experience.
+
+### `.backgroundColor`: String
+
+The background color of the UI.
+Can be hex (eg `#000000`) or rgba (eg `rgba(0, 0, 0, 0.5)`).
+Defaults to `null`.
+
+### `.borderWidth`: Number
+
+The width of the border in pixels.
+
+### `.borderColor`: String
+
+The color of the border.
+
+### `.borderRadius`: Number
+
+The radius of the border in pixels.
+
+### `.padding`: Number
+
+The inner padding of the UI in pixels.
+Defaults to `0`.
+
+### `.flexDirection`: String
+
+The flex direction. `column`, `column-reverse`, `row` or `row-reverse`.
+Defaults to `column`.
+
+### `.justifyContent`: String
+
+Options: `flex-start`, `flex-end`, `center`.
+Defaults to `flex-start`.
+
+### `.alignItems`: String
+
+Options: `stretch`, `flex-start`, `flex-end`, `center`, `baseline`.
+Defaults to `stretch`.
+
+### `.alignContent`: String
+
+Options: `flex-start`, `flex-end`, `stretch`, `center`, `space-between`, `space-around`, `space-evenly`.
+Defaults to `flex-start`.
+
+### `.flexWrap`: String
+
+Options: `no-wrap`, `wrap`.
+Defaults to `no-wrap`.
+
+### `.gap`: Number
+
+Defaults to `0`.
+
+### `.{...Node}`
+
+Inherits all [Node](/ref/node) properties
+
 ```
 
-**Service Discovery Pattern:**
-```javascript
-// Find apps by capability rather than type
-const combatApps = world.apps.getAll().filter(app => 
-  app.takeDamage && app.getCurrentHealth
-)
-```
+## Production Testing Setup
 
-**Critical Implementation Requirements:**
-- Use capability-based detection instead of type checking
-- Implement loose coupling between apps
-- Handle missing dependencies gracefully
-- Use event-driven communication for complex interactions
+Hyperfy includes a comprehensive visual testing framework located at `scripts/test-framework.mjs` that tests:
 
-### 2. How do we save, load, create and persist different worlds?
+1. **Startup Testing**: Verifies server loads without critical errors
+2. **Rendering Testing**: Confirms WebGL canvas is rendering properly  
+3. **App Loading Testing**: Validates that .hyp apps initialize correctly
+4. **Combat Testing**: Tests game mechanics and interactions
 
-**World Management Architecture:**
+### Running Tests
 
-**World Directory Structure:**
-```
-world/
-├── assets/          # 3D models, images, audio files
-├── collections/     # App collections and manifests  
-├── db.sqlite        # SQLite database for persistence
-├── storage.json     # Key-value world storage
-└── world.json       # World configuration
-```
-
-**World Creation:**
-```typescript
-// WorldManager handles multiple worlds
-const worldManager = new WorldManager();
-const world = await worldManager.createWorld({
-  id: 'rpg-world-1',
-  name: 'RPG World',
-  type: 'server',
-  settings: { playerLimit: 100 },
-  persistence: { type: 'sqlite', path: './world/db.sqlite' }
-});
-```
-
-**Database Persistence:**
-- `users` table: Player accounts and avatars
-- `entities` table: World object instances
-- `blueprints` table: App/object templates
-- `config` table: World settings and spawn points
-
-**World Loading:**
 ```bash
-# Environment variable controls which world directory
-WORLD=rpg-world npm run dev
+# Run all tests (headless)
+npm run test:hyperfy
 
-# Loads from ./rpg-world/ directory
+# Run tests with visible browser (for debugging)
+npm run test:hyperfy:headed
+
+# Run tests with verbose logging
+npm run test:hyperfy:verbose
 ```
 
-**Multi-World Support:**
-- Each world completely isolated with own database
-- Asset management with hashed filenames for caching
-- Automatic cleanup of unused assets and entities
-- Hot reloading for development
+### Test Requirements
 
-### 3. How can we spawn a player with overhead camera or force camera into overhead?
+- Server must be running on localhost:3333 before running tests
+- Tests use real Playwright browser automation (no mocks)
+- Visual verification through canvas analysis and pixel detection
+- Console message monitoring for app initialization
+- Game state verification through window globals
 
-**Camera System Architecture:**
+## Combat System Architecture
 
-**Camera Hierarchy:**
-- `world.camera` - THREE.PerspectiveCamera (FOV 70°, near 0.2, far 1200)
-- `world.rig` - THREE.Object3D containing camera
-- `world.rig.position` controls world position
-- `world.camera.position.z` controls zoom distance
+### Click-to-Attack Implementation
 
-**Overhead Camera Implementation:**
-```javascript
-// Set overhead view for testing
-function setOverheadCamera(world, height = 50) {
-  // Position camera high above world
-  world.rig.position.set(0, height, 0);
-  
-  // Rotate to look down
-  world.rig.rotation.set(-Math.PI/2, 0, 0);
-  
-  // Remove zoom offset
-  world.camera.position.z = 0;
-  
-  // For orthographic projection (requires engine modification)
-  const orthoCamera = new THREE.OrthographicCamera(
-    -50, 50, 50, -50, 0.1, 1000
-  );
-  // Replace world.camera with orthoCamera
-}
-```
+The combat system uses click-to-attack mechanics with automatic movement.
 
-**Camera Control API:**
-```javascript
-// Get camera control with high priority
-const controls = world.controls.bind({
-  priority: 100  // High priority for testing
-});
+### Visual Combat Feedback
 
-// Apply camera changes
-controls.camera.position.set(x, y, z);
-controls.camera.quaternion.set(x, y, z, w);
-controls.camera.zoom = distance;
-controls.camera.write = true;  // Apply changes
-```
+- Health bars above entities with color-coded states
+- Console logging for all combat actions
+- Chat system integration for damage messages
+- Respawn mechanics with 30-second timer
 
-### 4. How do we remove bloom and post-processing for visual pixel testing?
+### Testing Combat
 
-**Post-Processing Control:**
-
-**Disable via Preferences:**
-```javascript
-// Disable all post-processing effects
-world.prefs.setPostprocessing(false);
-
-// Disable just bloom
-world.prefs.setBloom(false);
-
-// Set device pixel ratio for consistent testing
-world.prefs.setDpr(1.0);
-```
-
-**Technical Implementation:**
-- Graphics system uses `postprocessing` library with EffectComposer
-- Bloom effect uses SelectiveBloomEffect on layer 14 (NO_BLOOM)
-- Render path: `RenderPass` → `BloomPass` → `EffectPass`
-- Controlled via `ClientGraphics.usePostprocessing` flag
-
-**Visual Testing Configuration:**
-```javascript
-// Configure for pixel testing
-function setupVisualTesting(world) {
-  world.prefs.setPostprocessing(false);  // No effects
-  world.prefs.setBloom(false);          // No bloom
-  world.prefs.setShadows(0);            // No shadows
-  world.prefs.setDpr(1.0);              // 1:1 pixel ratio
-}
-```
-
-### 5. How do we create portals between worlds?
-
-**Portal Implementation Strategy:**
-
-Currently, Hyperfy doesn't have built-in portals, but we can implement them:
-
-**Portal App Structure:**
-```javascript
-// Portal.hyp
-app.configure([
-  {
-    type: 'text',
-    key: 'targetWorld',
-    label: 'Target World ID',
-    initial: 'world-2'
-  },
-  {
-    type: 'text', 
-    key: 'spawnPoint',
-    label: 'Spawn Point',
-    initial: 'town-center'
-  }
-]);
-
-// Create trigger zone
-const trigger = app.create('trigger');
-trigger.radius = 2;
-
-trigger.onEnter = (player) => {
-  // Send portal request to server
-  app.send('portal:transport', {
-    playerId: player.id,
-    targetWorld: props.targetWorld,
-    spawnPoint: props.spawnPoint
-  });
-};
-```
-
-**Server-Side Portal System:**
-```javascript
-// Handle world transitions
-world.on('portal:transport', (data) => {
-  if (world.isServer) {
-    // Save player state
-    const playerData = savePlayerState(data.playerId);
-    
-    // Transfer to new world
-    transferPlayerToWorld(data.playerId, data.targetWorld, playerData);
-  }
-});
-```
-
-**Multi-World Architecture Required:**
-- WorldManager to handle multiple world instances
-- Player state serialization/deserialization
-- Cross-world communication protocols
-- Load balancing for world distribution
-
-### 6. How do we persist data and store player XP, level, items, etc?
-
-**Extended Database Schema Required:**
-
-```sql
--- Player progression data
-CREATE TABLE rpg_players (
-  id VARCHAR PRIMARY KEY,
-  user_id VARCHAR REFERENCES users(id),
-  character_name VARCHAR,
-  level INTEGER DEFAULT 1,
-  experience BIGINT DEFAULT 0,
-  health INTEGER DEFAULT 100,
-  position JSON,
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
-);
-
--- Skills system
-CREATE TABLE rpg_skills (
-  player_id VARCHAR REFERENCES rpg_players(id),
-  skill_name VARCHAR,
-  level INTEGER DEFAULT 1,
-  experience BIGINT DEFAULT 0,
-  PRIMARY KEY (player_id, skill_name)
-);
-
--- Inventory system  
-CREATE TABLE rpg_inventory (
-  player_id VARCHAR REFERENCES rpg_players(id),
-  slot_index INTEGER,
-  item_id VARCHAR,
-  quantity INTEGER,
-  item_data JSON,
-  PRIMARY KEY (player_id, slot_index)
-);
-
--- Equipment system
-CREATE TABLE rpg_equipment (
-  player_id VARCHAR REFERENCES rpg_players(id),
-  slot_name VARCHAR,
-  item_id VARCHAR,
-  item_data JSON,
-  PRIMARY KEY (player_id, slot_name)
-);
-```
-
-**Persistence System Implementation:**
-```javascript
-// RPG persistence manager
-class RPGPersistenceSystem extends System {
-  async savePlayerData(playerId, data) {
-    const db = this.world.db;
-    
-    // Save character progression
-    await db.prepare(`
-      UPDATE rpg_players 
-      SET level = ?, experience = ?, health = ?, position = ?
-      WHERE id = ?
-    `).run(data.level, data.experience, data.health, 
-           JSON.stringify(data.position), playerId);
-    
-    // Save skills
-    for (const [skillName, skillData] of Object.entries(data.skills)) {
-      await db.prepare(`
-        INSERT OR REPLACE INTO rpg_skills 
-        (player_id, skill_name, level, experience)
-        VALUES (?, ?, ?, ?)
-      `).run(playerId, skillName, skillData.level, skillData.experience);
-    }
-    
-    // Save inventory
-    for (let i = 0; i < data.inventory.length; i++) {
-      const item = data.inventory[i];
-      if (item) {
-        await db.prepare(`
-          INSERT OR REPLACE INTO rpg_inventory
-          (player_id, slot_index, item_id, quantity, item_data)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(playerId, i, item.id, item.quantity, JSON.stringify(item.data));
-      }
-    }
-  }
-}
-```
-
-### 7. How can we do that in such a way that players can't hack?
-
-**Security Architecture Implementation:**
-
-**Server Authority Model:**
-```javascript
-// All critical operations validated server-side
-class SecuritySystem extends System {
-  validatePlayerAction(player, action) {
-    // Validate movement (speed limits)
-    if (action.type === 'move') {
-      const distance = calculateDistance(player.lastPosition, action.position);
-      const maxSpeed = 10; // units per second
-      const timeDelta = action.timestamp - player.lastActionTime;
-      
-      if (distance / timeDelta > maxSpeed) {
-        this.logSuspiciousActivity(player, 'speed_hack_detected');
-        return false;
-      }
-    }
-    
-    // Validate combat actions
-    if (action.type === 'attack') {
-      const target = this.world.entities.get(action.targetId);
-      const distance = calculateDistance(player.position, target.position);
-      
-      if (distance > 2) { // Max attack range
-        return false;
-      }
-      
-      // Check attack cooldown
-      if (Date.now() - player.lastAttack < 600) { // 600ms cooldown
-        return false;
-      }
-    }
-    
-    return true;
-  }
-  
-  // Rate limiting
-  rateLimitAction(player, actionType) {
-    const now = Date.now();
-    const key = `${player.id}:${actionType}`;
-    
-    if (!this.actionTimestamps.has(key)) {
-      this.actionTimestamps.set(key, []);
-    }
-    
-    const timestamps = this.actionTimestamps.get(key);
-    
-    // Remove old timestamps (1 second window)
-    const cutoff = now - 1000;
-    while (timestamps.length > 0 && timestamps[0] < cutoff) {
-      timestamps.shift();
-    }
-    
-    // Check rate limit (max 10 actions per second)
-    if (timestamps.length >= 10) {
-      return false;
-    }
-    
-    timestamps.push(now);
-    return true;
-  }
-}
-```
-
-**Cryptographic Protection:**
-```javascript
-// Item signature system
-class ItemSecuritySystem {
-  signItem(item) {
-    const payload = JSON.stringify({
-      id: item.id,
-      quantity: item.quantity,
-      stats: item.stats,
-      timestamp: Date.now()
-    });
-    
-    const signature = crypto
-      .createHmac('sha256', process.env.ITEM_SECRET)
-      .update(payload)
-      .digest('hex');
-    
-    return { ...item, signature };
-  }
-  
-  validateItem(item) {
-    const { signature, ...itemData } = item;
-    const expectedSignature = this.signItem(itemData).signature;
-    
-    return signature === expectedSignature;
-  }
-}
-```
-
-**Anti-Cheat Measures:**
-- Server-side damage calculation and validation
-- Movement speed and physics validation
-- Rate limiting on all player actions
-- Cryptographic item signatures
-- Audit logging for suspicious activities
-- Regular client-server state reconciliation
-
-### 8. How do we query the current game state to check things like goblin health or player HP?
-
-**Game State Querying System:**
-
-**Entity State Access:**
-```javascript
-// Get entity by ID
-const goblin = world.entities.get(goblinId);
-
-// Check health component
-const healthComponent = goblin.getComponent('health');
-const currentHealth = healthComponent?.data.currentHealth;
-const isAlive = currentHealth > 0;
-
-// Get all entities of type
-const allGoblins = world.entities.getAll()
-  .filter(entity => entity.blueprint?.name === 'RPGGoblin');
-
-// Spatial queries
-const nearbyEnemies = world.entities.getAll()
-  .filter(entity => {
-    const distance = calculateDistance(player.position, entity.position);
-    return distance < 10 && entity.type === 'enemy';
-  });
-```
-
-**Component System Queries:**
-```javascript
-// Query entities with specific components
-function getEntitiesWithComponents(world, componentTypes) {
-  return world.entities.getAll().filter(entity => 
-    componentTypes.every(type => entity.hasComponent(type))
-  );
-}
-
-// Example: Find all entities with health and combat components
-const combatEntities = getEntitiesWithComponents(world, ['health', 'combat']);
-```
-
-**RPG-Specific State Queries:**
-```javascript
-// RPG game state querying
-class RPGStateQuerySystem {
-  getPlayerStats(playerId) {
-    const player = world.entities.get(playerId);
-    const statsComponent = player.getComponent('rpgStats');
-    
-    return {
-      level: statsComponent.data.level,
-      health: statsComponent.data.health,
-      experience: statsComponent.data.experience,
-      skills: statsComponent.data.skills,
-      inventory: statsComponent.data.inventory
-    };
-  }
-  
-  getMobsInRange(position, range) {
-    return world.entities.getAll()
-      .filter(entity => entity.type === 'mob')
-      .filter(entity => {
-        const distance = calculateDistance(position, entity.position);
-        return distance <= range;
-      })
-      .map(mob => ({
-        id: mob.id,
-        type: mob.blueprint.name,
-        health: mob.getComponent('health')?.data.currentHealth,
-        position: mob.position,
-        state: mob.getComponent('ai')?.data.state
-      }));
-  }
-  
-  getCombatState(entityId) {
-    const entity = world.entities.get(entityId);
-    const combat = entity.getComponent('combat');
-    const health = entity.getComponent('health');
-    
-    return {
-      inCombat: combat?.data.inCombat || false,
-      target: combat?.data.target,
-      health: health?.data.currentHealth || 0,
-      maxHealth: health?.data.maxHealth || 0,
-      lastAttack: combat?.data.lastAttack || 0
-    };
-  }
-}
-```
-
-**Visual Testing State Queries:**
-```javascript
-// For automated testing
-function verifyGameState(world, expectedState) {
-  const player = world.entities.player;
-  const playerPos = player.position;
-  
-  // Check player movement
-  const hasMoved = calculateDistance(playerPos, expectedState.playerStartPos) > 0.1;
-  
-  // Check mob states
-  const goblins = world.entities.getAll()
-    .filter(e => e.blueprint?.name === 'RPGGoblin');
-  
-  const deadGoblins = goblins.filter(g => 
-    g.getComponent('health')?.data.currentHealth <= 0
-  );
-  
-  return {
-    playerMoved: hasMoved,
-    goblinsAlive: goblins.length - deadGoblins.length,
-    goblinsKilled: deadGoblins.length
-  };
-}
-```
-
-### 9. What does Hyperfy NOT give us that we need to build an MMORPG?
-
-**Critical Missing Systems (Estimated 60-70% of total MMORPG functionality):**
-
-**1. Game Logic Systems (16-20 weeks development):**
-- Character progression and leveling systems
-- Combat mechanics and damage calculation  
-- Inventory and equipment management
-- Skill trees and ability systems
-- Quest and dialogue systems
-- Loot generation and item systems
-- Economy and trading systems
-- NPC AI and behavior trees
-
-**2. Scalability Infrastructure (6-8 weeks):**
-- Horizontal scaling and load balancing
-- Multi-server architecture  
-- Database clustering and optimization
-- Memory management and entity pooling
-- Network optimization and delta compression
-
-**3. Security & Anti-Cheat (4-6 weeks):**
-- Server-side validation of all actions
-- Advanced cheat detection systems
-- Rate limiting and DDoS protection
-- Cryptographic protection for items/currency
-- Audit logging and monitoring
-
-**4. User Interface Framework (8-10 weeks):**
-- Game-specific UI components (inventory, character sheet, skill tree)
-- HUD systems (health bars, minimaps, action bars)
-- Menu systems and settings
-- Tooltips and help systems
-- Accessibility features
-
-**5. Database Extensions (3-4 weeks):**
-- Complex schema for player progression
-- Optimized queries for MMORPG operations
-- Data migration and backup systems
-- Analytics and telemetry collection
-
-**Performance Limitations:**
-- Single-server architecture (no horizontal scaling)
-- 8Hz network update rate (may be too slow for fast combat)
-- SQLite database (won't scale beyond ~100 concurrent players)
-- No entity pooling or advanced memory management
-- Limited spatial indexing for large worlds
-
-### 10. How do we actually start the RPG and get into the world?
-
-**Complete Launch Procedure:**
-
-**1. Development Setup:**
-```bash
-# Navigate to hyperfy directory
-cd packages/hyperfy
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Server starts on http://localhost:3000
-```
-
-**2. Production Deployment:**
-```bash
-# Build the application
-npm run build
-
-# Start production server
-npm start
-
-# Or with environment variables
-WORLD=rpg-world PORT=3000 npm start
-```
-
-**3. Client Connection Flow:**
-- Browser navigates to server URL
-- WebSocket connection established to `/ws` endpoint
-- Authentication with JWT tokens (auto-created for new users)
-- World snapshot received (settings, entities, collections)
-- PhysX physics engine initialized
-- Assets preloaded (models, textures, avatars)
-- Player entity spawned at configured spawn point
-- Game session begins
-
-**4. RPG-Specific Initialization:**
-```javascript
-// RPG collections loaded automatically
-world/collections/default/
-├── RPGPlayer.js        # Player stats and inventory
-├── RPGGoblin.js        # Enemy AI and combat
-├── RPGTree.js          # Resource gathering
-├── RPGBank.js          # Storage systems
-└── manifest.json       # Collection definition
-```
-
-**5. World Configuration:**
-```bash
-# Environment variables
-WORLD=rpg-world         # World directory name
-PORT=3000               # Server port
-ADMIN_CODE=secret123    # Admin access code
-SAVE_INTERVAL=60000     # Auto-save frequency
-```
-
-**6. Player Spawning Process:**
-- New players spawn at configurable spawn point (default: origin)
-- Spawn point set via `/spawn set` admin command
-- Starting equipment and stats defined in RPGPlayer.js
-- Persistent character data loaded from database
-- Multiplayer synchronization established
-
-### 11. How does player spawning and position in the world work?
-
-**Player Spawning Architecture:**
-
-**1. Spawn Point Management:**
-```javascript
-// Default spawn configuration
-const defaultSpawn = {
-  position: [0, 0, 0],
-  quaternion: [0, 0, 0, 1]
-};
-
-// Admin commands to set spawn
-world.on('command', (data) => {
-  if (data.command === '/spawn set' && isAdmin(data.player)) {
-    const newSpawn = {
-      position: data.player.position.slice(),
-      quaternion: data.player.quaternion.slice()
-    };
-    
-    // Save to database
-    world.db.prepare(`
-      INSERT OR REPLACE INTO config (key, value)
-      VALUES ('spawn', ?)
-    `).run(JSON.stringify(newSpawn));
-  }
-});
-```
-
-**2. Player Entity Creation:**
-```javascript
-// ServerNetwork.onConnection
-socket.player = world.entities.add({
-  id: user.id,
-  type: 'player',
-  position: this.spawn.position.slice(),  // Spawn point position
-  quaternion: this.spawn.quaternion.slice(), // Spawn point rotation  
-  name: name || user.name,
-  health: 100,
-  avatar: user.avatar || settings.avatar?.url || 'asset://avatar.vrm',
-  roles: user.roles
-}, true); // true = broadcast to all clients
-```
-
-**3. Player Types:**
-
-**PlayerLocal (controlling player):**
-- Physics-enabled capsule controller
-- Input handling (WASD movement, mouse look)
-- Camera control and rig positioning
-- Network state transmission to server
-
-**PlayerRemote (other players):**
-- Interpolated movement from network updates
-- Avatar rendering and animation
-- No physics simulation (receives positions)
-- Limited interaction capabilities
-
-**4. Position Synchronization:**
-```javascript
-// Client sends position updates
-world.network.send('playerUpdate', {
-  position: player.position.toArray(),
-  quaternion: player.quaternion.toArray(),
-  velocity: player.velocity.toArray(),
-  input: player.input
-});
-
-// Server validates and broadcasts
-world.network.broadcast('playerUpdate', {
-  playerId: player.id,
-  position: validatedPosition,
-  quaternion: validatedQuaternion
-});
-```
-
-**5. Multi-Player Spawning:**
-- All players spawn at same configured spawn point
-- No spawn point randomization (would need custom implementation)
-- Supports unlimited concurrent players (hardware dependent)
-- Player limit configurable via world settings
-- Automatic cleanup on disconnect
-
-**6. RPG-Specific Spawning:**
-```javascript
-// RPGPlayer.js initialization
-app.on('init', () => {
-  // Load persistent character data
-  const playerData = loadPlayerData(player.id);
-  
-  if (playerData) {
-    // Existing character - restore state
-    app.state = {
-      level: playerData.level,
-      health: playerData.health,
-      inventory: playerData.inventory,
-      skills: playerData.skills,
-      equipment: playerData.equipment
-    };
-    
-    // Restore position if saved
-    if (playerData.lastPosition) {
-      player.position.copy(playerData.lastPosition);
-    }
-  } else {
-    // New character - default stats
-    app.state = {
-      level: 1,
-      health: 100,
-      inventory: new Array(28).fill(null),
-      skills: { attack: 1, strength: 1, defense: 1 },
-      equipment: { weapon: 'bronze_sword', shield: null }
-    };
-  }
-});
-```
-
-### Technical Risks:
-1. **Scalability Bottlenecks**: Hyperfy's single-server architecture may limit player count
-   - *Mitigation*: Implement load balancing and horizontal scaling early
-   
-2. **Database Performance**: SQLite won't scale beyond ~100 concurrent players
-   - *Mitigation*: Plan PostgreSQL migration for production
-   
-3. **Network Latency**: 8Hz update rate may feel unresponsive for combat
-   - *Mitigation*: Implement client-side prediction and lag compensation
-
-### Development Risks:
-1. **Scope Creep**: MMORPG feature requests beyond GDD scope
-   - *Mitigation*: Strict adherence to GDD, phased implementation
-   
-2. **Testing Complexity**: No mocks allowed, all real-world testing
-   - *Mitigation*: Invest heavily in test framework and automation
-
-3. **Security Vulnerabilities**: Online game attracts hackers and exploiters
-   - *Mitigation*: Security-first development, regular penetration testing
-
-# ElizaOS Actions, Providers, and Services Architecture
-
-## Overview
-
-ElizaOS is an AI agent framework that uses a modular architecture based on three core concepts:
-
-- **Actions**: Discrete operations that agents can perform in response to messages
-- **Providers**: Context suppliers that inject relevant information into the agent's decision-making
-- **Services**: Persistent connections and functionality managers (databases, APIs, game worlds)
-
-These components work together to create intelligent agents that can perceive their environment, make decisions, and take actions.
-
-## Actions
-
-### What are Actions?
-
-Actions are the executable capabilities of an ElizaOS agent. They define what an agent can DO in response to user input or environmental stimuli. Each action is a self-contained module that:
-
-- Validates whether it can be executed in the current context
-- Handles the execution logic
-- Provides examples for the AI to learn from
-- Returns structured results
-
-### Action Structure
-
-Every action in ElizaOS follows this interface:
-
-```typescript
-interface Action {
-  name: string;                    // Unique identifier
-  similes: string[];              // Alternative names/aliases
-  description: string;            // What the action does
-  validate: (runtime, message, state) => Promise<boolean>;
-  handler: (runtime, message, state, options, callback) => Promise<ActionResult>;
-  examples: ActionExample[][];    // Training examples
-}
-```
-
-### Action Lifecycle
-
-1. **Discovery**: The agent identifies available actions through the actions provider
-2. **Validation**: Each action's `validate` function checks if it can be executed
-3. **Selection**: The AI model chooses appropriate actions based on context
-4. **Execution**: The `handler` function performs the action
-5. **Callback**: Results are communicated back through the callback
-6. **Result**: Structured data is returned for further processing
-
-### Example: Reply Action
-
-The `REPLY` action demonstrates a basic communication action:
-
-```typescript
-export const replyAction = {
-  name: 'REPLY',
-  similes: ['GREET', 'RESPOND', 'SEND_REPLY'],
-  description: "Sends a direct message into in-game chat",
-  
-  validate: async (runtime) => {
-    return true; // Always available
-  },
-  
-  handler: async (runtime, message, state, options, callback) => {
-    // Generate response using LLM
-    const response = await runtime.useModel(ModelType.OBJECT_LARGE, {
-      prompt: composePromptFromState({ state, template: replyTemplate })
-    });
-    
-    // Send via callback
-    await callback({
-      text: response.message,
-      actions: ['REPLY'],
-      source: 'hyperfy'
-    });
-    
-    return {
-      text: response.message,
-      values: { replied: true },
-      data: { action: 'REPLY' }
-    };
-  }
-}
-```
-
-### Complex Actions: Build/Edit
-
-The `HYPERFY_EDIT_ENTITY` action shows how complex operations work:
-
-1. **Multi-step Processing**: Extracts operations from user intent
-2. **Validation**: Ensures world and build systems are available
-3. **Execution**: Performs multiple scene edits (duplicate, move, scale, delete)
-4. **Summarization**: Generates natural language summary of changes
-5. **Error Handling**: Gracefully handles failures with retry logic
-
-### Action Chaining
-
-Actions can be chained together for complex behaviors:
-- `GOTO` → `USE_ITEM`: Navigate to an object then interact with it
-- `REPLY` → `WALK_RANDOMLY`: Respond to user then start wandering
-- `PERCEPTION` → `BUILD`: Look around then modify the environment
-
-## Providers
-
-### What are Providers?
-
-Providers inject contextual information into the agent's decision-making process. They gather and format relevant data that helps the AI understand the current situation and make appropriate decisions.
-
-### Provider Structure
-
-```typescript
-interface Provider {
-  name: string;              // Identifier used in templates
-  description: string;       // What information it provides
-  dynamic?: boolean;         // Whether content changes over time
-  get: (runtime, message, state?) => Promise<ProviderResult>;
-}
-
-interface ProviderResult {
-  text: string;      // Formatted text for LLM context
-  values: object;    // Structured data for templates
-  data: object;      // Raw data for processing
-}
-```
-
-### Types of Providers
-
-#### 1. **World State Provider** (`HYPERFY_WORLD_STATE`)
-Provides real-time information about the 3D world:
-- Entity positions and rotations
-- Nearby interactable objects
-- Other players/NPCs in the area
-- Recent chat messages
-- Agent's current position and state
-
-#### 2. **Character Provider** (`CHARACTER`)
-Supplies agent personality and behavior:
-- Biography and backstory
-- Communication style
-- Example conversations
-- Topics of interest
-- System behavior rules
-
-#### 3. **Actions Provider** (`ACTIONS`)
-Lists available actions based on context:
-- Valid actions for current state
-- Action descriptions and examples
-- Formatted for LLM understanding
-
-#### 4. **Emote Provider** (`HYPERFY_EMOTE_LIST`)
-Simple provider for available animations:
-- List of emote names
-- Descriptions of each animation
-- Helps agent express emotions visually
-
-### Provider Integration
-
-Providers are automatically invoked when composing state:
-
-```typescript
-const state = await runtime.composeState(message, [
-  'HYPERFY_WORLD_STATE',    // Current world information
-  'CHARACTER',               // Agent personality
-  'ACTIONS'                  // Available actions
-]);
-```
-
-The composed state includes all provider outputs formatted for the LLM.
-
-## Services
-
-### What are Services?
-
-Services are long-lived components that manage external connections, APIs, and stateful operations. Unlike actions (which are stateless), services maintain persistent connections and provide ongoing functionality.
-
-### Service Structure
-
-```typescript
-interface Service {
-  // Not shown in code but typical pattern:
-  initialize(): Promise<void>;
-  isConnected(): boolean;
-  cleanup(): Promise<void>;
-}
-```
-
-### HyperfyService Architecture
-
-The HyperfyService manages the connection to Hyperfy virtual worlds:
-
-1. **Connection Management**
-   - WebSocket connection to world server
-   - Authentication and session handling
-   - Reconnection logic
-   - Connection state tracking
-
-2. **World Interface**
-   - Access to world entities
-   - Player/agent controls
-   - Chat system interface
-   - Build/edit capabilities
-
-3. **Sub-Managers**
-   - MessageManager: Handles chat history and message sending
-   - BuildManager: Provides world editing capabilities
-   - Controls: Agent movement and interaction
-
-### HyperfyGameService
-
-Extends base functionality for game-specific features:
-
-```typescript
-class HyperfyGameService {
-  // Player movement in 3D space
-  async movePlayer(playerId, position) {
-    const world = this.hyperfyService.getWorld();
-    world.entities.players.get(playerId).position = position;
-    world.network.send('playerMove', { playerId, position });
-  }
-  
-  // Game-specific actions
-  async startTask(playerId, taskId) { }
-  async performKill(killerId, victimId) { }
-  async reportBody(reporterId, bodyId) { }
-  async castVote(voterId, targetId) { }
-}
-```
-
-## Hyperfy Integration
-
-### Connection Flow
-
-1. **Service Initialization**
-   ```
-   ElizaOS Runtime → HyperfyService → WebSocket → Hyperfy World
-   ```
-
-2. **Agent Embodiment**
-   - Service creates visual representation in world
-   - Establishes control interface
-   - Begins receiving world updates
-
-3. **Perception Loop**
-   - World state provider polls environment
-   - Updates include positions, nearby objects, chat
-   - Information formatted for AI consumption
-
-4. **Action Execution**
-   - User input triggers action selection
-   - Action validates against world state
-   - Handler uses service methods to affect world
-   - Results broadcast to all connected clients
-
-### Integration Points
-
-#### 1. **World State Synchronization**
-The world provider continuously updates the agent's understanding:
-- Entity positions via THREE.js vectors
-- Quaternion rotations for orientations
-- Scale information for objects
-- Real-time chat messages
-
-#### 2. **Control Interface**
-Actions use the control system to:
-- Navigate to positions (`goto(x, z)`)
-- Follow entities (`followEntity(id)`)
-- Interact with objects (`performAction(id)`)
-- Start/stop behaviors (`startRandomWalk()`)
-
-#### 3. **Build System**
-Complex world modifications through:
-- Entity duplication
-- Position/rotation/scale transforms
-- Entity deletion
-- Asset importing
-
-#### 4. **Message System**
-Bi-directional communication:
-- Receiving player messages
-- Sending agent responses
-- Tracking conversation history
-- Managing message context
-
-## Architecture Flow
-
-### Complete Action Flow
-
-1. **Input Reception**
-   ```
-   Player Message → Hyperfy World → WebSocket → HyperfyService
-   ```
-
-2. **Context Composition**
-   ```
-   Runtime.composeState() → 
-     - Character Provider (personality)
-     - World Provider (environment)
-     - Actions Provider (capabilities)
-   ```
-
-3. **Decision Making**
-   ```
-   LLM processes composed state →
-     Selects appropriate action(s) →
-     Extracts parameters
-   ```
-
-4. **Action Execution**
-   ```
-   Action.validate() → 
-   Action.handler() →
-     - Use HyperfyService methods
-     - Modify world state
-     - Send callbacks
-   ```
-
-5. **Result Broadcasting**
-   ```
-   World state changes →
-   Network broadcast →
-   All clients update
-   ```
-
-### State Management
-
-ElizaOS maintains state at multiple levels:
-
-1. **Runtime State**: Core agent memory and context
-2. **Service State**: Persistent connections and session data
-3. **World State**: Current 3D environment snapshot
-4. **Action State**: Temporary execution context
-
-## Best Practices
-
-### Action Development
-
-1. **Clear Validation**
-   - Check all prerequisites in `validate()`
-   - Return false if action impossible
-   - Don't throw errors in validation
-
-2. **Robust Error Handling**
-   - Try-catch in handlers
-   - Graceful degradation
-   - Meaningful error messages
-
-3. **Comprehensive Examples**
-   - Cover success cases
-   - Include failure scenarios
-   - Show parameter variations
-
-4. **Callback Usage**
-   - Always call callback for UI updates
-   - Include metadata for debugging
-   - Use appropriate response format
-
-### Provider Implementation
-
-1. **Efficient Data Gathering**
-   - Cache when appropriate
-   - Minimize computation
-   - Filter irrelevant information
-
-2. **Clear Formatting**
-   - Structure text for LLM comprehension
-   - Use headers and sections
-   - Include only relevant context
-
-3. **Data Types**
-   - `text`: Formatted for LLM
-   - `values`: For template variables
-   - `data`: Raw for processing
-
-### Service Design
-
-1. **Connection Resilience**
-   - Implement reconnection logic
-   - Handle network interruptions
-   - Maintain state across disconnects
-
-2. **Resource Management**
-   - Clean up connections
-   - Remove event listeners
-   - Clear intervals/timeouts
-
-3. **Method Organization**
-   - Group related functionality
-   - Consistent error handling
-   - Clear method naming
-
-### Integration Guidelines
-
-1. **Loose Coupling**
-   - Actions shouldn't depend on specific services
-   - Use runtime.getService() for access
-   - Handle service unavailability
-
-2. **Event-Driven Updates**
-   - Use callbacks for async operations
-   - Emit events for state changes
-   - Subscribe to relevant world events
-
-3. **Performance Considerations**
-   - Throttle frequent updates
-   - Batch operations when possible
-   - Use efficient data structures
-
-## Conclusion
-
-The ElizaOS architecture provides a flexible framework for creating intelligent agents that can perceive and act in virtual worlds. Through the combination of:
-
-- **Actions** for capabilities
-- **Providers** for context
-- **Services** for connections
-
-Agents can engage in complex behaviors while maintaining clean separation of concerns. The Hyperfy integration demonstrates how this architecture scales to support real-time 3D virtual worlds with multiple participants, complex interactions, and persistent state.
-
-The modular design allows developers to extend functionality by adding new actions, providers, or services without modifying core systems, making ElizaOS a powerful platform for creating embodied AI agents.
-description: ElizaOS AI agent integration into Hyperfy
-alwaysApply: false
----
+The testing framework includes combat verification:
+- Triggers attacks via `window.rpgGoblin.attack(mockPlayer)`
+- Monitors console messages for combat events
+- Verifies damage calculations and health updates
 
 # RuneScape-Inspired MVP Game Design Document
-
-## Table of Contents
-
-1. [Game Overview](#1-game-overview)
-2. [World Design](#2-world-design)
-3. [Player Systems](#3-player-systems)
-4. [Combat System](#4-combat-system)
-5. [Skills System](#5-skills-system)
-6. [Items and Equipment](#6-items-and-equipment)
-7. [NPCs and Mobs](#7-npcs-and-mobs)
-8. [Economy and Trading](#8-economy-and-trading)
-9. [User Interface](#9-user-interface)
-10. [Multiplayer Architecture](#10-multiplayer-architecture)
-11. [AI Agent Integration](#11-ai-agent-integration)
-12. [Technical Implementation](#12-technical-implementation)
-13. [Testing Framework](#13-testing-framework)
-14. [MVP Scope and Future Expansions](#14-mvp-scope-and-future-expansions)
-
----
 
 ## 1. Game Overview
 
@@ -1739,19 +2282,6 @@ Individual test worlds for:
 - No quests or NPCs beyond mobs
 - Basic arrow type only
 
-### Future Expansions (NOT IN THE SCOPE OF THIS PROJECT)
-- Complete RuneScape skill set
-- Full equipment tiers
-- Multiple arrow types
-- Player trading/Grand Exchange
-- Quest system
-- PvP combat
-- Clans/guilds
-- More complex crafting
-- Additional biomes
-- Dungeons/instances
-- Mini-games
-
 ### Success Metrics
 - Stable multiplayer performance
 - Functional progression loop
@@ -1759,10 +2289,6 @@ Individual test worlds for:
 - All systems visually testable
 - Complete end-to-end testing of every system with no mocks, all tests passing
 
----
-description: Hyperfy docs and links to important parts of the Hyperfy 3D engine (and three.js)
-alwaysApply: false
----
 # Scripts
 
 ## IMPORTANT
@@ -1853,22 +2379,6 @@ Some nodes can also be created and used on the fly using `app.create(nodeName)`.
 - [RigidBody](hyperfy/docs/ref/RigidBody.md)
 - [Collider](hyperfy/docs/ref/Collider.md)
 - [Joint](hyperfy/docs/ref/Joint.md)
-
-# Building Games on Hyperfy: A Conceptual Guide
-
-## Understanding Hyperfy as a Game Platform
-
-Hyperfy is fundamentally different from traditional game engines. Rather than being a tool for creating isolated game experiences, it's a platform for persistent, shared virtual worlds where multiple experiences can coexist and interact.
-
-### Core Principles
-
-**Persistence Over Sessions**: Unlike traditional games that exist only while players are actively engaged, Hyperfy worlds persist continuously. This changes how you think about game state, progression, and world evolution.
-
-**Shared Reality**: Every player experiences the same world state. There's no concept of "single player" or isolated instances - everything happens in a shared space that all participants can affect.
-
-**Real-time Synchronization**: The platform handles the complexity of keeping all participants synchronized. As a game designer, you define what happens; Hyperfy ensures everyone sees it happen simultaneously.
-
-**Apps as Building Blocks**: Instead of monolithic game logic, Hyperfy uses "Apps" - self-contained interactive objects that can be combined to create complex experiences. Think of them as smart objects that know how to behave and interact.
 
 ## The Virtual World Philosophy
 
@@ -1915,591 +2425,6 @@ Systems communicate through events rather than direct calls. This creates loose 
 - Clean separation of concerns
 - Easier debugging and testing
 
-## The Entity Component System Paradigm
-
-### Thinking in Components
-
-Traditional object-oriented game design often leads to complex inheritance hierarchies. ECS flips this by using composition:
-
-**Traditional Approach**: 
-- Player inherits from Character
-- Character inherits from GameObject
-- Deep, rigid hierarchies
-
-**ECS Approach**:
-- Player is an entity with Position, Health, Inventory components
-- NPC is an entity with Position, Health, AI components
-- Flexible composition
-
-### System Responsibilities
-
-Each system should have a single, clear responsibility:
-
-- **Movement System**: Handles all position updates
-- **Combat System**: Manages damage calculations and combat state
-- **Inventory System**: Tracks items and equipment
-- **AI System**: Processes NPC decisions
-
-Systems query for entities with specific component combinations and process them accordingly.
-
-### Data-Driven Design
-
-Components should be pure data. This enables:
-- Easy serialization for networking
-- Simple state persistence
-- Clear separation of data and logic
-- Predictable behavior
-
-## Building Interactive Worlds
-
-### Terrain and Environment
-
-Hyperfy worlds start with terrain. The approach you take shapes everything else:
-
-**Height-Map Based Worlds**:
-- Efficient for large, open environments
-- Natural-looking landscapes
-- Easy to generate procedurally
-- Limited to no overhangs or caves
-
-**Constructed Environments**:
-- Built from 3D models and prefabs
-- Allows for complex architecture
-- More control over aesthetics
-- Higher performance cost
-
-## The App System Philosophy
-
-### Apps as Smart Objects
-
-Apps in Hyperfy are more than just 3D models - they're complete interactive experiences:
-
-**Self-Contained Logic**:
-- Each app manages its own behavior
-- Clear boundaries of responsibility
-- Reusable across different contexts
-
-**Configurable Properties**:
-- Expose key parameters for customization
-- Allow non-programmers to modify behavior
-- Create variants without code duplication
-
-### Composition Over Complexity
-
-Build complex experiences from simple apps:
-- A shop is a building app + NPC app + inventory interface
-- A quest is an NPC app + objective tracker + reward system
-- A dungeon is terrain apps + monster apps + loot apps
-
-### Interoperability
-
-Design apps to work together:
-- Standard communication protocols
-- Consistent data formats
-- Clear interaction patterns
-- Predictable behaviors
-
-## Technical Implementation Examples
-
-### Building Apps in Hyperfy
-
-Apps are the fundamental building blocks of interactive content. Here's how they work technically:
-
-```javascript
-// App configuration - expose customizable properties
-app.configure([
-  {
-    type: 'number',
-    key: 'health',
-    label: 'Starting Health',
-    initial: 100,
-    min: 1,
-    max: 1000
-  },
-  {
-    type: 'text',
-    key: 'mobType',
-    label: 'Mob Type',
-    initial: 'goblin'
-  }
-])
-
-// Access the 3D model nodes
-const model = app.get('GoblinModel') // Reference to GLB model node
-const nameTag = app.get('NameTag') // Reference to text display
-
-// App state management
-app.state = {
-  currentHealth: props.health,
-  isAggro: false,
-  target: null
-}
-
-// Create interactive elements
-const action = app.create('action')
-action.label = 'Attack Goblin'
-action.distance = 5
-action.duration = 0.5
-
-action.onTrigger = () => {
-  // Send attack request to server
-  app.send('mob:attack', { 
-    mobId: app.instanceId,
-    attackerId: world.getPlayer().id 
-  })
-}
-
-model.add(action)
-
-// Handle server events
-app.on('mob:damaged', (data) => {
-  app.state.currentHealth = data.newHealth
-  
-  // Visual feedback
-  const flash = app.create('mesh')
-  flash.material.color = 'red'
-  flash.material.opacity = 0.5
-  // ... animate flash effect
-})
-
-// Update loop for client-side animations
-app.on('update', (dt) => {
-  // Idle animation
-  model.rotation.y += dt * 0.5
-  
-  // Update health display
-  if (nameTag) {
-    nameTag.text = `${props.mobType} (${app.state.currentHealth}/${props.health})`
-  }
-})
-```
-
-### Creating Game Systems
-
-Systems in Hyperfy extend a base System class and process entities with specific components:
-
-```typescript
-import { System } from 'hyperfy'
-
-export class MobSystem extends System {
-  name = 'MobSystem'
-  
-  // System state
-  private mobs: Map<string, MobData> = new Map()
-  private respawnQueue: RespawnEntry[] = []
-  
-  async init(): Promise<void> {
-    // Listen for world events
-    this.world.events.on('entity:created', this.onEntityCreated.bind(this))
-    this.world.events.on('mob:attack', this.handleAttack.bind(this))
-    
-    // Start update loop
-    this.startUpdateLoop()
-  }
-  
-  private onEntityCreated(event: any) {
-    const entity = this.getEntity(event.entityId)
-    if (entity?.type === 'mob') {
-      this.registerMob(entity)
-    }
-  }
-  
-  private registerMob(entity: Entity) {
-    const mobData = {
-      id: entity.id,
-      type: entity.data.mobType,
-      level: entity.data.level || 1,
-      maxHealth: entity.data.health || 100,
-      currentHealth: entity.data.health || 100,
-      position: entity.position,
-      spawnPoint: entity.position.clone(),
-      aggroRange: 10,
-      state: 'idle'
-    }
-    
-    this.mobs.set(entity.id, mobData)
-    
-    // Add components
-    entity.addComponent('stats', {
-      attack: this.calculateAttack(mobData.level),
-      strength: this.calculateStrength(mobData.level),
-      defense: this.calculateDefense(mobData.level)
-    })
-    
-    entity.addComponent('combat', {
-      inCombat: false,
-      target: null,
-      lastAttack: 0
-    })
-  }
-  
-  update(deltaTime: number) {
-    const now = Date.now()
-    
-    // Process each mob
-    for (const [mobId, mobData] of this.mobs) {
-      const entity = this.getEntity(mobId)
-      if (!entity) continue
-      
-      // AI behavior based on state
-      switch (mobData.state) {
-        case 'idle':
-          this.processIdleState(entity, mobData)
-          break
-        case 'aggressive':
-          this.processAggressiveState(entity, mobData)
-          break
-        case 'returning':
-          this.processReturningState(entity, mobData)
-          break
-      }
-    }
-    
-    // Process respawns
-    this.processRespawnQueue(now)
-  }
-  
-  private processIdleState(entity: Entity, mobData: MobData) {
-    // Check for nearby players
-    const players = this.world.getPlayers()
-    
-    for (const player of players) {
-      const distance = entity.position.distanceTo(player.position)
-      
-      if (distance <= mobData.aggroRange) {
-        // Check if mob is aggressive type
-        if (this.isAggressiveMob(mobData.type)) {
-          mobData.state = 'aggressive'
-          mobData.target = player.id
-          
-          // Emit aggro event
-          this.world.events.emit('mob:aggro', {
-            mobId: entity.id,
-            targetId: player.id
-          })
-        }
-      }
-    }
-  }
-  
-  private handleAttack(event: { mobId: string, attackerId: string }) {
-    const mob = this.mobs.get(event.mobId)
-    const attacker = this.getEntity(event.attackerId)
-    
-    if (!mob || !attacker) return
-    
-    // Validate attack
-    const distance = this.calculateDistance(
-      this.getEntity(event.mobId), 
-      attacker
-    )
-    
-    if (distance > 2) {
-      // Too far away
-      return
-    }
-    
-    // Apply damage
-    const damage = this.calculateDamage(attacker, mob)
-    mob.currentHealth -= damage
-    
-    // Broadcast damage event
-    this.world.broadcast('mob:damaged', {
-      mobId: event.mobId,
-      damage,
-      newHealth: mob.currentHealth,
-      attackerId: event.attackerId
-    })
-    
-    // Check death
-    if (mob.currentHealth <= 0) {
-      this.handleMobDeath(event.mobId, event.attackerId)
-    }
-  }
-  
-  private handleMobDeath(mobId: string, killerId: string) {
-    const mob = this.mobs.get(mobId)
-    if (!mob) return
-    
-    // Drop loot
-    this.world.events.emit('loot:drop', {
-      position: this.getEntity(mobId).position,
-      drops: this.calculateLoot(mob),
-      killerId
-    })
-    
-    // Award experience
-    this.world.events.emit('experience:grant', {
-      playerId: killerId,
-      skill: 'combat',
-      amount: mob.level * 10
-    })
-    
-    // Schedule respawn
-    this.respawnQueue.push({
-      mobType: mob.type,
-      position: mob.spawnPoint,
-      respawnTime: Date.now() + 30000 // 30 seconds
-    })
-    
-    // Remove entity
-    const entity = this.getEntity(mobId)
-    entity?.destroy()
-    this.mobs.delete(mobId)
-  }
-}
-```
-
-### Combat System Implementation
-
-The combat system manages all combat interactions between entities:
-
-```typescript
-export class CombatSystem extends System {
-  name = 'CombatSystem'
-  
-  private combatSessions: Map<string, CombatSession> = new Map()
-  private readonly TICK_RATE = 600 // Game tick in ms
-  
-  async init(): Promise<void> {
-    // Combat initiation
-    this.world.events.on('combat:initiate', this.startCombat.bind(this))
-    this.world.events.on('combat:cancel', this.endCombat.bind(this))
-    
-    // Start combat tick
-    setInterval(() => this.processCombatTick(), this.TICK_RATE)
-  }
-  
-  private startCombat(event: { attackerId: string, targetId: string }) {
-    // Validate combat initiation
-    const attacker = this.getEntity(event.attackerId)
-    const target = this.getEntity(event.targetId)
-    
-    if (!this.canAttack(attacker, target)) {
-      return
-    }
-    
-    // Create combat session
-    const session: CombatSession = {
-      attackerId: event.attackerId,
-      targetId: event.targetId,
-      startTime: Date.now(),
-      attackStyle: this.getAttackStyle(attacker)
-    }
-    
-    this.combatSessions.set(event.attackerId, session)
-    
-    // Update components
-    const combatComp = attacker.getComponent('combat')
-    combatComp.inCombat = true
-    combatComp.target = event.targetId
-  }
-  
-  private processCombatTick() {
-    for (const [sessionId, session] of this.combatSessions) {
-      const attacker = this.getEntity(session.attackerId)
-      const target = this.getEntity(session.targetId)
-      
-      // Validate session
-      if (!this.isValidSession(attacker, target)) {
-        this.endCombat({ entityId: session.attackerId })
-        continue
-      }
-      
-      // Calculate hit
-      const hitResult = this.calculateHit(attacker, target)
-      
-      // Apply damage
-      if (hitResult.hit) {
-        this.applyDamage(target, hitResult.damage)
-        
-        // Special effects for different attack types
-        if (session.attackStyle === 'magic') {
-          this.processMagicEffects(attacker, target, hitResult)
-        } else if (session.attackStyle === 'ranged') {
-          this.consumeAmmunition(attacker)
-        }
-      }
-      
-      // Broadcast combat update
-      this.world.broadcast('combat:update', {
-        attackerId: session.attackerId,
-        targetId: session.targetId,
-        damage: hitResult.damage,
-        hitType: hitResult.hit ? 'hit' : 'miss'
-      })
-      
-      // Award experience
-      if (hitResult.hit) {
-        this.awardCombatExperience(attacker, hitResult.damage, session.attackStyle)
-      }
-    }
-  }
-  
-  private calculateHit(attacker: Entity, target: Entity): HitResult {
-    const attackerStats = attacker.getComponent('stats')
-    const targetStats = target.getComponent('stats')
-    const equipment = attacker.getComponent('equipment')
-    
-    // Get attack bonuses from equipment
-    const attackBonus = this.getEquipmentBonus(equipment, 'attack')
-    const strengthBonus = this.getEquipmentBonus(equipment, 'strength')
-    
-    // Calculate accuracy
-    const attackRoll = Math.random() * (attackerStats.attack + attackBonus + 8)
-    const defenseRoll = Math.random() * (targetStats.defense + 8)
-    
-    if (attackRoll <= defenseRoll) {
-      return { hit: false, damage: 0 }
-    }
-    
-    // Calculate damage
-    const maxHit = Math.floor(
-      0.5 + (attackerStats.strength + strengthBonus + 8) / 10
-    )
-    const damage = Math.floor(Math.random() * (maxHit + 1))
-    
-    return { hit: true, damage }
-  }
-  
-  private awardCombatExperience(
-    attacker: Entity, 
-    damage: number, 
-    style: string
-  ) {
-    const xpAmount = damage * 4 // RuneScape style
-    
-    switch (style) {
-      case 'accurate':
-        this.world.events.emit('experience:grant', {
-          entityId: attacker.id,
-          skill: 'attack',
-          amount: xpAmount
-        })
-        break
-      case 'aggressive':
-        this.world.events.emit('experience:grant', {
-          entityId: attacker.id,
-          skill: 'strength',
-          amount: xpAmount
-        })
-        break
-      case 'defensive':
-        this.world.events.emit('experience:grant', {
-          entityId: attacker.id,
-          skill: 'defense',
-          amount: xpAmount
-        })
-        break
-    }
-    
-    // Always award constitution XP
-    this.world.events.emit('experience:grant', {
-      entityId: attacker.id,
-      skill: 'constitution',
-      amount: xpAmount * 0.33
-    })
-  }
-}
-```
-
-### Creating Interactive NPCs
-
-NPCs combine apps with AI behavior:
-
-```javascript
-// NPC App Script
-app.configure([
-  {
-    type: 'text',
-    key: 'npcName',
-    label: 'NPC Name',
-    initial: 'Guard'
-  },
-  {
-    type: 'file',
-    key: 'dialogue',
-    label: 'Dialogue Tree',
-    kind: 'json'
-  }
-])
-
-// Create interaction zones
-const interactionZone = app.create('trigger')
-interactionZone.radius = 5
-interactionZone.height = 2
-
-interactionZone.onEnter = (other) => {
-  if (other.tag === 'player') {
-    // Show interaction prompt
-    app.send('ui:show_prompt', {
-      playerId: other.id,
-      message: `Talk to ${props.npcName}`
-    })
-  }
-}
-
-// Create dialogue action
-const talkAction = app.create('action')
-talkAction.label = `Talk to ${props.npcName}`
-talkAction.distance = 3
-
-talkAction.onTrigger = () => {
-  const player = world.getPlayer()
-  
-  app.send('dialogue:start', {
-    npcId: app.instanceId,
-    playerId: player.id,
-    dialogueTree: props.dialogue
-  })
-}
-
-// NPC behavior patterns
-let behaviorState = 'idle'
-let patrolPath = [
-  { x: 0, z: 0 },
-  { x: 10, z: 0 },
-  { x: 10, z: 10 },
-  { x: 0, z: 10 }
-]
-let currentPatrolIndex = 0
-
-app.on('update', (dt) => {
-  switch (behaviorState) {
-    case 'idle':
-      // Random chance to start patrol
-      if (Math.random() < 0.001) {
-        behaviorState = 'patrolling'
-      }
-      break
-      
-    case 'patrolling':
-      const target = patrolPath[currentPatrolIndex]
-      const distance = Math.sqrt(
-        Math.pow(app.position.x - target.x, 2) + 
-        Math.pow(app.position.z - target.z, 2)
-      )
-      
-      if (distance < 0.5) {
-        currentPatrolIndex = (currentPatrolIndex + 1) % patrolPath.length
-      } else {
-        // Move towards target
-        const dir = {
-          x: target.x - app.position.x,
-          z: target.z - app.position.z
-        }
-        const len = Math.sqrt(dir.x * dir.x + dir.z * dir.z)
-        dir.x /= len
-        dir.z /= len
-        
-        app.position.x += dir.x * dt * 2
-        app.position.z += dir.z * dt * 2
-      }
-      break
-  }
-})
-```
-
 ## Physics and Spatial Reasoning
 
 ### Understanding PhysX Integration
@@ -2525,387 +2450,8 @@ Physics isn't just for realism - it's a design tool:
 - Projectile trajectories
 - Area effects
 
-### Practical Physics Implementation
+# Generation
 
-```javascript
-// Create a physics-enabled mob controller
-const controller = app.create('controller')
-controller.radius = 0.5
-controller.height = 1.8
-controller.layer = 'enemy'
-
-// Movement with physics
-app.on('update', (dt) => {
-  if (app.state.target) {
-    const direction = new Vector3()
-      .subVectors(app.state.target.position, app.position)
-      .normalize()
-    
-    // Apply movement with physics constraints
-    controller.move(direction.multiplyScalar(dt * 5))
-    
-    // Gravity
-    controller.move(new Vector3(0, -9.81 * dt, 0))
-  }
-})
-
-// Create trigger zones for abilities
-const aoeAttack = app.create('trigger')
-aoeAttack.radius = 5
-aoeAttack.tag = 'damage_zone'
-
-aoeAttack.onEnter = (other) => {
-  if (other.tag === 'player') {
-    app.send('damage:area', {
-      targetId: other.id,
-      damage: 10,
-      damageType: 'fire'
-    })
-  }
-}
-```
-
-## Performance Considerations
-
-When building complex systems:
-
-1. **Entity Pooling**: Reuse entities instead of creating/destroying
-2. **Spatial Partitioning**: Only process nearby entities
-3. **LOD Systems**: Reduce detail for distant objects
-4. **Update Throttling**: Not everything needs to update every frame
-
-## Security and Trust
-
-Never trust the client:
-- Validate all inputs server-side
-- Implement rate limiting
-- Check permissions for actions
-- Log suspicious behavior
-
-Virtual economies need protection:
-- Transaction validation
-- Exploit detection
-- Market manipulation prevention
-- Item duplication checks
-
-Protect player experiences:
-- Anti-griefing mechanics
-- Reporting systems
-- Moderation tools
-- Community guidelines
-
----
-description: Lore for the game, generation of world and mobs, history of the world, different regions and zones
-alwaysApply: false
----
-# The World of Hyperia
-
-## Welcome, Adventurer!
-
-Hyperia is an ancient land where heroes rise and legends are forged! Once ruled by powerful kingdoms that have long since fallen to ruin, the realm is now a frontier where adventurers seek glory and fortune among the remnants of lost civilizations. Monsters roam the wilderness, treasures lie hidden in forgotten places, and the brave few who dare to explore may write their names in history!
-
-## The History of Hyperia
-
-### The First Age: The Great Kingdoms
-Long ago, Hyperia was home to mighty kingdoms that controlled vast territories. The Kingdom of Valorhall ruled the northern mountains with their legendary warriors. The Eastern Reaches were governed by wise merchant princes who built great trade routes. The western forests were protected by elite rangers who knew every tree and trail. These kingdoms prospered for a thousand years until the Great Calamity struck.
-
-### The Calamity
-No one alive remembers exactly what happened, but ancient texts speak of a dark day when the sky burned red and monsters poured forth from tears in reality. The great cities fell one by one, their populations scattered or slain. The very fabric of the world became unstable. The survivors fled to small settlements, and civilization collapsed into isolated towns and villages.
-
-### The Current Era
-Now, 500 years after the Calamity, Hyperia has become a land of opportunity for adventurers. The old kingdoms are ruins filled with treasure and danger. Monsters have claimed much of the wilderness. Small towns dot the landscape, connected by dangerous roads. This is where your story begins.
-
-## The Regions of Hyperia
-
-### **Mistwood Valley** (Starting Region)
-Once the breadbasket of the old kingdoms, now a patchwork of small farming communities:
-- **Brookhaven**: A peaceful starter town by a babbling brook (general store and bank)
-- **Millharbor**: Built around an ancient watermill (general store and bank)
-- **Crosshill**: Where old trade routes meet (general store and bank)
-- **The Old Oak**: A massive tree where adventurers gather and share tales
-- **Stone Circle of Beginning**: Ancient standing stones where new heroes often train
-- **The Abandoned Farmstead**: Overrun by goblins, perfect for first adventures
-- **Broken Bridge**: Once connected regions, now guards patrol one side
-- Rolling hills dotted with lone trees and small goblin camps
-
-### **The Goblin Wastes**
-A barren region claimed by goblin tribes after the fall:
-- **Goblin Hill**: A large mound where goblins gather for war councils
-- **The Ruined Tower**: An old watchtower, now a hobgoblin stronghold
-- **Bonepile Monument**: Where goblins display their "trophies"
-- **The Dusty Crossroads**: Barbarian camps control this vital passage
-- **Three Rocks**: Massive boulders where goblin shamans once performed rituals
-- **The Burnt Village**: A cautionary tale of what happens to the unprepared
-- Rocky badlands with scattered goblin camps and crude totems
-- Small bands of human barbarians compete with goblins for resources
-
-### **Darkwood Forest**
-An ancient forest that has grown wild and dangerous:
-- **The Hanged Man's Tree**: Where the bandit chief displays warnings
-- **Old Ranger Monument**: A stone statue marking a forgotten hero's last stand
-- **The Hollow Stump**: A massive tree stump that serves as a bandit meeting spot
-- **Twilight Clearing**: Where dark warriors train at dusk
-- **The Moss-Covered Obelisk**: An ancient marker, its inscriptions long faded
-- **Woodcutter's Folly**: An abandoned lumber camp, now a guard outpost
-- Dense trees create natural paths and clearings
-- Bandit camps hidden throughout, marked by crude flags
-
-### **The Northern Reaches**
-Cold mountains where the Kingdom of Valorhall once stood:
-- **The Frozen Throne**: A massive ice-covered stone chair overlooking the valley
-- **Warrior's Gate**: Twin pillars marking the old kingdom's border
-- **The Ice Warrior Memorial**: Where frozen champions stand eternal vigil
-- **Valorhall Ruins**: Broken walls where barbarians now make camp
-- **The Shattered Shield**: A giant stone shield embedded in the mountainside
-- **Frostwind Pass**: The only safe passage, heavily guarded by corrupted soldiers
-- Snow-covered terrain with exposed rock formations
-- Mountain barbarian camps clustered around ancient monuments
-
-### **The Great Lakes**
-A region of interconnected lakes where bandits and smugglers rule:
-- **Smuggler's Dock**: Makeshift piers where bandits move stolen goods
-- **The Sunken Statue**: A giant figure half-submerged in the lake
-- **Bandit's Rest**: A notorious gathering spot on a small island
-- **The Old Lighthouse**: Still burning mysteriously on the largest lake's shore
-- **Fisherman's Lament**: An abandoned fishing village, now a guard checkpoint
-- **Twin Rocks**: Two massive stones jutting from the water, perfect for ambushes
-- Multiple lakes connected by rivers, with fishing spots along the shores
-- Bandit camps control the best crossing points
-
-### **The Blasted Lands**
-Southern wastes where the Calamity hit hardest:
-- **The Black Citadel**: A dark fortress where Black Knights gather
-- **The Ash Monument**: A pillar of fused ash marking the Calamity's epicenter
-- **Skull Ridge**: A line of rocks resembling skulls, where Dark Rangers patrol
-- **The Scorched Battlefield**: Ancient weapons still litter the ground
-- **Dead Man's Marker**: A lone signpost warning travelers to turn back
-- **The Obsidian Spire**: A twisted black tower reaching toward the sky
-- Barren wasteland of ash and volcanic rock
-- Elite enemies patrol between monuments of destruction
-
-### **The Windswept Plains**
-Open grasslands between the forests and mountains:
-- **The Lone Watchtower**: An abandoned tower where guards have set up camp
-- **Merchant's Memorial**: A stone marker where traders were ambushed long ago
-- **The Battle Standard**: A tattered flag still flying from an ancient conflict
-- **Crow's Perch**: A dead tree where ravens gather, overlooking hobgoblin territory
-- **The Forgotten Well**: Once gave water to travelers, now dry and surrounded by bandits
-- **Standing Sentry**: A weathered statue of an unknown soldier
-- Wide open spaces with scattered rock formations
-- Mix of human bandits and hobgoblin war parties
-
-### **Bramblewood Thicket**
-Dense thorny woodland between major regions:
-- **The Thorn Arch**: Natural archway formed by twisted brambles
-- **Poacher's Platform**: Wooden structure where bandits watch for travelers
-- **The Gnarled Sentinel**: Ancient tree that seems to watch passersby
-- **Broken Wagon Circle**: Where a merchant caravan made its last stand
-- **The Bramble Maze**: Natural thorny barriers creating a confusing path
-- **Hunter's Mark**: Stone pillar marked with crude directions
-- Difficult terrain that funnels travelers along predictable paths
-- Perfect ambush territory for bandits and barbarians
-
-### **The Iron Hills**
-Mining region between the mountains and plains:
-- **The Abandoned Mineshaft Entrance**: Boarded up but guards patrol nearby
-- **Overseer's Chair**: Carved stone seat overlooking old mining operations
-- **The Rust Monument**: Iron statue corroded by time and weather
-- **Cart Graveyard**: Where old mining carts were left to decay
-- **The Hammer Stone**: Massive rock shaped like a blacksmith's hammer
-- **Claim Marker 47**: One of many territorial stones, this one still defended
-- Rocky hills with exposed ore veins
-- Dark Warriors control the best mining spots
-
-## Your Path to Glory
-
-### The Novice's Journey
-Every hero starts somewhere. Your first task is to prove yourself against the goblin menace plaguing Mistwood Valley. These green-skinned raiders may seem weak to veteran adventurers, but they'll test your mettle as you learn the ways of combat. With the coins from your victories, purchase tools from the general store - a hatchet for woodcutting, a fishing rod for sustenance, and a tinderbox to cook your catch.
-
-### Rising Through the Ranks  
-As your skills grow, venture beyond the starter regions. The corrupted guards and dark warriors of the middle lands await those brave enough to face them. Steel equipment becomes available to those who prove themselves, and the ancient ruins hold secrets for those willing to explore. This is where boys and girls become true adventurers.
-
-### Legendary Status
-Only the greatest warriors dare face the Black Knights in their fortress or brave the frozen halls where Ice Warriors stand eternal vigil. These champions of darkness guard the mithril equipment that marks a true master of combat. In the Blasted Lands, the Dark Rangers strike from the shadows with deadly precision, hoarding treasures from the old world. To defeat them is to write your name in the annals of history.
-
-## Ancient Legends and Lost Treasures
-
-### The Legend of the First Heroes
-When the Calamity struck, a band of heroes made a last stand at what is now Crossroads. Though they fell, their sacrifice allowed thousands to escape. Some say their spirits still guard the town, which is why monsters rarely venture too close to starter towns.
-
-### The Goblin Emergence  
-The goblins weren't always surface dwellers. Ancient texts speak of them living deep underground until the Calamity cracked open their cavern homes. Now they've claimed much of the surface world, though they still fear the deepest forests and highest mountains.
-
-### The Black Knight Order
-Once the elite guard of the Eastern kingdoms, the Black Knights were corrupted by the darkness of the Calamity. They now serve no master but chaos itself, dwelling in their forbidden fortress and emerging only to spread fear and destruction.
-
-### Lost Treasures of the Kingdoms
-- **The Crown of Valorhall**: Said to grant its wearer unmatched combat prowess
-- **The Merchant Prince's Ledger**: Contains the locations of hidden treasure vaults
-- **The Ranger General's Bow**: The finest bow ever crafted, lost in Darkwood Forest
-- **The Beacon Keeper's Lantern**: Lights the way through any darkness
-
-### Places of Power
-Scattered across Hyperia are ancient sites of great significance:
-- **The Standing Stones**: Stone circles that seem to vibrate with ancient power
-- **The Warrior's Rest**: Ancient burial mounds of fallen heroes
-- **The Crystal Caves**: Where strange crystals formed during the Calamity
-- **The Whispering Ruins**: Where the voices of the past can still be heard# The World of Hyperia
-
-## Welcome, Adventurer!
-
-Hyperia is an ancient land where heroes rise and legends are forged! Once ruled by powerful kingdoms that have long since fallen to ruin, the realm is now a frontier where adventurers seek glory and fortune among the remnants of lost civilizations. Monsters roam the wilderness, treasures lie hidden in forgotten places, and the brave few who dare to explore may write their names in history!
-
-## The History of Hyperia
-
-### The First Age: The Great Kingdoms
-Long ago, Hyperia was home to mighty kingdoms that controlled vast territories. The Kingdom of Valorhall ruled the northern mountains with their legendary warriors. The Eastern Reaches were governed by wise merchant princes who built great trade routes. The western forests were protected by elite rangers who knew every tree and trail. These kingdoms prospered for a thousand years until the Great Calamity struck.
-
-### The Calamity
-No one alive remembers exactly what happened, but ancient texts speak of a dark day when the sky burned red and monsters poured forth from tears in reality. The great cities fell one by one, their populations scattered or slain. The very fabric of the world became unstable. The survivors fled to small settlements, and civilization collapsed into isolated towns and villages.
-
-### The Current Era
-Now, 500 years after the Calamity, Hyperia has become a land of opportunity for adventurers. The old kingdoms are ruins filled with treasure and danger. Monsters have claimed much of the wilderness. Small towns dot the landscape, connected by dangerous roads. This is where your story begins.
-
-## The Regions of Hyperia
-
-### **Mistwood Valley** (Starting Region)
-Once the breadbasket of the old kingdoms, now a patchwork of small farming communities:
-- **Brookhaven**: A peaceful starter town by a babbling brook (general store and bank)
-- **Millharbor**: Built around an ancient watermill (general store and bank)
-- **Crosshill**: Where old trade routes meet (general store and bank)
-- **The Old Oak**: A massive tree where adventurers gather and share tales
-- **Stone Circle of Beginning**: Ancient standing stones where new heroes often train
-- **The Abandoned Farmstead**: Overrun by goblins, perfect for first adventures
-- **Broken Bridge**: Once connected regions, now guards patrol one side
-- Rolling hills dotted with lone trees and small goblin camps
-
-### **The Goblin Wastes**
-A barren region claimed by goblin tribes after the fall:
-- **Goblin Hill**: A large mound where goblins gather for war councils
-- **The Ruined Tower**: An old watchtower, now a hobgoblin stronghold
-- **Bonepile Monument**: Where goblins display their "trophies"
-- **The Dusty Crossroads**: Barbarian camps control this vital passage
-- **Three Rocks**: Massive boulders where goblin shamans once performed rituals
-- **The Burnt Village**: A cautionary tale of what happens to the unprepared
-- Rocky badlands with scattered goblin camps and crude totems
-- Small bands of human barbarians compete with goblins for resources
-
-### **Darkwood Forest**
-An ancient forest that has grown wild and dangerous:
-- **The Hanged Man's Tree**: Where the bandit chief displays warnings
-- **Old Ranger Monument**: A stone statue marking a forgotten hero's last stand
-- **The Hollow Stump**: A massive tree stump that serves as a bandit meeting spot
-- **Twilight Clearing**: Where dark warriors train at dusk
-- **The Moss-Covered Obelisk**: An ancient marker, its inscriptions long faded
-- **Woodcutter's Folly**: An abandoned lumber camp, now a guard outpost
-- Dense trees create natural paths and clearings
-- Bandit camps hidden throughout, marked by crude flags
-
-### **The Northern Reaches**
-Cold mountains where the Kingdom of Valorhall once stood:
-- **The Frozen Throne**: A massive ice-covered stone chair overlooking the valley
-- **Warrior's Gate**: Twin pillars marking the old kingdom's border
-- **The Ice Warrior Memorial**: Where frozen champions stand eternal vigil
-- **Valorhall Ruins**: Broken walls where barbarians now make camp
-- **The Shattered Shield**: A giant stone shield embedded in the mountainside
-- **Frostwind Pass**: The only safe passage, heavily guarded by corrupted soldiers
-- Snow-covered terrain with exposed rock formations
-- Mountain barbarian camps clustered around ancient monuments
-
-### **The Great Lakes**
-A region of interconnected lakes where bandits and smugglers rule:
-- **Smuggler's Dock**: Makeshift piers where bandits move stolen goods
-- **The Sunken Statue**: A giant figure half-submerged in the lake
-- **Bandit's Rest**: A notorious gathering spot on a small island
-- **The Old Lighthouse**: Still burning mysteriously on the largest lake's shore
-- **Fisherman's Lament**: An abandoned fishing village, now a guard checkpoint
-- **Twin Rocks**: Two massive stones jutting from the water, perfect for ambushes
-- Multiple lakes connected by rivers, with fishing spots along the shores
-- Bandit camps control the best crossing points
-
-### **The Blasted Lands**
-Southern wastes where the Calamity hit hardest:
-- **The Black Citadel**: A dark fortress where Black Knights gather
-- **The Ash Monument**: A pillar of fused ash marking the Calamity's epicenter
-- **Skull Ridge**: A line of rocks resembling skulls, where Dark Rangers patrol
-- **The Scorched Battlefield**: Ancient weapons still litter the ground
-- **Dead Man's Marker**: A lone signpost warning travelers to turn back
-- **The Obsidian Spire**: A twisted black tower reaching toward the sky
-- Barren wasteland of ash and volcanic rock
-- Elite enemies patrol between monuments of destruction
-
-### **The Windswept Plains**
-Open grasslands between the forests and mountains:
-- **The Lone Watchtower**: An abandoned tower where guards have set up camp
-- **Merchant's Memorial**: A stone marker where traders were ambushed long ago
-- **The Battle Standard**: A tattered flag still flying from an ancient conflict
-- **Crow's Perch**: A dead tree where ravens gather, overlooking hobgoblin territory
-- **The Forgotten Well**: Once gave water to travelers, now dry and surrounded by bandits
-- **Standing Sentry**: A weathered statue of an unknown soldier
-- Wide open spaces with scattered rock formations
-- Mix of human bandits and hobgoblin war parties
-
-### **Bramblewood Thicket**
-Dense thorny woodland between major regions:
-- **The Thorn Arch**: Natural archway formed by twisted brambles
-- **Poacher's Platform**: Wooden structure where bandits watch for travelers
-- **The Gnarled Sentinel**: Ancient tree that seems to watch passersby
-- **Broken Wagon Circle**: Where a merchant caravan made its last stand
-- **The Bramble Maze**: Natural thorny barriers creating a confusing path
-- **Hunter's Mark**: Stone pillar marked with crude directions
-- Difficult terrain that funnels travelers along predictable paths
-- Perfect ambush territory for bandits and barbarians
-
-### **The Iron Hills**
-Mining region between the mountains and plains:
-- **The Abandoned Mineshaft Entrance**: Boarded up but guards patrol nearby
-- **Overseer's Chair**: Carved stone seat overlooking old mining operations
-- **The Rust Monument**: Iron statue corroded by time and weather
-- **Cart Graveyard**: Where old mining carts were left to decay
-- **The Hammer Stone**: Massive rock shaped like a blacksmith's hammer
-- **Claim Marker 47**: One of many territorial stones, this one still defended
-- Rocky hills with exposed ore veins
-- Dark Warriors control the best mining spots
-
-## Your Path to Glory
-
-### The Novice's Journey
-Every hero starts somewhere. Your first task is to prove yourself against the goblin menace plaguing Mistwood Valley. These green-skinned raiders may seem weak to veteran adventurers, but they'll test your mettle as you learn the ways of combat. With the coins from your victories, purchase tools from the general store - a hatchet for woodcutting, a fishing rod for sustenance, and a tinderbox to cook your catch.
-
-### Rising Through the Ranks  
-As your skills grow, venture beyond the starter regions. The corrupted guards and dark warriors of the middle lands await those brave enough to face them. Steel equipment becomes available to those who prove themselves, and the ancient ruins hold secrets for those willing to explore. This is where boys and girls become true adventurers.
-
-### Legendary Status
-Only the greatest warriors dare face the Black Knights in their fortress or brave the frozen halls where Ice Warriors stand eternal vigil. These champions of darkness guard the mithril equipment that marks a true master of combat. In the Blasted Lands, the Dark Rangers strike from the shadows with deadly precision, hoarding treasures from the old world. To defeat them is to write your name in the annals of history.
-
-## Ancient Legends and Lost Treasures
-
-### The Legend of the First Heroes
-When the Calamity struck, a band of heroes made a last stand at what is now Crossroads. Though they fell, their sacrifice allowed thousands to escape. Some say their spirits still guard the town, which is why monsters rarely venture too close to starter towns.
-
-### The Goblin Emergence  
-The goblins weren't always surface dwellers. Ancient texts speak of them living deep underground until the Calamity cracked open their cavern homes. Now they've claimed much of the surface world, though they still fear the deepest forests and highest mountains.
-
-### The Black Knight Order
-Once the elite guard of the Eastern kingdoms, the Black Knights were corrupted by the darkness of the Calamity. They now serve no master but chaos itself, dwelling in their forbidden fortress and emerging only to spread fear and destruction.
-
-### Lost Treasures of the Kingdoms
-- **The Crown of Valorhall**: Said to grant its wearer unmatched combat prowess
-- **The Merchant Prince's Ledger**: Contains the locations of hidden treasure vaults
-- **The Ranger General's Bow**: The finest bow ever crafted, lost in Darkwood Forest
-- **The Beacon Keeper's Lantern**: Lights the way through any darkness
-
-### Places of Power
-Scattered across Hyperia are ancient sites of great significance:
-- **The Standing Stones**: Stone circles that seem to vibrate with ancient power
-- **The Warrior's Rest**: Ancient burial mounds of fallen heroes
-- **The Crystal Caves**: Where strange crystals formed during the Calamity
-- **The Whispering Ruins**: Where the voices of the past can still be heard
-
----
-description: When using LLM models like OpenAI or Anthropic, for image recogntion, image generation,text generation and embeddnigs
-alwaysApply: false
----
 For text and image generation, as well as image desciption, use gpt-4o and gpt-4o-mini from OpenAI.
 
 For 3D item generation, remeshing, retexturing, avatar creation and rigging, we are using meshy.ai
@@ -2925,9 +2471,6 @@ Current OpenAI image models:
 'gpt-image-1' // newer and better, more controllable but needs special API key access / KYC
 'dall-e-3'
 
----
-alwaysApply: true
----
 # Tech Stack
 
 Hyperfy (in packages/hypefy) - A 3D multiplayer game engine built on three.js -- includes voice with LiveKit, avatars with VRM, an application abstraction for building self-contained world apps and more
@@ -2955,41 +2498,6 @@ ElizaOS - Our AI agent framework. Eliza runs with 'elizaos start' and we have a 
 Three.js - Our 3D graphics library -- we should try to use the Hyperfy abstractions where possible
 
 Sqlite - for persistence we will store all application data in the database, which is currently a local Sqlite instance
-
----
-alwaysApply: true
----
-# Tech Stack
-
-Hyperfy (in packages/hypefy) - A 3D multiplayer game engine built on three.js -- includes voice with LiveKit, avatars with VRM, an application abstraction for building self-contained world apps and more
-We need to make sure we build persistence into Hyperfy for our apps
-
-Playwright - Browser engine for running tests and simulating gameplay
-
-React - UI and frontend is done in React
-
-ElizaOS - Our AI agent framework. Eliza runs with 'elizaos start' and we have a plugin-hyperfy for Eliza which enables Eliza plugins to join Hyperfy worlds and call all available actions.
-
-Three.js - Our 3D graphics library -- we should try to use the Hyperfy abstractions where possible
-
-Sqlite - for persistence we will store all application data in the database, which is currently a local Sqlite instance# Tech Stack
-
-Hyperfy (in packages/hypefy) - A 3D multiplayer game engine built on three.js -- includes voice with LiveKit, avatars with VRM, an application abstraction for building self-contained world apps and more
-We need to make sure we build persistence into Hyperfy for our apps
-
-Playwright - Browser engine for running tests and simulating gameplay
-
-React - UI and frontend is done in React
-
-ElizaOS - Our AI agent framework. Eliza runs with 'elizaos start' and we have a plugin-hyperfy for Eliza which enables Eliza plugins to join Hyperfy worlds and call all available actions.
-
-Three.js - Our 3D graphics library -- we should try to use the Hyperfy abstractions where possible
-
-Sqlite - for persistence we will store all application data in the database, which is currently a local Sqlite instance
-
----
-alwaysApply: true
----
 
 # Real code only
 For testing the RPG, we will not be using any mocks, spies, or other kinds of test framework structure -- instead we build mini-worlds where we test each feature individually, with clear structure and saving of all error logs to that after running the tests we can identify if the test passed or if there were failures or errors
@@ -3030,27 +2538,6 @@ We will test these scenarios a few different ways -- first, we will evaluate the
     -> Any other kinds of testing that actually test the real runtime and gameplay should be implemented
     -> We want to minimize test-specific code and objects, since it leads to bugs. We want to use real objects, real items from the game, real mobs and player proxies etc
 
-# Basic Screen Testing
-Is the entire screen all white? All black? 95%+ one single color? Something might be wrong. Verify that the player object is actually visible, the camera rig actually works, the world actually loads using basic pixel  and have statistics to help yourself understand when there might be something weird
-
-# Visual Testing
-For visual testing, we will use Playwright and a testing rig that screenshots the overhead of the scenario and checks for the existing of very specific colored pixels. Each entity (items, mobs, player, etc) in our scenario tests will be represented by a cube with a specific known color which we can check for. If a blue player kills a green goblin and loots the corpse, we can check that the green pixels went away and there are now red corpse pixels, for example. We can also check the distance of cubes from each other by getting all pixels of a color and average the positions. So if we are testing melee attack, for example, we can visualize the cubes as being adjacent and test the adjacency.
-
-# Three.js Testing
-Three.js creates a hierarchy of scene objects which have known properties like position. For testing if a player has moved, we can get their current position and verify that, say, they aren't just at 0. We can also verify that they exist in the hierarchy, etc. Our testing setup should make it easy to log and get this information.
-
-# Systems and Data
-Hyperfy is an ECS engine, to verify certain things we will want to be able to introspect systems and data attached to components. So if we want to check player money, we need to go through the Hyperfy systems to see how much money they have.
-
-# LLM Based Verification
-OpenAI GPT-4o and Anthropic Claude can now see images which we screenshot from Playwright and answer questions about them or verify stuff. We should use this sparingly as it is slow and expensive, but useful for figuring out what's going wrong, especially with UI or complicated scenarios. We can build this into our screenshot testing loop for tests where we want to verify, say, that something is on screen in the UI in the right place, that the UI looks good and doesn't have overlaps, etc.
-
-# Testing Frameworks
-We will use Playwright and custom tests which set up a Hyperfy world, add all of the entities, verify they are added, runs the test and verifies everything passes with no errors
-We are using Cursor and Claude Code which most tend to swallow errors in the logs, so we need to make sure the logs are output somewhere and contain all errors, and that after running our tests we verify that the logs are empty and free of any errors.
-
-So all tests MUST use Hyperfy and Playwright, and real elements of the RPG to be tested. No LARP code, no fakes, no mocks, no workarounds.
-
 # All Features Must have tests
 
 This is extremely important. If you make a feature, make a test for it and make sure all tests pass
@@ -3061,19 +2548,9 @@ If our goal is to demonstrate something isn't working, start out by making tests
 Testing is extremely important! If it's not tested, it's probably broken.
 NEVER shortcut, simplify or skip in tests. The goal of tests is to identify bugs in the code, NOT to get the tests to pass.
 
----
-description:
-globs:
-alwaysApply: false
----
-
 # Packages in this project
 
 We have the following packages:
-
-## Generation
-
-Responsible for 3D generation of all items, characters, mobs, buildings, etc. Uses meshy.ai and OpenAI. Standalone package which outputs JSON and 3D models, this can be consumed by the RPG for dynamic runtime generation, but also comes with its own scripts and CLI for generation and testing.
 
 ## Hyperfy
 
@@ -3090,10 +2567,6 @@ This is an RPG game based on Runescape, but with a twist-- everything is AI gene
 ## test-framework
 
 This is a standalone Hyperfy testing framework which we can use for the RPG to test everything. We want to test data on Systems, in the three.js scene graph and visually through the browser, as well as with logs in Playwright and whatever else we can get in terms of actual telemetry on the actual game. We don't use mocks or unit tests, we ONLY do gameplay testing on the real gameplay elements, real game engine, etc. This prevents us from creating garbage tests and hallucinated code that doesn't actually work. We should make sure this test framework is robust, and then used in the RPG to test every single aspect of the RPG. But we want this standalone so we can use it for other games as well, so no hardcoded RPG stuff.
-
----
-alwaysApply: true
----
 
 # Important notes on development
 
@@ -3113,7 +2586,7 @@ alwaysApply: true
 - Do not make assumptions about game features-- always refer to the GDD
 - Do not add any extra features that are not covered in the GDD
 - Use environment variables in the .env with dotenv package
-- Always use Hyperfy as the game engine and backend but keep it isolated from the RPG code by making the RPG a standalone Hyperfy app (.hyp)
+- Ignore Hyperfy's .hyp format, ALWAYS make systems
 - Always define types in a types.ts and use the existing types before making new ones
 - Try to make each package self-contained and modular, they can import each other through the workspace if needed (but no circular dependencies)
 - If it doesn't have a real test that starts up Puppeteer and actually runs the actions and screenshots the world, then it probably isnt actually working
@@ -3133,3 +2606,128 @@ Don't create new files. Especialy don't create "check-*.ts", "test-*.mjs", "fix-
 You VERY rarely need to create new files, if you're creating a new file you might be accidentally recreating a file that exists or causing bloat and should do some research first.
 
 Clean up after yourself. If you do create any test files, delete them when you're done.
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Important rules for development and testing
+
+## Fail fast
+
+We NEVER want to hide our bugs. No if ('property' in obj) -- if obj.property fails typecheck, then we're using it wrong. If obj.property fails because its unknown, then add a throw so when we run it we see the error response
+
+## Don't ignore errors -- use patterns to throw if data is not what we expect
+
+The goal of our testing and development *is to catch bugs* and the best way to do that is at runtime, when running through actual user behaviors. Make sure that if the data we expect is not right, we throw or error. We never use try catch, we never do null checks on data we critically need.
+
+## The goal of tests is to find bugs
+
+Don't make useless tests. Don't make tests that count the number of services in the plugin. Make tests that find bugs in the runtime objects. We don't use mocks or unit test patterns with fake code, everything we do uses REAL code.
+
+## No unit testing library and no mocks
+
+Your tendency is to make a lot of bad unit tests that don't really test anything. So you are banned from using any unit testing library. Instead, you must create scenarios using e2e testing tools like the built-in elizaos plugin test suite tools for plugins ('elizaos test' will run all the tests in the plugin 'tests' property) and Cypress for testing applications.
+
+## Always do e2e tests with real objects
+
+We can only know if the code works if we actually run through the real thing end to end
+
+## Always upgrade the existing tests and only add new tests when there are new features
+
+We don't want quick tests, simple tests, one-offs or scripts. Always focus on making the current tests pass and improving them. Don't create new files unless there are new features. There should NEVER be more test files than there are features.
+
+## Always run all tests
+
+Don't just run some tests and think you are done. If all tests don't pass, the feature is not implemented. Always run ALL tests. Always make sure all tests are enabled and run from the "test" npm script. Features are only implemented when all tests pass.
+
+## Never disable tests
+
+If tests fail, fix them. This is your priority. DO NOT disable tests.
+
+## TL;DR
+
+No defensive programming -- actively find and throw errors
+No unit testing library, no mocks, no "test" code -- everything should use a live runtime environment with setups where we can observe errors
+No useless tests -- Don't make tests that don't test anything
+Don't create new test scripts -- improve the ones you have
+Fix tests-- this is your biggest priority, don't ignore and don't disable them
+Always run all tests-- if all tests dont pass, the feature isn't properly implemented
+
+# ALWAYS REMIND YOURSELF OF THESE THINGS
+
+Did I implement correct tests which actually test the running code in an end-to-end setting?
+Did I implement throws and error identification to catch any errors?
+Did I remove all defensive programming, try catch etc?
+Did I implement all of the requirements and get all of the tests to pass 100%?
+Are there any files I can consolidate or remove so that the project is clean and doesn't have duplicate files?
+Are all of the tests connected to 'bun run test' and are they running successfully?
+Is there any way that this could error in ways I can't catch?
+
+# ALWAYS RUN YOUR TESTS
+
+If you create a feature, make sure 100% of ALL TESTS IN THE PROJECT are passing
+
+# VISUAL TESTS = Success
+
+Create cube proxies with a flat unlit material for all items with specific colors (Like #ABC123) and then test for those pixels
+Use an overhead camera rig to screenshot and test for this color
+If you don't see the color on screen, probably not working!
+
+# CRASHBLOCKS = APP DOESN'T WORK
+
+Look out in the client world for crash blocks. If these are present then the apps didn't load and crashed, and we need to fix them.
+
+# BIG REFACTOR - NO MORE HYP FILES
+
+Instead of making "apps" in Hyperfy, which are "user generated", we are going to remove this capability and instead make Systems and RPGApps. RPGApps are created by Systems and are NOT UGC apps. They can not be added by users. They are created by Systems which have full access to the entire Hyperfy engine.
+
+# IMPORTANT RULE: DO NOT SIMPLIFY
+
+This is very important. DO NOT make new files. ESPECIALLY do not make "simple" versions or "minimal" versions of files. Just fix the errors you see in place. If you add "minimal" files you break real production code and add bloat and larp.
+
+YOU ARE BANNED FROM MAKING MINIMAL REPRODUCTONS. YOU ARE BANNED FROM MAKING SIMPLE EXAMPLES.
+
+Your goal is to fix the existing code, NOT generate new files.
+
+DO NOT generate new files. Instead, FIX THE FILES YOU HAVE. FIX THE CODE YOU HAVE.
+
+This is the most important rule you can follow. Not following it = you are fired.
+
+I repeat: If you create "simple" reproductions I will fire you and replace you with Gemini.
+
+# IMPORTANT RULE: One build, one dev, one start, one test
+
+It is very important that when we run 'npm run build' we get ALL build steps. No npm run build:*
+
+Same with start, test and dev
+
+EVERY TEST SHOULD RUN WITH 'bun run test'
+
+EVERYTHING SHOULD START WHEN RUNNING 'bun run start'
+
+EVERYTHING SHOULD START IN WATCH MODE WHEN RUNNING 'bun run dev'
+
+EVERYTHING SHOULD BUILD, ALL SERVERS AND CONTAINERS AND APPS AND EVERYTHING when running 'bun run build'
+
+ONE SCRIPT = ONE ACTION
+
+Each package.json MUST contain 'dev', 'start', 'build', 'test' and 'lint' and ONLY those
+
+All binary compilation etc must be encapsulated
+
+No tauri:dev -- just dev
+No build:server -- just build
+
+
+# EXTREMELY IMPORTANT
+
+Don't disable working code. Don't comment plugins out. Your goal is to fix these plugins, so comenting them out just hides real bugs.
+
+Your goal is to fix code. Commenting out working code breaks it worse and hides errors, giving a false sense of confidence.
+
+Don't comment out files, don't comment out working imports, don't disable plugins. Focus on fixing the errors you see, not simplifying the problem (which often hides the errors and adds bloat).
+
+I repeat: DO NOT just make radical infrastructure changes or comment out important parts.
+
+DO NOT create minimal workflows. Test the full worlflow. You will only add more bugs if you do that. If you fix the full workflow, the bugs go away.
+
+If you create a minimal test or workflow or you comment out an important section of code arbitrarily then you will be fired.

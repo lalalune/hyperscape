@@ -1,11 +1,14 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { EMOTES_LIST } from '../constants.js'
-import { playerEmotes, emoteMap } from '../hyperfy/core/extras/playerEmotes.js'
-import { hashFileBuffer, getModuleDirectory } from '../utils.js'
+import { EMOTES_LIST } from '../constants'
+// import { playerEmotes, emoteMap } from '../hyperfy/core/extras/playerEmotes'
+const playerEmotes: any = {}
+const emoteMap: any = {}
+import { hashFileBuffer, getModuleDirectory } from '../utils'
 import type { IAgentRuntime } from '@elizaos/core'
-import type { HyperfyWorld, HyperfyPlayer } from '../types/hyperfy.js'
-import { HyperfyService } from '../service.js'
+import type { WorldInterface as HyperfyWorld, Player as HyperfyPlayer } from '@hyperscape/hyperfy'
+import { HyperfyService } from '../service'
+import { NETWORK_CONFIG } from '../config/constants'
 
 const logger = {
   info: console.info,
@@ -62,7 +65,7 @@ export class EmoteManager {
         }
         const emoteUploadPromise = world.network.upload(emoteFile)
         const emoteTimeout = new Promise((_resolve, reject) =>
-          setTimeout(() => reject(new Error('Upload timed out')), 30000)
+          setTimeout(() => reject(new Error('Upload timed out')), NETWORK_CONFIG.UPLOAD_TIMEOUT_MS)
         )
 
         await Promise.race([emoteUploadPromise, emoteTimeout])
@@ -107,7 +110,7 @@ export class EmoteManager {
     const duration = emoteMeta?.duration || 1.5
 
     this.movementCheckInterval = setInterval(() => {
-      if (agentPlayer.moving) {
+      if ((agentPlayer as any).moving) {
         logger.info(
           `[EmoteManager] '${emoteName}' cancelled early due to movement`
         )

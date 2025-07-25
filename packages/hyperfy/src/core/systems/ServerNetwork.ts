@@ -1,12 +1,12 @@
 import { isNumber } from 'lodash-es';
 import moment from 'moment';
 
-import type { Blueprint, World } from '../../types/index.js';
-import { writePacket } from '../packets.js';
-import { Socket } from '../Socket.js';
-import { createJWT, verifyJWT } from '../utils-server.js';
-import { addRole, hasRole, removeRole, serializeRoles, uuid } from '../utils.js';
-import { System } from './System.js';
+import type { Blueprint, World } from '../../types/index';
+import { writePacket } from '../packets';
+import { Socket } from '../Socket';
+import { createJWT, verifyJWT } from '../utils-server';
+import { addRole, hasRole, removeRole, serializeRoles, uuid } from '../utils';
+import { System } from './System';
 
 const SAVE_INTERVAL = parseInt(process.env.SAVE_INTERVAL || '60'); // seconds
 const PING_RATE = 1; // seconds
@@ -83,10 +83,22 @@ export class ServerNetwork extends System {
   }
 
   async init(options: any): Promise<void> {
+    console.log('[ServerNetwork] Init called with options:', typeof options, Object.keys(options || {}));
+    console.log('[ServerNetwork] Database type:', typeof options?.db);
+    console.log('[ServerNetwork] Database is function:', typeof options?.db === 'function');
     this.db = options.db;
+    if (!this.db) {
+      throw new Error('[ServerNetwork] Database instance not provided in options');
+    }
+    console.log('[ServerNetwork] Database stored successfully, type:', typeof this.db);
   }
 
   async start(): Promise<void> {
+    console.log('[ServerNetwork] Start called, db type:', typeof this.db);
+    console.log('[ServerNetwork] db is function:', typeof this.db === 'function');
+    if (!this.db) {
+      throw new Error('[ServerNetwork] Database not available in start method');
+    }
     // get spawn
     const spawnRow = await this.db('config').where('key', 'spawn').first();
     console.log('[ServerNetwork] Spawn row:', spawnRow);

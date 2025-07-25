@@ -1,8 +1,7 @@
 window.snapshotFacingDirection = async function (playerData) {
-  const win = window
-  const THREE = win.THREE
-  const camera = win.camera
-  const renderer = win.renderer
+  // THREE is already available via import maps in index.html
+  const camera = window.camera
+  const renderer = window.renderer
 
   const eye = new THREE.Vector3(...playerData.position)
   eye.y += 2
@@ -18,7 +17,7 @@ window.snapshotFacingDirection = async function (playerData) {
 
   camera.updateMatrixWorld()
 
-  renderer.render(win.scene, camera)
+  renderer.render(window.scene, camera)
 
   return renderer.domElement.toDataURL('image/jpeg').split(',')[1]
 }

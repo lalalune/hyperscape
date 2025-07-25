@@ -1,4 +1,4 @@
-import { Action, Provider, Evaluator, IAgentRuntime } from './eliza-mock'
+import { Action, Provider, Evaluator, IAgentRuntime } from '@elizaos/core'
 
 /**
  * Interface for modular content packs that can be loaded into Hyperfy

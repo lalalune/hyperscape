@@ -10,12 +10,12 @@ import {
   createUniqueUuid,
   getEntityDetails,
 } from '@elizaos/core'
-import { HyperfyService } from '../service.js'
+import { HyperfyService } from '../service'
 import { agentActivityLock } from './guards'
 import { hyperfyEventType } from '../events'
 import moment from 'moment'
 import { v4 as uuidv4 } from 'uuid'
-import type { HyperfyChatMessage } from '../types/hyperfy.js'
+type HyperfyChatMessage = any
 
 export class MessageManager {
   private runtime: IAgentRuntime
@@ -213,19 +213,21 @@ export class MessageManager {
       `HyperfyService sending message: "${text}" as ${agentPlayerName} (${agentPlayerId})`
     )
 
-    if (typeof world.chat.add !== 'function') {
+    if (typeof (world.chat as any).add !== 'function') {
       throw new Error('world.chat.add is not a function')
     }
 
-    const chatMessage: HyperfyChatMessage = {
-      id: this.generateId(),
+    const messageId = this.generateId()
+    const msgObject = {
+      id: messageId,
       entityId: agentPlayerId,
-      text,
+      text: text,
       timestamp: Date.now(),
       from: this.runtime.character.name,
     }
 
-    world.chat.add(chatMessage, true)
+    const chatInterface = world.chat as any
+    chatInterface.add(msgObject, true)
   }
 
   formatMessages({

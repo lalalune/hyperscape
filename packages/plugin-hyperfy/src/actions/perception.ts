@@ -484,107 +484,172 @@ export const hyperfyScenePerceptionAction: Action = {
   examples: [
     // General observation
     [
-      { 
-        user: 'What\'s around you right now?', 
-        assistant: 'Looking around, I notice several players nearby and some interactive objects.' 
+      {
+        name: '{{user}}',
+        content: {
+          text: 'What\'s around you right now?'
+        }
       },
       {
-        user: 'Can you see what\'s behind you?',
-        assistant: 'Checking behind me, I can see a crafting bench and a treasure chest.'
+        name: '{{agent}}',
+        content: {
+          text: 'Looking around, I notice several players nearby and some interactive objects.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
       }
     ],
 
     // Spatial direction
     [
-      { 
-        user: 'Look to your left',
-        assistant: 'Turning left, I can see a merchant stall and some players trading.' 
+      {
+        name: '{{user}}',
+        content: {
+          text: 'Look to your left'
+        }
       },
       {
-        user: 'What\'s to the north?',
-        assistant: 'To the north, I can see the entrance to a large building, possibly a guild hall.'
+        name: '{{agent}}',
+        content: {
+          text: 'Turning left, I can see a merchant stall and some players trading.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
       }
     ],
 
     // Exploration or scouting
     [
       {
-        user: 'Scan the area for any threats or movement.',
-        assistant: 'Scanning the surroundings now, I notice a player approaching from the north.'
+        name: '{{user}}',
+        content: {
+          text: 'Scan the area for any threats or movement.'
+        }
       },
       {
-        user: 'Look at that glowing statue over there?',
-        assistant: 'Inspecting the statue, I can see it\'s a golden statue with intricate carvings.'
-      },
+        name: '{{agent}}',
+        content: {
+          text: 'Scanning the surroundings now, I notice a player approaching from the north.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
+      }
     ],
 
     // Object-centric look
     [
       {
-        user: 'Look at that glowing statue over there?',
-        assistant: 'Inspecting the statue, I can see it\'s a golden statue with intricate carvings.'
+        name: '{{user}}',
+        content: {
+          text: 'Look at that glowing statue over there?'
+        }
       },
       {
-        user: 'Turn to your left. What\'s over there?',
-        assistant: 'Turning left, I can see a crafting bench and a treasure chest.'
-      },
+        name: '{{agent}}',
+        content: {
+          text: 'Inspecting the statue, I can see it\'s a golden statue with intricate carvings.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
+      }
     ],
 
     // Directional command
     [
       {
-        user: 'Turn to your left. What\'s over there?',
-        assistant: 'Turning left, I can see a crafting bench and a treasure chest.'
+        name: '{{user}}',
+        content: {
+          text: 'Turn to your left. What\'s over there?'
+        }
       },
       {
-        user: 'Anything interesting nearby?',
-        assistant: 'Let me check the surroundings, I notice a player approaching from the south.'
-      },
+        name: '{{agent}}',
+        content: {
+          text: 'Turning left, I can see a crafting bench and a treasure chest.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
+      }
     ],
 
     // Subtle curiosity
     [
-      { user: 'Anything interesting nearby?', assistant: 'Let me check the surroundings, I notice a player approaching from the south.' },
       {
-        user: 'Tell me everything you perceive',
-        assistant: '*scans the area thoroughly* I see 3 players nearby, various buildings, NPCs going about their routines, and a quest marker to the west.'
+        name: '{{user}}',
+        content: {
+          text: 'Anything interesting nearby?'
+        }
       },
+      {
+        name: '{{agent}}',
+        content: {
+          text: 'Let me check the surroundings, I notice a player approaching from the south.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
+      }
+    ],
+    
+    // Comprehensive scan
+    [
+      {
+        name: '{{user}}',
+        content: {
+          text: 'Tell me everything you perceive'
+        }
+      },
+      {
+        name: '{{agent}}',
+        content: {
+          text: '*scans the area thoroughly* I see 3 players nearby, various buildings, NPCs going about their routines, and a quest marker to the west.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
+      }
     ],
 
     // Tactical evaluation
     [
       {
-        user: 'Before we move forward, can you check what\'s up ahead?',
-        assistant: 'Checking forward path, I can see a portal to the east.'
+        name: '{{user}}',
+        content: {
+          text: 'Before we move forward, can you check what\'s up ahead?'
+        }
       },
       {
-        user: 'I feel like we\'re being watched. Can you look around?',
-        assistant: 'Doing a quick scan, I notice a player hiding behind a crate.'
-      },
+        name: '{{agent}}',
+        content: {
+          text: 'Checking forward path, I can see a portal to the east.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
+      }
     ],
 
     // Emotional tone: concern
     [
       {
-        user: 'I feel like we\'re being watched. Can you look around?',
-        assistant: 'Doing a quick scan, I notice a player hiding behind a crate.'
+        name: '{{user}}',
+        content: {
+          text: 'I feel like we\'re being watched. Can you look around?'
+        }
       },
       {
-        user: 'Pretend you\'re a security camera and scan the area!',
-        assistant: 'Activating security cam mode! Scanning... I notice a player approaching from the north.'
-      },
+        name: '{{agent}}',
+        content: {
+          text: 'Doing a quick scan, I notice a player hiding behind a crate.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
+      }
     ],
 
     // Humor or roleplay
     [
       {
-        user: 'Pretend you\'re a security camera and scan the area!',
-        assistant: 'Activating security cam mode! Scanning... I notice a player approaching from the north.'
+        name: '{{user}}',
+        content: {
+          text: 'Pretend you\'re a security camera and scan the area!'
+        }
       },
       {
-        user: 'Is there anything behind that large crate?',
-        assistant: "I'll take a look behind it... I can see a crafting bench and a treasure chest."
-      },
-    ],
+        name: '{{agent}}',
+        content: {
+          text: 'Activating security cam mode! Scanning... I notice a player approaching from the north.',
+          actions: ['HYPERFY_PERCEPTION']
+        }
+      }
+    ]
   ] as ActionExample[][],
 }

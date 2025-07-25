@@ -1,7 +1,7 @@
 import { System } from './System';
 import type { World } from '../World';
 import type { Entity } from '../entities/Entity';
-import { Vector3 } from 'three';
+import { Vector3 } from '../extras/three';
 
 interface SpatialCell {
   entities: Set<Entity>;

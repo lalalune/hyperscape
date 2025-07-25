@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import * as THREE from '../extras/three'
 import { cloneDeep, isBoolean } from 'lodash-es'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 
@@ -781,54 +781,11 @@ export class ClientBuilder extends System {
   }
 
   async addApp(file: File, transform: { position: number[]; quaternion: number[] }) {
-    const info = await importApp(file)
-    const assets: any[] = info.assets || []
-    for (const asset of assets) {
-      ;(this.world as any).loader.insert(asset.type, asset.url, asset.file)
-    }
-    const blueprint = {
-      id: uuid(),
-      version: 0,
-      name: info.blueprint.name,
-      image: info.blueprint.image,
-      author: info.blueprint.author,
-      url: info.blueprint.url,
-      desc: info.blueprint.desc,
-      model: info.blueprint.model,
-      script: info.blueprint.script,
-      props: info.blueprint.props,
-      preload: info.blueprint.preload,
-      public: info.blueprint.public,
-      locked: info.blueprint.locked,
-      frozen: info.blueprint.frozen,
-      unique: info.blueprint.unique,
-      disabled: info.blueprint.disabled,
-    }
-    ;(this.world.blueprints as any).add(blueprint, true)
-    const data = {
-      id: uuid(),
-      type: 'app',
-      blueprint: blueprint.id,
-      position: transform.position,
-      quaternion: transform.quaternion,
-      scale: [1, 1, 1],
-      mover: null,
-      uploader: (this.world as any).network.id,
-      pinned: false,
-      state: {},
-    }
-    const app = (this.world.entities as any).add(data, true)
-    const promises = assets.map((asset: any) => {
-      return (this.world as any).network.upload(asset.file)
-    })
-    try {
-      await Promise.all(promises)
-      app.onUploaded()
-    } catch (err) {
-      console.error('failed to upload .hyp assets')
-      console.error(err)
-      app.destroy()
-    }
+    // DISABLED: .hyp file loading
+    // Apps must now be created directly by Systems using RPGApp classes
+    console.error('[ClientBuilder] ⚠️ .hyp file loading is DISABLED')
+    console.error('[ClientBuilder] Apps must be created by Systems using TypeScript RPGApp classes')
+    throw new Error('.hyp file loading is disabled. Use Systems to create RPGApp instances instead.')
   }
 
   async addModel(file: File, transform: { position: number[]; quaternion: number[] }) {

@@ -5,12 +5,12 @@ The project can be run using Docker. Make sure you have Docker installed on your
 1. Build the image and run the container:
 
 ```bash
-docker build -t hyperfydemo . && docker run -d -p 3000:3000 \
+docker build -t hyperfydemo . && docker run -d -p 3333:3333 \
   -v "$(pwd)/src:/app/src" \
   -v "$(pwd)/world:/app/world" \
   -v "$(pwd)/.env:/app/.env" \
   -e DOMAIN=demo.hyperfy.host \
-  -e PORT=3000 \
+  -e PORT=3333 \
   -e ASSETS_DIR=/world/assets \
   -e PUBLIC_WS_URL=https://demo.hyperfy.host/ws \
   -e PUBLIC_API_URL=https://demo.hyperfy.host/api \

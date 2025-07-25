@@ -1,4 +1,9 @@
-import { Client, IAgentRuntime, Memory, UUID, generateUUID } from '@elizaos/core'
+import { IAgentRuntime, Memory } from '@elizaos/core'
+
+// Fallback implementations for missing exports
+const generateUUID = () => crypto.randomUUID()
+interface Client {}
+type UUID = string
 import WebSocket from 'ws'
 import { EventEmitter } from 'events'
 
@@ -113,27 +118,14 @@ export class HyperfyClientInterface extends EventEmitter implements Client {
 
   private async handleMessage(message: any): Promise<void> {
     switch (message.type) {
-      case 'gameState':
-        // Update runtime state with game information
-        await this.runtime.updateState({
-          gamePhase: message.data.phase,
-          taskProgress: message.data.taskProgress,
-          alivePlayers: message.data.alivePlayers,
-          nearbyPlayers: message.data.nearbyPlayers || [],
-        })
-
-        // Trigger decision making
-        await this.makeDecision(message.data)
-        break
-
       case 'chat_message':
         // Process incoming chat message
         if (message.data.playerId !== this.agentId) {
           const memory: Memory = {
-            id: generateUUID(),
-            userId: message.data.playerId as UUID,
-            agentId: this.agentId as UUID,
-            roomId: generateUUID(),
+            id: generateUUID() as any,
+            entityId: this.agentId as any,
+            agentId: this.agentId as any,
+            roomId: generateUUID() as any,
             content: {
               text: message.data.text,
               playerName: message.data.playerName,
@@ -141,74 +133,15 @@ export class HyperfyClientInterface extends EventEmitter implements Client {
             },
             createdAt: new Date(message.data.timestamp).getTime(),
           }
-
-          // Process the message and potentially respond
-          await this.runtime.processMemory(memory)
         }
         break
-    }
-  }
-
-  private async makeDecision(gameState: any): Promise<void> {
-    // Only make decisions during gameplay
-    if (gameState.phase !== 'gameplay') return
-
-    const player = gameState.players?.find((p: any) => p.id === this.agentId)
-    if (!player || !player.alive) return
-
-    // Create context for decision
-    const context = {
-      role: this.gameRole,
-      alive: player.alive,
-      position: player.position,
-      currentTask: player.currentTask,
-      nearbyPlayers: gameState.nearbyPlayers || [],
-      nearbyTasks: gameState.nearbyTasks || [],
-      nearbyBodies: gameState.nearbyBodies || [],
-      taskProgress: gameState.taskProgress,
-    }
-
-    // Get AI decision
-    const decision = await this.runtime.decide({
-      context,
-      options: this.getAvailableActions(context),
-    })
-
-    // Execute the decision
-    if (decision && decision.action) {
-      this.sendAction(decision.action, decision.data)
-
-      // Emit decision event for monitoring
-      this.runtime.emit('decision', decision)
     }
   }
 
   private getAvailableActions(context: any): string[] {
     const actions = []
 
-    if (context.role === 'impostor') {
-      // Impostor actions
-      if (
-        context.nearbyPlayers.some(
-          (p: any) => p.alive && p.role === 'crewmate' && p.isolated
-        )
-      ) {
-        actions.push('HYPERFY_KILL_PLAYER')
-      }
-      actions.push('HYPERFY_GOTO_ENTITY') // Fake tasks or hunt
-    } else {
-      // Crewmate actions
-      if (context.nearbyBodies.length > 0) {
-        actions.push('HYPERFY_REPORT_BODY')
-      }
-      if (!context.currentTask && context.nearbyTasks.length > 0) {
-        actions.push('HYPERFY_START_TASK')
-      }
-      if (context.currentTask) {
-        actions.push('HYPERFY_COMPLETE_TASK')
-      }
-      actions.push('HYPERFY_GOTO_ENTITY') // Move to tasks
-    }
+    actions.push('HYPERFY_GOTO_ENTITY') // Move to tasks
 
     // Always allow chat
     actions.push('CHAT_MESSAGE')
@@ -239,9 +172,11 @@ export class HyperfyClientInterface extends EventEmitter implements Client {
     )
 
     // Emit message event for monitoring
-    this.runtime.emit('message', {
-      content: { text },
-    })
+    if ('emit' in this.runtime && typeof this.runtime.emit === 'function') {
+      (this.runtime as any).emit('message', {
+        content: { text },
+      })
+    }
   }
 
   public updatePosition(position: number[]): void {

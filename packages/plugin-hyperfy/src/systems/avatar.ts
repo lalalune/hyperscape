@@ -10,7 +10,7 @@ class Node extends THREE.Object3D {
   }
   setDirty() {}
 }
-import type { HyperfyWorld } from '../types/hyperfy.js'
+import type { WorldInterface as HyperfyWorld } from '@hyperscape/hyperfy'
 
 function forEachMaterial(scene: any, fn: any) {
   scene.traverse((obj: any) => {
@@ -68,7 +68,7 @@ export class AgentAvatar extends Node {
   constructor(ctx: any) {
     super(ctx)
     this.factory = ctx.factory
-    this.lookTarget = new THREE.Vector3()
+    this.lookTarget = new (THREE as any).Vector3()
   }
 
   setMoving(isMoving: boolean) {

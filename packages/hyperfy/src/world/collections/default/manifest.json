@@ -1,7 +1,5 @@
 {
   "name": "RPGComplete", 
-  "apps": [
-    "RPGPlayer.hyp",
-    "RPGGoblin.hyp"
-  ]
+  "apps": [],
+  "_comment": "App loading disabled - Apps are now created by Systems using TypeScript RPGApp classes"
 }

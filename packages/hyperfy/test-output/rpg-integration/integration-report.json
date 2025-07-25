@@ -1,0 +1,222 @@
+{
+  "summary": {
+    "total": 16,
+    "passed": 10,
+    "failed": 6,
+    "passRate": 63,
+    "duration": 336
+  },
+  "results": [
+    {
+      "name": "Server Health Check",
+      "status": "FAILED",
+      "error": "WebGL context not available",
+      "stack": "Error: WebGL context not available\n    at RPGIntegrationTest.testServerHealth (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:298:13)\n    at async RPGIntegrationTest.runIntegrationTests (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:225:9)\n    at async main (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:1270:5)",
+      "timestamp": 1753400725786
+    },
+    {
+      "name": "RPG System Initialization",
+      "status": "PASSED",
+      "duration": 28,
+      "timestamp": 1753400725853
+    },
+    {
+      "name": "World Generation",
+      "status": "FAILED",
+      "error": "World seems empty - only 4 objects in scene",
+      "stack": "Error: World seems empty - only 4 objects in scene\n    at RPGIntegrationTest.testWorldGeneration (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:409:13)\n    at async RPGIntegrationTest.runIntegrationTests (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:225:9)\n    at async main (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:1270:5)",
+      "timestamp": 1753400725854
+    },
+    {
+      "name": "Player Spawn System",
+      "status": "PASSED",
+      "duration": 32,
+      "timestamp": 1753400725919
+    },
+    {
+      "name": "Mob Spawning",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'toArray')\n    at eval (eval at evaluate (:291:30), <anonymous>:20:38)\n    at traverseRecursive (http://localhost:3333/:240:15)\n    at Array.forEach (<anonymous>)\n    at traverseRecursive (http://localhost:3333/:242:30)\n    at Object.traverse (http://localhost:3333/:245:13)\n    at eval (eval at evaluate (:291:30), <anonymous>:12:34)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'toArray')\n    at eval (eval at evaluate (:291:30), <anonymous>:20:38)\n    at traverseRecursive (http://localhost:3333/:240:15)\n    at Array.forEach (<anonymous>)\n    at traverseRecursive (http://localhost:3333/:242:30)\n    at Object.traverse (http://localhost:3333/:245:13)\n    at eval (eval at evaluate (:291:30), <anonymous>:12:34)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGIntegrationTest.testMobSpawning (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:452:37)\n    at RPGIntegrationTest.runIntegrationTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:225:24)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:1270:5)",
+      "timestamp": 1753400725920
+    },
+    {
+      "name": "Combat Integration",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: window.world?.rpg?.actions?.find is not a function\n    at eval (eval at evaluate (:291:30), <anonymous>:49:59)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: window.world?.rpg?.actions?.find is not a function\n    at eval (eval at evaluate (:291:30), <anonymous>:49:59)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGIntegrationTest.testCombatIntegration (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:511:40)\n    at RPGIntegrationTest.runIntegrationTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:225:24)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:1270:5)",
+      "timestamp": 1753400725956
+    },
+    {
+      "name": "Loot System",
+      "status": "PASSED",
+      "duration": 45,
+      "timestamp": 1753400726040
+    },
+    {
+      "name": "Inventory Management",
+      "status": "PASSED",
+      "duration": 29,
+      "timestamp": 1753400726069
+    },
+    {
+      "name": "Banking Integration",
+      "status": "PASSED",
+      "duration": 35,
+      "timestamp": 1753400726104
+    },
+    {
+      "name": "Store Integration",
+      "status": "PASSED",
+      "duration": 32,
+      "timestamp": 1753400726136
+    },
+    {
+      "name": "Resource Gathering",
+      "status": "FAILED",
+      "error": "page.evaluate: TypeError: window.world?.rpg?.actions?.find is not a function\n    at eval (eval at evaluate (:291:30), <anonymous>:25:61)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: window.world?.rpg?.actions?.find is not a function\n    at eval (eval at evaluate (:291:30), <anonymous>:25:61)\n    at UtilityScript.evaluate (<anonymous>:293:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at RPGIntegrationTest.testResourceGathering (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:761:42)\n    at RPGIntegrationTest.runIntegrationTests (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:225:24)\n    at async main (/Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:1270:5)",
+      "timestamp": 1753400726137
+    },
+    {
+      "name": "Skill Progression",
+      "status": "PASSED",
+      "duration": 36,
+      "timestamp": 1753400726205
+    },
+    {
+      "name": "Equipment System",
+      "status": "PASSED",
+      "duration": 31,
+      "timestamp": 1753400726236
+    },
+    {
+      "name": "Death and Respawn",
+      "status": "PASSED",
+      "duration": 33,
+      "timestamp": 1753400726269
+    },
+    {
+      "name": "UI Systems",
+      "status": "FAILED",
+      "error": "No canvas element found - 3D rendering not available",
+      "stack": "Error: No canvas element found - 3D rendering not available\n    at RPGIntegrationTest.testUISystems (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:1005:13)\n    at async RPGIntegrationTest.runIntegrationTests (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:225:9)\n    at async main (file:///Users/shawwalters/hyperscape/packages/hyperfy/scripts/test-rpg-integration.mjs:1270:5)",
+      "timestamp": 1753400726270
+    },
+    {
+      "name": "Full Integration Scenario",
+      "status": "PASSED",
+      "duration": 35,
+      "timestamp": 1753400726339
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "error-server-health-check",
+      "filename": "error-server-health-check-1753400725786.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/error-server-health-check-1753400725786.png",
+      "timestamp": "2025-07-24T23:45:25.823Z"
+    },
+    {
+      "name": "rpg-systems-initialized",
+      "filename": "rpg-systems-initialized-1753400725826.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/rpg-systems-initialized-1753400725826.png",
+      "timestamp": "2025-07-24T23:45:25.853Z"
+    },
+    {
+      "name": "error-world-generation",
+      "filename": "error-world-generation-1753400725854.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/error-world-generation-1753400725854.png",
+      "timestamp": "2025-07-24T23:45:25.886Z"
+    },
+    {
+      "name": "player-spawn",
+      "filename": "player-spawn-1753400725888.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/player-spawn-1753400725888.png",
+      "timestamp": "2025-07-24T23:45:25.919Z"
+    },
+    {
+      "name": "error-mob-spawning",
+      "filename": "error-mob-spawning-1753400725920.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/error-mob-spawning-1753400725920.png",
+      "timestamp": "2025-07-24T23:45:25.953Z"
+    },
+    {
+      "name": "error-combat-integration",
+      "filename": "error-combat-integration-1753400725956.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/error-combat-integration-1753400725956.png",
+      "timestamp": "2025-07-24T23:45:25.994Z"
+    },
+    {
+      "name": "loot-system",
+      "filename": "loot-system-1753400725996.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/loot-system-1753400725996.png",
+      "timestamp": "2025-07-24T23:45:26.040Z"
+    },
+    {
+      "name": "inventory-management",
+      "filename": "inventory-management-1753400726042.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/inventory-management-1753400726042.png",
+      "timestamp": "2025-07-24T23:45:26.069Z"
+    },
+    {
+      "name": "banking-integration",
+      "filename": "banking-integration-1753400726070.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/banking-integration-1753400726070.png",
+      "timestamp": "2025-07-24T23:45:26.104Z"
+    },
+    {
+      "name": "store-integration",
+      "filename": "store-integration-1753400726105.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/store-integration-1753400726105.png",
+      "timestamp": "2025-07-24T23:45:26.136Z"
+    },
+    {
+      "name": "error-resource-gathering",
+      "filename": "error-resource-gathering-1753400726137.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/error-resource-gathering-1753400726137.png",
+      "timestamp": "2025-07-24T23:45:26.169Z"
+    },
+    {
+      "name": "skill-progression",
+      "filename": "skill-progression-1753400726170.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/skill-progression-1753400726170.png",
+      "timestamp": "2025-07-24T23:45:26.205Z"
+    },
+    {
+      "name": "equipment-system",
+      "filename": "equipment-system-1753400726207.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/equipment-system-1753400726207.png",
+      "timestamp": "2025-07-24T23:45:26.236Z"
+    },
+    {
+      "name": "death-respawn",
+      "filename": "death-respawn-1753400726236.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/death-respawn-1753400726236.png",
+      "timestamp": "2025-07-24T23:45:26.269Z"
+    },
+    {
+      "name": "error-ui-systems",
+      "filename": "error-ui-systems-1753400726270.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/error-ui-systems-1753400726270.png",
+      "timestamp": "2025-07-24T23:45:26.303Z"
+    },
+    {
+      "name": "full-integration",
+      "filename": "full-integration-1753400726305.png",
+      "path": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/full-integration-1753400726305.png",
+      "timestamp": "2025-07-24T23:45:26.339Z"
+    }
+  ],
+  "errorCount": 1,
+  "timestamp": "2025-07-24T23:45:26.342Z",
+  "config": {
+    "serverUrl": "http://localhost:3333",
+    "testTimeout": 90000,
+    "screenshotDir": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration",
+    "logsDir": "/Users/shawwalters/hyperscape/packages/hyperfy/test-output/rpg-integration/logs",
+    "headless": true,
+    "verbose": false,
+    "serverStartupTime": 15000
+  }
+}
