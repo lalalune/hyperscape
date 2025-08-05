@@ -123,7 +123,7 @@ hyperscape/
 │   └── Real-time multiplayer with WebSocket + LiveKit
 ├── packages/rpg/              # RuneScape-Style RPG
 │   ├── Complete RPG system built as Hyperscape apps
-│   ├── RPGPlayer.hyp - Player character with stats/inventory
+│   ├── Player.hyp - Player character with stats/inventory
 │   ├── RPGGoblin.hyp - AI-driven mobs with combat/loot
 │   └── rpg-world/ - Configured world with terrain and entities
 ├── packages/generation/       # AI Content Creation  

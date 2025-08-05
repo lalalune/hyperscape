@@ -32,7 +32,7 @@ alwaysApply: true
   }
   
   // ✅ Or for simple types
-  type PlayerData = {
+  type Player = {
     id: string;
     health: number;
   }
@@ -66,7 +66,7 @@ alwaysApply: true
 - Example:
   ```typescript
   // ✅ Good - we know the world has these systems
-  const combatSystem = world.getSystem('combat') as RPGCombatSystem;
+  const combatSystem = world.getSystem('combat') as CombatSystem;
   const damage = combatSystem.calculateDamage(attacker, target);
   ```
 
@@ -97,8 +97,8 @@ const extendedSystem = baseSystem as unknown as ExtendedSystemType;
 #### For Collections and Maps
 ```typescript
 // Use generic constraints
-const entities = new Map<string, RPGEntity>();
-const items = new Map<ItemID, RPGItem>();
+const entities = new Map<string, Entity>();
+const items = new Map<ItemID, Item>();
 ```
 
 ### 7. Type Import Best Practices
@@ -107,7 +107,7 @@ const items = new Map<ItemID, RPGItem>();
 - Common type imports:
   ```typescript
   import type { World, System } from '../../types';
-  import type { RPGEntity, RPGItem, RPGPlayer } from '../types/core';
+  import type { Entity, Item, Player } from '../types/core';
   import type { Position3D, Vector3 } from '../types/common';
   ```
 

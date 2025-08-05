@@ -11,8 +11,8 @@ description: Quick reference for avoiding any and unknown in common scenarios
 const system = world.getSystem('combat') as any;
 
 // ✅ CORRECT
-import type { RPGCombatSystem } from '../types/core';
-const system = world.getSystem('combat') as RPGCombatSystem;
+import type { CombatSystem } from '../types/core';
+const system = world.getSystem('combat') as CombatSystem;
 ```
 
 ### 2. Event Handlers
@@ -40,8 +40,8 @@ const items = inventory.items as any[];
 const firstItem = items[0] as any;
 
 // ✅ CORRECT
-import type { RPGInventoryItem } from '../types/core';
-const items = inventory.items as RPGInventoryItem[];
+import type { InventoryItem } from '../types/core';
+const items = inventory.items as InventoryItem[];
 const firstItem = items[0]; // Type is inferred
 ```
 
@@ -90,7 +90,7 @@ async function loadData(): Promise<any> {
 
 // ✅ CORRECT
 type ApiResponse = {
-  items: RPGItem[];
+  items: Item[];
   total: number;
 };
 async function loadData(): Promise<ApiResponse> {
@@ -102,7 +102,7 @@ async function loadData(): Promise<ApiResponse> {
 ### 8. Type Guards (Use Sparingly)
 ```typescript
 // Only when dealing with truly unknown external data
-function isRPGItem(value: unknown): value is RPGItem {
+function isItem(value: unknown): value is Item {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -112,7 +112,7 @@ function isRPGItem(value: unknown): value is RPGItem {
 }
 
 // But prefer strong typing from the start
-const item = getItem(id) as RPGItem; // When you know it's an item
+const item = getItem(id) as Item; // When you know it's an item
 ```
 
 ### 9. Error Handling

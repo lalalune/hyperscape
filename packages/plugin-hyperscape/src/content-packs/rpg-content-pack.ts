@@ -19,7 +19,7 @@ const rpgActions: Action[] = [
     similes: ['attack', 'fight', 'combat', 'battle'],
     validate: async () => true,
     handler: async (runtime, message, state, options, callback) => {
-      // Integration point with RPGCombatSystem
+      // Integration point with CombatSystem
       if (callback) {
         callback({
           text: '⚔️ Initiating combat with RPG systems...',
@@ -41,7 +41,7 @@ const rpgActions: Action[] = [
     similes: ['mine', 'gather', 'collect resources', 'extract'],
     validate: async () => true,
     handler: async (runtime, message, state, options, callback) => {
-      // Integration point with RPGResourceSystem
+      // Integration point with ResourceSystem
       if (callback) {
         callback({
           text: '⛏️ Mining resources with RPG systems...',
@@ -66,7 +66,7 @@ const rpgActions: Action[] = [
     similes: ['trade', 'buy', 'sell', 'exchange', 'merchant'],
     validate: async () => true,
     handler: async (runtime, message, state, options, callback) => {
-      // Integration point with RPGStoreSystem and RPGNPCSystem
+      // Integration point with StoreSystem and NPCSystem
       if (callback) {
         callback({
           text: '💰 Trading with RPG merchant systems...',
@@ -96,12 +96,12 @@ const rpgProvider: Provider = {
     return {
       text: `
       RPG World State:
-      - Player Level: Connected to RPGSkillsSystem
-      - Inventory: Connected to RPGInventorySystem  
-      - Health: Connected to RPGCombatSystem
-      - Location: Connected to RPGMovementSystem
-      - Resources: Connected to RPGResourceSystem
-      - Bank: Connected to RPGBankingSystem
+      - Player Level: Connected to SkillsSystem
+      - Inventory: Connected to InventorySystem  
+      - Health: Connected to CombatSystem
+      - Location: Connected to MovementSystem
+      - Resources: Connected to ResourceSystem
+      - Bank: Connected to BankingSystem
       
       All 54 polished RPG systems are ready for agent interaction.
       `,
@@ -152,7 +152,7 @@ const rpgSystems: IGameSystem[] = [
     name: 'RPG Combat System',
     // dependencies: ['rpg-entity-manager', 'rpg-skills'],
     // initialize: async (world: any) => {
-    // Integration with RPGCombatSystem
+    // Integration with CombatSystem
     // console.log('🗡️ RPG Combat System connected to ElizaOS agents')
     // return true
     // },
@@ -167,7 +167,7 @@ const rpgSystems: IGameSystem[] = [
     // description: 'Manages player inventories and items',
     // dependencies: ['rpg-entity-manager', 'rpg-database'],
     // initialize: async (world: any) => {
-    // Integration with RPGInventorySystem
+    // Integration with InventorySystem
     // console.log('🎒 RPG Inventory System connected to ElizaOS agents')
     // return true
     // },
@@ -182,7 +182,7 @@ const rpgSystems: IGameSystem[] = [
     // description: 'Handles skill progression and training',
     // dependencies: ['rpg-entity-manager', 'rpg-database'],
     // initialize: async (world: any) => {
-    // Integration with RPGSkillsSystem
+    // Integration with SkillsSystem
     // console.log('📈 RPG Skills System connected to ElizaOS agents')
     // return true
     // },
@@ -229,11 +229,11 @@ export const RunescapeRPGPack: IContentPack = {
     if (world) {
       // This is where we'd connect to:
       // - RPGEntityManager (our core system)
-      // - RPGCombatSystem (fighting mechanics)
-      // - RPGInventorySystem (item management)
-      // - RPGSkillsSystem (progression)
-      // - RPGBankingSystem (banking)
-      // - RPGStoreSystem (trading)
+      // - CombatSystem (fighting mechanics)
+      // - InventorySystem (item management)
+      // - SkillsSystem (progression)
+      // - BankingSystem (banking)
+      // - StoreSystem (trading)
       // - And all other 48+ systems we polished
 
       console.log('✅ RPG systems bridge established')
