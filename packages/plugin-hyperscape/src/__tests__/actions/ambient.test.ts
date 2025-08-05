@@ -1,0 +1,244 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ambientAction } from '../../actions/ambient'
+import { createMockRuntime } from '../test-utils'
+
+describe('HYPERSCAPE_AMBIENT_SPEECH Action', () => {
+  let mockRuntime: any
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    mockRuntime = createMockRuntime()
+  })
+
+  describe('validate', () => {
+    it('should always return true', async () => {
+      const mockMessage = { id: 'msg-123', content: { text: 'test' } }
+      const result = await ambientAction.validate(
+        mockRuntime,
+        mockMessage as any
+      )
+      expect(result).toBe(true)
+    })
+  })
+
+  describe('handler', () => {
+    let mockMessage: any
+    let mockState: any
+    let mockCallback: any
+
+    beforeEach(() => {
+      mockMessage = {
+        id: 'msg-123',
+        content: {
+          text: 'test message',
+          providers: ['HYPERSCAPE_WORLD_STATE'],
+        },
+      }
+
+      mockState = {
+        values: {},
+        data: {},
+        text: 'test state',
+      }
+
+      mockCallback = vi.fn()
+
+      // Mock composeState
+      mockRuntime.composeState = vi.fn().mockResolvedValue({
+        ...mockState,
+        hyperscapeStatus: 'Connected to world',
+      })
+
+      // Mock useModel for ambient speech generation
+      mockRuntime.useModel = vi.fn().mockResolvedValue({
+        thought: 'Observing the peaceful environment',
+        message: 'This place feels ancient... wonder what stories it holds.',
+      })
+    })
+
+    it('should generate ambient speech without existing responses', async () => {
+      await ambientAction.handler(
+        mockRuntime,
+        mockMessage,
+        mockState,
+        {},
+        mockCallback
+      )
+
+      expect(mockRuntime.composeState).toHaveBeenCalledWith(
+        mockMessage,
+        expect.arrayContaining(['RECENT_MESSAGES'])
+      )
+
+      expect(mockRuntime.useModel).toHaveBeenCalled()
+      expect(mockCallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          thought: 'Observing the peaceful environment',
+          text: 'This place feels ancient... wonder what stories it holds.',
+          actions: ['HYPERSCAPE_AMBIENT_SPEECH'],
+        })
+      )
+    })
+
+    it('should use existing ambient responses if available', async () => {
+      await ambientAction.handler(
+        mockRuntime,
+        mockMessage,
+        mockState,
+        {},
+        mockCallback
+      )
+
+      expect(mockRuntime.useModel).not.toHaveBeenCalled()
+      expect(mockCallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          thought: 'Existing thought',
+          text: 'Existing ambient message',
+          actions: ['HYPERSCAPE_AMBIENT_SPEECH'],
+        })
+      )
+    })
+
+    it('should handle multiple existing responses', async () => {
+      const existingResponses = [
+        {
+          content: {
+            message: 'First ambient message',
+            actions: ['HYPERSCAPE_AMBIENT_SPEECH'],
+          },
+        },
+        {
+          content: {
+            text: 'Second ambient message',
+            actions: ['HYPERSCAPE_AMBIENT_SPEECH'],
+          },
+        },
+      ]
+
+      await ambientAction.handler(
+        mockRuntime,
+        mockMessage,
+        mockState,
+        {},
+        mockCallback,
+        existingResponses as any
+      )
+
+      expect(mockCallback).toHaveBeenCalledTimes(2)
+      expect(mockCallback).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          text: 'First ambient message',
+        })
+      )
+      expect(mockCallback).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          text: 'Second ambient message',
+        })
+      )
+    })
+
+    it('should ignore responses without HYPERSCAPE_AMBIENT_SPEECH action', async () => {
+      const existingResponses = [
+        {
+          content: {
+            text: 'Regular message',
+            actions: ['REPLY'],
+          },
+        },
+      ]
+
+      await ambientAction.handler(
+        mockRuntime,
+        mockMessage,
+        mockState,
+        {},
+        mockCallback,
+        existingResponses as any
+      )
+
+      expect(mockRuntime.useModel).toHaveBeenCalled()
+      expect(mockCallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actions: ['HYPERSCAPE_AMBIENT_SPEECH'],
+        })
+      )
+    })
+
+    it('should handle empty message from model', async () => {
+      mockRuntime.useModel.mockResolvedValue({
+        thought: 'Quiet contemplation',
+        message: '',
+      })
+
+      await ambientAction.handler(
+        mockRuntime,
+        mockMessage,
+        mockState,
+        {},
+        mockCallback
+      )
+
+      expect(mockCallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          thought: 'Quiet contemplation',
+          text: '',
+          actions: ['HYPERSCAPE_AMBIENT_SPEECH'],
+        })
+      )
+    })
+
+    it('should include custom providers in state composition', async () => {
+      const customMessage = {
+        ...mockMessage,
+        content: {
+          ...mockMessage.content,
+          providers: ['CUSTOM_PROVIDER', 'ANOTHER_PROVIDER'],
+        },
+      }
+
+      await ambientAction.handler(
+        mockRuntime,
+        customMessage,
+        mockState,
+        {},
+        mockCallback
+      )
+
+      expect(mockRuntime.composeState).toHaveBeenCalledWith(
+        customMessage,
+        expect.arrayContaining([
+          'CUSTOM_PROVIDER',
+          'ANOTHER_PROVIDER',
+          'RECENT_MESSAGES',
+        ])
+      )
+    })
+  })
+
+  describe('examples', () => {
+    it('should have valid examples array', () => {
+      expect(ambientAction.examples).toBeDefined()
+      expect(Array.isArray(ambientAction.examples)).toBe(true)
+      expect(ambientAction.examples!.length).toBeGreaterThan(0)
+    })
+
+    it('should have properly formatted examples', () => {
+      ambientAction.examples!.forEach((example: any[]) => {
+        expect(Array.isArray(example)).toBe(true)
+        expect(example.length).toBe(2)
+
+        const [context, agent] = example
+        expect(context).toHaveProperty('name')
+        expect(context).toHaveProperty('content')
+
+        expect(agent).toHaveProperty('name')
+        expect(agent).toHaveProperty('content')
+        expect(agent.content).toHaveProperty('text')
+        expect(agent.content).toHaveProperty('actions')
+        expect(agent.content.actions).toContain('HYPERSCAPE_AMBIENT_SPEECH')
+      })
+    })
+  })
+})

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declaration": true,
+    "declarationMap": true,
+    "skipLibCheck": true,
+    "types": [],
+    "paths": {
+      "@elizaos/core": ["../../packages/core/dist"],
+      "@elizaos/core/*": ["../../packages/core/dist/*"],
+      "@hyperscape/hyperscape": ["../hyperscape/build/index.d.ts"],
+      "@hyperscape/hyperscape/*": ["../hyperscape/build/*"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules", 
+    "dist", 
+    "**/*.test.ts", 
+    "**/__tests__/**",
+    "../hyperscape/src/**"
+  ]
+}

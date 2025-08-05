@@ -1,0 +1,190 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { hyperscapeProvider } from '../../providers/world'
+import {
+  createMockRuntime,
+  createMockWorld,
+  createMockHyperscapeService,
+} from '../test-utils'
+
+describe('HYPERSCAPE_WORLD_STATE Provider - Simple Tests', () => {
+  let mockRuntime: any
+  let mockWorld: any
+  let mockService: any
+  let mockMessage: any
+  let mockState: any
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    mockRuntime = createMockRuntime()
+    mockWorld = createMockWorld()
+
+    // Add mock message manager
+    const mockMessageManager = {
+      getRecentMessages: vi.fn().mockResolvedValue({
+        formattedHistory: 'No messages yet',
+        lastResponseText: '',
+        lastActions: [],
+      }),
+    }
+
+    mockService = createMockHyperscapeService()
+    mockService.isConnected = vi.fn().mockReturnValue(true)
+    mockService.getWorld = vi.fn().mockReturnValue(mockWorld)
+    mockService.getMessageManager = vi.fn().mockReturnValue(mockMessageManager)
+    mockService.currentWorldId = 'test-world-123'
+
+    mockRuntime.getService = vi.fn().mockReturnValue(mockService)
+    mockRuntime.getEntityById = vi.fn().mockResolvedValue(null)
+
+    mockMessage = {
+      id: 'msg-123',
+      entityId: 'test-entity-id',
+      content: { text: 'test message' },
+    }
+
+    mockState = {
+      values: {},
+      data: {},
+      text: '',
+    }
+  })
+
+  describe('basic functionality', () => {
+    it('should return formatted world state when connected', async () => {
+      const result = await hyperscapeProvider.get(
+        mockRuntime,
+        mockMessage,
+        mockState
+      )
+
+      expect(result).toBeDefined()
+      expect(result.text).toBeDefined()
+      expect(result.text).toContain('# Hyperscape World State')
+      expect(result.text).toContain('## Agent Info (You)')
+      expect(result.values).toBeDefined()
+      expect(result.data).toBeDefined()
+    })
+
+    it('should handle disconnected state', async () => {
+      mockService.isConnected.mockReturnValue(false)
+
+      const result = await hyperscapeProvider.get(
+        mockRuntime,
+        mockMessage,
+        mockState
+      )
+
+      expect(result.text).toContain('# Hyperscape World State')
+      expect(result.text).toContain('Connection Status: Disconnected')
+      expect(result.values).toBeDefined()
+      expect(result.values!.hyperscape_status).toBe('disconnected')
+      expect(result.data).toBeDefined()
+      expect(result.data!.status).toBe('disconnected')
+    })
+
+    it('should handle missing service', async () => {
+      mockRuntime.getService.mockReturnValue(null)
+
+      const result = await hyperscapeProvider.get(
+        mockRuntime,
+        mockMessage,
+        mockState
+      )
+
+      expect(result.text).toContain('# Hyperscape World State')
+      expect(result.text).toContain('Connection Status: Disconnected')
+      expect(result.values).toBeDefined()
+      expect(result.values!.hyperscape_status).toBe('disconnected')
+      expect(result.data).toBeDefined()
+      expect(result.data!.status).toBe('disconnected')
+    })
+
+    it('should handle errors gracefully', async () => {
+      mockService.getWorld.mockImplementation(() => {
+        throw new Error('Test error')
+      })
+
+      const result = await hyperscapeProvider.get(
+        mockRuntime,
+        mockMessage,
+        mockState
+      )
+
+      expect(result.text).toContain('# Hyperscape World State')
+      expect(result.text).toContain('Status: Error retrieving state')
+      expect(result.values).toBeDefined()
+      expect(result.values!.hyperscape_status).toBe('error')
+      expect(result.data).toBeDefined()
+      expect(result.data!.status).toBe('error')
+      expect(result.data!.error).toBe('Test error')
+    })
+
+    it('should include entities in world state', async () => {
+      const result = await hyperscapeProvider.get(
+        mockRuntime,
+        mockMessage,
+        mockState
+      )
+
+      expect(result.text).toContain('Block Entities')
+      expect(result.text).toContain('entity-1')
+      expect(result.text).toContain('Sphere Entities')
+      expect(result.text).toContain('entity-2')
+    })
+
+    it('should include nearby interactable objects section', async () => {
+      const result = await hyperscapeProvider.get(
+        mockRuntime,
+        mockMessage,
+        mockState
+      )
+
+      expect(result.text).toContain('## Nearby Interactable Objects')
+      expect(result.text).toContain('There are no interactable objects nearby')
+    })
+
+    it('should include chat history section', async () => {
+      const result = await hyperscapeProvider.get(
+        mockRuntime,
+        mockMessage,
+        mockState
+      )
+
+      expect(result.text).toContain('## In-World Messages')
+      expect(result.text).toContain('### Chat History')
+      expect(result.text).toContain('No messages yet')
+    })
+
+    it('should include received message when present', async () => {
+      mockRuntime.getEntityById.mockResolvedValue({
+        names: ['TestUser'],
+        metadata: {},
+      })
+
+      const result = await hyperscapeProvider.get(
+        mockRuntime,
+        mockMessage,
+        mockState
+      )
+
+      expect(result.text).toContain('### Received Message')
+      expect(result.text).toContain('TestUser: test message')
+      expect(result.text).toContain('### Focus your response')
+    })
+  })
+
+  describe('provider metadata', () => {
+    it('should have correct name', () => {
+      expect(hyperscapeProvider.name).toBe('HYPERSCAPE_WORLD_STATE')
+    })
+
+    it('should have description', () => {
+      expect(hyperscapeProvider.description).toBeDefined()
+      expect(typeof hyperscapeProvider.description).toBe('string')
+    })
+
+    it('should be dynamic provider', () => {
+      expect(hyperscapeProvider.dynamic).toBe(true)
+    })
+  })
+})

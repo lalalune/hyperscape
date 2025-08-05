@@ -1,0 +1,6 @@
+# Hashes of file build rules.
+6370d1dbd03dbc1a9be83dd70f434ac3 CMakeFiles/PhysXWasmBindings
+6370d1dbd03dbc1a9be83dd70f434ac3 CMakeFiles/physx-js-bindings
+cd315c7b236f9bb049372d53e2c8eac9 glue.cpp
+5d550b3b26069e6289ff9f70775eed2f glue.o
+9029f300cd99eb4e6f50bdf1782336e4 sdk_source_bin/physx-js-webidl.js

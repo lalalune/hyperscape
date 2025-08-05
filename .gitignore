@@ -1,0 +1,8 @@
+.env
+node_modules
+.turbo
+dist
+build
+*.log
+.DS_Store
+hyperfy/

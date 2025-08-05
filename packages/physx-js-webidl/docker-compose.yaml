@@ -1,0 +1,11 @@
+services:
+  builder:
+    build: .
+    volumes:
+      - .:/src
+      - packman:/root/packman-repo
+    entrypoint: ["bash",  "-c"]
+    command: ./generate.sh
+
+volumes:
+  packman:

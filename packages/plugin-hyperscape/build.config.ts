@@ -1,0 +1,41 @@
+import type { BuildConfig } from 'bun';
+
+export const buildConfig: BuildConfig = {
+  entrypoints: [
+    './src/index.ts',
+    './src/testing/visual-test-framework.ts',
+    './src/testing/rpg-concrete-tests.ts', 
+    './src/testing/test-runtime-factory.ts',
+    './src/testing/modular-test-framework.ts'
+  ],
+  outdir: './dist',
+  target: 'node',
+  format: 'esm',
+  splitting: false,
+  sourcemap: 'external',
+  external: [
+    'fs',
+    'path',
+    'http',
+    'https',
+    'crypto',
+    'node:fs',
+    'node:path',
+    'node:http',
+    'node:https',
+    'node:crypto',
+    'node:stream',
+    'node:buffer',
+    'node:util',
+    'node:events',
+    'node:url',
+    'bun:test',
+    'dotenv',
+    'zod',
+    'playwright',
+    'three',
+    '@pixiv/three-vrm',
+    '@hyperscape/hyperscape',
+  ],
+  naming: '[dir]/[name].[ext]',
+};
