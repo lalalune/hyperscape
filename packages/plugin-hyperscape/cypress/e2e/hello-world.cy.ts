@@ -21,9 +21,11 @@ describe('Plugin Starter Hello World', () => {
 
   it('should verify API endpoint', () => {
     // Try to access a basic API endpoint
+    const apiBase = String(Cypress.env('PUBLIC_API_URL') || Cypress.config('baseUrl') || '');
+    const url = `${apiBase.replace(/\/$/, '')}/health`;
     cy.request({
       method: 'GET',
-      url: '/api/health',
+      url,
       failOnStatusCode: false,
     }).then((response) => {
       cy.log(`API health check status: ${response.status}`);

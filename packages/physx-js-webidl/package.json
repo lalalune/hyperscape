@@ -10,14 +10,14 @@
   ],
   "license": "MIT",
   "scripts": {
-    "prebuild": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && echo 'PhysX already built, skipping...' || ./generate-node.sh",
-    "build": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && echo 'PhysX already built, skipping...' || ./make-node.sh",
-    "build:force": "./make-node.sh",
-    "build:debug": "./make-debug-node.sh",
-    "build:profile": "./make-profile-node.sh",
-    "build:docker": "docker compose run --rm builder ./make-node.sh",
-    "generate": "./generate-node.sh",
-    "generate:web": "./generate.sh",
+    "prebuild": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && [ -f dist/physx-js-webidl.d.ts ] && echo 'PhysX already built, skipping...' || ( [ -f ../hyperscape/src/server/public/physx-js-webidl.js ] && [ -f ../hyperscape/src/server/public/physx-js-webidl.wasm ] && mkdir -p dist && cp ../hyperscape/src/server/public/physx-js-webidl.js dist/ && cp ../hyperscape/src/server/public/physx-js-webidl.wasm dist/ && ( [ -f types/physx-js-webidl.d.ts ] && cp types/physx-js-webidl.d.ts dist/ || true ) && echo 'Copied prebuilt PhysX files' || bash ./make.sh )",
+    "build": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && [ -f dist/physx-js-webidl.d.ts ] && echo 'PhysX already built, skipping...' || bash ./make.sh",
+    "build:force": "bash ./make.sh",
+    "build:debug": "bash ./make.sh debug",
+    "build:profile": "bash ./make.sh profile",
+    "build:docker": "docker compose run --rm builder bash ./make.sh",
+    "generate": "bash ./make.sh",
+    "generate:web": "bash ./make.sh",
     "clean": "rm -rf PhysX/physx/compiler/emscripten-* && rm -f dist/physx-js-webidl.*"
   },
   "engines": {

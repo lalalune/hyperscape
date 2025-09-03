@@ -422,18 +422,18 @@ Hyperscape world integration service that enables agents to:
         }
       }
 
-      if (agentPlayer) {
-        const playerWithAvatar = agentPlayer as unknown as {
-          setSessionAvatar: (url: string) => void
-        }
-        playerWithAvatar.setSessionAvatar(constructedHttpUrl)
+      if (
+        agentPlayer &&
+        typeof (agentPlayer as any).setSessionAvatar === 'function'
+      ) {
+        ;(agentPlayer as any).setSessionAvatar(constructedHttpUrl)
       } else {
         console.warn('[Appearance] agentPlayer not available.')
       }
 
       await this.emoteManager.uploadEmotes()
 
-      if (this.world.network.send) {
+      if (typeof this.world.network.send === 'function') {
         // Assume send method exists on network
         this.world.network.send('playerSessionAvatar', {
           avatar: constructedHttpUrl,
@@ -769,8 +769,8 @@ Hyperscape world integration service that enables agents to:
 
       // --- Use agentPlayer.modify for local update --- >
       const agentPlayer = this.world.entities.player
-      if (agentPlayer.modify) {
-        agentPlayer.modify({ name: newName })
+      if (agentPlayer && typeof (agentPlayer as any).modify === 'function') {
+        ;(agentPlayer as any).modify({ name: newName })
         agentPlayer.data.name = newName
       }
 

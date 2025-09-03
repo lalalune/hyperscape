@@ -19,6 +19,8 @@ interface Nametag extends THREE.Object3D {
 }
 
 interface ParentNode extends THREE.Object3D {
+  position: THREE.Vector3
+  quaternion: THREE.Quaternion
   base?: {
     position: THREE.Vector3
     quaternion: THREE.Quaternion
@@ -66,6 +68,7 @@ interface AnimationFactory {
 }
 
 interface EmotePlayerNode extends THREE.Group {
+  parent?: THREE.Object3D | null
   destroy(): void
 }
 
@@ -109,6 +112,9 @@ export class AgentAvatar extends Node {
   declare ctx: NodeContext
   declare parent: ParentNode | null
   declare proxy: ProxyNode
+  declare position: THREE.Vector3
+  declare quaternion: THREE.Quaternion
+  declare add: (...objects: THREE.Object3D[]) => this
 
   constructor(ctx: NodeContext & { factory: AnimationFactory }) {
     super(ctx)

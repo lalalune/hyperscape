@@ -3,6 +3,11 @@ import rootConfig from '../../eslint.config.js';
 export default [
   ...rootConfig,
   {
+    ignores: [
+      '**/public/**',
+    ],
+  },
+  {
     files: ['**/*.{js,mjs,cjs,ts,tsx}'],
     languageOptions: {
       globals: {

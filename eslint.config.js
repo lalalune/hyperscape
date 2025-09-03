@@ -9,6 +9,7 @@ export default [
       '**/node_modules/**',
       '**/dist/**',
       '**/build/**',
+      '**/public/**',
       '**/libs/**',
       '**/core/libs/**',
       'packages/hyperscape/src/core/libs/**'

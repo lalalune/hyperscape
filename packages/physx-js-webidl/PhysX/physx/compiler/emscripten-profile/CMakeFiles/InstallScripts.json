@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/Users/shawwalters/hyperscape/packages/physx-js-webidl/PhysX/physx/compiler/emscripten-profile/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

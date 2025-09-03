@@ -15,7 +15,7 @@ import {
 import { HyperscapeService } from '../service'
 import { AgentControls } from '../systems/controls' // Import AgentControls type
 // Import THREE types if needed, e.g., for metadata typing
-// import type * as THREE from 'three';
+// import type THREE from 'three';
 
 export enum NavigationType {
   ENTITY = 'entity',

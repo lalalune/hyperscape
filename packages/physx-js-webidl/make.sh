@@ -101,9 +101,9 @@ generate_projects
 generate_types
 
 # Copy TypeScript definitions to dist
-if [ -f "types/physx-js-webidl.d.ts" ]; then
+if [ -f "types/physics-js-webidl.d.ts" ]; then
     mkdir -p dist/
-    cp types/physx-js-webidl.d.ts dist/
+    cp types/physics-js-webidl.d.ts dist/
     echo "TypeScript definitions copied to dist/"
 elif [ -f "dist/physx-js-webidl.d.ts" ]; then
     echo "TypeScript definitions already in dist/"

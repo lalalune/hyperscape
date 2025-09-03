@@ -1,2 +1,0 @@
-/opt/homebrew/Cellar/emscripten/4.0.12/libexec/upstream/emscripten/emar qc /Users/shawwalters/hyperscape/packages/physx-js-webidl/PhysX/physx/bin/UNKNOWN/checked/libPhysXCooking_static.a "CMakeFiles/PhysXCooking.dir/Users/shawwalters/hyperscape/packages/physx-js-webidl/PhysX/physx/source/physxcooking/src/Cooking.cpp.o"
-/opt/homebrew/Cellar/emscripten/4.0.12/libexec/upstream/emscripten/emranlib /Users/shawwalters/hyperscape/packages/physx-js-webidl/PhysX/physx/bin/UNKNOWN/checked/libPhysXCooking_static.a
