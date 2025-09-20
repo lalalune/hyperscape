@@ -1,31 +1,35 @@
 // Math utilities for movement calculations
 import { THREE } from '@hyperscape/hyperscape'
 
+const _tempVec3_1 = new THREE.Vector3();
+const _tempVec3_2 = new THREE.Vector3();
+
 const MathUtils = {
   distance2D: (a: { x: number; z: number }, b: { x: number; z: number }) =>
     Math.sqrt((a.x - b.x) ** 2 + (a.z - b.z) ** 2),
   subtract: (
     a: { x: number; y: number; z: number },
     b: { x: number; y: number; z: number }
-  ) => new THREE.Vector3(a.x - b.x, a.y - b.y, a.z - b.z),
+  ) => _tempVec3_1.set(a.x - b.x, a.y - b.y, a.z - b.z),
   normalize: (v: { x: number; y: number; z: number }) => {
-    const length = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+    _tempVec3_2.set(v.x, v.y, v.z);
+    const length = _tempVec3_2.length();
     return length > 0
-      ? new THREE.Vector3(v.x / length, v.y / length, v.z / length)
-      : new THREE.Vector3(0, 0, 0)
+      ? _tempVec3_2.divideScalar(length)
+      : _tempVec3_2.set(0, 0, 0)
   },
   multiply: (v: { x: number; y: number; z: number }, scalar: number) =>
-    new THREE.Vector3(v.x * scalar, v.y * scalar, v.z * scalar),
+    _tempVec3_1.set(v.x * scalar, v.y * scalar, v.z * scalar),
   add: (
     a: { x: number; y: number; z: number },
     b: { x: number; y: number; z: number }
-  ) => new THREE.Vector3(a.x + b.x, a.y + b.y, a.z + b.z),
+  ) => _tempVec3_1.set(a.x + b.x, a.y + b.y, a.z + b.z),
   lerp: (
     a: { x: number; y: number; z: number },
     b: { x: number; y: number; z: number },
     t: number
   ) =>
-    new THREE.Vector3(
+    _tempVec3_1.set(
       a.x + (b.x - a.x) * t,
       a.y + (b.y - a.y) * t,
       a.z + (b.z - a.z) * t

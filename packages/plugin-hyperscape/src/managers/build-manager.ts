@@ -12,6 +12,7 @@ export class BuildManager implements IBuildManager {
   private runtime: IAgentRuntime
   private world: World | null = null
   private buildPermissions: Map<UUID, string[]> = new Map()
+  private _tempVec3 = new THREE.Vector3()
 
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime
@@ -346,7 +347,7 @@ export class BuildManager implements IBuildManager {
 
       // Create a duplicate with offset position
       const position = originalEntity.position || { x: 0, y: 0, z: 0 }
-      const duplicatePosition = new THREE.Vector3(
+      const duplicatePosition = this._tempVec3.set(
         position.x + 1,
         position.y,
         position.z + 1
@@ -390,7 +391,7 @@ export class BuildManager implements IBuildManager {
 
     try {
       // Use provided position or default
-      const importPosition = position || new THREE.Vector3(0, 0, 0)
+      const importPosition = position || this._tempVec3.set(0, 0, 0)
 
       // Create entity from imported data
       const entity = this.createEntity(

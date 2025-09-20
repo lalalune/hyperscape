@@ -138,6 +138,7 @@ export class AgentControls extends System {
   private _isRotating = false
   private _rotationTarget: THREE.Quaternion | null = null
   private _rotationAbortController: ControlsToken | null = null
+  private _tempVec3 = new THREE.Vector3();
 
   constructor(world: World) {
     super(world)
@@ -344,7 +345,7 @@ export class AgentControls extends System {
             const newZ = currentPos.z + direction.z * moveDistance
 
             controllablePlayer.teleport({
-              position: new THREE.Vector3(newX, currentPos.y, newZ),
+              position: this._tempVec3.set(newX, currentPos.y, newZ),
               rotationY: Math.atan2(direction.x, direction.z),
             })
           }
@@ -477,7 +478,7 @@ export class AgentControls extends System {
               const newZ = currentPos.z + direction.z * moveDistance
 
               controllablePlayer.teleport({
-                position: new THREE.Vector3(newX, currentPos.y, newZ),
+                position: this._tempVec3.set(newX, currentPos.y, newZ),
                 rotationY: Math.atan2(direction.x, direction.z),
               })
             }
