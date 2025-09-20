@@ -38,12 +38,12 @@ export interface PlayerState {
   stamina: number
   maxStamina: number
   position: Position
-  stats: PlayerStats
+  stats: RPGPlayerStats
   skills: Record<string, SkillInfo>
 }
 
-// Player stats
-export interface PlayerStats {
+// Player stats - renamed to avoid conflict with imported PlayerStats
+export interface RPGPlayerStats {
   strength: number
   dexterity: number
   intelligence: number

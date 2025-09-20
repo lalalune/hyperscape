@@ -60,6 +60,7 @@ export function createTestScenario(options: {
     runtime,
     currentWorldId: options.worldId || generateTestUUID(),
     getWorld: () => world,
+    isConnected: () => true,
   })
 
   runtime.getService = <T extends Service>(name: string): T | null => {

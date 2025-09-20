@@ -8,7 +8,15 @@ import {
   type UUID,
 } from '@elizaos/core'
 // Minimal implementation for now - we'll improve this once we have proper imports working
-import { Entity } from './types/core-types'
+import type { Quaternion } from '@hyperscape/hyperscape'
+import {
+  Chat,
+  Entity,
+  loadPhysX,
+  type NetworkSystem,
+  type Player,
+  type World
+} from '@hyperscape/hyperscape'
 import { promises as fsPromises } from 'fs'
 import path from 'path'
 import { BehaviorManager } from './managers/behavior-manager'
@@ -19,7 +27,6 @@ import { MessageManager } from './managers/message-manager'
 import { MultiAgentManager } from './managers/multi-agent-manager'
 import { PlaywrightManager } from './managers/playwright-manager'
 import { VoiceManager } from './managers/voice-manager'
-import { loadPhysX } from '@hyperscape/hyperscape'
 import { AgentActions } from './systems/actions'
 import { AgentControls } from './systems/controls'
 import { EnvironmentSystem } from './systems/environment'
@@ -28,21 +35,28 @@ import { AgentLoader } from './systems/loader'
 import type {
   CharacterControllerOptions,
   EntityModificationData,
-  PhysicsBodyOptions,
   RPGStateManager,
-  TeleportOptions,
+  TeleportOptions
 } from './types/content-types'
 import type {
   CharacterController,
   ChatMessage,
-  ChatSystem,
   ContentBundle,
   ContentInstance,
   Position,
-  World,
-  WorldConfig,
+  RigidBody,
   Vector3,
+  WorldConfig
 } from './types/core-types'
+// Define EntityData locally
+interface EntityData {
+  id: string
+  type: string
+  position?: [number, number, number] | { x: number; y: number; z: number }
+  quaternion?: [number, number, number, number] | { x: number; y: number; z: number; w: number }
+  [key: string]: unknown
+}
+
 import type {
   EventData,
   EventHandler,
@@ -55,6 +69,17 @@ const moduleDirPath = getModuleDirectory()
 const LOCAL_AVATAR_PATH = `${moduleDirPath}/avatars/avatar.vrm`
 
 import { AGENT_CONFIG, NETWORK_CONFIG } from './config/constants'
+
+type ChatSystem = Chat
+
+interface UploadableNetwork extends NetworkSystem {
+  upload: (file: File) => Promise<string>
+}
+
+interface ModifiablePlayer extends Player {
+  modify: (data: { name: string }) => void
+  setSessionAvatar: (url: string) => void
+}
 
 export class HyperscapeService extends Service {
   static serviceName = 'hyperscape'
@@ -246,7 +271,7 @@ Hyperscape world integration service that enables agents to:
       this.world.systems.push(loader)
 
       const environment = new EnvironmentSystem(this.world)
-      this.world.systems.push(environment as any)
+      this.world.systems.push(environment)
 
       console.info(
         '[HyperscapeService] Hyperscape world initialized successfully'
@@ -304,9 +329,9 @@ Hyperscape world integration service that enables agents to:
   }
 
   private subscribeToHyperscapeEvents(): void {
-    if (!this.world || typeof this.world.on !== 'function') {
+    if (!this.world) {
       console.warn(
-        '[Hyperscape Events] Cannot subscribe: World or world.on not available.'
+        '[Hyperscape Events] Cannot subscribe: World not available.'
       )
       return
     }
@@ -364,9 +389,9 @@ Hyperscape world integration service that enables agents to:
         `[Appearance] Uploading ${fileName} (${(fileBuffer.length / 1024).toFixed(2)} KB, Type: ${mimeType})...`
       )
 
-      if (!crypto.subtle || typeof crypto.subtle.digest !== 'function') {
+      if (!crypto.subtle) {
         throw new Error(
-          'crypto.subtle.digest is not available. Ensure Node.js version supports Web Crypto API.'
+          'crypto.subtle is not available. Ensure Node.js version supports Web Crypto API.'
         )
       }
 
@@ -376,11 +401,13 @@ Hyperscape world integration service that enables agents to:
       const baseUrl = this.world.assetsUrl.replace(/\/$/, '')
       const constructedHttpUrl = `${baseUrl}/${fullFileNameWithHash}`
 
-      if (typeof (this.world.network as any).upload !== 'function') {
+      // Strong type assumption - network has upload method if it's UploadableNetwork
+      const network = this.world.network as UploadableNetwork
+      if (!network) {
         console.warn(
-          '[Appearance] world.network.upload function not found. Cannot upload.'
+          '[Appearance] Network not available. Cannot upload.'
         )
-        return { success: false, error: 'Upload function unavailable' }
+        return { success: false, error: 'Network unavailable' }
       }
 
       try {
@@ -395,13 +422,8 @@ Hyperscape world integration service that enables agents to:
           type: mimeType,
         })
 
-        const uploadFn = (this.world.network as any).upload
-        if (!uploadFn) {
-          console.error('[Appearance] Upload function not available')
-          return { success: false, error: 'Upload function unavailable' }
-        }
-
-        const uploadPromise = uploadFn(fileForUpload)
+        // Strong type assumption - network has upload method 
+        const uploadPromise = network.upload(fileForUpload)
         const timeoutPromise = new Promise((_resolve, reject) =>
           setTimeout(
             () => reject(new Error('Upload timed out')),
@@ -422,18 +444,15 @@ Hyperscape world integration service that enables agents to:
         }
       }
 
-      if (
-        agentPlayer &&
-        typeof (agentPlayer as any).setSessionAvatar === 'function'
-      ) {
-        ;(agentPlayer as any).setSessionAvatar(constructedHttpUrl)
+      if (agentPlayer) {
+        ;(agentPlayer as ModifiablePlayer).setSessionAvatar(constructedHttpUrl)
       } else {
         console.warn('[Appearance] agentPlayer not available.')
       }
 
       await this.emoteManager.uploadEmotes()
 
-      if (typeof this.world.network.send === 'function') {
+      if (this.world.network) {
         // Assume send method exists on network
         this.world.network.send('playerSessionAvatar', {
           avatar: constructedHttpUrl,
@@ -616,7 +635,7 @@ Hyperscape world integration service that enables agents to:
     const entity = this.world?.entities?.items?.get(entityId)
     return (
       entity?.data?.name ||
-      (entity as any)?.metadata?.hyperscape?.name ||
+      ((entity as Entity)?.metadata?.hyperscape as { name: string })?.name ||
       'Unnamed'
     )
   }
@@ -635,10 +654,7 @@ Hyperscape world integration service that enables agents to:
         if (this.world.network) {
           console.info('[Hyperscape Cleanup] Calling network destroy...')
           // Use destroy method for network cleanup
-          if (
-            'destroy' in this.world.network &&
-            typeof this.world.network.destroy === 'function'
-          ) {
+          if ('destroy' in this.world.network) {
             this.world.network.destroy()
           }
         }
@@ -769,8 +785,8 @@ Hyperscape world integration service that enables agents to:
 
       // --- Use agentPlayer.modify for local update --- >
       const agentPlayer = this.world.entities.player
-      if (agentPlayer && typeof (agentPlayer as any).modify === 'function') {
-        ;(agentPlayer as any).modify({ name: newName })
+      if (agentPlayer) {
+        ;(agentPlayer as ModifiablePlayer).modify({ name: newName })
         agentPlayer.data.name = newName
       }
 
@@ -803,8 +819,8 @@ Hyperscape world integration service that enables agents to:
     console.info('[HyperscapeService] Initializing chat subscription...')
 
     // Pre-populate processed IDs with existing messages
-    if ((this.world.chat as any).messages) {
-      ;(this.world.chat as any).messages.forEach((msg: any) => {
+    if ((this.world.chat as ChatSystem).msgs) {
+      ;(this.world.chat as ChatSystem).msgs.forEach((msg: ChatMessage) => {
         if (msg && msg.id) {
           // Add null check for msg and msg.id
           this.processedMsgIds.add(msg.id)
@@ -813,7 +829,7 @@ Hyperscape world integration service that enables agents to:
     }
 
     if (this.world.chat && this.world.chat.subscribe) {
-      this.world.chat.subscribe((msgs: unknown[]) => {
+      this.world.chat.subscribe((msgs: ChatMessage[]) => {
         const chatMessages = msgs as ChatMessage[]
         // Wait for player entity (ensures world/chat exist too)
         if (
@@ -1184,41 +1200,50 @@ Hyperscape world integration service that enables agents to:
   /**
    * Create a minimal world implementation with proper physics
    */
-  private createMinimalWorld(config: MockWorldConfig): any {
+  private createMinimalWorld(config: MockWorldConfig): World {
     console.info('[MinimalWorld] Creating minimal world with physics')
 
-    const minimalWorld = {
-      _isMinimal: true,
-
+    const minimalWorld: Partial<World> = {
       // Core world properties
       systems: [],
 
       // Configuration
       assetsUrl: config.assets?.[0] || 'https://assets.hyperscape.io',
-      maxUploadSize: 10 * 1024 * 1024,
 
-      // Physics system
+      // Physics system - cast as any to avoid type issues with mock
       physics: {
         enabled: true,
         gravity: { x: 0, y: -9.81, z: 0 },
         timeStep: 1 / 60,
-        substeps: 1,
         world: null, // Will be set after PhysX loads
         controllers: new Map<string, CharacterController>(),
         rigidBodies: new Map<string, any>(),
 
         // Physics helper methods
-        createRigidBody: (options: PhysicsBodyOptions) => {
-          console.log('[MinimalWorld Physics] Creating rigid body:', options)
+        createRigidBody: (
+          _type: 'static' | 'dynamic' | 'kinematic',
+          _position?: Vector3,
+          _rotation?: Quaternion
+        ): RigidBody => {
+          console.log('[MinimalWorld Physics] Creating rigid body:', _type, _position)
           return {
-            position: options.position || { x: 0, y: 0, z: 0 },
+            type: _type,
+            position: _position || { x: 0, y: 0, z: 0 },
+            rotation: _rotation || { x: 0, y: 0, z: 0, w: 1 },
             velocity: { x: 0, y: 0, z: 0 },
-            mass: options.mass || 1,
-            applyForce: (force: Position) => {
+            angularVelocity: { x: 0, y: 0, z: 0 },
+            mass: 1,
+            applyForce: (force: Vector3) => {
               console.log('[MinimalWorld Physics] Applying force:', force)
             },
-            setVelocity: (velocity: Position) => {
-              console.log('[MinimalWorld Physics] Setting velocity:', velocity)
+            applyImpulse: (impulse: Vector3) => {
+              console.log('[MinimalWorld Physics] Applying impulse:', impulse)
+            },
+            setLinearVelocity: (velocity: Vector3) => {
+              console.log('[MinimalWorld Physics] Setting linear velocity:', velocity)
+            },
+            setAngularVelocity: (velocity: Vector3) => {
+              console.log('[MinimalWorld Physics] Setting angular velocity:', velocity)
             },
           }
         },
@@ -1350,11 +1375,13 @@ Hyperscape world integration service that enables agents to:
             }
           }
         },
-      },
+      } as any,
 
       // Network system
       network: {
         id: `network-${Date.now()}`,
+        isClient: true,
+        isServer: false,
         send: (type: string, data?: NetworkEventData) => {
           console.log(`[MinimalWorld] Network send: ${type}`, data)
         },
@@ -1364,19 +1391,21 @@ Hyperscape world integration service that enables agents to:
         },
         disconnect: async () => {
           console.log('[MinimalWorld] Network disconnect')
+          return Promise.resolve()
         },
         maxUploadSize: 10 * 1024 * 1024,
-      },
+      } as any,
 
-      // Chat system
+      // Chat system - cast as any to avoid complex type issues
       chat: {
         msgs: [],
-        listeners: [],
+        listeners: [] as Array<(msgs: ChatMessage[]) => void>,
         add: (msg: ChatMessage, broadcast?: boolean) => {
           console.log('[MinimalWorld] Chat message added:', msg)
           minimalWorld.chat!.msgs.push(msg)
           // Notify listeners
-          for (const listener of minimalWorld.chat!.listeners) {
+          const chatListeners = (minimalWorld.chat as any).listeners as Array<(msgs: ChatMessage[]) => void>
+          for (const listener of chatListeners) {
             try {
               listener(minimalWorld.chat!.msgs)
             } catch (e) {
@@ -1384,79 +1413,107 @@ Hyperscape world integration service that enables agents to:
             }
           }
         },
-        subscribe: (callback: (msgs: ChatMessage[]) => void) => {
+        subscribe: ((callback: (msgs: ChatMessage[]) => void) => {
           console.log('[MinimalWorld] Chat subscription added')
-          minimalWorld.chat!.listeners.push(callback)
-          return () => {
-            const index = minimalWorld.chat!.listeners.indexOf(callback)
-            if (index >= 0) {
-              minimalWorld.chat!.listeners.splice(index, 1)
+          const chatListeners = (minimalWorld.chat as any).listeners as Array<(msgs: ChatMessage[]) => void>
+          chatListeners.push(callback)
+          const subscription = {
+            unsubscribe: () => {
+              const index = chatListeners.indexOf(callback)
+              if (index >= 0) {
+                chatListeners.splice(index, 1)
+              }
+            },
+            get active() {
+              return chatListeners.indexOf(callback) >= 0
             }
           }
-        },
-      },
+          return subscription
+        }) as any,
+      } as any,
 
-      // Events system
-      events: {
-        listeners: new Map(),
-        emit: (eventName: string, data?: EventData) => {
-          console.log(`[MinimalWorld] Event emitted: ${eventName}`, data)
-          const listeners = minimalWorld.events!.listeners.get(eventName) || []
-          for (const listener of listeners) {
-            try {
-              listener(data)
-            } catch (e) {
-              console.warn(
-                `[MinimalWorld] Event listener error for ${eventName}:`,
-                e
-              )
+      // Events system - cast as any to avoid complex type issues
+      events: Object.assign(
+        function<T extends string | symbol>(event: T) {
+          // Default listener getter for compatibility
+          return (minimalWorld.events as any).__listeners?.get(event) || []
+        },
+        {
+          listeners: new Map<string, ((data: unknown) => void)[]>() as any,
+          __listeners: new Map<string | symbol, Set<(...args: unknown[]) => void>>(),
+          emit: function<T extends string | symbol>(event: T, ...args: unknown[]): boolean {
+            console.log(`[MinimalWorld] Event emitted: ${String(event)}`, args)
+            const listeners = this.__listeners.get(event)
+            if (listeners) {
+              for (const listener of listeners) {
+                try {
+                  listener(...args)
+                } catch (e) {
+                  console.warn(
+                    `[MinimalWorld] Event listener error for ${String(event)}:`,
+                    e
+                  )
+                }
+              }
             }
-          }
-        },
-        on: (eventName: string, callback: EventHandler) => {
-          console.log(`[MinimalWorld] Event listener added: ${eventName}`)
-          if (!minimalWorld.events!.listeners.has(eventName)) {
-            minimalWorld.events!.listeners.set(eventName, [])
-          }
-          minimalWorld.events!.listeners.get(eventName)!.push(callback)
-        },
-        off: (eventName: string, callback?: EventHandler) => {
-          console.log(`[MinimalWorld] Event listener removed: ${eventName}`)
-          if (callback) {
-            const listeners =
-              minimalWorld.events!.listeners.get(eventName) || []
-            const index = listeners.indexOf(callback)
-            if (index >= 0) {
-              listeners.splice(index, 1)
+            return true
+          },
+          on: function<T extends string | symbol>(event: T, fn: (...args: unknown[]) => void, _context?: unknown) {
+            console.log(`[MinimalWorld] Event listener added: ${String(event)}`)
+            if (!this.__listeners.has(event)) {
+              this.__listeners.set(event, new Set())
             }
-          } else {
-            minimalWorld.events!.listeners.delete(eventName)
-          }
-        },
-      },
+            this.__listeners.get(event)!.add(fn)
+            return this
+          },
+          off: function<T extends string | symbol>(event: T, fn?: (...args: unknown[]) => void, _context?: unknown, _once?: boolean) {
+            console.log(`[MinimalWorld] Event listener removed: ${String(event)}`)
+            if (fn) {
+              const listeners = this.__listeners.get(event)
+              if (listeners) {
+                listeners.delete(fn)
+              }
+            } else {
+              this.__listeners.delete(event)
+            }
+            return this
+          },
+        }
+      ) as any,
 
-      // Entities system
+      // Entities system - cast as any to avoid complex type issues  
       entities: {
         player: null,
         players: new Map(),
         items: new Map(),
-        add: (entity: Entity) => {
-          console.log('[MinimalWorld] Entity added:', entity.id || 'unknown')
-          minimalWorld.entities!.items.set(
-            entity.id || `entity-${Date.now()}`,
-            entity
-          )
+        add: ((data: any, local?: boolean) => {
+          console.log('[MinimalWorld] Entity added:', data.id || 'unknown')
+          // Handle both Entity objects and EntityData
+          let entity = data
+          if (!(data instanceof Entity)) {
+            // Create a mock entity if data is EntityData
+            entity = {
+              id: data.id || `entity-${Date.now()}`,
+              type: data.type || 'generic',
+              position: data.position || { x: 0, y: 0, z: 0 },
+              data: data
+            }
+          }
+          minimalWorld.entities!.items.set(entity.id, entity)
           return entity
-        },
+        }) as ((data: EntityData, local?: boolean) => Entity) & ((data: unknown, local?: boolean) => unknown),
         remove: (entityId: string) => {
           console.log('[MinimalWorld] Entity removed:', entityId)
           minimalWorld.entities!.items.delete(entityId)
           minimalWorld.entities!.players.delete(entityId)
+          return true
         },
         getPlayer: () => {
           return minimalWorld.entities!.player
         },
-      },
+        getLocalPlayer: () => minimalWorld.entities!.player,
+        getPlayers: () => Array.from(minimalWorld.entities!.players.values()),
+      } as any,
 
       // Initialize method
       init: async (initConfig?: Partial<MockWorldConfig>) => {
@@ -1476,21 +1533,22 @@ Hyperscape world integration service that enables agents to:
 
         minimalWorld.physics!.controllers.set(playerId, characterController)
 
-        // Create basic player entity
-        minimalWorld.entities!.player = {
+        // Create basic player entity - cast as any to avoid type issues
+        minimalWorld.entities!.player = ({
           id: playerId,
+          type: 'player',
           data: {
             id: playerId,
+            type: 'player',
             name: 'TestPlayer',
             appearance: {},
           },
           base: {
-            position: { x: 0, y: 0, z: 0 },
-            quaternion: { x: 0, y: 0, z: 0, w: 1 },
-            scale: { x: 1, y: 1, z: 1 },
+            position: { x: 0, y: 0, z: 0 } as Vector3,
+            quaternion: { x: 0, y: 0, z: 0, w: 1 } as Quaternion,
+            scale: { x: 1, y: 1, z: 1 } as Vector3,
           },
           position: { x: 0, y: 0, z: 0 },
-          quaternion: { x: 0, y: 0, z: 0, w: 1 },
 
           // Physics-based movement methods
           move: (displacement: Position) => {
@@ -1501,25 +1559,19 @@ Hyperscape world integration service that enables agents to:
             }
           },
 
-          // Walk using physics (smooth movement)
-          walk: (direction: { x: number; z: number }, speed: number = 5) => {
-            console.log('[MinimalWorld] Player physics walk:', direction, speed)
-            const controller = minimalWorld.physics!.controllers.get(playerId)
-            if (controller && controller.walkToward) {
-              return controller.walkToward(direction, speed)
-            }
-            return minimalWorld.entities!.player!.position!
-          },
-
           // Walk toward a specific position
           walkToward: (targetPosition: Position, speed: number = 5) => {
             console.log('[MinimalWorld] Player walking toward:', targetPosition)
             const currentPos = minimalWorld.entities!.player!.position!
-            const direction = {
-              x: targetPosition.x - currentPos.x,
-              z: targetPosition.z - currentPos.z,
+            const controller = minimalWorld.physics!.controllers?.get(playerId)
+            if (controller && (controller as any).walkToward) {
+              const direction = {
+                x: targetPosition.x - currentPos.x,
+                z: targetPosition.z - currentPos.z,
+              }
+              return (controller as any).walkToward(direction, speed)
             }
-            return minimalWorld.entities!.player!.walk!(direction, speed)
+            return currentPos
           },
 
           // Teleport (instant position change) - kept for compatibility
@@ -1550,9 +1602,13 @@ Hyperscape world integration service that enables agents to:
 
           setSessionAvatar: (url: string) => {
             console.log('[MinimalWorld] Player setSessionAvatar:', url)
-            minimalWorld.entities!.player!.data.appearance.avatar = url
+            const player = minimalWorld.entities!.player
+            if (player && (player as any).data) {
+              (player as any).data.appearance = (player as any).data.appearance || {}
+              ;(player as any).data.appearance.avatar = url
+            }
           },
-        }
+        }) as any
 
         // Start physics simulation loop
         if (minimalWorld.physics?.enabled) {
@@ -1571,11 +1627,12 @@ Hyperscape world integration service that enables agents to:
         minimalWorld.systems = []
         minimalWorld.entities!.players.clear()
         minimalWorld.entities!.items.clear()
-        minimalWorld.events!.listeners.clear()
-        minimalWorld.chat!.listeners = []
+        ;(minimalWorld.events as any).__listeners?.clear()
+        ;(minimalWorld.events as any).listeners?.clear()
+        ;(minimalWorld.chat as any).listeners = []
       },
     }
 
-    return minimalWorld as any as World
+    return minimalWorld as World
   }
 }

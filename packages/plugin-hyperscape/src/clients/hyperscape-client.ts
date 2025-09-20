@@ -176,7 +176,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
     const runtimeWithEmit = this.runtime as {
       emit?: (event: string, data: any) => void
     }
-    if (runtimeWithEmit.emit && typeof runtimeWithEmit.emit === 'function') {
+    if (runtimeWithEmit.emit) {
       runtimeWithEmit.emit(EventType.NETWORK_MESSAGE_RECEIVED, {
         content: { text },
       })

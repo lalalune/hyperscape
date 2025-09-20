@@ -150,11 +150,7 @@ export const replyAction = {
       },
     }
 
-    await callback({
-      text: responseContent.text,
-      actions: ['HYPERSCAPE_REPLY'],
-      source: 'hyperscape',
-    })
+    await callback({text: (response.message as string) || '', thought: response.thought, actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
 
     return {
       text: responseContent.text,

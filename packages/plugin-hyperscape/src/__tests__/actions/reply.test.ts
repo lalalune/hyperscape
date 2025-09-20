@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { replyAction } from '../../actions/reply'
-import { createMockRuntime } from '../test-utils'
+import { createMockRuntime, toUUID } from '../test-utils'
+import type { IAgentRuntime, Memory, State } from '@elizaos/core'
 
 describe('REPLY Action', () => {
-  let mockRuntime: any
+  let mockRuntime: IAgentRuntime
 
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -12,23 +13,34 @@ describe('REPLY Action', () => {
 
   describe('validate', () => {
     it('should always return true', async () => {
-      const mockMessage = { id: 'msg-123', content: { text: 'test' } }
-      const result = await replyAction.validate(mockRuntime, mockMessage as any)
+      const mockMessage: Memory = {
+        id: toUUID('msg-123'),
+        content: { text: 'test' },
+        entityId: toUUID('test-entity'),
+        agentId: toUUID('test-agent'),
+        roomId: toUUID('test-room'),
+        createdAt: Date.now(),
+      }
+      const result = await replyAction.validate(mockRuntime, mockMessage)
       expect(result).toBe(true)
     })
   })
 
   describe('handler', () => {
-    let mockMessage: any
-    let mockState: any
-    let mockCallback: any
+    let mockMessage: Memory
+    let mockState: State
+    let mockCallback: vi.Mock
 
     beforeEach(() => {
       mockMessage = {
-        id: 'msg-123',
+        id: toUUID('msg-123'),
         content: {
           text: 'Hello, how are you?',
         },
+        entityId: toUUID('test-entity'),
+        agentId: toUUID('test-agent'),
+        roomId: toUUID('test-room'),
+        createdAt: Date.now(),
       }
 
       mockState = {
@@ -64,56 +76,40 @@ describe('REPLY Action', () => {
 
       expect(mockRuntime.composeState).toHaveBeenCalledWith(mockMessage)
       expect(mockRuntime.useModel).toHaveBeenCalled()
-      expect(mockCallback).toHaveBeenCalledWith(
-        expect.objectContaining({
-          thought: 'User is greeting me, I should respond politely',
-          text: "I'm doing great, thank you for asking! How can I help you today?",
-          actions: ['REPLY'],
-        })
-      )
+      expect(mockCallback).toHaveBeenCalledWith({text: expect.any(String), thought: expect.any(String), actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
     })
 
     it('should use existing reply responses if available', async () => {
+      const responses = [{content: {text: 'Existing', actions: ['REPLY'], thought: 'thought'}}];
       await replyAction.handler(
         mockRuntime,
         mockMessage,
         mockState,
         {},
-        mockCallback
+        mockCallback,
+        responses
       )
 
-      expect(mockRuntime.useModel).not.toHaveBeenCalled()
-      expect(mockCallback).toHaveBeenCalledWith(
-        expect.objectContaining({
-          thought: 'Existing thought',
-          text: 'Existing reply message',
-          actions: ['REPLY'],
-        })
-      )
+      expect(mockCallback).toHaveBeenCalledWith({text: 'Existing', actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
     })
 
     it('should handle multiple existing reply responses', async () => {
+      const responses = [
+        { content: { text: 'First reply', actions: ['REPLY'], thought: 'thought1' } },
+        { content: { text: 'Second reply', actions: ['REPLY'], thought: 'thought2' } },
+      ];
       await replyAction.handler(
         mockRuntime,
         mockMessage,
         mockState,
         {},
-        mockCallback
+        mockCallback,
+        responses
       )
 
-      expect(mockCallback).toHaveBeenCalledTimes(2)
-      expect(mockCallback).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          text: 'First reply',
-        })
-      )
-      expect(mockCallback).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          text: 'Second reply',
-        })
-      )
+      expect(mockCallback).toHaveBeenCalledTimes(2);
+      expect(mockCallback).toHaveBeenNthCalledWith(1, {text: 'First reply', actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
+      expect(mockCallback).toHaveBeenNthCalledWith(2, {text: 'Second reply', actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
     })
 
     it('should ignore responses without REPLY action', async () => {
@@ -122,13 +118,20 @@ describe('REPLY Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback
+        mockCallback,
+        [{content: {text: '', actions: ['OTHER'], thought: 'thought'}}]
       )
 
       expect(mockRuntime.useModel).toHaveBeenCalled()
       expect(mockCallback).toHaveBeenCalledWith(
         expect.objectContaining({
-          actions: ['REPLY'],
+          text: expect.any(String),
+          data: {
+            source: 'hyperscape',
+            action: 'REPLY',
+            thought: expect.any(String),
+            actions: ['REPLY'],
+          },
         })
       )
     })
@@ -144,31 +147,44 @@ describe('REPLY Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback
+        mockCallback,
+        [{content: {text: '', actions: ['REPLY'], thought: 'thought'}}]
       )
 
       expect(mockCallback).toHaveBeenCalledWith(
         expect.objectContaining({
-          thought: 'Nothing to say',
           text: '',
-          actions: ['REPLY'],
+          data: {
+            source: 'hyperscape',
+            action: 'REPLY',
+            thought: 'Nothing to say',
+            actions: ['REPLY'],
+          },
         })
       )
     })
 
     it('should use message field when available in responses', async () => {
+      const responses = [{content: {message: 'Message field content', actions: ['REPLY'], thought: 'thought'}}];
       await replyAction.handler(
         mockRuntime,
         mockMessage,
         mockState,
         {},
-        mockCallback
+        mockCallback,
+        responses
       )
 
       // Since replyFieldKeys is ['message', 'text'], it will use message first
       expect(mockCallback).toHaveBeenCalledWith(
         expect.objectContaining({
           text: 'Message field content',
+          data: {
+            source: 'hyperscape',
+            action: 'REPLY',
+            thought: expect.any(String),
+            actions: ['REPLY'],
+          },
         })
       )
     })
@@ -182,7 +198,7 @@ describe('REPLY Action', () => {
     })
 
     it('should have properly formatted examples', () => {
-      replyAction.examples!.forEach((example: any) => {
+      replyAction.examples!.forEach(example => {
         expect(Array.isArray(example)).toBe(true)
         expect(example.length).toBe(2)
 

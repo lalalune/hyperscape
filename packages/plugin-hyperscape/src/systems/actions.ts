@@ -145,8 +145,8 @@ export class AgentActions extends System {
       if ('pressed' in keyX) {
         keyX.pressed = true
       }
-      if ('onPress' in keyX && typeof keyX.onPress === 'function') {
-        keyX.onPress()
+      if ('onPress' in keyX && typeof (keyX as { onPress?: () => void }).onPress === 'function') {
+        ;(keyX as { onPress: () => void }).onPress()
       }
     }
 
@@ -165,10 +165,10 @@ export class AgentActions extends System {
       ) {
         const keyX = control.keyX
         if ('released' in keyX) {
-          keyX.released = false
+          ;(keyX as { released?: boolean }).released = false
         }
-        if ('onRelease' in keyX && typeof keyX.onRelease === 'function') {
-          keyX.onRelease()
+        if ('onRelease' in keyX && typeof (keyX as { onRelease?: () => void }).onRelease === 'function') {
+          ;(keyX as { onRelease: () => void }).onRelease()
         }
       }
       this.currentNode = null

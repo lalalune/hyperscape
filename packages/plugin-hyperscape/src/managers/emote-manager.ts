@@ -1,6 +1,6 @@
 import type { IAgentRuntime } from '@elizaos/core'
-import type { Player } from '@hyperscape/hyperscape'
-import fs from 'fs/promises'
+import { Player, PlayerLocal, ClientNetwork } from '@hyperscape/hyperscape'
+import { promises as fsPromises } from 'fs'
 import path from 'path'
 import { NETWORK_CONFIG } from '../config/constants'
 import { EMOTES_LIST } from '../constants'
@@ -33,7 +33,7 @@ export class EmoteManager {
     for (const emote of EMOTES_LIST) {
       try {
         const moduleDirPath = getModuleDirectory()
-        const emoteBuffer = await fs.readFile(moduleDirPath + emote.path)
+        const emoteBuffer = await fsPromises.readFile(moduleDirPath + emote.path)
         const emoteMimeType = 'model/gltf-binary'
 
         const emoteHash = await hashFileBuffer(emoteBuffer)
@@ -71,15 +71,15 @@ export class EmoteManager {
           )
           continue
         }
-        const uploadFn = (world.network as any).upload
-        if (!uploadFn) {
+        const network = world.network as ClientNetwork
+        if (!network.upload) {
           console.error(
             `[Appearance] Upload function not available for emote '${emote.name}'`
           )
           continue
         }
 
-        const emoteUploadPromise = uploadFn(emoteFile)
+        const emoteUploadPromise = network.upload(emoteFile)
         const emoteTimeout = new Promise((_resolve, reject) =>
           setTimeout(
             () => reject(new Error('Upload timed out')),
@@ -131,7 +131,8 @@ export class EmoteManager {
     const duration = emoteMeta?.duration || 1.5
 
     this.movementCheckInterval = setInterval(() => {
-      if ((agentPlayer as any).moving) {
+      const player = agentPlayer as unknown as PlayerLocal
+      if (player.moving) {
         logger.info(
           `[EmoteManager] '${emoteName}' cancelled early due to movement`
         )

@@ -31,9 +31,17 @@ const MathUtils = {
       a.z + (b.z - a.z) * t
     ),
 }
-import { World } from '../types/core-types'
-import type { Player, Vector3 } from '@hyperscape/hyperscape'
+import type { World, Player, Vector3 } from '@hyperscape/hyperscape'
+import { Entity } from '@hyperscape/hyperscape'
 import { EventEmitter } from 'events'
+
+interface MovablePlayer extends Entity {
+  isMoving?: boolean
+  targetPosition?: Vector3
+  movementPath?: Vector3[]
+  velocity: Vector3
+  speed?: number
+}
 
 // Movement player interface
 interface MovementPlayer extends Player {
@@ -104,20 +112,21 @@ export class PlayerMovementSystem extends EventEmitter {
       this.findPath(player.node.position!, target) || [target]
 
     // Set player moving (simulate with custom property)
-    ;(player as any).isMoving = true
-    ;(player as any).targetPosition = target
-    ;(player as any).movementPath = finalPath
+    const movablePlayer = player as MovablePlayer
+    movablePlayer.isMoving = true
+    movablePlayer.targetPosition = target
+    movablePlayer.movementPath = finalPath
     this.movingPlayers.set(playerId, { target, path: finalPath })
 
     // Calculate initial velocity
-    this.updatePlayerVelocity(player, finalPath[0])
+    this.updatePlayerVelocity(movablePlayer, finalPath[0])
 
     // Broadcast movement start via network
     if (this.world.network.send) {
       this.world.network.send('player:moved', {
         playerId,
         position: player.node.position,
-        velocity: (player as any).velocity,
+        velocity: movablePlayer.velocity,
       })
     }
   }
@@ -129,8 +138,9 @@ export class PlayerMovementSystem extends EventEmitter {
         ? this.world.entities.player
         : null)
     if (!player) return // Stop player movement (simulate)
-    ;(player as any).isMoving = false
-    ;(player as any).velocity = { x: 0, y: 0, z: 0 }
+    const movablePlayer = player as MovablePlayer
+    movablePlayer.isMoving = false
+    movablePlayer.velocity = { x: 0, y: 0, z: 0 } as Vector3
     this.movingPlayers.delete(playerId)
 
     // Broadcast stop via network
@@ -159,16 +169,16 @@ export class PlayerMovementSystem extends EventEmitter {
       }
 
       // Update player position (simulate)
-      this.updatePlayerPosition(player as any, deltaTime)
+      this.updatePlayerPosition(player, deltaTime)
 
       // Check for collisions
-      if (this.checkCollisions(player as any)) {
+      if (this.checkCollisions(player)) {
         // Handle collision - stop or slide
-        this.handleCollision(player as any, movement)
+        this.handleCollision(player as MovablePlayer, movement)
       }
 
       // Check if reached target
-      if (!(player as any).isMoving) {
+      if (!(player as MovablePlayer).isMoving) {
         this.movingPlayers.delete(playerId)
       }
     }
@@ -344,7 +354,7 @@ export class PlayerMovementSystem extends EventEmitter {
     return true
   }
 
-  private updatePlayerVelocity(player: any, target: Vector3): void {
+  private updatePlayerVelocity(player: MovablePlayer, target: Vector3): void {
     if (!player.node.position) {
       return
     }
@@ -353,7 +363,7 @@ export class PlayerMovementSystem extends EventEmitter {
     const normalized = MathUtils.normalize(direction)
 
     if (player.speed) {
-      player.velocity = MathUtils.multiply(normalized, player.speed)
+      player.velocity = MathUtils.multiply(normalized, player.speed) as Vector3
     }
   }
 
@@ -372,7 +382,7 @@ export class PlayerMovementSystem extends EventEmitter {
   }
 
   private handleCollision(
-    player: any,
+    player: MovablePlayer,
     movement: { target: Vector3; path?: Vector3[] }
   ): void {
     // Try to slide along obstacle
@@ -386,7 +396,7 @@ export class PlayerMovementSystem extends EventEmitter {
     }
   }
 
-  private calculateSlideVelocity(player: any): Vector3 | null {
+  private calculateSlideVelocity(player: MovablePlayer): Vector3 | null {
     if (!player.velocity || !player.node.position || !player.speed) {
       return null
     }
@@ -437,7 +447,7 @@ export class PlayerMovementSystem extends EventEmitter {
         this.world.network.send('player:moved', {
           playerId,
           position: player.node.position,
-          velocity: (player as any).velocity,
+          velocity: (player as MovablePlayer).velocity,
         })
       }
     }

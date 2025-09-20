@@ -24,7 +24,7 @@ export async function convertToAudioBuffer(
     return speechResponse
   }
 
-  if (typeof speechResponse?.getReader === 'function') {
+  if (speechResponse?.getReader) {
     // Handle Web ReadableStream
     const reader = (speechResponse as ReadableStream<Uint8Array>).getReader()
     const chunks: Uint8Array[] = []
@@ -49,8 +49,8 @@ export async function convertToAudioBuffer(
     speechResponse instanceof Readable ||
     (speechResponse &&
       speechResponse.readable === true &&
-      typeof speechResponse.pipe === 'function' &&
-      typeof speechResponse.on === 'function')
+      'pipe' in speechResponse &&
+      'on' in speechResponse)
   ) {
     // Handle Node Readable Stream
     return new Promise<Buffer>((resolve, reject) => {

@@ -14,6 +14,15 @@ const q2 = new THREE.Quaternion()
 import { CONTROLS_CONFIG } from '../config/constants'
 import { logger } from '@elizaos/core'
 
+interface ControllablePlayer extends Player {
+  walkToward: (
+    targetPosition: { x: number; y: number; z: number },
+    speed?: number
+  ) => void
+  walk: (direction: { x: number; z: number }, speed?: number) => void
+  teleport: (options: { position: THREE.Vector3; rotationY: number }) => void
+}
+
 // Define Navigation Constants
 const CONTROLS_TICK_INTERVAL = CONTROLS_CONFIG.TICK_INTERVAL_MS
 const NAVIGATION_STOP_DISTANCE = CONTROLS_CONFIG.NAVIGATION_STOP_DISTANCE
@@ -316,25 +325,25 @@ export class AgentControls extends System {
           }
 
           // Use physics-based movement if available, otherwise fallback to teleport
-          const playerAny = player as any
-          if (playerAny.walkToward) {
+          const controllablePlayer = player as ControllablePlayer
+          if (controllablePlayer.walkToward) {
             // Use physics-based walking toward target
             const targetPosition = {
               x: targetPos.x,
               y: currentPos.y,
               z: targetPos.z,
             }
-            playerAny.walkToward(targetPosition, 2.0) // 2 m/s walking speed
-          } else if (playerAny.walk) {
+            controllablePlayer.walkToward(targetPosition, 2.0) // 2 m/s walking speed
+          } else if (controllablePlayer.walk) {
             // Use physics-based directional walking
-            playerAny.walk(direction, 2.0)
-          } else if (playerAny.teleport) {
+            controllablePlayer.walk(direction, 2.0)
+          } else if (controllablePlayer.teleport) {
             // Fallback to teleport-based movement for compatibility
             const moveDistance = Math.min(1.0, distance)
             const newX = currentPos.x + direction.x * moveDistance
             const newZ = currentPos.z + direction.z * moveDistance
 
-            playerAny.teleport({
+            controllablePlayer.teleport({
               position: new THREE.Vector3(newX, currentPos.y, newZ),
               rotationY: Math.atan2(direction.x, direction.z),
             })
@@ -445,29 +454,29 @@ export class AgentControls extends System {
           }
 
           // Use physics-based movement for following
-          const playerAny = player as any
-          if (playerAny.walkToward) {
+          const controllablePlayer = player as ControllablePlayer
+          if (controllablePlayer.walkToward) {
             // Calculate target position that maintains follow distance
             const followDistance = FOLLOW_STOP_DISTANCE + 0.5 // Stay just outside the follow distance
             const targetDistance = Math.max(followDistance, distance - 1.0)
             const followX = targetPos.x - direction.x * targetDistance
             const followZ = targetPos.z - direction.z * targetDistance
 
-            playerAny.walkToward(
+            controllablePlayer.walkToward(
               { x: followX, y: currentPos.y, z: followZ },
               2.5
             )
-          } else if (playerAny.walk) {
+          } else if (controllablePlayer.walk) {
             // Use directional physics walking
-            playerAny.walk(direction, 2.5)
-          } else if (playerAny.teleport) {
+            controllablePlayer.walk(direction, 2.5)
+          } else if (controllablePlayer.teleport) {
             // Fallback to teleport-based movement
             const moveDistance = Math.min(2.0, distance - FOLLOW_STOP_DISTANCE)
             if (moveDistance > 0) {
               const newX = currentPos.x + direction.x * moveDistance
               const newZ = currentPos.z + direction.z * moveDistance
 
-              playerAny.teleport({
+              controllablePlayer.teleport({
                 position: new THREE.Vector3(newX, currentPos.y, newZ),
                 rotationY: Math.atan2(direction.x, direction.z),
               })

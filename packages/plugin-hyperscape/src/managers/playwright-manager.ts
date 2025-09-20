@@ -1,12 +1,15 @@
 import { IAgentRuntime } from '@elizaos/core'
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE, Player } from '@hyperscape/hyperscape'
 import fs, { promises as fsPromises } from 'fs'
 import path from 'path'
 import { chromium, Browser, Page, PageScreenshotOptions } from 'playwright'
 import { HyperscapeService } from '../service'
 import { getModuleDirectory, resolveUrl } from '../utils'
 import '../types/playwright-window.d.ts'
-import { Player } from '@hyperscape/hyperscape'
+
+interface AvatarLike {
+  url?: string
+}
 
 export class PlaywrightManager {
   private static instance: PlaywrightManager | null = null
@@ -384,7 +387,7 @@ export class PlaywrightManager {
         STRIP_SLOTS,
         players,
       }: {
-        sceneJson: any
+        sceneJson: Record<string, unknown>
         STRIP_SLOTS: readonly string[]
         players: Map<string, Player>
       }) => {
@@ -446,7 +449,7 @@ export class PlaywrightManager {
           const avatarKey =
             typeof player.avatar === 'string'
               ? player.avatar
-              : (player.avatar as any)?.url || ''
+              : (player.avatar as AvatarLike)?.url || ''
           const factory = window.avatarMap?.get(avatarKey)
           if (!factory) {
             return
@@ -474,8 +477,8 @@ export class PlaywrightManager {
 
         // Rehydrate environment
         if (window.environment) {
-          ;(loadedScene as any).environment = window.environment
-          ;(loadedScene as any).background = window.environment
+          ;(loadedScene as THREE.Scene).environment = window.environment
+          ;(loadedScene as THREE.Scene).background = window.environment
         }
 
         window.scene = loadedScene as THREE.Scene

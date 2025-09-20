@@ -50,11 +50,7 @@ export const ignoreAction: Action = {
     // If a callback and the agent's response content are available, call the callback
     if (callback && responses?.[0]?.content) {
       // Pass the agent's original response content (thought, IGNORE action, etc.)
-      await callback({
-        text: responses[0].content.text || '',
-        actions: ['IGNORE'],
-        source: 'hyperscape',
-      })
+      await callback(responses[0].content)
     }
 
     return {
@@ -65,18 +61,8 @@ export const ignoreAction: Action = {
     }
   },
   examples: [
-    [
-      {
-        user: 'Go screw yourself',
-        assistant: '',
-      },
-    ],
-    [
-      {
-        user: 'Shut up, bot',
-        assistant: '',
-      },
-    ],
+    [ {name: '{{user}}', content: {text: 'Go screw yourself'}}, {name: '{{agent}}', content: {text: '', actions: ['IGNORE'], thought: 'User is being rude'}} ],
+    [ {name: '{{user}}', content: {text: 'Shut up, bot'}}, {name: '{{agent}}', content: {text: '', actions: ['IGNORE'], thought: 'User is being rude'}} ],
 
     [
       {
@@ -293,6 +279,21 @@ export const ignoreAction: Action = {
         content: {
           thought:
             'User resolved their issue and no longer needs help - no response needed',
+          text: '',
+          actions: ['IGNORE'],
+        },
+      },
+    ],
+    [
+      {
+        name: '{{user}}',
+        content: {
+          text: 'bad word',
+        },
+      },
+      {
+        name: '{{agent}}',
+        content: {
           text: '',
           actions: ['IGNORE'],
         },

@@ -11,6 +11,10 @@ import {
 import { Entity, Player, World } from '@hyperscape/hyperscape'
 import { IAgentRuntime, Memory } from '@elizaos/core'
 
+type MockWebSocket = Partial<WebSocket>
+type MockFetch = typeof fetch
+type MockIntersectionObserver = Partial<IntersectionObserver>
+
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers)
 
@@ -70,12 +74,15 @@ afterEach(async () => {
 })
 
 // Mock WebSocket
-global.WebSocket = vi.fn(() => ({
-  send: vi.fn(),
-  close: vi.fn(),
-  addEventListener: vi.fn(),
-  removeEventListener: vi.fn(),
-})) as any
+global.WebSocket = vi.fn(
+  () =>
+    ({
+      send: vi.fn(),
+      close: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as MockWebSocket
+)
 
 // Mock fetch
 global.fetch = vi.fn(() =>
@@ -85,7 +92,7 @@ global.fetch = vi.fn(() =>
     text: () => Promise.resolve(''),
     headers: new Headers(),
   })
-) as any
+) as MockFetch
 
 // Mock console methods to reduce noise during tests
 global.console = {
@@ -113,12 +120,15 @@ Object.defineProperty(window, 'matchMedia', {
 })
 
 // Mock IntersectionObserver
-global.IntersectionObserver = vi.fn(() => ({
-  disconnect: vi.fn(),
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  takeRecords: vi.fn(),
-})) as any
+global.IntersectionObserver = vi.fn(
+  () =>
+    ({
+      disconnect: vi.fn(),
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      takeRecords: vi.fn(),
+    }) as MockIntersectionObserver
+)
 
 // Mock performance.now for consistent timing in tests
 let mockTime = 0
@@ -200,7 +210,7 @@ export const mockFetch = (response: any, ok = true, status = 200) => {
   Object.assign(mockFn, { preconnect: () => {} })
 
   // Type the mock function properly to match fetch interface
-  const typedMockFn = mockFn as any
+  const typedMockFn = mockFn as unknown as MockFetch
   global.fetch = typedMockFn
 }
 

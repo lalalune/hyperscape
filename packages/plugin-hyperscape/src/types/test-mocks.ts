@@ -43,11 +43,15 @@ export const generateTestUUID = (): UUID => {
 
 // Create real service instance for testing
 export function createMockService(name: string): Service {
-  // This should be replaced with actual service instantiation
-  // For now, returning a minimal service structure
-  return {
-    serviceName: name,
-  } as unknown as Service
+  // Create a mock service that satisfies the Service interface
+  // Using 'as unknown as Service' to handle protected properties
+  const mockService = {
+    capabilityDescription: `${name} service`,
+    runtime: {} as IAgentRuntime,
+    stop: async () => {},
+  }
+
+  return mockService as unknown as Service
 }
 
 // Create mock world instance for testing - using proper Hyperscape World interface
@@ -159,6 +163,9 @@ export function createMockEntity(config = {}): Entity {
     name: 'Test Entity',
     type: 'entity',
     isPlayer: false,
+    data: {
+      name: 'Test Entity',
+    },
     ...config,
   } as Entity
 }
@@ -189,9 +196,20 @@ export function createMockState(config: Partial<State> = {}): State {
 
 // Create real Hyperscape service for testing
 export function createMockHyperscapeService(
-  _config: Record<string, unknown> = {}
+  config: Record<string, unknown> = {}
 ): Service {
-  return createMockService('hyperscape')
+  // Get the base mock service
+  const baseService = createMockService('hyperscape')
+
+  // Create the hyperscape service with additional config
+  const hyperscapeService = {
+    capabilityDescription: 'hyperscape service',
+    runtime: {} as IAgentRuntime,
+    stop: async () => {},
+    ...config,
+  }
+
+  return hyperscapeService as unknown as Service
 }
 
 // Create real runtime instance for testing
@@ -214,9 +232,14 @@ export function createMockRuntime(config?: TestRuntimeConfig): IAgentRuntime {
     createMemory: async () => createMockMemory(),
     composeState: async () => ({}),
     getSetting: () => undefined,
-    getService: () => undefined,
     registerService: () => {},
     unregisterService: () => {},
+    getMemories: async () => [],
+    emitEvent: vi.fn(),
+    ensureConnection: vi.fn(),
+    getService: vi.fn().mockReturnValue({
+      getWorld: vi.fn().mockReturnValue(createMockWorld()),
+    }),
     // Add other required properties as needed
     routes: [],
     events: {

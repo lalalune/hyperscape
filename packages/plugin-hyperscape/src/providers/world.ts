@@ -5,9 +5,20 @@ import {
   type Memory,
   type Provider,
   type ProviderResult,
+  type Entity as ElizaEntity,
 } from '@elizaos/core'
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE, type ClientActions } from '@hyperscape/hyperscape'
 import { HyperscapeService } from '../service'
+
+interface ElizaEntityWithHyperscape extends ElizaEntity {
+  metadata?: {
+    hyperscape?: {
+      username?: string
+      name?: string
+    }
+    [key: string]: unknown
+  }
+}
 
 export const hyperscapeProvider: Provider = {
   name: 'HYPERSCAPE_WORLD_STATE',
@@ -63,7 +74,7 @@ export const hyperscapeProvider: Provider = {
           const quat = entity?.rotation
           const scale = entity?.scale
           const posStr =
-            pos && pos instanceof (THREE as any).Vector3
+            pos && pos instanceof THREE.Vector3
               ? `[${[pos.x, pos.y, pos.z].map(p => p.toFixed(2)).join(', ')}]`
               : 'N/A'
 
@@ -73,7 +84,7 @@ export const hyperscapeProvider: Provider = {
               : 'N/A'
 
           const scaleStr =
-            scale && scale instanceof (THREE as any).Vector3
+            scale && scale instanceof THREE.Vector3
               ? `[${[scale.x, scale.y, scale.z].map(s => s.toFixed(2)).join(', ')}]`
               : 'N/A'
 
@@ -103,19 +114,18 @@ export const hyperscapeProvider: Provider = {
       }
 
       const actionsSystem = world?.actions
-      const nearbyActions = (actionsSystem as any)?.getNearby(50) || []
-      const currentAction = (actionsSystem as { currentNode?: unknown })
-        ?.currentNode
+      const nearbyActions = (actionsSystem as any)?.getNearby ? (actionsSystem as any).getNearby(50) : []
+      const currentAction = (actionsSystem as any)?.currentNode
 
       const actionLines = nearbyActions.map((action: any) => {
         const entity = action.ctx?.entity
         const pos = entity?.root?.position
         const posStr =
-          pos && pos instanceof (THREE as any).Vector3
+          pos && pos instanceof THREE.Vector3
             ? `[${[pos.x, pos.y, pos.z].map(p => p.toFixed(2)).join(', ')}]`
             : 'N/A'
 
-        const label = action._label ?? 'Unnamed Action'
+        const label = action.label ?? 'Unnamed Action'
         const entityId = entity?.data?.id ?? 'unknown'
         const entityName = entity?.data?.name ?? 'Unnamed'
 
@@ -131,8 +141,8 @@ export const hyperscapeProvider: Provider = {
 
       const equipText = currentAction
         ? (() => {
-            const entity = (currentAction as any).ctx?.entity
-            const label = (currentAction as any)._label ?? 'Unnamed Action'
+            const entity = currentAction.ctx?.entity
+            const label = currentAction.label ?? 'Unnamed Action'
             const entityId = entity?.data?.id ?? 'unknown'
             const entityName = entity?.data?.name ?? 'Unnamed'
             return `## Your Equipped Item or Action\nYou are currently using:\n- Action: ${label}, Entity Name: ${entityName}, Entity ID: ${entityId}`
@@ -141,7 +151,10 @@ export const hyperscapeProvider: Provider = {
 
       const recentMessages = await messageManager.getRecentMessages(elizaRoomId)
       const formattedHistory = recentMessages
-        .map(m => `${(m as any).userId || 'Unknown'}: ${m.content.text}`)
+        .map(
+          m =>
+            `${(m.metadata as { userId?: string })?.userId || 'Unknown'}: ${m.content.text}`
+        )
         .join('\n')
       const lastResponseText = ''
       const lastActions = []
@@ -151,10 +164,12 @@ export const hyperscapeProvider: Provider = {
       const messageText = _message.content?.text?.trim()
       if (messageText) {
         const senderId = _message.entityId
-        const senderEntity = await runtime.getEntityById(senderId)
+        const senderEntity = (await runtime.getEntityById(
+          senderId
+        )) as ElizaEntityWithHyperscape | null
         const senderName =
-          (senderEntity?.metadata?.hyperscape as any)?.username ||
-          (senderEntity?.metadata?.hyperscape as any)?.name ||
+          senderEntity?.metadata?.hyperscape?.username ||
+          senderEntity?.metadata?.hyperscape?.name ||
           (senderEntity?.names || []).find(
             (n: string) => n.toLowerCase() !== 'anonymous'
           ) ||

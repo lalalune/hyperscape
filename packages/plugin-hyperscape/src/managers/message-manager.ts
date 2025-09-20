@@ -14,6 +14,32 @@ import {
   shouldRespond,
 } from '../utils/ai-helpers'
 
+type HyperscapePlayerData = Entity & {
+  metadata?: {
+    hyperscape?: {
+      name?: string
+    }
+  }
+  data: {
+    appearance?: {
+      avatar?: string
+    }
+    [key: string]: any
+  }
+}
+
+type ElizaEntityWithHyperscape = ElizaEntity & {
+  data?: {
+    name?: string
+  }
+  metadata?: {
+    hyperscape?: {
+      name?: string
+    }
+    [key: string]: any
+  }
+}
+
 interface MessageManagerInterface {
   processMessage(msg: ChatMessage): Promise<void>
   sendMessage(message: string): Promise<void>
@@ -80,12 +106,7 @@ export class MessageManager {
         roomId:
           (world.entities.player?.data?.id as UUID) ||
           (crypto.randomUUID() as UUID),
-        createdAt:
-          typeof msg.createdAt === 'string'
-            ? new Date(msg.createdAt).getTime()
-            : (msg.createdAt as any) instanceof Date
-              ? (msg.createdAt as any).getTime()
-              : new Date(msg.createdAt).getTime(),
+        createdAt: new Date(msg.createdAt).getTime(),
         metadata: {
           type: 'message',
           hyperscape: {
@@ -209,16 +230,18 @@ Generate a natural chat response that fits the conversation flow.
       // Create chat message
       const chatMessage: ChatMessage = {
         id: crypto.randomUUID(),
-        from: (player.data?.name ||
-          (player as any).metadata?.hyperscape?.name ||
-          'AI Agent') as string,
+        from:
+          player.data?.name ||
+          (player as HyperscapePlayerData).metadata?.hyperscape?.name ||
+          'AI Agent',
         userId: this.runtime.agentId,
         username: player.data.name || 'AI Agent',
         text: text,
         body: text,
         timestamp: Date.now(),
         createdAt: new Date().toISOString(),
-        avatar: (player.data.appearance as any)?.avatar,
+        avatar: (player.data as HyperscapePlayerData['data'])?.appearance
+          ?.avatar,
       }
 
       // Add message to chat system
@@ -269,8 +292,8 @@ Generate a natural chat response that fits the conversation flow.
               ? String(msg.metadata.username)
               : 'Unknown'
           const senderName =
-            (entity as any).data?.name ||
-            (entity as any).metadata?.hyperscape?.name ||
+            (entity as ElizaEntityWithHyperscape).data?.name ||
+            (entity as ElizaEntityWithHyperscape).metadata?.hyperscape?.name ||
             username
           const timestamp = new Date(
             msg.createdAt || Date.now()
@@ -351,7 +374,7 @@ Generate a natural chat response that fits the conversation flow.
       id: entity.id || 'unknown',
       name:
         entity.data.name ||
-        (entity as any).metadata?.hyperscape?.name ||
+        (entity as HyperscapePlayerData).metadata?.hyperscape?.name ||
         'Unknown',
       type: (entity.data.type as string) || 'entity',
       position: entity.position

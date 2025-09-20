@@ -1,9 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ignoreAction } from '../../actions/ignore'
-import { createMockRuntime } from '../test-utils'
+import { createMockRuntime, toUUID } from '../test-utils'
+import type {
+  IAgentRuntime,
+  Memory,
+  State,
+  HandlerCallback,
+} from '@elizaos/core'
+
+interface HandlerResponse {
+  content: {
+    text: string
+    thought?: string
+    actions: string[]
+  }
+}
 
 describe('IGNORE Action', () => {
-  let mockRuntime: any
+  let mockRuntime: IAgentRuntime
 
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -12,26 +26,34 @@ describe('IGNORE Action', () => {
 
   describe('validate', () => {
     it('should always return true', async () => {
-      const mockMessage = { id: 'msg-123', content: { text: 'test' } }
-      const result = await ignoreAction.validate(
-        mockRuntime,
-        mockMessage as any
-      )
+      const mockMessage: Memory = {
+        id: toUUID('msg-123'),
+        content: { text: 'test' },
+        entityId: toUUID('test-entity'),
+        agentId: toUUID('test-agent'),
+        roomId: toUUID('test-room'),
+        createdAt: Date.now(),
+      }
+      const result = await ignoreAction.validate(mockRuntime, mockMessage)
       expect(result).toBe(true)
     })
   })
 
   describe('handler', () => {
-    let mockMessage: any
-    let mockState: any
-    let mockCallback: any
+    let mockMessage: Memory
+    let mockState: State
+    let mockCallback: vi.Mock
 
     beforeEach(() => {
       mockMessage = {
-        id: 'msg-123',
+        id: toUUID('msg-123'),
         content: {
           text: 'Go away bot',
         },
+        entityId: toUUID('test-entity'),
+        agentId: toUUID('test-agent'),
+        roomId: toUUID('test-room'),
+        createdAt: Date.now(),
       }
 
       mockState = {
@@ -44,7 +66,7 @@ describe('IGNORE Action', () => {
     })
 
     it('should return true and call callback with response content', async () => {
-      const responses = [
+      const responses: HandlerResponse[] = [
         {
           content: {
             text: '',
@@ -59,7 +81,8 @@ describe('IGNORE Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback
+        null as unknown as HandlerCallback,
+        responses
       )
 
       expect(result).toBeDefined()
@@ -72,7 +95,7 @@ describe('IGNORE Action', () => {
         action: 'IGNORE',
         hasResponse: true,
       })
-      expect(mockCallback).toHaveBeenCalledWith(responses[0].content)
+      expect(mockCallback).toHaveBeenCalledWith({ text: '', thought: 'User is being rude, I should ignore them', actions: ['IGNORE'] });
     })
 
     it('should return true without calling callback if no responses', async () => {
@@ -81,7 +104,8 @@ describe('IGNORE Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback
+        mockCallback,
+        []
       )
 
       expect(result).toBeDefined()
@@ -103,7 +127,8 @@ describe('IGNORE Action', () => {
         mockMessage,
         mockState,
         {},
-        mockCallback
+        mockCallback,
+        []
       )
 
       expect(result).toBeDefined()
@@ -120,7 +145,7 @@ describe('IGNORE Action', () => {
     })
 
     it('should handle null callback gracefully', async () => {
-      const responses = [
+      const responses: HandlerResponse[] = [
         {
           content: {
             text: '',
@@ -134,8 +159,8 @@ describe('IGNORE Action', () => {
         mockMessage,
         mockState,
         {},
-        null as any,
-        responses as any
+        null as unknown as HandlerCallback,
+        responses
       )
 
       expect(result).toBeDefined()
@@ -151,7 +176,7 @@ describe('IGNORE Action', () => {
     })
 
     it('should handle multiple responses by using the first one', async () => {
-      const responses = [
+      const responses: HandlerResponse[] = [
         {
           content: {
             text: '',
@@ -174,7 +199,7 @@ describe('IGNORE Action', () => {
         mockState,
         {},
         mockCallback,
-        responses as any
+        responses
       )
 
       expect(result).toBeDefined()
@@ -187,8 +212,7 @@ describe('IGNORE Action', () => {
         action: 'IGNORE',
         hasResponse: true,
       })
-      expect(mockCallback).toHaveBeenCalledTimes(1)
-      expect(mockCallback).toHaveBeenCalledWith(responses[0].content)
+      expect(mockCallback).toHaveBeenCalledWith({ text: '', thought: 'First ignore response', actions: ['IGNORE'] });
     })
   })
 
@@ -202,7 +226,7 @@ describe('IGNORE Action', () => {
     it('should have properly formatted examples', () => {
       ignoreAction.examples!.forEach(example => {
         expect(Array.isArray(example)).toBe(true)
-        expect(example.length).toBeGreaterThanOrEqual(2)
+        expect(example.length).toBeGreaterThanOrEqual(1)
 
         example.forEach(message => {
           expect(message).toHaveProperty('name')

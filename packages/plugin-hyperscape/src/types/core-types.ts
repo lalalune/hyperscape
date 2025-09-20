@@ -1,27 +1,55 @@
 // Core types for plugin-hyperscape - consolidated and importing from hyperscape package
 import {
-  UUID,
-  IAgentRuntime,
-  Memory,
-  State,
-  HandlerCallback,
   Action,
+  IAgentRuntime,
   Provider,
   Service,
+  UUID
 } from '@elizaos/core'
 
 // Import classes and types from hyperscape package
-import { World, Entity, System } from '@hyperscape/hyperscape'
+import { System, World } from '@hyperscape/hyperscape'
 
 import type {
-  WorldOptions,
-  Vector3,
-  Quaternion,
   Component,
-  Physics,
-  Entities,
-  Events,
+  Events as BaseEvents,
+  Physics as BasePhysics,
+  Quaternion,
+  Vector3,
+  WorldOptions,
 } from '@hyperscape/hyperscape'
+
+// Import Entity and Entities from the main package but alias them to avoid conflicts
+import type { Entity as HyperscapeEntity, Entities as HyperscapeEntities } from '@hyperscape/hyperscape'
+
+// Import additional types that may not be in the built package
+import type { PlayerInput, PlayerStats } from '@hyperscape/hyperscape'
+
+// Define missing types locally
+export interface RigidBody {
+  type: 'static' | 'dynamic' | 'kinematic'
+  mass: number
+  position: Vector3
+  rotation: Quaternion
+  velocity: Vector3
+  angularVelocity: Vector3
+  applyForce(force: Vector3, point?: Vector3): void
+  applyImpulse(impulse: Vector3, point?: Vector3): void
+  setLinearVelocity(velocity: Vector3): void
+  setAngularVelocity(velocity: Vector3): void
+}
+
+export interface Avatar {
+  id: string
+  name: string
+  url?: string
+}
+
+export interface ChatListener {
+  (messages: ChatMessage[]): void
+}
+
+// Remove duplicate definitions - these are defined in other type files
 
 // Define ChatMessage interface locally since it's not exported from the built package
 export interface ChatMessage {
@@ -43,16 +71,52 @@ export interface ChatMessage {
 }
 
 // Re-export hyperscape classes and types for plugin use
-export { World, Entity, System }
+export { System, World }
 export type {
-  WorldOptions,
-  Vector3,
-  Quaternion,
   Component,
-  Physics,
-  Entities,
-  Events,
+  BaseEvents as Events, Quaternion, Vector3, WorldOptions,
+  PlayerInput, PlayerStats
 }
+
+// Re-export the aliased Entity type
+export type Entity = HyperscapeEntity & {
+  base?: {
+    position: Vector3
+    visible: boolean
+    children: unknown[]
+    parent: unknown | null
+  }
+}
+
+// Re-export the aliased Entities type
+export type Entities = HyperscapeEntities
+
+// Plugin-specific Physics interface - don't extend BasePhysics to avoid conflicts
+export interface ExtendedPhysics {
+  enabled: boolean
+  gravity: Vector3
+  timeStep: number
+  substeps?: number
+  world?: unknown | null
+  controllers: Map<string, CharacterController>
+  rigidBodies: Map<string, any>
+  
+  // Physics methods from BasePhysics
+  createRigidBody: (type: 'static' | 'dynamic' | 'kinematic', position?: Vector3, rotation?: Quaternion) => RigidBody
+  createCollider: (geometry: unknown, material?: unknown, isTrigger?: boolean) => unknown
+  createMaterial: (staticFriction?: number, dynamicFriction?: number, restitution?: number) => unknown
+  createLayerMask: (...layers: string[]) => number
+  sphereCast: (origin: Vector3, radius: number, direction: Vector3, maxDistance?: number, layerMask?: number) => unknown | null
+  raycast: (origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number) => unknown | null
+  sweep: (geometry: unknown, origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number) => unknown | null
+  simulate: (deltaTime: number) => void
+  
+  // Additional methods
+  step?: (deltaTime: number) => void
+}
+
+// Use the extended physics type
+export type Physics = ExtendedPhysics
 
 // Extended Player type with movement methods for plugin use
 export type Player = import('@hyperscape/hyperscape').Player & {
@@ -86,7 +150,7 @@ export interface NetworkSystem {
   broadcast?: (event: string, data: unknown) => void
   send: (event: string, data?: unknown) => void
   upload?: (file: File) => Promise<string>
-  disconnect?: () => Promise<void>
+  disconnect: () => Promise<void>
   maxUploadSize?: number
 }
 
@@ -106,24 +170,27 @@ export interface ChatSystem {
   clear?: () => void
 }
 
-// Event system types
+// Event system types - plugin-specific interface that supports array operations
 export interface EventSystem {
   listeners: Map<string, ((data: unknown) => void)[]>
   emit: (eventName: string, data?: unknown) => void
   on: (eventName: string, callback: (data: unknown) => void) => void
   off: (eventName: string, callback?: (data: unknown) => void) => void
+  // Additional array-like methods used in the service
+  push?: (callback: (data: unknown) => void) => void
+  indexOf?: (callback: (data: unknown) => void) => number
+  splice?: (index: number, count: number) => void
+  clear?: () => void
 }
 
-// World configuration
-export interface WorldConfig {
-  wsUrl: string
-  viewport: HTMLElement | MockElement
-  ui: HTMLElement | MockElement
+// World configuration - plugin-specific configuration that extends WorldOptions
+export interface WorldConfig extends WorldOptions {
+  viewport?: HTMLElement | MockElement
+  ui?: HTMLElement | MockElement
   initialAuthToken?: string
   loadPhysX?: () => Promise<unknown>
-  assetsUrl?: string
-  physics?: boolean
-  networkRate?: number
+  name?: string
+  avatar?: string
 }
 
 export interface MockElement {
@@ -272,6 +339,8 @@ export interface CharacterController {
   getPosition: () => Position
   getVelocity: () => Position
 }
+
+// CharacterControllerOptions is defined in content-types.ts
 
 // Control and InputState types for plugin compatibility
 export interface Control {

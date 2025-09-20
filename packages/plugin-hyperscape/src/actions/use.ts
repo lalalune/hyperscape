@@ -22,7 +22,7 @@ const useAction: Action = {
   name: 'use',
   description: 'Use, equip, or wield an item in the Hyperscape world',
   similes: ['use', 'equip', 'wield', 'activate', 'employ'],
-  examples: [],
+  examples: [ [ {name: 'user', content: {text: 'use sword'}}, {name: 'agent', content: {actions: ['USE'], text: 'Using sword'}} ], [ {name: 'user', content: {text: 'equip armor'}}, {name: 'agent', content: {actions: ['USE'], text: 'Equipping armor'}} ] ],
   validate: async (runtime: IAgentRuntime, message: Memory) => {
     return true
   },
@@ -69,21 +69,19 @@ Decide if this is a valid use action.
       modelType: ModelType.TEXT_SMALL,
     })
 
-    if (response && response.text.includes('yes')) {
-      const targetEntity = findEntityByName(world, params.target)
-      if (targetEntity) {
-        // Perform use action
-        console.info(`Using entity ${targetEntity.name}`)
-        return { success: true, text: `Successfully used ${params.target}` }
+    const itemName = response.text.trim();
+    if (itemName) {
+      const entity = findEntityByName(world, itemName);
+      if (entity && entity.data?.usable) {
+        const result = {success: true, text: `Used ${entity.name}`};
+        await callback({text: result.text, actions: ['HYPERSCAPE_USE'], source: 'hyperscape'});
+        return result;
       } else {
-        return {
-          success: false,
-          text: `Could not find ${params.target} to use`,
-        }
+        return {success: false, text: `Cannot use ${itemName}`};
       }
+    } else {
+      return {success: false, text: 'No item specified'};
     }
-
-    return { success: false, text: `Cannot use ${params.target}` }
   },
 }
 

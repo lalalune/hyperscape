@@ -24,9 +24,9 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "VITE_PORT=5555 PUBLIC_WS_URL=ws://localhost:4444/ws turbo run --filter=@hyperscape/hyperscape dev",
+    "dev": "VITE_PORT=3333 PUBLIC_WS_URL=ws://localhost:4444/ws turbo run --filter=@hyperscape/hyperscape dev",
     "start": "node start-hyperscape-agents.mjs",
-    "test": "turbo run --filter=@hyperscape/hyperscape test",
+    "test": "vitest run --config ./packages/hyperscape/vitest.config.ts",
     "test:client": "cd packages/hyperscape && node test-client.mjs",
     "test:headed": "turbo run --filter=@hyperscape/hyperscape test:headed",
     "lint": "turbo run lint",
@@ -38,13 +38,17 @@
     "@types/node": "^22.9.3",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
     "bun-types": "^1.2.20",
     "eslint": "^9.0.0",
     "jest": "^29.7.0",
     "prettier": "^3.6.2",
+    "puppeteer": "^24.22.0",
     "ts-jest": "^29.1.1",
     "turbo": "^2.5.5",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   },
   "overrides": {
     "@types/react": "^18.3.23",

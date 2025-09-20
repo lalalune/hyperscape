@@ -150,46 +150,46 @@ const rpgSystems: IGameSystem[] = [
   {
     id: 'rpg-combat',
     name: 'RPG Combat System',
+    type: 'combat',
     // dependencies: ['rpg-entity-manager', 'rpg-skills'],
-    // initialize: async (world: any) => {
-    // Integration with CombatSystem
-    // console.log('🗡️ RPG Combat System connected to ElizaOS agents')
-    // return true
-    // },
-    // shutdown: async () => {
-    // console.log('🗡️ RPG Combat System disconnected')
-    // },
-  } as any,
+    init: async (world: any) => {
+      // Integration with CombatSystem
+      // console.log('🗡️ RPG Combat System connected to ElizaOS agents')
+    },
+    cleanup: () => {
+      // console.log('🗡️ RPG Combat System disconnected')
+    },
+  },
 
   {
     id: 'rpg-inventory',
     name: 'RPG Inventory System',
+    type: 'inventory',
     // description: 'Manages player inventories and items',
     // dependencies: ['rpg-entity-manager', 'rpg-database'],
-    // initialize: async (world: any) => {
-    // Integration with InventorySystem
-    // console.log('🎒 RPG Inventory System connected to ElizaOS agents')
-    // return true
-    // },
-    // shutdown: async () => {
-    // console.log('🎒 RPG Inventory System disconnected')
-    // },
-  } as any,
+    init: async (world: any) => {
+      // Integration with InventorySystem
+      // console.log('🎒 RPG Inventory System connected to ElizaOS agents')
+    },
+    cleanup: () => {
+      // console.log('🎒 RPG Inventory System disconnected')
+    },
+  },
 
   {
     id: 'rpg-skills',
     name: 'RPG Skills System',
+    type: 'skills',
     // description: 'Handles skill progression and training',
     // dependencies: ['rpg-entity-manager', 'rpg-database'],
-    // initialize: async (world: any) => {
-    // Integration with SkillsSystem
-    // console.log('📈 RPG Skills System connected to ElizaOS agents')
-    // return true
-    // },
-    // shutdown: async () => {
-    // console.log('📈 RPG Skills System disconnected')
-    // },
-  } as any,
+    init: async (world: any) => {
+      // Integration with SkillsSystem
+      // console.log('📈 RPG Skills System connected to ElizaOS agents')
+    },
+    cleanup: () => {
+      // console.log('📈 RPG Skills System disconnected')
+    },
+  },
 
   // Note: This represents the bridge to all 54 polished RPG systems
   // Each system from our architectural revolution can be integrated here

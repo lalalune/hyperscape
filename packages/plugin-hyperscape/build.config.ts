@@ -30,6 +30,7 @@ export const buildConfig: BuildConfig = {
     'node:events',
     'node:url',
     'bun:test',
+    'bun:sqlite',
     'dotenv',
     'zod',
     'playwright',

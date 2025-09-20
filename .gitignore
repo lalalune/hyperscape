@@ -5,3 +5,4 @@ dist
 build
 *.log
 .DS_Store
+*.sqlite*

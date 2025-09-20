@@ -257,6 +257,25 @@ npm run test:visual        # Visual/screenshot tests
 npm run test:integration   # End-to-end gameplay tests
 ```
 
+### Development Mode
+```bash
+# Start development server with hot-reload
+npm run dev           
+# OR
+bun run dev
+
+# This starts:
+# - Client: http://localhost:3333 (Vite with HMR)
+# - Server: ws://localhost:4444/ws (Auto-rebuilds on TS changes)
+# - File watcher for automatic server restarts
+
+# The dev server will:
+# ✅ Automatically rebuild when you change TypeScript files
+# ✅ Restart the server after each rebuild
+# ✅ Hot-reload client changes instantly via Vite
+# ✅ Show colored logs for easy debugging
+```
+
 ## 🐛 **Troubleshooting**
 
 ### Common Issues

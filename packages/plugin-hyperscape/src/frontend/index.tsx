@@ -9,6 +9,12 @@ import React from 'react'
 import type { UUID } from '@elizaos/core'
 import { NETWORK_CONFIG } from '../config/constants'
 
+declare global {
+  interface Window {
+    ELIZA_CONFIG?: ElizaConfig
+  }
+}
+
 const queryClient = new QueryClient()
 
 // Define the interface for the ELIZA_CONFIG
@@ -83,7 +89,7 @@ function TimeDisplay({ apiBase }: { apiBase: string }) {
  * Main Example route component
  */
 function ExampleRoute() {
-  const config = (window as any).ELIZA_CONFIG as ElizaConfig | undefined
+  const config = window.ELIZA_CONFIG
   const agentId = config?.agentId
   const apiBase = config?.apiBase || NETWORK_CONFIG.DEFAULT_API_BASE
 
