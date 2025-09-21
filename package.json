@@ -24,7 +24,8 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "VITE_PORT=3333 PUBLIC_WS_URL=ws://localhost:4444/ws turbo run --filter=@hyperscape/hyperscape dev",
+    "dev": "VITE_PORT=3333 PUBLIC_WS_URL=ws://localhost:4444/ws cd packages/hyperscape && bun scripts/dev-final.mjs",
+    "dev:old": "VITE_PORT=3333 PUBLIC_WS_URL=ws://localhost:4444/ws turbo run --filter=@hyperscape/hyperscape dev",
     "start": "node start-hyperscape-agents.mjs",
     "test": "vitest run --config ./packages/hyperscape/vitest.config.ts",
     "test:client": "cd packages/hyperscape && node test-client.mjs",

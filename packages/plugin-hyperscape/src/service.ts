@@ -1053,8 +1053,10 @@ Hyperscape world integration service that enables agents to:
           `[HyperscapeService] Unregistering ${content.actions.length} actions from ${contentId}`
         )
         for (const action of content.actions) {
-          if (this.hasUnregisterAction(this.runtime)) {
-            await this.runtime.unregisterAction(action.name)
+          // Cast runtime to include unregisterAction
+          const runtimeWithUnregister = this.runtime as IAgentRuntime & { unregisterAction?: (name: string) => Promise<void> }
+          if (runtimeWithUnregister.unregisterAction) {
+            await runtimeWithUnregister.unregisterAction(action.name)
           } else if (
             this.runtime.actions &&
             Array.isArray(this.runtime.actions)
@@ -1076,8 +1078,10 @@ Hyperscape world integration service that enables agents to:
           `[HyperscapeService] Unregistering ${content.providers.length} providers from ${contentId}`
         )
         for (const provider of content.providers) {
-          if (this.hasUnregisterProvider(this.runtime)) {
-            await this.runtime.unregisterProvider(provider.name)
+          // Cast runtime to include unregisterProvider
+          const runtimeWithUnregisterProvider = this.runtime as IAgentRuntime & { unregisterProvider: (name: string) => Promise<void> }
+          if (runtimeWithUnregisterProvider.unregisterProvider) {
+            await runtimeWithUnregisterProvider.unregisterProvider(provider.name)
           } else if (
             this.runtime.providers &&
             Array.isArray(this.runtime.providers)
