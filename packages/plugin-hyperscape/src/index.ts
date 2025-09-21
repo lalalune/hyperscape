@@ -44,15 +44,14 @@ export const hyperscapePlugin: Plugin = {
       logger.info(`Hyperscape plugin config validated: ${JSON.stringify(validatedConfig)}`)
       // Store validated config for service use (runtime.pluginConfigs is usually the way)
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      const zodError = error as z.ZodError
+      // Assume it's a ZodError if it has an errors property
+      if (zodError.errors) {
         logger.error(
-          `Invalid Hyperscape plugin configuration: ${error.errors.map(e => e.message).join(', ')}`
+          `Invalid Hyperscape plugin configuration: ${zodError.errors.map(e => e.message).join(', ')}`
         )
-        // Decide if this is a fatal error
-        // throw new Error(`Invalid Hyperscape plugin configuration...`);
       } else {
         logger.error('Unknown error during Hyperscape plugin init:', error)
-        // throw error;
       }
       // Allow initialization to continue even if config fails, service might get config later
     }

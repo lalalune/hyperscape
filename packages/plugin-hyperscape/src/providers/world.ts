@@ -72,19 +72,19 @@ export const hyperscapeProvider: Provider = {
           const pos = entity?.position
           const quat = entity?.rotation
           const scale = entity?.scale
-          const posStr =
-            pos && pos instanceof THREE.Vector3
-              ? `[${[pos.x, pos.y, pos.z].map(p => p.toFixed(2)).join(', ')}]`
+          // Strong type assumption: if position exists, it has x, y, z
+          const posStr = pos
+              ? `[${[pos.x, pos.y, pos.z].map(p => Number(p).toFixed(2)).join(', ')}]`
               : 'N/A'
 
-          const quatStr =
-            quat && quat instanceof THREE.Quaternion
-              ? `[${[quat.x, quat.y, quat.z, quat.w].map(q => q.toFixed(4)).join(', ')}]`
+          // Strong type assumption: if quaternion exists, it has x, y, z, w
+          const quatStr = quat
+              ? `[${[quat.x, quat.y, quat.z, quat.w].map(q => Number(q).toFixed(4)).join(', ')}]`
               : 'N/A'
 
-          const scaleStr =
-            scale && scale instanceof THREE.Vector3
-              ? `[${[scale.x, scale.y, scale.z].map(s => s.toFixed(2)).join(', ')}]`
+          // Strong type assumption: if scale exists, it has x, y, z
+          const scaleStr = scale
+              ? `[${[scale.x, scale.y, scale.z].map(s => Number(s).toFixed(2)).join(', ')}]`
               : 'N/A'
 
           if (id === agentId) {
@@ -119,9 +119,9 @@ export const hyperscapeProvider: Provider = {
       const actionLines = nearbyActions.map((action: any) => {
         const entity = action.ctx?.entity
         const pos = entity?.root?.position
-        const posStr =
-          pos && pos instanceof THREE.Vector3
-            ? `[${[pos.x, pos.y, pos.z].map(p => p.toFixed(2)).join(', ')}]`
+        // Strong type assumption: if position exists, it has x, y, z
+        const posStr = pos
+            ? `[${[pos.x, pos.y, pos.z].map(p => Number(p).toFixed(2)).join(', ')}]`
             : 'N/A'
 
         const label = action.label ?? 'Unnamed Action'
