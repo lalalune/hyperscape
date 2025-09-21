@@ -9,16 +9,15 @@ import {
 } from '@elizaos/core'
 import { THREE, type ClientActions } from '@hyperscape/hyperscape'
 import { HyperscapeService } from '../service'
+import type { Entity as HyperscapeEntity, World as HyperscapeWorld } from '../types/core-types'
 
-interface ElizaEntityWithHyperscape extends ElizaEntity {
-  metadata?: {
-    hyperscape?: {
-      username?: string
-      name?: string
-    }
-    [key: string]: unknown
-  }
+export interface ElizaEntityWithHyperscape extends ElizaEntity {
+  hyperscape?: HyperscapeEntity
+  metadata: Record<string, unknown>
 }
+
+// Re-export Hyperscape types for convenience
+export type { HyperscapeEntity, HyperscapeWorld }
 
 export const hyperscapeProvider: Provider = {
   name: 'HYPERSCAPE_WORLD_STATE',
@@ -167,9 +166,10 @@ export const hyperscapeProvider: Provider = {
         const senderEntity = (await runtime.getEntityById(
           senderId
         )) as ElizaEntityWithHyperscape | null
+        const hypescapeMetadata = senderEntity?.metadata?.hyperscape as { username?: string; name?: string } | undefined
         const senderName =
-          senderEntity?.metadata?.hyperscape?.username ||
-          senderEntity?.metadata?.hyperscape?.name ||
+          (hypescapeMetadata as any)?.username ||
+          (hypescapeMetadata as any)?.name ||
           (senderEntity?.names || []).find(
             (n: string) => n.toLowerCase() !== 'anonymous'
           ) ||

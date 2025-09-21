@@ -195,8 +195,7 @@ export class VoiceManager {
         wavBuffer
       )
 
-      console.log('[VOICE MANAGER] Transcrtion: ', transcriptionText)
-      function isValidTranscription(text: string): boolean {
+            function isValidTranscription(text: string): boolean {
         if (!text || text.includes('[BLANK_AUDIO]')) {
           return false
         }

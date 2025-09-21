@@ -48,7 +48,7 @@ interface MovablePlayer extends Entity {
 }
 
 // Movement player interface
-interface MovementPlayer extends Player {
+interface _MovementPlayer extends Player {
   // Additional movement properties can be added here
 }
 
@@ -387,7 +387,7 @@ export class PlayerMovementSystem extends EventEmitter {
 
   private handleCollision(
     player: MovablePlayer,
-    movement: { target: Vector3; path?: Vector3[] }
+    _movement: { target: Vector3; path?: Vector3[] }
   ): void {
     // Try to slide along obstacle
     const slideVelocity = this.calculateSlideVelocity(player)

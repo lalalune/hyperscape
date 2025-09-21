@@ -28,7 +28,7 @@ export class BuildManager implements IBuildManager {
   /**
    * Create a new entity in the world
    */
-  createEntity(type: string, position: Vector3, data?: any): Entity | null {
+  createEntity(type: string, position: Vector3, data?: Record<string, unknown>): Entity | null {
     if (!this.world) {
       logger.warn('BuildManager: No world available for entity creation')
       return null
@@ -57,14 +57,14 @@ export class BuildManager implements IBuildManager {
       }
 
       // Add entity to world
-      const entity = entities.add(entityData)
-      if (entity) {
-        logger.info(
-          `BuildManager: Created entity ${entityData.id} of type ${type}`
-        )
-      }
+    const entity = entities.add(entityData) as Entity
+    if (entity) {
+      logger.info(
+        `BuildManager: Created entity ${entityData.id} of type ${type}`
+      )
+    }
 
-      return entityData
+    return entity
     } catch (error) {
       logger.error(`BuildManager: Failed to create entity: ${error}`)
       return null
@@ -104,7 +104,7 @@ export class BuildManager implements IBuildManager {
   /**
    * Update an entity with new data
    */
-  updateEntity(entityId: string, data: any): boolean {
+  updateEntity(entityId: string, data: Record<string, unknown>): boolean {
     if (!this.world) {
       logger.warn('BuildManager: No world available for entity update')
       return false
@@ -124,7 +124,7 @@ export class BuildManager implements IBuildManager {
       }
 
       // Update entity properties
-      Object.assign(entity, data)
+      Object.assign(entity.data, data)
       logger.info(`BuildManager: Updated entity ${entityId}`)
       return true
     } catch (error) {
@@ -138,7 +138,7 @@ export class BuildManager implements IBuildManager {
   /**
    * Check if building is allowed at a position
    */
-  canBuild(position: Vector3, type: string): boolean {
+  canBuild(position: Vector3, _type: string): boolean {
     if (!this.world) {
       return false
     }
@@ -268,7 +268,7 @@ export class BuildManager implements IBuildManager {
   /**
    * Rotate an entity
    */
-  rotate(entityId: string, rotation: any): boolean {
+  rotate(entityId: string, rotation: THREE.Quaternion): boolean {
     if (!this.world) {
       logger.warn('BuildManager: No world available for rotation')
       return false
@@ -383,7 +383,7 @@ export class BuildManager implements IBuildManager {
   /**
    * Import an entity from external data
    */
-  importEntity(entityData: any, position?: Vector3): Entity | null {
+  importEntity(entityData: Record<string, unknown>, position?: Vector3): Entity | null {
     if (!this.world) {
       logger.warn('BuildManager: No world available for entity import')
       return null
@@ -395,7 +395,7 @@ export class BuildManager implements IBuildManager {
 
       // Create entity from imported data
       const entity = this.createEntity(
-        entityData.type || 'group',
+        (entityData.type as string) || 'group',
         importPosition,
         entityData
       )

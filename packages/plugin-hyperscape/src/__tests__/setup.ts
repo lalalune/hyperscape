@@ -20,8 +20,7 @@ expect.extend(matchers)
 
 // Global test setup
 beforeAll(async () => {
-  console.log('[Test Setup] Initializing test environment...')
-
+  
   // Set up global test environment
   global.File = class MockFile extends Blob {
     name: string
@@ -55,23 +54,19 @@ beforeAll(async () => {
     },
   } as Crypto
 
-  console.log('[Test Setup] Global environment configured')
-})
+  })
 
 afterAll(async () => {
-  console.log('[Test Setup] Cleaning up test environment...')
-  // Cleanup if needed
+    // Cleanup if needed
 })
 
 beforeEach(async () => {
   // Reset any per-test state
-  console.log('[Test Setup] Setting up individual test...')
-})
+  })
 
 afterEach(async () => {
   // Cleanup after each test
-  console.log('[Test Setup] Cleaning up individual test...')
-})
+  })
 
 // Mock WebSocket
 global.WebSocket = vi.fn(

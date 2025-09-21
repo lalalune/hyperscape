@@ -163,8 +163,7 @@ export class ColorDetector {
       hexColor = `#${config.color.toString(16).padStart(6, '0').toUpperCase()}`
     } else {
       logger.warn(
-        `[ColorDetector] Invalid color config for entity ${entityType}:`,
-        config
+        `[ColorDetector] Invalid color config for entity ${entityType}: ${JSON.stringify(config)}` as string
       )
       return
     }

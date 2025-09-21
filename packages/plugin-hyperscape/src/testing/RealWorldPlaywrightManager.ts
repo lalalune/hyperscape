@@ -139,7 +139,7 @@ export class RealWorldPlaywrightManager {
       }
     })
 
-    logger.info(`[RealWorldPlaywrightManager] Canvas info:`, canvasInfo)
+    logger.info(`[RealWorldPlaywrightManager] Canvas info: ${JSON.stringify(canvasInfo)}` as string)
 
     if (canvasInfo && canvasInfo.uniqueColors > 10) {
       logger.info(

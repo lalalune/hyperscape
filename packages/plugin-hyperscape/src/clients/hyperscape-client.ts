@@ -35,8 +35,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
   }
 
   async stop(): Promise<void> {
-    console.log('[HyperscapeClient] Stopping...')
-    this.connected = false
+        this.connected = false
 
     if (this.reconnectInterval) {
       clearInterval(this.reconnectInterval)
@@ -55,8 +54,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
         this.ws = new WebSocket(this.url)
 
         this.ws.on('open', () => {
-          console.log('[HyperscapeClient] Connected to world')
-          this.connected = true
+                    this.connected = true
 
           // Send join message
           const character = this.runtime.character
@@ -91,16 +89,14 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
         })
 
         this.ws.on('close', () => {
-          console.log('[HyperscapeClient] Connection closed')
-          this.connected = false
+                    this.connected = false
           this.ws = null
 
           // Attempt reconnection
           if (!this.reconnectInterval) {
             this.reconnectInterval = setInterval(() => {
               if (!this.connected) {
-                console.log('[HyperscapeClient] Attempting reconnection...')
-                this.connect().catch(console.error)
+                                this.connect().catch(console.error)
               }
             }, 5000)
           }

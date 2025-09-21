@@ -18,6 +18,10 @@ interface Nametag extends THREE.Object3D {
   text: string
 }
 
+interface PlayerEffect {
+  emote?: string | null
+}
+
 interface ParentNode extends THREE.Object3D {
   position: THREE.Vector3
   quaternion: THREE.Quaternion
@@ -33,10 +37,6 @@ interface ProxyNode extends THREE.Object3D {
   refCount?: number
 }
 
-interface PlayerEffect {
-  emote?: string
-}
-
 // Create a base Node class since @hyperscape/hyperscape is not available
 class Node extends THREE.Object3D {
   ctx: NodeContext
@@ -45,21 +45,6 @@ class Node extends THREE.Object3D {
     this.ctx = ctx
   }
   setDirty() {}
-}
-
-type MaterialCallback = (material: THREE.Material) => void
-
-function forEachMaterial(scene: THREE.Object3D, fn: MaterialCallback) {
-  scene.traverse(obj => {
-    const mesh = obj as THREE.Mesh
-    if (mesh.material) {
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach(fn)
-      } else {
-        fn(mesh.material)
-      }
-    }
-  })
 }
 
 interface AnimationFactory {
@@ -75,9 +60,9 @@ interface EmotePlayerNode extends THREE.Group {
 // Local implementation of createEmotePlayerNodes
 // This is a placeholder implementation since it's not available in hyperscape
 function createEmotePlayerNodes(
-  factory: AnimationFactory,
-  objects: THREE.Object3D[],
-  autoplay: boolean
+  _factory: AnimationFactory,
+  _objects: THREE.Object3D[],
+  _autoplay: boolean
 ): EmotePlayerNode {
   // Return a simple object that can be added to the scene
   const group = new THREE.Group() as EmotePlayerNode
@@ -180,17 +165,15 @@ export class AgentAvatar extends Node {
   // --- Placeholder Methods ---
   // These would handle animations and updates in a real implementation
 
-  tick(delta: number) {
-    if (!this.mixer) {
-    }
+  tick(_delta: number) {
     // Mixer update logic
   }
 
-  update(delta: number) {
+  update(_delta: number) {
     // Movement and rotation logic
   }
 
-  lateUpdate(delta: number) {
+  lateUpdate(_delta: number) {
     // Position and scale updates
     if (this.model && this.player) {
       this.position.x = this.parent?.position.x || 0
@@ -205,20 +188,23 @@ export class AgentAvatar extends Node {
       // Handle animations
       if (this.mixer) {
         const isRunning = false // Placeholder for run detection
-        const walkSpeed = isRunning ? 0 : 1
-        const runSpeed = isRunning ? 1 : 0
+        const _walkSpeed = isRunning ? 0 : 1
+        const _runSpeed = isRunning ? 1 : 0
 
         // Update animation weights
         // this.idleClip?.setEffectiveWeight(this.isMoving ? 0 : 1);
         // this.walkClip?.setEffectiveWeight(this.isMoving ? walkSpeed : 0);
         // this.runClip?.setEffectiveWeight(this.isMoving ? runSpeed : 0);
       }
-    }
 
-    // Emote handling
-    if (this.player && this.player.data.effect?.emote !== this.emote) {
-      this.emote = this.player.data.effect?.emote || null
-      this.updateEmote()
+      // Emote handling
+      if (this.player) {
+        const effect = (this.player as any).data?.effect as PlayerEffect | undefined
+        if (effect?.emote !== this.emote) {
+          this.emote = effect?.emote || null
+          this.updateEmote()
+        }
+      }
     }
   }
 

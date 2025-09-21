@@ -354,11 +354,11 @@ export class EnvironmentSystem extends System {
     }
   }
 
-  update(delta: number) {
+  update(_delta: number) {
     this.csm?.update()
   }
 
-  lateUpdate(delta: number) {
+  lateUpdate(_delta: number) {
     if (!this.sky) {
       return
     }
@@ -412,7 +412,7 @@ export class EnvironmentSystem extends System {
     }
   }
 
-  onPrefsChange = (changes: Record<string, any>) => {
+  onPrefsChange = (changes: Record<string, unknown>) => {
     if (changes.shadows) {
       this.buildCSM()
       this.updateSky()

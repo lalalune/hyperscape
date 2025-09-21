@@ -51,20 +51,17 @@ export class AgentLiveKit extends System {
       '[LiveKit] LiveKit support is not available - running in stub mode'
     )
     // Stub implementation - no actual connection
-    console.log('[LiveKit] Stub: Would connect to room with wsUrl:', opts.wsUrl)
-  }
+      }
 
   async stop(): Promise<void> {
-    console.log('[LiveKit] Stub: Stopping')
-    this.room = null
+        this.room = null
     this.audioSource = null
     this.localTrack = null
   }
 
   private setupRoomEvents(): void {
     // Stub implementation
-    console.log('[LiveKit] Stub: Room events setup')
-  }
+      }
 
   // Framework stubs
   preTick() {}

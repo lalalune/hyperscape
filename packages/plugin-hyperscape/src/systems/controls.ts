@@ -3,13 +3,13 @@ import type { Player } from '@hyperscape/hyperscape'
 import type { Control, InputState } from '../types/core-types'
 import { THREE } from '@hyperscape/hyperscape'
 
-const FORWARD = new THREE.Vector3(0, 0, -1)
-const v1 = new THREE.Vector3()
-const v2 = new THREE.Vector3()
-const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
-const e2 = new THREE.Euler(0, 0, 0, 'YXZ')
-const q1 = new THREE.Quaternion()
-const q2 = new THREE.Quaternion()
+const _FORWARD = new THREE.Vector3(0, 0, -1)
+const _v1 = new THREE.Vector3()
+const _v2 = new THREE.Vector3()
+const _e1 = new THREE.Euler(0, 0, 0, 'YXZ')
+const _e2 = new THREE.Euler(0, 0, 0, 'YXZ')
+const _q1 = new THREE.Quaternion()
+const _q2 = new THREE.Quaternion()
 
 import { CONTROLS_CONFIG } from '../config/constants'
 import { logger } from '@elizaos/core'
@@ -27,8 +27,8 @@ interface ControllablePlayer extends Player {
 const CONTROLS_TICK_INTERVAL = CONTROLS_CONFIG.TICK_INTERVAL_MS
 const NAVIGATION_STOP_DISTANCE = CONTROLS_CONFIG.NAVIGATION_STOP_DISTANCE
 const FOLLOW_STOP_DISTANCE = CONTROLS_CONFIG.FOLLOW_STOP_DISTANCE
-const RANDOM_WALK_DEFAULT_INTERVAL = CONTROLS_CONFIG.TICK_INTERVAL_MS * 50 // 5 seconds default
-const RANDOM_WALK_DEFAULT_MAX_DISTANCE = 7 // meters
+const _RANDOM_WALK_DEFAULT_INTERVAL = CONTROLS_CONFIG.TICK_INTERVAL_MS * 50 // 5 seconds default
+const _RANDOM_WALK_DEFAULT_MAX_DISTANCE = 7 // meters
 
 // Extend shared InputState with additional properties needed by controls
 interface ButtonState {
@@ -178,7 +178,7 @@ export class AgentControls extends System {
   }
 
   // Implement required System interface methods
-  async init(options?: unknown): Promise<void> {
+  async init(_options?: unknown): Promise<void> {
     // Initialize the controls system
   }
 
@@ -192,13 +192,13 @@ export class AgentControls extends System {
 
   // Required System interface update cycle methods
   preTick(): void {}
-  preFixedUpdate(willFixedStep: boolean): void {}
-  fixedUpdate(delta: number): void {}
-  postFixedUpdate(delta: number): void {}
-  preUpdate(alpha: number): void {}
-  update(delta: number): void {}
-  postUpdate(delta: number): void {}
-  lateUpdate(delta: number): void {}
+  preFixedUpdate(_willFixedStep: boolean): void {}
+  fixedUpdate(_delta: number): void {}
+  postFixedUpdate(_delta: number): void {}
+  preUpdate(_alpha: number): void {}
+  update(_delta: number): void {}
+  postUpdate(_delta: number): void {}
+  lateUpdate(_delta: number): void {}
   commit(): void {}
   postTick(): void {}
 
@@ -215,7 +215,7 @@ export class AgentControls extends System {
     const state = this[keyName] as ButtonState
 
     // Check if the state actually changed to avoid redundant updates
-    const changed = state.down !== isDown
+    const _changed = state.down !== isDown
 
     if (isDown && !state.down) {
       state.pressed = true
@@ -234,7 +234,7 @@ export class AgentControls extends System {
 
   // Reset pressed/released flags at the end of the frame
   // This is important for detecting single presses/releases
-  postLateUpdate(delta: number): void {
+  postLateUpdate(_delta: number): void {
     for (const key in this) {
       if (
         Object.prototype.hasOwnProperty.call(this, key) &&

@@ -114,12 +114,17 @@ export class EmoteManager {
       return
     }
 
-    const agentPlayer = world.entities.player
+    const agentPlayer = world.entities.player as Player | undefined
+    if (!agentPlayer) return
+
     // Ensure effect object exists with emote property
-    if (!agentPlayer.data.effect) {
-      agentPlayer.data.effect = { emote: emoteName }
+    const playerData = (agentPlayer as any).data
+    if (!playerData) {
+      (agentPlayer as any).data = { effect: { emote: emoteName } }
+    } else if (!playerData.effect) {
+      playerData.effect = { emote: emoteName }
     } else {
-      agentPlayer.data.effect.emote = emoteName
+      playerData.effect.emote = emoteName
     }
 
     console.info(`[Emote] Playing '${emoteName}'`)
@@ -141,9 +146,10 @@ export class EmoteManager {
     }, 100)
 
     this.currentEmoteTimeout = setTimeout(() => {
+      const data = (agentPlayer as any).data
       if (
-        agentPlayer.data.effect &&
-        agentPlayer.data.effect.emote === emoteName
+        data?.effect &&
+        data.effect.emote === emoteName
       ) {
         logger.info(`[EmoteManager] '${emoteName}' finished after ${duration}s`)
         this.clearEmote(agentPlayer)
@@ -152,8 +158,9 @@ export class EmoteManager {
   }
 
   private clearEmote(player: Player) {
-    if (player.data?.effect) {
-      player.data.effect.emote = null
+    const data = (player as any).data as { effect?: { emote?: string | null } }
+    if (data?.effect) {
+      data.effect.emote = null
     }
     this.clearTimers()
   }
