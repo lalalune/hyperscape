@@ -22,7 +22,7 @@ const execAsync = promisify(exec)
 
 // Configuration
 const CONFIG = {
-  HYPERSCAPE_SERVER_PORT: 4444,
+  HYPERSCAPE_SERVER_PORT: 5555,
   HYPERSCAPE_SERVER_HOST: 'localhost',
   TEST_TIMEOUT: 180000, // 3 minutes
   SERVER_START_TIMEOUT: 30000, // 30 seconds

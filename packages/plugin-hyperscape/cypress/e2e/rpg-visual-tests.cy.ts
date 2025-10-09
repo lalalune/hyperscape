@@ -18,7 +18,7 @@ const VISUAL_COLORS = {
 describe('Hyperscape RPG Visual Tests', () => {
   beforeEach(() => {
     // Connect to Hyperscape world
-    cy.visit('http://localhost:4444');
+    cy.visit('http://localhost:5555');
     
     // Wait for world to load
     cy.get('#hyperscape-world-canvas', { timeout: 10000 }).should('be.visible');

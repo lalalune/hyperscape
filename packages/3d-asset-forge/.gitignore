@@ -1,0 +1,172 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+env.local
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+out/
+*.local
+
+# TypeScript
+*.tsbuildinfo
+.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Prevent accidental TypeScript compilation in source directories
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
+cli/**/*.js
+cli/**/*.d.ts
+cli/**/*.js.map
+cli/**/*.d.ts.map
+# Root level TypeScript generated files
+vite.config.js
+vite.config.d.ts
+vite.config.js.map
+vite.config.d.ts.map
+
+# Testing
+coverage/
+*.lcov
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# IDE and editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+.temp/
+.tmp/
+
+# Cache
+.npm
+.eslintcache
+.stylelintcache
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Production builds
+*.production
+*.production.js
+*.production.ts
+
+# Misc
+*.pem
+.history/
+.happypack/
+bower_components/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Generated files
+generated/
+auto-generated/
+
+# Certificates
+*.p12
+*.key
+*.crt
+*.csr
+*.der
+*.pem
+
+# Backup files
+*.backup
+*_backup.*
+backup/
+
+# Asset directories - ignore contents but keep directories
+gdd-assets/*
+!gdd-assets/.gitkeep
+temp-images/*
+!temp-images/.gitkeep
+
+# Lock files (optional - some teams commit these)
+# Uncomment if you don't want to commit lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+SCRATCHPAD.md

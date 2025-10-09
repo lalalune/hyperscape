@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+- Never use defensive programming, we want to fail fast and hrd so that we alwasy see our errors clearly.
+- Do not make new files when fixing existing features, always fix the issues within the file we already have unless instructed otherwise.
+- Never us the "any" or "unknown" types, always use strong types.
+- Use zustand for state management.
+- Always modularize frontend code into componenets when it makes sense.
+- Put constants into our constants folder.
+- always use common componenets when designing new ui elements.

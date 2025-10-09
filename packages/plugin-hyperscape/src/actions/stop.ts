@@ -59,7 +59,8 @@ export const hyperscapeStopMovingAction: Action = {
       }
     }
 
-    if (!controls.stopAllActions) {
+    const agentControls = controls as { stopAllActions?: () => void }
+    if (typeof agentControls.stopAllActions !== 'function') {
       if (callback) {
         await callback({
           text: 'Error: Stop functionality not available in controls.',
@@ -78,7 +79,7 @@ export const hyperscapeStopMovingAction: Action = {
 
     try {
       // Call the stop navigation method
-      controls.stopAllActions()
+      agentControls.stopAllActions()
 
       if (callback) {
         const successResponse = {

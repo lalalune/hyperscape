@@ -1,0 +1,102 @@
+[
+  {
+    "id": "bronze",
+    "name": "bronze",
+    "displayName": "Bronze",
+    "category": "metal",
+    "tier": 1,
+    "color": "#CD7F32",
+    "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
+    "description": "Basic copper-brown metal, entry-level equipment"
+  },
+  {
+    "id": "steel",
+    "name": "steel",
+    "displayName": "Steel",
+    "category": "metal",
+    "tier": 2,
+    "color": "#C0C0C0",
+    "stylePrompt": "steel metal texture, silver gray color, polished metallic finish, RuneScape 2007 style",
+    "description": "Silver-gray metal, intermediate quality equipment"
+  },
+  {
+    "id": "mithril",
+    "name": "mithril",
+    "displayName": "Mithril",
+    "category": "metal",
+    "tier": 3,
+    "color": "#4169E1",
+    "stylePrompt": "mithril metal texture, blue-gray color with magical shimmer, fantasy metallic finish, RuneScape 2007 style",
+    "description": "Magical blue-gray metal, high-quality equipment"
+  },
+  {
+    "id": "leather",
+    "name": "leather",
+    "displayName": "Leather",
+    "category": "leather",
+    "tier": 1,
+    "color": "#8B4513",
+    "stylePrompt": "brown leather texture, natural cowhide, worn leather finish, RuneScape 2007 style",
+    "description": "Basic brown leather, entry-level armor"
+  },
+  {
+    "id": "hard-leather",
+    "name": "hard-leather",
+    "displayName": "Hard Leather",
+    "category": "leather",
+    "tier": 2,
+    "color": "#654321",
+    "stylePrompt": "hardened brown leather texture, reinforced cowhide, sturdy leather finish, RuneScape 2007 style",
+    "description": "Reinforced leather, improved protection"
+  },
+  {
+    "id": "studded-leather",
+    "name": "studded-leather",
+    "displayName": "Studded Leather",
+    "category": "leather",
+    "tier": 3,
+    "color": "#8B4513",
+    "stylePrompt": "studded leather texture, brown leather with metal studs, reinforced leather finish, RuneScape 2007 style",
+    "description": "Leather reinforced with metal studs"
+  },
+  {
+    "id": "wood",
+    "name": "wood",
+    "displayName": "Wood",
+    "category": "wood",
+    "tier": 1,
+    "color": "#DEB887",
+    "stylePrompt": "light wood texture, natural pine color, basic wooden finish, RuneScape 2007 style",
+    "description": "Basic light wood, entry-level equipment"
+  },
+  {
+    "id": "oak",
+    "name": "oak",
+    "displayName": "Oak",
+    "category": "wood",
+    "tier": 2,
+    "color": "#8B4513",
+    "stylePrompt": "oak wood texture, medium brown color, solid wooden finish, RuneScape 2007 style",
+    "description": "Strong oak wood, intermediate quality"
+  },
+  {
+    "id": "willow",
+    "name": "willow",
+    "displayName": "Willow",
+    "category": "wood",
+    "tier": 3,
+    "color": "#9ACD32",
+    "stylePrompt": "willow wood texture, pale yellow-green color, flexible wooden finish, RuneScape 2007 style",
+    "description": "Flexible willow wood, good for bows"
+  },
+  {
+    "id": "dragon",
+    "name": "dragon",
+    "displayName": "Dragon",
+    "category": "custom",
+    "tier": 10,
+    "color": "#fa0000",
+    "stylePrompt": "Dragon metal texture, red with matte finish, RuneScape 2007 style",
+    "description": "Custom material"
+  }
+]

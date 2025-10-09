@@ -6,7 +6,7 @@
 // Network Configuration
 export const NETWORK_CONFIG = {
   DEFAULT_WS_URL: process.env.WS_URL || 'wss://chill.hyperscape.xyz/ws',
-  DEFAULT_API_BASE: process.env.API_BASE || 'http://localhost:4444',
+  DEFAULT_API_BASE: process.env.API_BASE || 'http://localhost:5555',
   RETRY_DELAY_MS: parseInt(process.env.RETRY_DELAY_MS || '5000'),
   CONNECTION_TIMEOUT_MS: parseInt(process.env.CONNECTION_TIMEOUT_MS || '10000'),
   UPLOAD_TIMEOUT_MS: parseInt(process.env.UPLOAD_TIMEOUT_MS || '30000'),
@@ -40,7 +40,7 @@ export const CONTROLS_CONFIG = {
   ),
   FOLLOW_STOP_DISTANCE: parseFloat(process.env.FOLLOW_STOP_DISTANCE || '2.5'),
   ACTION_DEFAULT_DURATION_MS: parseInt(
-    process.env.ACTION_DURATION_MS || '4444'
+    process.env.ACTION_DURATION_MS || '5555'
   ),
 } as const
 
@@ -49,7 +49,7 @@ export const GAME_CONFIG = {
   KILL_COOLDOWN_MS: parseInt(process.env.KILL_COOLDOWN_MS || '20000'),
   BUBBLE_DURATION_MS: parseInt(process.env.BUBBLE_DURATION_MS || '5000'),
   OBSERVATION_DURATION_MS: parseInt(
-    process.env.OBSERVATION_DURATION_MS || '4444'
+    process.env.OBSERVATION_DURATION_MS || '5555'
   ),
 } as const
 
@@ -62,7 +62,7 @@ export const VOICE_CONFIG = {
 // Testing Configuration
 export const TEST_CONFIG = {
   DEFAULT_TIMEOUT_MS: parseInt(process.env.TEST_TIMEOUT_MS || '5000'),
-  WAIT_DURATION_MS: parseInt(process.env.TEST_WAIT_MS || '4444'),
+  WAIT_DURATION_MS: parseInt(process.env.TEST_WAIT_MS || '5555'),
   LONG_WAIT_DURATION_MS: parseInt(process.env.TEST_LONG_WAIT_MS || '5000'),
   GAME_DURATION_MS: parseInt(process.env.TEST_GAME_DURATION_MS || '300000'), // 5 minutes
 } as const
