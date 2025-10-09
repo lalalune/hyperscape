@@ -1,0 +1,70 @@
+{
+  "__comment": "Asset type specific prompts - separated by generation type (avatar/item)",
+  "version": "2.0.0",
+  "avatar": {
+    "default": {
+      "character": {
+        "name": "Character",
+        "prompt": "",
+        "placeholder": "Show the full character in T-pose, front view on neutral background"
+      },
+      "humanoid": {
+        "name": "Humanoid",
+        "prompt": "",
+        "placeholder": "Show the humanoid character in T-pose with clear proportions"
+      },
+      "npc": {
+        "name": "NPC",
+        "prompt": "",
+        "placeholder": "Show the NPC character in T-pose, ready for animation"
+      },
+      "creature": {
+        "name": "Creature",
+        "prompt": "",
+        "placeholder": "Show the creature in a neutral pose displaying its features"
+      }
+    },
+    "custom": {}
+  },
+  "item": {
+    "default": {
+      "weapon": {
+        "name": "Weapon",
+        "prompt": "",
+        "placeholder": "Show the full weapon clearly on a neutral background"
+      },
+      "armor": {
+        "name": "Armor",
+        "prompt": "",
+        "placeholder": "Show the armor piece clearly, shaped for T-pose fitting"
+      },
+      "tool": {
+        "name": "Tool",
+        "prompt": "",
+        "placeholder": "Show the tool from a clear angle displaying its functionality"
+      },
+      "building": {
+        "name": "Building",
+        "prompt": "",
+        "placeholder": "Show the building structure from an isometric view"
+      },
+      "consumable": {
+        "name": "Consumable",
+        "prompt": "",
+        "placeholder": "Show the consumable item clearly with recognizable features"
+      },
+      "resource": {
+        "name": "Resource",
+        "prompt": "",
+        "placeholder": "Show the resource material or item in detail"
+      }
+    },
+    "custom": {
+      "test": {
+        "name": "test",
+        "prompt": "test",
+        "placeholder": "test"
+      }
+    }
+  }
+}

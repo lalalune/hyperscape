@@ -1,0 +1,4 @@
+{
+  "ignores": ["autoprefixer", "postcss", "tailwindcss"],
+  "skip-missing": false
+} 

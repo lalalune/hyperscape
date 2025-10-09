@@ -531,4 +531,11 @@ export class AgentControls extends System {
     // Random walk stop implementation needed
     logger.info('[AgentControls] Random walk stopped (not yet implemented)')
   }
+
+  /**
+   * Check if currently walking randomly
+   */
+  getIsWalkingRandomly(): boolean {
+    return this._isRandomWalking
+  }
 }

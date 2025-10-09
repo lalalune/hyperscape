@@ -56,7 +56,7 @@ interface TimeResponse {
 }
 
 const PanelComponent: React.FC<{ agentId: string }> = ({ agentId }) => {
-  const apiBase = window.ELIZA_CONFIG?.apiBase || 'http://localhost:4444';
+  const apiBase = window.ELIZA_CONFIG?.apiBase || 'http://localhost:5555';
 
   const {
     data: timeData,
@@ -152,7 +152,7 @@ describe('PanelComponent Tests', () => {
       cy.window().then((win) => {
         win.ELIZA_CONFIG = {
           agentId: 'test-agent',
-          apiBase: 'http://localhost:4444',
+          apiBase: 'http://localhost:5555',
         };
       });
     });

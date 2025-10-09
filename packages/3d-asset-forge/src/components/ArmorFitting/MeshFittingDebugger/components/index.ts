@@ -1,0 +1,5 @@
+export { RangeInput } from './RangeInput'
+export { Scene } from './Scene'
+export { AvatarArmorDemo } from './AvatarArmorDemo'
+export { HelmetDemo } from './HelmetDemo'
+export { BasicDemo } from './BasicDemo'
