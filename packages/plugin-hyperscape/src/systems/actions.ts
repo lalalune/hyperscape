@@ -101,8 +101,9 @@ export class AgentActions extends System {
       return
     }
 
-    if (control.setKey) {
-      control.setKey('keyE', true)
+    const agentControl = control as { setKey?: (key: string, value: boolean) => void }
+    if (agentControl.setKey) {
+      agentControl.setKey('keyE', true)
     }
 
     const player = this.world.entities.player
@@ -116,8 +117,8 @@ export class AgentActions extends System {
       target._onTrigger!({
         playerId: player.data.id,
       })
-      if (control.setKey) {
-        control.setKey('keyE', false)
+      if (agentControl.setKey) {
+        agentControl.setKey('keyE', false)
       }
       this.currentNode = target
     }, target._duration ?? CONTROLS_CONFIG.ACTION_DEFAULT_DURATION_MS)
@@ -130,7 +131,19 @@ export class AgentActions extends System {
     }
 
     console.log('Releasing current action.')
-    const control = this.world.controls
+    interface KeyState {
+      pressed?: boolean;
+      released?: boolean;
+      onPress?: () => void;
+      onRelease?: () => void;
+    }
+    
+    interface ControlsWithKeys {
+      setKey?: (key: string, value: boolean) => void;
+      keyX?: KeyState;
+    }
+    
+    const control = this.world.controls as ControlsWithKeys | undefined
     if (!control) {
       console.log('Controls not available')
       return
@@ -139,14 +152,15 @@ export class AgentActions extends System {
     if (control.setKey) {
       control.setKey('keyX', true)
     }
-    // Check if keyX property exists after setKey call
-    if ('keyX' in control && control.keyX && typeof control.keyX === 'object') {
+    
+    // Trigger key press callbacks
+    if (control.keyX) {
       const keyX = control.keyX
-      if ('pressed' in keyX) {
+      if (keyX.pressed !== undefined) {
         keyX.pressed = true
       }
-      if ('onPress' in keyX && typeof (keyX as { onPress?: () => void }).onPress === 'function') {
-        ;(keyX as { onPress: () => void }).onPress()
+      if (keyX.onPress) {
+        keyX.onPress()
       }
     }
 
@@ -157,18 +171,15 @@ export class AgentActions extends System {
       if (control.setKey) {
         control.setKey('keyX', false)
       }
-      // Check if keyX property exists after setKey call
-      if (
-        'keyX' in control &&
-        control.keyX &&
-        typeof control.keyX === 'object'
-      ) {
+      
+      // Trigger key release callbacks
+      if (control.keyX) {
         const keyX = control.keyX
-        if ('released' in keyX) {
-          ;(keyX as { released?: boolean }).released = false
+        if (keyX.released !== undefined) {
+          keyX.released = false
         }
-        if ('onRelease' in keyX && typeof (keyX as { onRelease?: () => void }).onRelease === 'function') {
-          ;(keyX as { onRelease: () => void }).onRelease()
+        if (keyX.onRelease) {
+          keyX.onRelease()
         }
       }
       this.currentNode = null

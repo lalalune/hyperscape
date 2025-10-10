@@ -11,7 +11,7 @@ npm run build
 npm start
 ```
 
-**Then open your browser to: `http://localhost:4444`**
+**Then open your browser to: `http://localhost:5555`**
 
 ## 🌟 **What Is This?**
 
@@ -68,7 +68,7 @@ npm start          # Start the RPG server
 ```
 
 ### 2. Join the World
-- Open browser to **`http://localhost:4444`**
+- Open browser to **`http://localhost:5555`**
 - Your character spawns in a random starter town
 - You start with a bronze sword and basic stats
 
@@ -183,7 +183,7 @@ This project uses **real gameplay testing** - no mocks, no simulations:
 **Both humans and AI agents can play together** in the same world:
 
 ### For Human Players
-- Use web browser at `http://localhost:4444`
+- Use web browser at `http://localhost:5555`
 - Standard WASD movement and mouse interaction
 - Full UI with inventory, equipment, skills display
 
@@ -266,7 +266,7 @@ bun run dev
 
 # This starts:
 # - Client: http://localhost:3333 (Vite with HMR)
-# - Server: ws://localhost:4444/ws (Auto-rebuilds on TS changes)
+# - Server: ws://localhost:5555/ws (Auto-rebuilds on TS changes)
 # - File watcher for automatic server restarts
 
 # The dev server will:
@@ -282,8 +282,8 @@ bun run dev
 
 **Port conflicts (3000/3000 in use)**:
 ```bash
-lsof -ti:4444 | xargs kill -9
-lsof -ti:4444 | xargs kill -9
+lsof -ti:5555 | xargs kill -9
+lsof -ti:5555 | xargs kill -9
 npm start
 ```
 
@@ -336,7 +336,7 @@ cd hyperscape
 npm install
 npm run build
 npm start
-# Open browser to http://localhost:4444
+# Open browser to http://localhost:5555
 # Click on green cubes (goblins) to fight and gain XP!
 ```
 
@@ -348,6 +348,6 @@ MIT License - Feel free to use this project as inspiration for your own AI-power
 
 **🎮 Ready to explore the AI-generated world of Hyperscape?** 
 
-**Run `npm start` and open `http://localhost:4444` to begin your adventure!**
+**Run `npm start` and open `http://localhost:5555` to begin your adventure!**
 
 *Fight goblins, master skills, discover an AI-crafted world, and play alongside autonomous AI agents in this unique take on classic RuneScape gameplay.*

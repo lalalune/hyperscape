@@ -1,0 +1,24 @@
+{
+  "__comment": "Game style prompts - add custom styles in the 'custom' section",
+  "version": "1.0.0",
+  "default": {
+    "runescape": {
+      "name": "RuneScape 2007",
+      "base": "Low-poly RuneScape 2007",
+      "enhanced": "low-poly RuneScape style",
+      "generation": "runescape2007"
+    },
+    "generic": {
+      "name": "Generic Low-Poly",
+      "base": "low-poly 3D game asset style",
+      "fallback": "Low-poly game asset"
+    }
+  },
+  "custom": {
+    "test": {
+      "name": "Test",
+      "base": "test",
+      "enhanced": "test"
+    }
+  }
+}

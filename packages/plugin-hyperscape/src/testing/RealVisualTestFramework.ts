@@ -280,7 +280,7 @@ export class RealVisualTestFramework {
   private createTestScenarios(): RealTestScenario[] {
     // Use a real Hyperscape world URL - you'll need to start a world first
     const baseWorldConnection = {
-      worldUrl: process.env.TEST_WORLD_URL || 'http://localhost:4444', // Local Hyperscape instance
+      worldUrl: process.env.TEST_WORLD_URL || 'http://localhost:5555', // Local Hyperscape instance
       worldId: 'visual-test-world',
     }
 
