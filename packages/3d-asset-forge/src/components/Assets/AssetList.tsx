@@ -400,9 +400,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                     : 'hover:bg-bg-primary hover:bg-opacity-30'
                                   }`}
                                 onClick={() => handleAssetSelect(variant)}
-                                style={{
-                                  animationDelay: `${(typeIndex * 50) + (groupIndex * 30) + (variantIndex * 10)}ms`
-                                }}
+                                style={{ animationDelay: `${(typeIndex * 50) + (groupIndex * 30) + (variantIndex * 10)}ms` }}
                               >
                                 <div className="flex items-center gap-3 p-2 pl-3">
                                   <div className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 group-hover:scale-105 ${selectedAsset?.id === variant.id
@@ -457,9 +455,7 @@ const AssetList: React.FC<AssetListProps> = ({
                             ? 'bg-primary bg-opacity-5'
                             : 'hover:bg-bg-primary hover:bg-opacity-50'
                           }`}
-                        style={{
-                          animationDelay: `${(typeIndex * 50) + (typeData.groups.length * 30) + (index * 30)}ms`
-                        }}
+                        style={{ animationDelay: `${(typeIndex * 50) + (typeData.groups.length * 30) + (index * 30)}ms` }}
                         onClick={() => handleAssetSelect(asset)}
                       >
                         <div className="flex items-center gap-3 p-2 hover:bg-bg-primary hover:bg-opacity-40 rounded-lg transition-colors">
@@ -570,9 +566,7 @@ const AssetList: React.FC<AssetListProps> = ({
                               ? 'bg-primary bg-opacity-5'
                               : 'hover:bg-bg-primary hover:bg-opacity-50'
                             }`}
-                          style={{
-                            animationDelay: `${(typeIndex * 50) + (index * 10)}ms`
-                          }}
+                          style={{ animationDelay: `${(typeIndex * 50) + (index * 10)}ms` }}
                           onClick={() => handleAssetSelect(asset)}
                         >
                           <div className="flex items-center gap-3 p-2 hover:bg-bg-primary hover:bg-opacity-40 rounded-lg transition-colors">

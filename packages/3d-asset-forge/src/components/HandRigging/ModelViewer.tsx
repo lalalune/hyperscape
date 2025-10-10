@@ -114,7 +114,7 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
               </Badge>
             )}
             {rightHandData && rightHandData.bonesAdded > 0 && (
-              <Badge variant="success" className={cn("shadow-lg", "animate-slide-in-left", "text-white")} style={{ animationDelay: '0.1s' }}>
+              <Badge variant="success" className={cn("shadow-lg animate-slide-in-left text-white [animation-delay:0.1s]")}>
                 <Hand className="w-3.5 h-3.5 mr-2" />
                 Right Hand: {rightHandData.bonesAdded} bones added
               </Badge>
