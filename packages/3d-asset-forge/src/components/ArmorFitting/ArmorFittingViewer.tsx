@@ -1815,7 +1815,7 @@ export const ArmorFittingViewer = forwardRef<
   }))
   
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div className="w-full h-full">
       <Canvas camera={{ position: [5, 5, 5], fov: 50 }}>
         <Scene
           avatarUrl={avatarUrl}
