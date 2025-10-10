@@ -14,12 +14,22 @@ export class ManifestService {
   }
 
   /**
+   * Normalize asset ID to use underscores (game convention)
+   */
+  normalizeAssetId(assetId) {
+    return assetId.replace(/-/g, '_')
+  }
+
+  /**
    * Write item manifest entry for a generated asset
    */
   async writeItemManifest(assetId, metadata, config) {
     await fs.mkdir(this.manifestsDir, { recursive: true })
     
     const manifestPath = path.join(this.manifestsDir, 'items.json')
+    
+    // Normalize ID to use underscores
+    const normalizedId = this.normalizeAssetId(assetId)
     
     // Load existing manifest or create new
     let items = []
@@ -31,7 +41,7 @@ export class ManifestService {
     }
     
     // Remove existing entry for this assetId if present (update scenario)
-    items = items.filter(item => item.id !== assetId)
+    items = items.filter(item => item.id !== normalizedId && item.id !== assetId)
     
     // Map Forge metadata to Hyperscape Item schema
     const itemType = this.mapTypeToItemType(config.type, config.subtype)
@@ -45,8 +55,8 @@ export class ManifestService {
     const iconPath = `/world-assets/forge/${assetId}/concept-art.png`
     
     const itemEntry = {
-      id: assetId,
-      name: config.name || assetId,
+      id: normalizedId,
+      name: config.name || metadata.name || normalizedId,
       type: itemType,
       quantity: 1,
       stackable: itemType === 'resource' || itemType === 'consumable' || itemType === 'currency',
@@ -74,7 +84,7 @@ export class ManifestService {
     // Write back to manifest
     await fs.writeFile(manifestPath, JSON.stringify(items, null, 2))
     
-    console.log(`[ManifestService] Added ${assetId} to items.json`)
+    console.log(`[ManifestService] Added ${normalizedId} (from ${assetId}) to items.json`)
   }
 
   /**
@@ -85,20 +95,23 @@ export class ManifestService {
     
     const manifestPath = path.join(this.manifestsDir, 'mobs.json')
     
+    // Normalize ID
+    const normalizedId = this.normalizeAssetId(assetId)
+    
     let mobs = []
     try {
       const existing = await fs.readFile(manifestPath, 'utf-8')
       mobs = JSON.parse(existing)
     } catch (_e) {}
     
-    mobs = mobs.filter(mob => mob.id !== assetId)
+    mobs = mobs.filter(mob => mob.id !== normalizedId && mob.id !== assetId)
     
     const modelPath = `/world-assets/forge/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
     const animations = metadata.animations?.basic || {}
     
     const mobEntry = {
-      id: assetId,
-      name: config.name || assetId,
+      id: normalizedId,
+      name: config.name || metadata.name || normalizedId,
       description: config.description || `A ${config.name}`,
       mobType: 'humanoid',
       type: 'humanoid',
@@ -141,7 +154,7 @@ export class ManifestService {
     mobs.push(mobEntry)
     await fs.writeFile(manifestPath, JSON.stringify(mobs, null, 2))
     
-    console.log(`[ManifestService] Added ${assetId} to mobs.json`)
+    console.log(`[ManifestService] Added ${normalizedId} (from ${assetId}) to mobs.json`)
   }
 
   /**
@@ -152,20 +165,23 @@ export class ManifestService {
     
     const manifestPath = path.join(this.manifestsDir, 'avatars.json')
     
+    // Normalize ID
+    const normalizedId = this.normalizeAssetId(assetId)
+    
     let avatars = []
     try {
       const existing = await fs.readFile(manifestPath, 'utf-8')
       avatars = JSON.parse(existing)
     } catch (_e) {}
     
-    avatars = avatars.filter(av => av.id !== assetId)
+    avatars = avatars.filter(av => av.id !== normalizedId && av.id !== assetId)
     
     const modelPath = `/world-assets/forge/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
     const animations = metadata.animations?.basic || {}
     
     const avatarEntry = {
-      id: assetId,
-      name: config.name || assetId,
+      id: normalizedId,
+      name: config.name || metadata.name || normalizedId,
       description: config.description || 'Playable character',
       type: 'character',
       isRigged: metadata.isRigged || false,
@@ -181,7 +197,7 @@ export class ManifestService {
     avatars.push(avatarEntry)
     await fs.writeFile(manifestPath, JSON.stringify(avatars, null, 2))
     
-    console.log(`[ManifestService] Added ${assetId} to avatars.json`)
+    console.log(`[ManifestService] Added ${normalizedId} (from ${assetId}) to avatars.json`)
   }
 
   // Mapping helpers (use Hyperscape enums)
@@ -288,6 +304,206 @@ export class ManifestService {
       level: levels[tier] || 1,
       skills: {}
     }
+  }
+
+  /**
+   * Write NPC manifest entry for generated NPCs
+   */
+  async writeNPCManifest(assetId, metadata, config) {
+    await fs.mkdir(this.manifestsDir, { recursive: true })
+    
+    const manifestPath = path.join(this.manifestsDir, 'npcs.json')
+    
+    // Normalize ID
+    const normalizedId = this.normalizeAssetId(assetId)
+    
+    let npcs = []
+    try {
+      const existing = await fs.readFile(manifestPath, 'utf-8')
+      npcs = JSON.parse(existing)
+    } catch (_e) {}
+    
+    npcs = npcs.filter(npc => npc.id !== normalizedId && npc.id !== assetId)
+    
+    const modelPath = `/world-assets/forge/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
+    const animations = metadata.animations?.basic || {}
+    
+    const npcEntry = {
+      id: normalizedId,
+      name: config.name || metadata.name || normalizedId,
+      description: config.description || `An NPC`,
+      type: this.mapToNPCType(config.subtype),
+      modelPath: modelPath,
+      animations: {
+        idle: animations.tpose ? `/world-assets/forge/${assetId}/${animations.tpose}` : undefined,
+        talk: animations.walking ? `/world-assets/forge/${assetId}/${animations.walking}` : undefined
+      },
+      services: this.mapToNPCServices(config.subtype)
+    }
+    
+    npcs.push(npcEntry)
+    await fs.writeFile(manifestPath, JSON.stringify(npcs, null, 2))
+    
+    console.log(`[ManifestService] Added ${normalizedId} (from ${assetId}) to npcs.json`)
+  }
+
+  /**
+   * Write resource manifest entry for environment assets
+   */
+  async writeResourceManifest(assetId, metadata, config) {
+    await fs.mkdir(this.manifestsDir, { recursive: true })
+    
+    const manifestPath = path.join(this.manifestsDir, 'resources.json')
+    
+    // Normalize ID
+    const normalizedId = this.normalizeAssetId(assetId)
+    
+    let resources = []
+    try {
+      const existing = await fs.readFile(manifestPath, 'utf-8')
+      resources = JSON.parse(existing)
+    } catch (_e) {}
+    
+    resources = resources.filter(res => res.id !== normalizedId && res.id !== assetId)
+    
+    const modelPath = `/world-assets/forge/${assetId}/${assetId}.glb`
+    
+    const resourceEntry = {
+      id: normalizedId,
+      name: config.name || metadata.name || normalizedId,
+      type: this.mapToResourceType(config.subtype),
+      modelPath: modelPath,
+      iconPath: `/world-assets/forge/${assetId}/concept-art.png`,
+      harvestSkill: this.mapToHarvestSkill(config.subtype),
+      requiredLevel: 1,
+      harvestTime: 3000,
+      respawnTime: 60000,
+      yields: this.mapToResourceYields(config.subtype)
+    }
+    
+    resources.push(resourceEntry)
+    await fs.writeFile(manifestPath, JSON.stringify(resources, null, 2))
+    
+    console.log(`[ManifestService] Added ${normalizedId} (from ${assetId}) to resources.json`)
+  }
+
+  /**
+   * Write building manifest entry
+   */
+  async writeBuildingManifest(assetId, metadata, config) {
+    await fs.mkdir(this.manifestsDir, { recursive: true })
+    
+    const manifestPath = path.join(this.manifestsDir, 'buildings.json')
+    
+    // Normalize ID
+    const normalizedId = this.normalizeAssetId(assetId)
+    
+    let buildings = []
+    try {
+      const existing = await fs.readFile(manifestPath, 'utf-8')
+      buildings = JSON.parse(existing)
+    } catch (_e) {}
+    
+    buildings = buildings.filter(b => b.id !== normalizedId && b.id !== assetId)
+    
+    const modelPath = `/world-assets/forge/${assetId}/${assetId}.glb`
+    
+    const buildingEntry = {
+      id: normalizedId,
+      name: config.name || metadata.name || normalizedId,
+      type: config.subtype || 'generic',
+      modelPath: modelPath,
+      iconPath: `/world-assets/forge/${assetId}/concept-art.png`,
+      description: config.description || ''
+    }
+    
+    buildings.push(buildingEntry)
+    await fs.writeFile(manifestPath, JSON.stringify(buildings, null, 2))
+    
+    console.log(`[ManifestService] Added ${normalizedId} (from ${assetId}) to buildings.json`)
+  }
+
+  /**
+   * Write manifest based on asset type
+   */
+  async writeManifest(assetId, metadata, config) {
+    const type = config.type?.toLowerCase() || metadata.type?.toLowerCase()
+    const subtype = config.subtype?.toLowerCase() || metadata.subtype?.toLowerCase()
+    
+    // Route to appropriate manifest based on type
+    if (type === 'character') {
+      if (subtype?.includes('mob') || subtype?.includes('enemy')) {
+        await this.writeMobManifest(assetId, metadata, config)
+      } else if (subtype?.includes('npc')) {
+        await this.writeNPCManifest(assetId, metadata, config)
+      } else if (subtype?.includes('avatar') || subtype?.includes('player')) {
+        await this.writeAvatarManifest(assetId, metadata, config)
+      } else {
+        // Default character to avatar
+        await this.writeAvatarManifest(assetId, metadata, config)
+      }
+    } else if (type === 'environment') {
+      await this.writeResourceManifest(assetId, metadata, config)
+    } else if (type === 'building') {
+      await this.writeBuildingManifest(assetId, metadata, config)
+    } else {
+      // Everything else goes to items
+      await this.writeItemManifest(assetId, metadata, config)
+    }
+  }
+
+  // Helper mapping functions
+  mapToNPCType(subtype) {
+    const lower = subtype?.toLowerCase() || ''
+    if (lower.includes('bank')) return 'bank'
+    if (lower.includes('store') || lower.includes('shop')) return 'general_store'
+    if (lower.includes('quest')) return 'quest_giver'
+    if (lower.includes('trainer')) return 'skill_trainer'
+    return 'generic'
+  }
+
+  mapToNPCServices(subtype) {
+    const lower = subtype?.toLowerCase() || ''
+    if (lower.includes('bank')) return ['banking', 'item_storage']
+    if (lower.includes('store') || lower.includes('shop')) return ['buy_items', 'sell_items']
+    if (lower.includes('quest')) return ['quest_giving']
+    if (lower.includes('trainer')) return ['skill_training']
+    return []
+  }
+
+  mapToResourceType(subtype) {
+    const lower = subtype?.toLowerCase() || ''
+    if (lower.includes('tree')) return 'tree'
+    if (lower.includes('rock') || lower.includes('ore')) return 'mining_rock'
+    if (lower.includes('fish')) return 'fishing_spot'
+    if (lower.includes('herb')) return 'herb_patch'
+    return 'generic'
+  }
+
+  mapToHarvestSkill(subtype) {
+    const lower = subtype?.toLowerCase() || ''
+    if (lower.includes('tree') || lower.includes('wood')) return 'woodcutting'
+    if (lower.includes('rock') || lower.includes('ore') || lower.includes('mine')) return 'mining'
+    if (lower.includes('fish')) return 'fishing'
+    if (lower.includes('herb')) return 'herbalism'
+    return 'none'
+  }
+
+  mapToResourceYields(subtype) {
+    const lower = subtype?.toLowerCase() || ''
+    if (lower.includes('tree')) {
+      return [{ itemId: 'logs', quantity: 1, chance: 1.0 }]
+    }
+    if (lower.includes('oak')) {
+      return [{ itemId: 'oak_logs', quantity: 1, chance: 1.0 }]
+    }
+    if (lower.includes('willow')) {
+      return [{ itemId: 'willow_logs', quantity: 1, chance: 1.0 }]
+    }
+    if (lower.includes('fish')) {
+      return [{ itemId: 'raw_shrimps', quantity: 1, chance: 1.0 }]
+    }
+    return []
   }
 }
 
