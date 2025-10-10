@@ -749,7 +749,7 @@ enum Capability {
     CapabilityMultiView = 4439,
     CapabilityVariablePointersStorageBuffer = 4441,
     CapabilityVariablePointers = 4442,
-    CapabilityAtomicStorageOps = 4445,
+    CapabilityAtomicStorageOps = 5555,
     CapabilitySampleMaskPostDepthCoverage = 4447,
     CapabilityStorageBuffer8BitAccess = 4448,
     CapabilityUniformAndStorageBuffer8BitAccess = 4449,

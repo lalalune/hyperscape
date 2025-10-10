@@ -80,7 +80,7 @@ describe('ExampleRoute Component Tests', () => {
 
   const ExampleRoute = () => {
     const [config] = React.useState(window.ELIZA_CONFIG);
-    const apiBase = config?.apiBase || 'http://localhost:4444';
+    const apiBase = config?.apiBase || 'http://localhost:5555';
 
     React.useEffect(() => {
       document.documentElement.classList.add('dark');
@@ -136,7 +136,7 @@ describe('ExampleRoute Component Tests', () => {
       cy.window().then((win) => {
         win.ELIZA_CONFIG = {
           agentId: testAgentId,
-          apiBase: 'http://localhost:4444',
+          apiBase: 'http://localhost:5555',
         };
       });
 
@@ -154,7 +154,7 @@ describe('ExampleRoute Component Tests', () => {
       cy.window().then((win) => {
         win.ELIZA_CONFIG = {
           agentId: 'test-agent-123',
-          apiBase: 'http://localhost:4444',
+          apiBase: 'http://localhost:5555',
         };
       });
     });
@@ -307,7 +307,7 @@ describe('ExampleRoute Component Tests', () => {
       });
 
       // Intercept with default base URL
-      cy.intercept('GET', 'http://localhost:4444/api/time', {
+      cy.intercept('GET', 'http://localhost:5555/api/time', {
         statusCode: 200,
         body: {
           timestamp: new Date().toISOString(),
@@ -329,7 +329,7 @@ describe('ExampleRoute Component Tests', () => {
       cy.window().then((win) => {
         win.ELIZA_CONFIG = {
           agentId: 'test-agent',
-          apiBase: 'http://localhost:4444',
+          apiBase: 'http://localhost:5555',
         };
       });
 

@@ -184,8 +184,8 @@ export const hyperscapeScenePerceptionAction: Action = {
     const playwrightManager = service?.getPlaywrightManager()
     const controls = world?.controls
 
-    if (controls && controls.stopAllActions) {
-      controls.stopAllActions()
+    if (controls && typeof (controls as { stopAllActions?: () => void }).stopAllActions === 'function') {
+      (controls as unknown as { stopAllActions: () => void }).stopAllActions()
     }
 
     if (!world || !controls) {

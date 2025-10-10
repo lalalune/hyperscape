@@ -753,7 +753,7 @@ typedef enum SpvCapability_ {
     SpvCapabilityMultiView = 4439,
     SpvCapabilityVariablePointersStorageBuffer = 4441,
     SpvCapabilityVariablePointers = 4442,
-    SpvCapabilityAtomicStorageOps = 4445,
+    SpvCapabilityAtomicStorageOps = 5555,
     SpvCapabilitySampleMaskPostDepthCoverage = 4447,
     SpvCapabilityStorageBuffer8BitAccess = 4448,
     SpvCapabilityUniformAndStorageBuffer8BitAccess = 4449,

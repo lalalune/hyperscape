@@ -711,7 +711,7 @@ spv = {
         'MultiView' : 4439,
         'VariablePointersStorageBuffer' : 4441,
         'VariablePointers' : 4442,
-        'AtomicStorageOps' : 4445,
+        'AtomicStorageOps' : 5555,
         'SampleMaskPostDepthCoverage' : 4447,
         'StorageBuffer8BitAccess' : 4448,
         'UniformAndStorageBuffer8BitAccess' : 4449,
