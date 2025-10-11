@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFExportResult, GLTFNode } from '../../types/gltf'
 
 /**
@@ -169,7 +170,6 @@ export class BoneDiagnostics {
     scene.add(mesh)
     
     // Export
-    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
     
     try {

@@ -5,10 +5,14 @@
  * Automatically generates all missing required assets based on priority
  */
 
+import dotenv from 'dotenv'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { AssetRequirementsService } from '../server/services/AssetRequirementsService.mjs'
+
+// Load environment variables
+dotenv.config()
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -69,6 +73,36 @@ Examples:
 }
 
 async function main() {
+  // Validate API keys are present (check both VITE_ prefixed and non-prefixed)
+  const openaiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY
+  const meshyKey = process.env.MESHY_API_KEY || process.env.VITE_MESHY_API_KEY
+  
+  if (!openaiKey || !meshyKey) {
+    console.error('❌ ERROR: Missing required API keys!')
+    console.error('\nChecked for:')
+    console.error('  OPENAI_API_KEY or VITE_OPENAI_API_KEY')
+    console.error('  MESHY_API_KEY or VITE_MESHY_API_KEY')
+    console.error('\nFound in env:')
+    console.error(`  OPENAI: ${process.env.OPENAI_API_KEY ? 'YES' : 'NO'}, VITE_OPENAI: ${process.env.VITE_OPENAI_API_KEY ? 'YES' : 'NO'}`)
+    console.error(`  MESHY: ${process.env.MESHY_API_KEY ? 'YES' : 'NO'}, VITE_MESHY: ${process.env.VITE_MESHY_API_KEY ? 'YES' : 'NO'}`)
+    process.exit(1)
+  }
+  
+  // Set environment variables for GenerationService to use
+  if (!process.env.OPENAI_API_KEY && process.env.VITE_OPENAI_API_KEY) {
+    process.env.OPENAI_API_KEY = process.env.VITE_OPENAI_API_KEY
+  }
+  if (!process.env.MESHY_API_KEY && process.env.VITE_MESHY_API_KEY) {
+    process.env.MESHY_API_KEY = process.env.VITE_MESHY_API_KEY
+  }
+  if (!process.env.IMAGE_SERVER_URL && process.env.VITE_IMAGE_SERVER_URL) {
+    process.env.IMAGE_SERVER_URL = process.env.VITE_IMAGE_SERVER_URL
+  }
+  
+  console.log('✅ API keys found')
+  console.log(`   OpenAI: ${openaiKey.substring(0, 10)}...`)
+  console.log(`   Meshy: ${meshyKey.substring(0, 10)}...`)
+  
   const assetsDir = path.join(__dirname, '../../hyperscape/world/assets')
   const service = new AssetRequirementsService(assetsDir, assetsDir)
   
@@ -116,25 +150,95 @@ async function main() {
     return
   }
   
-  console.log('⚠️  AUTOMATIC GENERATION NOT YET IMPLEMENTED')
-  console.log('\nTo generate these assets:')
-  console.log('1. Open 3D Asset Forge UI: bun run dev (in packages/3d-asset-forge)')
-  console.log('2. Go to Generation tab')
-  console.log('3. Use the asset list above to create each asset')
-  console.log('')
-  console.log('Or create a batch generation config:')
+  // Import generation service dynamically
+  const { GenerationService } = await import('../server/services/GenerationService.mjs')
+  const generationService = new GenerationService()
   
-  const batchConfig = await service.createBatchGenerationConfig(
-    options.limit,
-    options.priority !== 'all' ? options.priority : null
-  )
+  console.log('\n🚀 Starting automatic generation...\n')
+  console.log('⏱️  This will take approximately 2-5 minutes per asset')
+  console.log(`📊 Total estimated time: ${Math.ceil(toBatch.length * 3)} minutes\n`)
   
-  const configPath = path.join(assetsDir, 'manifests', 'batch-generation.json')
-  await fs.writeFile(configPath, JSON.stringify({ assets: batchConfig }, null, 2))
+  let successCount = 0
+  let failCount = 0
   
-  console.log(`\n💾 Batch generation config saved to:`)
-  console.log(`   ${configPath}`)
-  console.log(`\nYou can use this config to batch-generate assets in the UI`)
+  for (let i = 0; i < toBatch.length; i++) {
+    const asset = toBatch[i]
+    console.log(`\n[${ i + 1}/${toBatch.length}] Generating: ${asset.name} (${asset.id})`)
+    console.log(`   Priority: ${asset.priority.toUpperCase()}`)
+    console.log(`   Type: ${asset.type}/${asset.subtype}`)
+    
+    try {
+      // Create generation config
+      const config = {
+        assetId: asset.id,
+        name: asset.name,
+        description: asset.description || `A ${asset.name} for a RuneScape-style RPG game`,
+        type: asset.type,
+        subtype: asset.subtype,
+        generationType: asset.category === 'mobs' || asset.category === 'avatars' ? 'avatar' : 'item',
+        style: 'runescape2007',
+        enablePromptEnhancement: true,
+        enableRigging: false,
+        enableSprites: false
+      }
+      
+      // Start pipeline
+      const result = await generationService.startPipeline(config)
+      console.log(`   ✅ Pipeline started: ${result.pipelineId}`)
+      
+      // Wait for pipeline to complete (poll status)
+      let completed = false
+      let attempts = 0
+      const maxAttempts = 120 // 10 minutes max (5 second intervals)
+      
+      while (!completed && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds
+        
+        const status = generationService.getPipelineStatus(result.pipelineId)
+        if (!status) {
+          console.log(`   ❌ Pipeline lost`)
+          break
+        }
+        
+        // Log progress
+        if (attempts % 6 === 0) { // Every 30 seconds
+          console.log(`   ⏳ Progress: ${Math.round(status.progress)}% (${status.status})`)
+        }
+        
+        if (status.status === 'completed') {
+          console.log(`   ✅ Generation completed!`)
+          completed = true
+          successCount++
+        } else if (status.status === 'failed') {
+          console.log(`   ❌ Generation failed: ${status.error || 'Unknown error'}`)
+          failCount++
+          break
+        }
+        
+        attempts++
+      }
+      
+      if (!completed && attempts >= maxAttempts) {
+        console.log(`   ⏱️  Timeout after ${maxAttempts * 5} seconds`)
+        failCount++
+      }
+      
+    } catch (error) {
+      console.error(`   ❌ Error generating ${asset.name}:`, error.message)
+      failCount++
+    }
+  }
+  
+  console.log('\n' + '='.repeat(60))
+  console.log('📊 GENERATION SUMMARY')
+  console.log('='.repeat(60))
+  console.log(`✅ Successful: ${successCount}/${toBatch.length}`)
+  console.log(`❌ Failed: ${failCount}/${toBatch.length}`)
+  console.log(`\n💾 Assets saved to: ${path.join(assetsDir, 'models')}`)
+  console.log('\n📝 Next steps:')
+  console.log('   1. Refresh your browser to load new models')
+  console.log('   2. Run bun run assets:normalize to optimize models')
+  console.log('   3. Run bun run assets:rebuild-manifests to update manifests')
 }
 
 main().catch(error => {
