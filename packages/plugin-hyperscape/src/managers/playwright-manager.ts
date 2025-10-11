@@ -5,7 +5,6 @@ import path from 'path'
 import { chromium, Browser, Page, PageScreenshotOptions } from 'playwright'
 import { HyperscapeService } from '../service'
 import { getModuleDirectory, resolveUrl } from '../utils'
-import '../types/playwright-window.d.ts'
 
 interface AvatarLike {
   url?: string

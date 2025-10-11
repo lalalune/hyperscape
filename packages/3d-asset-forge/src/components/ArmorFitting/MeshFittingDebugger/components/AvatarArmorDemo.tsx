@@ -51,17 +51,7 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
         return (
             <group>
                 <Html center>
-                    <div style={{
-                        color: 'white',
-                        background: 'rgba(0,0,0,0.8)',
-                        padding: '20px 40px',
-                        borderRadius: '8px',
-                        textAlign: 'center',
-                        fontSize: '16px',
-                        fontWeight: '500',
-                        minWidth: '400px',
-                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
-                    }}>
+                    <div className="text-white bg-black/80 px-10 py-5 rounded-lg text-center text-base font-medium min-w-[400px] shadow-lg">
                         Please select both an avatar and armor from the Asset Selection panel
                     </div>
                 </Html>

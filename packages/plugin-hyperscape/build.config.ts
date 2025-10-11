@@ -3,7 +3,6 @@ import type { BuildConfig } from 'bun';
 export const buildConfig: BuildConfig = {
   entrypoints: [
     './src/index.ts',
-    './src/testing/visual-test-framework.ts',
     './src/testing/rpg-concrete-tests.ts', 
     './src/testing/test-runtime-factory.ts',
     './src/testing/modular-test-framework.ts'

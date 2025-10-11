@@ -314,6 +314,26 @@ export class RetextureService {
     // Update base asset metadata to track this variant
     await this.updateBaseAssetVariants(baseAssetId, variantName, assetsDir)
 
+    // Write Hyperscape manifest for variant
+    try {
+      const { ManifestService } = await import('./ManifestService.mjs')
+      const manifestService = new ManifestService(assetsDir)
+      
+      // Create config from variant metadata
+      const variantConfig = {
+        name: variantMetadata.name,
+        type: variantMetadata.type,
+        subtype: variantMetadata.subtype,
+        description: variantMetadata.description || baseMetadata.description,
+        metadata: variantMetadata
+      }
+      
+      await manifestService.writeManifest(variantName, variantMetadata, variantConfig)
+      console.log(`[RetextureService] ✅ Manifest written for variant ${variantName}`)
+    } catch (manifestError) {
+      console.warn('[RetextureService] Failed to write manifest for variant:', manifestError.message)
+    }
+
     console.log(`✅ Successfully retextured: ${variantName}`)
 
     return variantMetadata

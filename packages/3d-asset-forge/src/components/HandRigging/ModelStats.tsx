@@ -27,7 +27,7 @@ export const ModelStats: React.FC<ModelStatsProps> = ({ modelInfo }) => {
           <Grid3X3 className="w-8 h-8 text-primary/20" />
         </div>
       </Card>
-      <Card className={cn("p-4", "animate-fade-in")} style={{ animationDelay: '0.1s' }}>
+      <Card className={cn("p-4 animate-fade-in [animation-delay:0.1s]")}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-2xl font-bold text-text-primary">
@@ -38,7 +38,7 @@ export const ModelStats: React.FC<ModelStatsProps> = ({ modelInfo }) => {
           <Layers className="w-8 h-8 text-primary/20" />
         </div>
       </Card>
-      <Card className={cn("p-4", "animate-fade-in")} style={{ animationDelay: '0.2s' }}>
+      <Card className={cn("p-4 animate-fade-in [animation-delay:0.2s]")}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-2xl font-bold text-text-primary">
