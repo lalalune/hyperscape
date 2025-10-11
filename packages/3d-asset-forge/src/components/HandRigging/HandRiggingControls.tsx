@@ -75,7 +75,7 @@ export function HandRiggingControls({ onStartProcessing }: HandRiggingControlsPr
       </CardFooter>
       
       {/* Rigging Configuration Card */}
-      <Card className={cn("overflow-hidden", "animate-slide-in-left")} style={{ animationDelay: '0.1s' }}>
+      <Card className={cn("overflow-hidden animate-slide-in-left [animation-delay:0.1s]")}>
         <CardHeader className="bg-gradient-to-r from-bg-secondary to-bg-tertiary">
           <CardTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-primary" />

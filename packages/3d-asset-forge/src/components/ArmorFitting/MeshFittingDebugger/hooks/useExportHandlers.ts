@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { ArmorFittingService } from '../../../../services/fitting/ArmorFittingService'
+import { ArmorScaleFixer } from '../../../../services/fitting/ArmorScaleFixer'
 import { ExportType } from '../types'
 
 interface ExportHandlersProps {
@@ -150,8 +151,6 @@ export function useExportHandlers({
                 }
 
                 case 'scale-fixed': {
-                    const { ArmorScaleFixer } = await import('../../../../services/fitting/ArmorScaleFixer')
-
                     if (ArmorScaleFixer.hasScaleIssues(boundArmorMesh.skeleton)) {
                         console.log('Scale issues detected! Applying fix...')
                         const fixedMesh = ArmorScaleFixer.applySkeletonScale(boundArmorMesh)

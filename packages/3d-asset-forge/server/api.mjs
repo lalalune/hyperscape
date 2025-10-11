@@ -15,6 +15,7 @@ import { RetextureService } from './services/RetextureService.mjs'
 import { GenerationService } from './services/GenerationService.mjs'
 import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
 import promptRoutes from './routes/promptRoutes.mjs'
+import requirementsRoutes from './routes/requirements.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -73,6 +74,9 @@ const generationService = new GenerationService()
 
 // Use prompt routes
 app.use('/api', promptRoutes)
+
+// Use requirements routes
+app.use('/api/requirements', requirementsRoutes)
 
 // Routes
 app.get('/api/health', (req, res) => {

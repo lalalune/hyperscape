@@ -718,11 +718,9 @@ export class GenerationService extends EventEmitter {
         const finalMetadataPath = path.join(this.outputDir, 'forge', pipeline.config.assetId, 'metadata.json')
         const finalMetadata = JSON.parse(await fs.readFile(finalMetadataPath, 'utf-8'))
         
-        if (pipeline.config.generationType === 'avatar' || pipeline.config.type === 'character') {
-          await this.manifestService.writeAvatarManifest(pipeline.config.assetId, finalMetadata, pipeline.config)
-        } else if (pipeline.config.type === 'weapon' || pipeline.config.type === 'armor' || pipeline.config.type === 'tool') {
-          await this.manifestService.writeItemManifest(pipeline.config.assetId, finalMetadata, pipeline.config)
-        }
+        // Use the enhanced writeManifest router that handles all types
+        await this.manifestService.writeManifest(pipeline.config.assetId, finalMetadata, pipeline.config)
+        console.log(`[GenerationService] ✅ Manifest written for ${pipeline.config.assetId}`)
       } catch (manifestError) {
         console.warn('[GenerationService] Failed to write manifest:', manifestError.message)
       }
