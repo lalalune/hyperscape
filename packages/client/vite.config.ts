@@ -81,6 +81,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      // Use client-only build of shared package to avoid Node.js module leakage
+      '@hyperscape/shared': path.resolve(__dirname, '../shared/build/framework.client.js'),
     },
     dedupe: ['three']
   },

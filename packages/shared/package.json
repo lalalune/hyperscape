@@ -1,5 +1,5 @@
 {
-  "name": "@hyperscape/hyperscape",
+  "name": "@hyperscape/shared",
   "version": "0.13.0",
   "type": "module",
   "main": "build/framework.js",
@@ -12,6 +12,11 @@
       "types": "./build/framework.d.ts",
       "import": "./build/framework.js",
       "require": "./build/framework.js"
+    },
+    "./client": {
+      "types": "./build/framework.d.ts",
+      "import": "./build/framework.client.js",
+      "default": "./build/framework.client.js"
     }
   },
   "homepage": "https://github.com/hyperscape-xyz/hyperscape#readme",

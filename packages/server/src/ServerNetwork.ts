@@ -792,6 +792,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
               console.log('[ServerNetwork] Found existing Privy user:', user.id);
             } else {
               // New Privy user - create account with stable id equal to privyUserId
+              const timestamp = new Date().toISOString();
               const newUser: {
                 id: string;
                 name: string;
@@ -805,11 +806,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
                 name: name || 'Adventurer',
                 avatar: avatar || null,
                 roles: '',
-                createdAt: moment().toISOString(),
+                createdAt: timestamp,
               };
               try {
                 newUser.privyUserId = privyInfo.privyUserId;
-                newUser.farcasterFid = privyInfo.farcasterFid || undefined;
+                if (privyInfo.farcasterFid) {
+                  newUser.farcasterFid = privyInfo.farcasterFid;
+                }
                 await this.db('users').insert(newUser);
               } catch (_err) {
                 // Fallback when privy columns are missing: insert minimal columns with id set to privyUserId
@@ -849,19 +852,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       
       // Create anonymous user if no authentication succeeded
       if (!user) {
+        const timestamp = new Date().toISOString();
         user = {
           id: uuid(),
           name: 'Anonymous',
           avatar: null,
           roles: '',
-          createdAt: moment().toISOString(),
+          createdAt: timestamp,
         };
         await this.db('users').insert({
           id: user.id,
           name: user.name,
           avatar: user.avatar,
           roles: Array.isArray(user.roles) ? user.roles.join(',') : user.roles,
-          createdAt: user.createdAt
+          createdAt: timestamp
         });
         authToken = await createJWT({ userId: user.id });
       }
