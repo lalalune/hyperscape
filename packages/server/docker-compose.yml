@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Local development database
+  postgres:
+    image: postgres:16-alpine
+    container_name: hyperscape-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: hyperscape
+      POSTGRES_PASSWORD: hyperscape_dev
+      POSTGRES_DB: hyperscape
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hyperscape"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  postgres-data:
+

@@ -1,0 +1,981 @@
+/**
+ * InventorySystem - Manages player inventories
+ */
+
+import { getSystem } from '../utils/SystemUtils';
+import type { World } from '../types';
+import type { InventoryItemAddedPayload } from '../types/event-payloads';
+import { EventType } from '../types/events';
+import { getItem } from '../data/items';
+import type {
+  PlayerInventory
+} from '../types/core';
+import type {
+  InventoryCanAddEvent,
+  InventoryRemoveCoinsEvent,
+  InventoryCheckEvent,
+  InventoryItemInfo
+} from '../types/events';
+import {
+  PlayerID,
+} from '../types/identifiers';
+import type { InventoryData } from '../types/systems';
+import {
+  createItemID,
+  createPlayerID,
+  isValidItemID,
+  isValidPlayerID,
+  toPlayerID
+} from '../utils/IdentifierUtils';
+import { EntityManager } from './EntityManager';
+import { SystemBase } from './SystemBase';
+import { logger as Logger } from '../logger';
+import type { DatabaseSystem } from '../types/system-interfaces';
+
+
+
+
+
+export class InventorySystem extends SystemBase {
+  protected playerInventories = new Map<PlayerID, PlayerInventory>();
+  private readonly MAX_INVENTORY_SLOTS = 28;
+  private persistTimers = new Map<string, NodeJS.Timeout>();
+  private saveInterval?: NodeJS.Timeout;
+  private readonly AUTO_SAVE_INTERVAL = 30000; // 30 seconds
+
+  constructor(world: World) {
+    super(world, {
+      name: 'inventory',
+      dependencies: {
+        required: [],
+        optional: ['ui', 'equipment', 'player', 'database']
+      },
+      autoCleanup: true
+    });
+  }
+  
+  async init(): Promise<void> {
+    const isServer = this.world.network?.isServer || false
+    const isClient = this.world.network?.isClient || false
+    if (typeof process !== 'undefined' && process.env.DEBUG_RPG === '1') {
+      console.log(`[InventorySystem] init() called, isServer: ${isServer}, isClient: ${isClient}`)
+    }
+    
+    // Subscribe to inventory events (use world.on for reliable event delivery)
+    this.world.on(EventType.PLAYER_REGISTERED, (data: { playerId: string }) => {
+      if (process.env.DEBUG_RPG === '1') {
+        console.log(`[InventorySystem] PLAYER_REGISTERED received: ${data.playerId}`)
+      }
+      if (!this.loadPersistedInventory(data.playerId)) {
+        if (process.env.DEBUG_RPG === '1') {
+          console.log(`[InventorySystem] No persisted inventory found, initializing empty for ${data.playerId}`)
+        }
+        this.initializeInventory({ id: data.playerId });
+      }
+    });
+    this.subscribe(EventType.PLAYER_CLEANUP, (data) => {
+      this.cleanupInventory({ id: data.playerId });
+    });
+    this.subscribe(EventType.INVENTORY_ITEM_REMOVED, (data) => {
+      this.removeItem(data);
+    });
+    this.subscribe(EventType.ITEM_DROP, (data) => {
+      this.dropItem(data);
+    });
+    this.subscribe(EventType.INVENTORY_USE, (data) => {
+      this.useItem(data);
+    });
+    this.subscribe(EventType.ITEM_PICKUP, (data) => {
+      this.pickupItem({ playerId: data.playerId, entityId: data.itemId });
+    });
+    this.subscribe(EventType.INVENTORY_UPDATE_COINS, (data) => {
+      this.updateCoins({ playerId: data.playerId, amount: data.coins });
+    });
+    this.subscribe(EventType.INVENTORY_MOVE, (data) => {
+      this.moveItem(data);
+    });
+    this.subscribe(EventType.INVENTORY_DROP_ALL, (data) => {
+      this.dropAllItems({ playerId: data.playerId, position: data.position });
+    });
+    
+    // Subscribe to store system events
+    this.subscribe(EventType.INVENTORY_CAN_ADD, (data) => {
+      this.handleCanAdd(data);
+    });
+    this.subscribe(EventType.INVENTORY_REMOVE_COINS, (data) => {
+      this.handleRemoveCoins(data);
+    });
+    this.subscribe(EventType.INVENTORY_ITEM_ADDED, (data) => {
+      this.handleInventoryAdd(data);
+    });
+    
+    // Subscribe to inventory check events
+    this.subscribe(EventType.INVENTORY_CHECK, (data) => {
+      this.handleInventoryCheck(data);
+    });
+  }
+  
+  start(): void {
+    // Start periodic auto-save on server only
+    if (this.world.isServer) {
+      this.startAutoSave();
+    }
+  }
+  
+  private startAutoSave(): void {
+    this.saveInterval = this.createInterval(() => {
+      this.performAutoSave();
+    }, this.AUTO_SAVE_INTERVAL)!;
+    console.log('[InventorySystem] Auto-save started (every 30s)');
+  }
+  
+  private async performAutoSave(): Promise<void> {
+    const db = this.getDatabase();
+    if (!db) return;
+    
+    console.log(`[InventorySystem] Auto-saving ${this.playerInventories.size} player inventories...`);
+    for (const playerId of this.playerInventories.keys()) {
+      try {
+        const inv = this.getOrCreateInventory(playerId);
+        const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+        db.savePlayerInventory(playerId, saveItems);
+        db.savePlayer(playerId, { coins: inv.coins });
+      } catch (error) {
+        Logger.error('InventorySystem', `Error during auto-save for player ${playerId}`, error);
+      }
+    }
+  }
+
+  private initializeInventory(playerData: { id: string }): void {
+    // Validate and create PlayerID
+    if (!isValidPlayerID(playerData.id)) {
+      Logger.error('InventorySystem', `Invalid player ID: "${playerData.id}"`);
+      return;
+    }
+    
+    const playerId = createPlayerID(playerData.id);
+    
+    const inventory: PlayerInventory = {
+      playerId: playerId,
+      items: [],
+      coins: 100 // Starting coins per GDD
+    };
+    
+    this.playerInventories.set(playerId, inventory);
+    
+    // Starter equipment optional via env flag
+    const enableStarter = (typeof process !== 'undefined' && process.env && process.env.PUBLIC_STARTER_ITEMS === '1');
+    if (enableStarter) this.addStarterEquipment(playerId);
+    
+    const inventoryData = this.getInventoryData(playerData.id);
+    this.emitTypedEvent(EventType.INVENTORY_INITIALIZED, {
+      playerId: playerData.id, // Keep original for compatibility
+      inventory: {
+        items: inventoryData.items.map(item => ({
+          slot: item.slot,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          item: {
+            id: item.item.id,
+            name: item.item.name,
+            type: item.item.type,
+            stackable: item.item.stackable,
+            weight: item.item.weight
+          }
+        })),
+        coins: inventoryData.coins,
+        maxSlots: inventoryData.maxSlots
+      }
+    });
+  }
+
+  private addStarterEquipment(playerId: PlayerID): void {
+    const starterItems = [
+      { itemId: 'bronze_sword', quantity: 1 },
+      { itemId: 'bronze_shield', quantity: 1 },
+      { itemId: 'bronze_helmet', quantity: 1 },
+      { itemId: 'bronze_body', quantity: 1 },
+      { itemId: 'bronze_legs', quantity: 1 },
+      { itemId: 'wood_bow', quantity: 1 },
+      { itemId: 'arrows', quantity: 100 },
+      { itemId: 'tinderbox', quantity: 1 },
+      { itemId: 'bronze_hatchet', quantity: 1 },
+      { itemId: 'fishing_rod', quantity: 1 }
+    ];
+    
+    starterItems.forEach(({ itemId, quantity }) => {
+      this.addItem({ playerId, itemId: createItemID(itemId), quantity });
+    });
+  }
+
+  private cleanupInventory(data: { id: string }): void {
+    const playerId = toPlayerID(data.id);
+    if (!playerId) {
+      Logger.error('InventorySystem', `Cannot cleanup inventory: invalid player ID "${data.id}"`);
+      return;
+    }
+    this.playerInventories.delete(playerId);
+  }
+
+  protected addItem(data: { playerId: string; itemId: string; quantity: number; slot?: number }): boolean {
+    if (!data.playerId) {
+      Logger.error('InventorySystem', 'Cannot add item: playerId is undefined');
+      return false;
+    }
+    
+    if (!data.itemId) {
+      Logger.error('InventorySystem', 'Cannot add item: itemId is undefined');
+      return false;
+    }
+    
+    // Validate IDs
+    if (!isValidPlayerID(data.playerId) || !isValidItemID(data.itemId)) {
+      Logger.error('InventorySystem', 'Cannot add item: invalid ID format');
+      return false;
+    }
+    
+    const playerId = data.playerId;
+    const itemId = data.itemId;
+    
+    const inventory = this.getOrCreateInventory(playerId);
+    
+    const itemData = getItem(itemId);
+    if (!itemData) {
+      Logger.error('InventorySystem', `Item not found: ${itemId}`);
+      return false;
+    }
+    
+    if (process.env.DEBUG_RPG === '1') {
+      console.log(`[InventorySystem] Adding ${data.quantity}x ${itemId} to player ${playerId}`)
+    }
+    
+    // Special handling for coins
+    if (itemId === 'coins') {
+      inventory.coins += data.quantity;
+      this.emitTypedEvent(EventType.INVENTORY_COINS_UPDATED, {
+        playerId: playerId,
+        coins: inventory.coins
+      });
+      this.scheduleInventoryPersist(playerId);
+      return true;
+    }
+    
+    // Check if item is stackable
+    if (itemData.stackable) {
+      // Find existing stack
+      const existingItem = inventory.items.find(item => item.itemId === itemId);
+      if (existingItem) {
+        existingItem.quantity += data.quantity;
+        const playerIdKey = toPlayerID(playerId);
+        if (playerIdKey) {
+          this.emitInventoryUpdate(playerIdKey);
+          this.scheduleInventoryPersist(playerId);
+        }
+        return true;
+      }
+    }
+    
+    // Find empty slot
+    const emptySlot = this.findEmptySlot(inventory);
+    if (emptySlot === -1) {
+      this.emitTypedEvent(EventType.INVENTORY_FULL, { playerId: playerId });
+      return false;
+    }
+    
+    // Add new item
+    inventory.items.push({
+      slot: emptySlot,
+      itemId: itemId,
+      quantity: data.quantity,
+      item: itemData
+    });
+    
+    const playerIdKey = toPlayerID(playerId);
+    if (playerIdKey) {
+      this.emitInventoryUpdate(playerIdKey);
+      this.scheduleInventoryPersist(playerId);
+    }
+    return true;
+  }
+
+  private removeItem(data: { playerId: string; itemId: string | number; quantity: number; slot?: number }): boolean {
+    if (!data.playerId) {
+      Logger.error('InventorySystem', 'Cannot remove item: playerId is undefined');
+      return false;
+    }
+    
+    if (!data.itemId && data.itemId !== 0) {
+      Logger.error('InventorySystem', 'Cannot remove item: itemId is undefined');
+      return false;
+    }
+    
+    // Validate IDs
+    if (!isValidPlayerID(data.playerId) || !isValidItemID(String(data.itemId))) {
+      Logger.error('InventorySystem', 'Cannot remove item: invalid ID format');
+      return false;
+    }
+    
+    const playerId = data.playerId;
+    const itemId = String(data.itemId);
+    
+    const inventory = this.getOrCreateInventory(playerId);
+    
+    // Handle coins
+    if (itemId === 'coins') {
+      if (inventory.coins >= data.quantity) {
+        inventory.coins -= data.quantity;
+        this.emitTypedEvent(EventType.INVENTORY_COINS_UPDATED, {
+          playerId: data.playerId,
+          coins: inventory.coins
+        });
+        this.scheduleInventoryPersist(data.playerId);
+        return true;
+      }
+      return false;
+    }
+    
+    // Find item
+    const itemIndex = data.slot !== undefined 
+      ? inventory.items.findIndex(item => item.slot === data.slot)
+      : inventory.items.findIndex(item => item.itemId === itemId);
+    
+    if (itemIndex === -1) return false;
+    
+    const item = inventory.items[itemIndex];
+    
+    if (item.quantity > data.quantity) {
+      item.quantity -= data.quantity;
+    } else {
+      inventory.items.splice(itemIndex, 1);
+    }
+    
+    const playerIdKey = toPlayerID(playerId);
+    if (playerIdKey) {
+      this.emitInventoryUpdate(playerIdKey);
+      this.scheduleInventoryPersist(data.playerId);
+    }
+    return true;
+  }
+
+  private dropItem(data: { playerId: string; itemId: string; quantity: number; slot?: number }): void {
+    if (!data.playerId) {
+      Logger.error('InventorySystem', 'Cannot drop item: playerId is undefined');
+      return;
+    }
+    
+    const removed = this.removeItem(data);
+    
+    if (removed) {
+      const player = this.world.getPlayer(data.playerId);
+      if (!player) {
+        throw new Error(`[InventorySystem] Player not found: ${data.playerId}`);
+      }
+      const position = player.node.position;
+      
+      // Spawn item in world
+      this.emitTypedEvent(EventType.ITEM_SPAWN, {
+        itemId: data.itemId,
+        quantity: data.quantity,
+        position: {
+          x: position.x + (Math.random() - 0.5) * 2,
+          y: position.y,
+          z: position.z + (Math.random() - 0.5) * 2
+        }
+      });
+      
+    }
+  }
+
+  private dropAllItems(data: { playerId: string; position: { x: number; y: number; z: number } }): void {
+    if (!data.playerId) {
+      Logger.error('InventorySystem', 'Cannot drop all items: playerId is undefined');
+      return;
+    }
+    
+    const playerID = createPlayerID(data.playerId);
+    const inventory = this.getOrCreateInventory(playerID);
+    
+    // Get all items that will be dropped
+    const droppedItems = inventory.items.map(item => ({
+      item: { 
+        id: item.itemId,
+        quantity: item.quantity,
+        slot: item.slot
+      },
+      quantity: item.quantity
+    }));
+    
+    // Clear the inventory
+    inventory.items = [];
+    
+    // Emit event for death test system to track items dropped
+    this.emitTypedEvent(EventType.ITEM_DROPPED, {
+      playerId: data.playerId,
+      items: droppedItems,
+      location: data.position
+    });
+    
+    // Spawn each item in the world at the death location
+    for (let i = 0; i < droppedItems.length; i++) {
+      const droppedItem = droppedItems[i];
+      
+      // Spread items around the drop position to avoid stacking
+      const offsetX = (Math.random() - 0.5) * 3; // -1.5 to 1.5 meter spread
+      const offsetZ = (Math.random() - 0.5) * 3;
+      
+      this.emitTypedEvent(EventType.ITEM_SPAWN, {
+        itemId: droppedItem.item.id,
+        quantity: droppedItem.quantity,
+        position: {
+          x: data.position.x + offsetX,
+          y: data.position.y,
+          z: data.position.z + offsetZ
+        }
+      });
+    }
+    
+          Logger.info('InventorySystem', `Dropped ${droppedItems.length} items for player ${data.playerId} at death location`);
+  }
+
+  private useItem(data: { playerId: string; itemId: string; slot: number }): void {
+    
+    const playerID = data.playerId;
+    const inventory = this.getOrCreateInventory(playerID);
+    
+    const item = inventory.items.find(i => i.slot === data.slot);
+    if (!item) {
+      throw new Error(`[InventorySystem] No item found in slot ${data.slot}`);
+    }
+    
+    
+    // Emit item used event for other systems to react to (different from INVENTORY_USE to avoid recursion)
+    this.emitTypedEvent(EventType.ITEM_USED, {
+      playerId: data.playerId,
+      itemId: data.itemId,
+      slot: data.slot,
+      itemData: {
+        id: item.item.id,
+        name: item.item.name,
+        type: item.item.type,
+        stackable: item.item.stackable,
+        weight: item.item.weight
+      }
+    });
+    
+    // Remove consumables after use
+    if (item.item?.type === 'consumable') {
+      this.removeItem({ playerId: data.playerId, itemId: data.itemId, quantity: 1, slot: data.slot });
+    }
+  }
+
+  private pickupItem(data: { playerId: string; entityId: string }): void {
+    // Get item entity data from entity manager
+    const entityManager = getSystem(this.world, 'entity-manager') as EntityManager;
+    if (!entityManager) {
+      throw new Error('[InventorySystem] EntityManager system not found');
+    }
+    if (!entityManager) {
+      throw new Error('[InventorySystem] EntityManager not found');
+    }
+    
+    const entity = entityManager.getEntity(data.entityId);
+    if (!entity) {
+      throw new Error(`[InventorySystem] Entity not found: ${data.entityId}`);
+    }
+    
+    const itemId = entity.getProperty('itemId') as string;
+    const quantity = entity.getProperty('quantity') as number;
+    
+    // Try to add to inventory
+    const added = this.addItem({
+      playerId: data.playerId,
+      itemId,
+      quantity
+    });
+    
+    if (added) {
+      // Destroy item entity
+      this.emitTypedEvent(EventType.ENTITY_DEATH, { entityId: data.entityId });
+      
+    }
+  }
+
+  private updateCoins(data: { playerId: string; amount: number }): void {
+    if (!data.playerId) {
+      Logger.error('InventorySystem', 'Cannot update coins: playerId is undefined');
+      return;
+    }
+    
+    const inventory = this.getOrCreateInventory(data.playerId);
+    
+    if (data.amount > 0) {
+      inventory.coins += data.amount;
+    } else {
+      inventory.coins = Math.max(0, inventory.coins + data.amount);
+    }
+    
+    this.emitTypedEvent(EventType.INVENTORY_COINS_UPDATED, {
+      playerId: data.playerId,
+      coins: inventory.coins
+    });
+    this.scheduleInventoryPersist(data.playerId);
+  }
+
+  private moveItem(data: { playerId: string; fromSlot?: number; toSlot?: number; sourceSlot?: number; targetSlot?: number }): void {
+    if (!data.playerId) {
+      Logger.error('InventorySystem', 'Cannot move item: playerId is undefined');
+      return;
+    }
+    
+    // Handle parameter name variations
+    const fromSlot = data.fromSlot ?? data.sourceSlot;
+    const toSlot = data.toSlot ?? data.targetSlot;
+    
+    if (fromSlot === undefined || toSlot === undefined) {
+      Logger.error('InventorySystem', 'Cannot move item: slot numbers are undefined', undefined, { data });
+      return;
+    }
+    
+    const inventory = this.getOrCreateInventory(data.playerId);
+    
+    const fromItem = inventory.items.find(item => item.slot === fromSlot);
+    const toItem = inventory.items.find(item => item.slot === toSlot);
+    
+    // Simple swap
+    if (fromItem && toItem) {
+      fromItem.slot = toSlot;
+      toItem.slot = fromSlot;
+    } else if (fromItem) {
+      fromItem.slot = toSlot;
+    }
+    
+    const playerIdKey = toPlayerID(data.playerId);
+    if (playerIdKey) {
+      this.emitInventoryUpdate(playerIdKey);
+      this.scheduleInventoryPersist(data.playerId);
+    }
+  }
+
+  private findEmptySlot(inventory: PlayerInventory): number {
+    const usedSlots = new Set(inventory.items.map(item => item.slot));
+    
+    for (let i = 0; i < this.MAX_INVENTORY_SLOTS; i++) {
+      if (!usedSlots.has(i)) {
+        return i;
+      }
+    }
+    
+    return -1;
+  }
+
+  private emitInventoryUpdate(playerId: PlayerID): void {
+    const inventoryData = this.getInventoryData(playerId);
+    const inventoryUpdateData = {
+      playerId,
+      items: inventoryData.items.map(item => ({
+        slot: item.slot,
+        itemId: item.itemId,
+        quantity: item.quantity,
+        item: {
+          id: item.item.id,
+          name: item.item.name,
+          type: item.item.type,
+          stackable: item.item.stackable,
+          weight: item.item.weight
+        }
+      })),
+      coins: inventoryData.coins,
+      maxSlots: inventoryData.maxSlots
+    };
+    
+    // Emit local event for server-side systems
+    this.emitTypedEvent(EventType.INVENTORY_UPDATED, inventoryUpdateData);
+    
+    // Broadcast to all clients if on server
+    if (this.world.isServer) {
+      const network = this.world.network as { send?: (method: string, data: unknown) => void } | undefined;
+      if (network && network.send) {
+        network.send('inventoryUpdated', {
+          playerId,
+          items: inventoryUpdateData.items,
+          coins: inventoryData.coins
+        });
+        console.log(`[InventorySystem] 📡 Broadcast inventory update to clients - ${inventoryData.items.length} items`);
+      }
+    }
+  }
+
+  // Public API
+  getInventory(playerId: string): PlayerInventory | undefined {
+    const playerIdKey = toPlayerID(playerId);
+    if (!playerIdKey) {
+      Logger.error('InventorySystem', `Invalid player ID in getInventory: "${playerId}"`);
+      return undefined;
+    }
+    return this.playerInventories.get(playerIdKey);
+  }
+
+  getInventoryData(playerId: string): InventoryData {
+    const playerIdKey = toPlayerID(playerId);
+    if (!playerIdKey) {
+      Logger.error('InventorySystem', `Invalid player ID in getInventoryData: "${playerId}"`);
+      return { items: [], coins: 0, maxSlots: this.MAX_INVENTORY_SLOTS };
+    }
+    
+    const inventory = this.playerInventories.get(playerIdKey);
+    if (!inventory) {
+      return { items: [], coins: 0, maxSlots: this.MAX_INVENTORY_SLOTS };
+    }
+    
+    return {
+      items: inventory.items.map(item => ({
+        slot: item.slot,
+        itemId: item.itemId,
+        quantity: item.quantity,
+        item: {
+          id: item.item.id,
+          name: item.item.name,
+          type: item.item.type,
+          stackable: item.item.stackable,
+          weight: item.item.weight
+        }
+      })),
+      coins: inventory.coins,
+      maxSlots: this.MAX_INVENTORY_SLOTS
+    };
+  }
+
+  hasItem(playerId: string, itemId: string, quantity: number = 1): boolean {
+    // Validate IDs
+    const playerIdKey = toPlayerID(playerId);
+    if (!playerIdKey || !isValidItemID(itemId)) {
+      return false;
+    }
+    
+    const inventory = this.playerInventories.get(playerIdKey);
+    if (!inventory) return false;
+    
+    // Check coins
+    if (itemId === 'coins') {
+      return inventory.coins >= quantity;
+    }
+    
+    const totalQuantity = inventory.items
+      .filter(item => item.itemId === itemId)
+      .reduce((sum, item) => sum + item.quantity, 0);
+    
+    return totalQuantity >= quantity;
+  }
+
+  getItemQuantity(playerId: string, itemId: string): number {
+    // Validate IDs
+    const playerIdKey = toPlayerID(playerId);
+    if (!playerIdKey || !isValidItemID(itemId)) {
+      return 0;
+    }
+    
+    const inventory = this.playerInventories.get(playerIdKey);
+    if (!inventory) return 0;
+    
+    if (itemId === 'coins') {
+      return inventory.coins;
+    }
+    
+    return inventory.items
+      .filter(item => item.itemId === itemId)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  }
+
+  getCoins(playerId: string): number {
+    const playerIdKey = toPlayerID(playerId);
+    if (!playerIdKey) return 0;
+    const inventory = this.playerInventories.get(playerIdKey);
+    return inventory?.coins || 0;
+  }
+
+  getTotalWeight(playerId: string): number {
+    const playerIdKey = toPlayerID(playerId);
+    if (!playerIdKey) return 0;
+    const inventory = this.playerInventories.get(playerIdKey);
+    if (!inventory) return 0;
+    
+    return inventory.items.reduce((total, item) => {
+      const itemData = getItem(item.itemId);
+      return total + (itemData?.weight || 0) * item.quantity;
+    }, 0);
+  }
+
+  isFull(playerId: string): boolean {
+    const playerIdKey = toPlayerID(playerId);
+    if (!playerIdKey) return false;
+    const inventory = this.playerInventories.get(playerIdKey);
+    if (!inventory) return false;
+    
+    return inventory.items.length >= this.MAX_INVENTORY_SLOTS;
+  }
+
+  // Store system event handlers
+  protected getOrCreateInventory(playerId: string): PlayerInventory {
+    if (!playerId) {
+      throw new Error('[InventorySystem] Cannot create inventory for undefined playerId');
+    }
+    
+    const playerIdKey = toPlayerID(playerId);
+    if (!playerIdKey) {
+      throw new Error(`[InventorySystem] Invalid player ID: ${playerId}`);
+    }
+    
+    let inventory = this.playerInventories.get(playerIdKey);
+    if (!inventory) {
+      Logger.info('InventorySystem', `Auto-initializing inventory for player ${playerId}`);
+      // Auto-initialize inventory if it doesn't exist
+      inventory = {
+        playerId,
+        items: [],
+        coins: 100 // Starting coins per GDD
+      };
+      this.playerInventories.set(playerIdKey, inventory);
+      
+      // Add starter equipment for auto-initialized players if enabled
+      const enableStarter = (typeof process !== 'undefined' && process.env && process.env.PUBLIC_STARTER_ITEMS === '1');
+      if (enableStarter) this.addStarterEquipment(playerIdKey);
+    }
+    return inventory;
+  }
+
+  // === Persistence helpers ===
+  private getDatabase(): DatabaseSystem | null {
+    try {
+      return (this.world.getSystem('database') as unknown as DatabaseSystem) || null
+    } catch { return null }
+  }
+
+  private loadPersistedInventory(playerId: string): boolean {
+    const db = this.getDatabase();
+    if (!db) return false;
+    try {
+      const rows = db.getPlayerInventory(playerId);
+      const playerRow = db.getPlayer(playerId);
+      if (process.env.DEBUG_RPG === '1') {
+        console.log(`[InventorySystem] Loading inventory for ${playerId}: ${rows?.length || 0} items, ${playerRow?.coins || 0} coins`)
+      }
+      const hasState = (rows && rows.length > 0) || !!playerRow;
+      if (!hasState) return false;
+      const pid = createPlayerID(playerId);
+      const inv: PlayerInventory = { playerId: pid, items: [], coins: playerRow?.coins ?? 0 };
+      this.playerInventories.set(pid, inv);
+      for (const row of rows) {
+        const slot = typeof row.slotIndex === 'number' ? row.slotIndex : undefined;
+        this.addItem({ playerId, itemId: createItemID(String(row.itemId)), quantity: row.quantity || 1, slot });
+      }
+      const data = this.getInventoryData(playerId);
+      this.emitTypedEvent(EventType.INVENTORY_INITIALIZED, {
+        playerId,
+        inventory: {
+          items: data.items.map(item => ({
+            slot: item.slot,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            item: { id: item.item.id, name: item.item.name, type: item.item.type, stackable: item.item.stackable, weight: item.item.weight }
+          })),
+          coins: data.coins,
+          maxSlots: data.maxSlots,
+        }
+      });
+      return true;
+    } catch (e) {
+      Logger.error('InventorySystem', `Failed loading persisted inventory for ${playerId}`, e as Error);
+      return false;
+    }
+  }
+
+  private scheduleInventoryPersist(playerId: string): void {
+    const db = this.getDatabase();
+    if (!db) return;
+    const existing = this.persistTimers.get(playerId);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      try {
+        const inv = this.getOrCreateInventory(playerId);
+        const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+        db.savePlayerInventory(playerId, saveItems);
+        db.savePlayer(playerId, { coins: inv.coins });
+      } catch (e) {
+        Logger.error('InventorySystem', `Persist failed for ${playerId}`, e as Error);
+      }
+    }, 300);
+    this.persistTimers.set(playerId, timer);
+  }
+
+  private handleCanAdd(data: InventoryCanAddEvent): void {
+    Logger.info('InventorySystem', `Checking if player ${data.playerId} can add item`, { item: data.item });
+    const inventory = this.getOrCreateInventory(data.playerId);
+
+    // Check if inventory has space
+    const hasSpace = inventory.items.length < this.MAX_INVENTORY_SLOTS;
+    
+    // If stackable, check if we can stack with existing item
+    if (data.item.stackable) {
+      const existingItem = inventory.items.find(item => item.itemId === data.item.id);
+      if (existingItem) {
+        Logger.info('InventorySystem', 'Can stack with existing item, space available: true');
+        data.callback(true);
+        return;
+      }
+    }
+    
+    Logger.info('InventorySystem', `Has space: ${hasSpace}, slots used: ${inventory.items.length}/${this.MAX_INVENTORY_SLOTS}`);
+    data.callback(hasSpace);
+  }
+
+  private handleRemoveCoins(data: InventoryRemoveCoinsEvent): void {
+    Logger.info('InventorySystem', `Removing ${data.amount} coins from player ${data.playerId}`);
+    const inventory = this.getOrCreateInventory(data.playerId);
+
+    inventory.coins = Math.max(0, inventory.coins - data.amount);
+          Logger.info('InventorySystem', `Player ${data.playerId} now has ${inventory.coins} coins`);
+    
+    this.emitTypedEvent(EventType.INVENTORY_COINS_UPDATED, {
+      playerId: data.playerId,
+      coins: inventory.coins
+    });
+  }
+
+  private handleInventoryCheck(data: InventoryCheckEvent): void {
+    Logger.info('InventorySystem', `Checking inventory for player ${data.playerId}, item ${data.itemId}, quantity ${data.quantity}`);
+    
+    const itemId = String(data.itemId);
+    const item = getItem(itemId);
+    
+    if (!item) {
+      Logger.info('InventorySystem', `Item ${itemId} not found in item database`);
+      data.callback(false, null);
+      return;
+    }
+    
+    const hasItem = this.hasItem(data.playerId, itemId, data.quantity);
+    Logger.info('InventorySystem', `Player has item: ${hasItem}`);
+    
+    if (!hasItem) {
+      data.callback(false, null);
+      return;
+    }
+    
+    // Find the inventory item
+    const inventory = this.getOrCreateInventory(data.playerId);
+    const inventoryItem = inventory.items.find(i => i.itemId === itemId);
+    
+    const inventorySlot: InventoryItemInfo | null = inventoryItem ? {
+      id: inventoryItem.itemId,
+      quantity: inventoryItem.quantity,
+      name: item.name,
+      stackable: item.stackable,
+      slot: inventoryItem.slot.toString()
+    } : null;
+    
+    data.callback(hasItem, inventorySlot);
+  }
+
+  private handleInventoryAdd(data: InventoryItemAddedPayload): void {
+    // Validate the event data exists
+    if (!data) {
+      Logger.error('InventorySystem', 'handleInventoryAdd: data is undefined');
+      return;
+    }
+    
+    if (!data.item) {
+      Logger.error('InventorySystem', 'handleInventoryAdd: data.item is undefined');
+      return;
+    }
+    
+    const playerId = data.playerId;
+    const itemId = data.item.itemId;
+    const quantity = data.item.quantity;
+    
+    console.log(`[InventorySystem] 📥 handleInventoryAdd called - playerId: ${playerId}, itemId: ${itemId}, quantity: ${quantity}`);
+    
+    // Validate the event data before processing
+    if (!playerId) {
+      Logger.error('InventorySystem', 'handleInventoryAdd: playerId is missing');
+      return;
+    }
+    
+    if (!itemId) {
+      Logger.error('InventorySystem', 'handleInventoryAdd: itemId is missing');
+      return;
+    }
+    
+    if (typeof quantity !== 'number' || quantity <= 0) {
+      Logger.error('InventorySystem', 'handleInventoryAdd: invalid quantity');
+      return;
+    }
+    
+    const result = this.addItem({ playerId, itemId, quantity });
+    console.log(`[InventorySystem] addItem result: ${result ? 'SUCCESS' : 'FAILED'}`);
+  }
+
+  /**
+   * Get skill data for a specific skill
+   * Returns null if the skill doesn't exist or player has no data
+   */
+  getSkillData(_playerId: string, _skillName: string): { xp: number, level: number } | null {
+    // For now, return default skill data
+    // This would normally be stored with player data
+    const defaultSkillData = {
+      xp: 0,
+      level: 1
+    };
+    return defaultSkillData;
+  }
+
+  /**
+   * Spawn an item in the world (for tests)
+   * This is a test helper method
+   */
+  async spawnItem(itemId: string, position: { x: number, y: number, z: number }, quantity: number): Promise<void> {
+    // Emit event to spawn the item in the world
+    this.emitTypedEvent(EventType.ITEM_SPAWN, {
+      itemId,
+      position,
+      quantity
+    });
+  }
+
+  destroy(): void {
+    // Stop auto-save interval
+    if (this.saveInterval) {
+      clearInterval(this.saveInterval);
+      this.saveInterval = undefined;
+    }
+    
+    // Clear all pending persist timers
+    for (const timer of this.persistTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.persistTimers.clear();
+    
+    // Final save before shutdown
+    if (this.world.isServer) {
+      const db = this.getDatabase();
+      if (db) {
+        console.log('[InventorySystem] Final save before shutdown...');
+        for (const playerId of this.playerInventories.keys()) {
+          try {
+            const inv = this.getOrCreateInventory(playerId);
+            const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+            db.savePlayerInventory(playerId, saveItems);
+            db.savePlayer(playerId, { coins: inv.coins });
+          } catch (error) {
+            Logger.error('InventorySystem', `Error during final save for player ${playerId}`, error);
+          }
+        }
+      }
+    }
+    
+    // Clear all player inventories on system shutdown
+    this.playerInventories.clear();
+    // Call parent cleanup (handles event listeners, timers, etc.)
+    super.destroy();
+  }
+
+}

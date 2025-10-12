@@ -95,7 +95,11 @@ describe('IGNORE Action', () => {
         action: 'IGNORE',
         hasResponse: true,
       })
-      expect(mockCallback).toHaveBeenCalledWith({ text: '', thought: 'User is being rude, I should ignore them', actions: ['IGNORE'] });
+      expect(mockCallback).toHaveBeenCalledWith({
+        text: '',
+        thought: 'User is being rude, I should ignore them',
+        actions: ['IGNORE'],
+      })
     })
 
     it('should return true without calling callback if no responses', async () => {
@@ -212,7 +216,11 @@ describe('IGNORE Action', () => {
         action: 'IGNORE',
         hasResponse: true,
       })
-      expect(mockCallback).toHaveBeenCalledWith({ text: '', thought: 'First ignore response', actions: ['IGNORE'] });
+      expect(mockCallback).toHaveBeenCalledWith({
+        text: '',
+        thought: 'First ignore response',
+        actions: ['IGNORE'],
+      })
     })
   })
 

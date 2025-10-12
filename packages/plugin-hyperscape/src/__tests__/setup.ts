@@ -8,7 +8,7 @@ import {
   createMockMemory,
   TestHelper,
 } from '../types/test-mocks'
-import { Entity, Player, World } from '@hyperscape/hyperscape'
+import { Entity, Player, World } from '@hyperscape/shared'
 import { IAgentRuntime, Memory } from '@elizaos/core'
 
 type MockWebSocket = Partial<WebSocket>
@@ -20,7 +20,6 @@ expect.extend(matchers)
 
 // Global test setup
 beforeAll(async () => {
-  
   // Set up global test environment
   global.File = class MockFile extends Blob {
     name: string
@@ -53,20 +52,19 @@ beforeAll(async () => {
       return array
     },
   } as Crypto
-
-  })
+})
 
 afterAll(async () => {
-    // Cleanup if needed
+  // Cleanup if needed
 })
 
 beforeEach(async () => {
   // Reset any per-test state
-  })
+})
 
 afterEach(async () => {
   // Cleanup after each test
-  })
+})
 
 // Mock WebSocket
 global.WebSocket = vi.fn(

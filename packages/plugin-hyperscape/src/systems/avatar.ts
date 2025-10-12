@@ -1,5 +1,5 @@
 import { logger } from '@elizaos/core'
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 import type { World, Player } from '../types/core-types'
 
 interface NodeContext {
@@ -37,7 +37,7 @@ interface ProxyNode extends THREE.Object3D {
   refCount?: number
 }
 
-// Create a base Node class since @hyperscape/hyperscape is not available
+// Create a base Node class since @hyperscape/shared is not available
 class Node extends THREE.Object3D {
   ctx: NodeContext
   constructor(ctx: NodeContext) {
@@ -199,7 +199,9 @@ export class AgentAvatar extends Node {
 
       // Emote handling
       if (this.player) {
-        const effect = (this.player as any).data?.effect as PlayerEffect | undefined
+        const effect = (this.player as any).data?.effect as
+          | PlayerEffect
+          | undefined
         if (effect?.emote !== this.emote) {
           this.emote = effect?.emote || null
           this.updateEmote()

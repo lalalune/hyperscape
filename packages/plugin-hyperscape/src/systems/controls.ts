@@ -1,7 +1,7 @@
 import { System, World, Entity } from '../types/core-types'
-import type { Player } from '@hyperscape/hyperscape'
+import type { Player } from '@hyperscape/shared'
 import type { Control, InputState } from '../types/core-types'
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 
 const _FORWARD = new THREE.Vector3(0, 0, -1)
 const _v1 = new THREE.Vector3()
@@ -138,7 +138,7 @@ export class AgentControls extends System {
   private _isRotating = false
   private _rotationTarget: THREE.Quaternion | null = null
   private _rotationAbortController: ControlsToken | null = null
-  private _tempVec3 = new THREE.Vector3();
+  private _tempVec3 = new THREE.Vector3()
 
   constructor(world: World) {
     super(world)

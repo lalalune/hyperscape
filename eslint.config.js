@@ -118,6 +118,14 @@ export default [
         AudioBuffer: 'readonly',
         CSSStyleDeclaration: 'readonly',
         
+        // Cloudflare Workers / Web Platform API globals
+        Request: 'readonly',
+        Response: 'readonly',
+        Headers: 'readonly',
+        ReadableStream: 'readonly',
+        Touch: 'readonly',
+        TouchList: 'readonly',
+        
         // Common testing globals
         describe: 'readonly',
         test: 'readonly',

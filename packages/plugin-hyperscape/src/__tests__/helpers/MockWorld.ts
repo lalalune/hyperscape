@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import { Player, THREE, EventType } from '@hyperscape/hyperscape'
+import { Player, THREE, EventType } from '@hyperscape/shared'
 
 type Vector3 = THREE.Vector3
 

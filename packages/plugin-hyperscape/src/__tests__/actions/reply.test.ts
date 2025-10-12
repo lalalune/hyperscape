@@ -76,11 +76,20 @@ describe('REPLY Action', () => {
 
       expect(mockRuntime.composeState).toHaveBeenCalledWith(mockMessage)
       expect(mockRuntime.useModel).toHaveBeenCalled()
-      expect(mockCallback).toHaveBeenCalledWith({text: expect.any(String), thought: expect.any(String), actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
+      expect(mockCallback).toHaveBeenCalledWith({
+        text: expect.any(String),
+        thought: expect.any(String),
+        actions: ['HYPERSCAPE_REPLY'],
+        source: 'hyperscape',
+      })
     })
 
     it('should use existing reply responses if available', async () => {
-      const responses = [{content: {text: 'Existing', actions: ['REPLY'], thought: 'thought'}}];
+      const responses = [
+        {
+          content: { text: 'Existing', actions: ['REPLY'], thought: 'thought' },
+        },
+      ]
       await replyAction.handler(
         mockRuntime,
         mockMessage,
@@ -90,14 +99,30 @@ describe('REPLY Action', () => {
         responses
       )
 
-      expect(mockCallback).toHaveBeenCalledWith({text: 'Existing', actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
+      expect(mockCallback).toHaveBeenCalledWith({
+        text: 'Existing',
+        actions: ['HYPERSCAPE_REPLY'],
+        source: 'hyperscape',
+      })
     })
 
     it('should handle multiple existing reply responses', async () => {
       const responses = [
-        { content: { text: 'First reply', actions: ['REPLY'], thought: 'thought1' } },
-        { content: { text: 'Second reply', actions: ['REPLY'], thought: 'thought2' } },
-      ];
+        {
+          content: {
+            text: 'First reply',
+            actions: ['REPLY'],
+            thought: 'thought1',
+          },
+        },
+        {
+          content: {
+            text: 'Second reply',
+            actions: ['REPLY'],
+            thought: 'thought2',
+          },
+        },
+      ]
       await replyAction.handler(
         mockRuntime,
         mockMessage,
@@ -107,9 +132,17 @@ describe('REPLY Action', () => {
         responses
       )
 
-      expect(mockCallback).toHaveBeenCalledTimes(2);
-      expect(mockCallback).toHaveBeenNthCalledWith(1, {text: 'First reply', actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
-      expect(mockCallback).toHaveBeenNthCalledWith(2, {text: 'Second reply', actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
+      expect(mockCallback).toHaveBeenCalledTimes(2)
+      expect(mockCallback).toHaveBeenNthCalledWith(1, {
+        text: 'First reply',
+        actions: ['HYPERSCAPE_REPLY'],
+        source: 'hyperscape',
+      })
+      expect(mockCallback).toHaveBeenNthCalledWith(2, {
+        text: 'Second reply',
+        actions: ['HYPERSCAPE_REPLY'],
+        source: 'hyperscape',
+      })
     })
 
     it('should ignore responses without REPLY action', async () => {
@@ -119,7 +152,7 @@ describe('REPLY Action', () => {
         mockState,
         {},
         mockCallback,
-        [{content: {text: '', actions: ['OTHER'], thought: 'thought'}}]
+        [{ content: { text: '', actions: ['OTHER'], thought: 'thought' } }]
       )
 
       expect(mockRuntime.useModel).toHaveBeenCalled()
@@ -148,7 +181,7 @@ describe('REPLY Action', () => {
         mockState,
         {},
         mockCallback,
-        [{content: {text: '', actions: ['REPLY'], thought: 'thought'}}]
+        [{ content: { text: '', actions: ['REPLY'], thought: 'thought' } }]
       )
 
       expect(mockCallback).toHaveBeenCalledWith(
@@ -165,7 +198,15 @@ describe('REPLY Action', () => {
     })
 
     it('should use message field when available in responses', async () => {
-      const responses = [{content: {message: 'Message field content', actions: ['REPLY'], thought: 'thought'}}];
+      const responses = [
+        {
+          content: {
+            message: 'Message field content',
+            actions: ['REPLY'],
+            thought: 'thought',
+          },
+        },
+      ]
       await replyAction.handler(
         mockRuntime,
         mockMessage,

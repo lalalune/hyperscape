@@ -1,7 +1,7 @@
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 import { System } from '../types/core-types'
 import { CONTROLS_CONFIG } from '../config/constants'
-import type { World } from '@hyperscape/hyperscape'
+import type { World } from '@hyperscape/shared'
 
 interface ActionNode extends THREE.Object3D {
   ctx: {
@@ -101,7 +101,9 @@ export class AgentActions extends System {
       return
     }
 
-    const agentControl = control as { setKey?: (key: string, value: boolean) => void }
+    const agentControl = control as {
+      setKey?: (key: string, value: boolean) => void
+    }
     if (agentControl.setKey) {
       agentControl.setKey('keyE', true)
     }
@@ -132,17 +134,17 @@ export class AgentActions extends System {
 
     console.log('Releasing current action.')
     interface KeyState {
-      pressed?: boolean;
-      released?: boolean;
-      onPress?: () => void;
-      onRelease?: () => void;
+      pressed?: boolean
+      released?: boolean
+      onPress?: () => void
+      onRelease?: () => void
     }
-    
+
     interface ControlsWithKeys {
-      setKey?: (key: string, value: boolean) => void;
-      keyX?: KeyState;
+      setKey?: (key: string, value: boolean) => void
+      keyX?: KeyState
     }
-    
+
     const control = this.world.controls as ControlsWithKeys | undefined
     if (!control) {
       console.log('Controls not available')
@@ -152,7 +154,7 @@ export class AgentActions extends System {
     if (control.setKey) {
       control.setKey('keyX', true)
     }
-    
+
     // Trigger key press callbacks
     if (control.keyX) {
       const keyX = control.keyX
@@ -171,7 +173,7 @@ export class AgentActions extends System {
       if (control.setKey) {
         control.setKey('keyX', false)
       }
-      
+
       // Trigger key release callbacks
       if (control.keyX) {
         const keyX = control.keyX

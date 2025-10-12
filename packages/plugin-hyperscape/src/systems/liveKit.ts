@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { System } from '../types/core-types'
-import type { World } from '@hyperscape/hyperscape'
+import type { World } from '@hyperscape/shared'
 
 export interface LiveKitInitOptions {
   wsUrl: string
@@ -51,17 +51,17 @@ export class AgentLiveKit extends System {
       '[LiveKit] LiveKit support is not available - running in stub mode'
     )
     // Stub implementation - no actual connection
-      }
+  }
 
   async stop(): Promise<void> {
-        this.room = null
+    this.room = null
     this.audioSource = null
     this.localTrack = null
   }
 
   private setupRoomEvents(): void {
     // Stub implementation
-      }
+  }
 
   // Framework stubs
   preTick() {}

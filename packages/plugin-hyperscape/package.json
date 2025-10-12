@@ -42,7 +42,7 @@
   "dependencies": {
     "@elizaos/core": "^1.2.9",
     "@elizaos/server": "^1.2.9",
-    "@hyperscape/hyperscape": "*",
+    "@hyperscape/shared": "workspace:*",
     "@tanstack/react-query": "^5.80.7",
     "@types/lodash-es": "^4.17.12",
     "canvas": "^3.1.2",
@@ -52,7 +52,7 @@
     "playwright": "^1.54.2",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.10",
-    "three": "0.178.0",
+    "three": "^0.180.0",
     "uuid": "^11.1.0",
     "vite": "^6.3.5",
     "ws": "^8.18.3",

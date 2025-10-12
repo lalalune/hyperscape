@@ -3,7 +3,7 @@ import {
   type PxVec3,
   type PxTransform,
   type PxQuat,
-} from '@hyperscape/hyperscape'
+} from '@hyperscape/shared'
 
 // THREE.js Extensions
 export interface EnhancedVector3 extends THREE.Vector3 {
@@ -158,7 +158,7 @@ export interface ShaderMaterial
     | ((shader: ShaderCompileParameters) => void)
     | ((
         shader: THREE.WebGLProgramParametersWithUniforms,
-        renderer: THREE.WebGLRenderer
+        renderer: THREE.WebGLRenderer | any
       ) => void)
 }
 

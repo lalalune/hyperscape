@@ -11,12 +11,7 @@ import type {
 } from '@elizaos/core'
 
 import { World, Entity, System } from './core-types'
-import type {
-  Player,
-  Vector3,
-  Quaternion,
-  Component,
-} from '@hyperscape/hyperscape'
+import type { Player, Vector3, Quaternion, Component } from '@hyperscape/shared'
 
 // Core agent interfaces for Hyperscape integration
 export interface AgentContext {
@@ -199,4 +194,4 @@ export interface NetworkHandler {
 }
 
 // Re-export ChatMessage for use in plugin
-// export type { ChatMessage } from '@hyperscape/hyperscape'
+// export type { ChatMessage } from '@hyperscape/shared'

@@ -8,7 +8,7 @@ import {
   type State,
 } from '@elizaos/core'
 import { Entity } from '../types/core-types'
-import type { World as HyperscapeWorld } from '@hyperscape/hyperscape'
+import type { World as HyperscapeWorld } from '@hyperscape/shared'
 import type { HyperscapeService } from '../service'
 import { composeContext, generateMessageResponse } from '../utils/ai-helpers'
 
@@ -22,7 +22,16 @@ const useAction: Action = {
   name: 'use',
   description: 'Use, equip, or wield an item in the Hyperscape world',
   similes: ['use', 'equip', 'wield', 'activate', 'employ'],
-  examples: [ [ {name: 'user', content: {text: 'use sword'}}, {name: 'agent', content: {actions: ['USE'], text: 'Using sword'}} ], [ {name: 'user', content: {text: 'equip armor'}}, {name: 'agent', content: {actions: ['USE'], text: 'Equipping armor'}} ] ],
+  examples: [
+    [
+      { name: 'user', content: { text: 'use sword' } },
+      { name: 'agent', content: { actions: ['USE'], text: 'Using sword' } },
+    ],
+    [
+      { name: 'user', content: { text: 'equip armor' } },
+      { name: 'agent', content: { actions: ['USE'], text: 'Equipping armor' } },
+    ],
+  ],
   validate: async (runtime: IAgentRuntime, message: Memory) => {
     return true
   },
@@ -69,18 +78,22 @@ Decide if this is a valid use action.
       modelType: ModelType.TEXT_SMALL,
     })
 
-    const itemName = response.text.trim();
+    const itemName = response.text.trim()
     if (itemName) {
-      const entity = findEntityByName(world, itemName);
+      const entity = findEntityByName(world, itemName)
       if (entity && entity.data?.usable) {
-        const result = {success: true, text: `Used ${entity.name}`};
-        await callback({text: result.text, actions: ['HYPERSCAPE_USE'], source: 'hyperscape'});
-        return result;
+        const result = { success: true, text: `Used ${entity.name}` }
+        await callback({
+          text: result.text,
+          actions: ['HYPERSCAPE_USE'],
+          source: 'hyperscape',
+        })
+        return result
       } else {
-        return {success: false, text: `Cannot use ${itemName}`};
+        return { success: false, text: `Cannot use ${itemName}` }
       }
     } else {
-      return {success: false, text: 'No item specified'};
+      return { success: false, text: 'No item specified' }
     }
   },
 }

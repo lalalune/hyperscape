@@ -54,7 +54,7 @@ export const hyperscapeUnuseItemAction: Action = {
     logger.info('[UNUSE ITEM] Attempting to release current action.')
     // AgentActions has releaseAction method - use it
     if (actions) {
-      (actions as unknown as { releaseAction: () => void }).releaseAction()
+      ;(actions as unknown as { releaseAction: () => void }).releaseAction()
     }
 
     if (callback) {

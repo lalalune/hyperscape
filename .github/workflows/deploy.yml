@@ -1,0 +1,73 @@
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build shared package
+        working-directory: packages/shared
+        run: bun run build
+
+      - name: Build server package
+        working-directory: packages/server
+        run: bun run build
+
+      - name: Build client package
+        working-directory: packages/client
+        run: bun run build
+
+      - name: Deploy server to Cloudflare
+        working-directory: packages/server
+        run: |
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            bun run deploy:prod
+          else
+            bun run deploy
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy client to Cloudflare
+        working-directory: packages/client
+        run: |
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            bun run deploy:prod
+          else
+            bun run deploy
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify deployment
+        if: inputs.environment == 'production'
+        run: sleep 30 && node scripts/verify-deployment.mjs production
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+

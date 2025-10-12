@@ -1,0 +1,57 @@
+# Cloudflare Configuration for Hyperscape
+name = "hyperscape-server"
+main = "src/worker.ts"
+compatibility_date = "2024-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Containers - Your existing game server!
+[[containers]]
+class_name = "GameServer"
+image = "./Dockerfile.cloudflare"
+max_instances = 5  # Auto-scales 1-5 based on load
+port = 8080        # Container port (internal)
+
+# Durable Objects binding for container
+[[durable_objects.bindings]]
+class_name = "GameServer"
+name = "GAME_SERVER"
+
+# D1 Database (optional - can keep PostgreSQL in container)
+[[d1_databases]]
+binding = "DB"
+database_name = "hyperscape-db"
+database_id = "your-d1-id-here"
+
+# R2 Buckets
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "hyperscape-assets"
+preview_bucket_name = "hyperscape-assets-preview"
+
+[[r2_buckets]]
+binding = "UPLOADS"  
+bucket_name = "hyperscape-uploads"
+
+# KV for sessions/cache
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "your-kv-id-here"
+preview_id = "your-kv-preview-id"
+
+# Environment Variables (non-secret)
+[vars]
+PORT = "8080"
+NODE_ENV = "production"
+PUBLIC_CDN_URL = "https://pub-your-r2-id.r2.dev"
+
+# Use wrangler secret put for these:
+# wrangler secret put LIVEKIT_API_KEY
+# wrangler secret put LIVEKIT_API_SECRET
+# wrangler secret put PRIVY_APP_SECRET
+# wrangler secret put POSTGRES_URL (if using external postgres)
+
+# Migrations for container
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameServer"]
+
