@@ -48,7 +48,10 @@ async function runTypeCheck() {
  */
 async function buildLibrary() {
   console.log('Building library...')
-  const ctx = await esbuild.context({
+  
+  // Build full library (server + client)
+  console.log('Building framework.js (full)...')
+  const ctxFull = await esbuild.context({
     entryPoints: ['src/index.ts'],
     outfile: 'build/framework.js',
     platform: 'neutral',
@@ -66,9 +69,35 @@ async function buildLibrary() {
     plugins: [typescriptPlugin],
   })
   
-  await ctx.rebuild()
-  await ctx.dispose()
-  console.log('✓ Library built successfully')
+  await ctxFull.rebuild()
+  await ctxFull.dispose()
+  console.log('✓ framework.js built successfully')
+  
+  // Build client-only library (no Node.js modules)
+  console.log('Building framework.client.js (client-only)...')
+  const ctxClient = await esbuild.context({
+    entryPoints: ['src/index.client.ts'],
+    outfile: 'build/framework.client.js',
+    platform: 'browser',
+    format: 'esm',
+    bundle: true,
+    treeShaking: true,
+    minify: !dev,
+    sourcemap: true,
+    packages: 'external',
+    target: 'esnext',
+    loader: {
+      '.ts': 'ts',
+      '.tsx': 'tsx',
+    },
+    plugins: [typescriptPlugin],
+  })
+  
+  await ctxClient.rebuild()
+  await ctxClient.dispose()
+  console.log('✓ framework.client.js built successfully')
+  
+  console.log('✓ All library builds completed')
 }
 
 /**

@@ -20,43 +20,14 @@ export class ServerEnvironment extends System {
 
   async start() {
     this.world.settings?.on('change', this.onSettingsChange)
-    // Load initial environment model
-    await this.updateModel()
+    // Skip model loading on server - server doesn't render, only tracks settings for clients
+    console.log('[ServerEnvironment] Server-side environment - skipping 3D model loading')
   }
 
   async updateModel() {
-    const modelSetting = this.world.settings?.model
-    const url = typeof modelSetting === 'string' ? modelSetting : modelSetting?.url
-    if (!url) return
-    let glb = this.world.loader?.get('model', url)
-    if (!glb) glb = (await this.world.loader?.load('model', url)) as LoaderResult | undefined
-    if (!glb) return
-    if (this.model) this.model.deactivate()
-    
-    // Create EnvironmentModel wrapper for the nodes
-    if (glb && 'toNodes' in glb) {
-      const nodes = glb.toNodes()
-      this.model = {
-        deactivate: () => {
-          for (const node of nodes.values()) {
-            if (node && node instanceof Node) {
-              node.deactivate()
-            }
-          }
-        },
-        activate: (options: { world: World; label: string }) => {
-          for (const node of nodes.values()) {
-            if (node && node instanceof Node) {
-              node.activate(options.world)
-            }
-          }
-        }
-      }
-    } else {
-      this.model = null
-    }
-    
-    if (this.model) this.model.activate({ world: this.world, label: 'base' })
+    // Skip model loading on server - no rendering needed
+    // Server only tracks environment settings for clients, doesn't load/render 3D models
+    console.log('[ServerEnvironment] Server-side - skipping environment model loading')
   }
 
   onSettingsChange = (changes: Record<string, unknown>) => {

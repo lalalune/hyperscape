@@ -67,7 +67,11 @@ async function openPostgresDatabase(connectionString: string): Promise<PgPool> {
 // Minimal query builder to satisfy SystemDatabase
 function createSystemDatabase(pool: PgPool): SystemDatabase {
   type WhereCond = { key: string; value: unknown }
-  const esc = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '')
+  // Quote identifiers that contain uppercase letters to preserve case in PostgreSQL
+  const esc = (id: string) => {
+    const clean = id.replace(/[^a-zA-Z0-9_]/g, '')
+    return /[A-Z]/.test(clean) ? `"${clean}"` : clean
+  }
 
   class QueryBuilder<T extends Record<string, unknown> = Record<string, unknown>> {
     private _table: string
@@ -97,22 +101,24 @@ function createSystemDatabase(pool: PgPool): SystemDatabase {
     async insert(data: Record<string, unknown> | Record<string, unknown>[]): Promise<void> {
       const rows = Array.isArray(data) ? data : [data]
       for (const row of rows) {
-        const keys = Object.keys(row).map(esc)
-        const placeholders = keys.map((_, i) => `$${i + 1}`).join(',')
-        const sql = `INSERT INTO ${this._table} (${keys.join(',')}) VALUES (${placeholders})`
-        const values = keys.map(k => (row as Record<string, unknown>)[k])
+        const originalKeys = Object.keys(row)
+        const escapedKeys = originalKeys.map(esc)
+        const placeholders = escapedKeys.map((_, i) => `$${i + 1}`).join(',')
+        const sql = `INSERT INTO ${this._table} (${escapedKeys.join(',')}) VALUES (${placeholders})`
+        const values = originalKeys.map(k => (row as Record<string, unknown>)[k])
         await pool.query(sql, values)
       }
     }
 
     async update(data: Record<string, unknown>): Promise<number> {
-      const keys = Object.keys(data).map(esc)
-      const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ')
+      const originalKeys = Object.keys(data)
+      const escapedKeys = originalKeys.map(esc)
+      const setClause = escapedKeys.map((k, i) => `${k} = $${i + 1}`).join(', ')
       const whereClause = this._where.length
-        ? ` WHERE ${this._where.map((w, i) => `${w.key} = $${keys.length + i + 1}`).join(' AND ')}`
+        ? ` WHERE ${this._where.map((w, i) => `${w.key} = $${originalKeys.length + i + 1}`).join(' AND ')}`
         : ''
       const sql = `UPDATE ${this._table} SET ${setClause}${whereClause}`
-      const params = keys.map(k => (data as Record<string, unknown>)[k]).concat(this._where.map(w => w.value))
+      const params = originalKeys.map(k => (data as Record<string, unknown>)[k]).concat(this._where.map(w => w.value))
       const result = await pool.query(sql, params)
       return result.rowCount || 0
     }
@@ -420,6 +426,21 @@ async function migratePostgres(pool: PgPool, systemDb: SystemDatabase): Promise<
         "lastLogin" BIGINT DEFAULT 0
       )`)
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_characters_account ON characters("accountId")`)
+    },
+    async pool => {
+      // Fix users.createdAt column if it was created as lowercase 'createdat'
+      const result = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name IN ('createdat', 'createdAt')`
+      )
+      const columnName = result.rows[0] ? (result.rows[0] as { column_name: string }).column_name : null
+      
+      if (columnName === 'createdat') {
+        await pool.query(`ALTER TABLE users RENAME COLUMN createdat TO "createdAt"`)
+        console.log('[DB] Migration #17: Fixed users.createdAt column name')
+      } else if (!columnName) {
+        await pool.query(`ALTER TABLE users ADD COLUMN "createdAt" TEXT NOT NULL DEFAULT NOW()::TEXT`)
+        console.log('[DB] Migration #17: Added users.createdAt column')
+      }
     },
   ]
 

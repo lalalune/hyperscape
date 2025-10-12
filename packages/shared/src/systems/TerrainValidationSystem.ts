@@ -746,8 +746,7 @@ export class TerrainValidationSystem extends SystemBase {
       const totalMobs = spawnedMobs.size;
       
       if (totalMobs === 0) {
-        // Warn but don't fail - mobs might be disabled or not configured yet
-        this.addValidationError('warning', 'mob_spawner_placement', 'No mobs spawned - mob spawning may be disabled or not configured');
+        this.addValidationError('critical', 'mob_spawner_placement', 'No mobs spawned - mob spawning system is not working');
         return;
       }
       
