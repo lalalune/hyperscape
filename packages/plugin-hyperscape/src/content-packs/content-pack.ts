@@ -1,13 +1,12 @@
 /**
  * RPG Content Pack for ElizaOS Agent Integration
  *
- * This content pack bridges the polished RPG systems from @hyperscape/hyperscape
+ * This content pack bridges the polished RPG systems from @hyperscape/shared
  * with ElizaOS agents, enabling AI agents to interact with our RPG world.
  */
 
-import { Action, Provider, IAgentRuntime } from '@elizaos/core'
+import { Action, IAgentRuntime, Provider } from '@elizaos/core'
 import { IContentPack, IGameSystem, IVisualConfig } from '../types/content-pack'
-import { RPGStateManager } from '../types/content-types'
 
 /**
  * RPG Actions for AI Agents
@@ -148,10 +147,10 @@ const rpgVisuals: IVisualConfig = {
  */
 const rpgSystems: IGameSystem[] = [
   {
-    id: 'rpg-combat',
+    id: 'combat',
     name: 'RPG Combat System',
     type: 'combat',
-    // dependencies: ['rpg-entity-manager', 'rpg-skills'],
+    // dependencies: ['entity-manager', 'skills'],
     init: async (world: any) => {
       // Integration with CombatSystem
       // console.log('🗡️ RPG Combat System connected to ElizaOS agents')
@@ -162,11 +161,11 @@ const rpgSystems: IGameSystem[] = [
   },
 
   {
-    id: 'rpg-inventory',
+    id: 'inventory',
     name: 'RPG Inventory System',
     type: 'inventory',
     // description: 'Manages player inventories and items',
-    // dependencies: ['rpg-entity-manager', 'rpg-database'],
+    // dependencies: ['entity-manager', 'database'],
     init: async (world: any) => {
       // Integration with InventorySystem
       // console.log('🎒 RPG Inventory System connected to ElizaOS agents')
@@ -177,11 +176,11 @@ const rpgSystems: IGameSystem[] = [
   },
 
   {
-    id: 'rpg-skills',
+    id: 'skills',
     name: 'RPG Skills System',
     type: 'skills',
     // description: 'Handles skill progression and training',
-    // dependencies: ['rpg-entity-manager', 'rpg-database'],
+    // dependencies: ['entity-manager', 'database'],
     init: async (world: any) => {
       // Integration with SkillsSystem
       // console.log('📈 RPG Skills System connected to ElizaOS agents')

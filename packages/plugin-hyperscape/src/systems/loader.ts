@@ -1,4 +1,4 @@
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 import { logger } from '@elizaos/core'
 import { System } from '../types/core-types'
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { PlaywrightManager } from '../managers/playwright-manager'
 import { resolveUrl } from '../utils'
 import { AgentAvatar } from './avatar'
-import type { World } from '@hyperscape/hyperscape'
+import type { World } from '@hyperscape/shared'
 
 // import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 

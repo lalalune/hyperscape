@@ -61,8 +61,28 @@ export const ignoreAction: Action = {
     }
   },
   examples: [
-    [ {name: '{{user}}', content: {text: 'Go screw yourself'}}, {name: '{{agent}}', content: {text: '', actions: ['IGNORE'], thought: 'User is being rude'}} ],
-    [ {name: '{{user}}', content: {text: 'Shut up, bot'}}, {name: '{{agent}}', content: {text: '', actions: ['IGNORE'], thought: 'User is being rude'}} ],
+    [
+      { name: '{{user}}', content: { text: 'Go screw yourself' } },
+      {
+        name: '{{agent}}',
+        content: {
+          text: '',
+          actions: ['IGNORE'],
+          thought: 'User is being rude',
+        },
+      },
+    ],
+    [
+      { name: '{{user}}', content: { text: 'Shut up, bot' } },
+      {
+        name: '{{agent}}',
+        content: {
+          text: '',
+          actions: ['IGNORE'],
+          thought: 'User is being rude',
+        },
+      },
+    ],
 
     [
       {

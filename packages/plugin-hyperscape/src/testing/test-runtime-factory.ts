@@ -1,4 +1,12 @@
-import { IAgentRuntime, Character, logger, UUID, Memory, ServiceTypeName, Service } from '@elizaos/core'
+import {
+  IAgentRuntime,
+  Character,
+  logger,
+  UUID,
+  Memory,
+  ServiceTypeName,
+  Service,
+} from '@elizaos/core'
 import { HyperscapeService } from '../service'
 
 // Helper function to generate test UUIDs
@@ -77,12 +85,17 @@ export async function createDynamicRuntime(
         '[TestRuntimeFactory] Failed to connect to test world:',
         error
       )
-      throw new Error(`Test world connection failed: ${(error as Error).message}`)
+      throw new Error(
+        `Test world connection failed: ${(error as Error).message}`
+      )
     }
   }
 
   // Register service with runtime
-  mockRuntime.services.set('hyperscape' as ServiceTypeName, hyperscapeService as any)
+  mockRuntime.services.set(
+    'hyperscape' as ServiceTypeName,
+    hyperscapeService as any
+  )
 
   return mockRuntime
 }

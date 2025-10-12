@@ -1,0 +1,68 @@
+{
+  "compilerOptions": {
+    // Language and Environment
+    "target": "ES2021",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    
+    // Type Checking
+    "strict": true,
+    "downlevelIteration": true,
+    
+    // Modules
+    "baseUrl": ".",
+    "paths": {
+      "*": ["src/types/*"]
+    },
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    
+    // Emit - only declarations for build
+    "declaration": true,
+    "declarationMap": false,
+    "emitDeclarationOnly": true,
+    "outDir": "./build",
+    
+    // JavaScript Support
+    "allowJs": true,
+    "checkJs": false,
+
+    "noImplicitAny": false,
+    
+    // Interop Constraints
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    // Skip Lib Check - needed due to conflicting types from parent directories
+    "skipLibCheck": true,
+    
+    // Advanced - include both node and Bun types for build
+    "types": ["node", "bun-types"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "src/__tests__/**/*",
+    "src/**/__tests__/**/*",
+    "src/**/tests/**/*",
+    "src/**/test-utils.ts",
+    "vitest.config.ts",
+    "vitest.config.e2e.ts",
+    "playwright.config.js",
+    "src/core/libs/**/*.js"
+  ]
+} 

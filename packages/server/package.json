@@ -1,0 +1,91 @@
+{
+  "name": "@hyperscape/server",
+  "version": "0.13.0",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "homepage": "https://github.com/hyperscape-xyz/hyperscape#readme",
+  "bugs": {
+    "url": "https://github.com/hyperscape-xyz/hyperscape/issues"
+  },
+  "keywords": [
+    "hyperscape",
+    "3d",
+    "components",
+    "virtual-worlds",
+    "metaverse",
+    "three.js",
+    "webgl",
+    "real-time"
+  ],
+  "scripts": {
+    "dev": "bun scripts/dev-final.mjs",
+    "build": "bun scripts/build-server.mjs",
+    "start": "bun dist/index.js",
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings 22100",
+    "cdn:up": "docker-compose up -d cdn",
+    "cdn:down": "docker-compose down cdn",
+    "cdn:logs": "docker-compose logs -f cdn",
+    "cdn:verify": "bun scripts/verify-cdn.mjs",
+    "assets:sync": "bun scripts/sync-assets-smart.mjs from-git",
+    "assets:deploy": "bun scripts/sync-assets-smart.mjs to-r2",
+    "assets:verify": "bun scripts/sync-assets-smart.mjs verify",
+    "assets:full": "bun scripts/sync-assets-smart.mjs both",
+    "dev:full": "docker-compose up",
+    "deploy": "node scripts/deploy-cloudflare.mjs",
+    "deploy:prod": "node scripts/deploy-cloudflare.mjs --production",
+    "verify": "node ../../scripts/verify-deployment.mjs local",
+    "verify:prod": "node ../../scripts/verify-deployment.mjs production"
+  },
+  "files": [
+    "dist/",
+    "world/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@hyperscape/shared": "workspace:*",
+    "@fastify/compress": "^8.0.1",
+    "@fastify/cors": "^10.0.1",
+    "@fastify/multipart": "^9.0.1",
+    "@fastify/static": "^8.0.1",
+    "@fastify/websocket": "^11.0.1",
+    "@privy-io/server-auth": "^1.14.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.0.0",
+    "fs-extra": "^11.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "livekit-server-sdk": "^2.11.0",
+    "pg": "^8.13.1",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.1",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.9.3",
+    "@types/pg": "^8.11.10",
+    "@types/source-map-support": "^0.5.10",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "@vitest/ui": "^1.6.0",
+    "chokidar": "^3.6.0",
+    "esbuild": "^0.25.5",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "playwright": "^1.54.2",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "npm": ">=10.0.0",
+    "node": ">=22.11.0"
+  },
+  "overrides": {
+    "three": "^0.180.0"
+  },
+  "license": "GPL-3.0-only"
+}

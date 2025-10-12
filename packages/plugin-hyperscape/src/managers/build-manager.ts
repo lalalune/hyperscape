@@ -1,8 +1,8 @@
 import { IAgentRuntime, logger, UUID } from '@elizaos/core'
 import { Entity, World } from '../types/core-types'
-import type { Vector3 } from '@hyperscape/hyperscape'
+import type { Vector3 } from '@hyperscape/shared'
 import type { BuildManager as IBuildManager } from '../types/core-interfaces'
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 
 /**
  * BuildManager handles entity creation, modification, and build system operations
@@ -28,7 +28,11 @@ export class BuildManager implements IBuildManager {
   /**
    * Create a new entity in the world
    */
-  createEntity(type: string, position: Vector3, data?: Record<string, unknown>): Entity | null {
+  createEntity(
+    type: string,
+    position: Vector3,
+    data?: Record<string, unknown>
+  ): Entity | null {
     if (!this.world) {
       logger.warn('BuildManager: No world available for entity creation')
       return null
@@ -57,14 +61,14 @@ export class BuildManager implements IBuildManager {
       }
 
       // Add entity to world
-    const entity = entities.add(entityData) as Entity
-    if (entity) {
-      logger.info(
-        `BuildManager: Created entity ${entityData.id} of type ${type}`
-      )
-    }
+      const entity = entities.add(entityData) as Entity
+      if (entity) {
+        logger.info(
+          `BuildManager: Created entity ${entityData.id} of type ${type}`
+        )
+      }
 
-    return entity
+      return entity
     } catch (error) {
       logger.error(`BuildManager: Failed to create entity: ${error}`)
       return null
@@ -383,7 +387,10 @@ export class BuildManager implements IBuildManager {
   /**
    * Import an entity from external data
    */
-  importEntity(entityData: Record<string, unknown>, position?: Vector3): Entity | null {
+  importEntity(
+    entityData: Record<string, unknown>,
+    position?: Vector3
+  ): Entity | null {
     if (!this.world) {
       logger.warn('BuildManager: No world available for entity import')
       return null

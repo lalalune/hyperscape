@@ -2,7 +2,7 @@
  * Specific system types for Hyperscape plugin
  */
 
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 import { System } from './core-types'
 
 // Agent Controls system interface

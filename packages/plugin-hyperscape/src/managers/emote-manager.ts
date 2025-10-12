@@ -1,5 +1,5 @@
 import type { IAgentRuntime } from '@elizaos/core'
-import { Player, PlayerLocal, ClientNetwork } from '@hyperscape/hyperscape'
+import { Player, PlayerLocal, ClientNetwork } from '@hyperscape/shared'
 import { promises as fsPromises } from 'fs'
 import path from 'path'
 import { NETWORK_CONFIG } from '../config/constants'
@@ -33,7 +33,9 @@ export class EmoteManager {
     for (const emote of EMOTES_LIST) {
       try {
         const moduleDirPath = getModuleDirectory()
-        const emoteBuffer = await fsPromises.readFile(moduleDirPath + emote.path)
+        const emoteBuffer = await fsPromises.readFile(
+          moduleDirPath + emote.path
+        )
         const emoteMimeType = 'model/gltf-binary'
 
         const emoteHash = await hashFileBuffer(emoteBuffer)
@@ -120,7 +122,7 @@ export class EmoteManager {
     // Ensure effect object exists with emote property
     const playerData = (agentPlayer as any).data
     if (!playerData) {
-      (agentPlayer as any).data = { effect: { emote: emoteName } }
+      ;(agentPlayer as any).data = { effect: { emote: emoteName } }
     } else if (!playerData.effect) {
       playerData.effect = { emote: emoteName }
     } else {
@@ -147,10 +149,7 @@ export class EmoteManager {
 
     this.currentEmoteTimeout = setTimeout(() => {
       const data = (agentPlayer as any).data
-      if (
-        data?.effect &&
-        data.effect.emote === emoteName
-      ) {
+      if (data?.effect && data.effect.emote === emoteName) {
         logger.info(`[EmoteManager] '${emoteName}' finished after ${duration}s`)
         this.clearEmote(agentPlayer)
       }

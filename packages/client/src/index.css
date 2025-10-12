@@ -1,0 +1,36 @@
+/**
+ * Tailwind CSS v4 Entry Point
+ */
+@import "tailwindcss";
+
+/**
+ * Tailwind v4 Theme Configuration
+ * Custom colors and design tokens
+ */
+@theme {
+  /* Custom color palette */
+  --color-dark-bg: rgba(11, 10, 21, 0.85);
+  --color-dark-border: #2a2b39;
+  
+  /* Backdrop blur */
+  --backdrop-blur-xs: 2px;
+}
+
+/**
+ * Custom CSS classes and utilities
+ */
+
+/* Hide scrollbar while maintaining scroll functionality */
+.noscrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.noscrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom backdrop grayscale for disconnected state */
+.backdrop-grayscale {
+  backdrop-filter: grayscale(100%);
+  -webkit-backdrop-filter: grayscale(100%);
+}

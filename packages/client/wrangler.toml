@@ -1,0 +1,18 @@
+# Cloudflare Pages Configuration for Hyperscape Client
+name = "hyperscape-client"
+compatibility_date = "2024-10-01"
+pages_build_output_dir = "dist"
+
+# This file is mainly for reference - Cloudflare Pages uses CLI or GitHub integration
+# Actual deployment: wrangler pages deploy dist --project-name=hyperscape-client
+
+[env.production]
+vars = { }
+
+# Set via Cloudflare Pages dashboard → Settings → Environment variables:
+# PUBLIC_WS_URL = wss://game.yourgame.com/ws
+# PUBLIC_CDN_URL = https://pub-your-r2-id.r2.dev
+# PUBLIC_PRIVY_APP_ID = clxxxxxxxxxxxx
+# PUBLIC_ENABLE_FARCASTER = true
+# PUBLIC_APP_URL = https://yourgame.com
+

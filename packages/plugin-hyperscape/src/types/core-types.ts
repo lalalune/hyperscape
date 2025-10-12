@@ -1,14 +1,8 @@
 // Core types for plugin-hyperscape - consolidated and importing from hyperscape package
-import {
-  Action,
-  IAgentRuntime,
-  Provider,
-  Service,
-  UUID
-} from '@elizaos/core'
+import { Action, IAgentRuntime, Provider, Service, UUID } from '@elizaos/core'
 
 // Import classes and types from hyperscape package
-import { System, World } from '@hyperscape/hyperscape'
+import { System, World } from '@hyperscape/shared'
 
 import type {
   Component,
@@ -17,13 +11,16 @@ import type {
   Quaternion,
   Vector3,
   WorldOptions,
-} from '@hyperscape/hyperscape'
+} from '@hyperscape/shared'
 
 // Import Entity and Entities from the main package but alias them to avoid conflicts
-import type { Entity as HyperscapeEntity, Entities as HyperscapeEntities } from '@hyperscape/hyperscape'
+import type {
+  Entity as HyperscapeEntity,
+  Entities as HyperscapeEntities,
+} from '@hyperscape/shared'
 
 // Import additional types that may not be in the built package
-import type { PlayerInput, PlayerStats } from '@hyperscape/hyperscape'
+import type { PlayerInput, PlayerStats } from '@hyperscape/shared'
 
 // Define missing types locally
 export interface RigidBody {
@@ -74,8 +71,12 @@ export interface ChatMessage {
 export { System, World }
 export type {
   Component,
-  BaseEvents as Events, Quaternion, Vector3, WorldOptions,
-  PlayerInput, PlayerStats
+  BaseEvents as Events,
+  Quaternion,
+  Vector3,
+  WorldOptions,
+  PlayerInput,
+  PlayerStats,
 }
 
 // Re-export the aliased Entity type
@@ -100,17 +101,46 @@ export interface ExtendedPhysics {
   world?: unknown | null
   controllers: Map<string, CharacterController>
   rigidBodies: Map<string, any>
-  
+
   // Physics methods from BasePhysics
-  createRigidBody: (type: 'static' | 'dynamic' | 'kinematic', position?: Vector3, rotation?: Quaternion) => RigidBody
-  createCollider: (geometry: unknown, material?: unknown, isTrigger?: boolean) => unknown
-  createMaterial: (staticFriction?: number, dynamicFriction?: number, restitution?: number) => unknown
+  createRigidBody: (
+    type: 'static' | 'dynamic' | 'kinematic',
+    position?: Vector3,
+    rotation?: Quaternion
+  ) => RigidBody
+  createCollider: (
+    geometry: unknown,
+    material?: unknown,
+    isTrigger?: boolean
+  ) => unknown
+  createMaterial: (
+    staticFriction?: number,
+    dynamicFriction?: number,
+    restitution?: number
+  ) => unknown
   createLayerMask: (...layers: string[]) => number
-  sphereCast: (origin: Vector3, radius: number, direction: Vector3, maxDistance?: number, layerMask?: number) => unknown | null
-  raycast: (origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number) => unknown | null
-  sweep: (geometry: unknown, origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number) => unknown | null
+  sphereCast: (
+    origin: Vector3,
+    radius: number,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number
+  ) => unknown | null
+  raycast: (
+    origin: Vector3,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number
+  ) => unknown | null
+  sweep: (
+    geometry: unknown,
+    origin: Vector3,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number
+  ) => unknown | null
   simulate: (deltaTime: number) => void
-  
+
   // Additional methods
   step?: (deltaTime: number) => void
 }
@@ -119,7 +149,7 @@ export interface ExtendedPhysics {
 export type Physics = ExtendedPhysics
 
 // Extended Player type with movement methods for plugin use
-export type Player = import('@hyperscape/hyperscape').Player & {
+export type Player = import('@hyperscape/shared').Player & {
   // Movement methods for AI agent control
   walkToward?: (
     targetPosition: { x: number; y?: number; z: number },

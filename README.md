@@ -125,7 +125,7 @@ hyperscape/
 │   ├── Complete RPG system built as Hyperscape apps
 │   ├── Player.hyp - Player character with stats/inventory
 │   ├── RPGGoblin.hyp - AI-driven mobs with combat/loot
-│   └── rpg-world/ - Configured world with terrain and entities
+│   └── world/ - Configured world with terrain and entities
 ├── packages/generation/       # AI Content Creation  
 │   ├── GPT-4 for lore, descriptions, game content
 │   ├── MeshyAI for 3D model generation and texturing
@@ -303,7 +303,7 @@ npm run build
 **Character data reset**:
 ```bash
 # Remove world database to reset all player progress
-rm packages/rpg/rpg-world/db.sqlite
+rm packages/rpg/world/db.sqlite
 npm start
 ```
 

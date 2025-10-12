@@ -1,11 +1,11 @@
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 
 declare global {
   interface Window {
     // Three.js globals
     scene: THREE.Scene
     camera: THREE.Camera
-    renderer: THREE.WebGLRenderer
+    renderer: THREE.WebGLRenderer | any // Support both WebGL and WebGPU
     environment: THREE.Texture
 
     // GLTF/VRM loaders

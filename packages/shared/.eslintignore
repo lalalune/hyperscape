@@ -1,0 +1,17 @@
+# Ignore build output completely
+build/
+
+# Ignore dependencies
+node_modules/
+
+# Ignore generated files
+**/*.d.ts
+dist/
+
+# Environment
+.env
+
+# Generated vendor files
+physx-js-webidl.js
+physx-js-webidl.wasm
+src/core/libs/

@@ -1,11 +1,11 @@
 import { logger } from '@elizaos/core'
 import { isNumber, isString } from 'lodash-es'
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 import { System } from '../types/core-types'
 // CSM import removed - not available in current hyperscape version
 import { PlaywrightManager } from '../managers/playwright-manager'
 import { resolveUrl } from '../utils'
-import type { World } from '@hyperscape/hyperscape'
+import type { World } from '@hyperscape/shared'
 
 // Mock CSM interface since it's not available
 interface CSM {
@@ -71,9 +71,9 @@ export class EnvironmentSystem extends System {
   start() {
     this.setSkyboxToBlack()
     this.base = {
-      model: 'assets/base-environment.glb',
-      bg: 'assets/day2-2k.jpg',
-      hdr: 'assets/day2.hdr',
+      model: 'asset://base-environment.glb',
+      bg: 'asset://day2-2k.jpg',
+      hdr: 'asset://day2.hdr',
       sunDirection: new THREE.Vector3(-1, -2, -2).normalize(),
       sunIntensity: 1,
       sunColor: 0xffffff,

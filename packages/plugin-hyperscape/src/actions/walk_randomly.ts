@@ -72,8 +72,10 @@ export const hyperscapeWalkRandomlyAction: Action = {
 
     // Check for specific methods from the reverted AgentControls
     if (
-      typeof (controls as { startRandomWalk?: () => void }).startRandomWalk !== 'function' ||
-      typeof (controls as { stopRandomWalk?: () => void }).stopRandomWalk !== 'function'
+      typeof (controls as { startRandomWalk?: () => void }).startRandomWalk !==
+        'function' ||
+      typeof (controls as { stopRandomWalk?: () => void }).stopRandomWalk !==
+        'function'
     ) {
       logger.error(
         'AgentControls missing startRandomWalk or stopRandomWalk methods.'
@@ -100,7 +102,10 @@ export const hyperscapeWalkRandomlyAction: Action = {
     const maxDistance = options?.distance || RANDOM_WALK_DEFAULT_MAX_DISTANCE
 
     if (command === 'stop') {
-      const agentControls = controls as unknown as { getIsWalkingRandomly: () => boolean; stopRandomWalk: () => void }
+      const agentControls = controls as unknown as {
+        getIsWalkingRandomly: () => boolean
+        stopRandomWalk: () => void
+      }
       if (agentControls.getIsWalkingRandomly()) {
         agentControls.stopRandomWalk()
         return {
@@ -122,7 +127,9 @@ export const hyperscapeWalkRandomlyAction: Action = {
       }
     } else {
       // command === 'start'
-      const agentControls = controls as unknown as { startRandomWalk: () => void }
+      const agentControls = controls as unknown as {
+        startRandomWalk: () => void
+      }
       agentControls.startRandomWalk()
 
       if (callback) {

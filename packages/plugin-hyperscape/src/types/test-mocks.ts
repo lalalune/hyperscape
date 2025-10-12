@@ -8,7 +8,7 @@ import {
   Character,
 } from '@elizaos/core'
 import { Entity, World } from './core-types'
-import type { Player } from '@hyperscape/hyperscape'
+import type { Player } from '@hyperscape/shared'
 
 // Real test configuration interface
 export interface TestRuntimeConfig {
@@ -198,9 +198,6 @@ export function createMockState(config: Partial<State> = {}): State {
 export function createMockHyperscapeService(
   config: Record<string, unknown> = {}
 ): Service {
-  // Get the base mock service
-  const baseService = createMockService('hyperscape')
-
   // Create the hyperscape service with additional config
   const hyperscapeService = {
     capabilityDescription: 'hyperscape service',

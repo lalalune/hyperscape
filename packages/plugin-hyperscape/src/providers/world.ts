@@ -7,9 +7,12 @@ import {
   type ProviderResult,
   type Entity as ElizaEntity,
 } from '@elizaos/core'
-import { THREE, type ClientActions } from '@hyperscape/hyperscape'
+import { THREE, type ClientActions } from '@hyperscape/shared'
 import { HyperscapeService } from '../service'
-import type { Entity as HyperscapeEntity, World as HyperscapeWorld } from '../types/core-types'
+import type {
+  Entity as HyperscapeEntity,
+  World as HyperscapeWorld,
+} from '../types/core-types'
 
 export interface ElizaEntityWithHyperscape extends ElizaEntity {
   hyperscape?: HyperscapeEntity
@@ -74,18 +77,18 @@ export const hyperscapeProvider: Provider = {
           const scale = entity?.scale
           // Strong type assumption: if position exists, it has x, y, z
           const posStr = pos
-              ? `[${[pos.x, pos.y, pos.z].map(p => Number(p).toFixed(2)).join(', ')}]`
-              : 'N/A'
+            ? `[${[pos.x, pos.y, pos.z].map(p => Number(p).toFixed(2)).join(', ')}]`
+            : 'N/A'
 
           // Strong type assumption: if quaternion exists, it has x, y, z, w
           const quatStr = quat
-              ? `[${[quat.x, quat.y, quat.z, quat.w].map(q => Number(q).toFixed(4)).join(', ')}]`
-              : 'N/A'
+            ? `[${[quat.x, quat.y, quat.z, quat.w].map(q => Number(q).toFixed(4)).join(', ')}]`
+            : 'N/A'
 
           // Strong type assumption: if scale exists, it has x, y, z
           const scaleStr = scale
-              ? `[${[scale.x, scale.y, scale.z].map(s => Number(s).toFixed(2)).join(', ')}]`
-              : 'N/A'
+            ? `[${[scale.x, scale.y, scale.z].map(s => Number(s).toFixed(2)).join(', ')}]`
+            : 'N/A'
 
           if (id === agentId) {
             agentText = `## Agent Info (You)\nEntity ID: ${id}, Name: ${name}, Position: ${posStr}, Quaternion: ${quatStr}`
@@ -113,7 +116,9 @@ export const hyperscapeProvider: Provider = {
       }
 
       const actionsSystem = world?.actions
-      const nearbyActions = (actionsSystem as any)?.getNearby ? (actionsSystem as any).getNearby(50) : []
+      const nearbyActions = (actionsSystem as any)?.getNearby
+        ? (actionsSystem as any).getNearby(50)
+        : []
       const currentAction = (actionsSystem as any)?.currentNode
 
       const actionLines = nearbyActions.map((action: any) => {
@@ -121,8 +126,8 @@ export const hyperscapeProvider: Provider = {
         const pos = entity?.root?.position
         // Strong type assumption: if position exists, it has x, y, z
         const posStr = pos
-            ? `[${[pos.x, pos.y, pos.z].map(p => Number(p).toFixed(2)).join(', ')}]`
-            : 'N/A'
+          ? `[${[pos.x, pos.y, pos.z].map(p => Number(p).toFixed(2)).join(', ')}]`
+          : 'N/A'
 
         const label = action.label ?? 'Unnamed Action'
         const entityId = entity?.data?.id ?? 'unknown'
@@ -166,7 +171,9 @@ export const hyperscapeProvider: Provider = {
         const senderEntity = (await runtime.getEntityById(
           senderId
         )) as ElizaEntityWithHyperscape | null
-        const hypescapeMetadata = senderEntity?.metadata?.hyperscape as { username?: string; name?: string } | undefined
+        const hypescapeMetadata = senderEntity?.metadata?.hyperscape as
+          | { username?: string; name?: string }
+          | undefined
         const senderName =
           (hypescapeMetadata as any)?.username ||
           (hypescapeMetadata as any)?.name ||

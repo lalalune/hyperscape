@@ -5,7 +5,7 @@ const generateUUID = () => crypto.randomUUID() as UUID
 interface Client {}
 import WebSocket from 'ws'
 import { EventEmitter } from 'events'
-import { EventType } from '@hyperscape/hyperscape'
+import { EventType } from '@hyperscape/shared'
 
 export class HyperscapeClientInterface extends EventEmitter implements Client {
   private runtime: IAgentRuntime
@@ -35,7 +35,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
   }
 
   async stop(): Promise<void> {
-        this.connected = false
+    this.connected = false
 
     if (this.reconnectInterval) {
       clearInterval(this.reconnectInterval)
@@ -54,7 +54,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
         this.ws = new WebSocket(this.url)
 
         this.ws.on('open', () => {
-                    this.connected = true
+          this.connected = true
 
           // Send join message
           const character = this.runtime.character
@@ -89,14 +89,14 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
         })
 
         this.ws.on('close', () => {
-                    this.connected = false
+          this.connected = false
           this.ws = null
 
           // Attempt reconnection
           if (!this.reconnectInterval) {
             this.reconnectInterval = setInterval(() => {
               if (!this.connected) {
-                                this.connect().catch(console.error)
+                this.connect().catch(console.error)
               }
             }, 5000)
           }

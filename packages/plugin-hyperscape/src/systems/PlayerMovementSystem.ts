@@ -1,8 +1,8 @@
 // Math utilities for movement calculations
-import { THREE } from '@hyperscape/hyperscape'
+import { THREE } from '@hyperscape/shared'
 
-const _tempVec3_1 = new THREE.Vector3();
-const _tempVec3_2 = new THREE.Vector3();
+const _tempVec3_1 = new THREE.Vector3()
+const _tempVec3_2 = new THREE.Vector3()
 
 const MathUtils = {
   distance2D: (a: { x: number; z: number }, b: { x: number; z: number }) =>
@@ -12,8 +12,8 @@ const MathUtils = {
     b: { x: number; y: number; z: number }
   ) => _tempVec3_1.set(a.x - b.x, a.y - b.y, a.z - b.z),
   normalize: (v: { x: number; y: number; z: number }) => {
-    _tempVec3_2.set(v.x, v.y, v.z);
-    const length = _tempVec3_2.length();
+    _tempVec3_2.set(v.x, v.y, v.z)
+    const length = _tempVec3_2.length()
     return length > 0
       ? _tempVec3_2.divideScalar(length)
       : _tempVec3_2.set(0, 0, 0)
@@ -35,8 +35,8 @@ const MathUtils = {
       a.z + (b.z - a.z) * t
     ),
 }
-import type { World, Player, Vector3 } from '@hyperscape/hyperscape'
-import { Entity } from '@hyperscape/hyperscape'
+import type { World, Player, Vector3 } from '@hyperscape/shared'
+import { Entity } from '@hyperscape/shared'
 import { EventEmitter } from 'events'
 
 interface MovablePlayer extends Entity {
