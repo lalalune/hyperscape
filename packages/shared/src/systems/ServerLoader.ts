@@ -11,11 +11,39 @@ import type { GLBData, HSNode as INode, World } from '../types';
 import { System } from './System';
 
 /**
- * Server Loader System
- *
- * - Runs on the server
- * - Basic file loader for many different formats, cached.
- *
+ * Node.js Filesystem-Based Asset Loader
+ * 
+ * Platform-specific loader for Node.js server environments:
+ * - fs-extra for file system operations
+ * - Direct ArrayBuffer/Buffer manipulation
+ * - No browser-specific APIs (no DOM, no video, no audio context)
+ * - Supports both local files and remote HTTP(S) URLs
+ * 
+ * ## Why Separate from ClientLoader?
+ * 
+ * This loader uses Node.js-specific APIs unavailable in browsers:
+ * - `fs.readFile()` for local filesystem access
+ * - Node.js Buffer handling
+ * - Synchronous file operations where needed
+ * - No DOM elements (no Image, HTMLVideoElement, Canvas, AudioContext)
+ * 
+ * The server doesn't need full asset processing because:
+ * - No rendering (no textures, materials, or visual output)
+ * - No audio playback (no AudioContext or audio decoding)
+ * - No video playback (no HTMLVideoElement or HLS)
+ * - Models are loaded minimally for metadata only
+ * 
+ * ## Supported Formats (Minimal)
+ * 
+ * - **Models**: .glb (parsed for structure, not rendered)
+ * - **Emotes**: .glb animations (for animation data only)
+ * - **Avatars**: Stub implementation (VRM not needed server-side)
+ * - **HDR**: Skipped (no environment rendering)
+ * - **Images**: Skipped (no texture processing)
+ * - **Video**: Rejected (no video playback)
+ * - **Audio**: Rejected (no audio context)
+ * 
+ * @see ClientLoader for browser-based loading with full media support
  */
 export class ServerLoader extends System {
   private promises: Map<string, Promise<unknown>>
@@ -108,79 +136,67 @@ export class ServerLoader extends System {
     }
     if (type === 'model') {
       promise = this.fetchArrayBuffer(url).then(arrayBuffer => {
-        return new Promise<unknown>((resolve, reject) => {
-          try {
-            this.gltfLoader.parse(arrayBuffer as ArrayBuffer, '', (glb) => {
-              const node = glbToNodes(glb as GLBData, this.world)
-              const model = {
-                toNodes() {
-                  const clonedNode = node.clone(true)
-                  const nodeMap = new Map<string, INode>()
-                  nodeMap.set('root', clonedNode as INode)
-                  return nodeMap
-                },
-                getStats() {
-                  const stats = node.getStats(true)
-                  return stats
-                }
+        return new Promise<unknown>((resolve, _reject) => {
+          this.gltfLoader.parse(arrayBuffer as ArrayBuffer, '', (glb) => {
+            const node = glbToNodes(glb as GLBData, this.world);
+            const model = {
+              toNodes() {
+                const clonedNode = node.clone(true);
+                const nodeMap = new Map<string, INode>();
+                nodeMap.set('root', clonedNode as INode);
+                return nodeMap;
+              },
+              getStats() {
+                const stats = node.getStats(true);
+                return stats;
               }
-              this.results.set(key, model)
-              resolve(model)
-            })
-          } catch (err) {
-            reject(err)
-          }
-        })
-      })
+            };
+            this.results.set(key, model);
+            resolve(model);
+          });
+        });
+      });
     }
     if (type === 'emote') {
       promise = this.fetchArrayBuffer(url).then(arrayBuffer => {
-        return new Promise<unknown>((resolve, reject) => {
-          try {
-            this.gltfLoader.parse(arrayBuffer as ArrayBuffer, '', (glb: unknown) => {
-              const factory = createEmoteFactory(glb as GLBData, url)
-              const emote = {
-                toClip(options) {
-                  return factory.toClip(options)
-                },
-              }
-              this.results.set(key, emote)
-              resolve(emote)
-            })
-          } catch (err) {
-            reject(err)
-          }
-        })
-      })
+        return new Promise<unknown>((resolve, _reject) => {
+          this.gltfLoader.parse(arrayBuffer as ArrayBuffer, '', (glb: unknown) => {
+            const factory = createEmoteFactory(glb as GLBData, url);
+            const emote = {
+              toClip(options) {
+                return factory.toClip(options);
+              },
+            };
+            this.results.set(key, emote);
+            resolve(emote);
+          });
+        });
+      });
     }
     if (type === 'avatar') {
-      promise = new Promise<unknown>((resolve, reject) => {
-        try {
-          // NOTE: we can't load vrms on the server yet but we don't need 'em anyway
-          let node: INode
-          const glb = {
-            toNodes: () => {
-              if (!node) {
-                node = createNode('group')
-                const node2 = createNode('avatar', { id: 'avatar', factory: null })
-                ;(node as { add: (child: INode) => void }).add(node2)
-              }
-              const clone = node.clone(true)
-              const nodeMap = new Map<string, INode>()
-              nodeMap.set('root', clone as INode)
-              const avatarNode = (clone as { get: (id: string) => INode | undefined }).get('avatar')
-              if (avatarNode) {
-                nodeMap.set('avatar', avatarNode)
-              }
-              return nodeMap
-            },
-          }
-          this.results.set(key, glb)
-          resolve(glb)
-        } catch (err) {
-          reject(err)
-        }
-      })
+      promise = new Promise<unknown>((resolve) => {
+        // NOTE: we can't load vrms on the server yet but we don't need 'em anyway
+        let node: INode;
+        const glb = {
+          toNodes: () => {
+            if (!node) {
+              node = createNode('group');
+              const node2 = createNode('avatar', { id: 'avatar', factory: null });
+              (node as { add: (child: INode) => void }).add(node2);
+            }
+            const clone = node.clone(true);
+            const nodeMap = new Map<string, INode>();
+            nodeMap.set('root', clone as INode);
+            const avatarNode = (clone as { get: (id: string) => INode | undefined }).get('avatar');
+            if (avatarNode) {
+              nodeMap.set('avatar', avatarNode);
+            }
+            return nodeMap;
+          },
+        };
+        this.results.set(key, glb);
+        resolve(glb);
+      });
     }
     if (type === 'script') {
       // DISABLED: Script loading from external files

@@ -1,6 +1,6 @@
 /**
  * MobEntity - Represents mobs/enemies in the world
- * Replaces mob-based Apps with server-authoritative entities
+ * Extends CombatantEntity for combat capabilities
  */
 
 import THREE from '../extras/three';
@@ -15,17 +15,34 @@ import {
 } from '../types/entities';
 import { EventType } from '../types/events';
 import type { World } from '../World';
-import { Entity } from './Entity';
+import { CombatantEntity, type CombatantConfig } from './CombatantEntity';
 
 
 
-export class MobEntity extends Entity {
+export class MobEntity extends CombatantEntity {
   protected config: MobEntityConfig;
   private patrolPoints: Array<{ x: number; z: number }> = [];
   private currentPatrolIndex = 0;
+  private lastAttackerId: string | null = null;
 
   constructor(world: World, config: MobEntityConfig) {
-    super(world, config);
+    // Convert MobEntityConfig to CombatantConfig format with proper type assertion
+    const combatConfig = {
+      ...config,
+      rotation: config.rotation || { x: 0, y: 0, z: 0, w: 1 },
+      combat: {
+        attack: Math.floor(config.attackPower / 10),
+        defense: Math.floor(config.defense / 10),
+        attackSpeed: 1.0 / config.attackSpeed,
+        criticalChance: 0.05,
+        combatLevel: config.level,
+        respawnTime: config.respawnTime,
+        aggroRadius: config.aggroRange,
+        attackRange: config.combatRange
+      }
+    } as unknown as CombatantConfig;
+    
+    super(world, combatConfig);
     this.config = config;
     this.generatePatrolPoints();
     
@@ -120,32 +137,9 @@ export class MobEntity extends Entity {
       this.node.add(this.mesh);
     }
 
-    // Add health bar
-    this.createHealthBar();
+    // Health bar is created by Entity base class
   }
 
-  protected createHealthBar(): void {
-    if (!this.mesh) return;
-
-    // Health bar background
-    const bgGeometry = new THREE.PlaneGeometry(1, 0.1);
-    const bgMaterial = new THREE.MeshBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.8 });
-    const healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
-    healthBarBg.position.set(0, 1.5, 0);
-    healthBarBg.name = 'healthBarBg';
-
-    // Health bar foreground
-    const fgGeometry = new THREE.PlaneGeometry(1, 0.1);
-    const fgMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.9 });
-    const healthBarFg = new THREE.Mesh(fgGeometry, fgMaterial);
-    healthBarFg.position.set(0, 1.5, 0.001);
-    healthBarFg.name = 'healthBarFg';
-
-    this.mesh.add(healthBarBg);
-    this.mesh.add(healthBarFg);
-
-    this.updateHealthBar();
-  }
 
   protected async onInteract(data: EntityInteractionData): Promise<void> {
     // Handle attack interaction
@@ -174,16 +168,11 @@ export class MobEntity extends Entity {
     if (this.config.aiState !== MobAIState.DEAD) {
       this.updateAI(deltaTime);
     }
-
-    // Update health bar
-    this.updateHealthBar();
   }
 
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
-
-    // Update health bar
-    this.updateHealthBar();
+    // Health bar updates handled by Entity base class
   }
 
   private updateAI(deltaTime: number): void {
@@ -373,8 +362,13 @@ export class MobEntity extends Entity {
     });
   }
 
-  takeDamage(damage: number, attackerId: string): void {
-    if (this.config.aiState === MobAIState.DEAD) return;
+  takeDamage(damage: number, attackerId?: string): boolean {
+    if (this.config.aiState === MobAIState.DEAD) return false;
+
+    // Track attacker for death event
+    if (attackerId) {
+      this.lastAttackerId = attackerId;
+    }
 
     this.config.currentHealth = Math.max(0, this.config.currentHealth - damage);
     
@@ -394,33 +388,35 @@ export class MobEntity extends Entity {
     });
 
     if (this.config.currentHealth <= 0) {
-      this.die(attackerId);
+      this.die();
+      return true; // Mob died
     } else {
       // Become aggressive towards attacker
-      if (!this.config.targetPlayerId) {
+      if (attackerId && !this.config.targetPlayerId) {
         this.config.targetPlayerId = attackerId;
         this.config.aiState = MobAIState.CHASE;
       }
     }
 
     this.markNetworkDirty();
+    return false; // Mob survived
   }
 
-  private die(killerId: string): void {
+  die(): void {
     this.config.aiState = MobAIState.DEAD;
     this.config.deathTime = this.world.getTime();
     this.config.targetPlayerId = null;
 
-    // Emit death event
-    this.world.emit(EventType.MOB_DIED, {
-      mobId: this.id,
-      killerId,
-      xpReward: this.config.xpReward,
-      position: this.getPosition()
-    });
-
-    // Drop loot
-    this.dropLoot(killerId);
+    // Emit death event with last attacker
+    if (this.lastAttackerId) {
+      this.world.emit(EventType.MOB_DIED, {
+        mobId: this.id,
+        killerId: this.lastAttackerId,
+        xpReward: this.config.xpReward,
+        position: this.getPosition()
+      });
+      this.dropLoot(this.lastAttackerId);
+    }
 
     // Hide mesh or change to corpse
     if (this.mesh) {
@@ -449,7 +445,7 @@ export class MobEntity extends Entity {
     }
   }
 
-  private respawn(): void {
+  public respawn(): void {
     // Reset health and state
     this.config.currentHealth = this.config.maxHealth;
     this.config.aiState = MobAIState.IDLE;
@@ -492,34 +488,6 @@ export class MobEntity extends Entity {
     }
   }
 
-  protected updateHealthBar(): void {
-    if (!this.mesh) return;
-
-    const healthBarFg = this.mesh.getObjectByName('healthBarFg');
-    if (healthBarFg) {
-      // Strong type assumption - healthBarFg is a Mesh
-      const mesh = healthBarFg as THREE.Mesh;
-      const healthPercent = this.config.currentHealth / this.config.maxHealth;
-      mesh.scale.x = healthPercent;
-      
-      // Change color based on health
-      // Strong type assumption - material is MeshBasicMaterial
-      const material = mesh.material as THREE.MeshBasicMaterial;
-      if (healthPercent > 0.6) {
-        material.color.setHex(0x00ff00); // Green
-      } else if (healthPercent > 0.3) {
-        material.color.setHex(0xffff00); // Yellow
-      } else {
-        material.color.setHex(0xff0000); // Red
-      }
-    }
-
-    // Hide health bar if at full health
-    const healthBarBg = this.mesh.getObjectByName('healthBarBg');
-    const showHealthBar = this.config.currentHealth < this.config.maxHealth;
-    if (healthBarBg) healthBarBg.visible = showHealthBar;
-    if (healthBarFg) healthBarFg.visible = showHealthBar;
-  }
 
   private moveTowardsTarget(targetPos: Position3D, deltaTime: number): void {
     const currentPos = this.getPosition();
@@ -546,15 +514,43 @@ export class MobEntity extends Entity {
   }
 
   private findNearbyPlayer(): { id: string; position: Position3D } | null {
-    // This would integrate with the player system to find nearby players
-    // For now, return null - this should be implemented when integrating with player system
+    const players = this.world.getPlayers();
+    for (const player of players) {
+      const playerPos = player.node?.position;
+      if (!playerPos) continue;
+      
+      const distance = this.getDistanceTo({
+        x: playerPos.x,
+        y: playerPos.y,
+        z: playerPos.z
+      });
+      
+      if (distance <= this.config.aggroRange) {
+        return {
+          id: player.id,
+          position: {
+            x: playerPos.x,
+            y: playerPos.y,
+            z: playerPos.z
+          }
+        };
+      }
+    }
     return null;
   }
 
-  private getPlayer(_playerId: string): { id: string; position: Position3D } | null {
-    // This would integrate with the player system to get a specific player
-    // For now, return null - this should be implemented when integrating with player system
-    return null;
+  private getPlayer(playerId: string): { id: string; position: Position3D } | null {
+    const player = this.world.getPlayer(playerId);
+    if (!player || !player.node?.position) return null;
+    
+    return {
+      id: player.id,
+      position: {
+        x: player.node.position.x,
+        y: player.node.position.y,
+        z: player.node.position.z
+      }
+    };
   }
 
   // Map internal AI states to interface expected states

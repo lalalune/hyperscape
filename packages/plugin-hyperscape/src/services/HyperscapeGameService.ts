@@ -10,188 +10,106 @@ export class HyperscapeGameService {
   }
 
   async movePlayer(playerId: string, position: THREE.Vector3): Promise<void> {
-    try {
-      const world = this.hyperscapeService.getWorld()
-      if (!world) {
-        throw new Error('World not initialized')
-      }
+    const world = this.hyperscapeService.getWorld()!
 
-      // Update player position
-      const player = world.entities.players.get(playerId)
-      if (player) {
-        player.node.position.copy(position)
+    // Update player position
+    const player = world.entities.players.get(playerId)!
+    player.node.position.copy(position)
 
-        // Broadcast movement
-        if (world.network && world.network.send) {
-          world.network.send('playerMove', {
-            playerId,
-            position,
-          })
-        }
-      }
+    // Broadcast movement
+    world.network.send('playerMove', {
+      playerId,
+      position,
+    })
 
-      elizaLogger.info(
-        `Player ${playerId} moved to ${position.x}, ${position.y}, ${position.z}`
-      )
-    } catch (error) {
-      elizaLogger.error(`Failed to move player ${playerId}:`, error)
-      throw error
-    }
+    elizaLogger.info(
+      `Player ${playerId} moved to ${position.x}, ${position.y}, ${position.z}`
+    )
   }
 
   async startTask(playerId: string, taskId: string): Promise<void> {
-    try {
-      const world = this.hyperscapeService.getWorld()
-      if (!world) {
-        throw new Error('World not initialized')
-      }
+    const world = this.hyperscapeService.getWorld()!
 
-      // Start task logic
-      if (world.network && world.network.send) {
-        world.network.send('taskStart', {
-          playerId,
-          taskId,
-          timestamp: Date.now(),
-        })
-      }
+    // Start task logic
+    world.network.send('taskStart', {
+      playerId,
+      taskId,
+      timestamp: Date.now(),
+    })
 
-      elizaLogger.info(`Player ${playerId} started task ${taskId}`)
-    } catch (error) {
-      elizaLogger.error(`Failed to start task:`, error)
-      throw error
-    }
+    elizaLogger.info(`Player ${playerId} started task ${taskId}`)
   }
 
   async performKill(killerId: string, victimId: string): Promise<void> {
-    try {
-      const world = this.hyperscapeService.getWorld()
-      if (!world) {
-        throw new Error('World not initialized')
-      }
+    const world = this.hyperscapeService.getWorld()!
 
-      // Kill animation and effects
-      if (world.network && world.network.send) {
-        world.network.send('playerKill', {
-          killerId,
-          victimId,
-          timestamp: Date.now(),
-        })
-      }
+    // Kill animation and effects
+    world.network.send('playerKill', {
+      killerId,
+      victimId,
+      timestamp: Date.now(),
+    })
 
-      elizaLogger.info(`Player ${killerId} eliminated ${victimId}`)
-    } catch (error) {
-      elizaLogger.error(`Failed to perform kill:`, error)
-      throw error
-    }
+    elizaLogger.info(`Player ${killerId} eliminated ${victimId}`)
   }
 
   async reportBody(reporterId: string, bodyId: string): Promise<void> {
-    try {
-      const world = this.hyperscapeService.getWorld()
-      if (!world) {
-        throw new Error('World not initialized')
-      }
+    const world = this.hyperscapeService.getWorld()!
 
-      // Trigger meeting
-      if (world.network && world.network.send) {
-        world.network.send('bodyReport', {
-          reporterId,
-          bodyId,
-          timestamp: Date.now(),
-        })
-      }
+    // Trigger meeting
+    world.network.send('bodyReport', {
+      reporterId,
+      bodyId,
+      timestamp: Date.now(),
+    })
 
-      elizaLogger.info(`Player ${reporterId} reported body ${bodyId}`)
-    } catch (error) {
-      elizaLogger.error(`Failed to report body:`, error)
-      throw error
-    }
+    elizaLogger.info(`Player ${reporterId} reported body ${bodyId}`)
   }
 
   async sendChat(playerId: string, message: string): Promise<void> {
-    try {
-      const world = this.hyperscapeService.getWorld()
-      if (!world) {
-        throw new Error('World not initialized')
-      }
+    const world = this.hyperscapeService.getWorld()!
 
-      // Send chat message
-      if (world.chat && world.chat.add) {
-        const chatSystem = world.chat as { add: (message: any) => void }
-        chatSystem.add({
-          id: `msg-${Date.now()}`,
-          entityId: playerId,
-          text: message,
-          timestamp: Date.now(),
-        }) // removed extra parameter that was causing error
-      }
+    // Send chat message
+    const chatSystem = world.chat as { add: (message: any) => void }
+    chatSystem.add({
+      id: `msg-${Date.now()}`,
+      entityId: playerId,
+      text: message,
+      timestamp: Date.now(),
+    })
 
-      elizaLogger.info(`Player ${playerId} said: ${message}`)
-    } catch (error) {
-      elizaLogger.error(`Failed to send chat:`, error)
-      throw error
-    }
+    elizaLogger.info(`Player ${playerId} said: ${message}`)
   }
 
   async castVote(voterId: string, targetId: string | null): Promise<void> {
-    try {
-      const world = this.hyperscapeService.getWorld()
-      if (!world) {
-        throw new Error('World not initialized')
-      }
+    const world = this.hyperscapeService.getWorld()!
 
-      // Cast vote
-      if (world.network && world.network.send) {
-        world.network.send('castVote', {
-          voterId,
-          targetId,
-          timestamp: Date.now(),
-        })
-      }
+    // Cast vote
+    world.network.send('castVote', {
+      voterId,
+      targetId,
+      timestamp: Date.now(),
+    })
 
-      elizaLogger.info(`Player ${voterId} voted for ${targetId || 'skip'}`)
-    } catch (error) {
-      elizaLogger.error(`Failed to cast vote:`, error)
-      throw error
-    }
+    elizaLogger.info(`Player ${voterId} voted for ${targetId || 'skip'}`)
   }
 
   async createGameEntity(entityData: any): Promise<void> {
-    try {
-      const world = this.hyperscapeService.getWorld()
-      if (!world) {
-        throw new Error('World not initialized')
-      }
+    const world = this.hyperscapeService.getWorld()!
 
-      // Add entity to world
-      if (world.entities && world.entities.add) {
-        world.entities.add(entityData)
-      }
+    // Add entity to world
+    world.entities.add(entityData)
 
-      elizaLogger.info(`Created game entity: ${entityData.id}`)
-    } catch (error) {
-      elizaLogger.error(`Failed to create game entity:`, error)
-      throw error
-    }
+    elizaLogger.info(`Created game entity: ${entityData.id}`)
   }
 
   async updateGameState(stateUpdate: any): Promise<void> {
-    try {
-      const world = this.hyperscapeService.getWorld()
-      if (!world) {
-        throw new Error('World not initialized')
-      }
+    const world = this.hyperscapeService.getWorld()!
 
-      // Update game state
-      if (world.network && world.network.send) {
-        world.network.send('gameStateUpdate', stateUpdate)
-      }
+    // Update game state
+    world.network.send('gameStateUpdate', stateUpdate)
 
-      elizaLogger.info(`Updated game state:`, stateUpdate)
-    } catch (error) {
-      elizaLogger.error(`Failed to update game state:`, error)
-      throw error
-    }
+    elizaLogger.info(`Updated game state:`, stateUpdate)
   }
 
   getWorld() {

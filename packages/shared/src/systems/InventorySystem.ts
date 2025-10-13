@@ -4,7 +4,7 @@
 
 import { getSystem } from '../utils/SystemUtils';
 import type { World } from '../types';
-import type { InventoryItemAddedPayload } from '../types/event-payloads';
+import type { InventoryItemAddedPayload } from '../types/events';
 import { EventType } from '../types/events';
 import { getItem } from '../data/items';
 import type {
@@ -19,7 +19,7 @@ import type {
 import {
   PlayerID,
 } from '../types/identifiers';
-import type { InventoryData } from '../types/systems';
+import type { InventoryData } from '../types/system-interfaces';
 import {
   createItemID,
   createPlayerID,
@@ -111,7 +111,7 @@ export class InventorySystem extends SystemBase {
     
     // Subscribe to inventory check events
     this.subscribe(EventType.INVENTORY_CHECK, (data) => {
-      this.handleInventoryCheck(data);
+      this.handleInventoryCheck(data as unknown as InventoryCheckEvent);
     });
   }
   
@@ -135,14 +135,10 @@ export class InventorySystem extends SystemBase {
     
     console.log(`[InventorySystem] Auto-saving ${this.playerInventories.size} player inventories...`);
     for (const playerId of this.playerInventories.keys()) {
-      try {
-        const inv = this.getOrCreateInventory(playerId);
-        const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
-        db.savePlayerInventory(playerId, saveItems);
-        db.savePlayer(playerId, { coins: inv.coins });
-      } catch (error) {
-        Logger.error('InventorySystem', `Error during auto-save for player ${playerId}`, error);
-      }
+      const inv = this.getOrCreateInventory(playerId);
+      const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+      db.savePlayerInventory(playerId, saveItems);
+      db.savePlayer(playerId, { coins: inv.coins });
     }
   }
 
@@ -745,48 +741,43 @@ export class InventorySystem extends SystemBase {
 
   // === Persistence helpers ===
   private getDatabase(): DatabaseSystem | null {
-    try {
-      return (this.world.getSystem('database') as unknown as DatabaseSystem) || null
-    } catch { return null }
+    return (this.world.getSystem('database') as unknown as DatabaseSystem) || null;
   }
 
   private loadPersistedInventory(playerId: string): boolean {
     const db = this.getDatabase();
     if (!db) return false;
-    try {
-      const rows = db.getPlayerInventory(playerId);
-      const playerRow = db.getPlayer(playerId);
-      if (process.env.DEBUG_RPG === '1') {
-        console.log(`[InventorySystem] Loading inventory for ${playerId}: ${rows?.length || 0} items, ${playerRow?.coins || 0} coins`)
-      }
-      const hasState = (rows && rows.length > 0) || !!playerRow;
-      if (!hasState) return false;
-      const pid = createPlayerID(playerId);
-      const inv: PlayerInventory = { playerId: pid, items: [], coins: playerRow?.coins ?? 0 };
-      this.playerInventories.set(pid, inv);
-      for (const row of rows) {
-        const slot = typeof row.slotIndex === 'number' ? row.slotIndex : undefined;
-        this.addItem({ playerId, itemId: createItemID(String(row.itemId)), quantity: row.quantity || 1, slot });
-      }
-      const data = this.getInventoryData(playerId);
-      this.emitTypedEvent(EventType.INVENTORY_INITIALIZED, {
-        playerId,
-        inventory: {
-          items: data.items.map(item => ({
-            slot: item.slot,
-            itemId: item.itemId,
-            quantity: item.quantity,
-            item: { id: item.item.id, name: item.item.name, type: item.item.type, stackable: item.item.stackable, weight: item.item.weight }
-          })),
-          coins: data.coins,
-          maxSlots: data.maxSlots,
-        }
-      });
-      return true;
-    } catch (e) {
-      Logger.error('InventorySystem', `Failed loading persisted inventory for ${playerId}`, e as Error);
-      return false;
+    
+    const rows = db.getPlayerInventory(playerId);
+    const playerRow = db.getPlayer(playerId);
+    if (process.env.DEBUG_RPG === '1') {
+      console.log(`[InventorySystem] Loading inventory for ${playerId}: ${rows?.length || 0} items, ${playerRow?.coins || 0} coins`);
     }
+    const hasState = (rows && rows.length > 0) || !!playerRow;
+    if (!hasState) return false;
+    const pid = createPlayerID(playerId);
+    const inv: PlayerInventory = { playerId: pid, items: [], coins: playerRow?.coins ?? 0 };
+    this.playerInventories.set(pid, inv);
+    for (const row of rows) {
+      // Strong type assumption - row.slotIndex is number from database schema
+      const slot = row.slotIndex ?? undefined;
+      this.addItem({ playerId, itemId: createItemID(String(row.itemId)), quantity: row.quantity || 1, slot });
+    }
+    const data = this.getInventoryData(playerId);
+    this.emitTypedEvent(EventType.INVENTORY_INITIALIZED, {
+      playerId,
+      inventory: {
+        items: data.items.map(item => ({
+          slot: item.slot,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          item: { id: item.item.id, name: item.item.name, type: item.item.type, stackable: item.item.stackable, weight: item.item.weight }
+        })),
+        coins: data.coins,
+        maxSlots: data.maxSlots,
+      }
+    });
+    return true;
   }
 
   private scheduleInventoryPersist(playerId: string): void {
@@ -795,14 +786,10 @@ export class InventorySystem extends SystemBase {
     const existing = this.persistTimers.get(playerId);
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
-      try {
-        const inv = this.getOrCreateInventory(playerId);
-        const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
-        db.savePlayerInventory(playerId, saveItems);
-        db.savePlayer(playerId, { coins: inv.coins });
-      } catch (e) {
-        Logger.error('InventorySystem', `Persist failed for ${playerId}`, e as Error);
-      }
+      const inv = this.getOrCreateInventory(playerId);
+      const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+      db.savePlayerInventory(playerId, saveItems);
+      db.savePlayer(playerId, { coins: inv.coins });
     }, 300);
     this.persistTimers.set(playerId, timer);
   }
@@ -905,7 +892,8 @@ export class InventorySystem extends SystemBase {
       return;
     }
     
-    if (typeof quantity !== 'number' || quantity <= 0) {
+    // Strong type assumption - quantity is number from typed event payload
+    if (!quantity || quantity <= 0) {
       Logger.error('InventorySystem', 'handleInventoryAdd: invalid quantity');
       return;
     }
@@ -960,14 +948,10 @@ export class InventorySystem extends SystemBase {
       if (db) {
         console.log('[InventorySystem] Final save before shutdown...');
         for (const playerId of this.playerInventories.keys()) {
-          try {
-            const inv = this.getOrCreateInventory(playerId);
-            const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
-            db.savePlayerInventory(playerId, saveItems);
-            db.savePlayer(playerId, { coins: inv.coins });
-          } catch (error) {
-            Logger.error('InventorySystem', `Error during final save for player ${playerId}`, error);
-          }
+          const inv = this.getOrCreateInventory(playerId);
+          const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+          db.savePlayerInventory(playerId, saveItems);
+          db.savePlayer(playerId, { coins: inv.coins });
         }
       }
     }

@@ -120,62 +120,42 @@ export class VisualTestFramework {
   ): Promise<{ passed: boolean; failures: string[] }> {
     const failures: string[] = []
 
-    if (!this.colorDetector) {
-      failures.push('ColorDetector not available')
-      return { passed: false, failures }
-    }
-
     for (const check of checks) {
-      try {
-        const template = this.visualTemplates.get(check.entityType)
-        if (!template) {
-          failures.push(
-            `No visual template for entity type: ${check.entityType}`
-          )
-          continue
+      const template = this.visualTemplates.get(check.entityType)!
+
+      const expectedColor = check.expectedColor || template.color
+
+      // Detect entities of this color in the scene
+      const detectedEntities = await this.colorDetector.detectEntities(
+        expectedColor,
+        {
+          tolerance: check.tolerance || 10,
+          minClusterSize: 20,
         }
+      )
 
-        const expectedColor = check.expectedColor || template.color
+      const entityExists = detectedEntities && detectedEntities.length > 0
 
-        // Detect entities of this color in the scene
-        const detectedEntities = await this.colorDetector.detectEntities(
-          expectedColor,
-          {
-            tolerance: check.tolerance || 10,
-            minClusterSize: 20,
-          }
-        )
-
-        const entityExists = detectedEntities && detectedEntities.length > 0
-
-        if (check.shouldExist && !entityExists) {
-          failures.push(
-            `Expected ${check.entityType} (color: ${expectedColor}) not found`
-          )
-        } else if (!check.shouldExist && entityExists) {
-          failures.push(
-            `Unexpected ${check.entityType} (color: ${expectedColor}) found`
-          )
-        }
-
-        // Check position if specified
-        if (check.position && entityExists) {
-          const entity = detectedEntities[0]
-          const distance = this.calculateDistance(
-            entity.position,
-            check.position
-          )
-          if (distance > 5) {
-            // 5 unit tolerance
-            failures.push(
-              `${check.entityType} at wrong position. Expected: ${JSON.stringify(check.position)}, Found: ${JSON.stringify(entity.position)}`
-            )
-          }
-        }
-      } catch (error) {
+      if (check.shouldExist && !entityExists) {
         failures.push(
-          `Visual check failed for ${check.entityType}: ${error.message}`
+          `Expected ${check.entityType} (color: ${expectedColor}) not found`
         )
+      } else if (!check.shouldExist && entityExists) {
+        failures.push(
+          `Unexpected ${check.entityType} (color: ${expectedColor}) found`
+        )
+      }
+
+      // Check position if specified
+      if (check.position && entityExists) {
+        const entity = detectedEntities[0]
+        const distance = this.calculateDistance(entity.position, check.position)
+        if (distance > 5) {
+          // 5 unit tolerance
+          failures.push(
+            `${check.entityType} at wrong position. Expected: ${JSON.stringify(check.position)}, Found: ${JSON.stringify(entity.position)}`
+          )
+        }
       }
     }
 
@@ -189,32 +169,21 @@ export class VisualTestFramework {
     checks: StateCheck[]
   ): Promise<{ passed: boolean; failures: string[] }> {
     const failures: string[] = []
-    const rpgManager = this.service.getRPGStateManager()
-
-    if (!rpgManager) {
-      failures.push('RPG State Manager not available')
-      return { passed: false, failures }
-    }
+    const rpgManager = this.service.getRPGStateManager()!
 
     const state = rpgManager.getPlayerState('test-player')
 
     for (const check of checks) {
-      try {
-        const actualValue = this.getNestedProperty(state, check.property)
-        const passed = this.compareValues(
-          actualValue,
-          check.expectedValue,
-          check.operator
-        )
+      const actualValue = this.getNestedProperty(state, check.property)
+      const passed = this.compareValues(
+        actualValue,
+        check.expectedValue,
+        check.operator
+      )
 
-        if (!passed) {
-          failures.push(
-            `State check failed: ${check.property} expected ${check.operator} ${check.expectedValue}, got ${actualValue}`
-          )
-        }
-      } catch (error) {
+      if (!passed) {
         failures.push(
-          `State check error for ${check.property}: ${error.message}`
+          `State check failed: ${check.property} expected ${check.operator} ${check.expectedValue}, got ${actualValue}`
         )
       }
     }
@@ -226,27 +195,16 @@ export class VisualTestFramework {
    * Take screenshot for visual record
    */
   async captureScreenshot(name: string): Promise<string> {
-    const playwrightManager = this.service.getPlaywrightManager()
-    if (!playwrightManager) {
-      logger.warn(
-        '[VisualTestFramework] PlaywrightManager not available for screenshot'
-      )
-      return ''
-    }
+    const playwrightManager = this.service.getPlaywrightManager()!
 
-    try {
-      const screenshot = await playwrightManager.takeScreenshot({
-        fullPage: false,
-      })
+    const screenshot = await playwrightManager.takeScreenshot({
+      fullPage: false,
+    })
 
-      // In a real implementation, save to file system
-      const filename = `screenshot-${name}-${Date.now()}.png`
-      logger.info(`[VisualTestFramework] Screenshot captured: ${filename}`)
-      return (screenshot as string) || ''
-    } catch (error) {
-      logger.error('[VisualTestFramework] Screenshot failed:', error)
-      return ''
-    }
+    // In a real implementation, save to file system
+    const filename = `screenshot-${name}-${Date.now()}.png`
+    logger.info(`[VisualTestFramework] Screenshot captured: ${filename}`)
+    return (screenshot as string) || ''
   }
 
   /**

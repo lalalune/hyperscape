@@ -21,61 +21,45 @@ export class DockerManager {
   }
 
   async checkDockerRunning(): Promise<void> {
-    try {
-      await execAsync('docker info')
-      console.log('[Docker] Docker daemon is running')
-    } catch (_error) {
-      throw new Error(
-        'Docker is not running. Please start Docker Desktop and try again.\n' +
-        'Download Docker from: https://www.docker.com/products/docker-desktop'
-      )
-    }
+    await execAsync('docker info')
+    console.log('[Docker] Docker daemon is running')
   }
 
   async checkPostgresRunning(): Promise<boolean> {
-    try {
-      // First ensure container exists
-      const { stdout: existsOut } = await execAsync(
-        `docker ps -a --filter "name=^/${this.config.containerName}$" --format "{{.Names}}"`
-      )
-      const exists = existsOut.trim() === this.config.containerName
-      if (!exists) return false
-      // Inspect exact running state
-      const { stdout } = await execAsync(
-        `docker inspect -f '{{.State.Running}}' ${this.config.containerName}`
-      )
-      const isRunning = stdout.trim() === 'true'
-      if (isRunning) {
-        console.log(`[Docker] PostgreSQL container '${this.config.containerName}' is already running`)
-      }
-      return isRunning
-    } catch (_error) {
+    const { stdout: existsOut } = await execAsync(
+      `docker ps -a --filter "name=^/${this.config.containerName}$" --format "{{.Names}}"`
+    )
+    const exists = existsOut.trim() === this.config.containerName
+    if (!exists) {
       return false
     }
+    
+    const { stdout } = await execAsync(
+      `docker inspect -f '{{.State.Running}}' ${this.config.containerName}`
+    )
+    const isRunning = stdout.trim() === 'true'
+    if (isRunning) {
+      console.log(`[Docker] PostgreSQL container '${this.config.containerName}' is already running`)
+    }
+    return isRunning
   }
 
   async startPostgres(): Promise<void> {
     console.log(`[Docker] Starting PostgreSQL container '${this.config.containerName}'...`)
     
-    // Check if container exists but is stopped
-    try {
-      const { stdout } = await execAsync(
-        `docker ps -a --filter "name=^/${this.config.containerName}$" --format "{{.Names}}"`
-      )
-      if (stdout.trim() === this.config.containerName) {
-        // Container exists, just start it
-        console.log('[Docker] Found existing container, starting it...')
-        await execAsync(`docker start ${this.config.containerName}`)
-        this.containerStartedByUs = true
-      } else {
-        // Create new container
-        console.log('[Docker] Creating new PostgreSQL container...')
-        await this.createPostgresContainer()
-        this.containerStartedByUs = true
-      }
-    } catch (error) {
-      console.error('[Docker] Error checking/starting container:', error)
-      throw error
+    const { stdout } = await execAsync(
+      `docker ps -a --filter "name=^/${this.config.containerName}$" --format "{{.Names}}"`
+    )
+    if (stdout.trim() === this.config.containerName) {
+      // Container exists, just start it
+      console.log('[Docker] Found existing container, starting it...')
+      await execAsync(`docker start ${this.config.containerName}`)
+      this.containerStartedByUs = true
+    } else {
+      // Create new container
+      console.log('[Docker] Creating new PostgreSQL container...')
+      await this.createPostgresContainer()
+      this.containerStartedByUs = true
     }
 
     // Wait for PostgreSQL to be ready
@@ -115,16 +99,12 @@ export class DockerManager {
     console.log('[Docker] Waiting for PostgreSQL to be ready...')
     
     for (let i = 0; i < maxAttempts; i++) {
-      try {
-        const { stdout } = await execAsync(
-          `docker exec ${this.config.containerName} pg_isready -U ${this.config.postgresUser}`
-        )
-        
-        if (stdout.includes('accepting connections')) {
-          return
-        }
-      } catch (_error) {
-        // Not ready yet, continue waiting
+      const { stdout } = await execAsync(
+        `docker exec ${this.config.containerName} pg_isready -U ${this.config.postgresUser}`
+      )
+      
+      if (stdout.includes('accepting connections')) {
+        return
       }
       
       await new Promise(resolve => setTimeout(resolve, 1000))
@@ -140,14 +120,8 @@ export class DockerManager {
     }
 
     console.log(`[Docker] Stopping PostgreSQL container '${this.config.containerName}'...`)
-    
-    try {
-      await execAsync(`docker stop ${this.config.containerName}`)
-      console.log('[Docker] PostgreSQL container stopped')
-    } catch (error) {
-      console.error('[Docker] Error stopping container:', error)
-      // Don't throw - we're shutting down anyway
-    }
+    await execAsync(`docker stop ${this.config.containerName}`)
+    console.log('[Docker] PostgreSQL container stopped')
   }
 
   async getConnectionString(): Promise<string> {

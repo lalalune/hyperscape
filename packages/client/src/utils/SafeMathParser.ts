@@ -17,39 +17,31 @@ export class SafeMathParser {
    * @returns ParseResult with success status and value
    */
   static parse(expression: string, fallback: number = 0): ParseResult {
-    try {
-      // Input validation and sanitization
-      const sanitized = this.sanitizeInput(expression);
-      if (!sanitized) {
-        return { success: false, value: fallback, error: 'Invalid characters in expression' };
-      }
-
-      // Handle simple numeric input
-      const simpleNumber = parseFloat(sanitized);
-      if (!isNaN(simpleNumber) && sanitized === simpleNumber.toString()) {
-        return { success: true, value: simpleNumber };
-      }
-
-      // Parse and evaluate expression
-      const tokens = this.tokenize(sanitized);
-      if (tokens.length === 0) {
-        return { success: false, value: fallback, error: 'Empty expression' };
-      }
-
-      const result = this.evaluateTokens(tokens);
-      
-      if (isNaN(result) || !isFinite(result)) {
-        return { success: false, value: fallback, error: 'Result is not a valid number' };
-      }
-
-      return { success: true, value: result };
-    } catch (_error) {
-      return { 
-        success: false, 
-        value: fallback, 
-        error: _error instanceof Error ? _error.message : 'Unknown parsing error' 
-      };
+    // Input validation and sanitization
+    const sanitized = this.sanitizeInput(expression);
+    if (!sanitized) {
+      return { success: false, value: fallback, error: 'Invalid characters in expression' };
     }
+
+    // Handle simple numeric input
+    const simpleNumber = parseFloat(sanitized);
+    if (!isNaN(simpleNumber) && sanitized === simpleNumber.toString()) {
+      return { success: true, value: simpleNumber };
+    }
+
+    // Parse and evaluate expression
+    const tokens = this.tokenize(sanitized);
+    if (tokens.length === 0) {
+      return { success: false, value: fallback, error: 'Empty expression' };
+    }
+
+    const result = this.evaluateTokens(tokens);
+    
+    if (isNaN(result) || !isFinite(result)) {
+      return { success: false, value: fallback, error: 'Result is not a valid number' };
+    }
+
+    return { success: true, value: result };
   }
 
   /**

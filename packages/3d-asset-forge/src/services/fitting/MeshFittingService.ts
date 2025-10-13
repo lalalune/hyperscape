@@ -719,8 +719,8 @@ export class MeshFittingService {
             const absY = Math.abs(fromCenter.y)
             const absZ = Math.abs(fromCenter.z)
             
-            let projectedPoint = new Vector3()
-            let faceNormal = new Vector3()
+            const projectedPoint = new Vector3()
+            const faceNormal = new Vector3()
             
             if (absX >= absY && absX >= absZ) {
               // X-dominant: project to X face
@@ -904,7 +904,7 @@ export class MeshFittingService {
             targetCenter
           const toTarget = rayTarget.clone().sub(vertex).normalize()
           this.raycaster.set(vertex, toTarget)
-          let intersections = this.raycaster.intersectObject(targetMesh, false)
+          const intersections = this.raycaster.intersectObject(targetMesh, false)
           
           if (intersections.length > 0) {
             // If constraint bounds provided, ONLY consider intersections within bounds
@@ -934,7 +934,7 @@ export class MeshFittingService {
             if (!found && isInside) {
               const fromCenter = vertex.clone().sub(targetCenter).normalize()
               this.raycaster.set(targetCenter, fromCenter)
-              let intersections = this.raycaster.intersectObject(targetMesh, false)
+              const intersections = this.raycaster.intersectObject(targetMesh, false)
               
               // Find intersection closest to our vertex
               let closestDist = Infinity
@@ -962,7 +962,7 @@ export class MeshFittingService {
               const toCenter = targetCenter.clone().sub(vertex).normalize()
               const farPoint = vertex.clone().sub(toCenter.clone().multiplyScalar(targetSize.length() * 2))
               this.raycaster.set(farPoint, toCenter)
-              let intersections = this.raycaster.intersectObject(targetMesh, false)
+              const intersections = this.raycaster.intersectObject(targetMesh, false)
               
               if (intersections.length > 0) {
                 // For a cube or convex shape, we want the FIRST intersection from outside
@@ -995,7 +995,7 @@ export class MeshFittingService {
             
             for (const dir of directions) {
               this.raycaster.set(vertex, dir)
-              let intersections = this.raycaster.intersectObject(targetMesh, false)
+              const intersections = this.raycaster.intersectObject(targetMesh, false)
               if (intersections.length > 0) {
                 targetPoint = intersections[0].point
                 targetNormal = intersections[0].face!.normal.clone()
@@ -1031,7 +1031,7 @@ export class MeshFittingService {
         
         // Calculate desired position with offset
           // For box targets, check if we're inside and adjust accordingly
-          let offsetDirection = targetNormal.clone()
+          const offsetDirection = targetNormal.clone()
           if (isBox) {
             // For boxes, ALWAYS apply positive offset to stay outside
             // The normal should already be pointing outward
@@ -1252,7 +1252,7 @@ export class MeshFittingService {
               // Don't smooth lower back vertices at all
               if (relativeY < 0.4) {
                 smoothingMask[i] = false
-                hasDisplacement[i] = hasDisplacement[i] // Keep the displacement but don't smooth
+                // Keep the displacement but don't smooth (already set)
               }
             }
           }
@@ -1715,8 +1715,8 @@ export class MeshFittingService {
     // Helper function to find closest point on mesh
     const findClosestPointOnMesh = (point: Vector3): { point: Vector3, normal: Vector3 } => {
       let minDist = Infinity
-      let closestPoint = new Vector3()
-      let closestNormal = new Vector3()
+      const closestPoint = new Vector3()
+      const closestNormal = new Vector3()
       
       const localPoint = bodyMesh.worldToLocal(point.clone())
       
@@ -1798,7 +1798,7 @@ export class MeshFittingService {
           const neighborIndices = neighbors.get(i) || new Set<number>()
           if (neighborIndices.size === 0) continue
           
-          let avgDisplacement = new Vector3(
+          const avgDisplacement = new Vector3(
             displacements[i * 3],
             displacements[i * 3 + 1],
             displacements[i * 3 + 2]
@@ -2051,8 +2051,8 @@ export class MeshFittingService {
     const size = max.clone().sub(min)
     
     // Get overall mesh bounds for relative positioning
-    let meshMin = new Vector3(Infinity, Infinity, Infinity)
-    let meshMax = new Vector3(-Infinity, -Infinity, -Infinity)
+    const meshMin = new Vector3(Infinity, Infinity, Infinity)
+    const meshMax = new Vector3(-Infinity, -Infinity, -Infinity)
     for (let i = 0; i < positionAttribute.count; i++) {
       meshMin.x = Math.min(meshMin.x, positionAttribute.getX(i))
       meshMin.y = Math.min(meshMin.y, positionAttribute.getY(i))

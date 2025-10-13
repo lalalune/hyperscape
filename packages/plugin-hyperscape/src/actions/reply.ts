@@ -42,8 +42,10 @@ function getFirstAvailableField(
   fields: string[]
 ): string | null {
   for (const field of fields) {
-    if (typeof obj[field] === 'string' && obj[field].trim() !== '') {
-      return obj[field]
+    const value = obj[field]
+    // Narrow type: check if value has string methods
+    if ((value as string).trim && (value as string).trim() !== '') {
+      return value as string
     }
   }
   return null

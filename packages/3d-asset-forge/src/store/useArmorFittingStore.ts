@@ -461,20 +461,8 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
 
           // Complex actions
           performFitting: async (viewerRef) => {
-            const { selectedAvatar, selectedArmor, fittingConfig, enableWeightTransfer, isFitting } = get()
-
-            if (!viewerRef.current || !selectedAvatar || !selectedArmor) {
-              set((state) => {
-                state.lastError = 'Missing avatar or armor selection'
-              })
-              return
-            }
-
-            // Ensure we're not already processing
-            if (isFitting) {
-              console.warn('Already processing a fitting operation')
-              return
-            }
+            const { fittingConfig, enableWeightTransfer } = get()
+            const viewer = viewerRef.current!
 
             set((state) => {
               state.isFitting = true
@@ -482,10 +470,9 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               state.lastError = null
             })
 
-            try {
-              // Using shrinkwrap fitting from MeshFittingDebugger
-              set((state) => { state.fittingProgress = 25 })
-              console.log('🎯 ArmorFittingLab: Performing shrinkwrap-based armor fitting')
+            // Using shrinkwrap fitting from MeshFittingDebugger
+            set((state) => { state.fittingProgress = 25 })
+            console.log('🎯 ArmorFittingLab: Performing shrinkwrap-based armor fitting')
 
               // Create fitting parameters matching MeshFittingParameters interface
               const shrinkwrapParams = {
@@ -507,7 +494,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
 
               // Perform the fitting
               set((state) => { state.fittingProgress = 50 })
-              viewerRef.current.performFitting?.(shrinkwrapParams)
+              viewer.performFitting(shrinkwrapParams)
 
               // Update progress
               await new Promise(resolve => setTimeout(resolve, 1000))
@@ -517,7 +504,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               if (enableWeightTransfer) {
                 set((state) => { state.fittingProgress = 90 })
                 console.log('🎯 ArmorFittingLab: Transferring vertex weights from avatar to armor')
-                viewerRef.current.transferWeights?.()
+                viewer.transferWeights()
                 await new Promise(resolve => setTimeout(resolve, 800))
               }
 
@@ -532,35 +519,15 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               // Save to history after successful fitting
               get().saveToHistory()
 
-            } catch (error) {
-              console.error('Fitting failed:', error)
+            setTimeout(() => {
               set((state) => {
-                state.lastError = `Fitting failed: ${(error as Error).message}`
+                state.isFitting = false
               })
-            } finally {
-              setTimeout(() => {
-                set((state) => {
-                  state.isFitting = false
-                })
-              }, 100)
-            }
+            }, 100)
           },
 
           bindArmorToSkeleton: async (viewerRef) => {
-            const { selectedAvatar, selectedArmor, isArmorFitted, isFitting } = get()
-
-            if (!viewerRef.current || !selectedAvatar || !selectedArmor || !isArmorFitted) {
-              set((state) => {
-                state.lastError = 'Must fit armor before binding to skeleton'
-              })
-              return
-            }
-
-            // Ensure we're not already processing
-            if (isFitting) {
-              console.warn('Already processing a binding operation')
-              return
-            }
+            const viewer = viewerRef.current!
 
             set((state) => {
               state.isFitting = true
@@ -568,29 +535,21 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               state.lastError = null
             })
 
-            try {
-              console.log('🎯 ArmorFittingLab: Binding armor to skeleton')
+            console.log('🎯 ArmorFittingLab: Binding armor to skeleton')
 
-              // Call viewer's transferWeights method
-              viewerRef.current.transferWeights()
+            // Call viewer's transferWeights method
+            viewer.transferWeights()
 
-              set((state) => {
-                state.isArmorBound = true
-                state.fittingProgress = 100
-              })
+            set((state) => {
+              state.isArmorBound = true
+              state.fittingProgress = 100
+            })
 
-              console.log('✅ ArmorFittingLab: Armor bound to skeleton')
+            console.log('✅ ArmorFittingLab: Armor bound to skeleton')
 
-            } catch (error) {
-              console.error('Binding failed:', error)
-              set((state) => {
-                state.lastError = `Binding failed: ${(error as Error).message}`
-              })
-            } finally {
-              set((state) => {
-                state.isFitting = false
-              })
-            }
+            set((state) => {
+              state.isFitting = false
+            })
           },
 
           resetFitting: () => {
@@ -612,152 +571,104 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
 
           // Helmet fitting actions
           performHelmetFitting: async (viewerRef) => {
-            const { selectedAvatar, selectedHelmet, helmetFittingMethod, helmetSizeMultiplier,
+            const { helmetFittingMethod, helmetSizeMultiplier,
               helmetFitTightness, helmetVerticalOffset, helmetForwardOffset, helmetRotation } = get()
-
-            if (!viewerRef.current || !selectedAvatar || !selectedHelmet) {
-              set((state) => {
-                state.lastError = 'Missing avatar or helmet selection'
-              })
-              return
-            }
+            const viewer = viewerRef.current!
 
             set((state) => {
               state.isFitting = true
               state.lastError = null
             })
 
-            try {
-              await viewerRef.current.performHelmetFitting({
-                method: helmetFittingMethod,
-                sizeMultiplier: helmetSizeMultiplier,
-                fitTightness: helmetFitTightness,
-                verticalOffset: helmetVerticalOffset,
-                forwardOffset: helmetForwardOffset,
-                rotation: {
-                  x: helmetRotation.x * Math.PI / 180,
-                  y: helmetRotation.y * Math.PI / 180,
-                  z: helmetRotation.z * Math.PI / 180
-                }
-              })
+            await viewer.performHelmetFitting({
+              method: helmetFittingMethod,
+              sizeMultiplier: helmetSizeMultiplier,
+              fitTightness: helmetFitTightness,
+              verticalOffset: helmetVerticalOffset,
+              forwardOffset: helmetForwardOffset,
+              rotation: {
+                x: helmetRotation.x * Math.PI / 180,
+                y: helmetRotation.y * Math.PI / 180,
+                z: helmetRotation.z * Math.PI / 180
+              }
+            })
 
-              set((state) => {
-                state.isHelmetFitted = true
-              })
-            } catch (error) {
-              console.error('Helmet fitting failed:', error)
-              set((state) => {
-                state.lastError = `Helmet fitting failed: ${(error as Error).message}`
-              })
-            } finally {
-              set((state) => {
-                state.isFitting = false
-              })
-            }
+            set((state) => {
+              state.isHelmetFitted = true
+              state.isFitting = false
+            })
           },
 
           attachHelmetToHead: async (viewerRef) => {
-            if (!viewerRef.current) return
-
-            try {
-              viewerRef.current.attachHelmetToHead()
-              set((state) => {
-                state.isHelmetAttached = true
-              })
-            } catch (error) {
-              console.error('Helmet attachment failed:', error)
-              set((state) => {
-                state.lastError = `Helmet attachment failed: ${(error as Error).message}`
-              })
-            }
+            const viewer = viewerRef.current!
+            
+            viewer.attachHelmetToHead()
+            set((state) => {
+              state.isHelmetAttached = true
+            })
           },
 
           detachHelmetFromHead: async (viewerRef) => {
-            if (!viewerRef.current) return
-
-            try {
-              viewerRef.current.detachHelmetFromHead()
-              set((state) => {
-                state.isHelmetAttached = false
-              })
-            } catch (error) {
-              console.error('Helmet detachment failed:', error)
-              set((state) => {
-                state.lastError = `Helmet detachment failed: ${(error as Error).message}`
-              })
-            }
+            const viewer = viewerRef.current!
+            
+            viewer.detachHelmetFromHead()
+            set((state) => {
+              state.isHelmetAttached = false
+            })
           },
 
           exportFittedArmor: async (viewerRef) => {
-            if (!viewerRef.current) return
+            const viewer = viewerRef.current!
 
             set((state) => {
               state.isExporting = true
               state.lastError = null
             })
 
-            try {
-              const arrayBuffer = await viewerRef.current.exportFittedModel()
-              const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url
-              a.download = `fitted_armor_${Date.now()}.glb`
-              a.click()
-              URL.revokeObjectURL(url)
-            } catch (error) {
-              console.error('Export failed:', error)
-              set((state) => {
-                state.lastError = `Export failed: ${(error as Error).message}`
-              })
-            } finally {
-              set((state) => {
-                state.isExporting = false
-              })
-            }
+            const arrayBuffer = await viewer.exportFittedModel()
+            const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `fitted_armor_${Date.now()}.glb`
+            a.click()
+            URL.revokeObjectURL(url)
+            
+            set((state) => {
+              state.isExporting = false
+            })
           },
 
           exportEquippedAvatar: async (viewerRef) => {
-            if (!viewerRef.current) return
+            const viewer = viewerRef.current!
 
             set((state) => {
               state.isExporting = true
               state.lastError = null
             })
 
-            try {
-              const arrayBuffer = await viewerRef.current.exportFittedModel()
-              const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url
-              a.download = `equipped_avatar_${Date.now()}.glb`
-              a.click()
-              URL.revokeObjectURL(url)
-            } catch (error) {
-              console.error('Export failed:', error)
-              set((state) => {
-                state.lastError = `Export failed: ${(error as Error).message}`
-              })
-            } finally {
-              set((state) => {
-                state.isExporting = false
-              })
-            }
+            const arrayBuffer = await viewer.exportFittedModel()
+            const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `equipped_avatar_${Date.now()}.glb`
+            a.click()
+            URL.revokeObjectURL(url)
+            
+            set((state) => {
+              state.isExporting = false
+            })
           },
 
           resetScene: (viewerRef) => {
             const { equipmentSlot } = get()
+            const viewer = viewerRef.current!
 
             console.log('=== RESETTING SCENE ===')
 
-            if (!viewerRef?.current) {
-              console.error('No viewer ref available for reset')
-              return
-            }
-
             // Reset transforms on meshes
-            viewerRef.current.resetTransform()
+            viewer.resetTransform()
 
             // Reset fitting states based on current equipment slot
             set((state) => {
@@ -810,45 +721,34 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
 
           saveConfiguration: async () => {
             const { selectedAvatar, selectedArmor, fittingConfig, enableWeightTransfer } = get()
-
-            if (!selectedAvatar || !selectedArmor) {
-              set((state) => {
-                state.lastError = 'Please select both avatar and armor before saving'
-              })
-              return
-            }
+            const avatar = selectedAvatar!
+            const armor = selectedArmor!
 
             set((state) => {
               state.isSavingConfig = true
               state.lastError = null
             })
 
-            try {
-              const config = {
-                avatarId: selectedAvatar.id,
-                armorId: selectedArmor.id,
-                fittingConfig,
-                enableWeightTransfer,
-                timestamp: new Date().toISOString()
-              }
-
-              const json = JSON.stringify(config, null, 2)
-              const blob = new Blob([json], { type: 'application/json' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url
-              a.download = `armor_fitting_config_${Date.now()}.json`
-              a.click()
-              URL.revokeObjectURL(url)
-            } catch (error) {
-              set((state) => {
-                state.lastError = `Failed to save configuration: ${(error as Error).message}`
-              })
-            } finally {
-              set((state) => {
-                state.isSavingConfig = false
-              })
+            const config = {
+              avatarId: avatar.id,
+              armorId: armor.id,
+              fittingConfig,
+              enableWeightTransfer,
+              timestamp: new Date().toISOString()
             }
+
+            const json = JSON.stringify(config, null, 2)
+            const blob = new Blob([json], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `armor_fitting_config_${Date.now()}.json`
+            a.click()
+            URL.revokeObjectURL(url)
+            
+            set((state) => {
+              state.isSavingConfig = false
+            })
           },
 
           loadConfiguration: async (file: File) => {
@@ -856,23 +756,16 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               state.lastError = null
             })
 
-            try {
-              const text = await file.text()
-              const config = JSON.parse(text)
+            const text = await file.text()
+            const config = JSON.parse(text)
 
-              set((state) => {
-                state.fittingConfig = config.fittingConfig
-                state.enableWeightTransfer = config.enableWeightTransfer
-              })
+            set((state) => {
+              state.fittingConfig = config.fittingConfig
+              state.enableWeightTransfer = config.enableWeightTransfer
+            })
 
-              // Save to history after loading
-              get().saveToHistory()
-
-            } catch (error) {
-              set((state) => {
-                state.lastError = `Failed to load configuration: ${(error as Error).message}`
-              })
-            }
+            // Save to history after loading
+            get().saveToHistory()
           },
 
           resetAll: () => {

@@ -189,13 +189,21 @@ export const generateTasks = (count: number) => {
 }
 
 // Mock implementations for external dependencies
-export const mockFetch = (response: any, ok = true, status = 200) => {
+export const mockFetch = (
+  response: string | Record<string, unknown>,
+  ok = true,
+  status = 200
+) => {
+  // Determine text representation at creation time to avoid polymorphic checks
+  const textResponse = (response as string).charAt
+    ? (response as string)
+    : JSON.stringify(response)
+
   const mockFn = vi.fn().mockResolvedValue({
     ok,
     status,
     json: async () => response,
-    text: async () =>
-      typeof response === 'string' ? response : JSON.stringify(response),
+    text: async () => textResponse,
     blob: async () => new Blob(),
     arrayBuffer: async () => new ArrayBuffer(0),
   })

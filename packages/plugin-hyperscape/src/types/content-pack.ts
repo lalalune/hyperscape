@@ -14,7 +14,6 @@ export interface IContentPack {
   providers?: Provider[]
   evaluators?: Evaluator[]
 
-  // RPG-specific systems
   systems?: IGameSystem[]
 
   // Visual configuration

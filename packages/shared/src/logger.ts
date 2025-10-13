@@ -3,8 +3,6 @@
  * Replaces console.log statements with configurable logging
  */
 
-import { Config } from './config';
-
 export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
@@ -25,11 +23,12 @@ class Logger {
   constructor(options: LoggerOptions = {}) {
     this.prefix = options.prefix || '';
     
-    // Use global log level if set, otherwise use config
+    // Use global log level if set, otherwise use environment variable
     if (Logger.globalLogLevel !== null) {
       this.logLevel = Logger.globalLogLevel;
     } else {
-      const configLevel = options.logLevel || Config.getValue('logLevel').toUpperCase();
+      const envLevel = (process.env.HYPERSCAPE_LOG_LEVEL || 'info').toUpperCase();
+      const configLevel = options.logLevel || envLevel;
       this.logLevel = LogLevel[configLevel as keyof typeof LogLevel] || LogLevel.INFO;
     }
   }
@@ -52,7 +51,8 @@ class Logger {
   }
 
   private shouldLog(level: LogLevel): boolean {
-    return level >= this.logLevel && !Config.getValue('isProduction');
+    const isProduction = process.env.NODE_ENV === 'production';
+    return level >= this.logLevel && !isProduction;
   }
 
   private formatMessage(message: string): string {

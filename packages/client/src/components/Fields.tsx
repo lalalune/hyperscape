@@ -356,14 +356,9 @@ export function FieldFile({ world, label, hint, kind: kindName, value, onChange 
       url,
     }
     setLoading(newValue)
-    // upload file - strong type assumption
-    if (!world.network) {
-      console.error('Network not available')
-      setLoading(null)
-      return
-    }
-    // Strong type assumption - network has upload method
-    await (world.network as { upload: (file: File) => Promise<unknown> }).upload(file)
+    // Upload file - strong type assumption that network has upload method
+    const networkWithUpload = world.network as { upload: (file: File) => Promise<unknown> }
+    await networkWithUpload.upload(file)
     // ignore if new value/upload
     if (nRef.current !== n) return
     // cache file locally so this client can insta-load it
@@ -446,17 +441,8 @@ export function FieldNumber({
     if (!focused && local !== value.toFixed(dp)) setLocal(value.toFixed(dp))
   }, [focused, value, local, dp])
   const setTo = (str: string) => {
-    // try parse math
-    let num
-    try {
-      num = (0, eval)(str)
-      if (typeof num !== 'number') {
-        throw new Error('input number parse fail')
-      }
-    } catch (err) {
-      console.error(err)
-      num = value // revert back to original
-    }
+    // Parse math expression - eval returns a number
+    let num = (0, eval)(str) as number
     if (num < min || num > max) {
       num = value
     }
@@ -551,17 +537,8 @@ export function FieldVec3({
     }
   }, [focused, valueX, valueY, valueZ, localX, localY, localZ, dp])
   const parseStr = (str: string) => {
-    // try parse math
-    let num
-    try {
-      num = (0, eval)(str)
-      if (typeof num !== 'number') {
-        throw new Error('input number parse fail')
-      }
-    } catch (err) {
-      console.error(err)
-      num = 0 // default to 0
-    }
+    // Parse math expression - eval returns a number
+    let num = (0, eval)(str) as number
     if (num < min || num > max) {
       num = 0
     }

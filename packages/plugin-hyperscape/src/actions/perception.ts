@@ -179,48 +179,12 @@ export const hyperscapeScenePerceptionAction: Action = {
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
       HyperscapeService.serviceName
-    )
-    const world = service?.getWorld()
-    const playwrightManager = service?.getPlaywrightManager()
-    const controls = world?.controls
+    )!
+    const world = service.getWorld()!
+    const playwrightManager = service.getPlaywrightManager()!
+    const controls = world.controls!
 
-    if (
-      controls &&
-      typeof (controls as { stopAllActions?: () => void }).stopAllActions ===
-        'function'
-    ) {
-      ;(controls as unknown as { stopAllActions: () => void }).stopAllActions()
-    }
-
-    if (!world || !controls) {
-      if (callback) {
-        await callback({
-          text: 'Unable to observe environment. Hyperscape world not available.',
-          success: false,
-        })
-      }
-      return {
-        text: 'Unable to observe environment. Hyperscape world not available.',
-        success: false,
-        values: { success: false, error: 'world_unavailable' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
-
-    if (!playwrightManager) {
-      if (callback) {
-        await callback({
-          text: 'Unable to capture visual. Screenshot service not available.',
-          success: false,
-        })
-      }
-      return {
-        text: 'Unable to capture visual. Screenshot service not available.',
-        success: false,
-        values: { success: false, error: 'screenshot_service_unavailable' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    ;(controls as unknown as { stopAllActions: () => void }).stopAllActions()
 
     state = await runtime.composeState(message)
 
@@ -229,52 +193,11 @@ export const hyperscapeScenePerceptionAction: Action = {
       state,
       template: sceneSnapshotSelectionTemplate,
     })
-    let selectionRaw: string
-    try {
-      selectionRaw = await runtime.useModel(ModelType.TEXT_LARGE, {
-        prompt: selectionPrompt,
-      })
-    } catch (err) {
-      logger.error('Snapshot‑selector model failed:', err)
-      if (callback) {
-        const errorResponse = {
-          thought: 'Cannot decide how to look.',
-          metadata: { error: 'selector_failure' },
-          text: 'Unable to determine how to observe the scene.',
-          success: false,
-        }
-        await callback(errorResponse)
-      }
-      return {
-        text: 'Unable to determine how to observe the scene.',
-        success: false,
-        values: { success: false, error: 'selector_failure' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    const selectionRaw: string = await runtime.useModel(ModelType.TEXT_LARGE, {
+      prompt: selectionPrompt,
+    })
 
-    const selection = parseKeyValueXml(selectionRaw)
-    if (!selection || !selection.snapshotType) {
-      logger.error('[PERCEPTION] No valid selection from model')
-      if (callback) {
-        const clarificationResponse = {
-          text:
-            selection?.parameter ||
-            'Can you clarify what you want me to observe?',
-          thought: 'Unable to determine observation type',
-          success: false,
-        }
-        await callback(clarificationResponse)
-      }
-      return {
-        text:
-          selection?.parameter ||
-          'Can you clarify what you want me to observe?',
-        success: false,
-        values: { success: false, needsClarification: true },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    const selection = parseKeyValueXml(selectionRaw)!
 
     const { snapshotType, parameter } = selection
 
@@ -298,58 +221,25 @@ export const hyperscapeScenePerceptionAction: Action = {
 
     /* Capture snapshot */
     let imgBase64: string
-    try {
-      switch (snapshotType) {
-        case SnapshotType.LOOK_AROUND:
-          imgBase64 = await playwrightManager.snapshotEquirectangular()
-          break
-        case SnapshotType.LOOK_DIRECTION:
-          if (
-            !parameter ||
-            !['front', 'back', 'left', 'right'].includes(parameter)
-          ) {
-            throw new Error('Bad direction')
-          }
-          imgBase64 = await playwrightManager.snapshotFacingDirection(parameter)
-          break
-        case SnapshotType.LOOK_AT_ENTITY:
-          if (!parameter) {
-            throw new Error('Missing entityId')
-          }
-          const ent = world.entities.items.get(parameter)
-          const pos = ent.position
-          if (!pos) {
-            throw new Error('No position')
-          }
-          if (world?.controls?.followEntity) {
-            await world.controls.followEntity(parameter)
-          }
-          imgBase64 = await playwrightManager.snapshotViewToTarget([
-            pos.x,
-            pos.y,
-            pos.z,
-          ])
-          break
-        default:
-          throw new Error('Unknown snapshotType')
-      }
-    } catch (err) {
-      logger.error('Snapshot failed:', err)
-      if (callback) {
-        const snapshotErrorResponse = {
-          thought: 'Snapshot failed.',
-          metadata: { error: 'snapshot_failure', snapshotType },
-          text: 'Unable to capture visual snapshot.',
-          success: false,
-        }
-        await callback(snapshotErrorResponse)
-      }
-      return {
-        text: 'Unable to capture visual snapshot.',
-        success: false,
-        values: { success: false, error: 'snapshot_failure', snapshotType },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
+    switch (snapshotType) {
+      case SnapshotType.LOOK_AROUND:
+        imgBase64 = await playwrightManager.snapshotEquirectangular()
+        break
+      case SnapshotType.LOOK_DIRECTION:
+        imgBase64 = await playwrightManager.snapshotFacingDirection(parameter)
+        break
+      case SnapshotType.LOOK_AT_ENTITY:
+        const ent = world.entities.items.get(parameter)!
+        const pos = ent.position!
+        await world.controls.followEntity(parameter)
+        imgBase64 = await playwrightManager.snapshotViewToTarget([
+          pos.x,
+          pos.y,
+          pos.z,
+        ])
+        break
+      default:
+        throw new Error('Unknown snapshotType')
     }
 
     /* IMAGE_DESCRIPTION – detailed scene analysis */
@@ -357,34 +247,13 @@ export const hyperscapeScenePerceptionAction: Action = {
       state,
       template: detailedImageDescriptionTemplate,
     })
-    let sceneDescription: string
-    try {
-      const res = await runtime.useModel(ModelType.IMAGE_DESCRIPTION, {
-        imageUrl: imgBase64,
-        prompt: imgDescPrompt,
-      })
-      sceneDescription =
-        typeof res === 'string'
-          ? res
-          : (res as { description?: string })?.description || String(res)
-    } catch (err) {
-      logger.error('IMAGE_DESCRIPTION failed:', err)
-      if (callback) {
-        const visionErrorResponse = {
-          thought: 'Cannot understand the scene.',
-          metadata: { error: 'vision_failure' },
-          text: 'Unable to analyze the visual scene.',
-          success: false,
-        }
-        await callback(visionErrorResponse)
-      }
-      return {
-        text: 'Unable to analyze the visual scene.',
-        success: false,
-        values: { success: false, error: 'vision_failure' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    const res = await runtime.useModel(ModelType.IMAGE_DESCRIPTION, {
+      imageUrl: imgBase64,
+      prompt: imgDescPrompt,
+    })
+    // Model returns either string directly or object with description property
+    const sceneDescription: string =
+      (res as { description?: string }).description || String(res)
 
     //  Add dynamic header for scene perception
     let scenePerceptionHeader: string
@@ -412,49 +281,11 @@ export const hyperscapeScenePerceptionAction: Action = {
       state,
       template: responseGenerationTemplate(fullSceneDescription),
     })
-    let xmlRaw: string
-    try {
-      xmlRaw = await runtime.useModel(ModelType.TEXT_LARGE, {
-        prompt: responsePrompt,
-      })
-    } catch (err) {
-      logger.error('Response generator failed:', err)
-      if (callback) {
-        const responseErrorResponse = {
-          thought: 'No response generated.',
-          metadata: { error: 'text_large_failure' },
-          text: 'Unable to generate response to visual scene.',
-          success: false,
-        }
-        await callback(responseErrorResponse)
-      }
-      return {
-        text: 'Unable to generate response to visual scene.',
-        success: false,
-        values: { success: false, error: 'text_large_failure' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    const xmlRaw: string = await runtime.useModel(ModelType.TEXT_LARGE, {
+      prompt: responsePrompt,
+    })
 
-    const parsed = parseKeyValueXml(xmlRaw)
-
-    if (!parsed) {
-      if (callback) {
-        const parseErrorResponse = {
-          thought: 'Malformed XML.',
-          metadata: { error: 'xml_parse_failure', xmlRaw },
-          text: 'Unable to process response.',
-          success: false,
-        }
-        await callback(parseErrorResponse)
-      }
-      return {
-        text: 'Unable to process response.',
-        success: false,
-        values: { success: false, error: 'xml_parse_failure' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    const parsed = parseKeyValueXml(xmlRaw)!
 
     if (callback) {
       const finalResponse = {

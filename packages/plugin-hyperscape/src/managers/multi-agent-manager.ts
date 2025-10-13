@@ -39,10 +39,6 @@ export class MultiAgentManager extends EventEmitter {
    * Add an agent to the world
    */
   async addAgent(runtime: IAgentRuntime): Promise<AgentInstance> {
-    if (this.agents.size >= this.maxAgents) {
-      throw new Error(`Maximum number of agents (${this.maxAgents}) reached`)
-    }
-
     const agentId = runtime.agentId
     const service = new HyperscapeService(runtime)
 
@@ -57,43 +53,31 @@ export class MultiAgentManager extends EventEmitter {
 
     this.agents.set(agentId, agent)
 
-    try {
-      // Calculate spawn position based on number of agents
-      const spawnIndex = this.agents.size - 1
-      const spawnX = (spawnIndex % 5) * this.agentSpacing
-      const spawnZ = Math.floor(spawnIndex / 5) * this.agentSpacing
+    // Calculate spawn position based on number of agents
+    const spawnIndex = this.agents.size - 1
+    const spawnX = (spawnIndex % 5) * this.agentSpacing
+    const spawnZ = Math.floor(spawnIndex / 5) * this.agentSpacing
 
-      // Connect agent to world
-      const worldId = createUniqueUuid(
-        runtime,
-        `${agentId}-multi-agent`
-      ) as UUID
-      await service.connect({
-        wsUrl: this.worldUrl,
-        worldId,
-        authToken: undefined,
-      })
+    // Connect agent to world
+    const worldId = createUniqueUuid(runtime, `${agentId}-multi-agent`) as UUID
+    await service.connect({
+      wsUrl: this.worldUrl,
+      worldId,
+      authToken: undefined,
+    })
 
-      agent.status = 'connected'
-      agent.position = { x: spawnX, y: 0, z: spawnZ }
+    agent.status = 'connected'
+    agent.position = { x: spawnX, y: 0, z: spawnZ }
 
-      // Move agent to spawn position
-      const world = service.getWorld()
-      const controls = world?.controls
-      if (controls?.goto) {
-        controls.goto(spawnX, spawnZ)
-      }
+    // Move agent to spawn position
+    const world = service.getWorld()!
+    const controls = world.controls!
+    controls.goto(spawnX, spawnZ)
 
-      logger.info(
-        `Agent ${agent.name} connected to world at position (${spawnX}, 0, ${spawnZ})`
-      )
-      this.emit('agentConnected', agent)
-    } catch (error) {
-      agent.status = 'error'
-      logger.error(`Failed to connect agent ${agent.name}:`, error)
-      this.emit('agentError', agent, error)
-      throw error
-    }
+    logger.info(
+      `Agent ${agent.name} connected to world at position (${spawnX}, 0, ${spawnZ})`
+    )
+    this.emit('agentConnected', agent)
 
     return agent
   }
@@ -102,21 +86,13 @@ export class MultiAgentManager extends EventEmitter {
    * Remove an agent from the world
    */
   async removeAgent(agentId: UUID): Promise<void> {
-    const agent = this.agents.get(agentId)
-    if (!agent) {
-      throw new Error(`Agent ${agentId} not found`)
-    }
+    const agent = this.agents.get(agentId)!
 
-    try {
-      await agent.service.disconnect()
-      agent.status = 'disconnected'
-      this.agents.delete(agentId)
-      logger.info(`Agent ${agent.name} disconnected from world`)
-      this.emit('agentDisconnected', agent)
-    } catch (error) {
-      logger.error(`Error disconnecting agent ${agent.name}:`, error)
-      throw error
-    }
+    await agent.service.disconnect()
+    agent.status = 'disconnected'
+    this.agents.delete(agentId)
+    logger.info(`Agent ${agent.name} disconnected from world`)
+    this.emit('agentDisconnected', agent)
   }
 
   /**
@@ -188,35 +164,29 @@ export class MultiAgentManager extends EventEmitter {
    */
   private updateAgents(): void {
     for (const agent of this.agents.values()) {
-      try {
-        const world = agent.service.getWorld()
-        const player = world?.entities?.player
+      const world = agent.service.getWorld()!
+      const player = world.entities.player!
 
-        if (player?.position) {
-          agent.position = {
-            x: player.node.position.x,
-            y: player.node.position.y,
-            z: player.node.position.z,
-          }
-        }
-
-        // Check connection status
-        if (agent.service.isConnected()) {
-          if (agent.status !== 'connected') {
-            agent.status = 'connected'
-            this.emit('agentReconnected', agent)
-          }
-        } else {
-          if (agent.status === 'connected') {
-            agent.status = 'disconnected'
-            this.emit('agentDisconnected', agent)
-          }
-        }
-
-        agent.lastUpdate = Date.now()
-      } catch (error) {
-        logger.error(`Error updating agent ${agent.name}:`, error)
+      agent.position = {
+        x: player.node.position.x,
+        y: player.node.position.y,
+        z: player.node.position.z,
       }
+
+      // Check connection status
+      if (agent.service.isConnected()) {
+        if (agent.status !== 'connected') {
+          agent.status = 'connected'
+          this.emit('agentReconnected', agent)
+        }
+      } else {
+        if (agent.status === 'connected') {
+          agent.status = 'disconnected'
+          this.emit('agentDisconnected', agent)
+        }
+      }
+
+      agent.lastUpdate = Date.now()
     }
 
     this.emit('agentsUpdated', this.getAgents())

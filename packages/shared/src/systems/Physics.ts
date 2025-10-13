@@ -1,15 +1,13 @@
-import type { Collider, Physics as IPhysics, RaycastHit as IRaycastHit, PhysicsMaterial, Quaternion, RigidBody, Vector3, World } from '../types/index';
+import type { Collider, Physics as IPhysics, RaycastHit as IRaycastHit, PhysicsMaterial, Quaternion, RigidBody, Vector3, World, CharacterController, CharacterControllerOptions } from '../types/index';
 
 import { Layers } from '../extras/Layers';
 import THREE from '../extras/three';
 import {
   createCpuDispatcher,
-  getActorsFromHeader
-} from '../physics/physx-helpers';
-import {
+  getActorsFromHeader,
   cleanupPxVec3,
   vector3ToPxVec3
-} from '../physics/vector-conversions';
+} from '../utils/PhysicsUtils';
 import { getPhysX, waitForPhysX } from '../PhysXManager';
 import type {
   ActorHandle,
@@ -250,9 +248,9 @@ export class Physics extends SystemBase implements IPhysics {
   enabled: boolean = true;
   timeStep: number = 1 / 30; // 30 FPS for consistent timing with fixedDeltaTime
   gravity: Vector3 = new THREE.Vector3(0, -9.81, 0);
-  controllers: Map<string, unknown> = new Map();
+  controllers: Map<string, CharacterController> = new Map();
   step?: (deltaTime: number) => void;
-  createCharacterController?: (options: unknown) => unknown;
+  createCharacterController?: (options: CharacterControllerOptions) => CharacterController;
   active: Set<PhysicsHandle> = new Set();
   materials: Record<string, PxMaterial> = {};
   raycastResult: PxRaycastResult | null = null;
@@ -278,49 +276,37 @@ export class Physics extends SystemBase implements IPhysics {
   }
 
   async init(): Promise<void> {
-    try {
-      // Use waitForPhysX to ensure PhysX is loaded
-      const info = await waitForPhysX('Physics', 30000); // 30 second timeout
-      this.version = info.version;
-      this.allocator = info.allocator;
-      this.errorCb = info.errorCb;
-      this.foundation = info.foundation;
+    // Use waitForPhysX to ensure PhysX is loaded
+    const info = await waitForPhysX('Physics', 30000); // 30 second timeout
+    this.version = info.version;
+    this.allocator = info.allocator;
+    this.errorCb = info.errorCb;
+    this.foundation = info.foundation;
 
-      // Get the global PHYSX object
-      const PHYSX = getPhysX() as PhysXModule | null;
-      if (!PHYSX) {
-        throw new Error('[Physics] PHYSX global not available after loading');
-      }
+    // Get the global PHYSX object
+    const PHYSX = getPhysX() as PhysXModule;
 
-      // Create physics-specific objects (not shared with other systems)
-      this.tolerances = new PHYSX.PxTolerancesScale();
-      // PxCookingParams might not be available in all PhysX builds
-      if (PHYSX.PxCookingParams) {
-        this.cookingParams = new PHYSX.PxCookingParams(this.tolerances!);
-      }
-      
-      // Use the physics instance from PhysXManager if available
-      this.physics = info.physics;
-      this.cooking = info.cooking; // Initialize cooking (optional)
-      this.defaultMaterial = this.physics.createMaterial(0.2, 0.2, 0.2);
+    // Create physics-specific objects (not shared with other systems)
+    this.tolerances = new PHYSX.PxTolerancesScale();
+    this.cookingParams = new PHYSX.PxCookingParams(this.tolerances!);
+    
+    // Use the physics instance from PhysXManager
+    this.physics = info.physics;
+    this.cooking = info.cooking; // Initialize cooking (optional)
+    this.defaultMaterial = this.physics.createMaterial(0.2, 0.2, 0.2);
 
-      this.setupCallbacks();
-      this.setupScene();
-      this.setupQueryObjects();
-      this.setupControllerManager();
-      
-      // Mark physics as initialized
-      this.initialized = true;
-      
-      // Emit ready event for other systems
-      this.emitTypedEvent('physics:ready', {} as Record<string, unknown>);
-      
-      this.logger.info('System initialized successfully with PhysX');
-    } catch (error) {
-      this.logger.error(`Failed to initialize PhysX: ${error instanceof Error ? error.message : String(error)}`);
-      // PhysX is now required on both client and server
-      throw error;
-    }
+    this.setupCallbacks();
+    this.setupScene();
+    this.setupQueryObjects();
+    this.setupControllerManager();
+    
+    // Mark physics as initialized
+    this.initialized = true;
+    
+    // Emit ready event for other systems
+    this.emitTypedEvent('physics:ready', {} as Record<string, unknown>);
+    
+    this.logger.info('System initialized successfully with PhysX');
   }
 
   private setupCallbacks(): void {

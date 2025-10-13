@@ -33,26 +33,17 @@ export function AccountPanel({ world }: AccountPanelProps) {
   }, [world])
 
   const handleLogout = async () => {
-    try {
-      // Use global Privy logout if available
-      if (typeof window !== 'undefined' && (window as typeof window & { privyLogout?: () => void }).privyLogout) {
-        await (window as typeof window & { privyLogout?: () => void }).privyLogout!()
-      }
-      
-      // Clear auth state
-      privyAuthManager.clearAuth()
-      
-      // Reload page after logout
-      setTimeout(() => {
-        window.location.reload()
-      }, 500)
-    } catch (error) {
-      console.error('[AccountPanel] Logout error:', error)
-      // Force reload even on error
-      setTimeout(() => {
-        window.location.reload()
-      }, 500)
-    }
+    // Use global Privy logout
+    const windowWithLogout = window as typeof window & { privyLogout: () => void }
+    await windowWithLogout.privyLogout()
+    
+    // Clear auth state
+    privyAuthManager.clearAuth()
+    
+    // Reload page after logout
+    setTimeout(() => {
+      window.location.reload()
+    }, 500)
   }
 
   const handleNameChange = () => {

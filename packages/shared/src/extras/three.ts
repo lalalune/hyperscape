@@ -49,7 +49,7 @@ export function safeMatrixCompose(
 // Explicit exports are not needed since we already have export * from 'three'
 // The duplicate exports were causing TypeScript declaration generation to crash
 
-// PhysX Vector3 utilities are now in vector3-utils.ts
+// PhysX Vector3 utilities are now in utils/PhysicsUtils.ts
 
 // install three-mesh-bvh
 THREE_NAMESPACE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree

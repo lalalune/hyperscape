@@ -17,23 +17,17 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const { initLoginToMiniApp, loginToMiniApp } = useLoginToMiniApp()
   const [isFarcasterContext, setIsFarcasterContext] = useState(false)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   // Check if we're in a Farcaster mini-app context
   useEffect(() => {
     const checkFarcasterContext = async () => {
-      try {
-        // Try to access Farcaster SDK
-        const context = await miniappSdk.context
-        if (context) {
-          setIsFarcasterContext(true)
-          console.log('[LoginScreen] Detected Farcaster mini-app context')
-          // Signal ready to Farcaster
-          miniappSdk.actions.ready()
-        }
-      } catch (_err) {
-        // Not in Farcaster context, that's fine
-        setIsFarcasterContext(false)
+      // Try to access Farcaster SDK
+      const context = await miniappSdk.context
+      if (context) {
+        setIsFarcasterContext(true)
+        console.log('[LoginScreen] Detected Farcaster mini-app context')
+        // Signal ready to Farcaster
+        miniappSdk.actions.ready()
       }
     }
 
@@ -45,23 +39,17 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
     if (ready && !authenticated && isFarcasterContext && !isLoggingIn) {
       const autoLogin = async () => {
         setIsLoggingIn(true)
-        try {
-          console.log('[LoginScreen] Attempting Farcaster auto-login...')
-          // Initialize a new login attempt to get a nonce
-          const { nonce } = await initLoginToMiniApp()
-          // Request a signature from Farcaster
-          const result = await miniappSdk.actions.signIn({ nonce })
-          // Send the signature to Privy for authentication
-          await loginToMiniApp({
-            message: result.message,
-            signature: result.signature,
-          })
-          console.log('[LoginScreen] Farcaster auto-login successful')
-        } catch (err) {
-          console.error('[LoginScreen] Farcaster auto-login failed:', err)
-          setError('Failed to authenticate with Farcaster. Please try manual login.')
-          setIsLoggingIn(false)
-        }
+        console.log('[LoginScreen] Attempting Farcaster auto-login...')
+        // Initialize a new login attempt to get a nonce
+        const { nonce } = await initLoginToMiniApp()
+        // Request a signature from Farcaster
+        const result = await miniappSdk.actions.signIn({ nonce })
+        // Send the signature to Privy for authentication
+        await loginToMiniApp({
+          message: result.message,
+          signature: result.signature,
+        })
+        console.log('[LoginScreen] Farcaster auto-login successful')
       }
 
       autoLogin()
@@ -185,11 +173,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           .login-button:active {
             transform: translateY(0);
           }
-          .error-message {
-            color: #ff6b6b;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-          }
           .farcaster-badge {
             display: inline-block;
             background: rgba(138, 99, 210, 0.2);
@@ -215,7 +198,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           <button className="login-button" onClick={() => login()}>
             {isFarcasterContext ? 'Sign in with Farcaster' : 'Login to Play'}
           </button>
-          {error && <div className="error-message">{error}</div>}
         </div>
       </div>
     )

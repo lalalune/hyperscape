@@ -77,10 +77,11 @@ class ErrorReportingService {
    * Reports an error to the backend
    */
   public async reportError(errorData: ErrorReport) {
-    // Ensure no double slashes in the URL
-    const baseUrl = (import.meta.env.PUBLIC_API_URL || '').replace(/\/$/, '');
-    const endpoint = this.endpoint.startsWith('/') ? this.endpoint : '/' + this.endpoint;
-    const response = await fetch(baseUrl + endpoint, {
+    // Construct URL - use PUBLIC_API_URL if set, otherwise use /api prefix
+    const baseUrl = import.meta.env.PUBLIC_API_URL || '';
+    const endpoint = baseUrl ? `${baseUrl}${this.endpoint}` : `/api${this.endpoint}`;
+    
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

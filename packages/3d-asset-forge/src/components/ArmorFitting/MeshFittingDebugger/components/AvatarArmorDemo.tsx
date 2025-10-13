@@ -30,7 +30,7 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
     // Construct animation file path based on the model if animation is needed
     const animationPath = useMemo(() => {
         if (needsAnimationFile && avatarPath) {
-            const match = avatarPath.match(/gdd-assets\/([^\/]+)\//);
+            const match = avatarPath.match(/gdd-assets\/([^/]+)\//);
             if (match) {
                 const characterName = match[1];
                 const animFileName = currentAnimation === 'walking' ? 'anim_walk.glb' : 'anim_run.glb';

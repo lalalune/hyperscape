@@ -19,39 +19,35 @@ export function useExportHandlers({
     setShowExportDropdown
 }: ExportHandlersProps) {
     
-    const handleExportBoundArmor = async (exportType: ExportType = 'full') => {
-        if (!boundArmorMesh) {
-            console.error('No bound armor mesh to export')
-            return
+  const handleExportBoundArmor = async (exportType: ExportType = 'full') => {
+    const armorMesh = boundArmorMesh!
+    
+    setIsProcessing(true)
+    console.log(`Starting ${exportType} export...`)
+
+    let exportData: ArrayBuffer
+    let filename: string
+    const armorName = selectedArmor?.name || 'armor'
+
+      switch (exportType) {
+        case 'minimal': {
+          const service = new ArmorFittingService()
+          exportData = await service.exportFittedArmor(armorMesh, { method: 'minimal' })
+          filename = `${armorName}-minimal.glb`
+          break
         }
 
-        try {
-            setIsProcessing(true)
-            console.log(`Starting ${exportType} export...`)
+        case 'static': {
+          const service = new ArmorFittingService()
+          exportData = await service.exportFittedArmor(armorMesh, { method: 'static' })
+          filename = `${armorName}-static.glb`
+          break
+        }
 
-            let exportData: ArrayBuffer
-            let filename: string
-            const armorName = selectedArmor?.name || 'armor'
-
-            switch (exportType) {
-                case 'minimal': {
-                    const service = new ArmorFittingService()
-                    exportData = await service.exportFittedArmor(boundArmorMesh, { method: 'minimal' })
-                    filename = `${armorName}-minimal.glb`
-                    break
-                }
-
-                case 'static': {
-                    const service = new ArmorFittingService()
-                    exportData = await service.exportFittedArmor(boundArmorMesh, { method: 'static' })
-                    filename = `${armorName}-static.glb`
-                    break
-                }
-
-                case 'debug': {
-                    // Debug export with bone visualization
-                    const exportScene = new THREE.Scene()
-                    const mesh = boundArmorMesh.clone()
+        case 'debug': {
+          // Debug export with bone visualization
+          const exportScene = new THREE.Scene()
+          const mesh = armorMesh.clone()
 
                     // Scale factor for cm to meters
                     const CM_TO_METERS = 0.01
@@ -150,47 +146,42 @@ export function useExportHandlers({
                     break
                 }
 
-                case 'scale-fixed': {
-                    if (ArmorScaleFixer.hasScaleIssues(boundArmorMesh.skeleton)) {
-                        console.log('Scale issues detected! Applying fix...')
-                        const fixedMesh = ArmorScaleFixer.applySkeletonScale(boundArmorMesh)
-                        const service = new ArmorFittingService()
-                        exportData = await service.exportFittedArmor(fixedMesh, { method: 'full' })
-                        filename = `${armorName}-scale-fixed.glb`
-                    } else {
-                        console.log('No scale issues detected')
-                        return
-                    }
-                    break
-                }
-
-                case 'full':
-                default: {
-                    const service = new ArmorFittingService()
-                    exportData = await service.exportFittedArmor(boundArmorMesh, { method: 'full' })
-                    filename = `${armorName}-fitted.glb`
-                    break
-                }
-            }
-
-            // Create download link
-            const blob = new Blob([exportData], { type: 'model/gltf-binary' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = filename
-            a.click()
-            URL.revokeObjectURL(url)
-
-            console.log(`✅ ${exportType} export completed successfully!`)
-        } catch (error) {
-            console.error(`Failed to export ${exportType}:`, error)
-            setError('Failed to export armor')
-        } finally {
-            setIsProcessing(false)
-            setShowExportDropdown(false)
+        case 'scale-fixed': {
+          if (ArmorScaleFixer.hasScaleIssues(armorMesh.skeleton)) {
+            console.log('Scale issues detected! Applying fix...')
+            const fixedMesh = ArmorScaleFixer.applySkeletonScale(armorMesh)
+            const service = new ArmorFittingService()
+            exportData = await service.exportFittedArmor(fixedMesh, { method: 'full' })
+            filename = `${armorName}-scale-fixed.glb`
+          } else {
+            console.log('No scale issues detected')
+            return
+          }
+          break
         }
-    }
+
+        case 'full':
+        default: {
+          const service = new ArmorFittingService()
+          exportData = await service.exportFittedArmor(armorMesh, { method: 'full' })
+          filename = `${armorName}-fitted.glb`
+          break
+        }
+      }
+
+    // Create download link
+    const blob = new Blob([exportData], { type: 'model/gltf-binary' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+
+    console.log(`✅ ${exportType} export completed successfully!`)
+    setIsProcessing(false)
+    setShowExportDropdown(false)
+  }
 
     return {
         handleExportBoundArmor

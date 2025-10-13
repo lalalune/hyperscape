@@ -1,7 +1,7 @@
 import THREE from '../extras/three';
 import { ITEM_IDS } from '../constants/GameConstants';
 import { Fire, ProcessingAction } from '../types/core';
-import { calculateDistance2D, safeSceneAdd, safeSceneRemove } from '../utils/EntityUtils';
+import { calculateDistance2D } from '../utils/EntityUtils';
 import { EventType } from '../types/events';
 
 /**
@@ -464,6 +464,9 @@ export class ProcessingSystem extends SystemBase {
   }
 
   private createFireVisual(fire: Fire): void {
+    // Only create visuals on client
+    if (!this.world.isClient) return;
+    
     // Create fire mesh - orange glowing cube for now
     const fireGeometry = new THREE.BoxGeometry(0.5, 0.8, 0.5);
     const fireMaterial = new THREE.MeshBasicMaterial({ 
@@ -491,8 +494,8 @@ export class ProcessingSystem extends SystemBase {
     
     fire.mesh = fireMesh;
     
-    // Add to scene
-    safeSceneAdd(this.world, fireMesh);
+    // Add to scene - on client, scene MUST exist
+    this.world.stage.scene.add(fireMesh);
   }
 
   private extinguishFire(fireId: string): void {
@@ -500,9 +503,9 @@ export class ProcessingSystem extends SystemBase {
 
     fire.isActive = false;
 
-    // Remove visual
-    if (fire.mesh) {
-      safeSceneRemove(this.world, fire.mesh);
+    // Remove visual (only exists on client)
+    if (fire.mesh && this.world.isClient) {
+      this.world.stage.scene.remove(fire.mesh);
     }
     
     this.activeFires.delete(fireId);

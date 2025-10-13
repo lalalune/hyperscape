@@ -4,6 +4,7 @@ import THREE from '../extras/three'
 import { readPacket, writePacket } from '../packets'
 import { storage } from '../storage'
 import type { ChatMessage, EntityData, SnapshotData, World, WorldOptions } from '../types'
+import type { Entity } from '../entities/Entity'
 import { EventType } from '../types/events'
 import { uuid } from '../utils'
 import { SystemBase } from './SystemBase'
@@ -11,6 +12,25 @@ import { PlayerLocal } from '../entities/PlayerLocal'
 
 const _v3_1 = new THREE.Vector3()
 const _quat_1 = new THREE.Quaternion()
+
+// Entity interpolation state for smooth remote entity movement
+interface EntitySnapshot {
+  position: Float32Array;
+  rotation: Float32Array;
+  timestamp: number;
+}
+
+interface InterpolationState {
+  entityId: string;
+  snapshots: EntitySnapshot[];
+  snapshotIndex: number;
+  snapshotCount: number;
+  currentPosition: THREE.Vector3;
+  currentRotation: THREE.Quaternion;
+  tempPosition: THREE.Vector3;
+  tempRotation: THREE.Quaternion;
+  lastUpdate: number;
+}
 
 // SnapshotData interface moved to shared types
 
@@ -37,6 +57,12 @@ export class ClientNetwork extends SystemBase {
   lastCharacterList: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> | null = null
   // Cache latest inventory per player so UI can hydrate even if it mounted late
   lastInventoryByPlayerId: Record<string, { playerId: string; items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number; maxSlots: number }> = {}
+  
+  // Entity interpolation for smooth remote entity movement
+  private interpolationStates: Map<string, InterpolationState> = new Map()
+  private interpolationDelay: number = 100 // ms
+  private maxSnapshots: number = 10
+  private extrapolationLimit: number = 500 // ms
   
   constructor(world: World) {
     super(world, { name: 'client-network', dependencies: { required: [], optional: [] }, autoCleanup: true })
@@ -79,8 +105,9 @@ export class ClientNetwork extends SystemBase {
         console.log('[ClientNetwork] Using Privy authentication')
       } else {
         // Fall back to legacy auth token
+        // Strong type assumption - storage.get returns unknown, we expect string
         const legacyToken = storage?.get('authToken')
-        authToken = (typeof legacyToken === 'string' ? legacyToken : '') || ''
+        authToken = (legacyToken as string) || ''
         console.log('[ClientNetwork] Using legacy authentication')
       }
     }
@@ -144,29 +171,24 @@ export class ClientNetwork extends SystemBase {
   async flush() {
     // Don't process queue if WebSocket is not connected
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      return
+      return;
     }
     
     while (this.queue.length) {
-      try {
-        const [method, data] = this.queue.shift()!
-        // Support both direct method names (snapshot) and onX handlers (onSnapshot)
-        let handler: unknown = (this as Record<string, unknown>)[method]
-        if (!handler) {
-          const onName = `on${method.charAt(0).toUpperCase()}${method.slice(1)}`
-          handler = (this as Record<string, unknown>)[onName]
-        }
-        if (!handler) {
-          this.logger.warn(`No handler for packet '${method}'`)
-          continue
-        }
-        // Strong type assumption - handler is a function
-        const result = (handler as Function).call(this, data)
-        if (result instanceof Promise) {
-          await result
-        }
-      } catch (err) {
-        this.logger.error(`Error in flush: ${err instanceof Error ? err.message : String(err)}`)
+      const [method, data] = this.queue.shift()!;
+      // Support both direct method names (snapshot) and onX handlers (onSnapshot)
+      let handler: unknown = (this as Record<string, unknown>)[method];
+      if (!handler) {
+        const onName = `on${method.charAt(0).toUpperCase()}${method.slice(1)}`;
+        handler = (this as Record<string, unknown>)[onName];
+      }
+      if (!handler) {
+        throw new Error(`No handler for packet '${method}'`);
+      }
+      // Strong type assumption - handler is a function
+      const result = (handler as Function).call(this, data);
+      if (result instanceof Promise) {
+        await result;
       }
     }
   }
@@ -193,18 +215,16 @@ export class ClientNetwork extends SystemBase {
     }
     
     // Auto-enter world if in character-select mode and we have a selected character
-    try {
-      const snapshotData = data as unknown as { entities?: unknown[]; characters?: unknown[] }
-      const isCharacterSelectMode = Array.isArray(snapshotData.entities) && snapshotData.entities.length === 0 && Array.isArray(snapshotData.characters)
-      if (isCharacterSelectMode && typeof localStorage !== 'undefined') {
-        const selectedCharacterId = localStorage.getItem('selectedCharacterId')
-        if (selectedCharacterId) {
-          console.log('[ClientNetwork] Auto-entering world with selected character:', selectedCharacterId)
-          // Send enterWorld immediately so server spawns the selected character
-          this.send('enterWorld', { characterId: selectedCharacterId })
-        }
+    const snapshotData = data as unknown as { entities?: unknown[]; characters?: unknown[] };
+    const isCharacterSelectMode = Array.isArray(snapshotData.entities) && snapshotData.entities.length === 0 && Array.isArray(snapshotData.characters);
+    if (isCharacterSelectMode && typeof localStorage !== 'undefined') {
+      const selectedCharacterId = localStorage.getItem('selectedCharacterId');
+      if (selectedCharacterId) {
+        console.log('[ClientNetwork] Auto-entering world with selected character:', selectedCharacterId);
+        // Send enterWorld immediately so server spawns the selected character
+        this.send('enterWorld', { characterId: selectedCharacterId });
       }
-    } catch {}
+    }
     // Ensure Physics is fully initialized before processing entities
     // This is needed because PlayerLocal uses physics extensions during construction
     if (!this.world.physics.physics) {
@@ -319,14 +339,12 @@ export class ClientNetwork extends SystemBase {
 
     // Character-select mode: if server sent an empty entity list with account info,
     // surface the character list/modal immediately even if the dedicated packet hasn't arrived yet.
-    try {
-      const anyData = data as unknown as { entities?: unknown[]; account?: unknown }
-      if (Array.isArray(anyData.entities) && anyData.entities.length === 0 && anyData.account) {
-        const list = this.lastCharacterList || []
-        console.log('[ClientNetwork] Snapshot indicates character-select mode; opening modal with cached list:', list.length)
-        this.world.emit('character:list', { characters: list })
-      }
-    } catch {}
+    const anyData = data as unknown as { entities?: unknown[]; account?: unknown };
+    if (Array.isArray(anyData.entities) && anyData.entities.length === 0 && anyData.account) {
+      const list = this.lastCharacterList || [];
+      console.log('[ClientNetwork] Snapshot indicates character-select mode; opening modal with cached list:', list.length);
+      this.world.emit('character:list', { characters: list });
+    }
 
     if (data.livekit) {
       this.world.livekit?.deserialize(data.livekit);
@@ -355,22 +373,20 @@ export class ClientNetwork extends SystemBase {
     if (newEntity) {
       this.applyPendingModifications(newEntity.id)
       // If this is the local player added after character select, force-set initial position
-      try {
-        const isLocalPlayer = (data as { type?: string; owner?: string }).type === 'player' && (data as { owner?: string }).owner === this.id
-        if (isLocalPlayer && Array.isArray((data as { position?: number[] }).position)) {
-          let pos = (data as { position?: number[] }).position as [number, number, number]
-          // Safety clamp: never allow Y < 5 to prevent under-map spawn
-          if (pos[1] < 5) {
-            console.warn(`[ClientNetwork] Clamping invalid spawn Y=${pos[1]} to safe height 50`)
-            pos = [pos[0], 50, pos[2]]
-          }
-          if (newEntity instanceof PlayerLocal) {
-            newEntity.position.set(pos[0], pos[1], pos[2])
-            newEntity.updateServerPosition(pos[0], pos[1], pos[2])
-            console.log(`[ClientNetwork] Local player spawned at:`, pos)
-          }
+      const isLocalPlayer = (data as { type?: string; owner?: string }).type === 'player' && (data as { owner?: string }).owner === this.id;
+      if (isLocalPlayer && Array.isArray((data as { position?: number[] }).position)) {
+        let pos = (data as { position?: number[] }).position as [number, number, number];
+        // Safety clamp: never allow Y < 5 to prevent under-map spawn
+        if (pos[1] < 5) {
+          console.warn(`[ClientNetwork] Clamping invalid spawn Y=${pos[1]} to safe height 50`);
+          pos = [pos[0], 50, pos[2]];
         }
-      } catch {}
+        if (newEntity instanceof PlayerLocal) {
+          newEntity.position.set(pos[0], pos[1], pos[2]);
+          newEntity.updateServerPosition(pos[0], pos[1], pos[2]);
+          console.log(`[ClientNetwork] Local player spawned at:`, pos);
+        }
+      }
     }
   }
 
@@ -394,33 +410,230 @@ export class ClientNetwork extends SystemBase {
     // Accept both normalized { changes: {...} } and flat payloads { id, ...changes }
     const changes =
       data.changes ?? Object.fromEntries(Object.entries(data).filter(([k]) => k !== 'id' && k !== 'changes'))
-    // If this is the local player: apply server authoritative corrections (snap/interpolate), not entity.modify(p/q)
+    
+    // Check if this is the local player
     const isLocal = (() => {
       const localEntityId = this.world.entities.player?.id
       if (localEntityId && id === localEntityId) return true
       const ownerId = (entity as { data?: { owner?: string } }).data?.owner
       return !!(this.id && ownerId && ownerId === this.id)
     })()
+    
     const hasP = Object.prototype.hasOwnProperty.call(changes, 'p')
     const hasV = Object.prototype.hasOwnProperty.call(changes, 'v')
     const hasQ = Object.prototype.hasOwnProperty.call(changes, 'q')
+    
     if (isLocal && (hasP || hasV || hasQ)) {
-      // For click-to-move, we need to apply ALL changes including emote
-      // The server sends position, velocity, rotation, and animation state together
-      
-      // Simply apply ALL changes through modify() - it handles everything
-      // No need for separate updateServerPosition/Velocity calls which cause judder
+      // Local player - apply directly through entity.modify()
       entity.modify(changes);
-      
-      // Log for debugging
     } else {
-      // Remote entities or non-transform updates on local
+      // Remote entities - use interpolation for smooth movement
+      if (hasP) {
+        this.addInterpolationSnapshot(id, changes as { p?: [number, number, number]; q?: [number, number, number, number]; v?: [number, number, number] })
+      }
+      // Still apply non-transform changes immediately
       entity.modify(changes)
     }
 
-    // Re-emit normalized change event so interpolation/observers can react consistently
-    // Always emit with canonical { id, changes } shape
+    // Re-emit normalized change event so other systems can react
     this.world.emit('entityModified', { id, changes })
+  }
+  
+  /**
+   * Add snapshot for entity interpolation (client-side only, remote entities only)
+   */
+  private addInterpolationSnapshot(entityId: string, changes: {
+    p?: [number, number, number];
+    q?: [number, number, number, number];
+    v?: [number, number, number];
+  }): void {
+    let state = this.interpolationStates.get(entityId)
+    if (!state) {
+      state = this.createInterpolationState(entityId)
+      this.interpolationStates.set(entityId, state)
+    }
+    
+    const snapshot = state.snapshots[state.snapshotIndex]
+    
+    if (changes.p) {
+      snapshot.position[0] = changes.p[0]
+      snapshot.position[1] = changes.p[1]
+      snapshot.position[2] = changes.p[2]
+    }
+    
+    if (changes.q) {
+      snapshot.rotation[0] = changes.q[0]
+      snapshot.rotation[1] = changes.q[1]
+      snapshot.rotation[2] = changes.q[2]
+      snapshot.rotation[3] = changes.q[3]
+    } else {
+      snapshot.rotation[0] = state.currentRotation.x
+      snapshot.rotation[1] = state.currentRotation.y
+      snapshot.rotation[2] = state.currentRotation.z
+      snapshot.rotation[3] = state.currentRotation.w
+    }
+    
+    snapshot.timestamp = performance.now()
+    state.snapshotIndex = (state.snapshotIndex + 1) % this.maxSnapshots
+    state.snapshotCount = Math.min(state.snapshotCount + 1, this.maxSnapshots)
+    state.lastUpdate = performance.now()
+  }
+  
+  /**
+   * Create interpolation state with pre-allocated buffers
+   */
+  private createInterpolationState(entityId: string): InterpolationState {
+    const entity = this.world.entities.get(entityId)
+    const position = entity && 'position' in entity ?
+      (entity.position as THREE.Vector3).clone() :
+      new THREE.Vector3()
+    
+    const rotation = entity?.node?.quaternion ?
+      entity.node.quaternion.clone() :
+      new THREE.Quaternion()
+    
+    const snapshots: EntitySnapshot[] = []
+    for (let i = 0; i < this.maxSnapshots; i++) {
+      snapshots.push({
+        position: new Float32Array(3),
+        rotation: new Float32Array(4),
+        timestamp: 0
+      })
+    }
+    
+    return {
+      entityId,
+      snapshots,
+      snapshotIndex: 0,
+      snapshotCount: 0,
+      currentPosition: position,
+      currentRotation: rotation,
+      tempPosition: new THREE.Vector3(),
+      tempRotation: new THREE.Quaternion(),
+      lastUpdate: performance.now()
+    }
+  }
+  
+  /**
+   * Update interpolation for remote entities (called in lateUpdate)
+   */
+  private updateInterpolation(delta: number): void {
+    const now = performance.now()
+    const renderTime = now - this.interpolationDelay
+    
+    for (const [entityId, state] of this.interpolationStates) {
+      // Skip local player
+      if (entityId === this.world.entities.player?.id) {
+        this.interpolationStates.delete(entityId)
+        continue
+      }
+      
+      const entity = this.world.entities.get(entityId)
+      if (!entity) {
+        this.interpolationStates.delete(entityId)
+        continue
+      }
+      
+      this.interpolateEntityPosition(entity, state, renderTime, now, delta)
+    }
+  }
+  
+  /**
+   * Interpolate entity position for smooth movement
+   */
+  private interpolateEntityPosition(
+    entity: Entity,
+    state: InterpolationState,
+    renderTime: number,
+    now: number,
+    delta: number
+  ): void {
+    if (state.snapshotCount < 2) {
+      if (state.snapshotCount === 1) {
+        const snapshot = state.snapshots[0]
+        state.tempPosition.set(snapshot.position[0], snapshot.position[1], snapshot.position[2])
+        state.tempRotation.set(snapshot.rotation[0], snapshot.rotation[1], snapshot.rotation[2], snapshot.rotation[3])
+        this.applyInterpolated(entity, state.tempPosition, state.tempRotation, state, delta)
+      }
+      return
+    }
+    
+    // Find two snapshots to interpolate between
+    let older: EntitySnapshot | null = null
+    let newer: EntitySnapshot | null = null
+    
+    for (let i = 0; i < state.snapshotCount - 1; i++) {
+      const curr = state.snapshots[i]
+      const next = state.snapshots[(i + 1) % this.maxSnapshots]
+      
+      if (curr.timestamp <= renderTime && next.timestamp >= renderTime) {
+        older = curr
+        newer = next
+        break
+      }
+    }
+    
+    if (older && newer) {
+      const t = (renderTime - older.timestamp) / (newer.timestamp - older.timestamp)
+      
+      state.tempPosition.set(
+        older.position[0] + (newer.position[0] - older.position[0]) * t,
+        older.position[1] + (newer.position[1] - older.position[1]) * t,
+        older.position[2] + (newer.position[2] - older.position[2]) * t
+      )
+      
+      state.tempRotation.set(
+        older.rotation[0] + (newer.rotation[0] - older.rotation[0]) * t,
+        older.rotation[1] + (newer.rotation[1] - older.rotation[1]) * t,
+        older.rotation[2] + (newer.rotation[2] - older.rotation[2]) * t,
+        older.rotation[3] + (newer.rotation[3] - older.rotation[3]) * t
+      ).normalize()
+      
+      this.applyInterpolated(entity, state.tempPosition, state.tempRotation, state, delta)
+    } else {
+      // Use most recent snapshot
+      const timeSinceUpdate = now - state.lastUpdate
+      if (timeSinceUpdate < this.extrapolationLimit) {
+        const lastIndex = (state.snapshotIndex - 1 + this.maxSnapshots) % this.maxSnapshots
+        const last = state.snapshots[lastIndex]
+        state.tempPosition.set(last.position[0], last.position[1], last.position[2])
+        state.tempRotation.set(last.rotation[0], last.rotation[1], last.rotation[2], last.rotation[3])
+        this.applyInterpolated(entity, state.tempPosition, state.tempRotation, state, delta)
+      }
+    }
+  }
+  
+  /**
+   * Apply interpolated values to entity
+   */
+  private applyInterpolated(
+    entity: Entity,
+    position: THREE.Vector3,
+    rotation: THREE.Quaternion,
+    state: InterpolationState,
+    delta: number
+  ): void {
+    const smoothingRate = 5.0
+    const smoothingFactor = 1.0 - Math.exp(-smoothingRate * delta)
+    
+    state.currentPosition.lerp(position, smoothingFactor)
+    state.currentRotation.slerp(rotation, smoothingFactor)
+    
+    if ('position' in entity) {
+      const entityPos = entity.position as THREE.Vector3
+      entityPos.copy(state.currentPosition)
+    }
+    
+    if (entity.node) {
+      entity.node.position.copy(state.currentPosition)
+      entity.node.quaternion.copy(state.currentRotation)
+    }
+    
+    const player = entity as Entity & { base?: { position: THREE.Vector3; quaternion: THREE.Quaternion } }
+    if (player.base) {
+      player.base.position.copy(state.currentPosition)
+      player.base.quaternion.copy(state.currentRotation)
+    }
   }
 
   onEntityEvent = (event: { id: string; version: number; name: string; data?: unknown }) => {
@@ -471,16 +684,14 @@ export class ClientNetwork extends SystemBase {
   // --- Character selection (flag-gated by server) ---
   onCharacterList = (data: { characters: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> }) => {
     // Cache and re-emit so UI can show the modal
-    this.lastCharacterList = data.characters || []
-    try { console.log('[ClientNetwork] Received characterList:', (this.lastCharacterList || []).length) } catch {}
-    this.world.emit('character:list', data)
+    this.lastCharacterList = data.characters || [];
+    console.log('[ClientNetwork] Received characterList:', this.lastCharacterList.length);
+    this.world.emit('character:list', data);
     // Auto-select previously chosen character if available
-    try {
-      const storedId = typeof localStorage !== 'undefined' ? localStorage.getItem('selectedCharacterId') : null
-      if (storedId && Array.isArray(data.characters) && data.characters.some(c => c.id === storedId)) {
-        this.requestCharacterSelect(storedId)
-      }
-    } catch {}
+    const storedId = typeof localStorage !== 'undefined' ? localStorage.getItem('selectedCharacterId') : null;
+    if (storedId && Array.isArray(data.characters) && data.characters.some(c => c.id === storedId)) {
+      this.requestCharacterSelect(storedId);
+    }
   }
   onCharacterCreated = (data: { id: string; name: string }) => {
     // Re-emit for UI to update lists
@@ -502,8 +713,17 @@ export class ClientNetwork extends SystemBase {
   }
 
   onEntityRemoved = (id: string) => {
-    // Strong type assumption - entities system has remove method
+    // Remove from interpolation tracking
+    this.interpolationStates.delete(id)
+    // Remove from entities system
     this.world.entities.remove(id)
+  }
+  
+  /**
+   * Update interpolation in lateUpdate (after entity updates)
+   */
+  lateUpdate(delta: number): void {
+    this.updateInterpolation(delta)
   }
   
   onGatheringComplete = (data: { playerId: string; resourceId: string; successful: boolean }) => {
@@ -564,11 +784,9 @@ export class ClientNetwork extends SystemBase {
     }
   }
 
-  // Handle compressed updates routed through the network
-  // Packets table maps 'compressedUpdate' -> method 'onCompressedUpdate'
-  onCompressedUpdate = (packet: unknown) => {
-    // Re-emit as a world event so the EntityInterpolationSystem can handle
-    this.world.emit('compressedUpdate', packet)
+  // Handle compressed updates (deprecated - compression disabled)
+  onCompressedUpdate = (_packet: unknown) => {
+    // Compression disabled - this handler is a no-op
   }
 
   onPong = (time: number) => {
@@ -619,6 +837,8 @@ export class ClientNetwork extends SystemBase {
     // Clear any pending queue items
     this.queue.length = 0
     this.connected = false
+    // Clear interpolation states
+    this.interpolationStates.clear()
     console.log('[ClientNetwork] Network destroyed')
   }
 

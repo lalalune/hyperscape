@@ -13,49 +13,41 @@ export function LoadingScreen({ world, message }: { world: World; message?: stri
     let lastProgress = 3 // Match initial state
     
     const handleProgress = (data: unknown) => {
-      if (typeof data === 'object' && data !== null) {
-        const progressData = data as { progress: number; stage?: string; total?: number }
+      const progressData = data as { progress: number; stage?: string; total?: number }
+      
+      // Detect if this is system initialization (has stage) or asset loading (no stage, has total)
+      if (progressData.stage) {
+        // System initialization: takes 0-30% of total progress
+        const systemProgress = Math.min(30, (progressData.progress / 100) * 30)
+        lastProgress = systemProgress
+        setProgress(systemProgress)
+        setLoadingStage(progressData.stage)
         
-        // Detect if this is system initialization (has stage) or asset loading (no stage, has total)
-        if (progressData.stage) {
-          // System initialization: takes 0-30% of total progress
-          const systemProgress = Math.min(30, (progressData.progress / 100) * 30)
-          lastProgress = systemProgress
-          setProgress(systemProgress)
-          setLoadingStage(progressData.stage)
+        // Mark systems as complete when we hit 100%
+        if (progressData.progress === 100) {
+          systemsComplete = true
+        }
+      } else if (progressData.total !== undefined) {
+        // Asset loading: takes 30-100% of total progress
+        const assetProgress = 30 + ((progressData.progress / 100) * 70)
+        
+        // Only update if systems are complete or if this is higher than current progress
+        if (systemsComplete || assetProgress > lastProgress) {
+          lastProgress = assetProgress
+          setProgress(assetProgress)
           
-          // Mark systems as complete when we hit 100%
-          if (progressData.progress === 100) {
-            systemsComplete = true
-          }
-        } else if (progressData.total !== undefined) {
-          // Asset loading: takes 30-100% of total progress
-          const assetProgress = 30 + ((progressData.progress / 100) * 70)
-          
-          // Only update if systems are complete or if this is higher than current progress
-          if (systemsComplete || assetProgress > lastProgress) {
-            lastProgress = assetProgress
-            setProgress(assetProgress)
-            
-            if (progressData.progress < 100) {
-              setLoadingStage(`Loading assets... (${Math.floor(progressData.progress)}%)`)
-            } else {
-              setLoadingStage('Finalizing...')
-            }
-          }
-        } else {
-          // Fallback for simple progress updates
-          const newProgress = progressData.progress
-          if (newProgress > lastProgress) {
-            lastProgress = newProgress
-            setProgress(newProgress)
+          if (progressData.progress < 100) {
+            setLoadingStage(`Loading assets... (${Math.floor(progressData.progress)}%)`)
+          } else {
+            setLoadingStage('Finalizing...')
           }
         }
-      } else if (typeof data === 'number') {
-        // Simple numeric progress
-        if (data > lastProgress) {
-          lastProgress = data
-          setProgress(data)
+      } else {
+        // Simple progress update
+        const newProgress = progressData.progress
+        if (newProgress > lastProgress) {
+          lastProgress = newProgress
+          setProgress(newProgress)
         }
       }
     }
@@ -143,7 +135,7 @@ export function LoadingScreen({ world, message }: { world: World; message?: stri
           background-position: center;
           background-size: cover;
           background-repeat: no-repeat;
-          background-image: ${image && typeof image === 'object' && 'url' in image ? `url(${world.resolveURL((image as { url: string }).url)})` : `url(${world.resolveURL('/preview.jpg')})`};
+          background-image: ${image ? `url(${world.resolveURL((image as { url: string }).url)})` : `url(${world.resolveURL('/preview.jpg')})`};
           animation: slowZoom 40s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
         }
         .loading-shade {

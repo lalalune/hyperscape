@@ -13,18 +13,10 @@ export const useAssets = () => {
   const { showNotification } = useApp()
 
   const fetchAssets = useCallback(async () => {
-    try {
-      setLoading(true)
-      const data = await AssetService.listAssets()
-      setAssets(data)
-    } catch (err) {
-      showNotification(
-        err instanceof Error ? err.message : 'Failed to load assets',
-        'error'
-      )
-    } finally {
-      setLoading(false)
-    }
+    setLoading(true)
+    const data = await AssetService.listAssets()
+    setAssets(data)
+    setLoading(false)
   }, [showNotification])
 
   const forceReload = useCallback(async () => {
@@ -51,18 +43,10 @@ export const useMaterialPresets = () => {
   const { showNotification } = useApp()
 
   const fetchPresets = useCallback(async () => {
-    try {
-      setLoading(true)
-      const data = await AssetService.getMaterialPresets()
-      setPresets(data)
-    } catch (err) {
-      showNotification(
-        'Failed to load material presets',
-        'error'
-      )
-    } finally {
-      setLoading(false)
-    }
+    setLoading(true)
+    const data = await AssetService.getMaterialPresets()
+    setPresets(data)
+    setLoading(false)
   }, [showNotification])
 
   useEffect(() => {
@@ -82,24 +66,15 @@ export const useRetexturing = () => {
 
   const retextureAsset = useCallback(async (
     request: RetextureRequest
-  ): Promise<RetextureResponse | null> => {
+  ): Promise<RetextureResponse> => {
     setIsRetexturing(true)
-    try {
-      const result = await AssetService.retexture(request)
-      showNotification(
-        result.message || 'Asset retextured successfully',
-        'success'
-      )
-      return result
-    } catch (err) {
-      showNotification(
-        err instanceof Error ? err.message : 'Retexturing failed',
-        'error'
-      )
-      return null
-    } finally {
-      setIsRetexturing(false)
-    }
+    const result = await AssetService.retexture(request)
+    showNotification(
+      result.message || 'Asset retextured successfully',
+      'success'
+    )
+    setIsRetexturing(false)
+    return result
   }, [showNotification])
 
   return { 

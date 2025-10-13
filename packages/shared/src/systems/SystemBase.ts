@@ -15,7 +15,7 @@ import type { AnyEvent } from '../types/events';
 import type { World } from '../types/index';
 import { SystemConfig } from '../types/core';
 import { SystemLogger } from '../utils/Logger';
-import type { EventMap } from '../types/event-system';
+import type { EventMap } from '../types/events';
 import { EventType } from '../types/events';
 
 export abstract class SystemBase extends System {

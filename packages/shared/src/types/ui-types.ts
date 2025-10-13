@@ -9,8 +9,8 @@ import type { ReactNode, CSSProperties } from 'react'
 import type { World } from './index'
 import type { Curve } from '../extras/Curve'
 
-// Nametag interfaces
-export interface Nametag {
+// Nametag interfaces (UI handle for manipulation)
+export interface NametagHandle {
   idx: number
   name: string
   health: number
@@ -326,14 +326,7 @@ export interface ContextMenuState {
   target: unknown;
 }
 
-/**
- * Item context menu for inventory actions
- */
-export interface ItemContextMenu {
-  visible: boolean;
-  position: { x: number; y: number };
-  item: unknown | null;
-}
+// ItemContextMenu moved to core.ts (more complete definition with actions, itemId, slot, etc.)
 
 /**
  * Entity pip for minimap/radar display

@@ -202,141 +202,116 @@ Hyperscape world integration service that enables agents to:
     this._currentWorldId = config.worldId
     this.appearanceHash = null
 
-    try {
-      // Create real Hyperscape world connection
-      console.info(
-        '[HyperscapeService] Creating real Hyperscape world connection'
-      )
+    // Create real Hyperscape world connection
+    console.info(
+      '[HyperscapeService] Creating real Hyperscape world connection'
+    )
 
-      // Create mock DOM elements for headless operation
-      const mockElement = {
-        appendChild: () => {},
-        removeChild: () => {},
-        offsetWidth: 1920,
-        offsetHeight: 1080,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        style: {},
-      }
-
-      // Initialize the world with proper configuration
-      const hyperscapeConfig: WorldConfig = {
-        wsUrl: config.wsUrl,
-        viewport: mockElement,
-        ui: mockElement,
-        initialAuthToken: config.authToken,
-        loadPhysX,
-        assetsUrl:
-          process.env.HYPERSCAPE_ASSETS_URL || 'https://assets.hyperscape.io',
-        physics: true,
-        networkRate: 60,
-      }
-
-      // Create a minimal world with the basic structure we need
-      const mockConfig: MockWorldConfig = {
-        worldId: config.worldId,
-        name: `world-${config.worldId}`,
-        assets: ['https://assets.hyperscape.io'],
-        physics: hyperscapeConfig.physics,
-      }
-      this.world = this.createWorld(mockConfig)
-
-      if (!this.world) {
-        throw new Error('Failed to create world instance')
-      }
-
-      console.info('[HyperscapeService] Created real Hyperscape world instance')
-
-      this.playwrightManager = new PlaywrightManager(this.runtime)
-      this.emoteManager = new EmoteManager(this.runtime)
-      this.messageManager = new MessageManager(this.runtime)
-      this.voiceManager = new VoiceManager(this.runtime)
-      this.behaviorManager = new BehaviorManager(this.runtime)
-      this.buildManager = new BuildManager(this.runtime)
-      this.dynamicActionLoader = new DynamicActionLoader(this.runtime)
-
-      // Initialize world systems using the real world instance
-      const livekit = new AgentLiveKit(this.world)
-      this.world.systems.push(livekit)
-
-      const actions = new AgentActions(this.world)
-      this.world.systems.push(actions)
-
-      this.controls = new AgentControls(this.world)
-      this.world.systems.push(this.controls)
-
-      const loader = new AgentLoader(this.world)
-      this.world.systems.push(loader)
-
-      const environment = new EnvironmentSystem(this.world)
-      this.world.systems.push(environment)
-
-      console.info(
-        '[HyperscapeService] Hyperscape world initialized successfully'
-      )
-
-      this.voiceManager.start()
-
-      this.behaviorManager.start()
-
-      this.subscribeToHyperscapeEvents()
-
-      this.isServiceConnected = true
-
-      this.connectionTime = Date.now()
-
-      console.info(
-        `HyperscapeService connected successfully to ${config.wsUrl}`
-      )
-
-      // Initialize managers
-      await this.emoteManager?.uploadEmotes()
-
-      // Discover and load dynamic actions
-      if (this.dynamicActionLoader && this.world) {
-        const discoveredActions =
-          await this.dynamicActionLoader.discoverActions(this.world)
-        console.info(
-          `[HyperscapeService] Discovered ${discoveredActions.length} dynamic actions`
-        )
-
-        for (const actionDescriptor of discoveredActions) {
-          await this.dynamicActionLoader.registerAction(
-            actionDescriptor,
-            this.runtime
-          )
-        }
-      }
-      // Don't auto-load any content - it will be loaded on demand
-
-      if (this.world?.entities?.player?.data) {
-        // Access appearance data for validation
-        const appearance = this.world.entities.player.data.appearance
-        if (appearance) {
-          console.debug('[Appearance] Current appearance data available')
-        }
-      }
-    } catch (error) {
-      console.error(
-        `HyperscapeService connection failed for ${config.worldId} at ${config.wsUrl}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : ''
-      )
-      await this.handleDisconnect()
-      throw error
+    // Create mock DOM elements for headless operation
+    const mockElement = {
+      appendChild: () => {},
+      removeChild: () => {},
+      offsetWidth: 1920,
+      offsetHeight: 1080,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      style: {},
     }
+
+    // Initialize the world with proper configuration
+    const hyperscapeConfig: WorldConfig = {
+      wsUrl: config.wsUrl,
+      viewport: mockElement,
+      ui: mockElement,
+      initialAuthToken: config.authToken,
+      loadPhysX,
+      assetsUrl:
+        process.env.HYPERSCAPE_ASSETS_URL || 'https://assets.hyperscape.io',
+      physics: true,
+      networkRate: 60,
+    }
+
+    // Create a minimal world with the basic structure we need
+    const mockConfig: MockWorldConfig = {
+      worldId: config.worldId,
+      name: `world-${config.worldId}`,
+      assets: ['https://assets.hyperscape.io'],
+      physics: hyperscapeConfig.physics,
+    }
+    this.world = this.createWorld(mockConfig)
+
+    console.info('[HyperscapeService] Created real Hyperscape world instance')
+
+    this.playwrightManager = new PlaywrightManager(this.runtime)
+    this.emoteManager = new EmoteManager(this.runtime)
+    this.messageManager = new MessageManager(this.runtime)
+    this.voiceManager = new VoiceManager(this.runtime)
+    this.behaviorManager = new BehaviorManager(this.runtime)
+    this.buildManager = new BuildManager(this.runtime)
+    this.dynamicActionLoader = new DynamicActionLoader(this.runtime)
+
+    // Initialize world systems using the real world instance
+    const livekit = new AgentLiveKit(this.world)
+    this.world.systems.push(livekit)
+
+    const actions = new AgentActions(this.world)
+    this.world.systems.push(actions)
+
+    this.controls = new AgentControls(this.world)
+    this.world.systems.push(this.controls)
+
+    const loader = new AgentLoader(this.world)
+    this.world.systems.push(loader)
+
+    const environment = new EnvironmentSystem(this.world)
+    this.world.systems.push(environment)
+
+    console.info(
+      '[HyperscapeService] Hyperscape world initialized successfully'
+    )
+
+    this.voiceManager.start()
+
+    this.behaviorManager.start()
+
+    this.subscribeToHyperscapeEvents()
+
+    this.isServiceConnected = true
+
+    this.connectionTime = Date.now()
+
+    console.info(`HyperscapeService connected successfully to ${config.wsUrl}`)
+
+    // Initialize managers
+    await this.emoteManager.uploadEmotes()
+
+    // Discover and load dynamic actions
+    const discoveredActions = await this.dynamicActionLoader.discoverActions(
+      this.world
+    )
+    console.info(
+      `[HyperscapeService] Discovered ${discoveredActions.length} dynamic actions`
+    )
+
+    for (const actionDescriptor of discoveredActions) {
+      await this.dynamicActionLoader.registerAction(
+        actionDescriptor,
+        this.runtime
+      )
+    }
+    // Don't auto-load any content - it will be loaded on demand
+
+    // Access appearance data for validation
+    const appearance = this.world.entities.player.data.appearance
+    console.debug('[Appearance] Current appearance data available')
   }
 
   private subscribeToHyperscapeEvents(): void {
-    if (!this.world) {
-      console.warn('[Hyperscape Events] Cannot subscribe: World not available.')
-      return
-    }
-
     this.world.off('disconnect')
 
-    this.world.on('disconnect', (data: Record<string, unknown>) => {
-      const reason =
-        typeof data === 'string' ? data : data.reason || 'Unknown reason'
+    this.world.on('disconnect', (data: Record<string, unknown> | string) => {
+      // Data is either a string reason or an object with reason property
+      const reason = (data as { reason?: string }).reason || 'Unknown reason'
       console.warn(`Hyperscape world disconnected: ${reason}`)
       this.runtime.emitEvent(EventType.WORLD_LEFT, {
         runtime: this.runtime,
@@ -346,142 +321,69 @@ Hyperscape world integration service that enables agents to:
       this.handleDisconnect()
     })
 
-    if (this.world.chat) {
-      this.startChatSubscription()
-    } else {
-      console.warn('[Hyperscape Events] world.chat not available.')
-    }
+    this.startChatSubscription()
   }
 
   private async uploadCharacterAssets(): Promise<{
     success: boolean
     error?: string
   }> {
-    if (
-      !this.world ||
-      !this.world.entities.player ||
-      !this.world.network ||
-      !this.world.assetsUrl
-    ) {
-      console.warn(
-        '[Appearance] Cannot set avatar: World, player, network, or assetsUrl not ready.'
-      )
-      return { success: false, error: 'Prerequisites not met' }
-    }
-
     const agentPlayer = this.world.entities.player
     const localAvatarPath = path.resolve(LOCAL_AVATAR_PATH)
-    let fileName = ''
 
-    try {
-      console.info(`[Appearance] Reading avatar file from: ${localAvatarPath}`)
-      const fileBuffer: Buffer = await fsPromises.readFile(localAvatarPath)
-      fileName = path.basename(localAvatarPath)
-      const mimeType = fileName.endsWith('.vrm')
-        ? 'model/gltf-binary'
-        : 'application/octet-stream'
+    console.info(`[Appearance] Reading avatar file from: ${localAvatarPath}`)
+    const fileBuffer: Buffer = await fsPromises.readFile(localAvatarPath)
+    const fileName = path.basename(localAvatarPath)
+    const mimeType = fileName.endsWith('.vrm')
+      ? 'model/gltf-binary'
+      : 'application/octet-stream'
 
-      console.info(
-        `[Appearance] Uploading ${fileName} (${(fileBuffer.length / 1024).toFixed(2)} KB, Type: ${mimeType})...`
+    console.info(
+      `[Appearance] Uploading ${fileName} (${(fileBuffer.length / 1024).toFixed(2)} KB, Type: ${mimeType})...`
+    )
+
+    const hash = await hashFileBuffer(fileBuffer)
+    const ext = fileName.split('.').pop()!.toLowerCase()
+    const fullFileNameWithHash = `${hash}.${ext}`
+    const baseUrl = this.world.assetsUrl.replace(/\/$/, '')
+    const constructedHttpUrl = `${baseUrl}/${fullFileNameWithHash}`
+
+    // Strong type assumption - network has upload method
+    const network = this.world.network as UploadableNetwork
+
+    console.info(`[Appearance] Uploading avatar to ${constructedHttpUrl}...`)
+    const fileArrayBuffer = fileBuffer.buffer.slice(
+      fileBuffer.byteOffset,
+      fileBuffer.byteOffset + fileBuffer.byteLength
+    ) as ArrayBuffer
+    const fileForUpload = new File([fileArrayBuffer], fileName, {
+      type: mimeType,
+    })
+
+    // Strong type assumption - network has upload method
+    const uploadPromise = network.upload(fileForUpload)
+    const timeoutPromise = new Promise((_resolve, reject) =>
+      setTimeout(
+        () => reject(new Error('Upload timed out')),
+        NETWORK_CONFIG.UPLOAD_TIMEOUT_MS
       )
+    )
 
-      if (!crypto.subtle) {
-        throw new Error(
-          'crypto.subtle is not available. Ensure Node.js version supports Web Crypto API.'
-        )
-      }
+    await Promise.race([uploadPromise, timeoutPromise])
+    console.info('[Appearance] Avatar uploaded successfully.')
+    ;(agentPlayer as ModifiablePlayer).setSessionAvatar(constructedHttpUrl)
 
-      const hash = await hashFileBuffer(fileBuffer)
-      const ext = fileName.split('.').pop()?.toLowerCase() || 'vrm'
-      const fullFileNameWithHash = `${hash}.${ext}`
-      const baseUrl = this.world.assetsUrl.replace(/\/$/, '')
-      const constructedHttpUrl = `${baseUrl}/${fullFileNameWithHash}`
+    await this.emoteManager.uploadEmotes()
 
-      // Strong type assumption - network has upload method if it's UploadableNetwork
-      const network = this.world.network as UploadableNetwork
-      if (!network) {
-        console.warn('[Appearance] Network not available. Cannot upload.')
-        return { success: false, error: 'Network unavailable' }
-      }
+    // Assume send method exists on network
+    this.world.network.send('playerSessionAvatar', {
+      avatar: constructedHttpUrl,
+    })
+    console.info(
+      `[Appearance] Sent playerSessionAvatar with: ${constructedHttpUrl}`
+    )
 
-      try {
-        console.info(
-          `[Appearance] Uploading avatar to ${constructedHttpUrl}...`
-        )
-        const fileArrayBuffer = fileBuffer.buffer.slice(
-          fileBuffer.byteOffset,
-          fileBuffer.byteOffset + fileBuffer.byteLength
-        ) as ArrayBuffer
-        const fileForUpload = new File([fileArrayBuffer], fileName, {
-          type: mimeType,
-        })
-
-        // Strong type assumption - network has upload method
-        const uploadPromise = network.upload(fileForUpload)
-        const timeoutPromise = new Promise((_resolve, reject) =>
-          setTimeout(
-            () => reject(new Error('Upload timed out')),
-            NETWORK_CONFIG.UPLOAD_TIMEOUT_MS
-          )
-        )
-
-        await Promise.race([uploadPromise, timeoutPromise])
-        console.info('[Appearance] Avatar uploaded successfully.')
-      } catch (uploadError) {
-        console.error(
-          `[Appearance] Avatar upload failed: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`,
-          uploadError instanceof Error ? uploadError.stack : ''
-        )
-        return {
-          success: false,
-          error: `Upload failed: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`,
-        }
-      }
-
-      if (agentPlayer) {
-        ;(agentPlayer as ModifiablePlayer).setSessionAvatar(constructedHttpUrl)
-      } else {
-        console.warn('[Appearance] agentPlayer not available.')
-      }
-
-      await this.emoteManager.uploadEmotes()
-
-      if (this.world.network) {
-        // Assume send method exists on network
-        this.world.network.send('playerSessionAvatar', {
-          avatar: constructedHttpUrl,
-        })
-        console.info(
-          `[Appearance] Sent playerSessionAvatar with: ${constructedHttpUrl}`
-        )
-      } else {
-        console.error(
-          '[Appearance] Upload succeeded but world.network.send is not available.'
-        )
-      }
-
-      return { success: true }
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
-        console.error(
-          `[Appearance] Avatar file not found at ${localAvatarPath}. CWD: ${process.cwd()}`
-        )
-      } else {
-        console.error(
-          '[Appearance] Unexpected error during avatar process:',
-          error instanceof Error ? error.message : String(error),
-          error instanceof Error ? error.stack : ''
-        )
-      }
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      }
-    }
+    return { success: true }
   }
 
   private startAppearancePolling(): void {
@@ -553,18 +455,12 @@ Hyperscape world integration service that enables agents to:
 
         // Also attempt to change name on first appearance
         if (!this.hasChangedName) {
-          try {
-            const character = this.runtime.character
-            if (character?.name) {
-              await this.changeName(character.name)
-              this.hasChangedName = true
-              console.info(
-                `[Name Polling] Initial name successfully set to "${character.name}".`
-              )
-            }
-          } catch (error) {
-            console.warn('[Name Polling] Failed to set initial name:', error)
-          }
+          const character = this.runtime.character
+          await this.changeName(character.name)
+          this.hasChangedName = true
+          console.info(
+            `[Name Polling] Initial name successfully set to "${character.name}".`
+          )
         }
 
         if (!pollingTasks.avatar && assetsUrlReady) {
@@ -642,21 +538,13 @@ Hyperscape world integration service that enables agents to:
     this.stopAppearancePolling()
 
     if (this.world) {
-      try {
-        if (this.world.network) {
-          console.info('[Hyperscape Cleanup] Calling network destroy...')
-          // Use destroy method for network cleanup
-          if ('destroy' in this.world.network) {
-            this.world.network.destroy()
-          }
-        }
-        console.info('[Hyperscape Cleanup] Calling world.destroy()...')
-        this.world.destroy()
-      } catch (e) {
-        console.warn(
-          `[Hyperscape Cleanup] Error during world network disconnect/destroy: ${e instanceof Error ? e.message : String(e)}`
-        )
+      if (this.world.network) {
+        console.info('[Hyperscape Cleanup] Calling network destroy...')
+        // Use destroy method for network cleanup
+        this.world.network.destroy()
       }
+      console.info('[Hyperscape Cleanup] Calling world.destroy()...')
+      this.world.destroy()
     }
 
     this.world = null
@@ -683,17 +571,8 @@ Hyperscape world integration service that enables agents to:
 
     // Clean up loaded content
     for (const [contentId, content] of this.loadedContent) {
-      if (content && 'uninstall' in content) {
-        try {
-          // Assume uninstall is a function
-          await (content as { uninstall: () => Promise<void> }).uninstall()
-        } catch (error) {
-          console.error(
-            `[HyperscapeService] Error uninstalling content ${contentId}:`,
-            error
-          )
-        }
-      }
+      // Assume uninstall is a function
+      await (content as { uninstall: () => Promise<void> }).uninstall()
     }
     this.loadedContent.clear()
 
@@ -707,21 +586,15 @@ Hyperscape world integration service that enables agents to:
     await this.handleDisconnect()
     console.info('HyperscapeService disconnect complete.')
 
-    try {
-      if ('emitEvent' in this.runtime) {
-        // Assume emitEvent is a function
-        ;(
-          this.runtime as {
-            emitEvent: (type: EventType, data: unknown) => void
-          }
-        ).emitEvent(EventType.WORLD_LEFT, {
-          runtime: this.runtime,
-          worldId: this._currentWorldId,
-        })
+    // Assume emitEvent is a function
+    ;(
+      this.runtime as {
+        emitEvent: (type: EventType, data: unknown) => void
       }
-    } catch (error) {
-      console.error('Error emitting WORLD_LEFT event:', error)
-    }
+    ).emitEvent(EventType.WORLD_LEFT, {
+      runtime: this.runtime,
+      worldId: this._currentWorldId,
+    })
 
     if (this.world) {
       // Cast to world with disconnect method
@@ -740,59 +613,35 @@ Hyperscape world integration service that enables agents to:
   // Removed type guard - assume disconnect exists when needed
 
   async changeName(newName: string): Promise<void> {
-    if (
-      !this.isConnected() ||
-      !this.world?.network ||
-      !this.world?.entities?.player
-    ) {
-      throw new Error(
-        'HyperscapeService: Cannot change name. Network or player not ready.'
-      )
-    }
     const agentPlayerId = this.world.entities.player.data.id
-    if (!agentPlayerId) {
-      throw new Error(
-        'HyperscapeService: Cannot change name. Player ID not available.'
-      )
-    }
 
     console.info(
       `[Action] Attempting to change name to "${newName}" for ID ${agentPlayerId}`
     )
 
-    try {
-      // 2. Update local state immediately
-      // Update the name map
-      if (this.playerNamesMap.has(agentPlayerId)) {
-        console.info(
-          `[Name Map Update] Setting name via changeName for ID ${agentPlayerId}: '${newName}'`
-        )
-        this.playerNamesMap.set(agentPlayerId, newName)
-      } else {
-        console.warn(
-          `[Name Map Update] Attempted changeName for ID ${agentPlayerId} not currently in map. Adding.`
-        )
-        this.playerNamesMap.set(agentPlayerId, newName)
-      }
-
-      // --- Use agentPlayer.modify for local update --- >
-      const agentPlayer = this.world.entities.player
-      if (agentPlayer) {
-        ;(agentPlayer as ModifiablePlayer).modify({ name: newName })
-        agentPlayer.data.name = newName
-      }
-
-      this.world.network.send('entityModified', {
-        id: agentPlayer.data.id,
-        name: newName,
-      })
-      console.debug(
-        `[Action] Called agentPlayer.modify({ name: "${newName}" })`
+    // Update the name map
+    if (this.playerNamesMap.has(agentPlayerId)) {
+      console.info(
+        `[Name Map Update] Setting name via changeName for ID ${agentPlayerId}: '${newName}'`
       )
-    } catch (error) {
-      console.error(`[Action] Error during changeName to "${newName}":`, error)
-      throw error
+      this.playerNamesMap.set(agentPlayerId, newName)
+    } else {
+      console.warn(
+        `[Name Map Update] Attempted changeName for ID ${agentPlayerId} not currently in map. Adding.`
+      )
+      this.playerNamesMap.set(agentPlayerId, newName)
     }
+
+    // --- Use agentPlayer.modify for local update --- >
+    const agentPlayer = this.world.entities.player
+    ;(agentPlayer as ModifiablePlayer).modify({ name: newName })
+    agentPlayer.data.name = newName
+
+    this.world.network.send('entityModified', {
+      id: agentPlayer.data.id,
+      name: newName,
+    })
+    console.debug(`[Action] Called agentPlayer.modify({ name: "${newName}" })`)
   }
 
   async stop(): Promise<void> {
@@ -801,81 +650,49 @@ Hyperscape world integration service that enables agents to:
   }
 
   private startChatSubscription(): void {
-    if (!this.world || !this.world.chat) {
-      console.error(
-        'Cannot subscribe to chat: World or Chat system not available.'
-      )
-      return
-    }
-
     console.info('[HyperscapeService] Initializing chat subscription...')
 
     // Pre-populate processed IDs with existing messages
-    if ((this.world.chat as ChatSystem).msgs) {
-      ;(this.world.chat as ChatSystem).msgs.forEach((msg: ChatMessage) => {
-        if (msg && msg.id) {
-          // Add null check for msg and msg.id
-          this.processedMsgIds.add(msg.id)
+    ;(this.world.chat as ChatSystem).msgs.forEach((msg: ChatMessage) => {
+      this.processedMsgIds.add(msg.id)
+    })
+
+    this.world.chat.subscribe((msgs: ChatMessage[]) => {
+      const chatMessages = msgs as ChatMessage[]
+
+      const newMessagesFound: ChatMessage[] = [] // Temporary list for new messages
+
+      // Step 1: Identify new messages and update processed set
+      chatMessages.forEach((msg: ChatMessage) => {
+        // Check timestamp FIRST - only consider messages newer than connection time
+        const messageTimestamp = new Date(msg.createdAt).getTime()
+        if (messageTimestamp <= this.connectionTime!) {
+          // Ensure historical messages are marked processed if encountered *before* connectionTime was set (edge case)
+          if (!this.processedMsgIds.has(msg.id.toString())) {
+            this.processedMsgIds.add(msg.id.toString())
+          }
+          return // Skip this message
+        }
+
+        // Check if we've already processed this message ID (secondary check for duplicates)
+        const msgIdStr = msg.id.toString()
+        if (!this.processedMsgIds.has(msgIdStr)) {
+          newMessagesFound.push(msg) // Add the full message object
+          this.processedMsgIds.add(msgIdStr) // Mark ID as processed immediately
         }
       })
-    }
 
-    if (this.world.chat && this.world.chat.subscribe) {
-      this.world.chat.subscribe((msgs: ChatMessage[]) => {
-        const chatMessages = msgs as ChatMessage[]
-        // Wait for player entity (ensures world/chat exist too)
-        if (
-          !this.world ||
-          !this.world.chat ||
-          !this.world.entities.player ||
-          !this.connectionTime
-        ) {
-          return
-        }
+      // Step 2: Process only the newly found messages
+      if (newMessagesFound.length > 0) {
+        console.info(
+          `[Chat] Found ${newMessagesFound.length} new messages to process.`
+        )
 
-        const newMessagesFound: ChatMessage[] = [] // Temporary list for new messages
-
-        // Step 1: Identify new messages and update processed set
-        chatMessages.forEach((msg: ChatMessage) => {
-          // Check timestamp FIRST - only consider messages newer than connection time
-          const messageTimestamp = msg.createdAt
-            ? new Date(msg.createdAt).getTime()
-            : 0
-          if (
-            !messageTimestamp ||
-            !this.connectionTime ||
-            messageTimestamp <= this.connectionTime
-          ) {
-            // console.debug(`[Chat Sub] Ignoring historical/old message ID ${msg?.id} (ts: ${messageTimestamp})`);
-            // Ensure historical messages are marked processed if encountered *before* connectionTime was set (edge case)
-            if (msg?.id && !this.processedMsgIds.has(msg.id.toString())) {
-              this.processedMsgIds.add(msg.id.toString())
-            }
-            return // Skip this message
-          }
-
-          // Check if we've already processed this message ID (secondary check for duplicates)
-          const msgIdStr = msg.id?.toString()
-          if (msgIdStr && !this.processedMsgIds.has(msgIdStr)) {
-            newMessagesFound.push(msg) // Add the full message object
-            this.processedMsgIds.add(msgIdStr) // Mark ID as processed immediately
-          }
+        newMessagesFound.forEach(async (msg: ChatMessage) => {
+          await this.messageManager.handleMessage(msg)
         })
-
-        // Step 2: Process only the newly found messages
-        if (newMessagesFound.length > 0) {
-          console.info(
-            `[Chat] Found ${newMessagesFound.length} new messages to process.`
-          )
-
-          newMessagesFound.forEach(async (msg: ChatMessage) => {
-            if (this.messageManager) {
-              await this.messageManager.handleMessage(msg)
-            }
-          })
-        }
-      })
-    }
+      }
+    })
   }
 
   getEmoteManager() {
@@ -921,13 +738,6 @@ Hyperscape world integration service that enables agents to:
     contentId: string,
     contentBundle: ContentBundle
   ): Promise<boolean> {
-    if (!this.world) {
-      console.error(
-        '[HyperscapeService] Cannot load content: No world connected'
-      )
-      return false
-    }
-
     if (this.loadedContent.has(contentId)) {
       console.warn(
         `[HyperscapeService] Content ${contentId} already loaded. Unloading first...`
@@ -935,216 +745,134 @@ Hyperscape world integration service that enables agents to:
       await this.unloadUGCContent(contentId)
     }
 
-    try {
-      console.info(`[HyperscapeService] Loading UGC content: ${contentId}`)
+    console.info(`[HyperscapeService] Loading UGC content: ${contentId}`)
 
-      // Install the content bundle
-      if (contentBundle.install) {
-        // Assume install is a function
-        const instance = await contentBundle.install(this.world, this.runtime)
-        this.loadedContent.set(contentId, instance)
+    // Install the content bundle
+    const instance = await contentBundle.install(this.world, this.runtime)
+    this.loadedContent.set(contentId, instance)
 
-        // Handle actions from the content bundle
-        if (contentBundle.actions && Array.isArray(contentBundle.actions)) {
-          console.info(
-            `[HyperscapeService] Registering ${contentBundle.actions.length} actions from ${contentId}`
-          )
-          for (const action of contentBundle.actions) {
-            // Register each action with the runtime
-            if (this.runtime.registerAction) {
-              await this.runtime.registerAction(action)
-            } else if (
-              this.runtime.actions &&
-              Array.isArray(this.runtime.actions)
-            ) {
-              // Fallback: add to actions array
-              this.runtime.actions.push(action)
-            }
-          }
-        }
-
-        // Handle providers from the content bundle
-        if (contentBundle.providers && Array.isArray(contentBundle.providers)) {
-          console.info(
-            `[HyperscapeService] Registering ${contentBundle.providers.length} providers from ${contentId}`
-          )
-          for (const provider of contentBundle.providers) {
-            // Register each provider with the runtime
-            if (this.runtime.registerProvider) {
-              await this.runtime.registerProvider(provider)
-            } else if (
-              this.runtime.providers &&
-              Array.isArray(this.runtime.providers)
-            ) {
-              // Fallback: add to providers array
-              this.runtime.providers.push(provider)
-            }
-          }
-        }
-
-        // Support for dynamic action discovery via the dynamic loader
-        if (contentBundle.dynamicActions && this.dynamicActionLoader) {
-          console.info(
-            `[HyperscapeService] Discovering dynamic actions from ${contentId}`
-          )
-          const discoveredActions = contentBundle.dynamicActions
-          for (const actionDescriptor of discoveredActions) {
-            await this.dynamicActionLoader.registerAction(
-              actionDescriptor,
-              this.runtime
-            )
-          }
-        }
-
-        // Emit event for content loaded
-        if (this.runtime.emitEvent) {
-          this.runtime.emitEvent(EventType.WORLD_JOINED, {
-            runtime: this.runtime,
-            eventName: 'UGC_CONTENT_LOADED',
-            data: {
-              contentId: contentId,
-              contentName: contentBundle.name || contentId,
-              features: contentBundle.config?.features || {},
-              actionsCount: contentBundle.actions?.length || 0,
-              providersCount: contentBundle.providers?.length || 0,
-            },
-          })
-        }
-
-        console.info(
-          `[HyperscapeService] UGC content ${contentId} loaded successfully`
-        )
-        return true
-      } else {
-        console.error(
-          `[HyperscapeService] Content bundle missing install method`
-        )
-        return false
-      }
-    } catch (error) {
-      console.error(
-        `[HyperscapeService] Failed to load UGC content ${contentId}:`,
-        error
+    // Handle actions from the content bundle
+    if (contentBundle.actions) {
+      console.info(
+        `[HyperscapeService] Registering ${contentBundle.actions.length} actions from ${contentId}`
       )
-      return false
+      for (const action of contentBundle.actions) {
+        // Register each action with the runtime
+        await this.runtime.registerAction(action)
+      }
     }
+
+    // Handle providers from the content bundle
+    if (contentBundle.providers) {
+      console.info(
+        `[HyperscapeService] Registering ${contentBundle.providers.length} providers from ${contentId}`
+      )
+      for (const provider of contentBundle.providers) {
+        // Register each provider with the runtime
+        await this.runtime.registerProvider(provider)
+      }
+    }
+
+    // Support for dynamic action discovery via the dynamic loader
+    if (contentBundle.dynamicActions) {
+      console.info(
+        `[HyperscapeService] Discovering dynamic actions from ${contentId}`
+      )
+      const discoveredActions = contentBundle.dynamicActions
+      for (const actionDescriptor of discoveredActions) {
+        await this.dynamicActionLoader.registerAction(
+          actionDescriptor,
+          this.runtime
+        )
+      }
+    }
+
+    // Emit event for content loaded
+    this.runtime.emitEvent(EventType.WORLD_JOINED, {
+      runtime: this.runtime,
+      eventName: 'UGC_CONTENT_LOADED',
+      data: {
+        contentId: contentId,
+        contentName: contentBundle.name || contentId,
+        features: contentBundle.config?.features || {},
+        actionsCount: contentBundle.actions?.length || 0,
+        providersCount: contentBundle.providers?.length || 0,
+      },
+    })
+
+    console.info(
+      `[HyperscapeService] UGC content ${contentId} loaded successfully`
+    )
+    return true
   }
 
   /**
    * Unload UGC content
    */
   async unloadUGCContent(contentId: string): Promise<boolean> {
-    const content = this.loadedContent.get(contentId)
-    if (!content) {
-      console.warn(
-        `[HyperscapeService] No content loaded with ID: ${contentId}`
-      )
-      return false
-    }
+    const content = this.loadedContent.get(contentId)!
 
-    try {
-      console.info(`[HyperscapeService] Unloading UGC content: ${contentId}`)
+    console.info(`[HyperscapeService] Unloading UGC content: ${contentId}`)
 
-      // First, unregister any actions that were registered
-      if (content.actions && Array.isArray(content.actions)) {
-        console.info(
-          `[HyperscapeService] Unregistering ${content.actions.length} actions from ${contentId}`
-        )
-        for (const action of content.actions) {
-          // Cast runtime to include unregisterAction
-          const runtimeWithUnregister = this.runtime as IAgentRuntime & {
-            unregisterAction?: (name: string) => Promise<void>
-          }
-          if (runtimeWithUnregister.unregisterAction) {
-            await runtimeWithUnregister.unregisterAction(action.name)
-          } else if (
-            this.runtime.actions &&
-            Array.isArray(this.runtime.actions)
-          ) {
-            // Fallback: remove from actions array
-            const index = this.runtime.actions.findIndex(
-              a => a.name === action.name
-            )
-            if (index !== -1) {
-              this.runtime.actions.splice(index, 1)
-            }
-          }
-        }
-      }
-
-      // Unregister any providers that were registered
-      if (content.providers && Array.isArray(content.providers)) {
-        console.info(
-          `[HyperscapeService] Unregistering ${content.providers.length} providers from ${contentId}`
-        )
-        for (const provider of content.providers) {
-          // Cast runtime to include unregisterProvider
-          const runtimeWithUnregisterProvider = this
-            .runtime as IAgentRuntime & {
-            unregisterProvider: (name: string) => Promise<void>
-          }
-          if (runtimeWithUnregisterProvider.unregisterProvider) {
-            await runtimeWithUnregisterProvider.unregisterProvider(
-              provider.name
-            )
-          } else if (
-            this.runtime.providers &&
-            Array.isArray(this.runtime.providers)
-          ) {
-            // Fallback: remove from providers array
-            const index = this.runtime.providers.findIndex(
-              p => p.name === provider.name
-            )
-            if (index !== -1) {
-              this.runtime.providers.splice(index, 1)
-            }
-          }
-        }
-      }
-
-      // Unregister any dynamic actions
-      if (content.dynamicActions && this.dynamicActionLoader) {
-        console.info(
-          `[HyperscapeService] Unregistering ${content.dynamicActions.length} dynamic actions from ${contentId}`
-        )
-        for (const actionName of content.dynamicActions) {
-          await this.dynamicActionLoader.unregisterAction(
-            actionName,
-            this.runtime
-          )
-        }
-      }
-
-      // Call the content's uninstall method if available
-      if ('uninstall' in content) {
-        // Assume uninstall is a function
-        await (content as { uninstall: () => Promise<void> }).uninstall()
-      }
-
-      this.loadedContent.delete(contentId)
-
-      // Emit event for content unloaded
-      if (this.runtime.emitEvent) {
-        this.runtime.emitEvent(EventType.WORLD_LEFT, {
-          runtime: this.runtime,
-          eventName: 'UGC_CONTENT_UNLOADED',
-          data: {
-            contentId: contentId,
-          },
-        })
-      }
-
+    // First, unregister any actions that were registered
+    if (content.actions) {
       console.info(
-        `[HyperscapeService] UGC content ${contentId} unloaded successfully`
+        `[HyperscapeService] Unregistering ${content.actions.length} actions from ${contentId}`
       )
-      return true
-    } catch (error) {
-      console.error(
-        `[HyperscapeService] Failed to unload UGC content ${contentId}:`,
-        error
-      )
-      return false
+      for (const action of content.actions) {
+        // Cast runtime to include unregisterAction
+        const runtimeWithUnregister = this.runtime as IAgentRuntime & {
+          unregisterAction: (name: string) => Promise<void>
+        }
+        await runtimeWithUnregister.unregisterAction(action.name)
+      }
     }
+
+    // Unregister any providers that were registered
+    if (content.providers) {
+      console.info(
+        `[HyperscapeService] Unregistering ${content.providers.length} providers from ${contentId}`
+      )
+      for (const provider of content.providers) {
+        // Cast runtime to include unregisterProvider
+        const runtimeWithUnregisterProvider = this.runtime as IAgentRuntime & {
+          unregisterProvider: (name: string) => Promise<void>
+        }
+        await runtimeWithUnregisterProvider.unregisterProvider(provider.name)
+      }
+    }
+
+    // Unregister any dynamic actions
+    if (content.dynamicActions) {
+      console.info(
+        `[HyperscapeService] Unregistering ${content.dynamicActions.length} dynamic actions from ${contentId}`
+      )
+      for (const actionName of content.dynamicActions) {
+        await this.dynamicActionLoader.unregisterAction(
+          actionName,
+          this.runtime
+        )
+      }
+    }
+
+    // Call the content's uninstall method
+    await (content as { uninstall: () => Promise<void> }).uninstall()
+
+    this.loadedContent.delete(contentId)
+
+    // Emit event for content unloaded
+    this.runtime.emitEvent(EventType.WORLD_LEFT, {
+      runtime: this.runtime,
+      eventName: 'UGC_CONTENT_UNLOADED',
+      data: {
+        contentId: contentId,
+      },
+    })
+
+    console.info(
+      `[HyperscapeService] UGC content ${contentId} unloaded successfully`
+    )
+    return true
   }
 
   // Removed type guard - assume unregisterAction exists when needed
@@ -1166,21 +894,16 @@ Hyperscape world integration service that enables agents to:
   }
 
   async initialize(): Promise<void> {
-    try {
-      // Initialize managers
-      this.playwrightManager = new PlaywrightManager(this.runtime)
-      this.emoteManager = new EmoteManager(this.runtime)
-      this.messageManager = new MessageManager(this.runtime)
-      this.voiceManager = new VoiceManager(this.runtime)
-      this.behaviorManager = new BehaviorManager(this.runtime)
-      this.buildManager = new BuildManager(this.runtime)
-      this.dynamicActionLoader = new DynamicActionLoader(this.runtime)
+    // Initialize managers
+    this.playwrightManager = new PlaywrightManager(this.runtime)
+    this.emoteManager = new EmoteManager(this.runtime)
+    this.messageManager = new MessageManager(this.runtime)
+    this.voiceManager = new VoiceManager(this.runtime)
+    this.behaviorManager = new BehaviorManager(this.runtime)
+    this.buildManager = new BuildManager(this.runtime)
+    this.dynamicActionLoader = new DynamicActionLoader(this.runtime)
 
-      logger.info('[HyperscapeService] Service initialized successfully')
-    } catch (error) {
-      logger.error('[HyperscapeService] Failed to initialize service:', error)
-      throw error
-    }
+    logger.info('[HyperscapeService] Service initialized successfully')
   }
 
   getRPGStateManager(): RPGStateManager | null {

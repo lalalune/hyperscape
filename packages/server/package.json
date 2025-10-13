@@ -34,9 +34,7 @@
     "assets:full": "bun scripts/sync-assets-smart.mjs both",
     "dev:full": "docker-compose up",
     "deploy": "node scripts/deploy-cloudflare.mjs",
-    "deploy:prod": "node scripts/deploy-cloudflare.mjs --production",
-    "verify": "node ../../scripts/verify-deployment.mjs local",
-    "verify:prod": "node ../../scripts/verify-deployment.mjs production"
+    "deploy:prod": "node scripts/deploy-cloudflare.mjs --production"
   },
   "files": [
     "dist/",

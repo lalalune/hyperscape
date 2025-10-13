@@ -11,7 +11,9 @@ import {
   getMaxAnisotropy,
   isXRPresenting,
   type UniversalRenderer,
-  isWebGLRenderer
+  isWebGLRenderer,
+  logWebGPUInfo,
+  getWebGPUCapabilities
 } from '../utils/RendererFactory'
 import {
   createPostProcessing,
@@ -19,7 +21,6 @@ import {
   disposePostProcessing,
   type PostProcessingComposer
 } from '../utils/PostProcessingFactory'
-import { applyWebGPUOptimizations, getWebGPUCapabilities } from '../utils/WebGPUOptimizations'
 
 let renderer: UniversalRenderer | undefined
 
@@ -117,7 +118,7 @@ export class ClientGraphics extends System {
     
     // Log WebGPU info if using WebGPU
     if (this.isWebGPU) {
-      applyWebGPUOptimizations(this.renderer)
+      logWebGPUInfo(this.renderer)
       
       const caps = await getWebGPUCapabilities(this.renderer)
       if (caps && caps.features.length > 0) {

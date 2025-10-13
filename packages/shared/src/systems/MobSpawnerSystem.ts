@@ -1,9 +1,11 @@
-import { ALL_MOBS, getMobsByDifficulty } from '../data/mobs';
+import { ALL_MOBS } from '../data/mobs';
+import { ALL_WORLD_AREAS } from '../data/world-areas';
 import type { MobData, MobSpawnStats } from '../types/core';
 import { EventType } from '../types/events';
 import type { World } from '../types/index';
-import type { EntitySpawnedEvent } from '../types/systems';
+import type { EntitySpawnedEvent } from '../types/system-interfaces';
 import { SystemBase } from './SystemBase';
+import { TerrainSystem } from './TerrainSystem';
 
 // Types are now imported from shared type files
 
@@ -15,21 +17,23 @@ import { SystemBase } from './SystemBase';
  */
 export class MobSpawnerSystem extends SystemBase {
   private spawnedMobs = new Map<string, string>(); // mobId -> entityId
-  private spawnPoints = new Map<string, { x: number; y: number; z: number }[]>();
   private mobIdCounter = 0;
+  private terrainSystem!: TerrainSystem;
   
   constructor(world: World) {
     super(world, {
       name: 'mob-spawner',
       dependencies: {
-        required: ['entity-manager'], // Depends on EntityManager to spawn mobs
-        optional: ['world-generation', 'mob'] // Better with world generation and mob systems
+        required: ['entity-manager', 'terrain'], // Depends on EntityManager and terrain for placement
+        optional: ['mob'] // Better with mob system
       },
       autoCleanup: true
     });
   }
 
   async init(): Promise<void> {
+    // Get terrain system reference
+    this.terrainSystem = this.world.getSystem<TerrainSystem>('terrain')!;
     
     // Set up event subscriptions for mob lifecycle (do not consume MOB_SPAWN_REQUEST to avoid re-emission loops)
     this.subscribe<{ mobId: string }>(EventType.MOB_DESPAWN, (data) => {
@@ -37,26 +41,8 @@ export class MobSpawnerSystem extends SystemBase {
     });
     this.subscribe(EventType.MOB_RESPAWN_ALL, (_event) => this.respawnAllMobs());
     
-    this.subscribe(EventType.MOB_SPAWN_POINTS_REGISTERED, (data: { spawnPoints: unknown[] }) => {
-        data.spawnPoints.forEach(spawnPoint => {
-            const spawn = spawnPoint as { type: string; position: { x: number; y: number; z: number } | [number, number, number] | undefined };
-            const mobData = ALL_MOBS[spawn.type as keyof typeof ALL_MOBS];
-            if (mobData) {
-                // Handle both object {x, y, z} and array [x, y, z] formats
-                let position: { x: number; y: number; z: number };
-                if (Array.isArray(spawn.position)) {
-                    position = { x: spawn.position[0], y: spawn.position[1], z: spawn.position[2] };
-                } else if (spawn.position && typeof spawn.position === 'object' && 
-                          'x' in spawn.position && 'y' in spawn.position && 'z' in spawn.position) {
-                    position = spawn.position;
-                } else {
-                    console.warn(`[MobSpawnerSystem] Invalid spawn position for ${spawn.type}, using default (0,0,0)`, spawn.position);
-                    position = { x: 0, y: 0, z: 0 };
-                }
-                this.spawnMobFromData(mobData, position);
-            }
-        });
-    });
+    // Subscribe to terrain generation to spawn mobs for new tiles
+    this.subscribe(EventType.TERRAIN_TILE_GENERATED, (data) => this.onTileGenerated(data as { tileX: number; tileZ: number; biome: string }));
 
     // Listen for entity spawned events to track our mobs
     this.subscribe<EntitySpawnedEvent>(EventType.ENTITY_SPAWNED, (data) => {
@@ -71,76 +57,11 @@ export class MobSpawnerSystem extends SystemBase {
   start(): void {
     console.log(`[MobSpawnerSystem] start() called on ${this.world.isServer ? 'SERVER' : 'CLIENT'}`);
     
-    // On server, proactively spawn mobs from world areas data
-    // On client, wait for events from terrain tile generation
-    if (this.world.isServer) {
-      console.log('[MobSpawnerSystem] Server-side - spawning mobs from world areas...');
-      this.spawnMobsFromWorldAreas();
-    } else {
-      console.log('[MobSpawnerSystem] Client-side - waiting for terrain events');
-    }
-  }
-  
-  /**
-   * Spawn mobs from world areas data (server only)
-   */
-  private spawnMobsFromWorldAreas(): void {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, no-undef
-    const { ALL_WORLD_AREAS } = require('../data/world-areas');
-    
-    let spawnedCount = 0;
-    for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
-      const worldArea = area as { mobSpawns?: Array<{ mobId: string; position: { x: number; y: number; z: number }; maxCount: number; spawnRadius: number }> };
-      if (worldArea.mobSpawns && worldArea.mobSpawns.length > 0) {
-        for (const mobSpawn of worldArea.mobSpawns) {
-          const mobData = ALL_MOBS[mobSpawn.mobId as keyof typeof ALL_MOBS];
-          if (mobData) {
-            // Spawn multiple mobs within the spawn radius
-            for (let i = 0; i < mobSpawn.maxCount; i++) {
-              const angle = Math.random() * Math.PI * 2;
-              const distance = Math.random() * mobSpawn.spawnRadius;
-              const position = {
-                x: mobSpawn.position.x + Math.cos(angle) * distance,
-                y: mobSpawn.position.y || 0,
-                z: mobSpawn.position.z + Math.sin(angle) * distance
-              };
-              
-              this.spawnMobFromData(mobData, position);
-              spawnedCount++;
-            }
-          } else {
-            console.warn(`[MobSpawnerSystem] Unknown mob type: ${mobSpawn.mobId} in area ${areaId}`);
-          }
-        }
-      }
-    }
-    
-    console.log(`[MobSpawnerSystem] ✅ Spawned ${spawnedCount} mobs from ${Object.keys(ALL_WORLD_AREAS).length} world areas`);
+    // Mobs are now spawned reactively as terrain tiles generate
+    // No need to spawn all mobs at startup - tiles will trigger spawning
+    console.log('[MobSpawnerSystem] Waiting for terrain tile generation to spawn mobs...');
   }
 
-  private spawnMobsByDifficulty(difficultyLevel: 1 | 2 | 3, spawnZone: string): void {
-    const mobsByDifficulty: { [key: number]: MobData[] } = {
-      1: getMobsByDifficulty(1),
-      2: getMobsByDifficulty(2),
-      3: getMobsByDifficulty(3)
-    };
-
-    const spawnPoints = this.spawnPoints.get(spawnZone) || [];
-    
-    let spawnIndex = 0;
-    for (const mobData of mobsByDifficulty[difficultyLevel]) {
-      // Spawn multiple instances of each mob type
-      const instancesPerType = 2;
-      
-      for (let i = 0; i < instancesPerType; i++) {
-        const spawnPoint = spawnPoints[spawnIndex % spawnPoints.length];
-        if (spawnPoint) {
-          this.spawnMobFromData(mobData, spawnPoint);
-          spawnIndex++;
-        }
-      }
-    }
-  }
 
   private spawnMobFromData(mobData: MobData, position: { x: number; y: number; z: number }): void {
     const mobId = `gdd_${mobData.id}_${this.mobIdCounter++}`;
@@ -190,17 +111,17 @@ export class MobSpawnerSystem extends SystemBase {
   }
 
   private respawnAllMobs(): void {
+    console.log('[MobSpawnerSystem] Respawning all mobs...');
     
-    // Clear existing mobs
+    // Kill all existing mobs
     for (const [_mobId, entityId] of this.spawnedMobs) {
       this.emitTypedEvent(EventType.ENTITY_DEATH, { entityId });
     }
     this.spawnedMobs.clear();
     
-    // Respawn all mobs
-    this.spawnMobsByDifficulty(1, 'default'); // Example: respawn all level 1 mobs in default zone
-    this.spawnMobsByDifficulty(2, 'default'); // Example: respawn all level 2 mobs in default zone
-    this.spawnMobsByDifficulty(3, 'default'); // Example: respawn all level 3 mobs in default zone
+    // Mobs will respawn naturally as terrain tiles remain loaded
+    // TerrainSystem will re-emit TERRAIN_TILE_GENERATED which will trigger mob spawning
+    console.log('[MobSpawnerSystem] All mobs killed - will respawn via tile generation');
   }
 
   // Public API
@@ -252,12 +173,76 @@ export class MobSpawnerSystem extends SystemBase {
     return stats;
   }
 
+  /**
+   * Handle terrain tile generation - spawn mobs for new tiles
+   */
+  private onTileGenerated(tileData: { tileX: number; tileZ: number; biome: string }): void {
+    const TILE_SIZE = this.terrainSystem.getTileSize();
+    const tileBounds = {
+      minX: tileData.tileX * TILE_SIZE,
+      maxX: (tileData.tileX + 1) * TILE_SIZE,
+      minZ: tileData.tileZ * TILE_SIZE,
+      maxZ: (tileData.tileZ + 1) * TILE_SIZE,
+    };
+
+    // Find which world areas overlap with this new tile
+    const overlappingAreas: Array<typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS]> = [];
+    for (const area of Object.values(ALL_WORLD_AREAS)) {
+      const areaBounds = area.bounds;
+      // Simple bounding box overlap check
+      if (tileBounds.minX < areaBounds.maxX && tileBounds.maxX > areaBounds.minX &&
+          tileBounds.minZ < areaBounds.maxZ && tileBounds.maxZ > areaBounds.minZ) {
+        overlappingAreas.push(area);
+      }
+    }
+
+    if (overlappingAreas.length > 0) {
+      this.generateContentForTile(tileData, overlappingAreas);
+    }
+  }
+
+  /**
+   * Generate mobs for overlapping world areas
+   */
+  private generateContentForTile(tileData: { tileX: number; tileZ: number }, areas: Array<typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS]>): void {
+    for (const area of areas) {
+      // Spawn mobs from world-areas.ts data if they fall within this tile
+      this.generateMobSpawnsForArea(area, tileData);
+    }
+  }
+
+  /**
+   * Spawn mobs from a world area when its tile generates
+   */
+  private generateMobSpawnsForArea(area: typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS], tileData: { tileX: number; tileZ: number }): void {
+    const TILE_SIZE = this.terrainSystem.getTileSize();
+    for (const spawnPoint of area.mobSpawns) {
+      const spawnTileX = Math.floor(spawnPoint.position.x / TILE_SIZE);
+      const spawnTileZ = Math.floor(spawnPoint.position.z / TILE_SIZE);
+
+      if (spawnTileX === tileData.tileX && spawnTileZ === tileData.tileZ) {
+        // Ground mob spawn to terrain height
+        let mobY = spawnPoint.position.y;
+        const th = this.terrainSystem.getHeightAt(spawnPoint.position.x, spawnPoint.position.z);
+        if (Number.isFinite(th)) mobY = (th as number) + 0.1;
+        
+        // Directly spawn the mob instead of emitting an event back to ourselves
+        const mobData = ALL_MOBS[spawnPoint.mobId as keyof typeof ALL_MOBS];
+        if (mobData) {
+          this.spawnMobFromData(mobData, { 
+            x: spawnPoint.position.x, 
+            y: mobY, 
+            z: spawnPoint.position.z 
+          });
+        }
+      }
+    }
+  }
+
   // Required System lifecycle methods
   update(_dt: number): void {
     // Update mob behaviors, check for respawns, etc.
   }
-
-
 
   /**
    * Cleanup when system is destroyed
@@ -265,12 +250,9 @@ export class MobSpawnerSystem extends SystemBase {
   destroy(): void {
     // Clear all spawn tracking
     this.spawnedMobs.clear();
-    this.spawnPoints.clear();
     
     // Reset counter
     this.mobIdCounter = 0;
-    
-
     
     // Call parent cleanup
     super.destroy();

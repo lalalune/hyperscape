@@ -17,7 +17,6 @@ import type {
   Inventory,
   InventorySlotItem,
   Item,
-  ItemAction,
   Position3D,
   Skills
 } from '../types/core'
@@ -36,31 +35,23 @@ function isTruthy(value: string | undefined): boolean {
 
 // Import systems
 import { AggroSystem } from './AggroSystem'
-import { AttackStyleSystem } from './AttackStyleSystem'
 import { BankingSystem } from './BankingSystem'
 import { CombatSystem } from './CombatSystem'
 import type { DatabaseSystem } from '../types/system-interfaces'
 import { DeathSystem } from './DeathSystem'
-import { EntityCullingSystem } from './EntityCullingSystem'
 import { EntityManager } from './EntityManager'
 import { EquipmentSystem } from './EquipmentSystem'
 import { InventoryInteractionSystem } from './InventoryInteractionSystem'
 import { InventorySystem } from './InventorySystem'
-import { ItemActionSystem } from './ItemActionSystem'
-import { ItemPickupSystem } from './ItemPickupSystem'
 import { ItemSpawnerSystem } from './ItemSpawnerSystem'
 import { MobSpawnerSystem } from './MobSpawnerSystem'
 import { MobSystem } from './MobSystem'
 import { PathfindingSystem } from './PathfindingSystem'
 import { PersistenceSystem } from './PersistenceSystem'
-import { PlayerSpawnSystem } from './PlayerSpawnSystem'
 import { PlayerSystem } from './PlayerSystem'
 import { ProcessingSystem } from './ProcessingSystem'
 import { ResourceSystem } from './ResourceSystem'
-import { EntityInteractionSystem } from './EntityInteractionSystem'
-import { ResourceVisualizationSystem } from './ResourceVisualizationSystem'
 import { StoreSystem } from './StoreSystem'
-import { WorldGenerationSystem } from './WorldGenerationSystem'
 
 // New MMO-style Systems
 import { InteractionSystem } from './InteractionSystem'
@@ -70,41 +61,11 @@ import { LootSystem } from './LootSystem'
 // Removed UIComponents - replaced with React components
 
 // World Content Systems
-import { MobAISystem } from './MobAISystem'
 import { NPCSystem } from './NPCSystem'
-
-// TEST SYSTEMS - Visual Testing Framework
-import { AggroTestSystem } from './AggroTestSystem'
-import { BankingTestSystem } from './BankingTestSystem'
-import { EquipmentTestSystem } from './EquipmentTestSystem'
-import { InventoryTestSystem } from './InventoryTestSystem'
-import { ResourceGatheringTestSystem } from './ResourceGatheringTestSystem'
-import { StoreTestSystem } from './StoreTestSystem'
-import { TestRunner } from './TestRunner'
-import { VisualTestSystem } from './VisualTestSystem'
-
-// NEW COMPREHENSIVE TEST SYSTEMS
-import { CookingTestSystem } from './CookingTestSystem'
-import { CorpseTestSystem } from './CorpseTestSystem'
-import { DatabaseTestSystem } from './DatabaseTestSystem'
-import { DeathTestSystem } from './DeathTestSystem'
-import { FiremakingTestSystem } from './FiremakingTestSystem'
-import { FishingTestSystem } from './FishingTestSystem'
-import { ItemActionTestSystem } from './ItemActionTestSystem'
-import { PersistenceTestSystem } from './PersistenceTestSystem'
-import { PlayerTestSystem } from './PlayerTestSystem'
-import { SkillsTestSystem } from './SkillsTestSystem'
-import { UITestSystem } from './UITestSystem'
-import { WoodcuttingTestSystem } from './WoodcuttingTestSystem'
-
-// PERFORMANCE MONITORING
 
 import type { CameraSystem as CameraSystemInterface } from '../types/physics'
 import { ActionRegistry } from './ActionRegistry'
-import { CombatTestSystem } from './CombatTestSystem'
-import { LootDropTestSystem } from './LootDropTestSystem'
 import { SkillsSystem } from './SkillsSystem'
-import { UISystem } from './UISystem'
 
 
 
@@ -119,51 +80,21 @@ export interface Systems {
   banking?: BankingSystem
   interaction?: InteractionSystem
   mob?: MobSystem
-  ui?: UISystem
   store?: StoreSystem
   resource?: ResourceSystem
   pathfinding?: PathfindingSystem
-  worldGeneration?: WorldGenerationSystem
   aggro?: AggroSystem
   equipment?: EquipmentSystem
-  itemPickup?: ItemPickupSystem
-  itemActions?: ItemActionSystem
-  playerSpawn?: PlayerSpawnSystem
   processing?: ProcessingSystem
-  attackStyle?: AttackStyleSystem
   entityManager?: EntityManager
   death?: DeathSystem
   inventoryInteraction?: InventoryInteractionSystem
   loot?: LootSystem
-    cameraSystem?: CameraSystemInterface
+  cameraSystem?: CameraSystemInterface
   movementSystem?: unknown
   npc?: NPCSystem
-  mobAI?: MobAISystem
-  visualTest?: VisualTestSystem
-  testCombat?: CombatTestSystem
-  testAggro?: AggroTestSystem
-  testInventory?: InventoryTestSystem
-  testBanking?: BankingTestSystem
-  testStore?: StoreTestSystem
-  testResourceGathering?: ResourceGatheringTestSystem
-  testEquipment?: EquipmentTestSystem
-  testLootDrop?: LootDropTestSystem
-  testCorpse?: CorpseTestSystem
-  testItemAction?: ItemActionTestSystem
-  testFishing?: FishingTestSystem
-  testCooking?: CookingTestSystem
-  testWoodcutting?: WoodcuttingTestSystem
-  testFiremaking?: FiremakingTestSystem
-  testDeath?: DeathTestSystem
-  testPersistence?: PersistenceTestSystem
-  testSkills?: SkillsTestSystem
-  testPlayer?: PlayerTestSystem
-  testDatabase?: DatabaseTestSystem
-  testRunner?: TestRunner
   mobSpawner?: MobSpawnerSystem
   itemSpawner?: ItemSpawnerSystem
-  testUI?: UITestSystem
-  worldVerification?: unknown
 }
 
 /**
@@ -173,9 +104,6 @@ export interface Systems {
 export async function registerSystems(world: World): Promise<void> {
   // Use a centralized logger
   const _logger = (world as { logger?: { system: (msg: string) => void } }).logger;
-  
-  // Helper for env var checks
-  const serverEnv = (typeof process !== 'undefined' ? (process.env || {}) : {}) as Record<string, string | undefined>;
   
   // Allow disabling all RPG registrations via env flag to debug core systems only
   // Supports both server-side (process.env) and client-side (globalThis.env) flags
@@ -187,9 +115,6 @@ export async function registerSystems(world: World): Promise<void> {
     : undefined);
   const disableRPGViaGlobal = globalEnv ? (isTruthy(globalEnv.DISABLE_RPG) || isTruthy(globalEnv.PUBLIC_DISABLE_RPG)) : false;
   const disableRPG = disableRPGViaProcess || disableRPGViaGlobal;
-  
-  // Check if tests are enabled (via env flags)
-  const testsEnabled = isTruthy(serverEnv.ENABLE_TESTS) || isTruthy(serverEnv.PUBLIC_ENABLE_TESTS);
   
   // Register -specific components FIRST, before any systems
   registerComponent(
@@ -243,13 +168,8 @@ export async function registerSystems(world: World): Promise<void> {
   world.register('entity-manager', EntityManager)
 
   // 3. Database system - For persistence (server only)
-  // Note: The actual DatabaseSystem is registered by the server package before world.init()
-  // The stub in ./DatabaseSystem.ts is just for type compatibility
-  if (world.isServer && !world.getSystem('database')) {
-    // Only register stub if server hasn't already registered the real DatabaseSystem
-    const { DatabaseSystem } = await import('./DatabaseSystem');
-    world.register('database', DatabaseSystem)
-  }
+  // DatabaseSystem is now registered in createServerWorld(), so skip here
+  // This prevents duplicate registration
 
   // 4. Persistence system - Core data management
   world.register('persistence', PersistenceSystem)
@@ -264,24 +184,18 @@ export async function registerSystems(world: World): Promise<void> {
   world.register('pathfinding', PathfindingSystem)
 
   // 23. Player spawn system - Player spawning logic (depends on player & world systems)
-  world.register('player-spawn', PlayerSpawnSystem)
   
   systems.player = getSystem(world, 'player') as PlayerSystem
-  systems.playerSpawn = getSystem(world, 'player-spawn') as PlayerSpawnSystem
   systems.pathfinding = getSystem(world, 'pathfinding') as PathfindingSystem
   systems.entityManager = getSystem(world, 'entity-manager') as EntityManager
 
   if (world.isClient) {
     world.register('interaction', InteractionSystem)
-    world.register('ui', UISystem)
     // CameraSystem moved to core ClientCameraSystem
     // Removed UIComponents - replaced with React components
     systems.interaction = getSystem(world, 'interaction') as InteractionSystem
-    systems.ui = getSystem(world, 'ui') as UISystem
     systems.cameraSystem = getSystem(world, 'client-camera-system') as unknown as CameraSystemInterface
     systems.movementSystem = getSystem(world, 'client-movement-system') as unknown
-    // Register movement validation system for runtime testing
-    // world.register('movement-validation', MovementValidationSystem) // This line is removed
   }
 
   if (disableRPG) {
@@ -291,9 +205,6 @@ export async function registerSystems(world: World): Promise<void> {
 
   // 6. Mob system - Core mob management
   world.register('mob', MobSystem)
-
-  // 7. World generation - Terrain and world structure
-  world.register('world-generation', WorldGenerationSystem)
 
   // === INTERACTION SYSTEMS ===
   // These systems handle player-world interactions
@@ -325,206 +236,68 @@ export async function registerSystems(world: World): Promise<void> {
     // 15. Resource system - Gathering mechanics (depends on inventory system)
     world.register('resource', ResourceSystem)
 
-    // Client-only interaction systems (context menus, UI)
-    if (world.isClient) {
-      // 15a. Entity Interaction system - Single context menu handler for ALL entity types
-      world.register('entity-interaction', EntityInteractionSystem)
-      
-      // 15b. Resource visualization system - Creates visible meshes for resources
-      world.register('resource-visualization', ResourceVisualizationSystem)
-    }
+  // 18. Processing system - Crafting and item processing (depends on inventory system)
+  world.register('processing', ProcessingSystem)
 
-    // 16. Item pickup system - Ground item management (depends on inventory system)
-    // NOTE: DISABLED - ItemPickupSystem conflicts with new EntityManager + InventorySystem architecture
-    // The new architecture uses:
-    //   - EntityManager to create/destroy ItemEntity objects (3D visuals)
-    //   - InventorySystem to handle ITEM_PICKUP and ITEM_DROP (inventory data)
-    // ItemPickupSystem is legacy and creates duplicate event handlers
-    // world.register('item-pickup', ItemPickupSystem)
+  // === GAMEPLAY SYSTEMS ===
+  // These systems provide advanced gameplay mechanics
 
-    // 17. Item actions system - Item usage mechanics (depends on inventory system)
-    world.register('item-actions', ItemActionSystem)
+  // 19. Death system - Death and respawn mechanics (depends on player system)
+  world.register('death', DeathSystem)
 
-    // 18. Processing system - Crafting and item processing (depends on inventory system)
-    world.register('processing', ProcessingSystem)
+  // 20. Aggro system - AI aggression management (depends on mob & combat systems)
+  world.register('aggro', AggroSystem)
 
-    // === GAMEPLAY SYSTEMS ===
-    // These systems provide advanced gameplay mechanics
+  // Client-only inventory drag & drop
+  if (world.isClient) {
+    world.register('inventory-interaction', InventoryInteractionSystem)
+  }
 
-    // 19. Death system - Death and respawn mechanics (depends on player system)
-    world.register('death', DeathSystem)
+  // New MMO-style Systems
+  world.register('loot', LootSystem)
 
-    // 20. Attack style system - Combat style management (depends on combat system)
-    world.register('attack-style', AttackStyleSystem)
+  // World Content Systems (server only for world management)
+  if (world.isServer) {
+    world.register('npc', NPCSystem)
+  }
 
-    // 21. Aggro system - AI aggression management (depends on mob & combat systems)
-    world.register('aggro', AggroSystem)
+  // DYNAMIC WORLD CONTENT SYSTEMS - FULL THREE.JS ACCESS, NO SANDBOX
+  world.register('mob-spawner', MobSpawnerSystem)
+  world.register('item-spawner', ItemSpawnerSystem)
 
-    // 24. Movement system - unified client movement handles movement; remove server RPG movement
+  // Get system instances after world initialization
+  // Systems are directly available as properties on the world object after registration
+  // Database system is only available on server
+  systems.database = getSystem(world, 'database') as DatabaseSystem
+  systems.combat = getSystem(world, 'combat') as CombatSystem
+  systems.inventory = getSystem(world, 'inventory') as InventorySystem
+  systems.skills = getSystem(world, 'skills') as SkillsSystem
+  systems.mob = getSystem(world, 'mob') as MobSystem
+  systems.banking = getSystem(world, 'banking') as BankingSystem
+  systems.store = getSystem(world, 'store') as StoreSystem
+  systems.resource = getSystem(world, 'resource') as ResourceSystem
 
-    // Performance optimization systems
-    world.register('entity-culling', EntityCullingSystem)
+  systems.aggro = getSystem(world, 'aggro') as AggroSystem
+  systems.equipment = getSystem(world, 'equipment') as EquipmentSystem
+  systems.processing = getSystem(world, 'processing') as ProcessingSystem
+  systems.death = getSystem(world, 'death') as DeathSystem
 
-    // Client-only inventory drag & drop (already registered above)
-    if (world.isClient) {
-      world.register('inventory-interaction', InventoryInteractionSystem)
-      // NOTE: entity-interaction already registered above (line 329)
-    }
+  // Client-only systems
+  if (world.isClient) {
+    systems.inventoryInteraction = getSystem(world, 'inventory-interaction') as InventoryInteractionSystem
+  }
 
-    // New MMO-style Systems
-    world.register('loot', LootSystem)
+  // New MMO-style Systems
+  systems.loot = getSystem(world, 'loot') as LootSystem
 
-    // World Content Systems (server only for world management)
-    if (world.isServer) {
-      world.register('npc', NPCSystem)
-      world.register('mob-ai', MobAISystem)
-    }
+  // World Content Systems
+  if (world.isServer) {
+    systems.npc = getSystem(world, 'npc') as NPCSystem
+  }
 
-    // VISUAL TEST SYSTEMS - PERMANENTLY DISABLED
-    // These create colored cube proxies which interfere with actual 3D models
-    // DO NOT ENABLE unless specifically testing with cube proxies
-    // if (testsEnabled) {
-    //   world.register('visual-test', VisualTestSystem)
-    //   world.register('performance-monitor', PerformanceMonitor)
-    // }
-
-    // Server-only systems
-    if (world.isServer) {
-      // Core validation test (only when tests enabled)
-      if (testsEnabled) {
-        // DISABLED: These test systems cause continuous spawning and memory leaks
-        // world.register('system-validation-test', SystemValidationTestSystem)
-        // world.register('database-test', DatabaseTestSystem)
-      }
-    }
-
-    // UNIFIED TERRAIN SYSTEMS - USING PROCEDURAL TERRAIN
-    // Note: Client terrain is registered in createClientWorld.ts as 'client-terrain'
-    // Terrain system now unified and registered in createClientWorld/createServerWorld
-
-    // DYNAMIC WORLD CONTENT SYSTEMS - FULL THREE.JS ACCESS, NO SANDBOX
-    // world.register('default-world', DefaultWorldSystem)
-    world.register('mob-spawner', MobSpawnerSystem)
-    world.register('item-spawner', ItemSpawnerSystem)
-
-    // Only register client-only systems on client side (they need DOM/canvas/browser APIs)
-    const isClientEnvironment = world.isClient
-
-    if (isClientEnvironment) {
-      // Removed console.log('[SystemLoader] Registering client-only systems')
-      // DISABLED: TestUISystem may also cause issues
-      // world.register('test-ui', TestUISystem)
-
-      // TEST SYSTEMS - DISABLED FOR PRODUCTION
-      // These create visual cube proxies that interfere with actual 3D models
-      // Tests should be run separately in a test environment, not during normal gameplay
-      if (testsEnabled) {
-        console.log('[SystemLoader] ⚠️  Test systems DISABLED - they create visual cubes that clutter the scene');
-        console.log('[SystemLoader] To run tests, use a dedicated test environment');
-        
-        // DISABLED: All test systems create visual cubes for validation
-        // They are useful for automated testing but interfere with normal gameplay
-        // 
-        // world.register('test-combat', CombatTestSystem)
-        // world.register('test-aggro', AggroTestSystem)
-        // world.register('test-inventory', InventoryTestSystem)
-        // world.register('test-banking', BankingTestSystem)
-        // world.register('test-store', StoreTestSystem)
-        // world.register('test-resource-gathering', ResourceGatheringTestSystem)
-        // world.register('test-equipment', EquipmentTestSystem)
-        // world.register('loot-drop-test', LootDropTestSystem)
-        // world.register('corpse-test', CorpseTestSystem)
-        // world.register('item-action-test', ItemActionTestSystem)
-        // world.register('fishing-test', FishingTestSystem)
-        // world.register('cooking-test', CookingTestSystem)
-        // world.register('woodcutting-test', WoodcuttingTestSystem)
-        // world.register('firemaking-test', FiremakingTestSystem)
-        // world.register('death-test', DeathTestSystem)
-        // world.register('persistence-test', PersistenceTestSystem)
-        // world.register('skills-test', SkillsTestSystem)
-        // world.register('player-test', PlayerTestSystem)
-        // world.register('test-runner', TestRunner)
-        // world.register('ui-test', UITestSystem)
-      }
-    } else {
-      // Removed console.log('[SystemLoader] Server mode - skipping client-only systems')
-    }
-
-    // Get system instances after world initialization
-    // Systems are directly available as properties on the world object after registration
-    // Database system is only available on server
-    systems.database = getSystem(world, 'database') as DatabaseSystem
-    systems.combat = getSystem(world, 'combat') as CombatSystem
-    systems.inventory = getSystem(world, 'inventory') as InventorySystem
-    systems.skills = getSystem(world, 'skills') as SkillsSystem
-    systems.mob = getSystem(world, 'mob') as MobSystem
-    systems.ui = getSystem(world, 'ui') as UISystem
-    systems.banking = getSystem(world, 'banking') as BankingSystem
-    systems.store = getSystem(world, 'store') as StoreSystem
-    systems.resource = getSystem(world, 'resource') as ResourceSystem
-    // Movement now handled by physics in PlayerLocal
-
-    systems.worldGeneration = getSystem(world, 'world-generation') as WorldGenerationSystem
-    systems.aggro = getSystem(world, 'aggro') as AggroSystem
-    systems.equipment = getSystem(world, 'equipment') as EquipmentSystem
-    systems.itemPickup = getSystem(world, 'item-pickup') as ItemPickupSystem
-    systems.itemActions = getSystem(world, 'item-actions') as ItemActionSystem
-    systems.processing = getSystem(world, 'processing') as ProcessingSystem
-    systems.attackStyle = getSystem(world, 'attack-style') as AttackStyleSystem
-    systems.death = getSystem(world, 'death') as DeathSystem
-
-    // Client-only systems
-    if (world.isClient) {
-      systems.inventoryInteraction = getSystem(world, 'inventory-interaction') as InventoryInteractionSystem
-    }
-
-    // New MMO-style Systems
-    systems.loot = getSystem(world, 'loot') as LootSystem
-    if (world.isClient) {
-
-      // Removed uiComponents - replaced with React components
-    }
-
-    // World Content Systems
-    if (world.isServer) {
-      systems.npc = getSystem(world, 'npc') as NPCSystem
-      systems.mobAI = getSystem(world, 'mob-ai') as MobAISystem
-    }
-    // Server-only test system instances
-    if (world.isServer && testsEnabled) {
-      systems.testDatabase = getSystem(world, 'database-test') as DatabaseTestSystem
-    }
-    
-    // Client-only test system instances (they require PhysX)
-    if (world.isClient && testsEnabled) {
-      systems.testCombat = getSystem(world, 'test-combat') as CombatTestSystem
-      systems.testAggro = getSystem(world, 'test-aggro') as AggroTestSystem
-      systems.testInventory = getSystem(world, 'test-inventory') as InventoryTestSystem
-      systems.testBanking = getSystem(world, 'test-banking') as BankingTestSystem
-      systems.testStore = getSystem(world, 'test-store') as StoreTestSystem
-      systems.testResourceGathering = getSystem(world, 'test-resource-gathering') as ResourceGatheringTestSystem
-      systems.testEquipment = getSystem(world, 'test-equipment') as EquipmentTestSystem
-
-      // New comprehensive test systems
-      systems.testLootDrop = getSystem(world, 'loot-drop-test') as LootDropTestSystem
-      systems.testCorpse = getSystem(world, 'corpse-test') as CorpseTestSystem
-      systems.testItemAction = getSystem(world, 'item-action-test') as ItemActionTestSystem
-      systems.testFishing = getSystem(world, 'fishing-test') as FishingTestSystem
-      systems.testCooking = getSystem(world, 'cooking-test') as CookingTestSystem
-      systems.testWoodcutting = getSystem(world, 'woodcutting-test') as WoodcuttingTestSystem
-      systems.testFiremaking = getSystem(world, 'firemaking-test') as FiremakingTestSystem
-      systems.testDeath = getSystem(world, 'death-test') as DeathTestSystem
-      systems.testPersistence = getSystem(world, 'persistence-test') as PersistenceTestSystem
-      systems.testSkills = getSystem(world, 'skills-test') as SkillsTestSystem
-      systems.testPlayer = getSystem(world, 'player-test') as PlayerTestSystem
-    }
-
-    // DYNAMIC WORLD CONTENT SYSTEMS
-    // World verification system removed
-    systems.mobSpawner = getSystem(world, 'mob-spawner') as MobSpawnerSystem
-    systems.itemSpawner = getSystem(world, 'item-spawner') as ItemSpawnerSystem
-    systems.testUI = getSystem(world, 'test-ui') as UITestSystem // Will be undefined on server, which is fine
-
+  // DYNAMIC WORLD CONTENT SYSTEMS
+  systems.mobSpawner = getSystem(world, 'mob-spawner') as MobSpawnerSystem
+  systems.itemSpawner = getSystem(world, 'item-spawner') as ItemSpawnerSystem
 
   // Set up API for apps to access functionality
   setupAPI(world, systems)
@@ -671,11 +444,14 @@ function setupAPI(world: World, systems: Systems): void {
       return systems.skills?.getXPToNextLevel(skillData) ?? 0
     },
 
-    // UI API
-    getPlayerUIState: (playerId: string) => systems.ui?.getPlayerUIState(playerId),
-    forceUIRefresh: (playerId: string) => systems.ui?.forceUIRefresh(playerId),
-    sendUIMessage: (playerId: string, message: string, type?: 'info' | 'warning' | 'error') =>
-      systems.ui?.sendUIMessage(playerId, message, type),
+    // UI API (handled via events, no UISystem)
+    getPlayerUIState: (_playerId: string) => null,
+    forceUIRefresh: (playerId: string) => {
+      world.emit(EventType.UI_UPDATE, { playerId, force: true })
+    },
+    sendUIMessage: (playerId: string, message: string, type?: 'info' | 'warning' | 'error') => {
+      world.emit(EventType.UI_MESSAGE, { playerId, message, type: type || 'info' })
+    },
 
     // Mob API
     getMob: (mobId: string) => systems.mob?.getMob(mobId),
@@ -738,45 +514,6 @@ function setupAPI(world: World, systems: Systems): void {
     getChestItems: () => systems.itemSpawner?.getChestItems(),
     getItemStats: () => systems.itemSpawner?.getItemStats(),
 
-    // Visual Test Systems API
-    getTestCombatResults: () => null, // Test systems don't expose getTestResults method
-    getTestAggroResults: () => null, // Test systems don't expose getTestResults method
-    getTestInventoryResults: () => null, // Test systems don't expose getTestResults method
-    getTestBankingResults: () => null, // Test systems don't expose getTestResults method
-    getTestStoreResults: () => null, // Test systems don't expose getTestResults method
-    getTestResourceGatheringResults: () => null, // Test systems don't expose getTestResults method
-    getTestEquipmentResults: () => null, // Test systems don't expose getTestResults method
-    getTestMovementResults: () => null, // Test systems don't expose getTestResults method
-    getTestPhysicsResults: () => null, // Test systems don't expose getTestResults method
-    getTestRunnerResults: () => systems.testRunner?.getTestResults(),
-    getAllTestResults: () => ({
-      combat: null,
-      aggro: null,
-      inventory: null,
-      banking: null,
-      store: null,
-      resourceGathering: null,
-      equipment: null,
-      movement: null,
-      runner: systems.testRunner?.getTestResults(),
-    }),
-
-    // Test Runner API
-    runAllTests: () => systems.testRunner && world.emit(EventType.TEST_RUN_ALL),
-    runSpecificTest: (testName: string) => systems.testRunner?.runSpecificSystem(testName),
-    isTestRunning: () => systems.testRunner?.isTestRunning(),
-    getErrorLog: () => systems.testRunner?.getErrorLog(),
-
-    // Visual Test System API (Main cube-based testing system)
-    getVisualTestReport: () => null,
-    getVisualEntitiesByType: (type: string) => (systems.visualTest as VisualTestSystem)?.getEntitiesByType(type),
-    getVisualEntitiesByColor: (color: number) => (systems.visualTest as VisualTestSystem)?.getEntitiesByColor(color),
-    verifyEntityExists: (entityId: string, expectedType?: string) =>
-      (systems.visualTest as VisualTestSystem)?.verifyEntityExists(entityId, expectedType),
-    verifyPlayerAtPosition: (playerId: string, position: Position3D, tolerance?: number) =>
-      (systems.visualTest as VisualTestSystem)?.verifyPlayerAtPosition(playerId, position, tolerance),
-    getAllVisualEntities: () => (systems.visualTest as VisualTestSystem)?.getAllEntities(),
-
     // Loot API
     spawnLoot: (_mobType: string, _position: Position3D, _killerId?: string) => null, // Loot system doesn't expose this method
     getLootTable: (_mobType: string) => [], // Loot system doesn't expose this method
@@ -790,19 +527,22 @@ function setupAPI(world: World, systems: Systems): void {
     canEquipItem: (playerId: string, itemId: number) => systems.equipment?.canEquipItem(playerId, itemId),
     consumeArrow: (playerId: string) => systems.equipment?.consumeArrow(playerId),
 
-    // Item Pickup API
-    dropItem: (item: Item, position: Position3D, droppedBy?: string) =>
-      droppedBy
-        ? systems.itemPickup?.dropItem(item, position, droppedBy)
-        : systems.itemPickup?.dropItem(item, position, ''),
-    getItemsInRange: (position: Position3D, range?: number) =>
-      systems.itemPickup?.getItemsInRange(position, range || 5),
-    getGroundItem: (itemId: string) => systems.itemPickup?.getGroundItem(itemId),
-    getAllGroundItems: () => systems.itemPickup?.getAllGroundItems(),
-    clearAllItems: () => systems.itemPickup?.clearAllItems(),
+    // Item Drop API (via Loot System)
+    dropItem: (item: Item, position: Position3D, droppedBy?: string) => {
+      world.emit(EventType.ITEM_SPAWN, { 
+        itemId: item.id, 
+        quantity: item.quantity || 1,
+        position,
+        droppedBy
+      })
+    },
+    getItemsInRange: (_position: Position3D, _range?: number) => [], // Not exposed by current systems
+    getGroundItem: (_itemId: string) => null, // Not exposed by current systems
+    getAllGroundItems: () => [], // Not exposed by current systems
+    clearAllItems: () => {}, // Not exposed by current systems
 
     // Item Actions API
-    registerItemAction: (category: string, action: ItemAction) => systems.itemActions?.registerAction(category, action),
+    // registerItemAction removed - ItemActionSystem not available
 
     // Inventory Interaction API (client only)
     isDragging: () => systems.inventoryInteraction?.getSystemInfo()?.isDragging || false,
@@ -815,15 +555,15 @@ function setupAPI(world: World, systems: Systems): void {
     getFiresInRange: (position: Position3D, range?: number) =>
       systems.processing?.getFiresInRange(position, range || 5),
 
-    // Attack Style API
-    getPlayerAttackStyle: (playerId: string) => systems.attackStyle?.getPlayerAttackStyle(playerId),
-    getAllAttackStyles: () => systems.attackStyle?.getAllAttackStyles(),
-    canPlayerChangeStyle: (playerId: string) => systems.attackStyle?.canPlayerChangeStyle(playerId),
-    getRemainingStyleCooldown: (playerId: string) => systems.attackStyle?.getRemainingCooldown(playerId),
+    // Attack Style API (now handled by PlayerSystem)
+    getPlayerAttackStyle: (playerId: string) => systems.player?.getPlayerAttackStyle(playerId),
+    getAllAttackStyles: () => systems.player?.getAllAttackStyles(),
+    canPlayerChangeStyle: (playerId: string) => systems.player?.canPlayerChangeStyle(playerId),
+    getRemainingStyleCooldown: (playerId: string) => systems.player?.getRemainingStyleCooldown(playerId),
     forceChangeAttackStyle: (playerId: string, styleId: string) =>
-      systems.attackStyle?.forceChangeAttackStyle(playerId, styleId),
-    getPlayerStyleHistory: (playerId: string) => systems.attackStyle?.getPlayerStyleHistory(playerId),
-    getAttackStyleSystemInfo: () => systems.attackStyle?.getSystemInfo(),
+      systems.player?.forceChangeAttackStyle(playerId, styleId),
+    getPlayerStyleHistory: (playerId: string) => systems.player?.getPlayerStyleHistory(playerId),
+    getAttackStyleSystemInfo: () => systems.player?.getAttackStyleSystemInfo(),
 
     // App Manager API
     createApp: (_appType: string, _config: AppConfig) => null,
@@ -844,11 +584,11 @@ function setupAPI(world: World, systems: Systems): void {
     getEntityCount: () => 0, // Entity manager doesn't expose this method
     getEntityDebugInfo: () => systems.entityManager?.getDebugInfo(),
 
-    // Player Spawn API
-    hasPlayerCompletedSpawn: (playerId: string) => systems.playerSpawn?.hasPlayerCompletedSpawn(playerId),
-    getPlayerSpawnData: (playerId: string) => systems.playerSpawn?.getPlayerSpawnData(playerId),
-    forceTriggerAggro: (playerId: string) => systems.playerSpawn?.forceTriggerAggro(playerId),
-    getAllSpawnedPlayers: () => systems.playerSpawn?.getAllSpawnedPlayers(),
+    // Player Spawn API (handled by PlayerSystem)
+    hasPlayerCompletedSpawn: (_playerId: string) => true, // Handled by PlayerSystem
+    getPlayerSpawnData: (_playerId: string) => null, // Handled by PlayerSystem
+    forceTriggerAggro: (_playerId: string) => {}, // Handled by AggroSystem
+    getAllSpawnedPlayers: () => systems.player?.getAllPlayers() || [],
 
     // Interaction API (Client only)
     registerInteractable: (data: Record<string, unknown>) =>
@@ -882,9 +622,6 @@ function setupAPI(world: World, systems: Systems): void {
     getStoreInventory: () => systems.npc?.getStoreInventory(),
     getTransactionHistory: (playerId?: string) => systems.npc?.getTransactionHistory(playerId),
     getNPCSystemInfo: () => systems.npc?.getSystemInfo(),
-
-    // Mob AI API (Server only)
-    getMobAIInfo: () => systems.mobAI?.getSystemInfo(),
 
     // System references for advanced usage - convert to Record format
     rpgSystems: Object.entries(systems).reduce(
@@ -1003,7 +740,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       forceAggroSpawn: (playerId: string) => {
-        systems.playerSpawn?.forceTriggerAggro(playerId)
+        world.emit('aggro:force-trigger', { playerId })
       },
 
       // Mob actions

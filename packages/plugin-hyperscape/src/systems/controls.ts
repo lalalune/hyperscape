@@ -1,7 +1,6 @@
-import { System, World, Entity } from '../types/core-types'
-import type { Player } from '@hyperscape/shared'
+import { System, THREE } from '@hyperscape/shared'
+import type { World, Player, Entity } from '@hyperscape/shared'
 import type { Control, InputState } from '../types/core-types'
-import { THREE } from '@hyperscape/shared'
 
 const _FORWARD = new THREE.Vector3(0, 0, -1)
 const _v1 = new THREE.Vector3()
@@ -84,6 +83,7 @@ type ScreenState = {
 }
 
 export class AgentControls extends System {
+  declare world: World;
   [key: string]: unknown // Allow dynamic property access
   // Define expected control properties directly on the instance
   scrollDelta = { value: 0 }
@@ -205,7 +205,7 @@ export class AgentControls extends System {
   // Method for the agent script to set a key state
   setKey(keyName: string, isDown: boolean) {
     const keyValue = this[keyName]
-    if (!keyValue || typeof keyValue !== 'object' || !('$button' in keyValue)) {
+    if (!isButtonState(keyValue)) {
       // If the key doesn't exist or isn't a button state, log a warning or initialize
       logger.warn(
         `[Controls] Attempted to set unknown or non-button key: ${keyName}. Initializing.`
@@ -255,92 +255,179 @@ export class AgentControls extends System {
    * Navigate to a specific position in the world
    */
   async goto(x: number, z: number): Promise<boolean> {
-    try {
-      logger.info(
-        `[AgentControls] Starting navigation to position (${x}, ${z})`
-      )
+    logger.info(`[AgentControls] Starting navigation to position (${x}, ${z})`)
 
-      // Stop any existing navigation
-      this.stopNavigation()
+    // Stop any existing navigation
+    this.stopNavigation()
 
-      // Set navigation target
-      this.navigationTarget = { x, z }
-      this.isNavigating = true
-      this.navigationToken = new ControlsToken()
+    // Set navigation target
+    this.navigationTarget = { x, z }
+    this.isNavigating = true
+    this.navigationToken = new ControlsToken()
 
-      // Get player
-      const player = this.world.entities.player
-      if (!player) {
-        logger.error(
-          '[AgentControls] No player entity available for navigation'
+    // Get player
+    const player = this.world.entities.player!
+
+    return new Promise(resolve => {
+      const checkInterval = setInterval(() => {
+        if (!this.isNavigating || this.navigationToken?.aborted) {
+          clearInterval(checkInterval)
+          resolve(false)
+          return
+        }
+
+        const currentPos = player.node.position
+        const targetPos = this.navigationTarget!
+
+        // Move towards target
+        const direction = {
+          x: targetPos.x - currentPos.x,
+          z: targetPos.z - currentPos.z,
+        }
+
+        // Calculate distance to target
+        const distance = Math.sqrt(
+          Math.pow(currentPos.x - targetPos.x, 2) +
+            Math.pow(currentPos.z - targetPos.z, 2)
         )
-        return false
-      }
 
-      return new Promise(resolve => {
-        const checkInterval = setInterval(() => {
-          if (!this.isNavigating || this.navigationToken?.aborted) {
-            clearInterval(checkInterval)
-            resolve(false)
-            return
+        // Check if we've reached the target
+        if (distance <= NAVIGATION_STOP_DISTANCE) {
+          logger.info('[AgentControls] Reached navigation target')
+          clearInterval(checkInterval)
+          this.stopNavigation()
+          resolve(true)
+          return
+        }
+
+        // Normalize direction
+        const length = Math.sqrt(
+          direction.x * direction.x + direction.z * direction.z
+        )
+        if (length > 0) {
+          direction.x /= length
+          direction.z /= length
+        }
+
+        // Use physics-based movement if available, otherwise fallback to teleport
+        const controllablePlayer = player as ControllablePlayer
+        if (controllablePlayer.walkToward) {
+          // Use physics-based walking toward target
+          const targetPosition = {
+            x: targetPos.x,
+            y: currentPos.y,
+            z: targetPos.z,
           }
+          controllablePlayer.walkToward(targetPosition, 2.0) // 2 m/s walking speed
+        } else if (controllablePlayer.walk) {
+          // Use physics-based directional walking
+          controllablePlayer.walk(direction, 2.0)
+        } else {
+          // Fallback to teleport-based movement for compatibility
+          const moveDistance = Math.min(1.0, distance)
+          const newX = currentPos.x + direction.x * moveDistance
+          const newZ = currentPos.z + direction.z * moveDistance
 
-          if (!this.navigationTarget || !player.node.position) {
-            clearInterval(checkInterval)
-            this.stopNavigation()
-            resolve(false)
-            return
-          }
+          controllablePlayer.teleport({
+            position: this._tempVec3.set(newX, currentPos.y, newZ),
+            rotationY: Math.atan2(direction.x, direction.z),
+          })
+        }
+      }, CONTROLS_TICK_INTERVAL)
+    })
+  }
 
-          const currentPos = player.node.position
-          const targetPos = this.navigationTarget
+  /**
+   * Follow a specific entity by ID
+   */
+  async followEntity(entityId: string): Promise<boolean> {
+    logger.info(`[AgentControls] Starting to follow entity: ${entityId}`)
 
-          // Move towards target
-          const direction = {
-            x: targetPos.x - currentPos.x,
-            z: targetPos.z - currentPos.z,
-          }
+    // Stop any existing navigation
+    this.stopNavigation()
 
-          // Calculate distance to target
-          const distance = Math.sqrt(
-            Math.pow(currentPos.x - targetPos.x, 2) +
-              Math.pow(currentPos.z - targetPos.z, 2)
-          )
+    // Set follow target
+    this.followTargetId = entityId
+    this.isNavigating = true
+    this.navigationToken = new ControlsToken()
 
-          // Check if we've reached the target
-          if (distance <= NAVIGATION_STOP_DISTANCE) {
-            logger.info('[AgentControls] Reached navigation target')
-            clearInterval(checkInterval)
-            this.stopNavigation()
-            resolve(true)
-            return
-          }
+    // Get player and target entity
+    const player = this.world.entities.player!
+    const targetEntity =
+      this.world.entities.items.get(entityId) ||
+      this.world.entities.players.get(entityId)!
 
-          // Normalize direction
-          const length = Math.sqrt(
-            direction.x * direction.x + direction.z * direction.z
-          )
-          if (length > 0) {
-            direction.x /= length
-            direction.z /= length
-          }
+    return new Promise(resolve => {
+      const checkInterval = setInterval(() => {
+        if (!this.isNavigating || this.navigationToken?.aborted) {
+          clearInterval(checkInterval)
+          resolve(false)
+          return
+        }
 
-          // Use physics-based movement if available, otherwise fallback to teleport
-          const controllablePlayer = player as ControllablePlayer
-          if (controllablePlayer.walkToward) {
-            // Use physics-based walking toward target
-            const targetPosition = {
-              x: targetPos.x,
-              y: currentPos.y,
-              z: targetPos.z,
+        // Re-get target entity in case it moved
+        const currentTarget =
+          this.world.entities.items.get(entityId) ||
+          this.world.entities.players.get(entityId)!
+
+        const currentPos = player.node.position
+        const targetPos =
+          (
+            currentTarget as Entity & {
+              base?: { position?: { x: number; y: number; z: number } }
             }
-            controllablePlayer.walkToward(targetPosition, 2.0) // 2 m/s walking speed
-          } else if (controllablePlayer.walk) {
-            // Use physics-based directional walking
-            controllablePlayer.walk(direction, 2.0)
-          } else if (controllablePlayer.teleport) {
-            // Fallback to teleport-based movement for compatibility
-            const moveDistance = Math.min(1.0, distance)
+          )?.position || currentTarget.position!
+
+        // Calculate distance to target
+        const distance = Math.sqrt(
+          Math.pow(currentPos.x - targetPos.x, 2) +
+            Math.pow(currentPos.z - targetPos.z, 2)
+        )
+
+        // Check if we're close enough to the target
+        if (distance <= FOLLOW_STOP_DISTANCE) {
+          logger.info('[AgentControls] Close enough to follow target')
+          clearInterval(checkInterval)
+          this.stopNavigation()
+          resolve(true)
+          return
+        }
+
+        // Move towards target
+        const direction = {
+          x: targetPos.x - currentPos.x,
+          z: targetPos.z - currentPos.z,
+        }
+
+        // Normalize direction
+        const length = Math.sqrt(
+          direction.x * direction.x + direction.z * direction.z
+        )
+        if (length > 0) {
+          direction.x /= length
+          direction.z /= length
+        }
+
+        // Use physics-based movement for following
+        const controllablePlayer = player as ControllablePlayer
+        if (controllablePlayer.walkToward) {
+          // Calculate target position that maintains follow distance
+          const followDistance = FOLLOW_STOP_DISTANCE + 0.5 // Stay just outside the follow distance
+          const targetDistance = Math.max(followDistance, distance - 1.0)
+          const followX = targetPos.x - direction.x * targetDistance
+          const followZ = targetPos.z - direction.z * targetDistance
+
+          controllablePlayer.walkToward(
+            { x: followX, y: currentPos.y, z: followZ },
+            2.5
+          )
+        } else if (controllablePlayer.walk) {
+          // Use directional physics walking
+          controllablePlayer.walk(direction, 2.5)
+        } else {
+          // Fallback to teleport-based movement
+          const moveDistance = Math.min(2.0, distance - FOLLOW_STOP_DISTANCE)
+          if (moveDistance > 0) {
             const newX = currentPos.x + direction.x * moveDistance
             const newZ = currentPos.z + direction.z * moveDistance
 
@@ -349,147 +436,9 @@ export class AgentControls extends System {
               rotationY: Math.atan2(direction.x, direction.z),
             })
           }
-        }, CONTROLS_TICK_INTERVAL)
-      })
-    } catch (error) {
-      logger.error('[AgentControls] Error during navigation:', error)
-      this.stopNavigation()
-      return false
-    }
-  }
-
-  /**
-   * Follow a specific entity by ID
-   */
-  async followEntity(entityId: string): Promise<boolean> {
-    try {
-      logger.info(`[AgentControls] Starting to follow entity: ${entityId}`)
-
-      // Stop any existing navigation
-      this.stopNavigation()
-
-      // Set follow target
-      this.followTargetId = entityId
-      this.isNavigating = true
-      this.navigationToken = new ControlsToken()
-
-      // Get player and target entity
-      const player = this.world.entities.player
-      const targetEntity =
-        this.world.entities.items?.get(entityId) ||
-        this.world.entities.players?.get(entityId)
-
-      if (!player) {
-        logger.error('[AgentControls] No player entity available for following')
-        return false
-      }
-
-      if (!targetEntity) {
-        logger.error(`[AgentControls] Target entity not found: ${entityId}`)
-        return false
-      }
-
-      return new Promise(resolve => {
-        const checkInterval = setInterval(() => {
-          if (!this.isNavigating || this.navigationToken?.aborted) {
-            clearInterval(checkInterval)
-            resolve(false)
-            return
-          }
-
-          // Re-get target entity in case it moved
-          const currentTarget =
-            this.world?.entities?.items?.get(entityId) ||
-            this.world?.entities?.players?.get(entityId)
-
-          if (!currentTarget || !player.node.position) {
-            clearInterval(checkInterval)
-            this.stopNavigation()
-            resolve(false)
-            return
-          }
-
-          const currentPos = player.node.position
-          const targetPos =
-            (
-              currentTarget as Entity & {
-                base?: { position?: { x: number; y: number; z: number } }
-              }
-            )?.position || currentTarget.position
-
-          if (!targetPos) {
-            clearInterval(checkInterval)
-            this.stopNavigation()
-            resolve(false)
-            return
-          }
-
-          // Calculate distance to target
-          const distance = Math.sqrt(
-            Math.pow(currentPos.x - targetPos.x, 2) +
-              Math.pow(currentPos.z - targetPos.z, 2)
-          )
-
-          // Check if we're close enough to the target
-          if (distance <= FOLLOW_STOP_DISTANCE) {
-            logger.info('[AgentControls] Close enough to follow target')
-            clearInterval(checkInterval)
-            this.stopNavigation()
-            resolve(true)
-            return
-          }
-
-          // Move towards target
-          const direction = {
-            x: targetPos.x - currentPos.x,
-            z: targetPos.z - currentPos.z,
-          }
-
-          // Normalize direction
-          const length = Math.sqrt(
-            direction.x * direction.x + direction.z * direction.z
-          )
-          if (length > 0) {
-            direction.x /= length
-            direction.z /= length
-          }
-
-          // Use physics-based movement for following
-          const controllablePlayer = player as ControllablePlayer
-          if (controllablePlayer.walkToward) {
-            // Calculate target position that maintains follow distance
-            const followDistance = FOLLOW_STOP_DISTANCE + 0.5 // Stay just outside the follow distance
-            const targetDistance = Math.max(followDistance, distance - 1.0)
-            const followX = targetPos.x - direction.x * targetDistance
-            const followZ = targetPos.z - direction.z * targetDistance
-
-            controllablePlayer.walkToward(
-              { x: followX, y: currentPos.y, z: followZ },
-              2.5
-            )
-          } else if (controllablePlayer.walk) {
-            // Use directional physics walking
-            controllablePlayer.walk(direction, 2.5)
-          } else if (controllablePlayer.teleport) {
-            // Fallback to teleport-based movement
-            const moveDistance = Math.min(2.0, distance - FOLLOW_STOP_DISTANCE)
-            if (moveDistance > 0) {
-              const newX = currentPos.x + direction.x * moveDistance
-              const newZ = currentPos.z + direction.z * moveDistance
-
-              controllablePlayer.teleport({
-                position: this._tempVec3.set(newX, currentPos.y, newZ),
-                rotationY: Math.atan2(direction.x, direction.z),
-              })
-            }
-          }
-        }, CONTROLS_TICK_INTERVAL)
-      })
-    } catch (error) {
-      logger.error('[AgentControls] Error during entity following:', error)
-      this.stopNavigation()
-      return false
-    }
+        }
+      }, CONTROLS_TICK_INTERVAL)
+    })
   }
 
   /**

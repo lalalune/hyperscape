@@ -37,27 +37,14 @@ export const hyperscapePlugin: Plugin = {
   },
   async init(config: Record<string, string | undefined>) {
     logger.info('*** Initializing Hyperscape Integration plugin ***')
-    try {
-      // Validate config using the schema
-      const validatedConfig = await hyperscapePluginConfigSchema.parseAsync({
-        DEFAULT_HYPERSCAPE_WS_URL: config.DEFAULT_HYPERSCAPE_WS_URL,
-      })
-      logger.info(
-        `Hyperscape plugin config validated: ${JSON.stringify(validatedConfig)}`
-      )
-      // Store validated config for service use (runtime.pluginConfigs is usually the way)
-    } catch (error) {
-      const zodError = error as z.ZodError
-      // Assume it's a ZodError if it has an errors property
-      if (zodError.errors) {
-        logger.error(
-          `Invalid Hyperscape plugin configuration: ${zodError.errors.map(e => e.message).join(', ')}`
-        )
-      } else {
-        logger.error('Unknown error during Hyperscape plugin init:', error)
-      }
-      // Allow initialization to continue even if config fails, service might get config later
-    }
+    // Validate config using the schema
+    const validatedConfig = await hyperscapePluginConfigSchema.parseAsync({
+      DEFAULT_HYPERSCAPE_WS_URL: config.DEFAULT_HYPERSCAPE_WS_URL,
+    })
+    logger.info(
+      `Hyperscape plugin config validated: ${JSON.stringify(validatedConfig)}`
+    )
+    // Store validated config for service use (runtime.pluginConfigs is usually the way)
   },
   services: [HyperscapeService],
   events: hyperscapeEvents,

@@ -66,12 +66,46 @@ async function buildLibrary() {
       '.ts': 'ts',
       '.tsx': 'tsx',
     },
+    // Mark server-specific modules as external so they can be dynamically imported
+    external: [
+      './PhysXManager.server',
+      './PhysXManager.server.js',
+      './storage.server',
+      './storage.server.js',
+    ],
     plugins: [typescriptPlugin],
   })
   
   await ctxFull.rebuild()
   await ctxFull.dispose()
   console.log('✓ framework.js built successfully')
+  
+  // Build server-specific modules separately
+  console.log('Building server-specific modules...')
+  const ctxServerPhysX = await esbuild.context({
+    entryPoints: ['src/PhysXManager.server.ts'],
+    outfile: 'build/PhysXManager.server.js',
+    platform: 'node',
+    format: 'esm',
+    bundle: false,
+    sourcemap: true,
+    target: 'esnext',
+  })
+  await ctxServerPhysX.rebuild()
+  await ctxServerPhysX.dispose()
+  
+  const ctxServerStorage = await esbuild.context({
+    entryPoints: ['src/storage.server.ts'],
+    outfile: 'build/storage.server.js',
+    platform: 'node',
+    format: 'esm',
+    bundle: false,
+    sourcemap: true,
+    target: 'esnext',
+  })
+  await ctxServerStorage.rebuild()
+  await ctxServerStorage.dispose()
+  console.log('✓ Server-specific modules built successfully')
   
   // Build client-only library (no Node.js modules)
   console.log('Building framework.client.js (client-only)...')
@@ -90,6 +124,18 @@ async function buildLibrary() {
       '.ts': 'ts',
       '.tsx': 'tsx',
     },
+    // Mark server-specific modules as external so they're not bundled
+    external: [
+      './PhysXManager.server',
+      './PhysXManager.server.js',
+      './storage.server',
+      './storage.server.js',
+      'node:*',
+      'os',
+      'fs',
+      'path',
+      'url'
+    ],
     plugins: [typescriptPlugin],
   })
   

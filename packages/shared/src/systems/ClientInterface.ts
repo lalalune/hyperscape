@@ -97,7 +97,7 @@ export class ClientInterface extends SystemBase {
   pingHistory: number[] = []
   pingHistorySize: number = 30
   maxPing: number = 0.01
-  ping: Record<string, unknown> | null = null  // Panel type not strictly typed
+  ping: { dom: HTMLElement; update?: (value: number, max: number, graph: unknown[], index: number) => void; fg?: string } | null = null  // Panel type not strictly typed
   
   // Target indicator
   targetGuide!: HTMLDivElement
@@ -112,60 +112,61 @@ export class ClientInterface extends SystemBase {
   }
   
   async init(options: WorldOptions & { ui?: HTMLElement }): Promise<void> {
-    this.uiContainer = options.ui || null
+    this.uiContainer = options.ui || null;
     
     // Load preferences from storage
-    const stored = storage?.get('prefs')
+    const stored = storage.get('prefs');
     if (stored) {
-      try {
-        const parsed = JSON.parse(stored as string) as ClientPrefsData
-        if (parsed.ui !== undefined) this.ui = parsed.ui
-        if (parsed.actions !== undefined) this.actions = parsed.actions
-        if (parsed.stats !== undefined) this.stats = parsed.stats
-        if (parsed.dpr !== undefined) this.dpr = parsed.dpr
-        if (parsed.shadows !== undefined) this.shadows = parsed.shadows
-        if (parsed.postprocessing !== undefined) this.postprocessing = parsed.postprocessing
-        if (parsed.bloom !== undefined) this.bloom = parsed.bloom
-        
-        if (parsed.chatVisible !== undefined) this.chatVisible = parsed.chatVisible
-        if (parsed.music !== undefined) this.music = parsed.music
-        if (parsed.sfx !== undefined) this.sfx = parsed.sfx
-        if (parsed.voice !== undefined) this.voice = parsed.voice
-        if (parsed.v !== undefined) this.v = parsed.v
-      } catch (err) {
-        console.error('[ClientInterface] Failed to parse stored prefs:', err)
-      }
+      const parsed = JSON.parse(stored as string) as ClientPrefsData;
+      if (parsed.ui !== undefined) this.ui = parsed.ui;
+      if (parsed.actions !== undefined) this.actions = parsed.actions;
+      if (parsed.stats !== undefined) this.stats = parsed.stats;
+      if (parsed.dpr !== undefined) this.dpr = parsed.dpr;
+      if (parsed.shadows !== undefined) this.shadows = parsed.shadows;
+      if (parsed.postprocessing !== undefined) this.postprocessing = parsed.postprocessing;
+      if (parsed.bloom !== undefined) this.bloom = parsed.bloom;
+      
+      if (parsed.chatVisible !== undefined) this.chatVisible = parsed.chatVisible;
+      if (parsed.music !== undefined) this.music = parsed.music;
+      if (parsed.sfx !== undefined) this.sfx = parsed.sfx;
+      if (parsed.voice !== undefined) this.voice = parsed.voice;
+      if (parsed.v !== undefined) this.v = parsed.v;
     }
   }
   
   start() {
     // UI control binding
-    type WorldWithControls = { controls?: { bind: (options: { priority: number }) => Record<string, unknown> } }
-    this.control = (this.world as WorldWithControls).controls?.bind({ priority: ControlPriorities.CORE_UI }) || null
+    if (!this.world.controls) return;
     
-    if (this.control) {
-      type ControlWithKeys = { keyC?: { onPress?: () => void }; keyEscape?: { onPress?: () => void } }
-      const control = this.control as ControlWithKeys;
-      if (control.keyC) control.keyC.onPress = () => this.toggleVisible();
-      if (control.keyEscape) control.keyEscape.onPress = () => this.toggleActive(false);
+    this.control = this.world.controls.bind({ priority: ControlPriorities.CORE_UI });
+    
+    // Setup key bindings - access via index to work around TypeScript narrowing
+    const keyC = this.control.keyC as { onPress: () => void } | undefined;
+    if (keyC) {
+      keyC.onPress = () => this.toggleVisible();
+    }
+    const keyEscape = this.control.keyEscape as { onPress: () => void } | undefined;
+    if (keyEscape) {
+      keyEscape.onPress = () => this.toggleActive(false);
     }
     
     // Setup target guide
-    this.targetGuide = document.createElement('div')
-    this.targetGuide.style.position = 'absolute'
-    this.targetGuide.style.width = '30px'
-    this.targetGuide.style.height = '30px'
-    this.targetGuide.style.display = 'flex'
-    this.targetGuide.style.alignItems = 'center'
-    this.targetGuide.style.justifyContent = 'center'
-    this.targetGuide.style.transform = 'translate(-50%, -50%)'
-    this.targetGuide.style.filter = 'drop-shadow(0px 0px 4px rgba(0, 0, 0, 0.25))'
-    this.targetGuide.innerHTML = TARGET_SVG
+    this.targetGuide = document.createElement('div');
+    this.targetGuide.style.position = 'absolute';
+    this.targetGuide.style.width = '30px';
+    this.targetGuide.style.height = '30px';
+    this.targetGuide.style.display = 'flex';
+    this.targetGuide.style.alignItems = 'center';
+    this.targetGuide.style.justifyContent = 'center';
+    this.targetGuide.style.transform = 'translate(-50%, -50%)';
+    this.targetGuide.style.filter = 'drop-shadow(0px 0px 4px rgba(0, 0, 0, 0.25))';
+    this.targetGuide.innerHTML = TARGET_SVG;
     
     // Listen for events
-    type WorldWithPrefs = { prefs?: { on?: (event: string, callback: (changes: Record<string, unknown>) => void) => void } }
-    ;(this.world as WorldWithPrefs).prefs?.on?.('change', this.onPrefsChange)
-    this.subscribe(EventType.READY, () => this.onReady())
+    if (this.world.prefs) {
+      this.world.prefs.on('change', this.onPrefsChange);
+    }
+    this.subscribe(EventType.READY, () => this.onReady());
   }
   
   preFixedUpdate() {
@@ -179,20 +180,19 @@ export class ClientInterface extends SystemBase {
   update(delta: number) {
     // Update UI controls
     if (this.control && this.state.visible) {
-      type ControlWithKeyB = { keyB?: { pressed?: boolean } }
-      const keyB = (this.control as ControlWithKeyB).keyB
-      if (keyB?.pressed) {
-        this.toggleActive()
+      const keyB = this.control.keyB as { pressed: boolean } | undefined;
+      if (keyB && keyB.pressed) {
+        this.toggleActive();
       }
     }
     
     // Update stats ping
     if (this.statsActive) {
-      this.lastPingAt += delta
+      this.lastPingAt += delta;
       if (this.lastPingAt > PING_RATE) {
-        const time = performance.now()
-        this.world.network?.send('ping', time)
-        this.lastPingAt = 0
+        const time = performance.now();
+        this.world.network.send('ping', time);
+        this.lastPingAt = 0;
       }
     }
   }
@@ -297,7 +297,7 @@ export class ClientInterface extends SystemBase {
     
     if (this.statsActive) {
       if (!this.statsPanel) {
-        this.statsPanel = new StatsGL({
+        const statsGL = new StatsGL({
           logsPerSecond: 20,
           samplesLog: 100,
           samplesGraph: 10,
@@ -305,11 +305,20 @@ export class ClientInterface extends SystemBase {
           horizontal: true,
           minimal: false,
           mode: 0,
-        }) as unknown as typeof this.statsPanel
+        })
+        this.statsPanel = statsGL as unknown as {
+          dom: HTMLElement;
+          setMode?: (mode: number) => void;
+          addPanel: (panel: { dom: HTMLElement }, index?: number) => { dom: HTMLElement };
+          begin: () => void;
+          end: () => void;
+          init?: (renderer: unknown, debug: boolean) => void;
+          update?: () => void;
+        }
         if (this.statsPanel && this.statsPanel.init) {
           this.statsPanel.init(this.world.graphics?.renderer, false)
         }
-        type PanelConstructor = new (name: string, fg: string, bg: string) => Record<string, unknown>
+        type PanelConstructor = new (name: string, fg: string, bg: string) => { dom: HTMLElement; update?: (value: number, max: number, graph: unknown[], index: number) => void; fg?: string }
         this.ping = new (Panel as unknown as PanelConstructor)('PING', '#f00', '#200')
         if (this.statsPanel && this.statsPanel.addPanel) {
           this.statsPanel.addPanel(this.ping, 3)
@@ -353,16 +362,16 @@ export class ClientInterface extends SystemBase {
         })
       }
       
-      type PingWithUpdate = { update: (value: number, max: number, graph: { min?: number; max?: number; avg?: number }[], index: number) => void; fg: (color: string) => void }
-      ;(this.ping as unknown as PingWithUpdate).update(rttMs, this.maxPing, graph, 3)
+      this.ping.update?.(rttMs, this.maxPing, graph, 3)
       
       let color = '#0f0'
       if (avgPing > 100) color = '#f00'
       else if (avgPing > 50) color = '#ff0'
       
-      type PingWithFg = { fg: string; dom?: { children?: HTMLElement[] } }
-      (this.ping as unknown as PingWithFg).fg = color
-      const firstChild = (this.ping as unknown as PingWithFg).dom?.children?.[0]
+      if (this.ping.fg !== undefined) {
+        this.ping.fg = color
+      }
+      const firstChild = this.ping.dom.children[0] as HTMLElement | undefined
       if (firstChild) firstChild.style.color = color
     }
   }
@@ -395,13 +404,9 @@ export class ClientInterface extends SystemBase {
       voice: this.voice,
       chatVisible: this.chatVisible,
       v: this.v,
-    }
+    };
     
-    try {
-      storage?.set('prefs', JSON.stringify(data))
-    } catch (err) {
-      console.error('[ClientInterface] Failed to persist prefs:', err)
-    }
+    storage.set('prefs', JSON.stringify(data));
   }
   
   // Preference setters

@@ -74,9 +74,21 @@ export interface AvatarInstance<T = Record<string, unknown>> extends HotReloadab
 export interface LoadedAvatar {
   uid: string;
   factory: AvatarFactory;
+  toNodes: (customHooks?: Record<string, unknown>) => Map<string, unknown>;
+  getStats: () => { fileBytes?: number; [key: string]: unknown };
 }
 
+// Loader result types for node-based assets
+export interface LoadedModel {
+  toNodes: () => Map<string, import('../nodes/Node').Node>;
+  getStats: () => { fileBytes?: number; [key: string]: unknown };
+}
 
+export interface LoadedEmote {
+  toNodes: () => Map<string, import('../nodes/Node').Node>;
+  getStats: () => { fileBytes?: number; [key: string]: unknown };
+  toClip: (options?: { rootToHips?: number; version?: string; getBoneName?: (name: string) => string }) => THREE.AnimationClip | null;
+}
 
 // Image interfaces
 export interface ImageSceneItem {
@@ -343,14 +355,7 @@ export interface UIRaycastHit {
   [key: string]: unknown;
 }
 
-export interface RaycastHit {
-  point: THREE.Vector3;
-  distance: number;
-  face?: THREE.Face;
-  object: THREE.Object3D;
-  coords?: { x: number; y: number };
-  localPoint?: THREE.Vector2;
-}
+// RaycastHit moved to index.ts to avoid duplication
 
 export interface UIData extends NodeData {
   space?: string;
@@ -561,11 +566,14 @@ export interface NametagData extends NodeData {
   health?: number;
 }
 
-// Particles interfaces
-export interface ParticleEmitter {
+// Particles interfaces (minimal emitter handle)
+export interface ParticleEmitterHandle {
   destroy?: () => void;
   setEmitting?: (emitting: boolean) => void;
 }
+
+// Type alias for backward compatibility
+export type ParticleEmitter = ParticleEmitterHandle;
 
 export interface ParticlesData extends NodeData {
   emitting?: boolean;

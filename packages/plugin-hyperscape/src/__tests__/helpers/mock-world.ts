@@ -9,7 +9,7 @@ interface MockHyperscapeServiceOverrides {
 }
 
 /**
- * Creates a mock Hyperscape world for testing (legacy function - kept for compatibility)
+ * Creates a mock Hyperscape world for testing
  */
 
 /**

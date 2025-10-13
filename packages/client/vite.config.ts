@@ -22,7 +22,15 @@ export default defineConfig({
     minify: false, // Disable minification for debugging
     sourcemap: true, // Enable source maps for better debugging
     rollupOptions: {
-      input: path.resolve(__dirname, 'src/index.html')
+      input: path.resolve(__dirname, 'src/index.html'),
+      onwarn(warning, warn) {
+        // Suppress warnings about PURE annotations in ox library
+        if (warning.code === 'SOURCEMAP_ERROR' || 
+            (warning.message && warning.message.includes('contains an annotation that Rollup cannot interpret'))) {
+          return
+        }
+        warn(warning)
+      }
     },
     // Mobile optimization
     chunkSizeWarningLimit: 2000, // Increase for large 3D assets
@@ -40,6 +48,8 @@ export default defineConfig({
     'import.meta.env.PUBLIC_PRIVY_APP_ID': JSON.stringify(process.env.PUBLIC_PRIVY_APP_ID || ''),
     'import.meta.env.PUBLIC_ENABLE_FARCASTER': JSON.stringify(process.env.PUBLIC_ENABLE_FARCASTER || 'false'),
     'import.meta.env.PUBLIC_APP_URL': JSON.stringify(process.env.PUBLIC_APP_URL || ''),
+    // API URL for backend endpoints (proxied through Vite in dev)
+    'import.meta.env.PUBLIC_API_URL': JSON.stringify(process.env.PUBLIC_API_URL || ''),
     // CDN URL for static assets (separate from game server)
     'import.meta.env.PUBLIC_CDN_URL': JSON.stringify(process.env.PUBLIC_CDN_URL || 'http://localhost:8080'),
     'import.meta.env.PUBLIC_ASSETS_URL': JSON.stringify(process.env.PUBLIC_CDN_URL || 'http://localhost:8080'),

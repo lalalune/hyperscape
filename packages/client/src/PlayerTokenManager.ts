@@ -200,7 +200,9 @@ export class PlayerTokenManager extends EventEmitter {
       };
       
       // Use sendBeacon for reliable delivery during page unload
-      navigator.sendBeacon(import.meta.env.PUBLIC_API_URL + '/player/disconnect', JSON.stringify(data));
+      const baseUrl = import.meta.env.PUBLIC_API_URL || '';
+      const endpoint = baseUrl ? `${baseUrl}/player/disconnect` : '/api/player/disconnect';
+      navigator.sendBeacon(endpoint, JSON.stringify(data));
     });
   }
 

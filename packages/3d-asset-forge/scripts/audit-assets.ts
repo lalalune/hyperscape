@@ -74,49 +74,35 @@ async function auditAssets(): Promise<AuditReport> {
     
     // Check for metadata.json
     const metadataPath = join(assetPath, 'metadata.json')
-    try {
-      const metadataContent = await fs.readFile(metadataPath, 'utf-8')
-      const metadata = JSON.parse(metadataContent) as AssetMetadata
+    const metadataContent = await fs.readFile(metadataPath, 'utf-8')
+    const metadata = JSON.parse(metadataContent) as AssetMetadata
+    
+    allMetadata.set(assetId, metadata)
+    
+    // Analyze base models
+    if (isBaseAsset(metadata)) {
+      report.baseModels.total++
       
-      allMetadata.set(assetId, metadata)
-      
-      // Analyze base models
-      if (isBaseAsset(metadata)) {
-        report.baseModels.total++
-        
-        if (metadata.meshyTaskId) {
-          report.baseModels.withMeshyTaskId++
-        } else {
-          report.baseModels.withoutMeshyTaskId.push(assetId)
-        }
-        
-        if (metadata.variants && metadata.variants.length > 0) {
-          report.baseModels.withVariants++
-        }
-      }
-      
-      // Analyze variants
-      if (isVariantAsset(metadata)) {
-        report.variants.total++
-      }
-      
-      // Check files
-      const modelFile = metadata.modelPath || `${assetId}.glb`
-      const modelPath = join(assetPath, modelFile)
-      try {
-        await fs.access(modelPath)
-      } catch {
-        report.issues.missingFiles.push(`${assetId}: Missing model file ${modelFile}`)
-      }
-      
-    } catch (error) {
-      const isNodeError = error instanceof Error && 'code' in error
-      if (isNodeError && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-        report.issues.missingMetadata.push(assetId)
+      if (metadata.meshyTaskId) {
+        report.baseModels.withMeshyTaskId++
       } else {
-        report.issues.invalidMetadata.push(`${assetId}: ${error instanceof Error ? error.message : String(error)}`)
+        report.baseModels.withoutMeshyTaskId.push(assetId)
+      }
+      
+      if (metadata.variants && metadata.variants.length > 0) {
+        report.baseModels.withVariants++
       }
     }
+    
+    // Analyze variants
+    if (isVariantAsset(metadata)) {
+      report.variants.total++
+    }
+    
+    // Check files
+    const modelFile = metadata.modelPath || `${assetId}.glb`
+    const modelPath = join(assetPath, modelFile)
+    await fs.access(modelPath)
   }
 
   // Second pass: validate relationships
@@ -230,13 +216,8 @@ async function printReport(report: AuditReport) {
 
 // Run the audit
 async function main() {
-  try {
-    const report = await auditAssets()
-    await printReport(report)
-  } catch (error) {
-    console.error(chalk.red('❌ Audit failed:'), error)
-    process.exit(1)
-  }
+  const report = await auditAssets()
+  await printReport(report)
 }
 
 main() 

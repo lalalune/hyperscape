@@ -1,6 +1,5 @@
-import { THREE } from '@hyperscape/shared'
+import { THREE, System } from '@hyperscape/shared'
 import { logger } from '@elizaos/core'
-import { System } from '../types/core-types'
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { PlaywrightManager } from '../managers/playwright-manager'
@@ -75,13 +74,13 @@ if (typeof globalThis !== 'undefined') {
 // --- End Mocks ---
 
 export class AgentLoader extends System {
+  declare world: World
   promises: Map<string, Promise<LoadResult>>
   results: Map<string, LoadResult>
   gltfLoader: GLTFLoader
   dummyScene: THREE.Object3D
   constructor(world: World) {
     super(world)
-    this.world = world
     this.promises = new Map()
     this.results = new Map()
     this.gltfLoader = new GLTFLoader()
@@ -141,30 +140,10 @@ export class AgentLoader extends System {
       throw error
     }
 
-    const promise = fetch(resolvedUrl)
-      .then(async response => {
-        if (!response.ok) {
-          throw new Error(
-            `[AgentLoader] HTTP error ${response.status} for ${resolvedUrl}`
-          )
-        }
-
-        if (type === 'model' || type === 'avatar' || type === 'emote') {
-          const result = await this.parseGLB(type, key, resolvedUrl)
-          return result
-        }
-
-        logger.warn(`[AgentLoader] Unsupported type in load(): ${type}`)
-        return null
-      })
-      .catch(error => {
-        this.promises.delete(key)
-        logger.error(
-          `[AgentLoader] Failed to load ${type} from ${resolvedUrl}`,
-          error
-        )
-        throw error
-      })
+    const promise = fetch(resolvedUrl).then(async response => {
+      const result = await this.parseGLB(type, key, resolvedUrl)
+      return result
+    })
 
     this.promises.set(key, promise)
     return promise

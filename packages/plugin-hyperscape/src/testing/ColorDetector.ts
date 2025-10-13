@@ -132,10 +132,13 @@ export class ColorDetector {
     ]
 
     mappings.forEach(([key, value]) => {
-      if (typeof value === 'string') {
-        this.colorMappings.set(key, value)
+      // Check if value has hex property, indicating it's an object
+      const hexValue = (value as { hex?: string }).hex
+      if (hexValue) {
+        this.colorMappings.set(key, hexValue)
       } else {
-        this.colorMappings.set(key, value.hex)
+        // Must be a direct string value
+        this.colorMappings.set(key, value as string)
       }
     })
   }
@@ -156,16 +159,15 @@ export class ColorDetector {
 
     if (config.hex) {
       hexColor = config.hex
-    } else if (typeof config.color === 'string') {
-      hexColor = config.color
-    } else if (typeof config.color === 'number') {
-      // Convert number to hex
-      hexColor = `#${config.color.toString(16).padStart(6, '0').toUpperCase()}`
     } else {
-      logger.warn(
-        `[ColorDetector] Invalid color config for entity ${entityType}: ${JSON.stringify(config)}` as string
-      )
-      return
+      // Check if color is a string by checking for string methods
+      const colorValue = config.color
+      if ((colorValue as string).charAt) {
+        hexColor = colorValue as string
+      } else {
+        // Must be a number - convert to hex
+        hexColor = `#${(colorValue as number).toString(16).padStart(6, '0').toUpperCase()}`
+      }
     }
 
     // Ensure hex color starts with #
@@ -185,56 +187,51 @@ export class ColorDetector {
   async detectEntitiesInImage(imageBuffer: Buffer): Promise<DetectedEntity[]> {
     logger.info('[ColorDetector] Analyzing screenshot for colored entities...')
 
-    try {
-      const canvas = createCanvas(1, 1) // Temporary canvas
-      const ctx = canvas.getContext('2d')
-      const img = await loadImage(imageBuffer)
+    const canvas = createCanvas(1, 1) // Temporary canvas
+    const ctx = canvas.getContext('2d')
+    const img = await loadImage(imageBuffer)
 
-      // Resize canvas to match image
-      canvas.width = img.width
-      canvas.height = img.height
+    // Resize canvas to match image
+    canvas.width = img.width
+    canvas.height = img.height
 
-      // Draw image to canvas
-      ctx.drawImage(img, 0, 0)
+    // Draw image to canvas
+    ctx.drawImage(img, 0, 0)
 
-      // Get image data
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    // Get image data
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
-      logger.info(
-        `[ColorDetector] Processing ${canvas.width}x${canvas.height} image`
-      )
+    logger.info(
+      `[ColorDetector] Processing ${canvas.width}x${canvas.height} image`
+    )
 
-      // Analyze for each known color
-      const detectedEntities: DetectedEntity[] = []
+    // Analyze for each known color
+    const detectedEntities: DetectedEntity[] = []
 
-      for (const [entityType, colorHex] of this.colorMappings) {
-        const clusters = this.findColorClusters(imageData, colorHex)
+    for (const [entityType, colorHex] of this.colorMappings) {
+      const clusters = this.findColorClusters(imageData, colorHex)
 
-        for (const cluster of clusters) {
-          if (cluster.size >= this.config.minClusterSize) {
-            const entity: DetectedEntity = {
-              color: colorHex,
-              positions: cluster.pixels,
-              confidence: Math.min(cluster.size / 100, 1), // Confidence based on cluster size
-              type: entityType,
-              boundingBox: this.calculateBoundingBox(cluster.pixels),
-            }
-            detectedEntities.push(entity)
-            logger.info(
-              `[ColorDetector] Found ${entityType} at ${JSON.stringify(cluster.centroid)} (${cluster.size} pixels)`
-            )
+      for (const cluster of clusters) {
+        if (cluster.size >= this.config.minClusterSize) {
+          const entity: DetectedEntity = {
+            color: colorHex,
+            positions: cluster.pixels,
+            confidence: Math.min(cluster.size / 100, 1), // Confidence based on cluster size
+            type: entityType,
+            boundingBox: this.calculateBoundingBox(cluster.pixels),
           }
+          detectedEntities.push(entity)
+          logger.info(
+            `[ColorDetector] Found ${entityType} at ${JSON.stringify(cluster.centroid)} (${cluster.size} pixels)`
+          )
         }
       }
-
-      logger.info(
-        `[ColorDetector] Detected ${detectedEntities.length} entities total`
-      )
-      return detectedEntities
-    } catch (error) {
-      logger.error('[ColorDetector] Error analyzing image:', error)
-      throw error
     }
+
+    logger.info(
+      `[ColorDetector] Detected ${detectedEntities.length} entities total`
+    )
+    return detectedEntities
   }
 
   /**

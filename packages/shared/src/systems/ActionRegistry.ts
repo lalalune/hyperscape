@@ -27,11 +27,7 @@ class BaseActionRegistry {
   getAvailable(context: ActionContext): ActionDefinition[] {
     return this.getAll().filter(action => {
       if (!action.validate) return true;
-      try {
-        return action.validate(context);
-      } catch {
-        return false;
-      }
+      return action.validate(context);
     });
   }
   

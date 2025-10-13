@@ -1,10 +1,14 @@
 import type { default as PhysX } from '@hyperscape/physx-js-webidl';
 import THREE from '../extras/three';
 import type { System } from '../systems/System';
-import type { Collider, Entity } from './index';
+import type { Collider, Entity, HotReloadable } from './index';
+import type { User } from './networking';
 
 // Re-export the PhysX namespace for direct access
 export type { default as PhysX } from '@hyperscape/physx-js-webidl';
+
+// Re-export HotReloadable for entities
+export type { HotReloadable };
 
 // Helper type for the loaded PhysX module
 export type PhysXModule = Awaited<ReturnType<typeof PhysX>>
@@ -216,11 +220,7 @@ export interface WindUniforms {
   windFrequency: { value: number };
 }
 
-// Ground checking interfaces
-export interface TerrainSystem extends System {
-  getHeightAtPosition?: (x: number, z: number) => number;
-  getGroundInfoAtPosition?: (x: number, z: number) => { height: number; normal?: THREE.Vector3 };
-}
+// TerrainSystem interface in system-interfaces.ts is the full system interface
 
 export interface PhysicsSystemWithRaycast extends System {
   raycast?: (origin: THREE.Vector3, direction: THREE.Vector3, maxDistance: number, layers?: number) => unknown;
@@ -238,8 +238,8 @@ export interface GroundCheckEntity {
   lastGroundCheck?: GroundCheckResult;
 }
 
-// Nametag system interfaces
-export interface Nametag {
+// Nametag system interfaces (runtime data)
+export interface NametagData {
   text: string;
   subtext?: string;
   subtextColor?: string;
@@ -251,12 +251,12 @@ export interface Nametag {
   lastUpdate?: number;
 }
 
-// Spatial index interfaces
-export interface SpatialCell {
+// Spatial index interfaces (ID-based variant)
+export interface SpatialCellById {
   entities: Set<string>;
 }
 
-export interface SpatialQuery {
+export interface SpatialQueryById {
   center: THREE.Vector3;
   radius: number;
   filter?: (entityId: string) => boolean;
@@ -306,37 +306,19 @@ export interface DatabaseInterface {
   };
 }
 
-export interface User {
-  id: string;
-  name?: string;
-  avatar?: string;
-  lastSeen?: Date;
-  [key: string]: unknown;
-}
+// User moved to network-types.ts to avoid duplication
 
-// Network entity interface
-export interface NetworkEntity {
-  id: string;
-  owner: string;
-  data: Record<string, unknown>;
-  lastUpdate: number;
-}
+// NetworkEntity moved to network-types.ts to avoid duplication
 
 // Terrain validation interfaces
-export interface ValidationResult {
+export interface TerrainValidationResult {
   isValid: boolean;
   errors: string[];
   warnings: string[];
   suggestions: string[];
 }
 
-export interface TerrainChunk {
-  x: number;
-  z: number;
-  heightMap?: Float32Array;
-  mesh?: THREE.Mesh;
-  lastUpdate?: number;
-}
+// TerrainChunk moved to validation-types.ts to avoid duplication
 
 // Curve manager interfaces
 export interface CurveManagerOptions {
@@ -345,14 +327,14 @@ export interface CurveManagerOptions {
   tension?: number;
 }
 
-// Camera interpolation interfaces
-export interface CameraTarget {
+// Camera interpolation interfaces (simple target for interpolation)
+export interface SimpleCameraTarget {
   position: THREE.Vector3;
   quaternion: THREE.Quaternion;
   zoom: number;
 }
 
-export interface Camera {
+export interface SimpleCamera {
   position: THREE.Vector3;
   quaternion: THREE.Quaternion;
   zoom: number;
@@ -627,21 +609,6 @@ export interface TriggerInfo {
   handle1: PhysicsHandle;
 }
 
-// Additional ground checking interfaces for GroundCheckingSystem
-export interface GroundCheckingSystemResult {
-  groundHeight: number
-  isValid: boolean
-  correction: THREE.Vector3
-}
-
-export interface GroundCheckingSystemEntity {
-  id: string
-  position: THREE.Vector3
-  needsGroundCheck: boolean
-  lastGroundCheck: number
-  groundOffset: number
-}
-
 // Utility interfaces for polymorphic THREE.js objects
 export interface Vector3Like {
   x: number;
@@ -658,8 +625,8 @@ export interface QuaternionLike {
   copy?(q: THREE.Quaternion): void;
 }
 
-// System capability interfaces
-export interface HotReloadable {
+// System capability interfaces (minimal hot reload support)
+export interface MinimalHotReloadable {
   hotReload?(): void;
 }
 
@@ -672,7 +639,8 @@ export interface CameraSystem {
   update(delta: number): void;
 }
 
-export interface XRSystem {
+// XRSystem interface in system-interfaces.ts is the full system interface
+export interface XRSessionState {
   session?: unknown;
   camera?: THREE.Camera;
 }

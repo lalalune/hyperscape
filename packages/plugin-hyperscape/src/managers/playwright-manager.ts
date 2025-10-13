@@ -41,21 +41,12 @@ export class PlaywrightManager {
    */
   async takeScreenshot(
     options?: PageScreenshotOptions
-  ): Promise<string | Buffer | null> {
-    if (!this.page) {
-      return null
-    }
-
-    try {
-      return await this.page.screenshot({
-        type: 'png',
-        fullPage: false,
-        ...options,
-      })
-    } catch (error) {
-      console.error('Error taking screenshot:', error)
-      return null
-    }
+  ): Promise<string | Buffer> {
+    return await this.page!.screenshot({
+      type: 'png',
+      fullPage: false,
+      ...options,
+    })
   }
 
   constructor(runtime: IAgentRuntime) {
@@ -84,42 +75,31 @@ export class PlaywrightManager {
     // Only initialize once
     if (!this.initPromise) {
       this.initPromise = (async () => {
-        try {
-          this.browser = await chromium.launch({
-            headless: true,
-            args: ['--disable-web-security'],
-            slowMo: 50,
-          })
+        this.browser = await chromium.launch({
+          headless: true,
+          args: ['--disable-web-security'],
+          slowMo: 50,
+        })
 
-          this.page = await this.browser.newPage()
-          const moduleDirPath = getModuleDirectory()
-          const filePath = `${moduleDirPath}/playwright/index.html`
+        this.page = await this.browser.newPage()
+        const moduleDirPath = getModuleDirectory()
+        const filePath = `${moduleDirPath}/playwright/index.html`
 
-          await this.page.goto(`file://${filePath}`, { waitUntil: 'load' })
+        await this.page.goto(`file://${filePath}`, { waitUntil: 'load' })
 
-          await this.injectScripts([
-            `${moduleDirPath}/scripts/createVRMFactory.js`,
-            `${moduleDirPath}/scripts/snapshotEquirectangular.js`,
-            `${moduleDirPath}/scripts/snapshotFacingDirection.js`,
-            `${moduleDirPath}/scripts/snapshotViewToTarget.js`,
-          ])
+        await this.injectScripts([
+          `${moduleDirPath}/scripts/createVRMFactory.js`,
+          `${moduleDirPath}/scripts/snapshotEquirectangular.js`,
+          `${moduleDirPath}/scripts/snapshotFacingDirection.js`,
+          `${moduleDirPath}/scripts/snapshotViewToTarget.js`,
+        ])
 
-          await this.page.waitForFunction(
-            () =>
-              window.scene !== undefined &&
-              window.camera !== undefined &&
-              window.renderer !== undefined
-          )
-        } catch (error) {
-          console.warn(
-            '[PlaywrightManager] Failed to initialize Playwright:',
-            error
-          )
-          console.warn(
-            '[PlaywrightManager] Screenshot functionality will be disabled'
-          )
-          // Don't throw - allow the plugin to work without Playwright
-        }
+        await this.page.waitForFunction(
+          () =>
+            window.scene !== undefined &&
+            window.camera !== undefined &&
+            window.renderer !== undefined
+        )
       })()
     }
     return this.initPromise
@@ -386,7 +366,7 @@ export class PlaywrightManager {
         STRIP_SLOTS,
         players,
       }: {
-        sceneJson: Record<string, unknown>
+        sceneJson: ReturnType<THREE.Scene['toJSON']>
         STRIP_SLOTS: readonly string[]
         players: Map<string, Player>
       }) => {

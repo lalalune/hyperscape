@@ -80,12 +80,8 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
         })
 
         this.ws.on('message', async data => {
-          try {
-            const message = JSON.parse(data.toString())
-            await this.handleMessage(message)
-          } catch (error) {
-            console.error('[HyperscapeClient] Error handling message:', error)
-          }
+          const message = JSON.parse(data.toString())
+          await this.handleMessage(message)
         })
 
         this.ws.on('close', () => {
@@ -168,15 +164,12 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
     )
 
     // Emit message event for monitoring
-    // Runtime emit if available (some runtimes support event emission)
-    const runtimeWithEmit = this.runtime as {
-      emit?: (event: string, data: any) => void
+    const runtimeWithEmit = this.runtime as unknown as {
+      emit: (event: string, data: any) => void
     }
-    if (runtimeWithEmit.emit) {
-      runtimeWithEmit.emit(EventType.NETWORK_MESSAGE_RECEIVED, {
-        content: { text },
-      })
-    }
+    runtimeWithEmit.emit(EventType.NETWORK_MESSAGE_RECEIVED, {
+      content: { text },
+    })
   }
 
   public updatePosition(position: number[]): void {

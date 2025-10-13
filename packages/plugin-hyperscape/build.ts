@@ -29,13 +29,9 @@ async function build() {
 
   // Generate TypeScript declarations
   console.log('📝 Generating TypeScript declarations...');
-  try {
-    // Use the existing tsconfig.json and emit declarations only
-    await $`tsc --project tsconfig.json --emitDeclarationOnly`;
-    console.log('✅ TypeScript declarations generated');
-  } catch (_error) {
-    console.warn('⚠️ TypeScript declaration generation had issues, but continuing...');
-  }
+  // Use the existing tsconfig.json and emit declarations only
+  await $`tsc --project tsconfig.json --emitDeclarationOnly`;
+  console.log('✅ TypeScript declarations generated');
 
   console.log('✅ Build complete!');
 }

@@ -63,39 +63,34 @@ export const EquipmentPage: React.FC = () => {
   }, [])
 
   const handleDetectGripPoint = async () => {
-    if (!selectedEquipment || !selectedEquipment.hasModel || !handleDetector.current) return
+    const equipment = selectedEquipment!
+    const detector = handleDetector.current!
 
     setIsDetectingHandle(true)
 
-    try {
-      const modelUrl = `/api/assets/${selectedEquipment.id}/model`
-      const result = await handleDetector.current.detectHandleArea(modelUrl, true) // Always use consensus mode
-      setHandleDetectionResult(result)
+    const modelUrl = `/api/assets/${equipment.id}/model`
+    const result = await detector.detectHandleArea(modelUrl, true) // Always use consensus mode
+    setHandleDetectionResult(result)
 
-      // Log the result for analysis
-      console.log('Grip detection result:', {
-        gripPoint: result.gripPoint,
-        confidence: result.confidence,
-        bounds: result.redBoxBounds,
-        vertexCount: result.vertices?.length || 0
-      })
+    // Log the result for analysis
+    console.log('Grip detection result:', {
+      gripPoint: result.gripPoint,
+      confidence: result.confidence,
+      bounds: result.redBoxBounds,
+      vertexCount: result.vertices?.length || 0
+    })
 
-      // With normalized weapons, grip should already be at origin
-      if (result.gripPoint.length() > 0.1) {
-        console.warn('Weapon may not be normalized - grip not at origin')
-      }
-
-      // Show success message
-      setTimeout(() => {
-        notify.success('Grip point detected! Weapon is normalized with grip at origin.')
-      }, 100)
-
-    } catch (error) {
-      console.error('Handle detection failed:', error)
-      notify.error(`Handle detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsDetectingHandle(false)
+    // With normalized weapons, grip should already be at origin
+    if (result.gripPoint.length() > 0.1) {
+      console.warn('Weapon may not be normalized - grip not at origin')
     }
+
+    // Show success message
+    setTimeout(() => {
+      notify.success('Grip point detected! Weapon is normalized with grip at origin.')
+    }, 100)
+
+    setIsDetectingHandle(false)
   }
 
   const handleSaveConfiguration = () => {
@@ -117,41 +112,35 @@ export const EquipmentPage: React.FC = () => {
   }
 
   const handleExportAlignedModel = async () => {
-    if (!selectedEquipment || !viewerRef.current) return
+    const equipment = selectedEquipment!
+    const viewer = viewerRef.current!
 
-    try {
-      const alignedModel = await viewerRef.current.exportAlignedEquipment()
+    const alignedModel = await viewer.exportAlignedEquipment()
 
-      // Create download link
-      const blob = new Blob([alignedModel], { type: 'model/gltf-binary' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${selectedEquipment.name}-aligned.glb`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Export failed:', error)
-    }
+    // Create download link
+    const blob = new Blob([alignedModel], { type: 'model/gltf-binary' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${equipment.name}-aligned.glb`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleExportEquippedAvatar = async () => {
-    if (!selectedAvatar || !selectedEquipment || !viewerRef.current) return
+    const avatar = selectedAvatar!
+    const viewer = viewerRef.current!
 
-    try {
-      const equippedModel = await viewerRef.current.exportEquippedModel()
+    const equippedModel = await viewer.exportEquippedModel()
 
-      // Create download link
-      const blob = new Blob([equippedModel], { type: 'model/gltf-binary' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${selectedAvatar.name}-equipped.glb`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Export failed:', error)
-    }
+    // Create download link
+    const blob = new Blob([equippedModel], { type: 'model/gltf-binary' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${avatar.name}-equipped.glb`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleReset = () => {

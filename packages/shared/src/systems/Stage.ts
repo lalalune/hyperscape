@@ -450,7 +450,7 @@ export class Stage extends SystemBase {
     fogColor?: string | null;
   }): SkyHandle {
     // Delegate to the environment system
-    const environment = this.world.getSystem('clientEnvironment') as import('./ClientEnvironment').ClientEnvironment;
+    const environment = this.world.getSystem('environment') as import('./Environment').Environment;
     if (!environment) {
       throw new Error('ClientEnvironment system not found');
     }
@@ -468,7 +468,7 @@ export class Stage extends SystemBase {
       _fogColor: skyData.fogColor ?? undefined,
     };
     
-    return environment.addSky(skyNode);
+    return environment.addSky(skyNode) as unknown as SkyHandle;
   }
 }
 

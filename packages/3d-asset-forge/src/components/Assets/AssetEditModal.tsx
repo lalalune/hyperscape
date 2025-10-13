@@ -97,26 +97,20 @@ export function AssetEditModal({
       return
     }
     
-    if (asset && isDirty) {
-      setIsSaving(true)
-      try {
-        await onSave({
-          id: asset.id,
-          name: editedData.name.trim(),
-          type: editedData.type,
-          metadata: {
-            ...asset.metadata,
-            ...editedData.metadata
-          }
-        })
-        // Don't close here - let the parent handle it after successful save
-      } catch (error) {
-        console.error('Failed to save asset:', error)
-        // Keep modal open on error so user can retry
-      } finally {
-        setIsSaving(false)
+    const currentAsset = asset!
+    
+    setIsSaving(true)
+    await onSave({
+      id: currentAsset.id,
+      name: editedData.name.trim(),
+      type: editedData.type,
+      metadata: {
+        ...currentAsset.metadata,
+        ...editedData.metadata
       }
-    }
+    })
+    // Don't close here - let the parent handle it after successful save
+    setIsSaving(false)
   }
 
   const handleDelete = () => {

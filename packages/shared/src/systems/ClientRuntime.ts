@@ -65,7 +65,7 @@ export class ClientRuntime extends System {
 
   start() {
     // Start render loop
-    if (this.world.graphics) {
+    if (this.world.graphics?.renderer) {
       (this.world.graphics.renderer as { setAnimationLoop: (fn: (time?: number) => void | null) => void })
         .setAnimationLoop((time?: number) => this.world.tick(time ?? performance.now()));
     }
@@ -223,7 +223,7 @@ export class ClientRuntime extends System {
     
     if (document.hidden) {
       // Stop rAF
-      if (this.world.graphics) {
+      if (this.world.graphics?.renderer) {
         (this.world.graphics.renderer as { setAnimationLoop: (fn: ((time?: number) => void) | null) => void })
           .setAnimationLoop(null)
       }
@@ -233,7 +233,7 @@ export class ClientRuntime extends System {
       // Stop worker
       sharedWorker.postMessage('stop')
       // Resume rAF
-      if (this.world.graphics) {
+      if (this.world.graphics?.renderer) {
         (this.world.graphics.renderer as { setAnimationLoop: (fn: (time?: number) => void) => void })
           .setAnimationLoop((time?: number) => this.world.tick(time ?? performance.now()))
       }
@@ -241,28 +241,21 @@ export class ClientRuntime extends System {
   }
 
   destroy() {
-    if (this.world.graphics) {
+    if (this.world.graphics?.renderer) {
       (this.world.graphics.renderer as { setAnimationLoop: (fn: ((time?: number) => void) | null) => void })
-        .setAnimationLoop(null)
+        .setAnimationLoop(null);
     }
     // Stop background worker and revoke URL
     if (sharedWorker) {
-      try { sharedWorker.postMessage('stop') } catch {}
-      try {
-        // Attempt to terminate/revoke if possible
-        // Note: We created the worker with a blob URL; revoke to avoid leaks
-        // There is no direct reference to the blob URL, but terminating helps
-        (sharedWorker as unknown as { terminate?: () => void }).terminate?.()
-      } catch {}
-      try {
-        if (sharedWorkerUrl) URL.revokeObjectURL(sharedWorkerUrl)
-      } catch {}
-      sharedWorker = null
-      sharedWorkerUrl = null
+      sharedWorker.postMessage('stop');
+      (sharedWorker as unknown as { terminate: () => void }).terminate();
+      if (sharedWorkerUrl) URL.revokeObjectURL(sharedWorkerUrl);
+      sharedWorker = null;
+      sharedWorkerUrl = null;
     }
     // Unsubscribe settings listener
-    this.world.settings.off('change', this.onSettingsChange)
-    document.removeEventListener('visibilitychange', this.onVisibilityChange)
-    this.localPlayer = null
+    this.world.settings.off('change', this.onSettingsChange);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    this.localPlayer = null;
   }
 }

@@ -3,7 +3,7 @@ import { World } from './World'
 import { ClientActions } from './systems/ClientActions'
 import { ClientAudio } from './systems/ClientAudio'
 import { ClientCameraSystem } from './systems/ClientCameraSystem'
-import { ClientEnvironment } from './systems/ClientEnvironment'
+import { Environment } from './systems/Environment'
 import { ClientGraphics } from './systems/ClientGraphics'
 import { ClientInput } from './systems/ClientInput'
 import { ClientLiveKit } from './systems/ClientLiveKit'
@@ -19,7 +19,7 @@ import { Stage } from './systems/Stage'
 // import { XR } from './systems/XR'
 
 import THREE from './extras/three'
-import { HeightmapPathfinding } from './systems/HeightmapPathfinding'
+// HeightmapPathfinding consolidated into PathfindingSystem
 // Test systems removed - consolidated into MovementValidationSystem
 
 // Import unified terrain system
@@ -32,7 +32,7 @@ import { registerSystems } from './systems/SystemLoader'
 // No ClientDiagnostics system - basic console logging is sufficient
 // No client input system - using InteractionSystem for click-to-move only
 // Expose spawning utilities for browser tests
-import { CircularSpawnArea } from './managers/spawning/CircularSpawnArea'
+import { CircularSpawnArea } from './utils/CircularSpawnArea'
 
 import type { StageSystem } from './types/system-interfaces'
 import { LODs } from './systems/LODs'
@@ -68,12 +68,12 @@ export function createClientWorld() {
   world.register('network', ClientNetwork);
   world.register('loader', ClientLoader);
   world.register('graphics', ClientGraphics);
-  world.register('environment', ClientEnvironment);
+  world.register('environment', Environment);
   world.register('audio', ClientAudio);
   world.register('music', MusicSystem);
   world.register('controls', ClientInput);
   world.register('actions', ClientActions);
-  world.register('client-interface', ClientInterface);
+  world.register('prefs', ClientInterface);
   // Core physics (creates environment ground plane and layer masks)
   world.register('physics', Physics);
   
@@ -84,8 +84,7 @@ export function createClientWorld() {
   // world.register('simple-ground', SimpleGroundSystem);
   world.register('terrain', TerrainSystem);
   
-  // Register heightmap-based pathfinding (only activates with terrain)
-  world.register('heightmap-pathfinding', HeightmapPathfinding);
+  // PathfindingSystem now includes both heightmap A* and line-of-sight algorithms
   
   // NO interpolation system - server is authoritative for movement
   
@@ -121,51 +120,29 @@ export function createClientWorld() {
   
   // Create a promise that resolves when RPG systems are loaded
   const systemsLoadedPromise = (async () => {
-    try {
-      console.log('[Client World] Registering RPG game systems...');
-      await registerSystems(world);
-      console.log('[Client World] RPG game systems registered successfully');
-      
-  // No client diagnostics - basic console logging is sufficient
+    console.log('[Client World] Registering RPG game systems...');
+    await registerSystems(world);
+    console.log('[Client World] RPG game systems registered successfully');
+    
+    // No client diagnostics - basic console logging is sufficient
 
-  // NO interpolation system - server is authoritative for movement
-  // Client just applies server positions directly
+    // NO interpolation system - server is authoritative for movement
+    // Client just applies server positions directly
+    
+    console.log('[Client World] Client helper systems registered');
+    // Expose selected constructors for browser-based tests (static import ensures availability)
+    const anyWin = window as unknown as { Hyperscape?: Record<string, unknown> };
+    anyWin.Hyperscape = anyWin.Hyperscape || {};
+    anyWin.Hyperscape.CircularSpawnArea = CircularSpawnArea;
+    
+    // Update world object in browser window after systems are loaded
+    if (typeof window !== 'undefined') {
+      const windowWithWorld = window as WindowWithWorld;
+      windowWithWorld.world = world;
       
-      console.log('[Client World] Client helper systems registered');
-      // Expose selected constructors for browser-based tests (static import ensures availability)
-      const anyWin = window as unknown as { Hyperscape?: Record<string, unknown> };
-      anyWin.Hyperscape = anyWin.Hyperscape || {};
-      anyWin.Hyperscape.CircularSpawnArea = CircularSpawnArea;
-      
-      // Update world object in browser window after systems are loaded
-      if (typeof window !== 'undefined') {
-        const windowWithWorld = window as WindowWithWorld;
-        windowWithWorld.world = world;
-        
-        // Also expose Three.js if available from stage system
-        const stageSystem = world.stage as StageSystem;
-        if (stageSystem && stageSystem.THREE) {
-          windowWithWorld.THREE = stageSystem.THREE;
-        }
-      }
-
-      // DISABLED: TerrainValidationSystem runs validation too early before entities sync
-      // It crashes the client when mobs haven't arrived from server yet
-      // To re-enable, delay validation until after client receives snapshot
-      // console.log('[Client World] Registering terrain validation system...');
-      // world.register('terrain-validation', TerrainValidationSystem);
-      // console.log('[Client World] Terrain validation system registered');
-    } catch (error) {
-      console.error('[Client World] Failed to register RPG game systems:', error);
-      if (error instanceof Error) {
-        console.error('[Client World] Error stack:', error.stack);
-      }
-      
-      // Still expose world object even if systems fail
-      if (typeof window !== 'undefined') {
-        const windowWithWorld = window as WindowWithWorld;
-        windowWithWorld.world = world;
-      }
+      // Also expose Three.js from stage system
+      const stageSystem = world.stage as StageSystem;
+      windowWithWorld.THREE = stageSystem.THREE;
     }
   })();
   

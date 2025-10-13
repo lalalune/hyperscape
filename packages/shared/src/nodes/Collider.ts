@@ -5,7 +5,7 @@ import type {
   PxBoxGeometry,
   PxConvexMeshGeometry,
   PxFilterData,
-  PxMaterial,
+  PxMaterial as _PxMaterial,
   PxQuat,
   PxShape,
   PxSphereGeometry,
@@ -163,24 +163,9 @@ export class Collider extends Node {
       }
       PHYSX.destroy(scale)
     }
-    let material: PxMaterial | null = null
-    const worldPhysics = this.ctx?.physics
-    const physics = worldPhysics
-    if (physics && physics.getMaterial) {
-      material = physics.getMaterial(this._staticFriction!, this._dynamicFriction!, this._restitution!)
-    }
-    if (!material) {
-      console.error('[collider] failed to create physics material')
-      // cleanup
-      if (geometry) {
-        PHYSX.destroy(geometry)
-      }
-      if (this.pmesh) {
-        this.pmesh.release()
-        this.pmesh = undefined
-      }
-      return
-    }
+    const worldPhysics = this.ctx!.physics;
+    const physics = worldPhysics;
+    const material = physics.getMaterial!(this._staticFriction!, this._dynamicFriction!, this._restitution!);
     const flags = new PHYSX.PxShapeFlags()
     if (this._trigger) {
       flags.raise(PHYSX.PxShapeFlagEnum.eTRIGGER_SHAPE)
@@ -199,38 +184,9 @@ export class Collider extends Node {
       pairFlags |= PHYSX.PxPairFlagEnum.eNOTIFY_CONTACT_POINTS as number
     }
     this.pmesh = pmesh
-    const filterData = new PHYSX.PxFilterData(layer.group, layer.mask, pairFlags, 0)
-    try {
-      let shape: PhysXShape | undefined = undefined
-      if (physics && physics.physics && physics.physics.createShape) {
-        shape = physics.physics.createShape(geometry, material, true, flags)
-      }
-      this.shape = shape
-      if (!this.shape) {
-        console.error('[collider] failed to create shape - physics.createShape returned null')
-        // cleanup
-        if (geometry) {
-          PHYSX.destroy(geometry)
-        }
-        if (this.pmesh) {
-          this.pmesh.release()
-          this.pmesh = undefined
-        }
-        return
-      }
-    } catch (err) {
-      console.error('[collider] failed to create shape')
-      console.error(err)
-      // cleanup
-      if (geometry) {
-        PHYSX.destroy(geometry)
-      }
-      if (this.pmesh) {
-        this.pmesh.release()
-        this.pmesh = undefined
-      }
-      return
-    }
+    const filterData = new PHYSX.PxFilterData(layer.group, layer.mask, pairFlags, 0);
+    const shape = physics.physics.createShape(geometry, material!, true, flags);
+    this.shape = shape;
     if (this.shape) {
       this.shape.setQueryFilterData(filterData)
       this.shape.setSimulationFilterData(filterData)
@@ -402,11 +358,12 @@ export class Collider extends Node {
     if (value === undefined) value = defaults.geometry
     if (value === null) {
       this._geometry = undefined
-    } else if (value && typeof value === 'object' && (value as { isBufferGeometry?: unknown }).isBufferGeometry) {
-      this._geometry = value as unknown as THREE.BufferGeometry
+    } else if (value && (value as THREE.BufferGeometry).isBufferGeometry) {
+      // Strong type assumption - if isBufferGeometry is truthy, it's a BufferGeometry
+      this._geometry = value as THREE.BufferGeometry
     } else {
       const geometry = getRef(value as unknown as Node)
-      if (geometry && (geometry as unknown as { isBufferGeometry?: unknown }).isBufferGeometry) {
+      if (geometry && (geometry as unknown as THREE.BufferGeometry).isBufferGeometry) {
         this._geometry = geometry as unknown as THREE.BufferGeometry
       }
     }

@@ -8,7 +8,7 @@ import type { System, SystemDependencies } from '../systems/System'
 import type { World } from '../World'
 import type { EntityData as BaseEntityData, Position3D } from './base-types'
 import type { PlayerRow } from './database'
-import type { HeadstoneData, ItemRarity, MobType } from './entities'
+import type { HeadstoneData, ItemRarity } from './entities'
 
 // Re-export types for components
 export type { World, Position3D }
@@ -265,98 +265,6 @@ export interface UIState {
   minimapData: { position: Position3D };
 }
 
-// Testing Framework types
-export interface TestStation {
-  id: string;
-  name: string;
-  position: Position3D;
-  status: 'idle' | 'running' | 'passed' | 'failed';
-  lastRunTime: number;
-  totalRuns: number;
-  successCount: number;
-  failureCount: number;
-  currentError: string | null;
-  timeoutMs: number;
-  ui: THREE.Object3D | null; // UI element for floating name
-  testZone: THREE.Object3D | null; // Visual zone indicator
-  isStarting: boolean; // Flag to prevent multiple starts
-  lastResult?: TestResult; // Last test result
-}
-
-// Specific test data types
-
-export interface WoodcuttingTestData {
-  treeId: string;
-  toolUsed: string;
-  logsReceived: number;
-  xpGained: number;
-  skillLevelBefore: number;
-  skillLevelAfter: number;
-  duration: number;
-  success: boolean;
-}
-
-export interface CombatTestData {
-  attackerId: string;
-  targetId: string;
-  damageDealt: number;
-  hitAccuracy: number;
-  combatStyle: CombatStyle;
-  attackType: AttackType;
-  roundsCompleted: number;
-  targetKilled: boolean;
-  xpGained: number;
-}
-
-export interface MovementTestData {
-  startPosition: Position3D;
-  endPosition: Position3D;
-  pathLength: number;
-  pathNodes: number;
-  obstaclesAvoided: number;
-  duration: number;
-  averageSpeed: number;
-  success: boolean;
-}
-
-export interface VisualTestData {
-  entitiesRendered: number;
-  colorAccuracy: number;
-  positionAccuracy: number;
-  interactionSuccess: boolean;
-}
-
-// Test Runner types
-export interface TestResult {
-  testName: string;
-  systemName: string;
-  passed: boolean;
-  error: string | null;
-  duration: number;
-  timestamp: number;
-  data: WoodcuttingTestData | CombatTestData | MovementTestData | VisualTestData | null;
-}
-
-export interface TestSuite {
-  name: string;
-  tests: TestResult[];
-  totalTests: number;
-  passedTests: number;
-  failedTests: number;
-  duration: number;
-  successRate: number;
-}
-
-export interface VisualTestEntity {
-  id: string;
-  type: 'player' | 'mob' | 'item' | 'resource' | 'npc';
-  mesh: THREE.Mesh;
-  cube: THREE.Mesh; // Same as mesh but with clearer name for cube reference
-  position: { x: number; y: number; z: number }
-  color: number;
-  label?: string;
-}
-
 export interface CombatData {
   attackerId: string
   targetId: string
@@ -476,7 +384,7 @@ export interface EquipmentComponent {
 export interface Mob {
   id: string
   name: string
-  type: MobType | string
+  type: string // Mob ID from mobs.json
   level: number
   position: Position3D
   health: number
@@ -781,7 +689,7 @@ export interface MeshUserData {
 export interface MobEntityData {
   id: string;
   name: string;
-  type: MobType | string;
+  type: string; // Mob ID from mobs.json
   level: number;
   health: number;
   maxHealth: number;
@@ -799,7 +707,7 @@ export type MobAIStateType = 'idle' | 'patrol' | 'chase' | 'attack' | 'flee' | '
 
 export interface MobAIStateData {
   mobId: string
-  type: MobType | string
+  type: string // Mob ID from mobs.json
   state: MobAIStateType
   targetId: string | null
   lastStateChange: number
@@ -925,7 +833,7 @@ export interface PlayerSpawnData {
 // Loot table interface
 export interface LootTable {
   id: string
-  mobType: MobType | string
+  mobType: string // Mob ID from mobs.json
   guaranteedDrops: LootEntry[]
   commonDrops: LootEntry[]
   uncommonDrops: LootEntry[]
@@ -1455,18 +1363,7 @@ export interface IPlayerSystemForPersistence {
   getOnlinePlayerIds(): string[];
 }
 
-// Pathfinding System types
-export interface RaycastHit {
-  point: THREE.Vector3;
-  face?: {
-    a: number;
-    b: number;
-    c: number;
-    normal: THREE.Vector3;
-    materialIndex: number;
-  } | null;
-  distance: number;
-}
+// RaycastHit moved to index.ts to avoid duplication
 
 export interface Waypoint {
   position: THREE.Vector3;
@@ -1522,11 +1419,11 @@ export interface PlayerPositionUpdatedEvent {
 // Mob System types (runtime instance)
 export interface MobInstance {
   id: string;
-  type: MobType;
+  type: string; // Mob ID from mobs.json
   name: string;
   description: string;
   difficultyLevel: 1 | 2 | 3;
-  mobType: string;
+  mobType: string; // Same as type, for compatibility
   level: number;
   health: number;
   maxHealth: number;
@@ -1579,7 +1476,7 @@ export interface MobInstance {
 }
 
 export interface MobSpawnConfig {
-  type: MobType;
+  type: string; // Mob ID from mobs.json
   name: string;
   level: number;
   description?: string;
@@ -1992,9 +1889,18 @@ export interface MobData {
   stats: MobStats;
   behavior: MobBehavior;
   drops: MobDropItem[];
+  lootTable?: {
+    guaranteedDrops: LootEntry[];
+    commonDrops: LootEntry[];
+    uncommonDrops: LootEntry[];
+    rareDrops: LootEntry[];
+  };
   spawnBiomes: string[];
   modelPath: string;
-  animationSet: {
+  attackSpeed?: number; // Seconds between attacks
+  moveSpeed?: number; // Units per second
+  combatRange?: number; // Distance in units
+  animationSet?: {
     idle: string;
     walk: string;
     attack: string;

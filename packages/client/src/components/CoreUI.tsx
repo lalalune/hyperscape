@@ -1,7 +1,7 @@
 import { RefreshCwIcon } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
-import { buttons, propToLabel, World, Interface, EventType } from '@hyperscape/shared'
+import { buttons, propToLabel, World, EventType } from '@hyperscape/shared'
 import type { ControlAction } from '@hyperscape/shared'
 import { cls, isTouch } from '@hyperscape/shared'
 import { AvatarPane } from './AvatarPane'
@@ -61,10 +61,8 @@ export function CoreUI({ world }: { world: World }) {
     world.on('character:list', () => setCharacterFlowActive(true))
     world.on('character:selected', () => setCharacterFlowActive(false))
     // If the packet arrived before UI mounted, consult network cache
-    try {
-      const net = (world.network as unknown) as { lastCharacterList?: unknown[] }
-      if (net?.lastCharacterList) setCharacterFlowActive(true)
-    } catch {}
+    const net = world.network as unknown as { lastCharacterList: unknown[] }
+    if (net.lastCharacterList) setCharacterFlowActive(true)
     
     return () => {
       world.off(EventType.READY, handleReady)
@@ -102,7 +100,6 @@ export function CoreUI({ world }: { world: World }) {
       {ready && <ActionsBlock world={world} />}
       {ready && <Sidebar world={world} ui={ui || { active: false, pane: null }} />}
       {ready && <Chat world={world} />}
-      {(ready || characterFlowActive) && <Interface world={world} />}
       {ready && <ActionProgressBar world={world} />}
       {avatar && <AvatarPane key={avatar?.hash} world={world} info={avatar} />}
       {!ready && !characterFlowActive && <LoadingScreen world={world} message="Loading world..." />}

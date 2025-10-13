@@ -18,50 +18,36 @@ export async function hashFileBuffer(buffer: Buffer): Promise<string> {
 }
 
 export async function convertToAudioBuffer(
-  speechResponse: any
+  speechResponse: ReadableStream<Uint8Array> | Readable | Buffer
 ): Promise<Buffer> {
   if (Buffer.isBuffer(speechResponse)) {
     return speechResponse
   }
 
-  if (speechResponse?.getReader) {
+  if ((speechResponse as ReadableStream<Uint8Array>).getReader) {
     // Handle Web ReadableStream
     const reader = (speechResponse as ReadableStream<Uint8Array>).getReader()
     const chunks: Uint8Array[] = []
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) {
-          break
-        }
-        if (value) {
-          chunks.push(value)
-        }
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
       }
-      return Buffer.concat(chunks)
-    } finally {
-      reader.releaseLock()
+      chunks.push(value)
     }
+    reader.releaseLock()
+    return Buffer.concat(chunks)
   }
 
-  if (
-    speechResponse instanceof Readable ||
-    (speechResponse &&
-      speechResponse.readable === true &&
-      'pipe' in speechResponse &&
-      'on' in speechResponse)
-  ) {
-    // Handle Node Readable Stream
-    return new Promise<Buffer>((resolve, reject) => {
-      const chunks: Buffer[] = []
-      speechResponse.on('data', (chunk: any) => chunks.push(Buffer.from(chunk)))
-      speechResponse.on('end', () => resolve(Buffer.concat(chunks)))
-      speechResponse.on('error', (err: any) => reject(err))
-    })
-  }
-
-  throw new Error('Unexpected response type from TEXT_TO_SPEECH model')
+  // Handle Node Readable Stream
+  const stream = speechResponse as Readable
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = []
+    stream.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)))
+    stream.on('end', () => resolve(Buffer.concat(chunks)))
+    stream.on('error', (err: Error) => reject(err))
+  })
 }
 
 export function getModuleDirectory(): string {
@@ -92,17 +78,9 @@ function getMimeTypeFromPath(filePath: string): string {
 
 export const resolveUrl = async (
   url: string,
-  world: any
-): Promise<string | null> => {
-  if (typeof url !== 'string') {
-    console.error(`Invalid URL type provided: ${typeof url}`)
-    return null
-  }
+  world: { assetsUrl: string }
+): Promise<string> => {
   if (url.startsWith('asset://')) {
-    if (!world.assetsUrl) {
-      console.error('Cannot resolve asset:// URL, world.assetsUrl not set.')
-      return null
-    }
     const filename = url.substring('asset://'.length)
     const baseUrl = world.assetsUrl.replace(/[/\\\\]$/, '') // Remove trailing slash (either / or \)
     return `${baseUrl}/${filename}`
@@ -111,34 +89,10 @@ export const resolveUrl = async (
     return url
   }
 
-  try {
-    const buffer = await fsPromises.readFile(url)
-    const mimeType = getMimeTypeFromPath(url)
-    return `data:${mimeType};base64,${buffer.toString('base64')}`
-  } catch (err: any) {
-    console.warn(
-      `File not found at "${url}", falling back to resolve relative to module directory.`
-    )
-  }
-
-  // Fallback: resolve relative to module directory
-  const moduleDir = getModuleDirectory()
-  const fullPath = path.resolve(moduleDir, url)
-
-  try {
-    const buffer = await fsPromises.readFile(fullPath)
-    const mimeType = getMimeTypeFromPath(fullPath)
-    return `data:${mimeType};base64,${buffer.toString('base64')}`
-  } catch (err: any) {
-    if (err.code === 'ENOENT') {
-      console.error(
-        `[AgentLoader] File not found at either "${url}" or "${fullPath}"`
-      )
-    } else {
-      console.error(`Error reading fallback file at "${fullPath}":`, err)
-    }
-    return null
-  }
+  // Try reading as local file first
+  const buffer = await fsPromises.readFile(url)
+  const mimeType = getMimeTypeFromPath(url)
+  return `data:${mimeType};base64,${buffer.toString('base64')}`
 }
 
 /**
@@ -241,25 +195,20 @@ export function randomPositionInRadius(
 /**
  * Parse Hyperscape world URL to extract world ID
  * @param url - Hyperscape world URL
- * @returns World ID or null
+ * @returns World ID
  */
-export function parseHyperscapeWorldUrl(url: string): string | null {
-  try {
-    const urlObj = new URL(url)
-    // Handle different Hyperscape URL formats
-    // e.g., https://hyperscape.io/world-name or https://custom-domain.com
-    const pathParts = urlObj.pathname.split('/').filter(Boolean)
+export function parseHyperscapeWorldUrl(url: string): string {
+  const urlObj = new URL(url)
+  // Handle different Hyperscape URL formats
+  // e.g., https://hyperscape.io/world-name or https://custom-domain.com
+  const pathParts = urlObj.pathname.split('/').filter(Boolean)
 
-    if (urlObj.hostname.includes('hyperscape.io') && pathParts.length > 0) {
-      return pathParts[0]
-    }
-
-    // For custom domains, the entire domain might be the world ID
-    return urlObj.hostname
-  } catch (error) {
-    console.error('Invalid Hyperscape world URL')
-    return null
+  if (urlObj.hostname.includes('hyperscape.io') && pathParts.length > 0) {
+    return pathParts[0]
   }
+
+  // For custom domains, the entire domain might be the world ID
+  return urlObj.hostname
 }
 
 /**

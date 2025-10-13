@@ -70,30 +70,6 @@ export const hyperscapeWalkRandomlyAction: Action = {
       }
     }
 
-    // Check for specific methods from the reverted AgentControls
-    if (
-      typeof (controls as { startRandomWalk?: () => void }).startRandomWalk !==
-        'function' ||
-      typeof (controls as { stopRandomWalk?: () => void }).stopRandomWalk !==
-        'function'
-    ) {
-      logger.error(
-        'AgentControls missing startRandomWalk or stopRandomWalk methods.'
-      )
-      if (callback) {
-        await callback({
-          text: 'Error: Wander functionality not available in controls.',
-          success: false,
-        })
-      }
-      return {
-        text: 'Error: Wander functionality not available in controls.',
-        success: false,
-        values: { success: false, error: 'wander_function_unavailable' },
-        data: { action: 'HYPERSCAPE_WALK_RANDOMLY' },
-      }
-    }
-
     const command = options?.command || 'start'
     // Use provided interval (in seconds) or default (in ms)
     const intervalMs = options?.interval

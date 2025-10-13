@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
@@ -26,7 +26,7 @@ import { selectClassName } from './utils'
 
 export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     // Get assets from the API
-    const { assets, loading } = useAssets()
+    const { assets } = useAssets()
 
     // Transform assets into the format expected by the component
     const availableAvatars = React.useMemo(() => {
@@ -85,7 +85,6 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     // Get state and actions from Zustand store
     const {
         // State
-        activeDemo,
         viewMode,
         showWireframe,
         selectedAvatar,
@@ -104,21 +103,15 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         helmetForwardOffset,
         helmetRotation,
         showHeadBounds,
-        showCollisionDebug,
         showHull,
-        showDebugArrows,
-        debugArrowDensity,
-        debugColorMode,
         isProcessing,
         isArmorFitted,
         isArmorBound,
         isHelmetFitted,
         isHelmetAttached,
         boundArmorMesh,
-        lastError,
 
         // Actions
-        setActiveDemo,
         setViewMode,
         toggleWireframe,
         setShowWireframe,
@@ -135,15 +128,9 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         setHelmetFitTightness,
         setHelmetVerticalOffset,
         setHelmetForwardOffset,
-        setHelmetRotation,
         resetHelmetSettings,
         setShowHeadBounds,
-        setShowCollisionDebug,
         setShowHull,
-        setShowDebugArrows,
-        setDebugArrowDensity,
-        setDebugColorMode,
-        toggleDebugVisualization,
         setIsProcessing,
         setIsArmorFitted,
         setIsArmorBound,
@@ -151,14 +138,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         setIsHelmetAttached,
         setBoundArmorMesh,
         resetProcessingStates,
-        setError,
-        clearError,
-        resetDebugger,
-        saveDebugConfiguration,
-        loadDebugConfiguration,
-        isReadyToFit,
-        getActiveModelName,
-        getCurrentDebugInfo
+        setError
     } = useDebuggerStore()
 
     // Refs (keep these as they're for Three.js objects)
@@ -179,7 +159,6 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     const hullMeshRef = useRef<THREE.Mesh | null>(null)
 
     // Temporary state for skinned armor mesh (keep as local state for now)
-    const [skinnedArmorMesh, setSkinnedArmorMesh] = useState<THREE.SkinnedMesh | null>(null)
     const [showExportDropdown, setShowExportDropdown] = useState(false)
     const [showDebugOptions, setShowDebugOptions] = useState(false)
 
@@ -273,7 +252,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         setIsHelmetFitted,
         setIsHelmetAttached,
         setBoundArmorMesh,
-        setSkinnedArmorMesh,
+        setSkinnedArmorMesh: () => {}, // No-op since we removed the state
         setError,
         resetProcessingStates,
         
@@ -307,7 +286,6 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         setShowWireframe(false)
         setShowHull(false)
         // Keep showHeadBounds as-is - don't reset it
-        setShowCollisionDebug(false)
         
         // Reset fitting parameters to defaults
         resetFittingParameters()
@@ -405,7 +383,6 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                 setIsArmorFitted(false)
                 setIsArmorBound(false)
                 setBoundArmorMesh(null)
-                setSkinnedArmorMesh(null)
             }
         }
         
@@ -1253,28 +1230,24 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                                 <div className="p-3 space-y-2">
                                                                     <button
                                                                         onClick={async () => {
-                                                                            if (!boundArmorMesh) return
-                                                                            try {
-                                                                                const { BoneDiagnostics } = await import('../../../services/fitting/BoneDiagnostics')
-                                                                                console.clear()
-                                                                                BoneDiagnostics.analyzeSkeletonForExport(boundArmorMesh.skeleton, 'Bound Armor Skeleton')
+                                                                            const armor = boundArmorMesh!
+                                                                            const { BoneDiagnostics } = await import('../../../services/fitting/BoneDiagnostics')
+                                                                            console.clear()
+                                                                            BoneDiagnostics.analyzeSkeletonForExport(armor.skeleton, 'Bound Armor Skeleton')
 
-                                                                                // Test with different scales
-                                                                                const testSkeletonM = BoneDiagnostics.createTestSkeleton('meters')
-                                                                                const testSkeletonCM = BoneDiagnostics.createTestSkeleton('centimeters')
+                                                                            // Test with different scales
+                                                                            const testSkeletonM = BoneDiagnostics.createTestSkeleton('meters')
+                                                                            const testSkeletonCM = BoneDiagnostics.createTestSkeleton('centimeters')
 
-                                                                                BoneDiagnostics.analyzeSkeletonForExport(testSkeletonM, 'Test Skeleton (Meters)')
-                                                                                BoneDiagnostics.analyzeSkeletonForExport(testSkeletonCM, 'Test Skeleton (CM)')
+                                                                            BoneDiagnostics.analyzeSkeletonForExport(testSkeletonM, 'Test Skeleton (Meters)')
+                                                                            BoneDiagnostics.analyzeSkeletonForExport(testSkeletonCM, 'Test Skeleton (CM)')
 
-                                                                                BoneDiagnostics.compareSkeletons(
-                                                                                    boundArmorMesh.skeleton, 'Armor',
-                                                                                    testSkeletonCM, 'Test CM'
-                                                                                )
+                                                                            BoneDiagnostics.compareSkeletons(
+                                                                                armor.skeleton, 'Armor',
+                                                                                testSkeletonCM, 'Test CM'
+                                                                            )
 
-                                                                                console.log('Diagnostics complete - check console')
-                                                                            } catch (error) {
-                                                                                console.error('Diagnostics failed:', error)
-                                                                            }
+                                                                            console.log('Diagnostics complete - check console')
                                                                         }}
                                                                         disabled={!boundArmorMesh}
                                                                         className={cn(

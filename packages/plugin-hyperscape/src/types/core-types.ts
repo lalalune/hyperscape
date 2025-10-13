@@ -83,9 +83,9 @@ export type {
 export type Entity = HyperscapeEntity & {
   base?: {
     position: Vector3
-    visible: boolean
-    children: unknown[]
-    parent: unknown | null
+    visible?: boolean
+    children?: unknown[]
+    parent?: unknown | null
   }
 }
 
@@ -221,6 +221,11 @@ export interface WorldConfig extends WorldOptions {
   loadPhysX?: () => Promise<unknown>
   name?: string
   avatar?: string
+  // Explicitly include properties from WorldOptions for TypeScript resolution
+  wsUrl?: string
+  physics?: boolean
+  assetsUrl?: string
+  networkRate?: number
 }
 
 export interface MockElement {

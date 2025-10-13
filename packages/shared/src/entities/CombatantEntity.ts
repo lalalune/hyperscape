@@ -69,6 +69,16 @@ export abstract class CombatantEntity extends Entity {
     this.initializeCombat();
   }
 
+  /**
+   * Override initializeRPGComponents to skip adding the basic combat component
+   * since initializeCombat() adds a more comprehensive one
+   */
+  protected initializeRPGComponents(): void {
+    this.addHealthComponent();
+    this.addVisualComponent();
+    // Skip addCombatComponent() - will be added by initializeCombat()
+  }
+
   protected initializeCombat(): void {
     // Override combat component with enhanced data
     this.addComponent('combat', {

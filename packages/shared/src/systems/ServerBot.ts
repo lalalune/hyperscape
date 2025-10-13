@@ -80,36 +80,26 @@ export class ServerBot extends System {
   }
 
   private async spawnBot(): Promise<void> {
-    Logger.info('[ServerBot] Spawning autonomous bot (node client)...')
-    try {
-      const port = process.env.PORT || '5555'
-      const wsUrl = `ws://127.0.0.1:${port}/ws`
-      const clientWorld = createNodeClientWorld()
-      await clientWorld.init({ wsUrl, name: '🤖 Server Bot' })
-      this.clientWorld = clientWorld
+    Logger.info('[ServerBot] Spawning autonomous bot (node client)...');
+    const port = process.env.PORT || '5555';
+    const wsUrl = `ws://127.0.0.1:${port}/ws`;
+    const clientWorld = createNodeClientWorld();
+    await clientWorld.init({ wsUrl, name: '🤖 Server Bot' });
+    this.clientWorld = clientWorld;
 
-      // Get reference to the bot's player entity after connection
-      // Note: The player entity is created after the snapshot is received
-      await new Promise(resolve => setTimeout(resolve, 500)) // Wait for entity creation
-      this.bot = this.clientWorld.entities.player as Entity | null
+    // Get reference to the bot's player entity after connection
+    // Note: The player entity is created after the snapshot is received
+    await new Promise(resolve => setTimeout(resolve, 500)); // Wait for entity creation
+    this.bot = this.clientWorld.entities.player as Entity | null;
 
-      this.stats.startTime = Date.now()
-      // Initialize behaviors
-      this.initializeBehaviors()
-      this.isActive = true
-      Logger.info('[ServerBot] Client connected, starting behavior loop')
-      // Kick off an immediate movement so observers can see displacement quickly
-      try {
-        this.sprintBehavior()
-      } catch {}
-      this.behaviorLoop()
-    } catch (error) {
-      Logger.error(
-        '[ServerBot] Failed to start node client bot:',
-        error instanceof Error ? error : new Error(String(error))
-      )
-      this.stats.errors++
-    }
+    this.stats.startTime = Date.now();
+    // Initialize behaviors
+    this.initializeBehaviors();
+    this.isActive = true;
+    Logger.info('[ServerBot] Client connected, starting behavior loop');
+    // Kick off an immediate movement so observers can see displacement quickly
+    this.sprintBehavior();
+    this.behaviorLoop();
   }
 
   private initializeBehaviors(): void {
@@ -384,47 +374,18 @@ export class ServerBot extends System {
       this.lastPosition = this.getClientPlayerPosition()
     }
   }
-
-  private respawnBot(): void {
-    // Clean up client world
-    if (this.clientWorld) {
-      try {
-        this.clientWorld.destroy()
-      } catch {
-        /* ignore */
-      }
-      this.clientWorld = null
-    }
-
-    // Reset stats
-    this.stats = {
-      distanceTraveled: 0,
-      entitiesEncountered: 0,
-      actionsPerformed: 0,
-      startTime: 0,
-      errors: 0,
-    }
-
-    // Spawn new bot client
-    void this.spawnBot()
-  }
-
   override destroy(): void {
-    Logger.info('[ServerBot] Destroying bot system...')
-    this.isActive = false
+    Logger.info('[ServerBot] Destroying bot system...');
+    this.isActive = false;
     
     // Properly clean up the client world to prevent memory leak
     if (this.clientWorld) {
-      try {
-        // ClientWorld has destroy method - call it to clean up
-        this.clientWorld.destroy()
-      } catch (error) {
-        Logger.error('[ServerBot] Error cleaning up client world:', error as Error)
-      }
-      this.clientWorld = null
+      // ClientWorld has destroy method - call it to clean up
+      this.clientWorld.destroy();
+      this.clientWorld = null;
     }
     
-    this.bot = null
-    this.hasSpawnedBot = false
+    this.bot = null;
+    this.hasSpawnedBot = false;
   }
 }

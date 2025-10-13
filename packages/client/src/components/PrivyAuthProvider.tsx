@@ -20,15 +20,9 @@ function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const updateAuth = async () => {
       if (ready && authenticated && user) {
-        try {
-          // Get Privy access token
-          const token = await getAccessToken()
-          if (token) {
-            privyAuthManager.setAuthenticatedUser(user, token)
-          }
-        } catch (error) {
-          console.error('[PrivyAuthHandler] Failed to get access token:', error)
-        }
+        // Get Privy access token
+        const token = await getAccessToken()
+        privyAuthManager.setAuthenticatedUser(user, token)
       } else if (ready && !authenticated) {
         // User is not authenticated
         privyAuthManager.clearAuth()
@@ -41,22 +35,13 @@ function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
   // Handle logout
   useEffect(() => {
     const handleLogout = async () => {
-      try {
-        await logout()
-      } catch (err) {
-        console.warn('[PrivyAuthHandler] logout threw, continuing to clear local state:', err)
-      }
-      try {
-        privyAuthManager.clearAuth()
-      } catch (err) {
-        console.warn('[PrivyAuthHandler] clearAuth threw:', err)
-      }
+      await logout()
+      privyAuthManager.clearAuth()
     }
 
     // Expose logout globally for debugging
-    if (typeof window !== 'undefined') {
-      (window as typeof window & { privyLogout?: () => void }).privyLogout = handleLogout
-    }
+    const windowWithLogout = window as typeof window & { privyLogout: () => void }
+    windowWithLogout.privyLogout = handleLogout
   }, [logout])
 
   return <>{children}</>

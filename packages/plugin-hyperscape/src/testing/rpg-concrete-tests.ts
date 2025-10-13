@@ -402,28 +402,16 @@ export class ConcreteRPGTests {
 
     for (const test of tests) {
       console.log(`\nRunning test: ${test.name}`)
-      try {
-        const result = await test.fn()
-        results.push(result)
+      const result = await test.fn()
+      results.push(result)
 
-        if (result.passed) {
-          passed++
-          console.log(`✅ ${test.name} PASSED`)
-        } else {
-          failed++
-          console.log(`❌ ${test.name} FAILED`)
-          result.failures.forEach(f => console.log(`   - ${f}`))
-        }
-      } catch (error) {
+      if (result.passed) {
+        passed++
+        console.log(`✅ ${test.name} PASSED`)
+      } else {
         failed++
-        console.error(`❌ ${test.name} ERROR:`, error.message)
-        results.push({
-          passed: false,
-          failures: [`Test error: ${error.message}`],
-          screenshots: [],
-          stateSnapshot: null,
-          timestamp: new Date(),
-        })
+        console.log(`❌ ${test.name} FAILED`)
+        result.failures.forEach(f => console.log(`   - ${f}`))
       }
     }
 

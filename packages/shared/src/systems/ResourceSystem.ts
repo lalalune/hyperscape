@@ -14,8 +14,6 @@ import {
 } from '../utils/IdentifierUtils';
 import type {
   TerrainResourceSpawnPoint,
-  TerrainTileData,
-  TerrainResource
 } from '../types/terrain';
 
 /**
@@ -116,26 +114,17 @@ export class ResourceSystem extends SystemBase {
     
   }
   private sendChat(playerId: string, text: string): void {
-    try {
-      const chat = (this.world as unknown as { chat?: { add?: (msg: unknown, broadcast?: boolean) => void } }).chat;
-      if (chat && typeof chat.add === 'function') {
-        const msg = {
-          id: uuid(),
-          from: 'System',
-          fromId: null,
-          body: text,
-          text,
-          timestamp: Date.now(),
-          createdAt: new Date().toISOString(),
-        };
-        chat.add(msg, true);
-      } else {
-        // Fallback: emit typed chat event (UI may listen to this)
-        this.emitTypedEvent(EventType.CHAT_MESSAGE, { playerId, text });
-      }
-    } catch {
-      // ignore
-    }
+    const chat = (this.world as unknown as { chat: { add: (msg: unknown, broadcast?: boolean) => void } }).chat;
+    const msg = {
+      id: uuid(),
+      from: 'System',
+      fromId: null,
+      body: text,
+      text,
+      timestamp: Date.now(),
+      createdAt: new Date().toISOString(),
+    };
+    chat.add(msg, true);
   }
 
   start(): void {
@@ -248,25 +237,6 @@ export class ResourceSystem extends SystemBase {
     return resource;
   }
   
-  /**
-   * Handle terrain tile generation - add resources from new tiles
-   */
-  private onTerrainTileGenerated(data: TerrainTileData): void {
-    const { resources } = data;
-    
-    if (resources && resources.length > 0) {
-      console.log(`[ResourceSystem] Processing ${resources.length} resources from terrain tile`);
-      for (const terrainResource of resources) {
-        const resource = this.createResourceFromTerrainResource(terrainResource);
-        if (resource) {
-          this.resources.set(createResourceID(resource.id), resource);
-          // Emit spawn event for each resource to show cubes
-          this.emitTypedEvent(EventType.RESOURCE_SPAWNED, resource);
-          console.log(`[ResourceSystem] Added resource: ${resource.id} (${resource.type}) at (${resource.position.x.toFixed(0)}, ${resource.position.z.toFixed(0)})`);
-        }
-      }
-    }
-  }
   
   /**
    * Handle terrain tile unloading - remove resources from unloaded tiles
@@ -305,77 +275,6 @@ export class ResourceSystem extends SystemBase {
     }
     
     // Resources removed from unloaded tile
-  }
-  
-  /**
-   * Create resource from terrain system resource
-   */
-  private createResourceFromTerrainResource(terrainResource: TerrainResource): Resource | undefined {
-    const { id, type, position } = terrainResource;
-    
-    let skillRequired: string;
-    let toolRequired: number | string;
-    let respawnTime: number;
-    const levelRequired: number = 1;
-    
-    switch (type) {
-      case 'tree':
-        skillRequired = 'woodcutting';
-        toolRequired = 'bronze_hatchet'; // Bronze Hatchet
-        respawnTime = 10000; // 10s respawn for MVP
-        break;
-        
-      case 'fish':
-        skillRequired = 'fishing';
-        toolRequired = 'fishing_rod'; // Fishing Rod  
-        respawnTime = 30000; // 30 second respawn
-        break;
-        
-      case 'herb':
-        skillRequired = 'herbalism';
-        toolRequired = 'none'; // No tool required for herbs
-        respawnTime = 45000; // 45 second respawn
-        break;
-        
-      case 'rock':
-      case 'ore':
-      case 'gem':
-      case 'rare_ore':
-        // Future expansion for mining
-        return undefined; // Skip for now
-        
-      default:
-        throw new Error(`Unknown terrain resource type: ${type}`);
-    }
-    
-    // Map terrain types to resource types
-    const resourceType: 'tree' | 'fishing_spot' | 'ore' | 'herb_patch' | 'mine' = 
-      (type === 'fish') ? 'fishing_spot' : 
-      (type === 'herb') ? 'herb_patch' :
-      'tree'; // Default to tree for now
-      
-    const resource: Resource = {
-      id: id || `resource_${position.x}_${position.y}_${position.z}_${Date.now()}`,
-      type: resourceType,
-      name: type === 'fish' ? 'Fishing Spot' : 
-            type === 'tree' ? 'Tree' : 
-            type === 'herb' ? 'Herb Patch' : 
-            'Rock',
-      position: {
-        x: position.x,
-        y: position.y,
-        z: position.z
-      },
-      skillRequired,
-      levelRequired,
-      toolRequired,
-      respawnTime,
-      isAvailable: true,
-      lastDepleted: 0,
-      drops: this.RESOURCE_DROPS.get(`${resourceType}_normal`) || []
-    };
-    
-    return resource;
   }
 
   private startGathering(data: { playerId: string; resourceId: string; playerPosition: { x: number; y: number; z: number } }): void {
@@ -751,19 +650,15 @@ export class ResourceSystem extends SystemBase {
     }
 
     // Ensure immediate persistence after successful gather (durability before refresh)
-    try {
-      if (isSuccessful) {
-        const db = (this.world.getSystem?.('database') as unknown) as { savePlayerInventory?: (pid: string, items: Array<{ itemId: string; quantity: number; slotIndex: number; metadata: null }>) => void; savePlayer?: (pid: string, data: { coins: number }) => void } | undefined;
-        const invSys = this.world.getSystem?.('inventory') as unknown as { getInventoryData?: (pid: string) => { items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number } } | undefined;
-        const pid = (playerId as unknown as string);
-        if (db && typeof db.savePlayerInventory === 'function' && invSys && typeof invSys.getInventoryData === 'function') {
-          const data = invSys.getInventoryData(pid);
-          const rows = data.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
-          db.savePlayerInventory(pid, rows);
-          if (typeof db.savePlayer === 'function') db.savePlayer(pid, { coins: data.coins });
-        }
-      }
-    } catch {}
+    if (isSuccessful) {
+      const db = this.world.getSystem('database') as unknown as { savePlayerInventory: (pid: string, items: Array<{ itemId: string; quantity: number; slotIndex: number; metadata: null }>) => void; savePlayer: (pid: string, data: { coins: number }) => void };
+      const invSys = this.world.getSystem('inventory') as unknown as { getInventoryData: (pid: string) => { items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number } };
+      const pid = (playerId as unknown as string);
+      const data = invSys.getInventoryData(pid);
+      const rows = data.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+      db.savePlayerInventory(pid, rows);
+      db.savePlayer(pid, { coins: data.coins });
+    }
   }
 
   /**

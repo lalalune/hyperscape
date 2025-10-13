@@ -21,7 +21,7 @@ const Skill = {
 
 // Using StatsComponent class from components
 
-import type { SkillMilestone, XPDrop } from '../types/systems';
+import type { SkillMilestone, XPDrop } from '../types/system-interfaces';
 
 export class SkillsSystem extends SystemBase {
   private static readonly MAX_LEVEL = 99;

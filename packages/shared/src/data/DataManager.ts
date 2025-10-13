@@ -13,14 +13,20 @@
  */
 
 import { BANKS, GENERAL_STORES } from './banks-stores';
-import { equipmentRequirements } from './EquipmentRequirements';
+import equipmentRequirementsData from './equipment-requirements.json';
 import { ITEMS } from './items';
 import { ALL_MOBS, getMobById, getMobsByDifficulty } from './mobs';
-import { STARTING_ITEMS } from './starting-items';
-import { TREASURE_LOCATIONS, getAllTreasureLocations, getTreasureLocationsByDifficulty } from './treasure-locations';
 import { ALL_WORLD_AREAS, STARTER_TOWNS, getMobSpawnsInArea, getNPCsInArea } from './world-areas';
+import { BIOMES, WORLD_ZONES } from './world-structure';
 
-import type { Item, MobData, TreasureLocation } from '../types/core';
+// Define constants from JSON data
+const equipmentRequirements = equipmentRequirementsData;
+const STARTING_ITEMS: Array<{ id: string }> = []; // Stub - data removed
+const TREASURE_LOCATIONS: TreasureLocation[] = []; // Stub - data removed
+const getAllTreasureLocations = () => TREASURE_LOCATIONS;
+const getTreasureLocationsByDifficulty = (_difficulty: number) => TREASURE_LOCATIONS;
+
+import type { Item, MobData, TreasureLocation, BankEntityData, StoreData, BiomeData, ZoneData } from '../types/core';
 import type { DataValidationResult } from '../types/validation-types'
 import type { MobSpawnPoint, NPCLocation, WorldArea } from './world-areas';
 import { WeaponType, EquipmentSlotName, AttackType } from '../types/core';
@@ -57,90 +63,113 @@ export class DataManager {
    * Load manifests from server via fetch (client-side)
    */
   private async loadManifestsFromServer(): Promise<void> {
-    // Vite serves files from public/ directory at root during development
-    // In production, server serves /world-assets/manifests/ route
-    const baseUrl = '/manifests';
+    // Load directly from CDN (localhost:8080 in dev, R2/S3 in prod)
+    // Try window.env (runtime from server) first, then fall back to localhost:8080
+    const cdnUrl = (typeof window !== 'undefined' && (window as { env?: Record<string, string> }).env?.PUBLIC_CDN_URL) 
+      || 'http://localhost:8080';
+    const baseUrl = `${cdnUrl}/manifests`;
     
-    try {
-      // Load items
-      const itemsRes = await fetch(`${baseUrl}/items.json`);
-      if (itemsRes.ok) {
-        const list = await itemsRes.json() as Array<Item>;
-        for (const it of list) {
-          if (!it || !it.id) continue;
-          const normalized = this.normalizeItem(it);
-          (ITEMS as Map<string, Item>).set(normalized.id, normalized);
-        }
-        console.log(`[DataManager] Loaded ${list.length} items from server manifests`);
-      }
-    } catch (e) {
-      console.warn('[DataManager] Failed to load items.json:', (e as Error).message);
+    // Load items
+    const itemsRes = await fetch(`${baseUrl}/items.json`);
+    const list = await itemsRes.json() as Array<Item>;
+    for (const it of list) {
+      const normalized = this.normalizeItem(it);
+      (ITEMS as Map<string, Item>).set(normalized.id, normalized);
     }
+    console.log(`[DataManager] Loaded ${list.length} items from server manifests`);
     
-    try {
-      // Load mobs
-      const mobsRes = await fetch(`${baseUrl}/mobs.json`);
-      if (mobsRes.ok) {
-        const list = await mobsRes.json() as Array<MobData>;
-        for (const mob of list) {
-          if (!mob || !mob.id) continue;
-          (ALL_MOBS as Record<string, MobData>)[mob.id] = mob;
-        }
-        console.log(`[DataManager] Loaded ${list.length} mobs from server manifests`);
-      }
-    } catch (e) {
-      console.warn('[DataManager] Failed to load mobs.json:', (e as Error).message);
+    // Load mobs
+    const mobsRes = await fetch(`${baseUrl}/mobs.json`);
+    const mobList = await mobsRes.json() as Array<MobData>;
+    for (const mob of mobList) {
+      (ALL_MOBS as Record<string, MobData>)[mob.id] = mob;
     }
+    console.log(`[DataManager] Loaded ${mobList.length} mobs from server manifests`);
     
-    try {
-      // Load NPCs
-      const npcsRes = await fetch(`${baseUrl}/npcs.json`);
-      if (npcsRes.ok) {
-        const list = await npcsRes.json() as Array<{
-          id: string;
-          name: string;
-          description: string;
-          type: string;
-          modelPath: string;
-          services: string[];
-        }>;
-        
-        if (!(globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS) {
-          (globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS = new Map();
-        }
-        for (const npc of list) {
-          if (!npc || !npc.id) continue;
-          (globalThis as unknown as { EXTERNAL_NPCS: Map<string, unknown> }).EXTERNAL_NPCS.set(npc.id, npc);
-        }
-        console.log(`[DataManager] Loaded ${list.length} NPCs from server manifests`);
-      }
-    } catch (e) {
-      console.warn('[DataManager] Failed to load npcs.json:', (e as Error).message);
-    }
+    // Load NPCs
+    const npcsRes = await fetch(`${baseUrl}/npcs.json`);
+    const npcList = await npcsRes.json() as Array<{
+      id: string;
+      name: string;
+      description: string;
+      type: string;
+      modelPath: string;
+      services: string[];
+    }>;
     
-    try {
-      // Load resources
-      const resourcesRes = await fetch(`${baseUrl}/resources.json`);
-      if (resourcesRes.ok) {
-        const list = await resourcesRes.json() as Array<{
-          id: string;
-          name: string;
-          type: string;
-          modelPath: string;
-        }>;
-        
-        if (!(globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }).EXTERNAL_RESOURCES) {
-          (globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }).EXTERNAL_RESOURCES = new Map();
-        }
-        for (const resource of list) {
-          if (!resource || !resource.id) continue;
-          (globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }).EXTERNAL_RESOURCES.set(resource.id, resource);
-        }
-        console.log(`[DataManager] Loaded ${list.length} resources from server manifests`);
-      }
-    } catch (e) {
-      console.warn('[DataManager] Failed to load resources.json:', (e as Error).message);
+    if (!(globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS) {
+      (globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS = new Map();
     }
+    for (const npc of npcList) {
+      (globalThis as unknown as { EXTERNAL_NPCS: Map<string, unknown> }).EXTERNAL_NPCS.set(npc.id, npc);
+    }
+    console.log(`[DataManager] Loaded ${npcList.length} NPCs from server manifests`);
+    
+    // Load resources
+    const resourcesRes = await fetch(`${baseUrl}/resources.json`);
+    const resourceList = await resourcesRes.json() as Array<{
+      id: string;
+      name: string;
+      type: string;
+      modelPath: string | null;
+      harvestSkill: string;
+      requiredLevel: number;
+      harvestTime: number;
+      respawnTime: number;
+      harvestYield: Array<{ itemId: string; quantity: number; chance: number }>;
+    }>;
+    
+    if (!(globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }).EXTERNAL_RESOURCES) {
+      (globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }).EXTERNAL_RESOURCES = new Map();
+    }
+    for (const resource of resourceList) {
+      (globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }).EXTERNAL_RESOURCES.set(resource.id, resource);
+    }
+    console.log(`[DataManager] Loaded ${resourceList.length} resources from server manifests`);
+    
+    // Load world areas
+    const worldAreasRes = await fetch(`${baseUrl}/world-areas.json`);
+    const worldAreasData = await worldAreasRes.json() as {
+      starterTowns: Record<string, WorldArea>;
+      level1Areas: Record<string, WorldArea>;
+      level2Areas: Record<string, WorldArea>;
+      level3Areas: Record<string, WorldArea>;
+    };
+    
+    // Merge all areas into ALL_WORLD_AREAS
+    Object.assign(ALL_WORLD_AREAS, worldAreasData.starterTowns, worldAreasData.level1Areas, worldAreasData.level2Areas, worldAreasData.level3Areas);
+    Object.assign(STARTER_TOWNS, worldAreasData.starterTowns);
+    console.log(`[DataManager] Loaded ${Object.keys(ALL_WORLD_AREAS).length} world areas from server manifests (${Object.keys(STARTER_TOWNS).length} starter towns)`);
+    
+    // Load biomes
+    const biomesRes = await fetch(`${baseUrl}/biomes.json`);
+    const biomeList = await biomesRes.json() as Array<BiomeData>;
+    for (const biome of biomeList) {
+      BIOMES[biome.id] = biome;
+    }
+    console.log(`[DataManager] Loaded ${biomeList.length} biomes from server manifests`);
+    
+    // Load zones
+    const zonesRes = await fetch(`${baseUrl}/zones.json`);
+    const zoneList = await zonesRes.json() as Array<ZoneData>;
+    WORLD_ZONES.push(...zoneList);
+    console.log(`[DataManager] Loaded ${zoneList.length} zones from server manifests`);
+    
+    // Load banks
+    const banksRes = await fetch(`${baseUrl}/banks.json`);
+    const bankList = await banksRes.json() as Array<BankEntityData>;
+    for (const bank of bankList) {
+      BANKS[bank.id] = bank;
+    }
+    console.log(`[DataManager] Loaded ${bankList.length} banks from server manifests`);
+    
+    // Load stores
+    const storesRes = await fetch(`${baseUrl}/stores.json`);
+    const storeList = await storesRes.json() as Array<StoreData>;
+    for (const store of storeList) {
+      GENERAL_STORES[store.id] = store;
+    }
+    console.log(`[DataManager] Loaded ${storeList.length} stores from server manifests`);
   }
 
   /**
@@ -159,18 +188,19 @@ export class DataManager {
     }
     
     // Server-side: Load manifests from filesystem
-    try {
-      // Resolve from process.cwd() (packages/hyperscape during dev-final)
-      const baseDir = process.cwd()
-      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, no-undef
-      const path = require('path')
-      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, no-undef
-      const fs = require('fs')
-      const assetsDir = path.join(baseDir, 'world', 'assets')
-      if (!fs.existsSync(assetsDir)) return
-      this.worldAssetsDir = assetsDir
-      const manifestsDir = path.join(assetsDir, 'manifests')
-      if (!fs.existsSync(manifestsDir)) return
+    // Resolve from process.cwd() (packages/hyperscape during dev-final)
+    const baseDir = process.cwd();
+    // Use computed strings to prevent bundlers from trying to resolve these Node.js modules
+    // They will only be loaded at runtime on the server, never in the browser
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, no-undef
+    const path = require('pat' + 'h');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, no-undef
+    const fs = require('f' + 's');
+    const assetsDir = path.join(baseDir, 'world', 'assets');
+    if (!fs.existsSync(assetsDir)) return;
+    this.worldAssetsDir = assetsDir;
+    const manifestsDir = path.join(assetsDir, 'manifests');
+    if (!fs.existsSync(manifestsDir)) return;
 
       // Load items
       const itemsPath = path.join(manifestsDir, 'items.json')
@@ -236,13 +266,13 @@ export class DataManager {
           id: string;
           name: string;
           type: string;
-          modelPath: string;
-          iconPath?: string;
+          resourceType: string;
+          modelPath: string | null;
           harvestSkill: string;
           requiredLevel: number;
           harvestTime: number;
           respawnTime: number;
-          yields: Array<{ itemId: string; quantity: number; chance: number }>;
+          harvestYield: Array<{ itemId: string; quantity: number; chance: number }>;
         }>
         
         console.log(`[DataManager] Loaded ${list.length} external resources from manifests`)
@@ -255,6 +285,68 @@ export class DataManager {
           if (!resource || !resource.id) continue
           (globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }).EXTERNAL_RESOURCES.set(resource.id, resource)
         }
+      }
+
+      // Load world areas
+      const worldAreasPath = path.join(manifestsDir, 'world-areas.json')
+      if (fs.existsSync(worldAreasPath)) {
+        const raw = fs.readFileSync(worldAreasPath, 'utf-8') as string
+        const worldAreasData = JSON.parse(raw) as {
+          starterTowns: Record<string, WorldArea>;
+          level1Areas: Record<string, WorldArea>;
+          level2Areas: Record<string, WorldArea>;
+          level3Areas: Record<string, WorldArea>;
+        }
+        
+        // Merge all areas into ALL_WORLD_AREAS
+        Object.assign(ALL_WORLD_AREAS, worldAreasData.starterTowns, worldAreasData.level1Areas, worldAreasData.level2Areas, worldAreasData.level3Areas);
+        Object.assign(STARTER_TOWNS, worldAreasData.starterTowns);
+        console.log(`[DataManager] Loaded ${Object.keys(ALL_WORLD_AREAS).length} world areas from manifests (${Object.keys(STARTER_TOWNS).length} starter towns)`)
+      }
+
+      // Load biomes
+      const biomesPath = path.join(manifestsDir, 'biomes.json')
+      if (fs.existsSync(biomesPath)) {
+        const raw = fs.readFileSync(biomesPath, 'utf-8') as string
+        const biomeList = JSON.parse(raw) as Array<BiomeData>
+        for (const biome of biomeList) {
+          if (!biome || !biome.id) continue
+          BIOMES[biome.id] = biome
+        }
+        console.log(`[DataManager] Loaded ${biomeList.length} biomes from manifests`)
+      }
+
+      // Load zones
+      const zonesPath = path.join(manifestsDir, 'zones.json')
+      if (fs.existsSync(zonesPath)) {
+        const raw = fs.readFileSync(zonesPath, 'utf-8') as string
+        const zoneList = JSON.parse(raw) as Array<ZoneData>
+        WORLD_ZONES.push(...zoneList);
+        console.log(`[DataManager] Loaded ${zoneList.length} zones from manifests`)
+      }
+
+      // Load banks
+      const banksPath = path.join(manifestsDir, 'banks.json')
+      if (fs.existsSync(banksPath)) {
+        const raw = fs.readFileSync(banksPath, 'utf-8') as string
+        const bankList = JSON.parse(raw) as Array<BankEntityData>
+        for (const bank of bankList) {
+          if (!bank || !bank.id) continue
+          BANKS[bank.id] = bank
+        }
+        console.log(`[DataManager] Loaded ${bankList.length} banks from manifests`)
+      }
+
+      // Load stores
+      const storesPath = path.join(manifestsDir, 'stores.json')
+      if (fs.existsSync(storesPath)) {
+        const raw = fs.readFileSync(storesPath, 'utf-8') as string
+        const storeList = JSON.parse(raw) as Array<StoreData>
+        for (const store of storeList) {
+          if (!store || !store.id) continue
+          GENERAL_STORES[store.id] = store
+        }
+        console.log(`[DataManager] Loaded ${storeList.length} stores from manifests`)
       }
 
       // Load buildings
@@ -305,13 +397,9 @@ export class DataManager {
         }
         for (const avatar of list) {
           if (!avatar || !avatar.id) continue
-          (globalThis as unknown as { EXTERNAL_AVATARS: Map<string, unknown> }).EXTERNAL_AVATARS.set(avatar.id, avatar)
+          (globalThis as unknown as { EXTERNAL_AVATARS: Map<string, unknown> }).EXTERNAL_AVATARS.set(avatar.id, avatar);
         }
       }
-    } catch (e) {
-      // Non-fatal
-      console.warn('[DataManager] Failed to load external manifests:', (e as Error).message)
-    }
   }
 
   private normalizeItem(item: Item): Item {
@@ -351,20 +439,16 @@ export class DataManager {
       return this.validationResult!;
     }
 
-    // Attempt to load externally generated assets (Forge) before validation
-    try {
-      await this.loadExternalAssetsFromWorld();
-    } catch (e) {
-      console.warn('[DataManager] External asset load skipped:', (e as Error).message)
-    }
+    // Load externally generated assets (Forge) before validation
+    await this.loadExternalAssetsFromWorld();
 
     this.validationResult = await this.validateAllData();
     this.isInitialized = true;
 
     if (this.validationResult.isValid) {
-            console.log(`[DataManager] 📊 Data Summary: ${this.validationResult.itemCount} items, ${this.validationResult.mobCount} mobs, ${this.validationResult.areaCount} areas, ${this.validationResult.treasureCount} treasure locations`);
+      console.log(`[DataManager] 📊 Data Summary: ${this.validationResult.itemCount} items, ${this.validationResult.mobCount} mobs, ${this.validationResult.areaCount} areas, ${this.validationResult.treasureCount} treasure locations`);
     } else {
-      console.error('[DataManager] ❌ Data validation failed:', this.validationResult.errors);
+      throw new Error(`[DataManager] ❌ Data validation failed: ${this.validationResult.errors.join(', ')}`);
     }
 
     return this.validationResult;
@@ -558,7 +642,7 @@ export class DataManager {
    * Get treasure location by ID
    */
   public getTreasureLocation(locationId: string): TreasureLocation | null {
-    return TREASURE_LOCATIONS[locationId] || null;
+    return TREASURE_LOCATIONS.find(loc => (loc as TreasureLocation & { id?: string }).id === locationId) || null;
   }
 
   // =============================================================================
@@ -620,7 +704,7 @@ export class DataManager {
       items: ITEMS.size,
       mobs: Object.keys(ALL_MOBS).length,
       worldAreas: Object.keys(ALL_WORLD_AREAS).length,
-      treasureLocations: Object.keys(TREASURE_LOCATIONS).length,
+      treasureLocations: TREASURE_LOCATIONS.length,
       stores: Object.keys(GENERAL_STORES).length,
       banks: Object.keys(BANKS).length,
       startingItems: STARTING_ITEMS.length,

@@ -1,7 +1,6 @@
 import { logger } from '@elizaos/core'
 import { isNumber, isString } from 'lodash-es'
-import { THREE } from '@hyperscape/shared'
-import { System } from '../types/core-types'
+import { THREE, System } from '@hyperscape/shared'
 // CSM import removed - not available in current hyperscape version
 import { PlaywrightManager } from '../managers/playwright-manager'
 import { resolveUrl } from '../utils'
@@ -43,6 +42,7 @@ interface EnvironmentConfig {
 }
 
 export class EnvironmentSystem extends System {
+  declare world: World
   model: THREE.Object3D | null = null
   skys: SkyHandle[] = []
   sky: THREE.Mesh | null = null
@@ -65,7 +65,6 @@ export class EnvironmentSystem extends System {
 
   constructor(world: World) {
     super(world)
-    this.world = world
   }
 
   start() {
@@ -94,8 +93,11 @@ export class EnvironmentSystem extends System {
   private setSkyboxToBlack() {
     if (this.world.stage) {
       this.world.stage.environment = null
-      // Set background via renderer if available
-      if (this.world.graphics?.renderer) {
+      // Set background via renderer if available (WebGL only)
+      if (
+        this.world.graphics?.renderer &&
+        'setClearColor' in this.world.graphics.renderer
+      ) {
         this.world.graphics.renderer.setClearColor(0x000000)
       }
       logger.info('[Environment] Skybox set to black.')
@@ -107,32 +109,20 @@ export class EnvironmentSystem extends System {
    * @param skyboxUrlOrIndex - URL string or index number for default skyboxes (0-5)
    */
   async loadSkybox(skyboxUrlOrIndex?: string | number) {
-    try {
-      if (skyboxUrlOrIndex === undefined || skyboxUrlOrIndex === null) {
-        // Load default skybox
-        logger.info('[Environment] Loading default black skybox')
-        this.setSkyboxToBlack()
-        return
-      }
-
-      if (typeof skyboxUrlOrIndex === 'number') {
-        // Load indexed skybox
-        const index = skyboxUrlOrIndex
-        if (index >= 0 && index <= 5) {
-          await this.loadIndexedSkybox(index)
-        } else {
-          logger.warn(
-            `[Environment] Invalid skybox index: ${index}. Must be 0-5.`
-          )
-          this.setSkyboxToBlack()
-        }
-      } else {
-        // Load from URL
-        await this.loadSkyboxFromUrl(skyboxUrlOrIndex)
-      }
-    } catch (error) {
-      logger.error('[Environment] Error loading skybox:', error)
+    if (skyboxUrlOrIndex === undefined || skyboxUrlOrIndex === null) {
+      // Load default skybox
+      logger.info('[Environment] Loading default black skybox')
       this.setSkyboxToBlack()
+      return
+    }
+
+    if (typeof skyboxUrlOrIndex === 'number') {
+      // Load indexed skybox
+      const index = skyboxUrlOrIndex
+      await this.loadIndexedSkybox(index)
+    } else {
+      // Load from URL
+      await this.loadSkyboxFromUrl(skyboxUrlOrIndex)
     }
   }
 
@@ -146,76 +136,29 @@ export class EnvironmentSystem extends System {
       { url: 'milkyway.jpg' },
     ]
 
-    const config = skyboxConfigs[index]
-    if (!config) {
-      logger.warn(`[Environment] No skybox config found for index ${index}`)
-      this.setSkyboxToBlack()
-      return
-    }
-
-    const loader = this.world.loader
-    if (!loader) {
-      logger.error('[Environment] World loader not available')
-      this.setSkyboxToBlack()
-      return
-    }
+    const config = skyboxConfigs[index]!
+    const loader = this.world.loader!
 
     // Type narrowing for the config
     const urlConfig = config as { url: string }
     const url = `${this.world.assetsUrl}/skybox/${urlConfig.url}`
 
-    try {
-      const texture = await loader.load('texture', url)
-      if (texture && (texture as { isTexture?: boolean }).isTexture) {
-        this.applyTexture(texture as THREE.Texture)
-      } else {
-        logger.warn('[Environment] Failed to load texture')
-        this.setSkyboxToBlack()
-      }
-    } catch (error) {
-      logger.error('[Environment] Error loading indexed skybox:', error)
-      this.setSkyboxToBlack()
-    }
+    const texture = await loader.load('texture', url)
+    this.applyTexture(texture as THREE.Texture)
   }
 
   private async loadSkyboxFromUrl(url: string) {
-    const loader = this.world.loader
-    if (!loader) {
-      logger.error('[Environment] World loader not available')
-      this.setSkyboxToBlack()
-      return
-    }
-
-    try {
-      const texture = await loader.load('texture', url)
-      if (texture && (texture as { isTexture?: boolean }).isTexture) {
-        this.applyTexture(texture as THREE.Texture)
-      } else {
-        logger.warn('[Environment] Failed to load texture from URL')
-        this.setSkyboxToBlack()
-      }
-    } catch (error) {
-      logger.error('[Environment] Error loading skybox from URL:', error)
-      this.setSkyboxToBlack()
-    }
+    const loader = this.world.loader!
+    const texture = await loader.load('texture', url)
+    this.applyTexture(texture as THREE.Texture)
   }
 
   private applyTexture(texture: THREE.Texture) {
-    if (!texture || !this.world.stage) {
-      logger.warn(
-        '[Environment] Cannot apply texture - texture or stage not available'
-      )
-      this.setSkyboxToBlack()
-      return
-    }
-
     texture.mapping = THREE.EquirectangularReflectionMapping
-    if (this.world.stage) {
-      this.world.stage.environment = texture
-      // Set background via renderer if available
-      if (this.world.graphics?.renderer) {
-        this.world.graphics.renderer.setClearColor(0xffffff)
-      }
+    this.world.stage.environment = texture
+    // Set background via renderer if available (WebGL only)
+    if (this.world.graphics?.renderer) {
+      this.world.graphics.renderer.setClearColor(0xffffff)
     }
     logger.info('[Environment] Skybox texture applied successfully')
   }
@@ -231,9 +174,15 @@ export class EnvironmentSystem extends System {
     const settings = this.world.settings as {
       model?: { url?: string } | string
     }
-    const url =
-      (settings?.model as { url?: string })?.url ||
-      (typeof settings?.model === 'string' ? settings.model : this.base.model)
+    // Determine URL based on model type
+    let url: string
+    const model = settings?.model
+    if ((model as { url?: string })?.url) {
+      url = (model as { url: string }).url
+    } else {
+      // If model has charAt property, it's a string, otherwise use base
+      url = (model as string).charAt ? (model as string) : this.base.model
+    }
     let glb = this.world.loader?.get('model', url)
     if (!glb) {
       glb = await this.world.loader?.load('model', url)

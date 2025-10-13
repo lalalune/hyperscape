@@ -334,8 +334,7 @@ export class CombatSystem extends SystemBase {
         return;
       }
       
-      // Show damage message to player
-      try {
+        // Show damage message to player
         const attacker = this.getEntity(attackerId, 'mob');
         const attackerName = this.getTargetName(attacker);
         this.emitTypedEvent(EventType.UI_MESSAGE, {
@@ -343,9 +342,6 @@ export class CombatSystem extends SystemBase {
           message: `The ${attackerName} hits you for ${damage} damage!`,
           type: 'damage'
         });
-      } catch (error) {
-        console.error('[CombatSystem] Error showing damage message:', error);
-      }
     } else if (targetType === 'mob') {
       // For mobs, use the mob system to handle damage
       if (!this.mobSystem) {
@@ -450,19 +446,15 @@ export class CombatSystem extends SystemBase {
     // Show combat UI indicator for the local player (whoever that is)
     const localPlayer = this.world.getPlayer();
     if (localPlayer && (String(attackerId) === localPlayer.id || String(targetId) === localPlayer.id)) {
-      try {
-        const opponent = String(attackerId) === localPlayer.id ? targetEntity : attackerEntity;
-        const opponentName = opponent?.name || 'Enemy';
-        
-        this.emitTypedEvent(EventType.UI_MESSAGE, {
-          playerId: localPlayer.id,
-          message: `⚔️ Combat started with ${opponentName}!`,
-          type: 'combat',
-          duration: 3000
-        });
-      } catch (error) {
-        console.error('[CombatSystem] Error showing combat start message:', error);
-      }
+      const opponent = String(attackerId) === localPlayer.id ? targetEntity : attackerEntity;
+      const opponentName = opponent!.name;
+      
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: localPlayer.id,
+        message: `⚔️ Combat started with ${opponentName}!`,
+        type: 'combat',
+        duration: 3000
+      });
     }
   }
 

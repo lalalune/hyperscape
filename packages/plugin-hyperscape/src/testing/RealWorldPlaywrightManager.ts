@@ -63,36 +63,22 @@ export class RealWorldPlaywrightManager {
   }
 
   async connectToWorld(connection: WorldConnection): Promise<void> {
-    if (!this.page) {
-      throw new Error('Browser not initialized. Call initialize() first.')
-    }
-
     logger.info(
       `[RealWorldPlaywrightManager] Connecting to world: ${connection.worldUrl}`
     )
 
     this.currentConnection = connection
 
-    try {
-      // Navigate to the world URL
-      await this.page.goto(connection.worldUrl, {
-        waitUntil: 'networkidle',
-        timeout: 30000,
-      })
+    // Navigate to the world URL
+    await this.page!.goto(connection.worldUrl, {
+      waitUntil: 'networkidle',
+      timeout: 30000,
+    })
 
-      // Wait for the game world to load
-      await this.waitForWorldLoad()
+    // Wait for the game world to load
+    await this.waitForWorldLoad()
 
-      logger.info(
-        '[RealWorldPlaywrightManager] Successfully connected to world'
-      )
-    } catch (error) {
-      logger.error(
-        '[RealWorldPlaywrightManager] Failed to connect to world:',
-        error
-      )
-      throw error
-    }
+    logger.info('[RealWorldPlaywrightManager] Successfully connected to world')
   }
 
   private async waitForWorldLoad(): Promise<void> {
@@ -155,10 +141,6 @@ export class RealWorldPlaywrightManager {
   }
 
   async takeScreenshot(name?: string): Promise<ScreenshotResult> {
-    if (!this.page || !this.currentConnection) {
-      throw new Error('Not connected to a world. Call connectToWorld() first.')
-    }
-
     this.screenshotCounter++
     const timestamp = Date.now()
     const screenshotName =
@@ -168,125 +150,103 @@ export class RealWorldPlaywrightManager {
       `[RealWorldPlaywrightManager] Taking screenshot: ${screenshotName}`
     )
 
-    try {
-      // Take screenshot
-      const buffer = await this.page.screenshot({
-        type: 'png',
-        fullPage: false,
+    // Take screenshot
+    const buffer = await this.page!.screenshot({
+      type: 'png',
+      fullPage: false,
+    })
+
+    // Save to file if directory specified
+    let savedPath: string | undefined
+    if (this.currentConnection!.screenshotDir) {
+      // Ensure directory exists
+      await fs.mkdir(this.currentConnection!.screenshotDir, {
+        recursive: true,
       })
 
-      // Save to file if directory specified
-      let savedPath: string | undefined
-      if (this.currentConnection.screenshotDir) {
-        // Ensure directory exists
-        await fs.mkdir(this.currentConnection.screenshotDir, {
-          recursive: true,
-        })
+      savedPath = path.join(
+        this.currentConnection!.screenshotDir,
+        `${screenshotName}.png`
+      )
+      await fs.writeFile(savedPath, buffer)
+      logger.info(
+        `[RealWorldPlaywrightManager] Screenshot saved to: ${savedPath}`
+      )
+    }
 
-        savedPath = path.join(
-          this.currentConnection.screenshotDir,
-          `${screenshotName}.png`
-        )
-        await fs.writeFile(savedPath, buffer)
-        logger.info(
-          `[RealWorldPlaywrightManager] Screenshot saved to: ${savedPath}`
-        )
-      }
+    // Analyze screenshot content
+    await this.analyzeScreenshot(buffer, screenshotName)
 
-      // Analyze screenshot content
-      await this.analyzeScreenshot(buffer, screenshotName)
-
-      return {
-        buffer,
-        path: savedPath,
-        timestamp,
-        worldInfo: {
-          url: this.currentConnection.worldUrl,
-          id: this.currentConnection.worldId,
-        },
-      }
-    } catch (error) {
-      logger.error('[RealWorldPlaywrightManager] Screenshot failed:', error)
-      throw error
+    return {
+      buffer,
+      path: savedPath,
+      timestamp,
+      worldInfo: {
+        url: this.currentConnection!.worldUrl,
+        id: this.currentConnection!.worldId,
+      },
     }
   }
 
   private async analyzeScreenshot(buffer: Buffer, name: string): Promise<void> {
-    try {
-      // Basic analysis to detect if screenshot is mostly empty
-      const Canvas = (await import('canvas')).default
-      const { createCanvas, loadImage } = Canvas
+    // Basic analysis to detect if screenshot is mostly empty
+    const Canvas = (await import('canvas')).default
+    const { createCanvas, loadImage } = Canvas
 
-      const img = await loadImage(buffer)
-      const canvas = createCanvas(img.width, img.height)
-      const ctx = canvas.getContext('2d')
+    const img = await loadImage(buffer)
+    const canvas = createCanvas(img.width, img.height)
+    const ctx = canvas.getContext('2d')
 
-      ctx.drawImage(img, 0, 0)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const pixels = imageData.data
+    ctx.drawImage(img, 0, 0)
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const pixels = imageData.data
 
-      // Count black and white pixels
-      let blackPixels = 0
-      let whitePixels = 0
-      let totalPixels = pixels.length / 4
+    // Count black and white pixels
+    let blackPixels = 0
+    let whitePixels = 0
+    let totalPixels = pixels.length / 4
 
-      for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i]
-        const g = pixels[i + 1]
-        const b = pixels[i + 2]
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i]
+      const g = pixels[i + 1]
+      const b = pixels[i + 2]
 
-        if (r < 30 && g < 30 && b < 30) {
-          blackPixels++
-        } else if (r > 225 && g > 225 && b > 225) {
-          whitePixels++
-        }
+      if (r < 30 && g < 30 && b < 30) {
+        blackPixels++
+      } else if (r > 225 && g > 225 && b > 225) {
+        whitePixels++
       }
+    }
 
-      const blackPercentage = (blackPixels / totalPixels) * 100
-      const whitePercentage = (whitePixels / totalPixels) * 100
+    const blackPercentage = (blackPixels / totalPixels) * 100
+    const whitePercentage = (whitePixels / totalPixels) * 100
 
-      logger.info(
-        `[RealWorldPlaywrightManager] Screenshot analysis for ${name}:`
+    logger.info(`[RealWorldPlaywrightManager] Screenshot analysis for ${name}:`)
+    logger.info(`  - Dimensions: ${img.width}x${img.height}`)
+    logger.info(`  - Black pixels: ${blackPercentage.toFixed(1)}%`)
+    logger.info(`  - White pixels: ${whitePercentage.toFixed(1)}%`)
+
+    if (blackPercentage > 90) {
+      logger.warn(
+        `[RealWorldPlaywrightManager] WARNING: Screenshot is ${blackPercentage.toFixed(1)}% black - may indicate loading issue`
       )
-      logger.info(`  - Dimensions: ${img.width}x${img.height}`)
-      logger.info(`  - Black pixels: ${blackPercentage.toFixed(1)}%`)
-      logger.info(`  - White pixels: ${whitePercentage.toFixed(1)}%`)
-
-      if (blackPercentage > 90) {
-        logger.warn(
-          `[RealWorldPlaywrightManager] WARNING: Screenshot is ${blackPercentage.toFixed(1)}% black - may indicate loading issue`
-        )
-      } else if (whitePercentage > 90) {
-        logger.warn(
-          `[RealWorldPlaywrightManager] WARNING: Screenshot is ${whitePercentage.toFixed(1)}% white - may indicate rendering issue`
-        )
-      } else {
-        logger.info(
-          `[RealWorldPlaywrightManager] Screenshot appears to contain meaningful visual content`
-        )
-      }
-    } catch (error) {
-      logger.error(
-        '[RealWorldPlaywrightManager] Screenshot analysis failed:',
-        error
+    } else if (whitePercentage > 90) {
+      logger.warn(
+        `[RealWorldPlaywrightManager] WARNING: Screenshot is ${whitePercentage.toFixed(1)}% white - may indicate rendering issue`
+      )
+    } else {
+      logger.info(
+        `[RealWorldPlaywrightManager] Screenshot appears to contain meaningful visual content`
       )
     }
   }
 
   async executeScript(script: string): Promise<any> {
-    if (!this.page) {
-      throw new Error('Browser not initialized')
-    }
-
-    return await this.page.evaluate(script)
+    return await this.page!.evaluate(script)
   }
 
   async getWorldInfo(): Promise<any> {
-    if (!this.page) {
-      throw new Error('Browser not initialized')
-    }
-
-    return await this.page.evaluate(() => {
+    return await this.page!.evaluate(() => {
       // Try to get Hyperscape world information
       return {
         url: window.location.href,

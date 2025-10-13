@@ -1,4 +1,3 @@
-import { getStoreItem } from '../constants/store-data';
 import type { World } from '../types';
 import { Store } from '../types/core';
 import type {
@@ -14,6 +13,7 @@ import {
   createStoreID
 } from '../utils/IdentifierUtils';
 import { SystemBase } from './SystemBase';
+import { GENERAL_STORES } from '../data/banks-stores';
 
 /**
  * Store System  
@@ -26,79 +26,6 @@ import { SystemBase } from './SystemBase';
  */
 export class StoreSystem extends SystemBase {
   private stores = new Map<StoreID, Store>();
-  private readonly STORES_DATA: Store[] = [
-    {
-      id: 'store_town_0',
-      name: 'Central General Store',
-      position: { x: 5, y: 0, z: 0 }, // Y will be grounded to terrain
-      npcName: 'Shopkeeper Alice',
-      items: [
-        getStoreItem('bronze_hatchet'),
-        getStoreItem('fishing_rod'),
-        getStoreItem('tinderbox'),
-        getStoreItem('arrows'),
-        getStoreItem('logs')
-      ],
-      buyback: true, // Central store buys back items
-      buybackRate: 0.5
-    },
-    {
-      id: 'store_town_1',
-      name: 'Eastern General Store',
-      position: { x: 105, y: 0, z: 0 }, // Y will be grounded to terrain
-      npcName: 'Shopkeeper Bob',
-      items: [
-        getStoreItem('bronze_hatchet'),
-        getStoreItem('fishing_rod'),
-        getStoreItem('tinderbox'),
-        getStoreItem('arrows')
-      ],
-      buyback: true,
-      buybackRate: 0.5
-    },
-    {
-      id: 'store_town_2',
-      name: 'Western General Store',
-      position: { x: -105, y: 0, z: 0 }, // Y will be grounded to terrain
-      npcName: 'Shopkeeper Charlie',
-      items: [
-        getStoreItem('bronze_hatchet'),
-        getStoreItem('fishing_rod'),
-        getStoreItem('tinderbox'),
-        getStoreItem('arrows')
-      ],
-      buyback: true,
-      buybackRate: 0.5
-    },
-    {
-      id: 'store_town_3',
-      name: 'Northern General Store', 
-      position: { x: 0, y: 0, z: 110 }, // Y will be grounded to terrain
-      npcName: 'Shopkeeper Diana',
-      items: [
-        getStoreItem('bronze_hatchet'),
-        getStoreItem('fishing_rod'),
-        getStoreItem('tinderbox'),
-        getStoreItem('arrows')
-      ],
-      buyback: false,
-      buybackRate: 0.0
-    },
-    {
-      id: 'store_town_4',
-      name: 'Southern General Store',
-      position: { x: 0, y: 0, z: -105 }, // Y will be grounded to terrain
-      npcName: 'Shopkeeper Eve',
-      items: [
-        getStoreItem('bronze_hatchet'),
-        getStoreItem('fishing_rod'),
-        getStoreItem('tinderbox'),
-        getStoreItem('arrows')
-      ],
-      buyback: true,
-      buybackRate: 0.5
-    }
-  ];
 
   constructor(world: World) {
     super(world, {
@@ -113,30 +40,42 @@ export class StoreSystem extends SystemBase {
 
   async init(): Promise<void> {
     
-    // Initialize all stores
-    for (const storeData of this.STORES_DATA) {
-      this.stores.set(createStoreID(storeData.id), { ...storeData });
+    // Initialize all stores from loaded JSON data
+    for (const storeData of Object.values(GENERAL_STORES)) {
+      // Convert StoreData to Store format
+      const store: Store = {
+        id: storeData.id,
+        name: storeData.name,
+        position: storeData.location.position,
+        items: storeData.items,
+        npcName: storeData.name.replace('General Store', '').trim() || 'Shopkeeper',
+        buyback: storeData.buyback,
+        buybackRate: storeData.buybackRate
+      };
+      this.stores.set(createStoreID(store.id), store);
     }
     
-    // Set up type-safe event subscriptions for store mechanics
+    console.log(`[StoreSystem] Initialized ${this.stores.size} stores from manifests`);
+    
+    // Set up type-safe event subscriptions for store mechanics with proper type casting
     this.subscribe(EventType.STORE_OPEN, (data) => {
-      this.openStore(data);
+      this.openStore(data as unknown as StoreOpenEvent);
     });
     this.subscribe(EventType.STORE_CLOSE, (data) => {
-      this.closeStore(data);
+      this.closeStore(data as unknown as StoreCloseEvent);
     });
     this.subscribe(EventType.STORE_BUY, (data) => {
-      this.buyItem(data);
+      this.buyItem(data as unknown as StoreBuyEvent);
     });
     this.subscribe(EventType.STORE_SELL, (data) => {
-      this.sellItem(data.playerId, data.itemId, data.quantity);
+      const typedData = data as { playerId: string; itemId: string; quantity: number };
+      this.sellItem(typedData.playerId, typedData.itemId, typedData.quantity);
     });
     
     // Listen for NPC registrations from world content system
     this.subscribe(EventType.STORE_REGISTER_NPC, (data) => {
-      this.registerStoreNPC(data);
+      this.registerStoreNPC(data as unknown as { npcId: string; storeId: string; position: { x: number; y: number; z: number }; name: string; area: string });
     });
-    
   }
 
 

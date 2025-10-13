@@ -184,68 +184,37 @@ export const hyperscapeEditEntityAction: Action = {
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
       HyperscapeService.serviceName
-    )
-    const world = service?.getWorld()
-    const buildManager = service?.getBuildManager()
+    )!
+    const world = service.getWorld()!
+    const buildManager = service.getBuildManager()!
 
-    if (!service || !world || !buildManager || !callback) {
-      logger.error(
-        '[EDIT_ENTITY Action] Hyperscape service, world, buildManager, or callback not found.'
-      )
-      return {
-        text: 'Error: Cannot perform scene edits. Required systems unavailable.',
-        success: false,
-        values: { success: false, error: 'service_unavailable' },
-        data: { action: 'HYPERSCAPE_EDIT_ENTITY' },
-      }
-    }
-
-    let operationResults: any = null
+    let operationResults: { operations: any[] } | undefined
     let attempts = 0
 
     while (attempts < MAX_RETRIES) {
-      try {
-        const extractionState = await runtime.composeState(message)
-        const prompt = composePromptFromState({
-          state: extractionState,
-          template: sceneEditOperationExtractionTemplate,
-        })
+      const extractionState = await runtime.composeState(message)
+      const prompt = composePromptFromState({
+        state: extractionState,
+        template: sceneEditOperationExtractionTemplate,
+      })
 
-        operationResults = await runtime.useModel(ModelType.OBJECT_LARGE, {
-          prompt,
-        })
+      const result = (await runtime.useModel(ModelType.OBJECT_LARGE, {
+        prompt,
+      })) as { operations: any[] }
 
-        if (Array.isArray(operationResults?.operations)) {
-          break
-        }
-
-        logger.warn(
-          `[EDIT_ENTITY Action] Unexpected structure on attempt ${attempts + 1}:`,
-          operationResults
-        )
-      } catch (error) {
-        logger.error(
-          `[EDIT_ENTITY Action] Model error on attempt ${attempts + 1}:`,
-          error
-        )
+      if (Array.isArray(result.operations)) {
+        operationResults = result
+        break
       }
+
+      logger.warn(
+        `[EDIT_ENTITY Action] Unexpected structure on attempt ${attempts + 1}: ${JSON.stringify(result)}`
+      )
 
       attempts++
     }
 
-    if (!Array.isArray(operationResults?.operations)) {
-      logger.error(
-        '[EDIT_ENTITY Action] Scene editing failed — could not understand instructions properly.'
-      )
-      return {
-        text: 'Sorry, I could not understand the scene editing instructions.',
-        success: false,
-        values: { success: false, error: 'instruction_parsing_failed' },
-        data: { action: 'HYPERSCAPE_EDIT_ENTITY' },
-      }
-    }
-
-    for (const op of operationResults.operations) {
+    for (const op of operationResults!.operations) {
       if (!op?.success) {
         logger.warn(
           '[EDIT_ENTITY Action] Skipping failed operation:',
@@ -308,47 +277,11 @@ export const hyperscapeEditEntityAction: Action = {
       template: sceneEditSummaryResponseTemplate(summaryText),
     })
 
-    let finalXml: string
-    try {
-      finalXml = await runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt: agentResponsePrompt,
-      })
-    } catch (err) {
-      logger.error('[EDIT_ENTITY Action] Final summarization failed:', err)
-      const errorResponse = {
-        thought: 'Scene edits completed, but final summary generation failed.',
-        text: 'Edits are done, but I had trouble summarizing the results clearly.',
-      }
-      await callback(errorResponse)
-      return {
-        text: errorResponse.text,
-        success: true,
-        values: { success: true, summaryFailed: true },
-        data: {
-          action: 'HYPERSCAPE_EDIT_ENTITY',
-          thought: errorResponse.thought,
-        },
-      }
-    }
+    const finalXml: string = await runtime.useModel(ModelType.TEXT_SMALL, {
+      prompt: agentResponsePrompt,
+    })
 
-    const response = parseKeyValueXml(finalXml)
-    if (!response) {
-      logger.error('[EDIT_ENTITY Action] Failed to parse summary XML.')
-      const parseErrorResponse = {
-        thought: 'Could not interpret response XML.',
-        text: "Edits completed, but I couldn't finish the summary properly.",
-      }
-      await callback(parseErrorResponse)
-      return {
-        text: parseErrorResponse.text,
-        success: true,
-        values: { success: true, parseError: true },
-        data: {
-          action: 'HYPERSCAPE_EDIT_ENTITY',
-          thought: parseErrorResponse.thought,
-        },
-      }
-    }
+    const response = parseKeyValueXml(finalXml)!
 
     const finalResponse = {
       ...response,

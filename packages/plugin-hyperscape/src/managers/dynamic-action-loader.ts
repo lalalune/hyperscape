@@ -29,46 +29,39 @@ export class DynamicActionLoader {
    * Discovers available actions from a Hyperscape world
    */
   async discoverActions(world: World): Promise<HyperscapeActionDescriptor[]> {
-    try {
-      logger.info('[DynamicActionLoader] Discovering actions from world...')
+    logger.info('[DynamicActionLoader] Discovering actions from world...')
 
-      // Check if world exposes actions through a specific protocol
-      const worldActions = world.actions as {
-        getAvailableActions?: () => Promise<HyperscapeActionDescriptor[]>
-      }
-      if (worldActions?.getAvailableActions) {
-        const actions = await worldActions.getAvailableActions()
-        logger.info(
-          `[DynamicActionLoader] Found ${actions.length} actions from world`
-        )
-        return actions
-      }
-
-      // Fallback: Query world entities for action providers
-      const actionProviders = []
-      if (world.entities.items) {
-        world.entities.items.forEach((entity: Entity) => {
-          if (entity.components) {
-            const actionComponent = Array.from(entity.components.values()).find(
-              (c: Component) => c.type === 'action-provider'
-            ) as Component & {
-              data?: { actions?: HyperscapeActionDescriptor[] }
-            }
-            if (actionComponent?.data?.actions) {
-              actionProviders.push(...actionComponent.data.actions)
-            }
-          }
-        })
-      }
-
-      logger.info(
-        `[DynamicActionLoader] Found ${actionProviders.length} actions from entity scan`
-      )
-      return actionProviders
-    } catch (error) {
-      logger.error('[DynamicActionLoader] Error discovering actions:', error)
-      return []
+    // Check if world exposes actions through a specific protocol
+    const worldActions = world.actions as {
+      getAvailableActions?: () => Promise<HyperscapeActionDescriptor[]>
     }
+    if (worldActions?.getAvailableActions) {
+      const actions = await worldActions.getAvailableActions()
+      logger.info(
+        `[DynamicActionLoader] Found ${actions.length} actions from world`
+      )
+      return actions
+    }
+
+    // Fallback: Query world entities for action providers
+    const actionProviders: HyperscapeActionDescriptor[] = []
+    world.entities.items.forEach((entity: Entity) => {
+      if (entity.components) {
+        const actionComponent = Array.from(entity.components.values()).find(
+          (c: Component) => c.type === 'action-provider'
+        ) as Component & {
+          data?: { actions?: HyperscapeActionDescriptor[] }
+        }
+        if (actionComponent?.data?.actions) {
+          actionProviders.push(...actionComponent.data.actions)
+        }
+      }
+    })
+
+    logger.info(
+      `[DynamicActionLoader] Found ${actionProviders.length} actions from entity scan`
+    )
+    return actionProviders
   }
 
   /**
@@ -103,24 +96,10 @@ export class DynamicActionLoader {
     this.worldActions.set(descriptor.name, descriptor)
 
     // Register with runtime
-    if (runtime.registerAction) {
-      await runtime.registerAction(action)
-      logger.info(
-        `[DynamicActionLoader] Successfully registered action: ${descriptor.name}`
-      )
-    } else {
-      // Fallback: Add to runtime actions array if available
-      if (runtime.actions && Array.isArray(runtime.actions)) {
-        runtime.actions.push(action)
-        logger.info(
-          `[DynamicActionLoader] Added action to runtime: ${descriptor.name}`
-        )
-      } else {
-        logger.warn(
-          `[DynamicActionLoader] Unable to register action - no registration method available`
-        )
-      }
-    }
+    await runtime.registerAction(action)
+    logger.info(
+      `[DynamicActionLoader] Successfully registered action: ${descriptor.name}`
+    )
   }
 
   /**
@@ -159,21 +138,8 @@ export class DynamicActionLoader {
 
       const service = runtime.getService<HyperscapeService>(
         HyperscapeService.serviceName
-      )
-      const world = service?.getWorld()
-
-      if (!world) {
-        if (callback) {
-          await callback({
-            text: `Cannot execute ${descriptor.name}: World not connected`,
-            error: true,
-          })
-        }
-        return {
-          success: false,
-          error: 'World not connected',
-        }
-      }
+      )!
+      const world = service.getWorld()!
 
       // Extract parameters from message or state
       const params = await this.extractParameters(
@@ -183,65 +149,42 @@ export class DynamicActionLoader {
         runtime
       )
 
-      try {
-        // Execute the action through world interface
-        let result
-        const worldActions = world.actions as {
-          execute?: (name: string, params: Record<string, any>) => Promise<any>
-        }
-        if (worldActions?.execute) {
-          result = await worldActions.execute(descriptor.name, params)
-        } else {
-          // Fallback: Send as network command
-          if (world.network.send) {
-            world.network.send('executeAction', {
-              action: descriptor.name,
-              parameters: params,
-            })
-            result = { success: true, pending: true }
-          } else {
-            throw new Error('No execution method available')
-          }
-        }
+      // Execute the action through world interface
+      let result
+      const worldActions = world.actions as {
+        execute?: (name: string, params: Record<string, any>) => Promise<any>
+      }
+      if (worldActions?.execute) {
+        result = await worldActions.execute(descriptor.name, params)
+      } else {
+        // Fallback: Send as network command
+        world.network.send('executeAction', {
+          action: descriptor.name,
+          parameters: params,
+        })
+        result = { success: true, pending: true }
+      }
 
-        // Generate response based on result
-        const responseText = await this.generateResponse(
-          descriptor,
-          params,
-          result,
-          runtime,
-          state
-        )
+      // Generate response based on result
+      const responseText = await this.generateResponse(
+        descriptor,
+        params,
+        result,
+        runtime,
+        state
+      )
 
-        if (callback) {
-          await callback({
-            text: responseText,
-            metadata: { action: descriptor.name, result },
-          })
-        }
-
-        return {
+      if (callback) {
+        await callback({
           text: responseText,
-          success: true,
-          data: { action: descriptor.name, parameters: params, result },
-        }
-      } catch (error) {
-        logger.error(
-          `[DynamicAction] Error executing ${descriptor.name}:`,
-          error
-        )
+          metadata: { action: descriptor.name, result },
+        })
+      }
 
-        if (callback) {
-          await callback({
-            text: `Failed to execute ${descriptor.name}: ${error.message}`,
-            error: true,
-          })
-        }
-
-        return {
-          success: false,
-          error: error.message,
-        }
+      return {
+        text: responseText,
+        success: true,
+        data: { action: descriptor.name, parameters: params, result },
       }
     }
   }

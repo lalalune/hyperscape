@@ -3,7 +3,7 @@ import { uuid } from '../utils';
 import { SystemBase } from './SystemBase';
 import { EventType } from '../types/events';
 import type { AnyEvent } from '../types/events';
-import type { EventMap } from '../types/event-system';
+import type { EventMap } from '../types/events';
 import type { EventSubscription } from './EventBus';
 
 /**

@@ -1,4 +1,5 @@
-import type { World, WorldChunk } from '../types'
+import type { World } from '../types'
+import type { WorldChunkData } from '../types/database'
 import { geometryToPxMesh, PMeshHandle } from '../extras/geometryToPxMesh'
 import THREE from '../extras/three'
 import { System } from './System'
@@ -23,6 +24,7 @@ import type { ResourceNode, TerrainTile } from '../types/terrain'
 import { PhysicsHandle } from '../types/physics'
 import { getPhysX } from '../PhysXManager'
 import { Layers } from '../extras/Layers'
+import { BIOMES } from '../data/world-structure'
 
 interface BiomeCenter {
   x: number
@@ -42,7 +44,7 @@ export class TerrainSystem extends System {
   private noise!: NoiseGenerator
   private biomeCenters: BiomeCenter[] = []
   private databaseSystem!: {
-    saveWorldChunk(chunkData: unknown): void
+    saveWorldChunk(chunkData: WorldChunkData): void
   } // DatabaseSystem reference
   private chunkSaveInterval?: NodeJS.Timeout
   private terrainUpdateIntervalId?: NodeJS.Timeout
@@ -159,66 +161,52 @@ export class TerrainSystem extends System {
    * Queue a tile for generation if not already queued or present
    */
   private enqueueTileForGeneration(tileX: number, tileZ: number, _generateContent = true): void {
-    // Validate coordinates before queuing
-    if (!isFinite(tileX) || !isFinite(tileZ)) {
-      console.warn(`[TerrainSystem.enqueueTileForGeneration] Invalid tile coordinates: tileX=${tileX}, tileZ=${tileZ}`)
-      return
-    }
-    
-    const key = `${tileX}_${tileZ}`
-    if (this.terrainTiles.has(key) || this.pendingTileSet.has(key)) return
-    this.pendingTileSet.add(key)
-    this.pendingTileKeys.push(key)
+    const key = `${tileX}_${tileZ}`;
+    if (this.terrainTiles.has(key) || this.pendingTileSet.has(key)) return;
+    this.pendingTileSet.add(key);
+    this.pendingTileKeys.push(key);
   }
 
   /**
    * Process queued tile generations within per-frame time and count budgets
    */
   private processTileGenerationQueue(): void {
-    if (this.pendingTileKeys.length === 0) return
-    const nowFn = typeof performance !== 'undefined' && performance.now ? () => performance.now() : () => Date.now()
-    const start = nowFn()
-    let generated = 0
+    if (this.pendingTileKeys.length === 0) return;
+    const nowFn = typeof performance !== 'undefined' && performance.now ? () => performance.now() : () => Date.now();
+    const start = nowFn();
+    let generated = 0;
     while (this.pendingTileKeys.length > 0) {
-      if (generated >= this.maxTilesPerFrame) break
-      if (nowFn() - start > this.generationBudgetMsPerFrame) break
-      const key = this.pendingTileKeys.shift()!
-      this.pendingTileSet.delete(key)
-      const [x, z] = key.split('_').map(Number)
+      if (generated >= this.maxTilesPerFrame) break;
+      if (nowFn() - start > this.generationBudgetMsPerFrame) break;
+      const key = this.pendingTileKeys.shift()!;
+      this.pendingTileSet.delete(key);
+      const [x, z] = key.split('_').map(Number);
       
-      // Validate parsed coordinates
-      if (!isFinite(x) || !isFinite(z)) {
-        console.warn(`[TerrainSystem.processTileGenerationQueue] Invalid key format: ${key} -> x=${x}, z=${z}`)
-        continue
-      }
-      
-      this.generateTile(x, z)
-      generated++
+      this.generateTile(x, z);
+      generated++;
     }
   }
 
   private processCollisionGenerationQueue(): void {
-    if (this.pendingCollisionKeys.length === 0 || !this.world.network?.isServer) return
+    if (this.pendingCollisionKeys.length === 0 || !this.world.network?.isServer) return;
 
-    const key = this.pendingCollisionKeys.shift()!
-    this.pendingCollisionSet.delete(key)
+    const key = this.pendingCollisionKeys.shift()!;
+    this.pendingCollisionSet.delete(key);
 
-    const tile = this.terrainTiles.get(key)
-    if (!tile || tile.collision) return
+    const tile = this.terrainTiles.get(key);
+    if (!tile || tile.collision) return;
 
-    const geometry = tile.mesh.geometry
-    const transformedGeometry = geometry.clone()
-    transformedGeometry.translate(tile.x * this.CONFIG.TILE_SIZE, 0, tile.z * this.CONFIG.TILE_SIZE)
+    const geometry = tile.mesh.geometry;
+    const transformedGeometry = geometry.clone();
+    transformedGeometry.translate(tile.x * this.CONFIG.TILE_SIZE, 0, tile.z * this.CONFIG.TILE_SIZE);
 
-    try {
-      const meshHandle = geometryToPxMesh(this.world, transformedGeometry, false)
-      if (meshHandle) {
-        tile.collision = meshHandle
-      }
-    } finally {
-      // Avoid leaked cloned geometry
-      transformedGeometry.dispose()
+    const meshHandle = geometryToPxMesh(this.world, transformedGeometry, false);
+    if (meshHandle) {
+      tile.collision = meshHandle;
     }
+    
+    // Avoid leaked cloned geometry
+    transformedGeometry.dispose();
   }
 
   private initializeBiomeCenters(): void {
@@ -235,7 +223,7 @@ export class TerrainSystem extends System {
       return randomState / 0xffffffff
     }
 
-    const biomeTypes = ['darkwood_forest', 'mistwood_valley', 'goblin_wastes', 'northern_reaches', 'plains', 'lakes']
+    const biomeTypes = ['plains', 'forest', 'valley', 'mountains', 'tundra', 'desert', 'lakes', 'swamp']
 
     // Clear any existing centers
     this.biomeCenters = []
@@ -280,233 +268,18 @@ export class TerrainSystem extends System {
     TOWN_RADIUS: 25, // Safe radius around towns
   }
 
-  // GDD-Compliant Biomes - All 8 specified biomes from Game Design Document
-  // Colors are chosen for high saturation and visual clarity
-  private readonly BIOMES: Record<string, BiomeData> = {
-    // Core biomes from GDD
-    mistwood_valley: {
-      id: 'mistwood_valley',
-      name: 'Mistwood Valley',
-      description: 'A mystical valley shrouded in perpetual mist, home to ancient trees and hidden dangers',
-      difficultyLevel: 1,
-      terrain: 'forest',
-      color: 0x2d6f3b, // Rich forest green
-      heightRange: [0.1, 0.4],
-      resources: ['tree', 'herb'],
-      mobs: ['goblin', 'bandit'],
-      fogIntensity: 0.7,
-      ambientSound: 'forest_ambient',
-      colorScheme: {
-        primary: '#2d6f3b',
-        secondary: '#1f5229',
-        fog: '#e0e8e4',
-      },
-      terrainMultiplier: 0.6,
-      waterLevel: 2.0,
-      maxSlope: 0.4,
-      mobTypes: ['goblin', 'bandit'],
-      difficulty: 1,
-      baseHeight: 0.25,
-      heightVariation: 0.15,
-      resourceDensity: 0.12,
-      resourceTypes: ['tree', 'herb'],
-    },
-    goblin_wastes: {
-      id: 'goblin_wastes',
-      name: 'Goblin Wastes',
-      description: 'A barren wasteland overrun by goblin hordes, scarred by their destructive presence',
-      difficultyLevel: 1,
-      terrain: 'wastes',
-      color: 0xb8956a, // Rich sandy tan
-      heightRange: [0.0, 0.3],
-      resources: ['rock', 'ore'],
-      mobs: [], // Loaded from JSON manifests
-      fogIntensity: 0.3,
-      ambientSound: 'wastes_wind',
-      colorScheme: {
-        primary: '#b8956a',
-        secondary: '#9a7d57',
-        fog: '#d4c4b0',
-      },
-      terrainMultiplier: 0.4,
-      waterLevel: 1.0,
-      maxSlope: 0.6,
-      mobTypes: [], // Loaded from JSON manifests
-      difficulty: 1,
-      baseHeight: 0.15,
-      heightVariation: 0.15,
-      resourceDensity: 0.08,
-      resourceTypes: ['rock', 'ore'],
-    },
-    darkwood_forest: {
-      id: 'darkwood_forest',
-      name: 'Darkwood Forest',
-      description: 'An ancient forest where darkness reigns eternal and powerful warriors guard forbidden secrets',
-      difficultyLevel: 2,
-      terrain: 'forest',
-      color: 0x1a4d1f, // Deep, dark forest green
-      heightRange: [0.2, 0.7],
-      resources: ['tree', 'herb', 'rare_ore'],
-      mobs: [], // Loaded from JSON manifests
-      fogIntensity: 0.8,
-      ambientSound: 'dark_forest_ambient',
-      colorScheme: {
-        primary: '#1a4d1f',
-        secondary: '#0f3314',
-        fog: '#2a3a2a',
-      },
-      terrainMultiplier: 0.9,
-      waterLevel: 2.5,
-      maxSlope: 0.5,
-      mobTypes: [], // Loaded from JSON manifests
-      difficulty: 2,
-      baseHeight: 0.45,
-      heightVariation: 0.25,
-      resourceDensity: 0.15,
-      resourceTypes: ['tree', 'herb', 'rare_ore'],
-    },
-    northern_reaches: {
-      id: 'northern_reaches',
-      name: 'Northern Reaches',
-      description: 'Frozen mountains at the edge of the world where only the strongest survive the eternal winter',
-      difficultyLevel: 3,
-      terrain: 'frozen',
-      color: 0xc5dce8, // Icy blue-white
-      heightRange: [0.6, 1.0],
-      resources: ['rock', 'gem', 'rare_ore'],
-      mobs: [], // Loaded from JSON manifests
-      fogIntensity: 0.6,
-      ambientSound: 'frozen_wind',
-      colorScheme: {
-        primary: '#c5dce8',
-        secondary: '#a3c7d6',
-        fog: '#e8f0f8',
-      },
-      terrainMultiplier: 1.2,
-      waterLevel: 0.5,
-      maxSlope: 0.8,
-      mobTypes: [], // Loaded from JSON manifests
-      difficulty: 3,
-      baseHeight: 0.8,
-      heightVariation: 0.2,
-      resourceDensity: 0.06,
-      resourceTypes: ['rock', 'gem', 'rare_ore'],
-    },
-    blasted_lands: {
-      id: 'blasted_lands',
-      name: 'Blasted Lands',
-      description: 'A corrupted wasteland where dark magic has twisted the very earth into a nightmarish realm',
-      difficultyLevel: 3,
-      terrain: 'corrupted',
-      color: 0x6b3820, // Dark rust brown
-      heightRange: [0.0, 0.4],
-      resources: ['rare_ore'],
-      mobs: [], // Loaded from JSON manifests
-      fogIntensity: 0.5,
-      ambientSound: 'corrupted_whispers',
-      colorScheme: {
-        primary: '#6b3820',
-        secondary: '#542c19',
-        fog: '#8a7a6a',
-      },
-      terrainMultiplier: 0.3,
-      waterLevel: 0.0,
-      maxSlope: 0.7,
-      mobTypes: [], // Loaded from JSON manifests
-      difficulty: 3,
-      baseHeight: 0.2,
-      heightVariation: 0.2,
-      resourceDensity: 0.04,
-      resourceTypes: ['rare_ore'],
-    },
-    lakes: {
-      id: 'lakes',
-      name: 'Lakes',
-      description: 'Serene lakes providing safe passage and abundant fishing opportunities',
-      difficultyLevel: 0,
-      terrain: 'lake',
-      color: 0x1976d2, // Deep, saturated blue
-      heightRange: [-0.2, 0.1],
-      resources: ['fish'],
-      mobs: [],
-      fogIntensity: 0.1,
-      ambientSound: 'water_lapping',
-      colorScheme: {
-        primary: '#1976d2',
-        secondary: '#1565c0',
-        fog: '#d0e4f7',
-      },
-      terrainMultiplier: 0.1,
-      waterLevel: 5.0,
-      maxSlope: 0.2,
-      mobTypes: [],
-      difficulty: 0,
-      baseHeight: -0.05,
-      heightVariation: 0.15,
-      resourceDensity: 0.05,
-      resourceTypes: ['fish'],
-    },
-    plains: {
-      id: 'plains',
-      name: 'Plains',
-      description: 'Rolling grasslands where bandits roam and resources are scattered across the open fields',
-      difficultyLevel: 1,
-      terrain: 'plains',
-      color: 0x6b9c3d, // Rich grassland green
-      heightRange: [0.0, 0.2],
-      resources: ['tree', 'herb'],
-      mobs: ['bandit', 'barbarian'],
-      fogIntensity: 0.2,
-      ambientSound: 'plains_wind',
-      colorScheme: {
-        primary: '#6b9c3d',
-        secondary: '#567d32',
-        fog: '#e8f0e0',
-      },
-      terrainMultiplier: 0.3,
-      waterLevel: 1.5,
-      maxSlope: 0.3,
-      mobTypes: ['bandit', 'barbarian'],
-      difficulty: 1,
-      baseHeight: 0.1,
-      heightVariation: 0.1,
-      resourceDensity: 0.08,
-      resourceTypes: ['tree', 'herb'],
-    },
-    starter_towns: {
-      id: 'starter_towns',
-      name: 'Starter Towns',
-      description: 'Safe havens where new adventurers begin their journey, protected from hostile forces',
-      difficultyLevel: 0,
-      terrain: 'plains',
-      color: 0x7eb83f, // Bright, welcoming green
-      heightRange: [0.1, 0.3],
-      resources: ['tree'],
-      mobs: [],
-      fogIntensity: 0.0,
-      ambientSound: 'town_ambient',
-      colorScheme: {
-        primary: '#7eb83f',
-        secondary: '#649333',
-        fog: '#f0f8f0',
-      },
-      terrainMultiplier: 0.2,
-      waterLevel: 2.0,
-      maxSlope: 0.2,
-      mobTypes: [],
-      difficulty: 0,
-      baseHeight: 0.2,
-      heightVariation: 0.1,
-      resourceDensity: 0.05,
-      resourceTypes: ['tree'],
-    },
-  }
+  // Biomes now loaded from assets/manifests/biomes.json via DataManager
+  // Uses imported BIOMES from world-structure.ts
+  // No hardcoded biome data - all definitions in JSON!
 
   constructor(world: World) {
     super(world)
   }
 
   async init(): Promise<void> {
+    // Initialize tile size
+    this.tileSize = this.CONFIG.TILE_SIZE
+    
     // Initialize deterministic noise from world id
     this.noise = new NoiseGenerator(this.computeSeedFromWorldId())
 
@@ -515,7 +288,7 @@ export class TerrainSystem extends System {
 
     // Get systems references
     // Check if database system exists and has the required method
-    const dbSystem = this.world.getSystem('database') as { saveWorldChunk(chunkData: unknown): void } | undefined
+    const dbSystem = this.world.getSystem('database') as { saveWorldChunk(chunkData: WorldChunkData): void } | undefined
     if (dbSystem) {
       this.databaseSystem = dbSystem
     }
@@ -576,8 +349,7 @@ export class TerrainSystem extends System {
     this.boundingBoxIntervalId = setInterval(() => {
       this.verifyTerrainBoundingBoxes()
     }, 30000) // Verify every 30 seconds
-
-      }
+  }
 
   private setupClientTerrain(): void {
     const stage = this.world.stage as { scene: THREE.Scene }
@@ -595,8 +367,7 @@ export class TerrainSystem extends System {
     // Setup initial camera only if no client camera system controls it
     // Leave control to ClientCameraSystem for third-person follow
 
-    // Load initial tiles
-    this.loadInitialTiles()
+    // Initial tiles will be loaded in start() method
   }
 
   private registerInstancedMeshes(): void {
@@ -634,8 +405,7 @@ export class TerrainSystem extends System {
       }, 30000) // Save every 30 seconds
     }
 
-    // Pre-generate spawn area tiles
-    this.loadInitialTiles()
+    // Initial tiles will be loaded in start() method
   }
 
   private loadInitialTiles(): void {
@@ -667,7 +437,7 @@ export class TerrainSystem extends System {
 
     // Mark initial tiles as ready
     this._initialTilesReady = true
-      }
+  }
 
   private generateTile(tileX: number, tileZ: number, generateContent = true): TerrainTile {
     const key = `${tileX}_${tileZ}`
@@ -891,16 +661,12 @@ export class TerrainSystem extends System {
 
       // Client visual path
       if (isClient) {
-      // If no server-generated resources are present (e.g., single-player/dev), generate locally for visuals only
-      if (!isServer && tile.resources.length === 0) {
-        this.generateTileResources(tile)
-      }
-      
-      // Add water meshes for low areas (client-side only - purely visual)
-      if (this.world.network?.isClient) {
-        this.generateWaterMeshes(tile)
-      }
-
+        // If no server-generated resources are present (e.g., single-player/dev), generate locally for visuals only
+        if (!isServer && tile.resources.length === 0) {
+          this.generateTileResources(tile)
+        }
+        
+        // Generate visual features and water meshes
         this.generateVisualFeatures(tile)
         this.generateWaterMeshes(tile)
 
@@ -941,49 +707,48 @@ export class TerrainSystem extends System {
     }
 
     // Emit typed event for other systems (resources, AI nav, etc.)
-      const originX = tile.x * this.CONFIG.TILE_SIZE
-      const originZ = tile.z * this.CONFIG.TILE_SIZE
-      const resourcesPayload = tile.resources.map(r => {
-        const pos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
-        return { id: r.id, type: r.type, position: pos }
-      })
-      const genericBiome = this.mapBiomeToGeneric(tile.biome as string)
-      this.world.emit(EventType.TERRAIN_TILE_GENERATED, {
-        tileId: `${tileX},${tileZ}`,
-        position: { x: originX, z: originZ },
-        biome: genericBiome,
-        tileX,
-        tileZ,
-        resources: resourcesPayload,
-      })
+    const originX = tile.x * this.CONFIG.TILE_SIZE
+    const originZ = tile.z * this.CONFIG.TILE_SIZE
+    const resourcesPayload = tile.resources.map(r => {
+      const pos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
+      return { id: r.id, type: r.type, position: pos }
+    })
+    const genericBiome = this.mapBiomeToGeneric(tile.biome as string)
+    this.world.emit(EventType.TERRAIN_TILE_GENERATED, {
+      tileId: `${tileX},${tileZ}`,
+      position: { x: originX, z: originZ },
+      biome: genericBiome,
+      tileX,
+      tileZ,
+      resources: resourcesPayload,
+    })
 
-      // Also emit resource spawn points for ResourceSystem (server-only authoritative)
-      if (tile.resources.length > 0 && this.world.network?.isServer) {
-        this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, {
-          spawnPoints: tile.resources.map(r => {
-            const worldPos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
-            return {
-              id: r.id,
-              type: r.type,
-              subType: r.type === 'tree' ? 'normal_tree' : r.type,
-              position: worldPos,
-            }
-          }),
-        })
-      } else if (tile.resources.length > 0 && this.world.network?.isClient && !this.world.network?.isServer) {
-        // Client-only fallback: emit local spawn points so ResourceVisualizationSystem renders trees
-        this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, {
-          spawnPoints: tile.resources.map(r => {
-            const worldPos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
-            return {
-              id: r.id,
-              type: r.type,
-              subType: r.type === 'tree' ? 'normal_tree' : r.type,
-              position: worldPos,
-            }
-          }),
-        })
-      }
+    // Also emit resource spawn points for ResourceSystem (server-only authoritative)
+    if (tile.resources.length > 0 && this.world.network?.isServer) {
+      this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, {
+        spawnPoints: tile.resources.map(r => {
+          const worldPos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
+          return {
+            id: r.id,
+            type: r.type,
+            subType: r.type === 'tree' ? 'normal_tree' : r.type,
+            position: worldPos,
+          }
+        }),
+      })
+    } else if (tile.resources.length > 0 && this.world.network?.isClient && !this.world.network?.isServer) {
+      this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, {
+        spawnPoints: tile.resources.map(r => {
+          const worldPos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
+          return {
+            id: r.id,
+            type: r.type,
+            subType: r.type === 'tree' ? 'normal_tree' : r.type,
+            position: worldPos,
+          }
+        }),
+      })
+    }
 
     // Store tile
     this.terrainTiles.set(key, tile)
@@ -1009,62 +774,49 @@ export class TerrainSystem extends System {
     const biomeIds = new Float32Array(positions.count) // Store biome ID for shader
 
     // Default biome fallback for coloring
-    const defaultBiomeData = this.BIOMES['plains'] || { color: 0x7fb069, name: 'Plains' }
+    const defaultBiomeData = BIOMES['plains'] || { color: 0x7fb069, name: 'Plains' }
 
     // Generate heightmap and vertex colors
     for (let i = 0; i < positions.count; i++) {
       const localX = positions.getX(i)
       const localZ = positions.getZ(i)
 
-      // Safeguard against NaN position values
-      if (isNaN(localX) || isNaN(localZ)) {
-        positions.setY(i, 10)
-        heightData.push(10)
-        biomeIds[i] = 0
-        continue
-      }
-
       // Ensure edge vertices align exactly between tiles
       // Snap edge vertices to exact tile boundaries to prevent seams
-      let x = localX + tileX * this.CONFIG.TILE_SIZE
-      let z = localZ + tileZ * this.CONFIG.TILE_SIZE
+      let x = localX + tileX * this.CONFIG.TILE_SIZE;
+      let z = localZ + tileZ * this.CONFIG.TILE_SIZE;
 
       // Snap to grid at tile boundaries for seamless edges
-      const epsilon = 0.001
-      const tileMinX = tileX * this.CONFIG.TILE_SIZE
-      const tileMaxX = (tileX + 1) * this.CONFIG.TILE_SIZE
-      const tileMinZ = tileZ * this.CONFIG.TILE_SIZE
-      const tileMaxZ = (tileZ + 1) * this.CONFIG.TILE_SIZE
+      const epsilon = 0.001;
+      const tileMinX = tileX * this.CONFIG.TILE_SIZE;
+      const tileMaxX = (tileX + 1) * this.CONFIG.TILE_SIZE;
+      const tileMinZ = tileZ * this.CONFIG.TILE_SIZE;
+      const tileMaxZ = (tileZ + 1) * this.CONFIG.TILE_SIZE;
 
-      if (Math.abs(x - tileMinX) < epsilon) x = tileMinX
-      if (Math.abs(x - tileMaxX) < epsilon) x = tileMaxX
-      if (Math.abs(z - tileMinZ) < epsilon) z = tileMinZ
-      if (Math.abs(z - tileMaxZ) < epsilon) z = tileMaxZ
+      if (Math.abs(x - tileMinX) < epsilon) x = tileMinX;
+      if (Math.abs(x - tileMaxX) < epsilon) x = tileMaxX;
+      if (Math.abs(z - tileMinZ) < epsilon) z = tileMinZ;
+      if (Math.abs(z - tileMaxZ) < epsilon) z = tileMaxZ;
 
       // Generate height using our improved noise function
-      let height = this.getHeightAt(x, z)
+      const height = this.getHeightAt(x, z);
 
-      // Final NaN check for height
-      if (isNaN(height)) {
-        height = 10
-      }
-
-      positions.setY(i, height)
-      heightData.push(height)
+      positions.setY(i, height);
+      heightData.push(height);
 
       // Get biome influences for smooth color blending
-      const biomeInfluences = this.getBiomeInfluencesAtPosition(x, z)
-      const normalizedHeight = height / 80 // Max height is 80
+      const biomeInfluences = this.getBiomeInfluencesAtPosition(x, z);
+      const normalizedHeight = height / 80; // Max height is 80
 
       // Store dominant biome ID for shader
-      const dominantBiome = biomeInfluences[0]?.type || 'plains'
-      biomeIds[i] = this.getBiomeId(dominantBiome)
+      const dominantBiome = biomeInfluences[0].type;
+      biomeIds[i] = this.getBiomeId(dominantBiome);
 
       // Blend biome colors based on influences
       const color = new THREE.Color(0, 0, 0)
 
       for (const influence of biomeInfluences) {
-        const biomeData = this.BIOMES[influence.type] || defaultBiomeData
+        const biomeData = BIOMES[influence.type] || defaultBiomeData
         const biomeColor = new THREE.Color(biomeData.color)
 
         // Weight the color contribution (keep in linear space)
@@ -1145,30 +897,25 @@ export class TerrainSystem extends System {
    */
   private getBiomeId(biomeName: string): number {
     const biomeIds: Record<string, number> = {
-      'starter_towns': 0,
-      'plains': 1,
-      'mistwood_valley': 2,
-      'goblin_wastes': 3,
-      'darkwood_forest': 4,
-      'northern_reaches': 5,
-      'blasted_lands': 6,
-      'lakes': 7,
+      'plains': 0,
+      'forest': 1,
+      'valley': 2,
+      'mountains': 3,
+      'tundra': 4,
+      'desert': 5,
+      'lakes': 6,
+      'swamp': 7,
     }
-    return biomeIds[biomeName] || 1
+    return biomeIds[biomeName] || 0
   }
 
   getHeightAt(worldX: number, worldZ: number): number {
     // Ensure noise generator is initialized even if init()/start() haven't run yet
     if (!this.noise) {
-      this.noise = new NoiseGenerator(this.computeSeedFromWorldId())
+      this.noise = new NoiseGenerator(this.computeSeedFromWorldId());
       if (!this.biomeCenters || this.biomeCenters.length === 0) {
-        this.initializeBiomeCenters()
+        this.initializeBiomeCenters();
       }
-    }
-
-    // Throw if coordinates are invalid
-    if (!isFinite(worldX) || !isFinite(worldZ)) {
-      throw new Error(`[TerrainSystem.getHeightAt] Invalid coordinates: worldX=${worldX}, worldZ=${worldZ}`)
     }
 
     // Multi-layered noise for realistic terrain
@@ -1230,16 +977,10 @@ export class TerrainSystem extends System {
     }
 
     // Scale to actual world height
-    const MAX_HEIGHT = 80 // Maximum terrain height in meters
-    const finalHeight = height * MAX_HEIGHT
+    const MAX_HEIGHT = 80; // Maximum terrain height in meters
+    const finalHeight = height * MAX_HEIGHT;
 
-    if (!isFinite(finalHeight)) {
-      throw new Error(
-        `[TerrainSystem.getHeightAt] Calculated invalid height: ${finalHeight} at worldX=${worldX}, worldZ=${worldZ}`
-      )
-    }
-
-    return finalHeight
+    return finalHeight;
   }
 
   /**
@@ -1268,24 +1009,14 @@ export class TerrainSystem extends System {
   }
 
   private generateNoise(x: number, z: number): number {
-    // Safeguard against NaN inputs
-    if (isNaN(x) || isNaN(z)) {
-      return 0
-    }
+    const sin1 = Math.sin(x * 2.1 + z * 1.7);
+    const cos1 = Math.cos(x * 1.3 - z * 2.4);
+    const sin2 = Math.sin(x * 3.7 - z * 4.1);
+    const cos2 = Math.cos(x * 5.2 + z * 3.8);
 
-    const sin1 = Math.sin(x * 2.1 + z * 1.7)
-    const cos1 = Math.cos(x * 1.3 - z * 2.4)
-    const sin2 = Math.sin(x * 3.7 - z * 4.1)
-    const cos2 = Math.cos(x * 5.2 + z * 3.8)
+    const result = (sin1 * cos1 + sin2 * cos2 * 0.5) * 0.5;
 
-    const result = (sin1 * cos1 + sin2 * cos2 * 0.5) * 0.5
-
-    // Safeguard against NaN results
-    if (isNaN(result)) {
-      return 0
-    }
-
-    return result
+    return result;
   }
 
   private getBiomeAt(tileX: number, tileZ: number): string {
@@ -1304,7 +1035,7 @@ export class TerrainSystem extends System {
 
     for (const town of towns) {
       const distance = Math.sqrt((tileX - town.x) ** 2 + (tileZ - town.z) ** 2)
-      if (distance < 3) return 'starter_towns'
+      if (distance < 3) return 'plains'
     }
 
     return this.getBiomeAtWorldPosition(worldX, worldZ)
@@ -1332,9 +1063,9 @@ export class TerrainSystem extends System {
 
         if (center.type === 'lakes' && normalizedHeight < 0.2) {
           heightMultiplier = 1.8
-        } else if (center.type === 'northern_reaches' && normalizedHeight > 0.6) {
+        } else if (center.type === 'tundra' && normalizedHeight > 0.6) {
           heightMultiplier = 1.8
-        } else if (center.type === 'darkwood_forest' && normalizedHeight > 0.3 && normalizedHeight < 0.7) {
+        } else if (center.type === 'forest' && normalizedHeight > 0.3 && normalizedHeight < 0.7) {
           heightMultiplier = 1.4
         } else if (center.type === 'plains' && normalizedHeight > 0.2 && normalizedHeight < 0.4) {
           heightMultiplier = 1.4
@@ -1363,8 +1094,8 @@ export class TerrainSystem extends System {
           : normalizedHeight < 0.35
             ? 'plains'
             : normalizedHeight < 0.6
-              ? 'darkwood_forest'
-              : 'northern_reaches'
+              ? 'forest'
+              : 'tundra'
       biomeInfluences.push({ type: fallbackBiome, weight: 1.0 })
     }
 
@@ -1390,18 +1121,21 @@ export class TerrainSystem extends System {
     internal: string
   ): 'forest' | 'plains' | 'desert' | 'mountains' | 'swamp' | 'tundra' | 'jungle' {
     switch (internal) {
-      case 'mistwood_valley':
-      case 'darkwood_forest':
+      case 'forest':
         return 'forest'
       case 'plains':
-      case 'starter_towns':
         return 'plains'
-      case 'northern_reaches':
+      case 'valley':
+        return 'plains'
+      case 'mountains':
+        return 'mountains'
+      case 'tundra':
         return 'tundra'
-      case 'blasted_lands':
-      case 'goblin_wastes':
+      case 'desert':
         return 'desert'
       case 'lakes':
+        return 'swamp'
+      case 'swamp':
         return 'swamp'
       default:
         return 'plains'
@@ -1409,7 +1143,13 @@ export class TerrainSystem extends System {
   }
 
   private generateTileResources(tile: TerrainTile): void {
-    const biomeData = this.BIOMES[tile.biome]
+    const biomeData = BIOMES[tile.biome]
+    
+    // Guard against undefined biome data
+    if (!biomeData) {
+      console.warn(`[TerrainSystem] Biome data not found for biome: ${tile.biome}`)
+      return
+    }
 
     this.generateTreesForTile(tile, biomeData)
     this.generateOtherResourcesForTile(tile, biomeData)
@@ -1425,16 +1165,15 @@ export class TerrainSystem extends System {
     // Adjust density based on biome
     const biomeName = tile.biome as string
     switch (biomeName) {
-      case 'mistwood_valley':
-      case 'darkwood_forest':
+      case 'forest':
         treeDensity = this.CONFIG.TREE_DENSITY // Higher density in forests
         break
       case 'plains':
-      case 'starter_towns':
+      case 'valley':
         treeDensity = this.CONFIG.RESOURCE_DENSITY * 0.5 // Lower density in open areas
         break
-      case 'northern_reaches':
-      case 'blasted_lands':
+      case 'tundra':
+      case 'desert':
         treeDensity = this.CONFIG.RESOURCE_DENSITY * 0.2 // Very few trees in harsh areas
         break
     }
@@ -1655,20 +1394,23 @@ export class TerrainSystem extends System {
     const chunksToSave = Array.from(this.terrainTiles.values()).filter(tile => tile.needsSave)
 
     for (const tile of chunksToSave) {
-        const chunkData: WorldChunk = {
-          chunkX: tile.x,
-          chunkZ: tile.z,
+      const chunkData: WorldChunkData = {
+        chunkX: tile.x,
+        chunkZ: tile.z,
+        data: JSON.stringify({
           biome: tile.biome || 'grassland',
           heightData: tile.heightData || [],
           chunkSeed: tile.chunkSeed || 0,
-          lastActiveTime: tile.lastActiveTime || new Date(),
-          lastActivity: tile.lastActiveTime || new Date(),
-        }
+        }),
+        lastActive: tile.lastActiveTime?.getTime() || Date.now(),
+        playerCount: tile.playerCount || 0,
+        version: this.worldStateVersion,
+      }
 
-        if (this.databaseSystem) {
-          this.databaseSystem.saveWorldChunk(chunkData)
-        }
-        tile.needsSave = false
+      if (this.databaseSystem) {
+        this.databaseSystem.saveWorldChunk(chunkData)
+      }
+      tile.needsSave = false
     }
 
     if (chunksToSave.length > 0) {
@@ -1702,19 +1444,16 @@ export class TerrainSystem extends System {
     const players = this.world.getPlayers() || []
 
     for (const player of players) {
-      if (player.node.position) {
-        // Validate position values
-        const x = player.node.position.x
-        const z = player.node.position.z
+      const x = player.node.position.x;
+      const z = player.node.position.z;
 
-        const tileX = Math.floor(x / this.CONFIG.TILE_SIZE)
-        const tileZ = Math.floor(z / this.CONFIG.TILE_SIZE)
+      const tileX = Math.floor(x / this.CONFIG.TILE_SIZE);
+      const tileZ = Math.floor(z / this.CONFIG.TILE_SIZE);
 
-        // Check if player moved to a new tile
-        if (tileX !== this.lastPlayerTile.x || tileZ !== this.lastPlayerTile.z) {
-          this.updateTilesAroundPlayer(tileX, tileZ)
-          this.lastPlayerTile = { x: tileX, z: tileZ }
-        }
+      // Check if player moved to a new tile
+      if (tileX !== this.lastPlayerTile.x || tileZ !== this.lastPlayerTile.z) {
+        this.updateTilesAroundPlayer(tileX, tileZ);
+        this.lastPlayerTile = { x: tileX, z: tileZ };
       }
     }
   }
@@ -1807,10 +1546,8 @@ export class TerrainSystem extends System {
     this.terrainTiles.delete(tile.key)
     this.activeChunks.delete(tile.key)
     // Remove cached bounding box if present
-    this.terrainBoundingBoxes.delete(tile.key)
-    try {
-      this.world.emit('terrain:tile:unloaded', { tileId: `${tile.x},${tile.z}` })
-    } catch (_e) {}
+    this.terrainBoundingBoxes.delete(tile.key);
+    this.world.emit('terrain:tile:unloaded', { tileId: `${tile.x},${tile.z}` });
   }
 
   // ===== TERRAIN MOVEMENT CONSTRAINTS (GDD Requirement) =====
@@ -1823,7 +1560,7 @@ export class TerrainSystem extends System {
     const tileX = Math.floor(worldX / this.CONFIG.TILE_SIZE)
     const tileZ = Math.floor(worldZ / this.CONFIG.TILE_SIZE)
     const biome = this.getBiomeAt(tileX, tileZ)
-    const biomeData = this.BIOMES[biome]
+    const biomeData = BIOMES[biome]
 
     // Get height at position
     const height = this.getHeightAt(worldX, worldZ)
@@ -1999,7 +1736,7 @@ export class TerrainSystem extends System {
    */
   private findWaterAreas(tile: TerrainTile): Array<{ centerX: number; centerZ: number; width: number; depth: number }> {
     const waterAreas: Array<{ centerX: number; centerZ: number; width: number; depth: number }> = []
-    const biomeData = this.BIOMES[tile.biome]
+    const biomeData = BIOMES[tile.biome]
     if (!biomeData) return waterAreas
 
     // For lakes biome, create a large water area covering most of the tile
@@ -2064,7 +1801,7 @@ export class TerrainSystem extends System {
     difficulty: number
   }> {
     const biome = this.getBiomeAt(tileX, tileZ)
-    const biomeData = this.BIOMES[biome]
+    const biomeData = BIOMES[biome]
 
     // Don't spawn mobs in safe zones
     if (biomeData.difficulty === 0 || biomeData.mobTypes.length === 0) {
@@ -2184,7 +1921,7 @@ export class TerrainSystem extends System {
    * Get all mob types available in a specific biome
    */
   getBiomeMobTypes(biome: string): string[] {
-    const biomeData = this.BIOMES[biome]
+    const biomeData = BIOMES[biome]
     return biomeData ? [...biomeData.mobTypes] : []
   }
 
@@ -2192,7 +1929,7 @@ export class TerrainSystem extends System {
    * Get biome difficulty level for mob spawning
    */
   getBiomeDifficulty(biome: string): number {
-    const biomeData = this.BIOMES[biome]
+    const biomeData = BIOMES[biome]
     return biomeData ? biomeData.difficulty : 0
   }
 
@@ -2217,7 +1954,7 @@ export class TerrainSystem extends System {
     }> = []
 
     for (const [_key, tile] of this.terrainTiles.entries()) {
-      const biomeData = this.BIOMES[tile.biome]
+      const biomeData = BIOMES[tile.biome]
 
       if (biomeData.difficulty > 0 && biomeData.mobTypes.length > 0) {
         const spawnPositions = this.getMobSpawnPositionsForTile(tile.x, tile.z, 5)
@@ -2352,7 +2089,7 @@ export class TerrainSystem extends System {
       maxLoadedTiles: 9,
       tilesLoaded: this.terrainTiles.size,
       currentlyLoaded: activeChunks,
-      biomeCount: Object.keys(this.BIOMES).length,
+      biomeCount: Object.keys(BIOMES).length,
       chunkSize: this.CONFIG.TILE_SIZE,
       worldBounds: {
         min: { x: -this.CONFIG.WORLD_SIZE / 2, z: -this.CONFIG.WORLD_SIZE / 2 },
@@ -2441,27 +2178,19 @@ export class TerrainSystem extends System {
     const simulationTiles = new Set<string>()
 
     for (const player of players) {
-      const playerPos = player.node.position
-      if (!playerPos) continue
+      const playerPos = player.node.position;
 
       const playerId =
         (player as { playerId?: string; id?: string }).playerId ||
         (player as { playerId?: string; id?: string }).id ||
-        'unknown'
+        'unknown';
 
-      // Validate position values
-      const x = playerPos.x
-      const z = playerPos.z
-
-      // Skip if position contains NaN values
-      if (!isFinite(x) || !isFinite(z)) {
-        console.warn(`[TerrainSystem] Player ${playerId} has invalid position: x=${x}, z=${z}`)
-        continue
-      }
+      const x = playerPos.x;
+      const z = playerPos.z;
 
       // Calculate tile position
-      const tileX = Math.floor(x / this.CONFIG.TILE_SIZE)
-      const tileZ = Math.floor(z / this.CONFIG.TILE_SIZE)
+      const tileX = Math.floor(x / this.CONFIG.TILE_SIZE);
+      const tileZ = Math.floor(z / this.CONFIG.TILE_SIZE);
 
       // 9 core chunks (5x5 grid) - these get full simulation
       const coreChunks = new Set<string>()
@@ -2537,15 +2266,9 @@ export class TerrainSystem extends System {
     // Queue missing tiles for smooth generation
     for (const tileKey of neededTiles) {
       if (!this.terrainTiles.has(tileKey)) {
-        const [x, z] = tileKey.split('_').map(Number)
+        const [x, z] = tileKey.split('_').map(Number);
         
-        // Validate parsed coordinates
-        if (!isFinite(x) || !isFinite(z)) {
-          console.warn(`[TerrainSystem] Invalid tile key during queue: ${tileKey}`)
-          continue
-        }
-        
-        let generateContent = true
+        let generateContent = true;
 
         if (playerCenters.length > 0) {
           let minChebyshev = Infinity
@@ -2616,69 +2339,77 @@ export class TerrainSystem extends System {
     const startTime = Date.now()
     let _serializedChunks = 0
 
-      // Serialize all active chunks
-      for (const [key, tile] of this.terrainTiles) {
-        const serializationData = {
-          key: key,
-          tileX: tile.x,
-          tileZ: tile.z,
-          biome: tile.biome,
-          heightData: tile.heightData,
-          resourceStates: tile.resources.map(r => ({
-            id: r.id,
-            type: r.type,
-            position: [r.position.x, r.position.y, r.position.z] as [number, number, number],
-          })),
-          roadData: tile.roads.map(r => {
-            // Roads use {x, z} format based on generateRoadsForTile implementation
-            const startZ = (r.start as { x: number; z: number }).z
-            const endZ = (r.end as { x: number; z: number }).z
-            return {
-              start: [r.start.x, startZ] as [number, number],
-              end: [r.end.x, endZ] as [number, number],
-              width: r.width,
-            }
-          }),
-          playerCount: this.chunkPlayerCounts.get(key) || 0,
-          lastActiveTime: tile.lastActiveTime,
-          isSimulated: this.simulatedChunks.has(key),
-          worldStateVersion: this.worldStateVersion,
-          timestamp: Date.now(),
-        }
-
-        // Store for database persistence with proper tuple types
-        const typedSerializationData = {
-          ...serializationData,
-          resourceStates: serializationData.resourceStates.map(rs => ({
-            ...rs,
-            position: rs.position as [number, number, number],
-          })),
-          roadData: serializationData.roadData.map(rd => ({
-            ...rd,
-            start: rd.start as [number, number],
-            end: rd.end as [number, number],
-          })),
-        }
-        this.pendingSerializationData.set(key, typedSerializationData)
-
-            const chunkData: WorldChunk = {
-              chunkX: tile.x,
-              chunkZ: tile.z,
-              biome: tile.biome || 'grassland',
-              heightData: tile.heightData || [],
-              chunkSeed: tile.chunkSeed || 0,
-              lastActiveTime: tile.lastActiveTime || new Date(),
-              lastActivity: tile.lastActiveTime || new Date(),
-            }
-
-            this.databaseSystem.saveWorldChunk(chunkData)
-            _serializedChunks++
+    // Serialize all active chunks
+    for (const [key, tile] of this.terrainTiles) {
+      const serializationData = {
+        key: key,
+        tileX: tile.x,
+        tileZ: tile.z,
+        biome: tile.biome,
+        heightData: tile.heightData,
+        resourceStates: tile.resources.map(r => ({
+          id: r.id,
+          type: r.type,
+          position: [r.position.x, r.position.y, r.position.z] as [number, number, number],
+        })),
+        roadData: tile.roads.map(r => {
+          // Roads use {x, z} format based on generateRoadsForTile implementation
+          const startZ = (r.start as { x: number; z: number }).z
+          const endZ = (r.end as { x: number; z: number }).z
+          return {
+            start: [r.start.x, startZ] as [number, number],
+            end: [r.end.x, endZ] as [number, number],
+            width: r.width,
+          }
+        }),
+        playerCount: this.chunkPlayerCounts.get(key) || 0,
+        lastActiveTime: tile.lastActiveTime,
+        isSimulated: this.simulatedChunks.has(key),
+        worldStateVersion: this.worldStateVersion,
+        timestamp: Date.now(),
       }
 
-      // Increment world state version
-      this.worldStateVersion++
+      // Store for database persistence with proper tuple types
+      const typedSerializationData = {
+        ...serializationData,
+        resourceStates: serializationData.resourceStates.map(rs => ({
+          ...rs,
+          position: rs.position as [number, number, number],
+        })),
+        roadData: serializationData.roadData.map(rd => ({
+          ...rd,
+          start: rd.start as [number, number],
+          end: rd.end as [number, number],
+        })),
+      }
+      this.pendingSerializationData.set(key, typedSerializationData)
 
-      const _elapsed = Date.now() - startTime
+      // Save to database if available
+      if (this.databaseSystem) {
+        const chunkData: WorldChunkData = {
+          chunkX: tile.x,
+          chunkZ: tile.z,
+          data: JSON.stringify({
+            biome: tile.biome || 'grassland',
+            heightData: tile.heightData || [],
+            chunkSeed: tile.chunkSeed || 0,
+            resourceStates: serializationData.resourceStates,
+            roadData: serializationData.roadData,
+          }),
+          lastActive: tile.lastActiveTime?.getTime() || Date.now(),
+          playerCount: this.chunkPlayerCounts.get(key) || 0,
+          version: this.worldStateVersion,
+        }
+
+        this.databaseSystem.saveWorldChunk(chunkData)
+        _serializedChunks++
+      }
+    }
+
+    // Increment world state version
+    this.worldStateVersion++
+
+    const _elapsed = Date.now() - startTime
   }
 
   /**

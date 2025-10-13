@@ -223,12 +223,8 @@ export function toJSONString<T>(data: T): JSONString<T> {
 }
 
 export function fromJSONString<T>(json: JSONString<T> | string | null): T | null {
-  if (!json) return null
-  try {
-    return JSON.parse(json)
-  } catch {
-    return null
-  }
+  if (!json) return null;
+  return JSON.parse(json) as T;
 }
 
 // Database System types
@@ -275,4 +271,70 @@ export interface PluginMigration {
   name: string;
   up: (knex: unknown) => Promise<void>; // Using unknown to avoid Knex dependency in types
   down?: (knex: unknown) => Promise<void>;
+}
+
+// SystemDatabase type definition
+export type SystemDatabase = (table: string) => {
+  where: (key: string, value: unknown) => {
+    first: () => Promise<unknown>
+    update: (data: Record<string, unknown>) => Promise<number>
+    delete: () => Promise<number>
+  }
+  select: (columns?: string | string[]) => {
+    where: (key: string, value: unknown) => {
+      first: () => Promise<unknown>
+    }
+  }
+  insert: (data: Record<string, unknown> | Record<string, unknown>[]) => Promise<void>
+  update: (data: Record<string, unknown>) => Promise<number>
+  delete: () => Promise<number>
+  first: () => Promise<unknown>
+  then: <T>(onfulfilled: (value: unknown[]) => T) => Promise<T>
+  catch: <T>(onrejected: (reason: unknown) => T) => Promise<T>
+}
+
+// TypedKnexDatabase - alias for SystemDatabase with type safety
+export type TypedKnexDatabase = SystemDatabase
+
+// Core database row types
+export interface ConfigRow {
+  key: string
+  value: string
+}
+
+export interface UserRow {
+  id: string
+  name: string
+  roles: string
+  createdAt: string
+  avatar: string | null
+  privyUserId: string | null
+  farcasterFid: string | null
+}
+
+export interface EntityRow {
+  id: string
+  data: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Generic DatabaseRow type for any row
+export type DatabaseRow = Record<string, unknown>
+
+// Database helper functions
+export const dbHelpers = {
+  async setConfig(db: SystemDatabase, key: string, value: string): Promise<void> {
+    const existing = await db('config').where('key', key).first()
+    if (existing) {
+      await db('config').where('key', key).update({ value })
+      return
+    }
+    await db('config').insert({ key, value })
+  }
+}
+
+// Type guard for checking if an object is a SystemDatabase instance
+export function isDatabaseInstance(db: unknown): db is SystemDatabase {
+  return typeof db === 'function'
 }

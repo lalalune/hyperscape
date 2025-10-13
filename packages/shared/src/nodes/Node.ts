@@ -601,25 +601,25 @@ export class Node {
         get onPointerEnter() {
           return self.onPointerEnter
         },
-        set onPointerEnter(value: ((event: Record<string, unknown>) => void) | undefined) {
+        set onPointerEnter(value: ((event: PointerEvent) => void) | undefined) {
           self.onPointerEnter = value
         },
         get onPointerLeave() {
           return self.onPointerLeave
         },
-        set onPointerLeave(value: ((event: Record<string, unknown>) => void) | undefined) {
+        set onPointerLeave(value: ((event: PointerEvent) => void) | undefined) {
           self.onPointerLeave = value
         },
         get onPointerDown() {
           return self.onPointerDown
         },
-        set onPointerDown(value: ((event: Record<string, unknown>) => void) | undefined) {
+        set onPointerDown(value: ((event: PointerEvent) => void) | undefined) {
           self.onPointerDown = value
         },
         get onPointerUp() {
           return self.onPointerUp
         },
-        set onPointerUp(value: ((event: Record<string, unknown>) => void) | undefined) {
+        set onPointerUp(value: ((event: PointerEvent) => void) | undefined) {
           self.onPointerUp = value
         },
         get cursor() {
