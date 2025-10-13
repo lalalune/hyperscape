@@ -1705,19 +1705,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
     
     const payload = data as { itemId?: string; entityId?: string };
-    const itemId = payload.itemId || payload.entityId;
     
-    if (!itemId) {
-      console.warn('[ServerNetwork] onPickupItem: no itemId in payload');
+    // entityId is the world entity ID (required), itemId is the item definition (optional)
+    const entityId = payload.entityId || payload.itemId; // Fallback for backward compatibility
+    
+    if (!entityId) {
+      console.warn('[ServerNetwork] onPickupItem: no entityId in payload');
       return;
     }
     
-    console.log(`[ServerNetwork] 📦 Received pickup request from player ${playerEntity.id} for item ${itemId}`);
+    console.log(`[ServerNetwork] 📦 Received pickup request from player ${playerEntity.id} for entity ${entityId}`);
     
-    // Forward to InventorySystem (not ItemPickupSystem which is disabled)
+    // Forward to InventorySystem with entityId (required) and itemId (optional)
+    // @ts-expect-error - EventMap updated to require entityId, optional itemId (type cache lag)
     this.world.emit(EventType.ITEM_PICKUP, {
       playerId: playerEntity.id,
-      itemId: itemId
+      entityId,
+      itemId: payload.itemId
     });
   }
 

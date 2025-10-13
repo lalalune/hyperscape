@@ -25,8 +25,8 @@
  * ```
  * 
  * Environment-Specific Loading:
- * - Browser: Loads via script tag from /web/physx-js-webidl.js
- * - Node.js: Loads WASM binary directly via PhysXManager.server.ts
+ * - Browser: Loads via script tag from CDN at /web/physx-js-webidl.js
+ * - Node.js: Loads WASM binary from assets/web/ or fetches from CDN with caching
  * 
  * Referenced by: Physics system, Node-based colliders, Character controllers
  */
@@ -273,12 +273,13 @@ class PhysXManager extends EventEmitter {
    * Handles environment-specific loading logic:
    * 
    * Browser Environment:
-   * - Loads physx-js-webidl.js script tag
-   * - Uses locateFile to find .wasm at /web/physx-js-webidl.wasm
+   * - Loads physx-js-webidl.js script tag from CDN
+   * - Uses locateFile to find .wasm at CDN/web/physx-js-webidl.wasm
    * 
    * Node.js/Server Environment:
    * - Dynamically imports PhysXManager.server.ts (to avoid bundling Node modules)
-   * - Loads WASM binary from node_modules
+   * - First tries loading WASM from local assets/web/ directory
+   * - Falls back to fetching from CDN and caching to temp directory
    * - Provides binary directly to PhysX via wasmBinary option
    * 
    * After loading, creates:

@@ -143,8 +143,9 @@ export async function initializeDatabase(connectionString: string) {
     const hasCode = error && typeof error === 'object' && 'cause' in error && 
                     error.cause && typeof error.cause === 'object' && 'code' in error.cause;
     const hasMessage = error && typeof error === 'object' && 'message' in error;
-    const isExistsError = (hasCode && error.cause.code === '42P07') || 
-                          (hasMessage && typeof error.message === 'string' && error.message.includes('already exists'));
+    const errorWithCause = error as { cause?: { code?: string }; message?: string };
+    const isExistsError = (hasCode && errorWithCause.cause?.code === '42P07') || 
+                          (hasMessage && typeof errorWithCause.message === 'string' && errorWithCause.message.includes('already exists'));
     
     if (isExistsError) {
       console.log('[DB] ✅ Database tables already exist, skipping migration');

@@ -62,6 +62,7 @@ import type { World } from '../World';
 import { Entity } from './Entity';
 import type { EntityInteractionData, NPCEntityConfig } from '../types/entities';
 import { modelCache } from '../utils/ModelCache';
+import { EventType } from '../types/events';
 
 // Re-export types for external use
 export type { NPCEntityConfig } from '../types/entities';
@@ -110,7 +111,7 @@ export class NPCEntity extends Entity {
 
   private handleTalk(playerId: string): void {
     // Send dialogue to UI system
-    this.world.emit('npc:dialogue', {
+    this.world.emit(EventType.NPC_DIALOGUE, {
       playerId,
       npcId: this.config.npcId,
       npcType: this.config.npcType,
@@ -125,7 +126,7 @@ export class NPCEntity extends Entity {
     }
 
     // Send store interface request
-    this.world.emit('store:open_request', {
+    this.world.emit(EventType.STORE_OPEN_REQUEST, {
       playerId,
       npcId: this.config.npcId,
       inventory: this.config.inventory || []
@@ -138,7 +139,7 @@ export class NPCEntity extends Entity {
     }
 
     // Send bank interface request
-    this.world.emit('bank:open_request', {
+    this.world.emit(EventType.BANK_OPEN_REQUEST, {
       playerId,
       npcId: this.config.npcId
     });
@@ -150,7 +151,7 @@ export class NPCEntity extends Entity {
     }
 
     // Send training interface request
-    this.world.emit('trainer:open_request', {
+    this.world.emit(EventType.NPC_TRAINER_OPEN, {
       playerId,
       npcId: this.config.npcId,
       skillsOffered: this.config.skillsOffered || []
@@ -163,7 +164,7 @@ export class NPCEntity extends Entity {
     }
 
     // Send quest interface request
-    this.world.emit('quest:open_request', {
+    this.world.emit(EventType.NPC_QUEST_OPEN, {
       playerId,
       npcId: this.config.npcId,
       questsAvailable: this.config.questsAvailable || []
@@ -175,14 +176,15 @@ export class NPCEntity extends Entity {
       hasModelPath: !!this.config.model,
       modelPath: this.config.model,
       hasLoader: !!this.world.loader,
-      isServer: this.world.isServer
+      isServer: this.world.isServer,
+      isClient: this.world.isClient
     });
     
     if (this.world.isServer) {
       return;
     }
     
-    // Try to load 3D model if available
+    // Try to load 3D model if available (same approach as ItemEntity/ResourceEntity)
     if (this.config.model && this.world.loader) {
       try {
         console.log(`[NPCEntity] Loading model for ${this.config.npcType}:`, this.config.model);
@@ -192,6 +194,18 @@ export class NPCEntity extends Entity {
         this.mesh.name = `NPC_${this.config.npcType}_${this.id}`;
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
+        this.mesh.scale.set(1, 1, 1); // Standard scale for NPCs
+        
+        // Set up userData for interaction detection (raycasting)
+        this.mesh.userData = {
+          type: 'npc',
+          entityId: this.id,
+          name: this.config.name,
+          interactable: true,
+          npcType: this.config.npcType,
+          services: this.config.services
+        };
+        
         this.node.add(this.mesh);
         console.log(`[NPCEntity] ✅ Model loaded for ${this.config.npcType}`);
         return;
@@ -209,6 +223,16 @@ export class NPCEntity extends Entity {
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.name = `NPC_${this.config.npcType}_${this.id}`;
+    
+    // CRITICAL: Set userData for interaction detection (raycasting)
+    this.mesh.userData = {
+      type: 'npc',
+      entityId: this.id,
+      name: this.config.name,
+      interactable: true,
+      npcType: this.config.npcType,
+      services: this.config.services
+    };
     
     this.mesh.scale.set(1, 2, 1);
     

@@ -86,6 +86,11 @@ export class ItemEntity extends InteractableEntity {
     super(world, interactableConfig);
     this.config = config;
     
+    // Set entity properties for systems to access
+    this.setProperty('itemId', config.itemId);
+    this.setProperty('quantity', config.quantity || 1);
+    this.setProperty('itemType', config.itemType);
+    
     // Items don't have health - set to 0 to prevent health bars
     this.health = 0;
     this.maxHealth = 0;
@@ -115,6 +120,22 @@ export class ItemEntity extends InteractableEntity {
         this.mesh.castShadow = false;
         this.mesh.receiveShadow = false;
         this.mesh.scale.set(0.3, 0.3, 0.3); // Scale down items
+        
+        // Set up userData for interaction detection
+        this.mesh.userData = {
+          type: 'item',
+          entityId: this.id,
+          name: this.config.name,
+          interactable: true,
+          itemData: {
+            id: this.id,
+            itemId: this.config.itemId,
+            name: this.config.name,
+            type: this.config.itemType,
+            quantity: this.config.quantity
+          }
+        };
+        
         this.node.add(this.mesh);
         console.log(`[ItemEntity] ✅ Model loaded for ${this.config.itemId}`);
         return;
@@ -175,10 +196,11 @@ export class ItemEntity extends InteractableEntity {
    */
   public async handleInteraction(data: EntityInteractionData): Promise<void> {
     // Handle item pickup - emit ITEM_PICKUP event which will be handled by InventorySystem
+    // Send correct item data: entityId is the entity in the world, itemId is the item definition
     this.world.emit(EventType.ITEM_PICKUP, {
       playerId: data.playerId,
-      itemId: this.id,
-      entityId: this.id,
+      itemId: this.config.itemId, // The actual item ID (e.g., "bronze_sword")
+      entityId: this.id, // The entity ID in the world (e.g., "gdd_bronze_sword_1")
       position: this.getPosition()
     });
     
@@ -308,6 +330,7 @@ export class ItemEntity extends InteractableEntity {
     const baseData = super.getNetworkData();
     return {
       ...baseData,
+      model: this.config.model,
       itemId: this.config.itemId,
       itemType: this.config.itemType,
       quantity: this.config.quantity,

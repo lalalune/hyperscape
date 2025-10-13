@@ -333,7 +333,7 @@ export interface ContextMenuState {
  */
 export interface EntityPip {
   id: string;
-  type: 'player' | 'enemy' | 'building' | 'item';
+  type: 'player' | 'enemy' | 'building' | 'item' | 'resource';
   position: THREE.Vector3;
   color: string;
 }

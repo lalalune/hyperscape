@@ -453,7 +453,7 @@ export class ClientNetwork extends SystemBase {
     if (Array.isArray(data.entities) && data.entities.length === 0 && (data as { account?: unknown }).account) {
       const list = this.lastCharacterList || [];
       console.log('[ClientNetwork] Snapshot indicates character-select mode; opening modal with cached list:', list.length);
-      this.world.emit('character:list', { characters: list });
+      this.world.emit(EventType.CHARACTER_LIST, { characters: list });
     }
 
     if (data.livekit) {
@@ -549,7 +549,7 @@ export class ClientNetwork extends SystemBase {
     }
 
     // Re-emit normalized change event so other systems can react
-    this.world.emit('entityModified', { id, changes })
+    this.world.emit(EventType.ENTITY_MODIFIED, { id, changes })
   }
   
   /**
@@ -765,21 +765,21 @@ export class ClientNetwork extends SystemBase {
   // Dedicated resource packet handlers
   onResourceSnapshot = (data: { resources: Array<{ id: string; type: string; position: { x: number; y: number; z: number }; isAvailable: boolean; respawnAt?: number }> }) => {
     for (const r of data.resources) {
-      this.world.emit('resource:spawned', { id: r.id, type: r.type, position: r.position })
-      if (!r.isAvailable) this.world.emit('resource:depleted', { resourceId: r.id, position: r.position })
+      this.world.emit(EventType.RESOURCE_SPAWNED, { id: r.id, type: r.type, position: r.position })
+      if (!r.isAvailable) this.world.emit(EventType.RESOURCE_DEPLETED, { resourceId: r.id, position: r.position })
     }
   }
   onResourceSpawnPoints = (data: { spawnPoints: Array<{ id: string; type: string; position: { x: number; y: number; z: number } }> }) => {
-    this.world.emit('resource:spawn_points:registered', data)
+    this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, data)
   }
   onResourceSpawned = (data: { id: string; type: string; position: { x: number; y: number; z: number } }) => {
-    this.world.emit('resource:spawned', data)
+    this.world.emit(EventType.RESOURCE_SPAWNED, data)
   }
   onResourceDepleted = (data: { resourceId: string; position?: { x: number; y: number; z: number } }) => {
-    this.world.emit('resource:depleted', data)
+    this.world.emit(EventType.RESOURCE_DEPLETED, data)
   }
   onResourceRespawned = (data: { resourceId: string; position?: { x: number; y: number; z: number } }) => {
-    this.world.emit('resource:respawned', data)
+    this.world.emit(EventType.RESOURCE_RESPAWNED, data)
   }
 
   onInventoryUpdated = (data: { playerId: string; items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number; maxSlots: number }) => {
@@ -790,7 +790,6 @@ export class ClientNetwork extends SystemBase {
     // Cache latest snapshot for late-mounting UI
     this.lastInventoryByPlayerId[data.playerId] = data
     // Re-emit with typed event so UI updates without waiting for local add
-    this.world.emit('inventory:updated', data)
     this.world.emit(EventType.INVENTORY_UPDATED, data)
   }
 
@@ -799,7 +798,7 @@ export class ClientNetwork extends SystemBase {
     // Cache and re-emit so UI can show the modal
     this.lastCharacterList = data.characters || [];
     console.log('[ClientNetwork] Received characterList:', this.lastCharacterList.length);
-    this.world.emit('character:list', data);
+    this.world.emit(EventType.CHARACTER_LIST, data);
     // Auto-select previously chosen character if available
     const storedId = typeof localStorage !== 'undefined' ? localStorage.getItem('selectedCharacterId') : null;
     if (storedId && Array.isArray(data.characters) && data.characters.some(c => c.id === storedId)) {
@@ -808,10 +807,10 @@ export class ClientNetwork extends SystemBase {
   }
   onCharacterCreated = (data: { id: string; name: string }) => {
     // Re-emit for UI to update lists
-    this.world.emit('character:created', data)
+    this.world.emit(EventType.CHARACTER_CREATED, data)
   }
   onCharacterSelected = (data: { characterId: string | null }) => {
-    this.world.emit('character:selected', data)
+    this.world.emit(EventType.CHARACTER_SELECTED, data)
   }
 
   // Convenience methods

@@ -29,7 +29,7 @@
 #
 
 SET(PHYSXEXTENSIONS_PLATFORM_INCLUDES
-	PRIVATE ${PHYSX_SOURCE_DIR}/Common/src/linux
+	# No platform-specific includes for Emscripten
 )
 
 SET(PHYSXEXTENSIONS_PLATFORM_SRC_FILES

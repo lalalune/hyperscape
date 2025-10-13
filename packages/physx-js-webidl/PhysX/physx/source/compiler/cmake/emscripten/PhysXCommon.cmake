@@ -32,7 +32,7 @@ SET(PXCOMMON_PLATFORM_SRC_FILES
 )
 
 SET(PXCOMMON_PLATFORM_INCLUDES
-	${PHYSX_SOURCE_DIR}/common/src/linux
+	# No platform-specific includes for Emscripten
 )
 
 

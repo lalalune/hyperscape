@@ -143,6 +143,59 @@ export class MobEntity extends CombatantEntity {
     });
   }
 
+
+  /**
+   * Load idle animation for rigged mob models
+   */
+  private async loadIdleAnimation(): Promise<void> {
+    if (!this.mesh || !this.world.loader) return;
+    
+    // Get model directory from config.model path
+    // e.g., "asset://models/goblin/goblin_rigged.glb" -> "asset://models/goblin"
+    const modelPath = this.config.model;
+    if (!modelPath) return;
+    
+    const modelDir = modelPath.substring(0, modelPath.lastIndexOf('/'));
+    // Try walking animation as default idle (goblin has walking.glb, not idle.glb)
+    const idleAnimPath = `${modelDir}/animations/walking.glb`;
+    
+    console.log(`[MobEntity] Loading idle animation: ${idleAnimPath}`);
+    
+    try {
+      // Load animation glb
+      const anim = await this.world.loader.load('emote', idleAnimPath);
+      
+      // Find the SkinnedMesh to apply animation to
+      let skinnedMesh: THREE.SkinnedMesh | null = null;
+      this.mesh.traverse((child) => {
+        if (!skinnedMesh && (child as THREE.SkinnedMesh).isSkinnedMesh) {
+          skinnedMesh = child as THREE.SkinnedMesh;
+        }
+      });
+      
+      if (!skinnedMesh) {
+        console.warn(`[MobEntity] No SkinnedMesh found in model for animation`);
+        return;
+      }
+      
+      // Create AnimationMixer and play idle
+      const mixer = new THREE.AnimationMixer(skinnedMesh);
+      if (anim && 'toClip' in anim) {
+        const clip = anim.toClip();
+        if (clip) {
+          const action = mixer.clipAction(clip);
+          action.play();
+          console.log(`[MobEntity] ✅ Idle animation playing`);
+          
+          // Update mixer each frame (store on entity for cleanup)
+          (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
+        }
+      }
+    } catch (err) {
+      console.warn(`[MobEntity] Idle animation not found at ${idleAnimPath}, continuing without animation`);
+    }
+  }
+
   protected async createMesh(): Promise<void> {
     console.log(`[MobEntity] createMesh() called for ${this.config.mobType}`, {
       hasModelPath: !!this.config.model,
@@ -156,7 +209,7 @@ export class MobEntity extends CombatantEntity {
       return;
     }
     
-    // Try to load 3D model if available
+    // Try to load 3D model if available (same approach as ItemEntity/ResourceEntity)
     if (this.config.model && this.world.loader) {
       try {
         console.log(`[MobEntity] Loading model for ${this.config.mobType}:`, this.config.model);
@@ -166,6 +219,25 @@ export class MobEntity extends CombatantEntity {
         this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
+        this.mesh.scale.set(1, 1, 1); // Standard scale for mobs
+        
+        // Set up userData for interaction detection
+        const userData: MeshUserData = {
+          type: 'mob',
+          entityId: this.id,
+          name: this.config.name,
+          interactable: true,
+          mobData: {
+            id: this.id,
+            name: this.config.name,
+            type: this.config.mobType,
+            level: this.config.level,
+            health: this.config.currentHealth,
+            maxHealth: this.config.maxHealth
+          }
+        };
+        this.mesh.userData = { ...userData };
+        
         this.node.add(this.mesh);
         console.log(`[MobEntity] ✅ Model loaded for ${this.config.mobType}`);
         return;
@@ -178,18 +250,16 @@ export class MobEntity extends CombatantEntity {
     console.log(`[MobEntity] Creating placeholder capsule for ${this.config.mobType}`);
     const mobName = String(this.config.mobType).toLowerCase();
     const colorHash = mobName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const hue = (colorHash % 360) / 360; // Convert to 0-1 range for HSL
-    const color = new THREE.Color().setHSL(hue, 0.6, 0.4); // Consistent saturation and lightness
+    const hue = (colorHash % 360) / 360;
+    const color = new THREE.Color().setHSL(hue, 0.6, 0.4);
     
-    // Standard humanoid capsule size (data-driven from level could be added later)
     const geometry = new THREE.CapsuleGeometry(0.4, 1.6, 4, 8);
     const material = new THREE.MeshLambertMaterial({ color: color.getHex() });
-
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = `Mob_${this.config.mobType}_${this.id}`;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    this.mesh = mesh;
+    
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
+    this.mesh.castShadow = true;
+    this.mesh.receiveShadow = true;
 
     // Set up userData with proper typing for mob
     const userData: MeshUserData = {
@@ -233,7 +303,7 @@ export class MobEntity extends CombatantEntity {
       });
     } else {
       // Default interaction - show mob info or examine
-      this.world.emit('mob:examine', {
+      this.world.emit(EventType.MOB_EXAMINE, {
         playerId: data.playerId,
         mobId: this.id,
         mobData: this.getMobData()
@@ -251,6 +321,13 @@ export class MobEntity extends CombatantEntity {
 
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
+    
+    // Update animation mixer if exists
+    const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
+    if (mixer) {
+      mixer.update(deltaTime);
+    }
+    
     // Health bar updates handled by Entity base class
   }
 
@@ -282,7 +359,7 @@ export class MobEntity extends CombatantEntity {
     if (nearbyPlayer) {
       this.config.targetPlayerId = nearbyPlayer.id;
       this.config.aiState = MobAIState.CHASE;
-      this.world.emit('mob:aggro', {
+      this.world.emit(EventType.MOB_AGGRO, {
         mobId: this.id,
         targetId: nearbyPlayer.id
       });
@@ -433,7 +510,7 @@ export class MobEntity extends CombatantEntity {
   private performAttack(target: { id: string }): void {
     // Emit attack event
     this.world.emit(EventType.COMBAT_MOB_ATTACK, {
-      attackerId: this.id,
+      mobId: this.id,
       targetId: target.id,
       damage: this.config.attackPower,
       attackerType: 'mob',
@@ -500,6 +577,7 @@ export class MobEntity extends CombatantEntity {
     // Hide mesh or change to corpse
     if (this.mesh) {
       this.mesh.visible = false;
+      console.log(`[MobEntity] Hiding mesh for dead mob ${this.id}`);
     }
 
     this.markNetworkDirty();
@@ -537,6 +615,7 @@ export class MobEntity extends CombatantEntity {
     // Show mesh
     if (this.mesh) {
       this.mesh.visible = true;
+      console.log(`[MobEntity] Showing mesh for respawned mob ${this.id}`);
     }
 
     // Update userData
@@ -547,7 +626,7 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    this.world.emit('mob:respawn', {
+    this.world.emit(EventType.MOB_RESPAWNED, {
       mobId: this.id,
       position: this.getPosition()
     });

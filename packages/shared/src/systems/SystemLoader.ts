@@ -77,7 +77,7 @@ import type {
 import type { PlayerRow } from '../types/database'
 import type { EntityConfig } from '../types/entities'
 import { EventType } from '../types/events'
-import type { AppConfig, TerrainConfig } from '../types/settings-types'
+import type { AppConfig, TerrainConfig } from '../types/settings'
 import { getSystem } from '../utils/SystemUtils'
 import type { World } from '../World'
 
@@ -796,7 +796,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       forceAggroSpawn: (playerId: string) => {
-        world.emit('aggro:force-trigger', { playerId })
+        world.emit(EventType.AGGRO_FORCE_TRIGGER, { playerId })
       },
 
       // Mob actions
@@ -904,7 +904,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       generateTerrain: (centerX: number, centerZ: number, radius: number) => {
-        world.emit('terrain:generate-initial', { centerX, centerZ, radius })
+        world.emit(EventType.TERRAIN_GENERATE_INITIAL, { centerX, centerZ, radius })
       },
 
       spawnResource: (type: string, subType: string, position: Position3D, requestedBy: string) => {
@@ -985,7 +985,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       interactWithEntity: (playerId: string, entityId: string, interactionType: string) => {
-        world.emit('entity:interact_request', {
+        world.emit(EventType.ENTITY_INTERACT_REQUEST, {
           playerId,
           entityId,
           interactionType,

@@ -836,13 +836,13 @@ async function startServer() {
     }
     
     try {
-      // Close database connection
+      // Close database connection using the closeDatabase utility
+      // This both closes the pool and clears singleton instances to prevent
+      // reusing closed connections on hot reload
       console.log('[Server] Closing database...')
-      if (globalPgPool) {
-        await globalPgPool.end()
-        globalPgPool = undefined
-      }
-      console.log('[Server] Database closed')
+      const { closeDatabase } = await import('./db/client.js')
+      await closeDatabase()
+      globalPgPool = undefined
     } catch (err) {
       console.error('[Server] Error closing database:', err)
     }

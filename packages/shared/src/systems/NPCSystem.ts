@@ -57,6 +57,82 @@ export class NPCSystem extends SystemBase {
     // Generate towns immediately as they are static placements
     this.generateTowns();
   }
+  
+  async start(): Promise<void> {
+    // Spawn a default test NPC (banker) near origin BEFORE accepting connections
+    if (this.world.isServer) {
+      console.log('[NPCSystem] Spawning default test banker...');
+      await this.spawnDefaultNPC();
+    }
+  }
+  
+  /**
+   * Spawn a default test banker for initial world content
+   */
+  private async spawnDefaultNPC(): Promise<void> {
+    console.log('[NPCSystem] ⏳ spawnDefaultNPC() called, waiting for EntityManager...');
+    
+    // Wait for EntityManager to be ready
+    let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+    let attempts = 0;
+    
+    while ((!entityManager || !entityManager.spawnEntity) && attempts < 100) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+      attempts++;
+      
+      if (attempts % 10 === 0) {
+        console.log(`[NPCSystem] Still waiting for EntityManager... (${attempts/10}s)`);
+      }
+    }
+    
+    if (!entityManager?.spawnEntity) {
+      console.error('[NPCSystem] ❌ EntityManager never became available after 10 seconds!');
+      return;
+    }
+    
+    console.log('[NPCSystem] ✓ EntityManager ready, spawning banker...');
+    
+    // Use fixed Y position for simplicity
+    const y = 43;
+    
+    const npcConfig = {
+      id: 'default_banker_1',
+      type: 'npc' as const,
+      name: 'Banker',
+      position: { x: 15, y: y + 1.0, z: 5 },  // Raised Y
+      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      scale: { x: 100, y: 100, z: 100 },  // Scale up rigged model
+      visible: true,
+      interactable: true,
+      interactionType: 'talk',
+      interactionDistance: 3,
+      description: 'A friendly banker',
+      model: 'asset://models/human/human_rigged.glb',
+      properties: {},
+      // NPCEntity specific
+      npcType: 'bank',
+      npcId: 'default_banker',
+      dialogueLines: ['Welcome to the bank!', 'How may I help you today?'],
+      services: ['bank'],
+      inventory: [],
+      skillsOffered: [],
+      questsAvailable: []
+    };
+    
+    console.log('[NPCSystem] 🏦 Calling entityManager.spawnEntity with config:', npcConfig);
+    
+    try {
+      const spawnedEntity = await entityManager.spawnEntity(npcConfig) as { id?: string } | null;
+      console.log('[NPCSystem] ✅ Default test banker spawned at (15, 5):', spawnedEntity?.id);
+      
+      // Verify it's in the world
+      const verify = this.world.entities.get('default_banker_1');
+      console.log('[NPCSystem] Verification - banker in world.entities:', verify ? 'YES' : 'NO');
+    } catch (err) {
+      console.error('[NPCSystem] ❌ Error spawning default banker:', err);
+    }
+  }
 
   /**
    * Initialize store inventory with shop items
@@ -609,17 +685,17 @@ export class NPCSystem extends SystemBase {
   private generateTown(config: Town): void {
     this.towns.set(config.id, config);
     
-    // Create a safe zone
-    this.emitTypedEvent(EventType.ENTITY_SPAWNED, {
-      entityType: 'safezone',
-      entityId: `safezone_${config.id}`,
+    // Create a safe zone using custom event (not ENTITY_SPAWNED which expects entity data)
+    this.world.emit('safezone:created', {
+      safeZoneId: `safezone_${config.id}`,
+      townId: config.id,
       position: config.position,
       radius: config.safeZoneRadius,
     });
     
-    // Emit bank/store events for systems that need to know
+    // Emit bank registration event (not BANK_OPEN which expects player interaction)
     if (config.hasBank) {
-      this.emitTypedEvent(EventType.BANK_OPEN, {
+      this.world.emit('bank:registered', {
         bankId: `bank_${config.id}`,
         position: { x: config.position.x - 8, y: config.position.y, z: config.position.z },
         townId: config.id

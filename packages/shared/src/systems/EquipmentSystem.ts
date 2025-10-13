@@ -68,7 +68,7 @@ import {
   WeaponType
 } from '../types/core';
 import { ItemRarity } from '../types/entities';
-import type { PlayerWithEquipmentSupport } from '../types/ui-types';
+import type { PlayerWithEquipmentSupport } from '../types/ui';
 
 const attachmentPoints = {
   helmet: { bone: 'head', offset: new THREE.Vector3(0, 0.1, 0) },

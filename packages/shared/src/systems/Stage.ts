@@ -64,8 +64,8 @@ import type {
   InsertOptions,
   StageHandle,
   StageItem
-} from '../types/material-types';
-export type { MaterialOptions, MaterialWrapper, InsertOptions, StageHandle } from '../types/material-types';
+} from '../types/materials';
+export type { MaterialOptions, MaterialWrapper, InsertOptions, StageHandle } from '../types/materials';
 
 /** Type guard: Check if material has color property */
 function hasColorProperty(material: THREE.Material): material is MaterialWithColor {

@@ -27,13 +27,76 @@ export type { WorldArea, BiomeResource, NPCLocation, MobSpawnPoint } from '../ty
 /**
  * World Areas Database - Populated at runtime from JSON manifests
  * DataManager loads from assets/manifests/world-areas.json
+ * 
+ * DEFAULT: If JSON is empty, use this hardcoded starter area
  */
-export const ALL_WORLD_AREAS: Record<string, WorldArea> = {};
+export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
+  'starter_area': {
+    id: 'starter_area',
+    name: 'Starter Area',
+    description: 'A peaceful area for new adventurers',
+    difficultyLevel: 0,
+    bounds: {
+      minX: -50,
+      maxX: 50,
+      minZ: -50,
+      maxZ: 50
+    },
+    biomeType: 'plains',
+    safeZone: true,
+    npcs: [
+      {
+        id: 'banker_starter',
+        name: 'Banker Bob',
+        type: 'bank',
+        position: { x: 15, y: 43, z: 5 },
+        services: ['bank'],
+        description: 'A friendly banker'
+      }
+    ],
+    resources: [
+      {
+        type: 'tree',
+        position: { x: 10, y: 43, z: 10 },
+        resourceId: 'tree_starter_1',
+        respawnTime: 60000,
+        level: 1
+      },
+      {
+        type: 'tree',
+        position: { x: -15, y: 43, z: 8 },
+        resourceId: 'tree_starter_2',
+        respawnTime: 60000,
+        level: 1
+      }
+    ],
+    mobSpawns: [
+      {
+        mobId: 'goblin',
+        position: { x: 25, y: 43, z: 25 },
+        spawnRadius: 10,
+        maxCount: 3,
+        respawnTime: 60000
+      },
+      {
+        mobId: 'goblin',
+        position: { x: -25, y: 43, z: 25 },
+        spawnRadius: 10,
+        maxCount: 2,
+        respawnTime: 60000
+      }
+    ],
+    connections: [],
+    specialFeatures: []
+  }
+};
 
 /**
  * Starter Towns - Populated by DataManager from world-areas.json
  */
-export const STARTER_TOWNS: Record<string, WorldArea> = {};
+export const STARTER_TOWNS: Record<string, WorldArea> = {
+  'starter_area': ALL_WORLD_AREAS['starter_area']
+};
 
 /**
  * Helper Functions

@@ -86,7 +86,7 @@ export class InventorySystem extends SystemBase {
       this.useItem(data);
     });
     this.subscribe(EventType.ITEM_PICKUP, (data) => {
-      this.pickupItem({ playerId: data.playerId, entityId: data.itemId });
+      this.pickupItem({ playerId: data.playerId, entityId: data.entityId, itemId: data.itemId });
     });
     this.subscribe(EventType.INVENTORY_UPDATE_COINS, (data) => {
       this.updateCoins({ playerId: data.playerId, amount: data.coins });
@@ -466,7 +466,13 @@ export class InventorySystem extends SystemBase {
     }
   }
 
-  private pickupItem(data: { playerId: string; entityId: string }): void {
+  private pickupItem(data: { playerId: string; entityId: string; itemId?: string }): void {
+    // SERVER-SIDE ONLY: Prevent duplication by ensuring only server processes pickups
+    if (!this.world.isServer) {
+      // Client just sent the request, don't process locally
+      return;
+    }
+    
     // Get item entity data from entity manager
     const entityManager = getSystem(this.world, 'entity-manager') as EntityManager;
     if (!entityManager) {
@@ -476,12 +482,19 @@ export class InventorySystem extends SystemBase {
     
     const entity = entityManager.getEntity(data.entityId);
     if (!entity) {
-      Logger.systemError('InventorySystem', `Entity not found: ${data.entityId}`, new Error(`Entity not found: ${data.entityId}`));
+      // Item may have already been picked up by another player
+      Logger.systemError('InventorySystem', `Entity not found (already picked up?): ${data.entityId}`, new Error(`Entity not found: ${data.entityId}`));
       return;
     }
     
-    const itemId = entity.getProperty('itemId') as string;
-    const quantity = entity.getProperty('quantity') as number;
+    // Get itemId from event data (passed from ItemEntity.handleInteraction) or from entity properties
+    const itemId = data.itemId || entity.getProperty('itemId') as string;
+    const quantity = entity.getProperty('quantity') as number || 1;
+    
+    if (!itemId) {
+      Logger.systemError('InventorySystem', `No itemId found for entity ${data.entityId}`, new Error(`No itemId found for entity ${data.entityId}`));
+      return;
+    }
     
     // Try to add to inventory
     const added = this.addItem({
@@ -491,9 +504,16 @@ export class InventorySystem extends SystemBase {
     });
     
     if (added) {
-      // Destroy item entity
-      this.emitTypedEvent(EventType.ENTITY_DEATH, { entityId: data.entityId });
-      
+      // Destroy item entity immediately on server to prevent duplication
+      const destroyed = entityManager.destroyEntity(data.entityId);
+      if (!destroyed) {
+        Logger.systemError('InventorySystem', `Failed to destroy item entity ${data.entityId}`, new Error(`Failed to destroy item entity ${data.entityId}`));
+      } else {
+        console.log(`[InventorySystem] ✅ Item ${itemId} picked up by ${data.playerId} and removed from world`);
+      }
+    } else {
+      // Could not add (inventory full, etc.)
+      Logger.system('InventorySystem', `Failed to add item ${itemId} to inventory for player ${data.playerId}`);
     }
   }
 

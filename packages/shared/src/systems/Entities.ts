@@ -66,8 +66,10 @@ import { SystemBase } from './SystemBase';
 import { MobEntity } from '../entities/MobEntity';
 import { NPCEntity } from '../entities/NPCEntity';
 import { ItemEntity } from '../entities/ItemEntity';
-import type { MobEntityConfig, NPCEntityConfig, ItemEntityConfig } from '../types/entities';
-import { EntityType, InteractionType, MobAIState, NPCType, ItemRarity } from '../types/entities';
+import { ResourceEntity } from '../entities/ResourceEntity';
+import { HeadstoneEntity } from '../entities/HeadstoneEntity';
+import type { MobEntityConfig, NPCEntityConfig, ItemEntityConfig, ResourceEntityConfig } from '../types/entities';
+import { EntityType, InteractionType, MobAIState, NPCType, ItemRarity, ResourceType } from '../types/entities';
 import { getMobById } from '../data/mobs';
 import { NPCBehavior, NPCState } from '../types/core';
 
@@ -90,6 +92,11 @@ const EntityTypes: Record<string, EntityConstructor> = {
   player: PlayerEntity,        // Server-side player entity
   playerLocal: PlayerLocal,     // Client-side local player
   playerRemote: PlayerRemote,   // Client-side remote players
+  item: ItemEntity as unknown as EntityConstructor,             // Ground items
+  mob: MobEntity as unknown as EntityConstructor,               // Enemy entities
+  npc: NPCEntity as unknown as EntityConstructor,               // NPC entities
+  resource: ResourceEntity as unknown as EntityConstructor,     // Resource entities (trees, rocks, etc)
+  headstone: HeadstoneEntity as unknown as EntityConstructor,   // Death markers
 };
 
 /**
@@ -201,15 +208,6 @@ export class Entities extends SystemBase implements IEntities {
       const mobData = getMobById(derivedMobType);
       const modelPath = mobData?.modelPath || null;
       
-      console.log(`[Entities] CLIENT creating MobEntity from snapshot:`, {
-        id: data.id,
-        name: name,
-        derivedMobType,
-        foundInDB: !!mobData,
-        hasModelPath: !!modelPath,
-        modelPath,
-        position: positionArray
-      });
 
       const mobConfig: MobEntityConfig = {
         id: data.id,
@@ -280,15 +278,6 @@ export class Entities extends SystemBase implements IEntities {
       const weight = (networkData.weight as number) || 0;
       const rarity = (networkData.rarity as string) || 'common';
       const modelPath = (networkData.model as string) || null;
-      
-      console.log(`[Entities] CLIENT creating ItemEntity from snapshot:`, {
-        id: data.id,
-        name: name,
-        itemId,
-        hasModelPath: !!modelPath,
-        modelPath,
-        position: positionArray
-      });
 
       const itemConfig: ItemEntityConfig = {
         id: data.id,
@@ -416,6 +405,60 @@ export class Entities extends SystemBase implements IEntities {
       this.items.set(entity.id, entity);
 
       // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch(err => this.logger.error(`Entity ${entity.id} async init failed`, err));
+      }
+
+      return entity;
+    } else if (data.type === 'resource') {
+      // Client-side: build a real ResourceEntity from snapshot data
+      const positionArray = (data.position || [0, 0, 0]) as [number, number, number];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [number, number, number, number];
+
+      const resourceConfig: ResourceEntityConfig = {
+        id: data.id,
+        name: data.name || 'Resource',
+        type: EntityType.RESOURCE,
+        position: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
+        rotation: { x: quaternionArray[0], y: quaternionArray[1], z: quaternionArray[2], w: quaternionArray[3] },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.GATHER,
+        interactionDistance: (data as { interactionDistance?: number }).interactionDistance || 3,
+        description: (data as { description?: string }).description || 'A resource',
+        model: (data as { model?: string }).model || null,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+          resourceType: ResourceType.TREE,
+          harvestable: true,
+          respawnTime: 60000,
+          toolRequired: 'none',
+          skillRequired: 'none',
+          xpReward: 10
+        },
+        resourceType: (data as { resourceType?: string }).resourceType === 'tree' ? ResourceType.TREE : 
+                      (data as { resourceType?: string }).resourceType === 'fishing_spot' ? ResourceType.FISHING_SPOT :
+                      (data as { resourceType?: string }).resourceType === 'mining_rock' ? ResourceType.MINING_ROCK : ResourceType.TREE,
+        resourceId: (data as { resourceId?: string }).resourceId || 'normal_tree',
+        harvestSkill: (data as { harvestSkill?: string }).harvestSkill || 'woodcutting',
+        requiredLevel: (data as { requiredLevel?: number }).requiredLevel || 1,
+        harvestTime: (data as { harvestTime?: number }).harvestTime || 3000,
+        harvestYield: (data as { harvestYield?: Array<{ itemId: string; quantity: number; chance: number }> }).harvestYield || [],
+        respawnTime: (data as { respawnTime?: number }).respawnTime || 60000,
+        depleted: (data as { depleted?: boolean }).depleted || false,
+        lastHarvestTime: 0
+      };
+
+      const entity = new ResourceEntity(this.world, resourceConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity
       if (entity.init) {
         (entity.init() as Promise<void>)?.catch(err => this.logger.error(`Entity ${entity.id} async init failed`, err));
       }

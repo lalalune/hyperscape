@@ -352,7 +352,8 @@ TARGET_INCLUDE_DIRECTORIES(PhysX
 	PRIVATE ${PHYSX_SOURCE_DIR}/common/src
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/physx/src
-	PRIVATE ${PHYSX_SOURCE_DIR}/physx/src/device
+	# device directory doesn't exist - commented out
+	# PRIVATE ${PHYSX_SOURCE_DIR}/physx/src/device
 	PRIVATE ${PHYSX_SOURCE_DIR}/physxgpu/include
 
 
@@ -387,14 +388,16 @@ TARGET_INCLUDE_DIRECTORIES(PhysX
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/physxmetadata/core/include
 
-    PRIVATE ${PHYSX_SOURCE_DIR}/immediatemode/include
+    # immediatemode/include doesn't exist, only immediatemode/src
+    PRIVATE ${PHYSX_SOURCE_DIR}/immediatemode/src
 
     PRIVATE ${PHYSX_SOURCE_DIR}/pvd/include
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/gpucommon/include
 	PRIVATE ${PHYSX_SOURCE_DIR}/gpucommon/src/CUDA
 
-  PRIVATE ${PHYSX_SOURCE_DIR}/omnipvd
+  # omnipvd is under physx/src not source
+  PRIVATE ${PHYSX_SOURCE_DIR}/physx/src/omnipvd
   PRIVATE ${PHYSX_ROOT_DIR}/pvdruntime/include
 )
 

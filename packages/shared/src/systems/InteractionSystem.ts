@@ -164,6 +164,31 @@ export class InteractionSystem extends System {
     if (event.button !== 0) return; // Left click only
     if (!this.canvas || !this.world.camera) return;
     
+    // Check if clicking on an interactable entity (item, NPC, etc.)
+    const target = this.getEntityAtPosition(event.clientX, event.clientY);
+    if (target) {
+      // Handle item pickup with left-click
+      if (target.type === 'item') {
+        event.preventDefault();
+        const localPlayer = this.world.getPlayer();
+        if (localPlayer && target.entity) {
+          // Trigger entity interaction which will handle the pickup correctly
+          const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
+          if (entity.handleInteraction) {
+            entity.handleInteraction({
+              entityId: target.id,
+              playerId: localPlayer.id,
+              playerPosition: localPlayer.position
+            });
+          }
+        }
+        return;
+      }
+      
+      // For other interactables, could add direct interaction here
+      // For now, let them use context menu or continue with movement
+    }
+    
     // Always handle left-click movement even if another system prevented default
     
     // Now prevent default for our handling
@@ -369,7 +394,8 @@ export class InteractionSystem extends System {
       let obj: THREE.Object3D | null = intersect.object;
       while (obj) {
         const userData = obj.userData;
-        const entityId = userData?.entityId || userData?.mobId || userData?.resourceId;
+        // Look for any entity identifier - entityId, mobId, resourceId, or itemId
+        const entityId = userData?.entityId || userData?.mobId || userData?.resourceId || userData?.itemId;
         
         if (entityId) {
           const entity = this.world.entities.get(entityId);
@@ -452,12 +478,13 @@ export class InteractionSystem extends System {
           icon: '🎒',
           enabled: true,
           handler: () => {
-            if (this.world.network?.send) {
-              this.world.network.send('pickupItem', { itemId: target.id });
-            } else {
-              this.world.emit(EventType.ITEM_PICKUP, {
+            // Trigger the entity's handleInteraction method for proper pickup
+            const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
+            if (entity?.handleInteraction) {
+              entity.handleInteraction({
+                entityId: target.id,
                 playerId,
-                itemId: target.id
+                playerPosition: target.position
               });
             }
           }

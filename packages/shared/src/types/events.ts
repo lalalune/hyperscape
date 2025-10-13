@@ -56,6 +56,7 @@ export enum EventType {
   ENTITY_CREATED = 'entity:created',
   ENTITY_UPDATED = 'entity:updated',
   ENTITY_INTERACT = 'entity:interact',
+  ENTITY_INTERACTED = 'entity:interacted',
   ENTITY_MOVE_REQUEST = 'entity:move_request',
   ENTITY_PROPERTY_REQUEST = 'entity:property_request',
   ENTITY_SPAWNED = 'entity:spawned',
@@ -65,6 +66,10 @@ export enum EventType {
   ENTITY_POSITION_CORRECTED = 'entity:position_corrected',
   ENTITY_COMPONENT_ADDED = 'entity:component:added',
   ENTITY_COMPONENT_REMOVED = 'entity:component:removed',
+  ENTITY_HEALTH_CHANGED = 'entity:health_changed',
+  ENTITY_DAMAGED = 'entity:damaged',
+  ENTITY_HEALED = 'entity:healed',
+  ENTITY_LEVEL_CHANGED = 'entity:level_changed',
 
   // Asset Management
   ASSET_LOADED = 'asset:loaded',
@@ -256,6 +261,8 @@ export enum EventType {
   NPC_SPAWN_REQUEST = 'npc:spawn_request',
   NPC_INTERACTION = 'npc:interaction',
   NPC_DIALOGUE = 'npc:dialogue',
+  NPC_TRAINER_OPEN = 'trainer:open_request',
+  NPC_QUEST_OPEN = 'quest:open_request',
 
   // Quest System
   QUEST_STARTED = 'quest:started',
@@ -269,10 +276,13 @@ export enum EventType {
   MOB_DESPAWN = 'mob:despawn',
   MOB_DESPAWNED = 'mob:despawned',
   MOB_RESPAWN_ALL = 'mob:respawn_all',
+  MOB_RESPAWNED = 'mob:respawn',
   MOB_DAMAGED = 'mob:damaged',
   MOB_POSITION_UPDATED = 'mob:position_updated',
   MOB_ATTACKED = 'mob:attacked',
   MOB_DIED = 'mob:died',
+  MOB_EXAMINE = 'mob:examine',
+  MOB_AGGRO = 'mob:aggro',
   MOB_CHASE_STARTED = 'mob:chase:started',
   MOB_CHASE_ENDED = 'mob:chase:ended',
   MOB_MOVE_REQUEST = 'mob:move:request',
@@ -280,6 +290,7 @@ export enum EventType {
 
   // Banking System
   BANK_OPEN = 'bank:open',
+  BANK_OPEN_REQUEST = 'bank:open_request',
   BANK_CLOSE = 'bank:close',
   BANK_DEPOSIT = 'bank:deposit',
   BANK_DEPOSIT_SUCCESS = 'bank:deposit_success',
@@ -293,6 +304,7 @@ export enum EventType {
 
   // Store System
   STORE_OPEN = 'store:open',
+  STORE_OPEN_REQUEST = 'store:open_request',
   STORE_CLOSE = 'store:close',
   STORE_BUY = 'store:buy',
   STORE_SELL = 'store:sell',
@@ -305,6 +317,7 @@ export enum EventType {
   RESOURCE_GATHER = 'resource:gather',
   RESOURCE_GATHERED = 'resource:gathered',
   RESOURCE_HARVEST = 'resource:harvest',
+  RESOURCE_HARVEST_REQUEST = 'resource:harvest_request',
   RESOURCE_DEPLETED = 'resource:depleted',
   RESOURCE_RESPAWNED = 'resource:respawned',
   RESOURCE_GATHERING_STARTED = 'resource:gathering:started',
@@ -316,6 +329,7 @@ export enum EventType {
   RESOURCE_RESPAWN_READY = 'resource:respawn:ready',
   RESOURCE_GATHERING_COMPLETED = 'resource:gathering:completed',
   RESOURCE_SPAWN_POINTS_REGISTERED = 'resource:spawn_points:registered',
+  RESOURCE_MESH_CREATED = 'resource:mesh:created',
   RESOURCE_ACTION = 'resource:action',
 
   // Skills & XP System
@@ -336,6 +350,7 @@ export enum EventType {
   CORPSE_CLICK = 'corpse:click',
   CORPSE_LOOT_REQUEST = 'corpse:loot_request',
   CORPSE_CLEANUP = 'corpse:cleanup',
+  CORPSE_EMPTY = 'corpse:empty',
 
   // Fire System
   FIRE_EXTINGUISHED = 'fire:extinguished',
@@ -483,7 +498,6 @@ export enum EventType {
   PLAYER_HEALING_RECEIVED = 'player:healing:received',
   ENTITY_DAMAGE_TAKEN = 'entity:damage:taken',
   ENTITY_HEALING_RECEIVED = 'entity:healing:received',
-  ENTITY_HEALTH_CHANGED = 'entity:health:changed',
   ENTITY_REVIVED = 'entity:revived',
 
   // World Events
@@ -501,6 +515,19 @@ export enum EventType {
   // Terrain Events
   TERRAIN_CONFIGURE = 'terrain:configure',
   TERRAIN_SPAWN_RESOURCE = 'terrain:spawn_resource',
+  TERRAIN_TILE_UNLOADED = 'terrain:tile:unloaded',
+  TERRAIN_GENERATE_INITIAL = 'terrain:generate-initial',
+  
+  // Character System
+  CHARACTER_LIST = 'character:list',
+  CHARACTER_CREATED = 'character:created',
+  CHARACTER_SELECTED = 'character:selected',
+  
+  // General Events
+  SERVER_CORRECTION = 'serverCorrection',
+  ENTITY_MODIFIED = 'entityModified',
+  ENTITY_INTERACT_REQUEST = 'entity:interact_request',
+  AGGRO_FORCE_TRIGGER = 'aggro:force-trigger',
 }
 
 // ============================================================================
@@ -887,7 +914,7 @@ export interface EventMap {
   [EventType.INVENTORY_ITEM_REMOVED]: { playerId: string; itemId: string | number; quantity: number; slot?: number };
   [EventType.ITEM_DROP]: { playerId: string; itemId: string; quantity: number; slot?: number };
   [EventType.INVENTORY_USE]: { playerId: string; itemId: string; slot: number };
-  [EventType.ITEM_PICKUP]: { playerId: string; itemId: string; entityId?: string; position?: Position3D };
+  [EventType.ITEM_PICKUP]: { playerId: string; itemId?: string; entityId: string; position?: Position3D };
   [EventType.INVENTORY_UPDATE_COINS]: { playerId: string; coins: number };
   [EventType.INVENTORY_MOVE]: { playerId: string; fromSlot?: number; toSlot?: number; sourceSlot?: number; targetSlot?: number };
   [EventType.INVENTORY_DROP_ALL]: { playerId: string; position: { x: number; y: number; z: number } };
@@ -914,7 +941,34 @@ export interface EventMap {
   
   // All other events
   [EventType.ENTITY_SPAWNED]: EntitySpawnedEvent;
-  [EventType.RESOURCE_SPAWNED]: Resource;
+  [EventType.RESOURCE_SPAWNED]: { id: string; type: string; position: { x: number; y: number; z: number } };
+  [EventType.RESOURCE_DEPLETED]: { resourceId: string; position?: { x: number; y: number; z: number } };
+  [EventType.RESOURCE_RESPAWNED]: { resourceId: string; position?: { x: number; y: number; z: number } };
+  [EventType.RESOURCE_SPAWN_POINTS_REGISTERED]: { spawnPoints: Array<{ id: string; type: string; position: { x: number; y: number; z: number } }> };
+  [EventType.RESOURCE_MESH_CREATED]: { mesh: unknown; instanceId: number | null; resourceId: string; resourceType: string; worldPosition: { x: number; y: number; z: number } };
+  [EventType.RESOURCE_HARVEST_REQUEST]: { playerId: string; entityId: string; resourceType: string; resourceId: string; harvestSkill: string; requiredLevel: number; harvestTime: number; harvestYield: Array<{ itemId: string; quantity: number; chance: number }> };
+  [EventType.ENTITY_HEALTH_CHANGED]: { entityId: string; health: number; maxHealth: number; isDead: boolean };
+  [EventType.ENTITY_DAMAGED]: { entityId: string; damage: number; sourceId?: string; remainingHealth: number; isDead: boolean };
+  [EventType.ENTITY_HEALED]: { entityId: string; healAmount: number; newHealth: number };
+  [EventType.ENTITY_LEVEL_CHANGED]: { entityId: string; newLevel: number };
+  [EventType.ENTITY_INTERACTED]: { entityId: string; playerId: string; position: { x: number; y: number; z: number } };
+  [EventType.MOB_EXAMINE]: { playerId: string; mobId: string; mobData: unknown };
+  [EventType.MOB_AGGRO]: { mobId: string; targetId: string };
+  [EventType.MOB_RESPAWNED]: { mobId: string; position: Position3D };
+  [EventType.NPC_TRAINER_OPEN]: { playerId: string; npcId: string; skillsOffered: string[] };
+  [EventType.NPC_QUEST_OPEN]: { playerId: string; npcId: string; questsAvailable: string[] };
+  [EventType.BANK_OPEN_REQUEST]: { playerId: string; npcId: string };
+  [EventType.STORE_OPEN_REQUEST]: { playerId: string; npcId: string; inventory: unknown[] };
+  [EventType.CORPSE_EMPTY]: { corpseId: string };
+  [EventType.CHARACTER_LIST]: { characters: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> };
+  [EventType.CHARACTER_CREATED]: { id: string; name: string };
+  [EventType.CHARACTER_SELECTED]: { characterId: string | null };
+  [EventType.ENTITY_MODIFIED]: { id: string; changes: Record<string, unknown> };
+  [EventType.SERVER_CORRECTION]: { sequence: number; corrections: unknown };
+  [EventType.TERRAIN_TILE_UNLOADED]: { tileId: string };
+  [EventType.TERRAIN_GENERATE_INITIAL]: { centerX: number; centerZ: number; radius: number };
+  [EventType.ENTITY_INTERACT_REQUEST]: { playerId: string; entityId: string; interactionType: string; playerPosition?: Position3D };
+  [EventType.AGGRO_FORCE_TRIGGER]: { playerId: string };
 }
 
 /**

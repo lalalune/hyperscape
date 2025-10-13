@@ -440,7 +440,35 @@ export class ClientCameraSystem extends SystemBase {
   }
 
   private onContextMenu(event: MouseEvent): void {
-    // Always prevent context menu - we don't use right-click for anything specific now
+    // Check if clicking on an entity - if so, let InteractionSystem handle it
+    // Raycast to check if clicking on an entity
+    if (this.world.camera && this.canvas) {
+      const rect = this.canvas.getBoundingClientRect()
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+      
+      const raycaster = new THREE.Raycaster()
+      raycaster.setFromCamera(new THREE.Vector2(x, y), this.world.camera)
+      
+      const scene = this.world.stage?.scene
+      if (scene) {
+        const intersects = raycaster.intersectObjects(scene.children, true)
+        
+        // Check if any intersected object has entity userData
+        for (const intersect of intersects) {
+          let obj = intersect.object
+          while (obj) {
+            if (obj.userData && obj.userData.entityId) {
+              // Clicking on entity - let InteractionSystem handle it
+              return
+            }
+            obj = obj.parent as THREE.Object3D
+          }
+        }
+      }
+    }
+    
+    // Not clicking on entity - prevent default context menu
     event.preventDefault();
     event.stopPropagation();
   }
@@ -585,7 +613,7 @@ export class ClientCameraSystem extends SystemBase {
 
   private onTouchEnd(event: TouchEvent): void {
     if (this.touchState.active && !this.orbitingActive) {
-      this.world.emit('camera:tap', {
+      this.world.emit(EventType.CAMERA_TAP, {
         x: this.touchState.startPosition.x,
         y: this.touchState.startPosition.y
       });
