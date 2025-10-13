@@ -46,9 +46,8 @@ export function EquipmentPanel({ equipment, onItemDrop: _onItemDrop }: Equipment
     { key: EquipmentSlotName.ARROWS, label: 'Arrows' },
   ]
 
-  const itemMap: Record<string, Item | null> = equipment
-    ? (equipment as unknown as Record<string, Item | null>)
-    : {}
+  // Equipment slots are keyed by EquipmentSlotName enum values
+  const itemMap: Record<string, Item | null> = equipment ? equipment as Record<string, Item | null> : {}
 
   return (
     <div>

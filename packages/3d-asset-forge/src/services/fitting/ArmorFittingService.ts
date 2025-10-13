@@ -162,18 +162,16 @@ export class ArmorFittingService {
       const boundingBox = new Box3()
       
       if (regionVertexPositions.length > 10) {
-        // Use vertex positions if we have enough
         console.log(`🎯 ArmorFittingService: ${regionName} region using ${regionVertexPositions.length} vertices`)
         boundingBox.setFromPoints(regionVertexPositions)
       } else {
-        // Fallback: use bone positions with influence spheres
         console.log(`🎯 ArmorFittingService: ${regionName} region using bone positions (only ${regionVertexPositions.length} vertices found)`)
         const influenceRadius = {
-          head: 0.15,    // 15cm radius
-          torso: 0.35,   // 35cm radius - larger for torso
-          arms: 0.15,    // 15cm radius
-          legs: 0.25,    // 25cm radius
-          hips: 0.3      // 30cm radius
+          head: 0.15,
+          torso: 0.35,
+          arms: 0.15,
+          legs: 0.25,
+          hips: 0.3
         }
         
         const influence = influenceRadius[regionName as keyof typeof influenceRadius] || 0.2
@@ -182,7 +180,6 @@ export class ArmorFittingService {
           const boneWorldPos = new Vector3()
           boneWorldPos.setFromMatrixPosition(bone.matrixWorld)
           
-          // Expand box by influence sphere around bone
           boundingBox.expandByPoint(boneWorldPos.clone().add(new Vector3(influence, influence, influence)))
           boundingBox.expandByPoint(boneWorldPos.clone().add(new Vector3(-influence, -influence, -influence)))
         })
@@ -567,32 +564,7 @@ export class ArmorFittingService {
       regions.forEach((region, name) => {
         console.log(`  ${name}: ${region.vertices?.length || 0} vertices`)
       })
-      
-      // Fallback: use all vertices if no torso region found
-      console.warn('Falling back to using all vertices')
-      const geometry = skinnedMesh.geometry
-      const position = geometry.attributes.position as BufferAttribute
-      const allPositions = new Float32Array(position.array)
-      
-      // Apply world transform to all vertices
-      const worldMatrix = skinnedMesh.matrixWorld
-      for (let i = 0; i < position.count; i++) {
-        const vertex = new Vector3()
-        vertex.fromBufferAttribute(position, i)
-        vertex.applyMatrix4(worldMatrix)
-        allPositions[i * 3] = vertex.x
-        allPositions[i * 3 + 1] = vertex.y
-        allPositions[i * 3 + 2] = vertex.z
-      }
-      
-      const bounds = new Box3().setFromBufferAttribute(position)
-      bounds.applyMatrix4(worldMatrix)
-      
-      return {
-        positions: allPositions,
-        indices: geometry.index ? new Uint32Array(geometry.index.array) : null,
-        bounds
-      }
+      throw new Error('No torso region found - avatar mesh may be incompatible')
     }
     
     console.log(`Found ${torsoRegion.vertices.length} vertices in torso region`)
@@ -816,9 +788,8 @@ export class ArmorFittingService {
     let mappedVertices = 0
     let projectionMapped = 0
     let nearestMapped = 0
-    let boneFallback = 0
+    let boneDistanceMapped = 0
     
-    // First pass: Try projection-based weight transfer
     for (let i = 0; i < armorVertexCount; i++) {
       const success = ArmorFittingService.projectiveWeightTransfer(
         armorMesh,
@@ -828,22 +799,20 @@ export class ArmorFittingService {
         skinWeights,
         {
           maxProjectionDistance: 1.0,
-          fallbackToBoneDistance: true
+          useBoneDistanceIfNoProjection: true
         }
       )
       
       if (success) {
         mappedVertices++
-        // Check if it was projection or bone fallback
         const hasValidWeights = skinWeights[i * 4] > 0
         if (hasValidWeights) {
           projectionMapped++
         } else {
-          boneFallback++
+          boneDistanceMapped++
         }
       } else {
         unmappedVertices++
-        // Assign to root bone as last resort
         skinIndices[i * 4] = 0
         skinWeights[i * 4] = 1.0
         for (let j = 1; j < 4; j++) {
@@ -853,9 +822,8 @@ export class ArmorFittingService {
       }
     }
     
-    // Second pass: Try nearest-neighbor for any remaining unmapped vertices
     if (unmappedVertices > 0) {
-      console.log(`Attempting nearest-neighbor fallback for ${unmappedVertices} unmapped vertices...`)
+      console.log(`Attempting nearest-neighbor mapping for ${unmappedVertices} unmapped vertices...`)
       
       const tempArmorVertex = new THREE.Vector3()
       const tempAvatarVertex = new THREE.Vector3()
@@ -903,7 +871,7 @@ export class ArmorFittingService {
     console.log(`Successfully mapped: ${mappedVertices} (${(mappedVertices / armorVertexCount * 100).toFixed(1)}%)`)
     console.log(`- Projection mapped: ${projectionMapped}`)
     console.log(`- Nearest neighbor: ${nearestMapped}`)
-    console.log(`- Bone distance fallback: ${boneFallback}`)
+    console.log(`- Bone distance: ${boneDistanceMapped}`)
     console.log(`Unmapped (bound to root): ${unmappedVertices}`)
     
     // ADD SKINNING ATTRIBUTES TO GEOMETRY
@@ -1131,12 +1099,12 @@ export class ArmorFittingService {
     skinWeights: Float32Array,
     options: {
       maxProjectionDistance?: number
-      fallbackToBoneDistance?: boolean
+      useBoneDistanceIfNoProjection?: boolean
     } = {}
   ): boolean {
     const {
       maxProjectionDistance = 1.0,
-      fallbackToBoneDistance = true
+      useBoneDistanceIfNoProjection = true
     } = options
 
     const armorGeometry = armorMesh.geometry as THREE.BufferGeometry
@@ -1242,8 +1210,7 @@ export class ArmorFittingService {
       }
     }
     
-    // No projection found - fallback to bone distance weighting if enabled
-    if (fallbackToBoneDistance && avatarMesh.skeleton) {
+    if (useBoneDistanceIfNoProjection && avatarMesh.skeleton) {
       return ArmorFittingService.boneDistanceWeighting(
         armorVertex,
         armorVertexIndex,
@@ -1257,7 +1224,7 @@ export class ArmorFittingService {
   }
 
   /**
-   * Fallback weighting based on distance to bones
+   * Bone distance weighting
    */
   private static boneDistanceWeighting(
     worldVertex: THREE.Vector3,
@@ -2418,7 +2385,6 @@ export class ArmorFittingService {
         if (targetBoneIndex !== undefined) {
           newSkinIndices[i * 4 + j] = targetBoneIndex
         } else {
-          // Fallback to root bone (0) if mapping not found
           newSkinIndices[i * 4 + j] = 0
         }
       }

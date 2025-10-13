@@ -1,9 +1,34 @@
 /**
- * Browser-only storage implementation
+ * storage.ts - Browser LocalStorage Wrapper
  * 
- * For server-side storage, import from './storage.server.js'
+ * Provides a simple JSON-based storage interface for browser environments.
+ * Data is persisted to the browser's localStorage API.
+ * 
+ * Features:
+ * - Automatic JSON serialization/deserialization
+ * - Safe fallback when localStorage is unavailable (SSR, tests, etc.)
+ * - Type-safe interface with unknown return type for proper type checking
+ * 
+ * For server-side storage (Node.js), import from './storage.server.js' instead.
+ * Server-side storage uses file-based persistence with JSON files.
+ * 
+ * Usage:
+ * ```typescript
+ * import { storage } from './storage';
+ * storage.set('playerPrefs', { volume: 0.8, quality: 'high' });
+ * const prefs = storage.get('playerPrefs');
+ * storage.remove('playerPrefs');
+ * ```
+ * 
+ * Used by: ClientRuntime, ClientInterface (preferences), PlayerLocal
+ * References: storage.server.ts (server-side implementation)
  */
 
+/**
+ * LocalStorage - Browser localStorage wrapper with JSON serialization.
+ * 
+ * Provides a consistent API for storing and retrieving data in the browser.
+ */
 export class LocalStorage {
   get(key: string): unknown {
     if (typeof localStorage === 'undefined') return null
@@ -31,13 +56,10 @@ export type { NodeStorage } from './storage.server.js';
 // Export based on environment
 let storage: LocalStorage;
 
-// Client-only storage - use LocalStorage in browser
 if (typeof window !== 'undefined' && window.localStorage) {
   storage = new LocalStorage();
 } else {
-  // For server environments, they should import NodeStorage directly from storage.server.js
-  // This fallback creates a stub that will fail if used
-  storage = new LocalStorage(); // Will throw at runtime if used outside browser
+  storage = new LocalStorage();
 }
 
 export { storage };

@@ -29,7 +29,7 @@ import {
 } from '../utils/IdentifierUtils';
 import { EntityManager } from './EntityManager';
 import { SystemBase } from './SystemBase';
-import { logger as Logger } from '../logger';
+import { Logger } from '../utils/Logger';
 import type { DatabaseSystem } from '../types/system-interfaces';
 
 
@@ -61,8 +61,8 @@ export class InventorySystem extends SystemBase {
       console.log(`[InventorySystem] init() called, isServer: ${isServer}, isClient: ${isClient}`)
     }
     
-    // Subscribe to inventory events (use world.on for reliable event delivery)
-    this.world.on(EventType.PLAYER_REGISTERED, (data: { playerId: string }) => {
+    // Subscribe to inventory events
+    this.subscribe(EventType.PLAYER_REGISTERED, (data: { playerId: string }) => {
       if (process.env.DEBUG_RPG === '1') {
         console.log(`[InventorySystem] PLAYER_REGISTERED received: ${data.playerId}`)
       }
@@ -110,8 +110,8 @@ export class InventorySystem extends SystemBase {
     });
     
     // Subscribe to inventory check events
-    this.subscribe(EventType.INVENTORY_CHECK, (data) => {
-      this.handleInventoryCheck(data as unknown as InventoryCheckEvent);
+    this.subscribe(EventType.INVENTORY_CHECK, (data: InventoryCheckEvent) => {
+      this.handleInventoryCheck(data);
     });
   }
   
@@ -145,7 +145,7 @@ export class InventorySystem extends SystemBase {
   private initializeInventory(playerData: { id: string }): void {
     // Validate and create PlayerID
     if (!isValidPlayerID(playerData.id)) {
-      Logger.error('InventorySystem', `Invalid player ID: "${playerData.id}"`);
+      Logger.systemError('InventorySystem', `Invalid player ID: "${playerData.id}"`, new Error(`Invalid player ID: "${playerData.id}"`));
       return;
     }
     
@@ -207,7 +207,7 @@ export class InventorySystem extends SystemBase {
   private cleanupInventory(data: { id: string }): void {
     const playerId = toPlayerID(data.id);
     if (!playerId) {
-      Logger.error('InventorySystem', `Cannot cleanup inventory: invalid player ID "${data.id}"`);
+      Logger.systemError('InventorySystem', `Cannot cleanup inventory: invalid player ID "${data.id}"`, new Error(`Cannot cleanup inventory: invalid player ID "${data.id}"`));
       return;
     }
     this.playerInventories.delete(playerId);
@@ -215,18 +215,18 @@ export class InventorySystem extends SystemBase {
 
   protected addItem(data: { playerId: string; itemId: string; quantity: number; slot?: number }): boolean {
     if (!data.playerId) {
-      Logger.error('InventorySystem', 'Cannot add item: playerId is undefined');
+      Logger.systemError('InventorySystem', 'Cannot add item: playerId is undefined', new Error('Cannot add item: playerId is undefined'));
       return false;
     }
     
     if (!data.itemId) {
-      Logger.error('InventorySystem', 'Cannot add item: itemId is undefined');
+      Logger.systemError('InventorySystem', 'Cannot add item: itemId is undefined', new Error('Cannot add item: itemId is undefined'));
       return false;
     }
     
     // Validate IDs
     if (!isValidPlayerID(data.playerId) || !isValidItemID(data.itemId)) {
-      Logger.error('InventorySystem', 'Cannot add item: invalid ID format');
+      Logger.systemError('InventorySystem', 'Cannot add item: invalid ID format', new Error('Cannot add item: invalid ID format'));
       return false;
     }
     
@@ -237,7 +237,7 @@ export class InventorySystem extends SystemBase {
     
     const itemData = getItem(itemId);
     if (!itemData) {
-      Logger.error('InventorySystem', `Item not found: ${itemId}`);
+      Logger.systemError('InventorySystem', `Item not found: ${itemId}`, new Error(`Item not found: ${itemId}`));
       return false;
     }
     
@@ -296,18 +296,18 @@ export class InventorySystem extends SystemBase {
 
   private removeItem(data: { playerId: string; itemId: string | number; quantity: number; slot?: number }): boolean {
     if (!data.playerId) {
-      Logger.error('InventorySystem', 'Cannot remove item: playerId is undefined');
+      Logger.systemError('InventorySystem', 'Cannot remove item: playerId is undefined', new Error('Cannot remove item: playerId is undefined'));
       return false;
     }
     
     if (!data.itemId && data.itemId !== 0) {
-      Logger.error('InventorySystem', 'Cannot remove item: itemId is undefined');
+      Logger.systemError('InventorySystem', 'Cannot remove item: itemId is undefined', new Error('Cannot remove item: itemId is undefined'));
       return false;
     }
     
     // Validate IDs
     if (!isValidPlayerID(data.playerId) || !isValidItemID(String(data.itemId))) {
-      Logger.error('InventorySystem', 'Cannot remove item: invalid ID format');
+      Logger.systemError('InventorySystem', 'Cannot remove item: invalid ID format', new Error('Cannot remove item: invalid ID format'));
       return false;
     }
     
@@ -355,7 +355,7 @@ export class InventorySystem extends SystemBase {
 
   private dropItem(data: { playerId: string; itemId: string; quantity: number; slot?: number }): void {
     if (!data.playerId) {
-      Logger.error('InventorySystem', 'Cannot drop item: playerId is undefined');
+      Logger.systemError('InventorySystem', 'Cannot drop item: playerId is undefined', new Error('Cannot drop item: playerId is undefined'));
       return;
     }
     
@@ -364,7 +364,8 @@ export class InventorySystem extends SystemBase {
     if (removed) {
       const player = this.world.getPlayer(data.playerId);
       if (!player) {
-        throw new Error(`[InventorySystem] Player not found: ${data.playerId}`);
+        Logger.systemError('InventorySystem', `Player not found: ${data.playerId}`, new Error(`Player not found: ${data.playerId}`));
+        return;
       }
       const position = player.node.position;
       
@@ -384,7 +385,7 @@ export class InventorySystem extends SystemBase {
 
   private dropAllItems(data: { playerId: string; position: { x: number; y: number; z: number } }): void {
     if (!data.playerId) {
-      Logger.error('InventorySystem', 'Cannot drop all items: playerId is undefined');
+      Logger.systemError('InventorySystem', 'Cannot drop all items: playerId is undefined', new Error('Cannot drop all items: playerId is undefined'));
       return;
     }
     
@@ -430,7 +431,7 @@ export class InventorySystem extends SystemBase {
       });
     }
     
-          Logger.info('InventorySystem', `Dropped ${droppedItems.length} items for player ${data.playerId} at death location`);
+          Logger.system('InventorySystem', `Dropped ${droppedItems.length} items for player ${data.playerId} at death location`);
   }
 
   private useItem(data: { playerId: string; itemId: string; slot: number }): void {
@@ -440,7 +441,8 @@ export class InventorySystem extends SystemBase {
     
     const item = inventory.items.find(i => i.slot === data.slot);
     if (!item) {
-      throw new Error(`[InventorySystem] No item found in slot ${data.slot}`);
+      Logger.systemError('InventorySystem', `No item found in slot ${data.slot}`, new Error(`No item found in slot ${data.slot}`));
+      return;
     }
     
     
@@ -468,15 +470,14 @@ export class InventorySystem extends SystemBase {
     // Get item entity data from entity manager
     const entityManager = getSystem(this.world, 'entity-manager') as EntityManager;
     if (!entityManager) {
-      throw new Error('[InventorySystem] EntityManager system not found');
-    }
-    if (!entityManager) {
-      throw new Error('[InventorySystem] EntityManager not found');
+      Logger.systemError('InventorySystem', 'EntityManager system not found', new Error('EntityManager system not found'));
+      return;
     }
     
     const entity = entityManager.getEntity(data.entityId);
     if (!entity) {
-      throw new Error(`[InventorySystem] Entity not found: ${data.entityId}`);
+      Logger.systemError('InventorySystem', `Entity not found: ${data.entityId}`, new Error(`Entity not found: ${data.entityId}`));
+      return;
     }
     
     const itemId = entity.getProperty('itemId') as string;
@@ -498,7 +499,7 @@ export class InventorySystem extends SystemBase {
 
   private updateCoins(data: { playerId: string; amount: number }): void {
     if (!data.playerId) {
-      Logger.error('InventorySystem', 'Cannot update coins: playerId is undefined');
+      Logger.systemError('InventorySystem', 'Cannot update coins: playerId is undefined', new Error('Cannot update coins: playerId is undefined'));
       return;
     }
     
@@ -519,7 +520,7 @@ export class InventorySystem extends SystemBase {
 
   private moveItem(data: { playerId: string; fromSlot?: number; toSlot?: number; sourceSlot?: number; targetSlot?: number }): void {
     if (!data.playerId) {
-      Logger.error('InventorySystem', 'Cannot move item: playerId is undefined');
+      Logger.systemError('InventorySystem', 'Cannot move item: playerId is undefined', new Error('Cannot move item: playerId is undefined'));
       return;
     }
     
@@ -528,7 +529,7 @@ export class InventorySystem extends SystemBase {
     const toSlot = data.toSlot ?? data.targetSlot;
     
     if (fromSlot === undefined || toSlot === undefined) {
-      Logger.error('InventorySystem', 'Cannot move item: slot numbers are undefined', undefined, { data });
+      Logger.systemError('InventorySystem', 'Cannot move item: slot numbers are undefined', new Error('Cannot move item: slot numbers are undefined'), { data });
       return;
     }
     
@@ -605,7 +606,7 @@ export class InventorySystem extends SystemBase {
   getInventory(playerId: string): PlayerInventory | undefined {
     const playerIdKey = toPlayerID(playerId);
     if (!playerIdKey) {
-      Logger.error('InventorySystem', `Invalid player ID in getInventory: "${playerId}"`);
+      Logger.systemError('InventorySystem', `Invalid player ID in getInventory: "${playerId}"`, new Error(`Invalid player ID in getInventory: "${playerId}"`));
       return undefined;
     }
     return this.playerInventories.get(playerIdKey);
@@ -614,7 +615,7 @@ export class InventorySystem extends SystemBase {
   getInventoryData(playerId: string): InventoryData {
     const playerIdKey = toPlayerID(playerId);
     if (!playerIdKey) {
-      Logger.error('InventorySystem', `Invalid player ID in getInventoryData: "${playerId}"`);
+      Logger.systemError('InventorySystem', `Invalid player ID in getInventoryData: "${playerId}"`, new Error(`Invalid player ID in getInventoryData: "${playerId}"`));
       return { items: [], coins: 0, maxSlots: this.MAX_INVENTORY_SLOTS };
     }
     
@@ -713,17 +714,27 @@ export class InventorySystem extends SystemBase {
   // Store system event handlers
   protected getOrCreateInventory(playerId: string): PlayerInventory {
     if (!playerId) {
-      throw new Error('[InventorySystem] Cannot create inventory for undefined playerId');
+      Logger.systemError('InventorySystem', 'Cannot create inventory for undefined playerId', new Error('Cannot create inventory for undefined playerId'));
+      return {
+        playerId: '',
+        items: [],
+        coins: 0
+      };
     }
     
     const playerIdKey = toPlayerID(playerId);
     if (!playerIdKey) {
-      throw new Error(`[InventorySystem] Invalid player ID: ${playerId}`);
+      Logger.systemError('InventorySystem', `Invalid player ID: ${playerId}`, new Error(`Invalid player ID: ${playerId}`));
+      return {
+        playerId: '',
+        items: [],
+        coins: 0
+      };
     }
     
     let inventory = this.playerInventories.get(playerIdKey);
     if (!inventory) {
-      Logger.info('InventorySystem', `Auto-initializing inventory for player ${playerId}`);
+      Logger.system('InventorySystem', `Auto-initializing inventory for player ${playerId}`);
       // Auto-initialize inventory if it doesn't exist
       inventory = {
         playerId,
@@ -741,7 +752,7 @@ export class InventorySystem extends SystemBase {
 
   // === Persistence helpers ===
   private getDatabase(): DatabaseSystem | null {
-    return (this.world.getSystem('database') as unknown as DatabaseSystem) || null;
+    return this.world.getSystem<DatabaseSystem>('database') || null;
   }
 
   private loadPersistedInventory(playerId: string): boolean {
@@ -795,7 +806,7 @@ export class InventorySystem extends SystemBase {
   }
 
   private handleCanAdd(data: InventoryCanAddEvent): void {
-    Logger.info('InventorySystem', `Checking if player ${data.playerId} can add item`, { item: data.item });
+    Logger.system('InventorySystem', `Checking if player ${data.playerId} can add item`, { item: data.item });
     const inventory = this.getOrCreateInventory(data.playerId);
 
     // Check if inventory has space
@@ -805,22 +816,22 @@ export class InventorySystem extends SystemBase {
     if (data.item.stackable) {
       const existingItem = inventory.items.find(item => item.itemId === data.item.id);
       if (existingItem) {
-        Logger.info('InventorySystem', 'Can stack with existing item, space available: true');
+        Logger.system('InventorySystem', 'Can stack with existing item, space available: true');
         data.callback(true);
         return;
       }
     }
     
-    Logger.info('InventorySystem', `Has space: ${hasSpace}, slots used: ${inventory.items.length}/${this.MAX_INVENTORY_SLOTS}`);
+    Logger.system('InventorySystem', `Has space: ${hasSpace}, slots used: ${inventory.items.length}/${this.MAX_INVENTORY_SLOTS}`);
     data.callback(hasSpace);
   }
 
   private handleRemoveCoins(data: InventoryRemoveCoinsEvent): void {
-    Logger.info('InventorySystem', `Removing ${data.amount} coins from player ${data.playerId}`);
+    Logger.system('InventorySystem', `Removing ${data.amount} coins from player ${data.playerId}`);
     const inventory = this.getOrCreateInventory(data.playerId);
 
     inventory.coins = Math.max(0, inventory.coins - data.amount);
-          Logger.info('InventorySystem', `Player ${data.playerId} now has ${inventory.coins} coins`);
+          Logger.system('InventorySystem', `Player ${data.playerId} now has ${inventory.coins} coins`);
     
     this.emitTypedEvent(EventType.INVENTORY_COINS_UPDATED, {
       playerId: data.playerId,
@@ -829,19 +840,19 @@ export class InventorySystem extends SystemBase {
   }
 
   private handleInventoryCheck(data: InventoryCheckEvent): void {
-    Logger.info('InventorySystem', `Checking inventory for player ${data.playerId}, item ${data.itemId}, quantity ${data.quantity}`);
+    Logger.system('InventorySystem', `Checking inventory for player ${data.playerId}, item ${data.itemId}, quantity ${data.quantity}`);
     
     const itemId = String(data.itemId);
     const item = getItem(itemId);
     
     if (!item) {
-      Logger.info('InventorySystem', `Item ${itemId} not found in item database`);
+      Logger.system('InventorySystem', `Item ${itemId} not found in item database`);
       data.callback(false, null);
       return;
     }
     
     const hasItem = this.hasItem(data.playerId, itemId, data.quantity);
-    Logger.info('InventorySystem', `Player has item: ${hasItem}`);
+    Logger.system('InventorySystem', `Player has item: ${hasItem}`);
     
     if (!hasItem) {
       data.callback(false, null);
@@ -866,12 +877,12 @@ export class InventorySystem extends SystemBase {
   private handleInventoryAdd(data: InventoryItemAddedPayload): void {
     // Validate the event data exists
     if (!data) {
-      Logger.error('InventorySystem', 'handleInventoryAdd: data is undefined');
+      Logger.systemError('InventorySystem', 'handleInventoryAdd: data is undefined', new Error('handleInventoryAdd: data is undefined'));
       return;
     }
-    
+
     if (!data.item) {
-      Logger.error('InventorySystem', 'handleInventoryAdd: data.item is undefined');
+      Logger.systemError('InventorySystem', 'handleInventoryAdd: data.item is undefined', new Error('handleInventoryAdd: data.item is undefined'));
       return;
     }
     
@@ -883,18 +894,18 @@ export class InventorySystem extends SystemBase {
     
     // Validate the event data before processing
     if (!playerId) {
-      Logger.error('InventorySystem', 'handleInventoryAdd: playerId is missing');
+      Logger.systemError('InventorySystem', 'handleInventoryAdd: playerId is missing', new Error('handleInventoryAdd: playerId is missing'));
       return;
     }
     
     if (!itemId) {
-      Logger.error('InventorySystem', 'handleInventoryAdd: itemId is missing');
+      Logger.systemError('InventorySystem', 'handleInventoryAdd: itemId is missing', new Error('handleInventoryAdd: itemId is missing'));
       return;
     }
     
     // Strong type assumption - quantity is number from typed event payload
     if (!quantity || quantity <= 0) {
-      Logger.error('InventorySystem', 'handleInventoryAdd: invalid quantity');
+      Logger.systemError('InventorySystem', 'handleInventoryAdd: invalid quantity', new Error('handleInventoryAdd: invalid quantity'));
       return;
     }
     

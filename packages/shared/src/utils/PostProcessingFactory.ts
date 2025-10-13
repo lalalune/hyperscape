@@ -64,47 +64,42 @@ async function createWebGLPostProcessing(
     frameBufferType = THREE.HalfFloatType
   } = options;
   
-  try {
-    const context = renderer.getContext() as WebGL2RenderingContext;
-    const maxMultisampling = context.MAX_SAMPLES ? 
-      context.getParameter(context.MAX_SAMPLES) : 8;
+  const context = renderer.getContext() as WebGL2RenderingContext;
+  const maxMultisampling = context.MAX_SAMPLES ? 
+    context.getParameter(context.MAX_SAMPLES) : 8;
+  
+  const composer = new EffectComposer(renderer, {
+    frameBufferType,
+    multisampling: Math.min(multisampling, maxMultisampling),
+  }) as PostProcessingComposer;
+  
+  // Render pass
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+  
+  // Bloom effect
+  if (bloom.enabled) {
+    const bloomEffect = new SelectiveBloomEffect(scene, camera, {
+      intensity: bloom.intensity ?? 0.3,
+      luminanceThreshold: bloom.threshold ?? 1.0,
+      luminanceSmoothing: 0.05,
+      radius: bloom.radius ?? 0.5,
+      mipmapBlur: true,
+      levels: 4,
+    });
     
-    const composer = new EffectComposer(renderer, {
-      frameBufferType,
-      multisampling: Math.min(multisampling, maxMultisampling),
-    }) as PostProcessingComposer;
+    bloomEffect.inverted = false;
+    bloomEffect.selection.layer = 14; // NO_BLOOM layer
     
-    // Render pass
-    const renderPass = new RenderPass(scene, camera);
-    composer.addPass(renderPass);
-    
-    // Bloom effect
-    if (bloom.enabled) {
-      const bloomEffect = new SelectiveBloomEffect(scene, camera, {
-        intensity: bloom.intensity ?? 0.3,
-        luminanceThreshold: bloom.threshold ?? 1.0,
-        luminanceSmoothing: 0.05,
-        radius: bloom.radius ?? 0.5,
-        mipmapBlur: true,
-        levels: 4,
-      });
-      
-      bloomEffect.inverted = false;
-      bloomEffect.selection.layer = 14; // NO_BLOOM layer
-      
-      const bloomPass = new EffectPass(camera, bloomEffect);
-      composer.addPass(bloomPass);
-      // Store bloom pass reference for enabling/disabling
-      composer.bloomPass = bloomPass;
-      composer.bloom = bloomEffect;
-    }
-    
-    console.log('[PostProcessingFactory] ✅ WebGL post-processing created');
-    return composer;
-  } catch (error) {
-    console.error('[PostProcessingFactory] Failed to create WebGL post-processing:', error);
-    return null;
+    const bloomPass = new EffectPass(camera, bloomEffect);
+    composer.addPass(bloomPass);
+    // Store bloom pass reference for enabling/disabling
+    composer.bloomPass = bloomPass;
+    composer.bloom = bloomEffect;
   }
+  
+  console.log('[PostProcessingFactory] ✅ WebGL post-processing created');
+  return composer;
 }
 
 /**
@@ -215,15 +210,11 @@ export function setBloomEnabled(composer: PostProcessingComposer | null, enabled
 export function disposePostProcessing(composer: PostProcessingComposer | null): void {
   if (!composer) return;
   
-  try {
-    if (composer.dispose) {
-      composer.dispose();
-    }
-    
-    // Dispose bloom effect if present
-    composer.bloom?.dispose?.();
-  } catch (error) {
-    console.error('[PostProcessingFactory] Error disposing post-processing:', error);
+  if (composer.dispose) {
+    composer.dispose();
   }
+  
+  // Dispose bloom effect if present
+  composer.bloom?.dispose?.();
 }
 

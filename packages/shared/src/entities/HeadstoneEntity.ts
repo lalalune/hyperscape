@@ -1,6 +1,58 @@
 /**
- * HeadstoneEntity - Represents corpses and graves that contain loot
- * Used for both player death graves and mob corpses
+ * HeadstoneEntity - Corpse/Grave Entity
+ * 
+ * Represents corpses and gravestones that contain loot items.
+ * Created when players or mobs die, holds their dropped items.
+ * 
+ * **Extends**: InteractableEntity (players can loot corpses)
+ * 
+ * **Key Features**:
+ * 
+ * **Corpse Types**:
+ * - **Player Death**: Contains all items from player inventory (if not protected)
+ * - **Mob Death**: Contains loot table drops
+ * - **PvP Death**: Protected loot for killer only
+ * 
+ * **Loot System**:
+ * - Inventory of lootable items
+ * - Item quantities
+ * - Loot protection (owner-only for first period)
+ * - Multi-player looting (items removed as looted)
+ * 
+ * **Interaction**:
+ * - "Loot" prompt when player is nearby
+ * - Opens loot interface showing available items
+ * - Items transferred to player inventory
+ * - Empty corpses despawn automatically
+ * 
+ * **Visual Representation**:
+ * - Gravestone model (for players)
+ * - Corpse model (for mobs)
+ * - Name label showing who died
+ * - Item count indicator
+ * - Glow if valuable loot inside
+ * 
+ * **Loot Protection**:
+ * - Player corpses: Protected for owner only (unsafe PvP zones)
+ * - Mob corpses: Protected for attacker for 60 seconds
+ * - Shared loot after protection expires
+ * - Ironman players: Only they can loot their own corpse
+ * 
+ * **Despawning**:
+ * - Empty corpses despawn immediately
+ * - Player graves persist for 15 minutes
+ * - Mob corpses despawn after 2 minutes
+ * - Valuable loot extends despawn time
+ * 
+ * **Network Sync**:
+ * - Corpse creation broadcast to all
+ * - Loot changes sync to all clients
+ * - Despawn events trigger removal
+ * 
+ * **Runs on**: Server (authoritative), Client (visual + UI)
+ * **Referenced by**: DeathSystem, LootSystem, InteractionSystem
+ * 
+ * @public
  */
 
 import THREE from '../extras/three';

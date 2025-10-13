@@ -1,3 +1,9 @@
+/**
+ * UIText.ts - UI Text Label Node
+ * 
+ * Renders text labels in 3D UI panels with full typography support.
+ */
+
 import Yoga from 'yoga-layout'
 import type * as YogaTypes from 'yoga-layout'
 import { every, isArray, isBoolean, isNumber, isString } from 'lodash-es'

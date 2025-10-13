@@ -2,7 +2,7 @@ import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 import Hls from 'hls.js/dist/hls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { GLTFParser } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
 import { createEmoteFactory } from '../extras/createEmoteFactory'
 import { createNode } from '../extras/createNode'
 import { createVRMFactory } from '../extras/createVRMFactory'
@@ -24,46 +24,43 @@ function nodeToINode(node: Node): INode {
 }
 
 /**
- * Browser-Based Asset Loader
+ * Client Asset Loader
  * 
- * Platform-specific loader for browser environments using Web APIs:
+ * Browser-based asset loading using Web APIs. Handles all client-side asset types
+ * including models, avatars, textures, video, and audio.
+ * 
+ * Platform-specific APIs used:
  * - fetch() for network requests
  * - Blob/File APIs for binary data
  * - URL.createObjectURL() for temporary blob URLs
  * - HTMLVideoElement + MediaSource for HLS streaming
  * - Three.js loaders (GLTF, RGBE, Texture) with browser context
  * 
- * ## Why Separate from ServerLoader?
- * 
- * This loader is tightly coupled to browser-only APIs that don't exist in Node.js:
+ * Why browser-specific:
+ * This loader uses browser-only APIs that don't exist in Node.js:
  * - `window`, `document`, `Image`, `HTMLVideoElement`
  * - Blob URLs and createObjectURL/revokeObjectURL
  * - Canvas for texture processing
  * - MediaSource API for video streaming
+ * - Web Audio API for audio decoding
  * 
- * Attempting to consolidate with ServerLoader would require:
- * - Heavy abstraction over fundamentally different I/O models
- * - Polyfills for browser-specific APIs (video, canvas, etc.)
- * - Loss of type safety and platform-specific optimizations
+ * For server-side asset loading, see ServerLoader which uses filesystem operations.
  * 
- * ## Supported Formats
- * 
+ * Supported Formats:
  * - **Models**: .glb (GLTF binary with embedded textures)
  * - **Avatars**: .vrm (VRM humanoid avatars with VRMLoaderPlugin)
  * - **Emotes**: .glb animations (retargetable to VRM skeletons)
  * - **Textures**: .jpg, .png, .webp (via TextureLoader)
- * - **HDR**: .hdr (RGBE environment maps via RGBELoader)
+ * - **HDR**: .hdr (RGBE environment maps via HDRLoader)
  * - **Images**: Raw image elements
  * - **Video**: .mp4, .webm, .m3u8 (HLS with hls.js polyfill)
  * - **Audio**: .mp3, .ogg, .wav (decoded via Web Audio API)
- * 
- * @see ServerLoader for Node.js filesystem-based loading
  */
 export class ClientLoader extends SystemBase {
   files: Map<string, File>
   promises: Map<string, Promise<LoaderResult>>
   results: Map<string, LoaderResult>
-  rgbeLoader: RGBELoader
+  hdrLoader: HDRLoader
   texLoader: THREE.TextureLoader
   gltfLoader: GLTFLoader
   preloadItems: Array<{ type: string; url: string }> = []
@@ -74,7 +71,7 @@ export class ClientLoader extends SystemBase {
         this.files = new Map()
     this.promises = new Map()
     this.results = new Map()
-    this.rgbeLoader = new RGBELoader()
+    this.hdrLoader = new HDRLoader()
     this.texLoader = new THREE.TextureLoader()
     this.gltfLoader = new GLTFLoader()
     // Register VRM loader plugin with proper parser typing
@@ -169,19 +166,14 @@ export class ClientLoader extends SystemBase {
       return this.files.get(url)
     }
     
-    try {
-      const resp = await fetch(url)
-      if (!resp.ok) {
-        throw new Error(`HTTP error! status: ${resp.status}`)
-      }
-      const blob = await resp.blob()
-      const file = new File([blob], url.split('/').pop() as string, { type: blob.type })
-      this.files.set(url, file)
-      return file
-    } catch (error) {
-      this.logger.error(`Failed to fetch file: ${url}: ${error instanceof Error ? error.message : String(error)}`)
-      throw error
+    const resp = await fetch(url)
+    if (!resp.ok) {
+      throw new Error(`HTTP error! status: ${resp.status}`)
     }
+    const blob = await resp.blob()
+    const file = new File([blob], url.split('/').pop() as string, { type: blob.type })
+    this.files.set(url, file)
+    return file
   }
 
   async load(type: string, url: string): Promise<LoaderResult> {
@@ -205,8 +197,8 @@ export class ClientLoader extends SystemBase {
       if (!file) throw new Error(`Failed to load file: ${url}`)
       if (type === 'hdr') {
         const buffer = await file.arrayBuffer()
-        const result = this.rgbeLoader.parse(buffer as ArrayBuffer)
-        // we just mimicing what rgbeLoader.load() does behind the scenes
+        const result = this.hdrLoader.parse(buffer as ArrayBuffer)
+        // we just mimicing what hdrLoader.load() does behind the scenes
         const texture = new THREE.DataTexture(result.data, result.width, result.height)
         texture.colorSpace = THREE.LinearSRGBColorSpace
         texture.minFilter = THREE.LinearFilter
@@ -353,7 +345,7 @@ export class ClientLoader extends SystemBase {
     const localUrl = URL.createObjectURL(file);
     let promise;
     if (type === 'hdr') {
-      promise = this.rgbeLoader.loadAsync(localUrl).then(texture => {
+      promise = this.hdrLoader.loadAsync(localUrl).then(texture => {
         this.results.set(key, texture);
         return texture;
       }).finally(() => { URL.revokeObjectURL(localUrl); });
@@ -477,10 +469,9 @@ export class ClientLoader extends SystemBase {
             const nodeMap = new Map<string, INode>()
             nodeMap.set('root', nodeToINode(clone))
             
-            // Try multiple ways to get the avatar
             let avatarForMap = clonedAvatar
             if (!avatarForMap && clone.children.length > 0) {
-              logger.warn('Using first child as fallback')
+              logger.warn('Using first child')
               avatarForMap = clone.children[0]
             }
             

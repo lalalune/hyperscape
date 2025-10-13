@@ -1,26 +1,119 @@
 /**
- * Hyperscape Server
+ * Hyperscape Server - Main entry point for the game server
  * 
- * Features:
- * - Full hot reload support in development mode
- * - Graceful shutdown with resource cleanup
- * - PostgreSQL with Drizzle ORM
- * - WebSocket support for real-time multiplayer
- * - Privy authentication integration
+ * This is the primary server file that initializes and runs the Hyperscape multiplayer game server.
+ * It handles everything from database setup to WebSocket connections to HTTP routing.
  * 
- * Hot Reload:
- * In development, the server supports hot reloading via SIGUSR2 signal.
- * When file changes are detected, the dev script:
- * 1. Rebuilds the server
- * 2. Sends SIGUSR2 to gracefully shutdown
- * 3. Clears the startup flag
- * 4. Restarts with fresh code
+ * **Server Architecture**:
+ * ```
+ * Client (Browser) ←→ Fastify HTTP Server ←→ Hyperscape World (ECS)
+ *                          ↓                        ↓
+ *                    WebSocket Handler        Game Systems
+ *                          ↓                   (Combat, Inventory, etc.)
+ *                    ServerNetwork                 ↓
+ *                          ↓              PostgreSQL + Drizzle ORM
+ *                    DatabaseSystem
+ * ```
  * 
- * All resources (HTTP server, database, Docker containers) are properly
- * cleaned up before restarting to prevent memory leaks and zombie processes.
+ * **Initialization Sequence**:
+ * 1. Load polyfills (make Node.js browser-compatible for Three.js)
+ * 2. Start PostgreSQL via Docker (if USE_LOCAL_POSTGRES=true)
+ * 3. Initialize database with Drizzle ORM + run migrations
+ * 4. Create Hyperscape World (ECS container)
+ * 5. Register server systems (DatabaseSystem, ServerNetwork)
+ * 6. Load world entities from world.json
+ * 7. Start Fastify HTTP server with routes
+ * 8. Begin accepting WebSocket connections
+ * 
+ * **Key Features**:
+ * - **Hot Reload**: SIGUSR2 signal triggers graceful restart in development
+ * - **Graceful Shutdown**: Cleans up database, WebSockets, Docker on SIGINT/SIGTERM
+ * - **Static Assets**: Serves game assets (models, music, textures) with proper MIME types
+ * - **WebSocket Multiplayer**: Real-time player synchronization via ServerNetwork
+ * - **Privy Auth**: Optional wallet/social authentication via Privy SDK
+ * - **CDN Support**: Configurable asset CDN (R2, S3, local) via PUBLIC_CDN_URL
+ * - **CORS**: Permissive CORS for development, configurable for production
+ * - **Error Reporting**: Frontend error logging endpoint for debugging
+ * 
+ * **Environment Variables**:
+ * - `NODE_ENV` - 'development' or 'production'
+ * - `PORT` - Server port (default: 5555)
+ * - `DATABASE_URL` - PostgreSQL connection string (or use local Docker)
+ * - `USE_LOCAL_POSTGRES` - Auto-start PostgreSQL via Docker (default: true in dev)
+ * - `PUBLIC_CDN_URL` - Asset CDN base URL (default: http://localhost:8080)
+ * - `PRIVY_APP_ID`, `PRIVY_APP_SECRET` - Privy authentication credentials
+ * - `ADMIN_CODE` - Server admin password (optional)
+ * - `JWT_SECRET` - JWT signing secret (generated if not set)
+ * - `SAVE_INTERVAL` - Auto-save interval in seconds (default: 60)
+ * - `WORLD` - World directory path (default: 'world')
+ * 
+ * **Hot Reload (Development)**:
+ * In development mode, the server watches for file changes and supports hot reload:
+ * 1. File watcher detects change
+ * 2. Rebuilds server with esbuild
+ * 3. Sends SIGUSR2 to running server
+ * 4. Server gracefully shuts down (closes DB, sockets, Docker)
+ * 5. Clears startup flag
+ * 6. Process exits and is restarted by dev script
+ * 
+ * **Graceful Shutdown**:
+ * Handles SIGINT (Ctrl+C), SIGTERM (Docker stop), SIGUSR2 (hot reload):
+ * 1. Close HTTP server (stop accepting new connections)
+ * 2. Destroy Hyperscape World (cleanup all systems)
+ * 3. Wait for pending database operations to complete
+ * 4. Close PostgreSQL connection pool
+ * 5. Stop Docker PostgreSQL container (if we started it)
+ * 6. Clear startup flag (allows hot reload)
+ * 7. Exit process (SIGINT/SIGTERM) or return (SIGUSR2)
+ * 
+ * **Asset Serving**:
+ * Static assets are served through multiple strategies:
+ * - `/` and `/index.html` - Client app entry point (React SPA)
+ * - `/assets/world/*` - Game assets (models, music, textures) from assets/ directory
+ * - `/assets/*` - Legacy compatibility route (same as /assets/world/)
+ * - `/dist/*` - System plugins if SYSTEMS_PATH is set
+ * - `/env.js` - Exposes PUBLIC_* environment variables to client
+ * 
+ * Assets use aggressive caching:
+ * - Hashed assets (in /assets/): Cache-Control: max-age=31536000, immutable
+ * - HTML: Cache-Control: no-cache (always check for updates)
+ * - Scripts/CSS: Cache-Control: max-age=300 (5 minutes)
+ * 
+ * **WebSocket Protocol**:
+ * Real-time multiplayer uses binary WebSocket protocol (defined in shared):
+ * - Client connects with auth token in query params
+ * - Server validates token (Privy or JWT)
+ * - Client receives snapshot (world state, players, entities)
+ * - Bidirectional streaming of entity updates, chat, combat events
+ * - Server is authoritative for all game state
+ * 
+ * **Database**:
+ * PostgreSQL with Drizzle ORM stores:
+ * - Characters (player avatars with stats, inventory, position)
+ * - Users (accounts with auth providers)
+ * - Sessions (login/logout tracking)
+ * - World chunks (persistent terrain modifications)
+ * - Entities (buildings, NPCs that persist across restarts)
+ * 
+ * **Systems**:
+ * Hyperscape uses an Entity-Component-System (ECS) architecture:
+ * - DatabaseSystem: Persistence layer (character data, inventory, etc.)
+ * - ServerNetwork: WebSocket handling and player connections
+ * - TerrainSystem: Procedural terrain generation
+ * - ResourceSystem: Resource nodes (trees, rocks, fish) with respawning
+ * - CombatSystem: Player vs mob combat with damage calculation
+ * - InventorySystem: 28-slot inventory like RuneScape
+ * - EquipmentSystem: Equipment slots (weapon, armor, etc.)
+ * - Other systems from @hyperscape/shared
+ * 
+ * **Referenced by**: Package scripts (npm run dev, npm start), Docker containers
  */
 
-// Load polyfills before any other imports
+// ============================================================================
+// POLYFILLS - MUST BE FIRST
+// ============================================================================
+// Load polyfills before ANY other imports to set up browser-like globals
+// for Three.js and other client libraries running on the server.
 import './polyfills'
 
 import cors from '@fastify/cors'
@@ -43,9 +136,10 @@ dotenv.config({ path: '.env' })
 dotenv.config({ path: '../../../.env' }) // Root workspace .env
 dotenv.config({ path: '../../.env' }) // Parent directory .env
 import { createDefaultDockerManager, type DockerManager } from './docker-manager'
-import { FileStorage as Storage } from '@hyperscape/shared'
+import { NodeStorage as Storage } from '@hyperscape/shared'
 import { ServerNetwork } from './ServerNetwork'
 import { DatabaseSystem } from './DatabaseSystem'
+import type { NodeWebSocket } from './types'
 
 // JSON value type for proper typing
 type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue }
@@ -62,7 +156,25 @@ interface ActionRouteGenericInterface {
 let dockerManager: DockerManager | undefined
 let globalPgPool: pg.Pool | undefined
 
-// Wrap server initialization in async function to avoid top-level await
+/**
+ * Starts the Hyperscape server
+ * 
+ * This is the main entry point for server initialization. It:
+ * 1. Installs Three.js extensions for physics
+ * 2. Starts Docker PostgreSQL container (if configured)
+ * 3. Initializes database connection and runs migrations
+ * 4. Creates the game world and registers systems
+ * 5. Sets up Fastify with WebSocket, static files, and API routes
+ * 6. Starts listening for connections
+ * 7. Registers graceful shutdown handlers
+ * 
+ * The server supports hot reload in development via SIGUSR2 signal.
+ * 
+ * @returns Promise that resolves when server is fully initialized
+ * @throws Error if initialization fails (Docker, database, etc.)
+ * 
+ * @public
+ */
 async function startServer() {
   // Prevent duplicate server initialization
   // Check for server starting flag using global extension
@@ -107,16 +219,12 @@ async function startServer() {
 
   // Resolve paths correctly for both dev (src/server/) and build (build/)
   // When built: __dirname is .../hyperscape/build
-  // When dev:   __dirname is .../hyperscape/src/server  
-  let hyperscapeRoot: string
+    let hyperscapeRoot: string
   if (__dirname.endsWith('build')) {
-    // Running from build/index.js
     hyperscapeRoot = path.join(__dirname, '..')
   } else if (__dirname.includes('/src/server')) {
-    // Running from src/server/index.ts
     hyperscapeRoot = path.join(__dirname, '../..')
   } else {
-    // Fallback
     hyperscapeRoot = path.join(__dirname, '../..')
   }
   
@@ -155,10 +263,11 @@ async function startServer() {
   
   // Create adapter for systems that need the old database interface
   const { createDrizzleAdapter } = await import('./db/drizzle-adapter.js')
-  const db = createDrizzleAdapter(drizzleDb)
+  // Cast drizzleDb to the proper schema type since initializeDatabase returns a union type
+  const db = createDrizzleAdapter(drizzleDb as import('drizzle-orm/node-postgres').NodePgDatabase<typeof import('./db/schema')>)
 
   // init storage with database
-  const storage = new Storage(db)
+  const storage = new Storage()
 
   const world = await createServerWorld()
   
@@ -174,11 +283,14 @@ async function startServer() {
 
   // Set up default environment model
   world.settings.model = {
-    url: 'asset://base-environment.glb',
+    url: 'asset://world/base-environment.glb',
   }
 
   // Configure assets URL before world.init()
-  const assetsUrl = process.env['PUBLIC_ASSETS_URL'] || '/world-assets/'
+  // Point to CDN root (localhost:8080 in dev, R2/S3 in prod)
+  // CDN serves from /assets directory mounted at nginx root, so paths are like /music/, /models/, /world/
+  const cdnUrl = process.env['PUBLIC_CDN_URL'] || 'http://localhost:8080';
+  const assetsUrl = `${cdnUrl}/`
 
   // Initialize world
   await world.init({ 
@@ -339,10 +451,10 @@ async function startServer() {
     },
   })
 
-  // Register world assets at /world-assets/
+  // Register world assets at /assets/world/
   await fastify.register(statics, {
     root: assetsDir,
-    prefix: '/world-assets/',
+    prefix: '/assets/world/',
     decorateReply: false,
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.mp3')) {
@@ -360,10 +472,10 @@ async function startServer() {
       res.setHeader('Expires', new Date(Date.now() + 31536000000).toUTCString())
     },
   })
-  fastify.log.info(`[Server] ✅ Registered /world-assets/ → ${assetsDir}`)
+  fastify.log.info(`[Server] ✅ Registered /assets/world/ → ${assetsDir}`)
   
   // Add manual route for music files as a workaround
-  fastify.get('/world-assets/music/:category/:filename', async (request, reply) => {
+  fastify.get('/assets/world/music/:category/:filename', async (request, reply) => {
     const { category, filename } = request.params as { category: string; filename: string }
     if (!/^\w+\.mp3$/.test(filename)) {
       return reply.code(400).send({ error: 'Invalid filename' })
@@ -374,10 +486,10 @@ async function startServer() {
 
     const primaryPath = path.join(assetsDir, 'music', category, filename)
     const pubCandidates = [
-      path.join(__dirname, '../..', 'public', 'world-assets'),
-      path.join(__dirname, '..', 'public', 'world-assets'),
-      path.join(process.cwd(), 'public', 'world-assets'),
-      path.join(process.cwd(), 'packages', 'hyperscape', 'public', 'world-assets'),
+      path.join(__dirname, '../..', 'public', 'assets/world'),
+      path.join(__dirname, '..', 'public', 'assets/world'),
+      path.join(process.cwd(), 'public', 'assets/world'),
+      path.join(process.cwd(), 'packages', 'hyperscape', 'public', 'assets/world'),
     ]
 
     fastify.log.info(`[Music Route] Requested: ${category}/${filename}`)
@@ -395,7 +507,7 @@ async function startServer() {
       const altPath = path.join(pubRoot, 'music', category, filename)
       // eslint-disable-next-line no-await-in-loop
       const altExists = await fs.pathExists(altPath)
-      fastify.log.info(`[Music Route] Trying fallback: ${altPath} exists=${altExists}`)
+      fastify.log.info(`[Music Route] Trying alternate path: ${altPath} exists=${altExists}`)
       if (altExists) {
         reply.type('audio/mpeg')
         reply.header('Accept-Ranges', 'bytes')
@@ -472,16 +584,17 @@ async function startServer() {
 
   // Define worldNetwork function BEFORE registration  
   async function worldNetwork(fastify: FastifyInstance) {
-    fastify.get('/ws', { websocket: true }, (connection, req: FastifyRequest) => {
-      // @fastify/websocket v11+ - connection IS the WebSocket
-      const ws = connection
+    // In @fastify/websocket v11+, the first parameter IS the WebSocket directly
+    fastify.get('/ws', { websocket: true }, (socket, req: FastifyRequest) => {
+      const ws = socket as unknown as NodeWebSocket
       
       fastify.log.info('[Server] WebSocket connection established')
       
       // Basic null check only - let ServerNetwork handle the rest
-      if (!ws) {
-        throw new Error('WebSocket is null')
-       }
+      if (!ws || typeof ws.send !== 'function') {
+        fastify.log.error('[Server] Invalid WebSocket object received')
+        return
+      }
       
       // Handle network connection
       const query = req.query as Record<string, JSONValue>
@@ -495,10 +608,10 @@ async function startServer() {
   fastify.post('/api/player/disconnect', async (req, reply) => {
     const body = req.body as { playerId: string; sessionId?: string; reason?: string }
     fastify.log.info({ body }, '[API] player/disconnect')
-    const network = world.network as { sockets: Map<string, { close: () => void }> }
+    const network = world.network as unknown as import('./types').ServerNetworkWithSockets
     const socket = network.sockets.get(body.playerId)
     if (socket) {
-      socket.close()
+      socket.close?.()
     }
     return reply.send({ ok: true })
   })
@@ -595,17 +708,17 @@ async function startServer() {
       commitHash: process.env['COMMIT_HASH'],
     }
     
-    interface ServerNetworkWithSockets {
-      sockets: Map<string, { player: { data: { userId: string; name: string }; node: { position: { current: { toArray: () => number[] } } } } }>
-    }
-    const network = world.network as unknown as ServerNetworkWithSockets
+    // Import type from our local types
+    const network = world.network as unknown as import('./types').ServerNetworkWithSockets
     for (const socket of network.sockets.values()) {
-      const pos = socket.player.node.position.current
-      status.connectedUsers.push({
-        id: socket.player.data.userId,
-        position: pos.toArray(),
-        name: socket.player.data.name,
-      })
+      if (socket.player?.node?.position) {
+        const pos = socket.player.node.position
+        status.connectedUsers.push({
+          id: socket.player.data.userId as string,
+          position: [pos.x, pos.y, pos.z],
+          name: socket.player.data.name as string,
+        })
+      }
     }
 
     return reply.code(200).send(status)

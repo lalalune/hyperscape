@@ -47,15 +47,14 @@ const csmLevels = {
 }
 
 /**
- * Unified Environment System
+ * Environment System
  * 
  * Handles environment setup for all runtime contexts with conditional branching
- * based on runtime capabilities. This single class replaces the previous separate
- * ClientEnvironment, ServerEnvironment, and NodeEnvironment systems.
+ * based on runtime capabilities. Works in both browser and server contexts.
  * 
- * ## Runtime Modes:
+ * Runtime Modes:
  * 
- * ### Client (Browser) - Full 3D Rendering
+ * **Client (Browser)** - Full 3D Rendering
  * - Loads and renders 3D environment models (.glb)
  * - Manages sky sphere with equirectangular texture mapping
  * - Controls HDR environment lighting
@@ -64,38 +63,21 @@ const csmLevels = {
  * - Responds to graphics settings changes (shadows, model swaps)
  * - Updates sky position to follow camera rig (infinite distance illusion)
  * 
- * ### Server - Configuration Only
- * - Skips all 3D asset loading (no rendering)
+ * **Server** - Configuration Only
+ * - Skips all 3D asset loading (no rendering needed)
  * - Tracks environment settings for client synchronization
  * - Minimal memory footprint (no textures, meshes, or CSM)
- * - Still listens to settings changes to propagate to clients
+ * - Listens to settings changes to propagate to clients
  * 
- * ### Node Client (Bots) - Headless
+ * **Node Client (Bots)** - Headless
  * - No rendering capabilities (headless automation)
  * - Compatible interface so World doesn't require environment checks
- * - ServerBot instances use this mode for automated testing
+ * - Used by ServerBot instances for automated testing
  * 
- * ## Branching Strategy:
- * 
+ * Implementation:
  * All methods check `this.isClientWithGraphics` (computed during init):
  * - `true`: Browser with `window` object → full rendering pipeline
  * - `false`: Server or Node → early return, skip 3D operations
- * 
- * This pattern avoids:
- * - Code duplication across 3 separate classes
- * - Runtime errors from calling THREE.js in non-browser contexts
- * - Complexity of maintaining parallel implementations
- * 
- * @example
- * ```typescript
- * // Browser client - full environment
- * world.register('environment', Environment)
- * // → Loads models, creates sky, enables CSM
- * 
- * // Server - minimal stub
- * world.register('environment', Environment)
- * // → Skips 3D setup, tracks settings only
- * ```
  */
 export class Environment extends System {
   base!: BaseEnvironment;

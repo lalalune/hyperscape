@@ -29,7 +29,7 @@ export {
   type PostProcessingOptions
 } from './PostProcessingFactory';
 
-// Material and mesh optimizations (consolidated from WebGPUOptimizations)
+// Material and mesh optimizations
 export {
   createOptimizedInstancedMesh,
   optimizeMaterialForWebGPU,

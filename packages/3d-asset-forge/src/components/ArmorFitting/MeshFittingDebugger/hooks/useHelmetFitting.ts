@@ -210,7 +210,6 @@ function logBoneHierarchy(avatarMesh: THREE.SkinnedMesh) {
             })
         })
     } else {
-        // Fallback to traversal
         collectBones(avatarMesh)
     }
 

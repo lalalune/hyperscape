@@ -1,3 +1,90 @@
+/**
+ * Physics.ts - PhysX Physics System
+ * 
+ * Provides realistic physics simulation using NVIDIA PhysX engine.
+ * Manages rigid bodies, colliders, raycasts, and character controllers.
+ * 
+ * Key Features:
+ * - **Rigid Body Dynamics**: Static, kinematic, and dynamic actors
+ * - **Collision Detection**: Continuous collision detection with contact callbacks
+ * - **Character Controllers**: Capsule-based character movement
+ * - **Raycasting**: Scene queries for line-of-sight, interaction, etc.
+ * - **Overlap Queries**: Sphere, box, and capsule overlap tests
+ * - **Sweep Tests**: Moving collision detection
+ * - **Triggers**: Volume-based events (enter/exit)
+ * - **Physics Materials**: Friction, restitution, and bounce
+ * 
+ * Architecture:
+ * - Uses PhysX WASM module on client (browser)
+ * - Uses PhysX Node.js bindings on server
+ * - Deterministic fixed-timestep simulation (30 FPS)
+ * - Server is authoritative for all physics state
+ * - Client runs local physics for immediate feedback (validated by server)
+ * 
+ * PhysX Integration:
+ * - PxFoundation: Core PhysX singleton
+ * - PxPhysics: Physics SDK instance
+ * - PxScene: Physics world simulation
+ * - PxCpuDispatcher: Multi-threaded simulation
+ * - PxControllerManager: Character controller factory
+ * 
+ * Collision Layers:
+ * Uses Layers system for filtering:
+ * - Default (0): General environment geometry
+ * - Players (1): Player character capsules
+ * - Mobs (2): Enemy creature colliders
+ * - Interactables (3): Objects that can be clicked
+ * - Projectiles (4): Arrows, magic projectiles
+ * - Triggers (5): Volume-based event areas
+ * 
+ * Coordinate System:
+ * - Uses three.js coordinate system (Y-up, right-handed)
+ * - PhysX also uses Y-up, matches three.js
+ * - Position/rotation kept in sync between three.js and PhysX
+ * 
+ * Performance:
+ * - Fixed timestep ensures deterministic simulation
+ * - CPU dispatcher enables multi-threading
+ * - Broad-phase culling reduces collision checks
+ * - Sleeping actors don't simulate until moved
+ * 
+ * Usage:
+ * ```typescript
+ * // Add rigid body to entity
+ * const body = world.physics.addBody({
+ *   entity: player,
+ *   shape: 'capsule',
+ *   height: 1.8,
+ *   radius: 0.3,
+ *   mass: 75,
+ *   type: 'dynamic'
+ * });
+ * 
+ * // Raycast for ground detection
+ * const hit = world.physics.raycast({
+ *   origin: { x: 0, y: 10, z: 0 },
+ *   direction: { x: 0, y: -1, z: 0 },
+ *   maxDistance: 20
+ * });
+ * 
+ * // Character controller for player movement
+ * const controller = world.physics.createCharacterController({
+ *   height: 1.8,
+ *   radius: 0.3,
+ *   position: { x: 0, y: 0, z: 0 }
+ * });
+ * ```
+ * 
+ * Related Systems:
+ * - Entities: Physics bodies attached to entities
+ * - ClientInput: Movement input drives character controllers
+ * - CombatSystem: Uses raycasts for hit detection
+ * - TerrainSystem: Static collision mesh for ground
+ * 
+ * @see PhysXManager.ts for PhysX initialization
+ * @see PhysicsUtils.ts for helper functions
+ */
+
 import type { Collider, Physics as IPhysics, RaycastHit as IRaycastHit, PhysicsMaterial, Quaternion, RigidBody, Vector3, World, CharacterController, CharacterControllerOptions } from '../types/index';
 
 import { Layers } from '../extras/Layers';
@@ -312,7 +399,7 @@ export class Physics extends SystemBase implements IPhysics {
   private setupCallbacks(): void {
     // Contact callbacks
     this.getContactCallback = createPool<InternalContactCallback>(() => {
-      const loggerRef = this.logger;
+      const _loggerRef = this.logger;
       const contactPool: Array<{ position: THREE.Vector3; normal: THREE.Vector3; impulse: THREE.Vector3 }> = [];
       const contacts: Array<{ position: THREE.Vector3; normal: THREE.Vector3; impulse: THREE.Vector3 }> = [];
       let idx = 0;
@@ -370,18 +457,10 @@ export class Physics extends SystemBase implements IPhysics {
         },
         exec() {
           if (this.fn0) {
-            try {
-              this.fn0(this.event0);
-            } catch (_err) {
-              loggerRef.error(String(_err));
-            }
+            this.fn0(this.event0);
           }
           if (this.fn1) {
-            try {
-              this.fn1(this.event1);
-            } catch (_err) {
-              loggerRef.error(String(_err));
-            }
+            this.fn1(this.event1);
           }
           // reset contacts after exec
           if (this.event0.contacts) (this.event0 as ExtendedContactEvent).contacts.length = 0;
@@ -405,7 +484,7 @@ export class Physics extends SystemBase implements IPhysics {
 
     // Trigger callbacks
     this.getTriggerCallback = createPool<InternalTriggerCallback>(() => {
-      const loggerRef = this.logger;
+      const _loggerRef = this.logger;
       return {
         fn: null as ((event: TriggerEvent) => void) | null,
         event: {
@@ -418,11 +497,7 @@ export class Physics extends SystemBase implements IPhysics {
           playerId: null,
         } as ExtendedTriggerEvent,
         exec() {
-          try {
-            if (this.fn) this.fn(this.event);
-          } catch (_err) {
-            loggerRef.error(String(_err));
-          }
+          if (this.fn) this.fn(this.event);
           this.release();
         },
         release: () => {}, // Set by pool
@@ -1256,13 +1331,9 @@ function getSphereGeometry(radius: number): PxSphereGeometry {
   return geo;
 }
 
-// Helper function to safely get actor address
+// Helper function to get actor address
 function getActorAddress(actor: PxActor): number | bigint | undefined {
-  try {
-    return (actor as PxActorWithAddress)._address;
-  } catch {
-    return undefined;
-  }
+  return (actor as PxActorWithAddress)._address;
 }
 
 function getOrCreateOverlapHit(idx: number): OverlapHit {

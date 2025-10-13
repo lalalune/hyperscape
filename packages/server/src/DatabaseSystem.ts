@@ -1,3 +1,30 @@
+/**
+ * DatabaseSystem - Server-side database operations for persistent game state
+ * 
+ * This system provides a comprehensive interface for all database operations in Hyperscape.
+ * It uses PostgreSQL with Drizzle ORM for type-safe queries and migrations.
+ * 
+ * Key responsibilities:
+ * - Character management (create, load, save character data)
+ * - Player persistence (stats, position, levels, XP)
+ * - Inventory and equipment storage
+ * - Session tracking (login/logout times, playtime)
+ * - World chunk persistence (terrain modifications, entities)
+ * 
+ * Architecture:
+ * - Wraps Drizzle ORM with game-specific APIs
+ * - Provides both async (preferred) and sync (legacy) methods
+ * - Tracks pending operations for graceful shutdown
+ * - Automatically attached to World via ServerNetwork initialization
+ * 
+ * Usage:
+ * ```typescript
+ * const dbSystem = world.getSystem('database') as DatabaseSystem;
+ * const player = await dbSystem.getPlayerAsync(playerId);
+ * await dbSystem.savePlayerAsync(playerId, { health: 100 });
+ * ```
+ */
+
 import { SystemBase, type World } from '@hyperscape/shared';
 import { eq, and, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -14,23 +41,55 @@ import type {
   WorldChunkRow
 } from './types';
 
+/**
+ * DatabaseSystem class
+ * 
+ * Extends SystemBase to integrate with Hyperscape's ECS architecture.
+ * The system is initialized with a Drizzle database instance and PostgreSQL pool
+ * that are attached to the World object during server startup.
+ */
 export class DatabaseSystem extends SystemBase {
+  /** Drizzle database instance for type-safe queries */
   private db: NodePgDatabase<typeof schema> | null = null;
+  
+  /** PostgreSQL connection pool for low-level operations if needed */
   private pool: pg.Pool | null = null;
+  
+  /** 
+   * Tracks all pending database operations to ensure graceful shutdown.
+   * Operations are added when sync methods fire-and-forget async work.
+   */
   private pendingOperations: Set<Promise<unknown>> = new Set();
 
+  /**
+   * Constructor
+   * 
+   * Sets up the database system with no dependencies since it provides
+   * foundational services to other systems.
+   * 
+   * @param world - The game world instance this system belongs to
+   */
   constructor(world: World) {
     super(world, {
       name: 'database',
       dependencies: {
-        required: [],
+        required: [],  // No dependencies - this is a foundational system
         optional: [],
       },
-      autoCleanup: true,
+      autoCleanup: true,  // Automatically clean up resources on destroy
     });
   }
 
+  /**
+   * Initialize the database system
+   * 
+   * Retrieves the Drizzle database instance and PostgreSQL pool from the World object.
+   * These are attached during server startup in index.ts after database initialization.
+   * 
+   * @throws Error if database instances are not available on the world object
+   */
   async init(): Promise<void> {
+    // Cast world to access server-specific properties
     const serverWorld = this.world as { pgPool?: pg.Pool; drizzleDb?: NodePgDatabase<typeof schema> };
     
     if (serverWorld.drizzleDb && serverWorld.pgPool) {
@@ -44,13 +103,24 @@ export class DatabaseSystem extends SystemBase {
     console.log('[DatabaseSystem] ✅ Database system initialized');
   }
 
+  /**
+   * Start the database system
+   * 
+   * Currently a no-op since all initialization is done in init().
+   * The database is ready to use immediately after initialization.
+   */
   start(): void {
     console.log('[DatabaseSystem] Database system started');
   }
 
   /**
    * Wait for all pending database operations to complete
-   * This should be called before closing the database pool
+   * 
+   * This is critical for graceful shutdown to ensure no data loss.
+   * Sync methods (like savePlayer) fire-and-forget async operations which
+   * are tracked here. Before shutting down, we wait for all of them to complete.
+   * 
+   * Called by server shutdown handler in index.ts.
    */
   async waitForPendingOperations(): Promise<void> {
     if (this.pendingOperations.size === 0) {
@@ -68,7 +138,22 @@ export class DatabaseSystem extends SystemBase {
     console.log('[DatabaseSystem] All pending operations completed');
   }
 
-  // --- Characters API ---
+  // ============================================================================
+  // CHARACTER MANAGEMENT
+  // ============================================================================
+  // Characters represent individual player avatars in the game.
+  // Each account (user) can have multiple characters.
+  // Used by the character selection system before spawning into the world.
+
+  /**
+   * Get all characters for an account
+   * 
+   * Retrieves a list of all characters (avatars) owned by a specific account.
+   * Used to populate the character selection screen.
+   * 
+   * @param accountId - The account/user ID to fetch characters for
+   * @returns Array of characters with id and name
+   */
   async getCharactersAsync(accountId: string): Promise<Array<{ id: string; name: string }>> {
     if (!this.db) throw new Error('Database not initialized');
     
@@ -80,6 +165,17 @@ export class DatabaseSystem extends SystemBase {
     return results;
   }
 
+  /**
+   * Create a new character
+   * 
+   * Creates a new character (avatar) for an account with default starting stats.
+   * Characters start at level 1 in all skills with initial health and position.
+   * 
+   * @param accountId - The account that owns this character
+   * @param id - Unique character ID (usually a UUID)
+   * @param name - Display name for the character (validated by caller)
+   * @returns true if created successfully, false if character ID already exists
+   */
   async createCharacter(accountId: string, id: string, name: string): Promise<boolean> {
     if (!this.db) throw new Error('Database not initialized');
     
@@ -95,7 +191,7 @@ export class DatabaseSystem extends SystemBase {
       });
       return true;
     } catch (error) {
-      // Character already exists (unique constraint violation)
+      // Character already exists (PostgreSQL unique constraint violation code)
       if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
         return false;
       }
@@ -103,7 +199,21 @@ export class DatabaseSystem extends SystemBase {
     }
   }
 
-  // Player data methods
+  // ============================================================================
+  // PLAYER DATA PERSISTENCE
+  // ============================================================================
+  // Player data includes stats, levels, XP, health, coins, and position.
+  // This is the core persistence for character progression.
+
+  /**
+   * Load player data from database
+   * 
+   * Retrieves all persistent data for a player including stats, levels, position,
+   * and currency. Returns null if the player doesn't exist in the database yet.
+   * 
+   * @param playerId - The character/player ID to load
+   * @returns Player data or null if not found
+   */
   async getPlayerAsync(playerId: string): Promise<PlayerRow | null> {
     if (!this.db) throw new Error('Database not initialized');
     
@@ -121,16 +231,26 @@ export class DatabaseSystem extends SystemBase {
       playerId: row.id,
       createdAt: row.createdAt || Date.now(),
       lastLogin: row.lastLogin || Date.now(),
-    } as unknown as PlayerRow;
+    } as PlayerRow;
   }
 
+  /**
+   * Save player data to database
+   * 
+   * Performs an UPSERT operation - inserts a new player or updates existing data.
+   * Only the fields provided in the data parameter are updated; others remain unchanged.
+   * This allows for partial updates (e.g., just updating health without touching XP).
+   * 
+   * @param playerId - The character/player ID to save
+   * @param data - Partial player data to save (only provided fields are updated)
+   */
   async savePlayerAsync(playerId: string, data: Partial<PlayerRow>): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
     
     type CharacterInsert = typeof schema.characters.$inferInsert;
     type CharacterUpdate = Partial<Omit<CharacterInsert, 'id' | 'accountId'>>;
     
-    // Build the insert data with required fields
+    // Build the insert data with required fields (used if player doesn't exist yet)
     const insertData: CharacterInsert = {
       id: playerId,
       accountId: playerId,
@@ -214,7 +334,21 @@ export class DatabaseSystem extends SystemBase {
     }
   }
 
-  // Inventory methods
+  // ============================================================================
+  // INVENTORY MANAGEMENT
+  // ============================================================================
+  // Player inventory stores items in 28 slots (like RuneScape classic).
+  // Each item has an ID, quantity, slot index, and optional metadata.
+
+  /**
+   * Load player inventory from database
+   * 
+   * Retrieves all items in a player's inventory, ordered by slot index.
+   * Metadata is automatically parsed from JSON string to object.
+   * 
+   * @param playerId - The player ID to fetch inventory for
+   * @returns Array of inventory items
+   */
   async getPlayerInventoryAsync(playerId: string): Promise<InventoryRow[]> {
     if (!this.db) throw new Error('Database not initialized');
     
@@ -250,7 +384,21 @@ export class DatabaseSystem extends SystemBase {
     }
   }
 
-  // Equipment methods
+  // ============================================================================
+  // EQUIPMENT MANAGEMENT
+  // ============================================================================
+  // Equipment represents items worn/wielded by the player (weapons, armor, etc.).
+  // Each slot type (e.g., "weapon", "helmet") can hold one item.
+
+  /**
+   * Load player equipment from database
+   * 
+   * Retrieves all equipped items for a player across all equipment slots.
+   * Returns empty array if player has no equipped items.
+   * 
+   * @param playerId - The player ID to fetch equipment for
+   * @returns Array of equipped items by slot
+   */
   async getPlayerEquipmentAsync(playerId: string): Promise<EquipmentRow[]> {
     if (!this.db) throw new Error('Database not initialized');
     
@@ -281,7 +429,22 @@ export class DatabaseSystem extends SystemBase {
     }
   }
 
-  // Session tracking methods
+  // ============================================================================
+  // SESSION TRACKING
+  // ============================================================================
+  // Sessions track when players log in/out and their total playtime.
+  // Used for analytics, idle timeout detection, and player activity monitoring.
+
+  /**
+   * Create a new player session
+   * 
+   * Records when a player logs in. Session remains active (sessionEnd=null) until
+   * they disconnect. Used for tracking playtime and detecting idle players.
+   * 
+   * @param sessionData - Session information (playerId, start time, etc.)
+   * @param sessionId - Optional session ID (generated if not provided)
+   * @returns The session ID for tracking this session
+   */
   async createPlayerSessionAsync(sessionData: Omit<PlayerSessionRow, 'id' | 'sessionId'>, sessionId?: string): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
     
@@ -345,7 +508,22 @@ export class DatabaseSystem extends SystemBase {
       .where(eq(schema.playerSessions.id, sessionId));
   }
 
-  // World chunk methods
+  // ============================================================================
+  // WORLD CHUNK PERSISTENCE
+  // ============================================================================
+  // World chunks store persistent modifications to the terrain and entities.
+  // Each chunk is identified by its X,Z coordinates and contains serialized data.
+
+  /**
+   * Load world chunk data from database
+   * 
+   * Retrieves persistent modifications for a specific chunk (resources, buildings, etc.).
+   * Returns null if chunk has no persistent data (meaning it uses default generation).
+   * 
+   * @param chunkX - Chunk X coordinate
+   * @param chunkZ - Chunk Z coordinate
+   * @returns Chunk data or null if not found
+   */
   async getWorldChunkAsync(chunkX: number, chunkZ: number): Promise<WorldChunkRow | null> {
     if (!this.db) throw new Error('Database not initialized');
     
@@ -441,7 +619,19 @@ export class DatabaseSystem extends SystemBase {
       ));
   }
 
-  // Sync wrappers for backward compatibility (will log warnings)
+  // ============================================================================
+  // SYNCHRONOUS WRAPPER METHODS (LEGACY)
+  // ============================================================================
+  // These methods provide synchronous interfaces for backward compatibility.
+  // They fire-and-forget async operations and track them for graceful shutdown.
+  // 
+  // WARNING: These will eventually be removed. Use async methods instead.
+  // The sync methods log warnings and don't return results from the database.
+
+  /**
+   * @deprecated Use getCharactersAsync instead
+   * @returns Empty array (use async method to get real data)
+   */
   getCharacters(_accountId: string): Array<{ id: string; name: string }> {
     console.warn('[DatabaseSystem] getCharacters called synchronously - use getCharactersAsync instead');
     return [];
@@ -605,8 +795,15 @@ export class DatabaseSystem extends SystemBase {
     return null;
   }
 
+  /**
+   * Clean up database system resources
+   * 
+   * Nullifies references to database instances but does NOT close the connection pool.
+   * The pool is managed externally by the server and closed during graceful shutdown.
+   * Called automatically when the world is destroyed.
+   */
   destroy(): void {
-    // Pool is managed externally, don't close it here
+    // Pool is managed externally in index.ts, don't close it here
     this.db = null;
     this.pool = null;
   }

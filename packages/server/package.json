@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "main": "dist/index.js",
-  "homepage": "https://github.com/hyperscape-xyz/hyperscape#readme",
+  "homepage": "https://github.com/HyperscapeAI/hyperscape#readme",
   "bugs": {
-    "url": "https://github.com/hyperscape-xyz/hyperscape/issues"
+    "url": "https://github.com/HyperscapeAI/hyperscape/issues"
   },
   "keywords": [
     "hyperscape",

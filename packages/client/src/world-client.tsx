@@ -29,7 +29,13 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
     ;(window as { world: World }).world = w;
     
     // Install simple debug commands
-    const debugWindow = window as unknown as { debug: { seeHighEntities: () => void; seeGround: () => void; mobs: () => Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean }> } }
+    const debugWindow = window as Window & {
+      debug: {
+        seeHighEntities: () => void
+        seeGround: () => void
+        mobs: () => Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean }>
+      }
+    }
     debugWindow.debug = {
       // Teleport camera to see mobs at Y=40+
       seeHighEntities: () => {
@@ -114,9 +120,9 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       console.log('[Client] Starting world initialization...')
             
       const baseEnvironment = {
-        model: 'asset://base-environment.glb',
-        bg: 'asset://day2-2k.jpg',
-        hdr: 'asset://day2.hdr',
+        model: 'asset://world/base-environment.glb',
+        bg: 'asset://world/day2-2k.jpg',
+        hdr: 'asset://world/day2.hdr',
         sunDirection: new THREE.Vector3(-1, -2, -2).normalize(),
         sunIntensity: 1,
         sunColor: 0xffffff,
@@ -125,31 +131,38 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         fogColor: null,
       }
       
-      // Use wsUrl prop if provided (already resolved by parent App component)
-      // The App component handles environment variables, so we should prioritize the prop
-      let finalWsUrl: string
-      if (wsUrl) {
-        finalWsUrl = wsUrl as string
-      } else {
-        // Fallback if no prop provided
-        finalWsUrl = window.env?.PUBLIC_WS_URL || 
-          `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
-      }
+      // Direct connection - no Vite proxy
+      // Default to game server on 5555, CDN on 8080
+      const finalWsUrl = wsUrl || 
+        import.meta.env.PUBLIC_WS_URL || 
+        'ws://localhost:5555/ws'
       
-      console.log('[Client] WebSocket URL:', finalWsUrl)
+      console.log('[Client] Direct WebSocket URL:', finalWsUrl)
       
-      // Set assetsUrl from environment variable for asset:// URL resolution
-      const assetsUrl =
-        window.env?.PUBLIC_ASSETS_URL ||
-        `${window.location.protocol}//${window.location.host}/world-assets/`
+      // Always use absolute CDN URL for all assets
+      const cdnUrl = import.meta.env.PUBLIC_CDN_URL || 'http://localhost:8080';
+      const assetsUrl = `${cdnUrl}/`
+      
+      console.log('[Client] Direct CDN Configuration:')
+      console.log('[Client]   cdnUrl:', cdnUrl)
+      console.log('[Client]   assetsUrl:', assetsUrl)
+      
+      // Make CDN URL available globally for PhysX loading
+      console.log('[Client] Setting window.__CDN_URL for PhysX:', cdnUrl)
+      ;(window as Window & { __CDN_URL?: string }).__CDN_URL = cdnUrl
 
       const config = {
         viewport,
         ui,
         wsUrl: finalWsUrl,
         baseEnvironment,
-        assetsUrl,
+        assetsUrl, // This will be overridden by server snapshot
       }
+      
+      console.log('[Client] World config (direct connections):', {
+        wsUrl: finalWsUrl,
+        assetsUrl
+      })
       
       // Call onSetup if provided
       if (onSetup) {
@@ -158,8 +171,10 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       
       
       // Ensure RPG systems are registered before initializing the world
-      const worldWithSystems = world as unknown as World & { systemsLoadedPromise: Promise<void> }
-      await worldWithSystems.systemsLoadedPromise
+      const worldWithPromise = world as World & { systemsLoadedPromise?: Promise<void> }
+      if (worldWithPromise.systemsLoadedPromise) {
+        await worldWithPromise.systemsLoadedPromise
+      }
       
       console.log('[Client] Calling world.init()...')
       await world.init(config)

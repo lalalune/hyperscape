@@ -71,7 +71,7 @@ export class ProcessingSystem extends SystemBase {
       this.startCooking(data);
     });
     this.subscribe(EventType.ITEM_USE_ON_ITEM, (_data) => {
-      // Item-on-item pipeline uses string item IDs; ignore here until unified
+      // Item-on-item handling deferred to specific processing methods
       return;
     });
     this.subscribe(EventType.ITEM_USE_ON_FIRE, (_data) => {

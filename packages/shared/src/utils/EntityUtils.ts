@@ -1,6 +1,7 @@
 /**
- * Utility functions for common entity operations
- * Consolidates duplicate patterns across systems
+ * Entity Utility Functions
+ * 
+ * Common entity operations for safe retrieval, validation, and distance calculations.
  */
 
 import type { Entity, Position3D, Vector3, World } from '../types'

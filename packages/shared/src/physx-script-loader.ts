@@ -20,13 +20,19 @@ export async function loadPhysXScript(options?: PhysXInitOptions): Promise<PhysX
 
   return new Promise((resolve, reject) => {
     // Check again in case it was loaded while we were waiting
-          if (w.PhysX) {
+        if (w.PhysX) {
       w.PhysX!(options).then(resolve).catch(reject)
       return
     }
 
     const script = document.createElement('script')
-    script.src = '/physx-js-webidl.js'
+    // Load from CDN (always absolute URL to avoid Vite conflicts)
+    const windowWithCdn = window as Window & { __CDN_URL?: string }
+    const cdnUrl = windowWithCdn.__CDN_URL || 'http://localhost:8080'
+    const scriptUrl = `${cdnUrl}/web/physx-js-webidl.js`
+    
+    console.log('[physx-script-loader] Loading PhysX from:', scriptUrl)
+    script.src = scriptUrl
     script.async = true
     
     script.onload = () => {      

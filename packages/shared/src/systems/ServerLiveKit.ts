@@ -1,9 +1,45 @@
+/**
+ * ServerLiveKit.ts - Voice Chat Server Integration
+ * 
+ * Generates LiveKit access tokens for players to join voice rooms.
+ * Server-side component of the voice chat system.
+ * 
+ * **Responsibilities:**
+ * - Generate JWT tokens for LiveKit room access
+ * - Configure room permissions per player
+ * - Manage voice room lifecycle
+ * - Single room per world instance
+ * 
+ * **Environment Variables Required:**
+ * - LIVEKIT_URL or LIVEKIT_WS_URL: LiveKit server WebSocket URL
+ * - LIVEKIT_API_KEY: API key for token generation
+ * - LIVEKIT_API_SECRET: Secret key for signing JWT tokens
+ * 
+ * **Token Contents:**
+ * Each player receives a token with:
+ * - Room name: Based on world ID
+ * - Player identity: Player ID
+ * - Permissions: canPublish (microphone) and canSubscribe (hear others)
+ * - Track sources: Microphone and screen share
+ * 
+ * **Usage:**
+ * ServerNetwork calls getPlayerOpts(playerId) to generate tokens.
+ * Tokens are sent to client in the initial snapshot.
+ * 
+ * **Referenced by:** ServerNetwork (provides tokens during player connection)
+ */
+
 import { AccessToken, TrackSource } from 'livekit-server-sdk'
 
 import { System } from './System'
 import { uuid } from '../utils'
 import { World } from '../World'
 
+/**
+ * ServerLiveKit - Voice Token Generator
+ * 
+ * Server-side LiveKit integration for generating voice room access tokens.
+ */
 export class ServerLiveKit extends System {
   private roomId: string
   private wsUrl: string | undefined

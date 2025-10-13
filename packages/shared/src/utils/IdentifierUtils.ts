@@ -1,6 +1,38 @@
+/**
+ * IdentifierUtils.ts - Branded ID Type Utilities
+ * 
+ * Provides validation and creation functions for branded ID types.
+ * These utilities work with the branded types defined in types/identifiers.ts.
+ * 
+ * **Branded Types:**
+ * Branded types add compile-time type safety while remaining strings at runtime.
+ * This prevents accidentally passing the wrong type of ID to a function.
+ * 
+ * Example:
+ * ```ts
+ * const playerId = createPlayerID('player_123');  // PlayerID brand
+ * const mobId = createMobID('mob_456');           // MobID brand
+ * 
+ * function healPlayer(id: PlayerID) { ... }
+ * healPlayer(playerId);  // ✅ Works
+ * healPlayer(mobId);     // ❌ Compile error - can't use MobID as PlayerID
+ * ```
+ * 
+ * **Functions Provided:**
+ * - isValid*ID(): Type guards for runtime validation
+ * - create*ID(): Create branded ID with validation
+ * - to*ID(): Safe conversion from unknown to branded type (returns null if invalid)
+ * 
+ * **Referenced by:** All systems that work with typed IDs (PlayerSystem, MobSystem, etc.)
+ */
+
 import { BankID, EntityID, ItemID, MobID, NPCID, PlayerID, ResourceID, SessionID, SlotNumber, StoreID } from "../types/identifiers"
 
-// Validation functions
+// ============================================================================
+// VALIDATION FUNCTIONS (Type Guards)
+// ============================================================================
+
+/** Validate a PlayerID at runtime */
 export function isValidPlayerID(id: unknown): id is string {
   return typeof id === 'string' && id.length > 0
 }

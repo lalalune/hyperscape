@@ -1,8 +1,51 @@
-.env
-node_modules
-.turbo
-dist
-build
+# Dependencies
+node_modules/
+bun.lock
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Documentation
+packages/docs-site/build/
+packages/docs-site/docs/api/
+packages/docs-site/.docusaurus/
+packages/docs-site/node_modules/
+
+# Testing
+test-results/
+playwright-report/
+coverage/
 *.log
+test-*.json
+test-*.png
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-*.sqlite*
+Thumbs.db
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Database
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+.turbo

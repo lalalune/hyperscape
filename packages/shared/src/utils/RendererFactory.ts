@@ -1,6 +1,8 @@
 /**
- * Universal Renderer Factory
- * Creates WebGPU or WebGL renderers with feature detection and fallback
+ * Renderer Factory
+ * 
+ * Creates WebGPU or WebGL renderers with automatic backend selection.
+ * Detects browser capabilities and configures rendering settings.
  */
 
 import THREE from '../extras/three'
@@ -92,27 +94,22 @@ export async function createRenderer(options: RendererOptions = {}): Promise<Uni
 
   // Try WebGPU first if preferred and available
   if (preferWebGPU && capabilities.supportsWebGPU && WebGPURenderer) {
-    try {
-      console.log('[RendererFactory] Creating WebGPU renderer')
+    console.log('[RendererFactory] Creating WebGPU renderer')
 
-      const renderer = new WebGPURenderer({
-        canvas,
-        antialias,
-        // Note: alpha, preserveDrawingBuffer not needed in WebGPU
-        // powerPreference handled differently in WebGPU
-      })
+    const renderer = new WebGPURenderer({
+      canvas,
+      antialias,
+      // Note: alpha, preserveDrawingBuffer not needed in WebGPU
+      // powerPreference handled differently in WebGPU
+    })
 
-      // Wait for WebGPU initialization
-      await renderer.init()
+    // Wait for WebGPU initialization
+    await renderer.init()
 
-      console.log('[RendererFactory] ✅ WebGPU renderer created and initialized')
-      return renderer as UniversalRenderer
-    } catch (error) {
-      console.warn('[RendererFactory] WebGPU renderer creation failed, falling back to WebGL:', error)
-    }
+    console.log('[RendererFactory] ✅ WebGPU renderer created and initialized')
+    return renderer as UniversalRenderer
   }
 
-  // Fallback to WebGL
   console.log('[RendererFactory] Creating WebGL renderer')
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -267,8 +264,7 @@ export function isXRPresenting(renderer: UniversalRenderer): boolean {
 }
 
 /**
- * Get WebGPU capabilities (for logging/debugging)
- * Consolidated from WebGPUOptimizations.ts
+ * Get WebGPU capabilities for logging and debugging
  */
 export async function getWebGPUCapabilities(renderer: UniversalRenderer): Promise<{
   backend: string
@@ -278,27 +274,22 @@ export async function getWebGPUCapabilities(renderer: UniversalRenderer): Promis
     return null
   }
 
-  try {
-    const gpuRenderer = renderer as WebGPURendererWithBackend
-    const device = gpuRenderer.backend?.device
+  const gpuRenderer = renderer as WebGPURendererWithBackend
+  const device = gpuRenderer.backend?.device
 
-    if (!device) {
-      return { backend: 'webgpu', features: [] }
-    }
+  if (!device) {
+    return { backend: 'webgpu', features: [] }
+  }
 
-    const features: string[] = []
-    const iterable = device.features as unknown as { forEach?: (cb: (f: string) => void) => void } | Iterable<string>
-    if (iterable && 'forEach' in iterable && typeof iterable.forEach === 'function') {
-      iterable.forEach((feature: string) => features.push(feature))
-    }
+  const features: string[] = []
+  const iterable = device.features as unknown as { forEach?: (cb: (f: string) => void) => void } | Iterable<string>
+  if (iterable && 'forEach' in iterable && typeof iterable.forEach === 'function') {
+    iterable.forEach((feature: string) => features.push(feature))
+  }
 
-    return {
-      backend: 'webgpu',
-      features,
-    }
-  } catch (error) {
-    console.warn('[RendererFactory] Could not get WebGPU capabilities:', error)
-    return null
+  return {
+    backend: 'webgpu',
+    features,
   }
 }
 

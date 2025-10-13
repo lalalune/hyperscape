@@ -1,3 +1,9 @@
+/**
+ * Particles.ts - Particle Emitter Node
+ * 
+ * GPU-accelerated particle effects with curves and bursts.
+ */
+
 import { every, isArray, isNumber, isString } from 'lodash-es'
 import { Node } from './Node'
 import { World } from '../World'

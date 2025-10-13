@@ -1,3 +1,73 @@
+/**
+ * PlayerLocal - Local Player Entity
+ * 
+ * This class represents the player controlled by the current client. It handles:
+ * - **Input Processing**: Keyboard, mouse, touch, and gamepad input
+ * - **Character Controller**: PhysX capsule-based movement with ground detection
+ * - **Camera Control**: Third-person camera rig with orbit, zoom, and collision
+ * - **VRM Avatar**: Full VRM avatar with animations and emotes
+ * - **UI Interaction**: Inventory, equipment, chat interfaces
+ * - **Touch Controls**: On-screen joystick and buttons for mobile
+ * 
+ * **Architecture**:
+ * 
+ * **Movement System**:
+ * - Uses PhysX character controller (capsule collider)
+ * - Grounded state detection via sphere sweep
+ * - Smooth movement with acceleration/deceleration
+ * - Jumping with velocity physics
+ * - Terrain following with height queries
+ * - Gravity and momentum
+ * 
+ * **Input Handling**:
+ * - WASD/Arrow keys for movement
+ * - Mouse for camera rotation (when pointer locked)
+ * - Spacebar for jumping
+ * - Number keys for inventory hotbar
+ * - Touch controls for mobile (virtual joystick)
+ * - Gamepad support
+ * 
+ * **Camera System**:
+ * - Third-person orbit camera
+ * - Zoom in/out with mouse wheel or pinch
+ * - Camera collision detection (pulls camera forward when blocked)
+ * - Smooth interpolation for all camera movements
+ * - First-person mode when fully zoomed in
+ * 
+ * **Avatar Integration**:
+ * - VRM model loading and rendering
+ * - Bone-based animations (idle, walk, run, jump)
+ * - Emote system (wave, dance, etc.)
+ * - Lip-sync and eye blinking
+ * - IK for natural poses
+ * 
+ * **UI Systems**:
+ * - Inventory overlay (press I or tap bag icon)
+ * - Equipment panel
+ * - Stats display
+ * - Chat input
+ * - Interaction prompts
+ * - Touch controls overlay (mobile)
+ * 
+ * **Network Sync**:
+ * - Sends input to server (click-to-move destination)
+ * - Receives authoritative position from server
+ * - Local prediction for smooth movement
+ * - Server reconciliation for position corrections
+ * 
+ * **Physics**:
+ * - Character controller (PhysX)
+ * - Ground detection
+ * - Slope handling
+ * - Jump velocity
+ * - Collision response
+ * 
+ * **Runs on**: Client only (browser)
+ * **Referenced by**: PlayerSystem, ClientInput, ClientGraphics
+ * 
+ * @public
+ */
+
 import type PhysX from '@hyperscape/physx-js-webidl'
 import { createNode } from '../extras/createNode'
 import { Layers } from '../extras/Layers'
@@ -64,7 +134,7 @@ interface AvatarNode {
 
 // Camera system accessor with strong type assumption
 function getCameraSystem(world: World): CameraSystem | null {
-  // Use unified client camera system only
+  // Get the client camera system
   const sys = getSystem(world, 'client-camera-system')
   return (sys as unknown as CameraSystem) || null
 }
@@ -575,16 +645,22 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Get terrain system with proper type
     const terrainSystem = this.world.getSystem('terrain') as TerrainSystem | null
     
+    console.log('[PlayerLocal] waitForTerrain: terrainSystem=', terrainSystem ? 'found' : 'null')
+    
     if (!terrainSystem) {
       // No terrain system, proceed without wait
+      console.log('[PlayerLocal] No terrain system found, proceeding without wait')
       return
     }
     
     // Strong type assumption - TerrainSystem has isReady() method
     // Check if terrain is already initialized
     if (terrainSystem.isReady()) {
+      console.log('[PlayerLocal] Terrain already ready')
       return
     }
+    
+    console.log('[PlayerLocal] Waiting for terrain to be ready...')
     
     // Wait for terrain initialization with timeout
     const maxWaitTime = 10000 // 10 seconds timeout
@@ -592,11 +668,15 @@ export class PlayerLocal extends Entity implements HotReloadable {
     
     await new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime
         if (terrainSystem.isReady()) {
+          console.log('[PlayerLocal] Terrain ready after', elapsed, 'ms')
           clearInterval(checkInterval)
           resolve()
-        } else if (Date.now() - startTime > maxWaitTime) {
+        } else if (elapsed > maxWaitTime) {
           // Timeout - proceed anyway
+          console.warn('[PlayerLocal] Terrain wait timeout after', elapsed, 'ms - proceeding anyway')
+          console.warn('[PlayerLocal] terrainSystem.isReady():', terrainSystem.isReady())
           clearInterval(checkInterval)
           resolve()
         }
@@ -622,11 +702,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
         };
         const emoteUrl = emoteMap[this.emote] || Emotes.IDLE;
         
-        // Use setEmote method which properly triggers the animation
         if (avatarNode.setEmote) {
           avatarNode.setEmote(emoteUrl);
         } else if (avatarNode.emote !== undefined) {
-          // Fallback: set property directly (triggers setter)
           avatarNode.emote = emoteUrl;
         }
       }
@@ -689,6 +767,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   async init(): Promise<void> {
+    console.log('[PlayerLocal] Starting init()...')
         
     // Make sure we're added to the world's entities
     if (!this.world.entities.has(this.id)) {
@@ -697,7 +776,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
     
     // Wait for terrain to be ready before proceeding
+    console.log('[PlayerLocal] About to wait for terrain...')
     await this.waitForTerrain()
+    console.log('[PlayerLocal] Terrain wait complete, continuing init...')
     
     // Register for physics updates
     this.world.setHot(this, true)
@@ -781,15 +862,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
     let spawnY = this.position.y
     let spawnZ = this.position.z
     
-    // Only use fallback if we truly have no position (0,0,0)
     if (spawnX === 0 && spawnY === 0 && spawnZ === 0) {
-      // Try world settings as fallback - skip check per strong typing rules
-      // Just set default spawn position
       spawnX = 0
-      spawnY = 10  // Start higher to avoid terrain clipping
+      spawnY = 10
       spawnZ = 0
                 
-      // Update our position with the fallback
       this.position.set(spawnX, spawnY, spawnZ)
     }
     
@@ -938,6 +1015,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
     
     // Signal to UI that the world is ready
+    console.log('[PlayerLocal] Initialization complete, emitting READY event')
     this.world.emit(EventType.READY)
   }
 
@@ -1121,7 +1199,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     const _cameraSystem = getCameraSystem(this.world);
     this.world.emit(EventType.CAMERA_FOLLOW_PLAYER, {
       playerId: this.data.id,
-      entity: this,
+      entity: { id: this.data.id, mesh: this.mesh as object | null },
       camHeight: this.camHeight,
     });
     // Also set as camera target for immediate orbit control readiness
@@ -1338,7 +1416,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
     // Initialize camera controls
     const _cameraSystem = getSystem(this.world, 'client-camera-system');
-    // Using unified camera system - set ourselves as target
+    // Set ourselves as the camera target
     this.world.emit(EventType.CAMERA_SET_TARGET, { target: this });
   }
 
@@ -1383,22 +1461,19 @@ export class PlayerLocal extends Entity implements HotReloadable {
       console.error(`[PlayerLocal] REJECTING invalid server position! Y=${y} is below terrain!`);
       console.error(`[PlayerLocal] Server tried to set position to: (${x}, ${y}, ${z})`);
       
-      // Get terrain height at this position as safety fallback
       const terrain = this.world.getSystem<TerrainSystem>('terrain') as { getHeightAt?: (x: number, z: number) => number } | null;
       if (terrain?.getHeightAt) {
         const terrainHeight = terrain.getHeightAt(x, z);
         if (Number.isFinite(terrainHeight)) {
-          const safeY = (terrainHeight as number) + 0.1; // 10cm above terrain to prevent clipping
+          const safeY = (terrainHeight as number) + 0.1;
           console.warn(`[PlayerLocal] Correcting to safe height: Y=${safeY} (terrain=${terrainHeight})`);
           this.serverPosition.set(x, safeY, z);
         } else {
-          // Fallback to a reasonable height
-          console.warn(`[PlayerLocal] No terrain data, using fallback Y=50`);
+          console.warn(`[PlayerLocal] No terrain data, using default Y=50`);
           this.serverPosition.set(x, 50, z);
         }
       } else {
-        // No terrain system, use safe default
-        console.warn(`[PlayerLocal] No terrain system, using fallback Y=50`);
+        console.warn(`[PlayerLocal] No terrain system, using default Y=50`);
         this.serverPosition.set(x, 50, z);
       }
     } else {

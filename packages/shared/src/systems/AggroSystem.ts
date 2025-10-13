@@ -240,8 +240,6 @@ export class AggroSystem extends SystemBase {
       };
     }
     
-    // Final fallback - return default values for aggro calculations
-    // This ensures aggro system continues working even without cached skills
     return { attack: 1, strength: 1, defense: 1, constitution: 1 };
   }
 

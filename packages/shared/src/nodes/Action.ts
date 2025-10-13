@@ -1,3 +1,9 @@
+/**
+ * Action.ts - Executable Action Node
+ * 
+ * Represents a context-sensitive player action with progress tracking.
+ */
+
 import THREE from '../extras/three'
 
 import { Node } from './Node'

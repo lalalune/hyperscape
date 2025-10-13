@@ -1,8 +1,85 @@
+/**
+ * Binary Network Packet Protocol
+ * 
+ * This module defines the binary protocol for client-server communication in Hyperscape.
+ * It uses msgpackr for efficient binary serialization and maps packet names to numeric IDs
+ * to minimize network bandwidth.
+ * 
+ * **Protocol Design**:
+ * - All packets are binary ArrayBuffers (no JSON overhead)
+ * - Packet format: [packet_id, data] where packet_id is a small integer
+ * - Packet IDs map to method names on the receiving end (e.g., id 0 → 'onSnapshot')
+ * - msgpackr provides efficient binary serialization with structured clone support
+ * 
+ * **Packet Types**:
+ * 
+ * **Core Packets**:
+ * - `snapshot`: Full world state update from server
+ * - `command`: Client command to server (move, attack, interact)
+ * - `ping`/`pong`: Heartbeat/keepalive mechanism
+ * 
+ * **Chat Packets**:
+ * - `chatAdded`: New chat message
+ * - `chatCleared`: Clear chat history
+ * 
+ * **Entity Packets**:
+ * - `entityAdded`: New entity spawned in world
+ * - `entityModified`: Entity state changed (position, health, etc.)
+ * - `entityRemoved`: Entity removed from world
+ * - `entityEvent`: Custom entity event (emote, action, etc.)
+ * 
+ * **Player Packets**:
+ * - `moveRequest`: Client requests movement
+ * - `playerTeleport`: Server forces player teleport
+ * - `playerPush`: Server applies force to player
+ * - `playerSessionAvatar`: Player changed avatar
+ * - `playerState`: Full player state update
+ * 
+ * **Resource/Gathering Packets**:
+ * - `resourceSnapshot`: Initial resource node state
+ * - `resourceSpawnPoints`: Spawn locations for resources
+ * - `resourceSpawned`/`resourceDepleted`/`resourceRespawned`: Resource lifecycle
+ * - `resourceGather`: Client attempts to gather
+ * - `gatheringComplete`: Server confirms gathering success
+ * 
+ * **Combat Packets**:
+ * - `attackMob`: Client attacks a mob
+ * 
+ * **Inventory Packets**:
+ * - `pickupItem`: Client picks up ground item
+ * - `inventoryUpdated`: Server syncs inventory state
+ * 
+ * **Character Selection Packets** (feature-flagged):
+ * - `characterListRequest`: Request list of characters
+ * - `characterCreate`: Create new character
+ * - `characterList`: Server returns character list
+ * - `characterCreated`: Server confirms character creation
+ * - `characterSelected`: Client selects a character
+ * - `enterWorld`: Client enters world with selected character
+ * 
+ * **Adding New Packets**:
+ * 1. Add packet name to the `names` array (order matters!)
+ * 2. Packet ID is automatically assigned based on array index
+ * 3. Handler method name is auto-generated as `on${Name}` (e.g., 'snapshot' → 'onSnapshot')
+ * 4. Implement handler in ServerNetwork or ClientNetwork
+ * 
+ * **Referenced by**: Socket (send/receive), ServerNetwork, ClientNetwork
+ */
+
 import { Packr } from 'msgpackr'
 import type { PacketInfo } from './types/networking'
 
+/**
+ * msgpackr instance for binary serialization
+ * structuredClone ensures complex objects are properly handled
+ */
 const packr = new Packr({ structuredClone: true })
 
+/**
+ * Ordered list of all packet names
+ * Array index determines packet ID (0, 1, 2, ...) for network transmission
+ * Order must remain consistent across client and server builds
+ */
 // prettier-ignore
 const names = [
   'snapshot',

@@ -74,7 +74,6 @@ export function calculateAvatarHeight(avatar: THREE.Object3D): number {
   })
   
   if (!foundMesh) {
-    // Fallback to overall bounding box
     const box = new THREE.Box3().setFromObject(avatar)
     minY = box.min.y
     maxY = box.max.y

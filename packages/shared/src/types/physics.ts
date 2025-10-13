@@ -1,3 +1,30 @@
+/**
+ * physics.ts - PhysX Type Definitions and Re-exports
+ * 
+ * Centralized type definitions for the PhysX physics engine integration.
+ * This file provides TypeScript types for all PhysX APIs used in Hyperscape.
+ * 
+ * **Type Organization:**
+ * - Core types: PxVec3, PxQuat, PxTransform (math/transforms)
+ * - Actor types: PxRigidDynamic, PxRigidStatic, PxRigidBody (physics objects)
+ * - Geometry types: PxBoxGeometry, PxSphereGeometry, PxCapsuleGeometry, etc.
+ * - Controller types: PxController, PxControllerManager (character controllers)
+ * - Query types: PxRaycastHit, PxSweepHit, PxOverlapHit (collision queries)
+ * - Event types: PxContactPair, PxTriggerPair (collision callbacks)
+ * 
+ * **PhysX Integration:**
+ * - Types are re-exported from @hyperscape/physx-js-webidl
+ * - PhysX runs in both browser (WASM) and Node.js (native bindings)
+ * - Used by Physics system, character controllers, and collision detection
+ * 
+ * **Custom Extensions:**
+ * - PhysXInfo: Loaded PhysX instance info (foundation, physics, cooking)
+ * - PhysicsHandle: Actor tracking with tags and callbacks
+ * - ContactEvent, TriggerEvent: Simplified collision events for game logic
+ * 
+ * **Referenced by:** Physics system, character controllers, collision components
+ */
+
 import type { default as PhysX } from '@hyperscape/physx-js-webidl';
 import THREE from '../extras/three';
 import type { System } from '../systems/System';
@@ -10,10 +37,13 @@ export type { default as PhysX } from '@hyperscape/physx-js-webidl';
 // Re-export HotReloadable for entities
 export type { HotReloadable };
 
-// Helper type for the loaded PhysX module
+/** Helper type for the loaded PhysX module instance */
 export type PhysXModule = Awaited<ReturnType<typeof PhysX>>
 
-// Core PhysX types - direct aliases to avoid duplication
+// ============================================================================
+// CORE PHYSX TYPES
+// ============================================================================
+// Direct type aliases to avoid duplication and maintain single source of truth
 export type PxVec3 = PhysX.PxVec3
 export type PxQuat = PhysX.PxQuat  
 export type PxTransform = PhysX.PxTransform
@@ -87,14 +117,25 @@ export type PxShapeFlagEnum = PhysX.PxShapeFlagEnum
 export type PxActorFlagEnum = PhysX.PxActorFlagEnum
 export type PxHitFlags = PhysX.PxHitFlags
 
-// PhysX factory result interface
+/**
+ * PhysXInfo - Loaded PhysX Instance Information
+ * 
+ * Contains references to the core PhysX objects created during initialization.
+ * Returned by PhysXManager.load() and used by the Physics system.
+ */
 export interface PhysXInfo {
+  /** PhysX API version number */
   version: number
+  /** Memory allocator for PhysX objects */
   allocator: PxDefaultAllocator
+  /** Error callback handler */
   errorCb: PxDefaultErrorCallback
+  /** PhysX foundation (manages memory and threading) */
   foundation: PxFoundation
+  /** Main physics simulation interface */
   physics: PxPhysics
-  cooking?: unknown // Optional - not available in all PhysX builds
+  /** Cooking interface for mesh preprocessing (optional) */
+  cooking?: unknown
 }
 
 // Strong type assertions for PhysX components

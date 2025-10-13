@@ -71,25 +71,25 @@ export { Entities } from './systems/Entities';
 export { Physics } from './systems/Physics';
 export { Particles } from './systems/Particles';
 export { LODs } from './systems/LODs';
-export { ClientInterface } from './systems/ClientInterface'; // Merged UI, Prefs, Stats, Target
+export { ClientInterface } from './systems/ClientInterface'; // UI state, preferences, stats display
 export { ClientLoader } from './systems/ClientLoader';
 export { Environment } from './systems/Environment';
 export { ClientNetwork } from './systems/ClientNetwork';
 export { ClientGraphics } from './systems/ClientGraphics';
-export { ClientRuntime } from './systems/ClientRuntime'; // Merged Client + Diagnostics
+export { ClientRuntime } from './systems/ClientRuntime'; // Client lifecycle and diagnostics
 export { ClientAudio } from './systems/ClientAudio';
 export { ClientLiveKit } from './systems/ClientLiveKit';
-export { ClientInput } from './systems/ClientInput'; // Merged Controls, InputSystem, Pointer
+export { ClientInput } from './systems/ClientInput'; // Keyboard, mouse, touch, XR input handling
 export { ClientActions } from './systems/ClientActions';
 export { XR } from './systems/XR';
 export { EventBus } from './systems/EventBus';
 export { System as SystemClass } from './systems/System';
 export { SystemBase } from './systems/SystemBase';
 
-// Export node client components directly from their source modules (NOT ServerLoader, ServerRuntime, ServerEnvironment, ServerLiveKit)
+// Export node client components directly from their source modules (NOT ServerLoader, ServerRuntime, ServerLiveKit)
 export { createNodeClientWorld } from './createNodeClientWorld';
 export { NodeClient } from './systems/NodeClient';
-// NodeEnvironment consolidated into Environment
+// Environment system works in both browser and Node contexts
 export { Node } from './nodes/Node';
 // Re-export commonly used node classes to satisfy API extractor
 export { UI } from './nodes/UI';
@@ -124,7 +124,7 @@ export {
   type PostProcessingComposer
 } from './utils/PostProcessingFactory';
 
-// Material and mesh optimizations (consolidated into RendererFactory)
+// Material and mesh optimizations
 export {
   optimizeMaterialForWebGPU,
   createOptimizedInstancedMesh,
@@ -162,9 +162,9 @@ export type { CSMOptions } from './libs/csm/CSM';
 
 // PhysX asset path helper function
 export function getPhysXAssetPath(assetName: string): string {
-  // In the browser, serve assets from the web root
+  // In the browser, serve assets from CDN /web/ directory
   if (typeof window !== 'undefined') {
-    return `/${assetName}`;
+    return `/web/${assetName}`;
   }
   // In Node.js, compute path relative to this module using URL without importing node:path
   try {

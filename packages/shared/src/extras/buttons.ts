@@ -1,3 +1,41 @@
+/**
+ * buttons.ts - Input Button Definitions
+ * 
+ * Defines all supported keyboard and mouse buttons for the input system.
+ * Maps between different button name formats (code names, property names, display labels).
+ * 
+ * Button Name Formats:
+ * - Code: JavaScript KeyboardEvent.code (e.g., 'KeyA', 'Digit0')
+ * - Prop: Normalized property name (e.g., 'keyA', 'digit0')
+ * - Label: Human-readable display name (e.g., 'A', '0')
+ * 
+ * Supported Inputs:
+ * - Letter keys (A-Z)
+ * - Number keys (0-9)
+ * - Special keys (Space, Enter, Escape, etc.)
+ * - Arrow keys
+ * - Modifier keys (Shift, Ctrl, Alt, Meta)
+ * - Mouse buttons (Left, Right)
+ * 
+ * Usage:
+ * ```ts
+ * import { buttons, codeToProp, propToLabel } from './buttons';
+ * 
+ * if (buttons.has('keyW')) {
+ *   // W key is a valid button
+ * }
+ * 
+ * const prop = codeToProp['KeyW'];  // 'keyW'
+ * const label = propToLabel['keyW']; // 'W'
+ * ```
+ * 
+ * Referenced by: ClientInput system for key binding and input handling
+ */
+
+/**
+ * Set of all valid button property names.
+ * Used for validation in the input system.
+ */
 export const buttons = new Set([
   'keyA',
   'keyB',
@@ -72,6 +110,13 @@ export const buttons = new Set([
   'metaLeft',
 ])
 
+/**
+ * Map from JavaScript KeyboardEvent.code to property names.
+ * 
+ * Example: 'KeyA' → 'keyA'
+ * 
+ * Used by ClientInput to normalize keyboard events to consistent property names.
+ */
 export const codeToProp = {
   KeyA: 'keyA',
   KeyB: 'keyB',
@@ -146,6 +191,13 @@ export const codeToProp = {
   MetaLeft: 'metaLeft',
 }
 
+/**
+ * Reverse map from property names to KeyboardEvent.code.
+ * 
+ * Example: 'keyA' → 'KeyA'
+ * 
+ * Used for key binding serialization and display.
+ */
 export const propToCode = {
   keyA: 'KeyA',
   keyB: 'KeyB',
@@ -220,6 +272,13 @@ export const propToCode = {
   metaLeft: 'MetaLeft',
 }
 
+/**
+ * Map from property names to human-readable labels.
+ * 
+ * Example: 'keyA' → 'A', 'mouseLeft' → 'LMB'
+ * 
+ * Used for displaying key bindings in UI.
+ */
 export const propToLabel = {
   keyA: 'A',
   keyB: 'B',

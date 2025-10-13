@@ -1,3 +1,54 @@
+/**
+ * PlayerRemote - Remote Player Entity
+ * 
+ * Represents other players in the multiplayer world. Displays their avatars,
+ * nametags, and animations based on network state updates from the server.
+ * 
+ * **Key Features**:
+ * 
+ * **Network Interpolation**:
+ * - Smoothly interpolates position and rotation between network updates
+ * - Uses LerpVector3 and LerpQuaternion for smooth movement
+ * - Handles teleportation (instant position changes)
+ * - Velocity calculation for animation blending
+ * 
+ * **Visual Representation**:
+ * - VRM avatar rendering
+ * - Nametag with player name
+ * - Chat bubbles for messages
+ * - Health bar (if in combat)
+ * - Capsule collider visualization (debug mode)
+ * 
+ * **Animation System**:
+ * - Idle animation when stationary
+ * - Walk/run animations based on velocity
+ * - Emote playback (wave, dance, etc.)
+ * - Smooth transitions between animations
+ * 
+ * **Chat Bubbles**:
+ * - Text bubbles appear above player when they chat
+ * - Auto-dismiss after timeout
+ * - Wraps long messages
+ * - 3D UI that faces the camera
+ * 
+ * **Network State**:
+ * - Receives position/rotation updates from server (8Hz typical)
+ * - Interpolates between updates for smooth 60fps rendering
+ * - Handles player effects (sitting, emotes, etc.)
+ * - Synchronizes avatar changes
+ * 
+ * **Lifecycle**:
+ * 1. Constructed when another player joins
+ * 2. spawn() creates visual representation
+ * 3. update() interpolates position and updates animations
+ * 4. destroy() cleans up avatar and UI
+ * 
+ * **Runs on**: Client only (browser)
+ * **Referenced by**: Entities system (when entityAdded packet received)
+ * 
+ * @public
+ */
+
 import type { EntityData, HotReloadable, NetworkData, LoadedAvatar } from '../types/index'
 import { Emotes } from '../extras/playerEmotes'
 import type { World } from '../World'
@@ -448,7 +499,11 @@ export class PlayerRemote extends Entity implements HotReloadable {
     if (data.health !== undefined) {
       this.data.health = data.health as number
       this.nametag.health = data.health as number
-      this.world.emit(EventType.PLAYER_HEALTH_UPDATED, { playerId: this.data.id, health: data.health as number })
+      this.world.emit(EventType.PLAYER_HEALTH_UPDATED, { 
+        playerId: this.data.id, 
+        health: data.health as number,
+        maxHealth: (this.data.maxHealth as number) || 100
+      })
     }
     if (data.avatar !== undefined) {
       this.data.avatar = data.avatar as string

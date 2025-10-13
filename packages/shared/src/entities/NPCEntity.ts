@@ -1,5 +1,60 @@
 /**
- * NPCEntity - Non-player characters like shopkeepers, bankers, and quest givers
+ * NPCEntity - Non-Player Character Entity
+ * 
+ * Represents friendly NPCs like shopkeepers, bankers, trainers, and quest givers.
+ * NPCs provide services to players through dialogue and interaction menus.
+ * 
+ * **Extends**: Entity (not combatant - NPCs cannot be attacked)
+ * 
+ * **Key Features**:
+ * 
+ * **NPC Types**:
+ * - **Store**: Sells and buys items (shopkeepers)
+ * - **Bank**: Provides item storage (bankers)
+ * - **Trainer**: Teaches skills or abilities
+ * - **Quest**: Gives quests and rewards
+ * - **Dialogue**: General conversation
+ * 
+ * **Interaction System**:
+ * - Player clicks NPC to interact
+ * - Opens appropriate UI based on NPC type
+ * - Dialogue trees (simple or complex)
+ * - Service menus (shop, bank, training)
+ * 
+ * **Dialogue**:
+ * - Multiple dialogue lines
+ * - Context-aware responses
+ * - Service advertisements
+ * - Quest information
+ * 
+ * **Shop System** (if npcType === 'store'):
+ * - Inventory of items to sell
+ * - Buy/sell prices
+ * - Stock quantities
+ * - Purchase restrictions
+ * 
+ * **Banking** (if npcType === 'bank'):
+ * - Opens player's bank storage
+ * - Deposit/withdraw items
+ * - Currency storage
+ * - Shared across all bank NPCs
+ * 
+ * **Visual Representation**:
+ * - 3D model or humanoid mesh
+ * - Nametag with NPC name and role
+ * - NO health bar (cannot be damaged)
+ * - Idle animations
+ * - Interaction highlight when in range
+ * 
+ * **Persistence**:
+ * - NPCs are defined in world configuration
+ * - Position and properties persist
+ * - Inventory/stock may regenerate
+ * 
+ * **Runs on**: Server (authoritative), Client (visual + UI)
+ * **Referenced by**: NPCSystem, StoreSystem, BankingSystem, InteractionSystem
+ * 
+ * @public
  */
 
 import THREE from '../extras/three';
@@ -122,57 +177,73 @@ export class NPCEntity extends Entity {
       isServer: this.world.isServer
     });
     
-    // SKIP 3D MODEL LOADING - Use clean capsule fallbacks
-    // Prevents 404 errors until /world-assets/forge/ has actual files
-    
-    // No model loading - use fallback
     if (this.world.isServer) {
-      return; // Don't create fallback mesh on server
+      return;
     }
     
-    console.log(`[NPCEntity] Creating fallback capsule for ${this.config.npcType}`);
+    // Try to load 3D model if available
+    if (this.config.model && this.world.loader) {
+      try {
+        console.log(`[NPCEntity] Loading model for ${this.config.npcType}:`, this.config.model);
+        const model = await this.world.loader.load('model', this.config.model);
+        if (model && 'toNodes' in model) {
+          const nodes = model.toNodes() as unknown as Map<string, THREE.Object3D>;
+          const rootNode = nodes.get('root') || Array.from(nodes.values())[0];
+          if (rootNode) {
+            this.mesh = rootNode as THREE.Mesh;
+            this.mesh.name = `NPC_${this.config.npcType}_${this.id}`;
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = true;
+            this.node.add(this.mesh);
+            console.log(`[NPCEntity] ✅ Model loaded for ${this.config.npcType}`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn(`[NPCEntity] Failed to load model for ${this.config.npcType}, using placeholder:`, error);
+        // Fall through to placeholder
+      }
+    }
     
-    // Fallback: Create NPC capsule (human-like shape)
+    console.log(`[NPCEntity] Creating placeholder capsule for ${this.config.npcType}`);
+    
     const geometry = new THREE.CapsuleGeometry(0.35, 1.4, 4, 8);
-    const material = new THREE.MeshLambertMaterial({ color: 0x6b4423 }); // Brown
+    const material = new THREE.MeshLambertMaterial({ color: 0x6b4423 });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.name = `NPC_${this.config.npcType}_${this.id}`;
     
-    // Set NPC-specific visual properties
-    this.mesh.scale.set(1, 2, 1); // Human-sized
+    this.mesh.scale.set(1, 2, 1);
     
-    // Color code by NPC type for easy identification
     if (this.mesh instanceof THREE.Mesh && this.mesh.material) {
       if (this.mesh.material instanceof THREE.MeshStandardMaterial) {
-        const fallbackMaterial = this.mesh.material;
+        const meshMaterial = this.mesh.material;
         switch (this.config.npcType) {
           case 'bank':
-            fallbackMaterial.color.setHex(0x00ff00); // Green for bank
+            meshMaterial.color.setHex(0x00ff00);
             break;
           case 'store':
-            fallbackMaterial.color.setHex(0x0000ff); // Blue for store
+            meshMaterial.color.setHex(0x0000ff);
             break;
           case 'quest_giver':
-            fallbackMaterial.color.setHex(0xffff00); // Yellow for quest giver
+            meshMaterial.color.setHex(0xffff00);
             break;
           case 'trainer':
-            fallbackMaterial.color.setHex(0xff00ff); // Magenta for trainer
+            meshMaterial.color.setHex(0xff00ff);
             break;
           default:
-            fallbackMaterial.color.setHex(0xffffff); // White default
+            meshMaterial.color.setHex(0xffffff);
             break;
         }
       }
     }
     
-    // Add mesh to node so it appears in the scene
     if (this.mesh) {
       this.node.add(this.mesh);
     }
     
-    console.log(`[NPCEntity] ✅ Fallback mesh created and added for ${this.config.npcType}`);
+    console.log(`[NPCEntity] ✅ Placeholder mesh created and added for ${this.config.npcType}`);
   }
 
   public getNetworkData(): Record<string, unknown> {

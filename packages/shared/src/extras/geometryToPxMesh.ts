@@ -1,8 +1,44 @@
+/**
+ * geometryToPxMesh.ts - Three.js to PhysX Mesh Converter
+ * 
+ * Converts Three.js BufferGeometry to PhysX collision meshes (convex or triangle).
+ * Handles the complex process of "cooking" meshes for PhysX consumption.
+ * 
+ * **Why Cooking?**
+ * PhysX requires geometry to be "cooked" (preprocessed) before use:
+ * - Optimizes mesh data structures for collision detection
+ * - Builds acceleration structures (BVH trees)
+ * - Validates topology and fixes degeneracies
+ * 
+ * **Mesh Types:**
+ * - **Convex Mesh:** For dynamic objects (balls, boxes, characters)
+ *   - Fast collision detection
+ *   - Simplified hull (not exact geometry)
+ *   - Good for moving objects
+ * 
+ * - **Triangle Mesh:** For static environment (terrain, buildings)
+ *   - Exact geometry collision
+ *   - Slower than convex
+ *   - Only for static actors
+ * 
+ * **Caching:**
+ * - Cooked meshes are cached by geometry UUID + type
+ * - Reference counting for shared meshes
+ * - Automatic cleanup when last reference is released
+ * 
+ * **Memory Management:**
+ * - Uses PhysX heap (HEAPF32, HEAPU16, HEAPU32)
+ * - Allocates temp buffers with _webidl_malloc
+ * - Frees buffers after cooking with _webidl_free
+ * 
+ * **Referenced by:** Collider nodes, terrain collision, static world geometry
+ */
+
 import type { GeometryCacheItem as CacheItem, GeometryPhysXMesh as PhysXMesh } from '../types/physics';
 import { World } from '../World';
 import THREE from './three';
 
-// Global PHYSX declaration with proper typing
+/** Global PHYSX module declaration for WASM heap access */
 declare const PHYSX: {
   _webidl_malloc: (size: number) => number;
   _webidl_free: (ptr: number) => void;
@@ -103,7 +139,6 @@ export function geometryToPxMesh(world: World, geometry: THREE.BufferGeometry, c
         }
       }
     } else {
-      // Fallback: manually read from underlying array
       const src = interleavedAttribute.data.array as Float32Array | number[]
       const stride = interleavedAttribute.data.stride
       const offset = interleavedAttribute.offset

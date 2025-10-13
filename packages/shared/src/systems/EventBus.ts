@@ -1,15 +1,15 @@
 /**
- * Event System
+ * Event Bus System
  * 
- * Replaces the 5 different event patterns found across systems with a single,
- * type-safe, performant event bus system.
+ * Type-safe event bus for inter-system communication.
+ * Provides subscription management, event history, and request-response patterns.
  * 
- * Patterns replaced:
- * 1. world.emit('event', data)
- * 2. this.emit('event', data) 
- * 3. callback(result)
- * 4. await asyncMethod()
- * 5. directMethodCall(data)
+ * Features:
+ * - Type-safe event emission and subscription
+ * - Automatic subscription cleanup
+ * - Event history for debugging
+ * - Request-response pattern with timeout
+ * - Active subscription tracking
  */
 
 import EventEmitter from 'eventemitter3';
@@ -19,7 +19,7 @@ import type { SystemEvent, EventHandler, EventSubscription } from '../types/even
 // Types moved to shared event-system.ts
 
 /**
- * Type-safe unified event bus
+ * Type-safe event bus for world-wide event communication
  */
 export class EventBus extends EventEmitter {
   private subscriptionCounter = 0;

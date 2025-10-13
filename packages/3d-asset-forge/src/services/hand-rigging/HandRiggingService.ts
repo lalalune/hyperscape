@@ -347,7 +347,6 @@ export class HandRiggingService {
         }
       }
 
-      // If still no detection, try front view as fallback
       if (!detection || detection.hands.length === 0) {
         console.log("🔍 Trying front view...");
         if (captures.frontView) {
@@ -586,7 +585,6 @@ export class HandRiggingService {
       });
     }
 
-    // Fallback: estimate depth based on hand structure
     const depthEstimates = this.estimateLandmarkDepths(hand);
     return this.handDetector.convertTo3DCoordinates(
       hand.landmarks.map((l) => ({ x: l.x, y: l.y })),

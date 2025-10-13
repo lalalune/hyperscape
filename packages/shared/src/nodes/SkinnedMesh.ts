@@ -1,3 +1,9 @@
+/**
+ * SkinnedMesh.ts - Animated Mesh Node
+ * 
+ * Mesh with skeletal animation support. Loads GLB animations.
+ */
+
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 
 import { Node } from './Node'

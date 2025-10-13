@@ -791,10 +791,8 @@ export class MeshFittingService {
                 // Left vertices should ray cast left in local space
                 rayDirection.set(-1, 0, 0)
               } else if (sidedness === 'right') {
-                // Right vertices should ray cast right in local space
                 rayDirection.set(1, 0, 0)
               } else {
-                // Fallback to center-based approach
                 rayDirection = targetCenter.clone().sub(vertex).normalize()
               }
               
@@ -852,11 +850,11 @@ export class MeshFittingService {
               // If no hit, try a cone of directions around the primary direction
               if (intersections.length === 0) {
                 const attempts = [
-                  rayDirection.clone().applyAxisAngle(new Vector3(0, 1, 0), 0.2),  // Slight rotation
+                  rayDirection.clone().applyAxisAngle(new Vector3(0, 1, 0), 0.2),
                   rayDirection.clone().applyAxisAngle(new Vector3(0, 1, 0), -0.2),
                   rayDirection.clone().applyAxisAngle(new Vector3(1, 0, 0), 0.2),
                   rayDirection.clone().applyAxisAngle(new Vector3(1, 0, 0), -0.2),
-                  toCenterDir // Fallback to pure center direction
+                  toCenterDir
                 ]
                 
                 // For lower back vertices, add more aggressive downward angles
@@ -981,16 +979,14 @@ export class MeshFittingService {
             }
           }
           
-          // Fallback approaches remain the same...
           if (!found) {
-            // Approach 4: Try perpendicular directions
             const directions = [
-              new Vector3(0, -1, 0), // Down
-              new Vector3(0, 1, 0),  // Up
-              new Vector3(1, 0, 0),  // Right
-              new Vector3(-1, 0, 0), // Left
-              new Vector3(0, 0, 1),  // Forward
-              new Vector3(0, 0, -1), // Back
+              new Vector3(0, -1, 0),
+              new Vector3(0, 1, 0),
+              new Vector3(1, 0, 0),
+              new Vector3(-1, 0, 0),
+              new Vector3(0, 0, 1),
+              new Vector3(0, 0, -1),
             ]
             
             for (const dir of directions) {
@@ -1006,14 +1002,12 @@ export class MeshFittingService {
             }
           }
           
-          // Final fallback: use nearest point algorithm if available
           if (!found) {
             const nearest = this.findNearestSurfacePoint(vertex, targetMesh)
             if (nearest) {
               targetPoint = nearest.point
               targetNormal = nearest.normal
             } else {
-              // Last resort: project to bounding box
               targetPoint = new Vector3()
               targetPoint.copy(vertex)
               targetPoint.clamp(targetBounds.min, targetBounds.max)
@@ -2350,8 +2344,6 @@ export class MeshFittingService {
         positions[i * 3 + 1] = newLocalPos.y
         positions[i * 3 + 2] = newLocalPos.z
       } else {
-        // Fallback if projection fails (e.g., no intersection found)
-        // This should ideally not happen if findNearestSurfacePoint works correctly
         console.warn(`Could not project vertex ${i} back to surface. Keeping original position.`)
       }
     }
@@ -3017,8 +3009,7 @@ export class MeshFittingService {
         console.log('Extended bottom to neck cutoff')
       }
     } else {
-      // Fallback if no vertices found
-      console.warn('No head vertices found! Using estimation')
+      console.warn('No head vertices found! Using estimation based on model bounds')
       const estimatedSize = modelHeight * 0.15
       const estimatedCenterY = modelTop - estimatedSize/2
       

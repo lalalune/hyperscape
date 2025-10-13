@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -6,11 +6,28 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Load env from both workspace root and client directory
+  const workspaceRoot = path.resolve(__dirname, '../..')
+  const clientDir = __dirname
+  
+  // Load from both locations - client dir takes precedence
+  const workspaceEnv = loadEnv(mode, workspaceRoot, ['PUBLIC_', 'VITE_'])
+  const clientEnv = loadEnv(mode, clientDir, ['PUBLIC_', 'VITE_'])
+  const env = { ...workspaceEnv, ...clientEnv }
+  
+  console.log('[Vite Config] Loaded env from workspace:', workspaceRoot)
+  console.log('[Vite Config] Loaded env from client:', clientDir)
+  console.log('[Vite Config] PUBLIC_PRIVY_APP_ID:', env.PUBLIC_PRIVY_APP_ID ? `${env.PUBLIC_PRIVY_APP_ID.substring(0, 10)}...` : 'NOT SET')
+  
+  return {
   plugins: [react()],
   
-  // Define which env variables are exposed to client
-  envPrefix: 'PUBLIC_', // Only expose env vars starting with PUBLIC_
+  // Tell Vite to look for .env files in the client directory
+  envDir: clientDir,
+  
+  // Vite automatically exposes PUBLIC_ prefixed variables via import.meta.env
+  envPrefix: 'PUBLIC_',
   
   root: path.resolve(__dirname, 'src'),
   publicDir: 'public',
@@ -42,50 +59,46 @@ export default defineConfig({
   },
   
   define: {
-    'process.env': '{}', // Replace process.env with empty object (Privy reads env vars)
     global: 'globalThis', // Needed for some node polyfills in browser
-    // Ensure Privy and Farcaster env vars are exposed
-    'import.meta.env.PUBLIC_PRIVY_APP_ID': JSON.stringify(process.env.PUBLIC_PRIVY_APP_ID || ''),
-    'import.meta.env.PUBLIC_ENABLE_FARCASTER': JSON.stringify(process.env.PUBLIC_ENABLE_FARCASTER || 'false'),
-    'import.meta.env.PUBLIC_APP_URL': JSON.stringify(process.env.PUBLIC_APP_URL || ''),
-    // API URL for backend endpoints (proxied through Vite in dev)
-    'import.meta.env.PUBLIC_API_URL': JSON.stringify(process.env.PUBLIC_API_URL || ''),
-    // CDN URL for static assets (separate from game server)
-    'import.meta.env.PUBLIC_CDN_URL': JSON.stringify(process.env.PUBLIC_CDN_URL || 'http://localhost:8080'),
-    'import.meta.env.PUBLIC_ASSETS_URL': JSON.stringify(process.env.PUBLIC_CDN_URL || 'http://localhost:8080'),
+    
+    // ============================================================================
+    // SECURITY: process.env Polyfill for Browser
+    // ============================================================================
+    // Replace process.env with an empty object to prevent accidental secret exposure
+    // This makes shared code's `process.env.X` references return undefined in browser
+    // 
+    // ⚠️  NEVER ADD SECRET VARIABLES HERE ⚠️
+    // Secret variables that must NEVER be exposed to client:
+    //   - PRIVY_APP_SECRET
+    //   - JWT_SECRET  
+    //   - DATABASE_URL
+    //   - POSTGRES_PASSWORD
+    //   - LIVEKIT_API_SECRET
+    //   - ADMIN_CODE (reveals admin password)
+    // 
+    // Only add PUBLIC_ prefixed variables or safe config values below.
+    // ============================================================================
+    'process.env': '{}',
+    
+    // Safe environment variables (no secrets, only config)
+    'process.env.NODE_ENV': JSON.stringify(mode),
+    'process.env.DEBUG_RPG': JSON.stringify(env.DEBUG_RPG || ''),
+    'process.env.PUBLIC_CDN_URL': JSON.stringify(env.PUBLIC_CDN_URL || 'http://localhost:8080'),
+    'process.env.PUBLIC_STARTER_ITEMS': JSON.stringify(env.PUBLIC_STARTER_ITEMS || ''),
+    'process.env.TERRAIN_SEED': JSON.stringify(env.TERRAIN_SEED || '0'),
+    'process.env.VITEST': 'undefined', // Not in browser
+    
+    // Note: import.meta.env.PUBLIC_* variables are auto-exposed by Vite (via envPrefix above)
+    // We don't need to manually define them here - Vite handles it automatically
   },
   server: {
-    port: Number(process.env.VITE_PORT) || 3333,
+    port: Number(env.VITE_PORT) || 3333,
     open: false,
     host: true,
     // Silence noisy missing source map warnings for vendored libs
     sourcemapIgnoreList(relativeSourcePath, _sourcemapPath) {
       return /src\/libs\/(stats-gl|three-custom-shader-material)\//.test(relativeSourcePath)
     },
-    proxy: {
-      // Forward asset requests to CDN (Docker nginx in dev, S3/R2 in prod)
-      '/world-assets': {
-        target: process.env.PUBLIC_CDN_URL || 'http://localhost:8080',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/world-assets/, ''),
-      },
-      // Expose server-provided public envs in dev
-      '/env.js': {
-        target: process.env.SERVER_ORIGIN || `http://localhost:${process.env.PORT || 5555}`,
-        changeOrigin: true,
-      },
-      // Forward API endpoints to game server
-      '/api': {
-        target: process.env.SERVER_ORIGIN || `http://localhost:${process.env.PORT || 5555}`,
-        changeOrigin: true,
-      },
-      // Forward WebSocket to game server
-      '/ws': {
-        target: (process.env.SERVER_ORIGIN?.replace('http', 'ws') || `ws://localhost:${process.env.PORT || 5555}`),
-        ws: true,
-        changeOrigin: true,
-      },
-    }
   },
   
   resolve: {
@@ -110,4 +123,4 @@ export default defineConfig({
   ssr: {
     noExternal: ['@hyperscape/shared']
   }
-}) 
+}}) 

@@ -1,8 +1,8 @@
 /**
- * PhysX utility functions and vector conversions
+ * PhysX Utility Functions
  * 
- * Production-ready utilities with strong typing and no defensive programming.
- * Consolidated from physics/vector-conversions.ts and physics/physx-helpers.ts
+ * Vector conversions between Three.js and PhysX, transform operations,
+ * and Three.js prototype extensions for physics integration.
  */
 
 import type PhysX from '@hyperscape/physx-js-webidl';

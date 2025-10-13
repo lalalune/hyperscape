@@ -1,3 +1,34 @@
+/**
+ * nodes/index.ts - Hyperscape Node System Exports
+ * 
+ * Central export point for all Node types in Hyperscape's custom scene graph system.
+ * 
+ * **What are Nodes?**
+ * Nodes are Hyperscape's alternative to raw THREE.Object3D instances.
+ * They provide lifecycle hooks, physics integration, and automatic state management.
+ * 
+ * **Available Node Types:**
+ * - Node: Base class (abstract)
+ * - Group: Container node
+ * - Mesh: Renderable geometry
+ * - SkinnedMesh: Animated character mesh
+ * - LOD: Level-of-detail container
+ * - Avatar: VRM character model
+ * - Action: Executable player action
+ * - Anchor: Spatial anchor for XR
+ * - Nametag: Player/NPC name label
+ * - Particles: Particle effect emitter
+ * - UI, UIView, UIText: 3D UI elements
+ * - RigidBody: Physics-enabled object
+ * - Collider: Collision shape
+ * 
+ * **Lowercase Aliases:**
+ * All nodes are also exported with lowercase names for factory function compatibility:
+ * createNode('mesh', data) uses the lowercase export 'mesh' → Mesh class
+ * 
+ * **Referenced by:** createNode(), glbToNodes(), Entity system, Client loaders
+ */
+
 // Export classes with original names
 export { Node } from './Node'
 export { Group } from './Group'

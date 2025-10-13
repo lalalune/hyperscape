@@ -1,14 +1,68 @@
 /**
- * InteractableEntity - Base class for entities that can be interacted with
+ * InteractableEntity - Base Interactable Entity
  * 
- * Extends Entity to provide interaction-specific functionality including:
- * - Standardized interaction handling
- * - Interaction prompts and descriptions
- * - Range checking for interactions
- * - Usage tracking and cooldowns
- * - Interaction effects and animations
+ * Abstract base class for entities that players can interact with.
+ * Provides standardized interaction mechanics including prompts, cooldowns,
+ * and usage tracking.
  * 
- * Used by: ItemEntity, ResourceEntity, HeadstoneEntity, NPCEntity (non-combat)
+ * **Extends**: Entity (adds interaction functionality)
+ * 
+ * **Key Features**:
+ * 
+ * **Interaction System**:
+ * - Interaction prompts ("Take", "Harvest", "Talk", etc.)
+ * - Range checking (player must be within distance)
+ * - Cooldown system (prevents spam)
+ * - Usage tracking (limited use items)
+ * - Required items (tools, keys, etc.)
+ * 
+ * **Interaction Component**:
+ * - Interactable flag
+ * - Interaction distance
+ * - Prompt text for UI
+ * - Description for tooltip
+ * - Last interaction time
+ * - Uses remaining counter
+ * 
+ * **Usage Mechanics**:
+ * - Infinite uses (usesRemaining = -1)
+ * - Limited uses (doors, chests, consumables)
+ * - Single use (ground items)
+ * - Cooldown period between uses
+ * 
+ * **Requirements**:
+ * - Level requirements
+ * - Skill requirements
+ * - Item requirements (tools)
+ * - Item consumption on use
+ * 
+ * **Interaction Effects**:
+ * - Custom effect strings ('harvest', 'pickup', 'open', etc.)
+ * - Particle effects on interaction
+ * - Sound effects
+ * - Animation triggers
+ * 
+ * **Visual Feedback**:
+ * - Highlight when in range
+ * - Interaction prompt above entity
+ * - Progress bar for timed interactions
+ * - Disabled appearance when on cooldown
+ * 
+ * **Network Sync**:
+ * - Interaction state broadcasted
+ * - Uses remaining synced
+ * - Cooldown state updated
+ * 
+ * **Subclasses**:
+ * - ItemEntity: Pickup items from ground
+ * - ResourceEntity: Harvest trees, rocks, fish
+ * - HeadstoneEntity: Loot corpses
+ * - NPCEntity: Talk to NPCs, open shops
+ * 
+ * **Runs on**: Server (authoritative), Client (visual + UI)
+ * **Referenced by**: InteractionSystem, all interactable entities
+ * 
+ * @public
  */
 
 import { Entity } from './Entity';

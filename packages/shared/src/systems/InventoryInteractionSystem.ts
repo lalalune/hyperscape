@@ -19,7 +19,7 @@ export type { DragData, DropTarget };
   import { EventType } from '../types/events';
   import type { World } from '../types/index';
   import { SystemBase } from './SystemBase';
-  import { logger as Logger } from '../logger';
+  import { Logger } from '../utils/Logger';
 
 /**
  * Create a minimal Item with all required properties
@@ -391,7 +391,7 @@ export class InventoryInteractionSystem extends SystemBase {
     this.highlightValidDropTargets(dragData.itemData);
     
     // Log drag start for debugging
-    Logger.info('InventoryInteractionSystem', 'Drag started', {
+    Logger.system('InventoryInteractionSystem', 'Drag started', {
       sourceType: dragData.sourceType,
       sourceSlot: dragData.sourceSlot,
       itemId: dragData.itemId
@@ -1019,14 +1019,14 @@ export class InventoryInteractionSystem extends SystemBase {
   private handleItemRightClick(event: { playerId: string; itemId: string; slot?: number; position?: { x: number; y: number } }): void {
     const item = this.getItemData(event.itemId);
     if (!item) {
-      Logger.info('InventoryInteractionSystem', `Item not found: ${event.itemId}`);
+      Logger.system('InventoryInteractionSystem', `Item not found: ${event.itemId}`);
       return;
     }
 
     const availableActions = this.getAvailableActions(item, event.playerId);
     
     if (availableActions.length === 0) {
-      Logger.info('InventoryInteractionSystem', `No actions available for item: ${item.name}`);
+      Logger.system('InventoryInteractionSystem', `No actions available for item: ${item.name}`);
       return;
     }
 
@@ -1057,7 +1057,7 @@ export class InventoryInteractionSystem extends SystemBase {
       callback: (item: Item) => { groundItem = item; }
     });
     if (!groundItem) {
-      Logger.info('InventoryInteractionSystem', `Ground item not found: ${event.itemId}`);
+      Logger.system('InventoryInteractionSystem', `Ground item not found: ${event.itemId}`);
       return;
     }
 
@@ -1097,13 +1097,13 @@ export class InventoryInteractionSystem extends SystemBase {
   private handleActionSelected(event: { playerId: string; actionId: string }): void {
     const contextMenu = this.contextMenus.get(event.playerId);
     if (!contextMenu) {
-      Logger.info('InventoryInteractionSystem', `No context menu for player: ${event.playerId}`);
+      Logger.system('InventoryInteractionSystem', `No context menu for player: ${event.playerId}`);
       return;
     }
 
     const action = contextMenu.actions.find(a => a.id === event.actionId);
     if (!action) {
-      Logger.info('InventoryInteractionSystem', `Action not found: ${event.actionId}`);
+      Logger.system('InventoryInteractionSystem', `Action not found: ${event.actionId}`);
       return;
     }
 

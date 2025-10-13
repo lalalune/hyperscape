@@ -1,17 +1,17 @@
-import { MessagePayload, HandlerCallback } from '@elizaos/core'
-import { messageReceivedHandler } from './handlers/messageReceivedHandler'
+import { MessagePayload, HandlerCallback } from "@elizaos/core";
+import { messageReceivedHandler } from "./handlers/messageReceivedHandler";
 
 export enum hyperscapeEventType {
-  MESSAGE_RECEIVED = 'HYPERSCAPE_MESSAGE_RECEIVED',
-  VOICE_MESSAGE_RECEIVED = 'HYPERSCAPE_VOICE_MESSAGE_RECEIVED',
-  CONTENT_LOADED = 'HYPERSCAPE_CONTENT_LOADED',
-  CONTENT_UNLOADED = 'HYPERSCAPE_CONTENT_UNLOADED',
+  MESSAGE_RECEIVED = "HYPERSCAPE_MESSAGE_RECEIVED",
+  VOICE_MESSAGE_RECEIVED = "HYPERSCAPE_VOICE_MESSAGE_RECEIVED",
+  CONTENT_LOADED = "HYPERSCAPE_CONTENT_LOADED",
+  CONTENT_UNLOADED = "HYPERSCAPE_CONTENT_UNLOADED",
 }
 
 // Alias for backward compatibility
-export const EventType = hyperscapeEventType
+export const EventType = hyperscapeEventType;
 
-const defaultCallback: HandlerCallback = async () => []
+const defaultCallback: HandlerCallback = async () => [];
 
 export const hyperscapeEvents = {
   [hyperscapeEventType.MESSAGE_RECEIVED]: [
@@ -22,7 +22,7 @@ export const hyperscapeEvents = {
         message: payload.message,
         callback: payload.callback || defaultCallback,
         onComplete: payload.onComplete,
-      })
+      });
     },
   ],
 
@@ -34,9 +34,9 @@ export const hyperscapeEvents = {
         message: payload.message,
         callback: payload.callback || defaultCallback,
         onComplete: payload.onComplete,
-      })
+      });
     },
   ],
 
   CONTROL_MESSAGE: [],
-}
+};

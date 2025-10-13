@@ -108,7 +108,6 @@ export class LootSystem extends SystemBase {
           rareDrops: mobData.lootTable.rareDrops
         });
       } else if (mobData.drops && mobData.drops.length > 0) {
-        // Fallback to legacy drops format
         const guaranteedDrops = mobData.drops
           .filter(drop => drop.isGuaranteed)
           .map(drop => ({

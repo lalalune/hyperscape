@@ -105,8 +105,8 @@ bun run cdn:verify
 - If Docker is not available, the dev script will skip CDN startup and warn you
 
 **Asset Access:**
-- Direct: `http://localhost:8080/music/normal/1.mp3`
-- Via client proxy: `http://localhost:3333/world-assets/music/normal/1.mp3`
+- All assets served directly from CDN: `http://localhost:8080/assets/world/music/normal/1.mp3`
+- No proxying - client fetches directly from CDN
 
 ## Database
 
@@ -193,7 +193,7 @@ Login → Character List → Select/Create Character → Enter World → Spawn a
 
 ### Assets
 
-- `GET /world-assets/*` - Game assets (models, textures, audio)
+- `GET /*` - Game assets (models, textures, audio)
 - `GET /assets/*` - Legacy asset path (backward compatible)
 
 ### WebSocket
@@ -239,7 +239,7 @@ DATABASE_URL=postgresql://user:pass@host:5432/dbname
 ### Assets
 
 ```env
-PUBLIC_ASSETS_URL=/world-assets/    # Asset URL prefix
+PUBLIC_CDN_URL=http://localhost:8080    # CDN URL for static assets
 PUBLIC_WS_URL=ws://localhost:5555/ws # WebSocket URL
 ```
 

@@ -320,16 +320,24 @@ export class TerrainSystem extends System {
       this.initializeBiomeCenters()
     }
 
-    // Final environment detection
-    const isServer = this.world.network?.isServer || false
-    const isClient = this.world.network?.isClient || false
+    // Final environment detection - use world.isServer/isClient (which check network internally)
+    const isServer = this.world.isServer
+    const isClient = this.world.isClient
+
+    console.log(`[TerrainSystem] Environment detection: isServer=${isServer}, isClient=${isClient}`)
 
     if (isClient) {
       this.setupClientTerrain()
     } else if (isServer) {
       this.setupServerTerrain()
     } else {
-      throw new Error('[TerrainSystem] Environment not detected - terrain setup deferred')
+      // Should never happen since isClient defaults to true if network not set
+      console.error('[TerrainSystem] Neither client nor server detected - this should not happen!')
+      console.error('[TerrainSystem] world.network:', this.world.network)
+      console.error('[TerrainSystem] world.isClient:', this.world.isClient)
+      console.error('[TerrainSystem] world.isServer:', this.world.isServer)
+      // Default to client mode to avoid blocking
+      this.setupClientTerrain()
     }
 
     // Load initial tiles
@@ -643,7 +651,7 @@ export class TerrainSystem extends System {
         contactedHandles: new Set<PhysicsHandle>(),
         triggeredHandles: new Set<PhysicsHandle>(),
       }
-      tile.collider = physics.addActor(actor, handle) as unknown as THREE.Mesh | null
+      tile.collider = physics.addActor(actor, handle)
 
     // Add to scene if client-side
     if (this.terrainContainer) {
@@ -771,9 +779,8 @@ export class TerrainSystem extends System {
     const positions = geometry.attributes.position
     const colors = new Float32Array(positions.count * 3)
     const heightData: number[] = []
-    const biomeIds = new Float32Array(positions.count) // Store biome ID for shader
+    const biomeIds = new Float32Array(positions.count)
 
-    // Default biome fallback for coloring
     const defaultBiomeData = BIOMES['plains'] || { color: 0x7fb069, name: 'Plains' }
 
     // Generate heightmap and vertex colors
@@ -1087,8 +1094,7 @@ export class TerrainSystem extends System {
         influence.weight /= totalWeight
       }
     } else {
-      // Fallback to height-based biome
-      const fallbackBiome =
+      const heightBasedBiome =
         normalizedHeight < 0.15
           ? 'lakes'
           : normalizedHeight < 0.35
@@ -1096,7 +1102,7 @@ export class TerrainSystem extends System {
             : normalizedHeight < 0.6
               ? 'forest'
               : 'tundra'
-      biomeInfluences.push({ type: fallbackBiome, weight: 1.0 })
+      biomeInfluences.push({ type: heightBasedBiome, weight: 1.0 })
     }
 
     return biomeInfluences

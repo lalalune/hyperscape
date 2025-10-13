@@ -91,7 +91,7 @@ export class MobSpawnerSystem extends SystemBase {
       // Find matching request based on mob type and position
       for (const [mobId] of this.spawnedMobs) {
         if (!this.spawnedMobs.get(mobId) && mobId.includes(data.entityData.mobType as string)) {
-          this.spawnedMobs.set(mobId, data.entityId);
+          this.spawnedMobs.set(mobId, data.entityId!);
           break;
         }
       }
@@ -154,15 +154,6 @@ export class MobSpawnerSystem extends SystemBase {
     };
     
     for (const [mobId] of this.spawnedMobs) {
-      if (mobId.includes('goblin') || mobId.includes('bandit') || mobId.includes('barbarian')) {
-        stats.level1Mobs++;
-      } else if (mobId.includes('hobgoblin') || mobId.includes('guard') || mobId.includes('dark_warrior')) {
-        stats.level2Mobs++;
-      } else if (mobId.includes('black_knight') || mobId.includes('ice_warrior') || mobId.includes('dark_ranger')) {
-        stats.level3Mobs++;
-      }
-      
-      // Count by type
       for (const mobType of Object.keys(ALL_MOBS)) {
         if (mobId.includes(mobType)) {
           stats.byType[mobType] = (stats.byType[mobType] || 0) + 1;

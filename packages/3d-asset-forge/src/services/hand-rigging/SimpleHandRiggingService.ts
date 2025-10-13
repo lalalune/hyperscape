@@ -804,35 +804,18 @@ export class SimpleHandRiggingService {
       return direction;
     }
 
-    // Method 3: Fallback based on common rig patterns
-    console.log("    Using fallback direction based on common rig patterns");
+    console.log("    Using rig pattern detection for hand direction");
 
-    // Most rigs have hands extending along one of the bone's local axes
-    // We'll test each axis and see which makes most sense
-    const axes = [
-      new THREE.Vector3(1, 0, 0), // +X
-      new THREE.Vector3(-1, 0, 0), // -X
-      new THREE.Vector3(0, 1, 0), // +Y
-      new THREE.Vector3(0, -1, 0), // -Y
-      new THREE.Vector3(0, 0, 1), // +Z
-      new THREE.Vector3(0, 0, -1), // -Z
-    ];
-
-    // For most humanoid rigs, hands extend along Y axis
-    // But some use X or Z, so we return the most likely
     let bestAxis = new THREE.Vector3(0, 1, 0);
 
-    // Check if bone name gives us hints
     const boneName = wristBone.name.toLowerCase();
     if (boneName.includes("_l") || boneName.includes("left")) {
-      // Left hands often point along +Y or +X
       bestAxis = new THREE.Vector3(0, 1, 0);
     } else if (boneName.includes("_r") || boneName.includes("right")) {
-      // Right hands often point along +Y or -X
       bestAxis = new THREE.Vector3(0, 1, 0);
     }
 
-    console.log(`    Fallback direction: ${bestAxis.toArray()}`);
+    console.log(`    Detected direction: ${bestAxis.toArray()}`);
 
     return bestAxis;
   }
@@ -1413,12 +1396,11 @@ export class SimpleHandRiggingService {
           );
         }
 
-        // Additional fallback: If we still found NO modifiable vertices, try inverting direction
         if (modifiableCount === 0 && wristInfluencedCount > 0) {
           console.log(
             `  ⚠️ Found ${wristInfluencedCount} wrist vertices but NONE in hand region!`
           );
-          console.log(`  🔧 Trying direction inversion as last resort...`);
+          console.log(`  🔧 Trying direction inversion...`);
 
           // Invert the hand direction
           handDirMesh.multiplyScalar(-1);
@@ -1513,7 +1495,7 @@ export class SimpleHandRiggingService {
           }
 
           console.log(
-            `  After fallback inversion: found ${modifiableCount} modifiable, modified ${modifiedCount}`
+            `  After direction inversion: found ${modifiableCount} modifiable, modified ${modifiedCount}`
           );
         }
 

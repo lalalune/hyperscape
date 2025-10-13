@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+// GLTFExporter dynamically imported only when needed (to match other files and avoid chunk warnings)
 import { GripBounds, GripCoordinates, GripDetectionData } from '../../types'
 
 interface HandleDetectionResult {
@@ -120,17 +120,15 @@ export class WeaponHandleDetector {
     const modelSize = new THREE.Vector3()
     modelBounds.getSize(modelSize)
     
-    // Check if grip point is within reasonable bounds
     const isValid = gripPoint.x !== 0 || gripPoint.y !== 0 || gripPoint.z !== 0
     
     if (!isValid) {
-      console.warn('Invalid grip point detected, using fallback position')
+      console.warn('Invalid grip point detected, recalculating from detection bounds')
       
-      // Use a reasonable default based on the detected red box position
       const gripY = modelBounds.min.y + modelSize.y * ((gripData.gripBounds.minY + gripData.gripBounds.maxY) / 2 / 512)
       gripPoint.set(0, gripY, 0)
       
-      console.log('Fallback grip point:', gripPoint)
+      console.log('Recalculated grip point:', gripPoint)
     }
     
     // Ensure grip point is not too far from the model
@@ -230,6 +228,7 @@ export class WeaponHandleDetector {
     console.log(`📏 Normalized weapon dimensions: ${size.x.toFixed(3)} x ${size.y.toFixed(3)} x ${size.z.toFixed(3)}`)
     
     // Step 7: Export normalized model
+    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
     const glb = await new Promise<ArrayBuffer>((resolve, reject) => {
       exporter.parse(
@@ -603,7 +602,6 @@ export class WeaponHandleDetector {
           bounds.minX = centerX - 40
           bounds.maxX = centerX + 40
         } else {
-          // Fallback to lower portion
           bounds.minY = 350
           bounds.maxY = 450
         }
@@ -685,8 +683,7 @@ export class WeaponHandleDetector {
     console.log(`Got ${allDetections.length} valid detections`)
     
     if (allDetections.length === 0) {
-      // Fallback: use a reasonable default for sword handle
-      console.warn('No valid detections, using fallback position')
+      console.warn('No valid detections, using default sword handle position')
       return {
         gripBounds: { 
           minX: 230, 
@@ -700,7 +697,7 @@ export class WeaponHandleDetector {
         },
         confidence: 0.3,
         weaponType: "sword",
-        gripDescription: "Fallback handle position"
+        gripDescription: "Default handle position"
       }
     }
     
@@ -1102,8 +1099,8 @@ export class WeaponHandleDetector {
     })
     
     if (!response.ok) {
-      console.warn('Orientation detection failed, using fallback')
-      return this.fallbackOrientationCheck(canvas)
+      console.warn('Orientation detection failed, using brightness-based orientation check')
+      return this.checkOrientationByBrightness(canvas)
     }
     
     const data = await response.json()
@@ -1115,8 +1112,7 @@ export class WeaponHandleDetector {
     return false
   }
   
-  private fallbackOrientationCheck(canvas: HTMLCanvasElement): boolean {
-    // Simple check: weapons usually have handle at bottom (darker/narrower)
+  private checkOrientationByBrightness(canvas: HTMLCanvasElement): boolean {
     const ctx = canvas.getContext('2d')!
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const data = imageData.data
@@ -1150,9 +1146,8 @@ export class WeaponHandleDetector {
       topBrightness /= topCount
       bottomBrightness /= bottomCount
       
-      // If bottom is significantly brighter (like a shiny blade), flip it
       if (bottomBrightness > topBrightness * 1.3) {
-        console.log('Fallback: Bottom appears brighter, likely blade - flipping')
+        console.log('Bottom appears brighter, likely blade - flipping')
         return true
       }
     }

@@ -38,7 +38,6 @@ export function LootWindow({ visible, corpseId, corpseName, lootItems, onClose, 
         }
       })
     } else {
-      // Single-player fallback
       world.emit(EventType.CORPSE_LOOT_REQUEST, {
         corpseId,
         playerId: localPlayer.id,

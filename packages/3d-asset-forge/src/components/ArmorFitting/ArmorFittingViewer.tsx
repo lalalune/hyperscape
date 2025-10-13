@@ -375,7 +375,6 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
         console.log(`Using animations from ${currentAnimation} file:`, animations.length)
         } else {
         console.log('No animations found in animation file')
-        // Try to get from base model as fallback
         avatarRef.current.traverse((child) => {
           if (child.userData?.gltf?.animations && child.userData.gltf.animations.length > 0) {
             animations = child.userData.gltf.animations

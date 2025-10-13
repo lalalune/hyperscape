@@ -262,7 +262,7 @@ export interface BaseEntityProperties {
   healthComponent: HealthComponent | null;
   visualComponent: VisualComponent | null;
   // Basic entity data that all entities have
-  health: PlayerHealth;  // Unified health format with current and max
+  health: PlayerHealth;  // Health format with current and max values
   level: number;
 }
 
@@ -273,7 +273,7 @@ export interface PlayerEntityProperties extends BaseEntityProperties {
   equipmentComponent: EquipmentComponent;
   prayerComponent: PrayerComponent | null;
   // Player specific data
-  health: PlayerHealth;  // Unified health format with current and max
+  health: PlayerHealth;  // Health format with current and max values
   level: number;
   playerId: string;
   playerName: string;

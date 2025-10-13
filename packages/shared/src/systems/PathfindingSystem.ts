@@ -1,9 +1,9 @@
 /**
- * Unified Pathfinding System
+ * Pathfinding System
  * 
- * Intelligent pathfinding that adapts to terrain complexity:
+ * Intelligent pathfinding that adapts to terrain complexity.
  * 
- * ## Strategy Selection:
+ * Strategy Selection:
  * 
  * 1. **Direct Path** (fastest)
  *    - If line-of-sight is clear and terrain is flat enough
@@ -14,13 +14,12 @@
  *    - Grid-based search with slope validation (<30° walkable)
  *    - Path optimization to remove redundant waypoints
  * 
- * 3. **Obstacle Avoidance** (fallback)
+ * 3. **Obstacle Avoidance**
  *    - For scenes with collision objects but no heightmap
  *    - Generates waypoints around detected obstacles
  *    - Line-of-sight optimization between waypoints
  * 
- * ## Features:
- * 
+ * Features:
  * - Slope checking (blocks paths steeper than MAX_SLOPE)
  * - Grid-snapped A* for performance
  * - Path optimization (removes collinear waypoints)
@@ -138,12 +137,10 @@ export class PathfindingSystem extends SystemBase {
       return [startVec.clone(), endVec.clone()]
     }
 
-    // Strategy 2: If terrain system available, use heightmap A*
     if (this.terrainSystem) {
       return this.findPathAStar(startVec, endVec);
     }
 
-    // Strategy 3: Fallback to obstacle avoidance waypoints
     const waypoints = this.generateWaypoints(startVec, endVec)
     const path = this.optimizePath([startVec, ...waypoints, endVec])
     
@@ -264,7 +261,6 @@ export class PathfindingSystem extends SystemBase {
       }
     }
     
-    // No path found, return direct path as fallback
     this.logger.warn('No A* path found, using direct path');
     return [start.clone(), end.clone()];
   }
@@ -594,7 +590,6 @@ export class PathfindingSystem extends SystemBase {
       return height ?? 0;
     }
     
-    // Fallback: raycast down
     const origin = new THREE.Vector3(x, 100, z);
     const direction = new THREE.Vector3(0, -1, 0);
     const mask = this.world.createLayerMask('terrain', 'environment');
@@ -621,9 +616,6 @@ export class PathfindingSystem extends SystemBase {
     return this.isWalkablePoint(groundPoint, hit.normal ? toTHREEVector3(hit.normal) : undefined);
   }
 
-  /**
-   * Get terrain height at a position (with raycast fallback)
-   */
   private getTerrainHeight(position: { x: number; y: number; z: number }): number {
     // Try terrain system first
     if (this.terrainSystem?.getHeightAt) {

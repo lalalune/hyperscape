@@ -1,3 +1,45 @@
+/**
+ * glbToNodes.ts - GLB to Hyperscape Node Converter
+ * 
+ * Converts GLTF/GLB scene graphs into Hyperscape's custom Node system.
+ * This enables GLB files exported from Blender to work with Hyperscape's physics,
+ * networking, and lifecycle systems.
+ * 
+ * Conversion Process:
+ * 1. Parse GLB scene hierarchy (THREE.Scene/Group/Mesh objects)
+ * 2. Convert each THREE object to appropriate Node type
+ * 3. Preserve hierarchy, transforms, and custom properties
+ * 4. Set up physics for rigidbody/collider nodes
+ * 5. Configure LOD levels if specified
+ * 
+ * Supported Node Types:
+ * - Scene/Group/Object3D → 'group' node (container)
+ * - Mesh → 'mesh' node (renderable geometry)
+ * - SkinnedMesh → 'skinnedmesh' node (animated character)
+ * - Custom: node="rigidbody" → Physics-enabled object
+ * - Custom: node="collider" → Collision shape
+ * - Custom: node="lod" → Level-of-detail container
+ * 
+ * Custom Properties (set in Blender via Custom Properties panel):
+ * - node: 'rigidbody' | 'collider' | 'lod' (type override)
+ * - type: 'static' | 'dynamic' | 'kinematic' (rigidbody type)
+ * - mass: number (rigidbody mass)
+ * - convex: boolean (collider convexity)
+ * - trigger: boolean (collider is trigger)
+ * - maxDistance: number (LOD distance threshold)
+ * - scaleAware: boolean (LOD uses scale for distance)
+ * - exp_splatmap: boolean (terrain splatmap shader)
+ * 
+ * Usage:
+ * ```ts
+ * const glb = await loader.load('model', 'asset://models/building.glb');
+ * const root = glbToNodes(glb, world);
+ * root.activate(world);
+ * ```
+ * 
+ * Referenced by: ClientLoader, asset loading pipeline
+ */
+
 import { createNode } from './createNode'
 import THREE from './three'
 import CustomShaderMaterial from '../libs/three-custom-shader-material'
@@ -6,24 +48,29 @@ import type { Node } from '../nodes/Node';
 import type { NodeData, GLBData } from '../types';
 import type { MeshData, SkinnedMeshData, LODData } from '../types/nodes';
 
+/** THREE.js object types that map to Group nodes */
 const groupTypes = ['Scene', 'Group', 'Object3D']
 
-// Union type for all possible node data types used in GLB parsing
+/** Union type for all possible node data configurations during GLB parsing */
 type GLBNodeData = NodeData | MeshData | SkinnedMeshData | LODData | (NodeData & {
-  // Properties for special node types not covered by exported data types
   object3d?: THREE.Object3D;
   animations?: unknown[];
   mass?: number;
   maxDistance?: number;
-  // Properties for collider nodes
   convex?: boolean;
   trigger?: boolean;
   geometry?: THREE.BufferGeometry;
 });
 
-
-
-
+/**
+ * Convert GLB Scene Graph to Hyperscape Nodes
+ * 
+ * Recursively processes a GLB's THREE.js scene graph and converts it to Nodes.
+ * 
+ * @param glb - Loaded GLB data (scene, animations, userData)
+ * @param world - World instance for context
+ * @returns Root group node containing entire hierarchy
+ */
 export function glbToNodes(glb: GLBData, world: World) {
   function registerNode(name: string, data: GLBNodeData) {
     const node = createNode(name, data)

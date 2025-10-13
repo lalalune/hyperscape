@@ -11,15 +11,14 @@ import {
   logger,
   EventType,
   type EventHandler,
-} from '@elizaos/core'
-import { HyperscapeService } from '../service'
-import { AgentControls } from '../systems/controls' // Import AgentControls type
+} from "@elizaos/core";
+import { HyperscapeService } from "../service";
 // Import THREE types if needed, e.g., for metadata typing
 // import type THREE from 'three';
 
 export enum NavigationType {
-  ENTITY = 'entity',
-  POSITION = 'position',
+  ENTITY = "entity",
+  POSITION = "position",
 }
 
 const navigationTargetExtractionTemplate = (thoughts?: string) => {
@@ -38,7 +37,7 @@ Decide whether the agent should navigate to a specific **Entity** or a direct **
 - Use "position" only if a direct coordinate is clearly specified or derivable.
 
 # Agent Thought:
-${thoughts || 'None'}
+${thoughts || "None"}
 
 # World State:
 {{hyperscapeStatus}}
@@ -65,20 +64,20 @@ or
 \`\`\`
 
 Only return the JSON object. Do not include any extra text or comments.
-  `.trim()
-}
+  `.trim();
+};
 
 export const hyperscapeGotoEntityAction: Action = {
-  name: 'HYPERSCAPE_GOTO_ENTITY',
-  similes: ['GO_TO_ENTITY_IN_WORLD', 'MOVE_TO_ENTITY', 'NAVIGATE_TO_ENTITY'],
+  name: "HYPERSCAPE_GOTO_ENTITY",
+  similes: ["GO_TO_ENTITY_IN_WORLD", "MOVE_TO_ENTITY", "NAVIGATE_TO_ENTITY"],
   description:
-    'Moves your character to a specified player, object, or world position; use when you need to approach something or go somewhere before interacting. Can be chained with USE_ITEM or PERCEPTION actions for complex navigation scenarios.',
+    "Moves your character to a specified player, object, or world position; use when you need to approach something or go somewhere before interacting. Can be chained with USE_ITEM or PERCEPTION actions for complex navigation scenarios.",
   validate: async (runtime: IAgentRuntime): Promise<boolean> => {
     const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )
+      HyperscapeService.serviceName,
+    );
     // Check if connected and if controls are available
-    return !!service && service.isConnected() && !!service.getWorld()?.controls
+    return !!service && service.isConnected() && !!service.getWorld()?.controls;
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -86,120 +85,120 @@ export const hyperscapeGotoEntityAction: Action = {
     _state?: State,
     options?: { entityId?: string },
     callback?: HandlerCallback,
-    responses?: Memory[]
+    responses?: Memory[],
   ): Promise<ActionResult> => {
     const thoughtSnippets =
       responses
-        ?.map(res => res.content?.thought)
+        ?.map((res) => res.content?.thought)
         .filter(Boolean)
-        .join('\n') ?? ''
+        .join("\n") ?? "";
 
     const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )!
-    const world = service.getWorld()! // Use the getter
-    const controls = world.controls! // Controls are typed correctly in World interface
-    const player = world.entities.player
+      HyperscapeService.serviceName,
+    )!;
+    const world = service.getWorld()!; // Use the getter
+    const controls = world.controls!; // Controls are typed correctly in World interface
+    const player = world.entities.player;
 
-    const extractionState = await runtime.composeState(message)
+    const extractionState = await runtime.composeState(message);
     const prompt = composePromptFromState({
       state: extractionState,
       template: navigationTargetExtractionTemplate(thoughtSnippets),
-    })
+    });
 
     const navigationResult = await runtime.useModel(ModelType.OBJECT_LARGE, {
       prompt,
-    })
-    logger.info('[GOTO Action] Navigation target extracted:', navigationResult)
+    });
+    logger.info("[GOTO Action] Navigation target extracted:", navigationResult);
 
-    const { navigationType, parameter } = navigationResult
+    const { navigationType, parameter } = navigationResult;
 
     switch (navigationType) {
       case NavigationType.ENTITY: {
-        const entityId = parameter.entityId
+        const entityId = parameter.entityId;
 
-        logger.info(`Navigating to entity ${entityId}`)
-        await controls.followEntity(entityId)
+        logger.info(`Navigating to entity ${entityId}`);
+        await controls.followEntity(entityId);
 
-        const targetEntity = world.entities.items.get(parameter.entityId)!
+        const targetEntity = world.entities.items.get(parameter.entityId)!;
         const entityName =
           targetEntity.data.name ||
           (
             targetEntity.data as {
-              metadata?: { hyperscape?: { name?: string } }
+              metadata?: { hyperscape?: { name?: string } };
             }
           )?.metadata?.hyperscape?.name ||
-          `entity ${entityId}`
+          `entity ${entityId}`;
 
         const successResponse = {
           text: `Arrived at ${entityName}.`,
-          actions: ['HYPERSCAPE_GOTO_ENTITY'],
-          source: 'hyperscape',
-        }
-        await callback!(successResponse)
+          actions: ["HYPERSCAPE_GOTO_ENTITY"],
+          source: "hyperscape",
+        };
+        await callback!(successResponse);
 
         return {
           text: successResponse.text,
           success: true,
           values: {
             success: true,
-            navigationType: 'entity',
+            navigationType: "entity",
             targetEntity: entityId,
             entityName,
           },
           data: {
-            action: 'HYPERSCAPE_GOTO_ENTITY',
+            action: "HYPERSCAPE_GOTO_ENTITY",
             targetEntityId: entityId,
           },
-        }
+        };
       }
 
       case NavigationType.POSITION: {
-        const pos = parameter.position
+        const pos = parameter.position;
 
-        logger.info(`Navigating to position (${pos.x}, ${pos.z})`)
-        await controls.goto(pos.x, pos.z)
+        logger.info(`Navigating to position (${pos.x}, ${pos.z})`);
+        await controls.goto(pos.x, pos.z);
 
         const positionResponse = {
           text: `Reached position (${pos.x}, ${pos.z}).`,
-          actions: ['HYPERSCAPE_GOTO_ENTITY'],
-          source: 'hyperscape',
-        }
-        await callback!(positionResponse)
+          actions: ["HYPERSCAPE_GOTO_ENTITY"],
+          source: "hyperscape",
+        };
+        await callback!(positionResponse);
 
         return {
           text: positionResponse.text,
           success: true,
           values: {
             success: true,
-            navigationType: 'position',
+            navigationType: "position",
             targetPosition: pos,
           },
           data: {
-            action: 'HYPERSCAPE_GOTO_ENTITY',
+            action: "HYPERSCAPE_GOTO_ENTITY",
             targetX: pos.x,
             targetZ: pos.z,
           },
-        }
+        };
       }
 
       default:
-        throw new Error(`Unsupported navigation type: ${navigationType}`)
+        throw new Error(`Unsupported navigation type: ${navigationType}`);
     }
   },
   examples: [
     [
       {
-        name: 'user',
+        name: "user",
         content: {
-          text: 'Go to Bob',
+          text: "Go to Bob",
         },
       },
       {
-        name: 'agent',
+        name: "agent",
         content: {
-          text: 'Navigating towards Bob...',
-          actions: ['HYPERSCAPE_GOTO_ENTITY'],
+          text: "Navigating towards Bob...",
+          actions: ["HYPERSCAPE_GOTO_ENTITY"],
           thought:
             "User wants me to go to Bob - I need to find Bob's entity in the world and navigate there",
         },
@@ -207,20 +206,20 @@ export const hyperscapeGotoEntityAction: Action = {
     ],
     [
       {
-        name: 'user',
+        name: "user",
         content: {
-          text: 'Find entity abcdef',
+          text: "Find entity abcdef",
         },
       },
       {
-        name: 'agent',
+        name: "agent",
         content: {
-          text: 'Navigating towards entity abcdef...',
-          actions: ['HYPERSCAPE_GOTO_ENTITY'],
+          text: "Navigating towards entity abcdef...",
+          actions: ["HYPERSCAPE_GOTO_ENTITY"],
           thought:
-            'User is asking me to navigate to a specific entity ID - I should move to that location',
+            "User is asking me to navigate to a specific entity ID - I should move to that location",
         },
       },
     ],
   ] as ActionExample[][],
-}
+};

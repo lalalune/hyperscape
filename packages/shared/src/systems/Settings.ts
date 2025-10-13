@@ -1,3 +1,9 @@
+/**
+ * Settings.ts - World Settings System
+ * 
+ * Manages world configuration (title, player limits, visibility, etc.).
+ */
+
 import type { Settings as ISettings, World } from '../types/index';
 import type { SettingsChanges, SettingsData } from '../types/settings-types';
 import { System } from './System';

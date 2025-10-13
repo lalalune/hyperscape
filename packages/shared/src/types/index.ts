@@ -24,7 +24,7 @@ import type { SystemDatabase } from './database';
  * Central Types Export
  * Single source of truth for all type definitions
  * 
- * This file consolidates all types to eliminate import inconsistencies.
+ * Import and re-export types to maintain consistency across the codebase.
  * Avoid duplicating types that exist in other files - import and re-export instead.
  * Use strongly typed interfaces without optional properties or unknown types.
  */
@@ -322,7 +322,7 @@ export interface Entities extends System {
   getAllPlayers(): PlayerEntity[];
 }
 
-// Chat message interface - unified ChatMessage with all required properties
+// Chat message interface with all required properties
 export interface ChatMessage {
   id: string;
   from: string;
@@ -348,13 +348,13 @@ export type ExtendedChatMessage = ChatMessage;
 export { Chat } from '../systems/Chat';
 export { ClientActions } from '../systems/ClientActions';
 export { ClientAudio } from '../systems/ClientAudio';
-export { ClientInput } from '../systems/ClientInput'; // Merged Controls, InputSystem, Pointer
+export { ClientInput } from '../systems/ClientInput'; // Keyboard, mouse, touch, XR input handling
 export { ClientGraphics } from '../systems/ClientGraphics';
 export { ClientLiveKit } from '../systems/ClientLiveKit';
 export { ClientLoader } from '../systems/ClientLoader';
 export { ClientNetwork } from '../systems/ClientNetwork';
-export { ClientInterface } from '../systems/ClientInterface'; // Merged UI, Prefs, Stats, Target
-export { ClientRuntime } from '../systems/ClientRuntime'; // Merged Client + Diagnostics
+export { ClientInterface } from '../systems/ClientInterface'; // UI state, preferences, stats display
+export { ClientRuntime } from '../systems/ClientRuntime'; // Client lifecycle and diagnostics
 // ServerRuntime is server-only and should not be exported for client use
 // It's available only in the main index (server-side)
 // ServerNetwork is server-only and should not be exported for client use

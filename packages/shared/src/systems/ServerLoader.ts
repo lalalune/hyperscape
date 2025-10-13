@@ -1,5 +1,5 @@
 import fs from 'fs-extra'
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
 // import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js.js'
 import { GLTFLoader } from '../libs/gltfloader/GLTFLoader'
 // import { VRMLoaderPlugin } from '@pixiv/three-vrm'
@@ -48,7 +48,7 @@ import { System } from './System';
 export class ServerLoader extends System {
   private promises: Map<string, Promise<unknown>>
   private results: Map<string, unknown>
-  private rgbeLoader: RGBELoader
+  private hdrLoader: HDRLoader
   private gltfLoader: GLTFLoader
   private preloadItems: Array<{type: string, url: string}>
   private preloader: Promise<void> | null = null
@@ -57,7 +57,7 @@ export class ServerLoader extends System {
     super(world)
     this.promises = new Map()
     this.results = new Map()
-    this.rgbeLoader = new RGBELoader()
+    this.hdrLoader = new HDRLoader()
     this.gltfLoader = new GLTFLoader()
     this.preloadItems = []
     // this.gltfLoader.register(parser => new VRMLoaderPlugin(parser))
@@ -124,7 +124,7 @@ export class ServerLoader extends System {
 
     let promise
     if (type === 'hdr') {
-      // promise = this.rgbeLoader.loadAsync(url).then(texture => {
+      // promise = this.hdrLoader.loadAsync(url).then(texture => {
       //   return texture
       // })
     }

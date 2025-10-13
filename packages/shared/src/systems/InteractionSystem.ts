@@ -17,11 +17,14 @@ const _raycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
 
 /**
- * Unified Interaction System
- * Handles both click-to-move AND right-click context menus for entities
+ * Interaction System
+ * 
+ * Handles click-to-move and right-click context menus for entities.
+ * 
+ * Features:
  * - Click-to-move with visual target marker
  * - Right-click context menus for items, resources, mobs, NPCs, corpses
- * - Mobile long-press support
+ * - Mobile long-press support for context menus
  */
 export class InteractionSystem extends System {
   // Click-to-move state
@@ -69,12 +72,12 @@ export class InteractionSystem extends System {
     this.canvas.addEventListener('touchend', this.onTouchEnd, true);
     
     // Listen for camera tap events on mobile
-    this.world.on('camera:tap', this.onCameraTap);
+    this.world.on(EventType.CAMERA_TAP, this.onCameraTap);
     
     // Create target marker (visual indicator)
     this.createTargetMarker();
     
-    console.log('[InteractionSystem] Unified click-to-move and context menus enabled');
+    console.log('[InteractionSystem] Click-to-move and context menus enabled');
   }
   
   private createTargetMarker(): void {
@@ -180,7 +183,7 @@ export class InteractionSystem extends System {
     // Raycast to find click position
     _raycaster.setFromCamera(_mouse, this.world.camera);
     
-    // Raycast against full scene to find terrain sooner; fallback to infinite ground plane
+    // Raycast against full scene to find terrain
     const scene = this.world.stage?.scene;
     let target: THREE.Vector3 | null = null;
     if (scene) {
@@ -228,16 +231,14 @@ export class InteractionSystem extends System {
       // Server is completely authoritative for movement
       if (this.world.network?.send) {
         // Cancel any previous movement first to ensure server resets pathing
-        try { this.world.network.send('moveRequest', { target: null, cancel: true }) } catch {}
+        this.world.network.send('moveRequest', { target: null, cancel: true })
         // Read player's runMode toggle if available; otherwise, use shift key status
         let runMode = isShiftDown;
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const player = (this.world as any).entities?.player as { runMode?: boolean };
-          if (player && typeof player.runMode === 'boolean') {
-            runMode = player.runMode;
-          }
-        } catch (_e) {}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const player = (this.world as any).entities?.player as { runMode?: boolean };
+        if (player && typeof player.runMode === 'boolean') {
+          runMode = player.runMode;
+        }
         this.world.network.send('moveRequest', {
           target: [target.x, target.y, target.z],
           runMode,

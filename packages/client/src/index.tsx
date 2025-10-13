@@ -1,8 +1,62 @@
+/**
+ * index.tsx - Hyperscape Client Entry Point
+ * 
+ * Main entry point for the Hyperscape browser client. Initializes the React application,
+ * authentication, and 3D game world. Handles the complete client lifecycle from login
+ * to world connection.
+ * 
+ * Application Flow:
+ * 1. **Authentication** (if enabled):
+ *    - Privy authentication (crypto wallet or email/social login)
+ *    - Character selection screen
+ *    - Pre-world WebSocket connection for character list
+ * 
+ * 2. **World Initialization**:
+ *    - Create Hyperscape World instance
+ *    - Connect to server via WebSocket
+ *    - Load game assets (models, textures, audio)
+ *    - Initialize physics, graphics, audio systems
+ * 
+ * 3. **Gameplay**:
+ *    - Render 3D world with Three.js
+ *    - Handle player input (keyboard, mouse, touch)
+ *    - Receive server updates (player positions, combat, etc.)
+ *    - Render React UI overlay (inventory, chat, settings)
+ * 
+ * Key Features:
+ * - **Privy Authentication**: Optional crypto wallet or social login
+ * - **Farcaster Frame v2**: Social media embeds with play button
+ * - **Player Token System**: Persistent player ID across sessions
+ * - **Character System**: Multiple characters per account
+ * - **Error Reporting**: Automatic crash reporting and error boundaries
+ * - **Hot Module Replacement**: Fast development iteration
+ * 
+ * Environment Variables:
+ * - PUBLIC_PRIVY_APP_ID: Privy application ID (optional)
+ * - PUBLIC_WS_URL: WebSocket server URL (default: ws://localhost:5555/ws)
+ * - PUBLIC_CDN_URL: CDN URL for assets (default: /assets/)
+ * - PUBLIC_ENABLE_FARCASTER: Enable Farcaster frame support
+ * - PUBLIC_APP_URL: Public app URL for Farcaster
+ * - PUBLIC_API_URL: API server URL
+ * 
+ * Architecture:
+ * - React for UI rendering
+ * - Hyperscape World for game logic
+ * - Three.js for 3D graphics
+ * - PhysX (WASM) for physics simulation
+ * - WebSocket for real-time networking
+ * 
+ * Usage:
+ * This file is automatically loaded by Vite as the application entry point.
+ * See vite.config.ts for build configuration.
+ * 
+ * References: world-client.tsx (World setup), PrivyAuthProvider.tsx, CharacterSelectPage.tsx
+ */
+
 import type { World } from '@hyperscape/shared'
-import { THREE, CircularSpawnArea, installThreeJSExtensions } from '@hyperscape/shared'
+import { CircularSpawnArea, installThreeJSExtensions, THREE } from '@hyperscape/shared'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { errorReporting as _errorReporting } from './error-reporting'
 import { ErrorBoundary } from './ErrorBoundary'
 import './index.css'
 import { playerTokenManager } from './PlayerTokenManager'
@@ -17,17 +71,36 @@ import { privyAuthManager } from './PrivyAuthManager'
 // Farcaster Frame v2
 import { injectFarcasterMetaTags } from './farcaster-frame-config'
 
+// Buffer polyfill for Privy (required for crypto operations in browser)
+import { Buffer } from 'buffer'
+if (!globalThis.Buffer) {
+  (globalThis as { Buffer?: typeof Buffer }).Buffer = Buffer
+}
+
 // Set global environment flags
 (globalThis as typeof globalThis & { isBrowser?: boolean; isServer?: boolean }).isBrowser = true;
 (globalThis as typeof globalThis & { isBrowser?: boolean; isServer?: boolean }).isServer = false;
 
-// Declare global env type
+// Declare global types
 declare global {
   interface Window {
-    env?: Record<string, string>
     THREE?: typeof THREE
     world?: World
   }
+}
+
+// Vite environment variables (PUBLIC_ prefix is configured in vite.config.ts)
+interface ImportMetaEnv {
+  readonly PUBLIC_PRIVY_APP_ID?: string
+  readonly PUBLIC_WS_URL?: string
+  readonly PUBLIC_CDN_URL?: string
+  readonly PUBLIC_ENABLE_FARCASTER?: string
+  readonly PUBLIC_APP_URL?: string
+  readonly PUBLIC_API_URL?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
 }
 
 installThreeJSExtensions()
@@ -37,9 +110,7 @@ installThreeJSExtensions()
 
 function App() {
   // Determine Privy availability early so we can gate initial render
-  const windowEnvAppId = window.env?.PUBLIC_PRIVY_APP_ID
-  const importMetaAppId = import.meta.env.PUBLIC_PRIVY_APP_ID
-  const appId = windowEnvAppId || importMetaAppId || ''
+  const appId = import.meta.env.PUBLIC_PRIVY_APP_ID || ''
   const privyEnabled = appId.length > 0 && !appId.includes('your-privy-app-id')
 
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
@@ -64,7 +135,6 @@ function App() {
 
   // Pre-world WebSocket is handled inside CharacterSelectPage to avoid duplication
 
-  // Initialize player token (legacy fallback)
   React.useEffect(() => {
     const token = playerTokenManager.getOrCreatePlayerToken('Player');
     const session = playerTokenManager.startSession();
@@ -80,11 +150,10 @@ function App() {
     };
   }, []);
 
-  // Try global env first (from env.js), then import.meta.env (build time), then fallback to relative WebSocket
+  // Direct connection to game server (no Vite proxy)
   const wsUrl = 
-    window.env?.PUBLIC_WS_URL || 
     import.meta.env.PUBLIC_WS_URL || 
-    `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+    'ws://localhost:5555/ws'
   
     
   // Add a ref to verify the component is mounting
@@ -103,8 +172,8 @@ function App() {
     setIsAuthenticated(false)
     setShowCharacterPage(false)
     // Fire and forget provider logout to invalidate Privy session
-    const windowWithPrivy = window as unknown as { privyLogout: () => Promise<void> | void }
-    windowWithPrivy.privyLogout()
+    const debugWindow = window as Window & { privyLogout?: () => Promise<void> | void }
+    debugWindow.privyLogout?.()
   }, [])
 
   // Pre-world actions are managed by CharacterSelectPage
@@ -113,7 +182,12 @@ function App() {
   const handleSetup = React.useCallback((world: World, _config: unknown) => {
     console.log('[App] onSetup callback triggered')
     // Make world accessible globally for debugging
-    const globalWindow = window as unknown as { world: World; THREE: typeof THREE; testChat: () => void; Hyperscape: Record<string, unknown> };
+    const globalWindow = window as Window & { 
+      world?: World
+      THREE?: typeof THREE
+      testChat?: () => void
+      Hyperscape?: Record<string, unknown>
+    };
     globalWindow.world = world;
     globalWindow.THREE = THREE;
     globalWindow.Hyperscape = {};
@@ -121,17 +195,16 @@ function App() {
     
     // Add chat test function
     globalWindow.testChat = () => {
-      const worldWithChat = world as unknown as { chat: { send: (msg: string) => void }; network: { id: string; isClient: boolean; send: (method: string, data: unknown) => void } }
       console.log('=== TESTING CHAT ===');
-      console.log('world.chat:', worldWithChat.chat);
-      console.log('world.network:', worldWithChat.network);
-      console.log('world.network.id:', worldWithChat.network.id);
-      console.log('world.network.isClient:', worldWithChat.network.isClient);
-      console.log('world.network.send:', worldWithChat.network.send);
+      console.log('world.chat:', world.chat);
+      console.log('world.network:', world.network);
+      console.log('world.network.id:', world.network.id);
+      console.log('world.network.isClient:', world.network.isClient);
+      console.log('world.network.send:', world.network.send);
       
       const testMsg = 'Test message from console at ' + new Date().toLocaleTimeString();
       console.log('Sending test message:', testMsg);
-      worldWithChat.chat.send(testMsg);
+      world.chat.send(testMsg);
     };
     console.log('💬 Chat test function available: call testChat() in console');
   }, [])

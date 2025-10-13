@@ -1,3 +1,61 @@
+/**
+ * Entities.ts - Entity Management System
+ * 
+ * Central registry and lifecycle manager for all entities in the game world.
+ * Manages players, mobs, NPCs, and generic entities with component-based architecture.
+ * 
+ * Key Responsibilities:
+ * - Entity creation and destruction (add/remove)
+ * - Entity type registration and instantiation
+ * - Component registration and management
+ * - Player tracking (both local and remote)
+ * - Entity lookup and iteration
+ * - Entity lifecycle events (add/remove/modify)
+ * - Hot update tracking (entities that need update() called each frame)
+ * 
+ * Entity Types:
+ * - GenericEntity: Base entity for props, items, etc.
+ * - PlayerEntity: Base player (server-side)
+ * - PlayerLocal: Local player with input handling (client-side)
+ * - PlayerRemote: Remote networked players (client-side)
+ * - MobEntity: Enemy creatures with AI
+ * - NPCEntity: Non-hostile characters with dialogue
+ * 
+ * Component System:
+ * Entities can have components attached for modular functionality:
+ * - CombatComponent: Health, attack, defense
+ * - DataComponent: Custom entity data storage
+ * - InteractionComponent: Player interaction handlers
+ * - StatsComponent: Numeric stats (level, XP, etc.)
+ * - UsageComponent: Item usage/consumption logic
+ * - VisualComponent: 3D model, materials, animations
+ * 
+ * Network Synchronization:
+ * - Server creates entities and broadcasts to clients
+ * - Clients receive entityAdded/entityModified/entityRemoved packets
+ * - Entity state is serialized and replicated across network
+ * 
+ * Usage:
+ * ```typescript
+ * // Create entity
+ * const entity = world.entities.add({
+ *   id: 'tree1',
+ *   type: 'entity',
+ *   position: { x: 10, y: 0, z: 5 }
+ * });
+ * 
+ * // Get entity
+ * const tree = world.entities.get('tree1');
+ * 
+ * // Remove entity
+ * world.entities.remove('tree1');
+ * ```
+ * 
+ * Runs on: Both client and server
+ * Used by: All systems that deal with entities
+ * References: Entity.ts, PlayerEntity.ts, MobEntity.ts, NPCEntity.ts
+ */
+
 import { Entity } from '../entities/Entity';
 import { PlayerLocal } from '../entities/PlayerLocal';
 import { PlayerRemote } from '../entities/PlayerRemote';
@@ -7,39 +65,37 @@ import { EventType } from '../types/events';
 import { SystemBase } from './SystemBase';
 import { MobEntity } from '../entities/MobEntity';
 import { NPCEntity } from '../entities/NPCEntity';
-import type { MobEntityConfig, NPCEntityConfig, PlayerEntityData } from '../types/entities';
+import type { MobEntityConfig, NPCEntityConfig } from '../types/entities';
 import { EntityType, InteractionType, MobAIState, NPCType } from '../types/entities';
 import { getMobById } from '../data/mobs';
-// import { ServerNetwork } from './ServerNetwork'; // ServerNetwork moved to server package
+import { NPCBehavior, NPCState } from '../types/core';
 
-// ComponentDefinition interface moved to shared types
-
-
-
-// EntityConstructor interface moved to shared types
-
-// Simple entity implementation that uses the base Entity class directly
+/**
+ * GenericEntity - Simple entity implementation for non-specialized entities.
+ * Used for props, decorations, ground items, and other basic world objects.
+ */
 class GenericEntity extends Entity {
   constructor(world: World, data: EntityData, local?: boolean) {
     super(world, data, local);
   }
 }
 
-// Entity type registry
+/**
+ * Entity type registry - maps type strings to entity constructors.
+ * New entity types can be registered at runtime via registerEntityType().
+ */
 const EntityTypes: Record<string, EntityConstructor> = {
   entity: GenericEntity,
-  player: PlayerEntity as unknown as EntityConstructor,  // Base player entity for server (cast due to PlayerEntityData requirements)
-  playerLocal: PlayerLocal,  // Client-only: local player
-  playerRemote: PlayerRemote,  // Client-only: remote players
+  player: PlayerEntity,        // Server-side player entity
+  playerLocal: PlayerLocal,     // Client-side local player
+  playerRemote: PlayerRemote,   // Client-side remote players
 };
 
 /**
- * Entities System
- *
- * - Runs on both the server and client.
- * - Supports inserting entities into the world
- * - Executes entity scripts
- *
+ * Entities System - Central entity registry and lifecycle manager.
+ * 
+ * Manages all entities in the world including players, mobs, NPCs, and props.
+ * Provides component-based architecture for modular entity functionality.
  */
 export class Entities extends SystemBase implements IEntities {
   items: Map<string, Entity>;
@@ -119,23 +175,19 @@ export class Entities extends SystemBase implements IEntities {
     let EntityClass: EntityConstructor;
     
     if (data.type === 'player') {
-      // CRITICAL: Server should NEVER use PlayerLocal or PlayerRemote - those are client-only!
-      // Check if we're on the server by looking for ServerNetwork system
-      const serverNetwork = this.world.getSystem('network') as { isServer?: boolean } | null;
-      const isServerWorld = serverNetwork?.isServer === true;
+      // Check if we're on the server
+      const network = this.world.network || this.world.getSystem('network');
+      const isServer = network?.isServer === true;
       
-      
-      if (isServerWorld) {
+      if (isServer) {
         // On server, always use the base player entity type
-        EntityClass = EntityTypes['player'] || EntityTypes.entity;
+        EntityClass = EntityTypes.player;
         console.log(`[Entities] Creating server player entity: ${data.id}`);
       } else {
-        // On client, determine if local or remote
-        type NetworkWithId = { id?: string }
-        const networkId = this.world.network?.id || (this.world.getSystem('network') as NetworkWithId)?.id;
-        const isLocal = data.owner === networkId;
+        // On client, determine if local or remote based on ownership
+        const isLocal = data.owner === network?.id;
         EntityClass = EntityTypes[isLocal ? 'playerLocal' : 'playerRemote'];
-        console.log(`[Entities] Creating ${isLocal ? 'LOCAL' : 'REMOTE'} player entity: ${data.id}, owner: ${data.owner}, networkId: ${networkId}`);
+        console.log(`[Entities] Creating ${isLocal ? 'LOCAL' : 'REMOTE'} player entity: ${data.id}, owner: ${data.owner}, networkId: ${network?.id}`);
       }
     } else if (data.type === 'mob') {
       // Client-side: build a real MobEntity from snapshot data so models load
@@ -146,12 +198,7 @@ export class Entities extends SystemBase implements IEntities {
       const mobTypeMatch = name.match(/Mob:\s*([^()]+)/i);
       const derivedMobType = (mobTypeMatch ? mobTypeMatch[1].trim() : name).toLowerCase().replace(/\s+/g, '_');
       const mobData = getMobById(derivedMobType);
-      
-      // Use model path from manifest data, or null if not found (will use fallback mesh)
-      // Strong type assumption - mobData.modelPath is string if mobData exists
-      const modelPath = (mobData && mobData.modelPath && mobData.modelPath.length > 0)
-        ? mobData.modelPath
-        : null; // No fallback path - if not in manifest, use fallback mesh
+      const modelPath = mobData?.modelPath || null;
       
       console.log(`[Entities] CLIENT creating MobEntity from snapshot:`, {
         id: data.id,
@@ -230,10 +277,6 @@ export class Entities extends SystemBase implements IEntities {
         else if (prefix === 'store') derivedNPCType = NPCType.STORE;
         else if (prefix === 'trainer') derivedNPCType = NPCType.TRAINER;
       }
-      
-      // For now, NPCs don't have models generated yet - use fallback
-      // Once models are generated, they'll be loaded via modelPath
-      const modelPath = null; // Will be set when models are generated in 3D Asset Forge
 
       const npcConfig: NPCEntityConfig = {
         id: data.id,
@@ -247,7 +290,7 @@ export class Entities extends SystemBase implements IEntities {
         interactionType: InteractionType.TALK,
         interactionDistance: 3,
         description: name,
-        model: modelPath,
+        model: null, // NPCs don't have models generated yet
         // Minimal required NPCEntity fields
         npcType: derivedNPCType,
         npcId: data.id,
@@ -264,8 +307,8 @@ export class Entities extends SystemBase implements IEntities {
           health: { current: 100, max: 100 },
           level: 1,
           npcComponent: {
-            behavior: 'friendly' as unknown as import('../types/core').NPCBehavior,
-            state: 'idle' as unknown as import('../types/core').NPCState,
+            behavior: NPCBehavior.FRIENDLY,
+            state: NPCState.IDLE,
             currentTarget: null,
             spawnPoint: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
             wanderRadius: 0,
@@ -300,50 +343,54 @@ export class Entities extends SystemBase implements IEntities {
       EntityClass = EntityTypes.entity;
     }
 
-    // Cast data to appropriate type for player entities
-    const entity = data.type === 'player' 
-      ? new EntityClass(this.world, data as PlayerEntityData, local)
-      : new EntityClass(this.world, data, local);
+    // All entity constructors now accept EntityData
+    const entity = new EntityClass(this.world, data, local);
     this.items.set(entity.id, entity);
 
     if (data.type === 'player') {
       this.players.set(entity.id, entity as Player);
       
-      // On the client, remote players emit enter events here.
-      // On the server, enter events are delayed for players entering until after their snapshot is sent
-      // so they can respond correctly to follow-through events.
       const network = this.world.network || this.world.getSystem('network');
-      if (network?.isClient) {
-        type NetworkWithId = { id?: string }
-        const netId = network.id || (network as NetworkWithId)?.id;
-        if (data.owner !== netId) {
-          this.emitTypedEvent('PLAYER_JOINED', { playerId: entity.id, player: entity as PlayerLocal });
-        }
+      
+      // On client, emit enter events for remote players
+      if (network?.isClient && data.owner !== network.id) {
+        this.emitTypedEvent('PLAYER_JOINED', { playerId: entity.id, player: entity as PlayerLocal });
       }
       
-      // On server, emit PLAYER_REGISTERED for all player entities so systems can initialize
+      // On server, emit PLAYER_REGISTERED for all player entities
       if (network?.isServer) {
         console.log(`[Entities] Server emitting PLAYER_REGISTERED for ${entity.id}`)
         this.emitTypedEvent('PLAYER_REGISTERED', { playerId: entity.id });
-        // Also emit via world to ensure event reaches all systems
         this.world.emit(EventType.PLAYER_REGISTERED, { playerId: entity.id });
       }
-    }
-
-    // Strong type assumption - world has network system when dealing with owned entities
-    type NetworkWithId = { id?: string }
-    const currentNetworkId = this.world.network?.id || (this.world.getSystem('network') as NetworkWithId)?.id;
-    if (data.owner === currentNetworkId) {
-      console.log(`[Entities] Setting LOCAL PLAYER: ${entity.id} (was: ${this.player?.id || 'none'})`);
-      if (this.player) {
-        console.warn(`[Entities] WARNING: Replacing existing local player ${this.player.id} with ${entity.id}!`);
+      
+      // Set local player if this entity is owned by us
+      if (data.owner === network?.id) {
+        console.log(`[Entities] Setting LOCAL PLAYER: ${entity.id} (was: ${this.player?.id || 'none'})`);
+        console.log(`[Entities] About to initialize local player entity...`);
+        if (this.player) {
+          console.warn(`[Entities] WARNING: Replacing existing local player ${this.player.id} with ${entity.id}!`);
+        }
+        this.player = entity as Player;
+        this.emitTypedEvent('PLAYER_REGISTERED', { playerId: entity.id });
       }
-      this.player = entity as Player;
-      this.emitTypedEvent('PLAYER_REGISTERED', { playerId: entity.id });
     }
 
     // Initialize the entity
-    (entity.init() as Promise<void>);
+    console.log(`[Entities] Calling init() for entity ${entity.id} (type: ${data.type})`);
+    const initPromise = entity.init() as Promise<void>;
+    if (initPromise) {
+      initPromise
+        .then(() => {
+          console.log(`[Entities] Entity ${entity.id} init() completed successfully`);
+        })
+        .catch(err => {
+          this.logger.error(`Entity ${entity.id} (type: ${data.type}) async init failed:`, err);
+          console.error(`[Entities] Entity ${entity.id} init() failed:`, err);
+        });
+    } else {
+      console.log(`[Entities] Entity ${entity.id} has no async init() or it returned void`);
+    }
 
     return entity;
   }

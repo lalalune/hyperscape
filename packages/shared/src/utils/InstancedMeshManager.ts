@@ -1,13 +1,63 @@
+/**
+ * InstancedMeshManager.ts - Instanced Mesh Rendering Optimization
+ * 
+ * Manages Three.js InstancedMesh for efficiently rendering many copies of the same geometry.
+ * Used for rendering large quantities of resources (trees, rocks) with minimal draw calls.
+ * 
+ * **How Instancing Works:**
+ * - Single mesh + geometry can render thousands of instances
+ * - Each instance has its own transform (position, rotation, scale)
+ * - GPU processes all instances in one draw call (massive performance gain)
+ * - Example: 1000 trees = 1 draw call instead of 1000
+ * 
+ * **Features:**
+ * - Dynamic visibility culling based on distance from player
+ * - Automatic instance pooling (show closest N instances)
+ * - Per-type management (separate pools for trees, rocks, etc.)
+ * - Entity ID tracking for interaction systems
+ * 
+ * **Performance:**
+ * - Configurable max visible instances per type (default: 1000)
+ * - Configurable cull distance (default: 200m)
+ * - Update interval throttling (default: 500ms)
+ * - Uses temporary matrices to avoid allocations
+ * 
+ * **Usage:**
+ * ```ts
+ * const manager = new InstancedMeshManager(scene, world);
+ * 
+ * // Register a mesh type
+ * manager.registerMesh('tree', treeGeometry, treeMaterial, 500);
+ * 
+ * // Add instances
+ * const id = manager.addInstance('tree', 'tree_1', position);
+ * 
+ * // Manager automatically handles visibility culling
+ * ```
+ * 
+ * **Referenced by:** TerrainSystem (for resource rendering)
+ */
+
 import THREE from '../extras/three';
 import type { World } from '../World';
 
+/**
+ * InstanceData - Internal tracking for a single instanced mesh type
+ */
 interface InstanceData {
+    /** The Three.js InstancedMesh being managed */
     mesh: THREE.InstancedMesh;
-    instanceMap: Map<number, number>; // instanceId -> matrix array index
-    reverseInstanceMap: Map<number, number>; // matrix array index -> instanceId
-    entityIdMap: Map<number, string>; // matrix array index -> entityId
+    /** Map from instance ID to matrix array index */
+    instanceMap: Map<number, number>;
+    /** Reverse map from matrix index to instance ID */
+    reverseInstanceMap: Map<number, number>;
+    /** Map from matrix index to entity ID (for interactions) */
+    entityIdMap: Map<number, string>;
+    /** Next available instance ID */
     nextInstanceId: number;
+    /** Maximum number of visible instances */
     maxVisibleInstances: number;
+    /** All instances (both visible and culled) */
     allInstances: Map<number, {
         entityId: string;
         position: THREE.Vector3;
@@ -16,9 +66,15 @@ interface InstanceData {
         matrix: THREE.Matrix4;
         visible: boolean;
         distance: number;
-    }>; // All instances, visible or not
+    }>;
 }
 
+/**
+ * InstancedMeshManager - Efficient Rendering of Many Identical Objects
+ * 
+ * Provides GPU-accelerated rendering of large quantities of identical geometry
+ * with automatic visibility culling and pooling.
+ */
 export class InstancedMeshManager {
     private scene: THREE.Scene;
     private instancedMeshes = new Map<string, InstanceData>();
@@ -32,11 +88,25 @@ export class InstancedMeshManager {
     private _tempMatrix = new THREE.Matrix4();
     private _tempVec3 = new THREE.Vector3();
 
+    /**
+     * Create a new InstancedMeshManager
+     * 
+     * @param scene - Three.js scene to add instanced meshes to
+     * @param world - Optional world reference for player position tracking
+     */
     constructor(scene: THREE.Scene, world?: World) {
         this.scene = scene;
         this.world = world;
     }
 
+    /**
+     * Register a mesh type for instanced rendering.
+     * 
+     * @param type - Unique identifier for this mesh type (e.g., 'oak_tree', 'iron_ore')
+     * @param geometry - Shared geometry for all instances
+     * @param material - Shared material for all instances
+     * @param count - Optional max visible instances (default: maxInstancesPerType)
+     */
     registerMesh(type: string, geometry: THREE.BufferGeometry, material: THREE.Material, count?: number): void {
         if (this.instancedMeshes.has(type)) {
             console.warn(`[InstancedMeshManager] Mesh type "${type}" is already registered.`);
@@ -61,6 +131,16 @@ export class InstancedMeshManager {
         });
     }
 
+    /**
+     * Add a new instance to render.
+     * 
+     * @param type - Mesh type (must be registered first)
+     * @param entityId - Entity ID for interaction tracking
+     * @param position - World position
+     * @param rotation - Optional rotation
+     * @param scale - Optional scale
+     * @returns Instance ID or null if type not registered
+     */
     addInstance(type: string, entityId: string, position: THREE.Vector3, rotation?: THREE.Euler, scale?: THREE.Vector3): number | null {
         const data = this.instancedMeshes.get(type);
         if (!data) {
@@ -95,6 +175,12 @@ export class InstancedMeshManager {
         return instanceId;
     }
 
+    /**
+     * Remove an instance from rendering.
+     * 
+     * @param type - Mesh type
+     * @param instanceId - Instance ID returned from addInstance()
+     */
     removeInstance(type: string, instanceId: number): void {
         const data = this.instancedMeshes.get(type);
         if (!data) return;
@@ -137,17 +223,29 @@ export class InstancedMeshManager {
         }
     }
 
+    /**
+     * Get entity ID for an instance.
+     * 
+     * @param type - Mesh type
+     * @param instanceIndex - Matrix array index (not instance ID)
+     * @returns Entity ID or undefined
+     */
     getEntityId(type: string, instanceIndex: number): string | undefined {
         const data = this.instancedMeshes.get(type);
         return data ? data.entityIdMap.get(instanceIndex) : undefined;
     }
 
+    /**
+     * Get all registered instanced meshes.
+     * @returns Array of InstancedMesh objects
+     */
     getMeshes(): THREE.InstancedMesh[] {
         return Array.from(this.instancedMeshes.values()).map(data => data.mesh);
     }
 
     /**
-     * Update visibility of instances based on distance to player
+     * Update which instances are visible based on distance from player.
+     * Shows the closest N instances up to maxVisibleInstances.
      */
     private updateInstanceVisibility(type: string): void {
         const data = this.instancedMeshes.get(type);
@@ -202,7 +300,8 @@ export class InstancedMeshManager {
     }
 
     /**
-     * Update all instance visibility based on current player position
+     * Update visibility for all mesh types.
+     * Call this periodically (not every frame) to maintain performance.
      */
     updateAllInstanceVisibility(): void {
         const now = Date.now();
@@ -247,15 +346,20 @@ export class InstancedMeshManager {
     }
 
     /**
-     * Set the world reference (for cases where it's not available at construction)
+     * Set world reference for player position tracking.
+     * @param world - World instance
      */
     setWorld(world: World): void {
         this.world = world;
     }
 
     /**
-     * Configure pooling parameters
-     * @param config Object containing optional configuration parameters
+     * Configure pooling and culling parameters.
+     * 
+     * @param config - Configuration object
+     * @param config.maxInstancesPerType - Max visible instances per mesh type
+     * @param config.cullDistance - Distance beyond which instances are hidden
+     * @param config.updateInterval - Milliseconds between visibility updates
      */
     setPoolingConfig(config: { 
         maxInstancesPerType?: number; 
@@ -278,7 +382,9 @@ export class InstancedMeshManager {
     }
 
     /**
-     * Get statistics about instance pooling
+     * Get statistics for all mesh types.
+     * 
+     * @returns Object mapping mesh type to { total, visible, maxVisible }
      */
     getPoolingStats(): { [type: string]: { total: number; visible: number; maxVisible: number } } {
         const stats: { [type: string]: { total: number; visible: number; maxVisible: number } } = {};
@@ -294,6 +400,10 @@ export class InstancedMeshManager {
         return stats;
     }
 
+    /**
+     * Clean up all resources.
+     * Disposes geometries, materials, and removes meshes from scene.
+     */
     dispose(): void {
         for (const data of this.instancedMeshes.values()) {
             this.scene.remove(data.mesh);

@@ -1,6 +1,56 @@
 /**
- * ItemEntity - Represents items in the world
- * Replaces item-based Apps with server-authoritative entities
+ * ItemEntity - Ground Item Entity
+ * 
+ * Represents items lying on the ground that players can pick up.
+ * Items can be dropped by mobs, players, or spawned by systems.
+ * 
+ * **Extends**: InteractableEntity (players can pick up items)
+ * 
+ * **Key Features**:
+ * 
+ * **Item Properties**:
+ * - Item ID (references item definitions)
+ * - Quantity (stack size)
+ * - Position in world
+ * - Ownership (who dropped it, for loot protection)
+ * - Despawn timer
+ * 
+ * **Interaction**:
+ * - "Take" prompt when player is nearby
+ * - Automatically adds to player inventory
+ * - Stacks with existing items if possible
+ * - Removes from world after pickup
+ * 
+ * **Visual Representation**:
+ * - Small 3D model or icon sprite
+ * - Subtle floating/bobbing animation
+ * - Glow effect for valuable items
+ * - Name label on mouseover
+ * 
+ * **Loot Protection**:
+ * - Items dropped by player death are protected
+ * - Only the owner can pick up for first 60 seconds
+ * - Becomes public loot after timer expires
+ * 
+ * **Despawning**:
+ * - Despawns after 2-3 minutes if not picked up
+ * - Expensive items persist longer
+ * - Untradeable items despawn faster
+ * 
+ * **Stacking**:
+ * - Multiple items of same type merge into one stack
+ * - Stackable items show quantity
+ * - Non-stackable items remain separate
+ * 
+ * **Network Sync**:
+ * - Item spawn broadcasted to all clients
+ * - Pickup removes item for everyone
+ * - Quantity changes update visual
+ * 
+ * **Runs on**: Server (authoritative), Client (visual + interaction)
+ * **Referenced by**: LootSystem, ItemSpawnerSystem, DeathSystem
+ * 
+ * @public
  */
 
 import THREE from '../extras/three';
@@ -49,19 +99,36 @@ export class ItemEntity extends InteractableEntity {
       isClient: this.world.isClient
     });
     
-    // SKIP 3D MODEL LOADING - Use clean sphere fallbacks
-    // Models would cause 404 errors until /world-assets/forge/ is populated
-    // Uncomment below when you have actual GLB files
-    
-    // No model path or model failed to load - create subtle fallback mesh
     if (this.world.isServer) {
-      return; // Don't create fallback mesh on server
+      return;
     }
     
-    console.log(`[ItemEntity] No model path for ${this.config.itemId}, creating minimal fallback sphere`);
+    // Try to load 3D model if available
+    if (this.config.model && this.world.loader) {
+      try {
+        console.log(`[ItemEntity] Loading model for ${this.config.itemId}:`, this.config.model);
+        const model = await this.world.loader.load('model', this.config.model);
+        if (model && 'toNodes' in model) {
+          const nodes = model.toNodes() as unknown as Map<string, THREE.Object3D>;
+          const rootNode = nodes.get('root') || Array.from(nodes.values())[0];
+          if (rootNode) {
+            this.mesh = rootNode as THREE.Mesh;
+            this.mesh.name = `Item_${this.config.itemId}`;
+            this.mesh.castShadow = false;
+            this.mesh.receiveShadow = false;
+            this.mesh.scale.set(0.3, 0.3, 0.3); // Scale down items
+            this.node.add(this.mesh);
+            console.log(`[ItemEntity] ✅ Model loaded for ${this.config.itemId}`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn(`[ItemEntity] Failed to load model for ${this.config.itemId}, using placeholder:`, error);
+        // Fall through to placeholder
+      }
+    }
     
-    // Create a very small, subtle sphere as fallback
-    // This makes items pickupable without being visually intrusive
+    console.log(`[ItemEntity] Creating placeholder sphere for ${this.config.itemId}`);
     const geometry = new THREE.SphereGeometry(0.12, 8, 6);
     
     // Get subtle color based on item type

@@ -1,6 +1,72 @@
 /**
- * MobEntity - Represents mobs/enemies in the world
- * Extends CombatantEntity for combat capabilities
+ * MobEntity - Enemy/Monster Entity
+ * 
+ * Represents hostile creatures (mobs) in the game world. Handles combat AI,
+ * patrolling, aggression, and loot drops.
+ * 
+ * **Extends**: CombatantEntity (inherits health, combat, and damage)
+ * 
+ * **Key Features**:
+ * 
+ * **AI Behavior**:
+ * - Idle state: Stands still or patrols spawn area
+ * - Patrol state: Walks between patrol points
+ * - Aggro state: Detected player within aggro radius
+ * - Combat state: Actively attacking target
+ * - Fleeing state: Low health retreat (future)
+ * - Dead state: Corpse state before despawn
+ * 
+ * **Combat System**:
+ * - Attack power and speed
+ * - Defense rating
+ * - Attack range (melee or ranged)
+ * - Aggro radius (detection range)
+ * - Combat level for XP calculations
+ * - Attack styles (melee, ranged, magic)
+ * 
+ * **Patrol System**:
+ * - Generates random patrol points around spawn
+ * - Walks between points when not in combat
+ * - Returns to spawn area if pulled too far
+ * - Configurable patrol radius
+ * 
+ * **Aggression**:
+ * - Aggro radius determines detection range
+ * - Remembers last attacker
+ * - Chases target within leash distance
+ * - Resets when target dies or escapes
+ * 
+ * **Loot System**:
+ * - Drops items on death based on loot table
+ * - Quantity randomization
+ * - Rare drop chances
+ * - Corpse despawn timer
+ * 
+ * **Respawning**:
+ * - Respawn timer after death
+ * - Resets to spawn position
+ * - Full health restoration
+ * - State reset (clears aggro, target)
+ * 
+ * **Visual Representation**:
+ * - 3D model (GLB) or procedural mesh
+ * - Health bar when damaged
+ * - Nametag with mob name and level
+ * - Death animation
+ * - Attack animations
+ * 
+ * **Network Sync**:
+ * - Position broadcast to clients
+ * - State changes (idle, combat, dead)
+ * - Health updates
+ * - Target information
+ * 
+ * **Database**: Mob instances are NOT persisted (respawn from spawn points)
+ * 
+ * **Runs on**: Server (authoritative), Client (visual only)
+ * **Referenced by**: MobSystem, MobSpawnerSystem, CombatSystem, AggroSystem
+ * 
+ * @public
  */
 
 import THREE from '../extras/three';
@@ -85,18 +151,35 @@ export class MobEntity extends CombatantEntity {
       isClient: this.world.isClient
     });
     
-    // SKIP MODEL LOADING - Prevents 404 errors, uses clean fallbacks
-    // Directory /world-assets/forge/ doesn't exist yet
-    // Models will be generated later - for now, use capsules
-    
     if (this.world.isServer) {
-      return; // Don't create fallback mesh on server
+      return;
     }
     
-    console.log(`[MobEntity] No model path for ${this.config.mobType}, creating fallback capsule`);
+    // Try to load 3D model if available
+    if (this.config.model && this.world.loader) {
+      try {
+        console.log(`[MobEntity] Loading model for ${this.config.mobType}:`, this.config.model);
+        const model = await this.world.loader.load('model', this.config.model);
+        if (model && 'toNodes' in model) {
+          const nodes = model.toNodes() as unknown as Map<string, THREE.Object3D>;
+          const rootNode = nodes.get('root') || Array.from(nodes.values())[0];
+          if (rootNode) {
+            this.mesh = rootNode as THREE.Mesh;
+            this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = true;
+            this.node.add(this.mesh);
+            console.log(`[MobEntity] ✅ Model loaded for ${this.config.mobType}`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn(`[MobEntity] Failed to load model for ${this.config.mobType}, using placeholder:`, error);
+        // Fall through to placeholder
+      }
+    }
     
-    // Fallback: Create colored capsule - use simple hash-based color from mob name
-    // This is data-driven and works for any mob type without hardcoding
+    console.log(`[MobEntity] Creating placeholder capsule for ${this.config.mobType}`);
     const mobName = String(this.config.mobType).toLowerCase();
     const colorHash = mobName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const hue = (colorHash % 360) / 360; // Convert to 0-1 range for HSL

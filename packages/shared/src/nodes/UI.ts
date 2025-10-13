@@ -1,3 +1,9 @@
+/**
+ * UI.ts - 3D UI Panel Node
+ * 
+ * Renders 2D UI elements in 3D space. Supports flexbox layout via Yoga.
+ */
+
 import { every, isArray, isBoolean, isNumber, isString } from 'lodash-es'
 import Yoga from 'yoga-layout'
 import THREE from '../extras/three'

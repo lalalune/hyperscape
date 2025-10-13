@@ -216,7 +216,8 @@ export class EntityManager extends SystemBase {
       name: config.name,
       model: config.model,
       modelExists: !!config.model,
-      position: config.position
+      position: config.position,
+      itemId: config.type === 'item' ? (config as ItemEntityConfig).itemId : undefined
     });
     
     switch (config.type) {
@@ -461,21 +462,21 @@ export class EntityManager extends SystemBase {
     const level = data.level || 1;
 
     // Ground to terrain height map explicitly for server/client authoritative spawn
-    try {
-      const terrain = this.world.getSystem<TerrainSystem>('terrain');
-      if (terrain) {
-        const th = terrain.getHeightAt(position.x, position.z);
-        if (Number.isFinite(th)) {
-          position = { x: position.x, y: (th as number) + 0.1, z: position.z };
-        }
+    const terrain = this.world.getSystem<TerrainSystem>('terrain');
+    if (terrain) {
+      const th = terrain.getHeightAt(position.x, position.z);
+      if (Number.isFinite(th)) {
+        position = { x: position.x, y: (th as number) + 0.1, z: position.z };
       }
-    } catch (_e) {
-      // If terrain not available, keep provided Y
     }
     
     // Get mob data to access modelPath
     const mobDataFromDB = getMobById(mobType);
-    const modelPath = mobDataFromDB?.modelPath || `/assets/models/mobs/${mobType}.glb`;
+    const modelPath = mobDataFromDB?.modelPath;
+
+    if(!modelPath) {
+      throw new Error(`[EntityManager] Mob ${mobType} has no model path`);
+    }
     
     const config: MobEntityConfig = {
       id: data.customId || `mob_${this.nextEntityId++}`,
@@ -739,16 +740,15 @@ export class EntityManager extends SystemBase {
   private getMobMaxHealth(mobType: string, level: number): number {
     const mobData = getMobById(mobType);
     if (!mobData) {
-      return 100 + (level - 1) * 10; // Fallback formula
+      return 100 + (level - 1) * 10;
     }
-    // Use health from JSON, scaled by level
     return mobData.maxHealth + (level - mobData.level) * 10;
   }
 
   private getMobAttackPower(mobType: string, level: number): number {
     const mobData = getMobById(mobType);
     if (!mobData) {
-      return 5 + (level - 1) * 2; // Fallback formula
+      return 5 + (level - 1) * 2;
     }
     return mobData.stats.attack + (level - mobData.level) * 2;
   }
@@ -756,7 +756,7 @@ export class EntityManager extends SystemBase {
   private getMobDefense(mobType: string, level: number): number {
     const mobData = getMobById(mobType);
     if (!mobData) {
-      return 2 + (level - 1); // Fallback formula
+      return 2 + (level - 1);
     }
     return mobData.stats.defense + (level - mobData.level);
   }
@@ -764,7 +764,7 @@ export class EntityManager extends SystemBase {
   private getMobAttackSpeed(mobType: string): number {
     const mobData = getMobById(mobType);
     if (!mobData || !mobData.attackSpeed) {
-      return 1.5; // Fallback
+      return 1.5;
     }
     return mobData.attackSpeed;
   }
@@ -772,7 +772,7 @@ export class EntityManager extends SystemBase {
   private getMobMoveSpeed(mobType: string): number {
     const mobData = getMobById(mobType);
     if (!mobData || !mobData.moveSpeed) {
-      return 5; // Fallback
+      return 5;
     }
     return mobData.moveSpeed;
   }
@@ -780,7 +780,7 @@ export class EntityManager extends SystemBase {
   private getMobAggroRange(mobType: string): number {
     const mobData = getMobById(mobType);
     if (!mobData) {
-      return 10; // Fallback
+      return 10;
     }
     return mobData.behavior.aggroRange;
   }
@@ -788,7 +788,7 @@ export class EntityManager extends SystemBase {
   private getMobCombatRange(mobType: string): number {
     const mobData = getMobById(mobType);
     if (!mobData || !mobData.combatRange) {
-      return 2; // Fallback
+      return 2;
     }
     return mobData.combatRange;
   }
@@ -796,9 +796,8 @@ export class EntityManager extends SystemBase {
   private getMobXPReward(mobType: string, level: number): number {
     const mobData = getMobById(mobType);
     if (!mobData) {
-      return 10 * level; // Fallback formula
+      return 10 * level;
     }
-    // Scale XP reward by level difference
     const levelDiff = level - mobData.level;
     return mobData.xpReward + (levelDiff * 5);
   }
@@ -806,7 +805,6 @@ export class EntityManager extends SystemBase {
   private getMobLootTable(mobType: string): Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }> {
     const mobData = getMobById(mobType);
     if (!mobData || !mobData.lootTable) {
-      // Fallback to legacy drops if lootTable not defined
       if (mobData && mobData.drops && mobData.drops.length > 0) {
         return mobData.drops.map(drop => ({
           itemId: drop.itemId,
@@ -815,7 +813,6 @@ export class EntityManager extends SystemBase {
           maxQuantity: drop.quantity
         }));
       }
-      // Ultimate fallback
       return [{ itemId: 'coins', chance: 0.5, minQuantity: 1, maxQuantity: 5 }];
     }
     

@@ -19,9 +19,9 @@
       "default": "./build/framework.client.js"
     }
   },
-  "homepage": "https://github.com/hyperscape-xyz/hyperscape#readme",
+  "homepage": "https://github.com/HyperscapeAI/hyperscape#readme",
   "bugs": {
-    "url": "https://github.com/hyperscape-xyz/hyperscape/issues"
+    "url": "https://github.com/HyperscapeAI/hyperscape/issues"
   },
   "keywords": [
     "hyperscape",
@@ -37,6 +37,7 @@
     "dev": "bun scripts/dev-final.mjs",
     "dev:legacy": "bun scripts/dev.mjs",
     "dev:old": "bun scripts/build.mjs --dev",
+    "prebuild": "bun run docs:extract",
     "build": "bun scripts/build.mjs",
     "build:client": "vite build",
     "build:server": "bun scripts/build.mjs --server-only",
@@ -45,6 +46,7 @@
     "test:e2e": "playwright test",
     "test:client": "node test-client.mjs",
     "lint": "eslint src --max-warnings 22100",
+    "docs:extract": "echo 'TSDoc extraction happens at root level via TypeDoc'",
     "cap:init": "cap init 'Hyperscape' 'com.hyperscape.app' --web-dir build/public",
     "cap:sync": "cap sync",
     "cap:sync:ios": "cap sync ios",

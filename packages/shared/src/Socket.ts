@@ -1,8 +1,45 @@
+/**
+ * WebSocket Connection Wrapper
+ * 
+ * This class wraps a Node.js WebSocket connection and provides a unified interface for
+ * both client and server networking. It handles binary packet encoding/decoding via msgpackr
+ * and manages connection lifecycle (open, close, ping/pong heartbeat).
+ * 
+ * **Key Features**:
+ * - Binary packet protocol using msgpackr for efficient serialization
+ * - Automatic heartbeat/keepalive via ping/pong
+ * - Connection state tracking (alive, closed, disconnected)
+ * - Associated player entity reference for game logic
+ * - Graceful error handling with fallback no-op WebSocket stub
+ * 
+ * **Packet Protocol**:
+ * All messages are sent as binary ArrayBuffers encoded with msgpackr:
+ * - Format: [packet_id, data]
+ * - packet_id is an integer mapped to a method name (see packets.ts)
+ * - data is arbitrary game state (positions, inventory, chat messages, etc.)
+ * 
+ * **Heartbeat Mechanism**:
+ * - Server sends periodic pings to detect dead connections
+ * - Socket marks itself as not alive on ping
+ * - Pong from client marks it alive again
+ * - Sockets that don't respond to pings are disconnected
+ * 
+ * **Connection States**:
+ * - `alive`: Responded to last ping (true by default)
+ * - `closed`: WebSocket connection has been closed
+ * - `disconnected`: Disconnect handler has been called
+ * 
+ * **Referenced by**: ServerNetwork (server), ClientNetwork (client)
+ */
+
 import { readPacket, writePacket } from './packets'
 import type { NodeWebSocket, NetworkWithSocket, SocketOptions } from './types/networking'
 
 import type { Entity } from './entities/Entity'
 
+/**
+ * Socket class - wraps a WebSocket connection with game-specific functionality
+ */
 export class Socket {
   id: string;
   ws: NodeWebSocket;

@@ -5,13 +5,43 @@
 
 import { THREE } from '@hyperscape/shared';
 
+/**
+ * ThreeResourceManager - Memory management for Three.js resources
+ * 
+ * Provides comprehensive cleanup of Three.js objects to prevent memory leaks.
+ * Handles disposal of geometries, materials, textures, and scene objects.
+ * 
+ * @remarks
+ * Three.js doesn't automatically garbage collect GPU resources. Manual disposal
+ * is required to prevent memory leaks, especially in long-running applications.
+ * 
+ * @public
+ */
 export class ThreeResourceManager {
+  /** Tracks disposed objects to prevent double-disposal */
   private static disposedObjects = new WeakSet();
 
   /**
-   * Safely dispose of a Three.js object and all its children
-   * @param object The Three.js object to dispose
-   * @param options Disposal options
+   * Safely disposes of a Three.js object and all its children
+   * 
+   * Recursively traverses the object hierarchy and disposes all geometries,
+   * materials, and textures. Prevents double-disposal using a WeakSet.
+   * 
+   * @param object - The Three.js object to dispose (mesh, group, scene, etc.)
+   * @param options - Disposal configuration options
+   * 
+   * @example
+   * ```typescript
+   * const mesh = new THREE.Mesh(geometry, material);
+   * ThreeResourceManager.disposeObject(mesh, {
+   *   disposeGeometry: true,
+   *   disposeMaterial: true,
+   *   disposeTextures: true,
+   *   removeFromParent: true
+   * });
+   * ```
+   * 
+   * @public
    */
   static disposeObject(object: THREE.Object3D, options: {
     disposeGeometry?: boolean;
@@ -54,6 +84,14 @@ export class ThreeResourceManager {
 
   /**
    * Internal disposal logic for individual objects
+   * 
+   * Handles disposal of specific object types (meshes, lights, cameras).
+   * Called recursively by disposeObject for each node in the hierarchy.
+   * 
+   * @param object - Three.js object to dispose
+   * @param options - Disposal configuration
+   * 
+   * @internal
    */
   private static disposeObjectInternal(object: THREE.Object3D, options: {
     disposeGeometry: boolean;
@@ -106,7 +144,15 @@ export class ThreeResourceManager {
   }
 
   /**
-   * Dispose of materials safely
+   * Disposes of materials safely
+   * 
+   * Handles both single materials and material arrays (for multi-material meshes).
+   * Optionally disposes of all textures referenced by the materials.
+   * 
+   * @param material - Material or array of materials to dispose
+   * @param disposeTextures - Whether to also dispose material textures
+   * 
+   * @internal
    */
   private static disposeMaterial(material: THREE.Material | THREE.Material[], disposeTextures: boolean): void {
     const materials = Array.isArray(material) ? material : [material];
@@ -128,7 +174,14 @@ export class ThreeResourceManager {
   }
 
   /**
-   * Dispose of all textures in a material
+   * Disposes of all textures referenced by a material
+   * 
+   * Checks all standard texture properties (map, normalMap, roughnessMap, etc.)
+   * and disposes any textures found. Prevents double-disposal.
+   * 
+   * @param material - Material whose textures should be disposed
+   * 
+   * @internal
    */
   private static disposeMaterialTextures(material: THREE.Material): void {
     const textureProperties = [
@@ -149,7 +202,21 @@ export class ThreeResourceManager {
   }
 
   /**
-   * Dispose of a renderer and its resources
+   * Disposes of a WebGL renderer and its resources
+   * 
+   * Cleans up render targets, WebGL context, and extensions.
+   * Call this when completely removing a renderer from the application.
+   * 
+   * @param renderer - The WebGL renderer to dispose
+   * 
+   * @example
+   * ```typescript
+   * const renderer = new THREE.WebGLRenderer();
+   * // ... use renderer ...
+   * ThreeResourceManager.disposeRenderer(renderer);
+   * ```
+   * 
+   * @public
    */
   static disposeRenderer(renderer: THREE.WebGLRenderer): void {
     // Dispose of render targets
@@ -166,7 +233,26 @@ export class ThreeResourceManager {
   }
 
   /**
-   * Dispose of a scene and all its contents
+   * Disposes of a scene and all its contents
+   * 
+   * Recursively disposes all objects in the scene hierarchy.
+   * Useful when switching between different scenes or levels.
+   * 
+   * @param scene - The Three.js scene to dispose
+   * @param options - Disposal configuration
+   * 
+   * @example
+   * ```typescript
+   * const scene = new THREE.Scene();
+   * // ... populate scene ...
+   * ThreeResourceManager.disposeScene(scene, {
+   *   disposeGeometry: true,
+   *   disposeMaterial: true,
+   *   disposeTextures: true
+   * });
+   * ```
+   * 
+   * @public
    */
   static disposeScene(scene: THREE.Scene, options: {
     disposeGeometry?: boolean;
@@ -189,7 +275,20 @@ export class ThreeResourceManager {
       }
 
   /**
-   * Get memory usage information (if available)
+   * Gets current Three.js memory usage statistics
+   * 
+   * Returns counts of active geometries, textures, and shader programs.
+   * Useful for debugging memory leaks and monitoring resource usage.
+   * 
+   * @returns Object containing memory statistics
+   * 
+   * @example
+   * ```typescript
+   * const stats = ThreeResourceManager.getMemoryInfo();
+   * console.log(`Geometries: ${stats.geometries}, Textures: ${stats.textures}`);
+   * ```
+   * 
+   * @public
    */
   static getMemoryInfo(): { geometries: number; textures: number; programs: number } {
     const renderer = new THREE.WebGLRenderer();
@@ -204,7 +303,16 @@ export class ThreeResourceManager {
   }
 
   /**
-   * Force garbage collection of disposed objects (development helper)
+   * Forces garbage collection of disposed objects (development only)
+   * 
+   * Calls window.gc() if available (requires --expose-gc flag in Node.js/Chrome).
+   * This is a development/debugging tool - production code should not rely on it.
+   * 
+   * @remarks
+   * Only works if garbage collection is exposed via --expose-gc flag.
+   * Not available in production browsers.
+   * 
+   * @public
    */
   static forceCleanup(): void {
     // Call garbage collection if available
@@ -215,7 +323,28 @@ export class ThreeResourceManager {
 }
 
 /**
- * Hook for React components to ensure proper cleanup
+ * React hook for managing Three.js resource cleanup
+ * 
+ * Provides a cleanup registry for React components that use Three.js objects.
+ * Call cleanup functions in useEffect cleanup to prevent memory leaks.
+ * 
+ * @returns Object with addCleanup and cleanup functions
+ * 
+ * @example
+ * ```typescript
+ * function MyComponent() {
+ *   const { addCleanup, cleanup } = useThreeCleanup();
+ * 
+ *   useEffect(() => {
+ *     const mesh = new THREE.Mesh(geometry, material);
+ *     addCleanup(() => ThreeResourceManager.disposeObject(mesh));
+ *     
+ *     return cleanup; // Cleanup on unmount
+ *   }, []);
+ * }
+ * ```
+ * 
+ * @public
  */
 export function useThreeCleanup() {
   const cleanupFunctions = new Set<() => void>();

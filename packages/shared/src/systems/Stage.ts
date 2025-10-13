@@ -1,3 +1,50 @@
+/**
+ * Stage.ts - Three.js Scene Management System
+ * 
+ * Manages the Three.js scene graph, including mesh rendering, material management,
+ * and spatial indexing via octree for efficient raycasting.
+ * 
+ * **Core Responsibilities:**
+ * - Scene graph management (add/remove objects)
+ * - Instanced mesh rendering for performance
+ * - Material creation and management
+ * - Octree spatial indexing for raycasting
+ * - Pointer raycasting for UI interactions
+ * - Environment (skybox, fog, background) management
+ * 
+ * **Instanced Rendering:**
+ * Multiple objects with the same geometry/material are batched into InstancedMesh
+ * for single-draw-call rendering (massive performance gain for many identical objects).
+ * 
+ * **Octree:**
+ * Uses LooseOctree for spatial partitioning to accelerate raycasts.
+ * Automatically grows/shrinks as objects are added/removed.
+ * 
+ * **Material Proxies:**
+ * Materials are wrapped in proxies to provide reactive property updates
+ * (e.g., changing proxy.color automatically updates the Three.js material).
+ * 
+ * **Usage:**
+ * ```ts
+ * // Insert a mesh into the scene
+ * const handle = world.stage.insert({
+ *   geometry: boxGeometry,
+ *   material: material,
+ *   matrix: transformMatrix,
+ *   node: someNode,
+ *   linked: true  // Use instancing
+ * });
+ * 
+ * // Move the object
+ * handle.move(newMatrix);
+ * 
+ * // Raycast for pointer interaction
+ * const hits = world.stage.raycastPointer({ x: 0.5, y: 0.5 });
+ * ```
+ * 
+ * **Referenced by:** All rendering code, Entity.ts, Node system, ClientGraphics
+ */
+
 import { isNumber } from 'lodash-es';
 
 import { LooseOctree } from '../extras/LooseOctree';
@@ -20,22 +67,26 @@ import type {
 } from '../types/material-types';
 export type { MaterialOptions, MaterialWrapper, InsertOptions, StageHandle } from '../types/material-types';
 
-// Type guards for material properties
+/** Type guard: Check if material has color property */
 function hasColorProperty(material: THREE.Material): material is MaterialWithColor {
-  // Strong type assumption - check if material has color property
   return (material as MaterialWithColor).color !== undefined;
 }
 
+/** Type guard: Check if material has emissiveIntensity property */
 function hasEmissiveProperty(material: THREE.Material): material is MaterialWithEmissive {
-  // Strong type assumption - check if material has emissiveIntensity
   return (material as MaterialWithEmissive).emissiveIntensity !== undefined;
 }
 
+/** Type guard: Check if material has fog property */
 function hasFogProperty(material: THREE.Material): material is MaterialWithFog {
-  // Strong type assumption - check if material has fog property
   return (material as MaterialWithFog).fog !== undefined;
 }
 
+/**
+ * Stage System - Three.js Scene Graph Manager
+ * 
+ * Central system for managing the 3D scene, meshes, materials, and raycasting.
+ */
 export class Stage extends SystemBase {
   scene: THREE.Scene;
   environment: unknown;

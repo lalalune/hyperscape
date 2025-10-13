@@ -51,8 +51,8 @@ export class ManifestService {
     
     // Determine model path - prefer rigged model for avatars
     const modelFileName = metadata.riggedModelPath || `${assetId}.glb`
-    const modelPath = `/world-assets/forge/${assetId}/${modelFileName}`
-    const iconPath = `/world-assets/forge/${assetId}/concept-art.png`
+    const modelPath = `/models/${assetId}/${modelFileName}`
+    const iconPath = `/models/${assetId}/concept-art.png`
     
     const itemEntry = {
       id: normalizedId,
@@ -106,7 +106,7 @@ export class ManifestService {
     
     mobs = mobs.filter(mob => mob.id !== normalizedId && mob.id !== assetId)
     
-    const modelPath = `/world-assets/forge/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
+    const modelPath = `/models/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
     const animations = metadata.animations?.basic || {}
     
     const mobEntry = {
@@ -139,10 +139,10 @@ export class ManifestService {
       spawnBiomes: ['plains'],
       modelPath: modelPath,
       animationSet: {
-        idle: animations.tpose ? `/world-assets/forge/${assetId}/${animations.tpose}` : undefined,
-        walk: animations.walking ? `/world-assets/forge/${assetId}/${animations.walking}` : undefined,
-        attack: animations.walking ? `/world-assets/forge/${assetId}/${animations.walking}` : undefined,
-        death: animations.walking ? `/world-assets/forge/${assetId}/${animations.walking}` : undefined
+        idle: animations.tpose ? `/models/${assetId}/${animations.tpose}` : undefined,
+        walk: animations.walking ? `/models/${assetId}/${animations.walking}` : undefined,
+        attack: animations.walking ? `/models/${assetId}/${animations.walking}` : undefined,
+        death: animations.walking ? `/models/${assetId}/${animations.walking}` : undefined
       },
       respawnTime: 900000,
       xpReward: 10,
@@ -176,7 +176,7 @@ export class ManifestService {
     
     avatars = avatars.filter(av => av.id !== normalizedId && av.id !== assetId)
     
-    const modelPath = `/world-assets/forge/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
+    const modelPath = `/models/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
     const animations = metadata.animations?.basic || {}
     
     const avatarEntry = {
@@ -188,9 +188,9 @@ export class ManifestService {
       characterHeight: metadata.characterHeight || 1.83,
       modelPath: modelPath,
       animations: {
-        idle: animations.tpose ? `/world-assets/forge/${assetId}/${animations.tpose}` : undefined,
-        walk: animations.walking ? `/world-assets/forge/${assetId}/${animations.walking}` : undefined,
-        run: animations.running ? `/world-assets/forge/${assetId}/${animations.running}` : undefined
+        idle: animations.tpose ? `/models/${assetId}/${animations.tpose}` : undefined,
+        walk: animations.walking ? `/models/${assetId}/${animations.walking}` : undefined,
+        run: animations.running ? `/models/${assetId}/${animations.running}` : undefined
       }
     }
     
@@ -325,7 +325,7 @@ export class ManifestService {
     
     npcs = npcs.filter(npc => npc.id !== normalizedId && npc.id !== assetId)
     
-    const modelPath = `/world-assets/forge/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
+    const modelPath = `/models/${assetId}/${metadata.riggedModelPath || `${assetId}.glb`}`
     const animations = metadata.animations?.basic || {}
     
     const npcEntry = {
@@ -335,8 +335,8 @@ export class ManifestService {
       type: this.mapToNPCType(config.subtype),
       modelPath: modelPath,
       animations: {
-        idle: animations.tpose ? `/world-assets/forge/${assetId}/${animations.tpose}` : undefined,
-        talk: animations.walking ? `/world-assets/forge/${assetId}/${animations.walking}` : undefined
+        idle: animations.tpose ? `/models/${assetId}/${animations.tpose}` : undefined,
+        talk: animations.walking ? `/models/${assetId}/${animations.walking}` : undefined
       },
       services: this.mapToNPCServices(config.subtype)
     }
@@ -366,14 +366,14 @@ export class ManifestService {
     
     resources = resources.filter(res => res.id !== normalizedId && res.id !== assetId)
     
-    const modelPath = `/world-assets/forge/${assetId}/${assetId}.glb`
+    const modelPath = `/models/${assetId}/${assetId}.glb`
     
     const resourceEntry = {
       id: normalizedId,
       name: config.name || metadata.name || normalizedId,
       type: this.mapToResourceType(config.subtype),
       modelPath: modelPath,
-      iconPath: `/world-assets/forge/${assetId}/concept-art.png`,
+      iconPath: `/models/${assetId}/concept-art.png`,
       harvestSkill: this.mapToHarvestSkill(config.subtype),
       requiredLevel: 1,
       harvestTime: 3000,
@@ -406,14 +406,14 @@ export class ManifestService {
     
     buildings = buildings.filter(b => b.id !== normalizedId && b.id !== assetId)
     
-    const modelPath = `/world-assets/forge/${assetId}/${assetId}.glb`
+    const modelPath = `/models/${assetId}/${assetId}.glb`
     
     const buildingEntry = {
       id: normalizedId,
       name: config.name || metadata.name || normalizedId,
       type: config.subtype || 'generic',
       modelPath: modelPath,
-      iconPath: `/world-assets/forge/${assetId}/concept-art.png`,
+      iconPath: `/models/${assetId}/concept-art.png`,
       description: config.description || ''
     }
     

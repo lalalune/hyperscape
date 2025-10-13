@@ -1,3 +1,107 @@
+/**
+ * ClientInput.ts - Input Handling System
+ * 
+ * Unified input system for keyboard, mouse, touch, and XR controllers.
+ * Provides a consistent API for all input devices with configurable bindings.
+ * 
+ * Key Features:
+ * - **Multi-Device Support**: Keyboard, mouse, touch, gamepad, XR controllers
+ * - **Flexible Bindings**: Map any input to any action
+ * - **Action System**: High-level actions (move, jump, interact)
+ * - **Raw Input Access**: Low-level button/axis states
+ * - **Pointer Events**: Click, hover, drag with 3D raycasting
+ * - **Mobile Touch**: Virtual joystick and touch gestures
+ * - **XR Input**: Hand tracking and controller buttons
+ * - **Configurable**: Save/load input preferences
+ * 
+ * Input Flow:
+ * 1. Raw input events (keyboard, mouse, touch, XR)
+ * 2. Control bindings map to actions
+ * 3. Actions trigger commands (e.g., "move forward")
+ * 4. Systems respond to commands
+ * 
+ * Control Types:
+ * - **Button**: Binary on/off (keyboard keys, mouse buttons)
+ * - **Vector**: 2D directional (WASD, joystick, touch)
+ * - **Value**: 1D scalar (scroll wheel, trigger)
+ * - **Pointer**: 2D screen position + 3D raycast
+ * - **Screen**: Touch info and dimensions
+ * 
+ * Input Actions:
+ * - Movement: forward, back, left, right, jump, crouch
+ * - Camera: look, rotate, zoom
+ * - Interaction: use, attack, pickup
+ * - UI: menu, inventory, chat
+ * - Social: emote, voice, gesture
+ * 
+ * Mobile Touch Controls:
+ * - Left side: Virtual joystick for movement
+ * - Right side: Camera drag to look around
+ * - Tap: Interact with objects
+ * - Pinch: Zoom camera
+ * - Two-finger drag: Pan camera
+ * 
+ * XR Controller Mapping:
+ * - Left Stick: Movement (strafe + forward/back)
+ * - Right Stick: Camera rotation
+ * - Triggers: Attack / Use
+ * - Grip: Grab objects
+ * - Face Buttons: Actions (A/B/X/Y)
+ * - Menu Button: Open UI
+ * 
+ * Pointer Raycasting:
+ * - Casts ray from screen position into 3D world
+ * - Detects entities, terrain, and UI elements
+ * - Provides hit point, normal, and distance
+ * - Supports interaction highlighting
+ * 
+ * Input Buffering:
+ * - Queues inputs when not focused
+ * - Prevents lost inputs during lag
+ * - Replays on reconnection
+ * 
+ * Performance:
+ * - Pre-allocated objects to avoid GC
+ * - Input pooling for high-frequency events
+ * - Debounce rapid button presses
+ * - Throttle pointer move events
+ * 
+ * Usage:
+ * ```typescript
+ * // Check if key is down
+ * if (world.input.getButton('forward')) {
+ *   player.moveForward();
+ * }
+ * 
+ * // Get movement vector
+ * const move = world.input.getVector('move');
+ * player.velocity.x = move.x;
+ * player.velocity.z = move.y;
+ * 
+ * // Handle pointer click
+ * world.input.on('pointerClick', (event) => {
+ *   if (event.entity) {
+ *     player.interact(event.entity);
+ *   }
+ * });
+ * ```
+ * 
+ * Related Systems:
+ * - PlayerLocal: Consumes input to control player
+ * - ClientCameraSystem: Uses input for camera control
+ * - ClientActions: Executes actions from input
+ * - ClientInterface: UI input handling
+ * - XR: VR/AR controller integration
+ * 
+ * Dependencies:
+ * - Requires viewport element for mouse/touch events
+ * - Requires camera for raycasting
+ * - Requires physics for hit detection
+ * 
+ * @see MovementUtils.ts for movement calculations
+ * @see buttons.ts for key code mappings
+ */
+
 import THREE from '../extras/three'
 import { SystemBase } from './SystemBase'
 import { EventType } from '../types/events'
@@ -127,9 +231,10 @@ class PointerState {
 }
 
 /**
- * Unified Client Input System
+ * Client Input System
  * 
- * Handles all client input: keyboard, mouse, touch, XR, and input networking
+ * Handles all client input: keyboard, mouse, touch, XR, and input networking.
+ * Provides control bindings with priority system for layered input handling.
  */
 export class ClientInput extends SystemBase {
   // Control state
@@ -501,7 +606,7 @@ export class ClientInput extends SystemBase {
     const t = e.changedTouches && e.changedTouches[0]
     if (t) {
       const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null
-      if (el && this.viewport && el !== (this.viewport as unknown as HTMLElement)) {
+      if (el && this.viewport && el !== this.viewport) {
         return
       }
     }
@@ -531,7 +636,7 @@ export class ClientInput extends SystemBase {
     const t = e.changedTouches && e.changedTouches[0]
     if (t) {
       const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null
-      if (el && this.viewport && el !== (this.viewport as unknown as HTMLElement)) {
+      if (el && this.viewport && el !== this.viewport) {
         return
       }
     }
@@ -559,7 +664,7 @@ export class ClientInput extends SystemBase {
     const t = e.changedTouches && e.changedTouches[0]
     if (t) {
       const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null
-      if (el && this.viewport && el !== (this.viewport as unknown as HTMLElement)) {
+      if (el && this.viewport && el !== this.viewport) {
         return
       }
     }
@@ -841,19 +946,288 @@ export class ClientInput extends SystemBase {
       .map(b => b.command)
   }
   
-  // Plugin compatibility methods
-  goto(x: number, y: number, z?: number): void {
-    console.log(`goto: ${x}, ${y}, ${z || 0}`)
-  }
-  
-  async followEntity(entityId: string): Promise<void> {
-    console.log(`followEntity: ${entityId}`)
-  }
-  
   stopAll(): void {
     this.releaseAllButtons()
     this.moveVector.set(0, 0, 0)
     this.buttons = 0
+  }
+  
+  // ========================================
+  // AGENT CONTROL METHODS
+  // These methods allow programmatic control for AI agents
+  // ========================================
+  
+  // Agent navigation state
+  private navigationTarget: { x: number; z: number } | null = null
+  private followTargetId: string | null = null
+  private isNavigating = false
+  private navigationToken: { aborted: boolean; abort: () => void } | null = null
+  private isRandomWalking = false
+  private tempVec3Agent = new THREE.Vector3()
+  
+  // Navigation constants
+  private readonly NAVIGATION_STOP_DISTANCE = 0.5
+  private readonly FOLLOW_STOP_DISTANCE = 2.0
+  private readonly CONTROLS_TICK_INTERVAL = 100 // ms
+  
+  /**
+   * Navigate to a specific position in the world (for AI agents)
+   */
+  async goto(x: number, z: number): Promise<boolean> {
+    console.log(`[ClientInput] Starting navigation to position (${x}, ${z})`)
+    
+    // Stop any existing navigation
+    this.stopNavigation()
+    
+    // Set navigation target
+    this.navigationTarget = { x, z }
+    this.isNavigating = true
+    this.navigationToken = { aborted: false, abort: () => { this.navigationToken!.aborted = true } }
+    
+    // Get player
+    const player = this.world.entities.player!
+    
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (!this.isNavigating || this.navigationToken?.aborted) {
+          clearInterval(checkInterval)
+          resolve(false)
+          return
+        }
+        
+        const currentPos = player.node.position
+        const targetPos = this.navigationTarget!
+        
+        // Move towards target
+        const direction = {
+          x: targetPos.x - currentPos.x,
+          z: targetPos.z - currentPos.z,
+        }
+        
+        // Calculate distance to target
+        const distance = Math.sqrt(
+          Math.pow(currentPos.x - targetPos.x, 2) +
+            Math.pow(currentPos.z - targetPos.z, 2),
+        )
+        
+        // Check if we've reached the target
+        if (distance <= this.NAVIGATION_STOP_DISTANCE) {
+          console.log('[ClientInput] Reached navigation target')
+          clearInterval(checkInterval)
+          this.stopNavigation()
+          resolve(true)
+          return
+        }
+        
+        // Normalize direction
+        const length = Math.sqrt(
+          direction.x * direction.x + direction.z * direction.z,
+        )
+        if (length > 0) {
+          direction.x /= length
+          direction.z /= length
+        }
+        
+        // Use physics-based movement if available
+        const controllablePlayer = player as {
+          walkToward?: (targetPosition: { x: number; y: number; z: number }, speed?: number) => void;
+          walk?: (direction: { x: number; z: number }, speed?: number) => void;
+          teleport?: (options: { position: THREE.Vector3; rotationY: number }) => void;
+        }
+        
+        if (controllablePlayer.walkToward) {
+          // Use physics-based walking toward target
+          const targetPosition = {
+            x: targetPos.x,
+            y: currentPos.y,
+            z: targetPos.z,
+          }
+          controllablePlayer.walkToward(targetPosition, 2.0) // 2 m/s walking speed
+        } else if (controllablePlayer.walk) {
+          // Use physics-based directional walking
+          controllablePlayer.walk(direction, 2.0)
+        } else if (controllablePlayer.teleport) {
+          const moveDistance = Math.min(1.0, distance)
+          const newX = currentPos.x + direction.x * moveDistance
+          const newZ = currentPos.z + direction.z * moveDistance
+          
+          controllablePlayer.teleport({
+            position: this.tempVec3Agent.set(newX, currentPos.y, newZ),
+            rotationY: Math.atan2(direction.x, direction.z),
+          })
+        }
+      }, this.CONTROLS_TICK_INTERVAL)
+    })
+  }
+  
+  /**
+   * Follow a specific entity by ID (for AI agents)
+   */
+  async followEntity(entityId: string): Promise<boolean> {
+    console.log(`[ClientInput] Starting to follow entity: ${entityId}`)
+    
+    // Stop any existing navigation
+    this.stopNavigation()
+    
+    // Set follow target
+    this.followTargetId = entityId
+    this.isNavigating = true
+    this.navigationToken = { aborted: false, abort: () => { this.navigationToken!.aborted = true } }
+    
+    // Get player
+    const player = this.world.entities.player!
+    
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (!this.isNavigating || this.navigationToken?.aborted) {
+          clearInterval(checkInterval)
+          resolve(false)
+          return
+        }
+        
+        // Get target entity
+        const currentTarget =
+          this.world.entities.items.get(entityId) ||
+          this.world.entities.players.get(entityId)!
+        
+        if (!currentTarget) {
+          console.warn(`[ClientInput] Follow target entity ${entityId} no longer exists`)
+          clearInterval(checkInterval)
+          this.stopNavigation()
+          resolve(false)
+          return
+        }
+        
+        const currentPos = player.node.position
+        const targetPos = currentTarget.position || currentTarget.node?.position
+        
+        if (!targetPos) {
+          console.warn(`[ClientInput] Follow target entity ${entityId} has no position`)
+          clearInterval(checkInterval)
+          this.stopNavigation()
+          resolve(false)
+          return
+        }
+        
+        // Calculate distance to target
+        const distance = Math.sqrt(
+          Math.pow(currentPos.x - targetPos.x, 2) +
+            Math.pow(currentPos.z - targetPos.z, 2),
+        )
+        
+        // Check if we're close enough to the target
+        if (distance <= this.FOLLOW_STOP_DISTANCE) {
+          console.log('[ClientInput] Close enough to follow target')
+          clearInterval(checkInterval)
+          this.stopNavigation()
+          resolve(true)
+          return
+        }
+        
+        // Move towards target
+        const direction = {
+          x: targetPos.x - currentPos.x,
+          z: targetPos.z - currentPos.z,
+        }
+        
+        // Normalize direction
+        const length = Math.sqrt(
+          direction.x * direction.x + direction.z * direction.z,
+        )
+        if (length > 0) {
+          direction.x /= length
+          direction.z /= length
+        }
+        
+        // Use physics-based movement for following
+        const controllablePlayer = player as {
+          walkToward?: (targetPosition: { x: number; y: number; z: number }, speed?: number) => void;
+          walk?: (direction: { x: number; z: number }, speed?: number) => void;
+          teleport?: (options: { position: THREE.Vector3; rotationY: number }) => void;
+        }
+        
+        if (controllablePlayer.walkToward) {
+          // Calculate target position that maintains follow distance
+          const followDistance = this.FOLLOW_STOP_DISTANCE + 0.5 // Stay just outside the follow distance
+          const targetDistance = Math.max(followDistance, distance - 1.0)
+          const followX = targetPos.x - direction.x * targetDistance
+          const followZ = targetPos.z - direction.z * targetDistance
+          
+          controllablePlayer.walkToward(
+            { x: followX, y: currentPos.y, z: followZ },
+            2.5,
+          )
+        } else if (controllablePlayer.walk) {
+          // Use directional physics walking
+          controllablePlayer.walk(direction, 2.5)
+        } else if (controllablePlayer.teleport) {
+          const moveDistance = Math.min(2.0, distance - this.FOLLOW_STOP_DISTANCE)
+          if (moveDistance > 0) {
+            const newX = currentPos.x + direction.x * moveDistance
+            const newZ = currentPos.z + direction.z * moveDistance
+            
+            controllablePlayer.teleport({
+              position: this.tempVec3Agent.set(newX, currentPos.y, newZ),
+              rotationY: Math.atan2(direction.x, direction.z),
+            })
+          }
+        }
+      }, this.CONTROLS_TICK_INTERVAL)
+    })
+  }
+  
+  /**
+   * Stop all navigation actions (for AI agents)
+   */
+  stopNavigation(): void {
+    if (this.navigationToken) {
+      this.navigationToken.abort()
+      this.navigationToken = null
+    }
+    this.isNavigating = false
+    this.navigationTarget = null
+    this.followTargetId = null
+    console.log('[ClientInput] Navigation stopped')
+  }
+  
+  /**
+   * Stop all agent actions (navigation, random walk, etc.)
+   */
+  stopAllActions(): void {
+    this.stopNavigation()
+    this.stopRandomWalk()
+    console.log('[ClientInput] All agent actions stopped')
+  }
+  
+  /**
+   * Start random walk behavior (for AI agents)
+   */
+  startRandomWalk(): void {
+    this.isRandomWalking = true
+    console.log('[ClientInput] Random walk started')
+    // TODO: Implement random walk behavior
+  }
+  
+  /**
+   * Stop random walk behavior (for AI agents)
+   */
+  stopRandomWalk(): void {
+    this.isRandomWalking = false
+    console.log('[ClientInput] Random walk stopped')
+  }
+  
+  /**
+   * Check if currently walking randomly (for AI agents)
+   */
+  getIsWalkingRandomly(): boolean {
+    return this.isRandomWalking
+  }
+  
+  /**
+   * Check if currently navigating (for AI agents)
+   */
+  getIsNavigating(): boolean {
+    return this.isNavigating
   }
   
   destroy() {

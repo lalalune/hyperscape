@@ -13,10 +13,10 @@ export function MinimapStaminaBar({ world, width }: MinimapStaminaBarProps) {
   
   useEffect(() => {
     const update = () => {
-      const pl = world.entities.player as unknown as PlayerLocal | undefined
-      if (pl) {
-        setRunMode(pl.runMode)
-        setStamina(pl.stamina)
+      const player = world.entities.player as PlayerLocal | undefined
+      if (player) {
+        setRunMode(player.runMode)
+        setStamina(player.stamina)
       }
     }
     const id = setInterval(update, 200)
@@ -25,11 +25,10 @@ export function MinimapStaminaBar({ world, width }: MinimapStaminaBarProps) {
   }, [world])
   
   const toggleRunMode = () => {
-    const worldWithPlayer = world as unknown as { entities: { player: PlayerLocal }; network: { send: (method: string, data: { runMode: boolean }) => void } }
-    const pl = worldWithPlayer.entities.player
-    pl.toggleRunMode()
-    setRunMode(pl.runMode === true)
-    worldWithPlayer.network.send('moveRequest', { runMode: pl.runMode })
+    const player = world.entities.player as PlayerLocal
+    player.toggleRunMode()
+    setRunMode(player.runMode === true)
+    world.network.send('moveRequest', { runMode: player.runMode })
   }
   
   return (

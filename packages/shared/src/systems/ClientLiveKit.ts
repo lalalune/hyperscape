@@ -1,9 +1,45 @@
+/**
+ * ClientLiveKit.ts - Voice Chat Client Integration
+ * 
+ * Integrates LiveKit for real-time voice communication between players.
+ * Handles room connection, audio track management, and spatial audio positioning.
+ * 
+ * **Features:**
+ * - Peer-to-peer voice chat via LiveKit
+ * - Spatial audio (voice positioned in 3D space relative to player)
+ * - Automatic participant tracking (join/leave)
+ * - Push-to-talk and voice activity detection
+ * - Screen sharing support
+ * - Audio ducking and mixing
+ * 
+ * **LiveKit Integration:**
+ * - Connects to LiveKit server with JWT token (from server)
+ * - Publishes local audio track from microphone
+ * - Subscribes to remote participant tracks
+ * - Routes audio through ClientAudio system for 3D positioning
+ * 
+ * **Spatial Audio:**
+ * Each remote player's voice is positioned in 3D:
+ * - Uses Web Audio API PannerNode
+ * - Distance-based attenuation
+ * - Directional audio (voice louder when facing player)
+ * 
+ * **Usage:**
+ * System automatically connects when token is available in snapshot.
+ * Audio tracks are routed to speakers/headphones via ClientAudio.
+ * 
+ * **Referenced by:** ClientRuntime, player join/leave events, ClientAudio
+ */
+
 import { ParticipantEvent, RemoteTrack, Room, RoomEvent } from 'livekit-client'
 import type { World } from '../types/index'
 import { System } from './System'
 
-// Using built-in DOM types for HTMLVideoElement, MediaStream, GainNode, PannerNode, and MediaStreamAudioSourceNode
-
+/**
+ * ClientLiveKit - Voice Chat Client
+ * 
+ * Manages LiveKit room connection and spatial voice communication.
+ */
 export class ClientLiveKit extends System {
   // Properties
   room: Room | null = null
@@ -24,12 +60,12 @@ export class ClientLiveKit extends System {
     this.screens = []
   }
 
-  async deserialize(opts: { token?: string }) {
+  async deserialize(opts: { token?: string; wsUrl?: string }) {
     if (!opts || !opts.token) {
       console.warn('[ClientLiveKit] No opts or token provided for LiveKit connection');
       return;
     }
-    const { token } = opts
+    const { token, wsUrl } = opts
     this.status.available = true
     // TODO: check if the token has expired
     this.room = new Room({
@@ -56,10 +92,10 @@ export class ClientLiveKit extends System {
       // @ts-ignore - setSpeaking might not exist
       this.world.entities.player?.setSpeaking(speaking)
     })
-    const windowEnv = (window as { env?: { LIVEKIT_URL?: string } }).env
-    const livekitUrl = windowEnv?.LIVEKIT_URL || process.env.LIVEKIT_URL || ''
+    // Get LiveKit URL from server snapshot (wsUrl is included in livekit opts)
+    const livekitUrl = wsUrl || ''
     if (!livekitUrl) {
-      console.warn('[ClientLiveKit] LIVEKIT_URL is not defined')
+      console.warn('[ClientLiveKit] LIVEKIT_URL is not defined in snapshot')
       return
     }
     await this.room.connect(livekitUrl, token)

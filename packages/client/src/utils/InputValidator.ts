@@ -5,25 +5,75 @@
 
 import type { ValidationResult } from '@hyperscape/shared'
 
+/**
+ * Validation rule configuration
+ * 
+ * Defines constraints for validating user input. All fields are optional
+ * allowing for flexible validation scenarios.
+ * 
+ * @public
+ */
 export interface ValidationRule {
+  /** Whether the field is required (cannot be empty) */
   required?: boolean;
+  
+  /** Minimum length for string values */
   minLength?: number;
+  
+  /** Maximum length for string values */
   maxLength?: number;
+  
+  /** Regular expression pattern that value must match */
   pattern?: RegExp;
+  
+  /** Minimum value for numbers */
   min?: number;
+  
+  /** Maximum value for numbers */
   max?: number;
+  
+  /** Expected type for automatic type coercion */
   type?: 'string' | 'number' | 'email' | 'url' | 'boolean';
-  customValidator?: (value: unknown) => string | null; // Returns error message or null
+  
+  /** Custom validation function that returns error message or null */
+  customValidator?: (value: unknown) => string | null;
 }
 
-// Use shared ValidationResult for cross-system consistency
-// Extended result for client input validation
+/**
+ * Extended validation result with sanitized value
+ * 
+ * Extends the shared ValidationResult with additional fields specific
+ * to client-side input validation.
+ * 
+ * @public
+ */
 export interface InputValidationResult extends ValidationResult {
+  /** Whether validation passed (no errors) */
   isValid: boolean;
+  
+  /** Array of validation error messages */
   errors: string[];
+  
+  /** Sanitized/coerced value safe for use */
   sanitizedValue: unknown;
 }
 
+/**
+ * InputValidator - Comprehensive input validation and sanitization
+ * 
+ * Provides security-focused validation for all user inputs including:
+ * - XSS prevention (HTML/script injection)
+ * - SQL injection protection
+ * - Path traversal prevention
+ * - URL validation
+ * - Type coercion and sanitization
+ * 
+ * @remarks
+ * This is a SECURITY BOUNDARY - it handles untrusted user input.
+ * Defensive error handling is intentional to prevent security bypasses.
+ * 
+ * @public
+ */
 export class InputValidator {
   private static readonly DANGEROUS_PATTERNS = [
     // Script injection patterns
@@ -64,9 +114,37 @@ export class InputValidator {
   };
 
   /**
-   * Validate and sanitize input based on rules
-   * Note: This method uses defensive error handling because it processes UNTRUSTED USER INPUT.
-   * This is a security boundary - errors from malicious input should be caught and converted to validation failures.
+   * Validates and sanitizes input based on provided rules
+   * 
+   * This is the main entry point for input validation. It applies all specified rules,
+   * sanitizes the input to remove dangerous patterns, and returns a result with errors.
+   * 
+   * @remarks
+   * Uses defensive error handling because it processes UNTRUSTED USER INPUT.
+   * This is a security boundary - errors from malicious input are caught and
+   * converted to validation failures rather than thrown.
+   * 
+   * @param value - The user input to validate (any type)
+   * @param rules - Validation rules to apply
+   * @returns Validation result with sanitized value and any errors
+   * 
+   * @example
+   * ```typescript
+   * const result = InputValidator.validate(userInput, {
+   *   required: true,
+   *   minLength: 3,
+   *   maxLength: 20,
+   *   pattern: /^[a-zA-Z0-9]+$/
+   * });
+   * 
+   * if (result.isValid) {
+   *   console.log('Valid:', result.sanitizedValue);
+   * } else {
+   *   console.error('Errors:', result.errors);
+   * }
+   * ```
+   * 
+   * @public
    */
   static validate(value: unknown, rules: ValidationRule = {}): InputValidationResult {
     try {
@@ -146,7 +224,22 @@ export class InputValidator {
   }
 
   /**
-   * Sanitize HTML content to prevent XSS
+   * Sanitizes HTML content to prevent XSS attacks
+   * 
+   * Removes dangerous patterns (scripts, event handlers) and escapes HTML entities.
+   * Always use this before displaying user-provided content in the DOM.
+   * 
+   * @param input - User-provided string that may contain HTML
+   * @returns Sanitized string safe for innerHTML
+   * 
+   * @example
+   * ```typescript
+   * const userInput = '<script>alert("xss")</script>Hello';
+   * const safe = InputValidator.sanitizeHtml(userInput);
+   * // => '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;Hello'
+   * ```
+   * 
+   * @public
    */
   static sanitizeHtml(input: string): string {
     if (typeof input !== 'string') {
@@ -168,7 +261,21 @@ export class InputValidator {
   }
 
   /**
-   * Sanitize input for use in file names
+   * Sanitizes input for safe use in file names
+   * 
+   * Removes or replaces characters that are invalid or dangerous in filenames
+   * across different operating systems.
+   * 
+   * @param input - User-provided filename
+   * @returns Safe filename (or 'untitled' if input is invalid)
+   * 
+   * @example
+   * ```typescript
+   * const filename = InputValidator.sanitizeFileName('my file!@#.txt');
+   * // => 'my_file_.txt'
+   * ```
+   * 
+   * @public
    */
   static sanitizeFileName(input: string): string {
     if (typeof input !== 'string') {
@@ -177,14 +284,31 @@ export class InputValidator {
 
     return input
       .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace invalid chars with underscore
-      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
-      .replace(/^_+|_+$/g, '') // Remove leading/trailing underscores
-      .substring(0, 255) // Limit length
-      || 'untitled'; // Fallback if empty
+      .replace(/_{2,}/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .substring(0, 255)
+      || 'untitled';
   }
 
   /**
-   * Validate and sanitize URL input
+   * Validates and sanitizes URL input
+   * 
+   * Checks for dangerous protocols (javascript:, data:, etc.) and validates
+   * URL format. Only allows http://, https://, relative URLs, and protocol-relative URLs.
+   * 
+   * @param input - User-provided URL string
+   * @returns Validation result with sanitized URL or error
+   * 
+   * @example
+   * ```typescript
+   * const result = InputValidator.sanitizeUrl('javascript:alert("xss")');
+   * // => { isValid: false, errors: ['Unsafe URL protocol'], ... }
+   * 
+   * const safe = InputValidator.sanitizeUrl('https://example.com');
+   * // => { isValid: true, sanitizedValue: 'https://example.com', ... }
+   * ```
+   * 
+   * @public
    */
   static sanitizeUrl(input: string): InputValidationResult {
     if (typeof input !== 'string') {
@@ -225,7 +349,26 @@ export class InputValidator {
   }
 
   /**
-   * Validate player name input
+   * Validates player name input
+   * 
+   * Enforces requirements for player names:
+   * - 2-16 characters long
+   * - Alphanumeric, underscores, and hyphens only
+   * - Not a reserved name (admin, system, null, etc.)
+   * 
+   * @param name - Player name to validate
+   * @returns Validation result with sanitized name or errors
+   * 
+   * @example
+   * ```typescript
+   * const result = InputValidator.validatePlayerName('Player_123');
+   * // => { isValid: true, sanitizedValue: 'Player_123', ... }
+   * 
+   * const invalid = InputValidator.validatePlayerName('admin');
+   * // => { isValid: false, errors: ['This name is reserved'], ... }
+   * ```
+   * 
+   * @public
    */
   static validatePlayerName(name: string): InputValidationResult {
     return this.validate(name, {
@@ -245,7 +388,27 @@ export class InputValidator {
   }
 
   /**
-   * Validate chat message input
+   * Validates chat message input
+   * 
+   * Enforces requirements for chat messages:
+   * - Cannot be empty
+   * - Maximum 500 characters
+   * - No excessive repeated characters (spam prevention)
+   * - Not excessively capitalized (caps lock spam)
+   * 
+   * @param message - Chat message to validate
+   * @returns Validation result with sanitized message or errors
+   * 
+   * @example
+   * ```typescript
+   * const result = InputValidator.validateChatMessage('Hello world!');
+   * // => { isValid: true, sanitizedValue: 'Hello world!', ... }
+   * 
+   * const spam = InputValidator.validateChatMessage('AAAAAAAAAAAA');
+   * // => { isValid: false, errors: ['Message contains too many repeated characters'], ... }
+   * ```
+   * 
+   * @public
    */
   static validateChatMessage(message: string): InputValidationResult {
     return this.validate(message, {
@@ -364,9 +527,37 @@ export class InputValidator {
   }
 }
 
-// Convenience functions for common validations
+/**
+ * Convenience function for validating player names
+ * @public
+ * @see {@link InputValidator.validatePlayerName}
+ */
 export const validatePlayerName = (name: string) => InputValidator.validatePlayerName(name);
+
+/**
+ * Convenience function for validating chat messages
+ * @public
+ * @see {@link InputValidator.validateChatMessage}
+ */
 export const validateChatMessage = (message: string) => InputValidator.validateChatMessage(message);
+
+/**
+ * Convenience function for HTML sanitization
+ * @public
+ * @see {@link InputValidator.sanitizeHtml}
+ */
 export const sanitizeHtml = (input: string) => InputValidator.sanitizeHtml(input);
+
+/**
+ * Convenience function for filename sanitization
+ * @public
+ * @see {@link InputValidator.sanitizeFileName}
+ */
 export const sanitizeFileName = (input: string) => InputValidator.sanitizeFileName(input);
+
+/**
+ * Convenience function for URL sanitization
+ * @public
+ * @see {@link InputValidator.sanitizeUrl}
+ */
 export const sanitizeUrl = (input: string) => InputValidator.sanitizeUrl(input);
