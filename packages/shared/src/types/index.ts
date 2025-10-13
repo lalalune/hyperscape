@@ -12,6 +12,7 @@ import type {
   Inventory,
   PlayerEquipmentItems,
   PlayerHealth,
+  PlayerStats,
   SystemConfig
 } from './core';
 
@@ -52,6 +53,7 @@ export type {
   MovementComponent,
   PlayerHealth,
   PlayerIdentity,
+  PlayerStats,
   SystemConfig
 } from './core';
 
@@ -907,14 +909,6 @@ export interface PlayerInput {
   rotation: Quaternion;
   actions: Set<string>;
   mouse: { x: number; y: number };
-}
-
-export interface PlayerStats {
-  health: number;
-  maxHealth: number;
-  score: number;
-  kills: number;
-  deaths: number;
 }
 
 // Use the concrete Node base class from nodes module under a non-DOM-colliding alias

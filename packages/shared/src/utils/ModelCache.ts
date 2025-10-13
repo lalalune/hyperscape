@@ -6,6 +6,8 @@
  */
 
 import THREE from '../extras/three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import type { World } from '../World';
 
 interface CachedModel {
   scene: THREE.Object3D;
@@ -18,8 +20,12 @@ export class ModelCache {
   private static instance: ModelCache;
   private cache = new Map<string, CachedModel>();
   private loading = new Map<string, Promise<CachedModel>>();
+  private gltfLoader: GLTFLoader;
   
-  private constructor() {}
+  private constructor() {
+    // Use our own GLTFLoader to ensure we get pure THREE.Object3D (not Hyperscape Nodes)
+    this.gltfLoader = new GLTFLoader();
+  }
   
   static getInstance(): ModelCache {
     if (!ModelCache.instance) {
@@ -31,16 +37,44 @@ export class ModelCache {
   /**
    * Load a model (with caching)
    * Returns a cloned scene ready to use
+   * 
+   * NOTE: This returns pure THREE.Object3D, NOT Hyperscape Nodes!
+   * Use world.loader.load('model', url) if you need Hyperscape Nodes.
+   * 
+   * @param path - Model path (can be asset:// URL or absolute URL)
+   * @param world - World instance for URL resolution (resolves asset:// protocol)
    */
   async loadModel(
     path: string,
-    gltfLoader: { loadAsync: (url: string) => Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }> }
+    world?: World
   ): Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[]; fromCache: boolean }> {
     
-    // Check cache first
-    const cached = this.cache.get(path);
+    // Resolve asset:// URLs to actual URLs
+    let resolvedPath = world ? world.resolveURL(path) : path;
+    
+    // CRITICAL: If resolveURL failed (returned asset:// unchanged), manually resolve
+    if (resolvedPath.startsWith('asset://')) {
+      // Fallback: Use CDN URL from window or default to localhost
+      const cdnUrl = (typeof window !== 'undefined' && (window as Window & { __CDN_URL?: string }).__CDN_URL)
+        || (world?.assetsUrl?.replace(/\/$/, ''))
+        || 'http://localhost:8080';
+      resolvedPath = resolvedPath.replace('asset://', `${cdnUrl}/`);
+      console.log(`[ModelCache] Manual URL resolution: ${path} → ${resolvedPath}`);
+    }
+    
+    // Check cache first (use resolved path as key)
+    const cached = this.cache.get(resolvedPath);
     if (cached) {
       console.log(`[ModelCache] ♻️  Using cached model: ${path} (clone #${cached.cloneCount + 1})`);
+      
+      // CRITICAL: Verify cached scene is pure THREE.Object3D
+      if ('ctx' in cached.scene || 'isDirty' in cached.scene) {
+        console.error('[ModelCache] Cached model is a Hyperscape Node, not THREE.Object3D! Clearing cache...');
+        this.cache.delete(resolvedPath);
+        // Retry load with fresh GLTFLoader
+        return this.loadModel(path, world);
+      }
+      
       cached.cloneCount++;
       
       // Clone the scene for this instance
@@ -53,8 +87,8 @@ export class ModelCache {
       };
     }
     
-    // Check if already loading
-    const loadingPromise = this.loading.get(path);
+    // Check if already loading (use resolved path as key)
+    const loadingPromise = this.loading.get(resolvedPath);
     if (loadingPromise) {
       console.log(`[ModelCache] ⏳ Waiting for in-progress load: ${path}`);
       const result = await loadingPromise;
@@ -67,9 +101,17 @@ export class ModelCache {
     }
     
     // Load for the first time
-    console.log(`[ModelCache] 📥 Loading new model: ${path}`);
+    console.log(`[ModelCache] 📥 Loading new model: ${path} (resolved: ${resolvedPath})`);
     
-    const promise = gltfLoader.loadAsync(path).then(gltf => {
+    // Use our own GLTFLoader to ensure pure THREE.js objects (not Hyperscape Nodes)
+    const promise = this.gltfLoader.loadAsync(resolvedPath).then(gltf => {
+      // CRITICAL: Verify we got a pure THREE.Object3D, not a Hyperscape Node
+      if ('ctx' in gltf.scene || 'isDirty' in gltf.scene) {
+        console.error('[ModelCache] ERROR: GLTFLoader returned Hyperscape Node instead of THREE.Object3D!');
+        console.error('[ModelCache] Scene type:', gltf.scene.constructor.name);
+        throw new Error('ModelCache received Hyperscape Node - this indicates a loader system conflict');
+      }
+      
       const cachedModel: CachedModel = {
         scene: gltf.scene,
         animations: gltf.animations,
@@ -77,26 +119,36 @@ export class ModelCache {
         cloneCount: 0
       };
       
-      this.cache.set(path, cachedModel);
-      this.loading.delete(path);
+      this.cache.set(resolvedPath, cachedModel);
+      this.loading.delete(resolvedPath);
       
       console.log(`[ModelCache] ✅ Cached model: ${path}`, {
         meshCount: this.countMeshes(gltf.scene),
-        animations: gltf.animations.length
+        animations: gltf.animations.length,
+        sceneType: gltf.scene.constructor.name
       });
       
       return cachedModel;
     }).catch(error => {
-      this.loading.delete(path);
+      this.loading.delete(resolvedPath);
       throw error;
     });
     
-    this.loading.set(path, promise);
+    this.loading.set(resolvedPath, promise);
     const result = await promise;
     result.cloneCount++;
     
+    const clonedScene = result.scene.clone(true);
+    
+    // FINAL VALIDATION: Ensure we're returning pure THREE.Object3D
+    if ('ctx' in clonedScene || 'isDirty' in clonedScene) {
+      console.error('[ModelCache] CRITICAL: Cloned scene is a Hyperscape Node!');
+      console.error('[ModelCache] This should never happen. Scene type:', clonedScene.constructor.name);
+      throw new Error('ModelCache clone produced Hyperscape Node instead of THREE.Object3D');
+    }
+    
     return {
-      scene: result.scene.clone(true),
+      scene: clonedScene,
       animations: result.animations,
       fromCache: false
     };
@@ -130,11 +182,21 @@ export class ModelCache {
   
   /**
    * Clear the cache (useful for hot reload)
+   * Should be called when code is rebuilt to prevent stale Hyperscape Nodes
    */
   clear(): void {
     console.log(`[ModelCache] Clearing cache of ${this.cache.size} models`);
     this.cache.clear();
     this.loading.clear();
+  }
+  
+  /**
+   * Clear cache and verify all entries are pure THREE.Object3D
+   * Call this on world initialization to ensure clean state
+   */
+  resetAndVerify(): void {
+    console.log('[ModelCache] Resetting cache to ensure pure THREE.Object3D loading');
+    this.clear();
   }
   
   /**

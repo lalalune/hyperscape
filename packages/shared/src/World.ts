@@ -77,6 +77,7 @@ interface NetworkSystem extends System {
   send: (type: string, data: unknown) => void;
   upload?: (file: File) => Promise<unknown>;
   onConnection?: (socket: unknown, query: unknown) => void;
+  disconnect?: () => Promise<void>;
 }
 
 /**
@@ -1245,6 +1246,22 @@ export class World extends EventEmitter {
   }
 
   /**
+   * Disconnect Network Connection
+   * 
+   * Disconnects the network system gracefully before destroying the world.
+   * This ensures proper cleanup of WebSocket connections and network resources.
+   */
+  async disconnect(): Promise<void> {
+    console.log('[World] Disconnecting network...')
+    
+    if (this.network && this.network.disconnect) {
+      await this.network.disconnect();
+    }
+    
+    console.log('[World] Network disconnected')
+  }
+
+  /**
    * Destroy World and Cleanup
    * 
    * Destroys all systems, clears event listeners, and resets state.
@@ -1423,6 +1440,10 @@ export class World extends EventEmitter {
    */
   getEventBus(): EventBus {
     return this.$eventBus;
+  }
+
+  systemsLoadedPromise(): Promise<void> {
+    return Promise.resolve();
   }
 
 }

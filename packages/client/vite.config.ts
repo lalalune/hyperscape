@@ -21,7 +21,26 @@ export default defineConfig(({ mode }) => {
   console.log('[Vite Config] PUBLIC_PRIVY_APP_ID:', env.PUBLIC_PRIVY_APP_ID ? `${env.PUBLIC_PRIVY_APP_ID.substring(0, 10)}...` : 'NOT SET')
   
   return {
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Watch shared package for changes and trigger full reload
+    {
+      name: 'watch-shared-package',
+      configureServer(server) {
+        const sharedBuildPath = path.resolve(__dirname, '../shared/build')
+        server.watcher.add(path.join(sharedBuildPath, '*.js'))
+        server.watcher.on('change', (file) => {
+          if (file.includes('packages/shared/build/')) {
+            console.log('\n[Vite] Shared package updated, reloading...\n')
+            server.ws.send({
+              type: 'full-reload',
+              path: '*'
+            })
+          }
+        })
+      }
+    }
+  ],
   
   // Tell Vite to look for .env files in the client directory
   envDir: clientDir,
@@ -98,6 +117,15 @@ export default defineConfig(({ mode }) => {
     // Silence noisy missing source map warnings for vendored libs
     sourcemapIgnoreList(relativeSourcePath, _sourcemapPath) {
       return /src\/libs\/(stats-gl|three-custom-shader-material)\//.test(relativeSourcePath)
+    },
+    // Watch the shared package build output for changes
+    watch: {
+      // Don't ignore the shared package build output
+      ignored: ['!**/node_modules/@hyperscape/shared/**', '!**/packages/shared/build/**'],
+    },
+    fs: {
+      // Allow serving files from the shared package
+      allow: ['..'],
     },
   },
   

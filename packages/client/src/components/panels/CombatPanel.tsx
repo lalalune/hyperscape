@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import type { World } from '@hyperscape/shared'
-import type { PlayerStats, PlayerEquipmentItems } from '@hyperscape/shared'
+import type { PlayerEquipmentItems } from '@hyperscape/shared'
+import type { PlayerStats } from '@hyperscape/shared'
 import { PlayerMigration, WeaponType } from '@hyperscape/shared'
 import { EventType } from '@hyperscape/shared'
 
@@ -18,22 +19,19 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   useEffect(() => {
     const id = world.entities.player?.id
     if (!id) return
-    const worldWithApi = world as World & {
-      api?: {
-        getAttackStyleInfo?: (playerId: string, cb: (info: { style: string; cooldown?: number }) => void) => void
-      }
-    }
-    worldWithApi.api?.getAttackStyleInfo?.(id, (info: { style: string; cooldown?: number }) => {
+    world.actionMethods?.getAttackStyleInfo?.(id, (info: { style: string; cooldown?: number }) => {
       if (info) {
         setStyle(info.style)
         setCooldown(info.cooldown || 0)
       }
     })
-    const onUpdate = (data: { playerId: string; currentStyle: { id: string } }) => {
+    const onUpdate = (...args: unknown[]) => {
+      const data = args[0] as { playerId: string; currentStyle: { id: string } }
       if (data.playerId !== id) return
       setStyle(data.currentStyle.id)
     }
-    const onChanged = (data: { playerId: string; currentStyle: { id: string } }) => {
+    const onChanged = (...args: unknown[]) => {
+      const data = args[0] as { playerId: string; currentStyle: { id: string } }
       if (data.playerId !== id) return
       setStyle(data.currentStyle.id)
     }
@@ -48,12 +46,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   const changeStyle = (next: string) => {
     const id = world.entities.player?.id
     if (!id) return
-    const worldWithApi = world as World & {
-      api?: {
-        changeAttackStyle?: (playerId: string, style: string) => void
-      }
-    }
-    worldWithApi.api?.changeAttackStyle?.(id, next)
+    world.actionMethods?.changeAttackStyle?.(id, next)
   }
 
   // Determine if ranged weapon equipped; if so, limit to ranged/defense like RS

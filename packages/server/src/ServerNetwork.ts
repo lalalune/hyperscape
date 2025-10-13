@@ -496,7 +496,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       socket.player = addedEntity as Entity || undefined;
     console.log('[ServerNetwork] ✅ Player entity created:', socket.player?.id);
     if (socket.player) {
-      this.world.emit(EventType.PLAYER_JOINED, { playerId: socket.player.data.id as string, userId: accountId });
+      this.world.emit(EventType.PLAYER_JOINED, { playerId: socket.player.data.id as string, player: socket.player as unknown as import('@hyperscape/shared').PlayerLocal });
       try {
         // Send to everyone else
         this.send('entityAdded', socket.player.serialize(), socket.id);
@@ -890,8 +890,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     if (serverSocket.player) {
     // Emit typed player left event
     this.world.emit(EventType.PLAYER_LEFT, {
-      playerId: serverSocket.player.id,
-      reason: code ? `disconnect_${code}` : 'disconnect'
+      playerId: serverSocket.player.id
     });
       
       // Remove player entity from world
@@ -1289,39 +1288,40 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
       
       
-      // DEBUG: Check if position is actually being passed correctly
-      if (Math.abs(spawnPosition[1]) < 1) {
-        console.error('[ServerNetwork] WARNING: Spawn Y is near ground level:', spawnPosition[1]);
-      }
-
-      console.log(`[ServerNetwork] Creating player entity for socket ${socketId}`);
-      const createdEntity = this.world.entities.add ? this.world.entities.add(
-        {
-          id: socketId,
-          type: 'player',
-          position: spawnPosition,
-          quaternion: Array.isArray(this.spawn.quaternion) ? [...this.spawn.quaternion] as [number, number, number, number] : [0,0,0,1],
-          owner: socket.id,
-          userId: user.id,
-          name: name || user.name,
-          health: HEALTH_MAX,
-          avatar: user.avatar || this.world.settings.avatar?.url || 'asset://avatar.vrm',
-          sessionAvatar: avatar || undefined,
-          roles: user.roles,
-        }
-      ) : undefined;
-      socket.player = createdEntity as Entity || undefined;
-
-      // Load character list if in character-select mode
+      // Load character list to determine if we're in character-select mode
       let characters: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> = []
-
-        characters = await this.loadCharacterList(user.id)
-        // Only include list when there are characters; otherwise, omit to avoid client modal
-        if (characters.length) {
-          console.log(`[ServerNetwork] Including ${characters.length} characters in snapshot for ${socket.id}`)
-        } else {
-          characters = []
+      characters = await this.loadCharacterList(user.id)
+      
+      // CRITICAL: Only create player entity if NOT in character select mode
+      // If we have characters, wait for enterWorld to create the actual character entity
+      if (characters.length === 0) {
+        // No characters → legacy flow, spawn immediately
+        // DEBUG: Check if position is actually being passed correctly
+        if (Math.abs(spawnPosition[1]) < 1) {
+          console.error('[ServerNetwork] WARNING: Spawn Y is near ground level:', spawnPosition[1]);
         }
+
+        console.log(`[ServerNetwork] No characters found, creating player entity immediately for socket ${socketId}`);
+        const createdEntity = this.world.entities.add ? this.world.entities.add(
+          {
+            id: socketId,
+            type: 'player',
+            position: spawnPosition,
+            quaternion: Array.isArray(this.spawn.quaternion) ? [...this.spawn.quaternion] as [number, number, number, number] : [0,0,0,1],
+            owner: socket.id,
+            userId: user.id,
+            name: name || user.name,
+            health: HEALTH_MAX,
+            avatar: user.avatar || this.world.settings.avatar?.url || 'asset://avatar.vrm',
+            sessionAvatar: avatar || undefined,
+            roles: user.roles,
+          }
+        ) : undefined;
+        socket.player = createdEntity as Entity || undefined;
+      } else {
+        // Character select mode - don't spawn player yet, wait for enterWorld
+        console.log(`[ServerNetwork] Character select mode: ${characters.length} characters found, waiting for enterWorld`)
+      }
 
       const baseSnapshot: {
         id: string;
@@ -1344,7 +1344,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         maxUploadSize: process.env.PUBLIC_MAX_UPLOAD_SIZE,
         settings: this.world.settings.serialize() || {},
         chat: this.world.chat.serialize() || [],
-        entities: [],
+        // Include empty entities array in character select mode (player spawns later via enterWorld)
+        entities: socket.player ? [socket.player.serialize()] : [],
         livekit,
         authToken: authToken || '',
         account: { accountId: user.id, name: user.name, providers: { privyUserId: (user as User & { privyUserId?: string }).privyUserId || null } },
@@ -1374,21 +1375,21 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.sockets.set(socket.id, socket);
       console.log(`[ServerNetwork] Socket added. Total sockets: ${this.sockets.size}`);
 
-      // Emit typed player joined only when player entity exists (legacy path)
+      // Emit typed player joined and broadcast ONLY if player was created (not in character select)
       if (socket.player) {
         const playerId = socket.player.data.id as string;
         const userId = socket.player.data.userId as string | undefined;
-        console.log(`[ServerNetwork] Emitting PLAYER_JOINED - playerId: ${playerId}, userId: ${userId}`);
-        this.world.emit(EventType.PLAYER_JOINED, { playerId, userId });
-      }
-
-      // Broadcast new player entity to all existing clients except the new connection
-      if (socket.player) {
+        console.log(`[ServerNetwork] Player entity created, emitting PLAYER_JOINED - playerId: ${playerId}, userId: ${userId}`);
+        this.world.emit(EventType.PLAYER_JOINED, { playerId, player: socket.player as unknown as import('@hyperscape/shared').PlayerLocal });
+        
+        // Broadcast new player entity to all existing clients except the new connection
         try {
           this.send('entityAdded', socket.player.serialize(), socket.id);
         } catch (err) {
           console.error('[ServerNetwork] Failed to broadcast entityAdded for new player:', err);
         }
+      } else {
+        console.log(`[ServerNetwork] Character select mode active, player entity will spawn after enterWorld`)
       }
     } catch (_err) {
       console.error(_err);

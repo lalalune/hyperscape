@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { THREE, createClientWorld, EventType, System } from '@hyperscape/shared'
-import type { World, ClientProps } from '@hyperscape/shared'
+import type { World } from '@hyperscape/shared'
 import { CoreUI } from './components/CoreUI'
 
 export { System }
+
+interface ClientProps {
+  wsUrl?: string
+  onSetup?: (world: World, config: unknown) => void
+}
 
 export function Client({ wsUrl, onSetup }: ClientProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -29,8 +34,8 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
     ;(window as { world: World }).world = w;
     
     // Install simple debug commands
-    const debugWindow = window as Window & {
-      debug: {
+    const debugWindow = window as typeof window & {
+      debug?: {
         seeHighEntities: () => void
         seeGround: () => void
         mobs: () => Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean }>
@@ -55,7 +60,7 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       },
       // List all mobs with positions
       mobs: () => {
-        const entityManager = w.getSystem('entity-manager') as { getAllEntities: () => Map<string, { type: string; name: string; node: { position: { toArray: () => number[] } }; mesh: { visible: boolean } }> };
+        const entityManager = w.getSystem('entity-manager') as unknown as { getAllEntities: () => Map<string, { type: string; name: string; node: { position: { toArray: () => number[] } }; mesh: { visible: boolean } }> };
         const mobs: Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean }> = [];
         for (const [_id, entity] of entityManager.getAllEntities()) {
           if (entity.type === 'mob') {
@@ -171,9 +176,11 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       
       
       // Ensure RPG systems are registered before initializing the world
-      const worldWithPromise = world as World & { systemsLoadedPromise?: Promise<void> }
-      if (worldWithPromise.systemsLoadedPromise) {
-        await worldWithPromise.systemsLoadedPromise
+      const systemsPromise = (world as World & { systemsLoadedPromise?: Promise<void> }).systemsLoadedPromise
+      if (systemsPromise) {
+        console.log('[Client] Waiting for RPG systems to load...')
+        await systemsPromise
+        console.log('[Client] RPG systems loaded')
       }
       
       console.log('[Client] Calling world.init()...')

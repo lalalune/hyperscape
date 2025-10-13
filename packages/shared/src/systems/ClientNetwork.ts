@@ -315,12 +315,22 @@ export class ClientNetwork extends SystemBase {
     
     // Auto-enter world if in character-select mode and we have a selected character
     const isCharacterSelectMode = Array.isArray(data.entities) && data.entities.length === 0 && Array.isArray((data as { characters?: unknown[] }).characters);
+    console.log('[ClientNetwork] Character select mode check:', {
+      isCharacterSelectMode,
+      entitiesCount: data.entities?.length || 0,
+      hasCharacters: Array.isArray((data as { characters?: unknown[] }).characters)
+    });
+    
     if (isCharacterSelectMode && typeof localStorage !== 'undefined') {
       const selectedCharacterId = localStorage.getItem('selectedCharacterId');
+      console.log('[ClientNetwork] Selected character ID from localStorage:', selectedCharacterId);
       if (selectedCharacterId) {
         console.log('[ClientNetwork] Auto-entering world with selected character:', selectedCharacterId);
         // Send enterWorld immediately so server spawns the selected character
         this.send('enterWorld', { characterId: selectedCharacterId });
+        console.log('[ClientNetwork] enterWorld message sent, waiting for player entity in next snapshot...');
+      } else {
+        console.log('[ClientNetwork] No selected character ID, staying in character select');
       }
     }
     // Ensure Physics is fully initialized before processing entities

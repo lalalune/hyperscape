@@ -121,7 +121,7 @@ export { Socket } from './Socket';
 // Export EventType enum
 export { EventType } from './types/events';
 
-// Export PlayerMigration
+// Export PlayerMigration class
 export { PlayerMigration } from './types/core';
 
 // Export enums (these are values, not types)

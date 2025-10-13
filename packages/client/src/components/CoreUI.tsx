@@ -1,18 +1,17 @@
 import { RefreshCwIcon } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
-import { buttons, propToLabel, World, EventType } from '@hyperscape/shared'
-import type { ControlAction } from '@hyperscape/shared'
-import { cls, isTouch } from '@hyperscape/shared'
+import type { ControlAction, EventMap } from '@hyperscape/shared'
+import { buttons, cls, EventType, isTouch, propToLabel, World } from '@hyperscape/shared'
+import { ActionProgressBar } from './ActionProgressBar'
 import { AvatarPane } from './AvatarPane'
 import { Chat } from './Chat'
 import { HandIcon } from './Icons'
+import { LoadingScreen } from './LoadingScreen'
 import { MouseLeftIcon } from './MouseLeftIcon'
 import { MouseRightIcon } from './MouseRightIcon'
 import { MouseWheelIcon } from './MouseWheelIcon'
 import { Sidebar } from './Sidebar'
-import { LoadingScreen } from './LoadingScreen'
-import { ActionProgressBar } from './ActionProgressBar'
 
 // Type for icon components
 type IconComponent = React.ComponentType<{ size?: number | string }>
@@ -471,9 +470,8 @@ function Toast({ world }: { world: World }) {
   const [msg, setMsg] = useState<{ text: string; id: number } | null>(null)
   useEffect(() => {
     let ids = 0
-    const onToast = (data: { message: string; type: 'info' | 'warning' | 'error' | 'success' }) => {
-      const text = data.message || String(data)
-      setMsg({ text, id: ++ids })
+    const onToast = (data: EventMap[EventType.UI_TOAST]) => {
+      setMsg({ text: data.message, id: ++ids })
     }
     world.on(EventType.UI_TOAST, onToast)
     return () => {

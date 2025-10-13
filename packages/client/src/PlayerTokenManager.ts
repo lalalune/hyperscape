@@ -311,8 +311,8 @@ export class PlayerTokenManager extends EventEmitter {
       };
       
       // Use sendBeacon for reliable delivery during page unload
-      const baseUrl = import.meta.env.PUBLIC_API_URL || '';
-      const endpoint = baseUrl ? `${baseUrl}/player/disconnect` : '/api/player/disconnect';
+      const baseUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:5555';
+      const endpoint = `${baseUrl}/api/player/disconnect`;
       navigator.sendBeacon(endpoint, JSON.stringify(data));
     });
   }

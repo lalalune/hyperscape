@@ -1049,11 +1049,9 @@ export class Entity implements IEntity {
       return;
     }
 
-    // Get GLTFLoader from loader system
-    const loaderSystem = this.world.loader as { gltfLoader: { loadAsync: (url: string) => Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }> } };
-    
     // Use ModelCache to load with caching
-    const { scene, fromCache } = await modelCache.loadModel(this.config.model, loaderSystem.gltfLoader);
+    // ModelCache uses its own GLTFLoader to ensure pure THREE.Object3D (not Hyperscape Nodes)
+    const { scene, fromCache } = await modelCache.loadModel(this.config.model, this.world);
       
       console.log(`[Entity] ✅ Model obtained ${fromCache ? 'from cache' : 'via load'}:`, {
         modelPath: this.config.model,

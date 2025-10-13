@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import type { World } from '@hyperscape/shared'
+import { THREE } from '@hyperscape/shared'
 
 interface MinimapCompassProps {
   world: World
@@ -14,13 +15,13 @@ export function MinimapCompass({ world, onClick, isCollapsed }: MinimapCompassPr
     let rafId: number | null = null
     const loop = () => {
       if (world.camera) {
-        const forward = new (window as typeof window & { THREE: typeof import('../../../extras/three').default }).THREE.Vector3()
+        const forward = new THREE.Vector3()
         world.camera.getWorldDirection(forward)
         forward.y = 0
         if (forward.lengthSq() > 1e-6) {
           forward.normalize()
           const yaw = Math.atan2(forward.x, -forward.z)
-          setYawDeg((window as typeof window & { THREE: typeof import('../../../extras/three').default }).THREE.MathUtils.radToDeg(yaw))
+          setYawDeg(THREE.MathUtils.radToDeg(yaw))
         }
       }
       rafId = requestAnimationFrame(loop)

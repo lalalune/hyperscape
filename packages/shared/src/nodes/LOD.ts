@@ -5,12 +5,11 @@
  */
 
 
-import THREE from '../extras/three'
+import THREE from '../extras/three';
 
-import { getRef, Node } from './Node'
 import type { LODData, LODItem } from '../types/nodes';
-import { isBoolean } from '../utils/ValidationUtils'
-import type { World } from '../World'
+import { isBoolean } from '../utils/ValidationUtils';
+import { getRef, Node } from './Node';
 
 
 const v0 = new THREE.Vector3()
@@ -48,9 +47,8 @@ export class LOD extends Node {
   }
 
   mount() {
-    // Register with LODs system if present (typed cast through World extension)
-    const worldWithLods = this.ctx as (World & { lods?: { register: (lod: LOD) => void } }) | null
-    worldWithLods?.lods?.register?.(this)
+    // Register with LODs system if present
+    this.ctx?.lods?.register?.(this)
     this.check()
   }
 
@@ -83,8 +81,7 @@ export class LOD extends Node {
   }
 
   unmount() {
-    const worldWithLods = this.ctx as (World & { lods?: { unregister: (lod: LOD) => void } }) | null
-    worldWithLods?.lods?.unregister?.(this)
+    this.ctx?.lods?.unregister?.(this)
   }
 
   copy(source: LOD, recursive: boolean) {

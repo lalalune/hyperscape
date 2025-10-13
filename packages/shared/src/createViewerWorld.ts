@@ -31,7 +31,7 @@
  * // World is ready for loading and displaying 3D models
  * ```
  * 
- * Used by: 3D Asset Forge (packages/3d-asset-forge), development tools
+ * Used by: 3D Asset Forge (packages/asset-forge), development tools
  * References: World.ts, createClientWorld.ts
  */
 

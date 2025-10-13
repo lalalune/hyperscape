@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # CDN - Local nginx server for serving static game assets
   cdn:
