@@ -53,6 +53,7 @@ import THREE from '../extras/three';
 import type { World } from '../World';
 import { InteractableEntity, type InteractableConfig } from './InteractableEntity';
 import type { EntityInteractionData, ResourceEntityConfig } from '../types/entities';
+import { modelCache } from '../utils/ModelCache';
 
 // Re-export types for external use
 export type { ResourceEntityConfig } from '../types/entities';
@@ -177,21 +178,16 @@ export class ResourceEntity extends InteractableEntity {
     if (this.config.model && this.world.loader) {
       try {
         console.log(`[ResourceEntity] Loading model for ${this.config.resourceType}:`, this.config.model);
-        const model = await this.world.loader.load('model', this.config.model);
-        if (model && 'toNodes' in model) {
-          const nodes = model.toNodes() as unknown as Map<string, THREE.Object3D>;
-          const rootNode = nodes.get('root') || Array.from(nodes.values())[0];
-          if (rootNode) {
-            this.mesh = rootNode as THREE.Mesh;
-            this.mesh.name = `Resource_${this.config.resourceType}_${this.id}`;
-            this.mesh.castShadow = true;
-            this.mesh.receiveShadow = true;
-            this.mesh.visible = !this.config.depleted;
-            this.node.add(this.mesh);
-            console.log(`[ResourceEntity] ✅ Model loaded for ${this.config.resourceType}`);
-            return;
-          }
-        }
+        const { scene } = await modelCache.loadModel(this.config.model, this.world);
+        
+        this.mesh = scene;
+        this.mesh.name = `Resource_${this.config.resourceType}_${this.id}`;
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+        this.mesh.visible = !this.config.depleted;
+        this.node.add(this.mesh);
+        console.log(`[ResourceEntity] ✅ Model loaded for ${this.config.resourceType}`);
+        return;
       } catch (error) {
         console.warn(`[ResourceEntity] Failed to load model for ${this.config.resourceType}, using placeholder:`, error);
         // Fall through to placeholder

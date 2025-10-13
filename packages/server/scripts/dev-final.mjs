@@ -397,9 +397,14 @@ async function setupServerWatcher(serverProcessRef) {
     const chokidar = await import('chokidar')
     
     const watchPath = path.join(rootDir, 'src')
+    const sharedBuildPath = path.join(rootDir, '../shared/build')
     console.log(`${colors.dim}Watching: ${watchPath}/**/*.{ts,tsx,js,mjs}${colors.reset}`)
+    console.log(`${colors.dim}Watching: ${sharedBuildPath}/**/*.{js,d.ts}${colors.reset}`)
     
-    const watcher = chokidar.watch('src/**/*.{ts,tsx,js,mjs}', {
+    const watcher = chokidar.watch([
+      'src/**/*.{ts,tsx,js,mjs}',
+      '../shared/build/**/*.{js,d.ts}'
+    ], {
       cwd: rootDir,
       ignored: [
         '**/node_modules/**',
@@ -628,7 +633,7 @@ ${colors.reset}`)
   })
   
   // Start 3D Asset Forge (API + Vite) with ASSET_OUTPUT_DIR pointing to Hyperscape world assets
-  const assetForgeDir = path.join(rootDir, '../3d-asset-forge')
+  const assetForgeDir = path.join(rootDir, '../asset-forge')
   if (fs.existsSync(assetForgeDir)) {
     const worldAssetsDir = path.join(rootDir, 'world/assets')
     // Ensure assets directory exists

@@ -10,8 +10,8 @@ The workflows are configured for the following core packages:
 - **`client`** - React web client (Vite + Three.js + VRM avatars)
 
 Additional packages:
+- **`asset-forge`** - Asset generation pipeline (Meshy AI + manual tools)
 - **`plugin-hyperscape`** - ElizaOS plugin for AI agent integration
-- **`3d-asset-forge`** - Asset generation pipeline (Meshy AI + manual tools)
 - **`physx-js-webidl`** - PhysX physics engine WASM bindings
 
 ## Workflows

@@ -82,6 +82,7 @@ import {
 import { EventType } from '../types/events';
 import type { World } from '../World';
 import { CombatantEntity, type CombatantConfig } from './CombatantEntity';
+import { modelCache } from '../utils/ModelCache';
 
 
 
@@ -159,20 +160,15 @@ export class MobEntity extends CombatantEntity {
     if (this.config.model && this.world.loader) {
       try {
         console.log(`[MobEntity] Loading model for ${this.config.mobType}:`, this.config.model);
-        const model = await this.world.loader.load('model', this.config.model);
-        if (model && 'toNodes' in model) {
-          const nodes = model.toNodes() as unknown as Map<string, THREE.Object3D>;
-          const rootNode = nodes.get('root') || Array.from(nodes.values())[0];
-          if (rootNode) {
-            this.mesh = rootNode as THREE.Mesh;
-            this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
-            this.mesh.castShadow = true;
-            this.mesh.receiveShadow = true;
-            this.node.add(this.mesh);
-            console.log(`[MobEntity] ✅ Model loaded for ${this.config.mobType}`);
-            return;
-          }
-        }
+        const { scene } = await modelCache.loadModel(this.config.model, this.world);
+        
+        this.mesh = scene;
+        this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+        this.node.add(this.mesh);
+        console.log(`[MobEntity] ✅ Model loaded for ${this.config.mobType}`);
+        return;
       } catch (error) {
         console.warn(`[MobEntity] Failed to load model for ${this.config.mobType}, using placeholder:`, error);
         // Fall through to placeholder

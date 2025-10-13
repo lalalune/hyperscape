@@ -174,12 +174,14 @@ async function main() {
   
   let typecheckTimeout
   watcher.on('change', (filepath) => {
-    console.log(`File changed: ${filepath}`)
+    console.log(`\n⚡ File changed: ${filepath}`)
+    console.log('🔄 Rebuilding @hyperscape/shared...')
     
     // Debounce type checking
     clearTimeout(typecheckTimeout)
     typecheckTimeout = setTimeout(() => {
       runTypeCheck()
+      console.log('✅ @hyperscape/shared rebuild complete - dependent packages will reload\n')
     }, 1000)
   })
   

@@ -65,8 +65,9 @@ import { EventType } from '../types/events';
 import { SystemBase } from './SystemBase';
 import { MobEntity } from '../entities/MobEntity';
 import { NPCEntity } from '../entities/NPCEntity';
-import type { MobEntityConfig, NPCEntityConfig } from '../types/entities';
-import { EntityType, InteractionType, MobAIState, NPCType } from '../types/entities';
+import { ItemEntity } from '../entities/ItemEntity';
+import type { MobEntityConfig, NPCEntityConfig, ItemEntityConfig } from '../types/entities';
+import { EntityType, InteractionType, MobAIState, NPCType, ItemRarity } from '../types/entities';
 import { getMobById } from '../data/mobs';
 import { NPCBehavior, NPCState } from '../types/core';
 
@@ -255,6 +256,89 @@ export class Entities extends SystemBase implements IEntities {
       // Construct specialized mob entity so it can load its 3D model on the client
       // MobEntityConfig is compatible with MobEntity constructor
       const entity = new MobEntity(this.world, mobConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch(err => this.logger.error(`Entity ${entity.id} async init failed`, err));
+      }
+
+      return entity;
+    } else if (data.type === 'item') {
+      // Client-side: build a real ItemEntity from snapshot data so models load
+      const positionArray = (data.position || [0, 0, 0]) as [number, number, number];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [number, number, number, number];
+      const name = data.name || 'Item';
+      
+      // Extract itemId from network data (ItemEntity.getNetworkData() puts it at top level)
+      const networkData = data as Record<string, unknown>;
+      const itemId = (networkData.itemId as string) || data.id;
+      const itemType = (networkData.itemType as string) || 'misc';
+      const quantity = (networkData.quantity as number) || 1;
+      const stackable = (networkData.stackable as boolean) || false;
+      const value = (networkData.value as number) || 0;
+      const weight = (networkData.weight as number) || 0;
+      const rarity = (networkData.rarity as string) || 'common';
+      const modelPath = (networkData.model as string) || null;
+      
+      console.log(`[Entities] CLIENT creating ItemEntity from snapshot:`, {
+        id: data.id,
+        name: name,
+        itemId,
+        hasModelPath: !!modelPath,
+        modelPath,
+        position: positionArray
+      });
+
+      const itemConfig: ItemEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.ITEM,
+        position: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
+        rotation: { x: quaternionArray[0], y: quaternionArray[1], z: quaternionArray[2], w: quaternionArray[3] },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.PICKUP,
+        interactionDistance: 2,
+        description: name,
+        model: modelPath,
+        // ItemEntityConfig required fields
+        itemId: itemId,
+        itemType: itemType,
+        quantity: quantity,
+        stackable: stackable,
+        value: value,
+        weight: weight,
+        rarity: (rarity as ItemRarity) || ItemRarity.COMMON,
+        stats: {},
+        requirements: { level: 1 },
+        effects: [],
+        armorSlot: null,
+        examine: '',
+        modelPath: modelPath || '',
+        iconPath: '',
+        healAmount: 0,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+          // ItemEntityProperties required fields
+          itemId: itemId,
+          harvestable: false,
+          dialogue: [],
+          quantity: quantity,
+          stackable: stackable,
+          value: value,
+          weight: weight,
+          rarity: (rarity as ItemRarity) || ItemRarity.COMMON,
+        },
+      };
+
+      const entity = new ItemEntity(this.world, itemConfig);
       this.items.set(entity.id, entity);
 
       // Initialize entity if it has an init method
@@ -456,9 +540,23 @@ export class Entities extends SystemBase implements IEntities {
   }
 
   async deserialize(datas: EntityData[]): Promise<void> {
+    console.log(`[Entities] deserialize() called with ${datas.length} entities`);
+    const entityTypes = datas.map(d => `${d.type}:${d.id}`);
+    console.log('[Entities] Entity types to deserialize:', entityTypes);
+    
+    const playerEntities = datas.filter(d => d.type === 'player');
+    console.log(`[Entities] Found ${playerEntities.length} player entities in snapshot`);
+    if (playerEntities.length > 0) {
+      playerEntities.forEach(p => {
+        console.log(`[Entities] Player entity: ${p.id}, owner: ${p.owner}`);
+      });
+    }
+    
     for (const data of datas) {
       this.add(data);
     }
+    
+    console.log('[Entities] deserialize() complete');
   }
 
   override destroy(): void {

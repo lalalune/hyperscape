@@ -48,7 +48,7 @@ updates:
 
   # 3D Asset Forge
   - package-ecosystem: npm
-    directory: "/packages/3d-asset-forge"
+    directory: "/packages/asset-forge"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

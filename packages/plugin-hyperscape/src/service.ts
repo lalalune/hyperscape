@@ -75,8 +75,8 @@ import {
   Entity,
   loadPhysX,
   type NetworkSystem,
-  type Player,
   type World,
+  type Player,
 } from "@hyperscape/shared";
 import { promises as fsPromises } from "fs";
 import path from "path";
@@ -612,12 +612,8 @@ Hyperscape world integration service that enables agents to:
     this.stopAppearancePolling();
 
     if (this.world) {
-      if (this.world.network) {
-        console.info("[Hyperscape Cleanup] Calling network destroy...");
-        // Use destroy method for network cleanup
-        this.world.network.destroy();
-      }
-      console.info("[Hyperscape Cleanup] Calling world.destroy()...");
+      console.info("[Hyperscape Cleanup] Calling world.disconnect() and world.destroy()...");
+      await this.world.disconnect();
       this.world.destroy();
     }
 
@@ -657,7 +653,6 @@ Hyperscape world integration service that enables agents to:
       `Disconnecting HyperscapeService from world ${this._currentWorldId}`,
     );
     await this.handleDisconnect();
-    console.info("HyperscapeService disconnect complete.");
 
     // Assume emitEvent is a function
     (
@@ -669,15 +664,7 @@ Hyperscape world integration service that enables agents to:
       worldId: this._currentWorldId,
     });
 
-    if (this.world) {
-      // Cast to world with disconnect method
-      const worldWithDisconnect = this.world as World & {
-        disconnect: () => void;
-      };
-      worldWithDisconnect.disconnect();
-      this.world = null;
-    }
-
+    this.world = null;
     this.isServiceConnected = false;
     this._currentWorldId = null;
     console.info("HyperscapeService disconnect complete.");
@@ -1436,6 +1423,15 @@ Hyperscape world integration service that enables agents to:
 
         console.log("[MinimalWorld] Initialized successfully");
         return Promise.resolve();
+      },
+
+      // Disconnect network
+      disconnect: async () => {
+        console.log("[MinimalWorld] Disconnecting...");
+        if (minimalWorld.network && 'disconnect' in minimalWorld.network) {
+          const networkWithDisconnect = minimalWorld.network as NetworkSystem & { disconnect: () => Promise<void> };
+          await networkWithDisconnect.disconnect();
+        }
       },
 
       // Cleanup

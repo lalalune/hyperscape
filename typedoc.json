@@ -1,11 +1,11 @@
 {
   "$schema": "https://typedoc.org/schema.json",
   "name": "Hyperscape API Documentation",
-  "entryPointStrategy": "expand",
+  "entryPointStrategy": "packages",
   "entryPoints": [
-    "packages/shared/src/index.ts",
-    "packages/client/src/index.tsx",
-    "packages/server/src/index.ts"
+    "packages/shared",
+    "packages/client",
+    "packages/server"
   ],
   "out": "packages/docs-site/docs/api",
   "plugin": ["typedoc-plugin-markdown"],
@@ -23,41 +23,31 @@
     "**/node_modules/**",
     "**/dist/**",
     "**/build/**",
+    "**/docs-site/**",
+    "**/docs/**",
     "**/*.test.ts",
     "**/*.spec.ts",
     "**/test-*.ts",
     "**/test-*.tsx",
+    "**/test-*.mjs",
     "**/scripts/**",
     "**/cypress/**",
     "**/__tests__/**",
     "**/*.test.tsx",
     "**/*.spec.tsx",
     "**/temp/**",
-    "**/tmp/**"
+    "**/tmp/**",
+    "**/libs/**",
+    "**/vendor/**"
   ],
   "excludeExternals": true,
-  "excludeReferences": true,
+  "excludeReferences": false,
   "excludeNotDocumented": false,
   "includeVersion": true,
   "sort": ["source-order"],
-  "disableSources": false,
+  "disableSources": true,
   "commentStyle": "jsdoc",
-  "categorizeByGroup": true,
-  "externalSymbolLinkMappings": {
-    "three": {
-      "*": "https://threejs.org/docs/#api/en/{path}"
-    }
-  },
-  "categoryOrder": [
-    "Core",
-    "Systems",
-    "Entities",
-    "Nodes",
-    "Components",
-    "Types",
-    "Utilities",
-    "*"
-  ],
+  "categorizeByGroup": false,
   "validation": {
     "notExported": false,
     "invalidLink": false,

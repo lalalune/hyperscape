@@ -73,6 +73,7 @@ import { registerSystems } from './systems/SystemLoader'
 
 // Test utilities exposed to browser console
 import { CircularSpawnArea } from './utils/CircularSpawnArea'
+import { modelCache } from './utils/ModelCache'
 
 import type { StageSystem } from './types/system-interfaces'
 import { LODs } from './systems/LODs'
@@ -101,6 +102,13 @@ interface WindowWithWorld extends Window {
  */
 export function createClientWorld() {
   const world = new World()
+  
+  // ============================================================================
+  // CLEAR MODEL CACHE
+  // ============================================================================
+  // Clear model cache on world creation to prevent stale Hyperscape Nodes
+  // from being returned instead of pure THREE.Object3D
+  modelCache.resetAndVerify();
   
   // ============================================================================
   // BROWSER TEST UTILITIES
@@ -186,9 +194,8 @@ export function createClientWorld() {
   // RPG GAME SYSTEMS (ASYNC)
   // ============================================================================
   // RPG systems are loaded asynchronously to avoid blocking world creation.
-  // The promise is stored on the world so initialization can await it if needed.
   
-  const systemsLoadedPromise = (async () => {
+  (async () => {
     console.log('[Client World] Registering RPG game systems...');
     await registerSystems(world);
     console.log('[Client World] RPG game systems registered successfully');
@@ -209,9 +216,6 @@ export function createClientWorld() {
       windowWithWorld.THREE = stageSystem.THREE;
     }
   })();
-  
-  // Store promise on world instance for await-ability
-  (world as World & { systemsLoadedPromise: Promise<void> }).systemsLoadedPromise = systemsLoadedPromise;
   
   return world;
 }

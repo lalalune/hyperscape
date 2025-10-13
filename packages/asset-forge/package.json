@@ -1,5 +1,5 @@
 {
-  "name": "3d-asset-forge",
+  "name": "asset-forge",
   "version": "1.0.0",
   "description": "AI-powered 3D asset generation system",
   "main": "dist/index.js",

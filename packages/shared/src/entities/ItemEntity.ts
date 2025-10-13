@@ -60,6 +60,7 @@ import { EquipmentSlotName, WeaponType } from '../types/core';
 import type { EntityInteractionData, ItemEntityConfig } from '../types/entities';
 import { InteractableEntity, type InteractableConfig } from './InteractableEntity';
 import { EventType } from '../types/events';
+import { modelCache } from '../utils/ModelCache';
 
 // Re-export types for external use
 export type { ItemEntityConfig } from '../types/entities';
@@ -107,21 +108,16 @@ export class ItemEntity extends InteractableEntity {
     if (this.config.model && this.world.loader) {
       try {
         console.log(`[ItemEntity] Loading model for ${this.config.itemId}:`, this.config.model);
-        const model = await this.world.loader.load('model', this.config.model);
-        if (model && 'toNodes' in model) {
-          const nodes = model.toNodes() as unknown as Map<string, THREE.Object3D>;
-          const rootNode = nodes.get('root') || Array.from(nodes.values())[0];
-          if (rootNode) {
-            this.mesh = rootNode as THREE.Mesh;
-            this.mesh.name = `Item_${this.config.itemId}`;
-            this.mesh.castShadow = false;
-            this.mesh.receiveShadow = false;
-            this.mesh.scale.set(0.3, 0.3, 0.3); // Scale down items
-            this.node.add(this.mesh);
-            console.log(`[ItemEntity] ✅ Model loaded for ${this.config.itemId}`);
-            return;
-          }
-        }
+        const { scene } = await modelCache.loadModel(this.config.model, this.world);
+        
+        this.mesh = scene;
+        this.mesh.name = `Item_${this.config.itemId}`;
+        this.mesh.castShadow = false;
+        this.mesh.receiveShadow = false;
+        this.mesh.scale.set(0.3, 0.3, 0.3); // Scale down items
+        this.node.add(this.mesh);
+        console.log(`[ItemEntity] ✅ Model loaded for ${this.config.itemId}`);
+        return;
       } catch (error) {
         console.warn(`[ItemEntity] Failed to load model for ${this.config.itemId}, using placeholder:`, error);
         // Fall through to placeholder

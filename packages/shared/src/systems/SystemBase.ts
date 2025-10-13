@@ -107,10 +107,9 @@ export abstract class SystemBase extends System {
     this.config = config;
     this.logger = new SystemLogger(this.systemName);
     
-    // Initialize event bus - systems require it
-    const worldExt = world as World & { $eventBus: EventBus };
-    worldExt.$eventBus = worldExt.$eventBus || new EventBus();
-    this.eventBus = worldExt.$eventBus;
+    // Initialize event bus - world always has $eventBus
+    world.$eventBus = world.$eventBus || new EventBus();
+    this.eventBus = world.$eventBus;
   }
 
   /**
