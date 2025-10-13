@@ -364,6 +364,18 @@ export interface ItemSpawnData {
   value?: number;
 }
 
+export interface ItemSpawnerStats {
+  totalItems: number
+  shopItems: number
+  treasureItems: number
+  chestItems: number
+  resourceItems: number
+  lootItems: number
+  byType: Record<string, number>
+  byLocation?: Record<string, number>
+  spawnedItems?: number
+}
+
 export interface MobSpawnData {
   mobType: string;
   position: Position3D;

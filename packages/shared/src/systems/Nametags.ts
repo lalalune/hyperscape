@@ -4,7 +4,7 @@ import CustomShaderMaterial from '../libs/three-custom-shader-material'
 import { SystemBase } from './SystemBase'
 import type { World } from '../types'
 import { EventType } from '../types/events'
-import type { NametagHandle as Nametag } from '../types/ui-types'
+import type { NametagHandle as Nametag } from '../types/ui'
 
 const _v3_1 = new THREE.Vector3()
 

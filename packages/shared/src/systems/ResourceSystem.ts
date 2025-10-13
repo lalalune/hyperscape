@@ -82,11 +82,33 @@ export class ResourceSystem extends SystemBase {
       autoCleanup: true
     });
   }
+  
+  /**
+   * Helper to send network messages (DRY principle)
+   */
+  private sendNetworkMessage(method: string, data: unknown): void {
+    const network = this.world.network as { send?: (method: string, data: unknown) => void } | undefined;
+    if (network?.send) {
+      network.send(method, data);
+    }
+  }
 
   async init(): Promise<void> {
-    
     // Set up type-safe event subscriptions for resource management
-    this.subscribe<{ spawnPoints: TerrainResourceSpawnPoint[] }>(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, (data) => this.registerTerrainResources(data));
+    this.subscribe<{ spawnPoints: TerrainResourceSpawnPoint[] }>(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, async (data) => {
+      await this.registerTerrainResources(data);
+    });
+    
+    // Subscribe to direct harvest requests from ResourceEntity interactions
+    this.subscribe(EventType.RESOURCE_HARVEST_REQUEST, (data) => {
+      // Forward to RESOURCE_GATHER handler with correct format
+      this.world.emit(EventType.RESOURCE_GATHER, {
+        playerId: data.playerId,
+        resourceId: data.entityId, // entityId is the resource entity ID
+        playerPosition: undefined // Will be looked up from player entity
+      });
+    });
+    
     this.subscribe<{ playerId: string; resourceId: string; playerPosition?: { x: number; y: number; z: number } }>(EventType.RESOURCE_GATHER, (data) => {
       const playerPosition = data.playerPosition || (() => {
         const player = this.world.getPlayer?.(data.playerId);
@@ -125,42 +147,177 @@ export class ResourceSystem extends SystemBase {
     chat.add(msg, true);
   }
 
-  start(): void {
+  async start(): Promise<void> {
     console.log(`[ResourceSystem] ⚡ start() called on ${this.world.isServer ? 'SERVER' : 'CLIENT'}`);
+    
+    // TEST: Spawn a test tree directly to verify entity spawning works
+    if (this.world.isServer) {
+      console.log('[ResourceSystem] 🧪 Spawning test tree to verify entity spawning...');
+      await this.spawnTestTree();
+    }
+    
+    // Resources will be spawned procedurally by TerrainSystem across all terrain tiles
+    // No need for manual default spawning - TerrainSystem generates resources based on biome
     
     // Only run gathering update loop on server (server-authoritative)
     if (this.world.isServer) {
       console.log('[ResourceSystem] Starting gathering update interval (server-only)');
       const interval = this.createInterval(() => this.updateGathering(), 500); // Check every 500ms
       console.log('[ResourceSystem] Update interval created:', interval ? 'Success' : 'Failed');
-      console.log('[ResourceSystem] Server will create resources on-demand when players gather from them');
+      console.log('[ResourceSystem] Resources will be spawned by TerrainSystem as tiles load');
     } else {
       console.log('[ResourceSystem] Client mode - update loop disabled (server handles gathering)');
     }
   }
-
+  
+  /**
+   * Spawn a single test tree to verify entity spawning pipeline works
+   */
+  private async spawnTestTree(): Promise<void> {
+    // Wait for EntityManager
+    let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+    let attempts = 0;
+    
+    while ((!entityManager || !entityManager.spawnEntity) && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+      attempts++;
+    }
+    
+    if (!entityManager?.spawnEntity) {
+      console.error('[ResourceSystem] EntityManager not available!');
+      return;
+    }
+    
+    const testTreeConfig = {
+      id: 'test_tree_origin',
+      type: 'resource' as const,
+      name: 'Test Tree',
+      position: { x: 5, y: 43, z: 5 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      scale: { x: 1, y: 1, z: 1 },
+      visible: true,
+      interactable: true,
+      interactionType: 'harvest',
+      interactionDistance: 3,
+      description: 'A test tree at origin',
+      model: 'asset://models/tree/tree.glb',
+      properties: {},
+      resourceType: 'tree',
+      resourceId: 'normal_tree',
+      harvestSkill: 'woodcutting',
+      requiredLevel: 1,
+      harvestTime: 3000,
+      harvestYield: [{ itemId: 'logs', quantity: 1, chance: 1.0 }],
+      respawnTime: 60000,
+      depleted: false
+    };
+    
+    const spawned = await entityManager.spawnEntity(testTreeConfig);
+    console.log(`[ResourceSystem] ✅ Test tree spawned at (5, 5):`, spawned ? 'success' : 'failed');
+  }
   /**
    * Handle terrain system resource registration (new procedural system)
    */
-  private registerTerrainResources(data: { spawnPoints: TerrainResourceSpawnPoint[] }): void {
+  private async registerTerrainResources(data: { spawnPoints: TerrainResourceSpawnPoint[] }): Promise<void> {
     const { spawnPoints } = data;
     
-    console.log(`[ResourceSystem] 📍 Registering ${spawnPoints.length} terrain resources on ${this.world.isServer ? 'SERVER' : 'CLIENT'}`);
+    if (spawnPoints.length === 0) return;
+    
+    // Only spawn actual entities on the server (authoritative)
+    if (!this.world.isServer) {
+      return;
+    }
+    
+    // Get EntityManager for spawning
+    const entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+    if (!entityManager?.spawnEntity) {
+      console.error('[ResourceSystem] EntityManager not available, cannot spawn resources!');
+      return;
+    }
+    
+    let spawned = 0;
+    let failed = 0;
     
     for (const spawnPoint of spawnPoints) {
       const resource = this.createResourceFromSpawnPoint(spawnPoint);
-      if (resource) {
-        this.resources.set(createResourceID(resource.id), resource);
-        console.log(`[ResourceSystem] ✅ Registered resource: ${resource.id} (${resource.type}) at (${resource.position.x.toFixed(0)}, ${resource.position.z.toFixed(0)})`);
-        // Emit spawn event so visual test or interaction layers can render cubes
-        this.emitTypedEvent(EventType.RESOURCE_SPAWNED, resource);
-        // Network broadcast via dedicated packet handled by ServerNetwork listener
+      if (!resource) {
+        failed++;
+        continue;
+      }
+      
+      // Store in map for tracking
+      this.resources.set(createResourceID(resource.id), resource);
+      
+      // Spawn actual ResourceEntity instance
+      const resourceConfig = {
+        id: resource.id,
+        type: 'resource' as const,
+        name: resource.name,
+        position: { x: resource.position.x, y: resource.position.y, z: resource.position.z },
+        rotation: { x: 0, y: Math.random() * Math.PI * 2, z: 0, w: 1 }, // Random rotation for variety
+        scale: { x: 1, y: 1, z: 1 }, // Node scale (ResourceEntity handles mesh scale internally)
+        visible: true,
+        interactable: true,
+        interactionType: 'harvest',
+        interactionDistance: 3,
+        description: `${resource.name} - Requires level ${resource.levelRequired} ${resource.skillRequired}`,
+        model: this.getModelPathForResource(resource.type, spawnPoint.subType),
+        properties: {},
+        // ResourceEntity specific
+        resourceType: resource.type,
+        resourceId: spawnPoint.subType || `${resource.type}_normal`,
+        harvestSkill: resource.skillRequired,
+        requiredLevel: resource.levelRequired,
+        harvestTime: 3000,
+        harvestYield: resource.drops.map(drop => ({
+          itemId: drop.itemId,
+          quantity: drop.quantity,
+          chance: drop.chance
+        })),
+        respawnTime: resource.respawnTime,
+        depleted: false
+      };
+      
+      try {
+        const spawnedEntity = await entityManager.spawnEntity(resourceConfig) as { id?: string } | null;
+        if (spawnedEntity) {
+          spawned++;
+        } else {
+          failed++;
+        }
+      } catch (err) {
+        failed++;
+        console.error(`[ResourceSystem] Failed to spawn resource entity ${resource.id}:`, err);
       }
     }
     
-    console.log(`[ResourceSystem] 📊 Total resources registered: ${this.resources.size}`);
+    if (spawned > 0) {
+      console.log(`[ResourceSystem] Spawned ${spawned} resources (${failed} failed)`);
+    }
   }
   
+  /**
+   * Get model path for resource type
+   */
+  private getModelPathForResource(type: string, subType?: string): string {
+    switch (type) {
+      case 'tree':
+        return 'asset://models/tree/tree.glb';
+      case 'fishing_spot':
+        return ''; // Fishing spots don't need models
+      case 'ore':
+      case 'rock':
+      case 'gem':
+      case 'rare_ore':
+        return ''; // Use placeholder for rocks (no model yet)
+      case 'herb_patch':
+        return ''; // Use placeholder for herbs (no model yet)
+      default:
+        return '';
+    }
+  }
+
   /**
    * Create resource from terrain spawn point
    */
@@ -244,7 +401,6 @@ export class ResourceSystem extends SystemBase {
     const [tileX, tileZ] = data.tileId.split(',').map(Number);
     
     // Remove resources that belong to this tile
-    let _removedCount = 0;
     for (const [resourceId, resource] of this.resources) {
       // Check if resource belongs to this tile (based on position)
       const resourceTileX = Math.floor(resource.position.x / 100); // 100m tile size
@@ -262,17 +418,10 @@ export class ResourceSystem extends SystemBase {
           }
         }
         
-        // Clean up respawn timer
-        if (this.respawnTimers.has(resourceId)) {
-          clearTimeout(this.respawnTimers.get(resourceId)!);
-          this.respawnTimers.delete(resourceId);
-        }
-        
-        _removedCount++;
+        // Clean up respawn timer (now managed by SystemBase auto-cleanup)
+        this.respawnTimers.delete(resourceId);
       }
     }
-    
-    // Resources removed from unloaded tile
   }
 
   private startGathering(data: { playerId: string; resourceId: string; playerPosition: { x: number; y: number; z: number } }): void {
@@ -392,14 +541,11 @@ export class ResourceSystem extends SystemBase {
     });
     
     // Broadcast toast to client via network
-    const network = this.world.network as { send?: (method: string, data: unknown, exclude?: string) => void } | undefined;
-    if (network && network.send) {
-      network.send('showToast', {
-        playerId: data.playerId,
-        message: `You start ${actionName} the ${resourceName.toLowerCase()}...`,
-        type: 'info'
-      });
-    }
+    this.sendNetworkMessage('showToast', {
+      playerId: data.playerId,
+      message: `You start ${actionName} the ${resourceName.toLowerCase()}...`,
+      type: 'info'
+    });
   }
 
   private stopGathering(data: { playerId: string }): void {
@@ -545,14 +691,11 @@ export class ResourceSystem extends SystemBase {
             });
             
             // Broadcast success message to client via network
-            const network = this.world.network as { send?: (method: string, data: unknown, exclude?: string) => void } | undefined;
-            if (network && network.send) {
-              network.send('showToast', {
-                playerId: playerId,
-                message: `You successfully ${actionName}! +${drop.quantity} ${drop.itemName}`,
-                type: 'success'
-              });
-            }
+            this.sendNetworkMessage('showToast', {
+              playerId: playerId,
+              message: `You successfully ${actionName}! +${drop.quantity} ${drop.itemName}`,
+              type: 'success'
+            });
 
           }
         }
@@ -572,16 +715,13 @@ export class ResourceSystem extends SystemBase {
       this.sendChat((playerId as unknown as string), 'The tree is chopped down.');
       
       // Broadcast depletion to all clients for visual updates
-      const network = this.world.network as { send?: (method: string, data: unknown) => void } | undefined;
-      if (network && network.send) {
-        network.send('resourceDepleted', {
-          resourceId: session.resourceId,
-          position: resource.position
-        });
-      }
+      this.sendNetworkMessage('resourceDepleted', {
+        resourceId: session.resourceId,
+        position: resource.position
+      });
 
-      // Set respawn timer
-      const respawnTimer = setTimeout(() => {
+      // Set respawn timer using tracked timer to prevent memory leaks
+      const respawnTimer = this.createTimer(() => {
         resource.isAvailable = true;
         resource.lastDepleted = 0;
         
@@ -594,16 +734,18 @@ export class ResourceSystem extends SystemBase {
         });
         
         // Broadcast to all clients
-        const network = this.world.network as { send?: (method: string, data: unknown) => void } | undefined;
-        if (network && network.send) {
-          network.send('resourceRespawned', {
-            resourceId: session.resourceId,
-            position: resource.position
-          });
-        }
+        this.sendNetworkMessage('resourceRespawned', {
+          resourceId: session.resourceId,
+          position: resource.position
+        });
+        
+        // Remove from timers map
+        this.respawnTimers.delete(session.resourceId);
       }, resource.respawnTime);
 
-      this.respawnTimers.set(session.resourceId, respawnTimer);
+      if (respawnTimer) {
+        this.respawnTimers.set(session.resourceId, respawnTimer);
+      }
 
     } else {
       // Failed attempt
@@ -615,14 +757,11 @@ export class ResourceSystem extends SystemBase {
       this.sendChat((playerId as unknown as string), `You fail to ${actionName}.`);
       
       // Broadcast failure message to client
-      const network = this.world.network as { send?: (method: string, data: unknown, exclude?: string) => void } | undefined;
-      if (network && network.send) {
-        network.send('showToast', {
-          playerId: playerId,
-          message: `You fail to ${actionName}.`,
-          type: 'info'
-        });
-      }
+      this.sendNetworkMessage('showToast', {
+        playerId: playerId,
+        message: `You fail to ${actionName}.`,
+        type: 'info'
+      });
 
     }
 
@@ -635,25 +774,14 @@ export class ResourceSystem extends SystemBase {
     });
     
     // Broadcast completion to all clients for UI updates
-    const network2 = this.world.network as { send?: (method: string, data: unknown, exclude?: string) => void } | undefined;
-    if (network2 && network2.send) {
-      network2.send('gatheringComplete', {
-        playerId: playerId,
-        resourceId: session.resourceId,
-        successful: isSuccessful
-      });
-    }
-
-    // Ensure immediate persistence after successful gather (durability before refresh)
-    if (isSuccessful) {
-      const db = this.world.getSystem('database') as unknown as { savePlayerInventory: (pid: string, items: Array<{ itemId: string; quantity: number; slotIndex: number; metadata: null }>) => void; savePlayer: (pid: string, data: { coins: number }) => void };
-      const invSys = this.world.getSystem('inventory') as unknown as { getInventoryData: (pid: string) => { items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number } };
-      const pid = (playerId as unknown as string);
-      const data = invSys.getInventoryData(pid);
-      const rows = data.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
-      db.savePlayerInventory(pid, rows);
-      db.savePlayer(pid, { coins: data.coins });
-    }
+    this.sendNetworkMessage('gatheringComplete', {
+      playerId: playerId,
+      resourceId: session.resourceId,
+      successful: isSuccessful
+    });
+    
+    // NOTE: Persistence is handled by InventorySystem's auto-save mechanism
+    // ResourceSystem should not directly manipulate database or inventory internals
   }
 
   /**
@@ -684,16 +812,13 @@ export class ResourceSystem extends SystemBase {
     // Clear all active gathering sessions
     this.activeGathering.clear();
     
-    // Clear all respawn timers to prevent memory leaks
-    for (const timer of this.respawnTimers.values()) {
-      clearTimeout(timer);
-    }
+    // Clear respawn timers map (timers are auto-cleaned by SystemBase)
     this.respawnTimers.clear();
     
     // Clear all resource data
     this.resources.clear();
     
-    // Call parent cleanup
+    // Call parent cleanup (automatically clears all tracked timers, intervals, and listeners)
     super.destroy();
   }
 }

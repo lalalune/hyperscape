@@ -6,6 +6,7 @@ import { buttons, cls, EventType, isTouch, propToLabel, World } from '@hyperscap
 import { ActionProgressBar } from './ActionProgressBar'
 import { AvatarPane } from './AvatarPane'
 import { Chat } from './Chat'
+import { EntityContextMenu } from './EntityContextMenu'
 import { HandIcon } from './Icons'
 import { LoadingScreen } from './LoadingScreen'
 import { MouseLeftIcon } from './MouseLeftIcon'
@@ -108,6 +109,7 @@ export function CoreUI({ world }: { world: World }) {
       {characterFlowActive && !ready && <LoadingScreen world={world} message="Entering world..." />}
       {kicked && <KickedOverlay code={kicked} />}
       {ready && isTouch && <TouchBtns world={world} />}
+      {ready && <EntityContextMenu world={world} />}
       <div id='core-ui-portal' />
     </div>
   )

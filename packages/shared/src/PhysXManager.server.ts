@@ -11,9 +11,9 @@
  * - Keeps Node.js dependencies isolated from browser code
  * 
  * Loading Strategy:
- * - Searches multiple possible paths for physx-js-webidl.wasm
- * - Reads WASM binary into Buffer for direct loading
- * - Provides buffer to PhysX via wasmBinary option (bypasses locateFile)
+ * 1. Try loading from local assets/web/ directory (workspace root)
+ * 2. Fall back to fetching from CDN and caching to temp directory
+ * 3. Provides buffer to PhysX via wasmBinary option (bypasses locateFile)
  * 
  * Referenced by: PhysXManager.loadPhysXInternal() in Node.js environments only
  */
@@ -21,58 +21,75 @@
 /**
  * Load PhysX WASM Binary for Node.js
  * 
- * Searches multiple possible locations for the WASM file and loads it into a Buffer.
+ * Attempts to load WASM from local assets first, then falls back to CDN fetch with caching.
  * The WASM binary is then provided directly to PhysX initialization.
  * 
- * Search Paths (in order):
- * 1. Relative to current module in node_modules
- * 2. Workspace root node_modules
- * 3. Process working directory
- * 4. Build directories
+ * Loading Strategy:
+ * 1. Check assets/web/ directory relative to workspace root
+ * 2. If not found, fetch from CDN (PUBLIC_CDN_URL environment variable)
+ * 3. Cache CDN downloads to temp directory for future use
  * 
  * @returns Buffer containing physx-js-webidl.wasm binary
- * @throws Error if WASM file not found in any expected location
+ * @throws Error if WASM file cannot be loaded from any source
  */
 export async function loadPhysXWasmForNode(): Promise<Buffer> {
-  const { readFileSync, existsSync } = await import('node:fs');
+  const { readFileSync, writeFileSync, existsSync, mkdirSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const { dirname, join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
       
-  // Try multiple locations for the WASM file
-  const possiblePaths = [
-    // First try relative to the current module
-    join(dirname(fileURLToPath(import.meta.url)), '../../node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm'),
-    join(dirname(fileURLToPath(import.meta.url)), '../../../node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm'),
+  // Try local assets/web/ directory first (for development and direct workspace access)
+  const localPaths = [
+    // Workspace root assets
+    join(process.cwd(), 'assets/web/physx-js-webidl.wasm'),
+    join(process.cwd(), '../../assets/web/physx-js-webidl.wasm'),
+    join(process.cwd(), '../../../assets/web/physx-js-webidl.wasm'),
+  ];
 
-    // Try workspace root
-    join(dirname(fileURLToPath(import.meta.url)), '../../../../node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm'),
-    join(dirname(fileURLToPath(import.meta.url)), '../../../../../node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm'),
-
-    // Try relative to process.cwd()
-    join(process.cwd(), 'node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm'),
-    // Try the build directory (where WASM might be copied)
-    join(dirname(fileURLToPath(import.meta.url)), '../public/physx-js-webidl.wasm'),
-    // Try build/public directory
-    join(process.cwd(), 'packages/hyperscape/build/public/physx-js-webidl.wasm'),
-    // Try server public directory  
-    join(process.cwd(), 'packages/hyperscape/src/server/public/physx-js-webidl.wasm')
-  ]
-
-  let wasmPath: string | null = null;
-  for (const path of possiblePaths) {
+  for (const path of localPaths) {
     if (existsSync(path)) {
-      wasmPath = path;
-      break;
+      console.log('[PhysXManager] Loading WASM from local assets:', path);
+      const wasmBuffer = readFileSync(path);
+      console.log('[PhysXManager] WASM buffer loaded, size:', wasmBuffer.length);
+      return wasmBuffer;
     }
   }
+
+  // Fall back to CDN fetch with caching
+  console.log('[PhysXManager] WASM not found in local assets, fetching from CDN...');
   
-  if (!wasmPath) {
-    throw new Error(`[PhysXManager] WASM file not found in any of the expected locations:\n${possiblePaths.join('\n')}`);
+  // Check cache first
+  const cacheDir = join(tmpdir(), 'hyperscape-cache');
+  const cachePath = join(cacheDir, 'physx-js-webidl.wasm');
+  
+  if (existsSync(cachePath)) {
+    console.log('[PhysXManager] Loading WASM from cache:', cachePath);
+    const wasmBuffer = readFileSync(cachePath);
+    console.log('[PhysXManager] WASM buffer loaded from cache, size:', wasmBuffer.length);
+    return wasmBuffer;
+  }
+
+  // Fetch from CDN
+  const cdnUrl = process.env['PUBLIC_CDN_URL'] || 'http://localhost:8080';
+  const wasmUrl = `${cdnUrl}/web/physx-js-webidl.wasm`;
+  
+  console.log('[PhysXManager] Fetching WASM from CDN:', wasmUrl);
+  
+  const response = await fetch(wasmUrl);
+  
+  if (!response.ok) {
+    throw new Error(`[PhysXManager] Failed to fetch WASM from CDN: ${response.status} ${response.statusText}`);
   }
   
-  console.log('[PhysXManager] Reading WASM file from:', wasmPath);
-  const wasmBuffer = readFileSync(wasmPath);
-  console.log('[PhysXManager] WASM buffer loaded, size:', wasmBuffer.length);
+  const arrayBuffer = await response.arrayBuffer();
+  const wasmBuffer = Buffer.from(arrayBuffer);
+  
+  console.log('[PhysXManager] WASM fetched from CDN, size:', wasmBuffer.length);
+  
+  // Cache for future use
+  mkdirSync(cacheDir, { recursive: true });
+  writeFileSync(cachePath, wasmBuffer);
+  console.log('[PhysXManager] WASM cached to:', cachePath);
   
   return wasmBuffer;
 }

@@ -881,7 +881,7 @@ export class ClientInput extends SystemBase {
     }
     
     if (data.corrections) {
-      this.world.emit('serverCorrection', {
+      this.world.emit(EventType.SERVER_CORRECTION, {
         sequence: data.sequence,
         corrections: data.corrections
       })

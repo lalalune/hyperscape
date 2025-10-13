@@ -252,9 +252,13 @@ export class EntityManager extends SystemBase {
     // Register with world entities system so other systems can find it
     this.world.entities.set(config.id, entity);
         
-    // Mark for network sync
+    // Broadcast entityAdded to all clients (server-only)
     if (this.world.isServer) {
-      this.networkDirtyEntities.add(config.id);
+      const network = this.world.network as { send?: (method: string, data: unknown, excludeId?: string) => void };
+      if (network?.send) {
+        console.log(`[EntityManager] 📡 Broadcasting entityAdded for ${config.type}: ${config.id}`);
+        network.send('entityAdded', entity.serialize());
+      }
     }
     
     // Emit spawn event using world.emit to avoid type mismatch
@@ -426,24 +430,16 @@ export class EntityManager extends SystemBase {
     await this.spawnEntity(config);
   }
 
-  private handleItemPickup(data: { entityId: string; playerId: string }): void {
-    const entity = this.entities.get(data.entityId);
-    if (!entity) {
-            return;
-    }
-    
-    // Get properties before destroying
-    const itemId = entity.getProperty('itemId');
-    const quantity = entity.getProperty('quantity');
-    
-    this.destroyEntity(data.entityId);
-    
-    this.emitTypedEvent(EventType.ITEM_PICKUP, {
-      playerId: data.playerId,
-      item: itemId,
-      quantity: quantity
-    });
-  }
+  // REMOVED: Dead code - no subscriptions to this method
+  // Item pickup is now handled by InventorySystem listening to ItemEntity's ITEM_PICKUP event
+  // private handleItemPickup(data: { entityId: string; playerId: string }): void {
+  //   const entity = this.entities.get(data.entityId);
+  //   if (!entity) return;
+  //   const itemId = entity.getProperty('itemId');
+  //   const quantity = entity.getProperty('quantity');
+  //   this.destroyEntity(data.entityId);
+  //   this.emitTypedEvent(EventType.ITEM_PICKUP, { playerId: data.playerId, item: itemId, quantity: quantity });
+  // }
 
   private async handleMobSpawn(data: MobSpawnData): Promise<void> {
         

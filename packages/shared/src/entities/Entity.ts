@@ -789,7 +789,7 @@ export class Entity implements IEntity {
     this.updateHealthBar()
 
     // Emit health change event
-    this.world.emit('entity:health_changed', {
+    this.world.emit(EventType.ENTITY_HEALTH_CHANGED, {
       entityId: this.id,
       health: this.health,
       maxHealth: this.maxHealth,
@@ -807,7 +807,7 @@ export class Entity implements IEntity {
     this.setHealth(newHealth)
 
     // Emit damage event
-    this.world.emit('entity:damaged', {
+    this.world.emit(EventType.ENTITY_DAMAGED, {
       entityId: this.id,
       damage: amount,
       sourceId: source,
@@ -828,7 +828,7 @@ export class Entity implements IEntity {
     this.setHealth(newHealth)
 
     // Emit heal event
-    this.world.emit('entity:healed', {
+    this.world.emit(EventType.ENTITY_HEALED, {
       entityId: this.id,
       healAmount: amount,
       newHealth: this.health,
@@ -879,7 +879,7 @@ export class Entity implements IEntity {
     this.level = Math.max(1, newLevel)
 
     // Emit level change event
-    this.world.emit('entity:level_changed', {
+    this.world.emit(EventType.ENTITY_LEVEL_CHANGED, {
       entityId: this.id,
       newLevel: this.level,
     })
@@ -1215,7 +1215,7 @@ export class Entity implements IEntity {
     console.log(`Entity ${this.id} interacted with by player ${data.playerId}`)
 
     // Emit interaction event
-    this.world.emit('entity:interacted', {
+    this.world.emit(EventType.ENTITY_INTERACTED, {
       entityId: this.id,
       playerId: data.playerId,
       position: data.playerPosition,

@@ -211,7 +211,7 @@ export class HeadstoneEntity extends InteractableEntity {
     
     // If no items left, mark for despawn
     if (this.lootItems.length === 0) {
-      this.world.emit('corpse:empty', {
+      this.world.emit(EventType.CORPSE_EMPTY, {
         corpseId: this.id
       });
       

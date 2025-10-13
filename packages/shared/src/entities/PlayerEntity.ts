@@ -500,9 +500,18 @@ export class PlayerEntity extends CombatantEntity {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.position.y = 0.8; // Position at feet level
-    mesh.userData.entity = this;
-    mesh.userData.entityType = EntityType.PLAYER;
-    mesh.userData.playerId = this.playerId;
+    
+    // Set userData for interaction detection
+    mesh.userData = {
+      type: 'player',
+      entityId: this.id,
+      name: this.playerName,
+      interactable: false, // Players aren't interactable via context menu
+      entity: this,
+      entityType: EntityType.PLAYER,
+      playerId: this.playerId
+    };
+    
     this.mesh = mesh;
 
     // Add mesh to the entity's node

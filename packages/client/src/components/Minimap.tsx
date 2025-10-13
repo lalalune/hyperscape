@@ -338,6 +338,10 @@ export function Minimap({
               color = "#ffff44";
               type = "item";
               break;
+            case "resource":
+              color = "#22cc55"; // Green for resources (trees, rocks, etc)
+              type = "resource";
+              break;
             default:
               // Treat unknown as items for now
               color = "#cccccc";
@@ -420,6 +424,11 @@ export function Minimap({
                   break;
                 case "item":
                   radius = 2;
+                  borderColor = "#ffffff";
+                  borderWidth = 1;
+                  break;
+                case "resource":
+                  radius = 3;
                   borderColor = "#ffffff";
                   borderWidth = 1;
                   break;

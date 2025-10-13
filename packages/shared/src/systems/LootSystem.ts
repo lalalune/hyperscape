@@ -67,8 +67,8 @@ export class LootSystem extends SystemBase {
       this.handleMobDeath(payload);
     });
     
-    // Subscribe to item pickup and drop events
-    this.subscribe(EventType.ITEM_PICKUP, (data) => this.handleLootPickup(data as { playerId: string; itemId: string }));
+    // Subscribe to corpse loot requests (separate from ground item pickup)
+    this.subscribe(EventType.CORPSE_LOOT_REQUEST, (data) => this.handleLootPickup(data as { playerId: string; itemId: string; corpseId?: string }));
     this.subscribe(EventType.ITEM_DROPPED, (data) => this.dropItem(data as { playerId: string; itemId: string; quantity: number; position: { x: number; y: number; z: number } }));
     
     // Start managed cleanup timer
@@ -329,9 +329,9 @@ export class LootSystem extends SystemBase {
   }
 
   /**
-   * Handle loot pickup
+   * Handle corpse loot pickup (from headstones/corpses)
    */
-  private async handleLootPickup(data: { playerId: string; itemId: string }): Promise<void> {
+  private async handleLootPickup(data: { playerId: string; itemId: string; corpseId?: string }): Promise<void> {
     const droppedItem = this.droppedItems.get(data.itemId);
     if (!droppedItem) {
       return;
@@ -350,12 +350,11 @@ export class LootSystem extends SystemBase {
       // Remove from world
       this.removeDroppedItem(data.itemId);
       
-      // Emit pickup event
-      this.emitTypedEvent(EventType.ITEM_PICKUP, {
+      // Emit notification event (not ITEM_PICKUP to avoid confusion with ground items)
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId: data.playerId,
-        itemId: droppedItem.itemId,
-        quantity: droppedItem.quantity,
-        position: droppedItem.position
+        message: `You looted ${droppedItem.quantity}x ${droppedItem.itemId}`,
+        type: 'success'
       });
     } else {
       // Inventory full - show message

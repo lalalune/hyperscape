@@ -697,7 +697,7 @@ export class TerrainSystem extends System {
 
               // Emit resource created event for InteractionSystem registration
               // For instanced resources, we pass the instanceId instead of a mesh
-              this.world.emit('resource:mesh:created', {
+              this.world.emit(EventType.RESOURCE_MESH_CREATED, {
                 mesh: undefined,
                 instanceId: instanceId,
                 resourceId: resource.id,
@@ -733,29 +733,27 @@ export class TerrainSystem extends System {
 
     // Also emit resource spawn points for ResourceSystem (server-only authoritative)
     if (tile.resources.length > 0 && this.world.network?.isServer) {
-      this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, {
-        spawnPoints: tile.resources.map(r => {
-          const worldPos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
-          return {
-            id: r.id,
-            type: r.type,
-            subType: r.type === 'tree' ? 'normal_tree' : r.type,
-            position: worldPos,
-          }
-        }),
-      })
+      const spawnPoints = tile.resources.map(r => {
+        const worldPos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
+        return {
+          id: r.id,
+          type: r.type,
+          subType: r.type === 'tree' ? 'normal_tree' : r.type,
+          position: worldPos,
+        }
+      });
+      this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, { spawnPoints });
     } else if (tile.resources.length > 0 && this.world.network?.isClient && !this.world.network?.isServer) {
-      this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, {
-        spawnPoints: tile.resources.map(r => {
-          const worldPos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
-          return {
-            id: r.id,
-            type: r.type,
-            subType: r.type === 'tree' ? 'normal_tree' : r.type,
-            position: worldPos,
-          }
-        }),
-      })
+      const spawnPoints = tile.resources.map(r => {
+        const worldPos = { x: originX + r.position.x, y: r.position.y, z: originZ + r.position.z }
+        return {
+          id: r.id,
+          type: r.type,
+          subType: r.type === 'tree' ? 'normal_tree' : r.type,
+          position: worldPos,
+        }
+      });
+      this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, { spawnPoints });
     }
 
     // Store tile
@@ -1164,7 +1162,11 @@ export class TerrainSystem extends System {
 
   private generateTreesForTile(tile: TerrainTile, biomeData: BiomeData): void {
     // Trees generation based on biome type
-    if (!biomeData.resources.includes('tree')) return
+    // Check both 'tree' and 'trees' for compatibility with JSON data
+    const hasTrees = biomeData.resources.includes('tree') || biomeData.resources.includes('trees');
+    if (!hasTrees) {
+      return;
+    }
 
     let treeDensity = this.CONFIG.RESOURCE_DENSITY
 
@@ -1185,8 +1187,8 @@ export class TerrainSystem extends System {
     }
 
     const treeCount = Math.floor((this.CONFIG.TILE_SIZE / 10) ** 2 * treeDensity)
-
     const rng = this.createTileRng(tile.x, tile.z, 'trees')
+    let treesAdded = 0;
 
     for (let i = 0; i < treeCount; i++) {
       const worldX = tile.x * this.CONFIG.TILE_SIZE + (rng() - 0.5) * this.CONFIG.TILE_SIZE
@@ -1226,12 +1228,14 @@ export class TerrainSystem extends System {
       }
 
       tile.resources.push(tree)
+      treesAdded++;
     }
   }
 
   private generateOtherResourcesForTile(tile: TerrainTile, biomeData: BiomeData): void {
     // Generate other resources (ore, herbs, fishing spots, etc.)
-    const otherResources = biomeData.resources.filter(r => r !== 'tree')
+    // Filter out both 'tree' and 'trees' variations
+    const otherResources = biomeData.resources.filter(r => r !== 'tree' && r !== 'trees')
 
     for (const resourceType of otherResources) {
       const rng = this.createTileRng(tile.x, tile.z, `res:${resourceType}`)
@@ -1553,7 +1557,7 @@ export class TerrainSystem extends System {
     this.activeChunks.delete(tile.key)
     // Remove cached bounding box if present
     this.terrainBoundingBoxes.delete(tile.key);
-    this.world.emit('terrain:tile:unloaded', { tileId: `${tile.x},${tile.z}` });
+    this.emitTileUnloaded(`${tile.x},${tile.z}`);
   }
 
   // ===== TERRAIN MOVEMENT CONSTRAINTS (GDD Requirement) =====
@@ -2021,6 +2025,10 @@ export class TerrainSystem extends System {
     this.chunkPlayerCounts.clear()
     this.terrainBoundingBoxes.clear()
     this.pendingSerializationData.clear()
+  }
+  
+  private emitTileUnloaded(tileId: string): void {
+    this.world.emit(EventType.TERRAIN_TILE_UNLOADED, { tileId });
   }
 
   // Methods for chunk persistence (used by tests)

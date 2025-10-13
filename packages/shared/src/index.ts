@@ -450,7 +450,7 @@ export type { SkillsData } from './types/system-interfaces';
 export type { HealthComponent, VisualComponent, EntityCombatComponent, PlayerCombatStyle } from './types/entities';
 export type { GroupType } from './types/nodes';
 export type { InventoryItemInfo } from './types/events';
-export type { MaterialProxy } from './types/material-types';
+export type { MaterialProxy } from './types/materials';
 
 
 // Export database/event types

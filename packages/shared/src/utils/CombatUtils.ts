@@ -102,11 +102,11 @@ export function applyDamage(
   
   // Emit damage event for systems to handle
   if (world.events) {
-    world.emit('entity:damage', {
-      targetId,
+    world.emit(EventType.ENTITY_DAMAGED, {
+      entityId: targetId,
       damage,
-      source,
-      newHealth: stats.health?.current || 0,
+      sourceId: source,
+      remainingHealth: stats.health?.current || 0,
       isDead: stats.health?.current === 0
     });
   }
@@ -132,8 +132,8 @@ export function healEntity(
   const actualHeal = (stats.health?.current || 0) - oldHealth;
   
   if (actualHeal > 0 && world.events) {
-    world.emit('entity:heal', {
-      targetId,
+    world.emit(EventType.ENTITY_HEALED, {
+      entityId: targetId,
       healAmount: actualHeal,
       newHealth: stats.health?.current || 0
     });

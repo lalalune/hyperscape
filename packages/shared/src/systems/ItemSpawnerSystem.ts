@@ -11,7 +11,13 @@ import type { World } from '../types/index';
 import type { Item } from '../types/core';
 import type { EntityManager } from './EntityManager';
 import { groundToTerrain } from '../utils/EntityUtils';
-import type { LootItem, ItemSpawnerStats } from '../types/game-types';
+import type { ItemSpawnerStats } from '../types/entities';
+
+// Define LootItem locally - Item with quantity
+type LootItem = Item & {
+  quantity: number;
+  rarity?: ItemRarity;
+};
 
 /**
  * ItemSpawnerSystem

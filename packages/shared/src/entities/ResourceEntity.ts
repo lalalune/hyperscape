@@ -51,15 +51,18 @@
 
 import THREE from '../extras/three';
 import type { World } from '../World';
+import type { EntityData } from '../types';
 import { InteractableEntity, type InteractableConfig } from './InteractableEntity';
 import type { EntityInteractionData, ResourceEntityConfig } from '../types/entities';
 import { modelCache } from '../utils/ModelCache';
+import { EventType } from '../types/events';
 
 // Re-export types for external use
 export type { ResourceEntityConfig } from '../types/entities';
 
 export class ResourceEntity extends InteractableEntity {
   public config: ResourceEntityConfig;
+  private respawnTimer?: NodeJS.Timeout;
 
   constructor(world: World, config: ResourceEntityConfig) {
     // Convert ResourceEntityConfig to InteractableConfig format
@@ -101,7 +104,7 @@ export class ResourceEntity extends InteractableEntity {
     }
 
     // Send harvest request to resource system
-    this.world.emit('resource:harvest_request', {
+    this.world.emit(EventType.RESOURCE_HARVEST_REQUEST, {
       playerId: data.playerId,
       entityId: this.id,
       resourceType: this.config.resourceType,
@@ -127,9 +130,15 @@ export class ResourceEntity extends InteractableEntity {
       interactionComponent.data.description = `${this.config.resourceType} - Depleted`;
     }
     
-    // Schedule respawn
-    setTimeout(() => {
+    // Clear any existing timer
+    if (this.respawnTimer) {
+      clearTimeout(this.respawnTimer);
+    }
+    
+    // Schedule respawn with tracked timer to prevent memory leaks
+    this.respawnTimer = setTimeout(() => {
       this.respawn();
+      this.respawnTimer = undefined;
     }, this.config.respawnTime);
   }
 
@@ -147,14 +156,38 @@ export class ResourceEntity extends InteractableEntity {
     }
   }
 
-  public getNetworkData(): Record<string, unknown> {
+  // Override serialize() to include all config data for network sync
+  serialize(): EntityData {
+    const baseData = super.serialize();
     return {
-      ...super.getNetworkData(),
+      ...baseData,
+      model: this.config.model,
       resourceType: this.config.resourceType,
       resourceId: this.config.resourceId,
       depleted: this.config.depleted,
       harvestSkill: this.config.harvestSkill,
-      requiredLevel: this.config.requiredLevel
+      requiredLevel: this.config.requiredLevel,
+      harvestTime: this.config.harvestTime,
+      harvestYield: this.config.harvestYield,
+      respawnTime: this.config.respawnTime,
+      interactionDistance: this.config.interactionDistance || 3,
+      description: this.config.description
+    } as EntityData;
+  }
+  
+  public getNetworkData(): Record<string, unknown> {
+    const baseData = super.getNetworkData();
+    return {
+      ...baseData,
+      model: this.config.model,
+      resourceType: this.config.resourceType,
+      resourceId: this.config.resourceId,
+      depleted: this.config.depleted,
+      harvestSkill: this.config.harvestSkill,
+      requiredLevel: this.config.requiredLevel,
+      harvestTime: this.config.harvestTime,
+      harvestYield: this.config.harvestYield,
+      respawnTime: this.config.respawnTime
     };
   }
 
@@ -169,22 +202,33 @@ export class ResourceEntity extends InteractableEntity {
     }
   }
 
-  protected async createMesh(): Promise<void> {    
+  protected async createMesh(): Promise<void> {
     if (this.world.isServer) {
       return;
     }
     
-    // Try to load 3D model if available
+    // Try to load 3D model if available (same approach as ItemEntity)
     if (this.config.model && this.world.loader) {
       try {
         console.log(`[ResourceEntity] Loading model for ${this.config.resourceType}:`, this.config.model);
         const { scene } = await modelCache.loadModel(this.config.model, this.world);
         
         this.mesh = scene;
-        this.mesh.name = `Resource_${this.config.resourceType}_${this.id}`;
+        this.mesh.name = `Resource_${this.config.resourceType}`;
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
-        this.mesh.visible = !this.config.depleted;
+        this.mesh.scale.set(5.0, 5.0, 5.0); // Trees are 5x scale (~3-5m tall)
+        
+        // Set up userData for interaction detection
+        this.mesh.userData = {
+          type: 'resource',
+          entityId: this.id,
+          name: this.config.name,
+          interactable: true,
+          resourceType: this.config.resourceType,
+          depleted: this.config.depleted
+        };
+        
         this.node.add(this.mesh);
         console.log(`[ResourceEntity] ✅ Model loaded for ${this.config.resourceType}`);
         return;
@@ -194,7 +238,9 @@ export class ResourceEntity extends InteractableEntity {
       }
     }
     
-    console.log(`[ResourceEntity] Creating placeholder primitive for ${this.config.resourceType}`)
+    console.log(`[ResourceEntity] Creating placeholder primitive for ${this.config.resourceType}`);
+    
+    // Create visible placeholder based on resource type
     let geometry: THREE.BufferGeometry;
     let material: THREE.Material;
     
@@ -210,22 +256,40 @@ export class ResourceEntity extends InteractableEntity {
     }
     
     this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh!.castShadow = true;
-    this.mesh!.receiveShadow = true;
-    
-    if (!this.mesh) return;
-    
-    // Set visual state based on depletion
+    this.mesh.name = `Resource_${this.config.resourceType}`;
+    this.mesh.castShadow = true;
+    this.mesh.receiveShadow = true;
     this.mesh.visible = !this.config.depleted;
     
-    // Add resource-specific visual properties
+    // Set up userData for interaction detection (placeholder)
+    this.mesh.userData = {
+      type: 'resource',
+      entityId: this.id,
+      name: this.config.name,
+      interactable: true,
+      resourceType: this.config.resourceType,
+      depleted: this.config.depleted
+    };
+    
+    // Scale based on resource type
     if (this.config.resourceType === 'tree') {
       this.mesh.scale.set(2, 3, 2);
     } else if (this.config.resourceType === 'fishing_spot') {
       this.mesh.scale.set(1, 0.1, 1);
       this.mesh.position.y = -0.4;
-    } else if (this.config.resourceType === 'mining_rock') {
-      this.mesh.scale.set(1.5, 1.5, 1.5);
     }
+    
+    this.node.add(this.mesh);
+  }
+  
+  destroy(local?: boolean): void {
+    // Clear respawn timer to prevent memory leaks
+    if (this.respawnTimer) {
+      clearTimeout(this.respawnTimer);
+      this.respawnTimer = undefined;
+    }
+    
+    // Call parent destroy
+    super.destroy(local);
   }
 }

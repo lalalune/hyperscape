@@ -138,8 +138,7 @@ export class ClientLoader extends SystemBase {
         this.logger.error(`Some assets failed to load: ${failed.length}`)
       }
       this.preloader = null
-      // Don't emit ready here - let PlayerLocal do it after it's initialized
-      // this.emitTypedEvent('ready', true)
+      this.world.emit(EventType.READY);
     })
   }
 

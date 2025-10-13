@@ -54,12 +54,99 @@ export class MobSpawnerSystem extends SystemBase {
     
   }
 
-  start(): void {
+  async start(): Promise<void> {
     console.log(`[MobSpawnerSystem] start() called on ${this.world.isServer ? 'SERVER' : 'CLIENT'}`);
+    
+    // Spawn a default test mob near origin BEFORE accepting connections (server-only)
+    if (this.world.isServer) {
+      console.log('[MobSpawnerSystem] Spawning default test mob...');
+      await this.spawnDefaultMob();
+    }
     
     // Mobs are now spawned reactively as terrain tiles generate
     // No need to spawn all mobs at startup - tiles will trigger spawning
     console.log('[MobSpawnerSystem] Waiting for terrain tile generation to spawn mobs...');
+  }
+  
+  /**
+   * Spawn a default test mob for initial world content
+   */
+  private async spawnDefaultMob(): Promise<void> {
+    console.log('[MobSpawnerSystem] ⏳ spawnDefaultMob() called, waiting for EntityManager...');
+    
+    // Wait for EntityManager to be ready
+    let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+    let attempts = 0;
+    
+    while ((!entityManager || !entityManager.spawnEntity) && attempts < 100) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+      attempts++;
+      
+      if (attempts % 10 === 0) {
+        console.log(`[MobSpawnerSystem] Still waiting for EntityManager... (${attempts/10}s)`);
+      }
+    }
+    
+    if (!entityManager?.spawnEntity) {
+      console.error('[MobSpawnerSystem] ❌ EntityManager never became available after 10 seconds!');
+      return;
+    }
+    
+    console.log('[MobSpawnerSystem] ✓ EntityManager ready, spawning goblin...');
+    
+    // Use fixed Y position for simplicity
+    const y = 43;
+    
+    const mobConfig = {
+      id: 'default_goblin_1',
+      type: 'mob' as const,
+      name: 'Goblin',
+      position: { x: 5, y: y + 1.0, z: 15 },  // Raised Y to be clearly above terrain
+      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      scale: { x: 3, y: 3, z: 3 },  // Scale up rigged model
+      visible: true,
+      interactable: true,
+      interactionType: 'attack',
+      interactionDistance: 10,
+      description: 'A hostile goblin',
+      model: 'asset://models/goblin/goblin_rigged.glb',
+      properties: {},
+      // MobEntity specific
+      mobType: 'goblin',
+      level: 2,
+      currentHealth: 30,
+      maxHealth: 30,
+      attackPower: 5,
+      defense: 2,
+      attackSpeed: 2000,
+      moveSpeed: 2,
+      xpReward: 15,
+      lootTable: [
+        { itemId: 'coins', minQuantity: 5, maxQuantity: 15, chance: 1.0 }
+      ],
+      spawnPoint: { x: 5, y: y + 0.1, z: 15 },
+      aggroRange: 8,
+      combatRange: 1.5,
+      aiState: 'idle',
+      targetPlayerId: null,
+      lastAttackTime: 0,
+      deathTime: null,
+      respawnTime: 60000 // 1 minute
+    };
+    
+    console.log('[MobSpawnerSystem] 👹 Calling entityManager.spawnEntity with config:', mobConfig);
+    
+    try {
+      const spawnedEntity = await entityManager.spawnEntity(mobConfig) as { id?: string } | null;
+      console.log('[MobSpawnerSystem] ✅ Default test goblin spawned at (5, 15):', spawnedEntity?.id);
+      
+      // Verify it's in the world
+      const verify = this.world.entities.get('default_goblin_1');
+      console.log('[MobSpawnerSystem] Verification - goblin in world.entities:', verify ? 'YES' : 'NO');
+    } catch (err) {
+      console.error('[MobSpawnerSystem] ❌ Error spawning default goblin:', err);
+    }
   }
 
 

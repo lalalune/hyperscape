@@ -50,9 +50,9 @@ export class HealthComponent extends Component {
     // Emit health change event
     this.entity.world.emit(EventType.ENTITY_HEALTH_CHANGED, {
       entityId: this.entity.id,
-      currentHealth: newHealth,
+      health: newHealth,
       maxHealth: this.maxHealth,
-      percentage: this.healthPercentage
+      isDead: newHealth <= 0
     });
     
     // Check for death

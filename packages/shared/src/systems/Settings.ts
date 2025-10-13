@@ -5,7 +5,7 @@
  */
 
 import type { Settings as ISettings, World } from '../types/index';
-import type { SettingsChanges, SettingsData } from '../types/settings-types';
+import type { SettingsChanges, SettingsData } from '../types/settings';
 import { System } from './System';
 import { hasRole } from '../utils';
 

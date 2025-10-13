@@ -39,6 +39,23 @@ export default defineConfig(({ mode }) => {
           }
         })
       }
+    },
+    // Plugin to handle Node.js modules in browser
+    {
+      name: 'node-modules-polyfill',
+      resolveId(id) {
+        // Return false for Node.js built-in modules to prevent them from being resolved
+        const nodeModules = ['fs', 'fs-extra', 'path', 'node:fs', 'node:path', 'graceful-fs']
+        if (nodeModules.includes(id) || id.startsWith('node:')) {
+          return { id: `virtual:${id}`, external: false }
+        }
+      },
+      load(id) {
+        // Provide empty implementations for Node.js modules
+        if (id.startsWith('virtual:')) {
+          return 'export default {}; export const readFile = () => {}; export const writeFile = () => {};'
+        }
+      }
     }
   ],
   
@@ -59,9 +76,21 @@ export default defineConfig(({ mode }) => {
     sourcemap: true, // Enable source maps for better debugging
     rollupOptions: {
       input: path.resolve(__dirname, 'src/index.html'),
+      external: ['fs', 'fs-extra', 'path', 'node:fs', 'node:path'],
+      output: {
+        // Provide empty stubs for Node.js modules
+        globals: {
+          'fs': '{}',
+          'fs-extra': '{}',
+          'path': '{}',
+          'node:fs': '{}',
+          'node:path': '{}'
+        }
+      },
       onwarn(warning, warn) {
-        // Suppress warnings about PURE annotations in ox library
+        // Suppress warnings about PURE annotations in ox library and external modules
         if (warning.code === 'SOURCEMAP_ERROR' || 
+            warning.code === 'UNRESOLVED_IMPORT' ||
             (warning.message && warning.message.includes('contains an annotation that Rollup cannot interpret'))) {
           return
         }
@@ -118,11 +147,6 @@ export default defineConfig(({ mode }) => {
     sourcemapIgnoreList(relativeSourcePath, _sourcemapPath) {
       return /src\/libs\/(stats-gl|three-custom-shader-material)\//.test(relativeSourcePath)
     },
-    // Watch the shared package build output for changes
-    watch: {
-      // Don't ignore the shared package build output
-      ignored: ['!**/node_modules/@hyperscape/shared/**', '!**/packages/shared/build/**'],
-    },
     fs: {
       // Allow serving files from the shared package
       allow: ['..'],
@@ -139,8 +163,21 @@ export default defineConfig(({ mode }) => {
   },
   
   optimizeDeps: {
-    include: ['three', 'react', 'react-dom', '@hyperscape/shared'],
-    exclude: ['@playwright/test'], // Exclude Playwright from optimization
+    include: [
+      'three', 
+      'react', 
+      'react-dom',
+      '@hyperscape/shared' // Ensure this gets optimized with the correct alias
+    ],
+    exclude: [
+      '@playwright/test', // Exclude Playwright from optimization
+      'fs-extra',         // Exclude Node.js modules
+      'fs',
+      'path',
+      'node:fs',
+      'node:path',
+      'graceful-fs'
+    ],
     esbuildOptions: {
       target: 'esnext', // Support top-level await
       define: {
@@ -149,6 +186,6 @@ export default defineConfig(({ mode }) => {
     }
   },
   ssr: {
-    noExternal: ['@hyperscape/shared']
+    noExternal: []
   }
 }}) 
