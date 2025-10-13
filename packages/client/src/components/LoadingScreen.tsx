@@ -1,62 +1,83 @@
-import React, { useEffect, useState } from 'react'
+/**
+ * LoadingScreen.tsx - Game Loading Screen Component
+ *
+ * Displays loading progress while world initializes and assets load.
+ */
 
-import { World } from '@hyperscape/shared'
-import { EventType } from '@hyperscape/shared'
+import React, { useEffect, useState } from "react";
 
-export function LoadingScreen({ world, message }: { world: World; message?: string }) {
-  const [progress, setProgress] = useState(3) // Start at 3% to show immediate feedback
-  const [loadingStage, setLoadingStage] = useState(message || 'Initializing...')
-  const { title, desc, image } = world.settings
+import { World } from "@hyperscape/shared";
+import { EventType } from "@hyperscape/shared";
+
+export function LoadingScreen({
+  world,
+  message,
+}: {
+  world: World;
+  message?: string;
+}) {
+  const [progress, setProgress] = useState(3); // Start at 3% to show immediate feedback
+  const [loadingStage, setLoadingStage] = useState(
+    message || "Initializing...",
+  );
+  const { title, desc, image } = world.settings;
 
   useEffect(() => {
-    let systemsComplete = false
-    let lastProgress = 3 // Match initial state
-    
+    let systemsComplete = false;
+    let lastProgress = 3; // Match initial state
+
     const handleProgress = (data: unknown) => {
-      const progressData = data as { progress: number; stage?: string; total?: number }
-      
+      const progressData = data as {
+        progress: number;
+        stage?: string;
+        total?: number;
+      };
+
       // Detect if this is system initialization (has stage) or asset loading (no stage, has total)
       if (progressData.stage) {
         // System initialization: takes 0-30% of total progress
-        const systemProgress = Math.min(30, (progressData.progress / 100) * 30)
-        lastProgress = systemProgress
-        setProgress(systemProgress)
-        setLoadingStage(progressData.stage)
-        
+        const systemProgress = Math.min(30, (progressData.progress / 100) * 30);
+        lastProgress = systemProgress;
+        setProgress(systemProgress);
+        setLoadingStage(progressData.stage);
+
         // Mark systems as complete when we hit 100%
         if (progressData.progress === 100) {
-          systemsComplete = true
+          systemsComplete = true;
         }
       } else if (progressData.total !== undefined) {
         // Asset loading: takes 30-100% of total progress
-        const assetProgress = 30 + ((progressData.progress / 100) * 70)
-        
+        const assetProgress = 30 + (progressData.progress / 100) * 70;
+
         // Only update if systems are complete or if this is higher than current progress
         if (systemsComplete || assetProgress > lastProgress) {
-          lastProgress = assetProgress
-          setProgress(assetProgress)
-          
+          lastProgress = assetProgress;
+          setProgress(assetProgress);
+
           if (progressData.progress < 100) {
-            setLoadingStage(`Loading assets... (${Math.floor(progressData.progress)}%)`)
+            setLoadingStage(
+              `Loading assets... (${Math.floor(progressData.progress)}%)`,
+            );
           } else {
-            setLoadingStage('Finalizing...')
+            setLoadingStage("Finalizing...");
+            console.log('[LoadingScreen] Assets at 100%, now waiting for READY event...');
           }
         }
       } else {
         // Simple progress update
-        const newProgress = progressData.progress
+        const newProgress = progressData.progress;
         if (newProgress > lastProgress) {
-          lastProgress = newProgress
-          setProgress(newProgress)
+          lastProgress = newProgress;
+          setProgress(newProgress);
         }
       }
-    }
-    
-    world.on(EventType.ASSETS_LOADING_PROGRESS, handleProgress)
+    };
+
+    world.on(EventType.ASSETS_LOADING_PROGRESS, handleProgress);
     return () => {
-      world.off(EventType.ASSETS_LOADING_PROGRESS, handleProgress)
-    }
-  }, [])
+      world.off(EventType.ASSETS_LOADING_PROGRESS, handleProgress);
+    };
+  }, []);
 
   return (
     <div className="loading-screen absolute inset-0 bg-black flex pointer-events-auto">
@@ -135,7 +156,7 @@ export function LoadingScreen({ world, message }: { world: World; message?: stri
           background-position: center;
           background-size: cover;
           background-repeat: no-repeat;
-          background-image: ${image ? `url(${world.resolveURL((image as { url: string }).url)})` : `url(${world.resolveURL('/preview.jpg')})`};
+          background-image: ${image ? `url(${world.resolveURL((image as { url: string }).url)})` : `url(${world.resolveURL("/preview.jpg")})`};
           animation: slowZoom 40s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
         }
         .loading-shade {
@@ -220,7 +241,7 @@ export function LoadingScreen({ world, message }: { world: World; message?: stri
           left: 0;
           bottom: 0;
           width: ${Math.max(progress, 0)}%;
-          min-width: ${progress > 0 ? '8px' : '0'};
+          min-width: ${progress > 0 ? "8px" : "0"};
           background: linear-gradient(90deg, #4a90e2, #6496ff, #4a90e2);
           background-size: 200% 100%;
           animation: shimmer 1.5s infinite;
@@ -268,99 +289,213 @@ export function LoadingScreen({ world, message }: { world: World; message?: stri
           }
         }
       `}</style>
-      <div className='loading-image' />
-      <div className='loading-shade' />
-      
+      <div className="loading-image" />
+      <div className="loading-shade" />
+
       {/* Animated Training Swords */}
-      <div className='loading-swords'>
+      <div className="loading-swords">
         {/* Left Sword */}
-        <svg className='sword-left' viewBox='0 0 200 200' fill='none' xmlns='http://www.w3.org/2000/svg'>
+        <svg
+          className="sword-left"
+          viewBox="0 0 200 200"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <defs>
-            <linearGradient id='swordGradient1' x1='0%' y1='0%' x2='100%' y2='100%'>
-              <stop offset='0%' stopColor='#8b9dc3' />
-              <stop offset='50%' stopColor='#c0c0c0' />
-              <stop offset='100%' stopColor='#8b9dc3' />
+            <linearGradient
+              id="swordGradient1"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#8b9dc3" />
+              <stop offset="50%" stopColor="#c0c0c0" />
+              <stop offset="100%" stopColor="#8b9dc3" />
             </linearGradient>
-            <linearGradient id='handleGradient1' x1='0%' y1='0%' x2='100%' y2='100%'>
-              <stop offset='0%' stopColor='#6b4423' />
-              <stop offset='50%' stopColor='#8b5a2b' />
-              <stop offset='100%' stopColor='#6b4423' />
+            <linearGradient
+              id="handleGradient1"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#6b4423" />
+              <stop offset="50%" stopColor="#8b5a2b" />
+              <stop offset="100%" stopColor="#6b4423" />
             </linearGradient>
           </defs>
-          <g transform='translate(100, 100)'>
+          <g transform="translate(100, 100)">
             {/* Blade */}
-            <rect x='-4' y='-80' width='8' height='100' fill='url(#swordGradient1)' rx='2' />
-            <rect x='-2' y='-80' width='4' height='100' fill='rgba(255,255,255,0.3)' rx='1' />
+            <rect
+              x="-4"
+              y="-80"
+              width="8"
+              height="100"
+              fill="url(#swordGradient1)"
+              rx="2"
+            />
+            <rect
+              x="-2"
+              y="-80"
+              width="4"
+              height="100"
+              fill="rgba(255,255,255,0.3)"
+              rx="1"
+            />
             {/* Guard */}
-            <rect x='-25' y='20' width='50' height='6' fill='url(#swordGradient1)' rx='3' />
+            <rect
+              x="-25"
+              y="20"
+              width="50"
+              height="6"
+              fill="url(#swordGradient1)"
+              rx="3"
+            />
             {/* Handle */}
-            <rect x='-5' y='26' width='10' height='30' fill='url(#handleGradient1)' rx='2' />
+            <rect
+              x="-5"
+              y="26"
+              width="10"
+              height="30"
+              fill="url(#handleGradient1)"
+              rx="2"
+            />
             {/* Pommel */}
-            <circle cx='0' cy='60' r='8' fill='url(#swordGradient1)' />
+            <circle cx="0" cy="60" r="8" fill="url(#swordGradient1)" />
           </g>
         </svg>
 
         {/* Right Sword */}
-        <svg className='sword-right' viewBox='0 0 200 200' fill='none' xmlns='http://www.w3.org/2000/svg'>
+        <svg
+          className="sword-right"
+          viewBox="0 0 200 200"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <defs>
-            <linearGradient id='swordGradient2' x1='0%' y1='0%' x2='100%' y2='100%'>
-              <stop offset='0%' stopColor='#8b9dc3' />
-              <stop offset='50%' stopColor='#c0c0c0' />
-              <stop offset='100%' stopColor='#8b9dc3' />
+            <linearGradient
+              id="swordGradient2"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#8b9dc3" />
+              <stop offset="50%" stopColor="#c0c0c0" />
+              <stop offset="100%" stopColor="#8b9dc3" />
             </linearGradient>
-            <linearGradient id='handleGradient2' x1='0%' y1='0%' x2='100%' y2='100%'>
-              <stop offset='0%' stopColor='#6b4423' />
-              <stop offset='50%' stopColor='#8b5a2b' />
-              <stop offset='100%' stopColor='#6b4423' />
+            <linearGradient
+              id="handleGradient2"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#6b4423" />
+              <stop offset="50%" stopColor="#8b5a2b" />
+              <stop offset="100%" stopColor="#6b4423" />
             </linearGradient>
           </defs>
-          <g transform='translate(100, 100)'>
+          <g transform="translate(100, 100)">
             {/* Blade */}
-            <rect x='-4' y='-80' width='8' height='100' fill='url(#swordGradient2)' rx='2' />
-            <rect x='-2' y='-80' width='4' height='100' fill='rgba(255,255,255,0.3)' rx='1' />
+            <rect
+              x="-4"
+              y="-80"
+              width="8"
+              height="100"
+              fill="url(#swordGradient2)"
+              rx="2"
+            />
+            <rect
+              x="-2"
+              y="-80"
+              width="4"
+              height="100"
+              fill="rgba(255,255,255,0.3)"
+              rx="1"
+            />
             {/* Guard */}
-            <rect x='-25' y='20' width='50' height='6' fill='url(#swordGradient2)' rx='3' />
+            <rect
+              x="-25"
+              y="20"
+              width="50"
+              height="6"
+              fill="url(#swordGradient2)"
+              rx="3"
+            />
             {/* Handle */}
-            <rect x='-5' y='26' width='10' height='30' fill='url(#handleGradient2)' rx='2' />
+            <rect
+              x="-5"
+              y="26"
+              width="10"
+              height="30"
+              fill="url(#handleGradient2)"
+              rx="2"
+            />
             {/* Pommel */}
-            <circle cx='0' cy='60' r='8' fill='url(#swordGradient2)' />
+            <circle cx="0" cy="60" r="8" fill="url(#swordGradient2)" />
           </g>
         </svg>
 
         {/* Center Background Sword */}
-        <svg className='sword-center' viewBox='0 0 200 200' fill='none' xmlns='http://www.w3.org/2000/svg'>
+        <svg
+          className="sword-center"
+          viewBox="0 0 200 200"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <defs>
-            <linearGradient id='swordGradient3' x1='0%' y1='0%' x2='100%' y2='100%'>
-              <stop offset='0%' stopColor='#4a5568' />
-              <stop offset='50%' stopColor='#718096' />
-              <stop offset='100%' stopColor='#4a5568' />
+            <linearGradient
+              id="swordGradient3"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#4a5568" />
+              <stop offset="50%" stopColor="#718096" />
+              <stop offset="100%" stopColor="#4a5568" />
             </linearGradient>
           </defs>
-          <g transform='translate(100, 100)'>
+          <g transform="translate(100, 100)">
             {/* Blade */}
-            <rect x='-3' y='-70' width='6' height='85' fill='url(#swordGradient3)' rx='2' />
+            <rect
+              x="-3"
+              y="-70"
+              width="6"
+              height="85"
+              fill="url(#swordGradient3)"
+              rx="2"
+            />
             {/* Guard */}
-            <rect x='-20' y='15' width='40' height='5' fill='url(#swordGradient3)' rx='2' />
+            <rect
+              x="-20"
+              y="15"
+              width="40"
+              height="5"
+              fill="url(#swordGradient3)"
+              rx="2"
+            />
             {/* Handle */}
-            <rect x='-4' y='20' width='8' height='25' fill='#2d3748' rx='2' />
+            <rect x="-4" y="20" width="8" height="25" fill="#2d3748" rx="2" />
             {/* Pommel */}
-            <circle cx='0' cy='48' r='6' fill='url(#swordGradient3)' />
+            <circle cx="0" cy="48" r="6" fill="url(#swordGradient3)" />
           </g>
         </svg>
       </div>
 
-      <div className='loading-info'>
-        {title && <div className='loading-title'>{title}</div>}
-        {desc && <div className='loading-desc'>{desc}</div>}
-        <div className='loading-stage'>{loadingStage}</div>
-        <div className='loading-progress-container'>
-          <div className='loading-track'>
-            <div className='loading-bar' />
+      <div className="loading-info">
+        {title && <div className="loading-title">{title}</div>}
+        {desc && <div className="loading-desc">{desc}</div>}
+        <div className="loading-stage">{loadingStage}</div>
+        <div className="loading-progress-container">
+          <div className="loading-track">
+            <div className="loading-bar" />
           </div>
-          <div className='loading-percentage'>{Math.floor(progress)}%</div>
+          <div className="loading-percentage">{Math.floor(progress)}%</div>
         </div>
       </div>
     </div>
-  )
+  );
 }
-

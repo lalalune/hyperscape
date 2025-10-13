@@ -1,14 +1,12 @@
 /**
- * Unified Networking Types
+ * Networking Types
  * 
- * All network-related types consolidated:
+ * Type definitions for network communication:
  * - Movement and input commands (Source Engine-inspired)
  * - State snapshots and prediction
  * - Network messages and connections
  * - Sockets and sessions
  * - Packet system
- * 
- * Replaces: networking.ts + network-types.ts
  */
 
 import type { Vector3, Quaternion } from 'three';

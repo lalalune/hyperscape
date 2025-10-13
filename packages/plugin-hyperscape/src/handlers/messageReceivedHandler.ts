@@ -8,32 +8,32 @@ import {
   elizaLogger,
   createUniqueUuid,
   ModelType,
-} from '@elizaos/core'
+} from "@elizaos/core";
 import {
   composeContext,
   generateMessageResponse,
   shouldRespond,
-} from '../utils/ai-helpers'
-import type { ChatMessage } from '../types/core-types'
+} from "../utils/ai-helpers";
+import type { ChatMessage } from "../types/core-types";
 
 interface MessageContext {
-  userId: string
-  roomId: string
-  content: string
+  userId: string;
+  roomId: string;
+  content: string;
 }
 
 interface MessageHandlerOptions {
-  runtime: IAgentRuntime
-  message: Memory
-  callback?: HandlerCallback
-  onComplete?: () => void
+  runtime: IAgentRuntime;
+  message: Memory;
+  callback?: HandlerCallback;
+  onComplete?: () => void;
 }
 
 interface ResponseData {
-  text?: string
-  action?: string
-  emote?: string
-  message?: string
+  text?: string;
+  action?: string;
+  emote?: string;
+  message?: string;
 }
 
 export async function messageReceivedHandler({
@@ -42,20 +42,20 @@ export async function messageReceivedHandler({
   callback,
   onComplete,
 }: MessageHandlerOptions): Promise<void> {
-  elizaLogger.info(`[MessageHandler] Processing message: ${message.id}`)
+  elizaLogger.info(`[MessageHandler] Processing message: ${message.id}`);
 
   // Check if we should respond to this message
-  const state = await runtime.composeState(message as Memory)
+  const state = await runtime.composeState(message as Memory);
   const shouldRespondToMessage = await shouldRespond(
     runtime,
     message as Memory,
-    state
-  )
+    state,
+  );
 
   if (!shouldRespondToMessage) {
-    elizaLogger.debug('[MessageHandler] Determined not to respond to message')
-    onComplete!()
-    return
+    elizaLogger.debug("[MessageHandler] Determined not to respond to message");
+    onComplete!();
+    return;
   }
 
   // Generate response using proper context
@@ -82,16 +82,16 @@ Generate your response with any of these optional elements:
 <emote>name_of_emote</emote>
 <action>specific_action_to_take</action>
       `,
-  })
+  });
 
   const response = await generateMessageResponse({
     runtime,
     context,
     modelType: ModelType.TEXT_LARGE,
-  })
+  });
 
   // Parse response for actions
-  const parsedResponse = parseKeyValueXml(response.text) as ResponseData
+  const parsedResponse = parseKeyValueXml(response.text) as ResponseData;
 
   const responseContent: Content = {
     text: parsedResponse.text || response.text,
@@ -100,12 +100,12 @@ Generate your response with any of these optional elements:
       emote: parsedResponse.emote,
       originalMessage: message.id,
     },
-  }
+  };
 
-  await callback!(responseContent)
+  await callback!(responseContent);
 
   elizaLogger.info(
-    `[MessageHandler] Successfully processed message: ${message.id}`
-  )
-  onComplete!()
+    `[MessageHandler] Successfully processed message: ${message.id}`,
+  );
+  onComplete!();
 }

@@ -1,6 +1,8 @@
 /**
- * Utility functions for common combat operations
- * Consolidates duplicate patterns across systems
+ * Combat Utilities
+ * 
+ * Helper functions for combat operations including stats retrieval,
+ * range checking, damage application, and entity validation.
  */
 
 import type { World } from '../types';

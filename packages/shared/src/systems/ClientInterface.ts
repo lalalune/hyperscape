@@ -53,9 +53,10 @@ export type PrefsKey = keyof ClientPrefsData
 export type PrefsValue = ClientPrefsData[PrefsKey]
 
 /**
- * Unified Client Interface System
+ * Client Interface System
  * 
- * Manages UI state, preferences, stats display, and target indicators
+ * Manages UI state, user preferences, stats display, and target indicators.
+ * Provides centralized control over client-side interface elements and settings.
  */
 export class ClientInterface extends SystemBase {
   // UI State

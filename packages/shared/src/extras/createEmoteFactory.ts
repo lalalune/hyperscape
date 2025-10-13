@@ -1,3 +1,38 @@
+/**
+ * createEmoteFactory.ts - Animation Retargeting Factory
+ * 
+ * Retargets Mixamo animations to VRM skeletons for character animation.
+ * Handles bone name mapping, scaling, and orientation differences.
+ * 
+ * **Animation Pipeline:**
+ * 1. Load Mixamo animation GLB
+ * 2. Extract animation clips
+ * 3. Filter to only root position and rotations
+ * 4. Map Mixamo bone names → VRM bone names
+ * 5. Scale animation to match VRM height
+ * 6. Generate retargeted AnimationClip
+ * 
+ * **Why Retargeting?**
+ * - Mixamo animations use different skeleton structure than VRM
+ * - Bone names differ (e.g., 'mixamorigHips' → 'hips')
+ * - Mixamo uses different coordinate space
+ * - VRMs have varying heights/proportions
+ * 
+ * **Height Adaptation:**
+ * - Calculates rootToHips distance from VRM
+ * - Scales animation by this ratio
+ * - Ensures feet stay on ground
+ * - Works with any VRM body proportions
+ * 
+ * **Bone Name Mapping:**
+ * Maps ~67 Mixamo bones to VRM standard bones:
+ * - Hips, Spine, Chest, Neck, Head
+ * - Left/Right Arms, Hands, Fingers
+ * - Left/Right Legs, Feet, Toes
+ * 
+ * **Referenced by:** ClientLoader (loads emote animations)
+ */
+
 import THREE from './three'
 import type { GLBData } from '../types'
 
@@ -5,6 +40,15 @@ const q1 = new THREE.Quaternion()
 const restRotationInverse = new THREE.Quaternion()
 const parentRestWorldRotation = new THREE.Quaternion()
 
+/**
+ * Create Animation Retargeting Factory
+ * 
+ * Processes a Mixamo animation GLB and returns a factory for retargeting to VRM skeletons.
+ * 
+ * @param glb - Loaded animation GLB data
+ * @param _url - Animation URL (unused but kept for debugging)
+ * @returns Factory object with toClip() method
+ */
 export function createEmoteFactory(glb: GLBData, _url: string) {
   // console.time('emote-init')
   

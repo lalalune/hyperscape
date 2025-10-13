@@ -1,13 +1,75 @@
 /**
- * CombatantEntity - Base class for entities that can engage in combat
+ * CombatantEntity - Base Combat Entity
  * 
- * Extends Entity to provide combat-specific functionality including:
- * - Health and damage management
- * - Combat statistics (attack, defense, etc.)
- * - Death and respawn handling
- * - AI targeting and aggro systems
+ * Abstract base class for all entities that can engage in combat.
+ * Provides combat stats, damage handling, and death/respawn mechanics.
  * 
- * Used by: PlayerEntity, MobEntity, NPCEntity (when combative)
+ * **Extends**: Entity (adds combat functionality)
+ * 
+ * **Key Features**:
+ * 
+ * **Combat Statistics**:
+ * - Attack power (damage output)
+ * - Defense rating (damage reduction)
+ * - Attack speed (attacks per second)
+ * - Critical hit chance (0.0 to 1.0)
+ * - Combat level (for XP calculations)
+ * 
+ * **Combat State**:
+ * - Current target ID
+ * - Last attack timestamp
+ * - In combat flag
+ * - Death state
+ * - Aggro/threat management
+ * 
+ * **Health System**:
+ * - Current health
+ * - Maximum health
+ * - Health regeneration
+ * - Damage calculation
+ * - Death detection
+ * 
+ * **Attack Mechanics**:
+ * - Attack cooldown based on attack speed
+ * - Damage calculation with defense
+ * - Critical hit rolls
+ * - Attack range checking
+ * - Line of sight validation
+ * 
+ * **Death Handling**:
+ * - Death animation
+ * - Loot drop creation
+ * - Experience reward to killer
+ * - Respawn timer
+ * - Corpse creation
+ * 
+ * **Respawn System**:
+ * - Configurable respawn time
+ * - Return to spawn position
+ * - Full health restoration
+ * - State reset (clear target, aggro)
+ * 
+ * **AI Properties**:
+ * - Aggro radius (detection range)
+ * - Attack range (how close to get)
+ * - Spawn position (for respawning)
+ * - Patrol/leash distance
+ * 
+ * **Combat Component**:
+ * - Attack bonuses
+ * - Defense bonuses
+ * - Damage multipliers
+ * - Status effects
+ * - Combat timers
+ * 
+ * **Subclasses**:
+ * - PlayerEntity: Player characters with full RPG systems
+ * - MobEntity: AI-controlled enemies with patrol and aggro
+ * 
+ * **Runs on**: Server (authoritative), Client (visual only)
+ * **Referenced by**: CombatSystem, AggroSystem, DeathSystem
+ * 
+ * @public
  */
 
 import { Entity } from './Entity';

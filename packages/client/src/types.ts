@@ -1,4 +1,40 @@
-// Type definitions for Hyperscape client components
+/**
+ * Client Type Definitions
+ * 
+ * This module provides TypeScript type definitions for the Hyperscape client application.
+ * It defines interfaces for client-side systems, entities, and UI components that are
+ * specific to the browser environment.
+ * 
+ * Key type categories:
+ * 
+ * **Entity Types**:
+ * - EntityData: Extended from shared types with client-specific fields (mover, uploader, pinned state)
+ * - PlayerEntity: Client-side player representation with name and roles
+ * - Entity: Base entity interface with Three.js root object and modification methods
+ * 
+ * **System Interfaces**:
+ * - GraphicsSystem: Renderer dimensions and display info
+ * - ControlsSystem: Input handling, pointer lock, action bindings
+ * - ChatSystem: Message sending and subscribing
+ * - XRManager: VR/AR session management
+ * - NetworkManager: Client-server communication
+ * 
+ * **UI Types**:
+ * - Field: Dynamic form field definitions with validation and conditional rendering
+ * - UIState: Interface state (from shared package)
+ * - HintContextType: Tooltip and hint management
+ * - WorldSettings: World metadata and configuration
+ * - WorldPreferences: User preferences (graphics, audio, UI)
+ * 
+ * **File Types**:
+ * - FileInfo: Uploaded file metadata (type, name, url)
+ * 
+ * These types are used throughout the client package by React components, hooks, and
+ * client-side systems to ensure type safety when interacting with the World, entities,
+ * and Hyperscape's client APIs.
+ * 
+ * Referenced by: All client React components, hooks, and UI-related code
+ */
 
 import { THREE } from '@hyperscape/shared'
 import type { EntityData as CoreEntityData, ControlBinding } from '@hyperscape/shared'

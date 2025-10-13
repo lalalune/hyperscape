@@ -91,7 +91,10 @@ export class MusicSystem extends SystemBase {
   }
 
   private async loadMusicManifest(): Promise<void> {
-    const manifestPath = '/world-assets/manifests/music.json'
+    // Load directly from CDN (localhost:8080 in dev, R2/S3 in prod)
+    // Use world.assetsUrl which is set by the server snapshot
+    const cdnUrl = this.world.assetsUrl?.replace(/\/$/, '') || 'http://localhost:8080';
+    const manifestPath = `${cdnUrl}manifests/music.json`
 
     const response = await fetch(manifestPath)
     if (!response.ok) {

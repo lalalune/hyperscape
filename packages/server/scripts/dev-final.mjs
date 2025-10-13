@@ -33,7 +33,7 @@ const CONFIG = {
   FORGE_API_PORT: process.env.FORGE_API_PORT || '3001',   // Asset Forge API port
   FORGE_VITE_PORT: process.env.FORGE_VITE_PORT || '3003', // Asset Forge UI port
   PUBLIC_WS_URL: process.env.PUBLIC_WS_URL || `ws://localhost:${process.env.PORT || '5555'}/ws`,
-  PUBLIC_ASSETS_URL: process.env.PUBLIC_ASSETS_URL || '/world-assets/',
+  PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8080',
 }
 
 // Colors
@@ -480,7 +480,7 @@ async function setupServerWatcher(serverProcessRef) {
                 USER: process.env.USER,
                 PORT: CONFIG.PORT,
                 PUBLIC_WS_URL: `ws://localhost:${CONFIG.PORT}/ws`,
-                PUBLIC_ASSETS_URL: '/world-assets/',
+                PUBLIC_CDN_URL: CONFIG.PUBLIC_CDN_URL,
                 MESHY_API_KEY: process.env.MESHY_API_KEY,
                 OPENAI_API_KEY: process.env.OPENAI_API_KEY,
                 DISABLE_BOTS: process.env.DISABLE_BOTS || 'false',
@@ -547,18 +547,21 @@ ${colors.reset}`)
   
   // Ensure directories exist
   await fs.promises.mkdir('build/public', { recursive: true }).catch(() => {})
+  await fs.promises.mkdir('../../assets/web', { recursive: true }).catch(() => {})
   
-  // Copy PhysX assets
-  console.log(`${colors.dim}Copying PhysX assets...${colors.reset}`)
+  // Copy PhysX assets to CDN directory
+  console.log(`${colors.dim}Copying PhysX assets to CDN...${colors.reset}`)
   try {
     const physxWasm = 'node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm'
     const physxJs = 'node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.js'
     if (fs.existsSync(physxWasm)) {
-      fs.copyFileSync(physxWasm, 'build/public/physx-js-webidl.wasm')
-      fs.copyFileSync(physxJs, 'build/public/physx-js-webidl.js')
+      // Copy to assets/web/ for CDN serving
+      fs.copyFileSync(physxWasm, '../../assets/web/physx-js-webidl.wasm')
+      fs.copyFileSync(physxJs, '../../assets/web/physx-js-webidl.js')
+      console.log(`${colors.green}✓ PhysX assets copied to assets/web/${colors.reset}`)
     }
   } catch (e) {
-    // Ignore
+    console.log(`${colors.yellow}⚠️  Failed to copy PhysX assets: ${e.message}${colors.reset}`)
   }
   
   // Build server first
@@ -582,7 +585,7 @@ ${colors.reset}`)
       USER: process.env.USER,
       PORT: CONFIG.PORT,
       PUBLIC_WS_URL: `ws://localhost:${CONFIG.PORT}/ws`,
-      PUBLIC_ASSETS_URL: '/world-assets/',
+      PUBLIC_CDN_URL: CONFIG.PUBLIC_CDN_URL,
       MESHY_API_KEY: process.env.MESHY_API_KEY,
       OPENAI_API_KEY: process.env.OPENAI_API_KEY,
       DISABLE_BOTS: process.env.DISABLE_BOTS || 'false',
@@ -706,7 +709,7 @@ ${colors.reset}`)
         await new Promise(r => setTimeout(r, 250))
       }
       if (!meshyKeyPresent) {
-        // Final fallback to local env if API isn't reachable in time
+        // Use local env if API isn't reachable
         meshyKeyPresent = !!process.env.MESHY_API_KEY
       }
     }

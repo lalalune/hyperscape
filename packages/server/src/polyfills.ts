@@ -1,10 +1,62 @@
-// Browser polyfills for server-side Three.js/GLTF loading
-// This file sets up global browser-like objects needed by Three.js loaders
+/**
+ * Browser Polyfills - Make Node.js look like a browser for Three.js
+ * 
+ * This file provides browser-like globals that Three.js and other client libraries expect.
+ * Without these polyfills, server-side rendering and asset loading would fail.
+ * 
+ * **Why this is needed**:
+ * Three.js was designed for browsers and expects browser APIs like:
+ * - `window` and `self` globals
+ * - `document.createElement()` for canvas and image elements
+ * - `URL` and `location` for asset path resolution
+ * - `performance.now()` for timing
+ * - `WebSocket` for network communication
+ * 
+ * Node.js doesn't have these APIs, so we provide minimal implementations that
+ * satisfy Three.js's requirements without full browser emulation.
+ * 
+ * **What gets polyfilled**:
+ * 1. **window/self** - Global scope references (Three.js checks for these)
+ * 2. **URL** - Used by GLTFLoader for resolving asset paths
+ * 3. **document** - Minimal implementation for createElement (canvas, images)
+ * 4. **Canvas 2D Context** - Mock implementation for UI rendering
+ * 5. **location** - Fake URL for base path resolution
+ * 6. **performance** - Timing API for animations
+ * 7. **WebSocket** - Uses 'ws' library for Node.js WebSocket support
+ * 
+ * **Canvas Mocking**:
+ * The 2D canvas context is heavily mocked because Three.js/UI systems may try to:
+ * - Render text (measureText, fillText)
+ * - Draw shapes (fillRect, arc, bezierCurveTo)
+ * - Transform coordinates (translate, rotate, scale)
+ * - Manage state (save, restore)
+ * 
+ * All these methods are no-ops since we don't actually render on the server.
+ * 
+ * **WebSocket Polyfill**:
+ * Node.js doesn't have a built-in WebSocket implementation, so we install
+ * the 'ws' library as a global WebSocket for compatibility with client code.
+ * 
+ * **Security Note**:
+ * These are intentionally minimal implementations. Don't rely on them for
+ * actual rendering or complex operations - they exist only to prevent errors.
+ * 
+ * **Load Order**:
+ * This file MUST be imported before any Three.js code. It's loaded at the
+ * top of index.ts (server entry point) using `import './polyfills'`.
+ * 
+ * **Referenced by**: index.ts (first import before any other code)
+ */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import path from 'path'
 
+/**
+ * Extended global scope with browser-like properties
+ * 
+ * This interface defines all the browser APIs we inject into Node.js's global scope.
+ */
 interface GlobalWithPolyfills {
   self: GlobalWithPolyfills
   URL: typeof URL
@@ -194,12 +246,25 @@ if (typeof __filename === 'undefined') {
   globalWithPolyfills.__filename = import.meta.url;
 }
 
-// Export empty object to make this a module
+/**
+ * Export empty object to make this a proper ES module
+ * 
+ * This allows the file to have side effects (setting up globals) while still
+ * being importable as a module.
+ */
 export {}
 
-// Install WebSocket polyfill for Node environments (used by NodeClient/ServerBot)
-// Only if a global WebSocket implementation is not already present
-// Top-level await is supported in ESM; guard in try/catch to avoid startup failure
+/**
+ * WebSocket Polyfill Installation
+ * 
+ * Installs the 'ws' package as global WebSocket for Node.js environments.
+ * Only installs if WebSocket is not already available (browser environments).
+ * 
+ * Used by:
+ * - ServerBot (headless bots that connect as clients)
+ * - NodeClient (testing infrastructure)
+ * - ElizaOS agents connecting to Hyperscape worlds
+ */
 try {
   const g = globalThis as unknown as { WebSocket?: unknown } & Record<string, unknown>
   if (!g.WebSocket) {

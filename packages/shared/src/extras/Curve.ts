@@ -1,9 +1,50 @@
+/**
+ * Curve.ts - Hermite Curve Animation System
+ * 
+ * Implements cubic Hermite curve interpolation for smooth animation curves.
+ * Used for particles, custom animations, and procedural motion paths.
+ * 
+ * **What is a Hermite Curve?**
+ * A smooth curve defined by keyframes with tangent handles for controlling curvature.
+ * Similar to animation curves in Unity, Blender, or After Effects.
+ * 
+ * **Components:**
+ * - Keyframes: Points on the curve with time and value
+ * - Tangents: Control curve shape between keyframes (in/out tangents)
+ * - Evaluation: Get interpolated value at any time
+ * 
+ * **Use Cases:**
+ * - Particle property curves (size over lifetime, alpha fade, etc.)
+ * - Custom easing functions
+ * - Procedural animation paths
+ * - Parameter tweening with custom curves
+ * 
+ * **Usage:**
+ * ```ts
+ * const curve = new Curve();
+ * curve.add({ time: 0, value: 0, inTangent: 0, outTangent: 1 });
+ * curve.add({ time: 0.5, value: 1, inTangent: 1, outTangent: -1 });
+ * curve.add({ time: 1, value: 0, inTangent: -1, outTangent: 0 });
+ * 
+ * const value = curve.evaluate(0.25); // Get value at 25% through curve
+ * ```
+ * 
+ * **Referenced by:** Particle system, animation utilities, procedural systems
+ */
+
 import { clamp } from '../utils'
 
+/** Global keyframe ID counter */
 let ids = 0
 
+/** Reused array for binary search results (avoids allocations) */
 const arr1: number[] = []
 
+/**
+ * Curve - Hermite Spline Curve for Animation
+ * 
+ * Provides smooth interpolation between keyframes using cubic Hermite splines.
+ */
 export class Curve {
   keyframes: Keyframe[]
   data?: string
@@ -243,6 +284,11 @@ export class Curve {
   }
 }
 
+/**
+ * Keyframe - Single Point on an Animation Curve
+ * 
+ * Defines a control point with time, value, and tangent handles.
+ */
 export class Keyframe {
   id: number
   time: number

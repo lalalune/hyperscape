@@ -1,3 +1,36 @@
+/**
+ * SkillsSystem.ts - Skills, XP, and Leveling System
+ * 
+ * Implements RuneScape-style skill progression system with experience points and levels.
+ * 
+ * **Skills Managed:**
+ * - Combat: attack, strength, defense, constitution, ranged
+ * - Gathering: woodcutting, fishing
+ * - Artisan: firemaking, cooking
+ * 
+ * **XP Calculation:**
+ * Uses RuneScape XP table formula:
+ * - Level 1-99 (max level)
+ * - XP for level N = floor(N + 300 * 2^(N/7)) / 4
+ * - Example: Level 50 requires 101,333 XP
+ * 
+ * **Combat Level:**
+ * Calculated from combat skills:
+ * - Base = 0.25 * (Defense + Constitution + Ranged/2)
+ * - Melee = 0.325 * (Attack + Strength)
+ * - Ranged = 0.325 * (Ranged * 1.5)
+ * - Combat Level = floor(Base + max(Melee, Ranged))
+ * 
+ * **Features:**
+ * - Automatic level-up detection
+ * - XP multipliers for special conditions
+ * - Skill milestones (level 50, 99, etc.)
+ * - XP drop tracking for visual feedback
+ * - Total level calculation (sum of all skill levels)
+ * 
+ * **Referenced by:** CombatSystem, ResourceSystem, ProcessingSystem, all skill-based interactions
+ */
+
 import { Entity } from '../entities/Entity';
 import { SkillData, Skills } from '../types/core';
 import { StatsComponent } from '../components/StatsComponent';
@@ -6,7 +39,7 @@ import type { World } from '../types/index';
 import { SystemBase } from './SystemBase';
 import { getStatsComponent, requireStatsComponent } from '../utils/ComponentUtils';
 
-// Define skill constants since Skill enum is not exported
+/** Skill name constants for type-safe skill references */
 const Skill = {
   ATTACK: 'attack' as keyof Skills,
   STRENGTH: 'strength' as keyof Skills,
@@ -19,10 +52,13 @@ const Skill = {
   COOKING: 'cooking' as keyof Skills
 };
 
-// Using StatsComponent class from components
-
 import type { SkillMilestone, XPDrop } from '../types/system-interfaces';
 
+/**
+ * SkillsSystem - Experience and Level Management
+ * 
+ * Manages skill progression, XP grants, level-ups, and combat level calculation.
+ */
 export class SkillsSystem extends SystemBase {
   private static readonly MAX_LEVEL = 99;
   private static readonly MAX_XP = 200_000_000; // 200M XP cap

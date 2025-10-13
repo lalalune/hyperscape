@@ -146,7 +146,6 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       
       console.log(`Attempting to download t-pose.glb from: ${tposeUrl}`)
       
-      // Create a link and trigger download
       const link = document.createElement('a')
       link.download = `${assetInfo.name}-tpose.glb`
       link.href = tposeUrl
@@ -156,13 +155,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       return
     }
     
-    // Fallback to exporting from the current model (for local files or when no server file exists)
     if (!modelRef.current) {
       console.error("No model loaded to export")
       return
     }
     
-    console.log("Using fallback export method for local model...")
+    console.log("Exporting from loaded model...")
       
       // Create a new root group with proper name
       const exportRoot = new THREE.Group()

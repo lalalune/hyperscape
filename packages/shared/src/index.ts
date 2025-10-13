@@ -1,9 +1,60 @@
 /**
- * @hyperscape/shared
+ * index.ts - @hyperscape/shared Package Entry Point
  * 
- * Main export for the Hyperscape framework package
+ * This is the main export file for the Hyperscape 3D multiplayer game engine.
+ * It provides a comprehensive public API for building 3D multiplayer games and applications.
+ * 
+ * Package Purpose:
+ * Hyperscape is a full-featured 3D multiplayer game engine built on three.js and PhysX.
+ * It provides client-server architecture with authoritative physics, real-time voice chat,
+ * VRM avatar support, and a complete RPG game framework.
+ * 
+ * Main Exports:
+ * 
+ * 1. World Factories:
+ *    - createClientWorld(): Creates browser client world
+ *    - createServerWorld(): Creates Node.js server world
+ *    - createViewerWorld(): Creates lightweight viewer world
+ *    - createNodeClientWorld(): Creates headless Node.js client
+ * 
+ * 2. Core Classes:
+ *    - World: Central game world container and ECS coordinator
+ *    - System: Base class for all game systems
+ *    - Entity: Base entity class for game objects
+ *    - PlayerLocal: Local player controller
+ *    - PlayerRemote: Remote player representation
+ * 
+ * 3. Systems:
+ *    - Physics, Graphics, Audio, Input, Network, etc.
+ *    - All client and server systems
+ * 
+ * 4. Types:
+ *    - Comprehensive TypeScript types for all APIs
+ *    - Entity, Component, System interfaces
+ *    - Network, Physics, and Event types
+ * 
+ * 5. Utilities:
+ *    - THREE.js helpers and extensions
+ *    - PhysX integration utilities
+ *    - Validation, logging, and math utilities
+ * 
+ * 6. Nodes:
+ *    - Scene graph node types (Mesh, Group, UI, Avatar, etc.)
+ * 
+ * Architecture Notes:
+ * - Client and server share most code but have environment-specific systems
+ * - PhysX physics runs on both client (via WASM) and server (via Node.js bindings)
+ * - Server is authoritative for all game state
+ * - Event-driven architecture with type-safe EventBus
+ * - Entity Component System (ECS) pattern for game objects
+ * 
+ * Bundle Optimization:
+ * This file avoids importing Node.js modules at top-level so client bundlers
+ * (like Vite) don't pull server-only dependencies into browser bundles.
+ * Server-specific imports are isolated to createServerWorld() and server systems.
+ * 
+ * Used by: Client package, Server package, Plugin-Hyperscape package
  */
-// Avoid importing Node.js modules at top-level so client bundlers (Vite) don't pull them into the browser build
 
 export { createClientWorld } from './createClientWorld';
 export { createServerWorld } from './createServerWorld';
@@ -90,17 +141,17 @@ export { Entities } from './systems/Entities';
 export { Physics } from './systems/Physics';
 export { Particles } from './systems/Particles';
 export { LODs } from './systems/LODs';
-export { ClientInterface } from './systems/ClientInterface'; // Merged UI, Prefs, Stats, Target
+export { ClientInterface } from './systems/ClientInterface'; // UI state, preferences, stats display
 export { ClientLoader } from './systems/ClientLoader';
 // ServerNetwork removed from main exports - import directly from ./systems/ServerNetwork when needed on server side
 export { Environment } from './systems/Environment';
 export { ClientNetwork } from './systems/ClientNetwork';
 export { ClientGraphics } from './systems/ClientGraphics';
-export { ClientRuntime } from './systems/ClientRuntime'; // Merged Client + Diagnostics
+export { ClientRuntime } from './systems/ClientRuntime'; // Client lifecycle and diagnostics
 export { ClientAudio } from './systems/ClientAudio';
 export { ClientLiveKit } from './systems/ClientLiveKit';
-export { ClientInput } from './systems/ClientInput'; // Merged Controls, InputSystem, Pointer
-export { ServerRuntime } from './systems/ServerRuntime'; // Merged Server + Monitor
+export { ClientInput } from './systems/ClientInput'; // Keyboard, mouse, touch, XR input handling
+export { ServerRuntime } from './systems/ServerRuntime'; // Server lifecycle and monitoring
 export { ClientActions } from './systems/ClientActions';
 export { XR } from './systems/XR';
 export { EventBus } from './systems/EventBus';
@@ -144,7 +195,7 @@ export {
   type PostProcessingComposer
 } from './utils/PostProcessingFactory';
 
-// Material and mesh optimizations (consolidated into RendererFactory)
+// Material and mesh optimizations
 export {
   optimizeMaterialForWebGPU,
   createOptimizedInstancedMesh,
@@ -182,9 +233,9 @@ export type { CSMOptions } from './libs/csm/CSM';
 
 // PhysX asset path helper function
 export function getPhysXAssetPath(assetName: string): string {
-  // In the browser, serve assets from the web root
+  // In the browser, serve assets from CDN /web/ directory
   if (typeof window !== 'undefined') {
-    return `/${assetName}`;
+    return `/web/${assetName}`;
   }
   // In Node.js, compute path relative to this module using URL without importing node:path
   try {
@@ -290,7 +341,7 @@ export { LocalStorage } from './storage';
 // Export server-side NodeStorage from storage.server
 export { NodeStorage } from './storage.server';
 // Export file-based Storage class (for server use)
-export { Storage as FileStorage } from './systems/Storage';
+// export { Storage as FileStorage } from './systems/Storage'; // Disabled: file doesn't exist
 
 // Re-export nodes namespace for createNode typings
 export * as Nodes from './nodes';

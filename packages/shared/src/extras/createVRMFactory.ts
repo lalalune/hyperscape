@@ -1,8 +1,51 @@
+/**
+ * createVRMFactory.ts - VRM Character Avatar Factory
+ * 
+ * Creates instances of VRM character models with animations, bone access, and performance optimization.
+ * VRM is a standard format for 3D humanoid avatars used in VR/AR and games.
+ * 
+ * **VRM Features:**
+ * - Standardized humanoid skeleton (hips, spine, head, limbs)
+ * - Expression/blend shapes (happy, sad, blink, etc.)
+ * - First-person view setup (hide head in FP mode)
+ * - Spring bone physics (hair, clothes)
+ * - Metadata (author, usage rights, etc.)
+ * 
+ * **Factory Pattern:**
+ * - One factory per VRM model (shared across multiple instances)
+ * - create() method spawns new instances
+ * - Instances share skeleton structure but have independent poses
+ * - Reduces memory and processing for multiple copies
+ * 
+ * **Performance Optimizations:**
+ * - Distance-based update rate (far avatars update less frequently)
+ * - Detached bind mode for skinned meshes
+ * - Manual matrix updates only when needed
+ * - Shared geometry across instances via SkeletonUtils.clone
+ * - BVH raycasting acceleration
+ * 
+ * **Instance Features:**
+ * - setEmote(url): Play animation
+ * - move(matrix): Update position/rotation
+ * - getBoneTransform(boneName): Get bone matrix
+ * - setFirstPerson(bool): Toggle first-person visibility
+ * - height, headToHeight: Avatar dimensions
+ * 
+ * **CSM Shadow Integration:**
+ * - Calls setupMaterial() on all materials for shadow support
+ * - Sets shadowSide to BackSide to prevent shadow acne
+ * 
+ * **Referenced by:** Avatar nodes, PlayerLocal, PlayerRemote
+ */
+
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 
 import type { GLBData } from '../types'
 import type { VRMHooks } from '../types/physics'
-import { DEG2RAD } from './general'
+
+/** Degrees to radians conversion */
+const DEG2RAD = Math.PI / 180
+
 import { getTextureBytesFromMaterial } from './getTextureBytesFromMaterial'
 import { getTrianglesFromGeometry } from './getTrianglesFromGeometry'
 import THREE from './three'
@@ -10,14 +53,32 @@ import THREE from './three'
 const v1 = new THREE.Vector3()
 const v2 = new THREE.Vector3()
 
-const DIST_CHECK_RATE = 1 // once every second
-const DIST_MIN_RATE = 1 / 5 // 3 times per second
-const DIST_MAX_RATE = 1 / 25 // 25 times per second
-const DIST_MIN = 30 // <= 15m = min rate
-const DIST_MAX = 60 // >= 30m = max rate
+/** How often to check avatar distance for LOD (seconds) */
+const DIST_CHECK_RATE = 1
+
+/** Minimum update rate for close avatars (updates/second) */
+const DIST_MIN_RATE = 1 / 5
+
+/** Maximum update rate for far avatars (updates/second) */
+const DIST_MAX_RATE = 1 / 25
+
+/** Distance for minimum update rate (meters) */
+const DIST_MIN = 30
+
+/** Distance for maximum update rate (meters) */
+const DIST_MAX = 60
 
 const material = new THREE.MeshBasicMaterial()
 
+/**
+ * Create VRM Avatar Factory
+ * 
+ * Prepares a VRM model for instancing with animations and optimizations.
+ * 
+ * @param glb - Loaded VRM GLB data
+ * @param setupMaterial - Optional material setup function (for CSM shadows)
+ * @returns Factory object with create() method and stats tracking
+ */
 export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.Material) => void) {
   // we'll update matrix ourselves
   glb.scene.matrixAutoUpdate = false
@@ -149,30 +210,28 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
 
   function create(matrix: THREE.Matrix4, hooks: VRMHooks, node?: { ctx?: { entity?: unknown } }) {
                 
-    // CRITICAL: Check if we can get scene from node context as fallback
     const nodeWithCtx = node as unknown as { ctx?: { stage?: { scene?: THREE.Scene } } }
-    const fallbackScene = nodeWithCtx?.ctx?.stage?.scene
+    const alternateScene = nodeWithCtx?.ctx?.stage?.scene
     
     const vrm = cloneGLB(glb)
     const _tvrm = vrm.userData?.vrm
     const skinnedMeshes = getSkinnedMeshes(vrm.scene as THREE.Scene)
-    const skeleton = skinnedMeshes[0].skeleton // should be same across all skinnedMeshes
-    const rootBone = skeleton.bones[0] // should always be 0
+    const skeleton = skinnedMeshes[0].skeleton
+    const rootBone = skeleton.bones[0]
     rootBone.parent?.remove(rootBone)
     rootBone.updateMatrixWorld(true)
-    vrm.scene.matrix.copy(matrix) // synced!
-    vrm.scene.matrixWorld.copy(matrix) // synced!
-    // CRITICAL: Disable auto matrix updates since we manually control the transform
+    vrm.scene.matrix.copy(matrix)
+    vrm.scene.matrixWorld.copy(matrix)
     vrm.scene.matrixAutoUpdate = false
     vrm.scene.matrixWorldAutoUpdate = false
     
     if (hooks?.scene) {
       hooks.scene.add(vrm.scene)
-          } else if (fallbackScene) {
-      console.warn('[VRMFactory] WARNING: No scene in hooks, using fallback from node.ctx.stage.scene')
-      fallbackScene.add(vrm.scene)
+          } else if (alternateScene) {
+      console.warn('[VRMFactory] WARNING: No scene in hooks, using alternate scene from node.ctx.stage.scene')
+      alternateScene.add(vrm.scene)
           } else {
-      console.error('[VRMFactory] ERROR: No scene in hooks AND no fallback scene available, VRM will not be visible!')
+      console.error('[VRMFactory] ERROR: No scene available, VRM will not be visible!')
     }
 
     const getEntity = () => node?.ctx?.entity

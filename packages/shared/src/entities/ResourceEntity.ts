@@ -1,5 +1,52 @@
 /**
- * ResourceEntity - Harvestable resources like trees and fishing spots
+ * ResourceEntity - Harvestable Resource Entity
+ * 
+ * Represents gatherable resources in the world like trees, rocks, and fishing spots.
+ * Players can interact with these to gather materials and gain experience.
+ * 
+ * **Extends**: InteractableEntity (players can harvest resources)
+ * 
+ * **Key Features**:
+ * 
+ * **Resource Types**:
+ * - **Trees**: Woodcutting skill (logs, wood)
+ * - **Rocks**: Mining skill (ores, gems)
+ * - **Fish**: Fishing skill (fish, treasure)
+ * - **Herbs**: Herbalism skill (herbs, flowers)
+ * 
+ * **Harvesting System**:
+ * - Skill level requirements (can't harvest high-level resources without skill)
+ * - Harvest time based on resource and skill level
+ * - Resource depletion after harvesting
+ * - Respawn timer after depletion
+ * - XP rewards based on resource level
+ * 
+ * **Resource State**:
+ * - Available: Can be harvested
+ * - Depleted: Recently harvested, waiting to respawn
+ * - Respawning: Timer counting down to availability
+ * 
+ * **Yield System**:
+ * - Item drops on successful harvest
+ * - Quantity randomization
+ * - Quality based on skill level
+ * - Rare resource chances
+ * 
+ * **Visual Feedback**:
+ * - Different appearance when depleted
+ * - Particle effects on harvest
+ * - Interaction prompt shows requirements
+ * - Harvest progress bar
+ * 
+ * **Network Sync**:
+ * - Resource state broadcasted to all clients
+ * - Depletion events trigger visual changes
+ * - Respawn events restore resource
+ * 
+ * **Runs on**: Server (authoritative), Client (visual + interaction)
+ * **Referenced by**: ResourceSystem, InteractionSystem, SkillsSystem
+ * 
+ * @public
  */
 
 import THREE from '../extras/three';
@@ -123,12 +170,35 @@ export class ResourceEntity extends InteractableEntity {
 
   protected async createMesh(): Promise<void> {    
     if (this.world.isServer) {
-      return; // Don't create fallback mesh on server
+      return;
     }
     
-    console.log(`[ResourceEntity] Creating fallback primitive for ${this.config.resourceType}`)
+    // Try to load 3D model if available
+    if (this.config.model && this.world.loader) {
+      try {
+        console.log(`[ResourceEntity] Loading model for ${this.config.resourceType}:`, this.config.model);
+        const model = await this.world.loader.load('model', this.config.model);
+        if (model && 'toNodes' in model) {
+          const nodes = model.toNodes() as unknown as Map<string, THREE.Object3D>;
+          const rootNode = nodes.get('root') || Array.from(nodes.values())[0];
+          if (rootNode) {
+            this.mesh = rootNode as THREE.Mesh;
+            this.mesh.name = `Resource_${this.config.resourceType}_${this.id}`;
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = true;
+            this.mesh.visible = !this.config.depleted;
+            this.node.add(this.mesh);
+            console.log(`[ResourceEntity] ✅ Model loaded for ${this.config.resourceType}`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn(`[ResourceEntity] Failed to load model for ${this.config.resourceType}, using placeholder:`, error);
+        // Fall through to placeholder
+      }
+    }
     
-    // Fallback: Create basic resource mesh based on type as placeholder
+    console.log(`[ResourceEntity] Creating placeholder primitive for ${this.config.resourceType}`)
     let geometry: THREE.BufferGeometry;
     let material: THREE.Material;
     

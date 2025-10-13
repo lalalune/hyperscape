@@ -1,13 +1,11 @@
 /**
- * Unified System Type Definitions
+ * System Type Definitions
  * 
- * All system-related types consolidated:
+ * Type definitions for game systems:
  * - System interfaces (what methods systems expose)
  * - Runtime data structures (internal system state)
  * - System-specific types (combat, loot, spawning)
  * - Type guards and helpers
- * 
- * Replaces: system-interfaces.ts + system-types.ts + systems.ts
  */
 
 import { Entity } from '../entities/Entity'
@@ -372,10 +370,12 @@ export interface LootItem extends Item {
  * Mob spawning interfaces
  */
 export interface EntitySpawnedEvent {
-  entityId: string;
-  entityType: 'player' | 'mob' | 'item' | 'npc' | 'resource';
-  position: Position3D;
-  entityData: Record<string, unknown>;
+  entityId?: string;
+  entityType?: 'player' | 'mob' | 'item' | 'npc' | 'resource';
+  position?: Position3D;
+  entityData?: Record<string, unknown>;
+  type?: string;
+  config?: unknown;
 }
 
 export interface MobSpawnRequest {

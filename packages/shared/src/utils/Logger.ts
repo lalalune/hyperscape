@@ -1,6 +1,8 @@
 /**
- * Unified Logging System
- * Provides consistent logging across all systems with context, formatting, and filtering
+ * Logging System
+ * 
+ * Provides consistent logging across all systems with context, formatting, and filtering.
+ * Supports multiple log levels, system-specific logging, and player action tracking.
  */
 
 export enum LogLevel {

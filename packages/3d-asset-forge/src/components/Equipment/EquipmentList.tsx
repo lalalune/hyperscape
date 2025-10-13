@@ -179,7 +179,6 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
                                 alt={asset.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  // Fallback to package icon if image fails to load
                                   e.currentTarget.style.display = 'none'
                                   e.currentTarget.nextElementSibling?.classList.remove('hidden')
                                 }}

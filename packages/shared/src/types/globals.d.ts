@@ -1,6 +1,7 @@
 /**
- * Global type declarations for browser APIs and external libraries
- * Consolidated from globals.d.ts and global.d.ts
+ * Global Type Declarations
+ * 
+ * Type definitions for browser APIs, WebXR, PhysX, and environment variables.
  */
 
 import THREE from '../extras/three';

@@ -1,7 +1,13 @@
+/**
+ * systems/index.ts - System Exports
+ * 
+ * Central export point for all Hyperscape systems.
+ */
+
 export * from './ResourceSystem';
 export * from './StoreSystem';
 export * from './MobSystem';
-// CameraSystem unified: use ClientCameraSystem exclusively
+// Use ClientCameraSystem for all camera functionality
 // QuestSystem not yet implemented
 export * from './MobSpawnerSystem';
 export * from './LootSystem';
@@ -15,7 +21,6 @@ export * from './PathfindingSystem';
 // UISystem removed - unused
 export * from './PersistenceSystem';
 export * from './InventorySystem';
-export * from './AuthenticationSystem';
 export * from './InteractionSystem';
 export * from './ItemSpawnerSystem';
 export * from './BankingSystem';
@@ -26,5 +31,5 @@ export * from './NPCSystem';
 export * from './ActionRegistry';
 export * from './SkillsSystem';
 
-// Export unified types from core
+// Export core types
 export type { MobAIState, AggroTarget, CombatTarget } from '../types';

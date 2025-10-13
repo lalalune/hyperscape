@@ -1,3 +1,9 @@
+/**
+ * Collider.ts - Collision Shape Node
+ * 
+ * Defines collision geometry for physics interactions. Supports box, sphere, capsule, and mesh shapes.
+ */
+
 
 import THREE, { safeMatrixDecompose } from '../extras/three'
 

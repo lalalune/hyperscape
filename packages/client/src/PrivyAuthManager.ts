@@ -5,14 +5,43 @@
 
 import type { User } from '@privy-io/react-auth'
 
+/**
+ * Privy authentication state
+ * 
+ * Contains all authentication-related state including user data,
+ * tokens, and Farcaster integration.
+ * 
+ * @public
+ */
 export interface PrivyAuthState {
+  /** Whether the user is currently authenticated */
   isAuthenticated: boolean
+  
+  /** Privy user ID (unique identifier from Privy) */
   privyUserId: string | null
+  
+  /** Privy access token for API calls */
   privyToken: string | null
+  
+  /** Full Privy user object with profile data */
   user: User | null
+  
+  /** Farcaster FID if the user has linked their Farcaster account */
   farcasterFid: string | null
 }
 
+/**
+ * PrivyAuthManager - Privy authentication state management
+ * 
+ * Manages Privy authentication state and provides methods for login/logout.
+ * Stores authentication data in localStorage for persistence across page refreshes.
+ * 
+ * @remarks
+ * This is a singleton that manages Privy-specific authentication separately
+ * from the PlayerTokenManager (which handles in-game identity).
+ * 
+ * @public
+ */
 export class PrivyAuthManager {
   private static instance: PrivyAuthManager
   private state: PrivyAuthState = {
@@ -27,6 +56,13 @@ export class PrivyAuthManager {
 
   private constructor() {}
 
+  /**
+   * Gets the singleton instance of PrivyAuthManager
+   * 
+   * @returns The singleton instance
+   * 
+   * @public
+   */
   static getInstance(): PrivyAuthManager {
     if (!PrivyAuthManager.instance) {
       PrivyAuthManager.instance = new PrivyAuthManager()
@@ -35,7 +71,14 @@ export class PrivyAuthManager {
   }
 
   /**
-   * Update authentication state
+   * Updates authentication state
+   * 
+   * Merges the provided updates with the current state and notifies all listeners.
+   * This is the internal method used by setAuthenticatedUser and clearAuth.
+   * 
+   * @param updates - Partial state updates to apply
+   * 
+   * @public
    */
   updateState(updates: Partial<PrivyAuthState>): void {
     this.state = { ...this.state, ...updates }
@@ -43,7 +86,15 @@ export class PrivyAuthManager {
   }
 
   /**
-   * Set authenticated user from Privy
+   * Sets the authenticated user from Privy
+   * 
+   * Called after successful Privy authentication. Stores the user object,
+   * access token, and Farcaster FID (if linked) in state and localStorage.
+   * 
+   * @param user - Privy user object with profile data
+   * @param token - Privy access token for API calls
+   * 
+   * @public
    */
   setAuthenticatedUser(user: User, token: string): void {
     // Extract Farcaster FID if available
@@ -73,7 +124,11 @@ export class PrivyAuthManager {
   }
 
   /**
-   * Clear authentication state
+   * Clears all authentication state
+   * 
+   * Removes auth data from memory and localStorage. Called on logout.
+   * 
+   * @public
    */
   clearAuth(): void {
     this.updateState({
@@ -93,42 +148,80 @@ export class PrivyAuthManager {
   }
 
   /**
-   * Get current auth state
+   * Gets the current authentication state
+   * 
+   * @returns A copy of the current auth state
+   * 
+   * @public
    */
   getState(): PrivyAuthState {
     return { ...this.state }
   }
 
   /**
-   * Get Privy token for API calls
+   * Gets the Privy access token for API calls
+   * 
+   * @returns The access token or null if not authenticated
+   * 
+   * @public
    */
   getToken(): string | null {
     return this.state.privyToken
   }
 
   /**
-   * Get Privy user ID
+   * Gets the Privy user ID
+   * 
+   * @returns The user ID or null if not authenticated
+   * 
+   * @public
    */
   getUserId(): string | null {
     return this.state.privyUserId
   }
 
   /**
-   * Get Farcaster FID if available
+   * Gets the Farcaster FID if the user has linked their account
+   * 
+   * @returns The Farcaster FID or null if not linked
+   * 
+   * @public
    */
   getFarcasterFid(): string | null {
     return this.state.farcasterFid
   }
 
   /**
-   * Check if user is authenticated
+   * Checks if the user is currently authenticated
+   * 
+   * @returns true if authenticated, false otherwise
+   * 
+   * @public
    */
   isAuthenticated(): boolean {
     return this.state.isAuthenticated
   }
 
   /**
-   * Subscribe to auth state changes
+   * Subscribes to authentication state changes
+   * 
+   * Registers a listener that will be called whenever the auth state changes.
+   * Useful for updating UI in response to login/logout events.
+   * 
+   * @param listener - Callback function that receives the new state
+   * @returns Unsubscribe function
+   * 
+   * @example
+   * ```typescript
+   * const unsubscribe = privyAuthManager.subscribe((state) => {
+   *   console.log('Auth state changed:', state.isAuthenticated);
+   * });
+   * 
+   * // Later, to stop listening:
+   * unsubscribe();
+   * ```
+   * 
+   * @public
    */
   subscribe(listener: (state: PrivyAuthState) => void): () => void {
     this.listeners.add(listener)
@@ -148,7 +241,14 @@ export class PrivyAuthManager {
   }
 
   /**
-   * Restore auth from localStorage (for page refresh)
+   * Restores authentication from localStorage
+   * 
+   * Attempts to restore auth state from localStorage on page load.
+   * This allows the user to stay logged in across page refreshes.
+   * 
+   * @returns Object with restored token and userId (or null if not found)
+   * 
+   * @public
    */
   restoreFromStorage(): { token: string | null; userId: string | null } {
     const token = localStorage.getItem('privy_auth_token')
@@ -169,7 +269,13 @@ export class PrivyAuthManager {
   }
 }
 
-// Export singleton instance
+/**
+ * Singleton instance of PrivyAuthManager
+ * 
+ * Use this throughout the application for Privy authentication.
+ * 
+ * @public
+ */
 export const privyAuthManager = PrivyAuthManager.getInstance()
 
 

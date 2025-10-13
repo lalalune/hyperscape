@@ -241,6 +241,14 @@ npm run lint     # Code quality and style checks
 npm run dev      # Development mode with hot reload
 ```
 
+### Documentation Commands
+```bash
+bun run docs:generate  # Generate API docs from TypeScript source
+bun run docs:dev       # Start documentation dev server (localhost:3000)
+bun run docs:build     # Build static documentation site
+bun run docs:serve     # Serve production docs build locally
+```
+
 ### Package-Specific Commands
 ```bash
 # Work with individual packages
@@ -265,15 +273,22 @@ npm run dev
 bun run dev
 
 # This starts:
-# - Client: http://localhost:3333 (Vite with HMR)
+# - Shared package: Rebuilds automatically on changes (watch mode)
 # - Server: ws://localhost:5555/ws (Auto-rebuilds on TS changes)
-# - File watcher for automatic server restarts
+# - Client: http://localhost:3333 (Vite with HMR)
 
 # The dev server will:
+# ✅ Watch and rebuild shared package when files change
 # ✅ Automatically rebuild when you change TypeScript files
 # ✅ Restart the server after each rebuild
 # ✅ Hot-reload client changes instantly via Vite
 # ✅ Show colored logs for easy debugging
+
+# Run specific packages in dev mode:
+npm run dev:shared   # Watch and rebuild shared package only
+npm run dev:client   # Client with Vite HMR
+npm run dev:server   # Server with auto-restart
+npm run dev:all      # All packages in watch mode
 ```
 
 ## 🐛 **Troubleshooting**
@@ -317,6 +332,8 @@ npm start
 ## 📖 **Learn More**
 
 ### Documentation
+- **[API Documentation](https://your-username.github.io/hyperscape-2/)** - Auto-generated TypeScript API docs (hosted on GitHub Pages)
+- **[Documentation Setup Guide](DOCS-SETUP.md)** - How to generate and deploy documentation
 - **[Game Design Document](CLAUDE.md)** - Complete game mechanics and lore
 - **[Hyperscape Documentation](packages/hyperscape/docs/)** - Engine API reference
 - **[RPG Package README](packages/rpg/README.md)** - Implementation details

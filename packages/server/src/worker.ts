@@ -1,30 +1,80 @@
 /**
- * Cloudflare Worker - Routes requests to game server container
+ * Cloudflare Worker - Edge routing layer for production deployment
  * 
- * This edge layer handles:
- * - WebSocket → Game server container (auto-scaled 1-5 instances)
- * - API routes → Game server container
- * - Assets → R2 CDN (bypasses container completely!)
- * - Load balancing across container instances
+ * This file runs on Cloudflare's global edge network and routes requests to:
+ * - Game server containers (for WebSockets and API)
+ * - R2 storage (for static assets)
+ * 
+ * **Architecture**:
+ * ```
+ * Player → Cloudflare Edge (this file) → Game Server Container
+ *                                      → R2 CDN (for assets)
+ * ```
+ * 
+ * **Request Routing**:
+ * 1. `/ws` - WebSocket connections → Container (sticky session)
+ * 2. `/api/*` - API calls → Container (load balanced)
+ * 3. `/assets/world/*` - Static assets → R2 (bypasses container entirely!)
+ * 4. Everything else → Container (HTML, scripts, etc.)
+ * 
+ * **Why this architecture?**:
+ * - **Edge routing** = Lower latency (route at closest datacenter)
+ * - **Container separation** = Game logic isolated from static content
+ * - **R2 for assets** = Infinite scalability for music/models/textures
+ * - **Auto-scaling** = Spin up 1-5 container instances based on load
+ * 
+ * **Container Management**:
+ * Uses Cloudflare's Container Runtime (Durable Objects):
+ * - Automatically scales between 1-5 instances
+ * - Uses `getRandom()` for simple load balancing
+ * - Containers sleep after 30 minutes of inactivity (saves money)
+ * - WebSocket connections are sticky to container instance
+ * 
+ * **R2 Storage**:
+ * Static assets (music, 3D models, textures) are stored in Cloudflare R2:
+ * - Unlimited bandwidth (no egress fees!)
+ * - Range requests for audio streaming
+ * - Proper MIME types for all asset formats
+ * - Aggressive caching (immutable content)
+ * 
+ * **Performance Optimizations**:
+ * - Assets bypass container (faster, cheaper)
+ * - CORS headers allow cross-origin requests
+ * - Gzip/Brotli compression handled by Cloudflare automatically
+ * - Edge caching for static content
+ * 
+ * **Development vs Production**:
+ * - Development: Uses index.ts directly (no worker needed)
+ * - Production: Deploys this worker to Cloudflare (wrangler.toml config)
+ * 
+ * **Referenced by**: wrangler.toml (Cloudflare deployment config)
  */
 
 import { Container, getRandom } from '@cloudflare/containers'
 
-// Cloudflare Worker types
+// ============================================================================
+// CLOUDFLARE WORKER TYPE DEFINITIONS
+// ============================================================================
+// TypeScript definitions for Cloudflare Workers runtime APIs
+
+/** Durable Object namespace for container management */
 type DurableObjectNamespace = {
   idFromName(name: string): DurableObjectId
   get(id: DurableObjectId): DurableObjectStub
 }
 
+/** Unique identifier for a Durable Object (container instance) */
 type DurableObjectId = {
   toString(): string
   equals(other: DurableObjectId): boolean
 }
 
+/** Handle for communicating with a Durable Object instance */
 type DurableObjectStub = {
   fetch(request: Request): Promise<Response>
 }
 
+/** Cloudflare R2 storage bucket interface */
 type R2Bucket = {
   get(key: string): Promise<R2Object | null>
   put(key: string, value: ReadableStream | ArrayBuffer | string): Promise<void>
@@ -59,6 +109,17 @@ type ExecutionContext = {
   passThroughOnException(): void
 }
 
+/**
+ * Worker environment bindings
+ * 
+ * These are injected by Cloudflare Workers runtime and configured in wrangler.toml.
+ * Provides access to:
+ * - Durable Objects (game server containers)
+ * - R2 buckets (asset storage)
+ * - Environment variables (secrets)
+ * - D1 databases (optional - not currently used)
+ * - KV namespaces (optional - not currently used)
+ */
 interface Env {
   GAME_SERVER: DurableObjectNamespace
   ASSETS: R2Bucket
@@ -72,14 +133,44 @@ interface Env {
   PUBLIC_CDN_URL: string
 }
 
-// GameServer container class
-// This tells Cloudflare how to run your Docker container
+/**
+ * GameServer container class
+ * 
+ * Defines how Cloudflare should run the Hyperscape server Docker container.
+ * Containers are auto-scaled based on load (1-5 instances).
+ * 
+ * @public
+ */
 class GameServer extends Container {
-  defaultPort = 8080  // Your server listens on 8080 inside the container
-  sleepAfter = '30m'  // Sleep container after 30 minutes of inactivity (saves money!)
+  /** Port the server listens on inside the container */
+  defaultPort = 8080
+  
+  /** Sleep container after 30 minutes of inactivity to save costs */
+  sleepAfter = '30m'
 }
 
+/**
+ * Cloudflare Worker request handler
+ * 
+ * Routes incoming requests to the appropriate backend:
+ * - WebSocket → Game server container
+ * - API routes → Game server container  
+ * - Static assets → R2 CDN (bypasses container for performance)
+ * - Everything else → Game server container
+ * 
+ * This edge layer provides load balancing and CDN acceleration.
+ * 
+ * @public
+ */
 export default {
+  /**
+   * Handles all incoming HTTP requests
+   * 
+   * @param request - Incoming HTTP request
+   * @param env - Environment bindings (R2, containers, secrets)
+   * @param _ctx - Execution context for waitUntil
+   * @returns HTTP response
+   */
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
     
@@ -111,8 +202,8 @@ export default {
     }
     
     // ===== STATIC ASSETS → R2 CDN (Bypass container!) =====
-    if (url.pathname.startsWith('/world-assets/')) {
-      const assetPath = url.pathname.replace('/world-assets/', '')
+    if (url.pathname.startsWith('/assets/world/')) {
+      const assetPath = url.pathname.replace('/assets/world/', '')
       
       // Fetch from R2
       const object = await env.ASSETS.get(assetPath)

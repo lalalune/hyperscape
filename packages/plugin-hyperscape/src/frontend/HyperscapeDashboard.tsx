@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from './components/ui/card'
-import { Button } from './components/ui/button'
-import { Badge } from './components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar'
-import { Input } from './components/ui/input'
-import { Label } from './components/ui/label'
+} from "./components/ui/card";
+import { Button } from "./components/ui/button";
+import { Badge } from "./components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
+import { Input } from "./components/ui/input";
+import { Label } from "./components/ui/label";
 import {
   Globe,
   User,
@@ -22,112 +22,112 @@ import {
   Eye,
   Move,
   Hammer,
-} from 'lucide-react'
+} from "lucide-react";
 
 interface WorldStatus {
-  connected: boolean
-  worldId: string
-  worldName: string
-  playerCount: number
-  wsUrl: string
+  connected: boolean;
+  worldId: string;
+  worldName: string;
+  playerCount: number;
+  wsUrl: string;
 }
 
 interface AgentPosition {
-  x: number
-  y: number
-  z: number
+  x: number;
+  y: number;
+  z: number;
 }
 
 interface AgentStatus {
-  position: AgentPosition
-  currentAction: string
-  recentPerceptions: string[]
-  emoteActive: string | null
+  position: AgentPosition;
+  currentAction: string;
+  recentPerceptions: string[];
+  emoteActive: string | null;
 }
 
 interface AvatarInfo {
-  url: string
-  name: string
+  url: string;
+  name: string;
 }
 
 export function HyperscapeDashboard() {
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [worldUrl, setWorldUrl] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [worldUrl, setWorldUrl] = useState("");
 
   // Fetch world status
   const { data: worldStatus, isLoading: worldLoading } = useQuery<WorldStatus>({
-    queryKey: ['hyperscape-world-status'],
+    queryKey: ["hyperscape-world-status"],
     queryFn: async () => {
-      const response = await fetch('/api/hyperscape/world-status')
-      return response.json()
+      const response = await fetch("/api/hyperscape/world-status");
+      return response.json();
     },
     refetchInterval: 5000,
-  })
+  });
 
   // Fetch agent status
   const { data: agentStatus, isLoading: agentLoading } = useQuery<AgentStatus>({
-    queryKey: ['hyperscape-agent-status'],
+    queryKey: ["hyperscape-agent-status"],
     queryFn: async () => {
-      const response = await fetch('/api/hyperscape/agent-status')
-      return response.json()
+      const response = await fetch("/api/hyperscape/agent-status");
+      return response.json();
     },
     refetchInterval: 1000,
-  })
+  });
 
   // Fetch avatar info
   const { data: avatarInfo } = useQuery<AvatarInfo>({
-    queryKey: ['hyperscape-avatar-info'],
+    queryKey: ["hyperscape-avatar-info"],
     queryFn: async () => {
-      const response = await fetch('/api/hyperscape/avatar-info')
-      return response.json()
+      const response = await fetch("/api/hyperscape/avatar-info");
+      return response.json();
     },
-  })
+  });
 
   const handleJoinWorld = async () => {
     if (!worldUrl) {
-      return
+      return;
     }
 
-    await fetch('/api/hyperscape/join-world', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch("/api/hyperscape/join-world", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: worldUrl }),
-    })
-  }
+    });
+  };
 
   const handleUploadAvatar = async () => {
     if (!avatarFile) {
-      return
+      return;
     }
 
-    const formData = new FormData()
-    formData.append('avatar', avatarFile)
+    const formData = new FormData();
+    formData.append("avatar", avatarFile);
 
-    await fetch('/api/hyperscape/upload-avatar', {
-      method: 'POST',
+    await fetch("/api/hyperscape/upload-avatar", {
+      method: "POST",
       body: formData,
-    })
-  }
+    });
+  };
 
   const getActionIcon = (action: string) => {
-    if (action.includes('PERCEPTION')) {
-      return <Eye className="w-4 h-4" />
+    if (action.includes("PERCEPTION")) {
+      return <Eye className="w-4 h-4" />;
     }
-    if (action.includes('GOTO') || action.includes('WALK')) {
-      return <Move className="w-4 h-4" />
+    if (action.includes("GOTO") || action.includes("WALK")) {
+      return <Move className="w-4 h-4" />;
     }
-    if (action.includes('EDIT') || action.includes('BUILD')) {
-      return <Hammer className="w-4 h-4" />
+    if (action.includes("EDIT") || action.includes("BUILD")) {
+      return <Hammer className="w-4 h-4" />;
     }
-    return <Activity className="w-4 h-4" />
-  }
+    return <Activity className="w-4 h-4" />;
+  };
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Hyperscape Plugin Dashboard</h1>
-        <Badge variant={worldStatus?.connected ? 'success' : 'default'}>
-          {worldStatus?.connected ? 'Connected' : 'Disconnected'}
+        <Badge variant={worldStatus?.connected ? "success" : "default"}>
+          {worldStatus?.connected ? "Connected" : "Disconnected"}
         </Badge>
       </div>
 
@@ -150,11 +150,11 @@ export function HyperscapeDashboard() {
             ) : worldStatus?.connected ? (
               <div className="space-y-2">
                 <p className="text-sm">
-                  <span className="font-medium">World:</span>{' '}
+                  <span className="font-medium">World:</span>{" "}
                   {worldStatus.worldName}
                 </p>
                 <p className="text-sm">
-                  <span className="font-medium">Players:</span>{' '}
+                  <span className="font-medium">Players:</span>{" "}
                   {worldStatus.playerCount}
                 </p>
                 <p className="text-sm text-muted-foreground truncate">
@@ -223,11 +223,11 @@ export function HyperscapeDashboard() {
                 <Avatar className="w-16 h-16">
                   <AvatarImage src={avatarInfo?.url} />
                   <AvatarFallback>
-                    {avatarInfo?.name?.[0] || 'A'}
+                    {avatarInfo?.name?.[0] || "A"}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium">{avatarInfo?.name || 'Agent'}</p>
+                  <p className="font-medium">{avatarInfo?.name || "Agent"}</p>
                   <p className="text-sm text-muted-foreground">
                     Current avatar
                   </p>
@@ -241,7 +241,7 @@ export function HyperscapeDashboard() {
                     id="avatar-upload"
                     type="file"
                     accept=".vrm"
-                    onChange={e => setAvatarFile(e.target.files?.[0] || null)}
+                    onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
                     className="flex-1"
                   />
                   <Button
@@ -302,7 +302,7 @@ export function HyperscapeDashboard() {
                   type="url"
                   placeholder="wss://world.hyperscape.xyz/ws"
                   value={worldUrl}
-                  onChange={e => setWorldUrl(e.target.value)}
+                  onChange={(e) => setWorldUrl(e.target.value)}
                 />
               </div>
               <Button
@@ -310,7 +310,7 @@ export function HyperscapeDashboard() {
                 onClick={handleJoinWorld}
                 disabled={!worldUrl || worldStatus?.connected}
               >
-                {worldStatus?.connected ? 'Already Connected' : 'Join World'}
+                {worldStatus?.connected ? "Already Connected" : "Join World"}
               </Button>
               {worldStatus?.connected && (
                 <Button
@@ -319,7 +319,7 @@ export function HyperscapeDashboard() {
                   onClick={() =>
                     window.open(
                       `https://hyperscape.xyz/world/${worldStatus.worldId}`,
-                      '_blank'
+                      "_blank",
                     )
                   }
                 >
@@ -331,5 +331,5 @@ export function HyperscapeDashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

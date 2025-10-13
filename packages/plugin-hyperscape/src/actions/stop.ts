@@ -8,97 +8,95 @@ import {
   type State,
   type Content,
   logger,
-} from '@elizaos/core'
-import { HyperscapeService } from '../service'
-import { AgentControls } from '../systems/controls' // Import AgentControls type
+} from "@elizaos/core";
+import { HyperscapeService } from "../service";
 
 export const hyperscapeStopMovingAction: Action = {
-  name: 'HYPERSCAPE_STOP_MOVING',
+  name: "HYPERSCAPE_STOP_MOVING",
   similes: [
-    'STOP',
-    'HALT',
-    'STOP_WALKING',
-    'CANCEL_MOVEMENT',
-    'STOP_PATROLLING',
+    "STOP",
+    "HALT",
+    "STOP_WALKING",
+    "CANCEL_MOVEMENT",
+    "STOP_PATROLLING",
   ],
   description:
-    'Instantly stops your current walking or pathing; use to pause movement before speaking or performing another action. Essential for action chaining when you need to halt before a new activity.',
+    "Instantly stops your current walking or pathing; use to pause movement before speaking or performing another action. Essential for action chaining when you need to halt before a new activity.",
   validate: async (runtime: IAgentRuntime): Promise<boolean> => {
     const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )
-    const controls = service?.getWorld()?.controls
+      HyperscapeService.serviceName,
+    );
+    const controls = service?.getWorld()?.controls;
     // Valid only if connected and controls are available
     // Optional: Could check if getIsNavigating() or getIsPatrolling() is true
-    return !!service && service.isConnected() && !!controls
+    return !!service && service.isConnected() && !!controls;
   },
   handler: async (
     runtime: IAgentRuntime,
     _message: Memory,
     _state?: State,
     options?: { reason?: string }, // Optional reason for stopping
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )!
-    const controls = service.getWorld()!.controls!
+      HyperscapeService.serviceName,
+    )!;
+    const world = service.getWorld()!;
+    const controls = world.controls!;
 
-    const agentControls = controls as { stopAllActions: () => void }
-
-    const reason = options?.reason || 'stop action called'
+    const reason = options?.reason || "stop action called";
 
     // Call the stop navigation method
-    agentControls.stopAllActions()
+    controls.stopAllActions();
 
     if (callback) {
       const successResponse = {
-        text: '',
-        actions: ['HYPERSCAPE_STOP_MOVING'],
-        source: 'hyperscape',
-        metadata: { status: 'movement_stopped', reason },
+        text: "",
+        actions: ["HYPERSCAPE_STOP_MOVING"],
+        source: "hyperscape",
+        metadata: { status: "movement_stopped", reason },
         success: true,
-      }
-      await callback(successResponse as Content)
+      };
+      await callback(successResponse as Content);
     }
 
     return {
-      text: '',
+      text: "",
       success: true,
-      values: { success: true, status: 'movement_stopped', reason },
-      data: { action: 'HYPERSCAPE_STOP_MOVING', reason },
-    }
+      values: { success: true, status: "movement_stopped", reason },
+      data: { action: "HYPERSCAPE_STOP_MOVING", reason },
+    };
   },
   examples: [
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Stop walking.',
+          text: "Stop walking.",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Stopped current movement.',
-          actions: ['HYPERSCAPE_STOP_MOVE'],
+          text: "Stopped current movement.",
+          actions: ["HYPERSCAPE_STOP_MOVE"],
         },
       },
     ],
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Stop moving',
+          text: "Stop moving",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
           text: "I've stopped all movement.",
-          actions: ['HYPERSCAPE_STOP_MOVE'],
+          actions: ["HYPERSCAPE_STOP_MOVE"],
         },
       },
     ],
   ] as ActionExample[][],
-}
+};

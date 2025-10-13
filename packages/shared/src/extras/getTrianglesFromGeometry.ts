@@ -1,5 +1,34 @@
+/**
+ * getTrianglesFromGeometry.ts - Geometry Analysis Utilities
+ * 
+ * Functions for analyzing Three.js BufferGeometry to extract metadata.
+ * Used for performance monitoring, LOD calculations, and asset statistics.
+ * 
+ * Functions:
+ * - getTrianglesFromGeometry(): Count triangles in a geometry
+ * - getTriangleVerticesFromGeometry(): Extract triangle vertex data
+ * - getGeometryBounds(): Get bounding box
+ * - getGeometryComplexity(): Get detailed geometry statistics
+ * 
+ * Use Cases:
+ * - Performance budgeting (triangle count limits)
+ * - LOD level selection
+ * - Memory usage estimation
+ * - Asset loading progress
+ * 
+ * Referenced by: VRM factory, asset loaders, LOD system, stats tracking
+ */
+
 import THREE from './three'
 
+/**
+ * Count Triangles in Geometry
+ * 
+ * Works with both indexed and non-indexed geometries.
+ * 
+ * @param geometry - BufferGeometry to analyze
+ * @returns Number of triangles (3 vertices = 1 triangle)
+ */
 export function getTrianglesFromGeometry(geometry: THREE.BufferGeometry): number {
   if (!geometry) return 0
   

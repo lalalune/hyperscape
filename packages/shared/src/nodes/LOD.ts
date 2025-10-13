@@ -1,3 +1,9 @@
+/**
+ * LOD.ts - Level of Detail Node
+ * 
+ * Container that shows/hides children based on camera distance.
+ */
+
 
 import THREE from '../extras/three'
 

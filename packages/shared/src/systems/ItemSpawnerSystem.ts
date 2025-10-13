@@ -271,7 +271,7 @@ export class ItemSpawnerSystem extends SystemBase {
     // Create item entity via EntityManager
     const entityManager = getSystem(this.world, 'entity-manager') as EntityManager;
     
-    // Create entity config for item
+    // Create entity config for item - ItemEntityConfig needs itemId at top level
     const entityConfig = {
       id: itemId,
       type: EntityType.ITEM,
@@ -285,6 +285,24 @@ export class ItemSpawnerSystem extends SystemBase {
       interactionDistance: 2,
       description: itemData.description || '',
       model: itemData.modelPath || null,
+      // ItemEntityConfig required fields at top level
+      itemId: itemData.id,
+      itemType: this.getItemTypeString(itemData.type),
+      quantity: 1,
+      stackable: itemData.stackable,
+      value: itemData.value || 0,
+      weight: itemData.weight || 0,
+      rarity: itemData.rarity || ItemRarity.COMMON,
+      stats: (itemData.stats as Record<string, number>) || {},
+      requirements: {
+        level: itemData.requirements?.level || 1
+      },
+      effects: [],
+      armorSlot: itemData.equipSlot || null,
+      examine: itemData.examine || '',
+      modelPath: itemData.modelPath || '',
+      iconPath: itemData.iconPath || '',
+      healAmount: itemData.healAmount || 0,
       properties: {
         // Base entity properties
         movementComponent: null,

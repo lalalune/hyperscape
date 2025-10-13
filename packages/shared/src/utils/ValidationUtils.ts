@@ -1,6 +1,8 @@
 /**
- * Type validation and assertion utilities
- * Consolidated validation functions for the codebase
+ * Validation Utilities
+ * 
+ * Type guards and validators for runtime type checking.
+ * Includes position validation and distance calculations.
  */
 
 import type { Position3D } from '../types/index';

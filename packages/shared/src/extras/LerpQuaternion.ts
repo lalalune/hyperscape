@@ -1,5 +1,36 @@
+/**
+ * LerpQuaternion.ts - Spherical Interpolation for Network Rotation Updates
+ * 
+ * Smoothly interpolates between network rotation updates using spherical linear interpolation (slerp).
+ * Similar to LerpVector3 but for quaternions (3D rotations).
+ * 
+ * Why Slerp Instead of Lerp:
+ * - Linear interpolation of quaternions doesn't preserve rotation properties
+ * - Slerp (Spherical Linear Interpolation) maintains constant angular velocity
+ * - Prevents gimbal lock and interpolation artifacts
+ * 
+ * Usage:
+ * ```ts
+ * const lerpRot = new LerpQuaternion(initialRotation, 1/8); // 8Hz updates
+ * 
+ * // When network update arrives:
+ * lerpRot.push(newRotation);
+ * 
+ * // Every frame:
+ * lerpRot.update(deltaTime);
+ * mesh.quaternion.copy(lerpRot.value); // Use interpolated rotation
+ * ```
+ * 
+ * Referenced by: PlayerRemote, network entity interpolation
+ */
+
 import THREE from './three'
 
+/**
+ * Spherical Linear Interpolation for Quaternions
+ * 
+ * Provides smooth rotation interpolation between network updates.
+ */
 export class LerpQuaternion {
   value: THREE.Quaternion;
   rate: number;

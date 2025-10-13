@@ -80,14 +80,14 @@ if (!hasEnvFile) {
 const port = env.PORT || '5555';
 const vitePort = env.VITE_PORT || '3333';
 const wsUrl = env.PUBLIC_WS_URL;
-const assetsUrl = env.PUBLIC_ASSETS_URL;
+const cdnUrl = env.PUBLIC_CDN_URL;
 const capServerUrl = process.env.CAP_SERVER_URL;
 
 console.log('📋 Current Configuration:\n');
 console.log(`  Backend Port:        ${port}`);
 console.log(`  Vite Dev Port:       ${vitePort}`);
 console.log(`  WebSocket URL:       ${wsUrl || '(not set - will use relative URL)'}`);
-console.log(`  Assets URL:          ${assetsUrl || '(not set - will use relative URL)'}`);
+console.log(`  CDN URL:             ${cdnUrl || '(not set - defaults to http://localhost:8080)'}`);
 console.log(`  Mobile Dev URL:      ${capServerUrl || '(not set)'}`);
 console.log('');
 
@@ -104,11 +104,11 @@ if (wsUrl && wsUrl.includes('localhost')) {
   }
 }
 
-if (assetsUrl && assetsUrl.includes('localhost')) {
+if (cdnUrl && cdnUrl.includes('localhost')) {
   if (mobileMode) {
-    issues.push('PUBLIC_ASSETS_URL uses localhost - mobile devices cannot connect');
+    issues.push('PUBLIC_CDN_URL uses localhost - mobile devices cannot connect');
   } else {
-    warnings.push('PUBLIC_ASSETS_URL uses localhost - this will only work for desktop browsers');
+    warnings.push('PUBLIC_CDN_URL uses localhost - this will only work for desktop browsers');
   }
 }
 
@@ -173,7 +173,7 @@ if (mobileMode) {
   console.log('1. Update your .env file:');
   console.log(`   PORT=${port}`);
   console.log(`   PUBLIC_WS_URL=ws://${primaryIP}:${port}/ws`);
-  console.log(`   PUBLIC_ASSETS_URL=http://${primaryIP}:${port}/world-assets/`);
+  console.log(`   PUBLIC_CDN_URL=http://${primaryIP}:8080`);
   console.log(`   VITE_PORT=${vitePort}\n`);
 
   console.log('2. Set mobile dev server URL:');
@@ -204,4 +204,5 @@ if (issues.length === 0 && warnings.length === 0) {
   console.log('\n❌ Configuration has issues that need to be fixed\n');
   process.exit(1);
 }
+
 

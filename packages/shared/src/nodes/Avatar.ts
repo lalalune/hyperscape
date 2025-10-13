@@ -1,3 +1,9 @@
+/**
+ * Avatar.ts - VRM Avatar Node
+ * 
+ * Manages VRM character models with animations and bone transforms.
+ */
+
 
 import type { HotReloadable } from '../types'
 import type { AvatarHooks, AvatarData, VRMAvatarInstance, VRMAvatarFactory } from '../types/nodes'
@@ -76,16 +82,12 @@ export class Avatar extends Node {
           this.ctx.setHot(maybeHot as HotReloadable, true)
         }
         
-        // CRITICAL FALLBACK: Ensure avatar is in scene
-        // The factory should have added it, but if hooks were missing, it won't be attached
         const instanceWithRaw = this.instance as unknown as { raw?: { scene?: THREE.Object3D } }
         if (instanceWithRaw?.raw?.scene && this.ctx?.stage?.scene) {
           const avatarScene = instanceWithRaw.raw.scene
           if (!avatarScene.parent) {
-            console.warn('[Avatar] FALLBACK: Avatar scene has no parent! Manually adding to world.stage.scene')
+            console.warn('[Avatar] Avatar scene has no parent! Manually adding to world.stage.scene')
             this.ctx.stage.scene.add(avatarScene)
-                      } else {
-                      // Avatar scene already has parent
                       }
         }
         

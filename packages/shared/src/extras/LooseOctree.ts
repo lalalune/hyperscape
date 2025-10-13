@@ -1,3 +1,39 @@
+/**
+ * LooseOctree.ts - Spatial Partitioning for Fast Raycasting
+ * 
+ * Implements a loose octree for accelerating raycasts against many objects.
+ * "Loose" means node bounds overlap by 2x, allowing objects to stay in one node
+ * even when they move slightly, reducing expensive node reassignments.
+ * 
+ * **What is an Octree?**
+ * A tree structure that recursively divides 3D space into 8 octants (like a 3D binary tree).
+ * Objects are stored in the smallest node that can contain them.
+ * 
+ * **Why Loose Octree?**
+ * - Objects can move without constantly changing nodes
+ * - Each node's bounds are 2x its subdivision size
+ * - Reduces tree restructuring on movement
+ * - Better for dynamic scenes with moving objects
+ * 
+ * **Performance:**
+ * - Raycast: O(log n) instead of O(n) - massive speedup for 1000+ objects
+ * - Insert: O(log n) with automatic tree expansion
+ * - Update: O(log n) when objects move
+ * - Memory: Pools nodes to reduce allocations
+ * 
+ * **Features:**
+ * - Automatic expansion when objects outside bounds
+ * - Automatic collapse when nodes become empty
+ * - Debug visualization helper
+ * - Object pooling for nodes and Vector3s
+ * 
+ * **Algorithm:**
+ * Based on "Loose Octrees" by Thatcher Ulrich
+ * See: https://anteru.net/blog/2008/loose-octrees/
+ * 
+ * **Referenced by:** Stage system for scene raycasting
+ */
+
 import { isBoolean } from 'lodash-es'
 import THREE from './three'
 import type {
@@ -7,6 +43,7 @@ import type {
   OctreeItem
 } from '../types/physics'
 
+/** Debug visualization helper for octree nodes */
 export interface OctreeHelper {
   init: () => void;
   insert: (node: LooseOctreeNode) => void;

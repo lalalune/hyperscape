@@ -161,11 +161,9 @@ export class DeathSystem extends SystemBase {
   }
 
   private createHeadstone(playerId: string, position: { x: number; y: number; z: number }, items: InventoryItem[], killedBy: string): void {
-    // Create headstone ID
     const headstoneId = `headstone_${playerId}_${Date.now()}`;
     
-    // Get player name (fallback to playerId if not available)
-    const playerName = playerId; // In full implementation, get from player system
+    const playerName = playerId;
     
     // Create headstone data
     const headstoneData: HeadstoneData = {

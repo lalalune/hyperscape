@@ -1,12 +1,81 @@
- 
 /**
- * SystemBase - Base class for all systems
+ * SystemBase - Enhanced Base Class for Game Systems
  * 
- * Eliminates boilerplate code and provides common functionality:
- * - Default lifecycle method implementations
- * - Proper resource cleanup tracking
- * - event handling patterns
- * - Type-safe system dependencies
+ * Extends System with common functionality to eliminate boilerplate code.
+ * Use this instead of System for most game systems.
+ * 
+ * **Added Features** (vs System):
+ * 
+ * **Automatic Resource Cleanup**:
+ * - Managed timers (auto-cleared on destroy)
+ * - Managed intervals (auto-cleared on destroy)
+ * - Event subscriptions (auto-unsubscribed on destroy)
+ * - No more cleanup bugs!
+ * 
+ * **Type-Safe Event Handling**:
+ * - `subscribe<EventType>()` - Strongly typed event subscriptions
+ * - `subscribeOnce<EventType>()` - One-time event handlers
+ * - `emitTypedEvent()` - Type-checked event emissions
+ * - `request/respond()` - Request-response pattern
+ * 
+ * **Built-in Logging**:
+ * - SystemLogger instance with automatic prefixing
+ * - Consistent log formatting across systems
+ * - Debug, info, warn, error methods
+ * 
+ * **Configuration Support**:
+ * - SystemConfig parameter in constructor
+ * - Standardized system metadata
+ * - Dependency declarations
+ * - Auto-cleanup settings
+ * 
+ * **EventBus Integration**:
+ * - Direct access to world's EventBus
+ * - Type-safe event subscriptions
+ * - Automatic subscription cleanup
+ * 
+ * **Usage Pattern**:
+ * ```typescript
+ * class MySystem extends SystemBase {
+ *   constructor(world: World) {
+ *     super(world, {
+ *       name: 'my-system',
+ *       dependencies: {
+ *         required: ['physics'],
+ *         optional: ['audio']
+ *       },
+ *       autoCleanup: true
+ *     });
+ *   }
+ * 
+ *   async init() {
+ *     // Subscribe to events (auto-cleanup on destroy)
+ *     this.subscribe(EventType.ENTITY_SPAWNED, (data) => {
+ *       this.logger.info('Entity spawned:', data.entityId);
+ *     });
+ * 
+ *     // Create managed timer (auto-cleared on destroy)
+ *     this.createTimer(() => {
+ *       this.logger.info('Timer fired');
+ *     }, 1000);
+ *   }
+ * 
+ *   fixedUpdate(delta: number) {
+ *     // Your game logic here
+ *   }
+ * }
+ * ```
+ * 
+ * **Benefits**:
+ * - Prevents memory leaks (automatic cleanup)
+ * - Reduces boilerplate (no manual timer/listener management)
+ * - Type safety (compile-time event checking)
+ * - Consistency (all systems log and handle events the same way)
+ * 
+ * **Runs on**: Client, Server, or Both (depends on system)
+ * **Referenced by**: All modern game systems (CombatSystem, InventorySystem, etc.)
+ * 
+ * @public
  */
 
 import { EventBus, EventSubscription, SystemEvent } from './EventBus';
@@ -18,6 +87,11 @@ import { SystemLogger } from '../utils/Logger';
 import type { EventMap } from '../types/events';
 import { EventType } from '../types/events';
 
+/**
+ * SystemBase - Enhanced system base class with automatic resource management
+ * 
+ * @public
+ */
 export abstract class SystemBase extends System {
   protected readonly systemName: string;
   protected readonly config: SystemConfig;
@@ -40,7 +114,22 @@ export abstract class SystemBase extends System {
   }
 
   /**
-   * Protected helper to create managed timers that auto-cleanup
+   * Creates a managed timer that automatically cleans up on system destroy
+   * 
+   * Use this instead of setTimeout() to prevent memory leaks.
+   * 
+   * @param callback - Function to call when timer fires
+   * @param delay - Delay in milliseconds
+   * @returns Timer handle (can be passed to clearTimeout if needed)
+   * 
+   * @example
+   * ```typescript
+   * this.createTimer(() => {
+   *   console.log('Timer fired!');
+   * }, 5000); // Fires after 5 seconds
+   * ```
+   * 
+   * @protected
    */
   protected createTimer(callback: () => void, delay: number): ReturnType<typeof setTimeout> {
     const timer = setTimeout(() => {
@@ -52,7 +141,22 @@ export abstract class SystemBase extends System {
   }
 
   /**
-   * Protected helper to create managed intervals that auto-cleanup
+   * Creates a managed interval that automatically cleans up on system destroy
+   * 
+   * Use this instead of setInterval() to prevent memory leaks.
+   * 
+   * @param callback - Function to call on each interval
+   * @param delay - Delay between calls in milliseconds
+   * @returns Interval handle (can be passed to clearInterval if needed)
+   * 
+   * @example
+   * ```typescript
+   * this.createInterval(() => {
+   *   this.logger.info('Heartbeat');
+   * }, 1000); // Every second
+   * ```
+   * 
+   * @protected
    */
   protected createInterval(callback: () => void, delay: number): NodeJS.Timeout {
     const interval = setInterval(callback, delay);
@@ -61,7 +165,29 @@ export abstract class SystemBase extends System {
   }
 
   /**
-   * Protected helper to subscribe to events with auto-cleanup (strongly typed)
+   * Subscribes to an event with automatic cleanup on system destroy
+   * 
+   * Type-safe event subscription that automatically unsubscribes when the system
+   * is destroyed. Use this instead of world.on() to prevent memory leaks.
+   * 
+   * @param eventType - Event type to listen for (e.g., EventType.ENTITY_SPAWNED)
+   * @param handler - Callback function that receives event data
+   * @returns Subscription object (can call unsubscribe() manually if needed)
+   * 
+   * @example
+   * ```typescript
+   * // Typed event (autocomplete + type checking)
+   * this.subscribe(EventType.COMBAT_DAMAGE, (data) => {
+   *   this.logger.info(`Damage dealt: ${data.damage}`);
+   * });
+   * 
+   * // Custom event
+   * this.subscribe('my:custom:event', (data: MyEventData) => {
+   *   // Handle custom event
+   * });
+   * ```
+   * 
+   * @protected
    */
   protected subscribe<K extends keyof EventMap>(
     eventType: K,
@@ -84,7 +210,6 @@ export abstract class SystemBase extends System {
       this.eventSubscriptions.add(subscription);
       return subscription;
     }
-    // Fallback for custom string events: pass payload directly as well
     const subscription = this.eventBus.subscribe(eventType as string, (event: SystemEvent<AnyEvent>) => {
       (handler as (data: AnyEvent) => void | Promise<void>)(event.data);
     });

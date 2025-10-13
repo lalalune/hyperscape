@@ -1,13 +1,11 @@
 /**
- * Unified Event System Types
+ * Event System Types
  * 
- * All event-related types consolidated:
+ * Type definitions for the event system:
  * - EventType enum (all event names)
  * - Event payload interfaces (specific data for each event)
  * - Event system interfaces (subscriptions, handlers)
  * - Event mapping (type-safe emit/on/off)
- * 
- * Replaces: events.ts + event-payloads.ts + event-system.ts
  */
 
 import { Entity } from '../entities/Entity';
@@ -864,7 +862,8 @@ export interface EventMap {
   [EventType.PLAYER_CLEANUP]: { playerId: string };
 
   [EventType.ENTITY_CREATED]: EntityCreatedPayload;
-  [EventType.ENTITY_DEATH]: { entityId: string };
+  [EventType.ENTITY_DEATH]: { entityId: string; sourceId?: string; lastDamageTime?: number };
+  [EventType.ENTITY_REVIVED]: { entityId: string; newHealth?: number };
   [EventType.ENTITY_UPDATED]: { entityId: string; changes: Record<string, string | number | boolean> };
   [EventType.ASSET_LOADED]: { assetId: string; assetType: string };
   [EventType.ASSETS_LOADING_PROGRESS]: { progress: number; total: number; stage?: string; current?: number };
@@ -874,7 +873,7 @@ export interface EventMap {
   [EventType.UI_MENU]: { action: 'open' | 'close' | 'toggle' | 'navigate' };
   [EventType.UI_AVATAR]: { avatarData: { vrm: string; scale: number; position: { x: number; y: number; z: number } } };
   [EventType.UI_KICK]: { playerId: string; reason: string };
-  [EventType.UI_TOAST]: { message: string; type: 'info' | 'success' | 'warning' | 'error' };
+  [EventType.UI_TOAST]: { message: string; type: 'info' | 'success' | 'warning' | 'error' | string };
   [EventType.UI_SIDEBAR_CHAT_TOGGLE]: void;
   [EventType.UI_ACTIONS_UPDATE]: Array<{ id: string; name: string; enabled: boolean; hotkey: string | null }>;
   
@@ -882,13 +881,13 @@ export interface EventMap {
   [EventType.CAMERA_SET_MODE]: { mode: 'first_person' | 'third_person' | 'top_down' };
   [EventType.CAMERA_SET_TARGET]: { target: { position: { x: number; y: number; z: number } } };
   [EventType.CAMERA_CLICK_WORLD]: { screenPosition: { x: number; y: number }; normalizedPosition: { x: number; y: number }; target: { position?: Position3D } };
-  [EventType.CAMERA_FOLLOW_PLAYER]: { playerId: string; entity: { id: string; mesh: object }; camHeight: number };
+  [EventType.CAMERA_FOLLOW_PLAYER]: { playerId: string; entity: { id: string; mesh: object | null }; camHeight: number };
   
   // Inventory Events
   [EventType.INVENTORY_ITEM_REMOVED]: { playerId: string; itemId: string | number; quantity: number; slot?: number };
   [EventType.ITEM_DROP]: { playerId: string; itemId: string; quantity: number; slot?: number };
   [EventType.INVENTORY_USE]: { playerId: string; itemId: string; slot: number };
-  [EventType.ITEM_PICKUP]: { playerId: string; itemId: string };
+  [EventType.ITEM_PICKUP]: { playerId: string; itemId: string; entityId?: string; position?: Position3D };
   [EventType.INVENTORY_UPDATE_COINS]: { playerId: string; coins: number };
   [EventType.INVENTORY_MOVE]: { playerId: string; fromSlot?: number; toSlot?: number; sourceSlot?: number; targetSlot?: number };
   [EventType.INVENTORY_DROP_ALL]: { playerId: string; position: { x: number; y: number; z: number } };
@@ -897,10 +896,25 @@ export interface EventMap {
   [EventType.INVENTORY_ITEM_ADDED]: InventoryItemAddedPayload;
   [EventType.INVENTORY_CHECK]: InventoryCheckEvent;
   
-  // All other events... (truncated for brevity - would include full EventMap from event-system.ts)
+  // Player Health & Position Events
+  [EventType.PLAYER_HEALTH_UPDATED]: { playerId: string; health: number; maxHealth: number };
+  [EventType.PLAYER_TELEPORT_REQUEST]: { playerId: string; position: { x: number; y: number; z: number }; rotationY?: number };
+  
+  // Camera Events (continued)
+  [EventType.CAMERA_TAP]: { x: number; y: number };
+  
+  // XR Events
+  [EventType.XR_SESSION]: XRSession | null;
+  
+  // Avatar Events
+  [EventType.AVATAR_LOAD_COMPLETE]: { playerId: string; success: boolean };
+  
+  // Input Events
+  inputAck: { sequence: number; corrections?: unknown };
+  
+  // All other events
   [EventType.ENTITY_SPAWNED]: EntitySpawnedEvent;
   [EventType.RESOURCE_SPAWNED]: Resource;
-  [EventType.XR_SESSION]: XRSession | null;
 }
 
 /**

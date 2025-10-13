@@ -57,24 +57,23 @@ export class StoreSystem extends SystemBase {
     
     console.log(`[StoreSystem] Initialized ${this.stores.size} stores from manifests`);
     
-    // Set up type-safe event subscriptions for store mechanics with proper type casting
-    this.subscribe(EventType.STORE_OPEN, (data) => {
-      this.openStore(data as unknown as StoreOpenEvent);
+    // Set up type-safe event subscriptions for store mechanics
+    this.subscribe<StoreOpenEvent>(EventType.STORE_OPEN, (data) => {
+      this.openStore(data);
     });
-    this.subscribe(EventType.STORE_CLOSE, (data) => {
-      this.closeStore(data as unknown as StoreCloseEvent);
+    this.subscribe<StoreCloseEvent>(EventType.STORE_CLOSE, (data) => {
+      this.closeStore(data);
     });
-    this.subscribe(EventType.STORE_BUY, (data) => {
-      this.buyItem(data as unknown as StoreBuyEvent);
+    this.subscribe<StoreBuyEvent>(EventType.STORE_BUY, (data) => {
+      this.buyItem(data);
     });
-    this.subscribe(EventType.STORE_SELL, (data) => {
-      const typedData = data as { playerId: string; itemId: string; quantity: number };
-      this.sellItem(typedData.playerId, typedData.itemId, typedData.quantity);
+    this.subscribe<{ playerId: string; itemId: string; quantity: number }>(EventType.STORE_SELL, (data) => {
+      this.sellItem(data.playerId, data.itemId, data.quantity);
     });
     
     // Listen for NPC registrations from world content system
-    this.subscribe(EventType.STORE_REGISTER_NPC, (data) => {
-      this.registerStoreNPC(data as unknown as { npcId: string; storeId: string; position: { x: number; y: number; z: number }; name: string; area: string });
+    this.subscribe<{ npcId: string; storeId: string; position: { x: number; y: number; z: number }; name: string; area: string }>(EventType.STORE_REGISTER_NPC, (data) => {
+      this.registerStoreNPC(data);
     });
   }
 

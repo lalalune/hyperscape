@@ -60,13 +60,15 @@ export class DataManager {
   }
 
   /**
-   * Load manifests from server via fetch (client-side)
+   * Load manifests from CDN (both client and server)
    */
-  private async loadManifestsFromServer(): Promise<void> {
+  private async loadManifestsFromCDN(): Promise<void> {
     // Load directly from CDN (localhost:8080 in dev, R2/S3 in prod)
-    // Try window.env (runtime from server) first, then fall back to localhost:8080
-    const cdnUrl = (typeof window !== 'undefined' && (window as { env?: Record<string, string> }).env?.PUBLIC_CDN_URL) 
-      || 'http://localhost:8080';
+    // Server uses process.env, client will use hardcoded default
+    let cdnUrl = 'http://localhost:8080';
+    if (typeof process !== 'undefined' && typeof process.env !== 'undefined' && process.env.PUBLIC_CDN_URL) {
+      cdnUrl = process.env.PUBLIC_CDN_URL;
+    }
     const baseUrl = `${cdnUrl}/manifests`;
     
     // Load items
@@ -173,233 +175,11 @@ export class DataManager {
   }
 
   /**
-   * Load external assets written by 3D Asset Forge (manifests under world/assets)
+   * Load external assets from CDN (works for both client and server)
    */
   private async loadExternalAssetsFromWorld(): Promise<void> {
-    // Check if we're in a browser environment
-    // Server has 'process' global, browser has 'window'
-    const isServer = typeof process !== 'undefined' && process.versions && process.versions.node;
-    const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
-    
-    if (isBrowser && !isServer) {
-      // Client-side: Load manifests via fetch from server
-      await this.loadManifestsFromServer();
-      return;
-    }
-    
-    // Server-side: Load manifests from filesystem
-    // Resolve from process.cwd() (packages/hyperscape during dev-final)
-    const baseDir = process.cwd();
-    // Use computed strings to prevent bundlers from trying to resolve these Node.js modules
-    // They will only be loaded at runtime on the server, never in the browser
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, no-undef
-    const path = require('pat' + 'h');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, no-undef
-    const fs = require('f' + 's');
-    const assetsDir = path.join(baseDir, 'world', 'assets');
-    if (!fs.existsSync(assetsDir)) return;
-    this.worldAssetsDir = assetsDir;
-    const manifestsDir = path.join(assetsDir, 'manifests');
-    if (!fs.existsSync(manifestsDir)) return;
-
-      // Load items
-      const itemsPath = path.join(manifestsDir, 'items.json')
-      if (fs.existsSync(itemsPath)) {
-        const raw = fs.readFileSync(itemsPath, 'utf-8') as string
-        const list = JSON.parse(raw) as Array<Item>
-        for (const it of list) {
-          if (!it || !it.id) continue
-          // Ensure required defaults
-          const normalized = this.normalizeItem(it)
-          ;(ITEMS as Map<string, Item>).set(normalized.id, normalized)
-        }
-        console.log(`[DataManager] Loaded ${list.length} external items from manifests`)
-      }
-
-      // Load mobs
-      const mobsPath = path.join(manifestsDir, 'mobs.json')
-      if (fs.existsSync(mobsPath)) {
-        const raw = fs.readFileSync(mobsPath, 'utf-8') as string
-        const list = JSON.parse(raw) as Array<MobData>
-        for (const mob of list) {
-          if (!mob || !mob.id) continue
-          ;(ALL_MOBS as Record<string, MobData>)[mob.id] = mob
-        }
-        console.log(`[DataManager] Loaded ${list.length} external mobs from manifests`)
-      }
-
-      // Load NPCs
-      const npcsPath = path.join(manifestsDir, 'npcs.json')
-      if (fs.existsSync(npcsPath)) {
-        const raw = fs.readFileSync(npcsPath, 'utf-8') as string
-        const list = JSON.parse(raw) as Array<{
-          id: string;
-          name: string;
-          description: string;
-          type: string;
-          modelPath: string;
-          animations?: { idle?: string; talk?: string };
-          services: string[];
-        }>
-        
-        // NPCs can be added to world areas dynamically
-        // For now, just log that they're available
-        console.log(`[DataManager] Loaded ${list.length} external NPCs from manifests`)
-        
-        // Store NPCs for later use by NPC spawning systems
-        this.worldAssetsDir
-        for (const npc of list) {
-          if (!npc || !npc.id) continue
-          // Store in a global NPCs map for systems to access
-          if (!(globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS) {
-            (globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS = new Map()
-          }
-          (globalThis as unknown as { EXTERNAL_NPCS: Map<string, unknown> }).EXTERNAL_NPCS.set(npc.id, npc)
-        }
-      }
-
-      // Load resources
-      const resourcesPath = path.join(manifestsDir, 'resources.json')
-      if (fs.existsSync(resourcesPath)) {
-        const raw = fs.readFileSync(resourcesPath, 'utf-8') as string
-        const list = JSON.parse(raw) as Array<{
-          id: string;
-          name: string;
-          type: string;
-          resourceType: string;
-          modelPath: string | null;
-          harvestSkill: string;
-          requiredLevel: number;
-          harvestTime: number;
-          respawnTime: number;
-          harvestYield: Array<{ itemId: string; quantity: number; chance: number }>;
-        }>
-        
-        console.log(`[DataManager] Loaded ${list.length} external resources from manifests`)
-        
-        // Store resources for terrain system and resource system to access
-        if (!(globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }).EXTERNAL_RESOURCES) {
-          (globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }).EXTERNAL_RESOURCES = new Map()
-        }
-        for (const resource of list) {
-          if (!resource || !resource.id) continue
-          (globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }).EXTERNAL_RESOURCES.set(resource.id, resource)
-        }
-      }
-
-      // Load world areas
-      const worldAreasPath = path.join(manifestsDir, 'world-areas.json')
-      if (fs.existsSync(worldAreasPath)) {
-        const raw = fs.readFileSync(worldAreasPath, 'utf-8') as string
-        const worldAreasData = JSON.parse(raw) as {
-          starterTowns: Record<string, WorldArea>;
-          level1Areas: Record<string, WorldArea>;
-          level2Areas: Record<string, WorldArea>;
-          level3Areas: Record<string, WorldArea>;
-        }
-        
-        // Merge all areas into ALL_WORLD_AREAS
-        Object.assign(ALL_WORLD_AREAS, worldAreasData.starterTowns, worldAreasData.level1Areas, worldAreasData.level2Areas, worldAreasData.level3Areas);
-        Object.assign(STARTER_TOWNS, worldAreasData.starterTowns);
-        console.log(`[DataManager] Loaded ${Object.keys(ALL_WORLD_AREAS).length} world areas from manifests (${Object.keys(STARTER_TOWNS).length} starter towns)`)
-      }
-
-      // Load biomes
-      const biomesPath = path.join(manifestsDir, 'biomes.json')
-      if (fs.existsSync(biomesPath)) {
-        const raw = fs.readFileSync(biomesPath, 'utf-8') as string
-        const biomeList = JSON.parse(raw) as Array<BiomeData>
-        for (const biome of biomeList) {
-          if (!biome || !biome.id) continue
-          BIOMES[biome.id] = biome
-        }
-        console.log(`[DataManager] Loaded ${biomeList.length} biomes from manifests`)
-      }
-
-      // Load zones
-      const zonesPath = path.join(manifestsDir, 'zones.json')
-      if (fs.existsSync(zonesPath)) {
-        const raw = fs.readFileSync(zonesPath, 'utf-8') as string
-        const zoneList = JSON.parse(raw) as Array<ZoneData>
-        WORLD_ZONES.push(...zoneList);
-        console.log(`[DataManager] Loaded ${zoneList.length} zones from manifests`)
-      }
-
-      // Load banks
-      const banksPath = path.join(manifestsDir, 'banks.json')
-      if (fs.existsSync(banksPath)) {
-        const raw = fs.readFileSync(banksPath, 'utf-8') as string
-        const bankList = JSON.parse(raw) as Array<BankEntityData>
-        for (const bank of bankList) {
-          if (!bank || !bank.id) continue
-          BANKS[bank.id] = bank
-        }
-        console.log(`[DataManager] Loaded ${bankList.length} banks from manifests`)
-      }
-
-      // Load stores
-      const storesPath = path.join(manifestsDir, 'stores.json')
-      if (fs.existsSync(storesPath)) {
-        const raw = fs.readFileSync(storesPath, 'utf-8') as string
-        const storeList = JSON.parse(raw) as Array<StoreData>
-        for (const store of storeList) {
-          if (!store || !store.id) continue
-          GENERAL_STORES[store.id] = store
-        }
-        console.log(`[DataManager] Loaded ${storeList.length} stores from manifests`)
-      }
-
-      // Load buildings
-      const buildingsPath = path.join(manifestsDir, 'buildings.json')
-      if (fs.existsSync(buildingsPath)) {
-        const raw = fs.readFileSync(buildingsPath, 'utf-8') as string
-        const list = JSON.parse(raw) as Array<{
-          id: string;
-          name: string;
-          type: string;
-          modelPath: string;
-          iconPath?: string;
-          description: string;
-        }>
-        
-        console.log(`[DataManager] Loaded ${list.length} external buildings from manifests`)
-        
-        // Store buildings for world building systems
-        if (!(globalThis as { EXTERNAL_BUILDINGS?: Map<string, unknown> }).EXTERNAL_BUILDINGS) {
-          (globalThis as { EXTERNAL_BUILDINGS?: Map<string, unknown> }).EXTERNAL_BUILDINGS = new Map()
-        }
-        for (const building of list) {
-          if (!building || !building.id) continue
-          (globalThis as unknown as { EXTERNAL_BUILDINGS: Map<string, unknown> }).EXTERNAL_BUILDINGS.set(building.id, building)
-        }
-      }
-
-      // Load avatars
-      const avatarsPath = path.join(manifestsDir, 'avatars.json')
-      if (fs.existsSync(avatarsPath)) {
-        const raw = fs.readFileSync(avatarsPath, 'utf-8') as string
-        const list = JSON.parse(raw) as Array<{
-          id: string;
-          name: string;
-          description: string;
-          type: string;
-          isRigged: boolean;
-          characterHeight: number;
-          modelPath: string;
-          animations?: { idle?: string; walk?: string; run?: string };
-        }>
-        
-        console.log(`[DataManager] Loaded ${list.length} external avatars from manifests`)
-        
-        // Store avatars for player system
-        if (!(globalThis as { EXTERNAL_AVATARS?: Map<string, unknown> }).EXTERNAL_AVATARS) {
-          (globalThis as { EXTERNAL_AVATARS?: Map<string, unknown> }).EXTERNAL_AVATARS = new Map()
-        }
-        for (const avatar of list) {
-          if (!avatar || !avatar.id) continue
-          (globalThis as unknown as { EXTERNAL_AVATARS: Map<string, unknown> }).EXTERNAL_AVATARS.set(avatar.id, avatar);
-        }
-      }
+    // Both client and server now load from CDN
+    await this.loadManifestsFromCDN();
   }
 
   private normalizeItem(item: Item): Item {

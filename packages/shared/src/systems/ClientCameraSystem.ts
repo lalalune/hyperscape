@@ -195,9 +195,9 @@ export class ClientCameraSystem extends SystemBase {
 
   private initializePlayerTarget(): void {
     const localPlayer = this.world.getPlayer();
-    if (localPlayer && (localPlayer as unknown as { id: string }).id) {
+    if (localPlayer && localPlayer.id) {
       this.logger.info(`Setting player as camera target: ${localPlayer.id}`);
-      this.onSetTarget({ target: localPlayer as unknown as CameraTarget });
+      this.onSetTarget({ target: localPlayer as CameraTarget });
       
         this.initializeCameraPosition();
     } else {
@@ -648,7 +648,7 @@ export class ClientCameraSystem extends SystemBase {
 
   private onSetTarget(event: { target: CameraTarget }): void {
     this.target = event.target;
-    this.logger.info('Target set', { x: this.target.position.x, y: this.target.position.y, z: this.target.position.z } as unknown as Record<string, unknown>);
+    this.logger.info('Target set', { x: this.target.position.x, y: this.target.position.y, z: this.target.position.z });
     
     if (this.target) {
       this.initializeCameraPosition();
@@ -660,15 +660,15 @@ export class ClientCameraSystem extends SystemBase {
     this.cameraOffset.y = event.camHeight || 1.6;
     
     const localPlayer = this.world.getPlayer();
-    if (localPlayer && (localPlayer as unknown as { id: string }).id === event.playerId && !this.target) {
-      this.onSetTarget({ target: localPlayer as unknown as CameraTarget });
+    if (localPlayer && localPlayer.id === event.playerId && !this.target) {
+      this.onSetTarget({ target: localPlayer as CameraTarget });
     }
   }
 
   private initializeCameraPosition(): void {
     if (!this.target || !this.camera) return;
 
-    const targetPos = this.target.position as unknown as { x: number; y: number; z: number };
+    const targetPos = this.target.position;
     if (!targetPos) return;
 
     // Ensure camera is independent before positioning
@@ -808,7 +808,11 @@ export class ClientCameraSystem extends SystemBase {
 
   private validatePlayerOnTerrain(playerPos: THREE.Vector3 | { x: number; y: number; z: number }): void {
     // Get terrain system
-    const terrainSystem = this.world.getSystem<TerrainSystem>('terrain') as unknown as TerrainSystem
+    const terrainSystem = this.world.getSystem<TerrainSystem>('terrain');
+    if (!terrainSystem) {
+      // No terrain system available
+      return;
+    }
 
     // Get player coordinates
     const px = 'x' in playerPos ? playerPos.x : (playerPos as THREE.Vector3).x;

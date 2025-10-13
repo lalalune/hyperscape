@@ -1,6 +1,60 @@
 /**
- * System Loader
- * Entry point for Hyperscape to dynamically load all systems
+ * SystemLoader.ts - RPG Game Systems Registration
+ * 
+ * Central registration point for all RPG gameplay systems. This module is responsible
+ * for loading and configuring all game systems into a World instance in the correct order.
+ * 
+ * Systems Registered:
+ * 
+ * **Core Game Systems:**
+ * - ActionRegistry: Registers all available player actions
+ * - PersistenceSystem: Database save/load for player data
+ * - PlayerSystem: Player lifecycle, stats, health, stamina
+ * - InventorySystem: Item storage and management (28 slots)
+ * - EquipmentSystem: Worn items and equipment bonuses
+ * - SkillsSystem: Experience, levels, and skill progression
+ * - BankingSystem: Bank storage across multiple locations
+ * 
+ * **Combat Systems:**
+ * - CombatSystem: Melee, ranged, and magic combat mechanics
+ * - DeathSystem: Handles player/mob death and respawning
+ * - AggroSystem: Enemy threat and aggression management
+ * 
+ * **World Systems:**
+ * - MobSystem: Enemy creature lifecycle and behavior
+ * - NPCSystem: Non-hostile character management
+ * - MobSpawnerSystem: Dynamic mob population control
+ * - ResourceSystem: Gathering nodes (trees, rocks, ore)
+ * - ItemSpawnerSystem: Ground item management
+ * - PathfindingSystem: A* pathfinding for AI movement
+ * 
+ * **Interaction Systems:**
+ * - InteractionSystem: Player-entity interaction handling
+ * - InventoryInteractionSystem: Item usage and consumption
+ * - LootSystem: Item drops and loot tables
+ * - StoreSystem: Shop management and trading
+ * 
+ * **Processing:**
+ * - ProcessingSystem: Background jobs and async tasks
+ * - EntityManager: Entity spawning and management utilities
+ * 
+ * API Flattening:
+ * This module also "flattens" system APIs onto the World instance for easier access:
+ * - world.getRPGPlayer() instead of world.getSystem('player')?.getPlayer()
+ * - world.getInventory() instead of world.getSystem('inventory')?.getInventory()
+ * - world.startCombat() instead of world.getSystem('combat')?.startCombat()
+ * 
+ * This makes the API more discoverable and reduces boilerplate in game code.
+ * 
+ * Usage:
+ * Called by createClientWorld() and createServerWorld() during world initialization:
+ * ```typescript
+ * await registerSystems(world);
+ * // All RPG systems are now registered and ready
+ * ```
+ * 
+ * Used by: createClientWorld.ts, createServerWorld.ts
+ * References: All RPG system implementations
  */
 import { Component, ComponentConstructor } from '../components'
 import { CombatComponent } from '../components/CombatComponent'
@@ -57,8 +111,8 @@ import { StoreSystem } from './StoreSystem'
 import { InteractionSystem } from './InteractionSystem'
 import { LootSystem } from './LootSystem'
 // Movement now handled by physics in PlayerLocal
-// CameraSystem moved to core ClientCameraSystem
-// Removed UIComponents - replaced with React components
+// CameraSystem is ClientCameraSystem
+// UI components are React-based in the client package
 
 // World Content Systems
 import { NPCSystem } from './NPCSystem'
@@ -191,11 +245,12 @@ export async function registerSystems(world: World): Promise<void> {
 
   if (world.isClient) {
     world.register('interaction', InteractionSystem)
-    // CameraSystem moved to core ClientCameraSystem
-    // Removed UIComponents - replaced with React components
+    // CameraSystem is ClientCameraSystem
+    // UI components are React-based in the client package
     systems.interaction = getSystem(world, 'interaction') as InteractionSystem
-    systems.cameraSystem = getSystem(world, 'client-camera-system') as unknown as CameraSystemInterface
-    systems.movementSystem = getSystem(world, 'client-movement-system') as unknown
+    // Camera system API is accessed through world events, not direct system reference
+    systems.cameraSystem = undefined
+    systems.movementSystem = getSystem(world, 'client-movement-system')
   }
 
   if (disableRPG) {
@@ -597,9 +652,10 @@ function setupAPI(world: World, systems: Systems): void {
       systems.interaction && world.emit(EventType.INTERACTION_UNREGISTER, { appId }),
 
     // Camera API (Core ClientCameraSystem)
-    getCameraInfo: () => (systems.cameraSystem && 'getCameraInfo' in systems.cameraSystem
-      ? (systems.cameraSystem as unknown as { getCameraInfo: () => unknown }).getCameraInfo()
-      : undefined),
+    getCameraInfo: () => {
+      const cameraSystem = world.getSystem('client-camera-system') as { getCameraInfo?: () => unknown } | undefined;
+      return cameraSystem?.getCameraInfo?.();
+    },
     setCameraTarget: (_target: THREE.Object3D | null) => {}, // setTarget is private
     setCameraEnabled: (_enabled: boolean) => undefined,
     resetCamera: () => {}, // resetCamera is private
@@ -939,140 +995,88 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Test helper functions for gameplay testing framework
       spawnTestPlayer: (x: number, z: number, color = '#FF0000') => {
-        try {
-          // Only work on client side where THREE.js scene is available
-          if (world.isServer) {
-            // Removed console.log('[API] spawnTestPlayer only works on client side')
-            return null
-          }
-
-          if (!world.stage.scene) {
-            throw new Error('World stage not available for spawnTestPlayer')
-          }
-
-          // Use global THREE or stage THREE
-          if (!THREE) {
-            throw new Error('THREE.js not available')
-          }
-
-          const geometry = new THREE.BoxGeometry(0.6, 1.8, 0.6)
-          const material = new THREE.MeshBasicMaterial({ color })
-          const mesh = new THREE.Mesh(geometry, material)
-          mesh.name = `TestPlayer_${Date.now()}`
-          mesh.position.set(x, 0.9, z)
-          mesh.userData = {
-            type: 'player',
-            health: 100,
-            maxHealth: 100,
-            level: 1,
-            inventory: [],
-            equipment: {},
-          }
-          world.stage.scene.add(mesh)
-          return mesh
-        } catch (_error) {
+        // Only work on client side where THREE.js scene is available
+        if (world.isServer) {
           return null
         }
+
+        const geometry = new THREE.BoxGeometry(0.6, 1.8, 0.6)
+        const material = new THREE.MeshBasicMaterial({ color })
+        const mesh = new THREE.Mesh(geometry, material)
+        mesh.name = `TestPlayer_${Date.now()}`
+        mesh.position.set(x, 0.9, z)
+        mesh.userData = {
+          type: 'player',
+          health: 100,
+          maxHealth: 100,
+          level: 1,
+          inventory: [],
+          equipment: {},
+        }
+        world.stage.scene.add(mesh)
+        return mesh
       },
 
       spawnTestGoblin: (x: number, z: number, color = '#00FF00') => {
-        try {
-          // Only work on client side where THREE.js scene is available
-          if (world.isServer) {
-            // Removed console.log('[API] spawnTestGoblin only works on client side')
-            return null
-          }
-
-          if (!world.stage.scene) {
-            throw new Error('World stage not available for spawnTestGoblin')
-          }
-
-          const geometry = new THREE.BoxGeometry(0.8, 1.6, 0.8)
-          const material = new THREE.MeshBasicMaterial({ color })
-          const mesh = new THREE.Mesh(geometry, material)
-          mesh.name = `TestGoblin_${Date.now()}`
-          mesh.position.set(x, 0.8, z)
-          mesh.userData = {
-            type: 'mob',
-            mobType: 'goblin',
-            health: 50,
-            maxHealth: 50,
-            level: 1,
-          }
-          world.stage.scene.add(mesh)
-          return mesh
-        } catch (_error) {
-          // Removed console.error('[API] Failed to spawn test goblin:', _error)
+        // Only work on client side where THREE.js scene is available
+        if (world.isServer) {
           return null
         }
+
+        const geometry = new THREE.BoxGeometry(0.8, 1.6, 0.8)
+        const material = new THREE.MeshBasicMaterial({ color })
+        const mesh = new THREE.Mesh(geometry, material)
+        mesh.name = `TestGoblin_${Date.now()}`
+        mesh.position.set(x, 0.8, z)
+        mesh.userData = {
+          type: 'mob',
+          mobType: 'goblin',
+          health: 50,
+          maxHealth: 50,
+          level: 1,
+        }
+        world.stage.scene.add(mesh)
+        return mesh
       },
 
       spawnTestItem: (x: number, z: number, itemType = 'bronze_sword', color = '#0000FF') => {
-        try {
-          // Only work on client side where THREE.js scene is available
-          if (world.isServer) {
-            // Removed console.log('[API] spawnTestItem only works on client side')
-            return null
-          }
-
-          if (!world.stage.scene) {
-            throw new Error('World stage not available for spawnTestItem')
-          }
-          
-          if (!THREE) {
-            throw new Error('THREE.js not available')
-          }
-
-          const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5)
-          const material = new THREE.MeshBasicMaterial({ color })
-          const mesh = new THREE.Mesh(geometry, material)
-          mesh.name = `TestItem_${itemType}_${Date.now()}`
-          mesh.position.set(x, 0.25, z)
-          mesh.userData = {
-            type: 'item',
-            itemType: itemType,
-            quantity: 1,
-          }
-          world.stage.scene.add(mesh)
-          return mesh
-        } catch (_error) {
-          // Removed console.error('[API] Failed to spawn test item:', _error)
+        // Only work on client side where THREE.js scene is available
+        if (world.isServer) {
           return null
         }
+
+        const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5)
+        const material = new THREE.MeshBasicMaterial({ color })
+        const mesh = new THREE.Mesh(geometry, material)
+        mesh.name = `TestItem_${itemType}_${Date.now()}`
+        mesh.position.set(x, 0.25, z)
+        mesh.userData = {
+          type: 'item',
+          itemType: itemType,
+          quantity: 1,
+        }
+        world.stage.scene.add(mesh)
+        return mesh
       },
 
       simulateCombat: (attacker: THREE.Object3D, target: THREE.Object3D) => {
-        try {
-          if (!attacker || !target) {
-            return { error: 'Invalid attacker or target' }
-          }
-
-          const damage = Math.floor(Math.random() * 10) + 5
-
-          const targetEntity = target as THREE.Object3D & { userData?: { health?: number } }
-
-          if (targetEntity.userData?.health !== undefined) {
-            targetEntity.userData.health -= damage
-          }
-
-          // Removed console.log: [Test Combat] attack result
-
-          if (targetEntity.userData?.health !== undefined && targetEntity.userData.health <= 0) {
-            // Target dies - remove from scene and spawn loot
-            // Strong type assumption - world has stage with scene
-            const worldStage = world.stage as { scene?: { remove: (obj: THREE.Object3D) => void } } | undefined
-            if (worldStage?.scene && targetEntity.parent === worldStage.scene) {
-              worldStage.scene.remove(target)
-            }
-            // Removed console.log(`[Test Combat] ${targetEntity.name || 'Unknown'} died`)
-            return { killed: true, damage: damage }
-          }
-
-          return { killed: false, damage: damage }
-        } catch (error) {
-          // Removed console.error('[API] Combat simulation failed:', error)
-          return { error: error instanceof Error ? error.message : 'Unknown error' }
+        if (!attacker || !target) {
+          throw new Error('Invalid attacker or target')
         }
+
+        const damage = Math.floor(Math.random() * 10) + 5
+
+        const targetEntity = target as THREE.Object3D & { userData: { health: number } }
+
+        targetEntity.userData.health -= damage
+
+        if (targetEntity.userData.health <= 0) {
+          // Target dies - remove from scene
+          world.stage.scene.remove(target)
+          return { killed: true, damage: damage }
+        }
+
+        return { killed: false, damage: damage }
       },
     },
   }

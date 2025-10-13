@@ -18,8 +18,12 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   useEffect(() => {
     const id = world.entities.player?.id
     if (!id) return
-    const api = (world as unknown as { api?: { getAttackStyleInfo?: (playerId: string, cb: (info: { style: string; cooldown?: number }) => void) => void } }).api
-    api?.getAttackStyleInfo?.(id, (info: { style: string; cooldown?: number }) => {
+    const worldWithApi = world as World & {
+      api?: {
+        getAttackStyleInfo?: (playerId: string, cb: (info: { style: string; cooldown?: number }) => void) => void
+      }
+    }
+    worldWithApi.api?.getAttackStyleInfo?.(id, (info: { style: string; cooldown?: number }) => {
       if (info) {
         setStyle(info.style)
         setCooldown(info.cooldown || 0)
@@ -44,8 +48,12 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   const changeStyle = (next: string) => {
     const id = world.entities.player?.id
     if (!id) return
-    const api = (world as unknown as { api?: { changeAttackStyle?: (playerId: string, style: string) => void } }).api
-    api?.changeAttackStyle?.(id, next)
+    const worldWithApi = world as World & {
+      api?: {
+        changeAttackStyle?: (playerId: string, style: string) => void
+      }
+    }
+    worldWithApi.api?.changeAttackStyle?.(id, next)
   }
 
   // Determine if ranged weapon equipped; if so, limit to ranged/defense like RS

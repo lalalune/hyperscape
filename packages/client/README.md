@@ -582,7 +582,7 @@ DATABASE_URL=sqlite:./world/db.sqlite
 WORLD_PATH=./world
 
 # Optional
-PUBLIC_ASSETS_URL=https://your-cdn.com/assets/
+PUBLIC_CDN_URL=https://your-cdn.com
 LIVEKIT_API_KEY=your-livekit-key
 LIVEKIT_API_SECRET=your-livekit-secret
 ```

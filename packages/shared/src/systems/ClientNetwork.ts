@@ -1,3 +1,93 @@
+/**
+ * ClientNetwork.ts - Client-Side Networking System
+ * 
+ * Manages WebSocket connection to game server and handles network communication.
+ * Provides entity synchronization, latency compensation, and packet handling.
+ * 
+ * Key Features:
+ * - **WebSocket Client**: Persistent connection to game server
+ * - **Entity Sync**: Replicates server entities to client
+ * - **Interpolation**: Smooth movement between server updates
+ * - **Packet System**: Efficient binary protocol using msgpackr
+ * - **Reconnection**: Automatic reconnect with exponential backoff
+ * - **Ping/Latency**: Round-trip time measurement
+ * - **Buffering**: Handles network jitter and packet loss
+ * - **Compression**: Optional packet compression for low bandwidth
+ * 
+ * Network Architecture:
+ * - Server is authoritative for all game state
+ * - Client receives snapshots at 8Hz (every 125ms)
+ * - Client interpolates between snapshots for smooth 60 FPS
+ * - Client sends input at 30Hz for responsive controls
+ * - Server validates all client actions
+ * 
+ * Packet Types:
+ * - **init**: Initial connection setup
+ * - **snapshot**: World state update from server
+ * - **entityAdded**: New entity spawned
+ * - **entityModified**: Entity state changed
+ * - **entityRemoved**: Entity destroyed
+ * - **chatMessage**: Text chat from players
+ * - **input**: Player input commands
+ * - **ping**: Latency measurement
+ * 
+ * Entity Interpolation:
+ * - Maintains buffer of last 3 server snapshots
+ * - Interpolates position/rotation between snapshots
+ * - Compensates for network jitter
+ * - Predicts movement for local player
+ * - Server correction when prediction wrong
+ * 
+ * Latency Compensation:
+ * - Measures round-trip time (RTT)
+ * - Adjusts interpolation delay based on RTT
+ * - Client-side prediction for local player
+ * - Server rewind for hit detection
+ * 
+ * Connection States:
+ * - Connecting: Initial WebSocket handshake
+ * - Connected: Active connection, receiving packets
+ * - Disconnected: Connection lost, attempting reconnect
+ * - Error: Fatal error, manual reconnect required
+ * 
+ * Error Handling:
+ * - Graceful disconnect on server shutdown
+ * - Auto-reconnect on network interruption
+ * - Packet validation and error recovery
+ * - Session restoration on reconnect
+ * 
+ * Usage:
+ * ```typescript
+ * // Connect to server
+ * await world.network.connect('wss://server.com/ws');
+ * 
+ * // Send chat message
+ * world.network.sendChat('Hello world!');
+ * 
+ * // Get current latency
+ * const ping = world.network.getPing();
+ * 
+ * // Handle disconnection
+ * world.network.on('disconnected', () => {
+ *   console.log('Lost connection to server');
+ * });
+ * ```
+ * 
+ * Related Systems:
+ * - ServerNetwork: Server-side counterpart
+ * - Entities: Manages replicated entities
+ * - PlayerLocal: Sends input to server
+ * - ClientInput: Captures player actions
+ * 
+ * Dependencies:
+ * - WebSocket API (browser native)
+ * - msgpackr: Binary serialization
+ * - EventBus: System events
+ * 
+ * @see packets.ts for packet format
+ * @see ServerNetwork.ts for server implementation
+ */
+
 // moment removed; use native Date
 import { emoteUrls } from '../extras/playerEmotes'
 import THREE from '../extras/three'
@@ -13,13 +103,18 @@ import { PlayerLocal } from '../entities/PlayerLocal'
 const _v3_1 = new THREE.Vector3()
 const _quat_1 = new THREE.Quaternion()
 
-// Entity interpolation state for smooth remote entity movement
+/**
+ * Entity interpolation state for smooth remote entity movement
+ */
 interface EntitySnapshot {
   position: Float32Array;
   rotation: Float32Array;
   timestamp: number;
 }
 
+/**
+ * Tracks interpolation state for each remote entity
+ */
 interface InterpolationState {
   entityId: string;
   snapshots: EntitySnapshot[];
@@ -36,7 +131,10 @@ interface InterpolationState {
 
 /**
  * Client Network System
- *
+ * 
+ * Manages connection to game server and entity synchronization.
+ * Runs only on client (browser).
+ * 
  * - runs on the client
  * - provides abstract network methods matching ServerNetwork
  *
@@ -206,6 +304,7 @@ export class ClientNetwork extends SystemBase {
   }
 
   async onSnapshot(data: SnapshotData) {
+    console.log('[ClientNetwork] onSnapshot received, entities:', data.entities?.length || 0);
     this.id = data.id;  // Store our network ID
     this.connected = true;  // Mark as connected when we get the snapshot
     
@@ -215,8 +314,7 @@ export class ClientNetwork extends SystemBase {
     }
     
     // Auto-enter world if in character-select mode and we have a selected character
-    const snapshotData = data as unknown as { entities?: unknown[]; characters?: unknown[] };
-    const isCharacterSelectMode = Array.isArray(snapshotData.entities) && snapshotData.entities.length === 0 && Array.isArray(snapshotData.characters);
+    const isCharacterSelectMode = Array.isArray(data.entities) && data.entities.length === 0 && Array.isArray((data as { characters?: unknown[] }).characters);
     if (isCharacterSelectMode && typeof localStorage !== 'undefined') {
       const selectedCharacterId = localStorage.getItem('selectedCharacterId');
       if (selectedCharacterId) {
@@ -243,7 +341,10 @@ export class ClientNetwork extends SystemBase {
     this.serverTimeOffset = data.serverTime - performance.now()
     this.apiUrl = data.apiUrl || null
     this.maxUploadSize = data.maxUploadSize || 10 * 1024 * 1024 // Default 10MB
-    this.world.assetsUrl = data.assetsUrl || '/world-assets/'
+    
+    // Use assetsUrl from server (always absolute URL to CDN)
+    this.world.assetsUrl = data.assetsUrl || '/'
+    console.log('[ClientNetwork] Assets URL from server:', this.world.assetsUrl)
 
     const loader = this.world.loader!
       // Assume preload and execPreload methods exist on loader
@@ -339,8 +440,7 @@ export class ClientNetwork extends SystemBase {
 
     // Character-select mode: if server sent an empty entity list with account info,
     // surface the character list/modal immediately even if the dedicated packet hasn't arrived yet.
-    const anyData = data as unknown as { entities?: unknown[]; account?: unknown };
-    if (Array.isArray(anyData.entities) && anyData.entities.length === 0 && anyData.account) {
+    if (Array.isArray(data.entities) && data.entities.length === 0 && (data as { account?: unknown }).account) {
       const list = this.lastCharacterList || [];
       console.log('[ClientNetwork] Snapshot indicates character-select mode; opening modal with cached list:', list.length);
       this.world.emit('character:list', { characters: list });
@@ -394,15 +494,18 @@ export class ClientNetwork extends SystemBase {
     const { id } = data
     const entity = this.world.entities.get(id)
     if (!entity) {
-      // Limit queued modifications per entity to avoid unbounded growth and spam
+      // Limit queued modifications per entity to avoid unbounded growth
       const list = this.pendingModifications.get(id) || []
       if (list.length < 50) {
         list.push(data)
         this.pendingModifications.set(id, list)
+      } else if (list.length === 50) {
+        // Warn once when we hit the limit
+        this.logger.warn(`Entity ${id} hit modification queue limit (50) - older modifications will be dropped`)
       }
+      // Only log first and every 25th to reduce spam
       const count = list.length
-      if (count % 10 === 1) {
-        // Log occasionally to reduce spam but keep visibility
+      if (count === 1 || count % 25 === 0) {
         this.logger.info(`Queuing modification for entity ${id} - not found yet. queued=${count}`)
       }
       return

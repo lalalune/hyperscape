@@ -30,7 +30,10 @@ export function CoreUI({ world }: { world: World }) {
   const [characterFlowActive, setCharacterFlowActive] = useState(false)
     useEffect(() => {    
     // Create handlers with proper types
-    const handleReady = () => setReady(true)
+    const handleReady = () => {
+      console.log('[CoreUI] READY event received! Setting ready=true')
+      setReady(true)
+    }
     const handlePlayerSpawned = () => {
       // Find and set the local player entity
       const player = world.entities?.player
@@ -61,8 +64,8 @@ export function CoreUI({ world }: { world: World }) {
     world.on('character:list', () => setCharacterFlowActive(true))
     world.on('character:selected', () => setCharacterFlowActive(false))
     // If the packet arrived before UI mounted, consult network cache
-    const net = world.network as unknown as { lastCharacterList: unknown[] }
-    if (net.lastCharacterList) setCharacterFlowActive(true)
+    const network = world.network as { lastCharacterList?: unknown[] }
+    if (network.lastCharacterList) setCharacterFlowActive(true)
     
     return () => {
       world.off(EventType.READY, handleReady)

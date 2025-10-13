@@ -6,46 +6,79 @@
 
 import type { ParseResult } from '@hyperscape/shared';
 
+/**
+ * SafeMathParser - Secure mathematical expression evaluator
+ * 
+ * Provides a safe alternative to eval() for parsing and evaluating user-provided
+ * mathematical expressions. Uses the Shunting Yard algorithm for expression parsing.
+ * 
+ * @public
+ */
 export class SafeMathParser {
+  /** Allowed operators in mathematical expressions */
   private static readonly OPERATORS = ['+', '-', '*', '/', '(', ')'];
+  
+  /** Operator precedence for correct evaluation order */
   private static readonly PRECEDENCE = { '+': 1, '-': 1, '*': 2, '/': 2 };
 
   /**
-   * Safely parse and evaluate a mathematical expression
-   * @param expression The math expression string
-   * @param fallback Fallback value if parsing fails
-   * @returns ParseResult with success status and value
+   * Safely parses and evaluates a mathematical expression
+   * 
+   * Validates input, tokenizes the expression, and evaluates using the
+   * Shunting Yard algorithm. Rejects any suspicious patterns that might
+   * indicate code injection attempts.
+   * 
+   * @param expression - The mathematical expression to evaluate (e.g., "2 + 3 * 4")
+   * @param defaultValue - Value to return if parsing fails
+   * @returns ParseResult object with success flag and computed value
+   * 
+   * @example
+   * ```typescript
+   * const result = SafeMathParser.parse("(2 + 3) * 4");
+   * console.log(result); // => { success: true, value: 20 }
+   * 
+   * const invalid = SafeMathParser.parse("alert('xss')", 0);
+   * console.log(invalid); // => { success: false, value: 0, error: "..." }
+   * ```
+   * 
+   * @public
    */
-  static parse(expression: string, fallback: number = 0): ParseResult {
-    // Input validation and sanitization
+  static parse(expression: string, defaultValue: number = 0): ParseResult {
     const sanitized = this.sanitizeInput(expression);
     if (!sanitized) {
-      return { success: false, value: fallback, error: 'Invalid characters in expression' };
+      return { success: false, value: defaultValue, error: 'Invalid characters in expression' };
     }
 
-    // Handle simple numeric input
     const simpleNumber = parseFloat(sanitized);
     if (!isNaN(simpleNumber) && sanitized === simpleNumber.toString()) {
       return { success: true, value: simpleNumber };
     }
 
-    // Parse and evaluate expression
     const tokens = this.tokenize(sanitized);
     if (tokens.length === 0) {
-      return { success: false, value: fallback, error: 'Empty expression' };
+      return { success: false, value: defaultValue, error: 'Empty expression' };
     }
 
     const result = this.evaluateTokens(tokens);
     
     if (isNaN(result) || !isFinite(result)) {
-      return { success: false, value: fallback, error: 'Result is not a valid number' };
+      return { success: false, value: defaultValue, error: 'Result is not a valid number' };
     }
 
     return { success: true, value: result };
   }
 
   /**
-   * Sanitize input to only allow safe mathematical characters
+   * Sanitizes input to only allow safe mathematical characters
+   * 
+   * Removes whitespace and validates that the input contains only numbers,
+   * operators, and parentheses. Rejects any input with function calls,
+   * variable names, or other suspicious patterns.
+   * 
+   * @param input - The user-provided expression string
+   * @returns Sanitized expression or null if invalid
+   * 
+   * @internal
    */
   private static sanitizeInput(input: string): string | null {
     // Remove all whitespace
@@ -79,7 +112,16 @@ export class SafeMathParser {
   }
 
   /**
-   * Tokenize the expression into numbers and operators
+   * Tokenizes the expression into numbers and operators
+   * 
+   * Parses the sanitized expression string into an array of tokens
+   * where each token is either a number or an operator string.
+   * 
+   * @param expression - Sanitized mathematical expression
+   * @returns Array of tokens (numbers and operator strings)
+   * @throws {Error} If expression contains invalid numbers or characters
+   * 
+   * @internal
    */
   private static tokenize(expression: string): (number | string)[] {
     const tokens: (number | string)[] = [];
@@ -117,7 +159,18 @@ export class SafeMathParser {
   }
 
   /**
-   * Evaluate tokenized expression using shunting-yard algorithm
+   * Evaluates tokenized expression using the Shunting Yard algorithm
+   * 
+   * Converts infix notation to postfix (Reverse Polish Notation) and evaluates.
+   * This algorithm correctly handles operator precedence and parentheses.
+   * 
+   * @param tokens - Array of tokens from tokenize()
+   * @returns The computed result
+   * @throws {Error} If expression is malformed (mismatched parentheses, etc.)
+   * 
+   * @see {@link https://en.wikipedia.org/wiki/Shunting_yard_algorithm}
+   * 
+   * @internal
    */
   private static evaluateTokens(tokens: (number | string)[]): number {
     const outputQueue: (number | string)[] = [];
@@ -200,12 +253,24 @@ export class SafeMathParser {
 }
 
 /**
- * Convenience function for simple safe math parsing
- * @param expression Math expression to parse
- * @param fallback Fallback value if parsing fails
- * @returns Parsed number or fallback
+ * Convenience function for safe mathematical expression parsing
+ * 
+ * Wrapper around SafeMathParser.parse() that returns just the numeric value.
+ * Useful when you don't need the success/error information.
+ * 
+ * @param expression - Math expression to parse (e.g., "2 + 3 * 4")
+ * @param defaultValue - Value to return if parsing fails (default: 0)
+ * @returns Parsed number or default value
+ * 
+ * @example
+ * ```typescript
+ * const result = safeParseMath("10 / 2"); // => 5
+ * const invalid = safeParseMath("bad input", 100); // => 100
+ * ```
+ * 
+ * @public
  */
-export function safeParseMath(expression: string, fallback: number = 0): number {
-  const result = SafeMathParser.parse(expression, fallback);
+export function safeParseMath(expression: string, defaultValue: number = 0): number {
+  const result = SafeMathParser.parse(expression, defaultValue);
   return result.value;
 }

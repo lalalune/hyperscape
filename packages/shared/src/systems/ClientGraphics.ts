@@ -1,3 +1,88 @@
+/**
+ * ClientGraphics.ts - 3D Graphics Rendering System
+ * 
+ * Manages WebGL/WebGPU rendering for the 3D game world.
+ * Handles viewport, shadows, post-processing, and frame rendering.
+ * 
+ * Key Features:
+ * - **WebGL/WebGPU Support**: Automatic fallback from WebGPU to WebGL2
+ * - **Shadow Mapping**: Cascaded shadow maps (CSM) for dynamic shadows
+ * - **Post-Processing**: Bloom, tone mapping, and other effects
+ * - **XR Rendering**: WebXR support for VR/AR devices
+ * - **Adaptive Quality**: Auto-adjusts shadow quality based on performance
+ * - **Anisotropic Filtering**: Texture filtering for better quality
+ * - **HDR Rendering**: High dynamic range for realistic lighting
+ * 
+ * Rendering Pipeline:
+ * 1. Pre-render: Update matrices, frustum culling
+ * 2. Shadow Pass: Render shadow maps for each light
+ * 3. Main Pass: Render scene to screen or XR
+ * 4. Post-Processing: Apply bloom, tone mapping, etc.
+ * 5. UI Overlay: Render 2D UI on top
+ * 
+ * WebGPU vs WebGL:
+ * - Prefers WebGPU if available (better performance)
+ * - Falls back to WebGL2 automatically
+ * - Uses UniversalRenderer abstraction for compatibility
+ * - Same API regardless of backend
+ * 
+ * Shadow Configuration:
+ * - Cascaded Shadow Maps (CSM) for large view distances
+ * - 3 cascades: near (high res), medium, far (low res)
+ * - PCF soft shadows for smooth edges
+ * - Shadow bias to prevent acne artifacts
+ * 
+ * Post-Processing Effects:
+ * - **Bloom**: Glowing bright areas for magical effects
+ * - **Tone Mapping**: HDR to LDR conversion
+ * - **FXAA/SMAA**: Anti-aliasing post-process
+ * - **Color Grading**: Adjust colors for atmosphere
+ * 
+ * Performance Optimization:
+ * - Frustum culling: Don't render off-screen objects
+ * - LOD system: Lower detail for distant objects
+ * - Instanced rendering: Batch identical objects
+ * - Occlusion culling: Skip objects behind walls
+ * - Adaptive shadow quality: Reduce resolution under load
+ * 
+ * XR Integration:
+ * - Stereo rendering for VR headsets
+ * - Hand tracking and controller input
+ * - Room-scale tracking
+ * - AR pass-through mode
+ * 
+ * Usage:
+ * ```typescript
+ * // Graphics system auto-initializes
+ * const graphics = world.getSystem('graphics');
+ * 
+ * // Toggle post-processing
+ * graphics.setPostProcessing(true);
+ * 
+ * // Adjust shadow quality
+ * graphics.setShadowQuality('high');
+ * 
+ * // Get current FPS
+ * const fps = graphics.getFPS();
+ * ```
+ * 
+ * Related Systems:
+ * - ClientCameraSystem: Provides camera for rendering
+ * - Environment: Lighting and skybox
+ * - LODs: Level-of-detail mesh swapping
+ * - Stage: three.js scene graph
+ * - XR: WebXR session management
+ * 
+ * Dependencies:
+ * - three.js: 3D rendering library
+ * - postprocessing: Effects library
+ * - Stage system: Scene graph
+ * - Camera system: View/projection matrices
+ * 
+ * @see RendererFactory.ts for WebGL/WebGPU creation
+ * @see PostProcessingFactory.ts for effects setup
+ */
+
 import THREE from '../extras/three'
 import type { World } from '../World'
 import type { WorldOptions } from '../types'
@@ -35,18 +120,19 @@ async function getRenderer(preferWebGPU = true): Promise<UniversalRenderer> {
   return renderer
 }
 
-// Export shared renderer for use by other systems
+/**
+ * Get the shared WebGL/WebGPU renderer instance
+ * @returns The renderer or undefined if not initialized
+ */
 export function getSharedRenderer(): UniversalRenderer | undefined {
   return renderer
 }
 
 /**
- * Graphics System
- *
- * - Runs on the client
- * - Supports renderer, shadows, postprocessing, etc
- * - Renders to the viewport
- *
+ * Client Graphics System
+ * 
+ * Manages 3D rendering for the game world.
+ * Runs only on client (browser).
  */
 export class ClientGraphics extends System {
   // Properties
@@ -82,7 +168,7 @@ export class ClientGraphics extends System {
     this.aspect = this.width / this.height
     
     // Create renderer (WebGPU or WebGL) - auto-detect best available
-    this.renderer = await getRenderer(true) // Always prefer WebGPU, will fallback to WebGL automatically
+    this.renderer = await getRenderer(true)
     this.isWebGPU = !isWebGLRenderer(this.renderer)
     
     console.log(`[ClientGraphics] Using ${this.isWebGPU ? 'WebGPU' : 'WebGL'} renderer (auto-detected)`)
@@ -307,21 +393,29 @@ export class ClientGraphics extends System {
   }
 
   override destroy() {
-    this.resizer.disconnect()
+    // Guard against destruction before initialization
+    if (this.resizer) {
+      this.resizer.disconnect()
+    }
     // Unsubscribe from prefs changes
     this.world.prefs?.off('change', this.onPrefsChange)
     // Remove XR session listener
     this.world.off(EventType.XR_SESSION, this.onXRSession)
     // Ensure animation loop is stopped
-    this.renderer.setAnimationLoop?.(null as unknown as (() => void))
+    if (this.renderer) {
+      this.renderer.setAnimationLoop?.(null as unknown as (() => void))
+    }
     // Dispose postprocessing
     if (this.composer) {
       disposePostProcessing(this.composer)
       this.composer = null
     }
-    // Remove and dispose renderer
-    if (this.renderer?.domElement?.parentElement === this.viewport) {
-      this.viewport.removeChild(this.renderer.domElement)
+    // Remove renderer from DOM if it was added
+    if (this.renderer?.domElement && this.viewport) {
+      const parent = this.renderer.domElement.parentElement
+      if (parent === this.viewport) {
+        this.viewport.removeChild(this.renderer.domElement)
+      }
     }
     // Do not dispose the shared renderer globally to avoid breaking other systems during hot reloads
   }

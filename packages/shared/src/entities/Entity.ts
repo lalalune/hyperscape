@@ -1,3 +1,83 @@
+/**
+ * Entity.ts - Base Entity Class
+ * 
+ * The base class for all game objects in the world. Provides fundamental functionality
+ * for 3D objects with networking, physics, components, and lifecycle management.
+ * 
+ * Key Features:
+ * - **3D Representation**: Three.js Object3D with mesh, position, rotation, scale
+ * - **Component System**: Modular components for combat, stats, interaction, etc.
+ * - **Physics**: Optional PhysX rigid body integration
+ * - **Networking**: State synchronization across clients
+ * - **Lifecycle**: spawn(), update(), fixedUpdate(), destroy()
+ * - **Events**: Local and world event system for inter-entity communication
+ * - **Serialization**: Network serialization for state sync
+ * 
+ * Component Architecture:
+ * Entities use a component-based design for modular functionality:
+ * - CombatComponent: Health, attack, defense
+ * - StatsComponent: Skills, levels, XP
+ * - InteractionComponent: Player interaction handlers
+ * - DataComponent: Custom data storage
+ * - UsageComponent: Item usage logic
+ * - VisualComponent: 3D model, materials, animations
+ * 
+ * Inheritance Hierarchy:
+ * ```
+ * Entity (base class)
+ * ├── InteractableEntity (can be interacted with)
+ * │   ├── ResourceEntity (trees, rocks, fishing spots)
+ * │   ├── ItemEntity (ground items)
+ * │   └── NPCEntity (dialogue, shops)
+ * ├── CombatantEntity (can fight)
+ * │   ├── PlayerEntity (base player)
+ * │   │   ├── PlayerLocal (client-side local player)
+ * │   │   └── PlayerRemote (client-side remote players)
+ * │   └── MobEntity (enemies)
+ * └── HeadstoneEntity (player death markers)
+ * ```
+ * 
+ * Lifecycle:
+ * 1. Constructor: Creates entity with initial data/config
+ * 2. spawn(): Called when entity is added to world (override in subclasses)
+ * 3. update(delta): Called every frame for visual updates
+ * 4. fixedUpdate(delta): Called at fixed timestep (30 FPS) for physics
+ * 5. destroy(): Cleanup when entity is removed
+ * 
+ * Network Synchronization:
+ * - Server creates entities and broadcasts to clients via entityAdded packet
+ * - State changes trigger entityModified packet
+ * - networkDirty flag indicates entity needs sync
+ * - serialize() creates network-safe data representation
+ * 
+ * Physics Integration:
+ * - Optional PhysX rigid body for collision and forces
+ * - Automatic sync between Three.js node and physics body
+ * - Collision layers for selective interaction
+ * 
+ * Usage:
+ * ```typescript
+ * // Create a generic entity
+ * const entity = new Entity(world, {
+ *   id: 'tree1',
+ *   type: 'entity',
+ *   name: 'Oak Tree',
+ *   position: { x: 10, y: 0, z: 5 }
+ * });
+ * await entity.spawn();
+ * 
+ * // Add component
+ * entity.addComponent('data', { customValue: 42 });
+ * 
+ * // Get component
+ * const data = entity.getComponent('data');
+ * ```
+ * 
+ * Runs on: Both client and server
+ * Used by: Entities system, all entity subclasses
+ * References: Entities.ts, Component system, Physics system
+ */
+
 import type { Entity as IEntity, Quaternion, Vector3 } from '../types'
 import type { EntityData } from '../types/index'
 import { Component, createComponent } from '../components'
@@ -22,6 +102,12 @@ export type { EntityConfig }
 // Type alias for event callbacks (exported for API extractor)
 export type EventCallback = (data: unknown) => void
 
+/**
+ * Entity - Base class for all game objects in the 3D world.
+ * 
+ * Provides core functionality for 3D representation, networking, physics,
+ * and component-based architecture. All game objects inherit from Entity.
+ */
 export class Entity implements IEntity {
   world: World
   data: EntityData
@@ -865,9 +951,6 @@ export class Entity implements IEntity {
     console.log(`[Entity] Creating mesh for ${this.name}...`);
     await this.createMesh();
     
-    // Note: mesh might be null if no model path and no fallback created
-    // This is OK - entity is still functional
-    
     if (this.mesh) {
       console.log(`[Entity] ✅ Mesh created for ${this.name}:`, {
         meshType: this.mesh.type,
@@ -910,11 +993,9 @@ export class Entity implements IEntity {
       // Don't throw - might be intentional
     }
     
-    // Check mesh exists (only warn for combat entities that should have visuals)
     const shouldHaveMesh = this.type === 'player' || this.type === 'mob';
     if (!this.mesh && shouldHaveMesh) {
-      console.warn(`[Entity] ⚠️  Entity ${this.name} (${this.type}) has no mesh - using fallback or server-side`);
-      // Don't throw - fallback mesh creation might have been skipped intentionally
+      console.warn(`[Entity] ⚠️  Entity ${this.name} (${this.type}) has no mesh - may be server-side`);
     }
     
     // Check mesh is added to node

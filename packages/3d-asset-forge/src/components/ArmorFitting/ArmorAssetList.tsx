@@ -114,7 +114,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
     if (name.includes('helmet') || name.includes('head')) return HardHat
     if (name.includes('chest') || name.includes('body') || name.includes('torso')) return Shirt
     if (name.includes('leg') || name.includes('legs')) return Box
-    return Box // Default fallback
+    return Box
   }
 
   return (

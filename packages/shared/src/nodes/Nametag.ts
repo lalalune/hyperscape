@@ -1,3 +1,9 @@
+/**
+ * Nametag.ts - Player/NPC Name Label
+ * 
+ * Displays character names and health bars above entities.
+ */
+
 
 import type { Nametags as NametagsSystem } from '../systems/Nametags'
 import type { NametagData } from '../types/nodes'

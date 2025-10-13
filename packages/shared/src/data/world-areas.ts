@@ -93,7 +93,6 @@ export function getPlayerSpawnPoints(): WorldPosition[] {
 export function getRandomSpawnPoint(): WorldPosition {
   const spawnPoints = getPlayerSpawnPoints();
   if (spawnPoints.length === 0) {
-    // Fallback to origin if no spawn points loaded yet
     return { x: 0, y: 0, z: 0 };
   }
   const index = Math.floor(Math.random() * spawnPoints.length);

@@ -1,11 +1,67 @@
 /**
- * PlayerEntity - Player characters extending Entity
- * Managed by PlayerSystem, inherits health/UI management from Entity
+ * PlayerEntity - Server-Side Player Entity
+ * 
+ * Represents player characters on the server with full game state.
+ * This is the authoritative player representation used for gameplay logic.
+ * 
+ * **Extends**: CombatantEntity (combat-capable entity with health)
+ * 
+ * **Key Features**:
+ * 
+ * **Character Progression**:
+ * - Skills and levels (attack, strength, defense, constitution, ranged, etc.)
+ * - Experience points (XP) tracking for all skills
+ * - Combat level calculation
+ * - Stamina system for actions
+ * 
+ * **Inventory & Equipment**:
+ * - 28-slot inventory (RuneScape-style)
+ * - Equipment slots (weapon, helmet, body, legs, shield, etc.)
+ * - Item quantities and metadata
+ * - Coins/currency
+ * 
+ * **Combat System**:
+ * - Combat style selection (attack, strength, defense, ranged)
+ * - Attack bonuses from equipment
+ * - Defense bonuses from armor
+ * - Prayer system (future)
+ * - Special attacks (future)
+ * 
+ * **Player State**:
+ * - Position and rotation
+ * - Running state
+ * - Combat state (in combat, target)
+ * - Effects (buffs, debuffs)
+ * - Session data
+ * 
+ * **UI Elements**:
+ * - Nametag with player name
+ * - Health bar (when damaged)
+ * - Stamina bar (when depleted)
+ * - Combat indicators
+ * 
+ * **Database Persistence**:
+ * - Character data saved to PostgreSQL
+ * - Inventory persisted on changes
+ * - Equipment saved on equip/unequip
+ * - Position saved periodically
+ * 
+ * **Network Synchronization**:
+ * - State broadcasted to all nearby clients
+ * - Position updates at 30 FPS
+ * - Equipment changes trigger visual updates
+ * - Health changes update UI
+ * 
+ * **Runs on**: Server only
+ * **Referenced by**: PlayerSystem, ServerNetwork, CombatSystem
+ * **Subclasses**: PlayerLocal (client), PlayerRemote (client)
+ * 
+ * @public
  */
 
 import THREE from '../extras/three';
 import type { World } from '../World';
-import type { Vector3 } from '../types';
+import type { EntityData, Vector3 } from '../types';
 import type { EntityInteractionData, PlayerEntityData, PlayerCombatStyle, PlayerEntityProperties } from '../types/entities';
 import type { CombatBonuses, EquipmentComponent, InventoryItem, Player, PrayerComponent, StatsComponent } from '../types/core';
 import { EntityType, InteractionType } from '../types/entities';
@@ -34,11 +90,15 @@ export class PlayerEntity extends CombatantEntity {
     // Subclasses like PlayerRemote can override to show chat bubbles
   }
 
-  constructor(world: World, data: PlayerEntityData, local?: boolean) {
+  constructor(world: World, data: EntityData, local?: boolean) {
+    // Cast to PlayerEntityData - this is safe because the entity registry ensures
+    // player entities only receive PlayerEntityData at runtime
+    const playerData = data as PlayerEntityData;
+    
     // Convert PlayerEntityData to CombatantConfig format
     const config: CombatantConfig = {
       id: data.id,
-      name: data.name || data.playerName,
+      name: data.name || playerData.playerName,
       type: EntityType.PLAYER,
       position: { 
         x: data.position ? data.position[0] : 0, 
@@ -56,33 +116,33 @@ export class PlayerEntity extends CombatantEntity {
       interactable: true,
       interactionType: InteractionType.TALK,
       interactionDistance: 2,
-      description: `Player: ${data.playerName || data.name}`,
+      description: `Player: ${playerData.playerName || data.name}`,
       model: null,
       properties: {
         // Base entity properties
         health: {
-          current: data.health || 100,
-          max: data.maxHealth || 100
+          current: playerData.health || 100,
+          max: playerData.maxHealth || 100
         },
-        level: data.level || 1,
+        level: playerData.level || 1,
         
         // Player-specific properties (keeping old names for internal use)
-        playerId: data.playerId,
-        playerName: data.playerName || data.name,
+        playerId: playerData.playerId,
+        playerName: playerData.playerName || data.name,
         stamina: {
-          current: data.stamina || 100,
-          max: data.maxStamina || 100
+          current: playerData.stamina || 100,
+          max: playerData.maxStamina || 100
         },
-        combatStyle: (data.combatStyle || 'attack') as PlayerCombatStyle,
+        combatStyle: (playerData.combatStyle || 'attack') as PlayerCombatStyle,
         
         // Use minimal component implementations with type assertions
         // These will be properly initialized by the systems that use them
         statsComponent: {
-          combatLevel: data.level || 1,
-          level: data.level || 1,
+          combatLevel: playerData.level || 1,
+          level: playerData.level || 1,
           health: {
-            current: data.health || 100,
-            max: data.maxHealth || 100
+            current: playerData.health || 100,
+            max: playerData.maxHealth || 100
           },
           attack: { level: 1, xp: 0 },
           defense: { level: 1, xp: 0 },
@@ -159,8 +219,8 @@ export class PlayerEntity extends CombatantEntity {
         combatComponent: null, // Will be set properly in parent constructor
         
         healthComponent: {
-          current: data.health || 100,
-          max: data.maxHealth || 100,
+          current: playerData.health || 100,
+          max: playerData.maxHealth || 100,
           regenerationRate: 1,
           isDead: false
         },
@@ -179,7 +239,7 @@ export class PlayerEntity extends CombatantEntity {
         defense: 10, // Default player defense
         attackSpeed: 1.0,
         criticalChance: 0.1,
-        combatLevel: data.level || 1,
+        combatLevel: playerData.level || 1,
         respawnTime: 0, // Players don't auto-respawn
         aggroRadius: 0, // Players don't have aggro
         attackRange: 1.5
@@ -208,17 +268,17 @@ export class PlayerEntity extends CombatantEntity {
     }
     
     // Initialize player-specific properties
-    this.playerId = data.playerId || data.id;
-    this.playerName = data.playerName || data.name || 'Unknown';
-    this.hyperscapePlayerId = String(data.hyperscapePlayerId || data.playerId || data.id || '');
+    this.playerId = playerData.playerId || data.id;
+    this.playerName = playerData.playerName || data.name || 'Unknown';
+    this.hyperscapePlayerId = String(playerData.hyperscapePlayerId || playerData.playerId || data.id || '');
     
     // Initialize Player interface data
     const defaultSkill = { level: 1, xp: 0 };
     this.playerData = {
       // Stamina (player-specific)
       stamina: {
-        current: data.stamina || 100,
-        max: data.maxStamina || 100
+        current: playerData.stamina || 100,
+        max: playerData.maxStamina || 100
       },
       
       // Skills - default starting skills
@@ -249,7 +309,7 @@ export class PlayerEntity extends CombatantEntity {
       
       // Combat
       combat: {
-        combatLevel: data.level || 1,
+        combatLevel: playerData.level || 1,
         combatStyle: 'attack',
         inCombat: false,
         combatTarget: null
@@ -268,7 +328,7 @@ export class PlayerEntity extends CombatantEntity {
     };
     
     // Internal properties
-    this.combatStyle = data.combatStyle || 'attack';
+    this.combatStyle = playerData.combatStyle || 'attack';
     
     // Add player-specific components
     
@@ -303,7 +363,7 @@ export class PlayerEntity extends CombatantEntity {
     });
     
     this.addComponent('inventory', {
-      items: data.inventory || [],
+      items: playerData.inventory || [],
       capacity: 28, // RuneScape-style 28 slots
       coins: 0
     });

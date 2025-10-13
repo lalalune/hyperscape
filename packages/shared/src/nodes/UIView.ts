@@ -1,3 +1,9 @@
+/**
+ * UIView.ts - UI Container Node
+ * 
+ * Container element for UI layouts with flexbox support.
+ */
+
 import { every, isArray, isBoolean, isNumber, isString } from 'lodash-es'
 import type * as YogaTypes from 'yoga-layout'
 import Yoga from 'yoga-layout'

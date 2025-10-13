@@ -1,6 +1,8 @@
 /**
- * Centralized combat calculation utilities
- * Reduces duplication across combat-related systems
+ * Combat Calculation Utilities
+ * 
+ * Damage calculations, attack type handling, and combat stat formulas.
+ * Provides consistent combat mechanics across all combat systems.
  */
 
 import { COMBAT_CONSTANTS } from '../constants/CombatConstants';
@@ -21,8 +23,7 @@ export interface DamageResult {
 }
 
 /**
- * Calculate damage for any attack type
- * Consolidates melee and ranged damage calculations
+ * Calculate damage for any attack type (melee, ranged, or magic)
  */
 export function calculateDamage(
   attacker: { stats?: CombatStats; config?: { attackPower?: number } },

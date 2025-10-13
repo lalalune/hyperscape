@@ -107,8 +107,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       const lp = world.entities.player?.id
       if (lp) {
         // If network already cached an inventory packet, use it immediately
-        const net = world.network as unknown as { lastInventoryByPlayerId: Record<string, { playerId: string; items: InventorySlotItem[]; coins: number; maxSlots: number }> }
-        const cached = net.lastInventoryByPlayerId[lp]
+        const network = world.network as { lastInventoryByPlayerId?: Record<string, { playerId: string; items: InventorySlotItem[]; coins: number; maxSlots: number }> }
+        const cached = network.lastInventoryByPlayerId?.[lp]
         if (cached && Array.isArray(cached.items)) {
           setInventory(cached.items)
           setCoins(cached.coins)

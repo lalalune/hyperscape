@@ -444,7 +444,7 @@ export class EquipmentSystem extends SystemBase {
     // Update combat system with new equipment (emit per-slot change for type consistency)
     this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
       playerId: data.playerId,
-      slot: slot as unknown as import('../types/core').EquipmentSlotName,
+      slot: slot as EquipmentSlotName,
       itemId: equipmentSlot.itemId !== null ? equipmentSlot.itemId.toString() : null
     });
     
@@ -499,7 +499,7 @@ export class EquipmentSystem extends SystemBase {
     // Update combat system (emit per-slot change for type consistency)
     this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
       playerId: data.playerId,
-      slot: slot as unknown as import('../types/core').EquipmentSlotName,
+      slot: slot as EquipmentSlotName,
       itemId: null
     });
     
@@ -540,7 +540,7 @@ export class EquipmentSystem extends SystemBase {
     // Update combat system (emit per-slot change for type consistency)
     this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
       playerId: playerId,
-      slot: equipSlot as unknown as import('../types/core').EquipmentSlotName,
+      slot: equipSlot as EquipmentSlotName,
       itemId: equipmentSlot.itemId !== null ? equipmentSlot.itemId.toString() : null
     });
 
@@ -646,7 +646,6 @@ export class EquipmentSystem extends SystemBase {
       };
     }
     
-    // Fallback defaults (will be updated when SKILLS_UPDATED event is received)
     return {
       attack: 1,
       strength: 1,
@@ -715,7 +714,6 @@ export class EquipmentSystem extends SystemBase {
       return itemData;
     }
     
-    // Final fallback: check if it's a known item from the level requirements
     const requirements = equipmentRequirements.getLevelRequirements(itemIdStr);
     if (requirements) {
       // Create basic item data for known equipment
@@ -909,7 +907,6 @@ export class EquipmentSystem extends SystemBase {
       return Math.max(0, arrowCount);
     }
     
-    // Fallback to equipment quantity if available (assume it has quantity)
     return (equipment.arrows as { quantity?: number }).quantity || 0;
   }
 
@@ -1043,39 +1040,20 @@ export class EquipmentSystem extends SystemBase {
    * Attach equipment visual to player avatar bone
    */
   private attachEquipmentToPlayer(player: PlayerWithEquipmentSupport, equipmentMesh: THREE.Object3D, boneName: string, offset: THREE.Vector3): void {
-    try {
-      // Try to get bone transform from player avatar
-      if (player.getBoneTransform) {
-        const boneMatrix = player.getBoneTransform(boneName);
-        if (boneMatrix) {
-          equipmentMesh.position.setFromMatrixPosition(boneMatrix);
-          equipmentMesh.quaternion.setFromRotationMatrix(boneMatrix);
-          equipmentMesh.position.add(offset);
-          return;
-        }
-      }
-      
-      // Fallback: attach to player position with offset
-      if (player.position) {
-        equipmentMesh.position.copy(player.position);
+    // Try to get bone transform from player avatar
+    if (player.getBoneTransform) {
+      const boneMatrix = player.getBoneTransform(boneName);
+      if (boneMatrix) {
+        equipmentMesh.position.setFromMatrixPosition(boneMatrix);
+        equipmentMesh.quaternion.setFromRotationMatrix(boneMatrix);
         equipmentMesh.position.add(offset);
-        equipmentMesh.position.y += 1.8; // Approximate head height
-      } else {
-        // Ultimate fallback: use zero position
-        equipmentMesh.position.set(0, 1.8, 0);
-        equipmentMesh.position.add(offset);
-      }
-    } catch (_error) {
-      // Silent fallback to player position or zero
-      if (player.position) {
-        equipmentMesh.position.copy(player.position);
-        equipmentMesh.position.add(offset);
-        equipmentMesh.position.y += 1.8;
-      } else {
-        equipmentMesh.position.set(0, 1.8, 0);
-        equipmentMesh.position.add(offset);
+        return;
       }
     }
+    
+    equipmentMesh.position.copy(player.position);
+    equipmentMesh.position.add(offset);
+    equipmentMesh.position.y += 1.8;
   }
 
 

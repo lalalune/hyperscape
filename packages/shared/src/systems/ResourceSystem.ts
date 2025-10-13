@@ -87,9 +87,7 @@ export class ResourceSystem extends SystemBase {
     
     // Set up type-safe event subscriptions for resource management
     this.subscribe<{ spawnPoints: TerrainResourceSpawnPoint[] }>(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, (data) => this.registerTerrainResources(data));
-    // Bridge gather click -> start gathering with player position
     this.subscribe<{ playerId: string; resourceId: string; playerPosition?: { x: number; y: number; z: number } }>(EventType.RESOURCE_GATHER, (data) => {
-      // Use provided playerPosition or fallback to getting it from player entity
       const playerPosition = data.playerPosition || (() => {
         const player = this.world.getPlayer?.(data.playerId);
         return player && (player as { position?: { x: number; y: number; z: number } }).position
@@ -289,10 +287,8 @@ export class ResourceSystem extends SystemBase {
     
     console.log(`[ResourceSystem] 🌲 SERVER startGathering for player ${data.playerId} on resource ${data.resourceId}`);
     
-    // Try to find the resource with multiple fallback strategies
     let resource = this.resources.get(resourceId);
     
-    // Fallback 1: Try to derive ID by rounding position keys if a mismatch happens
     if (!resource) {
       for (const r of this.resources.values()) {
         const derived = `${r.type}_${Math.round(r.position.x)}_${Math.round(r.position.z)}`;
@@ -304,7 +300,6 @@ export class ResourceSystem extends SystemBase {
       }
     }
 
-    // Fallback 2: Pick nearest available resource to the player's position
     if (!resource) {
       let nearest: Resource | null = null;
       let nearestDist = Infinity;
@@ -317,7 +312,7 @@ export class ResourceSystem extends SystemBase {
         }
       }
       if (nearest && nearestDist < 15) {
-        console.warn('[ResourceSystem] Fallback matched nearest resource', nearest.id, 'at', nearestDist.toFixed(2), 'm');
+        console.warn('[ResourceSystem] Matched nearest resource', nearest.id, 'at', nearestDist.toFixed(2), 'm');
         resource = nearest;
       } else {
         console.warn('[ResourceSystem] Resource not found for id', data.resourceId, 'available ids:', Array.from(this.resources.keys()).slice(0, 10));

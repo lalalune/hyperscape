@@ -1,3 +1,39 @@
+/**
+ * PlayerSystem.ts - Player Management and Lifecycle System
+ * 
+ * Central system for managing all player-related functionality including:
+ * - Player spawning and initialization
+ * - Health, stamina, and death/respawn
+ * - Combat level calculation
+ * - Attack style management  
+ * - Player state persistence to database
+ * - Starter equipment provisioning
+ * 
+ * **Player Lifecycle:**
+ * 1. PLAYER_ENTER event → Load/create player data
+ * 2. PLAYER_SPAWN_REQUEST → Position player in world
+ * 3. Provide starter equipment
+ * 4. Auto-save player data periodically (30s)
+ * 5. PLAYER_LEAVE → Save final state to database
+ * 
+ * **Attack Styles:**
+ * Manages RuneScape-style attack modes:
+ * - attack: +3 Attack XP per damage
+ * - strength: +3 Strength XP per damage  
+ * - defense: +3 Defense XP per damage
+ * - controlled: +1 to each combat stat XP
+ * - ranged: Ranged combat style
+ * 
+ * **Combat Level:**
+ * Calculated from combat skills using RuneScape formula:
+ * Base = 0.25 * (Defense + Constitution + floor(Ranged/2))
+ * Melee = 0.325 * (Attack + Strength)
+ * Ranged = 0.325 * (Ranged * 1.5)
+ * Combat Level = Base + max(Melee, Ranged)
+ * 
+ * **Referenced by:** All gameplay systems, database, network
+ */
+
 import { getItem } from '../data/items'
 import type { PlayerLocal } from '../entities/PlayerLocal'
 import { Position3D } from '../types'
@@ -28,6 +64,11 @@ import type { DatabaseSystem } from '../types/system-interfaces'
 import equipmentRequirementsData from '../data/equipment-requirements.json'
 import * as THREE from 'three'
 
+/**
+ * PlayerSystem - Central Player Management
+ * 
+ * Handles all player-related operations: spawning, stats, health, attack styles, and persistence.
+ */
 export class PlayerSystem extends SystemBase {
   declare world: World
 
@@ -144,15 +185,14 @@ export class PlayerSystem extends SystemBase {
       const damageData = data as { playerId: string; damage: number; source?: string }
       this.damagePlayer(damageData.playerId, damageData.damage, damageData.source)
     })
-    this.subscribe(EventType.PLAYER_DIED, data => {
-      this.handleDeath(data as unknown as PlayerDeathEvent)
+    this.subscribe<PlayerDeathEvent>(EventType.PLAYER_DIED, data => {
+      this.handleDeath(data)
     })
-    this.subscribe(EventType.PLAYER_RESPAWN_REQUEST, data => {
-      const respawnData = data as { playerId: string }
-      this.respawnPlayer(respawnData.playerId)
+    this.subscribe<{ playerId: string }>(EventType.PLAYER_RESPAWN_REQUEST, data => {
+      this.respawnPlayer(data.playerId)
     })
-    this.subscribe(EventType.PLAYER_LEVEL_UP, data => {
-      this.updateCombatLevel(data as unknown as PlayerLevelUpEvent)
+    this.subscribe<PlayerLevelUpEvent>(EventType.PLAYER_LEVEL_UP, data => {
+      this.updateCombatLevel(data)
     })
 
     // Handle consumable item usage
@@ -1251,7 +1291,7 @@ export class PlayerSystem extends SystemBase {
     const { playerId, callback } = data
 
     if (!callback) {
-      this.fallbackToUpdateEvent(playerId)
+      this.emitStyleUpdateEvent(playerId)
       return
     }
 
@@ -1275,16 +1315,13 @@ export class PlayerSystem extends SystemBase {
       availableStyles: Object.values(this.ATTACK_STYLES),
       canChange,
       cooldownRemaining,
-      styleHistory: playerState.combatStyleHistory.slice(-10), // Last 10 changes
+      styleHistory: playerState.combatStyleHistory.slice(-10),
     }
 
     callback(styleInfo)
   }
 
-  /**
-   * Fallback method to emit update event when callback is invalid
-   */
-  private fallbackToUpdateEvent(playerId: string): void {
+  private emitStyleUpdateEvent(playerId: string): void {
     const playerState = this.playerAttackStyles.get(playerId)
     if (playerState) {
       const currentStyle = this.ATTACK_STYLES[playerState.selectedStyle]

@@ -1401,7 +1401,7 @@ export interface PlayerBankStorage {
   lastAccessed: number;
 }
 
-// Movement System types - using consolidated MovementComponent above
+// Movement System types - uses MovementComponent defined above
 
 export interface ClickToMoveEvent {
   type: 'click-to-move';
@@ -1782,7 +1782,7 @@ export interface NPCLocation {
   type: 'bank' | 'general_store' | 'skill_trainer' | 'quest_giver';
   position: WorldPosition;
   services: string[];
-  modelPath?: string; // Optional - will use fallback shape if not provided
+  modelPath?: string;
   description: string;
 }
 

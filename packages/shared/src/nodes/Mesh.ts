@@ -1,3 +1,9 @@
+/**
+ * Mesh.ts - Renderable Mesh Node
+ * 
+ * Represents a renderable mesh with geometry and material. Supports instanced rendering for performance.
+ */
+
 import THREE from '../extras/three'
 
 import type { MeshData } from '../types/nodes'

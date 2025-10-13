@@ -4,83 +4,83 @@ import {
   Memory,
   ModelType,
   UUID,
-} from '@elizaos/core'
-import type { HyperscapeService } from '../service'
-import { World, Entity } from '../types/core-types'
-import { ChatMessage } from '../types'
+} from "@elizaos/core";
+import type { HyperscapeService } from "../service";
+import { World, Entity } from "../types/core-types";
+import { ChatMessage } from "../types";
 import {
   composeContext,
   generateMessageResponse,
   shouldRespond,
-} from '../utils/ai-helpers'
+} from "../utils/ai-helpers";
 
 type HyperscapePlayerData = Entity & {
   metadata?: {
     hyperscape?: {
-      name?: string
-    }
-  }
+      name?: string;
+    };
+  };
   data: {
     appearance?: {
-      avatar?: string
-    }
-    [key: string]: any
-  }
-}
+      avatar?: string;
+    };
+    [key: string]: any;
+  };
+};
 
 type ElizaEntityWithHyperscape = ElizaEntity & {
   data?: {
-    name?: string
-  }
+    name?: string;
+  };
   metadata?: {
     hyperscape?: {
-      name?: string
-    }
-    [key: string]: any
-  }
-}
+      name?: string;
+    };
+    [key: string]: any;
+  };
+};
 
 interface MessageManagerInterface {
-  processMessage(msg: ChatMessage): Promise<void>
-  sendMessage(message: string): Promise<void>
-  handleChatError(error: Error): void
+  processMessage(msg: ChatMessage): Promise<void>;
+  sendMessage(message: string): Promise<void>;
+  handleChatError(error: Error): void;
 }
 
 interface MessageResponse {
-  text: string
-  shouldRespond: boolean
-  confidence: number
+  text: string;
+  shouldRespond: boolean;
+  confidence: number;
 }
 
 interface EntityDetails {
-  id: string
-  name: string
-  type: string
-  position?: { x: number; y: number; z: number }
+  id: string;
+  name: string;
+  type: string;
+  position?: { x: number; y: number; z: number };
 }
 
 export class MessageManager {
-  public runtime: IAgentRuntime
+  public runtime: IAgentRuntime;
 
   constructor(runtime: IAgentRuntime) {
-    this.runtime = runtime
+    this.runtime = runtime;
   }
 
   async handleMessage(msg: ChatMessage): Promise<void> {
-    console.info('[MessageManager] Processing message:', {
+    console.info("[MessageManager] Processing message:", {
       id: msg.id,
       userId: msg.userId,
       username: msg.username,
-      text: msg.text?.substring(0, 100) + (msg.text?.length > 100 ? '...' : ''),
-    })
+      text: msg.text?.substring(0, 100) + (msg.text?.length > 100 ? "..." : ""),
+    });
 
-    const service = this.getService()!
-    const world = service.getWorld()!
+    const service = this.getService()!;
+    const world = service.getWorld()!;
 
     // Skip messages from this agent
     if (msg.userId === this.runtime.agentId) {
-      console.debug('[MessageManager] Skipping own message')
-      return
+      console.debug("[MessageManager] Skipping own message");
+      return;
     }
 
     // Convert chat message to Memory format
@@ -90,12 +90,12 @@ export class MessageManager {
       agentId: this.runtime.agentId,
       content: {
         text: msg.text,
-        source: 'hyperscape_chat',
+        source: "hyperscape_chat",
       },
       roomId: world.entities.player!.data.id as UUID,
       createdAt: new Date(msg.createdAt).getTime(),
       metadata: {
-        type: 'message',
+        type: "message",
         hyperscape: {
           username: msg.username,
           name: msg.username,
@@ -105,26 +105,26 @@ export class MessageManager {
         avatar: msg.avatar,
         userId: msg.userId,
       },
-    }
+    };
 
     // Compose state for response generation
-    const state = await this.runtime.composeState(memory)
+    const state = await this.runtime.composeState(memory);
 
     // Check if we should respond to this message
     const shouldRespondToMessage = await shouldRespond(
       this.runtime,
       memory,
-      state
-    )
+      state,
+    );
 
     if (!shouldRespondToMessage) {
-      console.debug('[MessageManager] Determined not to respond to message')
+      console.debug("[MessageManager] Determined not to respond to message");
       // Still save the message to memory even if not responding
-      await this.runtime.createMemory(memory, 'messages')
-      return
+      await this.runtime.createMemory(memory, "messages");
+      return;
     }
 
-    console.info('[MessageManager] Generating response to message')
+    console.info("[MessageManager] Generating response to message");
 
     // Generate response using enhanced context
     const context = await composeContext({
@@ -150,13 +150,13 @@ Recent Chat History: {{recentMessages}}
 
 Generate a natural chat response that fits the conversation flow.
         `,
-    })
+    });
 
     const response = await generateMessageResponse({
       runtime: this.runtime,
       context,
       modelType: ModelType.TEXT_LARGE,
-    })
+    });
 
     // Create response memory
     const responseMemory: Memory = {
@@ -165,33 +165,33 @@ Generate a natural chat response that fits the conversation flow.
       agentId: this.runtime.agentId,
       content: {
         text: response.text,
-        source: 'agent_response',
+        source: "agent_response",
       },
       roomId: memory.roomId,
       createdAt: Date.now(),
       metadata: {
-        type: 'message',
+        type: "message",
         inReplyTo: memory.id,
       },
-    }
+    };
 
     // Save both original message and response to memory
-    await this.runtime.createMemory(memory, 'messages')
-    await this.runtime.createMemory(responseMemory, 'messages')
+    await this.runtime.createMemory(memory, "messages");
+    await this.runtime.createMemory(responseMemory, "messages");
 
     // Send the response via chat
-    await this.sendMessage(response.text)
+    await this.sendMessage(response.text);
 
-    console.info('[MessageManager] Response sent:', {
-      originalMessage: msg.text?.substring(0, 50) + '...',
-      response: response.text?.substring(0, 50) + '...',
-    })
+    console.info("[MessageManager] Response sent:", {
+      originalMessage: msg.text?.substring(0, 50) + "...",
+      response: response.text?.substring(0, 50) + "...",
+    });
   }
 
   async sendMessage(text: string): Promise<void> {
-    const service = this.getService()!
-    const world = service.getWorld()!
-    const player = world.entities.player!
+    const service = this.getService()!;
+    const world = service.getWorld()!;
+    const player = world.entities.player!;
 
     // Create chat message
     const chatMessage: ChatMessage = {
@@ -199,60 +199,57 @@ Generate a natural chat response that fits the conversation flow.
       from:
         player.data.name ||
         (player as HyperscapePlayerData).metadata?.hyperscape?.name ||
-        'AI Agent',
+        "AI Agent",
       userId: this.runtime.agentId,
-      username: player.data.name || 'AI Agent',
+      username: player.data.name || "AI Agent",
       text: text,
       body: text,
       timestamp: Date.now(),
       createdAt: new Date().toISOString(),
-      avatar: (player.data as HyperscapePlayerData['data'])?.appearance?.avatar,
-    }
+      avatar: (player.data as HyperscapePlayerData["data"])?.appearance?.avatar,
+    };
 
     // Add message to chat system
-    world.chat.add(chatMessage, true)
+    world.chat.add(chatMessage, true);
 
-    console.info(`[MessageManager] Sent message: ${text}`)
+    console.info(`[MessageManager] Sent message: ${text}`);
   }
 
   formatMessages({
     messages,
     entities,
   }: {
-    messages: Memory[]
-    entities: ElizaEntity[]
+    messages: Memory[];
+    entities: ElizaEntity[];
   }): string {
     // Create entity lookup map
-    const entityMap = new Map<string, ElizaEntity>()
-    entities.forEach(entity => {
-      entityMap.set(entity.id!, entity)
-    })
+    const entityMap = new Map<string, ElizaEntity>();
+    entities.forEach((entity) => {
+      entityMap.set(entity.id!, entity);
+    });
 
     // Format messages with entity context
     const formattedMessages = messages
       .slice(-10) // Get last 10 messages
-      .map(msg => {
-        const userId = String(
-          (msg.metadata as unknown as { userId: string }).userId
-        )
-        const entity = entityMap.get(userId)
-        const username = String(
-          (msg.metadata as unknown as { username: string }).username
-        )
+      .map((msg) => {
+        const metadata = msg.metadata as { userId?: string; username?: string };
+        const userId = String(metadata.userId || "");
+        const entity = entityMap.get(userId);
+        const username = String(metadata.username || "Unknown");
         const senderName =
           (entity as ElizaEntityWithHyperscape).data?.name ||
           (entity as ElizaEntityWithHyperscape).metadata?.hyperscape?.name ||
-          username
+          username;
         const timestamp = new Date(
-          msg.createdAt || Date.now()
-        ).toLocaleTimeString()
-        const text = msg.content.text || ''
+          msg.createdAt || Date.now(),
+        ).toLocaleTimeString();
+        const text = msg.content.text || "";
 
-        return `[${timestamp}] ${senderName}: ${text}`
+        return `[${timestamp}] ${senderName}: ${text}`;
       })
-      .join('\n')
+      .join("\n");
 
-    return formattedMessages
+    return formattedMessages;
   }
 
   async getRecentMessages(roomId: UUID, count = 20): Promise<Memory[]> {
@@ -261,46 +258,46 @@ Generate a natural chat response that fits the conversation flow.
       roomId,
       count,
       unique: false,
-      tableName: 'messages',
-    })
+      tableName: "messages",
+    });
 
     // Filter for message-type memories and sort by creation time
     const messageMemories = memories
       .filter(
-        memory =>
-          memory.content.source === 'hyperscape_chat' ||
-          memory.content.source === 'agent_response'
+        (memory) =>
+          memory.content.source === "hyperscape_chat" ||
+          memory.content.source === "agent_response",
       )
       .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
-      .slice(-count)
+      .slice(-count);
 
-    return messageMemories
+    return messageMemories;
   }
 
   private getService(): HyperscapeService | null {
-    return this.runtime.getService<HyperscapeService>('hyperscape') || null
+    return this.runtime.getService<HyperscapeService>("hyperscape") || null;
   }
 
   private generateId(): string {
-    return crypto.randomUUID()
+    return crypto.randomUUID();
   }
 
   private findEntityByUserId(world: World, userId: string): Entity {
     // Check players first
     for (const [id, player] of world.entities.players) {
       if (player.data.id === userId || id === userId) {
-        return player
+        return player;
       }
     }
 
     // Check other entities
     for (const [id, entity] of world.entities.items) {
       if (entity.data.id === userId || id === userId) {
-        return entity
+        return entity;
       }
     }
 
-    throw new Error(`Entity not found for userId: ${userId}`)
+    throw new Error(`Entity not found for userId: ${userId}`);
   }
 
   private getEntityDetails(entity: Entity): EntityDetails {
@@ -309,8 +306,8 @@ Generate a natural chat response that fits the conversation flow.
       name:
         entity.data.name ||
         (entity as HyperscapePlayerData).metadata?.hyperscape?.name ||
-        'Unknown',
-      type: (entity.data.type as string) || 'entity',
+        "Unknown",
+      type: (entity.data.type as string) || "entity",
       position: entity.position
         ? {
             x: entity.position.x,
@@ -318,20 +315,20 @@ Generate a natural chat response that fits the conversation flow.
             z: entity.position.z,
           }
         : undefined,
-    }
+    };
   }
 
   private getWorldContext(world: World): string {
-    const playerCount = world.entities.players.size
-    const entityCount = world.entities.items.size
-    const player = world.entities.player!
+    const playerCount = world.entities.players.size;
+    const entityCount = world.entities.items.size;
+    const player = world.entities.player!;
 
     const context = [
       `Players online: ${playerCount}`,
       `Entities in world: ${entityCount}`,
       `Agent position: (${player.node.position.x.toFixed(1)}, ${player.node.position.y.toFixed(1)}, ${player.node.position.z.toFixed(1)})`,
-    ]
+    ];
 
-    return context.join(', ')
+    return context.join(", ");
   }
 }

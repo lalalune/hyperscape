@@ -69,12 +69,10 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
       console.log('   Using T-pose model:', url)
       setPrimaryModelUrl(url)
     } else if (animations?.basic?.walking && assetId) {
-      // Fallback to walking animation file
       const url = `/api/assets/${assetId}/${animations.basic.walking}`
       console.log('   Using walking model:', url)
       setPrimaryModelUrl(url)
     } else if (animations?.basic?.running && assetId) {
-      // Last resort: running animation
       const url = `/api/assets/${assetId}/${animations.basic.running}`
       console.log('   Using running model:', url)
       setPrimaryModelUrl(url)
@@ -94,11 +92,10 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
         url: `/api/assets/${assetId}/${animations.basic.tpose}` 
       })
     } else {
-      // Fallback to resting pose if no T-pose file
       anims.push({ 
         id: 'resting', 
         name: 'T-Pose', 
-        url: null  // No separate file, uses the model without animation
+        url: null
       })
     }
     
@@ -145,9 +142,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
   const handlePlayAnimation = async (animId: 'resting' | 'tpose' | 'walking' | 'running') => {
     if (!viewerRef.current) return
     
-    // Special handling for resting state (fallback when no T-pose file)
     if (animId === 'resting') {
-      // Stop all animations to show bind pose
       viewerRef.current.stopAnimation()
       setCurrentAnimation('resting')
       setIsPlaying(false)

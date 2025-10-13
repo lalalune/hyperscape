@@ -144,7 +144,7 @@ export interface CameraSystem extends System {
 }
 
 export function getCameraSystem(world: World): CameraSystem | null {
-  // Unified camera system registration key: 'client-camera-system'
+  // Camera system registration key: 'client-camera-system'
   return getSystem<CameraSystem>(world, 'client-camera-system');
 }
 

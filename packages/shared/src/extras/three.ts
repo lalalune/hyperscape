@@ -1,3 +1,9 @@
+/**
+ * three.ts - Three.js Extensions
+ * 
+ * Enhanced Three.js import with BVH raycasting and utility functions.
+ */
+
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import * as THREE_NAMESPACE from 'three';
 

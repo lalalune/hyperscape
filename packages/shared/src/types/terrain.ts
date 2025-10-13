@@ -8,6 +8,7 @@
 import THREE from '../extras/three';
 import type { Position3D } from './core';
 import type { PMeshHandle } from '../extras/geometryToPxMesh';
+import type { ActorHandle } from './physics';
 
 // Terrain resource interfaces
 export interface TerrainResourceSpawnPoint {
@@ -49,7 +50,7 @@ export interface TerrainTile {
   needsSave: boolean;
   chunkSeed: number;
   heightMap: Float32Array;
-  collider: THREE.Mesh | null;
+  collider: ActorHandle | null;
   lastUpdate: number;
 }
 

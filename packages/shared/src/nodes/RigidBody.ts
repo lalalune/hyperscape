@@ -1,3 +1,9 @@
+/**
+ * RigidBody.ts - Physics-Enabled Node
+ * 
+ * Node with PhysX rigid body physics. Supports static, dynamic, and kinematic modes.
+ */
+
 
 import THREE from '../extras/three';
 import type { RigidBodyData } from '../types/nodes';

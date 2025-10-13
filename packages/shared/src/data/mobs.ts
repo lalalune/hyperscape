@@ -4,7 +4,7 @@
  * ALL mob data is loaded from JSON manifests at runtime by DataManager.
  * This keeps mob definitions data-driven and separate from code.
  * 
- * Available 3D model types (in /world-assets/forge/):
+ * Available 3D model types (in /assets/world/forge/):
  * - goblin/goblin_rigged.glb     → Used for goblins
  * - thug/thug_rigged.glb         → Used for bandits
  * - human/human_rigged.glb       → Used for guards, knights, warriors, rangers

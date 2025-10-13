@@ -1,3 +1,9 @@
+/**
+ * yoga.ts - Yoga Layout Engine Integration
+ * 
+ * Wrapper for yoga-layout (flexbox for UI nodes).
+ */
+
 import Yoga from 'yoga-layout'
 import type { Display as YogaDisplay } from 'yoga-layout'
 

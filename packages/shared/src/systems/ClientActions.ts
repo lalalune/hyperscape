@@ -1,3 +1,37 @@
+/**
+ * ClientActions.ts - Context-Sensitive Action System
+ * 
+ * Displays action prompts when player is near interactable objects.
+ * Shows progress indicators for actions like gathering, crafting, etc.
+ * 
+ * **Features:**
+ * - Dynamic action detection (finds nearest interactable)
+ * - Visual progress indicator (circular fill)
+ * - Input integration (E key to trigger)
+ * - Canvas-based HUD rendering
+ * - XR-compatible positioning
+ * 
+ * **Action Flow:**
+ * 1. System detects nearby Action nodes
+ * 2. Shows prompt "Press E to [action]"
+ * 3. Player presses E → action.onStart() fires
+ * 4. Progress bar fills over action.duration
+ * 5. action.onTrigger() fires on completion
+ * 6. OR action.onCancel() if player moves away
+ * 
+ * **Visual Display:**
+ * - Circular progress indicator
+ * - Action label ("Chop tree", "Pick up item", etc.)
+ * - Distance from player
+ * - Auto-hides when out of range or completed
+ * 
+ * **Usage:**
+ * Action nodes are registered automatically when created.
+ * System finds the closest action node within range each frame.
+ * 
+ * **Referenced by:** Interaction system, resource gathering, item pickup
+ */
+
 import THREE from '../extras/three'
 
 import { ControlPriorities } from '../extras/ControlPriorities'
@@ -8,9 +42,10 @@ import { ClientGraphics as GraphicsSystem } from './ClientGraphics'
 import { SystemBase } from './SystemBase'
 import { XR as XRSystem } from './XR'
 
-// Use ControlBinding directly since it has all the properties we need
-
+/** Max vertices per canvas batch draw */
 const BATCH_SIZE = 500
+
+/** Forward direction vector (reused) */
 const FORWARD = new THREE.Vector3(0, 0, 1)
 
 const _v1 = new THREE.Vector3()
@@ -24,12 +59,25 @@ const _m1 = new THREE.Matrix4()
 
 // Use Action class from core/nodes/Action.ts directly
 
+/**
+ * ClientActionHandler - Action Progress Tracking Interface
+ * 
+ * Defines the lifecycle for a single action in progress.
+ */
 export interface ClientActionHandler {
+  /** Called when action starts */
   start: (node: Action) => void
+  /** Called every frame to update progress */
   update: (delta: number) => void
+  /** Called when action completes or is cancelled */
   stop: () => void
 }
 
+/**
+ * ClientActions System - Action Prompt Display
+ * 
+ * Shows "Press E to interact" style prompts and handles action execution.
+ */
 export class ClientActions extends SystemBase {
   nodes: Action[]
   cursor: number
