@@ -65,12 +65,14 @@ export class InputValidator {
 
   /**
    * Validate and sanitize input based on rules
+   * Note: This method uses defensive error handling because it processes UNTRUSTED USER INPUT.
+   * This is a security boundary - errors from malicious input should be caught and converted to validation failures.
    */
   static validate(value: unknown, rules: ValidationRule = {}): InputValidationResult {
-    const errors: string[] = [];
-    let sanitizedValue = value;
-
     try {
+      const errors: string[] = [];
+      let sanitizedValue = value;
+
       // Type validation and conversion
       const typeResult = this.validateType(value, rules.type);
       if (!typeResult.isValid) {
@@ -111,11 +113,17 @@ export class InputValidator {
         }
       }
 
-      // Custom validation
+      // Custom validation - catch errors from user-provided validators
       if (rules.customValidator) {
-        const customError = rules.customValidator(sanitizedValue);
-        if (customError) {
-          errors.push(customError);
+        try {
+          const customError = rules.customValidator(sanitizedValue);
+          if (customError) {
+            errors.push(customError);
+          }
+        } catch (error) {
+          // Custom validator threw an error - treat as validation failure
+          errors.push('Validation error occurred');
+          console.error('[InputValidator] Custom validator error:', error);
         }
       }
 
@@ -125,12 +133,13 @@ export class InputValidator {
         errors,
         sanitizedValue
       };
-
-    } catch (_error) {
+    } catch (error) {
+      // Catch any unexpected errors from malicious input
+      console.error('[InputValidator] Validation error:', error);
       return {
         isValid: false,
         passed: false,
-        errors: ['Validation error occurred'],
+        errors: ['Invalid input'],
         sanitizedValue: value
       };
     }

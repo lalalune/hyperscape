@@ -50,7 +50,6 @@ export class Entity implements IEntity {
   // Additional properties for plugin compatibility
   metadata?: Record<string, unknown>
 
-  // RPG-specific properties
   protected config: EntityConfig
   public mesh: THREE.Mesh | THREE.Group | THREE.Object3D | null = null
   public nodes: Map<string, THREE.Object3D> = new Map() // Child nodes by ID
@@ -91,10 +90,11 @@ export class Entity implements IEntity {
       // It's EntityConfig format
       config = dataOrConfig as EntityConfig
 
-      // Validate position to prevent NaN values
-      const validX = typeof config.position.x === 'number' && !isNaN(config.position.x) ? config.position.x : 0
-      const validY = typeof config.position.y === 'number' && !isNaN(config.position.y) ? config.position.y : 0
-      const validZ = typeof config.position.z === 'number' && !isNaN(config.position.z) ? config.position.z : 0
+      // Strong type assumption - EntityConfig.position always has valid x, y, z coordinates
+      // If NaN values appear, that's a bug in the calling code that should be fixed at the source
+      const validX = config.position.x || 0
+      const validY = config.position.y || 0
+      const validZ = config.position.z || 0
 
       // Convert EntityConfig to EntityData format
       entityData = {
@@ -194,10 +194,8 @@ export class Entity implements IEntity {
       }
     }
 
-    // Initialize velocity as THREE.Vector3
     this.velocity = new THREE.Vector3(0, 0, 0)
 
-    // Initialize RPG-specific properties
     const healthData = config?.properties?.health as { current: number; max: number } | undefined
     if (healthData) {
       this.health = healthData.current
@@ -862,77 +860,44 @@ export class Entity implements IEntity {
   async init(): Promise<void> {
     console.log(`[Entity] 🔄 Initializing ${this.type} entity: ${this.name} (${this.id})`);
     
-    try {
-      // Create the visual representation (mesh)
-      // Note: createMesh() in subclasses may call loadModel() internally
-      console.log(`[Entity] Creating mesh for ${this.name}...`);
-      await this.createMesh()
-      
-      // Note: mesh might be null if no model path and no fallback created
-      // This is OK - entity is still functional
-      
-      if (this.mesh) {
-        console.log(`[Entity] ✅ Mesh created for ${this.name}:`, {
-          meshType: this.mesh.type,
-          meshName: this.mesh.name,
-          childCount: this.mesh.children.length
-        });
-      } else {
-        console.log(`[Entity] Server-side entity ${this.name} - no mesh created (expected)`);
-      }
-
-      // Initialize UI elements (name tag, health bar) - only on client
-      // Check if we're in a real browser environment with full Canvas API support
-      const isClientEnvironment = this.isClientEnvironment()
-      
-      if (isClientEnvironment) {
-        try {
-          this.initializeVisuals()
-        } catch (err) {
-          console.error(`[Entity ${this.id}] initializeVisuals failed:`, err);
-          throw err;
-        }
-      }
-
-      // Note: loadModel() is now called inside createMesh() for subclasses
-
-      // Set up interaction system
-      try {
-        this.setupInteraction()
-      } catch (err) {
-        console.error(`[Entity ${this.id}] setupInteraction failed:`, err);
-        throw err;
-      }
-
-      // Call custom initialization
-      try {
-        await this.onInit()
-      } catch (err) {
-        console.error(`[Entity ${this.id}] onInit failed:`, err);
-        throw err;
-      }
-      
-      // FINAL VALIDATION (only on client where we have meshes)
-      if (!this.world.isServer) {
-        this.validateEntityState();
-      }
-      
-      console.log(`[Entity] ✅ ${this.type} entity ${this.name} fully initialized`);
-      
-    } catch (error) {
-      console.error(`[Entity] ❌ FAILED to initialize ${this.type} entity ${this.id}:`, error)
-      console.error(`[Entity] Failed entity state:`, {
-        id: this.id,
-        name: this.name,
-        type: this.type,
-        hasNode: !!this.node,
-        hasMesh: !!this.mesh,
-        nodeInScene: !!this.node.parent,
-        position: this.node.position.toArray(),
-        modelPath: this.config.model
+    // Create the visual representation (mesh)
+    // Note: createMesh() in subclasses may call loadModel() internally
+    console.log(`[Entity] Creating mesh for ${this.name}...`);
+    await this.createMesh();
+    
+    // Note: mesh might be null if no model path and no fallback created
+    // This is OK - entity is still functional
+    
+    if (this.mesh) {
+      console.log(`[Entity] ✅ Mesh created for ${this.name}:`, {
+        meshType: this.mesh.type,
+        meshName: this.mesh.name,
+        childCount: this.mesh.children.length
       });
-      throw error
+    } else {
+      console.log(`[Entity] Server-side entity ${this.name} - no mesh created (expected)`);
     }
+
+    // Initialize UI elements (name tag, health bar) - only on client
+    // Check if we're in a real browser environment with full Canvas API support
+    const isClientEnvironment = this.isClientEnvironment();
+    
+    if (isClientEnvironment) {
+      this.initializeVisuals();
+    }
+
+    // Set up interaction system
+    this.setupInteraction();
+
+    // Call custom initialization
+    await this.onInit();
+    
+    // FINAL VALIDATION (only on client where we have meshes)
+    if (!this.world.isServer) {
+      this.validateEntityState();
+    }
+    
+    console.log(`[Entity] ✅ ${this.type} entity ${this.name} fully initialized`);
   }
   
   /**
@@ -987,7 +952,7 @@ export class Entity implements IEntity {
   protected async loadModel(): Promise<void> {
     if (!this.config.model) {
       console.log(`[Entity] ${this.name} has no model path, skipping 3D model load`);
-      return
+      return;
     }
     
     console.log(`[Entity] 🔄 START Loading model for ${this.name}:`, {
@@ -997,30 +962,17 @@ export class Entity implements IEntity {
       position: this.node.position.toArray()
     });
     
-    // CRITICAL: Check if loader system exists
-    if (!this.world.loader) {
-      const error = new Error(`CRITICAL: Loader system not available for entity ${this.id}`);
-      console.error('[Entity]', error);
-      throw error;
-    }
-
     // Skip model loading on server side - models are only needed for client rendering
     if (this.world.isServer) {
       console.log(`[Entity] Server-side entity ${this.name}, skipping model load`);
-      return
+      return;
     }
 
-    // CRITICAL: Check if GLTFLoader is available
-    const loaderSystem = this.world.loader as { gltfLoader?: { loadAsync: (url: string) => Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }> } };
-    if (!loaderSystem.gltfLoader) {
-      const error = new Error(`CRITICAL: GLTFLoader not available in loader system for entity ${this.id}`);
-      console.error('[Entity]', error);
-      throw error;
-    }
+    // Get GLTFLoader from loader system
+    const loaderSystem = this.world.loader as { gltfLoader: { loadAsync: (url: string) => Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }> } };
     
-    try {
-      // Use ModelCache to load with caching
-      const { scene, fromCache } = await modelCache.loadModel(this.config.model, loaderSystem.gltfLoader);
+    // Use ModelCache to load with caching
+    const { scene, fromCache } = await modelCache.loadModel(this.config.model, loaderSystem.gltfLoader);
       
       console.log(`[Entity] ✅ Model obtained ${fromCache ? 'from cache' : 'via load'}:`, {
         modelPath: this.config.model,
@@ -1133,19 +1085,8 @@ export class Entity implements IEntity {
         throw new Error(`Loaded model is too small to see! Size: ${size.x}x${size.y}x${size.z}m`);
       }
       
-      // SUCCESS!
-      console.log(`[Entity] 🎉 Model ${this.config.model} successfully loaded and validated for ${this.name}`);
-      
-    } catch (error) {
-      // Model loading failed - this is OK if the GLB file doesn't exist yet
-      // Warn but don't crash - entity will use fallback mesh from createMesh()
-      console.warn(`[Entity] ⚠️  Model loading failed for ${this.name} (${this.type}), will use fallback mesh`);
-      console.warn(`[Entity] Model path: ${this.config.model}`);
-      console.warn(`[Entity] Error: ${(error as Error).message}`);
-      
-      // Don't throw - let the entity use its fallback mesh
-      // The entity is still functional, just without the 3D model
-    }
+      // SUCCESS!    
+    console.log(`[Entity] 🎉 Model ${this.config.model} successfully loaded and validated for ${this.name}`);
   }
   
   /**

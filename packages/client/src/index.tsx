@@ -2,7 +2,7 @@ import type { World } from '@hyperscape/shared'
 import { THREE, CircularSpawnArea, installThreeJSExtensions } from '@hyperscape/shared'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { errorReporting } from './error-reporting'
+import { errorReporting as _errorReporting } from './error-reporting'
 import { ErrorBoundary } from './ErrorBoundary'
 import './index.css'
 import { playerTokenManager } from './PlayerTokenManager'
@@ -38,9 +38,9 @@ installThreeJSExtensions()
 function App() {
   // Determine Privy availability early so we can gate initial render
   const windowEnvAppId = window.env?.PUBLIC_PRIVY_APP_ID
-  const importMetaAppId = typeof import.meta !== 'undefined' ? import.meta.env.PUBLIC_PRIVY_APP_ID : undefined
-  const appId: string = (windowEnvAppId || importMetaAppId || '') as string
-  const privyEnabled: boolean = !!(typeof appId === 'string' && appId.length > 0 && !appId.includes('your-privy-app-id'))
+  const importMetaAppId = import.meta.env.PUBLIC_PRIVY_APP_ID
+  const appId = windowEnvAppId || importMetaAppId || ''
+  const privyEnabled = appId.length > 0 && !appId.includes('your-privy-app-id')
 
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
   const [authState, setAuthState] = React.useState(privyAuthManager.getState())
@@ -99,11 +99,12 @@ function App() {
 
   const handleLogout = React.useCallback(() => {
     // Immediately clear local auth so UI updates without a second click
-    try { privyAuthManager.clearAuth() } catch {}
+    privyAuthManager.clearAuth()
     setIsAuthenticated(false)
     setShowCharacterPage(false)
     // Fire and forget provider logout to invalidate Privy session
-    try { (window as unknown as { privyLogout?: () => Promise<void> | void }).privyLogout?.() } catch {}
+    const windowWithPrivy = window as unknown as { privyLogout: () => Promise<void> | void }
+    windowWithPrivy.privyLogout()
   }, [])
 
   // Pre-world actions are managed by CharacterSelectPage
@@ -112,30 +113,27 @@ function App() {
   const handleSetup = React.useCallback((world: World, _config: unknown) => {
     console.log('[App] onSetup callback triggered')
     // Make world accessible globally for debugging
-    if (typeof window !== 'undefined') {
-      const globalWindow = window as Window & { world?: unknown; THREE?: unknown; testChat?: () => void };
-      globalWindow.world = world;
-      globalWindow.THREE = THREE;
-      // Expose testing helpers for browser-based tests
-      const anyWin = window as unknown as { Hyperscape?: Record<string, unknown> };
-      anyWin.Hyperscape = anyWin.Hyperscape || {};
-      anyWin.Hyperscape.CircularSpawnArea = CircularSpawnArea;
+    const globalWindow = window as unknown as { world: World; THREE: typeof THREE; testChat: () => void; Hyperscape: Record<string, unknown> };
+    globalWindow.world = world;
+    globalWindow.THREE = THREE;
+    globalWindow.Hyperscape = {};
+    globalWindow.Hyperscape.CircularSpawnArea = CircularSpawnArea;
+    
+    // Add chat test function
+    globalWindow.testChat = () => {
+      const worldWithChat = world as unknown as { chat: { send: (msg: string) => void }; network: { id: string; isClient: boolean; send: (method: string, data: unknown) => void } }
+      console.log('=== TESTING CHAT ===');
+      console.log('world.chat:', worldWithChat.chat);
+      console.log('world.network:', worldWithChat.network);
+      console.log('world.network.id:', worldWithChat.network.id);
+      console.log('world.network.isClient:', worldWithChat.network.isClient);
+      console.log('world.network.send:', worldWithChat.network.send);
       
-      // Add chat test function
-      globalWindow.testChat = () => {
-        console.log('=== TESTING CHAT ===');
-        console.log('world.chat:', world.chat);
-        console.log('world.network:', world.network);
-        console.log('world.network.id:', (world.network as { id?: string })?.id);
-        console.log('world.network.isClient:', world.network?.isClient);
-        console.log('world.network.send:', world.network?.send);
-        
-        const testMsg = 'Test message from console at ' + new Date().toLocaleTimeString();
-        console.log('Sending test message:', testMsg);
-        world.chat.send(testMsg);
-      };
-      console.log('💬 Chat test function available: call testChat() in console');
-    }
+      const testMsg = 'Test message from console at ' + new Date().toLocaleTimeString();
+      console.log('Sending test message:', testMsg);
+      worldWithChat.chat.send(testMsg);
+    };
+    console.log('💬 Chat test function available: call testChat() in console');
   }, [])
 
   // privyEnabled computed above
@@ -155,7 +153,12 @@ function App() {
       <div ref={appRef} data-component="app-root">
         <CharacterSelectPage
           wsUrl={wsUrl}
-          onPlay={(id) => { if (id) try { localStorage.setItem('selectedCharacterId', id) } catch {}; setShowCharacterPage(false) }}
+          onPlay={(id) => { 
+            if (id) {
+              localStorage.setItem('selectedCharacterId', id)
+            }
+            setShowCharacterPage(false)
+          }}
           onLogout={handleLogout}
         />
       </div>
@@ -172,89 +175,45 @@ function App() {
 }
 
 function mountApp() {
-  try {
-            
-    const rootElement = document.getElementById('root')
-        
-    if (rootElement) {
-      console.log('[App] Root element details:', {
-        id: rootElement.id,
-        className: rootElement.className,
-        innerHTML: rootElement.innerHTML,
-        tagName: rootElement.tagName
-      })
-      
-            const root = ReactDOM.createRoot(rootElement)
-      
-            root.render(
-        <PrivyAuthProvider>
-          <App />
-        </PrivyAuthProvider>
-      )
-      
-            
-      // Use React's callback to verify render completion
-      // React 18's createRoot renders are async and may take multiple frames
-      const verifyRender = (attempts = 0) => {
-        const maxAttempts = 10
-        const hasContent = rootElement.innerHTML.length > 0
-        
-        if (hasContent) {
-          return
-        } else if (attempts < maxAttempts) {
-          // Try again in the next frame
-          console.log(`[App] Waiting for React to render... (attempt ${attempts + 1}/${maxAttempts})`)
-          requestAnimationFrame(() => verifyRender(attempts + 1))
-        } else {
-          console.error('[App] WARNING: Root element is still empty after multiple attempts!')
-          console.error('[App] Root element state:', {
-            innerHTML: rootElement.innerHTML,
-            childNodes: rootElement.childNodes.length,
-            textContent: rootElement.textContent
-          })
-          
-          // Check if React root was created successfully
-          const reactRootKey = Object.keys(rootElement).find(key => key.startsWith('_reactRoot'))
-          console.error('[App] React root found:', !!reactRootKey)
-          
-          errorReporting.reportCustomError(
-            'React app mounted but no content rendered after multiple attempts',
-            {
-              phase: 'post-mount',
-              rootElementFound: true,
-              innerHTML: rootElement.innerHTML,
-              attempts: attempts,
-              hasReactRoot: !!reactRootKey
-            }
-          )
-        }
-      }
-      
-      // Start verification process
-      // Use setTimeout with 0 delay to ensure React has a chance to start rendering
-      setTimeout(() => {
-        requestAnimationFrame(() => verifyRender(0))
-      }, 0)
-      
-    } else {
-      console.error('[App] Root element not found!')
-          }
-  } catch (error) {
-    console.error('[App] Error during mounting:', error)
-    if (error instanceof Error) {
-      console.error('[App] Error stack:', error.stack)
-      
-      // Report mounting error to backend
-      errorReporting.reportCustomError(
-        `App mounting failed: ${error.message}`, 
-        {
-          phase: 'mounting',
-          stack: error.stack,
-          rootElementFound: !!document.getElementById('root')
-        }
-      )
+  const rootElement = document.getElementById('root')!
+  
+  console.log('[App] Root element details:', {
+    id: rootElement.id,
+    className: rootElement.className,
+    innerHTML: rootElement.innerHTML,
+    tagName: rootElement.tagName
+  })
+  
+  const root = ReactDOM.createRoot(rootElement)
+  
+  root.render(
+    <PrivyAuthProvider>
+      <App />
+    </PrivyAuthProvider>
+  )
+  
+  // Verify render completion
+  const verifyRender = (attempts = 0) => {
+    const maxAttempts = 10
+    const hasContent = rootElement.innerHTML.length > 0
+    
+    if (hasContent) {
+      return
     }
+    
+    if (attempts < maxAttempts) {
+      console.log(`[App] Waiting for React to render... (attempt ${attempts + 1}/${maxAttempts})`)
+      requestAnimationFrame(() => verifyRender(attempts + 1))
+      return
+    }
+    
+    // Should never reach here - React render failed
+    throw new Error('React app mounted but no content rendered after multiple attempts')
   }
+  
+  setTimeout(() => {
+    requestAnimationFrame(() => verifyRender(0))
+  }, 0)
 }
 
 // Ensure DOM is ready before mounting

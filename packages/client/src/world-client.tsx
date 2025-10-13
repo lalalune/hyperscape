@@ -23,61 +23,58 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
   const world = useMemo(() => {
     console.log('[Client] Creating new world instance')
     const w = createClientWorld()
-    console.log('[Client] World instance created')
+    console.log('[Client] World instance created');
     
     // Expose world for browser debugging
-    if (typeof window !== 'undefined') {
-      (window as { world?: World }).world = w;
-      
-      // Install simple debug commands
-      (window as { debug?: { seeHighEntities: () => void; seeGround: () => void; mobs: () => Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean | undefined }> | undefined } }).debug = {
-        // Teleport camera to see mobs at Y=40+
-        seeHighEntities: () => {
-          if (w.camera) {
-            w.camera.position.set(10, 50, 10);
-            w.camera.lookAt(0, 40, 0);
-            console.log('📷 Camera moved to Y=50, looking at Y=40');
-          }
-        },
-        // Teleport to ground level
-        seeGround: () => {
-          if (w.camera) {
-            w.camera.position.set(10, 5, 10);
-            w.camera.lookAt(0, 0, 0);
-            console.log('📷 Camera moved to ground level');
-          }
-        },
-        // List all mobs with positions
-        mobs: () => {
-          const entityManager = w.getSystem('entity-manager');
-          if (!entityManager) return;
-          const mobs: Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean | undefined }> = [];
-          const getAllEntities = (entityManager as { getAllEntities?: () => Map<string, { type: string; name: string; node: { position: { toArray: () => number[] } }; mesh?: { visible: boolean } }> }).getAllEntities
-          if (!getAllEntities) return;
-          for (const [_id, entity] of getAllEntities()) {
-            if (entity.type === 'mob') {
-              mobs.push({
-                name: entity.name,
-                position: entity.node.position.toArray(),
-                hasMesh: !!entity.mesh,
-                meshVisible: entity.mesh?.visible
-              });
-            }
-          }
-          console.table(mobs);
-          return mobs;
-        }
-      };
-      console.log('🛠️  Debug commands ready: debug.seeHighEntities(), debug.seeGround(), debug.mobs()');
-    }
+    ;(window as { world: World }).world = w;
     
-    return w
+    // Install simple debug commands
+    const debugWindow = window as unknown as { debug: { seeHighEntities: () => void; seeGround: () => void; mobs: () => Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean }> } }
+    debugWindow.debug = {
+      // Teleport camera to see mobs at Y=40+
+      seeHighEntities: () => {
+        if (w.camera) {
+          w.camera.position.set(10, 50, 10);
+          w.camera.lookAt(0, 40, 0);
+          console.log('📷 Camera moved to Y=50, looking at Y=40');
+        }
+      },
+      // Teleport to ground level
+      seeGround: () => {
+        if (w.camera) {
+          w.camera.position.set(10, 5, 10);
+          w.camera.lookAt(0, 0, 0);
+          console.log('📷 Camera moved to ground level');
+        }
+      },
+      // List all mobs with positions
+      mobs: () => {
+        const entityManager = w.getSystem('entity-manager') as { getAllEntities: () => Map<string, { type: string; name: string; node: { position: { toArray: () => number[] } }; mesh: { visible: boolean } }> };
+        const mobs: Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean }> = [];
+        for (const [_id, entity] of entityManager.getAllEntities()) {
+          if (entity.type === 'mob') {
+            mobs.push({
+              name: entity.name,
+              position: entity.node.position.toArray(),
+              hasMesh: true,
+              meshVisible: entity.mesh.visible
+            });
+          }
+        }
+        console.table(mobs);
+        return mobs;
+      }
+    };
+    console.log('🛠️  Debug commands ready: debug.seeHighEntities(), debug.seeGround(), debug.mobs()');
+    
+    return w;
   }, [])
   const defaultUI = { visible: true, active: false, app: null, pane: null }
   const [ui, setUI] = useState(defaultUI)
   useEffect(() => {
     const handleUI = (data: unknown) => {
-      if (data && typeof data === 'object') setUI(data as typeof ui)
+      // Assume data has the correct shape for UI state
+      if (data) setUI(data as typeof ui)
     }
     world.on(EventType.UI_UPDATE, handleUI)
     return () => {
@@ -161,22 +158,12 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       
       
       // Ensure RPG systems are registered before initializing the world
-      const maybeWorld = world as unknown as World & { systemsLoadedPromise?: Promise<void> }
-      if (maybeWorld.systemsLoadedPromise) {
-        try {
-          await maybeWorld.systemsLoadedPromise
-                  } catch (e) {
-          console.warn('[Client] Proceeding without awaiting systemsLoadedPromise due to error:', e)
-        }
-      }
+      const worldWithSystems = world as unknown as World & { systemsLoadedPromise: Promise<void> }
+      await worldWithSystems.systemsLoadedPromise
       
-      try {
-        console.log('[Client] Calling world.init()...')
-        await world.init(config)
-        console.log('[Client] World.init() complete')
-              } catch (error) {
-        console.error('[Client] Failed to initialize world:', error)
-      }
+      console.log('[Client] Calling world.init()...')
+      await world.init(config)
+      console.log('[Client] World.init() complete')
     }
     
     init()
@@ -186,15 +173,9 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       if (!cleanedUp) {
         cleanedUp = true
         console.log('[Client] Cleaning up world on unmount...')
-        try {
-          // Destroy the world to cleanup WebSocket and resources
-          if (world && world.destroy) {
-            world.destroy()
-            console.log('[Client] World destroyed')
-          }
-        } catch (error) {
-          console.error('[Client] Error during cleanup:', error)
-        }
+        // Destroy the world to cleanup WebSocket and resources
+        world.destroy()
+        console.log('[Client] World destroyed')
       }
     }
   }, [world, wsUrl, onSetup])

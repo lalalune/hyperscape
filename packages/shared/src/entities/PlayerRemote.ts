@@ -1,4 +1,4 @@
-import type { EntityData, HotReloadable, NetworkData } from '../types/index'
+import type { EntityData, HotReloadable, NetworkData, LoadedAvatar } from '../types/index'
 import { Emotes } from '../extras/playerEmotes'
 import type { World } from '../World'
 import { createNode } from '../extras/createNode'
@@ -8,7 +8,7 @@ import THREE from '../extras/three'
 import { Entity } from './Entity'
 import { Avatar, Nametag, Group, Mesh, UI, UIView, UIText } from '../nodes'
 import { EventType } from '../types/events'
-import type { PlayerEffect } from '../types/physics'
+import type { PlayerEffect, VRMHooks } from '../types/physics'
 
 interface AvatarWithInstance {
   instance: {
@@ -139,9 +139,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // Base node is used for UI elements (nametag, bubble)
 
     // Start avatar loading but don't await it - let it complete asynchronously
-    this.applyAvatar().catch(err => {
-      console.error('[PlayerRemote] Failed to apply avatar in init:', err)
-    })
+    this.applyAvatar();
 
     this.lerpPosition = new LerpVector3(this.position, this.world.networkRate)
     // IMPORTANT: Use the entity's actual quaternion, not the cloned getter
@@ -154,127 +152,92 @@ export class PlayerRemote extends Entity implements HotReloadable {
   }
 
   async applyAvatar() {
-    const avatarUrl = (this.data.sessionAvatar as string) || (this.data.avatar as string) || 'asset://avatar.vrm'
-    if (this.avatarUrl === avatarUrl) return
+    const avatarUrl = (this.data.sessionAvatar as string) || (this.data.avatar as string) || 'asset://avatar.vrm';
+    if (this.avatarUrl === avatarUrl) return;
     
-    console.log('[PlayerRemote] Loading avatar:', avatarUrl)
-    
-    // Ensure loader is available
+    // Skip avatar loading on server (no loader system)
     if (!this.world.loader) {
-      console.warn('[PlayerRemote] Loader not available yet')
-      return
+      return;
     }
     
-    try {
-      const src = await this.world.loader.load('avatar', avatarUrl)
-      
-      // Clean up previous avatar
-      if (this.avatar) {
-        if (this.avatar.deactivate) {
-          this.avatar.deactivate()
-        }
-        // If avatar has an instance, destroy it to clean up VRM scene
-        const avatarWithInstance = this.avatar as AvatarWithInstance;
-        if (avatarWithInstance.instance && avatarWithInstance.instance.destroy) {
-          avatarWithInstance.instance.destroy()
-        }
-      }
-      
-      // Use the same pattern as PlayerLocal
-      // Strong type assumption - avatar has toNodes method
-      const isAvatarNodeMap = (_v: unknown): _v is { toNodes: () => Map<string, Avatar> } => true
-
-      if (!isAvatarNodeMap(src)) {
-        console.error('[PlayerRemote] Avatar loader did not return expected node map, got:', src)
-        return
-      }
-      
-      // Note: VRM hooks will be set on the avatar node before mounting
-      const nodeMap = (src as { toNodes: (hooks?: unknown) => Map<string, Avatar> }).toNodes()
-      // Strong type assumption - nodeMap is a Map
-      console.log('[PlayerRemote] NodeMap type:', nodeMap?.constructor?.name, 'keys:', Array.from(nodeMap.keys()))
-      
-      const rootNode = nodeMap.get('root')
-      if (!rootNode) {
-        console.error('[PlayerRemote] No root node found in loaded avatar. Available keys:', Array.from(nodeMap.keys()))
-        return
-      }
-      
-      // The avatar node is a child of the root node or in the map directly
-      const avatarNode = nodeMap.get('avatar') || (rootNode as Group).get('avatar')
-      // console.log('[PlayerRemote] Root node:', rootNode, 'Avatar node:', avatarNode)
-      
-      // Use the avatar node if we found it, otherwise try root
-      const nodeToUse = avatarNode || rootNode
-      
-      if (!nodeToUse) {
-        console.error('[PlayerRemote] No avatar node found')
-        return
-      }
-      
-      this.avatar = nodeToUse as Avatar
-      
-      // Set up the avatar node properly
-      const nodeObj = nodeToUse as unknown as { ctx?: World; parent?: { matrixWorld: THREE.Matrix4 }; activate?: (world: World) => void; mount?: () => Promise<void>; hooks?: unknown }
-      if (nodeObj.ctx !== this.world) {
-        nodeObj.ctx = this.world
-      }
-      
-      // Check current hooks
-      console.log('[PlayerRemote] Current avatar hooks:', nodeObj.hooks ? Object.keys(nodeObj.hooks) : 'none')
-      
-      // Use world.stage.scene and manually update position
-      const vrmHooks = {
-        scene: this.world.stage.scene,
-        octree: this.world.stage.octree,
-        camera: this.world.camera,
-        loader: this.world.loader
-      }
-      nodeObj.hooks = vrmHooks
-      console.log('[PlayerRemote] New hooks set:', Object.keys(vrmHooks))
-      
-      // Set the parent to base's matrix so it follows the remote player
-      nodeObj.parent = { matrixWorld: this.base.matrixWorld }
-      
-      // Activate and mount the avatar node
-      if (nodeObj.activate) {
-        nodeObj.activate(this.world)
-      }
-      
-      if (nodeObj.mount) {
-        await nodeObj.mount()
-      }
-      
-      // The avatar instance will be managed by the VRM factory
-      // Don't add anything to base - the VRM scene is added to world.stage.scene
-      
-      // Set up positioning
-      if (this.avatar) {
-        const headHeight = this.avatar.getHeadToHeight?.()
-        if (headHeight != null) {
-          this.nametag.position.y = headHeight + 0.2
-          this.bubble.position.y = headHeight + 0.2
-        }
-      }
-      
-      if (!this.bubble.active) {
-        this.nametag.active = true
-      }
-      this.avatarUrl = avatarUrl
-      
-      console.log('[PlayerRemote] Avatar loaded and mounted successfully')
-      // Ensure a default idle emote after mount so avatar isn't frozen
-      if (this.avatar) {
-        if ('emote' in this.avatar) {
-          ;(this.avatar as unknown as { emote: string | null }).emote = Emotes.IDLE
-        } else if ('setEmote' in this.avatar) {
-          ;(this.avatar as Avatar).setEmote(Emotes.IDLE)
-        }
-        this.lastEmote = Emotes.IDLE
-      }
-    } catch (err) {
-      console.error('[PlayerRemote] Failed to load avatar:', err)
+    console.log('[PlayerRemote] Loading avatar:', avatarUrl);
+    
+    const src = await this.world.loader.load('avatar', avatarUrl) as LoadedAvatar;
+    
+    // Clean up previous avatar
+    if (this.avatar) {
+      this.avatar.deactivate();
+      // If avatar has an instance, destroy it to clean up VRM scene
+      const avatarWithInstance = this.avatar as AvatarWithInstance;
+      avatarWithInstance.instance!.destroy();
     }
+    
+    // Note: VRM hooks will be set on the avatar node before mounting
+    const nodeMap = src.toNodes();
+    // Strong type assumption - nodeMap is a Map
+    console.log('[PlayerRemote] NodeMap type:', nodeMap.constructor.name, 'keys:', Array.from(nodeMap.keys()));
+    
+    const rootNode = nodeMap.get('root');
+    if (!rootNode) {
+      throw new Error(`[PlayerRemote] No root node found in loaded avatar. Available keys: ${Array.from(nodeMap.keys())}`);
+    }
+    
+    // The avatar node is a child of the root node or in the map directly
+    const avatarNode = nodeMap.get('avatar') || (rootNode as Group).get('avatar');
+    
+    // Use the avatar node
+    const nodeToUse = avatarNode || rootNode;
+    
+    this.avatar = nodeToUse as Avatar;
+    
+    // Set up the avatar node properly - cast to access internal properties
+    interface AvatarNodeInternal {
+      ctx: World;
+      parent: { matrixWorld: THREE.Matrix4 } | null;
+      activate: (world: World) => void;
+      mount: () => Promise<void>;
+      hooks: VRMHooks;
+    }
+    const nodeObj = nodeToUse as Avatar & AvatarNodeInternal;
+    nodeObj.ctx = this.world;
+    
+    // Check current hooks
+    console.log('[PlayerRemote] Current avatar hooks:', nodeObj.hooks ? Object.keys(nodeObj.hooks) : 'none');
+    
+    // Use world.stage.scene and manually update position
+    const vrmHooks: VRMHooks = {
+      scene: this.world.stage.scene,
+      octree: this.world.stage.octree as VRMHooks['octree'],
+      camera: this.world.camera,
+      loader: this.world.loader
+    };
+    nodeObj.hooks = vrmHooks;
+    console.log('[PlayerRemote] New hooks set:', Object.keys(vrmHooks));
+    
+    // Set the parent to base's matrix so it follows the remote player
+    Object.assign(nodeObj, { parent: { matrixWorld: this.base.matrixWorld } });
+    
+    // Activate and mount the avatar node
+    nodeObj.activate(this.world);
+    await nodeObj.mount();
+    
+    // The avatar instance will be managed by the VRM factory
+    // Don't add anything to base - the VRM scene is added to world.stage.scene
+    
+    // Set up positioning
+    const headHeight = this.avatar.getHeadToHeight()!;
+    this.nametag.position.y = headHeight + 0.2;
+    this.bubble.position.y = headHeight + 0.2;
+    
+    if (!this.bubble.active) {
+      this.nametag.active = true;
+    }
+    this.avatarUrl = avatarUrl;
+    
+    console.log('[PlayerRemote] Avatar loaded and mounted successfully');
+    // Ensure a default idle emote after mount so avatar isn't frozen
+    (this.avatar as Avatar).setEmote(Emotes.IDLE);
+    this.lastEmote = Emotes.IDLE;
   }
 
   getAnchorMatrix() {
@@ -441,7 +404,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     this.data.effect = { emote: effect }
     this.onEffectEnd = onEnd
     // Strong type assumption - effect structure is known
-    const hasAnchor = effect && (effect as { anchorId?: unknown }).anchorId
+    const hasAnchor = effect && (effect as PlayerEffect).anchorId
     this.body.active = !hasAnchor
   }
 
@@ -504,9 +467,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.velocity.set(vel[0], vel[1], vel[2]);
     }
     if (avatarChanged) {
-      this.applyAvatar().catch(err => {
-        console.error('[PlayerRemote] Failed to apply avatar in modify:', err)
-      })
+      this.applyAvatar();
     }
   }
 

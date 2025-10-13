@@ -4,8 +4,21 @@ import { Box, CheckCircle } from 'lucide-react'
 import { Asset } from '../../services/api/AssetService'
 import { TIER_DISPLAY_COLORS } from '../../constants'
 
-// Define the possible variant types based on GeneratedAsset
-type Variant = Asset | { name: string; modelUrl: string; id?: string; success?: boolean } | string
+// Properly typed variant with discriminated union
+type AssetVariant = Asset & { variantType: 'asset' }
+type GeneratedVariant = { 
+  variantType: 'generated'
+  name: string
+  modelUrl: string
+  id: string
+  success: boolean
+}
+type NameOnlyVariant = {
+  variantType: 'name'
+  name: string
+}
+
+type Variant = AssetVariant | GeneratedVariant | NameOnlyVariant
 
 interface MaterialVariantsDisplayProps {
   variants?: Variant[]
@@ -16,22 +29,14 @@ export const MaterialVariantsDisplay: React.FC<MaterialVariantsDisplayProps> = (
 }) => {
 
   const getMaterialName = (variant: Variant, index: number): string => {
-    // Handle string variants (like "chainbody-dragon")
-    if (typeof variant === 'string') {
-      return variant.split('-').pop() || `Variant ${index + 1}`
-    }
-    
-    // Handle object variants
-    if (typeof variant === 'object' && variant !== null) {
-      if ('id' in variant && variant.id) {
+    switch (variant.variantType) {
+      case 'asset':
         return variant.id.split('-').pop() || `Variant ${index + 1}`
-      }
-      if ('name' in variant && variant.name) {
+      case 'generated':
+        return variant.id.split('-').pop() || variant.name
+      case 'name':
         return variant.name
-      }
     }
-    
-    return `Variant ${index + 1}`
   }
 
   return (
@@ -47,7 +52,7 @@ export const MaterialVariantsDisplay: React.FC<MaterialVariantsDisplayProps> = (
           {variants.map((variant, i) => {
             const materialName = getMaterialName(variant, i)
             const color = TIER_DISPLAY_COLORS[materialName.toLowerCase()] || '#888888'
-            const isSuccess = typeof variant === 'object' && variant !== null && 'success' in variant && variant.success
+            const isSuccess = variant.variantType === 'generated' && variant.success
             
             return (
               <div key={i} className="group cursor-pointer">

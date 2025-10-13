@@ -53,7 +53,7 @@ interface AnimationFactory {
 }
 
 interface EmotePlayerNode extends THREE.Group {
-  parent?: THREE.Object3D | null
+  parent: THREE.Object3D | null
   destroy(): void
 }
 

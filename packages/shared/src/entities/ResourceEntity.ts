@@ -121,10 +121,7 @@ export class ResourceEntity extends InteractableEntity {
     }
   }
 
-  protected async createMesh(): Promise<void> {
-    // SKIP MODEL LOADING - Prevents 404 errors
-    // Resources use procedural meshes from ResourceVisualizationSystem instead
-    
+  protected async createMesh(): Promise<void> {    
     if (this.world.isServer) {
       return; // Don't create fallback mesh on server
     }

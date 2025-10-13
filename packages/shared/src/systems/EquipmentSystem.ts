@@ -13,10 +13,46 @@
 import THREE from '../extras/three';
 import { EventType } from '../types/events';
 import { dataManager } from '../data/DataManager';
-import { equipmentRequirements } from '../data/EquipmentRequirements';
+import equipmentRequirementsData from '../data/equipment-requirements.json';
+
+// Helper functions for equipment requirements (replaces deleted EquipmentRequirements class)
+const equipmentRequirements = {
+  getLevelRequirements: (itemId: string) => {
+    const allReqs = equipmentRequirementsData.levelRequirements;
+    return allReqs.weapons[itemId] || allReqs.shields[itemId] || 
+           allReqs.armor.helmets[itemId] || allReqs.armor.body[itemId] || 
+           allReqs.armor.legs[itemId] || allReqs.ammunition[itemId] || null;
+  },
+  getRequirementText: (itemId: string) => {
+    const reqs = equipmentRequirements.getLevelRequirements(itemId);
+    if (!reqs) return '';
+    const parts: string[] = [];
+    if (reqs.attack > 0) parts.push(`Attack ${reqs.attack}`);
+    if (reqs.strength > 0) parts.push(`Strength ${reqs.strength}`);
+    if (reqs.defense > 0) parts.push(`Defense ${reqs.defense}`);
+    if (reqs.ranged > 0) parts.push(`Ranged ${reqs.ranged}`);
+    if (reqs.constitution > 0) parts.push(`Constitution ${reqs.constitution}`);
+    return parts.join(', ');
+  },
+  getEquipmentColor: (itemId: string) => {
+    const match = itemId.match(/^(bronze|steel|mithril|leather|hard_leather|studded_leather|wood|oak|willow|arrows)_/);
+    return match ? equipmentRequirementsData.equipmentColors[match[1]] : null;
+  },
+  getDefaultColorByType: (itemType: string) => {
+    const defaults: Record<string, string> = {
+      weapon: '#808080',
+      shield: '#A0A0A0',
+      helmet: '#606060',
+      body: '#505050',
+      legs: '#404040',
+      arrows: '#FFD700'
+    };
+    return defaults[itemType] || '#808080';
+  }
+};
 import { SystemBase } from './SystemBase';
 import { Logger } from '../utils/Logger';
-import { PlayerIdMapper } from './PlayerIdMapper';
+import { PlayerIdMapper } from '../utils/PlayerIdMapper';
 import type { DatabaseSystem } from '../types/system-interfaces';
 
 import { World } from '../World';
@@ -90,63 +126,72 @@ export class EquipmentSystem extends SystemBase {
       console.warn('[EquipmentSystem] DatabaseSystem not found - equipment will not persist!');
     }
     
-    // Set up type-safe event subscriptions
+    // Set up type-safe event subscriptions with proper type casting
     this.subscribe(EventType.PLAYER_REGISTERED, (data) => {
-      this.initializePlayerEquipment({ id: data.playerId });
+      const typedData = data as { playerId: string };
+      this.initializePlayerEquipment({ id: typedData.playerId });
     });
     this.subscribe(EventType.PLAYER_JOINED, (data) => {
-      // Load equipment from database when player joins
-      this.loadEquipmentFromDatabase(data.playerId);
+      const typedData = data as { playerId: string };
+      this.loadEquipmentFromDatabase(typedData.playerId);
     });
     this.subscribe(EventType.PLAYER_UNREGISTERED, (data) => {
-      this.cleanupPlayerEquipment(data.playerId);
+      const typedData = data as { playerId: string };
+      this.cleanupPlayerEquipment(typedData.playerId);
     });
     this.subscribe(EventType.PLAYER_LEFT, async (data) => {
-      // Save equipment before player leaves
-      await this.saveEquipmentToDatabase(data.playerId);
+      const typedData = data as { playerId: string };
+      await this.saveEquipmentToDatabase(typedData.playerId);
     });
 
     // Listen to skills updates for reactive patterns
     this.subscribe(EventType.SKILLS_UPDATED, (data) => {
-      this.playerSkills.set(data.playerId, data.skills);
+      const typedData = data as { playerId: string; skills: Record<string, { level: number; xp: number }> };
+      this.playerSkills.set(typedData.playerId, typedData.skills);
     });
     this.subscribe(EventType.EQUIPMENT_EQUIP, (data) => {
+      const typedData = data as { playerId: string; itemId: string; slot: string };
       this.equipItem({
-        playerId: data.playerId,
-        itemId: data.itemId,
-        slot: data.slot,
+        playerId: typedData.playerId,
+        itemId: typedData.itemId,
+        slot: typedData.slot,
         inventorySlot: undefined
       });
     });
     this.subscribe(EventType.EQUIPMENT_UNEQUIP, (data) => {
+      const typedData = data as { playerId: string; slot: string };
       this.unequipItem({
-        playerId: data.playerId,
-        slot: data.slot
+        playerId: typedData.playerId,
+        slot: typedData.slot
       });
     });
     this.subscribe(EventType.EQUIPMENT_TRY_EQUIP, (data) => {
+      const typedData = data as { playerId: string; itemId: string };
       this.tryEquipItem({
-        playerId: data.playerId,
-        itemId: data.itemId,
+        playerId: typedData.playerId,
+        itemId: typedData.itemId,
         inventorySlot: undefined
       });
     });
     this.subscribe(EventType.EQUIPMENT_FORCE_EQUIP, (data) => {
+      const typedData = data as { playerId: string; itemId: string; slot: string };
       this.handleForceEquip({
-        playerId: data.playerId,
-        item: this.getItemData(data.itemId)!,
-        slot: data.slot
+        playerId: typedData.playerId,
+        item: this.getItemData(typedData.itemId)!,
+        slot: typedData.slot
       });
     });
     this.subscribe(EventType.INVENTORY_ITEM_RIGHT_CLICK, (data) => {
+      const typedData = data as { playerId: string; itemId: string; slot: number };
       this.handleItemRightClick({
-        playerId: data.playerId,
-        itemId: parseInt(data.itemId, 10),
-        slot: data.slot
+        playerId: typedData.playerId,
+        itemId: parseInt(typedData.itemId, 10),
+        slot: typedData.slot
       });
     });
     this.subscribe(EventType.EQUIPMENT_CONSUME_ARROW, (data) => {
-      this.consumeArrow(data.playerId);
+      const typedData = data as { playerId: string };
+      this.consumeArrow(typedData.playerId);
     });
     
   }
@@ -210,9 +255,11 @@ export class EquipmentSystem extends SystemBase {
         const itemData = this.getItemData(dbItem.itemId);
         if (itemData && dbItem.slotType) {
           const slot = equipment[dbItem.slotType as keyof PlayerEquipment];
-          if (slot && typeof slot === 'object' && 'itemId' in slot) {
-            slot.itemId = parseInt(dbItem.itemId, 10);
-            slot.item = itemData;
+          // Strong type assumption - slot is EquipmentSlot if it exists
+          if (slot && slot !== equipment.playerId && slot !== equipment.totalStats) {
+            const equipSlot = slot as EquipmentSlot;
+            equipSlot.itemId = parseInt(dbItem.itemId, 10);
+            equipSlot.item = itemData;
           }
         }
       }
@@ -248,12 +295,16 @@ export class EquipmentSystem extends SystemBase {
     
     for (const { key, slot } of slots) {
       const equipSlot = equipment[key as keyof PlayerEquipment];
-      if (equipSlot && typeof equipSlot === 'object' && 'itemId' in equipSlot && equipSlot.itemId) {
-        dbEquipment.push({
-          slotType: slot,
-          itemId: String(equipSlot.itemId),
-          quantity: 1
-        });
+      // Strong type assumption - equipSlot is EquipmentSlot if it's not playerId or totalStats
+      if (equipSlot && equipSlot !== equipment.playerId && equipSlot !== equipment.totalStats) {
+        const typedSlot = equipSlot as EquipmentSlot;
+        if (typedSlot.itemId) {
+          dbEquipment.push({
+            slotType: slot,
+            itemId: String(typedSlot.itemId),
+            quantity: 1
+          });
+        }
       }
     }
     
@@ -368,8 +419,12 @@ export class EquipmentSystem extends SystemBase {
       });
     }
     
-    // Equip new item
-    equipmentSlot.itemId = typeof data.itemId === "string" ? parseInt(data.itemId, 10) : data.itemId;
+    // Equip new item - convert to number for slot storage
+    // Strong type assumption - data.itemId is string | number per function signature
+    const itemIdNumber = (data.itemId as string).toString ? 
+      parseInt(data.itemId as string, 10) : 
+      data.itemId as number;
+    equipmentSlot.itemId = itemIdNumber;
     equipmentSlot.item = itemData;
     
     // Create visual representation

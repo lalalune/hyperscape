@@ -1,6 +1,25 @@
 version: '3.8'
 
 services:
+  # CDN - Local nginx server for serving static game assets
+  cdn:
+    build:
+      context: ./docker/cdn
+      dockerfile: Dockerfile
+    container_name: hyperscape-cdn
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount world assets directly into nginx html directory
+      - ../../assets:/usr/share/nginx/html/assets:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
   # PostgreSQL - Local development database
   postgres:
     image: postgres:16-alpine

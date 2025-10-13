@@ -90,18 +90,14 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       }
     }
     const onInventory = (raw: unknown) => {
-      const data = raw as { items: InventorySlotItem[]; playerId?: string; coins?: number }
-      if (Array.isArray(data.items)) {
-        setInventory(data.items)
-      }
-      if (typeof data.coins === 'number') {
-        setCoins(data.coins)
-      }
+      const data = raw as { items: InventorySlotItem[]; playerId: string; coins: number }
+      setInventory(data.items)
+      setCoins(data.coins)
     }
     const onCoins = (raw: unknown) => {
       const data = raw as { playerId: string; coins: number }
       const localId = world.entities.player?.id
-      if (!localId || data.playerId === localId) setCoins(typeof data.coins === 'number' ? data.coins : 0)
+      if (!localId || data.playerId === localId) setCoins(data.coins)
     }
     world.on(EventType.UI_UPDATE, onUIUpdate)
     world.on(EventType.INVENTORY_UPDATED, onInventory)
@@ -111,14 +107,12 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       const lp = world.entities.player?.id
       if (lp) {
         // If network already cached an inventory packet, use it immediately
-        try {
-          const net = (world.network as unknown) as { lastInventoryByPlayerId?: Record<string, { playerId: string; items: InventorySlotItem[]; coins: number; maxSlots: number }> }
-          const cached = net?.lastInventoryByPlayerId?.[lp]
-          if (cached && Array.isArray(cached.items)) {
-            setInventory(cached.items)
-            setCoins(cached.coins)
-          }
-        } catch {}
+        const net = world.network as unknown as { lastInventoryByPlayerId: Record<string, { playerId: string; items: InventorySlotItem[]; coins: number; maxSlots: number }> }
+        const cached = net.lastInventoryByPlayerId[lp]
+        if (cached && Array.isArray(cached.items)) {
+          setInventory(cached.items)
+          setCoins(cached.coins)
+        }
         // Ask server for authoritative snapshot in case cache is missing/stale
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp })
         return true

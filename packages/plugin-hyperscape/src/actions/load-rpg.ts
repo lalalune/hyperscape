@@ -32,35 +32,21 @@ export const loadRPGAction: Action = {
     options?: any,
     callback?: HandlerCallback
   ) => {
-    try {
-      // Get the Hyperscape service
-      const hyperscapeService =
-        runtime.getService<HyperscapeService>('hyperscape')
-      if (!hyperscapeService) {
-        throw new Error('Hyperscape service not available')
-      }
+    // Get the Hyperscape service
+    const hyperscapeService =
+      runtime.getService<HyperscapeService>('hyperscape')!
 
-      // Load the RPG content pack (when available)
-      // This would integrate with our polished RPG systems
-      const world = hyperscapeService.getWorld()
-      if (world) {
-        // RPG systems integration point - connect to our 54 polished systems
-        console.log('RPG systems ready for integration with ElizaOS agents')
-      }
+    // Load the RPG content pack (when available)
+    // This would integrate with our polished RPG systems
+    const world = hyperscapeService.getWorld()!
+    // RPG systems integration point - connect to our 54 polished systems
+    console.log('RPG systems ready for integration with ElizaOS agents')
 
-      if (callback) {
-        callback({
-          text: 'RPG content pack integration ready - connecting to polished RPG systems',
-          type: 'success',
-        })
-      }
-    } catch (error) {
-      if (callback) {
-        callback({
-          text: `Failed to load RPG: ${error.message}`,
-          type: 'error',
-        })
-      }
+    if (callback) {
+      callback({
+        text: 'RPG content pack integration ready - connecting to polished RPG systems',
+        type: 'success',
+      })
     }
   },
 

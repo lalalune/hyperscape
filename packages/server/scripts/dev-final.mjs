@@ -186,6 +186,9 @@ async function cleanup(signal) {
     }
   }
   
+  // Stop CDN container
+  stopCDN()
+  
   // Nuclear option: kill everything
   killEverything()
   
@@ -301,6 +304,233 @@ build().catch(err => {
 })
 `
 
+// Check if Docker is available
+function isDockerAvailable() {
+  try {
+    execSync('docker info', { stdio: 'ignore' })
+    return true
+  } catch (_e) {
+    return false
+  }
+}
+
+// Start CDN container if not running
+async function ensureCDNRunning() {
+  if (!isDockerAvailable()) {
+    console.log(`${colors.yellow}⚠️  Docker not available - skipping CDN startup${colors.reset}`)
+    console.log(`${colors.dim}Assets will be served from filesystem${colors.reset}`)
+    return false
+  }
+
+  try {
+    // Check if CDN is already running
+    const status = execSync('docker ps --filter "name=hyperscape-cdn" --format "{{.Status}}"', { encoding: 'utf8' }).trim()
+    
+    if (status && status.includes('Up')) {
+      console.log(`${colors.green}✓ CDN container already running${colors.reset}`)
+      return true
+    }
+
+    // Start CDN
+    console.log(`${colors.blue}Starting CDN container...${colors.reset}`)
+    execSync('docker-compose up -d cdn', { 
+      stdio: 'inherit',
+      cwd: rootDir
+    })
+
+    // Wait for health check
+    console.log(`${colors.dim}Waiting for CDN to be healthy...${colors.reset}`)
+    let attempts = 0
+    const maxAttempts = 30
+    while (attempts < maxAttempts) {
+      try {
+        const healthRes = await fetch('http://localhost:8080/health')
+        if (healthRes.ok) {
+          console.log(`${colors.green}✓ CDN is healthy and ready${colors.reset}`)
+          return true
+        }
+      } catch (_e) {
+        // Still starting up
+      }
+      attempts++
+      await new Promise(r => setTimeout(r, 1000))
+    }
+
+    console.log(`${colors.yellow}⚠️  CDN started but health check timed out${colors.reset}`)
+    return false
+  } catch (e) {
+    console.log(`${colors.yellow}⚠️  Failed to start CDN: ${e.message}${colors.reset}`)
+    return false
+  }
+}
+
+// Stop CDN container
+function stopCDN() {
+  if (!isDockerAvailable()) return
+  
+  try {
+    console.log(`${colors.dim}Stopping CDN container...${colors.reset}`)
+    execSync('docker-compose down cdn', { 
+      stdio: 'ignore',
+      cwd: rootDir
+    })
+  } catch (_e) {
+    // Ignore errors
+  }
+}
+
+// Setup hot reload watcher for server
+// Uses a mutable container to track the current server process across reloads
+async function setupServerWatcher(serverProcessRef) {
+  // Skip if hot reload is disabled
+  if (process.env.DISABLE_HOT_RELOAD === 'true') {
+    console.log(`${colors.dim}Hot reload disabled${colors.reset}`)
+    return
+  }
+
+  let isReloading = false
+  let reloadTimeout = null
+
+  console.log(`${colors.cyan}🔥 Setting up hot reload watcher...${colors.reset}`)
+
+  try {
+    const chokidar = await import('chokidar')
+    
+    const watchPath = path.join(rootDir, 'src')
+    console.log(`${colors.dim}Watching: ${watchPath}/**/*.{ts,tsx,js,mjs}${colors.reset}`)
+    
+    const watcher = chokidar.watch('src/**/*.{ts,tsx,js,mjs}', {
+      cwd: rootDir,
+      ignored: [
+        '**/node_modules/**',
+        '**/*.test.*',
+        '**/*.spec.*',
+        '**/build/**',
+        '**/dist/**',
+      ],
+      ignoreInitial: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 200,
+        pollInterval: 100
+      }
+    })
+    
+    watcher.on('ready', () => {
+      console.log(`${colors.green}✓ Hot reload watcher ready!${colors.reset}`)
+      const watched = watcher.getWatched()
+      const fileCount = Object.values(watched).reduce((sum, files) => sum + files.length, 0)
+      console.log(`${colors.dim}Watching ${fileCount} files${colors.reset}`)
+    })
+
+    const triggerReload = async (filePath) => {
+      if (isReloading) {
+        console.log(`${colors.dim}Already reloading, skipping ${filePath}${colors.reset}`)
+        return
+      }
+      isReloading = true
+
+      clearTimeout(reloadTimeout)
+      reloadTimeout = setTimeout(async () => {
+        console.log(`\n${colors.yellow}⚡ File changed: ${filePath}${colors.reset}`)
+        console.log(`${colors.blue}Rebuilding server...${colors.reset}`)
+
+        try {
+          // Rebuild
+          execSync(`bun -e "${buildScript.replace(/"/g, '\\"')}"`, { 
+            stdio: 'inherit',
+            cwd: rootDir,
+            env: {
+              ...process.env,
+              BUILD_FRAMEWORK: 'false',
+            }
+          })
+
+          console.log(`${colors.green}✓ Server rebuilt${colors.reset}`)
+          console.log(`${colors.blue}Restarting server...${colors.reset}`)
+
+          // Get current server process from the mutable reference
+          const currentProcess = serverProcessRef.current
+          
+          if (!currentProcess || !currentProcess.pid || currentProcess.killed) {
+            console.error(`${colors.red}Server process not available for restart${colors.reset}`)
+            console.log(`${colors.yellow}Current process state:${colors.reset}`, {
+              exists: !!currentProcess,
+              pid: currentProcess?.pid,
+              killed: currentProcess?.killed
+            })
+            isReloading = false
+            return
+          }
+
+          try {
+            // Send SIGUSR2 for hot reload (graceful shutdown)
+            console.log(`${colors.dim}Sending SIGUSR2 to PID ${currentProcess.pid}${colors.reset}`)
+            process.kill(currentProcess.pid, 'SIGUSR2')
+            
+            // Wait for graceful shutdown
+            await new Promise(r => setTimeout(r, 2000))
+            
+            // Restart server
+            console.log(`${colors.dim}Starting new server process...${colors.reset}`)
+            const newServerChild = spawnChild('Server', 'bun', ['build/index.js'], {
+              cwd: rootDir,
+              env: {
+                PATH: process.env.PATH,
+                HOME: process.env.HOME,
+                USER: process.env.USER,
+                PORT: CONFIG.PORT,
+                PUBLIC_WS_URL: `ws://localhost:${CONFIG.PORT}/ws`,
+                PUBLIC_ASSETS_URL: '/world-assets/',
+                MESHY_API_KEY: process.env.MESHY_API_KEY,
+                OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+                DISABLE_BOTS: process.env.DISABLE_BOTS || 'false',
+                NODE_ENV: 'development',
+                MAX_BOT_COUNT: '1',
+              }
+            })
+            
+            // Update children array
+            const serverIndex = children.findIndex(c => c.name === 'Server' && c.process === currentProcess)
+            if (serverIndex !== -1) {
+              children[serverIndex].process = newServerChild
+              children[serverIndex].pid = newServerChild.pid
+              console.log(`${colors.dim}Updated children array at index ${serverIndex}${colors.reset}`)
+            } else {
+              console.warn(`${colors.yellow}Could not find old server process in children array${colors.reset}`)
+            }
+            
+            // CRITICAL: Update the mutable reference so next reload uses the new process
+            serverProcessRef.current = newServerChild
+            console.log(`${colors.dim}Updated process reference to PID ${newServerChild.pid}${colors.reset}`)
+            
+            console.log(`${colors.green}✓ Server restarted successfully${colors.reset}\n`)
+          } catch (err) {
+            console.error(`${colors.red}Failed to restart server:${colors.reset}`, err)
+            console.error(err.stack)
+          }
+        } catch (err) {
+          console.error(`${colors.red}Failed to rebuild server:${colors.reset}`, err)
+          console.error(err.stack)
+        } finally {
+          isReloading = false
+        }
+      }, 100)
+    }
+
+    watcher
+      .on('change', triggerReload)
+      .on('add', triggerReload)
+      .on('error', error => console.error(`${colors.red}Watcher error:${colors.reset}`, error))
+
+    console.log(`${colors.green}✓ Hot reload enabled for server files${colors.reset}`)
+    
+    return watcher
+  } catch (err) {
+    console.error(`${colors.red}Failed to setup hot reload watcher:${colors.reset}`, err)
+    return null
+  }
+}
+
 // Main
 async function main() {
   console.log(`${colors.bright}${colors.cyan}
@@ -311,6 +541,9 @@ ${colors.reset}`)
   
   // Clean up any previous runs
   killEverything()
+  
+  // Start CDN first (needed for assets)
+  await ensureCDNRunning()
   
   // Ensure directories exist
   await fs.promises.mkdir('build/public', { recursive: true }).catch(() => {})
@@ -341,7 +574,7 @@ ${colors.reset}`)
   })
   
   // Start Game Server
-  spawnChild('Server', 'bun', ['build/index.js'], {
+  const serverChild = spawnChild('Server', 'bun', ['build/index.js'], {
     cwd: rootDir,
     env: {
       PATH: process.env.PATH,
@@ -357,6 +590,20 @@ ${colors.reset}`)
       MAX_BOT_COUNT: '1',
     }
   })
+  
+  // Create mutable reference container for the server process
+  // This allows hot reload to update the reference across multiple reloads
+  const serverProcessRef = { current: serverChild }
+  
+  console.log(`${colors.blue}[Main]${colors.reset} Setting up hot reload watcher...`)
+  // Setup hot reload watcher for server files
+  try {
+    await setupServerWatcher(serverProcessRef)
+    console.log(`${colors.blue}[Main]${colors.reset} Hot reload watcher setup complete`)
+  } catch (err) {
+    console.error(`${colors.red}[Main] Failed to setup watcher:${colors.reset}`, err)
+    console.error(err.stack)
+  }
   
   // Wait for server to start
   await new Promise(r => setTimeout(r, 2000))
@@ -544,6 +791,7 @@ ${colors.reset}`)
     console.log(`  ${colors.blue}Game Server:${colors.reset}    ws://localhost:${CONFIG.PORT}/ws`)
     console.log(`  ${colors.magenta}Asset Forge UI:${colors.reset} http://localhost:${CONFIG.FORGE_VITE_PORT}`)
     console.log(`  ${colors.dim}Forge API:${colors.reset}      http://localhost:${CONFIG.FORGE_API_PORT}`)
+    console.log(`  ${colors.dim}CDN Server:${colors.reset}     http://localhost:8080`)
     console.log(`\n${colors.dim}Press Ctrl+C to stop all servers${colors.reset}\n`)
   }, 3000)
   

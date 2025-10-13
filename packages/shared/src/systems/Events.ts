@@ -44,11 +44,7 @@ export class Events extends System implements IEventsInterface {
     if (!callbacks) return false;
     
     for (const callback of callbacks) {
-      try {
-        callback(data, extra);
-      } catch (err) {
-        console.error(`Error in event listener for '${String(event)}':`, err);
-      }
+      callback(data, extra);
     }
     // Bridge world.emit -> EventBus for string events
     if (typeof event === 'string') {
@@ -72,11 +68,7 @@ export class Events extends System implements IEventsInterface {
         this.busListenerMap.set(event, mapForEvent);
       }
       const sub = this.bus.subscribe(event, (evt) => {
-        try {
-          handler(evt.data);
-        } catch (err) {
-          console.error(`Error in bridged EventBus handler for '${event}':`, err);
-        }
+        handler(evt.data);
       });
       mapForEvent.set(handler, sub);
     }

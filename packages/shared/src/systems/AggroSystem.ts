@@ -83,11 +83,10 @@ export class AggroSystem extends SystemBase {
   }
 
   private registerMob(mobData: { id: string; type: string; level: number; position: { x: number; y: number; z: number } }): void {
-    // Validate position data
-    if (!mobData.position || typeof mobData.position.x !== 'number' || 
-        typeof mobData.position.y !== 'number' || typeof mobData.position.z !== 'number') {
-      console.warn(`[AggroSystem] Invalid position for mob ${mobData.id}, using default position`);
-      mobData.position = { x: 0, y: 0, z: 0 };
+    // Strong type assumption - mobData.position is typed and valid from caller
+    // If position is missing, that's a bug in the spawning system
+    if (!mobData.position) {
+      throw new Error(`[AggroSystem] Missing position for mob ${mobData.id}`);
     }
     
     const mobType = mobData.type.toLowerCase();
@@ -148,18 +147,13 @@ export class AggroSystem extends SystemBase {
 
   private updateMobPosition(data: { entityId: string; position: Position3D }): void {
     const mobState = this.mobStates.get(data.entityId);
-    if (mobState) {
-      // Validate position before updating
-      if (data.position && typeof data.position.x === 'number' && 
-          typeof data.position.y === 'number' && typeof data.position.z === 'number') {
-        mobState.currentPosition = { 
-          x: data.position.x,
-          y: data.position.y,
-          z: data.position.z
-        };
-      } else {
-        console.warn(`[AggroSystem] Invalid position update for mob ${data.entityId}`, data.position);
-      }
+    if (mobState && data.position) {
+      // Strong type assumption - Position3D is always valid with x, y, z numbers
+      mobState.currentPosition = { 
+        x: data.position.x,
+        y: data.position.y,
+        z: data.position.z
+      };
     }
   }
 
@@ -319,14 +313,9 @@ export class AggroSystem extends SystemBase {
       // Skip if in combat - combat system handles behavior
       if (mobState.isInCombat) continue;
       
-      // Validate positions before calculating distance
-      if (!mobState.currentPosition || !mobState.homePosition ||
-          typeof mobState.currentPosition.x !== 'number' || typeof mobState.currentPosition.y !== 'number' || typeof mobState.currentPosition.z !== 'number' ||
-          typeof mobState.homePosition.x !== 'number' || typeof mobState.homePosition.y !== 'number' || typeof mobState.homePosition.z !== 'number') {
-        console.warn(`[AggroSystem] Invalid positions for mob ${mobState.mobId}`, {
-          currentPosition: mobState.currentPosition,
-          homePosition: mobState.homePosition
-        });
+      // Strong type assumption - positions are always valid Position3D objects
+      if (!mobState.currentPosition || !mobState.homePosition) {
+        console.warn(`[AggroSystem] Missing positions for mob ${mobState.mobId}`);
         continue;
       }
       
@@ -393,10 +382,9 @@ export class AggroSystem extends SystemBase {
     
     const player = this.world.getPlayer(mobState.currentTarget)!;
 
-    // Ensure player has valid position before calculating distance
-    if (!player.node?.position || typeof player.node.position.x !== 'number' ||
-        typeof player.node.position.y !== 'number' || typeof player.node.position.z !== 'number') {
-      console.warn(`[AggroSystem] Player ${player.id} has no valid node position`);
+    // Strong type assumption - player.node.position is always Vector3
+    if (!player.node?.position) {
+      console.warn(`[AggroSystem] Player ${player.id} has no node`);
       this.stopChasing(mobState);
       return;
     }

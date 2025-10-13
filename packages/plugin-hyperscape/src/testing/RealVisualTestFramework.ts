@@ -108,107 +108,95 @@ export class RealVisualTestFramework {
       },
     }
 
-    try {
-      // Connect to the world
-      const connectionWithDir = {
-        ...scenario.worldConnection,
-        screenshotDir: this.screenshotDir,
+    // Connect to the world
+    const connectionWithDir = {
+      ...scenario.worldConnection,
+      screenshotDir: this.screenshotDir,
+    }
+
+    await this.playwrightManager.connectToWorld(connectionWithDir)
+
+    // Get world information
+    result.worldInfo = await this.playwrightManager.getWorldInfo()
+    logger.info(
+      '[RealVisualTestFramework] Connected to world:',
+      result.worldInfo
+    )
+
+    // Execute setup actions if specified
+    if (scenario.setupActions && scenario.setupActions.length > 0) {
+      logger.info('[RealVisualTestFramework] Executing setup actions...')
+      for (const action of scenario.setupActions) {
+        await this.playwrightManager.executeScript(action)
+        await this.wait(1000) // Wait between actions
       }
+    }
 
-      await this.playwrightManager.connectToWorld(connectionWithDir)
+    // Wait for world to stabilize
+    const waitTime = scenario.waitTime || 3000
+    logger.info(
+      `[RealVisualTestFramework] Waiting ${waitTime}ms for world to stabilize...`
+    )
+    await this.wait(waitTime)
 
-      // Get world information
-      result.worldInfo = await this.playwrightManager.getWorldInfo()
+    // Take screenshot
+    const screenshotName = `test-${this.testCounter}-${scenario.name.replace(/\s+/g, '-')}`
+    const screenshotResult =
+      await this.playwrightManager.takeScreenshot(screenshotName)
+
+    if (screenshotResult.path) {
+      result.screenshots.push(screenshotResult.path)
+    }
+
+    // Analyze screenshot with ColorDetector
+    logger.info(
+      '[RealVisualTestFramework] Analyzing screenshot for entities...'
+    )
+    result.detectedEntities = await this.colorDetector.detectEntitiesInImage(
+      screenshotResult.buffer
+    )
+    result.summary.entitiesFound = result.detectedEntities.length
+
+    logger.info(
+      `[RealVisualTestFramework] Detected ${result.detectedEntities.length} total entities:`
+    )
+    result.detectedEntities.forEach(entity => {
       logger.info(
-        '[RealVisualTestFramework] Connected to world:',
-        result.worldInfo
+        `  - ${entity.type}: ${entity.positions.length} pixels at ${JSON.stringify(entity.positions[0] || 'unknown')} (confidence: ${(entity.confidence * 100).toFixed(1)}%)`
+      )
+    })
+
+    // Perform visual checks
+    result.passed = true // Start optimistic
+
+    for (const check of scenario.visualChecks) {
+      const checkPassed = await this.performVisualCheck(
+        check,
+        result.detectedEntities
       )
 
-      // Execute setup actions if specified
-      if (scenario.setupActions && scenario.setupActions.length > 0) {
-        logger.info('[RealVisualTestFramework] Executing setup actions...')
-        for (const action of scenario.setupActions) {
-          await this.playwrightManager.executeScript(action)
-          await this.wait(1000) // Wait between actions
-        }
-      }
-
-      // Wait for world to stabilize
-      const waitTime = scenario.waitTime || 3000
-      logger.info(
-        `[RealVisualTestFramework] Waiting ${waitTime}ms for world to stabilize...`
-      )
-      await this.wait(waitTime)
-
-      // Take screenshot
-      const screenshotName = `test-${this.testCounter}-${scenario.name.replace(/\s+/g, '-')}`
-      const screenshotResult =
-        await this.playwrightManager.takeScreenshot(screenshotName)
-
-      if (screenshotResult.path) {
-        result.screenshots.push(screenshotResult.path)
-      }
-
-      // Analyze screenshot with ColorDetector
-      logger.info(
-        '[RealVisualTestFramework] Analyzing screenshot for entities...'
-      )
-      result.detectedEntities = await this.colorDetector.detectEntitiesInImage(
-        screenshotResult.buffer
-      )
-      result.summary.entitiesFound = result.detectedEntities.length
-
-      logger.info(
-        `[RealVisualTestFramework] Detected ${result.detectedEntities.length} total entities:`
-      )
-      result.detectedEntities.forEach(entity => {
-        logger.info(
-          `  - ${entity.type}: ${entity.positions.length} pixels at ${JSON.stringify(entity.positions[0] || 'unknown')} (confidence: ${(entity.confidence * 100).toFixed(1)}%)`
-        )
-      })
-
-      // Perform visual checks
-      result.passed = true // Start optimistic
-
-      for (const check of scenario.visualChecks) {
-        const checkPassed = await this.performVisualCheck(
-          check,
-          result.detectedEntities
-        )
-
-        if (checkPassed) {
-          result.summary.checksPassed++
-          logger.info(
-            `[RealVisualTestFramework] ✅ PASSED: ${check.description}`
-          )
-        } else {
-          result.summary.checksFailed++
-          result.passed = false
-          const failure = `FAILED: ${check.description} - Expected ${check.shouldExist ? 'found' : 'not found'} ${check.entityType}`
-          result.failures.push(failure)
-          logger.error(`[RealVisualTestFramework] ❌ ${failure}`)
-        }
-      }
-
-      // Final result
-      if (result.passed) {
-        logger.info(
-          `[RealVisualTestFramework] 🎉 Test scenario PASSED: ${scenario.name}`
-        )
+      if (checkPassed) {
+        result.summary.checksPassed++
+        logger.info(`[RealVisualTestFramework] ✅ PASSED: ${check.description}`)
       } else {
-        logger.error(
-          `[RealVisualTestFramework] 💥 Test scenario FAILED: ${scenario.name}`
-        )
-        result.failures.forEach(failure => logger.error(`  - ${failure}`))
+        result.summary.checksFailed++
+        result.passed = false
+        const failure = `FAILED: ${check.description} - Expected ${check.shouldExist ? 'found' : 'not found'} ${check.entityType}`
+        result.failures.push(failure)
+        logger.error(`[RealVisualTestFramework] ❌ ${failure}`)
       }
-    } catch (error) {
-      result.passed = false
-      const errorMsg = `Test execution error: ${error.message}`
-      result.failures.push(errorMsg)
-      logger.error(
-        '[RealVisualTestFramework] Test scenario failed with error:',
-        error
+    }
+
+    // Final result
+    if (result.passed) {
+      logger.info(
+        `[RealVisualTestFramework] 🎉 Test scenario PASSED: ${scenario.name}`
       )
+    } else {
+      logger.error(
+        `[RealVisualTestFramework] 💥 Test scenario FAILED: ${scenario.name}`
+      )
+      result.failures.forEach(failure => logger.error(`  - ${failure}`))
     }
 
     return result
@@ -253,22 +241,17 @@ export class RealVisualTestFramework {
     let totalFailed = 0
 
     for (const scenario of testScenarios) {
-      try {
-        const result = await this.runTestScenario(scenario)
-        results.push(result)
+      const result = await this.runTestScenario(scenario)
+      results.push(result)
 
-        if (result.passed) {
-          totalPassed++
-        } else {
-          totalFailed++
-        }
-
-        // Brief pause between tests
-        await this.wait(2000)
-      } catch (error) {
-        logger.error(`Failed to run scenario ${scenario.name}:`, error)
+      if (result.passed) {
+        totalPassed++
+      } else {
         totalFailed++
       }
+
+      // Brief pause between tests
+      await this.wait(2000)
     }
 
     // Generate final report

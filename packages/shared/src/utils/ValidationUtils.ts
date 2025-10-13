@@ -38,12 +38,8 @@ export function isValidColor(value: unknown): value is string {
 
 export function isValidUrl(value: unknown): value is string {
   if (!isString(value)) return false;
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return value.startsWith('/') || value.startsWith('./') || value.startsWith('../');
-  }
+  new URL(value);
+  return true;
 }
 
 // Position validation

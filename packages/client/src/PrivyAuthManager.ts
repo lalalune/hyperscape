@@ -59,12 +59,10 @@ export class PrivyAuthManager {
     })
 
     // Store token for persistence
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('privy_auth_token', token)
-      localStorage.setItem('privy_user_id', user.id)
-      if (farcasterFid) {
-        localStorage.setItem('farcaster_fid', farcasterFid)
-      }
+    localStorage.setItem('privy_auth_token', token)
+    localStorage.setItem('privy_user_id', user.id)
+    if (farcasterFid) {
+      localStorage.setItem('farcaster_fid', farcasterFid)
     }
 
     console.log('[PrivyAuthManager] User authenticated:', {
@@ -87,11 +85,9 @@ export class PrivyAuthManager {
     })
 
     // Clear from localStorage
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('privy_auth_token')
-      localStorage.removeItem('privy_user_id')
-      localStorage.removeItem('farcaster_fid')
-    }
+    localStorage.removeItem('privy_auth_token')
+    localStorage.removeItem('privy_user_id')
+    localStorage.removeItem('farcaster_fid')
 
     console.log('[PrivyAuthManager] Authentication cleared')
   }
@@ -147,11 +143,7 @@ export class PrivyAuthManager {
    */
   private notifyListeners(): void {
     this.listeners.forEach(listener => {
-      try {
-        listener(this.getState())
-      } catch (error) {
-        console.error('[PrivyAuthManager] Listener error:', error)
-      }
+      listener(this.getState())
     })
   }
 
@@ -159,10 +151,6 @@ export class PrivyAuthManager {
    * Restore auth from localStorage (for page refresh)
    */
   restoreFromStorage(): { token: string | null; userId: string | null } {
-    if (typeof localStorage === 'undefined') {
-      return { token: null, userId: null }
-    }
-
     const token = localStorage.getItem('privy_auth_token')
     const userId = localStorage.getItem('privy_user_id')
     const fid = localStorage.getItem('farcaster_fid')

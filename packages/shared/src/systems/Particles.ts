@@ -159,7 +159,8 @@ function createEmitter(world: World, system: Particles, node: EmitterNode): Part
   }
   if (world.loader) {
     world.loader.load('texture', node._image).then(result => {
-      if (result && typeof result === 'object' && 'isTexture' in result) {
+      // Strong type assumption - loader.load('texture', ...) always returns Texture
+      if (result) {
         const texture = result as THREE.Texture
         texture.colorSpace = THREE.SRGBColorSpace
         uniforms.uTexture.value = texture

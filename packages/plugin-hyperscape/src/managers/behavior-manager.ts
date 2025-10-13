@@ -116,17 +116,11 @@ export class BehaviorManager {
         break
       }
 
-      try {
-        await this.executeBehavior()
-        iterations++
+      await this.executeBehavior()
+      iterations++
 
-        // Brief pause between behavior executions
-        await new Promise(resolve => setTimeout(resolve, 2000))
-      } catch (error) {
-        console.error('[BehaviorManager] Error in behavior execution:', error)
-        // Continue running despite errors, but add a longer delay
-        await new Promise(resolve => setTimeout(resolve, 5000))
-      }
+      // Brief pause between behavior executions
+      await new Promise(resolve => setTimeout(resolve, 2000))
     }
 
     console.info('[BehaviorManager] Behavior loop ended')
@@ -143,58 +137,41 @@ export class BehaviorManager {
    * Execute a single behavior cycle
    */
   private async executeBehavior(): Promise<void> {
-    if (!this.service || !this.service.isConnected()) {
+    // Create a behavior context message
+    const behaviorMessage: Memory = {
+      id: crypto.randomUUID() as UUID,
+      agentId: this.runtime.agentId,
+      content: {
+        text: 'Observing current environment and deciding on next action',
+        source: 'behavior_manager',
+      },
+      roomId: (this.world!.entities.player!.data.id ||
+        crypto.randomUUID()) as UUID,
+      createdAt: Date.now(),
+      entityId: this.runtime.agentId,
+      metadata: {
+        type: 'behavior',
+        userId: this.runtime.agentId,
+      },
+    }
+
+    // Compose the current state
+    const state = await this.runtime.composeState(behaviorMessage, [])
+
+    // Check if we should respond/act
+    const shouldAct = await shouldRespond(this.runtime, behaviorMessage, state)
+
+    if (!shouldAct) {
       console.debug(
-        '[BehaviorManager] Service not connected, skipping behavior'
+        '[BehaviorManager] No autonomous action needed at this time'
       )
       return
     }
 
-    if (!this.world) {
-      console.debug('[BehaviorManager] No world available, skipping behavior')
-      return
-    }
-
-    try {
-      // Create a behavior context message
-      const behaviorMessage: Memory = {
-        id: crypto.randomUUID() as UUID,
-        agentId: this.runtime.agentId,
-        content: {
-          text: 'Observing current environment and deciding on next action',
-          source: 'behavior_manager',
-        },
-        roomId: (this.world.entities.player?.data?.id ||
-          crypto.randomUUID()) as UUID,
-        createdAt: Date.now(),
-        entityId: this.runtime.agentId,
-        metadata: {
-          type: 'behavior',
-          userId: this.runtime.agentId || ('agent' as UUID),
-        },
-      }
-
-      // Compose the current state
-      const state = await this.runtime.composeState(behaviorMessage, [])
-
-      // Check if we should respond/act
-      const shouldAct = await shouldRespond(
-        this.runtime,
-        behaviorMessage,
-        state
-      )
-
-      if (!shouldAct) {
-        console.debug(
-          '[BehaviorManager] No autonomous action needed at this time'
-        )
-        return
-      }
-
-      // Generate a behavioral response
-      const context = composeContext({
-        state,
-        template: `
+    // Generate a behavioral response
+    const context = composeContext({
+      state,
+      template: `
 # Autonomous Behavior Instructions
 
 You are an AI agent in a 3D virtual world called Hyperscape. You can move around, chat with other players, and interact with objects.
@@ -227,32 +204,24 @@ Or for chat:
 <message>Your message to send</message>
 <thought>Brief explanation of your message</thought>
         `,
-      })
+    })
 
-      console.debug(
-        '[BehaviorManager] Generating autonomous behavior response...'
-      )
+    console.debug(
+      '[BehaviorManager] Generating autonomous behavior response...'
+    )
 
-      const response = await generateMessageResponse({
-        runtime: this.runtime as IAgentRuntime,
-        context: await context,
-        modelType: ModelType.TEXT_LARGE,
-      })
+    const response = await generateMessageResponse({
+      runtime: this.runtime as IAgentRuntime,
+      context: await context,
+      modelType: ModelType.TEXT_LARGE,
+    })
 
-      if (!response) {
-        console.debug('[BehaviorManager] No response generated')
-        return
-      }
-
-      // Parse and execute the behavioral response
-      const content: Content = {
-        text: response.text,
-        ...response.data,
-      }
-      await this.executeBehaviorAction(content, this.world)
-    } catch (error) {
-      console.error('[BehaviorManager] Error in behavior execution:', error)
+    // Parse and execute the behavioral response
+    const content: Content = {
+      text: response.text,
+      ...response.data,
     }
+    await this.executeBehaviorAction(content, this.world!)
   }
 
   /**
@@ -262,35 +231,31 @@ Or for chat:
     response: Content,
     world: World
   ): Promise<void> {
-    try {
-      const responseText =
-        typeof response === 'string' ? response : response.text || ''
+    // Content always has a text property
+    const responseText = response.text || ''
 
-      const parsedResponse = parseKeyValueXml(responseText) as BehaviorResponse
+    const parsedResponse = parseKeyValueXml(responseText) as BehaviorResponse
 
-      const action = parsedResponse.content?.action
-      const thought = parsedResponse.context
+    const action = parsedResponse.content?.action
+    const thought = parsedResponse.context
 
-      if (thought) {
-        console.info(`[BehaviorManager] Agent thought: ${thought}`)
-      }
+    if (thought) {
+      console.info(`[BehaviorManager] Agent thought: ${thought}`)
+    }
 
-      switch (action) {
-        case 'move_to_location':
-          await this.handleMoveAction(parsedResponse.content)
-          break
+    switch (action) {
+      case 'move_to_location':
+        await this.handleMoveAction(parsedResponse.content)
+        break
 
-        case 'send_chat':
-          await this.handleChatAction(parsedResponse.content)
-          break
+      case 'send_chat':
+        await this.handleChatAction(parsedResponse.content)
+        break
 
-        default:
-          console.debug(
-            `[BehaviorManager] Unknown or no action specified: ${action}`
-          )
-      }
-    } catch (error) {
-      console.error('[BehaviorManager] Error executing behavior action:', error)
+      default:
+        console.debug(
+          `[BehaviorManager] Unknown or no action specified: ${action}`
+        )
     }
   }
 
@@ -298,128 +263,69 @@ Or for chat:
    * Handle movement actions
    */
   private async handleMoveAction(content: ResponseContent): Promise<void> {
-    if (!this.service) return
+    const coordinatesText = content.coordinates!
 
-    const coordinatesText = content.coordinates
-    if (!coordinatesText) {
-      console.warn('[BehaviorManager] Move action without coordinates')
-      return
-    }
+    const coords = coordinatesText
+      .split(',')
+      .map((c: string) => parseFloat(c.trim()))
 
-    try {
-      const coords = coordinatesText
-        .split(',')
-        .map((c: string) => parseFloat(c.trim()))
-      if (coords.length !== 3 || coords.some(isNaN)) {
-        console.warn(
-          '[BehaviorManager] Invalid coordinates format:',
-          coordinatesText
-        )
-        return
-      }
+    const [x, y, z] = coords
+    console.info(`[BehaviorManager] Moving to coordinates: ${x}, ${y}, ${z}`)
 
-      const [x, y, z] = coords
-      console.info(`[BehaviorManager] Moving to coordinates: ${x}, ${y}, ${z}`)
-
-      const controls = this.world?.systems?.find(isAgentControlsSystem)
-      if (controls && controls.goto) {
-        await controls.goto(x, z) // Hyperscape typically uses x,z for ground movement
-        console.info('[BehaviorManager] Movement command executed')
-      } else {
-        console.warn(
-          '[BehaviorManager] Controls system not available for movement'
-        )
-      }
-    } catch (error) {
-      console.error('[BehaviorManager] Error executing movement:', error)
-    }
+    const controls = this.world!.systems.find(isAgentControlsSystem)!
+    await controls.goto(x, z) // Hyperscape typically uses x,z for ground movement
+    console.info('[BehaviorManager] Movement command executed')
   }
 
   /**
    * Handle chat actions
    */
   private async handleChatAction(content: ResponseContent): Promise<void> {
-    if (!this.service) return
+    const message = content.message as string
 
-    const message = content.message
-    if (!message || typeof message !== 'string') {
-      console.warn('[BehaviorManager] Chat action without valid message')
-      return
-    }
-
-    try {
-      const messageManager = this.service.getMessageManager()
-      if (messageManager) {
-        await messageManager.sendMessage(message)
-        console.info(`[BehaviorManager] Sent chat message: ${message}`)
-      } else {
-        console.warn('[BehaviorManager] Message manager not available')
-      }
-    } catch (error) {
-      console.error('[BehaviorManager] Error sending chat message:', error)
-    }
+    const messageManager = this.service!.getMessageManager()!
+    await messageManager.sendMessage(message)
+    console.info(`[BehaviorManager] Sent chat message: ${message}`)
   }
 
   /**
    * Get nearby entities for context
    */
   private getNearbyEntities(world: World): string {
-    try {
-      const entities = world.entities.items
-      if (!entities || entities.size === 0) {
-        return 'No nearby entities detected'
+    const entities = world.entities.items
+
+    const entityDescriptions: string[] = []
+    entities.forEach((entity, id) => {
+      if (entity.data.name && id !== world.entities.player!.data.id) {
+        entityDescriptions.push(`${entity.data.name} (${id})`)
       }
+    })
 
-      const entityDescriptions: string[] = []
-      entities.forEach((entity, id) => {
-        if (entity.data?.name && id !== world.entities.player?.data?.id) {
-          entityDescriptions.push(`${entity.data.name} (${id})`)
-        }
-      })
-
-      return entityDescriptions.length > 0
-        ? entityDescriptions.join(', ')
-        : 'No named entities nearby'
-    } catch (error) {
-      console.error('[BehaviorManager] Error getting nearby entities:', error)
-      return 'Error detecting nearby entities'
-    }
+    return entityDescriptions.length > 0
+      ? entityDescriptions.join(', ')
+      : 'No named entities nearby'
   }
 
   /**
    * Get recent chat history for context
    */
   private async getRecentChatHistory(): Promise<string> {
-    try {
-      if (!this.service) return 'No chat history available'
+    const messageManager = this.service!.getMessageManager()!
+    const world = this.service!.getWorld()!
+    const roomId = world.entities.player!.data.id
 
-      const messageManager = this.service.getMessageManager()
-      if (!messageManager) return 'Message manager not available'
+    const recentMessages = await messageManager.getRecentMessages(
+      roomId as UUID,
+      5
+    )
 
-      const world = this.service.getWorld()
-      const roomId = world?.entities?.player?.data?.id
-      if (!roomId) return 'No room context available'
-
-      const recentMessages = await messageManager.getRecentMessages(
-        roomId as UUID,
-        5
+    return recentMessages
+      .slice(-3) // Get last 3 messages
+      .map(
+        msg =>
+          `${(msg.metadata as { username?: string })?.username || 'Unknown'}: ${msg.content.text || ''}`
       )
-
-      if (!recentMessages || recentMessages.length === 0) {
-        return 'No recent chat messages'
-      }
-
-      return recentMessages
-        .slice(-3) // Get last 3 messages
-        .map(
-          msg =>
-            `${(msg.metadata as { username?: string })?.username || 'Unknown'}: ${msg.content.text || ''}`
-        )
-        .join('\n')
-    } catch (error) {
-      console.error('[BehaviorManager] Error getting chat history:', error)
-      return 'Error retrieving chat history'
-    }
+      .join('\n')
   }
 
   private createMemoryFromChatHistory(messages: ChatMessage[]): Memory {

@@ -15,6 +15,9 @@ import type {
   SystemConfig
 } from './core';
 
+// Import database types for use within this file
+import type { SystemDatabase } from './database';
+
 // Position3D, Position2D, and EntityData are exported from base-types.ts
 
 /**
@@ -72,24 +75,17 @@ export { EquipmentSlotName } from './core';
 export * from './database';
 export * from './entities';
 // Explicitly export enums from entities that are commonly used
-export { MobType, EntityType, InteractionType, ItemRarity, MobAIState, NPCType, ResourceType } from './entities';
+export { EntityType, InteractionType, ItemRarity, MobAIState, NPCType, ResourceType } from './entities';
 export * from './events';
 export * from './identifiers';
-export * from './systems';
 export * from './networking';
-export * from './network-types';
 export * from './nodes';
 
+// Import AvatarFactory from nodes for use in LoadedAvatar type below
+import type { AvatarFactory as AvatarFactoryType } from './nodes';
+type AvatarFactory = AvatarFactoryType;
+
 export type Player = PlayerEntity
-
-// Re-export test types (specific exports to avoid conflicts)
-export type {
-  ActionTestData, AggroTestData, BankingTestData, CookingTestData, CorpseTestData, DeathTestData, EquipmentTestData, FiremakingTestData, FishingTestData, InventoryTestData, LootTestData, PersistenceTestData, ResourceTestData, StoreTestData, SystemValidationData,
-  SystemValidationResult, TestAction, TestItem, TestStationConfig, UITestData, ValidationResults, WoodcuttingTestSession, XPTestData
-} from './test';
-
-// Re-export test skill type with alias to avoid conflict
-export type { SkillName } from './test';
 
 // Re-export system-specific types
 export type {
@@ -353,14 +349,14 @@ export { Chat } from '../systems/Chat';
 export { ClientActions } from '../systems/ClientActions';
 export { ClientAudio } from '../systems/ClientAudio';
 export { ClientInput } from '../systems/ClientInput'; // Merged Controls, InputSystem, Pointer
-export { ClientEnvironment } from '../systems/ClientEnvironment';
 export { ClientGraphics } from '../systems/ClientGraphics';
 export { ClientLiveKit } from '../systems/ClientLiveKit';
 export { ClientLoader } from '../systems/ClientLoader';
 export { ClientNetwork } from '../systems/ClientNetwork';
 export { ClientInterface } from '../systems/ClientInterface'; // Merged UI, Prefs, Stats, Target
 export { ClientRuntime } from '../systems/ClientRuntime'; // Merged Client + Diagnostics
-export { ServerRuntime } from '../systems/ServerRuntime'; // Merged Server + Monitor
+// ServerRuntime is server-only and should not be exported for client use
+// It's available only in the main index (server-side)
 // ServerNetwork is server-only and should not be exported for client use
 // Use type-only import if needed: import type { ServerNetwork } from '../systems/ServerNetwork';
 export { Settings } from '../systems/Settings';
@@ -398,7 +394,7 @@ export interface WorldOptions {
   networkRate?: number;
   maxDeltaTime?: number;
   fixedDeltaTime?: number;
-  db?: import('./database-types').SystemDatabase;
+  db?: SystemDatabase;
   // Client-network convenience options (optional)
   wsUrl?: string;
   name?: string;
@@ -1032,6 +1028,7 @@ export interface ControlsBinding {
     release: () => void;
   };
   onButtonPress?: (prop: string, text: string) => boolean;
+  release(): void;
 }
 
 export interface XRInputSource {
@@ -1101,6 +1098,8 @@ export interface LoadedEmote {
 }
 
 export interface LoadedAvatar {
+  uid: string;
+  factory: AvatarFactory;
   toNodes: (customHooks?: { scene: THREE.Scene; octree?: unknown; camera?: unknown; loader?: unknown }) => Map<string, HSNode>;
   getStats: () => { fileBytes?: number; [key: string]: unknown };
 }
@@ -1243,11 +1242,4 @@ export interface RaycastHit {
   handle?: unknown;
 }
 
-
-
-// types have been moved to packages/hyperscape/src/types/
-
-
-
-// Note: World type is now imported directly from '../World'
-// This avoids conflicts between interface and class definitions 
+// SystemDatabase type - re-exported from database.ts via the export * statement above

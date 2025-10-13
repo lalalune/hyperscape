@@ -17,7 +17,7 @@ import {
 } from '../extras/yoga'
 import { Node } from './Node'
 
-import type { RaycastHit, UISceneItem, UIData, UIProxy, UIYogaNode } from '../types/nodes'
+import type { UIRaycastHit, UISceneItem, UIData, UIProxy, UIYogaNode } from '../types/nodes'
 import type { HotReloadable } from '../types'
 import { borderRoundRect } from '../extras/borderRoundRect'
 import { clamp } from '../utils'
@@ -518,7 +518,7 @@ export class UI extends Node implements HotReloadable {
     return this
   }
 
-  resolveHit(hit: RaycastHit) {
+  resolveHit(hit: UIRaycastHit | { coords?: { x: number; y: number }; point?: THREE.Vector3 } | null) {
     if (hit?.point && this.mesh && this.pivotOffset) {
       const inverseMatrix = m1.copy(this.mesh.matrixWorld).invert()
       // convert world hit point to canvas coordinates (0,0 is top left x,y)
@@ -532,8 +532,9 @@ export class UI extends Node implements HotReloadable {
       const y = -v1.y * this._res
       return this.findNodeAt(x, y)
     }
-    if (hit?.coords) {
-      return this.findNodeAt(hit.coords.x, hit.coords.y)
+    if (hit && 'coords' in hit && hit.coords && typeof hit.coords === 'object') {
+      const coords = hit.coords as { x: number; y: number }
+      return this.findNodeAt(coords.x, coords.y)
     }
     return null
   }

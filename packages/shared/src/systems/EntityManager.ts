@@ -28,10 +28,9 @@ import type {
   ResourceSpawnData as _ResourceSpawnData,
   HeadstoneEntityConfig
 } from '../types/entities';
-import { EntityType, InteractionType, ItemRarity, MobAIState, MobType, NPCType, ResourceType } from '../types/entities';
+import { EntityType, InteractionType, ItemRarity, MobAIState, NPCType, ResourceType } from '../types/entities';
 import { NPCBehavior, NPCState } from '../types/core';
 import { EventType } from '../types/events';
-import type { EntitySpawnedEvent } from '../types/systems';
 import { TerrainSystem } from './TerrainSystem';
 import { SystemBase } from './SystemBase';
 import { getItem } from '../data/items';
@@ -63,10 +62,10 @@ export class EntityManager extends SystemBase {
     // Set up type-safe event subscriptions for entity management (16+ listeners!)
     // NOTE: We don't subscribe to ENTITY_SPAWNED here as that would create a circular loop
     // ENTITY_SPAWNED is emitted BY this system after spawning, not TO request spawning
-    this.subscribe(EventType.ENTITY_DEATH, (data) => this.handleEntityDestroy(data));
-    this.subscribe(EventType.ENTITY_INTERACT, (data) => this.handleInteractionRequest({ entityId: data.entityId, playerId: data.playerId, interactionType: data.action }));
-    this.subscribe(EventType.ENTITY_MOVE_REQUEST, (data) => this.handleMoveRequest(data));
-    this.subscribe(EventType.ENTITY_PROPERTY_REQUEST, (data) => this.handlePropertyRequest({ entityId: data.entityId, propertyName: data.property, value: data.value }));
+    this.subscribe(EventType.ENTITY_DEATH, (data) => this.handleEntityDestroy(data as { entityId: string; killedBy?: string; entityType?: string }));
+    this.subscribe(EventType.ENTITY_INTERACT, (data) => this.handleInteractionRequest({ entityId: (data as { entityId: string }).entityId, playerId: (data as { playerId: string }).playerId, interactionType: (data as { action?: string }).action || 'interact' }));
+    this.subscribe(EventType.ENTITY_MOVE_REQUEST, (data) => this.handleMoveRequest(data as { entityId: string; position: { x: number; y: number; z: number } }));
+    this.subscribe(EventType.ENTITY_PROPERTY_REQUEST, (data) => this.handlePropertyRequest({ entityId: (data as { entityId: string }).entityId, propertyName: (data as { property: string }).property, value: (data as { value: unknown }).value }));
     
     // Listen for specific entity type spawn requests
     // NOTE: Don't subscribe to ITEM_SPAWNED - that's an event we emit AFTER spawning, not a spawn request
@@ -74,29 +73,40 @@ export class EntityManager extends SystemBase {
     // NOTE: Don't subscribe to ITEM_PICKUP - InventorySystem handles that and destroys the entity
     // Subscribe to ITEM_SPAWN for dropped/spawned items
     this.subscribe(EventType.ITEM_SPAWN, (data) => {
-      const itemIdToUse = data.itemId || data.itemType || 'unknown_item';
+      const typedData = data as { itemId?: string; itemType?: string; position: { x: number; y: number; z: number }; quantity?: number };
+      const itemIdToUse = typedData.itemId || typedData.itemType || 'unknown_item';
       this.handleItemSpawn({
         customId: `item_${itemIdToUse}_${Date.now()}`,
         name: itemIdToUse,
-        position: data.position,
+        position: typedData.position,
         itemId: itemIdToUse,
-        quantity: data.quantity || 1
+        quantity: typedData.quantity || 1
       });
     });
     // EntityManager should handle spawn REQUESTS, not completed spawns
-    this.subscribe(EventType.MOB_SPAWN_REQUEST, (data) => this.handleMobSpawn({
-      mobType: data.mobType,
-      position: data.position,
-      level: 1,  // MOB_SPAWN_REQUEST doesn't have level in EventMap
-      customId: `mob_${Date.now()}`,
-      name: data.mobType
-    }));
+    this.subscribe(EventType.MOB_SPAWN_REQUEST, (data) => {
+      const typedData = data as { mobType: string; position: { x: number; y: number; z: number }; level?: number; customId?: string };
+      this.handleMobSpawn({
+        mobType: typedData.mobType,
+        position: typedData.position,
+        level: typedData.level || 1,
+        customId: typedData.customId || `mob_${Date.now()}`,
+        name: typedData.mobType
+      });
+    });
     this.subscribe<{ npcId: string; name: string; type: string; position: { x: number; y: number; z: number }; services?: string[]; modelPath?: string }>(EventType.NPC_SPAWN_REQUEST, (data) => this.handleNPCSpawnRequest(data));
-    this.subscribe(EventType.MOB_ATTACKED, (data) => this.handleMobAttacked({ entityId: data.mobId, damage: data.damage, attackerId: data.attackerId }));
-        this.subscribe(EventType.COMBAT_MOB_ATTACK, (data) => this.handleMobAttack({ mobId: data.mobId, targetId: data.targetId, damage: 0 }));
+    this.subscribe(EventType.MOB_ATTACKED, (data) => {
+      const typedData = data as { mobId: string; damage: number; attackerId: string };
+      this.handleMobAttacked({ entityId: typedData.mobId, damage: typedData.damage, attackerId: typedData.attackerId });
+    });
+    this.subscribe(EventType.COMBAT_MOB_ATTACK, (data) => {
+      const typedData = data as { mobId: string; targetId: string };
+      this.handleMobAttack({ mobId: typedData.mobId, targetId: typedData.targetId, damage: 0 });
+    });
     // RESOURCE_GATHERED has different structure in EventMap
     // Map the string resourceType to the enum value
     this.subscribe(EventType.RESOURCE_GATHERED, (data) => {
+      const typedData = data as { resourceType: string };
       const resourceTypeMap: Record<string, ResourceType> = {
         'tree': ResourceType.TREE,
         'rock': ResourceType.MINING_ROCK,
@@ -106,29 +116,44 @@ export class EntityManager extends SystemBase {
       };
       this.handleResourceSpawn({ 
         resourceId: `resource_${Date.now()}`,
-        resourceType: resourceTypeMap[data.resourceType] || 'tree', 
+        resourceType: resourceTypeMap[typedData.resourceType] || 'tree', 
         position: { x: 0, y: 0, z: 0 }
       });
     });
-    this.subscribe(EventType.RESOURCE_HARVEST, (data) => this.handleResourceHarvest({ entityId: data.resourceId, playerId: data.playerId, amount: data.success ? 1 : 0 }));
+    this.subscribe(EventType.RESOURCE_HARVEST, (data) => {
+      const typedData = data as { resourceId: string; playerId: string; success: boolean };
+      this.handleResourceHarvest({ entityId: typedData.resourceId, playerId: typedData.playerId, amount: typedData.success ? 1 : 0 });
+    });
     // NPC_INTERACTION has different structure in EventMap
-    this.subscribe(EventType.NPC_INTERACTION, (data) => this.handleNPCSpawn({ 
-      customId: data.npcId, 
-      name: 'NPC',
-      npcType: NPCType.QUEST_GIVER,  // Default to quest giver
-      position: { x: 0, y: 0, z: 0 },
-      model: null,
-      dialogues: [],
-      questGiver: true,
-      shopkeeper: false,
-      bankTeller: false
-    }));
-    this.subscribe(EventType.NPC_DIALOGUE, (data) => this.handleNPCDialogue({ entityId: data.npcId, playerId: data.playerId, dialogueId: data.dialogueId }));
+    this.subscribe(EventType.NPC_INTERACTION, (data) => {
+      const typedData = data as { npcId: string };
+      this.handleNPCSpawn({ 
+        customId: typedData.npcId, 
+        name: 'NPC',
+        npcType: NPCType.QUEST_GIVER,  // Default to quest giver
+        position: { x: 0, y: 0, z: 0 },
+        model: null,
+        dialogues: [],
+        questGiver: true,
+        shopkeeper: false,
+        bankTeller: false
+      });
+    });
+    this.subscribe(EventType.NPC_DIALOGUE, (data) => {
+      const typedData = data as { npcId: string; playerId: string; dialogueId: string };
+      this.handleNPCDialogue({ entityId: typedData.npcId, playerId: typedData.playerId, dialogueId: typedData.dialogueId });
+    });
     
     // Network sync for clients
     if (this.world.isClient) {
-      this.subscribe(EventType.CLIENT_CONNECT, (data) => this.handleClientConnect({ playerId: data.clientId }));
-      this.subscribe(EventType.CLIENT_DISCONNECT, (data) => this.handleClientDisconnect({ playerId: data.clientId }));
+      this.subscribe(EventType.CLIENT_CONNECT, (data) => {
+        const typedData = data as { clientId: string };
+        this.handleClientConnect({ playerId: typedData.clientId });
+      });
+      this.subscribe(EventType.CLIENT_DISCONNECT, (data) => {
+        const typedData = data as { clientId: string };
+        this.handleClientDisconnect({ playerId: typedData.clientId });
+      });
     }
     
   }
@@ -217,12 +242,7 @@ export class EntityManager extends SystemBase {
     
     // Initialize entity (this will throw if it fails)
     console.log(`[EntityManager] Initializing entity ${config.id}...`);
-    try {
-      await entity.init();
-    } catch (error) {
-      console.error(`[EntityManager] ❌ Entity initialization failed for ${config.id}:`, error);
-      throw new Error(`Failed to initialize ${config.type} entity ${config.name}: ${(error as Error).message}`);
-    }
+    await entity.init();
     
     // Store entity
     this.entities.set(config.id, entity);
@@ -236,13 +256,13 @@ export class EntityManager extends SystemBase {
       this.networkDirtyEntities.add(config.id);
     }
     
-    // Emit spawn event
+    // Emit spawn event using world.emit to avoid type mismatch
     this.emitTypedEvent(EventType.ENTITY_SPAWNED, {
       entityId: config.id,
       entityType: config.type,
       position: config.position,
       entityData: entity.getNetworkData()
-    } as EntitySpawnedEvent);
+    });
     
     console.log(`[EntityManager] ✅ Successfully spawned and registered ${config.type} entity: ${config.name}`);
     
@@ -426,22 +446,11 @@ export class EntityManager extends SystemBase {
 
   private async handleMobSpawn(data: MobSpawnData): Promise<void> {
         
-    // Validate required data
+    // Strong type assumption - MobSpawnData.position is always Position3D with valid coordinates
+    // If invalid coordinates are passed, that's a bug in the calling code
     let position = data.position;
     if (!position) {
       throw new Error('[EntityManager] Mob spawn position is required');
-    }
-    
-    // Validate position has valid x, y, z coordinates
-    if (typeof position.x !== 'number' || typeof position.y !== 'number' || typeof position.z !== 'number') {
-      console.error('[EntityManager] Invalid mob spawn position - missing or non-numeric coordinates:', position);
-      // Create a valid position object with default coordinates
-      position = {
-        x: typeof position.x === 'number' ? position.x : 0,
-        y: typeof position.y === 'number' ? position.y : 0,  
-        z: typeof position.z === 'number' ? position.z : 0
-      };
-      console.warn('[EntityManager] Using default coordinates for missing values:', position);
     }
     
     const mobType = data.mobType;
@@ -454,7 +463,7 @@ export class EntityManager extends SystemBase {
     // Ground to terrain height map explicitly for server/client authoritative spawn
     try {
       const terrain = this.world.getSystem<TerrainSystem>('terrain');
-      if (terrain && typeof position.x === 'number' && typeof position.z === 'number') {
+      if (terrain) {
         const th = terrain.getHeightAt(position.x, position.z);
         if (Number.isFinite(th)) {
           position = { x: position.x, y: (th as number) + 0.1, z: position.z };
@@ -482,7 +491,7 @@ export class EntityManager extends SystemBase {
       description: `${mobType} (Level ${level})`,
       model: modelPath,
       // MobEntity specific fields
-      mobType: mobType as MobType,
+      mobType: mobType, // Mob ID from mobs.json
       level: level,
       currentHealth: this.getMobMaxHealth(mobType, level),
       maxHealth: this.getMobMaxHealth(mobType, level),
@@ -724,169 +733,133 @@ export class EntityManager extends SystemBase {
     return this.spawnEntity(itemConfig)
   }
 
-  // Helper methods for mob stats calculation
+  // Helper methods for mob stats calculation - NOW DATA-DRIVEN!
+  // All values loaded from mobs.json instead of hardcoded
+  
   private getMobMaxHealth(mobType: string, level: number): number {
-    const baseHealth: Record<string, number> = {
-      'goblin': 50,
-      'wolf': 80,
-      'bandit': 100,
-      'skeleton': 60,
-      'zombie': 120,
-      'spider': 40,
-      'orc': 150,
-      'troll': 200,
-      'dragon': 500
-    };
-    return (baseHealth[mobType] || 100) + (level - 1) * 10;
+    const mobData = getMobById(mobType);
+    if (!mobData) {
+      return 100 + (level - 1) * 10; // Fallback formula
+    }
+    // Use health from JSON, scaled by level
+    return mobData.maxHealth + (level - mobData.level) * 10;
   }
 
   private getMobAttackPower(mobType: string, level: number): number {
-    const baseAttack: Record<string, number> = {
-      'goblin': 5,
-      'wolf': 8,
-      'bandit': 10,
-      'skeleton': 6,
-      'zombie': 7,
-      'spider': 4,
-      'orc': 12,
-      'troll': 15,
-      'dragon': 30
-    };
-    return (baseAttack[mobType] || 5) + (level - 1) * 2;
+    const mobData = getMobById(mobType);
+    if (!mobData) {
+      return 5 + (level - 1) * 2; // Fallback formula
+    }
+    return mobData.stats.attack + (level - mobData.level) * 2;
   }
 
   private getMobDefense(mobType: string, level: number): number {
-    const baseDefense: Record<string, number> = {
-      'goblin': 2,
-      'wolf': 3,
-      'bandit': 5,
-      'skeleton': 3,
-      'zombie': 8,
-      'spider': 1,
-      'orc': 6,
-      'troll': 10,
-      'dragon': 15
-    };
-    return (baseDefense[mobType] || 2) + (level - 1);
+    const mobData = getMobById(mobType);
+    if (!mobData) {
+      return 2 + (level - 1); // Fallback formula
+    }
+    return mobData.stats.defense + (level - mobData.level);
   }
 
   private getMobAttackSpeed(mobType: string): number {
-    const attackSpeed: Record<string, number> = {
-      'goblin': 1.5,
-      'wolf': 1.0,
-      'bandit': 1.2,
-      'skeleton': 1.8,
-      'zombie': 2.5,
-      'spider': 0.8,
-      'orc': 1.5,
-      'troll': 2.0,
-      'dragon': 3.0
-    };
-    return attackSpeed[mobType] || 1.5;
+    const mobData = getMobById(mobType);
+    if (!mobData || !mobData.attackSpeed) {
+      return 1.5; // Fallback
+    }
+    return mobData.attackSpeed;
   }
 
   private getMobMoveSpeed(mobType: string): number {
-    const moveSpeed: Record<string, number> = {
-      'goblin': 5,
-      'wolf': 8,
-      'bandit': 5,
-      'skeleton': 4,
-      'zombie': 3,
-      'spider': 7,
-      'orc': 4,
-      'troll': 3,
-      'dragon': 6
-    };
-    return moveSpeed[mobType] || 5;
+    const mobData = getMobById(mobType);
+    if (!mobData || !mobData.moveSpeed) {
+      return 5; // Fallback
+    }
+    return mobData.moveSpeed;
   }
 
   private getMobAggroRange(mobType: string): number {
-    const aggroRange: Record<string, number> = {
-      'goblin': 10,
-      'wolf': 15,
-      'bandit': 12,
-      'skeleton': 10,
-      'zombie': 8,
-      'spider': 12,
-      'orc': 10,
-      'troll': 8,
-      'dragon': 20
-    };
-    return aggroRange[mobType] || 10;
+    const mobData = getMobById(mobType);
+    if (!mobData) {
+      return 10; // Fallback
+    }
+    return mobData.behavior.aggroRange;
   }
 
   private getMobCombatRange(mobType: string): number {
-    const combatRange: Record<string, number> = {
-      'goblin': 2,
-      'wolf': 2,
-      'bandit': 2,
-      'skeleton': 2,
-      'zombie': 2,
-      'spider': 2,
-      'orc': 2,
-      'troll': 3,
-      'dragon': 5
-    };
-    return combatRange[mobType] || 2;
+    const mobData = getMobById(mobType);
+    if (!mobData || !mobData.combatRange) {
+      return 2; // Fallback
+    }
+    return mobData.combatRange;
   }
 
   private getMobXPReward(mobType: string, level: number): number {
-    const baseXP: Record<string, number> = {
-      'goblin': 10,
-      'wolf': 15,
-      'bandit': 20,
-      'skeleton': 12,
-      'zombie': 18,
-      'spider': 8,
-      'orc': 25,
-      'troll': 35,
-      'dragon': 100
-    };
-    return (baseXP[mobType] || 10) * level;
+    const mobData = getMobById(mobType);
+    if (!mobData) {
+      return 10 * level; // Fallback formula
+    }
+    // Scale XP reward by level difference
+    const levelDiff = level - mobData.level;
+    return mobData.xpReward + (levelDiff * 5);
   }
 
   private getMobLootTable(mobType: string): Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }> {
-    const lootTables: Record<string, Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }>> = {
-      'goblin': [
-        { itemId: 'coins', chance: 0.8, minQuantity: 1, maxQuantity: 10 },
-        { itemId: 'goblin_ear', chance: 0.3, minQuantity: 1, maxQuantity: 2 }
-      ],
-      'wolf': [
-        { itemId: 'wolf_pelt', chance: 0.5, minQuantity: 1, maxQuantity: 1 },
-        { itemId: 'wolf_fang', chance: 0.4, minQuantity: 1, maxQuantity: 2 }
-      ],
-      'bandit': [
-        { itemId: 'coins', chance: 0.9, minQuantity: 5, maxQuantity: 20 },
-        { itemId: 'iron_sword', chance: 0.2, minQuantity: 1, maxQuantity: 1 },
-        { itemId: 'leather_armor', chance: 0.15, minQuantity: 1, maxQuantity: 1 }
-      ],
-      'skeleton': [
-        { itemId: 'bone', chance: 0.7, minQuantity: 1, maxQuantity: 3 },
-        { itemId: 'arrow', chance: 0.4, minQuantity: 1, maxQuantity: 5 }
-      ],
-      'zombie': [
-        { itemId: 'rotten_flesh', chance: 0.8, minQuantity: 1, maxQuantity: 2 }
-      ],
-      'spider': [
-        { itemId: 'spider_silk', chance: 0.6, minQuantity: 1, maxQuantity: 3 },
-        { itemId: 'spider_eye', chance: 0.3, minQuantity: 1, maxQuantity: 1 }
-      ],
-      'orc': [
-        { itemId: 'coins', chance: 0.8, minQuantity: 10, maxQuantity: 30 },
-        { itemId: 'orc_tusk', chance: 0.4, minQuantity: 1, maxQuantity: 2 },
-        { itemId: 'iron_axe', chance: 0.1, minQuantity: 1, maxQuantity: 1 }
-      ],
-      'troll': [
-        { itemId: 'troll_hide', chance: 0.5, minQuantity: 1, maxQuantity: 1 },
-        { itemId: 'coins', chance: 0.7, minQuantity: 20, maxQuantity: 50 }
-      ],
-      'dragon': [
-        { itemId: 'dragon_scale', chance: 0.8, minQuantity: 1, maxQuantity: 3 },
-        { itemId: 'dragon_claw', chance: 0.6, minQuantity: 1, maxQuantity: 2 },
-        { itemId: 'coins', chance: 1.0, minQuantity: 100, maxQuantity: 500 }
-      ]
-    };
-    return lootTables[mobType] || [{ itemId: 'coins', chance: 0.5, minQuantity: 1, maxQuantity: 5 }];
+    const mobData = getMobById(mobType);
+    if (!mobData || !mobData.lootTable) {
+      // Fallback to legacy drops if lootTable not defined
+      if (mobData && mobData.drops && mobData.drops.length > 0) {
+        return mobData.drops.map(drop => ({
+          itemId: drop.itemId,
+          chance: drop.chance,
+          minQuantity: drop.quantity,
+          maxQuantity: drop.quantity
+        }));
+      }
+      // Ultimate fallback
+      return [{ itemId: 'coins', chance: 0.5, minQuantity: 1, maxQuantity: 5 }];
+    }
+    
+    // Convert lootTable format to expected format
+    const allDrops: Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }> = [];
+    
+    // Add all drop categories
+    for (const drop of mobData.lootTable.guaranteedDrops) {
+      allDrops.push({
+        itemId: drop.itemId,
+        chance: drop.chance,
+        minQuantity: drop.quantity,
+        maxQuantity: drop.quantity
+      });
+    }
+    
+    for (const drop of mobData.lootTable.commonDrops) {
+      allDrops.push({
+        itemId: drop.itemId,
+        chance: drop.chance,
+        minQuantity: drop.quantity,
+        maxQuantity: drop.quantity
+      });
+    }
+    
+    for (const drop of mobData.lootTable.uncommonDrops) {
+      allDrops.push({
+        itemId: drop.itemId,
+        chance: drop.chance,
+        minQuantity: drop.quantity,
+        maxQuantity: drop.quantity
+      });
+    }
+    
+    for (const drop of mobData.lootTable.rareDrops) {
+      allDrops.push({
+        itemId: drop.itemId,
+        chance: drop.chance,
+        minQuantity: drop.quantity,
+        maxQuantity: drop.quantity
+      });
+    }
+    
+    return allDrops.length > 0 ? allDrops : [{ itemId: 'coins', chance: 0.5, minQuantity: 1, maxQuantity: 5 }];
   }
 
   private getItemWeight(_itemId: string): number {

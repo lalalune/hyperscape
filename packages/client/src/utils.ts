@@ -1,11 +1,14 @@
-export function cls(...args) {
+export function cls(...args: (string | Record<string, unknown>)[]) {
   let str = ''
   for (const arg of args) {
-    if (typeof arg === 'string') {
-      str += ' ' + arg
-    } else if (typeof arg === 'object') {
-      for (const key in arg) {
-        const value = arg[key]
+    // Check if arg has string methods
+    if ((arg as string).charAt) {
+      str += ' ' + (arg as string)
+    } else {
+      // Must be an object - strong type assumption
+      const obj = arg as Record<string, unknown>
+      for (const key in obj) {
+        const value = obj[key]
         if (value) str += ' ' + key
       }
     }
@@ -16,9 +19,9 @@ export function cls(...args) {
 // export const isTouch = !!navigator.userAgent.match(/OculusBrowser|iPhone|iPad|iPod|Android/i)
 
 // if at least two indicators point to touch, consider it primarily touch-based:
-const coarse = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
-const noHover = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(hover: none)').matches : false;
-const hasTouch = typeof navigator !== 'undefined' && typeof navigator.maxTouchPoints === 'number' ? navigator.maxTouchPoints > 0 : false;
+const coarse = window.matchMedia('(pointer: coarse)').matches;
+const noHover = window.matchMedia('(hover: none)').matches;
+const hasTouch = navigator.maxTouchPoints > 0;
 export const isTouch = (coarse && hasTouch) || (noHover && hasTouch);
 
 /**

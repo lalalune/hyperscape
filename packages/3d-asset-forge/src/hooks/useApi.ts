@@ -6,7 +6,10 @@
 import { useState, useCallback } from 'react'
 import { useApp } from '../contexts/AppContext'
 
-interface ApiOptions extends RequestInit {
+interface ApiOptions {
+  method?: string
+  headers?: Record<string, string>
+  body?: string
   showError?: boolean
   showSuccess?: boolean
   successMessage?: string
@@ -19,7 +22,7 @@ export function useApi() {
   const apiCall = useCallback(async <T>(
     url: string,
     options: ApiOptions = {}
-  ): Promise<T | null> => {
+  ): Promise<T> => {
     const { 
       showError = true, 
       showSuccess = false, 
@@ -29,42 +32,32 @@ export function useApi() {
 
     setLoading(true)
     
-    try {
-      const response = await fetch(url, {
-        ...fetchOptions,
-        headers: {
-          'Content-Type': 'application/json',
-          ...fetchOptions.headers
-        }
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ 
-          error: { message: `HTTP ${response.status}: ${response.statusText}` } 
-        }))
-        
-        throw new Error(errorData.error?.message || 'Request failed')
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers: {
+        'Content-Type': 'application/json',
+        ...fetchOptions.headers
       }
+    })
 
-      const data = await response.json()
+    if (!response.ok) {
+      const errorData = await response.json()
+      const errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
       
-      if (showSuccess) {
-        showNotification(successMessage || 'Success', 'success')
-      }
-      
-      return data
-    } catch (error) {
       if (showError) {
-        showNotification(
-          error instanceof Error ? error.message : 'An error occurred',
-          'error'
-        )
+        showNotification(errorMessage, 'error')
       }
-      console.error('API Error:', error)
-      return null
-    } finally {
-      setLoading(false)
+      throw new Error(errorMessage)
     }
+
+    const data = await response.json()
+    
+    if (showSuccess) {
+      showNotification(successMessage || 'Success', 'success')
+    }
+    
+    setLoading(false)
+    return data
   }, [showNotification])
 
   return { apiCall, loading }

@@ -7,6 +7,7 @@ import { IPlayerSystemForPersistence } from '../types/core';
 import type { WorldChunk } from '../types/core';
 import type { WorldChunkData, PlayerSessionRow } from '../types/database';
 import type { DatabaseSystem } from '../types/system-interfaces';
+import { PlayerIdMapper } from '../utils/PlayerIdMapper';
 
 /**
  * Persistence System
@@ -75,7 +76,7 @@ export class PersistenceSystem extends SystemBase {
     }
     
     // Subscribe to critical persistence events using type-safe event system
-    this.subscribe(EventType.PLAYER_JOINED, (data) => this.onPlayerEnter(data as { playerId: string; playerToken?: string }));
+    this.subscribe(EventType.PLAYER_JOINED, (data) => this.onPlayerEnter(data as { playerId: string; userId?: string; playerToken?: string }));
     this.subscribe(EventType.PLAYER_LEFT, (data) => this.onPlayerLeave(data as { playerId: string }));
     this.subscribe(EventType.CHUNK_LOADED, (data: { chunkId: string; chunkData: WorldChunk }) => {
       // Convert chunkId to chunkX/chunkZ coordinates
@@ -182,182 +183,180 @@ export class PersistenceSystem extends SystemBase {
   }
 
   // Event Handlers
-  private async onPlayerEnter(event: { playerId: string; playerToken?: string }): Promise<void> {
+  private async onPlayerEnter(event: { playerId: string; userId?: string; playerToken?: string }): Promise<void> {
     if (!this.databaseSystem) return;
     
-    try {
-      const sessionData: Omit<PlayerSessionRow, 'id' | 'sessionId'> = {
-        playerId: event.playerId,
-        sessionStart: Date.now(),
-        sessionEnd: null,
-        playtimeMinutes: 0,
-        reason: null,
-        lastActivity: Date.now()
-      };
-      
-      await this.databaseSystem.createPlayerSession(sessionData);
-    } catch (_error) {
-      this.logger.error(`Failed to create session for player ${event.playerId}`, _error instanceof Error ? _error : new Error(String(_error)));
-    }
+    console.log('[PersistenceSystem] onPlayerEnter event:', {
+      playerId: event.playerId,
+      userId: event.userId,
+      hasUserId: !!event.userId
+    });
+    
+    // Use userId from event if available, otherwise fall back to playerId
+    // userId is the persistent account/character ID that exists in the database
+    const characterId = event.userId || event.playerId;
+    
+    console.log('[PersistenceSystem] Using characterId for session:', characterId);
+    
+    // Ensure the character exists before creating the session
+    // Use UPSERT to create minimal character if it doesn't exist yet
+    // This handles race conditions where PersistenceSystem runs before PlayerSystem
+    await this.databaseSystem.savePlayerAsync(characterId, {
+      name: `Player_${characterId.substring(0, 8)}`,
+      // These are defaults that will be overwritten by PlayerSystem when it runs
+      combatLevel: 1,
+      attackLevel: 1, 
+      strengthLevel: 1,
+      defenseLevel: 1,
+      constitutionLevel: 10,
+      rangedLevel: 1,
+      health: 100,
+      maxHealth: 100
+    });
+    
+    const sessionData: Omit<PlayerSessionRow, 'id' | 'sessionId'> = {
+      playerId: characterId, // Use character ID for foreign key
+      sessionStart: Date.now(),
+      sessionEnd: null,
+      playtimeMinutes: 0,
+      reason: null,
+      lastActivity: Date.now()
+    };
+    
+    await this.databaseSystem.createPlayerSessionAsync(sessionData);
   }
 
-  private async onPlayerLeave(event: { playerId: string; sessionId?: string; reason?: string }): Promise<void> {
+  private async onPlayerLeave(event: { playerId: string; userId?: string; sessionId?: string; reason?: string }): Promise<void> {
     if (!this.databaseSystem) return;
     
-    try {
-      // Find and end the player's active session
-      const activeSessions = this.databaseSystem.getActivePlayerSessions();
-      const playerSession = activeSessions.find(s => s.playerId === event.playerId);
-      
-      if (playerSession) {
-        this.databaseSystem.endPlayerSession(playerSession.id, event.reason || 'disconnect');
-        this.stats.sessionsEnded++;
-      }
-    } catch (_error) {
-      this.logger.error(`Failed to end session for player ${event.playerId}`, _error instanceof Error ? _error : new Error(String(_error)));
+    // Use userId from event if available, otherwise try mapper, then fall back to playerId
+    const characterId = event.userId || PlayerIdMapper.getDatabaseId(event.playerId);
+    
+    // Find and end the player's active session using character ID
+    const activeSessions = await this.databaseSystem.getActivePlayerSessionsAsync();
+    const playerSession = activeSessions.find(s => s.playerId === characterId);
+    
+    if (playerSession) {
+      await this.databaseSystem.endPlayerSessionAsync(playerSession.id, event.reason || 'disconnect');
+      this.stats.sessionsEnded++;
     }
   }
 
   private async onChunkLoaded(event: { chunkX: number; chunkZ: number }): Promise<void> {
     if (!this.databaseSystem) return;
     
-    try {
-      // Update chunk activity
-      this.databaseSystem.updateChunkPlayerCount(event.chunkX, event.chunkZ, 1);
-    } catch (_error) {
-      this.logger.error('Failed to update chunk activity', _error instanceof Error ? _error : new Error(String(_error)));
-    }
+    // Update chunk activity
+    this.databaseSystem.updateChunkPlayerCount(event.chunkX, event.chunkZ, 1);
   }
 
   private async onChunkUnloaded(event: { chunkX: number; chunkZ: number }): Promise<void> {
     if (!this.databaseSystem) return;
     
-    try {
-      // Update chunk activity
-      this.databaseSystem.updateChunkPlayerCount(event.chunkX, event.chunkZ, 0);
-    } catch (_error) {
-      this.logger.error('Failed to update chunk activity', _error instanceof Error ? _error : new Error(String(_error)));
-    }
+    // Update chunk activity
+    this.databaseSystem.updateChunkPlayerCount(event.chunkX, event.chunkZ, 0);
   }
 
   // Periodic Tasks
   private async performPeriodicSave(): Promise<void> {
-    try {
-      const startTime = Date.now();
-      let saveCount = 0;
+    const startTime = Date.now();
+    let saveCount = 0;
 
-      // Save active player sessions
-      if (this.databaseSystem) {
-        const activeSessions = this.databaseSystem.getActivePlayerSessions();
-        for (const session of activeSessions) {
-          this.databaseSystem.updatePlayerSession(session.id, {
-            lastActivity: Date.now()
-          });
-          saveCount++;
-        }
+    // Save active player sessions
+    if (this.databaseSystem) {
+      const activeSessions = await this.databaseSystem.getActivePlayerSessionsAsync();
+      for (const session of activeSessions) {
+        this.databaseSystem.updatePlayerSession(session.id, {
+          lastActivity: Date.now()
+        });
+        saveCount++;
       }
+    }
 
-      // Save active chunks
-      if (this.terrainSystem && this.databaseSystem) {
-        // Get active chunks from terrain system and save them
-        // This would need to be implemented in the terrain system
-        const activeChunks = await this.getActiveChunks();
-        for (const chunk of activeChunks) {
-          // Convert WorldChunk to WorldChunkData
-          const chunkData: WorldChunkData = {
-            chunkX: chunk.chunkX,
-            chunkZ: chunk.chunkZ,
-            data: JSON.stringify(chunk.data || {}),
-            lastActive: chunk.lastActivity ? chunk.lastActivity.getTime() : Date.now(),
-            playerCount: 0, // Will be updated by active player tracking
-            version: 1
-          };
-          this.databaseSystem.saveWorldChunk(chunkData);
-          saveCount++;
-        }
+    // Save active chunks
+    if (this.terrainSystem && this.databaseSystem) {
+      // Get active chunks from terrain system and save them
+      // This would need to be implemented in the terrain system
+      const activeChunks = await this.getActiveChunks();
+      for (const chunk of activeChunks) {
+        // Convert WorldChunk to WorldChunkData
+        const chunkData: WorldChunkData = {
+          chunkX: chunk.chunkX,
+          chunkZ: chunk.chunkZ,
+          data: JSON.stringify(chunk.data || {}),
+          lastActive: chunk.lastActivity ? chunk.lastActivity.getTime() : Date.now(),
+          playerCount: 0, // Will be updated by active player tracking
+          version: 1
+        };
+        this.databaseSystem.saveWorldChunk(chunkData);
+        saveCount++;
       }
+    }
 
-      const duration = Date.now() - startTime;
-      this.stats.totalSaves += saveCount;
-      this.stats.lastSaveTime = Date.now();
+    const duration = Date.now() - startTime;
+    this.stats.totalSaves += saveCount;
+    this.stats.lastSaveTime = Date.now();
 
-      if (saveCount > 0) {
-        this.logger.info(`💾 Periodic save completed: ${saveCount} items in ${duration}ms`);
-      }
-    } catch (_error) {
-      this.logger.error('Periodic save failed', _error instanceof Error ? _error : new Error(String(_error)));
+    if (saveCount > 0) {
+      this.logger.info(`💾 Periodic save completed: ${saveCount} items in ${duration}ms`);
     }
   }
 
   private async performChunkCleanup(): Promise<void> {
     if (!this.databaseSystem) return;
 
-    try {
-      // Find chunks that have been inactive for too long
-      const inactiveChunks = this.databaseSystem.getInactiveChunks(this.CHUNK_INACTIVE_TIME / 60000); // Convert to minutes
+    // Find chunks that have been inactive for too long
+    const inactiveChunks = this.databaseSystem.getInactiveChunks(this.CHUNK_INACTIVE_TIME / 60000); // Convert to minutes
+    
+    for (const chunk of inactiveChunks) {
+      // Mark chunk for reset
+      this.databaseSystem.markChunkForReset(chunk.chunkX, chunk.chunkZ);
       
-      for (const chunk of inactiveChunks) {
-        // Mark chunk for reset
-        this.databaseSystem.markChunkForReset(chunk.chunkX, chunk.chunkZ);
-        
-        // If chunk has no players and has been marked for reset, reset it
-        if (chunk.playerCount === 0 && chunk.needsReset === 1) {
-          this.databaseSystem.resetChunk(chunk.chunkX, chunk.chunkZ);
-          this.stats.chunksReset++;
-        }
+      // If chunk has no players and has been marked for reset, reset it
+      if (chunk.playerCount === 0 && chunk.needsReset === 1) {
+        this.databaseSystem.resetChunk(chunk.chunkX, chunk.chunkZ);
+        this.stats.chunksReset++;
       }
+    }
 
-      if (inactiveChunks.length > 0) {
-        this.logger.info(`🧹 Chunk cleanup: ${inactiveChunks.length} inactive chunks processed`);
-      }
-    } catch (_error) {
-      this.logger.error('Chunk cleanup failed', _error instanceof Error ? _error : new Error(String(_error)));
+    if (inactiveChunks.length > 0) {
+      this.logger.info(`🧹 Chunk cleanup: ${inactiveChunks.length} inactive chunks processed`);
     }
   }
 
   private async performSessionCleanup(): Promise<void> {
     if (!this.databaseSystem) return;
 
-    try {
-      // End stale sessions (no activity for 5+ minutes)
-      const activeSessions = this.databaseSystem.getActivePlayerSessions();
-      const cutoffTime = Date.now() - 300000; // 5 minutes
+    // End stale sessions (no activity for 5+ minutes)
+    const activeSessions = await this.databaseSystem.getActivePlayerSessionsAsync();
+    const cutoffTime = Date.now() - 300000; // 5 minutes
 
-      for (const session of activeSessions) {
-        if (session.lastActivity && session.lastActivity < cutoffTime) {
-          this.databaseSystem.endPlayerSession(session.id, 'timeout');
-          this.stats.sessionsEnded++;
-        }
+    for (const session of activeSessions) {
+      if (session.lastActivity && session.lastActivity < cutoffTime) {
+        this.databaseSystem.endPlayerSession(session.id, 'timeout');
+        this.stats.sessionsEnded++;
       }
-    } catch (_error) {
-      this.logger.error('Session cleanup failed', _error instanceof Error ? _error : new Error(String(_error)));
     }
   }
 
   private async performMaintenance(): Promise<void> {
     if (!this.databaseSystem) return;
 
-    try {
+    // Clean up old sessions (7+ days old)
+    const oldSessionsDeleted = this.databaseSystem.cleanupOldSessions(7);
+    
+    // Clean up old chunk activity records (30+ days old)
+    const oldActivityDeleted = this.databaseSystem.cleanupOldChunkActivity(30);
+    
+    // Get database statistics
+    const dbStats = this.databaseSystem.getDatabaseStats();
 
-      // Clean up old sessions (7+ days old)
-      const oldSessionsDeleted = this.databaseSystem.cleanupOldSessions(7);
-      
-      // Clean up old chunk activity records (30+ days old)
-      const oldActivityDeleted = this.databaseSystem.cleanupOldChunkActivity(30);
-      
-      // Get database statistics
-      const dbStats = this.databaseSystem.getDatabaseStats();
+    this.stats.lastMaintenanceTime = Date.now();
 
-      this.stats.lastMaintenanceTime = Date.now();
-
-      this.logger.info('🔧 Maintenance completed', {
-        oldSessionsDeleted,
-        oldActivityDeleted,
-        dbStats
-      });
-    } catch (_error) {
-      this.logger.error('Maintenance failed', _error instanceof Error ? _error : new Error(String(_error)));
-    }
+    this.logger.info('🔧 Maintenance completed', {
+      oldSessionsDeleted,
+      oldActivityDeleted,
+      dbStats
+    });
   }
 
   // Helper methods

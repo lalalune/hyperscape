@@ -15,8 +15,6 @@ import {
   Box, 
   Info, 
   RotateCw,
-  Pause,
-  Play,
   Download,
   Keyboard,
   X,
@@ -709,44 +707,27 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       }
     },
     loadAnimation: async (url: string, name: string) => {
-      if (!modelRef.current || !sceneRef.current) throw new Error('No model loaded')
+      const model = modelRef.current!
       
       const loader = new GLTFLoader()
-      try {
-        const gltf = await loader.loadAsync(url)
-        
-        if (gltf.animations && gltf.animations.length > 0) {
-          // Get the animation clip
-          const animationClip = gltf.animations[0]
-          animationClip.name = name
-          
-          // Initialize mixer with the current model if not already done
-          if (!mixerRef.current) {
-            mixerRef.current = new THREE.AnimationMixer(modelRef.current)
-          }
-          
-          // For character animations, we need to handle skeleton mapping
-          // The animation file contains the same skeleton structure, so we can apply it directly
-          try {
-            // Add the animation clip to our collection
-            setAnimations(prev => {
-              const existing = prev.filter(anim => anim.name !== name)
-              return [...existing, animationClip]
-            })
-            
-            // Mark this as a direct animation (no model swapping needed)
-            // animationTypesRef.current[name] = 'direct' // Removed
-            
-            console.log(`Successfully loaded animation: ${name}`)
-          } catch (error) {
-            console.error(`Failed to setup animation ${name}:`, error)
-            throw error
-          }
-        }
-      } catch (error) {
-        console.error(`Failed to load animation from ${url}:`, error)
-        throw error
+      const gltf = await loader.loadAsync(url)
+      
+      // Get the animation clip
+      const animationClip = gltf.animations[0]
+      animationClip.name = name
+      
+      // Initialize mixer with the current model if not already done
+      if (!mixerRef.current) {
+        mixerRef.current = new THREE.AnimationMixer(model)
       }
+      
+      // Add the animation clip to our collection
+      setAnimations(prev => {
+        const existing = prev.filter(anim => anim.name !== name)
+        return [...existing, animationClip]
+      })
+      
+      console.log(`Successfully loaded animation: ${name}`)
     },
     playAnimation: (name: string) => {
       if (!mixerRef.current || !animations.length) {
@@ -1323,7 +1304,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           })
           
           // Update skeleton helper
-          if (skeletonHelperRef.current && typeof skeletonHelperRef.current.update === 'function') {
+          if (skeletonHelperRef.current) {
             console.log('  Updating skeleton helper')
             skeletonHelperRef.current.update()
           }
@@ -1537,8 +1518,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('keydown', handleKeydown)
-      if (frameIdRef.current) {
-        cancelAnimationFrame(frameIdRef.current)
+      const frameId = frameIdRef.current
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
       }
       renderer.dispose()
       composer.dispose()
@@ -1866,30 +1848,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             }
           })
           
-          // Get initial bounding box for scaling calculations
-          let box: THREE.Box3
-          let size: THREE.Vector3
-          
-          try {
-            box = new THREE.Box3().setFromObject(model)
-            size = box.getSize(new THREE.Vector3())
-          } catch (error) {
-            console.warn('Error calculating bounding box, using fallback:', error)
-            // Fallback: manually calculate from mesh vertices
-            box = new THREE.Box3()
-            model.traverse((child) => {
-              if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
-                if (child.geometry && child.geometry.attributes.position) {
-                  const geometry = child.geometry
-                  geometry.computeBoundingBox()
-                  if (geometry.boundingBox) {
-                    box.union(geometry.boundingBox)
-                  }
-                }
-              }
-            })
-            size = box.getSize(new THREE.Vector3())
-          }
+      // Get initial bounding box for scaling calculations
+      const box = new THREE.Box3().setFromObject(model)
+      const size = box.getSize(new THREE.Vector3())
           
           // Debug: Show raw bounding box BEFORE any transformations
           console.log(`📦 Raw bounding box (before scaling):`)
@@ -1936,13 +1897,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                       // Verify final size if animation file
             if (assetInfo?.isAnimationFile && assetInfo?.characterHeight) {
               model.updateMatrixWorld(true)
-              try {
-                const verifyBox = new THREE.Box3().setFromObject(model)
-                const verifySize = verifyBox.getSize(new THREE.Vector3())
-                console.log(`✅ Final model height after scaling: ${verifySize.y.toFixed(3)}m (target: ${assetInfo.characterHeight}m)`)
-              } catch (error) {
-                console.warn('Error verifying final model size:', error)
-              }
+              const verifyBox = new THREE.Box3().setFromObject(model)
+              const verifySize = verifyBox.getSize(new THREE.Vector3())
+              console.log(`✅ Final model height after scaling: ${verifySize.y.toFixed(3)}m (target: ${assetInfo.characterHeight}m)`)
             }
           
           // Force update of world matrix to ensure scale is applied
@@ -2510,11 +2467,6 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           const fileSize = contentLength ? parseInt(contentLength, 10) : undefined
           loadModel(fileSize)
         })
-        .catch(error => {
-          console.error('Error fetching file size:', error)
-          // Continue loading even if we can't get file size
-          loadModel()
-        })
     }
       
     // Cleanup function
@@ -2613,17 +2565,6 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     setCurrentAnimation(index)
     setIsPlaying(true)
   }, [animations])
-  
-  const togglePlayPause = useCallback(() => {
-    if (!mixerRef.current) return
-    
-    if (isPlaying) {
-      mixerRef.current.timeScale = 0
-    } else {
-      mixerRef.current.timeScale = 1
-    }
-          setIsPlaying(!isPlaying)
-    }, [isPlaying])
   
   return (
     <div className="relative w-full h-full bg-bg-secondary rounded-lg overflow-hidden">

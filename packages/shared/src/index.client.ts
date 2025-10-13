@@ -58,7 +58,7 @@ export { PlayerMigration } from './types/core';
 export { WeaponType, EquipmentSlotName } from './types/core';
 
 // Export db helpers and type guards for server usage
-export { dbHelpers, isDatabaseInstance } from './types/database-types';
+export { dbHelpers, isDatabaseInstance } from './types/database';
 
 // Export role utilities
 export { addRole, removeRole, hasRole, serializeRoles, uuid } from './utils';
@@ -72,9 +72,8 @@ export { Physics } from './systems/Physics';
 export { Particles } from './systems/Particles';
 export { LODs } from './systems/LODs';
 export { ClientInterface } from './systems/ClientInterface'; // Merged UI, Prefs, Stats, Target
-export { ClientInterface as Interface } from './systems/ClientInterface'; // Legacy alias
 export { ClientLoader } from './systems/ClientLoader';
-export { ClientEnvironment } from './systems/ClientEnvironment';
+export { Environment } from './systems/Environment';
 export { ClientNetwork } from './systems/ClientNetwork';
 export { ClientGraphics } from './systems/ClientGraphics';
 export { ClientRuntime } from './systems/ClientRuntime'; // Merged Client + Diagnostics
@@ -90,7 +89,7 @@ export { SystemBase } from './systems/SystemBase';
 // Export node client components directly from their source modules (NOT ServerLoader, ServerRuntime, ServerEnvironment, ServerLiveKit)
 export { createNodeClientWorld } from './createNodeClientWorld';
 export { NodeClient } from './systems/NodeClient';
-export { NodeEnvironment } from './systems/NodeEnvironment';
+// NodeEnvironment consolidated into Environment
 export { Node } from './nodes/Node';
 // Re-export commonly used node classes to satisfy API extractor
 export { UI } from './nodes/UI';
@@ -100,7 +99,8 @@ export { UIText } from './nodes/UIText';
 export { Group } from './nodes/Group';
 export { Mesh } from './nodes/Mesh';
 export { Avatar } from './nodes/Avatar';
-export { storage } from './storage';
+// Export client-only storage (no Node.js dependencies)
+export { storage, LocalStorage } from './storage';
 export { loadPhysX, waitForPhysX, getPhysX, isPhysXReady } from './PhysXManager';
 
 // Export renderer utilities
@@ -124,12 +124,13 @@ export {
   type PostProcessingComposer
 } from './utils/PostProcessingFactory';
 
+// Material and mesh optimizations (consolidated into RendererFactory)
 export {
-  applyWebGPUOptimizations,
   optimizeMaterialForWebGPU,
   createOptimizedInstancedMesh,
-  getWebGPUCapabilities
-} from './utils/WebGPUOptimizations';
+  getWebGPUCapabilities,
+  logWebGPUInfo
+} from './utils/RendererFactory';
 
 export {
   isNumber,
@@ -263,9 +264,9 @@ export type { RaycastHit, NetworkData } from './types/index';
 export type { EntityConfig, EntityInteractionData } from './types/entities';
 // Re-export GLB typing used by createEmoteFactory
 export type { GLBData } from './types/index';
-// Re-export storage types
+// Re-export storage types (client-only)
 export type { Storage } from './storage';
-export { LocalStorage, NodeStorage } from './storage';
+// NodeStorage is only available from the main index (server-side)
 // Re-export nodes namespace for createNode typings
 export * as Nodes from './nodes';
 
@@ -323,7 +324,7 @@ export type { LooseOctreeNode, OctreeHelper, LooseOctreeOptions } from './extras
 // Export additional system and event types
 export type { SystemConstructor, SystemDependencies } from './systems/System';
 export type { EventSubscription, SystemEvent, EventHandler } from './systems/EventBus';
-export type { EventMap } from './types/event-system';
+export type { EventMap } from './types/events';
 export type { AnyEvent, EventType as EventTypeEnum, EventPayloads } from './types/events';
 export type { LoaderResult } from './types/index';
 export type { ComponentDefinition, EntityData } from './types/index';
@@ -366,10 +367,10 @@ export type { ControlBinding, ControlsBinding, ControlAction, TouchInfo, Control
 export type { BaseEntityProperties, EntityType, InteractionType } from './types/entities';
 
 // Export event payloads namespace
-export * as Payloads from './types/event-payloads';
+export * as Payloads from './types/events';
 
 // Export additional core types
-export type { SkillsData } from './types/systems';
+export type { SkillsData } from './types/system-interfaces';
 export type { HealthComponent, VisualComponent, EntityCombatComponent, PlayerCombatStyle } from './types/entities';
 export type { GroupType } from './types/nodes';
 export type { InventoryItemInfo } from './types/events';
@@ -403,7 +404,7 @@ export type {
   UserRow,
   EntityRow,
   DatabaseRow
-} from './types/database-types';
+} from './types/database';
 
 // Export entity types
 export type { PlayerEntity, CharacterController, CharacterControllerOptions, NetworkPacket } from './types/index';
@@ -421,10 +422,10 @@ export { writePacket, readPacket } from './packets';
 export { Socket } from './Socket';
 
 // Export physics utilities
-export { installThreeJSExtensions } from './physics/vector-conversions';
+export { installThreeJSExtensions } from './utils/PhysicsUtils';
 
 // Export spawn utilities
-export { CircularSpawnArea } from './managers/spawning/CircularSpawnArea';
+export { CircularSpawnArea } from './utils/CircularSpawnArea';
 
 // Export terrain system
 export { TerrainSystem } from './systems/TerrainSystem';

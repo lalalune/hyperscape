@@ -46,7 +46,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
   }, [])
   
   // Extract asset ID from the model URL or use provided assetId
-  const extractedAssetId = modelUrl?.match(/\/api\/assets\/([^\/]+)\/model/)?.[1] || ''
+  const extractedAssetId = modelUrl?.match(/\/api\/assets\/([^/]+)\/model/)?.[1] || ''
   const assetId = assetIdProp || extractedAssetId || ''
   
   // No need to fetch metadata separately, it's passed as a prop

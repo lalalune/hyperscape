@@ -265,19 +265,9 @@ export class AuthenticationSystem extends SystemBase {
   /**
    * Find existing player by Hyperscape ID
    */
-  private async findPlayerByHyperscapeId(hyperscapeId: string): Promise<{ id: string; name: string } | null> {
-    if (!this.databaseSystem) {
-      return null;
-    }
-
-    try {
-      // NOTE: getPlayerByHyperscapeId not implemented in DatabaseSystem
-      console.warn('[Auth] ⚠️ getPlayerByHyperscapeId not implemented - database schema needs hyperscapeUserId field');
-      return null;
-    } catch (error) {
-      this.logger.error('Failed to find player by Hyperscape ID', error instanceof Error ? error : new Error(String(error)), { hyperscapeId });
-    }
-
+  private async findPlayerByHyperscapeId(_hyperscapeId: string): Promise<{ id: string; name: string } | null> {
+    // NOTE: getPlayerByHyperscapeId not implemented in DatabaseSystem
+    console.warn('[Auth] ⚠️ getPlayerByHyperscapeId not implemented - database schema needs hyperscapeUserId field');
     return null;
   }
 

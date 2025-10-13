@@ -3,26 +3,26 @@ import { createNode } from '../extras/createNode'
 import { Layers } from '../extras/Layers'
 import { Emotes } from '../extras/playerEmotes'
 import THREE from '../extras/three'
-import { Avatar, Nametag, UI, UIText, UIView } from '../nodes'
+import { Nametag, UI, UIText, UIView } from '../nodes'
 import { getPhysX, waitForPhysX } from '../PhysXManager'
 import type { PhysicsHandle } from '../systems/Physics'
 import type { TerrainSystem } from '../systems/TerrainSystem'
 import type { Player, PlayerCombatData, PlayerDeathData, PlayerEquipmentItems, PlayerHealth, Skills } from '../types/core'
 import { EventType } from '../types/events'
-import { ClientLoader, ControlBinding, NetworkData, EntityData } from '../types/index'
+import { ClientLoader, ControlBinding, NetworkData, EntityData, LoadedAvatar, TouchInfo } from '../types/index'
 import type {
   ActorHandle,
   CameraSystem,
-  HotReloadable,
   PlayerStickState,
   PlayerTouch,
   PxCapsuleGeometry, PxMaterial, PxRigidDynamic, PxShape, PxSphereGeometry,
   QuaternionLike,
   Vector3Like,
-  XRSystem
+  VRMHooks
 } from '../types/physics'
+import type { HotReloadable, XRSystem } from '../types'
 
-import { vector3ToPxVec3 } from '../extras/vector3-utils'
+import { vector3ToPxVec3 } from '../utils/PhysicsUtils'
 import { getSystem } from '../utils/SystemUtils'
 import type { World } from '../World'
 import { Entity } from './Entity'
@@ -87,9 +87,8 @@ const _SCALE_IDENTITY = new THREE.Vector3(1, 1, 1)
 const DEFAULT_CAM_HEIGHT = 1.2
 
 // Utility function for roles check
-function hasRole(roles: unknown, role: string): boolean {
-  // Strong type assumption - roles is an array when provided
-  return (roles as string[]).includes(role)
+function hasRole(roles: string[], role: string): boolean {
+  return roles.includes(role)
 }
 
 // Constants for common game values
@@ -308,7 +307,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     
     return {
       getHeight: () => (this._avatar && this._avatar.getHeight) ? this._avatar.getHeight() : 1.8,
-      getHeadToHeight: () => (this._avatar && this._avatar.getHeadToHeight) ? this._avatar.getHeadToHeight() : 1.6,
+      getHeadToHeight: () => (this._avatar && this._avatar.getHeadToHeight) ? this._avatar!.getHeadToHeight() : 1.6,
       setEmote: (emote: string) => { if (this._avatar && this._avatar.setEmote) this._avatar.setEmote(emote); },
       getBoneTransform: (boneName: string) => (this._avatar && this._avatar.getBoneTransform) ? this._avatar.getBoneTransform(boneName) : null
     };
@@ -574,30 +573,16 @@ export class PlayerLocal extends Entity implements HotReloadable {
   
   private async waitForTerrain(): Promise<void> {
     // Get terrain system with proper type
-    interface TerrainSystemWithInit {
-      isInitialized: boolean | (() => boolean);
-    }
-    
-    const terrainSystem = this.world.getSystem('terrain') as TerrainSystemWithInit | null
+    const terrainSystem = this.world.getSystem('terrain') as TerrainSystem | null
     
     if (!terrainSystem) {
       // No terrain system, proceed without wait
       return
     }
     
-    // Helper to check if terrain is ready
-    const isTerrainReady = (): boolean => {
-      if (!terrainSystem) return false
-      const init = terrainSystem.isInitialized
-      if (typeof init === 'function') {
-        return init.call(terrainSystem)
-      } else {
-        return init
-      }
-    }
-    
+    // Strong type assumption - TerrainSystem has isReady() method
     // Check if terrain is already initialized
-    if (isTerrainReady()) {
+    if (terrainSystem.isReady()) {
       return
     }
     
@@ -607,7 +592,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     
     await new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
-        if (isTerrainReady()) {
+        if (terrainSystem.isReady()) {
           clearInterval(checkInterval)
           resolve()
         } else if (Date.now() - startTime > maxWaitTime) {
@@ -923,26 +908,20 @@ export class PlayerLocal extends Entity implements HotReloadable {
       await this.world.loader.preloader
     }
 
-    await this.applyAvatar().catch(_err => {
-      // Avatar loading failed - continue without avatar
-    })
+    await this.applyAvatar();
     
     // Initialize physics capsule
-    await this.initCapsule()
-        this.initControl()
+    await this.initCapsule();
+    this.initControl();
 
     // Initialize camera system
-    this.initCameraSystem()
+    this.initCameraSystem();
     
     // Retry camera initialization after a delay in case systems aren't ready yet
     setTimeout(() => {
-      const cameraSystem = getSystem(this.world, 'client-camera-system')
-      if (cameraSystem) {
-                this.world.emit(EventType.CAMERA_SET_TARGET, { target: this })
-      } else {
-        console.warn('[PlayerLocal] Camera system still not found after retry - camera controls may not work')
-      }
-    }, 1000)
+      const _cameraSystem = getSystem(this.world, 'client-camera-system');
+      this.world.emit(EventType.CAMERA_SET_TARGET, { target: this });
+    }, 1000);
 
     // Movement is handled by physics directly
     // Don't clamp to terrain on init - trust the server position
@@ -967,42 +946,29 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   async applyAvatar(): Promise<void> {
-    // Check if we're still active (not destroyed)
-    if (!this.active) return;
+    const avatarUrl = this.getAvatarUrl();
     
-    const avatarUrl = this.getAvatarUrl()
+    // Skip avatar loading on server (no loader system)
+    if (!this.world.loader) {
+      return;
+    }
     
     // If we already have the correct avatar loaded, just reuse it
     if (this.avatarUrl === avatarUrl && this._avatar) {
-            return
-    }
-    
-    // Check if loader is available - if not, we'll retry later
-    if (!this.world.loader) {
-            // Set up a retry mechanism
-      if (!this.avatarRetryInterval) {
-        this.avatarRetryInterval = setInterval(async () => {
-          if (this.world.loader) {
-                        clearInterval(this.avatarRetryInterval as unknown as number)
-            this.avatarRetryInterval = null
-            await this.applyAvatar()
-          }
-        }, 500) // Check every 500ms
-      }
-      return
+      return;
     }
     
     // Clear retry interval if it exists since loader is now available
     if (this.avatarRetryInterval) {
-      clearInterval(this.avatarRetryInterval)
-      this.avatarRetryInterval = null
+      clearInterval(this.avatarRetryInterval);
+      this.avatarRetryInterval = null;
     }
     
     // Prevent concurrent loads for the same URL
     if (this.loadingAvatarUrl === avatarUrl) {
-            return
+      return;
     }
-    this.loadingAvatarUrl = avatarUrl
+    this.loadingAvatarUrl = avatarUrl;
         
     // Only destroy if we're loading a different avatar
     if (this._avatar && this.avatarUrl !== avatarUrl) {
@@ -1026,225 +992,145 @@ export class PlayerLocal extends Entity implements HotReloadable {
       }
     }
 
-        
-    await this.world.loader
-      ?.load('avatar', avatarUrl)
-      .then(async (src) => {
-        // src is LoaderResult, which may be a Texture or an object with toNodes
-        // Avatar loader should return an object with toNodes(): Map<string, Avatar>
-        const avatarSrc = src as unknown as { toNodes: () => Map<string, Avatar> }
-                if (this._avatar && this._avatar.deactivate) {
-          this._avatar.deactivate()
-        }
+    
+    const src = await this.world.loader!.load('avatar', avatarUrl) as LoadedAvatar;
+    
+    if (this._avatar && this._avatar.deactivate) {
+      this._avatar.deactivate();
+    }
 
-        // Pass VRM hooks so the avatar can add itself to the scene
-        // Use world.stage.scene and manually update position
-        const vrmHooks = {
-          scene: this.world.stage.scene,
-          octree: this.world.stage.octree,
-          camera: this.world.camera,
-          loader: this.world.loader
-        }
-        const nodeMap = (avatarSrc as { toNodes: (hooks?: unknown) => Map<string, Avatar> }).toNodes(vrmHooks)
-                
-        // Strong type assumption - nodeMap is a Map
-        // Get the root node (which contains the avatar as a child)
-        const rootNode = nodeMap.get('root')
-        if (!rootNode) {
-          throw new Error(`No root node found in loaded asset. Available keys: ${Array.from(nodeMap.keys())}`)
-        }
-        
-        // The avatar node is a child of the root node or in the map directly
-        const avatarNode = nodeMap.get('avatar') || rootNode
-                
-        // Use the avatar node if we found it, otherwise try root
-        const nodeToUse = avatarNode || rootNode
-        if (!nodeToUse) {
-          throw new Error('No avatar or root node found in loaded asset')
-        }
-        
-        // Store the node - it's an Avatar node that needs mounting
-        this._avatar = nodeToUse as unknown as AvatarNode
-        
-        // IMPORTANT: For Avatar nodes to work, they need their context set and to be mounted
-        if (this.base && nodeToUse) {
-          const avatarNode = nodeToUse as unknown as AvatarNode
-          // Set the context for the avatar node
-          const avatarAsNode = avatarNode as unknown as AvatarNode & { ctx?: World; hooks?: unknown };
-          if (avatarAsNode.ctx !== this.world) {
-            avatarAsNode.ctx = this.world
-          }
-          
-          // Check current hooks
-                    
-          // CRITICAL: ALWAYS update the hooks on the avatar node BEFORE mounting
-          // The avatar was created with ClientLoader's hooks, but we need to use
-          // the world's stage scene for proper rendering
-                              avatarAsNode.hooks = vrmHooks
-                    
-          // CRITICAL: Verify hooks are properly set
-          if (!avatarAsNode.hooks) {
-            console.error('[PlayerLocal] CRITICAL: Hooks not set after assignment!')
-            avatarAsNode.hooks = vrmHooks // Force set again
-          }
-          const hooksAsVRM = avatarAsNode.hooks as unknown as { scene?: unknown; octree?: unknown }
-          if (!hooksAsVRM?.scene) {
-            console.error('[PlayerLocal] CRITICAL: Hooks.scene not set after assignment! Forcing...')
-            avatarAsNode.hooks = vrmHooks // Force set again
-          }
-          
-          // CRITICAL: Update base matrix BEFORE setting as parent
-          // The avatar needs the correct world position when created
-          if (this.base) {
-            this.base.updateMatrix()
-            this.base.updateMatrixWorld(true)
-            // Base matrixWorld logging removed to prevent memory leak
-          }
-          
-          // Set the parent so the node knows where it belongs in the hierarchy
-          avatarAsNode.parent = { matrixWorld: this.base.matrixWorld }
-          
-          // CRITICAL: Avatar node position should be at origin (0,0,0)
-          // The instance.move() method will position it at the base's world position
-          if (avatarAsNode.position) {
-            avatarAsNode.position.set(0, 0, 0)
-                      }
-          
-          // Activate the node (this creates the Three.js representation)
-          if (avatarAsNode.activate) {
-            avatarAsNode.activate(this.world)
-                      }
-          
-          // Mount the avatar node to create its instance
-          if (avatarAsNode.mount) {
-                        await avatarAsNode.mount()
-                      }
-          
-          // After mounting, the avatar instance should be available
-          // The instance manages its own scene internally - do NOT add raw.scene to base
-          if (avatarAsNode.instance) {
-            // Avatar instance structure logging removed to prevent memory leak
-            
-            // IMPORTANT: Do NOT add instance.raw.scene to base!
-            // The instance manages its own scene and adding it creates a duplicate.
-            // The instance.move() method will update the avatar's position.
-            // The VRM factory handles adding/removing from world.stage.scene automatically.
-          }
-        }
-        
-        // Now the instance should be available
-        if ((nodeToUse as unknown as AvatarNode).instance) {
-          const instance = (nodeToUse as unknown as AvatarNode).instance
-                    
-          // The Avatar node handles its own Three.js representation
-          // We don't need to manually add anything since the node is already added to base
-          // Just ensure visibility and disable rate check
-          
-          // Disable rate check if available
-          if (instance && instance.disableRateCheck) {
-            instance.disableRateCheck()
-                      }
-          
-          // Log instance properties for debugging
-          if (instance && instance.height) {
-                      // Instance has height property
-                      }
-          if (instance && instance.setEmote) {
-                      // Emote setting available but not used here
-                      }
-        } else {
-          console.warn('[PlayerLocal] Avatar node has no instance after mounting')
-        }
-        // Avatar might be a custom Node, not a THREE.Object3D, so visibility might not exist
-                
-        // Set up nametag and bubble positioning
-        const headHeight = this._avatar && this._avatar.getHeadToHeight ? this._avatar.getHeadToHeight() : 1.8
-        const safeHeadHeight = headHeight ?? 1.8
-        if (this.nametag) {
-          this.nametag.position.y = safeHeadHeight + 0.2
-        }
-        if (this.bubble) {
-          this.bubble.position.y = safeHeadHeight + 0.2
-          if (!this.bubble.active && this.nametag) {
-            this.nametag.active = true
-          }
-        }
+    // Pass VRM hooks so the avatar can add itself to the scene
+    // Use world.stage.scene and manually update position
+    const vrmHooks = {
+      scene: this.world.stage.scene,
+      octree: this.world.stage.octree,
+      camera: this.world.camera,
+      loader: this.world.loader
+    };
+    const nodeMap = src.toNodes(vrmHooks);
+    
+    // Strong type assumption - nodeMap is a Map
+    // Get the root node (which contains the avatar as a child)
+    const rootNode = nodeMap.get('root');
+    if (!rootNode) {
+      throw new Error(`No root node found in loaded asset. Available keys: ${Array.from(nodeMap.keys())}`);
+    }
+    
+    // The avatar node is a child of the root node or in the map directly
+    const avatarNode = nodeMap.get('avatar') || rootNode;
+    
+    // Use the avatar node
+    const nodeToUse = avatarNode;
+    
+    // Store the node - it's an Avatar node that needs mounting
+    this._avatar = nodeToUse as unknown as AvatarNode;
+    
+    // IMPORTANT: For Avatar nodes to work, they need their context set and to be mounted
+    // Set the context for the avatar node
+    interface AvatarNodeInternal {
+      ctx: World;
+      hooks: VRMHooks;
+    }
+    const avatarAsNode = nodeToUse as unknown as AvatarNode & AvatarNodeInternal;
+    avatarAsNode.ctx = this.world;
+    
+    // CRITICAL: ALWAYS update the hooks on the avatar node BEFORE mounting
+    // The avatar was created with ClientLoader's hooks, but we need to use
+    // the world's stage scene for proper rendering
+    const vrmHooksTyped: VRMHooks = {
+      scene: vrmHooks.scene,
+      octree: vrmHooks.octree as VRMHooks['octree'],
+      camera: vrmHooks.camera,
+      loader: vrmHooks.loader
+    };
+    avatarAsNode.hooks = vrmHooksTyped;
+    
+    // CRITICAL: Update base matrix BEFORE setting as parent
+    // The avatar needs the correct world position when created
+    this.base!.updateMatrix();
+    this.base!.updateMatrixWorld(true);
+    
+    // Set the parent so the node knows where it belongs in the hierarchy
+    avatarAsNode.parent = { matrixWorld: this.base!.matrixWorld };
+    
+    // CRITICAL: Avatar node position should be at origin (0,0,0)
+    // The instance.move() method will position it at the base's world position
+    avatarAsNode.position.set(0, 0, 0);
+    
+    // Activate the node (this creates the Three.js representation)
+    avatarAsNode.activate!(this.world);
+    
+    // Mount the avatar node to create its instance
+    await avatarAsNode.mount!();
+    
+    // The Avatar node handles its own Three.js representation
+    // We don't need to manually add anything since the node is already added to base
+    // Just ensure visibility and disable rate check
+    const instance = (nodeToUse as unknown as AvatarNode).instance;
+    
+    // Disable rate check
+    instance!.disableRateCheck!();
+    
+    // Set up nametag and bubble positioning
+    const headHeight = this._avatar!.getHeadToHeight!()!;
+    const safeHeadHeight = headHeight ?? 1.8;
+    this.nametag!.position.y = safeHeadHeight + 0.2;
+    this.bubble!.position.y = safeHeadHeight + 0.2;
+    if (!this.bubble!.active) {
+      this.nametag!.active = true;
+    }
 
-        // Set camera height with fallback
-        const avatarHeight = (this._avatar as { height?: number }).height
-        this.camHeight = avatarHeight && !isNaN(avatarHeight) ? Math.max(1.2, avatarHeight * 0.9) : DEFAULT_CAM_HEIGHT
+    // Set camera height
+    const avatarHeight = (this._avatar as unknown as { height: number }).height;
+    this.camHeight = Math.max(1.2, avatarHeight * 0.9);
 
-        // Make avatar visible and ensure proper positioning
-        if (this._avatar) {
-          if ('visible' in this._avatar) {
-            ;(this._avatar as { visible: boolean }).visible = true
-                      }
-          if (this._avatar && (this._avatar as AvatarNode).position) {
-            ;(this._avatar as AvatarNode).position.set(0, 0, 0)
-                      }
-          
-          // Verify avatar instance is actually in the scene graph
-          if (this._avatar && (this._avatar as AvatarNode).instance) {
-            const instance = (this._avatar as AvatarNode).instance
-            if (instance && instance.raw && instance.raw.scene) {
-              // The VRM scene is added directly to world.stage.scene by the factory
-              let parent = instance.raw.scene.parent
-              let depth = 0
-              while (parent && depth < 10) {
-                if (parent === this.world.stage?.scene) {
-                  // VRM scene logging removed to prevent memory leak
-                  break
-                }
-                parent = parent.parent
-                depth++
-              }
-              if (!parent || parent !== this.world.stage?.scene) {
-                console.warn('[PlayerLocal] Avatar VRM scene NOT in world scene graph!')
-              }
-            }
-          }
-        }
+    // Make avatar visible and ensure proper positioning
+    (this._avatar as { visible: boolean }).visible = true;
+    (this._avatar as AvatarNode).position.set(0, 0, 0);
+    
+    // Verify avatar instance is actually in the scene graph
+    const vrmInstance = (this._avatar as AvatarNode).instance;
+    let parent = vrmInstance!.raw.scene.parent;
+    let depth = 0;
+    while (parent && depth < 10) {
+      if (parent === this.world.stage.scene) {
+        break;
+      }
+      parent = parent.parent;
+      depth++;
+    }
+    if (!parent || parent !== this.world.stage.scene) {
+      throw new Error('[PlayerLocal] Avatar VRM scene NOT in world scene graph!');
+    }
 
-        this.avatarUrl = avatarUrl
+    this.avatarUrl = avatarUrl;
 
-        // Emit avatar ready event for camera system
-        this.world.emit(EventType.PLAYER_AVATAR_READY, {
-          playerId: this.data.id,
-          avatar: this._avatar,
-          camHeight: this.camHeight,
-        })
-        // Ensure avatar starts at ground height (0) if terrain height is unavailable
-        if (this._avatar && (this._avatar as AvatarNode).position && isFinite((this._avatar as AvatarNode).position.y)) {
-          if ((this._avatar as AvatarNode).position.y < 0) (this._avatar as AvatarNode).position.y = 0
-        }
-        
-        // Ensure a default idle animation is playing
-        // Note: The emote property on the avatar will be handled by the Avatar node itself
-        // No need to manually call setEmote here
+    // Emit avatar ready event for camera system
+    this.world.emit(EventType.PLAYER_AVATAR_READY, {
+      playerId: this.data.id,
+      avatar: this._avatar,
+      camHeight: this.camHeight,
+    });
+    
+    // Ensure avatar starts at ground height (0) if terrain height is unavailable
+    if ((this._avatar as AvatarNode).position.y < 0) {
+      (this._avatar as AvatarNode).position.y = 0;
+    }
 
-        // Emit camera follow event using core camera system
-        const cameraSystem = getCameraSystem(this.world)
-        if (cameraSystem) {
-          this.world.emit(EventType.CAMERA_FOLLOW_PLAYER, {
-            playerId: this.data.id,
-            entity: this,
-            camHeight: this.camHeight,
-          })
-          // Also set as camera target for immediate orbit control readiness
-          this.world.emit(EventType.CAMERA_SET_TARGET, { target: this })
-        }
+    // Emit camera follow event using core camera system
+    const _cameraSystem = getCameraSystem(this.world);
+    this.world.emit(EventType.CAMERA_FOLLOW_PLAYER, {
+      playerId: this.data.id,
+      entity: this,
+      camHeight: this.camHeight,
+    });
+    // Also set as camera target for immediate orbit control readiness
+    this.world.emit(EventType.CAMERA_SET_TARGET, { target: this });
 
-        // In applyAvatar, after successful load:
-        this.world.emit(EventType.AVATAR_LOAD_COMPLETE, { playerId: this.id, success: true });
-      })
-      .catch((err: Error) => {
-        console.error('[PlayerLocal] Failed to load avatar:', err)
-        // On failure (in catch block):
-        this.world.emit(EventType.AVATAR_LOAD_COMPLETE, { playerId: this.id, success: false });
-      })
-      .finally(() => {
-        this.loadingAvatarUrl = undefined
-      })
+    // Emit success
+    this.world.emit(EventType.AVATAR_LOAD_COMPLETE, { playerId: this.id, success: true });
+    
+    this.loadingAvatarUrl = undefined;
   }
 
   async initCapsule(): Promise<void> {
@@ -1412,8 +1298,15 @@ export class PlayerLocal extends Entity implements HotReloadable {
     if (this.world.controls) {
       this.control = this.world.controls.bind({
         priority: ControlPriorities.PLAYER,
-        onTouch: (touch: unknown) => {
-          const playerTouch = touch as PlayerTouch
+        onTouch: (touch: TouchInfo) => {
+          // Convert TouchInfo to PlayerTouch for internal use
+          const playerTouch: PlayerTouch = {
+            id: touch.id,
+            x: touch.position.x,
+            y: touch.position.y,
+            pressure: 1.0,
+            position: { x: touch.position.x, y: touch.position.y }
+          };
           if (!this.stick && playerTouch.position && playerTouch.position.x < (this.control?.screen?.width || 0) / 2) {
             this.stick = {
               center: { x: playerTouch.position.x, y: playerTouch.position.y },
@@ -1424,8 +1317,14 @@ export class PlayerLocal extends Entity implements HotReloadable {
           }
           return true
         },
-        onTouchEnd: (touch: unknown) => {
-          const playerTouch = touch as PlayerTouch
+        onTouchEnd: (touch: TouchInfo) => {
+          const playerTouch: PlayerTouch = {
+            id: touch.id,
+            x: touch.position.x,
+            y: touch.position.y,
+            pressure: 1.0,
+            position: { x: touch.position.x, y: touch.position.y }
+          }
           if (this.stick?.touch === playerTouch) {
             this.stick = undefined
           }
@@ -1438,44 +1337,24 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     // Initialize camera controls
-    const cameraSystem = getSystem(this.world, 'client-camera-system')
-    if (cameraSystem) {
-      // Using unified camera system - just set ourselves as target
-            this.world.emit(EventType.CAMERA_SET_TARGET, { target: this })
-    } else {
-      // Fall back to traditional camera control
-            if (this.control?.camera) {
-        this.control.camera.write = (camera: THREE.Camera) => {
-          camera.position.copy(this.cam.position)
-          camera.quaternion.copy(this.cam.quaternion)
-        }
-        this.control.camera.position.copy(this.cam.position)
-        this.control.camera.quaternion.copy(this.cam.quaternion)
-        this.control.camera.zoom = this.cam.zoom
-      }
-    }
+    const _cameraSystem = getSystem(this.world, 'client-camera-system');
+    // Using unified camera system - set ourselves as target
+    this.world.emit(EventType.CAMERA_SET_TARGET, { target: this });
   }
 
   initCameraSystem(): void {
-    // Register with camera system if available
-    const cameraSystem = getSystem(this.world, 'client-camera-system')
-    if (cameraSystem) {
-            // The camera target expects an object with a THREE.Vector3 position; the Entity already has node.position
-      this.world.emit(EventType.CAMERA_SET_TARGET, { target: this })
-      
-      // Debug camera system state
-      // Camera system state logging removed
-    }
-    // Note: if camera system not found, retry mechanism in init() will handle it
+    // Register with camera system
+    const _cameraSystem = getSystem(this.world, 'client-camera-system');
+    
+    // The camera target expects an object with a THREE.Vector3 position; the Entity already has node.position
+    this.world.emit(EventType.CAMERA_SET_TARGET, { target: this });
 
     // Emit avatar ready event for camera height adjustment
-    if (this._avatar) {
-      this.world.emit(EventType.PLAYER_AVATAR_READY, {
-        playerId: this.data.id,
-        avatar: this._avatar,
-        camHeight: this.camHeight,
-      })
-    }
+    this.world.emit(EventType.PLAYER_AVATAR_READY, {
+      playerId: this.data.id,
+      avatar: this._avatar,
+      camHeight: this.camHeight,
+    });
   }
 
   // RuneScape-style run mode toggle (persists across movements)
@@ -1538,8 +1417,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // The node already has the authoritative position
     // Base is a child of node, so it inherits the transform
     if (this.base) {
-      this.base.updateMatrix();
-      this.base.updateMatrixWorld(true);
+      this.base!.updateMatrix();
+      this.base!.updateMatrixWorld(true);
     }
     
     // If no capsule yet, also directly sync entity position
@@ -1647,8 +1526,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
         console.warn('[PlayerLocal] Base position was not at origin, correcting...')
         this.base.position.set(0, 0, 0)
       }
-      this.base.updateMatrix()
-      this.base.updateMatrixWorld(true)
+      this.base!.updateMatrix()
+      this.base!.updateMatrixWorld(true)
     }
     
     // 7. UPDATE AVATAR INSTANCE
@@ -1679,9 +1558,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
       this.stamina = THREE.MathUtils.clamp(this.stamina - this.staminaDrainPerSecond * dt, 0, 100)
       if (this.stamina <= 0 && !this.autoRunSwitchSent) {
         // Auto-switch to walk on server when energy depletes (RS-style)
-        this.runMode = false
-        try { this.world.network.send('moveRequest', { runMode: false }) } catch {}
-        this.autoRunSwitchSent = true
+        this.runMode = false;
+        this.world.network.send('moveRequest', { runMode: false });
+        this.autoRunSwitchSent = true;
       }
     } else if (currentEmote === 'walk') {
       this.stamina = THREE.MathUtils.clamp(this.stamina + this.staminaRegenWhileWalkingPerSecond * dt, 0, 100)
@@ -1797,12 +1676,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   setSessionAvatar(avatar: string) {
-    this.data.sessionAvatar = avatar
-    this.applyAvatar().catch(err => console.error('[PlayerLocal] Failed to apply avatar:', err))
+    this.data.sessionAvatar = avatar;
+    this.applyAvatar();
     this.world.network.send('entityModified', {
       id: this.data.id as string,
       sessionAvatar: avatar,
-    })
+    });
   }
 
   chat(msg: string): void {

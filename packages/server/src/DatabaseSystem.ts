@@ -1,4 +1,8 @@
-import { SystemBase } from '@hyperscape/shared'
+import { SystemBase, type World } from '@hyperscape/shared';
+import { eq, and, sql } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type pg from 'pg';
+import * as schema from './db/schema';
 import type {
   EquipmentRow,
   EquipmentSaveItem,
@@ -7,656 +11,603 @@ import type {
   ItemRow,
   PlayerRow,
   PlayerSessionRow,
-  WorldChunkRow,
-  World
-} from '@hyperscape/shared'
-
-// PostgreSQL pool interface (compatible with node-postgres)
-type PgPool = {
-  query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>
-  end: () => Promise<void>
-}
+  WorldChunkRow
+} from './types';
 
 export class DatabaseSystem extends SystemBase {
-  private db: PgPool | null = null
-  private connectionString: string
-
-  private getDb(): PgPool {
-    if (!this.db) {
-      throw new Error('[DatabaseSystem] Database not initialized - call init() first')
-    }
-    return this.db
-  }
+  private db: NodePgDatabase<typeof schema> | null = null;
+  private pool: pg.Pool | null = null;
+  private pendingOperations: Set<Promise<unknown>> = new Set();
 
   constructor(world: World) {
     super(world, {
       name: 'database',
       dependencies: {
-        required: [], // Foundational system - no dependencies
-        optional: [], // Self-contained database layer
+        required: [],
+        optional: [],
       },
       autoCleanup: true,
-    })
-
-    // Get connection string from environment
-    this.connectionString = process.env['DATABASE_URL'] || process.env['POSTGRES_URL'] || 'postgresql://localhost:5432/hyperscape'
-  }
-
-  private async initializeDependencies(): Promise<void> {
-    const serverWorld = this.world as { isServer?: boolean }
-    if (serverWorld.isServer) {
-      // Initialize PostgreSQL connection with proper error handling
-      try {
-        const pg = await import('pg')
-        const { Pool } = pg.default || pg
-        
-        if (!this.connectionString) {
-          throw new Error('DATABASE_URL or POSTGRES_URL environment variable not set')
-        }
-        
-        console.log('[DatabaseSystem] Connecting to PostgreSQL...')
-        const pool = new Pool({
-          connectionString: this.connectionString,
-          max: 20,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 5000,
-        })
-        
-        // Test connection with timeout
-        const client = await Promise.race([
-          pool.connect(),
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('PostgreSQL connection timeout after 5s')), 5000)
-          )
-        ])
-        
-        await client.query('SELECT NOW()')
-        console.log('[DatabaseSystem] ✅ PostgreSQL connection established')
-        client.release()
-        
-        this.db = pool as unknown as PgPool
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        console.error('[DatabaseSystem] ❌ Failed to connect to PostgreSQL:', errorMessage)
-        console.error('[DatabaseSystem] Connection string:', this.connectionString.replace(/:[^:@]+@/, ':****@'))
-        console.error('[DatabaseSystem] Make sure PostgreSQL is running and accessible')
-        
-        if (errorMessage.includes('ECONNREFUSED')) {
-          console.error('[DatabaseSystem] PostgreSQL server is not running or not accessible')
-          console.error('[DatabaseSystem] Run: docker-compose up postgres OR set DATABASE_URL')
-        } else if (errorMessage.includes('authentication failed')) {
-          console.error('[DatabaseSystem] Invalid PostgreSQL credentials')
-        } else if (errorMessage.includes('database') && errorMessage.includes('does not exist')) {
-          console.error('[DatabaseSystem] Database does not exist - it will be created on first migration')
-        }
-        
-        throw new Error(`DatabaseSystem initialization failed: ${errorMessage}`)
-      }
-    } else {
-      console.warn('[DatabaseSystem] Running on client - creating mock database')
-      this.db = this.createMockDatabase()
-    }
+    });
   }
 
   async init(): Promise<void> {
-    await this.initializeDependencies()
-
-    if (!this.db) {
-      throw new Error('[DatabaseSystem] Database initialization failed')
-    }
-
-    const serverWorld = this.world as { isServer?: boolean }
-    if (serverWorld.isServer) {
-      // Run database migrations only for real database
-      await this.runMigrations()
-
-      // Seed initial data if needed
-      await this.seedInitialData()
-
-      console.log('DatabaseSystem', 'Database initialized successfully')
+    const serverWorld = this.world as { pgPool?: pg.Pool; drizzleDb?: NodePgDatabase<typeof schema> };
+    
+    if (serverWorld.drizzleDb && serverWorld.pgPool) {
+      console.log('[DatabaseSystem] Using provided Drizzle database and pool');
+      this.db = serverWorld.drizzleDb;
+      this.pool = serverWorld.pgPool;
     } else {
-      console.log('DatabaseSystem', 'Mock database initialized - skipping migrations and seeding')
+      throw new Error('[DatabaseSystem] Drizzle database not provided on world object');
     }
+
+    console.log('[DatabaseSystem] ✅ Database system initialized');
   }
 
   start(): void {
-    console.log('DatabaseSystem', 'Database system started')
+    console.log('[DatabaseSystem] Database system started');
   }
 
-  // --- Characters API (now the primary player data store) ---
-  getCharacters(_accountId: string): Array<{ id: string; name: string }> {
-    // Sync method for compatibility - in real Postgres this should be async
-    // For now, return empty array as this will be called from sync contexts
-    console.warn('[DatabaseSystem] getCharacters called synchronously - returning empty array')
-    return []
+  /**
+   * Wait for all pending database operations to complete
+   * This should be called before closing the database pool
+   */
+  async waitForPendingOperations(): Promise<void> {
+    if (this.pendingOperations.size === 0) {
+      return;
+    }
+    
+    console.log(`[DatabaseSystem] Waiting for ${this.pendingOperations.size} pending operations to complete...`);
+    
+    // Create a copy of the pending operations to avoid issues with modifications during iteration
+    const operations = Array.from(this.pendingOperations);
+    
+    // Wait for all operations to complete
+    await Promise.allSettled(operations);
+    
+    console.log('[DatabaseSystem] All pending operations completed');
   }
 
+  // --- Characters API ---
   async getCharactersAsync(accountId: string): Promise<Array<{ id: string; name: string }>> {
-    const result = await this.getDb().query(
-      'SELECT id, name FROM characters WHERE "accountId" = $1 ORDER BY "createdAt" ASC',
-      [accountId]
-    )
-    return result.rows as Array<{ id: string; name: string }>
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = await this.db
+      .select({ id: schema.characters.id, name: schema.characters.name })
+      .from(schema.characters)
+      .where(eq(schema.characters.accountId, accountId));
+    
+    return results;
   }
 
   async createCharacter(accountId: string, id: string, name: string): Promise<boolean> {
-    const now = Date.now()
-    const result = await this.getDb().query(
-      `INSERT INTO characters (
-        id, "accountId", name,
-        "combatLevel", "attackLevel", "strengthLevel", "defenseLevel", "constitutionLevel", "rangedLevel",
-        "woodcuttingLevel", "fishingLevel", "firemakingLevel", "cookingLevel",
-        "attackXp", "strengthXp", "defenseXp", "constitutionXp", "rangedXp",
-        "woodcuttingXp", "fishingXp", "firemakingXp", "cookingXp",
-        health, "maxHealth", coins,
-        "positionX", "positionY", "positionZ",
-        "createdAt", "lastLogin"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
-      ON CONFLICT (id) DO NOTHING`,
-      [
-        id, accountId, name,
-        1, 1, 1, 1, 10, 1, // combat, attack, strength, defense, constitution, ranged
-        1, 1, 1, 1, // woodcutting, fishing, firemaking, cooking
-        0, 0, 0, 1154, 0, // XP: attack, strength, defense, constitution, ranged
-        0, 0, 0, 0, // XP: woodcutting, fishing, firemaking, cooking
-        100, 100, 0, // health, maxHealth, coins
-        0, 10, 0, // positionX, positionY (safe default), positionZ
-        now, now // createdAt, lastLogin
-      ]
-    )
-    return (result.rowCount || 0) > 0
-  }
-
-  destroy(): void {
-    // Close database connection safely
-    if (this.db && 'end' in this.db) {
-      this.db.end().catch((error: Error) => {
-        console.error('[DatabaseSystem] Error closing database:', error)
-      })
-      console.log('DatabaseSystem', 'Database connection closed')
-    }
-
-    super.destroy()
-  }
-
-  private async runMigrations(): Promise<void> {
-    // Database migrations are handled by db.ts (the primary migration runner)
-    // This system only manages RPG-specific data operations
-    console.log('[DatabaseSystem] Skipping migrations - handled by db.ts')
-  }
-
-  private async seedInitialData(): Promise<void> {
-    // Items are seeded by db.ts migrations during database initialization
-    // This method is kept for future seeding needs (NPCs, starter items, etc.)
-    console.log('[DatabaseSystem] Skipping item seeding - handled by db.ts migrations')
-  }
-
-  // Player data methods with proper typing
-  getPlayer(_playerId: string): PlayerRow | null {
-    // Sync method for compatibility - logs warning and returns null
-    // Use getPlayerAsync for actual functionality
-    console.warn('[DatabaseSystem] getPlayer called synchronously - use getPlayerAsync instead')
-    return null
-  }
-
-  async getPlayerAsync(playerId: string): Promise<PlayerRow | null> {
-    const result = await this.getDb().query('SELECT * FROM characters WHERE id = $1', [playerId])
+    if (!this.db) throw new Error('Database not initialized');
     
-    if (result.rows.length === 0) {
-      return null
+    const now = Date.now();
+    
+    try {
+      await this.db.insert(schema.characters).values({
+        id,
+        accountId,
+        name,
+        createdAt: now,
+        lastLogin: now,
+      });
+      return true;
+    } catch (error) {
+      // Character already exists (unique constraint violation)
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        return false;
+      }
+      throw error;
     }
+  }
 
-    const row = result.rows[0] as Record<string, unknown>
+  // Player data methods
+  async getPlayerAsync(playerId: string): Promise<PlayerRow | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = await this.db
+      .select()
+      .from(schema.characters)
+      .where(eq(schema.characters.id, playerId))
+      .limit(1);
+    
+    if (results.length === 0) return null;
+    
+    const row = results[0];
     return {
       ...row,
-      playerId: String(row.id),
-    } as unknown as PlayerRow
-  }
-
-  savePlayer(playerId: string, data: Partial<PlayerRow>): void {
-    // Async operation - queue it
-    this.savePlayerAsync(playerId, data).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error saving player:', error)
-    })
+      playerId: row.id,
+      createdAt: row.createdAt || Date.now(),
+      lastLogin: row.lastLogin || Date.now(),
+    } as unknown as PlayerRow;
   }
 
   async savePlayerAsync(playerId: string, data: Partial<PlayerRow>): Promise<void> {
-    // Build dynamic update query
-    const fields: string[] = []
-    const values: (string | number)[] = []
-    let paramIndex = 1
-
-    Object.entries(data).forEach(([key, value]) => {
-      if (key !== 'id' && key !== 'playerId' && value !== undefined) {
-        fields.push(`"${key}" = $${paramIndex}`)
-        values.push(value)
-        paramIndex++
-      }
-    })
-
-    if (fields.length === 0) return
-
-    values.push(playerId)
-    const updateQuery = `UPDATE characters SET ${fields.join(', ')} WHERE id = $${paramIndex}`
+    if (!this.db) throw new Error('Database not initialized');
     
-    await this.getDb().query(updateQuery, values)
+    type CharacterInsert = typeof schema.characters.$inferInsert;
+    type CharacterUpdate = Partial<Omit<CharacterInsert, 'id' | 'accountId'>>;
+    
+    // Build the insert data with required fields
+    const insertData: CharacterInsert = {
+      id: playerId,
+      accountId: playerId,
+      name: data.name || `Player_${playerId.substring(0, 8)}`, // Always provide name for INSERT
+      createdAt: Date.now(),
+      lastLogin: Date.now(),
+    };
+
+    // Build the update data (ONLY fields that were actually provided in data param)
+    const updateData: CharacterUpdate = {};
+
+    // Map PlayerRow fields to schema fields - only add to insertData and updateData if provided
+    if (data.name !== undefined) {
+      updateData.name = data.name;
+    }
+    if (data.combatLevel !== undefined) {
+      insertData.combatLevel = data.combatLevel;
+      updateData.combatLevel = data.combatLevel;
+    }
+    if (data.attackLevel !== undefined) {
+      insertData.attackLevel = data.attackLevel;
+      updateData.attackLevel = data.attackLevel;
+    }
+    if (data.strengthLevel !== undefined) {
+      insertData.strengthLevel = data.strengthLevel;
+      updateData.strengthLevel = data.strengthLevel;
+    }
+    if (data.defenseLevel !== undefined) {
+      insertData.defenseLevel = data.defenseLevel;
+      updateData.defenseLevel = data.defenseLevel;
+    }
+    if (data.constitutionLevel !== undefined) {
+      insertData.constitutionLevel = data.constitutionLevel;
+      updateData.constitutionLevel = data.constitutionLevel;
+    }
+    if (data.rangedLevel !== undefined) {
+      insertData.rangedLevel = data.rangedLevel;
+      updateData.rangedLevel = data.rangedLevel;
+    }
+    if (data.health !== undefined) {
+      insertData.health = data.health;
+      updateData.health = data.health;
+    }
+    if (data.maxHealth !== undefined) {
+      insertData.maxHealth = data.maxHealth;
+      updateData.maxHealth = data.maxHealth;
+    }
+    if (data.coins !== undefined) {
+      insertData.coins = data.coins;
+      updateData.coins = data.coins;
+    }
+    if (data.positionX !== undefined) {
+      insertData.positionX = data.positionX;
+      updateData.positionX = data.positionX;
+    }
+    if (data.positionY !== undefined) {
+      insertData.positionY = data.positionY;
+      updateData.positionY = data.positionY;
+    }
+    if (data.positionZ !== undefined) {
+      insertData.positionZ = data.positionZ;
+      updateData.positionZ = data.positionZ;
+    }
+
+    // If no update data provided, skip the update clause
+    if (Object.keys(updateData).length === 0) {
+      // Just insert with DO NOTHING on conflict
+      await this.db
+        .insert(schema.characters)
+        .values(insertData)
+        .onConflictDoNothing();
+    } else {
+      // Insert and update on conflict
+      await this.db
+        .insert(schema.characters)
+        .values(insertData)
+        .onConflictDoUpdate({
+          target: schema.characters.id,
+          set: updateData,
+        });
+    }
   }
 
   // Inventory methods
-  getPlayerInventory(_playerId: string): InventoryRow[] {
-    // Sync method for compatibility - returns empty array
-    console.warn('[DatabaseSystem] getPlayerInventory called synchronously - use getPlayerInventoryAsync instead')
-    return []
-  }
-
   async getPlayerInventoryAsync(playerId: string): Promise<InventoryRow[]> {
-    const result = await this.getDb().query(
-      'SELECT * FROM inventory WHERE "playerId" = $1 ORDER BY "slotIndex"',
-      [playerId]
-    )
-
-    return result.rows.map((row: Record<string, unknown>) => ({
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = await this.db
+      .select()
+      .from(schema.inventory)
+      .where(eq(schema.inventory.playerId, playerId))
+      .orderBy(schema.inventory.slotIndex);
+    
+    return results.map(row => ({
       ...row,
-      metadata: row.metadata ? JSON.parse(row.metadata as string) : null,
-    })) as InventoryRow[]
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    })) as InventoryRow[];
   }
 
-  savePlayerInventory(playerId: string, inventory: InventorySaveItem[]): void {
-    // Async operation - queue it
-    this.savePlayerInventoryAsync(playerId, inventory).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error saving inventory:', error)
-    })
-  }
-
-  async savePlayerInventoryAsync(playerId: string, inventory: InventorySaveItem[]): Promise<void> {
-    // Clear existing inventory
-    await this.getDb().query('DELETE FROM inventory WHERE "playerId" = $1', [playerId])
-
-    // Insert new inventory items
-    for (const item of inventory) {
-      await this.getDb().query(
-        `INSERT INTO inventory ("playerId", "itemId", quantity, "slotIndex", metadata)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [
+  async savePlayerInventoryAsync(playerId: string, items: InventorySaveItem[]): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Delete existing inventory
+    await this.db.delete(schema.inventory).where(eq(schema.inventory.playerId, playerId));
+    
+    // Insert new items
+    if (items.length > 0) {
+      await this.db.insert(schema.inventory).values(
+        items.map(item => ({
           playerId,
-          item.itemId,
-          item.quantity || 1,
-          item.slotIndex || -1,
-          item.metadata ? JSON.stringify(item.metadata) : null
-        ]
-      )
+          itemId: item.itemId,
+          quantity: item.quantity,
+          slotIndex: item.slotIndex ?? -1,
+          metadata: item.metadata ? JSON.stringify(item.metadata) : null,
+        }))
+      );
     }
   }
 
   // Equipment methods
-  getPlayerEquipment(_playerId: string): EquipmentRow[] {
-    // Sync method for compatibility - returns empty array
-    console.warn('[DatabaseSystem] getPlayerEquipment called synchronously - use getPlayerEquipmentAsync instead')
-    return []
-  }
-
   async getPlayerEquipmentAsync(playerId: string): Promise<EquipmentRow[]> {
-    const result = await this.getDb().query(
-      'SELECT * FROM equipment WHERE "playerId" = $1',
-      [playerId]
-    )
-    return result.rows as EquipmentRow[]
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = await this.db
+      .select()
+      .from(schema.equipment)
+      .where(eq(schema.equipment.playerId, playerId));
+    
+    return results as EquipmentRow[];
   }
 
-  savePlayerEquipment(playerId: string, equipment: EquipmentSaveItem[]): void {
-    // Async operation - queue it
-    this.savePlayerEquipmentAsync(playerId, equipment).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error saving equipment:', error)
-    })
-  }
-
-  async savePlayerEquipmentAsync(playerId: string, equipment: EquipmentSaveItem[]): Promise<void> {
-    // Clear existing equipment
-    await this.getDb().query('DELETE FROM equipment WHERE "playerId" = $1', [playerId])
-
+  async savePlayerEquipmentAsync(playerId: string, items: EquipmentSaveItem[]): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Delete existing equipment
+    await this.db.delete(schema.equipment).where(eq(schema.equipment.playerId, playerId));
+    
     // Insert new equipment
-    for (const item of equipment) {
-      await this.getDb().query(
-        `INSERT INTO equipment ("playerId", "slotType", "itemId", quantity)
-         VALUES ($1, $2, $3, $4)`,
-        [playerId, item.slotType, item.itemId, item.quantity || 1]
-      )
+    if (items.length > 0) {
+      await this.db.insert(schema.equipment).values(
+        items.map(item => ({
+          playerId,
+          slotType: item.slotType,
+          itemId: item.itemId || null,
+          quantity: item.quantity ?? 1,
+        }))
+      );
     }
-  }
-
-  // Item methods
-  getItem(_itemId: number): ItemRow | null {
-    // Sync method for compatibility
-    console.warn('[DatabaseSystem] getItem called synchronously - use getItemAsync instead')
-    return null
-  }
-
-  async getItemAsync(itemId: number): Promise<ItemRow | null> {
-    const result = await this.getDb().query('SELECT * FROM items WHERE id = $1', [itemId])
-    return result.rows.length > 0 ? (result.rows[0] as ItemRow) : null
-  }
-
-  getAllItems(): ItemRow[] {
-    // Sync method for compatibility
-    console.warn('[DatabaseSystem] getAllItems called synchronously - use getAllItemsAsync instead')
-    return []
-  }
-
-  async getAllItemsAsync(): Promise<ItemRow[]> {
-    const result = await this.getDb().query('SELECT * FROM items ORDER BY id')
-    return result.rows as ItemRow[]
-  }
-
-  // World chunk methods
-  getWorldChunk(_chunkX: number, _chunkZ: number): WorldChunkRow | null {
-    // Sync method for compatibility
-    console.warn('[DatabaseSystem] getWorldChunk called synchronously - use getWorldChunkAsync instead')
-    return null
-  }
-
-  async getWorldChunkAsync(chunkX: number, chunkZ: number): Promise<WorldChunkRow | null> {
-    const result = await this.getDb().query(
-      'SELECT * FROM world_chunks WHERE "chunkX" = $1 AND "chunkZ" = $2',
-      [chunkX, chunkZ]
-    )
-    return result.rows.length > 0 ? (result.rows[0] as WorldChunkRow) : null
-  }
-
-  saveWorldChunk(chunkData: {
-    chunkX: number
-    chunkZ: number
-    biome?: string
-    heightData?: number[]
-    chunkSeed?: number
-    lastActiveTime?: number | Date
-    playerCount?: number
-    data?: string
-  }): void {
-    // Async operation - queue it
-    this.saveWorldChunkAsync(chunkData).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error saving world chunk:', error)
-    })
-  }
-
-  async saveWorldChunkAsync(chunkData: {
-    chunkX: number
-    chunkZ: number
-    biome?: string
-    heightData?: number[]
-    chunkSeed?: number
-    lastActiveTime?: number | Date
-    playerCount?: number
-    data?: string
-  }): Promise<void> {
-    const dataToStore = chunkData.data || JSON.stringify({
-      biome: chunkData.biome || 'grassland',
-      heightData: chunkData.heightData || [],
-      chunkSeed: chunkData.chunkSeed || 0,
-    })
-
-    await this.getDb().query(
-      `INSERT INTO world_chunks ("chunkX", "chunkZ", data, "lastActive", "playerCount", version)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT ("chunkX", "chunkZ") DO UPDATE SET
-       data = $3, "lastActive" = $4, "playerCount" = $5, version = $6`,
-      [
-        chunkData.chunkX,
-        chunkData.chunkZ,
-        dataToStore,
-        chunkData.lastActiveTime ? new Date(chunkData.lastActiveTime).getTime() : Date.now(),
-        chunkData.playerCount || 0,
-        1
-      ]
-    )
-  }
-
-  getInactiveChunks(_inactiveMinutes: number = 15): WorldChunkRow[] {
-    // Sync method for compatibility
-    console.warn('[DatabaseSystem] getInactiveChunks called synchronously - use getInactiveChunksAsync instead')
-    return []
-  }
-
-  async getInactiveChunksAsync(inactiveMinutes: number = 15): Promise<WorldChunkRow[]> {
-    const cutoffTime = Date.now() - inactiveMinutes * 60 * 1000
-    const result = await this.getDb().query(
-      'SELECT * FROM world_chunks WHERE "lastActive" < $1 AND "playerCount" = 0',
-      [cutoffTime]
-    )
-    return result.rows as WorldChunkRow[]
-  }
-
-  markChunkForReset(chunkX: number, chunkZ: number): void {
-    this.markChunkForResetAsync(chunkX, chunkZ).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error marking chunk for reset:', error)
-    })
-  }
-
-  async markChunkForResetAsync(chunkX: number, chunkZ: number): Promise<void> {
-    await this.getDb().query(
-      'UPDATE world_chunks SET "needsReset" = 1 WHERE "chunkX" = $1 AND "chunkZ" = $2',
-      [chunkX, chunkZ]
-    )
-  }
-
-  resetChunk(chunkX: number, chunkZ: number): void {
-    this.resetChunkAsync(chunkX, chunkZ).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error resetting chunk:', error)
-    })
-  }
-
-  async resetChunkAsync(chunkX: number, chunkZ: number): Promise<void> {
-    await this.getDb().query(
-      'DELETE FROM world_chunks WHERE "chunkX" = $1 AND "chunkZ" = $2',
-      [chunkX, chunkZ]
-    )
-  }
-
-  updateChunkPlayerCount(chunkX: number, chunkZ: number, playerCount: number): void {
-    this.updateChunkPlayerCountAsync(chunkX, chunkZ, playerCount).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error updating chunk player count:', error)
-    })
-  }
-
-  async updateChunkPlayerCountAsync(chunkX: number, chunkZ: number, playerCount: number): Promise<void> {
-    await this.getDb().query(
-      'UPDATE world_chunks SET "playerCount" = $1, "lastActive" = $2 WHERE "chunkX" = $3 AND "chunkZ" = $4',
-      [playerCount, Date.now(), chunkX, chunkZ]
-    )
   }
 
   // Session tracking methods
-  createPlayerSession(sessionData: Omit<PlayerSessionRow, 'id' | 'sessionId'>): string {
-    // Return a session ID immediately, but do the actual creation async
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    this.createPlayerSessionAsync(sessionData, sessionId).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error creating player session:', error)
-    })
-    return sessionId
-  }
-
   async createPlayerSessionAsync(sessionData: Omit<PlayerSessionRow, 'id' | 'sessionId'>, sessionId?: string): Promise<string> {
-    const id = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-    await this.getDb().query(
-      `INSERT INTO player_sessions (id, "playerId", "sessionStart", "sessionEnd", "playtimeMinutes", reason)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        id,
-        sessionData.playerId,
-        sessionData.sessionStart,
-        sessionData.sessionEnd,
-        sessionData.playtimeMinutes,
-        sessionData.reason
-      ]
-    )
-
-    return id
-  }
-
-  updatePlayerSession(sessionId: string, updates: Partial<PlayerSessionRow>): void {
-    this.updatePlayerSessionAsync(sessionId, updates).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error updating player session:', error)
-    })
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const id = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    await this.db.insert(schema.playerSessions).values({
+      id,
+      playerId: sessionData.playerId,
+      sessionStart: sessionData.sessionStart,
+      sessionEnd: sessionData.sessionEnd ?? null,
+      playtimeMinutes: sessionData.playtimeMinutes ?? 0,
+      reason: sessionData.reason ?? null,
+      lastActivity: sessionData.lastActivity ?? Date.now(),
+    });
+    
+    return id;
   }
 
   async updatePlayerSessionAsync(sessionId: string, updates: Partial<PlayerSessionRow>): Promise<void> {
-    const fields: string[] = []
-    const values: (string | number | null)[] = []
-    let paramIndex = 1
-
-    Object.entries(updates).forEach(([key, value]) => {
-      if (key !== 'id' && value !== undefined) {
-        fields.push(`"${key}" = $${paramIndex}`)
-        values.push(value)
-        paramIndex++
-      }
-    })
-
-    if (fields.length === 0) return
-
-    values.push(sessionId)
-    const updateQuery = `UPDATE player_sessions SET ${fields.join(', ')} WHERE id = $${paramIndex}`
-    await this.getDb().query(updateQuery, values)
-  }
-
-  getActivePlayerSessions(): PlayerSessionRow[] {
-    // Sync method for compatibility
-    console.warn('[DatabaseSystem] getActivePlayerSessions called synchronously - use getActivePlayerSessionsAsync instead')
-    return []
+    if (!this.db) throw new Error('Database not initialized');
+    
+    type SessionUpdate = Partial<typeof schema.playerSessions.$inferInsert>;
+    const updateData: SessionUpdate = {};
+    if (updates.sessionEnd !== undefined) updateData.sessionEnd = updates.sessionEnd;
+    if (updates.playtimeMinutes !== undefined) updateData.playtimeMinutes = updates.playtimeMinutes;
+    if (updates.reason !== undefined) updateData.reason = updates.reason;
+    if (updates.lastActivity !== undefined) updateData.lastActivity = updates.lastActivity;
+    
+    await this.db
+      .update(schema.playerSessions)
+      .set(updateData)
+      .where(eq(schema.playerSessions.id, sessionId));
   }
 
   async getActivePlayerSessionsAsync(): Promise<PlayerSessionRow[]> {
-    const result = await this.getDb().query('SELECT * FROM player_sessions WHERE "sessionEnd" IS NULL')
+    if (!this.db) throw new Error('Database not initialized');
     
-    return result.rows.map((row: Record<string, unknown>) => ({
-      id: row.id as string,
-      sessionId: row.id as string,
-      playerId: row.playerId as string,
-      sessionStart: row.sessionStart as number,
-      sessionEnd: row.sessionEnd as number | null,
-      playtimeMinutes: row.playtimeMinutes as number,
-      reason: row.reason as string | null,
-      lastActivity: row.lastActivity as number,
-    }))
-  }
-
-  endPlayerSession(sessionId: string, reason?: string): void {
-    this.endPlayerSessionAsync(sessionId, reason).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error ending player session:', error)
-    })
+    const results = await this.db
+      .select()
+      .from(schema.playerSessions)
+      .where(sql`${schema.playerSessions.sessionEnd} IS NULL`);
+    
+    return results.map(row => ({
+      ...row,
+      id: row.id,
+      sessionId: row.id,
+      sessionEnd: row.sessionEnd ?? null,
+      reason: row.reason ?? null,
+    })) as PlayerSessionRow[];
   }
 
   async endPlayerSessionAsync(sessionId: string, reason?: string): Promise<void> {
-    await this.getDb().query(
-      'UPDATE player_sessions SET "sessionEnd" = $1, reason = $2 WHERE id = $3',
-      [Date.now(), reason || 'normal', sessionId]
-    )
+    if (!this.db) throw new Error('Database not initialized');
+    
+    await this.db
+      .update(schema.playerSessions)
+      .set({
+        sessionEnd: Date.now(),
+        reason: reason || 'normal',
+      })
+      .where(eq(schema.playerSessions.id, sessionId));
   }
 
-  async recordChunkEntry(chunkX: number, chunkZ: number, playerId: string): Promise<number> {
-    const result = await this.getDb().query(
-      'INSERT INTO chunk_activity ("chunkX", "chunkZ", "playerId", "entryTime") VALUES ($1, $2, $3, $4) RETURNING id',
-      [chunkX, chunkZ, playerId, Date.now()]
-    )
-    return (result.rows[0] as { id: number }).id
+  // World chunk methods
+  async getWorldChunkAsync(chunkX: number, chunkZ: number): Promise<WorldChunkRow | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const results = await this.db
+      .select()
+      .from(schema.worldChunks)
+      .where(and(
+        eq(schema.worldChunks.chunkX, chunkX),
+        eq(schema.worldChunks.chunkZ, chunkZ)
+      ))
+      .limit(1);
+    
+    if (results.length === 0) return null;
+    
+    return results[0] as WorldChunkRow;
   }
 
-  recordChunkExit(activityId: number): void {
-    this.recordChunkExitAsync(activityId).catch((error: Error) => {
-      console.error('[DatabaseSystem] Error recording chunk exit:', error)
-    })
+  async saveWorldChunkAsync(chunkData: { chunkX: number; chunkZ: number; data: string }): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    await this.db
+      .insert(schema.worldChunks)
+      .values({
+        chunkX: chunkData.chunkX,
+        chunkZ: chunkData.chunkZ,
+        data: chunkData.data,
+        lastActive: Date.now(),
+      })
+      .onConflictDoUpdate({
+        target: [schema.worldChunks.chunkX, schema.worldChunks.chunkZ],
+        set: {
+          data: chunkData.data,
+          lastActive: Date.now(),
+        },
+      });
   }
 
-  async recordChunkExitAsync(activityId: number): Promise<void> {
-    await this.getDb().query(
-      'UPDATE chunk_activity SET "exitTime" = $1 WHERE id = $2',
-      [Date.now(), activityId]
-    )
+  async getWorldItemsAsync(_chunkX: number, _chunkZ: number): Promise<ItemRow[]> {
+    console.warn('[DatabaseSystem] getWorldItemsAsync not yet implemented');
+    return [];
   }
 
-  async getChunkPlayerCount(chunkX: number, chunkZ: number): Promise<number> {
-    const result = await this.getDb().query(
-      'SELECT COUNT(*) as count FROM chunk_activity WHERE "chunkX" = $1 AND "chunkZ" = $2 AND "exitTime" IS NULL',
-      [chunkX, chunkZ]
-    )
-    return (result.rows[0] as { count: number }).count
+  async saveWorldItemsAsync(_chunkX: number, _chunkZ: number, _items: ItemRow[]): Promise<void> {
+    console.warn('[DatabaseSystem] saveWorldItemsAsync not yet implemented');
   }
 
-  cleanupOldSessions(_daysOld: number = 7): number {
-    // Sync method for compatibility
-    console.warn('[DatabaseSystem] cleanupOldSessions called synchronously - use cleanupOldSessionsAsync instead')
-    return 0
+  async getInactiveChunksAsync(minutes: number): Promise<WorldChunkRow[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const cutoffTime = Date.now() - (minutes * 60 * 1000);
+    
+    const results = await this.db
+      .select()
+      .from(schema.worldChunks)
+      .where(sql`${schema.worldChunks.lastActive} < ${cutoffTime}`);
+    
+    return results as WorldChunkRow[];
   }
 
-  async cleanupOldSessionsAsync(daysOld: number = 7): Promise<number> {
-    const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000
-    const result = await this.getDb().query(
-      'DELETE FROM player_sessions WHERE "sessionEnd" < $1',
-      [cutoffTime]
-    )
-    return result.rowCount || 0
+  async updateChunkPlayerCountAsync(chunkX: number, chunkZ: number, playerCount: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    await this.db
+      .update(schema.worldChunks)
+      .set({ playerCount })
+      .where(and(
+        eq(schema.worldChunks.chunkX, chunkX),
+        eq(schema.worldChunks.chunkZ, chunkZ)
+      ));
   }
 
-  cleanupOldChunkActivity(_daysOld: number = 30): number {
-    // Sync method for compatibility
-    console.warn('[DatabaseSystem] cleanupOldChunkActivity called synchronously - use cleanupOldChunkActivityAsync instead')
-    return 0
+  async markChunkForResetAsync(chunkX: number, chunkZ: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    await this.db
+      .update(schema.worldChunks)
+      .set({ needsReset: 1 })
+      .where(and(
+        eq(schema.worldChunks.chunkX, chunkX),
+        eq(schema.worldChunks.chunkZ, chunkZ)
+      ));
   }
 
-  async cleanupOldChunkActivityAsync(daysOld: number = 30): Promise<number> {
-    const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000
-    const result = await this.getDb().query(
-      'DELETE FROM chunk_activity WHERE "entryTime" < $1',
-      [cutoffTime]
-    )
-    return result.rowCount || 0
+  async resetChunkAsync(chunkX: number, chunkZ: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Delete the chunk to allow it to regenerate
+    await this.db
+      .delete(schema.worldChunks)
+      .where(and(
+        eq(schema.worldChunks.chunkX, chunkX),
+        eq(schema.worldChunks.chunkZ, chunkZ)
+      ));
   }
 
-  getDatabaseStats(): {
-    playerCount: number
-    activeSessionCount: number
-    chunkCount: number
-    activeChunkCount: number
-    totalActivityRecords: number
-  } {
-    // Sync method for compatibility
-    console.warn('[DatabaseSystem] getDatabaseStats called synchronously - use getDatabaseStatsAsync instead')
-    return {
-      playerCount: 0,
-      activeSessionCount: 0,
-      chunkCount: 0,
-      activeChunkCount: 0,
-      totalActivityRecords: 0,
-    }
+  // Sync wrappers for backward compatibility (will log warnings)
+  getCharacters(_accountId: string): Array<{ id: string; name: string }> {
+    console.warn('[DatabaseSystem] getCharacters called synchronously - use getCharactersAsync instead');
+    return [];
   }
 
-  async getDatabaseStatsAsync(): Promise<{
-    playerCount: number
-    activeSessionCount: number
-    chunkCount: number
-    activeChunkCount: number
-    totalActivityRecords: number
-  }> {
-    const playerCountResult = await this.getDb().query('SELECT COUNT(*) as count FROM players')
-    const activeSessionCountResult = await this.getDb().query('SELECT COUNT(*) as count FROM player_sessions WHERE "sessionEnd" IS NULL')
-    const chunkCountResult = await this.getDb().query('SELECT COUNT(*) as count FROM world_chunks')
-    const activeChunkCountResult = await this.getDb().query('SELECT COUNT(*) as count FROM world_chunks WHERE "playerCount" > 0')
-    const activityRecordsResult = await this.getDb().query('SELECT COUNT(*) as count FROM chunk_activity')
-
-    return {
-      playerCount: (playerCountResult.rows[0] as { count: number }).count,
-      activeSessionCount: (activeSessionCountResult.rows[0] as { count: number }).count,
-      chunkCount: (chunkCountResult.rows[0] as { count: number }).count,
-      activeChunkCount: (activeChunkCountResult.rows[0] as { count: number }).count,
-      totalActivityRecords: (activityRecordsResult.rows[0] as { count: number }).count,
-    }
+  getPlayer(_playerId: string): PlayerRow | null {
+    console.warn('[DatabaseSystem] getPlayer called synchronously - use getPlayerAsync instead');
+    return null;
   }
 
-  private createMockDatabase(): PgPool {
-    // Simple mock database for client-side testing
-    return {
-      query: async () => ({ rows: [], rowCount: 0 }),
-      end: async () => {},
-    } as PgPool
+  savePlayer(playerId: string, data: Partial<PlayerRow>): void {
+    const operation = this.savePlayerAsync(playerId, data)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in savePlayer:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  getPlayerInventory(_playerId: string): InventoryRow[] {
+    console.warn('[DatabaseSystem] getPlayerInventory called synchronously - use getPlayerInventoryAsync instead');
+    return [];
+  }
+
+  savePlayerInventory(playerId: string, items: InventorySaveItem[]): void {
+    const operation = this.savePlayerInventoryAsync(playerId, items)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in savePlayerInventory:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  getPlayerEquipment(_playerId: string): EquipmentRow[] {
+    console.warn('[DatabaseSystem] getPlayerEquipment called synchronously - use getPlayerEquipmentAsync instead');
+    return [];
+  }
+
+  savePlayerEquipment(playerId: string, items: EquipmentSaveItem[]): void {
+    const operation = this.savePlayerEquipmentAsync(playerId, items)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in savePlayerEquipment:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  createPlayerSession(sessionData: Omit<PlayerSessionRow, 'id' | 'sessionId'>): string {
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const operation = this.createPlayerSessionAsync(sessionData, sessionId)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in createPlayerSession:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+    return sessionId;
+  }
+
+  updatePlayerSession(sessionId: string, updates: Partial<PlayerSessionRow>): void {
+    const operation = this.updatePlayerSessionAsync(sessionId, updates)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in updatePlayerSession:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  getActivePlayerSessions(): PlayerSessionRow[] {
+    console.warn('[DatabaseSystem] getActivePlayerSessions called synchronously - use getActivePlayerSessionsAsync instead');
+    return [];
+  }
+
+  endPlayerSession(sessionId: string, reason?: string): void {
+    const operation = this.endPlayerSessionAsync(sessionId, reason)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in endPlayerSession:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  saveWorldChunk(chunkData: { chunkX: number; chunkZ: number; data: string }): void {
+    const operation = this.saveWorldChunkAsync(chunkData)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in saveWorldChunk:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  getWorldItems(_chunkX: number, _chunkZ: number): ItemRow[] {
+    console.warn('[DatabaseSystem] getWorldItems called synchronously - use getWorldItemsAsync instead');
+    return [];
+  }
+
+  saveWorldItems(chunkX: number, chunkZ: number, items: ItemRow[]): void {
+    const operation = this.saveWorldItemsAsync(chunkX, chunkZ, items)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in saveWorldItems:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  getInactiveChunks(_minutes: number): WorldChunkRow[] {
+    console.warn('[DatabaseSystem] getInactiveChunks called synchronously - use getInactiveChunksAsync instead');
+    return [];
+  }
+
+  updateChunkPlayerCount(chunkX: number, chunkZ: number, playerCount: number): void {
+    const operation = this.updateChunkPlayerCountAsync(chunkX, chunkZ, playerCount)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in updateChunkPlayerCount:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  markChunkForReset(chunkX: number, chunkZ: number): void {
+    const operation = this.markChunkForResetAsync(chunkX, chunkZ)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in markChunkForReset:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  resetChunk(chunkX: number, chunkZ: number): void {
+    const operation = this.resetChunkAsync(chunkX, chunkZ)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in resetChunk:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+  }
+
+  getWorldChunk(_x: number, _z: number): WorldChunkRow | null {
+    console.warn('[DatabaseSystem] getWorldChunk called synchronously - use getWorldChunkAsync instead');
+    return null;
+  }
+
+  destroy(): void {
+    // Pool is managed externally, don't close it here
+    this.db = null;
+    this.pool = null;
   }
 }

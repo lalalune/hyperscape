@@ -10,7 +10,6 @@ import { NPCEntity } from '../entities/NPCEntity';
 import type { MobEntityConfig, NPCEntityConfig, PlayerEntityData } from '../types/entities';
 import { EntityType, InteractionType, MobAIState, NPCType } from '../types/entities';
 import { getMobById } from '../data/mobs';
-import type { MobEntityData } from '../types/core';
 // import { ServerNetwork } from './ServerNetwork'; // ServerNetwork moved to server package
 
 // ComponentDefinition interface moved to shared types
@@ -149,7 +148,8 @@ export class Entities extends SystemBase implements IEntities {
       const mobData = getMobById(derivedMobType);
       
       // Use model path from manifest data, or null if not found (will use fallback mesh)
-      const modelPath = (mobData && typeof mobData.modelPath === 'string' && mobData.modelPath.length > 0)
+      // Strong type assumption - mobData.modelPath is string if mobData exists
+      const modelPath = (mobData && mobData.modelPath && mobData.modelPath.length > 0)
         ? mobData.modelPath
         : null; // No fallback path - if not in manifest, use fallback mesh
       
@@ -177,7 +177,7 @@ export class Entities extends SystemBase implements IEntities {
         description: name,
         model: modelPath,
         // Minimal required MobEntity fields with sensible defaults
-        mobType: derivedMobType as unknown as import('../types/entities').MobType,
+        mobType: derivedMobType, // Mob ID from mobs.json
         level: 1,
         currentHealth: 100,
         maxHealth: 100,
@@ -206,9 +206,8 @@ export class Entities extends SystemBase implements IEntities {
       };
 
       // Construct specialized mob entity so it can load its 3D model on the client
-      // Use type cast to bypass constructor signature mismatch at compile time
-      // eslint-disable-next-line no-undef
-      const entity = new MobEntity(this.world, mobConfig as unknown as MobEntityData);
+      // MobEntityConfig is compatible with MobEntity constructor
+      const entity = new MobEntity(this.world, mobConfig);
       this.items.set(entity.id, entity);
 
       // Initialize entity if it has an init method
@@ -285,9 +284,8 @@ export class Entities extends SystemBase implements IEntities {
       };
 
       // Construct specialized NPC entity so it can load its 3D model on the client when available
-      // Use type cast to bypass constructor signature mismatch at compile time
-      // eslint-disable-next-line no-undef
-      const entity = new NPCEntity(this.world, npcConfig as unknown as NPCEntityData);
+      // NPCEntityConfig is compatible with NPCEntity constructor
+      const entity = new NPCEntity(this.world, npcConfig);
       this.items.set(entity.id, entity);
 
       // Initialize entity if it has an init method
@@ -303,9 +301,8 @@ export class Entities extends SystemBase implements IEntities {
     }
 
     // Cast data to appropriate type for player entities
-    // eslint-disable-next-line no-undef
     const entity = data.type === 'player' 
-      ? new EntityClass(this.world, data as unknown as PlayerEntityData, local)
+      ? new EntityClass(this.world, data as PlayerEntityData, local)
       : new EntityClass(this.world, data, local);
     this.items.set(entity.id, entity);
 
@@ -345,10 +342,8 @@ export class Entities extends SystemBase implements IEntities {
       this.emitTypedEvent('PLAYER_REGISTERED', { playerId: entity.id });
     }
 
-    // Initialize the entity if it has an init method
-    if (entity.init) {
-      (entity.init() as Promise<void>)?.catch(err => this.logger.error(`Entity ${entity.id} async init failed`, err));
-    }
+    // Initialize the entity
+    (entity.init() as Promise<void>);
 
     return entity;
   }
@@ -394,14 +389,7 @@ export class Entities extends SystemBase implements IEntities {
   override update(delta: number): void {
     const hotEntities = Array.from(this.hot);
     for (const entity of hotEntities) {
-      try {
-        entity.update?.(delta);
-      } catch (error) {
-        // Strong type assumption - error is Error type
-        const err = error as Error;
-        this.logger.error(`Error updating entity ${entity.id || 'unknown'}: ${err.message || String(error)}`);
-        throw error;
-      }
+      entity.update(delta);
     }
   }
 

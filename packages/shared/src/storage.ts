@@ -1,99 +1,44 @@
-// Dynamic imports for Node.js modules to avoid Vite resolution issues
+/**
+ * Browser-only storage implementation
+ * 
+ * For server-side storage, import from './storage.server.js'
+ */
 
 export class LocalStorage {
   get(key: string): unknown {
+    if (typeof localStorage === 'undefined') return null
     const data = localStorage.getItem(key)
     if (data === null) return null
     return JSON.parse(data)
   }
 
   set(key: string, value: unknown): void {
+    if (typeof localStorage === 'undefined') return
     const data = JSON.stringify(value)
     localStorage.setItem(key, data)
   }
 
   remove(key: string): void {
+    if (typeof localStorage === 'undefined') return
     localStorage.removeItem(key)
   }
 }
 
-export class NodeStorage {
-  file: string = '';
-  data: Record<string, unknown> = {};
-  private fs: typeof import('node:fs/promises') | null = null;
-  private path: {
-    join: (...paths: string[]) => string;
-    dirname: (path: string) => string;
-  } | null = null;
-  private initialized: boolean = false;
-
-  constructor() {
-    this.initialize()
-  }
-
-  private async initialize() {
-    if (this.initialized) return;
-    
-    const { promises: fs } = await import('fs');
-    const path = await import('path');
-    this.fs = fs;
-    this.path = path;
-    
-    // Use environment variable or current working directory
-    const dataDir = process.env.HYPERSCAPE_DATA_DIR || process.cwd();
-    this.file = this.path!.join(dataDir, '.hyperscape-storage.json');
-    
-    // Load existing data
-    const exists = await this.fs!.access(this.file).then(() => true).catch(() => false);
-    if (exists) {
-      const content = await this.fs!.readFile(this.file, { encoding: 'utf8' });
-      this.data = JSON.parse(content);
-    } else {
-      // Create empty file
-      this.data = {};
-      await this.save();
-    }
-    
-    this.initialized = true;
-  }
-
-  async save(): Promise<void> {
-    if (!this.initialized) {
-      await this.initialize();
-    }
-    const dir = this.path!.dirname(this.file);
-    await this.fs!.mkdir(dir, { recursive: true });
-    await this.fs!.writeFile(this.file, JSON.stringify(this.data, null, 2));
-  }
-
-  async get(key: string): Promise<unknown> {
-    if (!this.initialized) await this.initialize();
-    const value = this.data[key];
-    if (value === undefined) return null
-    return value
-  }
-
-  async set(key: string, value: unknown): Promise<void> {
-    if (!this.initialized) await this.initialize();
-    this.data[key] = value;
-    await this.save();
-  }
-
-  async remove(key: string): Promise<void> {
-    if (!this.initialized) await this.initialize();
-    delete this.data[key];
-    await this.save();
-  }
-}
+// Re-export NodeStorage type for compatibility
+// The actual implementation is in storage.server.ts
+export type { NodeStorage } from './storage.server.js';
 
 // Export based on environment
-let storage: LocalStorage | NodeStorage;
+let storage: LocalStorage;
 
+// Client-only storage - use LocalStorage in browser
 if (typeof window !== 'undefined' && window.localStorage) {
   storage = new LocalStorage();
 } else {
-  storage = new NodeStorage();
+  // For server environments, they should import NodeStorage directly from storage.server.js
+  // This fallback creates a stub that will fail if used
+  storage = new LocalStorage(); // Will throw at runtime if used outside browser
 }
 
 export { storage };
-export type Storage = LocalStorage | NodeStorage;
+export type Storage = LocalStorage;

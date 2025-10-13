@@ -23,21 +23,23 @@ import { Settings, Settings as SettingsSystem } from './systems/Settings';
 import { Stage, Stage as StageSystem } from './systems/Stage';
 import { System, SystemConstructor } from './systems/System';
 import { XR } from './systems/XR';
+import { Environment } from './systems/Environment';
 import {
   ClientAudio,
   ClientInput,
-  ClientEnvironment,
   ClientGraphics,
   ClientLoader,
-  ClientMonitor,
   ClientInterface,
-  ServerRuntime,
   HotReloadable,
   Player,
   RaycastHit,
-  ServerDB,
   WorldOptions,
 } from './types';
+import type {
+  ClientMonitor,
+  ServerDB,
+} from './types';
+import type { ServerRuntime } from './systems/ServerRuntime';
 
 // Define a common interface for network systems (both ClientNetwork and ServerNetwork)
 interface NetworkSystem extends System {
@@ -127,7 +129,7 @@ export class World extends EventEmitter {
   };
   loader?: ClientLoader;
   network!: NetworkSystem; // Will be either ClientNetwork or ServerNetwork, set by create*World functions
-  environment?: ClientEnvironment;
+  environment?: Environment;
   graphics?: ClientGraphics & {
     renderer?: {
       domElement: HTMLCanvasElement;
@@ -153,6 +155,8 @@ export class World extends EventEmitter {
   db?: ServerDB;
   server?: ServerRuntime;
   storage?: unknown; // Type not fully defined in interface
+  pgPool?: unknown; // PostgreSQL connection pool (server-only)
+  drizzleDb?: unknown; // Drizzle ORM database instance (server-only)
   
   // Client systems that might be dynamically added  
   builder?: {
@@ -180,7 +184,7 @@ export class World extends EventEmitter {
     enabled?: boolean;
   };
   
-  // Legacy property access patterns
+  // Entity property access
   entity?: {
     id?: string;
     position?: { x: number; y: number; z: number };
@@ -267,20 +271,6 @@ export class World extends EventEmitter {
   getGroundItem?(itemId: string): unknown;
   getAllGroundItems?(): unknown[];
   clearAllItems?(): unknown;
-  
-  // Test API
-  getTestCombatResults?(): unknown;
-  getAllTestResults?(): Record<string, unknown>;
-  runAllTests?(): unknown;
-  getErrorLog?(): unknown;
-  
-  // Visual Test API
-  getVisualTestReport?(): unknown;
-  getVisualEntitiesByType?(type: string): unknown[];
-  getVisualEntitiesByColor?(color: number): unknown[];
-  verifyEntityExists?(entityId: string, expectedType?: string): unknown;
-  verifyPlayerAtPosition?(playerId: string, position: Position3D, tolerance?: number): unknown;
-  getAllVisualEntities?(): unknown[];
   
   colorDetector?: {
     detectColor(x: number, y: number): { r: number; g: number; b: number; a: number };
@@ -566,17 +556,10 @@ export class World extends EventEmitter {
 
   private update(delta: number, _alpha: number): void {
     for (const item of Array.from(this.hot)) {
-      if (item.update) {
-        item.update(delta);
-      }
+      item.update(delta);
     }
     for (const system of this.systems) {
-      try {
-        system.update(delta);
-      } catch (_error) {
-        console.error(`[World] Error in system update:`, system.constructor.name, _error);
-        throw _error;
-      }
+      system.update(delta);
     }
   }
 
@@ -747,12 +730,7 @@ World.prototype.on = function on<T extends string | symbol>(
       this.__busListenerMap.set(event, mapForEvent);
     }
     const sub = this.$eventBus.subscribe(event, (evt) => {
-      try {
-        fn(evt.data);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(`Error in EventBus handler for '${event}':`, err);
-      }
+      fn(evt.data);
     });
     mapForEvent.set(fn, sub);
     return this;

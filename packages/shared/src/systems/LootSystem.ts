@@ -10,34 +10,34 @@
 
 import type { World } from '../types/index';
 import { EventType } from '../types/events';
-import { LootTable, ItemType, InventoryItem } from '../types/core';
-import { ItemRarity, EntityType, InteractionType } from '../types/entities';
-import type { HeadstoneEntityConfig } from '../types/entities';
-import { MobType, Item } from '../types/index';
+import { LootTable, InventoryItem, ItemType } from '../types/core';
+import { EntityType, InteractionType, ItemRarity } from '../types/entities';
+import type { HeadstoneEntityConfig, ItemEntityConfig } from '../types/entities';
+import { Item } from '../types/index';
 import { SystemBase } from './SystemBase';
-import type { ItemEntityConfig } from '../types/entities';
-// LootEntry unused for now
 import { items } from '../data/items';
-import type { DroppedItem, } from '../types/systems';
-import { calculateDistance, groundToTerrain } from '../utils/EntityUtils';
+import type { DroppedItem } from '../types/system-interfaces';
+import { groundToTerrain } from '../utils/EntityUtils';
 import { EntityManager } from './EntityManager';
+import { ALL_MOBS } from '../data/mobs';
 
 
 export class LootSystem extends SystemBase {
-  private lootTables = new Map<MobType, LootTable>();
+  private lootTables = new Map<string, LootTable>(); // String key = mob ID from mobs.json
   private itemDatabase = new Map<string, Item>();
   private droppedItems = new Map<string, DroppedItem>();
   private nextItemId = 1;
   
   // Loot constants per GDD
-  private readonly LOOT_DESPAWN_TIME = 300000; // 5 minutes
-  private readonly PICKUP_RANGE = 2.0; // meters
+  private readonly LOOT_DESPAWN_TIME = 120000; // 2 minutes
+  private readonly PICKUP_RANGE = 5; // meters
   private readonly MAX_DROPPED_ITEMS = 1000; // Performance limit
 
   constructor(world: World) {
     super(world, {
       name: 'loot',
       dependencies: {
+        required: [], // Self-contained loot management
         optional: ['inventory', 'entity-manager', 'ui', 'client-graphics']
       },
       autoCleanup: true
@@ -66,24 +66,10 @@ export class LootSystem extends SystemBase {
       };
       this.handleMobDeath(payload);
     });
-    // NOTE: REMOVED - LootSystem should NOT subscribe to ITEM_DROP
-    // ITEM_DROP is for player inventory drops only (handled by InventorySystem)
-    // LootSystem handles mob loot via MOB_DEATH event and emits ITEM_SPAWN
-    // this.subscribe<{ position: { x: number; y: number; z: number }; lootEntries: { itemId: string; quantity: number }[] }>(EventType.ITEM_DROP, (data) => {
-    //   const items = data.lootEntries.map((entry) => ({ itemId: entry.itemId, quantity: entry.quantity }));
-    //   this.handleLootDropRequest({ position: data.position, items });
-    // });
-    // NOTE: REMOVED - Do NOT subscribe to ITEM_PICKUP here, it conflicts with InventorySystem
-    // InventorySystem is the authoritative handler for ITEM_PICKUP
-    // LootSystem should only drop loot via ITEM_SPAWN events
-    // this.subscribe<{ playerId: string; itemId: string }>(EventType.ITEM_PICKUP, (data) => { 
-    //   this.handleLootPickup(data);
-    // });
-    this.subscribe<{ playerId: string; position: { x: number; y: number; z: number } }>(EventType.PLAYER_POSITION_UPDATED, (_event) => {
-      // Check nearby loot - need to implement this method
-
-    });
-    this.subscribe<{ playerId: string; itemId: string; quantity: number; position: { x: number; y: number; z: number } }>(EventType.ITEM_DROPPED, (data) => this.dropItem(data));
+    
+    // Subscribe to item pickup and drop events
+    this.subscribe(EventType.ITEM_PICKUP, (data) => this.handleLootPickup(data as { playerId: string; itemId: string }));
+    this.subscribe(EventType.ITEM_DROPPED, (data) => this.dropItem(data as { playerId: string; itemId: string; quantity: number; position: { x: number; y: number; z: number } }));
     
     // Start managed cleanup timer
     this.createInterval(() => {
@@ -106,141 +92,51 @@ export class LootSystem extends SystemBase {
 
   /**
    * Set up loot tables per GDD specifications
+   * Dynamically loaded from mob data JSON
    */
   private setupLootTables(): void {
-    // Level 1 Mobs - Bronze tier equipment, small coin drops
-    this.lootTables.set(MobType.GOBLIN, {
-      id: 'goblin_loot',
-      mobType: MobType.GOBLIN,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 10, chance: 1.0 } // 5-15 coins, randomized on drop
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'bronze_sword', quantity: 1, chance: 0.1 },
-        { itemId: 'bronze_helmet', quantity: 1, chance: 0.05 }
-      ],
-      rareDrops: []
-    });
-
-    this.lootTables.set(MobType.BANDIT, {
-      id: 'bandit_loot',
-      mobType: MobType.BANDIT,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 14, chance: 1.0 } // 8-20 coins, randomized on drop
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'bronze_sword', quantity: 1, chance: 0.12 },
-        { itemId: 'leather_body', quantity: 1, chance: 0.08 }
-      ],
-      rareDrops: []
-    });
-
-    this.lootTables.set(MobType.BARBARIAN, {
-      id: 'barbarian_loot',
-      mobType: MobType.BARBARIAN,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 17, chance: 1.0 } // 10-25 coins, randomized on drop
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'bronze_sword', quantity: 1, chance: 0.15 },
-        { itemId: 'studded_leather_body', quantity: 1, chance: 0.1 }
-      ],
-      rareDrops: []
-    });
-
-    // Level 2 Mobs - Steel tier equipment, more coins
-    this.lootTables.set(MobType.HOBGOBLIN, {
-      id: 'hobgoblin_loot',
-      mobType: MobType.HOBGOBLIN,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 25, chance: 1.0 } // 15-35 coins, randomized on drop
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'steel_sword', quantity: 1, chance: 0.2 },
-        { itemId: 'steel_helmet', quantity: 1, chance: 0.15 }
-      ],
-      rareDrops: []
-    });
-
-    this.lootTables.set(MobType.DARK_WARRIOR, {
-      id: 'dark_warrior_loot',
-      mobType: MobType.DARK_WARRIOR,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 45, chance: 1.0 } // Per GDD data
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'steel_sword', quantity: 1, chance: 0.25 },
-        { itemId: 'steel_shield', quantity: 1, chance: 0.20 },
-        { itemId: 'steel_body', quantity: 1, chance: 0.15 }
-      ],
-      rareDrops: []
-    });
-
-    this.lootTables.set(MobType.GUARD, {
-      id: 'guard_loot',
-      mobType: MobType.GUARD,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 30, chance: 1.0 } // 20-40 coins, randomized on drop
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'steel_sword', quantity: 1, chance: 0.25 },
-        { itemId: 'steel_shield', quantity: 1, chance: 0.18 }
-      ],
-      rareDrops: []
-    });
-
-
-
-    // Level 3 Mobs - Mithril tier equipment, substantial coins
-    this.lootTables.set(MobType.BLACK_KNIGHT, {
-      id: 'black_knight_loot',
-      mobType: MobType.BLACK_KNIGHT,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 75, chance: 1.0 } // 50-100 coins, randomized on drop
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'mithril_sword', quantity: 1, chance: 0.35 },
-        { itemId: 'mithril_helmet', quantity: 1, chance: 0.25 }
-      ],
-      rareDrops: []
-    });
-
-    this.lootTables.set(MobType.ICE_WARRIOR, {
-      id: 'ice_warrior_loot',
-      mobType: MobType.ICE_WARRIOR,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 60, chance: 1.0 } // 40-80 coins, randomized on drop
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'mithril_sword', quantity: 1, chance: 0.3 },
-        { itemId: 'mithril_shield', quantity: 1, chance: 0.28 }
-      ],
-      rareDrops: []
-    });
-
-    this.lootTables.set(MobType.DARK_RANGER, {
-      id: 'dark_ranger_loot',
-      mobType: MobType.DARK_RANGER,
-      guaranteedDrops: [
-        { itemId: 'coins', quantity: 67, chance: 1.0 }, // 45-90 coins, randomized on drop
-        { itemId: 'arrows', quantity: 17, chance: 1.0 } // 10-25 arrows, randomized on drop
-      ],
-      commonDrops: [],
-      uncommonDrops: [
-        { itemId: 'willow_bow', quantity: 1, chance: 0.25 },
-        { itemId: 'mithril_helmet', quantity: 1, chance: 0.2 }
-      ],
-      rareDrops: []
-    });
-
+    // Load loot tables from mob data
+    for (const [mobId, mobData] of Object.entries(ALL_MOBS)) {
+      if (mobData.lootTable) {
+        // Use loot table from JSON if available
+        this.lootTables.set(mobId, {
+          id: `${mobId}_loot`,
+          mobType: mobId,
+          guaranteedDrops: mobData.lootTable.guaranteedDrops,
+          commonDrops: mobData.lootTable.commonDrops,
+          uncommonDrops: mobData.lootTable.uncommonDrops,
+          rareDrops: mobData.lootTable.rareDrops
+        });
+      } else if (mobData.drops && mobData.drops.length > 0) {
+        // Fallback to legacy drops format
+        const guaranteedDrops = mobData.drops
+          .filter(drop => drop.isGuaranteed)
+          .map(drop => ({
+            itemId: drop.itemId,
+            quantity: drop.quantity,
+            chance: drop.chance
+          }));
+        
+        const otherDrops = mobData.drops
+          .filter(drop => !drop.isGuaranteed)
+          .map(drop => ({
+            itemId: drop.itemId,
+            quantity: drop.quantity,
+            chance: drop.chance
+          }));
+        
+        this.lootTables.set(mobId, {
+          id: `${mobId}_loot`,
+          mobType: mobId,
+          guaranteedDrops: guaranteedDrops,
+          commonDrops: otherDrops,
+          uncommonDrops: [],
+          rareDrops: []
+        });
+      }
+    }
+    
+    console.log(`[LootSystem] Loaded ${this.lootTables.size} loot tables from mob data`);
   }
 
   /**
@@ -248,9 +144,10 @@ export class LootSystem extends SystemBase {
    */
   private async handleMobDeath(data: { mobId: string; mobType: string; level: number; killedBy: string; position: { x: number; y: number; z: number } }): Promise<void> {
 
-    const mobTypeEnum = data.mobType as MobType;
-    const lootTable = this.lootTables.get(mobTypeEnum);
+    const mobType = data.mobType; // Mob ID from mobs.json
+    const lootTable = this.lootTables.get(mobType);
     if (!lootTable) {
+      console.warn(`[LootSystem] No loot table found for mob type: ${mobType}`);
       return;
     }
 
@@ -338,7 +235,7 @@ export class LootSystem extends SystemBase {
     // Emit loot dropped event
     this.emitTypedEvent(EventType.LOOT_DROPPED, {
       mobId: data.mobId,
-      mobType: mobTypeEnum,
+      mobType: mobType,
       items: lootItems,
       position: data.position
     });
@@ -350,13 +247,12 @@ export class LootSystem extends SystemBase {
   private async spawnDroppedItem(itemId: string, quantity: number, position: { x: number; y: number; z: number }, droppedBy?: string): Promise<void> {
     // Check item limit
     if (this.droppedItems.size >= this.MAX_DROPPED_ITEMS) {
-
       this.cleanupOldestItems(100); // Remove 100 oldest items
     }
 
     const item = this.itemDatabase.get(itemId);
     if (!item) {
-
+      console.warn(`[LootSystem] Unknown item: ${itemId}`);
       return;
     }
 
@@ -398,19 +294,17 @@ export class LootSystem extends SystemBase {
       despawnTime: now + this.LOOT_DESPAWN_TIME,
       droppedBy: droppedBy ?? 'unknown',
       droppedAt: now,
-      entityId: dropId, // Store the entity ID for removal
-      mesh: itemEntity.node || null // Associate the entity's mesh if available
+      entityId: dropId,
+      mesh: itemEntity.node || null
     };
 
     this.droppedItems.set(dropId, droppedItem);
   }
 
   /**
-   * Handle loot drop request from mob death (from MobSystem generateLoot)
+   * Handle loot drop request from mob death
    */
   private async handleLootDropRequest(data: { position: { x: number; y: number; z: number }; items: { itemId: string; quantity: number }[] }): Promise<void> {
-
-
     // Spawn each item in the loot drop
     for (let i = 0; i < data.items.length; i++) {
       const lootItem = data.items[i];
@@ -425,11 +319,7 @@ export class LootSystem extends SystemBase {
         z: data.position.z + offsetZ
       };
       
-      // Use the item ID directly since lootItems have itemId property
-      const itemId = lootItem.itemId;
-      const quantity = lootItem.quantity;
-      
-      await this.spawnDroppedItem(itemId, quantity, dropPosition, 'mob_drop');
+      await this.spawnDroppedItem(lootItem.itemId, lootItem.quantity, dropPosition, 'mob_drop');
     }
 
     // Emit loot dropped event
@@ -454,7 +344,6 @@ export class LootSystem extends SystemBase {
       return;
     }
 
-
     // Try to add item to player inventory
     const success = await this.addItemToPlayer(data.playerId, droppedItem.itemId, droppedItem.quantity);
     
@@ -471,7 +360,7 @@ export class LootSystem extends SystemBase {
       });
     } else {
       // Inventory full - show message
-              this.emitTypedEvent(EventType.UI_MESSAGE, {
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId: data.playerId,
         message: 'Your inventory is full.',
         type: 'warning'
@@ -490,45 +379,13 @@ export class LootSystem extends SystemBase {
           id: `${playerId}_${itemId}_${Date.now()}`,
           itemId: itemId,
           quantity: quantity,
-          slot: 0, // Will be handled by inventory system
+          slot: 0,
           metadata: null
         }
       });
-      // Since the event is async and doesn't have a callback mechanism in the current implementation,
-      // we'll assume success for now
+      // Assume success - inventory system will handle validation
       resolve(true);
     });
-  }
-
-  /**
-   * Check for nearby loot when player moves
-   */
-  private checkNearbyLoot(data: { entityId: string; position: { x: number; y: number; z: number } }): void {
-    // Only check for players
-    if (!data.entityId.startsWith('player_')) return;
-
-    const _playerId = data.entityId;
-    const playerPos = data.position;
-    
-    // Find nearby loot
-    const nearbyLoot: DroppedItem[] = [];
-    
-    for (const [_itemId, droppedItem] of this.droppedItems) {
-      const distance = calculateDistance(playerPos, droppedItem.position);
-      if (distance <= this.PICKUP_RANGE * 2) { // Slightly larger range for notifications
-        nearbyLoot.push(droppedItem);
-      }
-    }
-
-    // Emit nearby loot event for UI updates
-    if (nearbyLoot.length > 0) {
-      // Show message about nearby loot
-            this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId: data.entityId,
-        message: `${nearbyLoot.length} item${nearbyLoot.length > 1 ? 's' : ''} nearby`,
-        type: 'info' as const
-      });
-    }
   }
 
   /**
@@ -601,9 +458,6 @@ export class LootSystem extends SystemBase {
     }
   }
 
-  /**
-   * Utility methods
-   */
   private randomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
@@ -617,8 +471,7 @@ export class LootSystem extends SystemBase {
   }
 
   /**
-   * Force immediate cleanup of all expired loot (for testing purposes)
-   * This bypasses the normal 5-minute despawn timer
+   * Public API for testing
    */
   public forceCleanupForTesting(): void {
     for (const itemId of [...this.droppedItems.keys()]) {

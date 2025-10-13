@@ -14,6 +14,15 @@ interface AssetDetailsPanelProps {
   modelInfo?: { vertices: number, faces: number, materials: number, fileSize?: number } | null
 }
 
+// Format unknown metadata values for display
+// Note: This is acceptable runtime checking at the UI boundary for rendering arbitrary metadata
+const formatMetadataValue = (value: unknown): string => {
+  if (value === null || value === undefined) return 'N/A'
+  if (value === true) return 'Yes'
+  if (value === false) return 'No'
+  return String(value)
+}
+
 const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, onClose, modelInfo }) => {
   const [copiedId, setCopiedId] = useState(false)
   const [activeTab, setActiveTab] = useState<'info' | 'metadata' | 'actions'>('info')
@@ -250,7 +259,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
                           {key.replace(/([A-Z])/g, ' $1').trim()}
                         </p>
                         <p className="text-xs text-text-secondary font-medium">
-                          {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                          {formatMetadataValue(value)}
                         </p>
                       </div>
                     ))

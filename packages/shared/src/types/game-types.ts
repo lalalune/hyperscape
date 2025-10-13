@@ -40,14 +40,7 @@ export interface PlayerWithProxy extends Player {
   visualProxy?: THREE.Object3D
 }
 
-// Network entity interface for multiplayer
-export interface NetworkEntity {
-  id?: string
-  position?: unknown
-  rotation?: unknown
-  velocity?: unknown
-  serialize?: () => Record<string, unknown>
-}
+// NetworkEntity moved to network-types.ts to avoid duplication
 
 // AI Navigation shared types
 export interface NavigationNode {

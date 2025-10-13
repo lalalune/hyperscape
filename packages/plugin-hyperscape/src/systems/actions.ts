@@ -1,5 +1,4 @@
-import { THREE } from '@hyperscape/shared'
-import { System } from '../types/core-types'
+import { THREE, System } from '@hyperscape/shared'
 import { CONTROLS_CONFIG } from '../config/constants'
 import type { World } from '@hyperscape/shared'
 
@@ -20,12 +19,12 @@ interface ActionNode extends THREE.Object3D {
 }
 
 export class AgentActions extends System {
+  declare world: World
   private nodes: ActionNode[] = []
   private currentNode: ActionNode | null = null
 
   constructor(world: World) {
     super(world)
-    this.world = world
     this.nodes = []
   }
 

@@ -114,21 +114,13 @@ export class VoiceManager {
     })
   }
 
-  async handleUserBuffer(playerId, buffer) {
-    const state = this.userStates.get(playerId)
-    if (!state) {
-      console.error(`[VoiceManager] No state found for player ${playerId}`)
-      return
-    }
+  async handleUserBuffer(playerId: string, buffer: Buffer) {
+    const state = this.userStates.get(playerId)!
 
-    try {
-      state.buffers.push(buffer)
-      state.totalLength += buffer.length
-      state.lastActive = Date.now()
-      this.debouncedProcessTranscription(playerId)
-    } catch (error) {
-      console.error(`Error processing buffer for user ${playerId}:`, error)
-    }
+    state.buffers.push(buffer)
+    state.totalLength += buffer.length
+    state.lastActive = Date.now()
+    this.debouncedProcessTranscription(playerId as UUID)
   }
 
   async debouncedProcessTranscription(playerId: UUID) {
@@ -168,220 +160,173 @@ export class VoiceManager {
   }
 
   private async processTranscription(playerId: UUID) {
-    const state = this.userStates.get(playerId)
-    if (!state || state.buffers.length === 0) {
+    const state = this.userStates.get(playerId)!
+    if (state.buffers.length === 0) {
       return
     }
-    try {
-      const inputBuffer = Buffer.concat(state.buffers, state.totalLength)
 
-      state.buffers.length = 0 // Clear the buffers
-      state.totalLength = 0
-      // Convert Opus to WAV
-      const sampleRate = VOICE_CONFIG.SAMPLE_RATE
-      const numChannels = 1
-      const bitsPerSample = 16
-      const wavHeader = getWavHeader(
-        sampleRate,
-        numChannels,
-        bitsPerSample,
-        inputBuffer.length
-      )
-      const wavBuffer = Buffer.concat([wavHeader, inputBuffer])
-      logger.debug('Starting transcription...')
+    const inputBuffer = Buffer.concat(state.buffers, state.totalLength)
 
-      const transcriptionText = await this.runtime.useModel(
-        ModelType.TRANSCRIPTION,
-        wavBuffer
-      )
+    state.buffers.length = 0 // Clear the buffers
+    state.totalLength = 0
+    // Convert Opus to WAV
+    const sampleRate = VOICE_CONFIG.SAMPLE_RATE
+    const numChannels = 1
+    const bitsPerSample = 16
+    const wavHeader = getWavHeader(
+      sampleRate,
+      numChannels,
+      bitsPerSample,
+      inputBuffer.length
+    )
+    const wavBuffer = Buffer.concat([wavHeader, inputBuffer])
+    logger.debug('Starting transcription...')
 
-      function isValidTranscription(text: string): boolean {
-        if (!text || text.includes('[BLANK_AUDIO]')) {
-          return false
-        }
-        return true
+    const transcriptionText = await this.runtime.useModel(
+      ModelType.TRANSCRIPTION,
+      wavBuffer
+    )
+
+    function isValidTranscription(text: string): boolean {
+      if (!text || text.includes('[BLANK_AUDIO]')) {
+        return false
       }
+      return true
+    }
 
-      if (transcriptionText && isValidTranscription(transcriptionText)) {
-        state.transcriptionText += transcriptionText
-      }
+    if (isValidTranscription(transcriptionText as string)) {
+      state.transcriptionText += transcriptionText
+    }
 
-      if (state.transcriptionText.length) {
-        const finalText = state.transcriptionText
-        state.transcriptionText = ''
-        await this.handleMessage(finalText, playerId)
-      }
-    } catch (error) {
-      console.error(`Error transcribing audio for user ${playerId}:`, error)
+    if (state.transcriptionText.length) {
+      const finalText = state.transcriptionText
+      state.transcriptionText = ''
+      await this.handleMessage(finalText, playerId)
     }
   }
 
   private async handleMessage(message: string, playerId: UUID) {
-    try {
-      if (!message || message.trim() === '' || message.length < 3) {
-        return { text: '', actions: ['IGNORE'] }
-      }
-      const service = this.getService()
-      if (!service) {
-        console.error('[VoiceManager] Service not available')
-        return { text: '', actions: ['IGNORE'] }
-      }
+    if (!message || message.trim() === '' || message.length < 3) {
+      return { text: '', actions: ['IGNORE'] }
+    }
 
-      const world = service.getWorld()
-      if (!world) {
-        console.error('[VoiceManager] World not available')
-        return { text: '', actions: ['IGNORE'] }
-      }
+    const service = this.getService()!
+    const world = service.getWorld()!
+    const playerInfo = world.entities.getPlayer(playerId)!
 
-      const playerInfo = world.entities.getPlayer(playerId)
-      if (!playerInfo || !playerInfo.data) {
-        console.error(`[VoiceManager] Player info not found for ${playerId}`)
-        return { text: '', actions: ['IGNORE'] }
-      }
+    const userName = playerInfo.data.name
+    const name = userName
+    const _currentWorldId = service.currentWorldId!
+    const channelId = _currentWorldId
+    const roomId = createUniqueUuid(this.runtime, _currentWorldId)
+    const entityId = createUniqueUuid(this.runtime, playerId) as UUID
 
-      const userName = playerInfo.data.name
-      const name = userName
-      const _currentWorldId = service.currentWorldId
-      const channelId = _currentWorldId || undefined
-      const roomId = createUniqueUuid(
+    const type = ChannelType.WORLD
+
+    // Ensure connection for the sender entity
+    await this.runtime.ensureConnection({
+      entityId,
+      roomId,
+      userName,
+      name,
+      source: 'hyperscape',
+      channelId,
+      serverId: 'hyperscape',
+      type: ChannelType.WORLD,
+      worldId: _currentWorldId,
+      userId: playerId,
+    })
+
+    const memory: Memory = {
+      id: createUniqueUuid(
         this.runtime,
-        _currentWorldId || 'hyperscape-unknown-world'
-      )
-      const entityId = createUniqueUuid(this.runtime, playerId) as UUID
-
-      const type = ChannelType.WORLD
-
-      // Ensure connection for the sender entity
-      await this.runtime.ensureConnection({
-        entityId,
-        roomId,
-        userName,
-        name,
+        `${channelId}-voice-message-${Date.now()}`
+      ),
+      agentId: this.runtime.agentId,
+      entityId,
+      roomId,
+      content: {
+        text: message,
         source: 'hyperscape',
-        channelId,
-        serverId: 'hyperscape',
-        type: ChannelType.WORLD,
-        worldId:
-          _currentWorldId ||
-          (createUniqueUuid(this.runtime, 'hyperscape-world') as UUID),
-        userId: playerId,
-      })
+        name,
+        userName,
+        isVoiceMessage: true,
+        channelType: type,
+      },
+      createdAt: Date.now(),
+    }
 
-      const memory: Memory = {
+    const callback: HandlerCallback = async (
+      content: Content,
+      _files: File[] = []
+    ) => {
+      console.info(
+        `[Hyperscape Voice Chat Callback] Received response: ${JSON.stringify(content)}`
+      )
+      const responseMemory: Memory = {
         id: createUniqueUuid(
           this.runtime,
-          `${channelId}-voice-message-${Date.now()}`
+          `${memory.id}-voice-response-${Date.now()}`
         ),
+        entityId: this.runtime.agentId,
         agentId: this.runtime.agentId,
-        entityId,
-        roomId,
         content: {
-          text: message,
-          source: 'hyperscape',
-          name,
-          userName,
+          ...content,
+          name: this.runtime.character.name,
+          inReplyTo: memory.id,
           isVoiceMessage: true,
           channelType: type,
         },
+        roomId,
         createdAt: Date.now(),
       }
 
-      const callback: HandlerCallback = async (
-        content: Content,
-        _files: File[] = []
-      ) => {
-        console.info(
-          `[Hyperscape Voice Chat Callback] Received response: ${JSON.stringify(content)}`
+      await this.runtime.createMemory(responseMemory, 'messages')
+
+      if (responseMemory.content.text?.trim()) {
+        const responseStream = await this.runtime.useModel(
+          ModelType.TEXT_TO_SPEECH,
+          content.text
         )
-        try {
-          const responseMemory: Memory = {
-            id: createUniqueUuid(
-              this.runtime,
-              `${memory.id}-voice-response-${Date.now()}`
-            ),
-            entityId: this.runtime.agentId,
-            agentId: this.runtime.agentId,
-            content: {
-              ...content,
-              name: this.runtime.character.name,
-              inReplyTo: memory.id,
-              isVoiceMessage: true,
-              channelType: type,
-            },
-            roomId,
-            createdAt: Date.now(),
-          }
-
-          await this.runtime.createMemory(responseMemory, 'messages')
-
-          if (responseMemory.content.text?.trim()) {
-            const responseStream = await this.runtime.useModel(
-              ModelType.TEXT_TO_SPEECH,
-              content.text
-            )
-            if (responseStream) {
-              const audioBuffer = await convertToAudioBuffer(responseStream)
-              const emoteManager = service?.getEmoteManager()
-              const emote = (content.emote as string) || 'TALK'
-              if (emoteManager) {
-                emoteManager.playEmote(emote)
-              }
-              await this.playAudio(audioBuffer)
-            }
-          }
-
-          return [responseMemory]
-        } catch (error) {
-          console.error('Error in voice message callback:', error)
-          return []
-        }
+        const audioBuffer = await convertToAudioBuffer(responseStream)
+        const emoteManager = service.getEmoteManager()!
+        const emote = (content.emote as string) || 'TALK'
+        emoteManager.playEmote(emote)
+        await this.playAudio(audioBuffer)
       }
 
-      agentActivityLock.enter()
-      // Emit voice-specific events
-      this.runtime.emitEvent([hyperscapeEventType.VOICE_MESSAGE_RECEIVED], {
-        runtime: this.runtime,
-        message: memory,
-        callback,
-        onComplete: () => {
-          agentActivityLock.exit()
-        },
-      })
-    } catch (error) {
-      console.error('Error processing voice message:', error)
+      return [responseMemory]
     }
+
+    agentActivityLock.enter()
+    // Emit voice-specific events
+    this.runtime.emitEvent([hyperscapeEventType.VOICE_MESSAGE_RECEIVED], {
+      runtime: this.runtime,
+      message: memory,
+      callback,
+      onComplete: () => {
+        agentActivityLock.exit()
+      },
+    })
   }
 
-  async playAudio(audioBuffer) {
+  async playAudio(audioBuffer: Buffer) {
     if (this.processingVoice) {
       logger.info('[VOICE MANAER] Current voice is processing.....')
       return
     }
 
-    const service = this.getService()
-    if (!service) {
-      console.error('[VoiceManager] Service not available')
-      return
-    }
-
-    const world = service.getWorld()
-    if (!world || !world.livekit) {
-      console.error('[VoiceManager] World or LiveKit not available')
-      return
-    }
+    const service = this.getService()!
+    const world = service.getWorld()!
 
     this.processingVoice = true
 
-    try {
-      // Audio publishing requires LiveKit API integration (future enhancement)
-      console.log(
-        '[VoiceManager] Audio playback requested but not implemented yet'
-      )
-    } catch (error) {
-      logger.error(error)
-    } finally {
-      this.processingVoice = false
-    }
+    // Audio publishing requires LiveKit API integration (future enhancement)
+    console.log(
+      '[VoiceManager] Audio playback requested but not implemented yet'
+    )
+
+    this.processingVoice = false
   }
 
   private getService() {

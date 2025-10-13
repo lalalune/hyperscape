@@ -49,20 +49,6 @@ export interface FittingConfig {
   pushInteriorVertices?: boolean
 }
 
-interface FittingParameters {
-  iterations?: number
-  stepSize?: number
-  smoothingRadius?: number
-  smoothingStrength?: number
-  targetOffset?: number
-  useBodyHull?: boolean
-  deformationMethod?: 'shrinkwrap' | 'rbf' | 'cage'
-  rbfRadius?: number
-  preserveFeatures?: boolean
-  featureAngleThreshold?: number
-  preserveOpenings?: boolean
-}
-
 export class ArmorFittingService {
   private genericFittingService: MeshFittingService
   private weightTransferService: WeightTransferService
@@ -298,9 +284,9 @@ export class ArmorFittingService {
     // Calculate scale to fit armor to body with margin
     const targetSize = bodySize.clone().addScalar(margin * 2)
     
-    let scaleX = targetSize.x / armorSize.x
-    let scaleY = targetSize.y / armorSize.y
-    let scaleZ = targetSize.z / armorSize.z
+    const scaleX = targetSize.x / armorSize.x
+    const scaleY = targetSize.y / armorSize.y
+    const scaleZ = targetSize.z / armorSize.z
     
     console.log('🎯 ArmorFittingService: Scale factors - X:', scaleX.toFixed(3), 'Y:', scaleY.toFixed(3), 'Z:', scaleZ.toFixed(3))
     
@@ -715,13 +701,11 @@ export class ArmorFittingService {
     armorMesh: THREE.Mesh,
     avatarMesh: THREE.SkinnedMesh,
     options: {
-      maxBonesPerVertex?: number
       searchRadius?: number
       applyGeometryTransform?: boolean  // Whether to bake transform into geometry
     } = {}
   ): THREE.SkinnedMesh {
     const {
-      maxBonesPerVertex = 4, // Standard for most game engines
       searchRadius = 0.05, // 5cm search radius - reduced since we align meshes
       applyGeometryTransform = true // Bake transform for cleaner result
     } = options
@@ -937,12 +921,9 @@ export class ArmorFittingService {
     
     // Variables for alignment (declared here so they're in scope later)
     let alignmentOffset: THREE.Vector3
-    let originalArmorPos: THREE.Vector3
-    let originalArmorScale: THREE.Vector3
     
     // Store the fitted world position BEFORE any transformations
     const fittedWorldPosition = armorMesh.getWorldPosition(new THREE.Vector3()).clone()
-    const fittedWorldScale = armorMesh.getWorldScale(new THREE.Vector3()).clone()
     
     console.log('Storing fitted armor transform:')
     console.log('- World position:', fittedWorldPosition)
@@ -997,8 +978,8 @@ export class ArmorFittingService {
     }
     
     // Store original armor transform
-    originalArmorPos = armorMesh.position.clone()
-    originalArmorScale = armorMesh.scale.clone()
+    const originalArmorPos = armorMesh.position.clone()
+    const originalArmorScale = armorMesh.scale.clone()
     
     // Apply alignment offset
     armorMesh.position.add(alignmentOffset)
@@ -1013,9 +994,6 @@ export class ArmorFittingService {
     const skinnedGeometry = armorGeometry.clone()
     skinnedGeometry.setAttribute('skinIndex', skinIndexAttr)
     skinnedGeometry.setAttribute('skinWeight', skinWeightAttr)
-    
-    // Find the Armature for bind matrix calculation
-    const armature = avatarMesh.parent
     
     // Create SkinnedMesh - initially at origin
     const skinnedArmorMesh = new THREE.SkinnedMesh(skinnedGeometry, armorMesh.material)
@@ -1555,7 +1533,7 @@ export class ArmorFittingService {
       
       // Log final bone world positions
       console.log('Final bone world positions:')
-      newBones.forEach((bone, idx) => {
+      newBones.forEach((bone) => {
         const worldPos = new THREE.Vector3()
         bone.getWorldPosition(worldPos)
         console.log(`  ${bone.name}: world=${worldPos.toArray().map(v => v.toFixed(3))}`)
@@ -1603,9 +1581,9 @@ export class ArmorFittingService {
       })
       
       // Setup hierarchy
-      sortedIndices.forEach((oldIndex, i) => {
-        const oldBone = skeleton.bones[oldIndex]
-        const newBone = newBones[i]
+    sortedIndices.forEach((oldIndex, newIndex) => {
+      const oldBone = skeleton.bones[oldIndex]
+      const newBone = newBones[newIndex]
         
         if (oldBone.parent && oldBone.parent instanceof THREE.Bone) {
           const parentOldIndex = skeleton.bones.indexOf(oldBone.parent)
@@ -1683,7 +1661,7 @@ export class ArmorFittingService {
       
       // Add debug info for minimal export
       console.log('Export bone details (minimal method):')
-      newBones.forEach((bone, idx) => {
+      newBones.forEach((bone) => {
         console.log(`  ${bone.name}: pos=${bone.position.toArray().map(v => v.toFixed(3))}, scale=${bone.scale.toArray()}`)
       })
       
@@ -1737,33 +1715,19 @@ export class ArmorFittingService {
     // Export with specific options
     const exporter = new GLTFExporter()
     
-    try {
-      const gltf = await exporter.parseAsync(wrapperScene, {
-        binary: true,
-        embedImages: true,
-        truncateDrawRange: false,
-        forceIndices: true,
-        // Add animation options
-        animations: [],
-        // Ensure proper node export
-        onlyVisible: false
-      })
-      
-      console.log('Export complete')
-      return gltf as ArrayBuffer
-    } catch (error) {
-      console.error('GLTFExporter error:', error)
-      
-      // Log scene structure for debugging
-      console.log('Scene structure:')
-      exportScene.traverse((node) => {
-        const type = node.constructor.name
-        const parent = node.parent ? node.parent.name : 'null'
-        console.log(`  ${type} "${node.name}" (parent: ${parent})`)
-      })
-      
-      throw error
-    }
+    const gltf = await exporter.parseAsync(wrapperScene, {
+      binary: true,
+      embedImages: true,
+      truncateDrawRange: false,
+      forceIndices: true,
+      // Add animation options
+      animations: [],
+      // Ensure proper node export
+      onlyVisible: false
+    })
+    
+    console.log('Export complete')
+    return gltf as ArrayBuffer
   }
 
   /**
@@ -1956,14 +1920,10 @@ export class ArmorFittingService {
   async exportSkinnedArmorForGame(
     skinnedArmorMesh: THREE.SkinnedMesh,
     options: {
-      includeNormals?: boolean
-      includeTangents?: boolean
       boneNameMapping?: Record<string, string> // Map bone names if target environment uses different naming
     } = {}
   ): Promise<ArrayBuffer> {
     const {
-      includeNormals = true,
-      includeTangents = false,
       boneNameMapping = {}
     } = options
 

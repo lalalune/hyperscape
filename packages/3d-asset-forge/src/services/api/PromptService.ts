@@ -119,27 +119,17 @@ class PromptServiceClass {
   }
 
   async deleteGameStyle(styleId: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/prompts/game-styles/${styleId}`, {
-        method: 'DELETE',
-      })
-      return response.ok
-    } catch (error) {
-      console.error('Error deleting game style:', error)
-      return false
-    }
+    const response = await fetch(`${this.baseUrl}/prompts/game-styles/${styleId}`, {
+      method: 'DELETE',
+    })
+    return response.ok
   }
 
   async deleteAssetType(typeId: string, category: 'avatar' | 'item'): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/prompts/asset-types/${typeId}?category=${category}`, {
-        method: 'DELETE',
-      })
-      return response.ok
-    } catch (error) {
-      console.error('Error deleting asset type:', error)
-      return false
-    }
+    const response = await fetch(`${this.baseUrl}/prompts/asset-types/${typeId}?category=${category}`, {
+      method: 'DELETE',
+    })
+    return response.ok
   }
 
   async getMaterialPrompts(): Promise<MaterialPromptTemplate> {

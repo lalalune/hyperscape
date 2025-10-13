@@ -3,7 +3,8 @@ import { getSystem } from '../utils/SystemUtils';
 import { EventType } from '../types/events';
 import { GENERAL_STORES } from '../data/banks-stores';
 import { getItem } from '../data/items';
-import { getAllTreasureLocations } from '../data/treasure-locations';
+// treasure-locations removed - stub function returning typed array
+const getAllTreasureLocations = (): Array<{ position: { x: number; y: number; z: number }; difficulty: number; maxItems: number; description: string }> => [];
 import { ItemType } from '../types/index';
 import { ItemRarity, EntityType, InteractionType } from '../types/entities';
 import type { World } from '../types/index';
@@ -31,7 +32,7 @@ export class ItemSpawnerSystem extends SystemBase {
       name: 'item-spawner',
       dependencies: {
         required: ['entity-manager'], // Depends on EntityManager to spawn items
-        optional: ['world-generation', 'inventory', 'loot', 'store'] // Better with world generation and item systems
+        optional: ['inventory', 'loot', 'store'] // Better with item systems
       },
       autoCleanup: true
     });

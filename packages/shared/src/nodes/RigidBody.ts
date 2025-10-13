@@ -12,6 +12,7 @@ import type {
   PxTransform,
   PxVec3
 } from '../types/physics';
+import type { EntityData } from '../types/base-types';
 import { Node } from './Node';
 
 // Global PHYSX declaration with required methods
@@ -191,8 +192,9 @@ export class RigidBody extends Node {
       }
     }
     
-    const entity = this.ctx!.entity;
-    const playerId = entity?.isPlayer && entity.data && typeof entity.data === 'object' && entity.data !== null && 'id' in entity.data ? (entity.data.id as string) : null
+    const entity = this.ctx!.entity as { isPlayer?: boolean; data?: EntityData } | undefined;
+    // Strong type assumption - entity.data is always EntityData if entity exists
+    const playerId = entity?.isPlayer && entity.data ? entity.data.id : null
     const handleOptions = {
       onInterpolate: this._type === 'kinematic' || this._type === 'dynamic' ? this.onInterpolate : null,
       node: this,

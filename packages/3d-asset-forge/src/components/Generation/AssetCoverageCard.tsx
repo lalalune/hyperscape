@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge, Progress } from '../common'
-import { CheckCircle, AlertTriangle, Package, Download, Play, RefreshCw } from 'lucide-react'
+import { Download, Package, Play, RefreshCw } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import { cn } from '../../styles'
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Progress } from '../common'
 
 interface CoverageSummary {
   total: number
@@ -46,23 +46,17 @@ export const AssetCoverageCard: React.FC = () => {
 
   const loadCoverage = async () => {
     setIsLoading(true)
-    try {
-      const response = await fetch('/api/requirements/coverage')
-      const data = await response.json()
-      
-      if (data.success) {
-        setCoverage(data.coverage)
-      }
-    } catch (error) {
-      console.error('Failed to load coverage:', error)
-    } finally {
-      setIsLoading(false)
+    const response = await fetch('/api/requirements/coverage')
+    const data = await response.json()
+    
+    if (data.success) {
+      setCoverage(data.coverage)
     }
+    setIsLoading(false)
   }
 
   const loadQueue = async (priority: string = 'all') => {
     setIsLoading(true)
-    try {
       const params = new URLSearchParams()
       if (priority !== 'all') params.append('priority', priority)
       params.append('limit', '50')
@@ -74,15 +68,10 @@ export const AssetCoverageCard: React.FC = () => {
         setQueue(data.queue)
         setShowQueue(true)
       }
-    } catch (error) {
-      console.error('Failed to load queue:', error)
-    } finally {
-      setIsLoading(false)
-    }
+    setIsLoading(false)
   }
 
   const downloadBatchConfig = async () => {
-    try {
       const response = await fetch(`/api/requirements/batch-config?priority=${selectedPriority}&limit=20`)
       const data = await response.json()
       
@@ -96,19 +85,6 @@ export const AssetCoverageCard: React.FC = () => {
         a.click()
         URL.revokeObjectURL(url)
       }
-    } catch (error) {
-      console.error('Failed to download batch config:', error)
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical': return 'text-error'
-      case 'high': return 'text-warning'
-      case 'medium': return 'text-primary'
-      case 'low': return 'text-text-secondary'
-      default: return 'text-text-primary'
-    }
   }
 
   const getPriorityBadgeVariant = (priority: string): 'error' | 'warning' | 'primary' | 'secondary' => {

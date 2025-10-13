@@ -1,13 +1,13 @@
 import THREE from '../extras/three'
 import { SystemBase } from './SystemBase'
 import { EventType } from '../types/events'
-import { MovementConfig } from '../config/movement'
+import { MovementConfig } from '../utils/MovementUtils'
 import { buttons, codeToProp } from '../extras/buttons'
 import type { 
   World, WorldOptions, ControlEntry, ButtonEntry, 
   VectorEntry, ValueEntry, PointerEntry, ScreenEntry, TouchInfo,
-  ControlAction, ControlsBinding, XRInputSource, InputCommand,
-  PointerNode
+  ControlAction, ControlsBinding, ControlBinding, XRInputSource, InputCommand,
+  PointerNode, CustomPointerEvent
 } from '../types'
 import { InputButtons } from '../types/networking'
 
@@ -67,15 +67,22 @@ class PointerState {
     }
     
     // Handle enter/leave efficiently
+    const createEvent = (): CustomPointerEvent => ({
+      type: null,
+      _propagationStopped: false,
+      set(type: string) { this.type = type },
+      stopPropagation() { this._propagationStopped = true }
+    })
+    
     for (const node of this.activePath) {
       if (!newPath.has(node)) {
-        node.onPointerLeave?.({})
+        node.onPointerLeave?.(createEvent())
       }
     }
     
     for (const node of newPath) {
       if (!this.activePath.has(node)) {
-        node.onPointerEnter?.({})
+        node.onPointerEnter?.(createEvent())
       }
     }
     
@@ -84,7 +91,7 @@ class PointerState {
       this.propagationStopped = false
       for (const node of this.getOrderedPath(newPath)) {
         if (this.propagationStopped) break
-        node.onPointerDown?.({})
+        node.onPointerDown?.(createEvent())
         this.pressedNodes.add(node)
       }
     }
@@ -93,7 +100,7 @@ class PointerState {
       this.propagationStopped = false
       for (const node of this.pressedNodes) {
         if (this.propagationStopped) break
-        node.onPointerUp?.({})
+        node.onPointerUp?.(createEvent())
       }
       this.pressedNodes.clear()
     }
@@ -275,7 +282,7 @@ export class ClientInput extends SystemBase {
   }
   
   // Control binding API
-  bind(options: { priority?: number; onRelease?: () => void; onTouch?: (info: TouchInfo) => boolean; onTouchEnd?: (info: TouchInfo) => boolean } = {}) {
+  bind(options: { priority?: number; onRelease?: () => void; onTouch?: (info: TouchInfo) => boolean; onTouchEnd?: (info: TouchInfo) => boolean } = {}): ControlBinding {
     const entries: Record<string, ControlEntry> = {}
     const control: ControlsBinding = {
       options,
@@ -298,6 +305,12 @@ export class ClientInput extends SystemBase {
           options.onRelease?.()
         },
       },
+      release: () => {
+        const idx = this.controls.indexOf(control)
+        if (idx === -1) return
+        this.controls.splice(idx, 1)
+        options.onRelease?.()
+      },
     }
     
     // Insert at priority
@@ -313,6 +326,7 @@ export class ClientInput extends SystemBase {
     return new Proxy(control, {
       get(target, prop) {
         if (typeof prop === 'symbol') return undefined
+        if (prop === 'release') return target.release
         if (prop in target.api) return target.api[prop]
         if (prop in entries) return entries[prop]
         if (buttons.has(prop)) {
@@ -326,7 +340,7 @@ export class ClientInput extends SystemBase {
         }
         return undefined
       },
-    })
+    }) as ControlBinding
   }
   
   private buildActions() {

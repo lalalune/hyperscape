@@ -96,184 +96,95 @@ export const hyperscapeGotoEntityAction: Action = {
 
     const service = runtime.getService<HyperscapeService>(
       HyperscapeService.serviceName
-    )
-    const world = service?.getWorld() // Use the getter
-    const controls = world?.controls // Controls are typed correctly in World interface
-    const player = world?.entities?.player
+    )!
+    const world = service.getWorld()! // Use the getter
+    const controls = world.controls! // Controls are typed correctly in World interface
+    const player = world.entities.player
 
-    if (!service || !world || !controls || !callback) {
-      logger.error(
-        '[GOTO Action] Hyperscape service, world, controls, or callback not found.'
-      )
-      return {
-        text: 'Error: Cannot navigate. Hyperscape connection/controls unavailable.',
-        success: false,
-        values: { success: false, error: 'service_unavailable' },
-        data: { action: 'HYPERSCAPE_GOTO_ENTITY' },
-      }
-    }
+    const extractionState = await runtime.composeState(message)
+    const prompt = composePromptFromState({
+      state: extractionState,
+      template: navigationTargetExtractionTemplate(thoughtSnippets),
+    })
 
-    let navigationResult: any = null
-
-    try {
-      const extractionState = await runtime.composeState(message)
-      const prompt = composePromptFromState({
-        state: extractionState,
-        template: navigationTargetExtractionTemplate(thoughtSnippets),
-      })
-
-      navigationResult = await runtime.useModel(ModelType.OBJECT_LARGE, {
-        prompt,
-      })
-      logger.info(
-        '[GOTO Action] Navigation target extracted:',
-        navigationResult
-      )
-    } catch (error) {
-      logger.error(
-        '[GOTO Action] Error during navigation target extraction:',
-        error
-      )
-      const errorResponse: ActionResult = {
-        text: 'Action failed: Could not determine a navigation target.',
-        success: false,
-        values: { error: 'extraction_failed' },
-        data: {
-          action: 'HYPERSCAPE_GOTO_ENTITY',
-          thought: 'Failed to extract navigation target.',
-        },
-      }
-      await callback({
-        text: errorResponse.text,
-        actions: ['HYPERSCAPE_GOTO_ENTITY'],
-        source: 'hyperscape',
-      })
-      return errorResponse
-    }
-
-    if (
-      !navigationResult ||
-      !navigationResult.navigationType ||
-      !navigationResult.parameter
-    ) {
-      const invalidResponse = {
-        thought: 'Navigation target missing or malformed.',
-        text: 'Action failed: Invalid navigation target.',
-        metadata: { error: 'invalid_navigation_target' },
-      }
-      await callback(invalidResponse)
-      return {
-        text: invalidResponse.text,
-        success: false,
-        values: { success: false, error: 'invalid_navigation_target' },
-        data: {
-          action: 'HYPERSCAPE_GOTO_ENTITY',
-          thought: invalidResponse.thought,
-        },
-      }
-    }
+    const navigationResult = await runtime.useModel(ModelType.OBJECT_LARGE, {
+      prompt,
+    })
+    logger.info('[GOTO Action] Navigation target extracted:', navigationResult)
 
     const { navigationType, parameter } = navigationResult
 
-    try {
-      switch (navigationType) {
-        case NavigationType.ENTITY: {
-          const entityId = parameter?.entityId
-          if (!entityId) {
-            throw new Error('Missing entityId in parameter.')
-          }
+    switch (navigationType) {
+      case NavigationType.ENTITY: {
+        const entityId = parameter.entityId
 
-          logger.info(`Navigating to entity ${entityId}`)
-          await controls.followEntity(entityId)
+        logger.info(`Navigating to entity ${entityId}`)
+        await controls.followEntity(entityId)
 
-          const targetEntity = world.entities.items.get(parameter.entityId)
-          const entityName =
-            targetEntity?.data?.name ||
-            (
-              targetEntity?.data as {
-                metadata?: { hyperscape?: { name?: string } }
-              }
-            )?.metadata?.hyperscape?.name ||
-            `entity ${entityId}`
+        const targetEntity = world.entities.items.get(parameter.entityId)!
+        const entityName =
+          targetEntity.data.name ||
+          (
+            targetEntity.data as {
+              metadata?: { hyperscape?: { name?: string } }
+            }
+          )?.metadata?.hyperscape?.name ||
+          `entity ${entityId}`
 
-          const successResponse = {
-            text: `Arrived at ${entityName}.`,
-            actions: ['HYPERSCAPE_GOTO_ENTITY'],
-            source: 'hyperscape',
-          }
-          await callback(successResponse)
-
-          return {
-            text: successResponse.text,
-            success: true,
-            values: {
-              success: true,
-              navigationType: 'entity',
-              targetEntity: entityId,
-              entityName,
-            },
-            data: {
-              action: 'HYPERSCAPE_GOTO_ENTITY',
-              targetEntityId: entityId,
-            },
-          }
-          break
+        const successResponse = {
+          text: `Arrived at ${entityName}.`,
+          actions: ['HYPERSCAPE_GOTO_ENTITY'],
+          source: 'hyperscape',
         }
+        await callback!(successResponse)
 
-        case NavigationType.POSITION: {
-          const pos = parameter?.position
-          if (!pos || typeof pos.x !== 'number' || typeof pos.z !== 'number') {
-            throw new Error('Invalid position coordinates.')
-          }
-
-          logger.info(`Navigating to position (${pos.x}, ${pos.z})`)
-          await controls.goto(pos.x, pos.z)
-
-          const positionResponse = {
-            text: `Reached position (${pos.x}, ${pos.z}).`,
-            actions: ['HYPERSCAPE_GOTO_ENTITY'],
-            source: 'hyperscape',
-          }
-          await callback(positionResponse)
-
-          return {
-            text: positionResponse.text,
+        return {
+          text: successResponse.text,
+          success: true,
+          values: {
             success: true,
-            values: {
-              success: true,
-              navigationType: 'position',
-              targetPosition: pos,
-            },
-            data: {
-              action: 'HYPERSCAPE_GOTO_ENTITY',
-              targetX: pos.x,
-              targetZ: pos.z,
-            },
-          }
-          break
+            navigationType: 'entity',
+            targetEntity: entityId,
+            entityName,
+          },
+          data: {
+            action: 'HYPERSCAPE_GOTO_ENTITY',
+            targetEntityId: entityId,
+          },
         }
+      }
 
-        default:
-          throw new Error(`Unsupported navigation type: ${navigationType}`)
-      }
-    } catch (error: any) {
-      logger.error('[GOTO Action] Navigation failed:', error)
-      const navigationErrorResponse = {
-        text: `Navigation failed: ${error.message}`,
-        metadata: { error: 'navigation_error', detail: error.message },
-      }
-      await callback(navigationErrorResponse)
+      case NavigationType.POSITION: {
+        const pos = parameter.position
 
-      return {
-        text: navigationErrorResponse.text,
-        success: false,
-        values: {
-          success: false,
-          error: 'navigation_error',
-          detail: error.message,
-        },
-        data: { action: 'HYPERSCAPE_GOTO_ENTITY' },
+        logger.info(`Navigating to position (${pos.x}, ${pos.z})`)
+        await controls.goto(pos.x, pos.z)
+
+        const positionResponse = {
+          text: `Reached position (${pos.x}, ${pos.z}).`,
+          actions: ['HYPERSCAPE_GOTO_ENTITY'],
+          source: 'hyperscape',
+        }
+        await callback!(positionResponse)
+
+        return {
+          text: positionResponse.text,
+          success: true,
+          values: {
+            success: true,
+            navigationType: 'position',
+            targetPosition: pos,
+          },
+          data: {
+            action: 'HYPERSCAPE_GOTO_ENTITY',
+            targetX: pos.x,
+            targetZ: pos.z,
+          },
+        }
       }
+
+      default:
+        throw new Error(`Unsupported navigation type: ${navigationType}`)
     }
   },
   examples: [

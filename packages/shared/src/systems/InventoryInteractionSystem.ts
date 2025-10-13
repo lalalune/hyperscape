@@ -2,13 +2,16 @@
 /**
  * Inventory Interaction System
  * 
- * Handles drag-and-drop functionality for inventory management
- * and equipment slots, providing RuneScape-style inventory interactions.
+ * Handles both:
+ * - Drag-and-drop for inventory/equipment management
+ * - Item right-click context menus (Wear, Drop, Eat, Use, etc.)
+ * Provides complete RuneScape-style inventory interactions.
  */
 
 
-import { DragData, DropTarget, ItemType, Item, EquipmentSlotName } from '../types/core';
+import { DragData, DropTarget, ItemType, Item, EquipmentSlotName, ItemAction, ItemContextMenu } from '../types/core';
 import { ItemRarity } from '../types/entities';
+import { dataManager } from '../data/DataManager';
 
 // Re-export for backward compatibility
 export type { DragData, DropTarget };
@@ -56,21 +59,27 @@ function createMinimalItem(id: string, name: string, type: ItemType = ItemType.M
 }
 
 export class InventoryInteractionSystem extends SystemBase {
+  // Drag-and-drop state
   private currentDrag?: DragData;
   private dropTargets: Map<string, DropTarget> = new Map();
   private dragPreview?: HTMLElement;
   private isDragging: boolean = false;
   private playerEquipment = new Map<string, Record<string, Item>>();
+  
+  // Context menu state (merged from ItemActionSystem)
+  private contextMenus: Map<string, ItemContextMenu> = new Map();
+  private itemActions: Map<string, ItemAction[]> = new Map();
 
   constructor(world: World) {
     super(world, { 
       name: 'inventory-interaction',
       dependencies: {
         required: [],
-        optional: []
+        optional: ['inventory', 'equipment', 'ui']
       },
       autoCleanup: true
     });
+    this.registerDefaultActions();
   }
 
   async init(): Promise<void> {
@@ -96,7 +105,7 @@ export class InventoryInteractionSystem extends SystemBase {
       }
     );
 
-    // Listen for drag/drop events (typed channel)
+    // Listen for drag/drop events
     this.subscribe(EventType.UI_DRAG_DROP, (data: unknown) => this.handleDragStart(data));
     this.subscribe(EventType.UI_DRAG_DROP, (data: unknown) => this.handleDragEnd(data));
     this.subscribe(EventType.UI_DRAG_DROP, (data: unknown) => this.handleDrop(data));
@@ -107,6 +116,20 @@ export class InventoryInteractionSystem extends SystemBase {
     this.subscribe(EventType.PLAYER_UNREGISTERED, (data: { id: string }) => {
       this.playerEquipment.delete(data.id);
     });
+    
+    // Item action system events (merged from ItemActionSystem)
+    this.subscribe<{ playerId: string; itemId: string; slot: number; position: { x: number; y: number } }>(
+      EventType.ITEM_RIGHT_CLICK, 
+      (data) => this.handleItemRightClick(data)
+    );
+    this.subscribe<{ playerId: string; actionId: string; itemId: string; slot: number }>(
+      EventType.ITEM_ACTION_SELECTED,
+      (data) => this.handleActionSelected(data)
+    );
+    this.subscribe<{ playerId: string; itemId: string; position: { x: number; y: number; z: number } }>(
+      EventType.CORPSE_CLICK,
+      (data) => this.handleGroundItemClick(data)
+    );
   }
 
   start(): void {
@@ -140,19 +163,6 @@ export class InventoryInteractionSystem extends SystemBase {
       bonuses: item.bonuses || { attack: 0, defense: 0, ranged: 0, strength: 0 },
       requirements: item.requirements || { level: 1, skills: {} }
     };
-  }
-
-  /**
-   * Get full item data by ID
-   */
-  private getItemData(itemId: string): Item {
-    // This should integrate with the item system to get full data
-    // For now, return a basic item structure
-    return this.createCompleteItem({
-      id: itemId,
-      name: itemId,
-      type: ItemType.MISC
-    });
   }
 
   /**
@@ -221,6 +231,8 @@ export class InventoryInteractionSystem extends SystemBase {
   /**
    * Make a slot draggable
    */
+  private makeSlotDraggable(playerId: string, element: HTMLElement, sourceType: 'inventory', slot: number): void;
+  private makeSlotDraggable(playerId: string, element: HTMLElement, sourceType: 'equipment', slot: string): void;
   private makeSlotDraggable(playerId: string, element: HTMLElement, sourceType: 'inventory' | 'equipment', slot: number | string): void {
     element.draggable = true;
     
@@ -295,9 +307,13 @@ export class InventoryInteractionSystem extends SystemBase {
       return;
     }
 
+    // Strong type assumption - sourceType determines slot type
+    // inventory = number, equipment = string
+    const slotNumber = sourceType === 'inventory' ? slot as number : parseInt(slot as string, 10) || 0;
+    
     const dragData: DragData = {
       sourceType: sourceType,
-      sourceSlot: typeof slot === 'string' ? parseInt(slot) || 0 : slot,
+      sourceSlot: slotNumber,
       itemId: itemData.id,
       itemData: itemData,
       dragElement: event.target as HTMLElement,
@@ -329,9 +345,12 @@ export class InventoryInteractionSystem extends SystemBase {
     if (!itemData) return;
 
     const touch = event.touches[0];
+    // Strong type assumption - sourceType determines slot type
+    const slotNumber = sourceType === 'inventory' ? slot as number : parseInt(slot as string, 10) || 0;
+    
     const dragData: DragData = {
       sourceType: sourceType,
-      sourceSlot: typeof slot === 'string' ? parseInt(slot) || 0 : slot,
+      sourceSlot: slotNumber,
       itemId: itemData.id,
       itemData: itemData,
       dragElement: event.target as HTMLElement,
@@ -701,10 +720,10 @@ export class InventoryInteractionSystem extends SystemBase {
     slot: number | string
   ): Item | null {
     if (sourceType === 'inventory') {
-      // Get from inventory system synchronously
-      return this.getInventoryItem(playerId, typeof slot === 'string' ? parseInt(slot) : slot);
+      // Strong type assumption - inventory slots are numbers
+      return this.getInventoryItem(playerId, slot as number);
     } else if (sourceType === 'equipment') {
-      // Get from equipment system synchronously
+      // Strong type assumption - equipment slots are strings
       return this.getEquipmentItem(playerId, slot as string);
     }
     
@@ -817,6 +836,8 @@ export class InventoryInteractionSystem extends SystemBase {
     if (this.currentDrag && this.getCurrentPlayerId() === event.playerId) {
       this.cancelDrag();
     }
+    // Clean up context menu
+    this.closeContextMenu(event.playerId);
   }
 
   /**
@@ -858,5 +879,318 @@ export class InventoryInteractionSystem extends SystemBase {
   destroy(): void {
     this.cleanupInteractions();
     this.currentDrag = undefined;
+    this.contextMenus.clear();
+    this.itemActions.clear();
   }
+  
+  // === ITEM ACTION METHODS (merged from ItemActionSystem) ===
+  
+  /**
+   * Register default item actions for all item types
+   */
+  private registerDefaultActions(): void {
+    // Equipment actions
+    this.registerAction('equipment', {
+      id: 'wear',
+      label: 'Wear',
+      priority: 1,
+      condition: (item: Item) => this.isEquippable(item),
+      callback: (playerId: string, itemId: string, _slot: number | null) => {
+        this.emitTypedEvent(EventType.EQUIPMENT_TRY_EQUIP, {
+          playerId: playerId,
+          itemId: itemId
+        });
+      }
+    });
+
+    this.registerAction('equipment', {
+      id: 'remove',
+      label: 'Remove',
+      priority: 1,
+      condition: (item: Item, playerId: string) => this.isEquippedItem(item, playerId),
+      callback: (playerId: string, itemId: string, _slot: number | null) => {
+        const item = this.getItemData(itemId);
+        if (item) {
+          const equipSlot = this.getEquipmentSlotForItem(item);
+          if (equipSlot) {
+            this.emitTypedEvent(EventType.EQUIPMENT_UNEQUIP, {
+              playerId: playerId,
+              slot: equipSlot
+            });
+          }
+        }
+      }
+    });
+
+    // Consumption actions
+    this.registerAction('food', {
+      id: 'eat',
+      label: 'Eat',
+      priority: 1,
+      condition: (item: Item) => item.type === ItemType.CONSUMABLE,
+      callback: (playerId: string, itemId: string, slot: number | null) => {
+        this.emitTypedEvent(EventType.INVENTORY_CONSUME_ITEM, {
+          playerId: playerId,
+          itemId: itemId,
+          slot: slot
+        });
+      }
+    });
+
+    // Tool actions
+    this.registerAction('tool', {
+      id: 'use',
+      label: 'Use',
+      priority: 1,
+      condition: (item: Item) => item.type === ItemType.TOOL,
+      callback: (playerId: string, itemId: string, slot: number | null) => {
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: playerId,
+          itemId: itemId,
+          slot: slot
+        });
+      }
+    });
+
+    // Universal actions
+    this.registerAction('universal', {
+      id: 'examine',
+      label: 'Examine',
+      priority: 10,
+      condition: () => true,
+      callback: (playerId: string, itemId: string) => {
+        const item = this.getItemData(itemId);
+        if (item) {
+          const description = item.description || `A ${item.name.toLowerCase()}.`;
+          this.emitTypedEvent(EventType.UI_MESSAGE, {
+            playerId: playerId,
+            message: description,
+            type: 'info'
+          });
+        }
+      }
+    });
+
+    this.registerAction('universal', {
+      id: 'drop',
+      label: 'Drop',
+      priority: 9,
+      condition: (item: Item, playerId: string) => !this.isEquippedItem(item, playerId),
+      callback: (playerId: string, itemId: string, slot: number | null) => {
+        this.emitTypedEvent(EventType.ITEM_DROP, {
+          playerId: playerId,
+          itemId: itemId,
+          slot: slot
+        });
+      }
+    });
+
+    // Ground item actions
+    this.registerAction('ground', {
+      id: 'take',
+      label: 'Take',
+      priority: 1,
+      condition: () => true,
+      callback: (playerId: string, itemId: string) => {
+        this.emitTypedEvent(EventType.ITEM_PICKUP, {
+          playerId: playerId,
+          itemId: itemId
+        });
+      }
+    });
+  }
+
+  /**
+   * Register a new item action
+   */
+  public registerAction(category: string, action: ItemAction): void {
+    if (!this.itemActions.has(category)) {
+      this.itemActions.set(category, []);
+    }
+    
+    const actions = this.itemActions.get(category)!;
+    actions.push(action);
+    actions.sort((a, b) => a.priority - b.priority);
+  }
+
+  /**
+   * Handle right-click on inventory item
+   */
+  private handleItemRightClick(event: { playerId: string; itemId: string; slot?: number; position?: { x: number; y: number } }): void {
+    const item = this.getItemData(event.itemId);
+    if (!item) {
+      Logger.info('InventoryInteractionSystem', `Item not found: ${event.itemId}`);
+      return;
+    }
+
+    const availableActions = this.getAvailableActions(item, event.playerId);
+    
+    if (availableActions.length === 0) {
+      Logger.info('InventoryInteractionSystem', `No actions available for item: ${item.name}`);
+      return;
+    }
+
+    const contextMenu: ItemContextMenu = {
+      playerId: event.playerId,
+      itemId: event.itemId,
+      slot: event.slot || null,
+      actions: availableActions,
+      position: event.position || { x: 0, y: 0 },
+      visible: true
+    };
+
+    this.contextMenus.set(event.playerId, contextMenu);
+
+    this.emitTypedEvent(EventType.UI_OPEN_MENU, {
+      playerId: event.playerId,
+      actions: availableActions.map(action => action.label)
+    });
+  }
+
+  /**
+   * Handle ground item click
+   */
+  private handleGroundItemClick(event: { playerId: string; itemId: string; position?: { x: number; y: number } }): void {
+    let groundItem: Item | null = null;
+    this.emitTypedEvent(EventType.UI_MESSAGE, {
+      itemId: event.itemId,
+      callback: (item: Item) => { groundItem = item; }
+    });
+    if (!groundItem) {
+      Logger.info('InventoryInteractionSystem', `Ground item not found: ${event.itemId}`);
+      return;
+    }
+
+    const groundActions = this.itemActions.get('ground') || [];
+    const availableActions = groundActions.filter(action => 
+      !action.condition || action.condition(groundItem!, event.playerId)
+    );
+
+    if (availableActions.length === 0) {
+      this.emitTypedEvent(EventType.ITEM_PICKUP, {
+        playerId: event.playerId,
+        itemId: event.itemId
+      });
+      return;
+    }
+
+    const contextMenu: ItemContextMenu = {
+      playerId: event.playerId,
+      itemId: event.itemId,
+      slot: null,
+      actions: availableActions,
+      position: event.position || { x: 0, y: 0 },
+      visible: true
+    };
+
+    this.contextMenus.set(event.playerId, contextMenu);
+
+    this.emitTypedEvent(EventType.UI_OPEN_MENU, {
+      playerId: event.playerId,
+      actions: availableActions.map(action => action.label)
+    });
+  }
+
+  /**
+   * Handle action selection from context menu
+   */
+  private handleActionSelected(event: { playerId: string; actionId: string }): void {
+    const contextMenu = this.contextMenus.get(event.playerId);
+    if (!contextMenu) {
+      Logger.info('InventoryInteractionSystem', `No context menu for player: ${event.playerId}`);
+      return;
+    }
+
+    const action = contextMenu.actions.find(a => a.id === event.actionId);
+    if (!action) {
+      Logger.info('InventoryInteractionSystem', `Action not found: ${event.actionId}`);
+      return;
+    }
+
+    action.callback(contextMenu.playerId, contextMenu.itemId, contextMenu.slot);
+    this.closeContextMenu(event.playerId);
+  }
+
+  /**
+   * Close context menu for player
+   */
+  private closeContextMenu(playerId: string): void {
+    this.contextMenus.delete(playerId);
+    
+    this.emitTypedEvent(EventType.UI_MESSAGE, {
+      playerId: playerId
+    });
+  }
+
+  /**
+   * Get available actions for an item
+   */
+  private getAvailableActions(item: Item, playerId: string): ItemAction[] {
+    const availableActions: ItemAction[] = [];
+
+    const equipmentActions = this.itemActions.get('equipment') || [];
+    for (const action of equipmentActions) {
+      if (!action.condition || action.condition(item, playerId)) {
+        availableActions.push(action);
+      }
+    }
+
+    const typeActions = this.itemActions.get(item.type) || [];
+    for (const action of typeActions) {
+      if (!action.condition || action.condition(item, playerId)) {
+        availableActions.push(action);
+      }
+    }
+
+    const universalActions = this.itemActions.get('universal') || [];
+    for (const action of universalActions) {
+      if (!action.condition || action.condition(item, playerId)) {
+        availableActions.push(action);
+      }
+    }
+
+    const uniqueActions = new Map<string, ItemAction>();
+    for (const action of availableActions) {
+      if (!uniqueActions.has(action.id) || uniqueActions.get(action.id)!.priority > action.priority) {
+        uniqueActions.set(action.id, action);
+      }
+    }
+
+    return Array.from(uniqueActions.values()).sort((a, b) => a.priority - b.priority);
+  }
+
+  /**
+   * Helper methods for item actions
+   */
+  private isEquippable(item: Item): boolean {
+    return [ItemType.WEAPON, ItemType.ARMOR, ItemType.AMMUNITION].includes(item.type);
+  }
+
+  private isEquippedItem(item: Item, playerId: string): boolean {
+    let isEquipped = false;
+    this.emitTypedEvent(EventType.UI_MESSAGE, {
+      playerId: playerId,
+      itemId: item.id,
+      callback: (equipped: boolean) => { isEquipped = equipped; }
+    });
+    return isEquipped;
+  }
+
+  private getEquipmentSlotForItem(item: Item): string | null {
+    switch (item.type) {
+      case ItemType.WEAPON:
+        return 'weapon';
+      case ItemType.ARMOR:
+        return item.equipSlot || null;
+      case ItemType.AMMUNITION:
+        return 'arrows';
+      default:
+        return null;
+    }
+  }
+  
+  private getItemData(itemId: string): Item | null {
+    return dataManager.getItem(itemId);
+  }
+
 }

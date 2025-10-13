@@ -56,45 +56,26 @@ export class ModularTestFramework {
       },
     }
 
-    try {
-      // Load the content pack
-      await this.contentLoader.loadPack(pack)
-      logger.info(`[ModularTestFramework] Loaded pack: ${pack.id}`)
+    // Load the content pack
+    await this.contentLoader.loadPack(pack)
+    logger.info(`[ModularTestFramework] Loaded pack: ${pack.id}`)
 
-      // Run each test suite
-      for (const suite of testSuites) {
-        const suiteResult = await this.runTestSuite(pack, suite)
-        result.testResults.push(...suiteResult.tests)
+    // Run each test suite
+    for (const suite of testSuites) {
+      const suiteResult = await this.runTestSuite(pack, suite)
+      result.testResults.push(...suiteResult.tests)
 
-        // Update summary
-        result.summary.total += suiteResult.tests.length
-        result.summary.passed += suiteResult.tests.filter(t => t.passed).length
-        result.summary.failed += suiteResult.tests.filter(
-          t => !t.passed && !t.skipped
-        ).length
-        result.summary.skipped += suiteResult.tests.filter(
-          t => t.skipped
-        ).length
-      }
-    } catch (error) {
-      logger.error(
-        `[ModularTestFramework] Failed to test pack ${pack.id}:`,
-        error
-      )
-      result.testResults.push({
-        passed: false,
-        failures: [`Failed to load pack: ${error.message}`],
-        screenshots: [],
-        stateSnapshot: null,
-        timestamp: new Date(),
-        skipped: false,
-      })
-      result.summary.total = 1
-      result.summary.failed = 1
-    } finally {
-      // Unload the pack after testing
-      await this.contentLoader.unloadPack(pack.id)
+      // Update summary
+      result.summary.total += suiteResult.tests.length
+      result.summary.passed += suiteResult.tests.filter(t => t.passed).length
+      result.summary.failed += suiteResult.tests.filter(
+        t => !t.passed && !t.skipped
+      ).length
+      result.summary.skipped += suiteResult.tests.filter(t => t.skipped).length
     }
+
+    // Unload the pack after testing
+    await this.contentLoader.unloadPack(pack.id)
 
     // Generate report
     this.generateTestReport(result)
@@ -120,56 +101,41 @@ export class ModularTestFramework {
 
     // Run each test case
     for (const testCase of suite.tests) {
-      try {
-        // Check if test should be skipped
-        if (testCase.skip) {
-          results.push({
-            passed: false,
-            failures: [],
-            screenshots: [],
-            stateSnapshot: null,
-            timestamp: new Date(),
-            skipped: true,
-          })
-          continue
-        }
-
-        // Setup test
-        if (testCase.setup) {
-          await testCase.setup(this.runtime, this.service)
-        }
-
-        // Execute test actions
-        await testCase.execute(this.runtime, this.service)
-
-        // Perform verification
-        const testResult = await this.visualTest.runTest(
-          testCase.name,
-          testCase.verification
-        )
-
-        results.push({
-          ...testResult,
-          skipped: false,
-        })
-
-        // Teardown test
-        if (testCase.teardown) {
-          await testCase.teardown(this.runtime, this.service)
-        }
-      } catch (error) {
-        logger.error(
-          `[ModularTestFramework] Test ${testCase.name} failed:`,
-          error
-        )
+      // Check if test should be skipped
+      if (testCase.skip) {
         results.push({
           passed: false,
-          failures: [`Test error: ${error.message}`],
+          failures: [],
           screenshots: [],
           stateSnapshot: null,
           timestamp: new Date(),
-          skipped: false,
+          skipped: true,
         })
+        continue
+      }
+
+      // Setup test
+      if (testCase.setup) {
+        await testCase.setup(this.runtime, this.service)
+      }
+
+      // Execute test actions
+      await testCase.execute(this.runtime, this.service)
+
+      // Perform verification
+      const testResult = await this.visualTest.runTest(
+        testCase.name,
+        testCase.verification
+      )
+
+      results.push({
+        ...testResult,
+        skipped: false,
+      })
+
+      // Teardown test
+      if (testCase.teardown) {
+        await testCase.teardown(this.runtime, this.service)
       }
     }
 

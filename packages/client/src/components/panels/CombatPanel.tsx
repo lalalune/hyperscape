@@ -13,9 +13,7 @@ interface CombatPanelProps {
 export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   const [style, setStyle] = useState<string>('accurate')
   const [cooldown, setCooldown] = useState<number>(0)
-  const combatLevel = (typeof stats?.combatLevel === 'number')
-    ? (stats!.combatLevel as number)
-    : (stats?.skills ? PlayerMigration.calculateCombatLevel(stats.skills) : 1)
+  const combatLevel = stats?.combatLevel || (stats?.skills ? PlayerMigration.calculateCombatLevel(stats.skills) : 1)
 
   useEffect(() => {
     const id = world.entities.player?.id

@@ -4,7 +4,6 @@ import { THREE } from '@hyperscape/shared';
 import type { EntityPip, MinimapProps } from '@hyperscape/shared';
 import type { PlayerLocal } from '@hyperscape/shared';
 import type { CameraSystem } from '@hyperscape/shared';
-import { EventType } from '@hyperscape/shared';
 import { createRenderer, type UniversalRenderer } from '@hyperscape/shared';
 
 export function Minimap({ 
@@ -199,7 +198,7 @@ export function Minimap({
     const update = () => {
       // Sync run mode from PlayerLocal if available
       const pl = world.entities.player as unknown as PlayerLocal | undefined
-      if (pl && typeof pl.runMode === 'boolean') {
+      if (pl) {
         setRunMode(pl.runMode)
       }
       const pips: EntityPip[] = []
@@ -325,13 +324,9 @@ export function Minimap({
 
     let rafId: number | null = null
     const render = () => {
-      // Try WebGL rendering first if available
+      // Render WebGL if available
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        try {
-          rendererRef.current.render(sceneRef.current, cameraRef.current)
-        } catch (error) {
-          console.warn('[Minimap] WebGL render failed:', error)
-        }
+        rendererRef.current.render(sceneRef.current, cameraRef.current)
       }
       
       // Always draw 2D pips on overlay canvas
@@ -422,25 +417,24 @@ export function Minimap({
         }
 
         // Draw destination like world clicks: project world target to minimap
-        try {
-          const lastTarget = (typeof window !== 'undefined' ? (window as { __lastRaycastTarget?: { x: number; y: number; z: number; method: string } }).__lastRaycastTarget : null)
-          const target = lastTarget && Number.isFinite(lastTarget.x) && Number.isFinite(lastTarget.z)
-            ? { x: lastTarget.x, z: lastTarget.z }
-            : (lastDestinationWorld ? { x: lastDestinationWorld.x, z: lastDestinationWorld.z } : null)
-          if (target && cameraRef.current) {
-            const v = new THREE.Vector3(target.x, 0, target.z)
-            v.project(cameraRef.current)
-            const sx = (v.x * 0.5 + 0.5) * width
-            const sy = (v.y * -0.5 + 0.5) * height
-            ctx.save()
-            ctx.globalAlpha = 1
-            ctx.fillStyle = '#ff3333'
-            ctx.beginPath()
-            ctx.arc(sx, sy, 3, 0, Math.PI * 2)
-            ctx.fill()
-            ctx.restore()
-          }
-        } catch {}
+        const windowWithTarget = window as { __lastRaycastTarget?: { x: number; y: number; z: number; method: string } }
+        const lastTarget = windowWithTarget.__lastRaycastTarget
+        const target = lastTarget && Number.isFinite(lastTarget.x) && Number.isFinite(lastTarget.z)
+          ? { x: lastTarget.x, z: lastTarget.z }
+          : (lastDestinationWorld ? { x: lastDestinationWorld.x, z: lastDestinationWorld.z } : null)
+        if (target && cameraRef.current) {
+          const v = new THREE.Vector3(target.x, 0, target.z)
+          v.project(cameraRef.current)
+          const sx = (v.x * 0.5 + 0.5) * width
+          const sy = (v.y * -0.5 + 0.5) * height
+          ctx.save()
+          ctx.globalAlpha = 1
+          ctx.fillStyle = '#ff3333'
+          ctx.beginPath()
+          ctx.arc(sx, sy, 3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
       }
       rafId = requestAnimationFrame(render)
     }
@@ -484,29 +478,26 @@ export function Minimap({
       targetZ = player.position.z + dz * scale
     }
 
-    const terrainSystem = (world as { getSystem?: (name: string) => { getHeightAt?: (x: number, z: number) => number } | undefined }).getSystem?.('terrain')
+    const worldWithSystem = world as { getSystem: (name: string) => { getHeightAt: (x: number, z: number) => number } }
+    const terrainSystem = worldWithSystem.getSystem('terrain')
     let targetY = 0
-    if (terrainSystem?.getHeightAt) {
-      const h = terrainSystem.getHeightAt(targetX, targetZ)
-      targetY = (Number.isFinite(h) ? h : 0) + 0.1
-    }
+    const h = terrainSystem.getHeightAt(targetX, targetZ)
+    targetY = (Number.isFinite(h) ? h : 0) + 0.1
 
     // Send server-authoritative move request instead of local movement
-    try {
-      const currentRun = (player as { runMode?: boolean })?.runMode === true
-      ;(world as { network?: { send?: (method: string, data: unknown) => void } }).network?.send?.('moveRequest', {
-        target: [targetX, targetY, targetZ],
-        runMode: currentRun,
-        cancel: false
-      })
-    } catch {}
+    const currentRun = (player as { runMode: boolean }).runMode === true
+    const worldWithNetwork = world as { network: { send: (method: string, data: unknown) => void } }
+    worldWithNetwork.network.send('moveRequest', {
+      target: [targetX, targetY, targetZ],
+      runMode: currentRun,
+      cancel: false
+    })
 
     // Persist destination dot until arrival (no auto-fade)
     setLastDestinationWorld({ x: targetX, z: targetZ })
     // Expose same diagnostic target used by world clicks so minimap renders dot identically
-    if (typeof window !== 'undefined') {
-      (window as { __lastRaycastTarget?: { x: number; y: number; z: number; method: string } }).__lastRaycastTarget = { x: targetX, y: targetY, z: targetZ, method: 'minimap' }
-    }
+    const windowWithTarget = window as { __lastRaycastTarget: { x: number; y: number; z: number; method: string } }
+    windowWithTarget.__lastRaycastTarget = { x: targetX, y: targetY, z: targetZ, method: 'minimap' }
   }, [screenToWorldXZ, world])
 
   const onOverlayClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -577,14 +568,8 @@ export function Minimap({
             const cam = cameraRef.current
             if (cam) { cam.up.set(0, 0, -1) }
             // Reorient main camera to face North (RS3-like) using camera system directly
-            try {
-              const camSys = world.getSystem('client-camera-system') as unknown as CameraSystem | null
-              if (camSys) {
-                camSys.resetCamera()
-              } else {
-                world.emit(EventType.CAMERA_RESET)
-              }
-            } catch {}
+            const camSys = world.getSystem('client-camera-system') as unknown as CameraSystem
+            camSys.resetCamera()
           }}
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -618,18 +603,12 @@ export function Minimap({
           title={runMode ? 'Running (click to walk)' : 'Walking (click to run)'}
           onClick={(e) => {
             e.preventDefault(); e.stopPropagation();
-            const pl = ((world as { getPlayer?: () => PlayerLocal; entities?: { player: PlayerLocal } }).getPlayer?.() || (world as { entities?: { player: PlayerLocal } }).entities?.player)
-            if (!pl) return
-            if (typeof pl.toggleRunMode === 'function') {
-              pl.toggleRunMode()
-            } else {
-              ;(pl as PlayerLocal & { runMode?: boolean }).runMode = !(pl as PlayerLocal & { runMode?: boolean }).runMode
-            }
-            setRunMode((pl as PlayerLocal & { runMode?: boolean }).runMode === true)
+            const worldWithPlayer = world as { entities: { player: PlayerLocal }; network: { send: (method: string, data: { runMode: boolean }) => void } }
+            const pl = worldWithPlayer.entities.player
+            pl.toggleRunMode()
+            setRunMode(pl.runMode === true)
             // Also inform server immediately to update current path speed
-            try {
-              ;(world as { network?: { send?: (method: string, data: { runMode: boolean }) => void } }).network?.send?.('moveRequest', { runMode: (pl as PlayerLocal & { runMode?: boolean }).runMode === true })
-            } catch {}
+            worldWithPlayer.network.send('moveRequest', { runMode: pl.runMode === true })
           }}
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
           onTouchStart={(e) => { e.preventDefault(); e.stopPropagation() }}
@@ -640,8 +619,8 @@ export function Minimap({
         >
           {/* Stamina fill bar */}
           {(() => {
-            const pl = world.entities.player as unknown as PlayerLocal | undefined
-            const energy = pl && typeof pl.stamina === 'number' ? pl.stamina : 100
+            const pl = world.entities.player as unknown as PlayerLocal
+            const energy = pl.stamina
             const pct = Math.max(0, Math.min(100, energy))
             return (
               <div
@@ -660,8 +639,8 @@ export function Minimap({
             className="relative z-[1] w-full text-center text-white text-[11px] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.8)] pointer-events-none"
           >
             {(() => {
-              const pl = world.entities.player as unknown as PlayerLocal | undefined
-              const energy = pl && typeof pl.stamina === 'number' ? Math.round(pl.stamina) : 100
+              const pl = world.entities.player as unknown as PlayerLocal
+              const energy = Math.round(pl.stamina)
               return `${runMode ? '🏃' : '🚶'} ${energy}%`
             })()}
           </div>

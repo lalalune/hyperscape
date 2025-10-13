@@ -85,132 +85,126 @@ export function useArmorFitting(): ArmorFittingState & ArmorFittingActions {
   }, [])
 
   const performFitting = useCallback(async (viewerRef: React.RefObject<ArmorFittingViewerRef>) => {
-    if (!viewerRef.current || !selectedAvatar || !selectedArmor) return
+    const viewer = viewerRef.current!
     
     setIsFitting(true)
     setFittingProgress(0)
     
-    try {
-      // Phase 1: Bounding box fit
-      setFittingProgress(25)
-      console.log('🎯 ArmorFittingLab: Phase 1 - Bounding box fit to position armor at torso')
-      viewerRef.current.performFitting({
-        iterations: 0,
-        stepSize: 0,
-        targetOffset: 0,
+    // Phase 1: Bounding box fit
+    setFittingProgress(25)
+    console.log('🎯 ArmorFittingLab: Phase 1 - Bounding box fit to position armor at torso')
+    viewer.performFitting({
+      iterations: 0,
+      stepSize: 0,
+      targetOffset: 0,
+      sampleRate: 1,
+      smoothingStrength: 0,
+      smoothingRadius: 1,
+      preserveFeatures: true,
+      useImprovedShrinkwrap: false,
+      preserveOpenings: true,
+      pushInteriorVertices: false
+    })
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Phase 2: Method-specific fitting
+    if (fittingConfig.method === 'hull') {
+      // Hull-based fitting
+      setFittingProgress(50)
+      const hullParams = {
+        targetOffset: fittingConfig.hullTargetOffset || 0.02,
+        iterations: fittingConfig.hullIterations || 5,
+        stepSize: fittingConfig.hullStepSize || 0.5,
+        smoothInfluence: fittingConfig.hullSmoothInfluence || 5,
+        smoothStrength: 0.7,
+        maxDisplacement: fittingConfig.hullMaxDisplacement || 0.05,
+        preserveVolume: false,
+        maintainPosition: true
+      }
+      console.log('🎯 ArmorFittingLab: Starting hull-based fit with params:', hullParams)
+      await viewer.performFitting({
+        iterations: hullParams.iterations,
+        stepSize: hullParams.stepSize,
+        targetOffset: hullParams.targetOffset,
         sampleRate: 1,
-        smoothingStrength: 0,
-        smoothingRadius: 1,
+        smoothingStrength: hullParams.smoothStrength ?? 0.7,
+        smoothingRadius: hullParams.smoothInfluence ?? 5,
+        preserveFeatures: true,
+        useImprovedShrinkwrap: true,
+        preserveOpenings: true,
+        pushInteriorVertices: true
+      })
+      setFittingProgress(75)
+    } else if (fittingConfig.method === 'collision' || fittingConfig.method === 'smooth') {
+      // Original collision-based methods
+      setFittingProgress(50)
+      for (let i = 0; i < (fittingConfig.collisionIterations || 3); i++) {
+        viewer.performFitting({
+          iterations: 1,
+          stepSize: 0.2,
+          targetOffset: 0.01,
+          sampleRate: 1,
+          smoothingStrength: 0.0,
+          smoothingRadius: 1,
+          preserveFeatures: true,
+          useImprovedShrinkwrap: false,
+          preserveOpenings: true,
+          pushInteriorVertices: true
+        })
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+      
+      // Final smoothing pass
+      console.log('🎯 ArmorFittingLab: Applying final smoothing pass')
+      viewer.performFitting({
+        iterations: 1,
+        stepSize: 0.0,
+        targetOffset: 0.0,
+        sampleRate: 1,
+        smoothingStrength: 0.2,
+        smoothingRadius: 3,
         preserveFeatures: true,
         useImprovedShrinkwrap: false,
         preserveOpenings: true,
         pushInteriorVertices: false
       })
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Phase 2: Method-specific fitting
-      if (fittingConfig.method === 'hull') {
-        // Hull-based fitting
-        setFittingProgress(50)
-        const hullParams = {
-          targetOffset: fittingConfig.hullTargetOffset || 0.02,
-          iterations: fittingConfig.hullIterations || 5,
-          stepSize: fittingConfig.hullStepSize || 0.5,
-          smoothInfluence: fittingConfig.hullSmoothInfluence || 5,
-          smoothStrength: 0.7,
-          maxDisplacement: fittingConfig.hullMaxDisplacement || 0.05,
-          preserveVolume: false,
-          maintainPosition: true
-        }
-        console.log('🎯 ArmorFittingLab: Starting hull-based fit with params:', hullParams)
-        await viewerRef.current.performFitting({
-          iterations: hullParams.iterations,
-          stepSize: hullParams.stepSize,
-          targetOffset: hullParams.targetOffset,
-          sampleRate: 1,
-          smoothingStrength: hullParams.smoothStrength ?? 0.7,
-          smoothingRadius: hullParams.smoothInfluence ?? 5,
-          preserveFeatures: true,
-          useImprovedShrinkwrap: true,
-          preserveOpenings: true,
-          pushInteriorVertices: true
-        })
-        setFittingProgress(75)
-      } else if (fittingConfig.method === 'collision' || fittingConfig.method === 'smooth') {
-        // Original collision-based methods
-        setFittingProgress(50)
-        for (let i = 0; i < (fittingConfig.collisionIterations || 3); i++) {
-          viewerRef.current.performFitting({
-            iterations: 1,
-            stepSize: 0.2,
-            targetOffset: 0.01,
-            sampleRate: 1,
-            smoothingStrength: 0.0,
-            smoothingRadius: 1,
-            preserveFeatures: true,
-            useImprovedShrinkwrap: false,
-            preserveOpenings: true,
-            pushInteriorVertices: true
-          })
-          await new Promise(resolve => setTimeout(resolve, 200))
-        }
-        
-        // Final smoothing pass
-        console.log('🎯 ArmorFittingLab: Applying final smoothing pass')
-        viewerRef.current.performFitting({
-          iterations: 1,
-          stepSize: 0.0,
-          targetOffset: 0.0,
-          sampleRate: 1,
-          smoothingStrength: 0.2,
-          smoothingRadius: 3,
-          preserveFeatures: true,
-          useImprovedShrinkwrap: false,
-          preserveOpenings: true,
-          pushInteriorVertices: false
-        })
-        await new Promise(resolve => setTimeout(resolve, 300))
-      }
-      
-      // Phase 3: Smooth deformation
-      if (fittingConfig.method === 'smooth') {
-        setFittingProgress(75)
-        viewerRef.current.performFitting({
-          iterations: 1,
-          stepSize: 0.0,
-          targetOffset: 0.0,
-          sampleRate: 1,
-          smoothingStrength: 0.2,
-          smoothingRadius: 3,
-          preserveFeatures: true,
-          useImprovedShrinkwrap: false,
-          preserveOpenings: true,
-          pushInteriorVertices: false
-        })
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
-      
-      // Phase 4: Weight transfer (optional)
-      if (enableWeightTransfer) {
-        setFittingProgress(90)
-        viewerRef.current.transferWeights()
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
-      
-      setFittingProgress(100)
-      
-      // Show success message
-              setTimeout(() => {
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          notify.success('Armor fitting completed successfully!')
-        }, 100)
-      
-    } catch (error) {
-      console.error('Fitting failed:', error)
-      notify.error('Fitting failed: ' + (error as Error).message)
-    } finally {
-      setIsFitting(false)
+      await new Promise(resolve => setTimeout(resolve, 300))
     }
+    
+    // Phase 3: Smooth deformation
+    if (fittingConfig.method === 'smooth') {
+      setFittingProgress(75)
+      viewer.performFitting({
+        iterations: 1,
+        stepSize: 0.0,
+        targetOffset: 0.0,
+        sampleRate: 1,
+        smoothingStrength: 0.2,
+        smoothingRadius: 3,
+        preserveFeatures: true,
+        useImprovedShrinkwrap: false,
+        preserveOpenings: true,
+        pushInteriorVertices: false
+      })
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    
+    // Phase 4: Weight transfer (optional)
+    if (enableWeightTransfer) {
+      setFittingProgress(90)
+      viewer.transferWeights()
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    
+    setFittingProgress(100)
+    
+    // Show success message
+    setTimeout(() => {
+       
+      notify.success('Armor fitting completed successfully!')
+    }, 100)
+    
+    setIsFitting(false)
   }, [selectedAvatar, selectedArmor, fittingConfig, enableWeightTransfer])
 
   const resetFitting = useCallback(() => {
@@ -221,29 +215,25 @@ export function useArmorFitting(): ArmorFittingState & ArmorFittingActions {
   }, [])
 
   const exportFittedArmor = useCallback(async (viewerRef: React.RefObject<ArmorFittingViewerRef>) => {
-    if (!viewerRef.current) return
+    const viewer = viewerRef.current!
     
-    try {
-      const arrayBuffer = await viewerRef.current.exportFittedModel()
-      const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `fitted_armor_${Date.now()}.glb`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Export failed:', error)
-      notify.error('Export failed: ' + (error as Error).message)
-    }
+    const arrayBuffer = await viewer.exportFittedModel()
+    const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fitted_armor_${Date.now()}.glb`
+    a.click()
+    URL.revokeObjectURL(url)
   }, [])
 
   const saveConfiguration = useCallback(() => {
-    if (!selectedAvatar || !selectedArmor) return
+    const avatar = selectedAvatar!
+    const armor = selectedArmor!
     
     const config = {
-      avatarId: selectedAvatar.id,
-      armorId: selectedArmor.id,
+      avatarId: avatar.id,
+      armorId: armor.id,
       fittingConfig,
       enableWeightTransfer,
       timestamp: new Date().toISOString()

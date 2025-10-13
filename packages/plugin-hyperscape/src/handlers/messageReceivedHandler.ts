@@ -42,40 +42,26 @@ export async function messageReceivedHandler({
   callback,
   onComplete,
 }: MessageHandlerOptions): Promise<void> {
-  try {
-    elizaLogger.info(`[MessageHandler] Processing message: ${message.id}`)
+  elizaLogger.info(`[MessageHandler] Processing message: ${message.id}`)
 
-    // Validate inputs
-    if (!runtime) {
-      elizaLogger.error('[MessageHandler] Runtime is required')
-      onComplete()
-      return
-    }
+  // Check if we should respond to this message
+  const state = await runtime.composeState(message as Memory)
+  const shouldRespondToMessage = await shouldRespond(
+    runtime,
+    message as Memory,
+    state
+  )
 
-    if (!message) {
-      elizaLogger.error('[MessageHandler] Message is required')
-      onComplete()
-      return
-    }
+  if (!shouldRespondToMessage) {
+    elizaLogger.debug('[MessageHandler] Determined not to respond to message')
+    onComplete!()
+    return
+  }
 
-    // Check if we should respond to this message
-    const state = await runtime.composeState(message as Memory)
-    const shouldRespondToMessage = await shouldRespond(
-      runtime,
-      message as Memory,
-      state
-    )
-
-    if (!shouldRespondToMessage) {
-      elizaLogger.debug('[MessageHandler] Determined not to respond to message')
-      onComplete()
-      return
-    }
-
-    // Generate response using proper context
-    const context = await composeContext({
-      state,
-      template: `
+  // Generate response using proper context
+  const context = await composeContext({
+    state,
+    template: `
 # Message Response Instructions
 
 You are responding to a message in a virtual world. Generate an appropriate response.
@@ -96,42 +82,30 @@ Generate your response with any of these optional elements:
 <emote>name_of_emote</emote>
 <action>specific_action_to_take</action>
       `,
-    })
+  })
 
-    const response = await generateMessageResponse({
-      runtime,
-      context,
-      modelType: ModelType.TEXT_LARGE,
-    })
+  const response = await generateMessageResponse({
+    runtime,
+    context,
+    modelType: ModelType.TEXT_LARGE,
+  })
 
-    if (!response || !response.text) {
-      elizaLogger.debug('[MessageHandler] No response generated')
-      onComplete()
-      return
-    }
+  // Parse response for actions
+  const parsedResponse = parseKeyValueXml(response.text) as ResponseData
 
-    // Parse response for actions
-    const parsedResponse = parseKeyValueXml(response.text) as ResponseData
-
-    if (callback) {
-      const responseContent: Content = {
-        text: parsedResponse.text || response.text,
-        action: parsedResponse.action,
-        metadata: {
-          emote: parsedResponse.emote,
-          originalMessage: message.id,
-        },
-      }
-
-      await callback(responseContent)
-    }
-
-    elizaLogger.info(
-      `[MessageHandler] Successfully processed message: ${message.id}`
-    )
-  } catch (error) {
-    elizaLogger.error('[MessageHandler] Error processing message:', error)
-  } finally {
-    onComplete()
+  const responseContent: Content = {
+    text: parsedResponse.text || response.text,
+    action: parsedResponse.action,
+    metadata: {
+      emote: parsedResponse.emote,
+      originalMessage: message.id,
+    },
   }
+
+  await callback!(responseContent)
+
+  elizaLogger.info(
+    `[MessageHandler] Successfully processed message: ${message.id}`
+  )
+  onComplete!()
 }

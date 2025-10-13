@@ -21,10 +21,9 @@ async function extractTPoseSimple(options: ExtractOptions): Promise<void> {
     console.log('---')
   }
   
-  try {
-    // Read the input file
-    const inputBuffer = fs.readFileSync(inputPath)
-    const inputSize = inputBuffer.length
+  // Read the input file
+  const inputBuffer = fs.readFileSync(inputPath)
+  const inputSize = inputBuffer.length
     
     if (verbose) {
       console.log(`✅ Input file loaded: ${(inputSize / 1024 / 1024).toFixed(2)} MB`)
@@ -152,13 +151,8 @@ async function extractTPoseSimple(options: ExtractOptions): Promise<void> {
       console.log(`\n✅ T-pose exported successfully!`)
       console.log(`📁 File: ${outputPath}`)
       console.log(`📊 Size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`)
-      console.log(`🎬 Animations removed: ${gltfJson.animations?.length || 0}`)
-      console.log('\n💡 The model is now in T-pose with the same scale structure as the original')
-    }
-    
-  } catch (error) {
-    console.error('\n❌ Error:', error)
-    throw error
+    console.log(`🎬 Animations removed: ${gltfJson.animations?.length || 0}`)
+    console.log('\n💡 The model is now in T-pose with the same scale structure as the original')
   }
 }
 
@@ -183,11 +177,6 @@ export async function runCLI() {
     process.exit(1)
   }
   
-  try {
-    await extractTPoseSimple({ inputPath, outputPath })
-    process.exit(0)
-  } catch (error) {
-    console.error('\n💥 Failed:', error instanceof Error ? error.message : String(error))
-    process.exit(1)
-  }
+  await extractTPoseSimple({ inputPath, outputPath })
+  process.exit(0)
 } 

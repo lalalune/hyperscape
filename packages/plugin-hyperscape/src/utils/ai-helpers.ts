@@ -85,42 +85,19 @@ export async function generateMessageResponse(
 ): Promise<ActionResult> {
   const { runtime, context, modelType = ModelType.MEDIUM, stop = [] } = options
 
-  try {
-    if (!runtime.useModel) {
-      elizaLogger.warn('Runtime does not have useModel method')
-      return {
-        text: 'I understand, but I need more context to respond properly.',
-        success: false,
-      }
-    }
+  const response = await runtime.useModel(modelType, {
+    prompt: context,
+    max_tokens: 1000,
+    temperature: 0.8,
+    frequency_penalty: 0.0,
+    presence_penalty: 0.0,
+    stop,
+  })
 
-    const response = await runtime.useModel(modelType, {
-      prompt: context,
-      max_tokens: 1000,
-      temperature: 0.8,
-      frequency_penalty: 0.0,
-      presence_penalty: 0.0,
-      stop,
-    })
+  // Model returns either string directly or object with text property
+  const text = (response as { text?: string }).text || String(response)
 
-    if (!response) {
-      elizaLogger.warn('No response generated from model')
-      return {
-        text: 'I need a moment to gather my thoughts.',
-        success: false,
-      }
-    }
-
-    const text = typeof response === 'string' ? response : response.text || ''
-
-    return { text, success: true }
-  } catch (error) {
-    elizaLogger.error('Error generating message response:', error)
-    return {
-      text: 'I encountered an error while processing your request.',
-      success: false,
-    }
-  }
+  return { text, success: true }
 }
 
 export async function shouldRespond(
@@ -132,31 +109,18 @@ export async function shouldRespond(
     modelType?: (typeof ModelType)[keyof typeof ModelType]
   } = {}
 ): Promise<boolean> {
-  try {
-    // If runtime doesn't have evaluate method, use a simple heuristic
-    if (!runtime.evaluate) {
-      // Default behavior: respond if mentioned or in direct conversation
-      const text = message.content?.text || ''
-      const characterName = runtime.character?.name || 'Assistant'
-      return text.toLowerCase().includes(characterName.toLowerCase())
-    }
+  const context = composeContext({
+    state: state || { values: new Map(), data: {}, text: '' },
+    template: options.template || hyperscapeShouldRespondTemplate,
+    runtime,
+  })
 
-    const context = composeContext({
-      state: state || { values: new Map(), data: {}, text: '' },
-      template: options.template || hyperscapeShouldRespondTemplate,
-      runtime,
-    })
+  const result = await runtime.evaluate(
+    message,
+    state || { values: new Map(), data: {}, text: '' }
+  )
 
-    const result = await runtime.evaluate(
-      message,
-      state || { values: new Map(), data: {}, text: '' }
-    )
-
-    return !!result
-  } catch (error) {
-    elizaLogger.error('Error in shouldRespond:', error)
-    return false
-  }
+  return !!result
 }
 
 export async function generateDetailedResponse(
@@ -168,45 +132,29 @@ export async function generateDetailedResponse(
     modelType?: (typeof ModelType)[keyof typeof ModelType]
   } = {}
 ): Promise<ActionResult> {
-  try {
-    const context = composeContext({
-      state,
-      template: options.template,
-      runtime,
-      additionalContext: {
-        messageText: message.content?.text || '',
-        userName: (message as any).username || 'User',
-      },
-    })
+  const context = composeContext({
+    state,
+    template: options.template,
+    runtime,
+    additionalContext: {
+      messageText: message.content?.text || '',
+      userName: (message as any).username || 'User',
+    },
+  })
 
-    // Call useModel with proper parameters
-    const response = (await runtime.useModel(
-      options.modelType || ModelType.TEXT_LARGE,
-      {
-        prompt: context,
-        max_tokens: 2000,
-        temperature: 0.8,
-      }
-    )) as string
-
-    if (!response) {
-      elizaLogger.warn('No response generated from model')
-      return {
-        text: 'I need a moment to gather my thoughts.',
-        success: false,
-      }
+  // Call useModel with proper parameters
+  const response = (await runtime.useModel(
+    options.modelType || ModelType.TEXT_LARGE,
+    {
+      prompt: context,
+      max_tokens: 2000,
+      temperature: 0.8,
     }
+  )) as string
 
-    const text = response
+  const text = response
 
-    return { text, success: true }
-  } catch (error) {
-    elizaLogger.error('Error generating detailed response:', error)
-    return {
-      text: 'I encountered an error while processing your request.',
-      success: false,
-    }
-  }
+  return { text, success: true }
 }
 
 // Channel context helper

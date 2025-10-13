@@ -29,13 +29,13 @@ export {
   type PostProcessingOptions
 } from './PostProcessingFactory';
 
-// WebGPU optimizations
+// Material and mesh optimizations (consolidated from WebGPUOptimizations)
 export {
-  applyWebGPUOptimizations,
   createOptimizedInstancedMesh,
   optimizeMaterialForWebGPU,
-  getWebGPUCapabilities
-} from './WebGPUOptimizations';
+  getWebGPUCapabilities,
+  logWebGPUInfo
+} from './RendererFactory';
 
 // Validation utilities
 export {

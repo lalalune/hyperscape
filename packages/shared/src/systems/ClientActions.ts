@@ -241,36 +241,24 @@ function createAction(world: World): ClientActionHandler {
       mesh.scale.setScalar(scaleFactor)
       if (world.actions?.btnDown) {
         if (node.progress === 0) {
-          cancelled = false
-          try {
-            node._onStart()
-          } catch (err) {
-            console.error('action.onStart:', err)
-          }
+          cancelled = false;
+          node._onStart();
         }
-        node.progress += delta
-        if (node.progress > node._duration) node.progress = node._duration
-        draw(node._label, node.progress / node._duration)
+        node.progress += delta;
+        if (node.progress > node._duration) node.progress = node._duration;
+        draw(node._label, node.progress / node._duration);
         if (node.progress === node._duration) {
-          node.progress = 0
-          try {
-            node._onTrigger()
-          } catch (err) {
-            console.error('action.onTrigger:', err)
-          }
+          node.progress = 0;
+          node._onTrigger();
         }
       } else if (node.progress > 0) {
         if (!cancelled) {
-          try {
-            node._onCancel()
-          } catch (err) {
-            console.error('action.onCancel:', err)
-          }
-          cancelled = true
+          node._onCancel();
+          cancelled = true;
         }
-        node.progress -= delta
-        if (node.progress < 0) node.progress = 0
-        draw(node._label, node.progress / node._duration)
+        node.progress -= delta;
+        if (node.progress < 0) node.progress = 0;
+        draw(node._label, node.progress / node._duration);
       }
     },
     stop() {

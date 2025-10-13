@@ -6,43 +6,6 @@
  */
 
 /**
- * System validation data tracking
- */
-export interface SystemValidationData {
-  testId: string;
-  systemName: string;
-  startTime: number;
-  phase: 'checking_existence' | 'testing_communication' | 'testing_events' | 'completed' | 'failed';
-  systemExists: boolean;
-  systemAccessible: boolean;
-  eventsWork: boolean;
-  errors: string[];
-}
-
-/**
- * Result of system validation test
- */
-export interface SystemValidationResult {
-  systemName: string;
-  exists: boolean;
-  accessible: boolean;
-  eventsWork: boolean;
-  errors: string[];
-  success: boolean;
-}
-
-/**
- * Aggregated validation results
- */
-export interface ValidationResults {
-  totalSystems: number;
-  passedSystems: number;
-  failedSystems: number;
-  passRate: number;
-  results: SystemValidationResult[];
-}
-
-/**
  * Generic validation result
  */
 // Note: ValidationResult is used in multiple contexts; keep this generic

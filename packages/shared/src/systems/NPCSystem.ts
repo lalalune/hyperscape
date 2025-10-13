@@ -8,16 +8,21 @@ import type { Entity, World } from '../types/index';
 import { getEntitiesSystem, getSystem } from '../utils/SystemUtils';
 import { SHOP_ITEMS, getItem } from '../data/items';
 import type { NPCLocation } from '../data/world-areas';
-import { BankTransaction, PlayerBankStorage, Position3D, StoreTransaction } from '../types/core';
-import { NPCSystemInfo as SystemInfo } from '../types/system-types';
+import { ALL_WORLD_AREAS, STARTER_TOWNS } from '../data/world-areas';
+import { BankTransaction, PlayerBankStorage, Position3D, StoreTransaction, Town } from '../types/core';
+import { NPCSystemInfo as SystemInfo } from '../types/system-interfaces';
 import { SystemBase } from './SystemBase';
 import { InventorySystem } from './InventorySystem';
 import { EventType } from '../types/events';
+import { TerrainSystem } from './TerrainSystem';
+import { groundToTerrain } from '../utils/EntityUtils';
 
 export class NPCSystem extends SystemBase {
   private bankStorage: Map<string, PlayerBankStorage> = new Map();
   private storeInventory: Map<string, number> = new Map();
   private transactionHistory: Array<BankTransaction | StoreTransaction> = [];
+  private towns = new Map<string, Town>();
+  private terrainSystem!: TerrainSystem;
 
   // Store prices (multipliers of base item value)
   private readonly BUY_PRICE_MULTIPLIER = 1.2; // 20% markup
@@ -27,6 +32,7 @@ export class NPCSystem extends SystemBase {
     super(world, {
       name: 'npc',
       dependencies: {
+        required: ['terrain'], // Need terrain for NPC placement
         optional: ['inventory', 'banking', 'ui', 'quest']
       },
       autoCleanup: true
@@ -35,12 +41,21 @@ export class NPCSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
+    // Get terrain system reference
+    this.terrainSystem = this.world.getSystem<TerrainSystem>('terrain')!;
+    
     // Subscribe to NPC interaction events using type-safe event system
     this.subscribe(EventType.NPC_INTERACTION, (data: { playerId: string; npcId: string; npc: NPCLocation }) => this.handleNPCInteraction(data));
-    this.subscribe(EventType.BANK_DEPOSIT, (data) => this.handleBankDeposit(data));
-    this.subscribe(EventType.BANK_WITHDRAW, (data) => this.handleBankWithdraw(data));
-    this.subscribe(EventType.STORE_BUY, (data) => this.handleStoreBuy(data));
-    this.subscribe(EventType.STORE_SELL, (data) => this.handleStoreSell(data));
+    this.subscribe(EventType.BANK_DEPOSIT, (data) => this.handleBankDeposit(data as unknown as { playerId: string; itemId: string; quantity: number }));
+    this.subscribe(EventType.BANK_WITHDRAW, (data) => this.handleBankWithdraw(data as unknown as { playerId: string; itemId: string; quantity: number }));
+    this.subscribe(EventType.STORE_BUY, (data) => this.handleStoreBuy(data as unknown as { playerId: string; itemId: string; quantity: number }));
+    this.subscribe(EventType.STORE_SELL, (data) => this.handleStoreSell(data as unknown as { playerId: string; itemId: string; quantity: number }));
+    
+    // Subscribe to terrain generation to spawn NPCs and towns
+    this.subscribe(EventType.TERRAIN_TILE_GENERATED, (data) => this.onTileGenerated(data as { tileX: number; tileZ: number; biome: string }));
+    
+    // Generate towns immediately as they are static placements
+    this.generateTowns();
   }
 
   /**
@@ -493,11 +508,182 @@ export class NPCSystem extends SystemBase {
     };
   }
 
+  /**
+   * Handle terrain tile generation - spawn NPCs and towns for new tiles
+   */
+  private onTileGenerated(tileData: { tileX: number; tileZ: number; biome: string }): void {
+    const TILE_SIZE = this.terrainSystem.getTileSize();
+    const tileBounds = {
+      minX: tileData.tileX * TILE_SIZE,
+      maxX: (tileData.tileX + 1) * TILE_SIZE,
+      minZ: tileData.tileZ * TILE_SIZE,
+      maxZ: (tileData.tileZ + 1) * TILE_SIZE,
+    };
+
+    // Find which world areas overlap with this new tile
+    const overlappingAreas: Array<typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS]> = [];
+    for (const area of Object.values(ALL_WORLD_AREAS)) {
+      const areaBounds = area.bounds;
+      // Simple bounding box overlap check
+      if (tileBounds.minX < areaBounds.maxX && tileBounds.maxX > areaBounds.minX &&
+          tileBounds.minZ < areaBounds.maxZ && tileBounds.maxZ > areaBounds.minZ) {
+        overlappingAreas.push(area);
+      }
+    }
+
+    if (overlappingAreas.length > 0) {
+      this.generateContentForTile(tileData, overlappingAreas);
+    }
+  }
+
+  /**
+   * Generate NPCs for overlapping world areas
+   */
+  private generateContentForTile(tileData: { tileX: number; tileZ: number }, areas: Array<typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS]>): void {
+    for (const area of areas) {
+      // Spawn NPCs from world-areas.ts data if they fall within this tile
+      this.generateNPCsForArea(area, tileData);
+    }
+  }
+
+  /**
+   * Spawn NPCs from a world area when its tile generates
+   */
+  private generateNPCsForArea(area: typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS], tileData: { tileX: number; tileZ: number }): void {
+    const TILE_SIZE = this.terrainSystem.getTileSize();
+    for (const npc of area.npcs) {
+      const npcTileX = Math.floor(npc.position.x / TILE_SIZE);
+      const npcTileZ = Math.floor(npc.position.z / TILE_SIZE);
+
+      if (npcTileX === tileData.tileX && npcTileZ === tileData.tileZ) {
+        // Ground NPC to terrain
+        const groundedPosition = groundToTerrain(this.world, npc.position, 0.1, Infinity);
+        
+        this.emitTypedEvent(EventType.NPC_SPAWN_REQUEST, {
+          npcId: npc.id,
+          name: npc.name,
+          type: npc.type,
+          position: groundedPosition,
+          services: npc.services,
+          modelPath: npc.modelPath,
+        });
+      }
+    }
+  }
+
+  /**
+   * Get starter town configurations from world areas
+   */
+  private getStarterTownConfigs(): Town[] {
+    return Object.values(STARTER_TOWNS).map(area => ({
+      id: area.id,
+      name: area.name,
+      position: { 
+        x: (area.bounds.minX + area.bounds.maxX) / 2, 
+        y: 0, // Y will be grounded to terrain
+        z: (area.bounds.minZ + area.bounds.maxZ) / 2 
+      },
+      safeZoneRadius: Math.max(
+        (area.bounds.maxX - area.bounds.minX) / 2,
+        (area.bounds.maxZ - area.bounds.minZ) / 2
+      ),
+      hasBank: area.npcs.some(npc => npc.type === 'bank'),
+      hasStore: area.npcs.some(npc => npc.type.includes('store')),
+      isRespawnPoint: area.safeZone || false
+    }));
+  }
+
+  /**
+   * Generate all starter towns
+   */
+  private generateTowns(): void {
+    const townConfigs = this.getStarterTownConfigs();
+    for (const townConfig of townConfigs) {
+      this.generateTown(townConfig);
+    }
+  }
+
+  /**
+   * Generate a single town with safe zone
+   */
+  private generateTown(config: Town): void {
+    this.towns.set(config.id, config);
+    
+    // Create a safe zone
+    this.emitTypedEvent(EventType.ENTITY_SPAWNED, {
+      entityType: 'safezone',
+      entityId: `safezone_${config.id}`,
+      position: config.position,
+      radius: config.safeZoneRadius,
+    });
+    
+    // Emit bank/store events for systems that need to know
+    if (config.hasBank) {
+      this.emitTypedEvent(EventType.BANK_OPEN, {
+        bankId: `bank_${config.id}`,
+        position: { x: config.position.x - 8, y: config.position.y, z: config.position.z },
+        townId: config.id
+      });
+    }
+  }
+
+  /**
+   * Get all towns
+   */
+  public getTowns(): Town[] {
+    return [...this.towns.values()];
+  }
+
+  /**
+   * Get nearest town to a position
+   */
+  public getNearestTown(position: { x: number; z: number }): Town | null {
+    let nearestTown: Town | null = null;
+    let minDistance = Infinity;
+    
+    for (const town of this.towns.values()) {
+      const distance = this.calculateDistance2D(position, town.position);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestTown = town;
+      }
+    }
+    
+    return nearestTown;
+  }
+
+  /**
+   * Check if position is in a safe zone
+   */
+  public isInSafeZone(position: { x: number; z: number }): boolean {
+    for (const town of this.towns.values()) {
+      const distance = this.calculateDistance2D(position, town.position);
+      
+      if (distance <= town.safeZoneRadius) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Calculate 2D distance between positions
+   */
+  private calculateDistance2D(pos1: { x: number; z: number }, pos2: { x: number; z: number }): number {
+    return Math.sqrt(
+      Math.pow(pos1.x - pos2.x, 2) +
+      Math.pow(pos1.z - pos2.z, 2)
+    );
+  }
+
   destroy(): void {
     // Clear NPC transaction data
     this.bankStorage.clear();
     this.storeInventory.clear();
     this.transactionHistory.length = 0;
+    this.towns.clear();
     
     // Call parent cleanup (handles event listeners automatically)
     super.destroy();

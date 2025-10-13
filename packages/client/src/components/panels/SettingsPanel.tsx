@@ -265,7 +265,7 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
         <div className="flex justify-between items-center">
           <div>Fullscreen</div>
           <button
-            onClick={() => { if (canFullscreen && typeof toggleFullscreen === 'function') toggleFullscreen(!(isFullscreen as boolean)) }}
+            onClick={() => { if (canFullscreen) toggleFullscreen(!(isFullscreen as boolean)) }}
             className="bg-gray-900 border border-white/15 text-white rounded-md py-1 px-2 cursor-pointer"
           >
             {(isFullscreen as boolean) ? 'Disable' : 'Enable'}

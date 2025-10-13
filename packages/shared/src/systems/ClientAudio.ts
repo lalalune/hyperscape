@@ -67,35 +67,24 @@ export class ClientAudio extends System {
       }
     }
     const unlock = async () => {
-      try {
-        await this.ctx.resume()
-        if (this.ctx.state !== 'running') throw new Error('Audio still suspended')
-        const video = document.createElement('video')
-        video.playsInline = true
-        video.muted = true
-        video.src = '/tiny.mp4'
-        video
-          .play()
-          .then(() => {
-            video.pause()
-            video.remove()
-          })
-          .catch(_err => {
-          })
-      } catch (err) {
-        console.error(err)
-      } finally {
-        // either way, mark the system as unlocked
-        complete()
-      }
-    }
+      await this.ctx.resume();
+      if (this.ctx.state !== 'running') throw new Error('Audio still suspended');
+      const video = document.createElement('video');
+      video.playsInline = true;
+      video.muted = true;
+      video.src = '/tiny.mp4';
+      await video.play();
+      video.pause();
+      video.remove();
+      complete();
+    };
     document.addEventListener('click', unlock)
     document.addEventListener('touchstart', unlock)
     document.addEventListener('keydown', unlock)
   }
 
   async init() {
-    this.world.prefs?.on('change', this.onPrefsChange)
+    this.world.prefs!.on('change', this.onPrefsChange);
   }
 
   start() {

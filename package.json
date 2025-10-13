@@ -1,5 +1,5 @@
 {
-  "name": "@hyperscape/monorepo",
+  "name": "@hyperscape/hyperscape",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -68,8 +68,12 @@
   },
   "packageManager": "bun@1.0.0",
   "dependencies": {
+    "@types/pg": "^8.15.5",
     "better-sqlite3": "^12.2.0",
     "canvas": "^3.1.2",
+    "drizzle-kit": "^0.31.5",
+    "drizzle-orm": "^0.44.6",
+    "pg": "^8.16.3",
     "playwright": "^1.54.2",
     "pngjs": "^7.0.0",
     "ws": "^8.18.3"

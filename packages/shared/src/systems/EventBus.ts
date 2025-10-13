@@ -14,7 +14,7 @@
 
 import EventEmitter from 'eventemitter3';
 import { AnyEvent, EventPayloads, EventType } from '../types/events';
-import type { SystemEvent, EventHandler, EventSubscription } from '../types/event-system'
+import type { SystemEvent, EventHandler, EventSubscription } from '../types/events';
 
 // Types moved to shared event-system.ts
 
@@ -73,17 +73,11 @@ export class EventBus extends EventEmitter {
     const wrappedHandler = (event: SystemEvent<AnyEvent | EventPayloads[keyof EventPayloads]>) => {
       if (!active) return;
       
-      try {
-        const result = handler(event);
-        
-        // Handle async handlers
-        if (result instanceof Promise) {
-          result.catch(error => {
-            console.error(`[EventBus] Async event handler error for ${type}:`, error);
-          });
-        }
-      } catch (error) {
-        console.error(`[EventBus] Event handler error for ${type}:`, error);
+      const result = handler(event);
+      
+      // Handle async handlers
+      if (result instanceof Promise) {
+        result;  // Let promise rejection propagate naturally
       }
 
       if (once) {

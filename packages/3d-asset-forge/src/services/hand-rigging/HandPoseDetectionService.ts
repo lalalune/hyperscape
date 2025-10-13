@@ -57,91 +57,79 @@ export class HandPoseDetectionService {
     
     console.log('🤖 Initializing hand pose detection...')
     
-    try {
-      // Wait for TensorFlow.js to be ready
-      await tf.ready()
-      console.log('✅ TensorFlow.js ready, backend:', tf.getBackend())
-      
-      // Create the detector with MediaPipe Hands
-      const model = handPoseDetection.SupportedModels.MediaPipeHands
-      const detectorConfig: handPoseDetection.MediaPipeHandsMediaPipeModelConfig = {
-        runtime: 'mediapipe',
-        solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
-        modelType: 'full',
-        maxHands: 2
-      }
-      
-      this.detector = await handPoseDetection.createDetector(model, detectorConfig)
-      this.isInitialized = true
-      
-      console.log('✅ Hand pose detector initialized')
-    } catch (error) {
-      console.error('❌ Failed to initialize hand pose detection:', error)
-      throw error
+    // Wait for TensorFlow.js to be ready
+    await tf.ready()
+    console.log('✅ TensorFlow.js ready, backend:', tf.getBackend())
+    
+    // Create the detector with MediaPipe Hands
+    const model = handPoseDetection.SupportedModels.MediaPipeHands
+    const detectorConfig: handPoseDetection.MediaPipeHandsMediaPipeModelConfig = {
+      runtime: 'mediapipe',
+      solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
+      modelType: 'full',
+      maxHands: 2
     }
+    
+    this.detector = await handPoseDetection.createDetector(model, detectorConfig)
+    this.isInitialized = true
+    
+    console.log('✅ Hand pose detector initialized')
   }
   
   /**
    * Detect hands in an image
    */
-  async detectHands(imageData: ImageData | HTMLCanvasElement): Promise<HandDetectionResult> {
-    if (!this.isInitialized || !this.detector) {
+  async detectHands(imageData: globalThis.ImageData | HTMLCanvasElement): Promise<HandDetectionResult> {
+    if (!this.isInitialized) {
       await this.initialize()
     }
     
-    if (!this.detector) {
-      throw new Error('Hand detector not initialized')
+    const detector = this.detector!
+    
+    // Convert ImageData to canvas if needed
+    let input: HTMLCanvasElement
+    if (imageData instanceof globalThis.ImageData) {
+      const canvas = document.createElement('canvas')
+      canvas.width = imageData.width
+      canvas.height = imageData.height
+      const ctx = canvas.getContext('2d')!
+      ctx.putImageData(imageData, 0, 0)
+      input = canvas
+    } else {
+      input = imageData
     }
     
-    try {
-      // Convert ImageData to canvas if needed
-      let input: HTMLCanvasElement
-      if (imageData instanceof ImageData) {
-        const canvas = document.createElement('canvas')
-        canvas.width = imageData.width
-        canvas.height = imageData.height
-        const ctx = canvas.getContext('2d')!
-        ctx.putImageData(imageData, 0, 0)
-        input = canvas
-      } else {
-        input = imageData
-      }
-      
-      // Detect hands
-      const hands = await this.detector.estimateHands(input)
-      
-      // Convert to our format
-      const result: HandDetectionResult = {
-        hands: hands.map((hand) => {
-          const tfHand = hand as TensorFlowHand
-          const keypoints = tfHand.keypoints
-          const keypoints3D = tfHand.keypoints3D
-          
-          return {
-            landmarks: keypoints.map((kp: TensorFlowKeypoint, i: number) => ({
-              x: kp.x,
-              y: kp.y,
-              z: keypoints3D ? keypoints3D[i].z || 0 : 0
-            })),
-            worldLandmarks: keypoints3D ? keypoints3D.map((kp: TensorFlowKeypoint) => ({
-              x: kp.x,
-              y: kp.y,
-              z: kp.z || 0
-            })) : undefined,
-            handedness: tfHand.handedness,
-            confidence: hand.score || 0
-          }
-        }),
-        imageWidth: input.width,
-        imageHeight: input.height
-      }
-      
-      console.log(`🤚 Detected ${result.hands.length} hand(s)`)
-      return result
-    } catch (error) {
-      console.error('❌ Hand detection failed:', error)
-      throw error
+    // Detect hands
+    const hands = await detector.estimateHands(input)
+    
+    // Convert to our format
+    const result: HandDetectionResult = {
+      hands: hands.map((hand) => {
+        const tfHand = hand as TensorFlowHand
+        const keypoints = tfHand.keypoints
+        const keypoints3D = tfHand.keypoints3D
+        
+        return {
+          landmarks: keypoints.map((kp: TensorFlowKeypoint, i: number) => ({
+            x: kp.x,
+            y: kp.y,
+            z: keypoints3D ? keypoints3D[i].z || 0 : 0
+          })),
+          worldLandmarks: keypoints3D ? keypoints3D.map((kp: TensorFlowKeypoint) => ({
+            x: kp.x,
+            y: kp.y,
+            z: kp.z || 0
+          })) : undefined,
+          handedness: tfHand.handedness,
+          confidence: hand.score || 0
+        }
+      }),
+      imageWidth: input.width,
+      imageHeight: input.height
     }
+    
+    console.log(`🤚 Detected ${result.hands.length} hand(s)`)
+    return result
   }
   
   /**
@@ -289,7 +277,7 @@ export class HandPoseDetectionService {
   /**
    * Calculate finger bone positions from landmarks
    */
-  calculateBonePositions(hand: HandLandmarks, handSide: 'left' | 'right'): Record<string, Point3D[]> {
+  calculateBonePositions(hand: HandLandmarks, _handSide: 'left' | 'right'): Record<string, Point3D[]> {
     const bones: Record<string, Point3D[]> = {}
     
     // Add wrist as root

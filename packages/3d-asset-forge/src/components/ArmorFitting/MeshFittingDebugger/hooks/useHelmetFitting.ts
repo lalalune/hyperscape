@@ -1,34 +1,24 @@
 import * as THREE from 'three'
-import { useCallback, useRef, MutableRefObject } from 'react'
+import { MutableRefObject } from 'react'
 import { MeshFittingService } from '../../../../services/fitting/MeshFittingService'
 import { ExtendedMesh } from '../../../../types'
 import {
     storeWorldTransform,
     applyWorldTransform,
     applyExtremeScaleMaterialFixes,
-    findHeadBone,
-    getSkeletonFromMesh,
-    getBoneWorldPosition,
-    disposeMesh
+    getSkeletonFromMesh
 } from '../utils'
-import { notify } from '../../../../utils/notify'
 
 interface HelmetFittingProps {
     sceneRef: MutableRefObject<THREE.Scene | null>
     avatarMeshRef: MutableRefObject<THREE.SkinnedMesh | null>
     helmetMeshRef: MutableRefObject<ExtendedMesh | null>
-    originalHelmetTransformRef: MutableRefObject<{
-        position: THREE.Vector3
-        rotation: THREE.Euler
-        scale: THREE.Vector3
-    } | null>
     fittingService: MutableRefObject<MeshFittingService>
     
     setIsProcessing: (value: boolean) => void
     setIsHelmetFitted: (value: boolean) => void
     setIsHelmetAttached: (value: boolean) => void
     
-    isProcessing: boolean
     helmetFittingMethod: string
     helmetSizeMultiplier: number
     helmetFitTightness: number
@@ -41,12 +31,10 @@ export function useHelmetFitting({
     sceneRef,
     avatarMeshRef,
     helmetMeshRef,
-    originalHelmetTransformRef,
     fittingService,
     setIsProcessing,
     setIsHelmetFitted,
     setIsHelmetAttached,
-    isProcessing,
     helmetFittingMethod,
     helmetSizeMultiplier,
     helmetFitTightness,
@@ -55,167 +43,127 @@ export function useHelmetFitting({
     helmetRotation
 }: HelmetFittingProps) {
     
-    const performHelmetFitting = async () => {
-        console.log('performHelmetFitting called')
-        console.log('avatarMeshRef.current:', avatarMeshRef.current)
-        console.log('helmetMeshRef.current:', helmetMeshRef.current)
+  const performHelmetFitting = async () => {
+    console.log('performHelmetFitting called')
+    console.log('avatarMeshRef.current:', avatarMeshRef.current)
+    console.log('helmetMeshRef.current:', helmetMeshRef.current)
+    
+    const avatarMesh = avatarMeshRef.current!
+    const helmetMesh = helmetMeshRef.current!
+
+    console.log('=== STARTING HELMET FITTING ===')
+    logBoneHierarchy(avatarMesh)
+
+    setIsProcessing(true)
+
+    const result = await fittingService.current.fitHelmetToHead(
+      helmetMesh,
+      avatarMesh,
+      {
+        method: helmetFittingMethod as 'auto' | 'manual',
+        sizeMultiplier: helmetSizeMultiplier,
+        fitTightness: helmetFitTightness,
+        verticalOffset: helmetVerticalOffset,
+        forwardOffset: helmetForwardOffset,
+        rotation: new THREE.Euler(
+          helmetRotation.x * Math.PI / 180,
+          helmetRotation.y * Math.PI / 180,
+          helmetRotation.z * Math.PI / 180
+        ),
+        attachToHead: false,
+        showHeadBounds: false,
+        showCollisionDebug: false
+      }
+    )
+
+    console.log('Helmet fitting complete:', result)
+    
+    // Mark helmet as fitted
+    helmetMesh.userData.hasBeenFitted = true
+    setIsHelmetFitted(true)
+    setIsProcessing(false)
+  }
+
+  const attachHelmetToHead = () => {
+    const avatarMesh = avatarMeshRef.current!
+    const helmetMesh = helmetMeshRef.current!
+    const scene = sceneRef.current!
+
+    // Find head bone
+    const headInfo = fittingService.current.detectHeadRegion(avatarMesh)
+    const headBone = headInfo.headBone!
+
+    // Debug: Log transforms before attachment
+    console.log('=== BEFORE ATTACHMENT ===')
+    const originalTransform = storeWorldTransform(helmetMesh)
+    console.log('Helmet world position:', originalTransform.position)
+    console.log('Helmet world scale:', originalTransform.scale)
+    console.log('Head bone world scale:', headBone.getWorldScale(new THREE.Vector3()))
+
+    // Check bone scale
+    const boneScale = headBone.getWorldScale(new THREE.Vector3())
         
-        if (!avatarMeshRef.current || !helmetMeshRef.current) {
-            console.error('Avatar or helmet mesh not loaded')
-            return
-        }
+    if (boneScale.x < 0.1) {
+      console.log('Bone has extreme scale - applying visibility workaround')
 
-        console.log('=== STARTING HELMET FITTING ===')
-        logBoneHierarchy(avatarMeshRef.current)
+      // Attach with workarounds
+      headBone.attach(helmetMesh)
 
-        setIsProcessing(true)
+      // Ensure world transform is preserved
+      const newTransform = storeWorldTransform(helmetMesh)
+      if (newTransform.position.distanceTo(originalTransform.position) > 0.001) {
+        console.log('Correcting transform drift for extreme scale case...')
+        applyWorldTransform(helmetMesh, originalTransform, headBone)
+      }
 
-        try {
-            const result = await fittingService.current.fitHelmetToHead(
-                helmetMeshRef.current,
-                avatarMeshRef.current,
-                {
-                    method: helmetFittingMethod as 'auto' | 'manual',
-                    sizeMultiplier: helmetSizeMultiplier,
-                    fitTightness: helmetFitTightness,
-                    verticalOffset: helmetVerticalOffset,
-                    forwardOffset: helmetForwardOffset,
-                    rotation: new THREE.Euler(
-                        helmetRotation.x * Math.PI / 180,
-                        helmetRotation.y * Math.PI / 180,
-                        helmetRotation.z * Math.PI / 180
-                    ),
-                    attachToHead: false,
-                    showHeadBounds: false,
-                    showCollisionDebug: false
-                }
-            )
+      // Apply material fixes for extreme scales
+      applyExtremeScaleMaterialFixes(helmetMesh)
 
-            console.log('Helmet fitting complete:', result)
-            
-            // Mark helmet as fitted
-            if (helmetMeshRef.current) {
-                helmetMeshRef.current.userData.hasBeenFitted = true
-                setIsHelmetFitted(true)
-            }
-        } catch (error) {
-            console.error('Helmet fitting failed:', error)
-        } finally {
-            setIsProcessing(false)
-        }
+      // Force matrix updates
+      helmetMesh.updateMatrix()
+      helmetMesh.updateMatrixWorld(true)
+
+      console.log('Applied extreme scale workarounds')
+    } else {
+      // Normal attachment process
+      console.log('Attaching helmet to head bone...')
+      headBone.attach(helmetMesh)
+      console.log('Helmet attached to head bone')
     }
 
-    const attachHelmetToHead = () => {
-        if (!avatarMeshRef.current || !helmetMeshRef.current) {
-            console.error('Avatar or helmet mesh not loaded')
-            notify.error('Please load both avatar and helmet first')
-            return
-        }
+    // Debug: Log transforms after attachment
+    console.log('=== AFTER ATTACHMENT ===')
+    console.log('Helmet world position:', helmetMesh.getWorldPosition(new THREE.Vector3()))
+    console.log('Helmet world scale:', helmetMesh.getWorldScale(new THREE.Vector3()))
+    console.log('Helmet parent:', helmetMesh.parent?.name || 'none')
 
-        const scene = sceneRef.current
-        if (!scene) return
-
-        // Find head bone
-        const headInfo = fittingService.current.detectHeadRegion(avatarMeshRef.current)
-
-        if (!headInfo.headBone) {
-            console.error('No head bone found - attaching to avatar root instead')
-
-            const message = `No head bone found in the model. The system looked for common head bone names but couldn't find any.\n\n` +
-                `You can either:\n` +
-                `1. Attach the helmet to the avatar root (it won't follow head animations)\n` +
-                `2. Cancel and manually parent the helmet in your 3D software\n\n` +
-                `Would you like to attach to the avatar root?`
-
-            if (confirm(message)) {
-                const avatarRoot = avatarMeshRef.current.parent || avatarMeshRef.current
-                avatarRoot.attach(helmetMeshRef.current)
-                setIsHelmetAttached(true)
-                console.log('Helmet attached to avatar root')
-                notify.info('Helmet attached to avatar root. Note: It will follow body movement but not specific head animations.')
-            }
-            return
-        }
-
-        // Debug: Log transforms before attachment
-        console.log('=== BEFORE ATTACHMENT ===')
-        const originalTransform = storeWorldTransform(helmetMeshRef.current)
-        console.log('Helmet world position:', originalTransform.position)
-        console.log('Helmet world scale:', originalTransform.scale)
-        console.log('Head bone world scale:', headInfo.headBone.getWorldScale(new THREE.Vector3()))
-
-        // Check bone scale
-        const boneScale = headInfo.headBone.getWorldScale(new THREE.Vector3())
-        
-        if (boneScale.x < 0.1) {
-            console.log('Bone has extreme scale - applying visibility workaround')
-
-            // Attach with workarounds
-            headInfo.headBone.attach(helmetMeshRef.current)
-
-            // Ensure world transform is preserved
-            const newTransform = storeWorldTransform(helmetMeshRef.current)
-            if (newTransform.position.distanceTo(originalTransform.position) > 0.001) {
-                console.log('Correcting transform drift for extreme scale case...')
-                applyWorldTransform(helmetMeshRef.current, originalTransform, headInfo.headBone)
-            }
-
-            // Apply material fixes for extreme scales
-            applyExtremeScaleMaterialFixes(helmetMeshRef.current)
-
-            // Force matrix updates
-            helmetMeshRef.current.updateMatrix()
-            helmetMeshRef.current.updateMatrixWorld(true)
-
-            console.log('Applied extreme scale workarounds')
-        } else {
-            // Normal attachment process
-            console.log('Attaching helmet to head bone...')
-            headInfo.headBone.attach(helmetMeshRef.current)
-            console.log('Helmet attached to head bone')
-        }
-
-        // Debug: Log transforms after attachment
-        console.log('=== AFTER ATTACHMENT ===')
-        console.log('Helmet world position:', helmetMeshRef.current.getWorldPosition(new THREE.Vector3()))
-        console.log('Helmet world scale:', helmetMeshRef.current.getWorldScale(new THREE.Vector3()))
-        console.log('Helmet parent:', helmetMeshRef.current.parent?.name || 'none')
-
-        // Update flags
-        setIsHelmetAttached(true)
-        helmetMeshRef.current.userData.isAttached = true
-        
-        console.log('✅ Helmet successfully attached to head bone:', headInfo.headBone.name)
+    // Update flags
+    setIsHelmetAttached(true)
+    helmetMesh.userData.isAttached = true
+    
+    console.log('✅ Helmet successfully attached to head bone:', headBone.name)
     }
 
-    const detachHelmetFromHead = () => {
-        if (!helmetMeshRef.current) {
-            console.error('No helmet to detach')
-            return
-        }
+  const detachHelmetFromHead = () => {
+    const helmetMesh = helmetMeshRef.current!
+    const scene = sceneRef.current!
 
-        const scene = sceneRef.current
-        if (!scene) return
+    // Clean up render helper if it exists
+    cleanupRenderHelper(helmetMesh)
 
-        // Clean up render helper if it exists
-        cleanupRenderHelper(helmetMeshRef.current)
+    // Make original helmet visible again
+    helmetMesh.visible = true
+    helmetMesh.traverse((child: THREE.Object3D) => {
+      child.visible = true
+    })
 
-        // Make original helmet visible again
-        helmetMeshRef.current.visible = true
-        helmetMeshRef.current.traverse((child: THREE.Object3D) => {
-            child.visible = true
-        })
+    // Use attach() which preserves world transform
+    scene.attach(helmetMesh)
 
-        // Remove from parent and add back to scene
-        if (helmetMeshRef.current.parent) {
-            // Use attach() which preserves world transform
-            scene.attach(helmetMeshRef.current)
-
-            setIsHelmetAttached(false)
-            helmetMeshRef.current.userData.isAttached = false
-            console.log('Helmet detached from head')
-        }
-    }
+    setIsHelmetAttached(false)
+    helmetMesh.userData.isAttached = false
+    console.log('Helmet detached from head')
+  }
 
     return {
         performHelmetFitting,

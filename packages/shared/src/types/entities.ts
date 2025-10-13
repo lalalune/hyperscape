@@ -49,27 +49,8 @@ export enum PlayerCombatStyle {
   RANGED = 'ranged'
 }
 
-// Mob types simplified to match actual 3D models available
-// Models are loaded from world/assets/manifests/mobs.json
-// Actual model files: goblin, thug, human, troll, imp
-export enum MobType {
-  // Base model types (what GLB files actually exist)
-  GOBLIN = 'goblin',
-  THUG = 'thug',     // Used for: bandit
-  HUMAN = 'human',   // Used for: barbarian, guard, black_knight, ice_warrior, dark_ranger
-  TROLL = 'troll',   // Used for: hobgoblin
-  IMP = 'imp',       // Used for: dark_warrior
-  
-  // Legacy aliases (deprecated - use actual mob IDs from JSON instead)
-  BANDIT = 'bandit',
-  BARBARIAN = 'barbarian',
-  HOBGOBLIN = 'hobgoblin',
-  GUARD = 'guard',
-  DARK_WARRIOR = 'dark_warrior',
-  BLACK_KNIGHT = 'black_knight',
-  ICE_WARRIOR = 'ice_warrior',
-  DARK_RANGER = 'dark_ranger'
-}
+// Mob types are now fully data-driven from mobs.json
+// No enum needed - use string type with mob IDs from JSON
 
 export enum MobAIState {
   IDLE = 'idle',
@@ -190,7 +171,7 @@ export interface ItemEntityConfig extends EntityConfig<ItemEntityProperties> {
 // Mob entity config
 export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   type: EntityType.MOB;
-  mobType: MobType;
+  mobType: string; // Mob ID from mobs.json (e.g., 'goblin', 'bandit')
   level: number;
   maxHealth: number;
   currentHealth: number;

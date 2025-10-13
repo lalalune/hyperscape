@@ -230,14 +230,14 @@ export const MOB_TYPES = {} as const;
 
 // === BIOME TYPES ===
 export const BIOME_TYPES = {
-  MISTWOOD_VALLEY: 'mistwood_valley',
-  GOBLIN_WASTES: 'goblin_wastes',
-  DARKWOOD_FOREST: 'darkwood_forest',
-  NORTHERN_REACHES: 'northern_reaches',
-  BLASTED_LANDS: 'blasted_lands',
-  LAKES: 'lakes',
   PLAINS: 'plains',
-  STARTER_TOWN: 'starter_town'
+  FOREST: 'forest',
+  VALLEY: 'valley',
+  MOUNTAINS: 'mountains',
+  TUNDRA: 'tundra',
+  DESERT: 'desert',
+  LAKES: 'lakes',
+  SWAMP: 'swamp'
 } as const;
 
 // === SKILL NAMES ===

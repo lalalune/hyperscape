@@ -171,14 +171,8 @@ export function geometryToPxMesh(world: World, geometry: THREE.BufferGeometry, c
     //   throw new Error('Invalid mesh description')
     // }
 
-    try {
-      pmesh = physx.CreateTriangleMesh(cookingParams, desc)
-    } catch (err) {
-      console.error('geometryToPxMesh failed...')
-      console.error(err)
-    } finally {
-      physx._webidl_free(indexPtr)
-    }
+    pmesh = physx.CreateTriangleMesh(cookingParams, desc);
+    physx._webidl_free(indexPtr);
   }
 
   physx._webidl_free(pointsPtr)

@@ -1,8 +1,8 @@
 import { isNumber } from 'lodash-es';
 import moment from 'moment';
 
-import type { ChatMessage, ConnectionParams, Entity, NetworkWithSocket, NodeWebSocket, PlayerRow, ServerStats, SpawnData, SystemDatabase, TerrainSystem, User, World, WorldOptions } from '@hyperscape/shared';
-import { EventType, Socket, System, THREE, addRole, dbHelpers, getItem, hasRole, isDatabaseInstance, removeRole, serializeRoles, uuid, writePacket } from '@hyperscape/shared';
+import type { ChatMessage, ConnectionParams, NetworkWithSocket, NodeWebSocket, PlayerRow, ServerStats, SpawnData, SystemDatabase, User, WorldOptions, SocketInterface } from '@hyperscape/shared';
+import { EventType, Socket, System, THREE, addRole, dbHelpers, getItem, hasRole, isDatabaseInstance, removeRole, serializeRoles, uuid, writePacket, Entity, TerrainSystem, World } from '@hyperscape/shared';
 import { isPrivyEnabled, verifyPrivyToken } from './privy-auth';
 import { createJWT, verifyJWT } from './utils';
 
@@ -14,10 +14,7 @@ const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';  
 
 const HEALTH_MAX = 100;
 
-// Re-export shared network types for backward compatibility
-export type { ChatMessage } from '@hyperscape/shared';
-
-type QueueItem = [Socket, string, unknown];
+type QueueItem = [SocketInterface, string, unknown];
 
 // Handler data types for network messages
 
@@ -32,7 +29,7 @@ interface _EntityRemovedData {
 }
 
 // Base handler function type - allows any data type for flexibility
-type NetworkHandler = (socket: Socket, data: unknown) => void | Promise<void>;
+type NetworkHandler = (socket: SocketInterface, data: unknown) => void | Promise<void>;
 
 /**
  * Server Network System
@@ -44,7 +41,7 @@ type NetworkHandler = (socket: Socket, data: unknown) => void | Promise<void>;
 export class ServerNetwork extends System implements NetworkWithSocket {
   id: number;
   ids: number;
-  sockets: Map<string, Socket>;
+  sockets: Map<string, SocketInterface>;
   socketIntervalId: NodeJS.Timeout;
   saveTimerId: NodeJS.Timeout | null;
   isServer: boolean;
@@ -101,7 +98,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers['onEntityRemoved'] = this.onEntityRemoved.bind(this);
     this.handlers['onSettings'] = this.onSettings.bind(this);
     // Dedicated resource packet handler
-    this.handlers['onResourceGather'] = (socket, data) => {
+    this.handlers['onResourceGather'] = (socket: SocketInterface, data) => {
       const playerEntity = socket.player;
       if (!playerEntity) {
         console.warn('[ServerNetwork] onResourceGather: no player entity for socket');
@@ -153,7 +150,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
   }
 
-  private async onCharacterListRequest(socket: Socket, _data: unknown): Promise<void> {
+  private async onCharacterListRequest(socket: SocketInterface, _data: unknown): Promise<void> {
     const accountId = (socket as unknown as { accountId?: string }).accountId
     if (!accountId) {
       console.warn('[ServerNetwork] characterListRequest received but socket has no accountId')
@@ -170,58 +167,90 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
   }
 
-  private onCharacterCreate(socket: Socket, data: unknown): void {
-    console.log('[ServerNetwork] onCharacterCreate called with data:', data)
+  private async onCharacterCreate(socket: SocketInterface, data: unknown): Promise<void> {
+    console.log('[ServerNetwork] ========== CHARACTER CREATE START ==========')
+    console.log('[ServerNetwork] Socket ID:', socket.id)
+    console.log('[ServerNetwork] Data received:', data)
     
     const payload = (data as { name?: string }) || {};
     const name = (payload.name || '').trim().slice(0, 20) || 'Adventurer';
-    console.log('[ServerNetwork] Received character create request, raw name:', payload.name, 'trimmed:', name)
+    console.log('[ServerNetwork] Raw name:', payload.name, '| Trimmed:', name)
     
     // Basic validation: alphanumeric plus spaces, 3-20 chars
     const safeName = name.replace(/[^a-zA-Z0-9 ]/g, '').trim();
     const finalName = safeName.length >= 3 ? safeName : 'Adventurer';
-    console.log('[ServerNetwork] Final character name after validation:', finalName)
+    console.log('[ServerNetwork] Final name after validation:', finalName)
     
     const id = uuid();
     const accountId = (socket as unknown as { accountId?: string }).accountId || ''
     
     if (!accountId) {
-      console.error('[ServerNetwork] Cannot create character - no accountId on socket!')
+      console.error('[ServerNetwork] ❌ ERROR: No accountId on socket!', socket.id)
+      this.sendTo(socket.id, 'showToast', { 
+        message: 'Authentication error - no account ID', 
+        type: 'error' 
+      })
       return
     }
     
-    console.log('[ServerNetwork] Creating character:', { id, accountId, finalName })
+    console.log('[ServerNetwork] Creating character with:', { id, accountId, name: finalName })
     
     try {
       const databaseSystem = this.world.getSystem('database') as import('./DatabaseSystem').DatabaseSystem | undefined
       if (!databaseSystem) {
-        console.error('[ServerNetwork] DatabaseSystem not found!')
+        console.error('[ServerNetwork] ❌ ERROR: DatabaseSystem not found!')
+        this.sendTo(socket.id, 'showToast', { 
+          message: 'Server error - database not available', 
+          type: 'error' 
+        })
         return
       }
       
-      console.log('[ServerNetwork] Calling databaseSystem.createCharacter...')
-      const result = databaseSystem.createCharacter(accountId, id, finalName)
-      console.log('[ServerNetwork] createCharacter result:', result)
+      console.log('[ServerNetwork] 🔄 Calling database.createCharacter...')
+      const result = await databaseSystem.createCharacter(accountId, id, finalName)
+      console.log('[ServerNetwork] Database result:', result)
       
       if (!result) {
-        console.error('[ServerNetwork] createCharacter returned false!')
+        console.error('[ServerNetwork] ❌ createCharacter returned false - character may already exist')
+        this.sendTo(socket.id, 'showToast', { 
+          message: 'Character creation failed', 
+          type: 'error' 
+        })
+        return
       }
+      
+      console.log('[ServerNetwork] ✅ Character created successfully in database')
     } catch (err) {
-      console.error('[ServerNetwork] Error creating character:', err)
+      console.error('[ServerNetwork] ❌ EXCEPTION in createCharacter:', err)
+      this.sendTo(socket.id, 'showToast', { 
+        message: 'Character creation error', 
+        type: 'error' 
+      })
+      return
     }
     
-    console.log('[ServerNetwork] Sending characterCreated response to client')
-    this.sendTo(socket.id, 'characterCreated', { id, name: finalName })
+    const responseData = { id, name: finalName }
+    console.log('[ServerNetwork] 📤 Sending characterCreated to socket:', socket.id)
+    console.log('[ServerNetwork] Response data:', responseData)
+    
+    try {
+      this.sendTo(socket.id, 'characterCreated', responseData)
+      console.log('[ServerNetwork] ✅ characterCreated packet sent successfully')
+    } catch (err) {
+      console.error('[ServerNetwork] ❌ ERROR sending characterCreated packet:', err)
+    }
+    
+    console.log('[ServerNetwork] ========== CHARACTER CREATE END ==========')
   }
 
-  private onCharacterSelected(socket: Socket, data: unknown): void {
+  private onCharacterSelected(socket: SocketInterface, data: unknown): void {
     const payload = (data as { characterId?: string }) || {};
     // Store selection in socket for subsequent enterWorld
     (socket as unknown as { selectedCharacterId?: string }).selectedCharacterId = payload.characterId || null as unknown as string;
     this.sendTo(socket.id, 'characterSelected', { characterId: payload.characterId || null });
   }
 
-  private async onEnterWorld(socket: Socket, data: unknown): Promise<void> {
+  private async onEnterWorld(socket: SocketInterface, data: unknown): Promise<void> {
     // Spawn the entity now, preserving legacy spawn shape
     if (socket.player) return; // Already spawned
     const accountId = (socket as unknown as { accountId?: string }).accountId || undefined;
@@ -282,7 +311,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     
     // Ground to terrain
     try {
-      const terrain = this.world.getSystem<TerrainSystem>('terrain') as TerrainSystem | null
+      const terrain = this.world.getSystem('terrain') as InstanceType<typeof TerrainSystem> | null
       if (terrain && terrain.isReady && terrain.isReady()) {
         const th = terrain.getHeightAt(position[0], position[2])
         if (Number.isFinite(th)) {
@@ -310,7 +339,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       sessionAvatar: avatar || undefined,
       roles,
     }) : undefined;
-    socket.player = (addedEntity as unknown as Entity) || undefined;
+      socket.player = (addedEntity as unknown as InstanceType<typeof Entity>) || undefined;
     if (socket.player) {
       this.world.emit(EventType.PLAYER_JOINED, { playerId: socket.player.data.id as string, userId: accountId });
       try {
@@ -338,7 +367,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           const coinsRow = dbSys?.getPlayerAsync ? await dbSys.getPlayerAsync(socket.player.id) : null
           const sorted = rows
             .map(r => ({
-              rawSlot: typeof r.slotIndex === 'number' && r.slotIndex >= 0 ? r.slotIndex : Number.MAX_SAFE_INTEGER,
+              rawSlot: Number.isFinite(r.slotIndex) && (r.slotIndex as number) >= 0 ? (r.slotIndex as number) : Number.MAX_SAFE_INTEGER,
               itemId: String(r.itemId),
               quantity: r.quantity || 1,
             }))
@@ -536,7 +565,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         // Arrived at target
         // Clamp final Y to terrain
         let finalY = target.y;
-        const terrainFinal = this.world.getSystem<TerrainSystem>('terrain') as TerrainSystem | null;
+        const terrainFinal = this.world.getSystem('terrain') as InstanceType<typeof TerrainSystem> | null;
         if (terrainFinal) {
           const th = terrainFinal.getHeightAt(target.x, target.z);
           if (Number.isFinite(th)) finalY = (th as number) + 0.1;
@@ -570,7 +599,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
       // Clamp Y to terrain height (slightly above)
       let ny = target.y;
-      const terrain = this.world.getSystem<TerrainSystem>('terrain') as TerrainSystem | null;
+      const terrain = this.world.getSystem('terrain') as InstanceType<typeof TerrainSystem> | null;
       if (terrain) {
         const th = terrain.getHeightAt(nx, nz);
         if (Number.isFinite(th)) ny = (th as number) + 0.1;
@@ -653,25 +682,29 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   checkSockets(): void {
     // see: https://www.npmjs.com/package/ws#how-to-detect-and-close-broken-connections
-    const dead: Socket[] = [];
+    const dead: SocketInterface[] = [];
     this.sockets.forEach(socket => {
       if (!socket.alive) {
         dead.push(socket);
       } else {
-        socket.ping();
+        const ws = socket as unknown as { ping?: () => void };
+        ws.ping?.();
       }
     });
-    dead.forEach(socket => socket.disconnect());
+    dead.forEach(socket => {
+      const ws = socket as unknown as { disconnect?: () => void };
+      ws.disconnect?.();
+    });
   }
 
-  enqueue(socket: Socket, method: string, data: unknown): void {
+  enqueue(socket: SocketInterface, method: string, data: unknown): void {
     if (method === 'onChatAdded') {
       console.log('[ServerNetwork] Enqueueing onChatAdded from socket:', socket.id);
     }
     this.queue.push([socket, method, data]);
   }
 
-  onDisconnect(socket: Socket, code?: number | string): void {
+  onDisconnect(socket: SocketInterface, code?: number | string): void {
     // Handle socket disconnection
       // Only log disconnects if debugging connection issues
       // console.log(`[ServerNetwork] Socket ${socket.id} disconnected with code:`, code);
@@ -712,7 +745,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           console.log('[ServerNetwork] Processing onChatAdded handler from socket:', socket.id);
         }
         if (handler) {
-          handler.call(this, socket, data);
+          const result = handler.call(this, socket, data);
+          // If handler is async, wait for it to complete
+          if (result && typeof result.then === 'function') {
+            result.catch((err: Error) => {
+              console.error(`[ServerNetwork] Error in async handler ${method}:`, err);
+            });
+          }
         } else {
           console.warn(`[ServerNetwork] No handler for packet: ${method}`);
         }
@@ -738,16 +777,22 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     await dbHelpers.setConfig(this.db, 'settings', value);
   };
 
-  isAdmin(player: Entity | { data?: { roles?: string[] } }): boolean {
+  isAdmin(player: InstanceType<typeof Entity> | { data?: { roles?: string[] } }): boolean {
     return hasRole(player.data?.roles as string[] | undefined, 'admin');
   }
 
-  isBuilder(player: Entity | { data?: { roles?: string[] } }): boolean {
+  isBuilder(player: InstanceType<typeof Entity> | { data?: { roles?: string[] } }): boolean {
     return this.world.settings.public || this.isAdmin(player);
   }
 
   async onConnection(ws: NodeWebSocket, params: ConnectionParams): Promise<void> {
     try {
+      // Validate websocket parameter
+      if (!ws || typeof ws.close !== 'function') {
+        console.error('[ServerNetwork] Invalid websocket provided to onConnection');
+        return;
+      }
+
       // check player limit
       // Check player limit setting
       const playerLimit = this.world.settings.playerLimit;
@@ -838,8 +883,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       if (!user && authToken) {
         try {
           const jwtPayload = await verifyJWT(authToken);
-          if (jwtPayload && typeof jwtPayload.userId === 'string') {
-            const dbResult = await this.db('users').where('id', jwtPayload.userId).first();
+          if (jwtPayload && jwtPayload.userId) {
+            const dbResult = await this.db('users').where('id', jwtPayload.userId as string).first();
             if (dbResult) {
               // Strong type assumption - dbResult has user properties
               user = dbResult as User;
@@ -870,9 +915,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         authToken = await createJWT({ userId: user.id });
       }
       
-      // Convert roles string to array
-      if (typeof user.roles === 'string') {
-        user.roles = user.roles.split(',').filter(r => r);
+      // Convert roles string to array - DB stores as string, runtime uses array
+      if ((user.roles as string).split) {
+        user.roles = (user.roles as string).split(',').filter(r => r);
       }
 
       // Allow multiple sessions per user for development/testing; do not kick duplicates
@@ -896,32 +941,51 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       const socket = new Socket({ 
         id: socketId, 
         ws, 
-        network: this 
-      });
+        network: this,
+        player: undefined
+      }) as SocketInterface;
       // Store account linkage for later character flows
       (socket as unknown as { accountId?: string }).accountId = user.id;
 
       // Wait for terrain system to be ready before spawning players
-      const terrain = this.world.getSystem<TerrainSystem>('terrain');
+      const terrain = this.world.getSystem('terrain') as InstanceType<typeof TerrainSystem> | null;
       if (terrain) {
         // Wait for terrain to be ready
         let terrainReady = false;
+        console.log('[ServerNetwork] Checking terrain readiness:', {
+          hasIsReady: !!terrain.isReady,
+          isReadyType: typeof terrain.isReady,
+        });
+        
         for (let i = 0; i < 100; i++) {  // Wait up to 10 seconds
           if (terrain.isReady && terrain.isReady()) {
             terrainReady = true;
+            console.log(`[ServerNetwork] ✅ Terrain is ready after ${i * 100}ms`);
             break;
           }
           await new Promise(resolve => setTimeout(resolve, 100));
           if (i % 10 === 0) {
-            console.log(`[ServerNetwork] Waiting for terrain to be ready... (${i/10}s)`);
+            console.log(`[ServerNetwork] Waiting for terrain to be ready... (${i/10}s)`, {
+              hasIsReady: !!terrain.isReady,
+              isReadyResult: terrain.isReady ? terrain.isReady() : 'N/A'
+            });
           }
         }
         
         if (!terrainReady) {
-          console.error('[ServerNetwork] Terrain system not ready after 10 seconds!');
-          ws.close(1001, 'Server terrain not ready');
+          console.error('[ServerNetwork] ❌ Terrain system not ready after 10 seconds!');
+          console.error('[ServerNetwork] Terrain state:', {
+            hasIsReady: !!terrain.isReady,
+            isReadyFunction: typeof terrain.isReady,
+            terrainKeys: Object.keys(terrain).slice(0, 10),
+          });
+          if (ws && typeof ws.close === 'function') {
+            ws.close(1001, 'Server terrain not ready');
+          }
           return;
         }
+      } else {
+        console.warn('[ServerNetwork] ⚠️  No terrain system found - proceeding without terrain validation');
       }
       
       // Check if player has saved position in database
@@ -987,7 +1051,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
       
       // Ground spawn position to terrain height
-      const terrainSystem = this.world.getSystem<TerrainSystem>('terrain') as TerrainSystem | null;
+      const terrainSystem = this.world.getSystem('terrain') as InstanceType<typeof TerrainSystem> | null;
       
       // Check if terrain system is ready using its isReady() method
       if (terrainSystem && terrainSystem.isReady && terrainSystem.isReady()) {
@@ -1035,7 +1099,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           roles: user.roles,
         }
       ) : undefined;
-      socket.player = (createdEntity as unknown as Entity) || undefined;
+      socket.player = (createdEntity as unknown as InstanceType<typeof Entity>) || undefined;
 
       // Load character list if in character-select mode
       let characters: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> = []
@@ -1120,7 +1184,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
   }
 
-  onChatAdded = (socket: Socket, data: unknown): void => {
+  onChatAdded = (socket: SocketInterface, data: unknown): void => {
     const msg = data as ChatMessage;
     console.log('[ServerNetwork] Received chatAdded from socket:', socket.id, 'message:', msg);
     // Add message to chat if method exists
@@ -1131,7 +1195,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.send('chatAdded', msg, socket.id);
   };
 
-  onCommand = async (socket: Socket, data: unknown): Promise<void> => {
+  onCommand = async (socket: SocketInterface, data: unknown): Promise<void> => {
     const args = data as string[];
     // TODO: check for spoofed messages, permissions/roles etc
     // handle slash commands
@@ -1221,7 +1285,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
       // Apply on server entity
       // Clamp Y to terrain height on all server-side position sets via command
-      const terrain = this.world.getSystem<TerrainSystem>('terrain') as TerrainSystem | null
+      const terrain = this.world.getSystem('terrain') as InstanceType<typeof TerrainSystem> | null
       if (!terrain) {
         throw new Error('[ServerNetwork] Terrain system not available for chat move')
       }
@@ -1273,7 +1337,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
   }
 
-  onEntityModified(socket: Socket, data: unknown): void {
+  onEntityModified(socket: SocketInterface, data: unknown): void {
     // Accept either { id, changes: {...} } or a flat payload { id, ...changes }
     const incoming = data as { id: string; changes?: Record<string, unknown> } & Record<string, unknown>;
     const id = incoming.id;
@@ -1298,7 +1362,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.send('entityModified', { id, changes }, socket.id);
   }
 
-  private onMoveRequest(socket: Socket, data: unknown): void {
+  private onMoveRequest(socket: SocketInterface, data: unknown): void {
     const playerEntity = socket.player;
     if (!playerEntity) return;
 
@@ -1322,7 +1386,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const t = (Array.isArray(payload?.target) ? payload!.target as [number, number, number] : null);
     // If only runMode is provided, update current movement speed/emote without changing target
     if (!t) {
-      if (typeof payload?.runMode === 'boolean') {
+      if (payload?.runMode !== undefined) {
         const info = this.moveTargets.get(playerEntity.id);
         if (info) {
           info.maxSpeed = payload.runMode ? 8 : 4;
@@ -1371,7 +1435,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     });
   }
 
-  private onInput(socket: Socket, data: unknown): void {
+  private onInput(socket: SocketInterface, data: unknown): void {
     // This now exclusively handles click-to-move requests, routing them to the canonical handler.
     const playerEntity = socket.player;
     if (!playerEntity) {
@@ -1385,7 +1449,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
   }
   
-  private onAttackMob(socket: Socket, data: unknown): void {
+  private onAttackMob(socket: SocketInterface, data: unknown): void {
     const playerEntity = socket.player;
     if (!playerEntity) {
       console.warn('[ServerNetwork] onAttackMob: no player entity for socket');
@@ -1410,7 +1474,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     });
   }
   
-  private onPickupItem(socket: Socket, data: unknown): void {
+  private onPickupItem(socket: SocketInterface, data: unknown): void {
     const playerEntity = socket.player;
     if (!playerEntity) {
       console.warn('[ServerNetwork] onPickupItem: no player entity for socket');
@@ -1434,16 +1498,17 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     });
   }
 
-  onEntityEvent(socket: Socket, data: unknown): void {
+  onEntityEvent(socket: SocketInterface, data: unknown): void {
     // Accept both { id, version, name, data } and { id, event, payload }
     const incoming = data as { id?: string; version?: number; name?: string; data?: unknown; event?: string; payload?: unknown }
     const name = (incoming.name || incoming.event) as string | undefined
     const payload = (Object.prototype.hasOwnProperty.call(incoming, 'data') ? incoming.data : incoming.payload) as unknown
     if (!name) return
-    // Attach playerId if not provided
+    // Attach playerId if not provided - assume payload is an object
     const enriched = (() => {
-      if (typeof payload === 'object' && payload !== null && !('playerId' in (payload as Record<string, unknown>)) && socket.player?.id) {
-        return { ...(payload as Record<string, unknown>), playerId: socket.player.id }
+      const payloadObj = payload as Record<string, unknown>
+      if (payloadObj && !payloadObj.playerId && socket.player?.id) {
+        return { ...payloadObj, playerId: socket.player.id }
       }
       return payload
     })()
@@ -1455,15 +1520,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
   }
 
-  onEntityRemoved(_socket: Socket, _data: unknown): void {
+  onEntityRemoved(_socket: SocketInterface, _data: unknown): void {
     // Handle entity removal
       }
 
-  onSettings(_socket: Socket, _data: unknown): void {
+  onSettings(_socket: SocketInterface, _data: unknown): void {
     // Handle settings change
       }
 
-  onSpawnModified(_socket: Socket, _data: SpawnData): void {
+  onSpawnModified(_socket: SocketInterface, _data: SpawnData): void {
     // Handle spawn modification
       }
   
@@ -1472,7 +1537,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    * Integrated from ServerPositionValidator for efficiency
    */
   private validatePlayerPositions(): void {
-    const terrain = this.world.getSystem<TerrainSystem>('terrain') as TerrainSystem | null;
+    const terrain = this.world.getSystem('terrain') as InstanceType<typeof TerrainSystem> | null;
     if (!terrain) return;
     
     // Iterate through all connected players via their sockets

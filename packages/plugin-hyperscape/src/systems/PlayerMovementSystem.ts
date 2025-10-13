@@ -40,6 +40,8 @@ import { Entity } from '@hyperscape/shared'
 import { EventEmitter } from 'events'
 
 interface MovablePlayer extends Entity {
+  id: string
+  node: THREE.Object3D
   isMoving?: boolean
   targetPosition?: Vector3
   movementPath?: Vector3[]

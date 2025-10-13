@@ -789,7 +789,8 @@ export class ClientCameraSystem extends SystemBase {
     const origin = _v3_2.set(this.smoothedTarget.x, this.smoothedTarget.y, this.smoothedTarget.z);
     const mask = this.world.createLayerMask('environment');
     const hit = this.world.raycast(origin, dir, desiredDistance, mask);
-    if (hit && typeof hit.distance === 'number' && hit.distance > 0) {
+    // Strong type assumption - RaycastHit.distance is always number
+    if (hit && hit.distance > 0) {
       const minDist = this.settings.minDistance;
       const margin = 0.4;
       return Math.max(Math.min(desiredDistance, hit.distance - margin), minDist);

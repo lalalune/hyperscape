@@ -1,9 +1,7 @@
 
-import type { Item } from '../types/core';
-import { AttackType, EquipmentSlotName, ItemType, WeaponType } from '../types/core';
-import { ItemRarity, MobType } from '../types/entities';
+import { AttackType } from '../types/core';
 import { EventType } from '../types/events';
-import type { Player, World } from '../types/index';
+import type { World } from '../types/index';
 import { SystemBase } from './SystemBase';
 // World eliminated - using base World instead
 import { ALL_MOBS, MOB_SPAWN_CONSTANTS } from '../data/mobs';
@@ -11,7 +9,6 @@ import { ALL_WORLD_AREAS } from '../data/world-areas';
 import { MobInstance, MobSpawnConfig } from '../types/core';
 import { calculateDistance, groundToTerrain } from '../utils/EntityUtils';
 import { EntityManager } from './EntityManager';
-import type { XPSystem } from '../types/system-interfaces';
 
 /**
  * Mob System - GDD Compliant
@@ -26,13 +23,10 @@ export class MobSystem extends SystemBase {
   private mobs = new Map<string, MobInstance>();
   private spawnPoints = new Map<string, { config: MobSpawnConfig, position: { x: number; y: number; z: number } }>();
   private respawnTimers = new Map<string, number>(); // Changed to store respawn times instead of timers
-  private lastAIUpdate = 0;
   private entityManager?: EntityManager;
   private mobIdCounter = 0;
   
   private readonly GLOBAL_RESPAWN_TIME = MOB_SPAWN_CONSTANTS.GLOBAL_RESPAWN_TIME;
-  private readonly AI_UPDATE_INTERVAL = 1000; // 1 second AI updates
-  private readonly MAX_CHASE_DISTANCE = 20; // Maximum chase distance before returning home
   
   // Mob configurations loaded from externalized data
   private readonly MOB_CONFIGS: Record<string, MobSpawnConfig> = this.createMobConfigs();
@@ -44,7 +38,7 @@ export class MobSystem extends SystemBase {
     
     for (const [mobId, mobData] of Object.entries(ALL_MOBS)) {
       configs[mobId] = {
-        type: mobId as MobType,
+        type: mobId, // Mob ID from mobs.json
         name: mobData.name,
         level: mobData.stats.level,
         stats: {
@@ -82,17 +76,17 @@ export class MobSystem extends SystemBase {
   async init(): Promise<void> {
     // Set up type-safe event subscriptions
     // ENTITY_DEATH is in EventMap but only has entityId
-    this.subscribe(EventType.ENTITY_DEATH, (data) => this.handleMobDeath({ entityId: data.entityId, killedBy: '', entityType: 'mob' }));
+    this.subscribe(EventType.ENTITY_DEATH, (data) => {
+      const typedData = data as { entityId: string };
+      this.handleMobDeath({ entityId: typedData.entityId, killedBy: '', entityType: 'mob' });
+    });
     // ENTITY_DAMAGE_TAKEN is not in EventMap, so it receives the full event
     this.subscribe(EventType.ENTITY_DAMAGE_TAKEN, (data) => this.handleMobDamage(data as { entityId: string; damage: number; damageSource: string; entityType: 'player' | 'mob' }));
-    this.subscribe(EventType.PLAYER_REGISTERED, (data) => this.onPlayerEnter(data));
-    this.subscribe(EventType.MOB_SPAWN_REQUEST, (data) => this.spawnMobAtLocation(data));
+    this.subscribe(EventType.PLAYER_REGISTERED, (data) => this.onPlayerEnter(data as { playerId: string }));
+    this.subscribe(EventType.MOB_SPAWN_REQUEST, (data) => this.spawnMobAtLocation(data as unknown as { mobType: string; position: { x: number; y: number; z: number } }));
     
     // Initialize spawn points (these would normally be loaded from world data)
     this.initializeSpawnPoints();
-    
-    // Initialize AI update timing for frame-based updates
-    this.lastAIUpdate = Date.now();
   }
 
   start(): void {
@@ -354,177 +348,8 @@ export class MobSystem extends SystemBase {
     }
   }
 
-  private generateLoot(mob: MobInstance): void {
-    // Generate loot based on mob's loot table per GDD
-    const loot = this.rollLootTable(mob.lootTable, mob.level);
-    
-    if (loot.length > 0) {
-      // Create loot drop at mob's death location
-      this.emitTypedEvent(EventType.ITEM_SPAWN_LOOT, {
-        lootTable: mob.type,
-        position: { x: mob.position.x, y: mob.position.y, z: mob.position.z }
-      });
-    }
-  }
-
-  private rollLootTable(lootTable: string, mobLevel: number): Array<{ item: Item; quantity: number }> {
-    // Simplified loot generation - in full implementation would use proper loot tables
-    const loot: Array<{ item: Item; quantity: number }> = [];
-    
-    // Always drop coins per GDD
-    const coinAmount = Math.floor(mobLevel * (5 + Math.random() * 10));
-    loot.push({ 
-      item: { 
-        id: '1000', 
-        name: 'Coins', 
-        type: ItemType.CURRENCY,
-        quantity: coinAmount,
-        stackable: true,
-        maxStackSize: 999,
-        value: 1,
-        weight: 0,
-        equipSlot: null,
-                    weaponType: WeaponType.NONE,
-        equipable: false,
-        attackType: null,
-        description: 'Gold coins used as currency',
-        examine: 'Gleaming gold coins',
-        tradeable: true,
-        rarity: ItemRarity.COMMON,
-        modelPath: 'items/coins.glb',
-        iconPath: 'icons/coins.png',
-        healAmount: 0,
-        stats: { attack: 0, defense: 0, strength: 0 },
-        bonuses: { attack: 0, defense: 0, strength: 0 },
-        requirements: { level: 1, skills: {} }
-      },
-      quantity: coinAmount
-    });
-    
-    // Chance for equipment drops based on mob level
-    const equipmentChance = Math.min(0.1 + (mobLevel * 0.01), 0.3); // 10-30% chance
-    if (Math.random() < equipmentChance) {
-      // Generate appropriate tier equipment
-      if (mobLevel <= 5) {
-        loot.push({ 
-          item: {
-            id: '2001', 
-            name: 'Bronze sword', 
-            type: ItemType.WEAPON,
-            quantity: 1,
-            stackable: false,
-            maxStackSize: 1,
-            value: 10,
-            weight: 5,
-            equipSlot: EquipmentSlotName.WEAPON,
-            weaponType: WeaponType.SWORD,
-            equipable: true,
-            attackType: AttackType.MELEE,
-            description: 'A basic bronze sword',
-            examine: 'A well-crafted bronze blade',
-            tradeable: true,
-            rarity: ItemRarity.COMMON,
-            modelPath: 'items/bronze_sword.glb',
-            iconPath: 'icons/bronze_sword.png',
-            healAmount: 0,
-            stats: { attack: 5, defense: 0, strength: 2 },
-            bonuses: { attack: 5, defense: 0, strength: 2 },
-            requirements: { level: 1, skills: {} }
-          },
-          quantity: 1
-        });
-      } else if (mobLevel <= 15) {
-        loot.push({ 
-          item: {
-            id: '2002', 
-            name: 'Steel sword', 
-            type: ItemType.WEAPON,
-            quantity: 1,
-            stackable: false,
-            maxStackSize: 1,
-            value: 50,
-            weight: 6,
-            equipSlot: EquipmentSlotName.WEAPON,
-            weaponType: WeaponType.SWORD,
-            equipable: true,
-            attackType: AttackType.MELEE,
-            description: 'A sturdy steel sword',
-            examine: 'A well-forged steel blade',
-            tradeable: true,
-            rarity: ItemRarity.UNCOMMON,
-            modelPath: 'items/steel_sword.glb',
-            iconPath: 'icons/steel_sword.png',
-            healAmount: 0,
-            stats: { attack: 12, defense: 0, strength: 5 },
-            bonuses: { attack: 12, defense: 0, strength: 5 },
-            requirements: { level: 10, skills: {} }
-          },
-          quantity: 1
-        });
-      } else {
-        loot.push({ 
-          item: {
-            id: '2003', 
-            name: 'Mithril sword', 
-            type: ItemType.WEAPON,
-            quantity: 1,
-            stackable: false,
-            maxStackSize: 1,
-            value: 250,
-            weight: 4,
-            equipSlot: EquipmentSlotName.WEAPON,
-            weaponType: WeaponType.SWORD,
-            equipable: true,
-            attackType: AttackType.MELEE,
-            description: 'A masterfully crafted mithril sword',
-            examine: 'A gleaming blade of pure mithril',
-            tradeable: true,
-            rarity: ItemRarity.RARE,
-            modelPath: 'items/mithril_sword.glb',
-            iconPath: 'icons/mithril_sword.png',
-            healAmount: 0,
-            stats: { attack: 25, defense: 0, strength: 10 },
-            bonuses: { attack: 25, defense: 0, strength: 10 },
-            requirements: { level: 20, skills: {} }
-          },
-          quantity: 1
-        });
-      }
-    }
-    
-    // Dark Rangers drop arrows commonly per GDD
-    if (lootTable === 'dark_ranger_drops') {
-      loot.push({ 
-        item: {
-          id: '3001', 
-          name: 'Arrows', 
-          type: ItemType.AMMUNITION,
-          quantity: 10 + Math.floor(Math.random() * 20),
-          stackable: true,
-          maxStackSize: 100,
-          value: 1,
-          weight: 0.1,
-          equipSlot: EquipmentSlotName.ARROWS,
-                      weaponType: WeaponType.NONE,
-          equipable: true,
-          attackType: AttackType.RANGED,
-          description: 'Sharp arrows for ranged combat',
-          examine: 'Well-crafted arrows with steel tips',
-          tradeable: true,
-          rarity: ItemRarity.COMMON,
-          modelPath: 'items/arrows.glb',
-          iconPath: 'icons/arrows.png',
-          healAmount: 0,
-          stats: { attack: 0, defense: 0, strength: 0 },
-          bonuses: { attack: 0, ranged: 2, strength: 2 },
-          requirements: { level: 1, skills: {} }
-        },
-        quantity: 10 + Math.floor(Math.random() * 20)
-      });
-    }
-    
-    return loot;
-  }
+  // Loot generation removed - now handled entirely by LootSystem
+  // LootSystem loads loot tables from mobs.json dynamically
 
   // Public API methods for integration tests
   public getAllMobs(): MobInstance[] {
@@ -580,287 +405,7 @@ export class MobSystem extends SystemBase {
     return mobId;
   }
 
-  private updateAllMobAI(): void {
-    const now = Date.now();
-    
-    for (const mob of this.mobs.values()) {
-      if (!mob.isAlive) continue;
-      
-      // Update mob AI
-      this.updateMobAI(mob, now);
-    }
-  }
 
-  private updateMobAI(mob: MobInstance, now: number): void {
-    // Simple AI state machine
-    switch (mob.aiState) {
-      case 'idle':
-        this.handleIdleAI(mob);
-        break;
-      case 'patrolling':
-        this.handlePatrolAI(mob, now); 
-        break;
-      case 'chasing':
-        this.handleChaseAI(mob);
-        break;
-      case 'attacking':
-        this.handleAttackAI(mob);
-        break;
-      case 'returning':
-        this.handleReturnAI(mob);
-        break;
-    }
-    
-    mob.lastAI = now;
-  }
-
-  private handleIdleAI(mob: MobInstance): void {
-    if (!mob.isAggressive || !mob.position) return;
-    
-    // Validate position has valid coordinates
-    if (typeof mob.position.x !== 'number' || 
-        typeof mob.position.y !== 'number' || 
-        typeof mob.position.z !== 'number') {
-      console.warn(`[MobSystem] Mob ${mob.id} has invalid position coordinates`, mob.position);
-      return;
-    }
-    
-    // Look for nearby players to aggro
-    const nearbyPlayer = this.findNearbyPlayer(mob);
-    if (nearbyPlayer) {
-       
-      mob.target = nearbyPlayer.id;
-      mob.aiState = 'chasing';
-    }
-  }
-
-  private handlePatrolAI(mob: MobInstance, now: number): void {
-    // Validate positions before using
-    if (!mob.position || !mob.homePosition ||
-        typeof mob.position.x !== 'number' || typeof mob.position.y !== 'number' || typeof mob.position.z !== 'number' ||
-        typeof mob.homePosition.x !== 'number' || typeof mob.homePosition.y !== 'number' || typeof mob.homePosition.z !== 'number') {
-      console.warn(`[MobSystem] Mob ${mob.id} has invalid position for patrol`, { position: mob.position, homePosition: mob.homePosition });
-      return;
-    }
-    
-    // Simple patrol behavior - move randomly around home position
-    if (now - mob.lastAI > 3000) { // Change direction every 3 seconds
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 2 + Math.random() * 5;
-      
-      mob.position.x = mob.homePosition.x + Math.cos(angle) * distance;
-      mob.position.z = mob.homePosition.z + Math.sin(angle) * distance;
-      
-      // Update position in world
-      this.emitTypedEvent(EventType.MOB_POSITION_UPDATED, {
-        entityId: mob.id,
-        position: { x: mob.position.x, y: mob.position.y, z: mob.position.z }
-      });
-    }
-    
-    // Check for aggro while patrolling
-    if (mob.isAggressive) {
-      const nearbyPlayer = this.findNearbyPlayer(mob);
-      if (nearbyPlayer) {
-         
-        mob.target = nearbyPlayer.id;
-        mob.aiState = 'chasing';
-      }
-    }
-  }
-
-  private handleChaseAI(mob: MobInstance): void {
-    if (!mob.target) {
-      mob.aiState = 'returning';
-      return;
-    }
-    
-    // Validate mob position first
-    if (!mob.position || 
-        typeof mob.position.x !== 'number' || 
-        typeof mob.position.y !== 'number' || 
-        typeof mob.position.z !== 'number') {
-      console.warn(`[MobSystem] handleChaseAI: Mob ${mob.id} has invalid position`, mob.position);
-      mob.aiState = 'idle';
-      return;
-    }
-    
-    const targetPlayer = this.getPlayer(mob.target);
-    if (!targetPlayer) {
-      mob.target = null;
-      mob.aiState = 'returning';
-      return;
-    }
-    
-    // Get player position, preferring the main position property, falling back to node.position
-    const playerPosition = targetPlayer.position || (targetPlayer.node?.position ? 
-      { x: targetPlayer.node.position.x, y: targetPlayer.node.position.y, z: targetPlayer.node.position.z } : null);
-    
-    if (!playerPosition) {
-      console.warn(`[MobSystem] Target player ${targetPlayer.id} has no valid position`);
-      mob.target = null;
-      mob.aiState = 'returning';
-      return;
-    }
-    
-    const distance = calculateDistance(mob.position, playerPosition);
-    
-    // Check if too far from home - return if so
-    if (mob.homePosition && 
-        typeof mob.homePosition.x === 'number' && 
-        typeof mob.homePosition.y === 'number' && 
-        typeof mob.homePosition.z === 'number') {
-      const homeDistance = calculateDistance(mob.position, mob.homePosition);
-      if (homeDistance > this.MAX_CHASE_DISTANCE) {
-        mob.target = null;
-        mob.aiState = 'returning';
-        return;
-      }
-    }
-    
-    // If in attack range, start attacking
-    const attackRange = mob.equipment.weapon?.type === 'ranged' ? 8 : 2;
-    if (distance <= attackRange) {
-      mob.aiState = 'attacking';
-      // Start combat with player
-      this.emitTypedEvent(EventType.COMBAT_START_ATTACK, {
-        attackerId: mob.id,
-        targetId: mob.target
-      });
-      return;
-    }
-    
-    // Move towards target
-     
-    this.moveTowardsTarget(mob, playerPosition);
-  }
-
-  private handleAttackAI(mob: MobInstance): void {
-    if (!mob.target) {
-      mob.aiState = 'idle';
-      return;
-    }
-    
-    // Validate mob position first
-    if (!mob.position || 
-        typeof mob.position.x !== 'number' || 
-        typeof mob.position.y !== 'number' || 
-        typeof mob.position.z !== 'number') {
-      console.warn(`[MobSystem] handleAttackAI: Mob ${mob.id} has invalid position`, mob.position);
-      mob.aiState = 'idle';
-      return;
-    }
-    
-    const targetPlayer = this.getPlayer(mob.target);
-    
-    if (!targetPlayer || (targetPlayer.health !== undefined && targetPlayer.health.current <= 0)) {
-      mob.target = null;
-      mob.aiState = 'idle';
-      return;
-    }
-    
-    // Get player position, preferring the main position property, falling back to node.position
-    const playerPosition = targetPlayer.position || (targetPlayer.node?.position ? 
-      { x: targetPlayer.node.position.x, y: targetPlayer.node.position.y, z: targetPlayer.node.position.z } : null);
-    
-    if (!playerPosition) {
-      console.warn(`[MobSystem] Target player ${targetPlayer.id} has no valid position`);
-      mob.target = null;
-      mob.aiState = 'idle';
-      return;
-    }
-    
-    const distance = calculateDistance(mob.position, playerPosition);
-    const attackRange = mob.equipment.weapon?.type === 'ranged' ? 8 : 2;
-    
-    // If target moved out of range, chase again
-    if (distance > attackRange * 1.5) {
-      mob.aiState = 'chasing';
-      return;
-    }
-    
-    // Combat system handles the actual attacking
-  }
-
-  private handleReturnAI(mob: MobInstance): void {
-    // Validate positions before using
-    if (!mob.position || !mob.homePosition ||
-        typeof mob.position.x !== 'number' || typeof mob.position.y !== 'number' || typeof mob.position.z !== 'number' ||
-        typeof mob.homePosition.x !== 'number' || typeof mob.homePosition.y !== 'number' || typeof mob.homePosition.z !== 'number') {
-      console.warn(`[MobSystem] handleReturnAI: Mob ${mob.id} has invalid position for returning`, { position: mob.position, homePosition: mob.homePosition });
-      mob.aiState = 'idle';
-      return;
-    }
-    
-    const homeDistance = calculateDistance(mob.position, mob.homePosition);
-    
-    if (homeDistance <= 1) {
-      mob.aiState = 'idle';
-      return;
-    }
-    
-    // Move towards home
-    this.moveTowardsTarget(mob, mob.homePosition);
-  }
-
-  private findNearbyPlayer(mob: MobInstance): Player | null {
-    const players = this.world.getPlayers();
-    
-    // Validate mob position before processing
-    if (!mob.position || 
-        typeof mob.position.x !== 'number' || 
-        typeof mob.position.y !== 'number' || 
-        typeof mob.position.z !== 'number') {
-      console.warn(`[MobSystem] findNearbyPlayer: Mob ${mob.id} has invalid position`, mob.position);
-      return null;
-    }
-
-    for (const player of players) {
-      // Get player position, preferring the main position property, falling back to node.position
-      let playerPosition: { x: number; y: number; z: number } | null = null;
-
-      if (player.position) {
-        playerPosition = player.position;
-      } else if (player.node?.position && typeof player.node.position.x === 'number' &&
-                 typeof player.node.position.y === 'number' && typeof player.node.position.z === 'number') {
-        playerPosition = { x: player.node.position.x, y: player.node.position.y, z: player.node.position.z };
-      }
-
-      if (!playerPosition) {
-        console.warn(`[MobSystem] Player ${player.id} has no valid position`);
-        continue;
-      }
-
-      const distance = calculateDistance(mob.position, playerPosition);
-      if (distance <= mob.aggroRange) {
-        // Get player combat level for level-based aggro checks
-        // Get player combat level through the API
-
-        const xpSystem = this.world.getSystem('XPSystem') as XPSystem;
-        const playerCombatLevel = xpSystem?.getCombatLevel?.(player.id) || 1;
-
-        // GDD: High-level players ignored by low-level aggressive mobs (except special cases)
-        if (mob.level < 15 && playerCombatLevel > mob.level * 2) {
-          continue; // Skip high-level players for low-level mobs
-        }
-
-        // Special cases: Dark Warriors and higher always aggressive per GDD
-        if (mob.type === 'dark_warrior' || mob.type === 'black_knight' ||
-            mob.type === 'ice_warrior' || mob.type === 'dark_ranger') {
-          return player; // Always aggressive regardless of player level
-        }
-        
-        return player;
-      }
-    }
-    
-    return null;
-  }
-
-  private getPlayer(playerId: string): Player | null {
-    // Get specific player from player system
-    return this.world.getPlayer(playerId);
-  }
 
   /**
    * Despawn a mob immediately
@@ -938,27 +483,13 @@ export class MobSystem extends SystemBase {
     return true;
   }
 
-  /**
-   * Move mob towards target position
-   * DISABLED: Movement now handled by MobEntity which properly syncs to clients
-   */
-  private moveTowardsTarget(_mob: MobInstance, _targetPosition: { x: number; y: number; z: number }): void {
-    // DISABLED: MobEntity.serverUpdate() handles all mob AI and movement
-    // Direct mob.position modification does not trigger network sync!
-    // MobEntity uses Entity.setPosition() → Entity.markNetworkDirty() → EntityManager broadcasts
-  }
 
   /**
-   * Main update loop - preserve AI and respawn logic
+   * Main update loop - respawn logic only
+   * AI is now handled by MobEntity.serverUpdate()
    */
   update(_dt: number): void {
     const now = Date.now();
-    
-    // Update AI at fixed intervals
-    if (now - this.lastAIUpdate >= this.AI_UPDATE_INTERVAL) {
-      this.lastAIUpdate = now;
-      this.updateAllMobAI();
-    }
     
     // Check respawn timers
     for (const [mobId, respawnTime] of this.respawnTimers.entries()) {
@@ -982,13 +513,9 @@ export class MobSystem extends SystemBase {
     // Clear all mob data
     this.mobs.clear();
     this.spawnPoints.clear();
+    
     // Clear system references
     this.entityManager = undefined;
-    
-    // Reset timing
-    this.lastAIUpdate = 0;
-    
-
     
     // Call parent cleanup
     super.destroy();

@@ -1,5 +1,5 @@
 import { Packr } from 'msgpackr'
-import type { PacketInfo } from './types/network-types'
+import type { PacketInfo } from './types/networking'
 
 const packr = new Packr({ structuredClone: true })
 
@@ -91,15 +91,10 @@ export function writePacket(name: string, data: unknown): ArrayBuffer {
 }
 
 export function readPacket(packet: ArrayBuffer | Uint8Array): [string, unknown] | [] {
-  try {
-    // Convert ArrayBuffer to Uint8Array if needed
-    const buffer = packet instanceof ArrayBuffer ? new Uint8Array(packet) : packet
-    const [id, data] = packr.unpack(buffer)
-    const info = byId[id]
-    if (!info) throw new Error(`readPacket failed: ${id} (id not found)`)
-    return [info.method, data]
-  } catch (err) {
-    console.error(err)
-    return []
-  }
+  // Convert ArrayBuffer to Uint8Array if needed
+  const buffer = packet instanceof ArrayBuffer ? new Uint8Array(packet) : packet;
+  const [id, data] = packr.unpack(buffer);
+  const info = byId[id];
+  if (!info) throw new Error(`readPacket failed: ${id} (id not found)`);
+  return [info.method, data];
 }

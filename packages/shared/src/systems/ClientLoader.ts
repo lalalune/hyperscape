@@ -11,6 +11,7 @@ import { patchTextureLoader } from '../extras/textureLoaderPatch'
 import THREE from '../extras/three'
 import { Node } from '../nodes/Node'
 import type { GLBData, HSNode as INode, LoadedAvatar, LoadedEmote, LoadedModel, LoaderResult, VideoFactory, World, WorldOptions } from '../types'
+import type { AvatarFactory } from '../types/nodes'
 import { EventType } from '../types/events'
 import { SystemBase } from './SystemBase'
 
@@ -23,11 +24,40 @@ function nodeToINode(node: Node): INode {
 }
 
 /**
- * Client Loader System
- *
- * - Runs on the client
- * - Basic file loader for many different formats, cached.
- *
+ * Browser-Based Asset Loader
+ * 
+ * Platform-specific loader for browser environments using Web APIs:
+ * - fetch() for network requests
+ * - Blob/File APIs for binary data
+ * - URL.createObjectURL() for temporary blob URLs
+ * - HTMLVideoElement + MediaSource for HLS streaming
+ * - Three.js loaders (GLTF, RGBE, Texture) with browser context
+ * 
+ * ## Why Separate from ServerLoader?
+ * 
+ * This loader is tightly coupled to browser-only APIs that don't exist in Node.js:
+ * - `window`, `document`, `Image`, `HTMLVideoElement`
+ * - Blob URLs and createObjectURL/revokeObjectURL
+ * - Canvas for texture processing
+ * - MediaSource API for video streaming
+ * 
+ * Attempting to consolidate with ServerLoader would require:
+ * - Heavy abstraction over fundamentally different I/O models
+ * - Polyfills for browser-specific APIs (video, canvas, etc.)
+ * - Loss of type safety and platform-specific optimizations
+ * 
+ * ## Supported Formats
+ * 
+ * - **Models**: .glb (GLTF binary with embedded textures)
+ * - **Avatars**: .vrm (VRM humanoid avatars with VRMLoaderPlugin)
+ * - **Emotes**: .glb animations (retargetable to VRM skeletons)
+ * - **Textures**: .jpg, .png, .webp (via TextureLoader)
+ * - **HDR**: .hdr (RGBE environment maps via RGBELoader)
+ * - **Images**: Raw image elements
+ * - **Video**: .mp4, .webm, .m3u8 (HLS with hls.js polyfill)
+ * - **Audio**: .mp3, .ogg, .wav (decoded via Web Audio API)
+ * 
+ * @see ServerLoader for Node.js filesystem-based loading
  */
 export class ClientLoader extends SystemBase {
   files: Map<string, File>
@@ -212,157 +242,91 @@ export class ClientLoader extends SystemBase {
         })
       }
       if (type === 'model') {
-        const buffer = await file.arrayBuffer()
-        try {
-          const gltf = await this.gltfLoader.parseAsync(buffer, '')
-          // Convert GLTF to GLBData format
-          const glb = {
-            scene: gltf.scene,
-            animations: gltf.animations || []
-          }
-          const node = glbToNodes(glb, this.world)
-          const model: LoadedModel = {
-            toNodes() {
-              const clonedNode = node.clone(true)
-              const nodeMap = new Map<string, INode>()
-              nodeMap.set('root', nodeToINode(clonedNode))
-              return nodeMap
-            },
-            getStats() {
-              const stats = node.getStats(true)
-              // append file size
-              stats.fileBytes = file.size
-              return stats
-            },
-          }
-          this.results.set(key, model)
-          return model
-        } catch (error) {
-          this.logger.warn(`Failed to parse GLB model, texture loading issue: ${url}: ${(error as Error)?.message || 'Unknown error'}`)
-          // Create a simple fallback model  
-          const fallbackNode = {
-            clone: () => ({
-              name: 'group',
-              id: '$root',
-              children: [],
-              add: () => {},
-              getStats: () => ({ triangles: 0, vertices: 0, materials: 0, fileBytes: file.size })
-            }),
-            getStats: () => ({ triangles: 0, vertices: 0, materials: 0, fileBytes: file.size })
-          }
-          const model: LoadedModel = {
-            toNodes: () => {
-              const nodeMap = new Map<string, INode>()
-              // Create a minimal fallback node
-              const node = createNode('group', {})
-              nodeMap.set('root', nodeToINode(node))
-              return nodeMap
-            },
-            getStats: () => fallbackNode.getStats(),
-          }
-          this.results.set(key, model)
-          return model
-        }
+        const buffer = await file.arrayBuffer();
+        const gltf = await this.gltfLoader.parseAsync(buffer, '');
+        // Convert GLTF to GLBData format
+        const glb = {
+          scene: gltf.scene,
+          animations: gltf.animations || []
+        };
+        const node = glbToNodes(glb, this.world);
+        const model: LoadedModel = {
+          toNodes() {
+            const clonedNode = node.clone(true);
+            const nodeMap = new Map<string, INode>();
+            nodeMap.set('root', nodeToINode(clonedNode));
+            return nodeMap;
+          },
+          getStats() {
+            const stats = node.getStats(true);
+            // append file size
+            stats.fileBytes = file.size;
+            return stats;
+          },
+        };
+        this.results.set(key, model);
+        return model;
       }
       if (type === 'emote') {
-        const buffer = await file.arrayBuffer()
-        try {
-          const glb = await this.gltfLoader.parseAsync(buffer, '')
-          const factory = createEmoteFactory({ ...glb, animations: glb.animations || [] } as GLBData, url)
-          const emote: LoadedEmote = {
-            toNodes() {
-              return new Map<string, INode>()  // Emotes don't have nodes
-            },
-            getStats() {
-              return { triangles: 0, texBytes: 0, nodes: 0 }  // Emotes don't have stats
-            },
-            toClip(options?: { rootToHips?: number; version?: string; getBoneName?: (name: string) => string }) {
-              return factory.toClip(options || {}) ?? null
-            },
-          }
-          this.results.set(key, emote)
-          return emote
-        } catch (error) {
-          this.logger.warn(`Failed to parse emote GLB, texture loading issue: ${url}: ${(error as Error)?.message || 'Unknown error'}`)
-          const emote: LoadedEmote = {
-            toNodes() {
-              return new Map<string, INode>()  // Fallback emote
-            },
-            getStats() {
-              return {}
-            },
-            toClip(_options?: { rootToHips?: number; version?: string; getBoneName?: (name: string) => string }) {
-              return null
-            },
-          }
-          this.results.set(key, emote)
-          return emote
-        }
+        const buffer = await file.arrayBuffer();
+        const glb = await this.gltfLoader.parseAsync(buffer, '');
+        const factory = createEmoteFactory({ ...glb, animations: glb.animations || [] } as GLBData, url);
+        const emote: LoadedEmote = {
+          toNodes() {
+            return new Map<string, INode>();  // Emotes don't have nodes
+          },
+          getStats() {
+            return { triangles: 0, texBytes: 0, nodes: 0 };  // Emotes don't have stats
+          },
+          toClip(options?: { rootToHips?: number; version?: string; getBoneName?: (name: string) => string }) {
+            return factory.toClip(options || {}) ?? null;
+          },
+        };
+        this.results.set(key, emote);
+        return emote;
       }
       if (type === 'avatar') {
-        const buffer = await file.arrayBuffer()
-        try {
-          const glb = await this.gltfLoader.parseAsync(buffer, '')
-          const factory = createVRMFactory(glb as GLBData, this.world.setupMaterial)
-          const hooks = this.vrmHooks
-          const node = createNode('group', { id: '$root' })
-          const node2 = createNode('avatar', { id: 'avatar', factory, hooks })
-          node.add(node2)
-          const avatar: LoadedAvatar = {
-            toNodes(customHooks) {
-              const nodeMap = new Map<string, INode>()
-              const clone = node.clone(true)
-              // Apply custom hooks if provided to the cloned avatar node
-              if (customHooks) {
-                const clonedAvatar = clone.get('avatar')
-                if (clonedAvatar) {
-                                    Object.assign(clonedAvatar, { hooks: customHooks })
-                }
+        const buffer = await file.arrayBuffer();
+        const glb = await this.gltfLoader.parseAsync(buffer, '');
+        const factoryBase = createVRMFactory(glb as GLBData, this.world.setupMaterial);
+        const factory = {
+          ...factoryBase,
+          uid: file.name || `avatar_${Date.now()}`
+        } as unknown as AvatarFactory;
+        const hooks = this.vrmHooks;
+        const node = createNode('group', { id: '$root' });
+        const node2 = createNode('avatar', { id: 'avatar', factory, hooks });
+        node.add(node2);
+        const avatar: LoadedAvatar = {
+          uid: file.name || `avatar_${Date.now()}`,
+          factory: factory,
+          toNodes(customHooks) {
+            const nodeMap = new Map<string, INode>();
+            const clone = node.clone(true);
+            // Apply custom hooks if provided to the cloned avatar node
+            if (customHooks) {
+              const clonedAvatar = clone.get('avatar');
+              if (clonedAvatar) {
+                Object.assign(clonedAvatar, { hooks: customHooks });
               }
-              // Always expose a stable map interface
-              nodeMap.set('root', nodeToINode(clone))
-              const clonedAvatarForMap = clone.get('avatar')
-              if (clonedAvatarForMap) {
-                nodeMap.set('avatar', nodeToINode(clonedAvatarForMap))
-              }
-              return nodeMap
-            },
-            getStats() {
-              const stats = node.getStats(true)
-              // append file size
-              stats.fileBytes = file.size
-              return stats
-            },
-          }
-          this.results.set(key, avatar)
-          return avatar
-        } catch (error) {
-          this.logger.warn(`Failed to parse avatar GLB, texture loading issue: ${url}: ${(error as Error).message}`)
-          // Create a simple fallback avatar
-          const _hooks = this.vrmHooks
-          const fallbackNode = {
-            clone: () => {
-              const mockNode = new Node();
-              mockNode.name = 'group';
-              mockNode.id = '$root';
-              return mockNode;
-            },
-            getStats: () => ({ triangles: 0, vertices: 0, materials: 0, fileBytes: file.size })
-          }
-          const avatar: LoadedAvatar = {
-            toNodes: () => {
-              const nodeMap = new Map<string, INode>()
-              const clone = fallbackNode.clone()
-              nodeMap.set('root', nodeToINode(clone))
-              // Fallback has no explicit avatar node; expose root as best-effort avatar
-              nodeMap.set('avatar', nodeToINode(clone))
-              return nodeMap
-            },
-            getStats: () => fallbackNode.getStats(),
-          }
-          this.results.set(key, avatar)
-          return avatar
-        }
+            }
+            // Always expose a stable map interface
+            nodeMap.set('root', nodeToINode(clone));
+            const clonedAvatarForMap = clone.get('avatar');
+            if (clonedAvatarForMap) {
+              nodeMap.set('avatar', nodeToINode(clonedAvatarForMap));
+            }
+            return nodeMap;
+          },
+          getStats() {
+            const stats = node.getStats(true);
+            // append file size
+            stats.fileBytes = file.size;
+            return stats;
+          },
+        };
+        this.results.set(key, avatar);
+        return avatar;
       }
       if (type === 'script') {
         // DISABLED: Script loading from external files
@@ -370,15 +334,12 @@ export class ClientLoader extends SystemBase {
         this.logger.warn('Scripts must now be implemented as TypeScript classes')
         throw new Error('Script loading is disabled. Use TypeScript classes instead.')
       }
-      if (type === 'audio') {
-        const buffer = await file.arrayBuffer()
-        if (!this.world.audio?.ctx) {
-          throw new Error('Audio context not available')
-        }
-        const audioBuffer = await this.world.audio.ctx.decodeAudioData(buffer)
-        this.results.set(key, audioBuffer)
-        return audioBuffer
-      }
+    if (type === 'audio') {
+      const buffer = await file.arrayBuffer();
+      const audioBuffer = await this.world.audio!.ctx.decodeAudioData(buffer);
+      this.results.set(key, audioBuffer);
+      return audioBuffer;
+    }
       
       // Unknown type - throw error
       throw new Error(`Unsupported loader type: ${type}`)
@@ -388,26 +349,26 @@ export class ClientLoader extends SystemBase {
   }
 
   insert(type, url, file) {
-    const key = `${type}/${url}`
-    const localUrl = URL.createObjectURL(file)
-    let promise
+    const key = `${type}/${url}`;
+    const localUrl = URL.createObjectURL(file);
+    let promise;
     if (type === 'hdr') {
       promise = this.rgbeLoader.loadAsync(localUrl).then(texture => {
-        this.results.set(key, texture)
-        return texture
-      }).finally(() => { try { URL.revokeObjectURL(localUrl) } catch {} })
+        this.results.set(key, texture);
+        return texture;
+      }).finally(() => { URL.revokeObjectURL(localUrl); });
     }
     if (type === 'image') {
       promise = new Promise(resolve => {
-        const img = new Image()
+        const img = new Image();
         img.onload = () => {
-          this.results.set(key, img)
-          resolve(img)
-          try { URL.revokeObjectURL(localUrl) } catch {}
-        }
-        img.onerror = () => { try { URL.revokeObjectURL(localUrl) } catch {} }
-        img.src = localUrl
-      })
+          this.results.set(key, img);
+          resolve(img);
+          URL.revokeObjectURL(localUrl);
+        };
+        img.onerror = () => { URL.revokeObjectURL(localUrl); };
+        img.src = localUrl;
+      });
     }
     if (type === 'video') {
       promise = new Promise(resolve => {
@@ -417,59 +378,63 @@ export class ClientLoader extends SystemBase {
     }
     if (type === 'texture') {
       promise = this.texLoader.loadAsync(localUrl).then(texture => {
-        this.results.set(key, texture)
-        return texture
-      }).finally(() => { try { URL.revokeObjectURL(localUrl) } catch {} })
+        this.results.set(key, texture);
+        return texture;
+      }).finally(() => { URL.revokeObjectURL(localUrl); });
     }
     if (type === 'model') {
       promise = this.gltfLoader.loadAsync(localUrl).then(gltf => {
         // Convert GLTF to GLBData format
         const glb = {
-                          scene: gltf.scene,
+          scene: gltf.scene,
           animations: gltf.animations || []
-        }
-        const node = glbToNodes(glb, this.world)
+        };
+        const node = glbToNodes(glb, this.world);
         const model: LoadedModel = {
           toNodes() {
-            const clonedNode = node.clone(true)
-            const nodeMap = new Map<string, INode>()
-            nodeMap.set('root', nodeToINode(clonedNode))
-            return nodeMap
+            const clonedNode = node.clone(true);
+            const nodeMap = new Map<string, INode>();
+            nodeMap.set('root', nodeToINode(clonedNode));
+            return nodeMap;
           },
           getStats() {
-            const stats = node.getStats(true)
+            const stats = node.getStats(true);
             // append file size
-            stats.fileBytes = file.size
-            return stats
+            stats.fileBytes = file.size;
+            return stats;
           },
-        }
-        this.results.set(key, model)
-        return model
-      }).finally(() => { try { URL.revokeObjectURL(localUrl) } catch {} })
+        };
+        this.results.set(key, model);
+        return model;
+      }).finally(() => { URL.revokeObjectURL(localUrl); });
     }
     if (type === 'emote') {
       promise = this.gltfLoader.loadAsync(localUrl).then(glb => {
-        const factory = createEmoteFactory(glb as GLBData, url)
+        const factory = createEmoteFactory(glb as GLBData, url);
         const emote: LoadedEmote = {
           toNodes() {
-            return new Map<string, INode>()  // Emotes don't have nodes
+            return new Map<string, INode>();  // Emotes don't have nodes
           },
           getStats() {
-            return { triangles: 0, texBytes: 0, nodes: 0 }  // Emotes don't have stats
+            return { triangles: 0, texBytes: 0, nodes: 0 };  // Emotes don't have stats
           },
           toClip(_options?: { rootToHips?: number; version?: string; getBoneName?: (name: string) => string }) {
-            return factory.toClip({}) ?? null
+            return factory.toClip({}) ?? null;
           },
-        }
-        this.results.set(key, emote)
-        return emote
-      }).finally(() => { try { URL.revokeObjectURL(localUrl) } catch {} })
+        };
+        this.results.set(key, emote);
+        return emote;
+      }).finally(() => { URL.revokeObjectURL(localUrl); });
     }
     if (type === 'avatar') {
        this.logger.info(`Loading avatar from: ${localUrl}`)
       promise = this.gltfLoader.loadAsync(localUrl).then(glb => {
          this.logger.info('Avatar GLB loaded')
-          const factory = createVRMFactory(glb as GLBData, this.world.setupMaterial)
+          const factoryBase = createVRMFactory(glb as GLBData, this.world.setupMaterial)
+          const factory = {
+            ...factoryBase,
+            uid: file.name || `avatar_${Date.now()}`
+          } as unknown as AvatarFactory;
         const hooks = this.vrmHooks
         const node = createNode('group', { id: '$root' })
         const node2 = createNode('avatar', { id: 'avatar', factory, hooks })
@@ -486,6 +451,8 @@ export class ClientLoader extends SystemBase {
                 
         const logger = this.logger
         const avatar: LoadedAvatar = {
+          uid: file.name || `avatar_${Date.now()}`,
+          factory: factory,
           toNodes(customHooks) {
             logger.info('toNodes called')
             
@@ -536,7 +503,7 @@ export class ClientLoader extends SystemBase {
         }
         this.results.set(key, avatar)
         return avatar
-      }).finally(() => { try { URL.revokeObjectURL(localUrl) } catch {} })
+      }).finally(() => { URL.revokeObjectURL(localUrl); });
     }
     if (type === 'script') {
       // DISABLED: Script loading from external files
@@ -546,14 +513,11 @@ export class ClientLoader extends SystemBase {
     }
     if (type === 'audio') {
       promise = (async () => {
-        const arrayBuffer = await file.arrayBuffer()
-        if (!this.world.audio?.ctx) {
-          throw new Error('Audio context not available')
-        }
-        const audioBuffer = await this.world.audio.ctx.decodeAudioData(arrayBuffer)
-        this.results.set(key, audioBuffer)
-        return audioBuffer
-      })()
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await this.world.audio!.ctx.decodeAudioData(arrayBuffer);
+        this.results.set(key, audioBuffer);
+        return audioBuffer;
+      })();
     }
     this.promises.set(key, promise)
   }

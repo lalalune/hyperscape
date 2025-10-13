@@ -32,28 +32,24 @@ export class ThreeResourceManager {
       return;
     }
 
-    try {
-      // Traverse all children and dispose recursively
-      object.traverse((child) => {
-        this.disposeObjectInternal(child as THREE.Object3D, {
-          disposeGeometry,
-          disposeMaterial,
-          disposeTextures
-        });
+    // Traverse all children and dispose recursively
+    object.traverse((child) => {
+      this.disposeObjectInternal(child as THREE.Object3D, {
+        disposeGeometry,
+        disposeMaterial,
+        disposeTextures
       });
+    });
 
-      // Remove from parent if requested
-      if (removeFromParent && object.parent) {
-        object.parent.remove(object);
-      }
-
-      // Mark as disposed
-      this.disposedObjects.add(object);
-
-      console.log(`[ThreeResourceManager] Disposed object and ${object.children.length} children`);
-    } catch (_error) {
-      console.error('[ThreeResourceManager] Error disposing object:', _error);
+    // Remove from parent if requested
+    if (removeFromParent && object.parent) {
+      object.parent.remove(object);
     }
+
+    // Mark as disposed
+    this.disposedObjects.add(object);
+
+    console.log(`[ThreeResourceManager] Disposed object and ${object.children.length} children`);
   }
 
   /**
@@ -120,18 +116,14 @@ export class ThreeResourceManager {
         return;
       }
 
-      try {
-        // Dispose textures if requested
-        if (disposeTextures) {
-          this.disposeMaterialTextures(mat);
-        }
-
-        // Dispose the material itself
-        mat.dispose();
-        this.disposedObjects.add(mat);
-      } catch (_error) {
-        console.warn('[ThreeResourceManager] Error disposing material:', _error);
+      // Dispose textures if requested
+      if (disposeTextures) {
+        this.disposeMaterialTextures(mat);
       }
+
+      // Dispose the material itself
+      mat.dispose();
+      this.disposedObjects.add(mat);
     });
   }
 
@@ -160,21 +152,16 @@ export class ThreeResourceManager {
    * Dispose of a renderer and its resources
    */
   static disposeRenderer(renderer: THREE.WebGLRenderer): void {
-    try {
-      // Dispose of render targets
-      renderer.dispose();
+    // Dispose of render targets
+    renderer.dispose();
 
-      // Clear the context if possible
-      const gl = renderer.getContext();
-      if (gl && 'getExtension' in gl) {
-        const loseContext = gl.getExtension('WEBGL_lose_context');
-        if (loseContext) {
-          loseContext.loseContext();
-        }
+    // Clear the context if possible
+    const gl = renderer.getContext();
+    if (gl && 'getExtension' in gl) {
+      const loseContext = gl.getExtension('WEBGL_lose_context');
+      if (loseContext) {
+        loseContext.loseContext();
       }
-
-          } catch (_error) {
-      console.error('[ThreeResourceManager] Error disposing renderer:', _error);
     }
   }
 
@@ -239,11 +226,7 @@ export function useThreeCleanup() {
 
   const cleanup = () => {
     cleanupFunctions.forEach(fn => {
-      try {
-        fn();
-      } catch (_error) {
-        console.error('[useThreeCleanup] Error in cleanup function:', _error);
-      }
+      fn();
     });
     cleanupFunctions.clear();
   };

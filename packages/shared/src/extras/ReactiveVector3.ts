@@ -1,7 +1,7 @@
 import type { PxTransform, PxVec3 } from '../types/physics'
 import type PhysX from '@hyperscape/physx-js-webidl'
 import THREE from './three'
-import { setTransformPosition, vector3ToPxVec3 } from '../physics/vector-conversions'
+import { setTransformPosition, vector3ToPxVec3 } from '../utils/PhysicsUtils'
 
 /**
  * A wrapper around THREE.Vector3 that provides change detection
