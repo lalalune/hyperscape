@@ -13,6 +13,7 @@ import {
   generateMessageResponse,
   shouldRespond,
 } from "../utils/ai-helpers";
+import { handleMessage } from "../handlers/native-message-handler";
 
 type HyperscapePlayerData = Entity & {
   metadata?: {
@@ -110,40 +111,27 @@ export class MessageManager {
     // Save message to memory first
     await this.runtime.createMemory(memory, "messages");
 
-    // Process through ElizaOS action system
-    // This evaluates all registered actions and lets them handle the message
-    const state = await this.runtime.composeState(memory);
-    await this.runtime.processActions(memory, [], state, async (response) => {
-      if (response && response.text) {
-        // Create response memory
-        const responseMemory: Memory = {
-          id: crypto.randomUUID() as UUID,
-          entityId: this.runtime.agentId as UUID,
-          agentId: this.runtime.agentId,
-          content: {
-            text: response.text,
-            source: "agent_response",
-            action: response.action,
-          },
-          roomId: memory.roomId,
-          createdAt: Date.now(),
-          metadata: {
-            type: "message",
-            inReplyTo: memory.id,
-          },
-        };
+    // Process through native message handler (decoupled from bootstrap)
+    // This handles message processing internally within plugin-hyperscape
+    await handleMessage({
+      runtime: this.runtime,
+      message: memory,
+      callback: async (response) => {
+        if (response && response.text) {
+          // Send response back to Hyperscape world
+          await this.sendMessage(response.text);
 
-        await this.runtime.createMemory(responseMemory, "messages");
-        await this.sendMessage(response.text);
-
-        console.info("[MessageManager] Response sent:", {
-          originalMessage: msg.text?.substring(0, 50) + "...",
-          response: response.text?.substring(0, 50) + "...",
-          action: response.action || "none",
-        });
-      }
-
-      return [];
+          console.info("[MessageManager] Response sent:", {
+            originalMessage: msg.text?.substring(0, 50) + "...",
+            response: response.text?.substring(0, 50) + "...",
+            action: response.action || "none",
+          });
+        }
+        return [];
+      },
+      onComplete: () => {
+        console.debug("[MessageManager] Message processing complete");
+      },
     });
   }
 
