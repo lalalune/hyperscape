@@ -817,22 +817,22 @@ async function startServer() {
     }
     
     try {
-      // Destroy world and its systems
-      console.log('[Server] Destroying world...')
-      world.destroy()
-      console.log('[Server] World destroyed')
-    } catch (err) {
-      console.error('[Server] Error destroying world:', err)
-    }
-    
-    try {
-      // Wait for pending database operations to complete
+      // Wait for pending database operations BEFORE destroying world
       const databaseSystem = world.getSystem('database') as DatabaseSystem | undefined
       if (databaseSystem) {
         await databaseSystem.waitForPendingOperations()
       }
     } catch (err) {
       console.error('[Server] Error waiting for pending database operations:', err)
+    }
+    
+    try {
+      // Destroy world and its systems
+      console.log('[Server] Destroying world...')
+      world.destroy()
+      console.log('[Server] World destroyed')
+    } catch (err) {
+      console.error('[Server] Error destroying world:', err)
     }
     
     try {

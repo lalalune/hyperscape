@@ -70,6 +70,16 @@ export type { NPCEntityConfig } from '../types/entities';
 export class NPCEntity extends Entity {
   public config: NPCEntityConfig;
 
+  async init(): Promise<void> {
+    await super.init();
+    
+    // CRITICAL: Register for update loop (client only - NPCs don't need server updates)
+    if (this.world.isClient) {
+      this.world.setHot(this, true);
+      console.log(`[NPCEntity] ✅ Registered ${this.config.npcType} for update loop (hot entity)`);
+    }
+  }
+
   constructor(world: World, config: NPCEntityConfig) {
     super(world, config);
     this.config = {
@@ -171,6 +181,66 @@ export class NPCEntity extends Entity {
     });
   }
 
+  /**
+   * Setup idle animation for NPCs (usually a subtle idle loop)
+   */
+  private setupIdleAnimation(animations: THREE.AnimationClip[]): void {
+    if (!this.mesh || animations.length === 0) return;
+    
+    // Find the SkinnedMesh to apply animation to
+    let skinnedMesh: THREE.SkinnedMesh | null = null;
+    this.mesh.traverse((child) => {
+      if (!skinnedMesh && (child as THREE.SkinnedMesh).isSkinnedMesh) {
+        skinnedMesh = child as THREE.SkinnedMesh;
+      }
+    });
+    
+    if (!skinnedMesh) {
+      console.warn(`[NPCEntity] No SkinnedMesh found in model for animations`);
+      return;
+    }
+    
+    // Create AnimationMixer
+    const mixer = new THREE.AnimationMixer(skinnedMesh);
+    
+    // Find idle or walking animation
+    const idleClip = animations.find(clip => 
+      clip.name.toLowerCase().includes('idle') || clip.name.toLowerCase().includes('standing')
+    ) || animations.find(clip =>
+      clip.name.toLowerCase().includes('walk')
+    ) || animations[0];
+    
+    const action = mixer.clipAction(idleClip);
+    action.play();
+    
+    console.log(`[NPCEntity] ✅ Playing animation: ${idleClip.name}`);
+    
+    // Store mixer on entity for update in clientUpdate
+    (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
+  }
+  
+  /**
+   * Update animation mixer each frame
+   */
+  private updateAnimations(deltaTime: number): void {
+    const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
+    if (mixer) {
+      // Update the mixer (advances animation time)
+      mixer.update(deltaTime);
+      
+      // CRITICAL: Update skeleton (exactly like VRM does!)
+      // This actually moves the bones to match the animation
+      if (this.mesh) {
+        this.mesh.traverse((child) => {
+          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+            // Update each bone matrix WITHOUT forcing parent recalc
+            child.skeleton.bones.forEach(bone => bone.updateMatrixWorld());
+          }
+        });
+      }
+    }
+  }
+
   protected async createMesh(): Promise<void> {
     console.log(`[NPCEntity] createMesh() called for ${this.config.npcType}`, {
       hasModelPath: !!this.config.model,
@@ -188,13 +258,21 @@ export class NPCEntity extends Entity {
     if (this.config.model && this.world.loader) {
       try {
         console.log(`[NPCEntity] Loading model for ${this.config.npcType}:`, this.config.model);
-        const { scene } = await modelCache.loadModel(this.config.model, this.world);
+        const { scene, animations } = await modelCache.loadModel(this.config.model, this.world);
         
         this.mesh = scene;
         this.mesh.name = `NPC_${this.config.npcType}_${this.id}`;
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        this.mesh.scale.set(1, 1, 1); // Standard scale for NPCs
+        
+        // Apply scale to geometry (not transform) for SkinnedMesh
+        // This ensures animations work correctly without scale multiplication
+        this.mesh.traverse((child) => {
+          if (child instanceof THREE.SkinnedMesh) {
+            // Scale geometry vertices directly
+            child.geometry.scale(10, 10, 10);
+            child.geometry.computeBoundingBox();
+            child.geometry.computeBoundingSphere();
+          }
+        });
         
         // Set up userData for interaction detection (raycasting)
         this.mesh.userData = {
@@ -206,8 +284,21 @@ export class NPCEntity extends Entity {
           services: this.config.services
         };
         
+        // Add as child of node (standard approach with correct scale)
+        // Position is relative to node, so keep it at origin
+        this.mesh.position.set(0, 0, 0);
+        this.mesh.quaternion.identity();
         this.node.add(this.mesh);
-        console.log(`[NPCEntity] ✅ Model loaded for ${this.config.npcType}`);
+        console.log(`[NPCEntity] ✅ Model loaded for ${this.config.npcType}`, {
+          animations: animations.length,
+          meshVisible: this.mesh.visible
+        });
+        
+        // Setup animations if available (NPCs usually have idle animations)
+        if (animations.length > 0) {
+          this.setupIdleAnimation(animations);
+        }
+        
         return;
       } catch (error) {
         console.warn(`[NPCEntity] Failed to load model for ${this.config.npcType}, using placeholder:`, error);
@@ -266,6 +357,18 @@ export class NPCEntity extends Entity {
     console.log(`[NPCEntity] ✅ Placeholder mesh created and added for ${this.config.npcType}`);
   }
 
+  /**
+   * Update animations on client side
+   */
+  protected clientUpdate(deltaTime: number): void {
+    super.clientUpdate(deltaTime);
+    
+    // Mesh is child of node, so it follows automatically
+    // No manual position sync needed
+    
+    this.updateAnimations(deltaTime);
+  }
+
   public getNetworkData(): Record<string, unknown> {
     return {
       ...super.getNetworkData(),
@@ -299,5 +402,20 @@ export class NPCEntity extends Entity {
     
     this.config.inventory = inventory;
     this.markNetworkDirty();
+  }
+  
+  /**
+   * Override destroy to clean up animations
+   */
+  override destroy(): void {
+    // Clean up animation mixer
+    const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
+    if (mixer) {
+      mixer.stopAllAction();
+      (this as { mixer?: THREE.AnimationMixer }).mixer = undefined;
+    }
+    
+    // Parent will handle mesh removal (mesh is child of node)
+    super.destroy();
   }
 }

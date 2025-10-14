@@ -486,8 +486,12 @@ export class PlayerSystem extends SystemBase {
       return
     }
 
-    player.health.current = Math.max(0, Math.min(data.currentHealth, data.maxHealth))
-    player.health.max = data.maxHealth
+    // Validate health values to prevent NaN
+    const validMaxHealth = Number.isFinite(data.maxHealth) && data.maxHealth > 0 ? data.maxHealth : player.health.max
+    const validCurrentHealth = Number.isFinite(data.currentHealth) ? data.currentHealth : player.health.current
+    
+    player.health.current = Math.max(0, Math.min(validCurrentHealth, validMaxHealth))
+    player.health.max = validMaxHealth
 
     // Check for death
     if (player.health.current <= 0 && player.alive) {
@@ -1043,6 +1047,19 @@ export class PlayerSystem extends SystemBase {
       safeY = 10 // Safe default
     }
 
+    // NEVER save invalid health values to database
+    let safeHealth = player.health.current
+    let safeMaxHealth = player.health.max
+    if (!Number.isFinite(safeMaxHealth) || safeMaxHealth <= 0) {
+      console.error(`[PlayerSystem] WARNING: Invalid maxHealth detected: ${safeMaxHealth}, using 100 instead`)
+      safeMaxHealth = 100
+    }
+    if (!Number.isFinite(safeHealth) || safeHealth < 0) {
+      console.error(`[PlayerSystem] WARNING: Invalid health detected: ${safeHealth}, using maxHealth instead`)
+      safeHealth = safeMaxHealth
+    }
+    safeHealth = Math.min(safeHealth, safeMaxHealth) // Ensure current <= max
+
     this.databaseSystem.savePlayer(databaseId, {
       name: player.name,
       combatLevel: player.combat.combatLevel,
@@ -1051,8 +1068,8 @@ export class PlayerSystem extends SystemBase {
       defenseLevel: player.skills.defense.level,
       constitutionLevel: player.skills.constitution.level,
       rangedLevel: player.skills.ranged.level,
-      health: player.health.current,
-      maxHealth: player.health.max,
+      health: safeHealth,
+      maxHealth: safeMaxHealth,
       positionX: player.position.x,
       positionY: safeY,
       positionZ: player.position.z,

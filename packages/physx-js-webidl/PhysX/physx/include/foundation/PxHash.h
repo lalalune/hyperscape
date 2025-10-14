@@ -70,13 +70,6 @@ PX_FORCE_INLINE uint32_t PxComputeHash(const int32_t key)
 	return PxComputeHash(uint32_t(key));
 }
 
-#ifdef __EMSCRIPTEN__
-PX_FORCE_INLINE uint32_t PxComputeHash(const unsigned long key)
-{
-	return PxComputeHash(uint32_t(key));
-}
-#endif
-
 // Thomas Wang's 64 bit mix
 // http://www.cris.com/~Ttwang/tech/inthash.htm
 PX_FORCE_INLINE uint32_t PxComputeHash(const uint64_t key)

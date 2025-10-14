@@ -32,7 +32,7 @@
 #include "foundation/PxPreprocessor.h"
 #if PX_WINDOWS_FAMILY
 #include "windows/PxWindowsIntrinsics.h"
-#elif(PX_LINUX || PX_APPLE_FAMILY || PX_ANDROID)
+#elif(PX_LINUX || PX_APPLE_FAMILY)
 #include "unix/PxUnixIntrinsics.h"
 #elif PX_SWITCH
 #include "switch/PxSwitchIntrinsics.h"

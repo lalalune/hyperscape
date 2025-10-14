@@ -29,20 +29,12 @@
 #include "foundation/PxString.h"
 #include <stdio.h>
 
-#if PX_ANDROID
-#include <android/log.h>
-#endif
-
 namespace physx
 {
 
 void PxPrintString(const char* str)
 {
-#if PX_ANDROID
-	__android_log_print(ANDROID_LOG_INFO, "PxPrintString", "%s", str);
-#else
 	puts(str);
-#endif
 }
 
 } // namespace physx

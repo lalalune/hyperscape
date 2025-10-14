@@ -768,7 +768,7 @@ export class EntityManager extends SystemBase {
   private getMobMoveSpeed(mobType: string): number {
     const mobData = getMobById(mobType);
     if (!mobData || !mobData.moveSpeed) {
-      return 5;
+      return 3.0; // Default: 3 units/sec (walking speed, matches player walk)
     }
     return mobData.moveSpeed;
   }
@@ -776,7 +776,7 @@ export class EntityManager extends SystemBase {
   private getMobAggroRange(mobType: string): number {
     const mobData = getMobById(mobType);
     if (!mobData) {
-      return 10;
+      return 15.0; // Default: 15 meters detection range (increased from 10)
     }
     return mobData.behavior.aggroRange;
   }
@@ -784,7 +784,7 @@ export class EntityManager extends SystemBase {
   private getMobCombatRange(mobType: string): number {
     const mobData = getMobById(mobType);
     if (!mobData || !mobData.combatRange) {
-      return 2;
+      return 1.5; // Default: 1.5 meters melee range
     }
     return mobData.combatRange;
   }

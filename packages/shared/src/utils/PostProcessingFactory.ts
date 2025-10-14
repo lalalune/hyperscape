@@ -73,6 +73,8 @@ async function createWebGLPostProcessing(
     multisampling: Math.min(multisampling, maxMultisampling),
   }) as PostProcessingComposer;
   
+  console.log('[PostProcessingFactory] Composer multisampling:', Math.min(multisampling, maxMultisampling))
+  
   // Render pass
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);

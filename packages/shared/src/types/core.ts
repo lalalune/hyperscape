@@ -960,12 +960,16 @@ export class PlayerMigration {
    * Convert from old PlayerRow to new Player
    */
   static fromPlayerRow(old: PlayerRow, hyperscapePlayerId: string): Player {
+    // Validate health values to prevent NaN
+    const maxHealth = Number.isFinite(old.maxHealth) && old.maxHealth > 0 ? old.maxHealth : 100
+    const currentHealth = Number.isFinite(old.health) ? Math.min(old.health, maxHealth) : maxHealth
+    
     return {
       id: old.playerId,
       hyperscapePlayerId,
       name: old.name,
-      health: { current: old.health, max: old.maxHealth },
-      alive: old.health > 0,
+      health: { current: currentHealth, max: maxHealth },
+      alive: currentHealth > 0,
       stamina: { current: 100, max: 100 }, // Assuming default stamina
       position: { x: old.positionX, y: old.positionY, z: old.positionZ },
       skills: {
