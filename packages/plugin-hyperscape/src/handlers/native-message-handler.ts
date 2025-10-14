@@ -72,19 +72,17 @@ export class NativeMessageHandler {
         return;
       }
 
-      // Evaluate and execute actions from runtime
-      // This replaces the need for runtime.processActions()
-      const actionResults = await this.processRuntimeActions(runtime, message, state);
+      // Process actions - execute only the FIRST matching action
+      // This prevents multiple actions from running simultaneously
+      const actionResult = await this.processRuntimeActions(runtime, message, state);
 
-      // If actions were executed, use their responses
-      if (actionResults.length > 0) {
-        for (const result of actionResults) {
-          if (callback && result.content.text) {
-            await callback(result.content as Content);
-          }
+      if (actionResult) {
+        // An action was executed, use its response
+        if (callback && actionResult.content.text) {
+          await callback(actionResult.content as Content);
         }
       } else {
-        // No actions matched, generate a conversational response
+        // No action matched, generate a conversational response
         const response = await this.generateResponse(runtime, message, state);
 
         if (callback && response.content.text) {
@@ -102,15 +100,16 @@ export class NativeMessageHandler {
 
   /**
    * Process runtime actions (replacement for runtime.processActions)
-   * Evaluates all registered actions and executes matching ones
+   * Evaluates registered actions and executes the FIRST matching one
+   *
+   * This matches bootstrap behavior: only one action executes per message
    */
   private static async processRuntimeActions(
     runtime: IAgentRuntime,
     message: Memory,
     state: State,
-  ): Promise<Memory[]> {
+  ): Promise<Memory | null> {
     const actions = runtime.actions || [];
-    const results: Memory[] = [];
 
     for (const action of actions) {
       try {
@@ -120,10 +119,12 @@ export class NativeMessageHandler {
 
         elizaLogger.debug(`[NativeMessageHandler] Executing action: ${action.name}`);
 
+        let actionResponse: Memory | null = null;
+
         // Execute action handler
         const result = await action.handler(runtime, message, state, {}, async (content: Content) => {
           // Action callback - convert to memory
-          const actionMemory: Memory = {
+          actionResponse = {
             id: crypto.randomUUID(),
             agentId: runtime.agentId,
             entityId: runtime.agentId,
@@ -131,13 +132,12 @@ export class NativeMessageHandler {
             content,
             createdAt: Date.now(),
           };
-          results.push(actionMemory);
           return [];
         });
 
-        // If handler returned a result directly, add it
+        // If handler returned a result directly, use it
         if (result && typeof result === 'object' && 'text' in result) {
-          const actionMemory: Memory = {
+          actionResponse = {
             id: crypto.randomUUID(),
             agentId: runtime.agentId,
             entityId: runtime.agentId,
@@ -148,14 +148,21 @@ export class NativeMessageHandler {
             } as Content,
             createdAt: Date.now(),
           };
-          results.push(actionMemory);
+        }
+
+        // Return first successful action result
+        if (actionResponse) {
+          elizaLogger.success(`[NativeMessageHandler] Action ${action.name} executed successfully`);
+          return actionResponse;
         }
       } catch (error) {
         elizaLogger.error(`[NativeMessageHandler] Action ${action.name} failed:`, error);
+        // Continue to next action on error
       }
     }
 
-    return results;
+    // No actions matched or executed successfully
+    return null;
   }
 
   /**
