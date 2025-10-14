@@ -1,8 +1,24 @@
 /**
  * native-message-handler.ts - Self-Contained Message Handler
  *
- * Processes messages internally without relying on bootstrap plugin.
- * Keeps ElizaOS core types but handles message lifecycle independently.
+ * This handler replaces ElizaOS bootstrap plugin's message processing system.
+ * It processes messages internally within plugin-hyperscape without relying on
+ * the bootstrap plugin's `runtime.processActions()` method.
+ *
+ * **Architecture**:
+ * - Evaluates registered runtime actions (goto, use, reply, etc.)
+ * - Generates conversational responses when no actions match
+ * - Integrates world context into agent responses
+ * - Handles evaluators for determining when to respond
+ *
+ * **Message Flow**:
+ * WebSocket → MessageManager.handleMessage() →
+ * NativeMessageHandler.handle() → processRuntimeActions() →
+ * Execute matching actions → Callback with response
+ *
+ * **Key Difference from Bootstrap**:
+ * Bootstrap: Uses `runtime.processActions()` - a generic action processor
+ * Native: Custom action evaluation with Hyperscape-specific world context
  *
  * CLAUDE.md Compliance:
  * - ✅ Strong typing enforced (no `any` types)
@@ -35,6 +51,9 @@ interface MessageHandlerOptions {
 export class NativeMessageHandler {
   /**
    * Process an incoming message
+   *
+   * This replaces ElizaOS bootstrap's processActions with our own implementation.
+   * It evaluates runtime actions, generates responses, and handles callbacks.
    */
   static async handle(options: MessageHandlerOptions): Promise<void> {
     const { runtime, message, callback, onComplete } = options;
@@ -53,12 +72,24 @@ export class NativeMessageHandler {
         return;
       }
 
-      // Generate response
-      const response = await this.generateResponse(runtime, message, state);
+      // Evaluate and execute actions from runtime
+      // This replaces the need for runtime.processActions()
+      const actionResults = await this.processRuntimeActions(runtime, message, state);
 
-      // Execute callback if provided
-      if (callback && response.content.text) {
-        await callback(response.content as Content);
+      // If actions were executed, use their responses
+      if (actionResults.length > 0) {
+        for (const result of actionResults) {
+          if (callback && result.content.text) {
+            await callback(result.content as Content);
+          }
+        }
+      } else {
+        // No actions matched, generate a conversational response
+        const response = await this.generateResponse(runtime, message, state);
+
+        if (callback && response.content.text) {
+          await callback(response.content as Content);
+        }
       }
 
       elizaLogger.success(`[NativeMessageHandler] Message processed successfully`);
@@ -67,6 +98,64 @@ export class NativeMessageHandler {
     } finally {
       onComplete?.();
     }
+  }
+
+  /**
+   * Process runtime actions (replacement for runtime.processActions)
+   * Evaluates all registered actions and executes matching ones
+   */
+  private static async processRuntimeActions(
+    runtime: IAgentRuntime,
+    message: Memory,
+    state: State,
+  ): Promise<Memory[]> {
+    const actions = runtime.actions || [];
+    const results: Memory[] = [];
+
+    for (const action of actions) {
+      try {
+        // Validate if action should run
+        const isValid = await action.validate(runtime, message, state);
+        if (!isValid) continue;
+
+        elizaLogger.debug(`[NativeMessageHandler] Executing action: ${action.name}`);
+
+        // Execute action handler
+        const result = await action.handler(runtime, message, state, {}, async (content: Content) => {
+          // Action callback - convert to memory
+          const actionMemory: Memory = {
+            id: crypto.randomUUID(),
+            agentId: runtime.agentId,
+            entityId: runtime.agentId,
+            roomId: message.roomId,
+            content,
+            createdAt: Date.now(),
+          };
+          results.push(actionMemory);
+          return [];
+        });
+
+        // If handler returned a result directly, add it
+        if (result && typeof result === 'object' && 'text' in result) {
+          const actionMemory: Memory = {
+            id: crypto.randomUUID(),
+            agentId: runtime.agentId,
+            entityId: runtime.agentId,
+            roomId: message.roomId,
+            content: {
+              text: (result as { text: string }).text,
+              action: 'action' in result ? (result as { action: string }).action : undefined,
+            } as Content,
+            createdAt: Date.now(),
+          };
+          results.push(actionMemory);
+        }
+      } catch (error) {
+        elizaLogger.error(`[NativeMessageHandler] Action ${action.name} failed:`, error);
+      }
+    }
+
+    return results;
   }
 
   /**
