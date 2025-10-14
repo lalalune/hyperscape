@@ -14,14 +14,14 @@ import { hyperscapeShouldRespondTemplate } from "../templates";
 export interface ActionResult {
   text: string;
   success: boolean;
-  data?: any;
+  data?: Record<string, string | number | boolean>;
 }
 
 export interface ComposeContextOptions {
   state: State;
   template?: string;
   runtime?: IAgentRuntime;
-  additionalContext?: Record<string, any>;
+  additionalContext?: Record<string, string | number | boolean>;
 }
 
 export interface GenerateMessageOptions {
@@ -46,19 +46,23 @@ export function composeContext(options: ComposeContextOptions): string {
     additionalContext = {},
   } = options;
 
-  const characterBio = runtime?.character?.bio || "An AI assistant";
-  const agentName = runtime?.character?.name || "Assistant";
+  const characterBioRaw = runtime?.character?.bio || "An AI assistant";
+  const agentNameRaw = runtime?.character?.name || "Assistant";
+
+  // Convert arrays to strings (bio and name can be string | string[])
+  const characterBio = Array.isArray(characterBioRaw) ? characterBioRaw.join(", ") : characterBioRaw;
+  const agentName = Array.isArray(agentNameRaw) ? agentNameRaw[0] || "Assistant" : agentNameRaw;
 
   let context = template || "";
 
   // Replace placeholders with actual values
-  const replacements: Record<string, any> = {
+  const replacements: Record<string, string | number | boolean> = {
     agentName,
     characterBio,
     currentLocation:
-      state?.values?.get("currentLocation") || "Unknown Location",
+      String(state?.values?.get("currentLocation") || "Unknown Location"),
     recentMessages:
-      state?.values?.get("recentMessages") || "No recent messages",
+      String(state?.values?.get("recentMessages") || "No recent messages"),
     ...additionalContext,
   };
 
@@ -138,7 +142,7 @@ export async function generateDetailedResponse(
     runtime,
     additionalContext: {
       messageText: message.content?.text || "",
-      userName: (message as any).username || "User",
+      userName: String((message as { username?: string }).username || "User"),
     },
   });
 
@@ -165,7 +169,7 @@ export function getChannelContext(channelId?: string): string {
 }
 
 // Export helper functions
-export function formatContext(data: Record<string, any>): string {
+export function formatContext(data: Record<string, string | number | boolean>): string {
   const entries = Object.entries(data).filter(([_, value]) => value != null);
   return entries
     .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)

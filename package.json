@@ -84,6 +84,7 @@
   },
   "packageManager": "bun@1.0.0",
   "dependencies": {
+    "@rollup/rollup-darwin-x64": "^4.52.4",
     "@types/pg": "^8.15.5",
     "better-sqlite3": "^12.2.0",
     "canvas": "^3.1.2",

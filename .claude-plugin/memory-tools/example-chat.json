@@ -1,0 +1,62 @@
+[
+  {
+    "role": "user",
+    "content": "Help me understand how the Hyperscape plugin works",
+    "timestamp": "2025-10-13T20:00:00Z"
+  },
+  {
+    "role": "assistant",
+    "content": "I'll help you understand the Hyperscape plugin. It's an ElizaOS plugin that connects AI agents to 3D Hyperscape worlds. The plugin uses a strict TypeScript approach with no 'any' or 'unknown' types, and follows a real testing philosophy using Playwright with actual Hyperscape worlds instead of mocks.",
+    "timestamp": "2025-10-13T20:01:00Z"
+  },
+  {
+    "role": "user",
+    "content": "How should I create new actions?",
+    "timestamp": "2025-10-13T20:05:00Z"
+  },
+  {
+    "role": "assistant",
+    "content": "To create new actions, follow these steps:\n1. Create a new file in src/actions/\n2. Import proper types from @elizaos/core\n3. Define an Action with name, description, validate(), and handler()\n4. Always use proper TypeScript types - never 'any'\n5. Add real tests in src/__tests__/actions/\n6. Test with actual Hyperscape worlds using Playwright\n7. Use colored cube proxies for visual verification",
+    "timestamp": "2025-10-13T20:06:00Z"
+  },
+  {
+    "role": "user",
+    "content": "What are the colored cube proxies?",
+    "timestamp": "2025-10-13T20:10:00Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Colored cube proxies are part of Hyperscape's visual testing system. Instead of complex 3D models, tests use colored cubes to represent entities:\n- Red (🔴) = Players\n- Green (🟢) = Goblins/NPCs\n- Blue (🔵) = Items\n- Yellow (🟡) = Trees\n- Purple (🟣) = Banks\n- Orange (🟠) = Fires\n\nThis makes visual verification faster and more reliable. Tests capture screenshots and use ColorDetector to verify entity presence and positions.",
+    "timestamp": "2025-10-13T20:11:00Z"
+  },
+  {
+    "role": "user",
+    "content": "I keep getting TypeScript errors with 'any' types",
+    "timestamp": "2025-10-13T20:15:00Z"
+  },
+  {
+    "role": "assistant",
+    "content": "That's expected! Hyperscape enforces strict TypeScript rules:\n\n**Forbidden:**\n- No 'any' types\n- No 'unknown' types  \n- No 'as any' casts\n- No property existence checks on polymorphic objects\n\n**Required:**\n- Explicit return types on public methods\n- Use non-null assertions: value!\n- Import types with 'import type { TypeName }'\n- Share types from types/core.ts\n\nThis is a deliberate architectural decision to ensure type safety across the codebase.",
+    "timestamp": "2025-10-13T20:16:00Z"
+  },
+  {
+    "role": "user",
+    "content": "Why no mocks in tests?",
+    "timestamp": "2025-10-13T20:20:00Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Hyperscape follows a 'real testing' philosophy:\n\n**Why no mocks:**\n- Mocks don't catch integration issues\n- Real worlds test actual behavior\n- Visual verification requires real rendering\n- Three.js scene hierarchy needs real engine\n- Agent interactions need real WebSocket connections\n\n**Instead, we use:**\n- Mini-worlds for each feature\n- Real Hyperscape instances via Playwright\n- Colored cube proxies for fast visuals\n- Screenshot analysis for verification\n- Data introspection via ECS systems\n\nThis catches real bugs that mocks would miss.",
+    "timestamp": "2025-10-13T20:21:00Z"
+  },
+  {
+    "role": "user",
+    "content": "How do I run the RPG tests?",
+    "timestamp": "2025-10-13T20:25:00Z"
+  },
+  {
+    "role": "assistant",
+    "content": "To run RPG tests:\n\n1. Build the plugin:\n```bash\ncd packages/plugin-hyperscape\nbun run build\n```\n\n2. Run specific test:\n```bash\nbun test rpg-action-bugs.test.ts\n```\n\nThe test will:\n- Start a Hyperscape world\n- Create entities (trees, banks, fires, etc.)\n- Connect test agent\n- Execute actions (CHOP_TREE, CATCH_FISH, etc.)\n- Verify both data state and visual state\n- Save screenshots and logs\n\nAll RPG actions are tested with real worlds, real WebSocket connections, and real visual verification.",
+    "timestamp": "2025-10-13T20:26:00Z"
+  }
+]
