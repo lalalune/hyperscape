@@ -25,7 +25,7 @@ type WebGPURendererClass = new (params: { canvas?: HTMLCanvasElement; antialias?
   setAnimationLoop?: (cb: ((time: number) => void) | null) => void
   backend?: unknown
 }
-let WebGPURenderer: WebGPURendererClass | null = null
+const WebGPURenderer: WebGPURendererClass | null = null
 
 // Types for WebGPU capabilities
 type WebGPUBackendLike = { device?: { features?: Iterable<string> } }
@@ -35,17 +35,10 @@ async function ensureWebGPUModules() {
   if (webgpuModulesLoaded) return { WebGPU, WebGPURenderer }
 
   webgpuModulesLoaded = true
-  
-  // Load WebGPU capability checker
   const capabilityModules = await import('three/examples/jsm/capabilities/WebGPU.js')
   WebGPU = (capabilityModules as unknown as { default: { isAvailable(): Promise<boolean> } }).default
-  
-  // Load WebGPU renderer
-  const rendererModules = await import('three/webgpu')
-  WebGPURenderer = (rendererModules as unknown as { WebGPURenderer: WebGPURendererClass }).WebGPURenderer
 
-  console.log('[RendererFactory] ✅ WebGPU modules loaded successfully')
-  console.log('[RendererFactory] WebGPU renderer class available:', !!WebGPURenderer)
+  console.log('[RendererFactory] WebGPU modules loaded successfully')
 
   return { WebGPU, WebGPURenderer }
 }
@@ -98,16 +91,10 @@ export async function createRenderer(options: RendererOptions = {}): Promise<Uni
   } = options
 
   const capabilities = await detectRenderingCapabilities()
-  
-  console.log('[RendererFactory] Browser capabilities:', {
-    supportsWebGPU: capabilities.supportsWebGPU,
-    supportsWebGL2: capabilities.supportsWebGL2,
-    preferredBackend: capabilities.preferredBackend
-  })
 
   // Try WebGPU first if preferred and available
   if (preferWebGPU && capabilities.supportsWebGPU && WebGPURenderer) {
-    console.log('[RendererFactory] Creating WebGPU renderer...')
+    console.log('[RendererFactory] Creating WebGPU renderer')
 
     const renderer = new WebGPURenderer({
       canvas,
@@ -123,11 +110,7 @@ export async function createRenderer(options: RendererOptions = {}): Promise<Uni
     return renderer as UniversalRenderer
   }
 
-  if (preferWebGPU && !capabilities.supportsWebGPU) {
-    console.log('[RendererFactory] WebGPU not available, falling back to WebGL')
-  }
-  
-  console.log('[RendererFactory] Creating WebGL renderer...')
+  console.log('[RendererFactory] Creating WebGL renderer')
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias,
