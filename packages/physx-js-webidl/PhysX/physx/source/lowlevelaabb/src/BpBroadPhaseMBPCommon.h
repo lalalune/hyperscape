@@ -40,7 +40,7 @@ namespace Bp
 
 #define MBP_USE_WORDS
 #define MBP_USE_NO_CMP_OVERLAP
-#if PX_INTEL_FAMILY && !defined(PX_SIMD_DISABLED) && !defined(__EMSCRIPTEN__)
+#if PX_INTEL_FAMILY && !defined(PX_SIMD_DISABLED)
 	#define MBP_SIMD_OVERLAP
 #endif
 

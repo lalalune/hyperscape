@@ -60,6 +60,9 @@ export class DatabaseSystem extends SystemBase {
    * Operations are added when sync methods fire-and-forget async work.
    */
   private pendingOperations: Set<Promise<unknown>> = new Set();
+  
+  /** Flag to indicate the system is being destroyed - prevents new operations */
+  private isDestroying: boolean = false;
 
   /**
    * Constructor
@@ -123,6 +126,9 @@ export class DatabaseSystem extends SystemBase {
    * Called by server shutdown handler in index.ts.
    */
   async waitForPendingOperations(): Promise<void> {
+    // Set flag to prevent new operations during shutdown
+    this.isDestroying = true;
+    
     if (this.pendingOperations.size === 0) {
       return;
     }
@@ -245,7 +251,10 @@ export class DatabaseSystem extends SystemBase {
    * @param data - Partial player data to save (only provided fields are updated)
    */
   async savePlayerAsync(playerId: string, data: Partial<PlayerRow>): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db || this.isDestroying) {
+      // Gracefully skip during shutdown
+      return;
+    }
     
     type CharacterInsert = typeof schema.characters.$inferInsert;
     type CharacterUpdate = Partial<Omit<CharacterInsert, 'id' | 'accountId'>>;
@@ -365,7 +374,10 @@ export class DatabaseSystem extends SystemBase {
   }
 
   async savePlayerInventoryAsync(playerId: string, items: InventorySaveItem[]): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db || this.isDestroying) {
+      // Gracefully skip during shutdown
+      return;
+    }
     
     // Delete existing inventory
     await this.db.delete(schema.inventory).where(eq(schema.inventory.playerId, playerId));
@@ -411,7 +423,10 @@ export class DatabaseSystem extends SystemBase {
   }
 
   async savePlayerEquipmentAsync(playerId: string, items: EquipmentSaveItem[]): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db || this.isDestroying) {
+      // Gracefully skip during shutdown
+      return;
+    }
     
     // Delete existing equipment
     await this.db.delete(schema.equipment).where(eq(schema.equipment.playerId, playerId));
@@ -464,7 +479,10 @@ export class DatabaseSystem extends SystemBase {
   }
 
   async updatePlayerSessionAsync(sessionId: string, updates: Partial<PlayerSessionRow>): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db || this.isDestroying) {
+      // Gracefully skip during shutdown
+      return;
+    }
     
     type SessionUpdate = Partial<typeof schema.playerSessions.$inferInsert>;
     const updateData: SessionUpdate = {};
@@ -542,7 +560,10 @@ export class DatabaseSystem extends SystemBase {
   }
 
   async saveWorldChunkAsync(chunkData: { chunkX: number; chunkZ: number; data: string }): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db || this.isDestroying) {
+      // Gracefully skip during shutdown
+      return;
+    }
     
     await this.db
       .insert(schema.worldChunks)
@@ -584,7 +605,10 @@ export class DatabaseSystem extends SystemBase {
   }
 
   async updateChunkPlayerCountAsync(chunkX: number, chunkZ: number, playerCount: number): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db || this.isDestroying) {
+      // Gracefully skip during shutdown
+      return;
+    }
     
     await this.db
       .update(schema.worldChunks)

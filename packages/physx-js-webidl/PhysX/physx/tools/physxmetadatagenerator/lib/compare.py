@@ -27,9 +27,9 @@
 # general utility module
 
 import os
-
+import sys
+import re
 from . import utils
-
 
 def compareMetaDataDirectories(candidateDir, referenceDir):
 

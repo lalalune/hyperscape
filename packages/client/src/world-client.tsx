@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { THREE, createClientWorld, EventType, System } from '@hyperscape/shared'
-import type { World } from '@hyperscape/shared'
+import { World } from '@hyperscape/shared'
 import { CoreUI } from './components/CoreUI'
 
 export { System }
 
 interface ClientProps {
   wsUrl?: string
-  onSetup?: (world: World, config: unknown) => void
+  onSetup?: (world: InstanceType<typeof World>, config: unknown) => void
 }
 
 export function Client({ wsUrl, onSetup }: ClientProps) {
@@ -31,7 +31,7 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
     console.log('[Client] World instance created');
     
     // Expose world for browser debugging
-    ;(window as { world: World }).world = w;
+    ;(window as { world: InstanceType<typeof World> }).world = w;
     
     // Install simple debug commands
     const debugWindow = window as typeof window & {
@@ -60,20 +60,33 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       },
       // List all mobs with positions
       mobs: () => {
-        const entityManager = w.getSystem('entity-manager') as unknown as { getAllEntities: () => Map<string, { type: string; name: string; node: { position: { toArray: () => number[] } }; mesh: { visible: boolean } }> };
-        const mobs: Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean }> = [];
-        for (const [_id, entity] of entityManager.getAllEntities()) {
-          if (entity.type === 'mob') {
-            mobs.push({
-              name: entity.name,
-              position: entity.node.position.toArray(),
-              hasMesh: true,
-              meshVisible: entity.mesh.visible
-            });
+        type EntityWithNode = { 
+          type: string; 
+          name: string; 
+          node: { position: { toArray: () => number[] } }; 
+          mesh?: { visible: boolean } 
+        }
+        type EntityManagerType = { 
+          getAllEntities?: () => Map<string, EntityWithNode> 
+        }
+        
+        const entityManager = w.getSystem('entity-manager') as EntityManagerType | null
+        const mobs: Array<{ name: string; position: number[]; hasMesh: boolean; meshVisible: boolean }> = []
+        
+        if (entityManager?.getAllEntities) {
+          for (const [_id, entity] of entityManager.getAllEntities()) {
+            if (entity.type === 'mob') {
+              mobs.push({
+                name: entity.name,
+                position: entity.node.position.toArray(),
+                hasMesh: !!entity.mesh,
+                meshVisible: entity.mesh?.visible ?? false
+              })
+            }
           }
         }
-        console.table(mobs);
-        return mobs;
+        console.table(mobs)
+        return mobs
       }
     };
     console.log('🛠️  Debug commands ready: debug.seeHighEntities(), debug.seeGround(), debug.mobs()');
@@ -83,13 +96,12 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
   const defaultUI = { visible: true, active: false, app: null, pane: null }
   const [ui, setUI] = useState(defaultUI)
   useEffect(() => {
-    const handleUI = (data: unknown) => {
-      // Assume data has the correct shape for UI state
-      if (data) setUI(data as typeof ui)
+    const handleUI = (data: { visible: boolean; active: boolean; app: null; pane: null }) => {
+      setUI(data)
     }
-    world.on(EventType.UI_UPDATE, handleUI)
+    world.on(EventType.UI_UPDATE, handleUI, undefined)
     return () => {
-      world.off(EventType.UI_UPDATE, handleUI)
+      world.off(EventType.UI_UPDATE, handleUI, undefined, undefined)
     }
   }, [world])
 
@@ -97,10 +109,11 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
   useEffect(() => {
     const handleResize = () => {
       const viewport = viewportRef.current
-      if (viewport && world.graphics) {
+      const graphics = world.getSystem('graphics') as { resize?: (width: number, height: number) => void } | null
+      if (viewport && graphics?.resize) {
         const width = viewport.offsetWidth
         const height = viewport.offsetHeight
-        world.graphics.resize(width, height)
+        graphics.resize(width, height)
       }
     }
 
@@ -176,7 +189,7 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       
       
       // Ensure RPG systems are registered before initializing the world
-      const systemsPromise = (world as World & { systemsLoadedPromise?: Promise<void> }).systemsLoadedPromise
+      const systemsPromise = (world as InstanceType<typeof World> & { systemsLoadedPromise?: Promise<void> }).systemsLoadedPromise
       if (systemsPromise) {
         console.log('[Client] Waiting for RPG systems to load...')
         await systemsPromise

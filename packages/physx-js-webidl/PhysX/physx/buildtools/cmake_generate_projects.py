@@ -1,9 +1,9 @@
-import glob
+import sys
 import os
+import glob
 import os.path
 import shutil
 import subprocess
-import sys
 import xml.etree.ElementTree
 
 
@@ -13,43 +13,89 @@ def cmakeExt():
     return ''
 
 
-def filterPreset(presetName):
+def filterPreset(presetPath):
+    # If this is a file path, extract the actual preset name from XML or filename
+    if os.path.isfile(presetPath):
+        try:
+            presetXml = xml.etree.ElementTree.parse(presetPath).getroot()
+            presetName = presetXml.get('name')
+        except:
+            # Fall back to just using the basename without extension if XML parsing fails
+            basename = os.path.basename(presetPath)
+            presetName = os.path.splitext(basename)[0]
+    else:
+        # If not a file path, assume it's already a preset name
+        presetName = presetPath
+    
+    # Platform-specific filtering
     winPresetFilter = ['win','switch','crosscompile']
     if sys.platform == 'win32':
+        # On Windows, include presets that contain win, switch, or crosscompile 
+        # (but not windows-crosscompile)
         if any((presetName.find(elem) != -1 and 'windows-crosscompile' not in presetName) for elem in winPresetFilter):
             return True
     else:
-        if all((presetName.find(elem) == -1 or 'windows-crosscompile' in presetName) for elem in winPresetFilter):
+        # On non-Windows, include Linux presets and windows-crosscompile
+        # Check for Linux or other Unix/macOS presets (those not containing Windows-specific terms)
+        # Special case: include windows-crosscompile, which is for cross-compiling Windows targets
+        if 'linux' in presetName.lower() or 'mac' in presetName.lower() or 'windows-crosscompile' in presetName:
+            return True
+        if all(presetName.find(elem) == -1 for elem in ['win', 'switch']):
             return True
     return False
 
 def noPresetProvided(physx_root_dir):
     global input
     print('Preset parameter required, available presets:')
-    internal_presets = os.path.join(physx_root_dir, "buildtools", "presets", "*.xml")
-    public_presets = os.path.join(physx_root_dir, "buildtools", "presets", "public", "*.xml")
+    presets_dir = os.path.join(physx_root_dir, "buildtools", "presets")
+    internal_presets = os.path.join(presets_dir, "*.xml")
+    public_presets = os.path.join(presets_dir, "public", "*.xml")
+    
+    # Get all XML files in the presets directory
+    internal_preset_files = glob.glob(internal_presets)
+    
+    # Check if we have any non-directory XML files directly in presets folder
     presetfiles = []
-    for file in glob.glob(internal_presets):
-        presetfiles.append(file)
+    for file in internal_preset_files:
+        if not os.path.isdir(file):  # Make sure it's a file, not a directory
+            basename = os.path.basename(file)
+            dirname = os.path.dirname(file)
+            if os.path.basename(dirname) != "public":  # Skip files in public subdirectory
+                presetfiles.append(file)
+    
+    # If no XML files in main presets directory, we're in public distribution
+    # So use the files from public directory
+    if len(presetfiles) == 0:
+        print("No presets in main folder, using public presets")
+        presetfiles = glob.glob(public_presets)
 
     if len(presetfiles) == 0:
-        for file in glob.glob(public_presets):
-            presetfiles.append(file)
+        print("Error: No preset files found. Make sure the directory structure is correct.")
+        exit(1)
 
     counter = 0
     presetList = []
     for preset in presetfiles:
         if filterPreset(preset):
-            presetXml = xml.etree.ElementTree.parse(preset).getroot()
-            if(preset.find('user') == -1):
-                print('(' + str(counter) + ') ' + presetXml.get('name') +
-                    ' <--- ' + presetXml.get('comment'))
-                presetList.append(presetXml.get('name'))
-            else:
-                print('(' + str(counter) + ') ' + presetXml.get('name') +
-                    '.user <--- ' + presetXml.get('comment'))
-                presetList.append(presetXml.get('name') + '.user')
-            counter = counter + 1
+            try:
+                presetXml = xml.etree.ElementTree.parse(preset).getroot()
+                if preset.find('user') == -1:
+                    print('(' + str(counter) + ') ' + presetXml.get('name') +
+                        ' <--- ' + presetXml.get('comment'))
+                    presetList.append(presetXml.get('name'))
+                else:
+                    print('(' + str(counter) + ') ' + presetXml.get('name') +
+                        '.user <--- ' + presetXml.get('comment'))
+                    presetList.append(presetXml.get('name') + '.user')
+                counter = counter + 1
+            except Exception as e:
+                print(f"Warning: Could not parse preset file {preset}: {e}")
+                continue
+    
+    if counter == 0:
+        print("Error: No valid presets found for this platform.")
+        exit(1)
+        
     # Fix Python 2.x.
     try:
         input = raw_input
@@ -101,14 +147,6 @@ class CMakePreset:
                 cmParam = '-D' + cmakeParam.attrib['name'] + '=\"' + \
                     os.environ['PHYSX_ROOT_DIR'] + '/' + \
                     cmakeParam.attrib['value'] + '\"'
-            elif cmakeParam.attrib['name'] == 'ANDROID_ABI':
-                cmParam = '-D' + \
-                    cmakeParam.attrib['name'] + '=\"' + \
-                    cmakeParam.attrib['value'] + '\"'
-                if cmakeParam.attrib['value'].startswith('arm'):
-                    cmParam = cmParam + ' -DPX_OUTPUT_ARCH=arm'
-                elif cmakeParam.attrib['value'].startswith('x86'):
-                    cmParam = cmParam + ' -DPX_OUTPUT_ARCH=x86'
             else:
                 cmParam = '-D' + \
                     cmakeParam.attrib['name'] + '=' + \
@@ -122,12 +160,6 @@ class CMakePreset:
         elif self.targetPlatform == 'linuxAarch64':
             return False
         elif self.compiler == 'x86_64-w64-mingw32-g++':
-            return False
-        elif self.targetPlatform == 'jni-linux':
-            return False
-        elif self.targetPlatform == 'jni-android':
-            return False
-        elif self.targetPlatform == 'emscripten':
             return False
         return True
 
@@ -214,9 +246,6 @@ class CMakePreset:
         # mac
         elif self.compiler == 'xcode':
             outString = outString + '-G Xcode'
-        # jni android
-        elif self.targetPlatform == 'jni-android':
-            outString = outString + '-G \"Unix Makefiles\"'
         # Linux
         elif self.targetPlatform in ['linux', 'linuxAarch64']:
             if self.generator is not None and self.generator == 'ninja':
@@ -283,46 +312,6 @@ class CMakePreset:
         elif self.targetPlatform == 'mac64':
             outString = outString + ' -DTARGET_BUILD_PLATFORM=mac'
             outString = outString + ' -DPX_OUTPUT_ARCH=x86'
-            return outString
-        elif self.targetPlatform == 'jni-mac64':
-            outString = outString + ' -DTARGET_BUILD_PLATFORM=jni-mac'
-            outString = outString + ' -DPX_OUTPUT_ARCH=x86'
-            return outString
-        elif self.targetPlatform == 'jni-macAarch64':
-            outString = outString + ' -DTARGET_BUILD_PLATFORM=jni-mac'
-            outString = outString + ' -DPX_OUTPUT_ARCH=arm'
-            return outString
-        elif self.targetPlatform == 'jni-win64':
-            outString = outString + ' -Ax64'
-            outString = outString + ' -DTARGET_BUILD_PLATFORM=jni-windows'
-            outString = outString + ' -DPX_OUTPUT_ARCH=x86'
-            return outString
-        elif self.targetPlatform == 'jni-linux':
-            outString = outString + ' -DTARGET_BUILD_PLATFORM=jni-linux'
-            outString = outString + ' -DPX_OUTPUT_ARCH=x86'
-            outString = outString + ' -DCMAKE_C_COMPILER=clang'
-            outString = outString + ' -DCMAKE_CXX_COMPILER=clang++'
-            return outString
-        elif self.targetPlatform == 'jni-android':
-            outString = outString + ' -DTARGET_BUILD_PLATFORM=jni-android'
-            if os.environ.get('ANDROID_NDK_HOME') is None:
-                print('Please provide path to android NDK in environment variable ANDROID_NDK_HOME.')
-                exit(-1)
-            else:
-                outString = outString + ' -DCMAKE_TOOLCHAIN_FILE=' + \
-                    os.environ['ANDROID_NDK_HOME'] + \
-                    '/build/cmake/android.toolchain.cmake'
-                outString = outString + ' -DANDROID_STL=\"c++_static\"'
-                outString = outString + ' -DCM_ANDROID_FP=\"softfp\"'
-                outString = outString + ' -DANDROID_NDK=' + \
-                    os.environ['ANDROID_NDK_HOME']
-                outString = outString + ' -DCMAKE_MAKE_PROGRAM=\"' + \
-                    os.environ['ANDROID_NDK_HOME'] + '/prebuilt/linux-x86_64/bin/make\"'
-            return outString
-        elif self.targetPlatform == 'emscripten':
-            outString = outString + ' -DTARGET_BUILD_PLATFORM=emscripten'
-            outString = outString + ' -DCMAKE_TOOLCHAIN_FILE=\"' + \
-                os.path.join(os.environ['EMSDK'] + '/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake\"')
             return outString
         return ''
 

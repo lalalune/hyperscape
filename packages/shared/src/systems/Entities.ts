@@ -230,9 +230,9 @@ export class Entities extends SystemBase implements IEntities {
         attackPower: 10,
         defense: 2,
         attackSpeed: 1.5,
-        moveSpeed: 5,
-        aggroRange: 10,
-        combatRange: 2,
+        moveSpeed: 3.0, // Walking speed (matches player walk)
+        aggroRange: 15.0, // 15 meters detection range
+        combatRange: 1.5, // 1.5 meters melee range
         xpReward: 10,
         lootTable: [],
         respawnTime: 300000,
