@@ -58,18 +58,10 @@ export class ModelCache {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         
-        // For skinned meshes, ensure skeleton is properly bound
+        // For skinned meshes, disable frustum culling
         if (mesh instanceof THREE.SkinnedMesh) {
           mesh.frustumCulled = false; // Prevent culling issues with animated meshes
-          
-          // CRITICAL: Use DetachedBindMode for WebGPU compatibility
-          // This is what VRM avatars do and they render correctly
-          if (mesh.skeleton) {
-            mesh.bindMode = THREE.DetachedBindMode;
-            mesh.bindMatrix.copy(mesh.matrixWorld);
-            mesh.bindMatrixInverse.copy(mesh.bindMatrix).invert();
-            mesh.skeleton.calculateInverses();
-          }
+          // NOTE: Do NOT bind skeleton here - entities will handle it after scaling
         }
       }
     });

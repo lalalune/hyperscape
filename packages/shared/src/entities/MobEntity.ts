@@ -301,14 +301,25 @@ export class MobEntity extends CombatantEntity {
         this.mesh = scene;
         this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
         
-        // Apply scale to geometry (not transform) for SkinnedMesh
-        // This ensures animations work correctly without scale multiplication
+        // CRITICAL: Scale the root mesh transform, then bind skeleton
+        const modelScale = 100; // cm to meters
+        this.mesh.scale.set(modelScale, modelScale, modelScale);
+        this.mesh.updateMatrix();
+        this.mesh.updateMatrixWorld(true);
+        
+        // NOW bind the skeleton at the scaled size
         this.mesh.traverse((child) => {
-          if (child instanceof THREE.SkinnedMesh) {
-            // Scale geometry vertices directly
-            child.geometry.scale(10, 10, 10);
-            child.geometry.computeBoundingBox();
-            child.geometry.computeBoundingSphere();
+          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+            // Ensure mesh matrix is updated
+            child.updateMatrix();
+            child.updateMatrixWorld(true);
+            
+            // Bind skeleton with DetachedBindMode (like VRM)
+            child.bindMode = THREE.DetachedBindMode;
+            child.bindMatrix.copy(child.matrixWorld);
+            child.bindMatrixInverse.copy(child.bindMatrix).invert();
+            
+            console.log(`[MobEntity] ✅ Bound skeleton at scale ${modelScale}x`);
           }
         });
         
@@ -505,7 +516,7 @@ export class MobEntity extends CombatantEntity {
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
     
-    // Client update running
+    this.clientUpdateCallCount++;
     
     // Mesh is child of node, so it follows automatically
     // No manual position sync needed
@@ -516,15 +527,27 @@ export class MobEntity extends CombatantEntity {
     // Update animation mixer if exists
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
     if (mixer) {
+      // Debug logging for first 10 updates (like VRM does)
+      if (this.clientUpdateCallCount <= 10) {
+        console.log(`[MobEntity] Update #${this.clientUpdateCallCount} for ${this.config.mobType}:`, {
+          deltaTime: deltaTime.toFixed(4),
+          mixerTime: mixer.time.toFixed(4),
+          hasMixer: true
+        });
+      }
+      
       // Update the mixer (advances animation time)
       mixer.update(deltaTime);
       
-      // CRITICAL: Update skeleton (exactly like VRM does at line 306!)
-      // This actually moves the bones to match the animation
+      if (this.clientUpdateCallCount <= 10) {
+        console.log(`[MobEntity] Mixer updated, new time: ${mixer.time.toFixed(4)}`);
+      }
+      
+      // CRITICAL: Update skeleton bones (exactly like VRM at line 317!)
       if (this.mesh) {
         this.mesh.traverse((child) => {
           if (child instanceof THREE.SkinnedMesh && child.skeleton) {
-            // Update each bone matrix WITHOUT forcing parent recalc
+            // VRM does: skeleton.bones.forEach(bone => bone.updateMatrixWorld())
             child.skeleton.bones.forEach(bone => bone.updateMatrixWorld());
           }
         });
