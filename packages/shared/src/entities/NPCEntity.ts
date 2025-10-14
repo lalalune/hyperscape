@@ -263,14 +263,23 @@ export class NPCEntity extends Entity {
         this.mesh = scene;
         this.mesh.name = `NPC_${this.config.npcType}_${this.id}`;
         
-        // Apply scale to geometry (not transform) for SkinnedMesh
-        // This ensures animations work correctly without scale multiplication
+        // CRITICAL: Scale the root mesh transform, then bind skeleton
+        const modelScale = 100; // cm to meters
+        this.mesh.scale.set(modelScale, modelScale, modelScale);
+        this.mesh.updateMatrix();
+        this.mesh.updateMatrixWorld(true);
+        
+        // NOW bind the skeleton at the scaled size
         this.mesh.traverse((child) => {
-          if (child instanceof THREE.SkinnedMesh) {
-            // Scale geometry vertices directly
-            child.geometry.scale(10, 10, 10);
-            child.geometry.computeBoundingBox();
-            child.geometry.computeBoundingSphere();
+          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+            // Ensure mesh matrix is updated
+            child.updateMatrix();
+            child.updateMatrixWorld(true);
+            
+            // Bind skeleton with DetachedBindMode (like VRM)
+            child.bindMode = THREE.DetachedBindMode;
+            child.bindMatrix.copy(child.matrixWorld);
+            child.bindMatrixInverse.copy(child.bindMatrix).invert();
           }
         });
         

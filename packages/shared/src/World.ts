@@ -1087,7 +1087,6 @@ export class World extends EventEmitter {
    * @param material - Three.js material to configure for CSM
    */
   setupMaterial = (material: THREE.Material): void => {
-    // @ts-ignore - CSM is added by environment system
     this.environment?.csm?.setupMaterial(material);
   }
 

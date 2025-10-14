@@ -1147,7 +1147,13 @@ export class PlayerLocal extends Entity implements HotReloadable {
     const instance = (nodeToUse as unknown as AvatarNode).instance;
     
     // Disable rate check
-    instance!.disableRateCheck!();
+    console.log('[PlayerLocal] About to call disableRateCheck, instance:', !!instance, 'has disableRateCheck:', !!instance?.disableRateCheck);
+    if (instance?.disableRateCheck) {
+      instance.disableRateCheck();
+      console.log('[PlayerLocal] ✅ Called disableRateCheck()');
+    } else {
+      console.error('[PlayerLocal] ❌ instance.disableRateCheck not available!');
+    }
     
     // Set up nametag and bubble positioning
     const headHeight = this._avatar!.getHeadToHeight!()!;
@@ -1585,7 +1591,16 @@ export class PlayerLocal extends Entity implements HotReloadable {
     return null
   }
 
+  private updateCallCount = 0
+  
   update(delta: number): void {
+    this.updateCallCount++
+    
+    // ALWAYS log first 10 updates with high visibility
+    if (this.updateCallCount <= 10) {
+      console.log(`%c[PlayerLocal] 🔄 update #${this.updateCallCount}`, 'background: #00ff00; color: #000', `delta=${delta.toFixed(4)}, hasAvatar=${!!this._avatar}, avatarType=${this._avatar?.constructor.name}`)
+    }
+    
     // Server-authoritative movement: minimal updates only
     // Position updates come from modify() when server sends them
     
@@ -1611,12 +1626,26 @@ export class PlayerLocal extends Entity implements HotReloadable {
     const avatarNode = this._avatar as unknown as AvatarNodeWithInstance
     if (avatarNode?.instance) {
       const instance = avatarNode.instance
+      
+      // Log when avatar instance is first detected
+      if (this.updateCallCount === 11 || this.updateCallCount === 12) {
+        console.log(`%c[PlayerLocal] 🎉 Avatar instance NOW available at update #${this.updateCallCount}`, 'background: #ffff00; color: #000', 'hasMove:', !!instance.move, 'hasUpdate:', !!instance.update)
+      }
+      
       if (instance.move && this.base) {
         instance.move(this.base.matrixWorld)
       }
       if (instance.update) {
+        // Always log first 3 calls to instance.update
+        if (this.updateCallCount <= 15) {
+          console.log(`%c[PlayerLocal] ⚡ Calling instance.update(${delta.toFixed(4)}) at frame #${this.updateCallCount}`, 'background: #00ffff; color: #000')
+        }
         instance.update(delta)
+      } else if (this.updateCallCount <= 15) {
+        console.warn(`[PlayerLocal] instance.update is not available!`)
       }
+    } else if (this.updateCallCount <= 10) {
+      console.warn(`[PlayerLocal] No avatar instance found!`)
     }
     
     // NO client-side animation calculation - server is authoritative
