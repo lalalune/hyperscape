@@ -11,6 +11,7 @@ import {
   IGameSystem,
   IVisualConfig,
 } from "../types/content-pack";
+import type { World } from "../types/core-types";
 
 /**
  * RPG Actions for AI Agents
@@ -155,7 +156,7 @@ const rpgSystems: IGameSystem[] = [
     name: "RPG Combat System",
     type: "combat",
     // dependencies: ['entity-manager', 'skills'],
-    init: async (world: any) => {
+    init: async (world: World) => {
       // Integration with CombatSystem
       // console.log('🗡️ RPG Combat System connected to ElizaOS agents')
     },
@@ -170,7 +171,7 @@ const rpgSystems: IGameSystem[] = [
     type: "inventory",
     // description: 'Manages player inventories and items',
     // dependencies: ['entity-manager', 'database'],
-    init: async (world: any) => {
+    init: async (world: World) => {
       // Integration with InventorySystem
       // console.log('🎒 RPG Inventory System connected to ElizaOS agents')
     },
@@ -185,7 +186,7 @@ const rpgSystems: IGameSystem[] = [
     type: "skills",
     // description: 'Handles skill progression and training',
     // dependencies: ['entity-manager', 'database'],
-    init: async (world: any) => {
+    init: async (world: World) => {
       // Integration with SkillsSystem
       // console.log('📈 RPG Skills System connected to ElizaOS agents')
     },
@@ -224,7 +225,7 @@ export const RunescapeRPGPack: IContentPack = {
   visuals: rpgVisuals,
 
   // Lifecycle hooks
-  onLoad: async (runtime: IAgentRuntime, world: any) => {
+  onLoad: async (runtime: IAgentRuntime, world: World) => {
     console.log("🎮 RPG Content Pack loading...");
     console.log("🏗️ Connecting to 54 polished RPG systems...");
 
@@ -244,7 +245,7 @@ export const RunescapeRPGPack: IContentPack = {
     }
   },
 
-  onUnload: async (runtime: IAgentRuntime, world: any) => {
+  onUnload: async (runtime: IAgentRuntime, world: World) => {
     console.log("🎮 RPG Content Pack unloading...");
     console.log("🔌 Disconnecting from RPG systems...");
     console.log("✅ Clean shutdown complete");

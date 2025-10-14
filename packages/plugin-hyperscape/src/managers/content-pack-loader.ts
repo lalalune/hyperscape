@@ -3,10 +3,12 @@ import {
   IContentPack,
   IContentPackLoader,
   IGameSystem,
+  IStateManager,
 } from "../types/content-pack";
 import { HyperscapeService } from "../service";
 import { HyperscapeActionDescriptor } from "../types/core-types";
 import { World } from "../types/core-types";
+import { VisualConfigSchema, type VisualConfig } from "../types/validation-schemas";
 
 /**
  * Manages loading and unloading of modular content packs
@@ -62,7 +64,7 @@ export class ContentPackLoader implements IContentPackLoader {
             name: action.name,
             description: action.description,
             parameters:
-              action.parameters as unknown as HyperscapeActionDescriptor["parameters"],
+              action.parameters as HyperscapeActionDescriptor["parameters"],
             examples: Array.isArray(action.examples)
               ? action.examples.flat().map((ex) => JSON.stringify(ex))
               : [],
@@ -146,48 +148,36 @@ export class ContentPackLoader implements IContentPackLoader {
 
   /**
    * Load visual configuration into the world
+   * Uses Zod validation for strict type safety (CLAUDE.md compliance)
    */
-  private loadVisualConfig(visuals: {
-    entityColors?: Record<
-      string,
-      {
-        color: number | string;
-        hex?: string;
-        tolerance?: number;
-        [key: string]: unknown;
-      }
-    >;
-    uiTheme?: unknown;
-    assets?: {
-      models?: string[];
-      [key: string]: unknown;
-    };
-  }): void {
+  private loadVisualConfig(visuals: VisualConfig): void {
+    // Validate input with Zod schema
+    const validated = VisualConfigSchema.parse(visuals);
     const world = this.service.getWorld()!;
 
     // Register entity colors for visual detection
-    if (visuals.entityColors) {
+    if (validated.entityColors) {
       const colorDetector = world.colorDetector;
-      Object.entries(visuals.entityColors).forEach(([entityType, config]) => {
+      Object.entries(validated.entityColors).forEach(([entityType, config]) => {
         colorDetector.registerEntityColor(entityType, config);
       });
     }
 
     // Apply UI theme if provided
-    if (visuals.uiTheme && world.ui) {
-      // Assume applyTheme is a function
-      (world.ui as { applyTheme: (theme: unknown) => void }).applyTheme(
-        visuals.uiTheme,
+    if (validated.uiTheme && world.ui) {
+      // Assume applyTheme is a function - using validated data
+      (world.ui as { applyTheme: (theme: typeof validated.uiTheme) => void }).applyTheme(
+        validated.uiTheme,
       );
     }
 
     // Load assets
-    if (visuals.assets) {
+    if (validated.assets) {
       const assetLoader = (
         world as { assetLoader: { loadModel: (url: string) => void } }
       ).assetLoader;
-      if (visuals.assets.models) {
-        visuals.assets.models.forEach((url: string) => {
+      if (validated.assets.models) {
+        validated.assets.models.forEach((url: string) => {
           assetLoader.loadModel(url);
         });
       }
@@ -229,7 +219,7 @@ export class ContentPackLoader implements IContentPackLoader {
   /**
    * Get state manager for a loaded pack
    */
-  getPackStateManager(packId: string): unknown {
+  getPackStateManager(packId: string): IStateManager | undefined {
     const pack = this.loadedPacks.get(packId);
     return pack?.stateManager;
   }

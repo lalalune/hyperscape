@@ -24,13 +24,35 @@ import type {
   Component,
 } from "@hyperscape/shared";
 
-// Core agent interfaces for Hyperscape integration
-export interface AgentContext {
-  runtime: IAgentRuntime;
-  agentId: UUID;
-  worldId?: string;
-  position?: Vector3;
-  rotation?: Quaternion;
+// Import and re-export Zod-validated types for strict type safety (CLAUDE.md compliance)
+import type { EntityCreationData, EntityUpdateData, Metadata } from "./validation-schemas";
+export type { EntityCreationData, EntityUpdateData, Metadata };
+
+// Core agent classes for Hyperscape integration (CLAUDE.md: prefer classes over interfaces)
+export class AgentContext {
+  constructor(
+    public runtime: IAgentRuntime,
+    public agentId: UUID,
+    public worldId?: string,
+    public position?: Vector3,
+    public rotation?: Quaternion,
+  ) {}
+
+  isInWorld(): boolean {
+    return !!this.worldId;
+  }
+
+  hasPosition(): boolean {
+    return !!this.position;
+  }
+
+  toJSON(): Record<string, string | number | boolean> {
+    return {
+      agentId: this.agentId,
+      worldId: this.worldId || '',
+      hasPosition: this.hasPosition(),
+    };
+  }
 }
 
 export interface HyperscapeService extends Service {
@@ -57,37 +79,84 @@ export interface HyperscapeService extends Service {
   getBuildManager(): BuildManager | null;
 
   // World state
-  getWorldState(): any;
-  updateWorldState(state: any): Promise<void>;
+  getWorldState(): WorldState;
+  updateWorldState(state: Partial<WorldState>): Promise<void>;
 }
 
 export interface BuildManager {
   // Build system methods
-  createEntity(type: string, position: Vector3, data?: any): Entity | null;
+  createEntity(type: string, position: Vector3, data?: EntityCreationData): Entity | null;
   destroyEntity(entityId: string): boolean;
-  updateEntity(entityId: string, data: any): boolean;
+  updateEntity(entityId: string, data: EntityUpdateData): boolean;
 
   // Build validation
   canBuild(position: Vector3, type: string): boolean;
   getBuildPermissions(agentId: UUID): string[];
 }
 
-export interface AgentState {
-  agentId: UUID;
-  worldId?: string;
-  position?: Vector3;
-  rotation?: Quaternion;
-  isConnected: boolean;
-  lastActivity: Date;
-  metadata?: Record<string, any>;
+export class AgentState {
+  constructor(
+    public agentId: UUID,
+    public isConnected: boolean,
+    public lastActivity: Date,
+    public worldId?: string,
+    public position?: Vector3,
+    public rotation?: Quaternion,
+    public metadata?: Record<string, string | number | boolean>,
+  ) {}
+
+  updateActivity(): void {
+    this.lastActivity = new Date();
+  }
+
+  connect(worldId: string): void {
+    this.isConnected = true;
+    this.worldId = worldId;
+    this.updateActivity();
+  }
+
+  disconnect(): void {
+    this.isConnected = false;
+    this.updateActivity();
+  }
+
+  isActive(timeoutMs: number = 60000): boolean {
+    const now = Date.now();
+    return now - this.lastActivity.getTime() < timeoutMs;
+  }
 }
 
-export interface WorldState {
-  worldId: string;
-  connectedAgents: UUID[];
-  entities: Record<string, any>;
-  lastUpdate: Date;
-  metadata?: Record<string, any>;
+export class WorldState {
+  constructor(
+    public worldId: string,
+    public connectedAgents: UUID[],
+    public entities: Record<string, Entity>,
+    public lastUpdate: Date,
+    public metadata?: Record<string, string | number | boolean>,
+  ) {}
+
+  addAgent(agentId: UUID): void {
+    if (!this.connectedAgents.includes(agentId)) {
+      this.connectedAgents.push(agentId);
+      this.lastUpdate = new Date();
+    }
+  }
+
+  removeAgent(agentId: UUID): void {
+    const index = this.connectedAgents.indexOf(agentId);
+    if (index > -1) {
+      this.connectedAgents.splice(index, 1);
+      this.lastUpdate = new Date();
+    }
+  }
+
+  getAgentCount(): number {
+    return this.connectedAgents.length;
+  }
+
+  getEntityCount(): number {
+    return Object.keys(this.entities).length;
+  }
 }
 
 export interface AgentMemory extends Memory {
@@ -96,7 +165,44 @@ export interface AgentMemory extends Memory {
   position?: Vector3;
   rotation?: Quaternion;
   lastAction?: string;
-  relationships?: Record<UUID, any>;
+  relationships?: Record<UUID, RelationshipData>;
+}
+
+export class RelationshipData {
+  constructor(
+    public agentId: UUID,
+    public relationship: "friend" | "neutral" | "enemy",
+    public trust: number,
+    public lastInteraction: Date,
+  ) {}
+
+  updateTrust(delta: number): void {
+    this.trust = Math.max(-100, Math.min(100, this.trust + delta));
+    this.lastInteraction = new Date();
+    this.updateRelationship();
+  }
+
+  private updateRelationship(): void {
+    if (this.trust > 50) {
+      this.relationship = "friend";
+    } else if (this.trust < -50) {
+      this.relationship = "enemy";
+    } else {
+      this.relationship = "neutral";
+    }
+  }
+
+  interact(): void {
+    this.lastInteraction = new Date();
+  }
+
+  isFriend(): boolean {
+    return this.relationship === "friend";
+  }
+
+  isEnemy(): boolean {
+    return this.relationship === "enemy";
+  }
 }
 
 export interface HyperscapeAction extends Action {
@@ -114,47 +220,125 @@ export interface HyperscapeProvider extends Provider {
   realtime?: boolean;
 }
 
-export interface MessageContext {
-  runtime: IAgentRuntime;
-  message: Memory;
-  state: State;
-  agentId: UUID;
-  worldId?: string;
-  entityId?: string;
-  position?: Vector3;
+export class MessageContext {
+  constructor(
+    public runtime: IAgentRuntime,
+    public message: Memory,
+    public state: State,
+    public agentId: UUID,
+    public worldId?: string,
+    public entityId?: string,
+    public position?: Vector3,
+  ) {}
+
+  hasWorld(): boolean {
+    return !!this.worldId;
+  }
+
+  hasEntity(): boolean {
+    return !!this.entityId;
+  }
+
+  getMessageText(): string {
+    return this.message.content.text || '';
+  }
 }
 
-// Event interfaces for Hyperscape integration
-export interface HyperscapeEvent {
-  type: string;
-  data: any;
-  timestamp: number;
-  agentId?: UUID;
-  worldId?: string;
-  entityId?: string;
+// Event classes for Hyperscape integration (CLAUDE.md: prefer classes over interfaces)
+export class HyperscapeEvent {
+  constructor(
+    public type: string,
+    public data: Record<string, string | number | boolean>,
+    public timestamp: number,
+    public agentId?: UUID,
+    public worldId?: string,
+    public entityId?: string,
+  ) {}
+
+  static create(
+    type: string,
+    data: Record<string, string | number | boolean>,
+    agentId?: UUID,
+    worldId?: string,
+  ): HyperscapeEvent {
+    return new HyperscapeEvent(type, data, Date.now(), agentId, worldId);
+  }
+
+  hasAgent(): boolean {
+    return !!this.agentId;
+  }
+
+  hasWorld(): boolean {
+    return !!this.worldId;
+  }
 }
 
-export interface AgentConnection {
-  agentId: UUID;
-  worldId: string;
-  connectedAt: Date;
-  lastPing: Date;
-  isActive: boolean;
+export class AgentConnection {
+  constructor(
+    public agentId: UUID,
+    public worldId: string,
+    public connectedAt: Date,
+    public lastPing: Date,
+    public isActive: boolean,
+  ) {}
+
+  ping(): void {
+    this.lastPing = new Date();
+    this.isActive = true;
+  }
+
+  disconnect(): void {
+    this.isActive = false;
+  }
+
+  getConnectionDuration(): number {
+    return Date.now() - this.connectedAt.getTime();
+  }
+
+  isStale(timeoutMs: number = 30000): boolean {
+    return Date.now() - this.lastPing.getTime() > timeoutMs;
+  }
 }
 
-// Utility interfaces
-export interface ProviderResult {
-  success: boolean;
-  data?: any;
-  error?: string;
-  metadata?: Record<string, any>;
+// Utility classes (CLAUDE.md: prefer classes over interfaces)
+export class ProviderResult {
+  constructor(
+    public success: boolean,
+    public data?: Record<string, string | number | boolean>,
+    public error?: string,
+    public metadata?: Record<string, string | number | boolean>,
+  ) {}
+
+  static createSuccess(
+    data?: Record<string, string | number | boolean>,
+    metadata?: Record<string, string | number | boolean>,
+  ): ProviderResult {
+    return new ProviderResult(true, data, undefined, metadata);
+  }
+
+  static createError(error: string): ProviderResult {
+    return new ProviderResult(false, undefined, error);
+  }
 }
 
-export interface ActionResult {
-  success: boolean;
-  message?: string;
-  data?: any;
-  error?: string;
+export class ActionResult {
+  constructor(
+    public success: boolean,
+    public message?: string,
+    public data?: Record<string, string | number | boolean>,
+    public error?: string,
+  ) {}
+
+  static createSuccess(
+    message?: string,
+    data?: Record<string, string | number | boolean>,
+  ): ActionResult {
+    return new ActionResult(true, message, data);
+  }
+
+  static createError(error: string): ActionResult {
+    return new ActionResult(false, undefined, undefined, error);
+  }
 }
 
 // System integration interfaces
@@ -188,14 +372,34 @@ export interface ICharacterController {
   canMove(): boolean;
 }
 
-// Network interfaces for multiplayer functionality
-export interface NetworkMessage {
-  type: string;
-  data: any;
-  sender?: UUID;
-  recipients?: UUID[];
-  timestamp: number;
-  reliable?: boolean;
+// Network classes for multiplayer functionality (CLAUDE.md: prefer classes over interfaces)
+export class NetworkMessage {
+  constructor(
+    public type: string,
+    public data: Record<string, string | number | boolean>,
+    public timestamp: number,
+    public sender?: UUID,
+    public recipients?: UUID[],
+    public reliable?: boolean,
+  ) {}
+
+  static create(
+    type: string,
+    data: Record<string, string | number | boolean>,
+    sender?: UUID,
+    recipients?: UUID[],
+    reliable: boolean = true,
+  ): NetworkMessage {
+    return new NetworkMessage(type, data, Date.now(), sender, recipients, reliable);
+  }
+
+  isBroadcast(): boolean {
+    return !this.recipients || this.recipients.length === 0;
+  }
+
+  isDirectMessage(): boolean {
+    return !!this.recipients && this.recipients.length === 1;
+  }
 }
 
 export interface NetworkHandler {

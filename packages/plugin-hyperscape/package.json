@@ -41,6 +41,7 @@
   ],
   "dependencies": {
     "@elizaos/core": "^1.2.9",
+    "@elizaos/plugin-sql": "^1.2.9",
     "@elizaos/server": "^1.2.9",
     "@hyperscape/shared": "workspace:*",
     "@tanstack/react-query": "^5.80.7",
@@ -60,6 +61,7 @@
   },
   "devDependencies": {
     "@cypress/react": "^9.0.1",
+    "@elizaos/cli": "^1.6.1",
     "@tailwindcss/vite": "^4.1.10",
     "@testing-library/cypress": "^10.0.3",
     "@testing-library/jest-dom": "^6.1.5",

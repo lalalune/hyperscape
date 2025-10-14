@@ -36,13 +36,11 @@ if (typeof globalThis !== "undefined") {
   // Mock self if needed by any dependency
   // globalThis.self = globalThis;
 
-  // Mock window minimally
-  // @ts-ignore - Mocking for GLTFLoader compatibility
-  globalThis.window = globalThis.window || globalThis;
+  // Mock window minimally for GLTFLoader compatibility
+  (globalThis as { window?: typeof globalThis }).window = (globalThis as { window?: typeof globalThis }).window || globalThis;
 
-  // Mock document minimally for GLTFLoader
-  // @ts-ignore - Mocking for GLTFLoader compatibility
-  globalThis.document = globalThis.document || {
+  // Mock document minimally for GLTFLoader compatibility
+  (globalThis as { document?: unknown }).document = (globalThis as { document?: unknown }).document || {
     createElementNS: (ns: string, type: string) => {
       if (type === "img") {
         // Basic mock for image elements if texture loading is attempted (though we aim to bypass it)

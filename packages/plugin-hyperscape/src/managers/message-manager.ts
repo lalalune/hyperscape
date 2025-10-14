@@ -24,7 +24,7 @@ type HyperscapePlayerData = Entity & {
     appearance?: {
       avatar?: string;
     };
-    [key: string]: any;
+    [key: string]: string | number | boolean | Record<string, unknown> | undefined;
   };
 };
 
@@ -36,7 +36,7 @@ type ElizaEntityWithHyperscape = ElizaEntity & {
     hyperscape?: {
       name?: string;
     };
-    [key: string]: any;
+    [key: string]: string | number | boolean | Record<string, unknown> | undefined;
   };
 };
 
@@ -86,7 +86,7 @@ export class MessageManager {
     // Convert chat message to Memory format
     const memory: Memory = {
       id: msg.id as UUID,
-      entityId: msg.id as UUID,
+      entityId: msg.userId as UUID,
       agentId: this.runtime.agentId,
       content: {
         text: msg.text,
@@ -107,84 +107,43 @@ export class MessageManager {
       },
     };
 
-    // Compose state for response generation
-    const state = await this.runtime.composeState(memory);
-
-    // Check if we should respond to this message
-    const shouldRespondToMessage = await shouldRespond(
-      this.runtime,
-      memory,
-      state,
-    );
-
-    if (!shouldRespondToMessage) {
-      console.debug("[MessageManager] Determined not to respond to message");
-      // Still save the message to memory even if not responding
-      await this.runtime.createMemory(memory, "messages");
-      return;
-    }
-
-    console.info("[MessageManager] Generating response to message");
-
-    // Generate response using enhanced context
-    const context = await composeContext({
-      state,
-      template: `
-# Hyperscape Chat Response Instructions
-
-You are an AI agent in a 3D virtual world called Hyperscape. You're chatting with other players in real-time.
-
-## Current Context
-Sender: {{senderEntity.name}} ({{senderEntity.id}})
-Message: "{{content.text}}"
-World State: {{worldContext}}
-Recent Chat History: {{recentMessages}}
-
-## Response Guidelines
-- Be conversational and engaging
-- Reference the virtual world context when relevant
-- Keep responses concise but meaningful
-- Show interest in other players and their activities
-- Ask follow-up questions to encourage conversation
-- Be helpful and friendly
-
-Generate a natural chat response that fits the conversation flow.
-        `,
-    });
-
-    const response = await generateMessageResponse({
-      runtime: this.runtime,
-      context,
-      modelType: ModelType.TEXT_LARGE,
-    });
-
-    // Create response memory
-    const responseMemory: Memory = {
-      id: crypto.randomUUID() as UUID,
-      entityId: crypto.randomUUID() as UUID,
-      agentId: this.runtime.agentId,
-      content: {
-        text: response.text,
-        source: "agent_response",
-      },
-      roomId: memory.roomId,
-      createdAt: Date.now(),
-      metadata: {
-        type: "message",
-        inReplyTo: memory.id,
-      },
-    };
-
-    // Save both original message and response to memory
+    // Save message to memory first
     await this.runtime.createMemory(memory, "messages");
-    await this.runtime.createMemory(responseMemory, "messages");
 
-    // Send the response via chat
-    await this.sendMessage(response.text);
+    // Process through ElizaOS action system
+    // This evaluates all registered actions and lets them handle the message
+    const state = await this.runtime.composeState(memory);
+    await this.runtime.processActions(memory, [], state, async (response) => {
+      if (response && response.text) {
+        // Create response memory
+        const responseMemory: Memory = {
+          id: crypto.randomUUID() as UUID,
+          entityId: this.runtime.agentId as UUID,
+          agentId: this.runtime.agentId,
+          content: {
+            text: response.text,
+            source: "agent_response",
+            action: response.action,
+          },
+          roomId: memory.roomId,
+          createdAt: Date.now(),
+          metadata: {
+            type: "message",
+            inReplyTo: memory.id,
+          },
+        };
 
-    console.info("[MessageManager] Response sent:", {
-      originalMessage: msg.text?.substring(0, 50) + "...",
-      response: response.text?.substring(0, 50) + "...",
+        await this.runtime.createMemory(responseMemory, "messages");
+        await this.sendMessage(response.text);
+
+        console.info("[MessageManager] Response sent:", {
+          originalMessage: msg.text?.substring(0, 50) + "...",
+          response: response.text?.substring(0, 50) + "...",
+          action: response.action || "none",
+        });
+      }
+
+      return [];
     });
   }
 
