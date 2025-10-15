@@ -1,0 +1,68 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "Hyperscape API Documentation",
+  "entryPointStrategy": "packages",
+  "entryPoints": [
+    "packages/shared",
+    "packages/client",
+    "packages/server"
+  ],
+  "out": "packages/docs-site/docs/api",
+  "plugin": ["typedoc-plugin-markdown"],
+  "outputFileStrategy": "modules",
+  "fileExtension": ".md",
+  "entryFileName": "index.md",
+  "flattenOutputFiles": false,
+  "membersWithOwnFile": ["Class", "Interface", "Enum"],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "skipErrorChecking": true,
+  "readme": "none",
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/docs-site/**",
+    "**/docs/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/test-*.ts",
+    "**/test-*.tsx",
+    "**/test-*.mjs",
+    "**/scripts/**",
+    "**/cypress/**",
+    "**/__tests__/**",
+    "**/*.test.tsx",
+    "**/*.spec.tsx",
+    "**/temp/**",
+    "**/tmp/**",
+    "**/libs/**",
+    "**/vendor/**"
+  ],
+  "excludeExternals": true,
+  "excludeReferences": false,
+  "excludeNotDocumented": false,
+  "includeVersion": true,
+  "sort": ["source-order"],
+  "disableSources": true,
+  "commentStyle": "jsdoc",
+  "categorizeByGroup": false,
+  "validation": {
+    "notExported": false,
+    "invalidLink": false,
+    "notDocumented": false
+  },
+  "treatWarningsAsErrors": false,
+  "treatValidationWarningsAsErrors": false,
+  "suppressCommentWarningsInDeclarationFiles": true,
+  "logLevel": "Error",
+  "tsconfig": "tsconfig.json",
+  "githubPages": false,
+  "hideGenerator": false,
+  "navigationLinks": {
+    "GitHub": "https://github.com/HyperscapeAI/hyperscape",
+    "Documentation": "https://docs.hyperscape.xyz"
+  }
+}
+

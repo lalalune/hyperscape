@@ -10,13 +10,13 @@ import {
   parseKeyValueXml,
   composePromptFromState,
   ModelType,
-} from '@elizaos/core'
+} from "@elizaos/core";
 
-import { HyperscapeService } from '../service'
+import { HyperscapeService } from "../service";
 export enum SnapshotType {
-  LOOK_AROUND = 'LOOK_AROUND',
-  LOOK_DIRECTION = 'LOOK_DIRECTION',
-  LOOK_AT_ENTITY = 'LOOK_AT_ENTITY',
+  LOOK_AROUND = "LOOK_AROUND",
+  LOOK_DIRECTION = "LOOK_DIRECTION",
+  LOOK_AT_ENTITY = "LOOK_AT_ENTITY",
 }
 
 const sceneSnapshotSelectionTemplate = `
@@ -62,7 +62,7 @@ DO NOT invent a snapshotType unless it is clearly and directly supported by the 
   <snapshotType>...</snapshotType>
   <parameter>...</parameter>
 </response>
-</output>`
+</output>`;
 
 const detailedImageDescriptionTemplate = `
 <task>
@@ -78,7 +78,7 @@ You are an expert perception module inside a Hyperscape world. Carefully examine
 
 <output>
 Return a paragraph or bullet list. No XML tags.
-</output>`
+</output>`;
 
 const responseGenerationTemplate = (sceneDescription: string) => `
 <task>
@@ -148,26 +148,26 @@ Respond using this format:
 - You are responding live, not narrating. Always behave like you are *in* the game.
 - **Nearby Interactable Objects** section lists interactive entities that are both nearby and currently interactable — like items that can be picked up or activated.
 </rules>
-`
+`;
 
 /* -------------------------------------------------------------------------- */
 /* HYPERSCAPE_SCENE_PERCEPTION action                                            */
 /* -------------------------------------------------------------------------- */
 export const hyperscapeScenePerceptionAction: Action = {
-  name: 'HYPERSCAPE_SCENE_PERCEPTION',
+  name: "HYPERSCAPE_SCENE_PERCEPTION",
   similes: [
-    'LOOK_AROUND',
-    'OBSERVE_SURROUNDINGS',
-    'LOOK_AT_SCENE',
-    'CHECK_VIEW',
+    "LOOK_AROUND",
+    "OBSERVE_SURROUNDINGS",
+    "LOOK_AT_SCENE",
+    "CHECK_VIEW",
   ],
   description:
-    'Choose this when the user asks the agent to look around, look in a specific direction, or examine a visible object — it captures and interprets a scene snapshot to generate a context-aware response. Can be chained with GOTO or AMBIENT_SPEECH actions for immersive exploration sequences.',
+    "Choose this when the user asks the agent to look around, look in a specific direction, or examine a visible object — it captures and interprets a scene snapshot to generate a context-aware response. Can be chained with GOTO or AMBIENT_SPEECH actions for immersive exploration sequences.",
   validate: async (runtime: IAgentRuntime): Promise<boolean> => {
     const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )
-    return !!service && service.isConnected() && !!service.getWorld()
+      HyperscapeService.serviceName,
+    );
+    return !!service && service.isConnected() && !!service.getWorld();
   },
 
   handler: async (
@@ -175,297 +175,132 @@ export const hyperscapeScenePerceptionAction: Action = {
     message: Memory,
     state?: State,
     _options?: {},
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )
-    const world = service?.getWorld()
-    const playwrightManager = service?.getPlaywrightManager()
-    const controls = world?.controls
+      HyperscapeService.serviceName,
+    )!;
+    const world = service.getWorld()!;
+    const playwrightManager = service.getPlaywrightManager()!;
+    const controls = world.controls!;
 
-    if (controls && typeof (controls as { stopAllActions?: () => void }).stopAllActions === 'function') {
-      (controls as unknown as { stopAllActions: () => void }).stopAllActions()
-    }
+    controls.stopAllActions();
 
-    if (!world || !controls) {
-      if (callback) {
-        await callback({
-          text: 'Unable to observe environment. Hyperscape world not available.',
-          success: false,
-        })
-      }
-      return {
-        text: 'Unable to observe environment. Hyperscape world not available.',
-        success: false,
-        values: { success: false, error: 'world_unavailable' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
-
-    if (!playwrightManager) {
-      if (callback) {
-        await callback({
-          text: 'Unable to capture visual. Screenshot service not available.',
-          success: false,
-        })
-      }
-      return {
-        text: 'Unable to capture visual. Screenshot service not available.',
-        success: false,
-        values: { success: false, error: 'screenshot_service_unavailable' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
-
-    state = await runtime.composeState(message)
+    state = await runtime.composeState(message);
 
     /* Decide snapshot strategy */
     const selectionPrompt = composePromptFromState({
       state,
       template: sceneSnapshotSelectionTemplate,
-    })
-    let selectionRaw: string
-    try {
-      selectionRaw = await runtime.useModel(ModelType.TEXT_LARGE, {
-        prompt: selectionPrompt,
-      })
-    } catch (err) {
-      logger.error('Snapshot‑selector model failed:', err)
-      if (callback) {
-        const errorResponse = {
-          thought: 'Cannot decide how to look.',
-          metadata: { error: 'selector_failure' },
-          text: 'Unable to determine how to observe the scene.',
-          success: false,
-        }
-        await callback(errorResponse)
-      }
-      return {
-        text: 'Unable to determine how to observe the scene.',
-        success: false,
-        values: { success: false, error: 'selector_failure' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    });
+    const selectionRaw: string = await runtime.useModel(ModelType.TEXT_LARGE, {
+      prompt: selectionPrompt,
+    });
 
-    const selection = parseKeyValueXml(selectionRaw)
-    if (!selection || !selection.snapshotType) {
-      logger.error('[PERCEPTION] No valid selection from model')
-      if (callback) {
-        const clarificationResponse = {
-          text:
-            selection?.parameter ||
-            'Can you clarify what you want me to observe?',
-          thought: 'Unable to determine observation type',
-          success: false,
-        }
-        await callback(clarificationResponse)
-      }
-      return {
-        text:
-          selection?.parameter ||
-          'Can you clarify what you want me to observe?',
-        success: false,
-        values: { success: false, needsClarification: true },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    const selection = parseKeyValueXml(selectionRaw)!;
 
-    const { snapshotType, parameter } = selection
+    const { snapshotType, parameter } = selection;
 
     // Handle clarification requests (NONE case)
-    if (snapshotType === 'NONE') {
+    if (snapshotType === "NONE") {
       if (callback) {
         const clarificationResponse = {
-          text: parameter || 'Can you clarify what you want me to observe?',
-          thought: 'Unable to determine observation type',
+          text: parameter || "Can you clarify what you want me to observe?",
+          thought: "Unable to determine observation type",
           success: false,
-        }
-        await callback(clarificationResponse)
+        };
+        await callback(clarificationResponse);
       }
       return {
-        text: parameter || 'Can you clarify what you want me to observe?',
+        text: parameter || "Can you clarify what you want me to observe?",
         success: false,
         values: { success: false, needsClarification: true },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
+        data: { action: "HYPERSCAPE_SCENE_PERCEPTION" },
+      };
     }
 
     /* Capture snapshot */
-    let imgBase64: string
-    try {
-      switch (snapshotType) {
-        case SnapshotType.LOOK_AROUND:
-          imgBase64 = await playwrightManager.snapshotEquirectangular()
-          break
-        case SnapshotType.LOOK_DIRECTION:
-          if (
-            !parameter ||
-            !['front', 'back', 'left', 'right'].includes(parameter)
-          ) {
-            throw new Error('Bad direction')
-          }
-          imgBase64 = await playwrightManager.snapshotFacingDirection(parameter)
-          break
-        case SnapshotType.LOOK_AT_ENTITY:
-          if (!parameter) {
-            throw new Error('Missing entityId')
-          }
-          const ent = world.entities.items.get(parameter)
-          const pos = ent.position
-          if (!pos) {
-            throw new Error('No position')
-          }
-          if (world?.controls?.followEntity) {
-            await world.controls.followEntity(parameter)
-          }
-          imgBase64 = await playwrightManager.snapshotViewToTarget([
-            pos.x,
-            pos.y,
-            pos.z,
-          ])
-          break
-        default:
-          throw new Error('Unknown snapshotType')
-      }
-    } catch (err) {
-      logger.error('Snapshot failed:', err)
-      if (callback) {
-        const snapshotErrorResponse = {
-          thought: 'Snapshot failed.',
-          metadata: { error: 'snapshot_failure', snapshotType },
-          text: 'Unable to capture visual snapshot.',
-          success: false,
-        }
-        await callback(snapshotErrorResponse)
-      }
-      return {
-        text: 'Unable to capture visual snapshot.',
-        success: false,
-        values: { success: false, error: 'snapshot_failure', snapshotType },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
+    let imgBase64: string;
+    switch (snapshotType) {
+      case SnapshotType.LOOK_AROUND:
+        imgBase64 = await playwrightManager.snapshotEquirectangular();
+        break;
+      case SnapshotType.LOOK_DIRECTION:
+        imgBase64 = await playwrightManager.snapshotFacingDirection(parameter);
+        break;
+      case SnapshotType.LOOK_AT_ENTITY:
+        const ent = world.entities.items.get(parameter)!;
+        const pos = ent.position!;
+        await controls.followEntity(parameter);
+        imgBase64 = await playwrightManager.snapshotViewToTarget([
+          pos.x,
+          pos.y,
+          pos.z,
+        ]);
+        break;
+      default:
+        throw new Error("Unknown snapshotType");
     }
 
     /* IMAGE_DESCRIPTION – detailed scene analysis */
     const imgDescPrompt = composePromptFromState({
       state,
       template: detailedImageDescriptionTemplate,
-    })
-    let sceneDescription: string
-    try {
-      const res = await runtime.useModel(ModelType.IMAGE_DESCRIPTION, {
-        imageUrl: imgBase64,
-        prompt: imgDescPrompt,
-      })
-      sceneDescription =
-        typeof res === 'string'
-          ? res
-          : (res as { description?: string })?.description || String(res)
-    } catch (err) {
-      logger.error('IMAGE_DESCRIPTION failed:', err)
-      if (callback) {
-        const visionErrorResponse = {
-          thought: 'Cannot understand the scene.',
-          metadata: { error: 'vision_failure' },
-          text: 'Unable to analyze the visual scene.',
-          success: false,
-        }
-        await callback(visionErrorResponse)
-      }
-      return {
-        text: 'Unable to analyze the visual scene.',
-        success: false,
-        values: { success: false, error: 'vision_failure' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    });
+    const res = await runtime.useModel(ModelType.IMAGE_DESCRIPTION, {
+      imageUrl: imgBase64,
+      prompt: imgDescPrompt,
+    });
+    // Model returns either string directly or object with description property
+    const sceneDescription: string =
+      (res as { description?: string }).description || String(res);
 
     //  Add dynamic header for scene perception
-    let scenePerceptionHeader: string
+    let scenePerceptionHeader: string;
 
     switch (snapshotType) {
       case SnapshotType.LOOK_AROUND:
         scenePerceptionHeader =
-          'Here is a broad visual capture of the area as seen from the {{agentName}} current position. The following is a detailed description of what the {{agentName}} can observe all around:'
-        break
+          "Here is a broad visual capture of the area as seen from the {{agentName}} current position. The following is a detailed description of what the {{agentName}} can observe all around:";
+        break;
       case SnapshotType.LOOK_DIRECTION:
-        scenePerceptionHeader = `Here is the visual capture looking toward the **${parameter}** side. The following is a detailed description of what the {{agentName}} sees in that direction:`
-        break
+        scenePerceptionHeader = `Here is the visual capture looking toward the **${parameter}** side. The following is a detailed description of what the {{agentName}} sees in that direction:`;
+        break;
       case SnapshotType.LOOK_AT_ENTITY:
-        scenePerceptionHeader = `Here is the visual capture focused on the target entity ("${parameter}"). The following is a detailed description of what the {{agentName}} observes when looking at it:`
-        break
+        scenePerceptionHeader = `Here is the visual capture focused on the target entity ("${parameter}"). The following is a detailed description of what the {{agentName}} observes when looking at it:`;
+        break;
       default:
         scenePerceptionHeader =
-          'Here is a scene snapshot for contextual understanding:'
+          "Here is a scene snapshot for contextual understanding:";
     }
 
-    const fullSceneDescription = `${scenePerceptionHeader}\n\n${sceneDescription}`
+    const fullSceneDescription = `${scenePerceptionHeader}\n\n${sceneDescription}`;
 
     /* generate final XML response */
     const responsePrompt = composePromptFromState({
       state,
       template: responseGenerationTemplate(fullSceneDescription),
-    })
-    let xmlRaw: string
-    try {
-      xmlRaw = await runtime.useModel(ModelType.TEXT_LARGE, {
-        prompt: responsePrompt,
-      })
-    } catch (err) {
-      logger.error('Response generator failed:', err)
-      if (callback) {
-        const responseErrorResponse = {
-          thought: 'No response generated.',
-          metadata: { error: 'text_large_failure' },
-          text: 'Unable to generate response to visual scene.',
-          success: false,
-        }
-        await callback(responseErrorResponse)
-      }
-      return {
-        text: 'Unable to generate response to visual scene.',
-        success: false,
-        values: { success: false, error: 'text_large_failure' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    });
+    const xmlRaw: string = await runtime.useModel(ModelType.TEXT_LARGE, {
+      prompt: responsePrompt,
+    });
 
-    const parsed = parseKeyValueXml(xmlRaw)
-
-    if (!parsed) {
-      if (callback) {
-        const parseErrorResponse = {
-          thought: 'Malformed XML.',
-          metadata: { error: 'xml_parse_failure', xmlRaw },
-          text: 'Unable to process response.',
-          success: false,
-        }
-        await callback(parseErrorResponse)
-      }
-      return {
-        text: 'Unable to process response.',
-        success: false,
-        values: { success: false, error: 'xml_parse_failure' },
-        data: { action: 'HYPERSCAPE_SCENE_PERCEPTION' },
-      }
-    }
+    const parsed = parseKeyValueXml(xmlRaw)!;
 
     if (callback) {
       const finalResponse = {
         ...parsed,
-        thought: parsed.thought || '',
-        text: parsed.text || '',
-        emote: parsed.emote || '',
+        thought: parsed.thought || "",
+        text: parsed.text || "",
+        emote: parsed.emote || "",
         metadata: { snapshotType, sceneDescription },
         success: true,
-      }
-      await callback(finalResponse)
+      };
+      await callback(finalResponse);
     }
 
     return {
-      text: parsed.text || '',
+      text: parsed.text || "",
       success: true,
       values: {
         success: true,
@@ -474,29 +309,29 @@ export const hyperscapeScenePerceptionAction: Action = {
         sceneAnalyzed: true,
       },
       data: {
-        action: 'HYPERSCAPE_SCENE_PERCEPTION',
+        action: "HYPERSCAPE_SCENE_PERCEPTION",
         snapshotType,
         sceneDescription,
         thought: parsed.thought,
         emote: parsed.emote,
       },
-    }
+    };
   },
 
   examples: [
     // General observation
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
           text: "What's around you right now?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Looking around, I notice several players nearby and some interactive objects.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "Looking around, I notice several players nearby and some interactive objects.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -504,16 +339,16 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Spatial direction
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Look to your left',
+          text: "Look to your left",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Turning left, I can see a merchant stall and some players trading.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "Turning left, I can see a merchant stall and some players trading.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -521,16 +356,16 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Exploration or scouting
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Scan the area for any threats or movement.',
+          text: "Scan the area for any threats or movement.",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Scanning the surroundings now, I notice a player approaching from the north.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "Scanning the surroundings now, I notice a player approaching from the north.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -538,16 +373,16 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Object-centric look
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Look at that glowing statue over there?',
+          text: "Look at that glowing statue over there?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
           text: "Inspecting the statue, I can see it's a golden statue with intricate carvings.",
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -555,16 +390,16 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Directional command
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
           text: "Turn to your left. What's over there?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Turning left, I can see a crafting bench and a treasure chest.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "Turning left, I can see a crafting bench and a treasure chest.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -572,16 +407,16 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Subtle curiosity
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Anything interesting nearby?',
+          text: "Anything interesting nearby?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Let me check the surroundings, I notice a player approaching from the south.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "Let me check the surroundings, I notice a player approaching from the south.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -589,16 +424,16 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Comprehensive scan
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Tell me everything you perceive',
+          text: "Tell me everything you perceive",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: '*scans the area thoroughly* I see 3 players nearby, various buildings, NPCs going about their routines, and a quest marker to the west.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "*scans the area thoroughly* I see 3 players nearby, various buildings, NPCs going about their routines, and a quest marker to the west.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -606,16 +441,16 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Tactical evaluation
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
           text: "Before we move forward, can you check what's up ahead?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Checking forward path, I can see a portal to the east.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "Checking forward path, I can see a portal to the east.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -623,16 +458,16 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Emotional tone: concern
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
           text: "I feel like we're being watched. Can you look around?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Doing a quick scan, I notice a player hiding behind a crate.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "Doing a quick scan, I notice a player hiding behind a crate.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
@@ -640,18 +475,18 @@ export const hyperscapeScenePerceptionAction: Action = {
     // Humor or roleplay
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
           text: "Pretend you're a security camera and scan the area!",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Activating security cam mode! Scanning... I notice a player approaching from the north.',
-          actions: ['HYPERSCAPE_PERCEPTION'],
+          text: "Activating security cam mode! Scanning... I notice a player approaching from the north.",
+          actions: ["HYPERSCAPE_PERCEPTION"],
         },
       },
     ],
   ] as ActionExample[][],
-}
+};

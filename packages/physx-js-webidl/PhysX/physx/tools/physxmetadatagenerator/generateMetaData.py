@@ -26,15 +26,13 @@
 
 import argparse
 import os
-import platform
-import re
-import shutil
 import stat
 import sys
-
-from lib import compare
+import re
+import platform
+import shutil
 from lib import utils
-
+from lib import compare
 
 # test mode: create copy of reference files
 # update mode: try to open file in p4 if necessary

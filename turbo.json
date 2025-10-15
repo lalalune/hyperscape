@@ -7,7 +7,27 @@
       "outputs": ["dist/**", "build/**", ".next/**"],
       "cache": true
     },
+    "physx-js-webidl#build": {
+      "dependsOn": [],
+      "outputs": [
+        "dist/**",
+        "PhysX/physx/compiler/emscripten-release/**"
+      ],
+      "inputs": [
+        "PhysX/physx/source/**",
+        "PhysX/physx/include/**",
+        "make.sh",
+        "package.json"
+      ],
+      "cache": true
+    },
+    "shared#build": {
+      "dependsOn": ["^build", "physx-js-webidl#build"],
+      "outputs": ["dist/**", "build/**"],
+      "cache": true
+    },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },

@@ -10,18 +10,18 @@ import {
   composePromptFromState,
   ModelType,
   parseKeyValueXml,
-} from '@elizaos/core'
-import { HyperscapeService } from '../service'
-import { AgentControls } from '../systems/controls'
-const MAX_RETRIES = 3
+} from "@elizaos/core";
+import { HyperscapeService } from "../service";
+
+const MAX_RETRIES = 3;
 
 export enum EditOperationType {
-  DUPLICATE = 'duplicate',
-  TRANSLATE = 'translate',
-  ROTATE = 'rotate',
-  SCALE = 'scale',
-  DELETE = 'delete',
-  IMPORT = 'import',
+  DUPLICATE = "duplicate",
+  TRANSLATE = "translate",
+  ROTATE = "rotate",
+  SCALE = "scale",
+  DELETE = "delete",
+  IMPORT = "import",
 }
 
 const sceneEditOperationExtractionTemplate = `
@@ -112,7 +112,7 @@ const sceneEditOperationExtractionTemplate = `
   - Format all vector parameters as arrays (e.g., [x, y, z]).
   - Maintain the order of operations as implied by the user.
   - Return only the final JSON object as shown above — no additional text, comments, or wrappers.
-`
+`;
 
 const sceneEditSummaryResponseTemplate = (summary: string) => `
 <task>
@@ -161,18 +161,18 @@ ${summary}
   <emote>Optional visible animation (like "shrug", "nod", "wave")</emote>
 </response>
 </output>
-`
+`;
 
 export const hyperscapeEditEntityAction: Action = {
-  name: 'HYPERSCAPE_EDIT_ENTITY',
-  similes: ['EDIT_ENTITY_IN_WORLD', 'MODIFY_SCENE', 'BUILD_STRUCTURE'],
+  name: "HYPERSCAPE_EDIT_ENTITY",
+  similes: ["EDIT_ENTITY_IN_WORLD", "MODIFY_SCENE", "BUILD_STRUCTURE"],
   description:
-    'Performs scene edits in Hyperscape, including duplicating, moving, rotating, scaling, deleting, or importing entities. Use when the user asks to modify or add something in the 3D world. Can be chained with movement or perception actions for complex building scenarios.',
+    "Performs scene edits in Hyperscape, including duplicating, moving, rotating, scaling, deleting, or importing entities. Use when the user asks to modify or add something in the 3D world. Can be chained with movement or perception actions for complex building scenarios.",
   validate: async (runtime: IAgentRuntime): Promise<boolean> => {
     const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )
-    return !!service && service.isConnected() && !!service.getWorld()?.controls
+      HyperscapeService.serviceName,
+    );
+    return !!service && service.isConnected() && !!service.getWorld()?.controls;
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -180,184 +180,117 @@ export const hyperscapeEditEntityAction: Action = {
     state?: State,
     options?: Record<string, any>,
     callback?: HandlerCallback,
-    responses?: Memory[]
+    responses?: Memory[],
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )
-    const world = service?.getWorld()
-    const buildManager = service?.getBuildManager()
+      HyperscapeService.serviceName,
+    )!;
+    const world = service.getWorld()!;
+    const buildManager = service.getBuildManager()!;
 
-    if (!service || !world || !buildManager || !callback) {
-      logger.error(
-        '[EDIT_ENTITY Action] Hyperscape service, world, buildManager, or callback not found.'
-      )
-      return {
-        text: 'Error: Cannot perform scene edits. Required systems unavailable.',
-        success: false,
-        values: { success: false, error: 'service_unavailable' },
-        data: { action: 'HYPERSCAPE_EDIT_ENTITY' },
-      }
-    }
-
-    let operationResults: any = null
-    let attempts = 0
+    let operationResults: { operations: any[] } | undefined;
+    let attempts = 0;
 
     while (attempts < MAX_RETRIES) {
-      try {
-        const extractionState = await runtime.composeState(message)
-        const prompt = composePromptFromState({
-          state: extractionState,
-          template: sceneEditOperationExtractionTemplate,
-        })
+      const extractionState = await runtime.composeState(message);
+      const prompt = composePromptFromState({
+        state: extractionState,
+        template: sceneEditOperationExtractionTemplate,
+      });
 
-        operationResults = await runtime.useModel(ModelType.OBJECT_LARGE, {
-          prompt,
-        })
+      const result = (await runtime.useModel(ModelType.OBJECT_LARGE, {
+        prompt,
+      })) as { operations: any[] };
 
-        if (Array.isArray(operationResults?.operations)) {
-          break
-        }
-
-        logger.warn(
-          `[EDIT_ENTITY Action] Unexpected structure on attempt ${attempts + 1}:`,
-          operationResults
-        )
-      } catch (error) {
-        logger.error(
-          `[EDIT_ENTITY Action] Model error on attempt ${attempts + 1}:`,
-          error
-        )
+      if (Array.isArray(result.operations)) {
+        operationResults = result;
+        break;
       }
 
-      attempts++
+      logger.warn(
+        `[EDIT_ENTITY Action] Unexpected structure on attempt ${attempts + 1}: ${JSON.stringify(result)}`,
+      );
+
+      attempts++;
     }
 
-    if (!Array.isArray(operationResults?.operations)) {
-      logger.error(
-        '[EDIT_ENTITY Action] Scene editing failed — could not understand instructions properly.'
-      )
-      return {
-        text: 'Sorry, I could not understand the scene editing instructions.',
-        success: false,
-        values: { success: false, error: 'instruction_parsing_failed' },
-        data: { action: 'HYPERSCAPE_EDIT_ENTITY' },
-      }
-    }
-
-    for (const op of operationResults.operations) {
+    for (const op of operationResults!.operations) {
       if (!op?.success) {
         logger.warn(
-          '[EDIT_ENTITY Action] Skipping failed operation:',
-          op?.reason || op
-        )
-        continue
+          "[EDIT_ENTITY Action] Skipping failed operation:",
+          op?.reason || op,
+        );
+        continue;
       }
 
-      const { operation, target, parameters, description } = op
+      const { operation, target, parameters, description } = op;
 
       switch (operation) {
         case EditOperationType.TRANSLATE:
-          await buildManager.translate(target, parameters?.position)
-          break
+          await buildManager.translate(target, parameters?.position);
+          break;
 
         case EditOperationType.ROTATE:
-          await buildManager.rotate(target, parameters?.rotation)
-          break
+          await buildManager.rotate(target, parameters?.rotation);
+          break;
 
         case EditOperationType.SCALE:
-          await buildManager.scale(target, parameters?.scale)
-          break
+          await buildManager.scale(target, parameters?.scale);
+          break;
 
         case EditOperationType.DUPLICATE:
-          await buildManager.duplicate(target)
-          break
+          await buildManager.duplicate(target);
+          break;
 
         case EditOperationType.DELETE:
-          await buildManager.delete(target)
-          break
+          await buildManager.delete(target);
+          break;
 
         case EditOperationType.IMPORT:
-          await buildManager.importEntity(target, parameters?.position)
-          break
+          await buildManager.importEntity(target, parameters?.position);
+          break;
 
         default:
           logger.warn(
-            `[EDIT_ENTITY Action] Unsupported operation type: ${operation}`
-          )
-          break
+            `[EDIT_ENTITY Action] Unsupported operation type: ${operation}`,
+          );
+          break;
       }
       if (description) {
-        const messageManager = service.getMessageManager()
-        messageManager.sendMessage(description)
+        const messageManager = service.getMessageManager();
+        messageManager.sendMessage(description);
       }
     }
     const summaryText = operationResults.operations
-      .map(op => {
+      .map((op) => {
         if (op?.success) {
-          return `SUCCESS: ${op.description}`
+          return `SUCCESS: ${op.description}`;
         } else {
-          return `FAILURE: Tried to ${op.operation} "${op.requestedEntityName}" → ${op.reason}`
+          return `FAILURE: Tried to ${op.operation} "${op.requestedEntityName}" → ${op.reason}`;
         }
       })
-      .join('\n')
+      .join("\n");
 
-    const stateForResponse = await runtime.composeState(message)
+    const stateForResponse = await runtime.composeState(message);
     const agentResponsePrompt = composePromptFromState({
       state: stateForResponse,
       template: sceneEditSummaryResponseTemplate(summaryText),
-    })
+    });
 
-    let finalXml: string
-    try {
-      finalXml = await runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt: agentResponsePrompt,
-      })
-    } catch (err) {
-      logger.error('[EDIT_ENTITY Action] Final summarization failed:', err)
-      const errorResponse = {
-        thought: 'Scene edits completed, but final summary generation failed.',
-        text: 'Edits are done, but I had trouble summarizing the results clearly.',
-      }
-      await callback(errorResponse)
-      return {
-        text: errorResponse.text,
-        success: true,
-        values: { success: true, summaryFailed: true },
-        data: {
-          action: 'HYPERSCAPE_EDIT_ENTITY',
-          thought: errorResponse.thought,
-        },
-      }
-    }
+    const finalXml: string = await runtime.useModel(ModelType.TEXT_SMALL, {
+      prompt: agentResponsePrompt,
+    });
 
-    const response = parseKeyValueXml(finalXml)
-    if (!response) {
-      logger.error('[EDIT_ENTITY Action] Failed to parse summary XML.')
-      const parseErrorResponse = {
-        thought: 'Could not interpret response XML.',
-        text: "Edits completed, but I couldn't finish the summary properly.",
-      }
-      await callback(parseErrorResponse)
-      return {
-        text: parseErrorResponse.text,
-        success: true,
-        values: { success: true, parseError: true },
-        data: {
-          action: 'HYPERSCAPE_EDIT_ENTITY',
-          thought: parseErrorResponse.thought,
-        },
-      }
-    }
+    const response = parseKeyValueXml(finalXml)!;
 
     const finalResponse = {
       ...response,
-      thought: response.thought || 'Finished with scene edits.',
-      text: response.text || 'Scene updates complete!',
-      emote: response.emote || '',
-    }
+      thought: response.thought || "Finished with scene edits.",
+      text: response.text || "Scene updates complete!",
+      emote: response.emote || "",
+    };
 
-    await callback(finalResponse)
+    await callback(finalResponse);
 
     return {
       text: finalResponse.text,
@@ -368,58 +301,58 @@ export const hyperscapeEditEntityAction: Action = {
         summary: summaryText,
       },
       data: {
-        action: 'HYPERSCAPE_EDIT_ENTITY',
+        action: "HYPERSCAPE_EDIT_ENTITY",
         operations: operationResults.operations,
         thought: finalResponse.thought,
         emote: finalResponse.emote,
       },
-    }
+    };
   },
   examples: [
     [
       {
-        name: '{{user}}',
-        content: { text: 'Can you put another block on top of the water?' },
+        name: "{{user}}",
+        content: { text: "Can you put another block on top of the water?" },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
           thought:
-            'User wants me to duplicate a block and place it above the water - I need to find the block entity and position it correctly',
-          text: 'Duplicating block and placing it on top of water...',
-          actions: ['HYPERSCAPE_EDIT_ENTITY'],
-          source: 'hyperscape',
+            "User wants me to duplicate a block and place it above the water - I need to find the block entity and position it correctly",
+          text: "Duplicating block and placing it on top of water...",
+          actions: ["HYPERSCAPE_EDIT_ENTITY"],
+          source: "hyperscape",
         },
       },
     ],
     [
       {
-        name: '{{user}}',
-        content: { text: 'Move the tree next to the house.' },
+        name: "{{user}}",
+        content: { text: "Move the tree next to the house." },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
           thought:
-            'I need to translate the tree entity to a position adjacent to the house - this will require finding both entities and calculating the new position',
-          text: 'Moving tree entity beside the house...',
-          actions: ['HYPERSCAPE_EDIT_ENTITY'],
-          source: 'hyperscape',
+            "I need to translate the tree entity to a position adjacent to the house - this will require finding both entities and calculating the new position",
+          text: "Moving tree entity beside the house...",
+          actions: ["HYPERSCAPE_EDIT_ENTITY"],
+          source: "hyperscape",
         },
       },
     ],
     [
-      { name: '{{user}}', content: { text: 'Delete that floating cube.' } },
+      { name: "{{user}}", content: { text: "Delete that floating cube." } },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
           thought:
-            'User wants me to remove a floating cube from the scene - I need to identify the cube entity and delete it',
-          text: 'Deleting the floating cube entity...',
-          actions: ['HYPERSCAPE_EDIT_ENTITY'],
-          source: 'hyperscape',
+            "User wants me to remove a floating cube from the scene - I need to identify the cube entity and delete it",
+          text: "Deleting the floating cube entity...",
+          actions: ["HYPERSCAPE_EDIT_ENTITY"],
+          source: "hyperscape",
         },
       },
     ],
   ],
-}
+};

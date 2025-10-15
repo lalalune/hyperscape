@@ -1,5 +1,3 @@
 compiler/linux-*
 compiler/vc*
-compiler/jni*
-compiler/android*
 include/PxConfig.h

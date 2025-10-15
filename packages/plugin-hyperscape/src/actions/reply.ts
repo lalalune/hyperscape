@@ -1,4 +1,4 @@
-import { Content } from '@elizaos/core'
+import { Content } from "@elizaos/core";
 import {
   type Action,
   type ActionExample,
@@ -9,7 +9,7 @@ import {
   type Memory,
   ModelType,
   type State,
-} from '@elizaos/core'
+} from "@elizaos/core";
 
 /**
  * Template for generating dialog and actions for a character.
@@ -35,37 +35,39 @@ Response format should be formatted in a valid JSON block like this:
 }
 \`\`\`
 
-Your response should include the valid JSON block and nothing else.`
+Your response should include the valid JSON block and nothing else.`;
 
 function getFirstAvailableField(
   obj: Record<string, unknown>,
-  fields: string[]
+  fields: string[],
 ): string | null {
   for (const field of fields) {
-    if (typeof obj[field] === 'string' && obj[field].trim() !== '') {
-      return obj[field]
+    const value = obj[field];
+    // Narrow type: check if value has string methods
+    if ((value as string).trim && (value as string).trim() !== "") {
+      return value as string;
     }
   }
-  return null
+  return null;
 }
 
 function extractReplyContent(
   response: Memory,
-  replyFieldKeys: string[]
+  replyFieldKeys: string[],
 ): Content | null {
-  const hasReplyAction = response.content.actions?.includes('REPLY')
-  const text = getFirstAvailableField(response.content, replyFieldKeys)
+  const hasReplyAction = response.content.actions?.includes("REPLY");
+  const text = getFirstAvailableField(response.content, replyFieldKeys);
 
   if (!hasReplyAction || !text) {
-    return null
+    return null;
   }
 
   return {
     ...response.content,
     thought: response.content.thought,
     text,
-    actions: ['REPLY'],
-  }
+    actions: ["REPLY"],
+  };
 }
 
 /**
@@ -82,12 +84,12 @@ function extractReplyContent(
  * @property {ActionExample[][]} examples - An array of example scenarios for the action.
  */
 export const replyAction = {
-  name: 'REPLY',
-  similes: ['GREET', 'REPLY_TO_MESSAGE', 'SEND_REPLY', 'RESPOND', 'RESPONSE'],
+  name: "REPLY",
+  similes: ["GREET", "REPLY_TO_MESSAGE", "SEND_REPLY", "RESPOND", "RESPONSE"],
   description:
     "Sends a direct message into in-game chat to a player; always use this first when you're speaking in response to someone. Can be chained with other metaverse actions for complex scenarios.",
   validate: async (_runtime: IAgentRuntime) => {
-    return true
+    return true;
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -95,136 +97,141 @@ export const replyAction = {
     state: State,
     _options: any,
     callback: HandlerCallback,
-    responses?: Memory[]
+    responses?: Memory[],
   ): Promise<ActionResult> => {
-    const replyFieldKeys = ['message', 'text']
+    const replyFieldKeys = ["message", "text"];
 
     const existingReplies =
       responses
-        ?.map(r => extractReplyContent(r, replyFieldKeys))
-        .filter((reply): reply is Content => reply !== null) ?? []
+        ?.map((r) => extractReplyContent(r, replyFieldKeys))
+        .filter((reply): reply is Content => reply !== null) ?? [];
 
     if (existingReplies.length > 0) {
       for (const reply of existingReplies) {
         const result: ActionResult = {
-          text: reply.text || '',
+          text: reply.text || "",
           success: true,
           values: { replied: true, replyText: reply.text },
-          data: { source: 'hyperscape', action: 'REPLY' },
-        }
+          data: { source: "hyperscape", action: "REPLY" },
+        };
         await callback({
           text: result.text,
-          actions: ['HYPERSCAPE_REPLY'],
-          source: 'hyperscape',
-        })
+          actions: ["HYPERSCAPE_REPLY"],
+          source: "hyperscape",
+        });
       }
       return {
-        text: existingReplies[0].text || '',
+        text: existingReplies[0].text || "",
         success: true,
         values: { replied: true, replyText: existingReplies[0].text },
-        data: { source: 'hyperscape', action: 'REPLY' },
-      }
+        data: { source: "hyperscape", action: "REPLY" },
+      };
     }
 
     // Only generate response using LLM if no suitable response was found
-    state = await runtime.composeState(message)
+    state = await runtime.composeState(message);
 
     const prompt = composePromptFromState({
       state,
       template: replyTemplate,
-    })
+    });
 
     const response = await runtime.useModel(ModelType.OBJECT_LARGE, {
       prompt,
-    })
+    });
 
     const responseContent: ActionResult = {
-      text: (response.message as string) || '',
+      text: (response.message as string) || "",
       success: true,
-      values: { replied: true, replyText: (response.message as string) || '' },
+      values: { replied: true, replyText: (response.message as string) || "" },
       data: {
-        source: 'hyperscape',
-        action: 'REPLY',
+        source: "hyperscape",
+        action: "REPLY",
         thought: response.thought,
-        actions: ['REPLY'],
+        actions: ["REPLY"],
       },
-    }
+    };
 
-    await callback({text: (response.message as string) || '', thought: response.thought, actions: ['HYPERSCAPE_REPLY'], source: 'hyperscape'});
+    await callback({
+      text: (response.message as string) || "",
+      thought: response.thought,
+      actions: ["HYPERSCAPE_REPLY"],
+      source: "hyperscape",
+    });
 
     return {
       text: responseContent.text,
       success: true,
       values: { replied: true, replyText: responseContent.text },
       data: {
-        source: 'hyperscape',
-        action: 'REPLY',
+        source: "hyperscape",
+        action: "REPLY",
         thought: response.thought,
       },
-    }
+    };
   },
   examples: [
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Hello there!',
+          text: "Hello there!",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Hi! How can I help you today?',
-          actions: ['REPLY'],
+          text: "Hi! How can I help you today?",
+          actions: ["REPLY"],
         },
       },
     ],
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
           text: "What's your favorite color?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'I really like deep shades of blue. They remind me of the ocean and the night sky.',
-          actions: ['REPLY'],
+          text: "I really like deep shades of blue. They remind me of the ocean and the night sky.",
+          actions: ["REPLY"],
         },
       },
     ],
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Can you explain how neural networks work?',
+          text: "Can you explain how neural networks work?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
-          text: 'Let me break that down for you in simple terms...',
-          actions: ['REPLY'],
+          text: "Let me break that down for you in simple terms...",
+          actions: ["REPLY"],
         },
       },
     ],
     [
       {
-        name: '{{user}}',
+        name: "{{user}}",
         content: {
-          text: 'Could you help me solve this math problem?',
+          text: "Could you help me solve this math problem?",
         },
       },
       {
-        name: '{{agent}}',
+        name: "{{agent}}",
         content: {
           thought:
-            'User needs help with math - I should engage and offer assistance',
+            "User needs help with math - I should engage and offer assistance",
           text: "Of course! Let's work through it step by step.",
-          actions: ['REPLY'],
+          actions: ["REPLY"],
         },
       },
     ],
   ] as ActionExample[][],
-} as Action
+} as Action;

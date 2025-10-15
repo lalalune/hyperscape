@@ -6,10 +6,13 @@ import {
   type Memory,
   type State,
   logger,
-} from '@elizaos/core'
-import type { Component, HyperscapeActionDescriptor } from '../types/core-types'
-import { HyperscapeService } from '../service'
-import { World, Entity } from '../types/core-types'
+} from "@elizaos/core";
+import type {
+  Component,
+  HyperscapeActionDescriptor,
+} from "../types/core-types";
+import { HyperscapeService } from "../service";
+import { World, Entity } from "../types/core-types";
 
 // HyperscapeActionDescriptor is now imported from core-types
 
@@ -17,58 +20,50 @@ import { World, Entity } from '../types/core-types'
  * Manages dynamic discovery and registration of actions from Hyperscape worlds
  */
 export class DynamicActionLoader {
-  private runtime: IAgentRuntime
-  private registeredActions: Map<string, Action> = new Map()
-  private worldActions: Map<string, HyperscapeActionDescriptor> = new Map()
+  private runtime: IAgentRuntime;
+  private registeredActions: Map<string, Action> = new Map();
+  private worldActions: Map<string, HyperscapeActionDescriptor> = new Map();
 
   constructor(runtime: IAgentRuntime) {
-    this.runtime = runtime
+    this.runtime = runtime;
   }
 
   /**
    * Discovers available actions from a Hyperscape world
    */
   async discoverActions(world: World): Promise<HyperscapeActionDescriptor[]> {
-    try {
-      logger.info('[DynamicActionLoader] Discovering actions from world...')
+    logger.info("[DynamicActionLoader] Discovering actions from world...");
 
-      // Check if world exposes actions through a specific protocol
-      const worldActions = world.actions as {
-        getAvailableActions?: () => Promise<HyperscapeActionDescriptor[]>
-      }
-      if (worldActions?.getAvailableActions) {
-        const actions = await worldActions.getAvailableActions()
-        logger.info(
-          `[DynamicActionLoader] Found ${actions.length} actions from world`
-        )
-        return actions
-      }
-
-      // Fallback: Query world entities for action providers
-      const actionProviders = []
-      if (world.entities.items) {
-        world.entities.items.forEach((entity: Entity) => {
-          if (entity.components) {
-            const actionComponent = Array.from(entity.components.values()).find(
-              (c: Component) => c.type === 'action-provider'
-            ) as Component & {
-              data?: { actions?: HyperscapeActionDescriptor[] }
-            }
-            if (actionComponent?.data?.actions) {
-              actionProviders.push(...actionComponent.data.actions)
-            }
-          }
-        })
-      }
-
+    // Check if world exposes actions through a specific protocol
+    const worldActions = world.actions as {
+      getAvailableActions?: () => Promise<HyperscapeActionDescriptor[]>;
+    };
+    if (worldActions?.getAvailableActions) {
+      const actions = await worldActions.getAvailableActions();
       logger.info(
-        `[DynamicActionLoader] Found ${actionProviders.length} actions from entity scan`
-      )
-      return actionProviders
-    } catch (error) {
-      logger.error('[DynamicActionLoader] Error discovering actions:', error)
-      return []
+        `[DynamicActionLoader] Found ${actions.length} actions from world`,
+      );
+      return actions;
     }
+
+    const actionProviders: HyperscapeActionDescriptor[] = [];
+    world.entities.items.forEach((entity: Entity) => {
+      if (entity.components) {
+        const actionComponent = Array.from(entity.components.values()).find(
+          (c: Component) => c.type === "action-provider",
+        ) as Component & {
+          data?: { actions?: HyperscapeActionDescriptor[] };
+        };
+        if (actionComponent?.data?.actions) {
+          actionProviders.push(...actionComponent.data.actions);
+        }
+      }
+    });
+
+    logger.info(
+      `[DynamicActionLoader] Found ${actionProviders.length} actions from entity scan`,
+    );
+    return actionProviders;
   }
 
   /**
@@ -76,9 +71,9 @@ export class DynamicActionLoader {
    */
   async registerAction(
     descriptor: HyperscapeActionDescriptor,
-    runtime: IAgentRuntime
+    runtime: IAgentRuntime,
   ): Promise<void> {
-    logger.info(`[DynamicActionLoader] Registering action: ${descriptor.name}`)
+    logger.info(`[DynamicActionLoader] Registering action: ${descriptor.name}`);
 
     // Create Action object from descriptor
     const action: Action = {
@@ -88,39 +83,25 @@ export class DynamicActionLoader {
 
       validate: async (runtime: IAgentRuntime): Promise<boolean> => {
         const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName
-        )
-        return !!service && service.isConnected() && !!service.getWorld()
+          HyperscapeService.serviceName,
+        );
+        return !!service && service.isConnected() && !!service.getWorld();
       },
 
       handler: this.createDynamicHandler(descriptor),
 
       examples: this.generateExamples(descriptor) as ActionExample[][],
-    }
+    };
 
     // Store the action
-    this.registeredActions.set(descriptor.name, action)
-    this.worldActions.set(descriptor.name, descriptor)
+    this.registeredActions.set(descriptor.name, action);
+    this.worldActions.set(descriptor.name, descriptor);
 
     // Register with runtime
-    if (runtime.registerAction) {
-      await runtime.registerAction(action)
-      logger.info(
-        `[DynamicActionLoader] Successfully registered action: ${descriptor.name}`
-      )
-    } else {
-      // Fallback: Add to runtime actions array if available
-      if (runtime.actions && Array.isArray(runtime.actions)) {
-        runtime.actions.push(action)
-        logger.info(
-          `[DynamicActionLoader] Added action to runtime: ${descriptor.name}`
-        )
-      } else {
-        logger.warn(
-          `[DynamicActionLoader] Unable to register action - no registration method available`
-        )
-      }
-    }
+    await runtime.registerAction(action);
+    logger.info(
+      `[DynamicActionLoader] Successfully registered action: ${descriptor.name}`,
+    );
   }
 
   /**
@@ -128,19 +109,18 @@ export class DynamicActionLoader {
    */
   async unregisterAction(
     actionName: string,
-    runtime: IAgentRuntime
+    runtime: IAgentRuntime,
   ): Promise<void> {
-    logger.info(`[DynamicActionLoader] Unregistering action: ${actionName}`)
+    logger.info(`[DynamicActionLoader] Unregistering action: ${actionName}`);
 
-    this.registeredActions.delete(actionName)
-    this.worldActions.delete(actionName)
+    this.registeredActions.delete(actionName);
+    this.worldActions.delete(actionName);
 
-    // Fallback: Remove from actions array
     const index = runtime.actions.findIndex(
-      (a: Action) => a.name === actionName
-    )
+      (a: Action) => a.name === actionName,
+    );
     if (index !== -1) {
-      runtime.actions.splice(index, 1)
+      runtime.actions.splice(index, 1);
     }
   }
 
@@ -153,97 +133,60 @@ export class DynamicActionLoader {
       message: Memory,
       state?: State,
       _options?: {},
-      callback?: HandlerCallback
+      callback?: HandlerCallback,
     ): Promise<any> => {
-      logger.info(`[DynamicAction] Executing ${descriptor.name}`)
+      logger.info(`[DynamicAction] Executing ${descriptor.name}`);
 
       const service = runtime.getService<HyperscapeService>(
-        HyperscapeService.serviceName
-      )
-      const world = service?.getWorld()
-
-      if (!world) {
-        if (callback) {
-          await callback({
-            text: `Cannot execute ${descriptor.name}: World not connected`,
-            error: true,
-          })
-        }
-        return {
-          success: false,
-          error: 'World not connected',
-        }
-      }
+        HyperscapeService.serviceName,
+      )!;
+      const world = service.getWorld()!;
 
       // Extract parameters from message or state
       const params = await this.extractParameters(
         descriptor,
         message,
         state,
-        runtime
-      )
+        runtime,
+      );
 
-      try {
-        // Execute the action through world interface
-        let result
-        const worldActions = world.actions as {
-          execute?: (name: string, params: Record<string, any>) => Promise<any>
-        }
-        if (worldActions?.execute) {
-          result = await worldActions.execute(descriptor.name, params)
-        } else {
-          // Fallback: Send as network command
-          if (world.network.send) {
-            world.network.send('executeAction', {
-              action: descriptor.name,
-              parameters: params,
-            })
-            result = { success: true, pending: true }
-          } else {
-            throw new Error('No execution method available')
-          }
-        }
-
-        // Generate response based on result
-        const responseText = await this.generateResponse(
-          descriptor,
-          params,
-          result,
-          runtime,
-          state
-        )
-
-        if (callback) {
-          await callback({
-            text: responseText,
-            metadata: { action: descriptor.name, result },
-          })
-        }
-
-        return {
-          text: responseText,
-          success: true,
-          data: { action: descriptor.name, parameters: params, result },
-        }
-      } catch (error) {
-        logger.error(
-          `[DynamicAction] Error executing ${descriptor.name}:`,
-          error
-        )
-
-        if (callback) {
-          await callback({
-            text: `Failed to execute ${descriptor.name}: ${error.message}`,
-            error: true,
-          })
-        }
-
-        return {
-          success: false,
-          error: error.message,
-        }
+      // Execute the action through world interface
+      let result;
+      const worldActions = world.actions as {
+        execute?: (name: string, params: Record<string, any>) => Promise<any>;
+      };
+      if (worldActions?.execute) {
+        result = await worldActions.execute(descriptor.name, params);
+      } else {
+        world.network.send("executeAction", {
+          action: descriptor.name,
+          parameters: params,
+        });
+        result = { success: true, pending: true };
       }
-    }
+
+      // Generate response based on result
+      const responseText = await this.generateResponse(
+        descriptor,
+        params,
+        result,
+        runtime,
+        state,
+      );
+
+      if (callback) {
+        await callback({
+          text: responseText,
+          metadata: { action: descriptor.name, result },
+        });
+      }
+
+      return {
+        text: responseText,
+        success: true,
+        data: { action: descriptor.name, parameters: params, result },
+      };
+    };
   }
 
   /**
@@ -253,37 +196,37 @@ export class DynamicActionLoader {
     descriptor: HyperscapeActionDescriptor,
     message: Memory,
     state: State | undefined,
-    runtime: IAgentRuntime
+    runtime: IAgentRuntime,
   ): Promise<Record<string, any>> {
-    const params: Record<string, any> = {}
+    const params: Record<string, any> = {};
 
     // Simple extraction from message text
-    const messageText = message.content?.text || ''
+    const messageText = message.content?.text || "";
 
     for (const param of descriptor.parameters) {
-      if (param.type === 'string') {
+      if (param.type === "string") {
         // Extract quoted strings or specific patterns
-        const regex = new RegExp(`${param.name}[:\\s]+["']?([^"']+)["']?`, 'i')
-        const match = messageText.match(regex)
+        const regex = new RegExp(`${param.name}[:\\s]+["']?([^"']+)["']?`, "i");
+        const match = messageText.match(regex);
         if (match) {
-          params[param.name] = match[1]
+          params[param.name] = match[1];
         }
-      } else if (param.type === 'number') {
+      } else if (param.type === "number") {
         // Extract numbers
-        const regex = new RegExp(`${param.name}[:\\s]+(\\d+)`, 'i')
-        const match = messageText.match(regex)
+        const regex = new RegExp(`${param.name}[:\\s]+(\\d+)`, "i");
+        const match = messageText.match(regex);
         if (match) {
-          params[param.name] = parseInt(match[1])
+          params[param.name] = parseInt(match[1]);
         }
       }
 
       // Use default if not found and required
       if (params[param.name] === undefined && param.default !== undefined) {
-        params[param.name] = param.default
+        params[param.name] = param.default;
       }
     }
 
-    return params
+    return params;
   }
 
   /**
@@ -293,19 +236,19 @@ export class DynamicActionLoader {
     descriptor: HyperscapeActionDescriptor,
     params: Record<string, unknown>,
     result: {
-      success: boolean
-      message?: string
-      error?: string
-      data?: unknown
+      success: boolean;
+      message?: string;
+      error?: string;
+      data?: unknown;
     },
     runtime: IAgentRuntime,
-    state?: State
+    state?: State,
   ): Promise<string> {
     // Simple response generation
     if (result.success) {
-      return `Successfully executed ${descriptor.name}${result.message ? ': ' + result.message : ''}`
+      return `Successfully executed ${descriptor.name}${result.message ? ": " + result.message : ""}`;
     } else {
-      return `Failed to execute ${descriptor.name}: ${result.error || 'Unknown error'}`
+      return `Failed to execute ${descriptor.name}: ${result.error || "Unknown error"}`;
     }
   }
 
@@ -313,113 +256,113 @@ export class DynamicActionLoader {
    * Generates similes for an action based on its descriptor
    */
   private generateSimiles(descriptor: HyperscapeActionDescriptor): string[] {
-    const similes: string[] = []
+    const similes: string[] = [];
 
     // Generate based on category
     switch (descriptor.category) {
-      case 'combat':
-        similes.push('FIGHT', 'ATTACK', 'BATTLE')
-        break
-      case 'inventory':
-        similes.push('MANAGE_ITEMS', 'INVENTORY')
-        break
-      case 'skills':
-        similes.push('TRAIN', 'PRACTICE', 'SKILL')
-        break
-      case 'quest':
-        similes.push('QUEST', 'MISSION', 'TASK')
-        break
-      case 'social':
-        similes.push('INTERACT', 'COMMUNICATE')
-        break
-      case 'movement':
-        similes.push('MOVE', 'NAVIGATE', 'GO')
-        break
+      case "combat":
+        similes.push("FIGHT", "ATTACK", "BATTLE");
+        break;
+      case "inventory":
+        similes.push("MANAGE_ITEMS", "INVENTORY");
+        break;
+      case "skills":
+        similes.push("TRAIN", "PRACTICE", "SKILL");
+        break;
+      case "quest":
+        similes.push("QUEST", "MISSION", "TASK");
+        break;
+      case "social":
+        similes.push("INTERACT", "COMMUNICATE");
+        break;
+      case "movement":
+        similes.push("MOVE", "NAVIGATE", "GO");
+        break;
     }
 
     // Add name variations
-    const words = descriptor.name.split('_')
+    const words = descriptor.name.split("_");
     if (words.length > 1) {
-      similes.push(words.join(' '))
+      similes.push(words.join(" "));
       similes.push(
         words
-          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-          .join('')
-      )
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(""),
+      );
     }
 
-    return similes
+    return similes;
   }
 
   /**
    * Generates examples for an action from its descriptor
    */
   private generateExamples(
-    descriptor: HyperscapeActionDescriptor
+    descriptor: HyperscapeActionDescriptor,
   ): ActionExample[][] {
-    const examples: ActionExample[][] = []
+    const examples: ActionExample[][] = [];
 
     // Use provided examples
     for (const exampleText of descriptor.examples || []) {
       examples.push([
         {
-          name: 'user',
+          name: "user",
           content: { text: exampleText },
         },
         {
-          name: 'assistant',
+          name: "assistant",
           content: {
-            text: `I'll ${descriptor.name.toLowerCase().replace(/_/g, ' ')} for you.`,
+            text: `I'll ${descriptor.name.toLowerCase().replace(/_/g, " ")} for you.`,
             action: descriptor.name,
           },
         },
-      ])
+      ]);
     }
 
     // Generate category-specific examples if none provided
     if (examples.length === 0) {
       switch (descriptor.category) {
-        case 'combat':
+        case "combat":
           examples.push([
             {
-              name: 'user',
+              name: "user",
               content: { text: `Attack the goblin` },
             },
             {
-              name: 'assistant',
+              name: "assistant",
               content: {
                 text: `Engaging in combat!`,
                 action: descriptor.name,
               },
             },
-          ])
-          break
+          ]);
+          break;
         // Add more category-specific examples as needed
       }
     }
 
-    return examples
+    return examples;
   }
 
   /**
    * Gets all registered actions
    */
   getRegisteredActions(): Map<string, Action> {
-    return new Map(this.registeredActions)
+    return new Map(this.registeredActions);
   }
 
   /**
    * Gets world action descriptors
    */
   getWorldActions(): Map<string, HyperscapeActionDescriptor> {
-    return new Map(this.worldActions)
+    return new Map(this.worldActions);
   }
 
   /**
    * Clears all registered actions
    */
   clear(): void {
-    this.registeredActions.clear()
-    this.worldActions.clear()
+    this.registeredActions.clear();
+    this.worldActions.clear();
   }
 }

@@ -1,0 +1,57 @@
+{
+  "compilerOptions": {
+    // Language and Environment
+    "target": "ES2021",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    
+    // Type Checking
+    "strict": true,
+    "downlevelIteration": true,
+    
+    // Modules
+    "baseUrl": ".",
+    "paths": {},
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    
+    // Emit - disable emission for this config (used for type checking only)
+    "noEmit": true,
+    
+    // JavaScript Support
+    "allowJs": true,
+    "checkJs": false,
+
+    "noImplicitAny": false,
+    
+    // Interop Constraints
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    // Skip Lib Check - needed due to conflicting types from parent directories
+    "skipLibCheck": true,
+    
+    // Advanced
+    "types": ["node", "vitest/globals", "bun-types"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "include": [
+    "src/**/*",
+    "src/types/**/*.d.ts",
+    "src/types/core.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build"
+  ],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
+} 

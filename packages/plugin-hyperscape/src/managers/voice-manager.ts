@@ -1,5 +1,5 @@
 // @ts-ignore - Comprehensive type issues
-import { VOICE_CONFIG } from '../config/constants'
+import { VOICE_CONFIG } from "../config/constants";
 import {
   ChannelType,
   Content,
@@ -10,383 +10,328 @@ import {
   UUID,
   createUniqueUuid,
   logger,
-} from '@elizaos/core'
-import { HyperscapeService } from '../service'
-import { convertToAudioBuffer } from '../utils'
+} from "@elizaos/core";
+import { HyperscapeService } from "../service";
+import { convertToAudioBuffer } from "../utils";
 
 // Local implementation of getWavHeader
 function getWavHeader(
   sampleRate: number,
   numChannels: number,
   bitsPerSample: number,
-  dataLength: number
+  dataLength: number,
 ): Buffer {
-  const header = Buffer.alloc(44)
+  const header = Buffer.alloc(44);
 
   // "RIFF" chunk descriptor
-  header.write('RIFF', 0)
-  header.writeUInt32LE(36 + dataLength, 4)
-  header.write('WAVE', 8)
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + dataLength, 4);
+  header.write("WAVE", 8);
 
   // "fmt " sub-chunk
-  header.write('fmt ', 12)
-  header.writeUInt32LE(16, 16) // Subchunk1Size
-  header.writeUInt16LE(1, 20) // AudioFormat (PCM)
-  header.writeUInt16LE(numChannels, 22)
-  header.writeUInt32LE(sampleRate, 24)
-  header.writeUInt32LE((sampleRate * numChannels * bitsPerSample) / 8, 28) // ByteRate
-  header.writeUInt16LE((numChannels * bitsPerSample) / 8, 32) // BlockAlign
-  header.writeUInt16LE(bitsPerSample, 34)
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16); // Subchunk1Size
+  header.writeUInt16LE(1, 20); // AudioFormat (PCM)
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE((sampleRate * numChannels * bitsPerSample) / 8, 28); // ByteRate
+  header.writeUInt16LE((numChannels * bitsPerSample) / 8, 32); // BlockAlign
+  header.writeUInt16LE(bitsPerSample, 34);
 
   // "data" sub-chunk
-  header.write('data', 36)
-  header.writeUInt32LE(dataLength, 40)
+  header.write("data", 36);
+  header.writeUInt32LE(dataLength, 40);
 
-  return header
+  return header;
 }
-import { agentActivityLock } from './guards'
-import { hyperscapeEventType } from '../events'
+import { agentActivityLock } from "./guards";
+import { hyperscapeEventType } from "../events";
 
 type LiveKitAudioData = {
-  participant: string
-  buffer: Buffer
-}
+  participant: string;
+  buffer: Buffer;
+};
 
 export class VoiceManager {
-  private runtime: IAgentRuntime
+  private runtime: IAgentRuntime;
   private userStates: Map<
     string,
     {
-      buffers: Buffer[]
-      totalLength: number
-      lastActive: number
-      transcriptionText: string
+      buffers: Buffer[];
+      totalLength: number;
+      lastActive: number;
+      transcriptionText: string;
     }
-  > = new Map()
-  private processingVoice: boolean = false
-  private transcriptionTimeout: NodeJS.Timeout | null = null
+  > = new Map();
+  private processingVoice: boolean = false;
+  private transcriptionTimeout: NodeJS.Timeout | null = null;
 
   constructor(runtime: IAgentRuntime) {
-    this.runtime = runtime
+    this.runtime = runtime;
   }
 
   start() {
-    const service = this.getService()
+    const service = this.getService();
     if (!service) {
-      console.error('[VoiceManager] Service not available')
-      return
+      console.error("[VoiceManager] Service not available");
+      return;
     }
 
-    const world = service.getWorld()
+    const world = service.getWorld();
     if (!world || !world.livekit) {
-      console.error('[VoiceManager] World or LiveKit not available')
-      return
+      console.error("[VoiceManager] World or LiveKit not available");
+      return;
     }
 
-    world.livekit?.on('audio', async (data: LiveKitAudioData) => {
+    world.livekit?.on("audio", async (data: LiveKitAudioData) => {
       function isLoudEnough(pcmBuffer: Buffer, threshold = 1000): boolean {
-        let sum = 0
-        const sampleCount = Math.floor(pcmBuffer.length / 2) // 16-bit samples
+        let sum = 0;
+        const sampleCount = Math.floor(pcmBuffer.length / 2); // 16-bit samples
 
         for (let i = 0; i < pcmBuffer.length; i += 2) {
-          const sample = pcmBuffer.readInt16LE(i)
-          sum += Math.abs(sample)
+          const sample = pcmBuffer.readInt16LE(i);
+          sum += Math.abs(sample);
         }
 
-        const avgAmplitude = sum / sampleCount
-        return avgAmplitude > threshold
+        const avgAmplitude = sum / sampleCount;
+        return avgAmplitude > threshold;
       }
 
-      const playerId = data.participant
+      const playerId = data.participant;
       if (!this.userStates.has(playerId)) {
         this.userStates.set(playerId, {
           buffers: [],
           totalLength: 0,
           lastActive: Date.now(),
-          transcriptionText: '',
-        })
+          transcriptionText: "",
+        });
       }
 
-      const pcmBuffer = data.buffer
+      const pcmBuffer = data.buffer;
       if (isLoudEnough(pcmBuffer)) {
-        this.handleUserBuffer(playerId, pcmBuffer)
+        this.handleUserBuffer(playerId, pcmBuffer);
       }
-    })
+    });
   }
 
-  async handleUserBuffer(playerId, buffer) {
-    const state = this.userStates.get(playerId)
-    if (!state) {
-      console.error(`[VoiceManager] No state found for player ${playerId}`)
-      return
-    }
+  async handleUserBuffer(playerId: string, buffer: Buffer) {
+    const state = this.userStates.get(playerId)!;
 
-    try {
-      state.buffers.push(buffer)
-      state.totalLength += buffer.length
-      state.lastActive = Date.now()
-      this.debouncedProcessTranscription(playerId)
-    } catch (error) {
-      console.error(`Error processing buffer for user ${playerId}:`, error)
-    }
+    state.buffers.push(buffer);
+    state.totalLength += buffer.length;
+    state.lastActive = Date.now();
+    this.debouncedProcessTranscription(playerId as UUID);
   }
 
   async debouncedProcessTranscription(playerId: UUID) {
     const DEBOUNCE_TRANSCRIPTION_THRESHOLD =
-      VOICE_CONFIG.TRANSCRIPTION_DEBOUNCE_MS
+      VOICE_CONFIG.TRANSCRIPTION_DEBOUNCE_MS;
 
     if (this.processingVoice) {
-      const state = this.userStates.get(playerId)
+      const state = this.userStates.get(playerId);
       if (state) {
-        state.buffers.length = 0
-        state.totalLength = 0
+        state.buffers.length = 0;
+        state.totalLength = 0;
       }
-      return
+      return;
     }
 
     if (this.transcriptionTimeout) {
-      clearTimeout(this.transcriptionTimeout)
+      clearTimeout(this.transcriptionTimeout);
     }
 
     this.transcriptionTimeout = setTimeout(async () => {
       await agentActivityLock.run(async () => {
-        this.processingVoice = true
+        this.processingVoice = true;
         try {
-          await this.processTranscription(playerId)
+          await this.processTranscription(playerId);
 
           // Clean all users' previous buffers
           this.userStates.forEach((state, _) => {
-            state.buffers.length = 0
-            state.totalLength = 0
-            state.transcriptionText = ''
-          })
+            state.buffers.length = 0;
+            state.totalLength = 0;
+            state.transcriptionText = "";
+          });
         } finally {
-          this.processingVoice = false
+          this.processingVoice = false;
         }
-      })
-    }, DEBOUNCE_TRANSCRIPTION_THRESHOLD) as NodeJS.Timeout
+      });
+    }, DEBOUNCE_TRANSCRIPTION_THRESHOLD) as NodeJS.Timeout;
   }
 
   private async processTranscription(playerId: UUID) {
-    const state = this.userStates.get(playerId)
-    if (!state || state.buffers.length === 0) {
-      return
+    const state = this.userStates.get(playerId)!;
+    if (state.buffers.length === 0) {
+      return;
     }
-    try {
-      const inputBuffer = Buffer.concat(state.buffers, state.totalLength)
 
-      state.buffers.length = 0 // Clear the buffers
-      state.totalLength = 0
-      // Convert Opus to WAV
-      const sampleRate = VOICE_CONFIG.SAMPLE_RATE
-      const numChannels = 1
-      const bitsPerSample = 16
-      const wavHeader = getWavHeader(
-        sampleRate,
-        numChannels,
-        bitsPerSample,
-        inputBuffer.length
-      )
-      const wavBuffer = Buffer.concat([wavHeader, inputBuffer])
-      logger.debug('Starting transcription...')
+    const inputBuffer = Buffer.concat(state.buffers, state.totalLength);
 
-      const transcriptionText = await this.runtime.useModel(
-        ModelType.TRANSCRIPTION,
-        wavBuffer
-      )
+    state.buffers.length = 0; // Clear the buffers
+    state.totalLength = 0;
+    // Convert Opus to WAV
+    const sampleRate = VOICE_CONFIG.SAMPLE_RATE;
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const wavHeader = getWavHeader(
+      sampleRate,
+      numChannels,
+      bitsPerSample,
+      inputBuffer.length,
+    );
+    const wavBuffer = Buffer.concat([wavHeader, inputBuffer]);
+    logger.debug("Starting transcription...");
 
-            function isValidTranscription(text: string): boolean {
-        if (!text || text.includes('[BLANK_AUDIO]')) {
-          return false
-        }
-        return true
+    const transcriptionText = await this.runtime.useModel(
+      ModelType.TRANSCRIPTION,
+      wavBuffer,
+    );
+
+    function isValidTranscription(text: string): boolean {
+      if (!text || text.includes("[BLANK_AUDIO]")) {
+        return false;
       }
+      return true;
+    }
 
-      if (transcriptionText && isValidTranscription(transcriptionText)) {
-        state.transcriptionText += transcriptionText
-      }
+    if (isValidTranscription(transcriptionText as string)) {
+      state.transcriptionText += transcriptionText;
+    }
 
-      if (state.transcriptionText.length) {
-        const finalText = state.transcriptionText
-        state.transcriptionText = ''
-        await this.handleMessage(finalText, playerId)
-      }
-    } catch (error) {
-      console.error(`Error transcribing audio for user ${playerId}:`, error)
+    if (state.transcriptionText.length) {
+      const finalText = state.transcriptionText;
+      state.transcriptionText = "";
+      await this.handleMessage(finalText, playerId);
     }
   }
 
   private async handleMessage(message: string, playerId: UUID) {
-    try {
-      if (!message || message.trim() === '' || message.length < 3) {
-        return { text: '', actions: ['IGNORE'] }
-      }
-      const service = this.getService()
-      if (!service) {
-        console.error('[VoiceManager] Service not available')
-        return { text: '', actions: ['IGNORE'] }
-      }
+    if (!message || message.trim() === "" || message.length < 3) {
+      return { text: "", actions: ["IGNORE"] };
+    }
 
-      const world = service.getWorld()
-      if (!world) {
-        console.error('[VoiceManager] World not available')
-        return { text: '', actions: ['IGNORE'] }
-      }
+    const service = this.getService()!;
+    const world = service.getWorld()!;
+    const playerInfo = world.entities.getPlayer(playerId)!;
 
-      const playerInfo = world.entities.getPlayer(playerId)
-      if (!playerInfo || !playerInfo.data) {
-        console.error(`[VoiceManager] Player info not found for ${playerId}`)
-        return { text: '', actions: ['IGNORE'] }
-      }
+    const userName = playerInfo.data.name;
+    const name = userName;
+    const _currentWorldId = service.currentWorldId!;
+    const channelId = _currentWorldId;
+    const roomId = createUniqueUuid(this.runtime, _currentWorldId);
+    const entityId = createUniqueUuid(this.runtime, playerId) as UUID;
 
-      const userName = playerInfo.data.name
-      const name = userName
-      const _currentWorldId = service.currentWorldId
-      const channelId = _currentWorldId || undefined
-      const roomId = createUniqueUuid(
+    const type = ChannelType.WORLD;
+
+    // Ensure connection for the sender entity
+    await this.runtime.ensureConnection({
+      entityId,
+      roomId,
+      userName,
+      name,
+      source: "hyperscape",
+      channelId,
+      serverId: "hyperscape",
+      type: ChannelType.WORLD,
+      worldId: _currentWorldId,
+      userId: playerId,
+    });
+
+    const memory: Memory = {
+      id: createUniqueUuid(
         this.runtime,
-        _currentWorldId || 'hyperscape-unknown-world'
-      )
-      const entityId = createUniqueUuid(this.runtime, playerId) as UUID
-
-      const type = ChannelType.WORLD
-
-      // Ensure connection for the sender entity
-      await this.runtime.ensureConnection({
-        entityId,
-        roomId,
-        userName,
+        `${channelId}-voice-message-${Date.now()}`,
+      ),
+      agentId: this.runtime.agentId,
+      entityId,
+      roomId,
+      content: {
+        text: message,
+        source: "hyperscape",
         name,
-        source: 'hyperscape',
-        channelId,
-        serverId: 'hyperscape',
-        type: ChannelType.WORLD,
-        worldId:
-          _currentWorldId ||
-          (createUniqueUuid(this.runtime, 'hyperscape-world') as UUID),
-        userId: playerId,
-      })
+        userName,
+        isVoiceMessage: true,
+        channelType: type,
+      },
+      createdAt: Date.now(),
+    };
 
-      const memory: Memory = {
+    const callback: HandlerCallback = async (
+      content: Content,
+      _files: File[] = [],
+    ) => {
+      console.info(
+        `[Hyperscape Voice Chat Callback] Received response: ${JSON.stringify(content)}`,
+      );
+      const responseMemory: Memory = {
         id: createUniqueUuid(
           this.runtime,
-          `${channelId}-voice-message-${Date.now()}`
+          `${memory.id}-voice-response-${Date.now()}`,
         ),
+        entityId: this.runtime.agentId,
         agentId: this.runtime.agentId,
-        entityId,
-        roomId,
         content: {
-          text: message,
-          source: 'hyperscape',
-          name,
-          userName,
+          ...content,
+          name: this.runtime.character.name,
+          inReplyTo: memory.id,
           isVoiceMessage: true,
           channelType: type,
         },
+        roomId,
         createdAt: Date.now(),
+      };
+
+      await this.runtime.createMemory(responseMemory, "messages");
+
+      if (responseMemory.content.text?.trim()) {
+        const responseStream = await this.runtime.useModel(
+          ModelType.TEXT_TO_SPEECH,
+          content.text,
+        );
+        const audioBuffer = await convertToAudioBuffer(responseStream);
+        const emoteManager = service.getEmoteManager()!;
+        const emote = (content.emote as string) || "TALK";
+        emoteManager.playEmote(emote);
+        await this.playAudio(audioBuffer);
       }
 
-      const callback: HandlerCallback = async (
-        content: Content,
-        _files: File[] = []
-      ) => {
-        console.info(
-          `[Hyperscape Voice Chat Callback] Received response: ${JSON.stringify(content)}`
-        )
-        try {
-          const responseMemory: Memory = {
-            id: createUniqueUuid(
-              this.runtime,
-              `${memory.id}-voice-response-${Date.now()}`
-            ),
-            entityId: this.runtime.agentId,
-            agentId: this.runtime.agentId,
-            content: {
-              ...content,
-              name: this.runtime.character.name,
-              inReplyTo: memory.id,
-              isVoiceMessage: true,
-              channelType: type,
-            },
-            roomId,
-            createdAt: Date.now(),
-          }
+      return [responseMemory];
+    };
 
-          await this.runtime.createMemory(responseMemory, 'messages')
-
-          if (responseMemory.content.text?.trim()) {
-            const responseStream = await this.runtime.useModel(
-              ModelType.TEXT_TO_SPEECH,
-              content.text
-            )
-            if (responseStream) {
-              const audioBuffer = await convertToAudioBuffer(responseStream)
-              const emoteManager = service?.getEmoteManager()
-              const emote = (content.emote as string) || 'TALK'
-              if (emoteManager) {
-                emoteManager.playEmote(emote)
-              }
-              await this.playAudio(audioBuffer)
-            }
-          }
-
-          return [responseMemory]
-        } catch (error) {
-          console.error('Error in voice message callback:', error)
-          return []
-        }
-      }
-
-      agentActivityLock.enter()
-      // Emit voice-specific events
-      this.runtime.emitEvent([hyperscapeEventType.VOICE_MESSAGE_RECEIVED], {
-        runtime: this.runtime,
-        message: memory,
-        callback,
-        onComplete: () => {
-          agentActivityLock.exit()
-        },
-      })
-    } catch (error) {
-      console.error('Error processing voice message:', error)
-    }
+    agentActivityLock.enter();
+    // Emit voice-specific events
+    this.runtime.emitEvent([hyperscapeEventType.VOICE_MESSAGE_RECEIVED], {
+      runtime: this.runtime,
+      message: memory,
+      callback,
+      onComplete: () => {
+        agentActivityLock.exit();
+      },
+    });
   }
 
-  async playAudio(audioBuffer) {
+  async playAudio(audioBuffer: Buffer) {
     if (this.processingVoice) {
-      logger.info('[VOICE MANAER] Current voice is processing.....')
-      return
+      logger.info("[VOICE MANAER] Current voice is processing.....");
+      return;
     }
 
-    const service = this.getService()
-    if (!service) {
-      console.error('[VoiceManager] Service not available')
-      return
-    }
+    const service = this.getService()!;
+    const world = service.getWorld()!;
 
-    const world = service.getWorld()
-    if (!world || !world.livekit) {
-      console.error('[VoiceManager] World or LiveKit not available')
-      return
-    }
+    this.processingVoice = true;
 
-    this.processingVoice = true
+    // Audio publishing requires LiveKit API integration (future enhancement)
+    console.log(
+      "[VoiceManager] Audio playback requested but not implemented yet",
+    );
 
-    try {
-      // Audio publishing requires LiveKit API integration (future enhancement)
-      console.log(
-        '[VoiceManager] Audio playback requested but not implemented yet'
-      )
-    } catch (error) {
-      logger.error(error)
-    } finally {
-      this.processingVoice = false
-    }
+    this.processingVoice = false;
   }
 
   private getService() {
     return this.runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )
+      HyperscapeService.serviceName,
+    );
   }
 }

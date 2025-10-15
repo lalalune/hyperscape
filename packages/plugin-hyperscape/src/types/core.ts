@@ -1,5 +1,5 @@
 // Re-export core types and classes for convenience
-export { World, Entity, System } from './core-types'
+export { World, Entity, System } from "./core-types";
 export type {
   Player,
   Vector3,
@@ -9,7 +9,7 @@ export type {
   Entities,
   Events,
   WorldOptions,
-} from './core-types'
+} from "./core-types";
 
 // Additional common types for cross-file compatibility
 export type {
@@ -17,4 +17,4 @@ export type {
   ContentInstance,
   HyperscapeAction,
   HyperscapeProvider,
-} from './core-types'
+} from "./core-types";

@@ -85,7 +85,7 @@ PX_FOUNDATION_API void PxDisableFPExceptions();
 
 #if PX_WINDOWS_FAMILY
 #include "foundation/windows/PxWindowsFPU.h"
-#elif ((PX_LINUX || PX_OSX) && PX_SSE2)
+#elif (PX_LINUX && PX_SSE2) || PX_OSX
 #include "foundation/unix/PxUnixFPU.h"
 #else
 PX_INLINE physx::PxSIMDGuard::PxSIMDGuard(bool)

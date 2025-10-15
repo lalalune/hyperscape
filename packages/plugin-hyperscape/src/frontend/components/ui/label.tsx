@@ -1,10 +1,10 @@
-import React from 'react'
+import React from "react";
 
 interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
 
 export const Label: React.FC<LabelProps> = ({
   children,
-  className = '',
+  className = "",
   ...props
 }) => (
   <label
@@ -13,4 +13,4 @@ export const Label: React.FC<LabelProps> = ({
   >
     {children}
   </label>
-)
+);

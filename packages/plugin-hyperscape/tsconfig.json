@@ -17,8 +17,8 @@
     "paths": {
       "@elizaos/core": ["../../packages/core/dist"],
       "@elizaos/core/*": ["../../packages/core/dist/*"],
-      "@hyperscape/hyperscape": ["../hyperscape/build/index.d.ts"],
-      "@hyperscape/hyperscape/*": ["../hyperscape/build/*"]
+      "@hyperscape/shared": ["../hyperscape/build/index.d.ts"],
+      "@hyperscape/shared/*": ["../hyperscape/build/*"]
     }
   },
   "include": ["src/**/*.ts"],

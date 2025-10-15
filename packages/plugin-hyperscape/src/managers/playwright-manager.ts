@@ -1,81 +1,72 @@
-import { IAgentRuntime } from '@elizaos/core'
-import { THREE, Player } from '@hyperscape/hyperscape'
-import fs, { promises as fsPromises } from 'fs'
-import path from 'path'
-import { chromium, Browser, Page, PageScreenshotOptions } from 'playwright'
-import { HyperscapeService } from '../service'
-import { getModuleDirectory, resolveUrl } from '../utils'
+import { IAgentRuntime } from "@elizaos/core";
+import { THREE, Player } from "@hyperscape/shared";
+import fs, { promises as fsPromises } from "fs";
+import path from "path";
+import { chromium, Browser, Page, PageScreenshotOptions } from "playwright";
+import { HyperscapeService } from "../service";
+import { getModuleDirectory, resolveUrl } from "../utils";
 
 interface AvatarLike {
-  url?: string
+  url?: string;
 }
 
 export class PlaywrightManager {
-  private static instance: PlaywrightManager | null = null
+  private static instance: PlaywrightManager | null = null;
 
-  private runtime: IAgentRuntime
-  private browser: Browser
-  private page: Page
-  private initPromise: Promise<void> | null = null
+  private runtime: IAgentRuntime;
+  private browser: Browser;
+  private page: Page;
+  private initPromise: Promise<void> | null = null;
   private readonly STRIP_SLOTS = [
-    'map',
-    'aoMap',
-    'alphaMap',
-    'bumpMap',
-    'normalMap',
-    'metalnessMap',
-    'roughnessMap',
-    'emissiveMap',
-    'lightMap',
-  ] as const
+    "map",
+    "aoMap",
+    "alphaMap",
+    "bumpMap",
+    "normalMap",
+    "metalnessMap",
+    "roughnessMap",
+    "emissiveMap",
+    "lightMap",
+  ] as const;
 
   /**
    * Get the current page instance for testing purposes
    */
   getPage(): Page | null {
-    return this.page || null
+    return this.page || null;
   }
 
   /**
    * Take a screenshot for testing purposes
    */
   async takeScreenshot(
-    options?: PageScreenshotOptions
-  ): Promise<string | Buffer | null> {
-    if (!this.page) {
-      return null
-    }
-
-    try {
-      return await this.page.screenshot({
-        type: 'png',
-        fullPage: false,
-        ...options,
-      })
-    } catch (error) {
-      console.error('Error taking screenshot:', error)
-      return null
-    }
+    options?: PageScreenshotOptions,
+  ): Promise<string | Buffer> {
+    return await this.page!.screenshot({
+      type: "png",
+      fullPage: false,
+      ...options,
+    });
   }
 
   constructor(runtime: IAgentRuntime) {
-    this.runtime = runtime
-    this.init()
+    this.runtime = runtime;
+    this.init();
 
     if (!PlaywrightManager.instance) {
-      PlaywrightManager.instance = this
+      PlaywrightManager.instance = this;
     } else {
-      throw new Error('PlaywrightManager has already been instantiated.')
+      throw new Error("PlaywrightManager has already been instantiated.");
     }
   }
 
   public static getInstance(): PlaywrightManager {
     if (!this.instance) {
       throw new Error(
-        'PlaywrightManager not yet initialized. Call new PlaywrightManager(runtime) first.'
-      )
+        "PlaywrightManager not yet initialized. Call new PlaywrightManager(runtime) first.",
+      );
     }
-    return this.instance
+    return this.instance;
   }
 
   // Removed duplicate getPage method - keeping the one at line 34
@@ -84,374 +75,359 @@ export class PlaywrightManager {
     // Only initialize once
     if (!this.initPromise) {
       this.initPromise = (async () => {
-        try {
-          this.browser = await chromium.launch({
-            headless: true,
-            args: ['--disable-web-security'],
-            slowMo: 50,
-          })
+        this.browser = await chromium.launch({
+          headless: true,
+          args: ["--disable-web-security"],
+          slowMo: 50,
+        });
 
-          this.page = await this.browser.newPage()
-          const moduleDirPath = getModuleDirectory()
-          const filePath = `${moduleDirPath}/playwright/index.html`
+        this.page = await this.browser.newPage();
+        const moduleDirPath = getModuleDirectory();
+        const filePath = `${moduleDirPath}/playwright/index.html`;
 
-          await this.page.goto(`file://${filePath}`, { waitUntil: 'load' })
+        await this.page.goto(`file://${filePath}`, { waitUntil: "load" });
 
-          await this.injectScripts([
-            `${moduleDirPath}/scripts/createVRMFactory.js`,
-            `${moduleDirPath}/scripts/snapshotEquirectangular.js`,
-            `${moduleDirPath}/scripts/snapshotFacingDirection.js`,
-            `${moduleDirPath}/scripts/snapshotViewToTarget.js`,
-          ])
+        await this.injectScripts([
+          `${moduleDirPath}/scripts/createVRMFactory.js`,
+          `${moduleDirPath}/scripts/snapshotEquirectangular.js`,
+          `${moduleDirPath}/scripts/snapshotFacingDirection.js`,
+          `${moduleDirPath}/scripts/snapshotViewToTarget.js`,
+        ]);
 
-          await this.page.waitForFunction(
-            () =>
-              window.scene !== undefined &&
-              window.camera !== undefined &&
-              window.renderer !== undefined
-          )
-        } catch (error) {
-          console.warn(
-            '[PlaywrightManager] Failed to initialize Playwright:',
-            error
-          )
-          console.warn(
-            '[PlaywrightManager] Screenshot functionality will be disabled'
-          )
-          // Don't throw - allow the plugin to work without Playwright
-        }
-      })()
+        await this.page.waitForFunction(
+          () =>
+            window.scene !== undefined &&
+            window.camera !== undefined &&
+            window.renderer !== undefined,
+        );
+      })();
     }
-    return this.initPromise
+    return this.initPromise;
   }
 
   private async injectScripts(scriptPaths: string[]) {
     for (const relativePath of scriptPaths) {
-      const absPath = path.resolve(relativePath)
-      const content = await fsPromises.readFile(absPath, 'utf8')
-      await this.page.addScriptTag({ content })
+      const absPath = path.resolve(relativePath);
+      const content = await fsPromises.readFile(absPath, "utf8");
+      await this.page.addScriptTag({ content });
     }
   }
 
   public async snapshotFacingDirection(
-    direction: 'front' | 'back' | 'left' | 'right'
+    direction: "front" | "back" | "left" | "right",
   ): Promise<string> {
-    await this.init()
+    await this.init();
 
     if (!this.browser || !this.page) {
       console.warn(
-        '[PlaywrightManager] Playwright not available, skipping screenshot'
-      )
-      return ''
+        "[PlaywrightManager] Playwright not available, skipping screenshot",
+      );
+      return "";
     }
 
-    const service = this.getService()
-    const world = service.getWorld()
-    const player = world.entities.player
+    const service = this.getService();
+    const world = service.getWorld();
+    const player = world.entities.player;
 
     if (!player) {
-      throw new Error('Player entity not yet available')
+      throw new Error("Player entity not yet available");
     }
 
     // TODO: Implement rotation control
     // await world.controls.rotateTo(direction, 500)
     // world.controls.stopRotation()
 
-    await this.rehydrateSceneAssets()
+    await this.rehydrateSceneAssets();
 
     const playerData = {
       position: player.node.position.toArray() as [number, number, number],
       rotation: player.rotation.toArray() as [number, number, number, number],
-    }
+    };
 
-    const base64 = await this.page.evaluate(async playerData => {
-      return await window.snapshotFacingDirection(playerData)
-    }, playerData)
+    const base64 = await this.page.evaluate(async (playerData) => {
+      return await window.snapshotFacingDirection(playerData);
+    }, playerData);
 
-    const filePath = path.resolve(`scene_facing_${direction}.jpeg`)
-    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'))
+    const filePath = path.resolve(`scene_facing_${direction}.jpeg`);
+    fs.writeFileSync(filePath, Buffer.from(base64, "base64"));
 
-    return `data:image/jpeg;base64,${base64}`
+    return `data:image/jpeg;base64,${base64}`;
   }
 
   public async snapshotViewToTarget(
-    targetPosition: [number, number, number]
+    targetPosition: [number, number, number],
   ): Promise<string> {
-    await this.init()
+    await this.init();
 
-    const service = this.getService()
-    const world = service.getWorld()
-    const player = world.entities.player
+    const service = this.getService();
+    const world = service.getWorld();
+    const player = world.entities.player;
 
     if (!player) {
-      throw new Error('Player entity not yet available')
+      throw new Error("Player entity not yet available");
     }
 
-    await this.rehydrateSceneAssets()
+    await this.rehydrateSceneAssets();
 
     const playerData = {
       position: player.node.position.toArray() as [number, number, number],
-    }
+    };
 
     const base64 = (await this.page.evaluate(
       async ({ playerData, targetPosition }) => {
-        return await window.snapshotViewToTarget(playerData, targetPosition)
+        return await window.snapshotViewToTarget(playerData, targetPosition);
       },
-      { playerData, targetPosition }
-    )) as string
+      { playerData, targetPosition },
+    )) as string;
 
-    const filePath = path.resolve('scene_view_to_target.jpeg')
-    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'))
+    const filePath = path.resolve("scene_view_to_target.jpeg");
+    fs.writeFileSync(filePath, Buffer.from(base64, "base64"));
 
-    return `data:image/jpeg;base64,${base64}`
+    return `data:image/jpeg;base64,${base64}`;
   }
 
   public async snapshotEquirectangular(): Promise<string> {
-    await this.init()
+    await this.init();
 
-    const service = this.getService()
-    const world = service.getWorld()
-    const player = world.entities.player
+    const service = this.getService();
+    const world = service.getWorld();
+    const player = world.entities.player;
 
     if (!player) {
-      throw new Error('Player entity not yet available')
+      throw new Error("Player entity not yet available");
     }
 
-    await this.rehydrateSceneAssets()
+    await this.rehydrateSceneAssets();
 
     const playerData = {
       position: player.node.position.toArray(),
       quaternion: player.node.quaternion.toArray(),
-    }
+    };
 
-    const base64 = await this.page.evaluate(async playerData => {
-      return await window.snapshotEquirectangular(playerData)
-    }, playerData)
+    const base64 = await this.page.evaluate(async (playerData) => {
+      return await window.snapshotEquirectangular(playerData);
+    }, playerData);
 
-    const buffer = Buffer.from(base64, 'base64')
-    const filePath = path.resolve('scene_equirectangular.jpeg')
-    fs.writeFileSync(filePath, buffer)
+    const buffer = Buffer.from(base64, "base64");
+    const filePath = path.resolve("scene_equirectangular.jpeg");
+    fs.writeFileSync(filePath, buffer);
 
-    return `data:image/jpeg;base64,${base64}`
+    return `data:image/jpeg;base64,${base64}`;
   }
 
   async loadGlbBytes(url: string): Promise<number[]> {
-    await this.init()
-    const STRIP_SLOTS = this.STRIP_SLOTS
+    await this.init();
+    const STRIP_SLOTS = this.STRIP_SLOTS;
 
     return this.page.evaluate(
       async ({
         url,
         STRIP_SLOTS,
       }: {
-        url: string
-        STRIP_SLOTS: readonly string[]
+        url: string;
+        STRIP_SLOTS: readonly string[];
       }) => {
-        const loader = new window.GLTFLoader()
-        const gltf = await loader.loadAsync(url)
+        const loader = new window.GLTFLoader();
+        const gltf = await loader.loadAsync(url);
 
         if (!window.texturesMap) {
-          window.texturesMap = new Map()
+          window.texturesMap = new Map();
         }
 
-        gltf.scene.traverse(obj => {
+        gltf.scene.traverse((obj) => {
           // Type narrowing - check if object is a Mesh
           if (
-            !('isMesh' in obj) ||
+            !("isMesh" in obj) ||
             !(obj as THREE.Mesh).isMesh ||
-            !('material' in obj) ||
+            !("material" in obj) ||
             !(obj as THREE.Mesh).material
           ) {
-            return
+            return;
           }
 
-          const mesh = obj as THREE.Mesh
+          const mesh = obj as THREE.Mesh;
           const mats = Array.isArray(mesh.material)
             ? mesh.material
-            : [mesh.material]
+            : [mesh.material];
 
-          mats.forEach(mat => {
+          mats.forEach((mat) => {
             if (!mat.userData.materialId) {
-              mat.userData.materialId = window.crypto.randomUUID()
+              mat.userData.materialId = window.crypto.randomUUID();
             }
-            const id = mat.userData.materialId
+            const id = mat.userData.materialId;
 
-            STRIP_SLOTS.forEach(slot => {
-              const tex = mat[slot] as THREE.Texture
+            STRIP_SLOTS.forEach((slot) => {
+              const tex = mat[slot] as THREE.Texture;
               if (tex && tex.isTexture) {
-                window.texturesMap.set(`${id}:${slot}`, tex)
-                mat[slot] = null
+                window.texturesMap.set(`${id}:${slot}`, tex);
+                mat[slot] = null;
               }
-            })
+            });
 
-            mat.needsUpdate = true
-          })
-        })
+            mat.needsUpdate = true;
+          });
+        });
 
-        const exporter = new window.GLTFExporter()
-        const buffer = await new Promise<ArrayBuffer>(done =>
-          exporter.parse(gltf.scene, done, { binary: true, embedImages: true })
-        )
+        const exporter = new window.GLTFExporter();
+        const buffer = await new Promise<ArrayBuffer>((done) =>
+          exporter.parse(gltf.scene, done, { binary: true, embedImages: true }),
+        );
 
-        return [...new Uint8Array(buffer)]
+        return [...new Uint8Array(buffer)];
       },
-      { url, STRIP_SLOTS }
-    )
+      { url, STRIP_SLOTS },
+    );
   }
 
   async loadVRMBytes(url: string): Promise<number[]> {
-    await this.init()
+    await this.init();
 
-    return this.page.evaluate(async url => {
-      const loader = window.VRMLoader
-      const gltf = await loader.loadAsync(url)
-      const factory = window.createVRMFactory(gltf, m => m)
+    return this.page.evaluate(async (url) => {
+      const loader = window.VRMLoader;
+      const gltf = await loader.loadAsync(url);
+      const factory = window.createVRMFactory(gltf, (m) => m);
 
-      window.renderer.render(window.scene, window.camera)
+      window.renderer.render(window.scene, window.camera);
 
       if (!window.avatarMap) {
-        window.avatarMap = new Map()
+        window.avatarMap = new Map();
       }
-      window.avatarMap.set(url, factory) // Store a deep clone of the avatar
+      window.avatarMap.set(url, factory); // Store a deep clone of the avatar
 
-      const exporter = new window.GLTFExporter()
-      const buffer = await new Promise<ArrayBuffer>(done =>
-        exporter.parse(gltf.scene, done, { binary: true, embedImages: true })
-      )
+      const exporter = new window.GLTFExporter();
+      const buffer = await new Promise<ArrayBuffer>((done) =>
+        exporter.parse(gltf.scene, done, { binary: true, embedImages: true }),
+      );
 
-      return [...new Uint8Array(buffer)]
-    }, url)
+      return [...new Uint8Array(buffer)];
+    }, url);
   }
 
   async registerTexture(url: string, slot: string): Promise<string> {
-    await this.init()
+    await this.init();
 
     return this.page.evaluate(
       async ({ url, slot }: { url: string; slot: string }) => {
         if (!window.texturesMap) {
-          window.texturesMap = new Map()
+          window.texturesMap = new Map();
         }
 
-        const loader = window.TextureLoader
+        const loader = window.TextureLoader;
         const texture = await new Promise<THREE.Texture>((resolve, reject) => {
           loader.load(
             url,
-            tex => resolve(tex),
+            (tex) => resolve(tex),
             undefined,
-            err => reject(err)
-          )
-        })
+            (err) => reject(err),
+          );
+        });
 
-        const uuid = window.crypto.randomUUID()
-        window.texturesMap.set(`${uuid}:${slot}`, texture)
+        const uuid = window.crypto.randomUUID();
+        window.texturesMap.set(`${uuid}:${slot}`, texture);
 
-        return uuid
+        return uuid;
       },
-      { url, slot }
-    )
+      { url, slot },
+    );
   }
 
   public async loadEnvironmentHDR(url: string): Promise<void> {
-    await this.init()
-    const service = this.getService()
-    const world = service.getWorld()
+    await this.init();
+    const service = this.getService();
+    const world = service.getWorld();
 
-    url = await resolveUrl(url, world)
+    url = await resolveUrl(url, world);
 
-    await this.page.evaluate(async url => {
-      const loader = new window.RGBELoader()
+    await this.page.evaluate(async (url) => {
+      const loader = new window.HDRLoader();
       const hdrTexture = await new Promise<THREE.Texture>((resolve, reject) => {
-        loader.load(url, resolve, undefined, reject)
-      })
+        loader.load(url, resolve, undefined, reject);
+      });
 
-      window.environment = hdrTexture
-      window.scene.environment = hdrTexture
-      window.scene.background = hdrTexture
+      window.environment = hdrTexture;
+      window.scene.environment = hdrTexture;
+      window.scene.background = hdrTexture;
 
-      window.renderer.render(window.scene, window.camera)
-    }, url)
+      window.renderer.render(window.scene, window.camera);
+    }, url);
   }
 
   private async rehydrateSceneAssets() {
-    const service = this.getService()
-    const world = service.getWorld()
-    const sceneJson = world.stage.scene.toJSON()
+    const service = this.getService();
+    const world = service.getWorld();
+    const sceneJson = world.stage.scene.toJSON();
 
-    const players = world.entities.players
+    const players = world.entities.players;
 
-    const STRIP_SLOTS = this.STRIP_SLOTS
+    const STRIP_SLOTS = this.STRIP_SLOTS;
     await this.page.evaluate(
       async ({
         sceneJson,
         STRIP_SLOTS,
         players,
       }: {
-        sceneJson: Record<string, unknown>
-        STRIP_SLOTS: readonly string[]
-        players: Map<string, Player>
+        sceneJson: ReturnType<THREE.Scene["toJSON"]>;
+        STRIP_SLOTS: readonly string[];
+        players: Map<string, Player>;
       }) => {
         // THREE is available via import maps in index.html
-        const loader = new THREE.ObjectLoader()
-        const loadedScene = loader.parse(sceneJson)
+        const loader = new THREE.ObjectLoader();
+        const loadedScene = loader.parse(sceneJson);
 
         // Rehydrate materials
-        loadedScene.traverse(obj => {
+        loadedScene.traverse((obj) => {
           // Type narrowing - check if object is a Mesh
           if (
-            !('isMesh' in obj) ||
+            !("isMesh" in obj) ||
             !(obj as THREE.Mesh).isMesh ||
-            !('material' in obj) ||
+            !("material" in obj) ||
             !(obj as THREE.Mesh).material
           ) {
-            return
+            return;
           }
 
-          const mesh = obj as THREE.Mesh
+          const mesh = obj as THREE.Mesh;
           const mats = Array.isArray(mesh.material)
             ? mesh.material
-            : [mesh.material]
+            : [mesh.material];
 
-          mats.forEach(mat => {
-            const id = mat.userData.materialId
+          mats.forEach((mat) => {
+            const id = mat.userData.materialId;
             if (!id) {
-              return
+              return;
             }
 
-            STRIP_SLOTS.forEach(slot => {
-              const key = `${id}:${slot}`
-              const tex = window.texturesMap?.get(key)
+            STRIP_SLOTS.forEach((slot) => {
+              const key = `${id}:${slot}`;
+              const tex = window.texturesMap?.get(key);
               if (tex && tex.isTexture) {
-                mat[slot] = tex
+                mat[slot] = tex;
               }
-            })
+            });
 
-            mat.needsUpdate = true
-          })
-        })
+            mat.needsUpdate = true;
+          });
+        });
 
         // Rehydrate player avatars
         if (window.activeVRMInstances) {
           for (const inst of window.activeVRMInstances) {
-            try {
-              inst.destroy()
-            } catch (e) {
-              console.warn('[AgentLoader] Failed to destroy instance:', e)
-            }
+            inst.destroy();
           }
         }
-        window.activeVRMInstances = []
+        window.activeVRMInstances = [];
 
-        players.forEach(player => {
+        players.forEach((player) => {
           if (!player.avatar) {
-            return
+            return;
           }
           const avatarKey =
-            typeof player.avatar === 'string'
+            typeof player.avatar === "string"
               ? player.avatar
-              : (player.avatar as AvatarLike)?.url || ''
-          const factory = window.avatarMap?.get(avatarKey)
+              : (player.avatar as AvatarLike)?.url || "";
+          const factory = window.avatarMap?.get(avatarKey);
           if (!factory) {
-            return
+            return;
           }
 
           const vrmHooks = {
@@ -460,36 +436,40 @@ export class PlaywrightManager {
             octree: null,
             setupMaterial: () => {},
             loader: window.VRMLoader,
-          }
-          const instance = factory.create(new THREE.Matrix4(), vrmHooks, m => m)
+          };
+          const instance = factory.create(
+            new THREE.Matrix4(),
+            vrmHooks,
+            (m) => m,
+          );
 
-          const position = player.node.position as THREE.Vector3
-          const rotation = player.node.quaternion
-          const scale = player.node.scale as THREE.Vector3
+          const position = player.node.position as THREE.Vector3;
+          const rotation = player.node.quaternion;
+          const scale = player.node.scale as THREE.Vector3;
 
-          const matrix = new THREE.Matrix4()
-          matrix.compose(position, rotation, scale)
-          instance.move(matrix)
+          const matrix = new THREE.Matrix4();
+          matrix.compose(position, rotation, scale);
+          instance.move(matrix);
 
-          window.activeVRMInstances.push(instance)
-        })
+          window.activeVRMInstances.push(instance);
+        });
 
         // Rehydrate environment
         if (window.environment) {
-          ;(loadedScene as THREE.Scene).environment = window.environment
-          ;(loadedScene as THREE.Scene).background = window.environment
+          (loadedScene as THREE.Scene).environment = window.environment;
+          (loadedScene as THREE.Scene).background = window.environment;
         }
 
-        window.scene = loadedScene as THREE.Scene
-        window.renderer.render(window.scene, window.camera)
+        window.scene = loadedScene as THREE.Scene;
+        window.renderer.render(window.scene, window.camera);
       },
-      { sceneJson, STRIP_SLOTS, players }
-    )
+      { sceneJson, STRIP_SLOTS, players },
+    );
   }
 
   private getService() {
     return this.runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName
-    )
+      HyperscapeService.serviceName,
+    );
   }
 }

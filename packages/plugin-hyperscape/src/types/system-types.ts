@@ -2,21 +2,30 @@
  * Specific system types for Hyperscape plugin
  */
 
-import { THREE } from '@hyperscape/hyperscape'
-import { System } from './core-types'
+import { THREE } from "@hyperscape/shared";
+import { System } from "./core-types";
+import type { ClientInput } from "@hyperscape/shared";
 
-// Agent Controls system interface
-export interface AgentControlsSystem extends System {
-  goto?(x: number, z: number): Promise<void>
-  move?(direction: { x: number; z: number }, speed?: number): void
-  jump?(): void
-  stop?(): void
-  setVelocity?(velocity: THREE.Vector3): void
+// Client Input system interface with agent control methods
+// ClientInput now provides both hardware input and programmatic agent control
+export interface ClientInputSystem extends System {
+  goto?(x: number, z: number): Promise<boolean>;
+  followEntity?(entityId: string): Promise<boolean>;
+  stopNavigation?(): void;
+  stopAllActions?(): void;
+  startRandomWalk?(): void;
+  stopRandomWalk?(): void;
+  getIsWalkingRandomly?(): boolean;
+  getIsNavigating?(): boolean;
 }
 
-// Helpers for type guards
-export function isAgentControlsSystem(
-  system: System
-): system is AgentControlsSystem {
-  return system.constructor.name === 'AgentControls' && 'goto' in system
+// Type guard for ClientInput with agent methods
+export function isClientInputSystem(
+  system: System,
+): system is ClientInputSystem {
+  return system.constructor.name === "ClientInput" && "goto" in system;
 }
+
+// Backward compatibility alias (deprecated, use ClientInputSystem)
+export type AgentControlsSystem = ClientInputSystem;
+export const isAgentControlsSystem = isClientInputSystem;
