@@ -110,11 +110,11 @@ bool BigConvexData::VLoad(PxInputStream& stream)
 
 		// We transform from:
 		//
-		// |5555|5555|3333|2222|1111|----|----|----|----|----|
+		// |5555|4444|3333|2222|1111|----|----|----|----|----|
 		//
 		// to:
 		//
-		// |5555|5555|5555|2222|3333|----|2222|----|1111|----|
+		// |5555|4444|4444|2222|3333|----|2222|----|1111|----|
 		//
 		for(PxU32 i=0;i<mData.mNbVerts;i++)
 			mData.mValencies[mData.mNbVerts-i-1].mCount = temp[mData.mNbVerts-i-1];

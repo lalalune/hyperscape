@@ -44,6 +44,14 @@ export class InteractionSystem extends System {
   private longPressTimer: NodeJS.Timeout | null = null;
   private readonly LONG_PRESS_DURATION = 500;
   
+  // Debouncing for interactions to prevent duplicates
+  private recentPickupRequests = new Map<string, number>();
+  private readonly PICKUP_DEBOUNCE_TIME = 1000; // 1 second
+  private recentAttackRequests = new Map<string, number>();
+  private readonly ATTACK_DEBOUNCE_TIME = 1000; // 1 second
+  private recentResourceRequests = new Map<string, number>();
+  private readonly RESOURCE_DEBOUNCE_TIME = 1000; // 1 second
+  
   constructor(world: World) {
     super(world);
   }
@@ -81,23 +89,126 @@ export class InteractionSystem extends System {
   }
   
   private createTargetMarker(): void {
-    // Create a circle marker for the target position
-    const geometry = new THREE.RingGeometry(0.3, 0.5, 32);
+    // Create a circle marker that projects onto terrain
+    // We'll create a mesh with vertices that we can update to follow terrain contours
+    const segments = 32;
+    const innerRadius = 0.3;
+    const outerRadius = 0.5;
+    
+    const geometry = new THREE.BufferGeometry();
+    const vertices: number[] = [];
+    const indices: number[] = [];
+    
+    // Create ring geometry with vertices we can update
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      
+      // Inner vertex
+      vertices.push(cos * innerRadius, 0, sin * innerRadius);
+      // Outer vertex
+      vertices.push(cos * outerRadius, 0, sin * outerRadius);
+    }
+    
+    // Create indices for triangles
+    for (let i = 0; i < segments; i++) {
+      const i1 = i * 2;
+      const i2 = i1 + 1;
+      const i3 = i1 + 2;
+      const i4 = i1 + 3;
+      
+      indices.push(i1, i3, i2);
+      indices.push(i2, i3, i4);
+    }
+    
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    
     const material = new THREE.MeshBasicMaterial({ 
       color: 0x00ff00, 
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.7
+      opacity: 0.7,
+      depthWrite: false,
+      depthTest: true
     });
+    
     this.targetMarker = new THREE.Mesh(geometry, material);
-    this.targetMarker.rotation.x = -Math.PI / 2; // Lay flat on ground
-    this.targetMarker.position.y = 0.01; // Slightly above ground to avoid z-fighting
     this.targetMarker.visible = false;
     
     const scene = this.world.stage?.scene;
     if (scene) {
       scene.add(this.targetMarker);
     }
+  }
+  
+  private projectMarkerOntoTerrain(centerX: number, centerZ: number, fallbackY: number): void {
+    if (!this.targetMarker) return;
+    
+    const geometry = this.targetMarker.geometry as THREE.BufferGeometry;
+    const positionAttribute = geometry.getAttribute('position') as THREE.BufferAttribute;
+    
+    if (!positionAttribute) return;
+    
+    // Get terrain system for fast heightmap lookup
+    const terrainSystem = this.world.getSystem('terrain') as 
+      { getHeightAt: (x: number, z: number) => number } | undefined;
+    
+    if (!terrainSystem) {
+      console.log('[InteractionSystem] No terrain system, using flat marker at Y=' + fallbackY);
+      this.targetMarker.position.setY(fallbackY);
+      for (let i = 0; i < positionAttribute.count; i++) {
+        positionAttribute.setY(i, 0.05);
+      }
+      positionAttribute.needsUpdate = true;
+      return;
+    }
+    
+    let totalTerrainY = 0;
+    let validVertices = 0;
+    
+    // Query heightmap for each vertex - this is instant!
+    for (let i = 0; i < positionAttribute.count; i++) {
+      const x = positionAttribute.getX(i);
+      const z = positionAttribute.getZ(i);
+      
+      // Get terrain height at this vertex position (world space)
+      const terrainY = terrainSystem.getHeightAt(centerX + x, centerZ + z);
+      
+      if (Number.isFinite(terrainY)) {
+        totalTerrainY += terrainY;
+        validVertices++;
+        // Store world Y temporarily
+        positionAttribute.setY(i, terrainY + 0.05);
+      } else {
+        // Fallback for this vertex
+        positionAttribute.setY(i, fallbackY + 0.05);
+      }
+    }
+    
+    // Calculate average terrain height and position marker
+    if (validVertices > 0) {
+      const avgTerrainY = totalTerrainY / validVertices;
+      this.targetMarker.position.setY(avgTerrainY);
+      
+      // Convert all vertex Y values to local space (relative to marker)
+      for (let i = 0; i < positionAttribute.count; i++) {
+        const worldY = positionAttribute.getY(i);
+        const localY = worldY - avgTerrainY;
+        positionAttribute.setY(i, localY);
+      }
+    } else {
+      // No valid terrain data, use flat marker
+      this.targetMarker.position.setY(fallbackY);
+      for (let i = 0; i < positionAttribute.count; i++) {
+        positionAttribute.setY(i, 0.05);
+      }
+    }
+    
+    positionAttribute.needsUpdate = true;
+    geometry.computeVertexNormals();
   }
   
   private onContextMenu(event: MouseEvent): void {
@@ -132,6 +243,13 @@ export class InteractionSystem extends System {
   
   private onCameraTap = (event: { x: number, y: number }): void => {
     if (!this.canvas || !this.world.camera) return;
+    
+    // Check if tapping on an entity first
+    const target = this.getEntityAtPosition(event.x, event.y);
+    if (target) {
+      console.log(`[InteractionSystem] Camera tap on entity: ${target.name} (${target.type}) - not showing movement indicator`);
+      return;
+    }
     
     // Calculate mouse position
     const rect = this.canvas.getBoundingClientRect();
@@ -171,22 +289,52 @@ export class InteractionSystem extends System {
       if (target.type === 'item') {
         event.preventDefault();
         const localPlayer = this.world.getPlayer();
-        if (localPlayer && target.entity) {
-          // Trigger entity interaction which will handle the pickup correctly
-          const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
-          if (entity.handleInteraction) {
-            entity.handleInteraction({
-              entityId: target.id,
-              playerId: localPlayer.id,
-              playerPosition: localPlayer.position
-            });
+        if (localPlayer) {
+          console.log('[InteractionSystem] Left-click pickup triggered for', target.id);
+          
+          // Check for debouncing to prevent duplicate pickup requests
+          const pickupKey = `${localPlayer.id}:${target.id}`;
+          const now = Date.now();
+          const lastRequest = this.recentPickupRequests.get(pickupKey);
+          
+          if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
+            console.log(`[InteractionSystem] Debounced duplicate pickup request for ${target.id}`);
+            return;
+          }
+          
+          // Record this pickup request
+          this.recentPickupRequests.set(pickupKey, now);
+          
+          // Clean up old entries (older than 5 seconds)
+          for (const [key, timestamp] of this.recentPickupRequests.entries()) {
+            if (now - timestamp > 5000) {
+              this.recentPickupRequests.delete(key);
+            }
+          }
+          
+          if (this.world.network?.send) {
+            this.world.network.send('pickupItem', { itemId: target.id });
+            console.log('[InteractionSystem] Sent pickupItem packet to server');
+          } else {
+            console.warn('[InteractionSystem] No network.send available for pickup');
+            // Fallback for single-player
+            const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
+            if (entity?.handleInteraction) {
+              entity.handleInteraction({
+                entityId: target.id,
+                playerId: localPlayer.id,
+                playerPosition: localPlayer.position
+              });
+            }
           }
         }
         return;
       }
       
-      // For other interactables, could add direct interaction here
-      // For now, let them use context menu or continue with movement
+      // For other entities (mobs, NPCs, players, resources), don't show movement indicator
+      // They should use context menus or other interaction methods
+      console.log(`[InteractionSystem] Clicked on entity: ${target.name} (${target.type}) - not showing movement indicator`);
+      return;
     }
     
     // Always handle left-click movement even if another system prevented default
@@ -211,12 +359,27 @@ export class InteractionSystem extends System {
     // Raycast against full scene to find terrain
     const scene = this.world.stage?.scene;
     let target: THREE.Vector3 | null = null;
+    let clickedOnEntity = false;
     if (scene) {
       const intersects = _raycaster.intersectObjects(scene.children, true);
       if (intersects.length > 0) {
-        target = intersects[0].point.clone();
+        // Check if we clicked on an entity (player, mob, item, npc, resource)
+        // by checking userData for entityId
+        const clickedObject = intersects[0].object;
+        if (clickedObject.userData && clickedObject.userData.entityId) {
+          clickedOnEntity = true;
+          console.log(`[InteractionSystem] Clicked on entity: ${clickedObject.userData.name} (${clickedObject.userData.type})`);
+        } else {
+          target = intersects[0].point.clone();
+        }
       }
     }
+    
+    // If we clicked on an entity, don't show movement indicator
+    if (clickedOnEntity) {
+      return;
+    }
+    
     if (!target) {
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
       target = new THREE.Vector3();
@@ -248,7 +411,9 @@ export class InteractionSystem extends System {
       // Update target position and show NEW marker
       this.targetPosition = target.clone();
       if (this.targetMarker) {
-        this.targetMarker.position.set(target.x, target.y + 0.01, target.z);
+        this.targetMarker.position.set(target.x, 0, target.z);
+        // Project the marker onto terrain to follow contours
+        this.projectMarkerOntoTerrain(target.x, target.z, target.y);
         this.targetMarker.visible = true;
       }
       
@@ -351,11 +516,10 @@ export class InteractionSystem extends System {
     // Animate target marker
     if (this.targetMarker && this.targetMarker.visible) {
       const time = Date.now() * 0.001;
-      // Pulse effect
+      // Pulse effect (scale animation)
       const scale = 1 + Math.sin(time * 4) * 0.1;
-      this.targetMarker.scale.set(scale, scale, scale);
-      // Rotation effect
-      this.targetMarker.rotation.z = time * 2;
+      this.targetMarker.scale.set(scale, 1, scale);
+      // Note: No rotation effect since marker is projected onto terrain
       
       // Hide marker when player reaches target
       const player = this.world.entities.player;
@@ -478,14 +642,42 @@ export class InteractionSystem extends System {
           icon: '🎒',
           enabled: true,
           handler: () => {
-            // Trigger the entity's handleInteraction method for proper pickup
-            const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
-            if (entity?.handleInteraction) {
-              entity.handleInteraction({
-                entityId: target.id,
-                playerId,
-                playerPosition: target.position
-              });
+            console.log('[InteractionSystem] Pickup action triggered for', target.id);
+            
+            // Check for debouncing to prevent duplicate pickup requests
+            const pickupKey = `${playerId}:${target.id}`;
+            const now = Date.now();
+            const lastRequest = this.recentPickupRequests.get(pickupKey);
+            
+            if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
+              console.log(`[InteractionSystem] Debounced duplicate pickup request for ${target.id}`);
+              return;
+            }
+            
+            // Record this pickup request
+            this.recentPickupRequests.set(pickupKey, now);
+            
+            // Clean up old entries (older than 5 seconds)
+            for (const [key, timestamp] of this.recentPickupRequests.entries()) {
+              if (now - timestamp > 5000) {
+                this.recentPickupRequests.delete(key);
+              }
+            }
+            
+            if (this.world.network?.send) {
+              this.world.network.send('pickupItem', { itemId: target.id });
+              console.log('[InteractionSystem] Sent pickupItem packet to server');
+            } else {
+              console.warn('[InteractionSystem] No network.send available for pickup');
+              // Fallback for single-player
+              const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
+              if (entity?.handleInteraction) {
+                entity.handleInteraction({
+                  entityId: target.id,
+                  playerId,
+                  playerPosition: target.position
+                });
+              }
             }
           }
         });
@@ -592,17 +784,43 @@ export class InteractionSystem extends System {
           icon: '⚔️',
           enabled: isAlive,
           handler: () => {
+            console.log('[InteractionSystem] Attack action triggered for mob:', target.id);
+            
+            // Check for debouncing to prevent duplicate attack requests
+            const attackKey = `${playerId}:${target.id}`;
+            const now = Date.now();
+            const lastRequest = this.recentAttackRequests.get(attackKey);
+            
+            if (lastRequest && (now - lastRequest) < this.ATTACK_DEBOUNCE_TIME) {
+              console.log(`[InteractionSystem] Debounced duplicate attack request for ${target.id}`);
+              return;
+            }
+            
+            // Record this attack request
+            this.recentAttackRequests.set(attackKey, now);
+            
+            // Clean up old entries (older than 5 seconds)
+            for (const [key, timestamp] of this.recentAttackRequests.entries()) {
+              if (now - timestamp > 5000) {
+                this.recentAttackRequests.delete(key);
+              }
+            }
+            
             if (this.world.network?.send) {
               this.world.network.send('attackMob', {
                 mobId: target.id,
                 attackType: 'melee'
               });
+              console.log('[InteractionSystem] Sent attackMob packet to server');
+            } else {
+              console.warn('[InteractionSystem] No network.send available for attack');
+              // Fallback for single-player
+              this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
+                playerId,
+                targetId: target.id,
+                attackType: AttackType.MELEE
+              });
             }
-            this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
-              playerId,
-              targetId: target.id,
-              attackType: AttackType.MELEE
-            });
           }
         });
         actions.push({
@@ -690,6 +908,29 @@ export class InteractionSystem extends System {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
     
+    console.log('[InteractionSystem] Resource action triggered:', action, resourceId);
+    
+    // Check for debouncing to prevent duplicate resource requests
+    const resourceKey = `${localPlayer.id}:${resourceId}`;
+    const now = Date.now();
+    const lastRequest = this.recentResourceRequests.get(resourceKey);
+    
+    if (lastRequest && (now - lastRequest) < this.RESOURCE_DEBOUNCE_TIME) {
+      console.log(`[InteractionSystem] Debounced duplicate resource request for ${resourceId}`);
+      return;
+    }
+    
+    // Record this resource request
+    this.recentResourceRequests.set(resourceKey, now);
+    
+    // Clean up old entries (older than 5 seconds)
+    for (const [key, timestamp] of this.recentResourceRequests.entries()) {
+      if (now - timestamp > 5000) {
+        this.recentResourceRequests.delete(key);
+      }
+    }
+    
+    // Send network packet to server to start gathering
     if (this.world.network?.send) {
       this.world.network.send('resourceGather', {
         resourceId,
@@ -699,13 +940,16 @@ export class InteractionSystem extends System {
           z: localPlayer.position.z
         }
       });
+      console.log('[InteractionSystem] Sent resourceGather packet to server');
+    } else {
+      console.warn('[InteractionSystem] No network.send available for resource gathering');
+      // Fallback for single-player
+      this.world.emit(EventType.RESOURCE_ACTION, {
+        playerId: localPlayer.id,
+        resourceId,
+        action
+      });
     }
-    
-    this.world.emit(EventType.RESOURCE_ACTION, {
-      playerId: localPlayer.id,
-      resourceId,
-      action
-    });
   }
 
   private walkTo(position: Position3D): void {

@@ -116,10 +116,8 @@ export class Environment extends System {
     }
     
     // Client with graphics - full environment setup
-    // Defer CSM creation to ensure stage is ready
-    setTimeout(() => {
-      this.buildCSM();
-    }, 100);
+    // Build CSM immediately - stage should be ready by start()
+    this.buildCSM();
     
     this.updateSky();
     

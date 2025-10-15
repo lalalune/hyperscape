@@ -93,11 +93,7 @@ PxMutexImpl::PxMutexImpl()
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
 #if PX_LINUX
 	pthread_mutexattr_setprotocol(&attr, gMutexProtocol);
-
-	#if !defined(__EMSCRIPTEN__) || defined(WASMPTHREAD)
-		pthread_mutexattr_setprioceiling(&attr, 0);
-	#endif
-	
+	pthread_mutexattr_setprioceiling(&attr, 0);
 #endif
 	pthread_mutex_init(&getMutex(this)->lock, &attr);
 	pthread_mutexattr_destroy(&attr);

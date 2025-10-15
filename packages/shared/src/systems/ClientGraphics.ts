@@ -167,11 +167,22 @@ export class ClientGraphics extends System {
     this.height = this.viewport.offsetHeight
     this.aspect = this.width / this.height
     
+    // Update camera aspect ratio immediately to match viewport
+    // Camera is created with hardcoded 16/9, so we need to fix it on init
+    if ('aspect' in this.world.camera) {
+      (this.world.camera as unknown as { aspect: number }).aspect = this.aspect
+    }
+    if ('updateProjectionMatrix' in this.world.camera) {
+      (this.world.camera as { updateProjectionMatrix: () => void }).updateProjectionMatrix()
+    }
+    
     // Create renderer (WebGPU or WebGL) - auto-detect best available
     this.renderer = await getRenderer(true)
     this.isWebGPU = !isWebGLRenderer(this.renderer)
     
-    console.log(`[ClientGraphics] Using ${this.isWebGPU ? 'WebGPU' : 'WebGL'} renderer (auto-detected)`)
+    console.log(`[ClientGraphics] ✅ Using ${this.isWebGPU ? 'WebGPU' : 'WebGL'} renderer (auto-detected)`)
+    console.log(`[ClientGraphics] Initial viewport size: ${this.width}x${this.height}, aspect: ${this.aspect.toFixed(2)}`)
+    console.log(`[ClientGraphics] Camera aspect updated to: ${this.aspect.toFixed(2)}`)
     
     // Configure renderer
     configureRenderer(this.renderer, {
@@ -263,6 +274,12 @@ export class ClientGraphics extends System {
     })
     // Set ID for Cypress tests
     this.renderer.domElement.id = 'hyperscape-world-canvas'
+    
+    // Style canvas to fill container and scale properly
+    this.renderer.domElement.style.width = '100%'
+    this.renderer.domElement.style.height = '100%'
+    this.renderer.domElement.style.display = 'block'
+    
     // Avoid appending twice
     if (this.renderer.domElement.parentElement !== this.viewport) {
       // Detach from any previous parent to avoid duplicate canvases
@@ -285,29 +302,43 @@ export class ClientGraphics extends System {
       return
     }
     
+    // Ensure valid dimensions
+    if (width <= 0 || height <= 0) {
+      console.warn(`[ClientGraphics] Invalid resize dimensions: ${width}x${height}`)
+      return
+    }
+    
     // Prevent unnecessary resize operations
     if (width === this.width && height === this.height) {
       return
     }
     
-    console.log(`[ClientGraphics] Resizing from ${this.width}x${this.height} to ${width}x${height}`)
-    
+    const oldAspect = this.aspect
     this.width = width
     this.height = height
     this.aspect = this.width / this.height
+    
+    console.log(`[ClientGraphics] Resizing: ${width}x${height}, aspect: ${this.aspect.toFixed(2)} (was ${oldAspect.toFixed(2)})`)
+    
+    // Update camera aspect ratio for any aspect ratio support
     if ('aspect' in this.world.camera) {
       ;(this.world.camera as unknown as { aspect: number }).aspect = this.aspect
     }
     if ('updateProjectionMatrix' in this.world.camera) {
       (this.world.camera as { updateProjectionMatrix: () => void }).updateProjectionMatrix()
     }
-    this.renderer.setSize(this.width, this.height)
     
+    // Update renderer size with current pixel ratio
+    const dpr = this.world.prefs?.dpr || 1
+    this.renderer.setPixelRatio(dpr)
+    this.renderer.setSize(this.width, this.height, false)
+    
+    // Update post-processing composer
     if (this.composer) {
       this.composer.setSize(this.width, this.height)
     }
     
-    this.emit(EventType.GRAPHICS_RESIZE, { width: this.width, height: this.height })
+    this.emit(EventType.GRAPHICS_RESIZE, { width: this.width, height: this.height, aspect: this.aspect })
     this.render()
   }
 

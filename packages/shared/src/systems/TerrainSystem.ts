@@ -535,6 +535,10 @@ export class TerrainSystem extends System {
     const mesh = new THREE.Mesh(geometry, material)
     mesh.position.set(tileX * this.CONFIG.TILE_SIZE, 0, tileZ * this.CONFIG.TILE_SIZE)
     mesh.name = `Terrain_${key}`
+    
+    // Enable shadow receiving for CSM
+    mesh.receiveShadow = true
+    mesh.castShadow = false // Terrain doesn't cast shadows on itself
 
     // Add userData for click-to-move detection and other systems
     mesh.userData = {

@@ -53,8 +53,7 @@
  * References: world-client.tsx (World setup), PrivyAuthProvider.tsx, CharacterSelectPage.tsx
  */
 
-import type { World } from '@hyperscape/shared'
-import { CircularSpawnArea, installThreeJSExtensions, THREE } from '@hyperscape/shared'
+import { CircularSpawnArea, installThreeJSExtensions, THREE, World } from '@hyperscape/shared'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -85,7 +84,7 @@ if (!globalThis.Buffer) {
 declare global {
   interface Window {
     THREE?: typeof THREE
-    world?: World
+    world?: InstanceType<typeof World>
   }
 }
 
@@ -179,11 +178,11 @@ function App() {
   // Pre-world actions are managed by CharacterSelectPage
 
   // Memoize the onSetup callback to prevent re-initialization
-  const handleSetup = React.useCallback((world: World, _config: unknown) => {
+  const handleSetup = React.useCallback((world: InstanceType<typeof World>, _config: unknown) => {
     console.log('[App] onSetup callback triggered')
     // Make world accessible globally for debugging
     const globalWindow = window as Window & { 
-      world?: World
+      world?: InstanceType<typeof World>
       THREE?: typeof THREE
       testChat?: () => void
       Hyperscape?: Record<string, unknown>
@@ -196,15 +195,18 @@ function App() {
     // Add chat test function
     globalWindow.testChat = () => {
       console.log('=== TESTING CHAT ===');
-      console.log('world.chat:', world.chat);
-      console.log('world.network:', world.network);
-      console.log('world.network.id:', world.network.id);
-      console.log('world.network.isClient:', world.network.isClient);
-      console.log('world.network.send:', world.network.send);
+      const chat = world.getSystem('chat') as { send?: (msg: string) => void } | null
+      const network = world.getSystem('network') as { id?: string; isClient?: boolean; send?: unknown } | null
+      
+      console.log('world.chat:', chat);
+      console.log('world.network:', network);
+      console.log('world.network.id:', network?.id);
+      console.log('world.network.isClient:', network?.isClient);
+      console.log('world.network.send:', network?.send);
       
       const testMsg = 'Test message from console at ' + new Date().toLocaleTimeString();
       console.log('Sending test message:', testMsg);
-      world.chat.send(testMsg);
+      chat?.send?.(testMsg);
     };
     console.log('💬 Chat test function available: call testChat() in console');
   }, [])

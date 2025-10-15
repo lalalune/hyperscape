@@ -48,6 +48,10 @@ export class CSM {
   }
 
   private initializeLights(): void {
+    // Get initial camera position for light placement
+    const cameraPosition = new THREE.Vector3();
+    this.camera.getWorldPosition(cameraPosition);
+    
     // Create directional lights for shadow cascades
     for (let i = 0; i < this.shadowCascades; i++) {
       const light = new THREE.DirectionalLight(0xffffff, this.options.lightIntensity || 1);
@@ -61,9 +65,9 @@ export class CSM {
       light.shadow.bias = this.options.shadowBias || -0.0001;
       light.shadow.normalBias = this.options.shadowNormalBias || 0.001;
       
-      // Set light direction
-      light.position.copy(this.lightDirection).multiplyScalar(-50);
-      light.target.position.set(0, 0, 0);
+      // Set light position relative to camera
+      light.position.copy(this.lightDirection).multiplyScalar(-50).add(cameraPosition);
+      light.target.position.copy(cameraPosition);
       
       // Configure shadow camera
       const d = 50;
@@ -83,10 +87,19 @@ export class CSM {
   }
 
   public update(): void {
-    // Update light positions and shadow cameras
+    // Update light positions and shadow cameras to follow the camera
+    // This ensures shadows are cast in the visible area around the player
+    const cameraPosition = new THREE.Vector3();
+    this.camera.getWorldPosition(cameraPosition);
+    
     for (const light of this.lights) {
       if (light.castShadow) {
-        light.position.copy(this.lightDirection).multiplyScalar(-50);
+        // Position light above the camera position, offset in the light direction
+        light.position.copy(this.lightDirection).multiplyScalar(-50).add(cameraPosition);
+        
+        // Make light target follow camera too
+        light.target.position.copy(cameraPosition);
+        
         light.shadow.camera.updateProjectionMatrix();
       }
     }

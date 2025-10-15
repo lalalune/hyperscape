@@ -352,10 +352,7 @@ TARGET_INCLUDE_DIRECTORIES(PhysX
 	PRIVATE ${PHYSX_SOURCE_DIR}/common/src
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/physx/src
-	# device directory doesn't exist - commented out
-	# PRIVATE ${PHYSX_SOURCE_DIR}/physx/src/device
 	PRIVATE ${PHYSX_SOURCE_DIR}/physxgpu/include
-
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/geomutils/include
 	PRIVATE ${PHYSX_SOURCE_DIR}/geomutils/src
@@ -388,18 +385,21 @@ TARGET_INCLUDE_DIRECTORIES(PhysX
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/physxmetadata/core/include
 
-    # immediatemode/include doesn't exist, only immediatemode/src
-    PRIVATE ${PHYSX_SOURCE_DIR}/immediatemode/src
+    PRIVATE ${PHYSX_SOURCE_DIR}/immediatemode/include
 
     PRIVATE ${PHYSX_SOURCE_DIR}/pvd/include
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/gpucommon/include
 	PRIVATE ${PHYSX_SOURCE_DIR}/gpucommon/src/CUDA
 
-  # omnipvd is under physx/src not source
-  PRIVATE ${PHYSX_SOURCE_DIR}/physx/src/omnipvd
-  PRIVATE ${PHYSX_ROOT_DIR}/pvdruntime/include
+	PRIVATE ${PHYSX_SOURCE_DIR}/omnipvd
+	PRIVATE ${PHYSX_ROOT_DIR}/pvdruntime/include
 )
+
+# Conditionally add the internal device directory when not in public release mode
+IF(NOT PUBLIC_RELEASE)
+    TARGET_INCLUDE_DIRECTORIES(PhysX PRIVATE ${PHYSX_SOURCE_DIR}/physx/src/internal/device)
+ENDIF()
 
 TARGET_COMPILE_DEFINITIONS(PhysX
 

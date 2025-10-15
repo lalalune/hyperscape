@@ -31,7 +31,6 @@ export class ItemSpawnerSystem extends SystemBase {
   private shopItems = new Map<string, string[]>(); // storeId -> entityIds
   private worldItems = new Map<string, string[]>(); // location -> entityIds
   private chestItems = new Map<string, string[]>(); // chestId -> entityIds
-  private itemIdCounter = 0;
   
   constructor(world: World) {
     super(world, {
@@ -55,7 +54,7 @@ export class ItemSpawnerSystem extends SystemBase {
 
   async init(): Promise<void> {
     // Set up type-safe event subscriptions for item spawning (4 listeners!)
-    this.subscribe<{ itemId: string; position: { x: number; y: number; z: number }; quantity?: number }>(EventType.ITEM_SPAWN_REQUEST, async (data) => await this.spawnItemAtLocation(data));
+    this.subscribe<{ itemId: string; position: { x: number; y: number; z: number }; quantity?: number }>(EventType.ITEM_SPAWN_REQUEST, async (data) => await this.spawnItemAtLocation(data, 0));
     this.subscribe<{ itemId: string }>(EventType.ITEM_DESPAWN, (data) => this.despawnItem(data.itemId));
     this.subscribe<{}>(EventType.ITEM_RESPAWN_SHOPS, async (_data) => await this.respawnShopItems());
     this.subscribe<{ position: { x: number; y: number; z: number }; lootTable: string[] }>(EventType.ITEM_SPAWN_LOOT, async (data) => await this.spawnLootItems(data));
@@ -63,58 +62,49 @@ export class ItemSpawnerSystem extends SystemBase {
 
   start(): void {
     console.log(`[ItemSpawnerSystem] start() called on ${this.world.isClient ? 'CLIENT' : 'SERVER'}`);
-    
-    // Spawn items after terrain is ready
-    // Only spawn items with 3D models on client-side to avoid server file system access
-    if (this.world.isClient) {
-      console.log('[ItemSpawnerSystem] Client-side spawn enabled, waiting for terrain...');
-      
       // Wait for terrain to be ready before spawning items
-      const checkTerrainAndSpawn = async () => {
-        const terrainSystem = this.world.getSystem('terrain') as { getHeightAt: (x: number, z: number) => number | null } | undefined;
-        if (!terrainSystem) {
-          console.warn('[ItemSpawnerSystem] Terrain system not ready, waiting...');
-          setTimeout(checkTerrainAndSpawn, 500);
-          return;
-        }
-        
-        // Test if terrain has tiles loaded
-        const testHeight = terrainSystem.getHeightAt(0, 0);
-        if (!Number.isFinite(testHeight) || testHeight === null) {
-          console.warn('[ItemSpawnerSystem] Terrain tiles not generated yet, waiting...');
-          setTimeout(checkTerrainAndSpawn, 500);
-          return;
-        }
-        
-        console.log(`[ItemSpawnerSystem] ✅ Terrain ready (height at origin: ${testHeight}), spawning items...`);
-        
-        // Spawn shop items at all towns (General Store inventory)
-        console.log('[ItemSpawnerSystem] Spawning shop items...');
-        await this.spawnShopItems();
-        console.log(`[ItemSpawnerSystem] Shop items spawned: ${this.shopItems.size} stores`);
-        
-        // Spawn world treasure items (equipment and resources)
-        console.log('[ItemSpawnerSystem] Spawning treasure items...');
-        await this.spawnTreasureItems();
-        
-        // Spawn chest loot items (valuable equipment)
-        console.log('[ItemSpawnerSystem] Spawning chest items...');
-        await this.spawnChestLootItems();
-        console.log(`[ItemSpawnerSystem] Chest items spawned: ${this.chestItems.size} chests`);
-        
-        // Spawn resource items
-        console.log('[ItemSpawnerSystem] Spawning resource items...');
-        await this.spawnResourceItems();
-        
-        console.log(`[ItemSpawnerSystem] ✅ All items spawned successfully! Total: ${this.spawnedItems.size} items`);
-      };
+    const checkTerrainAndSpawn = async () => {
+      const terrainSystem = this.world.getSystem('terrain') as { getHeightAt: (x: number, z: number) => number | null } | undefined;
+      if (!terrainSystem) {
+        console.warn('[ItemSpawnerSystem] Terrain system not ready, waiting...');
+        setTimeout(checkTerrainAndSpawn, 500);
+        return;
+      }
       
-      // Start checking after a small initial delay
-      setTimeout(checkTerrainAndSpawn, 1000);
-    } else {
-      console.log('[ItemSpawnerSystem] Server-side - item spawning disabled');
+      // Test if terrain has tiles loaded
+      const testHeight = terrainSystem.getHeightAt(0, 0);
+      if (!Number.isFinite(testHeight) || testHeight === null) {
+        console.warn('[ItemSpawnerSystem] Terrain tiles not generated yet, waiting...');
+        setTimeout(checkTerrainAndSpawn, 500);
+        return;
+      }
+      
+      console.log(`[ItemSpawnerSystem] ✅ Terrain ready (height at origin: ${testHeight}), spawning items...`);
+      
+      // Spawn shop items at all towns (General Store inventory)
+      console.log('[ItemSpawnerSystem] Spawning shop items...');
+      await this.spawnShopItems();
+      console.log(`[ItemSpawnerSystem] Shop items spawned: ${this.shopItems.size} stores`);
+      
+      // Spawn world treasure items (equipment and resources)
+      console.log('[ItemSpawnerSystem] Spawning treasure items...');
+      await this.spawnTreasureItems();
+      
+      // Spawn chest loot items (valuable equipment)
+      console.log('[ItemSpawnerSystem] Spawning chest items...');
+      await this.spawnChestLootItems();
+      console.log(`[ItemSpawnerSystem] Chest items spawned: ${this.chestItems.size} chests`);
+      
+      // Spawn resource items
+      console.log('[ItemSpawnerSystem] Spawning resource items...');
+      await this.spawnResourceItems();
+      
+      console.log(`[ItemSpawnerSystem] ✅ All items spawned successfully! Total: ${this.spawnedItems.size} items`);
+    };
+    
+    // Start checking after a small initial delay
+    setTimeout(checkTerrainAndSpawn, 1000);
     }
-  }
 
   private async spawnAllItemTypes(): Promise<void> {
     // Spawn shop items (tools and basic equipment)
@@ -151,7 +141,7 @@ export class ItemSpawnerSystem extends SystemBase {
             z: location.position.z + Math.sin(angle) * radius
           };
           
-          await this.spawnItemFromData(itemData, position, 'treasure', location.description);
+          await this.spawnItemFromData(itemData, position, 'treasure', location.description, itemIndex);
         }
       }
     }
@@ -179,7 +169,7 @@ export class ItemSpawnerSystem extends SystemBase {
             z: store.location.position.z + offsetZ
           };
           
-          const itemApp = await this.spawnItemFromData(itemData, position, 'shop', store.name);
+          const itemApp = await this.spawnItemFromData(itemData, position, 'shop', store.name, itemIndex);
           shopItemInstances.push(itemApp);
         }
       }
@@ -213,7 +203,7 @@ export class ItemSpawnerSystem extends SystemBase {
             z: chest.z
           };
           
-          const itemApp = await this.spawnItemFromData(itemData, position, 'chest', chest.name);
+          const itemApp = await this.spawnItemFromData(itemData, position, 'chest', chest.name, itemIndex);
           chestItemInstances.push(itemApp);
         }
       }
@@ -243,17 +233,25 @@ export class ItemSpawnerSystem extends SystemBase {
       { itemId: 'cooked_trout', x: 3, y: 0, z: -2 }
     ];
     
+    let i = 0;
     for (const spawn of resourceSpawns) {
       const itemData = getItem(spawn.itemId);
       if (itemData) {
         const position = { x: spawn.x, y: spawn.y, z: spawn.z };
-        await this.spawnItemFromData(itemData, position, 'resource', 'Resource Area');
+        await this.spawnItemFromData(itemData, position, 'resource', 'Resource Area', i);
+        i++;
       }
     }
   }
 
-  private async spawnItemFromData(itemData: Item, position: { x: number; y: number; z: number }, spawnType: string, location: string): Promise<string> {
-    const itemId = `gdd_${itemData.id}_${this.itemIdCounter++}`;
+  #lastKnownIndex: Record<string, number> = {};
+
+  private async spawnItemFromData(itemData: Item, position: { x: number; y: number; z: number }, spawnType: string, location: string, index: number): Promise<string> {
+    if (this.#lastKnownIndex[itemData.type] && this.#lastKnownIndex[itemData.type] >= index) {
+      index = this.#lastKnownIndex[itemData.type] + 1;
+    }
+    this.#lastKnownIndex[itemData.type] = index;
+    const itemId = `gdd_${itemData.id}_${location}_${index}`;
     
     console.log(`[ItemSpawnerSystem] Spawning ${itemData.name} at initial position:`, position);
     
@@ -414,13 +412,13 @@ export class ItemSpawnerSystem extends SystemBase {
     return loot;
   }
 
-  private async spawnItemAtLocation(data: { itemId: string; position: { x: number; y: number; z: number }; quantity?: number }): Promise<void> {
+  private async spawnItemAtLocation(data: { itemId: string; position: { x: number; y: number; z: number }; quantity?: number }, index: number): Promise<void> {
     const itemData = getItem(data.itemId);
     if (!itemData) {
       throw new Error(`[ItemSpawnerSystem] Unknown item ID: ${data.itemId}`);
     }
     
-    await this.spawnItemFromData(itemData, data.position, 'spawned', 'Dynamic Spawn');
+    await this.spawnItemFromData(itemData, data.position, 'spawned', 'Dynamic Spawn', index);
   }
 
   private despawnItem(itemId: string): void {
@@ -433,13 +431,13 @@ export class ItemSpawnerSystem extends SystemBase {
   }
 
   // Public method for test systems
-  public async spawnItem(itemId: string, position: { x: number; y: number; z: number }, _quantity: number = 1): Promise<string> {
+  public async spawnItem(itemId: string, position: { x: number; y: number; z: number }, index: number, _quantity: number = 1): Promise<string> {
     const itemData = getItem(itemId);
     if (!itemData) {
       throw new Error(`[ItemSpawnerSystem] Unknown item ID: ${itemId}`);
     }
     
-    return await this.spawnItemFromData(itemData, position, 'test', 'Test Environment');
+    return await this.spawnItemFromData(itemData, position, 'test', 'Test Environment', index);
   }
 
   private async respawnShopItems(): Promise<void> {
@@ -468,7 +466,7 @@ export class ItemSpawnerSystem extends SystemBase {
           z: data.position.z + Math.floor(index / 3) * 0.5 - 0.5
         };
         
-        await this.spawnItemFromData(itemData, offsetPosition, 'loot', 'Mob Drop');
+        await this.spawnItemFromData(itemData, offsetPosition, 'loot', 'Mob Drop', index);
       }
     }
   }
@@ -552,10 +550,7 @@ export class ItemSpawnerSystem extends SystemBase {
     this.shopItems.clear();
     this.worldItems.clear();
     this.chestItems.clear();
-    
-    // Reset counter
-    this.itemIdCounter = 0;
-    
+        
     console.log('[ItemSpawnerSystem] Item spawner system destroyed and cleaned up');
     
     // Call parent cleanup

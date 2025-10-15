@@ -35,12 +35,12 @@ export class ClientCameraSystem extends SystemBase {
   private canvas: HTMLCanvasElement | null = null;
   
   // Camera state for different modes
-  private spherical = new THREE.Spherical(6, Math.PI * 0.3, 0); // current radius, phi, theta
-  private targetSpherical = new THREE.Spherical(6, Math.PI * 0.3, 0); // target spherical for smoothing
+  private spherical = new THREE.Spherical(6, Math.PI * 0.42, 0); // current radius, phi, theta
+  private targetSpherical = new THREE.Spherical(6, Math.PI * 0.42, 0); // target spherical for smoothing
   private targetPosition = new THREE.Vector3();
   private smoothedTarget = new THREE.Vector3();
   private cameraPosition = new THREE.Vector3();
-  private cameraOffset = new THREE.Vector3(0, 2, 0);
+  private cameraOffset = new THREE.Vector3(0, 1.3, 0);
   private lookAtTarget = new THREE.Vector3();
   // Collision-aware effective radius
   private effectiveRadius = 6;
@@ -51,11 +51,11 @@ export class ClientCameraSystem extends SystemBase {
   // Control settings
   private readonly settings = {
       // RS3-like zoom bounds (further min to avoid getting too close)
-      minDistance: 5.0,
+      minDistance: 2.0,
       maxDistance: 15.0,
-      // RS3-like pitch limits: tighten min to prevent overhead
-      minPolarAngle: Math.PI * 0.24,
-      maxPolarAngle: Math.PI * 0.45,
+      // Over-the-shoulder pitch limits: more horizontal for better forward view
+      minPolarAngle: Math.PI * 0.35,
+      maxPolarAngle: Math.PI * 0.48,
       // RS3-like feel
       rotateSpeed: 0.9,
       zoomSpeed: 1.2,
@@ -68,7 +68,10 @@ export class ClientCameraSystem extends SystemBase {
       cameraLerpFactor: 0.1,
       invertY: false,
       // Discrete zoom step per wheel notch (world units)
-      zoomStep: 0.6
+      zoomStep: 0.6,
+      // Over-the-shoulder offset: character moves to left when zoomed in (like Fortnite)
+      shoulderOffsetMax: 0.15, // Max horizontal offset when fully zoomed in
+      shoulderOffsetSide: -1 // -1 = left, 1 = right
   };
   
   // Mouse state
@@ -666,12 +669,12 @@ export class ClientCameraSystem extends SystemBase {
 
     this.targetSpherical.radius = 8;
     this.targetSpherical.theta = 0;
-    this.targetSpherical.phi = Math.PI * 0.4;
+    this.targetSpherical.phi = Math.PI * 0.42;
     this.spherical.radius = this.targetSpherical.radius;
     this.spherical.theta = this.targetSpherical.theta;
     this.spherical.phi = this.targetSpherical.phi;
-    // RS3 shoulder/head height
-    this.cameraOffset.set(0, 1.8, 0);
+    // Over-the-shoulder height - lower for better view
+    this.cameraOffset.set(0, 1.3, 0);
   }
 
   private onSetTarget(event: { target: CameraTarget }): void {
@@ -786,8 +789,28 @@ export class ClientCameraSystem extends SystemBase {
 
     // Calculate look-at target - look at player's chest/torso height
     this.lookAtTarget.copy(this.smoothedTarget);
-    // RS3-style: look directly at a fixed chest-height above target (no dynamic min/max)
-    this.lookAtTarget.y = this.smoothedTarget.y + 1.5;
+    // Over-the-shoulder: look at shoulder/upper chest height
+    this.lookAtTarget.y = this.smoothedTarget.y + 0.2;
+    
+    // Apply over-the-shoulder offset (Fortnite-style)
+    // When zoomed in close, offset the look-at target horizontally so character appears on left/right
+    const zoomFactor = THREE.MathUtils.clamp(
+      (this.settings.maxDistance - this.effectiveRadius) / (this.settings.maxDistance - this.settings.minDistance),
+      0,
+      1
+    );
+    const shoulderOffset = this.settings.shoulderOffsetMax * zoomFactor;
+    
+    // Calculate the right vector relative to camera's current orientation
+    const cameraRight = _v3_1.set(
+      Math.cos(this.spherical.theta),
+      0,
+      Math.sin(this.spherical.theta)
+    ).normalize();
+    
+    // Apply horizontal offset to look-at target
+    this.lookAtTarget.x += cameraRight.x * shoulderOffset * this.settings.shoulderOffsetSide;
+    this.lookAtTarget.z += cameraRight.z * shoulderOffset * this.settings.shoulderOffsetSide;
 
     // Follow target. If zoom changed this frame, snap position instantly for straight-in/out motion
     // RS3: move camera directly with no positional lerp to avoid swoop or lag

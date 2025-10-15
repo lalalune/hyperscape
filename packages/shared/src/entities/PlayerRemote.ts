@@ -66,6 +66,7 @@ interface AvatarWithInstance {
     destroy: () => void
     move: (matrix: THREE.Matrix4) => void
     update: (delta: number) => void
+    disableRateCheck?: () => void
   } | null
   getHeadToHeight?: () => number
   setEmote?: (emote: string) => void
@@ -274,6 +275,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
     
     // The avatar instance will be managed by the VRM factory
     // Don't add anything to base - the VRM scene is added to world.stage.scene
+    
+    // Disable distance-based LOD throttling for smooth animations
+    const avatarWithInstance = nodeToUse as unknown as AvatarWithInstance;
+    if (avatarWithInstance.instance && avatarWithInstance.instance.disableRateCheck) {
+      avatarWithInstance.instance.disableRateCheck();
+    }
     
     // Set up positioning
     const headHeight = this.avatar.getHeadToHeight()!;

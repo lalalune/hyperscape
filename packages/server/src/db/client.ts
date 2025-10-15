@@ -25,9 +25,10 @@
  * 5. __dirname/../src/db/migrations (alternative build structure)
  * 
  * **Connection Pooling**:
- * - Max 20 connections per pool
- * - 30 second idle timeout
- * - 5 second connection timeout
+ * - Max 20 connections per pool (min 2)
+ * - 10 second idle timeout (aggressively reaps idle connections)
+ * - 30 second connection timeout
+ * - allowExitOnIdle: true (cleanup on hot reload)
  * 
  * **Usage**:
  * ```typescript
@@ -66,13 +67,25 @@ let poolInstance: pg.Pool | undefined;
  * This is the main entry point for database setup. It creates a connection pool,
  * initializes Drizzle ORM, and runs all pending migrations.
  * 
- * The function is idempotent - calling it multiple times returns the cached instance.
+ * **Hot Reload Safety**: Automatically closes any stale connection pools from previous
+ * dev server instances before creating a new one. This prevents connection exhaustion
+ * during development.
  * 
  * @param connectionString - PostgreSQL connection URL (postgresql://user:pass@host:port/database)
  * @returns Object with db (Drizzle instance) and pool (pg.Pool) for direct access
  * @throws Error if connection fails or migrations encounter unexpected errors
  */
 export async function initializeDatabase(connectionString: string) {
+  // Force cleanup of stale connections on hot reload
+  if (poolInstance) {
+    console.log('[DB] Cleaning up stale connection pool from previous session...');
+    await poolInstance.end().catch(err => {
+      console.warn('[DB] Error ending stale pool:', err);
+    });
+    poolInstance = undefined;
+    dbInstance = undefined;
+  }
+  
   // Return cached instance if already initialized (singleton pattern)
   if (dbInstance) {
     console.log('[DB] Database already initialized');
@@ -84,8 +97,10 @@ export async function initializeDatabase(connectionString: string) {
   const pool = new Pool({
     connectionString,
     max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    min: 2,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 30000,
+    allowExitOnIdle: true,
   });
 
   // Test connection
