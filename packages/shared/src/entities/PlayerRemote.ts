@@ -133,7 +133,6 @@ export class PlayerRemote extends Entity implements HotReloadable {
     this.base = createNode('group') as Group
     // Position and rotation are now handled by Entity base class
     // Use entity's position/rotation properties instead of data
-    console.log(`[PlayerRemote] Initializing ${this.id} at position: (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)}, ${this.position.z.toFixed(1)})`)
 
     this.body = createNode('rigidbody', { type: 'kinematic' }) as Mesh
     this.body.active = (this.data.effect as PlayerEffect)?.anchorId ? false : true
@@ -212,8 +211,6 @@ export class PlayerRemote extends Entity implements HotReloadable {
       return;
     }
     
-    console.log('[PlayerRemote] Loading avatar:', avatarUrl);
-    
     const src = await this.world.loader.load('avatar', avatarUrl) as LoadedAvatar;
     
     // Clean up previous avatar
@@ -226,8 +223,6 @@ export class PlayerRemote extends Entity implements HotReloadable {
     
     // Note: VRM hooks will be set on the avatar node before mounting
     const nodeMap = src.toNodes();
-    // Strong type assumption - nodeMap is a Map
-    console.log('[PlayerRemote] NodeMap type:', nodeMap.constructor.name, 'keys:', Array.from(nodeMap.keys()));
     
     const rootNode = nodeMap.get('root');
     if (!rootNode) {
@@ -253,9 +248,6 @@ export class PlayerRemote extends Entity implements HotReloadable {
     const nodeObj = nodeToUse as Avatar & AvatarNodeInternal;
     nodeObj.ctx = this.world;
     
-    // Check current hooks
-    console.log('[PlayerRemote] Current avatar hooks:', nodeObj.hooks ? Object.keys(nodeObj.hooks) : 'none');
-    
     // Use world.stage.scene and manually update position
     const vrmHooks: VRMHooks = {
       scene: this.world.stage.scene,
@@ -264,7 +256,6 @@ export class PlayerRemote extends Entity implements HotReloadable {
       loader: this.world.loader
     };
     nodeObj.hooks = vrmHooks;
-    console.log('[PlayerRemote] New hooks set:', Object.keys(vrmHooks));
     
     // Set the parent to base's matrix so it follows the remote player
     Object.assign(nodeObj, { parent: { matrixWorld: this.base.matrixWorld } });
@@ -292,7 +283,6 @@ export class PlayerRemote extends Entity implements HotReloadable {
     }
     this.avatarUrl = avatarUrl;
     
-    console.log('[PlayerRemote] Avatar loaded and mounted successfully');
     // Ensure a default idle emote after mount so avatar isn't frozen
     (this.avatar as Avatar).setEmote(Emotes.IDLE);
     this.lastEmote = Emotes.IDLE;
@@ -386,8 +376,6 @@ export class PlayerRemote extends Entity implements HotReloadable {
       if (instance && instance.update) {
         instance.update(delta)
       }
-    } else if (Math.random() < 0.0001) {  // Reduced frequency to 0.01%
-      console.warn(`[PlayerRemote] No avatar instance for ${this.id}`)
     }
 
     // Use server-provided emote state directly - no inference

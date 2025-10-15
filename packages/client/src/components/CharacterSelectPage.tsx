@@ -4,10 +4,149 @@
  * UI for selecting or creating a character before entering the world.
  */
 
-import { readPacket, writePacket } from "@hyperscape/shared";
+import { readPacket, writePacket, storage } from "@hyperscape/shared";
 import React from "react";
 
 type Character = { id: string; name: string };
+
+// Music preference manager - syncs with game prefs
+const getMusicEnabled = (): boolean => {
+  const stored = localStorage.getItem('music_enabled')
+  if (stored === null) return true // Default to enabled
+  return stored === 'true'
+}
+
+const setMusicEnabled = (enabled: boolean): void => {
+  localStorage.setItem('music_enabled', String(enabled))
+  // Also update prefs if they exist (storage.get returns parsed object)
+  const prefs = storage.get('prefs') as Record<string, unknown> | null
+  if (prefs) {
+    const updated = { ...prefs, music: enabled ? 0.5 : 0 }
+    storage.set('prefs', updated)
+  }
+}
+
+// Intro Music Player Hook
+const useIntroMusic = (enabled: boolean) => {
+  const audioContextRef = React.useRef<AudioContext | null>(null)
+  const sourceRef = React.useRef<AudioBufferSourceNode | null>(null)
+  const gainNodeRef = React.useRef<GainNode | null>(null)
+  const [isPlaying, setIsPlaying] = React.useState(false)
+  const [currentTrack, setCurrentTrack] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!enabled) {
+      // Stop music if disabled
+      if (sourceRef.current) {
+        sourceRef.current.stop()
+        sourceRef.current.disconnect()
+        sourceRef.current = null
+      }
+      setIsPlaying(false)
+      return
+    }
+
+    // Initialize audio context
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext()
+      gainNodeRef.current = audioContextRef.current.createGain()
+      gainNodeRef.current.connect(audioContextRef.current.destination)
+      gainNodeRef.current.gain.value = 0.3 // 30% volume
+    }
+
+    const ctx = audioContextRef.current
+    const gainNode = gainNodeRef.current!
+
+    // Load and play intro music
+    const playIntroMusic = async () => {
+      // Randomly select between intro tracks
+      const track = Math.random() > 0.5 ? '1.mp3' : '2.mp3'
+      setCurrentTrack(track)
+
+      const cdnUrl = 'http://localhost:8080' // CDN URL
+      const musicPath = `${cdnUrl}/music/intro/${track}`
+
+      // Resume audio context if suspended (browser autoplay policy)
+      if (ctx.state === 'suspended') {
+        const resumeAudio = async () => {
+          await ctx.resume()
+          document.removeEventListener('click', resumeAudio)
+          document.removeEventListener('keydown', resumeAudio)
+        }
+        document.addEventListener('click', resumeAudio)
+        document.addEventListener('keydown', resumeAudio)
+      }
+
+      // Load audio buffer
+      const response = await fetch(musicPath)
+      const arrayBuffer = await response.arrayBuffer()
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+
+      // Create source and connect
+      const source = ctx.createBufferSource()
+      source.buffer = audioBuffer
+      source.loop = true // Loop the intro music
+      source.connect(gainNode)
+
+      // Fade in
+      const now = ctx.currentTime
+      gainNode.gain.setValueAtTime(0, now)
+      gainNode.gain.linearRampToValueAtTime(0.3, now + 2) // 2 second fade in
+
+      source.start(0)
+      sourceRef.current = source
+      setIsPlaying(true)
+
+      console.log(`[IntroMusic] Playing ${track}`)
+    }
+
+    playIntroMusic()
+
+    // Cleanup on unmount
+    return () => {
+      if (sourceRef.current) {
+        const src = sourceRef.current
+        const ctx = audioContextRef.current!
+        const now = ctx.currentTime
+        
+        // Fade out
+        gainNodeRef.current!.gain.setValueAtTime(gainNodeRef.current!.gain.value, now)
+        gainNodeRef.current!.gain.linearRampToValueAtTime(0, now + 1)
+        
+        setTimeout(() => {
+          src.stop()
+          src.disconnect()
+        }, 1000)
+      }
+    }
+  }, [enabled])
+
+  return { isPlaying, currentTrack }
+}
+
+// Music Toggle Button Component
+const MusicToggleButton = () => {
+  const [enabled, setEnabled] = React.useState(getMusicEnabled())
+  
+  useIntroMusic(enabled)
+
+  const toggleMusic = () => {
+    const newEnabled = !enabled
+    setEnabled(newEnabled)
+    setMusicEnabled(newEnabled)
+  }
+
+  return (
+    <button
+      onClick={toggleMusic}
+      className="fixed top-4 left-4 z-50 bg-black/60 hover:bg-black/80 text-white rounded-lg px-4 py-2 border border-white/20 transition-all flex items-center gap-2 backdrop-blur-sm"
+      title={enabled ? 'Disable music' : 'Enable music'}
+    >
+      <span className="text-xl">{enabled ? '🔊' : '🔇'}</span>
+      <span className="text-sm font-medium">{enabled ? 'Music On' : 'Music Off'}</span>
+    </button>
+  )
+}
 
 export function CharacterSelectPage({
   wsUrl,
@@ -152,11 +291,6 @@ export function CharacterSelectPage({
         return;
       }
       const [method, data] = result as [string, unknown];
-      console.log(
-        "[CharacterSelect] 📩 WS message received:",
-        method,
-        JSON.stringify(data).slice(0, 200),
-      );
 
       if (method === "onSnapshot") {
         // Extract characters from snapshot
@@ -318,6 +452,7 @@ export function CharacterSelectPage({
 
   return (
     <div className="absolute inset-0 overflow-hidden">
+      <MusicToggleButton />
       <div
         className="absolute inset-0"
         style={{

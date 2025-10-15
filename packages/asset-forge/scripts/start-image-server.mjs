@@ -39,9 +39,18 @@ app.get('/list', async (req, res) => {
   }
 })
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🖼️  Image server running on http://localhost:${PORT}`)
   console.log(`📁 Serving images from: ${path.join(ROOT_DIR, 'temp-images')}`)
   console.log(`🔍 Health check: http://localhost:${PORT}/health`)
   console.log(`📋 List images: http://localhost:${PORT}/list`)
+})
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`✅ Image server already running on port ${PORT}`)
+    process.exit(0)
+  }
+  console.error('❌ Failed to start image server:', err)
+  process.exit(1)
 }) 

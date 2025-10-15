@@ -645,22 +645,16 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Get terrain system with proper type
     const terrainSystem = this.world.getSystem('terrain') as TerrainSystem | null
     
-    console.log('[PlayerLocal] waitForTerrain: terrainSystem=', terrainSystem ? 'found' : 'null')
-    
     if (!terrainSystem) {
       // No terrain system, proceed without wait
-      console.log('[PlayerLocal] No terrain system found, proceeding without wait')
       return
     }
     
     // Strong type assumption - TerrainSystem has isReady() method
     // Check if terrain is already initialized
     if (terrainSystem.isReady()) {
-      console.log('[PlayerLocal] Terrain already ready')
       return
     }
-    
-    console.log('[PlayerLocal] Waiting for terrain to be ready...')
     
     // Wait for terrain initialization with timeout
     const maxWaitTime = 10000 // 10 seconds timeout
@@ -670,13 +664,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
       const checkInterval = setInterval(() => {
         const elapsed = Date.now() - startTime
         if (terrainSystem.isReady()) {
-          console.log('[PlayerLocal] Terrain ready after', elapsed, 'ms')
           clearInterval(checkInterval)
           resolve()
         } else if (elapsed > maxWaitTime) {
           // Timeout - proceed anyway
           console.warn('[PlayerLocal] Terrain wait timeout after', elapsed, 'ms - proceeding anyway')
-          console.warn('[PlayerLocal] terrainSystem.isReady():', terrainSystem.isReady())
           clearInterval(checkInterval)
           resolve()
         }
@@ -767,18 +759,13 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   async init(): Promise<void> {
-    console.log('[PlayerLocal] Starting init()...')
-        
     // Make sure we're added to the world's entities
     if (!this.world.entities.has(this.id)) {
-      console.warn('[PlayerLocal] Not in world entities, adding now...')
       this.world.entities.items.set(this.id, this)
     }
     
     // Wait for terrain to be ready before proceeding
-    console.log('[PlayerLocal] About to wait for terrain...')
     await this.waitForTerrain()
-    console.log('[PlayerLocal] Terrain wait complete, continuing init...')
     
     // Register for physics updates
     this.world.setHot(this, true)
@@ -1015,7 +1002,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
     
     // Signal to UI that the world is ready
-    console.log('[PlayerLocal] Initialization complete, emitting READY event')
     this.world.emit(EventType.READY)
   }
 
@@ -1047,11 +1033,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
       return;
     }
     this.loadingAvatarUrl = avatarUrl;
-        
+    
     // Only destroy if we're loading a different avatar
     if (this._avatar && this.avatarUrl !== avatarUrl) {
       const oldInstance = (this._avatar as AvatarNode).instance
-            if (oldInstance && oldInstance.destroy) {
+      if (oldInstance && oldInstance.destroy) {
         oldInstance.destroy() // This calls hooks.scene.remove(vrm.scene)
       }
       this._avatar = undefined
@@ -1059,17 +1045,16 @@ export class PlayerLocal extends Entity implements HotReloadable {
     
     // Only clear cache if we're loading a different avatar URL
     if (this.avatarUrl !== avatarUrl) {
-            const loader = this.world.loader as ClientLoader
+      const loader = this.world.loader as ClientLoader
       if (loader) {
         // Clear cache for the old avatar URL only
         const oldKey = `avatar/${this.avatarUrl}`
         if (loader.promises.has(oldKey)) {
-                    loader.promises.delete(oldKey)
+          loader.promises.delete(oldKey)
           loader.results.delete(oldKey)
         }
       }
     }
-
     
     const src = await this.world.loader!.load('avatar', avatarUrl) as LoadedAvatar;
     
@@ -1147,12 +1132,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
     const instance = (nodeToUse as unknown as AvatarNode).instance;
     
     // Disable rate check
-    console.log('[PlayerLocal] About to call disableRateCheck, instance:', !!instance, 'has disableRateCheck:', !!instance?.disableRateCheck);
     if (instance?.disableRateCheck) {
       instance.disableRateCheck();
-      console.log('[PlayerLocal] ✅ Called disableRateCheck()');
-    } else {
-      console.error('[PlayerLocal] ❌ instance.disableRateCheck not available!');
     }
     
     // Set up nametag and bubble positioning
@@ -1529,12 +1510,10 @@ export class PlayerLocal extends Entity implements HotReloadable {
       // Use the current run mode setting, but only if stamina is available
       this.running = this.runMode && this.stamina > 0
       this.moving = true // Ensure moving is set to true when we have a new target
-      console.log(`[PlayerLocal] New click target set: ${target.x.toFixed(2)}, ${target.y.toFixed(2)}, ${target.z.toFixed(2)}`)
     } else {
       this.clickMoveTarget = null
       this.moveDir.set(0, 0, 0)
       this.moving = false
-      console.log('[PlayerLocal] Click target cleared')
     }
   }
 

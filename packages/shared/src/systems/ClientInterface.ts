@@ -115,10 +115,10 @@ export class ClientInterface extends SystemBase {
   async init(options: WorldOptions & { ui?: HTMLElement }): Promise<void> {
     this.uiContainer = options.ui || null;
     
-    // Load preferences from storage
+    // Load preferences from storage (storage.get already returns parsed object)
     const stored = storage.get('prefs');
     if (stored) {
-      const parsed = JSON.parse(stored as string) as ClientPrefsData;
+      const parsed = stored as ClientPrefsData;
       if (parsed.ui !== undefined) this.ui = parsed.ui;
       if (parsed.actions !== undefined) this.actions = parsed.actions;
       if (parsed.stats !== undefined) this.stats = parsed.stats;
@@ -407,7 +407,8 @@ export class ClientInterface extends SystemBase {
       v: this.v,
     };
     
-    storage.set('prefs', JSON.stringify(data));
+    // storage.set already does JSON.stringify internally
+    storage.set('prefs', data);
   }
   
   // Preference setters

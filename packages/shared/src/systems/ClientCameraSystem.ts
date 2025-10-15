@@ -145,7 +145,6 @@ export class ClientCameraSystem extends SystemBase {
     
     // Remove camera from rig if it's attached
     if (this.camera.parent === this.world.rig) {
-      console.log('[ClientCameraSystem] Detaching camera from world.rig to make it independent');
       
       // Get world position and rotation before removing from parent
       const worldPos = _v3_1
