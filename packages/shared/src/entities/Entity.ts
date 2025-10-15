@@ -1262,7 +1262,7 @@ export class Entity implements IEntity {
     }
 
     const now = this.world.getTime()
-    if (now - this.lastUpdate < 16) return // Limit to ~60fps
+    if (now - this.lastUpdate < 0.016) return // Limit to ~60fps (16ms in seconds)
     this.lastUpdate = now
 
     // Update based on client/server

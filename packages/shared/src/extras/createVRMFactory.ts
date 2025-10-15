@@ -236,12 +236,6 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
     if (hooks?.scene) {
       hooks.scene.add(vrm.scene)
       hooks.scene.add(skeletonHelper)
-      console.log('%c[VRM] 🦴 Added SkeletonHelper to visualize bones', 'background: #00ff00; color: #000', {
-        boneCount: skeleton.bones.length,
-        helperVisible: skeletonHelper.visible,
-        sceneVisible: vrm.scene.visible,
-        scenePosition: vrm.scene.position.toArray()
-      })
       
     } else if (alternateScene) {
       console.warn('[VRMFactory] WARNING: No scene in hooks, using alternate scene from node.ctx.stage.scene')
@@ -318,31 +312,9 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
         should = elapsed >= rate
       }
       
-      // Debug logging for first 10 calls
-      if (updateCallCount <= 10) {
-        console.log(`[VRM] Update #${updateCallCount}: delta=${delta.toFixed(4)}, elapsed=${elapsed.toFixed(4)}, rate=${rate.toFixed(4)}, should=${should}, rateCheck=${rateCheck}, mixer=${!!mixer}`)
-      }
-      
       if (should) {
         if (mixer) {
           mixer.update(elapsed)
-          if (updateCallCount <= 10) {
-            console.log(`[VRM] Mixer updated with elapsed=${elapsed.toFixed(4)}`)
-          }
-          // Log mixer stats every 300 frames (~5 seconds at 60fps)
-          if (updateCallCount % 300 === 0) {
-            const actions = (mixer as { _actions?: THREE.AnimationAction[] })._actions || [];
-            const activeActions = actions.filter(a => a.enabled && a.weight > 0);
-            console.log(`%c[VRM] Mixer Status at frame ${updateCallCount}:`, 'background: #ff0000; color: #fff', {
-              totalActions: actions.length,
-              activeActions: activeActions.length,
-              activeNames: activeActions.map(a => a.getClip().name),
-              weights: activeActions.map(a => a.weight),
-              times: activeActions.map(a => a.time.toFixed(2)),
-              skeletonVisible: vrm.scene.visible,
-              sceneParent: !!vrm.scene.parent
-            });
-          }
         }
         skeleton.bones.forEach(bone => bone.updateMatrixWorld())
         
@@ -374,7 +346,6 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
     let setEmoteCallCount = 0
     const setEmote = url => {
       setEmoteCallCount++
-      console.log(`[VRM] setEmote #${setEmoteCallCount} called with url:`, url, 'currentEmote:', currentEmote?.url)
       
       if (currentEmote?.url === url) {
         console.log(`[VRM] Same emote already playing, skipping`)
@@ -394,18 +365,13 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       const speed = parseFloat(opts.s || '1')
 
       if (emotes[url]) {
-        console.log(`[VRM] Using cached emote:`, url, 'hasAction:', !!emotes[url].action)
         currentEmote = emotes[url]
         if (currentEmote.action) {
           currentEmote.action.clampWhenFinished = !loop
           currentEmote.action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
           currentEmote.action.reset().fadeIn(0.15).play()
-          console.log(`[VRM] Playing cached animation:`, url, 'mixer actions:', mixer.clipAction)
-        } else {
-          console.warn(`[VRM] Cached emote has no action:`, url)
         }
       } else {
-        console.log(`[VRM] Loading new emote:`, url)
         const newEmote: EmoteData = {
           url,
           loading: true,
@@ -415,13 +381,11 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
         currentEmote = newEmote
         type LoaderType = { load: (type: string, url: string) => Promise<{ toClip: (opts: unknown) => THREE.AnimationClip }> };
         (hooks.loader as LoaderType).load('emote', url).then(emo => {
-          console.log(`[VRM] Emote loaded:`, url)
           const clip = emo.toClip({
             rootToHips,
             version,
             getBoneName,
           })
-          console.log(`[VRM] Clip created:`, clip.name, 'duration:', clip.duration, 'tracks:', clip.tracks.length)
           const action = mixer.clipAction(clip)
           action.timeScale = speed
           newEmote.action = action
@@ -431,9 +395,6 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
             action.clampWhenFinished = !loop
             action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
             action.play()
-            console.log(`[VRM] ✅ Animation playing:`, url, 'enabled:', action.enabled, 'weight:', action.weight, 'time:', action.time)
-          } else {
-            console.log(`[VRM] Emote changed while loading, not playing:`, url)
           }
         }).catch(err => {
           console.error(`[VRM] Failed to load emote:`, url, err)
@@ -475,7 +436,6 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
 
     // Create a wrapped update function with logging
     const wrappedUpdate = (delta: number) => {
-      console.log(`%c[VRM] wrappedUpdate called with delta=${delta.toFixed(4)}`, 'background: #ff00ff; color: #fff');
       update(delta);
     };
     
