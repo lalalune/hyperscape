@@ -1,26 +1,25 @@
 import { logger } from "@elizaos/core";
 import { THREE } from "@hyperscape/shared";
 import type { World, Player } from "../types/core-types";
+import { PlayerEffectSchema, type PlayerEffect, type PlayerData } from "../types/validation-schemas";
 
 interface NodeContext {
   entity?: {
     data?: {
       avatarUrl?: string;
-      [key: string]: unknown;
+      [key: string]: string | number | boolean | undefined;
     };
   };
   world?: World;
   player?: Player;
-  [key: string]: unknown;
+  [key: string]: World | Player | Record<string, unknown> | undefined;
 }
 
 interface Nametag extends THREE.Object3D {
   text: string;
 }
 
-interface PlayerEffect {
-  emote?: string | null;
-}
+// PlayerEffect now imported from validation-schemas with Zod validation
 
 interface ParentNode extends THREE.Object3D {
   position: THREE.Vector3;
@@ -49,7 +48,7 @@ class Node extends THREE.Object3D {
 
 interface AnimationFactory {
   toClip?(target: THREE.Object3D): THREE.AnimationClip | null;
-  [key: string]: unknown;
+  [key: string]: ((target: THREE.Object3D) => THREE.AnimationClip | null) | string | number | boolean | undefined;
 }
 
 interface EmotePlayerNode extends THREE.Group {
@@ -197,11 +196,11 @@ export class AgentAvatar extends Node {
         // this.runClip?.setEffectiveWeight(this.isMoving ? runSpeed : 0);
       }
 
-      // Emote handling
+      // Emote handling with Zod validation
       if (this.player) {
-        const effect = (this.player as any).data?.effect as
-          | PlayerEffect
-          | undefined;
+        const rawEffect = (this.player as { data?: { effect?: unknown } }).data?.effect;
+        const parseResult = PlayerEffectSchema.safeParse(rawEffect);
+        const effect = parseResult.success ? parseResult.data : undefined;
         if (effect?.emote !== this.emote) {
           this.emote = effect?.emote || null;
           this.updateEmote();

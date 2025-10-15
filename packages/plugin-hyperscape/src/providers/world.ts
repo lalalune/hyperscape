@@ -103,13 +103,13 @@ export const hyperscapeProvider: Provider = {
       categorizedSummary += `\n\n## ${type[0].toUpperCase() + type.slice(1)} Entities (${lines.length})\n${lines.join("\n")}`;
     }
 
-    const actionsSystem = world?.actions;
-    const nearbyActions = (actionsSystem as any)?.getNearby
-      ? (actionsSystem as any).getNearby(50)
+    const actionsSystem = world?.actions as { getNearby?: (radius: number) => Array<{ label?: string; ctx?: { entity?: { root?: { position?: { x: number; y: number; z: number } }; data?: { id?: string; name?: string } } } }>; currentNode?: { label?: string; ctx?: { entity?: { data?: { id?: string; name?: string } } } } } | undefined;
+    const nearbyActions = actionsSystem?.getNearby
+      ? actionsSystem.getNearby(50)
       : [];
-    const currentAction = (actionsSystem as any)?.currentNode;
+    const currentAction = actionsSystem?.currentNode;
 
-    const actionLines = nearbyActions.map((action: any) => {
+    const actionLines = nearbyActions.map((action: { label?: string; ctx?: { entity?: { root?: { position?: { x: number; y: number; z: number } }; data?: { id?: string; name?: string } } } }) => {
       const entity = action.ctx?.entity;
       const pos = entity?.root?.position;
       // Strong type assumption: if position exists, it has x, y, z
@@ -163,8 +163,8 @@ export const hyperscapeProvider: Provider = {
         | { username?: string; name?: string }
         | undefined;
       const senderName =
-        (hypescapeMetadata as any)?.username ||
-        (hypescapeMetadata as any)?.name ||
+        hypescapeMetadata?.username ||
+        hypescapeMetadata?.name ||
         (senderEntity?.names || []).find(
           (n: string) => n.toLowerCase() !== "anonymous",
         ) ||

@@ -2,6 +2,46 @@ import { IAgentRuntime, logger } from "@elizaos/core";
 import { HyperscapeService } from "../service";
 
 /**
+ * CLAUDE.md Compliance: Strong typing for visual testing framework
+ * No `any` types - all test types explicitly defined
+ */
+
+/**
+ * Visual template for color detection
+ */
+export interface VisualTemplate {
+  color: number;
+  hex: string;
+}
+
+/**
+ * Color detector interface (from Hyperscape)
+ */
+export interface ColorDetector {
+  detectColor: (x: number, y: number, z: number) => number | null;
+  detectNearbyColors: (x: number, y: number, z: number, radius: number) => Array<{ color: number; position: { x: number; y: number; z: number } }>;
+  getColorName: (color: number) => string | null;
+  detectEntities?: (color: number, options?: { tolerance?: number; minClusterSize?: number }) => Promise<Array<{ position: { x: number; y: number; z: number }; color: number }>>;
+}
+
+/**
+ * State snapshot for test verification
+ */
+export interface StateSnapshot {
+  playerPosition?: { x: number; y: number; z: number };
+  location?: {
+    coordinates: { x: number; y: number; z: number };
+  };
+  inventory?: {
+    items: Array<{ id?: string; itemId: string; name?: string; quantity: number }>;
+    gold: number;
+  } | Array<{ itemId: string; quantity: number }>;
+  skills?: Record<string, { level: number; xp: number }>;
+  nearbyEntities?: Array<{ id: string; type: string; position: { x: number; y: number; z: number } }>;
+  [key: string]: unknown;
+}
+
+/**
  * Visual test verification types
  */
 export interface VisualCheck {
@@ -12,9 +52,9 @@ export interface VisualCheck {
   tolerance?: number;
 }
 
-export interface StateCheck {
+export interface StateCheck<T = unknown> {
   property: string;
-  expectedValue: any;
+  expectedValue: T;
   operator: "equals" | "greater" | "less" | "contains" | "matches";
 }
 
@@ -32,7 +72,7 @@ export interface TestResult {
   passed: boolean;
   failures: string[];
   screenshots: string[];
-  stateSnapshot: any;
+  stateSnapshot: StateSnapshot;
   timestamp: Date;
 }
 
@@ -42,8 +82,8 @@ export interface TestResult {
 export class VisualTestFramework {
   private runtime: IAgentRuntime;
   private service: HyperscapeService;
-  private colorDetector: any; // Will be the actual ColorDetector instance
-  private visualTemplates: Map<string, any> = new Map();
+  private colorDetector: ColorDetector | null = null;
+  private visualTemplates: Map<string, VisualTemplate> = new Map();
 
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
@@ -63,8 +103,9 @@ export class VisualTestFramework {
 
     // Initialize ColorDetector if available
     const world = this.service.getWorld();
-    if ((world as { colorDetector?: any })?.colorDetector) {
-      this.colorDetector = (world as { colorDetector?: any }).colorDetector;
+    if (world && typeof world === 'object' && 'colorDetector' in world) {
+      const worldWithDetector = world as { colorDetector?: ColorDetector };
+      this.colorDetector = worldWithDetector.colorDetector || null;
     } else {
       logger.warn("[VisualTestFramework] ColorDetector not available in world");
     }
@@ -123,10 +164,12 @@ export class VisualTestFramework {
     for (const check of checks) {
       const template = this.visualTemplates.get(check.entityType)!;
 
-      const expectedColor = check.expectedColor || template.color;
+      const expectedColor = typeof check.expectedColor === 'number'
+        ? check.expectedColor
+        : template.color;
 
       // Detect entities of this color in the scene
-      const detectedEntities = await this.colorDetector.detectEntities(
+      const detectedEntities = await this.colorDetector!.detectEntities!(
         expectedColor,
         {
           tolerance: check.tolerance || 10,
@@ -174,7 +217,7 @@ export class VisualTestFramework {
     const failures: string[] = [];
     const rpgManager = this.service.getRPGStateManager()!;
 
-    const state = rpgManager.getPlayerState("test-player");
+    const state = rpgManager.getPlayerState("test-player") as unknown as Record<string, unknown>;
 
     for (const check of checks) {
       const actualValue = this.getNestedProperty(state, check.property);
@@ -223,14 +266,17 @@ export class VisualTestFramework {
       passed: true,
       failures: [],
       screenshots: [],
-      stateSnapshot: null,
+      stateSnapshot: {},
       timestamp: new Date(),
     };
 
     // Capture initial state
     const rpgManager = this.service.getRPGStateManager();
     if (rpgManager) {
-      result.stateSnapshot = rpgManager.getPlayerState("test-player");
+      const playerState = rpgManager.getPlayerState("test-player");
+      if (playerState && typeof playerState === 'object') {
+        result.stateSnapshot = playerState as unknown as StateSnapshot;
+      }
     }
 
     // Visual verification
@@ -273,7 +319,10 @@ export class VisualTestFramework {
   /**
    * Helper to calculate distance between positions
    */
-  private calculateDistance(pos1: any, pos2: any): number {
+  private calculateDistance(
+    pos1: { x: number; y: number; z: number },
+    pos2: { x: number; y: number; z: number }
+  ): number {
     return Math.sqrt(
       Math.pow(pos1.x - pos2.x, 2) +
         Math.pow(pos1.y - pos2.y, 2) +
@@ -284,27 +333,32 @@ export class VisualTestFramework {
   /**
    * Helper to get nested property from object
    */
-  private getNestedProperty(obj: any, path: string): any {
-    return path.split(".").reduce((current, prop) => current?.[prop], obj);
+  private getNestedProperty(obj: Record<string, unknown>, path: string): unknown {
+    return path.split(".").reduce((current: unknown, prop: string) => {
+      if (current && typeof current === 'object' && prop in current) {
+        return (current as Record<string, unknown>)[prop];
+      }
+      return undefined;
+    }, obj);
   }
 
   /**
    * Helper to compare values based on operator
    */
-  private compareValues(actual: any, expected: any, operator: string): boolean {
+  private compareValues(actual: unknown, expected: unknown, operator: string): boolean {
     switch (operator) {
       case "equals":
         return actual === expected;
       case "greater":
-        return actual > expected;
+        return typeof actual === 'number' && typeof expected === 'number' && actual > expected;
       case "less":
-        return actual < expected;
+        return typeof actual === 'number' && typeof expected === 'number' && actual < expected;
       case "contains":
         return Array.isArray(actual)
           ? actual.includes(expected)
           : String(actual).includes(String(expected));
       case "matches":
-        return new RegExp(expected).test(String(actual));
+        return new RegExp(String(expected)).test(String(actual));
       default:
         return false;
     }

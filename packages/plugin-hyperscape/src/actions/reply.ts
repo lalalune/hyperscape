@@ -10,6 +10,7 @@ import {
   ModelType,
   type State,
 } from "@elizaos/core";
+import type { ActionHandlerOptions } from "../types/core-types";
 
 /**
  * Template for generating dialog and actions for a character.
@@ -43,9 +44,9 @@ function getFirstAvailableField(
 ): string | null {
   for (const field of fields) {
     const value = obj[field];
-    // Narrow type: check if value has string methods
-    if ((value as string).trim && (value as string).trim() !== "") {
-      return value as string;
+    // Proper type guard: check if value is a non-empty string
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value;
     }
   }
   return null;
@@ -95,7 +96,7 @@ export const replyAction = {
     runtime: IAgentRuntime,
     message: Memory,
     state: State,
-    _options: any,
+    _options: ActionHandlerOptions,
     callback: HandlerCallback,
     responses?: Memory[],
   ): Promise<ActionResult> => {

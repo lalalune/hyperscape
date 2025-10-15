@@ -15,7 +15,7 @@ interface ActionNode extends THREE.Object3D {
   _duration?: number;
   _onTrigger?: (event: { playerId: string }) => void;
   _onCancel?: () => void;
-  [key: string]: unknown;
+  [key: string]: string | number | boolean | ((event: { playerId: string }) => void) | (() => void) | Record<string, unknown> | undefined;
 }
 
 export class AgentActions extends System {
@@ -29,7 +29,7 @@ export class AgentActions extends System {
   }
 
   // Implement required System interface methods
-  async init(options?: unknown): Promise<void> {
+  async init(options?: Record<string, unknown>): Promise<void> {
     // Initialize the actions system
   }
 

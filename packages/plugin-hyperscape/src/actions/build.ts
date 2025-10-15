@@ -24,6 +24,24 @@ export enum EditOperationType {
   IMPORT = "import",
 }
 
+interface EditOperation {
+  success: boolean;
+  operation: string;
+  target?: string;
+  parameters?: {
+    position?: number[];
+    rotation?: number[];
+    scale?: number[];
+  };
+  description?: string;
+  requestedEntityName?: string;
+  reason?: string;
+}
+
+interface EditOperationResult {
+  operations: EditOperation[];
+}
+
 const sceneEditOperationExtractionTemplate = `
   # Task:
   You are a scene editing reasoning module. Based on the user's request and the current Hyperscape world state, generate a scene edit plan as a JSON object with an "operations" array, in the intended execution order.
@@ -178,7 +196,7 @@ export const hyperscapeEditEntityAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state?: State,
-    options?: Record<string, any>,
+    options?: Record<string, string | number | boolean>,
     callback?: HandlerCallback,
     responses?: Memory[],
   ): Promise<ActionResult> => {
@@ -188,7 +206,7 @@ export const hyperscapeEditEntityAction: Action = {
     const world = service.getWorld()!;
     const buildManager = service.getBuildManager()!;
 
-    let operationResults: { operations: any[] } | undefined;
+    let operationResults: EditOperationResult | undefined;
     let attempts = 0;
 
     while (attempts < MAX_RETRIES) {
@@ -200,7 +218,7 @@ export const hyperscapeEditEntityAction: Action = {
 
       const result = (await runtime.useModel(ModelType.OBJECT_LARGE, {
         prompt,
-      })) as { operations: any[] };
+      })) as EditOperationResult;
 
       if (Array.isArray(result.operations)) {
         operationResults = result;
@@ -218,7 +236,7 @@ export const hyperscapeEditEntityAction: Action = {
       if (!op?.success) {
         logger.warn(
           "[EDIT_ENTITY Action] Skipping failed operation:",
-          op?.reason || op,
+          op?.reason || JSON.stringify(op),
         );
         continue;
       }
@@ -247,7 +265,7 @@ export const hyperscapeEditEntityAction: Action = {
           break;
 
         case EditOperationType.IMPORT:
-          await buildManager.importEntity(target, parameters?.position);
+          await buildManager.importEntity({ type: target || "group" }, parameters?.position ? { x: parameters.position[0], y: parameters.position[1], z: parameters.position[2] } : undefined);
           break;
 
         default:

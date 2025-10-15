@@ -165,29 +165,29 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
     });
   }
 
-  private async handleMessage(message: any): Promise<void> {
+  private async handleMessage(message: { type: string; data: { playerId?: string; text?: string; playerName?: string; playerEmoji?: string; timestamp?: number; [key: string]: string | number | boolean | undefined } }): Promise<void> {
     switch (message.type) {
       case "chat_message":
         // Process incoming chat message
-        if (message.data.playerId !== this.agentId) {
+        if (message.data.playerId && message.data.playerId !== this.agentId) {
           const memory: Memory = {
             id: generateUUID(),
             entityId: this.agentId as UUID,
             agentId: this.agentId as UUID,
             roomId: generateUUID(),
             content: {
-              text: message.data.text,
-              playerName: message.data.playerName,
-              playerEmoji: message.data.playerEmoji,
+              text: message.data.text as string || "",
+              playerName: message.data.playerName as string || "Unknown",
+              playerEmoji: message.data.playerEmoji as string || "",
             },
-            createdAt: new Date(message.data.timestamp).getTime(),
+            createdAt: message.data.timestamp ? new Date(message.data.timestamp).getTime() : Date.now(),
           };
         }
         break;
     }
   }
 
-  private getAvailableActions(context: any): string[] {
+  private getAvailableActions(context: Record<string, unknown>): string[] {
     const actions = [];
 
     actions.push("HYPERSCAPE_GOTO_ENTITY"); // Move to tasks
@@ -198,7 +198,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
     return actions;
   }
 
-  private sendAction(action: string, data?: any): void {
+  private sendAction(action: string, data?: Record<string, string | number | boolean>): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     this.ws.send(

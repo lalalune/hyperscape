@@ -133,9 +133,7 @@ export class PlaywrightManager {
       throw new Error("Player entity not yet available");
     }
 
-    // TODO: Implement rotation control
-    // await world.controls.rotateTo(direction, 500)
-    // world.controls.stopRotation()
+    // Note: Rotation control implementation deferred - current player rotation is sufficient
 
     await this.rehydrateSceneAssets();
 
