@@ -48,6 +48,7 @@
     "@hyperscape/shared": "workspace:*",
     "@pixiv/three-vrm": "^3.3.3",
     "@privy-io/react-auth": "^2.21.4",
+    "@rollup/rollup-darwin-x64": "^4.52.4",
     "@types/styled-components": "^5.1.34",
     "buffer": "^6.0.3",
     "d3": "^7.9.0",

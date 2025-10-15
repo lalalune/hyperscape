@@ -7,7 +7,7 @@ import { resolveUrl } from "../utils";
 import type { World } from "@hyperscape/shared";
 
 // Helper to check if renderer is WebGLRenderer
-function isWebGLRenderer(renderer: unknown): renderer is THREE.WebGLRenderer {
+function isWebGLRenderer(renderer: THREE.Renderer | THREE.WebGLRenderer): renderer is THREE.WebGLRenderer {
   return renderer instanceof THREE.WebGLRenderer;
 }
 
@@ -24,9 +24,9 @@ interface CSM {
 interface SkyNode extends THREE.Object3D {
   sky?: {
     texture?: THREE.Texture;
-    [key: string]: unknown;
+    [key: string]: THREE.Texture | string | number | boolean | undefined;
   };
-  [key: string]: unknown;
+  [key: string]: Record<string, unknown> | string | number | boolean | undefined;
 }
 
 interface SkyHandle {
@@ -202,7 +202,7 @@ export class EnvironmentSystem extends System {
     if (this.model) {
       (
         this.model as THREE.Object3D & {
-          activate?: (params: { world: any; label: string }) => void;
+          activate?: (params: { world: World; label: string }) => void;
         }
       ).activate({ world: this.world, label: "base" });
     }

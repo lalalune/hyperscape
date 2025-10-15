@@ -39,7 +39,7 @@ const useAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state?: State,
-    params?: { [key: string]: any },
+    params?: Record<string, string | number | boolean>,
     callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>("hyperscape");

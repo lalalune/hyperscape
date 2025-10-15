@@ -33,7 +33,7 @@ interface ResponseContent {
   action?: string;
   coordinates?: string;
   message?: string;
-  [key: string]: unknown;
+  [key: string]: string | number | boolean | undefined;
 }
 
 interface BehaviorResponse {
