@@ -97,7 +97,6 @@ export class MobEntity extends CombatantEntity {
     
     // EntityManager automatically handles updates for all entities via entitiesNeedingUpdate
     // No need to register as hot entity (would cause double updates)
-    console.log(`[MobEntity] ✅ Initialized ${this.config.mobType} (updates handled by EntityManager)`);
   }
 
   constructor(world: World, config: MobEntityConfig) {
@@ -156,12 +155,6 @@ export class MobEntity extends CombatantEntity {
    * Setup animations from GLB data (inline animations)
    */
   private async setupAnimations(animations: THREE.AnimationClip[]): Promise<void> {
-    console.log(`[MobEntity] 🎬 setupAnimations() called for ${this.config.mobType}`, {
-      hasMesh: !!this.mesh,
-      animationCount: animations.length,
-      animationNames: animations.map(a => a.name)
-    });
-    
     if (!this.mesh || animations.length === 0) {
       console.warn(`[MobEntity] Cannot setup animations - no mesh or no animations`);
       return;
@@ -173,11 +166,6 @@ export class MobEntity extends CombatantEntity {
       if (!skinnedMesh && (child as THREE.SkinnedMesh).isSkinnedMesh) {
         skinnedMesh = child as THREE.SkinnedMesh;
       }
-    });
-    
-    console.log(`[MobEntity] 🔍 SkinnedMesh search result:`, {
-      found: !!skinnedMesh,
-      meshChildCount: this.mesh.children.length
     });
     
     if (!skinnedMesh) {
@@ -214,16 +202,6 @@ export class MobEntity extends CombatantEntity {
     action.setLoop(THREE.LoopRepeat, Infinity); // Loop animation indefinitely
     action.play();
     
-    console.log(`[MobEntity] ✅ Animations ready:`, {
-      total: animations.length,
-      hasIdle: !!animationClips.idle,
-      hasWalk: !!animationClips.walk,
-      playing: initialClip.name,
-      duration: initialClip.duration,
-      actionEnabled: action.enabled,
-      actionWeight: action.weight
-    });
-    
     // Store mixer and clips on entity
     (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
     (this as { animationClips?: typeof animationClips }).animationClips = animationClips;
@@ -231,7 +209,8 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
-   * Load external animation files (walking.glb, attacking.glb, etc.)
+   * Load external animation files (walking.glb, running.glb, etc.)
+   * These are custom animations made specifically for the mob models
    */
   private async loadIdleAnimation(): Promise<void> {
     if (!this.mesh || !this.world.loader) return;
@@ -241,9 +220,6 @@ export class MobEntity extends CombatantEntity {
     
     const modelDir = modelPath.substring(0, modelPath.lastIndexOf('/'));
     
-    // Try to load walking animation
-    const walkAnimPath = `${modelDir}/animations/walking.glb`;
-    
     // Find the SkinnedMesh
     let skinnedMesh: THREE.SkinnedMesh | null = null;
     this.mesh.traverse((child) => {
@@ -252,41 +228,46 @@ export class MobEntity extends CombatantEntity {
       }
     });
     
-    if (!skinnedMesh) {
-      console.warn(`[MobEntity] No SkinnedMesh found for external animations`);
-      return;
-    }
+    if (!skinnedMesh) return;
     
-    // Create AnimationMixer
-    const mixer = new THREE.AnimationMixer(skinnedMesh);
-    const animationClips: { idle?: THREE.AnimationClip; walk?: THREE.AnimationClip } = {};
+    // CRITICAL: Create mixer on scene root (this.mesh) not skinnedMesh
+    // Allows animations to find bones in full hierarchy
+    const mixer = new THREE.AnimationMixer(this.mesh);
+    const animationClips: { idle?: THREE.AnimationClip; walk?: THREE.AnimationClip; run?: THREE.AnimationClip } = {};
     
-    try {
-      const anim = await this.world.loader.load('emote', walkAnimPath);
-      if (anim && 'toClip' in anim) {
-        const clip = anim.toClip();
-        if (clip) {
-          animationClips.walk = clip;
-          console.log(`[MobEntity] ✅ Loaded walking animation`);
+    // Load animation files (load as raw GLB, not emote, to avoid bone remapping)
+    const animFiles = [
+      { name: 'walk', path: `${modelDir}/animations/walking.glb` },
+      { name: 'run', path: `${modelDir}/animations/running.glb` }
+    ];
+    
+    for (const { name, path } of animFiles) {
+      try {
+        // Load as model (not emote) to get raw animations without VRM retargeting
+        const result = await modelCache.loadModel(path, this.world);
+        if (result.animations && result.animations.length > 0) {
+          const clip = result.animations[0];
+          animationClips[name as 'walk' | 'run'] = clip;
+          if (name === 'walk') animationClips.idle = clip; // Use walk as idle
         }
+      } catch (err) {
+        // Animation file not found - skip
       }
-    } catch (err) {
-      console.warn(`[MobEntity] Walking animation not found, mob will be static`);
     }
     
-    // Use walk animation as idle if that's all we have
-    const initialClip = animationClips.walk;
+    // Play initial animation
+    const initialClip = animationClips.idle || animationClips.walk;
     if (initialClip) {
       const action = mixer.clipAction(initialClip);
-      action.setLoop(THREE.LoopRepeat, Infinity); // Loop animation indefinitely
+      action.enabled = true;
+      action.setEffectiveWeight(1.0);
+      action.setLoop(THREE.LoopRepeat, Infinity);
       action.play();
       
       // Store mixer and clips
       (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
       (this as { animationClips?: typeof animationClips }).animationClips = animationClips;
       (this as { currentAction?: THREE.AnimationAction }).currentAction = action;
-      
-      console.log(`[MobEntity] ✅ External animations ready`);
     }
   }
 
@@ -320,8 +301,6 @@ export class MobEntity extends CombatantEntity {
             child.bindMode = THREE.DetachedBindMode;
             child.bindMatrix.copy(child.matrixWorld);
             child.bindMatrixInverse.copy(child.bindMatrix).invert();
-            
-            console.log(`[MobEntity] ✅ Bound skeleton at scale ${modelScale}x`);
           }
         });
         
@@ -347,29 +326,13 @@ export class MobEntity extends CombatantEntity {
         this.mesh.position.set(0, 0, 0);
         this.mesh.quaternion.identity();
         this.node.add(this.mesh);
-        console.log(`[MobEntity] ✅ Added mesh as child of node`);
-        
-        console.log(`[MobEntity] ✅ Model loaded for ${this.config.mobType}`, {
-          animations: animations.length,
-          animationNames: animations.map(a => a.name),
-          scale: this.mesh.scale.x,
-          meshType: this.mesh.type
-        });
         
         // Load animations if available (do this after mesh is added to scene)
-        console.log(`[MobEntity] 🎬 About to setup animations for ${this.config.mobType}`, {
-          hasAnimations: animations.length > 0,
-          count: animations.length
-        });
-        
         if (animations.length > 0) {
           await this.setupAnimations(animations);
-          console.log(`[MobEntity] 🎬 setupAnimations() completed for ${this.config.mobType}`);
         } else {
-          console.log(`[MobEntity] 🎬 No inline animations, trying external for ${this.config.mobType}`);
           // Try to load external animations
           await this.loadIdleAnimation();
-          console.log(`[MobEntity] 🎬 loadIdleAnimation() completed for ${this.config.mobType}`);
         }
         
         return;
@@ -378,8 +341,6 @@ export class MobEntity extends CombatantEntity {
         // Fall through to placeholder
       }
     }
-    
-    console.log(`[MobEntity] Creating placeholder capsule for ${this.config.mobType}`);
     const mobName = String(this.config.mobType).toLowerCase();
     const colorHash = mobName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const hue = (colorHash % 360) / 360;
@@ -443,9 +404,6 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
-  private serverDebugFrames = 0;
-  private serverUpdateCount = 0;
-  
   /**
    * SERVER-SIDE UPDATE
    * Handles AI logic, pathfinding, combat, and state management
@@ -453,32 +411,12 @@ export class MobEntity extends CombatantEntity {
    */
   protected serverUpdate(deltaTime: number): void {
     super.serverUpdate(deltaTime);
-    
-    this.serverUpdateCount++;
 
     if (this.config.aiState !== MobAIState.DEAD) {
       this.updateAI(deltaTime);
     }
-    
-    // Log every update for first 5 frames, then every 2 seconds
-    const shouldLog = this.serverUpdateCount <= 5 || (this.serverUpdateCount % 60 === 0);
-    if (shouldLog) {
-      console.log(`[MobEntity][SERVER] #${this.serverUpdateCount} ${this.config.mobType}:`, {
-        aiState: this.config.aiState,
-        position: {
-          x: this.position.x.toFixed(2),
-          y: this.position.y.toFixed(2),
-          z: this.position.z.toFixed(2)
-        },
-        targetPlayerId: this.config.targetPlayerId,
-        deltaTime: deltaTime.toFixed(3)
-      });
-    }
   }
 
-  
-  private animationUpdateCallCount = 0;
-  
   /**
    * Switch animation based on AI state
    */
@@ -505,11 +443,6 @@ export class MobEntity extends CombatantEntity {
     
     // Switch animation if needed
     if (targetClip && currentAction?.getClip() !== targetClip) {
-      console.log(`[MobEntity][CLIENT] Switching animation for ${this.config.mobType}:`, {
-        from: currentAction?.getClip()?.name || 'none',
-        to: targetClip.name,
-        aiState: this.config.aiState
-      });
       currentAction?.fadeOut(0.2);
       const newAction = mixer.clipAction(targetClip);
       newAction.reset();
@@ -519,9 +452,6 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
-  private clientDebugFrames = 0;
-  private clientUpdateCallCount = 0;
-  
   /**
    * CLIENT-SIDE UPDATE
    * Handles visual updates: animations, interpolation, and rendering
@@ -530,71 +460,27 @@ export class MobEntity extends CombatantEntity {
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
     
-    this.clientUpdateCallCount++;
-    
-    // Mesh is child of node, so it follows automatically
-    // No manual position sync needed - node position updated by network
-    
-    // Update animations based on AI state (received from server)
+    // Update animations based on AI state
     this.updateAnimation();
     
     // Update animation mixer if exists
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
-    const currentAction = (this as { currentAction?: THREE.AnimationAction }).currentAction;
     
     if (mixer) {
-      // Debug logging for first 10 updates (like VRM does)
-      if (this.clientUpdateCallCount <= 10) {
-        console.log(`[MobEntity] Update #${this.clientUpdateCallCount} for ${this.config.mobType}:`, {
-          deltaTime: deltaTime.toFixed(4),
-          mixerTime: mixer.time.toFixed(4),
-          hasMixer: true,
-          hasAction: !!currentAction,
-          actionPlaying: currentAction?.isRunning() || false,
-          actionWeight: currentAction?.weight || 0
-        });
-      }
-      
-      // Update the mixer (advances animation time)
       mixer.update(deltaTime);
       
-      if (this.clientUpdateCallCount <= 10) {
-        console.log(`[MobEntity] Mixer updated, new time: ${mixer.time.toFixed(4)}`);
-      }
-      
-      // CRITICAL: Update skeleton bones (exactly like VRM at line 317!)
+      // Update skeleton bones (CRITICAL: same as VRM at line 319-322!)
       if (this.mesh) {
         this.mesh.traverse((child) => {
           if (child instanceof THREE.SkinnedMesh && child.skeleton) {
-            // VRM does: skeleton.bones.forEach(bone => bone.updateMatrixWorld())
+            // Update bone matrices
             child.skeleton.bones.forEach(bone => bone.updateMatrixWorld());
+            // CRITICAL: Apply bone transforms to mesh (this was missing!)
+            child.skeleton.update();
           }
         });
       }
-    } else {
-      // NO MIXER - this is the problem!
-      if (this.clientUpdateCallCount === 1) {
-        console.error(`[MobEntity] ❌ NO MIXER on first clientUpdate for ${this.config.mobType}!`, {
-          hasMesh: !!this.mesh,
-          meshType: this.mesh?.type,
-          meshChildren: this.mesh?.children.length
-        });
-      }
     }
-    
-    // Periodic status logging for debugging (every ~5 seconds)
-    this.clientDebugFrames++;
-    if (this.clientDebugFrames === 300) {
-      console.log(`[MobEntity][CLIENT] ${this.config.mobType}:`, {
-        aiState: this.config.aiState,
-        animating: !!mixer,
-        hasAction: !!currentAction,
-        actionRunning: currentAction?.isRunning() || false
-      });
-      this.clientDebugFrames = 0;
-    }
-    
-    // Health bar updates handled by Entity base class
   }
 
   private updateAI(deltaTime: number): void {
@@ -627,7 +513,6 @@ export class MobEntity extends CombatantEntity {
     const nearbyPlayer = this.findNearbyPlayer();
     if (nearbyPlayer) {
       this.config.targetPlayerId = nearbyPlayer.id;
-      console.log(`[MobEntity][AI] ${this.config.mobType} detected player ${nearbyPlayer.id}, entering CHASE state`);
       this.config.aiState = MobAIState.CHASE;
       this.world.emit(EventType.MOB_AGGRO, {
         mobId: this.id,
@@ -638,8 +523,7 @@ export class MobEntity extends CombatantEntity {
     }
 
     // Start patrolling if no player found
-    if (Math.random() < 0.01) { // 1% chance to start patrolling each update (lower for less spam)
-      console.log(`[MobEntity][AI] ${this.config.mobType} starting patrol`);
+    if (Math.random() < 0.01) { // 1% chance to start patrolling each update
       this.config.aiState = MobAIState.PATROL;
       this.markNetworkDirty();
     }
@@ -680,7 +564,6 @@ export class MobEntity extends CombatantEntity {
 
   private handleChaseState(deltaTime: number): void {
     if (!this.config.targetPlayerId) {
-      console.log(`[MobEntity][AI] ${this.config.mobType} CHASE state but no target, going IDLE`);
       this.config.aiState = MobAIState.IDLE;
       this.markNetworkDirty();
       return;
@@ -688,7 +571,6 @@ export class MobEntity extends CombatantEntity {
 
     const targetPlayer = this.getPlayer(this.config.targetPlayerId);
     if (!targetPlayer) {
-      console.log(`[MobEntity][AI] ${this.config.mobType} target player not found, going FLEE`);
       this.config.targetPlayerId = null;
       this.config.aiState = MobAIState.FLEE;
       this.markNetworkDirty();
@@ -697,7 +579,6 @@ export class MobEntity extends CombatantEntity {
 
     const targetPos = targetPlayer.position;
     if (!targetPos) {
-      console.log(`[MobEntity][AI] ${this.config.mobType} target has no position, going FLEE`);
       this.config.aiState = MobAIState.FLEE;
       this.markNetworkDirty();
       return;
@@ -710,7 +591,6 @@ export class MobEntity extends CombatantEntity {
 
     // Too far from spawn - return home (allow 5x aggro range leash distance)
     if (spawnDistance > this.config.aggroRange * 5.0) {
-      console.log(`[MobEntity][AI] ${this.config.mobType} too far from spawn (${spawnDistance.toFixed(2)}m), going FLEE`);
       this.config.aiState = MobAIState.FLEE;
       this.config.targetPlayerId = null;
       this.markNetworkDirty();
@@ -719,7 +599,6 @@ export class MobEntity extends CombatantEntity {
 
     // Player too far - give up chase (allow them to chase 3x aggro range for persistence)
     if (distance > this.config.aggroRange * 3.0) {
-      console.log(`[MobEntity][AI] ${this.config.mobType} player too far (${distance.toFixed(2)}m), giving up chase`);
       this.config.aiState = MobAIState.FLEE;
       this.config.targetPlayerId = null;
       this.markNetworkDirty();
@@ -728,7 +607,6 @@ export class MobEntity extends CombatantEntity {
 
     // Close enough to attack
     if (distance <= this.config.combatRange) {
-      console.log(`[MobEntity][AI] ${this.config.mobType} in attack range, entering ATTACK state`);
       this.config.aiState = MobAIState.ATTACK;
       this.markNetworkDirty();
       return;
@@ -871,7 +749,6 @@ export class MobEntity extends CombatantEntity {
     // Hide mesh or change to corpse
     if (this.mesh) {
       this.mesh.visible = false;
-      console.log(`[MobEntity] Hiding mesh for dead mob ${this.id}`);
     }
 
     this.markNetworkDirty();
@@ -909,7 +786,6 @@ export class MobEntity extends CombatantEntity {
     // Show mesh
     if (this.mesh) {
       this.mesh.visible = true;
-      console.log(`[MobEntity] Showing mesh for respawned mob ${this.id}`);
     }
 
     // Update userData
@@ -955,11 +831,25 @@ export class MobEntity extends CombatantEntity {
       direction.z /= length;
 
       const moveDistance = this.config.moveSpeed * deltaTime;
-      const newPos = {
+      let newPos = {
         x: currentPos.x + direction.x * moveDistance,
         y: currentPos.y,
         z: currentPos.z + direction.z * moveDistance
       };
+
+      // Snap to terrain height (only if terrain system is ready)
+      const terrain = this.world.getSystem('terrain');
+      if (terrain && 'getHeightAt' in terrain) {
+        try {
+          const getHeight = terrain.getHeightAt as (x: number, z: number) => number;
+          const terrainHeight = getHeight(newPos.x, newPos.z);
+          if (Number.isFinite(terrainHeight)) {
+            newPos.y = terrainHeight + 0.5;
+          }
+        } catch (err) {
+          // Terrain not initialized yet - keep current Y
+        }
+      }
 
       // Calculate rotation to face movement direction
       const angle = Math.atan2(direction.x, direction.z);
@@ -990,11 +880,6 @@ export class MobEntity extends CombatantEntity {
       });
       
       if (distance <= this.config.aggroRange) {
-        console.log(`[MobEntity][AI] ${this.config.mobType} FOUND nearby player:`, {
-          playerId: player.id,
-          distance: distance.toFixed(2),
-          aggroRange: this.config.aggroRange
-        });
         return {
           id: player.id,
           position: {
@@ -1074,56 +959,29 @@ export class MobEntity extends CombatantEntity {
     };
   }
   
-  private lastReceivedAIState: string | null = null;
-  
   /**
    * Override modify to handle network updates from server
    */
   override modify(data: Partial<EntityData>): void {
-    let changed = false;
-    
     // Update AI state from server
     if ('aiState' in data) {
       const newState = data.aiState as MobAIState;
-      if (newState !== this.lastReceivedAIState) {
-        console.log(`[MobEntity][NETWORK] Received AI state change for ${this.config.mobType}:`, {
-          from: this.config.aiState,
-          to: newState
-        });
-        this.lastReceivedAIState = newState;
-        changed = true;
-      }
       this.config.aiState = newState;
     }
     
     // Update health from server
     if ('currentHealth' in data) {
       this.config.currentHealth = data.currentHealth as number;
-      changed = true;
     }
     
     // Update max health from server
     if ('maxHealth' in data) {
       this.config.maxHealth = data.maxHealth as number;
-      changed = true;
     }
     
     // Update target from server
     if ('targetPlayerId' in data) {
       this.config.targetPlayerId = data.targetPlayerId as string | null;
-      changed = true;
-    }
-    
-    // Log position updates
-    if ('p' in data || 'position' in data) {
-      const pos = (data.p || data.position) as number[] | { x: number; y: number; z: number };
-      if (Array.isArray(pos)) {
-        console.log(`[MobEntity][NETWORK] Position update for ${this.config.mobType}:`, {
-          x: pos[0].toFixed(2),
-          y: pos[1].toFixed(2),
-          z: pos[2].toFixed(2)
-        });
-      }
     }
     
     // Call parent modify for standard properties (position, rotation, etc.)

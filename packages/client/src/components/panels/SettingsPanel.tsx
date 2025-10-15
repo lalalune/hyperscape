@@ -54,6 +54,15 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
     player!.name = name
   }
 
+  // Sync music preference with localStorage
+  useEffect(() => {
+    const updateMusicEnabled = () => {
+      const enabled = music > 0
+      localStorage.setItem('music_enabled', String(enabled))
+    }
+    updateMusicEnabled()
+  }, [music])
+
   const dprOptions = useMemo(() => {
     const _width = world.graphics!.width
     const _height = world.graphics!.height

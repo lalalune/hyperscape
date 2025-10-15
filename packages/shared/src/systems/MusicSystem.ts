@@ -74,6 +74,18 @@ export class MusicSystem extends SystemBase {
       return
     }
 
+    // Check music preference from localStorage
+    const musicEnabled = localStorage.getItem('music_enabled')
+    if (musicEnabled === 'false') {
+      this.logger.info('Music disabled by user preference')
+      // Set music volume to 0 in prefs
+      if (this.world.prefs) {
+        this.world.prefs.setMusic(0)
+      }
+      this.musicInitialized = false
+      return
+    }
+
     // Load music manifest
     await this.loadMusicManifest()
 

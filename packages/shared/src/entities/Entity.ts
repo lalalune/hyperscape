@@ -944,22 +944,9 @@ export class Entity implements IEntity {
   }
 
   async init(): Promise<void> {
-    console.log(`[Entity] 🔄 Initializing ${this.type} entity: ${this.name} (${this.id})`);
-    
     // Create the visual representation (mesh)
     // Note: createMesh() in subclasses may call loadModel() internally
-    console.log(`[Entity] Creating mesh for ${this.name}...`);
     await this.createMesh();
-    
-    if (this.mesh) {
-      console.log(`[Entity] ✅ Mesh created for ${this.name}:`, {
-        meshType: this.mesh.type,
-        meshName: this.mesh.name,
-        childCount: this.mesh.children.length
-      });
-    } else {
-      console.log(`[Entity] Server-side entity ${this.name} - no mesh created (expected)`);
-    }
 
     // Initialize UI elements (name tag, health bar) - only on client
     // Check if we're in a real browser environment with full Canvas API support
@@ -979,8 +966,6 @@ export class Entity implements IEntity {
     if (!this.world.isServer) {
       this.validateEntityState();
     }
-    
-    console.log(`[Entity] ✅ ${this.type} entity ${this.name} fully initialized`);
   }
   
   /**
@@ -1019,51 +1004,24 @@ export class Entity implements IEntity {
       console.error(`[Entity] ❌ CRITICAL: Entity ${this.name} is way above the world: Y=${pos.y.toFixed(2)}`);
       throw new Error(`Entity ${this.name} spawned way above world (Y=${pos.y.toFixed(2)})`);
     }
-    
-    console.log(`[Entity] ✅ Entity state validated for ${this.name}:`, {
-      hasNode: !!this.node,
-      inScene: !!this.node.parent,
-      hasMesh: !!this.mesh,
-      meshInNode: this.mesh ? this.node.children.includes(this.mesh) : false,
-      position: pos.toArray(),
-      visible: this.node.visible && (this.mesh?.visible ?? true)
-    });
   }
 
   protected async loadModel(): Promise<void> {
     if (!this.config.model) {
-      console.log(`[Entity] ${this.name} has no model path, skipping 3D model load`);
       return;
     }
     
-    console.log(`[Entity] 🔄 START Loading model for ${this.name}:`, {
-      modelPath: this.config.model,
-      entityId: this.id,
-      entityType: this.type,
-      position: this.node.position.toArray()
-    });
-    
     // Skip model loading on server side - models are only needed for client rendering
     if (this.world.isServer) {
-      console.log(`[Entity] Server-side entity ${this.name}, skipping model load`);
       return;
     }
 
     // Use ModelCache to load with caching
     // ModelCache uses its own GLTFLoader to ensure pure THREE.Object3D (not Hyperscape Nodes)
-    const { scene, fromCache } = await modelCache.loadModel(this.config.model, this.world);
-      
-      console.log(`[Entity] ✅ Model obtained ${fromCache ? 'from cache' : 'via load'}:`, {
-        modelPath: this.config.model,
-        sceneType: scene.type,
-        sceneChildren: scene.children.length,
-        hasGeometry: this.validateSceneHasGeometry(scene),
-        fromCache
-      });
+    const { scene } = await modelCache.loadModel(this.config.model, this.world);
       
       // Clear existing mesh first
       if (this.mesh) {
-        console.log(`[Entity] Removing existing mesh before adding new one`);
         this.node.remove(this.mesh)
       }
       
@@ -1095,10 +1053,7 @@ export class Entity implements IEntity {
       // VALIDATE: Check position is reasonable
       const pos = this.node.position;
       if (pos.y < -100 || pos.y > 1000) {
-        console.error(`[Entity] ⚠️  WARNING: Entity ${this.name} has extreme Y position: ${pos.y.toFixed(2)}`, {
-          position: pos.toArray(),
-          expectedRange: '0-100 meters'
-        });
+        console.warn(`[Entity] Entity ${this.name} has extreme Y position: ${pos.y.toFixed(2)}`);
       }
       
       // Check if entity is in the scene
@@ -1121,38 +1076,6 @@ export class Entity implements IEntity {
       // Calculate bounding box to verify model size
       const bbox = new THREE.Box3().setFromObject(this.mesh);
       const size = bbox.getSize(new THREE.Vector3());
-      const center = bbox.getCenter(new THREE.Vector3());
-      
-      console.log(`[Entity] ✅ 3D MODEL SUCCESSFULLY LOADED for ${this.name}:`, {
-        meshType: this.mesh.type,
-        meshChildren: this.mesh.children.length,
-        meshVisible: this.mesh.visible,
-        nodePosition: pos.toArray(),
-        meshLocalPosition: this.mesh.position.toArray(),
-        meshScale: this.mesh.scale.toArray(),
-        modelSize: `${size.x.toFixed(4)}x${size.y.toFixed(4)}x${size.z.toFixed(4)}m`,
-        modelCenter: center.toArray(),
-        inScene: inScene,
-        sceneDepth: depth
-      });
-      
-      // Log all meshes in the loaded model
-      let meshCount = 0;
-      this.mesh.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
-          meshCount++;
-          if (meshCount <= 3) {
-            console.log(`  - Submesh ${meshCount}:`, {
-              name: child.name,
-              type: child.type,
-              visible: child.visible,
-              geometryVertices: child.geometry?.attributes.position?.count,
-              materialType: Array.isArray(child.material) ? child.material.map(m => m.type) : child.material?.type
-            });
-          }
-        }
-      });
-      console.log(`  Total meshes in model: ${meshCount}`);
       
       // CRITICAL: Throw error if model is invisible
       if (!this.mesh.visible) {
@@ -1163,9 +1086,6 @@ export class Entity implements IEntity {
       if (size.x < 0.01 && size.y < 0.01 && size.z < 0.01) {
         throw new Error(`Loaded model is too small to see! Size: ${size.x}x${size.y}x${size.z}m`);
       }
-      
-      // SUCCESS!    
-    console.log(`[Entity] 🎉 Model ${this.config.model} successfully loaded and validated for ${this.name}`);
   }
   
   /**
@@ -1196,8 +1116,6 @@ export class Entity implements IEntity {
     // DISABLED: Default cube mesh causes visual clutter
     // Subclasses (MobEntity, PlayerEntity, etc.) should override this with proper meshes
     // If they don't, the entity will simply have no visible mesh (which is fine for server-side entities)
-    
-    console.log(`[Entity] No mesh created for ${this.name} (type: ${this.type}) - this is normal for server-side or subclasses should override createMesh()`);
     
     // DO NOT CREATE DEFAULT CUBE MESH
     // this.mesh remains null, which is valid for:

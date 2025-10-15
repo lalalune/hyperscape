@@ -644,11 +644,6 @@ export class EntityManager extends SystemBase {
       return;
     }
     
-    // Debug logging
-    if (this.networkDirtyEntities.size > 0) {
-      console.log(`[EntityManager] 📡 Sending network updates for ${this.networkDirtyEntities.size} entities:`, Array.from(this.networkDirtyEntities));
-    }
-    
     const network = this.world.network as { send?: (method: string, data: unknown, excludeId?: string) => void };
     
     if (!network || !network.send) {
