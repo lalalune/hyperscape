@@ -4,13 +4,13 @@ import type {
   Memory,
   Provider,
   State,
-} from '@elizaos/core'
+} from "@elizaos/core";
 import {
   addHeader,
   composeActionExamples,
   formatActionNames,
-} from '@elizaos/core'
-import { getHyperscapeActions, formatActions } from '../utils'
+} from "@elizaos/core";
+import { getHyperscapeActions, formatActions } from "../utils";
 
 /**
  * A provider object that fetches possible response actions based on the provided runtime, message, and state.
@@ -45,29 +45,29 @@ import { getHyperscapeActions, formatActions } from '../utils'
  * @returns {Object} Object containing data, values, and text related to actions
  */
 export const hyperscapeActionsProvider: Provider = {
-  name: 'ACTIONS',
-  description: 'Possible response actions',
+  name: "ACTIONS",
+  description: "Possible response actions",
   position: -1,
   get: async (runtime: IAgentRuntime, message: Memory, state: State) => {
-    const actionsData = await getHyperscapeActions(runtime, message, state) // ← no includeList passed here
+    const actionsData = await getHyperscapeActions(runtime, message, state); // ← no includeList passed here
 
-    const actionNames = `Possible response actions: ${formatActionNames(actionsData)}`
+    const actionNames = `Possible response actions: ${formatActionNames(actionsData)}`;
     const actions =
       actionsData.length > 0
-        ? addHeader('# Available Actions', formatActions(actionsData))
-        : ''
+        ? addHeader("# Available Actions", formatActions(actionsData))
+        : "";
     const actionExamples =
       actionsData.length > 0
         ? // @ts-ignore - Function signature mismatch
-          addHeader('# Action Examples', composeActionExamples(actionsData, 10))
-        : ''
+          addHeader("# Action Examples", composeActionExamples(actionsData, 10))
+        : "";
 
-    const data = { actionsData }
-    const values = { actions, actionNames, actionExamples }
+    const data = { actionsData };
+    const values = { actions, actionNames, actionExamples };
     const text = [actionNames, actionExamples, actions]
       .filter(Boolean)
-      .join('\n\n')
+      .join("\n\n");
 
-    return { data, values, text }
+    return { data, values, text };
   },
-}
+};

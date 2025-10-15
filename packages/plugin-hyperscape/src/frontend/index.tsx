@@ -2,33 +2,33 @@ import {
   QueryClient,
   QueryClientProvider,
   useQuery,
-} from '@tanstack/react-query'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import React from 'react'
-import type { UUID } from '@elizaos/core'
-import { NETWORK_CONFIG } from '../config/constants'
+} from "@tanstack/react-query";
+import { createRoot } from "react-dom/client";
+import "./index.css";
+import React from "react";
+import type { UUID } from "@elizaos/core";
+import { NETWORK_CONFIG } from "../config/constants";
 
 declare global {
   interface Window {
-    ELIZA_CONFIG?: ElizaConfig
+    ELIZA_CONFIG?: ElizaConfig;
   }
 }
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient();
 
 // Define the interface for the ELIZA_CONFIG
 interface ElizaConfig {
-  agentId: string
-  apiBase: string
+  agentId: string;
+  apiBase: string;
 }
 
 // Define the interface for time response
 interface TimeResponse {
-  timestamp: string
-  unix: number
-  formatted: string
-  timezone: string
+  timestamp: string;
+  unix: number;
+  formatted: string;
+  timezone: string;
 }
 
 /**
@@ -36,28 +36,28 @@ interface TimeResponse {
  */
 function TimeDisplay({ apiBase }: { apiBase: string }) {
   const { data, isLoading, error, refetch } = useQuery<TimeResponse>({
-    queryKey: ['currentTime'],
+    queryKey: ["currentTime"],
     queryFn: async () => {
-      const response = await fetch(`${apiBase}/api/time`)
+      const response = await fetch(`${apiBase}/api/time`);
       if (!response.ok) {
-        throw new Error('Failed to fetch time')
+        throw new Error("Failed to fetch time");
       }
-      return response.json()
+      return response.json();
     },
     refetchInterval: 1000, // Refresh every second
-  })
+  });
 
   if (isLoading) {
-    return <div className="text-gray-600">Loading time...</div>
+    return <div className="text-gray-600">Loading time...</div>;
   }
 
   if (error) {
     return (
       <div className="text-red-600">
-        Error fetching time:{' '}
-        {error instanceof Error ? error.message : 'Unknown error'}
+        Error fetching time:{" "}
+        {error instanceof Error ? error.message : "Unknown error"}
       </div>
-    )
+    );
   }
 
   return (
@@ -82,21 +82,21 @@ function TimeDisplay({ apiBase }: { apiBase: string }) {
         Refresh
       </button>
     </div>
-  )
+  );
 }
 
 /**
  * Main Example route component
  */
 function ExampleRoute() {
-  const config = window.ELIZA_CONFIG
-  const agentId = config?.agentId
-  const apiBase = config?.apiBase || NETWORK_CONFIG.DEFAULT_API_BASE
+  const config = window.ELIZA_CONFIG;
+  const agentId = config?.agentId;
+  const apiBase = config?.apiBase || NETWORK_CONFIG.DEFAULT_API_BASE;
 
   // Apply dark mode to the root element
   React.useEffect(() => {
-    document.documentElement.classList.add('dark')
-  }, [])
+    document.documentElement.classList.add("dark");
+  }, []);
 
   if (!agentId) {
     return (
@@ -108,10 +108,10 @@ function ExampleRoute() {
           The server should inject the agent ID configuration.
         </div>
       </div>
-    )
+    );
   }
 
-  return <ExampleProvider agentId={agentId as UUID} apiBase={apiBase} />
+  return <ExampleProvider agentId={agentId as UUID} apiBase={apiBase} />;
 }
 
 /**
@@ -121,8 +121,8 @@ function ExampleProvider({
   agentId,
   apiBase,
 }: {
-  agentId: UUID
-  apiBase: string
+  agentId: UUID;
+  apiBase: string;
 }) {
   return (
     <QueryClientProvider client={queryClient}>
@@ -136,27 +136,27 @@ function ExampleProvider({
         <TimeDisplay apiBase={apiBase} />
       </div>
     </QueryClientProvider>
-  )
+  );
 }
 
 // Initialize the application - no router needed for iframe
-const rootElement = document.getElementById('root')
+const rootElement = document.getElementById("root");
 if (rootElement) {
-  createRoot(rootElement).render(<ExampleRoute />)
+  createRoot(rootElement).render(<ExampleRoute />);
 }
 
 // Define types for integration with agent UI system
 export interface AgentPanel {
-  name: string
-  path: string
-  component: React.ComponentType<any>
-  icon?: string
-  public?: boolean
-  shortLabel?: string // Optional short label for mobile
+  name: string;
+  path: string;
+  component: React.ComponentType<any>;
+  icon?: string;
+  public?: boolean;
+  shortLabel?: string; // Optional short label for mobile
 }
 
 interface PanelProps {
-  agentId: string
+  agentId: string;
 }
 
 /**
@@ -168,19 +168,19 @@ const PanelComponent: React.FC<PanelProps> = ({ agentId }) => {
       <h2 className="text-lg font-semibold mb-2">Example Panel</h2>
       <div>Hello {agentId}!</div>
     </div>
-  )
-}
+  );
+};
 
 // Export the panel configuration for integration with the agent UI
 export const panels: AgentPanel[] = [
   {
-    name: 'Example',
-    path: 'example',
+    name: "Example",
+    path: "example",
     component: PanelComponent,
-    icon: 'Book',
+    icon: "Book",
     public: false,
-    shortLabel: 'Example',
+    shortLabel: "Example",
   },
-]
+];
 
-export * from './utils'
+export * from "./utils";

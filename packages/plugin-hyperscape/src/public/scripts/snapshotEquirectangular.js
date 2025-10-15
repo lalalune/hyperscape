@@ -1,29 +1,29 @@
 window.snapshotEquirectangular = async function (playerData) {
   // THREE is already available via import maps in index.html
-  const renderer = window.renderer
-  const scene = window.scene
+  const renderer = window.renderer;
+  const scene = window.scene;
 
-  const size = 1024
+  const size = 1024;
 
   const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(size, {
     format: THREE.RGBAFormat,
     type: THREE.UnsignedByteType,
-  })
+  });
 
-  const eye = new THREE.Vector3().fromArray(playerData.position)
-  eye.y += 2
+  const eye = new THREE.Vector3().fromArray(playerData.position);
+  eye.y += 2;
 
-  const cubeCamera = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget)
-  cubeCamera.position.copy(eye)
-  cubeCamera.quaternion.set(...playerData.quaternion)
-  cubeCamera.update(renderer, scene)
+  const cubeCamera = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget);
+  cubeCamera.position.copy(eye);
+  cubeCamera.quaternion.set(...playerData.quaternion);
+  cubeCamera.update(renderer, scene);
 
-  const rtWidth = 2048
-  const rtHeight = 1024
+  const rtWidth = 2048;
+  const rtHeight = 1024;
 
-  const renderTarget = new THREE.WebGLRenderTarget(rtWidth, rtHeight)
-  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
-  const sceneRTT = new THREE.Scene()
+  const renderTarget = new THREE.WebGLRenderTarget(rtWidth, rtHeight);
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const sceneRTT = new THREE.Scene();
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -57,26 +57,33 @@ window.snapshotEquirectangular = async function (playerData) {
           gl_FragColor = textureCube(envMap, dir);
         }
       `,
-  })
+  });
 
-  const plane = new THREE.PlaneGeometry(2, 2)
-  const quad = new THREE.Mesh(plane, material)
-  sceneRTT.add(quad)
+  const plane = new THREE.PlaneGeometry(2, 2);
+  const quad = new THREE.Mesh(plane, material);
+  sceneRTT.add(quad);
 
-  renderer.setRenderTarget(renderTarget)
-  renderer.render(sceneRTT, camera)
-  renderer.setRenderTarget(null)
+  renderer.setRenderTarget(renderTarget);
+  renderer.render(sceneRTT, camera);
+  renderer.setRenderTarget(null);
 
-  const pixels = new Uint8Array(rtWidth * rtHeight * 4)
-  renderer.readRenderTargetPixels(renderTarget, 0, 0, rtWidth, rtHeight, pixels)
+  const pixels = new Uint8Array(rtWidth * rtHeight * 4);
+  renderer.readRenderTargetPixels(
+    renderTarget,
+    0,
+    0,
+    rtWidth,
+    rtHeight,
+    pixels,
+  );
 
-  const canvas = document.createElement('canvas')
-  canvas.width = rtWidth
-  canvas.height = rtHeight
-  const ctx = canvas.getContext('2d')
-  const imageData = ctx.createImageData(rtWidth, rtHeight)
-  imageData.data.set(pixels)
-  ctx.putImageData(imageData, 0, 0)
+  const canvas = document.createElement("canvas");
+  canvas.width = rtWidth;
+  canvas.height = rtHeight;
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.createImageData(rtWidth, rtHeight);
+  imageData.data.set(pixels);
+  ctx.putImageData(imageData, 0, 0);
 
-  return canvas.toDataURL('image/jpeg').split(',')[1]
-}
+  return canvas.toDataURL("image/jpeg").split(",")[1];
+};

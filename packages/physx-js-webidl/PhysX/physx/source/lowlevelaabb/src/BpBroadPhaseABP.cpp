@@ -66,7 +66,7 @@ PT: to try:
 
 //#pragma warning (disable : 4702)
 #define	CODEALIGN16		//_asm	align 16
-#if PX_INTEL_FAMILY && !defined(PX_SIMD_DISABLED) && !defined(__EMSCRIPTEN__)
+#if PX_INTEL_FAMILY && !defined(PX_SIMD_DISABLED)
 	#define ABP_SIMD_OVERLAP
 #endif
 

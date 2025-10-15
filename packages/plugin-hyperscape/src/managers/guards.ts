@@ -4,28 +4,28 @@
  */
 
 export class AgentActivityLock {
-  private count = 0
+  private count = 0;
 
   isActive(): boolean {
-    return this.count > 0
+    return this.count > 0;
   }
 
   enter() {
-    this.count++
+    this.count++;
   }
 
   exit() {
-    this.count = Math.max(0, this.count - 1)
+    this.count = Math.max(0, this.count - 1);
   }
 
   async run<T>(fn: () => Promise<T>): Promise<T> {
-    this.enter()
+    this.enter();
     try {
-      return await fn()
+      return await fn();
     } finally {
-      this.exit()
+      this.exit();
     }
   }
 }
 
-export const agentActivityLock = new AgentActivityLock()
+export const agentActivityLock = new AgentActivityLock();

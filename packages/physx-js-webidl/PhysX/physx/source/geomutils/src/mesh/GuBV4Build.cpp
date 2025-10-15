@@ -558,11 +558,7 @@ struct BVData : public physx::PxUserAllocated
 {
 	BVData();
 	CenterExtents	mAABB;
-#ifdef __EMSCRIPTEN__
-	PxU64			mData64;
-#else
 	size_t			mData64;
-#endif
 #ifdef GU_BV4_PRECOMPUTED_NODE_SORT
 	PxU32			mTempPNS;
 #endif

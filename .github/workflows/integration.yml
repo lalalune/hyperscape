@@ -1,0 +1,83 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hyperscape
+          POSTGRES_PASSWORD: hyperscape_test
+          POSTGRES_DB: hyperscape_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build shared package
+        working-directory: packages/shared
+        run: bun run build
+
+      - name: Build server package
+        working-directory: packages/server
+        run: bun run build
+
+      - name: Start server in background
+        working-directory: packages/server
+        run: |
+          bun run start &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
+          NODE_ENV: test
+          PORT: 5555
+
+      - name: Run integration tests
+        working-directory: packages/server
+        run: bun scripts/test-integration.mjs
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-report
+          path: |
+            test-results/
+            test-*.png
+            test-*.json
+          retention-days: 14
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: |
+            logs/
+            **/*.log
+          retention-days: 7
+

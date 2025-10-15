@@ -1,17 +1,17 @@
-import React from 'react'
+import React from "react";
 
 interface ProgressProps {
-  value: number
-  max?: number
-  className?: string
+  value: number;
+  max?: number;
+  className?: string;
 }
 
 export const Progress: React.FC<ProgressProps> = ({
   value,
   max = 100,
-  className = '',
+  className = "",
 }) => {
-  const percentage = Math.min(100, Math.max(0, (value / max) * 100))
+  const percentage = Math.min(100, Math.max(0, (value / max) * 100));
 
   return (
     <div
@@ -22,5 +22,5 @@ export const Progress: React.FC<ProgressProps> = ({
         style={{ width: `${percentage}%` }}
       />
     </div>
-  )
-}
+  );
+};

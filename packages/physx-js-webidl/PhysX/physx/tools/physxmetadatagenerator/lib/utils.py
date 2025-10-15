@@ -27,6 +27,7 @@
 # general utility module
 
 import os
+import sys
 import re
 import subprocess
 
