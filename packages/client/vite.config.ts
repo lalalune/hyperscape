@@ -28,16 +28,36 @@ export default defineConfig(({ mode }) => {
       name: 'watch-shared-package',
       configureServer(server) {
         const sharedBuildPath = path.resolve(__dirname, '../shared/build')
-        server.watcher.add(path.join(sharedBuildPath, '*.js'))
+        const sharedSrcPath = path.resolve(__dirname, '../shared/src')
+        
+        // Watch both build output AND source files
+        server.watcher.add(path.join(sharedBuildPath, '**/*.js'))
+        server.watcher.add(path.join(sharedSrcPath, '**/*.ts'))
+        server.watcher.add(path.join(sharedSrcPath, '**/*.tsx'))
+        
         server.watcher.on('change', (file) => {
-          if (file.includes('packages/shared/build/')) {
-            console.log('\n[Vite] Shared package updated, reloading...\n')
+          if (file.includes('packages/shared/build/') || file.includes('packages/shared/src/')) {
+            console.log(`\n[Vite] 🔄 Shared package file changed: ${path.basename(file)}`)
+            console.log('[Vite] ⚡ Triggering full reload...\n')
+            
+            // Clear Vite's module cache for @hyperscape/shared
+            const sharedModule = server.moduleGraph.getModuleById('@hyperscape/shared')
+            if (sharedModule) {
+              server.moduleGraph.invalidateModule(sharedModule)
+            }
+            
+            // Also invalidate all modules that import from shared
+            server.moduleGraph.invalidateAll()
+            
+            // Trigger full page reload
             server.ws.send({
               type: 'full-reload',
               path: '*'
             })
           }
         })
+        
+        console.log('[Vite] 👀 Watching shared package:', sharedBuildPath)
       }
     },
     // Plugin to handle Node.js modules in browser
@@ -166,12 +186,12 @@ export default defineConfig(({ mode }) => {
     include: [
       'three', 
       'react', 
-      'react-dom',
-      '@hyperscape/shared' // Ensure this gets optimized with the correct alias
+      'react-dom'
     ],
     exclude: [
-      '@playwright/test', // Exclude Playwright from optimization
-      'fs-extra',         // Exclude Node.js modules
+      '@hyperscape/shared',  // CRITICAL: Exclude from dep optimization so changes are detected
+      '@playwright/test',    // Exclude Playwright from optimization
+      'fs-extra',            // Exclude Node.js modules
       'fs',
       'path',
       'node:fs',

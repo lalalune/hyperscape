@@ -478,6 +478,11 @@ export class ClientNetwork extends SystemBase {
   }
 
   onEntityAdded = (data: EntityData) => {
+    // Add debugging for mob entities
+    if (data.type === 'mob') {
+      console.log(`[ClientNetwork] 📡 Received mob entity: ${data.id} (${data.name})`);
+    }
+    
     // Add entity if method exists
     const newEntity = this.world.entities.add(data)
     if (newEntity) {

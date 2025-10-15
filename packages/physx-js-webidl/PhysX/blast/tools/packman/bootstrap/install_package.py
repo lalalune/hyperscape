@@ -13,13 +13,14 @@
 # limitations under the License.
 
 import logging
+import zipfile
+import tempfile
+import sys
 import os
 import stat
-import sys
-import tempfile
 import time
-import zipfile
 from typing import Any, Callable
+
 
 RENAME_RETRY_COUNT = 100
 RENAME_RETRY_DELAY = 0.1

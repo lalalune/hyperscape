@@ -60,6 +60,7 @@ export { createClientWorld } from './createClientWorld';
 export { createServerWorld } from './createServerWorld';
 export { createViewerWorld } from './createViewerWorld';
 export { World } from './World';
+export type { World as WorldType } from './World';
 
 // Export entity classes
 export { Entity } from './entities/Entity';
@@ -450,7 +451,6 @@ export type { SkillsData } from './types/system-interfaces';
 export type { HealthComponent, VisualComponent, EntityCombatComponent, PlayerCombatStyle } from './types/entities';
 export type { GroupType } from './types/nodes';
 export type { InventoryItemInfo } from './types/events';
-export type { MaterialProxy } from './types/materials';
 
 
 // Export database/event types

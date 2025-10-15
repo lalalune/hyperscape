@@ -3,6 +3,8 @@
  * 
  * Loads 3D models once and caches them for reuse across multiple entity instances.
  * This prevents loading the same GLB file hundreds of times for items/mobs.
+ * 
+ * IMPORTANT: Materials are set up for WebGPU/CSM compatibility automatically.
  */
 
 import THREE from '../extras/three';
@@ -35,14 +37,85 @@ export class ModelCache {
   }
   
   /**
+   * Setup materials for WebGPU/CSM compatibility
+   * This ensures proper shadows and rendering
+   */
+  private setupMaterials(scene: THREE.Object3D, world?: World): void {
+    scene.traverse((node) => {
+      if (node instanceof THREE.Mesh || node instanceof THREE.SkinnedMesh) {
+        const mesh = node;
+        
+        // Handle material arrays
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(mat => {
+            this.setupSingleMaterial(mat, world);
+          });
+        } else {
+          this.setupSingleMaterial(mesh.material, world);
+        }
+        
+        // Enable shadows
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        
+        // For skinned meshes, disable frustum culling
+        if (mesh instanceof THREE.SkinnedMesh) {
+          mesh.frustumCulled = false; // Prevent culling issues with animated meshes
+          // NOTE: Do NOT bind skeleton here - entities will handle it after scaling
+        }
+      }
+    });
+  }
+  
+  /**
+   * Setup a single material for WebGPU/CSM
+   */
+  private setupSingleMaterial(material: THREE.Material, world?: World): void {
+    // Call world's setupMaterial for CSM integration
+    if (world && world.setupMaterial) {
+      world.setupMaterial(material);
+    }
+    
+    // Ensure shadowSide is set (prevents shadow acne)
+    (material as THREE.Material & { shadowSide?: THREE.Side }).shadowSide = THREE.BackSide;
+    
+    // Ensure material can receive fog
+    (material as THREE.Material & { fog?: boolean }).fog = true;
+    
+    // For WebGPU compatibility, ensure color space is correct
+    // Strong type assumption - these material types have map and emissiveMap
+    const materialWithMaps = material as THREE.Material & { 
+      map?: THREE.Texture | null; 
+      emissiveMap?: THREE.Texture | null;
+    };
+    
+    if (material instanceof THREE.MeshStandardMaterial || 
+        material instanceof THREE.MeshPhysicalMaterial ||
+        material instanceof THREE.MeshBasicMaterial ||
+        material instanceof THREE.MeshPhongMaterial) {
+      
+      // Set up texture color spaces
+      if (materialWithMaps.map) {
+        materialWithMaps.map.colorSpace = THREE.SRGBColorSpace;
+      }
+      if (materialWithMaps.emissiveMap) {
+        materialWithMaps.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+      }
+    }
+    
+    // Mark material for update
+    material.needsUpdate = true;
+  }
+  
+  /**
    * Load a model (with caching)
-   * Returns a cloned scene ready to use
+   * Returns a cloned scene ready to use with materials properly set up
    * 
    * NOTE: This returns pure THREE.Object3D, NOT Hyperscape Nodes!
    * Use world.loader.load('model', url) if you need Hyperscape Nodes.
    * 
    * @param path - Model path (can be asset:// URL or absolute URL)
-   * @param world - World instance for URL resolution (resolves asset:// protocol)
+   * @param world - World instance for URL resolution and material setup
    */
   async loadModel(
     path: string,
@@ -80,6 +153,9 @@ export class ModelCache {
       // Clone the scene for this instance
       const clonedScene = cached.scene.clone(true);
       
+      // CRITICAL: Setup materials on the clone for WebGPU/CSM
+      this.setupMaterials(clonedScene, world);
+      
       return {
         scene: clonedScene,
         animations: cached.animations,
@@ -93,8 +169,13 @@ export class ModelCache {
       console.log(`[ModelCache] ⏳ Waiting for in-progress load: ${path}`);
       const result = await loadingPromise;
       result.cloneCount++;
+      const clonedScene = result.scene.clone(true);
+      
+      // CRITICAL: Setup materials on the clone for WebGPU/CSM
+      this.setupMaterials(clonedScene, world);
+      
       return {
-        scene: result.scene.clone(true),
+        scene: clonedScene,
         animations: result.animations,
         fromCache: true
       };
@@ -112,6 +193,10 @@ export class ModelCache {
         throw new Error('ModelCache received Hyperscape Node - this indicates a loader system conflict');
       }
       
+      // CRITICAL: Setup materials on the original scene for WebGPU/CSM
+      // This ensures all clones will have properly configured materials
+      this.setupMaterials(gltf.scene, world);
+      
       const cachedModel: CachedModel = {
         scene: gltf.scene,
         animations: gltf.animations,
@@ -123,9 +208,9 @@ export class ModelCache {
       this.loading.delete(resolvedPath);
       
       console.log(`[ModelCache] ✅ Cached model: ${path}`, {
-        meshCount: this.countMeshes(gltf.scene),
-        animations: gltf.animations.length,
-        sceneType: gltf.scene.constructor.name
+        meshes: this.countMeshes(gltf.scene),
+        skinnedMeshes: this.countSkinnedMeshes(gltf.scene),
+        animations: gltf.animations.length
       });
       
       return cachedModel;
@@ -146,6 +231,9 @@ export class ModelCache {
       console.error('[ModelCache] This should never happen. Scene type:', clonedScene.constructor.name);
       throw new Error('ModelCache clone produced Hyperscape Node instead of THREE.Object3D');
     }
+    
+    // CRITICAL: Setup materials on the clone as well for safety
+    this.setupMaterials(clonedScene, world);
     
     return {
       scene: clonedScene,
@@ -218,8 +306,20 @@ export class ModelCache {
     });
     return count;
   }
+  
+  /**
+   * Count skinned meshes in a scene
+   */
+  private countSkinnedMeshes(scene: THREE.Object3D): number {
+    let count = 0;
+    scene.traverse((child) => {
+      if (child instanceof THREE.SkinnedMesh) {
+        count++;
+      }
+    });
+    return count;
+  }
 }
 
 // Export singleton instance
 export const modelCache = ModelCache.getInstance();
-

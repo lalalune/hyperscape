@@ -22,7 +22,7 @@ set "str1=%1"
 if not x%str1:.user=%==x%str1% (
     call %PACKMAN_CMD% pull "%PHYSX_ROOT_DIR%dependencies.xml" --platform %str1:.user=%
 ) else (
-    call %PACKMAN_CMD% pull "%PHYSX_ROOT_DIR%dependencies.xml" --platform %str1%
+    call %PACKMAN_CMD% pull "%PHYSX_ROOT_DIR%dependencies.xml" --platform %1
 )
 
 for /f "usebackq tokens=*" %%i in (`"%PM_vswhere_PATH%\VsWhere.exe  -version [15.0,16.0) -latest -property installationPath"`) do (
@@ -32,7 +32,7 @@ for /f "usebackq tokens=*" %%i in (`"%PM_vswhere_PATH%\VsWhere.exe  -version [15
 
 for /f "usebackq tokens=*" %%i in (`"%PM_vswhere_PATH%\VsWhere.exe  -version [16.0,17.0) -latest -property installationPath"`) do (
   set "Install2019Dir=%%i"
-  set "VS160PATH=%%i"
+	set "VS160PATH=%%i"
   @REM Setting VS160COMNTOOLS: This is mainly needed for building for Switch
   @REM Reason: When both MS build tools and Visual Studio are installed together in the same system
   @REM Cmake will use msbuild to generate the project instead of Visual Studio. Which make Cmake fail
@@ -85,7 +85,7 @@ if exist "%Install2022Dir%\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.t
 )
 
 :ADDITIONAL_PARAMS_MISSING
-call %PM_PYTHON% %PHYSX_ROOT_DIR%buildtools/cmake_generate_projects.py %1
+call "%PM_PYTHON%" "%PHYSX_ROOT_DIR%buildtools/cmake_generate_projects.py" %1
 if %ERRORLEVEL% neq 0 (
   set /p DUMMY=Hit ENTER to continue...
   exit /b %errorlevel%

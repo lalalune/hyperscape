@@ -34,6 +34,7 @@
     "dev:shared": "cd packages/shared && bun run dev",
     "dev:client": "cd packages/client && bun run dev",
     "dev:server": "cd packages/server && bun run dev",
+    "dev:reset": "bun run clean && rm -rf packages/*/node_modules/.vite && bun run build:shared && turbo run dev",
     "cdn:up": "bun scripts/cdn.mjs",
     "cdn:down": "cd packages/server && docker-compose down cdn",
     "start": "cd packages/server && bun run start",

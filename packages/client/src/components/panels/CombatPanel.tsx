@@ -1,12 +1,23 @@
 import React, { useEffect, useState } from 'react'
-import type { World } from '@hyperscape/shared'
-import type { PlayerEquipmentItems } from '@hyperscape/shared'
-import type { PlayerStats } from '@hyperscape/shared'
-import { PlayerMigration, WeaponType } from '@hyperscape/shared'
-import { EventType } from '@hyperscape/shared'
+import { PlayerMigration, WeaponType, EventType, World } from '@hyperscape/shared'
+
+// Define interface matching what we expect
+interface PlayerStats {
+  combatLevel?: number
+  skills?: Record<string, { level: number; xp: number }>
+}
+
+interface PlayerEquipmentItems {
+  weapon?: { weaponType?: string } | null
+  shield?: unknown | null
+  helmet?: unknown | null
+  body?: unknown | null
+  legs?: unknown | null
+  arrows?: unknown | null
+}
 
 interface CombatPanelProps {
-  world: World
+  world: InstanceType<typeof World>
   stats: PlayerStats | null
   equipment: PlayerEquipmentItems | null
 }
@@ -17,36 +28,47 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   const combatLevel = stats?.combatLevel || (stats?.skills ? PlayerMigration.calculateCombatLevel(stats.skills) : 1)
 
   useEffect(() => {
-    const id = world.entities.player?.id
-    if (!id) return
-    world.actionMethods?.getAttackStyleInfo?.(id, (info: { style: string; cooldown?: number }) => {
+    const entities = (world as { entities?: { player?: { id?: string } } }).entities
+    const playerId = entities?.player?.id
+    if (!playerId) return
+    
+    const actions = world.getSystem('actions') as { actionMethods?: { 
+      getAttackStyleInfo?: (id: string, cb: (info: { style: string; cooldown?: number }) => void) => void 
+      changeAttackStyle?: (id: string, style: string) => void
+    }} | null
+    
+    actions?.actionMethods?.getAttackStyleInfo?.(playerId, (info: { style: string; cooldown?: number }) => {
       if (info) {
         setStyle(info.style)
         setCooldown(info.cooldown || 0)
       }
     })
-    const onUpdate = (...args: unknown[]) => {
-      const data = args[0] as { playerId: string; currentStyle: { id: string } }
-      if (data.playerId !== id) return
+    const onUpdate = (data: { playerId: string; currentStyle: { id: string } }) => {
+      if (data.playerId !== playerId) return
       setStyle(data.currentStyle.id)
     }
-    const onChanged = (...args: unknown[]) => {
-      const data = args[0] as { playerId: string; currentStyle: { id: string } }
-      if (data.playerId !== id) return
+    const onChanged = (data: { playerId: string; currentStyle: { id: string } }) => {
+      if (data.playerId !== playerId) return
       setStyle(data.currentStyle.id)
     }
-    world.on(EventType.UI_ATTACK_STYLE_UPDATE, onUpdate)
-    world.on(EventType.UI_ATTACK_STYLE_CHANGED, onChanged)
+    world.on(EventType.UI_ATTACK_STYLE_UPDATE, onUpdate, undefined)
+    world.on(EventType.UI_ATTACK_STYLE_CHANGED, onChanged, undefined)
     return () => {
-      world.off(EventType.UI_ATTACK_STYLE_UPDATE, onUpdate)
-      world.off(EventType.UI_ATTACK_STYLE_CHANGED, onChanged)
+      world.off(EventType.UI_ATTACK_STYLE_UPDATE, onUpdate, undefined, undefined)
+      world.off(EventType.UI_ATTACK_STYLE_CHANGED, onChanged, undefined, undefined)
     }
-  }, [world, world.entities.player?.id])
+  }, [world])
 
   const changeStyle = (next: string) => {
-    const id = world.entities.player?.id
-    if (!id) return
-    world.actionMethods?.changeAttackStyle?.(id, next)
+    const entities = (world as { entities?: { player?: { id?: string } } }).entities
+    const playerId = entities?.player?.id
+    if (!playerId) return
+    
+    const actions = world.getSystem('actions') as { actionMethods?: { 
+      changeAttackStyle?: (id: string, style: string) => void
+    }} | null
+    
+    actions?.actionMethods?.changeAttackStyle?.(playerId, next)
   }
 
   // Determine if ranged weapon equipped; if so, limit to ranged/defense like RS

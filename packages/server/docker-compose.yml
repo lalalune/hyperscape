@@ -28,6 +28,7 @@ services:
       POSTGRES_USER: hyperscape
       POSTGRES_PASSWORD: hyperscape_dev
       POSTGRES_DB: hyperscape
+    command: postgres -c max_connections=200 -c shared_buffers=256MB
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
