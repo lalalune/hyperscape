@@ -159,6 +159,7 @@ export class EntityManager extends SystemBase {
   }
 
   update(deltaTime: number): void {
+    
     // Update all entities that need updates
     this.entitiesNeedingUpdate.forEach(entityId => {
       const entity = this.entities.get(entityId);
@@ -192,33 +193,16 @@ export class EntityManager extends SystemBase {
       config.id = `entity_${this.nextEntityId++}`;
     }
     
-    console.log(`[EntityManager] 🔄 Spawning ${config.type} entity: ${config.name} (${config.id})`, {
-      position: config.position,
-      hasModel: !!config.model,
-      modelPath: config.model
-    });
-    
     // VALIDATE config before creating entity
     if (!config.position || !Number.isFinite(config.position.x) || !Number.isFinite(config.position.y) || !Number.isFinite(config.position.z)) {
       throw new Error(`Invalid position for entity ${config.id}: ${JSON.stringify(config.position)}`);
     }
     
     if (config.position.y < -200 || config.position.y > 2000) {
-      console.error(`[EntityManager] ⚠️  Entity ${config.name} has extreme Y position: ${config.position.y}`);
       throw new Error(`Entity spawn position out of range: Y=${config.position.y} (expected 0-100)`);
     }
     
     let entity: Entity;
-    
-    // Create appropriate entity type
-    console.log(`[EntityManager] Creating ${config.type} entity with config:`, {
-      id: config.id,
-      name: config.name,
-      model: config.model,
-      modelExists: !!config.model,
-      position: config.position,
-      itemId: config.type === 'item' ? (config as ItemEntityConfig).itemId : undefined
-    });
     
     switch (config.type) {
       case 'item':
@@ -269,15 +253,43 @@ export class EntityManager extends SystemBase {
       entityData: entity.getNetworkData()
     });
     
+    // CRITICAL FIX: Broadcast new entity to all connected clients
+    if (this.world.isServer) {
+      const network = this.world.network;
+      if (network && typeof network.send === 'function') {
+        try {
+          network.send('entityAdded', entity.serialize());
+          console.log(`[EntityManager] 📡 Broadcasted new ${config.type} entity to all clients: ${config.id}`);
+        } catch (error) {
+          console.warn(`[EntityManager] Failed to broadcast entity ${config.id}:`, error);
+        }
+      }
+    }
+    
     console.log(`[EntityManager] ✅ Successfully spawned and registered ${config.type} entity: ${config.name}`);
     
     return entity;
   }
 
   destroyEntity(entityId: string): boolean {
-    const entity = this.entities.get(entityId);
-    if (!entity) return false;
+    const entity = this.getEntity(entityId);
+    if (!entity) {
+      console.log(`[EntityManager] Entity not found: ${entityId}`);
+      return false;
+    }
     
+    console.log(`[EntityManager] Destroying entity: ${entityId}`);
+    
+    // Send entityRemoved packet to all clients before destroying
+    const network = this.world.network;
+    if (network && network.isServer) {
+      try {
+        network.send('entityRemoved', entityId);
+        console.log(`[EntityManager] Sent entityRemoved packet for: ${entityId}`);
+      } catch (error) {
+        console.warn(`[EntityManager] Failed to send entityRemoved packet for ${entityId}:`, error);
+      }
+    }
     
     // Call entity destroy method
     entity.destroy();
@@ -296,11 +308,21 @@ export class EntityManager extends SystemBase {
       entityType: entity.type
     });
     
+    console.log(`[EntityManager] Entity destroyed: ${entityId}`);
     return true;
   }
 
   getEntity(entityId: string): Entity | undefined {
-    return this.entities.get(entityId);
+    const entity = this.entities.get(entityId);
+    if (entity) {
+      return entity;
+    }
+    for (const e of this.entities.values()) {
+      //console.log(`[EntityManager] Entity: ${e.id} - ${e.type} - ${entityId}, is same: ${e.id === entityId}`);
+      if (e.id === entityId) {
+        return e;
+      }
+    }
   }
   
   /**
@@ -333,9 +355,9 @@ export class EntityManager extends SystemBase {
   }
 
   private async handleInteractionRequest(data: { entityId: string; playerId: string; interactionType?: string }): Promise<void> {
-    const entity = this.entities.get(data.entityId);
+    const entity = this.getEntity(data.entityId);
     if (!entity) {
-            return;
+      return;
     }
     await entity.handleInteraction({
       ...data,
@@ -346,7 +368,7 @@ export class EntityManager extends SystemBase {
   }
 
   private handleMoveRequest(data: { entityId: string; position: { x: number; y: number; z: number } }): void {
-    const entity = this.entities.get(data.entityId);
+    const entity = this.getEntity(data.entityId);
     if (!entity) {
             return;
     }
@@ -359,7 +381,7 @@ export class EntityManager extends SystemBase {
   }
 
   private handlePropertyRequest(data: { entityId: string; propertyName: string; value: unknown }): void {
-    const entity = this.entities.get(data.entityId);
+    const entity = this.getEntity(data.entityId);
     if (!entity) {
             return;
     }
@@ -430,18 +452,26 @@ export class EntityManager extends SystemBase {
     await this.spawnEntity(config);
   }
 
-  // REMOVED: Dead code - no subscriptions to this method
-  // Item pickup is now handled by InventorySystem listening to ItemEntity's ITEM_PICKUP event
-  // private handleItemPickup(data: { entityId: string; playerId: string }): void {
-  //   const entity = this.entities.get(data.entityId);
-  //   if (!entity) return;
-  //   const itemId = entity.getProperty('itemId');
-  //   const quantity = entity.getProperty('quantity');
-  //   this.destroyEntity(data.entityId);
-  //   this.emitTypedEvent(EventType.ITEM_PICKUP, { playerId: data.playerId, item: itemId, quantity: quantity });
-  // }
+  private handleItemPickup(data: { entityId: string; playerId: string }): void {
+    const entity = this.getEntity(data.entityId);
+    if (!entity) {
+            return;
+    }
+    
+    // Get properties before destroying
+    const itemId = entity.getProperty('itemId');
+    const quantity = entity.getProperty('quantity');
+    
+    this.destroyEntity(data.entityId);
+    
+    this.emitTypedEvent(EventType.ITEM_PICKUP, {
+      playerId: data.playerId,
+      item: itemId,
+      quantity: quantity
+    });
+  }
 
-  private async handleMobSpawn(data: MobSpawnData): Promise<void> {
+  async handleMobSpawn(data: MobSpawnData): Promise<void> {
         
     // Strong type assumption - MobSpawnData.position is always Position3D with valid coordinates
     // If invalid coordinates are passed, that's a bug in the calling code
@@ -474,8 +504,14 @@ export class EntityManager extends SystemBase {
       throw new Error(`[EntityManager] Mob ${mobType} has no model path`);
     }
     
+    // CRITICAL FIX: Always use the provided customId to ensure client/server ID consistency
+    // Only generate a new ID if customId is not provided (fallback case)
+    console.log(`[EntityManager] Spawning mob: ${mobType} with customId: ${data.customId}`);
+    const mobId = data.customId || `mob_${this.nextEntityId++}`;
+    console.log(`[EntityManager] Final mob ID: ${mobId}`);
+    
     const config: MobEntityConfig = {
-      id: data.customId || `mob_${this.nextEntityId++}`,
+      id: mobId,
       name: `Mob: ${data.name || mobType || 'Unknown'} (Lv${level})`,
       type: EntityType.MOB,
       position: position,
@@ -608,6 +644,11 @@ export class EntityManager extends SystemBase {
       return;
     }
     
+    // Debug logging
+    if (this.networkDirtyEntities.size > 0) {
+      console.log(`[EntityManager] 📡 Sending network updates for ${this.networkDirtyEntities.size} entities:`, Array.from(this.networkDirtyEntities));
+    }
+    
     const network = this.world.network as { send?: (method: string, data: unknown, excludeId?: string) => void };
     
     if (!network || !network.send) {
@@ -625,7 +666,7 @@ export class EntityManager extends SystemBase {
         
         // Get network data from entity (includes health and other properties)
         const networkData = entity.getNetworkData();
-        
+      
         // Send entityModified packet with position/rotation changes
         // Call directly on network object to preserve 'this' context
         // Non-null assertion safe because we checked network.send exists above

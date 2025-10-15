@@ -95,9 +95,9 @@ export class MobEntity extends CombatantEntity {
   async init(): Promise<void> {
     await super.init();
     
-    // CRITICAL: Register for update loop (both client and server)
-    this.world.setHot(this, true);
-    console.log(`[MobEntity] ✅ Registered ${this.config.mobType} for update loop (hot entity)`);
+    // EntityManager automatically handles updates for all entities via entitiesNeedingUpdate
+    // No need to register as hot entity (would cause double updates)
+    console.log(`[MobEntity] ✅ Initialized ${this.config.mobType} (updates handled by EntityManager)`);
   }
 
   constructor(world: World, config: MobEntityConfig) {
@@ -211,6 +211,7 @@ export class MobEntity extends CombatantEntity {
     const action = mixer.clipAction(initialClip);
     action.enabled = true;
     action.setEffectiveWeight(1.0);
+    action.setLoop(THREE.LoopRepeat, Infinity); // Loop animation indefinitely
     action.play();
     
     console.log(`[MobEntity] ✅ Animations ready:`, {
@@ -277,6 +278,7 @@ export class MobEntity extends CombatantEntity {
     const initialClip = animationClips.walk;
     if (initialClip) {
       const action = mixer.clipAction(initialClip);
+      action.setLoop(THREE.LoopRepeat, Infinity); // Loop animation indefinitely
       action.play();
       
       // Store mixer and clips
@@ -444,6 +446,11 @@ export class MobEntity extends CombatantEntity {
   private serverDebugFrames = 0;
   private serverUpdateCount = 0;
   
+  /**
+   * SERVER-SIDE UPDATE
+   * Handles AI logic, pathfinding, combat, and state management
+   * Changes are synced to clients via getNetworkData() and markNetworkDirty()
+   */
   protected serverUpdate(deltaTime: number): void {
     super.serverUpdate(deltaTime);
     
@@ -505,7 +512,9 @@ export class MobEntity extends CombatantEntity {
       });
       currentAction?.fadeOut(0.2);
       const newAction = mixer.clipAction(targetClip);
-      newAction.reset().fadeIn(0.2).play();
+      newAction.reset();
+      newAction.setLoop(THREE.LoopRepeat, Infinity); // Loop animation indefinitely
+      newAction.fadeIn(0.2).play();
       (this as { currentAction?: THREE.AnimationAction }).currentAction = newAction;
     }
   }
@@ -513,26 +522,36 @@ export class MobEntity extends CombatantEntity {
   private clientDebugFrames = 0;
   private clientUpdateCallCount = 0;
   
+  /**
+   * CLIENT-SIDE UPDATE
+   * Handles visual updates: animations, interpolation, and rendering
+   * Position and AI state are synced from server via modify()
+   */
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
     
     this.clientUpdateCallCount++;
     
     // Mesh is child of node, so it follows automatically
-    // No manual position sync needed
+    // No manual position sync needed - node position updated by network
     
-    // Update animations based on AI state
+    // Update animations based on AI state (received from server)
     this.updateAnimation();
     
     // Update animation mixer if exists
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
+    const currentAction = (this as { currentAction?: THREE.AnimationAction }).currentAction;
+    
     if (mixer) {
       // Debug logging for first 10 updates (like VRM does)
       if (this.clientUpdateCallCount <= 10) {
         console.log(`[MobEntity] Update #${this.clientUpdateCallCount} for ${this.config.mobType}:`, {
           deltaTime: deltaTime.toFixed(4),
           mixerTime: mixer.time.toFixed(4),
-          hasMixer: true
+          hasMixer: true,
+          hasAction: !!currentAction,
+          actionPlaying: currentAction?.isRunning() || false,
+          actionWeight: currentAction?.weight || 0
         });
       }
       
@@ -552,6 +571,15 @@ export class MobEntity extends CombatantEntity {
           }
         });
       }
+    } else {
+      // NO MIXER - this is the problem!
+      if (this.clientUpdateCallCount === 1) {
+        console.error(`[MobEntity] ❌ NO MIXER on first clientUpdate for ${this.config.mobType}!`, {
+          hasMesh: !!this.mesh,
+          meshType: this.mesh?.type,
+          meshChildren: this.mesh?.children.length
+        });
+      }
     }
     
     // Periodic status logging for debugging (every ~5 seconds)
@@ -559,7 +587,9 @@ export class MobEntity extends CombatantEntity {
     if (this.clientDebugFrames === 300) {
       console.log(`[MobEntity][CLIENT] ${this.config.mobType}:`, {
         aiState: this.config.aiState,
-        animating: !!mixer
+        animating: !!mixer,
+        hasAction: !!currentAction,
+        actionRunning: currentAction?.isRunning() || false
       });
       this.clientDebugFrames = 0;
     }
@@ -585,6 +615,9 @@ export class MobEntity extends CombatantEntity {
         break;
       case MobAIState.FLEE:
         this.handleFleeState(deltaTime);
+        break;
+      case MobAIState.DEAD:
+        this.handleDeadState(deltaTime);
         break;
     }
   }
@@ -618,6 +651,7 @@ export class MobEntity extends CombatantEntity {
     if (nearbyPlayer) {
       this.config.targetPlayerId = nearbyPlayer.id;
       this.config.aiState = MobAIState.CHASE;
+      this.markNetworkDirty(); // Sync state change to clients
       return;
     }
 
@@ -640,6 +674,7 @@ export class MobEntity extends CombatantEntity {
     // Random chance to stop patrolling
     if (Math.random() < 0.05) { // 5% chance to stop
       this.config.aiState = MobAIState.IDLE;
+      this.markNetworkDirty(); // Sync state change to clients
     }
   }
 
@@ -706,6 +741,7 @@ export class MobEntity extends CombatantEntity {
   private handleAttackState(currentTime: number): void {
     if (!this.config.targetPlayerId) {
       this.config.aiState = MobAIState.IDLE;
+      this.markNetworkDirty(); // Sync state change to clients
       return;
     }
 
@@ -713,12 +749,14 @@ export class MobEntity extends CombatantEntity {
     if (!targetPlayer) {
       this.config.targetPlayerId = null;
       this.config.aiState = MobAIState.IDLE;
+      this.markNetworkDirty(); // Sync state change to clients
       return;
     }
 
     const targetPos = targetPlayer.position;
     if (!targetPos) {
       this.config.aiState = MobAIState.CHASE;
+      this.markNetworkDirty(); // Sync state change to clients
       return;
     }
 
@@ -727,6 +765,7 @@ export class MobEntity extends CombatantEntity {
     // Player moved out of range
     if (distance > this.config.combatRange) {
       this.config.aiState = MobAIState.CHASE;
+      this.markNetworkDirty(); // Sync state change to clients
       return;
     }
 
@@ -745,6 +784,7 @@ export class MobEntity extends CombatantEntity {
       // Reached spawn point
       this.config.aiState = MobAIState.IDLE;
       this.config.currentHealth = this.config.maxHealth; // Heal when returning home
+      this.markNetworkDirty(); // Sync state and health to clients
       return;
     }
 

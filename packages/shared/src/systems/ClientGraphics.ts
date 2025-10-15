@@ -167,12 +167,22 @@ export class ClientGraphics extends System {
     this.height = this.viewport.offsetHeight
     this.aspect = this.width / this.height
     
+    // Update camera aspect ratio immediately to match viewport
+    // Camera is created with hardcoded 16/9, so we need to fix it on init
+    if ('aspect' in this.world.camera) {
+      (this.world.camera as unknown as { aspect: number }).aspect = this.aspect
+    }
+    if ('updateProjectionMatrix' in this.world.camera) {
+      (this.world.camera as { updateProjectionMatrix: () => void }).updateProjectionMatrix()
+    }
+    
     // Create renderer (WebGPU or WebGL) - auto-detect best available
     this.renderer = await getRenderer(true)
     this.isWebGPU = !isWebGLRenderer(this.renderer)
     
     console.log(`[ClientGraphics] ✅ Using ${this.isWebGPU ? 'WebGPU' : 'WebGL'} renderer (auto-detected)`)
     console.log(`[ClientGraphics] Initial viewport size: ${this.width}x${this.height}, aspect: ${this.aspect.toFixed(2)}`)
+    console.log(`[ClientGraphics] Camera aspect updated to: ${this.aspect.toFixed(2)}`)
     
     // Configure renderer
     configureRenderer(this.renderer, {
