@@ -48,4 +48,4 @@ tmp/
 *.sqlite-shm
 *.sqlite-wal
 
-.turbo
+.turbo.claude-plugin/

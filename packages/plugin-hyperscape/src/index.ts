@@ -73,10 +73,24 @@ import { hyperscapeScenePerceptionAction } from "./actions/perception";
 import { hyperscapeEditEntityAction } from "./actions/build";
 import { replyAction } from "./actions/reply";
 import { ignoreAction } from "./actions/ignore";
+// RPG actions are loaded dynamically when RPG systems are detected
+// import { chopTreeAction } from "./actions/chopTree";
+// import { catchFishAction } from "./actions/catchFish";
+// import { lightFireAction } from "./actions/lightFire";
+// import { cookFoodAction } from "./actions/cookFood";
+// import { checkInventoryAction } from "./actions/checkInventory";
+// import { bankItemsAction } from "./actions/bankItems";
 import { hyperscapeProvider } from "./providers/world";
 import { hyperscapeEmoteProvider } from "./providers/emote";
 import { hyperscapeActionsProvider } from "./providers/actions";
 import { characterProvider } from "./providers/character";
+import { bankingProvider } from "./providers/banking";
+import { hyperscapeSkillProvider } from "./providers/skills";
+// Dynamic skill providers are loaded when RPG systems detect specific skills are available
+// import { woodcuttingSkillProvider } from "./providers/skills/woodcutting";
+// import { fishingSkillProvider } from "./providers/skills/fishing";
+// import { cookingSkillProvider } from "./providers/skills/cooking";
+// import { firemakingSkillProvider } from "./providers/skills/firemaking";
 import { hyperscapeEvents } from "./events";
 
 import { NETWORK_CONFIG } from "./config/constants";
@@ -115,6 +129,7 @@ export const hyperscapePlugin: Plugin = {
   services: [HyperscapeService],
   events: hyperscapeEvents,
   actions: [
+    // Core world interaction actions
     hyperscapeScenePerceptionAction,
     hyperscapeGotoEntityAction,
     useAction,
@@ -125,12 +140,18 @@ export const hyperscapePlugin: Plugin = {
     hyperscapeEditEntityAction,
     replyAction,
     ignoreAction,
+    // RPG actions are loaded dynamically when RPG systems are available
   ],
   providers: [
+    // Standard providers - always loaded
     hyperscapeProvider,
     hyperscapeEmoteProvider,
     hyperscapeActionsProvider,
     characterProvider,
+    hyperscapeSkillProvider,
+    bankingProvider,
+    // Dynamic skill providers are loaded when their systems are detected
+    // (woodcuttingSkillProvider, fishingSkillProvider, etc.)
   ],
   routes: [],
 };

@@ -1,11 +1,51 @@
 import { MessageSquareIcon } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
-import { ControlPriorities, World, EventType, isTouch } from '@hyperscape/shared'
-import type { ChatMessage, ControlBinding } from '@hyperscape/shared'
+import { ControlPriorities, EventType, isTouch, World } from '@hyperscape/shared'
 import { cls } from './cls'
 
-export function Chat({ world }: { world: World }) {
+// Local type definitions to avoid import issues
+interface ChatMessage {
+  id: string
+  from: string
+  fromId?: string
+  body: string
+  createdAt: string
+  timestamp?: number
+}
+
+interface ControlBinding {
+  slash?: { onPress?: () => void }
+  enter?: { onPress?: () => void }
+  mouseLeft?: { onPress?: () => void }
+  pointer?: { locked?: boolean }
+  release?: () => void
+}
+
+// Extended World type with client-specific properties
+type ExtendedWorld = InstanceType<typeof World> & {
+  on: <T extends string | symbol>(event: T, fn: (...args: unknown[]) => void, context?: unknown) => ExtendedWorld
+  off: <T extends string | symbol>(event: T, fn?: (...args: unknown[]) => void, context?: unknown, once?: boolean) => ExtendedWorld
+  prefs?: {
+    chatVisible?: boolean
+    on?: (event: string, callback: (changes: { chatVisible?: { value: boolean } }) => void) => void
+    off?: (event: string, callback: (changes: { chatVisible?: { value: boolean } }) => void) => void
+  }
+  controls?: {
+    bind?: (options: { priority?: number }) => ControlBinding
+    pointer?: { locked?: boolean }
+  }
+  chat: {
+    subscribe: (callback: (msgs: ChatMessage[]) => void) => () => void
+    send: (message: string) => void
+    command: (command: string) => void
+  }
+  network: {
+    id: string
+  }
+}
+
+export function Chat({ world }: { world: ExtendedWorld }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [msg, setMsg] = useState('')
   const [active, setActive] = useState(false)
@@ -34,13 +74,17 @@ export function Chat({ world }: { world: World }) {
         setChatVisible(changes.chatVisible.value)
       }
     }
-    world.prefs?.on('change', onPrefsChange)
+    if (world.prefs?.on) {
+      world.prefs.on('change', onPrefsChange)
+    }
     return () => {
-      world.prefs?.off('change', onPrefsChange)
+      if (world.prefs?.off) {
+        world.prefs.off('change', onPrefsChange)
+      }
     }
   }, [])
   useEffect(() => {
-    const control = world.controls?.bind({ priority: ControlPriorities.CORE_UI }) as ControlBinding | undefined
+    const control = world.controls?.bind?.({ priority: ControlPriorities.CORE_UI }) as ControlBinding | undefined
     if (!control) return
     if (control.slash) {
       control.slash.onPress = () => {
@@ -181,7 +225,7 @@ export function Chat({ world }: { world: World }) {
 }
 
 
-function MiniMessages({ world }: { world: World }) {
+function MiniMessages({ world }: { world: ExtendedWorld }) {
   const [msg, setMsg] = useState<ChatMessage | null>(null)
   useEffect(() => {
     let init: boolean
@@ -203,7 +247,7 @@ function MiniMessages({ world }: { world: World }) {
   )
 }
 
-function Messages({ world, active }: { world: World; active: boolean }) {
+function Messages({ world, active }: { world: ExtendedWorld; active: boolean }) {
   const initRef = useRef<boolean>(false)
   const contentRef = useRef<HTMLDivElement | null>(null)
   const spacerRef = useRef<HTMLDivElement | null>(null)

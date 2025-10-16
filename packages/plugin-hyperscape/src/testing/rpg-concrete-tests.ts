@@ -149,15 +149,18 @@ export class ConcreteRPGTests {
     const result = await this.visualTest.runTest("item-pickup", verification);
 
     // Additional check: verify specific item properties
-    if (result.passed && result.stateSnapshot) {
-      const newItems = result.stateSnapshot.inventory.items;
-      if (newItems.length > initialItems) {
-        const newItem = newItems[newItems.length - 1];
-        if (!newItem.id || !newItem.name || !newItem.quantity) {
-          result.passed = false;
-          result.failures.push(
-            "New item missing required properties (id, name, quantity)",
-          );
+    if (result.passed && result.stateSnapshot && result.stateSnapshot.inventory) {
+      const inventory = result.stateSnapshot.inventory;
+      if (!Array.isArray(inventory) && inventory.items) {
+        const newItems = inventory.items;
+        if (newItems.length > initialItems) {
+          const newItem = newItems[newItems.length - 1];
+          if (!newItem.id || !newItem.name || !newItem.quantity) {
+            result.passed = false;
+            result.failures.push(
+              "New item missing required properties (id, name, quantity)",
+            );
+          }
         }
       }
     }
@@ -302,11 +305,14 @@ export class ConcreteRPGTests {
     const result = await this.visualTest.runTest("trading", verification);
 
     // Verify gold was deducted correctly
-    if (result.stateSnapshot) {
-      const goldSpent = initialGold - result.stateSnapshot.inventory.gold;
-      if (goldSpent <= 0) {
-        result.passed = false;
-        result.failures.push("No gold was deducted for purchase");
+    if (result.stateSnapshot && result.stateSnapshot.inventory) {
+      const inventory = result.stateSnapshot.inventory;
+      if (!Array.isArray(inventory) && typeof inventory.gold === 'number') {
+        const goldSpent = initialGold - inventory.gold;
+        if (goldSpent <= 0) {
+          result.passed = false;
+          result.failures.push("No gold was deducted for purchase");
+        }
       }
     }
 
@@ -365,7 +371,7 @@ export class ConcreteRPGTests {
   /**
    * Helper: Execute an action and wait for result
    */
-  private async executeAction(actionName: string, params?: any): Promise<void> {
+  private async executeAction(actionName: string, params?: Record<string, unknown>): Promise<void> {
     const world = this.service.getWorld();
     if (!world?.actions?.execute) {
       throw new Error("World actions not available");

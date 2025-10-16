@@ -1,0 +1,42 @@
+{
+  "name": "@elizaos/plugin-vercel-ai-gateway",
+  "version": "0.1.0",
+  "description": "Vercel AI Gateway plugin for ElizaOS - route AI requests through Vercel's AI Gateway",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.32",
+    "@elizaos/core": "^1.6.1",
+    "ai": "^5.0.47",
+    "js-tiktoken": "^1.0.21"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@elizaos/core": "^1.6.1"
+  },
+  "keywords": [
+    "eliza",
+    "elizaos",
+    "plugin",
+    "vercel",
+    "ai-gateway",
+    "openai",
+    "ai"
+  ],
+  "license": "MIT"
+}

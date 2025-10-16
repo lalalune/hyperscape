@@ -10,12 +10,13 @@ import {
   ModelType,
 } from "@elizaos/core";
 import { HyperscapeService } from "../service";
+import type { ActionHandlerOptions } from "../types/core-types";
 
 export async function ambient(
   runtime: IAgentRuntime,
   message: Memory,
   state: State,
-  _options: any,
+  _options: ActionHandlerOptions,
   callback?: HandlerCallback,
 ): Promise<ActionResult> {
   // Lazy evaluation via callback for immediate response
@@ -45,15 +46,15 @@ export async function ambient(
 
   // Get world state for context
   const world = service.getWorld()!;
-  const nearbyPlayers: any[] = [];
-  const nearbyEntities: any[] = [];
+  const nearbyPlayers: Array<{ username?: string; name?: string }> = [];
+  const nearbyEntities: Array<{ id: string; type: string }> = [];
 
   // Create a simple ambient description
   const parts: string[] = [];
 
   if (nearbyPlayers.length > 0) {
     const playerNames = nearbyPlayers
-      .map((p: any) => p.username || "someone")
+      .map(p => p.username || p.name || "someone")
       .join(", ");
     parts.push(`I notice ${playerNames} nearby`);
   }

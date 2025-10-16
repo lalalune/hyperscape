@@ -1,4 +1,3 @@
-// @ts-ignore - Comprehensive type issues
 import { VOICE_CONFIG } from "../config/constants";
 import {
   ChannelType,
