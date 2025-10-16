@@ -175,7 +175,15 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         await systemsPromise
       }
       
+      console.log('[WorldClient] 🌍 About to call world.init() with config:', {
+        wsUrl: config.wsUrl,
+        hasViewport: !!config.viewport,
+        hasUI: !!config.ui
+      });
+      
       await world.init(config)
+      
+      console.log('[WorldClient] ✅ world.init() completed');
     }
     
     init()

@@ -865,7 +865,7 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Resource actions
       startGathering: (playerId: string, resourceId: string, playerPosition: Position3D) => {
-        world.emit(EventType.RESOURCE_GATHERING_STARTED, { playerId, resourceId, playerPosition })
+        world.emit(EventType.RESOURCE_GATHER, { playerId, resourceId, playerPosition })
       },
 
       stopGathering: (playerId: string) => {

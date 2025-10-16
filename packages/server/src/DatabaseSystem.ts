@@ -158,10 +158,14 @@ export class DatabaseSystem extends SystemBase {
   async getCharactersAsync(accountId: string): Promise<Array<{ id: string; name: string }>> {
     if (!this.db) throw new Error('Database not initialized');
     
+    console.log('[DatabaseSystem] 📋 Loading characters for accountId:', accountId);
+    
     const results = await this.db
       .select({ id: schema.characters.id, name: schema.characters.name })
       .from(schema.characters)
       .where(eq(schema.characters.accountId, accountId));
+    
+    console.log('[DatabaseSystem] 📋 Found', results.length, 'characters:', results);
     
     return results;
   }
@@ -182,6 +186,13 @@ export class DatabaseSystem extends SystemBase {
     
     const now = Date.now();
     
+    console.log('[DatabaseSystem] 🎭 Creating character:', {
+      id,
+      accountId,
+      name,
+      timestamp: now
+    });
+    
     try {
       await this.db.insert(schema.characters).values({
         id,
@@ -190,10 +201,24 @@ export class DatabaseSystem extends SystemBase {
         createdAt: now,
         lastLogin: now,
       });
+      
+      console.log('[DatabaseSystem] ✅ Character created successfully in DB');
+      
+      // Verify it was saved
+      const verify = await this.db
+        .select()
+        .from(schema.characters)
+        .where(eq(schema.characters.id, id))
+        .limit(1);
+      
+      console.log('[DatabaseSystem] 🔍 Verification query result:', verify);
+      
       return true;
     } catch (error) {
+      console.error('[DatabaseSystem] ❌ Error creating character:', error);
       // Character already exists (PostgreSQL unique constraint violation code)
       if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        console.log('[DatabaseSystem] Character already exists (duplicate key)');
         return false;
       }
       throw error;
@@ -238,7 +263,8 @@ export class DatabaseSystem extends SystemBase {
   /**
    * Save player data to database
    * 
-   * Performs an UPSERT operation - inserts a new player or updates existing data.
+   * Updates existing player data ONLY. Does NOT create new characters.
+   * Characters must be created explicitly via createCharacter().
    * Only the fields provided in the data parameter are updated; others remain unchanged.
    * This allows for partial updates (e.g., just updating health without touching XP).
    * 
@@ -251,91 +277,65 @@ export class DatabaseSystem extends SystemBase {
       return;
     }
     
-    type CharacterInsert = typeof schema.characters.$inferInsert;
-    type CharacterUpdate = Partial<Omit<CharacterInsert, 'id' | 'accountId'>>;
+    type CharacterUpdate = Partial<Omit<typeof schema.characters.$inferInsert, 'id' | 'accountId'>>;
     
-    // Build the insert data with required fields (used if player doesn't exist yet)
-    const insertData: CharacterInsert = {
-      id: playerId,
-      accountId: playerId,
-      name: data.name || `Player_${playerId.substring(0, 8)}`, // Always provide name for INSERT
-      createdAt: Date.now(),
-      lastLogin: Date.now(),
-    };
-
     // Build the update data (ONLY fields that were actually provided in data param)
     const updateData: CharacterUpdate = {};
 
-    // Map PlayerRow fields to schema fields - only add to insertData and updateData if provided
-    if (data.name !== undefined) {
+    // Map PlayerRow fields to schema fields
+    // NOTE: Don't overwrite character name once it's set - names come from createCharacter()
+    // Only update name if explicitly provided and non-empty
+    if (data.name && data.name.trim().length > 0) {
       updateData.name = data.name;
     }
     if (data.combatLevel !== undefined) {
-      insertData.combatLevel = data.combatLevel;
       updateData.combatLevel = data.combatLevel;
     }
     if (data.attackLevel !== undefined) {
-      insertData.attackLevel = data.attackLevel;
       updateData.attackLevel = data.attackLevel;
     }
     if (data.strengthLevel !== undefined) {
-      insertData.strengthLevel = data.strengthLevel;
       updateData.strengthLevel = data.strengthLevel;
     }
     if (data.defenseLevel !== undefined) {
-      insertData.defenseLevel = data.defenseLevel;
       updateData.defenseLevel = data.defenseLevel;
     }
     if (data.constitutionLevel !== undefined) {
-      insertData.constitutionLevel = data.constitutionLevel;
       updateData.constitutionLevel = data.constitutionLevel;
     }
     if (data.rangedLevel !== undefined) {
-      insertData.rangedLevel = data.rangedLevel;
       updateData.rangedLevel = data.rangedLevel;
     }
     if (data.health !== undefined) {
-      insertData.health = data.health;
       updateData.health = data.health;
     }
     if (data.maxHealth !== undefined) {
-      insertData.maxHealth = data.maxHealth;
       updateData.maxHealth = data.maxHealth;
     }
     if (data.coins !== undefined) {
-      insertData.coins = data.coins;
       updateData.coins = data.coins;
     }
     if (data.positionX !== undefined) {
-      insertData.positionX = data.positionX;
       updateData.positionX = data.positionX;
     }
     if (data.positionY !== undefined) {
-      insertData.positionY = data.positionY;
       updateData.positionY = data.positionY;
     }
     if (data.positionZ !== undefined) {
-      insertData.positionZ = data.positionZ;
       updateData.positionZ = data.positionZ;
     }
 
-    // If no update data provided, skip the update clause
+    // If no update data provided, skip silently (character doesn't need updating)
     if (Object.keys(updateData).length === 0) {
-      // Just insert with DO NOTHING on conflict
-      await this.db
-        .insert(schema.characters)
-        .values(insertData)
-        .onConflictDoNothing();
-    } else {
-      // Insert and update on conflict
-      await this.db
-        .insert(schema.characters)
-        .values(insertData)
-        .onConflictDoUpdate({
-          target: schema.characters.id,
-          set: updateData,
-        });
+      return;
     }
+
+    // UPDATE ONLY - does NOT create characters
+    // Characters must be explicitly created via createCharacter() first
+    await this.db
+      .update(schema.characters)
+      .set(updateData)
+      .where(eq(schema.characters.id, playerId));
   }
 
   // ============================================================================
