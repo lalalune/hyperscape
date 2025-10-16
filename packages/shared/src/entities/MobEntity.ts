@@ -246,7 +246,7 @@ export class MobEntity extends CombatantEntity {
     
     const modelDir = modelPath.substring(0, modelPath.lastIndexOf('/'));
     
-    // Find the SkinnedMesh
+    // EXPECT: Model has SkinnedMesh
     let skinnedMesh: THREE.SkinnedMesh | null = null;
     this.mesh.traverse((child) => {
       if (!skinnedMesh && (child as THREE.SkinnedMesh).isSkinnedMesh) {
@@ -254,7 +254,9 @@ export class MobEntity extends CombatantEntity {
       }
     });
     
-    if (!skinnedMesh) return;
+    if (!skinnedMesh) {
+      throw new Error(`[MobEntity] No SkinnedMesh in model: ${this.config.mobType} (${modelPath})`);
+    }
     
     // Create AnimationMixer on SkinnedMesh (required for DetachedBindMode)
     const mixer = new THREE.AnimationMixer(skinnedMesh);
@@ -280,11 +282,14 @@ export class MobEntity extends CombatantEntity {
       }
     }
     
-    // Play initial animation
+    // EXPECT: At least one clip loaded
     const initialClip = animationClips.idle || animationClips.walk;
     if (!initialClip) {
-      console.error(`[MobEntity] No clips to play for ${this.config.mobType}!`);
-      return;
+      throw new Error(
+        `[MobEntity] NO CLIPS: ${this.config.mobType}\n` +
+        `  Dir: ${modelDir}/animations/\n` +
+        `  Result: idle=${!!animationClips.idle}, walk=${!!animationClips.walk}, run=${!!animationClips.run}`
+      );
     }
     
     const action = mixer.clipAction(initialClip);
@@ -297,6 +302,11 @@ export class MobEntity extends CombatantEntity {
     (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
     (this as { animationClips?: typeof animationClips }).animationClips = animationClips;
     (this as { currentAction?: THREE.AnimationAction }).currentAction = action;
+    
+    // EXPECT: Action running after play()
+    if (!action.isRunning()) {
+      throw new Error(`[MobEntity] ACTION NOT RUNNING: ${this.config.mobType}`);
+    }
   }
 
   protected async createMesh(): Promise<void> {
@@ -501,6 +511,11 @@ export class MobEntity extends CombatantEntity {
     // Update animation mixer
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
     
+    // EXPECT: Mixer should exist after animations loaded
+    if (this.clientUpdateCalls === 10 && !mixer) {
+      throw new Error(`[MobEntity] NO MIXER on update #10: ${this.config.mobType}`);
+    }
+    
     if (mixer) {
       mixer.update(deltaTime);
       
@@ -526,14 +541,15 @@ export class MobEntity extends CombatantEntity {
                 const distance = hipsBone.position.distanceTo(this.initialBonePosition);
                 if (distance < 0.001) {
                   throw new Error(
-                    `[MobEntity] Bones not moving for ${this.config.mobType}!\n` +
-                    `  Initial position: [${this.initialBonePosition.toArray().map(v => v.toFixed(4)).join(', ')}]\n` +
-                    `  Current position: [${hipsBone.position.toArray().map(v => v.toFixed(4)).join(', ')}]\n` +
-                    `  Distance moved: ${distance.toFixed(6)} (expected > 0.001)\n` +
+                    `[MobEntity] BONES NOT MOVING: ${this.config.mobType}\n` +
+                    `  Start: [${this.initialBonePosition.toArray().map(v => v.toFixed(4))}]\n` +
+                    `  Now: [${hipsBone.position.toArray().map(v => v.toFixed(4))}]\n` +
+                    `  Distance: ${distance.toFixed(6)} (need > 0.001)\n` +
                     `  Mixer time: ${mixer.time.toFixed(2)}s\n` +
-                    `  This indicates the animation is running but not affecting the bones.`
+                    `  Animation runs but doesn't affect bones!`
                   );
                 }
+                console.log(`[MobEntity] ✅ Animations working: ${this.config.mobType}`);
               }
             }
           }
