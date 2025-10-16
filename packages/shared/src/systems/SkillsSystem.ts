@@ -109,13 +109,13 @@ export class SkillsSystem extends SystemBase {
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component`);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
       return;
     }
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}`);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
       return;
     }
 
@@ -174,13 +174,13 @@ export class SkillsSystem extends SystemBase {
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component`);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
       return;
     }
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}`);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
       return;
     }
 
@@ -377,13 +377,13 @@ export class SkillsSystem extends SystemBase {
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component`);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
       return;
     }
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}`);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
       return;
     }
 
@@ -417,13 +417,13 @@ export class SkillsSystem extends SystemBase {
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component`);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
       return;
     }
     
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}`);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
       return;
     }
 
@@ -487,7 +487,7 @@ export class SkillsSystem extends SystemBase {
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entity.id} has no skill data for ${skill} in handleLevelUp`);
+      console.warn(`[SkillsSystem] Entity ${entity.id} has no skill data for ${skill} in handleLevelUp. Stats component:`, stats);
       return;
     }
     

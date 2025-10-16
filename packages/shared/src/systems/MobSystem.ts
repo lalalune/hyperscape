@@ -256,6 +256,7 @@ export class MobSystem extends SystemBase {
   }
 
   private handleMobDamage(data: { entityId: string; damage: number; damageSource: string; entityType: 'player' | 'mob' }): void {
+    console.log(`[MobSystem] handleMobDamage called for ${data.entityId}: ${data.damage} damage from ${data.damageSource}`);
     if (data.entityType !== 'mob') return;
     
     // Validate entityId is defined
@@ -305,12 +306,7 @@ export class MobSystem extends SystemBase {
     const respawnTime = Date.now() + mob.respawnTime;
     this.respawnTimers.set(data.entityId, respawnTime);
     
-    // Emit mob death event with all necessary data for LootSystem
-    this.emitTypedEvent(EventType.MOB_DIED, {
-      mobId: data.entityId,
-      killerId: data.killedBy,
-      loot: []
-    });
+    // Don't emit MOB_DIED here - let MobEntity.die() handle it
   }
 
   private respawnMob(mobId: string): void {
@@ -473,13 +469,7 @@ export class MobSystem extends SystemBase {
       return false;
     }
 
-    // Trigger death without loot
-    this.emitTypedEvent(EventType.MOB_DIED, {
-      entityId: mobId,
-      killedBy: 'system',
-      entityType: 'mob'
-    });
-
+    // Don't emit MOB_DIED here - let MobEntity.die() handle it
     return true;
   }
 

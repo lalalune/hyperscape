@@ -83,6 +83,7 @@ import { EventType } from '../types/events';
 import type { World } from '../World';
 import { CombatantEntity, type CombatantConfig } from './CombatantEntity';
 import { modelCache } from '../utils/ModelCache';
+import type { EntityManager } from '../systems/EntityManager';
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === 'undefined') {
@@ -137,6 +138,11 @@ export class MobEntity extends CombatantEntity {
     super(world, combatConfig);
     this.config = config;
     this.generatePatrolPoints();
+    
+    // Set entity properties for systems to access
+    this.setProperty('mobType', config.mobType);
+    this.setProperty('level', config.level);
+    this.setProperty('health', { current: config.currentHealth, max: config.maxHealth });
     
     // Add stats component for skills system compatibility
     this.addComponent('stats', {
@@ -240,7 +246,7 @@ export class MobEntity extends CombatantEntity {
     
     const modelDir = modelPath.substring(0, modelPath.lastIndexOf('/'));
     
-    // Find the SkinnedMesh
+    // EXPECT: Model has SkinnedMesh
     let skinnedMesh: THREE.SkinnedMesh | null = null;
     this.mesh.traverse((child) => {
       if (!skinnedMesh && (child as THREE.SkinnedMesh).isSkinnedMesh) {
@@ -248,7 +254,9 @@ export class MobEntity extends CombatantEntity {
       }
     });
     
-    if (!skinnedMesh) return;
+    if (!skinnedMesh) {
+      throw new Error(`[MobEntity] No SkinnedMesh in model: ${this.config.mobType} (${modelPath})`);
+    }
     
     // Create AnimationMixer on SkinnedMesh (required for DetachedBindMode)
     const mixer = new THREE.AnimationMixer(skinnedMesh);
@@ -274,11 +282,14 @@ export class MobEntity extends CombatantEntity {
       }
     }
     
-    // Play initial animation
+    // EXPECT: At least one clip loaded
     const initialClip = animationClips.idle || animationClips.walk;
     if (!initialClip) {
-      console.error(`[MobEntity] No clips to play for ${this.config.mobType}!`);
-      return;
+      throw new Error(
+        `[MobEntity] NO CLIPS: ${this.config.mobType}\n` +
+        `  Dir: ${modelDir}/animations/\n` +
+        `  Result: idle=${!!animationClips.idle}, walk=${!!animationClips.walk}, run=${!!animationClips.run}`
+      );
     }
     
     const action = mixer.clipAction(initialClip);
@@ -291,6 +302,11 @@ export class MobEntity extends CombatantEntity {
     (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
     (this as { animationClips?: typeof animationClips }).animationClips = animationClips;
     (this as { currentAction?: THREE.AnimationAction }).currentAction = action;
+    
+    // EXPECT: Action running after play()
+    if (!action.isRunning()) {
+      throw new Error(`[MobEntity] ACTION NOT RUNNING: ${this.config.mobType}`);
+    }
   }
 
   protected async createMesh(): Promise<void> {
@@ -495,6 +511,11 @@ export class MobEntity extends CombatantEntity {
     // Update animation mixer
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
     
+    // EXPECT: Mixer should exist after animations loaded
+    if (this.clientUpdateCalls === 10 && !mixer) {
+      throw new Error(`[MobEntity] NO MIXER on update #10: ${this.config.mobType}`);
+    }
+    
     if (mixer) {
       mixer.update(deltaTime);
       
@@ -520,14 +541,15 @@ export class MobEntity extends CombatantEntity {
                 const distance = hipsBone.position.distanceTo(this.initialBonePosition);
                 if (distance < 0.001) {
                   throw new Error(
-                    `[MobEntity] Bones not moving for ${this.config.mobType}!\n` +
-                    `  Initial position: [${this.initialBonePosition.toArray().map(v => v.toFixed(4)).join(', ')}]\n` +
-                    `  Current position: [${hipsBone.position.toArray().map(v => v.toFixed(4)).join(', ')}]\n` +
-                    `  Distance moved: ${distance.toFixed(6)} (expected > 0.001)\n` +
+                    `[MobEntity] BONES NOT MOVING: ${this.config.mobType}\n` +
+                    `  Start: [${this.initialBonePosition.toArray().map(v => v.toFixed(4))}]\n` +
+                    `  Now: [${hipsBone.position.toArray().map(v => v.toFixed(4))}]\n` +
+                    `  Distance: ${distance.toFixed(6)} (need > 0.001)\n` +
                     `  Mixer time: ${mixer.time.toFixed(2)}s\n` +
-                    `  This indicates the animation is running but not affecting the bones.`
+                    `  Animation runs but doesn't affect bones!`
                   );
                 }
+                console.log(`[MobEntity] ✅ Animations working: ${this.config.mobType}`);
               }
             }
           }
@@ -787,15 +809,32 @@ export class MobEntity extends CombatantEntity {
     this.config.aiState = MobAIState.DEAD;
     this.config.deathTime = this.world.getTime();
     this.config.targetPlayerId = null;
+    this.config.currentHealth = 0; // Ensure health is 0
+    
+    // Update base health property for isDead() check
+    this.setHealth(0);
+
+    // Mark for network update to sync death state to clients
+    this.markNetworkDirty();
 
     // Emit death event with last attacker
     if (this.lastAttackerId) {
       this.world.emit(EventType.MOB_DIED, {
         mobId: this.id,
-        killerId: this.lastAttackerId,
-        xpReward: this.config.xpReward,
+        mobType: this.config.mobType,
+        level: this.config.level,
+        killedBy: this.lastAttackerId,
         position: this.getPosition()
       });
+
+      // Emit COMBAT_KILL event for SkillsSystem to grant combat XP
+      this.world.emit(EventType.COMBAT_KILL, {
+        attackerId: this.lastAttackerId,
+        targetId: this.id,
+        damageDealt: this.config.maxHealth, // Total damage dealt (mob's max health)
+        attackStyle: 'melee' // Default to melee, could be enhanced to track actual attack style
+      });
+
       this.dropLoot(this.lastAttackerId);
     }
 
@@ -804,7 +843,13 @@ export class MobEntity extends CombatantEntity {
       this.mesh.visible = false;
     }
 
-    this.markNetworkDirty();
+    // Schedule entity destruction after a brief delay to allow network sync
+    setTimeout(() => {
+      const entityManager = this.world.getSystem('entity-manager') as EntityManager;
+      if (entityManager && typeof entityManager.destroyEntity === 'function') {
+        entityManager.destroyEntity(this.id);
+      }
+    }, 100); // 100ms delay to ensure network update is sent
   }
 
   private dropLoot(killerId: string): void {
