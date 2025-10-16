@@ -6,7 +6,8 @@ import { getSystem } from '../utils/SystemUtils';
 import type { World } from '../types';
 import type { InventoryItemAddedPayload } from '../types/events';
 import { EventType } from '../types/events';
-import { getItem } from '../data/items';
+import { getItem, ITEMS } from '../data/items'
+import { dataManager } from '../data/DataManager';
 import type {
   PlayerInventory
 } from '../types/core';
