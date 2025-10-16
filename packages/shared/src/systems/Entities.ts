@@ -68,7 +68,7 @@ import { NPCEntity } from '../entities/NPCEntity';
 import { ItemEntity } from '../entities/ItemEntity';
 import { ResourceEntity } from '../entities/ResourceEntity';
 import { HeadstoneEntity } from '../entities/HeadstoneEntity';
-import type { MobEntityConfig, NPCEntityConfig, ItemEntityConfig, ResourceEntityConfig } from '../types/entities';
+import type { MobEntityConfig, NPCEntityConfig, ItemEntityConfig, ResourceEntityConfig, HeadstoneData, HeadstoneEntityConfig } from '../types/entities';
 import { EntityType, InteractionType, MobAIState, NPCType, ItemRarity, ResourceType } from '../types/entities';
 import { getMobById } from '../data/mobs';
 import { NPCBehavior, NPCState } from '../types/core';
@@ -457,6 +457,58 @@ export class Entities extends SystemBase implements IEntities {
       this.items.set(entity.id, entity);
 
       // Initialize entity
+      if (entity.init) {
+        (entity.init() as Promise<void>)?.catch(err => this.logger.error(`Entity ${entity.id} async init failed`, err));
+      }
+
+      return entity;
+    } else if (data.type === 'headstone') {
+      // Client-side: build a real HeadstoneEntity from snapshot data
+      const positionArray = (data.position || [0, 0, 0]) as [number, number, number];
+      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [number, number, number, number];
+      const name = data.name || 'Corpse';
+      
+      // Extract headstone data from network data
+      const networkData = data as { headstoneData?: HeadstoneData };
+      const headstoneData: HeadstoneData = networkData.headstoneData || {
+        playerId: data.id,
+        playerName: name,
+        position: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
+        deathTime: Date.now(),
+        deathMessage: 'Unknown cause of death',
+        itemCount: 0,
+        items: [],
+        despawnTime: Date.now() + 900000 // 15 minutes default
+      };
+
+      const headstoneConfig: HeadstoneEntityConfig = {
+        id: data.id,
+        name: name,
+        type: EntityType.HEADSTONE,
+        position: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
+        rotation: { x: quaternionArray[0], y: quaternionArray[1], z: quaternionArray[2], w: quaternionArray[3] },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.LOOT,
+        interactionDistance: 2,
+        description: headstoneData.deathMessage || 'A corpse',
+        model: null,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: { current: 1, max: 1 },
+          level: 1,
+        },
+        headstoneData: headstoneData
+      };
+
+      const entity = new HeadstoneEntity(this.world, headstoneConfig);
+      this.items.set(entity.id, entity);
+
+      // Initialize entity if it has an init method
       if (entity.init) {
         (entity.init() as Promise<void>)?.catch(err => this.logger.error(`Entity ${entity.id} async init failed`, err));
       }

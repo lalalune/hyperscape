@@ -149,7 +149,7 @@ export class PlayerEntity extends CombatantEntity {
           strength: { level: 1, xp: 0 },
           ranged: { level: 1, xp: 0 },
           magic: { level: 1, xp: 0 },
-          constitution: { level: 10, xp: 0 },
+          constitution: { level: 10, xp: 1154 },
           prayer: { level: 1, points: 0 },
           woodcutting: { level: 1, xp: 0 },
           fishing: { level: 1, xp: 0 },
@@ -382,7 +382,7 @@ export class PlayerEntity extends CombatantEntity {
       attack: { level: 1, xp: 0 },
       strength: { level: 1, xp: 0 },
       defense: { level: 1, xp: 0 },
-      constitution: { level: 1, xp: 0 },
+      constitution: { level: 10, xp: 1154 },
       ranged: { level: 1, xp: 0 },
       // Non-combat skills
       woodcutting: { level: 1, xp: 0 },
