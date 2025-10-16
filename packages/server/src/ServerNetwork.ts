@@ -1666,6 +1666,24 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
     
+    // Server-side distance validation
+    const entityManager = this.world.getSystem('entity-manager');
+    if (entityManager) {
+      const itemEntity = entityManager.getEntity(entityId);
+      if (itemEntity) {
+        const distance = Math.sqrt(
+          Math.pow(playerEntity.position.x - itemEntity.position.x, 2) +
+          Math.pow(playerEntity.position.z - itemEntity.position.z, 2)
+        );
+        
+        const pickupRange = 2.5; // Slightly larger than client range to account for movement
+        if (distance > pickupRange) {
+          console.warn(`[ServerNetwork] Player ${playerEntity.id} tried to pickup item ${entityId} from too far away (${distance.toFixed(2)}m > ${pickupRange}m)`);
+          return;
+        }
+      }
+    }
+    
     // Forward to InventorySystem with entityId (required) and itemId (optional)
     // @ts-expect-error - EventMap updated to require entityId, optional itemId (type cache lag)
     this.world.emit(EventType.ITEM_PICKUP, {
