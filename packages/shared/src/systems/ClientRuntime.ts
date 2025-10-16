@@ -102,7 +102,6 @@ export class ClientRuntime extends System {
         const player = entity as PlayerEntity
         if (player.isLocal && player.isPlayer) {
           this.localPlayer = player
-          console.log('[ClientRuntime] Found local player')
           return
         }
       }
@@ -121,19 +120,16 @@ export class ClientRuntime extends System {
     
     // Player position (reuse temp vector)
     _diagnosticPos.copy(this.localPlayer.position)
-    console.log(`Player: (${_diagnosticPos.x.toFixed(2)}, ${_diagnosticPos.y.toFixed(2)}, ${_diagnosticPos.z.toFixed(2)})`)
     
     // Base object status
     const base = this.localPlayer.base
     if (base) {
-      console.log(`Base: visible=${base.visible}, children=${base.children?.length || 0}`)
       
       // Check scene hierarchy efficiently
       let parent = base.parent
       let depth = 0
       while (parent && depth < 10) {
         if (parent === this.world.stage?.scene) {
-          console.log(`Base in scene at depth ${depth}`)
           break
         }
         parent = parent.parent
@@ -144,27 +140,23 @@ export class ClientRuntime extends System {
     // Avatar status
     const avatar = this.localPlayer.avatar
     if (avatar) {
-      console.log(`Avatar: visible=${avatar.visible}, parent=${avatar.parent ? 'yes' : 'no'}`)
       
       // Count meshes efficiently
       let meshCount = 0
       avatar.traverse?.(child => {
         if (child instanceof THREE.Mesh) meshCount++
       })
-      console.log(`Avatar meshes: ${meshCount}`)
     }
     
     // Physics capsule
     const capsule = this.localPlayer.capsule
     if (capsule?.getGlobalPose) {
       const pose = capsule.getGlobalPose()
-      console.log(`Capsule: (${pose.p.x.toFixed(2)}, ${pose.p.y.toFixed(2)}, ${pose.p.z.toFixed(2)})`)
     }
     
     // Camera position
     const camera = this.world.camera
     if (camera) {
-      console.log(`Camera: (${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)})`)
     }
     
     // Scene statistics (cache and update periodically)
@@ -181,7 +173,6 @@ export class ClientRuntime extends System {
         }
       })
       
-      console.log(`Scene: objects=${this.sceneStats.totalObjects}, meshes=${this.sceneStats.totalMeshes}, visible=${this.sceneStats.visibleMeshes}`)
     }
     
     console.groupEnd()

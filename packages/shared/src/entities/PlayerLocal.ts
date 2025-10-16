@@ -1577,7 +1577,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
     
     // ALWAYS log first 10 updates with high visibility
     if (this.updateCallCount <= 10) {
-      console.log(`%c[PlayerLocal] 🔄 update #${this.updateCallCount}`, 'background: #00ff00; color: #000', `delta=${delta.toFixed(4)}, hasAvatar=${!!this._avatar}, avatarType=${this._avatar?.constructor.name}`)
     }
     
     // Server-authoritative movement: minimal updates only
@@ -1608,7 +1607,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
       
       // Log when avatar instance is first detected
       if (this.updateCallCount === 11 || this.updateCallCount === 12) {
-        console.log(`%c[PlayerLocal] 🎉 Avatar instance NOW available at update #${this.updateCallCount}`, 'background: #ffff00; color: #000', 'hasMove:', !!instance.move, 'hasUpdate:', !!instance.update)
       }
       
       if (instance.move && this.base) {
@@ -1617,7 +1615,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
       if (instance.update) {
         // Always log first 3 calls to instance.update
         if (this.updateCallCount <= 15) {
-          console.log(`%c[PlayerLocal] ⚡ Calling instance.update(${delta.toFixed(4)}) at frame #${this.updateCallCount}`, 'background: #00ffff; color: #000')
         }
         instance.update(delta)
       } else if (this.updateCallCount <= 15) {

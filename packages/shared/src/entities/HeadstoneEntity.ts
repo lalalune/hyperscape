@@ -113,7 +113,6 @@ export class HeadstoneEntity extends InteractableEntity {
         }
       });
       
-      console.log(`[HeadstoneEntity] Player ${data.playerId} looted ${data.quantity}x ${data.itemId} from corpse ${this.id}`);
     }
   }
 

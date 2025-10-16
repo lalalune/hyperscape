@@ -84,6 +84,23 @@ import type { World } from '../World';
 import { CombatantEntity, type CombatantConfig } from './CombatantEntity';
 import { modelCache } from '../utils/ModelCache';
 
+// Polyfill ProgressEvent for Node.js server environment
+if (typeof ProgressEvent === 'undefined') {
+  (globalThis as unknown as { ProgressEvent: unknown }).ProgressEvent = class extends Event {
+    lengthComputable = false;
+    loaded = 0;
+    total = 0;
+    constructor(type: string, init?: { lengthComputable?: boolean; loaded?: number; total?: number }) {
+      super(type);
+      if (init) {
+        this.lengthComputable = init.lengthComputable || false;
+        this.loaded = init.loaded || 0;
+        this.total = init.total || 0;
+      }
+    }
+  };
+}
+
 
 
 export class MobEntity extends CombatantEntity {
@@ -95,9 +112,10 @@ export class MobEntity extends CombatantEntity {
   async init(): Promise<void> {
     await super.init();
     
-    // EntityManager automatically handles updates for all entities via entitiesNeedingUpdate
-    // No need to register as hot entity (would cause double updates)
+    // TODO: Server-side validation disabled due to ProgressEvent polyfill issues
+    // Validation happens on client side instead (see clientUpdate)
   }
+  
 
   constructor(world: World, config: MobEntityConfig) {
     // Convert MobEntityConfig to CombatantConfig format with proper type assertion
@@ -173,7 +191,7 @@ export class MobEntity extends CombatantEntity {
       return;
     }
     
-    // Create AnimationMixer
+    // Create AnimationMixer on SkinnedMesh (required for DetachedBindMode)
     const mixer = new THREE.AnimationMixer(skinnedMesh);
     
     // Store all animation clips for state-based switching
@@ -213,7 +231,9 @@ export class MobEntity extends CombatantEntity {
    * These are custom animations made specifically for the mob models
    */
   private async loadIdleAnimation(): Promise<void> {
-    if (!this.mesh || !this.world.loader) return;
+    if (!this.mesh || !this.world.loader) {
+      return;
+    }
     
     const modelPath = this.config.model;
     if (!modelPath) return;
@@ -230,9 +250,8 @@ export class MobEntity extends CombatantEntity {
     
     if (!skinnedMesh) return;
     
-    // CRITICAL: Create mixer on scene root (this.mesh) not skinnedMesh
-    // Allows animations to find bones in full hierarchy
-    const mixer = new THREE.AnimationMixer(this.mesh);
+    // Create AnimationMixer on SkinnedMesh (required for DetachedBindMode)
+    const mixer = new THREE.AnimationMixer(skinnedMesh);
     const animationClips: { idle?: THREE.AnimationClip; walk?: THREE.AnimationClip; run?: THREE.AnimationClip } = {};
     
     // Load animation files (load as raw GLB, not emote, to avoid bone remapping)
@@ -257,18 +276,21 @@ export class MobEntity extends CombatantEntity {
     
     // Play initial animation
     const initialClip = animationClips.idle || animationClips.walk;
-    if (initialClip) {
-      const action = mixer.clipAction(initialClip);
-      action.enabled = true;
-      action.setEffectiveWeight(1.0);
-      action.setLoop(THREE.LoopRepeat, Infinity);
-      action.play();
-      
-      // Store mixer and clips
-      (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
-      (this as { animationClips?: typeof animationClips }).animationClips = animationClips;
-      (this as { currentAction?: THREE.AnimationAction }).currentAction = action;
+    if (!initialClip) {
+      console.error(`[MobEntity] No clips to play for ${this.config.mobType}!`);
+      return;
     }
+    
+    const action = mixer.clipAction(initialClip);
+    action.enabled = true;
+    action.setEffectiveWeight(1.0);
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.play();
+    
+    // Store mixer and clips
+    (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
+    (this as { animationClips?: typeof animationClips }).animationClips = animationClips;
+    (this as { currentAction?: THREE.AnimationAction }).currentAction = action;
   }
 
   protected async createMesh(): Promise<void> {
@@ -327,12 +349,15 @@ export class MobEntity extends CombatantEntity {
         this.mesh.quaternion.identity();
         this.node.add(this.mesh);
         
-        // Load animations if available (do this after mesh is added to scene)
+        // Always try to load external animations (most mobs use separate files)
+        await this.loadIdleAnimation();
+        
+        // Also try inline animations if they exist
         if (animations.length > 0) {
-          await this.setupAnimations(animations);
-        } else {
-          // Try to load external animations
-          await this.loadIdleAnimation();
+          const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
+          if (!mixer) {
+            await this.setupAnimations(animations);
+          }
         }
         
         return;
@@ -457,26 +482,54 @@ export class MobEntity extends CombatantEntity {
    * Handles visual updates: animations, interpolation, and rendering
    * Position and AI state are synced from server via modify()
    */
+  private clientUpdateCalls = 0;
+  private initialBonePosition: THREE.Vector3 | null = null;
+  
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
+    this.clientUpdateCalls++;
     
     // Update animations based on AI state
     this.updateAnimation();
     
-    // Update animation mixer if exists
+    // Update animation mixer
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
     
     if (mixer) {
       mixer.update(deltaTime);
       
-      // Update skeleton bones (CRITICAL: same as VRM at line 319-322!)
+      // Update skeleton bones
       if (this.mesh) {
         this.mesh.traverse((child) => {
           if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+            const skeleton = child.skeleton;
+            
             // Update bone matrices
-            child.skeleton.bones.forEach(bone => bone.updateMatrixWorld());
-            // CRITICAL: Apply bone transforms to mesh (this was missing!)
-            child.skeleton.update();
+            skeleton.bones.forEach(bone => bone.updateMatrixWorld());
+            skeleton.update();
+            
+            // VALIDATION: Check if bones are actually transforming
+            if (this.clientUpdateCalls === 1) {
+              const hipsBone = skeleton.bones.find(b => b.name.toLowerCase().includes('hips'));
+              if (hipsBone) {
+                this.initialBonePosition = hipsBone.position.clone();
+              }
+            } else if (this.clientUpdateCalls === 60) {
+              const hipsBone = skeleton.bones.find(b => b.name.toLowerCase().includes('hips'));
+              if (hipsBone && this.initialBonePosition) {
+                const distance = hipsBone.position.distanceTo(this.initialBonePosition);
+                if (distance < 0.001) {
+                  throw new Error(
+                    `[MobEntity] Bones not moving for ${this.config.mobType}!\n` +
+                    `  Initial position: [${this.initialBonePosition.toArray().map(v => v.toFixed(4)).join(', ')}]\n` +
+                    `  Current position: [${hipsBone.position.toArray().map(v => v.toFixed(4)).join(', ')}]\n` +
+                    `  Distance moved: ${distance.toFixed(6)} (expected > 0.001)\n` +
+                    `  Mixer time: ${mixer.time.toFixed(2)}s\n` +
+                    `  This indicates the animation is running but not affecting the bones.`
+                  );
+                }
+              }
+            }
           }
         });
       }

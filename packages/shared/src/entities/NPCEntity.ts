@@ -76,7 +76,6 @@ export class NPCEntity extends Entity {
     // CRITICAL: Register for update loop (client only - NPCs don't need server updates)
     if (this.world.isClient) {
       this.world.setHot(this, true);
-      console.log(`[NPCEntity] ✅ Registered ${this.config.npcType} for update loop (hot entity)`);
     }
   }
 
@@ -213,7 +212,6 @@ export class NPCEntity extends Entity {
     const action = mixer.clipAction(idleClip);
     action.play();
     
-    console.log(`[NPCEntity] ✅ Playing animation: ${idleClip.name}`);
     
     // Store mixer on entity for update in clientUpdate
     (this as { mixer?: THREE.AnimationMixer }).mixer = mixer;
@@ -242,14 +240,6 @@ export class NPCEntity extends Entity {
   }
 
   protected async createMesh(): Promise<void> {
-    console.log(`[NPCEntity] createMesh() called for ${this.config.npcType}`, {
-      hasModelPath: !!this.config.model,
-      modelPath: this.config.model,
-      hasLoader: !!this.world.loader,
-      isServer: this.world.isServer,
-      isClient: this.world.isClient
-    });
-    
     if (this.world.isServer) {
       return;
     }
@@ -257,7 +247,6 @@ export class NPCEntity extends Entity {
     // Try to load 3D model if available (same approach as ItemEntity/ResourceEntity)
     if (this.config.model && this.world.loader) {
       try {
-        console.log(`[NPCEntity] Loading model for ${this.config.npcType}:`, this.config.model);
         const { scene, animations } = await modelCache.loadModel(this.config.model, this.world);
         
         this.mesh = scene;
@@ -298,10 +287,6 @@ export class NPCEntity extends Entity {
         this.mesh.position.set(0, 0, 0);
         this.mesh.quaternion.identity();
         this.node.add(this.mesh);
-        console.log(`[NPCEntity] ✅ Model loaded for ${this.config.npcType}`, {
-          animations: animations.length,
-          meshVisible: this.mesh.visible
-        });
         
         // Setup animations if available (NPCs usually have idle animations)
         if (animations.length > 0) {
@@ -314,8 +299,6 @@ export class NPCEntity extends Entity {
         // Fall through to placeholder
       }
     }
-    
-    console.log(`[NPCEntity] Creating placeholder capsule for ${this.config.npcType}`);
     
     const geometry = new THREE.CapsuleGeometry(0.35, 1.4, 4, 8);
     const material = new THREE.MeshLambertMaterial({ color: 0x6b4423 });
@@ -363,7 +346,6 @@ export class NPCEntity extends Entity {
       this.node.add(this.mesh);
     }
     
-    console.log(`[NPCEntity] ✅ Placeholder mesh created and added for ${this.config.npcType}`);
   }
 
   /**

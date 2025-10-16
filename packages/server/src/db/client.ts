@@ -78,7 +78,6 @@ let poolInstance: pg.Pool | undefined;
 export async function initializeDatabase(connectionString: string) {
   // Force cleanup of stale connections on hot reload
   if (poolInstance) {
-    console.log('[DB] Cleaning up stale connection pool from previous session...');
     await poolInstance.end().catch(err => {
       console.warn('[DB] Error ending stale pool:', err);
     });
@@ -88,11 +87,9 @@ export async function initializeDatabase(connectionString: string) {
   
   // Return cached instance if already initialized (singleton pattern)
   if (dbInstance) {
-    console.log('[DB] Database already initialized');
     return { db: dbInstance, pool: poolInstance! };
   }
 
-  console.log('[DB] Initializing PostgreSQL with Drizzle...');
   
   const pool = new Pool({
     connectionString,
@@ -107,7 +104,6 @@ export async function initializeDatabase(connectionString: string) {
   try {
     const client = await pool.connect();
     await client.query('SELECT NOW()');
-    console.log('[DB] ✅ PostgreSQL connection established');
     client.release();
   } catch (error) {
     console.error('[DB] ❌ Failed to connect to PostgreSQL:', error);
@@ -119,7 +115,6 @@ export async function initializeDatabase(connectionString: string) {
   
   // Run migrations
   try {
-    console.log('[DB] Running migrations...');
     
     // When bundled by esbuild, we need to find migrations relative to process.cwd()
     // Try multiple possible locations
@@ -150,9 +145,7 @@ export async function initializeDatabase(connectionString: string) {
       );
     }
     
-    console.log('[DB] Migrations folder:', migrationsFolder);
     await migrate(db, { migrationsFolder });
-    console.log('[DB] ✅ Migrations completed');
   } catch (error) {
     // If tables already exist (42P07), that's fine - the database is already set up
     const hasCode = error && typeof error === 'object' && 'cause' in error && 
@@ -163,7 +156,6 @@ export async function initializeDatabase(connectionString: string) {
                           (hasMessage && typeof errorWithCause.message === 'string' && errorWithCause.message.includes('already exists'));
     
     if (isExistsError) {
-      console.log('[DB] ✅ Database tables already exist, skipping migration');
     } else {
       console.error('[DB] ❌ Migration failed:', error);
       throw error;
@@ -222,7 +214,6 @@ export function getPool() {
 export async function closeDatabase() {
   if (poolInstance) {
     await poolInstance.end();
-    console.log('[DB] Database connection closed');
     poolInstance = undefined;
     dbInstance = undefined;
   }

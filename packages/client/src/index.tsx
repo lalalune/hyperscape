@@ -137,12 +137,6 @@ function App() {
   React.useEffect(() => {
     const token = playerTokenManager.getOrCreatePlayerToken('Player');
     const session = playerTokenManager.startSession();
-    
-    console.log('[App] Player token initialized:', {
-      playerId: token.playerId,
-      sessionId: session.sessionId,
-      playerName: token.playerName
-    });
 
     return () => {
       playerTokenManager.endSession();
@@ -160,7 +154,6 @@ function App() {
 
   // Handle authentication callback
   const handleAuthenticated = React.useCallback(() => {
-    console.log('[App] User authenticated, loading world...')
     setIsAuthenticated(true)
     setShowCharacterPage(true)
   }, [])
@@ -179,7 +172,6 @@ function App() {
 
   // Memoize the onSetup callback to prevent re-initialization
   const handleSetup = React.useCallback((world: InstanceType<typeof World>, _config: unknown) => {
-    console.log('[App] onSetup callback triggered')
     // Make world accessible globally for debugging
     const globalWindow = window as Window & { 
       world?: InstanceType<typeof World>
@@ -194,21 +186,13 @@ function App() {
     
     // Add chat test function
     globalWindow.testChat = () => {
-      console.log('=== TESTING CHAT ===');
       const chat = world.getSystem('chat') as { send?: (msg: string) => void } | null
       const network = world.getSystem('network') as { id?: string; isClient?: boolean; send?: unknown } | null
       
-      console.log('world.chat:', chat);
-      console.log('world.network:', network);
-      console.log('world.network.id:', network?.id);
-      console.log('world.network.isClient:', network?.isClient);
-      console.log('world.network.send:', network?.send);
       
       const testMsg = 'Test message from console at ' + new Date().toLocaleTimeString();
-      console.log('Sending test message:', testMsg);
       chat?.send?.(testMsg);
     };
-    console.log('💬 Chat test function available: call testChat() in console');
   }, [])
 
   // privyEnabled computed above
@@ -252,13 +236,6 @@ function App() {
 function mountApp() {
   const rootElement = document.getElementById('root')!
   
-  console.log('[App] Root element details:', {
-    id: rootElement.id,
-    className: rootElement.className,
-    innerHTML: rootElement.innerHTML,
-    tagName: rootElement.tagName
-  })
-  
   const root = ReactDOM.createRoot(rootElement)
   
   root.render(
@@ -277,7 +254,6 @@ function mountApp() {
     }
     
     if (attempts < maxAttempts) {
-      console.log(`[App] Waiting for React to render... (attempt ${attempts + 1}/${maxAttempts})`)
       requestAnimationFrame(() => verifyRender(attempts + 1))
       return
     }

@@ -116,7 +116,6 @@ export class ResourceSystem extends SystemBase {
           ? (player as { position: { x: number; y: number; z: number } }).position
           : { x: 0, y: 0, z: 0 };
       })();
-      console.log('[ResourceSystem] RESOURCE_GATHER received', data.playerId, data.resourceId, 'at position', playerPosition);
       this.startGathering({ playerId: data.playerId, resourceId: data.resourceId, playerPosition });
     });
     
@@ -148,11 +147,9 @@ export class ResourceSystem extends SystemBase {
   }
 
   async start(): Promise<void> {
-    console.log(`[ResourceSystem] ⚡ start() called on ${this.world.isServer ? 'SERVER' : 'CLIENT'}`);
     
     // TEST: Spawn a test tree directly to verify entity spawning works
     if (this.world.isServer) {
-      console.log('[ResourceSystem] 🧪 Spawning test tree to verify entity spawning...');
       await this.spawnTestTree();
     }
     
@@ -161,12 +158,8 @@ export class ResourceSystem extends SystemBase {
     
     // Only run gathering update loop on server (server-authoritative)
     if (this.world.isServer) {
-      console.log('[ResourceSystem] Starting gathering update interval (server-only)');
       const interval = this.createInterval(() => this.updateGathering(), 500); // Check every 500ms
-      console.log('[ResourceSystem] Update interval created:', interval ? 'Success' : 'Failed');
-      console.log('[ResourceSystem] Resources will be spawned by TerrainSystem as tiles load');
     } else {
-      console.log('[ResourceSystem] Client mode - update loop disabled (server handles gathering)');
     }
   }
   
@@ -214,7 +207,6 @@ export class ResourceSystem extends SystemBase {
     };
     
     const spawned = await entityManager.spawnEntity(testTreeConfig);
-    console.log(`[ResourceSystem] ✅ Test tree spawned at (5, 5):`, spawned ? 'success' : 'failed');
   }
   /**
    * Handle terrain system resource registration (new procedural system)
@@ -293,7 +285,6 @@ export class ResourceSystem extends SystemBase {
     }
     
     if (spawned > 0) {
-      console.log(`[ResourceSystem] Spawned ${spawned} resources (${failed} failed)`);
     }
   }
   
@@ -427,14 +418,12 @@ export class ResourceSystem extends SystemBase {
   private startGathering(data: { playerId: string; resourceId: string; playerPosition: { x: number; y: number; z: number } }): void {
     // Only server should handle actual gathering logic
     if (!this.world.isServer) {
-      console.log('[ResourceSystem] Client received startGathering - ignoring (server handles gathering)');
       return;
     }
     
     const playerId = createPlayerID(data.playerId);
     const resourceId = createResourceID(data.resourceId);
     
-    console.log(`[ResourceSystem] 🌲 SERVER startGathering for player ${data.playerId} on resource ${data.resourceId}`);
     
     let resource = this.resources.get(resourceId);
     
@@ -443,7 +432,6 @@ export class ResourceSystem extends SystemBase {
         const derived = `${r.type}_${Math.round(r.position.x)}_${Math.round(r.position.z)}`;
         if (derived === (data.resourceId || '')) { 
           resource = r; 
-          console.log(`[ResourceSystem] Matched resource by derived ID: ${derived}`);
           break; 
         }
       }
@@ -515,7 +503,6 @@ export class ResourceSystem extends SystemBase {
     const skillCheck = Math.floor(Math.random() * 100);
     const gatheringDuration = Math.max(3000, Math.min(5000, 5000 - (skillCheck * 20))); // 3-5 seconds
     
-    console.log(`[ResourceSystem] ✅ Gathering started! Player ${data.playerId} ${actionName} ${resourceName} for ${gatheringDuration/1000}s (skill check: ${skillCheck})`);
     
     // Create timed session
     this.activeGathering.set(playerId, {
@@ -570,13 +557,11 @@ export class ResourceSystem extends SystemBase {
     const completedSessions: PlayerID[] = [];
 
     if (this.activeGathering.size > 0) {
-      console.log(`[ResourceSystem] updateGathering: checking ${this.activeGathering.size} active gathering sessions`);
     }
 
     for (const [playerId, session] of this.activeGathering.entries()) {
       const resource = this.resources.get(session.resourceId);
       if (!resource?.isAvailable) {
-        console.log(`[ResourceSystem] Resource ${session.resourceId} not available, completing gathering immediately`);
         // If resource became unavailable, complete the session immediately (client will see stump)
         this.completeGathering(playerId, session);
         completedSessions.push(playerId);
@@ -589,12 +574,10 @@ export class ResourceSystem extends SystemBase {
       const elapsed = now - session.startTime;
       
       if (elapsed >= gatheringTime) {
-        console.log(`[ResourceSystem] ⏰ Gathering time complete! Elapsed: ${elapsed}ms, Required: ${gatheringTime}ms`);
         this.completeGathering(playerId, session);
         completedSessions.push(playerId);
       } else if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - 500) / 1000)) {
         // Log every second
-        console.log(`[ResourceSystem] ⏳ Gathering in progress: ${Math.floor(elapsed / 1000)}s / ${Math.floor(gatheringTime / 1000)}s`);
       }
     }
 
@@ -607,7 +590,6 @@ export class ResourceSystem extends SystemBase {
   private completeGathering(playerId: PlayerID, session: { playerId: PlayerID; resourceId: ResourceID; startTime: number; skillCheck: number }): void {
     const resource = this.resources.get(session.resourceId)!;
 
-    console.log(`[ResourceSystem] completeGathering called for resource ${session.resourceId}`);
 
     // Proximity/cancel check - player must still be near the resource
     const p = this.world.getPlayer?.(playerId as unknown as string);
@@ -615,7 +597,6 @@ export class ResourceSystem extends SystemBase {
       ? (p as { position: { x: number; y: number; z: number } }).position
       : null;
     if (!playerPos || calculateDistance(playerPos, resource.position) > 4.0) {
-      console.log(`[ResourceSystem] Player moved too far away, canceling gathering`);
       this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
         playerId: playerId as unknown as string,
         resourceId: session.resourceId
@@ -635,23 +616,17 @@ export class ResourceSystem extends SystemBase {
     const isSuccessful = true; // MVP: always succeed for testing
     // const isSuccessful = session.skillCheck <= successRate; // Future: enable skill-based success
     
-    console.log(`[ResourceSystem] Gathering result: ${isSuccessful ? 'SUCCESS' : 'FAIL'} (roll: ${session.skillCheck}, needed: <=${successRate})`)
 
     if (isSuccessful) {
       // Determine drops
       const dropTableKey = `${resource.type}_normal`;
-      console.log(`[ResourceSystem] Looking for drop table: ${dropTableKey}`);
-      console.log(`[ResourceSystem] Available drop tables:`, Array.from(this.RESOURCE_DROPS.keys()));
       
       const dropTable = this.RESOURCE_DROPS.get(dropTableKey);
       if (dropTable) {
-        console.log(`[ResourceSystem] Found drop table with ${dropTable.length} drops`);
         for (const drop of dropTable) {
           const dropRoll = Math.random();
-          console.log(`[ResourceSystem] Drop chance roll: ${dropRoll} vs ${drop.chance}`);
           
           if (dropRoll <= drop.chance) {
-            console.log(`[ResourceSystem] 🎁 Dropping item: ${drop.itemName} (${drop.itemId})`);
             
             // Add item to player inventory (emit with raw player id string for DB consistency)
             this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
@@ -665,7 +640,6 @@ export class ResourceSystem extends SystemBase {
               }
             });
             
-            console.log(`[ResourceSystem] ✅ INVENTORY_ITEM_ADDED event emitted for ${drop.itemId}`);
 
             // Award XP and check for level up (reactive pattern)
             this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
@@ -680,7 +654,6 @@ export class ResourceSystem extends SystemBase {
                                resource.skillRequired === 'fishing' ? 'catch a fish' : 'gather from the resource';
             const _resourceName = resource.name || resource.type.replace('_', ' ');
             
-            console.log(`[ResourceSystem] ✅ SUCCESS! ${drop.itemName} x${drop.quantity} added to inventory, ${drop.xpAmount} XP gained`);
 
             // Send feedback to player via multiple channels
             this.sendChat((playerId as unknown as string), `You receive ${drop.quantity}x ${drop.itemName}.`);
@@ -705,7 +678,6 @@ export class ResourceSystem extends SystemBase {
       resource.isAvailable = false;
       resource.lastDepleted = Date.now();
 
-      console.log(`[ResourceSystem] 🌲→🪵 Resource depleted! Will respawn in ${resource.respawnTime/1000}s`);
 
       // Notify clients to swap to stump visual
       this.emitTypedEvent(EventType.RESOURCE_DEPLETED, {
@@ -725,7 +697,6 @@ export class ResourceSystem extends SystemBase {
         resource.isAvailable = true;
         resource.lastDepleted = 0;
         
-        console.log(`[ResourceSystem] 🌲 Resource respawned: ${session.resourceId}`);
         
         // Emit local event
         this.emitTypedEvent(EventType.RESOURCE_RESPAWNED, {
@@ -752,7 +723,6 @@ export class ResourceSystem extends SystemBase {
       const actionName = resource.skillRequired === 'woodcutting' ? 'chop the tree' : 
                          resource.skillRequired === 'fishing' ? 'catch anything' : 'gather';
       
-      console.log(`[ResourceSystem] ❌ FAILED! Skill check ${session.skillCheck} > ${successRate}`);
       
       this.sendChat((playerId as unknown as string), `You fail to ${actionName}.`);
       

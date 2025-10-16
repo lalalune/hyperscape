@@ -108,7 +108,6 @@ export class Environment extends System {
   override async start() {
     if (!this.isClientWithGraphics) {
       // Server or Node client - skip 3D rendering setup
-      console.log('[Environment] Non-rendering context - skipping 3D environment setup')
       
       // Still watch for settings changes (for server to track what clients should use)
       this.world.settings?.on('change', this.onSettingsChange)

@@ -225,8 +225,6 @@ export const RunescapeRPGPack: IContentPack = {
 
   // Lifecycle hooks
   onLoad: async (runtime: IAgentRuntime, world: any) => {
-    console.log("🎮 RPG Content Pack loading...");
-    console.log("🏗️ Connecting to 54 polished RPG systems...");
 
     // Integration point with our RPG systems
     if (world) {
@@ -239,15 +237,10 @@ export const RunescapeRPGPack: IContentPack = {
       // - StoreSystem (trading)
       // - And all other 48+ systems we polished
 
-      console.log("✅ RPG systems bridge established");
-      console.log("🤖 AI agents can now interact with RPG world");
     }
   },
 
   onUnload: async (runtime: IAgentRuntime, world: any) => {
-    console.log("🎮 RPG Content Pack unloading...");
-    console.log("🔌 Disconnecting from RPG systems...");
-    console.log("✅ Clean shutdown complete");
   },
 };
 

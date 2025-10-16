@@ -13,11 +13,6 @@ export function Chat({ world }: { world: World }) {
   const [chatVisible, setChatVisible] = useState(() => world.prefs?.chatVisible ?? true)
   
   useEffect(() => {
-    console.log('[Chat UI] Chat component mounted');
-    console.log('[Chat UI] world.chat exists:', !!world.chat);
-    console.log('[Chat UI] world.network exists:', !!world.network);
-    console.log('[Chat UI] world.network.id:', world.network?.id);
-    console.log('[Chat UI] chatVisible:', chatVisible);
   }, []);
   
   useEffect(() => {
@@ -214,11 +209,8 @@ function Messages({ world, active }: { world: World; active: boolean }) {
   const spacerRef = useRef<HTMLDivElement | null>(null)
   const [msgs, setMsgs] = useState<unknown[]>([])
   useEffect(() => {
-    console.log('[Messages] Subscribing to chat updates');
     const unsubscribe = world.chat.subscribe(setMsgs);
-    console.log('[Messages] Subscribed, current messages:', world.chat.msgs.length);
     return () => {
-      console.log('[Messages] Unsubscribing from chat');
       unsubscribe();
     };
   }, [])

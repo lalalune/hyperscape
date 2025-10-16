@@ -135,7 +135,6 @@ export class LootSystem extends SystemBase {
       }
     }
     
-    console.log(`[LootSystem] Loaded ${this.lootTables.size} loot tables from mob data`);
   }
 
   /**
@@ -229,7 +228,6 @@ export class LootSystem extends SystemBase {
 
     await entityManager.spawnEntity(corpseConfig);
 
-    console.log(`[LootSystem] 💀 Spawned corpse ${corpseId} with ${inventoryItems.length} items at (${groundedPosition.x.toFixed(1)}, ${groundedPosition.z.toFixed(1)})`);
 
     // Emit loot dropped event
     this.emitTypedEvent(EventType.LOOT_DROPPED, {

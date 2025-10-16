@@ -923,7 +923,6 @@ export class Physics extends SystemBase implements IPhysics {
     
     // Log active actors periodically
     if (Math.random() < 0.01) { // Log ~1% of frames
-      console.log(`[Physics] Active actors: ${size}`);
     }
     
     for (let i = 0; i < size; i++) {
