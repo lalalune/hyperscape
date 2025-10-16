@@ -95,7 +95,7 @@ export class StatsComponent extends Component {
     this.attack = initialData.attack || { ...defaultSkill };
     this.strength = initialData.strength || { ...defaultSkill };
     this.defense = initialData.defense || { ...defaultSkill };
-    this.constitution = initialData.constitution || { ...defaultSkill };
+    this.constitution = initialData.constitution || { level: 10, xp: 1154 };
     this.ranged = initialData.ranged || { ...defaultSkill };
     this.magic = initialData.magic || { ...defaultSkill };
     this.prayer = initialData.prayer || { ...defaultPrayer };

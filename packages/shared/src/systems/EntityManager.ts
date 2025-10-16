@@ -193,6 +193,11 @@ export class EntityManager extends SystemBase {
       config.id = `entity_${this.nextEntityId++}`;
     }
     
+    // Check if entity already exists
+    if (this.entities.has(config.id)) {
+      return this.entities.get(config.id) || null;
+    }
+    
     // VALIDATE config before creating entity
     if (!config.position || !Number.isFinite(config.position.x) || !Number.isFinite(config.position.y) || !Number.isFinite(config.position.z)) {
       throw new Error(`Invalid position for entity ${config.id}: ${JSON.stringify(config.position)}`);
@@ -576,13 +581,15 @@ export class EntityManager extends SystemBase {
     }
     
     if (newHealth <= 0) {
-      this.emitTypedEvent(EventType.MOB_DIED, {
-        entityId: data.entityId,
-        killedBy: data.attackerId,
-        position: mob.getPosition()
-      });
-      
-      this.destroyEntity(data.entityId);
+      // Let the mob entity handle its own death first to ensure proper state synchronization
+      const mobEntity = mob as MobEntity;
+      if (mobEntity && typeof mobEntity.die === 'function') {
+        mobEntity.die();
+        // Don't destroy here - MobEntity.die() will handle destruction after network sync
+      } else {
+        // Fallback: destroy immediately if not a MobEntity
+        this.destroyEntity(data.entityId);
+      }
     }
   }
 
