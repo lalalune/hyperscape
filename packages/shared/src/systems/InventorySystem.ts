@@ -6,7 +6,8 @@ import { getSystem } from '../utils/SystemUtils';
 import type { World } from '../types';
 import type { InventoryItemAddedPayload } from '../types/events';
 import { EventType } from '../types/events';
-import { getItem } from '../data/items';
+import { getItem, ITEMS } from '../data/items'
+import { dataManager } from '../data/DataManager';
 import type {
   PlayerInventory
 } from '../types/core';
@@ -61,10 +62,10 @@ export class InventorySystem extends SystemBase {
     }
     
     // Subscribe to inventory events
-    this.subscribe(EventType.PLAYER_REGISTERED, (data: { playerId: string }) => {
+    this.subscribe(EventType.PLAYER_REGISTERED, async (data: { playerId: string }) => {
       if (process.env.DEBUG_RPG === '1') {
       }
-      if (!this.loadPersistedInventory(data.playerId)) {
+      if (!(await this.loadPersistedInventory(data.playerId))) {
         if (process.env.DEBUG_RPG === '1') {
         }
         this.initializeInventory({ id: data.playerId });
@@ -767,12 +768,12 @@ export class InventorySystem extends SystemBase {
     return this.world.getSystem<DatabaseSystem>('database') || null;
   }
 
-  private loadPersistedInventory(playerId: string): boolean {
+  private async loadPersistedInventory(playerId: string): Promise<boolean> {
     const db = this.getDatabase();
     if (!db) return false;
     
-    const rows = db.getPlayerInventory(playerId);
-    const playerRow = db.getPlayer(playerId);
+    const rows = await db.getPlayerInventoryAsync(playerId);
+    const playerRow = await db.getPlayerAsync(playerId);
     if (process.env.DEBUG_RPG === '1') {
     }
     const hasState = (rows && rows.length > 0) || !!playerRow;

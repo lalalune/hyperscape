@@ -78,6 +78,7 @@ export class AgentLiveKit extends System {
   start() {}
 
   async publishAudioStream(audioBuffer: Buffer): Promise<void> {
+    console.log(
       "[LiveKit] Stub: Would publish audio stream of size:",
       audioBuffer.length,
     );
