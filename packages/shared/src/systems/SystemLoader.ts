@@ -185,10 +185,12 @@ export async function registerSystems(world: World): Promise<void> {
   )
   registerComponent('usage', UsageComponent as ComponentConstructor)
 
+  // Register specialized components first
+  registerComponent('stats', StatsComponent as ComponentConstructor)
+  
   // Register data components using the generic DataComponent class
   // Include commonly used pure-data components so entity construction never fails
   const dataComponents = [
-    'stats',
     'inventory',
     'equipment',
     'movement',
@@ -947,7 +949,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       killMob: (mobId: string, killerId: string) => {
-        world.emit(EventType.MOB_DIED, { mobId, killerId })
+        world.emit(EventType.MOB_DIED, { mobId, mobType: 'unknown', level: 1, killedBy: killerId, position: { x: 0, y: 0, z: 0 } })
       },
 
       // App management actions
