@@ -100,7 +100,6 @@
  * **Referenced by**: index.ts (world.register('network', ServerNetwork))
  */
 
-import { isNumber } from 'lodash-es';
 import moment from 'moment';
 
 import type { 
@@ -985,7 +984,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       // check player limit
       // Check player limit setting
       const playerLimit = this.world.settings.playerLimit;
-      if (isNumber(playerLimit) && playerLimit > 0 && this.sockets.size >= playerLimit) {
+      if (typeof playerLimit === 'number' && playerLimit > 0 && this.sockets.size >= playerLimit) {
         const packet = writePacket('kick', 'player_limit');
         ws.send(packet);
         ws.close();
@@ -1057,7 +1056,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             console.warn('[ServerNetwork] Privy token verification failed or user ID mismatch');
           }
         } catch (err) {
-          console.error('[ServerNetwork] Privy authentication error:', err);
+          // JWT expiration is expected behavior, not an error
+          if (err instanceof Error && err.message.includes('exp')) {
+            console.warn('[ServerNetwork] Privy token expired - user needs to re-authenticate');
+          } else {
+            console.error('[ServerNetwork] Privy authentication error:', err);
+          }
           // Fall through to legacy authentication
         }
       }
