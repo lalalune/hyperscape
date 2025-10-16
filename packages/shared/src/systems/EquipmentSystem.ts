@@ -241,7 +241,7 @@ export class EquipmentSystem extends SystemBase {
     // Use userId for database lookup
     const databaseId = PlayerIdMapper.getDatabaseId(playerId);
     
-    const dbEquipment = this.databaseSystem.getPlayerEquipment(databaseId);
+    const dbEquipment = await this.databaseSystem.getPlayerEquipmentAsync(databaseId);
     
     if (dbEquipment && dbEquipment.length > 0) {
       const equipment = this.playerEquipment.get(playerId);

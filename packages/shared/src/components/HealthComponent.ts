@@ -99,6 +99,7 @@ export class HealthComponent extends Component {
   
   // Apply damage to the entity
   damage(amount: number, source?: Entity, damageType?: string): boolean {
+    console.log(`[HealthComponent] damage called on ${this.entity.id}: ${amount} damage from ${source?.id || 'unknown'} (${damageType || 'unknown type'})`);
     if (this.invulnerable || this.isDead || amount <= 0) {
       return false;
     }

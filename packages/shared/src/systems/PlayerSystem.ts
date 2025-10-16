@@ -226,6 +226,11 @@ export class PlayerSystem extends SystemBase {
       this.handleGetStyleInfo(data as { playerId: string; callback?: (info: Record<string, unknown> | null) => void })
     )
 
+    // Listen to skills updates to trigger player UI updates
+    this.subscribe<{ playerId: string; skills: Skills }>(EventType.SKILLS_UPDATED, data => {
+      this.handleSkillsUpdate(data)
+    })
+
     // Get system references using the type-safe getSystem method
     this.entityManager = this.world.getSystem<EntityManager>('entity-manager')
     // Get database system if available (server only)
@@ -356,7 +361,7 @@ export class PlayerSystem extends SystemBase {
     // Load player data from database using persistent userId
     let playerData: Player | undefined
     if (this.databaseSystem) {
-      const dbData = this.databaseSystem.getPlayer(databaseId)
+      const dbData = await this.databaseSystem.getPlayerAsync(databaseId)
       if (dbData) {
         playerData = PlayerMigration.fromPlayerRow(dbData, data.playerId)
       }
@@ -608,8 +613,14 @@ export class PlayerSystem extends SystemBase {
       data: playerData,
     })
 
-    // Emit STATS_UPDATE for UI
+    // Emit STATS_UPDATE for systems that depend on it
     this.emitTypedEvent(EventType.STATS_UPDATE, playerData)
+
+    // Emit UI_UPDATE for client UI
+    this.emitTypedEvent(EventType.UI_UPDATE, {
+      component: 'player',
+      data: playerData,
+    })
   }
 
   // Public API methods
@@ -1028,11 +1039,11 @@ export class PlayerSystem extends SystemBase {
     let safeHealth = player.health.current
     let safeMaxHealth = player.health.max
     if (!Number.isFinite(safeMaxHealth) || safeMaxHealth <= 0) {
-      console.error(`[PlayerSystem] WARNING: Invalid maxHealth detected: ${safeMaxHealth}, using 100 instead`)
+      console.error(`[PlayerSystem] WARNING: Invalid maxHealth detected: ${safeMaxHealth}, using 100 instead. Player health object:`, player.health)
       safeMaxHealth = 100
     }
     if (!Number.isFinite(safeHealth) || safeHealth < 0) {
-      console.error(`[PlayerSystem] WARNING: Invalid health detected: ${safeHealth}, using maxHealth instead`)
+      console.error(`[PlayerSystem] WARNING: Invalid health detected: ${safeHealth}, using maxHealth instead. Player health object:`, player.health)
       safeHealth = safeMaxHealth
     }
     safeHealth = Math.min(safeHealth, safeMaxHealth) // Ensure current <= max
@@ -1396,5 +1407,19 @@ export class PlayerSystem extends SystemBase {
       activeCooldowns: this.styleChangeTimers.size,
       systemLoaded: true,
     }
+  }
+
+  private handleSkillsUpdate(data: { playerId: string; skills: Skills }): void {
+    const player = this.players.get(data.playerId)
+    if (!player) return
+
+    // Update player skills
+    player.skills = data.skills
+
+    // Recalculate combat level
+    player.combat.combatLevel = this.calculateCombatLevel(data.skills)
+
+    // Trigger UI update to reflect skill changes
+    this.emitPlayerUpdate(data.playerId)
   }
 }

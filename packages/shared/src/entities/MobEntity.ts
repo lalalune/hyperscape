@@ -83,6 +83,7 @@ import { EventType } from '../types/events';
 import type { World } from '../World';
 import { CombatantEntity, type CombatantConfig } from './CombatantEntity';
 import { modelCache } from '../utils/ModelCache';
+import type { EntityManager } from '../systems/EntityManager';
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === 'undefined') {
@@ -137,6 +138,11 @@ export class MobEntity extends CombatantEntity {
     super(world, combatConfig);
     this.config = config;
     this.generatePatrolPoints();
+    
+    // Set entity properties for systems to access
+    this.setProperty('mobType', config.mobType);
+    this.setProperty('level', config.level);
+    this.setProperty('health', { current: config.currentHealth, max: config.maxHealth });
     
     // Add stats component for skills system compatibility
     this.addComponent('stats', {
@@ -787,15 +793,32 @@ export class MobEntity extends CombatantEntity {
     this.config.aiState = MobAIState.DEAD;
     this.config.deathTime = this.world.getTime();
     this.config.targetPlayerId = null;
+    this.config.currentHealth = 0; // Ensure health is 0
+    
+    // Update base health property for isDead() check
+    this.setHealth(0);
+
+    // Mark for network update to sync death state to clients
+    this.markNetworkDirty();
 
     // Emit death event with last attacker
     if (this.lastAttackerId) {
       this.world.emit(EventType.MOB_DIED, {
         mobId: this.id,
-        killerId: this.lastAttackerId,
-        xpReward: this.config.xpReward,
+        mobType: this.config.mobType,
+        level: this.config.level,
+        killedBy: this.lastAttackerId,
         position: this.getPosition()
       });
+
+      // Emit COMBAT_KILL event for SkillsSystem to grant combat XP
+      this.world.emit(EventType.COMBAT_KILL, {
+        attackerId: this.lastAttackerId,
+        targetId: this.id,
+        damageDealt: this.config.maxHealth, // Total damage dealt (mob's max health)
+        attackStyle: 'melee' // Default to melee, could be enhanced to track actual attack style
+      });
+
       this.dropLoot(this.lastAttackerId);
     }
 
@@ -804,7 +827,13 @@ export class MobEntity extends CombatantEntity {
       this.mesh.visible = false;
     }
 
-    this.markNetworkDirty();
+    // Schedule entity destruction after a brief delay to allow network sync
+    setTimeout(() => {
+      const entityManager = this.world.getSystem('entity-manager') as EntityManager;
+      if (entityManager && typeof entityManager.destroyEntity === 'function') {
+        entityManager.destroyEntity(this.id);
+      }
+    }, 100); // 100ms delay to ensure network update is sent
   }
 
   private dropLoot(killerId: string): void {
