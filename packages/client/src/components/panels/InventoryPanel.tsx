@@ -39,7 +39,6 @@ function DraggableInventorySlot({ item, index, size }: DraggableItemProps) {
   
   // Debug: log what we're trying to render
   if (item) {
-    console.log(`[InventorySlot ${index}] Rendering item:`, item.itemId, 'qty:', item.quantity);
   }
 
   return (

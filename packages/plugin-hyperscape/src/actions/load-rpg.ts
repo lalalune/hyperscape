@@ -40,7 +40,6 @@ export const loadRPGAction: Action = {
     // This would integrate with our polished RPG systems
     const world = hyperscapeService.getWorld()!;
     // RPG systems integration point - connect to our 54 polished systems
-    console.log("RPG systems ready for integration with ElizaOS agents");
 
     if (callback) {
       callback({

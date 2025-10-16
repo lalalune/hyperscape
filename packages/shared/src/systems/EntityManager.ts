@@ -226,7 +226,6 @@ export class EntityManager extends SystemBase {
     }
     
     // Initialize entity (this will throw if it fails)
-    console.log(`[EntityManager] Initializing entity ${config.id}...`);
     await entity.init();
     
     // Store entity
@@ -240,7 +239,6 @@ export class EntityManager extends SystemBase {
     if (this.world.isServer) {
       const network = this.world.network as { send?: (method: string, data: unknown, excludeId?: string) => void };
       if (network?.send) {
-        console.log(`[EntityManager] 📡 Broadcasting entityAdded for ${config.type}: ${config.id}`);
         network.send('entityAdded', entity.serialize());
       }
     }
@@ -259,14 +257,11 @@ export class EntityManager extends SystemBase {
       if (network && typeof network.send === 'function') {
         try {
           network.send('entityAdded', entity.serialize());
-          console.log(`[EntityManager] 📡 Broadcasted new ${config.type} entity to all clients: ${config.id}`);
         } catch (error) {
           console.warn(`[EntityManager] Failed to broadcast entity ${config.id}:`, error);
         }
       }
     }
-    
-    console.log(`[EntityManager] ✅ Successfully spawned and registered ${config.type} entity: ${config.name}`);
     
     return entity;
   }
@@ -274,18 +269,14 @@ export class EntityManager extends SystemBase {
   destroyEntity(entityId: string): boolean {
     const entity = this.getEntity(entityId);
     if (!entity) {
-      console.log(`[EntityManager] Entity not found: ${entityId}`);
       return false;
     }
-    
-    console.log(`[EntityManager] Destroying entity: ${entityId}`);
     
     // Send entityRemoved packet to all clients before destroying
     const network = this.world.network;
     if (network && network.isServer) {
       try {
         network.send('entityRemoved', entityId);
-        console.log(`[EntityManager] Sent entityRemoved packet for: ${entityId}`);
       } catch (error) {
         console.warn(`[EntityManager] Failed to send entityRemoved packet for ${entityId}:`, error);
       }
@@ -308,7 +299,6 @@ export class EntityManager extends SystemBase {
       entityType: entity.type
     });
     
-    console.log(`[EntityManager] Entity destroyed: ${entityId}`);
     return true;
   }
 
@@ -447,7 +437,6 @@ export class EntityManager extends SystemBase {
       }
     };
     
-    console.log(`[EntityManager] Spawning item: ${itemIdToUse} with model: ${config.model || 'none'}`);
     
     await this.spawnEntity(config);
   }
@@ -506,9 +495,7 @@ export class EntityManager extends SystemBase {
     
     // CRITICAL FIX: Always use the provided customId to ensure client/server ID consistency
     // Only generate a new ID if customId is not provided (fallback case)
-    console.log(`[EntityManager] Spawning mob: ${mobType} with customId: ${data.customId}`);
     const mobId = data.customId || `mob_${this.nextEntityId++}`;
-    console.log(`[EntityManager] Final mob ID: ${mobId}`);
     
     const config: MobEntityConfig = {
       id: mobId,

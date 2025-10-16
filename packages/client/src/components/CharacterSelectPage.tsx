@@ -97,7 +97,6 @@ const useIntroMusic = (enabled: boolean) => {
       sourceRef.current = source
       setIsPlaying(true)
 
-      console.log(`[IntroMusic] Playing ${track}`)
     }
 
     playIntroMusic()
@@ -157,7 +156,6 @@ export function CharacterSelectPage({
   onPlay: (selectedCharacterId: string | null) => void;
   onLogout: () => void;
 }) {
-  console.log("[CharacterSelect] 🎨 Component rendering...");
   const [characters, setCharacters] = React.useState<Character[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = React.useState<
     string | null
@@ -216,64 +214,31 @@ export function CharacterSelectPage({
 
   // Debug logging for state changes
   React.useEffect(() => {
-    console.log(
-      "[CharacterSelect] 🔄 State changed - wsReady:",
-      wsReady,
-      "showCreate:",
-      showCreate,
-      "characters:",
-      characters.length,
-    );
-  }, [wsReady, showCreate, characters]);
+      }, [wsReady, showCreate, characters]);
 
   React.useEffect(() => {
     // Wait until Privy auth values are present
     const token = authDeps.token;
     const privyUserId = authDeps.privyUserId;
     if (!token || !privyUserId) {
-      console.log("[CharacterSelect] Waiting for Privy auth…", {
-        hasToken: !!token,
-        hasPrivyUserId: !!privyUserId,
-      });
-      setWsReady(false);
+            setWsReady(false);
       return;
     }
     let url = `${wsUrl}?authToken=${encodeURIComponent(token)}`;
     if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
-    console.log("[CharacterSelect] 🌐 BASE wsUrl prop:", wsUrl);
-    console.log("[CharacterSelect] 🌐 FULL WebSocket URL:", url);
-    console.log(
-      "[CharacterSelect] 🌐 window.location.host:",
-      window.location.host,
-    );
-    console.log(
-      "[CharacterSelect] 🌐 window.location.protocol:",
-      window.location.protocol,
-    );
-    const ws = new WebSocket(url);
+                    const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     preWsRef.current = ws;
     setWsReady(false);
     ws.addEventListener("open", () => {
-      console.log("[CharacterSelect] ✅ WebSocket OPEN event fired!");
-      setWsReady(true);
-      console.log("[CharacterSelect] WS open; requesting character list");
-      // Request character list from server
+            setWsReady(true);
+            // Request character list from server
       const packet = writePacket("characterListRequest", {});
-      console.log(
-        "[CharacterSelect] Sending characterListRequest packet, size:",
-        packet.byteLength,
-      );
-      ws.send(packet);
-      console.log("[CharacterSelect] characterListRequest sent successfully");
-      // Flush any pending create
+            ws.send(packet);
+            // Flush any pending create
       const pending = pendingActionRef.current;
       if (pending && pending.type === "create") {
-        console.log(
-          "[CharacterSelect] 🔄 Flushing pending character create:",
-          pending.name,
-        );
-        ws.send(writePacket("characterCreate", { name: pending.name }));
+                ws.send(writePacket("characterCreate", { name: pending.name }));
         pendingActionRef.current = null;
       }
     });
@@ -281,8 +246,7 @@ export function CharacterSelectPage({
       console.error("[CharacterSelect] ❌ WebSocket ERROR:", err);
     });
     ws.addEventListener("close", (e) => {
-      console.log("[CharacterSelect] 🔌 WebSocket CLOSED:", e.code, e.reason);
-      setWsReady(false);
+            setWsReady(false);
     });
     ws.addEventListener("message", (e) => {
       const result = readPacket(e.data);
@@ -296,30 +260,16 @@ export function CharacterSelectPage({
         // Extract characters from snapshot
         const snap = data as { characters?: Character[] };
         if (snap.characters && Array.isArray(snap.characters)) {
-          console.log(
-            "[CharacterSelect] ✅ Characters in snapshot:",
-            snap.characters.length,
-            snap.characters,
-          );
-          setCharacters(snap.characters);
+                    setCharacters(snap.characters);
         }
       } else if (method === "onCharacterList") {
         const listData = data as { characters: Character[] };
-        console.log(
-          "[CharacterSelect] ✅ onCharacterList received:",
-          listData.characters.length,
-          listData.characters,
-        );
-        setCharacters(listData.characters);
+                setCharacters(listData.characters);
       } else if (method === "onCharacterCreated") {
         const c = data as Character;
-        console.log("[CharacterSelect] ✅ onCharacterCreated SUCCESS:", c);
-        setCharacters((prev) => {
-          console.log("[CharacterSelect] Previous characters:", prev);
-          console.log("[CharacterSelect] Adding character:", c);
-          const newList = [...prev, c];
-          console.log("[CharacterSelect] New character list:", newList);
-          return newList;
+                setCharacters((prev) => {
+                              const newList = [...prev, c];
+                    return newList;
         });
         // Immediately select newly created character and go to confirm view
         setSelectedCharacterId(c.id);
@@ -327,16 +277,11 @@ export function CharacterSelectPage({
         setShowCreate(false);
         const ws = preWsRef.current!;
         if (ws.readyState === WebSocket.OPEN) {
-          console.log(
-            "[CharacterSelect] Sending characterSelected for new character:",
-            c.id,
-          );
-          ws.send(writePacket("characterSelected", { characterId: c.id }));
+                    ws.send(writePacket("characterSelected", { characterId: c.id }));
         }
       } else if (method === "onCharacterSelected") {
         const payload = data as { characterId: string | null };
-        console.log("[CharacterSelect] ✅ onCharacterSelected:", payload);
-        setSelectedCharacterId(payload.characterId || null);
+                setSelectedCharacterId(payload.characterId || null);
         if (payload.characterId) setView("confirm");
       } else if (method === "onEntityEvent") {
         const evt = data as {
@@ -348,12 +293,7 @@ export function CharacterSelectPage({
         if (evt?.name === "character:list") {
           const list =
             (evt.data as { characters?: Character[] })?.characters || [];
-          console.log(
-            "[CharacterSelect] ✅ onEntityEvent character:list:",
-            list.length,
-            list,
-          );
-          setCharacters(list);
+                    setCharacters(list);
         }
       } else if (method === "onShowToast") {
         const toast = data as { message?: string; type?: string };
@@ -364,8 +304,7 @@ export function CharacterSelectPage({
         // These are real-time position/rotation/velocity updates that happen in the world
         // Silently ignore them
       } else {
-        console.log("[CharacterSelect] ⚠️ Unhandled message type:", method);
-      }
+              }
     });
     return () => {
       ws.close();
@@ -374,8 +313,7 @@ export function CharacterSelectPage({
   }, [wsUrl, authDeps.token, authDeps.privyUserId]);
 
   const selectCharacter = React.useCallback((id: string) => {
-    console.log("[CharacterSelect] selecting character:", id);
-    setSelectedCharacterId(id);
+        setSelectedCharacterId(id);
     setView("confirm");
     const ws = preWsRef.current!;
     if (ws.readyState !== WebSocket.OPEN) return;
@@ -383,17 +321,8 @@ export function CharacterSelectPage({
   }, []);
 
   const createCharacter = React.useCallback(() => {
-    console.log(
-      "[CharacterSelect] ========== CREATE CHARACTER CLICKED ==========",
-    );
-    const name = newCharacterName.trim().slice(0, 20);
-    console.log(
-      "[CharacterSelect] Character name input:",
-      newCharacterName,
-      "| Trimmed:",
-      name,
-    );
-
+        const name = newCharacterName.trim().slice(0, 20);
+    
     if (!name || name.length < 3) {
       console.warn(
         "[CharacterSelect] ❌ Name validation failed - must be 3-20 characters",
@@ -417,25 +346,15 @@ export function CharacterSelectPage({
       return;
     }
 
-    console.log("[CharacterSelect] 📤 Sending characterCreate packet:", {
-      name,
-    });
-    const packet = writePacket("characterCreate", { name });
-    console.log("[CharacterSelect] Packet size:", packet.byteLength, "bytes");
-    ws.send(packet);
-    console.log("[CharacterSelect] ✅ Packet sent successfully");
-
+        const packet = writePacket("characterCreate", { name });
+        ws.send(packet);
+    
     setNewCharacterName("");
     // Don't hide the create form yet - wait for server response
-    console.log("[CharacterSelect] Waiting for server response...");
-  }, [newCharacterName]);
+      }, [newCharacterName]);
 
   const enterWorld = React.useCallback(() => {
-    console.log(
-      "[CharacterSelect] Enter world with selected:",
-      selectedCharacterId,
-    );
-    onPlay(selectedCharacterId);
+        onPlay(selectedCharacterId);
   }, [selectedCharacterId, onPlay]);
 
   const GoldRule = ({
@@ -569,8 +488,7 @@ export function CharacterSelectPage({
                     <form
                       className="w-full rounded bg-white/5"
                       onSubmit={(e) => {
-                        console.log("[CharacterSelect] 🎯 Form submitted!");
-                        e.preventDefault();
+                                                e.preventDefault();
                         createCharacter();
                       }}
                     >
@@ -582,11 +500,7 @@ export function CharacterSelectPage({
                             placeholder="Name (3–20 chars)"
                             value={newCharacterName}
                             onChange={(e) => {
-                              console.log(
-                                "[CharacterSelect] ⌨️ Input changed:",
-                                e.target.value,
-                              );
-                              setNewCharacterName(e.target.value);
+                                                            setNewCharacterName(e.target.value);
                             }}
                             maxLength={20}
                             autoFocus
@@ -605,21 +519,13 @@ export function CharacterSelectPage({
                             !wsReady || newCharacterName.trim().length < 3
                           }
                           onClick={(e) => {
-                            console.log(
-                              "[CharacterSelect] 🖱️ Create button CLICKED! Event:",
-                              e.type,
-                            );
-                            console.log(
+                                                        console.log(
                               "[CharacterSelect] Button state - wsReady:",
                               wsReady,
                               "nameLength:",
                               newCharacterName.trim().length,
                             );
-                            console.log(
-                              "[CharacterSelect] Button disabled:",
-                              e.currentTarget.disabled,
-                            );
-                          }}
+                                                      }}
                         >
                           Create
                         </button>
@@ -635,13 +541,7 @@ export function CharacterSelectPage({
                     <button
                       className="w-full px-6 py-4 bg-red-600 text-white font-bold text-lg rounded"
                       onClick={() => {
-                        console.log(
-                          "[CharacterSelect] 🚨 EMERGENCY BUTTON CLICKED!",
-                        );
-                        console.log(
-                          "[CharacterSelect] Direct call to createCharacter",
-                        );
-                        createCharacter();
+                                                                        createCharacter();
                       }}
                     >
                       🚨 DEBUG: FORCE CREATE CHARACTER
@@ -651,47 +551,22 @@ export function CharacterSelectPage({
                     <button
                       className="w-full px-6 py-4 bg-blue-600 text-white font-bold text-lg rounded"
                       onClick={() => {
-                        console.log(
-                          "[CharacterSelect] 🔵 TEST CONNECTION BUTTON",
-                        );
-                        const ws = preWsRef.current;
+                                                const ws = preWsRef.current;
                         if (!ws) {
                           console.error(
                             "[CharacterSelect] ❌ No WebSocket ref!",
                           );
                           return;
                         }
-                        console.log(
-                          "[CharacterSelect] WebSocket exists, readyState:",
-                          ws.readyState,
-                        );
-                        console.log(
-                          "[CharacterSelect] Sending test characterListRequest...",
-                        );
-                        const packet = writePacket("characterListRequest", {});
-                        console.log(
-                          "[CharacterSelect] Test packet size:",
-                          packet.byteLength,
-                        );
-                        ws.send(packet);
-                        console.log("[CharacterSelect] ✅ Test packet sent");
-
+                                                                        const packet = writePacket("characterListRequest", {});
+                                                ws.send(packet);
+                        
                         // Now try characterCreate
-                        console.log(
-                          "[CharacterSelect] Now sending characterCreate test...",
-                        );
-                        const packet2 = writePacket("characterCreate", {
+                                                const packet2 = writePacket("characterCreate", {
                           name: "TestChar",
                         });
-                        console.log(
-                          "[CharacterSelect] CharacterCreate packet size:",
-                          packet2.byteLength,
-                        );
-                        ws.send(packet2);
-                        console.log(
-                          "[CharacterSelect] ✅ CharacterCreate test sent",
-                        );
-                      }}
+                                                ws.send(packet2);
+                                              }}
                     >
                       🔵 TEST: Send List + Create Packets
                     </button>

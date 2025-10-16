@@ -58,7 +58,6 @@ import { ServerBot } from './systems/ServerBot'
  * @returns A fully configured World instance ready for server initialization
  */
 export async function createServerWorld(): Promise<World> {
-  console.log('[Server World] Creating server world...');
   const world = new World()
   
   // ============================================================================
@@ -71,7 +70,6 @@ export async function createServerWorld(): Promise<World> {
   // - Environment: Lighting, shadows, and CSM (Cascaded Shadow Maps)
   // Note: ServerNetwork is registered separately in the server package
   
-  console.log('[Server World] Registering core server systems...');
   world.register('server', ServerRuntime);
   world.register('livekit', ServerLiveKit);
   world.register('loader', ServerLoader);
@@ -108,11 +106,8 @@ export async function createServerWorld(): Promise<World> {
   // - InteractionSystem: Player-entity interactions
   // - PersistenceSystem: Database saves and loads
   
-  console.log('[Server World] Core systems registered');
   
-  console.log('[Server World] Registering RPG game systems...');
   await registerSystems(world);
-  console.log('[Server World] RPG game systems registered successfully');
   
   // ============================================================================
   // OPTIONAL: SERVER BOT
@@ -128,12 +123,9 @@ export async function createServerWorld(): Promise<World> {
   
   if (enableBots) {
     world.register('server-bot', ServerBot);
-    console.log(`[Server World] Server bot registered (MAX_BOT_COUNT=${maxBots})`);
   } else {
-    console.log('[Server World] Server bot disabled (MAX_BOT_COUNT=0 or DISABLE_BOTS=true)');
   }
   
-  console.log('[Server World] Server world created successfully');
   
   return world;
 }

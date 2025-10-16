@@ -69,7 +69,6 @@ function getPrivyClient(): PrivyClient | null {
   }
 
   privyClient = new PrivyClient(appId, appSecret);
-  console.log("[Privy Auth] Privy client initialized");
   return privyClient;
 }
 
@@ -137,13 +136,6 @@ export async function verifyPrivyToken(
   const walletAddress = user.wallet?.address || null;
   const email = user.email?.address || null;
   const isVerified = true;
-
-  console.log("[Privy Auth] Token verified for user:", {
-    privyUserId,
-    hasFarcaster: !!farcasterFid,
-    hasWallet: !!walletAddress,
-    hasEmail: !!email,
-  });
 
   return {
     privyUserId,

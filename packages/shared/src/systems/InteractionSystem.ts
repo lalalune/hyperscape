@@ -84,8 +84,6 @@ export class InteractionSystem extends System {
     
     // Create target marker (visual indicator)
     this.createTargetMarker();
-    
-    console.log('[InteractionSystem] Click-to-move and context menus enabled');
   }
   
   private createTargetMarker(): void {
@@ -157,7 +155,6 @@ export class InteractionSystem extends System {
       { getHeightAt: (x: number, z: number) => number } | undefined;
     
     if (!terrainSystem) {
-      console.log('[InteractionSystem] No terrain system, using flat marker at Y=' + fallbackY);
       this.targetMarker.position.setY(fallbackY);
       for (let i = 0; i < positionAttribute.count; i++) {
         positionAttribute.setY(i, 0.05);
@@ -247,7 +244,6 @@ export class InteractionSystem extends System {
     // Check if tapping on an entity first
     const target = this.getEntityAtPosition(event.x, event.y);
     if (target) {
-      console.log(`[InteractionSystem] Camera tap on entity: ${target.name} (${target.type}) - not showing movement indicator`);
       return;
     }
     
@@ -272,7 +268,6 @@ export class InteractionSystem extends System {
         cancel: true
       });
     }
-    console.log('[InteractionSystem] Movement cancelled');
   }
   
   private onCanvasClick = (event: MouseEvent): void => {
@@ -290,15 +285,12 @@ export class InteractionSystem extends System {
         event.preventDefault();
         const localPlayer = this.world.getPlayer();
         if (localPlayer) {
-          console.log('[InteractionSystem] Left-click pickup triggered for', target.id);
-          
           // Check for debouncing to prevent duplicate pickup requests
           const pickupKey = `${localPlayer.id}:${target.id}`;
           const now = Date.now();
           const lastRequest = this.recentPickupRequests.get(pickupKey);
           
           if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
-            console.log(`[InteractionSystem] Debounced duplicate pickup request for ${target.id}`);
             return;
           }
           
@@ -314,7 +306,6 @@ export class InteractionSystem extends System {
           
           if (this.world.network?.send) {
             this.world.network.send('pickupItem', { itemId: target.id });
-            console.log('[InteractionSystem] Sent pickupItem packet to server');
           } else {
             console.warn('[InteractionSystem] No network.send available for pickup');
             // Fallback for single-player
@@ -333,7 +324,6 @@ export class InteractionSystem extends System {
       
       // For other entities (mobs, NPCs, players, resources), don't show movement indicator
       // They should use context menus or other interaction methods
-      console.log(`[InteractionSystem] Clicked on entity: ${target.name} (${target.type}) - not showing movement indicator`);
       return;
     }
     
@@ -368,7 +358,6 @@ export class InteractionSystem extends System {
         const clickedObject = intersects[0].object;
         if (clickedObject.userData && clickedObject.userData.entityId) {
           clickedOnEntity = true;
-          console.log(`[InteractionSystem] Clicked on entity: ${clickedObject.userData.name} (${clickedObject.userData.type})`);
         } else {
           target = intersects[0].point.clone();
         }
@@ -387,8 +376,6 @@ export class InteractionSystem extends System {
     }
     
     if (target) {
-      console.log(`[InteractionSystem] Click at (${target.x.toFixed(1)}, ${target.y.toFixed(1)}, ${target.z.toFixed(1)})`);
-      
       // Clear any previous target
       if (this.targetMarker && this.targetMarker.visible) {
         // Hide old marker immediately
@@ -434,7 +421,6 @@ export class InteractionSystem extends System {
           runMode,
           cancel: false  // Explicitly not cancelling
         });
-        console.log('[InteractionSystem] Sent move request to server (server-authoritative)');
       }
     }
   };
@@ -642,15 +628,12 @@ export class InteractionSystem extends System {
           icon: '🎒',
           enabled: true,
           handler: () => {
-            console.log('[InteractionSystem] Pickup action triggered for', target.id);
-            
             // Check for debouncing to prevent duplicate pickup requests
             const pickupKey = `${playerId}:${target.id}`;
             const now = Date.now();
             const lastRequest = this.recentPickupRequests.get(pickupKey);
             
             if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
-              console.log(`[InteractionSystem] Debounced duplicate pickup request for ${target.id}`);
               return;
             }
             
@@ -666,7 +649,6 @@ export class InteractionSystem extends System {
             
             if (this.world.network?.send) {
               this.world.network.send('pickupItem', { itemId: target.id });
-              console.log('[InteractionSystem] Sent pickupItem packet to server');
             } else {
               console.warn('[InteractionSystem] No network.send available for pickup');
               // Fallback for single-player
@@ -784,15 +766,12 @@ export class InteractionSystem extends System {
           icon: '⚔️',
           enabled: isAlive,
           handler: () => {
-            console.log('[InteractionSystem] Attack action triggered for mob:', target.id);
-            
             // Check for debouncing to prevent duplicate attack requests
             const attackKey = `${playerId}:${target.id}`;
             const now = Date.now();
             const lastRequest = this.recentAttackRequests.get(attackKey);
             
             if (lastRequest && (now - lastRequest) < this.ATTACK_DEBOUNCE_TIME) {
-              console.log(`[InteractionSystem] Debounced duplicate attack request for ${target.id}`);
               return;
             }
             
@@ -811,7 +790,6 @@ export class InteractionSystem extends System {
                 mobId: target.id,
                 attackType: 'melee'
               });
-              console.log('[InteractionSystem] Sent attackMob packet to server');
             } else {
               console.warn('[InteractionSystem] No network.send available for attack');
               // Fallback for single-player
@@ -908,7 +886,6 @@ export class InteractionSystem extends System {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
     
-    console.log('[InteractionSystem] Resource action triggered:', action, resourceId);
     
     // Check for debouncing to prevent duplicate resource requests
     const resourceKey = `${localPlayer.id}:${resourceId}`;
@@ -916,7 +893,6 @@ export class InteractionSystem extends System {
     const lastRequest = this.recentResourceRequests.get(resourceKey);
     
     if (lastRequest && (now - lastRequest) < this.RESOURCE_DEBOUNCE_TIME) {
-      console.log(`[InteractionSystem] Debounced duplicate resource request for ${resourceId}`);
       return;
     }
     
@@ -940,7 +916,6 @@ export class InteractionSystem extends System {
           z: localPlayer.position.z
         }
       });
-      console.log('[InteractionSystem] Sent resourceGather packet to server');
     } else {
       console.warn('[InteractionSystem] No network.send available for resource gathering');
       // Fallback for single-player

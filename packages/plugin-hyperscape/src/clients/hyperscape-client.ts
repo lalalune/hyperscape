@@ -87,7 +87,6 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
   }
 
   async start(): Promise<void> {
-    console.log(`[HyperscapeClient] Starting connection to ${this.url}`);
     await this.connect();
   }
 

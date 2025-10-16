@@ -196,11 +196,8 @@ export function createClientWorld() {
   // RPG systems are loaded asynchronously to avoid blocking world creation.
   
   (async () => {
-    console.log('[Client World] Registering RPG game systems...');
     await registerSystems(world);
-    console.log('[Client World] RPG game systems registered successfully');
     
-    console.log('[Client World] Client helper systems registered');
     
     // Re-expose utilities after RPG systems load (in case they were cleared)
     const anyWin = window as unknown as { Hyperscape?: Record<string, unknown> };

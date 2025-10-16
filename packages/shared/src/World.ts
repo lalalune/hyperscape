@@ -811,7 +811,6 @@ export class World extends EventEmitter {
       return;
     }
     this._initialized = true;
-    console.log('[World] Starting initialization...');
     
     // Set up storage and asset paths
     this.storage = options.storage;
@@ -1251,13 +1250,11 @@ export class World extends EventEmitter {
    * This ensures proper cleanup of WebSocket connections and network resources.
    */
   async disconnect(): Promise<void> {
-    console.log('[World] Disconnecting network...')
     
     if (this.network && this.network.disconnect) {
       await this.network.disconnect();
     }
     
-    console.log('[World] Network disconnected')
   }
 
   /**
@@ -1273,7 +1270,6 @@ export class World extends EventEmitter {
    * 4. Reset initialization flag
    */
   destroy(): void {
-    console.log('[World] Destroying world...')
     
     // Destroy all systems
     for (const system of this.systems) {
@@ -1297,7 +1293,6 @@ export class World extends EventEmitter {
     
     // Allow re-initialization
     this._initialized = false;
-    console.log('[World] World destroyed')
   }
 
   // ============================================================================

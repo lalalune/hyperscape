@@ -210,7 +210,6 @@ export class ResourceEntity extends InteractableEntity {
     // Try to load 3D model if available (same approach as ItemEntity)
     if (this.config.model && this.world.loader) {
       try {
-        console.log(`[ResourceEntity] Loading model for ${this.config.resourceType}:`, this.config.model);
         const { scene } = await modelCache.loadModel(this.config.model, this.world);
         
         this.mesh = scene;
@@ -230,7 +229,6 @@ export class ResourceEntity extends InteractableEntity {
         };
         
         this.node.add(this.mesh);
-        console.log(`[ResourceEntity] ✅ Model loaded for ${this.config.resourceType}`);
         return;
       } catch (error) {
         console.warn(`[ResourceEntity] Failed to load model for ${this.config.resourceType}, using placeholder:`, error);
@@ -238,7 +236,6 @@ export class ResourceEntity extends InteractableEntity {
       }
     }
     
-    console.log(`[ResourceEntity] Creating placeholder primitive for ${this.config.resourceType}`);
     
     // Create visible placeholder based on resource type
     let geometry: THREE.BufferGeometry;

@@ -55,7 +55,6 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
       const actions: ContextMenuAction[] = items.map(item => ({
         ...item,
         onClick: () => {
-          console.log('[EntityContextMenu] Action clicked:', item.id, 'for target:', target.id);
           // Dispatch selection event
           const selectEvent = new CustomEvent('contextmenu:select', {
             detail: {
@@ -64,7 +63,6 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
             }
           })
           window.dispatchEvent(selectEvent)
-          console.log('[EntityContextMenu] Dispatched contextmenu:select event');
           setMenu(prev => ({ ...prev, visible: false }))
         }
       }))
@@ -88,15 +86,12 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
-      console.log('[EntityContextMenu] Document click (for close), target:', target.className);
       
       // Don't close if clicking inside menu
       if (target.closest('.context-menu')) {
-        console.log('[EntityContextMenu] Click inside menu, NOT closing');
         return;
       }
       
-      console.log('[EntityContextMenu] Click outside menu, closing');
       setMenu(prev => ({ ...prev, visible: false }))
     }
 
@@ -114,9 +109,6 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
 
   if (!menu.visible || !menu.target) return null
 
-  console.log('[EntityContextMenu] Rendering menu with', menu.actions.length, 'actions for', menu.target.type);
-  console.log('[EntityContextMenu] Menu position:', menu.position);
-  console.log('[EntityContextMenu] Menu actions:', menu.actions.map(a => ({ id: a.id, label: a.label, enabled: a.enabled })));
 
   return (
     <div
@@ -130,14 +122,10 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
         color: '#fff' // White text
       }}
       onClick={(e) => {
-        console.log('[EntityContextMenu] Menu container clicked');
         e.stopPropagation();
       }}
-      onMouseEnter={() => console.log('[EntityContextMenu] Mouse entered menu')}
-      onMouseLeave={() => console.log('[EntityContextMenu] Mouse left menu')}
     >
       {menu.actions.map((action, index) => {
-        console.log('[EntityContextMenu] Rendering action', index, ':', action.id, action.label);
         return (
           <div
             key={action.id}
@@ -151,22 +139,17 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
               color: '#fff' // Explicit white text
             }}
             onClick={(e) => {
-              console.log('[EntityContextMenu] ✅ Menu item CLICKED:', action.id, 'enabled:', action.enabled);
               e.preventDefault();
               e.stopPropagation();
               if (action.enabled) {
-                console.log('[EntityContextMenu] Calling onClick for action:', action.id);
                 action.onClick()
               } else {
-                console.log('[EntityContextMenu] Action disabled, not calling onClick');
               }
             }}
             onMouseDown={(e) => {
-              console.log('[EntityContextMenu] Menu item mousedown:', action.id);
               e.preventDefault();
               e.stopPropagation();
             }}
-            onMouseEnter={() => console.log('[EntityContextMenu] Mouse entered action:', action.id)}
           >
             {action.icon && <span className="mr-2">{action.icon}</span>}
             {action.label}

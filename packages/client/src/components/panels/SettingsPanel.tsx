@@ -175,7 +175,6 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
         value={postprocessing}
         onChange={postprocessing => {
           world.prefs?.setPostprocessing(postprocessing)
-          console.log('[Settings] Post-processing:', postprocessing ? 'enabled' : 'disabled')
         }}
       />
       {postprocessing && (
@@ -187,7 +186,6 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
           value={bloom}
           onChange={bloom => {
             world.prefs?.setBloom(bloom)
-            console.log('[Settings] Bloom:', bloom ? 'enabled' : 'disabled')
           }}
         />
       )}

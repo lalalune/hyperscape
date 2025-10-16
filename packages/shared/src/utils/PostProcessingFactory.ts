@@ -73,7 +73,6 @@ async function createWebGLPostProcessing(
     multisampling: Math.min(multisampling, maxMultisampling),
   }) as PostProcessingComposer;
   
-  console.log('[PostProcessingFactory] Composer multisampling:', Math.min(multisampling, maxMultisampling))
   
   // Render pass
   const renderPass = new RenderPass(scene, camera);
@@ -100,7 +99,6 @@ async function createWebGLPostProcessing(
     composer.bloom = bloomEffect;
   }
   
-  console.log('[PostProcessingFactory] ✅ WebGL post-processing created');
   return composer;
 }
 
@@ -113,8 +111,6 @@ async function createWebGPUPostProcessing(
   _camera: THREE.Camera,
   _options: PostProcessingOptions
 ): Promise<PostProcessingComposer | null> {
-  console.log('[PostProcessingFactory] WebGPU post-processing not yet available');
-  console.log('[PostProcessingFactory] Falling back to direct rendering (no effects)');
   
   // TODO: Implement when three.js TSL is stable in the version we're using
   // For now, WebGPU users get direct rendering without post-processing
@@ -131,7 +127,6 @@ async function createWebGPUPostProcessing(
   camera: THREE.Camera,
   options: PostProcessingOptions
 ): Promise<PostProcessingComposer | null> {
-  console.log('[PostProcessingFactory] Creating WebGPU post-processing with TSL nodes');
   
   try {
     const { default: PostProcessing } = await import('three/addons/tsl/display/PostProcessing.js');
@@ -184,7 +179,6 @@ async function createWebGPUPostProcessing(
     (composer as any)._scenePass = scenePass;
     (composer as any)._bloomEnabled = bloomOptions.enabled;
     
-    console.log('[PostProcessingFactory] ✅ WebGPU post-processing created');
     return composer;
   } catch (error) {
     console.warn('[PostProcessingFactory] WebGPU post-processing not available:', error);

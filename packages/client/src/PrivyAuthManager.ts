@@ -115,12 +115,6 @@ export class PrivyAuthManager {
     if (farcasterFid) {
       localStorage.setItem('farcaster_fid', farcasterFid)
     }
-
-    console.log('[PrivyAuthManager] User authenticated:', {
-      userId: user.id,
-      hasFarcaster: !!farcasterAccount,
-      fid: farcasterFid,
-    })
   }
 
   /**
@@ -144,7 +138,6 @@ export class PrivyAuthManager {
     localStorage.removeItem('privy_user_id')
     localStorage.removeItem('farcaster_fid')
 
-    console.log('[PrivyAuthManager] Authentication cleared')
   }
 
   /**
@@ -262,7 +255,6 @@ export class PrivyAuthManager {
         privyToken: token,
         farcasterFid: fid,
       })
-      console.log('[PrivyAuthManager] Restored auth from storage')
     }
 
     return { token, userId }
