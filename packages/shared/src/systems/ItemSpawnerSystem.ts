@@ -61,7 +61,6 @@ export class ItemSpawnerSystem extends SystemBase {
   }
 
   start(): void {
-    console.log(`[ItemSpawnerSystem] start() called on ${this.world.isClient ? 'CLIENT' : 'SERVER'}`);
       // Wait for terrain to be ready before spawning items
     const checkTerrainAndSpawn = async () => {
       const terrainSystem = this.world.getSystem('terrain') as { getHeightAt: (x: number, z: number) => number | null } | undefined;
@@ -79,27 +78,19 @@ export class ItemSpawnerSystem extends SystemBase {
         return;
       }
       
-      console.log(`[ItemSpawnerSystem] ✅ Terrain ready (height at origin: ${testHeight}), spawning items...`);
       
       // Spawn shop items at all towns (General Store inventory)
-      console.log('[ItemSpawnerSystem] Spawning shop items...');
       await this.spawnShopItems();
-      console.log(`[ItemSpawnerSystem] Shop items spawned: ${this.shopItems.size} stores`);
       
       // Spawn world treasure items (equipment and resources)
-      console.log('[ItemSpawnerSystem] Spawning treasure items...');
       await this.spawnTreasureItems();
       
       // Spawn chest loot items (valuable equipment)
-      console.log('[ItemSpawnerSystem] Spawning chest items...');
       await this.spawnChestLootItems();
-      console.log(`[ItemSpawnerSystem] Chest items spawned: ${this.chestItems.size} chests`);
       
       // Spawn resource items
-      console.log('[ItemSpawnerSystem] Spawning resource items...');
       await this.spawnResourceItems();
       
-      console.log(`[ItemSpawnerSystem] ✅ All items spawned successfully! Total: ${this.spawnedItems.size} items`);
     };
     
     // Start checking after a small initial delay
@@ -146,7 +137,6 @@ export class ItemSpawnerSystem extends SystemBase {
       }
     }
     
-    console.log(`[ItemSpawnerSystem] Spawned treasure items at ${treasureLocations.length} locations from externalized data`);
   }
 
   private async spawnShopItems(): Promise<void> {
@@ -253,17 +243,10 @@ export class ItemSpawnerSystem extends SystemBase {
     this.#lastKnownIndex[itemData.type] = index;
     const itemId = `gdd_${itemData.id}_${location}_${index}`;
     
-    console.log(`[ItemSpawnerSystem] Spawning ${itemData.name} at initial position:`, position);
     
     // Ground item to terrain - use Infinity to allow any initial height difference
     // This is safe because we're always grounding to actual terrain height
     const groundedPosition = groundToTerrain(this.world, position, 0.2, Infinity);
-    
-    console.log(`[ItemSpawnerSystem] After grounding ${itemData.name}:`, {
-      original: position,
-      grounded: groundedPosition,
-      yChange: (groundedPosition.y - position.y).toFixed(2)
-    });
     
     // VALIDATE: Check if Y position is reasonable
     if (groundedPosition.y > 100) {
@@ -335,7 +318,6 @@ export class ItemSpawnerSystem extends SystemBase {
       throw new Error(`Failed to spawn item: ${itemData.name}`);
     }
     
-    console.log(`[ItemSpawnerSystem] ✅ Spawned ${itemData.name} at (${groundedPosition.x.toFixed(1)}, ${groundedPosition.y.toFixed(1)}, ${groundedPosition.z.toFixed(1)}) - Model: ${itemData.modelPath || 'none'}`);
     
     // Register with systems - use grounded position, not original
     this.emitTypedEvent(EventType.ITEM_SPAWNED, {
@@ -551,7 +533,6 @@ export class ItemSpawnerSystem extends SystemBase {
     this.worldItems.clear();
     this.chestItems.clear();
         
-    console.log('[ItemSpawnerSystem] Item spawner system destroyed and cleaned up');
     
     // Call parent cleanup
     super.destroy();

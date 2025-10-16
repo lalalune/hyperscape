@@ -79,7 +79,6 @@ export class ThreeResourceManager {
     // Mark as disposed
     this.disposedObjects.add(object);
 
-    console.log(`[ThreeResourceManager] Disposed object and ${object.children.length} children`);
   }
 
   /**

@@ -324,7 +324,6 @@ export class TerrainSystem extends System {
     const isServer = this.world.isServer
     const isClient = this.world.isClient
 
-    console.log(`[TerrainSystem] Environment detection: isServer=${isServer}, isClient=${isClient}`)
 
     if (isClient) {
       this.setupClientTerrain()

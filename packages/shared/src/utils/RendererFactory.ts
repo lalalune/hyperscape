@@ -38,7 +38,6 @@ async function ensureWebGPUModules() {
   const capabilityModules = await import('three/examples/jsm/capabilities/WebGPU.js')
   WebGPU = (capabilityModules as unknown as { default: { isAvailable(): Promise<boolean> } }).default
 
-  console.log('[RendererFactory] WebGPU modules loaded successfully')
 
   return { WebGPU, WebGPURenderer }
 }
@@ -94,7 +93,6 @@ export async function createRenderer(options: RendererOptions = {}): Promise<Uni
 
   // Try WebGPU first if preferred and available
   if (preferWebGPU && capabilities.supportsWebGPU && WebGPURenderer) {
-    console.log('[RendererFactory] Creating WebGPU renderer')
 
     const renderer = new WebGPURenderer({
       canvas,
@@ -106,11 +104,9 @@ export async function createRenderer(options: RendererOptions = {}): Promise<Uni
     // Wait for WebGPU initialization
     await renderer.init()
 
-    console.log('[RendererFactory] ✅ WebGPU renderer created and initialized')
     return renderer as UniversalRenderer
   }
 
-  console.log('[RendererFactory] Creating WebGL renderer')
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias,
@@ -119,7 +115,6 @@ export async function createRenderer(options: RendererOptions = {}): Promise<Uni
     preserveDrawingBuffer,
   })
 
-  console.log('[RendererFactory] ✅ WebGL renderer created successfully')
   return renderer as UniversalRenderer
 }
 
@@ -177,7 +172,6 @@ export function configureRenderer(
     renderer.setClearColor(clearColor, clearAlpha)
   } else if (isWebGPURenderer(renderer)) {
     // WebGPU uses background in scene, not renderer clear color
-    console.log('[RendererFactory] WebGPU renderer - clear color should be set on scene.background')
   }
 
   // Pixel ratio
@@ -197,7 +191,6 @@ export function configureRenderer(
 
   // WebGPU-specific: Enable sRGB encoding optimizations
   if (isWebGPURenderer(renderer)) {
-    console.log('[RendererFactory] WebGPU optimizations: sRGB encoding, linear workflow')
   }
 }
 
@@ -302,10 +295,6 @@ export function logWebGPUInfo(renderer: UniversalRenderer): void {
     return
   }
 
-  console.log('[RendererFactory] WebGPU optimizations (automatic):')
-  console.log('  ✓ Advanced instancing')
-  console.log('  ✓ Optimized GPU memory layout')
-  console.log('  ✓ Efficient shader compilation')
 }
 
 /**

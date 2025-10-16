@@ -48,32 +48,25 @@ export async function loadPhysXWasmForNode(): Promise<Buffer> {
 
   for (const path of localPaths) {
     if (existsSync(path)) {
-      console.log('[PhysXManager] Loading WASM from local assets:', path);
       const wasmBuffer = readFileSync(path);
-      console.log('[PhysXManager] WASM buffer loaded, size:', wasmBuffer.length);
       return wasmBuffer;
     }
   }
 
   // Fall back to CDN fetch with caching
-  console.log('[PhysXManager] WASM not found in local assets, fetching from CDN...');
   
   // Check cache first
   const cacheDir = join(tmpdir(), 'hyperscape-cache');
   const cachePath = join(cacheDir, 'physx-js-webidl.wasm');
   
   if (existsSync(cachePath)) {
-    console.log('[PhysXManager] Loading WASM from cache:', cachePath);
     const wasmBuffer = readFileSync(cachePath);
-    console.log('[PhysXManager] WASM buffer loaded from cache, size:', wasmBuffer.length);
     return wasmBuffer;
   }
 
   // Fetch from CDN
   const cdnUrl = process.env['PUBLIC_CDN_URL'] || 'http://localhost:8080';
   const wasmUrl = `${cdnUrl}/web/physx-js-webidl.wasm`;
-  
-  console.log('[PhysXManager] Fetching WASM from CDN:', wasmUrl);
   
   const response = await fetch(wasmUrl);
   
@@ -84,12 +77,9 @@ export async function loadPhysXWasmForNode(): Promise<Buffer> {
   const arrayBuffer = await response.arrayBuffer();
   const wasmBuffer = Buffer.from(arrayBuffer);
   
-  console.log('[PhysXManager] WASM fetched from CDN, size:', wasmBuffer.length);
-  
   // Cache for future use
   mkdirSync(cacheDir, { recursive: true });
   writeFileSync(cachePath, wasmBuffer);
-  console.log('[PhysXManager] WASM cached to:', cachePath);
   
   return wasmBuffer;
 }

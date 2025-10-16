@@ -78,7 +78,6 @@ export class DataManager {
       const normalized = this.normalizeItem(it);
       (ITEMS as Map<string, Item>).set(normalized.id, normalized);
     }
-    console.log(`[DataManager] Loaded ${list.length} items from server manifests`);
     
     // Load mobs
     const mobsRes = await fetch(`${baseUrl}/mobs.json`);
@@ -86,7 +85,6 @@ export class DataManager {
     for (const mob of mobList) {
       (ALL_MOBS as Record<string, MobData>)[mob.id] = mob;
     }
-    console.log(`[DataManager] Loaded ${mobList.length} mobs from server manifests`);
     
     // Load NPCs
     const npcsRes = await fetch(`${baseUrl}/npcs.json`);
@@ -105,7 +103,6 @@ export class DataManager {
     for (const npc of npcList) {
       (globalThis as unknown as { EXTERNAL_NPCS: Map<string, unknown> }).EXTERNAL_NPCS.set(npc.id, npc);
     }
-    console.log(`[DataManager] Loaded ${npcList.length} NPCs from server manifests`);
     
     // Load resources
     const resourcesRes = await fetch(`${baseUrl}/resources.json`);
@@ -127,7 +124,6 @@ export class DataManager {
     for (const resource of resourceList) {
       (globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }).EXTERNAL_RESOURCES.set(resource.id, resource);
     }
-    console.log(`[DataManager] Loaded ${resourceList.length} resources from server manifests`);
     
     // Load world areas
     const worldAreasRes = await fetch(`${baseUrl}/world-areas.json`);
@@ -141,7 +137,6 @@ export class DataManager {
     // Merge all areas into ALL_WORLD_AREAS
     Object.assign(ALL_WORLD_AREAS, worldAreasData.starterTowns, worldAreasData.level1Areas, worldAreasData.level2Areas, worldAreasData.level3Areas);
     Object.assign(STARTER_TOWNS, worldAreasData.starterTowns);
-    console.log(`[DataManager] Loaded ${Object.keys(ALL_WORLD_AREAS).length} world areas from server manifests (${Object.keys(STARTER_TOWNS).length} starter towns)`);
     
     // Load biomes
     const biomesRes = await fetch(`${baseUrl}/biomes.json`);
@@ -149,13 +144,11 @@ export class DataManager {
     for (const biome of biomeList) {
       BIOMES[biome.id] = biome;
     }
-    console.log(`[DataManager] Loaded ${biomeList.length} biomes from server manifests`);
     
     // Load zones
     const zonesRes = await fetch(`${baseUrl}/zones.json`);
     const zoneList = await zonesRes.json() as Array<ZoneData>;
     WORLD_ZONES.push(...zoneList);
-    console.log(`[DataManager] Loaded ${zoneList.length} zones from server manifests`);
     
     // Load banks
     const banksRes = await fetch(`${baseUrl}/banks.json`);
@@ -163,7 +156,6 @@ export class DataManager {
     for (const bank of bankList) {
       BANKS[bank.id] = bank;
     }
-    console.log(`[DataManager] Loaded ${bankList.length} banks from server manifests`);
     
     // Load stores
     const storesRes = await fetch(`${baseUrl}/stores.json`);
@@ -171,7 +163,6 @@ export class DataManager {
     for (const store of storeList) {
       GENERAL_STORES[store.id] = store;
     }
-    console.log(`[DataManager] Loaded ${storeList.length} stores from server manifests`);
   }
 
   /**
@@ -226,7 +217,6 @@ export class DataManager {
     this.isInitialized = true;
 
     if (this.validationResult.isValid) {
-      console.log(`[DataManager] 📊 Data Summary: ${this.validationResult.itemCount} items, ${this.validationResult.mobCount} mobs, ${this.validationResult.areaCount} areas, ${this.validationResult.treasureCount} treasure locations`);
     } else {
       throw new Error(`[DataManager] ❌ Data validation failed: ${this.validationResult.errors.join(', ')}`);
     }

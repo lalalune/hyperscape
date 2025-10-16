@@ -563,9 +563,6 @@ Hyperscape world integration service that enables agents to:
       const networkReady = this.world?.network.id !== null;
       const assetsUrlReady = !!this.world?.assetsUrl;
 
-      console.log("agentPlayerReady", agentPlayerReady);
-      console.log("agentPlayerIdReady", agentPlayerIdReady);
-      console.log("networkReady", networkReady);
       if (agentPlayerReady && agentPlayerIdReady && networkReady) {
         const entityId = createUniqueUuid(this.runtime, this.runtime.agentId);
         const entity = await this.runtime.getEntityById(entityId);
@@ -1067,11 +1064,6 @@ Hyperscape world integration service that enables agents to:
           _position?: Vector3,
           _rotation?: Quaternion,
         ): RigidBody => {
-          console.log(
-            "[MinimalWorld Physics] Creating rigid body:",
-            _type,
-            _position,
-          );
           const _velocity = new Vector3();
           const _angularVelocity = new Vector3();
           return {
@@ -1082,22 +1074,12 @@ Hyperscape world integration service that enables agents to:
             angularVelocity: _angularVelocity,
             mass: 1,
             applyForce: (force: Vector3) => {
-              console.log("[MinimalWorld Physics] Applying force:", force);
             },
             applyImpulse: (impulse: Vector3) => {
-              console.log("[MinimalWorld Physics] Applying impulse:", impulse);
             },
             setLinearVelocity: (velocity: Vector3) => {
-              console.log(
-                "[MinimalWorld Physics] Setting linear velocity:",
-                velocity,
-              );
             },
             setAngularVelocity: (velocity: Vector3) => {
-              console.log(
-                "[MinimalWorld Physics] Setting angular velocity:",
-                velocity,
-              );
             },
           };
         },
@@ -1110,10 +1092,6 @@ Hyperscape world integration service that enables agents to:
           },
         ) => {
           const controllerId = options.id || `controller-${Date.now()}`;
-          console.log(
-            "[MinimalWorld Physics] Creating character controller:",
-            controllerId,
-          );
 
           // Create simple position objects that satisfy the Vector3 interface
           const createVector3 = (
@@ -1160,10 +1138,6 @@ Hyperscape world integration service that enables agents to:
               } else {
                 controller.isGrounded = false;
               }
-
-              console.log(
-                `[Physics] Controller ${controllerId} moved to (${controller.position.x.toFixed(2)}, ${controller.position.y.toFixed(2)}, ${controller.position.z.toFixed(2)})`,
-              );
             };
 
           // Override jump method with custom logic
@@ -1171,7 +1145,6 @@ Hyperscape world integration service that enables agents to:
             if (controller.isGrounded) {
               controller.velocity.y = 10.0; // Jump velocity
               controller.isGrounded = false;
-              console.log(`[Physics] Controller ${controllerId} jumped`);
             }
           };
 
@@ -1210,14 +1183,11 @@ Hyperscape world integration service that enables agents to:
         isClient: true,
         isServer: false,
         send: (type: string, data?: NetworkEventData) => {
-          console.log(`[MinimalWorld] Network send: ${type}`, data);
         },
         upload: async (file: File) => {
-          console.log("[MinimalWorld] File upload requested");
           return Promise.resolve(`uploaded-${Date.now()}`);
         },
         disconnect: async () => {
-          console.log("[MinimalWorld] Network disconnect");
           return Promise.resolve();
         },
         maxUploadSize: 10 * 1024 * 1024,
@@ -1228,7 +1198,6 @@ Hyperscape world integration service that enables agents to:
         msgs: [] as ChatMessage[],
         listeners: [] as Array<(msgs: ChatMessage[]) => void>,
         add: (msg: ChatMessage, broadcast?: boolean) => {
-          console.log("[MinimalWorld] Chat message added:", msg);
           minimalWorld.chat!.msgs.push(msg);
           // Notify listeners
           const chatListeners = minimalWorld.chat!.listeners;
@@ -1237,7 +1206,6 @@ Hyperscape world integration service that enables agents to:
           }
         },
         subscribe: ((callback: (msgs: ChatMessage[]) => void) => {
-          console.log("[MinimalWorld] Chat subscription added");
           const chatListeners = minimalWorld.chat!.listeners;
           chatListeners.push(callback);
           const subscription = {
@@ -1272,7 +1240,6 @@ Hyperscape world integration service that enables agents to:
             event: T,
             ...args: unknown[]
           ): boolean {
-            console.log(`[MinimalWorld] Event emitted: ${String(event)}`, args);
             const listeners = this.__listeners.get(event);
             if (listeners) {
               for (const listener of listeners) {
@@ -1286,9 +1253,6 @@ Hyperscape world integration service that enables agents to:
             fn: (...args: unknown[]) => void,
             _context?: unknown,
           ) {
-            console.log(
-              `[MinimalWorld] Event listener added: ${String(event)}`,
-            );
             if (!this.__listeners.has(event)) {
               this.__listeners.set(event, new Set());
             }
@@ -1301,9 +1265,6 @@ Hyperscape world integration service that enables agents to:
             _context?: unknown,
             _once?: boolean,
           ) {
-            console.log(
-              `[MinimalWorld] Event listener removed: ${String(event)}`,
-            );
             if (fn) {
               const listeners = this.__listeners.get(event);
               if (listeners) {
@@ -1324,7 +1285,6 @@ Hyperscape world integration service that enables agents to:
         players: new Map(),
         items: new Map(),
         add: ((data: EntityData | Entity, local?: boolean) => {
-          console.log("[MinimalWorld] Entity added:", data.id || "unknown");
           // Handle both Entity objects and EntityData
           let entity: Entity;
           if (!(data instanceof Entity)) {
@@ -1342,7 +1302,6 @@ Hyperscape world integration service that enables agents to:
           return entity;
         }) as ((data: EntityData | Entity, local?: boolean) => Entity),
         remove: (entityId: string) => {
-          console.log("[MinimalWorld] Entity removed:", entityId);
           minimalWorld.entities!.items.delete(entityId);
           minimalWorld.entities!.players.delete(entityId);
           return true;
@@ -1356,7 +1315,6 @@ Hyperscape world integration service that enables agents to:
 
       // Initialize method
       init: async (initConfig?: Partial<MockWorldConfig>) => {
-        console.log("[MinimalWorld] Initializing with physics...");
 
         const playerId = `player-${Date.now()}`;
 
@@ -1391,7 +1349,6 @@ Hyperscape world integration service that enables agents to:
 
           // Physics-based movement methods
           move: (displacement: Position) => {
-            console.log("[MinimalWorld] Player physics move:", displacement);
             const controller = minimalWorld.physics!.controllers.get(playerId);
             if (controller && controller.move) {
               controller.move(displacement);
@@ -1400,10 +1357,6 @@ Hyperscape world integration service that enables agents to:
 
           // Walk toward a specific position
           walkToward: (targetPosition: Position, speed: number = 5) => {
-            console.log(
-              "[MinimalWorld] Player walking toward:",
-              targetPosition,
-            );
             const currentPos = minimalWorld.entities!.player!.position!;
             const controller = minimalWorld.physics!.controllers?.get(playerId) as ControllerInterface | undefined;
             if (controller && controller.walkToward) {
@@ -1419,7 +1372,6 @@ Hyperscape world integration service that enables agents to:
 
           // Teleport (instant position change) - kept for compatibility
           teleport: (options: TeleportOptions) => {
-            console.log("[MinimalWorld] Player teleport:", options);
             if (options.position) {
               // Update both entity and physics controller
               Object.assign(
@@ -1440,12 +1392,10 @@ Hyperscape world integration service that enables agents to:
           },
 
           modify: (data: EntityModificationData) => {
-            console.log("[MinimalWorld] Player modify:", data);
             Object.assign(minimalWorld.entities!.player!.data, data);
           },
 
           setSessionAvatar: (url: string) => {
-            console.log("[MinimalWorld] Player setSessionAvatar:", url);
             const player = minimalWorld.entities!.player as { data?: { appearance?: PlayerAppearance } } | undefined;
             if (player && player.data) {
               player.data.appearance = player.data.appearance || {};
@@ -1461,13 +1411,11 @@ Hyperscape world integration service that enables agents to:
           }, minimalWorld.physics.timeStep * 1000); // Convert to milliseconds
         }
 
-        console.log("[MinimalWorld] Initialized successfully");
         return Promise.resolve();
       },
 
       // Disconnect network
       disconnect: async () => {
-        console.log("[MinimalWorld] Disconnecting...");
         if (minimalWorld.network && 'disconnect' in minimalWorld.network) {
           const networkWithDisconnect = minimalWorld.network as NetworkSystem & { disconnect: () => Promise<void> };
           await networkWithDisconnect.disconnect();
@@ -1476,7 +1424,6 @@ Hyperscape world integration service that enables agents to:
 
       // Cleanup
       destroy: () => {
-        console.log("[MinimalWorld] Destroying...");
         minimalWorld.systems = [];
         minimalWorld.entities!.players.clear();
         minimalWorld.entities!.items.clear();

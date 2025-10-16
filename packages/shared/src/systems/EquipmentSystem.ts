@@ -240,7 +240,6 @@ export class EquipmentSystem extends SystemBase {
     
     // Use userId for database lookup
     const databaseId = PlayerIdMapper.getDatabaseId(playerId);
-    console.log(`[EquipmentSystem] Loading equipment from database - playerId: ${playerId}, userId: ${databaseId}`);
     
     const dbEquipment = this.databaseSystem.getPlayerEquipment(databaseId);
     
@@ -266,9 +265,7 @@ export class EquipmentSystem extends SystemBase {
       
       // Recalculate stats after loading equipment
       this.recalculateStats(playerId);
-      console.log(`[EquipmentSystem] Loaded ${dbEquipment.length} equipped items from database for player ${playerId}`);
     } else {
-      console.log(`[EquipmentSystem] No saved equipment found for userId ${databaseId}, using defaults`);
     }
   }
   
@@ -311,7 +308,6 @@ export class EquipmentSystem extends SystemBase {
     this.databaseSystem.savePlayerEquipment(databaseId, dbEquipment);
     
     if (databaseId !== playerId) {
-      console.log(`[EquipmentSystem] Saved equipment to database - playerId: ${playerId}, userId: ${databaseId}, items: ${dbEquipment.length}`);
     }
   }
 
@@ -1083,13 +1079,11 @@ export class EquipmentSystem extends SystemBase {
     this.saveInterval = setInterval(() => {
       this.performAutoSave();
     }, this.AUTO_SAVE_INTERVAL);
-    console.log('[EquipmentSystem] Auto-save started (every 30s)');
   }
   
   private async performAutoSave(): Promise<void> {
     if (!this.databaseSystem) return;
     
-    console.log(`[EquipmentSystem] Auto-saving ${this.playerEquipment.size} player equipment sets...`);
     for (const playerId of this.playerEquipment.keys()) {
       try {
         await this.saveEquipmentToDatabase(playerId);
@@ -1109,7 +1103,6 @@ export class EquipmentSystem extends SystemBase {
     
     // Final save before shutdown
     if (this.world.isServer && this.databaseSystem) {
-      console.log('[EquipmentSystem] Final save before shutdown...');
       for (const playerId of this.playerEquipment.keys()) {
         this.saveEquipmentToDatabase(playerId);
       }

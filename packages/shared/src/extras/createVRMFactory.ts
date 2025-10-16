@@ -348,16 +348,13 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       setEmoteCallCount++
       
       if (currentEmote?.url === url) {
-        console.log(`[VRM] Same emote already playing, skipping`)
         return
       }
       if (currentEmote) {
-        console.log(`[VRM] Fading out previous emote:`, currentEmote.url)
         currentEmote.action?.fadeOut(0.15)
         currentEmote = null
       }
       if (!url) {
-        console.log(`[VRM] No URL provided, clearing emote`)
         return
       }
       const opts = getQueryParams(url)
@@ -458,7 +455,6 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
         }
       },
       disableRateCheck() {
-        console.log('[VRM] disableRateCheck() called, setting rateCheck = false');
         rateCheck = false
       },
       destroy() {

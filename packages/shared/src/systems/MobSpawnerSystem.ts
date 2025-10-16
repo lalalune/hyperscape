@@ -55,24 +55,20 @@ export class MobSpawnerSystem extends SystemBase {
   }
 
   async start(): Promise<void> {
-    console.log(`[MobSpawnerSystem] start() called on ${this.world.isServer ? 'SERVER' : 'CLIENT'}`);
     
     // Spawn a default test mob near origin BEFORE accepting connections (server-only)
     if (this.world.isServer) {
-      console.log('[MobSpawnerSystem] Spawning default test mob...');
       await this.spawnDefaultMob();
     }
     
     // Mobs are now spawned reactively as terrain tiles generate
     // No need to spawn all mobs at startup - tiles will trigger spawning
-    console.log('[MobSpawnerSystem] Waiting for terrain tile generation to spawn mobs...');
   }
   
   /**
    * Spawn a default test mob for initial world content
    */
   private async spawnDefaultMob(): Promise<void> {
-    console.log('[MobSpawnerSystem] ⏳ spawnDefaultMob() called, waiting for EntityManager...');
     
     // Wait for EntityManager to be ready
     let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
@@ -84,7 +80,6 @@ export class MobSpawnerSystem extends SystemBase {
       attempts++;
       
       if (attempts % 10 === 0) {
-        console.log(`[MobSpawnerSystem] Still waiting for EntityManager... (${attempts/10}s)`);
       }
     }
     
@@ -93,7 +88,6 @@ export class MobSpawnerSystem extends SystemBase {
       return;
     }
     
-    console.log('[MobSpawnerSystem] ✓ EntityManager ready, spawning goblin...');
     
     // Use fixed Y position for simplicity
     const y = 43;
@@ -135,15 +129,12 @@ export class MobSpawnerSystem extends SystemBase {
       respawnTime: 60000 // 1 minute
     };
     
-    console.log('[MobSpawnerSystem] 👹 Calling entityManager.spawnEntity with config:', mobConfig);
     
     try {
       const spawnedEntity = await entityManager.spawnEntity(mobConfig) as { id?: string } | null;
-      console.log('[MobSpawnerSystem] ✅ Default test goblin spawned at (5, 15):', spawnedEntity?.id);
       
       // Verify it's in the world
       const verify = this.world.entities.get('default_goblin_1');
-      console.log('[MobSpawnerSystem] Verification - goblin in world.entities:', verify ? 'YES' : 'NO');
     } catch (err) {
       console.error('[MobSpawnerSystem] ❌ Error spawning default goblin:', err);
     }
@@ -155,7 +146,6 @@ export class MobSpawnerSystem extends SystemBase {
     
     // Check if we already spawned this mob to prevent duplicates
     if (this.spawnedMobs.has(mobId)) {
-      console.log(`[MobSpawnerSystem] Mob ${mobId} already spawned, skipping duplicate`);
       return;
     }
     
@@ -198,7 +188,6 @@ export class MobSpawnerSystem extends SystemBase {
   }
 
   private respawnAllMobs(): void {
-    console.log('[MobSpawnerSystem] Respawning all mobs...');
     
     // Kill all existing mobs
     for (const [_mobId, entityId] of this.spawnedMobs) {
@@ -208,7 +197,6 @@ export class MobSpawnerSystem extends SystemBase {
     
     // Mobs will respawn naturally as terrain tiles remain loaded
     // TerrainSystem will re-emit TERRAIN_TILE_GENERATED which will trigger mob spawning
-    console.log('[MobSpawnerSystem] All mobs killed - will respawn via tile generation');
   }
 
   // Public API

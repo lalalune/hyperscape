@@ -974,7 +974,6 @@ export class ClientInput extends SystemBase {
    * Navigate to a specific position in the world (for AI agents)
    */
   async goto(x: number, z: number): Promise<boolean> {
-    console.log(`[ClientInput] Starting navigation to position (${x}, ${z})`)
     
     // Stop any existing navigation
     this.stopNavigation()
@@ -1012,7 +1011,6 @@ export class ClientInput extends SystemBase {
         
         // Check if we've reached the target
         if (distance <= this.NAVIGATION_STOP_DISTANCE) {
-          console.log('[ClientInput] Reached navigation target')
           clearInterval(checkInterval)
           this.stopNavigation()
           resolve(true)
@@ -1064,7 +1062,6 @@ export class ClientInput extends SystemBase {
    * Follow a specific entity by ID (for AI agents)
    */
   async followEntity(entityId: string): Promise<boolean> {
-    console.log(`[ClientInput] Starting to follow entity: ${entityId}`)
     
     // Stop any existing navigation
     this.stopNavigation()
@@ -1117,7 +1114,6 @@ export class ClientInput extends SystemBase {
         
         // Check if we're close enough to the target
         if (distance <= this.FOLLOW_STOP_DISTANCE) {
-          console.log('[ClientInput] Close enough to follow target')
           clearInterval(checkInterval)
           this.stopNavigation()
           resolve(true)
@@ -1187,7 +1183,6 @@ export class ClientInput extends SystemBase {
     this.isNavigating = false
     this.navigationTarget = null
     this.followTargetId = null
-    console.log('[ClientInput] Navigation stopped')
   }
   
   /**
@@ -1196,7 +1191,6 @@ export class ClientInput extends SystemBase {
   stopAllActions(): void {
     this.stopNavigation()
     this.stopRandomWalk()
-    console.log('[ClientInput] All agent actions stopped')
   }
   
   /**
@@ -1204,7 +1198,6 @@ export class ClientInput extends SystemBase {
    */
   startRandomWalk(): void {
     this.isRandomWalking = true
-    console.log('[ClientInput] Random walk started')
     // TODO: Implement random walk behavior
   }
   
@@ -1213,7 +1206,6 @@ export class ClientInput extends SystemBase {
    */
   stopRandomWalk(): void {
     this.isRandomWalking = false
-    console.log('[ClientInput] Random walk stopped')
   }
   
   /**

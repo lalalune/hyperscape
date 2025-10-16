@@ -58,17 +58,14 @@ export class InventorySystem extends SystemBase {
     const isServer = this.world.network?.isServer || false
     const isClient = this.world.network?.isClient || false
     if (typeof process !== 'undefined' && process.env.DEBUG_RPG === '1') {
-      console.log(`[InventorySystem] init() called, isServer: ${isServer}, isClient: ${isClient}`)
     }
     
     // Subscribe to inventory events
     this.subscribe(EventType.PLAYER_REGISTERED, (data: { playerId: string }) => {
       if (process.env.DEBUG_RPG === '1') {
-        console.log(`[InventorySystem] PLAYER_REGISTERED received: ${data.playerId}`)
       }
       if (!this.loadPersistedInventory(data.playerId)) {
         if (process.env.DEBUG_RPG === '1') {
-          console.log(`[InventorySystem] No persisted inventory found, initializing empty for ${data.playerId}`)
         }
         this.initializeInventory({ id: data.playerId });
       }
@@ -126,14 +123,12 @@ export class InventorySystem extends SystemBase {
     this.saveInterval = this.createInterval(() => {
       this.performAutoSave();
     }, this.AUTO_SAVE_INTERVAL)!;
-    console.log('[InventorySystem] Auto-save started (every 30s)');
   }
   
   private async performAutoSave(): Promise<void> {
     const db = this.getDatabase();
     if (!db) return;
     
-    console.log(`[InventorySystem] Auto-saving ${this.playerInventories.size} player inventories...`);
     for (const playerId of this.playerInventories.keys()) {
       const inv = this.getOrCreateInventory(playerId);
       const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
@@ -242,7 +237,6 @@ export class InventorySystem extends SystemBase {
     }
     
     if (process.env.DEBUG_RPG === '1') {
-      console.log(`[InventorySystem] Adding ${data.quantity}x ${itemId} to player ${playerId}`)
     }
     
     // Special handling for coins
@@ -509,7 +503,6 @@ export class InventorySystem extends SystemBase {
       if (!destroyed) {
         Logger.systemError('InventorySystem', `Failed to destroy item entity ${data.entityId}`, new Error(`Failed to destroy item entity ${data.entityId}`));
       } else {
-        console.log(`[InventorySystem] ✅ Item ${itemId} picked up by ${data.playerId} and removed from world`);
       }
     } else {
       // Could not add (inventory full, etc.)
@@ -617,7 +610,6 @@ export class InventorySystem extends SystemBase {
           items: inventoryUpdateData.items,
           coins: inventoryData.coins
         });
-        console.log(`[InventorySystem] 📡 Broadcast inventory update to clients - ${inventoryData.items.length} items`);
       }
     }
   }
@@ -782,7 +774,6 @@ export class InventorySystem extends SystemBase {
     const rows = db.getPlayerInventory(playerId);
     const playerRow = db.getPlayer(playerId);
     if (process.env.DEBUG_RPG === '1') {
-      console.log(`[InventorySystem] Loading inventory for ${playerId}: ${rows?.length || 0} items, ${playerRow?.coins || 0} coins`);
     }
     const hasState = (rows && rows.length > 0) || !!playerRow;
     if (!hasState) return false;
@@ -910,7 +901,6 @@ export class InventorySystem extends SystemBase {
     const itemId = data.item.itemId;
     const quantity = data.item.quantity;
     
-    console.log(`[InventorySystem] 📥 handleInventoryAdd called - playerId: ${playerId}, itemId: ${itemId}, quantity: ${quantity}`);
     
     // Validate the event data before processing
     if (!playerId) {
@@ -930,7 +920,6 @@ export class InventorySystem extends SystemBase {
     }
     
     const result = this.addItem({ playerId, itemId, quantity });
-    console.log(`[InventorySystem] addItem result: ${result ? 'SUCCESS' : 'FAILED'}`);
   }
 
   /**
@@ -977,7 +966,6 @@ export class InventorySystem extends SystemBase {
     if (this.world.isServer) {
       const db = this.getDatabase();
       if (db) {
-        console.log('[InventorySystem] Final save before shutdown...');
         for (const playerId of this.playerInventories.keys()) {
           const inv = this.getOrCreateInventory(playerId);
           const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));

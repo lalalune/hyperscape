@@ -180,11 +180,9 @@ async function startServer() {
   // Check for server starting flag using global extension
   const globalWithFlag = globalThis as typeof globalThis & { __HYPERSCAPE_SERVER_STARTING__?: boolean }
   if (globalWithFlag.__HYPERSCAPE_SERVER_STARTING__) {
-    console.log('[Server] Server already starting/running - skipping duplicate initialization')
     return // Exit early instead of skipping the rest
   }
 
-  console.log('[Server] Starting server initialization...')
   globalWithFlag.__HYPERSCAPE_SERVER_STARTING__ = true
   
   // Install Three.js prototype extensions for physics transformations
@@ -194,19 +192,14 @@ async function startServer() {
   const useLocalPostgres = (process.env['USE_LOCAL_POSTGRES'] || 'true') === 'true'
   const explicitDatabaseUrl = process.env['DATABASE_URL']
   if (useLocalPostgres && !explicitDatabaseUrl) {
-    console.log('[Server] Initializing local PostgreSQL via Docker...')
     dockerManager = createDefaultDockerManager()
     await dockerManager.checkDockerRunning()
     const isPostgresRunning = await dockerManager.checkPostgresRunning()
     if (!isPostgresRunning) {
-      console.log('[Server] Starting PostgreSQL container...')
       await dockerManager.startPostgres()
-      console.log('[Server] ✅ PostgreSQL container started')
     } else {
-      console.log('[Server] ✅ PostgreSQL container already running')
     }
   } else {
-    console.log('[Server] Skipping local Docker PostgreSQL (DATABASE_URL provided or USE_LOCAL_POSTGRES=false)')
   }
 
   // Set default values for required environment variables
@@ -231,9 +224,6 @@ async function startServer() {
   const worldDir = path.isAbsolute(WORLD) ? WORLD : path.join(hyperscapeRoot, WORLD)
   const assetsDir = path.join(worldDir, 'assets')
   
-  console.log('[Server] Hyperscape root:', hyperscapeRoot)
-  console.log('[Server] World dir:', worldDir)
-  console.log('[Server] Assets dir:', assetsDir)
 
   // create world folders if needed
   await fs.ensureDir(worldDir)
@@ -279,7 +269,6 @@ async function startServer() {
   // Make PostgreSQL pool and Drizzle DB available for DatabaseSystem to use
   world.pgPool = pgPool
   world.drizzleDb = drizzleDb
-  console.log('[Server] PostgreSQL pool and Drizzle DB attached to world')
 
   // Set up default environment model
   world.settings.model = {
@@ -529,7 +518,6 @@ async function startServer() {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
       res.setHeader('Expires', new Date(Date.now() + 31536000000).toUTCString())
 
-      console.log('DEBUG: filePath', filePath)
       
       if (filePath.endsWith('.glb')) {
         res.setHeader('Content-Type', 'model/gltf-binary')
@@ -628,12 +616,9 @@ async function startServer() {
   
   // Log authentication status
   if (publicEnvs.PUBLIC_PRIVY_APP_ID) {
-    console.log('[Server] Privy authentication enabled')
     if (publicEnvs.PUBLIC_ENABLE_FARCASTER === 'true') {
-      console.log('[Server] Farcaster Frame v2 support enabled')
     }
   } else {
-    console.log('[Server] Running without Privy authentication (development mode)')
   }
 
   // Expose plugin paths to client for systems loading
@@ -800,18 +785,14 @@ async function startServer() {
   // Graceful shutdown handler
   const gracefulShutdown = async (signal: string) => {
     if (isShuttingDown) {
-      console.log('[Server] Already shutting down...')
       return
     }
     isShuttingDown = true
     
-    console.log(`\n[Server] Received ${signal}, shutting down gracefully...`)
     
     try {
       // Close HTTP server
-      console.log('[Server] Closing HTTP server...')
       await fastify.close()
-      console.log('[Server] HTTP server closed')
     } catch (err) {
       console.error('[Server] Error closing HTTP server:', err)
     }
@@ -828,9 +809,7 @@ async function startServer() {
     
     try {
       // Destroy world and its systems
-      console.log('[Server] Destroying world...')
       world.destroy()
-      console.log('[Server] World destroyed')
     } catch (err) {
       console.error('[Server] Error destroying world:', err)
     }
@@ -839,7 +818,6 @@ async function startServer() {
       // Close database connection using the closeDatabase utility
       // This both closes the pool and clears singleton instances to prevent
       // reusing closed connections on hot reload
-      console.log('[Server] Closing database...')
       const { closeDatabase } = await import('./db/client.js')
       await closeDatabase()
       globalPgPool = undefined
@@ -859,13 +837,10 @@ async function startServer() {
     
     // Always clear the startup flag, even if there were errors
     globalWithFlag.__HYPERSCAPE_SERVER_STARTING__ = false
-    console.log('[Server] Cleared startup flag for hot reload')
     
-    console.log('[Server] Shutdown complete')
     
     // For hot reload (SIGUSR2), don't exit process
     if (signal === 'SIGUSR2') {
-      console.log('[Server] Hot reload detected - server ready to restart')
       isShuttingDown = false // Reset so next reload can proceed
       return
     }
@@ -893,7 +868,6 @@ async function startServer() {
   
   // Log that hot reload is supported
   if (process.env.NODE_ENV === 'development') {
-    console.log('[Server] 🔥 Hot reload enabled - watching for file changes')
   }
 }
 

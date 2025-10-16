@@ -164,7 +164,6 @@ export class ClientCameraSystem extends SystemBase {
       this.camera.position.copy(worldPos);
       this.camera.quaternion.copy(worldQuat);
       
-      console.log('[ClientCameraSystem] Camera is now independent from rig transforms');
     } else if (this.camera.parent && this.camera.parent !== this.world.stage.scene) {
       console.warn('[ClientCameraSystem] Camera has unexpected parent:', this.camera.parent);
     }
@@ -184,7 +183,6 @@ export class ClientCameraSystem extends SystemBase {
     
     // Initialize camera position to avoid starting at origin
     if (this.camera.position.lengthSq() < 0.01) {
-      console.log('[ClientCameraSystem] Initializing camera position');
       this.camera.position.set(0, 10, 10); // Start above and behind origin
     }
 
@@ -904,7 +902,6 @@ export class ClientCameraSystem extends SystemBase {
 
     // Log successful validation periodically (every 60 frames)
     if (Math.random() < 0.0167) { // ~1/60 chance
-      console.log(`[ClientCameraSystem] Player terrain validation OK - Player Y: ${py.toFixed(2)}, Terrain: ${terrainHeight.toFixed(2)}, Diff: ${heightDifference.toFixed(2)}`);
     }
   }
 

@@ -1130,7 +1130,6 @@ export class Entity implements IEntity {
   // Default interaction handler - override in subclasses
   protected async onInteract(data: EntityInteractionData): Promise<void> {
     // Default implementation logs interaction
-    console.log(`Entity ${this.id} interacted with by player ${data.playerId}`)
 
     // Emit interaction event
     this.world.emit(EventType.ENTITY_INTERACTED, {

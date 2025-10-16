@@ -61,7 +61,6 @@ export class NPCSystem extends SystemBase {
   async start(): Promise<void> {
     // Spawn a default test NPC (banker) near origin BEFORE accepting connections
     if (this.world.isServer) {
-      console.log('[NPCSystem] Spawning default test banker...');
       await this.spawnDefaultNPC();
     }
   }
@@ -70,7 +69,6 @@ export class NPCSystem extends SystemBase {
    * Spawn a default test banker for initial world content
    */
   private async spawnDefaultNPC(): Promise<void> {
-    console.log('[NPCSystem] ⏳ spawnDefaultNPC() called, waiting for EntityManager...');
     
     // Wait for EntityManager to be ready
     let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
@@ -82,7 +80,6 @@ export class NPCSystem extends SystemBase {
       attempts++;
       
       if (attempts % 10 === 0) {
-        console.log(`[NPCSystem] Still waiting for EntityManager... (${attempts/10}s)`);
       }
     }
     
@@ -91,7 +88,6 @@ export class NPCSystem extends SystemBase {
       return;
     }
     
-    console.log('[NPCSystem] ✓ EntityManager ready, spawning banker...');
     
     // Use fixed Y position for simplicity
     const y = 43;
@@ -120,15 +116,12 @@ export class NPCSystem extends SystemBase {
       questsAvailable: []
     };
     
-    console.log('[NPCSystem] 🏦 Calling entityManager.spawnEntity with config:', npcConfig);
     
     try {
       const spawnedEntity = await entityManager.spawnEntity(npcConfig) as { id?: string } | null;
-      console.log('[NPCSystem] ✅ Default test banker spawned at (15, 5):', spawnedEntity?.id);
       
       // Verify it's in the world
       const verify = this.world.entities.get('default_banker_1');
-      console.log('[NPCSystem] Verification - banker in world.entities:', verify ? 'YES' : 'NO');
     } catch (err) {
       console.error('[NPCSystem] ❌ Error spawning default banker:', err);
     }

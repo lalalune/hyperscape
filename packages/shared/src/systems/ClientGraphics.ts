@@ -180,10 +180,6 @@ export class ClientGraphics extends System {
     this.renderer = await getRenderer(true)
     this.isWebGPU = !isWebGLRenderer(this.renderer)
     
-    console.log(`[ClientGraphics] ✅ Using ${this.isWebGPU ? 'WebGPU' : 'WebGL'} renderer (auto-detected)`)
-    console.log(`[ClientGraphics] Initial viewport size: ${this.width}x${this.height}, aspect: ${this.aspect.toFixed(2)}`)
-    console.log(`[ClientGraphics] Camera aspect updated to: ${this.aspect.toFixed(2)}`)
-    
     // Configure renderer
     configureRenderer(this.renderer, {
       clearColor: 0xffffff,
@@ -213,15 +209,6 @@ export class ClientGraphics extends System {
     this.maxAnisotropy = getMaxAnisotropy(this.renderer)
     THREE.Texture.DEFAULT_ANISOTROPY = this.maxAnisotropy
     
-    // Log WebGPU info if using WebGPU
-    if (this.isWebGPU) {
-      logWebGPUInfo(this.renderer)
-      
-      const caps = await getWebGPUCapabilities(this.renderer)
-      if (caps && caps.features.length > 0) {
-        console.log('[ClientGraphics] WebGPU features:', caps.features.join(', '))
-      }
-    }
     
     // Setup post-processing
     this.usePostprocessing = this.world.prefs?.postprocessing ?? true
@@ -317,8 +304,6 @@ export class ClientGraphics extends System {
     this.width = width
     this.height = height
     this.aspect = this.width / this.height
-    
-    console.log(`[ClientGraphics] Resizing: ${width}x${height}, aspect: ${this.aspect.toFixed(2)} (was ${oldAspect.toFixed(2)})`)
     
     // Update camera aspect ratio for any aspect ratio support
     if ('aspect' in this.world.camera) {

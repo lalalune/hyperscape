@@ -186,17 +186,11 @@ export class PersistenceSystem extends SystemBase {
   private async onPlayerEnter(event: { playerId: string; userId?: string; playerToken?: string }): Promise<void> {
     if (!this.databaseSystem) return;
     
-    console.log('[PersistenceSystem] onPlayerEnter event:', {
-      playerId: event.playerId,
-      userId: event.userId,
-      hasUserId: !!event.userId
-    });
     
     // Use userId from event if available, otherwise fall back to playerId
     // userId is the persistent account/character ID that exists in the database
     const characterId = event.userId || event.playerId;
     
-    console.log('[PersistenceSystem] Using characterId for session:', characterId);
     
     // Ensure the character exists before creating the session
     // Use UPSERT to create minimal character if it doesn't exist yet

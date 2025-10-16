@@ -331,7 +331,6 @@ class PhysXManager extends EventEmitter {
           const windowWithCdn = window as Window & { __CDN_URL?: string }
           const cdnBaseUrl = windowWithCdn.__CDN_URL || 'http://localhost:8080'
           const url = `${cdnBaseUrl}/web/${wasmFileName}`;
-          console.log('[PhysXManager] Browser WASM URL:', url);
           return url;
         }
         return wasmFileName;
@@ -343,11 +342,9 @@ class PhysXManager extends EventEmitter {
     
     if (isBrowser) {
       // Browser environment - use script loader
-      console.log('[PhysXManager] Browser environment detected, loading PhysX via script...');
       PHYSX = await loadPhysXScript(moduleOptions);
     } else {
       // Node.js/server environment - use dynamic import for ESM compatibility
-      console.log('[PhysXManager] Node.js/server environment detected, loading PhysX module...');
       const physxModule = await import('@hyperscape/physx-js-webidl');
       const PhysXLoader = physxModule.default || physxModule;
       
@@ -359,7 +356,6 @@ class PhysXManager extends EventEmitter {
     Object.defineProperty(globalThis, 'PHYSX', { value: PHYSX, writable: true, configurable: true });
     
     clearTimeout(timeoutId);
-    console.log('[PhysXManager] PhysX module loaded successfully');
 
     // Create PhysX foundation objects - PHYSX already has the correct type
     const physxWithConstants = PHYSX as PhysXModule & {
@@ -373,13 +369,11 @@ class PhysXManager extends EventEmitter {
     const errorCb = new PHYSX.PxDefaultErrorCallback();
     const foundation = physxWithConstants.CreateFoundation(version, allocator, errorCb);
     
-    console.log('[PhysXManager] Created PxFoundation');
     
     // Create physics instance for general use
     const tolerances = new PHYSX.PxTolerancesScale();
     const physics = physxWithConstants.CreatePhysics(version, foundation, tolerances);
     
-    console.log('[PhysXManager] Created PxPhysics');
 
     return { version, allocator, errorCb, foundation, physics };
   }
@@ -390,7 +384,6 @@ class PhysXManager extends EventEmitter {
    * Called after PhysX is loaded to clean up waiting system registrations.
    */
   private notifyWaitingDependencies(): void {
-    console.log(`[PhysXManager] Notifying ${this.waitingDependencies.size} waiting dependencies`)
     this.waitingDependencies.clear()
   }
 

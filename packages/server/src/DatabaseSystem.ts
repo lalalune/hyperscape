@@ -96,14 +96,12 @@ export class DatabaseSystem extends SystemBase {
     const serverWorld = this.world as { pgPool?: pg.Pool; drizzleDb?: NodePgDatabase<typeof schema> };
     
     if (serverWorld.drizzleDb && serverWorld.pgPool) {
-      console.log('[DatabaseSystem] Using provided Drizzle database and pool');
       this.db = serverWorld.drizzleDb;
       this.pool = serverWorld.pgPool;
     } else {
       throw new Error('[DatabaseSystem] Drizzle database not provided on world object');
     }
 
-    console.log('[DatabaseSystem] ✅ Database system initialized');
   }
 
   /**
@@ -113,7 +111,6 @@ export class DatabaseSystem extends SystemBase {
    * The database is ready to use immediately after initialization.
    */
   start(): void {
-    console.log('[DatabaseSystem] Database system started');
   }
 
   /**
@@ -133,7 +130,6 @@ export class DatabaseSystem extends SystemBase {
       return;
     }
     
-    console.log(`[DatabaseSystem] Waiting for ${this.pendingOperations.size} pending operations to complete...`);
     
     // Create a copy of the pending operations to avoid issues with modifications during iteration
     const operations = Array.from(this.pendingOperations);
@@ -141,7 +137,6 @@ export class DatabaseSystem extends SystemBase {
     // Wait for all operations to complete
     await Promise.allSettled(operations);
     
-    console.log('[DatabaseSystem] All pending operations completed');
   }
 
   // ============================================================================
