@@ -360,10 +360,6 @@ export class CombatSystem extends SystemBase {
     damage: number,
     attackerId: string
   ): void {
-    console.log(
-      `[CombatSystem] 💥 Applying ${damage} damage to ${targetType} ${targetId}`
-    );
-
     // Handle damage based on target type
     if (targetType === "player") {
       // Get player system and use its damage method
@@ -378,10 +374,6 @@ export class CombatSystem extends SystemBase {
         console.error(`[CombatSystem] Player entity not found for ${targetId}`);
         return;
       }
-
-      console.log(
-        `[CombatSystem] Player ${targetId} health before damage: ${entity.getHealth()}`
-      );
 
       const damaged = playerSystem.damagePlayer(targetId, damage, attackerId);
       if (!damaged) {
@@ -406,9 +398,6 @@ export class CombatSystem extends SystemBase {
 
       // Check if the mob has a takeDamage method (MobEntity)
       if (typeof mobEntity.takeDamage === "function") {
-        console.log(
-          `[CombatSystem] Applying ${damage} damage to mob ${targetId} via takeDamage method`
-        );
         mobEntity.takeDamage(damage, attackerId);
       } else {
         // Fallback for entities without takeDamage method
@@ -422,10 +411,6 @@ export class CombatSystem extends SystemBase {
         const maxHealth =
           typeof currentHealth === "number" ? 100 : currentHealth.max;
 
-        console.log(
-          `[CombatSystem] Mob ${targetId} health before damage: ${healthValue}`
-        );
-
         const newHealth = Math.max(0, healthValue - damage);
 
         if (typeof currentHealth === "number") {
@@ -437,16 +422,8 @@ export class CombatSystem extends SystemBase {
           });
         }
 
-        console.log(
-          `[CombatSystem] Mob ${targetId} health after damage: ${newHealth}`
-        );
-
         // Check if mob died
         if (newHealth <= 0) {
-          console.log(
-            `[CombatSystem] 💀 Mob ${targetId} has been slain by ${attackerId}!`
-          );
-
           const mobType = mobEntity.getProperty("mobType") || "unknown";
           const level = mobEntity.getProperty("level") || 1;
           const position = mobEntity.getPosition();
@@ -482,10 +459,6 @@ export class CombatSystem extends SystemBase {
   private enterCombat(attackerId: EntityID, targetId: EntityID): void {
     const now = Date.now();
     const combatEndTime = now + COMBAT_CONSTANTS.COMBAT_TIMEOUT_MS;
-
-    console.log(
-      `[CombatSystem] ⚔️  COMBAT STARTED: ${String(attackerId)} vs ${String(targetId)}`
-    );
 
     // Detect entity types (don't assume attacker is always player!)
     const attackerEntity = this.world.entities.get(String(attackerId));
@@ -556,10 +529,6 @@ export class CombatSystem extends SystemBase {
     const combatState = this.combatStates.get(typedEntityId);
     if (!combatState) return;
 
-    console.log(
-      `[CombatSystem] ⚔️  COMBAT ENDED: ${data.entityId} vs ${String(combatState.targetId)}`
-    );
-
     // Remove combat states
     this.combatStates.delete(typedEntityId);
     this.combatStates.delete(combatState.targetId);
@@ -584,10 +553,6 @@ export class CombatSystem extends SystemBase {
    * Handle entity death - end all combat involving this entity
    */
   private handleEntityDied(entityId: string, entityType: string): void {
-    console.log(
-      `[CombatSystem] Entity died: ${entityId} (${entityType}), ending all combat`
-    );
-
     const typedEntityId = createEntityID(entityId);
 
     // End combat for this entity
@@ -599,9 +564,6 @@ export class CombatSystem extends SystemBase {
     // Also end combat for anyone attacking this entity
     for (const [attackerId, state] of this.combatStates) {
       if (String(state.targetId) === entityId) {
-        console.log(
-          `[CombatSystem] Ending combat for ${String(attackerId)} who was attacking dead entity ${entityId}`
-        );
         this.endCombat({ entityId: String(attackerId) });
       }
     }
@@ -749,16 +711,12 @@ export class CombatSystem extends SystemBase {
 
     // Entity not found (disconnected player, despawned mob, etc.) - end combat
     if (!attacker || !target) {
-      console.log(
-        `[CombatSystem] Entity not found in auto-attack, ending combat`
-      );
       this.endCombat({ entityId: attackerId });
       return;
     }
 
     // Check if target is still alive
     if (!this.isEntityAlive(target, combatState.targetType)) {
-      console.log(`[CombatSystem] Target ${targetId} is dead, ending combat`);
       this.endCombat({ entityId: attackerId });
       return;
     }
@@ -780,19 +738,11 @@ export class CombatSystem extends SystemBase {
     }
 
     // All checks passed - execute auto-attack
-    console.log(
-      `[CombatSystem] ⚔️  Auto-attack: ${attackerId} -> ${targetId} (${combatState.weaponType})`
-    );
-
     // Calculate and apply damage
     const damage =
       combatState.weaponType === AttackType.RANGED
         ? this.calculateRangedDamage(attacker, target)
         : this.calculateMeleeDamage(attacker, target);
-
-    console.log(
-      `[CombatSystem] 💥 Damage calculated: ${damage} (${combatState.weaponType})`
-    );
 
     this.applyDamage(targetId, combatState.targetType, damage, attackerId);
 
@@ -882,15 +832,9 @@ export class CombatSystem extends SystemBase {
           current: number;
           isDead?: boolean;
         };
-        console.log(
-          `[CombatSystem] Player ${player.id} health check: ${health.current}, isDead: ${health.isDead}`
-        );
         return health.current > 0 && !health.isDead;
       }
       const playerHealth = player.getHealth();
-      console.log(
-        `[CombatSystem] Player ${player.id} health check (fallback): ${playerHealth}`
-      );
       return playerHealth > 0;
     }
 
@@ -899,15 +843,9 @@ export class CombatSystem extends SystemBase {
       const mob = entity as MobEntity;
       if (mob.getMobData) {
         const mobData = mob.getMobData();
-        console.log(
-          `[CombatSystem] Mob ${mob.id} health check: ${mobData.health}`
-        );
         return mobData.health > 0;
       }
       const mobHealth = mob.getHealth();
-      console.log(
-        `[CombatSystem] Mob ${mob.id} health check (fallback): ${mobHealth}`
-      );
       return mobHealth > 0;
     }
 

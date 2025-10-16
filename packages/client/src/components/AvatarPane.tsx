@@ -15,7 +15,6 @@ export function AvatarPane({ world, info }: AvatarPaneProps) {
     const preview = new AvatarPreview(world, viewport)
     previewRef.current = preview
     preview.load(info.file, info.url).then(stats => {
-      console.log('stats', stats)
       setStats(stats)
     })
     return () => preview.destroy()

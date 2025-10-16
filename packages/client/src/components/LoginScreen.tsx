@@ -25,7 +25,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
       const context = await miniappSdk.context
       if (context) {
         setIsFarcasterContext(true)
-        console.log('[LoginScreen] Detected Farcaster mini-app context')
         // Signal ready to Farcaster
         miniappSdk.actions.ready()
       }
@@ -39,7 +38,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
     if (ready && !authenticated && isFarcasterContext && !isLoggingIn) {
       const autoLogin = async () => {
         setIsLoggingIn(true)
-        console.log('[LoginScreen] Attempting Farcaster auto-login...')
         // Initialize a new login attempt to get a nonce
         const { nonce } = await initLoginToMiniApp()
         // Request a signature from Farcaster
@@ -49,7 +47,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           message: result.message,
           signature: result.signature,
         })
-        console.log('[LoginScreen] Farcaster auto-login successful')
       }
 
       autoLogin()
@@ -59,7 +56,6 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   // Once authenticated, notify parent
   useEffect(() => {
     if (ready && authenticated) {
-      console.log('[LoginScreen] User authenticated, loading world...')
       onAuthenticated()
     }
   }, [ready, authenticated, onAuthenticated])

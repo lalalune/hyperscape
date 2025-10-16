@@ -198,7 +198,6 @@ export function injectFarcasterMetaTags(): void {
     document.head.appendChild(meta)
   })
 
-  console.log('[Farcaster] Frame meta tags injected')
 }
 
 

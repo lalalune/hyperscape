@@ -151,6 +151,8 @@ export class ClientNetwork extends SystemBase {
   serverTimeOffset: number
   maxUploadSize: number
   pendingModifications: Map<string, Array<Record<string, unknown>>> = new Map()
+  pendingModificationTimestamps: Map<string, number> = new Map() // Track when modifications were first queued
+  pendingModificationLimitReached: Set<string> = new Set() // Track entities that hit the limit (to avoid log spam)
   // Cache character list so UI can render even if it mounts after the packet arrives
   lastCharacterList: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> | null = null
   // Cache latest inventory per player so UI can hydrate even if it mounted late
@@ -200,13 +202,11 @@ export class ClientNetwork extends SystemBase {
       if (privyToken && privyId) {
         authToken = privyToken
         privyUserId = privyId
-        console.log('[ClientNetwork] Using Privy authentication')
       } else {
         // Fall back to legacy auth token
         // Strong type assumption - storage.get returns unknown, we expect string
         const legacyToken = storage?.get('authToken')
         authToken = (legacyToken as string) || ''
-        console.log('[ClientNetwork] Using legacy authentication')
       }
     }
     
@@ -250,6 +250,33 @@ export class ClientNetwork extends SystemBase {
 
   preFixedUpdate() {
     this.flush()
+    
+    // Periodically clean up stale pending modifications (every ~5 seconds at 60fps = ~300 frames)
+    // Only check occasionally to avoid performance impact
+    if (Math.random() < 0.003) {
+      this.cleanupStalePendingModifications()
+    }
+  }
+  
+  /**
+   * Clean up pending modifications that are too old (entity never arrived)
+   */
+  private cleanupStalePendingModifications(): void {
+    const now = performance.now()
+    const staleTimeout = 10000 // 10 seconds
+    
+    for (const [entityId, timestamp] of this.pendingModificationTimestamps.entries()) {
+      const age = now - timestamp
+      if (age > staleTimeout) {
+        const count = this.pendingModifications.get(entityId)?.length || 0
+        if (count > 0) {
+          this.logger.warn(`Cleaning up ${count} stale modifications for entity ${entityId} (age: ${(age/1000).toFixed(1)}s)`)
+        }
+        this.pendingModifications.delete(entityId)
+        this.pendingModificationTimestamps.delete(entityId)
+        this.pendingModificationLimitReached.delete(entityId)
+      }
+    }
   }
 
   send<T = unknown>(name: string, data?: T) {
@@ -304,7 +331,6 @@ export class ClientNetwork extends SystemBase {
   }
 
   async onSnapshot(data: SnapshotData) {
-    console.log('[ClientNetwork] onSnapshot received, entities:', data.entities?.length || 0);
     this.id = data.id;  // Store our network ID
     this.connected = true;  // Mark as connected when we get the snapshot
     
@@ -315,22 +341,12 @@ export class ClientNetwork extends SystemBase {
     
     // Auto-enter world if in character-select mode and we have a selected character
     const isCharacterSelectMode = Array.isArray(data.entities) && data.entities.length === 0 && Array.isArray((data as { characters?: unknown[] }).characters);
-    console.log('[ClientNetwork] Character select mode check:', {
-      isCharacterSelectMode,
-      entitiesCount: data.entities?.length || 0,
-      hasCharacters: Array.isArray((data as { characters?: unknown[] }).characters)
-    });
     
     if (isCharacterSelectMode && typeof localStorage !== 'undefined') {
       const selectedCharacterId = localStorage.getItem('selectedCharacterId');
-      console.log('[ClientNetwork] Selected character ID from localStorage:', selectedCharacterId);
       if (selectedCharacterId) {
-        console.log('[ClientNetwork] Auto-entering world with selected character:', selectedCharacterId);
         // Send enterWorld immediately so server spawns the selected character
         this.send('enterWorld', { characterId: selectedCharacterId });
-        console.log('[ClientNetwork] enterWorld message sent, waiting for player entity in next snapshot...');
-      } else {
-        console.log('[ClientNetwork] No selected character ID, staying in character select');
       }
     }
     // Ensure Physics is fully initialized before processing entities
@@ -354,7 +370,6 @@ export class ClientNetwork extends SystemBase {
     
     // Use assetsUrl from server (always absolute URL to CDN)
     this.world.assetsUrl = data.assetsUrl || '/'
-    console.log('[ClientNetwork] Assets URL from server:', this.world.assetsUrl)
 
     const loader = this.world.loader!
       // Assume preload and execPreload methods exist on loader
@@ -452,7 +467,6 @@ export class ClientNetwork extends SystemBase {
     // surface the character list/modal immediately even if the dedicated packet hasn't arrived yet.
     if (Array.isArray(data.entities) && data.entities.length === 0 && (data as { account?: unknown }).account) {
       const list = this.lastCharacterList || [];
-      console.log('[ClientNetwork] Snapshot indicates character-select mode; opening modal with cached list:', list.length);
       this.world.emit(EventType.CHARACTER_LIST, { characters: list });
     }
 
@@ -480,7 +494,6 @@ export class ClientNetwork extends SystemBase {
   onEntityAdded = (data: EntityData) => {
     // Add debugging for mob entities
     if (data.type === 'mob') {
-      console.log(`[ClientNetwork] 📡 Received mob entity: ${data.id} (${data.name})`);
     }
     
     // Add entity if method exists
@@ -499,7 +512,6 @@ export class ClientNetwork extends SystemBase {
         if (newEntity instanceof PlayerLocal) {
           newEntity.position.set(pos[0], pos[1], pos[2]);
           newEntity.updateServerPosition(pos[0], pos[1], pos[2]);
-          console.log(`[ClientNetwork] Local player spawned at:`, pos);
         }
       }
     }
@@ -511,18 +523,37 @@ export class ClientNetwork extends SystemBase {
     if (!entity) {
       // Limit queued modifications per entity to avoid unbounded growth
       const list = this.pendingModifications.get(id) || []
+      const now = performance.now()
+      
+      // Check if modifications are too old (>10 seconds) and drop them
+      if (list.length > 0) {
+        const firstTimestamp = this.pendingModificationTimestamps.get(id) || now
+        const age = now - firstTimestamp
+        if (age > 10000) {
+          // Entity never arrived, clear the stale modifications
+          this.pendingModifications.delete(id)
+          this.pendingModificationTimestamps.delete(id)
+          this.pendingModificationLimitReached.delete(id)
+          this.logger.warn(`Dropping ${list.length} stale modifications for entity ${id} (waited ${(age/1000).toFixed(1)}s)`)
+          return
+        }
+      }
+      
       if (list.length < 50) {
         list.push(data)
         this.pendingModifications.set(id, list)
-      } else if (list.length === 50) {
-        // Warn once when we hit the limit
-        this.logger.warn(`Entity ${id} hit modification queue limit (50) - older modifications will be dropped`)
+        
+        // Track timestamp of first modification
+        if (list.length === 1) {
+          this.pendingModificationTimestamps.set(id, now)
+          this.logger.info(`Queuing modification for entity ${id} - not found yet.`)
+        }
+      } else if (!this.pendingModificationLimitReached.has(id)) {
+        // Warn ONCE when we hit the limit, then stop logging
+        this.pendingModificationLimitReached.add(id)
+        this.logger.warn(`Entity ${id} hit modification queue limit (50) - further modifications will be dropped`)
       }
-      // Only log first and every 25th to reduce spam
-      const count = list.length
-      if (count === 1 || count % 25 === 0) {
-        this.logger.info(`Queuing modification for entity ${id} - not found yet. queued=${count}`)
-      }
+      // No more logging after limit is reached to prevent spam
       return
     }
     // Accept both normalized { changes: {...} } and flat payloads { id, ...changes }
@@ -790,7 +821,6 @@ export class ClientNetwork extends SystemBase {
   onInventoryUpdated = (data: { playerId: string; items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number; maxSlots: number }) => {
     type WindowWithDebug = { DEBUG_RPG?: string }
     if ((window as WindowWithDebug).DEBUG_RPG === '1' || process.env?.DEBUG_RPG === '1') {
-      console.log('[ClientNetwork] onInventoryUpdated received:', data.items.length, 'items for', data.playerId)
     }
     // Cache latest snapshot for late-mounting UI
     this.lastInventoryByPlayerId[data.playerId] = data
@@ -802,7 +832,6 @@ export class ClientNetwork extends SystemBase {
   onCharacterList = (data: { characters: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> }) => {
     // Cache and re-emit so UI can show the modal
     this.lastCharacterList = data.characters || [];
-    console.log('[ClientNetwork] Received characterList:', this.lastCharacterList.length);
     this.world.emit(EventType.CHARACTER_LIST, data);
     // Auto-select previously chosen character if available
     const storedId = typeof localStorage !== 'undefined' ? localStorage.getItem('selectedCharacterId') : null;
@@ -832,6 +861,10 @@ export class ClientNetwork extends SystemBase {
   onEntityRemoved = (id: string) => {
     // Remove from interpolation tracking
     this.interpolationStates.delete(id)
+    // Clean up pending modifications tracking
+    this.pendingModifications.delete(id)
+    this.pendingModificationTimestamps.delete(id)
+    this.pendingModificationLimitReached.delete(id)
     // Remove from entities system
     this.world.entities.remove(id)
   }
@@ -844,7 +877,6 @@ export class ClientNetwork extends SystemBase {
   }
   
   onGatheringComplete = (data: { playerId: string; resourceId: string; successful: boolean }) => {
-    console.log(`[ClientNetwork] 📬 Received gatheringComplete from server:`, data);
     
     // Forward to local event system for UI updates (progress bar, animation)
     this.world.emit(EventType.RESOURCE_GATHERING_COMPLETED, {
@@ -856,7 +888,6 @@ export class ClientNetwork extends SystemBase {
   }
   
   onShowToast = (data: { playerId: string; message: string; type: string }) => {
-    console.log(`[ClientNetwork] 💬 Toast from server:`, data.message);
     
     // Only show toast for local player
     const localPlayer = this.world.getPlayer();
@@ -871,10 +902,14 @@ export class ClientNetwork extends SystemBase {
 
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId)
-    if (pending) {
+    if (pending && pending.length > 0) {
       this.logger.info(`Applying ${pending.length} pending modifications for entity ${entityId}`)
       pending.forEach(mod => this.onEntityModified({ ...mod, id: entityId }))
+      
+      // Clean up tracking structures
       this.pendingModifications.delete(entityId)
+      this.pendingModificationTimestamps.delete(entityId)
+      this.pendingModificationLimitReached.delete(entityId)
     }
   }
 
@@ -940,14 +975,11 @@ export class ClientNetwork extends SystemBase {
   }
 
   destroy = () => {
-    console.log('[ClientNetwork] Destroying network connection...')
     if (this.ws) {
-      console.log('[ClientNetwork] Closing WebSocket, state:', this.ws.readyState)
       this.ws.removeEventListener('message', this.onPacket)
       this.ws.removeEventListener('close', this.onClose)
       if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
         this.ws.close()
-        console.log('[ClientNetwork] WebSocket closed')
       }
       this.ws = null
     }
@@ -956,7 +988,10 @@ export class ClientNetwork extends SystemBase {
     this.connected = false
     // Clear interpolation states
     this.interpolationStates.clear()
-    console.log('[ClientNetwork] Network destroyed')
+    // Clear pending modifications tracking
+    this.pendingModifications.clear()
+    this.pendingModificationTimestamps.clear()
+    this.pendingModificationLimitReached.clear()
   }
 
   // Plugin-specific upload method

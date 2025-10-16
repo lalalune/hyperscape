@@ -60,7 +60,6 @@ export function LoadingScreen({
             );
           } else {
             setLoadingStage("Finalizing...");
-            console.log('[LoadingScreen] Assets at 100%, now waiting for READY event...');
           }
         }
       } else {

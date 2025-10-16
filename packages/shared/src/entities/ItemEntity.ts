@@ -97,14 +97,6 @@ export class ItemEntity extends InteractableEntity {
   }
 
   protected async createMesh(): Promise<void> {
-    console.log(`[ItemEntity] createMesh() called for ${this.config.itemId}`, {
-      hasModelPath: !!this.config.model,
-      modelPath: this.config.model,
-      hasLoader: !!this.world.loader,
-      isServer: this.world.isServer,
-      isClient: this.world.isClient
-    });
-    
     if (this.world.isServer) {
       return;
     }
@@ -112,7 +104,6 @@ export class ItemEntity extends InteractableEntity {
     // Try to load 3D model if available
     if (this.config.model && this.world.loader) {
       try {
-        console.log(`[ItemEntity] Loading model for ${this.config.itemId}:`, this.config.model);
         const { scene } = await modelCache.loadModel(this.config.model, this.world);
         
         this.mesh = scene;
@@ -137,7 +128,6 @@ export class ItemEntity extends InteractableEntity {
         };
         
         this.node.add(this.mesh);
-        console.log(`[ItemEntity] ✅ Model loaded for ${this.config.itemId}`);
         return;
       } catch (error) {
         console.warn(`[ItemEntity] Failed to load model for ${this.config.itemId}, using placeholder:`, error);
@@ -145,7 +135,6 @@ export class ItemEntity extends InteractableEntity {
       }
     }
     
-    console.log(`[ItemEntity] Creating placeholder sphere for ${this.config.itemId}`);
     const geometry = new THREE.SphereGeometry(0.12, 8, 6);
     
     // Get subtle color based on item type

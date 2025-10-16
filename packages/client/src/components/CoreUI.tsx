@@ -31,7 +31,6 @@ export function CoreUI({ world }: { world: World }) {
     useEffect(() => {    
     // Create handlers with proper types
     const handleReady = () => {
-      console.log('[CoreUI] READY event received! Setting ready=true')
       setReady(true)
     }
     const handlePlayerSpawned = () => {

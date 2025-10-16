@@ -272,7 +272,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         z: playerEntity.position.z
       };
       
-      console.log(`[ServerNetwork] 📨 Received gather request from player ${playerEntity.id} for resource ${payload.resourceId}`);
       
       // Forward to ResourceSystem
       this.world.emit(EventType.RESOURCE_GATHERING_STARTED, {
@@ -314,7 +313,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
     try {
       const characters = await this.loadCharacterList(accountId)
-      console.log(`[ServerNetwork] Replying to characterListRequest from ${socket.id} with accountId=${accountId} (count=${characters.length})`)
       socket.send('characterList', { characters })
     } catch (err) {
       console.error('[ServerNetwork] Failed to load character list:', err)
@@ -323,18 +321,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   }
 
   private async onCharacterCreate(socket: SocketInterface, data: unknown): Promise<void> {
-    console.log('[ServerNetwork] ========== CHARACTER CREATE START ==========')
-    console.log('[ServerNetwork] Socket ID:', socket.id)
-    console.log('[ServerNetwork] Data received:', data)
     
     const payload = (data as { name?: string }) || {};
     const name = (payload.name || '').trim().slice(0, 20) || 'Adventurer';
-    console.log('[ServerNetwork] Raw name:', payload.name, '| Trimmed:', name)
     
     // Basic validation: alphanumeric plus spaces, 3-20 chars
     const safeName = name.replace(/[^a-zA-Z0-9 ]/g, '').trim();
     const finalName = safeName.length >= 3 ? safeName : 'Adventurer';
-    console.log('[ServerNetwork] Final name after validation:', finalName)
     
     const id = uuid();
     const accountId = socket.accountId || ''
@@ -348,7 +341,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return
     }
     
-    console.log('[ServerNetwork] Creating character with:', { id, accountId, name: finalName })
     
     try {
       const databaseSystem = this.world.getSystem('database') as import('./DatabaseSystem').DatabaseSystem | undefined
@@ -361,9 +353,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         return
       }
       
-      console.log('[ServerNetwork] 🔄 Calling database.createCharacter...')
       const result = await databaseSystem.createCharacter(accountId, id, finalName)
-      console.log('[ServerNetwork] Database result:', result)
       
       if (!result) {
         console.error('[ServerNetwork] ❌ createCharacter returned false - character may already exist')
@@ -374,7 +364,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         return
       }
       
-      console.log('[ServerNetwork] ✅ Character created successfully in database')
     } catch (err) {
       console.error('[ServerNetwork] ❌ EXCEPTION in createCharacter:', err)
       this.sendTo(socket.id, 'showToast', { 
@@ -385,17 +374,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
     
     const responseData = { id, name: finalName }
-    console.log('[ServerNetwork] 📤 Sending characterCreated to socket:', socket.id)
-    console.log('[ServerNetwork] Response data:', responseData)
     
     try {
       this.sendTo(socket.id, 'characterCreated', responseData)
-      console.log('[ServerNetwork] ✅ characterCreated packet sent successfully')
     } catch (err) {
       console.error('[ServerNetwork] ❌ ERROR sending characterCreated packet:', err)
     }
     
-    console.log('[ServerNetwork] ========== CHARACTER CREATE END ==========')
   }
 
   private onCharacterSelected(socket: SocketInterface, data: unknown): void {
@@ -406,10 +391,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   }
 
   private async onEnterWorld(socket: SocketInterface, data: unknown): Promise<void> {
-    console.log('[ServerNetwork] 🎮 onEnterWorld called for socket:', socket.id, 'data:', data);
     // Spawn the entity now, preserving legacy spawn shape
     if (socket.player) {
-      console.log('[ServerNetwork] Player already spawned for socket:', socket.id);
       return; // Already spawned
     }
     const accountId = socket.accountId || undefined;
@@ -427,7 +410,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           characterData = characters.find(c => c.id === characterId) || null
           if (characterData) {
             name = characterData.name
-            console.log(`[ServerNetwork] Spawning character: ${name} (${characterId}) for account ${accountId}`)
           } else {
             console.warn(`[ServerNetwork] Character ${characterId} not found for account ${accountId}`)
           }
@@ -459,7 +441,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             const savedY = savedData.positionY !== undefined && savedData.positionY !== null ? Number(savedData.positionY) : 10
             if (savedY >= 5 && savedY <= 200) {
               position = [Number(savedData.positionX) || 0, savedY, Number(savedData.positionZ) || 0]
-              console.log(`[ServerNetwork] Loaded saved position for character ${characterId}:`, position)
             }
           }
         }
@@ -479,7 +460,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       // Terrain not ready; use safe height
       position = [position[0], 10, position[2]]
     }
-    console.log('[ServerNetwork] 🏗️  Creating player entity:', { entityId, name, position, accountId });
     const addedEntity = this.world.entities.add ? this.world.entities.add({
       id: entityId,
       type: 'player',
@@ -494,7 +474,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       roles,
     }) : undefined;
       socket.player = addedEntity as Entity || undefined;
-    console.log('[ServerNetwork] ✅ Player entity created:', socket.player?.id);
     if (socket.player) {
       this.world.emit(EventType.PLAYER_JOINED, { playerId: socket.player.data.id as string, player: socket.player as unknown as import('@hyperscape/shared').PlayerLocal });
       try {
@@ -624,7 +603,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.world.on(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, (...args: unknown[]) => this.send('resourceSpawnPoints', args[0]))
       this.world.on(EventType.INVENTORY_UPDATED, (...args: unknown[]) => {
         if (process.env.DEBUG_RPG === '1') {
-          console.log('[ServerNetwork] Broadcasting INVENTORY_UPDATED:', args[0])
         }
         this.send('inventoryUpdated', args[0])
       })
@@ -797,7 +775,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       sentCount++;
     });
     if (name === 'chatAdded') {
-      console.log(`[ServerNetwork] Broadcast '${name}' to ${sentCount} clients (ignored: ${ignoreSocketId || 'none'})`);
     }
   }
 
@@ -856,7 +833,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    */
   enqueue(socket: SocketInterface | Socket, method: string, data: unknown): void {
     if (method === 'onChatAdded') {
-      console.log('[ServerNetwork] Enqueueing onChatAdded from socket:', socket.id);
     }
     this.queue.push([socket as SocketInterface, method, data]);
   }
@@ -921,7 +897,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       const [socket, method, data] = this.queue.shift()!;
       const handler = this.handlers[method];
       if (method === 'onChatAdded') {
-        console.log('[ServerNetwork] Processing onChatAdded handler from socket:', socket.id);
       }
       if (handler) {
         const result = handler.call(this, socket, data);
@@ -1030,11 +1005,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       // Try Privy authentication first if enabled
       if (isPrivyEnabled() && authToken && privyUserId) {
         try {
-          console.log('[ServerNetwork] Attempting Privy authentication for user:', privyUserId);
           const privyInfo = await verifyPrivyToken(authToken);
           
           if (privyInfo && privyInfo.privyUserId === privyUserId) {
-            console.log('[ServerNetwork] Privy token verified successfully');
             
           let dbResult: User | undefined;
           try {
@@ -1047,7 +1020,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
               // Existing Privy user
               userWithPrivy = dbResult as User & { privyUserId?: string | null; farcasterFid?: string | null };
               user = userWithPrivy;
-              console.log('[ServerNetwork] Found existing Privy user:', user.id);
             } else {
               // New Privy user - create account with stable id equal to privyUserId
               const timestamp = new Date().toISOString();
@@ -1077,7 +1049,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
               }
               userWithPrivy = newUser as User & { privyUserId?: string | null; farcasterFid?: string | null };
               user = userWithPrivy;
-              console.log('[ServerNetwork] Created new Privy user:', (user as User).id);
             }
             
             // Generate a Hyperscape JWT for this user
@@ -1164,24 +1135,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       if (terrain) {
         // Wait for terrain to be ready
         let terrainReady = false;
-        console.log('[ServerNetwork] Checking terrain readiness:', {
-          hasIsReady: !!terrain.isReady,
-          isReadyType: typeof terrain.isReady,
-        });
         
         for (let i = 0; i < 100; i++) {  // Wait up to 10 seconds
           if (terrain.isReady && terrain.isReady()) {
             terrainReady = true;
-            console.log(`[ServerNetwork] ✅ Terrain is ready after ${i * 100}ms`);
             break;
           }
           await new Promise(resolve => setTimeout(resolve, 100));
-          if (i % 10 === 0) {
-            console.log(`[ServerNetwork] Waiting for terrain to be ready... (${i/10}s)`, {
-              hasIsReady: !!terrain.isReady,
-              isReadyResult: terrain.isReady ? terrain.isReady() : 'N/A'
-            });
-          }
         }
         
         if (!terrainReady) {
@@ -1270,7 +1230,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         if (Number.isFinite(terrainHeight) && terrainHeight > -100 && terrainHeight < 1000) {
           // Always use terrain height, even for saved positions (in case terrain changed)
           spawnPosition[1] = terrainHeight + 0.1;
-          console.log(`[ServerNetwork] Grounded spawn to Y=${spawnPosition[1]} (terrain=${terrainHeight})`);
         } else {
           // Invalid terrain height - use safe default
           console.error(`[ServerNetwork] TerrainSystem.getHeightAt returned invalid height: ${terrainHeight} at x=${spawnPosition[0]}, z=${spawnPosition[2]}`);
@@ -1301,7 +1260,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           console.error('[ServerNetwork] WARNING: Spawn Y is near ground level:', spawnPosition[1]);
         }
 
-        console.log(`[ServerNetwork] No characters found, creating player entity immediately for socket ${socketId}`);
         const createdEntity = this.world.entities.add ? this.world.entities.add(
           {
             id: socketId,
@@ -1320,7 +1278,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         socket.player = createdEntity as Entity || undefined;
       } else {
         // Character select mode - don't spawn player yet, wait for enterWorld
-        console.log(`[ServerNetwork] Character select mode: ${characters.length} characters found, waiting for enterWorld`)
       }
 
       const baseSnapshot: {
@@ -1373,13 +1330,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       } catch (_err) {}
 
       this.sockets.set(socket.id, socket);
-      console.log(`[ServerNetwork] Socket added. Total sockets: ${this.sockets.size}`);
 
       // Emit typed player joined and broadcast ONLY if player was created (not in character select)
       if (socket.player) {
         const playerId = socket.player.data.id as string;
         const userId = socket.player.data.userId as string | undefined;
-        console.log(`[ServerNetwork] Player entity created, emitting PLAYER_JOINED - playerId: ${playerId}, userId: ${userId}`);
         this.world.emit(EventType.PLAYER_JOINED, { playerId, player: socket.player as unknown as import('@hyperscape/shared').PlayerLocal });
         
         // Broadcast new player entity to all existing clients except the new connection
@@ -1389,7 +1344,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           console.error('[ServerNetwork] Failed to broadcast entityAdded for new player:', err);
         }
       } else {
-        console.log(`[ServerNetwork] Character select mode active, player entity will spawn after enterWorld`)
       }
     } catch (_err) {
       console.error(_err);
@@ -1398,12 +1352,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   onChatAdded = (socket: SocketInterface, data: unknown): void => {
     const msg = data as ChatMessage;
-    console.log('[ServerNetwork] Received chatAdded from socket:', socket.id, 'message:', msg);
     // Add message to chat if method exists
     if (this.world.chat.add) {
       this.world.chat.add(msg, false);
     }
-    console.log('[ServerNetwork] Broadcasting chatAdded to all clients except:', socket.id);
     this.send('chatAdded', msg, socket.id);
   };
 
@@ -1685,7 +1637,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
     
-    console.log(`[ServerNetwork] ⚔️ Received attack request from player ${playerEntity.id} for mob ${payload.mobId}, type: ${payload.attackType || 'melee'}`);
     
     // Forward to CombatSystem
     this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
@@ -1714,7 +1665,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
     
-    console.log(`[ServerNetwork] 📦 Received pickup request from player ${playerEntity.id} for entity ${entityId}`);
     
     // Forward to InventorySystem with entityId (required) and itemId (optional)
     // @ts-expect-error - EventMap updated to require entityId, optional itemId (type cache lag)

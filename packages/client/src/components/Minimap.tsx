@@ -124,7 +124,6 @@ export function Minimap({
         }
 
         rendererRef.current = renderer;
-        console.log("[Minimap] Renderer created successfully");
       })
       .catch((error) => {
         console.error("[Minimap] Failed to create renderer:", error);

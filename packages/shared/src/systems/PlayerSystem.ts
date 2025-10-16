@@ -330,11 +330,8 @@ export class PlayerSystem extends SystemBase {
   }
 
   async onPlayerEnter(data: PlayerEnterEvent): Promise<void> {
-    console.log(`[PlayerSystem] onPlayerEnter called for playerId: ${data.playerId}`)
-
     // Check if player already exists in our system
     if (this.players.has(data.playerId)) {
-      console.log(`[PlayerSystem] Player ${data.playerId} already exists in system`)
       return
     }
 
@@ -355,27 +352,13 @@ export class PlayerSystem extends SystemBase {
     // Determine which ID to use for database lookups
     // Use userId (persistent account ID) if available, otherwise use playerId (session ID)
     const databaseId = data.userId || data.playerId
-    console.log(
-      `[PlayerSystem] Player entering - playerId: ${data.playerId}, userId: ${data.userId}, databaseId: ${databaseId}`
-    )
 
     // Load player data from database using persistent userId
     let playerData: Player | undefined
     if (this.databaseSystem) {
       const dbData = this.databaseSystem.getPlayer(databaseId)
       if (dbData) {
-        console.log(`[PlayerSystem] Loaded player from DB:`, {
-          playerId: data.playerId,
-          userId: databaseId,
-          name: dbData.name,
-          attackLevel: dbData.attackLevel,
-          coins: dbData.coins,
-          positionX: dbData.positionX,
-          positionY: dbData.positionY,
-        })
         playerData = PlayerMigration.fromPlayerRow(dbData, data.playerId)
-      } else {
-        console.log(`[PlayerSystem] No DB data found for userId: ${databaseId}, creating new player`)
       }
     }
 
@@ -398,7 +381,6 @@ export class PlayerSystem extends SystemBase {
 
       // Save new player to database using persistent userId
       if (this.databaseSystem) {
-        console.log(`[PlayerSystem] Creating new player in database with userId: ${databaseId}`)
         await this.databaseSystem.savePlayerAsync(databaseId, {
           name: playerData.name,
           combatLevel: playerData.combat.combatLevel,
@@ -446,11 +428,9 @@ export class PlayerSystem extends SystemBase {
   }
 
   async onPlayerLeave(data: PlayerLeaveEvent): Promise<void> {
-    console.log(`[PlayerSystem] onPlayerLeave called for playerId: ${data.playerId}`)
     // Save player data before removal
     if (this.databaseSystem && this.players.has(data.playerId)) {
       await this.savePlayerToDatabase(data.playerId)
-      console.log(`[PlayerSystem] Saved player ${data.playerId} on disconnect`)
     }
 
     // Clean up
@@ -1022,7 +1002,6 @@ export class PlayerSystem extends SystemBase {
   private async performAutoSave(): Promise<void> {
     if (!this.databaseSystem) return
 
-    console.log(`[PlayerSystem] Auto-save: saving ${this.players.size} players`)
     // Save all players
     for (const playerId of this.players.keys()) {
       await this.savePlayerToDatabase(playerId)
@@ -1036,9 +1015,7 @@ export class PlayerSystem extends SystemBase {
     // Use userId for database persistence if available
     const databaseId = PlayerIdMapper.getDatabaseId(playerId)
 
-    if (databaseId !== playerId) {
-      console.log(`[PlayerSystem] Saving player to database - playerId: ${playerId}, userId: ${databaseId}`)
-    }
+    // Database save happens here
 
     // NEVER save invalid Y positions to database
     let safeY = player.position.y

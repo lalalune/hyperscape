@@ -132,13 +132,11 @@ export class ModelCache {
         || (world?.assetsUrl?.replace(/\/$/, ''))
         || 'http://localhost:8080';
       resolvedPath = resolvedPath.replace('asset://', `${cdnUrl}/`);
-      console.log(`[ModelCache] Manual URL resolution: ${path} → ${resolvedPath}`);
     }
     
     // Check cache first (use resolved path as key)
     const cached = this.cache.get(resolvedPath);
     if (cached) {
-      console.log(`[ModelCache] ♻️  Using cached model: ${path} (clone #${cached.cloneCount + 1})`);
       
       // CRITICAL: Verify cached scene is pure THREE.Object3D
       if ('ctx' in cached.scene || 'isDirty' in cached.scene) {
@@ -166,7 +164,6 @@ export class ModelCache {
     // Check if already loading (use resolved path as key)
     const loadingPromise = this.loading.get(resolvedPath);
     if (loadingPromise) {
-      console.log(`[ModelCache] ⏳ Waiting for in-progress load: ${path}`);
       const result = await loadingPromise;
       result.cloneCount++;
       const clonedScene = result.scene.clone(true);
@@ -182,7 +179,6 @@ export class ModelCache {
     }
     
     // Load for the first time
-    console.log(`[ModelCache] 📥 Loading new model: ${path} (resolved: ${resolvedPath})`);
     
     // Use our own GLTFLoader to ensure pure THREE.js objects (not Hyperscape Nodes)
     const promise = this.gltfLoader.loadAsync(resolvedPath).then(gltf => {
@@ -207,11 +203,6 @@ export class ModelCache {
       this.cache.set(resolvedPath, cachedModel);
       this.loading.delete(resolvedPath);
       
-      console.log(`[ModelCache] ✅ Cached model: ${path}`, {
-        meshes: this.countMeshes(gltf.scene),
-        skinnedMeshes: this.countSkinnedMeshes(gltf.scene),
-        animations: gltf.animations.length
-      });
       
       return cachedModel;
     }).catch(error => {
@@ -273,7 +264,6 @@ export class ModelCache {
    * Should be called when code is rebuilt to prevent stale Hyperscape Nodes
    */
   clear(): void {
-    console.log(`[ModelCache] Clearing cache of ${this.cache.size} models`);
     this.cache.clear();
     this.loading.clear();
   }
@@ -283,7 +273,6 @@ export class ModelCache {
    * Call this on world initialization to ensure clean state
    */
   resetAndVerify(): void {
-    console.log('[ModelCache] Resetting cache to ensure pure THREE.Object3D loading');
     this.clear();
   }
   

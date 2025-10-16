@@ -70,7 +70,6 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
     return <>{children}</>
   }
 
-  console.log('[PrivyAuthProvider] Initializing Privy with App ID:', appId.substring(0, 10) + '...')
 
   return (
     <PrivyProvider

@@ -16,7 +16,6 @@ export class PlayerIdMapper {
   static register(playerId: string, userId: string): void {
     if (playerId && userId && playerId !== userId) {
       this.playerIdToUserId.set(playerId, userId);
-      console.log(`[PlayerIdMapper] Registered: playerId ${playerId} -> userId ${userId}`);
     }
   }
   

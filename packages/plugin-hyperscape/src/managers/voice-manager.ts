@@ -322,7 +322,6 @@ export class VoiceManager {
     this.processingVoice = true;
 
     // Audio publishing requires LiveKit API integration (future enhancement)
-    console.log(
       "[VoiceManager] Audio playback requested but not implemented yet",
     );
 

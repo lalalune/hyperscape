@@ -55,7 +55,6 @@ export class StoreSystem extends SystemBase {
       this.stores.set(createStoreID(store.id), store);
     }
     
-    console.log(`[StoreSystem] Initialized ${this.stores.size} stores from manifests`);
     
     // Set up type-safe event subscriptions for store mechanics
     this.subscribe<StoreOpenEvent>(EventType.STORE_OPEN, (data) => {

@@ -123,7 +123,6 @@ export class AvatarPreview {
 
     this.file = file;
     this.url = url;
-    console.log("file", this.file);
     if (this.file.size > MAX_UPLOAD_SIZE) {
       return { error: `Max file size ${MAX_UPLOAD_SIZE_LABEL}` };
     }
@@ -294,8 +293,6 @@ export class AvatarPreview {
   }
 
   resolveInfo() {
-    console.log(this.renderer.info);
-    console.log(this.renderer.info.render.triangles);
     const stats: AvatarInfo["stats"] = {};
     // bounds
     const bbox = new THREE.Box3().setFromObject(
@@ -385,7 +382,6 @@ export class AvatarPreview {
       rank,
       stats,
     };
-    console.log("info", this.info);
   }
 
   determineRank(fn: (spec: BoundsSpec) => boolean): number {

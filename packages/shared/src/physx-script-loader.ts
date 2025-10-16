@@ -31,7 +31,6 @@ export async function loadPhysXScript(options?: PhysXInitOptions): Promise<PhysX
     const cdnUrl = windowWithCdn.__CDN_URL || 'http://localhost:8080'
     const scriptUrl = `${cdnUrl}/web/physx-js-webidl.js`
     
-    console.log('[physx-script-loader] Loading PhysX from:', scriptUrl)
     script.src = scriptUrl
     script.async = true
     

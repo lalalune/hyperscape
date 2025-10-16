@@ -190,12 +190,10 @@ export class Entities extends SystemBase implements IEntities {
       if (isServer) {
         // On server, always use the base player entity type
         EntityClass = EntityTypes.player;
-        console.log(`[Entities] Creating server player entity: ${data.id}`);
       } else {
         // On client, determine if local or remote based on ownership
         const isLocal = data.owner === network?.id;
         EntityClass = EntityTypes[isLocal ? 'playerLocal' : 'playerRemote'];
-        console.log(`[Entities] Creating ${isLocal ? 'LOCAL' : 'REMOTE'} player entity: ${data.id}, owner: ${data.owner}, networkId: ${network?.id}`);
       }
     } else if (data.type === 'mob') {
       // Client-side: build a real MobEntity from snapshot data so models load
@@ -486,15 +484,12 @@ export class Entities extends SystemBase implements IEntities {
       
       // On server, emit PLAYER_REGISTERED for all player entities
       if (network?.isServer) {
-        console.log(`[Entities] Server emitting PLAYER_REGISTERED for ${entity.id}`)
         this.emitTypedEvent('PLAYER_REGISTERED', { playerId: entity.id });
         this.world.emit(EventType.PLAYER_REGISTERED, { playerId: entity.id });
       }
       
       // Set local player if this entity is owned by us
       if (data.owner === network?.id) {
-        console.log(`[Entities] Setting LOCAL PLAYER: ${entity.id} (was: ${this.player?.id || 'none'})`);
-        console.log(`[Entities] About to initialize local player entity...`);
         if (this.player) {
           console.warn(`[Entities] WARNING: Replacing existing local player ${this.player.id} with ${entity.id}!`);
         }
@@ -504,19 +499,16 @@ export class Entities extends SystemBase implements IEntities {
     }
 
     // Initialize the entity
-    console.log(`[Entities] Calling init() for entity ${entity.id} (type: ${data.type})`);
     const initPromise = entity.init() as Promise<void>;
     if (initPromise) {
       initPromise
         .then(() => {
-          console.log(`[Entities] Entity ${entity.id} init() completed successfully`);
         })
         .catch(err => {
           this.logger.error(`Entity ${entity.id} (type: ${data.type}) async init failed:`, err);
           console.error(`[Entities] Entity ${entity.id} init() failed:`, err);
         });
     } else {
-      console.log(`[Entities] Entity ${entity.id} has no async init() or it returned void`);
     }
 
     return entity;
@@ -583,23 +575,9 @@ export class Entities extends SystemBase implements IEntities {
   }
 
   async deserialize(datas: EntityData[]): Promise<void> {
-    console.log(`[Entities] deserialize() called with ${datas.length} entities`);
-    const entityTypes = datas.map(d => `${d.type}:${d.id}`);
-    console.log('[Entities] Entity types to deserialize:', entityTypes);
-    
-    const playerEntities = datas.filter(d => d.type === 'player');
-    console.log(`[Entities] Found ${playerEntities.length} player entities in snapshot`);
-    if (playerEntities.length > 0) {
-      playerEntities.forEach(p => {
-        console.log(`[Entities] Player entity: ${p.id}, owner: ${p.owner}`);
-      });
-    }
-    
     for (const data of datas) {
       this.add(data);
     }
-    
-    console.log('[Entities] deserialize() complete');
   }
 
   override destroy(): void {

@@ -18,7 +18,6 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
   useEffect(() => {
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
-        console.log('[Client] HMR detected - reloading page to prevent duplicate worlds')
         window.location.reload()
       })
     }
@@ -26,9 +25,7 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
   
   // Create world immediately so network can connect and deliver characterList
   const world = useMemo(() => {
-    console.log('[Client] Creating new world instance')
     const w = createClientWorld()
-    console.log('[Client] World instance created');
     
     // Expose world for browser debugging
     ;(window as { world: InstanceType<typeof World> }).world = w;
@@ -47,7 +44,6 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         if (w.camera) {
           w.camera.position.set(10, 50, 10);
           w.camera.lookAt(0, 40, 0);
-          console.log('📷 Camera moved to Y=50, looking at Y=40');
         }
       },
       // Teleport to ground level
@@ -55,7 +51,6 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         if (w.camera) {
           w.camera.position.set(10, 5, 10);
           w.camera.lookAt(0, 0, 0);
-          console.log('📷 Camera moved to ground level');
         }
       },
       // List all mobs with positions
@@ -89,7 +84,6 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         return mobs
       }
     };
-    console.log('🛠️  Debug commands ready: debug.seeHighEntities(), debug.seeGround(), debug.mobs()');
     
     return w;
   }, [])
@@ -127,15 +121,12 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
     let cleanedUp = false
     
     const init = async () => {
-      console.log('[Client] Init useEffect triggered')
       const viewport = viewportRef.current
       const ui = uiRef.current
       
       if (!viewport || !ui) {
-        console.log('[Client] Waiting for viewport/ui refs...')
         return
       }
-      console.log('[Client] Starting world initialization...')
             
       const baseEnvironment = {
         model: 'asset://world/base-environment.glb',
@@ -155,18 +146,13 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         import.meta.env.PUBLIC_WS_URL || 
         'ws://localhost:5555/ws'
       
-      console.log('[Client] Direct WebSocket URL:', finalWsUrl)
       
       // Always use absolute CDN URL for all assets
       const cdnUrl = import.meta.env.PUBLIC_CDN_URL || 'http://localhost:8080';
       const assetsUrl = `${cdnUrl}/`
       
-      console.log('[Client] Direct CDN Configuration:')
-      console.log('[Client]   cdnUrl:', cdnUrl)
-      console.log('[Client]   assetsUrl:', assetsUrl)
       
       // Make CDN URL available globally for PhysX loading
-      console.log('[Client] Setting window.__CDN_URL for PhysX:', cdnUrl)
       ;(window as Window & { __CDN_URL?: string }).__CDN_URL = cdnUrl
 
       const config = {
@@ -177,11 +163,6 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
         assetsUrl, // This will be overridden by server snapshot
       }
       
-      console.log('[Client] World config (direct connections):', {
-        wsUrl: finalWsUrl,
-        assetsUrl
-      })
-      
       // Call onSetup if provided
       if (onSetup) {
         onSetup(world, config)
@@ -191,14 +172,10 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
       // Ensure RPG systems are registered before initializing the world
       const systemsPromise = (world as InstanceType<typeof World> & { systemsLoadedPromise?: Promise<void> }).systemsLoadedPromise
       if (systemsPromise) {
-        console.log('[Client] Waiting for RPG systems to load...')
         await systemsPromise
-        console.log('[Client] RPG systems loaded')
       }
       
-      console.log('[Client] Calling world.init()...')
       await world.init(config)
-      console.log('[Client] World.init() complete')
     }
     
     init()
@@ -207,10 +184,8 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
     return () => {
       if (!cleanedUp) {
         cleanedUp = true
-        console.log('[Client] Cleaning up world on unmount...')
         // Destroy the world to cleanup WebSocket and resources
         world.destroy()
-        console.log('[Client] World destroyed')
       }
     }
   }, [world, wsUrl, onSetup])
