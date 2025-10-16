@@ -497,9 +497,21 @@ export class ResourceSystem extends SystemBase {
       return;
     }
 
-    // TODO: Add proper tool check via inventory system query (not callback)
-    // For now, skip tool check to get gathering working
-    // Tools will be checked later when we have proper inventory queries
+    // TODO: Tool check disabled for testing - re-enable once testing is complete
+    // Check if player has required tool
+    // if (resource.toolRequired) {
+    //   const hasItem = this.world.hasItem?.(data.playerId, resource.toolRequired, 1);
+    //   if (!hasItem) {
+    //     const toolName = resource.toolRequired.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    //     this.sendChat(data.playerId, `You need a ${toolName} to ${resource.skillRequired === 'woodcutting' ? 'chop this tree' : 'gather from this resource'}.`);
+    //     this.emitTypedEvent(EventType.UI_MESSAGE, {
+    //       playerId: data.playerId,
+    //       message: `You need a ${toolName} to ${resource.skillRequired === 'woodcutting' ? 'chop this tree' : 'gather from this resource'}.`,
+    //       type: 'error'
+    //     });
+    //     return;
+    //   }
+    // }
 
     // If player is already gathering, replace session with the latest request
     if (this.activeGathering.has(playerId)) {
@@ -515,9 +527,11 @@ export class ResourceSystem extends SystemBase {
     
     
     // Create timed session
+    const sessionResourceId = createResourceID(resource.id);
+    
     this.activeGathering.set(playerId, {
       playerId,
-      resourceId: createResourceID(resource.id),
+      resourceId: sessionResourceId,
       startTime: Date.now(),
       skillCheck
     });
@@ -566,9 +580,6 @@ export class ResourceSystem extends SystemBase {
     const now = Date.now();
     const completedSessions: PlayerID[] = [];
 
-    if (this.activeGathering.size > 0) {
-    }
-
     for (const [playerId, session] of this.activeGathering.entries()) {
       const resource = this.resources.get(session.resourceId);
       if (!resource?.isAvailable) {
@@ -586,8 +597,6 @@ export class ResourceSystem extends SystemBase {
       if (elapsed >= gatheringTime) {
         this.completeGathering(playerId, session);
         completedSessions.push(playerId);
-      } else if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - 500) / 1000)) {
-        // Log every second
       }
     }
 
@@ -600,12 +609,12 @@ export class ResourceSystem extends SystemBase {
   private completeGathering(playerId: PlayerID, session: { playerId: PlayerID; resourceId: ResourceID; startTime: number; skillCheck: number }): void {
     const resource = this.resources.get(session.resourceId)!;
 
-
     // Proximity/cancel check - player must still be near the resource
     const p = this.world.getPlayer?.(playerId as unknown as string);
     const playerPos = p && (p as { position?: { x: number; y: number; z: number } }).position
       ? (p as { position: { x: number; y: number; z: number } }).position
       : null;
+    
     if (!playerPos || calculateDistance(playerPos, resource.position) > 4.0) {
       this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
         playerId: playerId as unknown as string,
@@ -632,6 +641,7 @@ export class ResourceSystem extends SystemBase {
       const dropTableKey = `${resource.type}_normal`;
       
       const dropTable = this.RESOURCE_DROPS.get(dropTableKey);
+      
       if (dropTable) {
         for (const drop of dropTable) {
           const dropRoll = Math.random();

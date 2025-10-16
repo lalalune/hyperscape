@@ -129,11 +129,20 @@ export class InventorySystem extends SystemBase {
     const db = this.getDatabase();
     if (!db) return;
     
+    let savedCount = 0;
+    let totalItems = 0;
+    
     for (const playerId of this.playerInventories.keys()) {
       const inv = this.getOrCreateInventory(playerId);
       const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
       db.savePlayerInventory(playerId, saveItems);
       db.savePlayer(playerId, { coins: inv.coins });
+      savedCount++;
+      totalItems += saveItems.length;
+    }
+    
+    if (savedCount > 0) {
+      console.log(`[InventorySystem] 💾 Auto-saved ${savedCount} player(s) with ${totalItems} total items`);
     }
   }
 

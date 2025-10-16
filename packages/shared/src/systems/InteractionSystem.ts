@@ -918,11 +918,15 @@ export class InteractionSystem extends System {
       });
     } else {
       console.warn('[InteractionSystem] No network.send available for resource gathering');
-      // Fallback for single-player
-      this.world.emit(EventType.RESOURCE_ACTION, {
+      // Fallback for single-player - emit RESOURCE_GATHER directly
+      this.world.emit(EventType.RESOURCE_GATHER, {
         playerId: localPlayer.id,
         resourceId,
-        action
+        playerPosition: {
+          x: localPlayer.position.x,
+          y: localPlayer.position.y,
+          z: localPlayer.position.z
+        }
       });
     }
   }
