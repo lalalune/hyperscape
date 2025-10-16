@@ -1,5 +1,4 @@
 import { GenerationConfig, MaterialPreset } from '../types'
-import { useGenerationStore } from '../store'
 
 interface BuildConfigOptions {
   assetName: string
