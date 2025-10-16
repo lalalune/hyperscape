@@ -3,6 +3,7 @@ import type { World } from '../World';
 import type { Position3D } from '../types/base-types';
 import { AttackType } from '../types/core';
 import { EventType } from '../types/events';
+import type { Entity } from '../entities/Entity';
 import * as THREE from 'three';
 
 interface InteractionAction {
@@ -52,6 +53,9 @@ export class InteractionSystem extends System {
   private recentResourceRequests = new Map<string, number>();
   private readonly RESOURCE_DEBOUNCE_TIME = 1000; // 1 second
   
+  // Auto-pickup tracking
+  private pendingPickups = new Map<string, { itemId: string; position: Position3D }>();
+  
   constructor(world: World) {
     super(world);
   }
@@ -81,6 +85,9 @@ export class InteractionSystem extends System {
     
     // Listen for camera tap events on mobile
     this.world.on(EventType.CAMERA_TAP, this.onCameraTap);
+    
+    // Listen for movement completion events to trigger auto-pickup
+    this.world.on(EventType.ENTITY_MODIFIED, this.onEntityModified.bind(this));
     
     // Create target marker (visual indicator)
     this.createTargetMarker();
@@ -285,39 +292,18 @@ export class InteractionSystem extends System {
         event.preventDefault();
         const localPlayer = this.world.getPlayer();
         if (localPlayer) {
-          // Check for debouncing to prevent duplicate pickup requests
-          const pickupKey = `${localPlayer.id}:${target.id}`;
-          const now = Date.now();
-          const lastRequest = this.recentPickupRequests.get(pickupKey);
+          // Check distance to item
+          const distance = this.calculateDistance(localPlayer.position, target.position);
+          const pickupRange = 2.0; // Same as ItemEntity interaction range
           
-          if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
+          if (distance > pickupRange) {
+            // Too far - move towards the item first
+            this.moveToItem(localPlayer, target);
             return;
           }
           
-          // Record this pickup request
-          this.recentPickupRequests.set(pickupKey, now);
-          
-          // Clean up old entries (older than 5 seconds)
-          for (const [key, timestamp] of this.recentPickupRequests.entries()) {
-            if (now - timestamp > 5000) {
-              this.recentPickupRequests.delete(key);
-            }
-          }
-          
-          if (this.world.network?.send) {
-            this.world.network.send('pickupItem', { itemId: target.id });
-          } else {
-            console.warn('[InteractionSystem] No network.send available for pickup');
-            // Fallback for single-player
-            const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
-            if (entity?.handleInteraction) {
-              entity.handleInteraction({
-                entityId: target.id,
-                playerId: localPlayer.id,
-                playerPosition: localPlayer.position
-              });
-            }
-          }
+          // Close enough - proceed with pickup
+          this.attemptPickup(localPlayer, target);
         }
         return;
       }
@@ -628,39 +614,21 @@ export class InteractionSystem extends System {
           icon: '🎒',
           enabled: true,
           handler: () => {
-            // Check for debouncing to prevent duplicate pickup requests
-            const pickupKey = `${playerId}:${target.id}`;
-            const now = Date.now();
-            const lastRequest = this.recentPickupRequests.get(pickupKey);
+            const player = this.world.getPlayer();
+            if (!player) return;
             
-            if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
+            // Check distance to item
+            const distance = this.calculateDistance(player.position, target.position);
+            const pickupRange = 2.0; // Same as ItemEntity interaction range
+            
+            if (distance > pickupRange) {
+              // Too far - move towards the item first
+              this.moveToItem(player, target);
               return;
             }
             
-            // Record this pickup request
-            this.recentPickupRequests.set(pickupKey, now);
-            
-            // Clean up old entries (older than 5 seconds)
-            for (const [key, timestamp] of this.recentPickupRequests.entries()) {
-              if (now - timestamp > 5000) {
-                this.recentPickupRequests.delete(key);
-              }
-            }
-            
-            if (this.world.network?.send) {
-              this.world.network.send('pickupItem', { itemId: target.id });
-            } else {
-              console.warn('[InteractionSystem] No network.send available for pickup');
-              // Fallback for single-player
-              const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
-              if (entity?.handleInteraction) {
-                entity.handleInteraction({
-                  entityId: target.id,
-                  playerId,
-                  playerPosition: target.position
-                });
-              }
-            }
+            // Close enough - proceed with pickup
+            this.attemptPickup(player, target);
           }
         });
         actions.push({
@@ -961,5 +929,119 @@ export class InteractionSystem extends System {
       message,
       type: 'examine'
     });
+  }
+
+  // === Distance-based pickup helper methods ===
+
+  /**
+   * Calculate distance between two positions
+   */
+  private calculateDistance(pos1: Position3D, pos2: Position3D): number {
+    const dx = pos1.x - pos2.x;
+    const dz = pos1.z - pos2.z;
+    return Math.sqrt(dx * dx + dz * dz);
+  }
+
+  /**
+   * Move player towards an item
+   */
+  private moveToItem(player: Entity, target: { id: string; position: Position3D }): void {
+    // Track this pickup for auto-completion when movement finishes
+    this.pendingPickups.set(player.id, {
+      itemId: target.id,
+      position: target.position
+    });
+    
+    // Send move request to get closer to the item
+    if (this.world.network?.send) {
+      this.world.network.send('moveRequest', {
+        target: [target.position.x, target.position.y, target.position.z],
+        runMode: false
+      });
+    }
+    
+    // Show feedback message
+    this.world.emit(EventType.UI_MESSAGE, {
+      playerId: player.id,
+      message: 'Moving towards the item...',
+      type: 'info'
+    });
+  }
+
+  /**
+   * Attempt to pickup an item (with debouncing)
+   */
+  private attemptPickup(player: Entity, target: { id: string; position: Position3D; entity: unknown }): void {
+    // Check for debouncing to prevent duplicate pickup requests
+    const pickupKey = `${player.id}:${target.id}`;
+    const now = Date.now();
+    const lastRequest = this.recentPickupRequests.get(pickupKey);
+    
+    if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
+      return;
+    }
+    
+    // Record this pickup request
+    this.recentPickupRequests.set(pickupKey, now);
+    
+    // Clean up old entries (older than 5 seconds)
+    for (const [key, timestamp] of this.recentPickupRequests.entries()) {
+      if (now - timestamp > 5000) {
+        this.recentPickupRequests.delete(key);
+      }
+    }
+    
+    if (this.world.network?.send) {
+      this.world.network.send('pickupItem', { itemId: target.id });
+    } else {
+      console.warn('[InteractionSystem] No network.send available for pickup');
+      // Fallback for single-player
+      const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
+      if (entity?.handleInteraction) {
+        entity.handleInteraction({
+          entityId: target.id,
+          playerId: player.id,
+          playerPosition: player.position
+        });
+      }
+    }
+  }
+
+  override destroy(): void {
+    // Clean up event listeners
+    this.world.off(EventType.ENTITY_MODIFIED, this.onEntityModified.bind(this));
+    super.destroy();
+  }
+
+  /**
+   * Handle entity modification events to detect movement completion
+   */
+  private onEntityModified(data: { id: string; changes: { e?: string; p?: number[] } }): void {
+    // Check if this is a movement completion event (idle state)
+    if (data.changes.e === 'idle') {
+      const player = this.world.getPlayer();
+      if (player && player.id === data.id) {
+        // Check if we have a pending pickup for this player
+        const pendingPickup = this.pendingPickups.get(player.id);
+        if (pendingPickup) {
+          // Check if we're close enough to the item now
+          const distance = this.calculateDistance(player.position, pendingPickup.position);
+          const pickupRange = 2.0;
+          
+          if (distance <= pickupRange) {
+            // Close enough - attempt pickup
+            const target = {
+              id: pendingPickup.itemId,
+              position: pendingPickup.position,
+              entity: null // We don't have the entity reference here
+            };
+            this.attemptPickup(player, target);
+          }
+          
+          // Clear the pending pickup regardless
+          this.pendingPickups.delete(player.id);
+        }
+      }
+    }
   }
 }
