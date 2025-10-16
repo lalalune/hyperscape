@@ -49,3 +49,6 @@ tmp/
 *.sqlite-wal
 
 .turbo.claude-plugin/
+
+assets/
+.turbo/

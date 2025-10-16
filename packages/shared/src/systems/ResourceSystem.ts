@@ -187,14 +187,14 @@ export class ResourceSystem extends SystemBase {
       type: 'resource' as const,
       name: 'Test Tree',
       position: { x: 5, y: 43, z: 5 },
-      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, // Identity quaternion (no rotation)
       scale: { x: 1, y: 1, z: 1 },
       visible: true,
       interactable: true,
       interactionType: 'harvest',
       interactionDistance: 3,
       description: 'A test tree at origin',
-      model: 'asset://models/tree/tree.glb',
+      model: 'asset://models/basic-tree/basic-tree.glb',
       properties: {},
       resourceType: 'tree',
       resourceId: 'normal_tree',
@@ -242,13 +242,22 @@ export class ResourceSystem extends SystemBase {
       this.resources.set(createResourceID(resource.id), resource);
       
       // Spawn actual ResourceEntity instance
+      // Create proper quaternion for random Y-axis rotation
+      const randomYRotation = Math.random() * Math.PI * 2;
+      const quat = {
+        x: 0,
+        y: Math.sin(randomYRotation / 2),
+        z: 0,
+        w: Math.cos(randomYRotation / 2)
+      };
+      
       const resourceConfig = {
         id: resource.id,
         type: 'resource' as const,
         name: resource.name,
         position: { x: resource.position.x, y: resource.position.y, z: resource.position.z },
-        rotation: { x: 0, y: Math.random() * Math.PI * 2, z: 0, w: 1 }, // Random rotation for variety
-        scale: { x: 1, y: 1, z: 1 }, // Node scale (ResourceEntity handles mesh scale internally)
+        rotation: quat, // Proper quaternion for random Y-axis rotation
+        scale: { x: 1, y: 1, z: 1 }, // ALWAYS uniform scale - ResourceEntity handles mesh scale
         visible: true,
         interactable: true,
         interactionType: 'harvest',
@@ -294,7 +303,8 @@ export class ResourceSystem extends SystemBase {
   private getModelPathForResource(type: string, subType?: string): string {
     switch (type) {
       case 'tree':
-        return 'asset://models/tree/tree.glb';
+        // Use the high-quality Meshy-generated tree model
+        return 'asset://models/basic-tree/basic-tree.glb';
       case 'fishing_spot':
         return ''; // Fishing spots don't need models
       case 'ore':
