@@ -1,5 +1,5 @@
 import { MessagePayload, HandlerCallback } from "@elizaos/core";
-import { messageReceivedHandler } from "./handlers/messageReceivedHandler";
+import { handleMessage } from "./handlers/native-message-handler";
 
 export enum hyperscapeEventType {
   MESSAGE_RECEIVED = "HYPERSCAPE_MESSAGE_RECEIVED",
@@ -13,11 +13,13 @@ export const EventType = hyperscapeEventType;
 
 const defaultCallback: HandlerCallback = async () => [];
 
+/**
+ * Native event handlers - process messages internally without bootstrap
+ */
 export const hyperscapeEvents = {
   [hyperscapeEventType.MESSAGE_RECEIVED]: [
     async (payload: MessagePayload) => {
-      await messageReceivedHandler({
-        // @ts-ignore - Runtime type issue
+      await handleMessage({
         runtime: payload.runtime,
         message: payload.message,
         callback: payload.callback || defaultCallback,
@@ -28,8 +30,7 @@ export const hyperscapeEvents = {
 
   [hyperscapeEventType.VOICE_MESSAGE_RECEIVED]: [
     async (payload: MessagePayload) => {
-      await messageReceivedHandler({
-        // @ts-ignore - Runtime type issue
+        await handleMessage({
         runtime: payload.runtime,
         message: payload.message,
         callback: payload.callback || defaultCallback,

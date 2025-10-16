@@ -1,102 +1,31 @@
 /**
  * Content and state management types for Hyperscape plugin
+ *
+ * CLAUDE.md Compliance: State management classes moved to ../classes/state-classes.ts
+ * Prefer classes over interfaces for types with behavior
  */
 
 import { Action, Provider } from "@elizaos/core";
 import { World, Vector3 } from "./core-types";
 import { Position, ContentInstance } from "./core-types";
 
-// RPG State Manager interface
-export interface RPGStateManager {
-  // Player state
-  getPlayerState(playerId: string): PlayerState | null;
-  updatePlayerState(playerId: string, updates: Partial<PlayerState>): void;
+// Re-export state management classes (CLAUDE.md: prefer classes over interfaces)
+export {
+  RPGStateManager,
+  PlayerState,
+  RPGPlayerStats,
+  SkillInfo,
+  InventoryState,
+  InventoryItem,
+  CombatState,
+  CombatStats,
+} from "../classes/state-classes";
 
-  // Inventory management
-  getInventory(playerId: string): InventoryState;
-  addItem(playerId: string, itemId: string, quantity: number): boolean;
-  removeItem(playerId: string, itemId: string, quantity: number): boolean;
+// Note: All state management types converted to classes per CLAUDE.md
+// Classes provide better encapsulation and behavior management
+// See ../classes/state-classes.ts for implementations
 
-  // Combat state
-  getCombatState(entityId: string): CombatState | null;
-  updateCombatState(entityId: string, updates: Partial<CombatState>): void;
-
-  // World state
-  getWorldState(): WorldState;
-  saveWorldState(): Promise<void>;
-  loadWorldState(): Promise<void>;
-}
-
-// Player state
-export interface PlayerState {
-  id: string;
-  name: string;
-  level: number;
-  experience: number;
-  health: number;
-  maxHealth: number;
-  stamina: number;
-  maxStamina: number;
-  position: Position;
-  stats: RPGPlayerStats;
-  skills: Record<string, SkillInfo>;
-}
-
-// Player stats - renamed to avoid conflict with imported PlayerStats
-export interface RPGPlayerStats {
-  strength: number;
-  dexterity: number;
-  intelligence: number;
-  constitution: number;
-  wisdom: number;
-  charisma: number;
-}
-
-// Skill information
-export interface SkillInfo {
-  level: number;
-  experience: number;
-  maxExperience: number;
-}
-
-// Inventory state
-export interface InventoryState {
-  items: InventoryItem[];
-  capacity: number;
-  weight: number;
-  maxWeight: number;
-}
-
-// Inventory item
-export interface InventoryItem {
-  id: string;
-  itemId: string;
-  quantity: number;
-  slot?: number;
-  equipped?: boolean;
-  metadata?: Record<string, unknown>;
-}
-
-// Combat state
-export interface CombatState {
-  inCombat: boolean;
-  target?: string;
-  attackStyle?: "melee" | "ranged" | "magic";
-  lastAttackTime?: number;
-  combatStats: CombatStats;
-}
-
-// Combat stats
-export interface CombatStats {
-  attackPower: number;
-  defense: number;
-  criticalChance: number;
-  criticalDamage: number;
-  accuracy: number;
-  evasion: number;
-}
-
-// World state
+// World state (keeping as interface - no behavior)
 export interface WorldState {
   id: string;
   name: string;
@@ -122,7 +51,7 @@ export interface EntityState {
   health?: number;
   maxHealth?: number;
   behavior?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, string | number | boolean>;
 }
 
 // Resource state
@@ -147,7 +76,7 @@ export interface EntityModificationData {
   velocity?: Position;
   health?: number;
   state?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, string | number | boolean>;
 }
 
 // Teleport options
@@ -173,21 +102,7 @@ export interface PhysicsBodyOptions {
   };
 }
 
-// Character controller options
-export interface CharacterControllerOptions {
-  height?: number;
-  radius?: number;
-  stepHeight?: number;
-  slopeLimit?: number;
-  skinWidth?: number;
-  minMoveDistance?: number;
-  center?: { x: number; y: number; z: number };
-  mass?: number;
-  drag?: number;
-  angularDrag?: number;
-  useGravity?: boolean;
-  isKinematic?: boolean;
-}
+// CharacterControllerOptions is now exported from core-types.ts to avoid circular dependencies
 
 // Physics body options
 export interface PhysicsBodyOptions {
@@ -216,8 +131,8 @@ export interface EntityModificationData {
   position?: Vector3;
   rotation?: { x: number; y: number; z: number; w: number };
   scale?: { x: number; y: number; z: number };
-  components?: Record<string, any>;
-  metadata?: Record<string, unknown>;
+  components?: Record<string, string | number | boolean>;
+  metadata?: Record<string, string | number | boolean>;
   visible?: boolean;
   active?: boolean;
 }

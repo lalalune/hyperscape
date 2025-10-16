@@ -7,6 +7,7 @@ import type {
   HandlerCallback,
   State,
 } from "@elizaos/core";
+import type { ActionHandlerOptions } from "../types/core-types";
 
 /**
  * Action representing the IGNORE action. This action is used when ignoring the user in a conversation.
@@ -43,7 +44,7 @@ export const ignoreAction: Action = {
     _runtime: IAgentRuntime,
     _message: Memory,
     _state: State,
-    _options: any,
+    _options: ActionHandlerOptions,
     callback: HandlerCallback,
     responses?: Memory[],
   ): Promise<ActionResult> => {
