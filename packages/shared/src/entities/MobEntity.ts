@@ -142,6 +142,7 @@ export class MobEntity extends CombatantEntity {
     // Set entity properties for systems to access
     this.setProperty('mobType', config.mobType);
     this.setProperty('level', config.level);
+    this.setProperty('attackPower', config.attackPower);
     this.setProperty('health', { current: config.currentHealth, max: config.maxHealth });
     
     // Add stats component for skills system compatibility

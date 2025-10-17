@@ -34,7 +34,7 @@ import { EventType } from '../types/events';
 import { TerrainSystem } from './TerrainSystem';
 import { SystemBase } from './SystemBase';
 import { getItem } from '../data/items';
-import { getMobById } from '../data/mobs';
+import { getMobById, ALL_MOBS } from '../data/mobs';
 import { getExternalNPC } from '../utils/ExternalAssetUtils';
 
 export class EntityManager extends SystemBase {
@@ -84,15 +84,19 @@ export class EntityManager extends SystemBase {
       });
     });
     // EntityManager should handle spawn REQUESTS, not completed spawns
-    this.subscribe(EventType.MOB_SPAWN_REQUEST, (data) => {
+    this.subscribe(EventType.MOB_SPAWN_REQUEST, async (data) => {
       const typedData = data as { mobType: string; position: { x: number; y: number; z: number }; level?: number; customId?: string };
-      this.handleMobSpawn({
-        mobType: typedData.mobType,
-        position: typedData.position,
-        level: typedData.level || 1,
-        customId: typedData.customId || `mob_${Date.now()}`,
-        name: typedData.mobType
-      });
+      try {
+        await this.handleMobSpawn({
+          mobType: typedData.mobType,
+          position: typedData.position,
+          level: typedData.level || 1,
+          customId: typedData.customId || `mob_${Date.now()}`,
+          name: typedData.mobType
+        });
+      } catch (error) {
+        console.error(`[EntityManager] Error handling MOB_SPAWN_REQUEST for ${typedData.mobType}:`, error);
+      }
     });
     this.subscribe<{ npcId: string; name: string; type: string; position: { x: number; y: number; z: number }; services?: string[]; modelPath?: string }>(EventType.NPC_SPAWN_REQUEST, (data) => this.handleNPCSpawnRequest(data));
     this.subscribe(EventType.MOB_ATTACKED, (data) => {
@@ -188,37 +192,14 @@ export class EntityManager extends SystemBase {
   }
 
   async spawnEntity(config: EntityConfig): Promise<Entity | null> {
-    // CRITICAL FIX: Validate config with comprehensive checks
-    if (!config.type) {
-      console.error('[EntityManager] Invalid entity config: missing type');
-      return null;
-    }
-
     // Generate entity ID if not provided
     if (!config.id) {
       config.id = `entity_${this.nextEntityId++}`;
     }
-    
-    // CRITICAL FIX: Validate entity ID format to prevent sync issues
-    if (typeof config.id !== 'string' || config.id.length === 0) {
-      console.error('[EntityManager] Invalid entity ID format:', config.id);
-      return null;
-    }
-    
+        
     // Check if entity already exists
     if (this.entities.has(config.id)) {
       return this.entities.get(config.id) || null;
-    }
-
-    // CRITICAL FIX: Validate position data
-    if (config.position && (!Number.isFinite(config.position.x) || !Number.isFinite(config.position.y) || !Number.isFinite(config.position.z))) {
-      console.error('[EntityManager] Invalid position data for entity:', config.id, config.position);
-      return null;
-    }
-    
-    // VALIDATE config before creating entity
-    if (!config.position || !Number.isFinite(config.position.x) || !Number.isFinite(config.position.y) || !Number.isFinite(config.position.z)) {
-      throw new Error(`Invalid position for entity ${config.id}: ${JSON.stringify(config.position)}`);
     }
     
     if (config.position.y < -200 || config.position.y > 2000) {
@@ -269,16 +250,28 @@ export class EntityManager extends SystemBase {
     // Broadcast new entity to all connected clients (server-only)
     if (this.world.isServer) {
       const network = this.world.network;
+      console.log(`[EntityManager] 🔍 Network check - isServer: ${this.world.isServer}, network exists: ${!!network}, send method exists: ${!!(network && typeof network.send === 'function')}`);
+      
       if (network && typeof network.send === 'function') {
         try {
           console.log(`[EntityManager] Broadcasting entity ${config.id} to clients`);
           const serializedData = entity.serialize();
           console.log(`[EntityManager] Serialized data for ${config.id}:`, serializedData);
+          
+          // Check if there are any connected clients
+          const socketCount = (network as any).sockets?.size || 0;
+          console.log(`[EntityManager] Connected clients: ${socketCount}`);
+          
           network.send('entityAdded', serializedData);
+          console.log(`[EntityManager] ✅ Successfully sent entityAdded packet for ${config.id}`);
         } catch (error) {
-          console.warn(`[EntityManager] Failed to broadcast entity ${config.id}:`, error);
+          console.error(`[EntityManager] ❌ Failed to broadcast entity ${config.id}:`, error);
         }
+      } else {
+        console.error(`[EntityManager] ❌ Network not available or send method missing for entity ${config.id}`);
       }
+    } else {
+      console.log(`[EntityManager] 👤 Client detected, skipping broadcast for entity ${config.id}`);
     }
     
     return entity;
@@ -480,7 +473,6 @@ export class EntityManager extends SystemBase {
   }
 
   async handleMobSpawn(data: MobSpawnData): Promise<void> {
-    console.log('[EntityManager] dada 🚀 handleMobSpawn called with:', data);
         
     // Strong type assumption - MobSpawnData.position is always Position3D with valid coordinates
     // If invalid coordinates are passed, that's a bug in the calling code
@@ -494,34 +486,31 @@ export class EntityManager extends SystemBase {
       throw new Error('[EntityManager] Mob type is required');
     }
     
-    console.log(`[EntityManager] dada 📍 Spawning ${mobType} at position:`, position);
-    
     const level = data.level || 1;
-
     // Ground to terrain height map explicitly for server/client authoritative spawn
     const terrain = this.world.getSystem<TerrainSystem>('terrain');
     if (terrain) {
       const th = terrain.getHeightAt(position.x, position.z);
       if (Number.isFinite(th)) {
         position = { x: position.x, y: (th as number) + 0.1, z: position.z };
-        console.log(`[EntityManager] dada 🏔️ Grounded to terrain height: ${th}, final position:`, position);
       }
     }
     
     // Get mob data to access modelPath
     const mobDataFromDB = getMobById(mobType);
-    const modelPath = mobDataFromDB?.modelPath;
-
+    
+    if (!mobDataFromDB) {
+      throw new Error(`[EntityManager] Mob ${mobType} not found in database`);
+    }
+    
+    const modelPath = mobDataFromDB.modelPath;
     if(!modelPath) {
-      console.error(`[EntityManager] dada ❌ Mob ${mobType} has no model path. Mob data:`, mobDataFromDB);
       throw new Error(`[EntityManager] Mob ${mobType} has no model path`);
     }
-    console.log(`[EntityManager] dada 🎨 Using model path: ${modelPath}`);
     
     // CRITICAL FIX: Always use the provided customId to ensure client/server ID consistency
     // Only generate a new ID if customId is not provided (fallback case)
     const mobId = data.customId || `mob_${this.nextEntityId++}`;
-    console.log(`[EntityManager] dada 🆔 Using mob ID: ${mobId}`);
     
     const config: MobEntityConfig = {
       id: mobId,
@@ -569,19 +558,15 @@ export class EntityManager extends SystemBase {
     };
     
     const entity = await this.spawnEntity(config);
-    console.log(`[EntityManager] dada 🎯 spawnEntity returned:`, entity ? `Entity ${entity.id}` : 'null');
                 
     // Emit MOB_SPAWNED event to notify other systems (like AggroSystem)
     // that a mob has been successfully spawned
     if (entity) {
-      console.log(`[EntityManager] dada ✅ Mob ${mobType} successfully spawned with ID: ${config.id}`);
       this.emitTypedEvent(EventType.MOB_SPAWNED, {
         mobId: config.id,
         mobType: mobType,
         position: position
       });
-    } else {
-      console.error(`[EntityManager] dada ❌ Failed to spawn mob ${mobType} - spawnEntity returned null`);
     }
   }
 

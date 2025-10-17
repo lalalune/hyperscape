@@ -82,11 +82,9 @@ export class DataManager {
     // Load mobs
     const mobsRes = await fetch(`${baseUrl}/mobs.json`);
     const mobList = await mobsRes.json() as Array<MobData>;
-    console.log(`[DataManager] dada 📦 Loaded ${mobList.length} mobs from CDN:`, mobList.map(m => m.id));
     for (const mob of mobList) {
       (ALL_MOBS as Record<string, MobData>)[mob.id] = mob;
     }
-    console.log(`[DataManager] dada ✅ ALL_MOBS now contains:`, Object.keys(ALL_MOBS));
     
     // Load NPCs
     const npcsRes = await fetch(`${baseUrl}/npcs.json`);
@@ -135,19 +133,10 @@ export class DataManager {
       level2Areas: Record<string, WorldArea>;
       level3Areas: Record<string, WorldArea>;
     };
-    
-    console.log(`[DataManager] dada 🗺️ Loaded world areas data:`, {
-      starterTowns: Object.keys(worldAreasData.starterTowns),
-      level1Areas: Object.keys(worldAreasData.level1Areas),
-      level2Areas: Object.keys(worldAreasData.level2Areas),
-      level3Areas: Object.keys(worldAreasData.level3Areas)
-    });
-    
+        
     // Merge all areas into ALL_WORLD_AREAS
     Object.assign(ALL_WORLD_AREAS, worldAreasData.starterTowns, worldAreasData.level1Areas, worldAreasData.level2Areas, worldAreasData.level3Areas);
     Object.assign(STARTER_TOWNS, worldAreasData.starterTowns);
-    
-    console.log(`[DataManager] dada ✅ ALL_WORLD_AREAS now contains ${Object.keys(ALL_WORLD_AREAS).length} areas:`, Object.keys(ALL_WORLD_AREAS));
     
     // Load biomes
     const biomesRes = await fetch(`${baseUrl}/biomes.json`);

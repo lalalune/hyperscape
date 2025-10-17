@@ -492,16 +492,10 @@ export class ClientNetwork extends SystemBase {
     this.world.chat.clear();
   }
 
-  onEntityAdded = (data: EntityData) => {
-    // Add debugging for mob entities
-    if (data.type === 'mob') {
-      console.log(`[ClientNetwork] Received mob entity: ${data.id} at position:`, data.position);
-    }
-    
+  onEntityAdded = (data: EntityData) => {    
     // Add entity if method exists
     const newEntity = this.world.entities.add(data)
     if (newEntity) {
-      console.log(`[ClientNetwork] Successfully added entity ${data.id} to world`);
       this.applyPendingModifications(newEntity.id)
       // If this is the local player added after character select, force-set initial position
       const isLocalPlayer = (data as { type?: string; owner?: string }).type === 'player' && (data as { owner?: string }).owner === this.id;
@@ -509,7 +503,6 @@ export class ClientNetwork extends SystemBase {
         let pos = (data as { position?: number[] }).position as [number, number, number];
         // Safety clamp: never allow Y < 5 to prevent under-map spawn
         if (pos[1] < 5) {
-          console.warn(`[ClientNetwork] Clamping invalid spawn Y=${pos[1]} to safe height 50`);
           pos = [pos[0], 50, pos[2]];
         }
         if (newEntity instanceof PlayerLocal) {
@@ -517,8 +510,6 @@ export class ClientNetwork extends SystemBase {
           newEntity.updateServerPosition(pos[0], pos[1], pos[2]);
         }
       }
-    } else {
-      console.error(`[ClientNetwork] Failed to add entity ${data.id} to world`);
     }
   }
 
