@@ -259,16 +259,20 @@ export function CharacterSelectPage({
       if (method === "onSnapshot") {
         // Extract characters from snapshot
         const snap = data as { characters?: Character[] };
+        console.log('[CharacterSelect] 📋 Received snapshot with characters:', snap.characters);
         if (snap.characters && Array.isArray(snap.characters)) {
                     setCharacters(snap.characters);
         }
       } else if (method === "onCharacterList") {
         const listData = data as { characters: Character[] };
+        console.log('[CharacterSelect] 📋 Received character list:', listData.characters);
                 setCharacters(listData.characters);
       } else if (method === "onCharacterCreated") {
         const c = data as Character;
+        console.log('[CharacterSelect] ✅ Character created response:', c);
                 setCharacters((prev) => {
                               const newList = [...prev, c];
+                    console.log('[CharacterSelect] Updated character list:', newList);
                     return newList;
         });
         // Immediately select newly created character and go to confirm view

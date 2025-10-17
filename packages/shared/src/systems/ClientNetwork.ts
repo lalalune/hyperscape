@@ -181,14 +181,46 @@ export class ClientNetwork extends SystemBase {
   async init(options: WorldOptions): Promise<void> {
     const wsUrl = (options as { wsUrl?: string }).wsUrl
 
-    // log the call stack
-    // console.debug('ClientNetwork wsUrl:', wsUrl)
+    console.log('[ClientNetwork] 🔌 init() called with wsUrl:', wsUrl);
+    console.log('[ClientNetwork] Current WebSocket state:', {
+      hasExistingWs: !!this.ws,
+      existingReadyState: this.ws?.readyState,
+      connected: this.connected,
+      id: this.id,
+      initialized: this.initialized
+    });
+    
     const name = (options as { name?: string }).name
     const avatar = (options as { avatar?: string }).avatar
     
     if (!wsUrl) {
       console.error('[ClientNetwork] No WebSocket URL provided!')
       return
+    }
+    
+    // CRITICAL: If we already have a WORKING WebSocket, don't recreate
+    // But if it's closed or closing, we need to reconnect
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.connected) {
+      console.log('[ClientNetwork] ✅ WebSocket already connected and working, skipping init');
+      this.initialized = true;
+      return;
+    }
+    
+    // Clean up any existing WebSocket (closed, closing, or connecting but failed)
+    if (this.ws) {
+      console.log('[ClientNetwork] 🧹 Cleaning up old WebSocket (state:', this.ws.readyState, ')');
+      try {
+        this.ws.removeEventListener('message', this.onPacket);
+        this.ws.removeEventListener('close', this.onClose);
+        if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+          this.ws.close();
+        }
+      } catch (e) {
+        console.warn('[ClientNetwork] Error cleaning up old WebSocket:', e);
+      }
+      this.ws = null;
+      this.connected = false;
+      this.id = null;
     }
     
     // Try to get Privy token first, fall back to legacy auth token
@@ -227,8 +259,9 @@ export class ClientNetwork extends SystemBase {
       }, 10000)
       
       this.ws.addEventListener('open', () => {
-        // console.debug('[ClientNetwork] WebSocket connected successfully')
+        console.log('[ClientNetwork] ✅ WebSocket connected successfully');
         this.connected = true
+        this.initialized = true
         clearTimeout(timeout)
         resolve()
       })
@@ -285,7 +318,12 @@ export class ClientNetwork extends SystemBase {
       const packet = writePacket(name, data)
       this.ws.send(packet)
     } else {
-      console.warn(`[ClientNetwork] Cannot send ${name} - WebSocket not open`);
+      console.warn(`[ClientNetwork] Cannot send ${name} - WebSocket not open. State:`, {
+        hasWs: !!this.ws,
+        readyState: this.ws?.readyState,
+        connected: this.connected,
+        id: this.id
+      });
     }
   }
 
@@ -342,11 +380,22 @@ export class ClientNetwork extends SystemBase {
     // Auto-enter world if in character-select mode and we have a selected character
     const isCharacterSelectMode = Array.isArray(data.entities) && data.entities.length === 0 && Array.isArray((data as { characters?: unknown[] }).characters);
     
+    console.log('[ClientNetwork] 🎮 Snapshot received - checking character select mode:', {
+      isCharacterSelectMode,
+      entitiesLength: data.entities?.length,
+      hasCharactersArray: Array.isArray((data as { characters?: unknown[] }).characters)
+    });
+    
     if (isCharacterSelectMode && typeof localStorage !== 'undefined') {
       const selectedCharacterId = localStorage.getItem('selectedCharacterId');
+      console.log('[ClientNetwork] 📋 Selected character ID from localStorage:', selectedCharacterId);
+      
       if (selectedCharacterId) {
         // Send enterWorld immediately so server spawns the selected character
+        console.log('[ClientNetwork] 🚪 Sending enterWorld with characterId:', selectedCharacterId);
         this.send('enterWorld', { characterId: selectedCharacterId });
+      } else {
+        console.log('[ClientNetwork] ⚠️ No selectedCharacterId in localStorage, cannot auto-enter world');
       }
     }
     // Ensure Physics is fully initialized before processing entities
@@ -811,10 +860,29 @@ export class ClientNetwork extends SystemBase {
   onResourceSpawned = (data: { id: string; type: string; position: { x: number; y: number; z: number } }) => {
     this.world.emit(EventType.RESOURCE_SPAWNED, data)
   }
-  onResourceDepleted = (data: { resourceId: string; position?: { x: number; y: number; z: number } }) => {
+  onResourceDepleted = (data: { resourceId: string; position?: { x: number; y: number; z: number }; depleted?: boolean }) => {
+    console.log('[ClientNetwork] 🪵 Resource depleted:', data.resourceId);
+    
+    // Update the ResourceEntity visual
+    const entity = this.world.entities.get(data.resourceId);
+    if (entity && typeof (entity as unknown as { updateFromNetwork?: (data: Record<string, unknown>) => void }).updateFromNetwork === 'function') {
+      (entity as unknown as { updateFromNetwork: (data: Record<string, unknown>) => void }).updateFromNetwork({ depleted: true });
+    }
+    
+    // Also emit the event for other systems
     this.world.emit(EventType.RESOURCE_DEPLETED, data)
   }
-  onResourceRespawned = (data: { resourceId: string; position?: { x: number; y: number; z: number } }) => {
+  
+  onResourceRespawned = (data: { resourceId: string; position?: { x: number; y: number; z: number }; depleted?: boolean }) => {
+    console.log('[ClientNetwork] 🌳 Resource respawned:', data.resourceId);
+    
+    // Update the ResourceEntity visual
+    const entity = this.world.entities.get(data.resourceId);
+    if (entity && typeof (entity as unknown as { updateFromNetwork?: (data: Record<string, unknown>) => void }).updateFromNetwork === 'function') {
+      (entity as unknown as { updateFromNetwork: (data: Record<string, unknown>) => void }).updateFromNetwork({ depleted: false });
+    }
+    
+    // Also emit the event for other systems
     this.world.emit(EventType.RESOURCE_RESPAWNED, data)
   }
 
@@ -956,7 +1024,13 @@ export class ClientNetwork extends SystemBase {
   }
 
   onClose = (code: CloseEvent) => {
-    // console.debug('[ClientNetwork] WebSocket closed:', code.code, code.reason)
+    console.error('[ClientNetwork] 🔌 WebSocket CLOSED:', {
+      code: code.code,
+      reason: code.reason,
+      wasClean: code.wasClean,
+      currentId: this.id,
+      stackTrace: new Error().stack
+    });
     this.connected = false
     this.world.chat.add({
       id: uuid(),

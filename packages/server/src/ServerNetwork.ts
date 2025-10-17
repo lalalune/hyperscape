@@ -129,7 +129,10 @@ type SocketInterface = ServerSocket;
 // Entity already has velocity property
 
 const SAVE_INTERVAL = parseInt(process.env.SAVE_INTERVAL || '60'); // seconds
-const PING_RATE = 1; // seconds
+// WebSocket heartbeat configuration (relaxed for development by default)
+const WS_PING_INTERVAL_SEC = parseInt(process.env.WS_PING_INTERVAL_SEC || '5', 10);
+const WS_PING_MISS_TOLERANCE = parseInt(process.env.WS_PING_MISS_TOLERANCE || '3', 10);
+const WS_PING_GRACE_MS = parseInt(process.env.WS_PING_GRACE_MS || '5000', 10);
 const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';  // Safe default height
 
 const HEALTH_MAX = 100;
@@ -183,6 +186,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   
   /** Interval handle for socket health checks (ping/pong) */
   socketIntervalId: NodeJS.Timeout;
+  // Heartbeat state
+  private socketFirstSeenAt: Map<string, number> = new Map();
+  private socketMissedPongs: Map<string, number> = new Map();
   
   /** Interval handle for periodic player data saves */
   saveTimerId: NodeJS.Timeout | null;
@@ -236,7 +242,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.id = 0;
     this.ids = -1;
     this.sockets = new Map();
-    this.socketIntervalId = setInterval(() => this.checkSockets(), PING_RATE * 1000);
+    this.socketIntervalId = setInterval(() => this.checkSockets(), WS_PING_INTERVAL_SEC * 1000);
     this.saveTimerId = null;
     this.isServer = true;
     this.isClient = false;
@@ -272,8 +278,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       };
       
       
-      // Forward to ResourceSystem
-      this.world.emit(EventType.RESOURCE_GATHERING_STARTED, {
+      // Forward to ResourceSystem - emit RESOURCE_GATHER which ResourceSystem subscribes to
+      this.world.emit(EventType.RESOURCE_GATHER, {
         playerId: playerEntity.id,
         resourceId: payload.resourceId,
         playerPosition: playerPosition
@@ -320,16 +326,28 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   }
 
   private async onCharacterCreate(socket: SocketInterface, data: unknown): Promise<void> {
+    console.log('[ServerNetwork] 🎭 onCharacterCreate called with data:', data);
     
     const payload = (data as { name?: string }) || {};
     const name = (payload.name || '').trim().slice(0, 20) || 'Adventurer';
+    
+    console.log('[ServerNetwork] Raw name from payload:', payload.name);
+    console.log('[ServerNetwork] Processed name:', name);
     
     // Basic validation: alphanumeric plus spaces, 3-20 chars
     const safeName = name.replace(/[^a-zA-Z0-9 ]/g, '').trim();
     const finalName = safeName.length >= 3 ? safeName : 'Adventurer';
     
+    console.log('[ServerNetwork] Final validated name:', finalName);
+    
     const id = uuid();
     const accountId = socket.accountId || ''
+    
+    console.log('[ServerNetwork] Character creation params:', {
+      characterId: id,
+      accountId,
+      finalName
+    });
     
     if (!accountId) {
       console.error('[ServerNetwork] ❌ ERROR: No accountId on socket!', socket.id)
@@ -363,6 +381,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         return
       }
       
+      console.log('[ServerNetwork] ✅ Character creation successful, sending response');
+      
     } catch (err) {
       console.error('[ServerNetwork] ❌ EXCEPTION in createCharacter:', err)
       this.sendTo(socket.id, 'showToast', { 
@@ -373,6 +393,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
     
     const responseData = { id, name: finalName }
+    
+    console.log('[ServerNetwork] Sending characterCreated response:', responseData);
     
     try {
       this.sendTo(socket.id, 'characterCreated', responseData)
@@ -390,13 +412,22 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   }
 
   private async onEnterWorld(socket: SocketInterface, data: unknown): Promise<void> {
+    console.log('[ServerNetwork] 🚪 onEnterWorld called with data:', data);
+    
     // Spawn the entity now, preserving legacy spawn shape
     if (socket.player) {
+      console.log('[ServerNetwork] Player already spawned, skipping');
       return; // Already spawned
     }
     const accountId = socket.accountId || undefined;
     const payload = (data as { characterId?: string }) || {};
     const characterId = payload.characterId || null;
+    
+    console.log('[ServerNetwork] Enter world params:', {
+      accountId,
+      characterId,
+      hasSocket: !!socket
+    });
     
     // Load character data from DB if characterId provided
     let name = 'Adventurer';
@@ -406,21 +437,28 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         const databaseSystem = this.world.getSystem('database') as import('./DatabaseSystem').DatabaseSystem | undefined
         if (databaseSystem) {
           const characters = await databaseSystem.getCharactersAsync(accountId)
+          console.log('[ServerNetwork] Loaded characters for account:', characters);
           characterData = characters.find(c => c.id === characterId) || null
           if (characterData) {
             name = characterData.name
+            console.log('[ServerNetwork] ✅ Found character:', characterData);
           } else {
-            console.warn(`[ServerNetwork] Character ${characterId} not found for account ${accountId}`)
+            console.warn(`[ServerNetwork] ❌ Character ${characterId} not found for account ${accountId}`)
           }
         }
       } catch (err) {
-        console.error('[ServerNetwork] Failed to load character data:', err)
+        console.error('[ServerNetwork] ❌ Failed to load character data:', err)
       }
+    } else {
+      console.warn('[ServerNetwork] ⚠️ Missing characterId or accountId for enterWorld');
     }
+    
+    console.log('[ServerNetwork] Will spawn player with name:', name);
     
     const avatar = undefined;
     const roles: string[] = [];
     
+    // Require a characterId to ensure persistence uses stable IDs
     const entityId = characterId || socket.id;
     if (!characterId) {
       console.warn(`[ServerNetwork] No characterId provided to enterWorld, using socketId`)
@@ -493,8 +531,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         // Send inventory snapshot immediately from persistence to avoid races
         try {
           const dbSys = this.world.getSystem?.('database') as DatabaseSystemOperations | undefined
-          const rows = dbSys?.getPlayerInventoryAsync ? await dbSys.getPlayerInventoryAsync(socket.player.id) : []
-          const coinsRow = dbSys?.getPlayerAsync ? await dbSys.getPlayerAsync(socket.player.id) : null
+          const persistenceId = characterId || socket.player.id
+          const rows = dbSys?.getPlayerInventoryAsync ? await dbSys.getPlayerInventoryAsync(persistenceId) : []
+          const coinsRow = dbSys?.getPlayerAsync ? await dbSys.getPlayerAsync(persistenceId) : null
           const sorted = rows
             .map(r => ({
               rawSlot: Number.isFinite(r.slotIndex) && (r.slotIndex as number) >= 0 ? (r.slotIndex as number) : Number.MAX_SAFE_INTEGER,
@@ -805,16 +844,49 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    */
   checkSockets(): void {
     // see: https://www.npmjs.com/package/ws#how-to-detect-and-close-broken-connections
-    const dead: SocketInterface[] = [];
+    const now = Date.now();
+    const toDisconnect: Array<{ socket: SocketInterface; reason: string }> = [];
     this.sockets.forEach(socket => {
-      if (!socket.alive) {
-        dead.push(socket);
-      } else {
+      // Grace period for new sockets
+      if (!this.socketFirstSeenAt.has(socket.id)) {
+        this.socketFirstSeenAt.set(socket.id, now);
+        this.socketMissedPongs.set(socket.id, 0);
         socket.ping?.();
+        return;
       }
+
+      const firstSeen = this.socketFirstSeenAt.get(socket.id) || now;
+      const withinGrace = (now - firstSeen) < WS_PING_GRACE_MS;
+
+      if (withinGrace) {
+        // During grace, just ping and do not count misses
+        socket.ping?.();
+        return;
+      }
+
+      if (!socket.alive) {
+        const misses = (this.socketMissedPongs.get(socket.id) || 0) + 1;
+        this.socketMissedPongs.set(socket.id, misses);
+        if (misses >= WS_PING_MISS_TOLERANCE) {
+          toDisconnect.push({ socket, reason: `missed_pong x${misses}` });
+          return;
+        }
+      } else {
+        // Reset miss counter on successful pong seen in last interval
+        this.socketMissedPongs.set(socket.id, 0);
+      }
+
+      // Mark not-alive and send ping to solicit next pong
+      socket.ping?.();
     });
-    dead.forEach(socket => {
+
+    toDisconnect.forEach(({ socket, reason }) => {
+      try {
+        console.warn(`[ServerNetwork] Disconnecting socket ${socket.id} due to ${reason}`);
+      } catch {}
       socket.disconnect?.();
+      this.socketFirstSeenAt.delete(socket.id);
+      this.socketMissedPongs.delete(socket.id);
     });
   }
 
@@ -855,8 +927,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Cast to SocketInterface since we know it has the properties we need
     const serverSocket = socket as SocketInterface
     // Handle socket disconnection
-      // Only log disconnects if debugging connection issues
-      // console.log(`[ServerNetwork] Socket ${serverSocket.id} disconnected with code:`, code);
+    console.log(`[ServerNetwork] 🔌 Socket ${serverSocket.id} disconnected with code:`, code, {
+      hadPlayer: !!serverSocket.player,
+      playerId: serverSocket.player?.id,
+      stackTrace: new Error().stack?.split('\n').slice(1, 4).join('\n')
+    });
     
     // Remove socket from our tracking
     this.sockets.delete(serverSocket.id);
@@ -1255,31 +1330,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       let characters: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> = []
       characters = await this.loadCharacterList(user.id)
       
+      console.log('[ServerNetwork] 📋 Character list being sent in snapshot:', characters);
+      
       // CRITICAL: Only create player entity if NOT in character select mode
       // If we have characters, wait for enterWorld to create the actual character entity
       if (characters.length === 0) {
-        // No characters → legacy flow, spawn immediately
-        // DEBUG: Check if position is actually being passed correctly
-        if (Math.abs(spawnPosition[1]) < 1) {
-          console.error('[ServerNetwork] WARNING: Spawn Y is near ground level:', spawnPosition[1]);
-        }
-
-        const createdEntity = this.world.entities.add ? this.world.entities.add(
-          {
-            id: socketId,
-            type: 'player',
-            position: spawnPosition,
-            quaternion: Array.isArray(this.spawn.quaternion) ? [...this.spawn.quaternion] as [number, number, number, number] : [0,0,0,1],
-            owner: socket.id,
-            userId: user.id,
-            name: name || user.name,
-            health: HEALTH_MAX,
-            avatar: user.avatar || this.world.settings.avatar?.url || 'asset://avatar.vrm',
-            sessionAvatar: avatar || undefined,
-            roles: user.roles,
-          }
-        ) : undefined;
-        socket.player = createdEntity as Entity || undefined;
+        // No characters → Show character creation screen, DON'T auto-spawn
+        console.log(`[ServerNetwork] No characters found for ${user.name}, showing character select`);
+        // Don't create player entity yet - wait for character creation
       } else {
         // Character select mode - don't spawn player yet, wait for enterWorld
       }
