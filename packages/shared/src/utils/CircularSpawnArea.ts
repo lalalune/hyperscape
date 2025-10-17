@@ -1,7 +1,7 @@
  
 import type { Position3D as Vector3, Position3D } from '../types';
 import type { SpawnArea } from '../types/components';
-import { calculateDistance2D } from '../utils/EntityUtils';
+import { calculateDistance2D } from './EntityUtils';
 import THREE from '../extras/three';
 
 const _v1 = new THREE.Vector3()
