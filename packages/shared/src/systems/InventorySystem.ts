@@ -61,12 +61,15 @@ export class InventorySystem extends SystemBase {
     }
     
     // Subscribe to inventory events
-    this.subscribe(EventType.PLAYER_REGISTERED, (data: { playerId: string }) => {
+    this.subscribe(EventType.PLAYER_REGISTERED, async (data: { playerId: string }) => {
       if (process.env.DEBUG_RPG === '1') {
       }
-      if (!this.loadPersistedInventory(data.playerId)) {
+      // Use async method to properly load from database
+      const loaded = await this.loadPersistedInventoryAsync(data.playerId);
+      if (!loaded) {
         if (process.env.DEBUG_RPG === '1') {
         }
+        console.log('[InventorySystem] Creating fresh inventory for player:', data.playerId);
         this.initializeInventory({ id: data.playerId });
       }
     });
@@ -133,12 +136,21 @@ export class InventorySystem extends SystemBase {
     let totalItems = 0;
     
     for (const playerId of this.playerInventories.keys()) {
-      const inv = this.getOrCreateInventory(playerId);
-      const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
-      db.savePlayerInventory(playerId, saveItems);
-      db.savePlayer(playerId, { coins: inv.coins });
-      savedCount++;
-      totalItems += saveItems.length;
+      // Only persist inventories for real characters that exist in DB
+      try {
+        const playerRow = await db.getPlayerAsync(playerId);
+        if (!playerRow) {
+          continue;
+        }
+        const inv = this.getOrCreateInventory(playerId);
+        const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+        db.savePlayerInventory(playerId, saveItems);
+        db.savePlayer(playerId, { coins: inv.coins });
+        savedCount++;
+        totalItems += saveItems.length;
+      } catch {
+        // Skip on DB errors during autosave
+      }
     }
     
     if (savedCount > 0) {
@@ -213,6 +225,22 @@ export class InventorySystem extends SystemBase {
     if (!playerId) {
       Logger.systemError('InventorySystem', `Cannot cleanup inventory: invalid player ID "${data.id}"`, new Error(`Cannot cleanup inventory: invalid player ID "${data.id}"`));
       return;
+    }
+    // Flush this player's inventory to DB before cleanup if character exists
+    if (this.world.isServer) {
+      const db = this.getDatabase();
+      if (db) {
+        const inv = this.playerInventories.get(playerId);
+        if (inv) {
+          db.getPlayerAsync(playerId).then(row => {
+            if (row) {
+              const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+              db.savePlayerInventory(playerId, saveItems);
+              db.savePlayer(playerId, { coins: inv.coins });
+            }
+          }).catch(() => {});
+        }
+      }
     }
     this.playerInventories.delete(playerId);
   }
@@ -776,24 +804,39 @@ export class InventorySystem extends SystemBase {
     return this.world.getSystem<DatabaseSystem>('database') || null;
   }
 
-  private loadPersistedInventory(playerId: string): boolean {
+  private async loadPersistedInventoryAsync(playerId: string): Promise<boolean> {
     const db = this.getDatabase();
     if (!db) return false;
     
-    const rows = db.getPlayerInventory(playerId);
-    const playerRow = db.getPlayer(playerId);
-    if (process.env.DEBUG_RPG === '1') {
-    }
+    console.log('[InventorySystem] 📦 Loading persisted inventory for:', playerId);
+    
+    const rows = await db.getPlayerInventoryAsync(playerId);
+    const playerRow = await db.getPlayerAsync(playerId);
+    
+    console.log('[InventorySystem] Loaded from DB:', {
+      inventoryRows: rows.length,
+      hasPlayerRow: !!playerRow,
+      coins: playerRow?.coins
+    });
+    
     const hasState = (rows && rows.length > 0) || !!playerRow;
-    if (!hasState) return false;
+    if (!hasState) {
+      console.log('[InventorySystem] No persisted inventory found, will create fresh');
+      return false;
+    }
+    
     const pid = createPlayerID(playerId);
     const inv: PlayerInventory = { playerId: pid, items: [], coins: playerRow?.coins ?? 0 };
     this.playerInventories.set(pid, inv);
+    
     for (const row of rows) {
       // Strong type assumption - row.slotIndex is number from database schema
       const slot = row.slotIndex ?? undefined;
       this.addItem({ playerId, itemId: createItemID(String(row.itemId)), quantity: row.quantity || 1, slot });
     }
+    
+    console.log('[InventorySystem] ✅ Loaded', inv.items.length, 'items from database');
+    
     const data = this.getInventoryData(playerId);
     this.emitTypedEvent(EventType.INVENTORY_INITIALIZED, {
       playerId,
@@ -810,6 +853,12 @@ export class InventorySystem extends SystemBase {
     });
     return true;
   }
+  
+  private loadPersistedInventory(playerId: string): boolean {
+    // This is now a sync wrapper that always returns false to trigger async load
+    // The actual loading happens in the async init flow
+    return false;
+  }
 
   private scheduleInventoryPersist(playerId: string): void {
     const db = this.getDatabase();
@@ -817,10 +866,14 @@ export class InventorySystem extends SystemBase {
     const existing = this.persistTimers.get(playerId);
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
-      const inv = this.getOrCreateInventory(playerId);
-      const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
-      db.savePlayerInventory(playerId, saveItems);
-      db.savePlayer(playerId, { coins: inv.coins });
+      // Only persist if player is a real character in DB
+      db.getPlayerAsync(playerId).then(row => {
+        if (!row) return;
+        const inv = this.getOrCreateInventory(playerId);
+        const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+        db.savePlayerInventory(playerId, saveItems);
+        db.savePlayer(playerId, { coins: inv.coins });
+      }).catch(() => {});
     }, 300);
     this.persistTimers.set(playerId, timer);
   }
@@ -976,10 +1029,14 @@ export class InventorySystem extends SystemBase {
       const db = this.getDatabase();
       if (db) {
         for (const playerId of this.playerInventories.keys()) {
-          const inv = this.getOrCreateInventory(playerId);
-          const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
-          db.savePlayerInventory(playerId, saveItems);
-          db.savePlayer(playerId, { coins: inv.coins });
+          // Only save characters that exist in DB
+          db.getPlayerAsync(playerId).then(row => {
+            if (!row) return;
+            const inv = this.getOrCreateInventory(playerId);
+            const saveItems = inv.items.map(i => ({ itemId: i.itemId, quantity: i.quantity, slotIndex: i.slot, metadata: null as null }));
+            db.savePlayerInventory(playerId, saveItems);
+            db.savePlayer(playerId, { coins: inv.coins });
+          }).catch(() => {});
         }
       }
     }

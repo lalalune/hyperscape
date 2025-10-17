@@ -175,6 +175,7 @@ export type NodeWebSocket = WebSocket & {
 
 // Extended Socket type with server-specific properties
 export interface ServerSocket extends Socket {
+  player: any;
   // Base Socket properties from Socket class
   ws: NodeWebSocket
   network: NetworkWithSocket

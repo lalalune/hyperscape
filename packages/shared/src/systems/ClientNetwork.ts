@@ -860,10 +860,29 @@ export class ClientNetwork extends SystemBase {
   onResourceSpawned = (data: { id: string; type: string; position: { x: number; y: number; z: number } }) => {
     this.world.emit(EventType.RESOURCE_SPAWNED, data)
   }
-  onResourceDepleted = (data: { resourceId: string; position?: { x: number; y: number; z: number } }) => {
+  onResourceDepleted = (data: { resourceId: string; position?: { x: number; y: number; z: number }; depleted?: boolean }) => {
+    console.log('[ClientNetwork] 🪵 Resource depleted:', data.resourceId);
+    
+    // Update the ResourceEntity visual
+    const entity = this.world.entities.get(data.resourceId);
+    if (entity && typeof (entity as unknown as { updateFromNetwork?: (data: Record<string, unknown>) => void }).updateFromNetwork === 'function') {
+      (entity as unknown as { updateFromNetwork: (data: Record<string, unknown>) => void }).updateFromNetwork({ depleted: true });
+    }
+    
+    // Also emit the event for other systems
     this.world.emit(EventType.RESOURCE_DEPLETED, data)
   }
-  onResourceRespawned = (data: { resourceId: string; position?: { x: number; y: number; z: number } }) => {
+  
+  onResourceRespawned = (data: { resourceId: string; position?: { x: number; y: number; z: number }; depleted?: boolean }) => {
+    console.log('[ClientNetwork] 🌳 Resource respawned:', data.resourceId);
+    
+    // Update the ResourceEntity visual
+    const entity = this.world.entities.get(data.resourceId);
+    if (entity && typeof (entity as unknown as { updateFromNetwork?: (data: Record<string, unknown>) => void }).updateFromNetwork === 'function') {
+      (entity as unknown as { updateFromNetwork: (data: Record<string, unknown>) => void }).updateFromNetwork({ depleted: false });
+    }
+    
+    // Also emit the event for other systems
     this.world.emit(EventType.RESOURCE_RESPAWNED, data)
   }
 

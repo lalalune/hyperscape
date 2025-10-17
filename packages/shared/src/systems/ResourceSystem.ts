@@ -698,6 +698,11 @@ export class ResourceSystem extends SystemBase {
       resource.isAvailable = false;
       resource.lastDepleted = Date.now();
 
+      // Update the actual ResourceEntity to trigger visual change
+      const resourceEntity = this.world.entities.get(session.resourceId);
+      if (resourceEntity && typeof (resourceEntity as unknown as { deplete?: () => void }).deplete === 'function') {
+        (resourceEntity as unknown as { deplete: () => void }).deplete();
+      }
 
       // Notify clients to swap to stump visual
       this.emitTypedEvent(EventType.RESOURCE_DEPLETED, {
@@ -709,7 +714,8 @@ export class ResourceSystem extends SystemBase {
       // Broadcast depletion to all clients for visual updates
       this.sendNetworkMessage('resourceDepleted', {
         resourceId: session.resourceId,
-        position: resource.position
+        position: resource.position,
+        depleted: true
       });
 
       // Set respawn timer using tracked timer to prevent memory leaks
@@ -717,6 +723,11 @@ export class ResourceSystem extends SystemBase {
         resource.isAvailable = true;
         resource.lastDepleted = 0;
         
+        // Update the actual ResourceEntity to trigger visual change
+        const resourceEntity = this.world.entities.get(session.resourceId);
+        if (resourceEntity && typeof (resourceEntity as unknown as { respawn?: () => void }).respawn === 'function') {
+          (resourceEntity as unknown as { respawn: () => void }).respawn();
+        }
         
         // Emit local event
         this.emitTypedEvent(EventType.RESOURCE_RESPAWNED, {
@@ -727,7 +738,8 @@ export class ResourceSystem extends SystemBase {
         // Broadcast to all clients
         this.sendNetworkMessage('resourceRespawned', {
           resourceId: session.resourceId,
-          position: resource.position
+          position: resource.position,
+          depleted: false
         });
         
         // Remove from timers map

@@ -155,6 +155,84 @@ export class ResourceEntity extends InteractableEntity {
       interactionComponent.data.description = `${this.config.resourceType} - Level ${this.config.requiredLevel} ${this.config.harvestSkill} required`;
     }
   }
+  
+  private async swapToStump(): Promise<void> {
+    if (this.world.isServer || !this.node) return;
+    
+    // Only trees have stumps
+    if (this.config.resourceType !== 'tree') {
+      // For other resources, just hide the mesh
+      if (this.mesh) {
+        this.mesh.visible = false;
+      }
+      return;
+    }
+    
+    console.log('[ResourceEntity] 🪵 Swapping to stump model');
+    
+    // Remove current tree mesh
+    if (this.mesh) {
+      this.node.remove(this.mesh);
+      this.mesh = null;
+    }
+    
+    // Load stump model
+    const stumpModelPath = 'asset://models/basic-tree-stump/basic-tree-stump.glb';
+    try {
+      const { scene } = await modelCache.loadModel(stumpModelPath, this.world);
+      
+      this.mesh = scene;
+      this.mesh.name = `ResourceStump_${this.config.resourceType}`;
+      
+      // Stump model is much larger than tree model, use smaller scale
+      const modelScale = 0.3; // Much smaller than tree (3.0)
+      this.mesh.scale.set(modelScale, modelScale, modelScale);
+      this.mesh.updateMatrix();
+      this.mesh.updateMatrixWorld(true);
+      
+      // Enable shadows
+      this.mesh.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      // Set up userData
+      this.mesh.userData = {
+        type: 'resource',
+        entityId: this.id,
+        name: 'Tree Stump',
+        interactable: false,
+        resourceType: this.config.resourceType,
+        depleted: true
+      };
+      
+      this.node.add(this.mesh);
+      console.log('[ResourceEntity] ✅ Stump model loaded');
+    } catch (error) {
+      console.error('[ResourceEntity] Failed to load stump model:', error);
+      // Fallback: just hide the original mesh
+      if (this.mesh) {
+        this.mesh.visible = false;
+      }
+    }
+  }
+  
+  private async swapToFullModel(): Promise<void> {
+    if (this.world.isServer || !this.node) return;
+    
+    console.log('[ResourceEntity] 🌳 Swapping to full tree model');
+    
+    // Remove current stump mesh
+    if (this.mesh) {
+      this.node.remove(this.mesh);
+      this.mesh = null;
+    }
+    
+    // Reload the original model
+    await this.createMesh();
+  }
 
   // Override serialize() to include all config data for network sync
   serialize(): EntityData {
@@ -193,11 +271,16 @@ export class ResourceEntity extends InteractableEntity {
 
   public updateFromNetwork(data: Record<string, unknown>): void {
     if (data.depleted !== undefined) {
+      const wasDepleted = this.config.depleted;
       this.config.depleted = Boolean(data.depleted);
       
-      // Update visual state based on depletion
-      if (this.mesh) {
-        this.mesh.visible = !this.config.depleted;
+      // Update visual state based on depletion - swap to stump for trees
+      if (this.config.depleted && !wasDepleted) {
+        // Just became depleted - swap to stump
+        this.swapToStump();
+      } else if (!this.config.depleted && wasDepleted) {
+        // Just respawned - swap back to full tree
+        this.swapToFullModel();
       }
     }
     
