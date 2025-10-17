@@ -37,9 +37,22 @@ export function LoadingScreen({
       if (progressData.stage) {
         // System initialization: takes 0-30% of total progress
         const systemProgress = Math.min(30, (progressData.progress / 100) * 30);
-        lastProgress = systemProgress;
-        setProgress(systemProgress);
-        setLoadingStage(progressData.stage);
+
+        // Always update system progress within its 0-30% range, regardless of lastProgress
+        // This allows independent loading phases to update correctly
+        if (systemProgress <= 30) {
+          setProgress(systemProgress);
+          setLoadingStage(progressData.stage);
+          // Update lastProgress to ensure it reaches 30% when systems complete
+          if (systemProgress > lastProgress) {
+            lastProgress = systemProgress;
+          }
+        }
+        
+        // Ensure lastProgress reaches 30% when systems complete, even if systemProgress > 30
+        if (progressData.progress === 100 && lastProgress < 30) {
+          lastProgress = 30;
+        }
 
         // Mark systems as complete when we hit 100%
         if (progressData.progress === 100) {
@@ -49,8 +62,8 @@ export function LoadingScreen({
         // Asset loading: takes 30-100% of total progress
         const assetProgress = 30 + (progressData.progress / 100) * 70;
 
-        // Only update if systems are complete or if this is higher than current progress
-        if (systemsComplete || assetProgress > lastProgress) {
+        // Only update if systems are complete AND this doesn't go backwards
+        if (systemsComplete && assetProgress >= lastProgress) {
           lastProgress = assetProgress;
           setProgress(assetProgress);
 
@@ -63,9 +76,9 @@ export function LoadingScreen({
           }
         }
       } else {
-        // Simple progress update
+        // Simple progress update - only if it doesn't go backwards
         const newProgress = progressData.progress;
-        if (newProgress > lastProgress) {
+        if (newProgress >= lastProgress) {
           lastProgress = newProgress;
           setProgress(newProgress);
         }
@@ -95,67 +108,13 @@ export function LoadingScreen({
             filter: blur(4px);
           }
         }
-        @keyframes swordCross {
-          0% {
-            transform: rotate(45deg) translateY(20px);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-          }
-          50% {
-            transform: rotate(45deg) translateY(0);
-          }
-          100% {
-            transform: rotate(45deg) translateY(0);
-          }
-        }
-        @keyframes swordCrossReverse {
-          0% {
-            transform: rotate(-45deg) translateY(20px);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-          }
-          50% {
-            transform: rotate(-45deg) translateY(0);
-          }
-          100% {
-            transform: rotate(-45deg) translateY(0);
-          }
-        }
-        @keyframes swordSpin {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
-        }
-        @keyframes swordGlow {
-          0%, 100% {
-            filter: drop-shadow(0 0 10px rgba(100, 150, 255, 0.4));
-          }
-          50% {
-            filter: drop-shadow(0 0 20px rgba(100, 150, 255, 0.8)) drop-shadow(0 0 30px rgba(100, 150, 255, 0.6));
-          }
-        }
-        @keyframes swordFloat {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
         .loading-image {
           position: absolute;
           inset: 0;
           background-position: center;
           background-size: cover;
           background-repeat: no-repeat;
-          background-image: ${image ? `url(${world.resolveURL((image as { url: string }).url)})` : `url(${world.resolveURL("/preview.jpg")})`};
+          background-image: url('/assets/images/loading_background.png');
           animation: slowZoom 40s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
         }
         .loading-shade {
@@ -164,29 +123,49 @@ export function LoadingScreen({
           background: rgba(0, 0, 0, 0.5);
           backdrop-filter: blur(2px);
         }
-        .loading-swords {
+        .loading-logo-container {
           position: absolute;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 200px;
-          height: 200px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 30px;
           margin-top: -80px;
         }
-        .loading-swords svg {
-          position: absolute;
-          width: 100%;
-          height: 100%;
+        .loading-logo {
+          width: 400px;
+          height: auto;
+          filter: drop-shadow(0 0 20px rgba(242, 208, 138, 0.6)) drop-shadow(0 0 40px rgba(242, 208, 138, 0.4));
+          animation: logoGlow 3s ease-in-out infinite;
         }
-        .sword-left {
-          animation: swordCross 1.5s ease-out forwards, swordGlow 2s ease-in-out infinite 1.5s;
+        @keyframes logoGlow {
+          0%, 100% {
+            filter: drop-shadow(0 0 20px rgba(242, 208, 138, 0.6)) drop-shadow(0 0 40px rgba(242, 208, 138, 0.4));
+          }
+          50% {
+            filter: drop-shadow(0 0 30px rgba(242, 208, 138, 0.8)) drop-shadow(0 0 60px rgba(242, 208, 138, 0.6));
+          }
         }
-        .sword-right {
-          animation: swordCrossReverse 1.5s ease-out forwards, swordGlow 2s ease-in-out infinite 1.5s;
+        .loading-center-progress {
+          width: 500px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
         }
-        .sword-center {
-          animation: swordFloat 3s ease-in-out infinite, swordSpin 20s linear infinite;
-          opacity: 0.3;
+        @media (max-width: 768px) {
+          .loading-logo {
+            width: 280px;
+          }
+          .loading-center-progress {
+            width: 320px;
+          }
+          .loading-logo-container {
+            margin-top: -100px;
+            gap: 20px;
+          }
         }
         .loading-info {
           position: absolute;
@@ -209,30 +188,38 @@ export function LoadingScreen({
         .loading-stage {
           color: rgba(255, 255, 255, 0.7);
           font-size: 0.875rem;
-          margin: 0 0 8px;
+          margin: 0;
           font-weight: 500;
-          min-height: 1.25rem;
+          text-align: center;
+          width: 100%;
         }
         .loading-progress-container {
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
+          width: 100%;
         }
         .loading-percentage {
           color: rgba(255, 255, 255, 0.9);
           font-size: 0.875rem;
           font-weight: 600;
-          min-width: 45px;
-          text-align: right;
+          text-align: center;
         }
         .loading-track {
-          height: 8px;
-          border-radius: 4px;
-          background: rgba(255, 255, 255, 0.15);
+          height: 100px;
           position: relative;
-          overflow: hidden;
-          flex: 1;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+        }
+        .loading-bar-container {
+          position: relative;
+          width: calc(100% - 140px);
+          height: 10px;
+          margin: 0 70px;
         }
         .loading-bar {
           position: absolute;
@@ -240,13 +227,13 @@ export function LoadingScreen({
           left: 0;
           bottom: 0;
           width: ${Math.max(progress, 0)}%;
-          min-width: ${progress > 0 ? "8px" : "0"};
-          background: linear-gradient(90deg, #4a90e2, #6496ff, #4a90e2);
+          min-width: ${progress > 0 ? "10px" : "0"};
+          background: linear-gradient(90deg, #f2d08a, #ffd700, #f2d08a);
           background-size: 200% 100%;
           animation: shimmer 1.5s infinite;
-          border-radius: 3px;
+          border-radius: 5px;
           transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: 0 0 15px rgba(100, 150, 255, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          box-shadow: 0 0 15px rgba(242, 208, 138, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
         .loading-bar::after {
           content: '';
@@ -255,8 +242,23 @@ export function LoadingScreen({
           left: 0;
           right: 0;
           height: 50%;
-          background: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), transparent);
-          border-radius: 3px 3px 0 0;
+          background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4), transparent);
+          border-radius: 4px 4px 0 0;
+        }
+        .loading-bar-frame {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: auto;
+          height: 100px;
+          background-image: url('/assets/images/loading_bar.png');
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+          pointer-events: none;
+          z-index: 1;
+          min-width: calc(100% + 160px);
         }
         @media (max-width: 768px) {
           .loading-info {
@@ -278,6 +280,21 @@ export function LoadingScreen({
             font-size: 0.8rem;
             min-width: 40px;
           }
+          .loading-track {
+            padding: 0;
+          }
+          .loading-bar-container {
+            width: calc(100% - 45px);
+            margin: 0 20px 0 25px;
+            height: 8px;
+          }
+          .loading-bar {
+            min-width: ${progress > 0 ? "8px" : "0"};
+            border-radius: 4px;
+          }
+          .loading-bar-frame {
+            min-width: calc(100% + 100px);
+          }
         }
         @keyframes shimmer {
           0% {
@@ -291,210 +308,30 @@ export function LoadingScreen({
       <div className="loading-image" />
       <div className="loading-shade" />
 
-      {/* Animated Training Swords */}
-      <div className="loading-swords">
-        {/* Left Sword */}
-        <svg
-          className="sword-left"
-          viewBox="0 0 200 200"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <linearGradient
-              id="swordGradient1"
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="100%"
-            >
-              <stop offset="0%" stopColor="#8b9dc3" />
-              <stop offset="50%" stopColor="#c0c0c0" />
-              <stop offset="100%" stopColor="#8b9dc3" />
-            </linearGradient>
-            <linearGradient
-              id="handleGradient1"
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="100%"
-            >
-              <stop offset="0%" stopColor="#6b4423" />
-              <stop offset="50%" stopColor="#8b5a2b" />
-              <stop offset="100%" stopColor="#6b4423" />
-            </linearGradient>
-          </defs>
-          <g transform="translate(100, 100)">
-            {/* Blade */}
-            <rect
-              x="-4"
-              y="-80"
-              width="8"
-              height="100"
-              fill="url(#swordGradient1)"
-              rx="2"
-            />
-            <rect
-              x="-2"
-              y="-80"
-              width="4"
-              height="100"
-              fill="rgba(255,255,255,0.3)"
-              rx="1"
-            />
-            {/* Guard */}
-            <rect
-              x="-25"
-              y="20"
-              width="50"
-              height="6"
-              fill="url(#swordGradient1)"
-              rx="3"
-            />
-            {/* Handle */}
-            <rect
-              x="-5"
-              y="26"
-              width="10"
-              height="30"
-              fill="url(#handleGradient1)"
-              rx="2"
-            />
-            {/* Pommel */}
-            <circle cx="0" cy="60" r="8" fill="url(#swordGradient1)" />
-          </g>
-        </svg>
+      {/* Logo and Loading Bar */}
+      <div className="loading-logo-container">
+        <img
+          src="/assets/images/logo.png"
+          alt="Hyperscape"
+          className="loading-logo"
+        />
 
-        {/* Right Sword */}
-        <svg
-          className="sword-right"
-          viewBox="0 0 200 200"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <linearGradient
-              id="swordGradient2"
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="100%"
-            >
-              <stop offset="0%" stopColor="#8b9dc3" />
-              <stop offset="50%" stopColor="#c0c0c0" />
-              <stop offset="100%" stopColor="#8b9dc3" />
-            </linearGradient>
-            <linearGradient
-              id="handleGradient2"
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="100%"
-            >
-              <stop offset="0%" stopColor="#6b4423" />
-              <stop offset="50%" stopColor="#8b5a2b" />
-              <stop offset="100%" stopColor="#6b4423" />
-            </linearGradient>
-          </defs>
-          <g transform="translate(100, 100)">
-            {/* Blade */}
-            <rect
-              x="-4"
-              y="-80"
-              width="8"
-              height="100"
-              fill="url(#swordGradient2)"
-              rx="2"
-            />
-            <rect
-              x="-2"
-              y="-80"
-              width="4"
-              height="100"
-              fill="rgba(255,255,255,0.3)"
-              rx="1"
-            />
-            {/* Guard */}
-            <rect
-              x="-25"
-              y="20"
-              width="50"
-              height="6"
-              fill="url(#swordGradient2)"
-              rx="3"
-            />
-            {/* Handle */}
-            <rect
-              x="-5"
-              y="26"
-              width="10"
-              height="30"
-              fill="url(#handleGradient2)"
-              rx="2"
-            />
-            {/* Pommel */}
-            <circle cx="0" cy="60" r="8" fill="url(#swordGradient2)" />
-          </g>
-        </svg>
-
-        {/* Center Background Sword */}
-        <svg
-          className="sword-center"
-          viewBox="0 0 200 200"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <linearGradient
-              id="swordGradient3"
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="100%"
-            >
-              <stop offset="0%" stopColor="#4a5568" />
-              <stop offset="50%" stopColor="#718096" />
-              <stop offset="100%" stopColor="#4a5568" />
-            </linearGradient>
-          </defs>
-          <g transform="translate(100, 100)">
-            {/* Blade */}
-            <rect
-              x="-3"
-              y="-70"
-              width="6"
-              height="85"
-              fill="url(#swordGradient3)"
-              rx="2"
-            />
-            {/* Guard */}
-            <rect
-              x="-20"
-              y="15"
-              width="40"
-              height="5"
-              fill="url(#swordGradient3)"
-              rx="2"
-            />
-            {/* Handle */}
-            <rect x="-4" y="20" width="8" height="25" fill="#2d3748" rx="2" />
-            {/* Pommel */}
-            <circle cx="0" cy="48" r="6" fill="url(#swordGradient3)" />
-          </g>
-        </svg>
-      </div>
-
-      <div className="loading-info">
-        {title && <div className="loading-title">{title}</div>}
-        {desc && <div className="loading-desc">{desc}</div>}
-        <div className="loading-stage">{loadingStage}</div>
-        <div className="loading-progress-container">
-          <div className="loading-track">
-            <div className="loading-bar" />
+        {/* Loading Progress */}
+        <div className="loading-center-progress">
+          <div className="loading-stage">{loadingStage}</div>
+          <div className="loading-progress-container">
+            <div className="loading-track">
+              <div className="loading-bar-container">
+                <div className="loading-bar" />
+              </div>
+              <div className="loading-bar-frame" />
+            </div>
+            <div className="loading-percentage">{Math.floor(progress)}%</div>
           </div>
-          <div className="loading-percentage">{Math.floor(progress)}%</div>
         </div>
       </div>
+
+      {/* Removed duplicate loading bar - now centered under logo */}
     </div>
   );
 }

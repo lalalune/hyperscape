@@ -76,10 +76,13 @@ export function AccountPanel({ world }: AccountPanelProps) {
   return (
     <div className="flex flex-col gap-3 h-full">
       {/* Authentication Status */}
-      <div className="bg-black/35 border border-white/[0.08] rounded-md p-3">
-        <div className="font-semibold mb-2 text-sm">Account Status</div>
+      <div
+        className="bg-black/35 border rounded-md p-3"
+        style={{ borderColor: 'rgba(242, 208, 138, 0.3)' }}
+      >
+        <div className="font-semibold mb-2 text-sm" style={{ color: '#f2d08a' }}>Account Status</div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400">Status:</span>
+          <span style={{ color: 'rgba(242, 208, 138, 0.7)' }}>Status:</span>
           <span className={authenticated ? 'text-green-400' : 'text-gray-500'}>
             {authenticated ? '✅ Logged In' : '❌ Anonymous'}
           </span>
@@ -88,13 +91,16 @@ export function AccountPanel({ world }: AccountPanelProps) {
 
       {/* User Info */}
       {authenticated && userId && (
-        <div className="bg-black/35 border border-white/[0.08] rounded-md p-3">
-          <div className="font-semibold mb-2 text-sm">Account Info</div>
-          
+        <div
+          className="bg-black/35 border rounded-md p-3"
+          style={{ borderColor: 'rgba(242, 208, 138, 0.3)' }}
+        >
+          <div className="font-semibold mb-2 text-sm" style={{ color: '#f2d08a' }}>Account Info</div>
+
           {/* Privy User ID */}
           <div className="mb-2 text-xs">
-            <div className="text-gray-400 mb-1">User ID:</div>
-            <div className="font-mono text-gray-300 break-all">
+            <div className="mb-1" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>User ID:</div>
+            <div className="font-mono break-all" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>
               {userId.substring(0, 20)}...
             </div>
           </div>
@@ -102,8 +108,8 @@ export function AccountPanel({ world }: AccountPanelProps) {
           {/* Wallet Address */}
           {walletAddress && (
             <div className="mb-2 text-xs">
-              <div className="text-gray-400 mb-1">Wallet:</div>
-              <div className="font-mono text-gray-300">
+              <div className="mb-1" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>Wallet:</div>
+              <div className="font-mono" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>
                 {walletAddress.substring(0, 6)}...{walletAddress.substring(walletAddress.length - 4)}
               </div>
             </div>
@@ -112,16 +118,16 @@ export function AccountPanel({ world }: AccountPanelProps) {
           {/* Email */}
           {email && (
             <div className="mb-2 text-xs">
-              <div className="text-gray-400 mb-1">Email:</div>
-              <div className="text-gray-300">{email}</div>
+              <div className="mb-1" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>Email:</div>
+              <div style={{ color: 'rgba(242, 208, 138, 0.9)' }}>{email}</div>
             </div>
           )}
 
           {/* Farcaster FID */}
           {farcasterFid && (
             <div className="mb-2 text-xs">
-              <div className="text-gray-400 mb-1">Farcaster FID:</div>
-              <div className="text-gray-300 flex items-center gap-1">
+              <div className="mb-1" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>Farcaster FID:</div>
+              <div className="flex items-center gap-1" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>
                 🎭 {farcasterFid}
               </div>
             </div>
@@ -130,15 +136,25 @@ export function AccountPanel({ world }: AccountPanelProps) {
       )}
 
       {/* Character Name */}
-      <div className="bg-black/35 border border-white/[0.08] rounded-md p-3">
-        <div className="font-semibold mb-2 text-sm">Character Name</div>
-        
+      <div
+        className="bg-black/35 border rounded-md p-3"
+        style={{ borderColor: 'rgba(242, 208, 138, 0.3)' }}
+      >
+        <div className="font-semibold mb-2 text-sm" style={{ color: '#f2d08a' }}>Character Name</div>
+
         {!isEditingName ? (
           <div className="flex items-center justify-between">
-            <span className="text-gray-300">{playerName || 'Unknown'}</span>
+            <span style={{ color: 'rgba(242, 208, 138, 0.9)' }}>{playerName || 'Unknown'}</span>
             <button
               onClick={() => setIsEditingName(true)}
-              className="text-xs bg-blue-500/25 border border-blue-500/50 rounded px-2 py-1 cursor-pointer hover:bg-blue-500/40"
+              className="text-xs rounded px-2 py-1 cursor-pointer"
+              style={{
+                backgroundColor: 'rgba(242, 208, 138, 0.15)',
+                borderWidth: '1px',
+                borderStyle: 'solid',
+                borderColor: 'rgba(242, 208, 138, 0.5)',
+                color: '#f2d08a',
+              }}
             >
               Edit
             </button>
@@ -149,7 +165,11 @@ export function AccountPanel({ world }: AccountPanelProps) {
               type="text"
               value={tempName}
               onChange={(e) => setTempName(e.target.value)}
-              className="w-full text-sm py-1.5 px-2 bg-white/5 border border-white/10 rounded text-white"
+              className="w-full text-sm py-1.5 px-2 bg-white/5 border rounded"
+              style={{
+                borderColor: 'rgba(242, 208, 138, 0.3)',
+                color: '#f2d08a',
+              }}
               placeholder="Enter name..."
               maxLength={20}
               autoFocus
@@ -164,7 +184,14 @@ export function AccountPanel({ world }: AccountPanelProps) {
             <div className="flex gap-2">
               <button
                 onClick={handleNameChange}
-                className="flex-1 text-xs bg-green-500/25 border border-green-500/50 rounded px-2 py-1.5 cursor-pointer hover:bg-green-500/40"
+                className="flex-1 text-xs rounded px-2 py-1.5 cursor-pointer"
+                style={{
+                  backgroundColor: 'rgba(34, 197, 94, 0.25)',
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
+                  borderColor: 'rgba(34, 197, 94, 0.5)',
+                  color: '#22c55e',
+                }}
               >
                 Save
               </button>
@@ -173,7 +200,14 @@ export function AccountPanel({ world }: AccountPanelProps) {
                   setIsEditingName(false)
                   setTempName(playerName)
                 }}
-                className="flex-1 text-xs bg-gray-500/25 border border-gray-500/50 rounded px-2 py-1.5 cursor-pointer hover:bg-gray-500/40"
+                className="flex-1 text-xs rounded px-2 py-1.5 cursor-pointer"
+                style={{
+                  backgroundColor: 'rgba(107, 114, 128, 0.25)',
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
+                  borderColor: 'rgba(107, 114, 128, 0.5)',
+                  color: '#9ca3af',
+                }}
               >
                 Cancel
               </button>
@@ -184,11 +218,14 @@ export function AccountPanel({ world }: AccountPanelProps) {
 
       {/* Login Status & Actions */}
       {!authenticated && (
-        <div className="bg-black/35 border border-white/[0.08] rounded-md p-3">
-          <div className="text-sm text-gray-400 mb-2">
+        <div
+          className="bg-black/35 border rounded-md p-3"
+          style={{ borderColor: 'rgba(242, 208, 138, 0.3)' }}
+        >
+          <div className="text-sm mb-2" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>
             You're playing as an anonymous user. Your progress won't sync across devices.
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs" style={{ color: 'rgba(242, 208, 138, 0.5)' }}>
             To enable account features, configure Privy authentication in your .env file.
           </div>
         </div>
@@ -198,16 +235,26 @@ export function AccountPanel({ world }: AccountPanelProps) {
       {authenticated && (
         <button
           onClick={handleLogout}
-          className="bg-red-500/25 border border-red-500/50 rounded-md py-2 px-3 cursor-pointer hover:bg-red-500/40 text-sm font-medium"
+          className="rounded-md py-2 px-3 cursor-pointer text-sm font-medium"
+          style={{
+            backgroundColor: 'rgba(139, 69, 19, 0.4)',
+            borderWidth: '1px',
+            borderStyle: 'solid',
+            borderColor: 'rgba(139, 69, 19, 0.6)',
+            color: '#f2d08a',
+          }}
         >
           Logout
         </button>
       )}
 
       {/* Account Features */}
-      <div className="flex-1 bg-black/35 border border-white/[0.08] rounded-md p-3 overflow-y-auto">
-        <div className="font-semibold mb-2 text-sm">Account Features</div>
-        <div className="text-xs space-y-2 text-gray-400">
+      <div
+        className="flex-1 bg-black/35 border rounded-md p-3 overflow-y-auto"
+        style={{ borderColor: 'rgba(242, 208, 138, 0.3)' }}
+      >
+        <div className="font-semibold mb-2 text-sm" style={{ color: '#f2d08a' }}>Account Features</div>
+        <div className="text-xs space-y-2" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>
           <div className="flex items-start gap-2">
             <span className={authenticated ? 'text-green-400' : 'text-gray-600'}>
               {authenticated ? '✅' : '⭕'}

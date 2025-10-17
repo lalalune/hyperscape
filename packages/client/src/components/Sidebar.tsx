@@ -3,12 +3,12 @@ import React, { useEffect, useState } from 'react'
 import { World } from '@hyperscape/shared'
 import type { InventorySlotItem, PlayerEquipmentItems, PlayerStats } from '@hyperscape/shared'
 import { EventType } from '@hyperscape/shared'
+import { useChatContext } from './ChatContext'
 import { HintProvider } from './Hint'
 import { Minimap } from './Minimap'
 import { MenuButton } from './shared/MenuButton'
 import { GameWindow } from './shared/GameWindow'
 import { MinimapCompass } from './shared/MinimapCompass'
-import { MinimapStaminaBar } from './shared/MinimapStaminaBar'
 import { SkillsPanel } from './panels/SkillsPanel'
 import { InventoryPanel } from './panels/InventoryPanel'
 import { CombatPanel } from './panels/CombatPanel'
@@ -37,14 +37,15 @@ interface SidebarProps {
 }
 
 export function Sidebar({ world, ui: _ui }: SidebarProps) {
-  const [livekit, setLiveKit] = useState(() => world.livekit!.status)
+  const [_livekit, setLiveKit] = useState(() => world.livekit!.status)
   const [inventory, setInventory] = useState<InventorySlotItem[]>([])
   const [equipment, setEquipment] = useState<PlayerEquipmentItems | null>(null)
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null)
   const [coins, setCoins] = useState<number>(0)
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(false)
   const [isMobile, setIsMobile] = useState<boolean>(false)
-  
+  const { collapsed: _chatCollapsed, active: _chatActive } = useChatContext()
+
   // Track which windows are open
   const [openWindows, setOpenWindows] = useState<Set<string>>(new Set())
   
@@ -138,15 +139,46 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
       setIsMobile(mobile)
-      // Auto-collapse on mobile by default
-      if (mobile && !minimapCollapsed) {
-        setMinimapCollapsed(true)
-      }
     }
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  const menuButtons = [
+    { windowId: 'combat', icon: '⚔️', label: 'Combat' },
+    { windowId: 'skills', icon: '🧠', label: 'Skills' },
+    { windowId: 'inventory', icon: '🎒', label: 'Inventory' },
+    { windowId: 'equipment', icon: '🛡️', label: 'Equipment' },
+    { windowId: 'prefs', icon: '⚙️', label: 'Settings' },
+    { windowId: 'account', icon: '👤', label: 'Account' },
+  ] as const
+
+  const minimapOuterSize = isMobile ? 180 : 220
+  const minimapInnerSize = isMobile ? 164 : 204
+  const minimapZoom = isMobile ? 40 : 50
+
+  const radialOffset = isMobile ? 20 : 28
+  const radialRadius = (minimapOuterSize / 2) + radialOffset
+  const startAngleDeg = isMobile ? 135 : 130
+  const endAngleDeg = isMobile ? 225 : 220
+  const radialButtonSize = isMobile ? 'compact' as const : 'small' as const
+  const startAngle = (Math.PI / 180) * startAngleDeg
+  const endAngle = (Math.PI / 180) * endAngleDeg
+  const angleStep = menuButtons.length > 1 ? (endAngle - startAngle) / (menuButtons.length - 1) : 0
+  const radialButtons = menuButtons.map((button, index) => {
+    const angle = startAngle + angleStep * index
+    const offsetX = Math.cos(angle) * radialRadius
+    const offsetY = Math.sin(angle) * radialRadius
+    return {
+      ...button,
+      style: {
+        left: '50%',
+        top: '50%',
+        transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px)`,
+      } as React.CSSProperties,
+    }
+  })
   
   return (
     <HintProvider>
@@ -154,7 +186,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         className='sidebar absolute text-base inset-0 pointer-events-none z-[1]'
       >
         
-        {/* Minimap - top right */}
+        {/* Minimap and radial menu */}
         <div 
           className="fixed z-[998] pointer-events-none"
           style={{ 
@@ -162,180 +194,125 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             top: isMobile ? 8 : 24,
           }}
         >
-          {!minimapCollapsed && (
-            <div className="border border-white/[0.08] rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-2 pb-1.5 transition-all duration-300 overflow-visible pointer-events-auto flex flex-col gap-2 hover:border-white/[0.15]" 
-              style={{
-                background: 'linear-gradient(180deg, rgba(12,12,20,0.98), rgba(12,12,20,0.92))',
-              }}
-            >
-              <Minimap 
-                world={world}
-                width={isMobile ? 164 : 204}
-                height={isMobile ? 164 : 204}
-                zoom={isMobile ? 40 : 50}
-                onCompassClick={() => setMinimapCollapsed(true)}
-                showStaminaBar={false}
-              />
-              <MinimapStaminaBar world={world} width={isMobile ? 164 : 204} />
-            </div>
-          )}
-          
-          {/* Stamina bar - shows when minimap is collapsed, positioned to left of compass */}
-          {minimapCollapsed && (
-            <div className="absolute right-12 top-2 pointer-events-auto">
-              <MinimapStaminaBar world={world} width={120} />
-            </div>
-          )}
-          
-          {/* Compass - always visible in same position */}
-          <div 
-            className="absolute pointer-events-auto z-20"
+          <div
+            className="relative pointer-events-none transition-all duration-300"
             style={{
-              left: minimapCollapsed ? undefined : 14,
-              right: minimapCollapsed ? 0 : undefined,
-              top: minimapCollapsed ? 0 : 14,
+              width: minimapCollapsed ? 56 : minimapOuterSize,
+              height: minimapCollapsed ? 56 : minimapOuterSize,
             }}
           >
-            <MinimapCompass 
-              world={world} 
-              onClick={() => setMinimapCollapsed(!minimapCollapsed)}
-              isCollapsed={minimapCollapsed}
-            />
+            {!minimapCollapsed && (
+              <>
+                <div
+                  className="absolute inset-0 border border-white/[0.08] rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all duration-300 pointer-events-auto hover:border-white/[0.15] overflow-hidden flex items-center justify-center"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(12,12,20,0.98), rgba(12,12,20,0.92))',
+                    paddingTop: '6px',
+                    paddingRight: isMobile ? '10px' : '10px',
+                    paddingBottom: '10px',
+                    paddingLeft: '6px',
+                  }}
+                >
+                  <Minimap
+                    world={world}
+                    width={minimapInnerSize}
+                    height={minimapInnerSize}
+                    zoom={minimapZoom}
+                    onCompassClick={() => setMinimapCollapsed(true)}
+                  />
+                </div>
+                {radialButtons.map((button) => (
+                  <div
+                    key={button.windowId}
+                    className="absolute pointer-events-auto z-[999]"
+                    style={button.style}
+                  >
+                    <MenuButton
+                      icon={button.icon}
+                      label={button.label}
+                      active={openWindows.has(button.windowId)}
+                      onClick={() => toggleWindow(button.windowId)}
+                      size={radialButtonSize}
+                      circular={true}
+                    />
+                  </div>
+                ))}
+              </>
+            )}
+            
+            {/* Compass - always visible on outside of ring */}
+            <div
+              className="absolute pointer-events-auto z-[1000]"
+              style={{
+                right: minimapCollapsed ? 0 : isMobile ? 4 : 6,
+                top: minimapCollapsed ? 0 : isMobile ? 4 : 6,
+              }}
+            >
+              <MinimapCompass
+                world={world}
+                onClick={() => setMinimapCollapsed(!minimapCollapsed)}
+                isCollapsed={minimapCollapsed}
+              />
+            </div>
           </div>
         </div>
         
-        {/* Left button bar - center left */}
-        <div 
-          className="fixed top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[999] pointer-events-auto"
-          style={{
-            left: isMobile ? 8 : 20,
-          }}
-        >
-          <MenuButton
-            icon="👤"
-            label="Account"
-            active={openWindows.has('account')}
-            onClick={() => toggleWindow('account')}
-          />
-          <MenuButton
-            icon="⚔️"
-            label="Combat"
-            active={openWindows.has('combat')}
-            onClick={() => toggleWindow('combat')}
-          />
-          <MenuButton
-            icon="🧠"
-            label="Skills"
-            active={openWindows.has('skills')}
-            onClick={() => toggleWindow('skills')}
-          />
-          <MenuButton
-            icon="🎒"
-            label="Inventory"
-            active={openWindows.has('inventory')}
-            onClick={() => toggleWindow('inventory')}
-          />
-          <MenuButton
-            icon="🛡️"
-            label="Equipment"
-            active={openWindows.has('equipment')}
-            onClick={() => toggleWindow('equipment')}
-          />
-          <MenuButton
-            icon="⚙️"
-            label="Settings"
-            active={openWindows.has('prefs')}
-            onClick={() => toggleWindow('prefs')}
-          />
-          
-          {/* Voice/VR controls */}
-          <div className="h-4" />
-          {livekit.available && world.livekit?.room && (
-            <MenuButton
-              icon={livekit.audio ? '🎤' : '🔇'}
-              label={livekit.audio ? 'Mic On' : 'Mic Off'}
-              active={false}
-              onClick={() => {
-                if (livekit.audio) {
-                  world.livekit!.disableAudio()
-                } else {
-                  world.livekit!.enableAudio()
-                }
-              }}
-            />
-          )}
-          {world.xr?.supportsVR && (
-            <MenuButton
-              icon="🥽"
-              label="VR"
-              active={false}
-              onClick={() => world.xr?.enter()}
-            />
-          )}
-        </div>
-        
-        {/* Draggable windows */}
+        {/* Responsive windows */}
         {openWindows.has('account') && (
           <GameWindow
             title="Account"
+            windowId="account"
             onClose={() => closeWindow('account')}
-            defaultX={window.innerWidth - 360}
-            defaultY={100}
           >
             <AccountPanel world={world} />
           </GameWindow>
         )}
-        
+
         {openWindows.has('combat') && (
           <GameWindow
             title="Combat"
+            windowId="combat"
             onClose={() => closeWindow('combat')}
-            defaultX={window.innerWidth - 360}
-            defaultY={100}
           >
             <CombatPanel world={world} stats={playerStats} equipment={equipment} />
           </GameWindow>
         )}
-        
+
         {openWindows.has('skills') && (
           <GameWindow
             title="Skills"
+            windowId="skills"
             onClose={() => closeWindow('skills')}
-            defaultX={window.innerWidth - 360}
-            defaultY={100}
           >
             <SkillsPanel world={world} stats={playerStats} />
           </GameWindow>
         )}
-        
+
         {openWindows.has('inventory') && (
           <GameWindow
             title="Inventory"
+            windowId="inventory"
             onClose={() => closeWindow('inventory')}
-            defaultX={window.innerWidth - 360}
-            defaultY={100}
           >
             <InventoryPanel items={inventory} coins={coins} />
           </GameWindow>
         )}
-        
+
         {openWindows.has('equipment') && (
           <GameWindow
             title="Equipment"
+            windowId="equipment"
             onClose={() => closeWindow('equipment')}
-            defaultX={window.innerWidth - 360}
-            defaultY={100}
           >
             <EquipmentPanel equipment={equipment} />
           </GameWindow>
         )}
-        
+
         {openWindows.has('prefs') && (
           <GameWindow
             title="Settings"
+            windowId="prefs"
             onClose={() => closeWindow('prefs')}
-            defaultX={window.innerWidth - 400}
-            defaultY={100}
           >
             <SettingsPanel world={world} />
           </GameWindow>

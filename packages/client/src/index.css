@@ -34,3 +34,93 @@
   backdrop-filter: grayscale(100%);
   -webkit-backdrop-filter: grayscale(100%);
 }
+
+/* Privy Modal Styling - Golden Border and Glow */
+#privy-dialog-container iframe[id*="privy"],
+#privy-modal {
+  border-radius: 12px !important;
+}
+
+/* Target the Privy modal container */
+[data-privy-modal],
+div[id*="privy-modal"],
+div[class*="privy-modal"] {
+  border: 2px solid #f2d08a !important;
+  border-radius: 12px !important;
+  box-shadow: 0 0 15px rgba(242, 208, 138, 0.4),
+              0 0 30px rgba(242, 208, 138, 0.2),
+              0 8px 32px rgba(0, 0, 0, 0.8) !important;
+  background: linear-gradient(135deg,
+    rgba(10, 10, 15, 0.98) 0%,
+    rgba(20, 20, 30, 0.98) 100%) !important;
+}
+
+/* Target Privy iframe modal */
+#privy-iframe-container,
+iframe[title*="Privy"],
+iframe[title*="privy"] {
+  border: 2px solid #f2d08a !important;
+  border-radius: 12px !important;
+  box-shadow: 0 0 15px rgba(242, 208, 138, 0.4),
+              0 0 30px rgba(242, 208, 138, 0.2),
+              0 8px 32px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Mobile: Center popup and reduce size for better fit */
+@media (max-width: 768px) {
+  [data-privy-modal],
+  div[id*="privy-modal"],
+  div[class*="privy-modal"],
+  #privy-iframe-container,
+  #privy-dialog-container,
+  #privy-dialog-container iframe,
+  #privy-dialog-container iframe[id*="privy"],
+  #privy-modal,
+  iframe[title*="Privy"],
+  iframe[title*="privy"],
+  div[role="dialog"],
+  div[role="dialog"] > div {
+    max-width: 90vw !important;
+    max-height: 70vh !important;
+    width: 90vw !important;
+    height: auto !important;
+    position: fixed !important;
+    top: 10% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+  }
+}
+
+/* Target the modal backdrop overlay */
+div[id*="privy"][id*="backdrop"],
+div[class*="privy"][class*="backdrop"],
+div[data-privy-backdrop] {
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* Custom scrollbar styling */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 208, 138, 0.5) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(242, 208, 138, 0.5);
+  border-radius: 3px;
+  border: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(242, 208, 138, 0.8);
+}
