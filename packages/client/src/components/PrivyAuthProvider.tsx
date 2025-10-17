@@ -78,8 +78,8 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
         loginMethods: ['wallet', 'email', 'google', 'farcaster'],
         appearance: {
           theme: 'dark',
-          accentColor: '#4a90e2',
-          logo: '/preview.jpg',
+          accentColor: '#d4af37',
+          logo: '/assets/images/logo.png',
           walletList: ['metamask', 'coinbase_wallet', 'rainbow', 'detected_wallets'],
         },
         embeddedWallets: {
