@@ -1349,7 +1349,7 @@ export class Entity implements IEntity {
     // Network sync
     const network = getWorldNetwork(this.world)
     if (local && network) {
-      network.send('entityRemoved', this.id)
+      network.send('entityRemoved', { id: this.id })
     }
 
     // Note: Do not emit ENTITY_DEATH here to avoid recursive destruction loops.

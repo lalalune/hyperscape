@@ -63,6 +63,9 @@ export class DatabaseSystem extends SystemBase {
   
   /** Flag to indicate the system is being destroyed - prevents new operations */
   private isDestroying: boolean = false;
+  
+  // CRITICAL FIX: Track ongoing saves to prevent concurrent saves for same player
+  private ongoingSaves = new Map<string, Promise<void>>();
 
   /**
    * Constructor
@@ -662,14 +665,27 @@ export class DatabaseSystem extends SystemBase {
   }
 
   savePlayer(playerId: string, data: Partial<PlayerRow>): void {
+    // CRITICAL FIX: Prevent concurrent saves for the same player
+    const existingSave = this.ongoingSaves.get(playerId);
+    if (existingSave) {
+      // Queue this save to run after the current one completes
+      existingSave.finally(() => {
+        this.savePlayer(playerId, data);
+      });
+      return;
+    }
+
     const operation = this.savePlayerAsync(playerId, data)
       .catch(err => {
         console.error('[DatabaseSystem] Error in savePlayer:', err);
       })
       .finally(() => {
         this.pendingOperations.delete(operation);
+        this.ongoingSaves.delete(playerId);
       });
+    
     this.pendingOperations.add(operation);
+    this.ongoingSaves.set(playerId, operation);
   }
 
   getPlayerInventory(_playerId: string): InventoryRow[] {

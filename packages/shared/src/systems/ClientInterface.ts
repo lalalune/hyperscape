@@ -132,6 +132,26 @@ export class ClientInterface extends SystemBase {
       if (parsed.sfx !== undefined) this.sfx = parsed.sfx;
       if (parsed.voice !== undefined) this.voice = parsed.voice;
       if (parsed.v !== undefined) this.v = parsed.v;
+      
+      // Emit change events for loaded preferences to notify other systems
+      this.changes = {};
+      if (parsed.music !== undefined) this.changes.music = { prev: 0.5, value: parsed.music };
+      if (parsed.sfx !== undefined) this.changes.sfx = { prev: 0.5, value: parsed.sfx };
+      if (parsed.voice !== undefined) this.changes.voice = { prev: 0.5, value: parsed.voice };
+      if (parsed.ui !== undefined) this.changes.ui = { prev: 1, value: parsed.ui };
+      if (parsed.stats !== undefined) this.changes.stats = { prev: false, value: parsed.stats };
+      if (parsed.dpr !== undefined) this.changes.dpr = { prev: 1, value: parsed.dpr };
+      if (parsed.shadows !== undefined) this.changes.shadows = { prev: 'med', value: parsed.shadows };
+      if (parsed.postprocessing !== undefined) this.changes.postprocessing = { prev: true, value: parsed.postprocessing };
+      if (parsed.bloom !== undefined) this.changes.bloom = { prev: true, value: parsed.bloom };
+      if (parsed.chatVisible !== undefined) this.changes.chatVisible = { prev: true, value: parsed.chatVisible };
+      if (parsed.v !== undefined) this.changes.v = { prev: 1, value: parsed.v };
+      
+      // Emit the changes to notify other systems
+      if (this.changes && Object.keys(this.changes).length > 0) {
+        this.emit('change', this.changes);
+        this.changes = null;
+      }
     }
   }
   

@@ -546,7 +546,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     this.world.entities.remove(this.data.id)
     // if removed locally we need to broadcast to server/clients
     if (local) {
-      this.world.network.send('entityRemoved', this.data.id)
+      this.world.network.send('entityRemoved', { id: this.data.id })
     }
   }
 

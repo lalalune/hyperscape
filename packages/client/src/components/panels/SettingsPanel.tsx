@@ -26,7 +26,7 @@ function Group({ label }: { label?: string }) {
     <>
       <div className="h-px bg-white/5 my-2.5" />
       {label && (
-        <div className="font-medium leading-none py-3 pl-4 -mt-2.5">
+        <div className="font-medium leading-none py-3 pl-4 -mt-2.5 text-white/90">
           {label}
         </div>
       )}
@@ -239,7 +239,7 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between py-2.5 px-3 border-b border-white/10">
-          <div className="font-semibold">Advanced Settings</div>
+          <div className="font-semibold text-white">Advanced Settings</div>
           <button onClick={() => setAdvanced(false)} className="bg-red-500 border-none text-white rounded-md py-1 px-2 cursor-pointer">Close</button>
         </div>
         <div className='noscrollbar overflow-y-auto max-h-[calc(80vh-48px)] py-2 px-3'>
@@ -251,10 +251,10 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
 
   return (
     <div className="w-full h-full overflow-y-auto relative">
-      <div className="font-semibold mb-2.5">Quick Settings</div>
+      <div className="font-semibold mb-2.5 text-white">Quick Settings</div>
       <div className="flex flex-col gap-2.5">
         <div>
-          <div className="mb-1">UI Scale</div>
+          <div className="mb-1 text-white/90">UI Scale</div>
           <input
             type='range'
             min={0.6}
@@ -270,7 +270,7 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
           />
         </div>
         <div className="flex justify-between items-center">
-          <div>Fullscreen</div>
+          <div className="text-white/90">Fullscreen</div>
           <button
             onClick={() => { if (canFullscreen) toggleFullscreen(!(isFullscreen as boolean)) }}
             className="bg-gray-900 border border-white/15 text-white rounded-md py-1 px-2 cursor-pointer"
@@ -279,7 +279,7 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
           </button>
         </div>
         <div className="flex justify-between items-center">
-          <div>Performance Stats</div>
+          <div className="text-white/90">Performance Stats</div>
           <button
             onClick={() => {
               const next = !statsOn
