@@ -155,6 +155,84 @@ export class ResourceEntity extends InteractableEntity {
       interactionComponent.data.description = `${this.config.resourceType} - Level ${this.config.requiredLevel} ${this.config.harvestSkill} required`;
     }
   }
+  
+  private async swapToStump(): Promise<void> {
+    if (this.world.isServer || !this.node) return;
+    
+    // Only trees have stumps
+    if (this.config.resourceType !== 'tree') {
+      // For other resources, just hide the mesh
+      if (this.mesh) {
+        this.mesh.visible = false;
+      }
+      return;
+    }
+    
+    console.log('[ResourceEntity] 🪵 Swapping to stump model');
+    
+    // Remove current tree mesh
+    if (this.mesh) {
+      this.node.remove(this.mesh);
+      this.mesh = null;
+    }
+    
+    // Load stump model
+    const stumpModelPath = 'asset://models/basic-tree-stump/basic-tree-stump.glb';
+    try {
+      const { scene } = await modelCache.loadModel(stumpModelPath, this.world);
+      
+      this.mesh = scene;
+      this.mesh.name = `ResourceStump_${this.config.resourceType}`;
+      
+      // Stump model is much larger than tree model, use smaller scale
+      const modelScale = 0.3; // Much smaller than tree (3.0)
+      this.mesh.scale.set(modelScale, modelScale, modelScale);
+      this.mesh.updateMatrix();
+      this.mesh.updateMatrixWorld(true);
+      
+      // Enable shadows
+      this.mesh.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      // Set up userData
+      this.mesh.userData = {
+        type: 'resource',
+        entityId: this.id,
+        name: 'Tree Stump',
+        interactable: false,
+        resourceType: this.config.resourceType,
+        depleted: true
+      };
+      
+      this.node.add(this.mesh);
+      console.log('[ResourceEntity] ✅ Stump model loaded');
+    } catch (error) {
+      console.error('[ResourceEntity] Failed to load stump model:', error);
+      // Fallback: just hide the original mesh
+      if (this.mesh) {
+        this.mesh.visible = false;
+      }
+    }
+  }
+  
+  private async swapToFullModel(): Promise<void> {
+    if (this.world.isServer || !this.node) return;
+    
+    console.log('[ResourceEntity] 🌳 Swapping to full tree model');
+    
+    // Remove current stump mesh
+    if (this.mesh) {
+      this.node.remove(this.mesh);
+      this.mesh = null;
+    }
+    
+    // Reload the original model
+    await this.createMesh();
+  }
 
   // Override serialize() to include all config data for network sync
   serialize(): EntityData {
@@ -193,12 +271,23 @@ export class ResourceEntity extends InteractableEntity {
 
   public updateFromNetwork(data: Record<string, unknown>): void {
     if (data.depleted !== undefined) {
+      const wasDepleted = this.config.depleted;
       this.config.depleted = Boolean(data.depleted);
       
-      // Update visual state based on depletion
-      if (this.mesh) {
-        this.mesh.visible = !this.config.depleted;
+      // Update visual state based on depletion - swap to stump for trees
+      if (this.config.depleted && !wasDepleted) {
+        // Just became depleted - swap to stump
+        this.swapToStump();
+      } else if (!this.config.depleted && wasDepleted) {
+        // Just respawned - swap back to full tree
+        this.swapToFullModel();
       }
+    }
+    
+    // CRITICAL: Enforce uniform node scale to prevent stretching
+    // Some network updates might try to apply non-uniform scale
+    if (this.node && (this.node.scale.x !== 1 || this.node.scale.y !== 1 || this.node.scale.z !== 1)) {
+      this.node.scale.set(1, 1, 1);
     }
   }
 
@@ -207,16 +296,56 @@ export class ResourceEntity extends InteractableEntity {
       return;
     }
     
-    // Try to load 3D model if available (same approach as ItemEntity)
+    // Try to load 3D model if available (same approach as MobEntity for Meshy models)
     if (this.config.model && this.world.loader) {
       try {
         const { scene } = await modelCache.loadModel(this.config.model, this.world);
         
         this.mesh = scene;
         this.mesh.name = `Resource_${this.config.resourceType}`;
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        this.mesh.scale.set(5.0, 5.0, 5.0); // Trees are 5x scale (~3-5m tall)
+        
+        // CRITICAL: Force node scale to be uniform (prevent stretching)
+        // Some systems might try to apply non-uniform scale - prevent this
+        this.node.scale.set(1, 1, 1);
+        
+        // CRITICAL: Scale and orient based on resource type
+        // Different Meshy models have different base scales and orientations
+        // ALWAYS use uniform scaling to preserve model proportions
+        let modelScale = 1.0;
+        let needsXRotation = false; // Some models are exported lying flat
+        
+        if (this.config.resourceType === 'tree') {
+          modelScale = 3.0; // Scale up from base size (uniform scaling only)
+          // Trees from Meshy are typically exported standing upright, no rotation needed
+        }
+        
+        // Apply UNIFORM scale only (x=y=z to prevent stretching)
+        this.mesh.scale.set(modelScale, modelScale, modelScale);
+        
+        // Apply base rotation if model is exported lying flat
+        if (needsXRotation) {
+          this.mesh.rotation.x = Math.PI / 2; // 90 degrees to stand upright
+        }
+        
+        this.mesh.updateMatrix();
+        this.mesh.updateMatrixWorld(true);
+        
+        // Handle skeletal meshes if present (most trees won't have these, but future resources might)
+        this.mesh.traverse((child) => {
+          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+            child.updateMatrix();
+            child.updateMatrixWorld(true);
+            child.bindMode = THREE.DetachedBindMode;
+            child.bindMatrix.copy(child.matrixWorld);
+            child.bindMatrixInverse.copy(child.bindMatrix).invert();
+          }
+          
+          // Enable shadows on all meshes
+          if (child instanceof THREE.Mesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
         
         // Set up userData for interaction detection
         this.mesh.userData = {
@@ -227,6 +356,16 @@ export class ResourceEntity extends InteractableEntity {
           resourceType: this.config.resourceType,
           depleted: this.config.depleted
         };
+        
+        // Calculate bounding box to position mesh correctly on ground
+        // The model's pivot might be at center, so we need to offset it
+        const bbox = new THREE.Box3().setFromObject(this.mesh);
+        const minY = bbox.min.y;
+        
+        // Offset mesh so the bottom (minY) is at Y=0 (ground level)
+        // Node position is already at terrain height, so mesh Y is relative to that
+        this.mesh.position.set(0, -minY, 0);
+        // Note: Don't reset quaternion if we applied base rotation above
         
         this.node.add(this.mesh);
         return;

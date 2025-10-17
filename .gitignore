@@ -48,5 +48,9 @@ tmp/
 *.sqlite-shm
 *.sqlite-wal
 
-.turbo
+# Build and cache directories
+.turbo/
 .claude-plugin/
+
+# Assets (generated/temporary)
+assets/

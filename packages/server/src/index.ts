@@ -114,7 +114,7 @@
 // ============================================================================
 // Load polyfills before ANY other imports to set up browser-like globals
 // for Three.js and other client libraries running on the server.
-import './polyfills'
+import './polyfills.js'
 
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
@@ -129,17 +129,17 @@ import { createServerWorld } from '@hyperscape/shared'
 import { installThreeJSExtensions } from '@hyperscape/shared'
 import type pg from 'pg'
 
-import { hashFile } from './utils'
+import { hashFile } from './utils.js'
 
 // Load environment variables from multiple possible locations
 dotenv.config({ path: '.env' })
 dotenv.config({ path: '../../../.env' }) // Root workspace .env
 dotenv.config({ path: '../../.env' }) // Parent directory .env
-import { createDefaultDockerManager, type DockerManager } from './docker-manager'
+import { createDefaultDockerManager, type DockerManager } from './docker-manager.js'
 import { NodeStorage as Storage } from '@hyperscape/shared'
-import { ServerNetwork } from './ServerNetwork'
-import { DatabaseSystem } from './DatabaseSystem'
-import type { NodeWebSocket } from './types'
+import { ServerNetwork } from './ServerNetwork.js'
+import { DatabaseSystem } from './DatabaseSystem.js'
+import type { NodeWebSocket } from './types.js'
 
 // JSON value type for proper typing
 type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue }
@@ -254,7 +254,7 @@ async function startServer() {
   // Create adapter for systems that need the old database interface
   const { createDrizzleAdapter } = await import('./db/drizzle-adapter.js')
   // Cast drizzleDb to the proper schema type since initializeDatabase returns a union type
-  const db = createDrizzleAdapter(drizzleDb as import('drizzle-orm/node-postgres').NodePgDatabase<typeof import('./db/schema')>)
+  const db = createDrizzleAdapter(drizzleDb as import('drizzle-orm/node-postgres').NodePgDatabase<typeof import('./db/schema.js')>)
 
   // init storage with database
   const storage = new Storage()
@@ -596,7 +596,7 @@ async function startServer() {
   fastify.post('/api/player/disconnect', async (req, reply) => {
     const body = req.body as { playerId: string; sessionId?: string; reason?: string }
     fastify.log.info({ body }, '[API] player/disconnect')
-    const network = world.network as unknown as import('./types').ServerNetworkWithSockets
+    const network = world.network as unknown as import('./types.js').ServerNetworkWithSockets
     const socket = network.sockets.get(body.playerId)
     if (socket) {
       socket.close?.()
@@ -694,7 +694,7 @@ async function startServer() {
     }
     
     // Import type from our local types
-    const network = world.network as unknown as import('./types').ServerNetworkWithSockets
+    const network = world.network as unknown as import('./types.js').ServerNetworkWithSockets
     for (const socket of network.sockets.values()) {
       if (socket.player?.node?.position) {
         const pos = socket.player.node.position
