@@ -62,7 +62,7 @@ export function GameWindow({ title, onClose, defaultX, defaultY, windowId = 'def
           style={{
             borderColor: 'rgba(242, 208, 138, 0.4)',
             maxHeight: '85vh',
-            bottom: 'calc(var(--mobile-chat-offset, 0px))',
+            bottom: 'calc(var(--mobile-chat-offset, 0px) + env(safe-area-inset-bottom))',
           }}
         >
           <style>{`

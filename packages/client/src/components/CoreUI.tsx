@@ -21,6 +21,7 @@ type IconComponent = React.ComponentType<{ size?: number | string }>
 
 export function CoreUI({ world }: { world: World }) {
   const ref = useRef<HTMLDivElement | null>(null)
+  const readyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [ready, setReady] = useState(false)
   const [_player, setPlayer] = useState(() => world.entities.player)
   const [ui, setUI] = useState(world.ui?.state)
@@ -33,9 +34,15 @@ export function CoreUI({ world }: { world: World }) {
     useEffect(() => {
     // Create handlers with proper types
     const handleReady = () => {
+      // Clear any existing timeout
+      if (readyTimeoutRef.current) {
+        clearTimeout(readyTimeoutRef.current)
+      }
+      
       // Add 0.3 second delay before hiding loading screen to allow game to fully render
-      setTimeout(() => {
+      readyTimeoutRef.current = setTimeout(() => {
         setReady(true)
+        readyTimeoutRef.current = null
       }, 300)
     }
     const handlePlayerSpawned = () => {
@@ -72,6 +79,11 @@ export function CoreUI({ world }: { world: World }) {
     if (network.lastCharacterList) setCharacterFlowActive(true)
     
     return () => {
+      // Clean up the ready timeout if it exists
+      if (readyTimeoutRef.current) {
+        clearTimeout(readyTimeoutRef.current)
+        readyTimeoutRef.current = null
+      }
       world.off(EventType.READY, handleReady)
       world.off(EventType.PLAYER_SPAWNED, handlePlayerSpawned)
       world.off(EventType.UI_TOGGLE, handleUIToggle)

@@ -345,7 +345,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           position: fixed;
           inset: 0;
           background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
-                      url('/assets/images/login-background.jpg') center/cover no-repeat;
+                      url('/assets/images/login_background.png') center/cover no-repeat;
           background-color: #0a0a0f;
           display: flex;
           align-items: center;
