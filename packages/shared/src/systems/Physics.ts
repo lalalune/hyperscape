@@ -87,15 +87,15 @@
 
 import type { Collider, Physics as IPhysics, RaycastHit as IRaycastHit, PhysicsMaterial, Quaternion, RigidBody, Vector3, World, CharacterController, CharacterControllerOptions } from '../types/index';
 
-import { Layers } from '../extras/Layers';
-import THREE from '../extras/three';
+import { Layers } from '../extras/Layers.js';
+import THREE from '../extras/three.js';
 import {
   createCpuDispatcher,
   getActorsFromHeader,
   cleanupPxVec3,
   vector3ToPxVec3
-} from '../utils/PhysicsUtils';
-import { getPhysX, waitForPhysX } from '../PhysXManager';
+} from '../utils/PhysicsUtils.js';
+import { getPhysX, waitForPhysX } from '../PhysXManager.js';
 import type {
   ActorHandle,
   ContactEvent,
@@ -105,9 +105,9 @@ import type {
   PhysicsRaycastHit,
   PhysicsSweepHit,
   TriggerEvent
-} from '../types/physics';
-import type { SystemDependencies } from './System';
-import { SystemBase } from './SystemBase';
+} from '../types/physics.js';
+import type { SystemDependencies } from './System.js';
+import { SystemBase } from './SystemBase.js';
 
 const _v3_1 = new THREE.Vector3()
 const _v3_2 = new THREE.Vector3()
@@ -144,7 +144,7 @@ import type {
   PxTransform,
   PxTriggerPair,
   PxVec3
-} from '../types/physics';
+} from '../types/physics.js';
 
 // All PhysX type extensions are now imported from physx-runtime.d.ts
 
@@ -157,13 +157,13 @@ import type {
 export type {
   ActorHandle, BasePhysicsHandle, ContactEvent, ContactInfo, InterpolatedPhysicsHandle, InterpolationData, NonInterpolatedPhysicsHandle, PhysicsHandle, PhysicsOverlapHit, PhysicsRaycastHit,
   PhysicsSweepHit, TriggerEvent, TriggerInfo
-} from '../types/physics';
+} from '../types/physics.js';
 
 // PhysX type aliases for backward compatibility
 export type PhysXActor = PxActor;
 export type PhysXTransform = PxTransform;
 export type PhysXShape = PxShape;
-import type { GeometryPhysXMesh } from '../types/physics';
+import type { GeometryPhysXMesh } from '../types/physics.js';
 export type PhysXMesh = GeometryPhysXMesh;
 export type PhysXMaterial = PxMaterial;
 export type PhysXRigidActor = PxActor;
