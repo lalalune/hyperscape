@@ -30,7 +30,7 @@ export function useThreeScene(
   })
 
   // Animation frame reference
-  const frameIdRef = useRef<number>()
+  const frameIdRef = useRef<number>(0)
 
   useEffect(() => {
     if (!containerRef.current) return

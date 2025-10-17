@@ -192,21 +192,10 @@ export class PersistenceSystem extends SystemBase {
     const characterId = event.userId || event.playerId;
     
     
-    // Ensure the character exists before creating the session
-    // Use UPSERT to create minimal character if it doesn't exist yet
-    // This handles race conditions where PersistenceSystem runs before PlayerSystem
-    await this.databaseSystem.savePlayerAsync(characterId, {
-      name: `Player_${characterId.substring(0, 8)}`,
-      // These are defaults that will be overwritten by PlayerSystem when it runs
-      combatLevel: 1,
-      attackLevel: 1, 
-      strengthLevel: 1,
-      defenseLevel: 1,
-      constitutionLevel: 10,
-      rangedLevel: 1,
-      health: 100,
-      maxHealth: 100
-    });
+    // NOTE: Don't call savePlayerAsync here - it would overwrite the character name!
+    // Character must already exist (created via createCharacter) before a session starts.
+    // If character doesn't exist, the session creation will fail due to foreign key constraint,
+    // which is the correct behavior - you shouldn't be able to create a session without a character.
     
     const sessionData: Omit<PlayerSessionRow, 'id' | 'sessionId'> = {
       playerId: characterId, // Use character ID for foreign key

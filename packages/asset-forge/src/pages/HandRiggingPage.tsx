@@ -18,7 +18,7 @@ import {
 } from '../components/HandRigging'
 
 export function HandRiggingPage() {
-  const viewerRef = useRef<ThreeViewerRef>(null)
+  const viewerRef = useRef<ThreeViewerRef>(null!)
   const handRiggingService = useRef<HandRiggingService | null>(null)
   const simpleHandRiggingService = useRef<SimpleHandRiggingService | null>(null)
 
