@@ -23,6 +23,8 @@ export function CoreUI({ world }: { world: World }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const readyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [ready, setReady] = useState(false)
+  const [loadingComplete, setLoadingComplete] = useState(false)
+  const [loadingProgress, setLoadingProgress] = useState(0)
   const [_player, setPlayer] = useState(() => world.entities.player)
   const [ui, setUI] = useState(world.ui?.state)
   const [_menu, setMenu] = useState(null)
@@ -34,16 +36,19 @@ export function CoreUI({ world }: { world: World }) {
     useEffect(() => {
     // Create handlers with proper types
     const handleReady = () => {
-      // Clear any existing timeout
-      if (readyTimeoutRef.current) {
-        clearTimeout(readyTimeoutRef.current)
-      }
+      // Mark that systems are ready, but wait for loading progress to reach 100%
+      setLoadingComplete(true)
+    }
+    
+    const handleLoadingProgress = (data: unknown) => {
+      const progressData = data as {
+        progress: number;
+        stage?: string;
+        total?: number;
+      };
       
-      // Add 0.3 second delay before hiding loading screen to allow game to fully render
-      readyTimeoutRef.current = setTimeout(() => {
-        setReady(true)
-        readyTimeoutRef.current = null
-      }, 300)
+      // Update loading progress
+      setLoadingProgress(progressData.progress)
     }
     const handlePlayerSpawned = () => {
       // Find and set the local player entity
@@ -65,6 +70,7 @@ export function CoreUI({ world }: { world: World }) {
     
     // Add listeners
     world.on(EventType.READY, handleReady)
+    world.on(EventType.ASSETS_LOADING_PROGRESS, handleLoadingProgress)
     world.on(EventType.PLAYER_SPAWNED, handlePlayerSpawned)
     world.on(EventType.UI_TOGGLE, handleUIToggle)
     world.on(EventType.UI_MENU, handleUIMenu)
@@ -85,6 +91,7 @@ export function CoreUI({ world }: { world: World }) {
         readyTimeoutRef.current = null
       }
       world.off(EventType.READY, handleReady)
+      world.off(EventType.ASSETS_LOADING_PROGRESS, handleLoadingProgress)
       world.off(EventType.PLAYER_SPAWNED, handlePlayerSpawned)
       world.off(EventType.UI_TOGGLE, handleUIToggle)
       world.off(EventType.UI_MENU, handleUIMenu)
@@ -95,6 +102,30 @@ export function CoreUI({ world }: { world: World }) {
       world.off('character:selected', () => setCharacterFlowActive(false))
     }
   }, [])
+
+  // Start the 300ms delay once loading is complete AND progress reaches 100%
+  useEffect(() => {
+    if (loadingComplete && loadingProgress >= 100) {
+      // Clear any existing timeout
+      if (readyTimeoutRef.current) {
+        clearTimeout(readyTimeoutRef.current)
+      }
+      
+      // Add 0.3 second delay to allow users to see the full loading bar at 100%
+      readyTimeoutRef.current = setTimeout(() => {
+        setReady(true)
+        readyTimeoutRef.current = null
+      }, 300)
+    }
+    
+    return () => {
+      // Clean up timeout on unmount or when dependencies change
+      if (readyTimeoutRef.current) {
+        clearTimeout(readyTimeoutRef.current)
+        readyTimeoutRef.current = null
+      }
+    }
+  }, [loadingComplete, loadingProgress])
 
   // Event capture removed - was blocking UI interactions
   useEffect(() => {
@@ -123,8 +154,8 @@ export function CoreUI({ world }: { world: World }) {
         {ready && <Chat world={world} />}
         {ready && <ActionProgressBar world={world} />}
         {avatar && <AvatarPane key={avatar?.hash} world={world} info={avatar} />}
-        {!ready && !characterFlowActive && <LoadingScreen world={world} message="Loading world..." />}
-        {characterFlowActive && !ready && <LoadingScreen world={world} message="Entering world..." />}
+        {!loadingComplete && !characterFlowActive && <LoadingScreen world={world} message="Loading world..." />}
+        {characterFlowActive && !loadingComplete && <LoadingScreen world={world} message="Entering world..." />}
         {kicked && <KickedOverlay code={kicked} />}
         {ready && isTouch && <TouchBtns world={world} />}
         {ready && <EntityContextMenu world={world} />}
