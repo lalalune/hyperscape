@@ -130,7 +130,10 @@ type SocketInterface = ServerSocket;
 // Entity already has velocity property
 
 const SAVE_INTERVAL = parseInt(process.env.SAVE_INTERVAL || '60'); // seconds
-const PING_RATE = 1; // seconds
+// WebSocket heartbeat configuration (relaxed for development by default)
+const WS_PING_INTERVAL_SEC = parseInt(process.env.WS_PING_INTERVAL_SEC || '5', 10);
+const WS_PING_MISS_TOLERANCE = parseInt(process.env.WS_PING_MISS_TOLERANCE || '3', 10);
+const WS_PING_GRACE_MS = parseInt(process.env.WS_PING_GRACE_MS || '5000', 10);
 const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';  // Safe default height
 
 const HEALTH_MAX = 100;
@@ -184,6 +187,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   
   /** Interval handle for socket health checks (ping/pong) */
   socketIntervalId: NodeJS.Timeout;
+  // Heartbeat state
+  private socketFirstSeenAt: Map<string, number> = new Map();
+  private socketMissedPongs: Map<string, number> = new Map();
   
   /** Interval handle for periodic player data saves */
   saveTimerId: NodeJS.Timeout | null;
@@ -237,7 +243,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.id = 0;
     this.ids = -1;
     this.sockets = new Map();
-    this.socketIntervalId = setInterval(() => this.checkSockets(), PING_RATE * 1000);
+    this.socketIntervalId = setInterval(() => this.checkSockets(), WS_PING_INTERVAL_SEC * 1000);
     this.saveTimerId = null;
     this.isServer = true;
     this.isClient = false;
@@ -453,6 +459,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const avatar = undefined;
     const roles: string[] = [];
     
+    // Require a characterId to ensure persistence uses stable IDs
     const entityId = characterId || socket.id;
     if (!characterId) {
       console.warn(`[ServerNetwork] No characterId provided to enterWorld, using socketId`)
@@ -525,8 +532,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         // Send inventory snapshot immediately from persistence to avoid races
         try {
           const dbSys = this.world.getSystem?.('database') as DatabaseSystemOperations | undefined
-          const rows = dbSys?.getPlayerInventoryAsync ? await dbSys.getPlayerInventoryAsync(socket.player.id) : []
-          const coinsRow = dbSys?.getPlayerAsync ? await dbSys.getPlayerAsync(socket.player.id) : null
+          const persistenceId = characterId || socket.player.id
+          const rows = dbSys?.getPlayerInventoryAsync ? await dbSys.getPlayerInventoryAsync(persistenceId) : []
+          const coinsRow = dbSys?.getPlayerAsync ? await dbSys.getPlayerAsync(persistenceId) : null
           const sorted = rows
             .map(r => ({
               rawSlot: Number.isFinite(r.slotIndex) && (r.slotIndex as number) >= 0 ? (r.slotIndex as number) : Number.MAX_SAFE_INTEGER,
@@ -837,16 +845,49 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    */
   checkSockets(): void {
     // see: https://www.npmjs.com/package/ws#how-to-detect-and-close-broken-connections
-    const dead: SocketInterface[] = [];
+    const now = Date.now();
+    const toDisconnect: Array<{ socket: SocketInterface; reason: string }> = [];
     this.sockets.forEach(socket => {
-      if (!socket.alive) {
-        dead.push(socket);
-      } else {
+      // Grace period for new sockets
+      if (!this.socketFirstSeenAt.has(socket.id)) {
+        this.socketFirstSeenAt.set(socket.id, now);
+        this.socketMissedPongs.set(socket.id, 0);
         socket.ping?.();
+        return;
       }
+
+      const firstSeen = this.socketFirstSeenAt.get(socket.id) || now;
+      const withinGrace = (now - firstSeen) < WS_PING_GRACE_MS;
+
+      if (withinGrace) {
+        // During grace, just ping and do not count misses
+        socket.ping?.();
+        return;
+      }
+
+      if (!socket.alive) {
+        const misses = (this.socketMissedPongs.get(socket.id) || 0) + 1;
+        this.socketMissedPongs.set(socket.id, misses);
+        if (misses >= WS_PING_MISS_TOLERANCE) {
+          toDisconnect.push({ socket, reason: `missed_pong x${misses}` });
+          return;
+        }
+      } else {
+        // Reset miss counter on successful pong seen in last interval
+        this.socketMissedPongs.set(socket.id, 0);
+      }
+
+      // Mark not-alive and send ping to solicit next pong
+      socket.ping?.();
     });
-    dead.forEach(socket => {
+
+    toDisconnect.forEach(({ socket, reason }) => {
+      try {
+        console.warn(`[ServerNetwork] Disconnecting socket ${socket.id} due to ${reason}`);
+      } catch {}
       socket.disconnect?.();
+      this.socketFirstSeenAt.delete(socket.id);
+      this.socketMissedPongs.delete(socket.id);
     });
   }
 

@@ -25,7 +25,8 @@
  * ```
  */
 
-import { SystemBase, type World } from '@hyperscape/shared';
+import { SystemBase } from '@hyperscape/shared';
+import type { World } from '@hyperscape/shared';
 import { eq, and, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
@@ -72,7 +73,7 @@ export class DatabaseSystem extends SystemBase {
    * 
    * @param world - The game world instance this system belongs to
    */
-  constructor(world: World) {
+  constructor(world: unknown) {
     super(world, {
       name: 'database',
       dependencies: {
@@ -374,21 +375,23 @@ export class DatabaseSystem extends SystemBase {
       return;
     }
     
-    // Delete existing inventory
-    await this.db.delete(schema.inventory).where(eq(schema.inventory.playerId, playerId));
-    
-    // Insert new items
-    if (items.length > 0) {
-      await this.db.insert(schema.inventory).values(
-        items.map(item => ({
-          playerId,
-          itemId: item.itemId,
-          quantity: item.quantity,
-          slotIndex: item.slotIndex ?? -1,
-          metadata: item.metadata ? JSON.stringify(item.metadata) : null,
-        }))
-      );
-    }
+    // Perform atomic replace using a transaction to avoid data loss on hot reload/crash
+    await this.db.transaction(async (tx) => {
+      // Delete existing inventory
+      await tx.delete(schema.inventory).where(eq(schema.inventory.playerId, playerId));
+      // Insert new items
+      if (items.length > 0) {
+        await tx.insert(schema.inventory).values(
+          items.map(item => ({
+            playerId,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            slotIndex: item.slotIndex ?? -1,
+            metadata: item.metadata ? JSON.stringify(item.metadata) : null,
+          }))
+        );
+      }
+    });
   }
 
   // ============================================================================
