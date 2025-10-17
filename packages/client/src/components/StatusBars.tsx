@@ -71,10 +71,7 @@ export function StatusBars({ world }: StatusBarsProps) {
       player.runMode = newRunMode
 
       // Send network request to update server
-      world.net?.send({
-        t: 'input',
-        keys: { runMode: newRunMode },
-      })
+      world.network.send('moveRequest', { runMode: newRunMode })
     }
   }
 

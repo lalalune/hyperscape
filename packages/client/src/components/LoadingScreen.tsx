@@ -38,11 +38,20 @@ export function LoadingScreen({
         // System initialization: takes 0-30% of total progress
         const systemProgress = Math.min(30, (progressData.progress / 100) * 30);
 
-        // Only update if this doesn't go backwards
-        if (systemProgress >= lastProgress) {
-          lastProgress = systemProgress;
+        // Always update system progress within its 0-30% range, regardless of lastProgress
+        // This allows independent loading phases to update correctly
+        if (systemProgress <= 30) {
           setProgress(systemProgress);
           setLoadingStage(progressData.stage);
+          // Update lastProgress to ensure it reaches 30% when systems complete
+          if (systemProgress > lastProgress) {
+            lastProgress = systemProgress;
+          }
+        }
+        
+        // Ensure lastProgress reaches 30% when systems complete, even if systemProgress > 30
+        if (progressData.progress === 100 && lastProgress < 30) {
+          lastProgress = 30;
         }
 
         // Mark systems as complete when we hit 100%
@@ -53,8 +62,8 @@ export function LoadingScreen({
         // Asset loading: takes 30-100% of total progress
         const assetProgress = 30 + (progressData.progress / 100) * 70;
 
-        // Only update if this doesn't go backwards
-        if (assetProgress >= lastProgress) {
+        // Only update if systems are complete AND this doesn't go backwards
+        if (systemsComplete && assetProgress >= lastProgress) {
           lastProgress = assetProgress;
           setProgress(assetProgress);
 

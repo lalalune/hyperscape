@@ -52,6 +52,7 @@ type ExtendedWorld = InstanceType<typeof World> & {
 export function Chat({ world }: { world: ExtendedWorld }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const chatPanelRef = useRef<HTMLDivElement | null>(null)
+  const touchStartYRef = useRef<number | null>(null)
   const [msg, setMsg] = useState('')
   const { active, setActive, collapsed, setCollapsed } = useChatContext()
   const [chatVisible, setChatVisible] = useState(() => world.prefs?.chatVisible ?? true)
@@ -258,13 +259,14 @@ export function Chat({ world }: { world: ExtendedWorld }) {
 
   const tabs = ['Global', 'Local', 'Group'] as const
 
-  const updateMobileOffset = useCallback(() => {
+  const updateMobileOffset = useCallback((newCollapsed?: boolean) => {
     if (typeof document === 'undefined') return
     if (!isMobileLayout) {
       document.documentElement.style.setProperty('--mobile-chat-offset', '0px')
       return
     }
-    if (!collapsed && chatPanelRef.current) {
+    const isCollapsed = newCollapsed !== undefined ? newCollapsed : collapsed
+    if (!isCollapsed && chatPanelRef.current) {
       const height = chatPanelRef.current.offsetHeight
       document.documentElement.style.setProperty('--mobile-chat-offset', `${height + 16}px`)
     } else {
@@ -447,6 +449,7 @@ export function Chat({ world }: { world: ExtendedWorld }) {
             if (delta < -40) {
               setCollapsed(false)
               setActive(true)
+              updateMobileOffset(false)
             }
           }}
         >
@@ -491,6 +494,7 @@ export function Chat({ world }: { world: ExtendedWorld }) {
           if (delta > 40) {
             setCollapsed(true)
             setActive(false)
+            updateMobileOffset(true)
           }
         }}
       >
