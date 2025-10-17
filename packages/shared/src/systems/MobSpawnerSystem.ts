@@ -32,11 +32,9 @@ export class MobSpawnerSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
-    console.log('[MobSpawnerSystem] dada 🚀 Initializing MobSpawnerSystem...');
     
     // Get terrain system reference
     this.terrainSystem = this.world.getSystem<TerrainSystem>('terrain')!;
-    console.log('[MobSpawnerSystem] dada 🏔️ Terrain system:', this.terrainSystem ? 'found' : 'not found');
     
     // Set up event subscriptions for mob lifecycle (do not consume MOB_SPAWN_REQUEST to avoid re-emission loops)
     this.subscribe<{ mobId: string }>(EventType.MOB_DESPAWN, (data) => {
@@ -55,38 +53,29 @@ export class MobSpawnerSystem extends SystemBase {
       }
     });
     
-    console.log('[MobSpawnerSystem] dada ✅ MobSpawnerSystem initialized');
   }
 
   async start(): Promise<void> {
-    console.log('[MobSpawnerSystem] dada 🚀 Starting MobSpawnerSystem...');
-    console.log('[MobSpawnerSystem] dada 🌍 World isServer:', this.world.isServer);
     
     // Spawn a default test mob near origin BEFORE accepting connections (server-only)
     if (this.world.isServer) {
-      console.log('[MobSpawnerSystem] dada 🎯 Server detected, spawning default mob...');
       await this.spawnDefaultMob();
-    } else {
-      console.log('[MobSpawnerSystem] dada 👤 Client detected, skipping default mob spawn');
     }
     
     // Mobs are now spawned reactively as terrain tiles generate
     // No need to spawn all mobs at startup - tiles will trigger spawning
-    console.log('[MobSpawnerSystem] dada ✅ MobSpawnerSystem started');
   }
   
   /**
    * Spawn a default test mob for initial world content
    */
   private async spawnDefaultMob(): Promise<void> {
-    console.log('[MobSpawnerSystem] dada 🚀 Starting default mob spawn...');
     
     // Use fixed Y position for simplicity
     const y = 43;
     
     // CRITICAL FIX: Use the proper event system instead of direct EntityManager calls
     // This ensures proper network synchronization and client/server consistency
-    console.log('[MobSpawnerSystem] dada 📡 Emitting MOB_SPAWN_REQUEST for default goblin');
     this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
       mobType: 'goblin',
       level: 2,
@@ -94,33 +83,27 @@ export class MobSpawnerSystem extends SystemBase {
       respawnTime: 60000, // 1 minute
       customId: 'default_goblin_1' // Use our custom ID for tracking
     });
-    console.log('[MobSpawnerSystem] dada ✅ MOB_SPAWN_REQUEST emitted for default_goblin_1');
   }
 
 
   #lastKnownIndex: Record<string, number> = {};
   private spawnMobFromData(mobData: MobData, position: { x: number; y: number; z: number }, index: number): void {
-    console.log(`[MobSpawnerSystem] dada 🎯 spawnMobFromData called for ${mobData.id} at position:`, position);
     
     if (this.#lastKnownIndex[mobData.type] && this.#lastKnownIndex[mobData.id] >= index) {
       index = this.#lastKnownIndex[mobData.id] + 1;
     }
     this.#lastKnownIndex[mobData.type] = index;
     const mobId = `gdd_${mobData.id}_${index}`;
-    console.log(`[MobSpawnerSystem] dada 🆔 Generated mob ID: ${mobId}`);
     
     // Check if we already spawned this mob to prevent duplicates
     if (this.spawnedMobs.has(mobId)) {
-      console.log(`[MobSpawnerSystem] dada ⚠️ Mob ${mobId} already spawned, skipping`);
       return;
     }
     
     // Track this spawn BEFORE emitting to prevent race conditions
     this.spawnedMobs.set(mobId, mobData.id);
-    console.log(`[MobSpawnerSystem] dada 📝 Tracking spawn: ${mobId} -> ${mobData.id}`);
-    
+
     // Use EntityManager to spawn mob via event system
-    console.log(`[MobSpawnerSystem] dada 📡 Emitting MOB_SPAWN_REQUEST for ${mobData.id}`);
     this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
       mobType: mobData.id,
       level: mobData.stats.level,
@@ -128,19 +111,16 @@ export class MobSpawnerSystem extends SystemBase {
       respawnTime: mobData.respawnTime || 300000, // 5 minutes default
       customId: mobId // Pass our custom ID for tracking
     });
-    console.log(`[MobSpawnerSystem] dada ✅ MOB_SPAWN_REQUEST emitted for ${mobId}`);
   }
 
   private handleEntitySpawned(data: EntitySpawnedEvent): void {
     // Track mobs spawned by the EntityManager  
     if (data.entityType === 'mob' && data.entityData?.mobType) {
-      console.log(`[MobSpawnerSystem] dada 🎯 Entity spawned: ${data.entityId} (${data.entityData.mobType})`);
       
       // Find matching request based on mob type and position
       for (const [mobId, trackedMobType] of this.spawnedMobs) {
         if (!this.spawnedMobs.get(mobId) && mobId.includes(data.entityData.mobType as string)) {
           this.spawnedMobs.set(mobId, data.entityId!);
-          console.log(`[MobSpawnerSystem] dada 📝 Tracked spawn: ${mobId} -> ${data.entityId}`);
           break;
         }
       }
@@ -148,7 +128,6 @@ export class MobSpawnerSystem extends SystemBase {
       // Special case for default goblin
       if (data.entityId === 'default_goblin_1') {
         this.spawnedMobs.set('default_goblin_1', data.entityId);
-        console.log(`[MobSpawnerSystem] dada 📝 Tracked default goblin: default_goblin_1 -> ${data.entityId}`);
       }
     }
   }
@@ -221,7 +200,6 @@ export class MobSpawnerSystem extends SystemBase {
    * Handle terrain tile generation - spawn mobs for new tiles
    */
   private onTileGenerated(tileData: { tileX: number; tileZ: number; biome: string }): void {
-    console.log(`[MobSpawnerSystem] dada 🏔️ Tile generated:`, tileData);
     
     const TILE_SIZE = this.terrainSystem.getTileSize();
     const tileBounds = {
@@ -230,32 +208,21 @@ export class MobSpawnerSystem extends SystemBase {
       minZ: tileData.tileZ * TILE_SIZE,
       maxZ: (tileData.tileZ + 1) * TILE_SIZE,
     };
-    console.log(`[MobSpawnerSystem] dada 📐 Tile bounds:`, tileBounds);
 
     // Find which world areas overlap with this new tile
     const overlappingAreas: Array<typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS]> = [];
-    console.log(`[MobSpawnerSystem] dada 🔍 Checking ${Object.keys(ALL_WORLD_AREAS).length} world areas for overlap...`);
     
     for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
-      const areaBounds = area.bounds;
-      console.log(`[MobSpawnerSystem] dada 📏 Area ${areaId} bounds:`, areaBounds);
-      
+      const areaBounds = area.bounds;      
       // Simple bounding box overlap check
       if (tileBounds.minX < areaBounds.maxX && tileBounds.maxX > areaBounds.minX &&
           tileBounds.minZ < areaBounds.maxZ && tileBounds.maxZ > areaBounds.minZ) {
         overlappingAreas.push(area);
-        console.log(`[MobSpawnerSystem] dada ✅ Area ${areaId} overlaps with tile!`);
-      } else {
-        console.log(`[MobSpawnerSystem] dada ❌ Area ${areaId} does not overlap with tile`);
       }
     }
-    console.log(`[MobSpawnerSystem] dada 🗺️ Overlapping areas:`, overlappingAreas.map(a => a.name));
 
     if (overlappingAreas.length > 0) {
-      console.log(`[MobSpawnerSystem] dada 🎯 Generating content for ${overlappingAreas.length} areas`);
       this.generateContentForTile(tileData, overlappingAreas);
-    } else {
-      console.log(`[MobSpawnerSystem] dada ⚠️ No overlapping areas found for tile`);
     }
   }
 
