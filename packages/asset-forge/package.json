@@ -68,10 +68,10 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
-    "@types/node": "^20.19.8",
+    "@types/node": "^24.8.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/three": "^0.178.1",
+    "@types/three": "^0.180.0",
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.16",
     "depcheck": "^1.4.7",

@@ -23,7 +23,7 @@
     "js-tiktoken": "^1.0.21"
   },
   "devDependencies": {
-    "@types/node": "^22.10.5",
+    "@types/node": "^24.8.0",
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
