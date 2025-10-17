@@ -155,7 +155,7 @@ export function LoadingScreen({
           background-position: center;
           background-size: cover;
           background-repeat: no-repeat;
-          background-image: ${image ? `url(${world.resolveURL((image as { url: string }).url)})` : `url(${world.resolveURL("/preview.jpg")})`};
+          background-image: url('/assets/images/loading_background.png');
           animation: slowZoom 40s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
         }
         .loading-shade {
