@@ -48,7 +48,7 @@ export const AssetsPage: React.FC = () => {
 
   // Use the asset actions hook
   const { handleViewerReset, handleDownload, handleDeleteAsset, handleSaveAsset } = useAssetActions({
-    viewerRef,
+    viewerRef: viewerRef as React.RefObject<ThreeViewerRef>,
     reloadAssets,
     forceReload,
     assets

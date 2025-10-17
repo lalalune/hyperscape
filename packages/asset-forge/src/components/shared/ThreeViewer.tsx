@@ -1301,11 +1301,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             }
           })
           
-          // Update skeleton helper
-          if (skeletonHelperRef.current) {
-            console.log('  Updating skeleton helper')
-            skeletonHelperRef.current.update()
-          }
+          // Skeleton helper updates automatically when bones change
         }
       }
       
