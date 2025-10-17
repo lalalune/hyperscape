@@ -365,7 +365,7 @@ export function CharacterSelectPage({
     thick?: boolean;
   }) => (
     <div
-      className={`${thick ? "h-[2px]" : "h-px"} w-full bg-gradient-to-r from-transparent via-yellow-400 to-transparent ${className}`}
+      className={`${thick ? "h-[2px]" : "h-px"} w-full bg-gradient-to-r from-transparent via-[#f2d08a]/90 to-transparent ${className}`}
     />
   );
 
@@ -375,7 +375,7 @@ export function CharacterSelectPage({
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: "url('/stock_background.png')",
+          backgroundImage: "url('/assets/images/login_background.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -384,11 +384,11 @@ export function CharacterSelectPage({
       <div className="absolute inset-0 flex items-center justify-center text-white">
         <div className="w-full max-w-2xl mx-auto p-6">
           <div className="relative">
-            <div className="mx-auto mt-0 mb-8 w-full max-w-2xl flex items-center justify-center">
+            <div className="mx-auto mt-20 md:mt-0 mb-2 w-full max-w-2xl flex items-center justify-center">
               <img
                 src="/hyperscape_wordmark.png"
                 alt="Hyperscape"
-                className="h-28 md:h-36 object-contain"
+                className="h-20 md:h-36 object-contain"
               />
             </div>
           </div>
@@ -412,7 +412,7 @@ export function CharacterSelectPage({
 
           {view === "select" && (
             <div className="mt-8">
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2 scrollbar-thin">
                 {characters.map((c) => (
                   <div
                     key={c.id}
@@ -440,8 +440,11 @@ export function CharacterSelectPage({
                       <button
                         onClick={() => selectCharacter(c.id)}
                         className="w-full px-4 py-2 text-center bg-black/40 hover:bg-black/50 focus:outline-none focus:ring-1 ring-yellow-400/60 rounded-sm"
+                        style={{
+                          color: '#f2d08a',
+                        }}
                       >
-                        <span className="font-semibold text-yellow-300 text-xl">
+                        <span className="font-semibold text-xl">
                           {c.name}
                         </span>
                       </button>
@@ -452,39 +455,44 @@ export function CharacterSelectPage({
                 {characters.length === 0 && (
                   <div className="text-sm opacity-70">No characters yet.</div>
                 )}
-                {!showCreate && (
-                  <div className="relative w-full overflow-hidden h-24">
-                    <div className="flex items-center h-full p-4 pr-5">
-                      <img
-                        src="/stock_character.png"
-                        alt=""
-                        className="w-24 h-24 rounded-sm object-cover ml-auto"
-                      />
-                    </div>
-                    <div
-                      className="absolute"
-                      style={{
-                        left: "16px",
-                        right: "112px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                      }}
-                    >
-                      <GoldRule thick className="pointer-events-none" />
-                      <button
-                        onClick={() => setShowCreate(true)}
-                        className="w-full px-4 py-2 text-left bg-black/40 hover:bg-black/50 focus:outline-none focus:ring-1 ring-yellow-400/60 rounded-sm"
-                      >
-                        <span className="font-semibold text-xl">
-                          Create New
-                        </span>
-                      </button>
-                      <GoldRule thick className="pointer-events-none" />
-                    </div>
+              </div>
+
+              {/* Create New button - always visible below character list */}
+              {!showCreate && (
+                <div className="relative w-full overflow-hidden h-24 mt-3">
+                  <div className="flex items-center h-full p-4 pr-5">
+                    <img
+                      src="/stock_character.png"
+                      alt=""
+                      className="w-24 h-24 rounded-sm object-cover ml-auto"
+                    />
                   </div>
-                )}
-                {showCreate && (
-                  <div className="w-full space-y-4">
+                  <div
+                    className="absolute"
+                    style={{
+                      left: "16px",
+                      right: "112px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                    }}
+                  >
+                    <GoldRule thick className="pointer-events-none" />
+                    <button
+                      onClick={() => setShowCreate(true)}
+                      className="w-full px-4 py-2 text-left bg-black/40 hover:bg-black/50 focus:outline-none focus:ring-1 ring-yellow-400/60 rounded-sm"
+                    >
+                      <span className="font-semibold text-xl">
+                        Create New
+                      </span>
+                    </button>
+                    <GoldRule thick className="pointer-events-none" />
+                  </div>
+                </div>
+              )}
+
+              {/* Character creation form */}
+              {showCreate && (
+                  <div className="w-full space-y-2 mt-3">
                     <form
                       className="w-full rounded bg-white/5"
                       onSubmit={(e) => {
@@ -493,10 +501,10 @@ export function CharacterSelectPage({
                       }}
                     >
                       <GoldRule thick />
-                      <div className="flex items-center gap-4 p-4 h-20">
+                      <div className="flex items-center gap-2 p-3 h-16">
                         <div className="flex-1">
                           <input
-                            className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-white outline-none"
+                            className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-white outline-none text-sm"
                             placeholder="Name (3–20 chars)"
                             value={newCharacterName}
                             onChange={(e) => {
@@ -509,12 +517,12 @@ export function CharacterSelectPage({
                         <img
                           src="/stock_character.png"
                           alt=""
-                          className="w-16 h-16 rounded-sm object-cover"
+                          className="w-12 h-12 rounded-sm object-cover"
                         />
 
                         <button
                           type="submit"
-                          className={`ml-2 px-4 py-2 rounded font-bold ${wsReady && newCharacterName.trim().length >= 3 ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/20 cursor-not-allowed"}`}
+                          className={`px-3 py-1.5 rounded font-bold text-sm ${wsReady && newCharacterName.trim().length >= 3 ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/20 cursor-not-allowed"}`}
                           disabled={
                             !wsReady || newCharacterName.trim().length < 3
                           }
@@ -531,7 +539,7 @@ export function CharacterSelectPage({
                         </button>
                       </div>
                       <GoldRule thick />
-                      <div className="px-4 pb-2 text-xs opacity-60">
+                      <div className="px-3 pb-1.5 text-xs opacity-60">
                         WS Ready: {wsReady ? "✅" : "❌"} | Name Length:{" "}
                         {newCharacterName.trim().length}
                       </div>
@@ -539,7 +547,7 @@ export function CharacterSelectPage({
 
                     {/* EMERGENCY DEBUG BUTTON - BYPASSES FORM */}
                     <button
-                      className="w-full px-6 py-4 bg-red-600 text-white font-bold text-lg rounded"
+                      className="w-full px-4 py-2 bg-red-600 text-white font-bold text-sm rounded"
                       onClick={() => {
                                                                         createCharacter();
                       }}
@@ -549,7 +557,7 @@ export function CharacterSelectPage({
 
                     {/* TEST CONNECTION BUTTON */}
                     <button
-                      className="w-full px-6 py-4 bg-blue-600 text-white font-bold text-lg rounded"
+                      className="w-full px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded"
                       onClick={() => {
                                                 const ws = preWsRef.current;
                         if (!ws) {
@@ -560,7 +568,7 @@ export function CharacterSelectPage({
                         }
                                                                         const packet = writePacket("characterListRequest", {});
                                                 ws.send(packet);
-                        
+
                         // Now try characterCreate
                                                 const packet2 = writePacket("characterCreate", {
                           name: "TestChar",
@@ -572,28 +580,39 @@ export function CharacterSelectPage({
                     </button>
                   </div>
                 )}
-              </div>
+
               {!wsReady && (
-                <div className="text-xs opacity-60 mt-3">Connecting…</div>
+                <div className="text-xs opacity-60 mt-2">Connecting…</div>
               )}
-              <div className="mt-10 flex justify-center">
-                <button
-                  className="w-full max-w-sm px-6 py-3 rounded text-white text-lg bg-white/10 hover:bg-white/15 border border-white/20"
-                  onClick={onLogout}
-                >
-                  Sign out
-                </button>
+              <div className="mt-6 flex justify-center">
+                <div className="w-full max-w-sm relative">
+                  <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#f2d08a]/90 to-transparent mb-2" />
+                  <button
+                    className="w-full px-6 py-3 text-center bg-transparent hover:bg-black/20 focus:outline-none transition-all rounded-sm"
+                    onClick={onLogout}
+                    style={{
+                      color: '#f2d08a',
+                      textShadow: '0 0 12px rgba(242, 208, 138, 0.5), 0 0 25px rgba(242, 208, 138, 0.3)',
+                      filter: 'drop-shadow(0 8px 20px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6))',
+                    }}
+                  >
+                    <span className="font-semibold text-lg uppercase tracking-[0.2em]">
+                      Sign out
+                    </span>
+                  </button>
+                  <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#f2d08a]/90 to-transparent mt-2" />
+                </div>
               </div>
             </div>
           )}
 
           {view === "confirm" && (
-            <div className="mt-6">
+            <div className="mt-2">
               <div className="rounded bg-white/5 overflow-hidden">
                 <div className="relative">
                   <div
                     className="w-full overflow-hidden"
-                    style={{ height: "68vh" }}
+                    style={{ height: "55vh" }}
                   >
                     <img
                       src="/stock_character.png"
@@ -604,36 +623,53 @@ export function CharacterSelectPage({
                   <div className="absolute inset-x-0 bottom-0">
                     <GoldRule />
                     <div className="flex items-center justify-between px-5 py-3 bg-black/50 backdrop-blur">
-                      <div className="font-semibold text-xl text-yellow-300">
+                      <div className="font-semibold text-xl" style={{ color: '#f2d08a' }}>
                         {characters.find((c) => c.id === selectedCharacterId)
                           ?.name || "Unnamed"}
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="text-yellow-400 text-xl">✓</div>
+                        <div className="text-xl" style={{ color: '#f2d08a' }}>✓</div>
                       </div>
                     </div>
                     <GoldRule />
                   </div>
                 </div>
               </div>
-              <div className="mt-6">
-                <GoldRule thick className="mb-4" />
-                <button
-                  className={`w-full px-4 py-3 rounded text-black font-semibold ${selectedCharacterId ? "bg-yellow-300 hover:bg-yellow-200" : "bg-white/20 text-white cursor-not-allowed"}`}
-                  disabled={!selectedCharacterId}
-                  onClick={enterWorld}
-                >
-                  Enter World
-                </button>
-                <GoldRule thick className="mt-4" />
-                <div className="mt-3 flex justify-center">
+              <div className="mt-3 flex justify-center">
+                <div className="w-full max-w-md relative">
+                  <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#f2d08a]/90 to-transparent mb-1" />
                   <button
-                    className="text-xs px-3 py-1 bg-white/10 rounded"
-                    onClick={() => setView("select")}
+                    className="w-full px-6 py-1.5 text-center bg-transparent hover:bg-black/20 focus:outline-none transition-all rounded-sm"
+                    disabled={!selectedCharacterId}
+                    onClick={enterWorld}
+                    style={{
+                      color: '#f2d08a',
+                      textShadow: '0 0 12px rgba(242, 208, 138, 0.5), 0 0 25px rgba(242, 208, 138, 0.3)',
+                      filter: 'drop-shadow(0 8px 20px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6))',
+                      opacity: selectedCharacterId ? 1 : 0.5,
+                      cursor: selectedCharacterId ? 'pointer' : 'not-allowed',
+                    }}
                   >
-                    Back to Select
+                    <span className="font-semibold text-lg uppercase tracking-[0.2em]">
+                      Enter World
+                    </span>
                   </button>
+                  <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#f2d08a]/90 to-transparent mt-1" />
                 </div>
+              </div>
+              <div className="mt-3 flex justify-center">
+                <button
+                  className="px-6 py-2 bg-transparent hover:bg-black/20 focus:outline-none transition-all rounded-sm border border-[#f2d08a]/30"
+                  onClick={() => setView("select")}
+                  style={{
+                    color: '#f2d08a',
+                    textShadow: '0 0 8px rgba(242, 208, 138, 0.4)',
+                  }}
+                >
+                  <span className="font-medium text-sm uppercase tracking-[0.15em]">
+                    Back to Select
+                  </span>
+                </button>
               </div>
             </div>
           )}
