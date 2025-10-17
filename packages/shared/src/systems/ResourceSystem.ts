@@ -187,14 +187,14 @@ export class ResourceSystem extends SystemBase {
       type: 'resource' as const,
       name: 'Test Tree',
       position: { x: 5, y: 43, z: 5 },
-      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, // Identity quaternion (no rotation)
       scale: { x: 1, y: 1, z: 1 },
       visible: true,
       interactable: true,
       interactionType: 'harvest',
       interactionDistance: 3,
       description: 'A test tree at origin',
-      model: 'asset://models/tree/tree.glb',
+      model: 'asset://models/basic-tree/basic-tree.glb',
       properties: {},
       resourceType: 'tree',
       resourceId: 'normal_tree',
@@ -242,13 +242,22 @@ export class ResourceSystem extends SystemBase {
       this.resources.set(createResourceID(resource.id), resource);
       
       // Spawn actual ResourceEntity instance
+      // Create proper quaternion for random Y-axis rotation
+      const randomYRotation = Math.random() * Math.PI * 2;
+      const quat = {
+        x: 0,
+        y: Math.sin(randomYRotation / 2),
+        z: 0,
+        w: Math.cos(randomYRotation / 2)
+      };
+      
       const resourceConfig = {
         id: resource.id,
         type: 'resource' as const,
         name: resource.name,
         position: { x: resource.position.x, y: resource.position.y, z: resource.position.z },
-        rotation: { x: 0, y: Math.random() * Math.PI * 2, z: 0, w: 1 }, // Random rotation for variety
-        scale: { x: 1, y: 1, z: 1 }, // Node scale (ResourceEntity handles mesh scale internally)
+        rotation: quat, // Proper quaternion for random Y-axis rotation
+        scale: { x: 1, y: 1, z: 1 }, // ALWAYS uniform scale - ResourceEntity handles mesh scale
         visible: true,
         interactable: true,
         interactionType: 'harvest',
@@ -294,7 +303,8 @@ export class ResourceSystem extends SystemBase {
   private getModelPathForResource(type: string, subType?: string): string {
     switch (type) {
       case 'tree':
-        return 'asset://models/tree/tree.glb';
+        // Use the high-quality Meshy-generated tree model
+        return 'asset://models/basic-tree/basic-tree.glb';
       case 'fishing_spot':
         return ''; // Fishing spots don't need models
       case 'ore':
@@ -487,9 +497,21 @@ export class ResourceSystem extends SystemBase {
       return;
     }
 
-    // TODO: Add proper tool check via inventory system query (not callback)
-    // For now, skip tool check to get gathering working
-    // Tools will be checked later when we have proper inventory queries
+    // TODO: Tool check disabled for testing - re-enable once testing is complete
+    // Check if player has required tool
+    // if (resource.toolRequired) {
+    //   const hasItem = this.world.hasItem?.(data.playerId, resource.toolRequired, 1);
+    //   if (!hasItem) {
+    //     const toolName = resource.toolRequired.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    //     this.sendChat(data.playerId, `You need a ${toolName} to ${resource.skillRequired === 'woodcutting' ? 'chop this tree' : 'gather from this resource'}.`);
+    //     this.emitTypedEvent(EventType.UI_MESSAGE, {
+    //       playerId: data.playerId,
+    //       message: `You need a ${toolName} to ${resource.skillRequired === 'woodcutting' ? 'chop this tree' : 'gather from this resource'}.`,
+    //       type: 'error'
+    //     });
+    //     return;
+    //   }
+    // }
 
     // If player is already gathering, replace session with the latest request
     if (this.activeGathering.has(playerId)) {
@@ -505,9 +527,11 @@ export class ResourceSystem extends SystemBase {
     
     
     // Create timed session
+    const sessionResourceId = createResourceID(resource.id);
+    
     this.activeGathering.set(playerId, {
       playerId,
-      resourceId: createResourceID(resource.id),
+      resourceId: sessionResourceId,
       startTime: Date.now(),
       skillCheck
     });
@@ -556,9 +580,6 @@ export class ResourceSystem extends SystemBase {
     const now = Date.now();
     const completedSessions: PlayerID[] = [];
 
-    if (this.activeGathering.size > 0) {
-    }
-
     for (const [playerId, session] of this.activeGathering.entries()) {
       const resource = this.resources.get(session.resourceId);
       if (!resource?.isAvailable) {
@@ -576,8 +597,6 @@ export class ResourceSystem extends SystemBase {
       if (elapsed >= gatheringTime) {
         this.completeGathering(playerId, session);
         completedSessions.push(playerId);
-      } else if (Math.floor(elapsed / 1000) !== Math.floor((elapsed - 500) / 1000)) {
-        // Log every second
       }
     }
 
@@ -590,12 +609,12 @@ export class ResourceSystem extends SystemBase {
   private completeGathering(playerId: PlayerID, session: { playerId: PlayerID; resourceId: ResourceID; startTime: number; skillCheck: number }): void {
     const resource = this.resources.get(session.resourceId)!;
 
-
     // Proximity/cancel check - player must still be near the resource
     const p = this.world.getPlayer?.(playerId as unknown as string);
     const playerPos = p && (p as { position?: { x: number; y: number; z: number } }).position
       ? (p as { position: { x: number; y: number; z: number } }).position
       : null;
+    
     if (!playerPos || calculateDistance(playerPos, resource.position) > 4.0) {
       this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
         playerId: playerId as unknown as string,
@@ -622,6 +641,7 @@ export class ResourceSystem extends SystemBase {
       const dropTableKey = `${resource.type}_normal`;
       
       const dropTable = this.RESOURCE_DROPS.get(dropTableKey);
+      
       if (dropTable) {
         for (const drop of dropTable) {
           const dropRoll = Math.random();
@@ -678,6 +698,11 @@ export class ResourceSystem extends SystemBase {
       resource.isAvailable = false;
       resource.lastDepleted = Date.now();
 
+      // Update the actual ResourceEntity to trigger visual change
+      const resourceEntity = this.world.entities.get(session.resourceId);
+      if (resourceEntity && typeof (resourceEntity as unknown as { deplete?: () => void }).deplete === 'function') {
+        (resourceEntity as unknown as { deplete: () => void }).deplete();
+      }
 
       // Notify clients to swap to stump visual
       this.emitTypedEvent(EventType.RESOURCE_DEPLETED, {
@@ -689,7 +714,8 @@ export class ResourceSystem extends SystemBase {
       // Broadcast depletion to all clients for visual updates
       this.sendNetworkMessage('resourceDepleted', {
         resourceId: session.resourceId,
-        position: resource.position
+        position: resource.position,
+        depleted: true
       });
 
       // Set respawn timer using tracked timer to prevent memory leaks
@@ -697,6 +723,11 @@ export class ResourceSystem extends SystemBase {
         resource.isAvailable = true;
         resource.lastDepleted = 0;
         
+        // Update the actual ResourceEntity to trigger visual change
+        const resourceEntity = this.world.entities.get(session.resourceId);
+        if (resourceEntity && typeof (resourceEntity as unknown as { respawn?: () => void }).respawn === 'function') {
+          (resourceEntity as unknown as { respawn: () => void }).respawn();
+        }
         
         // Emit local event
         this.emitTypedEvent(EventType.RESOURCE_RESPAWNED, {
@@ -707,7 +738,8 @@ export class ResourceSystem extends SystemBase {
         // Broadcast to all clients
         this.sendNetworkMessage('resourceRespawned', {
           resourceId: session.resourceId,
-          position: resource.position
+          position: resource.position,
+          depleted: false
         });
         
         // Remove from timers map

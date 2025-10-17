@@ -218,7 +218,7 @@ export class ActionRegistry extends SystemBase {
       execute: async (context: ActionContext, params: Record<string, unknown>) => {
         const playerId = context.playerId || context.world.network.id;
         const player = context.world.entities.player;
-        this.emitTypedEvent(EventType.RESOURCE_GATHERING_STARTED, {
+        this.emitTypedEvent(EventType.RESOURCE_GATHER, {
           playerId,
           resourceId: params.resourceId as string,
           playerPosition: player?.position

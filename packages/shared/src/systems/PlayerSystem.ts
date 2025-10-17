@@ -362,15 +362,32 @@ export class PlayerSystem extends SystemBase {
     let playerData: Player | undefined
     if (this.databaseSystem) {
       const dbData = await this.databaseSystem.getPlayerAsync(databaseId)
+      console.log('[PlayerSystem] 📋 Loaded player data from DB:', {
+        playerId: data.playerId,
+        databaseId,
+        dbDataFound: !!dbData,
+        dbDataName: dbData?.name
+      });
       if (dbData) {
         playerData = PlayerMigration.fromPlayerRow(dbData, data.playerId)
+        console.log('[PlayerSystem] ✅ Migrated player data, name:', playerData.name);
       }
     }
 
     // Create new player if not found in database
     if (!playerData) {
       const playerLocal = this.playerLocalRefs.get(data.playerId)
-      const playerName = playerLocal?.name || `Player_${databaseId.substring(0, 8)}`
+      // CRITICAL: Use the playerLocal.name from the entity spawn, which comes from the character DB record
+      // Never auto-generate names - they must come from the character creation system
+      const playerName = playerLocal?.name || 'Adventurer'
+      
+      console.log('[PlayerSystem] 🎭 Creating new player data:', {
+        playerId: data.playerId,
+        databaseId,
+        playerLocalName: playerLocal?.name,
+        finalPlayerName: playerName
+      });
+      
       playerData = PlayerMigration.createNewPlayer(data.playerId, data.playerId, playerName)
 
       // Ground initial spawn to terrain height on server
@@ -385,9 +402,10 @@ export class PlayerSystem extends SystemBase {
       }
 
       // Save new player to database using persistent userId
+      // NOTE: Don't save name here - it was already set by createCharacter()
       if (this.databaseSystem) {
         await this.databaseSystem.savePlayerAsync(databaseId, {
-          name: playerData.name,
+          // Explicitly omit name to avoid overwriting the character's name
           combatLevel: playerData.combat.combatLevel,
           attackLevel: playerData.skills.attack.level,
           strengthLevel: playerData.skills.strength.level,

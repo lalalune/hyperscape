@@ -854,6 +854,68 @@ export class InteractionSystem extends System {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
     
+    // Get the resource entity to check distance
+    const resourceEntity = this.world.entities.get(resourceId);
+    if (!resourceEntity) {
+      console.warn('[InteractionSystem] Resource entity not found:', resourceId);
+      return;
+    }
+    
+    // Check distance to resource (RuneScape-style: walk if too far, then interact)
+    const resourcePos = resourceEntity.position;
+    const playerPos = localPlayer.position;
+    const distance = Math.sqrt(
+      Math.pow(resourcePos.x - playerPos.x, 2) + 
+      Math.pow(resourcePos.z - playerPos.z, 2)
+    );
+    
+    const interactionDistance = 3.0; // Must be within 3 meters
+    
+    if (distance > interactionDistance) {
+      // Too far - walk to resource first (RuneScape behavior)
+      console.log(`[InteractionSystem] 🚶 Walking to ${action} (distance: ${distance.toFixed(1)}m)`);
+      
+      // Walk to just outside interaction range
+      const targetDistance = interactionDistance - 0.5; // Stop 0.5m before max range
+      const direction = {
+        x: (resourcePos.x - playerPos.x) / distance,
+        z: (resourcePos.z - playerPos.z) / distance
+      };
+      
+      const targetPos = {
+        x: resourcePos.x - direction.x * targetDistance,
+        y: resourcePos.y,
+        z: resourcePos.z - direction.z * targetDistance
+      };
+      
+      this.walkTo(targetPos);
+      
+      // Schedule the resource action to execute after walking
+      setTimeout(() => {
+        // Re-check distance after walking
+        const newDistance = Math.sqrt(
+          Math.pow(resourcePos.x - localPlayer.position.x, 2) + 
+          Math.pow(resourcePos.z - localPlayer.position.z, 2)
+        );
+        
+        if (newDistance <= interactionDistance + 0.5) {
+          // Close enough now - execute the action
+          this.executeResourceAction(resourceId, action);
+        } else {
+          console.warn('[InteractionSystem] Still too far after walking, skipping action');
+        }
+      }, 2000); // Wait 2 seconds for walking
+      
+      return;
+    }
+    
+    // Close enough - execute immediately
+    this.executeResourceAction(resourceId, action);
+  }
+  
+  private executeResourceAction(resourceId: string, action: string): void {
+    const localPlayer = this.world.getPlayer();
+    if (!localPlayer) return;
     
     // Check for debouncing to prevent duplicate resource requests
     const resourceKey = `${localPlayer.id}:${resourceId}`;
@@ -886,11 +948,15 @@ export class InteractionSystem extends System {
       });
     } else {
       console.warn('[InteractionSystem] No network.send available for resource gathering');
-      // Fallback for single-player
-      this.world.emit(EventType.RESOURCE_ACTION, {
+      // Fallback for single-player - emit RESOURCE_GATHER directly
+      this.world.emit(EventType.RESOURCE_GATHER, {
         playerId: localPlayer.id,
         resourceId,
-        action
+        playerPosition: {
+          x: localPlayer.position.x,
+          y: localPlayer.position.y,
+          z: localPlayer.position.z
+        }
       });
     }
   }
