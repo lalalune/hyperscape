@@ -423,6 +423,7 @@ export interface Item {
   equipable: boolean          // Can be equipped
   attackType: AttackType | null      // Type of attack (melee, ranged, magic)
   attackSpeed?: number        // Attack speed in milliseconds (for weapons)
+  twoHanded?: boolean         // Whether weapon requires both hands (conflicts with shield)
   
   // Item properties
   description: string         // Item description

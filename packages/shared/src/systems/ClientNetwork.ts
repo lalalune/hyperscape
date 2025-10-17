@@ -153,6 +153,7 @@ export class ClientNetwork extends SystemBase {
   pendingModifications: Map<string, Array<Record<string, unknown>>> = new Map()
   pendingModificationTimestamps: Map<string, number> = new Map() // Track when modifications were first queued
   pendingModificationLimitReached: Set<string> = new Set() // Track entities that hit the limit (to avoid log spam)
+  destroyedEntities: Set<string> = new Set() // Track entities that have been destroyed
   // Cache character list so UI can render even if it mounts after the packet arrives
   lastCharacterList: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> | null = null
   // Cache latest inventory per player so UI can hydrate even if it mounted late
@@ -494,11 +495,13 @@ export class ClientNetwork extends SystemBase {
   onEntityAdded = (data: EntityData) => {
     // Add debugging for mob entities
     if (data.type === 'mob') {
+      console.log(`[ClientNetwork] Received mob entity: ${data.id} at position:`, data.position);
     }
     
     // Add entity if method exists
     const newEntity = this.world.entities.add(data)
     if (newEntity) {
+      console.log(`[ClientNetwork] Successfully added entity ${data.id} to world`);
       this.applyPendingModifications(newEntity.id)
       // If this is the local player added after character select, force-set initial position
       const isLocalPlayer = (data as { type?: string; owner?: string }).type === 'player' && (data as { owner?: string }).owner === this.id;
@@ -514,6 +517,41 @@ export class ClientNetwork extends SystemBase {
           newEntity.updateServerPosition(pos[0], pos[1], pos[2]);
         }
       }
+    } else {
+      console.error(`[ClientNetwork] Failed to add entity ${data.id} to world`);
+    }
+  }
+
+  onEntityRemoved = (data: { id: string }) => {
+    const { id } = data
+    // Mark entity as destroyed to prevent future modifications
+    this.destroyedEntities.add(id)
+    
+    // Remove from interpolation tracking
+    this.interpolationStates.delete(id)
+    
+    // Clean up any pending modifications for this entity
+    this.pendingModifications.delete(id)
+    this.pendingModificationTimestamps.delete(id)
+    this.pendingModificationLimitReached.delete(id)
+    
+    // Remove from entities system
+    this.world.entities.remove(id)
+    
+    this.logger.debug(`Entity ${id} marked as destroyed`)
+    
+    // Clean up destroyed entities set periodically to prevent memory leaks
+    // Keep only entities destroyed in the last 30 seconds
+    const now = performance.now()
+    const maxAge = 30000 // 30 seconds
+    for (const entityId of this.destroyedEntities) {
+      // We don't track timestamps for destroyed entities, so we'll clean up
+      // when the set gets too large (more than 1000 entities)
+      if (this.destroyedEntities.size > 1000) {
+        this.destroyedEntities.clear()
+        this.logger.debug('Cleared destroyed entities set to prevent memory leak')
+        break
+      }
     }
   }
 
@@ -521,6 +559,13 @@ export class ClientNetwork extends SystemBase {
     const { id } = data
     const entity = this.world.entities.get(id)
     if (!entity) {
+      // Check if this entity was previously destroyed
+      if (this.destroyedEntities.has(id)) {
+        // Entity was destroyed, ignore modifications
+        this.logger.debug(`Ignoring modification for destroyed entity ${id}`)
+        return
+      }
+      
       // Limit queued modifications per entity to avoid unbounded growth
       const list = this.pendingModifications.get(id) || []
       const now = performance.now()
@@ -856,17 +901,6 @@ export class ClientNetwork extends SystemBase {
   }
   requestEnterWorld() {
     this.send('enterWorld', {})
-  }
-
-  onEntityRemoved = (id: string) => {
-    // Remove from interpolation tracking
-    this.interpolationStates.delete(id)
-    // Clean up pending modifications tracking
-    this.pendingModifications.delete(id)
-    this.pendingModificationTimestamps.delete(id)
-    this.pendingModificationLimitReached.delete(id)
-    // Remove from entities system
-    this.world.entities.remove(id)
   }
   
   /**

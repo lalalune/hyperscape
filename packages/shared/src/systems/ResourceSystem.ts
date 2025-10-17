@@ -37,6 +37,9 @@ export class ResourceSystem extends SystemBase {
   private activeGathering = new Map<PlayerID, { playerId: PlayerID; resourceId: ResourceID; startTime: number; skillCheck: number }>();
   private respawnTimers = new Map<ResourceID, NodeJS.Timeout>();
   private playerSkills = new Map<string, Record<string, { level: number; xp: number }>>();
+  
+  // CRITICAL FIX: Track which resources are being gathered to prevent race conditions
+  private resourceLocks = new Map<ResourceID, PlayerID>();
 
   // Resource drop tables per GDD
   private readonly RESOURCE_DROPS = new Map<string, ResourceDrop[]>([
@@ -493,13 +496,33 @@ export class ResourceSystem extends SystemBase {
 
     // If player is already gathering, replace session with the latest request
     if (this.activeGathering.has(playerId)) {
+      const oldSession = this.activeGathering.get(playerId);
+      if (oldSession) {
+        // Release the old resource lock
+        this.resourceLocks.delete(oldSession.resourceId);
+      }
       this.activeGathering.delete(playerId);
     }
+
+    // CRITICAL FIX: Lock the resource for this player
+    this.resourceLocks.set(createResourceID(resource.id), playerId);
 
     // Start RS-like timed gathering session
     const actionName = resource.skillRequired === 'woodcutting' ? 'chopping' : 
                        (resource.skillRequired === 'fishing' ? 'fishing' : 'gathering');
     const resourceName = resource.name || resource.type.replace('_', ' ');
+    
+    // CRITICAL FIX: Check if resource is already being gathered by another player
+    const currentGatherer = this.resourceLocks.get(createResourceID(resource.id));
+    if (currentGatherer && currentGatherer !== playerId) {
+      this.sendChat(data.playerId, `Another player is already gathering from this ${resourceName}.`);
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: data.playerId,
+        message: `Another player is already gathering from this ${resourceName}.`,
+        type: 'warning'
+      });
+      return;
+    }
     const skillCheck = Math.floor(Math.random() * 100);
     const gatheringDuration = Math.max(3000, Math.min(5000, 5000 - (skillCheck * 20))); // 3-5 seconds
     
@@ -677,6 +700,9 @@ export class ResourceSystem extends SystemBase {
       // Deplete resource temporarily
       resource.isAvailable = false;
       resource.lastDepleted = Date.now();
+      
+      // CRITICAL FIX: Release the resource lock
+      this.resourceLocks.delete(session.resourceId);
 
 
       // Notify clients to swap to stump visual

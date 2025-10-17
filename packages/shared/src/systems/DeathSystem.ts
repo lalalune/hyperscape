@@ -35,6 +35,9 @@ export class DeathSystem extends SystemBase {
     this.subscribe(EventType.DEATH_LOOT_COLLECT, (data: { playerId: string }) => this.handleLootCollection(data));
     this.subscribe(EventType.PLAYER_UNREGISTERED, (data: { id: string }) => this.cleanupPlayerDeath(data));
     this.subscribe(EventType.DEATH_HEADSTONE_EXPIRED, (data: { headstoneId: string; playerId: string }) => this.handleHeadstoneExpired(data));
+    
+    // CRITICAL FIX: Listen for player disconnection to clean up timers
+    this.subscribe(EventType.PLAYER_LEFT, (data: { playerId: string }) => this.cleanupPlayerTimers(data.playerId));
 
     // Listen to position updates for reactive patterns
     this.subscribe(EventType.PLAYER_POSITION_UPDATED, (data: { playerId: string; position: { x: number; y: number; z: number } }) => {
@@ -66,9 +69,12 @@ export class DeathSystem extends SystemBase {
     for (const timer of this.respawnTimers.values()) {
       clearTimeout(timer);
     }
+    this.respawnTimers.clear();
+    
     for (const timer of this.itemDespawnTimers.values()) {
       clearTimeout(timer);
     }
+    this.itemDespawnTimers.clear();
     
     // Destroy all headstones
     for (const headstone of this.headstones.values()) {
@@ -76,6 +82,33 @@ export class DeathSystem extends SystemBase {
     }
     this.headstones.clear();
     
+    // Clear all data
+    this.deathLocations.clear();
+    this.playerPositions.clear();
+    this.playerInventories.clear();
+  }
+
+  // CRITICAL FIX: Clean up player-specific timers when they disconnect
+  private cleanupPlayerTimers(playerId: string): void {
+    // Clear respawn timer
+    const respawnTimer = this.respawnTimers.get(playerId);
+    if (respawnTimer) {
+      clearTimeout(respawnTimer);
+      this.respawnTimers.delete(playerId);
+    }
+    
+    // Clear item despawn timer
+    const despawnTimer = this.itemDespawnTimers.get(playerId);
+    if (despawnTimer) {
+      clearTimeout(despawnTimer);
+      this.itemDespawnTimers.delete(playerId);
+    }
+    
+    // Clean up death location data
+    this.deathLocations.delete(playerId);
+    this.headstones.delete(playerId);
+    this.playerPositions.delete(playerId);
+    this.playerInventories.delete(playerId);
   }
 
   private handlePlayerDeath(data: { entityId: string; killedBy: string; entityType: 'player' | 'mob' }): void {
