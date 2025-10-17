@@ -183,7 +183,7 @@ export const ArmorFittingPage: React.FC = () => {
               {/* Control Buttons at bottom of viewport */}
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-wrap justify-center gap-3 z-10 max-w-[90%]">
                 <button
-                  onClick={() => resetScene(viewerRef)}
+                  onClick={() => viewerRef.current && resetScene({ current: viewerRef.current })}
                   className="px-5 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5 bg-bg-primary/80 backdrop-blur-sm border border-white/10 text-text-primary hover:bg-bg-secondary hover:border-white/20 hover:scale-105"
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -242,19 +242,19 @@ export const ArmorFittingPage: React.FC = () => {
               showWireframe={showWireframe}
               onShowWireframeChange={setShowWireframe}
                           equipmentSlot={equipmentSlot as 'Head' | 'Spine2' | 'Pelvis'}
-            onEquipmentSlotChange={(slot) => setEquipmentSlot(slot, viewerRef)}
+            onEquipmentSlotChange={(slot) => viewerRef.current && setEquipmentSlot(slot, { current: viewerRef.current })}
             visualizationMode={visualizationMode}
             onVisualizationModeChange={setVisualizationMode}
-            onPerformFitting={() => performFitting(viewerRef)}
+            onPerformFitting={() => viewerRef.current && performFitting({ current: viewerRef.current })}
             onResetFitting={resetFitting}
-            onExportArmor={() => exportFittedArmor(viewerRef)}
+            onExportArmor={() => viewerRef.current && exportFittedArmor({ current: viewerRef.current })}
             onSaveConfiguration={saveConfiguration}
             isFitting={isFitting}
             fittingProgress={fittingProgress}
             canFit={isReadyToFit()}
               isArmorFitted={isArmorFitted}
               isArmorBound={isArmorBound}
-              onBindArmorToSkeleton={() => bindArmorToSkeleton(viewerRef)}
+              onBindArmorToSkeleton={() => viewerRef.current && bindArmorToSkeleton({ current: viewerRef.current })}
               // Helmet fitting props - NEW
               helmetFittingMethod={helmetFittingMethod}
               onHelmetFittingMethodChange={setHelmetFittingMethod}
@@ -268,12 +268,12 @@ export const ArmorFittingPage: React.FC = () => {
               onHelmetForwardOffsetChange={setHelmetForwardOffset}
               helmetRotation={helmetRotation}
               onHelmetRotationChange={updateHelmetRotation}
-              onPerformHelmetFitting={() => performHelmetFitting(viewerRef)}
+              onPerformHelmetFitting={() => viewerRef.current && performHelmetFitting({ current: viewerRef.current })}
               onResetHelmetSettings={resetHelmetSettings}
               isHelmetFitted={isHelmetFitted}
               isHelmetAttached={isHelmetAttached}
-              onAttachHelmetToHead={() => attachHelmetToHead(viewerRef)}
-              onDetachHelmetFromHead={() => detachHelmetFromHead(viewerRef)}
+              onAttachHelmetToHead={() => viewerRef.current && attachHelmetToHead({ current: viewerRef.current })}
+              onDetachHelmetFromHead={() => viewerRef.current && detachHelmetFromHead({ current: viewerRef.current })}
               hasHelmet={!!selectedHelmet}
               // Animation props
               currentAnimation={currentAnimation}
@@ -314,7 +314,7 @@ export const ArmorFittingPage: React.FC = () => {
 
             {/* Export Equipped Avatar */}
             <button
-              onClick={() => exportEquippedAvatar(viewerRef)}
+              onClick={() => viewerRef.current && exportEquippedAvatar({ current: viewerRef.current })}
               disabled={!selectedAvatar || !selectedArmor || isExporting}
               className={cn(
                 "w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2",

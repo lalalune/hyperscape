@@ -5,7 +5,7 @@ import { ThreeViewerRef } from '../components/shared/ThreeViewer'
 import { API_ENDPOINTS } from '../constants'
 
 interface UseAssetActionsOptions {
-  viewerRef: RefObject<ThreeViewerRef>
+  viewerRef: React.RefObject<ThreeViewerRef>
   reloadAssets: () => Promise<void>
   forceReload: () => Promise<void>
   assets: Asset[]

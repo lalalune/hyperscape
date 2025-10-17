@@ -1,7 +1,29 @@
 import React, { useRef, useImperativeHandle, forwardRef, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, extend } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+
+// Extend R3F with Three.js objects
+extend({ Group: THREE.Group, Scene: THREE.Scene })
+
+// Type declarations for React Three Fiber JSX elements
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any
+      scene: any
+      ambientLight: any
+      directionalLight: any
+      gridHelper: any
+      primitive: any
+      mesh: any
+      boxGeometry: any
+      sphereGeometry: any
+      meshStandardMaterial: any
+    }
+  }
+}
+
 import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { MeshFittingService } from '../../services/fitting/MeshFittingService'

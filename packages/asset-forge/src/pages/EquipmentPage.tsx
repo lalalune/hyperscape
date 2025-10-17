@@ -46,7 +46,7 @@ export const EquipmentPage: React.FC = () => {
   const [currentAnimation, setCurrentAnimation] = useState<'tpose' | 'walking' | 'running'>('tpose')
   const [isAnimationPlaying, setIsAnimationPlaying] = useState(false)
 
-  const viewerRef = useRef<EquipmentViewerRef>(null)
+  const viewerRef = useRef<EquipmentViewerRef>(null!)
   const handleDetector = useRef<WeaponHandleDetector | null>(null)
 
   // Initialize handle detector

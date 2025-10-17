@@ -16,10 +16,10 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
     const armorRef = useRef<THREE.Group>(null)
     const [isLoaded, setIsLoaded] = useState(false)
 
-    const mixer = useRef<THREE.AnimationMixer>()
+    const mixer = useRef<THREE.AnimationMixer | null>(null)
     const lastTime = useRef(0)
     const activeAction = useRef<THREE.AnimationAction | null>(null)
-    const animationFrame = useRef<number>()
+    const animationFrame = useRef<number>(0)
 
     // Check if paths are valid before attempting to load
     const hasValidPaths = avatarPath && armorPath && avatarPath !== '' && armorPath !== ''
