@@ -20,7 +20,6 @@ export function Minimap({
   className = "",
   style = {},
   onCompassClick,
-  showStaminaBar = false,
 }: MinimapProps) {
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,8 +43,6 @@ export function Minimap({
     x: number;
     z: number;
   } | null>(null);
-  // Run mode UI state
-  const [runMode, setRunMode] = useState<boolean>(true);
   // For minimap clicks: keep the pixel where user clicked until arrival
   const [lastMinimapClickScreen, setLastMinimapClickScreen] = useState<{
     x: number;
@@ -222,11 +219,6 @@ export function Minimap({
     if (!world.entities) return;
     let intervalId: number | null = null;
     const update = () => {
-      // Sync run mode from PlayerLocal if available
-      const playerLocal = world.entities.player as PlayerLocal | undefined;
-      if (playerLocal) {
-        setRunMode(playerLocal.runMode);
-      }
       const pips: EntityPip[] = [];
       const player = world.entities.player as Entity | undefined;
       if (player?.node?.position) {
@@ -651,7 +643,7 @@ export function Minimap({
 
   return (
     <div
-      className={`minimap border-2 border-white/30 rounded-lg overflow-visible bg-black/80 relative touch-none select-none ${className}`}
+      className={`minimap border-2 border-white/30 rounded-full overflow-visible bg-black/80 relative touch-none select-none ${className}`}
       style={{
         width,
         height,
@@ -674,14 +666,14 @@ export function Minimap({
         ref={webglCanvasRef}
         width={width}
         height={height}
-        className="absolute inset-0 block w-full h-full z-0 rounded-lg overflow-hidden"
+        className="absolute inset-0 block w-full h-full z-0 rounded-full overflow-hidden"
       />
       {/* 2D overlay for pips */}
       <canvas
         ref={overlayCanvasRef}
         width={width}
         height={height}
-        className="absolute inset-0 block w-full h-full pointer-events-auto cursor-crosshair z-[1] rounded-lg overflow-hidden"
+        className="absolute inset-0 block w-full h-full pointer-events-auto cursor-crosshair z-[1] rounded-full overflow-hidden"
         onClick={onOverlayClick}
         onWheel={onOverlayWheel}
         onMouseDown={(e) => {
@@ -750,73 +742,6 @@ export function Minimap({
             <div className="absolute top-1/2 right-0.5 -translate-y-1/2 text-[9px] text-white/70 pointer-events-none">
               E
             </div>
-          </div>
-        </div>
-      )}
-      {/* Stamina/Run bar below minimap - only shown when showStaminaBar is true */}
-      {showStaminaBar && (
-        <div
-          title={runMode ? "Running (click to walk)" : "Walking (click to run)"}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const worldWithPlayer = world as {
-              entities: { player: PlayerLocal };
-              network: {
-                send: (method: string, data: { runMode: boolean }) => void;
-              };
-            };
-            const pl = worldWithPlayer.entities.player;
-            pl.toggleRunMode();
-            setRunMode(pl.runMode === true);
-            // Also inform server immediately to update current path speed
-            worldWithPlayer.network.send("moveRequest", {
-              runMode: pl.runMode === true,
-            });
-          }}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onWheel={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          className="absolute left-0 w-full h-[22px] rounded-lg border-2 border-white/30 bg-black/80 cursor-pointer z-10 pointer-events-auto select-none touch-manipulation overflow-hidden flex items-center"
-          style={{ bottom: -28 }}
-        >
-          {/* Stamina fill bar */}
-          {(() => {
-            const player = world.entities.player as PlayerLocal;
-            const energy = player.stamina;
-            const pct = Math.max(0, Math.min(100, energy));
-            return (
-              <div
-                className="absolute left-0 top-0 bottom-0 transition-[width] duration-300 ease-out pointer-events-none"
-                style={{
-                  width: `${pct}%`,
-                  background: runMode
-                    ? "linear-gradient(90deg, #00ff88, #00cc66)"
-                    : "linear-gradient(90deg, #ffa500, #ff8800)",
-                }}
-              />
-            );
-          })()}
-          {/* Text overlay */}
-          <div className="relative z-[1] w-full text-center text-white text-[11px] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.8)] pointer-events-none">
-            {(() => {
-              const player = world.entities.player as PlayerLocal;
-              const energy = Math.round(player.stamina);
-              return `${runMode ? "🏃" : "🚶"} ${energy}%`;
-            })()}
           </div>
         </div>
       )}

@@ -23,12 +23,15 @@ function DroppableEquipmentSlot({ slotKey, label, item }: DroppableEquipmentSlot
   return (
     <div
       ref={setNodeRef}
-      className={`bg-black/35 border rounded-md flex items-center justify-center text-gray-200 text-[11px] relative ${
-        isOver ? 'border-blue-500 bg-blue-500/20' : 'border-white/[0.08]'
-      }`}
+      className="bg-black/35 border rounded-md flex items-center justify-center text-[11px] relative"
+      style={{
+        borderColor: isOver ? 'rgba(242, 208, 138, 0.7)' : 'rgba(242, 208, 138, 0.3)',
+        backgroundColor: isOver ? 'rgba(242, 208, 138, 0.15)' : 'rgba(0, 0, 0, 0.35)',
+        color: 'rgba(242, 208, 138, 0.9)',
+      }}
       title={item ? item.name : label}
     >
-      <div className="absolute top-1 left-1.5 text-gray-400 text-[10px]">{label}</div>
+      <div className="absolute top-1 left-1.5 text-[10px]" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>{label}</div>
       <div className="text-xs">
         {item ? (item.id.substring(0, 3)) : ''}
       </div>
@@ -51,13 +54,13 @@ export function EquipmentPanel({ equipment, onItemDrop: _onItemDrop }: Equipment
 
   return (
     <div>
-      <div className="bg-black/35 border border-white/[0.08] rounded-md p-2">
+      <div className="bg-black/35 border rounded-md p-2" style={{ borderColor: 'rgba(242, 208, 138, 0.3)' }}>
         <div className="grid grid-cols-3 grid-rows-4 gap-1.5">
           {slots.map((s) => (
             <div key={s.key} className="w-full aspect-square">
-              <DroppableEquipmentSlot 
-                slotKey={s.key} 
-                label={s.label} 
+              <DroppableEquipmentSlot
+                slotKey={s.key}
+                label={s.label}
                 item={(itemMap && s.key in itemMap ? itemMap[s.key] : null) as Item | null}
               />
             </div>
