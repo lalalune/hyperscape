@@ -6,6 +6,7 @@ import { buttons, cls, EventType, isTouch, propToLabel, World } from '@hyperscap
 import { ActionProgressBar } from './ActionProgressBar'
 import { AvatarPane } from './AvatarPane'
 import { Chat } from './Chat'
+import { ChatProvider } from './ChatContext'
 import { EntityContextMenu } from './EntityContextMenu'
 import { HandIcon } from './Icons'
 import { LoadingScreen } from './LoadingScreen'
@@ -13,6 +14,7 @@ import { MouseLeftIcon } from './MouseLeftIcon'
 import { MouseRightIcon } from './MouseRightIcon'
 import { MouseWheelIcon } from './MouseWheelIcon'
 import { Sidebar } from './Sidebar'
+import { StatusBars } from './StatusBars'
 
 // Type for icon components
 type IconComponent = React.ComponentType<{ size?: number | string }>
@@ -28,10 +30,13 @@ export function CoreUI({ world }: { world: World }) {
   const [disconnected, setDisconnected] = useState(false)
   const [kicked, setKicked] = useState<string | null>(null)
   const [characterFlowActive, setCharacterFlowActive] = useState(false)
-    useEffect(() => {    
+    useEffect(() => {
     // Create handlers with proper types
     const handleReady = () => {
-      setReady(true)
+      // Add 0.3 second delay before hiding loading screen to allow game to fully render
+      setTimeout(() => {
+        setReady(true)
+      }, 300)
     }
     const handlePlayerSpawned = () => {
       // Find and set the local player entity
@@ -93,24 +98,27 @@ export function CoreUI({ world }: { world: World }) {
     }
   }, [])
   return (
-    <div
-      ref={ref}
-      className='coreui absolute inset-0 overflow-hidden pointer-events-none'
-    >
-      {disconnected && <Disconnected />}
-      {<Toast world={world} />}
-      {ready && <ActionsBlock world={world} />}
-      {ready && <Sidebar world={world} ui={ui || { active: false, pane: null }} />}
-      {ready && <Chat world={world} />}
-      {ready && <ActionProgressBar world={world} />}
-      {avatar && <AvatarPane key={avatar?.hash} world={world} info={avatar} />}
-      {!ready && !characterFlowActive && <LoadingScreen world={world} message="Loading world..." />}
-      {characterFlowActive && !ready && <LoadingScreen world={world} message="Entering world..." />}
-      {kicked && <KickedOverlay code={kicked} />}
-      {ready && isTouch && <TouchBtns world={world} />}
-      {ready && <EntityContextMenu world={world} />}
-      <div id='core-ui-portal' />
-    </div>
+    <ChatProvider>
+      <div
+        ref={ref}
+        className='coreui absolute inset-0 overflow-hidden pointer-events-none'
+      >
+        {disconnected && <Disconnected />}
+        {<Toast world={world} />}
+        {ready && <ActionsBlock world={world} />}
+        {ready && <StatusBars world={world} />}
+        {ready && <Sidebar world={world} ui={ui || { active: false, pane: null }} />}
+        {ready && <Chat world={world} />}
+        {ready && <ActionProgressBar world={world} />}
+        {avatar && <AvatarPane key={avatar?.hash} world={world} info={avatar} />}
+        {!ready && !characterFlowActive && <LoadingScreen world={world} message="Loading world..." />}
+        {characterFlowActive && !ready && <LoadingScreen world={world} message="Entering world..." />}
+        {kicked && <KickedOverlay code={kicked} />}
+        {ready && isTouch && <TouchBtns world={world} />}
+        {ready && <EntityContextMenu world={world} />}
+        <div id='core-ui-portal' />
+      </div>
+    </ChatProvider>
   )
 }
 
