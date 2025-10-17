@@ -7,10 +7,10 @@ interface BasicDemoProps {
 }
 
 export interface BasicDemoRef {
-    sourceCubeRef: React.RefObject<THREE.Mesh>
-    sourceSphereRef: React.RefObject<THREE.Mesh>
-    targetCubeRef: React.RefObject<THREE.Mesh>
-    targetSphereRef: React.RefObject<THREE.Mesh>
+    sourceCubeRef: React.RefObject<THREE.Mesh | null>
+    sourceSphereRef: React.RefObject<THREE.Mesh | null>
+    targetCubeRef: React.RefObject<THREE.Mesh | null>
+    targetSphereRef: React.RefObject<THREE.Mesh | null>
 }
 
 export const BasicDemo = forwardRef<BasicDemoRef, BasicDemoProps>(({ showWireframe }, ref) => {
