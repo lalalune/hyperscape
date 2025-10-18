@@ -24,9 +24,9 @@ const shadowOptions = [
 function Group({ label }: { label?: string }) {
   return (
     <>
-      <div className="h-px bg-white/5 my-2.5" />
+      <div className="h-px my-2.5" style={{ backgroundColor: 'rgba(242, 208, 138, 0.2)' }} />
       {label && (
-        <div className="font-medium leading-none py-3 pl-4 -mt-2.5 text-white/90">
+        <div className="font-medium leading-none py-3 pl-4 -mt-2.5" style={{ color: '#f2d08a' }}>
           {label}
         </div>
       )}
@@ -141,13 +141,13 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
       <Group label='Visual Quality' />
       
       {/* Renderer info display */}
-      <div className="mb-2 px-3 py-2 bg-white/5 border border-white/10 rounded">
-        <div className="text-xs opacity-70 mb-1">Rendering Backend</div>
+      <div className="mb-2 px-3 py-2 border rounded" style={{ backgroundColor: 'rgba(0, 0, 0, 0.35)', borderColor: 'rgba(242, 208, 138, 0.3)' }}>
+        <div className="text-xs mb-1" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>Rendering Backend</div>
         <div className="text-sm flex items-center gap-2">
-          <span className={world.graphics?.isWebGPU ? 'text-green-400' : 'text-blue-400'}>
+          <span style={{ color: world.graphics?.isWebGPU ? '#22c55e' : '#60a5fa' }}>
             {world.graphics?.isWebGPU ? '⚡ WebGPU' : '🔷 WebGL 2'}
           </span>
-          <span className="text-xs opacity-50">
+          <span className="text-xs" style={{ color: 'rgba(242, 208, 138, 0.5)' }}>
             {world.graphics?.isWebGPU ? '(Modern, High Performance)' : '(Universal Compatibility)'}
           </span>
         </div>
@@ -235,12 +235,13 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
       onClick={() => setAdvanced(false)}
     >
       <div
-        className="w-[520px] max-w-[90vw] max-h-[80vh] bg-[rgba(11,10,21,0.98)] border border-dark-border rounded-xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+        className="w-[520px] max-w-[90vw] max-h-[80vh] bg-[rgba(11,10,21,0.98)] border rounded-xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+        style={{ borderColor: 'rgba(242, 208, 138, 0.4)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between py-2.5 px-3 border-b border-white/10">
-          <div className="font-semibold text-white">Advanced Settings</div>
-          <button onClick={() => setAdvanced(false)} className="bg-red-500 border-none text-white rounded-md py-1 px-2 cursor-pointer">Close</button>
+        <div className="flex items-center justify-between py-2.5 px-3 border-b" style={{ borderBottomColor: 'rgba(242, 208, 138, 0.3)' }}>
+          <div className="font-semibold" style={{ color: '#f2d08a' }}>Advanced Settings</div>
+          <button onClick={() => setAdvanced(false)} className="border-none text-white rounded-md py-1 px-2 cursor-pointer" style={{ backgroundColor: '#8b4513' }}>Close</button>
         </div>
         <div className='noscrollbar overflow-y-auto max-h-[calc(80vh-48px)] py-2 px-3'>
           <Prefs world={world} hidden={false} />
@@ -251,10 +252,10 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
 
   return (
     <div className="w-full h-full overflow-y-auto relative">
-      <div className="font-semibold mb-2.5 text-white">Quick Settings</div>
+      <div className="font-semibold mb-2.5" style={{ color: '#f2d08a' }}>Quick Settings</div>
       <div className="flex flex-col gap-2.5">
         <div>
-          <div className="mb-1 text-white/90">UI Scale</div>
+          <div className="mb-1" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>UI Scale</div>
           <input
             type='range'
             min={0.6}
@@ -270,30 +271,37 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
           />
         </div>
         <div className="flex justify-between items-center">
-          <div className="text-white/90">Fullscreen</div>
+          <div style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Fullscreen</div>
           <button
             onClick={() => { if (canFullscreen) toggleFullscreen(!(isFullscreen as boolean)) }}
-            className="bg-gray-900 border border-white/15 text-white rounded-md py-1 px-2 cursor-pointer"
+            className="border text-white rounded-md py-1 px-2 cursor-pointer"
+            style={{
+              backgroundColor: 'rgba(242, 208, 138, 0.15)',
+              borderColor: 'rgba(242, 208, 138, 0.5)',
+              color: '#f2d08a',
+            }}
           >
             {(isFullscreen as boolean) ? 'Disable' : 'Enable'}
           </button>
         </div>
         <div className="flex justify-between items-center">
-          <div className="text-white/90">Performance Stats</div>
+          <div style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Performance Stats</div>
           <button
             onClick={() => {
               const next = !statsOn
               setStatsOn(next)
               world.prefs!.setStats(next)
             }}
-            className={`border-none text-white rounded-md py-1 px-2 cursor-pointer ${statsOn ? 'bg-emerald-500' : 'bg-gray-600'}`}
+            className="border-none text-white rounded-md py-1 px-2 cursor-pointer"
+            style={{ backgroundColor: statsOn ? '#22c55e' : '#6b7280' }}
           >
             {statsOn ? 'Shown' : 'Hidden'}
           </button>
         </div>
         <button
           onClick={() => world.ui!.toggleVisible()}
-          className="bg-red-500 border-none text-white rounded-md py-1.5 px-2.5 cursor-pointer"
+          className="border-none text-white rounded-md py-1.5 px-2.5 cursor-pointer"
+          style={{ backgroundColor: '#8b4513', color: '#f2d08a' }}
         >
           Hide Interface (Z)
         </button>
@@ -301,7 +309,12 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
         <div className="h-2" />
         <button
           onClick={() => setAdvanced(true)}
-          className="bg-blue-500 border-none text-white rounded-md py-2 px-2.5 cursor-pointer"
+          className="border text-white rounded-md py-2 px-2.5 cursor-pointer"
+          style={{
+            backgroundColor: 'rgba(242, 208, 138, 0.15)',
+            borderColor: 'rgba(242, 208, 138, 0.5)',
+            color: '#f2d08a',
+          }}
         >
           Open Advanced Settings
         </button>

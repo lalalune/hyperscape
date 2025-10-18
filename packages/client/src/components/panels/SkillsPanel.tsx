@@ -29,8 +29,12 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
     <div className="relative h-full" onMouseMove={(e) => setMouse({ x: e.clientX, y: e.clientY })}>
       <div className="grid grid-cols-3 gap-1.5">
         {items.map((it) => (
-          <div key={it.key} 
-            className="bg-black/35 border border-white/[0.08] rounded-md py-1.5 px-2 flex items-center justify-center flex-col text-[13px] cursor-default"
+          <div key={it.key}
+            className="bg-black/35 border rounded-md py-1.5 px-2 flex items-center justify-center flex-col text-[13px] cursor-default"
+            style={{
+              borderColor: 'rgba(242, 208, 138, 0.3)',
+              color: 'rgba(242, 208, 138, 0.9)',
+            }}
             onMouseEnter={() => setHover({ label: it.label, xp: it.xp })}
             onMouseLeave={() => setHover(null)}
           >
@@ -40,7 +44,8 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
         ))}
       </div>
       <div
-        className="absolute left-2 right-2 bottom-2 text-right text-gray-400 text-xs cursor-default"
+        className="absolute left-2 right-2 bottom-2 text-right text-xs cursor-default"
+        style={{ color: 'rgba(242, 208, 138, 0.7)' }}
         onMouseEnter={() => setHover({ label: 'Total', xp: totalXP })}
         onMouseLeave={() => setHover(null)}
       >
@@ -58,11 +63,18 @@ export function SkillsPanel({ world: _world, stats }: SkillsPanelProps) {
           if (top + tooltipHeight > window.innerHeight - 8) top = mouse.y - tooltipHeight - pad
           if (top < 8) top = 8
           return (
-            <div 
-              className="fixed bg-[rgba(20,20,28,0.98)] border border-white/15 rounded-md p-1.5 text-white text-xs pointer-events-none z-[200]"
-              style={{ left, top, width: tooltipWidth }}
+            <div
+              className="fixed border rounded-md p-1.5 text-xs pointer-events-none z-[200]"
+              style={{
+                left,
+                top,
+                width: tooltipWidth,
+                backgroundColor: 'rgba(20,20,28,0.98)',
+                borderColor: 'rgba(242, 208, 138, 0.4)',
+                color: 'rgba(242, 208, 138, 0.9)',
+              }}
             >
-              <div className="font-semibold mb-0.5">
+              <div className="font-semibold mb-0.5" style={{ color: '#f2d08a' }}>
                 {hover.label === 'Total' ? 'Total Experience' : hover.label}
               </div>
               <div>{hover.label === 'Total' ? 'Total XP' : 'XP'}: {Math.floor(hover.xp).toLocaleString()}</div>

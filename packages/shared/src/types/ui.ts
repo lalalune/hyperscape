@@ -349,7 +349,6 @@ export interface MinimapProps {
   className?: string;
   style?: React.CSSProperties;
   onCompassClick?: () => void;
-  showStaminaBar?: boolean;
 }
 
 /**
