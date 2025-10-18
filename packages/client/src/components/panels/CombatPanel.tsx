@@ -86,26 +86,37 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="bg-black/35 border border-white/[0.08] rounded-md p-2 flex items-center justify-between">
+      <div
+        className="bg-black/35 border rounded-md p-2 flex items-center justify-between"
+        style={{ borderColor: 'rgba(242, 208, 138, 0.3)', color: '#f2d08a' }}
+      >
         <div className="font-semibold">Combat level</div>
         <div>{combatLevel}</div>
       </div>
-      <div className="font-semibold mt-1">Attack style</div>
+      <div className="font-semibold mt-1" style={{ color: '#f2d08a' }}>Attack style</div>
       <div className="grid grid-cols-2 gap-1.5">
         {styles.map(s => (
-          <button key={s.id}
+          <button
+            key={s.id}
             onClick={() => changeStyle(s.id)}
             disabled={cooldown > 0}
-            className={`rounded-md py-2 px-2.5 cursor-pointer text-gray-200 ${
-              style === s.id 
-                ? 'bg-blue-500/25 border border-blue-500/70' 
-                : 'bg-black/35 border border-white/[0.08]'
-            }`}
-          >{s.label}</button>
+            className="rounded-md py-2 px-2.5 cursor-pointer"
+            style={{
+              backgroundColor: style === s.id ? 'rgba(242, 208, 138, 0.15)' : 'rgba(0, 0, 0, 0.35)',
+              borderWidth: '1px',
+              borderStyle: 'solid',
+              borderColor: style === s.id ? 'rgba(242, 208, 138, 0.7)' : 'rgba(242, 208, 138, 0.3)',
+              color: style === s.id ? '#f2d08a' : '#d1d5db',
+            }}
+          >
+            {s.label}
+          </button>
         ))}
       </div>
       {cooldown > 0 && (
-        <div className="text-xs text-gray-400">Style change available in {Math.ceil(cooldown / 1000)}s</div>
+        <div className="text-xs" style={{ color: 'rgba(242, 208, 138, 0.6)' }}>
+          Style change available in {Math.ceil(cooldown / 1000)}s
+        </div>
       )}
     </div>
   )
