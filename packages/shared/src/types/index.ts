@@ -65,7 +65,7 @@ export {
 
 export type {
   AnimationTask, BankData, BankEntityData, CombatBonuses, CombatTarget, DialogueNode,
-  DialogueSession, EquipmentComponent, EquipmentSlot, InteractionAction, InventoryItem, LootTable, MeshUserData, MobEntityData, PrayerComponent, RespawnTask, SkillData, Spawner, SpawnPoint, StatsComponent
+  DialogueSession, EquipmentComponent, EquipmentSlot, InteractionAction, InventoryItem, InventorySlotItem, LootTable, MeshUserData, MobEntityData, PrayerComponent, RespawnTask, SkillData, Spawner, SpawnPoint, StatsComponent
 } from './core';
 
 export type PlayerEquipment = PlayerEquipmentItems;

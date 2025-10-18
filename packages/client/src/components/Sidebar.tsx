@@ -294,7 +294,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             windowId="inventory"
             onClose={() => closeWindow('inventory')}
           >
-            <InventoryPanel items={inventory} coins={coins} />
+            <InventoryPanel items={inventory} coins={coins} world={world} />
           </GameWindow>
         )}
 
