@@ -926,6 +926,11 @@ export class ClientNetwork extends SystemBase {
     this.send('enterWorld', {})
   }
 
+  // Inventory actions
+  dropItem(itemId: string, slot?: number, quantity?: number) {
+    this.send('dropItem', { itemId, slot, quantity })
+  }
+
   onEntityRemoved = (id: string) => {
     // Remove from interpolation tracking
     this.interpolationStates.delete(id)
