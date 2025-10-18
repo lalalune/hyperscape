@@ -290,6 +290,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Combat/Item handlers
     this.handlers['onAttackMob'] = this.onAttackMob.bind(this);
     this.handlers['onPickupItem'] = this.onPickupItem.bind(this);
+    // Inventory drop handler
+    this.handlers['onDropItem'] = this.onDropItem.bind(this);
     // Character selection handlers (feature-flagged usage)
     this.handlers['onCharacterListRequest'] = this.onCharacterListRequest.bind(this);
     this.handlers['onCharacterCreate'] = this.onCharacterCreate.bind(this);
@@ -1747,11 +1749,32 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
     
     // Forward to InventorySystem with entityId (required) and itemId (optional)
-    // @ts-expect-error - EventMap updated to require entityId, optional itemId (type cache lag)
     this.world.emit(EventType.ITEM_PICKUP, {
       playerId: playerEntity.id,
       entityId,
       itemId: undefined // Will be extracted from entity properties
+    });
+  }
+
+  private onDropItem(socket: SocketInterface, data: unknown): void {
+    const playerEntity = socket.player;
+    if (!playerEntity) {
+      console.warn('[ServerNetwork] onDropItem: no player entity for socket');
+      return;
+    }
+    const payload = data as { itemId?: string; slot?: number; quantity?: number };
+    if (!payload?.itemId) {
+      console.warn('[ServerNetwork] onDropItem: missing itemId');
+      return;
+    }
+    const quantity = Math.max(1, Number(payload.quantity) || 1);
+    // Basic sanity: clamp quantity to 1000 to avoid abuse
+    const q = Math.min(quantity, 1000);
+    this.world.emit(EventType.ITEM_DROP, {
+      playerId: playerEntity.id,
+      itemId: payload.itemId,
+      quantity: q,
+      slot: payload.slot
     });
   }
 

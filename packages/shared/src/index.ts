@@ -304,6 +304,7 @@ export type {
   SkillData,
   MovementComponent,
   InventoryItem,
+  InventorySlotItem,
   Item,
   Inventory,
   PlayerEquipment,

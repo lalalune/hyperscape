@@ -119,6 +119,8 @@ const names = [
   'attackMob',
   // Item pickup packets
   'pickupItem',
+  // Inventory action packets
+  'dropItem',
   // Inventory sync packets
   'inventoryUpdated',
   // UI feedback packets

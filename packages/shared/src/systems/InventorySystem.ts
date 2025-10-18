@@ -386,12 +386,18 @@ export class InventorySystem extends SystemBase {
   }
 
   private dropItem(data: { playerId: string; itemId: string; quantity: number; slot?: number }): void {
-    if (!data.playerId) {
-      Logger.systemError('InventorySystem', 'Cannot drop item: playerId is undefined', new Error('Cannot drop item: playerId is undefined'));
+    // Server-authoritative only
+    if (!this.world.isServer) {
       return;
     }
     
-    const removed = this.removeItem(data);
+    // Ensure valid identifiers
+    if (!isValidPlayerID(data.playerId) || !isValidItemID(String(data.itemId))) {
+      Logger.systemError('InventorySystem', 'dropItem: invalid playerId or itemId', new Error('dropItem invalid IDs'));
+      return;
+    }
+    const qty = Math.max(1, Number(data.quantity) || 1);
+    const removed = this.removeItem({ playerId: data.playerId, itemId: data.itemId, quantity: qty, slot: data.slot });
     
     if (removed) {
       const player = this.world.getPlayer(data.playerId);
@@ -401,10 +407,9 @@ export class InventorySystem extends SystemBase {
       }
       const position = player.node.position;
       
-      // Spawn item in world
-      this.emitTypedEvent(EventType.ITEM_SPAWN, {
+      this.emitTypedEvent(EventType.ITEM_SPAWN_REQUEST, {
         itemId: data.itemId,
-        quantity: data.quantity,
+        quantity: qty,
         position: {
           x: position.x + (Math.random() - 0.5) * 2,
           y: position.y,
@@ -520,8 +525,8 @@ export class InventorySystem extends SystemBase {
     }
     
     // Get itemId from event data (passed from ItemEntity.handleInteraction) or from entity properties
-    const itemId = data.itemId || entity.getProperty('itemId') as string;
-    const quantity = entity.getProperty('quantity') as number || 1;
+    const itemId = data.itemId || (entity.getProperty('itemId') as string);
+    const quantity = (entity.getProperty('quantity') as number) || 1;
     
     if (!itemId) {
       Logger.systemError('InventorySystem', `No itemId found for entity ${data.entityId}`, new Error(`No itemId found for entity ${data.entityId}`));
