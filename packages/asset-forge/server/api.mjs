@@ -588,7 +588,7 @@ Respond with ONLY a JSON object:
 app.use(errorHandler)
 
 // Start server
-const PORT = process.env.API_PORT || 3001
+const PORT = process.env.API_PORT || 3004
 app.listen(PORT, () => {
   console.log(`🚀 API Server running on http://localhost:${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`)

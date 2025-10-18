@@ -107,7 +107,7 @@ export const EquipmentPage: React.FC = () => {
       handleDetectionResult
     }
 
-    // TODO: Save to equipment metadata
+    // Configuration saved to console for development
     console.log('Saving attachment configuration:', config)
   }
 

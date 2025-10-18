@@ -133,7 +133,7 @@ export class DataManager {
       level2Areas: Record<string, WorldArea>;
       level3Areas: Record<string, WorldArea>;
     };
-    
+        
     // Merge all areas into ALL_WORLD_AREAS
     Object.assign(ALL_WORLD_AREAS, worldAreasData.starterTowns, worldAreasData.level1Areas, worldAreasData.level2Areas, worldAreasData.level3Areas);
     Object.assign(STARTER_TOWNS, worldAreasData.starterTowns);

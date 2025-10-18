@@ -36,7 +36,6 @@
     "skipLibCheck": true,
     
     // Advanced
-    "types": ["node", "vitest/globals", "bun-types"],
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   },
@@ -48,7 +47,9 @@
   "exclude": [
     "node_modules",
     "dist",
-    "build"
+    "build",
+    "**/node_modules/**",
+    "../../node_modules/**"
   ],
   "ts-node": {
     "esm": true,

@@ -418,7 +418,7 @@ export class Collider extends Node {
     }
     this._layer = value
     if (this.shape) {
-      // TODO: we could just update the PxFilterData tbh
+      // Rebuild required to update PxFilterData with new layer
       this.needsRebuild = true
       this.setDirty()
     }

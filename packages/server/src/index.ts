@@ -351,21 +351,7 @@ async function startServer() {
     methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
   })
 
-  // Temporarily disable compression to debug "premature close" errors
-  // TODO: Re-enable compression after fixing the issue
-  /*
-  try {
-    await fastify.register(compress, {
-      global: true,
-      // Exclude specific content types that shouldn't be compressed
-      encodings: ['gzip', 'deflate'],
-      customTypes: /^text\/|^application\/(json|javascript|xml)/
-    })
-  } catch (error) {
-    console.error('[Server] Error registering compress:', error)
-    // Continue without compression rather than failing startup
-  }
-  */
+  // Compression disabled - not needed for local development and causes issues with some clients
   // Serve index.html for root path (SPA routing)
   fastify.get('/', async (_req: FastifyRequest, reply: FastifyReply) => {
     const filePath = path.join(__dirname, 'public', 'index.html')

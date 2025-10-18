@@ -174,7 +174,10 @@ export class DynamicActionLoader {
       // Execute the action through world interface
       let result: DynamicActionResult;
       const worldActions = world.actions as {
-        execute?: (name: string, params: Record<string, unknown>) => Promise<DynamicActionResult>;
+        execute?: (
+          name: string,
+          params: Record<string, unknown>,
+        ) => Promise<DynamicActionResult>;
       };
       if (worldActions?.execute) {
         result = await worldActions.execute(descriptor.name, params);

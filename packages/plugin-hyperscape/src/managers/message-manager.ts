@@ -25,7 +25,12 @@ type HyperscapePlayerData = Entity & {
     appearance?: {
       avatar?: string;
     };
-    [key: string]: string | number | boolean | Record<string, unknown> | undefined;
+    [key: string]:
+      | string
+      | number
+      | boolean
+      | Record<string, unknown>
+      | undefined;
   };
 };
 
@@ -37,7 +42,12 @@ type ElizaEntityWithHyperscape = ElizaEntity & {
     hyperscape?: {
       name?: string;
     };
-    [key: string]: string | number | boolean | Record<string, unknown> | undefined;
+    [key: string]:
+      | string
+      | number
+      | boolean
+      | Record<string, unknown>
+      | undefined;
   };
 };
 

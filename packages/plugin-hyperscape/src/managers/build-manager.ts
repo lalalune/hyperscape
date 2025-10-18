@@ -4,10 +4,13 @@ import type { Vector3, Quaternion, Component } from "@hyperscape/shared";
 import type {
   BuildManager as IBuildManager,
   EntityCreationData,
-  EntityUpdateData
+  EntityUpdateData,
 } from "../types/core-interfaces";
 import { THREE } from "@hyperscape/shared";
-import { EntityCreationDataSchema, EntityUpdateDataSchema } from "../types/validation-schemas";
+import {
+  EntityCreationDataSchema,
+  EntityUpdateDataSchema,
+} from "../types/validation-schemas";
 
 /**
  * BuildManager handles entity creation, modification, and build system operations
@@ -275,7 +278,9 @@ export class BuildManager implements IBuildManager {
       rotation: entityData.rotation as Quaternion | undefined,
       scale: entityData.scale as Vector3 | undefined,
       components: entityData.components as Component[] | undefined,
-      metadata: entityData.metadata as Record<string, string | number | boolean> | undefined,
+      metadata: entityData.metadata as
+        | Record<string, string | number | boolean>
+        | undefined,
     };
 
     const entity = this.createEntity(

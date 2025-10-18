@@ -169,8 +169,10 @@ export class PlayerSystem extends SystemBase {
 
   async init(): Promise<void> {
     // Subscribe to player events using strongly typed event system
-    this.subscribe(EventType.PLAYER_JOINED, data => {
-      this.onPlayerEnter(data as PlayerEnterEvent)
+    // CRITICAL FIX: Listen to PLAYER_REGISTERED instead of PLAYER_JOINED
+    // PLAYER_REGISTERED is emitted when entities are created via world.entities.add()
+    this.subscribe(EventType.PLAYER_REGISTERED, data => {
+      this.onPlayerEnter(data as { playerId: string })
     })
     this.subscribe(EventType.PLAYER_SPAWN_REQUEST, data =>
       this.onPlayerSpawnRequest(data as { playerId: string; position: Position3D })
@@ -193,6 +195,18 @@ export class PlayerSystem extends SystemBase {
     })
     this.subscribe<PlayerLevelUpEvent>(EventType.PLAYER_LEVEL_UP, data => {
       this.updateCombatLevel(data)
+    })
+    this.subscribe<{ playerId: string; health: number; maxHealth: number }>(EventType.PLAYER_HEALTH_UPDATED, data => {
+      // Convert PLAYER_HEALTH_UPDATED to HealthUpdateEvent format
+      const player = this.players.get(data.playerId)
+      if (player) {
+        this.updateHealth({
+          entityId: data.playerId,
+          previousHealth: player.health.current,
+          currentHealth: data.health,
+          maxHealth: data.maxHealth
+        })
+      }
     })
 
     // Handle consumable item usage
@@ -334,61 +348,65 @@ export class PlayerSystem extends SystemBase {
     this.initializePlayerAttackStyle(data.playerId)
   }
 
-  async onPlayerEnter(data: PlayerEnterEvent): Promise<void> {
+  async onPlayerEnter(data: PlayerEnterEvent | { playerId: string }): Promise<void> {
+    // Handle both PLAYER_REGISTERED (just playerId) and PLAYER_JOINED (full event) formats
+    const playerId = data.playerId
+    const userId = 'userId' in data ? data.userId : undefined
+    
     // Check if player already exists in our system
-    if (this.players.has(data.playerId)) {
+    if (this.players.has(playerId)) {
       return
     }
 
     // Check if entity already exists (character-select mode spawns entity before PLAYER_JOINED)
-    const entity = this.world.entities.get(data.playerId)
+    const entity = this.world.entities.get(playerId)
     if (entity && entity.position) {
       // Create spawn data tracking
       const spawnData: PlayerSpawnData = {
-        playerId: data.playerId,
+        playerId: playerId,
         position: new THREE.Vector3(entity.position.x, entity.position.y, entity.position.z),
         hasStarterEquipment: false,
         aggroTriggered: false,
         spawnTime: Date.now(),
       }
-      this.spawnedPlayers.set(data.playerId, spawnData)
+      this.spawnedPlayers.set(playerId, spawnData)
     }
 
     // Determine which ID to use for database lookups
     // Use userId (persistent account ID) if available, otherwise use playerId (session ID)
-    const databaseId = data.userId || data.playerId
+    const databaseId = userId || playerId
 
     // Load player data from database using persistent userId
     let playerData: Player | undefined
     if (this.databaseSystem) {
       const dbData = await this.databaseSystem.getPlayerAsync(databaseId)
       console.log('[PlayerSystem] 📋 Loaded player data from DB:', {
-        playerId: data.playerId,
+        playerId: playerId,
         databaseId,
         dbDataFound: !!dbData,
         dbDataName: dbData?.name
       });
       if (dbData) {
-        playerData = PlayerMigration.fromPlayerRow(dbData, data.playerId)
+        playerData = PlayerMigration.fromPlayerRow(dbData, playerId)
         console.log('[PlayerSystem] ✅ Migrated player data, name:', playerData.name);
       }
     }
 
     // Create new player if not found in database
     if (!playerData) {
-      const playerLocal = this.playerLocalRefs.get(data.playerId)
+      const playerLocal = this.playerLocalRefs.get(playerId)
       // CRITICAL: Use the playerLocal.name from the entity spawn, which comes from the character DB record
       // Never auto-generate names - they must come from the character creation system
       const playerName = playerLocal?.name || 'Adventurer'
       
       console.log('[PlayerSystem] 🎭 Creating new player data:', {
-        playerId: data.playerId,
+        playerId: playerId,
         databaseId,
         playerLocalName: playerLocal?.name,
         finalPlayerName: playerName
       });
       
-      playerData = PlayerMigration.createNewPlayer(data.playerId, data.playerId, playerName)
+      playerData = PlayerMigration.createNewPlayer(playerId, playerId, playerName)
 
       // Ground initial spawn to terrain height on server
       const terrain = this.world.getSystem<TerrainSystem>('terrain')
@@ -422,17 +440,17 @@ export class PlayerSystem extends SystemBase {
     }
 
     // Register userId mapping for database persistence (critical!)
-    if (data.userId) {
-      PlayerIdMapper.register(data.playerId, data.userId)
-      ;(playerData as Player & { userId?: string }).userId = data.userId
+    if (userId) {
+      PlayerIdMapper.register(playerId, userId)
+      ;(playerData as Player & { userId?: string }).userId = userId
     }
 
     // Add to our system using entity ID for runtime lookups
-    this.players.set(data.playerId, playerData)
+    this.players.set(playerId, playerData)
 
     // Emit player ready event
     this.emitTypedEvent(EventType.PLAYER_UPDATED, {
-      playerId: data.playerId,
+      playerId: playerId,
       playerData: {
         id: playerData.id,
         name: playerData.name,
@@ -444,7 +462,7 @@ export class PlayerSystem extends SystemBase {
     })
 
     // Update UI
-    this.emitPlayerUpdate(data.playerId)
+    this.emitPlayerUpdate(playerId)
 
     // If entity doesn't exist yet, wait for spawn request to create spawn data
     // This happens during initial join before character select
@@ -493,8 +511,20 @@ export class PlayerSystem extends SystemBase {
     const validMaxHealth = Number.isFinite(data.maxHealth) && data.maxHealth > 0 ? data.maxHealth : player.health.max
     const validCurrentHealth = Number.isFinite(data.currentHealth) ? data.currentHealth : player.health.current
     
-    player.health.current = Math.max(0, Math.min(validCurrentHealth, validMaxHealth))
-    player.health.max = validMaxHealth
+    // Additional validation to prevent NaN
+    if (!Number.isFinite(validCurrentHealth)) {
+      console.error(`[PlayerSystem] WARNING: Invalid currentHealth detected: ${data.currentHealth}, using current value instead. Player health object:`, player.health)
+      player.health.current = Math.max(0, player.health.current)
+    } else {
+      player.health.current = Math.max(0, Math.min(validCurrentHealth, validMaxHealth))
+    }
+    
+    if (!Number.isFinite(validMaxHealth)) {
+      console.error(`[PlayerSystem] WARNING: Invalid maxHealth detected: ${data.maxHealth}, using current max instead. Player health object:`, player.health)
+      player.health.max = Math.max(100, player.health.max)
+    } else {
+      player.health.max = validMaxHealth
+    }
 
     // Check for death
     if (player.health.current <= 0 && player.alive) {
@@ -664,6 +694,18 @@ export class PlayerSystem extends SystemBase {
     const player = this.players.get(playerId)
     if (!player || !player.alive) return false
 
+    // Validate heal amount to prevent NaN
+    if (!Number.isFinite(amount) || amount < 0) {
+      console.error(`[PlayerSystem] WARNING: Invalid heal amount: ${amount}, ignoring heal`)
+      return false
+    }
+
+    // Validate current health before applying heal
+    if (!Number.isFinite(player.health.current)) {
+      console.error(`[PlayerSystem] WARNING: Invalid current health before heal: ${player.health.current}, resetting to max`)
+      player.health.current = player.health.max
+    }
+
     const oldHealth = player.health.current
     player.health.current = Math.min(player.health.max, player.health.current + amount)
 
@@ -806,6 +848,18 @@ export class PlayerSystem extends SystemBase {
   damagePlayer(playerId: string, amount: number, _source?: string): boolean {
     const player = this.players.get(playerId)
     if (!player || !player.alive) return false
+
+    // Validate damage amount to prevent NaN
+    if (!Number.isFinite(amount) || amount < 0) {
+      console.error(`[PlayerSystem] WARNING: Invalid damage amount: ${amount}, ignoring damage`)
+      return false
+    }
+
+    // Validate current health before applying damage
+    if (!Number.isFinite(player.health.current)) {
+      console.error(`[PlayerSystem] WARNING: Invalid current health before damage: ${player.health.current}, resetting to max`)
+      player.health.current = player.health.max
+    }
 
     player.health.current = Math.max(0, player.health.current - amount)
 

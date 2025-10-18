@@ -169,6 +169,18 @@ export class SkillsSystem extends SystemBase {
    * Grant XP to a specific skill
    */
   public grantXP(entityId: string, skill: keyof Skills, amount: number): void {
+    // CRITICAL FIX: Validate XP amount to prevent exploits
+    if (!Number.isFinite(amount) || amount <= 0) {
+      console.warn(`[SkillsSystem] Invalid XP amount: ${amount} for ${entityId}`);
+      return;
+    }
+
+    // CRITICAL FIX: Prevent excessive XP grants (max 10,000 XP per grant)
+    if (amount > 10000) {
+      console.warn(`[SkillsSystem] XP amount too high: ${amount} for ${entityId}, capping to 10000`);
+      amount = 10000;
+    }
+
     const entity = this.world.entities.get(entityId) as Entity;
     if (!entity) return;
 

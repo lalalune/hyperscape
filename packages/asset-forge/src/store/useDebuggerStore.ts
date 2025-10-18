@@ -226,9 +226,9 @@ const initialState: DebuggerState = {
 }
 
 export const useDebuggerStore = create<DebuggerStore>()(
-    subscribeWithSelector(
-        devtools(
-            persist(
+    devtools(
+        persist(
+            subscribeWithSelector(
                 immer((set, get) => ({
                     ...initialState,
 
@@ -538,32 +538,32 @@ export const useDebuggerStore = create<DebuggerStore>()(
                         const state = get()
                         return `Mode: ${state.viewMode} | Models: ${state.getActiveModelName()} | Wireframe: ${state.showWireframe ? 'ON' : 'OFF'}`
                     }
-                })),
-                {
-                    name: 'mesh-fitting-debugger',
-                    partialize: (state) => ({
-                        // Persist these settings
-                        showWireframe: state.showWireframe,
-                        fittingParameters: state.fittingParameters,
-                        helmetFittingMethod: state.helmetFittingMethod,
-                        helmetSizeMultiplier: state.helmetSizeMultiplier,
-                        helmetFitTightness: state.helmetFitTightness,
-                        helmetVerticalOffset: state.helmetVerticalOffset,
-                        helmetForwardOffset: state.helmetForwardOffset,
-                        helmetRotation: state.helmetRotation,
-                        showHeadBounds: state.showHeadBounds,
-                        showCollisionDebug: state.showCollisionDebug,
-                        showHull: state.showHull,
-                        showDebugArrows: state.showDebugArrows,
-                        debugArrowDensity: state.debugArrowDensity,
-                        debugColorMode: state.debugColorMode
-                    })
-                }
+                }))
             ),
             {
-                name: 'debugger-store'
+                name: 'mesh-fitting-debugger',
+                partialize: (state) => ({
+                    // Persist these settings
+                    showWireframe: state.showWireframe,
+                    fittingParameters: state.fittingParameters,
+                    helmetFittingMethod: state.helmetFittingMethod,
+                    helmetSizeMultiplier: state.helmetSizeMultiplier,
+                    helmetFitTightness: state.helmetFitTightness,
+                    helmetVerticalOffset: state.helmetVerticalOffset,
+                    helmetForwardOffset: state.helmetForwardOffset,
+                    helmetRotation: state.helmetRotation,
+                    showHeadBounds: state.showHeadBounds,
+                    showCollisionDebug: state.showCollisionDebug,
+                    showHull: state.showHull,
+                    showDebugArrows: state.showDebugArrows,
+                    debugArrowDensity: state.debugArrowDensity,
+                    debugColorMode: state.debugColorMode
+                })
             }
-        )
+        ),
+        {
+            name: 'debugger-store'
+        }
     )
 )
 

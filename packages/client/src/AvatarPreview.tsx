@@ -15,8 +15,8 @@ import {
   type UniversalRenderer,
 } from "@hyperscape/shared";
 
-const MAX_UPLOAD_SIZE = 1000000000000; // TODO
-const MAX_UPLOAD_SIZE_LABEL = "1LOLS";
+const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_UPLOAD_SIZE_LABEL = "100MB";
 
 const FOV = 70;
 const PLANE_ASPECT_RATIO = 16 / 9;

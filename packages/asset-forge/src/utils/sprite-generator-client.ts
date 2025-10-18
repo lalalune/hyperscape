@@ -75,8 +75,7 @@ export class SpriteGeneratorClient {
     
     console.log(`✅ Generated ${sprites.length} sprites for ${assetId}`)
     
-    // TODO: Save sprites to server or local storage
-    // For now, we'll just return success
+    // Sprites stored in memory for development - persistence not yet implemented
     
     return true
   }

@@ -37,7 +37,7 @@ export function FieldText({ label, hint, placeholder, value, onChange }: FieldTe
       onPointerEnter={() => hint && setHint(hint)}
       onPointerLeave={() => hint && setHint(null)}
     >
-      <div className='field-label text-[0.8125rem] mb-1.5 opacity-70 font-medium'>{label}</div>
+      <div className='field-label text-[0.8125rem] mb-1.5 text-white/90 font-medium'>{label}</div>
       <input
         type='text'
         placeholder={placeholder}
@@ -84,7 +84,7 @@ export function FieldTextarea({ label, hint, placeholder, value, onChange }: Fie
       onPointerEnter={() => hint && setHint(hint)}
       onPointerLeave={() => hint && setHint(null)}
     >
-      <div className='field-label text-[0.8125rem] mb-1.5 opacity-70 font-medium'>{label}</div>
+      <div className='field-label text-[0.8125rem] mb-1.5 text-white/90 font-medium'>{label}</div>
       <textarea
         ref={textareaRef}
         placeholder={placeholder}
@@ -133,7 +133,7 @@ export function FieldSwitch({ label, hint, options, value, onChange }: FieldSwit
       onPointerEnter={() => hint && setHint(hint)}
       onPointerLeave={() => hint && setHint(null)}
     >
-      <div className='field-label text-[0.8125rem] mb-1.5 opacity-70 font-medium'>{label}</div>
+      <div className='field-label text-[0.8125rem] mb-1.5 text-white/90 font-medium'>{label}</div>
       <div className='field-switch-control flex items-center gap-2 text-sm'>
         <div
           className='field-switch-btn w-6 h-6 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'

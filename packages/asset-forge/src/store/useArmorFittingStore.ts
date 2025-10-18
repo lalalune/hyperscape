@@ -221,9 +221,9 @@ const initialState: ArmorFittingState = {
 }
 
 export const useArmorFittingStore = create<ArmorFittingStore>()(
-  subscribeWithSelector(
-    devtools(
-      persist(
+  devtools(
+    persist(
+      subscribeWithSelector(
         immer((set, get) => ({
           ...initialState,
 
@@ -801,23 +801,23 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
             if (progress < 75) return 'Fitting...'
             return 'Finalizing...'
           }
-        })),
-        {
-          name: 'armor-fitting-storage',
-          partialize: (state) => ({
-            // Only persist these fields
-            fittingConfig: state.fittingConfig,
-            enableWeightTransfer: state.enableWeightTransfer,
-            equipmentSlot: state.equipmentSlot,
-            visualizationMode: state.visualizationMode,
-            showWireframe: state.showWireframe
-          })
-        }
+        }))
       ),
       {
-        name: 'armor-fitting-store',
+        name: 'armor-fitting-storage',
+        partialize: (state) => ({
+          // Only persist these fields
+          fittingConfig: state.fittingConfig,
+          enableWeightTransfer: state.enableWeightTransfer,
+          equipmentSlot: state.equipmentSlot,
+          visualizationMode: state.visualizationMode,
+          showWireframe: state.showWireframe
+        })
       }
-    )
+    ),
+    {
+      name: 'armor-fitting-store',
+    }
   )
 )
 

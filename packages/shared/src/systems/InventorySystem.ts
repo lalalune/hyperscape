@@ -288,11 +288,29 @@ export class InventorySystem extends SystemBase {
       return true;
     }
     
+    // CRITICAL FIX: Validate quantity to prevent stack overflow
+    if (!Number.isFinite(data.quantity) || data.quantity <= 0) {
+      Logger.systemError('InventorySystem', `Invalid quantity: ${data.quantity}`, new Error(`Invalid quantity: ${data.quantity}`));
+      return false;
+    }
+
+    // Check stack limits to prevent overflow
+    const maxStackSize = itemData.stackable ? (itemData.maxStackSize || 999) : 1;
+    if (data.quantity > maxStackSize) {
+      Logger.systemError('InventorySystem', `Quantity ${data.quantity} exceeds max stack size ${maxStackSize} for item ${itemId}`, new Error(`Stack overflow prevented`));
+      return false;
+    }
+
     // Check if item is stackable
     if (itemData.stackable) {
       // Find existing stack
       const existingItem = inventory.items.find(item => item.itemId === itemId);
       if (existingItem) {
+        // CRITICAL FIX: Check if adding would exceed stack limit
+        if (existingItem.quantity + data.quantity > maxStackSize) {
+          Logger.systemError('InventorySystem', `Adding ${data.quantity} to existing stack of ${existingItem.quantity} would exceed max stack size ${maxStackSize}`, new Error(`Stack overflow prevented`));
+          return false;
+        }
         existingItem.quantity += data.quantity;
         const playerIdKey = toPlayerID(playerId);
         if (playerIdKey) {
@@ -519,11 +537,26 @@ export class InventorySystem extends SystemBase {
       return;
     }
     
+    // CRITICAL FIX: Atomic check-and-destroy pattern to prevent race conditions
+    // Check if item is already being picked up or has been picked up
+    const isPickedUp = entity.getProperty('pickedUp') as boolean;
+    const isBeingPickedUp = entity.getProperty('beingPickedUp') as boolean;
+    
+    if (isPickedUp || isBeingPickedUp) {
+      Logger.systemError('InventorySystem', `Item ${data.entityId} is already picked up or being picked up`, new Error(`Item already picked up: ${data.entityId}`));
+      return;
+    }
+    
+    // Mark as being picked up immediately to prevent race conditions
+    entity.setProperty('beingPickedUp', true);
+    
     // Get itemId from event data (passed from ItemEntity.handleInteraction) or from entity properties
     const itemId = data.itemId || entity.getProperty('itemId') as string;
     const quantity = entity.getProperty('quantity') as number || 1;
     
     if (!itemId) {
+      // Reset the beingPickedUp flag if we can't process
+      entity.setProperty('beingPickedUp', false);
       Logger.systemError('InventorySystem', `No itemId found for entity ${data.entityId}`, new Error(`No itemId found for entity ${data.entityId}`));
       return;
     }
@@ -536,7 +569,8 @@ export class InventorySystem extends SystemBase {
     });
     
     if (added) {
-      // Destroy item entity immediately on server to prevent duplication
+      // Mark as picked up and destroy item entity immediately on server to prevent duplication
+      entity.setProperty('pickedUp', true);
       const destroyed = entityManager.destroyEntity(data.entityId);
       if (!destroyed) {
         Logger.systemError('InventorySystem', `Failed to destroy item entity ${data.entityId}`, new Error(`Failed to destroy item entity ${data.entityId}`));

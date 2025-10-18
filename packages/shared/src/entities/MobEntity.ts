@@ -112,9 +112,6 @@ export class MobEntity extends CombatantEntity {
 
   async init(): Promise<void> {
     await super.init();
-    
-    // TODO: Server-side validation disabled due to ProgressEvent polyfill issues
-    // Validation happens on client side instead (see clientUpdate)
   }
   
 
@@ -142,6 +139,7 @@ export class MobEntity extends CombatantEntity {
     // Set entity properties for systems to access
     this.setProperty('mobType', config.mobType);
     this.setProperty('level', config.level);
+    this.setProperty('attackPower', config.attackPower);
     this.setProperty('health', { current: config.currentHealth, max: config.maxHealth });
     
     // Add stats component for skills system compatibility
@@ -835,7 +833,8 @@ export class MobEntity extends CombatantEntity {
         attackStyle: 'melee' // Default to melee, could be enhanced to track actual attack style
       });
 
-      this.dropLoot(this.lastAttackerId);
+      // CRITICAL FIX: Don't drop loot here - LootSystem handles it via MOB_DIED event
+      // this.dropLoot(this.lastAttackerId);
     }
 
     // Hide mesh or change to corpse
@@ -1022,6 +1021,26 @@ export class MobEntity extends CombatantEntity {
       default:
         return 'idle';
     }
+  }
+
+  // CRITICAL FIX: Override health methods to use mob's own health data
+  override getHealth(): number {
+    return this.config.currentHealth;
+  }
+
+  override getMaxHealth(): number {
+    return this.config.maxHealth;
+  }
+
+  override isDead(): boolean {
+    return this.config.currentHealth <= 0 || this.config.aiState === MobAIState.DEAD;
+  }
+
+  // CRITICAL FIX: Override setHealth to sync with mob config
+  override setHealth(newHealth: number): void {
+    this.config.currentHealth = Math.max(0, Math.min(newHealth, this.config.maxHealth));
+    // Also update base health for compatibility
+    super.setHealth(this.config.currentHealth);
   }
 
   // Get mob data for systems

@@ -54,7 +54,7 @@ export async function ambient(
 
   if (nearbyPlayers.length > 0) {
     const playerNames = nearbyPlayers
-      .map(p => p.username || p.name || "someone")
+      .map((p) => p.username || p.name || "someone")
       .join(", ");
     parts.push(`I notice ${playerNames} nearby`);
   }

@@ -149,7 +149,11 @@ export class ConcreteRPGTests {
     const result = await this.visualTest.runTest("item-pickup", verification);
 
     // Additional check: verify specific item properties
-    if (result.passed && result.stateSnapshot && result.stateSnapshot.inventory) {
+    if (
+      result.passed &&
+      result.stateSnapshot &&
+      result.stateSnapshot.inventory
+    ) {
       const inventory = result.stateSnapshot.inventory;
       if (!Array.isArray(inventory) && inventory.items) {
         const newItems = inventory.items;
@@ -307,7 +311,7 @@ export class ConcreteRPGTests {
     // Verify gold was deducted correctly
     if (result.stateSnapshot && result.stateSnapshot.inventory) {
       const inventory = result.stateSnapshot.inventory;
-      if (!Array.isArray(inventory) && typeof inventory.gold === 'number') {
+      if (!Array.isArray(inventory) && typeof inventory.gold === "number") {
         const goldSpent = initialGold - inventory.gold;
         if (goldSpent <= 0) {
           result.passed = false;
@@ -371,7 +375,10 @@ export class ConcreteRPGTests {
   /**
    * Helper: Execute an action and wait for result
    */
-  private async executeAction(actionName: string, params?: Record<string, unknown>): Promise<void> {
+  private async executeAction(
+    actionName: string,
+    params?: Record<string, unknown>,
+  ): Promise<void> {
     const world = this.service.getWorld();
     if (!world?.actions?.execute) {
       throw new Error("World actions not available");

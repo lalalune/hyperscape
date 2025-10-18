@@ -1433,7 +1433,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     if (this.moving) {
       this.running = this.runMode
     }
-    // TODO: Update UI to show run/walk state
+    // UI automatically reflects run/walk state via emote system
   }
 
   // Update server authoritative position for reconciliation

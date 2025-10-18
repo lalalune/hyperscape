@@ -64,7 +64,7 @@ export interface MockWorldConfig {
   environment?: {
     lighting?: LightingConfig;
     skybox?: string;
-    terrain?: EnvironmentConfig['terrain'];
+    terrain?: EnvironmentConfig["terrain"];
   };
 }
 

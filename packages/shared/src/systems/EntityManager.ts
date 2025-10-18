@@ -34,7 +34,7 @@ import { EventType } from '../types/events';
 import { TerrainSystem } from './TerrainSystem';
 import { SystemBase } from './SystemBase';
 import { getItem } from '../data/items';
-import { getMobById } from '../data/mobs';
+import { getMobById, ALL_MOBS } from '../data/mobs';
 import { getExternalNPC } from '../utils/ExternalAssetUtils';
 
 export class EntityManager extends SystemBase {
@@ -84,15 +84,19 @@ export class EntityManager extends SystemBase {
       });
     });
     // EntityManager should handle spawn REQUESTS, not completed spawns
-    this.subscribe(EventType.MOB_SPAWN_REQUEST, (data) => {
+    this.subscribe(EventType.MOB_SPAWN_REQUEST, async (data) => {
       const typedData = data as { mobType: string; position: { x: number; y: number; z: number }; level?: number; customId?: string };
-      this.handleMobSpawn({
-        mobType: typedData.mobType,
-        position: typedData.position,
-        level: typedData.level || 1,
-        customId: typedData.customId || `mob_${Date.now()}`,
-        name: typedData.mobType
-      });
+      try {
+        await this.handleMobSpawn({
+          mobType: typedData.mobType,
+          position: typedData.position,
+          level: typedData.level || 1,
+          customId: typedData.customId || `mob_${Date.now()}`,
+          name: typedData.mobType
+        });
+      } catch (error) {
+        console.error(`[EntityManager] Error handling MOB_SPAWN_REQUEST for ${typedData.mobType}:`, error);
+      }
     });
     this.subscribe<{ npcId: string; name: string; type: string; position: { x: number; y: number; z: number }; services?: string[]; modelPath?: string }>(EventType.NPC_SPAWN_REQUEST, (data) => this.handleNPCSpawnRequest(data));
     this.subscribe(EventType.MOB_ATTACKED, (data) => {
@@ -192,15 +196,10 @@ export class EntityManager extends SystemBase {
     if (!config.id) {
       config.id = `entity_${this.nextEntityId++}`;
     }
-    
+        
     // Check if entity already exists
     if (this.entities.has(config.id)) {
       return this.entities.get(config.id) || null;
-    }
-    
-    // VALIDATE config before creating entity
-    if (!config.position || !Number.isFinite(config.position.x) || !Number.isFinite(config.position.y) || !Number.isFinite(config.position.z)) {
-      throw new Error(`Invalid position for entity ${config.id}: ${JSON.stringify(config.position)}`);
     }
     
     if (config.position.y < -200 || config.position.y > 2000) {
@@ -239,14 +238,6 @@ export class EntityManager extends SystemBase {
     
     // Register with world entities system so other systems can find it
     this.world.entities.set(config.id, entity);
-        
-    // Broadcast entityAdded to all clients (server-only)
-    if (this.world.isServer) {
-      const network = this.world.network as { send?: (method: string, data: unknown, excludeId?: string) => void };
-      if (network?.send) {
-        network.send('entityAdded', entity.serialize());
-      }
-    }
     
     // Emit spawn event using world.emit to avoid type mismatch
     this.emitTypedEvent(EventType.ENTITY_SPAWNED, {
@@ -256,16 +247,31 @@ export class EntityManager extends SystemBase {
       entityData: entity.getNetworkData()
     });
     
-    // CRITICAL FIX: Broadcast new entity to all connected clients
+    // Broadcast new entity to all connected clients (server-only)
     if (this.world.isServer) {
       const network = this.world.network;
+      console.log(`[EntityManager] 🔍 Network check - isServer: ${this.world.isServer}, network exists: ${!!network}, send method exists: ${!!(network && typeof network.send === 'function')}`);
+      
       if (network && typeof network.send === 'function') {
         try {
-          network.send('entityAdded', entity.serialize());
+          console.log(`[EntityManager] Broadcasting entity ${config.id} to clients`);
+          const serializedData = entity.serialize();
+          console.log(`[EntityManager] Serialized data for ${config.id}:`, serializedData);
+          
+          // Check if there are any connected clients
+          const socketCount = (network as any).sockets?.size || 0;
+          console.log(`[EntityManager] Connected clients: ${socketCount}`);
+          
+          network.send('entityAdded', serializedData);
+          console.log(`[EntityManager] ✅ Successfully sent entityAdded packet for ${config.id}`);
         } catch (error) {
-          console.warn(`[EntityManager] Failed to broadcast entity ${config.id}:`, error);
+          console.error(`[EntityManager] ❌ Failed to broadcast entity ${config.id}:`, error);
         }
+      } else {
+        console.error(`[EntityManager] ❌ Network not available or send method missing for entity ${config.id}`);
       }
+    } else {
+      console.log(`[EntityManager] 👤 Client detected, skipping broadcast for entity ${config.id}`);
     }
     
     return entity;
@@ -281,7 +287,8 @@ export class EntityManager extends SystemBase {
     const network = this.world.network;
     if (network && network.isServer) {
       try {
-        network.send('entityRemoved', entityId);
+        // Send with proper data format that ClientNetwork expects
+        network.send('entityRemoved', { id: entityId });
       } catch (error) {
         console.warn(`[EntityManager] Failed to send entityRemoved packet for ${entityId}:`, error);
       }
@@ -480,7 +487,6 @@ export class EntityManager extends SystemBase {
     }
     
     const level = data.level || 1;
-
     // Ground to terrain height map explicitly for server/client authoritative spawn
     const terrain = this.world.getSystem<TerrainSystem>('terrain');
     if (terrain) {
@@ -492,8 +498,12 @@ export class EntityManager extends SystemBase {
     
     // Get mob data to access modelPath
     const mobDataFromDB = getMobById(mobType);
-    const modelPath = mobDataFromDB?.modelPath;
-
+    
+    if (!mobDataFromDB) {
+      throw new Error(`[EntityManager] Mob ${mobType} not found in database`);
+    }
+    
+    const modelPath = mobDataFromDB.modelPath;
     if(!modelPath) {
       throw new Error(`[EntityManager] Mob ${mobType} has no model path`);
     }

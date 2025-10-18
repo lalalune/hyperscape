@@ -651,11 +651,9 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
                 setStatus("success");
               }, 1000);
             } else if (workflowMode === "custom") {
-              // TODO: Implement custom prompt retexturing
               console.error("Custom prompt retexturing not yet implemented");
               setStatus("idle");
             } else if (workflowMode === "image") {
-              // TODO: Implement image-based retexturing
               console.error("Image-based retexturing not yet implemented");
               setStatus("idle");
             }

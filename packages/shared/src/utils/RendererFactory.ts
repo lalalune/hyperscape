@@ -231,8 +231,7 @@ export function configureXR(
   renderer: UniversalRenderer,
   options: {
     enabled?: boolean
-    // eslint-disable-next-line no-undef
-    referenceSpaceType?: XRReferenceSpaceType
+    referenceSpaceType?: 'viewer' | 'local' | 'local-floor' | 'bounded-floor' | 'unbounded'
     foveation?: number
   } = {}
 ): void {

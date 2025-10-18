@@ -7,7 +7,7 @@ import {
   composePromptFromState,
   parseKeyValueXml,
   ModelType,
-} from '@elizaos/core'
+} from "@elizaos/core";
 
 /**
  * Template for evaluating engagement levels
@@ -43,7 +43,7 @@ Output format (XML):
   <indicators>List of engagement indicators observed</indicators>
   <concerns>Any boredom signals detected</concerns>
   <recommendation>suggested action: continue|vary_topic|pause|end</recommendation>
-</engagement>`
+</engagement>`;
 
 /**
  * Boredom Evaluator - Monitors conversation engagement levels
@@ -58,64 +58,61 @@ Output format (XML):
  * are losing interest or when conversations should be adjusted.
  */
 export const boredomEvaluator: Evaluator = {
-  name: 'ENGAGEMENT_MONITOR',
-  similes: ['BOREDOM_DETECTION', 'ENGAGEMENT_TRACKING', 'INTEREST_MONITOR'],
+  name: "ENGAGEMENT_MONITOR",
+  similes: ["BOREDOM_DETECTION", "ENGAGEMENT_TRACKING", "INTEREST_MONITOR"],
   description:
-    'Monitors conversation engagement levels and detects signs of boredom. Helps maintain engaging interactions.',
+    "Monitors conversation engagement levels and detects signs of boredom. Helps maintain engaging interactions.",
 
   validate: async (runtime: IAgentRuntime, message: Memory) => {
     // Only evaluate if there's actual conversation content
-    if (!message.content.text || message.content.text.trim() === '') {
-      return false
+    if (!message.content.text || message.content.text.trim() === "") {
+      return false;
     }
 
     // Skip if message is from the agent itself
     if (message.entityId === runtime.agentId) {
-      return false
+      return false;
     }
 
-    return true
+    return true;
   },
 
   handler: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
-    logger.info('[BOREDOM_EVALUATOR] Analyzing engagement level')
+    logger.info("[BOREDOM_EVALUATOR] Analyzing engagement level");
 
     try {
       // Compose state with recent messages
       const evaluationState =
         state ||
-        (await runtime.composeState(message, [
-          'RECENT_MESSAGES',
-          'ENTITIES',
-        ]))
+        (await runtime.composeState(message, ["RECENT_MESSAGES", "ENTITIES"]));
 
       // Generate prompt for engagement evaluation
       const prompt = composePromptFromState({
         state: evaluationState,
         template: boredomEvaluationTemplate,
-      })
+      });
 
       // Use LLM to evaluate engagement
       const response = await runtime.useModel(ModelType.TEXT_SMALL, {
         prompt,
-      })
+      });
 
       // Parse the XML response
-      const parsed = parseKeyValueXml(response)
+      const parsed = parseKeyValueXml(response);
 
       if (!parsed || !parsed.level) {
-        logger.debug('[BOREDOM_EVALUATOR] Could not parse engagement response')
-        return
+        logger.debug("[BOREDOM_EVALUATOR] Could not parse engagement response");
+        return;
       }
 
-      const level = String(parsed.level || 'medium')
+      const level = String(parsed.level || "medium");
       const score =
-        typeof parsed.score === 'number'
+        typeof parsed.score === "number"
           ? parsed.score
-          : parseInt(String(parsed.score || 50))
-      const indicators = String(parsed.indicators || '')
-      const concerns = String(parsed.concerns || '')
-      const recommendation = String(parsed.recommendation || 'continue')
+          : parseInt(String(parsed.score || 50));
+      const indicators = String(parsed.indicators || "");
+      const concerns = String(parsed.concerns || "");
+      const recommendation = String(parsed.recommendation || "continue");
 
       // Store engagement evaluation in memory
       const engagementMemory: Memory = {
@@ -124,7 +121,7 @@ export const boredomEvaluator: Evaluator = {
         agentId: runtime.agentId,
         content: {
           text: `Engagement: ${level} (${score}/100)`,
-          source: 'boredom_evaluation',
+          source: "boredom_evaluation",
           level,
           score,
           indicators,
@@ -134,37 +131,33 @@ export const boredomEvaluator: Evaluator = {
         roomId: message.roomId,
         createdAt: Date.now(),
         metadata: {
-          type: 'engagement',
+          type: "engagement",
           level,
           score,
           evaluatedFrom: message.id,
         },
-      }
+      };
 
-      await runtime.createMemory(engagementMemory, 'boredom')
+      await runtime.createMemory(engagementMemory, "boredom");
 
       // Log significant engagement changes
-      if (level === 'bored' || score < 30) {
+      if (level === "bored" || score < 30) {
         logger.warn(
-          `[BOREDOM_EVALUATOR] Low engagement detected: ${level} (${score}/100)`
-        )
-        logger.warn(`[BOREDOM_EVALUATOR] Concerns: ${concerns}`)
+          `[BOREDOM_EVALUATOR] Low engagement detected: ${level} (${score}/100)`,
+        );
+        logger.warn(`[BOREDOM_EVALUATOR] Concerns: ${concerns}`);
+        logger.info(`[BOREDOM_EVALUATOR] Recommendation: ${recommendation}`);
+      } else if (level === "high" || score > 80) {
         logger.info(
-          `[BOREDOM_EVALUATOR] Recommendation: ${recommendation}`
-        )
-      } else if (level === 'high' || score > 80) {
-        logger.info(
-          `[BOREDOM_EVALUATOR] High engagement: ${level} (${score}/100)`
-        )
+          `[BOREDOM_EVALUATOR] High engagement: ${level} (${score}/100)`,
+        );
       } else {
-        logger.debug(
-          `[BOREDOM_EVALUATOR] Engagement: ${level} (${score}/100)`
-        )
+        logger.debug(`[BOREDOM_EVALUATOR] Engagement: ${level} (${score}/100)`);
       }
 
       // Emit engagement event for other systems to react
       try {
-        await runtime.emitEvent('ENGAGEMENT_UPDATE' as 'ENGAGEMENT_UPDATE', {
+        await runtime.emitEvent("ENGAGEMENT_UPDATE" as "ENGAGEMENT_UPDATE", {
           runtime,
           roomId: message.roomId,
           entityId: message.entityId,
@@ -172,16 +165,19 @@ export const boredomEvaluator: Evaluator = {
           score,
           recommendation,
           concerns,
-        })
+        });
       } catch (emitError) {
         // Event emission is optional, don't fail if it errors
-        logger.debug('[BOREDOM_EVALUATOR] Could not emit engagement event')
+        logger.debug("[BOREDOM_EVALUATOR] Could not emit engagement event");
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      logger.error('[BOREDOM_EVALUATOR] Error evaluating engagement:', errorMsg)
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        "[BOREDOM_EVALUATOR] Error evaluating engagement:",
+        errorMsg,
+      );
     }
   },
 
   examples: [],
-}
+};

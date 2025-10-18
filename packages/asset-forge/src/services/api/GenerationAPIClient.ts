@@ -79,7 +79,7 @@ export class GenerationAPIClient extends TypedEventEmitter<GenerationAPIEvents> 
     super()
     // Use environment variable if available, otherwise default to localhost
     const envApiUrl = (import.meta as ExtendedImportMeta).env?.VITE_GENERATION_API_URL
-    this.apiUrl = apiUrl || envApiUrl || 'http://localhost:3001/api'
+    this.apiUrl = apiUrl || envApiUrl || 'http://localhost:3004/api'
   }
   
   /**
