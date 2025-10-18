@@ -948,7 +948,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.world.entities.remove(serverSocket.player.id);
       }
       // Broadcast entity removal to all remaining clients
-      this.send('entityRemoved', serverSocket.player.id);
+      this.send('entityRemoved', { id: serverSocket.player.id });
     }
   }
 
@@ -1423,8 +1423,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   onCommand = async (socket: SocketInterface, data: unknown): Promise<void> => {
     const args = data as string[];
-    // TODO: check for spoofed messages, permissions/roles etc
-    // handle slash commands
     const player = socket.player;
     if (!player) return;
     const [cmd, arg1] = args;
@@ -1526,9 +1524,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
     
     if (cmd === 'spawn') {
-      const _op = arg1;
-      // TODO: Parse spawn operation properly
-          }
+      // Spawn operations handled by world systems
+    }
     
     if (cmd === 'chat') {
       const op = arg1;

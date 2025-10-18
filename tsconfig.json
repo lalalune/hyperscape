@@ -21,7 +21,6 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": ["node", "bun-types"],
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   },

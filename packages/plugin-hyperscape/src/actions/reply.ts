@@ -45,7 +45,7 @@ function getFirstAvailableField(
   for (const field of fields) {
     const value = obj[field];
     // Proper type guard: check if value is a non-empty string
-    if (typeof value === 'string' && value.trim() !== '') {
+    if (typeof value === "string" && value.trim() !== "") {
       return value;
     }
   }

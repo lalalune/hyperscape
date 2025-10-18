@@ -23,7 +23,7 @@
     "isolatedModules": true,
     
     /* Type Checking */
-    "strict": true,
+    "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,

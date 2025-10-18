@@ -8,7 +8,10 @@ import {
 import { HyperscapeService } from "../service";
 import { HyperscapeActionDescriptor } from "../types/core-types";
 import { World } from "../types/core-types";
-import { VisualConfigSchema, type VisualConfig } from "../types/validation-schemas";
+import {
+  VisualConfigSchema,
+  type VisualConfig,
+} from "../types/validation-schemas";
 
 /**
  * Manages loading and unloading of modular content packs
@@ -166,9 +169,9 @@ export class ContentPackLoader implements IContentPackLoader {
     // Apply UI theme if provided
     if (validated.uiTheme && world.ui) {
       // Assume applyTheme is a function - using validated data
-      (world.ui as { applyTheme: (theme: typeof validated.uiTheme) => void }).applyTheme(
-        validated.uiTheme,
-      );
+      (
+        world.ui as { applyTheme: (theme: typeof validated.uiTheme) => void }
+      ).applyTheme(validated.uiTheme);
     }
 
     // Load assets

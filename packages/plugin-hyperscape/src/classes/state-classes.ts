@@ -24,8 +24,14 @@ export class RPGPlayerStats {
    * Calculate total stat points
    */
   getTotalPoints(): number {
-    return this.strength + this.dexterity + this.intelligence +
-           this.constitution + this.wisdom + this.charisma;
+    return (
+      this.strength +
+      this.dexterity +
+      this.intelligence +
+      this.constitution +
+      this.wisdom +
+      this.charisma
+    );
   }
 
   /**
@@ -527,11 +533,7 @@ export class RPGStateManager {
    */
   addItem(playerId: string, itemId: string, quantity: number): boolean {
     const inventory = this.getInventory(playerId);
-    const item = new InventoryItem(
-      `${itemId}_${Date.now()}`,
-      itemId,
-      quantity,
-    );
+    const item = new InventoryItem(`${itemId}_${Date.now()}`, itemId, quantity);
     return inventory.addItem(item);
   }
 

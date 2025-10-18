@@ -7,7 +7,9 @@ import { resolveUrl } from "../utils";
 import type { World } from "@hyperscape/shared";
 
 // Helper to check if renderer is WebGLRenderer
-function isWebGLRenderer(renderer: THREE.Renderer | THREE.WebGLRenderer): renderer is THREE.WebGLRenderer {
+function isWebGLRenderer(
+  renderer: THREE.Renderer | THREE.WebGLRenderer,
+): renderer is THREE.WebGLRenderer {
   return renderer instanceof THREE.WebGLRenderer;
 }
 
@@ -26,7 +28,12 @@ interface SkyNode extends THREE.Object3D {
     texture?: THREE.Texture;
     [key: string]: THREE.Texture | string | number | boolean | undefined;
   };
-  [key: string]: Record<string, unknown> | string | number | boolean | undefined;
+  [key: string]:
+    | Record<string, unknown>
+    | string
+    | number
+    | boolean
+    | undefined;
 }
 
 interface SkyHandle {

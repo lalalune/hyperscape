@@ -371,6 +371,27 @@ export class EquipmentSystem extends SystemBase {
       this.sendMessage(data.playerId, `You need ${reqText} to equip ${itemData.name}.`, 'warning');
       return;
     }
+
+    // CRITICAL FIX: Check for equipment conflicts (two-handed weapons + shield)
+    if (equipSlot === 'weapon' && itemData.twoHanded) {
+      const shieldSlot = equipment.shield;
+      if (shieldSlot && shieldSlot.itemId) {
+        this.sendMessage(data.playerId, `You cannot equip a two-handed weapon while wearing a shield.`, 'warning');
+        return;
+      }
+    }
+
+    // CRITICAL FIX: Check if equipping shield with two-handed weapon
+    if (equipSlot === 'shield') {
+      const weaponSlot = equipment.weapon;
+      if (weaponSlot && weaponSlot.itemId) {
+        const weaponData = this.getItemData(weaponSlot.itemId);
+        if (weaponData && weaponData.twoHanded) {
+          this.sendMessage(data.playerId, `You cannot equip a shield while wielding a two-handed weapon.`, 'warning');
+          return;
+        }
+      }
+    }
     
     // Check if item is in inventory
     if (!this.playerHasItem(data.playerId, data.itemId)) {
@@ -729,6 +750,7 @@ export class EquipmentSystem extends SystemBase {
         weaponType: itemType.weaponType ? itemType.weaponType as WeaponType : WeaponType.NONE,
         equipable: true,
         attackType: itemType.type === ItemType.WEAPON ? AttackType.MELEE : null,
+        twoHanded: itemType.twoHanded || false,
         description: `Equipment with requirements: ${equipmentRequirements.getRequirementText(itemIdStr)}`,
         examine: `Level requirements: ${equipmentRequirements.getRequirementText(itemIdStr)}`,
         tradeable: true,
@@ -763,13 +785,14 @@ export class EquipmentSystem extends SystemBase {
         return null;
   }
 
-  private inferItemTypeFromId(itemId: string): { type: string; weaponType?: string; armorSlot?: string } {
+  private inferItemTypeFromId(itemId: string): { type: string; weaponType?: string; armorSlot?: string; twoHanded?: boolean } {
     const id = itemId.toLowerCase();
     
     if (id.includes('sword') || id.includes('bow')) {
       return {
         type: 'weapon',
-        weaponType: id.includes('bow') ? AttackType.RANGED : AttackType.MELEE
+        weaponType: id.includes('bow') ? AttackType.RANGED : AttackType.MELEE,
+        twoHanded: id.includes('bow') || id.includes('two_handed') || id.includes('2h')
       };
     }
     

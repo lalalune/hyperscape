@@ -31,7 +31,12 @@ interface AudioSource {
 interface Room {
   connect(url: string, token: string, options: ConnectOptions): Promise<void>;
   disconnect(): Promise<void>;
-  on(event: string, handler: (...args: Array<string | number | boolean | Record<string, unknown>>) => void): void;
+  on(
+    event: string,
+    handler: (
+      ...args: Array<string | number | boolean | Record<string, unknown>>
+    ) => void,
+  ): void;
   localParticipant: {
     publishTrack(track: AudioTrack, options: PublishOptions): Promise<void>;
   };

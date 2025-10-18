@@ -1,6 +1,22 @@
-# Hyperscape - AI-Generated RuneScape-Style RPG
+# Hyperscape - Fully On-Chain 3D RPG
 
-A complete RuneScape-inspired MMORPG where everything is AI-generated: items, mobs, lore, and world content. Based on a heavily modified version of [Hyperfy] (https://hyperfy.xyz/), a real-time 3D metaverse engine, with full multiplayer support and AI agent integration.
+A complete RuneScape-inspired MMORPG running **fully on-chain** using MUD framework, deployed as canonical game contracts on **Jeju L3**. Everything is AI-generated: items, mobs, lore, and world content. Built with Hyperscape 3D engine (Three.js), with all game state stored on the blockchain.
+
+## 🔗 On-Chain Architecture
+
+Hyperscape is now a **fully autonomous world** - all game state lives on the Jeju L3 blockchain:
+- ✅ Player stats, health, position → On-chain
+- ✅ Inventory (28 slots) → On-chain
+- ✅ Equipment (6 slots) → On-chain
+- ✅ Skills & XP (9 skills) → On-chain
+- ✅ Combat, loot, leveling → Smart contracts
+- ✅ Mobs & resources → On-chain entities
+- ✅ No centralized server control
+
+**Powered by:**
+- **MUD Framework** - Efficient on-chain state management
+- **Jeju L3** - Fast & cheap OP Stack L2
+- **Hyperscape Engine** - Three.js 3D rendering
 
 ## 🎮 **Play the Game NOW**
 
@@ -113,70 +129,135 @@ npm start          # Start the RPG server
 
 ## 🏗️ **Architecture**
 
-This is a **real monorepo** with 5 packages:
+### On-Chain Game Stack
+
+```
+┌─────────────────────────────────────────┐
+│      Hyperscape Client (Three.js)       │
+│     - 3D rendering & physics            │
+│     - Read-only UI                      │
+└────────────┬────────────────────────────┘
+             │
+             │ Read: GraphQL (MUD Indexer)
+             │ Write: Blockchain Transactions
+             ↓
+┌─────────────────────────────────────────┐
+│         Jeju L3 Blockchain              │
+│  ┌───────────────────────────────────┐  │
+│  │   MUD World (Hyperscape)          │  │
+│  │                                   │  │
+│  │  Systems:                         │  │
+│  │   - PlayerSystem                  │  │
+│  │   - CombatSystem                  │  │
+│  │   - InventorySystem               │  │
+│  │   - EquipmentSystem               │  │
+│  │   - SkillSystem                   │  │
+│  │   - ResourceSystem                │  │
+│  │   - MobSystem                     │  │
+│  │                                   │  │
+│  │  Tables (On-Chain State):        │  │
+│  │   - Player, Position, Health      │  │
+│  │   - CombatSkills, GatheringSkills │  │
+│  │   - Inventory (28 slots)          │  │
+│  │   - Equipment (6 slots)           │  │
+│  │   - Mobs, Resources, Coins        │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+             ↓
+┌─────────────────────────────────────────┐
+│       MUD Indexer (PostgreSQL)          │
+│     - Fast GraphQL queries              │
+│     - Real-time event sync              │
+└─────────────────────────────────────────┘
+```
+
+### Package Structure
 
 ```
 hyperscape/
-├── packages/hyperscape/          # 3D World Engine
-│   ├── Core Hyperscape engine with physics, networking, scripting
-│   ├── Entity Component System for game objects
-│   └── Real-time multiplayer with WebSocket + LiveKit
-├── packages/rpg/              # RuneScape-Style RPG
-│   ├── Complete RPG system built as Hyperscape apps
-│   ├── Player.hyp - Player character with stats/inventory
-│   ├── RPGGoblin.hyp - AI-driven mobs with combat/loot
-│   └── world/ - Configured world with terrain and entities
-├── packages/generation/       # AI Content Creation  
-│   ├── GPT-4 for lore, descriptions, game content
-│   ├── MeshyAI for 3D model generation and texturing
-│   └── Automated asset pipeline for items/creatures
-├── packages/test-framework/   # Visual Testing System
-│   ├── Playwright browser automation for gameplay tests
-│   ├── Screenshot analysis and pixel detection
-│   └── No mocks - tests real game instances
-└── packages/plugin-hyperscape/   # AI Agent Integration
-    ├── ElizaOS plugin for AI agents to join game
-    ├── All player actions available to AI
-    └── Agents can fight, gather, level, interact
+├── packages/client/           # 3D Client (Three.js)
+│   ├── MUD hooks for blockchain state
+│   ├── Transaction UI and wallet integration
+│   └── Optimistic updates for smooth UX
+├── packages/server/           # Thin Event Layer
+│   ├── WebSocket for real-time events
+│   └── Read-only helper APIs
+├── packages/shared/           # Shared Types & Utils
+└── ../../contracts/src/hyperscape/  # Smart Contracts
+    ├── mud.config.ts          # On-chain schema
+    ├── systems/               # Game logic (7 systems)
+    ├── libraries/             # Combat, XP, Item formulas
+    └── test/                  # Comprehensive contract tests
 ```
 
 ### Technology Stack
 
+- **[MUD Framework](https://mud.dev/)** - On-chain state management and ECS
+- **[Jeju L3](/)** - OP Stack L2 blockchain with Flashblocks & EigenDA
 - **[Hyperscape](https://hyperscape.io/)** - Real-time 3D metaverse engine (Three.js + PhysX)
 - **[ElizaOS](https://elizaos.ai/)** - AI agent framework for autonomous players
 - **TypeScript** - Type-safe development across all packages
 - **Three.js** - 3D graphics and rendering
-- **PhysX** - Physics simulation and collision detection  
-- **LiveKit** - Voice chat and WebRTC networking
+- **Solidity** - Smart contract language for game logic
+- **Foundry** - Smart contract development and testing
 - **Playwright** - Browser automation for comprehensive testing
-- **SQLite** - Persistent database for player data and world state
+- **PostgreSQL** - MUD indexer database for fast queries
 
 ## 🧪 **Testing**
 
-### Run All Tests
+### Quick Start - Run All Tests
 ```bash
-npm test
+# E2E Playwright tests (requires server running)
+bun run test:e2e
+
+# Smart contract tests
+bun run test:contracts
+
+# Everything together
+bun run test:all
+
+# Or use the automated runner
+./RUN_ALL_TESTS.sh
 ```
 
-This project uses **real gameplay testing** - no mocks, no simulations:
+### Test Infrastructure
 
-- **Visual Testing**: Screenshots verify entities render correctly
+This project uses **comprehensive real gameplay testing** - no mocks, no simulations:
+
+- **Visual Testing**: Screenshots verify entities render correctly with color proxies
 - **Browser Automation**: Playwright controls real game instances  
 - **Pixel Analysis**: Color detection confirms object positions
 - **System Integration**: Tests real combat, skills, inventory, banking
-- **Multi-modal Verification**: Data queries + visual confirmation
+- **Multi-modal Verification**: Data queries + visual confirmation + behavioral testing
+- **Wallet Testing**: Dappwright simulates real MetaMask interactions
+- **Smart Contract Testing**: 406 Foundry tests covering all contracts
 
-### Test Coverage
-- ✅ Player spawning and character initialization
-- ✅ Combat system (melee and ranged with arrows)
-- ✅ Skill progression and XP calculations
-- ✅ Inventory management and item pickup
-- ✅ Equipment system and stat bonuses
-- ✅ Resource gathering (woodcutting, fishing)
-- ✅ Banking and storage systems
-- ✅ Mob AI, aggression, and loot drops
-- ✅ Death, respawning, and item retrieval
-- ✅ Multiplayer synchronization
+### Test Coverage (525+ Tests)
+
+#### Hyperscape E2E Tests (~100 Playwright tests)
+- ✅ Core systems (World, Entity, System lifecycle)
+- ✅ Combat system (melee, ranged, death, aggro) with visual verification
+- ✅ Player systems (stats, skills, equipment, progression)
+- ✅ Inventory & banking (28 slots, independent banks per GDD)
+- ✅ World entities (mobs, resources, items, NPCs, spawning)
+- ✅ Client systems (graphics, audio, input, camera, UI)
+- ✅ Multiplayer (networking, sync, multi-client)
+- ✅ Physics (collision, terrain, PhysX)
+- ✅ Wallet integration (MetaMask with Dappwright)
+- ✅ Game-contract integration (on-chain state sync)
+
+#### Smart Contract Tests (406 Foundry tests)
+- ✅ ERC-8004 Registry System (66 tests) - Agent identity, reputation, validation
+- ✅ Liquidity System (58 tests) - Vault, paymaster, fee distribution
+- ✅ Oracle System (20 tests) - Price feeds, staleness checks
+- ✅ Cloud Integration (54 tests) - Service registry, credit purchase
+- ✅ MUD Game Contracts (85 tests) - All game systems on-chain
+- ✅ Token & Rewards (123 tests) - elizaOSToken, node operator rewards
+
+### Test Documentation
+- 📖 [Test Suite Guide](packages/plugin-hyperscape/tests/README.md)
+- 📖 [Testing Infrastructure](README_TESTING.md)
+- 📖 [Comprehensive Review](/Users/shawwalters/jeju/COMPREHENSIVE_REVIEW_SUMMARY.md)
 
 ## 🤖 **AI Agent Integration**
 

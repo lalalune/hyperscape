@@ -23,11 +23,19 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": ["node", "bun-types"],
+    "skipDefaultLibCheck": true,
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "build", "**/*.test.ts", "**/*.spec.ts"]
+  "include": ["src", "src/types/**/*.d.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/node_modules/**",
+    "../../node_modules/**"
+  ]
 }
 

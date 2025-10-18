@@ -32,6 +32,7 @@ export class MobSpawnerSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
+    
     // Get terrain system reference
     this.terrainSystem = this.world.getSystem<TerrainSystem>('terrain')!;
     
@@ -70,79 +71,29 @@ export class MobSpawnerSystem extends SystemBase {
    */
   private async spawnDefaultMob(): Promise<void> {
     
-    // Wait for EntityManager to be ready
-    let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
-    let attempts = 0;
-    
-    while ((!entityManager || !entityManager.spawnEntity) && attempts < 100) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
-      attempts++;
-      
-      if (attempts % 10 === 0) {
-      }
-    }
-    
-    if (!entityManager?.spawnEntity) {
-      console.error('[MobSpawnerSystem] ❌ EntityManager never became available after 10 seconds!');
-      return;
-    }
-    
-    
     // Use fixed Y position for simplicity
     const y = 43;
     
-    const mobConfig = {
-      id: 'default_goblin_1',
-      type: 'mob' as const,
-      name: 'Goblin',
-      position: { x: 5, y: y + 1.0, z: 15 },  // Raised Y to be clearly above terrain
-      rotation: { x: 0, y: 0, z: 0, w: 1 },
-      scale: { x: 3, y: 3, z: 3 },  // Scale up rigged model
-      visible: true,
-      interactable: true,
-      interactionType: 'attack',
-      interactionDistance: 10,
-      description: 'A hostile goblin',
-      model: 'asset://models/goblin/goblin_rigged.glb',
-      properties: {},
-      // MobEntity specific
+    // CRITICAL FIX: Use the proper event system instead of direct EntityManager calls
+    // This ensures proper network synchronization and client/server consistency
+    this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
       mobType: 'goblin',
       level: 2,
-      currentHealth: 30,
-      maxHealth: 30,
-      attackPower: 5,
-      defense: 2,
-      attackSpeed: 2000,
-      moveSpeed: 2,
-      xpReward: 15,
-      lootTable: [
-        { itemId: 'coins', minQuantity: 5, maxQuantity: 15, chance: 1.0 }
-      ],
-      spawnPoint: { x: 5, y: y + 0.1, z: 15 },
-      aggroRange: 8,
-      combatRange: 1.5,
-      aiState: 'idle',
-      targetPlayerId: null,
-      lastAttackTime: 0,
-      deathTime: null,
-      respawnTime: 60000 // 1 minute
-    };
-    
-    
-    try {
-      const spawnedEntity = await entityManager.spawnEntity(mobConfig) as { id?: string } | null;
-      
-      // Verify it's in the world
-      const verify = this.world.entities.get('default_goblin_1');
-    } catch (err) {
-      console.error('[MobSpawnerSystem] ❌ Error spawning default goblin:', err);
-    }
+      position: { x: 5, y: y + 1.0, z: 15 },  // Raised Y to be clearly above terrain
+      respawnTime: 60000, // 1 minute
+      customId: 'default_goblin_1' // Use our custom ID for tracking
+    });
   }
 
 
-  private spawnMobFromData(mobData: MobData, position: { x: number; y: number; z: number }): void {
-    const mobId = `gdd_${mobData.id}_${this.mobIdCounter++}`;
+  #lastKnownIndex: Record<string, number> = {};
+  private spawnMobFromData(mobData: MobData, position: { x: number; y: number; z: number }, index: number): void {
+    
+    if (this.#lastKnownIndex[mobData.type] && this.#lastKnownIndex[mobData.id] >= index) {
+      index = this.#lastKnownIndex[mobData.id] + 1;
+    }
+    this.#lastKnownIndex[mobData.type] = index;
+    const mobId = `gdd_${mobData.id}_${index}`;
     
     // Check if we already spawned this mob to prevent duplicates
     if (this.spawnedMobs.has(mobId)) {
@@ -151,7 +102,7 @@ export class MobSpawnerSystem extends SystemBase {
     
     // Track this spawn BEFORE emitting to prevent race conditions
     this.spawnedMobs.set(mobId, mobData.id);
-    
+
     // Use EntityManager to spawn mob via event system
     this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
       mobType: mobData.id,
@@ -165,12 +116,18 @@ export class MobSpawnerSystem extends SystemBase {
   private handleEntitySpawned(data: EntitySpawnedEvent): void {
     // Track mobs spawned by the EntityManager  
     if (data.entityType === 'mob' && data.entityData?.mobType) {
+      
       // Find matching request based on mob type and position
-      for (const [mobId] of this.spawnedMobs) {
+      for (const [mobId, trackedMobType] of this.spawnedMobs) {
         if (!this.spawnedMobs.get(mobId) && mobId.includes(data.entityData.mobType as string)) {
           this.spawnedMobs.set(mobId, data.entityId!);
           break;
         }
+      }
+      
+      // Special case for default goblin
+      if (data.entityId === 'default_goblin_1') {
+        this.spawnedMobs.set('default_goblin_1', data.entityId);
       }
     }
   }
@@ -243,6 +200,7 @@ export class MobSpawnerSystem extends SystemBase {
    * Handle terrain tile generation - spawn mobs for new tiles
    */
   private onTileGenerated(tileData: { tileX: number; tileZ: number; biome: string }): void {
+    
     const TILE_SIZE = this.terrainSystem.getTileSize();
     const tileBounds = {
       minX: tileData.tileX * TILE_SIZE,
@@ -253,8 +211,9 @@ export class MobSpawnerSystem extends SystemBase {
 
     // Find which world areas overlap with this new tile
     const overlappingAreas: Array<typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS]> = [];
-    for (const area of Object.values(ALL_WORLD_AREAS)) {
-      const areaBounds = area.bounds;
+    
+    for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
+      const areaBounds = area.bounds;      
       // Simple bounding box overlap check
       if (tileBounds.minX < areaBounds.maxX && tileBounds.maxX > areaBounds.minX &&
           tileBounds.minZ < areaBounds.maxZ && tileBounds.maxZ > areaBounds.minZ) {
@@ -282,6 +241,7 @@ export class MobSpawnerSystem extends SystemBase {
    */
   private generateMobSpawnsForArea(area: typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS], tileData: { tileX: number; tileZ: number }): void {
     const TILE_SIZE = this.terrainSystem.getTileSize();
+    let index = 0;
     for (const spawnPoint of area.mobSpawns) {
       const spawnTileX = Math.floor(spawnPoint.position.x / TILE_SIZE);
       const spawnTileZ = Math.floor(spawnPoint.position.z / TILE_SIZE);
@@ -299,7 +259,8 @@ export class MobSpawnerSystem extends SystemBase {
             x: spawnPoint.position.x, 
             y: mobY, 
             z: spawnPoint.position.z 
-          });
+          }, index);
+          index++;
         }
       }
     }

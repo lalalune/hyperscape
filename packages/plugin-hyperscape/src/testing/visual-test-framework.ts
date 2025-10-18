@@ -19,9 +19,19 @@ export interface VisualTemplate {
  */
 export interface ColorDetector {
   detectColor: (x: number, y: number, z: number) => number | null;
-  detectNearbyColors: (x: number, y: number, z: number, radius: number) => Array<{ color: number; position: { x: number; y: number; z: number } }>;
+  detectNearbyColors: (
+    x: number,
+    y: number,
+    z: number,
+    radius: number,
+  ) => Array<{ color: number; position: { x: number; y: number; z: number } }>;
   getColorName: (color: number) => string | null;
-  detectEntities?: (color: number, options?: { tolerance?: number; minClusterSize?: number }) => Promise<Array<{ position: { x: number; y: number; z: number }; color: number }>>;
+  detectEntities?: (
+    color: number,
+    options?: { tolerance?: number; minClusterSize?: number },
+  ) => Promise<
+    Array<{ position: { x: number; y: number; z: number }; color: number }>
+  >;
 }
 
 /**
@@ -32,12 +42,23 @@ export interface StateSnapshot {
   location?: {
     coordinates: { x: number; y: number; z: number };
   };
-  inventory?: {
-    items: Array<{ id?: string; itemId: string; name?: string; quantity: number }>;
-    gold: number;
-  } | Array<{ itemId: string; quantity: number }>;
+  inventory?:
+    | {
+        items: Array<{
+          id?: string;
+          itemId: string;
+          name?: string;
+          quantity: number;
+        }>;
+        gold: number;
+      }
+    | Array<{ itemId: string; quantity: number }>;
   skills?: Record<string, { level: number; xp: number }>;
-  nearbyEntities?: Array<{ id: string; type: string; position: { x: number; y: number; z: number } }>;
+  nearbyEntities?: Array<{
+    id: string;
+    type: string;
+    position: { x: number; y: number; z: number };
+  }>;
   [key: string]: unknown;
 }
 
@@ -103,7 +124,7 @@ export class VisualTestFramework {
 
     // Initialize ColorDetector if available
     const world = this.service.getWorld();
-    if (world && typeof world === 'object' && 'colorDetector' in world) {
+    if (world && typeof world === "object" && "colorDetector" in world) {
       const worldWithDetector = world as { colorDetector?: ColorDetector };
       this.colorDetector = worldWithDetector.colorDetector || null;
     } else {
@@ -164,9 +185,10 @@ export class VisualTestFramework {
     for (const check of checks) {
       const template = this.visualTemplates.get(check.entityType)!;
 
-      const expectedColor = typeof check.expectedColor === 'number'
-        ? check.expectedColor
-        : template.color;
+      const expectedColor =
+        typeof check.expectedColor === "number"
+          ? check.expectedColor
+          : template.color;
 
       // Detect entities of this color in the scene
       const detectedEntities = await this.colorDetector!.detectEntities!(
@@ -217,7 +239,10 @@ export class VisualTestFramework {
     const failures: string[] = [];
     const rpgManager = this.service.getRPGStateManager()!;
 
-    const state = rpgManager.getPlayerState("test-player") as unknown as Record<string, unknown>;
+    const state = rpgManager.getPlayerState("test-player") as unknown as Record<
+      string,
+      unknown
+    >;
 
     for (const check of checks) {
       const actualValue = this.getNestedProperty(state, check.property);
@@ -274,7 +299,7 @@ export class VisualTestFramework {
     const rpgManager = this.service.getRPGStateManager();
     if (rpgManager) {
       const playerState = rpgManager.getPlayerState("test-player");
-      if (playerState && typeof playerState === 'object') {
+      if (playerState && typeof playerState === "object") {
         result.stateSnapshot = playerState as unknown as StateSnapshot;
       }
     }
@@ -321,7 +346,7 @@ export class VisualTestFramework {
    */
   private calculateDistance(
     pos1: { x: number; y: number; z: number },
-    pos2: { x: number; y: number; z: number }
+    pos2: { x: number; y: number; z: number },
   ): number {
     return Math.sqrt(
       Math.pow(pos1.x - pos2.x, 2) +
@@ -333,9 +358,12 @@ export class VisualTestFramework {
   /**
    * Helper to get nested property from object
    */
-  private getNestedProperty(obj: Record<string, unknown>, path: string): unknown {
+  private getNestedProperty(
+    obj: Record<string, unknown>,
+    path: string,
+  ): unknown {
     return path.split(".").reduce((current: unknown, prop: string) => {
-      if (current && typeof current === 'object' && prop in current) {
+      if (current && typeof current === "object" && prop in current) {
         return (current as Record<string, unknown>)[prop];
       }
       return undefined;
@@ -345,14 +373,26 @@ export class VisualTestFramework {
   /**
    * Helper to compare values based on operator
    */
-  private compareValues(actual: unknown, expected: unknown, operator: string): boolean {
+  private compareValues(
+    actual: unknown,
+    expected: unknown,
+    operator: string,
+  ): boolean {
     switch (operator) {
       case "equals":
         return actual === expected;
       case "greater":
-        return typeof actual === 'number' && typeof expected === 'number' && actual > expected;
+        return (
+          typeof actual === "number" &&
+          typeof expected === "number" &&
+          actual > expected
+        );
       case "less":
-        return typeof actual === 'number' && typeof expected === 'number' && actual < expected;
+        return (
+          typeof actual === "number" &&
+          typeof expected === "number" &&
+          actual < expected
+        );
       case "contains":
         return Array.isArray(actual)
           ? actual.includes(expected)

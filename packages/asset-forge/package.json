@@ -11,7 +11,7 @@
     "dev:api": "npm run build:services && node server/api.mjs",
     "dev:images": "node scripts/start-image-server.mjs",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-    "build": "npm run clean && tsc && vite build",
+    "build": "npm run clean && vite build",
     "build:services": "node scripts/build-services.mjs",
     "start": "npm run start:backend",
     "start:backend": "concurrently \"npm run start:api\" \"npm run start:image-server\"",

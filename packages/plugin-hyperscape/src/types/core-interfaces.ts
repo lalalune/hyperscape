@@ -25,7 +25,11 @@ import type {
 } from "@hyperscape/shared";
 
 // Import and re-export Zod-validated types for strict type safety (CLAUDE.md compliance)
-import type { EntityCreationData, EntityUpdateData, Metadata } from "./validation-schemas";
+import type {
+  EntityCreationData,
+  EntityUpdateData,
+  Metadata,
+} from "./validation-schemas";
 export type { EntityCreationData, EntityUpdateData, Metadata };
 
 // Core agent classes for Hyperscape integration (CLAUDE.md: prefer classes over interfaces)
@@ -49,7 +53,7 @@ export class AgentContext {
   toJSON(): Record<string, string | number | boolean> {
     return {
       agentId: this.agentId,
-      worldId: this.worldId || '',
+      worldId: this.worldId || "",
       hasPosition: this.hasPosition(),
     };
   }
@@ -85,7 +89,11 @@ export interface HyperscapeService extends Service {
 
 export interface BuildManager {
   // Build system methods
-  createEntity(type: string, position: Vector3, data?: EntityCreationData): Entity | null;
+  createEntity(
+    type: string,
+    position: Vector3,
+    data?: EntityCreationData,
+  ): Entity | null;
   destroyEntity(entityId: string): boolean;
   updateEntity(entityId: string, data: EntityUpdateData): boolean;
 
@@ -240,7 +248,7 @@ export class MessageContext {
   }
 
   getMessageText(): string {
-    return this.message.content.text || '';
+    return this.message.content.text || "";
   }
 }
 
@@ -390,7 +398,14 @@ export class NetworkMessage {
     recipients?: UUID[],
     reliable: boolean = true,
   ): NetworkMessage {
-    return new NetworkMessage(type, data, Date.now(), sender, recipients, reliable);
+    return new NetworkMessage(
+      type,
+      data,
+      Date.now(),
+      sender,
+      recipients,
+      reliable,
+    );
   }
 
   isBroadcast(): boolean {

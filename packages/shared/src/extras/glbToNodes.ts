@@ -154,7 +154,6 @@ export function glbToNodes(glb: GLBData, world: World) {
         // NOTE: in blender if you export a single object with node:collider but it has multiple materials, it converts this into a Group with one Mesh for each material.
         // but since the Group is the one that has the collider custom property, it won't work as expected. we could hack to fix this, but i think it adds a layer of indirection.
         // colliders should not have materials on them.
-        // console.error('TODO: glbToNodes collider for box/sphere in blender?')
         const mesh = object3d
         const node = registerNode('collider', {
           id: mesh.name,
@@ -398,14 +397,14 @@ const _snoise = `
 
 function setupSplatmap(mesh: THREE.Mesh) {
   /**
-   * TODO
-   * - vertex colors should shade terrain
-   * - use alpha for a 4th texture layer
+   * Splatmap shader for terrain texturing
+   * 
+   * Future enhancements:
+   * - vertex colors for terrain shading
+   * - alpha channel for 4th texture layer
    *
-   * NOTES
-   * - blender gltf export doesnt support a complex triplanar splatmap shader
-   *   so we force the splat and rgba textures into random material slots and
-   *   reconstruct them here.
+   * Note: Blender GLTF export doesn't support complex triplanar splatmap shaders,
+   * so textures are placed in material slots and reconstructed here.
    */
   interface MaterialWithTextures extends THREE.Material {
     map?: THREE.Texture;

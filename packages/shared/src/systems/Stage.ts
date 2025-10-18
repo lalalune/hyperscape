@@ -662,7 +662,6 @@ class Model {
   }
 
   private getEntity(instanceId: number): unknown {
-    console.warn('TODO: remove if you dont ever see this');
     const nodeWithCtx = this.items[instanceId]?.node as { ctx?: { entity?: unknown } };
     return nodeWithCtx?.ctx?.entity;
   }

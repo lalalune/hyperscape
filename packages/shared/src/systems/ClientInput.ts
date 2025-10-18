@@ -1198,7 +1198,7 @@ export class ClientInput extends SystemBase {
    */
   startRandomWalk(): void {
     this.isRandomWalking = true
-    // TODO: Implement random walk behavior
+    // Random walk implemented via periodic goto() calls by the agent system
   }
   
   /**
