@@ -646,6 +646,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         }
         this.send('inventoryUpdated', args[0])
       })
+      // Bridge UI_UPDATE for player stats to clients using playerState packet
+      this.world.on(EventType.UI_UPDATE, (payload: unknown) => {
+        const data = payload as { component?: string; data?: { playerId?: string } } | undefined
+        if (data?.component === 'player' && data.data?.playerId) {
+          // Send updated player state to the owning player
+          this.sendToPlayerId(data.data.playerId, 'playerState', data.data)
+        }
+      })
         // Send initial inventory to the correct player as soon as it's initialized
         this.world.on(EventType.INVENTORY_INITIALIZED, (payload: unknown) => {
           const data = payload as { playerId: string; inventory: { items: unknown[]; coins: number; maxSlots: number } }

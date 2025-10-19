@@ -307,6 +307,46 @@ export class DatabaseSystem extends SystemBase {
     if (data.rangedLevel !== undefined) {
       updateData.rangedLevel = data.rangedLevel;
     }
+    if (data.woodcuttingLevel !== undefined) {
+      updateData.woodcuttingLevel = data.woodcuttingLevel;
+    }
+    if (data.fishingLevel !== undefined) {
+      updateData.fishingLevel = data.fishingLevel;
+    }
+    if (data.firemakingLevel !== undefined) {
+      updateData.firemakingLevel = data.firemakingLevel;
+    }
+    if (data.cookingLevel !== undefined) {
+      updateData.cookingLevel = data.cookingLevel;
+    }
+    // XP fields
+    if (data.attackXp !== undefined) {
+      updateData.attackXp = data.attackXp;
+    }
+    if (data.strengthXp !== undefined) {
+      updateData.strengthXp = data.strengthXp;
+    }
+    if (data.defenseXp !== undefined) {
+      updateData.defenseXp = data.defenseXp;
+    }
+    if (data.constitutionXp !== undefined) {
+      updateData.constitutionXp = data.constitutionXp;
+    }
+    if (data.rangedXp !== undefined) {
+      updateData.rangedXp = data.rangedXp;
+    }
+    if (data.woodcuttingXp !== undefined) {
+      updateData.woodcuttingXp = data.woodcuttingXp;
+    }
+    if (data.fishingXp !== undefined) {
+      updateData.fishingXp = data.fishingXp;
+    }
+    if (data.firemakingXp !== undefined) {
+      updateData.firemakingXp = data.firemakingXp;
+    }
+    if (data.cookingXp !== undefined) {
+      updateData.cookingXp = data.cookingXp;
+    }
     if (data.health !== undefined) {
       updateData.health = data.health;
     }
@@ -331,12 +371,25 @@ export class DatabaseSystem extends SystemBase {
       return;
     }
 
+    console.log('[DatabaseSystem] 💾 Executing UPDATE on characters table:', {
+      playerId,
+      updateData,
+      hasWoodcuttingXp: updateData.woodcuttingXp !== undefined,
+      woodcuttingXpValue: updateData.woodcuttingXp
+    });
+
     // UPDATE ONLY - does NOT create characters
     // Characters must be explicitly created via createCharacter() first
-    await this.db
+    const result = await this.db
       .update(schema.characters)
       .set(updateData)
       .where(eq(schema.characters.id, playerId));
+    
+    console.log('[DatabaseSystem] ✅ UPDATE completed:', {
+      playerId,
+      result,
+      updatedFields: Object.keys(updateData)
+    });
   }
 
   // ============================================================================
