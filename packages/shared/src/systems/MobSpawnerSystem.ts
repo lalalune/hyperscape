@@ -144,8 +144,6 @@ export class MobSpawnerSystem extends SystemBase {
 
 
   private spawnMobFromData(mobData: MobData, position: { x: number; y: number; z: number }): void {
-    console.log(`[MobSpawnerSystem] 🐉 Attempting to spawn ${mobData.id} at (${position.x}, ${position.y}, ${position.z})`);
-    
     const mobId = `gdd_${mobData.id}_${this.mobIdCounter++}`;
     
     // Check if we already spawned this mob to prevent duplicates
