@@ -169,8 +169,22 @@ export class SkillsSystem extends SystemBase {
    * Grant XP to a specific skill
    */
   public grantXP(entityId: string, skill: keyof Skills, amount: number): void {
-    const entity = this.world.entities.get(entityId) as Entity;
-    if (!entity) return;
+    console.log(`[SkillsSystem] ⬆️ Granting ${amount} XP to ${entityId} in ${skill}`);
+    
+    let entity = this.world.entities.get(entityId) as Entity;
+    
+    // Fallback: try to find player in players map if not found in items
+    if (!entity) {
+      const player = this.world.entities.players.get(entityId);
+      if (player) {
+        entity = player as Entity;
+      }
+    }
+    
+    if (!entity) {
+      console.warn(`[SkillsSystem] Entity ${entityId} not found for XP grant`);
+      return;
+    }
 
     const stats = getStatsComponent(entity);
     if (!stats) {
@@ -578,42 +592,99 @@ export class SkillsSystem extends SystemBase {
   }): void {
     const { attackerId, targetId, attackStyle } = data;
     
+    console.log(`[SkillsSystem] 🎯 Combat kill: attacker=${attackerId}, target=${targetId}, style=${attackStyle}`);
+    
     const target = this.world.entities.get(targetId) as Entity;
-    if (!target) return;
+    if (!target) {
+      console.warn(`[SkillsSystem] Target entity ${targetId} not found`);
+      return;
+    }
 
     const targetStats = getStatsComponent(target);
-    if (!targetStats) return;
+    if (!targetStats) {
+      console.warn(`[SkillsSystem] Target ${targetId} has no stats component`);
+      return;
+    }
 
     // Calculate XP based on target's hitpoints
     const baseXP = (targetStats.health?.max ?? 10) * 4; // 4 XP per hitpoint
+    console.log(`[SkillsSystem] 💰 Granting ${baseXP} base XP for killing ${targetId}`);
     
-    // Grant XP based on attack style
+    // Grant XP based on attack style using the same pattern as ResourceSystem
     switch (attackStyle) {
       case 'accurate':
-        this.grantXP(attackerId, Skill.ATTACK, baseXP);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.ATTACK,
+          amount: baseXP
+        });
         break;
       case 'aggressive':
-        this.grantXP(attackerId, Skill.STRENGTH, baseXP);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.STRENGTH,
+          amount: baseXP
+        });
         break;
       case 'defensive':
-        this.grantXP(attackerId, Skill.DEFENSE, baseXP);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.DEFENSE,
+          amount: baseXP
+        });
         break;
       case 'controlled':
         // Split XP between attack, strength, and defense
-        this.grantXP(attackerId, Skill.ATTACK, baseXP / 3);
-        this.grantXP(attackerId, Skill.STRENGTH, baseXP / 3);
-        this.grantXP(attackerId, Skill.DEFENSE, baseXP / 3);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.ATTACK,
+          amount: baseXP / 3
+        });
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.STRENGTH,
+          amount: baseXP / 3
+        });
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.DEFENSE,
+          amount: baseXP / 3
+        });
         break;
       case 'ranged':
-        this.grantXP(attackerId, Skill.RANGE, baseXP);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.RANGE,
+          amount: baseXP
+        });
+        break;
+      case 'melee':
+        // Default melee attack - grant strength XP
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.STRENGTH,
+          amount: baseXP
+        });
         break;
       case 'magic':
         // Magic is not in our current Skill enum, skip for MVP
         break;
+      default:
+        console.warn(`[SkillsSystem] Unknown attack style: ${attackStyle}, defaulting to strength XP`);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.STRENGTH,
+          amount: baseXP
+        });
+        break;
     }
 
     // Always grant Constitution XP
-    this.grantXP(attackerId, Skill.CONSTITUTION, baseXP / 3);
+    this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+      playerId: attackerId,
+      skill: Skill.CONSTITUTION,
+      amount: baseXP / 3
+    });
   }
 
   private handleSkillAction(data: {
