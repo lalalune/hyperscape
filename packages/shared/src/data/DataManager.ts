@@ -63,9 +63,9 @@ export class DataManager {
    * Load manifests from CDN (both client and server)
    */
   private async loadManifestsFromCDN(): Promise<void> {
-    // Load directly from CDN (localhost:8080 in dev, R2/S3 in prod)
+    // Load directly from CDN (localhost:8088 in dev, R2/S3 in prod)
     // Server uses process.env, client will use hardcoded default
-    let cdnUrl = 'http://localhost:8080';
+    let cdnUrl = 'http://localhost:8088';
     if (typeof process !== 'undefined' && typeof process.env !== 'undefined' && process.env.PUBLIC_CDN_URL) {
       cdnUrl = process.env.PUBLIC_CDN_URL;
     }

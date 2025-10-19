@@ -13,11 +13,11 @@ COPY default.conf /etc/nginx/conf.d/default.conf
 RUN mkdir -p /usr/share/nginx/html/assets
 
 # Expose HTTP port (use reverse proxy for HTTPS in production)
-EXPOSE 8080
+EXPOSE 8088
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+  CMD curl -f http://localhost:8088/health || exit 1
 
 # Run nginx
 CMD ["nginx", "-g", "daemon off;"]

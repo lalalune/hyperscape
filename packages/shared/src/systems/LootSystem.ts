@@ -23,7 +23,7 @@ import { ALL_MOBS } from '../data/mobs';
 
 
 export class LootSystem extends SystemBase {
-  private lootTables = new Map<string, LootTable>(); // String key = mob ID from mobs.json
+  private lootTables = new Map<string, LootTable>() // String key = mob ID from mobs.json
   private itemDatabase = new Map<string, Item>();
   private droppedItems = new Map<string, DroppedItem>();
   private nextItemId = 1;
@@ -45,7 +45,6 @@ export class LootSystem extends SystemBase {
   }
 
   async init(): Promise<void> {
-    
     // Load item database
     this.loadItemDatabase();
     
@@ -141,7 +140,6 @@ export class LootSystem extends SystemBase {
    * Handle mob death and generate loot
    */
   private async handleMobDeath(data: { mobId: string; mobType: string; level: number; killedBy: string; position: { x: number; y: number; z: number } }): Promise<void> {
-
     const mobType = data.mobType; // Mob ID from mobs.json
     const lootTable = this.lootTables.get(mobType);
     if (!lootTable) {

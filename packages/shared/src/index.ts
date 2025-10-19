@@ -4,6 +4,10 @@
  * This is the main export file for the Hyperscape 3D multiplayer game engine.
  * It provides a comprehensive public API for building 3D multiplayer games and applications.
  * 
+ * Blockchain Integration:
+ * The shared package includes blockchain utilities for hybrid on-chain/off-chain games.
+ * These are exported for use by server-side code only.
+ * 
  * Package Purpose:
  * Hyperscape is a full-featured 3D multiplayer game engine built on three.js and PhysX.
  * It provides client-server architecture with authoritative physics, real-time voice chat,
@@ -512,3 +516,7 @@ export { CircularSpawnArea } from './utils/CircularSpawnArea';
 
 // Export terrain system
 export { TerrainSystem } from './systems/TerrainSystem';
+
+// Export blockchain integration utilities (server-side only)
+export { setupMudClient, batchInventoryOperations, isMudClientAvailable, getMudClientOrThrow } from './blockchain/mud-client';
+export type { MudClient, TxReceipt } from './blockchain/mud-client';

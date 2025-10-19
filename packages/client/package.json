@@ -46,6 +46,9 @@
     "@farcaster/miniapp-sdk": "^0.1.9",
     "@hyperscape/physx-js-webidl": "workspace:*",
     "@hyperscape/shared": "workspace:*",
+    "@latticexyz/common": "^2.2.23",
+    "@latticexyz/recs": "^2.2.23",
+    "@latticexyz/store-sync": "^2.2.23",
     "@pixiv/three-vrm": "^3.3.3",
     "@privy-io/react-auth": "^3.3.0",
     "@rollup/rollup-darwin-x64": "^4.52.4",
@@ -67,6 +70,7 @@
     "three": "^0.180.0",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",
+    "viem": "^2.38.3",
     "yoga-layout": "^3.2.1"
   },
   "devDependencies": {

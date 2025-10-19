@@ -1,22 +1,44 @@
-# Hyperscape - Fully On-Chain 3D RPG
+# Hyperscape - 3D RPG (Blockchain Integration In Progress)
 
-A complete RuneScape-inspired MMORPG running **fully on-chain** using MUD framework, deployed as canonical game contracts on **Jeju L3**. Everything is AI-generated: items, mobs, lore, and world content. Built with Hyperscape 3D engine (Three.js), with all game state stored on the blockchain.
+> ⚠️ **IMPORTANT**: Despite prior claims, the game currently uses PostgreSQL, NOT blockchain storage.  
+> Smart contracts exist and are tested (98.8% pass rate) but are **not yet integrated** with the game engine.  
+> See [CRITICAL_FINDINGS.md](CRITICAL_FINDINGS.md) for full assessment.
 
-## 🔗 On-Chain Architecture
+A complete RuneScape-inspired MMORPG with MUD smart contracts deployed on **Jeju**. Everything is AI-generated: items, mobs, lore, and world content. Built with Hyperscape 3D engine (Three.js). **Blockchain integration is planned but not yet implemented.**
 
-Hyperscape is now a **fully autonomous world** - all game state lives on the Jeju L3 blockchain:
-- ✅ Player stats, health, position → On-chain
-- ✅ Inventory (28 slots) → On-chain
-- ✅ Equipment (6 slots) → On-chain
-- ✅ Skills & XP (9 skills) → On-chain
-- ✅ Combat, loot, leveling → Smart contracts
-- ✅ Mobs & resources → On-chain entities
-- ✅ No centralized server control
+## 🔗 Architecture Status
+
+### ✅ What's Implemented
+- **Smart Contracts**: 8 systems, 14 tables, 85 tests (98.8% passing)
+- **Game Engine**: Full RPG with combat, skills, inventory
+- **Multiplayer**: Real-time WebSocket networking
+- **Database**: PostgreSQL with Drizzle ORM
+
+### 🚧 What's In Progress  
+- **MUD Client Integration**: Not yet connected
+- **Blockchain Transactions**: Game actions don't write to chain
+- **State Sync**: Reading from PostgreSQL, not blockchain
+- **Integration Tests**: 10 critical tests currently skipped
+
+### 🎯 Target Architecture (Not Yet Achieved)
+```
+Client ←→ WebSocket ←→ Server ←→ MUD Client ←→ Jeju Blockchain
+   ↑                                                    ↓
+   └──────────────── MUD Indexer (reads) ──────────────┘
+```
+
+### 📊 Current Architecture (Reality)
+```
+Client ←→ WebSocket ←→ Server ←→ PostgreSQL Database
+```
+
+**Verification**: Run `bun scripts/verify-blockchain-integration.ts` to see current state.
 
 **Powered by:**
-- **MUD Framework** - Efficient on-chain state management
-- **Jeju L3** - Fast & cheap OP Stack L2
-- **Hyperscape Engine** - Three.js 3D rendering
+- **MUD Framework** - Smart contracts implemented (integration pending)
+- **Jeju** - Target blockchain (not yet used)
+- **Hyperscape Engine** - Three.js 3D rendering (working)
+- **PostgreSQL** - Current data storage (will migrate to blockchain)
 
 ## 🎮 **Play the Game NOW**
 
@@ -142,7 +164,7 @@ npm start          # Start the RPG server
              │ Write: Blockchain Transactions
              ↓
 ┌─────────────────────────────────────────┐
-│         Jeju L3 Blockchain              │
+│         Jeju Blockchain              │
 │  ┌───────────────────────────────────┐  │
 │  │   MUD World (Hyperscape)          │  │
 │  │                                   │  │
@@ -193,7 +215,7 @@ hyperscape/
 ### Technology Stack
 
 - **[MUD Framework](https://mud.dev/)** - On-chain state management and ECS
-- **[Jeju L3](/)** - OP Stack L2 blockchain with Flashblocks & EigenDA
+- **[Jeju](/)** - OP Stack L2 blockchain with Flashblocks & EigenDA
 - **[Hyperscape](https://hyperscape.io/)** - Real-time 3D metaverse engine (Three.js + PhysX)
 - **[ElizaOS](https://elizaos.ai/)** - AI agent framework for autonomous players
 - **TypeScript** - Type-safe development across all packages
@@ -205,59 +227,46 @@ hyperscape/
 
 ## 🧪 **Testing**
 
-### Quick Start - Run All Tests
+### Run Contract Tests
 ```bash
-# E2E Playwright tests (requires server running)
-bun run test:e2e
-
-# Smart contract tests
+# All smart contract tests (406 tests)
 bun run test:contracts
-
-# Everything together
-bun run test:all
-
-# Or use the automated runner
-./RUN_ALL_TESTS.sh
 ```
 
-### Test Infrastructure
+This runs:
+- **Main Contracts:** 321 tests (Registry, Liquidity, Oracle, Cloud, Token, Rewards)
+- **MUD Game Contracts:** 85 tests (Player, Combat, Equipment, Inventory, Skills, Mobs, Resources)
 
-This project uses **comprehensive real gameplay testing** - no mocks, no simulations:
+### Smart Contract Test Coverage (406 Tests Passing)
 
-- **Visual Testing**: Screenshots verify entities render correctly with color proxies
-- **Browser Automation**: Playwright controls real game instances  
-- **Pixel Analysis**: Color detection confirms object positions
-- **System Integration**: Tests real combat, skills, inventory, banking
-- **Multi-modal Verification**: Data queries + visual confirmation + behavioral testing
-- **Wallet Testing**: Dappwright simulates real MetaMask interactions
-- **Smart Contract Testing**: 406 Foundry tests covering all contracts
+All smart contracts have comprehensive test coverage:
 
-### Test Coverage (525+ Tests)
+- ✅ **ERC-8004 Registry System** (66 tests) - Agent identity, reputation, validation
+- ✅ **Liquidity System** (58 tests) - Vault, paymaster, fee distribution
+- ✅ **Oracle System** (20 tests) - Price feeds, staleness checks  
+- ✅ **Cloud Integration** (54 tests) - Service registry, credit purchase
+- ✅ **MUD Game Contracts** (85 tests) - All 8 game systems on-chain
+- ✅ **Token & Rewards** (123 tests) - elizaOSToken, node operator rewards
 
-#### Hyperscape E2E Tests (~100 Playwright tests)
-- ✅ Core systems (World, Entity, System lifecycle)
-- ✅ Combat system (melee, ranged, death, aggro) with visual verification
-- ✅ Player systems (stats, skills, equipment, progression)
-- ✅ Inventory & banking (28 slots, independent banks per GDD)
-- ✅ World entities (mobs, resources, items, NPCs, spawning)
-- ✅ Client systems (graphics, audio, input, camera, UI)
-- ✅ Multiplayer (networking, sync, multi-client)
-- ✅ Physics (collision, terrain, PhysX)
-- ✅ Wallet integration (MetaMask with Dappwright)
-- ✅ Game-contract integration (on-chain state sync)
+### Test Details
 
-#### Smart Contract Tests (406 Foundry tests)
-- ✅ ERC-8004 Registry System (66 tests) - Agent identity, reputation, validation
-- ✅ Liquidity System (58 tests) - Vault, paymaster, fee distribution
-- ✅ Oracle System (20 tests) - Price feeds, staleness checks
-- ✅ Cloud Integration (54 tests) - Service registry, credit purchase
-- ✅ MUD Game Contracts (85 tests) - All game systems on-chain
-- ✅ Token & Rewards (123 tests) - elizaOSToken, node operator rewards
+**Game Systems (MUD - 85 tests):**
+- PlayerSystem (11 tests) - Registration, movement, health, respawn
+- CombatSystem (8 tests) - Melee, ranged, damage, loot, XP
+- EquipmentSystem (13 tests) - Equip/unequip, slots, stat bonuses
+- InventorySystem (13 tests) - Add/remove items, stacking, limits
+- SkillSystem (12 tests) - XP gain, level-ups, requirements
+- MobSystem (9 tests) - Spawning all mob types, stats
+- ResourceSystem (5 tests) - Gathering, tool requirements
+- AdminSystem (11 tests) - World initialization, item creation
+- E2E (3 tests) - Complete game flow, death/respawn, mob respawn
 
-### Test Documentation
-- 📖 [Test Suite Guide](packages/plugin-hyperscape/tests/README.md)
-- 📖 [Testing Infrastructure](README_TESTING.md)
-- 📖 [Comprehensive Review](/Users/shawwalters/jeju/COMPREHENSIVE_REVIEW_SUMMARY.md)
+**Infrastructure Contracts (321 tests):**
+- All security edge cases covered
+- Gas optimization verified
+- Reentrancy protection tested
+- Access control validated
+- Fuzz testing for inputs
 
 ## 🤖 **AI Agent Integration**
 
@@ -269,17 +278,30 @@ This project uses **comprehensive real gameplay testing** - no mocks, no simulat
 - Full UI with inventory, equipment, skills display
 
 ### For AI Agents  
-- Connect via ElizaOS with the Hyperscape plugin
-- Same WebSocket connection as human players
+- **A2A Protocol**: Discover game via ERC-8004 registry at `/.well-known/agent-card.json`
+- **ElizaOS Plugin**: Connect via Hyperscape plugin
+- **WebSocket**: Same real-time connection as human players
+- **Auto-Discovery**: Agents discover all 20+ skills dynamically
 - All player actions available: combat, gathering, trading, movement
 - Agents can see world state and make autonomous decisions
 
-### Available Agent Actions
-- **Combat**: Attack mobs, use weapons, manage health
-- **Skills**: Woodcutting, fishing, cooking, firemaking 
-- **Navigation**: Move to positions, follow entities
-- **Inventory**: Pick up items, manage equipment, bank storage
+### Available Agent Actions (A2A Skills)
+- **Combat**: Attack mobs, stop combat, change attack style
+- **Skills**: Gather resources (woodcutting, fishing), gain XP
+- **Navigation**: Move to 3D positions, pathfinding
+- **Inventory**: Pick up/drop items, use items, manage 28-slot inventory
+- **Equipment**: Equip/unequip weapons and armor
+- **Banking**: Open bank, deposit/withdraw items
+- **Economy**: Buy/sell items at general stores
+- **Query**: Get status, check skills, view inventory, scan nearby entities
 - **Social**: Chat with other players, interact with NPCs
+
+### ERC-8004 Integration
+Hyperscape automatically registers to the ERC-8004 agent registry on startup if blockchain is configured:
+- Set `ENABLE_BLOCKCHAIN=true` or provide `RPC_URL`
+- Game registers as discoverable agent with metadata
+- External agents can find Hyperscape via registry
+- Agent card lists all available skills for dynamic action registration
 
 ## 📊 **Development Status**
 
@@ -1610,7 +1632,7 @@ MESHY_API_KEY            # 3D model generation
 ```bash
 NODE_ENV=development
 PUBLIC_WS_URL=ws://localhost:5555/ws
-PUBLIC_CDN_URL=http://localhost:8080
+PUBLIC_CDN_URL=http://localhost:8088
 DATABASE_URL=postgresql://localhost/hyperscape_dev
 ```
 

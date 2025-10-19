@@ -176,7 +176,7 @@ type NetworkHandler = (socket: SocketInterface, data: unknown) => void | Promise
  */
 export class ServerNetwork extends System implements NetworkWithSocket {
   /** Unique network ID (incremented for each connection) */
-  id: number;
+  id: number
   
   /** Counter for assigning network IDs */
   ids: number;
@@ -497,6 +497,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       // Terrain not ready; use safe height
       position = [position[0], 10, position[2]]
     }
+    
     const addedEntity = this.world.entities.add ? this.world.entities.add({
       id: entityId,
       type: 'player',

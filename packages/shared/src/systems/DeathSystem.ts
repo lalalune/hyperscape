@@ -20,8 +20,9 @@ export class DeathSystem extends SystemBase {
   private respawnTimers = new Map<string, NodeJS.Timeout>();
   private itemDespawnTimers = new Map<string, NodeJS.Timeout>();
   private headstones = new Map<string, HeadstoneApp>();
-    private playerPositions = new Map<string, { x: number; y: number; z: number }>();
-    private playerInventories = new Map<string, { items: InventoryItem[]; coins: number }>();
+  private playerPositions = new Map<string, { x: number; y: number; z: number }>();
+  private playerInventories = new Map<string, { items: InventoryItem[]; coins: number }>();
+  private processingDeath = new Set<string>();
 
   constructor(world: World) {
     super(world, { name: 'death', dependencies: { required: [], optional: [] }, autoCleanup: true });
@@ -86,6 +87,7 @@ export class DeathSystem extends SystemBase {
     this.deathLocations.clear();
     this.playerPositions.clear();
     this.playerInventories.clear();
+    this.processingDeath.clear();
   }
 
   // CRITICAL FIX: Clean up player-specific timers when they disconnect
@@ -104,6 +106,9 @@ export class DeathSystem extends SystemBase {
       this.itemDespawnTimers.delete(playerId);
     }
     
+    // Clear death processing flag
+    this.processingDeath.delete(playerId);
+    
     // Clean up death location data
     this.deathLocations.delete(playerId);
     this.headstones.delete(playerId);
@@ -116,13 +121,26 @@ export class DeathSystem extends SystemBase {
     
     const playerId = data.entityId;
     
+    // Prevent infinite recursion - if already processing this player's death, skip
+    if (this.processingDeath.has(playerId)) {
+      return;
+    }
+    
     // Get player's current position (reactive pattern)
     const position = this.playerPositions.get(playerId);
     if (!position) {
       throw new Error(`[DeathSystem] Player ${playerId} has no position`);
     }
     
+    // Mark as processing
+    this.processingDeath.add(playerId);
+    
     this.processPlayerDeath(playerId, position, data.killedBy);
+    
+    // Clear processing flag after a delay to allow cleanup
+    setTimeout(() => {
+      this.processingDeath.delete(playerId);
+    }, 100);
   }
 
   private processPlayerDeath(playerId: string, deathPosition: { x: number; y: number; z: number }, killedBy: string): void {

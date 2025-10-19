@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename)
 const ROOT_DIR = path.join(__dirname, '..')
 
 const app = express()
-const PORT = process.env.IMAGE_SERVER_PORT || 8080
+const PORT = process.env.IMAGE_SERVER_PORT || 8088
 
 // Ensure temp-images directory exists
 await fs.mkdir(path.join(ROOT_DIR, 'temp-images'), { recursive: true })

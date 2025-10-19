@@ -31,7 +31,7 @@ export class GenerationService extends EventEmitter {
       openai: {
         apiKey: process.env.OPENAI_API_KEY || '',
         model: 'dall-e-3',  // Use DALL-E 3 by default (doesn't require org verification)
-        imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8080'
+        imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8088'
       },
       meshy: {
         apiKey: process.env.MESHY_API_KEY || '',
