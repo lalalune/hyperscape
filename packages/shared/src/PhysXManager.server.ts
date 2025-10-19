@@ -65,7 +65,7 @@ export async function loadPhysXWasmForNode(): Promise<Buffer> {
   }
 
   // Fetch from CDN
-  const cdnUrl = process.env['PUBLIC_CDN_URL'] || 'http://localhost:8080';
+  const cdnUrl = process.env['PUBLIC_CDN_URL'] || 'http://localhost:8088';
   const wasmUrl = `${cdnUrl}/web/physx-js-webidl.wasm`;
   
   const response = await fetch(wasmUrl);

@@ -38,7 +38,7 @@ import type { DatabaseSystem } from '../types/system-interfaces';
 
 
 export class InventorySystem extends SystemBase {
-  protected playerInventories = new Map<PlayerID, PlayerInventory>();
+  protected playerInventories = new Map<PlayerID, PlayerInventory>()
   private readonly MAX_INVENTORY_SLOTS = 28;
   private persistTimers = new Map<string, NodeJS.Timeout>();
   private saveInterval?: NodeJS.Timeout;
@@ -341,6 +341,7 @@ export class InventorySystem extends SystemBase {
       this.emitInventoryUpdate(playerIdKey);
       this.scheduleInventoryPersist(playerId);
     }
+    
     return true;
   }
 

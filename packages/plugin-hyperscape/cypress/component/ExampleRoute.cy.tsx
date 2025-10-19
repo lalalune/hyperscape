@@ -14,7 +14,7 @@ interface TimeResponse {
   timezone: string;
 }
 
-// Define ELIZA config interface
+// Define elizaOS config interface
 interface ElizaConfig {
   agentId: string;
   apiBase?: string; // Make optional to fix type error

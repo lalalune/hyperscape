@@ -33,7 +33,7 @@ import type {
  * Resource respawning and depletion mechanics
  */
 export class ResourceSystem extends SystemBase {
-  private resources = new Map<ResourceID, Resource>();
+  private resources = new Map<ResourceID, Resource>()
   private activeGathering = new Map<PlayerID, { playerId: PlayerID; resourceId: ResourceID; startTime: number; skillCheck: number }>();
   private respawnTimers = new Map<ResourceID, NodeJS.Timeout>();
   private playerSkills = new Map<string, Record<string, { level: number; xp: number }>>();
@@ -657,7 +657,6 @@ export class ResourceSystem extends SystemBase {
           const dropRoll = Math.random();
           
           if (dropRoll <= drop.chance) {
-            
             // Add item to player inventory (emit with raw player id string for DB consistency)
             this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
               playerId: (playerId as unknown as string),

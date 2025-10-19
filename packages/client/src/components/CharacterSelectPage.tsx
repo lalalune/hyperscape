@@ -63,7 +63,7 @@ const useIntroMusic = (enabled: boolean) => {
       const track = Math.random() > 0.5 ? '1.mp3' : '2.mp3'
       setCurrentTrack(track)
 
-      const cdnUrl = 'http://localhost:8080' // CDN URL
+      const cdnUrl = 'http://localhost:8088' // CDN URL
       const musicPath = `${cdnUrl}/music/intro/${track}`
 
       // Resume audio context if suspended (browser autoplay policy)

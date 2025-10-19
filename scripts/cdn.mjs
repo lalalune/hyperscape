@@ -78,7 +78,7 @@ async function ensureCDNRunning() {
     const maxAttempts = 30
     while (attempts < maxAttempts) {
       try {
-        const healthRes = await fetch('http://localhost:8080/health')
+        const healthRes = await fetch('http://localhost:8088/health')
         if (healthRes.ok) {
           console.log(`${colors.green}✓ CDN is healthy and ready${colors.reset}`)
           return true

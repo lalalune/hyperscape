@@ -1,0 +1,20 @@
+{
+  "name": "hyperscape",
+  "displayName": "Hyperscape 3D Engine",
+  "version": "1.0.0",
+  "description": "3D game engine with ElizaOS integration and procedural world generation",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start"
+  },
+  "ports": {
+    "game": 8080,
+    "api": 8081
+  },
+  "dependencies": [],
+  "optional": true,
+  "enabled": true,
+  "tags": ["game", "3d", "engine", "elizaos"]
+}
+

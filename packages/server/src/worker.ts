@@ -143,7 +143,7 @@ interface Env {
  */
 class GameServer extends Container {
   /** Port the server listens on inside the container */
-  defaultPort = 8080
+  defaultPort = 8088
   
   /** Sleep container after 30 minutes of inactivity to save costs */
   sleepAfter = '30m'

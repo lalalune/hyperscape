@@ -68,7 +68,7 @@ const ASSET_OUTPUT_DIR = process.env.ASSET_OUTPUT_DIR
 const assetService = new AssetService(ASSET_OUTPUT_DIR)
 const retextureService = new RetextureService({
   meshyApiKey: process.env.MESHY_API_KEY || '',
-  imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8080'
+  imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8088'
 })
 const generationService = new GenerationService()
 

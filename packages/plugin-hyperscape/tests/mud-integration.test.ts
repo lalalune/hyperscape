@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * @fileoverview Hyperscape MUD Integration Tests
- * @description Tests Hyperscape on-chain game integration with Jeju L3
+ * @description Tests Hyperscape on-chain game integration with Jeju
  * 
  * This test file verifies:
  * - Hyperscape MUD contracts deployed correctly
@@ -77,13 +77,57 @@ describe('Hyperscape MUD Integration', () => {
     console.log('    - AdminSystem');
   });
   
-  // Implementation pending - requires deployed contracts
-  test.skip('should register a player on-chain', async () => {
-    // Implementation steps:
-    // 1. Call PlayerSystem.register("TestPlayer")
-    // 2. Wait for transaction confirmation
-    // 3. Query Player table to verify registration
-    // 4. Verify starting stats (level 1, 100 HP, etc.)
+  test('should register a player on-chain', async () => {
+    // Deploy contracts first
+    console.log('Deploying contracts...');
+    const { execSync } = await import('child_process');
+    execSync('cd ../../../contracts/src/hyperscape && npm run build && npm run deploy:local', {
+      stdio: 'pipe'
+    });
+    
+    // Read world address
+    const worldsFile = await import('../../../contracts/src/hyperscape/.mud/local/worlds.json');
+    WORLD_ADDRESS = (worldsFile.default?.worldAddress || worldsFile.worldAddress) as Address;
+    
+    expect(WORLD_ADDRESS).toBeTruthy();
+    console.log('World address:', WORLD_ADDRESS);
+    
+    // Register player
+    const hash = await walletClient.writeContract({
+      address: WORLD_ADDRESS,
+      abi: [{
+        name: 'hyperscape__register',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [{ name: 'name', type: 'string' }],
+        outputs: []
+      }],
+      functionName: 'hyperscape__register',
+      args: ['TestPlayer']
+    });
+    
+    console.log('Registration tx:', hash);
+    
+    // Wait for confirmation
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    expect(receipt.status).toBe('success');
+    
+    // Verify player exists on-chain
+    const isAlive = await publicClient.readContract({
+      address: WORLD_ADDRESS,
+      abi: [{
+        name: 'hyperscape__isAlive',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [{ name: 'player', type: 'address' }],
+        outputs: [{ name: '', type: 'bool' }]
+      }],
+      functionName: 'hyperscape__isAlive',
+      args: [account.address]
+    }) as boolean;
+    
+    expect(isAlive).toBe(true);
+    console.log('✓ Player registered and alive on-chain');
   });
   
   test.skip('should move player position on-chain', async () => {
@@ -161,5 +205,5 @@ describe('Hyperscape MUD Integration', () => {
 
 // Run tests
 console.log('\n=== Hyperscape MUD Integration Tests ===\n');
-console.log('Testing on-chain game integration with Jeju L3\n');
+console.log('Testing on-chain game integration with Jeju\n');
 

@@ -247,40 +247,6 @@ export function AccountPanel({ world }: AccountPanelProps) {
           Logout
         </button>
       )}
-
-      {/* Account Features */}
-      <div
-        className="flex-1 bg-black/35 border rounded-md p-3 overflow-y-auto"
-        style={{ borderColor: 'rgba(242, 208, 138, 0.3)' }}
-      >
-        <div className="font-semibold mb-2 text-sm" style={{ color: '#f2d08a' }}>Account Features</div>
-        <div className="text-xs space-y-2" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>
-          <div className="flex items-start gap-2">
-            <span className={authenticated ? 'text-green-400' : 'text-gray-600'}>
-              {authenticated ? '✅' : '⭕'}
-            </span>
-            <span>Cross-device progress sync</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className={authenticated ? 'text-green-400' : 'text-gray-600'}>
-              {authenticated ? '✅' : '⭕'}
-            </span>
-            <span>Persistent character data</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className={authenticated ? 'text-green-400' : 'text-gray-600'}>
-              {authenticated ? '✅' : '⭕'}
-            </span>
-            <span>Secure account recovery</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className={farcasterFid ? 'text-green-400' : 'text-gray-600'}>
-              {farcasterFid ? '✅' : '⭕'}
-            </span>
-            <span>Farcaster integration</span>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

@@ -54,3 +54,5 @@ tmp/
 
 # Assets (generated/temporary)
 assets/
+
+logs/

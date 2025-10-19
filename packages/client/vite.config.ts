@@ -151,7 +151,7 @@ export default defineConfig(({ mode }) => {
     // Safe environment variables (no secrets, only config)
     'process.env.NODE_ENV': JSON.stringify(mode),
     'process.env.DEBUG_RPG': JSON.stringify(env.DEBUG_RPG || ''),
-    'process.env.PUBLIC_CDN_URL': JSON.stringify(env.PUBLIC_CDN_URL || 'http://localhost:8080'),
+    'process.env.PUBLIC_CDN_URL': JSON.stringify(env.PUBLIC_CDN_URL || 'http://localhost:8088'),
     'process.env.PUBLIC_STARTER_ITEMS': JSON.stringify(env.PUBLIC_STARTER_ITEMS || ''),
     'process.env.TERRAIN_SEED': JSON.stringify(env.TERRAIN_SEED || '0'),
     'process.env.VITEST': 'undefined', // Not in browser

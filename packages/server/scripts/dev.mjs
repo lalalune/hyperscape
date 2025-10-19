@@ -102,7 +102,7 @@ function startServer() {
       NODE_ENV: 'development',
       PORT: process.env.PORT || '5555',
       PUBLIC_WS_URL: process.env.PUBLIC_WS_URL || 'ws://localhost:5555/ws',
-      PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8080',
+      PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8088',
     }
   })
 

@@ -17,6 +17,11 @@
       "types": "./build/framework.d.ts",
       "import": "./build/framework.client.js",
       "default": "./build/framework.client.js"
+    },
+    "./blockchain/mud-client": {
+      "types": "./build/blockchain/mud-client.d.ts",
+      "import": "./build/blockchain/mud-client.js",
+      "default": "./build/blockchain/mud-client.js"
     }
   },
   "homepage": "https://github.com/HyperscapeAI/hyperscape#readme",
@@ -77,6 +82,8 @@
     "@fastify/static": "^8.0.1",
     "@fastify/websocket": "^11.0.1",
     "@hyperscape/physx-js-webidl": "workspace:*",
+    "@latticexyz/common": "^2.2.23",
+    "@latticexyz/store-sync": "^2.2.23",
     "@pixiv/three-vrm": "^3.3.3",
     "@privy-io/react-auth": "^2.21.4",
     "@privy-io/server-auth": "^1.14.0",
@@ -109,6 +116,7 @@
     "three": "^0.180.0",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",
+    "viem": "^2.38.3",
     "yoga-layout": "^3.2.1"
   },
   "devDependencies": {

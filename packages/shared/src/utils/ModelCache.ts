@@ -130,7 +130,7 @@ export class ModelCache {
       // Fallback: Use CDN URL from window or default to localhost
       const cdnUrl = (typeof window !== 'undefined' && (window as Window & { __CDN_URL?: string }).__CDN_URL)
         || (world?.assetsUrl?.replace(/\/$/, ''))
-        || 'http://localhost:8080';
+        || 'http://localhost:8088';
       resolvedPath = resolvedPath.replace('asset://', `${cdnUrl}/`);
     }
     

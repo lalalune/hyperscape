@@ -90,7 +90,7 @@ export class ImageHostingService {
 
 Option 1: Use ngrok (Recommended for development)
   1. Install: npm install -g ngrok
-  2. Run: ngrok http 8080
+  2. Run: ngrok http 8088
   3. Set IMAGE_SERVER_URL to the ngrok URL in .env
 
 Option 2: Use Imgur (Free, no ngrok needed)

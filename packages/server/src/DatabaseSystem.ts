@@ -56,6 +56,18 @@ export class DatabaseSystem extends SystemBase {
   /** PostgreSQL connection pool for low-level operations if needed */
   private pool: pg.Pool | null = null;
   
+  /** Blockchain gateway for hybrid sync (critical state to blockchain) */
+  private blockchainGateway?: {
+    isEnabled: () => boolean;
+    registerPlayer: (name: string) => Promise<{ txHash: string; blockNumber: bigint } | null>;
+    addItem: (address: string, itemId: number, qty: number, opts?: { batch?: boolean }) => Promise<{ txHash?: string; batched?: boolean }>;
+    removeItem: (address: string, slot: number, qty: number) => Promise<{ txHash?: string }>;
+    equipItem: (slot: number) => Promise<{ txHash: string }>;
+    unequipItem: (slot: number) => Promise<{ txHash: string }>;
+    recordMobKill: (mobId: string) => Promise<{ txHash: string }>;
+    recordResourceGathered: (resourceId: string, type: 'tree' | 'fish') => Promise<{ txHash: string }>;
+  };
+  
   /** 
    * Tracks all pending database operations to ensure graceful shutdown.
    * Operations are added when sync methods fire-and-forget async work.
@@ -96,6 +108,16 @@ export class DatabaseSystem extends SystemBase {
    * @throws Error if database instances are not available on the world object
    */
   async init(): Promise<void> {
+    // Get BlockchainGateway for hybrid sync
+    const gateway = this.world.getSystem?.('blockchain-gateway');
+    if (gateway && typeof gateway === 'object' && 'isEnabled' in gateway) {
+      this.blockchainGateway = gateway as typeof this.blockchainGateway;
+      console.log('[DatabaseSystem] ✅ BlockchainGateway integrated - hybrid mode enabled');
+      console.log('[DatabaseSystem] ℹ️  Critical state will sync to blockchain');
+    } else {
+      console.log('[DatabaseSystem] ℹ️  PostgreSQL-only mode (no blockchain)');
+    }
+    
     // Cast world to access server-specific properties
     const serverWorld = this.world as { pgPool?: pg.Pool; drizzleDb?: NodePgDatabase<typeof schema> };
     
@@ -679,6 +701,20 @@ export class DatabaseSystem extends SystemBase {
     }
 
     const operation = this.savePlayerAsync(playerId, data)
+      // HYBRID: Also sync critical state to blockchain if available
+      .then(async () => {
+        if (this.blockchainGateway?.isEnabled() && data.name) {
+          // Player registration on blockchain (once per character)
+          try {
+            const txResult = await this.blockchainGateway.registerPlayer(data.name);
+            if (txResult) {
+              console.log(`[DatabaseSystem] ✅ Player synced to blockchain: ${txResult.txHash}`);
+            }
+          } catch (error) {
+            console.log('[DatabaseSystem] ℹ️  Player already registered on-chain');
+          }
+        }
+      })
       .catch(err => {
         console.error('[DatabaseSystem] Error in savePlayer:', err);
       })
@@ -698,6 +734,26 @@ export class DatabaseSystem extends SystemBase {
 
   savePlayerInventory(playerId: string, items: InventorySaveItem[]): void {
     const operation = this.savePlayerInventoryAsync(playerId, items)
+      // HYBRID: Sync inventory to blockchain (batched for gas optimization)
+      .then(async () => {
+        if (this.blockchainGateway?.isEnabled() && playerId.startsWith('0x')) {
+          // Sync each new item to blockchain (batched automatically by BlockchainGateway)
+          for (const item of items) {
+            if (item.itemId && item.quantity) {
+              // Map string itemId to numeric ID for contracts
+              const itemIdNum = this.mapItemIdToNumber(item.itemId);
+              if (itemIdNum) {
+                this.blockchainGateway.addItem(
+                  playerId as `0x${string}`,
+                  itemIdNum,
+                  item.quantity,
+                  { batch: true }  // Enable batching
+                ).catch(() => {}); // Non-blocking
+              }
+            }
+          }
+        }
+      })
       .catch(err => {
         console.error('[DatabaseSystem] Error in savePlayerInventory:', err);
       })
