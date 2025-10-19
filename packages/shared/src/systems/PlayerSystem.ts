@@ -93,6 +93,7 @@ export class PlayerSystem extends SystemBase {
   private playerAttackStyles = new Map<string, PlayerAttackStyleState>()
   private styleChangeTimers = new Map<string, NodeJS.Timeout>()
   private readonly STYLE_CHANGE_COOLDOWN = 5000 // 5 seconds between style changes
+  private skillSaveTimers = new Map<string, NodeJS.Timeout>()
 
   // Attack styles per GDD - XP percentages must total 100%
   private readonly ATTACK_STYLES: Record<string, AttackStyle> = {
@@ -1428,16 +1429,93 @@ export class PlayerSystem extends SystemBase {
   }
 
   private handleSkillsUpdate(data: { playerId: string; skills: Skills }): void {
+    console.log('[PlayerSystem] 📥 handleSkillsUpdate called:', {
+      playerId: data.playerId,
+      hasPlayer: !!this.players.get(data.playerId),
+      skills: data.skills
+    });
     const player = this.players.get(data.playerId)
-    if (!player) return
+    if (!player) {
+      console.warn('[PlayerSystem] ❌ Player not found in handleSkillsUpdate:', data.playerId);
+      return;
+    }
 
     // Update player skills
     player.skills = data.skills
+    console.log('[PlayerSystem] ✅ Player skills updated:', {
+      playerId: data.playerId,
+      woodcuttingXP: player.skills.woodcutting.xp,
+      woodcuttingLevel: player.skills.woodcutting.level
+    });
 
     // Recalculate combat level
     player.combat.combatLevel = this.calculateCombatLevel(data.skills)
 
     // Trigger UI update to reflect skill changes
     this.emitPlayerUpdate(data.playerId)
+
+    // Persist skill XP/levels to database (debounced)
+    this.scheduleSaveSkills(data.playerId)
+  }
+
+  private scheduleSaveSkills(playerId: string): void {
+    // Debounce frequent updates during continuous actions like woodcutting
+    const existing = this.skillSaveTimers.get(playerId)
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(() => {
+      this.skillSaveTimers.delete(playerId)
+      this.saveSkillsToDatabase(playerId)
+    }, 500)
+    this.skillSaveTimers.set(playerId, timer)
+  }
+
+  private saveSkillsToDatabase(playerId: string): void {
+    if (!this.databaseSystem) {
+      console.warn('[PlayerSystem] 💾 No databaseSystem for saving skills');
+      return;
+    }
+    const player = this.players.get(playerId)
+    if (!player) {
+      console.warn('[PlayerSystem] 💾 No player found for saving skills:', playerId);
+      return;
+    }
+
+    const s = player.skills
+    // Map runtime skills -> DB columns; only update provided fields
+    // Levels
+    const update: Record<string, number> = {
+      combatLevel: player.combat.combatLevel,
+      attackLevel: s.attack.level,
+      strengthLevel: s.strength.level,
+      defenseLevel: s.defense.level,
+      constitutionLevel: s.constitution.level,
+      rangedLevel: s.ranged.level,
+      woodcuttingLevel: s.woodcutting.level,
+      fishingLevel: s.fishing.level,
+      firemakingLevel: s.firemaking.level,
+      cookingLevel: s.cooking.level,
+      // XP
+      attackXp: Math.floor(s.attack.xp),
+      strengthXp: Math.floor(s.strength.xp),
+      defenseXp: Math.floor(s.defense.xp),
+      constitutionXp: Math.floor(s.constitution.xp),
+      rangedXp: Math.floor(s.ranged.xp),
+      woodcuttingXp: Math.floor(s.woodcutting.xp),
+      fishingXp: Math.floor(s.fishing.xp),
+      firemakingXp: Math.floor(s.firemaking.xp),
+      cookingXp: Math.floor(s.cooking.xp),
+    }
+    console.log('[PlayerSystem] 💾 Saving skills to DB:', {
+      playerId,
+      woodcuttingXp: update.woodcuttingXp,
+      woodcuttingLevel: update.woodcuttingLevel
+    });
+    try {
+      this.databaseSystem.savePlayer(playerId, update)
+      console.log('[PlayerSystem] ✅ Skills saved to DB successfully');
+    } catch (err) {
+      console.error('[PlayerSystem] ❌ Failed to save skills to DB:', err);
+      Logger.warn('Failed to save skills to DB', { error: (err as Error)?.message })
+    }
   }
 }
