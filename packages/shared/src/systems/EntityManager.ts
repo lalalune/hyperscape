@@ -563,7 +563,7 @@ export class EntityManager extends SystemBase {
   private handleMobAttacked(data: { entityId: string; damage: number; attackerId: string }): void {
     const mob = this.entities.get(data.entityId);
     if (!mob) {
-            return;
+      return;
     }
     
     const healthData = mob.getProperty('health');
@@ -584,8 +584,11 @@ export class EntityManager extends SystemBase {
       // Let the mob entity handle its own death first to ensure proper state synchronization
       const mobEntity = mob as MobEntity;
       if (mobEntity && typeof mobEntity.die === 'function') {
-        mobEntity.die();
-        // Don't destroy here - MobEntity.die() will handle destruction after network sync
+        // Check if mob is already dead to prevent double death
+        if (!mobEntity.isDead()) {
+          mobEntity.die();
+          // Don't destroy here - MobEntity.die() will handle destruction after network sync
+        }
       } else {
         // Fallback: destroy immediately if not a MobEntity
         this.destroyEntity(data.entityId);

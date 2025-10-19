@@ -19,6 +19,8 @@ export class MobSpawnerSystem extends SystemBase {
   private spawnedMobs = new Map<string, string>(); // mobId -> entityId
   private mobIdCounter = 0;
   private terrainSystem!: TerrainSystem;
+  private lastSpawnTime = 0;
+  private readonly SPAWN_COOLDOWN = 5000; // 5 seconds between spawns
   
   constructor(world: World) {
     super(world, {
@@ -142,6 +144,8 @@ export class MobSpawnerSystem extends SystemBase {
 
 
   private spawnMobFromData(mobData: MobData, position: { x: number; y: number; z: number }): void {
+    console.log(`[MobSpawnerSystem] 🐉 Attempting to spawn ${mobData.id} at (${position.x}, ${position.y}, ${position.z})`);
+    
     const mobId = `gdd_${mobData.id}_${this.mobIdCounter++}`;
     
     // Check if we already spawned this mob to prevent duplicates

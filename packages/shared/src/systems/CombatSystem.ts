@@ -111,6 +111,10 @@ export class CombatSystem extends SystemBase {
     this.subscribe(EventType.PLAYER_DIED, (data: { playerId: string }) => {
       this.handleEntityDied(data.playerId, "player");
     });
+    // Also listen for ENTITY_DEATH to catch all entity destructions
+    this.subscribe(EventType.ENTITY_DEATH, (data: { entityId: string; entityType: string }) => {
+      this.handleEntityDied(data.entityId, data.entityType);
+    });
   }
 
   private handleAttack(data: {
@@ -415,6 +419,14 @@ export class CombatSystem extends SystemBase {
       // Check if the mob has a takeDamage method (MobEntity)
       if (typeof mobEntity.takeDamage === "function") {
         mobEntity.takeDamage(damage, attackerId);
+        
+        // Emit MOB_ATTACKED event so EntityManager can handle death
+        this.emitTypedEvent(EventType.MOB_ATTACKED, {
+          mobId: targetId,
+          damage: damage,
+          attackerId: attackerId
+        });
+        console.log(`[CombatSystem] 📤 Emitted MOB_ATTACKED event for ${targetId}`);
       } else {
         // Fallback for entities without takeDamage method
         const currentHealth = mobEntity.getProperty("health") as
@@ -441,15 +453,8 @@ export class CombatSystem extends SystemBase {
         // Check if mob died
         if (newHealth <= 0) {
           // Don't emit MOB_DIED here - let MobEntity.die() handle it
+          // Don't emit COMBAT_KILL here either - let MobEntity.die() handle it
           
-          // Emit COMBAT_KILL event for SkillsSystem to grant combat XP
-          this.emitTypedEvent(EventType.COMBAT_KILL, {
-            attackerId: attackerId,
-            targetId: targetId,
-            damageDealt: maxHealth, // Total damage dealt (mob's max health)
-            attackStyle: 'melee' // Default to melee, could be enhanced to track actual attack style
-          });
-
           this.emitTypedEvent(EventType.UI_MESSAGE, {
             playerId: attackerId,
             message: `You have defeated the ${mobEntity.getProperty("name") || mobEntity.getProperty("mobType") || "unknown"}!`,
@@ -646,7 +651,8 @@ export class CombatSystem extends SystemBase {
     if (entityType === "mob") {
       const entity = this.world.entities.get(entityId);
       if (!entity) {
-        console.warn(`[CombatSystem] Mob entity not found: ${entityId}`);
+        // Don't spam logs for entities that are being destroyed
+        // Only log if this is a new entity that should exist
         return null;
       }
       return entity as MobEntity;
@@ -706,14 +712,11 @@ export class CombatSystem extends SystemBase {
    * This creates the continuous attack loop that makes combat feel like RuneScape
    */
   private processAutoAttack(combatState: CombatData, now: number): void {
-    // Check attack cooldown - use weapon attack speed
-    const attackSpeed = this.getAttackSpeed(
-      combatState.attackerId,
-      combatState.attackerType
-    );
-    const timeSinceLastAttack = now - combatState.lastAttackTime;
-
-    if (timeSinceLastAttack < attackSpeed) {
+    // Use the same cooldown system as manual attacks to prevent bypass
+    const typedAttackerId = combatState.attackerId;
+    const lastAttack = this.attackCooldowns.get(typedAttackerId) || 0;
+    
+    if (isAttackOnCooldown(lastAttack, now)) {
       return; // Still on cooldown
     }
 
@@ -730,9 +733,15 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
+    // Check if attacker is still alive (prevent dead attackers from auto-attacking)
+    if (!this.isEntityAlive(attacker, combatState.attackerType)) {
+      console.log(`[CombatSystem] Attacker ${attackerId} is dead, ending combat`);
+      this.endCombat({ entityId: attackerId });
+      return;
+    }
+
     // Check if target is still alive
     if (!this.isEntityAlive(target, combatState.targetType)) {
-      console.log(`[CombatSystem] Target ${targetId} is dead, ending combat for ${attackerId}`);
       this.endCombat({ entityId: attackerId });
       return;
     }
@@ -761,6 +770,9 @@ export class CombatSystem extends SystemBase {
         : this.calculateMeleeDamage(attacker, target);
 
     this.applyDamage(targetId, combatState.targetType, damage, attackerId);
+
+    // Set attack cooldown to prevent bypass
+    this.attackCooldowns.set(typedAttackerId, now);
 
     // Update last attack time
     combatState.lastAttackTime = now;
@@ -855,10 +867,11 @@ export class CombatSystem extends SystemBase {
     }
 
     if (entityType === "mob") {
-      // Check mob health
+      // Check mob health - but don't log death messages here
+      // Death detection and cleanup is handled by EntityManager
       const mob = entity as MobEntity;
       
-      // First check if mob is marked as dead
+      // Check if mob is marked as dead
       if (mob.isDead()) {
         console.log(`[CombatSystem] Mob ${mob.id} is dead (isDead() check)`);
         return false;
