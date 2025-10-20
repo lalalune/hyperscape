@@ -1,7 +1,8 @@
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common'
-import { cn } from '../../styles'
 import { CheckCircle, AlertCircle, Search, Camera, Wand2, Activity, Layers } from 'lucide-react'
+
 import { useHandRiggingStore } from '../../store'
+import { cn } from '../../styles'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common'
 
 export function HandProcessingSteps() {
   const {
@@ -25,7 +26,7 @@ export function HandProcessingSteps() {
   }))
   
   return (
-    <Card className={cn("overflow-hidden animate-slide-in-left [animation-delay:0.2s]")}>
+    <Card className={cn("overflow-hidden", "animate-slide-in-left")} style={{ animationDelay: '0.2s' }}>
       <CardHeader className="bg-gradient-to-r from-bg-secondary to-bg-tertiary">
         <CardTitle className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-primary" />

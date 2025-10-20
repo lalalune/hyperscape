@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+
+import { Asset } from '../services/api/AssetService'
 import { 
   MaterialPreset, 
   ImageGenerationResult, 
@@ -12,7 +14,6 @@ import {
   BuildingAnalysisResult,
   AssetMetadata
 } from '../types'
-import { Asset } from '../services/api/AssetService'
 
 export interface PipelineStage {
   id: string
@@ -68,6 +69,12 @@ interface GenerationState {
   gameStyle: 'runescape' | 'custom'
   customStyle: string
   
+  // Reference image input
+  referenceImageMode: 'auto' | 'custom'
+  referenceImageSource: 'upload' | 'url' | null
+  referenceImageUrl: string | null
+  referenceImageDataUrl: string | null
+  
   // Custom Prompts
   customGamePrompt: string
   customAssetTypePrompt: string
@@ -80,6 +87,7 @@ interface GenerationState {
   useGPT4Enhancement: boolean
   enableRetexturing: boolean
   enableSprites: boolean
+  quality: 'standard' | 'high' | 'ultra'
   
   // Avatar-specific Configuration
   enableRigging: boolean
@@ -116,6 +124,12 @@ interface GenerationState {
   setEditMaterialPrompts: (edit: boolean) => void
   setShowDeleteConfirm: (id: string | null) => void
   
+  // Reference image actions
+  setReferenceImageMode: (mode: 'auto' | 'custom') => void
+  setReferenceImageSource: (source: 'upload' | 'url' | null) => void
+  setReferenceImageUrl: (url: string | null) => void
+  setReferenceImageDataUrl: (dataUrl: string | null) => void
+  
   // Material Actions
   setMaterialPresets: (presets: MaterialPreset[]) => void
   setIsLoadingMaterials: (loading: boolean) => void
@@ -142,6 +156,7 @@ interface GenerationState {
   setUseGPT4Enhancement: (use: boolean) => void
   setEnableRetexturing: (enable: boolean) => void
   setEnableSprites: (enable: boolean) => void
+  setQuality: (q: 'standard' | 'high' | 'ultra') => void
   
   // Avatar Configuration Actions
   setEnableRigging: (enable: boolean) => void
@@ -204,6 +219,10 @@ export const useGenerationStore = create<GenerationState>()(
           description: '',
           gameStyle: 'runescape',
           customStyle: '',
+          referenceImageMode: 'auto',
+          referenceImageSource: null,
+          referenceImageUrl: null,
+          referenceImageDataUrl: null,
           
           customGamePrompt: '',
           customAssetTypePrompt: '',
@@ -214,6 +233,7 @@ export const useGenerationStore = create<GenerationState>()(
           useGPT4Enhancement: true,
           enableRetexturing: true,
           enableSprites: false,
+          quality: 'high',
           
           enableRigging: true,
           characterHeight: 1.7,
@@ -260,6 +280,25 @@ export const useGenerationStore = create<GenerationState>()(
           
           setShowDeleteConfirm: (id) => set((state) => {
             state.showDeleteConfirm = id
+          }),
+          
+          // Reference image actions
+          setReferenceImageMode: (mode) => set((state) => {
+            state.referenceImageMode = mode
+            if (mode === 'auto') {
+              state.referenceImageSource = null
+              state.referenceImageUrl = null
+              state.referenceImageDataUrl = null
+            }
+          }),
+          setReferenceImageSource: (source) => set((state) => {
+            state.referenceImageSource = source
+          }),
+          setReferenceImageUrl: (url) => set((state) => {
+            state.referenceImageUrl = url
+          }),
+          setReferenceImageDataUrl: (dataUrl) => set((state) => {
+            state.referenceImageDataUrl = dataUrl
           }),
           
           // Material Actions
@@ -334,6 +373,10 @@ export const useGenerationStore = create<GenerationState>()(
           setEnableSprites: (enable) => set((state) => {
             state.enableSprites = enable
           }),
+
+          setQuality: (q) => set((state) => {
+            state.quality = q
+          }),
           
           // Avatar Configuration Actions
           setEnableRigging: (enable) => set((state) => {
@@ -400,12 +443,14 @@ export const useGenerationStore = create<GenerationState>()(
           }),
           
           updatePipelineStage: (stageId, status) => set((state) => {
-            console.log('Updating pipeline stage:', stageId, 'to status:', status)
+            const DEBUG = (import.meta as any).env?.VITE_DEBUG_PIPELINE === 'true'
+            if (DEBUG) console.log('Updating pipeline stage:', stageId, 'to status:', status)
             const stage = state.pipelineStages.find(s => s.id === stageId)
             if (stage) {
               stage.status = status
             } else {
-              console.warn('Stage not found:', stageId, 'Available stages:', state.pipelineStages.map(s => s.id))
+              // Don’t spam console; warn only in debug mode
+              if (DEBUG) console.warn('Stage not found:', stageId, 'Available stages:', state.pipelineStages.map(s => s.id))
             }
           }),
           
@@ -438,6 +483,10 @@ export const useGenerationStore = create<GenerationState>()(
             state.assetName = ''
             state.description = ''
             state.customAssetTypePrompt = ''
+            state.referenceImageMode = 'auto'
+            state.referenceImageSource = null
+            state.referenceImageUrl = null
+            state.referenceImageDataUrl = null
             // Don't reset other configuration settings
           }),
           
@@ -538,12 +587,17 @@ export const useGenerationStore = create<GenerationState>()(
           useGPT4Enhancement: state.useGPT4Enhancement,
           enableRetexturing: state.enableRetexturing,
           enableSprites: state.enableSprites,
+          quality: state.quality,
           enableRigging: state.enableRigging,
           characterHeight: state.characterHeight,
           selectedMaterials: state.selectedMaterials,
           customMaterials: state.customMaterials,
           materialPromptOverrides: state.materialPromptOverrides,
-          showAdvancedPrompts: state.showAdvancedPrompts
+          showAdvancedPrompts: state.showAdvancedPrompts,
+          // Persist the selection mode but not the potentially large data URL
+          referenceImageMode: state.referenceImageMode,
+          referenceImageSource: state.referenceImageSource,
+          referenceImageUrl: state.referenceImageUrl
         })
       }
     ),

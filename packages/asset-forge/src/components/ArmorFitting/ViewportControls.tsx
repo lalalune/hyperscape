@@ -1,5 +1,6 @@
-import React from 'react'
 import { Grid3X3, Camera } from 'lucide-react'
+import React from 'react'
+
 import { cn } from '../../styles'
 
 interface ViewportControlsProps {

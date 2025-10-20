@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { Vector3, Box3, SkinnedMesh, Mesh, BufferGeometry, BufferAttribute, Skeleton, Bone } from 'three'
-import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+
 import { MeshFittingService } from './MeshFittingService'
 import { WeightTransferService } from './WeightTransferService'
 
@@ -47,6 +47,21 @@ export interface FittingConfig {
   useImprovedShrinkwrap?: boolean
   preserveOpenings?: boolean
   pushInteriorVertices?: boolean
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface FittingParameters {
+  iterations?: number
+  stepSize?: number
+  smoothingRadius?: number
+  smoothingStrength?: number
+  targetOffset?: number
+  useBodyHull?: boolean
+  deformationMethod?: 'shrinkwrap' | 'rbf' | 'cage'
+  rbfRadius?: number
+  preserveFeatures?: boolean
+  featureAngleThreshold?: number
+  preserveOpenings?: boolean
 }
 
 export class ArmorFittingService {
@@ -162,16 +177,18 @@ export class ArmorFittingService {
       const boundingBox = new Box3()
       
       if (regionVertexPositions.length > 10) {
+        // Use vertex positions if we have enough
         console.log(`🎯 ArmorFittingService: ${regionName} region using ${regionVertexPositions.length} vertices`)
         boundingBox.setFromPoints(regionVertexPositions)
       } else {
+        // Fallback: use bone positions with influence spheres
         console.log(`🎯 ArmorFittingService: ${regionName} region using bone positions (only ${regionVertexPositions.length} vertices found)`)
         const influenceRadius = {
-          head: 0.15,
-          torso: 0.35,
-          arms: 0.15,
-          legs: 0.25,
-          hips: 0.3
+          head: 0.15,    // 15cm radius
+          torso: 0.35,   // 35cm radius - larger for torso
+          arms: 0.15,    // 15cm radius
+          legs: 0.25,    // 25cm radius
+          hips: 0.3      // 30cm radius
         }
         
         const influence = influenceRadius[regionName as keyof typeof influenceRadius] || 0.2
@@ -180,6 +197,7 @@ export class ArmorFittingService {
           const boneWorldPos = new Vector3()
           boneWorldPos.setFromMatrixPosition(bone.matrixWorld)
           
+          // Expand box by influence sphere around bone
           boundingBox.expandByPoint(boneWorldPos.clone().add(new Vector3(influence, influence, influence)))
           boundingBox.expandByPoint(boneWorldPos.clone().add(new Vector3(-influence, -influence, -influence)))
         })
@@ -281,9 +299,9 @@ export class ArmorFittingService {
     // Calculate scale to fit armor to body with margin
     const targetSize = bodySize.clone().addScalar(margin * 2)
     
-    const scaleX = targetSize.x / armorSize.x
-    const scaleY = targetSize.y / armorSize.y
-    const scaleZ = targetSize.z / armorSize.z
+    let scaleX = targetSize.x / armorSize.x
+    let scaleY = targetSize.y / armorSize.y
+    let scaleZ = targetSize.z / armorSize.z
     
     console.log('🎯 ArmorFittingService: Scale factors - X:', scaleX.toFixed(3), 'Y:', scaleY.toFixed(3), 'Z:', scaleZ.toFixed(3))
     
@@ -564,7 +582,32 @@ export class ArmorFittingService {
       regions.forEach((region, name) => {
         console.log(`  ${name}: ${region.vertices?.length || 0} vertices`)
       })
-      throw new Error('No torso region found - avatar mesh may be incompatible')
+      
+      // Fallback: use all vertices if no torso region found
+      console.warn('Falling back to using all vertices')
+      const geometry = skinnedMesh.geometry
+      const position = geometry.attributes.position as BufferAttribute
+      const allPositions = new Float32Array(position.array)
+      
+      // Apply world transform to all vertices
+      const worldMatrix = skinnedMesh.matrixWorld
+      for (let i = 0; i < position.count; i++) {
+        const vertex = new Vector3()
+        vertex.fromBufferAttribute(position, i)
+        vertex.applyMatrix4(worldMatrix)
+        allPositions[i * 3] = vertex.x
+        allPositions[i * 3 + 1] = vertex.y
+        allPositions[i * 3 + 2] = vertex.z
+      }
+      
+      const bounds = new Box3().setFromBufferAttribute(position)
+      bounds.applyMatrix4(worldMatrix)
+      
+      return {
+        positions: allPositions,
+        indices: geometry.index ? new Uint32Array(geometry.index.array) : null,
+        bounds
+      }
     }
     
     console.log(`Found ${torsoRegion.vertices.length} vertices in torso region`)
@@ -788,8 +831,9 @@ export class ArmorFittingService {
     let mappedVertices = 0
     let projectionMapped = 0
     let nearestMapped = 0
-    let boneDistanceMapped = 0
+    let boneFallback = 0
     
+    // First pass: Try projection-based weight transfer
     for (let i = 0; i < armorVertexCount; i++) {
       const success = ArmorFittingService.projectiveWeightTransfer(
         armorMesh,
@@ -799,20 +843,22 @@ export class ArmorFittingService {
         skinWeights,
         {
           maxProjectionDistance: 1.0,
-          useBoneDistanceIfNoProjection: true
+          fallbackToBoneDistance: true
         }
       )
       
       if (success) {
         mappedVertices++
+        // Check if it was projection or bone fallback
         const hasValidWeights = skinWeights[i * 4] > 0
         if (hasValidWeights) {
           projectionMapped++
         } else {
-          boneDistanceMapped++
+          boneFallback++
         }
       } else {
         unmappedVertices++
+        // Assign to root bone as last resort
         skinIndices[i * 4] = 0
         skinWeights[i * 4] = 1.0
         for (let j = 1; j < 4; j++) {
@@ -822,8 +868,9 @@ export class ArmorFittingService {
       }
     }
     
+    // Second pass: Try nearest-neighbor for any remaining unmapped vertices
     if (unmappedVertices > 0) {
-      console.log(`Attempting nearest-neighbor mapping for ${unmappedVertices} unmapped vertices...`)
+      console.log(`Attempting nearest-neighbor fallback for ${unmappedVertices} unmapped vertices...`)
       
       const tempArmorVertex = new THREE.Vector3()
       const tempAvatarVertex = new THREE.Vector3()
@@ -871,7 +918,7 @@ export class ArmorFittingService {
     console.log(`Successfully mapped: ${mappedVertices} (${(mappedVertices / armorVertexCount * 100).toFixed(1)}%)`)
     console.log(`- Projection mapped: ${projectionMapped}`)
     console.log(`- Nearest neighbor: ${nearestMapped}`)
-    console.log(`- Bone distance: ${boneDistanceMapped}`)
+    console.log(`- Bone distance fallback: ${boneFallback}`)
     console.log(`Unmapped (bound to root): ${unmappedVertices}`)
     
     // ADD SKINNING ATTRIBUTES TO GEOMETRY
@@ -881,7 +928,7 @@ export class ArmorFittingService {
     
     // Store the armor's current fitted transform
     armorMesh.updateMatrixWorld(true)
-    const fittedWorldMatrix = armorMesh.matrixWorld.clone()
+    const _fittedWorldMatrix = armorMesh.matrixWorld.clone()
     const fittedLocalPosition = armorMesh.position.clone()
     const fittedLocalRotation = armorMesh.quaternion.clone()
     const fittedLocalScale = armorMesh.scale.clone()
@@ -889,9 +936,12 @@ export class ArmorFittingService {
     
     // Variables for alignment (declared here so they're in scope later)
     let alignmentOffset: THREE.Vector3
+    let originalArmorPos: THREE.Vector3
+    let originalArmorScale: THREE.Vector3
     
     // Store the fitted world position BEFORE any transformations
     const fittedWorldPosition = armorMesh.getWorldPosition(new THREE.Vector3()).clone()
+    const _fittedWorldScale = armorMesh.getWorldScale(new THREE.Vector3()).clone()
     
     console.log('Storing fitted armor transform:')
     console.log('- World position:', fittedWorldPosition)
@@ -946,8 +996,8 @@ export class ArmorFittingService {
     }
     
     // Store original armor transform
-    const originalArmorPos = armorMesh.position.clone()
-    const originalArmorScale = armorMesh.scale.clone()
+    originalArmorPos = armorMesh.position.clone()
+    originalArmorScale = armorMesh.scale.clone()
     
     // Apply alignment offset
     armorMesh.position.add(alignmentOffset)
@@ -962,6 +1012,9 @@ export class ArmorFittingService {
     const skinnedGeometry = armorGeometry.clone()
     skinnedGeometry.setAttribute('skinIndex', skinIndexAttr)
     skinnedGeometry.setAttribute('skinWeight', skinWeightAttr)
+    
+    // Find the Armature for bind matrix calculation
+    const _armature = avatarMesh.parent
     
     // Create SkinnedMesh - initially at origin
     const skinnedArmorMesh = new THREE.SkinnedMesh(skinnedGeometry, armorMesh.material)
@@ -1099,19 +1152,19 @@ export class ArmorFittingService {
     skinWeights: Float32Array,
     options: {
       maxProjectionDistance?: number
-      useBoneDistanceIfNoProjection?: boolean
+      fallbackToBoneDistance?: boolean
     } = {}
   ): boolean {
     const {
       maxProjectionDistance = 1.0,
-      useBoneDistanceIfNoProjection = true
+      fallbackToBoneDistance = true
     } = options
 
     const armorGeometry = armorMesh.geometry as THREE.BufferGeometry
     const avatarGeometry = avatarMesh.geometry as THREE.BufferGeometry
     
     const armorPositions = armorGeometry.attributes.position
-    const avatarPositions = avatarGeometry.attributes.position
+    const _avatarPositions = avatarGeometry.attributes.position
     const avatarSkinWeights = avatarGeometry.attributes.skinWeight
     const avatarSkinIndices = avatarGeometry.attributes.skinIndex
     
@@ -1210,7 +1263,8 @@ export class ArmorFittingService {
       }
     }
     
-    if (useBoneDistanceIfNoProjection && avatarMesh.skeleton) {
+    // No projection found - fallback to bone distance weighting if enabled
+    if (fallbackToBoneDistance && avatarMesh.skeleton) {
       return ArmorFittingService.boneDistanceWeighting(
         armorVertex,
         armorVertexIndex,
@@ -1224,7 +1278,7 @@ export class ArmorFittingService {
   }
 
   /**
-   * Bone distance weighting
+   * Fallback weighting based on distance to bones
    */
   private static boneDistanceWeighting(
     worldVertex: THREE.Vector3,
@@ -1500,7 +1554,7 @@ export class ArmorFittingService {
       
       // Log final bone world positions
       console.log('Final bone world positions:')
-      newBones.forEach((bone) => {
+      newBones.forEach((bone, _idx) => {
         const worldPos = new THREE.Vector3()
         bone.getWorldPosition(worldPos)
         console.log(`  ${bone.name}: world=${worldPos.toArray().map(v => v.toFixed(3))}`)
@@ -1508,7 +1562,7 @@ export class ArmorFittingService {
       
       // Add debug info
       console.log('Export bone details (full method):')
-      newBones.forEach((bone, idx) => {
+      newBones.forEach((bone, _idx) => {
         console.log(`  ${bone.name}: pos=${bone.position.toArray().map(v => v.toFixed(3))}, scale=${bone.scale.toArray()}`)
       })
       
@@ -1548,9 +1602,9 @@ export class ArmorFittingService {
       })
       
       // Setup hierarchy
-    sortedIndices.forEach((oldIndex, newIndex) => {
-      const oldBone = skeleton.bones[oldIndex]
-      const newBone = newBones[newIndex]
+      sortedIndices.forEach((oldIndex, i) => {
+        const oldBone = skeleton.bones[oldIndex]
+        const newBone = newBones[i]
         
         if (oldBone.parent && oldBone.parent instanceof THREE.Bone) {
           const parentOldIndex = skeleton.bones.indexOf(oldBone.parent)
@@ -1628,7 +1682,7 @@ export class ArmorFittingService {
       
       // Add debug info for minimal export
       console.log('Export bone details (minimal method):')
-      newBones.forEach((bone) => {
+      newBones.forEach((bone, _idx) => {
         console.log(`  ${bone.name}: pos=${bone.position.toArray().map(v => v.toFixed(3))}, scale=${bone.scale.toArray()}`)
       })
       
@@ -1680,21 +1734,36 @@ export class ArmorFittingService {
     console.log(`Export scene contains ${nodeCount} nodes`)
     
     // Export with specific options
+    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
     
-    const gltf = await exporter.parseAsync(wrapperScene, {
-      binary: true,
-      embedImages: true,
-      truncateDrawRange: false,
-      forceIndices: true,
-      // Add animation options
-      animations: [],
-      // Ensure proper node export
-      onlyVisible: false
-    })
-    
-    console.log('Export complete')
-    return gltf as ArrayBuffer
+    try {
+      const gltf = await exporter.parseAsync(wrapperScene, {
+        binary: true,
+        embedImages: true,
+        truncateDrawRange: false,
+        forceIndices: true,
+        // Add animation options
+        animations: [],
+        // Ensure proper node export
+        onlyVisible: false
+      })
+      
+      console.log('Export complete')
+      return gltf as ArrayBuffer
+    } catch (error) {
+      console.error('GLTFExporter error:', error)
+      
+      // Log scene structure for debugging
+      console.log('Scene structure:')
+      exportScene.traverse((node) => {
+        const type = node.constructor.name
+        const parent = node.parent ? node.parent.name : 'null'
+        console.log(`  ${type} "${node.name}" (parent: ${parent})`)
+      })
+      
+      throw error
+    }
   }
 
   /**
@@ -1749,6 +1818,7 @@ export class ArmorFittingService {
     clonedMesh.scale.set(1, 1, 1)
     
     // Export
+    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
     
     const gltf = await exporter.parseAsync(exportScene, {
@@ -1855,6 +1925,7 @@ export class ArmorFittingService {
     exportScene.add(new THREE.AmbientLight(0x404040))
     
     // Export
+    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
     
     const gltf = await exporter.parseAsync(exportScene, {
@@ -1887,10 +1958,14 @@ export class ArmorFittingService {
   async exportSkinnedArmorForGame(
     skinnedArmorMesh: THREE.SkinnedMesh,
     options: {
+      // includeNormals?: boolean
+      // includeTangents?: boolean
       boneNameMapping?: Record<string, string> // Map bone names if target environment uses different naming
     } = {}
   ): Promise<ArrayBuffer> {
     const {
+      // includeNormals = true,
+      // includeTangents = false,
       boneNameMapping = {}
     } = options
 
@@ -1912,7 +1987,7 @@ export class ArmorFittingService {
     console.log(`Armor uses ${usedBoneIndices.size} bones out of ${skeleton.bones.length}`)
 
     // Create a minimal skeleton with only the bones needed for this armor
-    const usedBones: THREE.Bone[] = []
+    // const usedBones: THREE.Bone[] = []
     const boneMapping = new Map<number, number>() // oldIndex -> newIndex
     const newBones: THREE.Bone[] = []
     
@@ -1988,9 +2063,8 @@ export class ArmorFittingService {
     
     // Create inverse bind matrices that preserve the fitted shape
     const boneInverses: THREE.Matrix4[] = []
-    sortedIndices.forEach((oldIndex, i) => {
+    sortedIndices.forEach((oldIndex) => {
       const oldBoneWorldMatrix = oldBoneWorldMatrices.get(skeleton.bones[oldIndex])!
-      const newBone = newBones[i]
       
       // The inverse bind matrix should transform from the bone's current world space to local space
       const inverseBindMatrix = new THREE.Matrix4()
@@ -2080,6 +2154,7 @@ export class ArmorFittingService {
     }
 
     // Use GLTFExporter to export
+    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
     
     // Log debug info
@@ -2385,6 +2460,7 @@ export class ArmorFittingService {
         if (targetBoneIndex !== undefined) {
           newSkinIndices[i * 4 + j] = targetBoneIndex
         } else {
+          // Fallback to root bone (0) if mapping not found
           newSkinIndices[i * 4 + j] = 0
         }
       }

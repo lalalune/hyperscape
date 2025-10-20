@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+
 import { HandRiggingResult } from '../services/hand-rigging/HandRiggingService'
 import { SimpleHandRiggingResult } from '../services/hand-rigging/SimpleHandRiggingService'
 import type { Asset } from '../types'

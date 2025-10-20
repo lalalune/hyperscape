@@ -3,8 +3,8 @@
  * Handles runtime scaling calculations for weapons based on creature size
  */
 
-import { CREATURE_SIZE_CATEGORIES, getCreatureCategory } from '../../types/NormalizationConventions'
 import { MIN_WEAPON_SIZES, MAX_WEAPON_SIZES, BASE_WEAPON_PROPORTIONS } from '../../constants'
+import { CREATURE_SIZE_CATEGORIES, getCreatureCategory } from '../../types/NormalizationConventions'
 
 export interface WeaponScaleResult {
   scaleFactor: number

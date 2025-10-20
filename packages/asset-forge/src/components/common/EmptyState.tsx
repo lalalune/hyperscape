@@ -1,5 +1,5 @@
-import React from 'react'
 import { LucideIcon } from 'lucide-react'
+import React from 'react'
 
 interface EmptyStateProps {
   icon: LucideIcon

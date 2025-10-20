@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
 import { X, Save, Trash2, AlertTriangle } from 'lucide-react'
-import { Modal, Button, Input } from '../common'
+import { useState, useEffect } from 'react'
+
 import type { Asset, AssetMetadata } from '../../types'
+import { Modal, Button, Input } from '../common'
 
 interface AssetEditModalProps {
   asset: Asset | null
@@ -97,20 +98,26 @@ export function AssetEditModal({
       return
     }
     
-    const currentAsset = asset!
-    
-    setIsSaving(true)
-    await onSave({
-      id: currentAsset.id,
-      name: editedData.name.trim(),
-      type: editedData.type,
-      metadata: {
-        ...currentAsset.metadata,
-        ...editedData.metadata
+    if (asset && isDirty) {
+      setIsSaving(true)
+      try {
+        await onSave({
+          id: asset.id,
+          name: editedData.name.trim(),
+          type: editedData.type,
+          metadata: {
+            ...asset.metadata,
+            ...editedData.metadata
+          }
+        })
+        // Don't close here - let the parent handle it after successful save
+      } catch (error) {
+        console.error('Failed to save asset:', error)
+        // Keep modal open on error so user can retry
+      } finally {
+        setIsSaving(false)
       }
-    })
-    // Don't close here - let the parent handle it after successful save
-    setIsSaving(false)
+    }
   }
 
   const handleDelete = () => {

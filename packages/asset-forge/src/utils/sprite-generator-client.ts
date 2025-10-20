@@ -3,8 +3,9 @@
  * Processes sprite metadata created by the server and generates actual sprites
  */
 
-import { SpriteGenerationService } from '../services/generation/SpriteGenerationService'
-import { AssetService as AssetServiceInstance } from '../services/api/AssetService'
+import { AssetService as AssetServiceInstance } from '@/services/api/AssetService'
+import { SpriteGenerationService } from '@/services/generation/SpriteGenerationService'
+import { apiFetch } from '@/utils/api'
 
 export interface SpriteMetadata {
   baseModel: string
@@ -46,39 +47,45 @@ export class SpriteGeneratorClient {
    * Check if an asset needs sprites generated and process if needed
    */
   async checkAndGenerateSprites(assetId: string): Promise<boolean> {
-    // Check for sprite metadata
-    const metadataUrl = `/api/assets/${assetId}/sprite-metadata.json`
-    const response = await fetch(metadataUrl)
-    
-    if (!response.ok) {
-      // No sprite metadata, sprites not needed
+    try {
+      // Check for sprite metadata
+      const metadataUrl = `/api/assets/${assetId}/sprite-metadata.json`
+      const response = await apiFetch(metadataUrl)
+      
+      if (!response.ok) {
+        // No sprite metadata, sprites not needed
+        return false
+      }
+      
+      const metadata: SpriteMetadata = await response.json()
+      
+      if (metadata.status === 'completed') {
+        console.log(`✅ Sprites already generated for ${assetId}`)
+        return true
+      }
+      
+      console.log(`🎨 Generating sprites for ${assetId}...`)
+      
+      // Generate sprites
+      const sprites = await this.spriteService.generateSprites({
+        modelPath: `/api/assets/${assetId}/model`,
+        outputSize: metadata.config.resolution,
+        angles: metadata.angles,
+        backgroundColor: metadata.config.backgroundColor,
+        padding: 0.1
+      })
+      
+      console.log(`✅ Generated ${sprites.length} sprites for ${assetId}`)
+      
+      // TODO: Save sprites to server or local storage
+      // For now, we'll just return success
+      
+      return true
+      
+    } catch (error) {
+      console.error(`Failed to process sprites for ${assetId}:`, error)
       return false
     }
-    
-    const metadata: SpriteMetadata = await response.json()
-    
-    if (metadata.status === 'completed') {
-      console.log(`✅ Sprites already generated for ${assetId}`)
-      return true
-    }
-    
-    console.log(`🎨 Generating sprites for ${assetId}...`)
-    
-    // Generate sprites
-    const sprites = await this.spriteService.generateSprites({
-      modelPath: `/api/assets/${assetId}/model`,
-      outputSize: metadata.config.resolution,
-      angles: metadata.angles,
-      backgroundColor: metadata.config.backgroundColor,
-      padding: 0.1
-    })
-    
-    console.log(`✅ Generated ${sprites.length} sprites for ${assetId}`)
-    
-    // TODO: Save sprites to server or local storage
-    // For now, we'll just return success
-    
-    return true
   }
   
   /**

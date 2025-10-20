@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react'
 import { Play, Pause, RotateCcw, Activity, Loader2, Eye, FileText, X, Download } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+
 import { Button, Modal } from '../common'
+
 import ThreeViewer, { ThreeViewerRef } from './ThreeViewer'
 
 interface AnimationPlayerProps {
@@ -31,7 +33,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
   )
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [animationsLoaded, setAnimationsLoaded] = useState(false)
+  const [_animationsLoaded, _setAnimationsLoaded] = useState(false)
   const [showingSkeleton, setShowingSkeleton] = useState(false)
   const [primaryModelUrl, setPrimaryModelUrl] = useState<string>('')
   const [showBonesModal, setShowBonesModal] = useState(false)
@@ -46,7 +48,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
   }, [])
   
   // Extract asset ID from the model URL or use provided assetId
-  const extractedAssetId = modelUrl?.match(/\/api\/assets\/([^/]+)\/model/)?.[1] || ''
+  const extractedAssetId = modelUrl?.match(new RegExp('^/api/assets/([^/]+)/model'))?.[1] || ''
   const assetId = assetIdProp || extractedAssetId || ''
   
   // No need to fetch metadata separately, it's passed as a prop
@@ -69,10 +71,12 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
       console.log('   Using T-pose model:', url)
       setPrimaryModelUrl(url)
     } else if (animations?.basic?.walking && assetId) {
+      // Fallback to walking animation file
       const url = `/api/assets/${assetId}/${animations.basic.walking}`
       console.log('   Using walking model:', url)
       setPrimaryModelUrl(url)
     } else if (animations?.basic?.running && assetId) {
+      // Last resort: running animation
       const url = `/api/assets/${assetId}/${animations.basic.running}`
       console.log('   Using running model:', url)
       setPrimaryModelUrl(url)
@@ -92,10 +96,11 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
         url: `/api/assets/${assetId}/${animations.basic.tpose}` 
       })
     } else {
+      // Fallback to resting pose if no T-pose file
       anims.push({ 
         id: 'resting', 
         name: 'T-Pose', 
-        url: null
+        url: null  // No separate file, uses the model without animation
       })
     }
     
@@ -125,16 +130,16 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
     if (!primaryModelUrl) return
     
     // All models are self-contained, no need to load animations separately
-    setAnimationsLoaded(true)
+    _setAnimationsLoaded(true)
     setIsLoading(false)
   }, [primaryModelUrl])
   
   // Cleanup on unmount
   useEffect(() => {
+    const viewerAtMount = viewerRef.current
     return () => {
-      // Stop any playing animations when component unmounts
-      if (viewerRef.current) {
-        viewerRef.current.stopAnimation()
+      if (viewerAtMount) {
+        viewerAtMount.stopAnimation()
       }
     }
   }, [])
@@ -142,7 +147,9 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
   const handlePlayAnimation = async (animId: 'resting' | 'tpose' | 'walking' | 'running') => {
     if (!viewerRef.current) return
     
+    // Special handling for resting state (fallback when no T-pose file)
     if (animId === 'resting') {
+      // Stop all animations to show bind pose
       viewerRef.current.stopAnimation()
       setCurrentAnimation('resting')
       setIsPlaying(false)
@@ -192,7 +199,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
     }
   }
 
-  const handleReset = () => {
+  const _handleReset = () => {
     const defaultState = animations?.basic?.tpose ? 'tpose' : 'resting'
     setCurrentAnimation(defaultState)
     setIsPlaying(false)

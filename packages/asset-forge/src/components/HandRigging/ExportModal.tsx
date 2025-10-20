@@ -1,9 +1,10 @@
-import React from 'react'
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from '../common'
 import { Download } from 'lucide-react'
-import type { Asset } from '../../types'
+import React from 'react'
+
 import type { HandRiggingResult } from '../../services/hand-rigging/HandRiggingService'
 import type { SimpleHandRiggingResult } from '../../services/hand-rigging/SimpleHandRiggingService'
+import type { Asset } from '../../types'
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from '../common'
 
 interface ExportModalProps {
   showModal: boolean

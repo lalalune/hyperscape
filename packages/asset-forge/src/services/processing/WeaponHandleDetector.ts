@@ -1,7 +1,10 @@
 import * as THREE from 'three'
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-// GLTFExporter dynamically imported only when needed (to match other files and avoid chunk warnings)
+
 import { GripBounds, GripCoordinates, GripDetectionData } from '../../types'
+
+import { apiFetch } from '@/utils/api'
 
 interface HandleDetectionResult {
   gripPoint: THREE.Vector3
@@ -120,15 +123,17 @@ export class WeaponHandleDetector {
     const modelSize = new THREE.Vector3()
     modelBounds.getSize(modelSize)
     
+    // Check if grip point is within reasonable bounds
     const isValid = gripPoint.x !== 0 || gripPoint.y !== 0 || gripPoint.z !== 0
     
     if (!isValid) {
-      console.warn('Invalid grip point detected, recalculating from detection bounds')
+      console.warn('Invalid grip point detected, using fallback position')
       
+      // Use a reasonable default based on the detected red box position
       const gripY = modelBounds.min.y + modelSize.y * ((gripData.gripBounds.minY + gripData.gripBounds.maxY) / 2 / 512)
       gripPoint.set(0, gripY, 0)
       
-      console.log('Recalculated grip point:', gripPoint)
+      console.log('Fallback grip point:', gripPoint)
     }
     
     // Ensure grip point is not too far from the model
@@ -228,7 +233,6 @@ export class WeaponHandleDetector {
     console.log(`📏 Normalized weapon dimensions: ${size.x.toFixed(3)} x ${size.y.toFixed(3)} x ${size.z.toFixed(3)}`)
     
     // Step 7: Export normalized model
-    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
     const glb = await new Promise<ArrayBuffer>((resolve, reject) => {
       exporter.parse(
@@ -265,22 +269,32 @@ export class WeaponHandleDetector {
   private async loadModel(modelUrl: string): Promise<THREE.Object3D> {
     console.log('📦 Loading model from:', modelUrl)
     
-    const gltf = await this.loader.loadAsync(modelUrl)
-    const model = gltf.scene
-    
-    console.log('✅ Model loaded successfully')
-    
-    // Log model info
-    let meshCount = 0
-    model.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        meshCount++
+    try {
+      const gltf = await this.loader.loadAsync(modelUrl)
+      const model = gltf.scene
+      
+      console.log('✅ Model loaded successfully')
+      
+      // Ensure model has proper structure
+      if (!model) {
+        throw new Error('Model scene is undefined')
       }
-    })
-    
-    console.log(`Model contains ${meshCount} meshes`)
-    
-    return model
+      
+      // Log model info
+      let meshCount = 0
+      model.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          meshCount++
+        }
+      })
+      
+      console.log(`Model contains ${meshCount} meshes`)
+      
+      return model
+    } catch (error) {
+      console.error('❌ Failed to load model:', error)
+      throw new Error(`Failed to load model: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
   
   private async setupOrthographicCamera(model: THREE.Object3D): Promise<boolean> {
@@ -414,8 +428,8 @@ export class WeaponHandleDetector {
     ctx.drawImage(this.renderer.domElement, 0, 0)
     
     // Add debug grid lines to help visualize sections
-    const enableDebugGrid = true
-    if (enableDebugGrid) {
+    const SHOW_DEBUG_GRID = false
+    if (SHOW_DEBUG_GRID) {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
       ctx.lineWidth = 1
       
@@ -557,18 +571,22 @@ export class WeaponHandleDetector {
     const processedCanvas = this.preprocessCanvas(canvas)
     const base64Image = processedCanvas.toDataURL('image/png')
     
-    const response = await fetch('/api/weapon-handle-detect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64Image })
-    })
-    
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || `API error: ${response.status}`)
-    }
-    
-    const data = await response.json()
+    try {
+      const response = await apiFetch('/api/weapon-handle-detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image })
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || `API error: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      if (!data.success || !data.gripData) {
+        throw new Error('Invalid response from handle detection API')
+      }
       
       // Validate the detected bounds
       const gripData = data.gripData
@@ -602,6 +620,7 @@ export class WeaponHandleDetector {
           bounds.minX = centerX - 40
           bounds.maxX = centerX + 40
         } else {
+          // Fallback to lower portion
           bounds.minY = 350
           bounds.maxY = 450
         }
@@ -625,6 +644,10 @@ export class WeaponHandleDetector {
       }
       
       return gripData
+    } catch (error) {
+      console.error('Failed to get grip coordinates:', error)
+      throw new Error(`Handle detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
   
   private async getConsensusGripCoordinates(canvases: { angle: string, canvas: HTMLCanvasElement }[]): Promise<GripDetectionData | null> {
@@ -647,43 +670,50 @@ export class WeaponHandleDetector {
       const processedCanvas = this.preprocessCanvas(canvas)
       const base64Image = processedCanvas.toDataURL('image/png')
       
-      const response = await fetch('/api/weapon-handle-detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          image: base64Image,
-          angle: angle,
-          promptHint: promptVariations[promptIndex]
-        })
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const gripData = data.gripData!
-        
-        // Validate this detection
-        const bounds = gripData.gripBounds
-        const isValidDetection = bounds.minY > 200 && // Not in top 40% (blade area)
-                                bounds.maxY < 500 && // Not at very bottom (pommel)
-                                (bounds.maxX - bounds.minX) < 150 && // Not too wide
-                                (bounds.maxY - bounds.minY) < 150    // Not too tall
-        
-        if (isValidDetection) {
-          allDetections.push({
-            ...gripData,
+      try {
+        const response = await apiFetch('/api/weapon-handle-detect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            image: base64Image,
             angle: angle,
-            promptUsed: promptIndex
+            promptHint: promptVariations[promptIndex]
           })
-        } else {
-          console.warn(`Invalid detection from angle ${angle}: bounds outside handle area`)
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.gripData) {
+            const gripData = data.gripData
+            
+            // Validate this detection
+            const bounds = gripData.gripBounds
+            const isValidDetection = bounds.minY > 200 && // Not in top 40% (blade area)
+                                    bounds.maxY < 500 && // Not at very bottom (pommel)
+                                    (bounds.maxX - bounds.minX) < 150 && // Not too wide
+                                    (bounds.maxY - bounds.minY) < 150    // Not too tall
+            
+            if (isValidDetection) {
+              allDetections.push({
+                ...gripData,
+                angle: angle,
+                promptUsed: promptIndex
+              })
+            } else {
+              console.warn(`Invalid detection from angle ${angle}: bounds outside handle area`)
+            }
+          }
         }
+      } catch (error) {
+        console.warn(`Detection failed for angle ${angle}:`, error)
       }
     }
     
     console.log(`Got ${allDetections.length} valid detections`)
     
     if (allDetections.length === 0) {
-      console.warn('No valid detections, using default sword handle position')
+      // Fallback: use a reasonable default for sword handle
+      console.warn('No valid detections, using fallback position')
       return {
         gripBounds: { 
           minX: 230, 
@@ -697,7 +727,7 @@ export class WeaponHandleDetector {
         },
         confidence: 0.3,
         weaponType: "sword",
-        gripDescription: "Default handle position"
+        gripDescription: "Fallback handle position"
       }
     }
     
@@ -1092,27 +1122,35 @@ export class WeaponHandleDetector {
     // Ask AI which end is which
     const base64Image = canvas.toDataURL('image/png')
     
-    const response = await fetch('/api/weapon-orientation-detect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64Image })
-    })
-    
-    if (!response.ok) {
-      console.warn('Orientation detection failed, using brightness-based orientation check')
-      return this.checkOrientationByBrightness(canvas)
+    try {
+      const response = await apiFetch('/api/weapon-orientation-detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image })
+      })
+      
+      if (!response.ok) {
+        console.warn('Orientation detection failed, using fallback')
+        // Fallback: analyze brightness gradient
+        return this.fallbackOrientationCheck(canvas)
+      }
+      
+      const data = await response.json()
+      if (data.success && data.needsFlip) {
+        console.log('AI detected weapon needs flipping:', data.reason)
+        return true
+      }
+      
+      return false
+    } catch (error) {
+      console.error('Orientation detection error:', error)
+      // Use fallback method
+      return this.fallbackOrientationCheck(canvas)
     }
-    
-    const data = await response.json()
-    if (data.success && data.needsFlip) {
-      console.log('AI detected weapon needs flipping:', data.reason)
-      return true
-    }
-    
-    return false
   }
   
-  private checkOrientationByBrightness(canvas: HTMLCanvasElement): boolean {
+  private fallbackOrientationCheck(canvas: HTMLCanvasElement): boolean {
+    // Simple check: weapons usually have handle at bottom (darker/narrower)
     const ctx = canvas.getContext('2d')!
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const data = imageData.data
@@ -1146,8 +1184,9 @@ export class WeaponHandleDetector {
       topBrightness /= topCount
       bottomBrightness /= bottomCount
       
+      // If bottom is significantly brighter (like a shiny blade), flip it
       if (bottomBrightness > topBrightness * 1.3) {
-        console.log('Bottom appears brighter, likely blade - flipping')
+        console.log('Fallback: Bottom appears brighter, likely blade - flipping')
         return true
       }
     }

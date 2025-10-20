@@ -1,12 +1,14 @@
+import { OrbitControls } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import React, { useRef, useEffect } from 'react'
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
-import { SceneProps } from '../types'
+
 import { ExtendedMesh } from '../../../../types'
+import { SceneProps } from '../types'
+
 import { AvatarArmorDemo } from './AvatarArmorDemo'
-import { HelmetDemo } from './HelmetDemo'
 import { BasicDemo } from './BasicDemo'
+import { HelmetDemo } from './HelmetDemo'
 
 export function Scene({
     fittingService,
@@ -25,7 +27,7 @@ export function Scene({
     currentAnimation,
     isAnimationPlaying,
     showHeadBounds,
-    boundArmorMesh
+    boundArmorMesh: _boundArmorMesh
 }: SceneProps) {
     const groupRef = useRef<THREE.Group>(null)
 
@@ -120,6 +122,7 @@ export function Scene({
                 console.log('Removed head bounds helper from showHeadBounds effect')
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showHeadBounds, viewMode, fittingService])
 
     // Set up debug arrow group
@@ -127,11 +130,11 @@ export function Scene({
         if (debugArrowGroupRef.current) {
             fittingService.current.setDebugArrowGroup(debugArrowGroupRef.current)
         }
-
+        const service = fittingService.current
         return () => {
-            fittingService.current.clearDebugArrows()
+            service.clearDebugArrows()
         }
-    }, [fittingService])
+    }, [fittingService, debugArrowGroupRef])
 
     // Update render helper if it exists
     useFrame(() => {

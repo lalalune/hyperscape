@@ -1,6 +1,7 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../common'
 import { Clock } from 'lucide-react'
+import React from 'react'
+
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../common'
 
 export const GenerationTimeline: React.FC = () => {
   return (

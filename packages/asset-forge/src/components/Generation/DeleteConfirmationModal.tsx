@@ -1,7 +1,8 @@
-import React from 'react'
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from '../common'
 import { AlertCircle } from 'lucide-react'
+import React from 'react'
+
 import { MaterialPreset } from '../../types'
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from '../common'
 
 interface DeleteConfirmationModalProps {
   showDeleteConfirm: string | null

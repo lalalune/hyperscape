@@ -2,6 +2,8 @@
  * Utility helpers
  */
 
+// import { AssetMetadata } from '../types'
+
 /**
  * Generate a unique ID
  */
@@ -24,21 +26,17 @@ export async function retry<T>(
   maxRetries: number = 3,
   initialDelay: number = 1000
 ): Promise<T> {
-  let lastError: Error | null = null
+  let lastError: Error
   
   for (let i = 0; i < maxRetries; i++) {
-    const result = await fn().catch(error => {
+    try {
+      return await fn()
+    } catch (error) {
       lastError = error as Error
-      return null
-    })
-    
-    if (result !== null) {
-      return result
-    }
-    
-    if (i < maxRetries - 1) {
-      const delay = initialDelay * Math.pow(2, i)
-      await sleep(delay)
+      if (i < maxRetries - 1) {
+        const delay = initialDelay * Math.pow(2, i)
+        await sleep(delay)
+      }
     }
   }
   
@@ -222,6 +220,7 @@ export function generateMaterialDescription(
   itemType: 'weapon' | 'armor' | 'tool'
 ): string {
   const tier = MATERIAL_TIERS[materialTier]
+  const _adjective = tier.adjectives[Math.floor(Math.random() * tier.adjectives.length)]
   
   // Add material-specific details
   let description = baseDescription

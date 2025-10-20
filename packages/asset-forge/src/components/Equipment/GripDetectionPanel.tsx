@@ -1,7 +1,8 @@
-import React from 'react'
-import { cn } from '../../styles'
 import { Sparkles, Wand2, Loader2, CheckCircle, RefreshCw, Check } from 'lucide-react'
+import React from 'react'
+
 import type { HandleDetectionResult } from '../../services/processing/WeaponHandleDetector'
+import { cn } from '../../styles'
 
 interface GripDetectionPanelProps {
   selectedEquipment: { hasModel: boolean } | null

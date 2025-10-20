@@ -1,13 +1,14 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Checkbox } from '../common'
-import { FittingConfig } from '../../services/fitting/ArmorFittingService'
-import { cn } from '../../styles'
 import { 
   Sliders, Save, Download, RefreshCw, Eye, EyeOff,
-  Activity, Sparkles,
-  Grid3X3, Wand2, Zap, Target, Layers, Play, Pause, RotateCcw, Link
+  Activity,
+  Grid3X3, Wand2, Zap, Target, Layers, Play, Pause, Link
 } from 'lucide-react'
+import React from 'react'
+
 import { EQUIPMENT_SLOTS } from '../../constants'
+import { FittingConfig } from '../../services/fitting/ArmorFittingService'
+import { cn } from '../../styles'
+import { Card, CardHeader, CardTitle, CardContent, Button, Checkbox } from '../common'
 
 interface ArmorFittingControlsProps {
   // Fitting config
@@ -124,12 +125,12 @@ export const ArmorFittingControls: React.FC<ArmorFittingControlsProps> = ({
   isHelmetAttached = false,
   onAttachHelmetToHead,
   onDetachHelmetFromHead,
-  hasHelmet = false,
+  hasHelmet: _hasHelmet = false,
   // Animation props
   currentAnimation = 'tpose',
   isAnimationPlaying = false,
   onCurrentAnimationChange,
-  onAnimationPlayingChange,
+  onAnimationPlayingChange: _onAnimationPlayingChange,
   onToggleAnimation
 }) => {
   // Filter out weapon slots - only show armor slots (Head, Chest, Legs)

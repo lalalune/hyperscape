@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Input } from '../common'
-import { cn } from '../../styles'
 import { User, Search, ChevronRight, Box, Loader2, AlertCircle, Check } from 'lucide-react'
+import { useState } from 'react'
+
 import { useAssets } from '../../hooks/useAssets'
 import { useHandRiggingStore } from '../../store'
+import { cn } from '../../styles'
 import type { Asset } from '../../types'
 import { hasAnimations } from '../../types/AssetMetadata'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Input } from '../common'
 
 export function HandAvatarSelector() {
   const { assets, loading } = useAssets()

@@ -30,10 +30,11 @@ export function useThreeScene(
   })
 
   // Animation frame reference
-  const frameIdRef = useRef<number>(0)
+  const frameIdRef = useRef<number>()
 
   useEffect(() => {
-    if (!containerRef.current) return
+    const containerEl = containerRef.current
+    if (!containerEl) return
 
     const {
       backgroundColor = 0x1a1a1a,
@@ -51,7 +52,7 @@ export function useThreeScene(
     // Camera setup
     const camera = new THREE.PerspectiveCamera(
       75,
-      containerRef.current.clientWidth / containerRef.current.clientHeight,
+      containerEl.clientWidth / containerEl.clientHeight,
       0.1,
       1000
     )
@@ -65,8 +66,8 @@ export function useThreeScene(
       alpha: true 
     })
     renderer.setSize(
-      containerRef.current.clientWidth, 
-      containerRef.current.clientHeight
+      containerEl.clientWidth, 
+      containerEl.clientHeight
     )
     renderer.setClearColor(0x000000, 0)
     renderer.autoClear = true
@@ -79,7 +80,7 @@ export function useThreeScene(
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
     }
     
-    containerRef.current.appendChild(renderer.domElement)
+    containerEl.appendChild(renderer.domElement)
     refs.current.renderer = renderer
 
     // Lighting
@@ -136,12 +137,12 @@ export function useThreeScene(
 
     // Handle resize
     const handleResize = () => {
-      if (!containerRef.current) return
-      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight
+      if (!containerEl) return
+      camera.aspect = containerEl.clientWidth / containerEl.clientHeight
       camera.updateProjectionMatrix()
       renderer.setSize(
-        containerRef.current.clientWidth, 
-        containerRef.current.clientHeight
+        containerEl.clientWidth, 
+        containerEl.clientHeight
       )
     }
     window.addEventListener('resize', handleResize)
@@ -153,9 +154,10 @@ export function useThreeScene(
         cancelAnimationFrame(frameIdRef.current)
       }
       renderer.dispose()
-      containerRef.current?.removeChild(renderer.domElement)
+      containerEl?.removeChild(renderer.domElement)
     }
-  }, []) // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerRef]) // Only run once on mount
 
   return {
     isInitialized,
