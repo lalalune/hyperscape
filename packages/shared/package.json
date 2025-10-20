@@ -84,7 +84,7 @@
     "better-sqlite3": "^12.2.0",
     "commander": "^12.1.0",
     "d3": "^7.9.0",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.2.3",
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "eventemitter3": "^5.0.1",
     "fastify": "^5.0.0",
