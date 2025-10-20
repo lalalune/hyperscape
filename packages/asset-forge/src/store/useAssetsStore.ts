@@ -28,6 +28,7 @@ interface AssetsState {
   showRegenerateModal: boolean
   showDetailsPanel: boolean
   showEditModal: boolean
+  showSpriteModal: boolean
   isTransitioning: boolean
   modelInfo: ModelInfo | null
   showAnimationView: boolean
@@ -44,6 +45,7 @@ interface AssetsState {
   setShowRegenerateModal: (show: boolean) => void
   setShowDetailsPanel: (show: boolean) => void
   setShowEditModal: (show: boolean) => void
+  setShowSpriteModal: (show: boolean) => void
   setIsTransitioning: (transitioning: boolean) => void
   setModelInfo: (info: ModelInfo | null) => void
   setShowAnimationView: (show: boolean) => void
@@ -82,6 +84,7 @@ export const useAssetsStore = create<AssetsState>()(
           showRegenerateModal: false,
           showDetailsPanel: false,
           showEditModal: false,
+          showSpriteModal: false,
           isTransitioning: false,
           modelInfo: null,
           showAnimationView: false,
@@ -129,6 +132,10 @@ export const useAssetsStore = create<AssetsState>()(
           
           setShowEditModal: (show) => set(state => {
             state.showEditModal = show
+          }),
+          
+          setShowSpriteModal: (show) => set(state => {
+            state.showSpriteModal = show
           }),
           
           setIsTransitioning: (transitioning) => set(state => {
@@ -189,6 +196,7 @@ export const useAssetsStore = create<AssetsState>()(
             state.showRegenerateModal = false
             state.showDetailsPanel = false
             state.showEditModal = false
+            state.showSpriteModal = false
           }),
           
           // Computed Values
