@@ -132,6 +132,7 @@ import { installThreeJSExtensions } from '@hyperscape/shared'
 import type pg from 'pg'
 
 import { hashFile } from './utils.js'
+import { initializeBlockchainIntegration } from './blockchain/index.js'
 
 // Load environment variables from multiple possible locations
 dotenv.config({ path: '.env' })
@@ -306,6 +307,9 @@ async function startServer() {
   
   // Note: world.start() is called automatically by world.init()
   // Don't call it again here or systems will initialize twice
+
+  // Initialize blockchain integration (if enabled)
+  const blockchainPublisher = initializeBlockchainIntegration(world);
 
   // Entities spawn automatically from world.json if present
   await loadWorldEntities()

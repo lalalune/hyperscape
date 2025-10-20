@@ -1183,6 +1183,29 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         user.roles = (user.roles as string).split(',').filter(r => r);
       }
 
+      // CHECK BAN STATUS - Block banned players immediately
+      // Query player's agentId from database (stored during registration)
+      try {
+        const playerRecord = await this.db('players')
+          .where('userId', user.id)
+          .first() as { agent_id?: number } | undefined;
+
+        if (playerRecord?.agent_id) {
+          const banCheck = await checkPlayerBan(playerRecord.agent_id);
+          
+          if (!banCheck.allowed) {
+            console.warn(`[ServerNetwork] Banned player attempted login: User ${user.id}, Agent ${playerRecord.agent_id}`);
+            const kickPacket = writePacket('kick', banCheck.reason || 'You have been banned.');
+            ws.send(kickPacket);
+            ws.close();
+            return; // Deny access
+          }
+        }
+      } catch (error) {
+        console.error('[ServerNetwork] Ban check failed, allowing access (fail-open):', error);
+        // Continue - fail open if ban system is down
+      }
+
       // Allow multiple sessions per user for development/testing; do not kick duplicates
 
       // Only grant admin in development mode when no admin code is set

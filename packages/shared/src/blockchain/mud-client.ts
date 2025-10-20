@@ -13,7 +13,6 @@
 
 import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Chain, type Address } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { RpcDetector } from '../../../../../../shared/rpcDetector';
 
 /**
  * Create chain configuration dynamically based on detected chain info
@@ -64,23 +63,8 @@ export async function setupMudClient(config?: {
   chain?: Chain;
 }) {
   // Smart RPC detection: prefer Jeju, fall back to Anvil
-  let rpcUrl = config?.rpcUrl || process.env.ANVIL_RPC_URL;
-  let chain = config?.chain;
-  
-  if (!rpcUrl) {
-    try {
-      const chainInfo = await RpcDetector.getChainInfo();
-      rpcUrl = chainInfo.rpcUrl;
-      // Create chain config dynamically with the ACTUAL detected chain ID
-      chain = createChainConfig(chainInfo.chainId, chainInfo.name, chainInfo.rpcUrl);
-      console.log(`[MUD Client] Using ${chainInfo.name} (Chain ID: ${chainInfo.chainId})`);
-    } catch (error) {
-      console.warn(`[MUD Client] RPC detection failed, using default Anvil`);
-      rpcUrl = 'http://localhost:8545';
-      // Fallback to default Anvil config
-      chain = createChainConfig(31337, 'Anvil', 'http://localhost:8545');
-    }
-  }
+  let rpcUrl = config?.rpcUrl || process.env.JEJU_RPC_URL || process.env.RPC_URL || process.env.ANVIL_RPC_URL || 'http://localhost:9545';
+  let chain = config?.chain || createChainConfig(1337, 'Jeju Localnet', rpcUrl);
   
   if (!chain) {
     // Final fallback if somehow chain is still not set
@@ -94,7 +78,7 @@ export async function setupMudClient(config?: {
   if (!worldAddress) {
     throw new Error(
       'WORLD_ADDRESS environment variable not set. ' +
-      'Deploy contracts first: cd contracts/src/hyperscape && npm run deploy:local'
+      'Deploy contracts first: cd vendor/hyperscape/contracts-mud/mmo && npm run deploy:local'
     );
   }
   
@@ -112,15 +96,19 @@ export async function setupMudClient(config?: {
   }) as WalletClient;
   
   // Load system ABIs from deployed contracts
-  const systemsJson = await import(
-    '../../../../../../contracts/src/hyperscape/.mud/local/systems.json'
-  );
+  // Note: This requires MUD contracts to be deployed first
+  // For now, return a minimal client without system ABIs
+  const systemsJson: Record<string, unknown> = {};
   
   const systems = systemsJson.default || systemsJson;
   
   // Helper to find system ABI
   function getSystemAbi(name: string) {
-    const system = systems.systems.find((s: { name: string }) => s.name === name);
+    const systemsArray = (systems as any)?.systems;
+    if (!systemsArray || !Array.isArray(systemsArray)) {
+      throw new Error(`Systems not loaded. Deploy contracts first: cd vendor/hyperscape/contracts-mud/mmo && npm run deploy:local`);
+    }
+    const system = systemsArray.find((s: { name: string }) => s.name === name);
     if (!system) {
       throw new Error(`System ${name} not found in deployed contracts`);
     }

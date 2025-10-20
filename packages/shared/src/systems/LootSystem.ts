@@ -367,18 +367,29 @@ export class LootSystem extends SystemBase {
    */
   private async addItemToPlayer(playerId: string, itemId: string, quantity: number): Promise<boolean> {
     return new Promise((resolve) => {
-      this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
-        playerId: playerId,
-        item: {
-          id: `${playerId}_${itemId}_${Date.now()}`,
-          itemId: itemId,
-          quantity: quantity,
-          slot: 0,
-          metadata: null
-        }
-      });
-      // Assume success - inventory system will handle validation
-      resolve(true);
+      // Special handling for coins/gold - track as unclaimed
+      if (itemId === 'coins' || itemId === 'gold') {
+        this.emitTypedEvent(EventType.INVENTORY_UPDATE_COINS, {
+          playerId: playerId,
+          coins: quantity,
+          isClaimed: false // Mark as unclaimed - must be claimed on-chain to mint HG tokens
+        });
+        resolve(true);
+      } else {
+        // Regular items go to inventory
+        this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
+          playerId: playerId,
+          item: {
+            id: `${playerId}_${itemId}_${Date.now()}`,
+            itemId: itemId,
+            quantity: quantity,
+            slot: 0,
+            metadata: null
+          }
+        });
+        // Assume success - inventory system will handle validation
+        resolve(true);
+      }
     });
   }
 

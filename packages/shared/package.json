@@ -18,6 +18,17 @@
       "import": "./build/framework.client.js",
       "default": "./build/framework.client.js"
     },
+    "./types": {
+      "types": "./build/types/index.d.ts",
+      "import": "./build/types/index.js",
+      "default": "./build/types/index.js"
+    },
+    "./types/events": {
+      "types": "./build/types/events.d.ts",
+      "import": "./build/types/events.js",
+      "default": "./build/types/events.js"
+    },
+    "./types/*": "./build/types/*",
     "./blockchain/mud-client": {
       "types": "./build/blockchain/mud-client.d.ts",
       "import": "./build/blockchain/mud-client.js",
