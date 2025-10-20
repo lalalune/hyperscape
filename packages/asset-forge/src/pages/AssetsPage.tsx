@@ -12,6 +12,7 @@ import { EmptyAssetState } from '@/components/Assets/EmptyAssetState'
 import { LoadingState } from '@/components/Assets/LoadingState'
 import RegenerateModal from '@/components/Assets/RegenerateModal'
 import RetextureModal from '@/components/Assets/RetextureModal'
+import SpriteGenerationModal from '@/components/Assets/SpriteGenerationModal'
 import { TransitionOverlay } from '@/components/Assets/TransitionOverlay'
 import ViewerControls from '@/components/Assets/ViewerControls'
 import { AnimationPlayer } from '@/components/shared/AnimationPlayer'
@@ -34,6 +35,7 @@ export const AssetsPage: React.FC = () => {
     showRegenerateModal,
     showDetailsPanel,
     showEditModal,
+    showSpriteModal,
     isTransitioning,
     modelInfo,
     showAnimationView,
@@ -41,6 +43,7 @@ export const AssetsPage: React.FC = () => {
     setShowRegenerateModal,
     setShowDetailsPanel,
     setShowEditModal,
+    setShowSpriteModal,
     setModelInfo,
     toggleDetailsPanel,
     toggleAnimationView,
@@ -51,7 +54,7 @@ export const AssetsPage: React.FC = () => {
 
   // Use the asset actions hook
   const { handleViewerReset, handleDownload, handleDeleteAsset, handleSaveAsset } = useAssetActions({
-    viewerRef,
+    viewerRef: viewerRef as React.RefObject<ThreeViewerRef>,
     reloadAssets,
     forceReload,
     assets
@@ -221,6 +224,17 @@ export const AssetsPage: React.FC = () => {
           onSave={handleSaveAsset}
           onDelete={handleDeleteAsset}
           hasVariants={assets.some(a => a.metadata.isVariant && a.metadata.parentBaseModel === selectedAsset.id)}
+        />
+      )}
+
+      {showSpriteModal && selectedAsset && (
+        <SpriteGenerationModal
+          asset={selectedAsset}
+          onClose={() => setShowSpriteModal(false)}
+          onComplete={() => {
+            setShowSpriteModal(false)
+            reloadAssets()
+          }}
         />
       )}
     </div>
