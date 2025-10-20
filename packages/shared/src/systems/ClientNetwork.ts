@@ -960,6 +960,15 @@ export class ClientNetwork extends SystemBase {
     });
   }
   
+  onPlayerState = (data: unknown) => {
+    // Forward player state updates from server to local UI_UPDATE event
+    console.log('[ClientNetwork] 📥 Received playerState packet:', data);
+    this.world.emit(EventType.UI_UPDATE, {
+      component: 'player',
+      data: data
+    });
+  }
+  
   onShowToast = (data: { playerId: string; message: string; type: string }) => {
     
     // Only show toast for local player

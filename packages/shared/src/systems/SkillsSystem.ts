@@ -104,20 +104,36 @@ export class SkillsSystem extends SystemBase {
    * Add XP internally without emitting events (used by external XP handlers)
    */
   private addXPInternal(entityId: string, skill: keyof Skills, amount: number): void {
+    console.log('[SkillsSystem] 🔧 addXPInternal called:', {
+      entityId,
+      skill,
+      amount,
+      hasEntity: !!this.world.entities.get(entityId)
+    });
     const entity = this.world.entities.get(entityId) as Entity;
-    if (!entity) return;
+    if (!entity) {
+      console.warn('[SkillsSystem] ❌ Entity not found:', entityId);
+      return;
+    }
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
+      console.warn(`[SkillsSystem] ❌ Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
       return;
     }
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
+      console.warn(`[SkillsSystem] ❌ Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
       return;
     }
+    console.log('[SkillsSystem] ✅ About to add XP:', {
+      entityId,
+      skill,
+      amount,
+      currentXP: skillData.xp,
+      currentLevel: skillData.level
+    });
 
     // Apply XP modifiers (e.g., from equipment, prayers, etc.)
     const modifiedAmount = this.calculateModifiedXP(entity, skill, amount);
@@ -131,12 +147,20 @@ export class SkillsSystem extends SystemBase {
 
     // Update XP
     skillData.xp = newXP;
+    console.log('[SkillsSystem] ✨ XP updated:', {
+      entityId,
+      skill,
+      oldXP,
+      newXP,
+      actualGain
+    });
 
     // Check for level up
     const oldLevel = skillData.level;
     const newLevel = this.getLevelForXP(newXP);
 
     if (newLevel > oldLevel) {
+      console.log('[SkillsSystem] 🎉 LEVEL UP!', { entityId, skill, oldLevel, newLevel });
       this.handleLevelUp(entity, skill, oldLevel, newLevel);
     }
 
@@ -158,6 +182,10 @@ export class SkillsSystem extends SystemBase {
       position: { x: 0, y: 0, z: 0 } // Position not used for non-visual drops
     });
 
+    console.log('[SkillsSystem] 📤 Emitting SKILLS_UPDATED:', {
+      playerId: entityId,
+      skills: this.getSkills(entityId)
+    });
     // Emit skills updated event for UI (but not XP_GAINED to avoid loops)
     this.emitTypedEvent(EventType.SKILLS_UPDATED, {
       playerId: entityId,
@@ -629,6 +657,12 @@ export class SkillsSystem extends SystemBase {
     skill: keyof Skills;
     amount: number;
   }): void {
+    console.log('[SkillsSystem] 📥 handleExternalXPGain called:', {
+      playerId: data.playerId,
+      skill: data.skill,
+      amount: data.amount,
+      hasEntity: !!this.world.entities.get(data.playerId)
+    });
     // Handle XP gained from other systems (ResourceSystem, ProcessingSystem, etc.)
     // Use private method to avoid event loop
     this.addXPInternal(data.playerId, data.skill, data.amount);
