@@ -123,6 +123,8 @@ const names = [
   'dropItem',
   // Inventory sync packets
   'inventoryUpdated',
+  // Skills sync packets
+  'skillsUpdated',
   // UI feedback packets
   'showToast',
   // Character selection packets (feature-flagged usage)

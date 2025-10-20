@@ -734,6 +734,14 @@ export class InteractionSystem extends System {
           icon: '⚔️',
           enabled: isAlive,
           handler: () => {
+            // Check if mob is still alive before attacking
+            const currentMobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
+            const isStillAlive = (currentMobData?.health || 0) > 0;
+            
+            if (!isStillAlive) {
+              return; // Mob is dead, don't attack
+            }
+            
             // Check for debouncing to prevent duplicate attack requests
             const attackKey = `${playerId}:${target.id}`;
             const now = Date.now();

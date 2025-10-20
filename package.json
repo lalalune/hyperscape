@@ -82,7 +82,9 @@
   "overrides": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   },
   "packageManager": "bun@1.0.0",
   "dependencies": {
