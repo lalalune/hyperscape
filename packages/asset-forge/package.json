@@ -68,7 +68,7 @@
     "@types/three": "^0.178.1",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.16",
     "depcheck": "^1.4.7",
     "eslint": "^9.33.0",
