@@ -1,8 +1,9 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge, Progress } from '../common'
 import { CheckCircle, Loader2, XCircle, Sparkles, ChevronRight, Zap, FileText, Brain, Camera, Box, User, Layers, Grid3x3 } from 'lucide-react'
-import { cn } from '../../styles'
+import React from 'react'
+
 import { PipelineStage } from '../../store'
+import { cn } from '../../styles'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge, Progress } from '../common'
 
 interface PipelineProgressCardProps {
   pipelineStages: PipelineStage[]

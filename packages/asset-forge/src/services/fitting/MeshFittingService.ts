@@ -719,8 +719,8 @@ export class MeshFittingService {
             const absY = Math.abs(fromCenter.y)
             const absZ = Math.abs(fromCenter.z)
             
-            const projectedPoint = new Vector3()
-            const faceNormal = new Vector3()
+            let projectedPoint = new Vector3()
+            let faceNormal = new Vector3()
             
             if (absX >= absY && absX >= absZ) {
               // X-dominant: project to X face
@@ -791,8 +791,10 @@ export class MeshFittingService {
                 // Left vertices should ray cast left in local space
                 rayDirection.set(-1, 0, 0)
               } else if (sidedness === 'right') {
+                // Right vertices should ray cast right in local space
                 rayDirection.set(1, 0, 0)
               } else {
+                // Fallback to center-based approach
                 rayDirection = targetCenter.clone().sub(vertex).normalize()
               }
               
@@ -850,11 +852,11 @@ export class MeshFittingService {
               // If no hit, try a cone of directions around the primary direction
               if (intersections.length === 0) {
                 const attempts = [
-                  rayDirection.clone().applyAxisAngle(new Vector3(0, 1, 0), 0.2),
+                  rayDirection.clone().applyAxisAngle(new Vector3(0, 1, 0), 0.2),  // Slight rotation
                   rayDirection.clone().applyAxisAngle(new Vector3(0, 1, 0), -0.2),
                   rayDirection.clone().applyAxisAngle(new Vector3(1, 0, 0), 0.2),
                   rayDirection.clone().applyAxisAngle(new Vector3(1, 0, 0), -0.2),
-                  toCenterDir
+                  toCenterDir // Fallback to pure center direction
                 ]
                 
                 // For lower back vertices, add more aggressive downward angles
@@ -902,7 +904,7 @@ export class MeshFittingService {
             targetCenter
           const toTarget = rayTarget.clone().sub(vertex).normalize()
           this.raycaster.set(vertex, toTarget)
-          const intersections = this.raycaster.intersectObject(targetMesh, false)
+          let intersections = this.raycaster.intersectObject(targetMesh, false)
           
           if (intersections.length > 0) {
             // If constraint bounds provided, ONLY consider intersections within bounds
@@ -932,7 +934,7 @@ export class MeshFittingService {
             if (!found && isInside) {
               const fromCenter = vertex.clone().sub(targetCenter).normalize()
               this.raycaster.set(targetCenter, fromCenter)
-              const intersections = this.raycaster.intersectObject(targetMesh, false)
+              let intersections = this.raycaster.intersectObject(targetMesh, false)
               
               // Find intersection closest to our vertex
               let closestDist = Infinity
@@ -960,7 +962,7 @@ export class MeshFittingService {
               const toCenter = targetCenter.clone().sub(vertex).normalize()
               const farPoint = vertex.clone().sub(toCenter.clone().multiplyScalar(targetSize.length() * 2))
               this.raycaster.set(farPoint, toCenter)
-              const intersections = this.raycaster.intersectObject(targetMesh, false)
+              let intersections = this.raycaster.intersectObject(targetMesh, false)
               
               if (intersections.length > 0) {
                 // For a cube or convex shape, we want the FIRST intersection from outside
@@ -979,19 +981,21 @@ export class MeshFittingService {
             }
           }
           
+          // Fallback approaches remain the same...
           if (!found) {
+            // Approach 4: Try perpendicular directions
             const directions = [
-              new Vector3(0, -1, 0),
-              new Vector3(0, 1, 0),
-              new Vector3(1, 0, 0),
-              new Vector3(-1, 0, 0),
-              new Vector3(0, 0, 1),
-              new Vector3(0, 0, -1),
+              new Vector3(0, -1, 0), // Down
+              new Vector3(0, 1, 0),  // Up
+              new Vector3(1, 0, 0),  // Right
+              new Vector3(-1, 0, 0), // Left
+              new Vector3(0, 0, 1),  // Forward
+              new Vector3(0, 0, -1), // Back
             ]
             
             for (const dir of directions) {
               this.raycaster.set(vertex, dir)
-              const intersections = this.raycaster.intersectObject(targetMesh, false)
+              let intersections = this.raycaster.intersectObject(targetMesh, false)
               if (intersections.length > 0) {
                 targetPoint = intersections[0].point
                 targetNormal = intersections[0].face!.normal.clone()
@@ -1002,12 +1006,14 @@ export class MeshFittingService {
             }
           }
           
+          // Final fallback: use nearest point algorithm if available
           if (!found) {
             const nearest = this.findNearestSurfacePoint(vertex, targetMesh)
             if (nearest) {
               targetPoint = nearest.point
               targetNormal = nearest.normal
             } else {
+              // Last resort: project to bounding box
               targetPoint = new Vector3()
               targetPoint.copy(vertex)
               targetPoint.clamp(targetBounds.min, targetBounds.max)
@@ -1025,7 +1031,7 @@ export class MeshFittingService {
         
         // Calculate desired position with offset
           // For box targets, check if we're inside and adjust accordingly
-          const offsetDirection = targetNormal.clone()
+          let offsetDirection = targetNormal.clone()
           if (isBox) {
             // For boxes, ALWAYS apply positive offset to stay outside
             // The normal should already be pointing outward
@@ -1244,10 +1250,13 @@ export class MeshFittingService {
               const relativeY = (vertex.y - sourceBounds.min.y) / (sourceBounds.max.y - sourceBounds.min.y)
               
               // Don't smooth lower back vertices at all
-              if (relativeY < 0.4) {
-                smoothingMask[i] = false
-                // Keep the displacement but don't smooth (already set)
-              }
+                              if (relativeY < 0.4) {
+                  smoothingMask[i] = false
+                  // Keep the displacement but don't smooth; explicit no-op to clarify intent
+                  if (hasDisplacement[i]) {
+                    hasDisplacement[i] = true
+                  }
+                }
             }
           }
           
@@ -1541,12 +1550,12 @@ export class MeshFittingService {
     const vertexCount = position.count
     
     // Store original positions for reference
-    const originalPositions = new Float32Array(position.array)
+    const _originalPositions = new Float32Array(position.array)
     
     // Get centers
     const sourceBounds = new Box3().setFromObject(sourceMesh)
     const targetBounds = new Box3().setFromObject(targetMesh)
-    const sourceCenter = sourceBounds.getCenter(new Vector3())
+    const _sourceCenter = sourceBounds.getCenter(new Vector3())
     const targetCenter = targetBounds.getCenter(new Vector3())
     
     // Check if target is a box
@@ -1709,8 +1718,8 @@ export class MeshFittingService {
     // Helper function to find closest point on mesh
     const findClosestPointOnMesh = (point: Vector3): { point: Vector3, normal: Vector3 } => {
       let minDist = Infinity
-      const closestPoint = new Vector3()
-      const closestNormal = new Vector3()
+      let closestPoint = new Vector3()
+      let closestNormal = new Vector3()
       
       const localPoint = bodyMesh.worldToLocal(point.clone())
       
@@ -1792,7 +1801,7 @@ export class MeshFittingService {
           const neighborIndices = neighbors.get(i) || new Set<number>()
           if (neighborIndices.size === 0) continue
           
-          const avgDisplacement = new Vector3(
+          let avgDisplacement = new Vector3(
             displacements[i * 3],
             displacements[i * 3 + 1],
             displacements[i * 3 + 2]
@@ -1918,7 +1927,7 @@ export class MeshFittingService {
     const boundaryEdges: Array<[number, number]> = []
     const edgeVertices = new Set<number>()
     
-    for (const [key, edge] of edgeMap) {
+    for (const [_key, edge] of edgeMap) {
       if (edge.count === 1) {
         boundaryEdges.push(edge.vertices)
         edgeVertices.add(edge.vertices[0])
@@ -2045,8 +2054,8 @@ export class MeshFittingService {
     const size = max.clone().sub(min)
     
     // Get overall mesh bounds for relative positioning
-    const meshMin = new Vector3(Infinity, Infinity, Infinity)
-    const meshMax = new Vector3(-Infinity, -Infinity, -Infinity)
+    let meshMin = new Vector3(Infinity, Infinity, Infinity)
+    let meshMax = new Vector3(-Infinity, -Infinity, -Infinity)
     for (let i = 0; i < positionAttribute.count; i++) {
       meshMin.x = Math.min(meshMin.x, positionAttribute.getX(i))
       meshMin.y = Math.min(meshMin.y, positionAttribute.getY(i))
@@ -2344,6 +2353,8 @@ export class MeshFittingService {
         positions[i * 3 + 1] = newLocalPos.y
         positions[i * 3 + 2] = newLocalPos.z
       } else {
+        // Fallback if projection fails (e.g., no intersection found)
+        // This should ideally not happen if findNearestSurfacePoint works correctly
         console.warn(`Could not project vertex ${i} back to surface. Keeping original position.`)
       }
     }
@@ -3009,7 +3020,8 @@ export class MeshFittingService {
         console.log('Extended bottom to neck cutoff')
       }
     } else {
-      console.warn('No head vertices found! Using estimation based on model bounds')
+      // Fallback if no vertices found
+      console.warn('No head vertices found! Using estimation')
       const estimatedSize = modelHeight * 0.15
       const estimatedCenterY = modelTop - estimatedSize/2
       
@@ -3223,7 +3235,7 @@ export class MeshFittingService {
     // DEAD SIMPLE APPROACH - HELMET BOUNDS MUST CONTAIN HEAD BOUNDS
     
     // Store original state
-    const originalMatrix = helmetMesh.matrix.clone()
+    const _originalMatrix = helmetMesh.matrix.clone()
     const originalPosition = helmetMesh.position.clone()
     const originalScale = helmetMesh.scale.clone()
     const originalRotation = helmetMesh.rotation.clone()

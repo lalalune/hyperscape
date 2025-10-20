@@ -1,4 +1,5 @@
 import React from 'react'
+
 import { cn } from '../../styles'
 
 // Input Component
@@ -122,7 +123,7 @@ export interface FormFieldProps {
   error?: string
   helperText?: string
   required?: boolean
-  children: React.ReactElement<{ error?: boolean; id?: string }>
+  children: React.ReactElement
 }
 
 const FormField: React.FC<FormFieldProps> = ({

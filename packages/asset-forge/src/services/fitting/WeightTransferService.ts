@@ -151,7 +151,7 @@ export class WeightTransferService {
     const armorSkinIndex = armorGeometry.attributes.skinIndex as BufferAttribute
     const armorSkinWeight = armorGeometry.attributes.skinWeight as BufferAttribute
     
-    const armorInverseMatrix = armorMatrix.clone().invert()
+    const _armorInverseMatrix = armorMatrix.clone().invert()
     
     // For each armor vertex
     for (let i = 0; i < armorPosition.count; i++) {

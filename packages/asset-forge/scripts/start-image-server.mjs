@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename)
 const ROOT_DIR = path.join(__dirname, '..')
 
 const app = express()
-const PORT = process.env.IMAGE_SERVER_PORT || 8080
+const PORT = process.env.IMAGE_SERVER_PORT || 8081
 
 // Ensure temp-images directory exists
 await fs.mkdir(path.join(ROOT_DIR, 'temp-images'), { recursive: true })
@@ -39,18 +39,9 @@ app.get('/list', async (req, res) => {
   }
 })
 
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`🖼️  Image server running on http://localhost:${PORT}`)
   console.log(`📁 Serving images from: ${path.join(ROOT_DIR, 'temp-images')}`)
   console.log(`🔍 Health check: http://localhost:${PORT}/health`)
   console.log(`📋 List images: http://localhost:${PORT}/list`)
-})
-
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.log(`✅ Image server already running on port ${PORT}`)
-    process.exit(0)
-  }
-  console.error('❌ Failed to start image server:', err)
-  process.exit(1)
 }) 

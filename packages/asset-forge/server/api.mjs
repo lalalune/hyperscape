@@ -15,7 +15,6 @@ import { RetextureService } from './services/RetextureService.mjs'
 import { GenerationService } from './services/GenerationService.mjs'
 import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
 import promptRoutes from './routes/promptRoutes.mjs'
-import requirementsRoutes from './routes/requirements.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -47,8 +46,8 @@ app.use((req, res, next) => {
   next()
 })
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }))
+// Body parsing (allow larger payloads for base64 images)
+app.use(express.json({ limit: '25mb' }))
 
 // Static file serving with security headers
 app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
@@ -58,14 +57,7 @@ app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
 }))
 
 // Initialize services
-// Allow overriding the asset output directory so we can write directly into Hyperscape's world assets
-const ASSET_OUTPUT_DIR = process.env.ASSET_OUTPUT_DIR
-  ? (path.isAbsolute(process.env.ASSET_OUTPUT_DIR)
-      ? process.env.ASSET_OUTPUT_DIR
-      : path.join(process.cwd(), process.env.ASSET_OUTPUT_DIR))
-  : path.join(ROOT_DIR, 'gdd-assets')
-
-const assetService = new AssetService(ASSET_OUTPUT_DIR)
+const assetService = new AssetService(path.join(ROOT_DIR, 'gdd-assets'))
 const retextureService = new RetextureService({
   meshyApiKey: process.env.MESHY_API_KEY || '',
   imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8080'
@@ -74,9 +66,6 @@ const generationService = new GenerationService()
 
 // Use prompt routes
 app.use('/api', promptRoutes)
-
-// Use requirements routes
-app.use('/api/requirements', requirementsRoutes)
 
 // Routes
 app.get('/api/health', (req, res) => {
@@ -588,7 +577,7 @@ Respond with ONLY a JSON object:
 app.use(errorHandler)
 
 // Start server
-const PORT = process.env.API_PORT || 3001
+const PORT = process.env.API_PORT || 3004
 app.listen(PORT, () => {
   console.log(`🚀 API Server running on http://localhost:${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`)

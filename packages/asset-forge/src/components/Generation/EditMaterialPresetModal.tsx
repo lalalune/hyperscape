@@ -1,6 +1,7 @@
 import React from 'react'
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Input, Textarea } from '../common'
+
 import { MaterialPreset } from '../../types'
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Input, Textarea } from '../common'
 
 interface EditMaterialPresetModalProps {
   editingPreset: MaterialPreset | null

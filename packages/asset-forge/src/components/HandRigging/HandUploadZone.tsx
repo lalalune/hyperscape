@@ -1,8 +1,9 @@
-import React, { useRef, useCallback } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common'
-import { cn } from '../../styles'
 import { Upload, Box, CheckCircle, AlertCircle } from 'lucide-react'
+import React, { useRef, useCallback } from 'react'
+
 import { useHandRiggingStore } from '../../store'
+import { cn } from '../../styles'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common'
 
 export function HandUploadZone() {
   const fileInputRef = useRef<HTMLInputElement>(null)

@@ -3,9 +3,10 @@
  * Displays application-wide notifications
  */
 
-import React, { useEffect } from 'react'
-import { useApp } from '../../contexts/AppContext'
 import { CheckCircle, XCircle, X } from 'lucide-react'
+import React, { useEffect } from 'react'
+
+import { useApp } from '../../contexts/AppContext'
 
 const NotificationBar: React.FC = () => {
   const { notification, clearNotification } = useApp()

@@ -1,7 +1,8 @@
+import { Brain, User, Palette, Grid3x3, Settings2 } from 'lucide-react'
 import React from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Checkbox } from '../common'
-import { Zap, Brain, User, Palette, Grid3x3, Settings2, Info } from 'lucide-react'
+
 import { cn } from '../../styles'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Checkbox } from '../common'
 
 interface PipelineOption {
   id: string
@@ -18,10 +19,12 @@ interface PipelineOptionsCardProps {
   enableRetexturing: boolean
   enableSprites: boolean
   enableRigging: boolean
+  quality?: 'standard' | 'high' | 'ultra'
   onUseGPT4EnhancementChange: (checked: boolean) => void
   onEnableRetexturingChange: (checked: boolean) => void
   onEnableSpritesChange: (checked: boolean) => void
   onEnableRiggingChange: (checked: boolean) => void
+  onQualityChange?: (quality: 'standard' | 'high' | 'ultra') => void
 }
 
 export const PipelineOptionsCard: React.FC<PipelineOptionsCardProps> = ({
@@ -30,10 +33,12 @@ export const PipelineOptionsCard: React.FC<PipelineOptionsCardProps> = ({
   enableRetexturing,
   enableSprites,
   enableRigging,
+  quality = 'high',
   onUseGPT4EnhancementChange,
   onEnableRetexturingChange,
   onEnableSpritesChange,
-  onEnableRiggingChange
+  onEnableRiggingChange,
+  onQualityChange
 }) => {
   const options: PipelineOption[] = [
     {
@@ -86,6 +91,29 @@ export const PipelineOptionsCard: React.FC<PipelineOptionsCardProps> = ({
         </div>
       </CardHeader>
       <CardContent className="p-6 space-y-3">
+        {/* Quality Selector */}
+        <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium text-text-primary">Quality</div>
+              <div className="text-xs text-text-secondary">Controls mesh detail and texture resolution</div>
+            </div>
+            <div className="flex gap-2">
+              {(['standard','high','ultra'] as const).map(q => (
+                <button
+                  key={q}
+                  onClick={() => onQualityChange && onQualityChange(q)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-sm border transition-colors',
+                    quality === q ? 'bg-primary text-white border-primary' : 'bg-bg-tertiary text-text-secondary border-border-primary hover:border-border-secondary'
+                  )}
+                >
+                  {q[0].toUpperCase() + q.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
         {options.map((option) => {
           const Icon = option.icon
           return (

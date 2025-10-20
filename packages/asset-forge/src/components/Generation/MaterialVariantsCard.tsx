@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
-import { Palette, Edit2, Trash2, Plus, Download, Loader2, ChevronRight, Sparkles, Package2, Info, Check, X } from 'lucide-react'
+import { Palette, Edit2, Trash2, Plus, Loader2, Package2, Check, Sparkles } from 'lucide-react'
+import React from 'react'
+
 import { cn } from '../../styles'
 import { MaterialPreset } from '../../types'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
 
 interface CustomMaterial {
   name: string

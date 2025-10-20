@@ -1,16 +1,16 @@
+import { Text as DreiText } from '@react-three/drei'
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import * as THREE from 'three'
-import { Text as DreiText } from '@react-three/drei'
 
 interface BasicDemoProps {
     showWireframe: boolean
 }
 
 export interface BasicDemoRef {
-    sourceCubeRef: React.RefObject<THREE.Mesh | null>
-    sourceSphereRef: React.RefObject<THREE.Mesh | null>
-    targetCubeRef: React.RefObject<THREE.Mesh | null>
-    targetSphereRef: React.RefObject<THREE.Mesh | null>
+    sourceCubeRef: React.RefObject<THREE.Mesh>
+    sourceSphereRef: React.RefObject<THREE.Mesh>
+    targetCubeRef: React.RefObject<THREE.Mesh>
+    targetSphereRef: React.RefObject<THREE.Mesh>
 }
 
 export const BasicDemo = forwardRef<BasicDemoRef, BasicDemoProps>(({ showWireframe }, ref) => {
