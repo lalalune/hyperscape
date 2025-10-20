@@ -100,19 +100,36 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       const localId = world.entities.player?.id
       if (!localId || data.playerId === localId) setCoins(data.coins)
     }
+    const onSkillsUpdate = (raw: unknown) => {
+      const data = raw as { playerId: string; skills: PlayerStats['skills'] }
+      const localId = world.entities.player?.id
+      if (!localId || data.playerId === localId) {
+        // Update playerStats with new skills
+        setPlayerStats(prev => prev ? { ...prev, skills: data.skills } : { skills: data.skills } as PlayerStats)
+      }
+    }
     world.on(EventType.UI_UPDATE, onUIUpdate)
     world.on(EventType.INVENTORY_UPDATED, onInventory)
     world.on(EventType.INVENTORY_UPDATE_COINS, onCoins)
+    world.on(EventType.SKILLS_UPDATED, onSkillsUpdate)
     // Request initial inventory snapshot once local player exists; hydrate from cached packet if available
     const requestInitial = () => {
       const lp = world.entities.player?.id
       if (lp) {
         // If network already cached an inventory packet, use it immediately
-        const network = world.network as { lastInventoryByPlayerId?: Record<string, { playerId: string; items: InventorySlotItem[]; coins: number; maxSlots: number }> }
+        const network = world.network as { 
+          lastInventoryByPlayerId?: Record<string, { playerId: string; items: InventorySlotItem[]; coins: number; maxSlots: number }>;
+          lastSkillsByPlayerId?: Record<string, Record<string, { level: number; xp: number }>>;
+        }
         const cached = network.lastInventoryByPlayerId?.[lp]
         if (cached && Array.isArray(cached.items)) {
           setInventory(cached.items)
           setCoins(cached.coins)
+        }
+        // Hydrate skills from cached packet
+        const cachedSkills = network.lastSkillsByPlayerId?.[lp]
+        if (cachedSkills) {
+          setPlayerStats(prev => prev ? { ...prev, skills: cachedSkills as PlayerStats['skills'] } : { skills: cachedSkills as PlayerStats['skills'] } as PlayerStats)
         }
         // Ask server for authoritative snapshot in case cache is missing/stale
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp })
@@ -131,6 +148,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       world.off(EventType.UI_UPDATE, onUIUpdate)
       world.off(EventType.INVENTORY_UPDATED, onInventory)
       world.off(EventType.INVENTORY_UPDATE_COINS, onCoins)
+      world.off(EventType.SKILLS_UPDATED, onSkillsUpdate)
     }
   }, [])
 

@@ -324,14 +324,13 @@ export class PlayerSystem extends SystemBase {
   }
 
   private onPlayerRegister(data: { playerId: string }): void {
-    // For now, just log the registration - PlayerLocal reference will be handled elsewhere
-    // console.log('[PlayerSystem] onPlayerRegister called with data:', data, 'playerId:', data?.playerId);
     if (!data?.playerId) {
       console.error('[PlayerSystem] ERROR: playerId is undefined in registration data!', data)
       return
     }
 
-    // Initialize attack style (merged from AttackStyleSystem)
+    // Note: Skills are already loaded by ServerNetwork and passed to entity spawn
+    // No need to load again - just initialize attack style
     this.initializePlayerAttackStyle(data.playerId)
   }
 
@@ -342,12 +341,12 @@ export class PlayerSystem extends SystemBase {
     }
 
     // Check if entity already exists (character-select mode spawns entity before PLAYER_JOINED)
-    const entity = this.world.entities.get(data.playerId)
-    if (entity && entity.position) {
+    const existingEntity = this.world.entities.get(data.playerId)
+    if (existingEntity && existingEntity.position) {
       // Create spawn data tracking
       const spawnData: PlayerSpawnData = {
         playerId: data.playerId,
-        position: new THREE.Vector3(entity.position.x, entity.position.y, entity.position.z),
+        position: new THREE.Vector3(existingEntity.position.x, existingEntity.position.y, existingEntity.position.z),
         hasStarterEquipment: false,
         aggroTriggered: false,
         spawnTime: Date.now(),
@@ -359,19 +358,12 @@ export class PlayerSystem extends SystemBase {
     // Use userId (persistent account ID) if available, otherwise use playerId (session ID)
     const databaseId = data.userId || data.playerId
 
-    // Load player data from database using persistent userId
-    let playerData: Player | undefined
+    // Load player data from database
+    let playerData: Player | undefined;
     if (this.databaseSystem) {
-      const dbData = await this.databaseSystem.getPlayerAsync(databaseId)
-      console.log('[PlayerSystem] 📋 Loaded player data from DB:', {
-        playerId: data.playerId,
-        databaseId,
-        dbDataFound: !!dbData,
-        dbDataName: dbData?.name
-      });
+      const dbData = await this.databaseSystem.getPlayerAsync(databaseId);
       if (dbData) {
-        playerData = PlayerMigration.fromPlayerRow(dbData, data.playerId)
-        console.log('[PlayerSystem] ✅ Migrated player data, name:', playerData.name);
+        playerData = PlayerMigration.fromPlayerRow(dbData, data.playerId);
       }
     }
 
@@ -1429,24 +1421,14 @@ export class PlayerSystem extends SystemBase {
   }
 
   private handleSkillsUpdate(data: { playerId: string; skills: Skills }): void {
-    console.log('[PlayerSystem] 📥 handleSkillsUpdate called:', {
-      playerId: data.playerId,
-      hasPlayer: !!this.players.get(data.playerId),
-      skills: data.skills
-    });
     const player = this.players.get(data.playerId)
     if (!player) {
-      console.warn('[PlayerSystem] ❌ Player not found in handleSkillsUpdate:', data.playerId);
+      console.warn('[PlayerSystem] Player not found in handleSkillsUpdate:', data.playerId);
       return;
     }
 
     // Update player skills
-    player.skills = data.skills
-    console.log('[PlayerSystem] ✅ Player skills updated:', {
-      playerId: data.playerId,
-      woodcuttingXP: player.skills.woodcutting.xp,
-      woodcuttingLevel: player.skills.woodcutting.level
-    });
+    player.skills = data.skills;
 
     // Recalculate combat level
     player.combat.combatLevel = this.calculateCombatLevel(data.skills)
@@ -1459,8 +1441,14 @@ export class PlayerSystem extends SystemBase {
   }
 
   private scheduleSaveSkills(playerId: string): void {
-    // Debounce frequent updates during continuous actions like woodcutting
+    // Save immediately for first update, then debounce subsequent updates
     const existing = this.skillSaveTimers.get(playerId)
+    if (!existing) {
+      // First skill update - save immediately
+      this.saveSkillsToDatabase(playerId)
+    }
+    
+    // Also schedule debounced save for continuous updates
     if (existing) clearTimeout(existing)
     const timer = setTimeout(() => {
       this.skillSaveTimers.delete(playerId)
@@ -1470,19 +1458,12 @@ export class PlayerSystem extends SystemBase {
   }
 
   private saveSkillsToDatabase(playerId: string): void {
-    if (!this.databaseSystem) {
-      console.warn('[PlayerSystem] 💾 No databaseSystem for saving skills');
-      return;
-    }
+    if (!this.databaseSystem) return;
     const player = this.players.get(playerId)
-    if (!player) {
-      console.warn('[PlayerSystem] 💾 No player found for saving skills:', playerId);
-      return;
-    }
+    if (!player) return;
 
     const s = player.skills
-    // Map runtime skills -> DB columns; only update provided fields
-    // Levels
+    // Map runtime skills -> DB columns
     const update: Record<string, number> = {
       combatLevel: player.combat.combatLevel,
       attackLevel: s.attack.level,
@@ -1505,17 +1486,10 @@ export class PlayerSystem extends SystemBase {
       firemakingXp: Math.floor(s.firemaking.xp),
       cookingXp: Math.floor(s.cooking.xp),
     }
-    console.log('[PlayerSystem] 💾 Saving skills to DB:', {
-      playerId,
-      woodcuttingXp: update.woodcuttingXp,
-      woodcuttingLevel: update.woodcuttingLevel
-    });
     try {
       this.databaseSystem.savePlayer(playerId, update)
-      console.log('[PlayerSystem] ✅ Skills saved to DB successfully');
     } catch (err) {
-      console.error('[PlayerSystem] ❌ Failed to save skills to DB:', err);
-      Logger.warn('Failed to save skills to DB', { error: (err as Error)?.message })
+      console.error('[PlayerSystem] Failed to save skills to DB:', err);
     }
   }
 }
