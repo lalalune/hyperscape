@@ -157,6 +157,8 @@ export class ClientNetwork extends SystemBase {
   lastCharacterList: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> | null = null
   // Cache latest inventory per player so UI can hydrate even if it mounted late
   lastInventoryByPlayerId: Record<string, { playerId: string; items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number; maxSlots: number }> = {}
+  // Cache latest skills per player so UI can hydrate even if it mounted late
+  lastSkillsByPlayerId: Record<string, Record<string, { level: number; xp: number }>> = {}
   
   // Entity interpolation for smooth remote entity movement
   private interpolationStates: Map<string, InterpolationState> = new Map()
@@ -894,6 +896,14 @@ export class ClientNetwork extends SystemBase {
     this.lastInventoryByPlayerId[data.playerId] = data
     // Re-emit with typed event so UI updates without waiting for local add
     this.world.emit(EventType.INVENTORY_UPDATED, data)
+  }
+
+  onSkillsUpdated = (data: { playerId: string; skills: Record<string, { level: number; xp: number }> }) => {
+    // Cache latest snapshot for late-mounting UI
+    this.lastSkillsByPlayerId = this.lastSkillsByPlayerId || {}
+    this.lastSkillsByPlayerId[data.playerId] = data.skills
+    // Re-emit with typed event so UI updates
+    this.world.emit(EventType.SKILLS_UPDATED, data)
   }
 
   // --- Character selection (flag-gated by server) ---

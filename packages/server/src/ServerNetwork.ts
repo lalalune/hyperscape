@@ -670,6 +670,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             this.sendToPlayerId(data.playerId, 'inventoryUpdated', packet)
           } catch {}
         })
+        
+        // Send skills updates to client
+        this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
+          const data = payload as { playerId: string; skills: Record<string, { level: number; xp: number }> }
+          this.sendToPlayerId(data.playerId, 'skillsUpdated', {
+            playerId: data.playerId,
+            skills: data.skills
+          })
+        })
     } catch (_err) {}
   }
 
