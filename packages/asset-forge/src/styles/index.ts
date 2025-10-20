@@ -1,5 +1,5 @@
-// Styles - Design Tokens and Utilities
-// Centralized design system tokens and helper functions
+// Styles - Tokens and Utilities
+// Consolidated from design-system into styles folder
 
 // Design Tokens
 export { 

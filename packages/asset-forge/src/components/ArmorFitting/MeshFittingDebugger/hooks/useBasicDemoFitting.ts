@@ -1,5 +1,6 @@
-import * as THREE from 'three'
 import { MutableRefObject } from 'react'
+import * as THREE from 'three'
+
 import { MeshFittingService, MeshFittingParameters } from '../../../../services/fitting/MeshFittingService'
 
 interface BasicDemoFittingProps {

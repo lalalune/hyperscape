@@ -1,7 +1,8 @@
+import * as THREE from 'three'
 import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import * as THREE from 'three'
+
 import { MeshFittingParameters } from '../types/fitting'
 import { DebugConfiguration } from '../types/service-types'
 

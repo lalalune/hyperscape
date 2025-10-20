@@ -2,8 +2,8 @@
   "__comment": "Core generation prompts used in the pipeline",
   "version": "1.0.0",
   "imageGeneration": {
-    "base": "${description}. ${style || 'Low-poly game asset'} style, ${assetType}, clean geometry suitable for 3D conversion.",
-    "fallbackEnhancement": "${config.description}. ${config.style || 'Low-poly RuneScape 2007'} style, clean geometry, game-ready 3D asset."
+    "base": "${description}. ${style || 'game-ready'} style, ${assetType}, clean geometry suitable for 3D conversion.",
+    "fallbackEnhancement": "${config.description}. ${config.style || 'game-ready'} style, clean geometry, game-ready 3D asset."
   },
   "posePrompts": {
     "avatar": {

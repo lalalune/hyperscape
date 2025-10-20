@@ -1,35 +1,35 @@
-import { defineConfig, type PluginOption } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()] as PluginOption[],
-  
-  build: {
-    rollupOptions: {
-      onwarn(warning, warn) {
-        // Suppress fs externalization warning (only used server-side via dynamic import)
-        if (warning.message && warning.message.includes('Module "fs" has been externalized')) {
-          return
-        }
-        // Suppress mixed static/dynamic import warnings (intentional for code-splitting)
-        if (warning.message && warning.message.includes('dynamically imported') && warning.message.includes('statically imported')) {
-          return
-        }
-        warn(warning)
-      }
+  plugins: [react()],
+  resolve: {
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'three'],
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+      'react': path.resolve(__dirname, '../../node_modules/react'),
+      'react-dom': path.resolve(__dirname, '../../node_modules/react-dom'),
+      'react/jsx-runtime': path.resolve(__dirname, '../../node_modules/react/jsx-runtime'),
+      'three': path.resolve(__dirname, '../../node_modules/three')
     }
   },
-  
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'three', '@react-three/fiber', '@react-three/drei'],
+    esbuildOptions: {
+      resolveExtensions: ['.mjs', '.js', '.jsx', '.json', '.ts', '.tsx']
+    }
+  },
   server: {
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3004',
         changeOrigin: true,
       },
       '/assets': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3004',
         changeOrigin: true,
       }
     }

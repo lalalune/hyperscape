@@ -16,42 +16,19 @@ if (!existsSync(distDir)) {
   mkdirSync(distDir, { recursive: true })
 }
 
-// Create a standalone tsconfig for building services (don't extend main to avoid including frontend files)
+// Create a temporary tsconfig for building services
 const buildConfig = {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    /* Language and Environment */
-    "target": "es2022",
-    "lib": ["ES2022", "DOM"],
-    "jsx": "preserve",
     "module": "es2022",
     "moduleResolution": "node",
-    "types": ["node"],
-    
-    /* Emit */
+    "target": "es2022",
     "outDir": "./dist",
     "rootDir": "./src",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    
-    /* Interop Constraints */
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "isolatedModules": false,
     "allowJs": true,
     "checkJs": false,
-    
-    /* Type Checking */
-    "strict": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true,
-    
-    /* Advanced */
-    "useDefineForClassFields": true
+    "isolatedModules": false,
+    "skipLibCheck": true
   },
   "include": [
     "src/core/**/*",
@@ -60,12 +37,7 @@ const buildConfig = {
     "src/utils/**/*",
     "src/config/**/*"
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }
 
 const configPath = join(process.cwd(), 'tsconfig.services.json')

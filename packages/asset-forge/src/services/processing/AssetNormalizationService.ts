@@ -4,9 +4,10 @@
  */
 
 import * as THREE from 'three'
-import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
-import { getConvention, NormalizationResult, AssetConvention } from '../../types/NormalizationConventions'
+import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
+
+import { getConvention, NormalizationResult } from '../../types/NormalizationConventions'
 
 export interface NormalizedAssetResult {
   glb: ArrayBuffer

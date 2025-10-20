@@ -6,7 +6,6 @@
 import EventEmitter from 'events'
 import { AICreationService } from './AICreationService.mjs'
 import { ImageHostingService } from './ImageHostingService.mjs'
-import { ManifestService } from './ManifestService.mjs'
 import { getGenerationPrompts, getGPT4EnhancementPrompts } from '../utils/promptLoader.mjs'
 import fs from 'fs/promises'
 import path from 'path'
@@ -24,13 +23,10 @@ export class GenerationService extends EventEmitter {
     }
     
     // Initialize AI service with backend environment variables
-    // Allow overriding the output directory so assets can be written directly into Hyperscape's world assets
-    const OUTPUT_DIR = process.env.ASSET_OUTPUT_DIR || 'gdd-assets'
-    this.outputDir = OUTPUT_DIR
     this.aiService = new AICreationService({
       openai: {
         apiKey: process.env.OPENAI_API_KEY || '',
-        model: 'dall-e-3',  // Use DALL-E 3 by default (doesn't require org verification)
+        model: 'gpt-image-1',
         imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8080'
       },
       meshy: {
@@ -43,16 +39,13 @@ export class GenerationService extends EventEmitter {
         maxSize: 500
       },
       output: {
-        directory: OUTPUT_DIR,
+        directory: 'gdd-assets',
         format: 'glb'
       }
     })
     
     // Initialize image hosting service
     this.imageHostingService = new ImageHostingService()
-    
-    // Initialize manifest service for Hyperscape integration
-    this.manifestService = new ManifestService(OUTPUT_DIR)
   }
 
   /**
@@ -131,7 +124,7 @@ export class GenerationService extends EventEmitter {
       let meshyTaskId = null
       let baseModelPath = null
       
-      // Stage 1: GPT-4 Prompt Enhancement
+      // Stage 1: GPT-4 Prompt Enhancement (honor toggle; skip if explicitly disabled)
       if (pipeline.config.metadata?.useGPT4Enhancement !== false) {
         pipeline.stages.promptOptimization.status = 'processing'
         
@@ -159,48 +152,72 @@ export class GenerationService extends EventEmitter {
         pipeline.stages.promptOptimization.status = 'skipped'
       }
       
-      // Stage 2: Image Generation with GPT-Image-1
-      pipeline.stages.imageGeneration.status = 'processing'
-      
-      try {
-        // Load generation prompts
-        const generationPrompts = await getGenerationPrompts()
+      // Stage 2: Image Source (User-provided or AI-generated)
+      const hasUserRef = !!(pipeline.config.referenceImage && (pipeline.config.referenceImage.url || pipeline.config.referenceImage.dataUrl))
+      if (hasUserRef) {
+        // Use user-provided reference image; skip auto image generation
+        imageUrl = pipeline.config.referenceImage.dataUrl || pipeline.config.referenceImage.url
+        pipeline.stages.imageGeneration.status = 'skipped'
+        pipeline.stages.imageGeneration.progress = 0
+        pipeline.stages.imageGeneration.result = { source: 'user-provided' }
+        pipeline.results.imageGeneration = pipeline.stages.imageGeneration.result
+        pipeline.progress = 20
+      } else {
+        pipeline.stages.imageGeneration.status = 'processing'
         
-        // For avatars, ensure T-pose is in the prompt
-        // For armor, ensure it's standalone with hollow openings
-        let imagePrompt = enhancedPrompt
-        if (pipeline.config.generationType === 'avatar' || pipeline.config.type === 'character') {
-          const tposePrompt = generationPrompts?.posePrompts?.avatar?.tpose || 'standing in T-pose with arms stretched out horizontally'
-          imagePrompt = `${enhancedPrompt} ${tposePrompt}`
-        } else if (pipeline.config.type === 'armor') {
-          const isChest = pipeline.config.subtype?.toLowerCase().includes('chest') || pipeline.config.subtype?.toLowerCase().includes('body')
-          if (isChest) {
-            const chestPrompt = generationPrompts?.posePrompts?.armor?.chest || 'floating chest armor SHAPED FOR T-POSE BODY - shoulder openings must point STRAIGHT OUT SIDEWAYS at 90 degrees like a scarecrow (NOT angled down), wide "T" shape when viewed from front, ends at shoulders with no arm extensions, torso-only armor piece, hollow shoulder openings pointing horizontally, no armor stand'
-            imagePrompt = `${enhancedPrompt} ${chestPrompt}`
-          } else {
-            const genericArmorPrompt = generationPrompts?.posePrompts?.armor?.generic || 'floating armor piece shaped for T-pose body fitting, openings positioned at correct angles for T-pose (horizontal for shoulders), hollow openings, no armor stand or mannequin'
-            imagePrompt = `${enhancedPrompt} ${genericArmorPrompt}`
-          }
-        }
+        try {
+          // Load generation prompts
+          const generationPrompts = await getGenerationPrompts()
           
-        const imageResult = await this.aiService.imageService.generateImage(
-          imagePrompt,
-          pipeline.config.type,
-          pipeline.config.style || 'runescape2007'
-        )
-        
-        imageUrl = imageResult.imageUrl
-        
-        pipeline.stages.imageGeneration.status = 'completed'
-        pipeline.stages.imageGeneration.progress = 100
-        pipeline.stages.imageGeneration.result = imageResult
-        pipeline.results.imageGeneration = imageResult
-        pipeline.progress = 25
-      } catch (error) {
-        console.error('Image generation failed:', error)
-        pipeline.stages.imageGeneration.status = 'failed'
-        pipeline.stages.imageGeneration.error = error.message
-        throw error
+          // For avatars, ensure T-pose is in the prompt
+          // For armor, ensure it's standalone with hollow openings
+          // Build effective style text from custom prompts when available
+          // Also, if HQ cues are present, sanitize prompt from low-poly cues and add HQ details
+          const effectiveStyle = (pipeline.config.customPrompts && pipeline.config.customPrompts.gameStyle)
+            ? pipeline.config.customPrompts.gameStyle
+            : (pipeline.config.style || 'game-ready')
+
+          const wantsHQPrompt = /\b(4k|ultra|high\s*quality|realistic|cinematic|photoreal|pbr)\b/i.test(effectiveStyle)
+          let imagePrompt = enhancedPrompt
+          if (wantsHQPrompt) {
+            imagePrompt = imagePrompt
+              .replace(/\b(low-?poly|stylized|minimalist|blocky|simplified)\b/gi, '')
+              .trim()
+            imagePrompt = `${imagePrompt} highly detailed, realistic, sharp features, high-resolution textures`
+          }
+          if (pipeline.config.generationType === 'avatar' || pipeline.config.type === 'character') {
+            const tposePrompt = generationPrompts?.posePrompts?.avatar?.tpose || 'standing in T-pose with arms stretched out horizontally'
+            imagePrompt = `${enhancedPrompt} ${tposePrompt}`
+          } else if (pipeline.config.type === 'armor') {
+            const isChest = pipeline.config.subtype?.toLowerCase().includes('chest') || pipeline.config.subtype?.toLowerCase().includes('body')
+            if (isChest) {
+              const chestPrompt = generationPrompts?.posePrompts?.armor?.chest || 'floating chest armor SHAPED FOR T-POSE BODY - shoulder openings must point STRAIGHT OUT SIDEWAYS at 90 degrees like a scarecrow (NOT angled down), wide "T" shape when viewed from front, ends at shoulders with no arm extensions, torso-only armor piece, hollow shoulder openings pointing horizontally, no armor stand'
+              imagePrompt = `${enhancedPrompt} ${chestPrompt}`
+            } else {
+              const genericArmorPrompt = generationPrompts?.posePrompts?.armor?.generic || 'floating armor piece shaped for T-pose body fitting, openings positioned at correct angles for T-pose (horizontal for shoulders), hollow openings, no armor stand or mannequin'
+              imagePrompt = `${enhancedPrompt} ${genericArmorPrompt}`
+            }
+          }
+            
+          const imageResult = await this.aiService.imageService.generateImage(
+            imagePrompt,
+            pipeline.config.type,
+            effectiveStyle
+          )
+          
+          imageUrl = imageResult.imageUrl
+          
+          pipeline.stages.imageGeneration.status = 'completed'
+          pipeline.stages.imageGeneration.progress = 100
+          pipeline.stages.imageGeneration.result = imageResult
+          pipeline.results.imageGeneration = imageResult
+          pipeline.progress = 25
+        } catch (error) {
+          console.error('Image generation failed:', error)
+          pipeline.stages.imageGeneration.status = 'failed'
+          pipeline.stages.imageGeneration.error = error.message
+          throw error
+        }
       }
       
       // Stage 3: Image to 3D with Meshy AI
@@ -228,9 +245,13 @@ export class GenerationService extends EventEmitter {
         // Ensure we have a publicly accessible URL for Meshy
         console.log('📸 Initial image URL:', imageUrlForMeshy)
         
-        // Check if we're using localhost - Meshy can't access localhost URLs
-        if (imageUrlForMeshy.includes('localhost') || imageUrlForMeshy.includes('127.0.0.1')) {
-          console.warn('⚠️ Localhost URL detected - uploading to public hosting...')
+        // Meshy can't access localhost, 127.0.0.1, or data URIs - rehost if needed
+        if (
+          imageUrlForMeshy.startsWith('data:') ||
+          imageUrlForMeshy.includes('localhost') ||
+          imageUrlForMeshy.includes('127.0.0.1')
+        ) {
+          console.warn('⚠️ Non-public image reference detected - uploading to public hosting...')
           
           // Use the image hosting service to get a public URL
           try {
@@ -243,21 +264,43 @@ export class GenerationService extends EventEmitter {
           }
         }
         
+        // Determine quality settings based on explicit config, style cues, and avatar type
+        const styleText = (pipeline.config.customPrompts && pipeline.config.customPrompts.gameStyle) || ''
+        const wantsHighQuality = /\b(4k|ultra|high\s*quality|realistic|cinematic|marvel|skyrim)\b/i.test(styleText)
+        const isAvatar = pipeline.config.generationType === 'avatar' || pipeline.config.type === 'character'
+
+        const quality = pipeline.config.quality || (wantsHighQuality || isAvatar ? 'ultra' : 'standard')
+        const targetPolycount = quality === 'ultra' ? 20000 : quality === 'high' ? 12000 : 6000
+        const textureResolution = quality === 'ultra' ? 4096 : quality === 'high' ? 2048 : 1024
+        const enablePbr = quality !== 'standard'
+
+        // Allow per-quality model selection via env, with a sensible default
+        const qualityUpper = quality.toUpperCase()
+        const aiModelEnv = process.env[`MESHY_MODEL_${qualityUpper}`] || process.env.MESHY_MODEL_DEFAULT
+        const aiModel = aiModelEnv || 'meshy-5'
+
         meshyTaskId = await this.aiService.meshyService.startImageTo3D(imageUrlForMeshy, {
-          enable_pbr: false,
-          ai_model: 'meshy-4',
+          enable_pbr: enablePbr,
+          ai_model: aiModel,
           topology: 'quad',
-          targetPolycount: 2000,
-          texture_resolution: 512
+          targetPolycount: targetPolycount,
+          texture_resolution: textureResolution
         })
         
         // Poll for completion
         let meshyResult = null
         let attempts = 0
-        const maxAttempts = 60 // 5 minutes with 5 second intervals
+        const pollIntervalMs = parseInt(process.env.MESHY_POLL_INTERVAL_MS || '5000', 10)
+        const timeoutMs = parseInt(
+          (process.env[`MESHY_TIMEOUT_${qualityUpper}_MS`] || process.env.MESHY_TIMEOUT_MS || '300000'),
+          10
+        )
+        const maxAttempts = Math.max(1, Math.ceil(timeoutMs / pollIntervalMs))
+        
+        console.log(`⏳ Meshy polling configured: quality=${quality}, model=${aiModel}, interval=${pollIntervalMs}ms, timeout=${timeoutMs}ms, maxAttempts=${maxAttempts}`)
         
         while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds
+          await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
           
           const status = await this.aiService.meshyService.getTaskStatus(meshyTaskId)
           pipeline.stages.image3D.progress = status.progress || (attempts / maxAttempts * 100)
@@ -278,7 +321,7 @@ export class GenerationService extends EventEmitter {
         
         // Download and save the model
         const modelBuffer = await this.downloadFile(meshyResult.model_urls.glb)
-        const outputDir = path.join(this.outputDir, 'forge', pipeline.config.assetId)
+        const outputDir = path.join('gdd-assets', pipeline.config.assetId)
         await fs.mkdir(outputDir, { recursive: true })
         
         // Save raw model first
@@ -451,14 +494,14 @@ export class GenerationService extends EventEmitter {
             
             // Save variant
             const variantId = `${pipeline.config.assetId}-${preset.id}`
-            const variantDir = path.join(this.outputDir, 'forge', variantId)
+            const variantDir = path.join('gdd-assets', variantId)
             await fs.mkdir(variantDir, { recursive: true })
             
             const variantBuffer = await this.downloadFile(retextureResult.model_urls.glb)
             await fs.writeFile(path.join(variantDir, `${variantId}.glb`), variantBuffer)
             
             // Copy concept art
-            const conceptArtPath = path.join(this.outputDir, 'forge', pipeline.config.assetId, 'concept-art.png')
+            const conceptArtPath = path.join('gdd-assets', pipeline.config.assetId, 'concept-art.png')
             if (await fs.access(conceptArtPath).then(() => true).catch(() => false)) {
               await fs.copyFile(conceptArtPath, path.join(variantDir, 'concept-art.png'))
             }
@@ -528,7 +571,7 @@ export class GenerationService extends EventEmitter {
         // Update base model metadata with variant information
         const successfulVariants = variants.filter(v => v.success)
         if (successfulVariants.length > 0) {
-          const baseMetadataPath = path.join(this.outputDir, 'forge', pipeline.config.assetId, 'metadata.json')
+          const baseMetadataPath = path.join('gdd-assets', pipeline.config.assetId, 'metadata.json')
           const baseMetadata = JSON.parse(await fs.readFile(baseMetadataPath, 'utf-8'))
           
           baseMetadata.variants = successfulVariants.map(v => v.id)
@@ -584,7 +627,7 @@ export class GenerationService extends EventEmitter {
           }
           
           // Download rigged model and animations
-          const outputDir = path.join(this.outputDir, 'forge', pipeline.config.assetId)
+          const outputDir = path.join('gdd-assets', pipeline.config.assetId)
           const riggedAssets = {}
           
           // IMPORTANT: For rigged avatars, we DON'T replace the main model
@@ -676,7 +719,7 @@ export class GenerationService extends EventEmitter {
           
           // Update metadata to indicate rigging failed
           try {
-            const outputDir = path.join(this.outputDir, 'forge', pipeline.config.assetId)
+            const outputDir = path.join('gdd-assets', pipeline.config.assetId)
             const metadataPath = path.join(outputDir, 'metadata.json')
             const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
             
@@ -711,18 +754,6 @@ export class GenerationService extends EventEmitter {
         modelUrl: `/assets/${pipeline.config.assetId}/${pipeline.config.assetId}.glb`,
         conceptArtUrl: `/assets/${pipeline.config.assetId}/concept-art.png`,
         variants: pipeline.results.textureGeneration?.variants || []
-      }
-      
-      // Write Hyperscape manifest on successful completion
-      try {
-        const finalMetadataPath = path.join(this.outputDir, 'forge', pipeline.config.assetId, 'metadata.json')
-        const finalMetadata = JSON.parse(await fs.readFile(finalMetadataPath, 'utf-8'))
-        
-        // Use the enhanced writeManifest router that handles all types
-        await this.manifestService.writeManifest(pipeline.config.assetId, finalMetadata, pipeline.config)
-        console.log(`[GenerationService] ✅ Manifest written for ${pipeline.config.assetId}`)
-      } catch (manifestError) {
-        console.warn('[GenerationService] Failed to write manifest:', manifestError.message)
       }
       
     } catch (error) {
@@ -788,9 +819,12 @@ Your task is to enhance the user's description to create better results with ima
     
     systemPrompt += '\n' + (gpt4Prompts?.systemPrompt?.closingInstruction || 'Keep the enhanced prompt concise but detailed.')
     
+    // Include custom game style text (if present) ahead of the description for better style adherence
+    const stylePrefix = config.customPrompts?.gameStyle ? `${config.customPrompts.gameStyle} — ` : ''
+    const baseDescription = `${stylePrefix}${config.description}`
     const userPrompt = isArmor 
-      ? (gpt4Prompts?.typeSpecific?.armor?.enhancementPrefix || `Enhance this armor piece description for 3D generation. CRITICAL: The armor must be SHAPED FOR A T-POSE BODY - shoulder openings must point STRAIGHT SIDEWAYS at 90 degrees (like a scarecrow), NOT angled downward! Should look like a wide "T" shape. Ends at shoulders (no arm extensions), hollow openings, no armor stand: `) + `"${config.description}"`
-      : `Enhance this ${config.type} asset description for 3D generation: "${config.description}"`
+      ? (gpt4Prompts?.typeSpecific?.armor?.enhancementPrefix || `Enhance this armor piece description for 3D generation. CRITICAL: The armor must be SHAPED FOR A T-POSE BODY - shoulder openings must point STRAIGHT SIDEWAYS at 90 degrees (like a scarecrow), NOT angled downward! Should look like a wide "T" shape. Ends at shoulders (no arm extensions), hollow openings, no armor stand: `) + `"${baseDescription}"`
+      : `Enhance this ${config.type} asset description for 3D generation: "${baseDescription}"`
     
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -829,12 +863,12 @@ Your task is to enhance the user's description to create better results with ima
       // Load generation prompts for fallback
       const generationPrompts = await getGenerationPrompts()
       const fallbackTemplate = generationPrompts?.imageGeneration?.fallbackEnhancement || 
-        '${config.description}. ${config.style || "Low-poly RuneScape 2007"} style, clean geometry, game-ready 3D asset.'
+        '${config.description}. ${config.style || "game-ready"} style, clean geometry, game-ready 3D asset.'
       
       // Replace template variables
       const fallbackPrompt = fallbackTemplate
         .replace('${config.description}', config.description)
-        .replace('${config.style || "Low-poly RuneScape 2007"}', config.style || 'Low-poly RuneScape 2007')
+        .replace('${config.style || "game-ready"}', config.style || 'game-ready')
       
       return {
         originalPrompt: config.description,

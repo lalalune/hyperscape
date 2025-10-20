@@ -1,9 +1,10 @@
-import React from 'react'
-import { cn } from '../../styles'
 import { Ruler, RefreshCw, Info } from 'lucide-react'
-import { RangeInput, Button, Badge, Checkbox } from '../common'
+import React from 'react'
+
 import { CREATURE_PRESETS, CREATURE_SIZE_CATEGORIES, getCreatureCategory } from '../../constants'
 import { CreatureScalingService } from '../../services/processing/CreatureScalingService'
+import { cn } from '../../styles'
+import { RangeInput, Button, Badge, Checkbox } from '../common'
 
 interface CreatureSizeControlsProps {
   avatarHeight: number

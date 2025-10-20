@@ -1,5 +1,5 @@
-import React from 'react'
 import { Package } from 'lucide-react'
+import React from 'react'
 
 export const EmptyAssetState: React.FC = () => {
   return (

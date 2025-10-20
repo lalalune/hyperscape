@@ -5,6 +5,8 @@
 
 import { MaterialPreset, AssetMetadata } from '../../types'
 
+import { apiFetch } from '@/utils/api'
+
 export type { MaterialPreset }
 
 export interface Asset {
@@ -35,11 +37,12 @@ class AssetServiceClass {
   private baseUrl = '/api'
 
   async listAssets(): Promise<Asset[]> {
-    const response = await fetch(`${this.baseUrl}/assets?t=${Date.now()}`, {
+    const response = await apiFetch(`${this.baseUrl}/assets?t=${Date.now()}`, {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
-      }
+      },
+      timeoutMs: 15000
     })
     if (!response.ok) {
       throw new Error('Failed to fetch assets')
@@ -48,7 +51,7 @@ class AssetServiceClass {
   }
 
   async getMaterialPresets(): Promise<MaterialPreset[]> {
-    const response = await fetch(`${this.baseUrl}/material-presets`)
+    const response = await apiFetch(`${this.baseUrl}/material-presets`, { timeoutMs: 10000 })
     if (!response.ok) {
       throw new Error('Failed to fetch material presets')
     }
@@ -56,12 +59,13 @@ class AssetServiceClass {
   }
 
   async retexture(request: RetextureRequest): Promise<RetextureResponse> {
-    const response = await fetch(`${this.baseUrl}/retexture`, {
+    const response = await apiFetch(`${this.baseUrl}/retexture`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(request)
+      body: JSON.stringify(request),
+      timeoutMs: 30000
     })
     
     if (!response.ok) {

@@ -17,57 +17,34 @@ export class AICreationService {
 class ImageGenerationService {
   constructor(config) {
     this.apiKey = config.apiKey
-    this.model = config.model || 'dall-e-3'  // Use DALL-E 3 by default (doesn't require org verification)
+    this.model = config.model || 'gpt-image-1'
   }
 
   async generateImage(description, assetType, style) {
     // Load generation prompts
     const generationPrompts = await getGenerationPrompts()
     const promptTemplate = generationPrompts?.imageGeneration?.base || 
-      '${description}. ${style || "Low-poly game asset"} style, ${assetType}, clean geometry suitable for 3D conversion.'
+      '${description}. ${style || "game-ready"} style, ${assetType}, clean geometry suitable for 3D conversion.'
     
     // Replace template variables
     const prompt = promptTemplate
       .replace('${description}', description)
-      .replace('${style || "Low-poly game asset"}', style || 'Low-poly game asset')
+      .replace('${style || "game-ready"}', style || 'game-ready')
       .replace('${assetType}', assetType)
 
-    // Try gpt-image-1 first, fallback to DALL-E 3 if it fails
-    let model = this.model
-    let response = await fetch('https://api.openai.com/v1/images/generations', {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: model,
+        model: this.model,
         prompt: prompt,
         size: '1024x1024',
-        quality: model === 'dall-e-3' ? 'standard' : 'high',
-        ...(model === 'dall-e-3' ? { response_format: 'b64_json' } : {})
+        quality: 'high'  // gpt-image-1 doesn't support n or response_format parameters
       })
     })
-
-    // If gpt-image-1 fails with 403 (org verification), fallback to DALL-E 3
-    if (!response.ok && response.status === 403 && model === 'gpt-image-1') {
-      console.warn('[ImageGen] gpt-image-1 requires org verification, falling back to DALL-E 3')
-      model = 'dall-e-3'
-      response = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt: prompt,
-          size: '1024x1024',
-          quality: 'standard',
-          response_format: 'b64_json'
-        })
-      })
-    }
 
     if (!response.ok) {
       const error = await response.text()
@@ -80,8 +57,10 @@ class ImageGenerationService {
 
     // Handle both URL and base64 responses
     if (imageData.b64_json) {
+      // gpt-image-1 returns base64 data
       imageUrl = `data:image/png;base64,${imageData.b64_json}`
     } else if (imageData.url) {
+      // Some models return URLs
       imageUrl = imageData.url
     } else {
       throw new Error('No image data returned from OpenAI')
@@ -91,9 +70,9 @@ class ImageGenerationService {
       imageUrl: imageUrl,
       prompt: prompt,
       metadata: {
-        model: model,
+        model: this.model,
         resolution: '1024x1024',
-        quality: model === 'dall-e-3' ? 'standard' : 'high',
+        quality: 'high',
         timestamp: new Date().toISOString()
       }
     }
@@ -129,7 +108,13 @@ class MeshyService {
     }
 
     const data = await response.json()
-    return data.result || data
+    // Normalize to task id string for polling
+    const taskId = data.task_id || data.id || (data.result && (data.result.task_id || data.result.id))
+    if (!taskId) {
+      // Fallback to previous behavior but this will likely break polling
+      return data.result || data
+    }
+    return taskId
   }
 
   async getTaskStatus(taskId) {
@@ -182,7 +167,12 @@ class MeshyService {
     }
 
     const data = await response.json()
-    return data.result || data
+    // Normalize to task id string for polling
+    const taskId = data.task_id || data.id || (data.result && (data.result.task_id || data.result.id))
+    if (!taskId) {
+      return data.result || data
+    }
+    return taskId
   }
 
   async getRetextureTaskStatus(taskId) {
@@ -230,7 +220,12 @@ class MeshyService {
     }
 
     const data = await response.json()
-    return data.result || data
+    // Normalize to task id string for polling
+    const taskId = data.task_id || data.id || (data.result && (data.result.task_id || data.result.id))
+    if (!taskId) {
+      return data.result || data
+    }
+    return taskId
   }
 
   async getRiggingTaskStatus(taskId) {

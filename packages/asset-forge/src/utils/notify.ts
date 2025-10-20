@@ -5,9 +5,11 @@ interface NotifyOptions {
 }
 
 function showToast(message: string, level: NotifyLevel, opts?: NotifyOptions) {
+  // If you have a UI toast system, integrate here.
+  // For now, fallback to console and non-blocking overlay.
   if (typeof document === 'undefined') {
     const prefix = level === 'error' ? '[ERROR]' : level === 'warning' ? '[WARN]' : '[INFO]'
-    // eslint-disable-next-line no-console
+     
     console.log(prefix, message)
     return
   }

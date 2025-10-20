@@ -1,12 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { useAssets } from '../hooks/useAssets'
+
 import { Asset } from '../types'
-import { EquipmentViewerRef } from '../components/Equipment/EquipmentViewer'
-import { WeaponHandleDetector } from '../services/processing/WeaponHandleDetector'
-import type { HandleDetectionResult } from '../services/processing/WeaponHandleDetector'
 import { notify } from '../utils/notify'
 
-// Import all modular components
 import {
   AssetSelectionPanel,
   ViewportSection,
@@ -16,7 +12,14 @@ import {
   PositionControls,
   CreatureSizeControls,
   ExportOptionsPanel
-} from '../components/Equipment'
+} from '@/components/Equipment'
+import { EquipmentViewerRef } from '@/components/Equipment/EquipmentViewer'
+import { useAssets } from '@/hooks'
+import { WeaponHandleDetector } from '@/services/processing/WeaponHandleDetector'
+import type { HandleDetectionResult } from '@/services/processing/WeaponHandleDetector'
+
+
+// Import all modular components
 
 export const EquipmentPage: React.FC = () => {
   const { assets, loading } = useAssets()
@@ -46,7 +49,7 @@ export const EquipmentPage: React.FC = () => {
   const [currentAnimation, setCurrentAnimation] = useState<'tpose' | 'walking' | 'running'>('tpose')
   const [isAnimationPlaying, setIsAnimationPlaying] = useState(false)
 
-  const viewerRef = useRef<EquipmentViewerRef>(null!)
+  const viewerRef = useRef<EquipmentViewerRef>(null)
   const handleDetector = useRef<WeaponHandleDetector | null>(null)
 
   // Initialize handle detector
@@ -63,34 +66,39 @@ export const EquipmentPage: React.FC = () => {
   }, [])
 
   const handleDetectGripPoint = async () => {
-    const equipment = selectedEquipment!
-    const detector = handleDetector.current!
+    if (!selectedEquipment || !selectedEquipment.hasModel || !handleDetector.current) return
 
     setIsDetectingHandle(true)
 
-    const modelUrl = `/api/assets/${equipment.id}/model`
-    const result = await detector.detectHandleArea(modelUrl, true) // Always use consensus mode
-    setHandleDetectionResult(result)
+    try {
+      const modelUrl = `/api/assets/${selectedEquipment.id}/model`
+      const result = await handleDetector.current.detectHandleArea(modelUrl, true) // Always use consensus mode
+      setHandleDetectionResult(result)
 
-    // Log the result for analysis
-    console.log('Grip detection result:', {
-      gripPoint: result.gripPoint,
-      confidence: result.confidence,
-      bounds: result.redBoxBounds,
-      vertexCount: result.vertices?.length || 0
-    })
+      // Log the result for analysis
+      console.log('Grip detection result:', {
+        gripPoint: result.gripPoint,
+        confidence: result.confidence,
+        bounds: result.redBoxBounds,
+        vertexCount: result.vertices?.length || 0
+      })
 
-    // With normalized weapons, grip should already be at origin
-    if (result.gripPoint.length() > 0.1) {
-      console.warn('Weapon may not be normalized - grip not at origin')
+      // With normalized weapons, grip should already be at origin
+      if (result.gripPoint.length() > 0.1) {
+        console.warn('Weapon may not be normalized - grip not at origin')
+      }
+
+      // Show success message
+      setTimeout(() => {
+        notify.success('Grip point detected! Weapon is normalized with grip at origin.')
+      }, 100)
+
+    } catch (error) {
+      console.error('Handle detection failed:', error)
+      notify.error(`Handle detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsDetectingHandle(false)
     }
-
-    // Show success message
-    setTimeout(() => {
-      notify.success('Grip point detected! Weapon is normalized with grip at origin.')
-    }, 100)
-
-    setIsDetectingHandle(false)
   }
 
   const handleSaveConfiguration = () => {
@@ -112,35 +120,41 @@ export const EquipmentPage: React.FC = () => {
   }
 
   const handleExportAlignedModel = async () => {
-    const equipment = selectedEquipment!
-    const viewer = viewerRef.current!
+    if (!selectedEquipment || !viewerRef.current) return
 
-    const alignedModel = await viewer.exportAlignedEquipment()
+    try {
+      const alignedModel = await viewerRef.current.exportAlignedEquipment()
 
-    // Create download link
-    const blob = new Blob([alignedModel], { type: 'model/gltf-binary' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${equipment.name}-aligned.glb`
-    a.click()
-    URL.revokeObjectURL(url)
+      // Create download link
+      const blob = new Blob([alignedModel], { type: 'model/gltf-binary' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${selectedEquipment.name}-aligned.glb`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Export failed:', error)
+    }
   }
 
   const handleExportEquippedAvatar = async () => {
-    const avatar = selectedAvatar!
-    const viewer = viewerRef.current!
+    if (!selectedAvatar || !selectedEquipment || !viewerRef.current) return
 
-    const equippedModel = await viewer.exportEquippedModel()
+    try {
+      const equippedModel = await viewerRef.current.exportEquippedModel()
 
-    // Create download link
-    const blob = new Blob([equippedModel], { type: 'model/gltf-binary' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${avatar.name}-equipped.glb`
-    a.click()
-    URL.revokeObjectURL(url)
+      // Create download link
+      const blob = new Blob([equippedModel], { type: 'model/gltf-binary' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${selectedAvatar.name}-equipped.glb`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Export failed:', error)
+    }
   }
 
   const handleReset = () => {

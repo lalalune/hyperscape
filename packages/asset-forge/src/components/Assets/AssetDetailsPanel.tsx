@@ -1,26 +1,18 @@
-import React, { useState } from 'react'
-import { Asset } from '../../types'
 import { 
   X, Package, Hash, Tag, Calendar, Layers, Palette, Box, 
   FileCode, ChevronRight, Copy, Check,
   Sparkles, AlertCircle, Download, Share2, Code
 } from 'lucide-react'
+import React, { useState } from 'react'
+
 import { getTierColor } from '../../constants'
+import { Asset } from '../../types'
 
 interface AssetDetailsPanelProps {
   asset: Asset
   isOpen: boolean
   onClose: () => void
   modelInfo?: { vertices: number, faces: number, materials: number, fileSize?: number } | null
-}
-
-// Format unknown metadata values for display
-// Note: This is acceptable runtime checking at the UI boundary for rendering arbitrary metadata
-const formatMetadataValue = (value: unknown): string => {
-  if (value === null || value === undefined) return 'N/A'
-  if (value === true) return 'Yes'
-  if (value === false) return 'No'
-  return String(value)
 }
 
 const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, onClose, modelInfo }) => {
@@ -259,7 +251,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
                           {key.replace(/([A-Z])/g, ' $1').trim()}
                         </p>
                         <p className="text-xs text-text-secondary font-medium">
-                          {formatMetadataValue(value)}
+                          {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
                         </p>
                       </div>
                     ))

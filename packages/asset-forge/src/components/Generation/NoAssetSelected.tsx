@@ -1,6 +1,7 @@
-import React from 'react'
-import { Card } from '../common'
 import { Package } from 'lucide-react'
+import React from 'react'
+
+import { Card } from '../common'
 
 export const NoAssetSelected: React.FC = () => {
   return (
