@@ -11,7 +11,8 @@ import {
   Layers,
   Camera,
   Edit3,
-  Activity
+  Activity,
+  Grid3x3
 } from 'lucide-react'
 import React from 'react'
 
@@ -46,7 +47,8 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
     toggleAnimationView,
     setShowRetextureModal,
     setShowRegenerateModal,
-    setShowEditModal
+    setShowEditModal,
+    setShowSpriteModal
   } = useAssetsStore()
 
   return (
@@ -71,6 +73,15 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
         >
           <RefreshCw size={16} />
           <span className="text-sm font-medium">Regenerate</span>
+        </button>
+
+        <button
+          onClick={() => setShowSpriteModal(true)}
+          className="px-4 py-2 bg-bg-secondary bg-opacity-90 hover:bg-bg-tertiary text-text-primary rounded-lg shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 border border-border-primary"
+          title="Generate sprite sheet"
+        >
+          <Grid3x3 size={16} />
+          <span className="text-sm font-medium">Sprites</span>
         </button>
       </div>
       

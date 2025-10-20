@@ -227,6 +227,84 @@ app.patch('/api/assets/:id', async (req, res, next) => {
   }
 })
 
+// Save sprites for an asset
+app.post('/api/assets/:id/sprites', async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { sprites, config } = req.body
+    
+    console.log(`[Sprites] Saving ${sprites?.length || 0} sprites for asset: ${id}`)
+    
+    if (!sprites || !Array.isArray(sprites)) {
+      return res.status(400).json({ error: 'Invalid sprites data' })
+    }
+    
+    // Create sprites directory
+    const assetDir = path.join(ROOT_DIR, 'gdd-assets', id)
+    const spritesDir = path.join(assetDir, 'sprites')
+    
+    console.log(`[Sprites] Creating directory: ${spritesDir}`)
+    await fs.promises.mkdir(spritesDir, { recursive: true })
+    
+    // Save each sprite image
+    for (const sprite of sprites) {
+      const { angle, imageData } = sprite
+      
+      // Extract base64 data from data URL
+      const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      
+      // Save as PNG file
+      const filename = `${angle}deg.png`
+      const filepath = path.join(spritesDir, filename)
+      await fs.promises.writeFile(filepath, buffer)
+      console.log(`[Sprites] Saved: ${filename} (${(buffer.length / 1024).toFixed(2)} KB)`)
+    }
+    
+    // Save sprite metadata
+    const spriteMetadata = {
+      assetId: id,
+      config: config || {},
+      angles: sprites.map(s => s.angle),
+      spriteCount: sprites.length,
+      status: 'completed',
+      generatedAt: new Date().toISOString()
+    }
+    
+    const metadataPath = path.join(assetDir, 'sprite-metadata.json')
+    await fs.promises.writeFile(metadataPath, JSON.stringify(spriteMetadata, null, 2))
+    console.log(`[Sprites] Saved sprite-metadata.json`)
+    
+    // Update asset metadata to indicate sprites are available
+    // Read current metadata
+    const assetMetadataPath = path.join(assetDir, 'metadata.json')
+    const currentMetadata = JSON.parse(await fs.promises.readFile(assetMetadataPath, 'utf-8'))
+    
+    // Update with sprite info
+    const updatedMetadata = {
+      ...currentMetadata,
+      hasSpriteSheet: true,
+      spriteCount: sprites.length,
+      spriteConfig: config,
+      lastSpriteGeneration: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    
+    await fs.promises.writeFile(assetMetadataPath, JSON.stringify(updatedMetadata, null, 2))
+    console.log(`[Sprites] Updated asset metadata with sprite info`)
+    
+    res.json({ 
+      success: true, 
+      message: `${sprites.length} sprites saved successfully`,
+      spritesDir: `gdd-assets/${id}/sprites`,
+      spriteFiles: sprites.map(s => `${s.angle}deg.png`)
+    })
+  } catch (error) {
+    console.error('[Sprites] Failed to save sprites:', error)
+    next(error)
+  }
+})
+
 app.get('/api/material-presets', async (req, res, next) => {
   try {
     const presetsPath = path.join(ROOT_DIR, 'public/prompts/material-presets.json')

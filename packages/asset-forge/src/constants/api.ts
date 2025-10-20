@@ -5,6 +5,7 @@ export const API_ENDPOINTS = {
   ASSET_BY_ID: (id: string) => `/api/assets/${id}`,
   ASSET_MODEL: (id: string) => `/api/assets/${id}/model`,
   ASSET_FILE: (id: string, filename: string) => `/api/assets/${id}/${filename}`,
+  ASSET_SPRITES: (id: string) => `/api/assets/${id}/sprites`,
   
   // Generation
   GENERATION: '/api/generation',
