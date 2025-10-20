@@ -90,6 +90,29 @@ export class SkillsSystem extends SystemBase {
     this.subscribe(EventType.QUEST_COMPLETED, (data: { playerId: string; questId: string; rewards: { xp?: Record<keyof Skills, number> } }) => {
       this.handleQuestComplete(data);
     });
+    
+    // Load skills from database on player registration (mirror InventorySystem pattern)
+    this.subscribe(EventType.PLAYER_REGISTERED, async (data: { playerId: string }) => {
+      await this.loadPlayerSkillsFromDatabase(data.playerId);
+    });
+  }
+  
+  private async loadPlayerSkillsFromDatabase(playerId: string): Promise<void> {
+    // Only load on server
+    if (!this.world.isServer) return;
+    
+    const entity = this.world.entities.get(playerId) as Entity;
+    if (!entity) return;
+    
+    // Get entity's skills from data (already loaded by ServerNetwork)
+    const entityData = entity.data as { skills?: Record<string, { level: number; xp: number }> };
+    if (entityData.skills) {
+      // Emit SKILLS_UPDATED so all systems and UI get initial skills
+      this.emitTypedEvent(EventType.SKILLS_UPDATED, {
+        playerId,
+        skills: entityData.skills as unknown as Skills
+      });
+    }
   }
 
   update(_deltaTime: number): void {
@@ -104,36 +127,23 @@ export class SkillsSystem extends SystemBase {
    * Add XP internally without emitting events (used by external XP handlers)
    */
   private addXPInternal(entityId: string, skill: keyof Skills, amount: number): void {
-    console.log('[SkillsSystem] 🔧 addXPInternal called:', {
-      entityId,
-      skill,
-      amount,
-      hasEntity: !!this.world.entities.get(entityId)
-    });
     const entity = this.world.entities.get(entityId) as Entity;
     if (!entity) {
-      console.warn('[SkillsSystem] ❌ Entity not found:', entityId);
+      console.warn('[SkillsSystem] Entity not found:', entityId);
       return;
     }
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] ❌ Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
+      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component`);
       return;
     }
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] ❌ Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}`);
       return;
     }
-    console.log('[SkillsSystem] ✅ About to add XP:', {
-      entityId,
-      skill,
-      amount,
-      currentXP: skillData.xp,
-      currentLevel: skillData.level
-    });
 
     // Apply XP modifiers (e.g., from equipment, prayers, etc.)
     const modifiedAmount = this.calculateModifiedXP(entity, skill, amount);
@@ -147,20 +157,12 @@ export class SkillsSystem extends SystemBase {
 
     // Update XP
     skillData.xp = newXP;
-    console.log('[SkillsSystem] ✨ XP updated:', {
-      entityId,
-      skill,
-      oldXP,
-      newXP,
-      actualGain
-    });
 
     // Check for level up
     const oldLevel = skillData.level;
     const newLevel = this.getLevelForXP(newXP);
 
     if (newLevel > oldLevel) {
-      console.log('[SkillsSystem] 🎉 LEVEL UP!', { entityId, skill, oldLevel, newLevel });
       this.handleLevelUp(entity, skill, oldLevel, newLevel);
     }
 
@@ -182,10 +184,6 @@ export class SkillsSystem extends SystemBase {
       position: { x: 0, y: 0, z: 0 } // Position not used for non-visual drops
     });
 
-    console.log('[SkillsSystem] 📤 Emitting SKILLS_UPDATED:', {
-      playerId: entityId,
-      skills: this.getSkills(entityId)
-    });
     // Emit skills updated event for UI (but not XP_GAINED to avoid loops)
     this.emitTypedEvent(EventType.SKILLS_UPDATED, {
       playerId: entityId,
@@ -194,88 +192,15 @@ export class SkillsSystem extends SystemBase {
   }
 
   /**
-   * Grant XP to a specific skill
+   * Grant XP to a specific skill (public API)
+   * Routes through event system to maintain consistency
    */
   public grantXP(entityId: string, skill: keyof Skills, amount: number): void {
-    console.log(`[SkillsSystem] ⬆️ Granting ${amount} XP to ${entityId} in ${skill}`);
-    
-    let entity = this.world.entities.get(entityId) as Entity;
-    
-    // Fallback: try to find player in players map if not found in items
-    if (!entity) {
-      const player = this.world.entities.players.get(entityId);
-      if (player) {
-        entity = player as Entity;
-      }
-    }
-    
-    if (!entity) {
-      console.warn(`[SkillsSystem] Entity ${entityId} not found for XP grant`);
-      return;
-    }
-
-    const stats = getStatsComponent(entity);
-    if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
-      return;
-    }
-
-    const skillData = stats[skill] as SkillData;
-    if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
-      return;
-    }
-
-    // Apply XP modifiers (e.g., from equipment, prayers, etc.)
-    const modifiedAmount = this.calculateModifiedXP(entity, skill, amount);
-
-    // Check XP cap
-    const oldXP = skillData.xp;
-    const newXP = Math.min(oldXP + modifiedAmount, SkillsSystem.MAX_XP);
-    const actualGain = newXP - oldXP;
-
-    if (actualGain <= 0) return;
-
-    // Update XP
-    skillData.xp = newXP;
-
-    // Check for level up
-    const oldLevel = skillData.level;
-    const newLevel = this.getLevelForXP(newXP);
-
-    if (newLevel > oldLevel) {
-      this.handleLevelUp(entity, skill, oldLevel, newLevel);
-    }
-
-    // Update combat level if it's a combat skill
-    if (SkillsSystem.COMBAT_SKILLS.includes(skill as keyof Skills)) {
-      this.updateCombatLevel(entity, stats);
-    }
-
-    // Update total level
-    this.updateTotalLevel(entity, stats);
-
-    // Add XP drop for UI
-    this.xpDrops.push({
-      entityId,
-      playerId: entityId,
-      skill,
-      amount: actualGain,
-      timestamp: Date.now(),
-      position: { x: 0, y: 0, z: 0 } // Position not used for non-visual drops
-    });
-
-    // Emit XP gained event
+    // Use event system for consistency with other XP sources
     this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
       playerId: entityId,
       skill,
-      amount: actualGain
-    });
-
-    // Emit skills updated event for UI
-    this.emitTypedEvent(EventType.SKILLS_UPDATED, {
-      playerId: entityId,
-      skills: this.getSkills(entityId) || {}
+      amount
     });
   }
 
@@ -620,23 +545,14 @@ export class SkillsSystem extends SystemBase {
   }): void {
     const { attackerId, targetId, attackStyle } = data;
     
-    console.log(`[SkillsSystem] 🎯 Combat kill: attacker=${attackerId}, target=${targetId}, style=${attackStyle}`);
-    
     const target = this.world.entities.get(targetId) as Entity;
-    if (!target) {
-      console.warn(`[SkillsSystem] Target entity ${targetId} not found`);
-      return;
-    }
+    if (!target) return;
 
     const targetStats = getStatsComponent(target);
-    if (!targetStats) {
-      console.warn(`[SkillsSystem] Target ${targetId} has no stats component`);
-      return;
-    }
+    if (!targetStats) return;
 
     // Calculate XP based on target's hitpoints
     const baseXP = (targetStats.health?.max ?? 10) * 4; // 4 XP per hitpoint
-    console.log(`[SkillsSystem] 💰 Granting ${baseXP} base XP for killing ${targetId}`);
     
     // Grant XP based on attack style using the same pattern as ResourceSystem
     switch (attackStyle) {
@@ -728,12 +644,6 @@ export class SkillsSystem extends SystemBase {
     skill: keyof Skills;
     amount: number;
   }): void {
-    console.log('[SkillsSystem] 📥 handleExternalXPGain called:', {
-      playerId: data.playerId,
-      skill: data.skill,
-      amount: data.amount,
-      hasEntity: !!this.world.entities.get(data.playerId)
-    });
     // Handle XP gained from other systems (ResourceSystem, ProcessingSystem, etc.)
     // Use private method to avoid event loop
     this.addXPInternal(data.playerId, data.skill, data.amount);

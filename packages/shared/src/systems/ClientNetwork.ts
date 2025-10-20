@@ -972,7 +972,14 @@ export class ClientNetwork extends SystemBase {
   
   onPlayerState = (data: unknown) => {
     // Forward player state updates from server to local UI_UPDATE event
-    console.log('[ClientNetwork] 📥 Received playerState packet:', data);
+    const playerData = data as { playerId?: string; skills?: Record<string, { level: number; xp: number }> };
+    
+    // Cache skills if provided
+    if (playerData.playerId && playerData.skills) {
+      this.lastSkillsByPlayerId = this.lastSkillsByPlayerId || {}
+      this.lastSkillsByPlayerId[playerData.playerId] = playerData.skills
+    }
+    
     this.world.emit(EventType.UI_UPDATE, {
       component: 'player',
       data: data

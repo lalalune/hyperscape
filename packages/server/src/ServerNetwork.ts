@@ -470,17 +470,33 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     let position = Array.isArray(this.spawn.position) ? [...this.spawn.position] as [number, number, number] : [0, 50, 0];
     const quaternion = Array.isArray(this.spawn.quaternion) ? [...this.spawn.quaternion] as [number, number, number, number] : [0, 0, 0, 1];
     
-    // Try to load saved position from DB for this character
+    // Load full character data from DB (position AND skills)
+    let savedSkills: Record<string, { level: number; xp: number }> | undefined;
     if (characterId && accountId) {
       try {
         const databaseSystem = this.world.getSystem('database') as import('./DatabaseSystem').DatabaseSystem | undefined
         if (databaseSystem) {
           const savedData = await databaseSystem.getPlayerAsync(characterId)
-          if (savedData && savedData.positionX !== undefined) {
-            const savedY = savedData.positionY !== undefined && savedData.positionY !== null ? Number(savedData.positionY) : 10
-            if (savedY >= 5 && savedY <= 200) {
-              position = [Number(savedData.positionX) || 0, savedY, Number(savedData.positionZ) || 0]
+          if (savedData) {
+            // Load position
+            if (savedData.positionX !== undefined) {
+              const savedY = savedData.positionY !== undefined && savedData.positionY !== null ? Number(savedData.positionY) : 10
+              if (savedY >= 5 && savedY <= 200) {
+                position = [Number(savedData.positionX) || 0, savedY, Number(savedData.positionZ) || 0]
+              }
             }
+            // Load skills
+            savedSkills = {
+              attack: { level: savedData.attackLevel, xp: savedData.attackXp },
+              strength: { level: savedData.strengthLevel, xp: savedData.strengthXp },
+              defense: { level: savedData.defenseLevel, xp: savedData.defenseXp },
+              constitution: { level: savedData.constitutionLevel, xp: savedData.constitutionXp },
+              ranged: { level: savedData.rangedLevel, xp: savedData.rangedXp },
+              woodcutting: { level: savedData.woodcuttingLevel || 1, xp: savedData.woodcuttingXp || 0 },
+              fishing: { level: savedData.fishingLevel || 1, xp: savedData.fishingXp || 0 },
+              firemaking: { level: savedData.firemakingLevel || 1, xp: savedData.firemakingXp || 0 },
+              cooking: { level: savedData.cookingLevel || 1, xp: savedData.cookingXp || 0 },
+            };
           }
         }
       } catch {}
@@ -511,6 +527,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       avatar: this.world.settings.avatar?.url || 'asset://avatar.vrm',
       sessionAvatar: avatar || undefined,
       roles,
+      // CRITICAL: Pass loaded skills so PlayerEntity constructor uses them instead of defaults
+      skills: savedSkills,
     }) : undefined;
       socket.player = addedEntity as Entity || undefined;
     if (socket.player) {
@@ -530,6 +548,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             e: 'idle'
           }
         });
+        // Send initial skills to client immediately after spawn
+        if (savedSkills) {
+          this.sendTo(socket.id, 'skillsUpdated', {
+            playerId: socket.player.id,
+            skills: savedSkills
+          });
+        }
         // Send inventory snapshot immediately from persistence to avoid races
         try {
           const dbSys = this.world.getSystem?.('database') as DatabaseSystemOperations | undefined
@@ -646,7 +671,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         }
         this.send('inventoryUpdated', args[0])
       })
-      // Bridge UI_UPDATE for player stats to clients using playerState packet
+      // Bridge SKILLS_UPDATED to clients using skillsUpdated packet
+      this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
+        const data = payload as { playerId?: string; skills?: unknown }
+        if (data?.playerId) {
+          this.sendToPlayerId(data.playerId, 'skillsUpdated', data);
+        } else {
+          this.send('skillsUpdated', payload)
+        }
+      })
+      // Also bridge UI_UPDATE for general player stats using playerState packet
       this.world.on(EventType.UI_UPDATE, (payload: unknown) => {
         const data = payload as { component?: string; data?: { playerId?: string } } | undefined
         if (data?.component === 'player' && data.data?.playerId) {
