@@ -95,6 +95,21 @@ export class PlayerEntity extends CombatantEntity {
     // player entities only receive PlayerEntityData at runtime
     const playerData = data as PlayerEntityData;
     
+    // Ensure skills field exists with defaults if not provided
+    if (!playerData.skills) {
+      playerData.skills = {
+        attack: { level: 1, xp: 0 },
+        strength: { level: 1, xp: 0 },
+        defense: { level: 1, xp: 0 },
+        constitution: { level: 10, xp: 1154 },
+        ranged: { level: 1, xp: 0 },
+        woodcutting: { level: 1, xp: 0 },
+        fishing: { level: 1, xp: 0 },
+        firemaking: { level: 1, xp: 0 },
+        cooking: { level: 1, xp: 0 },
+      };
+    }
+    
     // Convert PlayerEntityData to CombatantConfig format
     const config: CombatantConfig = {
       id: data.id,
@@ -144,17 +159,17 @@ export class PlayerEntity extends CombatantEntity {
             current: playerData.health || 100,
             max: playerData.maxHealth || 100
           },
-          attack: { level: 1, xp: 0 },
-          defense: { level: 1, xp: 0 },
-          strength: { level: 1, xp: 0 },
-          ranged: { level: 1, xp: 0 },
+          attack: playerData.skills.attack,
+          defense: playerData.skills.defense,
+          strength: playerData.skills.strength,
+          ranged: playerData.skills.ranged,
           magic: { level: 1, xp: 0 },
-          constitution: { level: 10, xp: 1154 },
+          constitution: playerData.skills.constitution,
           prayer: { level: 1, points: 0 },
-          woodcutting: { level: 1, xp: 0 },
-          fishing: { level: 1, xp: 0 },
-          firemaking: { level: 1, xp: 0 },
-          cooking: { level: 1, xp: 0 },
+          woodcutting: playerData.skills.woodcutting,
+          fishing: playerData.skills.fishing,
+          firemaking: playerData.skills.firemaking,
+          cooking: playerData.skills.cooking,
           // Placeholder for complex fields - will be initialized by systems
           activePrayers: {} as PrayerComponent,
           equipment: {} as EquipmentComponent,
@@ -378,17 +393,17 @@ export class PlayerEntity extends CombatantEntity {
     });
     
     this.addComponent('stats', {
-      // Combat skills
-      attack: { level: 1, xp: 0 },
-      strength: { level: 1, xp: 0 },
-      defense: { level: 1, xp: 0 },
-      constitution: { level: 10, xp: 1154 },
-      ranged: { level: 1, xp: 0 },
+      // Combat skills - use loaded values from playerData.skills (guaranteed to exist)
+      attack: playerData.skills.attack,
+      strength: playerData.skills.strength,
+      defense: playerData.skills.defense,
+      constitution: playerData.skills.constitution,
+      ranged: playerData.skills.ranged,
       // Non-combat skills
-      woodcutting: { level: 1, xp: 0 },
-      fishing: { level: 1, xp: 0 },
-      firemaking: { level: 1, xp: 0 },
-      cooking: { level: 1, xp: 0 },
+      woodcutting: playerData.skills.woodcutting,
+      fishing: playerData.skills.fishing,
+      firemaking: playerData.skills.firemaking,
+      cooking: playerData.skills.cooking,
       // Additional stats from StatsComponent interface
       combatLevel: 3, // Will be calculated by skills system
       totalLevel: 9, // Sum of all skill levels

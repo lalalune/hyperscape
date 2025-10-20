@@ -371,25 +371,17 @@ export class DatabaseSystem extends SystemBase {
       return;
     }
 
-    console.log('[DatabaseSystem] 💾 Executing UPDATE on characters table:', {
-      playerId,
-      updateData,
-      hasWoodcuttingXp: updateData.woodcuttingXp !== undefined,
-      woodcuttingXpValue: updateData.woodcuttingXp
-    });
-
     // UPDATE ONLY - does NOT create characters
     // Characters must be explicitly created via createCharacter() first
-    const result = await this.db
-      .update(schema.characters)
-      .set(updateData)
-      .where(eq(schema.characters.id, playerId));
-    
-    console.log('[DatabaseSystem] ✅ UPDATE completed:', {
-      playerId,
-      result,
-      updatedFields: Object.keys(updateData)
-    });
+    try {
+      await this.db
+        .update(schema.characters)
+        .set(updateData)
+        .where(eq(schema.characters.id, playerId));
+    } catch (err) {
+      console.error('[DatabaseSystem] UPDATE FAILED:', err);
+      throw err;
+    }
   }
 
   // ============================================================================
