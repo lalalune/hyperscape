@@ -90,7 +90,11 @@ export class InventorySystem extends SystemBase {
       this.pickupItem({ playerId: data.playerId, entityId: data.entityId, itemId: data.itemId });
     });
     this.subscribe(EventType.INVENTORY_UPDATE_COINS, (data) => {
-      this.updateCoins({ playerId: data.playerId, amount: data.coins });
+      this.updateCoins({ 
+        playerId: data.playerId, 
+        amount: data.coins,
+        isClaimed: data.isClaimed ?? true // Default to claimed for backwards compatibility
+      });
     });
     this.subscribe(EventType.INVENTORY_MOVE, (data) => {
       this.moveItem(data);
@@ -583,7 +587,7 @@ export class InventorySystem extends SystemBase {
     }
   }
 
-  private updateCoins(data: { playerId: string; amount: number }): void {
+  private updateCoins(data: { playerId: string; amount: number; isClaimed?: boolean }): void {
     if (!data.playerId) {
       Logger.systemError('InventorySystem', 'Cannot update coins: playerId is undefined', new Error('Cannot update coins: playerId is undefined'));
       return;
@@ -591,17 +595,41 @@ export class InventorySystem extends SystemBase {
     
     const inventory = this.getOrCreateInventory(data.playerId);
     
-    if (data.amount > 0) {
-      inventory.coins += data.amount;
+    // Initialize claimed/unclaimed if not set
+    if (inventory.claimedCoins === undefined) inventory.claimedCoins = 0;
+    if (inventory.unclaimedCoins === undefined) inventory.unclaimedCoins = 0;
+    
+    // Update the appropriate counter
+    const isClaimed = data.isClaimed !== undefined ? data.isClaimed : true;
+    
+    if (isClaimed) {
+      // Update claimed gold (minted ERC-20 tokens)
+      if (data.amount > 0) {
+        inventory.claimedCoins += data.amount;
+      } else {
+        inventory.claimedCoins = Math.max(0, inventory.claimedCoins + data.amount);
+      }
     } else {
-      inventory.coins = Math.max(0, inventory.coins + data.amount);
+      // Update unclaimed gold (needs to be minted)
+      if (data.amount > 0) {
+        inventory.unclaimedCoins += data.amount;
+      } else {
+        inventory.unclaimedCoins = Math.max(0, inventory.unclaimedCoins + data.amount);
+      }
     }
+    
+    // Total coins is sum of claimed + unclaimed
+    inventory.coins = (inventory.claimedCoins || 0) + (inventory.unclaimedCoins || 0);
     
     this.emitTypedEvent(EventType.INVENTORY_COINS_UPDATED, {
       playerId: data.playerId,
-      coins: inventory.coins
+      coins: inventory.coins,
+      claimedCoins: inventory.claimedCoins,
+      unclaimedCoins: inventory.unclaimedCoins
     });
     this.scheduleInventoryPersist(data.playerId);
+    
+    console.log(`[InventorySystem] Gold update for ${data.playerId}: ${data.amount} (claimed: ${isClaimed}) -> Total: ${inventory.coins} (claimed: ${inventory.claimedCoins}, unclaimed: ${inventory.unclaimedCoins})`);
   }
 
   private moveItem(data: { playerId: string; fromSlot?: number; toSlot?: number; sourceSlot?: number; targetSlot?: number }): void {

@@ -115,7 +115,7 @@ export class OraclePublisher {
         );
 
         await tx.wait();
-        console.log(`[OraclePublisher] ✅ Skill event published (Tx: ${tx.hash})`);
+        console.log(`[OraclePublisher] ✅ Skill event published (Tx: ${tx.hash.substring(0, 10)}...)`);
 
         return true;
     }
@@ -214,4 +214,3 @@ export class OraclePublisher {
         return this.wallet?.address || '';
     }
 }
-

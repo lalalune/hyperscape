@@ -26,7 +26,7 @@ console.log('╚═════════════════════�
 // Load from environment (set by start-localnet.ts)
 // Read directly from deployment file for accuracy
 import { readFileSync } from 'fs';
-const worldsData = JSON.parse(readFileSync('../../contracts/src/hyperscape/worlds.json', 'utf-8'));
+const worldsData = JSON.parse(readFileSync('../contracts-mud/mmo/worlds.json', 'utf-8'));
 const WORLD_ADDRESS = (worldsData['31337']?.address || process.env.WORLD_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3') as `0x${string}`;
 const RPC_URL = process.env.ANVIL_RPC_URL || 'http://localhost:8545';
 const PRIVATE_KEY = (process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as `0x${string}`;

@@ -224,11 +224,18 @@ export enum EventType {
   ITEM_DESPAWN = 'item:despawn',
   ITEM_DESPAWNED = 'item:despawned',
   ITEM_RESPAWN_SHOPS = 'item:respawn_shops',
+  ITEM_RESPAWN = 'item:respawn',
   ITEM_DROPPED = 'item:dropped',
   ITEM_DROP = 'item:drop',
   LOOT_DROPPED = 'loot:dropped',
   ITEM_PICKUP = 'item:picked_up',
   ITEM_PICKUP_REQUEST = 'item:pickup_request',
+  ITEM_PICKUP_ATTEMPT = 'item:pickup_attempt',
+  ITEM_PICKUP_SUCCESS = 'item:pickup_success',
+  ITEM_PICKUP_FAILED = 'item:pickup_failed',
+  ITEM_INSTANCE_CREATED = 'item:instance_created',
+  ITEM_MINTED_AS_NFT = 'item:minted_as_nft',
+  ITEM_NFT_BURNED = 'item:nft_burned',
   ITEM_USED = 'item:used',
   ITEM_ACTION_SELECTED = 'item:action_selected',
   ITEMS_RETRIEVED = 'items:retrieved',
@@ -915,7 +922,7 @@ export interface EventMap {
   [EventType.ITEM_DROP]: { playerId: string; itemId: string; quantity: number; slot?: number };
   [EventType.INVENTORY_USE]: { playerId: string; itemId: string; slot: number };
   [EventType.ITEM_PICKUP]: { playerId: string; itemId?: string; entityId: string; position?: Position3D };
-  [EventType.INVENTORY_UPDATE_COINS]: { playerId: string; coins: number };
+  [EventType.INVENTORY_UPDATE_COINS]: { playerId: string; coins: number; isClaimed?: boolean };
   [EventType.INVENTORY_MOVE]: { playerId: string; fromSlot?: number; toSlot?: number; sourceSlot?: number; targetSlot?: number };
   [EventType.INVENTORY_DROP_ALL]: { playerId: string; position: { x: number; y: number; z: number } };
   [EventType.INVENTORY_CAN_ADD]: InventoryCanAddEvent;

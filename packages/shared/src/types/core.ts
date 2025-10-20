@@ -139,6 +139,9 @@ export interface PlayerInventory {
   playerId: string;
   items: InventorySlotItem[];
   coins: number;
+  claimedCoins?: number; // Minted as HyperscapeGold ERC-20 tokens
+  unclaimedCoins?: number; // Not yet minted, available to claim
+  lastClaimTime?: number; // Timestamp of last claim
 }
 
 // Removed type alias - use InventoryItem directly
@@ -1634,6 +1637,8 @@ export interface PlayerInventoryState {
   playerId: string;
   items: InventoryItem[];
   coins: number;
+  claimedCoins?: number;
+  unclaimedCoins?: number;
 }
 
 export interface InventoryDataState {

@@ -16,8 +16,13 @@
 import { spawn, exec } from 'child_process';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { promisify } from 'util';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 const execAsync = promisify(exec);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const rootDir = join(__dirname, '..');
 
 const colors = {
   reset: '\x1b[0m',
@@ -73,12 +78,13 @@ try {
   
   // Create logs directory if it doesn't exist
   const { mkdirSync } = await import('fs');
+  const logsDir = join(rootDir, 'logs');
   try {
-    mkdirSync('logs', { recursive: true });
+    mkdirSync(logsDir, { recursive: true });
   } catch {}
   
   // Write anvil logs
-  const anvilLogFile = 'logs/anvil.log';
+  const anvilLogFile = join(logsDir, 'anvil.log');
   const logStream = Bun.file(anvilLogFile).writer();
   
   anvilProcess.stdout!.on('data', (data: Buffer) => {
@@ -129,12 +135,27 @@ if (!anvilRunning) {
 // Step 2: Deploy MUD Contracts
 console.log(`${colors.blue}2️⃣  Deploying MUD Contracts...${colors.reset}\n`);
 
-const contractsPath = '../../contracts/src/hyperscape';
+const contractsPath = join(rootDir, 'contracts-mud', 'mmo');
 
 // Check if contracts directory exists
 if (!existsSync(contractsPath)) {
   console.error(`❌ Contracts directory not found: ${contractsPath}`);
+  console.error(`   Looking in: ${contractsPath}`);
+  console.error(`   Current directory: ${process.cwd()}`);
   process.exit(1);
+}
+
+// Ensure MUD dependencies are installed
+const nodeModulesPath = join(contractsPath, 'node_modules');
+if (!existsSync(nodeModulesPath)) {
+  console.log(`${colors.yellow}⏳ Installing MUD dependencies...${colors.reset}`);
+  try {
+    await execAsync('npm install', { cwd: contractsPath });
+    console.log(`${colors.green}✅ Dependencies installed${colors.reset}\n`);
+  } catch (error) {
+    console.error(`${colors.reset}❌ Failed to install dependencies:`, error);
+    process.exit(1);
+  }
 }
 
 try {
@@ -146,14 +167,16 @@ try {
     cwd: contractsPath,
     env: {
       ...process.env,
-      RPC_URL: 'http://localhost:8545'
+      RPC_URL: 'http://localhost:8545',
+      PRIVATE_KEY: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
     }
   });
   
   console.log(`${colors.green}✅ Contracts deployed${colors.reset}\n`);
   
   // Write deployment logs
-  writeFileSync('logs/contract-deployment.log', stdout + '\n' + stderr);
+  const deploymentLogPath = join(rootDir, 'logs', 'contract-deployment.log');
+  writeFileSync(deploymentLogPath, stdout + '\n' + stderr);
   
 } catch (error) {
   console.error('❌ Contract deployment failed:', error);
@@ -230,9 +253,9 @@ BATCH_INTERVAL_MS=10000
 // Write to all package .env.local files
 const packages = ['server', 'client', 'shared'];
 for (const pkg of packages) {
-  const envPath = `packages/${pkg}/.env.local`;
+  const envPath = join(rootDir, 'packages', pkg, '.env.local');
   writeFileSync(envPath, envContent);
-  console.log(`${colors.green}✅ ${envPath}${colors.reset}`);
+  console.log(`${colors.green}✅ packages/${pkg}/.env.local${colors.reset}`);
 }
 
 // Step 6: Verify Deployment
