@@ -62,7 +62,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
-    "@types/node": "^20.19.8",
+    "@types/node": "^24.9.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.178.1",
