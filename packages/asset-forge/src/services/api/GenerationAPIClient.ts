@@ -3,9 +3,11 @@
  * Handles communication with the backend generation service
  */
 
-import { TypedEventEmitter } from '../../utils/TypedEventEmitter'
-import { GenerationConfig } from '../../types/generation'
 import { ExtendedImportMeta } from '../../types'
+import { GenerationConfig } from '../../types/generation'
+import { TypedEventEmitter } from '../../utils/TypedEventEmitter'
+
+import { apiFetch } from '@/utils/api'
 
 // Define pipeline types matching backend
 export interface PipelineStage {
@@ -86,12 +88,13 @@ export class GenerationAPIClient extends TypedEventEmitter<GenerationAPIEvents> 
    * Start a new generation pipeline
    */
   async startPipeline(config: GenerationConfig): Promise<string> {
-    const response = await fetch(`${this.apiUrl}/generation/pipeline`, {
+    const response = await apiFetch(`${this.apiUrl}/generation/pipeline`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(config)
+      body: JSON.stringify(config),
+      timeoutMs: 30000
     })
     
     if (!response.ok) {
@@ -133,7 +136,7 @@ export class GenerationAPIClient extends TypedEventEmitter<GenerationAPIEvents> 
    * Fetch pipeline status from API
    */
   async fetchPipelineStatus(pipelineId: string): Promise<PipelineResult> {
-    const response = await fetch(`${this.apiUrl}/generation/pipeline/${pipelineId}`)
+    const response = await apiFetch(`${this.apiUrl}/generation/pipeline/${pipelineId}`, { timeoutMs: 15000 })
     
     if (!response.ok) {
       const error = await response.json()
@@ -165,37 +168,43 @@ export class GenerationAPIClient extends TypedEventEmitter<GenerationAPIEvents> 
     let previousProgress = 0
     
     const poll = async () => {
-      const status = await this.fetchPipelineStatus(pipelineId)
-      
-      // Update local cache
-      this.activePipelines.set(pipelineId, status)
-      
-      // Emit progress updates
-      if (status.progress !== previousProgress) {
-        this.emit('progress', { pipelineId, progress: status.progress })
-        previousProgress = status.progress
+      try {
+        const status = await this.fetchPipelineStatus(pipelineId)
+        
+        // Update local cache
+        this.activePipelines.set(pipelineId, status)
+        
+        // Emit progress updates
+        if (status.progress !== previousProgress) {
+          this.emit('progress', { pipelineId, progress: status.progress })
+          previousProgress = status.progress
+        }
+        
+        // Emit status changes
+        if (status.status !== previousStatus) {
+          this.emit('statusChange', { pipelineId, status: status.status })
+          previousStatus = status.status
+        }
+        
+        // Emit stage updates
+        this.emit('update', status)
+        
+        // Stop polling if complete or failed
+        if (status.status === 'completed') {
+          this.emit('pipeline:completed', status)
+          return
+        } else if (status.status === 'failed') {
+          this.emit('pipeline:failed', { pipelineId, error: status.error })
+          return
+        }
+        
+        // Continue polling
+        setTimeout(poll, this.pollInterval)
+        
+      } catch (error) {
+        console.error('Error polling pipeline status:', error)
+        this.emit('error', { pipelineId, error: (error as Error) })
       }
-      
-      // Emit status changes
-      if (status.status !== previousStatus) {
-        this.emit('statusChange', { pipelineId, status: status.status })
-        previousStatus = status.status
-      }
-      
-      // Emit stage updates
-      this.emit('update', status)
-      
-      // Stop polling if complete or failed
-      if (status.status === 'completed') {
-        this.emit('pipeline:completed', status)
-        return
-      } else if (status.status === 'failed') {
-        this.emit('pipeline:failed', { pipelineId, error: status.error })
-        return
-      }
-      
-      // Continue polling
-      setTimeout(poll, this.pollInterval)
     }
     
     // Start polling
@@ -206,8 +215,12 @@ export class GenerationAPIClient extends TypedEventEmitter<GenerationAPIEvents> 
    * Check if API is available
    */
   async healthCheck(): Promise<boolean> {
-    const response = await fetch(`${this.apiUrl}/health`)
-    return response.ok
+    try {
+      const response = await apiFetch(`${this.apiUrl}/health`, { timeoutMs: 5000 })
+      return response.ok
+    } catch {
+      return false
+    }
   }
   
   /**

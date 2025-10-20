@@ -4,7 +4,9 @@
    Foundation layer that applies design tokens as CSS variables
    This file should be imported at the root of the application */
 
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* CSS Variables from Design Tokens */
 @layer base {
@@ -211,385 +213,161 @@
 @layer components {
   /* Layout Components */
   .container {
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-  @media (min-width: 640px) {
-    .container {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-  }
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
   }
   
   .page {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+    @apply flex flex-col h-full;
   }
   
   .main-content {
-    flex: 1;
-    overflow: hidden;
+    @apply flex-1 overflow-hidden;
   }
   
   /* Card Components */
   .card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-primary);
-    border-radius: 0.5rem;
+    @apply bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg;
   }
   
   .card-hover {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-primary);
-    border-radius: 0.5rem;
-    transition: border-color var(--duration-base);
-  }
-  .card-hover:hover {
-    border-color: var(--border-hover);
+    @apply card hover:border-[var(--border-hover)] transition-colors duration-[var(--duration-base)];
   }
   
   .card-interactive {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-primary);
-    border-radius: 0.5rem;
-    transition: border-color var(--duration-base);
-    cursor: pointer;
-  }
-  .card-interactive:hover {
-    border-color: var(--border-hover);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    @apply card-hover cursor-pointer hover:shadow-md;
   }
   
   /* Button Components */
   .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    border-radius: 0.375rem;
-    transition: all var(--duration-base);
-  }
-  .btn:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--color-primary), 0 0 0 4px rgba(99, 102, 241, 0.2);
-  }
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 font-medium text-sm
+           rounded-md transition-all duration-[var(--duration-base)]
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-primary)]
+           disabled:opacity-50 disabled:cursor-not-allowed;
   }
   
   .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    border-radius: 0.375rem;
-    transition: all var(--duration-base);
-    background-color: var(--color-primary);
-    color: white;
-  }
-  .btn-primary:hover:not(:disabled) {
-    background-color: var(--color-primary-dark);
-  }
-  .btn-primary:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-  .btn-primary:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--color-primary), 0 0 0 4px rgba(99, 102, 241, 0.2);
-  }
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    @apply btn bg-[var(--color-primary)] text-white
+           hover:bg-[var(--color-primary-dark)] active:scale-[0.98];
   }
   
   .btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    border-radius: 0.375rem;
-    transition: all var(--duration-base);
-    border: 1px solid var(--border-primary);
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-  .btn-secondary:hover:not(:disabled) {
-    background-color: var(--bg-hover);
-    border-color: var(--border-hover);
-  }
-  .btn-secondary:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--color-primary), 0 0 0 4px rgba(99, 102, 241, 0.2);
-  }
-  .btn-secondary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    @apply btn bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-primary)]
+           hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)];
   }
   
   .btn-ghost {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    border-radius: 0.375rem;
-    transition: all var(--duration-base);
-    background-color: transparent;
-    color: var(--text-secondary);
-  }
-  .btn-ghost:hover:not(:disabled) {
-    background-color: var(--bg-hover);
-    color: var(--text-primary);
-  }
-  .btn-ghost:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--color-primary), 0 0 0 4px rgba(99, 102, 241, 0.2);
-  }
-  .btn-ghost:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    @apply btn bg-transparent text-[var(--text-secondary)]
+           hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)];
   }
   
   .btn-danger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    border-radius: 0.375rem;
-    transition: all var(--duration-base);
-    background-color: var(--color-error);
-    color: white;
-  }
-  .btn-danger:hover:not(:disabled) {
-    background-color: var(--color-error-dark);
-  }
-  .btn-danger:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-  .btn-danger:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--color-primary), 0 0 0 4px rgba(99, 102, 241, 0.2);
-  }
-  .btn-danger:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    @apply btn bg-[var(--color-error)] text-white
+           hover:bg-[var(--color-error-dark)] active:scale-[0.98];
   }
   
   /* Icon Button */
   .icon-btn {
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--duration-base);
-    border: 1px solid var(--border-primary);
-    background-color: var(--bg-tertiary);
-    color: var(--text-secondary);
+    @apply w-10 h-10 rounded-lg flex items-center justify-center 
+           bg-[var(--bg-tertiary)] text-[var(--text-secondary)] 
+           hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]
+           transition-all duration-200
+           border border-[var(--border-primary)] hover:border-[var(--border-secondary)]
+           hover:shadow-sm active:scale-95;
   }
+  
   .icon-btn:hover {
-    background-color: rgba(99, 102, 241, 0.1);
-    color: var(--color-primary);
-    border-color: rgba(99, 102, 241, 0.5);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  }
-  .icon-btn:active {
-    transform: scale(0.95);
+    @apply bg-[var(--color-primary)] bg-opacity-10 text-[var(--color-primary)] 
+           border-[var(--color-primary)] border-opacity-50;
   }
   
   /* Form Components */
   .input {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-    border: 1px solid var(--border-primary);
-    border-radius: 0.375rem;
-    transition: border-color var(--duration-base), box-shadow var(--duration-base);
-    background-color: var(--bg-secondary);
-    color: var(--text-primary);
-  }
-  .input::placeholder {
-    color: var(--text-muted);
-  }
-  .input:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--color-primary);
-    border-color: transparent;
+    @apply w-full px-3 py-2 text-sm
+           bg-[var(--bg-secondary)] text-[var(--text-primary)]
+           border border-[var(--border-primary)] rounded-md
+           placeholder:text-[var(--text-muted)]
+           transition-colors duration-[var(--duration-base)]
+           focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent;
   }
   
   .input-error {
-    border-color: var(--color-error);
-  }
-  .input-error:focus {
-    box-shadow: 0 0 0 2px var(--color-error);
+    @apply border-[var(--color-error)] focus:ring-[var(--color-error)];
   }
   
   .label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
+    @apply block text-sm font-medium text-[var(--text-primary)] mb-1;
   }
   
   .helper-text {
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-    margin-top: 0.25rem;
+    @apply text-xs text-[var(--text-tertiary)] mt-1;
   }
   
   .error-text {
-    font-size: 0.75rem;
-    color: var(--color-error);
-    margin-top: 0.25rem;
+    @apply text-xs text-[var(--color-error)] mt-1;
   }
   
   /* Badge Components */
   .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 0.375rem;
+    @apply inline-flex items-center px-2 py-1 text-xs font-medium rounded-md;
   }
   
   .badge-primary {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 0.375rem;
-    background-color: rgba(99, 102, 241, 0.1);
-    color: var(--color-primary);
+    @apply badge bg-[var(--color-primary)] bg-opacity-10 text-[var(--color-primary)];
   }
   
   .badge-success {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 0.375rem;
-    background-color: rgba(16, 185, 129, 0.1);
-    color: var(--color-success);
+    @apply badge bg-[var(--color-success)] bg-opacity-10 text-[var(--color-success)];
   }
   
   .badge-warning {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 0.375rem;
-    background-color: rgba(245, 158, 11, 0.1);
-    color: var(--color-warning);
+    @apply badge bg-[var(--color-warning)] bg-opacity-10 text-[var(--color-warning)];
   }
   
   .badge-error {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 0.375rem;
-    background-color: rgba(239, 68, 68, 0.1);
-    color: var(--color-error);
+    @apply badge bg-[var(--color-error)] bg-opacity-10 text-[var(--color-error)];
   }
   
   /* Loading States */
   .spinner {
-    display: inline-block;
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 9999px;
-    animation: spin 1s linear infinite;
+    @apply inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin;
   }
   
   .skeleton {
-    background-color: var(--bg-tertiary);
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    border-radius: 0.375rem;
+    @apply bg-[var(--bg-tertiary)] animate-pulse rounded-md;
   }
   
   /* Text Utilities */
   .text-gradient {
-    background-image: linear-gradient(to right, var(--color-primary), var(--color-secondary));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    @apply bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] 
+           bg-clip-text text-transparent;
   }
   
   .text-gradient-subtle {
-    background-image: linear-gradient(to right, var(--color-primary-light), var(--color-secondary-light));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    @apply bg-gradient-to-r from-[var(--color-primary-light)] to-[var(--color-secondary-light)] 
+           bg-clip-text text-transparent;
   }
   
   /* Panel Components */
   .panel {
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: 0.5rem;
+    @apply bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg;
   }
   
   .panel-header {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-primary);
+    @apply px-4 py-3 border-b border-[var(--border-primary)];
   }
   
   .panel-body {
-    padding: 1rem;
+    @apply p-4;
   }
   
   /* Modal Overlay */
   .modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4
+           bg-black bg-opacity-50 backdrop-blur-sm;
   }
   
   .modal-content {
-    background-color: var(--bg-secondary);
-    border-radius: 0.75rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    max-height: 90vh;
-    overflow: hidden;
+    @apply bg-[var(--bg-secondary)] rounded-xl shadow-xl max-h-[90vh] overflow-hidden;
   }
 }
 
@@ -597,22 +375,15 @@
 @layer utilities {
   /* Spacing utilities using design tokens */
   .stack {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    @apply flex flex-col gap-4;
   }
   
   .hstack {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 1rem;
+    @apply flex flex-row items-center gap-4;
   }
   
   .center {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply flex items-center justify-center;
   }
   
   /* Animation utilities */
@@ -630,73 +401,41 @@
   
   /* Glass effect */
   .glass {
-    background-color: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    @apply bg-white bg-opacity-5 backdrop-blur-md border border-white border-opacity-10;
   }
   
   /* Interactive states */
   .interactive {
-    transition: all var(--duration-base);
-  }
-  .interactive:hover {
-    transform: scale(1.02);
-  }
-  .interactive:active {
-    transform: scale(0.98);
+    @apply transition-all duration-[var(--duration-base)] hover:scale-[1.02] active:scale-[0.98];
   }
   
   .clickable {
-    cursor: pointer;
-    transition: all var(--duration-base);
-  }
-  .clickable:hover {
-    opacity: 0.8;
+    @apply cursor-pointer transition-all duration-[var(--duration-base)] hover:opacity-80;
   }
 
   /* Tooltips */
   .tooltip {
-    position: relative;
+    @apply relative;
   }
   
   .tooltip::before {
+    @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1
+           bg-[var(--bg-primary)] text-[var(--text-primary)] text-xs rounded-md
+           opacity-0 pointer-events-none transition-opacity duration-200
+           whitespace-nowrap z-50 shadow-lg border border-[var(--border-primary)];
     content: attr(data-tooltip);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    margin-bottom: 0.5rem;
-    padding: 0.25rem 0.5rem;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    border-radius: 0.375rem;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 200ms;
-    white-space: nowrap;
-    z-index: 50;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--border-primary);
   }
   
   .tooltip::after {
+    @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-1
+           border-4 border-transparent border-t-[var(--bg-primary)]
+           opacity-0 pointer-events-none transition-opacity duration-200;
     content: '';
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    margin-bottom: 0.25rem;
-    border: 4px solid transparent;
-    border-top-color: var(--bg-primary);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 200ms;
   }
   
   .tooltip:hover::before,
   .tooltip:hover::after {
-    opacity: 1;
+    @apply opacity-100;
   }
   
   /* Animations */
@@ -953,17 +692,11 @@ body {
 @layer utilities {
   /* Page layouts */
   .page-container {
-    display: flex;
-    height: calc(100vh - 60px);
-    background: linear-gradient(to bottom right, var(--bg-primary), var(--bg-secondary));
-    padding: 1rem;
-    gap: 1rem;
+    @apply flex h-[calc(100vh-60px)] bg-[var(--bg-primary)] p-4 gap-4;
   }
   
   .page-container-no-padding {
-    display: flex;
-    height: calc(100vh - 60px);
-    background: linear-gradient(to bottom right, var(--bg-primary), var(--bg-secondary));
+    @apply flex h-[calc(100vh-60px)] bg-[var(--bg-primary)];
   }
   
   /* Backgrounds */
@@ -973,32 +706,23 @@ body {
   
   /* Cards */
   .card-gradient {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-primary);
-    border-radius: 0.5rem;
-    overflow: hidden;
+    @apply card overflow-hidden;
     background: linear-gradient(to bottom right, var(--bg-primary), var(--bg-secondary));
   }
   
   /* States */
   .empty-state {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
+    @apply flex items-center justify-center h-full;
     background: linear-gradient(to bottom right, var(--bg-primary), var(--bg-secondary));
   }
   
   .loading-state {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: calc(100vh - 60px);
+    @apply flex items-center justify-center h-[calc(100vh-60px)];
     background: linear-gradient(to bottom right, var(--bg-primary), var(--bg-secondary));
   }
   
   /* Dimensions */
   .viewport-height {
-    height: calc(100vh - 60px);
+    @apply h-[calc(100vh-60px)];
   }
 } 

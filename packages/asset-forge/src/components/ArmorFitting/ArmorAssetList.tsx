@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react'
-import { Badge, Input } from '../common'
-import { cn } from '../../styles'
 import { Search, User, ChevronRight, Loader2, Sword, Box, HardHat, Shirt } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
+
+import { cn } from '../../styles'
 import { Asset } from '../../types'
+import { Badge, Input } from '../common'
 
 interface ArmorAssetListProps {
   assets: Asset[]
@@ -114,7 +115,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
     if (name.includes('helmet') || name.includes('head')) return HardHat
     if (name.includes('chest') || name.includes('body') || name.includes('torso')) return Shirt
     if (name.includes('leg') || name.includes('legs')) return Box
-    return Box
+    return Box // Default fallback
   }
 
   return (

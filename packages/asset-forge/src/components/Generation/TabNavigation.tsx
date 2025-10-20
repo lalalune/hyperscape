@@ -1,5 +1,6 @@
+import { Settings, Zap, Package } from 'lucide-react'
 import React from 'react'
-import { Settings, Zap, Package, Sparkles } from 'lucide-react'
+
 import { cn } from '../../styles'
 
 interface Tab {

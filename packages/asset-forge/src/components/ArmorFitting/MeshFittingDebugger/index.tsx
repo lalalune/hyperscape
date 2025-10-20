@@ -1,32 +1,26 @@
-import React, { useRef, useState, useEffect } from 'react'
-import * as THREE from 'three'
-import { Canvas } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
-import { MeshFittingService } from '../../../services/fitting/MeshFittingService'
-import { ArmorFittingService } from '../../../services/fitting/ArmorFittingService'
-import { cn } from '../../../styles'
+import { Canvas } from '@react-three/fiber'
 import { X, Play, Grid3x3, Link, Activity, RotateCcw, Pause, Box, Sliders, Download, Wrench, ChevronDown, Settings, FileDown } from 'lucide-react'
-import { useDebuggerStore } from '../../../store/useDebuggerStore'
+import React, { useEffect, useRef, useState } from 'react'
+import * as THREE from 'three'
+
 import { useAssets } from '../../../hooks/useAssets'
+import { ArmorFittingService } from '../../../services/fitting/ArmorFittingService'
+import { MeshFittingService } from '../../../services/fitting/MeshFittingService'
+import { useDebuggerStore } from '../../../store/useDebuggerStore'
+import { cn } from '../../../styles'
 import { ExtendedMesh } from '../../../types'
 import { Checkbox } from '../../common'
 
-// Import types
-import { MeshFittingDebuggerProps } from './types'
-
-// Import components
 import { Scene, RangeInput } from './components'
-
-// Import hooks
 import { useExportHandlers } from './hooks/useExportHandlers'
 import { useFittingHandlers } from './hooks/useFittingHandlers'
-
-// Import utils
+import { MeshFittingDebuggerProps } from './types'
 import { selectClassName } from './utils'
 
 export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     // Get assets from the API
-    const { assets } = useAssets()
+    const { assets, loading: _loading } = useAssets()
 
     // Transform assets into the format expected by the component
     const availableAvatars = React.useMemo(() => {
@@ -70,6 +64,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     }, [assets])
 
     // Preload models when assets are loaded
+     
     React.useEffect(() => {
         availableAvatars.forEach(avatar => {
             if (avatar.path) useGLTF.preload(avatar.path)
@@ -85,6 +80,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     // Get state and actions from Zustand store
     const {
         // State
+        activeDemo: _activeDemo,
         viewMode,
         showWireframe,
         selectedAvatar,
@@ -103,15 +99,21 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         helmetForwardOffset,
         helmetRotation,
         showHeadBounds,
+        showCollisionDebug: _showCollisionDebug,
         showHull,
+        showDebugArrows: _showDebugArrows,
+        debugArrowDensity: _debugArrowDensity,
+        debugColorMode: _debugColorMode,
         isProcessing,
         isArmorFitted,
         isArmorBound,
         isHelmetFitted,
         isHelmetAttached,
         boundArmorMesh,
+        lastError: _lastError,
 
         // Actions
+        setActiveDemo: _setActiveDemo,
         setViewMode,
         toggleWireframe,
         setShowWireframe,
@@ -128,9 +130,15 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         setHelmetFitTightness,
         setHelmetVerticalOffset,
         setHelmetForwardOffset,
+        setHelmetRotation: _setHelmetRotation,
         resetHelmetSettings,
         setShowHeadBounds,
+        setShowCollisionDebug,
         setShowHull,
+        setShowDebugArrows: _setShowDebugArrows,
+        setDebugArrowDensity: _setDebugArrowDensity,
+        setDebugColorMode: _setDebugColorMode,
+        toggleDebugVisualization: _toggleDebugVisualization,
         setIsProcessing,
         setIsArmorFitted,
         setIsArmorBound,
@@ -138,7 +146,14 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         setIsHelmetAttached,
         setBoundArmorMesh,
         resetProcessingStates,
-        setError
+        setError,
+        clearError: _clearError,
+        resetDebugger: _resetDebugger,
+        saveDebugConfiguration: _saveDebugConfiguration,
+        loadDebugConfiguration: _loadDebugConfiguration,
+        isReadyToFit: _isReadyToFit,
+        getActiveModelName: _getActiveModelName,
+        getCurrentDebugInfo: _getCurrentDebugInfo
     } = useDebuggerStore()
 
     // Refs (keep these as they're for Three.js objects)
@@ -159,10 +174,12 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     const hullMeshRef = useRef<THREE.Mesh | null>(null)
 
     // Temporary state for skinned armor mesh (keep as local state for now)
+    const [/* skinnedArmorMesh */, setSkinnedArmorMesh] = useState<THREE.SkinnedMesh | null>(null)
     const [showExportDropdown, setShowExportDropdown] = useState(false)
     const [showDebugOptions, setShowDebugOptions] = useState(false)
 
     // Add click outside handler for dropdowns
+     
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             const target = e.target as HTMLElement
@@ -176,43 +193,13 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
 
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
+        // Intentional: only bind once to avoid reattaching listeners when handlers change
+         
     }, [])
 
-    // Keyboard shortcuts
-    useEffect(() => {
-        const handleKeyPress = (e: KeyboardEvent) => {
-            // Don't handle shortcuts when typing in inputs
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-                return
-            }
 
-            switch (e.key.toLowerCase()) {
-                case 'w':
-                    toggleWireframe()
-                    break
-                case 'p':
-                    if (viewMode === 'sphereCube' && !isProcessing) {
-                        performFitting('cubeToSphere')
-                    } else if (viewMode === 'avatarArmor' && !isProcessing) {
-                        performFitting('avatarToArmor')
-                    }
-                    break
-                case 'r':
-                    resetMeshes()
-                    break
-                case ' ':
-                    e.preventDefault()
-                    toggleAnimation()
-                    break
-                case 'escape':
-                    onClose()
-                    break
-            }
-        }
 
-        window.addEventListener('keydown', handleKeyPress)
-        return () => window.removeEventListener('keydown', handleKeyPress)
-    }, [viewMode, isProcessing, toggleWireframe, toggleAnimation, onClose])
+
 
     // Get export handlers
     const { handleExportBoundArmor } = useExportHandlers({
@@ -252,7 +239,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         setIsHelmetFitted,
         setIsHelmetAttached,
         setBoundArmorMesh,
-        setSkinnedArmorMesh: () => {}, // No-op since we removed the state
+        setSkinnedArmorMesh,
         setError,
         resetProcessingStates,
         
@@ -271,6 +258,43 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         viewMode
     })
 
+    // Keyboard shortcuts
+     
+    useEffect(() => {
+        const handleKeyPress = (e: KeyboardEvent) => {
+            // Don't handle shortcuts when typing in inputs
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return
+            }
+
+            switch (e.key.toLowerCase()) {
+                case 'w':
+                    toggleWireframe()
+                    break
+                case 'p':
+                    if (viewMode === 'sphereCube' && !isProcessing) {
+                        performFitting('cubeToSphere')
+                    } else if (viewMode === 'avatarArmor' && !isProcessing) {
+                        performFitting('avatarToArmor')
+                    }
+                    break
+                case 'r':
+                    resetMeshes()
+                    break
+                case ' ':
+                    e.preventDefault()
+                    toggleAnimation()
+                    break
+                case 'escape':
+                    onClose()
+                    break
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyPress)
+        return () => window.removeEventListener('keydown', handleKeyPress)
+    }, [viewMode, isProcessing, toggleWireframe, toggleAnimation, onClose, performFitting, resetMeshes])
+
     // Comprehensive reset function that resets everything
     const handleFullReset = () => {
         console.log('=== PERFORMING FULL RESET ===')
@@ -286,6 +310,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         setShowWireframe(false)
         setShowHull(false)
         // Keep showHeadBounds as-is - don't reset it
+        setShowCollisionDebug(false)
         
         // Reset fitting parameters to defaults
         resetFittingParameters()
@@ -383,6 +408,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                 setIsArmorFitted(false)
                 setIsArmorBound(false)
                 setBoundArmorMesh(null)
+                setSkinnedArmorMesh(null)
             }
         }
         
@@ -466,7 +492,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                         <label className="block text-xs text-text-tertiary mb-2">Avatar</label>
                                         <select
                                             value={selectedAvatar?.id || ''}
-                                            onChange={(e) => {
+                                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                                                 const avatar = availableAvatars.find(a => a.id === e.target.value)
                                                 if (avatar) {
                                                     setSelectedAvatar({
@@ -495,7 +521,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                             <label className="block text-xs text-text-tertiary mb-2">Armor</label>
                                             <select
                                                 value={selectedArmor?.id || ''}
-                                                onChange={(e) => {
+                                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                                                     const armor = availableArmors.find(a => a.id === e.target.value)
                                                     if (armor) {
                                                         setSelectedArmor({
@@ -522,7 +548,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                             <label className="block text-xs text-text-tertiary mb-2">Helmet</label>
                                             <select
                                                 value={selectedHelmet?.id || ''}
-                                                onChange={(e) => {
+                                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                                                     const helmet = availableHelmets.find(h => h.id === e.target.value)
                                                     if (helmet) {
                                                         setSelectedHelmet({
@@ -622,14 +648,14 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                     <div className="space-y-2">
                                         <Checkbox
                                             checked={showWireframe}
-                                            onChange={(e) => setShowWireframe(e.target.checked)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowWireframe(e.target.checked)}
                                             label="Armor Wireframe"
                                             description="Toggle wireframe display for armor mesh"
                                             size="sm"
                                         />
                                         <Checkbox
                                             checked={showHull}
-                                            onChange={(e) => setShowHull(e.target.checked)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowHull(e.target.checked)}
                                             label="Show Body Hull"
                                             description="Display the extracted body hull during armor fitting"
                                             size="sm"
@@ -645,7 +671,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                     <div className="space-y-2">
                                         <Checkbox
                                             checked={showWireframe}
-                                            onChange={(e) => setShowWireframe(e.target.checked)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowWireframe(e.target.checked)}
                                             label="Show Wireframe"
                                             description="Toggle wireframe display for all meshes"
                                             size="sm"
@@ -684,7 +710,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={20}
                                                 step={1}
                                                 value={fittingParameters.iterations}
-                                                onChange={(e) => updateFittingParameters({ iterations: parseInt(e.target.value) })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ iterations: parseInt(e.target.value) })}
                                             />
                                         </div>
                                         <div>
@@ -697,7 +723,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={1}
                                                 step={0.05}
                                                 value={fittingParameters.stepSize || 0.1}
-                                                onChange={(e) => updateFittingParameters({ stepSize: parseFloat(e.target.value) })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ stepSize: parseFloat(e.target.value) })}
                                             />
                                             <p className="text-xs text-text-tertiary mt-1">Movement per iteration</p>
                                         </div>
@@ -711,7 +737,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={5}
                                                 step={0.5}
                                                 value={fittingParameters.smoothingRadius || 2}
-                                                onChange={(e) => updateFittingParameters({ smoothingRadius: parseFloat(e.target.value) })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ smoothingRadius: parseFloat(e.target.value) })}
                                             />
                                             <p className="text-xs text-text-tertiary mt-1">Neighbor influence radius</p>
                                         </div>
@@ -725,7 +751,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={1}
                                                 step={0.05}
                                                 value={fittingParameters.smoothingStrength}
-                                                onChange={(e) => updateFittingParameters({ smoothingStrength: parseFloat(e.target.value) })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ smoothingStrength: parseFloat(e.target.value) })}
                                             />
                                             <p className="text-xs text-text-tertiary mt-1">Influence on neighbors</p>
                                         </div>
@@ -739,7 +765,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={0.1}
                                                 step={0.005}
                                                 value={fittingParameters.targetOffset}
-                                                onChange={(e) => updateFittingParameters({ targetOffset: parseFloat(e.target.value) })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ targetOffset: parseFloat(e.target.value) })}
                                             />
                                             <p className="text-xs text-text-tertiary mt-1">Distance from surface</p>
                                         </div>
@@ -753,21 +779,21 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={1.0}
                                                 step={0.1}
                                                 value={fittingParameters.sampleRate || 0.5}
-                                                onChange={(e) => updateFittingParameters({ sampleRate: parseFloat(e.target.value) })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ sampleRate: parseFloat(e.target.value) })}
                                             />
                                             <p className="text-xs text-text-tertiary mt-1">Vertices processed per iteration</p>
                                         </div>
                                         <div className="pt-2 space-y-2">
                                             <Checkbox
                                                 checked={fittingParameters.preserveFeatures || false}
-                                                onChange={(e) => updateFittingParameters({ preserveFeatures: e.target.checked })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ preserveFeatures: e.target.checked })}
                                                 label="Preserve Features"
                                                 description="Preserve sharp edges and flat surfaces during smoothing"
                                                 size="sm"
                                             />
                                             <Checkbox
                                                 checked={fittingParameters.useImprovedShrinkwrap || false}
-                                                onChange={(e) => updateFittingParameters({ useImprovedShrinkwrap: e.target.checked })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ useImprovedShrinkwrap: e.target.checked })}
                                                 label="Improved Shrinkwrap"
                                                 description="Use improved shrinkwrap algorithm with surface relaxation"
                                                 size="sm"
@@ -776,14 +802,14 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 <>
                                                     <Checkbox
                                                         checked={fittingParameters.preserveOpenings || false}
-                                                        onChange={(e) => updateFittingParameters({ preserveOpenings: e.target.checked })}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ preserveOpenings: e.target.checked })}
                                                         label="Preserve Openings"
                                                         description="Lock vertices around neck and arm regions to preserve armor openings"
                                                         size="sm"
                                                     />
                                                     <Checkbox
                                                         checked={fittingParameters.pushInteriorVertices || false}
-                                                        onChange={(e) => updateFittingParameters({ pushInteriorVertices: e.target.checked })}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ pushInteriorVertices: e.target.checked })}
                                                         label="Push Interior Vertices"
                                                         description="Restore vertices that end up inside the avatar back to their pre-shrinkwrap positions"
                                                         size="sm"
@@ -799,7 +825,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                             
                                             <Checkbox
                                                 checked={fittingParameters.showDebugArrows || false}
-                                                onChange={(e) => updateFittingParameters({ showDebugArrows: e.target.checked })}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ showDebugArrows: e.target.checked })}
                                                 label="Show Debug Arrows"
                                                 description="Display arrows showing vertex movement direction and magnitude"
                                                 size="sm"
@@ -816,7 +842,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                             max={20}
                                                             step={1}
                                                             value={fittingParameters.debugArrowDensity || 10}
-                                                            onChange={(e) => updateFittingParameters({ debugArrowDensity: parseInt(e.target.value) })}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFittingParameters({ debugArrowDensity: parseInt(e.target.value) })}
                                                         />
                                                         <p className="text-xs text-text-tertiary">Show every Nth vertex (lower = more arrows)</p>
                                                     </div>
@@ -824,7 +850,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                         <label className="block text-xs text-text-tertiary mb-1">Color Mode</label>
                                                         <select
                                                             value={fittingParameters.debugColorMode || 'direction'}
-                                                            onChange={(e) => updateFittingParameters({ debugColorMode: e.target.value as 'direction' | 'magnitude' | 'sidedness' })}
+                                                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateFittingParameters({ debugColorMode: e.target.value as 'direction' | 'magnitude' | 'sidedness' })}
                                                             className={cn(selectClassName, "text-xs")}
                                                             disabled={!fittingParameters.showDebugArrows}
                                                         >
@@ -914,7 +940,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                         <label className="block text-xs text-text-tertiary mb-2">Fitting Method</label>
                                         <select
                                             value={helmetFittingMethod}
-                                            onChange={(e) => setHelmetFittingMethod(e.target.value as 'auto' | 'manual')}
+                                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setHelmetFittingMethod(e.target.value as 'auto' | 'manual')}
                                             className={selectClassName}
                                         >
                                             <option value="auto">Automatic</option>
@@ -937,7 +963,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={1.2}
                                                 step={0.01}
                                                 value={helmetSizeMultiplier}
-                                                onChange={(e) => setHelmetSizeMultiplier(parseFloat(e.target.value))}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHelmetSizeMultiplier(parseFloat(e.target.value))}
                                             />
                                         </div>
                                         
@@ -952,7 +978,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={1.0}
                                                 step={0.01}
                                                 value={helmetFitTightness}
-                                                onChange={(e) => setHelmetFitTightness(parseFloat(e.target.value))}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHelmetFitTightness(parseFloat(e.target.value))}
                                             />
                                             <p className="text-xs text-text-tertiary mt-1">How snug the helmet fits (lower = tighter)</p>
                                         </div>
@@ -968,7 +994,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={0.1}
                                                 step={0.005}
                                                 value={helmetVerticalOffset}
-                                                onChange={(e) => setHelmetVerticalOffset(parseFloat(e.target.value))}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHelmetVerticalOffset(parseFloat(e.target.value))}
                                             />
                                         </div>
                                         
@@ -983,21 +1009,21 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                 max={0.05}
                                                 step={0.005}
                                                 value={helmetForwardOffset}
-                                                onChange={(e) => setHelmetForwardOffset(parseFloat(e.target.value))}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHelmetForwardOffset(parseFloat(e.target.value))}
                                             />
                                         </div>
                                         
                                         <div className="pt-2 space-y-2 border-t border-white/10 mt-4">
                                             <Checkbox
                                                 checked={showWireframe}
-                                                onChange={(e) => setShowWireframe(e.target.checked)}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowWireframe(e.target.checked)}
                                                 label="Show Wireframe"
                                                 description="Toggle wireframe display for helmet mesh"
                                                 size="sm"
                                             />
                                             <Checkbox
                                                 checked={showHeadBounds}
-                                                onChange={(e) => setShowHeadBounds(e.target.checked)}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowHeadBounds(e.target.checked)}
                                                 label="Show Head Bounds"
                                                 description="Display bounding box around the head bone"
                                                 size="sm"
@@ -1230,24 +1256,28 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                                                 <div className="p-3 space-y-2">
                                                                     <button
                                                                         onClick={async () => {
-                                                                            const armor = boundArmorMesh!
-                                                                            const { BoneDiagnostics } = await import('../../../services/fitting/BoneDiagnostics')
-                                                                            console.clear()
-                                                                            BoneDiagnostics.analyzeSkeletonForExport(armor.skeleton, 'Bound Armor Skeleton')
+                                                                            if (!boundArmorMesh) return
+                                                                            try {
+                                                                                const { BoneDiagnostics } = await import('../../../services/fitting/BoneDiagnostics')
+                                                                                console.clear()
+                                                                                BoneDiagnostics.analyzeSkeletonForExport(boundArmorMesh.skeleton, 'Bound Armor Skeleton')
 
-                                                                            // Test with different scales
-                                                                            const testSkeletonM = BoneDiagnostics.createTestSkeleton('meters')
-                                                                            const testSkeletonCM = BoneDiagnostics.createTestSkeleton('centimeters')
+                                                                                // Test with different scales
+                                                                                const testSkeletonM = BoneDiagnostics.createTestSkeleton('meters')
+                                                                                const testSkeletonCM = BoneDiagnostics.createTestSkeleton('centimeters')
 
-                                                                            BoneDiagnostics.analyzeSkeletonForExport(testSkeletonM, 'Test Skeleton (Meters)')
-                                                                            BoneDiagnostics.analyzeSkeletonForExport(testSkeletonCM, 'Test Skeleton (CM)')
+                                                                                BoneDiagnostics.analyzeSkeletonForExport(testSkeletonM, 'Test Skeleton (Meters)')
+                                                                                BoneDiagnostics.analyzeSkeletonForExport(testSkeletonCM, 'Test Skeleton (CM)')
 
-                                                                            BoneDiagnostics.compareSkeletons(
-                                                                                armor.skeleton, 'Armor',
-                                                                                testSkeletonCM, 'Test CM'
-                                                                            )
+                                                                                BoneDiagnostics.compareSkeletons(
+                                                                                    boundArmorMesh.skeleton, 'Armor',
+                                                                                    testSkeletonCM, 'Test CM'
+                                                                                )
 
-                                                                            console.log('Diagnostics complete - check console')
+                                                                                console.log('Diagnostics complete - check console')
+                                                                            } catch (error) {
+                                                                                console.error('Diagnostics failed:', error)
+                                                                            }
                                                                         }}
                                                                         disabled={!boundArmorMesh}
                                                                         className={cn(

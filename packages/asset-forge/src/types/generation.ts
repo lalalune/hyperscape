@@ -1,6 +1,7 @@
-import { Asset } from '../services/api/AssetService'
-import { ExtendedAssetMetadata } from './RiggingMetadata'
 import { AssetMetadata, BaseAssetMetadata, AssetType } from './AssetMetadata'
+// import { ExtendedAssetMetadata } from './RiggingMetadata'
+
+import { Asset } from '@/services/api/AssetService'
 
 // Extended GeneratedAsset type that includes all UI-specific properties
 export interface GeneratedAsset extends Asset {
@@ -92,6 +93,7 @@ export interface GenerationConfig {
   subtype: string
   description: string
   style?: string  // Now flexible to support any art style
+  quality?: 'standard' | 'high' | 'ultra'
   assetId?: string
   tier?: string
   metadata?: {
@@ -105,6 +107,13 @@ export interface GenerationConfig {
   
   // Generation type
   generationType?: 'item' | 'avatar'
+  
+  // Optional user-provided reference image to bypass auto image generation
+  referenceImage?: {
+    source: 'url' | 'data'
+    url?: string
+    dataUrl?: string
+  }
   
   // Pipeline stages control
   enableGeneration?: boolean

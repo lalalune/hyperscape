@@ -55,7 +55,7 @@ export function getCreatureCategory(height: number): keyof typeof CREATURE_SIZE_
       return category as keyof typeof CREATURE_SIZE_CATEGORIES
     }
   }
-  return 'medium'
+  return 'medium' // Default fallback
 }
 
 // Type exports

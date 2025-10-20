@@ -3,7 +3,8 @@
  */
 
 import type { MeshFittingParameters } from './fitting'
-import type { BoundingBox } from './index'
+
+// import type { BoundingBox } from './index'
 
 /**
  * JSON-serializable value type for GLTF extras and extensions

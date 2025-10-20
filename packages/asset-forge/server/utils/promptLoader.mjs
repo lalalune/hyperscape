@@ -68,7 +68,7 @@ export async function loadAllPrompts() {
 // Helper functions to get specific prompts with fallbacks
 export async function getGameStylePrompt(style = 'generic') {
   const prompts = await loadPromptFile('game-style-prompts')
-  if (!prompts) return 'low-poly 3D game asset style' // Fallback
+  if (!prompts) return 'game-ready' // Fallback
   
   // Check custom first, then default
   const customPrompt = prompts.custom?.[style]
@@ -78,7 +78,7 @@ export async function getGameStylePrompt(style = 'generic') {
   if (defaultPrompt) return defaultPrompt.base || defaultPrompt
   
   // Ultimate fallback
-  return prompts.default?.generic?.base || 'low-poly 3D game asset style'
+  return prompts.default?.generic?.base || 'game-ready'
 }
 
 export async function getAssetTypePrompt(assetType) {
@@ -113,8 +113,8 @@ export async function getGenerationPrompts() {
     // Fallback prompts
     return {
       imageGeneration: {
-        base: '${description}. ${style || "Low-poly game asset"} style, ${assetType}, clean geometry suitable for 3D conversion.',
-        fallbackEnhancement: '${config.description}. ${config.style || "Low-poly RuneScape 2007"} style, clean geometry, game-ready 3D asset.'
+        base: '${description}. ${style || "game-ready"} style, ${assetType}, clean geometry suitable for 3D conversion.',
+        fallbackEnhancement: '${config.description}. ${config.style || "game-ready"} style, clean geometry, game-ready 3D asset.'
       },
       posePrompts: {
         avatar: {

@@ -286,4 +286,4 @@ export type {
 } from './gltf'
 
 // Re-export Asset from AssetService to maintain backward compatibility
-export type { Asset } from '../services/api/AssetService' 
+export type { Asset } from '@/services/api/AssetService' 

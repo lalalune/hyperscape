@@ -1,5 +1,3 @@
-import React from 'react'
-import { useAssetsStore } from '../../store'
 import { 
   RotateCw, 
   Eye, 
@@ -15,6 +13,9 @@ import {
   Edit3,
   Activity
 } from 'lucide-react'
+import React from 'react'
+
+import { useAssetsStore } from '../../store'
 
 interface ViewerControlsProps {
   onViewerReset: () => void

@@ -36,7 +36,7 @@ export interface RiggingMetadata {
 
 // Extended metadata that includes rigging
 // Type for the animation property structure
-type AnimationProperty = {
+type _AnimationProperty = {
   basic?: AnimationSet
   advanced?: AnimationSet
 }

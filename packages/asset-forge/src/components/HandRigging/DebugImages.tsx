@@ -1,7 +1,8 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common'
-import { cn } from '../../styles'
 import { Camera } from 'lucide-react'
+import React from 'react'
+
+import { cn } from '../../styles'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common'
 
 interface DebugImagesProps {
   debugImages: { [key: string]: string | undefined }
