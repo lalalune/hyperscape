@@ -26,6 +26,12 @@ export async function POST(req, res) {
       })
     }
 
+    if (context !== undefined && (typeof context !== 'string' || context.trim() === '')) {
+      return res.status(400).json({
+        error: "Invalid input: 'context' must be a non-empty string if provided"
+      })
+    }
+
     if (customModel !== undefined && typeof customModel !== 'string') {
       return res.status(400).json({
         error: "Invalid input: 'model' must be a string if provided"
@@ -34,6 +40,7 @@ export async function POST(req, res) {
 
     // Get model for quest generation
     const selectedModel = getModelForTask('quest_generation', customModel, 'quality')
+    const modelIdentifier = selectedModel.modelId || customModel || 'default'
 
     // Generate prompt with examples
     const aiPrompt = makeQuestGenerationPrompt(questType, prompt, context)
@@ -76,14 +83,14 @@ export async function POST(req, res) {
       status: questData.status || 'not_started',
       metadata: {
         generatedBy: 'AI',
-        model: customModel || 'default',
+        model: modelIdentifier,
         timestamp: new Date().toISOString()
       }
     }
 
     return res.json({
       quest: completeQuest,
-      model: customModel || 'default',
+      model: modelIdentifier,
       rawResponse: text
     })
   } catch (error) {

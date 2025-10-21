@@ -54,7 +54,14 @@ Return ONLY valid JSON, no markdown, no explanation.
 }
 
 export const parseQuestGenerationResponse = (text) => {
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  // First try to find a fenced JSON code block
+  const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
+  if (codeBlockMatch) {
+    return JSON.parse(codeBlockMatch[1])
+  }
+
+  // Fall back to non-greedy regex for a single JSON object
+  const jsonMatch = text.match(/\{[\s\S]*?\}/)
   if (!jsonMatch) {
     throw new Error('No JSON found in response')
   }

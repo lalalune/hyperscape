@@ -24,6 +24,7 @@ import { DialogueTreeEditor } from './DialogueTreeEditor'
 import { EventPayloadPreview } from './EventPayloadPreview'
 import { validateNPCScript } from '../../utils/npc-script-validator'
 import { downloadScriptPack } from '../../utils/npc-script-exporter'
+import { API_ENDPOINTS } from '../../config/api'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Badge } from '../common/Badge'
@@ -114,7 +115,7 @@ export const NPCScriptBuilder: React.FC = () => {
         throw new Error('NPC not found')
       }
       
-      const response = await fetch('http://localhost:3004/api/generate-dialogue', {
+      const response = await fetch(API_ENDPOINTS.generateDialogue, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

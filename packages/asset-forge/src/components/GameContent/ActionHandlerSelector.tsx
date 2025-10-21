@@ -37,9 +37,9 @@ export const ActionHandlerSelector: React.FC<ActionHandlerSelectorProps> = ({
   className = ''
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<ActionCategory | 'all'>(category || 'all')
-  
-  const categories: ActionCategory[] = ['combat', 'gathering', 'processing', 'economy', 'navigation', 'social']
-  
+
+  const categories: ActionCategory[] = Object.keys(ACTION_CATEGORIES) as ActionCategory[]
+
   const filteredActions = selectedCategory === 'all'
     ? Object.values(ACTION_HANDLERS)
     : getActionsByCategory(selectedCategory)

@@ -40,6 +40,7 @@ export async function POST(req, res) {
 
     // Get model for dialogue generation
     const selectedModel = getModelForTask('dialogue_tree', customModel, 'cost')
+    const modelIdentifier = selectedModel.modelId || customModel || 'default'
 
     // Generate prompt with few-shot examples
     const prompt = makeDialogueNodePrompt(npcName, npcPersonality, context || '', existingNodes)
@@ -75,7 +76,7 @@ export async function POST(req, res) {
 
     return res.json({
       nodes,
-      model: customModel || 'default',
+      model: modelIdentifier,
       rawResponse: text
     })
   } catch (error) {

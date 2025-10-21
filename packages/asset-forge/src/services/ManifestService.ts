@@ -79,11 +79,11 @@ export class ManifestService {
 
     const manifests: Partial<Record<ManifestType, AnyManifest[]>> = {}
 
-    results.forEach((result) => {
+    results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         manifests[result.value.type] = result.value.data
       } else {
-        console.warn(`Failed to fetch ${types} manifest:`, result.reason)
+        console.warn(`Failed to fetch ${types[index]} manifest:`, result.reason)
       }
     })
 

@@ -193,7 +193,7 @@ DIFFICULTY: ${context.tier.difficulty}
     if (context.existingQuests.length > 0) {
       prompt += `\nEXISTING QUESTS (avoid duplicating these):\n`
       context.existingQuests.forEach(quest => {
-        prompt += `  - ${quest.title} (${quest.type || quest.difficulty})\n`
+        prompt += `  - ${quest.title} (${quest.difficulty || 'unknown'})\n`
       })
     }
     

@@ -8,6 +8,7 @@ import React, { useState } from 'react'
 
 import type { GeneratedNPC } from '../../types/content-generation'
 import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { API_ENDPOINTS } from '../../config/api'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
@@ -56,7 +57,7 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
     setGenerationError(null)
     
     try {
-      const response = await fetch('http://localhost:3004/api/generate-npc', {
+      const response = await fetch(API_ENDPOINTS.generateNPC, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

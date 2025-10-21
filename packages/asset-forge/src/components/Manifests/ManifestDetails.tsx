@@ -7,6 +7,7 @@ import { Copy, CheckCircle, Box, Sparkles } from 'lucide-react'
 import React, { useState, useRef } from 'react'
 
 import type { AnyManifest } from '../../types/manifests'
+import { CDN_URL } from '../../config/api'
 import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import ThreeViewer, { ThreeViewerRef } from '../shared/ThreeViewer'
@@ -104,14 +105,14 @@ export const ManifestDetails: React.FC<ManifestDetailsProps> = ({
     if ('modelPath' in item && typeof item.modelPath === 'string' && item.modelPath) {
       // Convert asset:// protocol to CDN URL
       if (item.modelPath.startsWith('asset://')) {
-        return `http://localhost:8080/${item.modelPath.replace('asset://', '')}`
+        return `${CDN_URL}/${item.modelPath.replace('asset://', '')}`
       }
       // Already a full path
       if (item.modelPath.startsWith('http')) {
         return item.modelPath
       }
       // Relative path - assume CDN
-      return `http://localhost:8080${item.modelPath.startsWith('/') ? '' : '/'}${item.modelPath}`
+      return `${CDN_URL}${item.modelPath.startsWith('/') ? '' : '/'}${item.modelPath}`
     }
     return null
   }

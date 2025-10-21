@@ -110,7 +110,15 @@ export function getModelForTask(task, customModel, priority = 'cost') {
     return openai('gpt-4o-mini')
   }
 
-  const openrouter = getOpenRouterClient()
-  return openrouter(modelId)
+  // Last resort: try OpenRouter if configured
+  if (process.env.OPENROUTER_API_KEY) {
+    const openrouter = getOpenRouterClient()
+    return openrouter(modelId)
+  }
+
+  throw new Error(
+    `Cannot use model ${modelId}: OPENROUTER_API_KEY not configured. ` +
+    `Please set OPENROUTER_API_KEY in your environment to use this model.`
+  )
 }
 

@@ -41,10 +41,11 @@ export const ManifestsPage: React.FC = () => {
     try {
       const data = await manifestService.fetchAllManifests()
       setManifests(data)
-      
+
       // Select first type by default
       if (!selectedType && Object.keys(data).length > 0) {
-        setSelectedType('items')
+        const firstKey = Object.keys(data)[0] as ManifestType
+        setSelectedType(firstKey)
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load manifests'
@@ -65,6 +66,8 @@ export const ManifestsPage: React.FC = () => {
           [selectedType]: data
         })
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        setError(`Failed to refresh ${selectedType} manifest: ${errorMessage}`)
         console.error('Error refreshing manifest:', err)
       } finally {
         setLoading(false)

@@ -10,6 +10,7 @@ import type { GeneratedQuest, QuestObjective, QuestReward } from '../../types/co
 import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../../types/manifests'
 import type { ActionHandlerName } from '../../types/action-handlers'
 import { manifestService } from '../../services/ManifestService'
+import { API_ENDPOINTS } from '../../config/api'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
@@ -119,7 +120,7 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
     setGenerationError(null)
     
     try {
-      const response = await fetch('http://localhost:3004/api/generate-quest', {
+      const response = await fetch(API_ENDPOINTS.generateQuest, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

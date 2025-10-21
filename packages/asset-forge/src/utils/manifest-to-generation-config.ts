@@ -76,7 +76,7 @@ function itemToGenerationConfig(item: ItemManifest): GenerationConfig {
       gameId: item.id,
       itemType: item.type,
       value: item.value,
-      tier: item.tier,
+      rarity: item.rarity,
       manifestSource: 'game-data',
       // This metadata gets saved with the asset and appears in the asset viewer
       sourceManifest: 'items.json',
@@ -89,8 +89,8 @@ function itemToGenerationConfig(item: ItemManifest): GenerationConfig {
  * Convert mob manifest to generation config
  */
 function mobToGenerationConfig(mob: MobManifest): GenerationConfig {
-  const description = `${mob.description}. A level ${mob.stats.level} ${mob.type} creature with ${mob.stats.health} health. ${mob.behavior.aggressive ? 'Aggressive and dangerous' : 'Passive creature'}. Low-poly game character design.`
-  
+  const description = `${mob.description}. A level ${mob.stats.level} ${mob.type} creature with ${mob.stats.constitution} constitution. ${mob.behavior.aggressive ? 'Aggressive and dangerous' : 'Passive creature'}. Low-poly game character design.`
+
   return {
     name: mob.name,
     type: 'character',
@@ -110,7 +110,7 @@ function mobToGenerationConfig(mob: MobManifest): GenerationConfig {
       gameId: mob.id,
       mobType: mob.type,
       level: mob.stats.level,
-      health: mob.stats.health,
+      constitution: mob.stats.constitution,
       xpReward: mob.xpReward,
       creatureType: 'biped', // Most mobs are biped
       manifestSource: 'game-data',
@@ -124,8 +124,9 @@ function mobToGenerationConfig(mob: MobManifest): GenerationConfig {
  * Convert NPC manifest to generation config
  */
 function npcToGenerationConfig(npc: NPCManifest): GenerationConfig {
-  const description = `${npc.description}. A ${npc.npcType} NPC who provides ${npc.services.join(', ')} services. Friendly humanoid character. Low-poly game character design.`
-  
+  const npcType = npc.npcType || npc.type || 'generic'
+  const description = `${npc.description}. A ${npcType} NPC who provides ${npc.services.join(', ')} services. Friendly humanoid character. Low-poly game character design.`
+
   return {
     name: npc.name,
     type: 'character',
@@ -143,7 +144,7 @@ function npcToGenerationConfig(npc: NPCManifest): GenerationConfig {
     },
     metadata: {
       gameId: npc.id,
-      npcType: npc.npcType,
+      npcType: npcType,
       services: npc.services.join(','),
       creatureType: 'biped',
       manifestSource: 'game-data',
@@ -221,12 +222,12 @@ function getItemSubtype(item: ItemManifest): string {
 
 function buildItemDescription(item: ItemManifest): string {
   let desc = item.description
-  
-  // Add tier information
-  if (item.tier) {
-    desc += `. ${item.tier} tier quality`
+
+  // Add rarity information
+  if (item.rarity) {
+    desc += `. ${item.rarity} rarity`
   }
-  
+
   // Add value context
   if (item.value && item.value > 0) {
     if (item.value >= 1000) {
@@ -235,19 +236,19 @@ function buildItemDescription(item: ItemManifest): string {
       desc += `, worth ${item.value} gold`
     }
   }
-  
+
   // Add combat stats if present
-  if ('attackBonus' in item && item.attackBonus) {
-    desc += `. Provides +${item.attackBonus} attack bonus`
+  if (item.bonuses && item.bonuses.attack > 0) {
+    desc += `. Provides +${item.bonuses.attack} attack bonus`
   }
-  
-  if ('defenseBonus' in item && item.defenseBonus) {
-    desc += `. Provides +${item.defenseBonus} defense bonus`
+
+  if (item.bonuses && item.bonuses.defense > 0) {
+    desc += `. Provides +${item.bonuses.defense} defense bonus`
   }
-  
+
   // Add low-poly style note
   desc += '. Low-poly runescape-style game asset with simple textures.'
-  
+
   return desc
 }
 

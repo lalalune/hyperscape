@@ -9,7 +9,7 @@ export interface LevelTier {
   name: string
   material: string
   levelRange: { min: number; max: number }
-  difficulty: 'easy' | 'medium' | 'hard' | 'epic'
+  difficulty: 'easy' | 'medium' | 'hard' | 'very_hard' | 'epic' | 'legendary'
   xpMultiplier: number
   goldMultiplier: number
 }
@@ -26,7 +26,7 @@ export const LEVEL_TIERS: Record<string, LevelTier> = {
   iron: {
     name: 'Iron',
     material: 'iron',
-    levelRange: { min: 10, max: 20 },
+    levelRange: { min: 11, max: 20 },
     difficulty: 'medium',
     xpMultiplier: 1.5,
     goldMultiplier: 1.3
@@ -34,7 +34,7 @@ export const LEVEL_TIERS: Record<string, LevelTier> = {
   steel: {
     name: 'Steel',
     material: 'steel',
-    levelRange: { min: 20, max: 30 },
+    levelRange: { min: 21, max: 30 },
     difficulty: 'hard',
     xpMultiplier: 2.0,
     goldMultiplier: 1.6
@@ -42,15 +42,15 @@ export const LEVEL_TIERS: Record<string, LevelTier> = {
   mithril: {
     name: 'Mithril',
     material: 'mithril',
-    levelRange: { min: 30, max: 40 },
-    difficulty: 'hard',
+    levelRange: { min: 31, max: 40 },
+    difficulty: 'very_hard',
     xpMultiplier: 3.0,
     goldMultiplier: 2.0
   },
   adamant: {
     name: 'Adamant',
     material: 'adamant',
-    levelRange: { min: 40, max: 50 },
+    levelRange: { min: 41, max: 50 },
     difficulty: 'epic',
     xpMultiplier: 4.0,
     goldMultiplier: 2.5
@@ -58,14 +58,14 @@ export const LEVEL_TIERS: Record<string, LevelTier> = {
   rune: {
     name: 'Rune',
     material: 'rune',
-    levelRange: { min: 50, max: 60 },
-    difficulty: 'epic',
+    levelRange: { min: 51, max: 60 },
+    difficulty: 'legendary',
     xpMultiplier: 5.0,
     goldMultiplier: 3.0
   }
 }
 
-export function getTierForDifficulty(difficulty: string): LevelTier {
+export function getTierForDifficulty(difficulty: LevelTier['difficulty']): LevelTier {
   switch (difficulty) {
     case 'easy':
       return LEVEL_TIERS.bronze
@@ -73,8 +73,12 @@ export function getTierForDifficulty(difficulty: string): LevelTier {
       return LEVEL_TIERS.iron
     case 'hard':
       return LEVEL_TIERS.steel
-    case 'epic':
+    case 'very_hard':
       return LEVEL_TIERS.mithril
+    case 'epic':
+      return LEVEL_TIERS.adamant
+    case 'legendary':
+      return LEVEL_TIERS.rune
     default:
       return LEVEL_TIERS.bronze
   }
@@ -90,7 +94,7 @@ export function getTierForLevel(level: number): LevelTier {
 }
 
 export function calculateQuestRewards(
-  difficulty: string,
+  difficulty: LevelTier['difficulty'],
   objectiveCount: number
 ): { experience: number; gold: number } {
   const tier = getTierForDifficulty(difficulty)

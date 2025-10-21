@@ -1,9 +1,10 @@
 /**
  * NPC Generation API Route
- * 
+ *
  * AI-powered complete NPC generation with personality, dialogues, and behavior
  */
 
+import { randomUUID } from 'crypto'
 import { generateText } from 'ai'
 import { getModelForTask } from '../utils/ai-router.mjs'
 import { makeNPCGenerationPrompt, parseNPCGenerationResponse } from '../utils/npc-prompts.mjs'
@@ -34,6 +35,7 @@ export async function POST(req, res) {
 
     // Get model for NPC generation
     const selectedModel = getModelForTask('npc_dialogue', customModel, 'quality')
+    const modelIdentifier = selectedModel.modelId || customModel || 'default'
 
     // Generate prompt with examples
     const aiPrompt = makeNPCGenerationPrompt(archetype, prompt, context)
@@ -70,18 +72,18 @@ export async function POST(req, res) {
 
     // Add metadata
     const completeNPC = {
-      id: `npc_${Date.now()}`,
+      id: `npc_${randomUUID()}`,
       ...npcData,
       metadata: {
         generatedBy: 'AI',
-        model: customModel || 'default',
+        model: modelIdentifier,
         timestamp: new Date().toISOString()
       }
     }
 
     return res.json({
       npc: completeNPC,
-      model: customModel || 'default',
+      model: modelIdentifier,
       rawResponse: text
     })
   } catch (error) {

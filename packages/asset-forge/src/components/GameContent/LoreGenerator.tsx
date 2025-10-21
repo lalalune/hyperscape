@@ -94,11 +94,11 @@ export const LoreGenerator: React.FC<LoreGeneratorProps> = ({
         title,
         content,
         category,
-        tags: [category],
+        tags: [category, ...relatedEntities.map(e => e.type)],
         relatedEntities,
         createdAt: new Date().toISOString()
       }
-      
+
       onLoreGenerated(lore)
     }
   }
@@ -177,11 +177,11 @@ export const LoreGenerator: React.FC<LoreGeneratorProps> = ({
                 onChange={(e) => {
                   const [type, id] = e.target.value.split(':')
                   if (!type || !id) return
-                  
+
                   const entity = type === 'item' ? items.find(i => i.id === id) :
                                 type === 'mob' ? mobs.find(m => m.id === id) :
                                 npcs.find(n => n.id === id)
-                  
+
                   if (entity) {
                     addRelatedEntity(type as 'item' | 'mob' | 'npc', id, entity.name)
                   }
@@ -191,7 +191,7 @@ export const LoreGenerator: React.FC<LoreGeneratorProps> = ({
               >
                 <option value="">Link entity...</option>
                 <optgroup label="Items">
-                  {items.slice(0, 10).map((item) => (
+                  {items.map((item) => (
                     <option key={item.id} value={`item:${item.id}`}>
                       {item.name}
                     </option>
