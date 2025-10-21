@@ -83,7 +83,9 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
           walletList: ['metamask', 'coinbase_wallet', 'rainbow', 'detected_wallets'],
         },
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
+          ethereum: {
+            createOnLogin: 'users-without-wallets' as const
+          }
         },
         mfa: {
           noPromptOnMfaRequired: false,

@@ -5,7 +5,17 @@
  * It handles JavaScript errors and unhandled promise rejections.
  */
 
-import type { ErrorReport } from '@hyperscape/shared'
+interface ErrorReport {
+  message: string
+  stack: string
+  url: string
+  userAgent: string
+  timestamp: string
+  context: unknown
+  componentStack: string
+  userId: string
+  sessionId: string
+}
 
 /**
  * ErrorReportingService - Frontend error tracking and reporting

@@ -3,7 +3,18 @@ import { useEffect, useRef, useState } from 'react'
 
 import { AvatarPreview } from '../AvatarPreview'
 import { EventType } from '@hyperscape/shared'
-import type { AvatarPaneProps } from '@hyperscape/shared'
+import type { ClientWorld } from '../types'
+
+interface AvatarPaneProps {
+  world: ClientWorld
+  info: {
+    hash: string
+    file: File
+    url: string
+    onEquip: () => void
+    onPlace: () => void
+  }
+}
 
 export function AvatarPane({ world, info }: AvatarPaneProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -84,7 +95,7 @@ export function AvatarPane({ world, info }: AvatarPaneProps) {
       `}</style>
       <div className='vpane-head'>
         <div className='vpane-head-title'>Avatar</div>
-        <div className='vpane-head-close' onClick={() => world.emit(EventType.UI_AVATAR, null)}>
+        <div className='vpane-head-close' onClick={() => (world.emit as (e: string, d?: unknown) => void)(EventType.UI_AVATAR, null)}>
           <XIcon size={20} />
         </div>
       </div>

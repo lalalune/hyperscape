@@ -36,15 +36,23 @@
  * Referenced by: All client React components, hooks, and UI-related code
  */
 
-import { THREE } from '@hyperscape/shared'
-import type { EntityData as CoreEntityData, ControlBinding } from '@hyperscape/shared'
-import type { World } from '@hyperscape/shared'
+import { THREE, World } from '@hyperscape/shared'
 
-// Export the actual World class instead of defining a separate interface
-export type { World }
+// Client World type: just the actual World instance (now properly typed in shared)
+export type ClientWorld = InstanceType<typeof World>
 
-// Use shared UIState from types/physics.ts where broader UI state exists
-export type { UIState } from '@hyperscape/shared'
+// Re-export game model types from shared package
+// These are the canonical types from @hyperscape/shared/types/core.ts
+export type {
+  PlayerHealth,
+  SkillData,
+  Skills,
+  Item,
+  PlayerEquipmentItems,
+  PlayerStats,
+  InventorySlotItem,
+  InventoryItem,
+} from '@hyperscape/shared'
 
 export interface EntityManager {
   items: Map<string, Entity>
@@ -57,13 +65,15 @@ export interface Entity {
   data: EntityData
   isApp?: boolean
   isPlayer?: boolean
-  root: THREE.Object3D
+  root: InstanceType<typeof THREE.Object3D>
   modify: (changes: Partial<EntityData>) => void
   destroy: (broadcast?: boolean) => void
 }
 
-// Extend core EntityData with client-specific fields
-export interface EntityData extends CoreEntityData {
+// Client-specific entity data
+export interface EntityData {
+  id: string
+  type: string
   mover?: string
   uploader?: string | null
   pinned?: boolean
@@ -159,7 +169,12 @@ export interface ControlsSystem {
     locked: boolean
   }
   actions: Action[]
-  bind: (options: { priority: number }) => ControlBinding
+  bind: (options: { priority: number }) => {
+    enter?: { onPress?: () => void }
+    mouseLeft?: { onPress?: () => void }
+    pointer?: { locked?: boolean }
+    release?: () => void
+  }
   action: { onPress: () => void }
   jump: { onPress: () => void }
 }

@@ -1,27 +1,119 @@
-// import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon, XIcon } from 'lucide-react'
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Curve } from '@hyperscape/shared'
-import { downloadFile } from '@hyperscape/shared'
-import type { LoadingFile } from '@hyperscape/shared'
-import type {
-  FieldBtnProps,
-  FieldCurveProps,
-  FieldFileProps,
-  FieldNumberProps,
-  FieldRangeProps,
-  FieldSwitchProps,
-  FieldTextProps,
-  FieldTextareaProps,
-  FieldToggleProps,
-  FieldVec3Props,
-  SwitchOption
-} from '@hyperscape/shared'
-import { hashFile } from '@hyperscape/shared'
+import { Curve, downloadFile, hashFile } from '@hyperscape/shared'
+import type { ClientWorld } from '../types'
 import { CurvePane } from './CurvePane'
 import { CurvePreview } from './CurvePreview'
 import { HintContext } from './Hint'
 import { Portal } from './Portal'
 import { useUpdate } from './useUpdate'
+
+interface LoadingFile {
+  type: string
+  name: string
+  url: string
+}
+
+interface SwitchOption {
+  label: string
+  value: unknown
+}
+
+interface FieldTextProps {
+  label: string
+  hint?: string
+  placeholder?: string
+  value: string
+  onChange: (value: string) => void
+}
+
+interface FieldTextareaProps {
+  label: string
+  hint?: string
+  placeholder?: string
+  value: string
+  onChange: (value: string) => void
+}
+
+interface FieldSwitchProps {
+  label: string
+  hint?: string
+  options: SwitchOption[]
+  value: unknown
+  onChange: (value: unknown) => void
+}
+
+interface FieldToggleProps {
+  label: string
+  hint?: string
+  trueLabel?: string
+  falseLabel?: string
+  value: boolean
+  onChange: (value: boolean) => void
+}
+
+interface FieldRangeProps {
+  label: string
+  hint?: string
+  min?: number
+  max?: number
+  step?: number
+  instant?: boolean
+  value: number
+  onChange: (value: number) => void
+}
+
+interface FieldFileProps {
+  world: ClientWorld
+  label: string
+  hint?: string
+  kind: keyof typeof fileKinds
+  value: { type?: string; name?: string; url?: string } | null
+  onChange: (value: LoadingFile | null) => void
+}
+
+interface FieldNumberProps {
+  label: string
+  hint?: string
+  dp?: number
+  min?: number
+  max?: number
+  step?: number
+  bigStep?: number
+  value: number
+  onChange: (value: number) => void
+}
+
+interface FieldVec3Props {
+  label: string
+  hint?: string
+  dp?: number
+  min?: number
+  max?: number
+  step?: number
+  bigStep?: number
+  value: [number, number, number]
+  onChange: (value: [number, number, number]) => void
+}
+
+interface FieldCurveProps {
+  label: string
+  hint?: string
+  x: string
+  xRange?: number
+  y: string
+  yMin: number
+  yMax: number
+  value: string
+  onChange: (value: string) => void
+}
+
+interface FieldBtnProps {
+  label: string
+  note?: string
+  hint?: string
+  nav?: boolean
+  onClick: () => void
+}
 
 
 

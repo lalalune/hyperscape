@@ -5,12 +5,26 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Entity } from "@hyperscape/shared";
-import { THREE } from "@hyperscape/shared";
-import type { EntityPip, MinimapProps } from "@hyperscape/shared";
-import type { PlayerLocal } from "@hyperscape/shared";
-import type { CameraSystem } from "@hyperscape/shared";
-import { createRenderer, type UniversalRenderer } from "@hyperscape/shared";
+import { Entity, THREE, createRenderer } from "@hyperscape/shared";
+import type { UniversalRenderer } from "@hyperscape/shared";
+import type { ClientWorld } from "../types";
+
+interface EntityPip {
+  id: string
+  type: "player" | "enemy" | "building" | "item" | "resource"
+  position: THREE.Vector3
+  color: string
+}
+
+interface MinimapProps {
+  world: ClientWorld
+  width?: number
+  height?: number
+  zoom?: number
+  className?: string
+  style?: React.CSSProperties
+  onCompassClick?: () => void
+}
 
 export function Minimap({
   world,
@@ -109,7 +123,7 @@ export function Minimap({
     })
       .then((renderer) => {
         if (!mounted) {
-          renderer.dispose();
+          if ('dispose' in renderer) (renderer as { dispose: () => void }).dispose();
           return;
         }
 
@@ -135,8 +149,8 @@ export function Minimap({
 
     return () => {
       mounted = false;
-      if (rendererRef.current) {
-        rendererRef.current.dispose();
+      if (rendererRef.current && 'dispose' in rendererRef.current) {
+        (rendererRef.current as { dispose: () => void }).dispose();
       }
     };
   }, [width, height, extent, world]);
@@ -156,7 +170,7 @@ export function Minimap({
     let rafId: number | null = null;
     const loop = () => {
       const cam = cameraRef.current;
-      const player = world.entities.player as Entity | undefined;
+      const player = world.entities?.player as Entity | undefined;
       if (cam && player) {
         // Keep centered on player
         cam.position.x = player.node.position.x;
@@ -220,7 +234,7 @@ export function Minimap({
     let intervalId: number | null = null;
     const update = () => {
       const pips: EntityPip[] = [];
-      const player = world.entities.player as Entity | undefined;
+      const player = world.entities?.player as Entity | undefined;
       if (player?.node?.position) {
         pips.push({
           id: "local-player",
@@ -536,7 +550,7 @@ export function Minimap({
       const worldPos = screenToWorldXZ(clientX, clientY);
       if (!worldPos) return;
 
-      const player = world.entities.player as PlayerLocal | undefined;
+      const player = world.entities?.player as { position?: { x: number; z: number }; runMode?: boolean } | undefined;
       if (!player?.position) return;
       const dx = worldPos.x - player.position.x;
       const dz = worldPos.z - player.position.z;
@@ -573,7 +587,7 @@ export function Minimap({
       // Persist destination dot until arrival (no auto-fade)
       setLastDestinationWorld({ x: targetX, z: targetZ });
       // Expose same diagnostic target used by world clicks so minimap renders dot identically
-      const windowWithTarget = window as {
+      const windowWithTarget = window as unknown as {
         __lastRaycastTarget: {
           x: number;
           y: number;
@@ -699,8 +713,8 @@ export function Minimap({
             // Reorient main camera to face North (RS3-like) using camera system directly
             const camSys = world.getSystem(
               "client-camera-system",
-            ) as CameraSystem | null;
-            camSys?.resetCamera();
+            ) as { resetCamera?: () => void } | null;
+            camSys?.resetCamera?.();
           }}
           onMouseDown={(e) => {
             e.preventDefault();

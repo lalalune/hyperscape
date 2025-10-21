@@ -1,23 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { PlayerMigration, WeaponType, EventType, World } from '@hyperscape/shared'
-
-// Define interface matching what we expect
-interface PlayerStats {
-  combatLevel?: number
-  skills?: Record<string, { level: number; xp: number }>
-}
-
-interface PlayerEquipmentItems {
-  weapon?: { weaponType?: string } | null
-  shield?: unknown | null
-  helmet?: unknown | null
-  body?: unknown | null
-  legs?: unknown | null
-  arrows?: unknown | null
-}
+import { PlayerMigration, WeaponType, EventType } from '@hyperscape/shared'
+import type { ClientWorld, PlayerStats, PlayerEquipmentItems } from '../../types'
 
 interface CombatPanelProps {
-  world: InstanceType<typeof World>
+  world: ClientWorld
   stats: PlayerStats | null
   equipment: PlayerEquipmentItems | null
 }
@@ -28,8 +14,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   const combatLevel = stats?.combatLevel || (stats?.skills ? PlayerMigration.calculateCombatLevel(stats.skills) : 1)
 
   useEffect(() => {
-    const entities = (world as { entities?: { player?: { id?: string } } }).entities
-    const playerId = entities?.player?.id
+    const playerId = world.entities?.player?.id
     if (!playerId) return
     
     const actions = world.getSystem('actions') as { actionMethods?: { 
@@ -43,13 +28,15 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
         setCooldown(info.cooldown || 0)
       }
     })
-    const onUpdate = (data: { playerId: string; currentStyle: { id: string } }) => {
-      if (data.playerId !== playerId) return
-      setStyle(data.currentStyle.id)
+    const onUpdate = (data: unknown) => {
+      const d = data as { playerId: string; currentStyle: { id: string } }
+      if (d.playerId !== playerId) return
+      setStyle(d.currentStyle.id)
     }
-    const onChanged = (data: { playerId: string; currentStyle: { id: string } }) => {
-      if (data.playerId !== playerId) return
-      setStyle(data.currentStyle.id)
+    const onChanged = (data: unknown) => {
+      const d = data as { playerId: string; currentStyle: { id: string } }
+      if (d.playerId !== playerId) return
+      setStyle(d.currentStyle.id)
     }
     world.on(EventType.UI_ATTACK_STYLE_UPDATE, onUpdate, undefined)
     world.on(EventType.UI_ATTACK_STYLE_CHANGED, onChanged, undefined)
@@ -60,8 +47,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   }, [world])
 
   const changeStyle = (next: string) => {
-    const entities = (world as { entities?: { player?: { id?: string } } }).entities
-    const playerId = entities?.player?.id
+    const playerId = world.entities?.player?.id
     if (!playerId) return
     
     const actions = world.getSystem('actions') as { actionMethods?: { 

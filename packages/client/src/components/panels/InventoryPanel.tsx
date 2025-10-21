@@ -3,19 +3,22 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter } 
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { InventorySlotItem } from '@hyperscape/shared'
+import { EventType } from '@hyperscape/shared'
+import type { ClientWorld, InventorySlotItem } from '../../types'
+
+type InventorySlotViewItem = Pick<InventorySlotItem, 'slot' | 'itemId' | 'quantity'>
 
 interface InventoryPanelProps {
-  items: InventorySlotItem[]
+  items: InventorySlotViewItem[]
   coins: number
-  world?: any
+  world?: ClientWorld
   onItemMove?: (fromIndex: number, toIndex: number) => void
-  onItemUse?: (item: InventorySlotItem, index: number) => void
-  onItemEquip?: (item: InventorySlotItem) => void
+  onItemUse?: (item: InventorySlotViewItem, index: number) => void
+  onItemEquip?: (item: InventorySlotViewItem) => void
 }
 
 interface DraggableItemProps {
-  item: InventorySlotItem | null
+  item: InventorySlotViewItem | null
   index: number
   size: number
 }
@@ -37,10 +40,6 @@ function DraggableInventorySlot({ item, index, size }: DraggableItemProps) {
     transition,
     opacity: isDragging ? 0.5 : 1,
     borderColor: 'rgba(242, 208, 138, 0.3)',
-  }
-
-  // Debug: log what we're trying to render
-  if (item) {
   }
 
   return (
@@ -84,7 +83,7 @@ function DraggableInventorySlot({ item, index, size }: DraggableItemProps) {
 }
 
 export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _onItemUse, onItemEquip: _onItemEquip }: InventoryPanelProps) {
-  const slots: (InventorySlotItem | null)[] = Array(28).fill(null)
+  const slots: (InventorySlotViewItem | null)[] = Array(28).fill(null)
   items.forEach((item) => {
     const s = (item as { slot?: number }).slot
     if (typeof s === 'number' && s >= 0 && s < 28) {
@@ -92,10 +91,12 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
     }
   })
   
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
+  const coinsRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState<number>(40)
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [slotItems, setSlotItems] = useState<(InventorySlotItem | null)[]>(slots)
+  const [slotItems, setSlotItems] = useState<(InventorySlotViewItem | null)[]>(slots)
 
   useEffect(() => {
     const onCtxSelect = (evt: Event) => {
@@ -107,14 +108,14 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
       const it = slotItems[slotIndex]
       if (!it) return
       if (ce.detail.actionId === 'drop') {
-        try {
-          world?.network?.dropItem?.(it.itemId, slotIndex, it.quantity || 1)
-        } catch {
-          world?.network?.send?.('dropItem', { itemId: it.itemId, slot: slotIndex, quantity: it.quantity || 1 })
+        if (world?.network?.dropItem) {
+          world.network.dropItem(it.itemId, slotIndex, it.quantity || 1)
+        } else if (world?.network?.send) {
+          world.network.send('dropItem', { itemId: it.itemId, slot: slotIndex, quantity: it.quantity || 1 })
         }
       }
       if (ce.detail.actionId === 'examine') {
-        world?.emit?.('@ui:toast', { message: `It's a ${it.itemId}.`, type: 'info' })
+        world?.emit(EventType.UI_TOAST, { message: `It's a ${it.itemId}.`, type: 'info' })
       }
     }
     window.addEventListener('contextmenu:select', onCtxSelect as EventListener)
@@ -122,7 +123,7 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
   }, [slotItems, world])
 
   useEffect(() => {
-    const newSlots: (InventorySlotItem | null)[] = Array(28).fill(null)
+    const newSlots: (InventorySlotViewItem | null)[] = Array(28).fill(null)
     items.forEach((item) => {
       const s = (item as { slot?: number }).slot
       if (typeof s === 'number' && s >= 0 && s < 28) {
@@ -135,25 +136,37 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
   useEffect(() => {
     const compute = () => {
       const grid = gridRef.current
-      if (!grid) return
+      const wrap = wrapperRef.current
+      if (!grid || !wrap) return
       const parent = grid.parentElement as HTMLElement | null
       const columns = 4
+      const rows = 7
       const gap = 8
-      const widthAvailable = (parent?.clientWidth || grid.clientWidth)
+      // Available width from wrapper (preferred) or parent
+      const widthAvailable = (wrap.clientWidth || parent?.clientWidth || grid.clientWidth)
       const byWidth = Math.floor((widthAvailable - gap * (columns - 1)) / columns)
-      const next = Math.max(20, byWidth)
+      // Available height strictly from wrapper's current content box
+      const coinsMargins = coinsRef.current ? (parseFloat(getComputedStyle(coinsRef.current).marginTop || '0') + parseFloat(getComputedStyle(coinsRef.current).marginBottom || '0')) : 10
+      const coinsBarHeight = (coinsRef.current?.offsetHeight || 44) + coinsMargins
+      const wrapHeight = wrap.clientHeight || 0
+      const heightAvailable = Math.max(0, wrapHeight - coinsBarHeight - 2)
+      const byHeight = Math.floor((heightAvailable - gap * (rows - 1)) / rows)
+      const maxSlot = 68
+      const minSlot = 44
+      const next = Math.max(minSlot, Math.min(byWidth, byHeight, maxSlot))
       setSize(next)
     }
     compute()
+    // one more pass after layout settles
+    const t = window.setTimeout(compute, 200)
     window.addEventListener('resize', compute)
-    const id = window.setInterval(compute, 500)
-    return () => { window.removeEventListener('resize', compute); window.clearInterval(id) }
+    return () => { window.clearTimeout(t); window.removeEventListener('resize', compute) }
   }, [])
 
   const rows = 7
   const columns = 4
   const gap = 8
-  const gridHeight = size * rows + gap * (rows - 1)
+  const gridWidth = size * columns + gap * (columns - 1)
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
@@ -186,30 +199,31 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="w-full flex flex-col box-border" style={{ height: gridHeight + 44 }}>
-        <SortableContext items={slotItems.map((_, i) => `inventory-${i}`)} strategy={rectSortingStrategy}>
-          <div 
-            ref={gridRef} 
-            className="mx-auto grid grid-flow-row"
-            style={{ 
-              gridTemplateColumns: `repeat(${columns}, ${size}px)`, 
-              gridTemplateRows: `repeat(${rows}, ${size}px)`,
-              gap: gap, 
-              width: (size * columns + gap * (columns - 1)) 
-            }}
-          >
-            {slotItems.map((item, i) => (
-              <DraggableInventorySlot
-                key={i}
-                item={item}
-                index={i}
-                size={size}
-              />
-            ))}
-          </div>
-        </SortableContext>
+      <div ref={wrapperRef} className="w-full flex-1 min-h-0 flex flex-col box-border overflow-hidden">
+        <div className="mx-auto" style={{ width: gridWidth }}>
+          <SortableContext items={slotItems.map((_, i) => `inventory-${i}`)} strategy={rectSortingStrategy}>
+            <div 
+              ref={gridRef} 
+              className="mx-auto grid grid-flow-row"
+              style={{ 
+                gridTemplateColumns: `repeat(${columns}, ${size}px)`, 
+                gridTemplateRows: `repeat(${rows}, ${size}px)`,
+                gap: gap, 
+                width: gridWidth 
+              }}
+            >
+              {slotItems.map((item, i) => (
+                <DraggableInventorySlot
+                  key={i}
+                  item={item}
+                  index={i}
+                  size={size}
+                />
+              ))}
+            </div>
+          </SortableContext>
 
-        <DragOverlay>
+          <DragOverlay>
           {activeItem ? (
             <div
               className="bg-black/35 border rounded flex items-center justify-center text-white text-[10px]"
@@ -222,17 +236,20 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
               {activeItem.itemId.substring(0, 3)}
             </div>
           ) : null}
-        </DragOverlay>
+          </DragOverlay>
 
-        <div
-          className="mt-2.5 flex justify-between items-center bg-black/35 border rounded-md py-2 px-2.5 text-[13px]"
-          style={{
-            borderColor: 'rgba(242, 208, 138, 0.3)',
-            color: '#f2d08a',
-          }}
-        >
-          <span>Coins</span>
-          <span className="font-bold">{coins.toLocaleString()} gp</span>
+          <div
+            ref={coinsRef}
+            className="mt-2.5 flex justify-between items-center bg-black/35 border rounded-md py-2 px-2.5 text-[13px] mx-auto"
+            style={{
+              borderColor: 'rgba(242, 208, 138, 0.3)',
+              color: '#f2d08a',
+              width: gridWidth
+            }}
+          >
+            <span>Coins</span>
+            <span className="font-bold">{coins.toLocaleString()} gp</span>
+          </div>
         </div>
       </div>
     </DndContext>

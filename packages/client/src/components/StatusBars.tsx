@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import type { World } from '@hyperscape/shared'
-import type { PlayerLocal } from '@hyperscape/shared'
+import type { ClientWorld } from '../types'
 
 type StatTheme = {
   iconLight: string
@@ -12,7 +11,7 @@ type StatTheme = {
 }
 
 interface StatusBarsProps {
-  world: World
+  world: ClientWorld
 }
 
 export function StatusBars({ world }: StatusBarsProps) {
@@ -32,7 +31,14 @@ export function StatusBars({ world }: StatusBarsProps) {
 
   useEffect(() => {
     const update = () => {
-      const player = world.entities.player as PlayerLocal | undefined
+      const player = world.entities?.player as { 
+        playerData?: { 
+          health?: { current: number; max: number }
+          stats?: { prayer?: { level: number; points: number } }
+        }
+        stamina?: number
+        runMode?: boolean
+      } | undefined
       if (player) {
         // Get health from player data
         if (player.playerData?.health) {
@@ -64,14 +70,14 @@ export function StatusBars({ world }: StatusBarsProps) {
   }, [world])
 
   const toggleRunMode = () => {
-    const player = world.entities.player as PlayerLocal | undefined
+    const player = world.entities?.player as { runMode?: boolean } | undefined
     if (player) {
       const newRunMode = !runMode
       setRunMode(newRunMode)
       player.runMode = newRunMode
 
       // Send network request to update server
-      world.network.send('moveRequest', { runMode: newRunMode })
+      world.network?.send?.('moveRequest', { runMode: newRunMode })
     }
   }
 
