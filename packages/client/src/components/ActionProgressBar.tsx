@@ -4,8 +4,8 @@
  */
 
 import React, { useEffect, useState } from 'react'
-import type { World } from '@hyperscape/shared'
 import { EventType } from '@hyperscape/shared'
+import type { ClientWorld } from '../types'
 
 interface ActionProgress {
   action: string
@@ -15,22 +15,18 @@ interface ActionProgress {
   startTime: number
 }
 
-export function ActionProgressBar({ world }: { world: World }) {
+export function ActionProgressBar({ world }: { world: ClientWorld }) {
   const [currentAction, setCurrentAction] = useState<ActionProgress | null>(null)
 
   useEffect(() => {
-    const handleGatheringStart = (data: { 
-      playerId: string
-      resourceId: string
-      action?: string
-      duration?: number
-    }) => {
+    const handleGatheringStart = (data: unknown) => {
+      const d = data as { playerId: string; resourceId: string; action?: string; duration?: number }
       const localPlayer = world.entities?.player
-      if (!localPlayer || localPlayer.id !== data.playerId) return
+      if (!localPlayer || localPlayer.id !== d.playerId) return
 
       // Determine action name and resource name
-      const action = data.action || 'Gathering'
-      const resourceId = data.resourceId || ''
+      const action = d.action || 'Gathering'
+      const resourceId = d.resourceId || ''
       const resourceName = resourceId.includes('tree') ? 'Tree' : 
                           resourceId.includes('fish') ? 'Fishing Spot' :
                           resourceId.includes('rock') ? 'Rock' : 'Resource'
@@ -39,21 +35,23 @@ export function ActionProgressBar({ world }: { world: World }) {
         action,
         resourceName,
         progress: 0,
-        duration: data.duration || 5000,
+        duration: d.duration || 5000,
         startTime: Date.now()
       })
     }
 
-    const handleGatheringComplete = (data: { playerId: string }) => {
+    const handleGatheringComplete = (data: unknown) => {
+      const d = data as { playerId: string }
       const localPlayer = world.entities?.player
-      if (!localPlayer || localPlayer.id !== data.playerId) return
+      if (!localPlayer || localPlayer.id !== d.playerId) return
 
       setCurrentAction(null)
     }
 
-    const handleGatheringStopped = (data: { playerId: string }) => {
+    const handleGatheringStopped = (data: unknown) => {
+      const d = data as { playerId: string }
       const localPlayer = world.entities?.player
-      if (!localPlayer || localPlayer.id !== data.playerId) return
+      if (!localPlayer || localPlayer.id !== d.playerId) return
 
       setCurrentAction(null)
     }

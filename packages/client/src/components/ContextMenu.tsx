@@ -1,5 +1,12 @@
 import React, { useEffect, useRef } from 'react'
-import type { ContextMenuProps } from '@hyperscape/shared'
+
+interface ContextMenuProps {
+  visible: boolean
+  position: { x: number; y: number }
+  actions: Array<{ id: string; label: string; icon?: string; enabled: boolean; onClick: () => void }>
+  onClose: () => void
+  title?: string
+}
 
 export function ContextMenu({ visible, position, actions, onClose, title }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)

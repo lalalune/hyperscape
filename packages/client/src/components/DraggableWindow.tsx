@@ -1,5 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react'
-import type { DraggableWindowProps } from '@hyperscape/shared'
+
+interface DraggableWindowProps {
+  children: React.ReactNode
+  initialPosition?: { x: number; y: number }
+  dragHandle?: React.ReactNode
+  onPositionChange?: (position: { x: number; y: number }) => void
+  className?: string
+  style?: React.CSSProperties
+  enabled?: boolean
+}
 
 export function DraggableWindow({
   children,

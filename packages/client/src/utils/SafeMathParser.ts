@@ -4,7 +4,11 @@
  * Supports basic arithmetic operations: +, -, *, /, (), decimal numbers
  */
 
-import type { ParseResult } from '@hyperscape/shared';
+interface ParseResult {
+  success: boolean
+  value: number
+  error?: string
+}
 
 /**
  * SafeMathParser - Secure mathematical expression evaluator

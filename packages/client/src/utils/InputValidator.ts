@@ -3,7 +3,11 @@
  * Provides comprehensive input validation and sanitization for client-side inputs
  */
 
-import type { ValidationResult } from '@hyperscape/shared'
+interface ValidationResult {
+  isValid?: boolean
+  passed: boolean
+  errors?: string[]
+}
 
 /**
  * Validation rule configuration
