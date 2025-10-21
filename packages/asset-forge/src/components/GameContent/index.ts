@@ -3,4 +3,7 @@ export { NPCScriptGenerator } from './NPCScriptGenerator'
 export { LoreGenerator } from './LoreGenerator'
 export { ActionHandlerSelector } from './ActionHandlerSelector'
 export { QuestTracker } from './QuestTracker'
+export { NPCScriptBuilder } from './NPCScriptBuilder'
+export { DialogueTreeEditor } from './DialogueTreeEditor'
+export { EventPayloadPreview } from './EventPayloadPreview'
 

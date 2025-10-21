@@ -6,6 +6,14 @@
 import { create } from 'zustand'
 import type { GeneratedQuest, GeneratedNPC, LoreEntry, ContentPack } from '../types/content-generation'
 
+interface SelectedContext {
+  items: string[]
+  mobs: string[]
+  npcs: string[]
+  resources: string[]
+  lore: string[]
+}
+
 interface ContentGenerationState {
   // Active content type
   contentType: 'quest' | 'npc' | 'lore' | 'pack'
@@ -18,15 +26,18 @@ interface ContentGenerationState {
   // Current pack being built
   currentPack: ContentPack | null
   
+  // Context selection for AI generation
+  selectedContext: SelectedContext
+  
   // UI state
-  activeTab: 'quest' | 'npc' | 'lore' | 'tracking'
+  activeTab: 'quest' | 'npc' | 'lore' | 'scripts' | 'tracking' | 'relationships'
   selectedQuest: GeneratedQuest | null
   selectedNPC: GeneratedNPC | null
   selectedLore: LoreEntry | null
   
   // Actions
   setContentType: (type: 'quest' | 'npc' | 'lore' | 'pack') => void
-  setActiveTab: (tab: 'quest' | 'npc' | 'lore' | 'tracking') => void
+  setActiveTab: (tab: 'quest' | 'npc' | 'lore' | 'scripts' | 'tracking' | 'relationships') => void
   
   addQuest: (quest: GeneratedQuest) => void
   addNPC: (npc: GeneratedNPC) => void
@@ -40,6 +51,11 @@ interface ContentGenerationState {
   deleteNPC: (id: string) => void
   deleteLore: (id: string) => void
   
+  // Context selection
+  setSelectedContext: (context: Partial<SelectedContext>) => void
+  toggleContextItem: (type: keyof SelectedContext, id: string) => void
+  clearContext: () => void
+  
   createPack: (name: string, description: string) => ContentPack
   clearAll: () => void
 }
@@ -51,6 +67,13 @@ export const useContentGenerationStore = create<ContentGenerationState>((set, ge
   npcs: [],
   loreEntries: [],
   currentPack: null,
+  selectedContext: {
+    items: [],
+    mobs: [],
+    npcs: [],
+    resources: [],
+    lore: []
+  },
   activeTab: 'quest',
   selectedQuest: null,
   selectedNPC: null,
@@ -95,11 +118,43 @@ export const useContentGenerationStore = create<ContentGenerationState>((set, ge
     selectedLore: state.selectedLore?.id === id ? null : state.selectedLore
   })),
   
+  // Context selection
+  setSelectedContext: (context) => set((state) => ({
+    selectedContext: {
+      ...state.selectedContext,
+      ...context
+    }
+  })),
+  
+  toggleContextItem: (type, id) => set((state) => {
+    const current = state.selectedContext[type]
+    const newSelection = current.includes(id)
+      ? current.filter(item => item !== id)
+      : [...current, id]
+    
+    return {
+      selectedContext: {
+        ...state.selectedContext,
+        [type]: newSelection
+      }
+    }
+  }),
+  
+  clearContext: () => set({
+    selectedContext: {
+      items: [],
+      mobs: [],
+      npcs: [],
+      resources: [],
+      lore: []
+    }
+  }),
+  
   createPack: (name, description) => {
     const { quests, npcs, loreEntries } = get()
-    
+
     const pack: ContentPack = {
-      id: `pack_${Date.now()}`,
+      id: `pack_${crypto.randomUUID()}`,
       name,
       version: '1.0.0',
       description,
@@ -112,7 +167,7 @@ export const useContentGenerationStore = create<ContentGenerationState>((set, ge
         manifestVersion: '1.0.0'
       }
     }
-    
+
     set({ currentPack: pack })
     return pack
   },

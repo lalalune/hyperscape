@@ -54,3 +54,7 @@ tmp/
 
 # Assets (generated/temporary)
 assets/
+
+
+.cursor/rules/kluster-code-verify.mdc
+.kluster

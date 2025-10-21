@@ -1,4 +1,6 @@
+import React, { useState, useEffect } from 'react'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
+import { GlobalSearch } from './components/common/GlobalSearch'
 import Navigation from './components/shared/Navigation'
 import NotificationBar from './components/shared/NotificationBar'
 import { NAVIGATION_VIEWS, APP_BACKGROUND_STYLES } from './constants'
@@ -15,6 +17,23 @@ import { ManifestsPage } from './pages/ManifestsPage'
 
 function AppContent() {
   const { currentView, navigateTo, navigateToAsset } = useNavigation()
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  
+  // Global search keyboard shortcut (Cmd/Ctrl + K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setIsSearchOpen(true)
+      }
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false)
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-bg-primary to-bg-secondary relative">
@@ -28,8 +47,9 @@ function AppContent() {
       
       {/* Main content */}
       <div className="relative z-10 flex flex-col min-h-screen">
-        <Navigation currentView={currentView} onViewChange={navigateTo} />
+        <Navigation currentView={currentView} onViewChange={navigateTo} onSearchClick={() => setIsSearchOpen(true)} />
         <NotificationBar />
+        <GlobalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
       
         <main className="flex-1">
           {currentView === NAVIGATION_VIEWS.ASSETS && (

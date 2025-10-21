@@ -12,6 +12,7 @@ import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
 import { Badge } from '../common/Badge'
+import { ModelSelector } from '../common/ModelSelector'
 
 interface NPCScriptGeneratorProps {
   onNPCGenerated: (npc: GeneratedNPC) => void
@@ -29,6 +30,13 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
   const [services, setServices] = useState<string[]>([])
   const [assignedQuests, setAssignedQuests] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
+  
+  // AI Generation
+  const [showAIGenerator, setShowAIGenerator] = useState(false)
+  const [aiPrompt, setAIPrompt] = useState('')
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
 
   const archetypes = [
     { id: 'merchant', label: 'Merchant', traits: ['friendly', 'greedy', 'shrewd'] },
@@ -37,6 +45,52 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
     { id: 'banker', label: 'Banker', traits: ['trustworthy', 'formal', 'precise'] },
     { id: 'hermit', label: 'Hermit', traits: ['reclusive', 'wise', 'cryptic'] }
   ]
+
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      setGenerationError('Please describe the NPC you want to generate')
+      return
+    }
+    
+    setIsGenerating(true)
+    setGenerationError(null)
+    
+    try {
+      const response = await fetch('http://localhost:3004/api/generate-npc', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          archetype,
+          prompt: aiPrompt,
+          model: selectedModel
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      const npcData = data.npc
+      
+      // Populate form with generated NPC
+      setName(npcData.personality?.name || '')
+      setBackstory(npcData.personality?.backstory || '')
+      setServices(npcData.services || [])
+      
+      // Close AI generator
+      setShowAIGenerator(false)
+      setAIPrompt('')
+      
+    } catch (error) {
+      console.error('Generation error:', error)
+      setGenerationError(error instanceof Error ? error.message : 'Failed to generate NPC')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   const handleGenerate = async () => {
     if (!name) return
@@ -151,6 +205,86 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* AI Generator Toggle */}
+      <Card className="p-4">
+        <Button
+          onClick={() => setShowAIGenerator(!showAIGenerator)}
+          variant={showAIGenerator ? 'primary' : 'secondary'}
+          size="sm"
+          className="w-full"
+        >
+          <Sparkles size={14} className="mr-2" />
+          {showAIGenerator ? 'Hide AI Generator' : 'Generate with AI'}
+        </Button>
+      </Card>
+      
+      {/* AI Generator Panel */}
+      {showAIGenerator && (
+        <Card className="p-6 bg-primary bg-opacity-5 border-primary animate-fade-in">
+          <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Sparkles size={20} className="text-primary" />
+            AI NPC Generator
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-text-secondary block mb-2">Archetype</label>
+              <select
+                value={archetype}
+                onChange={(e) => setArchetype(e.target.value)}
+                className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary"
+              >
+                {archetypes.map((arch) => (
+                  <option key={arch.id} value={arch.id}>
+                    {arch.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium text-text-secondary block mb-2">Describe Your NPC</label>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAIPrompt(e.target.value)}
+                placeholder="e.g., A grumpy old blacksmith who lost his leg to a dragon and now runs the town's only smithy..."
+                className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary resize-none focus:outline-none focus:border-primary"
+                rows={3}
+              />
+            </div>
+            
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+            />
+            
+            <Button
+              onClick={handleAIGenerate}
+              disabled={isGenerating || !aiPrompt.trim()}
+              variant="primary"
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Sparkles size={14} className="mr-2 animate-spin" />
+                  Generating NPC...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} className="mr-2" />
+                  Generate NPC with AI
+                </>
+              )}
+            </Button>
+            
+            {generationError && (
+              <div className="p-3 bg-red-500 bg-opacity-10 rounded-lg text-sm text-red-400">
+                {generationError}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+      
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
           <Users size={20} className="text-primary" />

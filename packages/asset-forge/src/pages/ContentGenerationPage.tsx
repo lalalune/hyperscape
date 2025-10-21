@@ -3,10 +3,10 @@
  * Generate quests, NPCs, and lore using real game data
  */
 
-import { Download, FileJson, Trash2, Target } from 'lucide-react'
+import { Download, FileJson, Trash2, Target, FileCode } from 'lucide-react'
 import React from 'react'
 
-import { QuestBuilder, NPCScriptGenerator, LoreGenerator, QuestTracker } from '../components/GameContent'
+import { QuestBuilder, NPCScriptGenerator, LoreGenerator, QuestTracker, NPCScriptBuilder } from '../components/GameContent'
 import { Button, Card } from '../components/common'
 import { Badge } from '../components/common/Badge'
 import { useContentGenerationStore } from '../store/useContentGenerationStore'
@@ -109,6 +109,19 @@ export const ContentGenerationPage: React.FC = () => {
             >
               Lore ({loreEntries.length})
             </button>
+            {npcs.length > 0 && (
+              <button
+                onClick={() => setActiveTab('scripts')}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'scripts'
+                    ? 'bg-primary bg-opacity-10 text-primary'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+                }`}
+              >
+                <FileCode size={14} className="inline mr-1" />
+                Scripts
+              </button>
+            )}
             {quests.length > 0 && (
               <button
                 onClick={() => setActiveTab('tracking')}
@@ -127,10 +140,14 @@ export const ContentGenerationPage: React.FC = () => {
 
         {/* Main Content */}
         <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
-          {/* Builder Section or Tracking */}
+          {/* Special full-width tabs: Tracking and Scripts */}
           {activeTab === 'tracking' ? (
             <div className="flex-1 overflow-auto animate-fade-in">
               <QuestTracker />
+            </div>
+          ) : activeTab === 'scripts' ? (
+            <div className="flex-1 overflow-auto animate-fade-in">
+              <NPCScriptBuilder />
             </div>
           ) : (
             <>

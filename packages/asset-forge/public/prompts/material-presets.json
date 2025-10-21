@@ -98,5 +98,35 @@
     "color": "#fa0000",
     "stylePrompt": "Dragon metal texture, red with matte finish, RuneScape 2007 style",
     "description": "Custom material"
+  },
+  {
+    "id": "stone_brick",
+    "name": "stone_brick",
+    "displayName": "Stone Brick",
+    "category": "custom",
+    "tier": 11,
+    "color": "#747272",
+    "stylePrompt": "A Quarried Stone Block",
+    "description": "Custom material"
+  },
+  {
+    "id": "gold_leaf",
+    "name": "gold_leaf",
+    "displayName": "Gold Leaf",
+    "category": "custom",
+    "tier": 12,
+    "color": "#f0d000",
+    "stylePrompt": "Pure Gold Leaf from the Alzaharikki mines",
+    "description": "Custom material"
+  },
+  {
+    "id": "brass",
+    "name": "brass",
+    "displayName": "Brass",
+    "category": "custom",
+    "tier": 12,
+    "color": "#b78034",
+    "stylePrompt": "Simple Brass Metal",
+    "description": "Custom material"
   }
 ]

@@ -3,7 +3,7 @@
  * Create quests using real items, mobs, and NPCs from game manifests
  */
 
-import { Plus, Trash2, Target, Gift } from 'lucide-react'
+import { Plus, Trash2, Target, Gift, Sparkles } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 
 import type { GeneratedQuest, QuestObjective, QuestReward } from '../../types/content-generation'
@@ -15,6 +15,7 @@ import { Card } from '../common/Card'
 import { Input } from '../common/Input'
 import { Badge } from '../common/Badge'
 import { ActionHandlerSelector } from './ActionHandlerSelector'
+import { ModelSelector } from '../common/ModelSelector'
 
 interface QuestBuilderProps {
   onQuestGenerated: (quest: GeneratedQuest) => void
@@ -41,6 +42,14 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
   // Quest giver
   const [questGiver, setQuestGiver] = useState<string | undefined>()
   const [questGiverData, setQuestGiverData] = useState<NPCManifest | undefined>()
+  
+  // AI Generation
+  const [showAIGenerator, setShowAIGenerator] = useState(false)
+  const [aiPrompt, setAIPrompt] = useState('')
+  const [aiQuestType, setAIQuestType] = useState('combat')
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
 
   // Load manifests
   useEffect(() => {
@@ -100,6 +109,57 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
     }
   }
 
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      setGenerationError('Please describe the quest you want to generate')
+      return
+    }
+    
+    setIsGenerating(true)
+    setGenerationError(null)
+    
+    try {
+      const response = await fetch('http://localhost:3004/api/generate-quest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          questType: aiQuestType,
+          prompt: aiPrompt,
+          model: selectedModel
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      const quest = data.quest
+      
+      // Populate form with generated quest
+      setTitle(quest.title)
+      setDescription(quest.description)
+      setDifficulty(quest.difficulty)
+      setObjectives(quest.objectives || [])
+      setRewards(quest.rewards)
+      if (quest.questGiver) {
+        setQuestGiver(quest.questGiver)
+      }
+      
+      // Close AI generator
+      setShowAIGenerator(false)
+      setAIPrompt('')
+      
+    } catch (error) {
+      console.error('Generation error:', error)
+      setGenerationError(error instanceof Error ? error.message : 'Failed to generate quest')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   const handleGenerate = () => {
     if (!title || !description) {
       return
@@ -140,6 +200,87 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
 
   return (
     <div className="space-y-6">
+      {/* AI Generator Toggle */}
+      <Card className="p-4">
+        <Button
+          onClick={() => setShowAIGenerator(!showAIGenerator)}
+          variant={showAIGenerator ? 'primary' : 'secondary'}
+          size="sm"
+          className="w-full"
+        >
+          <Sparkles size={14} className="mr-2" />
+          {showAIGenerator ? 'Hide AI Generator' : 'Generate with AI'}
+        </Button>
+      </Card>
+      
+      {/* AI Generator Panel */}
+      {showAIGenerator && (
+        <Card className="p-6 bg-primary bg-opacity-5 border-primary animate-fade-in">
+          <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Sparkles size={20} className="text-primary" />
+            AI Quest Generator
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-text-secondary block mb-2">Describe Your Quest</label>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAIPrompt(e.target.value)}
+                placeholder="e.g., A beginner quest where players hunt goblins that are terrorizing a village..."
+                className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary resize-none focus:outline-none focus:border-primary"
+                rows={3}
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium text-text-secondary block mb-2">Quest Type</label>
+              <select
+                value={aiQuestType}
+                onChange={(e) => setAIQuestType(e.target.value)}
+                className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary"
+              >
+                <option value="combat">Combat</option>
+                <option value="gathering">Gathering</option>
+                <option value="crafting">Crafting</option>
+                <option value="exploration">Exploration</option>
+                <option value="social">Social/Investigation</option>
+                <option value="epic_chain">Epic Chain</option>
+              </select>
+            </div>
+            
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+            />
+            
+            <Button
+              onClick={handleAIGenerate}
+              disabled={isGenerating || !aiPrompt.trim()}
+              variant="primary"
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Sparkles size={14} className="mr-2 animate-spin" />
+                  Generating Quest...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} className="mr-2" />
+                  Generate Quest with AI
+                </>
+              )}
+            </Button>
+            
+            {generationError && (
+              <div className="p-3 bg-red-500 bg-opacity-10 rounded-lg text-sm text-red-400">
+                {generationError}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+      
       {/* Quest Details */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-text-primary mb-4">Quest Details</h3>
@@ -178,7 +319,7 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
               <option value="">No Quest Giver</option>
               {npcs.map((npc) => (
                 <option key={npc.id} value={npc.id}>
-                  {npc.name} ({npc.npcType})
+                  {npc.name} ({npc.type})
                 </option>
               ))}
             </select>
@@ -363,14 +504,18 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
                       <span className="text-text-tertiary">Mob:</span>
                       <span className="text-text-primary font-medium">{obj.targetMob.name}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-text-tertiary">Level:</span>
-                      <span className="text-text-primary">{obj.targetMob.stats.level}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-text-tertiary">XP Reward:</span>
-                      <span className="text-text-primary">{obj.targetMob.xpReward} XP</span>
-                    </div>
+                    {obj.targetMob.stats && (
+                      <div className="flex justify-between">
+                        <span className="text-text-tertiary">Level:</span>
+                        <span className="text-text-primary">{obj.targetMob.stats.level || obj.targetMob.level || '?'}</span>
+                      </div>
+                    )}
+                    {obj.targetMob.xpReward && (
+                      <div className="flex justify-between">
+                        <span className="text-text-tertiary">XP Reward:</span>
+                        <span className="text-text-primary">{obj.targetMob.xpReward} XP</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

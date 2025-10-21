@@ -15,6 +15,9 @@ import { RetextureService } from './services/RetextureService.mjs'
 import { GenerationService } from './services/GenerationService.mjs'
 import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
 import promptRoutes from './routes/promptRoutes.mjs'
+import { POST as generateDialogue } from './routes/generate-dialogue.mjs'
+import { POST as generateNPC } from './routes/generate-npc.mjs'
+import { POST as generateQuest } from './routes/generate-quest.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -673,6 +676,19 @@ Respond with ONLY a JSON object:
     console.error('Weapon orientation detection error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
+})
+
+// AI generation routes
+app.post('/api/generate-dialogue', (req, res) => {
+  generateDialogue(req, res)
+})
+
+app.post('/api/generate-npc', (req, res) => {
+  generateNPC(req, res)
+})
+
+app.post('/api/generate-quest', (req, res) => {
+  generateQuest(req, res)
 })
 
 // Error handling middleware

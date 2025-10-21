@@ -35,10 +35,11 @@ class ImageGenerationService {
       .replace('${assetType}', assetType)
 
     // Build headers with authorization and any extra headers (for OpenRouter, etc.)
+    // Spread extraHeaders first, then override with critical headers to prevent user override
     const headers = {
+      ...this.extraHeaders,
       'Authorization': `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json',
-      ...this.extraHeaders
+      'Content-Type': 'application/json'
     }
 
     const response = await fetch(`${this.baseUrl}/images/generations`, {

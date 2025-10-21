@@ -170,3 +170,9 @@ temp-images/*
 # pnpm-lock.yaml
 
 SCRATCHPAD.md
+# Generated assets and models
+gdd-assets/
+*.glb
+*.fbx
+temp-images/
+

@@ -76,6 +76,9 @@ export interface MobManifest {
   modelPath: string
   respawnTime: number
   xpReward: number
+  // Convenience properties for backward compatibility
+  level?: number // Alias for stats.level
+  combatLevel?: number // Alias for stats.level
 }
 
 // NPC Manifest
@@ -84,6 +87,7 @@ export interface NPCManifest {
   name: string
   description: string
   type: string
+  npcType?: string // Alias for type (backward compatibility)
   modelPath: string
   services: string[]
 }

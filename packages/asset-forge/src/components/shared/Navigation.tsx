@@ -1,4 +1,4 @@
-import { Database, Wand2, Wrench, Hand, Shield, FileJson, Scroll } from 'lucide-react'
+import { Database, Wand2, Wrench, Hand, Shield, FileJson, Scroll, Search } from 'lucide-react'
 import React from 'react'
 
 import { NAVIGATION_VIEWS } from '../../constants'
@@ -7,9 +7,10 @@ import { NavigationView } from '../../types'
 interface NavigationProps {
   currentView: NavigationView
   onViewChange: (view: NavigationView) => void
+  onSearchClick?: () => void
 }
 
-const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) => {
+const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange, onSearchClick }) => {
   return (
     <nav className="bg-bg-secondary border-b border-border-primary px-6 shadow-theme-sm relative z-[100]">
       <div className="flex items-center justify-between h-[60px]">
@@ -101,6 +102,19 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) =>
             <Scroll size={18} />
             <span>Content Builder</span>
           </button>
+          
+          {/* Global Search Button */}
+          <div className="ml-2 pl-2 border-l border-border-primary">
+            <button
+              onClick={onSearchClick}
+              className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-base text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
+              title="Search (Cmd+K)"
+            >
+              <Search size={18} />
+              <span className="hidden lg:inline">Search</span>
+              <kbd className="hidden lg:inline px-1.5 py-0.5 text-xs bg-bg-tertiary rounded border border-border-primary">⌘K</kbd>
+            </button>
+          </div>
         </div>
       </div>
     </nav>

@@ -5,6 +5,13 @@
 
 import { create } from 'zustand'
 import type { ManifestType, AnyManifest } from '../types/manifests'
+import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../types/manifests'
+import {
+  createItemSearch,
+  createMobSearch,
+  createNPCSearch,
+  createResourceSearch
+} from '../utils/fuzzy-search'
 
 interface ManifestsState {
   // Data
@@ -66,35 +73,31 @@ export const useManifestsStore = create<ManifestsState>((set, get) => ({
     
     const items = manifests[selectedType]!
     
-    if (!searchQuery) {
+    if (!searchQuery || searchQuery.trim() === '') {
       return items
     }
     
-    const query = searchQuery.toLowerCase()
-    
-    return items.filter((item: AnyManifest) => {
-      // Search by name
-      if ('name' in item && item.name.toLowerCase().includes(query)) {
-        return true
+    // Use fuzzy search based on type
+    switch (selectedType) {
+      case 'items': {
+        const search = createItemSearch(items as ItemManifest[])
+        return search.search(searchQuery)
       }
-      
-      // Search by ID
-      if ('id' in item && item.id.toLowerCase().includes(query)) {
-        return true
+      case 'mobs': {
+        const search = createMobSearch(items as MobManifest[])
+        return search.search(searchQuery)
       }
-      
-      // Search by description
-      if ('description' in item && item.description.toLowerCase().includes(query)) {
-        return true
+      case 'npcs': {
+        const search = createNPCSearch(items as NPCManifest[])
+        return search.search(searchQuery)
       }
-      
-      // Search by type (for items)
-      if ('type' in item && String(item.type).toLowerCase().includes(query)) {
-        return true
+      case 'resources': {
+        const search = createResourceSearch(items as ResourceManifest[])
+        return search.search(searchQuery)
       }
-      
-      return false
-    })
+      default:
+        return items
+    }
   },
   
   getStats: () => {
