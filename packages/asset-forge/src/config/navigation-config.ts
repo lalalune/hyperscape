@@ -289,12 +289,12 @@ export function getAllNavItems(): NavigationLink[] {
   const items: NavigationLink[] = []
 
   for (const section of navigationConfig.sections) {
-    if (section.type === 'single' && section.path) {
+    if (section.type === 'single' && section.path && section.icon) {
       items.push({
         id: section.id,
         type: 'link',
         label: section.label,
-        icon: section.icon!,
+        icon: section.icon,
         path: section.path,
         tooltip: section.tooltip,
         keywords: section.keywords,
@@ -317,6 +317,17 @@ export function getAllNavItems(): NavigationLink[] {
 
   cachedNavItems = items
   return items
+}
+
+/**
+ * Get section for nav item by validating section.icon exists
+ */
+function getSectionIconSafely(section: any): any {
+  if (section.icon) {
+    return section.icon
+  }
+  // Return a default icon or undefined
+  return undefined
 }
 
 /**

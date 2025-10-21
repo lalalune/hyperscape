@@ -19,10 +19,6 @@ export default function NavigationItem({ item }: NavigationItemProps) {
   const collapsed = useNavigationStore(state => state.collapsed)
   const navigateTo = useNavigationStore(state => state.navigateTo)
 
-  // Check permission and visibility
-  if (item.permission && !item.permission()) return null
-  if (item.visible && !item.visible()) return null
-
   const isActive = useMemo(
     () => isRouteActive(item.path, currentPath),
     [item.path, currentPath]
@@ -31,6 +27,10 @@ export default function NavigationItem({ item }: NavigationItemProps) {
   const handleClick = useCallback(() => {
     navigateTo(item.path)
   }, [navigateTo, item.path])
+
+  // Check permission and visibility
+  if (item.permission && !item.permission()) return null
+  if (item.visible && !item.visible()) return null
 
   return (
     <button

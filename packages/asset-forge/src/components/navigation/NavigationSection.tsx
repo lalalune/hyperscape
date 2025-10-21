@@ -27,6 +27,12 @@ export default function NavigationSection({ section }: NavigationSectionProps) {
     [expandedSections, section.id]
   )
 
+  const handleToggle = useCallback(() => {
+    if (section.collapsible) {
+      toggleSection(section.id)
+    }
+  }, [section.collapsible, section.id, toggleSection])
+
   // Check permission and visibility
   if (section.permission && !section.permission()) return null
   if (section.visible && !section.visible()) return null
@@ -52,12 +58,6 @@ export default function NavigationSection({ section }: NavigationSectionProps) {
 
   // Group or collapsible section
   if (!section.items || section.items.length === 0) return null
-
-  const handleToggle = useCallback(() => {
-    if (section.collapsible) {
-      toggleSection(section.id)
-    }
-  }, [section.collapsible, section.id, toggleSection])
 
   return (
     <div className="mb-2">

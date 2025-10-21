@@ -72,8 +72,8 @@ export const useNavigationStore = create<NavigationState>()(
 
       // Actions
       navigateTo: (path: RoutePath | string) => {
-        // Normalize path
-        const normalizedPath = (path.startsWith('/') ? path : path) as RoutePath
+        // Normalize path - prepend '/' if missing
+        const normalizedPath = (path.startsWith('/') ? path : '/' + path) as RoutePath
 
         const state = get()
 

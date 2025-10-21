@@ -345,7 +345,7 @@ export async function GET_profile(req, res) {
 
     return res.json(profile)
   } catch (error) {
-    console.error('[Voice API] Error fetching voice profile:', error)
+    logger.error('[Voice API] Error fetching voice profile:', error)
     return res.status(500).json({
       error: 'Failed to fetch voice profile',
       details: error.message
@@ -380,7 +380,7 @@ export async function DELETE_voice(req, res) {
       })
     }
   } catch (error) {
-    console.error('[Voice API] Error deleting voice clips:', error)
+    logger.error('[Voice API] Error deleting voice clips:', error)
     return res.status(500).json({
       error: 'Failed to delete voice clips',
       details: error.message

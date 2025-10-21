@@ -8,11 +8,25 @@
  * Generate AI prompt for item suggestion
  */
 export const makeItemSuggestionPrompt = (gap, tier, existingItems) => {
-  return `\
-DETECTED GAP: Quest "${gap.requiredBy}" needs item "${gap.suggestedId}" but it doesn't exist.
+  // Validate inputs
+  if (!gap || typeof gap !== 'object') {
+    throw new Error('makeItemSuggestionPrompt: gap must be an object')
+  }
+  if (!tier || typeof tier !== 'object') {
+    throw new Error('makeItemSuggestionPrompt: tier must be an object')
+  }
+  if (!Array.isArray(existingItems)) {
+    existingItems = []
+  }
 
-TIER: ${tier.name} (${tier.material}, level ${tier.levelRange.min}-${tier.levelRange.max})
-REASON: ${gap.reason}
+  const minLevel = Number(tier?.levelRange?.min) ?? 1
+  const maxLevel = Number(tier?.levelRange?.max) ?? minLevel
+
+  return `\
+DETECTED GAP: Quest "${gap.requiredBy || 'unknown'}" needs item "${gap.suggestedId || 'unknown'}" but it doesn't exist.
+
+TIER: ${tier.name || 'unknown'} (${tier.material || 'basic'}, level ${minLevel}-${maxLevel})
+REASON: ${gap.reason || 'Item is required but does not exist'}
 
 EXISTING ITEMS IN THIS TIER:
 ${existingItems.slice(0, 10).map(item => `  - ${item.id}: ${item.name} (${item.type}, level ${item.level || item.requirements?.level || 1})`).join('\n')}
@@ -62,7 +76,7 @@ If you MUST create a new item:
       "ranged": 0
     },
     "requirements": {
-      "level": ${tier.levelRange.min},
+      "level": ${minLevel},
       "skills": {}
     }
   },
@@ -70,7 +84,7 @@ If you MUST create a new item:
   "reason": "Why a new item is necessary"
 }
 
-NAMING CONVENTION: ${tier.material}_itemtype (e.g., bronze_sword, iron_axe)
+NAMING CONVENTION: ${tier.material || 'basic'}_itemtype (e.g., bronze_sword, iron_axe)
 
 Return ONLY valid JSON, no markdown, no explanation.
 `
@@ -80,11 +94,18 @@ Return ONLY valid JSON, no markdown, no explanation.
  * Generate AI prompt for mob suggestion
  */
 export const makeMobSuggestionPrompt = (gap, tier, existingMobs) => {
-  return `\
-DETECTED GAP: Quest "${gap.requiredBy}" needs mob "${gap.suggestedId}" but it doesn't exist.
+  // Validate inputs
+  if (!tier || typeof tier !== 'object') {
+    throw new Error('makeMobSuggestionPrompt: tier must be an object')
+  }
+  const minLevel = Number(tier?.levelRange?.min) ?? 1
+  const maxLevel = Number(tier?.levelRange?.max) ?? minLevel
 
-TIER: ${tier.name} (${tier.material}, level ${tier.levelRange.min}-${tier.levelRange.max})
-REASON: ${gap.reason}
+  return `\
+DETECTED GAP: Quest "${gap.requiredBy || 'unknown'}" needs mob "${gap.suggestedId || 'unknown'}" but it doesn't exist.
+
+TIER: ${tier.name || 'unknown'} (${tier.material || 'basic'}, level ${minLevel}-${maxLevel})
+REASON: ${gap.reason || 'Mob is required but does not exist'}
 
 EXISTING MOBS IN THIS TIER:
 ${existingMobs.slice(0, 10).map(mob => `  - ${mob.id}: ${mob.name} (level ${mob.stats?.level || mob.level || mob.combatLevel || 1}, ${mob.type})`).join('\n')}
@@ -110,11 +131,11 @@ If you MUST create a new mob:
     "mobType": "creature",
     "type": "creature",
     "stats": {
-      "level": ${Math.floor((tier.levelRange.min + tier.levelRange.max) / 2)},
-      "attack": ${tier.levelRange.min * 2},
-      "strength": ${tier.levelRange.min * 2},
-      "defense": ${tier.levelRange.min * 2},
-      "constitution": ${tier.levelRange.min * 10},
+      "level": ${Math.floor((minLevel + maxLevel) / 2)},
+      "attack": ${minLevel * 2},
+      "strength": ${minLevel * 2},
+      "defense": ${minLevel * 2},
+      "constitution": ${minLevel * 10},
       "ranged": 1,
       "magic": 1
     },
@@ -126,9 +147,9 @@ If you MUST create a new mob:
     },
     "drops": [],
     "spawnBiomes": ["grassland"],
-    "modelPath": "/models/mobs/${gap.suggestedId}.glb",
+    "modelPath": "/models/mobs/${gap.suggestedId || 'unknown'}.glb",
     "respawnTime": 30,
-    "xpReward": ${tier.levelRange.min * 5}
+    "xpReward": ${minLevel * 5}
   },
   "confidence": 80,
   "reason": "Why a new mob is necessary"
@@ -214,11 +235,25 @@ Return ONLY valid JSON, no markdown, no explanation.
  * Generate AI prompt for resource suggestion
  */
 export const makeResourceSuggestionPrompt = (gap, tier, existingResources) => {
-  return `\
-DETECTED GAP: Quest "${gap.requiredBy}" needs resource "${gap.suggestedId}" but it doesn't exist.
+  // Validate inputs with safe defaults
+  if (!gap || typeof gap !== 'object') {
+    gap = { requiredBy: 'unknown', suggestedId: 'unknown', reason: 'Resource is required' }
+  }
+  if (!tier || typeof tier !== 'object') {
+    tier = { name: 'unknown', material: 'basic', levelRange: { min: 1, max: 1 } }
+  }
+  if (!Array.isArray(existingResources)) {
+    existingResources = []
+  }
 
-TIER: ${tier.name} (${tier.material}, level ${tier.levelRange.min}-${tier.levelRange.max})
-REASON: ${gap.reason}
+  const minLevel = Number(tier?.levelRange?.min) ?? 1
+  const maxLevel = Number(tier?.levelRange?.max) ?? minLevel
+
+  return `\
+DETECTED GAP: Quest "${gap.requiredBy || 'unknown'}" needs resource "${gap.suggestedId || 'unknown'}" but it doesn't exist.
+
+TIER: ${tier.name || 'unknown'} (${tier.material || 'basic'}, level ${minLevel}-${maxLevel})
+REASON: ${gap.reason || 'Resource is required but does not exist'}
 
 EXISTING RESOURCES IN THIS TIER:
 ${existingResources.slice(0, 10).map(res => `  - ${res.id}: ${res.name} (${res.type}, level ${res.level || 1})`).join('\n')}
@@ -240,16 +275,16 @@ If you MUST create a new resource:
     "id": "${gap.suggestedId}",
     "name": "Resource Display Name",
     "type": "tree|rock|fish|plant",
-    "modelPath": "/models/resources/${gap.suggestedId}.glb",
-    "level": ${tier.levelRange.min},
-    "xp": ${tier.levelRange.min * 5},
+    "modelPath": "/models/resources/${gap.suggestedId || 'unknown'}.glb",
+    "level": ${minLevel},
+    "xp": ${minLevel * 5},
     "respawnTime": 30,
     "harvestYield": {
       "itemId": "item_from_resource",
       "quantity": 1
     },
     "requirements": {
-      "level": ${tier.levelRange.min},
+      "level": ${minLevel},
       "tool": null
     }
   },
@@ -263,6 +298,7 @@ Return ONLY valid JSON, no markdown, no explanation.
 
 /**
  * Parse manifest suggestion response from AI
+ * Handles nested objects properly with depth counter
  */
 export const parseManifestSuggestionResponse = (text) => {
   // First try to find a fenced JSON code block
@@ -271,11 +307,48 @@ export const parseManifestSuggestionResponse = (text) => {
     return JSON.parse(codeBlockMatch[1])
   }
 
-  // Fall back to non-greedy regex for a single JSON object
-  const jsonMatch = text.match(/\{[\s\S]*?\}/)
-  if (!jsonMatch) {
-    throw new Error('No JSON found in AI response')
+  // Find first opening brace
+  const startIndex = text.indexOf('{')
+  if (startIndex === -1) {
+    throw new Error('No JSON object found in AI response')
   }
 
-  return JSON.parse(jsonMatch[0])
+  // Use depth counter to find matching closing brace
+  let depth = 0
+  let inString = false
+  let escapeNext = false
+
+  for (let i = startIndex; i < text.length; i++) {
+    const char = text[i]
+
+    if (escapeNext) {
+      escapeNext = false
+      continue
+    }
+
+    if (char === '\\') {
+      escapeNext = true
+      continue
+    }
+
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+
+    if (inString) continue
+
+    if (char === '{') {
+      depth++
+    } else if (char === '}') {
+      depth--
+      if (depth === 0) {
+        // Found matching closing brace
+        const jsonString = text.substring(startIndex, i + 1)
+        return JSON.parse(jsonString)
+      }
+    }
+  }
+
+  throw new Error('No complete JSON object found in AI response')
 }

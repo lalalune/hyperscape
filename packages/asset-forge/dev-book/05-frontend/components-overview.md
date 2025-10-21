@@ -1008,7 +1008,9 @@ const TestConfig = () => {
 ```
 
 **ASCII UI Mockup**:
-```
+
+ASCII UI Mockup:
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  5 of 7 selected (min: 1)  [Use Default] [Select All] [Clear] │
 ├─────────────────────────────────────────────────────────────┤

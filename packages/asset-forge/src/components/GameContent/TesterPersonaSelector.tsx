@@ -101,12 +101,18 @@ export const TesterPersonaSelector: React.FC<TesterPersonaSelectorProps> = ({
   }
 
   const clearAll = () => {
+    // Don't allow clearing below minSelection
+    if (minSelection > 0) {
+      return
+    }
     onSelectionChange([])
   }
 
   const selectDefault = () => {
     if (!availablePersonas) return
-    onSelectionChange(availablePersonas.defaultSwarm)
+    const defaultSelection = availablePersonas.defaultSwarm
+    const limited = maxSelection ? defaultSelection.slice(0, maxSelection) : defaultSelection
+    onSelectionChange(limited)
   }
 
   if (loadingPersonas) {
@@ -145,7 +151,7 @@ export const TesterPersonaSelector: React.FC<TesterPersonaSelectorProps> = ({
         </div>
         <div className="flex gap-2">
           <Button onClick={selectDefault} variant="ghost" size="sm">
-            Use Default (5)
+            Use Default ({availablePersonas?.defaultSwarm?.length ?? 0})
           </Button>
           <Button onClick={selectAll} variant="ghost" size="sm">
             Select All
@@ -154,7 +160,7 @@ export const TesterPersonaSelector: React.FC<TesterPersonaSelectorProps> = ({
             onClick={clearAll}
             variant="ghost"
             size="sm"
-            disabled={selectedPersonas.length === 0}
+            disabled={selectedPersonas.length === 0 || selectedPersonas.length <= minSelection}
           >
             Clear
           </Button>

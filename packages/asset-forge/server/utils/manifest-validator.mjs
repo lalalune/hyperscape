@@ -20,7 +20,7 @@ function levenshteinDistance(str1, str2) {
   }
 
   for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; i <= str1.length; j++) {
+    for (let j = 1; j <= str1.length; j++) {
       if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
         matrix[i][j] = matrix[i - 1][j - 1]
       } else {
@@ -88,7 +88,8 @@ export function detectItemConflicts(suggestedItem, existingItems) {
 
     // Stats duplicate (medium) - for weapons/armor
     if (suggestedItem.type === existing.type &&
-        suggestedItem.equipSlot === existing.equipSlot) {
+        suggestedItem.equipSlot === existing.equipSlot &&
+        suggestedItem.stats && existing.stats) {
       const statsSimilar =
         suggestedItem.stats.attack === existing.stats.attack &&
         suggestedItem.stats.defense === existing.stats.defense &&

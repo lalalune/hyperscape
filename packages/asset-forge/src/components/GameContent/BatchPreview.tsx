@@ -260,10 +260,4 @@ const BatchPreviewComponent: React.FC<BatchPreviewProps> = ({ batch, onApprove }
 }
 
 // Memoize component for performance
-export const BatchPreview = React.memo(BatchPreviewComponent, (prevProps, nextProps) => {
-  // Only re-render if batch content changes
-  return (
-    prevProps.batch.id === nextProps.batch.id &&
-    prevProps.batch.previews.length === nextProps.batch.previews.length
-  )
-})
+export const BatchPreview = React.memo(BatchPreviewComponent)

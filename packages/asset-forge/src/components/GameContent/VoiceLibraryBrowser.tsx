@@ -50,21 +50,21 @@ export const VoiceLibraryBrowser: React.FC<VoiceLibraryBrowserProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null)
 
-  // Load voices on mount with caching
-  useEffect(() => {
-    if (!voicesLoaded && !voicesLoading) {
-      loadVoicesFromAPI()
-    }
-  }, [voicesLoaded, voicesLoading])
-
-  const loadVoicesFromAPI = async () => {
+  const loadVoicesFromAPI = useCallback(async () => {
     setError(null)
     try {
       await fetchVoicesWithCache()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load voices')
     }
-  }
+  }, [fetchVoicesWithCache])
+
+  // Load voices on mount with caching
+  useEffect(() => {
+    if (!voicesLoaded && !voicesLoading) {
+      loadVoicesFromAPI()
+    }
+  }, [voicesLoaded, voicesLoading, loadVoicesFromAPI])
 
   const handleRefreshVoices = async () => {
     setError(null)

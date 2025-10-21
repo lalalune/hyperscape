@@ -181,18 +181,26 @@ class VoiceGenerationService {
 
   /**
    * Play audio preview from blob
+   * Ensures URL is revoked in all cases (ended, error, pause, beforeunload)
    */
   playAudioPreview(audioBlob: Blob): HTMLAudioElement {
     const audioUrl = URL.createObjectURL(audioBlob)
     const audio = new Audio(audioUrl)
 
-    // Clean up object URL when audio finishes
-    audio.addEventListener('ended', () => {
+    // Shared cleanup function
+    const cleanup = () => {
       URL.revokeObjectURL(audioUrl)
-    })
+    }
+
+    // Clean up object URL in all cases
+    audio.addEventListener('ended', cleanup)
+    audio.addEventListener('error', cleanup)
+    audio.addEventListener('pause', cleanup)
+    window.addEventListener('beforeunload', cleanup)
 
     audio.play().catch(error => {
       console.error('[VoiceGenerationService] Error playing audio:', error)
+      cleanup()
     })
 
     return audio
@@ -208,8 +216,11 @@ class VoiceGenerationService {
     a.download = filename.endsWith('.mp3') ? filename : `${filename}.mp3`
     document.body.appendChild(a)
     a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    // Add slight delay before cleanup to ensure download starts
+    setTimeout(() => {
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }, 500)
   }
 
   /**

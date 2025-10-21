@@ -113,7 +113,13 @@ export const PlaytesterSwarmPanel: React.FC<PlaytesterSwarmPanelProps> = ({
       })
 
       if (!response.ok) {
-        const error = await response.json()
+        let error
+        try {
+          error = await response.json()
+        } catch {
+          const errorText = await response.text()
+          throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`)
+        }
         throw new Error(error.details || 'Failed to run playtester swarm')
       }
 

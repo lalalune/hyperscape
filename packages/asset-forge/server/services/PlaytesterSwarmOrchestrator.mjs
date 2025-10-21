@@ -76,18 +76,19 @@ export class PlaytesterSwarmOrchestrator {
     console.log(`Running swarm playtest with ${testers.length} testers...`)
 
     // Run tests in parallel or sequential based on config
-    const testPromises = this.config.parallelTests
-      ? testers.map(tester => this.runSingleTest(tester, contentToTest, testConfig))
-      : await this.runSequentialTests(testers, contentToTest, testConfig)
+    let results
+    if (this.config.parallelTests) {
+      const testPromises = testers.map(tester => this.runSingleTest(tester, contentToTest, testConfig))
+      results = await Promise.allSettled(testPromises)
+    } else {
+      const sequentialResults = await this.runSequentialTests(testers, contentToTest, testConfig)
+      results = sequentialResults
+    }
 
-    const results = this.config.parallelTests
-      ? await Promise.allSettled(testPromises)
-      : testPromises
-
-    // Process results
-    const successfulTests = results
-      .filter(r => r.status === 'fulfilled' || r.value)
-      .map(r => r.value || r)
+    // Process results - normalize format
+    const successfulTests = this.config.parallelTests
+      ? results.filter(r => r.status === 'fulfilled').map(r => r.value)
+      : results.filter(r => r)
 
     // Aggregate metrics
     const aggregated = this.aggregateTestResults(successfulTests)
@@ -125,11 +126,21 @@ export class PlaytesterSwarmOrchestrator {
     try {
       const model = getModelForTask('quest_generation', this.config.model, 'quality')
 
-      const response = await generateText({
-        model,
-        prompt: testPrompt,
-        temperature: this.config.temperature,
+      // Create timeout promise
+      const timeoutMs = this.config.requestTimeoutMs || 30000
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`Request timeout after ${timeoutMs}ms`)), timeoutMs)
       })
+
+      // Race between generation and timeout
+      const response = await Promise.race([
+        generateText({
+          model,
+          prompt: testPrompt,
+          temperature: this.config.temperature,
+        }),
+        timeoutPromise
+      ])
 
       // Parse test results from response
       const testResult = parseTestResult(response.text, tester)
@@ -168,179 +179,13 @@ export class PlaytesterSwarmOrchestrator {
 
     for (const tester of testers) {
       const result = await this.runSingleTest(tester, content, testConfig)
-      results.push({ status: 'fulfilled', value: result })
+      results.push(result)
     }
 
     return results
   }
 
-  /**
-   * Build playtest prompt for tester agent
-   */
-  buildPlaytestPrompt(tester, content, testConfig) {
-    const archetypeInstructions = {
-      completionist: 'You try to complete everything thoroughly, exploring all options and finding all secrets. You notice when content is missing or incomplete.',
-      speedrunner: 'You try to complete content as quickly as possible, finding optimal paths. You notice sequence breaks and exploits.',
-      explorer: 'You explore every possibility, testing boundaries and trying unexpected actions. You find edge cases and unusual interactions.',
-      casual: 'You play at a relaxed pace, sometimes missing obvious hints. You notice when content is confusing or frustrating for less experienced players.',
-      minmaxer: 'You analyze mechanics and optimize your approach. You notice balance issues and exploitable strategies.',
-      roleplayer: 'You engage with content from a character perspective, valuing story and immersion. You notice when content breaks immersion or feels inconsistent.',
-      breaker: 'You actively try to break the content, testing limits and trying to cause errors. You find bugs and edge cases.',
-    }
 
-    const knowledgeLevelContext = {
-      beginner: 'You are new to this type of game and need clear guidance. You get stuck on things experienced players find obvious.',
-      intermediate: 'You have moderate experience and can handle standard challenges. You notice when difficulty spikes unexpectedly.',
-      expert: 'You are highly skilled and can handle complex challenges. You notice when content is too easy or lacks depth.'
-    }
-
-    return `You are ${tester.name}, an AI playtester with this profile:
-
-ARCHETYPE: ${tester.archetype}
-PLAYSTYLE: ${archetypeInstructions[tester.archetype] || archetypeInstructions.casual}
-
-KNOWLEDGE LEVEL: ${tester.knowledgeLevel}
-${knowledgeLevelContext[tester.knowledgeLevel] || knowledgeLevelContext.intermediate}
-
-PERSONALITY: ${tester.personality}
-
-EXPECTATIONS: ${tester.expectations.join(', ')}
-
-CONTENT TO TEST:
-${JSON.stringify(content, null, 2)}
-
-PLAYTEST INSTRUCTIONS:
-1. "Play through" this content step by step from your character's perspective
-2. Try to complete the objectives as your archetype would
-3. Look for:
-   - Bugs: Logic errors, impossible tasks, broken triggers, unclear instructions
-   - Difficulty: Rate difficulty 1-10 for your skill level
-   - Engagement: Rate fun/interest 1-10
-   - Pacing: Is it too fast, too slow, or just right?
-   - Confusion: Any unclear or confusing elements?
-   - Balance: Any exploits or unfair mechanics?
-
-OUTPUT FORMAT:
-PLAYTHROUGH: [Step-by-step description of your playthrough from your perspective]
-
-COMPLETION: [YES/NO - could you complete it?]
-
-DIFFICULTY: [1-10]/10 for ${tester.knowledgeLevel} player
-
-ENGAGEMENT: [1-10]/10 - how fun/interesting was it?
-
-PACING: [too_fast/just_right/too_slow]
-
-BUGS FOUND:
-- [Bug 1 description with severity: critical/major/minor]
-- [Bug 2 description]
-(or "None" if no bugs found)
-
-CONFUSION POINTS:
-- [Confusing element 1]
-(or "None")
-
-OVERALL FEEDBACK:
-[2-3 sentences on overall quality and main issues]
-
-RECOMMENDATION: [pass/pass_with_changes/fail]`
-  }
-
-  /**
-   * Parse test results from tester response
-   */
-  parseTestResults(responseText, tester) {
-    const result = {
-      testerId: tester.id,
-      testerName: tester.name,
-      archetype: tester.archetype,
-      knowledgeLevel: tester.knowledgeLevel,
-      success: true,
-      playthrough: '',
-      completed: false,
-      difficulty: 5,
-      engagement: 5,
-      pacing: 'unknown',
-      bugs: [],
-      confusionPoints: [],
-      feedback: '',
-      recommendation: 'pass_with_changes',
-      rawResponse: responseText
-    }
-
-    // Parse playthrough
-    const playthroughMatch = responseText.match(/PLAYTHROUGH:\s*([\s\S]*?)(?=\n\n|COMPLETION:|$)/i)
-    if (playthroughMatch) {
-      result.playthrough = playthroughMatch[1].trim()
-    }
-
-    // Parse completion
-    const completionMatch = responseText.match(/COMPLETION:\s*(YES|NO)/i)
-    if (completionMatch) {
-      result.completed = completionMatch[1].toUpperCase() === 'YES'
-    }
-
-    // Parse difficulty
-    const difficultyMatch = responseText.match(/DIFFICULTY:\s*(\d+)\/10/i)
-    if (difficultyMatch) {
-      result.difficulty = parseInt(difficultyMatch[1])
-    }
-
-    // Parse engagement
-    const engagementMatch = responseText.match(/ENGAGEMENT:\s*(\d+)\/10/i)
-    if (engagementMatch) {
-      result.engagement = parseInt(engagementMatch[1])
-    }
-
-    // Parse pacing
-    const pacingMatch = responseText.match(/PACING:\s*(too_fast|just_right|too_slow)/i)
-    if (pacingMatch) {
-      result.pacing = pacingMatch[1].toLowerCase()
-    }
-
-    // Parse bugs
-    const bugsSection = responseText.match(/BUGS FOUND:\s*([\s\S]*?)(?=\n\n|CONFUSION POINTS:|$)/i)
-    if (bugsSection && !bugsSection[1].includes('None')) {
-      const bugLines = bugsSection[1]
-        .split('\n')
-        .filter(line => line.trim().startsWith('-'))
-
-      result.bugs = bugLines.map(line => {
-        const cleaned = line.replace(/^-\s*/, '').trim()
-        const severityMatch = cleaned.match(/severity:\s*(critical|major|minor)/i)
-
-        return {
-          description: cleaned,
-          severity: severityMatch ? severityMatch[1].toLowerCase() : 'minor',
-          reporter: tester.name,
-          archetype: tester.archetype
-        }
-      })
-    }
-
-    // Parse confusion points
-    const confusionSection = responseText.match(/CONFUSION POINTS:\s*([\s\S]*?)(?=\n\n|OVERALL FEEDBACK:|$)/i)
-    if (confusionSection && !confusionSection[1].includes('None')) {
-      result.confusionPoints = confusionSection[1]
-        .split('\n')
-        .filter(line => line.trim().startsWith('-'))
-        .map(line => line.replace(/^-\s*/, '').trim())
-    }
-
-    // Parse feedback
-    const feedbackMatch = responseText.match(/OVERALL FEEDBACK:\s*([\s\S]*?)(?=\n\n|RECOMMENDATION:|$)/i)
-    if (feedbackMatch) {
-      result.feedback = feedbackMatch[1].trim()
-    }
-
-    // Parse recommendation
-    const recommendationMatch = responseText.match(/RECOMMENDATION:\s*(pass|pass_with_changes|fail)/i)
-    if (recommendationMatch) {
-      result.recommendation = recommendationMatch[1].toLowerCase()
-    }
-
-    return result
-  }
 
   /**
    * Aggregate results from multiple testers

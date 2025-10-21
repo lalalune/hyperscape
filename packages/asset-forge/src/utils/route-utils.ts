@@ -18,8 +18,10 @@ export function matchRoute(
   pattern: string,
   path: string
 ): Record<string, string> | null {
+  // Strip query string from path before matching
+  const pathWithoutQuery = path.split('?')[0]
   const patternParts = pattern.split('/')
-  const pathParts = path.split('/')
+  const pathParts = pathWithoutQuery.split('/')
 
   if (patternParts.length !== pathParts.length) {
     return null

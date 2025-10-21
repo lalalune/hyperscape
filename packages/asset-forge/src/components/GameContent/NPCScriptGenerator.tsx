@@ -118,7 +118,7 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
               existingNPCName: data.reuseValidation.canReuse?.name,
               reuseReason: data.reuseValidation.justification
             },
-            loreConsistency: {
+            loreConsistency: data.reuseValidation.canReuse?.loreConsistency || {
               score: 0,
               referencesExistingCharacters: [],
               referencesExistingEvents: [],

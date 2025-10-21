@@ -68,7 +68,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       setSelectedVoiceName(voiceConfig.voiceName)
       setCurrentSettings(voiceConfig.settings)
     }
-  }, [npcScript.npcId])
+  }, [npcScript.npcId, voiceConfig, setSelectedVoice, setSelectedVoiceName, setCurrentSettings])
 
   // Calculate cost estimate
   useEffect(() => {
@@ -132,17 +132,34 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
   }
 
   const handlePlayClip = async (clip: VoiceClip) => {
+    const audioRef = React.useRef<HTMLAudioElement | null>(null)
+    const urlRef = React.useRef<string | null>(null)
+
     try {
       const response = await fetch(`${CDN_URL}/gdd-assets/${npcScript.npcId}/${clip.audioUrl}`)
       if (!response.ok) throw new Error('Failed to fetch audio')
       const audioBlob = await response.blob()
       const audioUrl = URL.createObjectURL(audioBlob)
+      urlRef.current = audioUrl
       const audio = new Audio(audioUrl)
+      audioRef.current = audio
       audio.play()
-      audio.onended = () => URL.revokeObjectURL(audioUrl)
+      audio.onended = () => {
+        if (urlRef.current) {
+          URL.revokeObjectURL(urlRef.current)
+          urlRef.current = null
+        }
+      }
     } catch (error) {
       console.error('Failed to play clip:', error)
       setGenerationError('Failed to play audio clip')
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (urlRef.current) {
+        URL.revokeObjectURL(urlRef.current)
+      }
     }
   }
 

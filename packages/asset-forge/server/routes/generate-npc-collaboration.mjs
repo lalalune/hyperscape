@@ -203,6 +203,17 @@ async function extractQuestFromConversation(result, orchestrator) {
     .map(r => `${r.agentName}: ${r.content}`)
     .join('\n')
 
+  // Guard against empty agents Map
+  if (!orchestrator.agents || orchestrator.agents.size === 0) {
+    console.warn('[NPC Collaboration] No agents available for quest synthesis')
+    return {
+      title: 'Emergent Quest',
+      description: 'A quest that emerged from NPC collaboration',
+      objectives: result.emergentContent.questIdeas || [],
+      involvedNPCs: result.rounds.map(r => r.agentName)
+    }
+  }
+
   // Use first agent to synthesize quest
   const firstAgent = Array.from(orchestrator.agents.values())[0]
 

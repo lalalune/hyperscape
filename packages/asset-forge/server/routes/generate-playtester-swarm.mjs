@@ -107,9 +107,9 @@ export async function POST(req, res) {
     } = body
 
     // Input validation
-    if (!contentToTest || typeof contentToTest !== 'object') {
+    if (!contentToTest || typeof contentToTest !== 'object' || contentToTest === null || Array.isArray(contentToTest)) {
       return res.status(400).json({
-        error: "Invalid input: 'contentToTest' must be an object (quest, dialogue, etc.)"
+        error: "Invalid input: 'contentToTest' must be a plain object (quest, dialogue, etc.)"
       })
     }
 
@@ -158,7 +158,7 @@ export async function POST(req, res) {
           knowledgeLevel: getKnowledgeLevelForArchetype(profile),
           ...persona
         }
-      } else if (typeof profile === 'object') {
+      } else if (typeof profile === 'object' && profile !== null && !Array.isArray(profile)) {
         // Custom tester profile
         testerConfig = {
           id: profile.id || `tester_${randomUUID()}`,
@@ -168,6 +168,10 @@ export async function POST(req, res) {
           personality: profile.personality,
           expectations: profile.expectations || []
         }
+      } else {
+        return res.status(400).json({
+          error: `Invalid profile type at position ${selectedProfiles.indexOf(profile)}. Must be a string (predefined persona) or a plain object (custom profile). Received: ${typeof profile}`
+        })
       }
 
       orchestrator.registerTester(testerConfig)

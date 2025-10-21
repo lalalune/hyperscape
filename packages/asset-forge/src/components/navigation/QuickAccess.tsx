@@ -27,11 +27,6 @@ const QuickAccessItem = React.memo(({
   navigateTo: (path: RoutePath | string) => void
   toggleFavorite: (path: RoutePath) => void
 }) => {
-  const navItem = getNavItemForRoute(path)
-  if (!navItem) return null
-
-  const isActive = isRouteActive(path, currentPath)
-
   const handleNavigate = useCallback(() => {
     navigateTo(path)
   }, [navigateTo, path])
@@ -40,6 +35,11 @@ const QuickAccessItem = React.memo(({
     e.stopPropagation()
     toggleFavorite(path)
   }, [toggleFavorite, path])
+
+  const navItem = getNavItemForRoute(path)
+  if (!navItem) return null
+
+  const isActive = isRouteActive(path, currentPath)
 
   return (
     <div className="relative group">

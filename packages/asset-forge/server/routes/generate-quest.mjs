@@ -109,7 +109,7 @@ async function generateManifestSuggestion(gap, manifests, selectedModel) {
     return null
   }
 
-  const tier = getTierForDifficulty(gap.tier || 'medium')
+  const tier = gap.tier || getTierForDifficulty(gap.difficulty || 'medium')
   const tierInfo = LEVEL_TIERS[tier]
   const timestamp = Date.now()
 
