@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react'
-
-import { World } from '@hyperscape/shared'
-import type { InventorySlotItem, PlayerEquipmentItems, PlayerStats } from '@hyperscape/shared'
 import { EventType } from '@hyperscape/shared'
+import type { ClientWorld, PlayerEquipmentItems, PlayerStats, InventorySlotItem } from '../types'
 import { useChatContext } from './ChatContext'
 import { HintProvider } from './Hint'
 import { Minimap } from './Minimap'
@@ -18,18 +16,10 @@ import { AccountPanel } from './panels/AccountPanel'
 
 const _mainSectionPanes = ['prefs']
 
-
-/**
- * frosted
- * 
-background: rgba(11, 10, 21, 0.85); 
-border: 0.0625rem solid #2a2b39;
-backdrop-filter: blur(5px);
- *
- */
+type InventorySlotViewItem = Pick<InventorySlotItem, 'slot' | 'itemId' | 'quantity'>
 
 interface SidebarProps {
-  world: World
+  world: ClientWorld
   ui: {
     active: boolean
     pane: string | null
@@ -37,8 +27,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ world, ui: _ui }: SidebarProps) {
-  const [_livekit, setLiveKit] = useState(() => world.livekit!.status)
-  const [inventory, setInventory] = useState<InventorySlotItem[]>([])
+  const [inventory, setInventory] = useState<InventorySlotViewItem[]>([])
   const [equipment, setEquipment] = useState<PlayerEquipmentItems | null>(null)
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null)
   const [coins, setCoins] = useState<number>(0)
@@ -46,17 +35,13 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
   const [isMobile, setIsMobile] = useState<boolean>(false)
   const { collapsed: _chatCollapsed, active: _chatActive } = useChatContext()
 
-  // Track which windows are open
   const [openWindows, setOpenWindows] = useState<Set<string>>(new Set())
   
   const toggleWindow = (windowId: string) => {
     setOpenWindows(prev => {
       const next = new Set(prev)
-      if (next.has(windowId)) {
-        next.delete(windowId)
-      } else {
-        next.add(windowId)
-      }
+      if (next.has(windowId)) next.delete(windowId)
+      else next.add(windowId)
       return next
     })
   }
@@ -70,80 +55,60 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
   }
   
   useEffect(() => {
-    const onLiveKitStatus = status => {
-      setLiveKit({ ...status })
-    }
-    world.livekit!.on('status', onLiveKitStatus)
-    const onOpenPane = (data: { pane?: string | null }) => {
-      if (data?.pane) {
-        setOpenWindows(prev => new Set(prev).add(data.pane as string))
-      }
+    const onOpenPane = (d: unknown) => {
+      const data = d as { pane?: string | null }
+      if (data?.pane) setOpenWindows(prev => new Set(prev).add(data.pane as string))
     }
     world.on(EventType.UI_OPEN_PANE, onOpenPane)
+
     const onUIUpdate = (raw: unknown) => {
       const update = raw as { component: string; data: unknown }
-      if (update.component === 'player') {
-        setPlayerStats(update.data as PlayerStats)
-      }
+      if (update.component === 'player') setPlayerStats(update.data as PlayerStats)
       if (update.component === 'equipment') {
         const data = update.data as { equipment: PlayerEquipmentItems }
         setEquipment(data.equipment)
       }
     }
     const onInventory = (raw: unknown) => {
-      const data = raw as { items: InventorySlotItem[]; playerId: string; coins: number }
+      const data = raw as { items: InventorySlotViewItem[]; playerId: string; coins: number }
       setInventory(data.items)
       setCoins(data.coins)
     }
     const onCoins = (raw: unknown) => {
       const data = raw as { playerId: string; coins: number }
-      const localId = world.entities.player?.id
+      const localId = world.entities?.player?.id
       if (!localId || data.playerId === localId) setCoins(data.coins)
     }
     const onSkillsUpdate = (raw: unknown) => {
       const data = raw as { playerId: string; skills: PlayerStats['skills'] }
-      const localId = world.entities.player?.id
-      if (!localId || data.playerId === localId) {
-        // Update playerStats with new skills
-        setPlayerStats(prev => prev ? { ...prev, skills: data.skills } : { skills: data.skills } as PlayerStats)
-      }
+      const localId = world.entities?.player?.id
+      if (!localId || data.playerId === localId) setPlayerStats(prev => prev ? { ...prev, skills: data.skills } : { skills: data.skills } as PlayerStats)
     }
+
     world.on(EventType.UI_UPDATE, onUIUpdate)
     world.on(EventType.INVENTORY_UPDATED, onInventory)
     world.on(EventType.INVENTORY_UPDATE_COINS, onCoins)
     world.on(EventType.SKILLS_UPDATED, onSkillsUpdate)
-    // Request initial inventory snapshot once local player exists; hydrate from cached packet if available
+
     const requestInitial = () => {
-      const lp = world.entities.player?.id
+      const lp = world.entities?.player?.id
       if (lp) {
-        // If network already cached an inventory packet, use it immediately
-        const network = world.network as { 
-          lastInventoryByPlayerId?: Record<string, { playerId: string; items: InventorySlotItem[]; coins: number; maxSlots: number }>;
-          lastSkillsByPlayerId?: Record<string, Record<string, { level: number; xp: number }>>;
-        }
-        const cached = network.lastInventoryByPlayerId?.[lp]
+        const cached = world.network?.lastInventoryByPlayerId?.[lp]
         if (cached && Array.isArray(cached.items)) {
           setInventory(cached.items)
           setCoins(cached.coins)
         }
-        // Hydrate skills from cached packet
-        const cachedSkills = network.lastSkillsByPlayerId?.[lp]
-        if (cachedSkills) {
-          setPlayerStats(prev => prev ? { ...prev, skills: cachedSkills as PlayerStats['skills'] } : { skills: cachedSkills as PlayerStats['skills'] } as PlayerStats)
-        }
-        // Ask server for authoritative snapshot in case cache is missing/stale
+        const cachedSkills = world.network?.lastSkillsByPlayerId?.[lp]
+        if (cachedSkills) setPlayerStats(prev => prev ? { ...prev, skills: cachedSkills as unknown as PlayerStats['skills'] } : { skills: cachedSkills as unknown as PlayerStats['skills'] } as PlayerStats)
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp })
         return true
       }
       return false
     }
     let timeoutId: number | null = null
-    if (!requestInitial()) {
-      timeoutId = window.setTimeout(() => requestInitial(), 400)
-    }
+    if (!requestInitial()) timeoutId = window.setTimeout(() => requestInitial(), 400)
     return () => {
       if (timeoutId !== null) window.clearTimeout(timeoutId)
-      world.livekit!.off('status', onLiveKitStatus)
       world.off(EventType.UI_OPEN_PANE, onOpenPane)
       world.off(EventType.UI_UPDATE, onUIUpdate)
       world.off(EventType.INVENTORY_UPDATED, onInventory)
@@ -152,7 +117,6 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     }
   }, [])
 
-  // Detect mobile screen size
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
@@ -311,6 +275,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Inventory"
             windowId="inventory"
             onClose={() => closeWindow('inventory')}
+            fitContent
           >
             <InventoryPanel items={inventory} coins={coins} world={world} />
           </GameWindow>

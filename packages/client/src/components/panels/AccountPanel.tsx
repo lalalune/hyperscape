@@ -4,11 +4,11 @@
  */
 
 import React, { useEffect, useState } from 'react'
-import type { World } from '@hyperscape/shared'
+import type { ClientWorld } from '../../types'
 import { privyAuthManager } from '../../PrivyAuthManager'
 
 interface AccountPanelProps {
-  world: World
+  world: ClientWorld
 }
 
 export function AccountPanel({ world }: AccountPanelProps) {
@@ -55,7 +55,7 @@ export function AccountPanel({ world }: AccountPanelProps) {
         setIsEditingName(false)
         
         // Send name update to server
-        world.network?.send('chat', {
+        world.network?.send?.('chat', {
           type: 'system',
           message: `Changed name to ${tempName}`
         })

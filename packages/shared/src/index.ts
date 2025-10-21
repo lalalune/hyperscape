@@ -85,7 +85,7 @@ export type {
     // Player Types
     Player,
     PlayerInput,
-    PlayerStats, Quaternion,
+    Quaternion,
     // Additional system interfaces
     Settings, Stage,
     // System Types  
@@ -297,6 +297,7 @@ export type {
   PlayerHealth,
   PlayerStamina,
   PlayerPosition,
+  PlayerStats,
   Skills,
   PlayerEquipmentItems,
   PlayerCombatData,

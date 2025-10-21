@@ -4,16 +4,36 @@
  * React component for previewing VRM avatars in 3D before selecting.
  */
 
-import { THREE } from "@hyperscape/shared";
-import { Emotes } from "@hyperscape/shared";
-import type { World } from "@hyperscape/shared";
-import type { LoadedAvatar } from "@hyperscape/shared";
-import type { AvatarNode, AvatarInfo, BoundsSpec } from "@hyperscape/shared";
-import {
-  createRenderer,
-  configureRenderer,
-  type UniversalRenderer,
-} from "@hyperscape/shared";
+import { THREE, Emotes, createRenderer, configureRenderer } from "@hyperscape/shared";
+import type { LoadedAvatar, UniversalRenderer } from "@hyperscape/shared";
+import type { ClientWorld } from "./types";
+
+interface AvatarNode {
+  instance?: {
+    raw?: {
+      scene?: THREE.Group
+      userData?: { vrm?: { humanoid?: { getRawBone: (name: string) => { node: THREE.Bone } } } }
+    }
+    update?: (delta: number) => void
+  }
+  activate: (world: ClientWorld) => void
+  deactivate: () => void
+  setEmote: (emote: string) => void
+}
+
+interface BoundsSpec {
+  rank: number
+  fileSize: number
+  triangles: number
+  draws: number
+  bones: number
+  bounds: [number, number, number]
+}
+
+interface AvatarInfo {
+  rank: number
+  stats: Record<string, { value: number | number[]; rank: number }>
+}
 
 const MAX_UPLOAD_SIZE = 1000000000000; // TODO
 const MAX_UPLOAD_SIZE_LABEL = "1LOLS";
@@ -40,13 +60,13 @@ async function getRenderer(): Promise<UniversalRenderer> {
 }
 
 export class AvatarPreview {
-  world: World;
+  world: ClientWorld;
   viewport: HTMLElement;
   scene: THREE.Scene;
   size: { width: number; height: number; aspect: number };
   camera: THREE.PerspectiveCamera;
   sun: THREE.DirectionalLight;
-  renderer: UniversalRenderer;
+  renderer!: UniversalRenderer;
   rig: THREE.Object3D;
   file?: File;
   url?: string;
@@ -71,7 +91,7 @@ export class AvatarPreview {
   boneTargets?: THREE.Bone[];
   private initPromise: Promise<void>;
 
-  constructor(world: World, viewport: HTMLElement) {
+  constructor(world: ClientWorld, viewport: HTMLElement) {
     this.world = world;
     this.viewport = viewport;
     this.scene = new THREE.Scene();
@@ -87,11 +107,11 @@ export class AvatarPreview {
     this.sun = new THREE.DirectionalLight(0xffffff, 3);
     this.sun.position.fromArray([200, 400, 200]);
     this.sun.target.position.copy(this.camera.position);
-    this.scene.add(this.sun);
-    this.scene.add(this.sun.target);
-    this.rig = new THREE.Object3D() as THREE.Object3D;
+    this.scene.add(this.sun as never);
+    this.scene.add(this.sun.target as never);
+    this.rig = new THREE.Object3D();
     this.rig.rotation.y = 180 * DEG2RAD;
-    this.scene.add(this.rig);
+    this.scene.add(this.rig as never);
 
     // Initialize renderer asynchronously
     this.initPromise = this.initRenderer();
@@ -146,7 +166,7 @@ export class AvatarPreview {
         octree: null,
         loader: this.world.loader,
       })
-      .get("avatar") as AvatarNode;
+      .get("avatar") as unknown as AvatarNode;
     if (this.node) {
       this.node.activate(this.world);
       this.node.setEmote(Emotes.IDLE);
@@ -386,7 +406,7 @@ export class AvatarPreview {
 
   determineRank(fn: (spec: BoundsSpec) => boolean): number {
     // if fn returns true it passes the spec
-    for (const spec of specs) {
+    for (const spec of specs as BoundsSpec[]) {
       if (fn(spec)) return spec.rank;
     }
     return 1;
@@ -433,10 +453,8 @@ export class AvatarPreview {
   destroy() {
     this.node?.deactivate();
     this.viewport.removeChild(this.renderer.domElement);
-    this.renderer.setAnimationLoop(null);
-    this.renderer.clear();
-    // Note: We can't set renderer to null as it's not nullable in the type
-    // this.renderer = null
+    this.renderer.setAnimationLoop?.(null);
+    if ('clear' in this.renderer) (this.renderer as { clear: () => void }).clear();
   }
 }
 

@@ -2,8 +2,17 @@ import React from 'react'
 import { useEffect, useRef } from 'react'
 import { Curve } from '@hyperscape/shared'
 import { usePane } from './usePane'
-import type { CurvePaneProps } from '@hyperscape/shared'
-// import { X } from 'lucide-react'
+
+interface CurvePaneProps {
+  curve: Curve
+  xLabel: string
+  xRange?: [number, number]
+  yLabel: string
+  yMin: number
+  yMax: number
+  onCommit: () => void
+  onCancel: () => void
+}
 
 export function CurvePane({ curve, xLabel, xRange, yLabel, yMin, yMax, onCommit, onCancel }: CurvePaneProps) {
   const paneRef = useRef<HTMLDivElement | null>(null)
@@ -11,7 +20,7 @@ export function CurvePane({ curve, xLabel, xRange, yLabel, yMin, yMax, onCommit,
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const editorRef = useRef<{ curve: Curve; canvas: HTMLCanvasElement } | null>(null)
 
-  usePane('curve', paneRef, headRef)
+  usePane('curve', paneRef as React.RefObject<HTMLElement>, headRef as React.RefObject<HTMLElement>)
 
   useEffect(() => {
     if (!canvasRef.current) return

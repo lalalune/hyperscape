@@ -9,9 +9,10 @@ interface GameWindowProps {
   defaultY?: number
   windowId?: string
   children: React.ReactNode
+  fitContent?: boolean
 }
 
-export function GameWindow({ title, onClose, defaultX, defaultY, windowId = 'default', children }: GameWindowProps) {
+export function GameWindow({ title, onClose, defaultX, defaultY, windowId = 'default', children, fitContent = false }: GameWindowProps) {
   const dragHandleRef = useRef<HTMLDivElement>(null)
   const [isMobile, setIsMobile] = useState(windowManager.isMobile())
   const [isTablet, setIsTablet] = useState(windowManager.isTablet())
@@ -141,12 +142,13 @@ export function GameWindow({ title, onClose, defaultX, defaultY, windowId = 'def
       className="bg-[rgba(11,10,21,0.96)] border rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] pointer-events-auto z-[1000]"
       style={{
         borderColor: 'rgba(242, 208, 138, 0.4)',
-        minWidth: minWidth,
+        minWidth: fitContent ? undefined : minWidth,
         maxWidth: maxWidth,
-        width: isTablet ? '90vw' : dimensions.width,
+        width: fitContent ? 'auto' : (isTablet ? '90vw' : dimensions.width),
+        display: fitContent ? 'inline-block' as const : undefined,
       }}
     >
-      <div className="p-3 overflow-y-auto" style={{ maxHeight: dimensions.maxHeight }}>
+      <div className={fitContent ? "p-3 overflow-y-auto flex flex-col" : "p-3 overflow-y-auto"} style={{ maxHeight: dimensions.maxHeight }}>
         {children}
       </div>
     </DraggableWindow>

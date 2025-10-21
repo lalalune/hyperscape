@@ -34,7 +34,27 @@
 
 import EventEmitter from 'eventemitter3';
 
-import type { ClientPlayerToken, PlayerSession } from '@hyperscape/shared'
+interface ClientPlayerToken {
+  playerId: string
+  tokenSecret: string
+  playerName: string
+  createdAt: Date
+  lastSeen: Date
+  sessionId: string
+  machineId: string
+  clientVersion: string
+  hyperscapeUserId: string
+  hyperscapeLinked: boolean
+  persistenceVersion: number
+}
+
+interface PlayerSession {
+  sessionId: string
+  playerId: string
+  startTime: Date
+  lastActivity: Date
+  isActive: boolean
+}
 
 /**
  * Manages player tokens and sessions for client-side identity persistence

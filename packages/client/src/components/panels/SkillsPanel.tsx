@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
-import type { World } from '@hyperscape/shared'
-import type { PlayerStats } from '@hyperscape/shared'
+import type { ClientWorld, PlayerStats } from '../../types'
 
 interface SkillsPanelProps {
-  world: World
+  world: ClientWorld
   stats: PlayerStats | null
 }
 

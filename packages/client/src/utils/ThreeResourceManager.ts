@@ -64,7 +64,7 @@ export class ThreeResourceManager {
 
     // Traverse all children and dispose recursively
     object.traverse((child) => {
-      this.disposeObjectInternal(child as THREE.Object3D, {
+      this.disposeObjectInternal(child, {
         disposeGeometry,
         disposeMaterial,
         disposeTextures
@@ -73,7 +73,7 @@ export class ThreeResourceManager {
 
     // Remove from parent if requested
     if (removeFromParent && object.parent) {
-      object.parent.remove(object);
+      object.parent.remove(object as never);
     }
 
     // Mark as disposed

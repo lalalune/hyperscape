@@ -1,14 +1,15 @@
 import { MessageSquareIcon } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
-import { ControlPriorities, EventType, isTouch, World } from '@hyperscape/shared'
+import { ControlPriorities, EventType, isTouch } from '@hyperscape/shared'
+import type { ClientWorld } from '../types'
 import { cls } from './cls'
 import { useChatContext } from './ChatContext'
 
 const CHAT_HEADER_FONT = "'Inter', system-ui, sans-serif"
 const CHAT_ACCENT_COLOR = '#f7d98c'
 
-// Local type definitions to avoid import issues
+// Local type definitions
 interface ChatMessage {
   id: string
   from: string
@@ -19,21 +20,17 @@ interface ChatMessage {
 }
 
 interface ControlBinding {
-  slash?: { onPress?: () => void }
-  enter?: { onPress?: () => void }
-  mouseLeft?: { onPress?: () => void }
+  slash?: { onPress?: () => void | boolean | null }
+  enter?: { onPress?: () => void | boolean | null }
+  mouseLeft?: { onPress?: () => void | boolean | null }
   pointer?: { locked?: boolean }
   release?: () => void
 }
 
-// Extended World type with client-specific properties
-type ExtendedWorld = InstanceType<typeof World> & {
-  on: <T extends string | symbol>(event: T, fn: (...args: unknown[]) => void, context?: unknown) => ExtendedWorld
-  off: <T extends string | symbol>(event: T, fn?: (...args: unknown[]) => void, context?: unknown, once?: boolean) => ExtendedWorld
-  prefs?: {
+// Extended client world type for Chat component
+type ChatWorld = ClientWorld & {
+  prefs?: ClientWorld['prefs'] & {
     chatVisible?: boolean
-    on?: (event: string, callback: (changes: { chatVisible?: { value: boolean } }) => void) => void
-    off?: (event: string, callback: (changes: { chatVisible?: { value: boolean } }) => void) => void
   }
   controls?: {
     bind?: (options: { priority?: number }) => ControlBinding
@@ -49,7 +46,7 @@ type ExtendedWorld = InstanceType<typeof World> & {
   }
 }
 
-export function Chat({ world }: { world: ExtendedWorld }) {
+export function Chat({ world }: { world: ChatWorld }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const chatPanelRef = useRef<HTMLDivElement | null>(null)
   const touchStartYRef = useRef<number | null>(null)
@@ -549,7 +546,7 @@ function Messages({
   className,
   style,
 }: {
-  world: ExtendedWorld
+  world: ChatWorld
   active: boolean
   variant: 'desktop' | 'mobile'
   className?: string
@@ -651,7 +648,7 @@ function Message({ msg }: { msg: ChatMessage }) {
   )
 }
 
-function MiniMessages({ world }: { world: ExtendedWorld }) {
+function MiniMessages({ world }: { world: ChatWorld }) {
   const [msg, setMsg] = useState<ChatMessage | null>(null)
 
   useEffect(() => {

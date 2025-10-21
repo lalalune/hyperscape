@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { isTouch } from '@hyperscape/shared'
-import type { World } from '@hyperscape/shared'
+import type { ClientWorld } from '../../types'
 import { useFullscreen } from '../useFullscreen'
 import {
   FieldBtn,
@@ -11,7 +11,7 @@ import {
 } from '../Fields'
 
 interface SettingsPanelProps {
-  world: World
+  world: ClientWorld
 }
 
 const shadowOptions = [
@@ -34,20 +34,21 @@ function Group({ label }: { label?: string }) {
   )
 }
 
-function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
-  const player = world.entities.player
+function Prefs({ world, hidden: _hidden }: { world: ClientWorld; hidden: boolean }) {
+  const player = world.entities?.player
   const [name, setName] = useState(() => player?.name || '')
-  const [dpr, setDPR] = useState(world.prefs?.dpr || 1)
-  const [shadows, setShadows] = useState(world.prefs?.shadows || 'med')
-  const [postprocessing, setPostprocessing] = useState(world.prefs?.postprocessing ?? true)
-  const [bloom, setBloom] = useState(world.prefs?.bloom ?? true)
-  const [music, setMusic] = useState(world.prefs?.music || 0.5)
-  const [sfx, setSFX] = useState(world.prefs?.sfx || 0.5)
-  const [voice, setVoice] = useState(world.prefs?.voice || 1)
-  const [ui, setUI] = useState(world.prefs?.ui || 1)
-  const nullRef = useRef<HTMLElement>(null)
-  const [canFullscreen, isFullscreen, toggleFullscreen] = useFullscreen(nullRef)
-  const [_stats, _setStats] = useState(world.prefs?.stats || false)
+  const prefs = world.prefs
+  const [dpr, setDPR] = useState(prefs?.dpr || 1)
+  const [shadows, setShadows] = useState(prefs?.shadows || 'med')
+  const [postprocessing, setPostprocessing] = useState(prefs?.postprocessing ?? true)
+  const [bloom, setBloom] = useState(prefs?.bloom ?? true)
+  const [music, setMusic] = useState(prefs?.music || 0.5)
+  const [sfx, setSFX] = useState(prefs?.sfx || 0.5)
+  const [voice, setVoice] = useState(prefs?.voice || 1)
+  const [ui, setUI] = useState(prefs?.ui || 1)
+  const nullRef = useRef<HTMLElement | null>(null)
+  const [canFullscreen, isFullscreen, toggleFullscreen] = useFullscreen(nullRef as React.RefObject<HTMLElement>)
+  const [_stats, _setStats] = useState(prefs?.stats || false)
   
   const changeName = (name: string) => {
     if (!name) return setName(player!.name || '')
@@ -64,8 +65,9 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
   }, [music])
 
   const dprOptions = useMemo(() => {
-    const _width = world.graphics!.width
-    const _height = world.graphics!.height
+    const graphics = world.graphics
+    const _width = graphics?.width
+    const _height = graphics?.height
     const dpr = window.devicePixelRatio
     const options: Array<{label: string; value: number}> = []
     const add = (label: string, dpr: number) => {
@@ -82,7 +84,8 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
   }, [])
 
   useEffect(() => {
-    const onPrefsChange = (changes: Record<string, { value: unknown }>) => {
+    const onPrefsChange = (c: unknown) => {
+      const changes = c as Record<string, { value: unknown }>
       if (changes.dpr) setDPR(changes.dpr.value as number)
       if (changes.shadows) setShadows(changes.shadows.value as string)
       if (changes.postprocessing) setPostprocessing(changes.postprocessing.value as boolean)
@@ -93,11 +96,11 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
       if (changes.ui) setUI(changes.ui.value as number)
       if (changes.stats) _setStats(changes.stats.value as boolean)
     }
-    world.prefs?.on('change', onPrefsChange)
+    prefs?.on?.('change', onPrefsChange)
     return () => {
-      world.prefs?.off('change', onPrefsChange)
+      prefs?.off?.('change', onPrefsChange)
     }
-  }, [])
+  }, [prefs])
   
   return (
     <div className='prefs noscrollbar w-full h-full overflow-y-auto'>
@@ -111,7 +114,7 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
         max={1.5}
         step={0.1}
         value={ui}
-        onChange={ui => world.prefs?.setUI(ui)}
+        onChange={ui => prefs?.setUI?.(ui)}
       />
       <FieldToggle
         label='Fullscreen'
@@ -124,8 +127,8 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
       <FieldToggle
         label='Performance Stats'
         hint='Show or hide performance statistics'
-        value={world.prefs?.stats || false}
-        onChange={stats => world.prefs?.setStats(stats)}
+        value={prefs?.stats || false}
+        onChange={stats => prefs?.setStats?.(stats)}
         trueLabel='Visible'
         falseLabel='Hidden'
       />
@@ -134,7 +137,7 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
           label='Hide Interface'
           note='Z'
           hint='Hide the user interface. Press Z to re-enable.'
-          onClick={() => world.ui?.toggleVisible()}
+          onClick={() => world.ui?.toggleVisible?.()}
         />
       )}
       
@@ -158,14 +161,14 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
         hint='Change your display resolution for better performance or quality'
         options={dprOptions}
         value={dpr}
-        onChange={dpr => world.prefs?.setDPR(dpr as number)}
+        onChange={dpr => prefs?.setDPR?.(dpr as number)}
       />
       <FieldSwitch
         label='Shadow Quality'
         hint='Change the quality of shadows cast by objects and characters'
         options={shadowOptions}
         value={shadows}
-        onChange={shadows => world.prefs?.setShadows(shadows as string)}
+        onChange={shadows => prefs?.setShadows?.(shadows as string)}
       />
       <FieldToggle
         label='Post-Processing'
@@ -174,7 +177,7 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
         falseLabel='Disabled'
         value={postprocessing}
         onChange={postprocessing => {
-          world.prefs?.setPostprocessing(postprocessing)
+          prefs?.setPostprocessing?.(postprocessing)
         }}
       />
       {postprocessing && (
@@ -185,7 +188,7 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
           falseLabel='Disabled'
           value={bloom}
           onChange={bloom => {
-            world.prefs?.setBloom(bloom)
+            prefs?.setBloom?.(bloom)
           }}
         />
       )}
@@ -198,7 +201,7 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
         max={2}
         step={0.05}
         value={music}
-        onChange={music => world.prefs?.setMusic(music)}
+        onChange={music => prefs?.setMusic?.(music)}
       />
       <FieldRange
         label='Effects Volume'
@@ -207,7 +210,7 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
         max={2}
         step={0.05}
         value={sfx}
-        onChange={sfx => world.prefs?.setSFX(sfx)}
+        onChange={sfx => prefs?.setSFX?.(sfx)}
       />
       <FieldRange
         label='Voice Chat'
@@ -216,7 +219,7 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
         max={2}
         step={0.05}
         value={voice}
-        onChange={voice => world.prefs?.setVoice(voice)}
+        onChange={voice => prefs?.setVoice?.(voice)}
       />
     </div>
   )
@@ -224,10 +227,11 @@ function Prefs({ world, hidden: _hidden }: { world: World; hidden: boolean }) {
 
 export function SettingsPanel({ world }: SettingsPanelProps) {
   const [advanced, setAdvanced] = useState(false)
-  const [uiScale, setUiScale] = useState(world.prefs!.ui)
-  const [statsOn, setStatsOn] = useState(world.prefs!.stats)
-  const nullRef = useRef<HTMLElement>(null)
-  const [canFullscreen, isFullscreen, toggleFullscreen] = useFullscreen(nullRef)
+  const prefs = world.prefs
+  const [uiScale, setUiScale] = useState(prefs?.ui || 1)
+  const [statsOn, setStatsOn] = useState(prefs?.stats || false)
+  const nullRef = useRef<HTMLElement | null>(null)
+  const [canFullscreen, isFullscreen, toggleFullscreen] = useFullscreen(nullRef as React.RefObject<HTMLElement>)
 
   const advancedModal = advanced ? (
     <div
@@ -265,7 +269,7 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
             onChange={(e) => {
               const v = parseFloat(e.target.value)
               setUiScale(v)
-              world.prefs!.setUI(v)
+              prefs?.setUI?.(v)
             }}
             className="w-full"
           />
@@ -290,7 +294,7 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
             onClick={() => {
               const next = !statsOn
               setStatsOn(next)
-              world.prefs!.setStats(next)
+              prefs?.setStats?.(next)
             }}
             className="border-none text-white rounded-md py-1 px-2 cursor-pointer"
             style={{ backgroundColor: statsOn ? '#22c55e' : '#6b7280' }}
@@ -299,7 +303,7 @@ export function SettingsPanel({ world }: SettingsPanelProps) {
           </button>
         </div>
         <button
-          onClick={() => world.ui!.toggleVisible()}
+          onClick={() => world.ui?.toggleVisible?.()}
           className="border-none text-white rounded-md py-1.5 px-2.5 cursor-pointer"
           style={{ backgroundColor: '#8b4513', color: '#f2d08a' }}
         >
