@@ -23,10 +23,21 @@ export class GenerationService extends EventEmitter {
     }
     
     // Initialize AI service with backend environment variables
+    // Support for OpenRouter and other OpenAI-compatible providers
+    const extraHeaders = {}
+    if (process.env.IMAGE_API_REFERER) {
+      extraHeaders['HTTP-Referer'] = process.env.IMAGE_API_REFERER
+    }
+    if (process.env.IMAGE_API_TITLE) {
+      extraHeaders['X-Title'] = process.env.IMAGE_API_TITLE
+    }
+
     this.aiService = new AICreationService({
       openai: {
         apiKey: process.env.OPENAI_API_KEY || '',
-        model: 'gpt-image-1',
+        model: process.env.IMAGE_MODEL || 'dall-e-3',
+        baseUrl: process.env.IMAGE_API_BASE_URL || 'https://api.openai.com/v1',
+        extraHeaders: extraHeaders,
         imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8080'
       },
       meshy: {

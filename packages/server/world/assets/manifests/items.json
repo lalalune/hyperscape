@@ -6,18 +6,18 @@
     "quantity": 1,
     "stackable": false,
     "maxStackSize": 1,
-    "value": 50,
+    "value": 100,
     "weight": 2,
     "equipSlot": "weapon",
     "weaponType": "SWORD",
     "equipable": true,
     "attackType": "MELEE",
-    "description": "A basic bronze sword, low-poly RuneScape style",
-    "examine": "A basic bronze sword, low-poly RuneScape style",
+    "description": "A basic sword made of bronze",
+    "examine": "A basic sword made of bronze",
     "tradeable": true,
     "rarity": "common",
-    "modelPath": "/models/bronze-sword/bronze-sword.glb",
-    "iconPath": "/models/bronze-sword/concept-art.png",
+    "modelPath": "asset://models/sword-bronze/sword-bronze.glb",
+    "iconPath": "asset://models/sword-bronze/concept-art.png",
     "healAmount": 0,
     "stats": {
       "attack": 0,
@@ -32,7 +32,7 @@
     },
     "requirements": {
       "level": 1,
-      "skills": {}
+      "skills": { "attack": 1 }
     }
   },
   {
@@ -42,18 +42,18 @@
     "quantity": 1,
     "stackable": false,
     "maxStackSize": 1,
-    "value": 50,
-    "weight": 2,
+    "value": 500,
+    "weight": 3,
     "equipSlot": "weapon",
     "weaponType": "SWORD",
     "equipable": true,
     "attackType": "MELEE",
-    "description": "A sturdy steel sword, low-poly RuneScape style",
-    "examine": "A sturdy steel sword, low-poly RuneScape style",
+    "description": "A sturdy sword made of steel",
+    "examine": "A sturdy sword made of steel",
     "tradeable": true,
     "rarity": "common",
-    "modelPath": "/models/steel-sword/steel-sword.glb",
-    "iconPath": "/models/steel-sword/concept-art.png",
+    "modelPath": "asset://models/sword-steel/sword-steel.glb",
+    "iconPath": "asset://models/sword-steel/concept-art.png",
     "healAmount": 0,
     "stats": {
       "attack": 0,
@@ -61,8 +61,476 @@
       "strength": 0
     },
     "bonuses": {
-      "attack": 4,
-      "strength": 3,
+      "attack": 12,
+      "strength": 10,
+      "defense": 0,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 10,
+      "skills": { "attack": 10 }
+    }
+  },
+  {
+    "id": "mithril_sword",
+    "name": "Mithril Sword",
+    "type": "weapon",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 2000,
+    "weight": 2,
+    "equipSlot": "weapon",
+    "weaponType": "SWORD",
+    "equipable": true,
+    "attackType": "MELEE",
+    "description": "A legendary sword made of mithril",
+    "examine": "A legendary sword made of mithril",
+    "tradeable": true,
+    "rarity": "rare",
+    "modelPath": "asset://models/sword-mithril/sword-mithril.glb",
+    "iconPath": "asset://models/sword-mithril/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 25,
+      "strength": 22,
+      "defense": 0,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 20,
+      "skills": { "attack": 20 }
+    }
+  },
+  {
+    "id": "bronze_shield",
+    "name": "Bronze Shield",
+    "type": "weapon",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 80,
+    "weight": 3,
+    "equipSlot": "shield",
+    "weaponType": "SHIELD",
+    "equipable": true,
+    "attackType": "MELEE",
+    "description": "A basic shield made of bronze",
+    "examine": "A basic shield made of bronze",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/shield-bronze/shield-bronze.glb",
+    "iconPath": "asset://models/shield-bronze/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 5,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 1,
+      "skills": { "defense": 1 }
+    }
+  },
+  {
+    "id": "steel_shield",
+    "name": "Steel Shield",
+    "type": "weapon",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 400,
+    "weight": 4,
+    "equipSlot": "shield",
+    "weaponType": "SHIELD",
+    "equipable": true,
+    "attackType": "MELEE",
+    "description": "A sturdy shield made of steel",
+    "examine": "A sturdy shield made of steel",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/shield-steel/shield-steel.glb",
+    "iconPath": "asset://models/shield-steel/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 15,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 10,
+      "skills": { "defense": 10 }
+    }
+  },
+  {
+    "id": "mithril_shield",
+    "name": "Mithril Shield",
+    "type": "weapon",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 1800,
+    "weight": 3,
+    "equipSlot": "shield",
+    "weaponType": "SHIELD",
+    "equipable": true,
+    "attackType": "MELEE",
+    "description": "A legendary shield made of mithril",
+    "examine": "A legendary shield made of mithril",
+    "tradeable": true,
+    "rarity": "rare",
+    "modelPath": "asset://models/shield-mithril/shield-mithril.glb",
+    "iconPath": "asset://models/shield-mithril/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 30,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 20,
+      "skills": { "defense": 20 }
+    }
+  },
+  {
+    "id": "wood_bow",
+    "name": "Wood Bow",
+    "type": "weapon",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 80,
+    "weight": 1,
+    "equipSlot": "weapon",
+    "weaponType": "BOW",
+    "equipable": true,
+    "attackType": "RANGED",
+    "description": "A simple bow made of wood",
+    "examine": "A simple bow made of wood",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/bow-wood/bow-wood.glb",
+    "iconPath": "asset://models/bow-wood/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 5
+    },
+    "requirements": {
+      "level": 1,
+      "skills": { "ranged": 1 }
+    }
+  },
+  {
+    "id": "oak_bow",
+    "name": "Oak Bow",
+    "type": "weapon",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 400,
+    "weight": 1,
+    "equipSlot": "weapon",
+    "weaponType": "BOW",
+    "equipable": true,
+    "attackType": "RANGED",
+    "description": "A sturdy bow made of oak",
+    "examine": "A sturdy bow made of oak",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/bow-oak/bow-oak.glb",
+    "iconPath": "asset://models/bow-oak/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 15
+    },
+    "requirements": {
+      "level": 10,
+      "skills": { "ranged": 10 }
+    }
+  },
+  {
+    "id": "willow_bow",
+    "name": "Willow Bow",
+    "type": "weapon",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 1500,
+    "weight": 1,
+    "equipSlot": "weapon",
+    "weaponType": "BOW",
+    "equipable": true,
+    "attackType": "RANGED",
+    "description": "A fine bow made of willow",
+    "examine": "A fine bow made of willow",
+    "tradeable": true,
+    "rarity": "uncommon",
+    "modelPath": "asset://models/bow-willow/bow-willow.glb",
+    "iconPath": "asset://models/bow-willow/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 30
+    },
+    "requirements": {
+      "level": 20,
+      "skills": { "ranged": 20 }
+    }
+  },
+  {
+    "id": "bronze_hatchet",
+    "name": "Bronze Hatchet",
+    "type": "tool",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 50,
+    "weight": 1,
+    "equipSlot": null,
+    "weaponType": null,
+    "equipable": false,
+    "attackType": null,
+    "description": "A basic hatchet for chopping trees",
+    "examine": "A basic hatchet for chopping trees",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/hatchet-bronze/hatchet-bronze.glb",
+    "iconPath": "asset://models/hatchet-bronze/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 1,
+      "skills": { "woodcutting": 1 }
+    }
+  },
+  {
+    "id": "fishing_rod",
+    "name": "Fishing Rod",
+    "type": "tool",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 30,
+    "weight": 1,
+    "equipSlot": null,
+    "weaponType": null,
+    "equipable": false,
+    "attackType": null,
+    "description": "A basic fishing rod",
+    "examine": "A basic fishing rod for catching fish",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/fishing-rod-standard/fishing-rod-standard.glb",
+    "iconPath": "asset://models/fishing-rod-standard/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 1,
+      "skills": { "fishing": 1 }
+    }
+  },
+  {
+    "id": "bronze_pickaxe",
+    "name": "Bronze Pickaxe",
+    "type": "tool",
+    "quantity": 1,
+    "stackable": false,
+    "maxStackSize": 1,
+    "value": 50,
+    "weight": 2,
+    "equipSlot": null,
+    "weaponType": null,
+    "equipable": false,
+    "attackType": null,
+    "description": "A basic pickaxe for mining",
+    "examine": "A basic pickaxe for mining",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/pickaxe-bronze/pickaxe-bronze.glb",
+    "iconPath": "asset://models/pickaxe-bronze/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 1,
+      "skills": { "mining": 1 }
+    }
+  },
+  {
+    "id": "arrows",
+    "name": "Arrows",
+    "type": "ammunition",
+    "quantity": 1,
+    "stackable": true,
+    "maxStackSize": 1000,
+    "value": 1,
+    "weight": 0.1,
+    "equipSlot": "arrows",
+    "weaponType": null,
+    "equipable": true,
+    "attackType": "RANGED",
+    "description": "Bronze-tipped arrows for bows",
+    "examine": "Bronze-tipped arrows for bows",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/arrows-bronze/arrows-bronze.glb",
+    "iconPath": "asset://models/arrows-bronze/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 2
+    },
+    "requirements": {
+      "level": 1,
+      "skills": {}
+    }
+  },
+  {
+    "id": "logs",
+    "name": "Logs",
+    "type": "resource",
+    "quantity": 1,
+    "stackable": true,
+    "maxStackSize": 100,
+    "value": 5,
+    "weight": 0.5,
+    "equipSlot": null,
+    "weaponType": null,
+    "equipable": false,
+    "attackType": null,
+    "description": "Wood logs from trees",
+    "examine": "Wood logs from trees",
+    "tradeable": true,
+    "rarity": "common",
+    "modelPath": "asset://models/logs-wood/logs-wood.glb",
+    "iconPath": "asset://models/logs-wood/concept-art.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 0
+    },
+    "requirements": {
+      "level": 1,
+      "skills": {}
+    }
+  },
+  {
+    "id": "coins",
+    "name": "Coins",
+    "type": "currency",
+    "quantity": 1,
+    "stackable": true,
+    "maxStackSize": 2147483647,
+    "value": 1,
+    "weight": 0,
+    "equipSlot": null,
+    "weaponType": null,
+    "equipable": false,
+    "attackType": null,
+    "description": "The universal currency of Hyperia",
+    "examine": "Gold coins used as currency throughout the realm",
+    "tradeable": true,
+    "rarity": "always",
+    "modelPath": null,
+    "iconPath": "asset://icons/coins.png",
+    "healAmount": 0,
+    "stats": {
+      "attack": 0,
+      "defense": 0,
+      "strength": 0
+    },
+    "bonuses": {
+      "attack": 0,
+      "strength": 0,
       "defense": 0,
       "ranged": 0
     },

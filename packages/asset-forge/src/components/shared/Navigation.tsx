@@ -1,4 +1,4 @@
-import { Database, Wand2, Wrench, Hand, Shield } from 'lucide-react'
+import { Database, Wand2, Wrench, Hand, Shield, FileJson, Scroll } from 'lucide-react'
 import React from 'react'
 
 import { NAVIGATION_VIEWS } from '../../constants'
@@ -76,6 +76,30 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) =>
           >
             <Shield size={18} />
             <span>Armor Fitting</span>
+          </button>
+          
+          <button
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-base ${
+              currentView === NAVIGATION_VIEWS.GAME_DATA 
+                ? 'bg-primary bg-opacity-10 text-primary' 
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+            }`}
+            onClick={() => onViewChange(NAVIGATION_VIEWS.GAME_DATA)}
+          >
+            <FileJson size={18} />
+            <span>Game Data</span>
+          </button>
+          
+          <button
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-base ${
+              currentView === NAVIGATION_VIEWS.CONTENT_BUILDER 
+                ? 'bg-primary bg-opacity-10 text-primary' 
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+            }`}
+            onClick={() => onViewChange(NAVIGATION_VIEWS.CONTENT_BUILDER)}
+          >
+            <Scroll size={18} />
+            <span>Content Builder</span>
           </button>
         </div>
       </div>

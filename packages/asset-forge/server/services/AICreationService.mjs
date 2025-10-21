@@ -17,7 +17,9 @@ export class AICreationService {
 class ImageGenerationService {
   constructor(config) {
     this.apiKey = config.apiKey
-    this.model = config.model || 'gpt-image-1'
+    this.model = config.model || 'dall-e-3'
+    this.baseUrl = config.baseUrl || 'https://api.openai.com/v1'
+    this.extraHeaders = config.extraHeaders || {}
   }
 
   async generateImage(description, assetType, style) {
@@ -32,23 +34,28 @@ class ImageGenerationService {
       .replace('${style || "game-ready"}', style || 'game-ready')
       .replace('${assetType}', assetType)
 
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
+    // Build headers with authorization and any extra headers (for OpenRouter, etc.)
+    const headers = {
+      'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+      ...this.extraHeaders
+    }
+
+    const response = await fetch(`${this.baseUrl}/images/generations`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json'
-      },
+      headers: headers,
       body: JSON.stringify({
         model: this.model,
         prompt: prompt,
         size: '1024x1024',
-        quality: 'high'  // gpt-image-1 doesn't support n or response_format parameters
+        quality: 'standard',  // dall-e-3 supports 'standard' or 'hd'
+        n: 1
       })
     })
 
     if (!response.ok) {
       const error = await response.text()
-      throw new Error(`OpenAI API error: ${response.status} - ${error}`)
+      throw new Error(`Image generation API error: ${response.status} - ${error}`)
     }
 
     const data = await response.json()
@@ -57,13 +64,13 @@ class ImageGenerationService {
 
     // Handle both URL and base64 responses
     if (imageData.b64_json) {
-      // gpt-image-1 returns base64 data
+      // Base64 response (when response_format is b64_json)
       imageUrl = `data:image/png;base64,${imageData.b64_json}`
     } else if (imageData.url) {
-      // Some models return URLs
+      // URL response (default for dall-e-3)
       imageUrl = imageData.url
     } else {
-      throw new Error('No image data returned from OpenAI')
+      throw new Error('No image data returned from API')
     }
 
     return {
@@ -71,8 +78,9 @@ class ImageGenerationService {
       prompt: prompt,
       metadata: {
         model: this.model,
+        baseUrl: this.baseUrl,
         resolution: '1024x1024',
-        quality: 'high',
+        quality: 'standard',
         timestamp: new Date().toISOString()
       }
     }

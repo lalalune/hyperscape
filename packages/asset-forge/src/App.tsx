@@ -7,9 +7,11 @@ import { NavigationProvider } from './contexts/NavigationContext'
 import { useNavigation } from './hooks/useNavigation'
 import { ArmorFittingPage } from './pages/ArmorFittingPage'
 import { AssetsPage } from './pages/AssetsPage'
+import { ContentGenerationPage } from './pages/ContentGenerationPage'
 import { EquipmentPage } from './pages/EquipmentPage'
 import { GenerationPage } from './pages/GenerationPage'
 import { HandRiggingPage } from './pages/HandRiggingPage'
+import { ManifestsPage } from './pages/ManifestsPage'
 
 function AppContent() {
   const { currentView, navigateTo, navigateToAsset } = useNavigation()
@@ -49,6 +51,12 @@ function AppContent() {
           )}
           {currentView === NAVIGATION_VIEWS.ARMOR_FITTING && (
             <ArmorFittingPage />
+          )}
+          {currentView === NAVIGATION_VIEWS.GAME_DATA && (
+            <ManifestsPage />
+          )}
+          {currentView === NAVIGATION_VIEWS.CONTENT_BUILDER && (
+            <ContentGenerationPage />
           )}
         </main>
       </div>

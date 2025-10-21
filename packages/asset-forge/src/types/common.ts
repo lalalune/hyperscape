@@ -89,7 +89,9 @@ export interface EnvironmentVariables {
   VITE_GENERATION_API_URL?: string
   VITE_OPENAI_API_KEY?: string
   VITE_MESHY_API_KEY?: string
-  VITE_IMAGE_SERVER_URL?: string
+  VITE_CDN_URL?: string
+  VITE_PIPELINE_POLL_INTERVAL_MS?: string
+  VITE_DEBUG_PIPELINE?: string
 }
 
 // Window extensions

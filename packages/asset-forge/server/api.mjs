@@ -122,6 +122,30 @@ app.get('/api/assets/:id/model', async (req, res, next) => {
   }
 })
 
+// Serve manifests from Hyperscape server world/assets/manifests
+app.get('/api/manifests/:type.json', async (req, res, next) => {
+  try {
+    const manifestType = req.params.type
+    const manifestPath = path.join(ROOT_DIR, '..', 'server', 'world', 'assets', 'manifests', `${manifestType}.json`)
+    
+    // Security check - only allow specific manifest types
+    const allowedTypes = ['items', 'mobs', 'npcs', 'resources', 'world-areas', 'biomes', 'zones', 'banks', 'stores']
+    if (!allowedTypes.includes(manifestType)) {
+      return res.status(403).json({ error: 'Invalid manifest type' })
+    }
+    
+    // Check if file exists
+    try {
+      await fs.promises.access(manifestPath)
+      res.sendFile(manifestPath)
+    } catch {
+      return res.status(404).json({ error: 'Manifest not found' })
+    }
+  } catch (error) {
+    next(error)
+  }
+})
+
 // Serve any file from an asset directory (including animations)
 app.get('/api/assets/:id/*', async (req, res, next) => {
   try {
