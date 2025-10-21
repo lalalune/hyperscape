@@ -167,13 +167,16 @@ async function generateDeclarations() {
     // Don't fail the build - declarations are still useful even with some errors
   }
   
-  // Copy index.d.ts to build root as framework.d.ts (tsc preserves directory structure)
-  const nestedIndexDts = path.join(buildDir, 'packages/shared/src/index.d.ts')
-  const rootFrameworkDts = path.join(buildDir, 'framework.d.ts')
+  // Copy index.d.ts to build root as framework.d.ts
+  // tsc with --outDir build and rootDir src creates build/index.d.ts
+  const indexDts = path.join(buildDir, 'index.d.ts')
+  const frameworkDts = path.join(buildDir, 'framework.d.ts')
   
-  if (await fs.pathExists(nestedIndexDts)) {
-    await fs.copy(nestedIndexDts, rootFrameworkDts)
-    console.log('✓ Copied index.d.ts to build/framework.d.ts')
+  if (await fs.pathExists(indexDts)) {
+    await fs.copy(indexDts, frameworkDts)
+    console.log('✓ Copied index.d.ts to framework.d.ts')
+  } else {
+    console.warn('⚠️  index.d.ts not found at', indexDts)
   }
 }
 

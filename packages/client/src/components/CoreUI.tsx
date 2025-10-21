@@ -2,7 +2,8 @@ import { RefreshCwIcon } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
 import type { ControlAction, EventMap } from '@hyperscape/shared'
-import { buttons, cls, EventType, isTouch, propToLabel, World } from '@hyperscape/shared'
+import { buttons, cls, EventType, isTouch, propToLabel } from '@hyperscape/shared'
+import type { ClientWorld } from '../types'
 import { ActionProgressBar } from './ActionProgressBar'
 import { AvatarPane } from './AvatarPane'
 import { Chat } from './Chat'
@@ -19,7 +20,7 @@ import { StatusBars } from './StatusBars'
 // Type for icon components
 type IconComponent = React.ComponentType<{ size?: number | string }>
 
-export function CoreUI({ world }: { world: World }) {
+export function CoreUI({ world }: { world: ClientWorld }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const readyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [ready, setReady] = useState(false)
@@ -151,7 +152,7 @@ export function CoreUI({ world }: { world: World }) {
         {ready && <ActionsBlock world={world} />}
         {ready && <StatusBars world={world} />}
         {ready && <Sidebar world={world} ui={ui || { active: false, pane: null }} />}
-        {ready && <Chat world={world} />}
+        {ready && <Chat world={world as never} />}
         {ready && <ActionProgressBar world={world} />}
         {avatar && <AvatarPane key={avatar?.hash} world={world} info={avatar} />}
         {!loadingComplete && !characterFlowActive && <LoadingScreen world={world} message="Loading world..." />}
@@ -417,7 +418,7 @@ function KickedOverlay({ code }: { code: string }) {
   )
 }
 
-function ActionsBlock({ world }: { world: World }) {
+function ActionsBlock({ world }: { world: ClientWorld }) {
   const [showActions, setShowActions] = useState(() => world.prefs?.actions)
   useEffect(() => {
     const onPrefsChange = (changes: Record<string, { value: unknown }>) => {
@@ -439,7 +440,7 @@ function ActionsBlock({ world }: { world: World }) {
   )
 }
 
-function Actions({ world }: { world: World }) {
+function Actions({ world }: { world: ClientWorld }) {
   const [actions, setActions] = useState(() => world.controls?.actions || [])
   useEffect(() => {
     const handleActions = (data: unknown) => {
@@ -518,7 +519,7 @@ function ActionIcon({ icon }: { icon: IconComponent }) {
 }
 
 
-function Toast({ world }: { world: World }) {
+function Toast({ world }: { world: ClientWorld }) {
   const [msg, setMsg] = useState<{ text: string; id: number } | null>(null)
   useEffect(() => {
     let ids = 0
@@ -563,7 +564,7 @@ function ToastMsg({ text }: { text: string }) {
   return <div className={cls('h-[2.875rem] flex items-center justify-center px-4 bg-[rgba(11,10,21,0.85)] border border-[#2a2b39] backdrop-blur-[5px] rounded-[1.4375rem] transition-all duration-100 ease-in-out text-white text-[0.9375rem] font-medium', { 'opacity-100 translate-y-0 scale-100 animate-[toastIn_0.1s_ease-in-out]': visible, 'opacity-0 translate-y-2.5 scale-90': !visible })}>{text}</div>
 }
 
-function TouchBtns({ world }: { world: World }) {
+function TouchBtns({ world }: { world: ClientWorld }) {
   const [isAction, setIsAction] = useState(() => {
     const prefs = world.prefs as { touchAction?: boolean };
     return prefs?.touchAction;

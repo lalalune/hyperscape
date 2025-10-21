@@ -1,5 +1,14 @@
 import { useEffect, useRef } from 'react'
-import type { CurvePreviewProps } from '@hyperscape/shared'
+import type { Curve } from '@hyperscape/shared'
+
+interface CurvePreviewProps {
+  curve: Curve
+  width?: number
+  height?: number
+  xRange?: [number, number]
+  yMin?: number
+  yMax?: number
+}
 
 export function CurvePreview({ curve, width = 200, height = 100, xRange = [0, 1], yMin = 0, yMax = 1 }: CurvePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)

@@ -1,23 +1,23 @@
 import React from 'react'
 import { useDroppable } from '@dnd-kit/core'
-import type { PlayerEquipmentItems, Item } from '@hyperscape/shared'
 import { EquipmentSlotName } from '@hyperscape/shared'
+import type { PlayerEquipmentItems, Item } from '../../types'
 
 interface EquipmentPanelProps {
   equipment: PlayerEquipmentItems | null
-  onItemDrop?: (item: Item, slot: EquipmentSlotName) => void
+  onItemDrop?: (item: Item, slot: keyof typeof EquipmentSlotName) => void
 }
 
 interface DroppableEquipmentSlotProps {
-  slotKey: EquipmentSlotName
+  slotKey: string
   label: string
   item: Item | null
 }
 
 function DroppableEquipmentSlot({ slotKey, label, item }: DroppableEquipmentSlotProps) {
   const { isOver, setNodeRef } = useDroppable({
-    id: `equipment-${slotKey}`,
-    data: { slot: slotKey }
+    id: `equipment-${String(slotKey)}`,
+    data: { slot: String(slotKey) }
   })
 
   return (
@@ -50,18 +50,25 @@ export function EquipmentPanel({ equipment, onItemDrop: _onItemDrop }: Equipment
   ]
 
   // Equipment slots are keyed by EquipmentSlotName enum values
-  const itemMap: Record<string, Item | null> = equipment ? equipment as Record<string, Item | null> : {}
+  const itemMap: Record<string, Item | null> = equipment ? {
+    helmet: equipment.helmet || null,
+    body: equipment.body || null,
+    legs: equipment.legs || null,
+    weapon: equipment.weapon || null,
+    shield: equipment.shield || null,
+    arrows: equipment.arrows || null,
+  } : {}
 
   return (
     <div>
       <div className="bg-black/35 border rounded-md p-2" style={{ borderColor: 'rgba(242, 208, 138, 0.3)' }}>
         <div className="grid grid-cols-3 grid-rows-4 gap-1.5">
           {slots.map((s) => (
-            <div key={s.key} className="w-full aspect-square">
+            <div key={String(s.key)} className="w-full aspect-square">
               <DroppableEquipmentSlot
-                slotKey={s.key}
+                slotKey={String(s.key)}
                 label={s.label}
-                item={(itemMap && s.key in itemMap ? itemMap[s.key] : null) as Item | null}
+                item={(itemMap && Object.prototype.hasOwnProperty.call(itemMap, String(s.key)) ? itemMap[String(s.key)] : null) as Item | null}
               />
             </div>
           ))}

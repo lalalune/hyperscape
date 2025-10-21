@@ -1,6 +1,15 @@
 import React, { ErrorInfo } from 'react';
 import { errorReporting } from './error-reporting';
-import type { ErrorBoundaryProps, ErrorBoundaryState } from '@hyperscape/shared';
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode
+  fallback?: React.ReactNode
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean
+  error?: Error
+}
 
 /**
  * React Error Boundary that catches component errors and reports them to the backend

@@ -1,7 +1,11 @@
 import React, { useEffect } from 'react'
-// cloneDeep from lodash-es available but unused
 import { storage } from '@hyperscape/shared'
-import type { PaneInfo } from '@hyperscape/shared';
+
+interface PaneInfo {
+  v: number
+  count: number
+  configs: Record<string, { id: string; x: number; y: number; width: number; height: number; layer: number }>
+}
 
 const STORAGE_KEY = 'panes'
 
@@ -11,13 +15,10 @@ if (!info || info.v !== 1) {
   info = {
     v: 1,
     count: 0,
-    configs: {
-      // [id]: { x, y, width, height }
-    },
+    configs: {},
   }
 }
 
-// TypeScript assertion - info is definitely defined after the check above
 const paneInfo = info as PaneInfo
 
 const debounce = (fn: Function, ms: number) => {

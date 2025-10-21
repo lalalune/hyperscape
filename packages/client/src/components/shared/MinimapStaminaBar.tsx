@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import type { World } from '@hyperscape/shared'
-import type { PlayerLocal } from '@hyperscape/shared'
+import type { ClientWorld } from '../../types'
 
 interface MinimapStaminaBarProps {
-  world: World
+  world: ClientWorld
   width: number
 }
 
@@ -13,10 +12,10 @@ export function MinimapStaminaBar({ world, width }: MinimapStaminaBarProps) {
   
   useEffect(() => {
     const update = () => {
-      const player = world.entities.player as PlayerLocal | undefined
+      const player = world.entities?.player
       if (player) {
-        setRunMode(player.runMode)
-        setStamina(player.stamina)
+        setRunMode(player.runMode ?? true)
+        setStamina(player.stamina ?? 100)
       }
     }
     const id = setInterval(update, 200)
@@ -25,10 +24,10 @@ export function MinimapStaminaBar({ world, width }: MinimapStaminaBarProps) {
   }, [world])
   
   const toggleRunMode = () => {
-    const player = world.entities.player as PlayerLocal
-    player.toggleRunMode()
-    setRunMode(player.runMode === true)
-    world.network.send('moveRequest', { runMode: player.runMode })
+    const player = world.entities?.player
+    player?.toggleRunMode?.()
+    setRunMode(player?.runMode === true)
+    world.network?.send?.('moveRequest', { runMode: player?.runMode })
   }
   
   return (

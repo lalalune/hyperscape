@@ -205,7 +205,18 @@ export class World extends EventEmitter {
     getPlayer: (playerId: string) => Player;
     getLocalPlayer: () => Player;
     getPlayers: () => Player[];
-    player: Player;
+    player?: {
+      id?: string;
+      name?: string;
+      runMode?: boolean;
+      stamina?: number;
+      toggleRunMode?: () => void;
+      position?: { x: number; y: number; z: number };
+      playerData?: {
+        health?: { current: number; max: number };
+        stats?: { prayer?: { level: number; points: number } };
+      };
+    };
   };
   
   /** PhysX-based physics simulation (collisions, raycasts, character controllers) */
@@ -237,13 +248,21 @@ export class World extends EventEmitter {
     removeChild?: (element: HTMLElement) => void;
     getBoundingClientRect?: () => DOMRect;
     applyTheme?: (theme: unknown) => void;
+    toggleVisible?: () => void;
+    state?: unknown;
   };
   
   /** Asset loader for models, textures, audio, and other resources */
   loader?: ClientLoader;
   
   /** Network system - ClientNetwork on client, ServerNetwork on server */
-  network!: NetworkSystem;
+  network!: NetworkSystem & {
+    id?: string;
+    send?: (event: string, data?: unknown) => void;
+    dropItem?: (itemId: string, slot?: number, quantity?: number) => void;
+    lastInventoryByPlayerId?: Record<string, { playerId: string; items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number; maxSlots: number }>;
+    lastSkillsByPlayerId?: Record<string, Record<string, { level: number; xp: number }>>;
+  };
   
   /** Environment system (lighting, skybox, fog, shadows) */
   environment?: Environment;
@@ -255,13 +274,38 @@ export class World extends EventEmitter {
       render?: (scene: unknown, camera: unknown) => void;
       setSize?: (width: number, height: number) => void;
     };
+    width?: number;
+    height?: number;
+    isWebGPU?: boolean;
   };
   
   /** Input handling system (keyboard, mouse, touch, gamepad) */
   controls?: ClientInput;
   
   /** User preferences and settings UI */
-  prefs?: ClientInterface;
+  prefs?: ClientInterface & {
+    dpr?: number;
+    shadows?: string;
+    postprocessing?: boolean;
+    bloom?: boolean;
+    music?: number;
+    sfx?: number;
+    voice?: number;
+    ui?: number;
+    stats?: boolean;
+    chatVisible?: boolean;
+    on?: (event: string, callback: (changes: unknown) => void) => void;
+    off?: (event: string, callback: (changes: unknown) => void) => void;
+    setDPR?: (value: number) => void;
+    setShadows?: (value: string) => void;
+    setPostprocessing?: (value: boolean) => void;
+    setBloom?: (value: boolean) => void;
+    setMusic?: (value: number) => void;
+    setSFX?: (value: number) => void;
+    setVoice?: (value: number) => void;
+    setUI?: (value: number) => void;
+    setStats?: (value: boolean) => void;
+  };
   
   /** Audio system for spatial and ambient sound */
   audio?: ClientAudio;
