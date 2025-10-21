@@ -28,7 +28,8 @@ export function exportScriptForGame(script: NPCScript): GameNPCScript {
     },
     questsOffered: script.questsOffered,
     services: script.services,
-    shopInventory: script.shopInventory
+    shopInventory: script.shopInventory,
+    voice: script.voice // Include voice configuration
   }
 }
 
@@ -105,16 +106,19 @@ export function generateEventPayloadPreview(
       requirements: quest.prerequisites
     }))
   
+  const voiceClipUrl = script.voice?.clips[currentNode?.id]?.audioUrl
+
   return {
     npcId: script.npcId,
     npcName: script.npcName,
-    npcType: script.services.includes('quest') ? 'quest_giver' 
+    npcType: script.services.includes('quest') ? 'quest_giver'
       : script.services.includes('shop') ? 'merchant'
       : script.services.includes('bank') ? 'banker'
       : 'generic',
     dialogue: {
       nodeId: currentNode.id,
       text: currentNode.text,
+      voiceClipUrl,
       responses: currentNode.responses.map(r => ({
         id: r.id,
         text: r.text,
@@ -128,11 +132,13 @@ export function generateEventPayloadPreview(
     questsAvailable,
     services: script.services,
     shopInventory: script.shopInventory,
+    voiceEnabled: script.voice !== undefined && Object.keys(script.voice.clips).length > 0,
     metadata: {
       canAcceptQuests: script.services.includes('quest'),
       hasActiveDialogue: true,
       questCount: questsAvailable.length,
-      scriptVersion: script.version
+      scriptVersion: script.version,
+      hasVoice: script.voice !== undefined && Object.keys(script.voice.clips).length > 0
     }
   }
 }

@@ -1,0 +1,267 @@
+/**
+ * Voice Generation Service (Frontend)
+ *
+ * Client-side service for interacting with ElevenLabs voice generation API.
+ *
+ * Features:
+ * - Fetch voice library
+ * - Generate single voice clips
+ * - Batch generate dialogue voices
+ * - Download voice clips
+ * - Cost estimation
+ *
+ * Used by: VoiceGenerator, VoiceLibraryBrowser components
+ */
+
+import { API_ENDPOINTS } from '../config/api'
+import type {
+  ElevenLabsVoice,
+  VoiceLibraryResponse,
+  VoiceGenerationRequest,
+  VoiceBatchGenerationRequest,
+  VoiceBatchGenerationResponse,
+  VoiceCostEstimate,
+  VoiceProfile,
+  VoiceSubscriptionInfo,
+  VoiceModel,
+  VoiceModelsResponse
+} from '../types/voice-generation'
+
+class VoiceGenerationService {
+  /**
+   * Fetch available voices from ElevenLabs library
+   */
+  async getVoiceLibrary(): Promise<ElevenLabsVoice[]> {
+    try {
+      const response = await fetch(API_ENDPOINTS.voiceLibrary)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to fetch voice library')
+      }
+
+      const data: VoiceLibraryResponse = await response.json()
+      return data.voices
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error fetching voice library:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Generate single voice clip from text
+   * @returns Audio blob
+   */
+  async generateVoiceClip(request: VoiceGenerationRequest): Promise<Blob> {
+    try {
+      const response = await fetch(API_ENDPOINTS.voiceGenerate, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request)
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to generate voice')
+      }
+
+      // Response is audio file (MP3)
+      const audioBlob = await response.blob()
+      return audioBlob
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error generating voice:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Generate voice clips for entire dialogue tree
+   */
+  async generateBatchVoices(
+    request: VoiceBatchGenerationRequest
+  ): Promise<VoiceBatchGenerationResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.voiceBatch, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request)
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to generate batch voices')
+      }
+
+      const data: VoiceBatchGenerationResponse = await response.json()
+      return data
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error generating batch voices:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get voice profile for an NPC
+   */
+  async getVoiceProfile(npcId: string): Promise<VoiceProfile | null> {
+    try {
+      const response = await fetch(API_ENDPOINTS.voiceProfile(npcId))
+
+      if (response.status === 404) {
+        return null // No voice profile exists
+      }
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to fetch voice profile')
+      }
+
+      const data: VoiceProfile = await response.json()
+      return data
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error fetching voice profile:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Delete voice clips for an NPC
+   */
+  async deleteVoiceClips(npcId: string): Promise<boolean> {
+    try {
+      const response = await fetch(API_ENDPOINTS.voiceDelete(npcId), {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to delete voice clips')
+      }
+
+      const data = await response.json()
+      return data.success
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error deleting voice clips:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Estimate cost for voice generation
+   */
+  async estimateCost(characterCount: number, modelId?: string): Promise<VoiceCostEstimate> {
+    try {
+      const response = await fetch(API_ENDPOINTS.voiceEstimate, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          characterCount,
+          modelId
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to estimate cost')
+      }
+
+      const data: VoiceCostEstimate = await response.json()
+      return data
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error estimating cost:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Play audio preview from blob
+   */
+  playAudioPreview(audioBlob: Blob): HTMLAudioElement {
+    const audioUrl = URL.createObjectURL(audioBlob)
+    const audio = new Audio(audioUrl)
+
+    // Clean up object URL when audio finishes
+    audio.addEventListener('ended', () => {
+      URL.revokeObjectURL(audioUrl)
+    })
+
+    audio.play().catch(error => {
+      console.error('[VoiceGenerationService] Error playing audio:', error)
+    })
+
+    return audio
+  }
+
+  /**
+   * Download voice clip as MP3
+   */
+  downloadVoiceClip(audioBlob: Blob, filename: string): void {
+    const url = URL.createObjectURL(audioBlob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename.endsWith('.mp3') ? filename : `${filename}.mp3`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  /**
+   * Calculate total character count from dialogue nodes
+   */
+  calculateCharacterCount(dialogueNodes: Array<{ text: string }>): number {
+    return dialogueNodes.reduce((total, node) => total + node.text.length, 0)
+  }
+
+  /**
+   * Get user subscription info (quota, usage, tier)
+   * Official docs: https://elevenlabs.io/docs/api-reference/get-subscription-info
+   */
+  async getSubscriptionInfo(): Promise<VoiceSubscriptionInfo> {
+    try {
+      const response = await fetch(API_ENDPOINTS.voiceSubscription)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to fetch subscription info')
+      }
+
+      const data: VoiceSubscriptionInfo = await response.json()
+      return data
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error fetching subscription:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get available TTS models
+   * Official docs: https://elevenlabs.io/docs/api-reference/get-models
+   */
+  async getAvailableModels(): Promise<VoiceModel[]> {
+    try {
+      const response = await fetch(API_ENDPOINTS.voiceModels)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to fetch models')
+      }
+
+      const data: VoiceModelsResponse = await response.json()
+      return data.models
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error fetching models:', error)
+      throw error
+    }
+  }
+}
+
+// Export singleton instance
+export const voiceGenerationService = new VoiceGenerationService()
+export default voiceGenerationService

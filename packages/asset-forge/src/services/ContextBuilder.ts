@@ -137,84 +137,86 @@ export class ContextBuilder {
     context: QuestGenerationContext,
     selectedContext?: { items?: string[]; mobs?: string[]; npcs?: string[]; lore?: string[] }
   ): string {
-    let prompt = `
-WORLD CONTEXT FOR QUEST GENERATION
-===================================
+    // Build prompt efficiently (reduced token usage ~30%)
+    const lines: string[] = []
 
-TIER: ${context.tier.name} (${context.tier.material})
-LEVEL RANGE: ${context.tier.levelRange.min}-${context.tier.levelRange.max}
-DIFFICULTY: ${context.tier.difficulty}
+    lines.push(`WORLD - ${context.tier.name} (Lv${context.tier.levelRange.min}-${context.tier.levelRange.max})`)
+    lines.push('=================================\n')
 
-`
-    
-    // Available items
+    // Items - prioritize selected, limit to 12
     if (context.availableItems.length > 0) {
-      prompt += `\nAVAILABLE ITEMS (use these IDs):\n`
-      context.availableItems.slice(0, 15).forEach(item => {
-        const isSelected = selectedContext?.items?.includes(item.id)
-        prompt += `${isSelected ? '★ ' : '  '}- ${item.id}: ${item.name} (value: ${item.value || 0}g, level: ${item.level || 1})\n`
+      const selected = context.availableItems.filter(i => selectedContext?.items?.includes(i.id))
+      const others = context.availableItems.filter(i => !selectedContext?.items?.includes(i.id))
+      const items = [...selected, ...others].slice(0, 12)
+
+      lines.push('ITEMS (reward IDs):')
+      items.forEach(i => {
+        const mark = selectedContext?.items?.includes(i.id) ? '★' : ' '
+        lines.push(`${mark} ${i.id} - ${i.name} (${i.value || 0}g, Lv${i.level || 1})`)
       })
-      if (context.availableItems.length > 15) {
-        prompt += `  ... and ${context.availableItems.length - 15} more items\n`
-      }
+      if (context.availableItems.length > 12) lines.push(`  +${context.availableItems.length - 12} more\n`)
     }
-    
-    // Available mobs
+
+    // Mobs - prioritize selected, limit to 12
     if (context.availableMobs.length > 0) {
-      prompt += `\nAVAILABLE MOBS (use these IDs for combat objectives):\n`
-      context.availableMobs.slice(0, 15).forEach(mob => {
-        const isSelected = selectedContext?.mobs?.includes(mob.id)
-        const drops = mob.drops && mob.drops.length > 0 ? mob.drops.join(', ') : 'none'
-        prompt += `${isSelected ? '★ ' : '  '}- ${mob.id}: ${mob.name} (level: ${mob.combatLevel || mob.level || 1}, xp: ${mob.xp || 0}, drops: ${drops})\n`
+      const selected = context.availableMobs.filter(m => selectedContext?.mobs?.includes(m.id))
+      const others = context.availableMobs.filter(m => !selectedContext?.mobs?.includes(m.id))
+      const mobs = [...selected, ...others].slice(0, 12)
+
+      lines.push('\nMOBS (objective IDs):')
+      mobs.forEach(m => {
+        const mark = selectedContext?.mobs?.includes(m.id) ? '★' : ' '
+        lines.push(`${mark} ${m.id} - ${m.name} (Lv${m.combatLevel || m.level || 1}, ${m.xp || 0}xp)`)
       })
-      if (context.availableMobs.length > 15) {
-        prompt += `  ... and ${context.availableMobs.length - 15} more mobs\n`
-      }
+      if (context.availableMobs.length > 12) lines.push(`  +${context.availableMobs.length - 12} more\n`)
     }
-    
-    // Available resources
+
+    // Resources - compact, limit to 8
     if (context.availableResources.length > 0) {
-      prompt += `\nAVAILABLE RESOURCES (for gathering objectives):\n`
-      context.availableResources.slice(0, 10).forEach(resource => {
-        prompt += `  - ${resource.id}: ${resource.name} (level: ${resource.level || 1}, xp: ${resource.xp || 0})\n`
+      lines.push('\nRESOURCES:')
+      context.availableResources.slice(0, 8).forEach(r => {
+        lines.push(`  ${r.id} - ${r.name} (Lv${r.level || 1})`)
       })
     }
-    
-    // Existing NPCs
+
+    // NPCs - prioritize selected, limit to 8
     if (context.existingNPCs.length > 0) {
-      prompt += `\nEXISTING NPCs (potential quest givers):\n`
-      context.existingNPCs.slice(0, 10).forEach(npc => {
-        const isSelected = selectedContext?.npcs?.includes(npc.id)
-        prompt += `${isSelected ? '★ ' : '  '}- ${npc.id}: ${npc.name} (${npc.npcType})\n`
+      const selected = context.existingNPCs.filter(n => selectedContext?.npcs?.includes(n.id))
+      const others = context.existingNPCs.filter(n => !selectedContext?.npcs?.includes(n.id))
+      const npcs = [...selected, ...others].slice(0, 8)
+
+      lines.push('\nNPCs (quest givers):')
+      npcs.forEach(n => {
+        const mark = selectedContext?.npcs?.includes(n.id) ? '★' : ' '
+        lines.push(`${mark} ${n.id} - ${n.name} (${n.npcType})`)
       })
     }
-    
-    // Existing quests (avoid duplication)
+
+    // Quests - titles only, limit to 6
     if (context.existingQuests.length > 0) {
-      prompt += `\nEXISTING QUESTS (avoid duplicating these):\n`
-      context.existingQuests.forEach(quest => {
-        prompt += `  - ${quest.title} (${quest.difficulty || 'unknown'})\n`
+      lines.push('\nEXISTING (avoid):')
+      context.existingQuests.slice(0, 6).forEach(q => {
+        lines.push(`  - ${q.title} (${q.difficulty || 'med'})`)
       })
+      if (context.existingQuests.length > 6) lines.push(`  +${context.existingQuests.length - 6} more`)
     }
-    
-    // Relationships
+
+    // Relationships - limit to 5
     if (context.relationships && context.relationships.length > 0) {
-      prompt += `\nRELATIONSHIPS:\n`
-      context.relationships.slice(0, 8).forEach(rel => {
-        prompt += `  - ${rel.fromId} → ${rel.toId}: ${rel.type} (strength: ${rel.strength})\n`
+      lines.push('\nRELATIONSHIPS:')
+      context.relationships.slice(0, 5).forEach(r => {
+        lines.push(`  ${r.fromId} → ${r.toId}: ${r.type}`)
       })
     }
-    
-    prompt += `\n
-CRITICAL INSTRUCTIONS:
-- Use ONLY the item/mob/resource IDs listed above in rewards and objectives
-- Ensure level requirements are within ${context.tier.levelRange.min}-${context.tier.levelRange.max}
-- Only suggest NEW items/mobs if absolutely necessary and clearly mark them as [NEW]
-- Avoid duplicating existing quest types
-- Items marked with ★ are user-selected priorities
-`
-    
-    return prompt
+
+    // Rules - concise
+    lines.push('\nRULES:')
+    lines.push(`• Use ONLY listed IDs`)
+    lines.push(`• Lv ${context.tier.levelRange.min}-${context.tier.levelRange.max} range`)
+    lines.push(`• Mark new as [NEW]`)
+    lines.push(`• ★ = priority`)
+
+    return lines.join('\n')
   }
   
   /**
@@ -265,7 +267,19 @@ CRITICAL INSTRUCTIONS:
 - Can reference available quests in dialogue
 - Can establish relationships with existing NPCs
 `
-    
+
+    // Add reuse guardrails
+    const manifests = manifestService.getManifestsSync()
+    const existingNPCs = manifests?.npcs || []
+
+    // Determine role from context (if possible)
+    const role = {
+      archetype: context.generatedNPCs[0]?.personality?.archetype,
+      needsQuestGiver: context.availableQuests.length > 0
+    }
+
+    prompt += this.formatReuseGuidelines(existingNPCs, context.generatedNPCs, role)
+
     return prompt
   }
   
@@ -294,6 +308,180 @@ CRITICAL INSTRUCTIONS:
     context += `  - ${params.existingQuests?.length || 0} quests\n\n`
     
     return context
+  }
+
+  /**
+   * Character Reuse Guardrails
+   * Helper methods to enforce 80/20 rule (80% reuse, 20% new)
+   */
+
+  /**
+   * Check if NPC can give quests (has quest giver service)
+   */
+  canGiveQuests(npc: NPCManifest | GeneratedNPC): boolean {
+    // Check manifest NPC
+    if ('services' in npc && Array.isArray(npc.services)) {
+      return npc.services.some(s =>
+        typeof s === 'string'
+          ? s.toLowerCase().includes('quest')
+          : s.type?.toLowerCase().includes('quest')
+      )
+    }
+
+    // Check generated NPC
+    if ('personality' in npc && npc.services) {
+      return npc.services.some(s => s.toLowerCase().includes('quest'))
+    }
+
+    return false
+  }
+
+  /**
+   * Get relationship count for NPC
+   */
+  getRelationshipCount(npcId: string, relationships: EntityRelationship[]): number {
+    return relationships.filter(
+      rel => rel.fromId === npcId || rel.toId === npcId
+    ).length
+  }
+
+  /**
+   * Calculate reuse score for an NPC given a required role
+   * Higher score = better match for reuse
+   * @param npc - NPC to evaluate
+   * @param role - Required role criteria
+   * @param relationships - Optional relationship data
+   * @returns Reuse score (0-100+)
+   */
+  calculateReuseScore(
+    npc: NPCManifest | GeneratedNPC,
+    role: {
+      archetype?: string
+      services?: string[]
+      needsQuestGiver?: boolean
+    },
+    relationships?: EntityRelationship[]
+  ): number {
+    let score = 0
+
+    // Extract NPC data once
+    const npcType = ('npcType' in npc ? npc.npcType : npc.personality?.archetype) || ''
+    const npcServices = ('services' in npc ? npc.services : []) as string[]
+    const npcId = npc.id || ''
+
+    // Archetype match (50 points)
+    if (role.archetype && npcType === role.archetype) {
+      score += 50
+    }
+
+    // Services match (20 points per service, max 60)
+    if (role.services && role.services.length > 0 && npcServices.length > 0) {
+      let matchCount = 0
+      for (const service of npcServices) {
+        const serviceStr = typeof service === 'string' ? service.toLowerCase() : ''
+        if (role.services.some(rs => serviceStr.includes(rs.toLowerCase()))) {
+          matchCount++
+        }
+      }
+      score += Math.min(matchCount * 20, 60)
+    }
+
+    // Quest giver match (30 points)
+    if (role.needsQuestGiver && this.canGiveQuests(npc)) {
+      score += 30
+    }
+
+    // Relationship bonus (5 points per relationship, max 20)
+    if (relationships && relationships.length > 0 && npcId) {
+      const relCount = relationships.filter(r => r.fromId === npcId || r.toId === npcId).length
+      score += Math.min(relCount * 5, 20)
+    }
+
+    return score
+  }
+
+  /**
+   * Find best NPC to reuse for a given role
+   * Returns null if no good match (score < 40)
+   */
+  findBestReuseCandidate(
+    role: {
+      archetype?: string
+      services?: string[]
+      needsQuestGiver?: boolean
+    },
+    existingNPCs: NPCManifest[],
+    generatedNPCs: GeneratedNPC[],
+    relationships?: EntityRelationship[]
+  ): { npc: NPCManifest | GeneratedNPC; score: number; reasons: string[] } | null {
+    const allNPCs = [...existingNPCs, ...generatedNPCs]
+
+    const candidates = allNPCs.map(npc => ({
+      npc,
+      score: this.calculateReuseScore(npc, role, relationships),
+      reasons: []
+    }))
+
+    // Sort by score descending
+    candidates.sort((a, b) => b.score - a.score)
+
+    // Return best candidate if score >= 40 (viable threshold)
+    if (candidates.length > 0 && candidates[0].score >= 40) {
+      return candidates[0]
+    }
+
+    return null
+  }
+
+  /**
+   * Format reuse guardrails into AI prompt instructions
+   */
+  formatReuseGuidelines(
+    existingNPCs: NPCManifest[],
+    generatedNPCs: GeneratedNPC[],
+    role?: {
+      archetype?: string
+      services?: string[]
+      needsQuestGiver?: boolean
+    }
+  ): string {
+    let prompt = `\nCHARACTER REUSE GUIDELINES (80/20 Rule):\n`
+    prompt += `==================================================\n\n`
+
+    prompt += `CRITICAL: Before creating a new NPC, check if an existing one can be reused!\n\n`
+
+    // Find candidates if role specified
+    if (role) {
+      const candidate = this.findBestReuseCandidate(role, existingNPCs, generatedNPCs)
+
+      if (candidate) {
+        const npcName = 'name' in candidate.npc
+          ? candidate.npc.name
+          : candidate.npc.personality?.name
+
+        prompt += `✅ RECOMMENDATION: REUSE "${npcName}" (match score: ${candidate.score}/100)\n`
+        prompt += `   This NPC already exists and can fulfill this role.\n\n`
+      } else {
+        prompt += `✅ RECOMMENDATION: CREATE NEW NPC\n`
+        prompt += `   No existing NPC is a good match for this role (all scores < 40).\n\n`
+      }
+    }
+
+    prompt += `REUSE RULES:\n`
+    prompt += `1. 80% of the time → REUSE existing NPCs\n`
+    prompt += `2. 20% of the time → CREATE new NPCs\n\n`
+
+    prompt += `CREATE NEW NPC ONLY IF:\n`
+    prompt += `- New geographic area requires local NPCs\n`
+    prompt += `- Unique role not filled by existing NPCs\n`
+    prompt += `- Story requires a brand new character\n\n`
+
+    prompt += `NEW NPCs MUST:\n`
+    prompt += `- Reference at least 2 existing NPCs in backstory\n`
+    prompt += `- Have relationships with existing characters\n`
+    prompt += `- Fit into the existing world lore\n`
+
+    return prompt
   }
 }
 

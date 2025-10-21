@@ -5,9 +5,8 @@
 
 export const makeQuestGenerationPrompt = (questType, userPrompt, context) => {
   return `\
+${context ? `${context}\n` : ''}
 Generate a complete quest for a Runescape-style MMORPG as a JSON object.
-
-${context ? `## World Context\n${context}\n` : ''}
 
 ## Quest Type
 ${questType}
@@ -48,6 +47,13 @@ ${userPrompt}
   "questGiver": "village_elder",
   "loreContext": "Goblins terrorize local farmers."
 }
+
+CRITICAL INSTRUCTIONS:
+- Use ONLY the item/mob/resource IDs listed in the World Context above
+- Ensure rewards match the tier and level range specified
+- Avoid duplicating quest types already listed in EXISTING QUESTS
+- If items are marked with ★, prioritize using them in rewards or objectives
+- Only invent NEW items/mobs if absolutely necessary - clearly mark them as [NEW]
 
 Return ONLY valid JSON, no markdown, no explanation.
 `

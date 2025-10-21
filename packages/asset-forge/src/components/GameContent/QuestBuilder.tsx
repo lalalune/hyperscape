@@ -10,6 +10,9 @@ import type { GeneratedQuest, QuestObjective, QuestReward } from '../../types/co
 import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../../types/manifests'
 import type { ActionHandlerName } from '../../types/action-handlers'
 import { manifestService } from '../../services/ManifestService'
+import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { useRelationshipsStore } from '../../store/useRelationshipsStore'
+import { usePreviewManifestsStore } from '../../store/usePreviewManifestsStore'
 import { API_ENDPOINTS } from '../../config/api'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
@@ -23,6 +26,11 @@ interface QuestBuilderProps {
 }
 
 export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) => {
+  // Get store data for context-aware generation
+  const { selectedContext, quests: existingQuests } = useContentGenerationStore()
+  const { relationships } = useRelationshipsStore()
+  const { addGap, addPreviews } = usePreviewManifestsStore()
+
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [difficulty, setDifficulty] = useState<GeneratedQuest['difficulty']>('medium')
@@ -128,6 +136,16 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
         body: JSON.stringify({
           questType: aiQuestType,
           prompt: aiPrompt,
+          difficulty,
+          selectedContext,
+          existingQuests,
+          relationships: relationships,
+          manifests: {
+            items,
+            mobs,
+            npcs,
+            resources
+          },
           model: selectedModel
         })
       })
@@ -138,7 +156,7 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
       
       const data = await response.json()
       const quest = data.quest
-      
+
       // Populate form with generated quest
       setTitle(quest.title)
       setDescription(quest.description)
@@ -148,7 +166,18 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
       if (quest.questGiver) {
         setQuestGiver(quest.questGiver)
       }
-      
+
+      // Handle manifest gaps and suggestions
+      if (data.manifestGaps && data.manifestGaps.length > 0) {
+        console.log(`[QuestBuilder] Found ${data.manifestGaps.length} manifest gaps`)
+        data.manifestGaps.forEach((gap: any) => addGap(gap))
+      }
+
+      if (data.manifestSuggestions && data.manifestSuggestions.length > 0) {
+        console.log(`[QuestBuilder] Received ${data.manifestSuggestions.length} AI suggestions`)
+        addPreviews(data.manifestSuggestions)
+      }
+
       // Close AI generator
       setShowAIGenerator(false)
       setAIPrompt('')

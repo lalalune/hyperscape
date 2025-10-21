@@ -30,14 +30,14 @@ interface ContentGenerationState {
   selectedContext: SelectedContext
   
   // UI state
-  activeTab: 'quest' | 'npc' | 'lore' | 'scripts' | 'tracking' | 'relationships'
+  activeTab: 'quest' | 'npc' | 'lore' | 'scripts' | 'tracking' | 'relationships' | 'suggestions' | 'collaboration' | 'playtest'
   selectedQuest: GeneratedQuest | null
   selectedNPC: GeneratedNPC | null
   selectedLore: LoreEntry | null
-  
+
   // Actions
   setContentType: (type: 'quest' | 'npc' | 'lore' | 'pack') => void
-  setActiveTab: (tab: 'quest' | 'npc' | 'lore' | 'scripts' | 'tracking' | 'relationships') => void
+  setActiveTab: (tab: 'quest' | 'npc' | 'lore' | 'scripts' | 'tracking' | 'relationships' | 'suggestions' | 'collaboration' | 'playtest') => void
   
   addQuest: (quest: GeneratedQuest) => void
   addNPC: (npc: GeneratedNPC) => void
@@ -55,7 +55,8 @@ interface ContentGenerationState {
   setSelectedContext: (context: Partial<SelectedContext>) => void
   toggleContextItem: (type: keyof SelectedContext, id: string) => void
   clearContext: () => void
-  
+  buildAIContext: () => SelectedContext
+
   createPack: (name: string, description: string) => ContentPack
   clearAll: () => void
 }
@@ -149,7 +150,11 @@ export const useContentGenerationStore = create<ContentGenerationState>((set, ge
       lore: []
     }
   }),
-  
+
+  buildAIContext: () => {
+    return get().selectedContext
+  },
+
   createPack: (name, description) => {
     const { quests, npcs, loreEntries } = get()
 

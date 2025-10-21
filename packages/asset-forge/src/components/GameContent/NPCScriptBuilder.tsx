@@ -22,6 +22,7 @@ import { useNPCScriptsStore } from '../../store/useNPCScriptsStore'
 import { useContentGenerationStore } from '../../store/useContentGenerationStore'
 import { DialogueTreeEditor } from './DialogueTreeEditor'
 import { EventPayloadPreview } from './EventPayloadPreview'
+import { VoiceGenerator } from './VoiceGenerator'
 import { validateNPCScript } from '../../utils/npc-script-validator'
 import { downloadScriptPack } from '../../utils/npc-script-exporter'
 import { API_ENDPOINTS } from '../../config/api'
@@ -286,7 +287,22 @@ export const NPCScriptBuilder: React.FC = () => {
             quests={quests}
             selectedNodeId={editingNodeId || selectedScript.dialogueTree.entryNodeId}
           />
-          
+
+          {/* Voice Generation */}
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold text-text-primary mb-4">🎙️ Voice Generation</h3>
+            <VoiceGenerator
+              npcScript={selectedScript}
+              onVoiceGenerated={() => {
+                // Reload script to show updated voice data
+                const updatedScript = getScriptByNPC(selectedScript.npcId)
+                if (updatedScript) {
+                  setSelectedScript(updatedScript)
+                }
+              }}
+            />
+          </Card>
+
           {/* Validation Errors/Warnings */}
           {validation && (!validation.valid || validation.warnings.length > 0) && (
             <Card className="p-4">

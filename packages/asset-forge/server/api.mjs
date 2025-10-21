@@ -18,6 +18,18 @@ import promptRoutes from './routes/promptRoutes.mjs'
 import { POST as generateDialogue } from './routes/generate-dialogue.mjs'
 import { POST as generateNPC } from './routes/generate-npc.mjs'
 import { POST as generateQuest } from './routes/generate-quest.mjs'
+import { POST as generateNPCCollaboration } from './routes/generate-npc-collaboration.mjs'
+import { POST as generatePlaytesterSwarm, GET as getPlaytesterPersonas } from './routes/generate-playtester-swarm.mjs'
+import {
+  GET_library as getVoiceLibrary,
+  POST_generate as generateVoice,
+  POST_batch as generateVoiceBatch,
+  GET_profile as getVoiceProfile,
+  DELETE_voice as deleteVoice,
+  POST_estimate as estimateVoiceCost,
+  GET_subscription as getVoiceSubscription,
+  GET_models as getVoiceModels
+} from './routes/generate-voice.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -72,12 +84,13 @@ app.use('/api', promptRoutes)
 
 // Routes
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
       meshy: !!process.env.MESHY_API_KEY,
-      openai: !!process.env.OPENAI_API_KEY
+      openai: !!process.env.OPENAI_API_KEY,
+      elevenlabs: !!process.env.ELEVENLABS_API_KEY
     }
   })
 })
@@ -691,6 +704,52 @@ app.post('/api/generate-quest', (req, res) => {
   generateQuest(req, res)
 })
 
+// Multi-agent AI routes
+app.post('/api/generate-npc-collaboration', (req, res) => {
+  generateNPCCollaboration(req, res)
+})
+
+app.post('/api/generate-playtester-swarm', (req, res) => {
+  generatePlaytesterSwarm(req, res)
+})
+
+app.get('/api/playtester-personas', (req, res) => {
+  getPlaytesterPersonas(req, res)
+})
+
+// Voice generation routes
+app.get('/api/voice/library', (req, res) => {
+  getVoiceLibrary(req, res)
+})
+
+app.post('/api/voice/generate', (req, res) => {
+  generateVoice(req, res)
+})
+
+app.post('/api/voice/batch', (req, res) => {
+  generateVoiceBatch(req, res)
+})
+
+app.get('/api/voice/profile/:npcId', (req, res) => {
+  getVoiceProfile(req, res)
+})
+
+app.delete('/api/voice/:npcId', (req, res) => {
+  deleteVoice(req, res)
+})
+
+app.post('/api/voice/estimate', (req, res) => {
+  estimateVoiceCost(req, res)
+})
+
+app.get('/api/voice/subscription', (req, res) => {
+  getVoiceSubscription(req, res)
+})
+
+app.get('/api/voice/models', (req, res) => {
+  getVoiceModels(req, res)
+})
+
 // Error handling middleware
 app.use(errorHandler)
 
@@ -705,5 +764,8 @@ app.listen(PORT, () => {
   }
   if (!process.env.OPENAI_API_KEY) {
     console.warn('⚠️  OPENAI_API_KEY not found - base regeneration will fail')
+  }
+  if (!process.env.ELEVENLABS_API_KEY) {
+    console.warn('⚠️  ELEVENLABS_API_KEY not found - voice generation will fail')
   }
 })

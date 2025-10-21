@@ -8,6 +8,8 @@ import React, { useState } from 'react'
 
 import type { GeneratedNPC } from '../../types/content-generation'
 import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { useRelationshipsStore } from '../../store/useRelationshipsStore'
+import { usePreviewManifestsStore } from '../../store/usePreviewManifestsStore'
 import { API_ENDPOINTS } from '../../config/api'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
@@ -24,13 +26,18 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
   onNPCGenerated,
   onAIGenerate
 }) => {
-  const { quests } = useContentGenerationStore()
+  // Get store data for context-aware generation
+  const { quests, npcs: generatedNPCs } = useContentGenerationStore()
+  const { relationships } = useRelationshipsStore()
+  const { addPreviews } = usePreviewManifestsStore()
+
   const [name, setName] = useState('')
   const [archetype, setArchetype] = useState('merchant')
   const [backstory, setBackstory] = useState('')
   const [services, setServices] = useState<string[]>([])
   const [assignedQuests, setAssignedQuests] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
+  const [reuseValidation, setReuseValidation] = useState<any>(null)
   
   // AI Generation
   const [showAIGenerator, setShowAIGenerator] = useState(false)
@@ -65,6 +72,9 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
         body: JSON.stringify({
           archetype,
           prompt: aiPrompt,
+          generatedNPCs,
+          availableQuests: quests,
+          relationships: relationships,
           model: selectedModel
         })
       })
@@ -75,12 +85,56 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
       
       const data = await response.json()
       const npcData = data.npc
-      
+
       // Populate form with generated NPC
       setName(npcData.personality?.name || '')
       setBackstory(npcData.personality?.backstory || '')
       setServices(npcData.services || [])
-      
+
+      // Handle reuse validation
+      if (data.reuseValidation) {
+        setReuseValidation(data.reuseValidation)
+
+        if (data.reuseValidation.shouldReuse) {
+          console.log(`[NPCGenerator] REUSE RECOMMENDED: ${data.reuseValidation.justification}`)
+
+          // Create preview manifest for the reuse recommendation
+          addPreviews([{
+            id: `reuse_${Date.now()}`,
+            state: 'preview',
+            manifestType: 'npcs',
+            data: data.reuseValidation.canReuse,
+            suggestedBy: 'ai',
+            reason: data.reuseValidation.justification,
+            requiredBy: [],
+            conflicts: [],
+            aiConfidence: data.reuseValidation.reuseScore || 80,
+            validationScore: data.reuseValidation.reuseScore || 80,
+            canUseExisting: true,
+            suggestedExistingId: data.reuseValidation.canReuse?.id,
+            reuseRecommendation: {
+              shouldReuse: true,
+              existingNPCId: data.reuseValidation.canReuse?.id,
+              existingNPCName: data.reuseValidation.canReuse?.name,
+              reuseReason: data.reuseValidation.justification
+            },
+            loreConsistency: {
+              score: 0,
+              referencesExistingCharacters: [],
+              referencesExistingEvents: [],
+              relationshipCount: 0,
+              minimumRelationships: 2
+            },
+            metadata: {
+              createdAt: new Date().toISOString(),
+              source: 'npc_generation'
+            }
+          }])
+        } else {
+          console.log(`[NPCGenerator] New NPC justified: ${data.reuseValidation.justification}`)
+        }
+      }
+
       // Close AI generator
       setShowAIGenerator(false)
       setAIPrompt('')

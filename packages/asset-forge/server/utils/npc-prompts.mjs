@@ -5,9 +5,8 @@
 
 export const makeNPCGenerationPrompt = (archetype, userPrompt, context) => {
   return `\
+${context ? `${context}\n` : ''}
 Generate a complete NPC for a Runescape-style MMORPG as a JSON object.
-
-${context ? `## World Context\n${context}\n` : ''}
 
 ## NPC Archetype
 ${archetype}
@@ -44,6 +43,13 @@ ${userPrompt}
     ]
   }
 }
+
+CRITICAL INSTRUCTIONS:
+- Create a personality DIFFERENT from the existing NPCs listed in World Context
+- Avoid duplicate names, archetypes, or personality traits
+- Can reference AVAILABLE QUESTS in dialogue if appropriate for the archetype
+- Can establish relationships with EXISTING NPCs if it makes sense narratively
+- Be creative but stay consistent with existing world lore
 
 Return ONLY valid JSON, no markdown, no explanation.
 `

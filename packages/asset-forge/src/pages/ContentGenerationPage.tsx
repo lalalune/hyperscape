@@ -3,13 +3,16 @@
  * Generate quests, NPCs, and lore using real game data
  */
 
-import { Download, FileJson, Trash2, Target, FileCode } from 'lucide-react'
+import { Download, FileJson, Trash2, Target, FileCode, Sparkles, Users, Beaker } from 'lucide-react'
 import React from 'react'
 
-import { QuestBuilder, NPCScriptGenerator, LoreGenerator, QuestTracker, NPCScriptBuilder } from '../components/GameContent'
+import { QuestBuilder, NPCScriptGenerator, LoreGenerator, QuestTracker, NPCScriptBuilder, NPCCollaborationBuilder, CollaborationResultViewer, PlaytesterSwarmPanel } from '../components/GameContent'
+import { ManifestPreviewPanel } from '../components/GameContent/ManifestPreviewPanel'
 import { Button, Card } from '../components/common'
 import { Badge } from '../components/common/Badge'
 import { useContentGenerationStore } from '../store/useContentGenerationStore'
+import { usePreviewManifestsStore } from '../store/usePreviewManifestsStore'
+import { useMultiAgentStore } from '../store/useMultiAgentStore'
 import { validateQuest } from '../utils/quest-validator'
 import type { GeneratedQuest, GeneratedNPC, LoreEntry } from '../types/content-generation'
 
@@ -35,6 +38,20 @@ export const ContentGenerationPage: React.FC = () => {
     createPack,
     clearAll
   } = useContentGenerationStore()
+
+  const { previews } = usePreviewManifestsStore()
+  const pendingCount = previews.filter(p => p.state === 'preview').length
+
+  const {
+    collaborations,
+    activeCollaboration,
+    playtestSessions,
+    activePlaytest,
+    addCollaboration,
+    addPlaytestSession,
+    setActiveCollaboration,
+    setActivePlaytest,
+  } = useMultiAgentStore()
 
   const handleExportPack = () => {
     const pack = createPack('My Content Pack', 'Generated with Asset Forge')
@@ -135,12 +152,56 @@ export const ContentGenerationPage: React.FC = () => {
                 Tracking
               </button>
             )}
+            <button
+              onClick={() => setActiveTab('collaboration')}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'collaboration'
+                  ? 'bg-primary bg-opacity-10 text-primary'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+              }`}
+            >
+              <Users size={14} className="inline mr-1" />
+              Collaboration ({collaborations.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('playtest')}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'playtest'
+                  ? 'bg-primary bg-opacity-10 text-primary'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+              }`}
+            >
+              <Beaker size={14} className="inline mr-1" />
+              Playtest ({playtestSessions.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('suggestions')}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all relative ${
+                activeTab === 'suggestions'
+                  ? 'bg-primary bg-opacity-10 text-primary'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
+              }`}
+            >
+              <Sparkles size={14} className="inline mr-1" />
+              AI Suggestions
+              {pendingCount > 0 && (
+                <span
+                  className={`ml-1.5 px-2 py-0.5 text-xs rounded-full font-semibold transition-all ${
+                    activeTab === 'suggestions'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-primary/10 text-primary'
+                  }`}
+                >
+                  {pendingCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
         {/* Main Content */}
         <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
-          {/* Special full-width tabs: Tracking and Scripts */}
+          {/* Special full-width tabs: Tracking, Scripts, Collaboration, Playtest, and Suggestions */}
           {activeTab === 'tracking' ? (
             <div className="flex-1 overflow-auto animate-fade-in">
               <QuestTracker />
@@ -148,6 +209,27 @@ export const ContentGenerationPage: React.FC = () => {
           ) : activeTab === 'scripts' ? (
             <div className="flex-1 overflow-auto animate-fade-in">
               <NPCScriptBuilder />
+            </div>
+          ) : activeTab === 'collaboration' ? (
+            <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
+              {/* Builder Section */}
+              <div className="w-96 min-w-[24rem] overflow-auto animate-slide-in-left">
+                <NPCCollaborationBuilder onCollaborationComplete={addCollaboration} />
+              </div>
+              {/* Result Viewer */}
+              {activeCollaboration && (
+                <div className="flex-1 overflow-auto animate-slide-in-right">
+                  <CollaborationResultViewer session={activeCollaboration} />
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'playtest' ? (
+            <div className="flex-1 overflow-auto animate-fade-in">
+              <PlaytesterSwarmPanel onTestComplete={addPlaytestSession} />
+            </div>
+          ) : activeTab === 'suggestions' ? (
+            <div className="flex-1 overflow-auto animate-fade-in">
+              <ManifestPreviewPanel />
             </div>
           ) : (
             <>

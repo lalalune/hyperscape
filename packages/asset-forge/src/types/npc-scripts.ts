@@ -1,20 +1,22 @@
 /**
  * NPC Script Types
- * 
+ *
  * Defines executable dialogue trees and behavior scripts for game NPCs.
  * Scripts work both in-game (via DialogueSystem) and provide rich event data
  * for ElizaOS agents through the messaging system.
- * 
+ *
  * Key Concepts:
  * - Dialogue Trees: Branching conversation paths with conditions
  * - Quest Integration: NPCs can offer/complete quests through dialogue
  * - Event Payloads: Rich structured data sent to ElizaOS agents
  * - Behavior Patterns: Idle, proximity, schedule-based activities
- * 
+ * - Voice Generation: ElevenLabs TTS for NPC dialogue
+ *
  * Used by: NPCScriptBuilder, DialogueSystem, ElizaOS providers
  */
 
 import type { GeneratedQuest } from './content-generation'
+import type { NPCVoiceConfig } from './voice-generation'
 
 // Main NPC Script Interface
 export interface NPCScript {
@@ -48,7 +50,10 @@ export interface NPCScript {
     onPlayerNearby?: ProximityBehavior
     schedule: NPCSchedule[]
   }
-  
+
+  // Voice Configuration (optional)
+  voice?: NPCVoiceConfig
+
   // Metadata
   metadata: {
     createdAt: string
@@ -157,6 +162,7 @@ export interface NPCEventPayload {
       offersQuest?: string
       requiresLevel?: number
     }>
+    voiceClipUrl?: string // Audio file URL for this dialogue
   }
   
   // Quest information (rich data for agents)
@@ -188,7 +194,10 @@ export interface NPCEventPayload {
   
   // Shop data (if applicable)
   shopInventory?: ShopItem[]
-  
+
+  // Voice data (if available)
+  voiceEnabled?: boolean
+
   // Metadata for ElizaOS agents
   metadata: {
     canAcceptQuests: boolean
@@ -196,6 +205,7 @@ export interface NPCEventPayload {
     questCount: number
     scriptVersion: string
     interactionCount?: number
+    hasVoice?: boolean
   }
 }
 
@@ -216,5 +226,6 @@ export interface GameNPCScript {
   questsOffered: string[]
   services: string[]
   shopInventory?: ShopItem[]
+  voice?: NPCVoiceConfig // Voice configuration with clips
 }
 
