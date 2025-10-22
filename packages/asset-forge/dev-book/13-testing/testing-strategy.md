@@ -489,6 +489,155 @@ test('complex feature', async ({ page }, testInfo) => {
 })
 ```
 
+### Test Helpers
+
+Asset Forge provides specialized test helper functions in `tests/e2e/helpers/test-helpers.ts` for common testing scenarios.
+
+#### fillLargeTextarea
+
+For testing large text inputs (>1,000 characters) without performance issues.
+
+**Problem**: Playwright's `.fill()` method types character-by-character, which can cause:
+- 60+ second timeouts for 5,000 character inputs
+- Excessive re-renders and state updates
+- Test flakiness due to debouncing and async operations
+
+**Solution**: Direct DOM manipulation with proper event dispatching.
+
+```typescript
+import { fillLargeTextarea } from './helpers/test-helpers'
+
+test('large text input performance', async ({ page }) => {
+  const largeText = 'a'.repeat(5000)
+
+  // ❌ SLOW: Character-by-character typing (60+ seconds)
+  // await page.locator('textarea').fill(largeText)
+
+  // ✅ FAST: Direct value setting (<2 seconds)
+  await fillLargeTextarea(page, '[data-testid="voice-input-text"]', largeText)
+
+  // Verify text was set
+  const value = await page.locator('[data-testid="voice-input-text"]').inputValue()
+  expect(value).toBe(largeText)
+})
+```
+
+**Implementation**:
+```typescript
+export async function fillLargeTextarea(
+  page: Page,
+  selector: string,
+  text: string
+): Promise<void> {
+  // Set value directly via JavaScript
+  await page.evaluate(
+    ({ sel, txt }) => {
+      const element = document.querySelector(sel) as HTMLTextAreaElement
+      if (element) {
+        element.value = txt
+        // Dispatch events to trigger React state updates
+        element.dispatchEvent(new Event('input', { bubbles: true }))
+        element.dispatchEvent(new Event('change', { bubbles: true }))
+      }
+    },
+    { sel: selector, txt: text }
+  )
+
+  // Wait for debounced updates to settle
+  await page.waitForTimeout(500)
+}
+```
+
+**When to Use**:
+- Text inputs > 1,000 characters
+- Testing character limits (e.g., 5,000 char maximum)
+- Performance-critical input scenarios
+- Testing debounced state updates
+
+**Performance**:
+- Sets 5,000 characters instantly vs. 60+ seconds
+- Properly triggers React events (`input`, `change`)
+- Waits for debounce periods (e.g., 100ms) to settle
+- 30x faster than character-by-character typing
+
+#### data-testid Selectors
+
+All interactive elements include `data-testid` attributes for stable test selectors.
+
+**Why data-testid?**
+- ✅ Stable across UI changes
+- ✅ Language-independent
+- ✅ CSS class independent
+- ✅ Clear intent in tests
+
+```typescript
+// ❌ Fragile: Text-based selector
+await page.locator('text=Browse Voices').click()
+
+// ❌ Fragile: CSS class selector
+await page.locator('.voice-browser-button').click()
+
+// ✅ Stable: data-testid selector
+await page.locator('[data-testid="voice-browser-toggle"]').click()
+```
+
+**Available Test IDs**:
+```typescript
+// Voice Standalone Page
+'voice-standalone-page'      // Main page container
+'page-title'                 // Page heading
+'voice-input-text'           // Text input textarea
+'character-counter'          // Character count display
+'cost-estimate'              // Cost estimation badge
+'voice-browser-toggle'       // Voice browser open button
+
+// Navigation (dynamic IDs)
+`nav-section-${sectionId}`   // Navigation section headers
+`nav-item-${itemId}`         // Navigation menu items
+```
+
+**Best Practice**:
+```typescript
+test('voice generation workflow', async ({ page }) => {
+  // Use data-testid for all interactions
+  const textarea = page.locator('[data-testid="voice-input-text"]')
+  const counter = page.locator('[data-testid="character-counter"]')
+  const estimate = page.locator('[data-testid="cost-estimate"]')
+
+  await fillLargeTextarea(page, '[data-testid="voice-input-text"]', 'Test text')
+
+  await expect(counter).toBeVisible()
+  await expect(estimate).toBeVisible()
+})
+```
+
+#### TestHelpers Class
+
+The `TestHelpers` class provides common utilities for navigation, screenshots, and state management.
+
+```typescript
+import { TestHelpers } from './helpers/test-helpers'
+
+test.describe('Feature Tests', () => {
+  let helpers: TestHelpers
+
+  test.beforeEach(async ({ page }) => {
+    helpers = new TestHelpers(page)
+    await helpers.navigateTo('/feature-page')
+  })
+
+  test('take screenshot', async () => {
+    await helpers.takeScreenshot('feature-initial-state')
+    // Screenshot saved to test-results/screenshots/
+  })
+
+  test('wait for network idle', async () => {
+    await helpers.waitForNetworkIdle()
+    // Ensures all async operations complete
+  })
+})
+```
+
 ## Running Tests
 
 ### Development

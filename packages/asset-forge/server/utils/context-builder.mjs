@@ -5,7 +5,7 @@
  * Provides manifest-aware context for AI content generation
  */
 
-import { ContextBuilder } from '../../dist/services/ContextBuilder.js'
+import { ContextBuilder } from '../../src/services/ContextBuilder.ts'
 
 // Create singleton instance
 const contextBuilder = new ContextBuilder()

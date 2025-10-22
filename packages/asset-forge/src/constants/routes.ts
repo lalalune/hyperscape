@@ -26,6 +26,11 @@ export const ROUTES = {
   CONTENT_TRACKING: '/content/tracking',
   CONTENT_VOICE: '/content/voice',
 
+  // Voice Generation (new dedicated routes)
+  VOICE_STANDALONE: '/voice/standalone',
+  VOICE_MANIFESTS: '/voice/manifests',
+  VOICE_DIALOGUE: '/voice/dialogue',
+
   // Data & Reference
   GAME_DATA: '/game-data',
 
@@ -129,6 +134,21 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
     title: 'Voice Generation',
     parent: ROUTES.CONTENT,
     breadcrumb: 'Voice',
+  },
+  [ROUTES.VOICE_STANDALONE]: {
+    path: ROUTES.VOICE_STANDALONE,
+    title: 'Voice Experimentation',
+    breadcrumb: 'Experiment',
+  },
+  [ROUTES.VOICE_MANIFESTS]: {
+    path: ROUTES.VOICE_MANIFESTS,
+    title: 'Manifest Voice Assignment',
+    breadcrumb: 'Assign Voices',
+  },
+  [ROUTES.VOICE_DIALOGUE]: {
+    path: ROUTES.VOICE_DIALOGUE,
+    title: 'Dialogue Voice Generation',
+    breadcrumb: 'Dialogue',
   },
   [ROUTES.GAME_DATA]: {
     path: ROUTES.GAME_DATA,

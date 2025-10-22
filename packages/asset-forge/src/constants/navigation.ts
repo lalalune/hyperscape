@@ -8,7 +8,8 @@ export const NAVIGATION_VIEWS = {
   HAND_RIGGING: 'handRigging',
   ARMOR_FITTING: 'armorFitting',
   GAME_DATA: 'gameData',
-  CONTENT_BUILDER: 'contentBuilder'
+  CONTENT_BUILDER: 'contentBuilder',
+  VOICE: 'voice'
 } as const satisfies Record<string, NavigationView>
 
 // Grid background styles for the app

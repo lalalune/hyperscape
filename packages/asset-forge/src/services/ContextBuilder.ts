@@ -13,11 +13,11 @@
  * Based on pipeline's context-builder.ts
  */
 
-import { manifestService } from './ManifestService'
+import { manifestService } from './ManifestService.js'
 import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../types/manifests'
 import type { GeneratedQuest, GeneratedNPC, LoreEntry } from '../types/content-generation'
 import type { EntityRelationship } from '../types/relationships'
-import { getTierForDifficulty, type LevelTier } from '../utils/level-progression'
+import { getTierForDifficulty, type LevelTier } from '../utils/level-progression.js'
 
 export interface QuestGenerationContext {
   availableItems: ItemManifest[]

@@ -47,6 +47,7 @@ export default function NavigationItem({ item }: NavigationItemProps) {
       `}
       title={collapsed ? item.label : item.tooltip}
       aria-current={isActive ? 'page' : undefined}
+      data-testid={`nav-item-${item.id}`}
     >
       {/* Icon */}
       <item.icon size={18} className="shrink-0" />

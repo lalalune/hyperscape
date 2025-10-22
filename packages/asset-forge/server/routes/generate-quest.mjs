@@ -10,7 +10,7 @@ import { makeQuestGenerationPrompt, parseQuestGenerationResponse } from '../util
 import { buildQuestContext } from '../utils/context-builder.mjs'
 import { makeItemSuggestionPrompt, makeMobSuggestionPrompt, parseManifestSuggestionResponse } from '../utils/manifest-prompts.mjs'
 import { detectConflicts } from '../utils/manifest-validator.mjs'
-import { getTierForDifficulty, LEVEL_TIERS } from '../../dist/utils/level-progression.js'
+import { getTierForDifficulty, LEVEL_TIERS } from '../../src/utils/level-progression.ts'
 
 /**
  * Detect manifest gaps in quest data

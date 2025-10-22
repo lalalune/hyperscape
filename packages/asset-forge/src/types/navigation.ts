@@ -5,7 +5,7 @@ import type { RoutePath } from '../constants/routes'
 // LEGACY TYPES (for compatibility during migration)
 // ============================================================================
 
-export type NavigationView = 'assets' | 'generation' | 'equipment' | 'handRigging' | 'armorFitting' | 'gameData' | 'contentBuilder'
+export type NavigationView = 'assets' | 'generation' | 'equipment' | 'handRigging' | 'armorFitting' | 'gameData' | 'contentBuilder' | 'voice'
 
 export interface NavigationState {
   currentView: NavigationView

@@ -20,6 +20,15 @@
     "clean": "rm -rf dist",
     "lint": "eslint . --ext .ts,.tsx",
     "preview": "vite preview",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:voice-standalone": "playwright test voice-standalone",
+    "test:voice-manifest": "playwright test voice-manifest",
+    "test:voice-integration": "playwright test voice-integration",
+    "test:voice-visual": "playwright test voice-visual",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
     "assets:audit": "npx tsx scripts/audit-assets.ts",
     "assets:normalize": "npx tsx scripts/normalize-all-assets.ts",
     "check:deps": "depcheck",
@@ -71,6 +80,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@types/jszip": "^3.4.1",
     "@types/node": "^20.19.8",
     "@types/react": "^19.0.0",

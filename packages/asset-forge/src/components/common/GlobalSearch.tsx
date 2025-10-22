@@ -45,7 +45,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose }) =
       setResults([])
       return
     }
-    
+
     const searchResults = globalSearch(query, {
       items,
       mobs,
@@ -55,9 +55,9 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose }) =
       generatedNPCs,
       lore: loreEntries
     })
-    
+
     setResults(searchResults.slice(0, 20)) // Limit to top 20 results
-  }, [query, items, mobs, npcs, resources, quests, generatedNPCs, loreEntries])
+  }, [query, items.length, mobs.length, npcs.length, resources.length, quests.length, generatedNPCs.length, loreEntries.length])
   
   const getResultIcon = (type: SearchResult['type']) => {
     switch (type) {

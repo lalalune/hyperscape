@@ -27,17 +27,28 @@ import { useVoiceGenerationStore } from '../../store/useVoiceGenerationStore'
 import { voiceGenerationService } from '../../services/VoiceGenerationService'
 import { CDN_URL } from '../../config/api'
 import type { NPCScript, DialogueNode } from '../../types/npc-scripts'
-import type { VoiceSettings, VoiceClip } from '../../types/voice-generation'
+import type { VoiceClip } from '../../types/voice-generation'
 
 interface VoiceGeneratorProps {
-  npcScript: NPCScript
+  npcScript?: NPCScript
+  // Alternative props for standalone use (without full NPCScript)
+  dialogueTree?: DialogueNode[]
+  npcId?: string
+  npcName?: string
   onVoiceGenerated?: () => void
 }
 
 export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
   npcScript,
+  dialogueTree: standaloneDialogueTree,
+  npcId: standaloneNpcId,
+  npcName: standaloneNpcName,
   onVoiceGenerated
 }) => {
+  // Support both modes: full npcScript OR standalone props
+  const npcId = npcScript?.npcId || standaloneNpcId || 'standalone'
+  const npcName = npcScript?.npcName || standaloneNpcName || 'Voice Generation'
+  const dialogueNodes = npcScript?.dialogueTree.nodes || standaloneDialogueTree || []
   const {
     selectedVoiceId,
     currentSettings,
@@ -58,8 +69,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('')
   const [costEstimate, setCostEstimate] = useState<{ characterCount: number; cost: string } | null>(null)
 
-  const voiceConfig = getNPCVoiceConfig(npcScript.npcId)
-  const dialogueNodes = npcScript.dialogueTree.nodes
+  const voiceConfig = getNPCVoiceConfig(npcId)
 
   // Load existing voice config
   useEffect(() => {
@@ -68,7 +78,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       setSelectedVoiceName(voiceConfig.voiceName)
       setCurrentSettings(voiceConfig.settings)
     }
-  }, [npcScript.npcId, voiceConfig, setSelectedVoice, setSelectedVoiceName, setCurrentSettings])
+  }, [npcId, voiceConfig, setSelectedVoice, setSelectedVoiceName, setCurrentSettings])
 
   // Calculate cost estimate
   useEffect(() => {
@@ -88,7 +98,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
   const handleVoiceSelect = (voiceId: string, voiceName: string) => {
     setSelectedVoice(voiceId)
     setSelectedVoiceName(voiceName)
-    assignVoiceToNPC(npcScript.npcId, voiceId, voiceName)
+    assignVoiceToNPC(npcId, voiceId, voiceName)
     setShowVoiceLibrary(false)
   }
 
@@ -105,18 +115,18 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
 
     setGenerating(true)
     setGenerationError(null)
-    setGenerationProgress(0, dialogueNodes.length, npcScript.npcId)
+    setGenerationProgress(0, dialogueNodes.length, npcId)
 
     try {
       const result = await voiceGenerationService.generateBatchVoices({
-        npcId: npcScript.npcId,
+        npcId: npcId,
         dialogueNodes: dialogueNodes.map(node => ({ id: node.id, text: node.text })),
         voiceId: selectedVoiceId,
         settings: currentSettings
       })
 
       // Update voice config with generated clips
-      updateNPCVoiceConfig(npcScript.npcId, {
+      updateNPCVoiceConfig(npcId, {
         clips: result.clips,
         totalClips: result.totalGenerated
       })
@@ -154,7 +164,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
         currentAudioRef.current = null
       }
 
-      const response = await fetch(`${CDN_URL}/gdd-assets/${npcScript.npcId}/${clip.audioUrl}`)
+      const response = await fetch(`${CDN_URL}/gdd-assets/${npcId}/${clip.audioUrl}`)
       if (!response.ok) throw new Error('Failed to fetch audio')
       const audioBlob = await response.blob()
       const audioUrl = URL.createObjectURL(audioBlob)
@@ -179,7 +189,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
 
   const handleDownloadClip = async (nodeId: string, clip: VoiceClip) => {
     try {
-      const response = await fetch(`${CDN_URL}/gdd-assets/${npcScript.npcId}/${clip.audioUrl}`)
+      const response = await fetch(`${CDN_URL}/gdd-assets/${npcId}/${clip.audioUrl}`)
       if (!response.ok) throw new Error('Failed to fetch audio')
       const audioBlob = await response.blob()
       const url = URL.createObjectURL(audioBlob)
@@ -208,7 +218,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
 
       for (const [nodeId, clip] of Object.entries(generatedClips)) {
         if (clip.audioUrl) {
-          const response = await fetch(`${CDN_URL}/gdd-assets/${npcScript.npcId}/${clip.audioUrl}`)
+          const response = await fetch(`${CDN_URL}/gdd-assets/${npcId}/${clip.audioUrl}`)
           if (response.ok) {
             const audioBlob = await response.blob()
             voiceFolder.file(`${nodeId}.mp3`, audioBlob)
@@ -218,8 +228,8 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
 
       // Add voice profile metadata
       const profileData = JSON.stringify({
-        npcId: npcScript.npcId,
-        npcName: npcScript.npcName,
+        npcId: npcId,
+        npcName: npcName,
         voiceId: selectedVoiceId,
         voiceName: selectedVoiceName,
         settings: currentSettings,
@@ -232,7 +242,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       const url = URL.createObjectURL(zipBlob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${npcScript.npcName}_voices_${Date.now()}.zip`
+      a.download = `${npcName}_voices_${Date.now()}.zip`
       a.click()
       URL.revokeObjectURL(url)
     } catch (error) {
@@ -242,17 +252,17 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
   }
 
   const handleDeleteAllClips = async () => {
-    if (!confirm(`Delete all ${generatedCount} voice clips for ${npcScript.npcName}? This cannot be undone.`)) return
+    if (!confirm(`Delete all ${generatedCount} voice clips for ${npcName}? This cannot be undone.`)) return
 
     try {
       setGenerating(true)
-      const response = await fetch(`${CDN_URL}/api/voice/${npcScript.npcId}`, {
+      const response = await fetch(`${CDN_URL}/api/voice/${npcId}`, {
         method: 'DELETE'
       })
 
       if (!response.ok) throw new Error('Failed to delete clips')
 
-      updateNPCVoiceConfig(npcScript.npcId, { clips: {}, totalClips: 0 })
+      updateNPCVoiceConfig(npcId, { clips: {}, totalClips: 0 })
       setGenerationError(null)
     } catch (error) {
       console.error('Failed to delete clips:', error)
@@ -270,13 +280,13 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
 
     try {
       const result = await voiceGenerationService.generateBatchVoices({
-        npcId: npcScript.npcId,
+        npcId: npcId,
         dialogueNodes: [{ id: node.id, text: node.text }],
         voiceId: selectedVoiceId,
         settings: currentSettings
       })
 
-      updateNPCVoiceConfig(npcScript.npcId, {
+      updateNPCVoiceConfig(npcId, {
         clips: { ...generatedClips, ...result.clips }
       })
     } catch (error) {

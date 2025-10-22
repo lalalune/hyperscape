@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "es2022",
+    "moduleResolution": "node",
+    "target": "es2022",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "allowJs": true,
+    "checkJs": false,
+    "isolatedModules": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/core/**/*",
+    "src/services/**/*",
+    "src/types/**/*",
+    "src/utils/**/*",
+    "src/config/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

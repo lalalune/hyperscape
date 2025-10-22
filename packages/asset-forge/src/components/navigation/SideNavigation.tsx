@@ -32,8 +32,9 @@ export default function SideNavigation() {
       {/* Mobile Menu Button */}
       <button
         onClick={handleMobileMenuToggle}
-        className="fixed top-4 left-4 z-50 lg:hidden btn-ghost p-2"
+        className="fixed top-4 left-4 z-50 lg:hidden bg-bg-secondary border border-border-primary rounded-lg p-2.5 shadow-lg text-text-primary hover:bg-bg-tertiary transition-colors"
         aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+        style={{ minWidth: '44px', minHeight: '44px' }}
       >
         {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
@@ -101,14 +102,6 @@ export default function SideNavigation() {
         {/* Footer */}
         <NavigationFooter />
       </aside>
-
-      {/* Main Content Offset */}
-      <div
-        className={`
-          transition-all duration-slow
-          ${collapsed ? 'lg:ml-16' : 'lg:ml-[280px]'}
-        `}
-      />
     </>
   )
 }

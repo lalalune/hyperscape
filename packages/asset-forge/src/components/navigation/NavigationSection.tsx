@@ -59,6 +59,19 @@ export default function NavigationSection({ section }: NavigationSectionProps) {
   // Group or collapsible section
   if (!section.items || section.items.length === 0) return null
 
+  // Get section-specific color
+  const getSectionColor = (sectionId: string) => {
+    const colorMap: Record<string, string> = {
+      'quick-access': 'text-blue-400',
+      'asset-creation': 'text-purple-400',
+      'fitting-rigging': 'text-orange-400',
+      'game-content': 'text-green-400',
+    }
+    return colorMap[sectionId] || 'text-text-secondary'
+  }
+
+  const sectionColor = getSectionColor(section.id)
+
   return (
     <div className="mb-2">
       {/* Section Header */}
@@ -68,11 +81,12 @@ export default function NavigationSection({ section }: NavigationSectionProps) {
           className={`
             w-full flex items-center gap-2 px-3 py-2 rounded-md
             text-xs font-semibold uppercase tracking-wide
-            text-text-secondary hover:text-text-primary
-            transition-colors duration-base
+            ${sectionColor} hover:brightness-110
+            transition-all duration-base
             ${collapsed ? 'justify-center' : 'justify-between'}
           `}
           title={collapsed ? section.label : undefined}
+          data-testid={`nav-section-${section.id}`}
         >
           <div className="flex items-center gap-2">
             {section.icon && <section.icon size={16} />}

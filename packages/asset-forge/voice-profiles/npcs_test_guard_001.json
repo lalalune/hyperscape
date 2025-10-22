@@ -1,0 +1,19 @@
+{
+  "id": "npcs_test_guard_001",
+  "manifestType": "npcs",
+  "entityId": "test_guard_001",
+  "entityName": "Guard Captain Marcus",
+  "voiceId": "pNInz6obpgDQGcFmaJgB",
+  "voiceName": "Adam",
+  "settings": {
+    "modelId": "eleven_multilingual_v2",
+    "stability": 0.5,
+    "similarityBoost": 0.75,
+    "style": 0,
+    "useSpeakerBoost": true,
+    "outputFormat": "mp3_44100_128"
+  },
+  "sampleClips": [],
+  "assignedAt": "2025-10-22T03:21:25.060Z",
+  "updatedAt": "2025-10-22T03:21:25.060Z"
+}

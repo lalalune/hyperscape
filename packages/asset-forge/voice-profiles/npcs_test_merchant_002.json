@@ -1,0 +1,19 @@
+{
+  "id": "npcs_test_merchant_002",
+  "manifestType": "npcs",
+  "entityId": "test_merchant_002",
+  "entityName": "Sarah the Shopkeeper",
+  "voiceId": "EXAVITQu4vr4xnSDxMaL",
+  "voiceName": "Bella",
+  "settings": {
+    "modelId": "eleven_multilingual_v2",
+    "stability": 0.5,
+    "similarityBoost": 0.75,
+    "style": 0,
+    "useSpeakerBoost": true,
+    "outputFormat": "mp3_44100_128"
+  },
+  "sampleClips": [],
+  "assignedAt": "2025-10-22T03:21:25.059Z",
+  "updatedAt": "2025-10-22T03:21:25.059Z"
+}

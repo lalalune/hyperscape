@@ -384,15 +384,15 @@ export const chunkActivity = pgTable('chunk_activity', {
 
 /**
  * Storage Table - Generic key-value persistence
- * 
+ *
  * Provides simple key-value storage for systems that need to persist state.
  * Used by the Storage system for miscellaneous data that doesn't fit other tables.
- * 
+ *
  * Key columns:
  * - `key` - Unique identifier (primary key)
  * - `value` - Arbitrary data (JSON string)
  * - `updatedAt` - Last modification timestamp
- * 
+ *
  * Usage examples:
  * - System preferences
  * - Feature flags
@@ -403,6 +403,47 @@ export const storage = pgTable('storage', {
   value: text('value').notNull(),
   updatedAt: bigint('updatedAt', { mode: 'number' }).default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
 });
+
+/**
+ * Manifest Voice Profiles Table - Voice assignments for NPCs and Mobs
+ *
+ * Stores voice profile assignments for entities in game manifests (NPCs, Mobs).
+ * Used by the voice generation system to persist and retrieve voice settings for characters.
+ *
+ * Key columns:
+ * - `id` - Unique profile ID (UUID, primary key)
+ * - `manifestType` - Entity type ('npcs' or 'mobs')
+ * - `entityId` - ID from the manifest
+ * - `entityName` - Name from the manifest
+ * - `voiceId` - ElevenLabs voice ID
+ * - `voiceName` - ElevenLabs voice name
+ * - `settings` - Voice settings (JSON: modelId, stability, similarityBoost, style, useSpeakerBoost, outputFormat)
+ * - `sampleClips` - Array of sample voice clips (JSON array of VoiceClip objects)
+ * - `assignedAt` - When voice was first assigned
+ * - `updatedAt` - Last update timestamp
+ *
+ * Design notes:
+ * - Unique constraint on (manifestType, entityId) ensures one voice per entity
+ * - Indexes on manifestType and entityId for fast lookups
+ * - JSONB used for flexible settings and sample clips storage
+ * - Used by VoiceGenerationService for manifest-based voice management
+ */
+export const manifestVoiceProfiles = pgTable('manifest_voice_profiles', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+  manifestType: text('manifestType').notNull(),
+  entityId: text('entityId').notNull(),
+  entityName: text('entityName').notNull(),
+  voiceId: text('voiceId').notNull(),
+  voiceName: text('voiceName').notNull(),
+  settings: text('settings').notNull(),
+  sampleClips: text('sampleClips').default('[]'),
+  assignedAt: timestamp('assignedAt', { withTimezone: false }).defaultNow(),
+  updatedAt: timestamp('updatedAt', { withTimezone: false }).defaultNow(),
+}, (table) => ({
+  uniqueManifestEntity: unique().on(table.manifestType, table.entityId),
+  manifestTypeIdx: index('idx_manifest_voice_type').on(table.manifestType),
+  entityIdIdx: index('idx_manifest_voice_entity').on(table.entityId),
+}));
 
 /**
  * ============================================================================

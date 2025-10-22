@@ -57,6 +57,8 @@ export const API_ENDPOINTS = {
   npcCollaboration: `${API_URL}/api/generate-npc-collaboration`,
   playtesterSwarm: `${API_URL}/api/generate-playtester-swarm`,
   playtesterPersonas: `${API_URL}/api/playtester-personas`,
+
+  // Voice Generation - Core
   voiceLibrary: `${API_URL}/api/voice/library`,
   voiceGenerate: `${API_URL}/api/voice/generate`,
   voiceBatch: `${API_URL}/api/voice/batch`,
@@ -65,4 +67,14 @@ export const API_ENDPOINTS = {
   voiceEstimate: `${API_URL}/api/voice/estimate`,
   voiceSubscription: `${API_URL}/api/voice/subscription`,
   voiceModels: `${API_URL}/api/voice/models`,
+
+  // Voice Generation - Manifest Assignment (NEW - requires backend implementation)
+  voiceManifestAssign: `${API_URL}/api/voice/manifest/assign`,
+  voiceManifestProfile: (manifestType: string, entityId: string) =>
+    `${API_URL}/api/voice/manifest/${manifestType}/${entityId}`,
+  voiceManifestBulk: `${API_URL}/api/voice/manifest/bulk`,
+  voiceManifestBulkAssign: `${API_URL}/api/voice/manifest/bulk-assign`,
+  voiceManifestDelete: (manifestType: string, entityId: string) =>
+    `${API_URL}/api/voice/manifest/${manifestType}/${entityId}`,
+  voiceManifestGenerateSample: `${API_URL}/api/voice/manifest/generate-sample`,
 } as const

@@ -30,6 +30,14 @@ import {
   GET_subscription as getVoiceSubscription,
   GET_models as getVoiceModels
 } from './routes/generate-voice.mjs'
+import {
+  POST_assign as assignVoiceToManifest,
+  GET_assignment as getManifestVoiceAssignment,
+  GET_bulk as getBulkManifestVoiceAssignments,
+  DELETE_assignment as deleteManifestVoiceAssignment,
+  POST_bulkAssign as bulkAssignManifestVoices,
+  POST_generateSample as generateManifestSampleDialogue
+} from './routes/voice-manifest.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -748,6 +756,31 @@ app.get('/api/voice/subscription', (req, res) => {
 
 app.get('/api/voice/models', (req, res) => {
   getVoiceModels(req, res)
+})
+
+// Voice manifest routes (new endpoints for manifest entity voice assignments)
+app.post('/api/voice/manifest/assign', (req, res) => {
+  assignVoiceToManifest(req, res)
+})
+
+app.get('/api/voice/manifest/bulk', (req, res) => {
+  getBulkManifestVoiceAssignments(req, res)
+})
+
+app.get('/api/voice/manifest/:manifestType/:entityId', (req, res) => {
+  getManifestVoiceAssignment(req, res)
+})
+
+app.delete('/api/voice/manifest/:manifestType/:entityId', (req, res) => {
+  deleteManifestVoiceAssignment(req, res)
+})
+
+app.post('/api/voice/manifest/bulk-assign', (req, res) => {
+  bulkAssignManifestVoices(req, res)
+})
+
+app.post('/api/voice/manifest/generate-sample', (req, res) => {
+  generateManifestSampleDialogue(req, res)
 })
 
 // Error handling middleware

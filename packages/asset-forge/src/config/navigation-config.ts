@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Star,
   Clock,
+  Sparkles,
 } from 'lucide-react'
 
 import type { NavigationConfig, NavigationLink } from '../types/navigation'
@@ -215,6 +216,47 @@ export const navigationConfig: NavigationConfig = {
           icon: ListChecks,
           tooltip: 'Quest execution and tracking system',
           keywords: ['tracking', 'quest', 'objectives', 'progress'],
+        },
+      ],
+    },
+
+    // Voice Generation (dedicated section)
+    {
+      id: 'voice-generation',
+      label: 'Voice Generation',
+      type: 'collapsible',
+      icon: Mic,
+      collapsible: true,
+      defaultExpanded: false,
+      items: [
+        {
+          id: 'voice-experiment',
+          type: 'link',
+          path: ROUTES.VOICE_STANDALONE,
+          label: 'Experiment',
+          icon: Sparkles,
+          tooltip: 'Test voices and settings without NPCs',
+          keywords: ['voice', 'experiment', 'test', 'standalone', 'preview'],
+          isNew: true,
+        },
+        {
+          id: 'voice-manifests',
+          type: 'link',
+          path: ROUTES.VOICE_MANIFESTS,
+          label: 'Assign to Manifests',
+          icon: Users,
+          tooltip: 'Assign voices to NPCs and mobs from manifests',
+          keywords: ['voice', 'manifest', 'npc', 'mob', 'assign'],
+          isNew: true,
+        },
+        {
+          id: 'voice-dialogue',
+          type: 'link',
+          path: ROUTES.CONTENT_VOICE,
+          label: 'Dialogue Trees',
+          icon: MessageSquare,
+          tooltip: 'Generate voices for NPC dialogue scripts',
+          keywords: ['voice', 'dialogue', 'script', 'npc'],
         },
       ],
     },
