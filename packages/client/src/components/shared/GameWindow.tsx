@@ -166,6 +166,7 @@ export function GameWindow({ title, onClose, defaultX, defaultY, windowId = 'def
       skills: { width: 450, height: Math.min(550, maxWindowHeight) },
       prefs: { width: 380, height: Math.min(550, maxWindowHeight) },
       settings: { width: 380, height: Math.min(550, maxWindowHeight) },
+      dashboard: { width: 600, height: Math.min(420, maxWindowHeight) },
     }
 
     // Get size for this window

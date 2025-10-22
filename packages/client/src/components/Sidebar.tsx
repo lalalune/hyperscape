@@ -13,6 +13,7 @@ import { CombatPanel } from './panels/CombatPanel'
 import { EquipmentPanel } from './panels/EquipmentPanel'
 import { SettingsPanel } from './panels/SettingsPanel'
 import { AccountPanel } from './panels/AccountPanel'
+import { DashboardPanel } from './panels/DashboardPanel'
 
 const _mainSectionPanes = ['prefs']
 
@@ -161,6 +162,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
 
   const menuButtons = [
     { windowId: 'combat', icon: '⚔️', label: 'Combat' },
+    { windowId: 'dashboard', icon: '📋', label: 'Dashboard' },
     { windowId: 'skills', icon: '🧠', label: 'Skills' },
     { windowId: 'inventory', icon: '🎒', label: 'Inventory' },
     { windowId: 'equipment', icon: '🛡️', label: 'Equipment' },
@@ -304,6 +306,28 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             onFocus={() => bringToFront('combat')}
           >
             <CombatPanel world={world} stats={playerStats} equipment={equipment} />
+          </GameWindow>
+        )}
+
+        {/* Dashboard - Fixed position below minimap */}
+        {openWindows.has('dashboard') && (
+          <GameWindow
+            title="Dashboard"
+            windowId="dashboard"
+            onClose={() => closeWindow('dashboard')}
+            zIndex={windowZIndices.get('dashboard') || 1000}
+            onFocus={() => bringToFront('dashboard')}
+            defaultX={window.innerWidth - (isMobile ? 608 : 620)}
+            defaultY={isMobile ? (minimapCollapsed ? 72 : 260) : (minimapCollapsed ? 88 : 280)}
+          >
+            <DashboardPanel
+              world={world}
+              stats={playerStats}
+              equipment={equipment}
+              inventory={inventory}
+              coins={coins}
+              onOpenWindow={toggleWindow}
+            />
           </GameWindow>
         )}
 
