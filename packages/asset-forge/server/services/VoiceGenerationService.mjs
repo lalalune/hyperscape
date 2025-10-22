@@ -551,7 +551,13 @@ export class VoiceGenerationService {
    * @returns {Promise<Object|null>} Voice profile or null
    */
   async getVoiceProfile(npcId) {
-    const voiceProfilePath = path.join(this.assetsDir, npcId, 'voice', 'voiceProfile.json')
+    const candidatePath = path.join(this.assetsDir, npcId, 'voice', 'voiceProfile.json')
+    const voiceProfilePath = path.resolve(candidatePath)
+    // Prevent directory traversal: check normalized path is within assetsDir
+    if (!voiceProfilePath.startsWith(this.assetsDir + path.sep)) {
+      logger.warn('Blocked attempt to access voice profile outside assetsDir', { npcId, voiceProfilePath })
+      throw new Error('Invalid NPC ID or access denied')
+    }
 
     try {
       const data = await fs.readFile(voiceProfilePath, 'utf-8')
@@ -574,7 +580,13 @@ export class VoiceGenerationService {
    * @returns {Promise<boolean>} Success status
    */
   async deleteVoiceClips(npcId) {
-    const npcVoiceDir = path.join(this.assetsDir, npcId, 'voice')
+    const candidateDir = path.join(this.assetsDir, npcId, 'voice')
+    const npcVoiceDir = path.resolve(candidateDir)
+    // Prevent directory traversal: check normalized path is within assetsDir
+    if (!npcVoiceDir.startsWith(this.assetsDir + path.sep)) {
+      logger.warn('Blocked attempt to delete voice clips outside assetsDir', { npcId, npcVoiceDir })
+      return false
+    }
 
     try {
       await fs.rm(npcVoiceDir, { recursive: true, force: true })
