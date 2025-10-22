@@ -551,10 +551,10 @@ export class InventorySystem extends SystemBase {
       return;
     }
     
-    // Try to add to inventory
+    // Try to add to inventory using the validated itemData
     const added = this.addItem({
       playerId: data.playerId,
-      itemId,
+      itemId: itemData.id, // Use the validated item's ID
       quantity
     });
     
