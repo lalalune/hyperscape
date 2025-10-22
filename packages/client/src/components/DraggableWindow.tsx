@@ -32,15 +32,10 @@ export function DraggableWindow({
 
     const validatedPos = { ...pos }
 
-    // Get window dimensions - handle null windowElement during initial render
-    let windowWidth = 400  // Default width estimate
-    let windowHeight = 500  // Default height estimate
-    
-    if (windowElement) {
-      const rect = windowElement.getBoundingClientRect()
-      windowWidth = rect.width || 400
-      windowHeight = rect.height || 500
-    }
+    // Get window dimensions
+    const rect = windowElement?.getBoundingClientRect()
+    const windowWidth = rect?.width || 400  // Default width estimate
+    const windowHeight = rect?.height || 500  // Default height estimate
 
     // Ensure window is within viewport bounds
     validatedPos.x = Math.max(margins.left, Math.min(validatedPos.x, viewport.width - windowWidth - margins.right))
@@ -83,8 +78,8 @@ export function DraggableWindow({
 
     try {
       localStorage.setItem(`${STORAGE_KEY_PREFIX}${windowId}`, JSON.stringify(newPosition))
-    } catch (_e) {
-      console.warn('Failed to save window position:', _e)
+    } catch (e) {
+      console.warn('Failed to save window position:', e)
     }
   }, [windowId])
 
@@ -227,7 +222,7 @@ export function DraggableWindow({
     }
   }
 
-  const handleWindowClick = useCallback((_e: React.MouseEvent) => {
+  const handleWindowClick = useCallback((e: React.MouseEvent) => {
     // Bring window to front when clicked
     if (onFocus) {
       onFocus()
