@@ -11,12 +11,14 @@
 function levenshteinDistance(str1, str2) {
   // Defensive: ensure both are strings and reasonably sized.
   const MAX_LEN = 1000;
-  if (typeof str1 !== "string") str1 = str1 != null && typeof str1.toString === "function" ? str1.toString() : "";
-  if (typeof str2 !== "string") str2 = str2 != null && typeof str2.toString === "function" ? str2.toString() : "";
+  // Force to primitive string and clamp length
+  str1 = String(str1);
+  str2 = String(str2);
   if (str1.length > MAX_LEN) str1 = str1.slice(0, MAX_LEN);
   if (str2.length > MAX_LEN) str2 = str2.slice(0, MAX_LEN);
   const matrix = []
 
+  // All loop bounds are now safe because str1 and str2 are primitive strings with a max length
   for (let i = 0; i <= str2.length; i++) {
     matrix[i] = [i]
   }
