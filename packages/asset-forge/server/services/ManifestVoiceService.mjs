@@ -53,7 +53,17 @@ export class ManifestVoiceService {
    * @returns {string} Path to profile file
    */
   getProfilePath(manifestType, entityId) {
-    return path.join(this.voiceProfilesDir, `${manifestType}_${entityId}.json`)
+    this.validateEntityId(entityId);
+    // Compose filename in a safe way (manifestType is already validated elsewhere)
+    const filename = `${manifestType}_${entityId}.json`;
+    const rawPath = path.join(this.voiceProfilesDir, filename);
+    // Normalize and check for path traversal
+    const profilesDirResolved = path.resolve(this.voiceProfilesDir);
+    const profilePathResolved = path.resolve(rawPath);
+    if (!profilePathResolved.startsWith(profilesDirResolved + path.sep)) {
+      throw new Error('Invalid entityId: path traversal detected');
+    }
+    return profilePathResolved;
   }
 
   /**
@@ -406,5 +416,16 @@ export class ManifestVoiceService {
     })
 
     return profile
+  }
+  /**
+   * Validates the entityId to only allow safe, filename-compatible characters.
+   * Throws an error if validation fails.
+   * @param {string} entityId
+   */
+  validateEntityId(entityId) {
+    // Accept alphanumerics, underscores and dashes
+    if (typeof entityId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(entityId)) {
+      throw new Error('Invalid entityId: must be alphanumeric, dash or underscore only');
+    }
   }
 }
