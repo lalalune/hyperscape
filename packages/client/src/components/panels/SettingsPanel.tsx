@@ -2,13 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { isTouch } from '@hyperscape/shared'
 import type { ClientWorld } from '../../types'
 import { useFullscreen } from '../useFullscreen'
-import {
-  FieldBtn,
-  FieldRange,
-  FieldSwitch,
-  FieldText,
-  FieldToggle,
-} from '../Fields'
 
 interface SettingsPanelProps {
   world: ClientWorld
@@ -21,23 +14,17 @@ const shadowOptions = [
   { label: 'High', value: 'high' },
 ]
 
-function Group({ label }: { label?: string }) {
-  return (
-    <>
-      <div className="h-px my-2.5" style={{ backgroundColor: 'rgba(242, 208, 138, 0.2)' }} />
-      {label && (
-        <div className="font-medium leading-none py-3 pl-4 -mt-2.5" style={{ color: '#f2d08a' }}>
-          {label}
-        </div>
-      )}
-    </>
-  )
-}
+type TabType = 'visuals' | 'interface' | 'audio' | 'backend'
 
-function Prefs({ world, hidden: _hidden }: { world: ClientWorld; hidden: boolean }) {
-  const player = world.entities?.player
-  const [name, setName] = useState(() => player?.name || '')
+export function SettingsPanel({ world }: SettingsPanelProps) {
   const prefs = world.prefs
+  const player = world.entities?.player
+
+  // State management
+  const [activeTab, setActiveTab] = useState<TabType>('visuals')
+  const [name, setName] = useState(() => player?.name || '')
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [tempName, setTempName] = useState('')
   const [dpr, setDPR] = useState(prefs?.dpr || 1)
   const [shadows, setShadows] = useState(prefs?.shadows || 'med')
   const [postprocessing, setPostprocessing] = useState(prefs?.postprocessing ?? true)
@@ -45,41 +32,38 @@ function Prefs({ world, hidden: _hidden }: { world: ClientWorld; hidden: boolean
   const [music, setMusic] = useState(prefs?.music || 0.5)
   const [sfx, setSFX] = useState(prefs?.sfx || 0.5)
   const [voice, setVoice] = useState(prefs?.voice || 1)
-  const [ui, setUI] = useState(prefs?.ui || 1)
+  const [uiScale, setUiScale] = useState(prefs?.ui || 1)
+  const [statsOn, setStatsOn] = useState(prefs?.stats || false)
+
   const nullRef = useRef<HTMLElement | null>(null)
   const [canFullscreen, isFullscreen, toggleFullscreen] = useFullscreen(nullRef as React.RefObject<HTMLElement>)
-  const [_stats, _setStats] = useState(prefs?.stats || false)
-  
-  const changeName = (name: string) => {
-    if (!name) return setName(player!.name || '')
-    player!.name = name
+
+  const changeName = (newName: string) => {
+    if (!newName) return setName(player!.name || '')
+    player!.name = newName
+    setName(newName)
+    setIsEditingName(false)
+    setTempName(newName)
+
+    world.network?.send?.('chat', {
+      type: 'system',
+      message: `Changed name to ${newName}`
+    })
   }
 
   // Sync music preference with localStorage
   useEffect(() => {
-    const updateMusicEnabled = () => {
-      const enabled = music > 0
-      localStorage.setItem('music_enabled', String(enabled))
-    }
-    updateMusicEnabled()
+    const enabled = music > 0
+    localStorage.setItem('music_enabled', String(enabled))
   }, [music])
 
   const dprOptions = useMemo(() => {
-    const graphics = world.graphics
-    const _width = graphics?.width
-    const _height = graphics?.height
     const dpr = window.devicePixelRatio
     const options: Array<{label: string; value: number}> = []
-    const add = (label: string, dpr: number) => {
-      options.push({
-        label,
-        value: dpr,
-      })
-    }
-    add('0.5x', 0.5)
-    add('1x', 1)
-    if (dpr >= 2) add('2x', 2)
-    if (dpr >= 3) add('3x', dpr)
+    options.push({ label: '0.5x', value: 0.5 })
+    options.push({ label: '1x', value: 1 })
+    if (dpr >= 2) options.push({ label: '2x', value: 2 })
+    if (dpr >= 3) options.push({ label: '3x', value: dpr })
     return options
   }, [])
 
@@ -93,239 +77,590 @@ function Prefs({ world, hidden: _hidden }: { world: ClientWorld; hidden: boolean
       if (changes.music) setMusic(changes.music.value as number)
       if (changes.sfx) setSFX(changes.sfx.value as number)
       if (changes.voice) setVoice(changes.voice.value as number)
-      if (changes.ui) setUI(changes.ui.value as number)
-      if (changes.stats) _setStats(changes.stats.value as boolean)
+      if (changes.ui) setUiScale(changes.ui.value as number)
+      if (changes.stats) setStatsOn(changes.stats.value as boolean)
     }
     prefs?.on?.('change', onPrefsChange)
     return () => {
       prefs?.off?.('change', onPrefsChange)
     }
   }, [prefs])
-  
-  return (
-    <div className='prefs noscrollbar w-full h-full overflow-y-auto'>
-      <FieldText label='Character Name' hint='Change your character name in the game' value={name} onChange={changeName} />
-      
-      <Group label='Interface & Display' />
-      <FieldRange
-        label='UI Scale'
-        hint='Change the scale of the user interface'
-        min={0.5}
-        max={1.5}
-        step={0.1}
-        value={ui}
-        onChange={ui => prefs?.setUI?.(ui)}
-      />
-      <FieldToggle
-        label='Fullscreen'
-        hint='Toggle fullscreen. Not supported in some browsers'
-        value={isFullscreen as boolean}
-        onChange={value => { if (canFullscreen) toggleFullscreen(value) }}
-        trueLabel='Enabled'
-        falseLabel='Disabled'
-      />
-      <FieldToggle
-        label='Performance Stats'
-        hint='Show or hide performance statistics'
-        value={prefs?.stats || false}
-        onChange={stats => prefs?.setStats?.(stats)}
-        trueLabel='Visible'
-        falseLabel='Hidden'
-      />
-      {!isTouch && (
-        <FieldBtn
-          label='Hide Interface'
-          note='Z'
-          hint='Hide the user interface. Press Z to re-enable.'
-          onClick={() => world.ui?.toggleVisible?.()}
-        />
-      )}
-      
-      <Group label='Visual Quality' />
-      
-      {/* Renderer info display */}
-      <div className="mb-2 px-3 py-2 border rounded" style={{ backgroundColor: 'rgba(0, 0, 0, 0.35)', borderColor: 'rgba(242, 208, 138, 0.3)' }}>
-        <div className="text-xs mb-1" style={{ color: 'rgba(242, 208, 138, 0.7)' }}>Rendering Backend</div>
-        <div className="text-sm flex items-center gap-2">
-          <span style={{ color: world.graphics?.isWebGPU ? '#22c55e' : '#60a5fa' }}>
-            {world.graphics?.isWebGPU ? '⚡ WebGPU' : '🔷 WebGL 2'}
-          </span>
-          <span className="text-xs" style={{ color: 'rgba(242, 208, 138, 0.5)' }}>
-            {world.graphics?.isWebGPU ? '(Modern, High Performance)' : '(Universal Compatibility)'}
-          </span>
-        </div>
-      </div>
-      
-      <FieldSwitch
-        label='Resolution'
-        hint='Change your display resolution for better performance or quality'
-        options={dprOptions}
-        value={dpr}
-        onChange={dpr => prefs?.setDPR?.(dpr as number)}
-      />
-      <FieldSwitch
-        label='Shadow Quality'
-        hint='Change the quality of shadows cast by objects and characters'
-        options={shadowOptions}
-        value={shadows}
-        onChange={shadows => prefs?.setShadows?.(shadows as string)}
-      />
-      <FieldToggle
-        label='Post-Processing'
-        hint='Enable advanced visual effects like bloom and ambient occlusion. Improves visual quality but may reduce performance.'
-        trueLabel='Enabled'
-        falseLabel='Disabled'
-        value={postprocessing}
-        onChange={postprocessing => {
-          prefs?.setPostprocessing?.(postprocessing)
-        }}
-      />
-      {postprocessing && (
-        <FieldToggle
-          label='Bloom Effect'
-          hint='Enable glowing effects on bright and magical objects.'
-          trueLabel='Enabled'
-          falseLabel='Disabled'
-          value={bloom}
-          onChange={bloom => {
-            prefs?.setBloom?.(bloom)
-          }}
-        />
-      )}
-      
-      <Group label='Audio & Sound' />
-      <FieldRange
-        label='Music Volume'
-        hint='Adjust background music and ambient sounds'
-        min={0}
-        max={2}
-        step={0.05}
-        value={music}
-        onChange={music => prefs?.setMusic?.(music)}
-      />
-      <FieldRange
-        label='Effects Volume'
-        hint='Adjust combat, magic, and interaction sound effects'
-        min={0}
-        max={2}
-        step={0.05}
-        value={sfx}
-        onChange={sfx => prefs?.setSFX?.(sfx)}
-      />
-      <FieldRange
-        label='Voice Chat'
-        hint='Adjust volume for player voice communication'
-        min={0}
-        max={2}
-        step={0.05}
-        value={voice}
-        onChange={voice => prefs?.setVoice?.(voice)}
-      />
-    </div>
-  )
-}
-
-export function SettingsPanel({ world }: SettingsPanelProps) {
-  const [advanced, setAdvanced] = useState(false)
-  const prefs = world.prefs
-  const [uiScale, setUiScale] = useState(prefs?.ui || 1)
-  const [statsOn, setStatsOn] = useState(prefs?.stats || false)
-  const nullRef = useRef<HTMLElement | null>(null)
-  const [canFullscreen, isFullscreen, toggleFullscreen] = useFullscreen(nullRef as React.RefObject<HTMLElement>)
-
-  const advancedModal = advanced ? (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000] pointer-events-auto"
-      onClick={() => setAdvanced(false)}
-    >
-      <div
-        className="w-[520px] max-w-[90vw] max-h-[80vh] bg-[rgba(11,10,21,0.98)] border rounded-xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
-        style={{ borderColor: 'rgba(242, 208, 138, 0.4)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between py-2.5 px-3 border-b" style={{ borderBottomColor: 'rgba(242, 208, 138, 0.3)' }}>
-          <div className="font-semibold" style={{ color: '#f2d08a' }}>Advanced Settings</div>
-          <button onClick={() => setAdvanced(false)} className="border-none text-white rounded-md py-1 px-2 cursor-pointer" style={{ backgroundColor: '#8b4513' }}>Close</button>
-        </div>
-        <div className='noscrollbar overflow-y-auto max-h-[calc(80vh-48px)] py-2 px-3'>
-          <Prefs world={world} hidden={false} />
-        </div>
-      </div>
-    </div>
-  ) : null
 
   return (
-    <div className="w-full h-full overflow-y-auto relative">
-      <div className="font-semibold mb-2.5" style={{ color: '#f2d08a' }}>Quick Settings</div>
-      <div className="flex flex-col gap-2.5">
-        <div>
-          <div className="mb-1" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>UI Scale</div>
-          <input
-            type='range'
-            min={0.6}
-            max={1.6}
-            step={0.05}
-            value={uiScale}
-            onChange={(e) => {
-              const v = parseFloat(e.target.value)
-              setUiScale(v)
-              prefs?.setUI?.(v)
-            }}
-            className="w-full"
-          />
-        </div>
-        <div className="flex justify-between items-center">
-          <div style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Fullscreen</div>
-          <button
-            onClick={() => { if (canFullscreen) toggleFullscreen(!(isFullscreen as boolean)) }}
-            className="border text-white rounded-md py-1 px-2 cursor-pointer"
-            style={{
-              backgroundColor: 'rgba(242, 208, 138, 0.15)',
-              borderColor: 'rgba(242, 208, 138, 0.5)',
-              color: '#f2d08a',
-            }}
-          >
-            {(isFullscreen as boolean) ? 'Disable' : 'Enable'}
-          </button>
-        </div>
-        <div className="flex justify-between items-center">
-          <div style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Performance Stats</div>
-          <button
-            onClick={() => {
-              const next = !statsOn
-              setStatsOn(next)
-              prefs?.setStats?.(next)
-            }}
-            className="border-none text-white rounded-md py-1 px-2 cursor-pointer"
-            style={{ backgroundColor: statsOn ? '#22c55e' : '#6b7280' }}
-          >
-            {statsOn ? 'Shown' : 'Hidden'}
-          </button>
-        </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Tab Navigation */}
+      <div className="flex gap-1 mb-2 p-0.5 bg-black/30 rounded-lg border" style={{ borderColor: 'rgba(242, 208, 138, 0.2)' }}>
         <button
-          onClick={() => world.ui?.toggleVisible?.()}
-          className="border-none text-white rounded-md py-1.5 px-2.5 cursor-pointer"
-          style={{ backgroundColor: '#8b4513', color: '#f2d08a' }}
-        >
-          Hide Interface (Z)
-        </button>
-
-        <div className="h-2" />
-        <button
-          onClick={() => setAdvanced(true)}
-          className="border text-white rounded-md py-2 px-2.5 cursor-pointer"
+          onClick={() => setActiveTab('visuals')}
+          className="flex-1 py-1.5 px-2 rounded-md text-[10px] font-medium transition-all"
           style={{
-            backgroundColor: 'rgba(242, 208, 138, 0.15)',
-            borderColor: 'rgba(242, 208, 138, 0.5)',
-            color: '#f2d08a',
+            backgroundColor: activeTab === 'visuals' ? 'rgba(242, 208, 138, 0.2)' : 'transparent',
+            borderColor: activeTab === 'visuals' ? 'rgba(242, 208, 138, 0.4)' : 'transparent',
+            color: activeTab === 'visuals' ? '#f2d08a' : 'rgba(242, 208, 138, 0.6)',
+            border: '1px solid'
           }}
         >
-          Open Advanced Settings
+          ✨ Visual
+        </button>
+        <button
+          onClick={() => setActiveTab('interface')}
+          className="flex-1 py-1.5 px-2 rounded-md text-[10px] font-medium transition-all"
+          style={{
+            backgroundColor: activeTab === 'interface' ? 'rgba(242, 208, 138, 0.2)' : 'transparent',
+            borderColor: activeTab === 'interface' ? 'rgba(242, 208, 138, 0.4)' : 'transparent',
+            color: activeTab === 'interface' ? '#f2d08a' : 'rgba(242, 208, 138, 0.6)',
+            border: '1px solid'
+          }}
+        >
+          🎮 UI
+        </button>
+        <button
+          onClick={() => setActiveTab('audio')}
+          className="flex-1 py-1.5 px-2 rounded-md text-[10px] font-medium transition-all"
+          style={{
+            backgroundColor: activeTab === 'audio' ? 'rgba(242, 208, 138, 0.2)' : 'transparent',
+            borderColor: activeTab === 'audio' ? 'rgba(242, 208, 138, 0.4)' : 'transparent',
+            color: activeTab === 'audio' ? '#f2d08a' : 'rgba(242, 208, 138, 0.6)',
+            border: '1px solid'
+          }}
+        >
+          🔊 Audio
+        </button>
+        <button
+          onClick={() => setActiveTab('backend')}
+          className="flex-1 py-1.5 px-2 rounded-md text-[10px] font-medium transition-all"
+          style={{
+            backgroundColor: activeTab === 'backend' ? 'rgba(242, 208, 138, 0.2)' : 'transparent',
+            borderColor: activeTab === 'backend' ? 'rgba(242, 208, 138, 0.4)' : 'transparent',
+            color: activeTab === 'backend' ? '#f2d08a' : 'rgba(242, 208, 138, 0.6)',
+            border: '1px solid'
+          }}
+        >
+          ⚙️ Backend
         </button>
       </div>
-      {advancedModal}
+
+      {/* Tab Content */}
+      <div className="flex-1 overflow-y-auto noscrollbar p-0.5">
+        <div className="flex flex-col gap-2">
+          {/* Visuals Tab */}
+          {activeTab === 'visuals' && (
+            <>
+              {/* Visual Quality Settings */}
+              <div
+                className="bg-gradient-to-br from-black/40 to-black/25 border rounded-lg p-1.5"
+                style={{ borderColor: 'rgba(242, 208, 138, 0.25)' }}
+              >
+                <div className="flex items-center gap-1 mb-1.5">
+                  <span className="text-xs">✨</span>
+                  <span className="text-[10px] font-semibold" style={{ color: '#f2d08a' }}>Visual Quality</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {/* Resolution */}
+                  <div>
+                    <div className="text-[9px] mb-0.5" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Resolution</div>
+                    <div className="flex gap-1">
+                      {dprOptions.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            setDPR(opt.value)
+                            prefs?.setDPR?.(opt.value)
+                          }}
+                          className="flex-1 text-[9px] py-0.5 px-1.5 rounded transition-all border"
+                          style={{
+                            backgroundColor: dpr === opt.value ? 'rgba(242, 208, 138, 0.15)' : 'rgba(0, 0, 0, 0.2)',
+                            borderColor: dpr === opt.value ? 'rgba(242, 208, 138, 0.4)' : 'rgba(242, 208, 138, 0.2)',
+                            color: dpr === opt.value ? '#f2d08a' : 'rgba(242, 208, 138, 0.6)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Shadow Quality */}
+                  <div>
+                    <div className="text-[9px] mb-0.5" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Shadow Quality</div>
+                    <div className="flex gap-1">
+                      {shadowOptions.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            setShadows(opt.value)
+                            prefs?.setShadows?.(opt.value)
+                          }}
+                          className="flex-1 text-[9px] py-0.5 px-1.5 rounded transition-all border"
+                          style={{
+                            backgroundColor: shadows === opt.value ? 'rgba(242, 208, 138, 0.15)' : 'rgba(0, 0, 0, 0.2)',
+                            borderColor: shadows === opt.value ? 'rgba(242, 208, 138, 0.4)' : 'rgba(242, 208, 138, 0.2)',
+                            color: shadows === opt.value ? '#f2d08a' : 'rgba(242, 208, 138, 0.6)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Post-Processing & Bloom */}
+                  <div className="grid grid-cols-2 gap-1">
+                    <button
+                      onClick={() => {
+                        const next = !postprocessing
+                        setPostprocessing(next)
+                        prefs?.setPostprocessing?.(next)
+                      }}
+                      className="p-1 rounded transition-all border"
+                      style={{
+                        backgroundColor: postprocessing ? 'rgba(34, 197, 94, 0.08)' : 'rgba(0, 0, 0, 0.2)',
+                        borderColor: postprocessing ? 'rgba(34, 197, 94, 0.3)' : 'rgba(242, 208, 138, 0.2)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px]">🎨</span>
+                        <div className="flex-1 text-left">
+                          <div className="text-[9px]" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Effects</div>
+                        </div>
+                        <div
+                          className="w-3 h-3 rounded-full flex items-center justify-center text-[8px]"
+                          style={{
+                            backgroundColor: postprocessing ? 'rgba(34, 197, 94, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                            color: postprocessing ? '#22c55e' : '#6b7280'
+                          }}
+                        >
+                          {postprocessing ? '✓' : '○'}
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const next = !bloom
+                        setBloom(next)
+                        prefs?.setBloom?.(next)
+                      }}
+                      disabled={!postprocessing}
+                      className="p-1 rounded transition-all border"
+                      style={{
+                        backgroundColor: bloom && postprocessing ? 'rgba(34, 197, 94, 0.08)' : 'rgba(0, 0, 0, 0.2)',
+                        borderColor: bloom && postprocessing ? 'rgba(34, 197, 94, 0.3)' : 'rgba(242, 208, 138, 0.2)',
+                        cursor: postprocessing ? 'pointer' : 'not-allowed',
+                        opacity: postprocessing ? 1 : 0.5
+                      }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px]">💫</span>
+                        <div className="flex-1 text-left">
+                          <div className="text-[9px]" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Bloom</div>
+                        </div>
+                        <div
+                          className="w-3 h-3 rounded-full flex items-center justify-center text-[8px]"
+                          style={{
+                            backgroundColor: bloom && postprocessing ? 'rgba(34, 197, 94, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                            color: bloom && postprocessing ? '#22c55e' : '#6b7280'
+                          }}
+                        >
+                          {bloom && postprocessing ? '✓' : '○'}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Interface Tab */}
+          {activeTab === 'interface' && (
+            <>
+              {/* Character Name Card */}
+              <div
+                className="bg-gradient-to-br from-black/40 to-black/25 border rounded-lg p-1.5"
+                style={{ borderColor: 'rgba(242, 208, 138, 0.25)' }}
+              >
+                <div className="flex items-center gap-1 mb-1.5">
+                  <span className="text-xs">⚔️</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#f2d08a' }}>
+                    Character Name
+                  </span>
+                </div>
+
+                {!isEditingName ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium" style={{ color: 'rgba(242, 208, 138, 0.95)' }}>
+                      {name || 'Unknown'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setIsEditingName(true)
+                        setTempName(name)
+                      }}
+                      className="text-[10px] rounded px-2 py-1 cursor-pointer transition-all hover:scale-105"
+                      style={{
+                        backgroundColor: 'rgba(242, 208, 138, 0.12)',
+                        border: '1px solid rgba(242, 208, 138, 0.3)',
+                        color: '#f2d08a',
+                      }}
+                    >
+                      ✎ Edit
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <input
+                      type="text"
+                      value={tempName}
+                      onChange={(e) => setTempName(e.target.value)}
+                      className="w-full text-xs py-1.5 px-2 bg-white/5 border rounded focus:outline-none focus:ring-1"
+                      style={{
+                        borderColor: 'rgba(242, 208, 138, 0.3)',
+                        color: '#f2d08a',
+                      }}
+                      placeholder="Enter name..."
+                      maxLength={20}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') changeName(tempName)
+                        if (e.key === 'Escape') {
+                          setIsEditingName(false)
+                          setTempName(name)
+                        }
+                      }}
+                    />
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => changeName(tempName)}
+                        className="flex-1 text-[10px] rounded px-2 py-1 cursor-pointer transition-all hover:scale-105"
+                        style={{
+                          backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                          border: '1px solid rgba(34, 197, 94, 0.4)',
+                          color: '#22c55e',
+                        }}
+                      >
+                        ✓ Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditingName(false)
+                          setTempName(name)
+                        }}
+                        className="flex-1 text-[10px] rounded px-2 py-1 cursor-pointer transition-all hover:scale-105"
+                        style={{
+                          backgroundColor: 'rgba(107, 114, 128, 0.2)',
+                          border: '1px solid rgba(107, 114, 128, 0.4)',
+                          color: '#9ca3af',
+                        }}
+                      >
+                        ✕ Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Interface Settings Card */}
+              <div
+                className="bg-gradient-to-br from-black/40 to-black/25 border rounded-lg p-1.5"
+                style={{ borderColor: 'rgba(242, 208, 138, 0.25)' }}
+              >
+                <div className="flex items-center gap-1 mb-1.5">
+                  <span className="text-xs">🎮</span>
+                  <span className="text-[10px] font-semibold" style={{ color: '#f2d08a' }}>Interface</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {/* UI Scale */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px]" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>UI Scale</span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{
+                        backgroundColor: 'rgba(242, 208, 138, 0.15)',
+                        color: '#f2d08a'
+                      }}>
+                        {uiScale.toFixed(2)}x
+                      </span>
+                    </div>
+                    <input
+                      type='range'
+                      min={0.6}
+                      max={1.6}
+                      step={0.05}
+                      value={uiScale}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value)
+                        setUiScale(v)
+                        prefs?.setUI?.(v)
+                      }}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #f2d08a 0%, #f2d08a ${((uiScale - 0.6) / 1.0) * 100}%, rgba(242, 208, 138, 0.2) ${((uiScale - 0.6) / 1.0) * 100}%, rgba(242, 208, 138, 0.2) 100%)`
+                      }}
+                    />
+                  </div>
+
+                  {/* Quick Toggles */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {/* Fullscreen */}
+                    <button
+                      onClick={() => { if (canFullscreen) toggleFullscreen(!(isFullscreen as boolean)) }}
+                      disabled={!canFullscreen}
+                      className="p-1.5 rounded transition-all border"
+                      style={{
+                        backgroundColor: (isFullscreen as boolean) ? 'rgba(34, 197, 94, 0.08)' : 'rgba(0, 0, 0, 0.2)',
+                        borderColor: (isFullscreen as boolean) ? 'rgba(34, 197, 94, 0.3)' : 'rgba(242, 208, 138, 0.2)',
+                        cursor: canFullscreen ? 'pointer' : 'not-allowed',
+                        opacity: canFullscreen ? 1 : 0.5
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">🖥️</span>
+                        <div className="flex-1 text-left">
+                          <div className="text-[10px]" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Fullscreen</div>
+                        </div>
+                        <div
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
+                          style={{
+                            backgroundColor: (isFullscreen as boolean) ? 'rgba(34, 197, 94, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                            color: (isFullscreen as boolean) ? '#22c55e' : '#6b7280'
+                          }}
+                        >
+                          {(isFullscreen as boolean) ? '✓' : '○'}
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Performance Stats */}
+                    <button
+                      onClick={() => {
+                        const next = !statsOn
+                        setStatsOn(next)
+                        prefs?.setStats?.(next)
+                      }}
+                      className="p-1.5 rounded transition-all border"
+                      style={{
+                        backgroundColor: statsOn ? 'rgba(34, 197, 94, 0.08)' : 'rgba(0, 0, 0, 0.2)',
+                        borderColor: statsOn ? 'rgba(34, 197, 94, 0.3)' : 'rgba(242, 208, 138, 0.2)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">📊</span>
+                        <div className="flex-1 text-left">
+                          <div className="text-[10px]" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Stats</div>
+                        </div>
+                        <div
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
+                          style={{
+                            backgroundColor: statsOn ? 'rgba(34, 197, 94, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                            color: statsOn ? '#22c55e' : '#6b7280'
+                          }}
+                        >
+                          {statsOn ? '✓' : '○'}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Hide Interface Button */}
+                  {!isTouch && (
+                    <button
+                      onClick={() => world.ui?.toggleVisible?.()}
+                      className="w-full text-[10px] rounded-md py-1.5 px-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] border"
+                      style={{
+                        backgroundColor: 'rgba(139, 69, 19, 0.2)',
+                        borderColor: 'rgba(139, 69, 19, 0.4)',
+                        color: '#f2d08a'
+                      }}
+                    >
+                      <span className="flex items-center justify-center gap-1.5">
+                        <span>🙈</span>
+                        <span>Hide Interface</span>
+                        <span className="text-[9px] opacity-60">(Press Z)</span>
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Audio Tab */}
+          {activeTab === 'audio' && (
+            <>
+              {/* Audio Settings Card */}
+              <div
+                className="bg-gradient-to-br from-black/40 to-black/25 border rounded-lg p-1.5"
+                style={{ borderColor: 'rgba(242, 208, 138, 0.25)' }}
+              >
+                <div className="flex items-center gap-1 mb-1.5">
+                  <span className="text-xs">🔊</span>
+                  <span className="text-[10px] font-semibold" style={{ color: '#f2d08a' }}>Audio</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {/* Music Volume */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs">🎵</span>
+                        <span className="text-[10px]" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Music</span>
+                      </div>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{
+                        backgroundColor: 'rgba(242, 208, 138, 0.15)',
+                        color: '#f2d08a'
+                      }}>
+                        {Math.round(music * 50)}%
+                      </span>
+                    </div>
+                    <input
+                      type='range'
+                      min={0}
+                      max={2}
+                      step={0.05}
+                      value={music}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value)
+                        setMusic(v)
+                        prefs?.setMusic?.(v)
+                      }}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #f2d08a 0%, #f2d08a ${(music / 2) * 100}%, rgba(242, 208, 138, 0.2) ${(music / 2) * 100}%, rgba(242, 208, 138, 0.2) 100%)`
+                      }}
+                    />
+                  </div>
+
+                  {/* Effects Volume */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs">💥</span>
+                        <span className="text-[10px]" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Effects</span>
+                      </div>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{
+                        backgroundColor: 'rgba(242, 208, 138, 0.15)',
+                        color: '#f2d08a'
+                      }}>
+                        {Math.round(sfx * 50)}%
+                      </span>
+                    </div>
+                    <input
+                      type='range'
+                      min={0}
+                      max={2}
+                      step={0.05}
+                      value={sfx}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value)
+                        setSFX(v)
+                        prefs?.setSFX?.(v)
+                      }}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #f2d08a 0%, #f2d08a ${(sfx / 2) * 100}%, rgba(242, 208, 138, 0.2) ${(sfx / 2) * 100}%, rgba(242, 208, 138, 0.2) 100%)`
+                      }}
+                    />
+                  </div>
+
+                  {/* Voice Volume */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs">🎤</span>
+                        <span className="text-[10px]" style={{ color: 'rgba(242, 208, 138, 0.9)' }}>Voice Chat</span>
+                      </div>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{
+                        backgroundColor: 'rgba(242, 208, 138, 0.15)',
+                        color: '#f2d08a'
+                      }}>
+                        {Math.round(voice * 50)}%
+                      </span>
+                    </div>
+                    <input
+                      type='range'
+                      min={0}
+                      max={2}
+                      step={0.05}
+                      value={voice}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value)
+                        setVoice(v)
+                        prefs?.setVoice?.(v)
+                      }}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #f2d08a 0%, #f2d08a ${(voice / 2) * 100}%, rgba(242, 208, 138, 0.2) ${(voice / 2) * 100}%, rgba(242, 208, 138, 0.2) 100%)`
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Backend Tab */}
+          {activeTab === 'backend' && (
+            <>
+              {/* Renderer Status Card */}
+              <div
+                className="relative bg-gradient-to-br from-black/50 to-black/30 border rounded-lg p-3 overflow-hidden"
+                style={{
+                  borderColor: world.graphics?.isWebGPU ? 'rgba(34, 197, 94, 0.4)' : 'rgba(96, 165, 250, 0.4)',
+                  boxShadow: world.graphics?.isWebGPU ? '0 0 15px rgba(34, 197, 94, 0.1)' : '0 0 15px rgba(96, 165, 250, 0.1)',
+                  minHeight: '80px'
+                }}
+              >
+                {/* Decorative glow effect */}
+                <div
+                  className="absolute top-0 right-0 w-24 h-24 rounded-full blur-3xl opacity-15"
+                  style={{
+                    background: world.graphics?.isWebGPU ? '#22c55e' : '#60a5fa',
+                    transform: 'translate(30%, -30%)'
+                  }}
+                />
+
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className="w-1.5 h-1.5 rounded-full animate-pulse"
+                        style={{ backgroundColor: world.graphics?.isWebGPU ? '#22c55e' : '#60a5fa' }}
+                      />
+                      <span className="text-[9px] uppercase tracking-wider" style={{ color: 'rgba(242, 208, 138, 0.6)' }}>
+                        Graphics Backend
+                      </span>
+                    </div>
+                    <span
+                      className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: world.graphics?.isWebGPU ? 'rgba(34, 197, 94, 0.15)' : 'rgba(96, 165, 250, 0.15)',
+                        color: world.graphics?.isWebGPU ? '#22c55e' : '#60a5fa',
+                        border: `1px solid ${world.graphics?.isWebGPU ? 'rgba(34, 197, 94, 0.3)' : 'rgba(96, 165, 250, 0.3)'}`
+                      }}
+                    >
+                      {world.graphics?.isWebGPU ? '⚡ Modern' : '🔷 Compatible'}
+                    </span>
+                  </div>
+
+                  <div className="text-base font-bold mb-1" style={{ color: '#f2d08a' }}>
+                    {world.graphics?.isWebGPU ? 'WebGPU' : 'WebGL 2'}
+                  </div>
+
+                  <div className="text-[9px]" style={{ color: 'rgba(242, 208, 138, 0.5)' }}>
+                    {world.graphics?.isWebGPU ? 'High-performance rendering' : 'Cross-browser compatible'}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
-
-

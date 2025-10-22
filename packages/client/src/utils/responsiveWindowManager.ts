@@ -6,7 +6,8 @@
 export enum ScreenSize {
   MOBILE = 'mobile',
   TABLET = 'tablet',
-  DESKTOP = 'desktop'
+  DESKTOP = 'desktop',
+  ULTRAWIDE = 'ultrawide'
 }
 
 export interface WindowConfig {
@@ -40,7 +41,8 @@ export class ResponsiveWindowManager {
     const width = window.innerWidth
     if (width < 768) return ScreenSize.MOBILE
     if (width < 1024) return ScreenSize.TABLET
-    return ScreenSize.DESKTOP
+    if (width < 2560) return ScreenSize.DESKTOP
+    return ScreenSize.ULTRAWIDE
   }
 
   isMobile(): boolean {
@@ -55,9 +57,13 @@ export class ResponsiveWindowManager {
     return this.getScreenSize() === ScreenSize.DESKTOP
   }
 
+  isUltrawide(): boolean {
+    return this.getScreenSize() === ScreenSize.ULTRAWIDE
+  }
+
   getWindowDimensions(config?: WindowConfig) {
     const screenSize = this.getScreenSize()
-    const defaultWidth = screenSize === ScreenSize.MOBILE ? window.innerWidth - 16 :
+    const defaultWidth = screenSize === ScreenSize.MOBILE ? window.innerWidth :
                         screenSize === ScreenSize.TABLET ? 400 :
                         500
 
@@ -73,11 +79,11 @@ export class ResponsiveWindowManager {
     // Mobile: center or bottom sheet
     if (screenSize === ScreenSize.MOBILE) {
       if (config?.fullscreen?.mobile) {
-        return { x: 8, y: 60 }
+        return { x: 0, y: 60 }
       }
       // Bottom sheet style
       return {
-        x: 8,
+        x: 0,
         y: window.innerHeight * 0.25
       }
     }
@@ -94,35 +100,86 @@ export class ResponsiveWindowManager {
       }
     }
 
-    // Desktop: grid-based layout matching screenshot
+    // Desktop: grid-based layout with safe positioning
     if (config?.position?.desktop) {
       return config.position.desktop
     }
 
-    // Grid layout based on window type (matching screenshot layout)
+    // Calculate safe viewport boundaries (with margins)
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
+    const isUltrawide = this.isUltrawide()
 
-    const desktopPositions: Record<string, { x: number; y: number }> = {
-      // Top row (left to right) - based on screenshot proportions
-      combat: { x: viewportWidth * 0.11, y: 75 },           // ~11% from left, top
-      equipment: { x: viewportWidth * 0.28, y: 75 },        // ~28% from left, top
-      inventory: { x: viewportWidth * 0.63, y: 75 },        // ~63% from left, top
-      settings: { x: viewportWidth * 0.82, y: 75 },         // ~82% from left, top
+    // Increase margins for ultrawide displays
+    const leftMargin = 0
+    const topMargin = 80
+    const rightMargin = isUltrawide ? 60 : 40
+    const bottomMargin = 80
 
-      // Bottom row (left to right) - bottom aligned
-      // Account is taller, so it needs to start higher to align bottoms with Skills
-      account: { x: viewportWidth * 0.11, y: viewportHeight * 0.38 },   // ~11% from left, starts higher
-      skills: { x: viewportWidth * 0.28, y: viewportHeight * 0.64 },    // ~28% from left, lower
-
-      // Prefs is same as settings
-      prefs: { x: viewportWidth * 0.82, y: 75 },
+    // Define standard window sizes for positioning calculations - uniform 550px height
+    const windowSizes: Record<string, { width: number; height: number }> = {
+      combat: { width: 450, height: 550 },
+      equipment: { width: 500, height: 550 },
+      inventory: { width: 450, height: 550 },
+      settings: { width: 380, height: 550 },
+      prefs: { width: 380, height: 550 },
+      account: { width: 380, height: 550 },
+      skills: { width: 450, height: 550 },
     }
 
-    // Return position for this window or default top-right
-    return desktopPositions[windowId] || {
-      x: viewportWidth * 0.7,
-      y: 100
+    // Grid layout - ensure all windows fit on screen
+    // Ultrawide: more horizontal spacing, Desktop: standard spacing
+    const horizontalSpacing = isUltrawide ? 520 : 480
+    const verticalSpacing = 620
+
+    const desktopPositions: Record<string, { x: number; y: number }> = {
+      // Top row - left to right with safe margins
+      combat: {
+        x: leftMargin,
+        y: topMargin
+      },
+      equipment: {
+        x: Math.min(leftMargin + horizontalSpacing, viewportWidth - (windowSizes.equipment?.width || 500) - rightMargin),
+        y: topMargin
+      },
+      inventory: {
+        x: Math.min(leftMargin + (horizontalSpacing * 2), viewportWidth - (windowSizes.inventory?.width || 450) - rightMargin),
+        y: topMargin
+      },
+      settings: {
+        x: Math.max(viewportWidth - (windowSizes.settings?.width || 380) - rightMargin, leftMargin),
+        y: topMargin
+      },
+      prefs: {
+        x: Math.max(viewportWidth - (windowSizes.prefs?.width || 380) - rightMargin, leftMargin),
+        y: topMargin
+      },
+
+      // Bottom row - positioned to not overlap with top row
+      account: {
+        x: leftMargin,
+        y: Math.min(topMargin + verticalSpacing, viewportHeight - (windowSizes.account?.height || 550) - bottomMargin)
+      },
+      skills: {
+        x: Math.min(leftMargin + horizontalSpacing, viewportWidth - (windowSizes.skills?.width || 450) - rightMargin),
+        y: Math.min(topMargin + verticalSpacing, viewportHeight - (windowSizes.skills?.height || 550) - bottomMargin)
+      },
+    }
+
+    // Return position for this window or safe default
+    const defaultPos = desktopPositions[windowId]
+    if (defaultPos) {
+      // Ensure position is within viewport bounds
+      return {
+        x: Math.max(leftMargin, Math.min(defaultPos.x, viewportWidth - 400 - rightMargin)),
+        y: Math.max(topMargin, Math.min(defaultPos.y, viewportHeight - 400 - bottomMargin))
+      }
+    }
+
+    // Fallback for unknown windows - center on screen
+    return {
+      x: Math.max(leftMargin, (viewportWidth - 400) / 2),
+      y: Math.max(topMargin, (viewportHeight - 500) / 2)
     }
   }
 
@@ -142,14 +199,14 @@ export class ResponsiveWindowManager {
 
   getMaxWindowWidth(): number {
     const screenSize = this.getScreenSize()
-    if (screenSize === ScreenSize.MOBILE) return window.innerWidth - 16
+    if (screenSize === ScreenSize.MOBILE) return window.innerWidth
     if (screenSize === ScreenSize.TABLET) return 500
     return 600
   }
 
   getMinWindowWidth(): number {
     const screenSize = this.getScreenSize()
-    if (screenSize === ScreenSize.MOBILE) return window.innerWidth - 16
+    if (screenSize === ScreenSize.MOBILE) return window.innerWidth
     if (screenSize === ScreenSize.TABLET) return 350
     return 300
   }
@@ -159,25 +216,34 @@ export class ResponsiveWindowManager {
     const screenSize = this.getScreenSize()
 
     if (screenSize === ScreenSize.MOBILE) {
-      // Mobile: stack vertically from bottom
+      // Mobile: stack vertically from bottom, prevent going off-screen
+      const maxY = window.innerHeight - 100
+      const calculatedY = window.innerHeight - 300 - (windowIndex * 60)
       return {
-        x: 8,
-        y: window.innerHeight - 300 - (windowIndex * 60)
+        x: 0,
+        y: Math.max(calculatedY, maxY - (totalWindows * 60))
       }
     }
 
     if (screenSize === ScreenSize.TABLET) {
-      // Tablet: right side stack
+      // Tablet: right side stack, prevent going off-screen
+      const maxY = window.innerHeight - 100
+      const calculatedY = 80 + (windowIndex * 60)
       return {
         x: window.innerWidth - 420,
-        y: 80 + (windowIndex * 60)
+        y: Math.min(calculatedY, maxY - (totalWindows * 60))
       }
     }
 
-    // Desktop: cascade from top-right
+    // Desktop: cascade from top-right, prevent going off-screen
+    const maxX = window.innerWidth - 100
+    const maxY = window.innerHeight - 100
+    const calculatedX = window.innerWidth - 520 - (windowIndex * 30)
+    const calculatedY = 100 + (windowIndex * 40)
+    
     return {
-      x: window.innerWidth - 520 - (windowIndex * 30),
-      y: 100 + (windowIndex * 40)
+      x: Math.max(calculatedX, maxX - (totalWindows * 30)),
+      y: Math.min(calculatedY, maxY - (totalWindows * 40))
     }
   }
 

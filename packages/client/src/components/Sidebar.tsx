@@ -33,25 +33,57 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
   const [coins, setCoins] = useState<number>(0)
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(false)
   const [isMobile, setIsMobile] = useState<boolean>(false)
-  const { collapsed: _chatCollapsed, active: _chatActive } = useChatContext()
+  const { collapsed: _chatCollapsed, active: _chatActive, setHasOpenWindows } = useChatContext()
 
   const [openWindows, setOpenWindows] = useState<Set<string>>(new Set())
-  
+  const [windowZIndices, setWindowZIndices] = useState<Map<string, number>>(new Map())
+  const [nextZIndex, setNextZIndex] = useState(1000)
+
+  // Update chat context whenever windows open/close
+  useEffect(() => {
+    setHasOpenWindows(openWindows.size > 0)
+  }, [openWindows, setHasOpenWindows])
+
   const toggleWindow = (windowId: string) => {
     setOpenWindows(prev => {
       const next = new Set(prev)
-      if (next.has(windowId)) next.delete(windowId)
-      else next.add(windowId)
+      if (next.has(windowId)) {
+        next.delete(windowId)
+      } else {
+        next.add(windowId)
+        // Assign z-index when opening
+        setWindowZIndices(prevIndices => {
+          const newIndices = new Map(prevIndices)
+          newIndices.set(windowId, nextZIndex)
+          return newIndices
+        })
+        setNextZIndex(prev => prev + 1)
+      }
       return next
     })
   }
-  
+
   const closeWindow = (windowId: string) => {
     setOpenWindows(prev => {
       const next = new Set(prev)
       next.delete(windowId)
       return next
     })
+    // Clean up z-index when closing
+    setWindowZIndices(prev => {
+      const next = new Map(prev)
+      next.delete(windowId)
+      return next
+    })
+  }
+
+  const bringToFront = (windowId: string) => {
+    setWindowZIndices(prevIndices => {
+      const newIndices = new Map(prevIndices)
+      newIndices.set(windowId, nextZIndex)
+      return newIndices
+    })
+    setNextZIndex(prev => prev + 1)
   }
   
   useEffect(() => {
@@ -177,50 +209,61 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           }}
         >
           <div
-            className="relative pointer-events-none transition-all duration-300"
+            className="relative pointer-events-none"
             style={{
               width: minimapCollapsed ? 56 : minimapOuterSize,
               height: minimapCollapsed ? 56 : minimapOuterSize,
+              transition: 'width 0.3s ease-in-out, height 0.3s ease-in-out',
             }}
           >
-            {!minimapCollapsed && (
-              <>
-                <div
-                  className="absolute inset-0 border border-white/[0.08] rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all duration-300 pointer-events-auto hover:border-white/[0.15] overflow-hidden flex items-center justify-center"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(12,12,20,0.98), rgba(12,12,20,0.92))',
-                    paddingTop: '6px',
-                    paddingRight: isMobile ? '10px' : '10px',
-                    paddingBottom: '10px',
-                    paddingLeft: '6px',
-                  }}
-                >
-                  <Minimap
-                    world={world}
-                    width={minimapInnerSize}
-                    height={minimapInnerSize}
-                    zoom={minimapZoom}
-                    onCompassClick={() => setMinimapCollapsed(true)}
-                  />
-                </div>
-                {radialButtons.map((button) => (
-                  <div
-                    key={button.windowId}
-                    className="absolute pointer-events-auto z-[999]"
-                    style={button.style}
-                  >
-                    <MenuButton
-                      icon={button.icon}
-                      label={button.label}
-                      active={openWindows.has(button.windowId)}
-                      onClick={() => toggleWindow(button.windowId)}
-                      size={radialButtonSize}
-                      circular={true}
-                    />
-                  </div>
-                ))}
-              </>
-            )}
+            <div
+              className={`absolute inset-0 rounded-full pointer-events-auto overflow-hidden flex items-center justify-center ${
+                minimapCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}
+              style={{
+                background: 'linear-gradient(135deg, rgba(20, 15, 10, 0.85) 0%, rgba(15, 10, 5, 0.95) 50%, rgba(20, 15, 10, 0.85) 100%)',
+                backdropFilter: 'blur(12px)',
+                border: '2px solid rgba(139, 69, 19, 0.7)',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(139, 69, 19, 0.5), inset 0 2px 4px rgba(242, 208, 138, 0.15), inset 0 -2px 4px rgba(0, 0, 0, 0.6)',
+                paddingTop: '6px',
+                paddingRight: isMobile ? '10px' : '10px',
+                paddingBottom: '10px',
+                paddingLeft: '6px',
+                transition: 'opacity 0.3s ease-in-out, border-color 0.2s ease-in-out',
+                willChange: 'opacity',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(242, 208, 138, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(139, 69, 19, 0.7)'
+              }}
+            >
+              <Minimap
+                world={world}
+                width={minimapInnerSize}
+                height={minimapInnerSize}
+                zoom={minimapZoom}
+                onCompassClick={() => setMinimapCollapsed(true)}
+                isVisible={!minimapCollapsed}
+              />
+            </div>
+            {!minimapCollapsed && radialButtons.map((button) => (
+              <div
+                key={button.windowId}
+                className="absolute pointer-events-auto z-[999]"
+                style={button.style}
+              >
+                <MenuButton
+                  icon={button.icon}
+                  label={button.label}
+                  active={openWindows.has(button.windowId)}
+                  onClick={() => toggleWindow(button.windowId)}
+                  size={radialButtonSize}
+                  circular={true}
+                />
+              </div>
+            ))}
             
             {/* Compass - always visible on outside of ring */}
             <div
@@ -245,6 +288,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Account"
             windowId="account"
             onClose={() => closeWindow('account')}
+            zIndex={windowZIndices.get('account') || 1000}
+            onFocus={() => bringToFront('account')}
           >
             <AccountPanel world={world} />
           </GameWindow>
@@ -255,6 +300,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Combat"
             windowId="combat"
             onClose={() => closeWindow('combat')}
+            zIndex={windowZIndices.get('combat') || 1000}
+            onFocus={() => bringToFront('combat')}
           >
             <CombatPanel world={world} stats={playerStats} equipment={equipment} />
           </GameWindow>
@@ -265,6 +312,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Skills"
             windowId="skills"
             onClose={() => closeWindow('skills')}
+            zIndex={windowZIndices.get('skills') || 1000}
+            onFocus={() => bringToFront('skills')}
           >
             <SkillsPanel world={world} stats={playerStats} />
           </GameWindow>
@@ -275,6 +324,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Inventory"
             windowId="inventory"
             onClose={() => closeWindow('inventory')}
+            zIndex={windowZIndices.get('inventory') || 1000}
+            onFocus={() => bringToFront('inventory')}
             fitContent
           >
             <InventoryPanel items={inventory} coins={coins} world={world} />
@@ -286,8 +337,10 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Equipment"
             windowId="equipment"
             onClose={() => closeWindow('equipment')}
+            zIndex={windowZIndices.get('equipment') || 1000}
+            onFocus={() => bringToFront('equipment')}
           >
-            <EquipmentPanel equipment={equipment} />
+            <EquipmentPanel equipment={equipment} stats={playerStats} />
           </GameWindow>
         )}
 
@@ -296,6 +349,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Settings"
             windowId="prefs"
             onClose={() => closeWindow('prefs')}
+            zIndex={windowZIndices.get('prefs') || 1000}
+            onFocus={() => bringToFront('prefs')}
           >
             <SettingsPanel world={world} />
           </GameWindow>

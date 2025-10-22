@@ -486,8 +486,20 @@ export class PlayerSystem extends SystemBase {
     const validMaxHealth = Number.isFinite(data.maxHealth) && data.maxHealth > 0 ? data.maxHealth : player.health.max
     const validCurrentHealth = Number.isFinite(data.currentHealth) ? data.currentHealth : player.health.current
     
-    player.health.current = Math.max(0, Math.min(validCurrentHealth, validMaxHealth))
-    player.health.max = validMaxHealth
+    // Additional safety checks to prevent NaN values
+    if (!Number.isFinite(validMaxHealth) || validMaxHealth <= 0) {
+      Logger.systemError('PlayerSystem', `Invalid maxHealth value: ${validMaxHealth}, using default 100`, new Error(`Invalid maxHealth: ${validMaxHealth}`))
+      player.health.max = 100
+    } else {
+      player.health.max = validMaxHealth
+    }
+    
+    if (!Number.isFinite(validCurrentHealth)) {
+      Logger.systemError('PlayerSystem', `Invalid currentHealth value: ${validCurrentHealth}, using maxHealth`, new Error(`Invalid currentHealth: ${validCurrentHealth}`))
+      player.health.current = player.health.max
+    } else {
+      player.health.current = Math.max(0, Math.min(validCurrentHealth, player.health.max))
+    }
 
     // Check for death
     if (player.health.current <= 0 && player.alive) {
