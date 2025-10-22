@@ -510,6 +510,17 @@ export class InventorySystem extends SystemBase {
       return;
     }
     
+    // Validate input parameters
+    if (!data.playerId) {
+      Logger.systemError('InventorySystem', 'Cannot pickup item: playerId is undefined', new Error('Cannot pickup item: playerId is undefined'));
+      return;
+    }
+    
+    if (!data.entityId) {
+      Logger.systemError('InventorySystem', 'Cannot pickup item: entityId is undefined', new Error('Cannot pickup item: entityId is undefined'));
+      return;
+    }
+    
     // Get item entity data from entity manager
     const entityManager = getSystem(this.world, 'entity-manager') as EntityManager;
     if (!entityManager) {
@@ -530,6 +541,13 @@ export class InventorySystem extends SystemBase {
     
     if (!itemId) {
       Logger.systemError('InventorySystem', `No itemId found for entity ${data.entityId}`, new Error(`No itemId found for entity ${data.entityId}`));
+      return;
+    }
+    
+    // Validate that the item exists in the item database
+    const itemData = getItem(itemId);
+    if (!itemData) {
+      Logger.systemError('InventorySystem', `Item not found in database: ${itemId}`, new Error(`Item not found in database: ${itemId}`));
       return;
     }
     

@@ -125,17 +125,17 @@ export function FieldText({ label, hint, placeholder, value, onChange }: FieldTe
   const setHint = hintContext.setHint
   return (
     <label
-      className='field field-text block mb-2 relative'
+      className='field field-text block mb-1.5 relative'
       onPointerEnter={() => hint && setHint(hint)}
       onPointerLeave={() => hint && setHint(null)}
     >
-      <div className='field-label text-[0.8125rem] mb-1.5 text-white/70 font-medium'>{label}</div>
+      <div className='field-label text-[8px] mb-1 text-white/70 font-medium'>{label}</div>
       <input
         type='text'
         placeholder={placeholder}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full text-sm py-1.5 px-2 bg-white/5 border border-white/10 rounded text-white hover:bg-white/10 hover:border-white/20 focus:bg-white/10 focus:border-white/30 focus:outline-none"
+        className="w-full text-[8px] py-1 px-1.5 bg-white/5 border border-white/10 rounded text-white hover:bg-white/10 hover:border-white/20 focus:bg-white/10 focus:border-white/30 focus:outline-none"
         onKeyDown={e => {
           if (e.code === 'Escape') {
             const target = e.target as HTMLInputElement
@@ -221,21 +221,21 @@ export function FieldSwitch({ label, hint, options, value, onChange }: FieldSwit
   }
   return (
     <div
-      className='field field-switch mb-2'
+      className='field field-switch mb-1.5'
       onPointerEnter={() => hint && setHint(hint)}
       onPointerLeave={() => hint && setHint(null)}
     >
-      <div className='field-label text-[0.8125rem] mb-1.5 text-white/70 font-medium'>{label}</div>
-      <div className='field-switch-control flex items-center gap-2 text-sm'>
+      <div className='field-label text-[8px] mb-1 text-white/70 font-medium'>{label}</div>
+      <div className='field-switch-control flex items-center gap-1.5 text-[8px]'>
         <div
-          className='field-switch-btn w-6 h-6 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'
+          className='field-switch-btn w-5 h-5 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'
           onClick={prev}
         >
           ‹
         </div>
         <div className='field-switch-value flex-1 text-center text-white'>{options[idx]?.label || ''}</div>
         <div
-          className='field-switch-btn w-6 h-6 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'
+          className='field-switch-btn w-5 h-5 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'
           onClick={next}
         >
           ›
@@ -337,7 +337,7 @@ export function FieldRange({ label, hint, min = 0, max = 1, step = 0.05, instant
   
   return (
     <div
-      className={`fieldrange flex items-center h-10 px-4 ${isHovered ? 'bg-white/[0.03]' : 'bg-transparent'}`}
+      className={`fieldrange flex items-center h-7 px-2 ${isHovered ? 'bg-white/[0.03]' : 'bg-transparent'}`}
       onPointerEnter={() => {
         hint && setHint(hint)
         setIsHovered(true)
@@ -347,10 +347,10 @@ export function FieldRange({ label, hint, min = 0, max = 1, step = 0.05, instant
         setIsHovered(false)
       }}
     >
-      <div className='fieldrange-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-[0.9375rem] text-white/70 pr-4'>{label}</div>
-      <div className={`fieldrange-text text-[0.7rem] font-medium text-white mr-2 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>{text}</div>
-      <div className='fieldrange-track w-28 shrink-0 h-2 rounded-sm flex items-stretch bg-white/10 cursor-pointer' ref={trackRef}>
-        <div 
+      <div className='fieldrange-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-[8px] text-white/70 pr-2'>{label}</div>
+      <div className={`fieldrange-text text-[7px] font-medium text-white mr-1.5 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>{text}</div>
+      <div className='fieldrange-track w-20 shrink-0 h-1.5 rounded-sm flex items-stretch bg-white/10 cursor-pointer' ref={trackRef}>
+        <div
           className='fieldrange-bar bg-white rounded-sm'
           style={{ width: `${barWidthPercentage}%` }}
         />
@@ -851,7 +851,7 @@ export function FieldBtn({ label, note, hint, nav, onClick }: FieldBtnProps) {
   
   return (
     <div
-      className={`fieldbtn flex items-center h-10 px-4 cursor-pointer ${isHovered ? 'bg-white/[0.03]' : 'bg-transparent'}`}
+      className={`fieldbtn flex items-center h-7 px-2 cursor-pointer ${isHovered ? 'bg-white/[0.03]' : 'bg-transparent'}`}
       onPointerEnter={() => {
         hint && setHint(hint)
         setIsHovered(true)
@@ -862,9 +862,9 @@ export function FieldBtn({ label, note, hint, nav, onClick }: FieldBtnProps) {
       }}
       onClick={onClick}
     >
-      <div className='fieldbtn-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-[0.9375rem] text-white/70'>{label}</div>
-      {note && <div className='fieldbtn-note text-[0.9375rem] text-white/50'>{note}</div>}
-      {nav && <span className="text-2xl text-white">›</span>}
+      <div className='fieldbtn-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-[8px] text-white/70'>{label}</div>
+      {note && <div className='fieldbtn-note text-[8px] text-white/50'>{note}</div>}
+      {nav && <span className="text-base text-white">›</span>}
     </div>
   )
 }

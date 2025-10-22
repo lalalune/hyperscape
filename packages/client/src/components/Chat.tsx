@@ -2,7 +2,8 @@ import { MessageSquareIcon } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ControlPriorities, EventType, isTouch } from '@hyperscape/shared'
-import type { ClientWorld } from '../types'
+import type { ClientWorld, InventorySlotItem } from '../types'
+import { ActionPanel } from './ActionPanel'
 import { cls } from './cls'
 import { useChatContext } from './ChatContext'
 
@@ -51,9 +52,10 @@ export function Chat({ world }: { world: ChatWorld }) {
   const chatPanelRef = useRef<HTMLDivElement | null>(null)
   const touchStartYRef = useRef<number | null>(null)
   const [msg, setMsg] = useState('')
-  const { active, setActive, collapsed, setCollapsed } = useChatContext()
+  const { active, setActive, collapsed, setCollapsed, hasOpenWindows } = useChatContext()
   const [chatVisible, setChatVisible] = useState(() => world.prefs?.chatVisible ?? true)
   const [isMobileLayout, setIsMobileLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 768 : false))
+  const [inventory, setInventory] = useState<InventorySlotItem[]>([])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -84,6 +86,17 @@ export function Chat({ world }: { world: ChatWorld }) {
     world.prefs?.on?.('change', onPrefsChange)
     return () => {
       world.prefs?.off?.('change', onPrefsChange)
+    }
+  }, [world])
+
+  useEffect(() => {
+    const onInventory = (raw: unknown) => {
+      const data = raw as { items: InventorySlotItem[]; playerId: string; coins: number }
+      setInventory(data.items)
+    }
+    world.on(EventType.INVENTORY_UPDATED, onInventory)
+    return () => {
+      world.off(EventType.INVENTORY_UPDATED, onInventory)
     }
   }, [world])
 
@@ -152,16 +165,16 @@ export function Chat({ world }: { world: ChatWorld }) {
     'linear-gradient(90deg, rgba(242,208,138,0), rgba(242,208,138,0.4) 14%, rgba(255,215,128,0.95) 50%, rgba(242,208,138,0.4) 86%, rgba(242,208,138,0))'
 
   const basePanelStyle: React.CSSProperties = {
-    background: 'linear-gradient(180deg, rgba(27,29,36,0.95), rgba(16,17,24,0.97))',
-    border: '1px solid rgba(87, 97, 118, 0.55)',
-    borderRadius: 18,
-    padding: panelPadding,
-    boxShadow: '0 22px 45px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)',
-    backdropFilter: 'blur(8px)',
+    background: 'linear-gradient(135deg, rgba(20, 15, 10, 0.75) 0%, rgba(15, 10, 5, 0.85) 50%, rgba(20, 15, 10, 0.75) 100%)',
+    border: '2px solid rgba(139, 69, 19, 0.6)',
+    borderRadius: 0,
+    padding: isTouch ? '0.5rem 0.85rem 0.25rem 0.25rem' : '0.6rem 1.1rem 0.3rem 0.3rem',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(242, 208, 138, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.6)',
+    backdropFilter: 'blur(12px)',
     color: 'rgba(232, 235, 244, 0.92)',
     display: 'flex',
     flexDirection: 'column',
-    gap: isTouch ? '0.65rem' : '0.85rem',
+    gap: isTouch ? '0.25rem' : '0.3rem',
     pointerEvents: 'auto',
   }
   const goldLineStyle: React.CSSProperties = {
@@ -170,19 +183,25 @@ export function Chat({ world }: { world: ChatWorld }) {
     background: dividerGradient,
     opacity: 0.95,
   }
+  const narrowGoldLineStyle: React.CSSProperties = {
+    width: '80%',
+    height: 1,
+    background: dividerGradient,
+    opacity: 0.95,
+    margin: '0 auto',
+  }
   const desktopPanelStyle: React.CSSProperties = {
     ...basePanelStyle,
     width: panelWidth,
     maxWidth: 'min(96vw, 760px)',
+    borderTopRightRadius: '12px',
+    borderTop: '2px solid rgba(139, 69, 19, 0.6)',
+    borderRight: '2px solid rgba(139, 69, 19, 0.6)',
   }
   const mobilePanelStyle: React.CSSProperties = {
     ...basePanelStyle,
     width: '100%',
     maxWidth: '100%',
-    background: 'rgba(16,17,24,0.93)',
-    border: '1px solid rgba(247,217,140,0.22)',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
   }
 
   const chatButtonStyle: React.CSSProperties = {
@@ -190,36 +209,38 @@ export function Chat({ world }: { world: ChatWorld }) {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '0.6rem',
-    background: 'linear-gradient(180deg, rgba(33,36,45,0.95), rgba(19,21,29,0.95))',
-    border: '1px solid rgba(98, 110, 138, 0.6)',
+    background: 'linear-gradient(135deg, rgba(30, 20, 10, 0.9) 0%, rgba(20, 15, 10, 0.95) 100%)',
+    border: '2px solid rgba(139, 69, 19, 0.7)',
     borderRadius: 9999,
     padding: isTouch ? '0.55rem 1.2rem' : '0.65rem 1.4rem',
-    color: 'rgba(232, 235, 244, 0.9)',
+    color: CHAT_ACCENT_COLOR,
     fontFamily: CHAT_HEADER_FONT,
     letterSpacing: '0.16em',
     textTransform: 'uppercase',
     fontSize: isTouch ? '0.68rem' : '0.76rem',
-    boxShadow: '0 12px 26px rgba(0,0,0,0.55)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(242, 208, 138, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.5)',
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.8), 0 0 6px rgba(242, 208, 138, 0.3)',
     pointerEvents: 'auto',
   }
 
   const closeButtonStyle: React.CSSProperties = {
-    width: isTouch ? 30 : 36,
-    height: isTouch ? 30 : 36,
+    width: isTouch ? 24 : 28,
+    height: isTouch ? 24 : 28,
     borderRadius: 9999,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'linear-gradient(180deg, rgba(34,37,46,0.95), rgba(19,21,29,0.95))',
-    border: '1px solid rgba(108, 120, 148, 0.65)',
-    color: 'rgba(232, 235, 244, 0.85)',
-    boxShadow: '0 6px 16px rgba(0,0,0,0.5)',
+    background: 'transparent',
+    border: 'none',
+    color: CHAT_ACCENT_COLOR,
+    boxShadow: 'none',
     cursor: 'pointer',
+    flexShrink: 0,
   }
 
   const inactiveInputStyle: React.CSSProperties = {
     width: '100%',
-    padding: isTouch ? '0.55rem 0' : '0.65rem 0',
+    padding: isTouch ? '0.35rem 0' : '0.4rem 0',
     borderRadius: 0,
     border: 'none',
     borderBottom: '1px solid rgba(247,217,140,0.55)',
@@ -236,7 +257,7 @@ export function Chat({ world }: { world: ChatWorld }) {
     alignItems: 'center',
     gap: '0.5rem',
     borderBottom: '1px solid rgba(247,217,140,0.55)',
-    padding: isTouch ? '0.55rem 0' : '0.65rem 0',
+    padding: isTouch ? '0.35rem 0' : '0.4rem 0',
   }
 
   const inputStyle: React.CSSProperties = {
@@ -249,9 +270,14 @@ export function Chat({ world }: { world: ChatWorld }) {
     letterSpacing: '0.02em',
   }
 
-  const placementStyle: React.CSSProperties = {
+  const placementStyleCollapsed: React.CSSProperties = {
     left: `calc(env(safe-area-inset-left) + 24px)`,
     bottom: `calc(env(safe-area-inset-bottom) + 24px)`,
+  }
+
+  const placementStyleExpanded: React.CSSProperties = {
+    left: 0,
+    bottom: 0,
   }
 
   const tabs = ['Global', 'Local', 'Group'] as const
@@ -265,7 +291,7 @@ export function Chat({ world }: { world: ChatWorld }) {
     const isCollapsed = newCollapsed !== undefined ? newCollapsed : collapsed
     if (!isCollapsed && chatPanelRef.current) {
       const height = chatPanelRef.current.offsetHeight
-      document.documentElement.style.setProperty('--mobile-chat-offset', `${height + 16}px`)
+      document.documentElement.style.setProperty('--mobile-chat-offset', `${height}px`)
     } else {
       document.documentElement.style.setProperty('--mobile-chat-offset', '0px')
     }
@@ -308,7 +334,7 @@ export function Chat({ world }: { world: ChatWorld }) {
           style={{
             color: index === 0 ? CHAT_ACCENT_COLOR : 'rgba(205, 212, 230, 0.5)',
             position: 'relative',
-            paddingBottom: 4,
+            textShadow: index === 0 ? '0 1px 2px rgba(0, 0, 0, 0.8), 0 0 6px rgba(242, 208, 138, 0.3)' : '0 1px 2px rgba(0, 0, 0, 0.6)',
           }}
         >
           {tab}
@@ -317,12 +343,13 @@ export function Chat({ world }: { world: ChatWorld }) {
               style={{
                 position: 'absolute',
                 left: '50%',
-                bottom: 0,
+                bottom: -2,
                 transform: 'translateX(-50%)',
                 width: '80%',
                 height: 1,
                 borderRadius: 999,
                 background: 'linear-gradient(90deg, transparent, rgba(247,217,140,0.85), transparent)',
+                boxShadow: '0 0 4px rgba(242, 208, 138, 0.4)',
               }}
             />
           )}
@@ -333,21 +360,8 @@ export function Chat({ world }: { world: ChatWorld }) {
 
   const renderChatBody = (variant: 'desktop' | 'mobile') => (
     <>
-      <div
-        className='flex items-center justify-between'
-      >
-        <span
-          style={{
-            fontFamily: CHAT_HEADER_FONT,
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            fontSize: variant === 'mobile' ? (isTouch ? '0.82rem' : '0.88rem') : isTouch ? '0.8rem' : '0.95rem',
-            color: CHAT_ACCENT_COLOR,
-            textShadow: '0 0 18px rgba(247,217,140,0.35)',
-          }}
-        >
-          Chat
-        </span>
+      <div className='flex items-center justify-between'>
+        {renderTabs(variant === 'mobile' ? (isTouch ? '0.64rem' : '0.7rem') : (isTouch ? '0.64rem' : '0.74rem'))}
         <button
           type='button'
           style={closeButtonStyle}
@@ -362,24 +376,19 @@ export function Chat({ world }: { world: ChatWorld }) {
         </button>
       </div>
       <div style={goldLineStyle} />
-      {renderTabs(variant === 'mobile' ? (isTouch ? '0.64rem' : '0.7rem') : (isTouch ? '0.64rem' : '0.74rem'))}
-      <div style={goldLineStyle} />
-      <div
-        className='relative rounded-lg overflow-hidden bg-[rgba(16,17,24,0.5)]'
-        style={{
-          boxShadow: 'inset 0 1px 6px rgba(0,0,0,0.4)',
-        }}
-      >
+      <div className='relative overflow-hidden'>
+        <div style={narrowGoldLineStyle} />
         <Messages
           world={world}
           active={active}
           variant={variant}
           style={{
-            height: variant === 'mobile' ? 150 : isTouch ? 130 : 170,
+            height: variant === 'mobile' ? 110 : isTouch ? 95 : 120,
           }}
         />
+        <div style={narrowGoldLineStyle} />
       </div>
-      <div className='flex flex-col gap-1.5'>
+      <div className='flex flex-col'>
         <div style={goldLineStyle} />
         {!active ? (
           <button
@@ -430,12 +439,92 @@ export function Chat({ world }: { world: ChatWorld }) {
   if (isMobileLayout) {
     if (collapsed) {
       return (
+        <>
+          {/* Action Panel - Left aligned, hidden when GameWindows are open */}
+          {!hasOpenWindows && (
+            <div
+              className={cls('fixed pointer-events-none z-[10]', { hidden: !chatVisible })}
+              style={{
+                left: `calc(env(safe-area-inset-left) + 16px)`,
+                bottom: `calc(env(safe-area-inset-bottom) + 16px)`,
+              }}
+            >
+              <div className="pointer-events-auto">
+                <ActionPanel items={inventory} />
+              </div>
+            </div>
+          )}
+
+          {/* Chat Button - Right aligned, hidden when GameWindows are open */}
+          {!hasOpenWindows && (
+            <div
+              className={cls('mainchat fixed pointer-events-none z-[90]', { hidden: !chatVisible })}
+              style={{
+                right: `calc(env(safe-area-inset-right) + 16px)`,
+                bottom: `calc(env(safe-area-inset-bottom) + 16px)`,
+              }}
+              onTouchStart={event => {
+                touchStartYRef.current = event.touches[0].clientY
+              }}
+              onTouchEnd={event => {
+                if (touchStartYRef.current === null) return
+                const delta = event.changedTouches[0].clientY - touchStartYRef.current
+                touchStartYRef.current = null
+                if (delta < -40) {
+                  setCollapsed(false)
+                  setActive(true)
+                  updateMobileOffset(false)
+                }
+              }}
+            >
+              <button
+                type='button'
+                style={{
+                  ...chatButtonStyle,
+                  padding: '0.65rem',
+                  borderRadius: 9999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                className='pointer-events-auto transition-transform duration-150 hover:scale-[1.04] active:scale-95 focus:outline-none'
+                onClick={() => {
+                  setCollapsed(false)
+                  setActive(true)
+                }}
+              >
+                <MessageSquareIcon size={20} />
+              </button>
+            </div>
+          )}
+        </>
+      )
+    }
+
+    return (
+      <>
+        {/* Action Panel - Separate fixed container with low z-index, hidden when GameWindows are open */}
+        {!hasOpenWindows && (
+          <div
+            className='fixed pointer-events-none z-[10]'
+            style={{
+              left: 'clamp(0.5rem, 2vw, 1rem)',
+              bottom: `calc(env(safe-area-inset-bottom) + ${chatPanelRef.current?.offsetHeight || 200}px + clamp(0.5rem, 1.2vw, 0.625rem))`,
+            }}
+          >
+            <div className="pointer-events-auto">
+              <ActionPanel items={inventory} />
+            </div>
+          </div>
+        )}
+
+        {/* Chat Panel */}
         <div
-          className={cls('mainchat fixed pointer-events-none z-[90]', { hidden: !chatVisible })}
-          style={{
-            right: `calc(env(safe-area-inset-right) + 16px)`,
-            bottom: `calc(env(safe-area-inset-bottom) + 16px)`,
-          }}
+          className={cls(
+            'mainchat fixed inset-x-0 pointer-events-none z-[960]',
+            { hidden: !chatVisible }
+          )}
+          style={{ bottom: 'env(safe-area-inset-bottom)' }}
           onTouchStart={event => {
             touchStartYRef.current = event.touches[0].clientY
           }}
@@ -443,68 +532,24 @@ export function Chat({ world }: { world: ChatWorld }) {
             if (touchStartYRef.current === null) return
             const delta = event.changedTouches[0].clientY - touchStartYRef.current
             touchStartYRef.current = null
-            if (delta < -40) {
-              setCollapsed(false)
-              setActive(true)
-              updateMobileOffset(false)
+            if (delta > 40) {
+              setCollapsed(true)
+              setActive(false)
+              updateMobileOffset(true)
             }
           }}
         >
-          <button
-            type='button'
-            style={{
-              ...chatButtonStyle,
-              padding: '0.55rem 1.05rem',
-              borderRadius: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.45rem',
-            }}
-            className='pointer-events-auto transition-transform duration-150 hover:scale-[1.04] active:scale-95 focus:outline-none'
-            onClick={() => {
-              setCollapsed(false)
-              setActive(true)
-            }}
-          >
-            <MessageSquareIcon size={18} />
-            <span>Chat</span>
-          </button>
-        </div>
-      )
-    }
-
-    return (
-      <div
-        className={cls(
-          'mainchat fixed inset-x-0 pointer-events-none z-[960]',
-          { hidden: !chatVisible }
-        )}
-        style={{ bottom: 'env(safe-area-inset-bottom)' }}
-        onTouchStart={event => {
-          touchStartYRef.current = event.touches[0].clientY
-        }}
-        onTouchEnd={event => {
-          if (touchStartYRef.current === null) return
-          const delta = event.changedTouches[0].clientY - touchStartYRef.current
-          touchStartYRef.current = null
-          if (delta > 40) {
-            setCollapsed(true)
-            setActive(false)
-            updateMobileOffset(true)
-          }
-        }}
-      >
-        <div className='pointer-events-auto'>
-          <div
-            ref={chatPanelRef}
-            style={mobilePanelStyle}
-            className='mx-auto w-full transition-transform duration-300 ease-out translate-y-0 opacity-95'
-          >
-            {renderChatBody('mobile')}
+          <div className='pointer-events-auto'>
+            <div
+              ref={chatPanelRef}
+              style={mobilePanelStyle}
+              className='w-full transition-transform duration-300 ease-out translate-y-0 opacity-95'
+            >
+              {renderChatBody('mobile')}
+            </div>
           </div>
         </div>
-      </div>
+      </>
     )
   }
 
@@ -515,24 +560,37 @@ export function Chat({ world }: { world: ChatWorld }) {
         collapsed ? 'z-[35]' : 'z-[960]',
         { hidden: !chatVisible }
       )}
-      style={placementStyle}
+      style={collapsed ? placementStyleCollapsed : placementStyleExpanded}
     >
       {collapsed ? (
-        <button
-          type='button'
-          style={chatButtonStyle}
-          className='transition-transform duration-150 hover:scale-[1.03] active:scale-95 focus:outline-none'
-          onClick={() => {
-            setCollapsed(false)
-            setActive(true)
-          }}
-        >
-          <MessageSquareIcon size={isTouch ? 18 : 22} />
-          <span>Chat</span>
-        </button>
+        <div className="flex items-center pointer-events-auto" style={{ gap: 'clamp(0.5rem, 1vw, 0.625rem)' }}>
+          <button
+            type='button'
+            style={{
+              ...chatButtonStyle,
+              padding: isTouch ? '0.65rem' : '0.75rem',
+            }}
+            className='transition-transform duration-150 hover:scale-[1.03] active:scale-95 focus:outline-none'
+            onClick={() => {
+              setCollapsed(false)
+              setActive(true)
+            }}
+          >
+            <MessageSquareIcon size={isTouch ? 20 : 24} />
+          </button>
+          <ActionPanel items={inventory} />
+        </div>
       ) : (
-        <div style={desktopPanelStyle} className='chat-panel'>
-          {renderChatBody('desktop')}
+        <div className='pointer-events-auto relative z-[10]'>
+          {/* Action Panel - Absolutely positioned above chat, left-aligned with padding */}
+          <div className='absolute pointer-events-auto' style={{ bottom: '100%', marginBottom: 'clamp(0.5rem, 1vw, 0.625rem)', left: 'clamp(0.5rem, 1vw, 0.75rem)' }}>
+            <ActionPanel items={inventory} />
+          </div>
+
+          {/* Chat Panel */}
+          <div style={desktopPanelStyle} className='chat-panel'>
+            {renderChatBody('desktop')}
+          </div>
         </div>
       )}
     </div>
@@ -597,21 +655,15 @@ function Messages({
       className={cls(
         'messages noscrollbar relative transition-all duration-150 ease-out flex flex-col items-stretch overflow-y-auto',
         variant === 'desktop'
-          ? 'h-full w-full px-4 py-2.5 gap-1'
-          : 'w-full px-3.5 py-2 gap-1.25',
+          ? 'h-full w-full px-4 py-2 gap-0.5'
+          : 'w-full px-3.5 py-1.5 gap-0.5',
         className
       )}
       style={{
-        WebkitMaskImage: 'linear-gradient(to top, black calc(100% - 8rem), black 8rem, transparent)',
-        maskImage: 'linear-gradient(to top, black calc(100% - 8rem), black 8rem, transparent)',
         pointerEvents: variant === 'mobile' ? (active ? 'auto' : 'none') : 'auto',
         ...style,
       }}
     >
-      <div
-        className='pointer-events-none absolute inset-x-0 top-0 h-10'
-        style={{ background: 'linear-gradient(180deg, rgba(16,17,24,0.92), rgba(16,17,24,0))' }}
-      />
       <div className='messages-spacer shrink-0' ref={spacerRef} />
       {msgs.map((msg) => (
         <Message key={(msg as ChatMessage & { id: string }).id} msg={msg as ChatMessage} />
@@ -623,7 +675,7 @@ function Messages({
 function Message({ msg }: { msg: ChatMessage }) {
   return (
     <div
-      className='message text-[0.85rem] leading-[1.45]'
+      className='message text-[0.75rem] leading-[1.35]'
       style={{
         color: 'rgba(232, 235, 244, 0.92)',
         fontFamily: "'Inter', system-ui, sans-serif",
@@ -632,12 +684,12 @@ function Message({ msg }: { msg: ChatMessage }) {
     >
       {msg.from && (
         <span
-          className='message-from mr-2 uppercase tracking-[0.18em]'
+          className='message-from mr-1.5 uppercase tracking-[0.16em]'
           style={{
             fontFamily: CHAT_HEADER_FONT,
             color: CHAT_ACCENT_COLOR,
-            fontSize: '0.7rem',
-            letterSpacing: '0.2em',
+            fontSize: '0.65rem',
+            letterSpacing: '0.18em',
           }}
         >
           [{msg.from}]
