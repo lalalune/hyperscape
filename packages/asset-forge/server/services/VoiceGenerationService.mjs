@@ -389,7 +389,11 @@ export class VoiceGenerationService {
 
     // Create voice directory for this NPC
     const npcVoiceDir = path.join(this.assetsDir, npcId, 'voice')
-    await fs.mkdir(npcVoiceDir, { recursive: true })
+    const resolvedNpcVoiceDir = path.resolve(npcVoiceDir)
+    if (!resolvedNpcVoiceDir.startsWith(path.resolve(this.assetsDir))) {
+      throw new Error('Invalid NPC ID: Path traversal detected')
+    }
+    await fs.mkdir(resolvedNpcVoiceDir, { recursive: true })
 
     timer.checkpoint('directory-created')
 
@@ -408,7 +412,7 @@ export class VoiceGenerationService {
 
         // Save to file
         const filename = `${node.id}.mp3`
-        const filepath = path.join(npcVoiceDir, filename)
+        const filepath = path.join(resolvedNpcVoiceDir, filename)
         await fs.writeFile(filepath, audioBuffer)
 
         // Update progress
