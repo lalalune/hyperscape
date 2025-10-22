@@ -8,7 +8,6 @@ import React, { useState, useEffect } from 'react'
 
 import type { GeneratedQuest, QuestObjective, QuestReward } from '../../types/content-generation'
 import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../../types/manifests'
-import type { ActionHandlerName } from '../../types/action-handlers'
 import { manifestService } from '../../services/ManifestService'
 import { useContentGenerationStore } from '../../store/useContentGenerationStore'
 import { useRelationshipsStore } from '../../store/useRelationshipsStore'

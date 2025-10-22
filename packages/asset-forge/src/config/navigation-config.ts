@@ -364,7 +364,7 @@ export function getAllNavItems(): NavigationLink[] {
 /**
  * Get section for nav item by validating section.icon exists
  */
-function getSectionIconSafely(section: any): any {
+// function getSectionIconSafely(section: any): any {
   if (section.icon) {
     return section.icon
   }

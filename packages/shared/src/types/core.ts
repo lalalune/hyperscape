@@ -2008,3 +2008,155 @@ export interface BankWithdrawData {
 export interface BankDepositAllData {
   playerId: string;
 }
+
+// ============================================================================
+// Dialogue System Types
+// ============================================================================
+
+/**
+ * DialogueTree - Asset Forge compatible dialogue tree structure
+ *
+ * Represents branching dialogue with conditions and effects.
+ * Used by CharacterEntity and DialogueSystem.
+ */
+export interface DialogueTree {
+  entryNodeId: string; // Starting node ID
+  nodes: DialogueTreeNode[];
+}
+
+/**
+ * DialogueTreeNode - A single node in the dialogue tree
+ *
+ * Contains dialogue text, available responses, conditions, and effects.
+ */
+export interface DialogueTreeNode {
+  id: string;
+  text: string; // Dialogue text to display
+  responses: DialogueResponse[]; // Player response options
+  conditions?: DialogueCondition[]; // Conditions to show this node
+  effects?: DialogueEffect[]; // Effects that trigger when entering node
+}
+
+/**
+ * DialogueResponse - A player response option
+ *
+ * Represents a choice the player can make in the dialogue.
+ */
+export interface DialogueResponse {
+  text: string; // Response text to display
+  nextNodeId?: string; // Next node ID (if undefined, ends dialogue)
+  conditions?: DialogueCondition[]; // Conditions to show this response
+  effects?: DialogueEffect[]; // Effects that trigger when choosing response
+  icon?: string; // Optional icon for the response
+}
+
+/**
+ * DialogueCondition - Condition for showing dialogue nodes/responses
+ *
+ * Supports quest status, level requirements, items, flags, etc.
+ */
+export type DialogueCondition =
+  | DialogueConditionHasQuest
+  | DialogueConditionQuestComplete
+  | DialogueConditionLevelRequirement
+  | DialogueConditionHasItem
+  | DialogueConditionFlagSet
+  | DialogueConditionFactionReputation
+  | DialogueConditionGoldRequirement;
+
+export interface DialogueConditionHasQuest {
+  type: 'HAS_QUEST';
+  questId: string;
+}
+
+export interface DialogueConditionQuestComplete {
+  type: 'QUEST_COMPLETE';
+  questId: string;
+}
+
+export interface DialogueConditionLevelRequirement {
+  type: 'LEVEL_REQUIREMENT';
+  level: number;
+}
+
+export interface DialogueConditionHasItem {
+  type: 'HAS_ITEM';
+  itemId: string;
+  quantity?: number; // Default: 1
+}
+
+export interface DialogueConditionFlagSet {
+  type: 'FLAG_SET';
+  flag: string;
+  value?: boolean | string | number; // Default: true
+}
+
+export interface DialogueConditionFactionReputation {
+  type: 'FACTION_REPUTATION';
+  faction: string;
+  minReputation: number;
+}
+
+export interface DialogueConditionGoldRequirement {
+  type: 'GOLD_REQUIREMENT';
+  gold: number;
+}
+
+/**
+ * DialogueEffect - Effect that triggers during dialogue
+ *
+ * Supports quest actions, item give/take, flag setting, XP/gold rewards, etc.
+ */
+export type DialogueEffect =
+  | DialogueEffectAcceptQuest
+  | DialogueEffectCompleteQuest
+  | DialogueEffectGiveItem
+  | DialogueEffectTakeItem
+  | DialogueEffectSetFlag
+  | DialogueEffectGiveXP
+  | DialogueEffectGiveGold
+  | DialogueEffectModifyReputation;
+
+export interface DialogueEffectAcceptQuest {
+  type: 'ACCEPT_QUEST';
+  questId: string;
+}
+
+export interface DialogueEffectCompleteQuest {
+  type: 'COMPLETE_QUEST';
+  questId: string;
+}
+
+export interface DialogueEffectGiveItem {
+  type: 'GIVE_ITEM';
+  itemId: string;
+  quantity?: number; // Default: 1
+}
+
+export interface DialogueEffectTakeItem {
+  type: 'TAKE_ITEM';
+  itemId: string;
+  quantity?: number; // Default: 1
+}
+
+export interface DialogueEffectSetFlag {
+  type: 'SET_FLAG';
+  flag: string;
+  value?: boolean | string | number; // Default: true
+}
+
+export interface DialogueEffectGiveXP {
+  type: 'GIVE_XP';
+  xp: number;
+}
+
+export interface DialogueEffectGiveGold {
+  type: 'GIVE_GOLD';
+  gold: number;
+}
+
+export interface DialogueEffectModifyReputation {
+  type: 'MODIFY_REPUTATION';
+  faction: string;
+  amount: number; // Positive or negative
+}

@@ -4,6 +4,7 @@ import React, { useRef, useImperativeHandle, forwardRef, useEffect, useMemo, use
 import * as THREE from 'three'
 // import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter'
 import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { createLogger } from '../../utils/logger'
 
 // @ts-ignore - Three.js examples modules don't have proper type declarations
 import { ArmorFittingService, BodyRegion, CollisionPoint } from '../../services/fitting/ArmorFittingService'
@@ -13,6 +14,8 @@ import { notify } from '../../utils/notify'
 
 import { useArmorExport } from '@/hooks'
 import { apiFetch } from '@/utils/api'
+
+const logger = createLogger('ArmorFittingViewer')
 
 // Type declarations
 interface AnimatedGLTF extends GLTF {
@@ -135,31 +138,31 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
       .then(response => {
         if (response.ok) {
           // File exists, load it
-          console.log('Loading animation from:', animationPath)
+          logger.debug('Loading animation from:', animationPath)
           loader.load(
             animationPath,
             (gltf: GLTF) => {
-              console.log('Animation loaded successfully:', animationPath)
-              console.log('Animation count:', gltf.animations.length)
+              logger.debug('Animation loaded successfully:', animationPath)
+              logger.debug('Animation count:', gltf.animations.length)
               setAnimationGltf(gltf as AnimatedGLTF)
             },
             (_progress: ProgressEvent) => {
               // Progress callback
             },
             (error: unknown) => {
-              console.error('Failed to load animation file:', error)
+              logger.error('Failed to load animation file:', error)
               setAnimationGltf(null)
             }
           )
         } else {
           // File doesn't exist - this is expected for many assets
-          console.log(`Animation file not found (404): ${animationPath} - will use built-in animations if available`)
+          logger.debug(`Animation file not found (404): ${animationPath} - will use built-in animations if available`)
           setAnimationGltf(null)
         }
       })
       .catch(() => {
         // Network error or other issue
-        console.log(`Could not check animation file: ${animationPath}`)
+        logger.debug(`Could not check animation file: ${animationPath}`)
         setAnimationGltf(null)
       })
   }, [animationPath])
@@ -192,10 +195,10 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
             }
           })
           
-          console.log('Avatar loaded with animations:', gltf.animations.length)
+          logger.debug('Avatar loaded with animations:', gltf.animations.length)
           if (gltf.animations.length > 0) {
             gltf.animations.forEach((clip: THREE.AnimationClip) => {
-              console.log(`- Built-in animation: "${clip.name}" (${clip.duration}s)`)
+              logger.debug(`- Built-in animation: "${clip.name}" (${clip.duration}s)`)
             })
           }
           
@@ -207,7 +210,7 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
             avatarRef.current.scale.setScalar(scale)
           }
         } catch (error) {
-          console.error('Failed to load avatar:', error)
+          logger.error('Failed to load avatar:', error)
         }
       } else if (avatarUrl && avatarRef.current) {
         // URL exists but already loaded - find the mesh
@@ -216,7 +219,7 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
             avatarMesh = child
           }
         })
-        console.log('Avatar already loaded, reusing existing mesh')
+        logger.debug('Avatar already loaded, reusing existing mesh')
       }
       
       // Clear armor if not in Spine2 mode or no URL
@@ -252,7 +255,7 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
           
 
         } catch (error) {
-          console.error('Failed to load armor:', error)
+          logger.error('Failed to load armor:', error)
         }
       } else if (armorUrl && equipmentSlot === 'Spine2' && armorRef.current) {
         // URL exists but already loaded - find the mesh
@@ -302,16 +305,16 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
               helmetMesh.userData.isEquipment = true
               helmetMesh.userData.equipmentSlot = 'Head'
               helmetMesh.userData.gltfRoot = gltfScene // Store reference to GLTF root
-              console.log('Found helmet mesh:', helmetMesh.name || 'unnamed')
-              console.log('Helmet parent after loading:', helmetMesh.parent?.name || 'unknown')
+              logger.debug('Found helmet mesh:', helmetMesh.name || 'unnamed')
+              logger.debug('Helmet parent after loading:', helmetMesh.parent?.name || 'unknown')
             }
           })
           
           // Log the structure
-          console.log('Helmet structure after loading:')
-          console.log('- helmetRef.current:', helmetRef.current)
-          console.log('- gltf.scene:', gltf.scene)
-          console.log('- helmetMesh found:', !!helmetMesh)
+          logger.debug('Helmet structure after loading:')
+          logger.debug('- helmetRef.current:', helmetRef.current)
+          logger.debug('- gltf.scene:', gltf.scene)
+          logger.debug('- helmetMesh found:', !!helmetMesh)
           
           // Don't scale helmet - let fitting algorithm handle it
           // This matches MeshFittingDebugger behavior
@@ -333,12 +336,12 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
               helmetMesh.userData.originalTransform = originalTransform
               helmetMesh.userData.transformCaptured = true
               
-              console.log('Captured original helmet transform:', originalTransform)
-              console.log('Original helmet parent:', helmetMesh.parent?.name || 'scene')
-              console.log('Is position at origin?', helmetMesh.position.length() < 0.001)
+              logger.debug('Captured original helmet transform:', originalTransform)
+              logger.debug('Original helmet parent:', helmetMesh.parent?.name || 'scene')
+              logger.debug('Is position at origin?', helmetMesh.position.length() < 0.001)
             }
         } catch (error) {
-          console.error('Failed to load helmet:', error)
+          logger.error('Failed to load helmet:', error)
         }
       } else if (helmetUrl && equipmentSlot === 'Head' && helmetRef.current) {
         // URL exists but already loaded - find the mesh
@@ -380,7 +383,7 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
   useEffect(() => {
     if (!avatarRef.current) return
     
-    console.log('Animation useEffect triggered:', { currentAnimation, isAnimationPlaying })
+    logger.debug('Animation useEffect triggered:', { currentAnimation, isAnimationPlaying })
     
     // Find the avatar mesh
     let avatarMesh: THREE.SkinnedMesh | null = null
@@ -391,7 +394,7 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
         })
     
     if (!avatarMesh) {
-      console.log('No avatar mesh found')
+      logger.debug('No avatar mesh found')
       return
     }
     
@@ -411,14 +414,14 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
       // Check if animation file has animations
       if (animationGltf?.animations && animationGltf.animations.length > 0) {
         animations = animationGltf.animations
-        console.log(`Using animations from ${currentAnimation} file:`, animations.length)
+        logger.debug(`Using animations from ${currentAnimation} file:`, animations.length)
         } else {
-        console.log('No animations found in animation file')
+        logger.debug('No animations found in animation file')
         // Try to get from base model as fallback
         avatarRef.current.traverse((child) => {
           if (child.userData?.gltf?.animations && child.userData.gltf.animations.length > 0) {
             animations = child.userData.gltf.animations
-            console.log('Found animations in child userData:', animations.length)
+            logger.debug('Found animations in child userData:', animations.length)
           }
         })
         
@@ -426,14 +429,14 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
         const avatarGltf = avatarRef.current.children[0]?.userData?.gltf as AnimatedGLTF | undefined
         if (!animations.length && avatarGltf?.animations) {
           animations = avatarGltf.animations
-          console.log('Using animations from base model:', animations.length)
+          logger.debug('Using animations from base model:', animations.length)
         }
       }
       
       if (animations.length > 0) {
         // Log available animations
         animations.forEach(clip => {
-          console.log(`Available animation: "${clip.name}" (duration: ${clip.duration}s)`)
+          logger.debug(`Available animation: "${clip.name}" (duration: ${clip.duration}s)`)
         })
         
         // Find the appropriate animation clip
@@ -454,16 +457,16 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
         }
         
         if (targetClip) {
-          console.log(`Playing animation: "${targetClip.name}"`)
+          logger.debug(`Playing animation: "${targetClip.name}"`)
           const action = mixer.clipAction(targetClip, avatarRef.current)
           action.reset()
           action.setLoop(THREE.LoopRepeat, Infinity)
           action.play()
         } else {
-          console.log('No suitable animation clip found')
+          logger.debug('No suitable animation clip found')
         }
       } else {
-        console.log('No animations available for this avatar')
+        logger.debug('No animations available for this avatar')
         // Note: Some avatars may not have built-in animations
         // Animation files (anim_walk.glb, anim_run.glb) may need to be added to the asset directory
       }
@@ -477,7 +480,7 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
   }, [currentAnimation, isAnimationPlaying, animationGltf, avatarUrl])
   
   // Animation update loop
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (mixerRef.current && isAnimationPlaying && currentAnimation !== 'tpose') {
       mixerRef.current.update(delta)
     }
@@ -526,7 +529,7 @@ const Scene: React.FC<SceneProps> = ({
   
   useEffect(() => {
     if (sceneRef.current) {
-      console.log('Scene initialized')
+      logger.debug('Scene initialized')
       
 
     }
@@ -538,7 +541,7 @@ const Scene: React.FC<SceneProps> = ({
     helmet: THREE.Mesh | null
     helmetGroup?: THREE.Group | null
   }) => {
-    console.log('Models ready in scene:', {
+    logger.debug('Models ready in scene:', {
       avatar: !!meshes.avatar,
       armor: !!meshes.armor,
       helmet: !!meshes.helmet
@@ -669,7 +672,7 @@ export const ArmorFittingViewer = forwardRef<
   // Detach helmet function that can be used by both reset and imperative handle
   const detachHelmetFromHeadInternal = () => {
     if (!helmetMeshRef.current) {
-      console.error('No helmet to detach')
+      logger.error('No helmet to detach')
       return
     }
     
@@ -688,7 +691,7 @@ export const ArmorFittingViewer = forwardRef<
       scene.attach(helmetMeshRef.current)
       
       helmetMeshRef.current.userData.isAttached = false
-      console.log('Helmet detached from head')
+      logger.debug('Helmet detached from head')
     }
   }
   
@@ -699,7 +702,7 @@ export const ArmorFittingViewer = forwardRef<
     scene: THREE.Scene
     helmetGroup?: THREE.Group | null
   }) => {
-    console.log('=== MODELS LOADED IN VIEWER ===')
+    logger.debug('=== MODELS LOADED IN VIEWER ===')
     avatarMeshRef.current = meshes.avatar
     armorMeshRef.current = meshes.armor
     helmetMeshRef.current = meshes.helmet
@@ -708,34 +711,34 @@ export const ArmorFittingViewer = forwardRef<
     
     // Log mesh details
     if (meshes.helmet) {
-      console.log('Helmet mesh details:')
-      console.log('- Type:', meshes.helmet.type)
-      console.log('- Geometry vertices:', meshes.helmet.geometry?.attributes.position?.count)
-      console.log('- Parent:', meshes.helmet.parent?.name || 'unknown')
+      logger.debug('Helmet mesh details:')
+      logger.debug('- Type:', meshes.helmet.type)
+      logger.debug('- Geometry vertices:', meshes.helmet.geometry?.attributes.position?.count)
+      logger.debug('- Parent:', meshes.helmet.parent?.name || 'unknown')
       
       // Check if this is actually the mesh or a group
       if (meshes.helmet.type !== 'Mesh') {
-        console.warn('WARNING: Helmet reference is not a Mesh, it\'s a', meshes.helmet.type)
+        logger.warn('WARNING: Helmet reference is not a Mesh, it\'s a', meshes.helmet.type)
       }
     }
     
     // Log avatar details
     if (meshes.avatar) {
-      console.log('Avatar mesh details:')
-      console.log('- Type:', meshes.avatar.type)
-      console.log('- Has skeleton:', !!meshes.avatar.skeleton)
-      console.log('- Parent:', meshes.avatar.parent?.name || 'unknown')
+      logger.debug('Avatar mesh details:')
+      logger.debug('- Type:', meshes.avatar.type)
+      logger.debug('- Has skeleton:', !!meshes.avatar.skeleton)
+      logger.debug('- Parent:', meshes.avatar.parent?.name || 'unknown')
       
       // Get avatar bounds
       const avatarBounds = new THREE.Box3().setFromObject(meshes.avatar)
       const avatarSize = avatarBounds.getSize(new THREE.Vector3())
-      console.log('Avatar bounds:', avatarBounds)
-      console.log('Avatar size:', avatarSize)
-      console.log('Avatar scale:', meshes.avatar.scale)
+      logger.debug('Avatar bounds:', avatarBounds)
+      logger.debug('Avatar size:', avatarSize)
+      logger.debug('Avatar scale:', meshes.avatar.scale)
       
       // Check parent scale
       if (meshes.avatar.parent) {
-        console.log('Avatar parent scale:', meshes.avatar.parent.scale)
+        logger.debug('Avatar parent scale:', meshes.avatar.parent.scale)
       }
     }
     
@@ -748,7 +751,7 @@ export const ArmorFittingViewer = forwardRef<
     if (meshes.helmet) {
       if (meshes.helmet.userData.originalTransform) {
         originalHelmetTransformRef.current = meshes.helmet.userData.originalTransform
-        console.log('Using original helmet transform from mesh userData:', originalHelmetTransformRef.current)
+        logger.debug('Using original helmet transform from mesh userData:', originalHelmetTransformRef.current)
       } else {
         // Capture it now if not already captured
         originalHelmetTransformRef.current = {
@@ -758,32 +761,32 @@ export const ArmorFittingViewer = forwardRef<
         }
         meshes.helmet.userData.originalTransform = originalHelmetTransformRef.current
         meshes.helmet.userData.originalParent = meshes.helmet.parent
-        console.log('Captured original helmet transform in handleModelsLoaded:', originalHelmetTransformRef.current)
+        logger.debug('Captured original helmet transform in handleModelsLoaded:', originalHelmetTransformRef.current)
       }
       
       // Get helmet bounds for debugging
       const helmetBounds = new THREE.Box3().setFromObject(meshes.helmet)
       const helmetSize = helmetBounds.getSize(new THREE.Vector3())
-      console.log('Helmet initial bounds:', helmetBounds)
-      console.log('Helmet size:', helmetSize)
+      logger.debug('Helmet initial bounds:', helmetBounds)
+      logger.debug('Helmet size:', helmetSize)
       
       // Also check parent scale
       if (meshes.helmet.parent) {
-        console.log('Helmet parent scale:', meshes.helmet.parent.scale)
+        logger.debug('Helmet parent scale:', meshes.helmet.parent.scale)
       }
     }
     
     // Add visualization group to scene
     if (meshes.scene && visualizationGroupRef.current) {
       meshes.scene.add(visualizationGroupRef.current)
-      console.log('Added visualization group to scene')
+      logger.debug('Added visualization group to scene')
       // Store globally for Scene component access
       window.__visualizationGroup = visualizationGroupRef.current
     }
     
     // Compute body regions if avatar changed
     if (meshes.avatar && meshes.avatar.skeleton && props.avatarUrl !== lastComputedAvatar.current) {
-      console.log('Computing body regions for new avatar...')
+      logger.debug('Computing body regions for new avatar...')
       const detectedRegions = armorFittingService.current.computeBodyRegions(meshes.avatar, meshes.avatar.skeleton)
       setBodyRegions(detectedRegions)
       props.onBodyRegionsDetected?.(detectedRegions)
@@ -793,12 +796,12 @@ export const ArmorFittingViewer = forwardRef<
     // Compute collisions if either mesh changed
     if (meshes.avatar && meshes.armor && 
         (props.avatarUrl !== lastComputedAvatar.current || props.armorUrl !== lastComputedArmor.current)) {
-      console.log('Detecting collisions for current meshes...')
+      logger.debug('Detecting collisions for current meshes...')
       const detectedCollisions = armorFittingService.current.detectCollisions(meshes.avatar, meshes.armor)
       setCollisions(detectedCollisions)
       props.onCollisionsDetected?.(detectedCollisions)
       lastComputedArmor.current = props.armorUrl || null
-      console.log(`Detected ${detectedCollisions.length} collisions`)
+      logger.debug(`Detected ${detectedCollisions.length} collisions`)
     }
     
     props.onModelsLoaded?.()
@@ -822,7 +825,7 @@ export const ArmorFittingViewer = forwardRef<
   
   const visualizeBodyRegions = () => {
     if (!bodyRegions || bodyRegions.size === 0) {
-      console.log('No body regions to visualize')
+      logger.debug('No body regions to visualize')
       return
     }
     
@@ -844,12 +847,12 @@ export const ArmorFittingViewer = forwardRef<
       visualizationGroupRef.current.add(helper)
     })
     
-    console.log('Visualization group children:', visualizationGroupRef.current.children.length)
+    logger.debug('Visualization group children:', visualizationGroupRef.current.children.length)
   }
   
   const visualizeCollisions = () => {
     if (!collisions || collisions.length === 0) {
-      console.log('No collisions to visualize')
+      logger.debug('No collisions to visualize')
       return
     }
     
@@ -878,7 +881,7 @@ export const ArmorFittingViewer = forwardRef<
     
     // Check if the mesh is actually skinned
     if (!(avatarMeshRef.current instanceof THREE.SkinnedMesh)) {
-      console.warn('Avatar mesh is not a SkinnedMesh, cannot visualize weights')
+      logger.warn('Avatar mesh is not a SkinnedMesh, cannot visualize weights')
       return
     }
     
@@ -903,7 +906,7 @@ export const ArmorFittingViewer = forwardRef<
       // Create a simple color-based visualization without custom shaders
       const geometry = avatarMeshRef.current.geometry
       if (!geometry.attributes.skinIndex || !geometry.attributes.skinWeight) {
-        console.warn('Mesh does not have skinning attributes')
+        logger.warn('Mesh does not have skinning attributes')
         return
       }
       
@@ -1005,7 +1008,7 @@ export const ArmorFittingViewer = forwardRef<
     
     performFitting: (params: ArmorFittingParams) => {
       if (!avatarMeshRef.current || !armorMeshRef.current || !sceneRef.current) {
-        console.error('Avatar, armor, or scene not available')
+        logger.error('Avatar, armor, or scene not available')
       return
     }
     
@@ -1013,8 +1016,8 @@ export const ArmorFittingViewer = forwardRef<
       const avatarMesh = avatarMeshRef.current
       const scene = sceneRef.current
       
-      console.log('=== ARMOR TO TORSO FITTING ===')
-      console.log('Performing armor fitting with params:', params)
+      logger.debug('=== ARMOR TO TORSO FITTING ===')
+      logger.debug('Performing armor fitting with params:', params)
       
       // Update entire scene before any calculations
       const updateSceneMatrices = (scene: THREE.Scene) => {
@@ -1027,16 +1030,16 @@ export const ArmorFittingViewer = forwardRef<
         })
       }
       updateSceneMatrices(scene)
-      console.log('Updated scene matrix world before fitting')
+      logger.debug('Updated scene matrix world before fitting')
       
       // Detect body regions for visualization
-      console.log('Computing body regions...')
+      logger.debug('Computing body regions...')
       if (avatarMesh.skeleton) {
         const detectedRegions = armorFittingService.current.computeBodyRegions(avatarMesh, avatarMesh.skeleton)
         setBodyRegions(detectedRegions)
         props.onBodyRegionsDetected?.(detectedRegions)
       } else {
-        console.warn('Avatar mesh has no skeleton, cannot compute body regions')
+        logger.warn('Avatar mesh has no skeleton, cannot compute body regions')
       }
       
       // Store parent references
@@ -1044,15 +1047,15 @@ export const ArmorFittingViewer = forwardRef<
       const armorParent = armorMesh.parent
       
       // Log current state
-      console.log('=== PRE-FITTING STATE CHECK ===')
-      console.log('Armor scale:', armorMesh.scale.clone())
-      console.log('Armor position:', armorMesh.position.clone())
-      console.log('Armor parent scale:', armorMesh.parent?.scale.clone())
-      console.log('Has been fitted before:', armorMesh.userData.hasBeenFitted)
+      logger.debug('=== PRE-FITTING STATE CHECK ===')
+      logger.debug('Armor scale:', armorMesh.scale.clone())
+      logger.debug('Armor position:', armorMesh.position.clone())
+      logger.debug('Armor parent scale:', armorMesh.parent?.scale.clone())
+      logger.debug('Has been fitted before:', armorMesh.userData.hasBeenFitted)
       
       // Ensure armor starts at scale 1,1,1
       if (armorMesh.scale.x !== 1 || armorMesh.scale.y !== 1 || armorMesh.scale.z !== 1) {
-        console.warn('⚠️ Armor scale is not 1,1,1! Resetting scale before fitting.')
+        logger.warn('⚠️ Armor scale is not 1,1,1! Resetting scale before fitting.')
         armorMesh.scale.set(1, 1, 1)
         armorMesh.updateMatrixWorld(true)
       }
@@ -1069,17 +1072,17 @@ export const ArmorFittingViewer = forwardRef<
       }
       
       // Check and normalize scales
-      console.log('=== SCALE ANALYSIS ===')
+      logger.debug('=== SCALE ANALYSIS ===')
       const scaleRatio = calculateScaleRatio(avatarMesh, armorMesh)
-      console.log('Scale ratio (armor/avatar):', scaleRatio)
+      logger.debug('Scale ratio (armor/avatar):', scaleRatio)
       
       // Normalize armor scale if needed
       if (Math.abs(scaleRatio - 1.0) > 0.1) {
-        console.warn(`SCALE MISMATCH DETECTED: Armor is ${scaleRatio.toFixed(1)}x the size of avatar`)
+        logger.warn(`SCALE MISMATCH DETECTED: Armor is ${scaleRatio.toFixed(1)}x the size of avatar`)
         const normalizationFactor = 1 / scaleRatio
         armorMesh.scale.multiplyScalar(normalizationFactor)
         armorMesh.updateMatrixWorld(true)
-        console.log('Applied normalization factor:', normalizationFactor)
+        logger.debug('Applied normalization factor:', normalizationFactor)
       }
       
       // Calculate torso bounds - matching debugger implementation
@@ -1088,12 +1091,12 @@ export const ArmorFittingViewer = forwardRef<
         const avatarSize = avatarBounds.getSize(new THREE.Vector3())
         const avatarCenter = avatarBounds.getCenter(new THREE.Vector3())
         
-        console.log('Avatar bounds:', avatarBounds)
-        console.log('Avatar height:', avatarSize.y)
+        logger.debug('Avatar bounds:', avatarBounds)
+        logger.debug('Avatar height:', avatarSize.y)
         
         const skeleton = avatarMesh.skeleton
         if (!skeleton) {
-          console.error('Avatar has no skeleton!')
+          logger.error('Avatar has no skeleton!')
           return null
         }
         
@@ -1136,9 +1139,9 @@ export const ArmorFittingViewer = forwardRef<
         if (headY !== null && shoulderY !== null) {
           const headShoulderDiff = Math.abs(headY - shoulderY)
           isHunchedCharacter = headShoulderDiff < 0.1
-          console.log(`Head Y: ${(headY as number).toFixed(3)}, Shoulder Y: ${(shoulderY as number).toFixed(3)}, Difference: ${headShoulderDiff.toFixed(3)}`)
+          logger.debug(`Head Y: ${(headY as number).toFixed(3)}, Shoulder Y: ${(shoulderY as number).toFixed(3)}, Difference: ${headShoulderDiff.toFixed(3)}`)
           if (isHunchedCharacter) {
-            console.log('⚠️ Detected hunched character anatomy')
+            logger.debug('⚠️ Detected hunched character anatomy')
           }
         }
         
@@ -1166,33 +1169,33 @@ export const ArmorFittingViewer = forwardRef<
         const torsoBounds = new THREE.Box3()
         torsoBounds.setFromCenterAndSize(torsoCenter, torsoSize)
         
-        console.log('Torso Y range:', torsoBounds.min.y.toFixed(3), 'to', torsoBounds.max.y.toFixed(3))
-        console.log('Torso center:', torsoCenter)
-        console.log('Torso size:', torsoSize)
+        logger.debug('Torso Y range:', torsoBounds.min.y.toFixed(3), 'to', torsoBounds.max.y.toFixed(3))
+        logger.debug('Torso center:', torsoCenter)
+        logger.debug('Torso size:', torsoSize)
         
         return { torsoCenter, torsoSize, torsoBounds }
       }
       
       const torsoInfo = calculateTorsoBounds(avatarMesh)
       if (!torsoInfo) {
-        console.error('Could not calculate torso bounds')
+        logger.error('Could not calculate torso bounds')
       return
     }
     
       const { torsoCenter, torsoSize } = torsoInfo
       
       // Scale and position armor
-      console.log('=== SCALING AND POSITIONING ARMOR ===')
+      logger.debug('=== SCALING AND POSITIONING ARMOR ===')
       
       // Get armor bounds
       const armorBounds = new THREE.Box3().setFromObject(armorMesh)
       const armorSize = armorBounds.getSize(new THREE.Vector3())
       const armorCenter = armorBounds.getCenter(new THREE.Vector3())
       
-      console.log('Initial armor center:', armorCenter)
-      console.log('Initial armor size:', armorSize)
-      console.log('Target torso center:', torsoCenter)
-      console.log('Target torso size:', torsoSize)
+      logger.debug('Initial armor center:', armorCenter)
+      logger.debug('Initial armor size:', armorSize)
+      logger.debug('Target torso center:', torsoCenter)
+      logger.debug('Target torso size:', torsoSize)
       
       // Calculate volume-based scale
       const calculateVolumeBasedScale = (
@@ -1220,11 +1223,11 @@ export const ArmorFittingViewer = forwardRef<
         0.5 // Minimum scale
       )
       
-      console.log('Volume-based scale:', improvedFinalScale.toFixed(3))
+      logger.debug('Volume-based scale:', improvedFinalScale.toFixed(3))
       
       // Restore original geometry if previously fitted
       if (originalArmorGeometryRef.current && armorMesh.userData.hasBeenFitted) {
-        console.log('Restoring original geometry before scaling')
+        logger.debug('Restoring original geometry before scaling')
         armorMesh.geometry.dispose()
         armorMesh.geometry = originalArmorGeometryRef.current.clone()
         armorMesh.geometry.computeVertexNormals()
@@ -1257,11 +1260,11 @@ export const ArmorFittingViewer = forwardRef<
       if (armorTopY > torsoTop + 0.1) {
         const overhang = armorTopY - (torsoTop + 0.1)
         verticalAdjustment = -overhang
-        console.log('Armor would extend above torso by', overhang.toFixed(3), '- adjusting down')
+        logger.debug('Armor would extend above torso by', overhang.toFixed(3), '- adjusting down')
       } else if (armorBottomY < torsoBottom - 0.05) {
         const underhang = (torsoBottom - 0.05) - armorBottomY
         verticalAdjustment = underhang
-        console.log('Armor would extend below torso by', underhang.toFixed(3), '- adjusting up')
+        logger.debug('Armor would extend below torso by', underhang.toFixed(3), '- adjusting up')
       }
       
       centerOffset.y += verticalAdjustment
@@ -1270,9 +1273,9 @@ export const ArmorFittingViewer = forwardRef<
       armorMesh.position.add(centerOffset)
       armorMesh.updateMatrixWorld(true)
       
-      console.log('Positioned armor at:', armorMesh.position)
+      logger.debug('Positioned armor at:', armorMesh.position)
       
-      console.log('Applied scale:', improvedFinalScale)
+      logger.debug('Applied scale:', improvedFinalScale)
       
       // Apply the fitting using the service
       try {
@@ -1285,19 +1288,19 @@ export const ArmorFittingViewer = forwardRef<
           smoothingStrength: params.smoothingStrength || 0.2
         }
         
-        console.log('Shrinkwrap parameters:', shrinkwrapParams)
+        logger.debug('Shrinkwrap parameters:', shrinkwrapParams)
         
         // Perform the fitting
         genericFittingService.current.fitMeshToTarget(armorMesh, avatarMesh, shrinkwrapParams)
         
-        console.log('✅ Armor fitting complete!')
+        logger.debug('✅ Armor fitting complete!')
         
         // Detect collisions after fitting
-        console.log('Detecting collisions...')
+        logger.debug('Detecting collisions...')
         const detectedCollisions = armorFittingService.current.detectCollisions(avatarMesh, armorMesh)
         setCollisions(detectedCollisions)
         props.onCollisionsDetected?.(detectedCollisions)
-        console.log(`Detected ${detectedCollisions.length} collisions`)
+        logger.debug(`Detected ${detectedCollisions.length} collisions`)
         
         // Mark armor as fitted
         armorMesh.userData.hasBeenFitted = true
@@ -1311,7 +1314,7 @@ export const ArmorFittingViewer = forwardRef<
         scene.updateMatrixWorld(true)
         
       } catch (error) {
-        console.error('Armor fitting failed:', error)
+        logger.error('Armor fitting failed:', error)
       } finally {
         // Ensure meshes are properly attached to their original parents
         if (avatarParent && !avatarMesh.parent) {
@@ -1325,11 +1328,11 @@ export const ArmorFittingViewer = forwardRef<
     
     performHelmetFitting: async (params: HelmetFittingParams) => {
       if (!avatarMeshRef.current || !helmetMeshRef.current) {
-        console.error('Avatar or helmet mesh not available')
+        logger.error('Avatar or helmet mesh not available')
         return
       }
       
-      console.log('Performing helmet fitting with params:', params)
+      logger.debug('Performing helmet fitting with params:', params)
       
       // Ensure avatar's world matrix is up to date
       avatarMeshRef.current.updateMatrixWorld(true)
@@ -1350,10 +1353,10 @@ export const ArmorFittingViewer = forwardRef<
       
       try {
         // Log helmet state before fitting
-        console.log('Helmet before fitting:')
-        console.log('- Position:', helmetMeshRef.current.position)
-        console.log('- Scale:', helmetMeshRef.current.scale)
-        console.log('- Parent:', helmetMeshRef.current.parent?.name || 'unknown')
+        logger.debug('Helmet before fitting:')
+        logger.debug('- Position:', helmetMeshRef.current.position)
+        logger.debug('- Scale:', helmetMeshRef.current.scale)
+        logger.debug('- Parent:', helmetMeshRef.current.parent?.name || 'unknown')
         
         const result = await genericFittingService.current.fitHelmetToHead(
           helmetMeshRef.current,
@@ -1361,21 +1364,21 @@ export const ArmorFittingViewer = forwardRef<
           fittingParams
         )
         
-        console.log('Helmet fitting complete:', result)
-        console.log('Helmet after fitting:')
-        console.log('- Position:', helmetMeshRef.current.position)
-        console.log('- Scale:', helmetMeshRef.current.scale)
+        logger.debug('Helmet fitting complete:', result)
+        logger.debug('Helmet after fitting:')
+        logger.debug('- Position:', helmetMeshRef.current.position)
+        logger.debug('- Scale:', helmetMeshRef.current.scale)
         
         // Mark helmet as fitted
         helmetMeshRef.current.userData.hasBeenFitted = true
       } catch (error) {
-        console.error('Helmet fitting failed:', error)
+        logger.error('Helmet fitting failed:', error)
       }
     },
     
     attachHelmetToHead: () => {
       if (!avatarMeshRef.current || !helmetMeshRef.current) {
-        console.error('Avatar or helmet mesh not loaded')
+        logger.error('Avatar or helmet mesh not loaded')
         return
       }
       
@@ -1383,7 +1386,7 @@ export const ArmorFittingViewer = forwardRef<
       const headInfo = genericFittingService.current.detectHeadRegion(avatarMeshRef.current)
       
       if (!headInfo.headBone) {
-        console.error('No head bone found - attaching to avatar root instead')
+        logger.error('No head bone found - attaching to avatar root instead')
         
         const message = `No head bone found in the model. The system looked for common head bone names but couldn't find any.\n\n` +
           `You can either:\n` +
@@ -1394,24 +1397,24 @@ export const ArmorFittingViewer = forwardRef<
         if (confirm(message)) {
           const avatarRoot = avatarMeshRef.current.parent || avatarMeshRef.current
           avatarRoot.attach(helmetMeshRef.current)
-          console.log('Helmet attached to avatar root')
+          logger.debug('Helmet attached to avatar root')
           notify.info('Helmet attached to avatar root. Note: It will follow body movement but not specific head animations.')
         }
         return
       }
       
       // Store world transform before attachment
-      console.log('=== BEFORE ATTACHMENT ===')
+      logger.debug('=== BEFORE ATTACHMENT ===')
       const originalWorldPos = helmetMeshRef.current.getWorldPosition(new THREE.Vector3())
       const originalWorldScale = helmetMeshRef.current.getWorldScale(new THREE.Vector3())
-      console.log('Helmet world position:', originalWorldPos)
-      console.log('Helmet world scale:', originalWorldScale)
+      logger.debug('Helmet world position:', originalWorldPos)
+      logger.debug('Helmet world scale:', originalWorldScale)
       
       // Check bone scale
       const boneScale = headInfo.headBone.getWorldScale(new THREE.Vector3())
       
       if (boneScale.x < 0.1) {
-        console.log('Bone has extreme scale - applying visibility workaround')
+        logger.debug('Bone has extreme scale - applying visibility workaround')
         
         // Attach with workarounds
         headInfo.headBone.attach(helmetMeshRef.current)
@@ -1434,24 +1437,24 @@ export const ArmorFittingViewer = forwardRef<
         helmetMeshRef.current.updateMatrix()
         helmetMeshRef.current.updateMatrixWorld(true)
         
-        console.log('Applied extreme scale workarounds')
+        logger.debug('Applied extreme scale workarounds')
       } else {
         // Normal attachment process
-        console.log('Attaching helmet to head bone...')
+        logger.debug('Attaching helmet to head bone...')
         headInfo.headBone.attach(helmetMeshRef.current)
-        console.log('Helmet attached to head bone')
+        logger.debug('Helmet attached to head bone')
       }
       
       // Debug: Log transforms after attachment
-      console.log('=== AFTER ATTACHMENT ===')
-      console.log('Helmet world position:', helmetMeshRef.current.getWorldPosition(new THREE.Vector3()))
-      console.log('Helmet world scale:', helmetMeshRef.current.getWorldScale(new THREE.Vector3()))
-      console.log('Helmet parent:', helmetMeshRef.current.parent?.name || 'none')
+      logger.debug('=== AFTER ATTACHMENT ===')
+      logger.debug('Helmet world position:', helmetMeshRef.current.getWorldPosition(new THREE.Vector3()))
+      logger.debug('Helmet world scale:', helmetMeshRef.current.getWorldScale(new THREE.Vector3()))
+      logger.debug('Helmet parent:', helmetMeshRef.current.parent?.name || 'none')
       
       // Update flags
       helmetMeshRef.current.userData.isAttached = true
       
-      console.log('✅ Helmet successfully attached to head bone:', headInfo.headBone.name)
+      logger.debug('✅ Helmet successfully attached to head bone:', headInfo.headBone.name)
     },
     
     detachHelmetFromHead: () => {
@@ -1460,27 +1463,27 @@ export const ArmorFittingViewer = forwardRef<
     
     transferWeights: () => {
       if (!avatarMeshRef.current || !armorMeshRef.current || !sceneRef.current) {
-        console.error('Scene, avatar, or armor not available for binding')
+        logger.error('Scene, avatar, or armor not available for binding')
         return
       }
       
-      console.log('=== BINDING ARMOR TO SKELETON ===')
+      logger.debug('=== BINDING ARMOR TO SKELETON ===')
       
       const currentArmorMesh = armorMeshRef.current
       const avatarMesh = avatarMeshRef.current
       const scene = sceneRef.current
       
-      console.log('Current armor mesh:', currentArmorMesh.name, 'Parent:', currentArmorMesh.parent?.name)
+      logger.debug('Current armor mesh:', currentArmorMesh.name, 'Parent:', currentArmorMesh.parent?.name)
       
       // Store the current world transform
       currentArmorMesh.updateMatrixWorld(true)
       const perfectWorldPosition = currentArmorMesh.getWorldPosition(new THREE.Vector3())
-      const _perfectWorldQuaternion = currentArmorMesh.getWorldQuaternion(new THREE.Quaternion())
+//       const _perfectWorldQuaternion = currentArmorMesh.getWorldQuaternion(new THREE.Quaternion())
       const perfectWorldScale = currentArmorMesh.getWorldScale(new THREE.Vector3())
       
-      console.log('=== FITTED ARMOR WORLD TRANSFORM ===')
-      console.log('World position:', perfectWorldPosition)
-      console.log('World scale:', perfectWorldScale)
+      logger.debug('=== FITTED ARMOR WORLD TRANSFORM ===')
+      logger.debug('World position:', perfectWorldPosition)
+      logger.debug('World scale:', perfectWorldScale)
       
       // Create the skinned mesh with transform baked into geometry
       const skinnedArmor = armorFittingService.current.bindArmorToSkeleton(
@@ -1493,11 +1496,11 @@ export const ArmorFittingViewer = forwardRef<
       )
       
       if (!skinnedArmor) {
-        console.error('Failed to create skinned armor')
+        logger.error('Failed to create skinned armor')
         return
       }
       
-      console.log('Skinned armor created')
+      logger.debug('Skinned armor created')
       
       // Copy material settings
       if (currentArmorMesh.material) {
@@ -1521,10 +1524,10 @@ export const ArmorFittingViewer = forwardRef<
       // Add skinned armor to the correct parent
       const armature = avatarMesh.parent
       if (armature && (armature.name === 'Armature' || armature.name.toLowerCase().includes('armature'))) {
-        console.log('Adding skinned armor to Armature')
+        logger.debug('Adding skinned armor to Armature')
         armature.add(skinnedArmor)
       } else {
-        console.log('No Armature found, adding to scene')
+        logger.debug('No Armature found, adding to scene')
         scene.add(skinnedArmor)
       }
       
@@ -1535,17 +1538,17 @@ export const ArmorFittingViewer = forwardRef<
       const positionDrift = finalWorldPos.distanceTo(perfectWorldPosition)
       
       if (positionDrift > 0.01) {
-        console.warn('⚠️ Skinned armor position drifted from fitted position!')
-        console.warn('Expected:', perfectWorldPosition)
-        console.warn('Actual:', finalWorldPos)
+        logger.warn('⚠️ Skinned armor position drifted from fitted position!')
+        logger.warn('Expected:', perfectWorldPosition)
+        logger.warn('Actual:', finalWorldPos)
       } else {
-        console.log('✅ Skinned armor maintained perfect position after binding')
+        logger.debug('✅ Skinned armor maintained perfect position after binding')
       }
       
       // Check for extreme scales
       const armatureScale = skinnedArmor.parent?.getWorldScale(new THREE.Vector3()) || new THREE.Vector3(1, 1, 1)
       if (armatureScale.x < 0.1) {
-        console.log('Armature has extreme scale - applying visibility workaround')
+        logger.debug('Armature has extreme scale - applying visibility workaround')
         skinnedArmor.frustumCulled = false
         skinnedArmor.traverse((child) => {
           if (child instanceof THREE.Mesh) {
@@ -1565,14 +1568,14 @@ export const ArmorFittingViewer = forwardRef<
         if (obj.userData.isArmor && obj instanceof THREE.Mesh) {
           armorCount++
           if (obj !== skinnedArmor) {
-            console.warn('Found extra armor mesh, removing:', obj.name)
+            logger.warn('Found extra armor mesh, removing:', obj.name)
             if (obj.parent) obj.parent.remove(obj)
           }
         }
       })
-      console.log('Total armor meshes in scene after binding:', armorCount)
+      logger.debug('Total armor meshes in scene after binding:', armorCount)
       
-      console.log('✅ Armor successfully bound to skeleton!')
+      logger.debug('✅ Armor successfully bound to skeleton!')
       
       // Force scene update
       scene.updateMatrixWorld(true)
@@ -1587,11 +1590,11 @@ export const ArmorFittingViewer = forwardRef<
       if (equipmentSlot === 'Head' && helmetMeshRef.current) {
         const helmet = helmetMeshRef.current
         
-        console.log('=== RESETTING HELMET ===')
+        logger.debug('=== RESETTING HELMET ===')
         
         // First, always detach if attached
         if (helmet.userData.isAttached || helmet.parent instanceof THREE.Bone) {
-          console.log('Detaching helmet from bone')
+          logger.debug('Detaching helmet from bone')
           detachHelmetFromHeadInternal()
         }
         
@@ -1617,7 +1620,7 @@ export const ArmorFittingViewer = forwardRef<
           
           // If we found the GLTF root and helmet isn't already its child, move it there
           if (gltfRoot && helmet.parent !== gltfRoot) {
-            console.log('Moving helmet back to GLTF root')
+            logger.debug('Moving helmet back to GLTF root')
             if (helmet.parent) {
               helmet.removeFromParent()
             }
@@ -1650,22 +1653,22 @@ export const ArmorFittingViewer = forwardRef<
         // Log final state
         const worldPos = new THREE.Vector3()
         helmet.getWorldPosition(worldPos)
-        console.log('Helmet reset complete')
-        console.log('- Local position:', helmet.position)
-        console.log('- World position:', worldPos)
-        console.log('- Parent:', helmet.parent?.name || helmet.parent?.type || 'none')
+        logger.debug('Helmet reset complete')
+        logger.debug('- Local position:', helmet.position)
+        logger.debug('- World position:', worldPos)
+        logger.debug('- Parent:', helmet.parent?.name || helmet.parent?.type || 'none')
         
-        console.log('=== HELMET RESET FINISHED ===')
+        logger.debug('=== HELMET RESET FINISHED ===')
       }
       // Reset armor transform if in Spine2 mode
       else if (equipmentSlot === 'Spine2' && armorMeshRef.current) {
         const armor = armorMeshRef.current
         
-        console.log('=== RESETTING ARMOR ===')
+        logger.debug('=== RESETTING ARMOR ===')
         
         // Reset geometry if we have the original
         if (originalArmorGeometryRef.current && armor.userData.hasBeenFitted) {
-          console.log('Restoring original armor geometry')
+          logger.debug('Restoring original armor geometry')
           armor.geometry.dispose()
           armor.geometry = originalArmorGeometryRef.current.clone()
           armor.geometry.computeVertexNormals()
@@ -1673,7 +1676,7 @@ export const ArmorFittingViewer = forwardRef<
         
         // If armor was bound to skeleton, detach it
         if (armor.parent && armor.parent !== sceneRef.current) {
-          console.log('Detaching armor from parent:', armor.parent?.name)
+          logger.debug('Detaching armor from parent:', armor.parent?.name)
           if (sceneRef.current) {
             sceneRef.current.attach(armor)
           }
@@ -1707,23 +1710,23 @@ export const ArmorFittingViewer = forwardRef<
         armor.updateMatrix()
         armor.updateMatrixWorld(true)
         
-        console.log('=== ARMOR RESET FINISHED ===')
+        logger.debug('=== ARMOR RESET FINISHED ===')
       }
     },
     
     clearHelmet: () => {
-      console.log('=== CLEARING HELMET ===')
+      logger.debug('=== CLEARING HELMET ===')
       
       // Clear the helmet group
       if (helmetGroupRef.current) {
-        console.log('Clearing helmet group')
+        logger.debug('Clearing helmet group')
         helmetGroupRef.current.clear()
       }
       
       if (helmetMeshRef.current) {
         // First detach if attached to head bone
         if (helmetMeshRef.current.userData.isAttached && helmetMeshRef.current.parent && sceneRef.current) {
-          console.log('Detaching helmet before clear')
+          logger.debug('Detaching helmet before clear')
           // Make sure helmet is visible
           helmetMeshRef.current.visible = true
           helmetMeshRef.current.traverse((child) => {
@@ -1758,7 +1761,7 @@ export const ArmorFittingViewer = forwardRef<
         helmetMeshRef.current = null
         originalHelmetTransformRef.current = null
         
-        console.log('Helmet cleared from scene')
+        logger.debug('Helmet cleared from scene')
       }
       
       // Note: loadedUrlsRef is in ModelDemo scope, will be cleared on next render
@@ -1788,7 +1791,7 @@ export const ArmorFittingViewer = forwardRef<
         // Clear reference
         armorMeshRef.current = null
         
-        console.log('Armor cleared from scene')
+        logger.debug('Armor cleared from scene')
       }
     }
   }))

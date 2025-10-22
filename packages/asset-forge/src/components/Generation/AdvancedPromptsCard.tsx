@@ -357,7 +357,7 @@ const PromptSection: React.FC<{
 )
 
 // Empty State Component
-const _EmptyState: React.FC<{
+// const _EmptyState: React.FC<{
   icon: React.ReactNode
   title: string
   description: string
