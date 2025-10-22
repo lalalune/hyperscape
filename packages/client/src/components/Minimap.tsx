@@ -196,7 +196,7 @@ export function Minimap({
   // Handle visibility changes to pause/resume rendering
   useEffect(() => {
     if (!rendererRef.current) return;
-    
+
     if (isVisible) {
       console.log('[Minimap] Resuming renderer (component visible)');
       // Resume rendering when visible - just clear the animation loop
