@@ -160,7 +160,6 @@ app.get('/api/assets/:id/model', async (req, res, next) => {
 app.get('/api/manifests/:type.json', manifestRateLimiter, async (req, res, next) => {
   try {
     const manifestType = req.params.type
-    const manifestPath = path.join(ROOT_DIR, '..', 'server', 'world', 'assets', 'manifests', `${manifestType}.json`)
     
     // Security check - only allow specific manifest types
     const allowedTypes = ['items', 'mobs', 'npcs', 'resources', 'world-areas', 'biomes', 'zones', 'banks', 'stores']
@@ -168,6 +167,8 @@ app.get('/api/manifests/:type.json', manifestRateLimiter, async (req, res, next)
       return res.status(403).json({ error: 'Invalid manifest type' })
     }
     
+    const manifestPath = path.join(ROOT_DIR, '..', 'server', 'world', 'assets', 'manifests', `${manifestType}.json`)
+
     // Check if file exists
     try {
       await fs.promises.access(manifestPath)
