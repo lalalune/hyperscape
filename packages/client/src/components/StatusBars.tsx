@@ -131,7 +131,7 @@ export function StatusBars({ world }: StatusBarsProps) {
   const rowGap = isMobile ? 10 : 12
   const positionOffsets = { top: isMobile ? 12 : 20, left: isMobile ? 12 : 24 }
 
-  const barFrameBackground = 'linear-gradient(180deg, rgba(58, 63, 76, 0.92), rgba(20, 22, 29, 0.96))'
+  const barFrameBackground = 'linear-gradient(180deg, rgba(20, 15, 10, 0.75), rgba(15, 10, 5, 0.85))'
 
   const barOffsetStyle: React.CSSProperties = {
     transform: `translateX(${isMobile ? -18 : -24}px)`,
@@ -141,9 +141,10 @@ export function StatusBars({ world }: StatusBarsProps) {
     width: iconSize,
     height: iconSize,
     borderRadius: '9999px',
-    background: 'linear-gradient(180deg, rgba(68, 72, 84, 0.95), rgba(31, 33, 40, 0.95))',
-    border: '2px solid rgba(196, 206, 222, 0.55)',
-    boxShadow: '0 4px 10px rgba(0,0,0,0.55), inset 0 1px 3px rgba(255,255,255,0.2), inset 0 -2px 3px rgba(0,0,0,0.4)',
+    background: 'linear-gradient(135deg, rgba(30, 20, 10, 0.9) 0%, rgba(20, 15, 10, 0.95) 100%)',
+    backdropFilter: 'blur(8px)',
+    border: '2px solid rgba(139, 69, 19, 0.7)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(242, 208, 138, 0.2), inset 0 -2px 0 rgba(0, 0, 0, 0.5)',
     position: 'relative',
     pointerEvents: clickable ? 'auto' : 'none',
     cursor: clickable ? 'pointer' : 'default',
@@ -177,8 +178,9 @@ export function StatusBars({ world }: StatusBarsProps) {
     height: barHeight,
     borderRadius: barHeight / 2,
     background: barFrameBackground,
-    border: `2px solid ${theme.frame}`,
-    boxShadow: '0 5px 10px rgba(0,0,0,0.45), inset 0 1px 2px rgba(255,255,255,0.18), inset 0 -2px 3px rgba(0,0,0,0.35)',
+    backdropFilter: 'blur(8px)',
+    border: '2px solid rgba(139, 69, 19, 0.6)',
+    boxShadow: '0 6px 16px rgba(0, 0, 0, 0.7), 0 3px 8px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(242, 208, 138, 0.15), inset 0 -2px 0 rgba(0, 0, 0, 0.6)',
     position: 'relative',
     overflow: 'hidden',
     pointerEvents: clickable ? 'auto' : 'none',
@@ -206,11 +208,11 @@ export function StatusBars({ world }: StatusBarsProps) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#f9fbff',
+    color: '#f2d08a',
     fontWeight: 600,
     fontSize: labelFontSize,
     letterSpacing: 0.3,
-    textShadow: '0 1px 2px rgba(0,0,0,0.85)',
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.8), 0 0 4px rgba(242, 208, 138, 0.3)',
     pointerEvents: 'none',
   }
 

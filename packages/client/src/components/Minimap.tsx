@@ -24,6 +24,7 @@ interface MinimapProps {
   className?: string
   style?: React.CSSProperties
   onCompassClick?: () => void
+  isVisible?: boolean
 }
 
 export function Minimap({
@@ -34,6 +35,7 @@ export function Minimap({
   className = "",
   style = {},
   onCompassClick,
+  isVisible = true,
 }: MinimapProps) {
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -42,6 +44,8 @@ export function Minimap({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const [entityPips, setEntityPips] = useState<EntityPip[]>([]);
   const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
+  const entityCacheRef = useRef<Map<string, EntityPip>>(new Map());
+  const rendererInitializedRef = useRef<boolean>(false);
 
   // Minimap zoom state (orthographic half-extent in world units)
   const [extent, setExtent] = useState<number>(zoom);
@@ -86,6 +90,8 @@ export function Minimap({
     const overlayCanvas = overlayCanvasRef.current;
     if (!webglCanvas || !overlayCanvas) return;
 
+    console.log('[Minimap] Initializing renderer...');
+
     // Create orthographic camera for overhead view - much higher up
     const camera = new THREE.OrthographicCamera(
       -extent,
@@ -113,33 +119,46 @@ export function Minimap({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    // Create renderer asynchronously
-    let mounted = true;
-    createRenderer({
-      canvas: webglCanvas,
-      alpha: true,
-      antialias: false,
-      preferWebGPU: false, // Use WebGL for minimap (simpler, more compatible)
-    })
-      .then((renderer) => {
-        if (!mounted) {
-          if ('dispose' in renderer) (renderer as { dispose: () => void }).dispose();
-          return;
-        }
-
-        renderer.setSize(width, height);
-
-        // Configure clear color (WebGL-specific)
-        if ("setClearColor" in renderer) {
-          (renderer as THREE.WebGLRenderer).setClearColor(0x1a1a2e, 0.9);
-        }
-
-        rendererRef.current = renderer;
+    // Only create renderer if it doesn't exist
+    if (!rendererRef.current || !rendererInitializedRef.current) {
+      console.log('[Minimap] Creating new renderer');
+      const mounted = true;
+      createRenderer({
+        canvas: webglCanvas,
+        alpha: true,
+        antialias: false,
+        preferWebGPU: false, // Use WebGL for minimap (simpler, more compatible)
       })
-      .catch((error) => {
-        console.error("[Minimap] Failed to create renderer:", error);
-        rendererRef.current = null;
-      });
+        .then((renderer) => {
+          if (!mounted) {
+            if ('dispose' in renderer) (renderer as { dispose: () => void }).dispose();
+            return;
+          }
+
+          renderer.setSize(width, height);
+
+          // Configure clear color (WebGL-specific)
+          if ("setClearColor" in renderer) {
+            (renderer as THREE.WebGLRenderer).setClearColor(0x1a1a2e, 0.9);
+          }
+
+          rendererRef.current = renderer;
+          rendererInitializedRef.current = true;
+          console.log('[Minimap] Renderer initialized successfully');
+        })
+        .catch((error) => {
+          console.error("[Minimap] Failed to create renderer:", error);
+          rendererRef.current = null;
+          rendererInitializedRef.current = false;
+        });
+    } else {
+      console.log('[Minimap] Reusing existing renderer');
+      // Update renderer size when reusing
+      if (rendererRef.current) {
+        rendererRef.current.setSize(width, height);
+      }
+      console.log('[Minimap] Renderer size updated');
+    }
 
     // Ensure both canvases have the correct backing size
     webglCanvas.width = width;
@@ -148,9 +167,14 @@ export function Minimap({
     overlayCanvas.height = height;
 
     return () => {
-      mounted = false;
-      if (rendererRef.current && 'dispose' in rendererRef.current) {
-        (rendererRef.current as { dispose: () => void }).dispose();
+      // Don't dispose renderer on unmount - we want to reuse it
+      // Only dispose if component is actually being destroyed
+      if (rendererRef.current && rendererInitializedRef.current && !isVisible) {
+        console.log('[Minimap] Pausing renderer (component hidden)');
+        // Pause rendering when hidden
+        if ('setAnimationLoop' in rendererRef.current) {
+          (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
+        }
       }
     };
   }, [width, height, extent, world]);
@@ -164,6 +188,39 @@ export function Minimap({
 
     // No cleanup needed - we're using the world's scene
   }, [world]);
+
+  // Handle visibility changes to pause/resume rendering
+  useEffect(() => {
+    if (!rendererRef.current) return;
+    
+    if (isVisible) {
+      console.log('[Minimap] Resuming renderer (component visible)');
+      // Resume rendering when visible
+      if ('setAnimationLoop' in rendererRef.current) {
+        (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
+      }
+    } else {
+      console.log('[Minimap] Pausing renderer (component hidden)');
+      // Pause rendering when hidden
+      if ('setAnimationLoop' in rendererRef.current) {
+        (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
+      }
+    }
+  }, [isVisible]);
+
+  // Cleanup renderer when component is actually unmounted
+  useEffect(() => {
+    return () => {
+      if (rendererRef.current && rendererInitializedRef.current) {
+        console.log('[Minimap] Disposing renderer on component unmount');
+        if ('dispose' in rendererRef.current) {
+          (rendererRef.current as { dispose: () => void }).dispose();
+        }
+        rendererRef.current = null;
+        rendererInitializedRef.current = false;
+      }
+    };
+  }, []);
 
   // Update camera position based on player position
   useEffect(() => {
@@ -228,20 +285,26 @@ export function Minimap({
     cam.updateProjectionMatrix();
   }, [extent]);
 
-  // Collect entity data for pips (update at a moderate cadence)
+  // Collect entity data for pips (update at a moderate cadence, only when visible)
   useEffect(() => {
-    if (!world.entities) return;
+    if (!world.entities || !isVisible) return;
+
+    console.log('[Minimap] Starting entity detection updates');
     let intervalId: number | null = null;
     const update = () => {
       const pips: EntityPip[] = [];
+      const newCache = new Map<string, EntityPip>();
+      
       const player = world.entities?.player as Entity | undefined;
       if (player?.node?.position) {
-        pips.push({
+        const playerPip: EntityPip = {
           id: "local-player",
           type: "player",
           position: player.node.position,
           color: "#00ff00",
-        });
+        };
+        pips.push(playerPip);
+        newCache.set("local-player", playerPip);
       }
 
       // Add other players using entities system for reliable positions
@@ -251,7 +314,7 @@ export function Minimap({
           if (!player || otherPlayer.id !== player.id) {
             const otherEntity = world.entities.get(otherPlayer.id);
             if (otherEntity && otherEntity.node && otherEntity.node.position) {
-              pips.push({
+              const playerPip: EntityPip = {
                 id: otherPlayer.id,
                 type: "player",
                 position: new THREE.Vector3(
@@ -260,13 +323,15 @@ export function Minimap({
                   otherEntity.node.position.z,
                 ),
                 color: "#0088ff",
-              });
+              };
+              pips.push(playerPip);
+              newCache.set(otherPlayer.id, playerPip);
             }
           }
         });
       }
 
-      // Add enemies - check entities or stage entities
+      // Add enemies - check entities or stage entities (cached)
       if (world.stage.scene) {
         world.stage.scene.traverse((object) => {
           // Look for mob entities with certain naming patterns
@@ -283,12 +348,14 @@ export function Minimap({
             const worldPos = new THREE.Vector3();
             object.getWorldPosition(worldPos);
 
-            pips.push({
+            const enemyPip: EntityPip = {
               id: object.uuid,
               type: "enemy",
               position: new THREE.Vector3(worldPos.x, 0, worldPos.z),
               color: "#ff4444", // Red for enemies
-            });
+            };
+            pips.push(enemyPip);
+            newCache.set(object.uuid, enemyPip);
           }
 
           // Look for building/structure entities
@@ -304,16 +371,19 @@ export function Minimap({
             const worldPos = new THREE.Vector3();
             object.getWorldPosition(worldPos);
 
-            pips.push({
+            const buildingPip: EntityPip = {
               id: object.uuid,
               type: "building",
               position: new THREE.Vector3(worldPos.x, 0, worldPos.z),
               color: "#ffaa00", // Orange for buildings
-            });
+            };
+            pips.push(buildingPip);
+            newCache.set(object.uuid, buildingPip);
           }
         });
       }
-      // Add pips for all known entities safely
+      
+      // Add pips for all known entities safely (cached)
       if (world.entities) {
         const allEntities = world.entities.getAll();
         allEntities.forEach((entity) => {
@@ -353,31 +423,49 @@ export function Minimap({
               type = "item";
           }
 
-          pips.push({
+          const entityPip: EntityPip = {
             id: entity.id,
             type,
             position: new THREE.Vector3(pos.x, 0, pos.z),
             color,
-          });
+          };
+          pips.push(entityPip);
+          newCache.set(entity.id, entityPip);
         });
       }
 
+      // Update cache
+      entityCacheRef.current = newCache;
       setEntityPips(pips);
     };
+
     update();
     intervalId = window.setInterval(update, 200);
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      if (intervalId) {
+        clearInterval(intervalId);
+        console.log('[Minimap] Stopped entity detection updates');
+      }
     };
-  }, [world]);
+  }, [world, isVisible]);
 
-  // Render pips on canvas
+  // Render pips on canvas (only when visible)
   useEffect(() => {
     const overlayCanvas = overlayCanvasRef.current;
-    if (!overlayCanvas) return;
+    if (!overlayCanvas || !isVisible) return;
 
     let rafId: number | null = null;
+    let frameCount = 0;
+    
     const render = () => {
+      // Only render if visible
+      if (!isVisible) {
+        rafId = requestAnimationFrame(render);
+        return;
+      }
+      
+      frameCount++;
+      
       // Render WebGL if available
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -507,11 +595,23 @@ export function Minimap({
           ctx.restore();
         }
       }
+      
+      // Log performance every 60 frames (approximately 1 second)
+      if (frameCount % 60 === 0) {
+        console.log(`[Minimap] Render frame ${frameCount}, visible: ${isVisible}, entities: ${entityPips.length}`);
+      }
+      
       rafId = requestAnimationFrame(render);
     };
+    
+    console.log('[Minimap] Starting render loop');
     rafId = requestAnimationFrame(render);
+    
     return () => {
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        console.log('[Minimap] Stopping render loop');
+      }
     };
   }, [
     entityPips,
@@ -521,6 +621,7 @@ export function Minimap({
     world,
     lastDestinationWorld,
     lastMinimapClickScreen,
+    isVisible,
   ]);
 
   // Convert a click in the minimap to a world XZ position
