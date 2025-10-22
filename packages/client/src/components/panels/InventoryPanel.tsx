@@ -208,6 +208,7 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
 
     if (!over || active.id === over.id) return
 
+    // IDs are already global indices (inventory-${startIndex + i})
     const fromIndex = parseInt((active.id as string).split('-')[1])
     const toIndex = parseInt((over.id as string).split('-')[1])
 
