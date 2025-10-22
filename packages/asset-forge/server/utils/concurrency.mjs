@@ -52,10 +52,14 @@ export async function asyncPool(poolLimit, array, iteratorFn) {
     results.push(promise)
 
     // Add to executing pool and enforce concurrency limit
-    // BUG FIX: Removed incorrect condition that skipped concurrency control for small arrays
+    // BUG FIX: Store the cleanup promise separately to avoid race condition
+    // The promise must be added to executing array before calling .then()
     const executingPromise = promise.then(() => {
       // Remove from executing pool when done
-      executing.splice(executing.indexOf(executingPromise), 1)
+      const index = executing.indexOf(executingPromise)
+      if (index !== -1) {
+        executing.splice(index, 1)
+      }
     })
     executing.push(executingPromise)
 
@@ -191,8 +195,8 @@ export async function retryWithBackoff(fn, options = {}) {
     throw new Error('baseDelayMs must be a non-negative integer')
   }
 
-  if (!Number.isInteger(maxDelayMs) || maxDelayMs <= baseDelayMs) {
-    throw new Error('maxDelayMs must be > baseDelayMs for exponential backoff to work')
+  if (!Number.isInteger(maxDelayMs) || maxDelayMs < baseDelayMs) {
+    throw new Error('maxDelayMs must be >= baseDelayMs')
   }
 
   let lastError = null

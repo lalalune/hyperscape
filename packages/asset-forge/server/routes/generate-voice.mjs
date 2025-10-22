@@ -11,6 +11,26 @@ const voiceService = new VoiceGenerationService()
 const logger = createLogger('VoiceGenerationAPI')
 
 /**
+ * Map audio output format to MIME content type
+ */
+function getContentTypeForFormat(outputFormat) {
+  if (!outputFormat || outputFormat.startsWith('mp3_')) {
+    return 'audio/mpeg'
+  }
+  if (outputFormat.startsWith('pcm_')) {
+    return 'audio/wav' // PCM is typically served as WAV
+  }
+  if (outputFormat.startsWith('opus_')) {
+    return 'audio/ogg' // Opus is typically in OGG container
+  }
+  if (outputFormat === 'ulaw_8000' || outputFormat === 'alaw_8000') {
+    return 'audio/basic'
+  }
+  // Default fallback
+  return 'audio/mpeg'
+}
+
+/**
  * GET /api/voice/library
  * Get available voices from ElevenLabs library
  */
@@ -158,8 +178,9 @@ export async function POST_generate(req, res) {
 
     logger.info('Speech generated successfully', { audioBytes: audioBuffer.length })
 
-    // Return audio file
-    res.setHeader('Content-Type', 'audio/mpeg')
+    // BUG FIX: Set correct Content-Type based on actual output format
+    const contentType = getContentTypeForFormat(outputFormat)
+    res.setHeader('Content-Type', contentType)
     res.setHeader('Content-Length', audioBuffer.length)
     res.send(audioBuffer)
   } catch (error) {

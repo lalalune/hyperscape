@@ -218,8 +218,11 @@ export async function generateForcedRelationships(newNPC, existingNPCs, minRelat
 
   // Pick random existing NPCs to create relationships with using Fisher-Yates shuffle
   const shuffled = [...existingNPCs]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+  // BUG FIX: Only shuffle enough elements as we need (partial Fisher-Yates)
+  // This avoids unnecessary iterations and is more efficient when needed << array.length
+  const shuffleCount = Math.min(needed, shuffled.length)
+  for (let i = 0; i < shuffleCount; i++) {
+    const j = i + Math.floor(Math.random() * (shuffled.length - i));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   const selected = shuffled.slice(0, needed)

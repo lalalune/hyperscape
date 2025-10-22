@@ -190,7 +190,8 @@ export class MultiAgentOrchestrator {
    * Generate response from a specific agent
    */
   async generateAgentResponse(agent, context) {
-    const model = getModelForTask('npc_dialogue', this.config.model, 'quality')
+    // BUG FIX: Corrected parameter order - getModelForTask(task, priority, customModel)
+    const model = getModelForTask('npc_dialogue', 'quality', this.config.model)
     const fullPrompt = this.buildAgentPrompt(agent, context)
 
     try {
@@ -354,7 +355,8 @@ Format: SCORES: [consistency]/10, [authenticity]/10, [quality]/10
 Brief explanation of any issues found.`
 
         try {
-          const model = getModelForTask('npc_dialogue', this.config.model, 'cost')
+          // BUG FIX: Corrected parameter order - getModelForTask(task, priority, customModel)
+          const model = getModelForTask('npc_dialogue', 'cost', this.config.model)
           const response = await generateText({
             model,
             prompt: validationPrompt,

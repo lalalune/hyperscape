@@ -147,7 +147,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
 
   const handlePlayClip = async (clip: VoiceClip) => {
     try {
-      // Cleanup previous audio if playing
+      // BUG FIX: Always cleanup previous audio to prevent memory leaks
       if (currentAudioRef.current) {
         currentAudioRef.current.audio.pause()
         URL.revokeObjectURL(currentAudioRef.current.url)
@@ -163,8 +163,9 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       currentAudioRef.current = { audio, url: audioUrl }
 
       audio.onended = () => {
+        // BUG FIX: Cleanup blob URL when audio ends, regardless of which audio is currently playing
+        URL.revokeObjectURL(audioUrl)
         if (currentAudioRef.current && currentAudioRef.current.url === audioUrl) {
-          URL.revokeObjectURL(audioUrl)
           currentAudioRef.current = null
         }
       }

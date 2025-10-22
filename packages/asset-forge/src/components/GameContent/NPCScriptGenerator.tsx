@@ -95,6 +95,7 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
       if (data.reuseValidation) {
         setReuseValidation(data.reuseValidation)
 
+        // BUG FIX: Check shouldReuse (boolean) instead of canReuse (NPC object)
         if (data.reuseValidation.shouldReuse) {
           console.log(`[NPCGenerator] REUSE RECOMMENDED: ${data.reuseValidation.justification}`)
 

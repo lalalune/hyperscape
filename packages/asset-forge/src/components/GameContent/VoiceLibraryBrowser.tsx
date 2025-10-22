@@ -13,7 +13,7 @@
  * Used by: VoiceGenerator component
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Play, Check, RotateCcw } from 'lucide-react'
 import { Card } from '../common/Card'
 import { Button } from '../common/Button'
