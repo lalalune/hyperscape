@@ -9,6 +9,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Serena
+.serena/
+
 # Documentation
 packages/docs-site/build/
 packages/docs-site/docs/api/
@@ -54,3 +57,7 @@ tmp/
 
 # Assets (generated/temporary)
 assets/
+
+# 3D Models from hyperscape/assets repository
+packages/client/src/public/models/
+packages/client/dist/models/
