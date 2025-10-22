@@ -8,7 +8,6 @@ import { create } from 'zustand'
 import type {
   CollaborationSession,
   PlaytestSession,
-  TesterArchetype,
   PlaytesterPersonasResponse,
 } from '../types/multi-agent'
 

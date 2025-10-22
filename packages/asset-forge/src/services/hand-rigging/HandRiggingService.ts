@@ -555,11 +555,11 @@ export class HandRiggingService {
     )
     
     // Create palm bone (optional, helps with weighting)
-    const _palmPos = new THREE.Vector3(
-      landmarks3D[0].x,
-      landmarks3D[0].y,
-      landmarks3D[0].z
-    )
+    // const _palmPos = new THREE.Vector3(
+    //   landmarks3D[0].x,
+    //   landmarks3D[0].y,
+    //   landmarks3D[0].z
+    // )
     
     // Find the skeleton that contains this wrist bone
     let skeleton: THREE.Skeleton | null = null
@@ -662,7 +662,7 @@ export class HandRiggingService {
     const skinWeights = geometry.attributes.skinWeight
     
     // Get bone indices in skeleton
-    const _boneIndices = this.getBoneIndices(mesh.skeleton, handBones)
+//     const _boneIndices = this.getBoneIndices(mesh.skeleton, handBones)
     
     // Count affected vertices
     let affectedVertices = 0
@@ -811,7 +811,7 @@ export class HandRiggingService {
     const positions = geometry.attributes.position
     
     // Build vertex neighbors (simplified - could use proper topology)
-    const _neighbors: Map<number, number[]> = new Map()
+//     const _neighbors: Map<number, number[]> = new Map()
     
     // For now, just smooth based on spatial proximity
     for (let iter = 0; iter < iterations; iter++) {

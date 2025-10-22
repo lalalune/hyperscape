@@ -208,7 +208,7 @@ export function useArmorFitting({
             // Store the current world transform
             currentArmorMesh.updateMatrixWorld(true)
             const perfectWorldPosition = currentArmorMesh.getWorldPosition(new THREE.Vector3())
-            const _perfectWorldQuaternion = currentArmorMesh.getWorldQuaternion(new THREE.Quaternion())
+//             const _perfectWorldQuaternion = currentArmorMesh.getWorldQuaternion(new THREE.Quaternion())
             const perfectWorldScale = currentArmorMesh.getWorldScale(new THREE.Vector3())
 
             console.log('=== FITTED ARMOR WORLD TRANSFORM ===')
@@ -437,7 +437,7 @@ function scaleAndPositionArmor(
     // Calculate scales
     const targetScale = calculateFittingScale(armorSize, torsoSize)
     const minScale = 0.5
-    const _finalScale = Math.max(targetScale, minScale)
+//     const _finalScale = Math.max(targetScale, minScale)
     
     // Get character-specific adjustments
     const characterProfile = selectedAvatar?.name?.toLowerCase().includes('goblin') 

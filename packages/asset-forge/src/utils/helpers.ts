@@ -220,7 +220,7 @@ export function generateMaterialDescription(
   itemType: 'weapon' | 'armor' | 'tool'
 ): string {
   const tier = MATERIAL_TIERS[materialTier]
-  const _adjective = tier.adjectives[Math.floor(Math.random() * tier.adjectives.length)]
+//   const _adjective = tier.adjectives[Math.floor(Math.random() * tier.adjectives.length)]
   
   // Add material-specific details
   let description = baseDescription

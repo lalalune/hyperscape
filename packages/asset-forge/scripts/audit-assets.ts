@@ -8,7 +8,7 @@
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import chalk from 'chalk'
-import { AssetMetadata, isBaseAsset, isVariantAsset, validateBaseAsset } from '../src/types/AssetMetadata'
+import { AssetMetadata, isBaseAsset, isVariantAsset } from '../src/types/AssetMetadata'
 
 interface AuditReport {
   totalAssets: number

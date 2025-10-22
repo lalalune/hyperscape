@@ -10,7 +10,7 @@ import chalk from 'chalk'
 import { AssetNormalizationService } from '../src/services/processing/AssetNormalizationService'
 import { WeaponHandleDetector } from '../src/services/processing/WeaponHandleDetector'
 
-import { AssetMetadata, ExtendedAssetMetadata } from '../src/types'
+import { ExtendedAssetMetadata } from '../src/types'
 
 async function getAllAssets(): Promise<Array<{ id: string; metadata: ExtendedAssetMetadata }>> {
   const assetsDir = join(process.cwd(), 'gdd-assets')

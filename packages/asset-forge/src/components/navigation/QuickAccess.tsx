@@ -5,7 +5,7 @@
  * and favorited items for faster navigation.
  */
 
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback } from 'react'
 import { Clock, Star, Trash2 } from 'lucide-react'
 import { useNavigationStore } from '../../store/useNavigationStore'
 import { getNavItemForRoute } from '../../config/navigation-config'

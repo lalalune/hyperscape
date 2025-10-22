@@ -49,24 +49,9 @@ export interface FittingConfig {
   pushInteriorVertices?: boolean
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface FittingParameters {
-  iterations?: number
-  stepSize?: number
-  smoothingRadius?: number
-  smoothingStrength?: number
-  targetOffset?: number
-  useBodyHull?: boolean
-  deformationMethod?: 'shrinkwrap' | 'rbf' | 'cage'
-  rbfRadius?: number
-  preserveFeatures?: boolean
-  featureAngleThreshold?: number
-  preserveOpenings?: boolean
-}
-
 export class ArmorFittingService {
-  private genericFittingService: MeshFittingService
-  private weightTransferService: WeightTransferService
+//   private genericFittingService: MeshFittingService
+//   private weightTransferService: WeightTransferService
 
   constructor() {
     this.genericFittingService = new MeshFittingService()
@@ -928,7 +913,7 @@ export class ArmorFittingService {
     
     // Store the armor's current fitted transform
     armorMesh.updateMatrixWorld(true)
-    const _fittedWorldMatrix = armorMesh.matrixWorld.clone()
+//     const _fittedWorldMatrix = armorMesh.matrixWorld.clone()
     const fittedLocalPosition = armorMesh.position.clone()
     const fittedLocalRotation = armorMesh.quaternion.clone()
     const fittedLocalScale = armorMesh.scale.clone()
@@ -941,7 +926,7 @@ export class ArmorFittingService {
     
     // Store the fitted world position BEFORE any transformations
     const fittedWorldPosition = armorMesh.getWorldPosition(new THREE.Vector3()).clone()
-    const _fittedWorldScale = armorMesh.getWorldScale(new THREE.Vector3()).clone()
+//     const _fittedWorldScale = armorMesh.getWorldScale(new THREE.Vector3()).clone()
     
     console.log('Storing fitted armor transform:')
     console.log('- World position:', fittedWorldPosition)
@@ -1014,7 +999,7 @@ export class ArmorFittingService {
     skinnedGeometry.setAttribute('skinWeight', skinWeightAttr)
     
     // Find the Armature for bind matrix calculation
-    const _armature = avatarMesh.parent
+//     const _armature = avatarMesh.parent
     
     // Create SkinnedMesh - initially at origin
     const skinnedArmorMesh = new THREE.SkinnedMesh(skinnedGeometry, armorMesh.material)
@@ -1164,7 +1149,7 @@ export class ArmorFittingService {
     const avatarGeometry = avatarMesh.geometry as THREE.BufferGeometry
     
     const armorPositions = armorGeometry.attributes.position
-    const _avatarPositions = avatarGeometry.attributes.position
+//     const _avatarPositions = avatarGeometry.attributes.position
     const avatarSkinWeights = avatarGeometry.attributes.skinWeight
     const avatarSkinIndices = avatarGeometry.attributes.skinIndex
     

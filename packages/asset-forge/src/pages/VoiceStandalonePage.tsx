@@ -29,7 +29,6 @@ import { VoicePresets } from '../components/Voice/VoicePresets'
 import { SubscriptionWidget } from '../components/Voice/SubscriptionWidget'
 import { useVoiceGenerationStore } from '../store/useVoiceGenerationStore'
 import { voiceGenerationService } from '../services/VoiceGenerationService'
-import type { VoiceSettings } from '../types/voice-generation'
 
 const MAX_CHARACTERS = 5000 // ElevenLabs limit per request
 const WARNING_THRESHOLD = 4500 // Show warning at 90%

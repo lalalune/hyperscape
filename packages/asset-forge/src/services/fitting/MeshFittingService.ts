@@ -39,8 +39,8 @@ export interface MeshFittingParameters {
 
 export class MeshFittingService {
   private raycaster: Raycaster = new Raycaster()
-  private tempVertex = new Vector3()
-  private tempTarget = new Vector3()
+//   private tempVertex = new Vector3()
+//   private tempTarget = new Vector3()
   private debugArrowGroup: THREE.Group | null = null
   private debugData: {
     displacements: Float32Array
@@ -1550,12 +1550,12 @@ export class MeshFittingService {
     const vertexCount = position.count
     
     // Store original positions for reference
-    const _originalPositions = new Float32Array(position.array)
+//     const _originalPositions = new Float32Array(position.array)
     
     // Get centers
     const sourceBounds = new Box3().setFromObject(sourceMesh)
     const targetBounds = new Box3().setFromObject(targetMesh)
-    const _sourceCenter = sourceBounds.getCenter(new Vector3())
+//     const _sourceCenter = sourceBounds.getCenter(new Vector3())
     const targetCenter = targetBounds.getCenter(new Vector3())
     
     // Check if target is a box
@@ -1881,7 +1881,7 @@ export class MeshFittingService {
    * Detect edge vertices that form openings (neck hole, arm holes)
    * Returns a Set of vertex indices that are on edges
    */
-  private detectEdgeVertices(geometry: BufferGeometry): { 
+//   private detectEdgeVertices(geometry: BufferGeometry): { 
     edgeVertices: Set<number>, 
     edgeLoops: Array<{name: string, vertices: number[]}> 
   } {
@@ -2211,12 +2211,12 @@ export class MeshFittingService {
   /**
    * Apply smoothing pass to vertex positions
    */
-  private applySmoothingPass(
+//   private applySmoothingPass(
     positions: Float32Array,
     vertexCount: number,
     radius: number,
     strength: number,
-    worldMatrix: THREE.Matrix4,
+//     worldMatrix: THREE.Matrix4,
     preserveFeatures: boolean = false,
     featureAngleThreshold: number = 30
   ): void {
@@ -2311,7 +2311,7 @@ export class MeshFittingService {
   /**
    * Project vertices back onto the target surface after smoothing
    */
-  private projectVerticesToSurface(
+//   private projectVerticesToSurface(
     positions: Float32Array,
     vertexCount: number,
     sourceMesh: Mesh,
@@ -2771,7 +2771,7 @@ export class MeshFittingService {
    */
   private detectIntersectingVertices(
     armorMesh: Mesh,
-    avatarMesh: THREE.SkinnedMesh,
+//     avatarMesh: THREE.SkinnedMesh,
     skeleton: THREE.Skeleton
   ): Set<number> {
     console.log('🔍 Detecting armor vertices intersecting with neck and arms...')
@@ -3223,7 +3223,7 @@ export class MeshFittingService {
   
   private calculateOptimalHelmetTransform(
     helmetMesh: Mesh,
-    avatarMesh: SkinnedMesh,
+    // avatarMesh: SkinnedMesh,
     headInfo: ReturnType<typeof this.detectHeadRegion>,
     sizeMultiplier: number,
     fitTightness: number = 0.85
@@ -3235,7 +3235,7 @@ export class MeshFittingService {
     // DEAD SIMPLE APPROACH - HELMET BOUNDS MUST CONTAIN HEAD BOUNDS
     
     // Store original state
-    const _originalMatrix = helmetMesh.matrix.clone()
+//     const _originalMatrix = helmetMesh.matrix.clone()
     const originalPosition = helmetMesh.position.clone()
     const originalScale = helmetMesh.scale.clone()
     const originalRotation = helmetMesh.rotation.clone()

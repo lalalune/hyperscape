@@ -37,7 +37,7 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
   const [services, setServices] = useState<string[]>([])
   const [assignedQuests, setAssignedQuests] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
-  const [reuseValidation, setReuseValidation] = useState<any>(null)
+  const [_reuseValidation, setReuseValidation] = useState<any>(null)
   
   // AI Generation
   const [showAIGenerator, setShowAIGenerator] = useState(false)
@@ -167,7 +167,7 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
   const handleGenerate = async () => {
     if (!name) return
 
-    const selectedArchetype = archetypes.find(a => a.id === archetype)!
+//     const _selectedArchetype = archetypes.find(a => a.id === archetype)!
 
     if (onAIGenerate && backstory) {
       setGenerating(true)

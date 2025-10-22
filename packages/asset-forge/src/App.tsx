@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { GlobalSearch } from './components/common/GlobalSearch'
 import SideNavigation from './components/navigation/SideNavigation'
 import NotificationBar from './components/shared/NotificationBar'
 import { NAVIGATION_VIEWS, APP_BACKGROUND_STYLES } from './constants'
-import { ROUTES } from './constants/routes'
 import { AppProvider } from './contexts/AppContext'
 import { NavigationProvider } from './contexts/NavigationContext'
 import { useNavigation } from './hooks/useNavigation'
@@ -41,7 +40,6 @@ function AppContent() {
   const { currentView, navigateTo: legacyNavigateTo, navigateToAsset } = useNavigation()
   const currentPath = useNavigationStore(state => state.currentPath)
   const collapsed = useNavigationStore(state => state.collapsed)
-  const navigateTo = useNavigationStore(state => state.navigateTo)
   const navigateToLegacyView = useNavigationStore(state => state.navigateToLegacyView)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
 

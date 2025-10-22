@@ -4,14 +4,14 @@
  * Users can generate voice clips directly without needing to create NPCs first
  */
 
-import { Mic, Download, Play, Pause, Volume2, Settings } from 'lucide-react'
-import React, { useState, useEffect } from 'react'
+import { Mic, Download, Play, _Pause, Volume2, Settings } from 'lucide-react'
+import React, { useState, _useEffect } from 'react'
 import { VoiceGenerator } from '../components/GameContent/VoiceGenerator'
 import { Card } from '../components/common'
 
 export const VoiceGenerationPage: React.FC = () => {
-  const [selectedDialogue, setSelectedDialogue] = useState<string>('')
-  const [voiceId, setVoiceId] = useState<string>('')
+  const [_selectedDialogue, _setSelectedDialogue] = useState<string>('')
+  const [_voiceId, _setVoiceId] = useState<string>('')
 
   return (
     <div className="w-full h-full overflow-auto">

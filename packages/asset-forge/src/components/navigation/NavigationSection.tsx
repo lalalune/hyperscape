@@ -5,7 +5,7 @@
  * Supports single links, groups, and collapsible sections.
  */
 
-import React, { useCallback, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { NavigationSection as NavigationSectionType } from '../../types/navigation'
 import { useNavigationStore } from '../../store/useNavigationStore'

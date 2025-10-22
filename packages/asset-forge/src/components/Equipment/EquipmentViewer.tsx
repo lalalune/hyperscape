@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import * as THREE from 'three'
 import { SkeletonHelper } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -345,7 +345,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     // Debug the hierarchy
     console.log(`🌳 Normalized weapon hierarchy:`)
     console.log(`   - ${weaponGroup.name} (Group)`)
-    let _depth = 0
+//     let _depth = 0
     normalizedWeapon.traverse((child) => {
       if (child !== normalizedWeapon) {
         console.log(`     - ${child.name || 'unnamed'} (${child.type})`)
@@ -407,7 +407,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
   // Helper: compute weapon scale relative to avatar height
   const calculateWeaponScale = (
     weapon: THREE.Object3D,
-    avatar: THREE.Object3D,
+//     avatar: THREE.Object3D,
     weaponType: string,
     avatarHeight: number
   ): number => {
@@ -462,7 +462,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         animationClipsRef.current = []
         
         // Store equipment state before removing avatar
-        const _hadEquipmentAttached = shouldAttachEquipmentRef.current && equipmentRef.current && equipmentRef.current.parent
+//         const _hadEquipmentAttached = shouldAttachEquipmentRef.current && equipmentRef.current && equipmentRef.current.parent
         
         // Remove existing avatar
         if (avatarRef.current) {
@@ -1512,98 +1512,98 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
   }, [])
   
   // Create debug spheres
-  const _createDebugSpheres = (handPosition: THREE.Vector3, gripPosition: THREE.Vector3) => {
-    // Remove existing spheres
-    if (debugSpheres.handSphere) {
-      sceneRef.current?.remove(debugSpheres.handSphere)
-      debugSpheres.handSphere.geometry.dispose()
-      ;(debugSpheres.handSphere.material as THREE.Material).dispose()
-    }
-    if (debugSpheres.gripSphere) {
-      sceneRef.current?.remove(debugSpheres.gripSphere)
-      debugSpheres.gripSphere.geometry.dispose()
-      ;(debugSpheres.gripSphere.material as THREE.Material).dispose()
-    }
-    if (debugSpheres.centerSphere) {
-      sceneRef.current?.remove(debugSpheres.centerSphere)
-      debugSpheres.centerSphere.geometry.dispose()
-      ;(debugSpheres.centerSphere.material as THREE.Material).dispose()
-    }
-    if (debugSpheres.line) {
-      sceneRef.current?.remove(debugSpheres.line)
-      debugSpheres.line.geometry.dispose()
-      ;(debugSpheres.line.material as THREE.Material).dispose()
-    }
-    if (debugSpheres.wristSphere) {
-      sceneRef.current?.remove(debugSpheres.wristSphere)
-      debugSpheres.wristSphere.geometry.dispose()
-      ;(debugSpheres.wristSphere.material as THREE.Material).dispose()
-    }
-    
-    // Calculate sphere size based on avatar height
-    const avatarHeight = avatarRef.current ? calculateAvatarHeight(avatarRef.current) : 1.8
-    const sphereRadius = avatarHeight * 0.03 // 3% of avatar height
-    
-    // Create hand sphere (blue)
-    const handGeometry = new THREE.SphereGeometry(sphereRadius, 16, 16)
-    const handMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff })
-    const handSphere = new THREE.Mesh(handGeometry, handMaterial)
-    handSphere.position.copy(handPosition)
-    sceneRef.current?.add(handSphere)
-    
-    // Create grip sphere (red)
-    const gripGeometry = new THREE.SphereGeometry(sphereRadius, 16, 16)
-    const gripMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
-    const gripSphere = new THREE.Mesh(gripGeometry, gripMaterial)
-    gripSphere.position.copy(gripPosition)
-    sceneRef.current?.add(gripSphere)
-    
-    // Create weapon center sphere (yellow) - shows where the weapon mesh actually is
-    if (equipmentRef.current) {
-      const centerGeometry = new THREE.SphereGeometry(sphereRadius * 0.7, 16, 16)
-      const centerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 })
-      const centerSphere = new THREE.Mesh(centerGeometry, centerMaterial)
-      
-      // Get the actual weapon mesh center
-      const weaponBounds = new THREE.Box3().setFromObject(equipmentRef.current)
-      const weaponCenter = new THREE.Vector3()
-      weaponBounds.getCenter(weaponCenter)
-      
-      centerSphere.position.copy(weaponCenter)
-      sceneRef.current?.add(centerSphere)
-      
-      console.log(`🟡 Weapon center (yellow): (${weaponCenter.x.toFixed(3)}, ${weaponCenter.y.toFixed(3)}, ${weaponCenter.z.toFixed(3)})`)
-      
-      // Add a line from hand to grip
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints([handPosition, gripPosition])
-      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 })
-      const line = new THREE.Line(lineGeometry, lineMaterial)
-      sceneRef.current?.add(line)
-      
-      // Add purple sphere to show actual wrist bone position (before hand offset)
-      const wristGeometry = new THREE.SphereGeometry(sphereRadius * 0.5, 16, 16)
-      const wristMaterial = new THREE.MeshBasicMaterial({ color: 0x9900ff, transparent: true, opacity: 0.7 })
-      const wristSphere = new THREE.Mesh(wristGeometry, wristMaterial)
-      wristSphere.position.copy(handPosition)
-      // Move it back by the hand offset amount to show original wrist position
-      const handOffsetDistance = avatarHeight * 0.045
-      wristSphere.position.z -= handOffsetDistance
-      sceneRef.current?.add(wristSphere)
-      
-      console.log(`🟣 Wrist bone position (purple): (${wristSphere.position.x.toFixed(3)}, ${wristSphere.position.y.toFixed(3)}, ${wristSphere.position.z.toFixed(3)})`)
-      
-      setDebugSpheres({ handSphere, gripSphere, centerSphere, line, wristSphere })
-    } else {
-      setDebugSpheres({ handSphere, gripSphere })
-    }
-    
-    // Calculate distance
-    const distance = handPosition.distanceTo(gripPosition)
-    console.log(`🎯 Distance between hand (blue) and grip (red): ${distance.toFixed(3)}m`)
-    console.log(`  Hand position: (${handPosition.x.toFixed(3)}, ${handPosition.y.toFixed(3)}, ${handPosition.z.toFixed(3)})`)
-    console.log(`  Grip position: (${gripPosition.x.toFixed(3)}, ${gripPosition.y.toFixed(3)}, ${gripPosition.z.toFixed(3)})`)
-    console.log(`  Sphere radius: ${sphereRadius.toFixed(3)}m`)
-  }
+  // const _createDebugSpheres = (handPosition: THREE.Vector3, gripPosition: THREE.Vector3) => {
+  //   // Remove existing spheres
+  //   if (debugSpheres.handSphere) {
+  //     sceneRef.current?.remove(debugSpheres.handSphere)
+  //     debugSpheres.handSphere.geometry.dispose()
+  //     ;(debugSpheres.handSphere.material as THREE.Material).dispose()
+  //   }
+  //   if (debugSpheres.gripSphere) {
+  //     sceneRef.current?.remove(debugSpheres.gripSphere)
+  //     debugSpheres.gripSphere.geometry.dispose()
+  //     ;(debugSpheres.gripSphere.material as THREE.Material).dispose()
+  //   }
+  //   if (debugSpheres.centerSphere) {
+  //     sceneRef.current?.remove(debugSpheres.centerSphere)
+  //     debugSpheres.centerSphere.geometry.dispose()
+  //     ;(debugSpheres.centerSphere.material as THREE.Material).dispose()
+  //   }
+  //   if (debugSpheres.line) {
+  //     sceneRef.current?.remove(debugSpheres.line)
+  //     debugSpheres.line.geometry.dispose()
+  //     ;(debugSpheres.line.material as THREE.Material).dispose()
+  //   }
+  //   if (debugSpheres.wristSphere) {
+  //     sceneRef.current?.remove(debugSpheres.wristSphere)
+  //     debugSpheres.wristSphere.geometry.dispose()
+  //     ;(debugSpheres.wristSphere.material as THREE.Material).dispose()
+  //   }
+  //
+  //   // Calculate sphere size based on avatar height
+  //   const avatarHeight = avatarRef.current ? calculateAvatarHeight(avatarRef.current) : 1.8
+  //   const sphereRadius = avatarHeight * 0.03 // 3% of avatar height
+  //
+  //   // Create hand sphere (blue)
+  //   const handGeometry = new THREE.SphereGeometry(sphereRadius, 16, 16)
+  //   const handMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff })
+  //   const handSphere = new THREE.Mesh(handGeometry, handMaterial)
+  //   handSphere.position.copy(handPosition)
+  //   sceneRef.current?.add(handSphere)
+  //
+  //   // Create grip sphere (red)
+  //   const gripGeometry = new THREE.SphereGeometry(sphereRadius, 16, 16)
+  //   const gripMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  //   const gripSphere = new THREE.Mesh(gripGeometry, gripMaterial)
+  //   gripSphere.position.copy(gripPosition)
+  //   sceneRef.current?.add(gripSphere)
+  //
+  //   // Create weapon center sphere (yellow) - shows where the weapon mesh actually is
+  //   if (equipmentRef.current) {
+  //     const centerGeometry = new THREE.SphereGeometry(sphereRadius * 0.7, 16, 16)
+  //     const centerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 })
+  //     const centerSphere = new THREE.Mesh(centerGeometry, centerMaterial)
+  //
+  //     // Get the actual weapon mesh center
+  //     const weaponBounds = new THREE.Box3().setFromObject(equipmentRef.current)
+  //     const weaponCenter = new THREE.Vector3()
+  //     weaponBounds.getCenter(weaponCenter)
+  //
+  //     centerSphere.position.copy(weaponCenter)
+  //     sceneRef.current?.add(centerSphere)
+  //
+  //     console.log(`🟡 Weapon center (yellow): (${weaponCenter.x.toFixed(3)}, ${weaponCenter.y.toFixed(3)}, ${weaponCenter.z.toFixed(3)})`)
+  //
+  //     // Add a line from hand to grip
+  //     const lineGeometry = new THREE.BufferGeometry().setFromPoints([handPosition, gripPosition])
+  //     const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 })
+  //     const line = new THREE.Line(lineGeometry, lineMaterial)
+  //     sceneRef.current?.add(line)
+  //
+  //     // Add purple sphere to show actual wrist bone position (before hand offset)
+  //     const wristGeometry = new THREE.SphereGeometry(sphereRadius * 0.5, 16, 16)
+  //     const wristMaterial = new THREE.MeshBasicMaterial({ color: 0x9900ff, transparent: true, opacity: 0.7 })
+  //     const wristSphere = new THREE.Mesh(wristGeometry, wristMaterial)
+  //     wristSphere.position.copy(handPosition)
+  //     // Move it back by the hand offset amount to show original wrist position
+  //     const handOffsetDistance = avatarHeight * 0.045
+  //     wristSphere.position.z -= handOffsetDistance
+  //     sceneRef.current?.add(wristSphere)
+  //
+  //     console.log(`🟣 Wrist bone position (purple): (${wristSphere.position.x.toFixed(3)}, ${wristSphere.position.y.toFixed(3)}, ${wristSphere.position.z.toFixed(3)})`)
+  //
+  //     setDebugSpheres({ handSphere, gripSphere, centerSphere, line, wristSphere })
+  //   } else {
+  //     setDebugSpheres({ handSphere, gripSphere })
+  //   }
+  //
+  //   // Calculate distance
+  //   const distance = handPosition.distanceTo(gripPosition)
+  //   console.log(`🎯 Distance between hand (blue) and grip (red): ${distance.toFixed(3)}m`)
+  //   console.log(`  Hand position: (${handPosition.x.toFixed(3)}, ${handPosition.y.toFixed(3)}, ${handPosition.z.toFixed(3)})`)
+  //   console.log(`  Grip position: (${gripPosition.x.toFixed(3)}, ${gripPosition.y.toFixed(3)}, ${gripPosition.z.toFixed(3)})`)
+  //   console.log(`  Sphere radius: ${sphereRadius.toFixed(3)}m`)
+  // }
   
   // Cleanup on unmount
   useEffect(() => {

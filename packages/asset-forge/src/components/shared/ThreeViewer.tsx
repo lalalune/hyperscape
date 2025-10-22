@@ -2676,7 +2676,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   }, [showGroundPlane])
   
   // Play animation
-  const _playAnimation = useCallback((index: number) => {
+//   const _playAnimation = useCallback((index: number) => {
     if (!mixerRef.current || !animations[index]) return
     
     mixerRef.current.stopAllAction()
@@ -2686,7 +2686,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     setIsPlaying(true)
   }, [animations])
   
-  const _togglePlayPause = useCallback(() => {
+//   const _togglePlayPause = useCallback(() => {
     if (!mixerRef.current) return
     
     if (isPlaying) {

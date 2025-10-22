@@ -5,7 +5,6 @@
  * plus app version display.
  */
 
-import React from 'react'
 import { useNavigationStore } from '../../store/useNavigationStore'
 import { navigationConfig, isNavLink } from '../../config/navigation-config'
 import { isRouteActive } from '../../config/navigation-config'

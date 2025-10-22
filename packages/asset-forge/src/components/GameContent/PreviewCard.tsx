@@ -6,7 +6,7 @@
 import { CheckCircle, XCircle, AlertTriangle, Package, Users, Swords, Eye, Sparkles, Brain, Info } from 'lucide-react'
 import React, { useState } from 'react'
 
-import type { AnyPreviewManifest, ItemSuggestion, MobSuggestion, NPCSuggestion, isNPCSuggestion } from '../../types/preview-manifests'
+import type { AnyPreviewManifest, ItemSuggestion, MobSuggestion, NPCSuggestion } from '../../types/preview-manifests'
 import { Card, CardHeader, CardContent, CardFooter } from '../common/Card'
 import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'

@@ -16,7 +16,7 @@
 
 import React from 'react'
 import { Plus, Trash2, MessageSquare, ArrowRight } from 'lucide-react'
-import type { DialogueNode, DialogueResponse, DialogueEffect } from '../../types/npc-scripts'
+import type { DialogueNode, DialogueResponse } from '../../types/npc-scripts'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
@@ -153,7 +153,7 @@ export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = ({
               </div>
               
               <div className="space-y-2">
-                {selectedNode.responses.map((response, idx) => (
+                {selectedNode.responses.map((response, _idx) => (
                   <Card key={response.id} className="p-3 bg-bg-tertiary">
                     <div className="space-y-2">
                       {/* Response Text */}

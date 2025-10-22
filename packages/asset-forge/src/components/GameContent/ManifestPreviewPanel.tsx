@@ -3,7 +3,6 @@
  * Display and manage AI-suggested manifest items before approval
  */
 
-import { CheckCircle, XCircle, AlertCircle, Package, Users, Swords, Filter, ChevronDown } from 'lucide-react'
 import React, { useState, useMemo, useCallback } from 'react'
 
 import type { AnyPreviewManifest, ManifestGap } from '../../types/preview-manifests'

@@ -121,7 +121,7 @@ export const ManifestDetails: React.FC<ManifestDetailsProps> = ({
   const hasModel = modelPath !== null
   const needsModel = !hasValidModel(item)
 
-  const renderValue = (key: string, value: unknown): React.ReactNode => {
+  const renderValue = (_key: string, value: unknown): React.ReactNode => {
     if (value === null || value === undefined) {
       return <span className="text-text-tertiary italic">null</span>
     }

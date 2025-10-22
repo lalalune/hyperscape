@@ -107,7 +107,7 @@ export const useNavigationStore = create<NavigationState>()(
         get().navigateTo(path)
       },
 
-      navigateToAsset: (assetId: string) => {
+      navigateToAsset: (_assetId: string) => {
         // Navigate to assets page with selected asset
         const path = ROUTES.ASSETS
         get().navigateTo(path)

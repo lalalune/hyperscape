@@ -5,7 +5,6 @@
  * and smooth animations. Matches the current UI aesthetic.
  */
 
-import React, { useCallback, useMemo } from 'react'
 import { Menu, X } from 'lucide-react'
 import { useNavigationStore } from '../../store/useNavigationStore'
 import { navigationConfig } from '../../config/navigation-config'

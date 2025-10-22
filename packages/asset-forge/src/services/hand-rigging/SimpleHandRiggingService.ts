@@ -760,14 +760,14 @@ export class SimpleHandRiggingService {
     
     // Most rigs have hands extending along one of the bone's local axes
     // We'll test each axis and see which makes most sense
-    const _axes = [
-      new THREE.Vector3(1, 0, 0),   // +X
-      new THREE.Vector3(-1, 0, 0),  // -X
-      new THREE.Vector3(0, 1, 0),   // +Y
-      new THREE.Vector3(0, -1, 0),  // -Y
-      new THREE.Vector3(0, 0, 1),   // +Z
-      new THREE.Vector3(0, 0, -1),  // -Z
-    ]
+    // const _axes = [
+    //   new THREE.Vector3(1, 0, 0),   // +X
+    //   new THREE.Vector3(-1, 0, 0),  // -X
+    //   new THREE.Vector3(0, 1, 0),   // +Y
+    //   new THREE.Vector3(0, -1, 0),  // -Y
+    //   new THREE.Vector3(0, 0, 1),   // +Z
+    //   new THREE.Vector3(0, 0, -1),  // -Z
+    // ]
     
     // For most humanoid rigs, hands extend along Y axis
     // But some use X or Z, so we return the most likely

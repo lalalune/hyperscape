@@ -96,7 +96,7 @@ export function calculateAvatarHeight(avatar: THREE.Object3D): number {
  */
 export function calculateWeaponScale(
   weapon: THREE.Object3D, 
-  avatar: THREE.Object3D, 
+//   avatar: THREE.Object3D, 
   weaponType: string,
   avatarHeight: number
 ): number {

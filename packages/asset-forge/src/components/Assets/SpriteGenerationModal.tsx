@@ -49,7 +49,7 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
   const [message, setMessage] = useState('')
   const [sprites, setSprites] = useState<SpriteResult[]>([])
   const [isSaving, setIsSaving] = useState(false)
-  const [hasExistingSprites, setHasExistingSprites] = useState(false)
+  const [_hasExistingSprites, setHasExistingSprites] = useState(false)
   const [existingMetadata, setExistingMetadata] = useState<ExistingSpriteMetadata | null>(null)
 
   // Load existing sprites on mount
@@ -173,7 +173,7 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
   }
 
   const handleDownloadAll = () => {
-    sprites.forEach((sprite, index) => {
+    sprites.forEach((sprite, _index) => {
       const link = document.createElement('a')
       link.href = sprite.imageUrl
       link.download = `${asset.id}-${sprite.angle}deg.png`

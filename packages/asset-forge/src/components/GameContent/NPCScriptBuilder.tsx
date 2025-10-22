@@ -16,8 +16,8 @@
  */
 
 import React, { useState, useEffect } from 'react'
-import { FileCode, Save, Download, Sparkles } from 'lucide-react'
-import type { NPCScript, DialogueNode, DialogueResponse } from '../../types/npc-scripts'
+import { FileCode, _Save, Download, Sparkles } from 'lucide-react'
+import type { DialogueNode, DialogueResponse } from '../../types/npc-scripts'
 import { useNPCScriptsStore } from '../../store/useNPCScriptsStore'
 import { useContentGenerationStore } from '../../store/useContentGenerationStore'
 import { DialogueTreeEditor } from './DialogueTreeEditor'
@@ -38,7 +38,7 @@ export const NPCScriptBuilder: React.FC = () => {
     selectedScript,
     editingNodeId,
     addScript,
-    updateScript,
+//     updateScript,
     setSelectedScript,
     addDialogueNode,
     updateDialogueNode,

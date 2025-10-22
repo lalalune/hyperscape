@@ -24,6 +24,7 @@ export enum EntityType {
   MOB = 'mob',
   ITEM = 'item',
   NPC = 'npc',
+  CHARACTER = 'character', // Unified NPC + Mob entity
   RESOURCE = 'resource',
   HEADSTONE = 'headstone',
   STATIC = 'static'
@@ -204,6 +205,59 @@ export interface NPCEntityConfig extends EntityConfig<NPCEntityProperties> {
   }>;
   skillsOffered: string[];
   questsAvailable: string[];
+}
+
+// Character entity config (unified NPC + Mob)
+export interface CharacterEntityConfig extends EntityConfig<BaseEntityProperties> {
+  // Core Identity
+  characterId: string;
+  characterType: 'npc' | 'mob' | 'neutral';
+  faction?: string;
+
+  // Combat Stats (from CombatantEntity)
+  level: number;
+  maxHealth: number;
+  currentHealth?: number;
+  attackPower?: number;
+  defense?: number;
+  attackSpeed?: number;
+  aggroRange?: number;
+  combatRange?: number;
+  respawnTime?: number;
+
+  // Dialogue System
+  dialogueTree?: import('../types/core').DialogueTree | null;
+
+  // Behavior System
+  behaviorConfig?: import('../types/behavior-tree').CharacterBehaviorConfig | null;
+
+  // Movement
+  movementType?: 'stationary' | 'patrol' | 'wander' | 'follow';
+  patrolPoints?: Array<{ x: number; y: number; z: number }>;
+  wanderRadius?: number;
+  moveSpeed?: number;
+
+  // Services
+  services?: Array<'bank' | 'shop' | 'quest' | 'training'>;
+  shopInventory?: Array<{
+    itemId: string;
+    quantity: number;
+    price: number;
+  }>;
+  questsOffered?: string[];
+
+  // Interaction
+  canBeAttacked?: boolean;
+  retaliates?: boolean;
+
+  // Loot and Rewards
+  lootTable?: Array<{
+    itemId: string;
+    minQuantity: number;
+    maxQuantity: number;
+    chance: number;
+  }>;
+  xpReward?: number;
 }
 
 // Resource entity config

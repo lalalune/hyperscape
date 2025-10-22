@@ -52,11 +52,11 @@ export const ContentGenerationPage: React.FC = () => {
     collaborations,
     activeCollaboration,
     playtestSessions,
-    activePlaytest,
+//     activePlaytest,
     addCollaboration,
     addPlaytestSession,
-    setActiveCollaboration,
-    setActivePlaytest,
+//     setActiveCollaboration,
+//     setActivePlaytest,
   } = useMultiAgentStore()
 
   // State for file upload

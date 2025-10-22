@@ -4,7 +4,6 @@
  * Beautiful toggle button for collapsing/expanding the sidebar.
  */
 
-import React from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigationStore } from '../../store/useNavigationStore'
 

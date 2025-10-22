@@ -229,6 +229,8 @@ export enum EventType {
   LOOT_DROPPED = 'loot:dropped',
   ITEM_PICKUP = 'item:picked_up',
   ITEM_PICKUP_REQUEST = 'item:pickup_request',
+  ITEM_GIVE_REQUEST = 'item:give_request',
+  ITEM_TAKE_REQUEST = 'item:take_request',
   ITEM_USED = 'item:used',
   ITEM_ACTION_SELECTED = 'item:action_selected',
   ITEMS_RETRIEVED = 'items:retrieved',
@@ -265,6 +267,8 @@ export enum EventType {
   NPC_QUEST_OPEN = 'quest:open_request',
 
   // Quest System
+  QUEST_ACCEPT_REQUEST = 'quest:accept_request',
+  QUEST_COMPLETE_REQUEST = 'quest:complete_request',
   QUEST_STARTED = 'quest:started',
   QUEST_PROGRESSED = 'quest:progressed',
   QUEST_COMPLETED = 'quest:completed',
@@ -287,6 +291,23 @@ export enum EventType {
   MOB_CHASE_ENDED = 'mob:chase:ended',
   MOB_MOVE_REQUEST = 'mob:move:request',
   MOB_DESTROY = 'mob:destroy',
+
+  // Character System (Unified NPC + Mob)
+  CHARACTER_SPAWNED = 'character:spawned',
+  CHARACTER_SPAWN_REQUEST = 'character:spawn_request',
+  CHARACTER_SPAWN_POINTS_REGISTERED = 'character:spawn_points:registered',
+  CHARACTER_DESPAWNED = 'character:despawned',
+  CHARACTER_INTERACTION = 'character:interaction',
+  CHARACTER_DIED = 'character:died',
+  CHARACTER_RESPAWNED = 'character:respawned',
+  CHARACTER_BEHAVIOR_UPDATE = 'character:behavior_update',
+  CHARACTER_STATE_CHANGED = 'character:state_changed',
+
+  // Dialogue System
+  DIALOGUE_START = 'dialogue:start',
+  DIALOGUE_ADVANCE = 'dialogue:advance',
+  DIALOGUE_END = 'dialogue:end',
+  DIALOGUE_CHOICE = 'dialogue:choice',
 
   // Banking System
   BANK_OPEN = 'bank:open',

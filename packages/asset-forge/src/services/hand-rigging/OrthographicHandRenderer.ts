@@ -38,7 +38,7 @@ export class OrthographicHandRenderer {
   private renderer: THREE.WebGLRenderer
   private scene: THREE.Scene
   private camera: THREE.OrthographicCamera
-  private loader: GLTFLoader
+//   private loader: GLTFLoader
   
   // Default capture settings
   private readonly DEFAULT_RESOLUTION = 512

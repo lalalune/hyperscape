@@ -15,7 +15,6 @@
  * Used by: NPCScriptBuilder, DialogueSystem, ElizaOS providers
  */
 
-import type { GeneratedQuest } from './content-generation'
 import type { NPCVoiceConfig } from './voice-generation'
 
 // Main NPC Script Interface

@@ -38,7 +38,7 @@ export const QuestTracker: React.FC = () => {
     events,
     startQuest,
     updateObjectiveProgress,
-    completeObjective,
+//     completeObjective,
     resetTracking,
     getActiveQuestCount,
     getCompletedQuestCount

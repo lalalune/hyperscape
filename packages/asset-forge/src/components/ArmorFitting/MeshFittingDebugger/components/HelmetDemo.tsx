@@ -19,10 +19,10 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
     const helmetRef = useRef<THREE.Group>(null)
     const [isLoaded, setIsLoaded] = useState(false)
 
-    const _mixer = useRef<THREE.AnimationMixer>()
-    const _lastTime = useRef(0)
-    const _activeAction = useRef<THREE.AnimationAction | null>(null)
-    const _animationFrame = useRef<number>()
+//     const _mixer = useRef<THREE.AnimationMixer>()
+//     const _lastTime = useRef(0)
+//     const _activeAction = useRef<THREE.AnimationAction | null>(null)
+//     const _animationFrame = useRef<number>()
 
     // Check if paths are valid before attempting to load
     const hasValidPaths = avatarPath && helmetPath && avatarPath !== '' && helmetPath !== ''
@@ -284,7 +284,7 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
 
     // Animation update loop  
     const frameCountRef = useRef(0)
-    useFrame((state, delta) => {
+    useFrame((_state, delta) => {
         if (mixerRef.current && isAnimationPlaying && currentAnimation !== 'tpose') {
             mixerRef.current.update(delta)
 

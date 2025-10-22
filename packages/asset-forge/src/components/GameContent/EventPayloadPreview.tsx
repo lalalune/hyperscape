@@ -14,7 +14,7 @@
  */
 
 import React, { useState } from 'react'
-import { Eye, Code, FileJson } from 'lucide-react'
+import { Eye, Code, _FileJson } from 'lucide-react'
 import type { NPCScript, NPCEventPayload } from '../../types/npc-scripts'
 import type { GeneratedQuest } from '../../types/content-generation'
 import { Card } from '../common/Card'
