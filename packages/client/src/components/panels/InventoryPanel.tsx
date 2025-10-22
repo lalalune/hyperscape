@@ -304,7 +304,7 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
           >
             <SortableContext items={currentPageItems.map((_, i) => `inventory-${startIndex + i}`)} strategy={rectSortingStrategy}>
               <div
-                className="grid grid-cols-8 sm:grid-cols-6 flex-1 gap-0.5 sm:gap-1"
+                className="grid grid-cols-8 flex-1 gap-0.5 sm:gap-1"
                 style={{
                   gridAutoRows: '1fr',
                 }}
