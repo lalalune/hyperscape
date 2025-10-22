@@ -30,12 +30,17 @@ export function DraggableWindow({
     const margins = { left: 0, top: 80, right: 40, bottom: 80 }
     const viewport = { width: window.innerWidth, height: window.innerHeight }
 
-    let validatedPos = { ...pos }
+    const validatedPos = { ...pos }
 
-    // Get window dimensions
-    const rect = windowElement?.getBoundingClientRect()
-    const windowWidth = rect?.width || 400  // Default width estimate
-    const windowHeight = rect?.height || 500  // Default height estimate
+    // Get window dimensions - handle null windowElement during initial render
+    let windowWidth = 400  // Default width estimate
+    let windowHeight = 500  // Default height estimate
+    
+    if (windowElement) {
+      const rect = windowElement.getBoundingClientRect()
+      windowWidth = rect.width || 400
+      windowHeight = rect.height || 500
+    }
 
     // Ensure window is within viewport bounds
     validatedPos.x = Math.max(margins.left, Math.min(validatedPos.x, viewport.width - windowWidth - margins.right))
@@ -73,8 +78,8 @@ export function DraggableWindow({
 
     try {
       localStorage.setItem(`${STORAGE_KEY_PREFIX}${windowId}`, JSON.stringify(newPosition))
-    } catch (e) {
-      console.warn('Failed to save window position:', e)
+    } catch (_e) {
+      console.warn('Failed to save window position:', _e)
     }
   }, [windowId])
 
@@ -88,7 +93,7 @@ export function DraggableWindow({
         savePosition(validatedPos)
       }
     }
-  }, []) // Run once after mount
+  }, []) // Run once after mount to avoid infinite loop
 
   // Re-validate on window resize
   useEffect(() => {
@@ -214,7 +219,7 @@ export function DraggableWindow({
     }
   }
 
-  const handleWindowClick = useCallback((e: React.MouseEvent) => {
+  const handleWindowClick = useCallback((_e: React.MouseEvent) => {
     // Bring window to front when clicked
     if (onFocus) {
       onFocus()
