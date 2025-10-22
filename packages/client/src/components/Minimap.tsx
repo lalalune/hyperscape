@@ -119,10 +119,12 @@ export function Minimap({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
+    // Track if component is still mounted for async renderer creation
+    let mounted = true;
+
     // Only create renderer if it doesn't exist
     if (!rendererRef.current || !rendererInitializedRef.current) {
       console.log('[Minimap] Creating new renderer');
-      const mounted = true;
       createRenderer({
         canvas: webglCanvas,
         alpha: true,
@@ -167,8 +169,10 @@ export function Minimap({
     overlayCanvas.height = height;
 
     return () => {
+      // Set mounted to false to prevent renderer initialization after unmount
+      mounted = false;
       // Don't dispose renderer on unmount - we want to reuse it
-      // Only dispose if component is actually being destroyed
+      // Only pause rendering when hidden, don't dispose
       if (rendererRef.current && rendererInitializedRef.current && !isVisible) {
         console.log('[Minimap] Pausing renderer (component hidden)');
         // Pause rendering when hidden
@@ -192,10 +196,11 @@ export function Minimap({
   // Handle visibility changes to pause/resume rendering
   useEffect(() => {
     if (!rendererRef.current) return;
-    
+
     if (isVisible) {
       console.log('[Minimap] Resuming renderer (component visible)');
-      // Resume rendering when visible
+      // Resume rendering when visible - just clear the animation loop
+      // The existing render loop will handle rendering
       if ('setAnimationLoop' in rendererRef.current) {
         (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
       }
