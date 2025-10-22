@@ -119,10 +119,12 @@ export function Minimap({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
+    // Track if component is still mounted for async renderer creation
+    let mounted = true;
+
     // Only create renderer if it doesn't exist
     if (!rendererRef.current || !rendererInitializedRef.current) {
       console.log('[Minimap] Creating new renderer');
-      let mounted = true;
       createRenderer({
         canvas: webglCanvas,
         alpha: true,
