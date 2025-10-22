@@ -8,6 +8,7 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import fs from 'fs'
+import rateLimit from 'express-rate-limit'
 import { fileURLToPath } from 'url'
 import { errorHandler } from './middleware/errorHandler.mjs'
 import { AssetService } from './services/AssetService.mjs'
@@ -43,6 +44,14 @@ import {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const ROOT_DIR = path.join(__dirname, '..')
+
+// Rate limiter for manifest download endpoint
+const manifestRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // limit each IP to 30 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 // Initialize Express app with security middleware
 const app = express()
@@ -148,7 +157,7 @@ app.get('/api/assets/:id/model', async (req, res, next) => {
 })
 
 // Serve manifests from Hyperscape server world/assets/manifests
-app.get('/api/manifests/:type.json', async (req, res, next) => {
+app.get('/api/manifests/:type.json', manifestRateLimiter, async (req, res, next) => {
   try {
     const manifestType = req.params.type
     const manifestPath = path.join(ROOT_DIR, '..', 'server', 'world', 'assets', 'manifests', `${manifestType}.json`)
