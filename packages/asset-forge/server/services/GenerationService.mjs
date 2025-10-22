@@ -10,6 +10,9 @@ import { getGenerationPrompts, getGPT4EnhancementPrompts } from '../utils/prompt
 import fs from 'fs/promises'
 import path from 'path'
 import fetch from 'node-fetch'
+import { createLogger } from '../utils/logger.mjs'
+
+const logger = createLogger('GenerationService')
 
 export class GenerationService extends EventEmitter {
   constructor() {
@@ -19,7 +22,7 @@ export class GenerationService extends EventEmitter {
     
     // Check for required API keys
     if (!process.env.OPENAI_API_KEY || !process.env.MESHY_API_KEY) {
-      console.warn('[GenerationService] Missing API keys - generation features will be limited')
+      logger.warn('Missing API keys - generation features will be limited', { hasOpenAI: !!process.env.OPENAI_API_KEY, hasMeshy: !!process.env.MESHY_API_KEY })
     }
     
     // Initialize AI service with backend environment variables
@@ -87,7 +90,7 @@ export class GenerationService extends EventEmitter {
     
     // Start processing asynchronously
     this.processPipeline(pipelineId).catch(error => {
-      console.error(`Pipeline ${pipelineId} failed:`, error)
+      logger.error('Pipeline failed', error, { pipelineId })
       pipeline.status = 'failed'
       pipeline.error = error.message
     })
@@ -148,7 +151,7 @@ export class GenerationService extends EventEmitter {
           pipeline.stages.promptOptimization.result = optimizationResult
           pipeline.results.promptOptimization = optimizationResult
         } catch (error) {
-          console.warn('GPT-4 enhancement failed, using original prompt:', error)
+          logger.warn('GPT-4 enhancement failed, using original prompt', { error: error.message })
           pipeline.stages.promptOptimization.status = 'completed'
           pipeline.stages.promptOptimization.progress = 100
           pipeline.stages.promptOptimization.result = {
@@ -224,7 +227,7 @@ export class GenerationService extends EventEmitter {
           pipeline.results.imageGeneration = imageResult
           pipeline.progress = 25
         } catch (error) {
-          console.error('Image generation failed:', error)
+          logger.error('Image generation failed', error)
           pipeline.stages.imageGeneration.status = 'failed'
           pipeline.stages.imageGeneration.error = error.message
           throw error
@@ -249,12 +252,12 @@ export class GenerationService extends EventEmitter {
             imageUrlForMeshy = `${process.env.IMAGE_SERVER_URL}/${path.basename(imagePath)}`
           } else {
             // Need to upload to a public URL for Meshy
-            console.warn('No IMAGE_SERVER_URL configured, Meshy needs a public URL')
+            logger.warn('No IMAGE_SERVER_URL configured, Meshy needs a public URL')
           }
         }
         
         // Ensure we have a publicly accessible URL for Meshy
-        console.log('📸 Initial image URL:', imageUrlForMeshy)
+        logger.info('📸 Initial image URL', { url: imageUrlForMeshy })
         
         // Meshy can't access localhost, 127.0.0.1, or data URIs - rehost if needed
         if (
@@ -262,15 +265,15 @@ export class GenerationService extends EventEmitter {
           imageUrlForMeshy.includes('localhost') ||
           imageUrlForMeshy.includes('127.0.0.1')
         ) {
-          console.warn('⚠️ Non-public image reference detected - uploading to public hosting...')
+          logger.warn('⚠️ Non-public image reference detected - uploading to public hosting...')
           
           // Use the image hosting service to get a public URL
           try {
             imageUrlForMeshy = await this.imageHostingService.uploadImage(imageUrl)
-            console.log('✅ Image uploaded to public URL:', imageUrlForMeshy)
+            logger.info('✅ Image uploaded to public URL', { url: imageUrlForMeshy })
           } catch (uploadError) {
-            console.error('❌ Failed to upload image:', uploadError.message)
-            console.log(ImageHostingService.getSetupInstructions())
+            logger.error('❌ Failed to upload image', uploadError, { message: uploadError.message })
+            logger.info('Setup instructions', { instructions: ImageHostingService.getSetupInstructions() })
             throw new Error('Cannot make image publicly accessible. See instructions above.')
           }
         }
@@ -308,7 +311,7 @@ export class GenerationService extends EventEmitter {
         )
         const maxAttempts = Math.max(1, Math.ceil(timeoutMs / pollIntervalMs))
         
-        console.log(`⏳ Meshy polling configured: quality=${quality}, model=${aiModel}, interval=${pollIntervalMs}ms, timeout=${timeoutMs}ms, maxAttempts=${maxAttempts}`)
+        logger.info('⏳ Meshy polling configured', { quality, model: aiModel, intervalMs: pollIntervalMs, timeoutMs, maxAttempts })
         
         while (attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
@@ -344,7 +347,7 @@ export class GenerationService extends EventEmitter {
         
         if (pipeline.config.type === 'character') {
           // Normalize character height
-          console.log('🔧 Normalizing character model...')
+          logger.info('🔧 Normalizing character model...')
           try {
             const { AssetNormalizationService } = await import('../../dist/services/processing/AssetNormalizationService.js')
             const normalizer = new AssetNormalizationService()
@@ -356,31 +359,31 @@ export class GenerationService extends EventEmitter {
             const normalized = await normalizer.normalizeCharacter(rawModelPath, targetHeight)
             await fs.writeFile(normalizedModelPath, Buffer.from(normalized.glb))
             
-            console.log(`✅ Character normalized to ${targetHeight}m height`)
+            logger.info(`✅ Character normalized to ${targetHeight}m height`, { targetHeight })
             
             // Update with normalized dimensions
             pipeline.stages.image3D.normalized = true
             pipeline.stages.image3D.dimensions = normalized.metadata.dimensions
           } catch (error) {
-            console.warn('⚠️ Normalization failed, using raw model:', error.message)
+            logger.warn('⚠️ Normalization failed, using raw model', { error: error.message })
             await fs.copyFile(rawModelPath, normalizedModelPath)
           }
         } else if (pipeline.config.type === 'weapon') {
           // Normalize weapon with grip at origin
-          console.log('🔧 Normalizing weapon model...')
+          logger.info('🔧 Normalizing weapon model...')
           try {
             const { WeaponHandleDetector } = await import('../../dist/services/processing/WeaponHandleDetector.js')
             const detector = new WeaponHandleDetector()
             
             const result = await detector.exportNormalizedWeapon(rawModelPath, normalizedModelPath)
             
-            console.log(`✅ Weapon normalized with grip at origin`)
+            logger.info('✅ Weapon normalized with grip at origin')
             
             // Update with normalized dimensions
             pipeline.stages.image3D.normalized = true
             pipeline.stages.image3D.dimensions = result.dimensions
           } catch (error) {
-            console.warn('⚠️ Weapon normalization failed, using raw model:', error.message)
+            logger.warn('⚠️ Weapon normalization failed, using raw model', { error: error.message })
             await fs.copyFile(rawModelPath, normalizedModelPath)
           }
         } else {
@@ -446,7 +449,7 @@ export class GenerationService extends EventEmitter {
         pipeline.progress = 50
         
       } catch (error) {
-        console.error('Image to 3D conversion failed:', error)
+        logger.error('Image to 3D conversion failed', error)
         pipeline.stages.image3D.status = 'failed'
         pipeline.stages.image3D.error = error.message
         throw error
@@ -463,7 +466,7 @@ export class GenerationService extends EventEmitter {
           const preset = pipeline.config.materialPresets[i]
           
           try {
-            console.log(`🎨 Generating variant ${i + 1}/${totalVariants}: ${preset.displayName}`)
+            logger.info(`🎨 Generating variant ${i + 1}/${totalVariants}: ${preset.displayName}`, { variantIndex: i + 1, totalVariants, preset: preset.displayName })
             
             // Update progress
             pipeline.stages.textureGeneration.progress = Math.round((i / totalVariants) * 100)
@@ -563,7 +566,7 @@ export class GenerationService extends EventEmitter {
             })
             
           } catch (error) {
-            console.error(`Failed to generate variant ${preset.displayName}:`, error)
+            logger.error(`Failed to generate variant ${preset.displayName}`, error, { preset: preset.displayName })
             variants.push({
               id: `${pipeline.config.assetId}-${preset.id}`,
               name: preset.displayName,
@@ -602,7 +605,7 @@ export class GenerationService extends EventEmitter {
         pipeline.stages.rigging = { status: 'processing', progress: 0 }
         
         try {
-          console.log('🦴 Starting auto-rigging for avatar...')
+          logger.info('🦴 Starting auto-rigging for avatar...')
           
           // Start rigging task
           const riggingTaskId = await this.aiService.meshyService.startRiggingTask(
@@ -610,7 +613,7 @@ export class GenerationService extends EventEmitter {
             { heightMeters: pipeline.config.riggingOptions?.heightMeters || 1.7 }
           )
           
-          console.log(`Rigging task started: ${riggingTaskId}`)
+          logger.info('Rigging task started', { riggingTaskId })
           
           // Poll for rigging completion
           let riggingResult = null
@@ -644,7 +647,7 @@ export class GenerationService extends EventEmitter {
           // IMPORTANT: For rigged avatars, we DON'T replace the main model
           // We keep the original T-pose model and save animations separately
           // This prevents the T-pose + animation layering issue
-          console.log('🦴 Processing rigged character assets...')
+          logger.info('🦴 Processing rigged character assets...')
           
           // Download animations if available
           if (riggingResult.result && riggingResult.result.basic_animations) {
@@ -653,7 +656,7 @@ export class GenerationService extends EventEmitter {
             // CRITICAL: First, get the rigged model from the walking animation
             // This contains the model with bones that we need for animations
             if (animations.walking_glb_url) {
-              console.log('🦴 Downloading rigged model and animations...')
+              logger.info('🦴 Downloading rigged model and animations...')
               const walkingBuffer = await this.downloadFile(animations.walking_glb_url)
               
               // Save the walking animation
@@ -663,14 +666,14 @@ export class GenerationService extends EventEmitter {
               riggedAssets.walking = 'animations/walking.glb'
               
               // Extract T-pose from the walking animation
-              console.log('🎯 Extracting T-pose from walking animation...')
+              logger.info('🎯 Extracting T-pose from walking animation...')
               try {
                 const tposePath = path.join(outputDir, 't-pose.glb')
                 await this.extractTPoseFromAnimation(walkingPath, tposePath)
                 riggedAssets.tpose = 't-pose.glb'
-                console.log('✅ T-pose extracted successfully')
+                logger.info('✅ T-pose extracted successfully')
             } catch (tposeError) {
-              console.error('⚠️ Failed to extract T-pose:', tposeError.message)
+              logger.error('⚠️ Failed to extract T-pose', tposeError, { message: tposeError.message })
               // Continue anyway - not critical for the pipeline
             }
             
@@ -684,7 +687,7 @@ export class GenerationService extends EventEmitter {
             //   - Running: Play the running animation
             const riggedModelPath = path.join(outputDir, `${pipeline.config.assetId}_rigged.glb`)
             await fs.writeFile(riggedModelPath, walkingBuffer)
-            console.log('✅ Saved rigged model for animation player')
+            logger.info('✅ Saved rigged model for animation player')
           }
             
             // Download running animation GLB
@@ -725,8 +728,8 @@ export class GenerationService extends EventEmitter {
           pipeline.progress = 85
           
         } catch (error) {
-          console.error('❌ Rigging failed:', error.message)
-          console.error('Full error:', error)
+          logger.error('❌ Rigging failed', error, { message: error.message })
+          
           
           // Update metadata to indicate rigging failed
           try {
@@ -741,7 +744,7 @@ export class GenerationService extends EventEmitter {
             
             await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
           } catch (metadataError) {
-            console.error('Failed to update metadata after rigging failure:', metadataError)
+            logger.error('Failed to update metadata after rigging failure', metadataError)
           }
           
           pipeline.stages.rigging.status = 'failed'
@@ -749,7 +752,7 @@ export class GenerationService extends EventEmitter {
           pipeline.stages.rigging.progress = 0
           
           // Continue without rigging - don't fail the entire pipeline
-          console.log('⚠️  Continuing without rigging - avatar will not have animations')
+          logger.info('⚠️  Continuing without rigging - avatar will not have animations')
         }
       }
       
@@ -870,7 +873,7 @@ Your task is to enhance the user's description to create better results with ima
       }
       
     } catch (error) {
-      console.error('GPT-4 enhancement failed:', error)
+      logger.error('GPT-4 enhancement failed', error)
       // Load generation prompts for fallback
       const generationPrompts = await getGenerationPrompts()
       const fallbackTemplate = generationPrompts?.imageGeneration?.fallbackEnhancement || 

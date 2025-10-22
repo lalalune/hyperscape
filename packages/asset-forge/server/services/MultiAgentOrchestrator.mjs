@@ -18,6 +18,9 @@
 
 import { generateText } from 'ai'
 import { getModelForTask } from '../utils/ai-router.mjs'
+import { createLogger } from '../utils/logger.mjs'
+
+const logger = createLogger('MultiAgentOrchestrator')
 
 export class MultiAgentOrchestrator {
   constructor(config = {}) {
@@ -203,7 +206,7 @@ export class MultiAgentOrchestrator {
 
       return response
     } catch (error) {
-      console.error(`[MultiAgentOrchestrator] Agent ${agent.name} generation failed:`, error)
+      logger.error(`Agent ${agent.name} generation failed`, error, { agentName: agent.name })
       // Return minimal valid response to allow conversation to continue
       return {
         text: `[${agent.name} is momentarily silent]`,
@@ -375,7 +378,7 @@ Brief explanation of any issues found.`
             }
           }
         } catch (error) {
-          console.error(`[MultiAgentOrchestrator] Validation failed for agent ${agent.name}:`, error)
+          logger.error(`Validation failed for agent ${agent.name}`, error, { agentName: agent.name })
         }
 
         return null

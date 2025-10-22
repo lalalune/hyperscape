@@ -16,6 +16,9 @@ import type {
   StoreManifest,
   AnyManifest
 } from '../types/manifests'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('ManifestService')
 
 const getApiUrl = () => {
   if (typeof import.meta !== 'undefined' && import.meta.env) {
@@ -57,7 +60,7 @@ export class ManifestService {
       
       return manifestData as T[]
     } catch (error) {
-      console.error(`Error fetching ${type} manifest:`, error)
+      logger.error(`Error fetching ${type} manifest`, error)
       throw error
     }
   }
@@ -91,7 +94,7 @@ export class ManifestService {
       if (result.status === 'fulfilled') {
         manifests[result.value.type] = result.value.data
       } else {
-        console.warn(`Failed to fetch ${types[index]} manifest:`, result.reason)
+        logger.warn(`Failed to fetch ${types[index]} manifest`, result.reason)
       }
     })
 

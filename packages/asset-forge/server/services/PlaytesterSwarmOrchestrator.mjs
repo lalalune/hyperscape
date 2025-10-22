@@ -21,6 +21,9 @@
 import { generateText } from 'ai'
 import { getModelForTask } from '../utils/ai-router.mjs'
 import { makePlaytestPrompt, parseTestResult } from '../utils/playtester-prompts.mjs'
+import { createLogger } from '../utils/logger.mjs'
+
+const logger = createLogger('PlaytesterSwarmOrchestrator')
 
 export class PlaytesterSwarmOrchestrator {
   constructor(config = {}) {
@@ -73,7 +76,7 @@ export class PlaytesterSwarmOrchestrator {
       throw new Error('No testers registered. Add testers before running playtest.')
     }
 
-    console.log(`Running swarm playtest with ${testers.length} testers...`)
+    logger.info(`Running swarm playtest with ${testers.length} testers...`, { testerCount: testers.length })
 
     // Run tests in parallel or sequential based on config
     let results
@@ -119,7 +122,7 @@ export class PlaytesterSwarmOrchestrator {
    * Run test with a single tester agent
    */
   async runSingleTest(tester, content, testConfig) {
-    console.log(`[PlaytesterSwarm] [${tester.name}] Starting playtest...`)
+    logger.info(`[${tester.name}] Starting playtest...`, { testerName: tester.name })
 
     const testPrompt = makePlaytestPrompt(tester, content, testConfig)
 
@@ -145,12 +148,12 @@ export class PlaytesterSwarmOrchestrator {
       // Parse test results from response
       const testResult = parseTestResult(response.text, tester)
 
-      console.log(`[PlaytesterSwarm] [${tester.name}] Completed. Found ${testResult.bugs.length} issues, engagement: ${testResult.engagement}/10`)
+      logger.info(`[${tester.name}] Completed. Found ${testResult.bugs.length} issues, engagement: ${testResult.engagement}/10`, { testerName: tester.name, bugsFound: testResult.bugs.length, engagement: testResult.engagement })
 
       return testResult
 
     } catch (error) {
-      console.error(`[PlaytesterSwarm] [${tester.name}] Test failed:`, error)
+      logger.error(`[${tester.name}] Test failed`, error, { testerName: tester.name })
       return {
         testerId: tester.id,
         testerName: tester.name,

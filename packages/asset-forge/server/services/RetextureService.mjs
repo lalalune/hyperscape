@@ -6,6 +6,9 @@
 import fs from 'fs/promises'
 import path from 'path'
 import fetch from 'node-fetch'
+import { createLogger } from '../utils/logger.mjs'
+
+const logger = createLogger('RetextureService')
 
 // Temporary MeshyClient implementation until build issues are resolved
 class MeshyClient {
@@ -142,7 +145,7 @@ export class RetextureService {
     this.meshyApiKey = process.env.MESHY_API_KEY
     
     if (!this.meshyApiKey) {
-      console.warn('[RetextureService] MESHY_API_KEY not found - retexturing will be disabled')
+      logger.warn('MESHY_API_KEY not found - retexturing will be disabled')
       this.meshyClient = null
     } else {
       // Initialize MeshyClient with robust configuration
@@ -170,7 +173,7 @@ export class RetextureService {
         throw new Error(`Base asset ${baseAssetId} does not have a Meshy task ID`)
       }
 
-      console.log(`🎨 Starting retexture for ${baseAssetId} with material: ${materialPreset.displayName}`)
+      logger.info(`🎨 Starting retexture for ${baseAssetId} with material: ${materialPreset.displayName}`, { baseAssetId, material: materialPreset.displayName })
 
       // Start retexture task using the new MeshyClient
       const taskId = await this.meshyClient.startRetexture({
@@ -182,13 +185,13 @@ export class RetextureService {
         enableOriginalUV: true
       })
 
-      console.log(`🎨 Retexture task started: ${taskId}`)
+      logger.info('🎨 Retexture task started', { taskId })
 
       // Wait for completion with progress updates
       const result = await this.meshyClient.waitForCompletion(
         taskId,
         (progress) => {
-          console.log(`⏳ Retexture Progress: ${progress}%`)
+          logger.info(`⏳ Retexture Progress: ${progress}%`, { progress })
         }
       )
 
@@ -213,7 +216,7 @@ export class RetextureService {
         asset: savedAsset
       }
     } catch (error) {
-      console.error('Retexturing failed:', error)
+      logger.error('Retexturing failed', error)
       
       // Provide more detailed error information
       const errorMessage = error.message || 'Unknown error'
@@ -246,7 +249,7 @@ export class RetextureService {
     await fs.mkdir(outputDir, { recursive: true })
 
     // Download model using MeshyClient
-    console.log(`📥 Downloading retextured model...`)
+    logger.info('📥 Downloading retextured model...')
     const modelBuffer = await this.meshyClient.downloadModel(result.model_urls.glb)
     const modelPath = path.join(outputDir, `${variantName}.glb`)
     await fs.writeFile(modelPath, modelBuffer)
@@ -314,7 +317,7 @@ export class RetextureService {
     // Update base asset metadata to track this variant
     await this.updateBaseAssetVariants(baseAssetId, variantName, assetsDir)
 
-    console.log(`✅ Successfully retextured: ${variantName}`)
+    logger.info(`✅ Successfully retextured: ${variantName}`, { variantName })
 
     return variantMetadata
   }
@@ -339,7 +342,7 @@ export class RetextureService {
         await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
       }
     } catch (error) {
-      console.warn(`Failed to update base asset variants: ${error.message}`)
+      logger.warn('Failed to update base asset variants', { error: error.message })
     }
   }
 
@@ -355,7 +358,7 @@ export class RetextureService {
 
     // For now, return a simulated success response
     // Full implementation would regenerate the base model from scratch
-    console.log(`🔄 Regenerating base model: ${baseAssetId}`)
+    logger.info('🔄 Regenerating base model', { baseAssetId })
     
     // Simulate processing time
     await new Promise(resolve => setTimeout(resolve, 3000))

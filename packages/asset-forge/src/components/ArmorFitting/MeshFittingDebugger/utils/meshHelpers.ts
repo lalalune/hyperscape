@@ -1,4 +1,7 @@
 import * as THREE from 'three'
+import { createLogger } from '../../../../utils/logger'
+
+const logger = createLogger('MeshHelpers')
 
 /**
  * Dispose of geometry and materials properly
@@ -35,12 +38,12 @@ export function findMeshesByUserData(
  * Remove objects from scene with cleanup
  */
 export function removeObjectsFromScene(
-    scene: THREE.Scene,
+//     scene: THREE.Scene,
     objects: THREE.Object3D[]
 ) {
     const uniqueObjects = Array.from(new Set(objects))
     uniqueObjects.forEach(obj => {
-        console.log('Removing object:', obj.name || 'unnamed', obj.type)
+        logger.debug('Removing object', { name: obj.name || 'unnamed', type: obj.type })
         if (obj.parent) {
             obj.parent.remove(obj)
         }
@@ -107,7 +110,7 @@ export function findHeadBone(skeleton: THREE.Skeleton): THREE.Bone | null {
  */
 export function getSkeletonFromMesh(mesh: THREE.SkinnedMesh): THREE.Skeleton | null {
     if (!mesh.skeleton) {
-        console.warn('Mesh has no skeleton')
+        logger.warn('Mesh has no skeleton')
         return null
     }
     return mesh.skeleton
