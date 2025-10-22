@@ -71,6 +71,11 @@ export function DraggableWindow({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const windowRef = useRef<HTMLDivElement>(null)
   const dragHandleRef = useRef<HTMLDivElement>(null)
+  const hasValidatedRef = useRef(false)
+  const positionRef = useRef(position)
+
+  // Keep position ref up to date
+  positionRef.current = position
 
   // Save position to localStorage
   const savePosition = useCallback((newPosition: { x: number; y: number }) => {
@@ -84,16 +89,18 @@ export function DraggableWindow({
   }, [windowId])
 
   // Re-validate position after window is rendered with actual dimensions
+  // This runs once after mount - uses refs to avoid infinite loops
   useEffect(() => {
-    if (windowRef.current) {
-      const validatedPos = validatePosition(position, windowRef.current)
+    if (windowRef.current && !hasValidatedRef.current) {
+      hasValidatedRef.current = true
+      const currentPos = positionRef.current
+      const validatedPos = validatePosition(currentPos, windowRef.current)
       // Only update if position changed significantly (more than 5px)
-      if (Math.abs(validatedPos.x - position.x) > 5 || Math.abs(validatedPos.y - position.y) > 5) {
+      if (Math.abs(validatedPos.x - currentPos.x) > 5 || Math.abs(validatedPos.y - currentPos.y) > 5) {
         setPosition(validatedPos)
         savePosition(validatedPos)
       }
     }
-    // Only depend on stable callbacks to avoid stale closures and re-renders
   }, [validatePosition, savePosition])
 
   // Re-validate on window resize
