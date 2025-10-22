@@ -131,35 +131,48 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
     }
   }
 
-  const handlePlayClip = async (clip: VoiceClip) => {
-    const audioRef = React.useRef<HTMLAudioElement | null>(null)
-    const urlRef = React.useRef<string | null>(null)
+  // BUG FIX: Move audio state to component level to properly cleanup blob URLs
+  const currentAudioRef = React.useRef<{ audio: HTMLAudioElement; url: string } | null>(null)
 
+  // Cleanup audio on unmount
+  React.useEffect(() => {
+    return () => {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.audio.pause()
+        URL.revokeObjectURL(currentAudioRef.current.url)
+        currentAudioRef.current = null
+      }
+    }
+  }, [])
+
+  const handlePlayClip = async (clip: VoiceClip) => {
     try {
+      // Cleanup previous audio if playing
+      if (currentAudioRef.current) {
+        currentAudioRef.current.audio.pause()
+        URL.revokeObjectURL(currentAudioRef.current.url)
+        currentAudioRef.current = null
+      }
+
       const response = await fetch(`${CDN_URL}/gdd-assets/${npcScript.npcId}/${clip.audioUrl}`)
       if (!response.ok) throw new Error('Failed to fetch audio')
       const audioBlob = await response.blob()
       const audioUrl = URL.createObjectURL(audioBlob)
-      urlRef.current = audioUrl
       const audio = new Audio(audioUrl)
-      audioRef.current = audio
-      audio.play()
+
+      currentAudioRef.current = { audio, url: audioUrl }
+
       audio.onended = () => {
-        if (urlRef.current) {
-          URL.revokeObjectURL(urlRef.current)
-          urlRef.current = null
+        if (currentAudioRef.current && currentAudioRef.current.url === audioUrl) {
+          URL.revokeObjectURL(audioUrl)
+          currentAudioRef.current = null
         }
       }
+
+      await audio.play()
     } catch (error) {
       console.error('Failed to play clip:', error)
       setGenerationError('Failed to play audio clip')
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (urlRef.current) {
-        URL.revokeObjectURL(urlRef.current)
-      }
     }
   }
 
@@ -179,6 +192,11 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       setGenerationError('Failed to download audio clip')
     }
   }
+
+  // BUG FIX: Define these variables before they're used in handleDownloadAllZip
+  const generatedClips = voiceConfig?.clips || {}
+  const generatedCount = Object.keys(generatedClips).length
+  const totalNodes = dialogueNodes.length
 
   const handleDownloadAllZip = async () => {
     try {
@@ -268,9 +286,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
     }
   }
 
-  const generatedClips = voiceConfig?.clips || {}
-  const generatedCount = Object.keys(generatedClips).length
-  const totalNodes = dialogueNodes.length
+  // Variables already defined above before handleDownloadAllZip (lines 197-199)
 
   return (
     <div className="space-y-6">

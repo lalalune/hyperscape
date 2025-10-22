@@ -483,7 +483,17 @@ export class VoiceGenerationService {
 
     timer.checkpoint('results-processed')
 
-    // Save voice profile metadata
+    // Get total duration before saving metadata
+    const totalDuration = timer.end({
+      npcId,
+      voiceId,
+      nodeCount: total,
+      successCount,
+      failureCount,
+      successRate: `${((successCount / total) * 100).toFixed(1)}%`
+    })
+
+    // Save voice profile metadata with actual duration
     const voiceProfilePath = path.join(npcVoiceDir, 'voiceProfile.json')
     const voiceProfile = {
       npcId,
@@ -496,25 +506,13 @@ export class VoiceGenerationService {
         totalRequested: total,
         successCount,
         failureCount,
-        durationSeconds: null, // Will be set below
+        durationSeconds: (totalDuration / 1000).toFixed(2),
         concurrencyLimit: MAX_CONCURRENT_VOICE_REQUESTS
       }
     }
     await fs.writeFile(voiceProfilePath, JSON.stringify(voiceProfile, null, 2))
 
     timer.checkpoint('metadata-saved')
-
-    const totalDuration = timer.end({
-      npcId,
-      voiceId,
-      nodeCount: total,
-      successCount,
-      failureCount,
-      successRate: `${((successCount / total) * 100).toFixed(1)}%`
-    })
-
-    // Update voice profile with duration
-    voiceProfile.metadata.durationSeconds = (totalDuration / 1000).toFixed(2)
 
     logger.info('Batch voice generation completed', {
       npcId,
