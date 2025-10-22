@@ -211,17 +211,14 @@ export function InventoryPanel({ items, coins, world, onItemMove, onItemUse: _on
     const fromIndex = parseInt((active.id as string).split('-')[1])
     const toIndex = parseInt((over.id as string).split('-')[1])
 
-    // Map page-relative indices to global slot indices
-    const globalFromIndex = startIndex + fromIndex
-    const globalToIndex = startIndex + toIndex
-
+    // Use page-relative indices directly (0-23) within current page
     const newSlots = [...slotItems]
-    const [movedItem] = newSlots.splice(globalFromIndex, 1)
-    newSlots.splice(globalToIndex, 0, movedItem)
+    const [movedItem] = newSlots.splice(fromIndex, 1)
+    newSlots.splice(toIndex, 0, movedItem)
     setSlotItems(newSlots)
 
     if (onItemMove) {
-      onItemMove(globalFromIndex, globalToIndex)
+      onItemMove(fromIndex, toIndex)
     }
   }
 
