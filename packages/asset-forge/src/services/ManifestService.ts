@@ -17,7 +17,15 @@ import type {
   AnyManifest
 } from '../types/manifests'
 
-const API_URL = import.meta.env.VITE_GENERATION_API_URL || 'http://localhost:3004/api'
+const getApiUrl = () => {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env.VITE_GENERATION_API_URL || 'http://localhost:3004/api'
+  }
+  // Server-side fallback
+  return process.env.VITE_GENERATION_API_URL || 'http://localhost:3004/api'
+}
+
+const API_URL = getApiUrl()
 const MANIFESTS_BASE_URL = `${API_URL}/manifests`
 
 export class ManifestService {

@@ -85,8 +85,8 @@ export const SubscriptionWidget: React.FC<SubscriptionWidgetProps> = ({
 
   if (!subscription) return null
 
-  const characterLimit = subscription.character_limit
-  const characterCount = subscription.character_count
+  const characterLimit = subscription.characterLimit
+  const characterCount = subscription.characterCount
   const charactersRemaining = characterLimit - characterCount
   const usagePercent = (characterCount / characterLimit) * 100
 
@@ -95,8 +95,8 @@ export const SubscriptionWidget: React.FC<SubscriptionWidgetProps> = ({
   const isCritical = usagePercent > 95
 
   const tierInfo = subscription.tier || 'Free'
-  const nextResetDate = subscription.next_character_count_reset_unix
-    ? new Date(subscription.next_character_count_reset_unix * 1000).toLocaleDateString()
+  const nextResetDate = subscription.nextCharacterCountResetUnix
+    ? new Date(subscription.nextCharacterCountResetUnix * 1000).toLocaleDateString()
     : 'Unknown'
 
   if (compact) {
@@ -107,7 +107,7 @@ export const SubscriptionWidget: React.FC<SubscriptionWidgetProps> = ({
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-medium text-white">Quota</span>
             {isCritical ? (
-              <Badge variant="danger" size="sm">Critical</Badge>
+              <Badge variant="error" size="sm">Critical</Badge>
             ) : isLow ? (
               <Badge variant="warning" size="sm">Low</Badge>
             ) : (
@@ -158,7 +158,7 @@ export const SubscriptionWidget: React.FC<SubscriptionWidgetProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-400">Status</span>
             {isCritical ? (
-              <Badge variant="danger" className="flex items-center gap-1">
+              <Badge variant="error" className="flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
                 Critical
               </Badge>

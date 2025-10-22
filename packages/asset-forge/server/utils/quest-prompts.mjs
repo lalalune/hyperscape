@@ -61,16 +61,51 @@ Return ONLY valid JSON, no markdown, no explanation.
 
 export const parseQuestGenerationResponse = (text) => {
   // First try to find a fenced JSON code block
-  const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
+  const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/)
   if (codeBlockMatch) {
-    return JSON.parse(codeBlockMatch[1])
+    try {
+      return JSON.parse(codeBlockMatch[1])
+    } catch (error) {
+      console.error('Failed to parse code block JSON:', error.message)
+      console.error('Code block content:', codeBlockMatch[1])
+    }
   }
 
-  // Fall back to non-greedy regex for a single JSON object
-  const jsonMatch = text.match(/\{[\s\S]*?\}/)
-  if (!jsonMatch) {
-    throw new Error('No JSON found in response')
+  // Try to find complete JSON object by balancing braces
+  const firstBrace = text.indexOf('{')
+  if (firstBrace === -1) {
+    throw new Error('No JSON object found in response')
   }
-  return JSON.parse(jsonMatch[0])
+
+  // Extract JSON by counting braces to find the matching closing brace
+  let braceCount = 0
+  let jsonStart = firstBrace
+  let jsonEnd = -1
+
+  for (let i = firstBrace; i < text.length; i++) {
+    if (text[i] === '{') {
+      braceCount++
+    } else if (text[i] === '}') {
+      braceCount--
+      if (braceCount === 0) {
+        jsonEnd = i + 1
+        break
+      }
+    }
+  }
+
+  if (jsonEnd === -1) {
+    throw new Error('Incomplete JSON object - missing closing brace')
+  }
+
+  const jsonText = text.substring(jsonStart, jsonEnd)
+
+  try {
+    return JSON.parse(jsonText)
+  } catch (error) {
+    console.error('JSON parse error:', error.message)
+    console.error('Attempted to parse:', jsonText.substring(0, 500))
+    throw new Error(`Failed to parse JSON: ${error.message}`)
+  }
 }
 

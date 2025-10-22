@@ -235,12 +235,40 @@ Output ONLY the JSON, no additional text.`
 
   try {
     const response = await orchestrator.generateAgentResponse(firstAgent, synthesisPrompt)
-    const jsonMatch = response.text.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0])
+
+    // Extract JSON using brace-counting algorithm (handles nested objects)
+    const text = response.text
+    const firstBrace = text.indexOf('{')
+    if (firstBrace === -1) {
+      throw new Error('No JSON object found in response')
     }
+
+    let braceCount = 0
+    let jsonEnd = -1
+
+    for (let i = firstBrace; i < text.length; i++) {
+      if (text[i] === '{') {
+        braceCount++
+      } else if (text[i] === '}') {
+        braceCount--
+        if (braceCount === 0) {
+          jsonEnd = i + 1
+          break
+        }
+      }
+    }
+
+    if (jsonEnd === -1) {
+      throw new Error('Incomplete JSON object - missing closing brace')
+    }
+
+    const jsonText = text.substring(firstBrace, jsonEnd)
+    return JSON.parse(jsonText)
   } catch (error) {
     console.error('Quest extraction failed:', error)
+    if (response?.text) {
+      console.error('Raw response:', response.text.substring(0, 500))
+    }
   }
 
   return {

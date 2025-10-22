@@ -20,6 +20,7 @@ import { POST as generateNPC } from './routes/generate-npc.mjs'
 import { POST as generateQuest } from './routes/generate-quest.mjs'
 import { POST as generateNPCCollaboration } from './routes/generate-npc-collaboration.mjs'
 import { POST as generatePlaytesterSwarm, GET as getPlaytesterPersonas } from './routes/generate-playtester-swarm.mjs'
+import { getSeedContent } from './data/seed-content.mjs'
 import {
   GET_library as getVoiceLibrary,
   POST_generate as generateVoice,
@@ -723,6 +724,17 @@ app.post('/api/generate-playtester-swarm', (req, res) => {
 
 app.get('/api/playtester-personas', (req, res) => {
   getPlaytesterPersonas(req, res)
+})
+
+// Seed content route - pre-generated quests, NPCs, and lore
+app.get('/api/seed-content', (req, res) => {
+  try {
+    const seedData = getSeedContent()
+    res.json(seedData)
+  } catch (error) {
+    console.error('Error loading seed content:', error)
+    res.status(500).json({ error: 'Failed to load seed content' })
+  }
 })
 
 // Voice generation routes

@@ -9,7 +9,7 @@
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "vite",
     "dev:backend": "concurrently \"npm run dev:api\" \"npm run dev:images\"",
-    "dev:api": "node server/api.mjs",
+    "dev:api": "node --experimental-strip-types server/api.mjs",
     "dev:images": "node scripts/start-image-server.mjs",
     "build": "npm run clean && vite build",
     "build:services": "node scripts/build-services.mjs",

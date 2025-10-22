@@ -125,11 +125,30 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
         settings: currentSettings
       })
 
-      // Update voice config with generated clips
+      // Filter out failed clips (those with empty audioUrl or error property)
+      const successfulClips = Object.fromEntries(
+        Object.entries(result.clips).filter(([_, clip]) =>
+          clip.audioUrl && clip.audioUrl.trim() !== '' && !clip.error
+        )
+      )
+
+      // Update voice config with only successful clips
       updateNPCVoiceConfig(npcId, {
-        clips: result.clips,
+        clips: successfulClips,
         totalClips: result.totalGenerated
       })
+
+      // Show failure summary if any clips failed
+      const failedCount = result.totalRequested - result.totalGenerated
+      if (failedCount > 0) {
+        const failedClips = Object.entries(result.clips)
+          .filter(([_, clip]) => clip.error)
+          .map(([nodeId, clip]) => `• ${nodeId}: ${clip.error}`)
+
+        setGenerationError(
+          `⚠️ ${failedCount} of ${result.totalRequested} clip(s) failed to generate:\n${failedClips.join('\n')}\n\n${result.totalGenerated} clips generated successfully.`
+        )
+      }
 
       if (onVoiceGenerated) {
         onVoiceGenerated()
@@ -157,6 +176,11 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
 
   const handlePlayClip = async (clip: VoiceClip) => {
     try {
+      // Validate audioUrl exists
+      if (!clip.audioUrl) {
+        throw new Error('Audio clip has no URL - generation may have failed')
+      }
+
       // BUG FIX: Always cleanup previous audio to prevent memory leaks
       if (currentAudioRef.current) {
         currentAudioRef.current.audio.pause()
@@ -165,7 +189,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       }
 
       const response = await fetch(`${CDN_URL}/gdd-assets/${npcId}/${clip.audioUrl}`)
-      if (!response.ok) throw new Error('Failed to fetch audio')
+      if (!response.ok) throw new Error(`Failed to fetch audio: ${response.statusText}`)
       const audioBlob = await response.blob()
       const audioUrl = URL.createObjectURL(audioBlob)
       const audio = new Audio(audioUrl)
@@ -183,7 +207,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       await audio.play()
     } catch (error) {
       console.error('Failed to play clip:', error)
-      setGenerationError('Failed to play audio clip')
+      setGenerationError(error instanceof Error ? error.message : 'Failed to play audio clip')
     }
   }
 

@@ -3,8 +3,8 @@
  * Generate quests, NPCs, and lore using real game data
  */
 
-import { Download, FileJson, Trash2, Target, FileCode, Sparkles, Users, Beaker } from 'lucide-react'
-import React from 'react'
+import { Download, FileJson, Trash2, Target, FileCode, Sparkles, Users, Beaker, RefreshCw, Upload, Database } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import { QuestBuilder, NPCScriptGenerator, LoreGenerator, QuestTracker, NPCScriptBuilder, NPCCollaborationBuilder, CollaborationResultViewer, PlaytesterSwarmPanel } from '../components/GameContent'
 import { ManifestPreviewPanel } from '../components/GameContent/ManifestPreviewPanel'
@@ -36,7 +36,13 @@ export const ContentGenerationPage: React.FC = () => {
     deleteNPC,
     deleteLore,
     createPack,
-    clearAll
+    clearAll,
+    loadPlaytesterPersonas,
+    loadSeedData,
+    resetToSeedData,
+    exportToJSON,
+    importFromJSON,
+    clearCache
   } = useContentGenerationStore()
 
   const { previews } = usePreviewManifestsStore()
@@ -53,9 +59,24 @@ export const ContentGenerationPage: React.FC = () => {
     setActivePlaytest,
   } = useMultiAgentStore()
 
+  // State for file upload
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showDebugMenu, setShowDebugMenu] = useState(false)
+
+  // Load playtester personas and seed data on mount
+  useEffect(() => {
+    loadPlaytesterPersonas()
+
+    // Load seed data if store is empty (first visit)
+    if (quests.length === 0 && npcs.length === 0 && loreEntries.length === 0) {
+      console.log('Store is empty, loading seed data...')
+      loadSeedData()
+    }
+  }, [loadPlaytesterPersonas, loadSeedData, quests.length, npcs.length, loreEntries.length])
+
   const handleExportPack = () => {
     const pack = createPack('My Content Pack', 'Generated with Asset Forge')
-    
+
     const blob = new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -63,6 +84,52 @@ export const ContentGenerationPage: React.FC = () => {
     a.download = `content-pack-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleExportJSON = () => {
+    exportToJSON()
+  }
+
+  const handleImportJSON = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      const success = importFromJSON(content)
+      if (success) {
+        alert(`✅ Successfully imported ${quests.length} quests, ${npcs.length} NPCs, ${loreEntries.length} lore entries`)
+      } else {
+        alert('❌ Failed to import backup file. Check console for details.')
+      }
+    }
+    reader.readAsText(file)
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleResetToSeedData = () => {
+    if (confirm('⚠️ This will replace all current content with seed data. Are you sure?')) {
+      resetToSeedData()
+    }
+  }
+
+  const handleClearCache = () => {
+    if (confirm('⚠️ This will delete ALL content and clear localStorage. Are you sure?')) {
+      clearCache()
+      // Reload seed data after clearing
+      setTimeout(() => {
+        loadSeedData()
+      }, 100)
+    }
   }
 
   const totalItems = quests.length + npcs.length + loreEntries.length
@@ -80,19 +147,76 @@ export const ContentGenerationPage: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {/* Export/Import Buttons */}
               {totalItems > 0 && (
                 <>
-                  <Button onClick={handleExportPack} variant="primary">
+                  <Button onClick={handleExportJSON} variant="secondary" title="Export content as JSON backup">
                     <Download size={16} className="mr-2" />
-                    Export Pack ({totalItems})
+                    Backup ({totalItems})
                   </Button>
-                  <Button onClick={clearAll} variant="ghost">
-                    <Trash2 size={16} />
+                  <Button onClick={handleExportPack} variant="primary" title="Export as content pack">
+                    <FileJson size={16} className="mr-2" />
+                    Export Pack
                   </Button>
                 </>
               )}
+
+              {/* Import Button */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+              <Button onClick={handleImportJSON} variant="secondary" title="Import content from JSON backup">
+                <Upload size={16} />
+              </Button>
+
+              {/* Reset to Seed Data */}
+              <Button onClick={handleResetToSeedData} variant="secondary" title="Reset to seed data examples">
+                <RefreshCw size={16} />
+              </Button>
+
+              {/* Debug Menu Toggle */}
+              <Button
+                onClick={() => setShowDebugMenu(!showDebugMenu)}
+                variant="ghost"
+                title="Developer debug tools"
+              >
+                <Database size={16} />
+              </Button>
+
+              {/* Clear All (only if has content) */}
+              {totalItems > 0 && (
+                <Button onClick={clearAll} variant="ghost" title="Clear all generated content">
+                  <Trash2 size={16} />
+                </Button>
+              )}
             </div>
           </div>
+
+          {/* Debug Menu (conditionally shown) */}
+          {showDebugMenu && (
+            <div className="mb-4 p-4 bg-bg-tertiary border border-border-primary rounded-lg animate-slide-in-down">
+              <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3">
+                Debug Tools
+              </h3>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleClearCache} variant="secondary" size="sm">
+                  <Database size={14} className="mr-1" />
+                  Clear localStorage Cache
+                </Button>
+                <Button onClick={() => console.log(useContentGenerationStore.getState())} variant="secondary" size="sm">
+                  <FileCode size={14} className="mr-1" />
+                  Log Store State
+                </Button>
+                <span className="text-xs text-text-tertiary ml-auto">
+                  Cache: {totalItems} items • Version: 1.0.0
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Tab Navigation */}
           <div className="flex gap-2 bg-bg-secondary border border-border-primary rounded-xl p-2">

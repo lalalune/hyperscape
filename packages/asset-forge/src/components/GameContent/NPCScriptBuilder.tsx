@@ -139,16 +139,28 @@ export const NPCScriptBuilder: React.FC = () => {
       })
       
       if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`)
+        let errorMessage = `API error: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) errorMessage = errorData.error
+          if (errorData.details) errorMessage += ` - ${errorData.details}`
+          if (errorData.rawResponse) {
+            console.error('Raw AI response:', errorData.rawResponse)
+            errorMessage += ' (check console for raw response)'
+          }
+        } catch {
+          // Response not JSON, use default error
+        }
+        throw new Error(errorMessage)
       }
-      
+
       const data = await response.json()
-      
+
       // Add generated nodes to script
       data.nodes.forEach((node: DialogueNode) => {
         addDialogueNode(selectedScript.id, node)
       })
-      
+
     } catch (error) {
       console.error('Generation error:', error)
       setGenerationError(error instanceof Error ? error.message : 'Failed to generate dialogue')

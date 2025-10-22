@@ -80,15 +80,23 @@ export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = ({
                   {node.id === entryNodeId ? '▶ Start' : node.id}
                 </Badge>
                 {selectedNodeId === node.id && node.id !== entryNodeId && (
-                  <button
+                  <div
                     onClick={(e) => {
                       e.stopPropagation()
                       onNodeDelete(node.id)
                     }}
-                    className="text-text-tertiary hover:text-red-400"
+                    className="text-text-tertiary hover:text-red-400 cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation()
+                        onNodeDelete(node.id)
+                      }
+                    }}
                   >
                     <Trash2 size={14} />
-                  </button>
+                  </div>
                 )}
               </div>
               <p className="text-sm text-text-primary line-clamp-2">{node.text || 'Empty node'}</p>
@@ -156,12 +164,19 @@ export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = ({
                           placeholder="Player response..."
                           className="flex-1 text-xs"
                         />
-                        <button
+                        <div
                           onClick={() => onResponseDelete(selectedNode.id, response.id)}
-                          className="text-text-tertiary hover:text-red-400"
+                          className="text-text-tertiary hover:text-red-400 cursor-pointer"
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              onResponseDelete(selectedNode.id, response.id)
+                            }
+                          }}
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </div>
                       </div>
                       
                       {/* Next Node */}

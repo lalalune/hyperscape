@@ -452,6 +452,9 @@ export class VoiceGenerationService {
           clip: {
             nodeId: node.id,
             text: node.text,
+            audioUrl: '', // Empty string to maintain type consistency (failed generation)
+            fileSize: 0, // Zero bytes for failed generation
+            generatedAt: new Date().toISOString(),
             error: error.message
           }
         }

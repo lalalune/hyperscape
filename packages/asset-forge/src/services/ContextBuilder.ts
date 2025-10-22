@@ -13,11 +13,11 @@
  * Based on pipeline's context-builder.ts
  */
 
-import { manifestService } from './ManifestService.js'
+import { manifestService } from './ManifestService.ts'
 import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../types/manifests'
 import type { GeneratedQuest, GeneratedNPC, LoreEntry } from '../types/content-generation'
 import type { EntityRelationship } from '../types/relationships'
-import { getTierForDifficulty, type LevelTier } from '../utils/level-progression.js'
+import { getTierForDifficulty, type LevelTier } from '../utils/level-progression.ts'
 
 export interface QuestGenerationContext {
   availableItems: ItemManifest[]
@@ -269,8 +269,9 @@ CRITICAL INSTRUCTIONS:
 `
 
     // Add reuse guardrails
-    const manifests = manifestService.getManifestsSync()
-    const existingNPCs = manifests?.npcs || []
+    // Note: ManifestService only has async methods, so we can't get manifests synchronously here
+    // We'll use the existing NPCs from context instead
+    const existingNPCs = context.existingNPCs || []
 
     // Determine role from context (if possible)
     const role = {

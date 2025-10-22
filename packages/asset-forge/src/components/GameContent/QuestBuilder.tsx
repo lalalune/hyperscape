@@ -151,9 +151,25 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
       })
       
       if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`)
+        let errorMessage = `API error: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+          if (errorData.details) {
+            errorMessage += ` - ${errorData.details}`
+          }
+          if (errorData.rawResponse) {
+            console.error('Raw AI response:', errorData.rawResponse)
+            errorMessage += ' (check console for raw response)'
+          }
+        } catch {
+          // Couldn't parse error response, use status text
+        }
+        throw new Error(errorMessage)
       }
-      
+
       const data = await response.json()
       const quest = data.quest
 
