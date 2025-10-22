@@ -19,14 +19,13 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Users, Mic, Search, Filter, Sparkles, Save, Download, AlertCircle, Loader2, Check } from 'lucide-react'
+import { Users, Mic, Search, Filter, Sparkles, Save, _Download, AlertCircle, Loader2, Check } from 'lucide-react'
 import { Card, CardHeader, CardContent } from '../components/common/Card'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
 import { VoiceBrowser } from '../components/Voice/VoiceBrowser'
 import { useManifestsStore } from '../store/useManifestsStore'
 import { useVoiceGenerationStore } from '../store/useVoiceGenerationStore'
-import { manifestService } from '../services/ManifestService'
 import type { NPCManifest, MobManifest } from '../types/manifests'
 
 type EntityType = 'npc' | 'mob'

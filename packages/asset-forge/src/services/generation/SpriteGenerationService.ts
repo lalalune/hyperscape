@@ -188,7 +188,7 @@ export class SpriteGenerationService {
    */
   async generateCharacterSprites(
     modelPath: string,
-    animations?: string[],
+//     animations?: string[],
     outputSize: number = 256
   ): Promise<Record<string, SpriteResult[]>> {
     // TODO: Implement animation frame extraction
