@@ -509,7 +509,7 @@ export function Chat({ world }: { world: ChatWorld }) {
             className='fixed pointer-events-none z-[10]'
             style={{
               left: 'clamp(0.5rem, 2vw, 1rem)',
-              bottom: `calc(env(safe-area-inset-bottom) + ${chatPanelRef.current?.offsetHeight || 0}px + clamp(0.5rem, 1.2vw, 0.625rem))`,
+              bottom: `calc(env(safe-area-inset-bottom) + ${chatPanelRef.current?.offsetHeight ?? 150}px + clamp(0.5rem, 1.2vw, 0.625rem))`,
             }}
           >
             <div className="pointer-events-auto">

@@ -93,7 +93,8 @@ export function DraggableWindow({
         savePosition(validatedPos)
       }
     }
-  }, []) // Run once after mount to avoid infinite loop
+    // Only depend on stable callbacks to avoid stale closures and re-renders
+  }, [validatePosition, savePosition])
 
   // Re-validate on window resize
   useEffect(() => {
