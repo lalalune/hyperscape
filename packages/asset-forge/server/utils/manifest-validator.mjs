@@ -9,6 +9,12 @@
  * Calculate Levenshtein distance for string similarity
  */
 function levenshteinDistance(str1, str2) {
+  // Defensive: ensure both are strings and reasonably sized.
+  const MAX_LEN = 1000;
+  if (typeof str1 !== "string") str1 = str1 != null && typeof str1.toString === "function" ? str1.toString() : "";
+  if (typeof str2 !== "string") str2 = str2 != null && typeof str2.toString === "function" ? str2.toString() : "";
+  if (str1.length > MAX_LEN) str1 = str1.slice(0, MAX_LEN);
+  if (str2.length > MAX_LEN) str2 = str2.slice(0, MAX_LEN);
   const matrix = []
 
   for (let i = 0; i <= str2.length; i++) {
