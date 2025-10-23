@@ -15,6 +15,8 @@ import { MouseRightIcon } from './MouseRightIcon'
 import { MouseWheelIcon } from './MouseWheelIcon'
 import { Sidebar } from './Sidebar'
 import { StatusBars } from './StatusBars'
+import { DebugEconomyPanel } from './debug/DebugEconomyPanel'
+import { isDebugMode } from './debug/DebugAutoLogin'
 
 // Type for icon components
 type IconComponent = React.ComponentType<{ size?: number | string }>
@@ -33,6 +35,7 @@ export function CoreUI({ world }: { world: World }) {
   const [disconnected, setDisconnected] = useState(false)
   const [kicked, setKicked] = useState<string | null>(null)
   const [characterFlowActive, setCharacterFlowActive] = useState(false)
+  const [showDebugPanel, setShowDebugPanel] = useState(isDebugMode())
     useEffect(() => {
     // Create handlers with proper types
     const handleReady = () => {
@@ -140,6 +143,17 @@ export function CoreUI({ world }: { world: World }) {
       world.prefs?.off('change', onChange)
     }
   }, [])
+  
+  // F9 to toggle debug panel
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'F9') {
+        setShowDebugPanel(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [])
   return (
     <ChatProvider>
       <div
@@ -159,6 +173,22 @@ export function CoreUI({ world }: { world: World }) {
         {kicked && <KickedOverlay code={kicked} />}
         {ready && isTouch && <TouchBtns world={world} />}
         {ready && <EntityContextMenu world={world} />}
+        {ready && showDebugPanel && (
+          <DebugEconomyPanel 
+            onSpawnItem={(itemId) => {
+              world.emit('debug:spawn-item', { itemId })
+            }}
+            onTriggerDeath={() => {
+              world.emit('debug:trigger-death', {})
+            }}
+            onAddGold={(amount) => {
+              world.emit('debug:add-gold', { amount })
+            }}
+            onInitiateTrade={() => {
+              world.emit('debug:initiate-trade', {})
+            }}
+          />
+        )}
         <div id='core-ui-portal' />
       </div>
     </ChatProvider>

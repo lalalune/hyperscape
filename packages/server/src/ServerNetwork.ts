@@ -1793,6 +1793,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const name = (incoming.name || incoming.event) as string | undefined
     const payload = (Object.prototype.hasOwnProperty.call(incoming, 'data') ? incoming.data : incoming.payload) as unknown
     if (!name) return
+    
+    // Handle debug events (development only)
+    if (name.startsWith('debug:')) {
+      this.handleDebugEvent(socket, name, payload)
+      return
+    }
+    
     // Attach playerId if not provided - assume payload is an object
     const enriched = (() => {
       const payloadObj = payload as Record<string, unknown>
@@ -1806,6 +1813,85 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.world.emit(name, enriched)
     } catch (err) {
       console.error('[ServerNetwork] Failed to re-emit entityEvent', name, err)
+    }
+  }
+  
+  /**
+   * Handles debug events for testing
+   * @internal
+   */
+  private handleDebugEvent(socket: SocketInterface, name: string, payload: unknown): void {
+    if (!socket.player) return
+    
+    const player = socket.player
+    const payloadObj = payload as Record<string, unknown>
+    
+    try {
+      switch (name) {
+        case 'debug:spawn-item': {
+          const itemId = (payloadObj?.itemId || 1) as number
+          console.log(`[DEBUG] Spawning item ${itemId} for player ${player.id}`)
+          // Add item to player inventory
+          this.world.emit('inventory:add', {
+            playerId: player.id,
+            itemId: String(itemId),
+            quantity: 1
+          })
+          break
+        }
+        
+        case 'debug:trigger-death': {
+          console.log(`[DEBUG] Triggering death for player ${player.id}`)
+          // Set player health to 0
+          if (player.health !== undefined) {
+            player.health = 0
+            this.world.emit('player:death', {
+              playerId: player.id,
+              position: player.position
+            })
+          }
+          break
+        }
+        
+        case 'debug:add-gold': {
+          const amount = (payloadObj?.amount || 500) as number
+          console.log(`[DEBUG] Adding ${amount} gold for player ${player.id}`)
+          // Add gold to player
+          this.world.emit('currency:add', {
+            playerId: player.id,
+            amount
+          })
+          break
+        }
+        
+        case 'debug:initiate-trade': {
+          console.log(`[DEBUG] Initiating trade for player ${player.id}`)
+          // Find nearest player
+          let nearestPlayer = null
+          let nearestDistance = Infinity
+          
+          for (const [_, otherPlayer] of this.world.entities) {
+            if (otherPlayer.id === player.id || !otherPlayer.position) continue
+            const dx = player.position.x - otherPlayer.position.x
+            const dz = player.position.z - otherPlayer.position.z
+            const dist = Math.sqrt(dx * dx + dz * dz)
+            if (dist < nearestDistance) {
+              nearestDistance = dist
+              nearestPlayer = otherPlayer
+            }
+          }
+          
+          if (nearestPlayer) {
+            this.world.emit('trade:request', {
+              fromPlayerId: player.id,
+              toPlayerId: nearestPlayer.id
+            })
+          }
+          break
+        }
+      }
+    } catch (err) {
+      console.error('[DEBUG] Failed to handle debug event:', name, err)
     }
   }
 

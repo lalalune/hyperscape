@@ -7,7 +7,7 @@
     "build": "mud tablegen && mud worldgen",
     "test": "mud test",
     "test:forge": "forge test --match-path 'src/test/**/*.sol'",
-    "deploy:local": "mud deploy --rpc http://localhost:8545",
+    "deploy:local": "mud deploy --rpc http://localhost:9545",
     "dev": "mud dev-contracts"
   },
   "devDependencies": {

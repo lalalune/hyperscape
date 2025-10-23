@@ -28,7 +28,7 @@
     "build:client": "cd packages/client && bun run build",
     "build:server": "cd packages/server && bun run build",
     "build:all": "bun run build",
-    "predev": "bun scripts/dev-setup.mjs && bun scripts/start-localnet.ts",
+    "predev": "echo 'Skipping predev - using existing localnet'",
     "dev": "bun run dev:jeju",
     "predev:jeju": "bun scripts/dev-setup-jeju.mjs",
     "dev:jeju": "turbo run dev",
@@ -104,6 +104,7 @@
     "pg": "^8.16.3",
     "playwright": "^1.54.2",
     "pngjs": "^7.0.0",
+    "wagmi": "^2.18.2",
     "ws": "^8.18.3"
   }
 }

@@ -145,6 +145,7 @@ import { DatabaseSystem } from './DatabaseSystem.js'
 import type { NodeWebSocket } from './types.js'
 import { A2AServer } from './a2a/server.js'
 import { autoRegisterToRegistry } from './a2a/registry.js'
+import { mintItemEndpoint, claimGoldEndpoint } from './api/nft-endpoints.js'
 
 // JSON value type for proper typing
 type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue }
@@ -804,6 +805,10 @@ async function startServer() {
 
     return reply.send({ success: true, logged: true })
   })
+
+  // NFT Economy API endpoints
+  fastify.post('/api/mint-item', mintItemEndpoint)
+  fastify.post('/api/claim-gold', claimGoldEndpoint)
 
   fastify.setErrorHandler((err, _req, reply) => {
     fastify.log.error(err)

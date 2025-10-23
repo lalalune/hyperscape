@@ -37,22 +37,16 @@ export interface GoldClaimSignature {
 
 export interface ItemMintRequest {
   playerAddress: string;
-  itemId: string;
-  instanceId: string;
-  attack: number;
-  defense: number;
-  strength: number;
-  rarity: number;
+  itemId: number;
+  amount: number;
+  instanceId: string; // bytes32 hex string
 }
 
 export interface ItemMintSignature {
   playerAddress: string;
-  itemId: string;
+  itemId: number;
+  amount: number;
   instanceId: string;
-  attack: number;
-  defense: number;
-  strength: number;
-  rarity: number;
   signature: string;
 }
 
@@ -147,12 +141,15 @@ export class GameSigner {
   }
 
   /**
-   * Sign an item mint request
+   * Sign an item mint request for Items.sol (ERC-1155)
    * @param request Item mint request
    * @returns Signed mint data
+   * 
+   * Signature must match Items.sol format:
+   * keccak256(abi.encodePacked(msg.sender, itemId, amount, instanceId))
    */
   async signItemMint(request: ItemMintRequest): Promise<ItemMintSignature> {
-    const { playerAddress, itemId, instanceId, attack, defense, strength, rarity } = request;
+    const { playerAddress, itemId, amount, instanceId } = request;
     
     // Validate address
     if (!playerAddress || playerAddress.length !== 42) {
@@ -182,24 +179,16 @@ export class GameSigner {
       this.mintCounts.set(playerKey, { count: 1, resetAt: now + this.MINT_RATE_WINDOW_MS });
     }
     
-    // Create message hash matching contract
-    // keccak256(abi.encodePacked(player, itemId, instanceId, attack, defense, strength, rarity))
+    // Create message hash matching Items.sol contract
+    // Signature = sign(keccak256(abi.encodePacked(msg.sender, itemId, amount, instanceId)))
     const messageHash = keccak256(
       solidityPacked(
-        ['address', 'string', 'bytes32', 'uint16', 'uint16', 'uint16', 'uint8'],
-        [
-          playerAddress,
-          itemId,
-          instanceId,
-          attack,
-          defense,
-          strength,
-          rarity
-        ]
+        ['address', 'uint256', 'uint256', 'bytes32'],
+        [playerAddress, itemId, amount, instanceId]
       )
     );
     
-    // Sign the message
+    // Sign the message (adds Ethereum signed message prefix)
     const signature = await this.wallet.signMessage(getBytes(messageHash));
     
     // Mark instance as minted
@@ -208,6 +197,7 @@ export class GameSigner {
     console.log('[GameSigner] Signed item mint:', {
       player: playerAddress,
       itemId,
+      amount,
       instanceId: instanceId.substring(0, 20) + '...',
       signature: signature.substring(0, 20) + '...'
     });
@@ -215,13 +205,28 @@ export class GameSigner {
     return {
       playerAddress,
       itemId,
+      amount,
       instanceId,
-      attack,
-      defense,
-      strength,
-      rarity,
       signature
     };
+  }
+  
+  /**
+   * Calculate instance ID (must match PlayerSystem.sol)
+   * @param playerAddress Player address
+   * @param itemId Item type ID
+   * @param slot Inventory slot number
+   * @returns Instance ID as bytes32 hex string
+   */
+  calculateInstanceId(playerAddress: string, itemId: number, slot: number): string {
+    // Matches PlayerSystem._calculateInstanceId:
+    // keccak256(abi.encodePacked(player, itemId, slot, "hyperscape"))
+    return keccak256(
+      solidityPacked(
+        ['address', 'uint16', 'uint8', 'string'],
+        [playerAddress, itemId, slot, 'hyperscape']
+      )
+    );
   }
 
   /**

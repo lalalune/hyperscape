@@ -56,3 +56,4 @@ tmp/
 assets/
 
 logs/
+.cache-synpress

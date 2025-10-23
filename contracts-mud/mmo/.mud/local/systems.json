@@ -125,6 +125,8 @@
       "systemId": "0x73796879706572736361706500000000506c6179657253797374656d00000000",
       "abi": [
         "constructor()",
+        "event ItemDropped(address indexed player, uint16 indexed itemId, bytes32 instanceId, int32 x, int32 y, int32 z, uint32 quantity)",
+        "event ItemProtected(address indexed player, uint16 indexed itemId, bytes32 instanceId)",
         "event PlayerDied(address indexed player, int32 deathX, int32 deathY, int32 deathZ)",
         "event PlayerMoved(address indexed player, int32 x, int32 y, int32 z)",
         "event PlayerRegistered(address indexed player, string name)",
@@ -132,13 +134,17 @@
         "function getPosition(address player) view returns (int32 x, int32 y, int32 z)",
         "function heal(address player, uint32 amount)",
         "function isAlive(address player) view returns (bool)",
+        "function itemsContract() view returns (address)",
         "function move(int32 x, int32 y, int32 z)",
         "function register(string name)",
+        "function setItemsContract(address _itemsContract)",
         "function takeDamage(address player, uint32 amount) returns (bool died)",
         "function updateMaxHealth(address player, uint8 constitutionLevel)"
       ],
       "worldAbi": [
         "constructor()",
+        "event ItemDropped(address indexed player, uint16 indexed itemId, bytes32 instanceId, int32 x, int32 y, int32 z, uint32 quantity)",
+        "event ItemProtected(address indexed player, uint16 indexed itemId, bytes32 instanceId)",
         "event PlayerDied(address indexed player, int32 deathX, int32 deathY, int32 deathZ)",
         "event PlayerMoved(address indexed player, int32 x, int32 y, int32 z)",
         "event PlayerRegistered(address indexed player, string name)",
@@ -146,8 +152,10 @@
         "function hyperscape__getPosition(address player) view returns (int32 x, int32 y, int32 z)",
         "function hyperscape__heal(address player, uint32 amount)",
         "function hyperscape__isAlive(address player) view returns (bool)",
+        "function hyperscape__itemsContract() view returns (address)",
         "function hyperscape__move(int32 x, int32 y, int32 z)",
         "function hyperscape__register(string name)",
+        "function hyperscape__setItemsContract(address _itemsContract)",
         "function hyperscape__takeDamage(address player, uint32 amount) returns (bool died)",
         "function hyperscape__updateMaxHealth(address player, uint8 constitutionLevel)"
       ]
@@ -211,5 +219,5 @@
       ]
     }
   ],
-  "createdAt": 1760990423544
+  "createdAt": 1761067167248
 }
