@@ -11,8 +11,7 @@ export type {
   PlayerEntityData,
   BankEntityData,
   ItemEntityConfig,
-  MobEntityConfig,
-  NPCEntityConfig,
+  CharacterEntityConfig,
   ResourceEntityConfig,
   HeadstoneEntityConfig,
   HeadstoneData,
@@ -33,7 +32,8 @@ export { InteractableEntity } from './InteractableEntity';
 // Concrete entity classes
 export { ItemEntity } from './ItemEntity';
 export { HeadstoneEntity } from './HeadstoneEntity';
-export { MobEntity } from './MobEntity';
 export { ResourceEntity } from './ResourceEntity';
-export { NPCEntity } from './NPCEntity';
 export { PlayerEntity } from './PlayerEntity';
+
+// Unified Character System
+export { CharacterEntity } from './CharacterEntity';

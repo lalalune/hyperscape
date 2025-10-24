@@ -11,17 +11,15 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 import { fileURLToPath } from 'url'
 import { errorHandler } from './middleware/errorHandler.mjs'
-import { authenticateUser, optionalAuth, requireAdmin } from './middleware/auth.mjs'
-// TODO: Implement Privy config validation
-// import { validatePrivyConfig } from './auth/privy.mjs'
+import { authenticateUser, optionalAuth } from './middleware/auth.mjs'
+import { validatePrivyConfig } from './auth/privy.mjs'
 import { AssetService } from './services/AssetService.mjs'
 import { RetextureService } from './services/RetextureService.mjs'
 import { GenerationService } from './services/GenerationService.mjs'
 import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
-// TODO: Implement validation utilities
-// import { validateBase64Image, validateImageBuffer, validateTotalSize, FileValidationError } from './utils/fileValidation.mjs'
-// import { validateAssetId, validatePipelineId } from './utils/validators.mjs'
-// import { closeDatabase } from './db/index.mjs'
+import { validateBase64Image, validateImageBuffer, validateTotalSize, FileValidationError } from './utils/fileValidation.mjs'
+import { validateAssetId, validatePipelineId } from './utils/validators.mjs'
+import { closeDatabase } from './db/index.mjs'
 import promptRoutes from './routes/promptRoutes.mjs'
 import { POST as generateDialogue } from './routes/generate-dialogue.mjs'
 import { POST as generateNPC } from './routes/generate-npc.mjs'
@@ -48,62 +46,61 @@ import {
   POST_generateSample as generateManifestSampleDialogue
 } from './routes/voice-manifest.mjs'
 
-// TODO: Implement auth/admin/user routes
 // Auth routes
-// import { POST_login, GET_me, POST_logout } from './routes/auth.mjs'
+import { POST_login, GET_me, POST_logout } from './routes/auth.mjs'
 
 // Admin routes
-// import {
-//   POST_addToWhitelist,
-//   POST_removeFromWhitelist,
-//   GET_whitelist,
-//   GET_allUsers,
-//   GET_stats,
-//   GET_activity,
-//   requireAdmin
-// } from './routes/admin.mjs'
+import {
+  POST_addToWhitelist,
+  POST_removeFromWhitelist,
+  GET_whitelist,
+  GET_allUsers,
+  GET_stats,
+  GET_activity,
+  requireAdmin
+} from './routes/admin.mjs'
 
 // User routes
-// import {
-//   GET_profile,
-//   PUT_profile,
-//   GET_usage,
-//   GET_history,
-//   DELETE_account,
-//   POST_export
-// } from './routes/user.mjs'
+import {
+  GET_profile,
+  PUT_profile,
+  GET_usage,
+  GET_history,
+  DELETE_account,
+  POST_export
+} from './routes/user.mjs'
 
 // API Keys routes
-// import {
-//   POST_addApiKey,
-//   GET_apiKeys,
-//   PUT_updateApiKey,
-//   DELETE_apiKey
-// } from './routes/api-keys.mjs'
+import {
+  POST_addApiKey,
+  GET_apiKeys,
+  PUT_updateApiKey,
+  DELETE_apiKey
+} from './routes/api-keys.mjs'
 
 // Projects routes
-// import {
-//   POST_createProject,
-//   GET_projects,
-//   GET_project,
-//   PUT_updateProject,
-//   DELETE_project,
-//   POST_shareProject
-// } from './routes/projects.mjs'
+import {
+  POST_createProject,
+  GET_projects,
+  GET_project,
+  PUT_updateProject,
+  DELETE_project,
+  POST_shareProject
+} from './routes/projects.mjs'
 
 // Teams routes
-// import {
-//   POST_createTeam,
-//   GET_teamPreview,
-//   POST_joinTeam,
-//   GET_myTeam,
-//   GET_teamMembers,
-//   POST_leaveTeam,
-//   DELETE_team,
-//   PUT_updateTeam,
-//   DELETE_removeMember,
-//   POST_transferOwnership
-// } from './routes/teams.mjs'
+import {
+  POST_createTeam,
+  GET_teamPreview,
+  POST_joinTeam,
+  GET_myTeam,
+  GET_teamMembers,
+  POST_leaveTeam,
+  DELETE_team,
+  PUT_updateTeam,
+  DELETE_removeMember,
+  POST_transferOwnership
+} from './routes/teams.mjs'
 
 // Import constants
 import {
@@ -120,13 +117,10 @@ import {
   MAX_TOKENS_MEDIUM,
   MAX_TOKENS_SHORT
 } from '../src/constants/limits.ts'
-// TODO: Create dimensions.ts or move these constants
-// import {
-//   MEDIUM_TEMPERATURE,
-//   LOW_TEMPERATURE
-// } from '../src/constants/dimensions.ts'
-const MEDIUM_TEMPERATURE = 0.7
-const LOW_TEMPERATURE = 0.3
+import {
+  MEDIUM_TEMPERATURE,
+  LOW_TEMPERATURE
+} from '../src/constants/dimensions.ts'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -134,8 +128,7 @@ const ROOT_DIR = path.join(__dirname, '..')
 
 // Validate critical configuration at startup
 try {
-  // TODO: Implement Privy config validation
-  // validatePrivyConfig()
+  validatePrivyConfig()
 } catch (error) {
   console.error('\n' + error.message + '\n')
   process.exit(1)
@@ -160,48 +153,27 @@ const app = express()
 
 // CORS configuration - no wildcards in production
 app.use((req, res, next) => {
-  // Trusted origins for CORS (production and development)
-  const PROD_ORIGIN = process.env.FRONTEND_URL;
-  const DEV_ORIGINS = [
-    DEFAULT_FRONTEND_URL,
-    'http://localhost',
-    'http://localhost:3000',
-    'http://127.0.0.1',
-    'http://127.0.0.1:3000',
-  ];
+  // In production, FRONTEND_URL is required (validated above)
+  // In development, allow localhost origins
+  const origin = process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL
+    : req.headers.origin || DEFAULT_FRONTEND_URL
 
-  let allowedOrigin;
-  if (process.env.NODE_ENV === 'production') {
-    // Strictly use production origin
-    if (req.headers.origin === PROD_ORIGIN) {
-      allowedOrigin = PROD_ORIGIN;
-    }
-  } else {
-    // Allow dev/test localhost origins only, never reflect arbitrary origins
-    if (req.headers.origin && DEV_ORIGINS.includes(req.headers.origin)) {
-      allowedOrigin = req.headers.origin;
-    } else {
-      allowedOrigin = DEFAULT_FRONTEND_URL; // fallback for dev tools requests
-    }
-  }
-
-  if (allowedOrigin) {
-    res.header('Access-Control-Allow-Origin', allowedOrigin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-  }
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Origin', origin)
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.header('Access-Control-Allow-Credentials', 'true')
 
   // Security headers (basic OWASP without helmet)
-  res.header('X-Content-Type-Options', 'nosniff');
-  res.header('X-Frame-Options', 'DENY');
-  res.header('X-XSS-Protection', '1; mode=block');
+  res.header('X-Content-Type-Options', 'nosniff')
+  res.header('X-Frame-Options', 'DENY')
+  res.header('X-XSS-Protection', '1; mode=block')
 
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    return res.sendStatus(200)
   }
 
-  next();
+  next()
 })
 
 // Body parsing (allow larger payloads for base64 images)
@@ -1119,11 +1091,10 @@ app.get('/api/admin/activity', authenticateUser, requireAdmin, (req, res) => {
 app.use(errorHandler)
 
 // Start server
-const PORT = process.env.PORT || process.env.API_PORT || DEFAULT_API_PORT
-const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'
-const server = app.listen(PORT, HOST, () => {
-  console.log(`🚀 API Server running on http://${HOST}:${PORT}`)
-  console.log(`📊 Health check: http://${HOST}:${PORT}/api/health`)
+const PORT = process.env.API_PORT || DEFAULT_API_PORT
+const server = app.listen(PORT, () => {
+  console.log(`🚀 API Server running on http://localhost:${PORT}`)
+  console.log(`📊 Health check: http://localhost:${PORT}/api/health`)
 
   if (!process.env.MESHY_API_KEY) {
     console.warn('⚠️  MESHY_API_KEY not found - retexturing will fail')

@@ -216,7 +216,7 @@ export interface MobEntity {
   instanceId?: number;
   meshType?: string;
   area: WorldArea;
-  spawnPoint: MobSpawnPoint;
+  spawnPoint: CharacterSpawnPoint;
   currentHealth: number;
   lastRespawn: number;
   isAlive: boolean;
@@ -247,7 +247,7 @@ export interface WorldChunk {
   biome: string;
   heightData: number[];
   resourceStates: Record<string, boolean>;
-  mobSpawnStates: Record<string, MobSpawnPoint>;
+  mobSpawnStates: Record<string, CharacterSpawnPoint>;
   playerModifications: Record<string, unknown>;
   chunkSeed: number;
   lastActiveTime: Date;
@@ -268,8 +268,8 @@ export interface UIState {
 export interface CombatData {
   attackerId: string
   targetId: string
-  attackerType: 'player' | 'mob'
-  targetType: 'player' | 'mob'
+  attackerType: 'player' | 'character'
+  targetType: 'player' | 'character'
   startTime: number
   lastAttackTime: number
   combatStyle: CombatStyle | null
@@ -550,7 +550,7 @@ export interface DeathData {
 // Interaction types
 export interface InteractableEntity {
   id: string
-  type: 'mob' | 'npc' | 'resource' | 'item' | 'store' | 'bank' | 'other'
+  type: 'character' | 'resource' | 'item' | 'store' | 'bank' | 'other'
   name: string
   position: Position3D
   interactionDistance: number
@@ -662,7 +662,7 @@ export interface SpawnConditions {
 
 export interface MeshUserData {
   entityId: string;
-  type: 'mob' | 'npc' | 'resource' | 'item' | 'player' | 'static';
+  type: 'character' | 'resource' | 'item' | 'player' | 'static';
   name: string;
   interactable: boolean;
   interactionDistance?: number;
@@ -703,12 +703,12 @@ export interface MobEntityData {
 }
 
 // AI and combat types
-export type MobAIStateType = 'idle' | 'patrol' | 'chase' | 'attack' | 'flee' | 'dead' | 'combat' | 'returning';
+export type CharacterAIStateType = 'idle' | 'patrol' | 'chase' | 'attack' | 'flee' | 'dead' | 'combat' | 'returning';
 
-export interface MobAIStateData {
-  mobId: string
-  type: string // Mob ID from mobs.json
-  state: MobAIStateType
+export interface CharacterAIStateData {
+  characterId: string
+  type: string // Character ID from characters.json
+  state: CharacterAIStateType
   targetId: string | null
   lastStateChange: number
   patrolPath: Position3D[]
@@ -744,7 +744,7 @@ export interface AggroTarget {
 
 export interface CombatTarget {
   entityId: string
-  entityType: 'player' | 'mob'
+  entityType: 'player' | 'character'
   distance: number
   playerId: string
   threat: number
@@ -798,7 +798,7 @@ export interface ResourceNodeData {
 export interface ResourceMesh extends THREE.Mesh {
   userData: {
     entityId: string;
-    type: 'mob' | 'npc' | 'resource' | 'item' | 'player' | 'static';
+    type: 'character' | 'resource' | 'item' | 'player' | 'static';
     name: string;
     interactable: boolean;
     mobData: {
@@ -1527,9 +1527,9 @@ export interface HeadstoneApp {
   getHeadstoneData(): HeadstoneData;
 }
 
-// Entity Manager types  
+// Entity Manager types
 export interface EntitySpawnRequest {
-  type: 'item' | 'mob' | 'npc' | 'resource' | 'static';
+  type: 'item' | 'character' | 'resource' | 'static';
   config: unknown; // EntityConfig - will need proper import
 }
 
@@ -1560,7 +1560,7 @@ export interface TooltipElement extends HTMLElement {
 export interface InteractionTargetEntity {
   id: string;
   object: THREE.Object3D;
-  type: 'attack' | 'pickup' | 'talk' | 'gather' | 'use' | 'move' | 'mob' | 'item' | 'resource' | 'npc';
+  type: 'attack' | 'pickup' | 'talk' | 'gather' | 'use' | 'move' | 'character' | 'item' | 'resource';
   distance: number;
   description: string;
   name: string;
@@ -1724,20 +1724,20 @@ export interface ResourceSpawnPointData {
   respawnTime: number;
 }
 
-export interface MobSpawnPointData {
-  type: string; // Can be mob type like 'goblin', 'bandit', etc.
-  mobId: string;
+export interface CharacterSpawnPointData {
+  type: string; // Can be character type like 'goblin', 'bandit', etc.
+  characterId: string;
   spawnRadius: number;
   maxCount: number;
   respawnTime: number;
 }
 
-export type ZoneSpawnPointData = PlayerSpawnPointData | ResourceSpawnPointData | MobSpawnPointData;
+export type ZoneSpawnPointData = PlayerSpawnPointData | ResourceSpawnPointData | CharacterSpawnPointData;
 
 export interface ZoneSpawnPoint {
-  type: 'player' | 'mob' | 'resource';
+  type: 'player' | 'character' | 'resource';
   position: Position3D;
-  data: PlayerSpawnPointData | ResourceSpawnPointData | MobSpawnPointData;
+  data: PlayerSpawnPointData | ResourceSpawnPointData | CharacterSpawnPointData;
 }
 
 export interface ZoneData {
@@ -1790,8 +1790,8 @@ export interface NPCLocation {
   description: string;
 }
 
-export interface MobSpawnPoint {
-  mobId: string;
+export interface CharacterSpawnPoint {
+  characterId: string;
   position: WorldPosition;
   spawnRadius: number;
   maxCount: number;
@@ -1813,7 +1813,7 @@ export interface WorldArea {
   safeZone: boolean;
   npcs: NPCLocation[];
   resources: BiomeResource[];
-  mobSpawns: MobSpawnPoint[];
+  characterSpawns: CharacterSpawnPoint[];
   connections: string[]; // Connected area IDs
   specialFeatures: string[];
 }
@@ -1904,6 +1904,7 @@ export interface MobData {
   attackSpeed?: number; // Seconds between attacks
   moveSpeed?: number; // Units per second
   combatRange?: number; // Distance in units
+  attackRate?: number; // Milliseconds between attacks when overridden
   animationSet?: {
     idle: string;
     walk: string;
@@ -1912,11 +1913,21 @@ export interface MobData {
   };
   respawnTime: number; // milliseconds
   xpReward: number; // Base XP for killing this mob
-  
+  behaviorConfig?: {
+    aggroRange?: number;
+    chaseRange?: number;
+    wanderRadius?: number;
+    combatStrategy?: string;
+  };
+
   // Shortcut properties for easier access
   health: number;
   maxHealth: number;
   level: number;
+
+  // Unified character format compatibility (top-level stats)
+  attackPower?: number;
+  defense?: number;
 }
 
 // Treasure locations shared across systems

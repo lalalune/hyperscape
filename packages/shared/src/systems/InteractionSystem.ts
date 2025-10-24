@@ -723,60 +723,127 @@ export class InteractionSystem extends System {
         break;
       }
         
-      case 'mob': {
-        type MobEntity = { getMobData?: () => { health?: number; level?: number } | null }
-        const mobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
-        const isAlive = (mobData?.health || 0) > 0;
-        
-        actions.push({
-          id: 'attack',
-          label: `Attack ${target.name} (Lv${mobData?.level || 1})`,
-          icon: '⚔️',
-          enabled: isAlive,
-          handler: () => {
-            // Check if mob is still alive before attacking
-            const currentMobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
-            const isStillAlive = (currentMobData?.health || 0) > 0;
-            
-            if (!isStillAlive) {
-              return; // Mob is dead, don't attack
-            }
-            
-            // Check for debouncing to prevent duplicate attack requests
-            const attackKey = `${playerId}:${target.id}`;
-            const now = Date.now();
-            const lastRequest = this.recentAttackRequests.get(attackKey);
-            
-            if (lastRequest && (now - lastRequest) < this.ATTACK_DEBOUNCE_TIME) {
-              return;
-            }
-            
-            // Record this attack request
-            this.recentAttackRequests.set(attackKey, now);
-            
-            // Clean up old entries (older than 5 seconds)
-            for (const [key, timestamp] of this.recentAttackRequests.entries()) {
-              if (now - timestamp > 5000) {
-                this.recentAttackRequests.delete(key);
+      case 'character': {
+        type CharacterEntity = { characterType?: string; config?: { services?: string[] }; getHealth?: () => number; getLevel?: () => number }
+        const character = target.entity as CharacterEntity;
+        const characterType = character.characterType || 'mob';
+
+        // Hostile mobs - show attack actions
+        if (characterType === 'mob') {
+          const health = character.getHealth ? character.getHealth() : 0;
+          const level = character.getLevel ? character.getLevel() : 1;
+          const isAlive = health > 0;
+
+          actions.push({
+            id: 'attack',
+            label: `Attack ${target.name} (Lv${level})`,
+            icon: '⚔️',
+            enabled: isAlive,
+            handler: () => {
+              // Check if character is still alive before attacking
+              const currentHealth = character.getHealth ? character.getHealth() : 0;
+              const isStillAlive = currentHealth > 0;
+
+              if (!isStillAlive) {
+                return; // Character is dead, don't attack
+              }
+
+              // Check for debouncing to prevent duplicate attack requests
+              const attackKey = `${playerId}:${target.id}`;
+              const now = Date.now();
+              const lastRequest = this.recentAttackRequests.get(attackKey);
+
+              if (lastRequest && (now - lastRequest) < this.ATTACK_DEBOUNCE_TIME) {
+                return;
+              }
+
+              // Record this attack request
+              this.recentAttackRequests.set(attackKey, now);
+
+              // Clean up old entries (older than 5 seconds)
+              for (const [key, timestamp] of this.recentAttackRequests.entries()) {
+                if (now - timestamp > 5000) {
+                  this.recentAttackRequests.delete(key);
+                }
+              }
+
+              if (this.world.network?.send) {
+                this.world.network.send('attackMob', {
+                  mobId: target.id,
+                  attackType: 'melee'
+                });
+              } else {
+                console.warn('[InteractionSystem] No network.send available for attack');
+                // Fallback for single-player
+                this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
+                  playerId,
+                  targetId: target.id,
+                  attackType: AttackType.MELEE
+                });
               }
             }
-            
-            if (this.world.network?.send) {
-              this.world.network.send('attackMob', {
-                mobId: target.id,
-                attackType: 'melee'
-              });
-            } else {
-              console.warn('[InteractionSystem] No network.send available for attack');
-              // Fallback for single-player
-              this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
+          });
+        }
+
+        // Friendly NPCs - show service actions
+        if (characterType === 'npc') {
+          const npcConfig = character.config || {};
+          const services = npcConfig.services || [];
+
+          if (services.includes('bank')) {
+            actions.push({
+              id: 'open-bank',
+              label: 'Open Bank',
+              icon: '🏦',
+              enabled: true,
+              handler: () => {
+                this.world.emit(EventType.BANK_OPEN, {
+                  playerId,
+                  bankId: target.id,
+                  position: target.position
+                });
+              }
+            });
+          }
+
+          if (services.includes('store')) {
+            actions.push({
+              id: 'open-store',
+              label: 'Trade',
+              icon: '🏪',
+              enabled: true,
+              handler: () => {
+                this.world.emit(EventType.STORE_OPEN, {
+                  playerId,
+                  storeId: target.id,
+                  position: target.position
+                });
+              }
+            });
+          }
+
+          actions.push({
+            id: 'talk',
+            label: 'Talk',
+            icon: '💬',
+            enabled: true,
+            handler: () => {
+              // Use unified DIALOGUE_START (preferred)
+              this.world.emit(EventType.DIALOGUE_START, {
                 playerId,
-                targetId: target.id,
-                attackType: AttackType.MELEE
+                npcId: target.id,
+                characterId: target.id
+              });
+              // Also emit legacy event for backward compatibility
+              this.world.emit(EventType.NPC_DIALOGUE, {
+                playerId,
+                npcId: target.id
               });
             }
-          }
-        });
+          });
+        }
+
+        // Common actions for all characters
         actions.push({
           id: 'walk_here',
           label: 'Walk here',
@@ -784,66 +851,6 @@ export class InteractionSystem extends System {
           enabled: true,
           handler: () => this.walkTo(target.position)
         });
-        actions.push({
-          id: 'examine',
-          label: 'Examine',
-          icon: '👁️',
-          enabled: true,
-          handler: () => this.examineEntity(target, playerId)
-        });
-        break;
-      }
-        
-      case 'npc': {
-        type NPCEntity = { config?: { services?: string[] } }
-        const npcConfig = (target.entity as NPCEntity).config || {};
-        const services = npcConfig.services || [];
-        
-        if (services.includes('bank')) {
-          actions.push({
-            id: 'open-bank',
-            label: 'Open Bank',
-            icon: '🏦',
-            enabled: true,
-            handler: () => {
-              this.world.emit(EventType.BANK_OPEN, {
-                playerId,
-                bankId: target.id,
-                position: target.position
-              });
-            }
-          });
-        }
-        
-        if (services.includes('store')) {
-          actions.push({
-            id: 'open-store',
-            label: 'Trade',
-            icon: '🏪',
-            enabled: true,
-            handler: () => {
-              this.world.emit(EventType.STORE_OPEN, {
-                playerId,
-                storeId: target.id,
-                position: target.position
-              });
-            }
-          });
-        }
-        
-        actions.push({
-          id: 'talk',
-          label: 'Talk',
-          icon: '💬',
-          enabled: true,
-          handler: () => {
-            this.world.emit(EventType.NPC_DIALOGUE, {
-              playerId,
-              npcId: target.id
-            });
-          }
-        });
-        
         actions.push({
           id: 'examine',
           label: 'Examine',
@@ -981,11 +988,13 @@ export class InteractionSystem extends System {
 
   private examineEntity(target: { type: string; name: string; entity: unknown }, playerId: string): void {
     let message = `It's ${target.name.toLowerCase()}.`;
-    
-    if (target.type === 'mob') {
-      type MobEntity = { getMobData?: () => { health?: number; level?: number } | null }
-      const mobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
-      message = `A level ${mobData?.level || 1} ${target.name}. ${(mobData?.health || 0) > 0 ? 'It looks dangerous!' : 'It is dead.'}`;
+
+    if (target.type === 'character') {
+      type CharacterEntity = { getHealth?: () => number; getLevel?: () => number }
+      const character = target.entity as CharacterEntity;
+      const health = character.getHealth ? character.getHealth() : 0;
+      const level = character.getLevel ? character.getLevel() : 1;
+      message = `A level ${level} ${target.name}. ${health > 0 ? 'It looks dangerous!' : 'It is dead.'}`;
     } else if (target.type === 'resource') {
       type ResourceEntity = { config?: { resourceType?: string } }
       const resourceType = (target.entity as ResourceEntity).config?.resourceType || 'tree';

@@ -1,32 +1,32 @@
 
 /**
  * Aggression System
- * Handles mob AI, aggression detection, and chase mechanics per GDD specifications
- * - Mob aggression based on player level and mob type
+ * Handles character AI, aggression detection, and chase mechanics per GDD specifications
+ * - Character aggression based on player level and character type
  * - Detection ranges and line-of-sight
  * - Chase mechanics with leashing
- * - Different mob behaviors (passive, aggressive, special cases)
+ * - Different character behaviors (passive, aggressive, special cases)
  */
 
 
 import { World } from '../World';
 import { EventType } from '../types/events';
 import { AGGRO_CONSTANTS } from '../constants/CombatConstants';
-import { AggroTarget, Position3D, MobAIStateData } from '../types';
+import { AggroTarget, Position3D, CharacterAIStateData } from '../types';
 import { calculateDistance } from '../utils/EntityUtils';
 import { SystemBase } from './SystemBase';
 
 /**
  * Aggression System - GDD Compliant
- * Implements mob AI and aggression mechanics per GDD specifications:
- * - Level-based aggression (low-level aggressive mobs ignore high-level players)
+ * Implements character AI and aggression mechanics per GDD specifications:
+ * - Level-based aggression (low-level aggressive characters ignore high-level players)
  * - Special cases (Dark Warriors always aggressive regardless of level)
  * - Detection ranges and chase mechanics
- * - Leashing to prevent mobs from going too far from spawn
+ * - Leashing to prevent characters from going too far from spawn
  * - Multiple target management
  */
 export class AggroSystem extends SystemBase {
-  private mobStates = new Map<string, MobAIStateData>();
+  private characterStates = new Map<string, CharacterAIStateData>();
   private playerSkills = new Map<string, Record<string, { level: number; xp: number }>>();
 
   constructor(world: World) {
@@ -34,7 +34,7 @@ export class AggroSystem extends SystemBase {
       name: 'aggro',
       dependencies: {
         required: [], // Aggro system can work independently
-        optional: ['mob', 'player', 'combat', 'entity-manager'] // Better with mob and player systems
+        optional: ['character', 'player', 'combat', 'entity-manager'] // Better with character and player systems
       },
       autoCleanup: true
     });
@@ -43,11 +43,28 @@ export class AggroSystem extends SystemBase {
   async init(): Promise<void> {
     
     // Set up type-safe event subscriptions for aggro mechanics
-    this.subscribe(EventType.MOB_SPAWNED, (data: { mobId: string; mobType: string; position: { x: number; y: number; z: number } }) => {
-      this.registerMob({ id: data.mobId, type: data.mobType, level: 1, position: data.position });
+    // Unified character events (preferred)
+    this.subscribe(EventType.CHARACTER_SPAWNED, (data: { entityId: string; entityType: string; entityData?: { characterId?: string; characterType?: string } }) => {
+      // Only register hostile characters (mobs)
+      if (data.entityData?.characterType === 'mob') {
+        this.registerMob({
+          id: data.entityId,
+          type: data.entityData?.characterId || 'unknown',
+          level: 1,
+          position: { x: 0, y: 0, z: 0 } // Position will be updated via MOB_POSITION_UPDATED
+        });
+      }
     });
-    this.subscribe(EventType.MOB_DESPAWN, (data: { mobId: string }) => {
-      this.unregisterMob(data.mobId);
+    this.subscribe(EventType.CHARACTER_DESPAWNED, (data: { characterId: string }) => {
+      this.unregisterMob(data.characterId);
+    });
+
+    // Legacy mob events (deprecated - for backward compatibility)
+    this.subscribe(EventType.MOB_SPAWNED, (data: { characterId: string; mobType: string; position: { x: number; y: number; z: number } }) => {
+      this.registerMob({ id: data.characterId, type: data.mobType, level: 1, position: data.position });
+    });
+    this.subscribe(EventType.MOB_DESPAWN, (data: { characterId: string }) => {
+      this.unregisterMob(data.characterId);
     });
     this.subscribe(EventType.PLAYER_POSITION_UPDATED, (data: { playerId: string; position: Position3D }) => {
       this.updatePlayerPosition({ entityId: data.playerId, position: data.position });
@@ -55,8 +72,8 @@ export class AggroSystem extends SystemBase {
     this.subscribe(EventType.COMBAT_STARTED, (data: { attackerId: string; targetId: string }) => {
       this.onCombatStarted({ attackerId: data.attackerId, targetId: data.targetId });
     });
-    this.subscribe(EventType.MOB_POSITION_UPDATED, (data: { mobId: string; position: Position3D }) => {
-      this.updateMobPosition({ entityId: data.mobId, position: data.position });
+    this.subscribe(EventType.MOB_POSITION_UPDATED, (data: { characterId: string; position: Position3D }) => {
+      this.updateMobPosition({ entityId: data.characterId, position: data.position });
     });
     this.subscribe(
       EventType.PLAYER_LEVEL_CHANGED,
@@ -92,8 +109,8 @@ export class AggroSystem extends SystemBase {
     const mobType = mobData.type.toLowerCase();
     const behavior = AGGRO_CONSTANTS.MOB_BEHAVIORS[mobType] || AGGRO_CONSTANTS.MOB_BEHAVIORS.default;
     
-    const aiState: MobAIStateData = {
-      mobId: mobData.id,
+    const aiState: CharacterAIStateData = {
+      characterId: mobData.id,
       type: mobType,
       state: 'idle',
       behavior: behavior.behavior,
@@ -128,28 +145,28 @@ export class AggroSystem extends SystemBase {
       combatTarget: null
     };
     
-    this.mobStates.set(mobData.id, aiState);
+    this.characterStates.set(mobData.id, aiState);
     
   }
 
-  private unregisterMob(mobId: string): void {
-    this.mobStates.delete(mobId);
+  private unregisterMob(characterId: string): void {
+    this.characterStates.delete(characterId);
   }
 
   private updatePlayerPosition(data: { entityId: string; position: Position3D }): void {
     // Check all mobs for aggro against this player
-    for (const [_mobId, mobState] of this.mobStates) {
-      if (mobState.behavior === 'passive') continue;
+    for (const [_characterId, characterState] of this.characterStates) {
+      if (characterState.behavior === 'passive') continue;
       
-      this.checkPlayerAggro(mobState, data.entityId, data.position);
+      this.checkPlayerAggro(characterState, data.entityId, data.position);
     }
   }
 
   private updateMobPosition(data: { entityId: string; position: Position3D }): void {
-    const mobState = this.mobStates.get(data.entityId);
-    if (mobState && data.position) {
+    const characterState = this.characterStates.get(data.entityId);
+    if (characterState && data.position) {
       // Strong type assumption - Position3D is always valid with x, y, z numbers
-      mobState.currentPosition = { 
+      characterState.currentPosition = { 
         x: data.position.x,
         y: data.position.y,
         z: data.position.z
@@ -157,25 +174,25 @@ export class AggroSystem extends SystemBase {
     }
   }
 
-  private checkPlayerAggro(mobState: MobAIStateData, playerId: string, playerPosition: Position3D): void {
-    const distance = calculateDistance(mobState.currentPosition, playerPosition);
+  private checkPlayerAggro(characterState: CharacterAIStateData, playerId: string, playerPosition: Position3D): void {
+    const distance = calculateDistance(characterState.currentPosition, playerPosition);
     
     // Check if player is within detection range
-    if (distance > mobState.detectionRange) {
+    if (distance > characterState.detectionRange) {
       // Remove from aggro if too far
-      if (mobState.aggroTargets.has(playerId)) {
-        mobState.aggroTargets.delete(playerId);
+      if (characterState.aggroTargets.has(playerId)) {
+        characterState.aggroTargets.delete(playerId);
       }
       return;
     }
 
     // Check level-based aggression per GDD
-    if (!this.shouldMobAggroPlayer(mobState, playerId)) {
+    if (!this.shouldMobAggroPlayer(characterState, playerId)) {
       return;
     }
 
     // Update or create aggro target
-    let aggroTarget = mobState.aggroTargets.get(playerId);
+    let aggroTarget = characterState.aggroTargets.get(playerId);
     if (!aggroTarget) {
       aggroTarget = {
         playerId: playerId,
@@ -186,27 +203,27 @@ export class AggroSystem extends SystemBase {
         inRange: true
       };
       
-      mobState.aggroTargets.set(playerId, aggroTarget);
+      characterState.aggroTargets.set(playerId, aggroTarget);
       
       
       // Start chasing if not already in combat
-      if (!mobState.isInCombat && !mobState.currentTarget) {
-        this.startChasing(mobState, playerId);
+      if (!characterState.isInCombat && !characterState.currentTarget) {
+        this.startChasing(characterState, playerId);
       }
     } else {
       // Update existing aggro
       aggroTarget.lastSeen = Date.now();
       aggroTarget.distance = distance;
-      aggroTarget.inRange = distance <= mobState.detectionRange;
+      aggroTarget.inRange = distance <= characterState.detectionRange;
     }
   }
 
-  private shouldMobAggroPlayer(mobState: MobAIStateData, playerId: string): boolean {
+  private shouldMobAggroPlayer(characterState: CharacterAIStateData, playerId: string): boolean {
     // Get player combat level from XP system
     const playerCombatLevel = this.getPlayerCombatLevel(playerId);
     
     // Get mob behavior configuration
-    const mobType = mobState.type;
+    const mobType = characterState.type;
     const behaviorConfig = AGGRO_CONSTANTS.MOB_BEHAVIORS[mobType] || AGGRO_CONSTANTS.MOB_BEHAVIORS.default;
     
     // Check level-based aggression per GDD
@@ -215,7 +232,7 @@ export class AggroSystem extends SystemBase {
       return false;
     }
     
-    return mobState.behavior === 'aggressive';
+    return characterState.behavior === 'aggressive';
   }
 
   private getPlayerCombatLevel(playerId: string): number {
@@ -243,125 +260,125 @@ export class AggroSystem extends SystemBase {
     return { attack: 1, strength: 1, defense: 1, constitution: 1 };
   }
 
-  private startChasing(mobState: MobAIStateData, playerId: string): void {
-    mobState.isChasing = true;
-    mobState.currentTarget = playerId;
-    mobState.isPatrolling = false;
+  private startChasing(characterState: CharacterAIStateData, playerId: string): void {
+    characterState.isChasing = true;
+    characterState.currentTarget = playerId;
+    characterState.isPatrolling = false;
     
     
     // Emit chase event for other systems
     this.emitTypedEvent(EventType.MOB_CHASE_STARTED, {
-      mobId: mobState.mobId,
+      characterId: characterState.characterId,
       targetPlayerId: playerId,
       mobPosition: {
-        x: mobState.currentPosition.x,
-        y: mobState.currentPosition.y,
-        z: mobState.currentPosition.z
+        x: characterState.currentPosition.x,
+        y: characterState.currentPosition.y,
+        z: characterState.currentPosition.z
       }
     });
     
     // Start combat if close enough
-    const aggroTarget = mobState.aggroTargets.get(playerId);
+    const aggroTarget = characterState.aggroTargets.get(playerId);
     if (aggroTarget && aggroTarget.distance <= 2.0) { // Melee range
-      this.startCombatWithPlayer(mobState, playerId);
+      this.startCombatWithPlayer(characterState, playerId);
     }
   }
 
-  private startCombatWithPlayer(mobState: MobAIStateData, playerId: string): void {
-    mobState.isInCombat = true;
+  private startCombatWithPlayer(characterState: CharacterAIStateData, playerId: string): void {
+    characterState.isInCombat = true;
     
     
     // Trigger combat system
     this.emitTypedEvent(EventType.COMBAT_START_ATTACK, {
-      attackerId: mobState.mobId,
+      attackerId: characterState.characterId,
       targetId: playerId
     });
   }
 
-  private stopChasing(mobState: MobAIStateData): void {
-    if (!mobState.isChasing) return;
+  private stopChasing(characterState: CharacterAIStateData): void {
+    if (!characterState.isChasing) return;
     
-    const previousTarget = mobState.currentTarget;
+    const previousTarget = characterState.currentTarget;
     
-    mobState.isChasing = false;
-    mobState.currentTarget = null;
-    mobState.isPatrolling = true; // Resume patrolling
+    characterState.isChasing = false;
+    characterState.currentTarget = null;
+    characterState.isPatrolling = true; // Resume patrolling
     
     
     // Emit chase end event
     this.emitTypedEvent(EventType.MOB_CHASE_ENDED, {
-      mobId: mobState.mobId,
+      characterId: characterState.characterId,
       targetPlayerId: previousTarget || ''
     });
     
     // Start returning to home position
-    this.returnToHome(mobState);
+    this.returnToHome(characterState);
   }
 
-  private returnToHome(_mobState: MobAIStateData): void {
-    // DISABLED: Return-to-home movement now handled by MobEntity.handleFleeState()
-    // MobEntity automatically returns to spawn when target is lost
+  private returnToHome(_characterState: CharacterAIStateData): void {
+    // DISABLED: Return-to-home movement now handled by CharacterEntity behavior trees
+    // CharacterEntity automatically returns to spawn when target is lost
     // This system only triggers the state change, not the actual movement
   }
 
   private updateMobAI(): void {
     const now = Date.now();
     
-    for (const [_mobId, mobState] of this.mobStates) {
+    for (const [_characterId, characterState] of this.characterStates) {
       // Skip if in combat - combat system handles behavior
-      if (mobState.isInCombat) continue;
+      if (characterState.isInCombat) continue;
       
       // Strong type assumption - positions are always valid Position3D objects
-      if (!mobState.currentPosition || !mobState.homePosition) {
-        console.warn(`[AggroSystem] Missing positions for mob ${mobState.mobId}`);
+      if (!characterState.currentPosition || !characterState.homePosition) {
+        console.warn(`[AggroSystem] Missing positions for mob ${characterState.characterId}`);
         continue;
       }
       
       // Check leashing - if too far from home, return
-      const homeDistance = calculateDistance(mobState.currentPosition, mobState.homePosition);
-      if (homeDistance > mobState.leashRange) {
-        if (mobState.isChasing) {
-          this.stopChasing(mobState);
+      const homeDistance = calculateDistance(characterState.currentPosition, characterState.homePosition);
+      if (homeDistance > characterState.leashRange) {
+        if (characterState.isChasing) {
+          this.stopChasing(characterState);
         } else {
-          this.returnToHome(mobState);
+          this.returnToHome(characterState);
         }
         continue;
       }
       
       // Clean up old aggro targets
-      this.cleanupAggroTargets(mobState);
+      this.cleanupAggroTargets(characterState);
       
       // If chasing, update chase behavior
-      if (mobState.isChasing && mobState.currentTarget) {
-        this.updateChasing(mobState);
-          } else if (mobState.behavior === 'aggressive' && mobState.aggroTargets.size > 0) {
+      if (characterState.isChasing && characterState.currentTarget) {
+        this.updateChasing(characterState);
+          } else if (characterState.behavior === 'aggressive' && characterState.aggroTargets.size > 0) {
       // Check if we should start chasing someone
-      const bestTarget = this.getBestAggroTarget(mobState);
-      this.startChasing(mobState, bestTarget.playerId);
-      } else if (!mobState.isChasing && (now - mobState.lastAction) > 5000) {
+      const bestTarget = this.getBestAggroTarget(characterState);
+      this.startChasing(characterState, bestTarget.playerId);
+      } else if (!characterState.isChasing && (now - characterState.lastAction) > 5000) {
         // Patrol behavior when not chasing
-        this.updatePatrol(mobState);
-        mobState.lastAction = now;
+        this.updatePatrol(characterState);
+        characterState.lastAction = now;
       }
     }
   }
 
-  private cleanupAggroTargets(mobState: MobAIStateData): void {
+  private cleanupAggroTargets(characterState: CharacterAIStateData): void {
     const now = Date.now();
     
-    for (const [playerId, aggroTarget] of mobState.aggroTargets) {
+    for (const [playerId, aggroTarget] of characterState.aggroTargets) {
       // Remove aggro if not seen for 10 seconds
       if (now - aggroTarget.lastSeen > 10000) {
-        mobState.aggroTargets.delete(playerId);
+        characterState.aggroTargets.delete(playerId);
       }
     }
   }
 
-  private getBestAggroTarget(mobState: MobAIStateData): AggroTarget {
+  private getBestAggroTarget(characterState: CharacterAIStateData): AggroTarget {
     let bestTarget!: AggroTarget;
     let highestAggro = 0;
     
-    for (const [_playerId, aggroTarget] of mobState.aggroTargets) {
+    for (const [_playerId, aggroTarget] of characterState.aggroTargets) {
       if (aggroTarget.aggroLevel > highestAggro) {
         highestAggro = aggroTarget.aggroLevel;
         bestTarget = aggroTarget;
@@ -371,28 +388,28 @@ export class AggroSystem extends SystemBase {
     return bestTarget;
   }
 
-  private updateChasing(mobState: MobAIStateData): void {
+  private updateChasing(characterState: CharacterAIStateData): void {
     // Ensure we have a valid target
-    if (!mobState.currentTarget) {
-      this.stopChasing(mobState);
+    if (!characterState.currentTarget) {
+      this.stopChasing(characterState);
       return;
     }
     
-    const player = this.world.getPlayer(mobState.currentTarget)!;
+    const player = this.world.getPlayer(characterState.currentTarget)!;
 
     // Strong type assumption - player.node.position is always Vector3
     if (!player.node?.position) {
       console.warn(`[AggroSystem] Player ${player.id} has no node`);
-      this.stopChasing(mobState);
+      this.stopChasing(characterState);
       return;
     }
 
-    const distance = calculateDistance(mobState.currentPosition, player.node.position);
-    const aggroTarget = mobState.aggroTargets.get(mobState.currentTarget);
+    const distance = calculateDistance(characterState.currentPosition, player.node.position);
+    const aggroTarget = characterState.aggroTargets.get(characterState.currentTarget);
     
-    if (!aggroTarget || distance > mobState.detectionRange * 1.5) {
+    if (!aggroTarget || distance > characterState.detectionRange * 1.5) {
       // Lost target or too far
-      this.stopChasing(mobState);
+      this.stopChasing(characterState);
       return;
     }
     
@@ -401,51 +418,51 @@ export class AggroSystem extends SystemBase {
     aggroTarget.lastSeen = Date.now();
     
     // If close enough, start combat
-    if (distance <= 2.0 && !mobState.isInCombat) {
-      this.startCombatWithPlayer(mobState, mobState.currentTarget);
+    if (distance <= 2.0 && !characterState.isInCombat) {
+      this.startCombatWithPlayer(characterState, characterState.currentTarget);
     }
-    // NOTE: Movement requests removed - MobEntity handles all movement via its own AI
-    // MobEntity.serverUpdate() detects target and moves towards it
+    // NOTE: Movement requests removed - CharacterEntity handles all movement via behavior trees
+    // BehaviorSystem processes behavior trees and moves character towards target
     // Emitting MOB_MOVE_REQUEST events was redundant and no system handled them
   }
 
-  private updatePatrol(_mobState: MobAIStateData): void {
-    // DISABLED: Patrol movement now handled by MobEntity.serverUpdate()
-    // MobEntity has built-in patrol logic with patrol points
+  private updatePatrol(_characterState: CharacterAIStateData): void {
+    // DISABLED: Patrol movement now handled by BehaviorSystem
+    // CharacterEntity has patrol behavior defined in behavior trees
     // This system only tracks aggro state, not actual movement
   }
 
   private onCombatStarted(data: { attackerId: string; targetId: string; entityType?: string }): void {
     // Handle combat session started - update mob AI state
-    const mobState = this.mobStates.get(data.attackerId) || this.mobStates.get(data.targetId);
-    if (mobState) {
-      mobState.isInCombat = true;
-      mobState.isChasing = false; // Stop chasing when in combat
+    const characterState = this.characterStates.get(data.attackerId) || this.characterStates.get(data.targetId);
+    if (characterState) {
+      characterState.isInCombat = true;
+      characterState.isChasing = false; // Stop chasing when in combat
       
       // If mob is the attacker, set target
-      if (mobState.mobId === data.attackerId) {
-        mobState.currentTarget = data.targetId;
+      if (characterState.characterId === data.attackerId) {
+        characterState.currentTarget = data.targetId;
       }
     }
   }
 
   private onCombatEnded(data: { attackerId: string; targetId: string; reason?: string }): void {
     // Handle combat session ended - update mob AI state
-    const mobState = this.mobStates.get(data.attackerId) || this.mobStates.get(data.targetId);
-    if (mobState) {
-      mobState.isInCombat = false;
+    const characterState = this.characterStates.get(data.attackerId) || this.characterStates.get(data.targetId);
+    if (characterState) {
+      characterState.isInCombat = false;
       
       // Clear target if combat ended
       if (data.reason === 'death' || data.reason === 'flee') {
-        mobState.currentTarget = null;
-        mobState.aggroTargets.clear();
+        characterState.currentTarget = null;
+        characterState.aggroTargets.clear();
       }
     }
   }
 
-  private shouldIgnorePlayer(mobState: MobAIStateData, playerCombatLevel: number): boolean {
+  private shouldIgnorePlayer(characterState: CharacterAIStateData, playerCombatLevel: number): boolean {
     // Check if mob should ignore player based on level (GDD requirement)
-    const mobType = mobState.type;
+    const mobType = characterState.type;
           const behaviorConfig = AGGRO_CONSTANTS.MOB_BEHAVIORS[mobType] || AGGRO_CONSTANTS.MOB_BEHAVIORS.default;
     
     // Check level-based aggression per GDD
@@ -467,17 +484,17 @@ export class AggroSystem extends SystemBase {
 
     
     // Check all mobs for aggro changes
-    for (const [_mobId, mobState] of this.mobStates) {
-      if (mobState.behavior === 'passive') continue;
+    for (const [_characterId, characterState] of this.characterStates) {
+      if (characterState.behavior === 'passive') continue;
       
-      const aggroTarget = mobState.aggroTargets.get(playerId);
+      const aggroTarget = characterState.aggroTargets.get(playerId);
       if (aggroTarget) {
         // Re-evaluate aggro based on new level
-        const shouldIgnore = this.shouldIgnorePlayer(mobState, newLevel);
-        if (shouldIgnore && mobState.currentTarget === playerId) {
+        const shouldIgnore = this.shouldIgnorePlayer(characterState, newLevel);
+        if (shouldIgnore && characterState.currentTarget === playerId) {
           // Stop targeting this player
-          this.stopChasing(mobState);
-          mobState.aggroTargets.delete(playerId);
+          this.stopChasing(characterState);
+          characterState.aggroTargets.delete(playerId);
         }
       }
     }
@@ -488,7 +505,7 @@ export class AggroSystem extends SystemBase {
    */
   destroy(): void {
     // Clear all mob states and aggro data
-    this.mobStates.clear();
+    this.characterStates.clear();
     
 
     

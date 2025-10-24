@@ -1,0 +1,39 @@
+{
+  "totalFiles": 1,
+  "totalClasses": 9,
+  "classFrequency": {
+    "Bone": 1,
+    "BoxGeometry": 1,
+    "CylinderGeometry": 1,
+    "Float32BufferAttribute": 1,
+    "Mesh": 1,
+    "MeshBasicMaterial": 1,
+    "Skeleton": 1,
+    "SkinnedMesh": 1,
+    "SphereGeometry": 1
+  },
+  "fileUsage": {
+    "src/workers/examples/WorkerUsageExample.ts": [
+      "Bone",
+      "BoxGeometry",
+      "CylinderGeometry",
+      "Float32BufferAttribute",
+      "Mesh",
+      "MeshBasicMaterial",
+      "Skeleton",
+      "SkinnedMesh",
+      "SphereGeometry"
+    ]
+  },
+  "allClasses": [
+    "Bone",
+    "BoxGeometry",
+    "CylinderGeometry",
+    "Float32BufferAttribute",
+    "Mesh",
+    "MeshBasicMaterial",
+    "Skeleton",
+    "SkinnedMesh",
+    "SphereGeometry"
+  ]
+}

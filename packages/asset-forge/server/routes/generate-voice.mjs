@@ -6,8 +6,18 @@
 
 import { VoiceGenerationService } from '../services/VoiceGenerationService.mjs'
 import { createLogger } from '../utils/logger.mjs'
+import { validateNpcId } from '../utils/validators.mjs'
 
-const voiceService = new VoiceGenerationService()
+// Lazy initialization - only create the service when first needed
+// This ensures environment variables are loaded before instantiation
+let voiceService = null
+function getVoiceService() {
+  if (!voiceService) {
+    voiceService = new VoiceGenerationService()
+  }
+  return voiceService
+}
+
 const logger = createLogger('VoiceGenerationAPI')
 
 /**
@@ -36,6 +46,8 @@ function getContentTypeForFormat(outputFormat) {
  */
 export async function GET_library(req, res) {
   try {
+    const voiceService = getVoiceService()
+
     logger.info('GET /api/voice/library')
 
     if (!voiceService.isAvailable()) {
@@ -81,6 +93,7 @@ export async function GET_library(req, res) {
  */
 export async function POST_generate(req, res) {
   try {
+    const voiceService = getVoiceService()
     const { text, voiceId, modelId, outputFormat, stability, similarityBoost, style, useSpeakerBoost } = req.body
 
     logger.info('POST /api/voice/generate', {
@@ -98,70 +111,25 @@ export async function POST_generate(req, res) {
       })
     }
 
-    // Validation with detailed error messages
-    if (!text || typeof text !== 'string' || text.trim() === '') {
-      logger.warn('Invalid input: text is empty or missing', { textType: typeof text })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"text" is required and must be a non-empty string',
-        field: 'text',
-        received: typeof text
-      })
+    // Use validation helpers
+    const { validateTextInput, validateVoiceId, validateSpeechSettings } = await import('../utils/voice-validation.mjs')
+
+    const textValidation = validateTextInput(text)
+    if (!textValidation.valid) {
+      logger.warn('Invalid input: text validation failed', { textType: typeof text })
+      return res.status(textValidation.statusCode).json(textValidation.error)
     }
 
-    if (text.length > 5000) {
-      logger.warn('Invalid input: text too long', { length: text.length })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: 'Text is too long. Maximum is 5000 characters.',
-        field: 'text',
-        received: text.length,
-        maximum: 5000
-      })
+    const voiceIdValidation = validateVoiceId(voiceId)
+    if (!voiceIdValidation.valid) {
+      logger.warn('Invalid input: voiceId validation failed', { voiceId })
+      return res.status(voiceIdValidation.statusCode).json(voiceIdValidation.error)
     }
 
-    if (!voiceId || typeof voiceId !== 'string') {
-      logger.warn('Invalid input: voiceId is missing or invalid', { voiceId })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"voiceId" is required and must be a non-empty string',
-        field: 'voiceId',
-        received: voiceId
-      })
-    }
-
-    // Validate optional parameters
-    if (stability !== undefined && (typeof stability !== 'number' || stability < 0 || stability > 1)) {
-      logger.warn('Invalid input: stability out of range', { stability })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"stability" must be a number between 0 and 1',
-        field: 'stability',
-        received: stability,
-        range: '0-1'
-      })
-    }
-
-    if (similarityBoost !== undefined && (typeof similarityBoost !== 'number' || similarityBoost < 0 || similarityBoost > 1)) {
-      logger.warn('Invalid input: similarityBoost out of range', { similarityBoost })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"similarityBoost" must be a number between 0 and 1',
-        field: 'similarityBoost',
-        received: similarityBoost,
-        range: '0-1'
-      })
-    }
-
-    if (style !== undefined && (typeof style !== 'number' || style < 0 || style > 1)) {
-      logger.warn('Invalid input: style out of range', { style })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"style" must be a number between 0 and 1',
-        field: 'style',
-        received: style,
-        range: '0-1'
-      })
+    const settingsValidation = validateSpeechSettings({ stability, similarityBoost, style })
+    if (!settingsValidation.valid) {
+      logger.warn('Invalid input: settings validation failed')
+      return res.status(settingsValidation.statusCode).json(settingsValidation.error)
     }
 
     // Generate speech
@@ -213,6 +181,7 @@ export async function POST_generate(req, res) {
  */
 export async function POST_batch(req, res) {
   try {
+    const voiceService = getVoiceService()
     const { npcId, dialogueNodes, voiceId, settings } = req.body
 
     logger.info('POST /api/voice/batch', {
@@ -229,102 +198,51 @@ export async function POST_batch(req, res) {
       })
     }
 
-    // Validation with detailed error messages
-    if (!npcId || typeof npcId !== 'string') {
-      logger.warn('Invalid input: npcId is missing or invalid', { npcId })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"npcId" is required and must be a non-empty string',
-        field: 'npcId',
-        received: npcId
-      })
+    // Use validation helpers
+    const {
+      validateNpcIdParam,
+      validateVoiceId,
+      validateDialogueNodesArray,
+      validateAllDialogueNodes
+    } = await import('../utils/voice-validation.mjs')
+
+    const npcIdValidation = validateNpcIdParam(npcId)
+    if (!npcIdValidation.valid) {
+      logger.warn('Invalid input: npcId validation failed', { npcId })
+      return res.status(npcIdValidation.statusCode).json(npcIdValidation.error)
     }
 
-    if (!Array.isArray(dialogueNodes)) {
-      logger.warn('Invalid input: dialogueNodes is not an array', { type: typeof dialogueNodes })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"dialogueNodes" must be an array',
-        field: 'dialogueNodes',
-        received: typeof dialogueNodes
-      })
+    // Validate NPC ID to prevent path traversal
+    const validatedNpcId = validateNpcId(npcId)
+
+    const arrayValidation = validateDialogueNodesArray(dialogueNodes)
+    if (!arrayValidation.valid) {
+      logger.warn('Invalid input: dialogueNodes array validation failed')
+      return res.status(arrayValidation.statusCode).json(arrayValidation.error)
     }
 
-    if (dialogueNodes.length === 0) {
-      logger.warn('Invalid input: dialogueNodes is empty')
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"dialogueNodes" array cannot be empty',
-        field: 'dialogueNodes',
-        received: 'empty array'
-      })
+    const voiceIdValidation = validateVoiceId(voiceId)
+    if (!voiceIdValidation.valid) {
+      logger.warn('Invalid input: voiceId validation failed', { voiceId })
+      return res.status(voiceIdValidation.statusCode).json(voiceIdValidation.error)
     }
 
-    if (dialogueNodes.length > 100) {
-      logger.warn('Invalid input: too many dialogue nodes', { count: dialogueNodes.length })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: 'Too many dialogue nodes. Maximum is 100 per batch.',
-        field: 'dialogueNodes',
-        received: dialogueNodes.length,
-        maximum: 100
-      })
-    }
-
-    if (!voiceId || typeof voiceId !== 'string') {
-      logger.warn('Invalid input: voiceId is missing or invalid', { voiceId })
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: '"voiceId" is required and must be a non-empty string',
-        field: 'voiceId',
-        received: voiceId
-      })
-    }
-
-    // Validate dialogue nodes structure
-    for (const [index, node] of dialogueNodes.entries()) {
-      if (!node.id || typeof node.id !== 'string') {
-        logger.warn('Invalid input: dialogue node missing id', { nodeIndex: index, nodeId: node.id })
-        return res.status(400).json({
-          error: 'Validation Error',
-          message: `Dialogue node at index ${index} is missing "id" property or id is not a string`,
-          field: `dialogueNodes[${index}].id`,
-          received: node.id
-        })
-      }
-
-      if (!node.text || typeof node.text !== 'string' || node.text.trim() === '') {
-        logger.warn('Invalid input: dialogue node missing text', { nodeIndex: index, nodeId: node.id })
-        return res.status(400).json({
-          error: 'Validation Error',
-          message: `Dialogue node at index ${index} (id: ${node.id}) is missing "text" property or text is empty`,
-          field: `dialogueNodes[${index}].text`,
-          received: node.text
-        })
-      }
-
-      if (node.text.length > 5000) {
-        logger.warn('Invalid input: dialogue text too long', { nodeIndex: index, nodeId: node.id, length: node.text.length })
-        return res.status(400).json({
-          error: 'Validation Error',
-          message: `Dialogue node at index ${index} (id: ${node.id}) has text that is too long. Maximum is 5000 characters.`,
-          field: `dialogueNodes[${index}].text`,
-          received: node.text.length,
-          maximum: 5000
-        })
-      }
+    const nodesValidation = validateAllDialogueNodes(dialogueNodes)
+    if (!nodesValidation.valid) {
+      logger.warn('Invalid input: dialogue node validation failed')
+      return res.status(nodesValidation.statusCode).json(nodesValidation.error)
     }
 
     // Generate all voice clips
     const result = await voiceService.generateDialogueVoices({
-      npcId,
+      npcId: validatedNpcId,
       dialogueNodes,
       voiceId,
       settings: settings || {}
     })
 
     logger.info('Batch voice generation completed', {
-      npcId,
+      npcId: validatedNpcId,
       totalGenerated: result.totalGenerated,
       totalRequested: result.totalRequested
     })
@@ -348,6 +266,8 @@ export async function POST_batch(req, res) {
  */
 export async function GET_profile(req, res) {
   try {
+    const voiceService = getVoiceService()
+
     const { npcId } = req.params
 
     if (!npcId) {
@@ -356,7 +276,10 @@ export async function GET_profile(req, res) {
       })
     }
 
-    const profile = await voiceService.getVoiceProfile(npcId)
+    // Validate NPC ID to prevent path traversal
+    const validatedNpcId = validateNpcId(npcId)
+
+    const profile = await voiceService.getVoiceProfile(validatedNpcId)
 
     if (!profile) {
       return res.status(404).json({
@@ -380,6 +303,8 @@ export async function GET_profile(req, res) {
  */
 export async function DELETE_voice(req, res) {
   try {
+    const voiceService = getVoiceService()
+
     const { npcId } = req.params
 
     if (!npcId) {
@@ -388,12 +313,15 @@ export async function DELETE_voice(req, res) {
       })
     }
 
-    const success = await voiceService.deleteVoiceClips(npcId)
+    // Validate NPC ID to prevent path traversal
+    const validatedNpcId = validateNpcId(npcId)
+
+    const success = await voiceService.deleteVoiceClips(validatedNpcId)
 
     if (success) {
       return res.json({
         success: true,
-        message: `Voice clips deleted for NPC ${npcId}`
+        message: `Voice clips deleted for NPC ${validatedNpcId}`
       })
     } else {
       return res.status(500).json({
@@ -421,6 +349,8 @@ export async function DELETE_voice(req, res) {
  */
 export async function POST_estimate(req, res) {
   try {
+    const voiceService = getVoiceService()
+
     const { characterCount, modelId } = req.body
 
     if (typeof characterCount !== 'number' || characterCount <= 0) {
@@ -448,6 +378,8 @@ export async function POST_estimate(req, res) {
  */
 export async function GET_subscription(req, res) {
   try {
+    const voiceService = getVoiceService()
+
     logger.info('GET /api/voice/subscription')
 
     if (!voiceService.isAvailable()) {
@@ -477,6 +409,8 @@ export async function GET_subscription(req, res) {
  */
 export async function GET_models(req, res) {
   try {
+    const voiceService = getVoiceService()
+
     logger.info('GET /api/voice/models')
 
     if (!voiceService.isAvailable()) {
@@ -510,6 +444,8 @@ export async function GET_models(req, res) {
  */
 export async function GET_rateLimit(req, res) {
   try {
+    const voiceService = getVoiceService()
+
     logger.info('GET /api/voice/rate-limit')
 
     if (!voiceService.isAvailable()) {

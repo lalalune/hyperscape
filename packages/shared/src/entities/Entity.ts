@@ -612,12 +612,11 @@ export class Entity implements IEntity {
   /**
    * Convert EntityType enum to string for MeshUserData
    */
-  private mapEntityTypeToString(type: EntityType): 'player' | 'mob' | 'item' | 'npc' | 'resource' | 'static' {
+  private mapEntityTypeToString(type: EntityType): 'player' | 'character' | 'item' | 'resource' | 'static' {
     switch (type) {
       case EntityType.PLAYER: return 'player';
-      case EntityType.MOB: return 'mob';
+      case EntityType.CHARACTER: return 'character';
       case EntityType.ITEM: return 'item';
-      case EntityType.NPC: return 'npc';
       case EntityType.RESOURCE: return 'resource';
       case EntityType.STATIC:
       default: return 'static';
@@ -631,11 +630,11 @@ export class Entity implements IEntity {
       case 'player':
         return EntityType.PLAYER
       case 'mob':
-        return EntityType.MOB
+      case 'npc':
+      case 'character':
+        return EntityType.CHARACTER
       case 'item':
         return EntityType.ITEM
-      case 'npc':
-        return EntityType.NPC
       case 'resource':
         return EntityType.RESOURCE
       case 'static':
@@ -702,9 +701,9 @@ export class Entity implements IEntity {
       this.createNameTag()
     }
 
-    // Only create health bars for combat entities (players and mobs)
-    // Items, NPCs, and other entities should not have health bars
-    const isCombatEntity = this.type === 'player' || this.type === 'mob';
+    // Only create health bars for combat entities (players and characters)
+    // Items and other entities should not have health bars
+    const isCombatEntity = this.type === 'player' || this.type === 'character';
     if (this.maxHealth > 0 && isCombatEntity) {
       this.createHealthBar()
     }
@@ -978,7 +977,7 @@ export class Entity implements IEntity {
       // Don't throw - might be intentional
     }
     
-    const shouldHaveMesh = this.type === 'player' || this.type === 'mob';
+    const shouldHaveMesh = this.type === 'player' || this.type === 'character';
     if (!this.mesh && shouldHaveMesh) {
       console.warn(`[Entity] ⚠️  Entity ${this.name} (${this.type}) has no mesh - may be server-side`);
     }

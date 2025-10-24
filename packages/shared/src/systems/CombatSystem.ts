@@ -7,8 +7,9 @@ import type { World } from "../World";
 import { COMBAT_CONSTANTS } from "../constants/CombatConstants";
 import { AttackType, MobInstance } from "../types/core";
 import { EntityID } from "../types/identifiers";
-import { MobEntity } from "../entities/MobEntity";
-import { MobAIState } from "../types/entities";
+// DEPRECATED: Use CharacterEntity instead
+// import { MobEntity } from "../entities/MobEntity";
+import { CharacterEntity } from "../entities/CharacterEntity";
 import { Entity } from "../entities/Entity";
 import { PlayerSystem } from "./PlayerSystem";
 import {
@@ -19,7 +20,8 @@ import {
 } from "../utils/CombatCalculations";
 import { createEntityID } from "../utils/IdentifierUtils";
 import { EntityManager } from "./EntityManager";
-import { MobSystem } from "./MobSystem";
+// DEPRECATED: Use CharacterSystem instead
+// import { MobSystem } from "./MobSystem";
 import { SystemBase } from "./SystemBase";
 
 export interface CombatData {
@@ -36,7 +38,8 @@ export interface CombatData {
 export class CombatSystem extends SystemBase {
   private combatStates = new Map<EntityID, CombatData>();
   private attackCooldowns = new Map<EntityID, number>();
-  private mobSystem?: MobSystem;
+  // DEPRECATED: mobSystem - use CharacterSystem instead
+  // private mobSystem?: MobSystem;
   private entityManager?: EntityManager;
 
   // Combat constants
@@ -46,7 +49,7 @@ export class CombatSystem extends SystemBase {
       name: "combat",
       dependencies: {
         required: ["entity-manager"], // Combat needs entity manager
-        optional: ["mob"], // Combat can work without mobs but better with them
+        optional: ["character"], // Combat can work without characters but better with them
       },
       autoCleanup: true,
     });
@@ -61,8 +64,8 @@ export class CombatSystem extends SystemBase {
       );
     }
 
-    // Get mob system - optional but recommended
-    this.mobSystem = this.world.getSystem<MobSystem>("mob");
+    // DEPRECATED: mobSystem - use CharacterSystem instead
+    // this.mobSystem = this.world.getSystem<MobSystem>("mob");
 
     // Set up event listeners - required for combat to function
     this.subscribe(
@@ -105,6 +108,11 @@ export class CombatSystem extends SystemBase {
     );
 
     // Listen for death events to end combat
+    // Unified character death event (preferred)
+    this.subscribe(EventType.CHARACTER_DIED, (data: { characterId: string; characterType?: string }) => {
+      this.handleEntityDied(data.characterId, data.characterType || "mob");
+    });
+    // Legacy mob death event (deprecated)
     this.subscribe(EventType.MOB_DIED, (data: { mobId: string }) => {
       this.handleEntityDied(data.mobId, "mob");
     });
@@ -156,11 +164,11 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
-    // Check if target is already dead (for mobs)
+    // Check if target is already dead (for mobs/characters)
     if (targetType === "mob") {
-      const mobEntity = target as MobEntity;
-      if (mobEntity.isDead()) {
-        console.warn(`[CombatSystem] Cannot attack dead mob ${targetId}`);
+      const characterEntity = target as CharacterEntity;
+      if (characterEntity.isDead && characterEntity.isDead()) {
+        console.warn(`[CombatSystem] Cannot attack dead character ${targetId}`);
         return;
       }
     }
@@ -277,8 +285,8 @@ export class CombatSystem extends SystemBase {
   }
 
   private calculateMeleeDamage(
-    attacker: Entity | MobEntity,
-    target: Entity | MobEntity
+    attacker: Entity | CharacterEntity,
+    target: Entity | CharacterEntity
   ): number {
     // Extract required properties for damage calculation
     let attackerData: {
@@ -287,12 +295,12 @@ export class CombatSystem extends SystemBase {
     } = {};
     let targetData: { stats?: CombatStats; config?: { defense?: number } } = {};
 
-    // Strong type assumption - check if attacker has getMobData method (MobEntity)
-    const attackerMob = attacker as MobEntity;
-    if (attackerMob.getMobData) {
-      const mobData = attackerMob.getMobData();
+    // Strong type assumption - check if attacker is CharacterEntity
+    const attackerChar = attacker as CharacterEntity;
+    if (attackerChar.characterType) {
+      // CharacterEntity - use config properties
       attackerData = {
-        config: { attackPower: mobData.attackPower },
+        config: { attackPower: attackerChar.config.attackPower || 10 },
       };
     } else {
       // Handle player or other Entity - get stats from components
@@ -302,12 +310,12 @@ export class CombatSystem extends SystemBase {
       }
     }
 
-    // Strong type assumption - check if target has getMobData method (MobEntity)
-    const targetMob = target as MobEntity;
-    if (targetMob.getMobData) {
-      const mobData = targetMob.getMobData();
+    // Strong type assumption - check if target is CharacterEntity
+    const targetChar = target as CharacterEntity;
+    if (targetChar.characterType) {
+      // CharacterEntity - use config properties
       targetData = {
-        config: { defense: mobData.defense },
+        config: { defense: targetChar.config.defense || 2 },
       };
     } else {
       // Handle player or other Entity
@@ -322,8 +330,8 @@ export class CombatSystem extends SystemBase {
   }
 
   private calculateRangedDamage(
-    attacker: Entity | MobEntity | null,
-    target: Entity | MobEntity | null
+    attacker: Entity | CharacterEntity | null,
+    target: Entity | CharacterEntity | null
   ): number {
     if (!attacker || !target) return 1;
 
@@ -334,12 +342,11 @@ export class CombatSystem extends SystemBase {
     } = {};
     let targetData: { stats?: CombatStats; config?: { defense?: number } } = {};
 
-    // Strong type assumption - check if attacker has getMobData method (MobEntity)
-    const attackerMob = attacker as MobEntity;
-    if (attackerMob.getMobData) {
-      const mobData = attackerMob.getMobData();
+    // Strong type assumption - check if attacker is CharacterEntity
+    const attackerChar = attacker as CharacterEntity;
+    if (attackerChar.characterType) {
       attackerData = {
-        config: { attackPower: mobData.attackPower },
+        config: { attackPower: attackerChar.config.attackPower || 10 },
       };
     } else {
       // Handle player or other Entity - get stats from components
@@ -349,12 +356,11 @@ export class CombatSystem extends SystemBase {
       }
     }
 
-    // Strong type assumption - check if target has getMobData method (MobEntity)
-    const targetMob = target as MobEntity;
-    if (targetMob.getMobData) {
-      const mobData = targetMob.getMobData();
+    // Strong type assumption - check if target is CharacterEntity
+    const targetChar = target as CharacterEntity;
+    if (targetChar.characterType) {
       targetData = {
-        config: { defense: mobData.defense },
+        config: { defense: targetChar.config.defense || 2 },
       };
     } else {
       // Handle player or other Entity
@@ -403,33 +409,39 @@ export class CombatSystem extends SystemBase {
         type: "damage",
       });
     } else if (targetType === "mob") {
-      // For mobs, get the entity from EntityManager and use its takeDamage method
-      const mobEntity = this.world.entities.get(targetId) as MobEntity;
-      if (!mobEntity) {
-        console.warn(`[CombatSystem] Mob entity not found for ${targetId} - may have been destroyed`);
+      // For mobs/characters, get the entity from EntityManager and use its takeDamage method
+      const characterEntity = this.world.entities.get(targetId) as CharacterEntity;
+      if (!characterEntity) {
+        console.warn(`[CombatSystem] Character entity not found for ${targetId} - may have been destroyed`);
         return;
       }
 
-      // Check if mob is already dead
-      if (mobEntity.isDead()) {
-        console.warn(`[CombatSystem] Cannot damage dead mob ${targetId}`);
+      // Check if character is already dead
+      if (characterEntity.isDead && characterEntity.isDead()) {
+        console.warn(`[CombatSystem] Cannot damage dead character ${targetId}`);
         return;
       }
 
-      // Check if the mob has a takeDamage method (MobEntity)
-      if (typeof mobEntity.takeDamage === "function") {
-        mobEntity.takeDamage(damage, attackerId);
-        
-        // Emit MOB_ATTACKED event so EntityManager can handle death
+      // Check if the character has a takeDamage method (CharacterEntity)
+      if (typeof characterEntity.takeDamage === "function") {
+        characterEntity.takeDamage(damage, attackerId);
+
+        // Emit unified CHARACTER_DAMAGED event (preferred)
+        this.emitTypedEvent(EventType.CHARACTER_DAMAGED, {
+          characterId: targetId,
+          damage: damage,
+          attackerId: attackerId
+        });
+        // Also emit legacy MOB_ATTACKED event for backward compatibility
         this.emitTypedEvent(EventType.MOB_ATTACKED, {
           mobId: targetId,
           damage: damage,
           attackerId: attackerId
         });
-        console.log(`[CombatSystem] 📤 Emitted MOB_ATTACKED event for ${targetId}`);
+        console.log(`[CombatSystem] 📤 Emitted CHARACTER_DAMAGED and MOB_ATTACKED events for ${targetId}`);
       } else {
         // Fallback for entities without takeDamage method
-        const currentHealth = mobEntity.getProperty("health") as
+        const currentHealth = characterEntity.getProperty("health") as
           | { current: number; max: number }
           | number;
         const healthValue =
@@ -442,22 +454,22 @@ export class CombatSystem extends SystemBase {
         const newHealth = Math.max(0, healthValue - damage);
 
         if (typeof currentHealth === "number") {
-          mobEntity.setProperty("health", newHealth);
+          characterEntity.setProperty("health", newHealth);
         } else {
-          mobEntity.setProperty("health", {
+          characterEntity.setProperty("health", {
             current: newHealth,
             max: maxHealth,
           });
         }
 
-        // Check if mob died
+        // Check if character died
         if (newHealth <= 0) {
-          // Don't emit MOB_DIED here - let MobEntity.die() handle it
-          // Don't emit COMBAT_KILL here either - let MobEntity.die() handle it
-          
+          // Don't emit CHARACTER_DIED here - let CharacterEntity.die() handle it
+          // Don't emit COMBAT_KILL here either - let CharacterEntity.die() handle it
+
           this.emitTypedEvent(EventType.UI_MESSAGE, {
             playerId: attackerId,
-            message: `You have defeated the ${mobEntity.getProperty("name") || mobEntity.getProperty("mobType") || "unknown"}!`,
+            message: `You have defeated the ${characterEntity.getProperty("name") || characterEntity.characterType || "unknown"}!`,
             type: "success",
           });
         }
@@ -647,7 +659,7 @@ export class CombatSystem extends SystemBase {
   private getEntity(
     entityId: string,
     entityType: string
-  ): Entity | MobEntity | null {
+  ): Entity | CharacterEntity | null {
     if (entityType === "mob") {
       const entity = this.world.entities.get(entityId);
       if (!entity) {
@@ -655,7 +667,7 @@ export class CombatSystem extends SystemBase {
         // Only log if this is a new entity that should exist
         return null;
       }
-      return entity as MobEntity;
+      return entity as CharacterEntity;
     }
 
     if (entityType === "player") {
@@ -804,11 +816,11 @@ export class CombatSystem extends SystemBase {
   /**
    * Get display name for a target entity
    */
-  private getTargetName(entity: Entity | MobEntity | null): string {
+  private getTargetName(entity: Entity | CharacterEntity | null): string {
     if (!entity) return "Unknown";
-    const mobEntity = entity as MobEntity;
-    if (mobEntity.getMobData) {
-      return mobEntity.getMobData().name;
+    const characterEntity = entity as CharacterEntity;
+    if (characterEntity.characterType) {
+      return characterEntity.name || characterEntity.characterType;
     }
     return entity.name || "Enemy";
   }
@@ -829,14 +841,10 @@ export class CombatSystem extends SystemBase {
       }
     }
 
-    // Check mob attack speed
-    const mobEntity = entity as MobEntity;
-    if (mobEntity.getMobData) {
-      const mobData = mobEntity.getMobData();
-      const mobAttackSpeed = (mobData as { attackSpeed?: number }).attackSpeed;
-      if (mobAttackSpeed) {
-        return mobAttackSpeed * 1000; // Convert seconds to ms
-      }
+    // Check character attack speed
+    const characterEntity = entity as CharacterEntity;
+    if (characterEntity.characterType && characterEntity.config.attackSpeed) {
+      return characterEntity.config.attackSpeed * 1000; // Convert seconds to ms
     }
 
     // Default attack speed (RuneScape-style 2.4 seconds for most weapons)
@@ -847,7 +855,7 @@ export class CombatSystem extends SystemBase {
    * Check if entity is alive
    */
   private isEntityAlive(
-    entity: Entity | MobEntity | null,
+    entity: Entity | CharacterEntity | null,
     entityType: string
   ): boolean {
     if (!entity) return false;
@@ -867,28 +875,20 @@ export class CombatSystem extends SystemBase {
     }
 
     if (entityType === "mob") {
-      // Check mob health - but don't log death messages here
-      // Death detection and cleanup is handled by EntityManager
-      const mob = entity as MobEntity;
-      
-      // Check if mob is marked as dead
-      if (mob.isDead()) {
-        console.log(`[CombatSystem] Mob ${mob.id} is dead (isDead() check)`);
+      // Check character health - but don't log death messages here
+      // Death detection and cleanup is handled by CharacterSystem
+      const character = entity as CharacterEntity;
+
+      // Check if character is marked as dead
+      if (character.isDead && character.isDead()) {
+        console.log(`[CombatSystem] Character ${character.id} is dead (isDead() check)`);
         return false;
       }
-      
-      // Check mob data if available
-      if (mob.getMobData) {
-        const mobData = mob.getMobData();
-        const isAlive = mobData.health > 0;
-        console.log(`[CombatSystem] Mob ${mob.id} health check: ${mobData.health} (alive: ${isAlive})`);
-        return isAlive;
-      }
-      
-      // Fallback to health check
-      const mobHealth = mob.getHealth();
-      console.log(`[CombatSystem] Mob ${mob.id} fallback health check: ${mobHealth}`);
-      return mobHealth > 0;
+
+      // Check character health
+      const characterHealth = character.getHealth();
+      console.log(`[CombatSystem] Character ${character.id} health check: ${characterHealth}`);
+      return characterHealth > 0;
     }
 
     return false;

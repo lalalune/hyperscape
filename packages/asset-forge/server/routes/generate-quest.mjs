@@ -1,6 +1,6 @@
 /**
  * Quest Generation API Route
- * 
+ *
  * AI-powered complete quest generation with objectives and rewards
  */
 
@@ -11,6 +11,7 @@ import { buildQuestContext } from '../utils/context-builder.mjs'
 import { makeItemSuggestionPrompt, makeMobSuggestionPrompt, parseManifestSuggestionResponse } from '../utils/manifest-prompts.mjs'
 import { detectConflicts } from '../utils/manifest-validator.mjs'
 import { getTierForDifficulty, LEVEL_TIERS } from '../../src/utils/level-progression.ts'
+import { standardErrors, sendErrorResponse } from '../utils/errorResponse.mjs'
 
 /**
  * Detect manifest gaps in quest data
@@ -24,8 +25,8 @@ function detectQuestGaps(quest, manifests, difficulty) {
   if (!quest || !manifests) return []
 
   const gaps = []
-  const tier = getTierForDifficulty(difficulty || 'medium')
-  const tierInfo = LEVEL_TIERS[tier]
+  const tierInfo = getTierForDifficulty(difficulty || 'medium')
+  const tierName = tierInfo.material // The material name (bronze, iron, steel, etc.) is the key in LEVEL_TIERS
   const timestamp = Date.now()
 
   // Validate manifests structure
@@ -44,8 +45,8 @@ function detectQuestGaps(quest, manifests, difficulty) {
             reason: `Quest objective requires mob "${objective.targetMobId}" but it doesn't exist`,
             suggestedId: objective.targetMobId,
             suggestedName: formatSuggestedName(objective.targetMobId),
-            tier,
-            tierLevel: tierInfo.levelRange,
+            tier: tierName,
+            difficulty: difficulty || 'medium',
             requiredBy: quest.id,
             requiredByType: 'quest',
             priority: 'high',
@@ -69,8 +70,8 @@ function detectQuestGaps(quest, manifests, difficulty) {
             reason: `Quest reward includes item "${itemId}" but it doesn't exist`,
             suggestedId: itemId,
             suggestedName: formatSuggestedName(itemId),
-            tier,
-            tierLevel: tierInfo.levelRange,
+            tier: tierName,
+            difficulty: difficulty || 'medium',
             requiredBy: quest.id,
             requiredByType: 'quest',
             priority: 'medium',
@@ -109,8 +110,10 @@ async function generateManifestSuggestion(gap, manifests, selectedModel) {
     return null
   }
 
-  const tier = gap.tier || getTierForDifficulty(gap.difficulty || 'medium')
-  const tierInfo = LEVEL_TIERS[tier]
+  // If gap.tier is a string (tier name like 'bronze'), look it up. Otherwise get from difficulty
+  const tierInfo = typeof gap.tier === 'string' && LEVEL_TIERS[gap.tier]
+    ? LEVEL_TIERS[gap.tier]
+    : getTierForDifficulty(gap.difficulty || 'medium')
   const timestamp = Date.now()
 
   let prompt
@@ -195,8 +198,7 @@ async function generateManifestSuggestion(gap, manifests, selectedModel) {
         createdAt: new Date().toISOString(),
         source: 'ai_gap_detection',
         gapId: gap.id,
-        tier: tier,
-        tierLevel: tierInfo.levelRange
+        tier: gap.tier || tierInfo.material
       }
     }
   } catch (error) {
@@ -210,36 +212,19 @@ export async function POST(req, res) {
     const body = req.body
     const { questType, prompt, context, difficulty, selectedContext, existingQuests, relationships, manifests, model: customModel } = body
 
-    // Input validation
-    if (!questType || typeof questType !== 'string' || questType.trim() === '') {
-      return res.status(400).json({
-        error: "Invalid input: 'questType' must be a non-empty string"
-      })
-    }
+    // Use validation helper
+    const { validateQuestInput, buildQuestMetadata, processManifestGaps } = await import('../utils/quest-helpers.mjs')
 
-    if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
-      return res.status(400).json({
-        error: "Invalid input: 'prompt' must be a non-empty string"
-      })
-    }
-
-    if (context !== undefined && (typeof context !== 'string' || context.trim() === '')) {
-      return res.status(400).json({
-        error: "Invalid input: 'context' must be a non-empty string if provided"
-      })
-    }
-
-    if (customModel !== undefined && typeof customModel !== 'string') {
-      return res.status(400).json({
-        error: "Invalid input: 'model' must be a string if provided"
-      })
+    const validation = validateQuestInput(body)
+    if (!validation.valid) {
+      return res.status(400).json(validation.error)
     }
 
     // Get model for quest generation
     const selectedModel = getModelForTask('quest_generation', customModel, 'quality')
     const modelIdentifier = selectedModel.modelId || customModel || 'default'
 
-    // Build context-aware prompt with manifest data
+    // Build context-aware prompt
     let worldContext = context || ''
 
     if (difficulty || selectedContext || existingQuests) {
@@ -254,8 +239,8 @@ export async function POST(req, res) {
         worldContext = formatted
         console.log('[Quest Generation] Using context-aware prompt with tier-based filtering')
       } catch (error) {
-        console.warn('[Quest Generation] Context build failed, using basic context:', error.message)
-        worldContext = context || ''
+        console.error('[Quest Generation] Context build failed:', error)
+        return res.status(500).json(standardErrors.contextBuildFailed(error.message))
       }
     }
 
@@ -274,10 +259,10 @@ export async function POST(req, res) {
       text = result.text
     } catch (error) {
       console.error('AI generation error:', error)
-      return res.status(500).json({
-        error: 'Failed to generate quest from AI service',
-        details: error.message
-      })
+      return res.status(500).json(standardErrors.generationFailed('AI', {
+        errorMessage: error.message,
+        stack: error.stack
+      }))
     }
 
     // Parse AI response
@@ -286,48 +271,21 @@ export async function POST(req, res) {
       questData = parseQuestGenerationResponse(text)
     } catch (error) {
       console.error('Parse error:', error)
-      return res.status(502).json({
-        error: 'Failed to parse AI response',
-        rawResponse: text,
-        details: error.message
-      })
+      return res.status(502).json(standardErrors.parseError(text, error))
     }
 
     // Ensure required fields
-    const completeQuest = {
-      ...questData,
-      id: questData.id || `quest_${Date.now()}`,
-      currentProgress: questData.currentProgress || 0,
-      status: questData.status || 'not_started',
-      metadata: {
-        generatedBy: 'AI',
-        model: modelIdentifier,
-        timestamp: new Date().toISOString()
-      }
-    }
+    const completeQuest = buildQuestMetadata(questData, modelIdentifier)
 
     // Detect manifest gaps and generate suggestions
-    let manifestGaps = []
-    let manifestSuggestions = []
-
-    if (manifests) {
-      console.log('[Quest Generation] Detecting manifest gaps...')
-      manifestGaps = detectQuestGaps(completeQuest, manifests, difficulty)
-
-      if (manifestGaps.length > 0) {
-        console.log(`[Quest Generation] Found ${manifestGaps.length} gaps, generating AI suggestions...`)
-
-        // Generate suggestions for each gap
-        const suggestionPromises = manifestGaps.map(gap =>
-          generateManifestSuggestion(gap, manifests, selectedModel)
-        )
-
-        const results = await Promise.all(suggestionPromises)
-        manifestSuggestions = results.filter(s => s !== null)
-
-        console.log(`[Quest Generation] Generated ${manifestSuggestions.length} suggestions`)
-      }
-    }
+    const { gaps: manifestGaps, suggestions: manifestSuggestions } = await processManifestGaps(
+      completeQuest,
+      manifests,
+      difficulty,
+      selectedModel,
+      detectQuestGaps,
+      generateManifestSuggestion
+    )
 
     return res.json({
       quest: completeQuest,
@@ -338,10 +296,10 @@ export async function POST(req, res) {
     })
   } catch (error) {
     console.error('Quest generation error:', error)
-    return res.status(500).json({
-      error: 'Failed to generate quest',
-      details: error.message
-    })
+    return res.status(500).json(standardErrors.internalError('Failed to generate quest', {
+      errorMessage: error.message,
+      stack: error.stack
+    }))
   }
 }
 

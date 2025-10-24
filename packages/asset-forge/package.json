@@ -6,21 +6,21 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-    "dev:frontend": "vite",
-    "dev:backend": "concurrently \"npm run dev:api\" \"npm run dev:images\"",
-    "dev:api": "node --experimental-strip-types server/api.mjs",
-    "dev:images": "node scripts/start-image-server.mjs",
-    "db:test": "node scripts/test-neon-connection.mjs",
+    "dev": "concurrently \"bun run dev:frontend\" \"bun run dev:backend\"",
+    "dev:frontend": "bun --bun vite",
+    "dev:backend": "concurrently \"bun run dev:api\" \"bun run dev:images\"",
+    "dev:api": "bun run server/api.mjs",
+    "dev:images": "bun run scripts/start-image-server.mjs",
+    "db:test": "bun run scripts/test-neon-connection.mjs",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config=drizzle.config.ts",
-    "build": "npm run clean && vite build",
-    "build:services": "node scripts/build-services.mjs",
-    "start": "npm run start:backend",
-    "start:backend": "concurrently \"npm run start:api\" \"npm run start:image-server\"",
-    "start:api": "npm run build:services && node server/api.mjs",
-    "start:image-server": "node scripts/start-image-server.mjs",
+    "build": "bun run clean && bun run scripts/build-frontend.mjs",
+    "build:services": "bun run scripts/build-services.mjs",
+    "start": "bun run start:backend",
+    "start:backend": "concurrently \"bun run start:api\" \"bun run start:image-server\"",
+    "start:api": "bun run build:services && bun run server/api.mjs",
+    "start:image-server": "bun run scripts/start-image-server.mjs",
     "clean": "rm -rf dist",
     "lint": "eslint . --ext .ts,.tsx",
     "preview": "vite preview",
@@ -149,7 +149,8 @@
     "typescript": "^5.3.3",
     "vite": "^6.0.0",
     "vite-plugin-compression": "^0.5.1",
-    "vitest": "^4.0.2"
+    "vitest": "^4.0.2",
+    "@types/bun": "latest"
   },
   "files": [
     "dist",
@@ -158,5 +159,6 @@
   ],
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "private": true
 }

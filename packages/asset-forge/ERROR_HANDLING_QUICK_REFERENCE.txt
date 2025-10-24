@@ -1,0 +1,132 @@
+# Error Handling Quick Reference
+
+## Import the standardErrors helper
+
+```javascript
+import { standardErrors } from '../utils/errorResponse.mjs'
+```
+
+## Common Error Patterns
+
+### Validation Errors
+```javascript
+// General validation error
+return res.status(400).json(standardErrors.validation(
+  'Invalid input format',
+  { field: 'prompt', received: typeof prompt }
+))
+
+// Missing required field
+return res.status(400).json(standardErrors.missingField('questType'))
+
+// Invalid format
+return res.status(400).json(standardErrors.invalidFormat(
+  'difficulty',
+  'easy|medium|hard'
+))
+```
+
+### Generation Errors
+```javascript
+// AI generation failed
+try {
+  const result = await generateText({ ... })
+} catch (error) {
+  return res.status(500).json(standardErrors.generationFailed('AI', {
+    errorMessage: error.message,
+    stack: error.stack
+  }))
+}
+
+// Context build failed
+return res.status(500).json(standardErrors.contextBuildFailed(error.message))
+
+// Parse error
+try {
+  data = parseResponse(text)
+} catch (error) {
+  return res.status(502).json(standardErrors.parseError(text, error))
+}
+```
+
+### Resource Errors
+```javascript
+// Not found
+return res.status(404).json(standardErrors.notFound('Quest', questId))
+
+// Unauthorized
+return res.status(401).json(standardErrors.unauthorized())
+
+// Forbidden
+return res.status(403).json(standardErrors.forbidden(
+  'Only project owner can delete projects'
+))
+```
+
+### Generic Errors
+```javascript
+// Internal server error (catch-all)
+catch (error) {
+  return res.status(500).json(standardErrors.internalError(
+    'Failed to generate quest',
+    { errorMessage: error.message, stack: error.stack }
+  ))
+}
+```
+
+## Standard Response Format
+
+All errors follow this structure:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "GEN_1200",
+    "message": "Technical error message for developers",
+    "type": "INTERNAL_ERROR",
+    "userMessage": "User-friendly message from ErrorMessages",
+    "details": {
+      "errorMessage": "...",
+      "stack": "..."
+    },
+    "timestamp": "2025-10-24T12:34:56.789Z"
+  }
+}
+```
+
+## Error Codes Reference
+
+### Generation (GEN_*)
+- GEN_1200: Generation API failed
+- GEN_1201: Generation timeout
+- GEN_1202: Invalid generation config
+- GEN_1203: Pipeline failed
+
+### External API (API_*)
+- API_1500: External API unavailable
+- API_1501: Rate limit exceeded
+- API_1502: Invalid response from API
+
+### Validation (VAL_*)
+- VAL_1100: Invalid input
+- VAL_1101: Missing field
+- VAL_1102: Invalid format
+
+### Generic (ERR_*)
+- ERR_9001: Internal error
+- ERR_9002: Service unavailable
+
+See server/utils/error-messages.mjs for complete list.
+
+## Migration Checklist
+
+When updating a route to use standardErrors:
+
+1. ✅ Add import: `import { standardErrors } from '../utils/errorResponse.mjs'`
+2. ✅ Replace validation errors with standardErrors.validation()
+3. ✅ Replace generation errors with standardErrors.generationFailed()
+4. ✅ Replace parse errors with standardErrors.parseError()
+5. ✅ Replace catch-all with standardErrors.internalError()
+6. ✅ Include error details (message, stack) for debugging
+7. ✅ Test error responses match expected format

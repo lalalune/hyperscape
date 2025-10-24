@@ -1,0 +1,83 @@
+# Vercel Ignore File
+# Excludes files from deployment upload (not from build process)
+# NOTE: Vercel still needs src/ to build the frontend, so don't exclude it here
+# The api/package.json controls what gets bundled into the serverless function
+
+# Asset directories (served from blob storage)
+gdd-assets/
+
+# NOTE: We need to include these for serverless function access:
+# data/ - Contains seed content and database files
+# voice-profiles/ - Contains voice profile metadata
+# These should eventually be migrated to blob storage or a database
+
+# Documentation
+dev-book/
+*.md
+!README.md
+
+# Development files
+.env.local
+.env
+*.log
+logs/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+.claude/
+*.swp
+*.swo
+
+# Temporary files
+temp-images/
+.tmp/
+test-results/
+
+# Tests
+tests/
+**/__tests__/
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+**/*.test.tsx
+**/*.spec.tsx
+
+# Scripts (not needed in production)
+scripts/
+
+# Build artifacts
+.next/
+.turbo/
+.vercel/
+
+# Package manager
+.pnpm-store/
+.yarn/
+node_modules/.cache/
+
+# Frontend-only dependencies (not needed in API function)
+node_modules/react/
+node_modules/react-dom/
+node_modules/vite/
+node_modules/@vitejs/
+node_modules/tailwindcss/
+node_modules/postcss/
+node_modules/autoprefixer/
+node_modules/three/
+node_modules/@react-three/
+node_modules/zustand/
+node_modules/lucide-react/
+
+# Development-only dependencies
+node_modules/typescript/
+node_modules/@types/
+node_modules/eslint/
+node_modules/@typescript-eslint/
+node_modules/prettier/

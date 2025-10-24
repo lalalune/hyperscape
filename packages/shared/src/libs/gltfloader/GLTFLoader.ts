@@ -1,4 +1,4 @@
 // GLTFLoader stub - this should be the actual three.js GLTFLoader
-// For now, re-export from three/examples
+// For now, re-export from three/addons
 
-export { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+export { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';

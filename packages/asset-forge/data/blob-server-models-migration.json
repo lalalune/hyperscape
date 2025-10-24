@@ -1,0 +1,2190 @@
+{
+  "startedAt": "2025-10-23T04:44:25.922Z",
+  "completedAt": "2025-10-23T04:45:11.314Z",
+  "totalModels": 39,
+  "totalFiles": 127,
+  "totalSize": 146890313,
+  "models": {
+    "arrows-base": {
+      "files": [
+        {
+          "relativePath": "arrows-base.glb",
+          "blobPath": "models/arrows-base/arrows-base.glb",
+          "size": 1807340
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/arrows-base/concept-art.png",
+          "size": 1203144
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/arrows-base/metadata.json",
+          "size": 2074
+        }
+      ],
+      "metadata": {
+        "name": "arrows-base",
+        "gameId": "arrows-base",
+        "type": "ammunition",
+        "subtype": "arrows",
+        "description": "Basic arrow with clean geometry, neutral design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "MODEL: Basic Arrow\n\n1. SHAFT: The main body of the arrow is a long, straight cylindrical shape taking up about 80% of the total length. It is a neutral gray color, with no specific texture. The diameter is consistent along this length, and ends abruptly where the arrowhead begins.\n\n2. ARROWHEAD: The arrowhead is a simple, low-poly pyramid shape located at the top end of the shaft. It is slightly larger than the shaft diameter. It is a slightly darker gray than the shaft.\n\n3. FLETCHING: At the opposite end of the arrowhead, three equally spaced, low-poly triangular shapes represent the feathers or fletching. They are about one-fifth of the total arrow length and have a slightly lighter gray color than the shaft. \n\n4. NOCK: The very end of the shaft, behind the fletching, is a small cylindrical indent designed to accommodate the bowstring.\n\nOverall, the arrow maintains a clean and simple geometric design, with a clear silhouette that is instantly recognizable. The neutral color palette allows for easy retexturing later. The model reflects the iconic old-school RuneScape 2007 style, with its low-poly count and simple shapes.",
+        "generatedAt": "2025-07-20T03:29:23.230Z",
+        "completedAt": "2025-07-20T03:29:23.230Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "standard"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/arrows-base/arrows-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "019825de-b568-7b7d-99d3-3958407f0530",
+        "meshyStatus": "completed",
+        "variants": [
+          "arrows-bronze"
+        ],
+        "variantCount": 1,
+        "lastVariantGenerated": "arrows-bronze",
+        "updatedAt": "2025-07-21T04:19:30.457Z"
+      },
+      "blobUrls": {
+        "arrows-base.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/arrows-base/arrows-base.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/arrows-base/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/arrows-base/metadata.json"
+      }
+    },
+    "arrows-bronze": {
+      "files": [
+        {
+          "relativePath": "arrows-bronze.glb",
+          "blobPath": "models/arrows-bronze/arrows-bronze.glb",
+          "size": 1803428
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/arrows-bronze/concept-art.png",
+          "size": 1203144
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/arrows-bronze/metadata.json",
+          "size": 1004
+        }
+      ],
+      "metadata": {
+        "id": "arrows-bronze",
+        "gameId": "arrows-bronze",
+        "name": "arrows-bronze",
+        "type": "ammunition",
+        "subtype": "arrows",
+        "isBaseModel": false,
+        "isVariant": true,
+        "parentBaseModel": "arrows-base",
+        "materialPreset": {
+          "id": "bronze",
+          "displayName": "Bronze",
+          "category": "metal",
+          "tier": 1,
+          "color": "#CD7F32",
+          "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style"
+        },
+        "workflow": "Meshy AI Retexture",
+        "baseModelTaskId": "019825de-b568-7b7d-99d3-3958407f0530",
+        "retextureTaskId": "01982b34-727e-71ed-8c2c-fbd7b9a1bbdb",
+        "retextureStatus": "completed",
+        "modelPath": "arrows-bronze.glb",
+        "conceptArtPath": null,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "generatedAt": "2025-07-21T04:19:30.456Z",
+        "completedAt": "2025-07-21T04:19:30.456Z",
+        "description": "Basic arrow with clean geometry, neutral design, low-poly RuneScape 2007 style",
+        "isPlaceholder": false,
+        "gddCompliant": true
+      },
+      "blobUrls": {
+        "arrows-bronze.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/arrows-bronze/arrows-bronze.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/arrows-bronze/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/arrows-bronze/metadata.json"
+      }
+    },
+    "basic-reg-tree": {
+      "files": [
+        {
+          "relativePath": "basic-tree.glb",
+          "blobPath": "models/basic-reg-tree/basic-tree.glb",
+          "size": 133
+        },
+        {
+          "relativePath": "basic-tree_raw.glb",
+          "blobPath": "models/basic-reg-tree/basic-tree_raw.glb",
+          "size": 133
+        }
+      ],
+      "metadata": null,
+      "blobUrls": {
+        "basic-tree.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-reg-tree/basic-tree.glb",
+        "basic-tree_raw.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-reg-tree/basic-tree_raw.glb"
+      }
+    },
+    "basic-reg-tree-stump": {
+      "files": [
+        {
+          "relativePath": "basic-tree-stump.glb",
+          "blobPath": "models/basic-reg-tree-stump/basic-tree-stump.glb",
+          "size": 132
+        },
+        {
+          "relativePath": "basic-tree-stump_raw.glb",
+          "blobPath": "models/basic-reg-tree-stump/basic-tree-stump_raw.glb",
+          "size": 132
+        }
+      ],
+      "metadata": null,
+      "blobUrls": {
+        "basic-tree-stump.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-reg-tree-stump/basic-tree-stump.glb",
+        "basic-tree-stump_raw.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-reg-tree-stump/basic-tree-stump_raw.glb"
+      }
+    },
+    "basic-tree": {
+      "files": [
+        {
+          "relativePath": "basic-tree.glb",
+          "blobPath": "models/basic-tree/basic-tree.glb",
+          "size": 133
+        },
+        {
+          "relativePath": "basic-tree_raw.glb",
+          "blobPath": "models/basic-tree/basic-tree_raw.glb",
+          "size": 133
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/basic-tree/concept-art.png",
+          "size": 132
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/basic-tree/metadata.json",
+          "size": 1379
+        }
+      ],
+      "metadata": {
+        "name": "basic-tree",
+        "gameId": "basic-tree",
+        "type": "resource",
+        "subtype": "resource",
+        "description": "A basic tree, high quality, yet chunky, brown tree with green leaves. leaves are evenly spread and distributed so it looks good in a game ",
+        "detailedPrompt": "\"Realistic Style — A high-quality 3D model of a mature tree with a robust, chunky trunk, textured with rough, weathered, dark brown bark. The tree should feature a dense, symmetrical canopy populated with vibrant, glossy green leaves, modeled for a realistic look and feel. The leaf distribution should be even and balanced, ensuring visual appeal from all viewing angles, making it an ideal asset for a game environment.\"",
+        "generatedAt": "2025-10-16T08:06:22.336Z",
+        "completedAt": "2025-10-16T08:06:22.336Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/basic-tree/basic-tree.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "0199ebfc-3a05-79a0-b0d3-f321f3983245",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-10-16T08:06:22.336Z",
+        "normalized": false
+      },
+      "blobUrls": {
+        "basic-tree.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-tree/basic-tree.glb",
+        "basic-tree_raw.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-tree/basic-tree_raw.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-tree/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-tree/metadata.json"
+      }
+    },
+    "basic-tree-stump": {
+      "files": [
+        {
+          "relativePath": "basic-tree-stump.glb",
+          "blobPath": "models/basic-tree-stump/basic-tree-stump.glb",
+          "size": 132
+        },
+        {
+          "relativePath": "basic-tree-stump_raw.glb",
+          "blobPath": "models/basic-tree-stump/basic-tree-stump_raw.glb",
+          "size": 132
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/basic-tree-stump/concept-art.png",
+          "size": 132
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/basic-tree-stump/metadata.json",
+          "size": 1553
+        }
+      ],
+      "metadata": {
+        "name": "basic-tree-stump",
+        "gameId": "basic-tree-stump",
+        "type": "resource",
+        "subtype": "resource",
+        "description": "A basic tree stump that you would expect after chopping a tree down with an axe. only the stump no axe in the stump or anything like that ",
+        "detailedPrompt": "Generate a hyper-realistic 3D asset of a freshly chopped tree stump. The stump should display a cylindrical form with a rough, uneven top surface, imitating the irregular pattern created by an axe. The texture should be highly-detailed, showcasing the coarse fibrous grain of the wood, with visible age rings and splinters around the edges. The bark should be richly textured, with a coarse, grooved appearance and a deep, earthy brown color. The stump's base should be rooted in a patch of textured, green grass. No additional objects like an axe or leaves should be present.",
+        "generatedAt": "2025-10-16T08:20:20.087Z",
+        "completedAt": "2025-10-16T08:20:20.087Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/basic-tree-stump/basic-tree-stump.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "0199ec17-4aa2-7886-9d43-f418ac7a8b21",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-10-16T08:20:20.087Z",
+        "normalized": false
+      },
+      "blobUrls": {
+        "basic-tree-stump.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-tree-stump/basic-tree-stump.glb",
+        "basic-tree-stump_raw.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-tree-stump/basic-tree-stump_raw.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-tree-stump/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/basic-tree-stump/metadata.json"
+      }
+    },
+    "bow-base": {
+      "files": [
+        {
+          "relativePath": "bow-base.glb",
+          "blobPath": "models/bow-base/bow-base.glb",
+          "size": 1761304
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/bow-base/concept-art.png",
+          "size": 1249368
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/bow-base/metadata.json",
+          "size": 2139
+        }
+      ],
+      "metadata": {
+        "name": "bow-base",
+        "gameId": "bow-base",
+        "type": "weapon",
+        "subtype": "bow",
+        "description": "Basic bow with clean geometry, simple wood design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "Model: Basic Bow\n\n1. Shape and Dimensions: The base model of the bow has a classic, symmetrical, D-shaped design. It's about two to three times as tall as an average RuneScape character. The width is relatively thin, maintaining a consistent thickness throughout the body, tapering slightly towards the tips.\n\n2. Structure: The bow's body is made up of a single, solid, elongated piece curving into a semi-circle at the top and bottom, connecting at the center to form the grip. The bowstring runs from one tip of the bow to the other, forming a tight line that bisects the bow's curve. \n\n3. Details: The grip in the middle is slightly thicker with small horizontal grooves for hand placement, providing a hint of realism without specific textures. The ends of the bow, where the bowstring attaches, feature small, simple, cylindrical shapes for the notches. The bowstring is a thin, straight line with slight angular bends at the points where it attaches to the bow's tips.\n\n4. Colors: The bow, including the grip and notches, is rendered in a neutral gray, while the bowstring is white. No specific wood textures or colors are applied, making it suitable for retexturing.\n\n5. Style: The design maintains the simple, low-poly aesthetic of RuneScape 2007. It has a clean geometry and a clear, iconic silhouette that is easily identifiable as a bow.",
+        "generatedAt": "2025-07-20T02:12:26.085Z",
+        "completedAt": "2025-07-20T02:12:26.085Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "wood",
+          "oak",
+          "willow"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/bow-base/bow-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01982598-456a-7b3d-ac1a-5a9c37c194ac",
+        "meshyStatus": "completed"
+      },
+      "blobUrls": {
+        "bow-base.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-base/bow-base.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-base/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-base/metadata.json"
+      }
+    },
+    "bow-oak": {
+      "files": [
+        {
+          "relativePath": "bow-oak.glb",
+          "blobPath": "models/bow-oak/bow-oak.glb",
+          "size": 1521472
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/bow-oak/concept-art.png",
+          "size": 1249368
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/bow-oak/metadata.json",
+          "size": 2490
+        }
+      ],
+      "metadata": {
+        "name": "bow-oak",
+        "gameId": "bow-oak",
+        "type": "weapon",
+        "subtype": "bow",
+        "description": "Basic bow with clean geometry, simple wood design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "Model: Basic Bow\n\n1. Shape and Dimensions: The base model of the bow has a classic, symmetrical, D-shaped design. It's about two to three times as tall as an average RuneScape character. The width is relatively thin, maintaining a consistent thickness throughout the body, tapering slightly towards the tips.\n\n2. Structure: The bow's body is made up of a single, solid, elongated piece curving into a semi-circle at the top and bottom, connecting at the center to form the grip. The bowstring runs from one tip of the bow to the other, forming a tight line that bisects the bow's curve. \n\n3. Details: The grip in the middle is slightly thicker with small horizontal grooves for hand placement, providing a hint of realism without specific textures. The ends of the bow, where the bowstring attaches, feature small, simple, cylindrical shapes for the notches. The bowstring is a thin, straight line with slight angular bends at the points where it attaches to the bow's tips.\n\n4. Colors: The bow, including the grip and notches, is rendered in a neutral gray, while the bowstring is white. No specific wood textures or colors are applied, making it suitable for retexturing.\n\n5. Style: The design maintains the simple, low-poly aesthetic of RuneScape 2007. It has a clean geometry and a clear, iconic silhouette that is easily identifiable as a bow.",
+        "generatedAt": "2025-07-20T03:48:35.000Z",
+        "completedAt": "2025-07-20T03:48:35.000Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "wood",
+          "oak",
+          "willow"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/bow-oak/bow-oak.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "01982598-456a-7b3d-ac1a-5a9c37c194ac",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "oak",
+        "parentBaseModel": "bow-base",
+        "materialStylePrompt": "oak wood texture, medium brown color, solid wooden finish, RuneScape 2007 style",
+        "baseModelTaskId": "01982598-456a-7b3d-ac1a-5a9c37c194ac",
+        "retextureTaskId": "019825f1-d3f9-7c5f-88a0-a7906172253e",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "bow-oak.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-oak/bow-oak.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-oak/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-oak/metadata.json"
+      }
+    },
+    "bow-willow": {
+      "files": [
+        {
+          "relativePath": "bow-willow.glb",
+          "blobPath": "models/bow-willow/bow-willow.glb",
+          "size": 1162144
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/bow-willow/concept-art.png",
+          "size": 1249368
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/bow-willow/metadata.json",
+          "size": 2516
+        }
+      ],
+      "metadata": {
+        "name": "bow-willow",
+        "gameId": "bow-willow",
+        "type": "weapon",
+        "subtype": "bow",
+        "description": "Basic bow with clean geometry, simple wood design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "Model: Basic Bow\n\n1. Shape and Dimensions: The base model of the bow has a classic, symmetrical, D-shaped design. It's about two to three times as tall as an average RuneScape character. The width is relatively thin, maintaining a consistent thickness throughout the body, tapering slightly towards the tips.\n\n2. Structure: The bow's body is made up of a single, solid, elongated piece curving into a semi-circle at the top and bottom, connecting at the center to form the grip. The bowstring runs from one tip of the bow to the other, forming a tight line that bisects the bow's curve. \n\n3. Details: The grip in the middle is slightly thicker with small horizontal grooves for hand placement, providing a hint of realism without specific textures. The ends of the bow, where the bowstring attaches, feature small, simple, cylindrical shapes for the notches. The bowstring is a thin, straight line with slight angular bends at the points where it attaches to the bow's tips.\n\n4. Colors: The bow, including the grip and notches, is rendered in a neutral gray, while the bowstring is white. No specific wood textures or colors are applied, making it suitable for retexturing.\n\n5. Style: The design maintains the simple, low-poly aesthetic of RuneScape 2007. It has a clean geometry and a clear, iconic silhouette that is easily identifiable as a bow.",
+        "generatedAt": "2025-07-20T03:49:37.726Z",
+        "completedAt": "2025-07-20T03:49:37.726Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "wood",
+          "oak",
+          "willow"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/bow-willow/bow-willow.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "01982598-456a-7b3d-ac1a-5a9c37c194ac",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "willow",
+        "parentBaseModel": "bow-base",
+        "materialStylePrompt": "willow wood texture, pale yellow-green color, flexible wooden finish, RuneScape 2007 style",
+        "baseModelTaskId": "01982598-456a-7b3d-ac1a-5a9c37c194ac",
+        "retextureTaskId": "019825f2-c9e0-7c5f-8aa7-380a22bae43a",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "bow-willow.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-willow/bow-willow.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-willow/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-willow/metadata.json"
+      }
+    },
+    "bow-wood": {
+      "files": [
+        {
+          "relativePath": "bow-wood.glb",
+          "blobPath": "models/bow-wood/bow-wood.glb",
+          "size": 1180388
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/bow-wood/concept-art.png",
+          "size": 1249368
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/bow-wood/metadata.json",
+          "size": 2497
+        }
+      ],
+      "metadata": {
+        "name": "bow-wood",
+        "gameId": "bow-wood",
+        "type": "weapon",
+        "subtype": "bow",
+        "description": "Basic bow with clean geometry, simple wood design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "Model: Basic Bow\n\n1. Shape and Dimensions: The base model of the bow has a classic, symmetrical, D-shaped design. It's about two to three times as tall as an average RuneScape character. The width is relatively thin, maintaining a consistent thickness throughout the body, tapering slightly towards the tips.\n\n2. Structure: The bow's body is made up of a single, solid, elongated piece curving into a semi-circle at the top and bottom, connecting at the center to form the grip. The bowstring runs from one tip of the bow to the other, forming a tight line that bisects the bow's curve. \n\n3. Details: The grip in the middle is slightly thicker with small horizontal grooves for hand placement, providing a hint of realism without specific textures. The ends of the bow, where the bowstring attaches, feature small, simple, cylindrical shapes for the notches. The bowstring is a thin, straight line with slight angular bends at the points where it attaches to the bow's tips.\n\n4. Colors: The bow, including the grip and notches, is rendered in a neutral gray, while the bowstring is white. No specific wood textures or colors are applied, making it suitable for retexturing.\n\n5. Style: The design maintains the simple, low-poly aesthetic of RuneScape 2007. It has a clean geometry and a clear, iconic silhouette that is easily identifiable as a bow.",
+        "generatedAt": "2025-07-20T03:46:03.007Z",
+        "completedAt": "2025-07-20T03:46:03.007Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "wood",
+          "oak",
+          "willow"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/bow-wood/bow-wood.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "01982598-456a-7b3d-ac1a-5a9c37c194ac",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "wood",
+        "parentBaseModel": "bow-base",
+        "materialStylePrompt": "light wood texture, natural pine color, basic wooden finish, RuneScape 2007 style",
+        "baseModelTaskId": "01982598-456a-7b3d-ac1a-5a9c37c194ac",
+        "retextureTaskId": "019825ef-7fa5-7b90-be10-4cbd28b2c67f",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "bow-wood.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-wood/bow-wood.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-wood/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/bow-wood/metadata.json"
+      }
+    },
+    "chainbody": {
+      "files": [
+        {
+          "relativePath": "chainbody.glb",
+          "blobPath": "models/chainbody/chainbody.glb",
+          "size": 1906044
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/chainbody/concept-art.png",
+          "size": 1807150
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/chainbody/metadata.json",
+          "size": 1843
+        }
+      ],
+      "metadata": {
+        "name": "chainbody",
+        "gameId": "chainbody",
+        "type": "armor",
+        "subtype": "armor",
+        "description": "A RuneScape 2 inspired chainbody",
+        "detailedPrompt": "Generate a floating 3D armor piece, precisely shaped for a scarecrow/T-pose body, with shoulder openings pointing straight sideways at a perfect 90-degree angle, forming a broad \"T\" shape when viewed from above. This armor has no extensions beyond the shoulders, contains hollow openings for body parts, and is not displayed on an armor stand.\n\nInspired by the classic Runescape 2007 style, this chainbody armor exhibits a highly detailed and textured pattern, emulating the intricate, interlocked metal rings characteristic to chainmail. It carries a slightly weathered, metallic sheen, providing an authentic, battle-worn aesthetic. The armor possesses a geometric form, the chest piece maintains a rectangular shape, with the shoulders tapering off into perfect half-circles.\n\nEnsure stylistic consistency with the old-school Runescape art style, known for its simplicity, pixelated textures, and vibrant color palette. The armor's color should echo the game's traditional steel color - a blend of sil",
+        "generatedAt": "2025-07-31T01:23:07.605Z",
+        "completedAt": "2025-07-31T01:23:07.605Z",
+        "isBaseModel": true,
+        "materialVariants": [],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/chainbody/chainbody.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01985e11-3e1b-7e49-84ac-795c2361bc68",
+        "meshyStatus": "completed",
+        "variants": [
+          "chainbody-dragon"
+        ],
+        "variantCount": 1,
+        "lastVariantGenerated": "chainbody-dragon",
+        "updatedAt": "2025-07-31T02:11:10.261Z",
+        "normalized": false
+      },
+      "blobUrls": {
+        "chainbody.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/chainbody/chainbody.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/chainbody/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/chainbody/metadata.json"
+      }
+    },
+    "chainbody-dragon": {
+      "files": [
+        {
+          "relativePath": "chainbody-dragon.glb",
+          "blobPath": "models/chainbody-dragon/chainbody-dragon.glb",
+          "size": 4442852
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/chainbody-dragon/concept-art.png",
+          "size": 1807150
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/chainbody-dragon/metadata.json",
+          "size": 936
+        }
+      ],
+      "metadata": {
+        "id": "chainbody-dragon",
+        "gameId": "chainbody-dragon",
+        "name": "chainbody-dragon",
+        "type": "armor",
+        "subtype": "armor",
+        "isBaseModel": false,
+        "isVariant": true,
+        "parentBaseModel": "chainbody",
+        "materialPreset": {
+          "id": "dragon",
+          "displayName": "Dragon",
+          "category": "custom",
+          "tier": 10,
+          "color": "#fa0000",
+          "stylePrompt": "Dragon metal texture, red with matte finish, RuneScape 2007 style"
+        },
+        "workflow": "Meshy AI Retexture",
+        "baseModelTaskId": "01985e11-3e1b-7e49-84ac-795c2361bc68",
+        "retextureTaskId": "01985e3d-d884-7e4e-84fe-982a310c753c",
+        "retextureStatus": "completed",
+        "modelPath": "chainbody-dragon.glb",
+        "conceptArtPath": null,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "generatedAt": "2025-07-31T02:11:10.260Z",
+        "completedAt": "2025-07-31T02:11:10.260Z",
+        "description": "A RuneScape 2 inspired chainbody",
+        "isPlaceholder": false,
+        "gddCompliant": true
+      },
+      "blobUrls": {
+        "chainbody-dragon.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/chainbody-dragon/chainbody-dragon.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/chainbody-dragon/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/chainbody-dragon/metadata.json"
+      }
+    },
+    "fishing-rod-base": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/fishing-rod-base/concept-art.png",
+          "size": 1130798
+        },
+        {
+          "relativePath": "fishing-rod-base.glb",
+          "blobPath": "models/fishing-rod-base/fishing-rod-base.glb",
+          "size": 1063580
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/fishing-rod-base/metadata.json",
+          "size": 2015
+        }
+      ],
+      "metadata": {
+        "name": "fishing-rod-base",
+        "gameId": "fishing-rod-base",
+        "type": "tool",
+        "subtype": "fishing-rod",
+        "description": "Basic fishing rod with clean geometry, simple wood design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "Model Description: \n\nThe model is a basic fishing rod, designed in a simple, straight geometric shape. It is approximately 6 units in length, maintaining a consistent diameter of 0.2 units throughout, except at the ends. The rod is segmented into three even sections, separated by slightly thicker bands of 0.3 units, which will allow for easy retexturing. \n\nThe bottom of the rod flares out to a 0.5 unit diameter, creating a handle, which is 1.5 units in length. The handle is distinguished by a slight curvature for gripping ease. \n\nThe top end of the rod tapers slightly to a point over the last 0.5 unit of its length. Attached to this end is a thin, low-poly line that hangs down 4 units. The line ends with a simple, geometrical hook model. The hook is a basic curve shape, crafted from a 0.1 unit diameter cylindrical geometry, extending 0.4 units in length.\n\nThe entire model is rendered in a neutral grey color, perfect for retexturing. The simple, clean geometry and clear shapes make this model versatile for applying various textures and colors while maintaining the recognizable silhouette of a fishing rod. The style is consistent with the low-poly, old school RuneScape 2007 aesthetic.",
+        "generatedAt": "2025-07-20T02:50:10.653Z",
+        "completedAt": "2025-07-20T02:50:10.653Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "standard"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/fishing-rod-base/fishing-rod-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "019825ba-f88b-7b5b-9a25-192f8e40426e",
+        "meshyStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/fishing-rod-base/concept-art.png",
+        "fishing-rod-base.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/fishing-rod-base/fishing-rod-base.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/fishing-rod-base/metadata.json"
+      }
+    },
+    "fishing-rod-standard": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/fishing-rod-standard/concept-art.png",
+          "size": 1130798
+        },
+        {
+          "relativePath": "fishing-rod-standard.glb",
+          "blobPath": "models/fishing-rod-standard/fishing-rod-standard.glb",
+          "size": 1063580
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/fishing-rod-standard/metadata.json",
+          "size": 2102
+        }
+      ],
+      "metadata": {
+        "name": "fishing-rod-standard",
+        "gameId": "fishing-rod-standard",
+        "type": "tool",
+        "subtype": "fishing-rod",
+        "description": "Basic fishing rod with clean geometry, simple wood design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "Model Description: \n\nThe model is a basic fishing rod, designed in a simple, straight geometric shape. It is approximately 6 units in length, maintaining a consistent diameter of 0.2 units throughout, except at the ends. The rod is segmented into three even sections, separated by slightly thicker bands of 0.3 units, which will allow for easy retexturing. \n\nThe bottom of the rod flares out to a 0.5 unit diameter, creating a handle, which is 1.5 units in length. The handle is distinguished by a slight curvature for gripping ease. \n\nThe top end of the rod tapers slightly to a point over the last 0.5 unit of its length. Attached to this end is a thin, low-poly line that hangs down 4 units. The line ends with a simple, geometrical hook model. The hook is a basic curve shape, crafted from a 0.1 unit diameter cylindrical geometry, extending 0.4 units in length.\n\nThe entire model is rendered in a neutral grey color, perfect for retexturing. The simple, clean geometry and clear shapes make this model versatile for applying various textures and colors while maintaining the recognizable silhouette of a fishing rod. The style is consistent with the low-poly, old school RuneScape 2007 aesthetic.",
+        "generatedAt": "2025-07-20T03:49:47.759Z",
+        "completedAt": "2025-07-20T03:49:47.759Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "standard"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/fishing-rod-standard/fishing-rod-standard.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "Base Model Copy (Standard Variant)",
+        "meshyTaskId": "019825ba-f88b-7b5b-9a25-192f8e40426e",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "standard",
+        "parentBaseModel": "fishing-rod-base"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/fishing-rod-standard/concept-art.png",
+        "fishing-rod-standard.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/fishing-rod-standard/fishing-rod-standard.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/fishing-rod-standard/metadata.json"
+      }
+    },
+    "goblin": {
+      "files": [
+        {
+          "relativePath": "animations/running.glb",
+          "blobPath": "models/goblin/animations/running.glb",
+          "size": 2501568
+        },
+        {
+          "relativePath": "animations/walking.glb",
+          "blobPath": "models/goblin/animations/walking.glb",
+          "size": 2506168
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/goblin/concept-art.png",
+          "size": 1629199
+        },
+        {
+          "relativePath": "goblin_rigged.glb",
+          "blobPath": "models/goblin/goblin_rigged.glb",
+          "size": 2506168
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/goblin/metadata.json",
+          "size": 1806
+        }
+      ],
+      "metadata": {
+        "name": "goblin",
+        "gameId": "goblin",
+        "type": "character",
+        "subtype": "humanoid",
+        "description": "A RuneScape 2 inspired goblin, t-pose, no weapon",
+        "detailedPrompt": "\"A goblin character standing in T-pose, inspired by the low-polygon, simplistic art style of RuneScape 2007. The goblin should have a green, rough-textured skin with visible warts and blemishes, bearing a mischievous grin. It is dressed in rustic, tattered cloth rags with a predominance of earthy tones. The goblin's physique is small and hunched, with oversized hands and feet, yet no weaponry is included. The character's eyes should be yellow, glowing, and slightly bulbous, adding to its mischievous persona.\"",
+        "generatedAt": "2025-07-22T21:33:06.789Z",
+        "completedAt": "2025-07-22T21:33:06.789Z",
+        "isBaseModel": true,
+        "materialVariants": [],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/goblin/goblin.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "0198340c-0b48-7ec9-9e0b-895aaf7f941c",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-07-22T21:33:06.789Z",
+        "isRigged": true,
+        "riggingTaskId": "0198340d-f627-7707-8e6e-dcab3ae371b8",
+        "riggingStatus": "completed",
+        "rigType": "humanoid-standard",
+        "characterHeight": 1.7,
+        "animations": {
+          "basic": {
+            "walking": "animations/walking.glb",
+            "tpose": "t-pose.glb",
+            "running": "animations/running.glb"
+          }
+        },
+        "riggedModelPath": "goblin_rigged.glb",
+        "tposeModelPath": "t-pose.glb",
+        "supportsAnimation": true,
+        "animationCompatibility": [
+          "mixamo",
+          "unity",
+          "unreal"
+        ]
+      },
+      "blobUrls": {
+        "animations/running.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/goblin/animations/running.glb",
+        "animations/walking.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/goblin/animations/walking.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/goblin/concept-art.png",
+        "goblin_rigged.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/goblin/goblin_rigged.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/goblin/metadata.json"
+      }
+    },
+    "hatchet-base": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/hatchet-base/concept-art.png",
+          "size": 1187492
+        },
+        {
+          "relativePath": "hatchet-base.glb",
+          "blobPath": "models/hatchet-base/hatchet-base.glb",
+          "size": 1855456
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/hatchet-base/metadata.json",
+          "size": 1900
+        }
+      ],
+      "metadata": {
+        "name": "hatchet-base",
+        "gameId": "hatchet-base",
+        "type": "tool",
+        "subtype": "hatchet",
+        "description": "Basic hatchet with clean geometry, neutral design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The base model of the basic hatchet consists of three main parts: The handle, the head, and the blade. \n\nHandle: The handle is a long, cylindrical shape with a slight curve towards the end to mimic the grip of a real hatchet. The top of the handle is slightly wider where it connects to the head of the hatchet. It is a neutral gray color.\n\nHead: The hatchet head is a rectangular block shape with a slight taper towards the top where it connects to the handle. The bottom part of the head, where it meets the blade, is a curved shape. It is also a neutral gray color. \n\nBlade: The blade is a triangular shape extending from the head of the hatchet, with one side being straight and the other side curving slightly inward. The edge of the blade is sharp and thin, but without any specific texture. It is a slightly lighter gray color than the handle and head. \n\nThe overall geometry of the hatchet is simple and clean, with smooth edges and a low poly count. The silhouette is iconic and easily recognizable as a hatchet. The neutral design and colors make it suitable for retexturing with different materials later.",
+        "generatedAt": "2025-07-20T02:47:13.883Z",
+        "completedAt": "2025-07-20T02:47:13.883Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "bronze"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/hatchet-base/hatchet-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "019825b7-f789-7b57-b764-5260b6043606",
+        "meshyStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/hatchet-base/concept-art.png",
+        "hatchet-base.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/hatchet-base/hatchet-base.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/hatchet-base/metadata.json"
+      }
+    },
+    "hatchet-bronze": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/hatchet-bronze/concept-art.png",
+          "size": 1187492
+        },
+        {
+          "relativePath": "hatchet-bronze.glb",
+          "blobPath": "models/hatchet-bronze/hatchet-bronze.glb",
+          "size": 1853964
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/hatchet-bronze/metadata.json",
+          "size": 2284
+        }
+      ],
+      "metadata": {
+        "name": "hatchet-bronze",
+        "gameId": "hatchet-bronze",
+        "type": "tool",
+        "subtype": "hatchet",
+        "description": "Basic hatchet with clean geometry, neutral design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The base model of the basic hatchet consists of three main parts: The handle, the head, and the blade. \n\nHandle: The handle is a long, cylindrical shape with a slight curve towards the end to mimic the grip of a real hatchet. The top of the handle is slightly wider where it connects to the head of the hatchet. It is a neutral gray color.\n\nHead: The hatchet head is a rectangular block shape with a slight taper towards the top where it connects to the handle. The bottom part of the head, where it meets the blade, is a curved shape. It is also a neutral gray color. \n\nBlade: The blade is a triangular shape extending from the head of the hatchet, with one side being straight and the other side curving slightly inward. The edge of the blade is sharp and thin, but without any specific texture. It is a slightly lighter gray color than the handle and head. \n\nThe overall geometry of the hatchet is simple and clean, with smooth edges and a low poly count. The silhouette is iconic and easily recognizable as a hatchet. The neutral design and colors make it suitable for retexturing with different materials later.",
+        "generatedAt": "2025-07-20T03:50:40.684Z",
+        "completedAt": "2025-07-20T03:50:40.684Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "bronze"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/hatchet-bronze/hatchet-bronze.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "019825b7-f789-7b57-b764-5260b6043606",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "bronze",
+        "parentBaseModel": "hatchet-base",
+        "materialStylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
+        "baseModelTaskId": "019825b7-f789-7b57-b764-5260b6043606",
+        "retextureTaskId": "019825f3-bf01-7b94-b693-ea174c31e6cd",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/hatchet-bronze/concept-art.png",
+        "hatchet-bronze.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/hatchet-bronze/hatchet-bronze.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/hatchet-bronze/metadata.json"
+      }
+    },
+    "human": {
+      "files": [
+        {
+          "relativePath": "animations/running.glb",
+          "blobPath": "models/human/animations/running.glb",
+          "size": 1748860
+        },
+        {
+          "relativePath": "animations/walking.glb",
+          "blobPath": "models/human/animations/walking.glb",
+          "size": 1753468
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/human/concept-art.png",
+          "size": 1676008
+        },
+        {
+          "relativePath": "human_rigged.glb",
+          "blobPath": "models/human/human_rigged.glb",
+          "size": 1753468
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/human/metadata.json",
+          "size": 1764
+        }
+      ],
+      "metadata": {
+        "name": "human",
+        "gameId": "human",
+        "type": "character",
+        "subtype": "humanoid",
+        "description": "A RuneScape 2 inspired humanoid, T-Pose, no weapons",
+        "detailedPrompt": "A humanoid character inspired by RuneScape 2007, standing in T-pose. The character should have distinct, low-poly geometry with stylized textures mimicking the simplistic, cartoony aesthetic of the game. The skin texture should have a flat, matte finish with muted colors, while the hair should be textured with basic, solid colors. The character should not wield any weapons. The eyes should be round and simple, expressing the iconic RuneScape 2 feel.",
+        "generatedAt": "2025-07-30T03:01:03.095Z",
+        "completedAt": "2025-07-30T03:01:03.095Z",
+        "isBaseModel": true,
+        "materialVariants": [],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/human/human.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01985944-bb21-716d-983c-4998fc3980a0",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-07-30T03:01:03.095Z",
+        "normalized": false,
+        "isRigged": true,
+        "riggingTaskId": "01985946-b539-7064-ad2a-641093e856a3",
+        "riggingStatus": "completed",
+        "rigType": "humanoid-standard",
+        "characterHeight": 1.7,
+        "animations": {
+          "basic": {
+            "walking": "animations/walking.glb",
+            "tpose": "t-pose.glb",
+            "running": "animations/running.glb"
+          }
+        },
+        "riggedModelPath": "human_rigged.glb",
+        "tposeModelPath": "t-pose.glb",
+        "supportsAnimation": true,
+        "animationCompatibility": [
+          "mixamo",
+          "unity",
+          "unreal"
+        ]
+      },
+      "blobUrls": {
+        "animations/running.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/human/animations/running.glb",
+        "animations/walking.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/human/animations/walking.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/human/concept-art.png",
+        "human_rigged.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/human/human_rigged.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/human/metadata.json"
+      }
+    },
+    "imp": {
+      "files": [
+        {
+          "relativePath": "animations/running.glb",
+          "blobPath": "models/imp/animations/running.glb",
+          "size": 2220892
+        },
+        {
+          "relativePath": "animations/walking.glb",
+          "blobPath": "models/imp/animations/walking.glb",
+          "size": 2225496
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/imp/concept-art.png",
+          "size": 1844361
+        },
+        {
+          "relativePath": "imp_rigged.glb",
+          "blobPath": "models/imp/imp_rigged.glb",
+          "size": 2225496
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/imp/metadata.json",
+          "size": 1881
+        }
+      ],
+      "metadata": {
+        "name": "imp",
+        "gameId": "imp",
+        "type": "character",
+        "subtype": "humanoid",
+        "description": "A RuneScape 2 inspired imp, no weapon, t-pose",
+        "detailedPrompt": "\"A small imp character inspired by the low-polygon aesthetics of RuneScape 2007, standing in a T-pose for rigging compatibility. This imp should have a mischievous expression and be adorned with pointy ears, tiny horns, and bat-like wings. Its body should display a reddish-brown texture, mimicking a rough, worn-out leather look. The imp's hands and feet should end in sharp, curved claws. The imp's body should be slim but muscular, with its wings folded back neatly against its body. The eyes should be oval, glowing bright yellow for a supernatural effect. No weapons are needed for this character model.\"",
+        "generatedAt": "2025-07-22T19:05:17.933Z",
+        "completedAt": "2025-07-22T19:05:17.933Z",
+        "isBaseModel": true,
+        "materialVariants": [],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/imp/imp.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01983384-bb41-78ee-a41c-39b393b6bc84",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-07-22T19:05:17.933Z",
+        "isRigged": true,
+        "riggingTaskId": "01983386-a216-78ef-aad1-1f815d4df73e",
+        "riggingStatus": "completed",
+        "rigType": "humanoid-standard",
+        "characterHeight": 1,
+        "animations": {
+          "basic": {
+            "walking": "animations/walking.glb",
+            "tpose": "t-pose.glb",
+            "running": "animations/running.glb"
+          }
+        },
+        "riggedModelPath": "imp_rigged.glb",
+        "tposeModelPath": "t-pose.glb",
+        "supportsAnimation": true,
+        "animationCompatibility": [
+          "mixamo",
+          "unity",
+          "unreal"
+        ]
+      },
+      "blobUrls": {
+        "animations/running.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/imp/animations/running.glb",
+        "animations/walking.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/imp/animations/walking.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/imp/concept-art.png",
+        "imp_rigged.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/imp/imp_rigged.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/imp/metadata.json"
+      }
+    },
+    "logs-base": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/logs-base/concept-art.png",
+          "size": 1236229
+        },
+        {
+          "relativePath": "logs-base.glb",
+          "blobPath": "models/logs-base/logs-base.glb",
+          "size": 2847092
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/logs-base/metadata.json",
+          "size": 1626
+        }
+      ],
+      "metadata": {
+        "name": "logs-base",
+        "gameId": "logs-base",
+        "type": "resource",
+        "subtype": "logs",
+        "description": "Basic log with clean geometry, wood texture, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The Basic Log model is a cylindrical shape with a length approximately four times its diameter. The geometry is clean and simple with a low poly count, perfectly fitting for the RuneScape 2007 style. \n\nThe model's ends are flat, emulating a freshly cut log. The body is slightly irregular with gentle bumps and minor indentations to represent a natural wooden texture without being too specific, keeping the model suitable for retexturing later.\n\nThe color is a neutral gray, allowing for easy application of different materials in the future. The log's silhouette is iconic and instantly recognizable, even at a small scale or from a distance. \n\nThe model does not have any additional features such as branches or leaves, keeping the design clean and simple. The log lays flat on its side, making it ideal for stacking or arranging in various configurations.",
+        "generatedAt": "2025-07-20T03:12:44.509Z",
+        "completedAt": "2025-07-20T03:12:44.509Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "standard"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/logs-base/logs-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "019825cf-2997-7b70-bf44-4bce7bd55e73",
+        "meshyStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/logs-base/concept-art.png",
+        "logs-base.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/logs-base/logs-base.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/logs-base/metadata.json"
+      }
+    },
+    "logs-wood": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/logs-wood/concept-art.png",
+          "size": 1236229
+        },
+        {
+          "relativePath": "logs-wood.glb",
+          "blobPath": "models/logs-wood/logs-wood.glb",
+          "size": 1925240
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/logs-wood/metadata.json",
+          "size": 2131
+        }
+      ],
+      "metadata": {
+        "name": "logs-wood",
+        "gameId": "logs-wood",
+        "type": "resource",
+        "subtype": "logs",
+        "description": "Basic log with clean geometry, wood texture, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The Basic Log model is a cylindrical shape with a length approximately four times its diameter. The geometry is clean and simple with a low poly count, perfectly fitting for the RuneScape 2007 style. \n\nThe model's ends are flat, emulating a freshly cut log. The body is slightly irregular with gentle bumps and minor indentations to represent a natural wooden texture without being too specific, keeping the model suitable for retexturing later.\n\nThe color is a neutral gray, allowing for easy application of different materials in the future. The log's silhouette is iconic and instantly recognizable, even at a small scale or from a distance. \n\nThe model does not have any additional features such as branches or leaves, keeping the design clean and simple. The log lays flat on its side, making it ideal for stacking or arranging in various configurations.",
+        "generatedAt": "2025-07-20T04:30:18.891Z",
+        "completedAt": "2025-07-20T04:30:18.891Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "standard"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/logs-wood/logs-wood.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "019825cf-2997-7b70-bf44-4bce7bd55e73",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "wood",
+        "materialTier": 1,
+        "materialCategory": "wood",
+        "parentBaseModel": "logs-base",
+        "materialStylePrompt": "light wood texture, natural pine color, basic wooden finish, RuneScape 2007 style",
+        "materialPreset": {
+          "id": "wood",
+          "displayName": "Wood",
+          "color": "#DEB887"
+        },
+        "baseModelTaskId": "019825cf-2997-7b70-bf44-4bce7bd55e73",
+        "retextureTaskId": "01982617-db19-7c73-a9cc-a7a94ac72163",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/logs-wood/concept-art.png",
+        "logs-wood.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/logs-wood/logs-wood.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/logs-wood/metadata.json"
+      }
+    },
+    "mace": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/mace/concept-art.png",
+          "size": 1562222
+        },
+        {
+          "relativePath": "mace.glb",
+          "blobPath": "models/mace/mace.glb",
+          "size": 1849988
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/mace/metadata.json",
+          "size": 1227
+        }
+      ],
+      "metadata": {
+        "name": "mace",
+        "gameId": "mace",
+        "type": "weapon",
+        "subtype": "weapon",
+        "description": "A RuneScape inspired mace",
+        "detailedPrompt": "A mace weapon stylized in the aesthetic of RuneScape 2007. The mace should feature a robust, cylindrical iron handle with a worn, rustic texture, transitioning into a spherical head adorned with six evenly distributed, diamond-shaped spikes. The spikes should be sharp, protruding, and possess the same rustic iron texture. The entire mace should emit a subtly glowing enchantment, reflecting the iconic magical vibe of RuneScape items.",
+        "generatedAt": "2025-07-22T21:41:45.412Z",
+        "completedAt": "2025-07-22T21:41:45.412Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "dragon"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/mace/mace.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01983414-0629-7931-bb19-409193ecdd6a",
+        "meshyStatus": "completed",
+        "variants": [
+          "mace-dragon"
+        ],
+        "variantCount": 1,
+        "lastVariantGenerated": "mace-dragon",
+        "updatedAt": "2025-07-22T21:42:44.797Z"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/mace/concept-art.png",
+        "mace.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/mace/mace.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/mace/metadata.json"
+      }
+    },
+    "mace-dragon": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/mace-dragon/concept-art.png",
+          "size": 1562222
+        },
+        {
+          "relativePath": "mace-dragon.glb",
+          "blobPath": "models/mace-dragon/mace-dragon.glb",
+          "size": 2258408
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/mace-dragon/metadata.json",
+          "size": 905
+        }
+      ],
+      "metadata": {
+        "id": "mace-dragon",
+        "gameId": "mace-dragon",
+        "name": "mace-dragon",
+        "type": "weapon",
+        "subtype": "weapon",
+        "isBaseModel": false,
+        "isVariant": true,
+        "parentBaseModel": "mace",
+        "materialPreset": {
+          "id": "dragon",
+          "displayName": "Dragon",
+          "category": "custom",
+          "tier": 1,
+          "color": "#fa0000",
+          "stylePrompt": "Dragon metal texture, red with matte finish, RuneScape 2007 style"
+        },
+        "workflow": "Meshy AI Retexture",
+        "baseModelTaskId": "01983414-0629-7931-bb19-409193ecdd6a",
+        "retextureTaskId": "01983415-dffb-7100-a16d-4d7e8ef9ccd4",
+        "retextureStatus": "completed",
+        "modelPath": "mace-dragon.glb",
+        "conceptArtPath": null,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "generatedAt": "2025-07-22T21:42:44.796Z",
+        "completedAt": "2025-07-22T21:42:44.796Z",
+        "description": "A RuneScape inspired mace",
+        "isPlaceholder": false,
+        "gddCompliant": true
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/mace-dragon/concept-art.png",
+        "mace-dragon.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/mace-dragon/mace-dragon.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/mace-dragon/metadata.json"
+      }
+    },
+    "pickaxe": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/pickaxe/concept-art.png",
+          "size": 1636965
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/pickaxe/metadata.json",
+          "size": 1481
+        },
+        {
+          "relativePath": "pickaxe.glb",
+          "blobPath": "models/pickaxe/pickaxe.glb",
+          "size": 1415332
+        }
+      ],
+      "metadata": {
+        "name": "pickaxe",
+        "gameId": "pickaxe",
+        "type": "weapon",
+        "subtype": "weapon",
+        "description": "A RuneScape 2 inspired pickaxe",
+        "detailedPrompt": "Generate a 3D asset of a pickaxe, heavily inspired by the RuneScape 2007 aesthetic. The pickaxe should bear a rugged, geometric design, featuring a long, straight wooden handle with a slightly weathered texture, showcasing its use. The pick's head, designed in a symmetrical, angular form, should be made of a rich, dark metal, indicating it's forged from a high-quality ore. The metal should have a slightly worn and used look, with subtle scratches and notches. Ensure the style is consistent with the low-poly and slightly pixelated graphics of the RuneScape 2007 era.",
+        "generatedAt": "2025-07-29T03:46:57.372Z",
+        "completedAt": "2025-07-29T03:46:57.372Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/pickaxe/pickaxe.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01985448-7ac6-7eda-9822-8cead4230bd0",
+        "meshyStatus": "completed",
+        "variants": [
+          "pickaxe-bronze",
+          "pickaxe-steel",
+          "pickaxe-mithril"
+        ],
+        "variantCount": 3,
+        "lastVariantGenerated": "pickaxe-mithril",
+        "updatedAt": "2025-07-29T03:50:51.482Z",
+        "normalized": false
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe/metadata.json",
+        "pickaxe.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe/pickaxe.glb"
+      }
+    },
+    "pickaxe-bronze": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/pickaxe-bronze/concept-art.png",
+          "size": 1636965
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/pickaxe-bronze/metadata.json",
+          "size": 952
+        },
+        {
+          "relativePath": "pickaxe-bronze.glb",
+          "blobPath": "models/pickaxe-bronze/pickaxe-bronze.glb",
+          "size": 4610244
+        }
+      ],
+      "metadata": {
+        "id": "pickaxe-bronze",
+        "gameId": "pickaxe-bronze",
+        "name": "pickaxe-bronze",
+        "type": "weapon",
+        "subtype": "weapon",
+        "isBaseModel": false,
+        "isVariant": true,
+        "parentBaseModel": "pickaxe",
+        "materialPreset": {
+          "id": "bronze",
+          "displayName": "Bronze",
+          "category": "metal",
+          "tier": 1,
+          "color": "#CD7F32",
+          "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style"
+        },
+        "workflow": "Meshy AI Retexture",
+        "baseModelTaskId": "01985448-7ac6-7eda-9822-8cead4230bd0",
+        "retextureTaskId": "0198544a-5971-7b93-9eba-5c6e74612612",
+        "retextureStatus": "completed",
+        "modelPath": "pickaxe-bronze.glb",
+        "conceptArtPath": null,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "generatedAt": "2025-07-29T03:48:16.809Z",
+        "completedAt": "2025-07-29T03:48:16.809Z",
+        "description": "A RuneScape 2 inspired pickaxe",
+        "isPlaceholder": false,
+        "gddCompliant": true
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-bronze/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-bronze/metadata.json",
+        "pickaxe-bronze.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-bronze/pickaxe-bronze.glb"
+      }
+    },
+    "pickaxe-mithril": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/pickaxe-mithril/concept-art.png",
+          "size": 1636965
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/pickaxe-mithril/metadata.json",
+          "size": 971
+        },
+        {
+          "relativePath": "pickaxe-mithril.glb",
+          "blobPath": "models/pickaxe-mithril/pickaxe-mithril.glb",
+          "size": 5207288
+        }
+      ],
+      "metadata": {
+        "id": "pickaxe-mithril",
+        "gameId": "pickaxe-mithril",
+        "name": "pickaxe-mithril",
+        "type": "weapon",
+        "subtype": "weapon",
+        "isBaseModel": false,
+        "isVariant": true,
+        "parentBaseModel": "pickaxe",
+        "materialPreset": {
+          "id": "mithril",
+          "displayName": "Mithril",
+          "category": "metal",
+          "tier": 3,
+          "color": "#4169E1",
+          "stylePrompt": "mithril metal texture, blue-gray color with magical shimmer, fantasy metallic finish, RuneScape 2007 style"
+        },
+        "workflow": "Meshy AI Retexture",
+        "baseModelTaskId": "01985448-7ac6-7eda-9822-8cead4230bd0",
+        "retextureTaskId": "0198544c-a6ba-7b93-b745-881b67ebf0f3",
+        "retextureStatus": "completed",
+        "modelPath": "pickaxe-mithril.glb",
+        "conceptArtPath": null,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "generatedAt": "2025-07-29T03:50:51.481Z",
+        "completedAt": "2025-07-29T03:50:51.481Z",
+        "description": "A RuneScape 2 inspired pickaxe",
+        "isPlaceholder": false,
+        "gddCompliant": true
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-mithril/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-mithril/metadata.json",
+        "pickaxe-mithril.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-mithril/pickaxe-mithril.glb"
+      }
+    },
+    "pickaxe-steel": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/pickaxe-steel/concept-art.png",
+          "size": 1636965
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/pickaxe-steel/metadata.json",
+          "size": 939
+        },
+        {
+          "relativePath": "pickaxe-steel.glb",
+          "blobPath": "models/pickaxe-steel/pickaxe-steel.glb",
+          "size": 4842780
+        }
+      ],
+      "metadata": {
+        "id": "pickaxe-steel",
+        "gameId": "pickaxe-steel",
+        "name": "pickaxe-steel",
+        "type": "weapon",
+        "subtype": "weapon",
+        "isBaseModel": false,
+        "isVariant": true,
+        "parentBaseModel": "pickaxe",
+        "materialPreset": {
+          "id": "steel",
+          "displayName": "Steel",
+          "category": "metal",
+          "tier": 2,
+          "color": "#C0C0C0",
+          "stylePrompt": "steel metal texture, silver gray color, polished metallic finish, RuneScape 2007 style"
+        },
+        "workflow": "Meshy AI Retexture",
+        "baseModelTaskId": "01985448-7ac6-7eda-9822-8cead4230bd0",
+        "retextureTaskId": "0198544b-9443-7e62-ba4a-78d338518a50",
+        "retextureStatus": "completed",
+        "modelPath": "pickaxe-steel.glb",
+        "conceptArtPath": null,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "generatedAt": "2025-07-29T03:49:28.105Z",
+        "completedAt": "2025-07-29T03:49:28.105Z",
+        "description": "A RuneScape 2 inspired pickaxe",
+        "isPlaceholder": false,
+        "gddCompliant": true
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-steel/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-steel/metadata.json",
+        "pickaxe-steel.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/pickaxe-steel/pickaxe-steel.glb"
+      }
+    },
+    "shield-base": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/shield-base/concept-art.png",
+          "size": 1263470
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/shield-base/metadata.json",
+          "size": 2032
+        },
+        {
+          "relativePath": "shield-base.glb",
+          "blobPath": "models/shield-base/shield-base.glb",
+          "size": 1856716
+        }
+      ],
+      "metadata": {
+        "name": "shield-base",
+        "gameId": "shield-base",
+        "type": "weapon",
+        "subtype": "shield",
+        "description": "Basic shield with clean geometry, simple round design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The basic shield model takes on a traditional round shape with a diameter roughly 1.5 times the length of the average player's arm. It tapers slightly towards the edges, maintaining a consistent thickness throughout. The edge of the shield is reinforced with a simple raised rim, adding some depth to the otherwise flat surface.\n\nThe shield's face is divided into two concentric circles. The outer circle spans the shield's rim to just a quarter way in, while the inner circle forms the shield's center. The space between these two circles is slightly recessed, creating a shallow groove that adds visual interest without complicating the model's geometry.\n\nOn the back of the shield, there's a simple handle for the player to hold. The handle is an elongated oval shape, positioned horizontally and attached securely to the shield's center. The handle stands out slightly from the shield's back, making it clear that it's a separate element.\n\nThe entire shield model is rendered in a neutral gray color. The model's geometry is clean and simple, with a low poly count consistent with the RuneScape 2007 style. This shield's iconic silhouette and basic design make it an ideal base for retexturing with various materials.",
+        "generatedAt": "2025-07-20T02:16:03.467Z",
+        "completedAt": "2025-07-20T02:16:03.467Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/shield-base/shield-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "0198259b-1d12-7c16-b5b0-1fdf18785e87",
+        "meshyStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-base/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-base/metadata.json",
+        "shield-base.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-base/shield-base.glb"
+      }
+    },
+    "shield-bronze": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/shield-bronze/concept-art.png",
+          "size": 1263470
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/shield-bronze/metadata.json",
+          "size": 2415
+        },
+        {
+          "relativePath": "shield-bronze.glb",
+          "blobPath": "models/shield-bronze/shield-bronze.glb",
+          "size": 2171484
+        }
+      ],
+      "metadata": {
+        "name": "shield-bronze",
+        "gameId": "shield-bronze",
+        "type": "weapon",
+        "subtype": "shield",
+        "description": "Basic shield with clean geometry, simple round design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The basic shield model takes on a traditional round shape with a diameter roughly 1.5 times the length of the average player's arm. It tapers slightly towards the edges, maintaining a consistent thickness throughout. The edge of the shield is reinforced with a simple raised rim, adding some depth to the otherwise flat surface.\n\nThe shield's face is divided into two concentric circles. The outer circle spans the shield's rim to just a quarter way in, while the inner circle forms the shield's center. The space between these two circles is slightly recessed, creating a shallow groove that adds visual interest without complicating the model's geometry.\n\nOn the back of the shield, there's a simple handle for the player to hold. The handle is an elongated oval shape, positioned horizontally and attached securely to the shield's center. The handle stands out slightly from the shield's back, making it clear that it's a separate element.\n\nThe entire shield model is rendered in a neutral gray color. The model's geometry is clean and simple, with a low poly count consistent with the RuneScape 2007 style. This shield's iconic silhouette and basic design make it an ideal base for retexturing with various materials.",
+        "generatedAt": "2025-07-20T04:11:07.338Z",
+        "completedAt": "2025-07-20T04:11:07.338Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/shield-bronze/shield-bronze.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "0198259b-1d12-7c16-b5b0-1fdf18785e87",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "bronze",
+        "parentBaseModel": "shield-base",
+        "materialStylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
+        "baseModelTaskId": "0198259b-1d12-7c16-b5b0-1fdf18785e87",
+        "retextureTaskId": "01982606-26a7-7c6b-9205-2a8fa579b6de",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-bronze/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-bronze/metadata.json",
+        "shield-bronze.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-bronze/shield-bronze.glb"
+      }
+    },
+    "shield-mithril": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/shield-mithril/concept-art.png",
+          "size": 1263470
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/shield-mithril/metadata.json",
+          "size": 2433
+        },
+        {
+          "relativePath": "shield-mithril.glb",
+          "blobPath": "models/shield-mithril/shield-mithril.glb",
+          "size": 1861828
+        }
+      ],
+      "metadata": {
+        "name": "shield-mithril",
+        "gameId": "shield-mithril",
+        "type": "weapon",
+        "subtype": "shield",
+        "description": "Basic shield with clean geometry, simple round design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The basic shield model takes on a traditional round shape with a diameter roughly 1.5 times the length of the average player's arm. It tapers slightly towards the edges, maintaining a consistent thickness throughout. The edge of the shield is reinforced with a simple raised rim, adding some depth to the otherwise flat surface.\n\nThe shield's face is divided into two concentric circles. The outer circle spans the shield's rim to just a quarter way in, while the inner circle forms the shield's center. The space between these two circles is slightly recessed, creating a shallow groove that adds visual interest without complicating the model's geometry.\n\nOn the back of the shield, there's a simple handle for the player to hold. The handle is an elongated oval shape, positioned horizontally and attached securely to the shield's center. The handle stands out slightly from the shield's back, making it clear that it's a separate element.\n\nThe entire shield model is rendered in a neutral gray color. The model's geometry is clean and simple, with a low poly count consistent with the RuneScape 2007 style. This shield's iconic silhouette and basic design make it an ideal base for retexturing with various materials.",
+        "generatedAt": "2025-07-20T04:13:43.932Z",
+        "completedAt": "2025-07-20T04:13:43.932Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/shield-mithril/shield-mithril.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "0198259b-1d12-7c16-b5b0-1fdf18785e87",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "mithril",
+        "parentBaseModel": "shield-base",
+        "materialStylePrompt": "mithril metal texture, blue-gray color with magical shimmer, fantasy metallic finish, RuneScape 2007 style",
+        "baseModelTaskId": "0198259b-1d12-7c16-b5b0-1fdf18785e87",
+        "retextureTaskId": "01982608-b349-7c6b-9050-21e15c529240",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-mithril/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-mithril/metadata.json",
+        "shield-mithril.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-mithril/shield-mithril.glb"
+      }
+    },
+    "shield-steel": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/shield-steel/concept-art.png",
+          "size": 1263470
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/shield-steel/metadata.json",
+          "size": 2403
+        },
+        {
+          "relativePath": "shield-steel.glb",
+          "blobPath": "models/shield-steel/shield-steel.glb",
+          "size": 1630508
+        }
+      ],
+      "metadata": {
+        "name": "shield-steel",
+        "gameId": "shield-steel",
+        "type": "weapon",
+        "subtype": "shield",
+        "description": "Basic shield with clean geometry, simple round design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The basic shield model takes on a traditional round shape with a diameter roughly 1.5 times the length of the average player's arm. It tapers slightly towards the edges, maintaining a consistent thickness throughout. The edge of the shield is reinforced with a simple raised rim, adding some depth to the otherwise flat surface.\n\nThe shield's face is divided into two concentric circles. The outer circle spans the shield's rim to just a quarter way in, while the inner circle forms the shield's center. The space between these two circles is slightly recessed, creating a shallow groove that adds visual interest without complicating the model's geometry.\n\nOn the back of the shield, there's a simple handle for the player to hold. The handle is an elongated oval shape, positioned horizontally and attached securely to the shield's center. The handle stands out slightly from the shield's back, making it clear that it's a separate element.\n\nThe entire shield model is rendered in a neutral gray color. The model's geometry is clean and simple, with a low poly count consistent with the RuneScape 2007 style. This shield's iconic silhouette and basic design make it an ideal base for retexturing with various materials.",
+        "generatedAt": "2025-07-20T04:12:31.003Z",
+        "completedAt": "2025-07-20T04:12:31.003Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/shield-steel/shield-steel.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "0198259b-1d12-7c16-b5b0-1fdf18785e87",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "steel",
+        "parentBaseModel": "shield-base",
+        "materialStylePrompt": "steel metal texture, silver gray color, polished metallic finish, RuneScape 2007 style",
+        "baseModelTaskId": "0198259b-1d12-7c16-b5b0-1fdf18785e87",
+        "retextureTaskId": "01982607-6c74-7ba2-853d-17982a3155f7",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-steel/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-steel/metadata.json",
+        "shield-steel.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/shield-steel/shield-steel.glb"
+      }
+    },
+    "spiked-helmet": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/spiked-helmet/concept-art.png",
+          "size": 1489352
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/spiked-helmet/metadata.json",
+          "size": 1734
+        },
+        {
+          "relativePath": "spiked-helmet.glb",
+          "blobPath": "models/spiked-helmet/spiked-helmet.glb",
+          "size": 1558660
+        }
+      ],
+      "metadata": {
+        "name": "spiked-helmet",
+        "gameId": "spiked-helmet",
+        "type": "armor",
+        "subtype": "helmet",
+        "description": "a runescape 2 inspired spiked helmet. no base, no stand, only the helmet nothing else no exceptions",
+        "detailedPrompt": "Generate a 3D asset inspired by the art style of Runescape 2007: an intricately designed spiked helmet. This helmet should be void of any base or stand, focusing solely on the object itself. The helmet should exhibit a rugged, worn-out look to reflect the gritty atmosphere of the game. The design should incorporate a series of sharp, menacing spikes protruding from the helmet's surface in a symmetrical pattern. The material of the helmet should resemble aged, weathered iron with a dull, matte finish, hinting at countless battles. The form should be slightly oval, to mimic the shape of a human head, and should feature intricate geometric details, such as engraved patterns around the base and eye slits. Ensure consistency with the Runescape 2007 simplistic, low-poly style.",
+        "generatedAt": "2025-07-28T03:28:46.280Z",
+        "completedAt": "2025-07-28T03:28:46.280Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "bronze"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/spiked-helmet/spiked-helmet.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01984f11-3f55-79e4-b662-db874a8ee09c",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-07-28T03:28:46.280Z",
+        "normalized": false,
+        "tier": "",
+        "lastModified": "2025-07-31T00:23:40.462Z"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/spiked-helmet/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/spiked-helmet/metadata.json",
+        "spiked-helmet.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/spiked-helmet/spiked-helmet.glb"
+      }
+    },
+    "sword-base": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/sword-base/concept-art.png",
+          "size": 1130027
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/sword-base/metadata.json",
+          "size": 2201
+        },
+        {
+          "relativePath": "sword-base.glb",
+          "blobPath": "models/sword-base/sword-base.glb",
+          "size": 1817312
+        }
+      ],
+      "metadata": {
+        "name": "sword-base",
+        "gameId": "sword-base",
+        "type": "weapon",
+        "subtype": "sword",
+        "description": "Basic sword with clean geometry, neutral design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The basic sword model is designed with a simplistic and modest look, adhering to the low-poly aesthetic of RuneScape 2007. The model is completely symmetrical and has a proportionate, balanced design. \n\nStarting from the top, the sword has a narrow, pointed tip that smoothly tapers down into a straight, double-edged blade. The blade has a length-to-width ratio of roughly 6:1 and slightly widens near the hilt. The blade is uniformly flat, with a thin, centered ridge running from the base to the tip, splitting the blade into two equal halves.\n\nThe crossguard is a simple, straight bar perpendicular to the blade. It extends equally on both sides of the blade, with the length being approximately one-third the width of the blade. It has a rounded rectangular shape, with its width slightly less than that of the blade.\n\nThe hilt, or handle, is a cylindrical shape with a slightly larger diameter at the base, giving it a gentle taper upwards towards the crossguard. It is about one-third the length of the blade, maintaining comfortable proportions. \n\nFinally, the pommel at the base of the hilt is a simple, slightly flattened sphere shape. It is sized to be slightly larger than the diameter of the hilt at its base, providing a balanced end to the sword design.\n\nThe model is rendered in neutral grays, making it suitable for any textures and colors to be applied later. The design is clean",
+        "generatedAt": "2025-07-20T02:09:20.847Z",
+        "completedAt": "2025-07-20T02:09:20.847Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/sword-base/sword-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01982595-71ec-7c10-9a13-d92590afd76b",
+        "meshyStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-base/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-base/metadata.json",
+        "sword-base.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-base/sword-base.glb"
+      }
+    },
+    "sword-bronze": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/sword-bronze/concept-art.png",
+          "size": 1130027
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/sword-bronze/metadata.json",
+          "size": 2583
+        },
+        {
+          "relativePath": "sword-bronze.glb",
+          "blobPath": "models/sword-bronze/sword-bronze.glb",
+          "size": 1465916
+        }
+      ],
+      "metadata": {
+        "name": "sword-bronze",
+        "gameId": "sword-bronze",
+        "type": "weapon",
+        "subtype": "sword",
+        "description": "Basic sword with clean geometry, neutral design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The basic sword model is designed with a simplistic and modest look, adhering to the low-poly aesthetic of RuneScape 2007. The model is completely symmetrical and has a proportionate, balanced design. \n\nStarting from the top, the sword has a narrow, pointed tip that smoothly tapers down into a straight, double-edged blade. The blade has a length-to-width ratio of roughly 6:1 and slightly widens near the hilt. The blade is uniformly flat, with a thin, centered ridge running from the base to the tip, splitting the blade into two equal halves.\n\nThe crossguard is a simple, straight bar perpendicular to the blade. It extends equally on both sides of the blade, with the length being approximately one-third the width of the blade. It has a rounded rectangular shape, with its width slightly less than that of the blade.\n\nThe hilt, or handle, is a cylindrical shape with a slightly larger diameter at the base, giving it a gentle taper upwards towards the crossguard. It is about one-third the length of the blade, maintaining comfortable proportions. \n\nFinally, the pommel at the base of the hilt is a simple, slightly flattened sphere shape. It is sized to be slightly larger than the diameter of the hilt at its base, providing a balanced end to the sword design.\n\nThe model is rendered in neutral grays, making it suitable for any textures and colors to be applied later. The design is clean",
+        "generatedAt": "2025-07-20T04:14:46.839Z",
+        "completedAt": "2025-07-20T04:14:46.839Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/sword-bronze/sword-bronze.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D → Meshy Retexture API",
+        "meshyTaskId": "01982595-71ec-7c10-9a13-d92590afd76b",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "bronze",
+        "parentBaseModel": "sword-base",
+        "materialStylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
+        "baseModelTaskId": "01982595-71ec-7c10-9a13-d92590afd76b",
+        "retextureTaskId": "01982609-d02f-7c6b-9178-b192685b4a1e",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-bronze/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-bronze/metadata.json",
+        "sword-bronze.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-bronze/sword-bronze.glb"
+      }
+    },
+    "sword-mithril": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/sword-mithril/concept-art.png",
+          "size": 1130027
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/sword-mithril/metadata.json",
+          "size": 2699
+        },
+        {
+          "relativePath": "sword-mithril.glb",
+          "blobPath": "models/sword-mithril/sword-mithril.glb",
+          "size": 1484200
+        }
+      ],
+      "metadata": {
+        "name": "sword-mithril",
+        "gameId": "sword-mithril",
+        "type": "weapon",
+        "subtype": "sword",
+        "description": "Basic sword with clean geometry, neutral design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The basic sword model is designed with a simplistic and modest look, adhering to the low-poly aesthetic of RuneScape 2007. The model is completely symmetrical and has a proportionate, balanced design. \n\nStarting from the top, the sword has a narrow, pointed tip that smoothly tapers down into a straight, double-edged blade. The blade has a length-to-width ratio of roughly 6:1 and slightly widens near the hilt. The blade is uniformly flat, with a thin, centered ridge running from the base to the tip, splitting the blade into two equal halves.\n\nThe crossguard is a simple, straight bar perpendicular to the blade. It extends equally on both sides of the blade, with the length being approximately one-third the width of the blade. It has a rounded rectangular shape, with its width slightly less than that of the blade.\n\nThe hilt, or handle, is a cylindrical shape with a slightly larger diameter at the base, giving it a gentle taper upwards towards the crossguard. It is about one-third the length of the blade, maintaining comfortable proportions. \n\nFinally, the pommel at the base of the hilt is a simple, slightly flattened sphere shape. It is sized to be slightly larger than the diameter of the hilt at its base, providing a balanced end to the sword design.\n\nThe model is rendered in neutral grays, making it suitable for any textures and colors to be applied later. The design is clean",
+        "generatedAt": "2025-07-20T20:37:50.223Z",
+        "completedAt": "2025-07-20T20:37:50.223Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/sword-base/sword-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "Meshy AI Retexture",
+        "meshyTaskId": "01982595-71ec-7c10-9a13-d92590afd76b",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "mithril",
+        "materialTier": 3,
+        "materialCategory": "metal",
+        "parentBaseModel": "sword-base",
+        "materialStylePrompt": "mithril metal texture, blue-gray color with magical shimmer, fantasy metallic finish, RuneScape 2007 style",
+        "materialPreset": {
+          "id": "mithril",
+          "displayName": "Mithril",
+          "color": "#4169E1"
+        },
+        "baseModelTaskId": "01982595-71ec-7c10-9a13-d92590afd76b",
+        "retextureTaskId": "0198298d-d2bf-7ee0-b25c-49fea9a10e82",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-mithril/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-mithril/metadata.json",
+        "sword-mithril.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-mithril/sword-mithril.glb"
+      }
+    },
+    "sword-steel": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/sword-steel/concept-art.png",
+          "size": 1130027
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/sword-steel/metadata.json",
+          "size": 2538
+        },
+        {
+          "relativePath": "sword-steel.glb",
+          "blobPath": "models/sword-steel/sword-steel.glb",
+          "size": 1241736
+        }
+      ],
+      "metadata": {
+        "name": "sword-steel",
+        "gameId": "sword-steel",
+        "type": "weapon",
+        "subtype": "sword",
+        "description": "Basic sword with clean geometry, neutral design, low-poly RuneScape 2007 style",
+        "detailedPrompt": "The basic sword model is designed with a simplistic and modest look, adhering to the low-poly aesthetic of RuneScape 2007. The model is completely symmetrical and has a proportionate, balanced design. \n\nStarting from the top, the sword has a narrow, pointed tip that smoothly tapers down into a straight, double-edged blade. The blade has a length-to-width ratio of roughly 6:1 and slightly widens near the hilt. The blade is uniformly flat, with a thin, centered ridge running from the base to the tip, splitting the blade into two equal halves.\n\nThe crossguard is a simple, straight bar perpendicular to the blade. It extends equally on both sides of the blade, with the length being approximately one-third the width of the blade. It has a rounded rectangular shape, with its width slightly less than that of the blade.\n\nThe hilt, or handle, is a cylindrical shape with a slightly larger diameter at the base, giving it a gentle taper upwards towards the crossguard. It is about one-third the length of the blade, maintaining comfortable proportions. \n\nFinally, the pommel at the base of the hilt is a simple, slightly flattened sphere shape. It is sized to be slightly larger than the diameter of the hilt at its base, providing a balanced end to the sword design.\n\nThe model is rendered in neutral grays, making it suitable for any textures and colors to be applied later. The design is clean",
+        "generatedAt": "2025-07-20T18:22:02.515Z",
+        "completedAt": "2025-07-20T18:22:02.515Z",
+        "isBaseModel": false,
+        "materialVariants": [
+          "bronze",
+          "steel",
+          "mithril"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/sword-base/sword-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "Real Meshy AI Retexture",
+        "meshyTaskId": "01982595-71ec-7c10-9a13-d92590afd76b",
+        "meshyStatus": "completed",
+        "isVariant": true,
+        "baseMaterial": "steel",
+        "materialTier": 2,
+        "parentBaseModel": "sword-base",
+        "materialStylePrompt": "Steel",
+        "materialPreset": {
+          "id": "steel",
+          "displayName": "Steel"
+        },
+        "baseModelTaskId": "01982595-71ec-7c10-9a13-d92590afd76b",
+        "retextureTaskId": "01982911-8193-7e38-bd75-0c7ae715b6fc",
+        "retextureStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-steel/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-steel/metadata.json",
+        "sword-steel.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/sword-steel/sword-steel.glb"
+      }
+    },
+    "thug": {
+      "files": [
+        {
+          "relativePath": "animations/running.glb",
+          "blobPath": "models/thug/animations/running.glb",
+          "size": 2636004
+        },
+        {
+          "relativePath": "animations/walking.glb",
+          "blobPath": "models/thug/animations/walking.glb",
+          "size": 2640604
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/thug/concept-art.png",
+          "size": 1361405
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/thug/metadata.json",
+          "size": 1905
+        },
+        {
+          "relativePath": "thug_rigged.glb",
+          "blobPath": "models/thug/thug_rigged.glb",
+          "size": 2640604
+        }
+      ],
+      "metadata": {
+        "name": "thug",
+        "gameId": "thug",
+        "type": "character",
+        "subtype": "humanoid",
+        "description": "a RuneScape 2 inspired thug, no weapons, t-pose",
+        "detailedPrompt": "\"Generate a 3D character asset inspired by RuneScape 2, specifically a thug. The character should be standing in a T-pose for rigging compatibility. He should be masculine with a muscular build, adorned in worn-out and rugged clothing, consistent with the low-poly and pixelated graphics of the 2007 RuneScape style. The thug should have a menacing facial expression with a scar running down one cheek, no weapons but clenched fists. His attire should consist of a torn, dark leather tunic, dirty brown trousers, and worn-out boots, all with distinct texture details to reflect the rough and ready nature of his profession.\"",
+        "generatedAt": "2025-07-22T21:20:20.432Z",
+        "completedAt": "2025-07-22T21:20:20.432Z",
+        "isBaseModel": true,
+        "materialVariants": [],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/thug/thug.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01983400-5c22-7928-9913-57437383b784",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-07-22T21:20:20.432Z",
+        "isRigged": true,
+        "riggingTaskId": "01983402-448f-70f5-b708-d04328a1ae06",
+        "riggingStatus": "completed",
+        "rigType": "humanoid-standard",
+        "characterHeight": 1.7,
+        "animations": {
+          "basic": {
+            "walking": "animations/walking.glb",
+            "tpose": "t-pose.glb",
+            "running": "animations/running.glb"
+          }
+        },
+        "riggedModelPath": "thug_rigged.glb",
+        "tposeModelPath": "t-pose.glb",
+        "supportsAnimation": true,
+        "animationCompatibility": [
+          "mixamo",
+          "unity",
+          "unreal"
+        ]
+      },
+      "blobUrls": {
+        "animations/running.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/thug/animations/running.glb",
+        "animations/walking.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/thug/animations/walking.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/thug/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/thug/metadata.json",
+        "thug_rigged.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/thug/thug_rigged.glb"
+      }
+    },
+    "tree": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/tree/concept-art.png",
+          "size": 1236229
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/tree/metadata.json",
+          "size": 701
+        },
+        {
+          "relativePath": "tree.glb",
+          "blobPath": "models/tree/tree.glb",
+          "size": 2847092
+        }
+      ],
+      "metadata": {
+        "name": "tree",
+        "gameId": "tree",
+        "type": "resource",
+        "subtype": "tree",
+        "description": "Default tree",
+        "detailedPrompt": "Default tree",
+        "generatedAt": "2025-07-20T03:12:44.509Z",
+        "completedAt": "2025-07-20T03:12:44.509Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "standard"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "/home/beast/hyperscape/packages/generation/gdd-assets/logs-base/logs-base.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "019825cf-2997-7b70-bf44-4bce7bd55e73",
+        "meshyStatus": "completed"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/tree/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/tree/metadata.json",
+        "tree.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/tree/tree.glb"
+      }
+    },
+    "troll": {
+      "files": [
+        {
+          "relativePath": "animations/running.glb",
+          "blobPath": "models/troll/animations/running.glb",
+          "size": 2363704
+        },
+        {
+          "relativePath": "animations/walking.glb",
+          "blobPath": "models/troll/animations/walking.glb",
+          "size": 2368324
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "models/troll/concept-art.png",
+          "size": 1438477
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "models/troll/metadata.json",
+          "size": 1985
+        },
+        {
+          "relativePath": "troll_rigged.glb",
+          "blobPath": "models/troll/troll_rigged.glb",
+          "size": 2368324
+        }
+      ],
+      "metadata": {
+        "name": "troll",
+        "gameId": "troll",
+        "type": "character",
+        "subtype": "humanoid",
+        "description": "A RuneScape 2 inspired troll, no weapons, t-pose",
+        "detailedPrompt": "A RuneScape 2007-style troll, standing in T-pose for rigging compatibility. The troll is hulking and muscular, with the characteristically exaggerated proportions typical of the RuneScape aesthetic. Its skin is a rough, stony texture with a mossy green hue. The face features prominent tusky teeth protruding from a wide, gnarled mouth, and beady, crimson eyes peering out from under heavy, knotted brows. Despite being unarmed, the troll's large, clawed hands, outstretched in the T-pose, imply inherent menace. Its lower body is clad in tattered, earthy brown burlap trousers, with visible patches and stitches, demonstrating the RuneScape's low-polygon, simplistic textures.",
+        "generatedAt": "2025-07-27T01:24:16.943Z",
+        "completedAt": "2025-07-27T01:24:16.943Z",
+        "isBaseModel": true,
+        "materialVariants": [],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/troll/troll.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01984978-d5ef-7d4f-ad57-b7a0d444e64a",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-07-27T01:24:16.943Z",
+        "normalized": false,
+        "isRigged": true,
+        "riggingTaskId": "0198497b-0640-7e0c-a8b5-335565bee2b1",
+        "riggingStatus": "completed",
+        "rigType": "humanoid-standard",
+        "characterHeight": 1.7,
+        "animations": {
+          "basic": {
+            "walking": "animations/walking.glb",
+            "tpose": "t-pose.glb",
+            "running": "animations/running.glb"
+          }
+        },
+        "riggedModelPath": "troll_rigged.glb",
+        "tposeModelPath": "t-pose.glb",
+        "supportsAnimation": true,
+        "animationCompatibility": [
+          "mixamo",
+          "unity",
+          "unreal"
+        ]
+      },
+      "blobUrls": {
+        "animations/running.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/troll/animations/running.glb",
+        "animations/walking.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/troll/animations/walking.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/troll/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/troll/metadata.json",
+        "troll_rigged.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/models/troll/troll_rigged.glb"
+      }
+    }
+  }
+}

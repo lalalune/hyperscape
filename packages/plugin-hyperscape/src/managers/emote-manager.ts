@@ -1,5 +1,5 @@
 import type { IAgentRuntime } from "@elizaos/core";
-import { Player, ClientNetwork } from "@hyperscape/shared";
+import { Player, ClientNetwork } from "@hyperscape/shared/client";
 import { promises as fsPromises } from "fs";
 import path from "path";
 import { NETWORK_CONFIG } from "../config/constants";

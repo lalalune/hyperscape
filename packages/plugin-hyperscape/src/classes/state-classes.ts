@@ -5,7 +5,10 @@
  * Converted from interfaces to classes with encapsulation and methods
  */
 
-import type { Position } from "@hyperscape/shared";
+import type { Position3D } from "@hyperscape/shared/client";
+
+// Type alias for backward compatibility
+type Position = Position3D;
 
 /**
  * RPGPlayerStats - Player attribute statistics

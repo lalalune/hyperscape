@@ -19,7 +19,7 @@ import { items } from '../data/items';
 import type { DroppedItem } from '../types/system-interfaces';
 import { groundToTerrain } from '../utils/EntityUtils';
 import { EntityManager } from './EntityManager';
-import { ALL_MOBS } from '../data/mobs';
+import { ALL_MOBS } from '../data/characters';
 
 
 export class LootSystem extends SystemBase {
@@ -53,7 +53,22 @@ export class LootSystem extends SystemBase {
     this.setupLootTables();
     
     // Subscribe to loot events using type-safe event system
-    // Listen for the official mob death event (normalize various emitters)
+    // Unified character death event (preferred)
+    this.subscribe(EventType.CHARACTER_DIED, (event: { characterId?: string; characterType?: string; killerId?: string; killedBy?: string; level?: number; position?: { x: number; y: number; z: number } }) => {
+      // Only handle mob deaths (not NPCs)
+      if (event.characterType === 'mob' || !event.characterType) {
+        const d = event;
+        const payload = {
+          mobId: d.characterId as string,
+          mobType: (d.characterId || 'unknown') as string,
+          level: (d.level ?? 1) as number,
+          killedBy: (d.killerId ?? d.killedBy ?? 'unknown') as string,
+          position: d.position ?? { x: 0, y: 0, z: 0 }
+        };
+        this.handleMobDeath(payload);
+      }
+    });
+    // Legacy mob death event (deprecated - for backward compatibility)
     this.subscribe(EventType.MOB_DIED, (event: { mobId?: string; killerId?: string; mobType?: string; level?: number; killedBy?: string; position?: { x: number; y: number; z: number } }) => {
       const d = event;
       // Backfill minimal shape expected by handleMobDeath if missing

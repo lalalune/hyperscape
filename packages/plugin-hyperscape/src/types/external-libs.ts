@@ -3,7 +3,7 @@ import {
   type PxVec3,
   type PxTransform,
   type PxQuat,
-} from "@hyperscape/shared";
+} from "@hyperscape/shared/client";
 
 // THREE.js Extensions
 export interface EnhancedVector3 extends THREE.Vector3 {

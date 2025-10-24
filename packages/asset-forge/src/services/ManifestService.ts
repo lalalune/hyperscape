@@ -17,6 +17,7 @@ import type {
   AnyManifest
 } from '../types/manifests'
 import { createLogger } from '../utils/logger.ts'
+import { apiFetch } from '../utils/api.ts'
 
 const logger = createLogger('ManifestService')
 
@@ -36,6 +37,7 @@ export class ManifestService {
   
   /**
    * Fetch a specific manifest from CDN
+   * Uses automatic request deduplication for concurrent calls
    */
   async fetchManifest<T extends AnyManifest>(type: ManifestType): Promise<T[]> {
     // Check cache first
@@ -44,20 +46,20 @@ export class ManifestService {
     }
 
     try {
-      const response = await fetch(`${MANIFESTS_BASE_URL}/${type}.json`)
-      
+      const response = await apiFetch(`${MANIFESTS_BASE_URL}/${type}.json`)
+
       if (!response.ok) {
         throw new Error(`Failed to fetch ${type} manifest: ${response.statusText}`)
       }
 
       const data = await response.json()
-      
+
       // Handle both array and object formats
       const manifestData = Array.isArray(data) ? data : Object.values(data)
-      
+
       // Cache the result
       this.cache.set(type, manifestData as AnyManifest[])
-      
+
       return manifestData as T[]
     } catch (error) {
       logger.error(`Error fetching ${type} manifest`, error)

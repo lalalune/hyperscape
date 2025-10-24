@@ -17,12 +17,12 @@ import type {
   WorldPosition,
   BiomeResource,
   NPCLocation,
-  MobSpawnPoint,
+  CharacterSpawnPoint,
   WorldArea
 } from '../types/core';
 
 // Re-export types from core
-export type { WorldArea, BiomeResource, NPCLocation, MobSpawnPoint } from '../types/core';
+export type { WorldArea, BiomeResource, NPCLocation, CharacterSpawnPoint } from '../types/core';
 
 /**
  * World Areas Database - Populated at runtime from JSON manifests
@@ -70,16 +70,16 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
         level: 1
       }
     ],
-    mobSpawns: [
+    characterSpawns: [
       {
-        mobId: 'goblin',
+        characterId: 'goblin',
         position: { x: 25, y: 43, z: 25 },
         spawnRadius: 10,
         maxCount: 3,
         respawnTime: 60000
       },
       {
-        mobId: 'goblin',
+        characterId: 'goblin',
         position: { x: -25, y: 43, z: 25 },
         spawnRadius: 10,
         maxCount: 2,
@@ -132,9 +132,9 @@ export function getResourcesInArea(areaId: string): BiomeResource[] {
   return area ? area.resources : [];
 }
 
-export function getMobSpawnsInArea(areaId: string): MobSpawnPoint[] {
+export function getMobSpawnsInArea(areaId: string): CharacterSpawnPoint[] {
   const area = getAreaById(areaId);
-  return area ? area.mobSpawns : [];
+  return area ? area.characterSpawns : [];
 }
 
 /**

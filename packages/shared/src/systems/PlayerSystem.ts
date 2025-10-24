@@ -954,6 +954,15 @@ export class PlayerSystem extends SystemBase {
   private spawnAggroGoblin(playerId: string, position: { x: number; y: number; z: number }, index: number): void {
     const goblinId = `starter_goblin_${playerId}_${index}`
 
+    // Use unified CHARACTER_SPAWN_REQUEST (preferred)
+    this.emitTypedEvent(EventType.CHARACTER_SPAWN_REQUEST, {
+      characterId: 'goblin',
+      characterType: 'mob' as const,
+      position: position,
+      level: 1,
+      customId: goblinId,
+    })
+    // Also emit legacy event for backward compatibility
     this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
       mobType: 'goblin',
       position: position,
@@ -975,6 +984,9 @@ export class PlayerSystem extends SystemBase {
   private cleanupPlayerMobs(playerId: string): void {
     for (let i = 0; i < 3; i++) {
       const goblinId = `starter_goblin_${playerId}_${i}`
+      // Use unified CHARACTER_DESPAWNED (preferred)
+      this.emitTypedEvent(EventType.CHARACTER_DESPAWNED, { characterId: goblinId })
+      // Also emit legacy event for backward compatibility
       this.emitTypedEvent(EventType.MOB_DESPAWN, { mobId: goblinId })
     }
   }

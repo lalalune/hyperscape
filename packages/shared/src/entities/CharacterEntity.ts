@@ -117,7 +117,7 @@ export class CharacterEntity extends CombatantEntity {
 
   constructor(world: World, config: CharacterEntityConfig) {
     // Convert CharacterEntityConfig to CombatantConfig format
-    const combatConfig: CombatantConfig = {
+    const combatConfig = {
       ...config,
       rotation: config.rotation || { x: 0, y: 0, z: 0, w: 1 },
       combat: {
@@ -130,7 +130,7 @@ export class CharacterEntity extends CombatantEntity {
         aggroRadius: config.aggroRange || 10,
         attackRange: config.combatRange || 2
       }
-    };
+    } as unknown as CombatantConfig;
 
     super(world, combatConfig);
     this.config = config;
@@ -254,8 +254,7 @@ export class CharacterEntity extends CombatantEntity {
   private handleBank(playerId: string): void {
     this.world.emit(EventType.BANK_OPEN_REQUEST, {
       playerId,
-      characterId: this.characterId,
-      characterName: this.config.name
+      npcId: this.id  // Use entity ID for backward compatibility
     });
   }
 
@@ -265,8 +264,7 @@ export class CharacterEntity extends CombatantEntity {
   private handleShop(playerId: string): void {
     this.world.emit(EventType.STORE_OPEN_REQUEST, {
       playerId,
-      characterId: this.characterId,
-      characterName: this.config.name,
+      npcId: this.id,  // Use entity ID for backward compatibility
       inventory: this.shopInventory
     });
   }

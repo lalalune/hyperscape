@@ -1,4 +1,4 @@
-import { ALL_MOBS } from '../data/mobs';
+import { ALL_MOBS } from '../data/characters';
 import { ALL_WORLD_AREAS } from '../data/world-areas';
 import type { MobData, MobSpawnStats } from '../types/core';
 import { EventType } from '../types/events';
@@ -11,9 +11,9 @@ import { TerrainSystem } from './TerrainSystem';
 
 /**
  * MobSpawnerSystem
- * 
- * Uses EntityManager to spawn mob entities instead of MobApp objects.
- * Creates and manages all mob instances across the world based on GDD specifications.
+ *
+ * Uses EntityManager to spawn character entities.
+ * Creates and manages all hostile character instances across the world based on GDD specifications.
  */
 export class MobSpawnerSystem extends SystemBase {
   private spawnedMobs = new Map<string, string>(); // mobId -> entityId
@@ -27,7 +27,7 @@ export class MobSpawnerSystem extends SystemBase {
       name: 'mob-spawner',
       dependencies: {
         required: ['entity-manager', 'terrain'], // Depends on EntityManager and terrain for placement
-        optional: ['mob'] // Better with mob system
+        optional: ['character'] // Better with character system
       },
       autoCleanup: true
     });
@@ -37,19 +37,25 @@ export class MobSpawnerSystem extends SystemBase {
     // Get terrain system reference
     this.terrainSystem = this.world.getSystem<TerrainSystem>('terrain')!;
     
-    // Set up event subscriptions for mob lifecycle (do not consume MOB_SPAWN_REQUEST to avoid re-emission loops)
+    // Set up event subscriptions for character lifecycle (unified mob/npc system)
+    // Legacy event support (deprecated - use CHARACTER_ events)
     this.subscribe<{ mobId: string }>(EventType.MOB_DESPAWN, (data) => {
       this.despawnMob(data.mobId);
     });
     this.subscribe(EventType.MOB_RESPAWN_ALL, (_event) => this.respawnAllMobs());
+
+    // Unified character events (preferred)
+    this.subscribe<{ characterId: string }>(EventType.CHARACTER_DESPAWNED, (data) => {
+      this.despawnMob(data.characterId);
+    });
     
     // Subscribe to terrain generation to spawn mobs for new tiles
     this.subscribe(EventType.TERRAIN_TILE_GENERATED, (data) => this.onTileGenerated(data as { tileX: number; tileZ: number; biome: string }));
 
-    // Listen for entity spawned events to track our mobs
+    // Listen for entity spawned events to track our characters
     this.subscribe<EntitySpawnedEvent>(EventType.ENTITY_SPAWNED, (data) => {
-      // Only handle mob entities
-      if (data.entityType === 'mob') {
+      // Only handle character entities
+      if (data.entityType === 'character') {
         this.handleEntitySpawned(data);
       }
     });
@@ -96,7 +102,7 @@ export class MobSpawnerSystem extends SystemBase {
     
     const mobConfig = {
       id: 'default_goblin_1',
-      type: 'mob' as const,
+      type: 'character' as const,
       name: 'Goblin',
       position: { x: 5, y: y + 1.0, z: 15 },  // Raised Y to be clearly above terrain
       rotation: { x: 0, y: 0, z: 0, w: 1 },
@@ -108,8 +114,9 @@ export class MobSpawnerSystem extends SystemBase {
       description: 'A hostile goblin',
       model: 'asset://models/goblin/goblin_rigged.glb',
       properties: {},
-      // MobEntity specific
-      mobType: 'goblin',
+      // CharacterEntity specific (hostile mob character type)
+      characterId: 'goblin',
+      characterType: 'mob',
       level: 2,
       currentHealth: 30,
       maxHealth: 30,
@@ -154,20 +161,30 @@ export class MobSpawnerSystem extends SystemBase {
     // Track this spawn BEFORE emitting to prevent race conditions
     this.spawnedMobs.set(mobId, mobData.id);
     
-    // Use EntityManager to spawn mob via event system
-    this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
-      mobType: mobData.id,
-      level: mobData.stats.level,
+    // Use EntityManager to spawn character via unified event system
+    this.emitTypedEvent(EventType.CHARACTER_SPAWN_REQUEST, {
+      characterId: mobData.id,
+      characterType: 'mob' as const,
+      level: mobData.level,
       position: position,
       respawnTime: mobData.respawnTime || 300000, // 5 minutes default
       customId: mobId // Pass our custom ID for tracking
     });
+
+    // Also emit legacy event for backward compatibility (deprecated)
+    this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
+      mobType: mobData.id,
+      level: mobData.level,
+      position: position,
+      respawnTime: mobData.respawnTime || 300000,
+      customId: mobId
+    });
   }
 
   private handleEntitySpawned(data: EntitySpawnedEvent): void {
-    // Track mobs spawned by the EntityManager  
-    if (data.entityType === 'mob' && data.entityData?.mobType) {
-      // Find matching request based on mob type and position
+    // Track characters spawned by the EntityManager
+    if (data.entityType === 'character' && data.entityData?.mobType) {
+      // Find matching request based on character type and position
       for (const [mobId] of this.spawnedMobs) {
         if (!this.spawnedMobs.get(mobId) && mobId.includes(data.entityData.mobType as string)) {
           this.spawnedMobs.set(mobId, data.entityId!);
@@ -283,24 +300,29 @@ export class MobSpawnerSystem extends SystemBase {
    * Spawn mobs from a world area when its tile generates
    */
   private generateMobSpawnsForArea(area: typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS], tileData: { tileX: number; tileZ: number }): void {
+    // Skip if area doesn't have character spawns defined
+    if (!area || !area.characterSpawns) {
+      return;
+    }
+
     const TILE_SIZE = this.terrainSystem.getTileSize();
-    for (const spawnPoint of area.mobSpawns) {
+    for (const spawnPoint of area.characterSpawns) {
       const spawnTileX = Math.floor(spawnPoint.position.x / TILE_SIZE);
       const spawnTileZ = Math.floor(spawnPoint.position.z / TILE_SIZE);
 
       if (spawnTileX === tileData.tileX && spawnTileZ === tileData.tileZ) {
-        // Ground mob spawn to terrain height
+        // Ground character spawn to terrain height
         let mobY = spawnPoint.position.y;
         const th = this.terrainSystem.getHeightAt(spawnPoint.position.x, spawnPoint.position.z);
         if (Number.isFinite(th)) mobY = (th as number) + 0.1;
-        
-        // Directly spawn the mob instead of emitting an event back to ourselves
-        const mobData = ALL_MOBS[spawnPoint.mobId as keyof typeof ALL_MOBS];
+
+        // Directly spawn the character instead of emitting an event back to ourselves
+        const mobData = ALL_MOBS[spawnPoint.characterId as keyof typeof ALL_MOBS];
         if (mobData) {
-          this.spawnMobFromData(mobData, { 
-            x: spawnPoint.position.x, 
-            y: mobY, 
-            z: spawnPoint.position.z 
+          this.spawnMobFromData(mobData, {
+            x: spawnPoint.position.x,
+            y: mobY,
+            z: spawnPoint.position.z
           });
         }
       }

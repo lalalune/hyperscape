@@ -1,5 +1,5 @@
 import { IAgentRuntime } from "@elizaos/core";
-import { THREE, Player } from "@hyperscape/shared";
+import { THREE, Player } from "@hyperscape/shared/client";
 import fs, { promises as fsPromises } from "fs";
 import path from "path";
 import { chromium, Browser, Page, PageScreenshotOptions } from "playwright";

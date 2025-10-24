@@ -128,5 +128,15 @@
     "color": "#b78034",
     "stylePrompt": "Simple Brass Metal",
     "description": "Custom material"
+  },
+  {
+    "id": "moss",
+    "name": "moss",
+    "displayName": "Moss",
+    "category": "custom",
+    "tier": 14,
+    "color": "#336402",
+    "stylePrompt": "Fibery, alive, moss",
+    "description": "Custom material"
   }
 ]

@@ -3,7 +3,7 @@ import { SystemBase } from './SystemBase'
 import type { World } from '../types'
 import { EventType } from '../types/events'
 
-import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js'
 
 /**
  * XR System

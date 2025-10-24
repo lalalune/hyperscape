@@ -21,7 +21,7 @@ import {
   Character,
 } from "@elizaos/core";
 import { Entity, World } from "./core-types";
-import type { Player } from "@hyperscape/shared";
+import type { Player } from "@hyperscape/shared/client";
 
 // Real test configuration interface
 export interface TestRuntimeConfig {

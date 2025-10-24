@@ -1,0 +1,24 @@
+{
+  "name": "asset-forge-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Asset Forge API - Serverless Functions",
+  "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.35",
+    "@ai-sdk/openai": "^2.0.53",
+    "@elevenlabs/elevenlabs-js": "^2.20.1",
+    "@privy-io/server-auth": "^1.14.0",
+    "@vercel/blob": "^2.0.0",
+    "ai": "^5.0.76",
+    "better-sqlite3": "^11.9.0",
+    "dotenv": "^16.3.1",
+    "drizzle-orm": "^0.36.4",
+    "elevenlabs": "^0.8.2",
+    "eventemitter3": "^5.0.1",
+    "express": "^4.18.2",
+    "express-jwt": "^8.4.1",
+    "express-rate-limit": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-10-24T15:11:48.188Z",
+  "filesConverted": 1,
+  "errors": [],
+  "convertedFiles": [
+    {
+      "path": "src/workers/examples/WorkerUsageExample.ts",
+      "classes": 9
+    }
+  ]
+}

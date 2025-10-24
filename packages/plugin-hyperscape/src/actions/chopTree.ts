@@ -12,7 +12,7 @@ import {
   logger,
 } from '@elizaos/core'
 import { HyperscapeService } from '../service'
-import type { ResourceSystem, ResourceItem } from '../types/resource-types'
+import { isResourceSystem } from '../types/resource-types'
 
 const RESOURCE_GATHERING_COMPLETED = 'rpg:resource:gathering:completed'
 const INVENTORY_UPDATED = 'rpg:inventory:updated'
@@ -48,8 +48,9 @@ export const chopTreeAction: Action = {
     }
 
     // Check for nearby trees
-    const resourceSystem = world?.getSystem?.('resource') as ResourceSystem | undefined
-    const allResources = resourceSystem?.getAllResources?.() || []
+    const system = world?.getSystem?.('resource')
+    const resourceSystem = system && isResourceSystem(system) ? system : undefined
+    const allResources = resourceSystem?.getAllResources() || []
     const player = world?.entities?.player
     const playerPos = player?.position
 

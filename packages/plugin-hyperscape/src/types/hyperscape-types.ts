@@ -6,7 +6,7 @@ import type {
   Quaternion,
   Component,
   WorldOptions,
-} from "@hyperscape/shared";
+} from "@hyperscape/shared/client";
 
 import type { UUID } from "@elizaos/core";
 

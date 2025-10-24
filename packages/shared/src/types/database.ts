@@ -147,9 +147,9 @@ export interface SessionRow {
 export interface CombatLogRow {
   id: number
   attackerId: string
-  attackerType: 'player' | 'mob'
+  attackerType: 'player' | 'character'
   targetId: string
-  targetType: 'player' | 'mob'
+  targetType: 'player' | 'character'
   damage: number
   weaponType: string // TODO: Use AttackType union
   combatStyle: string // TODO: Use CombatStyle union
@@ -162,7 +162,7 @@ export interface DeathLogRow {
   id: number
   playerId: string
   killedBy: string
-  killerType: 'player' | 'mob' | 'environment'
+  killerType: 'player' | 'character' | 'environment'
   deathLocation: string // JSON string with x, y, z
   itemsLost: string | null // JSON array of item IDs
   timestamp: number

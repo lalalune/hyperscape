@@ -22,7 +22,7 @@ import type {
   Vector3,
   Quaternion,
   Component,
-} from "@hyperscape/shared";
+} from "@hyperscape/shared/client";
 
 // Import and re-export Zod-validated types for strict type safety (CLAUDE.md compliance)
 import type { EntityCreationData, EntityUpdateData, Metadata } from "./validation-schemas";

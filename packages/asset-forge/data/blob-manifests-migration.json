@@ -1,0 +1,73 @@
+{
+  "startedAt": "2025-10-23T04:45:41.130Z",
+  "completedAt": "2025-10-23T04:45:42.472Z",
+  "totalFiles": 13,
+  "totalSize": 110733,
+  "manifests": {
+    "asset-requirements.json": {
+      "blobPath": "manifests/asset-requirements.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/asset-requirements.json",
+      "size": 10709
+    },
+    "avatars.json": {
+      "blobPath": "manifests/avatars.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/avatars.json",
+      "size": 547
+    },
+    "banks.json": {
+      "blobPath": "manifests/banks.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/banks.json",
+      "size": 1461
+    },
+    "batch-generation.json": {
+      "blobPath": "manifests/batch-generation.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/batch-generation.json",
+      "size": 4753
+    },
+    "biomes.json": {
+      "blobPath": "manifests/biomes.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/biomes.json",
+      "size": 5604
+    },
+    "buildings.json": {
+      "blobPath": "manifests/buildings.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/buildings.json",
+      "size": 3
+    },
+    "characters.json": {
+      "blobPath": "manifests/characters.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/characters.json",
+      "size": 35785
+    },
+    "items.json": {
+      "blobPath": "manifests/items.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/items.json",
+      "size": 12545
+    },
+    "music.json": {
+      "blobPath": "manifests/music.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/music.json",
+      "size": 4840
+    },
+    "resources.json": {
+      "blobPath": "manifests/resources.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/resources.json",
+      "size": 350
+    },
+    "stores.json": {
+      "blobPath": "manifests/stores.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/stores.json",
+      "size": 7000
+    },
+    "world-areas.json": {
+      "blobPath": "manifests/world-areas.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/world-areas.json",
+      "size": 16090
+    },
+    "zones.json": {
+      "blobPath": "manifests/zones.json",
+      "url": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/manifests/zones.json",
+      "size": 11046
+    }
+  }
+}

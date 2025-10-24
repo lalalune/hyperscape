@@ -1,12 +1,13 @@
 /**
  * Dialogue Generation API Route
- * 
+ *
  * AI-powered dialogue tree node generation using few-shot prompting
  */
 
 import { generateText } from 'ai'
 import { getModelForTask } from '../utils/ai-router.mjs'
 import { makeDialogueNodePrompt, parseDialogueResponse } from '../utils/dialogue-prompts.mjs'
+import { standardErrors } from '../utils/errorResponse.mjs'
 
 export async function POST(req, res) {
   try {
@@ -23,6 +24,24 @@ export async function POST(req, res) {
     if (!npcPersonality || typeof npcPersonality !== 'string') {
       return res.status(400).json({
         error: "Invalid input: 'npcPersonality' must be a string"
+      })
+    }
+
+    if (npcName.length > 10000) {
+      return res.status(400).json({
+        error: "Invalid input: 'npcName' must not exceed 10,000 characters"
+      })
+    }
+
+    if (npcPersonality.length > 10000) {
+      return res.status(400).json({
+        error: "Invalid input: 'npcPersonality' must not exceed 10,000 characters"
+      })
+    }
+
+    if (context && typeof context === 'string' && context.length > 10000) {
+      return res.status(400).json({
+        error: "Invalid input: 'context' must not exceed 10,000 characters"
       })
     }
 
@@ -56,10 +75,10 @@ export async function POST(req, res) {
       text = result.text
     } catch (error) {
       console.error('AI generation error:', error)
-      return res.status(500).json({
-        error: 'Failed to generate dialogue from AI service',
-        details: error.message
-      })
+      return res.status(500).json(standardErrors.generationFailed('AI', {
+        errorMessage: error.message,
+        stack: error.stack
+      }))
     }
 
     // Parse AI response
@@ -68,10 +87,7 @@ export async function POST(req, res) {
       nodes = parseDialogueResponse(text)
     } catch (error) {
       console.error('Parse error:', error)
-      return res.status(502).json({
-        error: 'Failed to parse AI response',
-        rawResponse: text
-      })
+      return res.status(502).json(standardErrors.parseError(text, error))
     }
 
     return res.json({
@@ -81,10 +97,10 @@ export async function POST(req, res) {
     })
   } catch (error) {
     console.error('Dialogue generation error:', error)
-    return res.status(500).json({
-      error: 'Failed to generate dialogue',
-      details: error.message
-    })
+    return res.status(500).json(standardErrors.internalError('Failed to generate dialogue', {
+      errorMessage: error.message,
+      stack: error.stack
+    }))
   }
 }
 

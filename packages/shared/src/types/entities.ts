@@ -21,10 +21,8 @@ import type {
 // Enums for better type safety instead of string literals
 export enum EntityType {
   PLAYER = 'player',
-  MOB = 'mob',
   ITEM = 'item',
-  NPC = 'npc',
-  CHARACTER = 'character', // Unified NPC + Mob entity
+  CHARACTER = 'character',
   RESOURCE = 'resource',
   HEADSTONE = 'headstone',
   STATIC = 'static'
@@ -50,24 +48,7 @@ export enum PlayerCombatStyle {
   RANGED = 'ranged'
 }
 
-// Mob types are now fully data-driven from mobs.json
-// No enum needed - use string type with mob IDs from JSON
-
-export enum MobAIState {
-  IDLE = 'idle',
-  PATROL = 'patrol',
-  CHASE = 'chase',
-  ATTACK = 'attack',
-  FLEE = 'flee',
-  DEAD = 'dead'
-}
-
-export enum NPCType {
-  BANK = 'bank',
-  STORE = 'store',
-  QUEST_GIVER = 'quest_giver',
-  TRAINER = 'trainer'
-}
+// Legacy enums removed - use CharacterEntity behavior trees and services instead
 
 export enum ResourceType {
   TREE = 'tree',
@@ -169,43 +150,7 @@ export interface ItemEntityConfig extends EntityConfig<ItemEntityProperties> {
   healAmount?: number;
 }
 
-// Mob entity config
-export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
-  type: EntityType.MOB;
-  mobType: string; // Mob ID from mobs.json (e.g., 'goblin', 'bandit')
-  level: number;
-  maxHealth: number;
-  currentHealth: number;
-  attackPower: number;
-  defense: number;
-  attackSpeed: number;
-  moveSpeed: number;
-  aggroRange: number;
-  combatRange: number;
-  respawnTime: number;
-  xpReward: number;
-  lootTable: Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }>;
-  spawnPoint: Position3D;
-  aiState: MobAIState;
-  targetPlayerId: string | null;
-  lastAttackTime: number;
-  deathTime: number | null;
-}
-
-// NPC entity config
-export interface NPCEntityConfig extends EntityConfig<NPCEntityProperties> {
-  npcType: NPCType;
-  npcId: string;
-  dialogueLines: string[];
-  services: string[];
-  inventory: Array<{
-    itemId: string;
-    quantity: number;
-    price: number;
-  }>;
-  skillsOffered: string[];
-  questsAvailable: string[];
-}
+// Legacy types removed - use CharacterEntityConfig instead
 
 // Character entity config (unified NPC + Mob)
 export interface CharacterEntityConfig extends EntityConfig<BaseEntityProperties> {
@@ -335,19 +280,6 @@ export interface PlayerEntityProperties extends BaseEntityProperties {
   combatStyle: PlayerCombatStyle;
 }
 
-// NPC-specific properties
-export interface NPCEntityProperties extends BaseEntityProperties {
-  npcComponent: NPCComponent;
-  dialogue: string[];
-  shopInventory: Array<{ itemId: string; price: number; quantity: number }>;
-  questGiver: boolean;
-}
-
-// Mob-specific properties
-export interface MobEntityProperties extends BaseEntityProperties {
-  // Mobs use combat and movement components from base
-}
-
 // Item-specific properties
 export interface ItemEntityProperties extends BaseEntityProperties {
   itemId: string;
@@ -455,7 +387,7 @@ export interface NPCSpawnData {
   name: string;
   position: Position3D;
   model: string | null;
-  npcType: NPCType;
+  npcType: string; // Character services: 'bank', 'shop', 'quest', 'training'
   dialogues: Array<{
     text: string;
     options: Array<{

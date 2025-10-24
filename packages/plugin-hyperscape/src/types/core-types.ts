@@ -2,7 +2,7 @@
 import { Action, IAgentRuntime, Provider, Service, UUID } from "@elizaos/core";
 
 // Import classes and types from hyperscape package
-import { System, World } from "@hyperscape/shared";
+import { System, World } from "@hyperscape/shared/client";
 
 import type {
   Component,
@@ -20,7 +20,7 @@ import type {
   RigidBody as HyperscapeRigidBody,
   Collider,
   PhysicsMaterial,
-} from "@hyperscape/shared";
+} from "@hyperscape/shared/client";
 
 // Re-export RigidBody from shared - it has the interface we need
 export type RigidBody = HyperscapeRigidBody;

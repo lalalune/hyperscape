@@ -7,7 +7,7 @@ import {
   type ProviderResult,
   type Entity as ElizaEntity,
 } from "@elizaos/core";
-import { THREE, type ClientActions } from "@hyperscape/shared";
+import { THREE, type ClientActions } from "@hyperscape/shared/client";
 import { HyperscapeService } from "../service";
 import type {
   Entity as HyperscapeEntity,

@@ -1,10 +1,10 @@
 import { logger } from "@elizaos/core";
 import { isNumber, isString } from "lodash-es";
-import { THREE, System } from "@hyperscape/shared";
+import { THREE, System } from "@hyperscape/shared/client";
 // CSM import removed - not available in current hyperscape version
 import { PlaywrightManager } from "../managers/playwright-manager";
 import { resolveUrl } from "../utils";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperscape/shared/client";
 
 // Helper to check if renderer is WebGLRenderer
 function isWebGLRenderer(renderer: THREE.Renderer | THREE.WebGLRenderer): renderer is THREE.WebGLRenderer {

@@ -26,12 +26,12 @@ export async function loadPhysXScript(options?: PhysXInitOptions): Promise<PhysX
     }
 
     const script = document.createElement('script')
-    // Load from CDN (always absolute URL to avoid Vite conflicts)
-    const windowWithCdn = window as Window & { __CDN_URL?: string }
-    const cdnUrl = windowWithCdn.__CDN_URL || 'http://localhost:8080'
-    const scriptUrl = `${cdnUrl}/web/physx-js-webidl.js`
-    
-    script.src = scriptUrl
+
+    // TEMPORARY: For development, try loading from Vite public directory first
+    // This avoids needing a separate CDN server during development
+    const viteUrl = '/physx-js-webidl.js'
+    console.log('[physx-script-loader] Attempting to load from Vite public directory:', viteUrl)
+    script.src = viteUrl
     script.async = true
     
     script.onload = () => {      
@@ -54,8 +54,41 @@ export async function loadPhysXScript(options?: PhysXInitOptions): Promise<PhysX
     }
     
     script.onerror = (error) => {
-      console.error('[physx-script-loader] Failed to load PhysX script:', error)
-      reject(new Error('Failed to load PhysX script'))
+      console.warn('[physx-script-loader] Failed to load from Vite, trying CDN...')
+      // Fallback to CDN
+      const windowWithCdn = window as Window & { __CDN_URL?: string }
+      const cdnUrl = windowWithCdn.__CDN_URL || 'http://localhost:8080'
+      const cdnScriptUrl = `${cdnUrl}/web/physx-js-webidl.js`
+      console.log('[physx-script-loader] Attempting to load from CDN:', cdnScriptUrl)
+
+      const cdnScript = document.createElement('script')
+      cdnScript.src = cdnScriptUrl
+      cdnScript.async = true
+
+      cdnScript.onload = () => {
+        setTimeout(() => {
+          const w3 = window as PhysXWindow
+          if (w3.PhysX) {
+            const PhysXFn = w3.PhysX!
+            PhysXFn(options).then((physx) => {
+              resolve(physx)
+            }).catch((error) => {
+              console.error('[physx-script-loader] PhysX CDN initialization failed:', error)
+              reject(error)
+            })
+          } else {
+            console.error('[physx-script-loader] PhysX function not found after CDN script load')
+            reject(new Error('PhysX global function not found after CDN script load'))
+          }
+        }, 100)
+      }
+
+      cdnScript.onerror = (cdnError) => {
+        console.error('[physx-script-loader] Failed to load PhysX from both Vite and CDN:', cdnError)
+        reject(new Error('Failed to load PhysX script from both Vite and CDN'))
+      }
+
+      document.head.appendChild(cdnScript)
     }
     
     document.head.appendChild(script)

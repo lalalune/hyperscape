@@ -213,14 +213,6 @@ export interface PlayerSystem extends System {
   getPlayer(playerId: string): Player | null
 }
 
-export interface MobSystem extends System {
-  getMob(mobId: string): Entity | null
-  spawnMob(config: unknown): Promise<unknown>
-  getMobCount(): number
-  getActiveMobs(): Entity[]
-  getSpawnedMobs(): Map<string, unknown>
-}
-
 export interface CombatSystem extends System {
   startCombat(attackerId: string, targetId: string, options?: unknown): boolean
   isInCombat(entityId: string): boolean
@@ -371,7 +363,7 @@ export interface LootItem extends Item {
  */
 export interface EntitySpawnedEvent {
   entityId?: string;
-  entityType?: 'player' | 'mob' | 'item' | 'npc' | 'resource';
+  entityType?: 'player' | 'character' | 'item' | 'resource';
   position?: Position3D;
   entityData?: Record<string, unknown>;
   type?: string;
@@ -563,10 +555,6 @@ export interface NPCSystemInfo {
  */
 export function isPhysicsSystem(system: System): system is PhysicsSystem {
   return 'scene' in system && 'createLayerMask' in system
-}
-
-export function isMobSystem(system: System): system is MobSystem {
-  return 'getMob' in system && 'spawnMob' in system
 }
 
 /**

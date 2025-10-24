@@ -8,7 +8,7 @@ import {
   type State,
 } from "@elizaos/core";
 import { Entity } from "../types/core-types";
-import type { World as HyperscapeWorld } from "@hyperscape/shared";
+import type { World as HyperscapeWorld } from "@hyperscape/shared/client";
 import type { HyperscapeService } from "../service";
 import { composeContext, generateMessageResponse } from "../utils/ai-helpers";
 

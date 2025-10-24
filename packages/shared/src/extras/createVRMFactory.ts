@@ -38,7 +38,7 @@
  * **Referenced by:** Avatar nodes, PlayerLocal, PlayerRemote
  */
 
-import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js'
 
 import type { GLBData } from '../types'
 import type { VRMHooks } from '../types/physics'

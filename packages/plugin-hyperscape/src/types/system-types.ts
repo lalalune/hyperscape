@@ -2,9 +2,9 @@
  * Specific system types for Hyperscape plugin
  */
 
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperscape/shared/client";
 import { System } from "./core-types";
-import type { ClientInput } from "@hyperscape/shared";
+import type { ClientInput } from "@hyperscape/shared/client";
 
 // Client Input system interface with agent control methods
 // ClientInput now provides both hardware input and programmatic agent control

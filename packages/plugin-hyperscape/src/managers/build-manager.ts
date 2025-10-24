@@ -1,12 +1,12 @@
 import { IAgentRuntime, logger, UUID } from "@elizaos/core";
 import { Entity, World } from "../types/core-types";
-import type { Vector3, Quaternion, Component } from "@hyperscape/shared";
+import type { Vector3, Quaternion, Component } from "@hyperscape/shared/client";
 import type {
   BuildManager as IBuildManager,
   EntityCreationData,
   EntityUpdateData
 } from "../types/core-interfaces";
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperscape/shared/client";
 import { EntityCreationDataSchema, EntityUpdateDataSchema } from "../types/validation-schemas";
 
 /**

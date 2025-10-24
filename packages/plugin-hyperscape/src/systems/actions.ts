@@ -1,6 +1,6 @@
-import { THREE, System } from "@hyperscape/shared";
+import { THREE, System } from "@hyperscape/shared/client";
 import { CONTROLS_CONFIG } from "../config/constants";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperscape/shared/client";
 
 interface ActionNode extends THREE.Object3D {
   ctx: {

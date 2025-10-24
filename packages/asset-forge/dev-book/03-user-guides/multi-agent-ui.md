@@ -712,7 +712,7 @@ Click **📥 Export** to download full report JSON:
 
 **Solution:**
 - Check `.env` has correct API keys
-- Verify API key has sufficient credits
+- Verify API key is properly configured
 - Try again in a few moments (may be rate limit)
 - Check server logs for detailed error
 

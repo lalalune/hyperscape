@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { System } from "../types/core-types";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperscape/shared/client";
 
 export interface LiveKitInitOptions {
   wsUrl: string;

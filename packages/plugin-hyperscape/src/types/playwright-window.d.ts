@@ -1,4 +1,4 @@
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperscape/shared/client";
 
 declare global {
   interface Window {

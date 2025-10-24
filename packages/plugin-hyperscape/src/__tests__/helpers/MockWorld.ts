@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { Player, THREE, EventType } from "@hyperscape/shared";
+import { Player, THREE, EventType } from "@hyperscape/shared/client";
 
 type Vector3 = THREE.Vector3;
 

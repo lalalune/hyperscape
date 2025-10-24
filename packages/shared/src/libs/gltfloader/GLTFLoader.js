@@ -77,7 +77,7 @@ import {
 } from 'three';
 // HYP_IMPORT_CHANGE
 // import { toTrianglesDrawMode } from '../utils/BufferGeometryUtils.js';
-import { toTrianglesDrawMode } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { toTrianglesDrawMode } from 'three/addons/utils/BufferGeometryUtils.js';
 
 class GLTFLoader extends Loader {
 

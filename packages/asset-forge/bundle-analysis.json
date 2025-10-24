@@ -1,0 +1,260 @@
+{
+  "timestamp": "2025-10-24T16:01:08.048Z",
+  "totalSize": 7081611,
+  "javascript": {
+    "totalSize": 7005196,
+    "fileCount": 59,
+    "files": [
+      {
+        "name": "vendor-other-jj0bN9_2.js",
+        "size": 2594261
+      },
+      {
+        "name": "vendor-auth-CYYsUexV.js",
+        "size": 784860
+      },
+      {
+        "name": "vendor-three-BRIq3so8.js",
+        "size": 780971
+      },
+      {
+        "name": "vendor-tensorflow-wgNVyL2W.js",
+        "size": 475958
+      },
+      {
+        "name": "vendor-tensorflow-webgl-BPwmreAP.js",
+        "size": 335001
+      },
+      {
+        "name": "vendor-react-COXZDd1L.js",
+        "size": 321669
+      },
+      {
+        "name": "vendor-tensorflow-core-DBZAhG5s.js",
+        "size": 274217
+      },
+      {
+        "name": "ArmorFittingPage-CiepZRnL.js",
+        "size": 172685
+      },
+      {
+        "name": "ContentGenerationPage-qyYbdT3X.js",
+        "size": 145255
+      },
+      {
+        "name": "vendor-zip-EJqg7LXR.js",
+        "size": 96064
+      },
+      {
+        "name": "GenerationPage-ClrNr1CQ.js",
+        "size": 89167
+      },
+      {
+        "name": "index-BjVymCE1.js",
+        "size": 79475
+      },
+      {
+        "name": "HandRiggingPage-bH3i9kTb.js",
+        "size": 67940
+      },
+      {
+        "name": "EquipmentPage-DPbYwQNG.js",
+        "size": 62129
+      },
+      {
+        "name": "ThreeViewer-CzU2Y1cU.js",
+        "size": 59824
+      },
+      {
+        "name": "AssetsPage-Ca78_sb1.js",
+        "size": 47056
+      },
+      {
+        "name": "vendor-mediapipe-bda8qqfq.js",
+        "size": 44769
+      },
+      {
+        "name": "vendor-three-gltf-ByIXQxau.js",
+        "size": 42869
+      },
+      {
+        "name": "vendor-three-react-nMDKMaub.js",
+        "size": 39501
+      },
+      {
+        "name": "vendor-icons-Iyptsuoc.js",
+        "size": 35883
+      },
+      {
+        "name": "vendor-three-exporters-BLvYseU_.js",
+        "size": 32878
+      },
+      {
+        "name": "vendor-crypto-utils-DRIUCnKv.js",
+        "size": 26647
+      },
+      {
+        "name": "vendor-css-utils-fUA2jzzV.js",
+        "size": 26191
+      },
+      {
+        "name": "VoiceStandalonePage-C8KXWw3x.js",
+        "size": 24179
+      },
+      {
+        "name": "ProfilePage-CCjF-epc.js",
+        "size": 24084
+      },
+      {
+        "name": "TeamsPage-Dpon4Wyl.js",
+        "size": 24084
+      },
+      {
+        "name": "vendor-tensorflow-models-_8uZj3_I.js",
+        "size": 22917
+      },
+      {
+        "name": "AdminDashboardPage-B34KycVo.js",
+        "size": 21084
+      },
+      {
+        "name": "vendor-three-postprocessing-Bm9x2sgC.js",
+        "size": 20706
+      },
+      {
+        "name": "useDebuggerStore-CaUyl9MF.js",
+        "size": 18889
+      },
+      {
+        "name": "vendor-three-controls-3iPER7M2.js",
+        "size": 18337
+      },
+      {
+        "name": "vendor-state-CAGUBSgD.js",
+        "size": 17997
+      },
+      {
+        "name": "vendor-search-Daty7Hl2.js",
+        "size": 17897
+      },
+      {
+        "name": "ProjectsPage-w2m9ybzv.js",
+        "size": 17638
+      },
+      {
+        "name": "ManifestsPage--NXN3Lum.js",
+        "size": 16880
+      },
+      {
+        "name": "AssetService-CT1KAPaS.js",
+        "size": 16864
+      },
+      {
+        "name": "VoiceBrowser-C5WDDm5f.js",
+        "size": 15472
+      },
+      {
+        "name": "VoiceGenerator-SK-tKado.js",
+        "size": 12809
+      },
+      {
+        "name": "RetextureModal-uAQIMM3i.js",
+        "size": 11854
+      },
+      {
+        "name": "SpriteGenerationModal-BT-Gsi9X.js",
+        "size": 11530
+      },
+      {
+        "name": "ManifestVoiceAssignmentPage-Diy3bszx.js",
+        "size": 8830
+      },
+      {
+        "name": "VoiceGenerationPage-DvaCk7VF.js",
+        "size": 6127
+      },
+      {
+        "name": "useAssetsStore-I4jSWIqG.js",
+        "size": 5977
+      },
+      {
+        "name": "AssetEditModal-Bm7KWPJR.js",
+        "size": 5595
+      },
+      {
+        "name": "GlobalSearch-CETKsrGv.js",
+        "size": 4729
+      },
+      {
+        "name": "RegenerateModal-CPv4dES6.js",
+        "size": 4490
+      },
+      {
+        "name": "sprite-generator-client-C4A19DKh.js",
+        "size": 3810
+      },
+      {
+        "name": "vendor-events-zzHjdi4R.js",
+        "size": 2864
+      },
+      {
+        "name": "useAssets-DJBeII0C.js",
+        "size": 2287
+      },
+      {
+        "name": "ArmorScaleFixer-C6vmteFB.js",
+        "size": 2262
+      },
+      {
+        "name": "BoneDiagnostics-CLhxgNgz.js",
+        "size": 2127
+      },
+      {
+        "name": "safe-math-CPBByZMx.js",
+        "size": 2012
+      },
+      {
+        "name": "ManifestService-C0zmp0mm.js",
+        "size": 1685
+      },
+      {
+        "name": "vendor-vercel-KeyQtZy4.js",
+        "size": 1685
+      },
+      {
+        "name": "notify-pxXHgvsk.js",
+        "size": 1029
+      },
+      {
+        "name": "RangeInput-CDPJPzMJ.js",
+        "size": 738
+      },
+      {
+        "name": "LoadingState-BUwrqyDb.js",
+        "size": 395
+      },
+      {
+        "name": "AssetMetadata-3pOSlAtq.js",
+        "size": 62
+      },
+      {
+        "name": "vendor-ai-sdk-l0sNRNKZ.js",
+        "size": 1
+      }
+    ]
+  },
+  "css": {
+    "totalSize": 76415,
+    "fileCount": 1,
+    "files": [
+      {
+        "name": "index-ya6XZm8c.css",
+        "size": 76415
+      }
+    ]
+  },
+  "compression": {
+    "gzip": 41,
+    "brotli": 41
+  }
+}

@@ -140,6 +140,12 @@ export async function POST(req, res) {
       ? testerProfiles
       : ['completionist', 'casual', 'breaker', 'speedrunner', 'explorer'] // Default 5 testers
 
+    if (selectedProfiles.length > 10) {
+      return res.status(400).json({
+        error: "Invalid input: 'testerProfiles' must not exceed 10 profiles"
+      })
+    }
+
     for (const profile of selectedProfiles) {
       let testerConfig
 
@@ -180,36 +186,45 @@ export async function POST(req, res) {
     console.log(`[Playtester Swarm] Starting test session ${sessionId} with ${selectedProfiles.length} testers`)
 
     // Run swarm playtest
+    let results, stats, report
     const startTime = Date.now()
-    const results = await orchestrator.runSwarmPlaytest(contentToTest, testConfig)
-    const duration = Date.now() - startTime
 
-    console.log(`[Playtester Swarm] Completed in ${duration}ms. Found ${results.aggregatedMetrics.uniqueBugs} unique issues.`)
+    try {
+      results = await orchestrator.runSwarmPlaytest(contentToTest, testConfig)
+      const duration = Date.now() - startTime
 
-    // Get orchestrator stats
-    const stats = orchestrator.getStats()
+      console.log(`[Playtester Swarm] Completed in ${duration}ms. Found ${results.aggregatedMetrics.uniqueBugs} unique issues.`)
 
-    // Build comprehensive report
-    const report = buildTestReport(results, contentType, duration)
+      // Get orchestrator stats
+      stats = orchestrator.getStats()
 
-    return res.json({
-      sessionId,
-      contentType,
-      testCount: results.testCount,
-      duration,
-      consensus: results.consensus,
-      aggregatedMetrics: results.aggregatedMetrics,
-      individualResults: results.individualResults,
-      recommendations: results.recommendations,
-      report,
-      stats,
-      metadata: {
-        generatedBy: 'AI Playtester Swarm',
-        model: modelIdentifier,
-        timestamp: new Date().toISOString(),
-        parallel: testConfig?.parallel !== false
+      // Build comprehensive report
+      report = buildTestReport(results, contentType, duration)
+
+      return res.json({
+        sessionId,
+        contentType,
+        testCount: results.testCount,
+        duration,
+        consensus: results.consensus,
+        aggregatedMetrics: results.aggregatedMetrics,
+        individualResults: results.individualResults,
+        recommendations: results.recommendations,
+        report,
+        stats,
+        metadata: {
+          generatedBy: 'AI Playtester Swarm',
+          model: modelIdentifier,
+          timestamp: new Date().toISOString(),
+          parallel: testConfig?.parallel !== false
+        }
+      })
+    } finally {
+      // CRITICAL: Cleanup orchestrator resources to prevent memory leaks
+      if (orchestrator) {
+        orchestrator.destroy()
       }
-    })
+    }
 
   } catch (error) {
     console.error('[Playtester Swarm] Generation error:', error)

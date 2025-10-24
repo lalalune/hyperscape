@@ -15,7 +15,7 @@
 import { BANKS, GENERAL_STORES } from './banks-stores';
 import equipmentRequirementsData from './equipment-requirements.json';
 import { ITEMS } from './items';
-import { ALL_MOBS, getMobById, getMobsByDifficulty } from './mobs';
+import { ALL_MOBS, getMobById, getMobsByDifficulty } from './characters';
 import { ALL_WORLD_AREAS, STARTER_TOWNS, getMobSpawnsInArea, getNPCsInArea } from './world-areas';
 import { BIOMES, WORLD_ZONES } from './world-structure';
 
@@ -28,7 +28,7 @@ const getTreasureLocationsByDifficulty = (_difficulty: number) => TREASURE_LOCAT
 
 import type { Item, MobData, TreasureLocation, BankEntityData, StoreData, BiomeData, ZoneData } from '../types/core';
 import type { DataValidationResult } from '../types/validation-types'
-import type { MobSpawnPoint, NPCLocation, WorldArea } from './world-areas';
+import type { CharacterSpawnPoint, NPCLocation, WorldArea } from './world-areas';
 import { WeaponType, EquipmentSlotName, AttackType } from '../types/core';
 
 /**
@@ -79,31 +79,83 @@ export class DataManager {
       (ITEMS as Map<string, Item>).set(normalized.id, normalized);
     }
     
-    // Load mobs
-    const mobsRes = await fetch(`${baseUrl}/mobs.json`);
-    const mobList = await mobsRes.json() as Array<MobData>;
-    for (const mob of mobList) {
-      (ALL_MOBS as Record<string, MobData>)[mob.id] = mob;
-    }
-    
-    // Load NPCs
-    const npcsRes = await fetch(`${baseUrl}/npcs.json`);
-    const npcList = await npcsRes.json() as Array<{
-      id: string;
+    // Load characters (unified NPCs and mobs)
+    const charactersRes = await fetch(`${baseUrl}/characters.json`);
+    const charactersData = await charactersRes.json() as { characters: Array<{
+      characterId: string;
+      characterType: 'npc' | 'mob' | 'neutral';
       name: string;
-      description: string;
+      description?: string;
       type: string;
-      modelPath: string;
-      services: string[];
-    }>;
-    
-    if (!(globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS) {
-      (globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS = new Map();
+      modelPath?: string;
+      services?: string[];
+      level?: number;
+      maxHealth?: number;
+      attackPower?: number;
+      defense?: number;
+      lootTable?: unknown[];
+      behaviorConfig?: unknown;
+      dialogueTree?: unknown;
+    }> };
+
+    // Separate characters into mobs and NPCs for legacy compatibility
+    for (const character of charactersData.characters) {
+      if (character.characterType === 'mob') {
+        // Transform unified character format to legacy MobData format
+        const rawLootTable = (character as { lootTable?: Array<{ itemId: string; quantity: number; chance: number }> }).lootTable || [];
+        const mobData: MobData = {
+          id: character.characterId,  // Map characterId to id for legacy compatibility
+          name: character.name,
+          description: (character as { description?: string }).description || `A ${character.name}`,
+          difficultyLevel: (character.level && character.level <= 10 ? 1 : character.level && character.level <= 20 ? 2 : 3) as 1 | 2 | 3,
+          mobType: character.characterId,
+          type: character.characterId,
+          level: character.level || 1,
+          health: character.maxHealth || 10,
+          maxHealth: character.maxHealth || 10,
+          stats: {
+            level: character.level || 1,
+            health: character.maxHealth || 10,
+            attack: character.attackPower || 1,
+            defense: character.defense || 0,
+            strength: character.attackPower || 1,
+            ranged: 1,
+            constitution: 1,
+          },
+          behavior: {
+            aggressive: true,
+            aggroRange: 10,
+            chaseRange: 20,
+            returnToSpawn: true,
+            ignoreLowLevelPlayers: false,
+            levelThreshold: 1,
+          },
+          drops: [],
+          spawnBiomes: ['grassland'],
+          modelPath: (character as { modelPath?: string }).modelPath || 'asset://models/mobs/default.glb',
+          attackPower: character.attackPower,
+          defense: character.defense,
+          respawnTime: (character as { respawnTime?: number }).respawnTime || 300000,
+          xpReward: (character.level || 1) * 10,
+          behaviorConfig: (character as { behaviorConfig?: { aggroRange?: number; chaseRange?: number; wanderRadius?: number; combatStrategy?: string } }).behaviorConfig || { aggroRange: 10, chaseRange: 20 },
+          lootTable: {
+            guaranteedDrops: rawLootTable.filter(item => item.chance >= 1.0),
+            commonDrops: rawLootTable.filter(item => item.chance < 1.0 && item.chance >= 0.3),
+            uncommonDrops: rawLootTable.filter(item => item.chance < 0.3 && item.chance >= 0.1),
+            rareDrops: rawLootTable.filter(item => item.chance < 0.1),
+          },
+          attackRate: (character as { attackRate?: number }).attackRate || 2000,
+        };
+        (ALL_MOBS as Record<string, MobData>)[character.characterId] = mobData;
+      } else if (character.characterType === 'npc') {
+        // Add to EXTERNAL_NPCS for legacy NPC system
+        if (!(globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS) {
+          (globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS = new Map();
+        }
+        (globalThis as unknown as { EXTERNAL_NPCS: Map<string, unknown> }).EXTERNAL_NPCS.set(character.characterId, character);
+      }
     }
-    for (const npc of npcList) {
-      (globalThis as unknown as { EXTERNAL_NPCS: Map<string, unknown> }).EXTERNAL_NPCS.set(npc.id, npc);
-    }
-    
+
     // Load resources
     const resourcesRes = await fetch(`${baseUrl}/resources.json`);
     const resourceList = await resourcesRes.json() as Array<{
@@ -275,12 +327,12 @@ export class DataManager {
    * Validate cross-references between data sets
    */
   private validateCrossReferences(errors: string[], _warnings: string[]): void {
-    // Check that mob spawn points reference valid mobs
+    // Check that character spawn points reference valid characters
     for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
-      if (area.mobSpawns) {
-        for (const mobSpawn of area.mobSpawns) {
-          if (!ALL_MOBS[mobSpawn.mobId]) {
-            errors.push(`Area ${areaId} references unknown mob: ${mobSpawn.mobId}`);
+      if (area.characterSpawns) {
+        for (const characterSpawn of area.characterSpawns) {
+          if (!ALL_MOBS[characterSpawn.characterId]) {
+            errors.push(`Area ${areaId} references unknown character: ${characterSpawn.characterId}`);
           }
         }
       }
@@ -377,9 +429,9 @@ export class DataManager {
   }
 
   /**
-   * Get mob spawns in area
+   * Get character spawns in area
    */
-  public getMobSpawnsInArea(areaId: string): MobSpawnPoint[] {
+  public getMobSpawnsInArea(areaId: string): CharacterSpawnPoint[] {
     return getMobSpawnsInArea(areaId);
   }
 

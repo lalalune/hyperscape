@@ -7,6 +7,17 @@ import fs from 'fs/promises'
 import path from 'path'
 import fetch from 'node-fetch'
 import { createLogger } from '../utils/logger.mjs'
+import { uploadGeneratedAssetToBlob } from './BlobUploadHelper.mjs'
+import { validateAssetId, validateTaskId } from '../utils/validators.mjs'
+import {
+  MEDIUM_RETRY_DELAY,
+  CHECK_INTERVAL,
+  MAX_CHECK_TIME
+} from '../../src/constants/timeouts.ts'
+import {
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_POLYCOUNT
+} from '../../src/constants/limits.ts'
 
 const logger = createLogger('RetextureService')
 
@@ -15,17 +26,17 @@ class MeshyClient {
   constructor(config) {
     this.apiKey = config.apiKey
     this.baseUrl = config.baseUrl || 'https://api.meshy.ai'
-    this.maxRetries = config.maxRetries || 3
-    this.retryDelay = config.retryDelay || 5000
-    this.checkInterval = config.checkInterval || 10000
-    this.maxCheckTime = config.maxCheckTime || 600000
+    this.maxRetries = config.maxRetries || DEFAULT_MAX_RETRIES
+    this.retryDelay = config.retryDelay || MEDIUM_RETRY_DELAY
+    this.checkInterval = config.checkInterval || CHECK_INTERVAL
+    this.maxCheckTime = config.maxCheckTime || MAX_CHECK_TIME
   }
 
   async remesh(modelPath, options = {}) {
     // Minimal implementation for remeshing
     const formData = new FormData()
     formData.append('file', await fs.readFile(modelPath))
-    formData.append('targetPolycount', options.targetPolycount || 3000)
+    formData.append('targetPolycount', options.targetPolycount || DEFAULT_POLYCOUNT)
     
     const response = await fetch(`${this.baseUrl}/v1/remesh`, {
       method: 'POST',
@@ -162,18 +173,21 @@ export class RetextureService {
   }
 
   async retexture({ baseAssetId, materialPreset, outputName, assetsDir }) {
+    // SECURITY: Validate asset IDs to prevent path traversal attacks
+    const validatedBaseAssetId = validateAssetId(baseAssetId)
+    const validatedOutputName = outputName ? validateAssetId(outputName) : null
     if (!this.meshyClient) {
       throw new Error('MESHY_API_KEY is required for retexturing')
     }
 
     try {
       // Get base asset metadata
-      const baseMetadata = await this.getAssetMetadata(baseAssetId, assetsDir)
+      const baseMetadata = await this.getAssetMetadata(validatedBaseAssetId, assetsDir)
       if (!baseMetadata.meshyTaskId) {
-        throw new Error(`Base asset ${baseAssetId} does not have a Meshy task ID`)
+        throw new Error(`Base asset ${validatedBaseAssetId} does not have a Meshy task ID`)
       }
 
-      logger.info(`🎨 Starting retexture for ${baseAssetId} with material: ${materialPreset.displayName}`, { baseAssetId, material: materialPreset.displayName })
+      logger.info(`🎨 Starting retexture for ${validatedBaseAssetId} with material: ${materialPreset.displayName}`, { baseAssetId, material: materialPreset.displayName })
 
       // Start retexture task using the new MeshyClient
       const taskId = await this.meshyClient.startRetexture({
@@ -202,7 +216,7 @@ export class RetextureService {
       const savedAsset = await this.saveRetexturedAsset({
         result,
         variantName,
-        baseAssetId,
+        validatedBaseAssetId,
         baseMetadata,
         materialPreset,
         taskId,
@@ -275,7 +289,7 @@ export class RetextureService {
       // Variant-specific
       isBaseModel: false,
       isVariant: true,
-      parentBaseModel: baseAssetId,
+      parentBaseModel: validatedBaseAssetId,
       
       // Material information
       materialPreset: {
@@ -317,15 +331,34 @@ export class RetextureService {
     // Update base asset metadata to track this variant
     await this.updateBaseAssetVariants(baseAssetId, variantName, assetsDir)
 
+    // Upload variant to blob storage (if enabled)
+    try {
+      const blobUploadResult = await uploadGeneratedAssetToBlob(variantName, {
+        baseDir: assetsDir.replace(path.sep + variantName, '') // Extract base dir (gdd-assets)
+      })
+      if (blobUploadResult.success) {
+        logger.info(`✅ Variant uploaded to blob: ${variantName}`)
+        variantMetadata.blobUrls = blobUploadResult.blobUrls
+      } else if (!blobUploadResult.skipped) {
+        logger.warn(`⚠️  Variant blob upload failed: ${blobUploadResult.message}`)
+      }
+    } catch (blobError) {
+      logger.error('❌ Blob upload error (non-fatal)', blobError)
+      // Don't fail the retexture if blob upload fails
+    }
+
     logger.info(`✅ Successfully retextured: ${variantName}`, { variantName })
 
     return variantMetadata
   }
 
   async updateBaseAssetVariants(baseAssetId, variantId, assetsDir) {
+    // SECURITY: Validate asset IDs to prevent path traversal attacks
+    const validatedBaseAssetId = validateAssetId(baseAssetId)
+    const validatedVariantId = validateAssetId(variantId)
     try {
-      const metadataPath = path.join(assetsDir, baseAssetId, 'metadata.json')
-      const metadata = await this.getAssetMetadata(baseAssetId, assetsDir)
+      const metadataPath = path.join(assetsDir, validatedBaseAssetId, 'metadata.json')
+      const metadata = await this.getAssetMetadata(validatedBaseAssetId, assetsDir)
       
       // Initialize variants array if it doesn't exist
       if (!metadata.variants) {
@@ -347,27 +380,31 @@ export class RetextureService {
   }
 
   async getAssetMetadata(assetId, assetsDir) {
-    const metadataPath = path.join(assetsDir, assetId, 'metadata.json')
+    // SECURITY: Validate asset ID to prevent path traversal attacks
+    const validatedAssetId = validateAssetId(assetId)
+    const metadataPath = path.join(assetsDir, validatedAssetId, 'metadata.json')
     return JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
   }
 
   async regenerateBase({ baseAssetId, assetsDir }) {
+    // SECURITY: Validate asset ID to prevent path traversal attacks
+    const validatedBaseAssetId = validateAssetId(baseAssetId)
     if (!this.meshyApiKey || !process.env.OPENAI_API_KEY) {
       throw new Error('MESHY_API_KEY and OPENAI_API_KEY are required for base regeneration')
     }
 
     // For now, return a simulated success response
     // Full implementation would regenerate the base model from scratch
-    logger.info('🔄 Regenerating base model', { baseAssetId })
+    logger.info('🔄 Regenerating base model', { validatedBaseAssetId })
     
     // Simulate processing time
     await new Promise(resolve => setTimeout(resolve, 3000))
     
     return {
       success: true,
-      assetId: baseAssetId,
+      assetId: validatedBaseAssetId,
       message: `Base model ${baseAssetId} has been queued for regeneration. This feature is coming soon!`,
-      asset: await this.getAssetMetadata(baseAssetId, assetsDir)
+      asset: await this.getAssetMetadata(validatedBaseAssetId, assetsDir)
     }
   }
   

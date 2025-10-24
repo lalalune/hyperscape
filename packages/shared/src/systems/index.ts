@@ -6,7 +6,6 @@
 
 export * from './ResourceSystem';
 export * from './StoreSystem';
-export * from './MobSystem';
 // Use ClientCameraSystem for all camera functionality
 // QuestSystem not yet implemented
 export * from './MobSpawnerSystem';
@@ -27,9 +26,13 @@ export * from './BankingSystem';
 export * from './AggroSystem';
 export * from './DeathSystem';
 export * from './EquipmentSystem';
-export * from './NPCSystem';
 export * from './ActionRegistry';
 export * from './SkillsSystem';
 
+// Unified Character Systems
+export * from './CharacterSystem';
+export * from './BehaviorSystem';
+export * from './DialogueSystem';
+
 // Export core types
-export type { MobAIState, AggroTarget, CombatTarget } from '../types';
+export type { AggroTarget, CombatTarget } from '../types';

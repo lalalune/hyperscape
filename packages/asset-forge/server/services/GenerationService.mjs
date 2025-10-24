@@ -4,21 +4,41 @@
  */
 
 import EventEmitter from 'events'
+import crypto from 'crypto'
 import { AICreationService } from './AICreationService.mjs'
 import { ImageHostingService } from './ImageHostingService.mjs'
 import { getGenerationPrompts, getGPT4EnhancementPrompts } from '../utils/promptLoader.mjs'
+import { uploadGeneratedAssetToBlob } from './BlobUploadHelper.mjs'
+import { validateAssetId, validateTaskId } from '../utils/validators.mjs'
 import fs from 'fs/promises'
 import path from 'path'
 import fetch from 'node-fetch'
 import { createLogger } from '../utils/logger.mjs'
+import {
+  CLEANUP_INTERVAL,
+  PIPELINE_TTL,
+  CACHE_TTL
+} from '../../src/constants/timeouts.ts'
+import {
+  MAX_ACTIVE_PIPELINES,
+  MAX_CACHE_SIZE
+} from '../../src/constants/limits.ts'
+import {
+  DEFAULT_IMAGE_SERVER_URL,
+  OPENAI_API_BASE_URL
+} from '../../src/constants/network.ts'
 
 const logger = createLogger('GenerationService')
 
 export class GenerationService extends EventEmitter {
   constructor() {
     super()
-    
+
+    // Memory leak protection: size limit and TTL
     this.activePipelines = new Map()
+    this.MAX_ACTIVE_PIPELINES = MAX_ACTIVE_PIPELINES
+    this.CLEANUP_INTERVAL_MS = CLEANUP_INTERVAL
+    this.PIPELINE_TTL_MS = PIPELINE_TTL
     
     // Check for required API keys
     if (!process.env.OPENAI_API_KEY || !process.env.MESHY_API_KEY) {
@@ -39,9 +59,9 @@ export class GenerationService extends EventEmitter {
       openai: {
         apiKey: process.env.OPENAI_API_KEY || '',
         model: process.env.IMAGE_MODEL || 'dall-e-3',
-        baseUrl: process.env.IMAGE_API_BASE_URL || 'https://api.openai.com/v1',
+        baseUrl: process.env.IMAGE_API_BASE_URL || OPENAI_API_BASE_URL,
         extraHeaders: extraHeaders,
-        imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8080'
+        imageServerBaseUrl: process.env.IMAGE_SERVER_URL || DEFAULT_IMAGE_SERVER_URL
       },
       meshy: {
         apiKey: process.env.MESHY_API_KEY || '',
@@ -49,8 +69,8 @@ export class GenerationService extends EventEmitter {
       },
       cache: {
         enabled: true,
-        ttl: 3600,
-        maxSize: 500
+        ttl: CACHE_TTL,
+        maxSize: MAX_CACHE_SIZE
       },
       output: {
         directory: 'gdd-assets',
@@ -60,17 +80,55 @@ export class GenerationService extends EventEmitter {
     
     // Initialize image hosting service
     this.imageHostingService = new ImageHostingService()
+
+    // Start periodic cleanup
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupOldPipelines()
+    }, this.CLEANUP_INTERVAL_MS)
+
+    logger.info('GenerationService initialized', {
+      maxPipelines: this.MAX_ACTIVE_PIPELINES,
+      cleanupIntervalMs: this.CLEANUP_INTERVAL_MS,
+      pipelineTtlMs: this.PIPELINE_TTL_MS
+    })
   }
 
   /**
    * Start a new generation pipeline
    */
   async startPipeline(config) {
-    const pipelineId = `pipeline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    // SECURITY: Validate asset ID to prevent path traversal attacks
+    const validatedAssetId = validateAssetId(config.assetId)
+    // Memory leak protection: Check size limit before adding
+    if (this.activePipelines.size >= this.MAX_ACTIVE_PIPELINES) {
+      logger.warn('Pipeline limit reached, forcing cleanup...', {
+        current: this.activePipelines.size,
+        limit: this.MAX_ACTIVE_PIPELINES
+      })
+      this.cleanupOldPipelines()
+
+      // If still at limit after cleanup, reject oldest in-progress
+      if (this.activePipelines.size >= this.MAX_ACTIVE_PIPELINES) {
+        const oldest = this.findOldestPipeline()
+        if (oldest) {
+          logger.warn('Terminating oldest pipeline', {
+            pipelineId: oldest.id,
+            status: oldest.status,
+            ageMs: Date.now() - oldest.createdAt
+          })
+          this.activePipelines.delete(oldest.id)
+        }
+      }
+    }
+
+    const pipelineId = crypto.randomUUID()
     
     const pipeline = {
       id: pipelineId,
-      config,
+      config: {
+      ...config,
+      assetId: validatedAssetId // Use validated asset ID
+    },
       status: 'initializing',
       progress: 0,
       stages: {
@@ -83,17 +141,32 @@ export class GenerationService extends EventEmitter {
         ...(config.enableSprites ? { spriteGeneration: { status: 'pending', progress: 0 } } : {})
       },
       results: {},
-      createdAt: new Date().toISOString()
+      createdAt: Date.now()  // Store as timestamp for efficient comparison
     }
     
     this.activePipelines.set(pipelineId, pipeline)
     
     // Start processing asynchronously
-    this.processPipeline(pipelineId).catch(error => {
-      logger.error('Pipeline failed', error, { pipelineId })
-      pipeline.status = 'failed'
-      pipeline.error = error.message
-    })
+    // CRITICAL: Add comprehensive error handling to prevent unhandled rejection crashes
+    this.processPipeline(pipelineId)
+      .catch(error => {
+        logger.error('Pipeline processing failed', error, {
+          pipelineId,
+          errorMessage: error.message,
+          errorStack: error.stack
+        })
+
+        // Update pipeline state with error details
+        if (pipeline) {
+          pipeline.status = 'failed'
+          pipeline.error = error.message
+          pipeline.errorStack = error.stack
+          pipeline.failedAt = new Date().toISOString()
+        }
+
+        // Don't re-throw - this is a fire-and-forget operation
+        // The error has been logged and pipeline state updated
+      })
     
     return {
       pipelineId,
@@ -119,7 +192,7 @@ export class GenerationService extends EventEmitter {
       stages: pipeline.stages,
       results: pipeline.results,
       error: pipeline.error,
-      createdAt: pipeline.createdAt,
+      createdAt: new Date(pipeline.createdAt).toISOString(),
       completedAt: pipeline.completedAt
     }
   }
@@ -756,11 +829,47 @@ export class GenerationService extends EventEmitter {
         }
       }
       
+      // Upload to blob storage (if enabled)
+      logger.info('📤 Uploading generated asset to blob storage...')
+
+      try {
+        // Upload base model
+        const baseUploadResult = await uploadGeneratedAssetToBlob(pipeline.config.assetId)
+        if (baseUploadResult.success) {
+          logger.info(`✅ Base model uploaded to blob: ${pipeline.config.assetId}`)
+          pipeline.blobUpload = {
+            baseModel: baseUploadResult
+          }
+        } else if (!baseUploadResult.skipped) {
+          logger.warn(`⚠️  Base model blob upload failed: ${baseUploadResult.message}`)
+        }
+
+        // Upload variants if any were generated
+        const successfulVariants = pipeline.results.textureGeneration?.variants?.filter(v => v.success) || []
+        if (successfulVariants.length > 0) {
+          pipeline.blobUpload = pipeline.blobUpload || {}
+          pipeline.blobUpload.variants = []
+
+          for (const variant of successfulVariants) {
+            const variantUploadResult = await uploadGeneratedAssetToBlob(variant.id)
+            if (variantUploadResult.success) {
+              logger.info(`✅ Variant uploaded to blob: ${variant.id}`)
+              pipeline.blobUpload.variants.push(variantUploadResult)
+            } else if (!variantUploadResult.skipped) {
+              logger.warn(`⚠️  Variant blob upload failed: ${variant.id}`)
+            }
+          }
+        }
+      } catch (blobError) {
+        logger.error('❌ Blob upload error (non-fatal)', blobError)
+        // Don't fail the pipeline if blob upload fails
+      }
+
       // Complete
       pipeline.status = 'completed'
       pipeline.completedAt = new Date().toISOString()
       pipeline.progress = 100
-      
+
       // Compile final asset info
       pipeline.finalAsset = {
         id: pipeline.config.assetId,
@@ -1025,23 +1134,99 @@ Your task is to enhance the user's description to create better results with ima
   }
 
   /**
-   * Clean up old pipelines
+   * Find the oldest pipeline in the map
+   */
+  findOldestPipeline() {
+    let oldest = null
+    let oldestTime = Date.now()
+
+    for (const [id, pipeline] of this.activePipelines.entries()) {
+      if (pipeline.createdAt < oldestTime) {
+        oldestTime = pipeline.createdAt
+        oldest = { id, ...pipeline }
+      }
+    }
+
+    return oldest
+  }
+
+  /**
+   * Clean up old pipelines with temp file cleanup
    */
   cleanupOldPipelines() {
-    const oneHourAgo = Date.now() - (60 * 60 * 1000)
-    
+    const now = Date.now()
+    const cutoff = now - this.PIPELINE_TTL_MS
+    let cleaned = 0
+
     for (const [id, pipeline] of this.activePipelines.entries()) {
-      const createdAt = new Date(pipeline.createdAt).getTime()
-      if (createdAt < oneHourAgo && (pipeline.status === 'completed' || pipeline.status === 'failed')) {
+      const shouldCleanup =
+        pipeline.createdAt < cutoff &&
+        (pipeline.status === 'completed' || pipeline.status === 'failed')
+
+      if (shouldCleanup) {
         this.activePipelines.delete(id)
+        cleaned++
+
+        // Cleanup temp files asynchronously with error handling
+        this.cleanupPipelineTempFiles(pipeline)
+          .catch(err => {
+            logger.error('Failed to cleanup temp files', err, {
+              pipelineId: id,
+              errorMessage: err.message,
+              errorStack: err.stack
+            })
+            // Error logged - don't crash the cleanup process
+          })
+      }
+    }
+
+    if (cleaned > 0) {
+      logger.info('Cleaned up old pipelines', {
+        cleaned,
+        active: this.activePipelines.size,
+        maxAllowed: this.MAX_ACTIVE_PIPELINES
+      })
+    }
+
+    return cleaned
+  }
+
+  /**
+   * Clean up temporary files for a pipeline
+   */
+  async cleanupPipelineTempFiles(pipeline) {
+    if (!pipeline.config?.assetId) return
+
+    const tempImagePath = path.join('temp-images', `${pipeline.config.assetId}-concept.png`)
+
+    try {
+      await fs.unlink(tempImagePath)
+      logger.info('Deleted temp file', { path: tempImagePath })
+    } catch (error) {
+      // File may not exist, ignore ENOENT errors
+      if (error.code !== 'ENOENT') {
+        throw error
       }
     }
   }
+
+  /**
+   * Graceful shutdown - cleanup resources
+   */
+  shutdown() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
+    }
+
+    logger.info('GenerationService shutting down', {
+      activePipelines: this.activePipelines.size
+    })
+
+    // Force cleanup of all pipelines
+    this.activePipelines.clear()
+  }
 }
 
-// Cleanup old pipelines periodically
-setInterval(() => {
-  if (global.generationService) {
-    global.generationService.cleanupOldPipelines()
-  }
-}, 30 * 60 * 1000) // Every 30 minutes 
+// REMOVED: Cleanup is now managed by each instance via this.cleanupInterval
+// This prevents multiple intervals from running when services are recreated 

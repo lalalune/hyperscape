@@ -30,7 +30,7 @@ export class DeathSystem extends SystemBase {
   async init(): Promise<void> {
     
     // Listen for death events via event bus
-    this.subscribe(EventType.ENTITY_DEATH, (data: { entityId: string; killedBy: string; entityType: 'player' | 'mob' }) => this.handlePlayerDeath(data));
+    this.subscribe(EventType.ENTITY_DEATH, (data: { entityId: string; killedBy: string; entityType: 'player' | 'character' }) => this.handlePlayerDeath(data));
     this.subscribe(EventType.PLAYER_RESPAWN_REQUEST, (data: { playerId: string }) => this.handleRespawnRequest(data));
     this.subscribe(EventType.DEATH_LOOT_COLLECT, (data: { playerId: string }) => this.handleLootCollection(data));
     this.subscribe(EventType.PLAYER_UNREGISTERED, (data: { id: string }) => this.cleanupPlayerDeath(data));
@@ -78,7 +78,7 @@ export class DeathSystem extends SystemBase {
     
   }
 
-  private handlePlayerDeath(data: { entityId: string; killedBy: string; entityType: 'player' | 'mob' }): void {
+  private handlePlayerDeath(data: { entityId: string; killedBy: string; entityType: 'player' | 'character' }): void {
     if (data.entityType !== 'player') return;
     
     const playerId = data.entityId;

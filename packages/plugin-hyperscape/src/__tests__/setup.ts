@@ -8,7 +8,7 @@ import {
   createMockMemory,
   TestHelper,
 } from "../types/test-mocks";
-import { Entity, Player, World } from "@hyperscape/shared";
+import { Entity, Player, World } from "@hyperscape/shared/client";
 import { IAgentRuntime, Memory } from "@elizaos/core";
 
 type MockWebSocket = Partial<WebSocket>;

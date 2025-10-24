@@ -35,8 +35,22 @@ export class MultiAgentOrchestrator {
       maxRounds: config.maxRounds || 10,
       temperature: config.temperature || 0.8,
       enableCrossValidation: config.enableCrossValidation !== false,
-      model: config.model || null // null = use ai-router defaults
+      model: config.model || null, // null = use ai-router defaults
+      maxHistorySize: config.maxHistorySize || 100, // Prevent unbounded growth
+      maxGeneratedContentSize: config.maxGeneratedContentSize || 50
     }
+
+    // Memory leak protection: periodic cleanup
+    this.CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
+    this.cleanupInterval = setInterval(() => {
+      this.performMemoryCleanup()
+    }, this.CLEANUP_INTERVAL_MS)
+
+    logger.info('MultiAgentOrchestrator initialized with memory leak protection', {
+      maxHistorySize: this.config.maxHistorySize,
+      maxGeneratedContentSize: this.config.maxGeneratedContentSize,
+      cleanupIntervalMs: this.CLEANUP_INTERVAL_MS
+    })
   }
 
   /**
@@ -78,12 +92,24 @@ export class MultiAgentOrchestrator {
     }
 
     // Score each agent based on relevance to context
-    const scores = await Promise.all(
+    // Use Promise.allSettled to handle potential errors in scoring
+    const scoringResults = await Promise.allSettled(
       availableAgents.map(async (agent) => {
         const score = this.scoreAgentRelevance(agent, context)
         return { agent, score }
       })
     )
+
+    // Extract successful scores, filter out failures
+    const scores = scoringResults
+      .filter(result => result.status === 'fulfilled')
+      .map(result => result.value)
+
+    // If all scoring failed, return first agent as fallback
+    if (scores.length === 0) {
+      logger.warn('All agent scoring failed, using first available agent')
+      return availableAgents[0]
+    }
 
     // Select agent with highest score
     scores.sort((a, b) => b.score - a.score)
@@ -193,8 +219,8 @@ export class MultiAgentOrchestrator {
    * Generate response from a specific agent
    */
   async generateAgentResponse(agent, context) {
-    // BUG FIX: Corrected parameter order - getModelForTask(task, priority, customModel)
-    const model = getModelForTask('npc_dialogue', 'quality', this.config.model)
+    // BUG FIX: Corrected parameter order - getModelForTask(task, customModel, priority)
+    const model = getModelForTask('npc_dialogue', this.config.model, 'quality')
     const fullPrompt = this.buildAgentPrompt(agent, context)
 
     try {
@@ -358,8 +384,8 @@ Format: SCORES: [consistency]/10, [authenticity]/10, [quality]/10
 Brief explanation of any issues found.`
 
         try {
-          // BUG FIX: Corrected parameter order - getModelForTask(task, priority, customModel)
-          const model = getModelForTask('npc_dialogue', 'cost', this.config.model)
+          // BUG FIX: Corrected parameter order - getModelForTask(task, customModel, priority)
+          const model = getModelForTask('npc_dialogue', this.config.model, 'cost')
           const response = await generateText({
             model,
             prompt: validationPrompt,
@@ -378,7 +404,12 @@ Brief explanation of any issues found.`
             }
           }
         } catch (error) {
-          logger.error(`Validation failed for agent ${agent.name}`, error, { agentName: agent.name })
+          logger.error(`Validation failed for agent ${agent.name}`, error, {
+            agentName: agent.name,
+            errorMessage: error.message,
+            errorStack: error.stack
+          })
+          // Return null to signal failure - will be filtered out below
         }
 
         return null
@@ -427,6 +458,67 @@ Brief explanation of any issues found.`
       agent.messageCount = 0
       agent.lastActive = null
     }
+  }
+
+  /**
+   * Perform automatic memory cleanup to prevent leaks
+   * Trims old conversation history and generated content
+   */
+  performMemoryCleanup() {
+    const beforeHistory = this.sharedMemory.conversationHistory.length
+    const beforeContent = this.sharedMemory.generatedContent.length
+
+    // Trim conversation history to max size
+    if (this.sharedMemory.conversationHistory.length > this.config.maxHistorySize) {
+      this.sharedMemory.conversationHistory = this.sharedMemory.conversationHistory.slice(
+        -this.config.maxHistorySize
+      )
+    }
+
+    // Trim generated content to max size
+    if (this.sharedMemory.generatedContent.length > this.config.maxGeneratedContentSize) {
+      this.sharedMemory.generatedContent = this.sharedMemory.generatedContent.slice(
+        -this.config.maxGeneratedContentSize
+      )
+    }
+
+    // Clean up old relationships (keep only last 50)
+    if (this.sharedMemory.relationships.size > 50) {
+      const entries = Array.from(this.sharedMemory.relationships.entries())
+      this.sharedMemory.relationships.clear()
+      entries.slice(-50).forEach(([key, value]) => {
+        this.sharedMemory.relationships.set(key, value)
+      })
+    }
+
+    const afterHistory = this.sharedMemory.conversationHistory.length
+    const afterContent = this.sharedMemory.generatedContent.length
+
+    if (beforeHistory > afterHistory || beforeContent > afterContent) {
+      logger.info('Memory cleanup performed', {
+        conversationHistory: { before: beforeHistory, after: afterHistory },
+        generatedContent: { before: beforeContent, after: afterContent },
+        relationships: this.sharedMemory.relationships.size
+      })
+    }
+  }
+
+  /**
+   * Gracefully shutdown and cleanup resources
+   */
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
+    }
+
+    // Clear all memory
+    this.sharedMemory.conversationHistory = []
+    this.sharedMemory.generatedContent = []
+    this.sharedMemory.relationships.clear()
+    this.agents.clear()
+
+    logger.info('MultiAgentOrchestrator destroyed and resources cleaned up')
   }
 
   /**

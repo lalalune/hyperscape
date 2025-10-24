@@ -38,8 +38,22 @@ export class PlaytesterSwarmOrchestrator {
     this.config = {
       parallelTests: config.parallelTests || true,
       temperature: config.temperature || 0.7,
-      model: config.model || null
+      model: config.model || null,
+      maxTestResults: config.maxTestResults || 100, // Prevent unbounded growth
+      maxBugReports: config.maxBugReports || 200
     }
+
+    // Memory leak protection: periodic cleanup
+    this.CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
+    this.cleanupInterval = setInterval(() => {
+      this.performMemoryCleanup()
+    }, this.CLEANUP_INTERVAL_MS)
+
+    logger.info('PlaytesterSwarmOrchestrator initialized with memory leak protection', {
+      maxTestResults: this.config.maxTestResults,
+      maxBugReports: this.config.maxBugReports,
+      cleanupIntervalMs: this.CLEANUP_INTERVAL_MS
+    })
   }
 
   /**
@@ -503,5 +517,89 @@ export class PlaytesterSwarmOrchestrator {
       tester.bugsFound = 0
       tester.averageEngagement = 0
     }
+  }
+
+  /**
+   * Perform automatic memory cleanup to prevent leaks
+   * Trims old test results and bug reports
+   */
+  performMemoryCleanup() {
+    const beforeResults = this.testResults.length
+    const beforeBugs = this.aggregatedMetrics.bugReports.length
+
+    // Trim test results to max size (keep most recent)
+    if (this.testResults.length > this.config.maxTestResults) {
+      this.testResults = this.testResults.slice(-this.config.maxTestResults)
+    }
+
+    // Trim bug reports to max size (keep highest priority)
+    if (this.aggregatedMetrics.bugReports.length > this.config.maxBugReports) {
+      // Sort by severity and report count before trimming
+      this.aggregatedMetrics.bugReports.sort((a, b) => {
+        const severityOrder = { critical: 3, major: 2, minor: 1 }
+        if (b.reportCount !== a.reportCount) {
+          return b.reportCount - a.reportCount
+        }
+        return severityOrder[b.severity] - severityOrder[a.severity]
+      })
+      this.aggregatedMetrics.bugReports = this.aggregatedMetrics.bugReports.slice(
+        0,
+        this.config.maxBugReports
+      )
+    }
+
+    // Trim other aggregated metrics
+    if (this.aggregatedMetrics.difficultyAssessments.length > this.config.maxTestResults) {
+      this.aggregatedMetrics.difficultyAssessments = this.aggregatedMetrics.difficultyAssessments.slice(
+        -this.config.maxTestResults
+      )
+    }
+
+    if (this.aggregatedMetrics.engagementScores.length > this.config.maxTestResults) {
+      this.aggregatedMetrics.engagementScores = this.aggregatedMetrics.engagementScores.slice(
+        -this.config.maxTestResults
+      )
+    }
+
+    if (this.aggregatedMetrics.completionRates.length > this.config.maxTestResults) {
+      this.aggregatedMetrics.completionRates = this.aggregatedMetrics.completionRates.slice(
+        -this.config.maxTestResults
+      )
+    }
+
+    const afterResults = this.testResults.length
+    const afterBugs = this.aggregatedMetrics.bugReports.length
+
+    if (beforeResults > afterResults || beforeBugs > afterBugs) {
+      logger.info('Memory cleanup performed', {
+        testResults: { before: beforeResults, after: afterResults },
+        bugReports: { before: beforeBugs, after: afterBugs },
+        difficultyAssessments: this.aggregatedMetrics.difficultyAssessments.length,
+        engagementScores: this.aggregatedMetrics.engagementScores.length,
+        completionRates: this.aggregatedMetrics.completionRates.length
+      })
+    }
+  }
+
+  /**
+   * Gracefully shutdown and cleanup resources
+   */
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
+    }
+
+    // Clear all memory
+    this.testResults = []
+    this.aggregatedMetrics = {
+      bugReports: [],
+      difficultyAssessments: [],
+      engagementScores: [],
+      completionRates: []
+    }
+    this.testers.clear()
+
+    logger.info('PlaytesterSwarmOrchestrator destroyed and resources cleaned up')
   }
 }

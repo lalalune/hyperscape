@@ -208,7 +208,7 @@ export class BehaviorSystem extends SystemBase {
       targetEntity = this.findNearestEnemy(character);
     } else if (target === 'spawn_point') {
       // Check distance to spawn point
-      const spawnPoint = character.spawnPosition;
+      const spawnPoint = character.getSpawnPosition();
       const distance = this.calculateDistance(character.getPosition(), spawnPoint);
       return distance <= condition.distance;
     }
@@ -225,8 +225,8 @@ export class BehaviorSystem extends SystemBase {
 
   private checkHealth(character: CharacterEntity, condition: HealthCheckCondition): boolean {
     const currentHealth = condition.usePercentage
-      ? (character.health / character.maxHealth) * 100
-      : character.health;
+      ? (character.getHealth() / character.getMaxHealth()) * 100
+      : character.getHealth();
 
     switch (condition.operator) {
       case '<': return currentHealth < condition.value;
@@ -242,7 +242,7 @@ export class BehaviorSystem extends SystemBase {
     const nearestPlayer = this.findNearestPlayer(character);
     if (!nearestPlayer) return false;
 
-    const playerLevel = nearestPlayer.level || 1;
+    const playerLevel = nearestPlayer.getLevel() || 1;
 
     if (condition.minLevel && playerLevel < condition.minLevel) return false;
     if (condition.maxLevel && playerLevel > condition.maxLevel) return false;
@@ -358,7 +358,7 @@ export class BehaviorSystem extends SystemBase {
     character.movementType = 'wander';
 
     // Generate random wander point within radius
-    const spawnPoint = character.spawnPosition;
+    const spawnPoint = character.getSpawnPosition();
     const angle = Math.random() * Math.PI * 2;
     const distance = Math.random() * action.radius;
 
@@ -408,17 +408,17 @@ export class BehaviorSystem extends SystemBase {
 
     switch (action.destination) {
       case 'spawn_point':
-        destination = character.spawnPosition;
+        destination = character.getSpawnPosition();
         break;
       case 'nearest_ally':
         const ally = this.findNearestAlly(character);
-        destination = ally ? ally.getPosition() : character.spawnPosition;
+        destination = ally ? ally.getPosition() : character.getSpawnPosition();
         break;
       case 'safe_zone':
         destination = this.findNearestSafeZone(character);
         break;
       default:
-        destination = character.spawnPosition;
+        destination = character.getSpawnPosition();
     }
 
     const state = this.behaviorStates.get(character.characterId)!;
@@ -654,7 +654,7 @@ export class BehaviorSystem extends SystemBase {
 
   private findNearestSafeZone(character: CharacterEntity): Position3D {
     // For now, return spawn point as safe zone
-    return character.spawnPosition;
+    return character.getSpawnPosition();
   }
 
   private callAllies(character: CharacterEntity, radius: number): void {

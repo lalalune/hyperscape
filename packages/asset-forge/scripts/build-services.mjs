@@ -47,7 +47,8 @@ try {
   writeFileSync(configPath, JSON.stringify(buildConfig, null, 2))
   
   // Compile using the specific config
-  execSync(`npx tsc -p ${configPath}`, {
+  // Use bunx instead of npx since we use Bun runtime in production
+  execSync(`bunx tsc -p ${configPath}`, {
     stdio: 'inherit'
   })
   

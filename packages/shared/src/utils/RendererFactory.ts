@@ -35,7 +35,7 @@ async function ensureWebGPUModules() {
   if (webgpuModulesLoaded) return { WebGPU, WebGPURenderer }
 
   webgpuModulesLoaded = true
-  const capabilityModules = await import('three/examples/jsm/capabilities/WebGPU.js')
+  const capabilityModules = await import('three/addons/capabilities/WebGPU.js')
   WebGPU = (capabilityModules as unknown as { default: { isAvailable(): Promise<boolean> } }).default
 
 

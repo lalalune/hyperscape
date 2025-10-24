@@ -516,20 +516,20 @@ export class World extends EventEmitter {
   movePlayer?(playerId: string, targetPosition: Position3D): unknown;
   
   // ----------------------------------------------------------------------------
-  // Mob API (added by MobSystem)
+  // Character API (added by CharacterSystem)
   // ----------------------------------------------------------------------------
-  
-  /** Get mob entity by ID */
-  getMob?(mobId: string): unknown;
-  
-  /** Get all active mobs in the world */
-  getAllMobs?(): unknown[];
-  
-  /** Get mobs within radius of a point */
-  getMobsInArea?(center: Position3D, radius: number): unknown[];
-  
-  /** Spawn a mob at position */
-  spawnMob?(type: string, position: Position3D): unknown;
+
+  /** Get character entity by ID */
+  getCharacter?(characterId: string): unknown;
+
+  /** Get all active characters in the world */
+  getCharacters?(): unknown[];
+
+  /** Get characters within radius of a point */
+  getCharactersInArea?(center: Position3D, radius: number): unknown[];
+
+  /** Spawn a character at position */
+  spawnCharacter?(characterId: string, position: Position3D): unknown;
   
   // ----------------------------------------------------------------------------
   // Equipment API (added by EquipmentSystem)

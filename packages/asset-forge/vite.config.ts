@@ -65,6 +65,16 @@ export default defineConfig({
       }
     },
     rollupOptions: {
+      onwarn(warning, warn) {
+        // Suppress Rollup's PURE annotation warnings from Privy
+        if (warning.code === 'SOURCEMAP_ERROR') return
+        if (warning.message.includes('PURE')) return
+        if (warning.message.includes('annotation')) return
+        // Suppress module directive warnings
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return
+        // Show other warnings
+        warn(warning)
+      },
       output: {
         // Preserve module execution order to avoid circular dependency issues
         preserveModules: false,

@@ -1,4 +1,4 @@
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperscape/shared/client";
 import { HyperscapeService } from "../service";
 import { elizaLogger } from "@elizaos/core";
 

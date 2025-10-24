@@ -1,9 +1,10 @@
 import express from 'express'
 import { loadPromptFile, savePromptFile } from '../utils/promptLoader.mjs'
+import { authenticateUser, requireAdmin } from '../middleware/auth.mjs'
 
 const router = express.Router()
 
-// Map of URL paths to file names
+// Map of URL paths to file names (whitelist approach for security)
 const promptFileMap = {
   'game-styles': 'game-style-prompts',
   'asset-types': 'asset-type-prompts',
@@ -14,10 +15,12 @@ const promptFileMap = {
 }
 
 // GET endpoint for loading prompts
-router.get('/prompts/:type', async (req, res) => {
+router.get('/prompts/:type', authenticateUser, async (req, res) => {
   const { type } = req.params
+
+  // Validate type against whitelist (prevents path traversal)
   const fileName = promptFileMap[type]
-  
+
   if (!fileName) {
     return res.status(404).json({ error: 'Invalid prompt type' })
   }
@@ -35,7 +38,7 @@ router.get('/prompts/:type', async (req, res) => {
 })
 
 // POST endpoint for saving prompts (only updates custom section)
-router.post('/prompts/:type', async (req, res) => {
+router.post('/prompts/:type', authenticateUser, requireAdmin, async (req, res) => {
   const { type } = req.params
   const fileName = promptFileMap[type]
   
@@ -72,7 +75,7 @@ router.post('/prompts/:type', async (req, res) => {
 })
 
 // DELETE endpoint to remove a custom prompt
-router.delete('/prompts/:type/:id', async (req, res) => {
+router.delete('/prompts/:type/:id', authenticateUser, requireAdmin, async (req, res) => {
   const { type, id } = req.params
   const fileName = promptFileMap[type]
   

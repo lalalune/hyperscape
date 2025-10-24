@@ -1,6 +1,6 @@
-import fs from 'fs-extra'
-import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
-// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js.js'
+import * as fs from 'fs-extra'
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js'
+// import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { GLTFLoader } from '../libs/gltfloader/GLTFLoader'
 // import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 

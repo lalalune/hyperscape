@@ -81,7 +81,7 @@ import {
   type ControllerInterface,
 } from "./types/validation-schemas";
 // Minimal implementation for now - we'll improve this once we have proper imports working
-import type { Quaternion } from "@hyperscape/shared";
+import type { Quaternion } from "@hyperscape/shared/client";
 import {
   Chat,
   ClientInput,
@@ -90,7 +90,7 @@ import {
   type NetworkSystem,
   type World,
   type Player,
-} from "@hyperscape/shared";
+} from "@hyperscape/shared/client";
 import { promises as fsPromises } from "fs";
 import path from "path";
 import { Vector3 } from "three";

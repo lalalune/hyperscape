@@ -21,6 +21,7 @@ import { randomUUID } from 'crypto'
 import { MultiAgentOrchestrator } from '../services/MultiAgentOrchestrator.mjs'
 import { buildNPCContext } from '../utils/context-builder.mjs'
 import { makeCollaborationPrompt, makeNPCAgentPrompt } from '../utils/collaboration-prompts.mjs'
+import { standardErrors } from '../utils/errorResponse.mjs'
 
 export async function POST(req, res) {
   try {
@@ -38,6 +39,12 @@ export async function POST(req, res) {
     if (!Array.isArray(npcPersonas) || npcPersonas.length < 2) {
       return res.status(400).json({
         error: "Invalid input: 'npcPersonas' must be an array with at least 2 NPCs"
+      })
+    }
+
+    if (npcPersonas.length > 20) {
+      return res.status(400).json({
+        error: "Invalid input: 'npcPersonas' must not exceed 20 NPCs"
       })
     }
 
@@ -124,42 +131,51 @@ export async function POST(req, res) {
 
     // Run multi-agent conversation
     console.log('[NPC Collaboration] Running conversation rounds...')
-    const result = await orchestrator.runConversationRound(initialPrompt)
-    console.log(`[NPC Collaboration] Completed ${result.rounds.length} rounds`)
+    let result, processedResult, stats
 
-    // Process results based on collaboration type
-    const processedResult = await processCollaborationResult(
-      result,
-      collaborationType,
-      orchestrator
-    )
+    try {
+      result = await orchestrator.runConversationRound(initialPrompt)
+      console.log(`[NPC Collaboration] Completed ${result.rounds.length} rounds`)
 
-    // Get orchestrator stats
-    const stats = orchestrator.getStats()
+      // Process results based on collaboration type
+      processedResult = await processCollaborationResult(
+        result,
+        collaborationType,
+        orchestrator
+      )
 
-    return res.json({
-      sessionId,
-      collaborationType,
-      npcCount: npcPersonas.length,
-      rounds: result.rounds.length,
-      conversation: result.rounds,
-      emergentContent: processedResult.content,
-      validation: result.validation,
-      stats,
-      metadata: {
-        generatedBy: 'Multi-Agent Collaboration',
-        model: modelIdentifier,
-        timestamp: new Date().toISOString(),
-        crossValidated: enableCrossValidation !== false
+      // Get orchestrator stats
+      stats = orchestrator.getStats()
+
+      return res.json({
+        sessionId,
+        collaborationType,
+        npcCount: npcPersonas.length,
+        rounds: result.rounds.length,
+        conversation: result.rounds,
+        emergentContent: processedResult.content,
+        validation: result.validation,
+        stats,
+        metadata: {
+          generatedBy: 'Multi-Agent Collaboration',
+          model: modelIdentifier,
+          timestamp: new Date().toISOString(),
+          crossValidated: enableCrossValidation !== false
+        }
+      })
+    } finally {
+      // CRITICAL: Cleanup orchestrator resources to prevent memory leaks
+      if (orchestrator) {
+        orchestrator.destroy()
       }
-    })
+    }
 
   } catch (error) {
     console.error('[NPC Collaboration] Generation error:', error)
-    return res.status(500).json({
-      error: 'Failed to generate multi-agent NPC collaboration',
-      details: error.message
-    })
+    return res.status(500).json(standardErrors.internalError('Failed to generate multi-agent NPC collaboration', {
+      errorMessage: error.message,
+      stack: error.stack
+    }))
   }
 }
 
@@ -265,10 +281,9 @@ Output ONLY the JSON, no additional text.`
     const jsonText = text.substring(firstBrace, jsonEnd)
     return JSON.parse(jsonText)
   } catch (error) {
-    console.error('Quest extraction failed:', error)
-    if (response?.text) {
-      console.error('Raw response:', response.text.substring(0, 500))
-    }
+    console.error('Quest extraction failed:', error.message)
+    const responseText = response?.text || 'No response available'
+    console.error('Raw response:', responseText.substring(0, 500))
   }
 
   return {

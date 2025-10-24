@@ -1,5 +1,5 @@
 // Math utilities for movement calculations
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperscape/shared/client";
 
 const _tempVec3_1 = new THREE.Vector3();
 const _tempVec3_2 = new THREE.Vector3();
@@ -35,8 +35,8 @@ const MathUtils = {
       a.z + (b.z - a.z) * t,
     ),
 };
-import type { World, Player, Vector3 } from "@hyperscape/shared";
-import { Entity } from "@hyperscape/shared";
+import type { World, Player, Vector3 } from "@hyperscape/shared/client";
+import { Entity } from "@hyperscape/shared/client";
 import { EventEmitter } from "events";
 
 interface MovablePlayer extends Entity {

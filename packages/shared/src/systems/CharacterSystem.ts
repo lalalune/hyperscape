@@ -20,8 +20,9 @@
 
 import { SystemBase } from './SystemBase';
 import type { World } from '../World';
+import type { WorldOptions } from '../types';
 import { EventType } from '../types/events';
-import { EntityType } from '../types/entities';
+import { EntityType, InteractionType } from '../types/entities';
 import type { CharacterEntityConfig } from '../types/entities';
 import type { Position3D } from '../types/core';
 import { CharacterEntity } from '../entities/CharacterEntity';
@@ -72,25 +73,33 @@ export class CharacterSystem extends SystemBase {
   private readonly updateInterval: number = 5000; // ms
 
   constructor(world: World) {
-    super(world);
+    super(world, {
+      name: 'character',
+      dependencies: {
+        required: [],
+        optional: []
+      },
+      autoCleanup: true
+    });
   }
 
-  public init(): void {
-    super.init();
+  public async init(_options: WorldOptions): Promise<void> {
+    await super.init(_options);
+
+    // Load character configs from DataManager (characters.json)
+    await this.loadCharacterConfigsFromDataManager();
 
     // Listen for character events
-    this.listenToEvent(EventType.CHARACTER_SPAWN_REQUEST, this.onCharacterSpawnRequest.bind(this));
-    this.listenToEvent(EventType.CHARACTER_DESPAWNED, this.onCharacterDespawned.bind(this));
-    this.listenToEvent(EventType.CHARACTER_DIED, this.onCharacterDied.bind(this));
+    this.subscribe(EventType.CHARACTER_SPAWN_REQUEST, this.onCharacterSpawnRequest.bind(this));
+    this.subscribe(EventType.CHARACTER_DESPAWNED, this.onCharacterDespawned.bind(this));
+    this.subscribe(EventType.CHARACTER_DIED, this.onCharacterDied.bind(this));
 
     // Listen for spawn point registration
-    this.listenToEvent(EventType.CHARACTER_SPAWN_POINTS_REGISTERED, this.onSpawnPointsRegistered.bind(this));
+    this.subscribe(EventType.CHARACTER_SPAWN_POINTS_REGISTERED, this.onSpawnPointsRegistered.bind(this));
 
     // Server-only: Respawn loop
     if (this.world.isServer) {
-      this.world.intervals.push(
-        setInterval(() => this.processRespawnQueue(), this.updateInterval)
-      );
+      this.createInterval(() => this.processRespawnQueue(), this.updateInterval);
     }
   }
 
@@ -449,6 +458,72 @@ export class CharacterSystem extends SystemBase {
     }
 
     console.log(`[CharacterSystem] Loaded ${configs.length} character configurations`);
+  }
+
+  /**
+   * Load character configurations from DataManager
+   * Converts MobData from characters.json to CharacterEntityConfig format
+   */
+  private async loadCharacterConfigsFromDataManager(): Promise<void> {
+    const { dataManager } = await import('../data/DataManager');
+    const allMobs = dataManager.getAllMobs();
+
+    for (const [characterId, mobData] of Object.entries(allMobs)) {
+      // Convert MobData to CharacterEntityConfig format
+      const config: CharacterEntityConfig = {
+        id: mobData.id,
+        name: mobData.name,
+        type: EntityType.CHARACTER,
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0, w: 1 },
+        scale: { x: 1, y: 1, z: 1 },
+        visible: true,
+        interactable: true,
+        interactionType: InteractionType.ATTACK,
+        interactionDistance: 2,
+        description: mobData.description,
+        model: mobData.modelPath || null,
+        properties: {
+          movementComponent: null,
+          combatComponent: null,
+          healthComponent: null,
+          visualComponent: null,
+          health: {
+            current: mobData.maxHealth,
+            max: mobData.maxHealth
+          },
+          level: mobData.level
+        },
+        characterId: characterId,
+        characterType: 'mob',
+        faction: mobData.type,
+        level: mobData.level,
+        maxHealth: mobData.maxHealth,
+        currentHealth: mobData.maxHealth,
+        attackPower: mobData.attackPower,
+        defense: mobData.defense,
+        attackSpeed: mobData.attackRate ? mobData.attackRate / 1000 : 2.0,
+        aggroRange: mobData.behaviorConfig?.aggroRange || 10,
+        combatRange: mobData.behaviorConfig?.combatStrategy === 'ranged' ? 8 : 2,
+        respawnTime: mobData.respawnTime,
+        movementType: 'wander',
+        wanderRadius: mobData.behaviorConfig?.wanderRadius || 10,
+        moveSpeed: mobData.moveSpeed || 5,
+        canBeAttacked: true,
+        retaliates: true,
+        lootTable: mobData.drops.map(drop => ({
+          itemId: drop.itemId,
+          minQuantity: drop.quantity,
+          maxQuantity: drop.quantity,
+          chance: drop.chance
+        })),
+        xpReward: mobData.xpReward
+      };
+
+      this.characterConfigs.set(characterId, config);
+    }
+
+    console.log(`[CharacterSystem] Loaded ${Object.keys(allMobs).length} character configurations from DataManager`);
   }
 
   /**

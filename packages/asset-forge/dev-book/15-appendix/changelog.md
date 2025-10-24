@@ -397,7 +397,7 @@ This is the first release, so no migration is necessary. For new installations:
 1. Install dependencies using Bun or npm
 2. Create `.env` file with required API keys
 3. Start development servers: `bun run dev`
-4. Access application at `http://localhost:3003`
+4. Access application at `http://localhost:3000`
 
 See the main README.md for detailed installation instructions.
 

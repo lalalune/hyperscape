@@ -4,6 +4,7 @@
  * AI-powered complete NPC generation with personality, dialogues, and behavior
  */
 
+import { standardErrors } from '../utils/errorResponse.mjs'
 import { randomUUID } from 'crypto'
 import { generateText } from 'ai'
 import { getModelForTask } from '../utils/ai-router.mjs'
@@ -26,6 +27,18 @@ export async function POST(req, res) {
     if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
       return res.status(400).json({
         error: "Invalid input: 'prompt' must be a non-empty string"
+      })
+    }
+
+    if (prompt.length > 10000) {
+      return res.status(400).json({
+        error: "Invalid input: 'prompt' must not exceed 10,000 characters"
+      })
+    }
+
+    if (context && typeof context === 'string' && context.length > 10000) {
+      return res.status(400).json({
+        error: "Invalid input: 'context' must not exceed 10,000 characters"
       })
     }
 
@@ -74,10 +87,10 @@ export async function POST(req, res) {
       text = result.text
     } catch (error) {
       console.error('AI generation error:', error)
-      return res.status(500).json({
-        error: 'Failed to generate NPC from AI service',
-        details: error.message
-      })
+      return res.status(500).json(standardErrors.generationFailed('AI', {
+        errorMessage: error.message,
+        stack: error.stack
+      }))
     }
 
     // Parse AI response
@@ -86,11 +99,7 @@ export async function POST(req, res) {
       npcData = parseNPCGenerationResponse(text)
     } catch (error) {
       console.error('Parse error:', error)
-      return res.status(502).json({
-        error: 'Failed to parse AI response',
-        rawResponse: text,
-        details: error.message
-      })
+      return res.status(502).json(standardErrors.parseError(text, error))
     }
 
     // Add metadata
@@ -145,10 +154,10 @@ export async function POST(req, res) {
     })
   } catch (error) {
     console.error('NPC generation error:', error)
-    return res.status(500).json({
-      error: 'Failed to generate NPC',
-      details: error.message
-    })
+    return res.status(500).json(standardErrors.internalError('Failed to generate NPC', {
+      errorMessage: error.message,
+      stack: error.stack
+    }))
   }
 }
 

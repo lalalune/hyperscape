@@ -537,10 +537,10 @@ export class ClientNetwork extends SystemBase {
   }
 
   onEntityAdded = (data: EntityData) => {
-    // Add debugging for mob entities
-    if (data.type === 'mob') {
+    // Add debugging for character entities
+    if (data.type === 'character') {
     }
-    
+
     // Add entity if method exists
     const newEntity = this.world.entities.add(data)
     if (newEntity) {

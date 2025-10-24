@@ -19,6 +19,7 @@
 
 import { SystemBase } from './SystemBase';
 import type { World } from '../World';
+import type { WorldOptions } from '../types';
 import { EventType } from '../types/events';
 import type {
   DialogueTree,
@@ -58,26 +59,31 @@ export class DialogueSystem extends SystemBase {
   private readonly sessionTimeout: number = 5 * 60 * 1000; // ms
 
   constructor(world: World) {
-    super(world);
+    super(world, {
+      name: 'dialogue',
+      dependencies: {
+        required: [],
+        optional: ['quest', 'inventory']
+      },
+      autoCleanup: true
+    });
   }
 
-  public init(): void {
-    super.init();
+  public async init(_options: WorldOptions): Promise<void> {
+    await super.init(_options);
 
     // Listen for dialogue events
-    this.listenToEvent(EventType.DIALOGUE_START, this.onDialogueStart.bind(this));
-    this.listenToEvent(EventType.DIALOGUE_ADVANCE, this.onDialogueAdvance.bind(this));
-    this.listenToEvent(EventType.DIALOGUE_CHOICE, this.onDialogueChoice.bind(this));
-    this.listenToEvent(EventType.DIALOGUE_END, this.onDialogueEnd.bind(this));
+    this.subscribe(EventType.DIALOGUE_START, this.onDialogueStart.bind(this));
+    this.subscribe(EventType.DIALOGUE_ADVANCE, this.onDialogueAdvance.bind(this));
+    this.subscribe(EventType.DIALOGUE_CHOICE, this.onDialogueChoice.bind(this));
+    this.subscribe(EventType.DIALOGUE_END, this.onDialogueEnd.bind(this));
 
     // Listen for character interaction to auto-start dialogue
-    this.listenToEvent(EventType.CHARACTER_INTERACTION, this.onCharacterInteraction.bind(this));
+    this.subscribe(EventType.CHARACTER_INTERACTION, this.onCharacterInteraction.bind(this));
 
     // Cleanup expired sessions every 30 seconds
     if (this.world.isServer) {
-      this.world.intervals.push(
-        setInterval(() => this.cleanupExpiredSessions(), 30000)
-      );
+      this.createInterval(() => this.cleanupExpiredSessions(), 30000);
     }
   }
 
@@ -89,14 +95,14 @@ export class DialogueSystem extends SystemBase {
     const { playerId, characterId } = data;
 
     // Get character entity
-    const character = this.world.getEntity(characterId) as CharacterEntity;
+    const character = this.world.entities.get(characterId) as CharacterEntity;
     if (!character || !character.dialogueTree) {
       console.warn(`[DialogueSystem] Character ${characterId} has no dialogue tree`);
       return;
     }
 
     // Get player entity
-    const player = this.world.getEntity(playerId) as PlayerEntity;
+    const player = this.world.entities.get(playerId) as PlayerEntity;
     if (!player) {
       console.warn(`[DialogueSystem] Player ${playerId} not found`);
       return;
@@ -212,7 +218,7 @@ export class DialogueSystem extends SystemBase {
   // ============================================================================
 
   private handleResponse(session: DialogueSession, response: DialogueResponse): void {
-    const player = this.world.getEntity(session.playerId) as PlayerEntity;
+    const player = this.world.entities.get(session.playerId) as PlayerEntity;
     if (!player) {
       this.endSession(session.playerId);
       return;
@@ -247,7 +253,7 @@ export class DialogueSystem extends SystemBase {
       return;
     }
 
-    const player = this.world.getEntity(session.playerId) as PlayerEntity;
+    const player = this.world.entities.get(session.playerId) as PlayerEntity;
     if (!player) {
       this.endSession(session.playerId);
       return;
@@ -283,7 +289,7 @@ export class DialogueSystem extends SystemBase {
         text: response.text,
         icon: response.icon
       })),
-      characterName: (this.world.getEntity(session.characterId) as CharacterEntity)?.name
+      characterName: (this.world.entities.get(session.characterId) as CharacterEntity)?.name
     });
   }
 
@@ -358,7 +364,7 @@ export class DialogueSystem extends SystemBase {
   private checkLevelRequirement(player: PlayerEntity, condition: DialogueCondition): boolean {
     if (condition.type !== 'LEVEL_REQUIREMENT') return false;
 
-    const playerLevel = player.level || 1;
+    const playerLevel = player.getLevel() || 1;
     const requiredLevel = condition.level || 1;
 
     return playerLevel >= requiredLevel;

@@ -1,0 +1,472 @@
+{
+  "startedAt": "2025-10-23T04:20:54.262Z",
+  "completedAt": "2025-10-23T04:21:09.829Z",
+  "totalAssets": 8,
+  "totalFiles": 46,
+  "totalSize": 21923482,
+  "assets": {
+    "chainbody": {
+      "files": [
+        {
+          "relativePath": "chainbody.glb",
+          "blobPath": "assets/chainbody/chainbody.glb",
+          "size": 1906044
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "assets/chainbody/concept-art.png",
+          "size": 1807150
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "assets/chainbody/metadata.json",
+          "size": 1843
+        }
+      ],
+      "metadata": {
+        "name": "chainbody",
+        "gameId": "chainbody",
+        "type": "armor",
+        "subtype": "armor",
+        "description": "A RuneScape 2 inspired chainbody",
+        "detailedPrompt": "Generate a floating 3D armor piece, precisely shaped for a scarecrow/T-pose body, with shoulder openings pointing straight sideways at a perfect 90-degree angle, forming a broad \"T\" shape when viewed from above. This armor has no extensions beyond the shoulders, contains hollow openings for body parts, and is not displayed on an armor stand.\n\nInspired by the classic Runescape 2007 style, this chainbody armor exhibits a highly detailed and textured pattern, emulating the intricate, interlocked metal rings characteristic to chainmail. It carries a slightly weathered, metallic sheen, providing an authentic, battle-worn aesthetic. The armor possesses a geometric form, the chest piece maintains a rectangular shape, with the shoulders tapering off into perfect half-circles.\n\nEnsure stylistic consistency with the old-school Runescape art style, known for its simplicity, pixelated textures, and vibrant color palette. The armor's color should echo the game's traditional steel color - a blend of sil",
+        "generatedAt": "2025-07-31T01:23:07.605Z",
+        "completedAt": "2025-07-31T01:23:07.605Z",
+        "isBaseModel": true,
+        "materialVariants": [],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/chainbody/chainbody.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01985e11-3e1b-7e49-84ac-795c2361bc68",
+        "meshyStatus": "completed",
+        "variants": [
+          "chainbody-dragon"
+        ],
+        "variantCount": 1,
+        "lastVariantGenerated": "chainbody-dragon",
+        "updatedAt": "2025-07-31T02:11:10.261Z",
+        "normalized": false
+      },
+      "blobUrls": {
+        "chainbody.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/chainbody/chainbody.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/chainbody/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/chainbody/metadata.json"
+      }
+    },
+    "chainbody-dragon": {
+      "files": [
+        {
+          "relativePath": "chainbody-dragon.glb",
+          "blobPath": "assets/chainbody-dragon/chainbody-dragon.glb",
+          "size": 4442852
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "assets/chainbody-dragon/concept-art.png",
+          "size": 1807150
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "assets/chainbody-dragon/metadata.json",
+          "size": 936
+        }
+      ],
+      "metadata": {
+        "id": "chainbody-dragon",
+        "gameId": "chainbody-dragon",
+        "name": "chainbody-dragon",
+        "type": "armor",
+        "subtype": "armor",
+        "isBaseModel": false,
+        "isVariant": true,
+        "parentBaseModel": "chainbody",
+        "materialPreset": {
+          "id": "dragon",
+          "displayName": "Dragon",
+          "category": "custom",
+          "tier": 10,
+          "color": "#fa0000",
+          "stylePrompt": "Dragon metal texture, red with matte finish, RuneScape 2007 style"
+        },
+        "workflow": "Meshy AI Retexture",
+        "baseModelTaskId": "01985e11-3e1b-7e49-84ac-795c2361bc68",
+        "retextureTaskId": "01985e3d-d884-7e4e-84fe-982a310c753c",
+        "retextureStatus": "completed",
+        "modelPath": "chainbody-dragon.glb",
+        "conceptArtPath": null,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "generatedAt": "2025-07-31T02:11:10.260Z",
+        "completedAt": "2025-07-31T02:11:10.260Z",
+        "description": "A RuneScape 2 inspired chainbody",
+        "isPlaceholder": false,
+        "gddCompliant": true
+      },
+      "blobUrls": {
+        "chainbody-dragon.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/chainbody-dragon/chainbody-dragon.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/chainbody-dragon/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/chainbody-dragon/metadata.json"
+      }
+    },
+    "human": {
+      "files": [
+        {
+          "relativePath": "animations/running.glb",
+          "blobPath": "assets/human/animations/running.glb",
+          "size": 1748860
+        },
+        {
+          "relativePath": "animations/walking.glb",
+          "blobPath": "assets/human/animations/walking.glb",
+          "size": 1753468
+        },
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "assets/human/concept-art.png",
+          "size": 1676008
+        },
+        {
+          "relativePath": "human_rigged.glb",
+          "blobPath": "assets/human/human_rigged.glb",
+          "size": 1753468
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "assets/human/metadata.json",
+          "size": 1764
+        }
+      ],
+      "metadata": {
+        "name": "human",
+        "gameId": "human",
+        "type": "character",
+        "subtype": "humanoid",
+        "description": "A RuneScape 2 inspired humanoid, T-Pose, no weapons",
+        "detailedPrompt": "A humanoid character inspired by RuneScape 2007, standing in T-pose. The character should have distinct, low-poly geometry with stylized textures mimicking the simplistic, cartoony aesthetic of the game. The skin texture should have a flat, matte finish with muted colors, while the hair should be textured with basic, solid colors. The character should not wield any weapons. The eyes should be round and simple, expressing the iconic RuneScape 2 feel.",
+        "generatedAt": "2025-07-30T03:01:03.095Z",
+        "completedAt": "2025-07-30T03:01:03.095Z",
+        "isBaseModel": true,
+        "materialVariants": [],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/human/human.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01985944-bb21-716d-983c-4998fc3980a0",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-07-30T03:01:03.095Z",
+        "normalized": false,
+        "isRigged": true,
+        "riggingTaskId": "01985946-b539-7064-ad2a-641093e856a3",
+        "riggingStatus": "completed",
+        "rigType": "humanoid-standard",
+        "characterHeight": 1.7,
+        "animations": {
+          "basic": {
+            "walking": "animations/walking.glb",
+            "tpose": "t-pose.glb",
+            "running": "animations/running.glb"
+          }
+        },
+        "riggedModelPath": "human_rigged.glb",
+        "tposeModelPath": "t-pose.glb",
+        "supportsAnimation": true,
+        "animationCompatibility": [
+          "mixamo",
+          "unity",
+          "unreal"
+        ]
+      },
+      "blobUrls": {
+        "animations/running.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/human/animations/running.glb",
+        "animations/walking.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/human/animations/walking.glb",
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/human/concept-art.png",
+        "human_rigged.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/human/human_rigged.glb",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/human/metadata.json"
+      }
+    },
+    "npc_1761117914631": {
+      "files": [
+        {
+          "relativePath": "voice/family_legacy.mp3",
+          "blobPath": "assets/npc_1761117914631/voice/family_legacy.mp3",
+          "size": 101609
+        },
+        {
+          "relativePath": "voice/forge_offer.mp3",
+          "blobPath": "assets/npc_1761117914631/voice/forge_offer.mp3",
+          "size": 94921
+        },
+        {
+          "relativePath": "voice/greeting.mp3",
+          "blobPath": "assets/npc_1761117914631/voice/greeting.mp3",
+          "size": 48946
+        },
+        {
+          "relativePath": "voice/materials_request.mp3",
+          "blobPath": "assets/npc_1761117914631/voice/materials_request.mp3",
+          "size": 90742
+        },
+        {
+          "relativePath": "voice/voiceProfile.json",
+          "blobPath": "assets/npc_1761117914631/voice/voiceProfile.json",
+          "size": 462
+        }
+      ],
+      "metadata": null,
+      "blobUrls": {
+        "voice/family_legacy.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761117914631/voice/family_legacy.mp3",
+        "voice/forge_offer.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761117914631/voice/forge_offer.mp3",
+        "voice/greeting.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761117914631/voice/greeting.mp3",
+        "voice/materials_request.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761117914631/voice/materials_request.mp3",
+        "voice/voiceProfile.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761117914631/voice/voiceProfile.json"
+      }
+    },
+    "npc_1761177075742": {
+      "files": [
+        {
+          "relativePath": "voice/end.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/end.mp3",
+          "size": 40169
+        },
+        {
+          "relativePath": "voice/greeting.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/greeting.mp3",
+          "size": 52707
+        },
+        {
+          "relativePath": "voice/greeting_2.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/greeting_2.mp3",
+          "size": 126268
+        },
+        {
+          "relativePath": "voice/life_advice.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/life_advice.mp3",
+          "size": 20525
+        },
+        {
+          "relativePath": "voice/swamp_discovery.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/swamp_discovery.mp3",
+          "size": 98683
+        },
+        {
+          "relativePath": "voice/swamp_nature.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/swamp_nature.mp3",
+          "size": 22196
+        },
+        {
+          "relativePath": "voice/swamp_secrets.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/swamp_secrets.mp3",
+          "size": 135045
+        },
+        {
+          "relativePath": "voice/swamp_secrets_2.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/swamp_secrets_2.mp3",
+          "size": 93667
+        },
+        {
+          "relativePath": "voice/voiceProfile.json",
+          "blobPath": "assets/npc_1761177075742/voice/voiceProfile.json",
+          "size": 463
+        },
+        {
+          "relativePath": "voice/wisdom_request.mp3",
+          "blobPath": "assets/npc_1761177075742/voice/wisdom_request.mp3",
+          "size": 141733
+        }
+      ],
+      "metadata": null,
+      "blobUrls": {
+        "voice/end.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/end.mp3",
+        "voice/greeting.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/greeting.mp3",
+        "voice/greeting_2.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/greeting_2.mp3",
+        "voice/life_advice.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/life_advice.mp3",
+        "voice/swamp_discovery.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/swamp_discovery.mp3",
+        "voice/swamp_nature.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/swamp_nature.mp3",
+        "voice/swamp_secrets.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/swamp_secrets.mp3",
+        "voice/swamp_secrets_2.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/swamp_secrets_2.mp3",
+        "voice/voiceProfile.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/voiceProfile.json",
+        "voice/wisdom_request.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_1761177075742/voice/wisdom_request.mp3"
+      }
+    },
+    "npc_gareth_guard": {
+      "files": [
+        {
+          "relativePath": "voice/accept_quest.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/accept_quest.mp3",
+          "size": 56469
+        },
+        {
+          "relativePath": "voice/accept_training.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/accept_training.mp3",
+          "size": 71934
+        },
+        {
+          "relativePath": "voice/end.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/end.mp3",
+          "size": 46020
+        },
+        {
+          "relativePath": "voice/greeting.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/greeting.mp3",
+          "size": 60649
+        },
+        {
+          "relativePath": "voice/greeting_2.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/greeting_2.mp3",
+          "size": 62320
+        },
+        {
+          "relativePath": "voice/message_explanation.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/message_explanation.mp3",
+          "size": 68172
+        },
+        {
+          "relativePath": "voice/raid_offer.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/raid_offer.mp3",
+          "size": 68172
+        },
+        {
+          "relativePath": "voice/training_offer.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/training_offer.mp3",
+          "size": 75695
+        },
+        {
+          "relativePath": "voice/trouble_in_village.mp3",
+          "blobPath": "assets/npc_gareth_guard/voice/trouble_in_village.mp3",
+          "size": 94921
+        },
+        {
+          "relativePath": "voice/voiceProfile.json",
+          "blobPath": "assets/npc_gareth_guard/voice/voiceProfile.json",
+          "size": 461
+        }
+      ],
+      "metadata": null,
+      "blobUrls": {
+        "voice/accept_quest.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/accept_quest.mp3",
+        "voice/accept_training.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/accept_training.mp3",
+        "voice/end.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/end.mp3",
+        "voice/greeting.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/greeting.mp3",
+        "voice/greeting_2.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/greeting_2.mp3",
+        "voice/message_explanation.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/message_explanation.mp3",
+        "voice/raid_offer.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/raid_offer.mp3",
+        "voice/training_offer.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/training_offer.mp3",
+        "voice/trouble_in_village.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/trouble_in_village.mp3",
+        "voice/voiceProfile.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_gareth_guard/voice/voiceProfile.json"
+      }
+    },
+    "npc_luna_herbalist": {
+      "files": [
+        {
+          "relativePath": "voice/accept_quest.mp3",
+          "blobPath": "assets/npc_luna_herbalist/voice/accept_quest.mp3",
+          "size": 49782
+        },
+        {
+          "relativePath": "voice/greeting.mp3",
+          "blobPath": "assets/npc_luna_herbalist/voice/greeting.mp3",
+          "size": 37243
+        },
+        {
+          "relativePath": "voice/greeting_1.mp3",
+          "blobPath": "assets/npc_luna_herbalist/voice/greeting_1.mp3",
+          "size": 29720
+        },
+        {
+          "relativePath": "voice/healing_request.mp3",
+          "blobPath": "assets/npc_luna_herbalist/voice/healing_request.mp3",
+          "size": 48110
+        },
+        {
+          "relativePath": "voice/herb_gathering.mp3",
+          "blobPath": "assets/npc_luna_herbalist/voice/herb_gathering.mp3",
+          "size": 66082
+        },
+        {
+          "relativePath": "voice/potion_info.mp3",
+          "blobPath": "assets/npc_luna_herbalist/voice/potion_info.mp3",
+          "size": 69844
+        },
+        {
+          "relativePath": "voice/voiceProfile.json",
+          "blobPath": "assets/npc_luna_herbalist/voice/voiceProfile.json",
+          "size": 463
+        }
+      ],
+      "metadata": null,
+      "blobUrls": {
+        "voice/accept_quest.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_luna_herbalist/voice/accept_quest.mp3",
+        "voice/greeting.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_luna_herbalist/voice/greeting.mp3",
+        "voice/greeting_1.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_luna_herbalist/voice/greeting_1.mp3",
+        "voice/healing_request.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_luna_herbalist/voice/healing_request.mp3",
+        "voice/herb_gathering.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_luna_herbalist/voice/herb_gathering.mp3",
+        "voice/potion_info.mp3": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_luna_herbalist/voice/potion_info.mp3",
+        "voice/voiceProfile.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/npc_luna_herbalist/voice/voiceProfile.json"
+      }
+    },
+    "spiked-helmet": {
+      "files": [
+        {
+          "relativePath": "concept-art.png",
+          "blobPath": "assets/spiked-helmet/concept-art.png",
+          "size": 1489352
+        },
+        {
+          "relativePath": "metadata.json",
+          "blobPath": "assets/spiked-helmet/metadata.json",
+          "size": 1734
+        },
+        {
+          "relativePath": "spiked-helmet.glb",
+          "blobPath": "assets/spiked-helmet/spiked-helmet.glb",
+          "size": 1558660
+        }
+      ],
+      "metadata": {
+        "name": "spiked-helmet",
+        "gameId": "spiked-helmet",
+        "type": "armor",
+        "subtype": "helmet",
+        "description": "a runescape 2 inspired spiked helmet. no base, no stand, only the helmet nothing else no exceptions",
+        "detailedPrompt": "Generate a 3D asset inspired by the art style of Runescape 2007: an intricately designed spiked helmet. This helmet should be void of any base or stand, focusing solely on the object itself. The helmet should exhibit a rugged, worn-out look to reflect the gritty atmosphere of the game. The design should incorporate a series of sharp, menacing spikes protruding from the helmet's surface in a symmetrical pattern. The material of the helmet should resemble aged, weathered iron with a dull, matte finish, hinting at countless battles. The form should be slightly oval, to mimic the shape of a human head, and should feature intricate geometric details, such as engraved patterns around the base and eye slits. Ensure consistency with the Runescape 2007 simplistic, low-poly style.",
+        "generatedAt": "2025-07-28T03:28:46.280Z",
+        "completedAt": "2025-07-28T03:28:46.280Z",
+        "isBaseModel": true,
+        "materialVariants": [
+          "bronze"
+        ],
+        "isPlaceholder": false,
+        "hasModel": true,
+        "hasConceptArt": true,
+        "modelPath": "gdd-assets/spiked-helmet/spiked-helmet.glb",
+        "conceptArtUrl": "./concept-art.png",
+        "gddCompliant": true,
+        "workflow": "GPT-4 → GPT-Image-1 → Meshy Image-to-3D (Base Model)",
+        "meshyTaskId": "01984f11-3f55-79e4-b662-db874a8ee09c",
+        "meshyStatus": "completed",
+        "variants": [],
+        "variantCount": 0,
+        "lastVariantGenerated": null,
+        "updatedAt": "2025-07-28T03:28:46.280Z",
+        "normalized": false,
+        "tier": "",
+        "lastModified": "2025-07-31T00:23:40.462Z"
+      },
+      "blobUrls": {
+        "concept-art.png": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/spiked-helmet/concept-art.png",
+        "metadata.json": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/spiked-helmet/metadata.json",
+        "spiked-helmet.glb": "https://xmcbei8u2nsgxdm9.public.blob.vercel-storage.com/assets/spiked-helmet/spiked-helmet.glb"
+      }
+    }
+  }
+}

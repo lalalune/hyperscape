@@ -1,0 +1,97 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-debug.log*
+bun.lockb
+
+# Build output
+dist/
+build/
+.next/
+out/
+.cache/
+
+# Environment and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# Development
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+*.test.js
+*.spec.js
+__tests__/
+tests/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs/
+dev-book/
+
+# Data files
+data/
+gdd-assets/
+temp-images/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deployment
+.vercel/
+.vercelignore
+fly.toml
+Dockerfile
+.dockerignore
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+.claude/
+api/
+bundle-analysis.json
+*.txt
+SECURITY.md
+FLY_IO_DEPLOYMENT.md
+INFRASTRUCTURE_SETUP_COMPLETE.md
+QUICK_SETUP.md
+NEON-SETUP-COMPLETE.md
+drizzle.config.*
+postcss.config.*
+tailwind.config.*
+tsconfig.json
+vite.config.*
+vitest.config.*
+playwright.config.*
+eslint.config.*

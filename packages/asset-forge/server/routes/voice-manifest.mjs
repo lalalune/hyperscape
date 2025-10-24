@@ -20,7 +20,17 @@ import { createLogger } from '../utils/logger.mjs'
 import fetch from 'node-fetch'
 
 const manifestVoiceService = new ManifestVoiceService()
-const voiceService = new VoiceGenerationService()
+
+// Lazy initialization - only create the service when first needed
+// This ensures environment variables are loaded before instantiation
+let voiceService = null
+function getVoiceService() {
+  if (!voiceService) {
+    voiceService = new VoiceGenerationService()
+  }
+  return voiceService
+}
+
 const logger = createLogger('VoiceManifestAPI')
 
 /**

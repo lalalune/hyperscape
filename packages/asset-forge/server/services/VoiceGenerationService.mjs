@@ -18,6 +18,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { asyncPool, retryWithBackoff } from '../utils/concurrency.mjs'
 import { createLogger, PerformanceTimer } from '../utils/logger.mjs'
+import { uploadGeneratedAssetToBlob } from './BlobUploadHelper.mjs'
+import { validateNpcId, validateFilename } from '../utils/validators.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -40,16 +42,17 @@ const DEFAULT_RETRY_CONFIG = {
 export class VoiceGenerationService {
   constructor() {
     // Initialize ElevenLabs client
+    // Note: API key is optional - users can provide their own via dashboard
     const apiKey = process.env.ELEVENLABS_API_KEY
 
     if (!apiKey) {
-      logger.warn('ELEVENLABS_API_KEY not found in environment - service unavailable')
+      // No warning needed - users can provide their own API keys
       this.client = null
     } else {
       this.client = new ElevenLabsClient({
         apiKey: apiKey
       })
-      logger.info('ElevenLabs client initialized successfully')
+      logger.info('ElevenLabs client initialized with platform API key')
     }
 
     // Path to gdd-assets directory
@@ -346,6 +349,9 @@ export class VoiceGenerationService {
    * - Sequential: ~30 seconds for 10 clips
    * - Parallel (5 concurrent): ~6-8 seconds for 10 clips (75% faster)
    *
+   * CRITICAL: Uses atomic progress tracking to prevent race conditions in concurrent operations.
+   * The progress counter uses a promise chain lock to ensure thread-safe increments.
+   *
    * @param {Object} params Generation parameters
    * @param {string} params.npcId NPC identifier
    * @param {Array} params.dialogueNodes Dialogue nodes to generate
@@ -377,10 +383,13 @@ export class VoiceGenerationService {
       throw new Error('Voice ID is required')
     }
 
+    // SECURITY: Validate NPC ID to prevent path traversal attacks
+    const validatedNpcId = validateNpcId(npcId)
+
     const timer = new PerformanceTimer(logger, 'generateDialogueVoices')
 
     logger.info('Starting parallel batch voice generation', {
-      npcId,
+      npcId: validatedNpcId,
       voiceId,
       nodeCount: dialogueNodes.length,
       concurrencyLimit: MAX_CONCURRENT_VOICE_REQUESTS,
@@ -388,7 +397,7 @@ export class VoiceGenerationService {
     })
 
     // Create voice directory for this NPC
-    const npcVoiceDir = path.join(this.assetsDir, npcId, 'voice')
+    const npcVoiceDir = path.join(this.assetsDir, validatedNpcId, 'voice')
     const resolvedNpcVoiceDir = path.resolve(npcVoiceDir)
     if (!resolvedNpcVoiceDir.startsWith(path.resolve(this.assetsDir))) {
       throw new Error('Invalid NPC ID: Path traversal detected')
@@ -398,7 +407,59 @@ export class VoiceGenerationService {
     timer.checkpoint('directory-created')
 
     const total = dialogueNodes.length
-    let completed = 0
+
+    // ATOMIC PROGRESS TRACKING
+    // Use promise chain lock pattern to prevent race conditions in concurrent operations
+    // This ensures that progress counter increments are serialized even when multiple
+    // promises complete simultaneously
+    const progress = {
+      total: total,
+      completed: 0,
+      failed: 0,
+      lock: Promise.resolve() // Promise chain lock for atomic operations
+    }
+
+    /**
+     * Atomically increment progress counter
+     * @param {string} field - Field to increment ('completed' or 'failed')
+     */
+    const incrementProgress = (field) => {
+      // Chain the increment operation to ensure atomicity
+      progress.lock = progress.lock.then(() => {
+        progress[field]++
+
+        // Bounds checking to prevent counter overflow
+        const currentTotal = progress.completed + progress.failed
+        if (currentTotal > progress.total) {
+          logger.error('Progress counter overflow detected', {
+            completed: progress.completed,
+            failed: progress.failed,
+            total: progress.total,
+            field: field
+          })
+          // Cap at total to prevent infinite loops
+          progress[field] = Math.max(0, progress.total - progress[field === 'completed' ? 'failed' : 'completed'])
+        }
+
+        // Notify progress callback
+        if (onProgress) {
+          try {
+            onProgress(progress.completed + progress.failed, progress.total)
+          } catch (callbackError) {
+            // Don't let callback errors break the generation process
+            logger.error('Progress callback error (non-fatal)', callbackError)
+          }
+        }
+
+        // Debug logging for progress tracking
+        logger.debug('Progress updated', {
+          completed: progress.completed,
+          failed: progress.failed,
+          total: progress.total,
+          percentage: Math.round(((progress.completed + progress.failed) / progress.total) * 100)
+        })
+      })
+    }
 
     // Process dialogue nodes in parallel with concurrency limit
     const results = await asyncPool(MAX_CONCURRENT_VOICE_REQUESTS, dialogueNodes, async (node, index) => {
@@ -415,15 +476,12 @@ export class VoiceGenerationService {
         const filepath = path.join(resolvedNpcVoiceDir, filename)
         await fs.writeFile(filepath, audioBuffer)
 
-        // Update progress
-        completed++
-        if (onProgress) {
-          onProgress(completed, total)
-        }
+        // Atomic progress increment
+        incrementProgress('completed')
 
         logger.debug('Generated voice clip', {
           nodeId: node.id,
-          progress: `${completed}/${total}`,
+          progress: `${progress.completed + progress.failed}/${total}`,
           fileSize: audioBuffer.length
         })
 
@@ -440,14 +498,12 @@ export class VoiceGenerationService {
           }
         }
       } catch (error) {
-        completed++
-        if (onProgress) {
-          onProgress(completed, total)
-        }
+        // Atomic progress increment for failures
+        incrementProgress('failed')
 
         logger.error('Failed to generate voice clip', error, {
           nodeId: node.id,
-          progress: `${completed}/${total}`
+          progress: `${progress.completed + progress.failed}/${total}`
         })
 
         return {
@@ -465,27 +521,39 @@ export class VoiceGenerationService {
       }
     })
 
+    // CRITICAL: Wait for all progress updates to complete before proceeding
+    // This ensures the final counters are accurate when we read them below
+    await progress.lock
+
     timer.checkpoint('clips-generated')
 
     // Build clips map from results
     const clips = {}
-    let successCount = 0
-    let failureCount = 0
 
     for (const result of results) {
       if (result.status === 'fulfilled') {
-        const { nodeId, clip, success } = result.value
+        const { nodeId, clip } = result.value
         clips[nodeId] = clip
-        if (success) {
-          successCount++
-        } else {
-          failureCount++
-        }
       } else {
         // Promise rejected (shouldn't happen with our error handling, but be safe)
         logger.error('Unexpected promise rejection in batch generation', result.reason)
-        failureCount++
       }
+    }
+
+    // CRITICAL: Use atomic progress counters instead of recounting results
+    // The progress object contains the true count, accounting for all race conditions
+    const successCount = progress.completed
+    const failureCount = progress.failed
+
+    // Verify counter integrity (defensive programming)
+    if (successCount + failureCount !== total) {
+      logger.error('Counter integrity check failed', {
+        successCount,
+        failureCount,
+        total,
+        sum: successCount + failureCount
+      })
+      // Log but don't throw - use the atomic counters as source of truth
     }
 
     timer.checkpoint('results-processed')
@@ -521,6 +589,23 @@ export class VoiceGenerationService {
 
     timer.checkpoint('metadata-saved')
 
+    // Upload voice files to blob storage (if enabled)
+    try {
+      const blobUploadResult = await uploadGeneratedAssetToBlob(npcId, {
+        filePatterns: ['voice/*.mp3', 'voice/voiceProfile.json'] // Only upload voice-related files
+      })
+      if (blobUploadResult.success) {
+        logger.info(`✅ Voice files uploaded to blob for ${npcId}`)
+      } else if (!blobUploadResult.skipped) {
+        logger.warn(`⚠️  Voice blob upload failed: ${blobUploadResult.message}`)
+      }
+    } catch (blobError) {
+      logger.error('❌ Blob upload error (non-fatal)', blobError)
+      // Don't fail the voice generation if blob upload fails
+    }
+
+    timer.checkpoint('blob-upload-completed')
+
     logger.info('Batch voice generation completed', {
       npcId,
       totalGenerated: successCount,
@@ -531,7 +616,7 @@ export class VoiceGenerationService {
     })
 
     return {
-      npcId,
+      npcId: validatedNpcId,
       voiceId,
       clips,
       totalGenerated: successCount,
@@ -551,11 +636,14 @@ export class VoiceGenerationService {
    * @returns {Promise<Object|null>} Voice profile or null
    */
   async getVoiceProfile(npcId) {
-    const candidatePath = path.join(this.assetsDir, npcId, 'voice', 'voiceProfile.json')
+    // SECURITY: Validate NPC ID to prevent path traversal attacks
+    const validatedNpcId = validateNpcId(npcId)
+
+    const candidatePath = path.join(this.assetsDir, validatedNpcId, 'voice', 'voiceProfile.json')
     const voiceProfilePath = path.resolve(candidatePath)
     // Prevent directory traversal: check normalized path is within assetsDir
     if (!voiceProfilePath.startsWith(this.assetsDir + path.sep)) {
-      logger.warn('Blocked attempt to access voice profile outside assetsDir', { npcId, voiceProfilePath })
+      logger.warn('Blocked attempt to access voice profile outside assetsDir', { npcId: validatedNpcId, voiceProfilePath })
       throw new Error('Invalid NPC ID or access denied')
     }
 
@@ -580,11 +668,14 @@ export class VoiceGenerationService {
    * @returns {Promise<boolean>} Success status
    */
   async deleteVoiceClips(npcId) {
-    const candidateDir = path.join(this.assetsDir, npcId, 'voice')
+    // SECURITY: Validate NPC ID to prevent path traversal attacks
+    const validatedNpcId = validateNpcId(npcId)
+
+    const candidateDir = path.join(this.assetsDir, validatedNpcId, 'voice')
     const npcVoiceDir = path.resolve(candidateDir)
     // Prevent directory traversal: check normalized path is within assetsDir
     if (!npcVoiceDir.startsWith(this.assetsDir + path.sep)) {
-      logger.warn('Blocked attempt to delete voice clips outside assetsDir', { npcId, npcVoiceDir })
+      logger.warn('Blocked attempt to delete voice clips outside assetsDir', { npcId: validatedNpcId, npcVoiceDir })
       return false
     }
 

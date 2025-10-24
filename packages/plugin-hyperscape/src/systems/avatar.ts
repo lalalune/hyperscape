@@ -1,5 +1,5 @@
 import { logger } from "@elizaos/core";
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperscape/shared/client";
 import type { World, Player } from "../types/core-types";
 import { PlayerEffectSchema, type PlayerEffect, type PlayerData } from "../types/validation-schemas";
 

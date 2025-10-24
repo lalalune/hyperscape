@@ -737,6 +737,152 @@ if [ $? -ne 0 ]; then
 fi
 ```
 
+## Test Coverage Reporting
+
+### Coverage Configuration
+
+Asset Forge uses Vitest for unit test coverage and Istanbul for integration test coverage.
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov'],
+      include: [
+        'src/**/*.ts',
+        'src/**/*.tsx',
+        'server/**/*.mjs'
+      ],
+      exclude: [
+        'src/**/*.test.ts',
+        'src/**/*.test.tsx',
+        'src/types/**',
+        'src/**/*.d.ts',
+        'server/**/*.test.mjs'
+      ],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 75,
+        statements: 80
+      }
+    }
+  }
+})
+```
+
+### Running Coverage Reports
+
+```bash
+# Generate coverage for unit tests
+npm run test:unit -- --coverage
+
+# View HTML coverage report
+open coverage/index.html
+
+# Check coverage thresholds
+npm run test:coverage
+
+# Generate coverage for integration tests
+npm run test:integration -- --coverage
+
+# Combined coverage report
+npm run test:all -- --coverage
+```
+
+### Coverage Metrics
+
+Asset Forge tracks four key coverage metrics:
+
+1. **Line Coverage**: Percentage of executed code lines
+2. **Function Coverage**: Percentage of called functions
+3. **Branch Coverage**: Percentage of executed conditional branches
+4. **Statement Coverage**: Percentage of executed statements
+
+```bash
+# Example coverage output
+-------------------|---------|----------|---------|---------|
+File               | % Stmts | % Branch | % Funcs | % Lines |
+-------------------|---------|----------|---------|---------|
+All files          |   85.42 |    78.92 |   82.15 |   85.42 |
+ services          |   92.45 |    85.71 |   90.00 |   92.45 |
+  AssetService.mjs |   95.00 |    90.00 |   92.30 |   95.00 |
+  VoiceService.mjs |   88.50 |    80.00 |   87.50 |   88.50 |
+ utils             |   76.32 |    70.00 |   75.00 |   76.32 |
+  validators.mjs   |   100.0 |    100.0 |   100.0 |   100.0 |
+-------------------|---------|----------|---------|---------|
+```
+
+### Coverage Targets
+
+| Component | Lines | Functions | Branches | Statements |
+|-----------|-------|-----------|----------|------------|
+| **Core Services** | 90% | 90% | 85% | 90% |
+| **API Routes** | 85% | 85% | 80% | 85% |
+| **Utilities** | 85% | 85% | 80% | 85% |
+| **UI Components** | 75% | 75% | 70% | 75% |
+| **Overall** | 80% | 80% | 75% | 80% |
+
+### CI/CD Coverage Integration
+
+```yaml
+# .github/workflows/ci.yml
+- name: Run tests with coverage
+  run: npm run test:coverage
+
+- name: Upload coverage to Codecov
+  uses: codecov/codecov-action@v4
+  with:
+    files: ./coverage/lcov.info
+    flags: unittests
+    name: asset-forge-coverage
+    fail_ci_if_error: true
+
+- name: Comment coverage on PR
+  uses: romeovs/lcov-reporter-action@v0.3.1
+  with:
+    lcov-file: ./coverage/lcov.info
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Uncovered Code Analysis
+
+```bash
+# Find uncovered lines
+npm run test:coverage -- --reporter=verbose
+
+# Generate detailed coverage report
+npm run test:coverage -- --coverage.all
+
+# Check specific file coverage
+npm run test:coverage -- src/services/AssetService.mjs
+```
+
+### Best Practices
+
+1. **Aim for High Coverage**: Target 80%+ overall coverage
+2. **Critical Paths First**: Ensure 90%+ coverage for core services
+3. **Don't Chase 100%**: Some code (error handlers, edge cases) may not need coverage
+4. **Review Uncovered Code**: Identify if missing tests or dead code
+5. **Track Trends**: Monitor coverage changes over time
+
+```typescript
+// Add coverage comments to skip non-critical code
+/* istanbul ignore next */
+function debugOnly() {
+  // Development-only code
+}
+
+/* istanbul ignore if */
+if (process.env.NODE_ENV === 'development') {
+  // Dev-only path
+}
+```
+
 ## Debugging Failed Tests
 
 ### 1. Review Screenshots
@@ -766,6 +912,22 @@ npx playwright show-trace test-results/feature-test/trace.zip
 # Check test logs
 cat logs/test-YYYY-MM-DD.log
 ```
+
+### 5. Comprehensive Troubleshooting
+
+For detailed troubleshooting guidance, see [Test Troubleshooting Guide](./test-troubleshooting.md).
+
+## Additional Testing Guides
+
+Asset Forge provides comprehensive testing documentation:
+
+- **[Integration Testing Guide](./integration-testing-guide.md)** - Testing multiple components together
+- **[Mocking Strategies](./mocking-strategies.md)** - When and how to mock external services
+- **[Test Patterns](./test-patterns.md)** - Common testing patterns and best practices
+- **[CI/CD Testing](./ci-cd-testing.md)** - Automated testing in GitHub Actions
+- **[Visual Testing](./visual-testing.md)** - 3D rendering and screenshot verification
+- **[Debugging Tools](./debugging-tools.md)** - DevTools and debugging techniques
+- **[Test Troubleshooting](./test-troubleshooting.md)** - Comprehensive troubleshooting guide
 
 ## Conclusion
 

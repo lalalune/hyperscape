@@ -57,7 +57,7 @@ const generateUUID = () => crypto.randomUUID() as UUID;
 interface Client {}
 import WebSocket from "ws";
 import { EventEmitter } from "events";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperscape/shared/client";
 
 /**
  * HyperscapeClientInterface - ElizaOS Agent Game Client
