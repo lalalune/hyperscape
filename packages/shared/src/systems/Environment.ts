@@ -4,6 +4,7 @@ import { Node as NodeClass } from '../nodes/Node'
 import { System } from './System'
 
 import { CSM } from '../libs/csm/CSM'
+import { SkySystem } from './SkySystem'
 import type { BaseEnvironment, EnvironmentModel, LoadedModel, LoaderResult, SkyHandle, SkyInfo, SkyNode, World, WorldOptions } from '../types/index'
 
 const _sunDirection = new THREE.Vector3(0, -1, 0)
@@ -89,6 +90,7 @@ export class Environment extends System {
   hdrUrl?: string;
   csm!: CSM;
   skyInfo!: SkyInfo;
+  private skySystem?: SkySystem;
   
   private isClientWithGraphics: boolean = false;
 
@@ -122,6 +124,19 @@ export class Environment extends System {
     
     // Load initial model
     await this.updateModel();
+
+    // Enhanced dynamic sky (client-only)
+    this.skySystem = new SkySystem(this.world)
+    await this.skySystem.init({} as unknown as WorldOptions)
+    this.skySystem.start()
+    // Ensure legacy sky sphere never occludes dynamic sky
+    if (this.sky) {
+      const mat = this.sky.material as THREE.MeshBasicMaterial
+      mat.depthWrite = false
+      this.sky.visible = false
+    }
+    // Re-evaluate sky state now that SkySystem exists
+    await this.updateSky()
 
     this.world.settings?.on('change', this.onSettingsChange)
     this.world.prefs?.on('change', this.onPrefsChange)
@@ -247,7 +262,10 @@ export class Environment extends System {
     if (hdrUrl) hdrTexture = await this.world.loader?.load('hdr', hdrUrl)
     if (n !== this.skyN) return
 
-    if (bgTexture) {
+    if (this.skySystem) {
+      // Prefer dynamic SkySystem visuals; hide legacy background sphere
+      this.sky.visible = false
+    } else if (bgTexture) {
       bgTexture.minFilter = bgTexture.magFilter = THREE.LinearFilter
       bgTexture.mapping = THREE.EquirectangularReflectionMapping
       bgTexture.colorSpace = THREE.SRGBColorSpace
@@ -294,6 +312,10 @@ export class Environment extends System {
   }
 
   override destroy(): void {
+    if (this.skySystem) {
+      this.skySystem.destroy()
+      this.skySystem = undefined
+    }
     this.world.settings?.off('change', this.onSettingsChange)
     this.world.prefs?.off('change', this.onPrefsChange)
     
@@ -342,10 +364,22 @@ export class Environment extends System {
     if (this.csm) {
       this.csm.update();
     }
+    // Ensure sky sphere never writes depth (prevents cutting moon)
+    if (this.sky) {
+      const m = this.sky.material as THREE.MeshBasicMaterial
+      if (m.depthWrite !== false) m.depthWrite = false
+    }
+    if (this.skySystem) {
+      this.skySystem.update(_delta)
+    }
   }
 
   override lateUpdate(_delta: number) {
-    if (!this.isClientWithGraphics || !this.sky) return
+    if (!this.isClientWithGraphics) return
+    if (this.skySystem) {
+      this.skySystem.lateUpdate(_delta)
+    }
+    if (!this.sky) return
     
     this.sky.position.x = this.world.rig.position.x
     this.sky.position.z = this.world.rig.position.z

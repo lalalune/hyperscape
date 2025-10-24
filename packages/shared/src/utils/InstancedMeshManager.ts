@@ -87,6 +87,7 @@ export class InstancedMeshManager {
     private cullDistance = 200; // Maximum distance to render instances
     private _tempMatrix = new THREE.Matrix4();
     private _tempVec3 = new THREE.Vector3();
+    private didInitialVisibility = false;
 
     /**
      * Create a new InstancedMeshManager
@@ -118,6 +119,8 @@ export class InstancedMeshManager {
         const mesh = new THREE.InstancedMesh(geometry, material, visibleCount);
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         mesh.count = 0; // Start with no visible instances
+        // Disable frustum culling since InstancedMesh bounding volumes ignore per-instance transforms
+        mesh.frustumCulled = false;
         this.scene.add(mesh);
         
         this.instancedMeshes.set(type, {
@@ -168,9 +171,6 @@ export class InstancedMeshManager {
             visible: false,
             distance: Infinity
         });
-
-        // Trigger an immediate visibility update for this type
-        this.updateInstanceVisibility(type);
 
         return instanceId;
     }
@@ -303,18 +303,33 @@ export class InstancedMeshManager {
      * Update visibility for all mesh types.
      * Call this periodically (not every frame) to maintain performance.
      */
-    updateAllInstanceVisibility(): void {
+    updateAllInstanceVisibility(force = false): void {
         const now = Date.now();
-        if (now - this.lastUpdateTime < this.updateInterval) {
+        if (!force && now - this.lastUpdateTime < this.updateInterval) {
             return; // Don't update too frequently
         }
         this.lastUpdateTime = now;
 
         const playerPos = this.getPlayerPosition();
-        if (!playerPos) return;
+        if (!playerPos) {
+            console.warn('[InstancedMeshManager] No player position for visibility update');
+            return;
+        }
 
-        // Only update if player has moved significantly
-        if (playerPos.distanceTo(this.lastPlayerPosition) > 10) {
+        // Force one full update the first time we have a player position
+        if (!this.didInitialVisibility) {
+            this.didInitialVisibility = true;
+            console.log('[InstancedMeshManager] First visibility update with player at', playerPos);
+            for (const type of this.instancedMeshes.keys()) {
+                this.updateInstanceVisibility(type);
+                const data = this.instancedMeshes.get(type);
+                console.log(`[InstancedMeshManager] ${type}: ${data?.mesh.count}/${data?.allInstances.size} visible`);
+            }
+            return;
+        }
+
+        // Only update if player has moved significantly or forced
+        if (force || playerPos.distanceTo(this.lastPlayerPosition) > 10) {
             this.lastPlayerPosition.copy(playerPos);
             
             // Update visibility for all types
