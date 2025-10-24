@@ -18,8 +18,20 @@ import { privyAuthManager } from './auth/PrivyAuthManager'
 import { PrivyAuthProvider } from './auth/PrivyAuthProvider'
 import './styles/index.css'
 
+// Set up Buffer polyfill for Privy
 if (!globalThis.Buffer) {
   (globalThis as typeof globalThis & { Buffer?: typeof Buffer }).Buffer = Buffer
+}
+
+// Log environment info for debugging deployment issues
+console.log('[Asset Forge] Initializing...')
+console.log('[Asset Forge] Environment:', import.meta.env.MODE)
+console.log('[Asset Forge] Privy App ID:', import.meta.env.VITE_PUBLIC_PRIVY_APP_ID ? '✅ Set' : '❌ Missing')
+
+// Check for required environment variables
+if (!import.meta.env.VITE_PUBLIC_PRIVY_APP_ID) {
+  console.error('[Asset Forge] ❌ CRITICAL: VITE_PUBLIC_PRIVY_APP_ID is not set!')
+  console.error('[Asset Forge] Available env vars:', Object.keys(import.meta.env))
 }
 
 function AuthenticatedApp() {
