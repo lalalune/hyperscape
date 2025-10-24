@@ -26,11 +26,7 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'three'],
     alias: {
-      '@': path.resolve(__dirname, 'src'),
-      'react': path.resolve(__dirname, '../../node_modules/react'),
-      'react-dom': path.resolve(__dirname, '../../node_modules/react-dom'),
-      'react/jsx-runtime': path.resolve(__dirname, '../../node_modules/react/jsx-runtime'),
-      'three': path.resolve(__dirname, '../../node_modules/three')
+      '@': path.resolve(__dirname, 'src')
     }
   },
   optimizeDeps: {
@@ -47,9 +43,17 @@ export default defineConfig({
         preserveModules: false,
         hoistTransitiveImports: false,
         manualChunks: (id) => {
-          // Core React and UI (keep together for optimal caching)
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) {
+          // Core React and UI (MUST load first - keep together for optimal caching)
+          if (id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/scheduler') ||
+              id.includes('node_modules/react-is')) {
             return 'vendor-react'
+          }
+
+          // Lucide icons (DEPENDS ON REACT - must come after react in load order)
+          if (id.includes('lucide-react')) {
+            return 'vendor-icons'
           }
 
           // Three.js core
@@ -158,11 +162,6 @@ export default defineConfig({
           }
           if (id.includes('jsonwebtoken') || id.includes('buffer') || id.includes('dotenv')) {
             return 'vendor-crypto-utils'
-          }
-
-          // Lucide icons (can be large, separate chunk)
-          if (id.includes('lucide-react')) {
-            return 'vendor-icons'
           }
 
           // Three.js mesh utilities (lazy loaded with 3D)
