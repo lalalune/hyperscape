@@ -25,7 +25,13 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   const readyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [ready, setReady] = useState(false)
   const [loadingComplete, setLoadingComplete] = useState(false)
-  const [loadingProgress, setLoadingProgress] = useState(0)
+  // Track system and asset progress separately to gate presentation on assets
+  const [systemsComplete, setSystemsComplete] = useState(false)
+  const [assetsProgress, setAssetsProgress] = useState(0)
+  // Presentation gating flags
+  const [playerReady, setPlayerReady] = useState(() => !!world.entities.player)
+  const [physReady, setPhysReady] = useState(false)
+  const [terrainReady, setTerrainReady] = useState(false)
   const [_player, setPlayer] = useState(() => world.entities.player)
   const [ui, setUI] = useState(world.ui?.state)
   const [_menu, setMenu] = useState(null)
@@ -37,7 +43,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     useEffect(() => {
     // Create handlers with proper types
     const handleReady = () => {
-      // Mark that systems are ready, but wait for loading progress to reach 100%
+      // A READY signal indicates a major subsystem finished; mark loading as potentially complete
       setLoadingComplete(true)
     }
     
@@ -46,15 +52,25 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         progress: number;
         stage?: string;
         total?: number;
+        current?: number;
       };
-      
-      // Update loading progress
-      setLoadingProgress(progressData.progress)
+      // Prefer system-stage events when present
+      if (progressData.stage) {
+        if (progressData.progress >= 100) setSystemsComplete(true)
+      } else if (typeof progressData.total === 'number') {
+        setAssetsProgress(progressData.progress)
+      }
     }
     const handlePlayerSpawned = () => {
-      // Find and set the local player entity
       const player = world.entities?.player
-      if (player) setPlayer(player)
+      if (player) {
+        setPlayer(player)
+        setPlayerReady(true)
+      }
+    }
+    const handleAvatarComplete = (_data: { playerId: string; success: boolean }) => {
+      // Avatar loaded for a player — consider local player ready for presentation
+      setPlayerReady(true)
     }
     const handleUIToggle = (data: { visible: boolean }) => {
       setUI(prev => prev ? { ...prev, visible: data.visible } : undefined)
@@ -73,6 +89,10 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     world.on(EventType.READY, handleReady)
     world.on(EventType.ASSETS_LOADING_PROGRESS, handleLoadingProgress)
     world.on(EventType.PLAYER_SPAWNED, handlePlayerSpawned)
+    world.on(EventType.AVATAR_LOAD_COMPLETE, handleAvatarComplete)
+    // Physics system emits a non-enum event on ready
+    const handlePhysicsReady = () => setPhysReady(true)
+    world.on('physics:ready', handlePhysicsReady)
     world.on(EventType.UI_TOGGLE, handleUIToggle)
     world.on(EventType.UI_MENU, handleUIMenu)
     world.on(EventType.UI_AVATAR, handleUIAvatar)
@@ -94,6 +114,8 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       world.off(EventType.READY, handleReady)
       world.off(EventType.ASSETS_LOADING_PROGRESS, handleLoadingProgress)
       world.off(EventType.PLAYER_SPAWNED, handlePlayerSpawned)
+      world.off(EventType.AVATAR_LOAD_COMPLETE, handleAvatarComplete)
+      world.off('physics:ready', handlePhysicsReady)
       world.off(EventType.UI_TOGGLE, handleUIToggle)
       world.off(EventType.UI_MENU, handleUIMenu)
       world.off(EventType.UI_AVATAR, handleUIAvatar)
@@ -104,9 +126,37 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     }
   }, [])
 
-  // Start the 300ms delay once loading is complete AND progress reaches 100%
+  // Poll terrain readiness at the player's tile until ready
   useEffect(() => {
-    if (loadingComplete && loadingProgress >= 100) {
+    let terrainInterval: NodeJS.Timeout | null = null
+    function startPolling() {
+      if (terrainInterval) return
+      terrainInterval = setInterval(() => {
+        const player = world.entities?.player as { position?: { x: number; z: number } } | undefined
+        if (!player || !player.position) return
+        const terrain = world.getSystem?.('terrain') as { isReady?: () => boolean } | undefined
+        if (terrain && terrain.isReady) {
+          if (terrain.isReady()) {
+            setTerrainReady(true)
+            if (terrainInterval) {
+              clearInterval(terrainInterval)
+              terrainInterval = null
+            }
+          }
+        }
+      }, 100)
+    }
+    startPolling()
+    return () => {
+      if (terrainInterval) clearInterval(terrainInterval)
+    }
+  }, [world])
+
+  // Start the 300ms delay once all presentable conditions are met
+  useEffect(() => {
+    // Keep it simple: show game once the player's avatar is ready
+    const canPresent = playerReady
+    if (canPresent) {
       // Clear any existing timeout
       if (readyTimeoutRef.current) {
         clearTimeout(readyTimeoutRef.current)
@@ -126,7 +176,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         readyTimeoutRef.current = null
       }
     }
-  }, [loadingComplete, loadingProgress])
+  }, [playerReady])
 
   // Event capture removed - was blocking UI interactions
   useEffect(() => {
@@ -155,8 +205,12 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         {ready && <Chat world={world as never} />}
         {ready && <ActionProgressBar world={world} />}
         {avatar && <AvatarPane key={avatar?.hash} world={world} info={avatar} />}
-        {!loadingComplete && !characterFlowActive && <LoadingScreen world={world} message="Loading world..." />}
-        {characterFlowActive && !loadingComplete && <LoadingScreen world={world} message="Entering world..." />}
+        {!ready && (
+          <LoadingScreen 
+            world={world} 
+            message={characterFlowActive ? 'Entering world...' : 'Loading world...'} 
+          />
+        )}
         {kicked && <KickedOverlay code={kicked} />}
         {ready && isTouch && <TouchBtns world={world} />}
         {ready && <EntityContextMenu world={world} />}
