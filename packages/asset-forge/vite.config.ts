@@ -33,5 +33,31 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  build: {
+    target: 'esnext',
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // Core React libraries
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'vendor-react'
+          }
+
+          // Three.js and related
+          if (id.includes('node_modules/three/') ||
+              id.includes('node_modules/@react-three/')) {
+            return 'vendor-three'
+          }
+
+          // All other vendor code in one chunk to avoid circular dependency issues
+          // This includes zustand, immer, Privy, and other dependencies
+          if (id.includes('node_modules/')) {
+            return 'vendor'
+          }
+        }
+      }
+    }
   }
 })
