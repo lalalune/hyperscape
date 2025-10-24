@@ -5,6 +5,8 @@
  * Uses environment variables with sensible fallbacks for development.
  */
 
+import { DEFAULT_API_URL, DEFAULT_CDN_URL } from '../constants/network.ts'
+
 // Get API URL from environment variable or fall back to localhost
 const getApiUrl = (): string => {
   // Try various environment variable patterns depending on build tool
@@ -25,7 +27,7 @@ const getApiUrl = (): string => {
   }
 
   // Default to localhost for development
-  return 'http://localhost:3004'
+  return DEFAULT_API_URL
 }
 
 // Get CDN URL from environment variable or fall back to localhost
@@ -43,7 +45,7 @@ const getCdnUrl = (): string => {
     return import.meta.env.VITE_CDN_URL as string
   }
 
-  return 'http://localhost:8080'
+  return DEFAULT_CDN_URL
 }
 
 export const API_URL = getApiUrl()

@@ -115,13 +115,8 @@ export default defineConfig({
             return 'vendor-auth'
           }
 
-          // State management - Keep separate to avoid circular dependencies
-          if (id.includes('zustand')) {
-            return 'vendor-zustand'
-          }
-          if (id.includes('immer')) {
-            return 'vendor-immer'
-          }
+          // State management - DON'T split zustand/immer to avoid circular dependencies
+          // Let them be bundled in vendor-other or with components that use them
 
           // AI SDK and LLM providers (used in content generation)
           if (id.includes('@ai-sdk') || id.includes('node_modules/ai/') || id.match(/node_modules\/ai$/)) {
