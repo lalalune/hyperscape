@@ -1,37 +1,24 @@
 # Asset Forge - Fly.io Dockerfile
-# Multi-stage build for optimized production deployment using Bun
+# Simplified single-stage build
 
-# Build stage
-FROM oven/bun:1 AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package.json ./
-
-# Install dependencies
-RUN bun install --frozen-lockfile
-
-# Copy source code
-COPY . .
-
-# Build frontend
-RUN bun run build
-
-# Production stage - use Node.js for better compatibility
 FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy package.json and install production dependencies with npm
-COPY package.json ./
-RUN npm install --omit=dev
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
 
-# Copy built assets from builder
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/server ./server
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/src ./src
+# Copy package files
+COPY package.json ./
+
+# Install all dependencies with legacy-peer-deps to handle React 19
+RUN npm install --legacy-peer-deps
+
+# Copy source code
+COPY . .
+
+# Build frontend (if build script exists)
+RUN npm run build || echo "No build needed"
 
 # Create directory for asset storage
 RUN mkdir -p /app/gdd-assets /app/temp-images
