@@ -485,8 +485,8 @@ export class PlayerSystem extends SystemBase {
     // Validate health values to prevent NaN
     const validMaxHealth = Number.isFinite(data.maxHealth) && data.maxHealth > 0 ? data.maxHealth : player.health.max
     const validCurrentHealth = Number.isFinite(data.currentHealth) ? data.currentHealth : player.health.current
-    
-    // Additional safety checks to prevent NaN values
+
+    // Additional safety checks to prevent NaN values - validate before assignment
     if (!Number.isFinite(validMaxHealth) || validMaxHealth <= 0) {
       Logger.systemError('PlayerSystem', `Invalid maxHealth value: ${validMaxHealth}, using default 100`, new Error(`Invalid maxHealth: ${validMaxHealth}`))
       player.health.max = 100
