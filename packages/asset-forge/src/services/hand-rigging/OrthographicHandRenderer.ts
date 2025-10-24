@@ -3,8 +3,14 @@
  * Captures orthographic views of hands from 3D models for pose detection
  */
 
-import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import {
+  AmbientLight, AxesHelper, Bone, Color, DirectionalLight, DoubleSide, MathUtils, Matrix4,
+  Mesh, MeshBasicMaterial, Object3D, OrthographicCamera, Quaternion, Scene, SkinnedMesh, Texture,
+  Vector3, WebGLRenderer
+} from 'three'
+// Reserved for future enhancement: external model loading
+// See GitHub issue #141 for planned implementation
+// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 export interface CaptureOptions {
   resolution?: number
@@ -16,29 +22,31 @@ export interface CaptureOptions {
 export interface HandCaptureResult {
   canvas: HTMLCanvasElement
   imageData: ImageData
-  cameraMatrix: THREE.Matrix4
-  projectionMatrix: THREE.Matrix4
+  cameraMatrix: Matrix4
+  projectionMatrix: Matrix4
   worldBounds: {
-    min: THREE.Vector3
-    max: THREE.Vector3
+    min: Vector3
+    max: Vector3
   }
-  wristPosition: THREE.Vector3
-  handNormal: THREE.Vector3
+  wristPosition: Vector3
+  handNormal: Vector3
   side: 'left' | 'right'
 }
 
 export interface WristBoneInfo {
-  bone: THREE.Bone
-  position: THREE.Vector3
-  normal: THREE.Vector3
+  bone: Bone
+  position: Vector3
+  normal: Vector3
   side: 'left' | 'right'
 }
 
 export class OrthographicHandRenderer {
-  private renderer: THREE.WebGLRenderer
-  private scene: THREE.Scene
-  private camera: THREE.OrthographicCamera
-  private loader: GLTFLoader
+  private renderer: WebGLRenderer
+  private scene: Scene
+  private camera: OrthographicCamera
+  // Reserved for future enhancement: external model loading
+  // See GitHub issue #141 for planned implementation
+  // private loader: GLTFLoader
   
   // Default capture settings
   private readonly DEFAULT_RESOLUTION = 512
@@ -47,7 +55,7 @@ export class OrthographicHandRenderer {
   
   constructor() {
     // Create WebGL renderer
-    this.renderer = new THREE.WebGLRenderer({
+    this.renderer = new WebGLRenderer({
       antialias: true,
       alpha: true,
       preserveDrawingBuffer: true
@@ -56,13 +64,13 @@ export class OrthographicHandRenderer {
     this.renderer.shadowMap.enabled = false
     
     // Create scene
-    this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(0x000000)
+    this.scene = new Scene()
+    this.scene.background = new Color(0x000000)
     
     // Create orthographic camera
     const aspect = 1
     const frustumSize = 1
-    this.camera = new THREE.OrthographicCamera(
+    this.camera = new OrthographicCamera(
       frustumSize * aspect / -2,
       frustumSize * aspect / 2,
       frustumSize / 2,
@@ -72,30 +80,31 @@ export class OrthographicHandRenderer {
     )
     
     // Add comprehensive lighting for better hand visibility
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9)
+    const ambientLight = new AmbientLight(0xffffff, 0.9)
     this.scene.add(ambientLight)
     
     // Multiple directional lights from different angles
-    const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.7)
+    const directionalLight1 = new DirectionalLight(0xffffff, 0.7)
     directionalLight1.position.set(1, 1, 1)
     this.scene.add(directionalLight1)
     
-    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5)
+    const directionalLight2 = new DirectionalLight(0xffffff, 0.5)
     directionalLight2.position.set(-1, 0.5, -1)
     this.scene.add(directionalLight2)
     
-    const directionalLight3 = new THREE.DirectionalLight(0xffffff, 0.3)
+    const directionalLight3 = new DirectionalLight(0xffffff, 0.3)
     directionalLight3.position.set(0, -1, 0)
     this.scene.add(directionalLight3)
-    
-    // Create loader
-    this.loader = new GLTFLoader()
+
+    // Reserved for future enhancement: external model loading
+    // See GitHub issue #141 for planned implementation
+    // this.loader = new GLTFLoader()
   }
   
   /**
    * Find wrist bones in a model
    */
-  findWristBones(model: THREE.Object3D): WristBoneInfo[] {
+  findWristBones(model: Object3D): WristBoneInfo[] {
     const wristBones: WristBoneInfo[] = []
     
     // Common wrist bone names
@@ -111,7 +120,7 @@ export class OrthographicHandRenderer {
     ]
     
     model.traverse((child) => {
-      if (child instanceof THREE.Bone) {
+      if (child instanceof Bone) {
         const lowerName = child.name.toLowerCase()
         
         // Check if this is a wrist bone
@@ -128,15 +137,15 @@ export class OrthographicHandRenderer {
           
           if (isLeft || isRight) {
             // Get world position and orientation
-            const worldPos = new THREE.Vector3()
-            const worldQuat = new THREE.Quaternion()
-            const worldScale = new THREE.Vector3()
+            const worldPos = new Vector3()
+            const worldQuat = new Quaternion()
+            const worldScale = new Vector3()
             
             child.updateWorldMatrix(true, false)
             child.matrixWorld.decompose(worldPos, worldQuat, worldScale)
             
             // Calculate hand normal (usually pointing along the bone)
-            const normal = new THREE.Vector3(0, 1, 0)
+            const normal = new Vector3(0, 1, 0)
             normal.applyQuaternion(worldQuat)
             
             wristBones.push({
@@ -159,7 +168,7 @@ export class OrthographicHandRenderer {
    * Capture orthographic view of a hand
    */
   async captureHand(
-    model: THREE.Object3D,
+    model: Object3D,
     wristInfo: WristBoneInfo,
     options: CaptureOptions = {}
   ): Promise<HandCaptureResult> {
@@ -177,19 +186,19 @@ export class OrthographicHandRenderer {
     }
     
     // Set background
-    this.scene.background = new THREE.Color(backgroundColor)
+    this.scene.background = new Color(backgroundColor)
     
     // Clone and add model to scene
     const modelClone = model.clone(true)
     
           // Ensure materials are properly cloned and set up for capture
       modelClone.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
+        if (child instanceof Mesh || child instanceof SkinnedMesh) {
           if (child.material) {
             // Create simple materials for better hand detection
-            const simpleMaterial = new THREE.MeshBasicMaterial({
+            const simpleMaterial = new MeshBasicMaterial({
               color: 0xffa080, // More visible skin color
-              side: THREE.DoubleSide
+              side: DoubleSide
             })
             
             if (Array.isArray(child.material)) {
@@ -204,7 +213,7 @@ export class OrthographicHandRenderer {
           child.frustumCulled = false
           
           // For skinned meshes, ensure they're in bind pose
-          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+          if (child instanceof SkinnedMesh && child.skeleton) {
             child.skeleton.pose()
           }
         }
@@ -242,7 +251,7 @@ export class OrthographicHandRenderer {
     
     // Add debug axes if requested
     if (options.showAxes) {
-      const axesHelper = new THREE.AxesHelper(0.1)
+      const axesHelper = new AxesHelper(0.1)
       axesHelper.position.copy(wristInfo.position)
       this.scene.add(axesHelper)
     }
@@ -293,10 +302,10 @@ export class OrthographicHandRenderer {
    * Calculate optimal camera position for hand capture
    */
   private calculateCameraPosition(
-    wristPos: THREE.Vector3,
-    wristNormal: THREE.Vector3,
+    wristPos: Vector3,
+    wristNormal: Vector3,
     distance: number
-  ): THREE.Vector3 {
+  ): Vector3 {
     // Position camera along the normal direction
     const cameraPos = wristPos.clone()
     
@@ -307,7 +316,7 @@ export class OrthographicHandRenderer {
     adjustedNormal.multiplyScalar(-1)
     
     // Add slight upward angle to see fingers better
-    adjustedNormal.add(new THREE.Vector3(0, 0.5, 0)).normalize()
+    adjustedNormal.add(new Vector3(0, 0.5, 0)).normalize()
     
     cameraPos.addScaledVector(adjustedNormal, distance)
     
@@ -318,39 +327,39 @@ export class OrthographicHandRenderer {
    * Estimate hand bounds based on wrist position
    */
   private estimateHandBounds(
-    wristPos: THREE.Vector3,
-    wristNormal: THREE.Vector3
-  ): { min: THREE.Vector3, max: THREE.Vector3 } {
+    wristPos: Vector3,
+    wristNormal: Vector3
+  ): { min: Vector3, max: Vector3 } {
     // Estimate hand size (typical proportions) - increased for better capture
     const handLength = 0.3 // 30cm (increased for better capture)
     const handWidth = 0.15  // 15cm (increased for better capture)
     
     // Create basis vectors
     const forward = wristNormal.clone().normalize()
-    const right = new THREE.Vector3()
+    const right = new Vector3()
     
     // Create right vector perpendicular to forward
     if (Math.abs(forward.y) > 0.9) {
-      right.crossVectors(forward, new THREE.Vector3(1, 0, 0))
+      right.crossVectors(forward, new Vector3(1, 0, 0))
     } else {
-      right.crossVectors(forward, new THREE.Vector3(0, 1, 0))
+      right.crossVectors(forward, new Vector3(0, 1, 0))
     }
     right.normalize()
     
-    const up = new THREE.Vector3().crossVectors(right, forward).normalize()
+    const up = new Vector3().crossVectors(right, forward).normalize()
     
     // Calculate bounds
     // Offset center to better capture the hand (not just from wrist)
     const center = wristPos.clone().addScaledVector(forward, handLength * 0.6)
     
-    const halfExtents = new THREE.Vector3(
+    const halfExtents = new Vector3(
       handWidth / 2,
       handWidth / 2,
       handLength / 2
     )
     
     // Transform to world space
-    const points: THREE.Vector3[] = []
+    const points: Vector3[] = []
     for (let x = -1; x <= 1; x += 2) {
       for (let y = -1; y <= 1; y += 2) {
         for (let z = -1; z <= 1; z += 2) {
@@ -364,8 +373,8 @@ export class OrthographicHandRenderer {
     }
     
     // Find min/max
-    const min = new THREE.Vector3(Infinity, Infinity, Infinity)
-    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity)
+    const min = new Vector3(Infinity, Infinity, Infinity)
+    const max = new Vector3(-Infinity, -Infinity, -Infinity)
     
     points.forEach(point => {
       min.min(point)
@@ -379,7 +388,7 @@ export class OrthographicHandRenderer {
    * Update camera frustum to frame bounds
    */
   private updateCameraFrustum(
-    bounds: { min: THREE.Vector3, max: THREE.Vector3 },
+    bounds: { min: Vector3, max: Vector3 },
     padding: number
   ): void {
     // Project bounds to camera space
@@ -408,7 +417,7 @@ export class OrthographicHandRenderer {
    * Capture multiple angles for better detection
    */
   async captureMultipleAngles(
-    model: THREE.Object3D,
+    model: Object3D,
     wristInfo: WristBoneInfo,
     angles: number[] = [0, 45, -45],
     options: CaptureOptions = {}
@@ -418,10 +427,10 @@ export class OrthographicHandRenderer {
     for (const angle of angles) {
       // Rotate normal around up axis
       const rotatedNormal = wristInfo.normal.clone()
-      const axis = new THREE.Vector3(0, 1, 0)
-      const quaternion = new THREE.Quaternion().setFromAxisAngle(
+      const axis = new Vector3(0, 1, 0)
+      const quaternion = new Quaternion().setFromAxisAngle(
         axis,
-        THREE.MathUtils.degToRad(angle)
+        MathUtils.degToRad(angle)
       )
       rotatedNormal.applyQuaternion(quaternion)
       
@@ -457,18 +466,38 @@ export class OrthographicHandRenderer {
   /**
    * Cleanup resources
    */
+  /**
+   * Dispose of all resources (renderer, scene, geometries, materials, textures)
+   */
   dispose(): void {
-    this.renderer.dispose()
-    // Dispose of any geometries, materials, textures in the scene
-    this.scene.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.geometry?.dispose()
-        if (Array.isArray(child.material)) {
-          child.material.forEach(mat => mat.dispose())
-        } else {
-          child.material?.dispose()
+    // Dispose of all scene objects
+    this.scene.traverse((object) => {
+      if (object instanceof Mesh || object instanceof SkinnedMesh) {
+        // Dispose geometry
+        if (object.geometry) {
+          object.geometry.dispose()
+        }
+
+        // Dispose materials and their textures
+        if (object.material) {
+          const materials = Array.isArray(object.material) ? object.material : [object.material]
+          materials.forEach(material => {
+            // Dispose all textures in the material
+            Object.keys(material).forEach(key => {
+              const value = material[key as keyof typeof material]
+              if (value && value instanceof Texture) {
+                value.dispose()
+              }
+            })
+            material.dispose()
+          })
         }
       }
     })
+
+    // Dispose renderer
+    this.renderer.dispose()
+
+    console.log('✅ OrthographicHandRenderer disposed successfully')
   }
 } 

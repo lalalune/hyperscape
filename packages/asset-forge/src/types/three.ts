@@ -1,13 +1,17 @@
-import * as THREE from 'three'
+import type {
+  Box3Helper, BoxGeometry, BufferGeometry, Color, CylinderGeometry, Face, KeyframeTrack, Line,
+  Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, Object3D, PlaneGeometry,
+  SphereGeometry, Vector2, Vector3
+} from 'three'
 
 // Three.js geometry types
-export type ThreeGeometry = THREE.BufferGeometry | THREE.BoxGeometry | THREE.SphereGeometry | THREE.CylinderGeometry | THREE.PlaneGeometry
+export type ThreeGeometry = BufferGeometry | BoxGeometry | SphereGeometry | CylinderGeometry | PlaneGeometry
 
 // Three.js material types
-export type ThreeMaterial = THREE.Material | THREE.MeshStandardMaterial | THREE.MeshBasicMaterial | THREE.MeshPhongMaterial | THREE.MeshLambertMaterial
+export type ThreeMaterial = Material | MeshStandardMaterial | MeshBasicMaterial | MeshPhongMaterial | MeshLambertMaterial
 
 // Three.js object types
-export interface ThreeObject3D extends THREE.Object3D {
+export interface ThreeObject3D extends Object3D {
   geometry?: ThreeGeometry
   material?: ThreeMaterial | ThreeMaterial[]
 }
@@ -15,12 +19,12 @@ export interface ThreeObject3D extends THREE.Object3D {
 // Raycaster intersection type
 export interface RaycastIntersection {
   distance: number
-  point: THREE.Vector3
-  face?: THREE.Face
+  point: Vector3
+  face?: Face
   faceIndex?: number
-  object: THREE.Object3D
-  uv?: THREE.Vector2
-  uv2?: THREE.Vector2
+  object: Object3D
+  uv?: Vector2
+  uv2?: Vector2
   instanceId?: number
 }
 
@@ -28,7 +32,7 @@ export interface RaycastIntersection {
 export interface GLTFAnimation {
   name: string
   duration: number
-  tracks: THREE.KeyframeTrack[]
+  tracks: KeyframeTrack[]
 }
 
 export interface GLTFNode {
@@ -49,25 +53,25 @@ export interface GLTFSkin {
 
 // Helper types
 export interface DebugSpheres {
-  handSphere?: THREE.Mesh
-  gripSphere?: THREE.Mesh
-  centerSphere?: THREE.Mesh
-  line?: THREE.Line
-  wristSphere?: THREE.Mesh
+  handSphere?: Mesh
+  gripSphere?: Mesh
+  centerSphere?: Mesh
+  line?: Line
+  wristSphere?: Mesh
 }
 
 // Material with color property
-export interface MaterialWithColor extends THREE.Material {
-  color?: THREE.Color
+export interface MaterialWithColor extends Material {
+  color?: Color
 }
 
 // Extended mesh types
-export interface ExtendedMesh extends THREE.Mesh {
-  renderHelper?: THREE.Object3D | THREE.Box3Helper
+export interface ExtendedMesh extends Mesh {
+  renderHelper?: Object3D | Box3Helper
   updateHelper?: () => void
 }
 
 // Geometry with volume tracking
-export interface GeometryWithVolume extends THREE.BufferGeometry {
+export interface GeometryWithVolume extends BufferGeometry {
   originalVolume?: number
 } 

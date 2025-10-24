@@ -1,10 +1,11 @@
 import { OrbitControls } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import React, { useRef, useEffect } from 'react'
-import * as THREE from 'three'
+import { useRef, useEffect } from 'react'
+import { Box3Helper, Group, Mesh, SkinnedMesh } from 'three'
 
-import { ExtendedMesh } from '../../../../types'
+import { ExtendedMesh } from '@/types'
 import { SceneProps } from '../types'
+import { cloneGeometryForModification } from '../../../../utils/three-geometry-sharing'
 
 import { AvatarArmorDemo } from './AvatarArmorDemo'
 import { BasicDemo } from './BasicDemo'
@@ -29,10 +30,10 @@ export function Scene({
     showHeadBounds,
     boundArmorMesh: _boundArmorMesh
 }: SceneProps) {
-    const groupRef = useRef<THREE.Group>(null)
+    const groupRef = useRef<Group>(null)
 
     // Callback for when real models are loaded
-    const handleModelsLoaded = (avatarMesh: THREE.SkinnedMesh, armorMesh: THREE.Mesh) => {
+    const handleModelsLoaded = (avatarMesh: SkinnedMesh, armorMesh: Mesh) => {
         console.log('=== MODELS LOADED CALLBACK ===')
         console.log('Avatar:', avatarMesh.name)
         console.log('Armor:', armorMesh.name)
@@ -42,9 +43,12 @@ export function Scene({
         avatarMeshRef.current = avatarMesh
         armorMeshRef.current = armorMesh
 
-        // Store original armor geometry - make sure we're starting fresh
+        // Store original armor geometry for reset - make sure we're starting fresh
         if (armorMesh.geometry) {
-            originalArmorGeometryRef.current = armorMesh.geometry.clone()
+            originalArmorGeometryRef.current = cloneGeometryForModification(
+                armorMesh.geometry,
+                'backup original armor geometry'
+            )
             // Don't set userData.originalGeometry here - it was already cleared
             console.log('Stored original geometry with', originalArmorGeometryRef.current.attributes.position.count, 'vertices')
         }
@@ -54,7 +58,7 @@ export function Scene({
     }
 
     // Callback for when helmet models are loaded
-    const handleHelmetModelsLoaded = (avatarMesh: THREE.SkinnedMesh, helmetMesh: THREE.Mesh) => {
+    const handleHelmetModelsLoaded = (avatarMesh: SkinnedMesh, helmetMesh: Mesh) => {
         console.log('=== HELMET MODELS LOADED ===')
         console.log('Avatar:', avatarMesh.name)
         console.log('Helmet:', helmetMesh.name)
@@ -87,7 +91,7 @@ export function Scene({
                 headBoundsHelperRef.current.parent?.remove(headBoundsHelperRef.current)
             }
             // Create new helper
-            headBoundsHelperRef.current = new THREE.Box3Helper(headInfo.headBounds, 0x00ff00)
+            headBoundsHelperRef.current = new Box3Helper(headInfo.headBounds, 0x00ff00)
             groupRef.current?.add(headBoundsHelperRef.current)
             console.log('Created head bounds helper')
         } else if (!showHeadBounds && headBoundsHelperRef.current) {
@@ -110,7 +114,7 @@ export function Scene({
                     headBoundsHelperRef.current.parent?.remove(headBoundsHelperRef.current)
                 }
                 // Create new helper
-                headBoundsHelperRef.current = new THREE.Box3Helper(headInfo.headBounds, 0x00ff00)
+                headBoundsHelperRef.current = new Box3Helper(headInfo.headBounds, 0x00ff00)
                 groupRef.current?.add(headBoundsHelperRef.current)
                 console.log('Created head bounds helper from showHeadBounds effect')
             } else if (headBoundsHelperRef.current) {

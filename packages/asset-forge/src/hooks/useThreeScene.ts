@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import {
+  ACESFilmicToneMapping, AmbientLight, Color, DirectionalLight, GridHelper, Mesh, MeshStandardMaterial, PCFSoftShadowMap,
+  PerspectiveCamera, PlaneGeometry, SRGBColorSpace, Scene, SkinnedMesh, Texture, WebGLRenderer
+} from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { getRendererPool } from '../services/WebGLRendererPool'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('useThreeScene')
 
 export interface ThreeSceneConfig {
   backgroundColor?: number
@@ -11,9 +18,9 @@ export interface ThreeSceneConfig {
 }
 
 export interface ThreeSceneRefs {
-  scene: THREE.Scene | null
-  camera: THREE.PerspectiveCamera | null
-  renderer: THREE.WebGLRenderer | null
+  scene: Scene | null
+  camera: PerspectiveCamera | null
+  renderer: WebGLRenderer | null
   orbitControls: OrbitControls | null
 }
 
@@ -30,7 +37,8 @@ export function useThreeScene(
   })
 
   // Animation frame reference
-  const frameIdRef = useRef<number>()
+  const frameIdRef = useRef<number | undefined>(undefined)
+  const rendererIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     const containerEl = containerRef.current
@@ -45,12 +53,12 @@ export function useThreeScene(
     } = config
 
     // Scene setup
-    const scene = new THREE.Scene()
-    scene.background = new THREE.Color(backgroundColor)
+    const scene = new Scene()
+    scene.background = new Color(backgroundColor)
     refs.current.scene = scene
 
     // Camera setup
-    const camera = new THREE.PerspectiveCamera(
+    const camera = new PerspectiveCamera(
       75,
       containerEl.clientWidth / containerEl.clientHeight,
       0.1,
@@ -60,34 +68,45 @@ export function useThreeScene(
     camera.lookAt(...cameraTarget)
     refs.current.camera = camera
 
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ 
-      antialias: true, 
-      alpha: true 
+    // Renderer setup using pool
+    const pool = getRendererPool()
+    const rendererId = pool.acquire({
+      antialias: true,
+      alpha: true,
+      width: containerEl.clientWidth,
+      height: containerEl.clientHeight,
+      pixelRatio: Math.min(window.devicePixelRatio, 2)
     })
-    renderer.setSize(
-      containerEl.clientWidth, 
-      containerEl.clientHeight
-    )
+
+    rendererIdRef.current = rendererId
+    const renderer = pool.getRenderer(rendererId)
+
+    if (!renderer) {
+      logger.error('Failed to acquire renderer from pool')
+      return
+    }
+
     renderer.setClearColor(0x000000, 0)
     renderer.autoClear = true
-    renderer.outputColorSpace = THREE.SRGBColorSpace
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.outputColorSpace = SRGBColorSpace
+    renderer.toneMapping = ACESFilmicToneMapping
     renderer.toneMappingExposure = 1
-    
+
     if (enableShadows) {
       renderer.shadowMap.enabled = true
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      renderer.shadowMap.type = PCFSoftShadowMap
     }
-    
+
     containerEl.appendChild(renderer.domElement)
     refs.current.renderer = renderer
 
+    logger.debug(`Acquired renderer ${rendererId} from pool`)
+
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+    const ambientLight = new AmbientLight(0xffffff, 0.6)
     scene.add(ambientLight)
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+    const directionalLight = new DirectionalLight(0xffffff, 0.8)
     directionalLight.position.set(5, 5, 5)
     directionalLight.castShadow = enableShadows
     if (enableShadows) {
@@ -108,17 +127,17 @@ export function useThreeScene(
 
     // Optional grid
     if (enableGrid) {
-      const gridHelper = new THREE.GridHelper(10, 10)
+      const gridHelper = new GridHelper(10, 10)
       scene.add(gridHelper)
 
       // Ground plane
-      const groundGeometry = new THREE.PlaneGeometry(20, 20)
-      const groundMaterial = new THREE.MeshStandardMaterial({ 
+      const groundGeometry = new PlaneGeometry(20, 20)
+      const groundMaterial = new MeshStandardMaterial({ 
         color: 0x444444,
         roughness: 0.8,
         metalness: 0.2
       })
-      const ground = new THREE.Mesh(groundGeometry, groundMaterial)
+      const ground = new Mesh(groundGeometry, groundMaterial)
       ground.rotation.x = -Math.PI / 2
       ground.position.y = 0
       ground.receiveShadow = true
@@ -137,12 +156,14 @@ export function useThreeScene(
 
     // Handle resize
     const handleResize = () => {
-      if (!containerEl) return
+      if (!containerEl || !rendererIdRef.current) return
       camera.aspect = containerEl.clientWidth / containerEl.clientHeight
       camera.updateProjectionMatrix()
-      renderer.setSize(
-        containerEl.clientWidth, 
-        containerEl.clientHeight
+      pool.setSize(
+        rendererIdRef.current,
+        containerEl.clientWidth,
+        containerEl.clientHeight,
+        Math.min(window.devicePixelRatio, 2)
       )
     }
     window.addEventListener('resize', handleResize)
@@ -150,11 +171,48 @@ export function useThreeScene(
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize)
-      if (frameIdRef.current) {
+      if (frameIdRef.current !== undefined) {
         cancelAnimationFrame(frameIdRef.current)
       }
-      renderer.dispose()
-      containerEl?.removeChild(renderer.domElement)
+
+      // Comprehensive scene cleanup - dispose all geometries, materials, and textures
+      if (scene) {
+        scene.traverse((object) => {
+          if (object instanceof Mesh || object instanceof SkinnedMesh) {
+            // Dispose geometry
+            if (object.geometry) {
+              object.geometry.dispose()
+            }
+
+            // Dispose materials and their textures
+            if (object.material) {
+              const materials = Array.isArray(object.material) ? object.material : [object.material]
+              materials.forEach(material => {
+                // Dispose all textures in the material
+                Object.keys(material).forEach(key => {
+                  const value = material[key as keyof typeof material]
+                  if (value && value instanceof Texture) {
+                    value.dispose()
+                  }
+                })
+                material.dispose()
+              })
+            }
+          }
+        })
+      }
+
+      // Release renderer back to pool
+      if (rendererIdRef.current) {
+        const renderer = pool.getRenderer(rendererIdRef.current)
+        if (renderer?.domElement.parentNode === containerEl) {
+          containerEl.removeChild(renderer.domElement)
+        }
+
+        pool.release(rendererIdRef.current)
+        logger.debug(`Released renderer ${rendererIdRef.current} back to pool`)
+        rendererIdRef.current = null
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerRef]) // Only run once on mount

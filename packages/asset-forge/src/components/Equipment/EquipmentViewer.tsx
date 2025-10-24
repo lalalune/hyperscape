@@ -1,6 +1,11 @@
-import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
-import * as THREE from 'three'
-import { SkeletonHelper } from 'three'
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle, memo } from 'react'
+import {
+  ACESFilmicToneMapping, AmbientLight, AnimationAction, AnimationClip, AnimationMixer, Bone, Box3, BufferGeometry,
+  Clock, Color, DirectionalLight, Euler, GridHelper, Group, Line, LineBasicMaterial,
+  LoopRepeat, Material, MathUtils, Mesh, MeshStandardMaterial, Object3D, PerspectiveCamera,
+  PlaneGeometry, SRGBColorSpace, Scene, SkeletonHelper, SkinnedMesh, Texture, Vector3,
+  WebGLRenderer
+} from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -35,9 +40,9 @@ export interface EquipmentViewerRef {
   takeScreenshot?: () => string
   updateEquipmentTransform?: () => void
   updateEquipmentPose?: () => void
-  getScene?: () => THREE.Scene | null
-  getAvatar?: () => THREE.Object3D | null
-  getEquipment?: () => THREE.Object3D | null
+  getScene?: () => Scene | null
+  getAvatar?: () => Object3D | null
+  getEquipment?: () => Object3D | null
   forceRender?: () => void
 }
 
@@ -49,23 +54,23 @@ const BONE_MAPPING: Record<string, string[]> = {
   'Hips': ['Hips', 'mixamorig:Hips', 'hips', 'Bip01_Pelvis']
 }
 
-const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((props, ref) => {
+const EquipmentViewerComponent = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((props, ref) => {
   const instanceId = useRef(Math.random().toString(36).substr(2, 9))
   const containerRef = useRef<HTMLDivElement>(null)
-  const sceneRef = useRef<THREE.Scene | null>(null)
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  const sceneRef = useRef<Scene | null>(null)
+  const rendererRef = useRef<WebGLRenderer | null>(null)
+  const cameraRef = useRef<PerspectiveCamera | null>(null)
   const orbitControlsRef = useRef<OrbitControls | null>(null)
-  const avatarRef = useRef<THREE.Object3D | null>(null)
-  const equipmentRef = useRef<THREE.Object3D | null>(null)
+  const avatarRef = useRef<Object3D | null>(null)
+  const equipmentRef = useRef<Object3D | null>(null)
   const loader = useRef(new GLTFLoader())
   // const exporter = useRef(new GLTFExporter())
   const skeletonHelperRef = useRef<SkeletonHelper | null>(null)
-  const equipmentWrapperRef = useRef<THREE.Group | null>(null)
-  const animationMixerRef = useRef<THREE.AnimationMixer | null>(null)
-  const clockRef = useRef<THREE.Clock | null>(null)
-  const currentActionRef = useRef<THREE.AnimationAction | null>(null)
-  const animationClipsRef = useRef<THREE.AnimationClip[]>([])
+  const equipmentWrapperRef = useRef<Group | null>(null)
+  const animationMixerRef = useRef<AnimationMixer | null>(null)
+  const clockRef = useRef<Clock | null>(null)
+  const currentActionRef = useRef<AnimationAction | null>(null)
+  const animationClipsRef = useRef<AnimationClip[]>([])
   const isAnimatingRef = useRef(false)
   const isAttachingEquipmentRef = useRef(false)
   const shouldAttachEquipmentRef = useRef(false)
@@ -88,11 +93,11 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
   
   const [isInitialized, setIsInitialized] = useState(false)
   const [debugSpheres, setDebugSpheres] = useState<{
-    handSphere?: THREE.Mesh
-    gripSphere?: THREE.Mesh
-    centerSphere?: THREE.Mesh
-    line?: THREE.Line
-    wristSphere?: THREE.Mesh
+    handSphere?: Mesh
+    gripSphere?: Mesh
+    centerSphere?: Mesh
+    line?: Line
+    wristSphere?: Mesh
   }>({})
   
   // Initialize Three.js scene
@@ -106,12 +111,12 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     const instanceAtMount = instanceId.current
 
     // Scene setup
-    const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x1a1a1a)
+    const scene = new Scene()
+    scene.background = new Color(0x1a1a1a)
     sceneRef.current = scene
     
     // Camera setup
-    const camera = new THREE.PerspectiveCamera(
+    const camera = new PerspectiveCamera(
       75,
       containerRef.current.clientWidth / containerRef.current.clientHeight,
       0.1,
@@ -122,21 +127,21 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     cameraRef.current = camera
     
     // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    const renderer = new WebGLRenderer({ antialias: true, alpha: true })
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
     renderer.setClearColor(0x000000, 0) // Transparent background
     renderer.autoClear = true // Ensure buffer is cleared between frames
-    renderer.outputColorSpace = THREE.SRGBColorSpace
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.outputColorSpace = SRGBColorSpace
+    renderer.toneMapping = ACESFilmicToneMapping
     renderer.toneMappingExposure = 1
     containerRef.current.appendChild(renderer.domElement)
     rendererRef.current = renderer
     
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+    const ambientLight = new AmbientLight(0xffffff, 0.6)
     scene.add(ambientLight)
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+    const directionalLight = new DirectionalLight(0xffffff, 0.8)
     directionalLight.position.set(5, 5, 5)
     directionalLight.castShadow = true
     scene.add(directionalLight)
@@ -148,17 +153,17 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     orbitControlsRef.current = orbitControls
     
     // Grid helper
-    const gridHelper = new THREE.GridHelper(10, 10)
+    const gridHelper = new GridHelper(10, 10)
     scene.add(gridHelper)
     
     // Ground plane
-    const groundGeometry = new THREE.PlaneGeometry(20, 20)
-    const groundMaterial = new THREE.MeshStandardMaterial({ 
+    const groundGeometry = new PlaneGeometry(20, 20)
+    const groundMaterial = new MeshStandardMaterial({ 
       color: 0x444444,
       roughness: 0.8,
       metalness: 0.2
     })
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial)
+    const ground = new Mesh(groundGeometry, groundMaterial)
     ground.rotation.x = -Math.PI / 2
     ground.position.y = 0
     ground.receiveShadow = true
@@ -170,7 +175,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     let animationFrameId: number
     
     // Initialize clock for animations
-    clockRef.current = new THREE.Clock()
+    clockRef.current = new Clock()
     
     // Animation loop
     const animate = () => {
@@ -253,32 +258,60 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
       console.log(`🧹 EquipmentViewer instance ${instanceAtMount} cleaning up`)
       window.removeEventListener('resize', handleResize)
       cancelAnimationFrame(animationFrameId)
+
+      // Comprehensive scene cleanup - dispose all geometries, materials, and textures
+      if (scene) {
+        scene.traverse((object) => {
+          if (object instanceof Mesh || object instanceof SkinnedMesh) {
+            // Dispose geometry
+            if (object.geometry) {
+              object.geometry.dispose()
+            }
+
+            // Dispose materials and their textures
+            if (object.material) {
+              const materials = Array.isArray(object.material) ? object.material : [object.material]
+              materials.forEach(material => {
+                // Dispose all textures in the material
+                Object.keys(material).forEach(key => {
+                  const value = material[key as keyof typeof material]
+                  if (value && value instanceof Texture) {
+                    value.dispose()
+                  }
+                })
+                material.dispose()
+              })
+            }
+          }
+        })
+      }
+
       renderer.dispose()
       containerEl?.removeChild(renderer.domElement)
     }
   }, [])
   
   // Function to create a normalized weapon where grip point is at origin
-  const createNormalizedWeapon = (originalMesh: THREE.Object3D, gripPoint: THREE.Vector3): THREE.Object3D => {
+  const createNormalizedWeapon = (originalMesh: Object3D, gripPoint: Vector3): Object3D => {
     // Clone the weapon so we don't modify the original
     const normalizedWeapon = originalMesh.clone()
     
     // The grip point from detection is in a rotated coordinate system
     // During detection, if weapon's longest dimension is Z, it's rotated 90° around X
     // So we need to transform the grip point back to the original weapon space
-    const transformedGrip = new THREE.Vector3()
+    const transformedGrip = new Vector3()
     
     // Check weapon dimensions to determine if it was rotated during detection
-    const weaponBox = new THREE.Box3().setFromObject(originalMesh)
-    const weaponSize = new THREE.Vector3()
+    const weaponBox = new Box3().setFromObject(originalMesh)
+    const weaponSize = new Vector3()
     weaponBox.getSize(weaponSize)
     
     if (weaponSize.z > weaponSize.x && weaponSize.z > weaponSize.y) {
       console.log(`🗡️ Sword detected - Z is longest (${weaponSize.z.toFixed(3)}m)`)
       
       // Get weapon bounds to understand orientation
-      const weaponBounds = new THREE.Box3().setFromObject(originalMesh)
-      const weaponCenter = new THREE.Vector3()
+      const weaponBounds = new Box3().setFromObject(originalMesh)
+      const weaponCenter = new Vector3()
       weaponBounds.getCenter(weaponCenter)
       console.log(`📍 Weapon center: (${weaponCenter.x.toFixed(3)}, ${weaponCenter.y.toFixed(3)}, ${weaponCenter.z.toFixed(3)})`)
       console.log(`📍 Weapon bounds: min(${weaponBounds.min.z.toFixed(3)}) to max(${weaponBounds.max.z.toFixed(3)}) along Z`)
@@ -316,7 +349,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     }
     
     // Create a group to hold the transformed weapon
-    const weaponGroup = new THREE.Group()
+    const weaponGroup = new Group()
     weaponGroup.name = 'NormalizedWeapon'
     weaponGroup.userData.isNormalized = true
     
@@ -336,8 +369,8 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     console.log(`🔧 Created normalized weapon with grip at origin. Offset: (${-transformedGrip.x.toFixed(3)}, ${-transformedGrip.y.toFixed(3)}, ${-transformedGrip.z.toFixed(3)})`)
     
     // Log the weapon structure
-    const box = new THREE.Box3().setFromObject(normalizedWeapon)
-    const size = new THREE.Vector3()
+    const box = new Box3().setFromObject(normalizedWeapon)
+    const size = new Vector3()
     box.getSize(size)
     console.log(`📐 Normalized weapon dimensions: X:${size.x.toFixed(3)}, Y:${size.y.toFixed(3)}, Z:${size.z.toFixed(3)}`)
     console.log(`📍 Weapon bounds after normalization: min(${box.min.x.toFixed(3)}, ${box.min.y.toFixed(3)}, ${box.min.z.toFixed(3)}) max(${box.max.x.toFixed(3)}, ${box.max.y.toFixed(3)}, ${box.max.z.toFixed(3)})`)
@@ -345,7 +378,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     // Debug the hierarchy
     console.log(`🌳 Normalized weapon hierarchy:`)
     console.log(`   - ${weaponGroup.name} (Group)`)
-    let _depth = 0
+//     let _depth = 0
     normalizedWeapon.traverse((child) => {
       if (child !== normalizedWeapon) {
         console.log(`     - ${child.name || 'unnamed'} (${child.type})`)
@@ -353,19 +386,19 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     })
     
     // Verify grip is at origin
-    const testGrip = new THREE.Vector3()
+    const testGrip = new Vector3()
     normalizedWeapon.localToWorld(testGrip.copy(transformedGrip))
-    testGrip.sub(weaponGroup.getWorldPosition(new THREE.Vector3()))
+    testGrip.sub(weaponGroup.getWorldPosition(new Vector3()))
     console.log(`✅ Grip position after offset: (${testGrip.x.toFixed(3)}, ${testGrip.y.toFixed(3)}, ${testGrip.z.toFixed(3)}) - should be (0,0,0)`)
     
     return weaponGroup
   }
   
   // Get the bone that equipment is attached to (handling wrapper groups)
-  const getAttachedBone = (equipment: THREE.Object3D): THREE.Bone | null => {
+  const getAttachedBone = (equipment: Object3D): Bone | null => {
     let parent = equipment.parent
     while (parent) {
-      if (parent instanceof THREE.Bone) {
+      if (parent instanceof Bone) {
         return parent
       }
       parent = parent.parent
@@ -374,28 +407,28 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
   }
   
   // Get the accumulated scale of an object in world space
-  const getWorldScale = (object: THREE.Object3D): THREE.Vector3 => {
-    const worldScale = new THREE.Vector3()
+  const getWorldScale = (object: Object3D): Vector3 => {
+    const worldScale = new Vector3()
     object.getWorldScale(worldScale)
     return worldScale
   }
   
   // Helper: estimate avatar height from its bounding box
-  const calculateAvatarHeight = (avatar: THREE.Object3D): number => {
+  const calculateAvatarHeight = (avatar: Object3D): number => {
     avatar.updateMatrixWorld(true)
     let minY = Infinity
     let maxY = -Infinity
     let foundMesh = false
     avatar.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh) {
+      if (child instanceof SkinnedMesh) {
         foundMesh = true
-        const box = new THREE.Box3().setFromObject(child)
+        const box = new Box3().setFromObject(child)
         minY = Math.min(minY, box.min.y)
         maxY = Math.max(maxY, box.max.y)
       }
     })
     if (!foundMesh) {
-      const box = new THREE.Box3().setFromObject(avatar)
+      const box = new Box3().setFromObject(avatar)
       minY = box.min.y
       maxY = box.max.y
     }
@@ -406,14 +439,14 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
 
   // Helper: compute weapon scale relative to avatar height
   const calculateWeaponScale = (
-    weapon: THREE.Object3D,
-    avatar: THREE.Object3D,
+    weapon: Object3D,
+//     avatar: Object3D,
     weaponType: string,
     avatarHeight: number
   ): number => {
     weapon.updateMatrixWorld(true)
-    const weaponBox = new THREE.Box3().setFromObject(weapon)
-    const weaponSize = new THREE.Vector3()
+    const weaponBox = new Box3().setFromObject(weapon)
+    const weaponSize = new Vector3()
     weaponBox.getSize(weaponSize)
     const weaponLength = Math.max(weaponSize.x, weaponSize.y, weaponSize.z)
     if (weaponType === 'armor') return 1.0
@@ -432,14 +465,14 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
 
   // Helper: default orientation based on weapon type
   const calculateWeaponOrientation = (
-    _weapon: THREE.Object3D,
-    _targetBone: THREE.Bone,
+    _weapon: Object3D,
+    _targetBone: Bone,
     weaponType: string = 'weapon'
-  ): THREE.Euler => {
+  ): Euler => {
     if (weaponType === 'sword' || weaponType === 'melee') {
-      return new THREE.Euler(Math.PI / 2, Math.PI / 2, 0, 'XYZ')
+      return new Euler(Math.PI / 2, Math.PI / 2, 0, 'XYZ')
     }
-    return new THREE.Euler(0, 0, 0, 'XYZ')
+    return new Euler(0, 0, 0, 'XYZ')
   }
  
   // Load avatar
@@ -462,7 +495,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         animationClipsRef.current = []
         
         // Store equipment state before removing avatar
-        const _hadEquipmentAttached = shouldAttachEquipmentRef.current && equipmentRef.current && equipmentRef.current.parent
+//         const _hadEquipmentAttached = shouldAttachEquipmentRef.current && equipmentRef.current && equipmentRef.current.parent
         
         // Remove existing avatar
         if (avatarRef.current) {
@@ -485,12 +518,12 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         if (debugSpheres.handSphere) {
           sceneRef.current!.remove(debugSpheres.handSphere)
           debugSpheres.handSphere.geometry.dispose()
-          ;(debugSpheres.handSphere.material as THREE.Material).dispose()
+          ;(debugSpheres.handSphere.material as Material).dispose()
         }
         if (debugSpheres.gripSphere) {
           sceneRef.current!.remove(debugSpheres.gripSphere)
           debugSpheres.gripSphere.geometry.dispose()
-          ;(debugSpheres.gripSphere.material as THREE.Material).dispose()
+          ;(debugSpheres.gripSphere.material as Material).dispose()
         }
         setDebugSpheres({})
         
@@ -515,7 +548,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
           animationClipsRef.current = gltf.animations
           
           // Create animation mixer for this model
-          animationMixerRef.current = new THREE.AnimationMixer(avatar)
+          animationMixerRef.current = new AnimationMixer(avatar)
           
           // Log all available animations
           console.log('📋 Available animations in loaded model:')
@@ -553,7 +586,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
               
               if (clipToPlay && animationMixerRef.current) {
                 currentActionRef.current = animationMixerRef.current.clipAction(clipToPlay)
-                currentActionRef.current.setLoop(THREE.LoopRepeat, Infinity)
+                currentActionRef.current.setLoop(LoopRepeat, Infinity)
                 currentActionRef.current.play()
                 console.log(`▶️ Started initial animation: "${clipToPlay.name}"`)
               }
@@ -562,7 +595,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         } else {
           // Clean up if no animations
           animationClipsRef.current = []
-          const mixer = animationMixerRef.current as THREE.AnimationMixer | null
+          const mixer = animationMixerRef.current as AnimationMixer | null
           if (mixer) {
             mixer.stopAllAction()
             animationMixerRef.current = null
@@ -576,7 +609,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         
         // Enable shadows
         avatar.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
+          if (child instanceof Mesh) {
             child.castShadow = true
             child.receiveShadow = true
           }
@@ -588,7 +621,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         console.log('✅ Avatar loaded successfully')
         console.log('🦴 Avatar bones:')
         avatar.traverse((child) => {
-          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+          if (child instanceof SkinnedMesh && child.skeleton) {
             console.log(`   Found SkinnedMesh: ${child.name} with ${child.skeleton.bones.length} bones`)
             child.skeleton.bones.forEach(bone => {
               console.log(`   - ${bone.name}`)
@@ -628,7 +661,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
           // Find and remove all equipment wrappers from bones
           if (avatarRef.current) {
             avatarRef.current.traverse((child) => {
-              if (child instanceof THREE.Bone) {
+              if (child instanceof Bone) {
                 const wrapper = child.getObjectByName('EquipmentWrapper')
                 if (wrapper) {
                   child.remove(wrapper)
@@ -638,7 +671,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
           }
           
           // Remove any equipment directly in scene
-          const toRemove: THREE.Object3D[] = []
+          const toRemove: Object3D[] = []
           sceneRef.current.traverse((child) => {
             if (child.userData.isEquipment && child !== avatarRef.current) {
               toRemove.push(child)
@@ -659,10 +692,10 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
           
           // Dispose of geometry and materials
           equipmentRef.current.traverse((child) => {
-            if ('geometry' in child && child.geometry) (child.geometry as THREE.BufferGeometry).dispose()
+            if ('geometry' in child && child.geometry) (child.geometry as BufferGeometry).dispose()
             if ('material' in child && child.material) {
               const materials = Array.isArray(child.material) ? child.material : [child.material]
-              materials.forEach((mat: THREE.Material) => mat.dispose())
+              materials.forEach((mat: Material) => mat.dispose())
             }
           })
         }
@@ -674,12 +707,12 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         if (debugSpheres.handSphere) {
           sceneRef.current!.remove(debugSpheres.handSphere)
           debugSpheres.handSphere.geometry.dispose()
-          ;(debugSpheres.handSphere.material as THREE.Material).dispose()
+          ;(debugSpheres.handSphere.material as Material).dispose()
         }
         if (debugSpheres.gripSphere) {
           sceneRef.current!.remove(debugSpheres.gripSphere)
           debugSpheres.gripSphere.geometry.dispose()
-          ;(debugSpheres.gripSphere.material as THREE.Material).dispose()
+          ;(debugSpheres.gripSphere.material as Material).dispose()
         }
         setDebugSpheres({})
         
@@ -696,10 +729,10 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
           if (child.scale.x !== 1 || child.scale.y !== 1 || child.scale.z !== 1) {
             console.log(`⚠️ Found scaled child "${child.name}": (${child.scale.x.toFixed(3)}, ${child.scale.y.toFixed(3)}, ${child.scale.z.toFixed(3)})`)
           }
-          if (child instanceof THREE.Mesh) {
+          if (child instanceof Mesh) {
             meshCount++
-            const box = new THREE.Box3().setFromObject(child)
-            const size = new THREE.Vector3()
+            const box = new Box3().setFromObject(child)
+            const size = new Vector3()
             box.getSize(size)
             console.log(`📐 Mesh "${child.name}" size: X:${size.x.toFixed(3)}, Y:${size.y.toFixed(3)}, Z:${size.z.toFixed(3)}`)
           }
@@ -707,16 +740,16 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         console.log(`🔍 Total meshes found: ${meshCount}`)
         
         // If we have a grip offset, create a normalized weapon where grip is at origin
-        let equipment: THREE.Object3D
+        let equipment: Object3D
         if (gripOffset && (gripOffset.x !== 0 || gripOffset.y !== 0 || gripOffset.z !== 0)) {
-          const gripVector = new THREE.Vector3(gripOffset.x, gripOffset.y, gripOffset.z)
+          const gripVector = new Vector3(gripOffset.x, gripOffset.y, gripOffset.z)
           console.log(`🎯 Grip offset detected: (${gripOffset.x.toFixed(3)}, ${gripOffset.y.toFixed(3)}, ${gripOffset.z.toFixed(3)})`)
           
           // IMPORTANT: Reset scale on loaded equipment before normalizing
           // This ensures we're working with the original size
           loadedEquipment.scale.set(1, 1, 1)
           loadedEquipment.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
+            if (child instanceof Mesh) {
               child.scale.set(1, 1, 1)
             }
           })
@@ -735,7 +768,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         
         // Enable shadows
         equipment.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
+          if (child instanceof Mesh) {
             child.castShadow = true
             child.receiveShadow = true
           }
@@ -750,7 +783,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         if (avatarRef.current) {
           // Use provided avatar height or calculate from model
           const effectiveHeight = avatarHeight || calculateAvatarHeight(avatarRef.current)
-          const autoScaleFactor = autoScale ? calculateWeaponScale(equipment, avatarRef.current, weaponType, effectiveHeight) : 1.0
+          const autoScaleFactor = autoScale ? calculateWeaponScale(equipment, weaponType, effectiveHeight) : 1.0
           const finalScale = scaleOverride * autoScaleFactor
           
           // Store the scale to apply after attachment
@@ -783,7 +816,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
       }
       
       const effectiveHeight = avatarHeight || calculateAvatarHeight(avatarRef.current)
-      const autoScaleFactor = calculateWeaponScale(equipmentRef.current, avatarRef.current, weaponType, effectiveHeight)
+      const autoScaleFactor = calculateWeaponScale(equipmentRef.current, weaponType, effectiveHeight)
       const finalScale = autoScale ? scaleOverride * autoScaleFactor : scaleOverride
       
       // If attached to a bone, compensate for bone scale
@@ -813,7 +846,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     
     // Calculate scale
     const effectiveHeight = avatarHeight || calculateAvatarHeight(avatarRef.current)
-    const autoScaleFactor = calculateWeaponScale(equipmentRef.current, avatarRef.current, weaponType, effectiveHeight)
+    const autoScaleFactor = calculateWeaponScale(equipmentRef.current, weaponType, effectiveHeight)
     const finalScale = autoScale ? scaleOverride * autoScaleFactor : scaleOverride
     
     // Store target scale
@@ -923,7 +956,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     }
     
     const weaponDefaults = defaultOffsets[weaponType] || defaultOffsets.default
-    const basePosition = new THREE.Vector3(
+    const basePosition = new Vector3(
       weaponDefaults.position.x,
       weaponDefaults.position.y,
       weaponDefaults.position.z
@@ -958,7 +991,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     }
     
     // Get world position to see the actual position
-    const worldPos = new THREE.Vector3()
+    const worldPos = new Vector3()
     wrapper.getWorldPosition(worldPos)
     console.log(`🌍 Wrapper world position: (${worldPos.x.toFixed(3)}, ${worldPos.y.toFixed(3)}, ${worldPos.z.toFixed(3)})`)
     
@@ -968,21 +1001,21 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     
     // Apply default rotation for weapon type
     const defaultRotation = weaponDefaults.rotation
-    wrapper.rotation.x += THREE.MathUtils.degToRad(defaultRotation.x)
-    wrapper.rotation.y += THREE.MathUtils.degToRad(defaultRotation.y)
-    wrapper.rotation.z += THREE.MathUtils.degToRad(defaultRotation.z)
+    wrapper.rotation.x += MathUtils.degToRad(defaultRotation.x)
+    wrapper.rotation.y += MathUtils.degToRad(defaultRotation.y)
+    wrapper.rotation.z += MathUtils.degToRad(defaultRotation.z)
     
     if (orientationOffset) {
-      wrapper.rotation.x += THREE.MathUtils.degToRad(orientationOffset.x)
-      wrapper.rotation.y += THREE.MathUtils.degToRad(orientationOffset.y)
-      wrapper.rotation.z += THREE.MathUtils.degToRad(orientationOffset.z)
+      wrapper.rotation.x += MathUtils.degToRad(orientationOffset.x)
+      wrapper.rotation.y += MathUtils.degToRad(orientationOffset.y)
+      wrapper.rotation.z += MathUtils.degToRad(orientationOffset.z)
     }
     
     // Force matrix updates
     wrapper.updateMatrix()
     wrapper.updateMatrixWorld(true)
     
-    console.log(`🔄 Updated equipment pose - Position: (${wrapper.position.x.toFixed(3)}, ${wrapper.position.y.toFixed(3)}, ${wrapper.position.z.toFixed(3)}), Rotation: (${THREE.MathUtils.radToDeg(wrapper.rotation.x).toFixed(1)}°, ${THREE.MathUtils.radToDeg(wrapper.rotation.y).toFixed(1)}°, ${THREE.MathUtils.radToDeg(wrapper.rotation.z).toFixed(1)}°)`)
+    console.log(`🔄 Updated equipment pose - Position: (${wrapper.position.x.toFixed(3)}, ${wrapper.position.y.toFixed(3)}, ${wrapper.position.z.toFixed(3)}), Rotation: (${MathUtils.radToDeg(wrapper.rotation.x).toFixed(1)}°, ${MathUtils.radToDeg(wrapper.rotation.y).toFixed(1)}°, ${MathUtils.radToDeg(wrapper.rotation.z).toFixed(1)}°)`)
   }, [equipmentSlot, orientationOffset, positionOffset, weaponType])
   
   const attachEquipmentToAvatar = useCallback(() => {
@@ -1008,7 +1041,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         
         // Get bone world position for initial placement
         targetBone.updateMatrixWorld(true)
-        const boneWorldPos = new THREE.Vector3()
+        const boneWorldPos = new Vector3()
         targetBone.getWorldPosition(boneWorldPos)
         
         // Position armor at the bone location as a starting point
@@ -1046,7 +1079,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     // Create or reuse wrapper
     let wrapper = equipmentRef.current.parent
     if (!wrapper || wrapper.name !== 'EquipmentWrapper') {
-      wrapper = new THREE.Group()
+      wrapper = new Group()
       wrapper.name = 'EquipmentWrapper'
       targetBone.add(wrapper)
       wrapper.add(equipmentRef.current)
@@ -1077,7 +1110,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     const weaponDefaults = defaultOffsets[weaponType] || defaultOffsets.default
 
     // Position with bone scale compensation
-    const handOffset = new THREE.Vector3(weaponDefaults.position.x, weaponDefaults.position.y, weaponDefaults.position.z)
+    const handOffset = new Vector3(weaponDefaults.position.x, weaponDefaults.position.y, weaponDefaults.position.z)
     const boneScale = getWorldScale(targetBone)
     wrapper.position.copy(handOffset.clone().divideScalar(boneScale.x))
 
@@ -1090,13 +1123,13 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     // Orientation
     const orientation = calculateWeaponOrientation(equipmentRef.current, targetBone, weaponType)
     wrapper.rotation.copy(orientation)
-    wrapper.rotation.x += THREE.MathUtils.degToRad(weaponDefaults.rotation.x)
-    wrapper.rotation.y += THREE.MathUtils.degToRad(weaponDefaults.rotation.y)
-    wrapper.rotation.z += THREE.MathUtils.degToRad(weaponDefaults.rotation.z)
+    wrapper.rotation.x += MathUtils.degToRad(weaponDefaults.rotation.x)
+    wrapper.rotation.y += MathUtils.degToRad(weaponDefaults.rotation.y)
+    wrapper.rotation.z += MathUtils.degToRad(weaponDefaults.rotation.z)
     if (orientationOffset) {
-      wrapper.rotation.x += THREE.MathUtils.degToRad(orientationOffset.x)
-      wrapper.rotation.y += THREE.MathUtils.degToRad(orientationOffset.y)
-      wrapper.rotation.z += THREE.MathUtils.degToRad(orientationOffset.z)
+      wrapper.rotation.x += MathUtils.degToRad(orientationOffset.x)
+      wrapper.rotation.y += MathUtils.degToRad(orientationOffset.y)
+      wrapper.rotation.z += MathUtils.degToRad(orientationOffset.z)
     }
 
     // Apply scale after attachment with bone compensation if a target scale was computed
@@ -1119,16 +1152,16 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     isAttachingEquipmentRef.current = false
   }, [equipmentSlot, updateEquipmentPose, weaponType, avatarHeight, orientationOffset, positionOffset])
   
-  const findBone = (object: THREE.Object3D, boneName: string): THREE.Bone | null => {
+  const findBone = (object: Object3D, boneName: string): Bone | null => {
     const possibleNames = BONE_MAPPING[boneName] || [boneName]
-    let foundBone: THREE.Bone | null = null
+    let foundBone: Bone | null = null
     
     // Debug: log all bones found
     const allBones: string[] = []
     
     // Search through all SkinnedMesh objects and their skeletons
     object.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         child.skeleton.bones.forEach(bone => {
           allBones.push(bone.name)
           
@@ -1173,9 +1206,9 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
     if (showSkeleton) {
       // Find skinned mesh
       avatarRef.current.traverse((child) => {
-        if (child instanceof THREE.SkinnedMesh && child.skeleton) {
-          const helper = new THREE.SkeletonHelper(child.skeleton.bones[0])
-          helper.material = new THREE.LineBasicMaterial({ 
+        if (child instanceof SkinnedMesh && child.skeleton) {
+          const helper = new SkeletonHelper(child.skeleton.bones[0])
+          helper.material = new LineBasicMaterial({ 
             color: 0x00ff00,
             linewidth: 2,
             depthTest: false,
@@ -1332,7 +1365,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
         }
         
         currentActionRef.current = animationMixerRef.current.clipAction(clipToPlay)
-        currentActionRef.current.setLoop(THREE.LoopRepeat, Infinity)
+        currentActionRef.current.setLoop(LoopRepeat, Infinity)
         currentActionRef.current.play()
         console.log(`▶️ Started animation playback: "${clipToPlay.name}" (${clipToPlay.uuid}) for ${animationType}`)
       } else {
@@ -1472,138 +1505,154 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
       animationMixerRef.current = null
     }
     animationClipsRef.current = []
-    
+
     if (avatarRef.current) {
       sceneRef.current?.remove(avatarRef.current)
-      avatarRef.current.traverse((child: THREE.Object3D) => {
-        if ('geometry' in child && child.geometry) (child.geometry as THREE.BufferGeometry).dispose()
+      avatarRef.current.traverse((child: Object3D) => {
+        if ('geometry' in child && child.geometry) (child.geometry as BufferGeometry).dispose()
         if ('material' in child && child.material) {
           const materials = Array.isArray(child.material) ? child.material : [child.material]
-          materials.forEach((mat: THREE.Material) => mat.dispose())
+          materials.forEach((mat: Material) => {
+            // Dispose all textures in the material
+            Object.values(mat).forEach(value => {
+              if (value && value instanceof Texture) {
+                value.dispose()
+              }
+            })
+            mat.dispose()
+          })
         }
       })
       avatarRef.current = null
     }
-    
+
     if (equipmentRef.current) {
       if (equipmentRef.current.parent) {
         equipmentRef.current.parent.remove(equipmentRef.current)
       }
-      equipmentRef.current.traverse((child: THREE.Object3D) => {
-        if ('geometry' in child && child.geometry) (child.geometry as THREE.BufferGeometry).dispose()
+      equipmentRef.current.traverse((child: Object3D) => {
+        if ('geometry' in child && child.geometry) (child.geometry as BufferGeometry).dispose()
         if ('material' in child && child.material) {
           const materials = Array.isArray(child.material) ? child.material : [child.material]
-          materials.forEach((mat: THREE.Material) => mat.dispose())
+          materials.forEach((mat: Material) => {
+            // Dispose all textures in the material
+            Object.values(mat).forEach(value => {
+              if (value && value instanceof Texture) {
+                value.dispose()
+              }
+            })
+            mat.dispose()
+          })
         }
       })
       equipmentRef.current = null
     }
-    
+
     if (skeletonHelperRef.current) {
       sceneRef.current?.remove(skeletonHelperRef.current)
       skeletonHelperRef.current = null
     }
-    
+
     setDebugSpheres({})
-    
+
     // Reset flags
     shouldAttachEquipmentRef.current = false
     isAttachingEquipmentRef.current = false
   }, [])
   
   // Create debug spheres
-  const _createDebugSpheres = (handPosition: THREE.Vector3, gripPosition: THREE.Vector3) => {
-    // Remove existing spheres
-    if (debugSpheres.handSphere) {
-      sceneRef.current?.remove(debugSpheres.handSphere)
-      debugSpheres.handSphere.geometry.dispose()
-      ;(debugSpheres.handSphere.material as THREE.Material).dispose()
-    }
-    if (debugSpheres.gripSphere) {
-      sceneRef.current?.remove(debugSpheres.gripSphere)
-      debugSpheres.gripSphere.geometry.dispose()
-      ;(debugSpheres.gripSphere.material as THREE.Material).dispose()
-    }
-    if (debugSpheres.centerSphere) {
-      sceneRef.current?.remove(debugSpheres.centerSphere)
-      debugSpheres.centerSphere.geometry.dispose()
-      ;(debugSpheres.centerSphere.material as THREE.Material).dispose()
-    }
-    if (debugSpheres.line) {
-      sceneRef.current?.remove(debugSpheres.line)
-      debugSpheres.line.geometry.dispose()
-      ;(debugSpheres.line.material as THREE.Material).dispose()
-    }
-    if (debugSpheres.wristSphere) {
-      sceneRef.current?.remove(debugSpheres.wristSphere)
-      debugSpheres.wristSphere.geometry.dispose()
-      ;(debugSpheres.wristSphere.material as THREE.Material).dispose()
-    }
-    
-    // Calculate sphere size based on avatar height
-    const avatarHeight = avatarRef.current ? calculateAvatarHeight(avatarRef.current) : 1.8
-    const sphereRadius = avatarHeight * 0.03 // 3% of avatar height
-    
-    // Create hand sphere (blue)
-    const handGeometry = new THREE.SphereGeometry(sphereRadius, 16, 16)
-    const handMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff })
-    const handSphere = new THREE.Mesh(handGeometry, handMaterial)
-    handSphere.position.copy(handPosition)
-    sceneRef.current?.add(handSphere)
-    
-    // Create grip sphere (red)
-    const gripGeometry = new THREE.SphereGeometry(sphereRadius, 16, 16)
-    const gripMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
-    const gripSphere = new THREE.Mesh(gripGeometry, gripMaterial)
-    gripSphere.position.copy(gripPosition)
-    sceneRef.current?.add(gripSphere)
-    
-    // Create weapon center sphere (yellow) - shows where the weapon mesh actually is
-    if (equipmentRef.current) {
-      const centerGeometry = new THREE.SphereGeometry(sphereRadius * 0.7, 16, 16)
-      const centerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 })
-      const centerSphere = new THREE.Mesh(centerGeometry, centerMaterial)
-      
-      // Get the actual weapon mesh center
-      const weaponBounds = new THREE.Box3().setFromObject(equipmentRef.current)
-      const weaponCenter = new THREE.Vector3()
-      weaponBounds.getCenter(weaponCenter)
-      
-      centerSphere.position.copy(weaponCenter)
-      sceneRef.current?.add(centerSphere)
-      
-      console.log(`🟡 Weapon center (yellow): (${weaponCenter.x.toFixed(3)}, ${weaponCenter.y.toFixed(3)}, ${weaponCenter.z.toFixed(3)})`)
-      
-      // Add a line from hand to grip
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints([handPosition, gripPosition])
-      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 })
-      const line = new THREE.Line(lineGeometry, lineMaterial)
-      sceneRef.current?.add(line)
-      
-      // Add purple sphere to show actual wrist bone position (before hand offset)
-      const wristGeometry = new THREE.SphereGeometry(sphereRadius * 0.5, 16, 16)
-      const wristMaterial = new THREE.MeshBasicMaterial({ color: 0x9900ff, transparent: true, opacity: 0.7 })
-      const wristSphere = new THREE.Mesh(wristGeometry, wristMaterial)
-      wristSphere.position.copy(handPosition)
-      // Move it back by the hand offset amount to show original wrist position
-      const handOffsetDistance = avatarHeight * 0.045
-      wristSphere.position.z -= handOffsetDistance
-      sceneRef.current?.add(wristSphere)
-      
-      console.log(`🟣 Wrist bone position (purple): (${wristSphere.position.x.toFixed(3)}, ${wristSphere.position.y.toFixed(3)}, ${wristSphere.position.z.toFixed(3)})`)
-      
-      setDebugSpheres({ handSphere, gripSphere, centerSphere, line, wristSphere })
-    } else {
-      setDebugSpheres({ handSphere, gripSphere })
-    }
-    
-    // Calculate distance
-    const distance = handPosition.distanceTo(gripPosition)
-    console.log(`🎯 Distance between hand (blue) and grip (red): ${distance.toFixed(3)}m`)
-    console.log(`  Hand position: (${handPosition.x.toFixed(3)}, ${handPosition.y.toFixed(3)}, ${handPosition.z.toFixed(3)})`)
-    console.log(`  Grip position: (${gripPosition.x.toFixed(3)}, ${gripPosition.y.toFixed(3)}, ${gripPosition.z.toFixed(3)})`)
-    console.log(`  Sphere radius: ${sphereRadius.toFixed(3)}m`)
-  }
+  // const _createDebugSpheres = (handPosition: Vector3, gripPosition: Vector3) => {
+  //   // Remove existing spheres
+  //   if (debugSpheres.handSphere) {
+  //     sceneRef.current?.remove(debugSpheres.handSphere)
+  //     debugSpheres.handSphere.geometry.dispose()
+  //     ;(debugSpheres.handSphere.material as Material).dispose()
+  //   }
+  //   if (debugSpheres.gripSphere) {
+  //     sceneRef.current?.remove(debugSpheres.gripSphere)
+  //     debugSpheres.gripSphere.geometry.dispose()
+  //     ;(debugSpheres.gripSphere.material as Material).dispose()
+  //   }
+  //   if (debugSpheres.centerSphere) {
+  //     sceneRef.current?.remove(debugSpheres.centerSphere)
+  //     debugSpheres.centerSphere.geometry.dispose()
+  //     ;(debugSpheres.centerSphere.material as Material).dispose()
+  //   }
+  //   if (debugSpheres.line) {
+  //     sceneRef.current?.remove(debugSpheres.line)
+  //     debugSpheres.line.geometry.dispose()
+  //     ;(debugSpheres.line.material as Material).dispose()
+  //   }
+  //   if (debugSpheres.wristSphere) {
+  //     sceneRef.current?.remove(debugSpheres.wristSphere)
+  //     debugSpheres.wristSphere.geometry.dispose()
+  //     ;(debugSpheres.wristSphere.material as Material).dispose()
+  //   }
+  //
+  //   // Calculate sphere size based on avatar height
+  //   const avatarHeight = avatarRef.current ? calculateAvatarHeight(avatarRef.current) : 1.8
+  //   const sphereRadius = avatarHeight * 0.03 // 3% of avatar height
+  //
+  //   // Create hand sphere (blue)
+  //   const handGeometry = new SphereGeometry(sphereRadius, 16, 16)
+  //   const handMaterial = new MeshBasicMaterial({ color: 0x0000ff })
+  //   const handSphere = new Mesh(handGeometry, handMaterial)
+  //   handSphere.position.copy(handPosition)
+  //   sceneRef.current?.add(handSphere)
+  //
+  //   // Create grip sphere (red)
+  //   const gripGeometry = new SphereGeometry(sphereRadius, 16, 16)
+  //   const gripMaterial = new MeshBasicMaterial({ color: 0xff0000 })
+  //   const gripSphere = new Mesh(gripGeometry, gripMaterial)
+  //   gripSphere.position.copy(gripPosition)
+  //   sceneRef.current?.add(gripSphere)
+  //
+  //   // Create weapon center sphere (yellow) - shows where the weapon mesh actually is
+  //   if (equipmentRef.current) {
+  //     const centerGeometry = new SphereGeometry(sphereRadius * 0.7, 16, 16)
+  //     const centerMaterial = new MeshBasicMaterial({ color: 0xffff00 })
+  //     const centerSphere = new Mesh(centerGeometry, centerMaterial)
+  //
+  //     // Get the actual weapon mesh center
+  //     const weaponBounds = new Box3().setFromObject(equipmentRef.current)
+  //     const weaponCenter = new Vector3()
+  //     weaponBounds.getCenter(weaponCenter)
+  //
+  //     centerSphere.position.copy(weaponCenter)
+  //     sceneRef.current?.add(centerSphere)
+  //
+  //     console.log(`🟡 Weapon center (yellow): (${weaponCenter.x.toFixed(3)}, ${weaponCenter.y.toFixed(3)}, ${weaponCenter.z.toFixed(3)})`)
+  //
+  //     // Add a line from hand to grip
+  //     const lineGeometry = new BufferGeometry().setFromPoints([handPosition, gripPosition])
+  //     const lineMaterial = new LineBasicMaterial({ color: 0x00ff00, linewidth: 2 })
+  //     const line = new Line(lineGeometry, lineMaterial)
+  //     sceneRef.current?.add(line)
+  //
+  //     // Add purple sphere to show actual wrist bone position (before hand offset)
+  //     const wristGeometry = new SphereGeometry(sphereRadius * 0.5, 16, 16)
+  //     const wristMaterial = new MeshBasicMaterial({ color: 0x9900ff, transparent: true, opacity: 0.7 })
+  //     const wristSphere = new Mesh(wristGeometry, wristMaterial)
+  //     wristSphere.position.copy(handPosition)
+  //     // Move it back by the hand offset amount to show original wrist position
+  //     const handOffsetDistance = avatarHeight * 0.045
+  //     wristSphere.position.z -= handOffsetDistance
+  //     sceneRef.current?.add(wristSphere)
+  //
+  //     console.log(`🟣 Wrist bone position (purple): (${wristSphere.position.x.toFixed(3)}, ${wristSphere.position.y.toFixed(3)}, ${wristSphere.position.z.toFixed(3)})`)
+  //
+  //     setDebugSpheres({ handSphere, gripSphere, centerSphere, line, wristSphere })
+  //   } else {
+  //     setDebugSpheres({ handSphere, gripSphere })
+  //   }
+  //
+  //   // Calculate distance
+  //   const distance = handPosition.distanceTo(gripPosition)
+  //   console.log(`🎯 Distance between hand (blue) and grip (red): ${distance.toFixed(3)}m`)
+  //   console.log(`  Hand position: (${handPosition.x.toFixed(3)}, ${handPosition.y.toFixed(3)}, ${handPosition.z.toFixed(3)})`)
+  //   console.log(`  Grip position: (${gripPosition.x.toFixed(3)}, ${gripPosition.y.toFixed(3)}, ${gripPosition.z.toFixed(3)})`)
+  //   console.log(`  Sphere radius: ${sphereRadius.toFixed(3)}m`)
+  // }
   
   // Cleanup on unmount
   useEffect(() => {
@@ -1613,6 +1662,32 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>((pr
   }, [cleanup])
   
   return <div ref={containerRef} className="w-full h-full equipment-viewer-container" data-instance-id={instanceId.current} />
+})
+
+EquipmentViewerComponent.displayName = 'EquipmentViewerComponent'
+
+// Memoize with custom comparison for expensive props
+const EquipmentViewer = memo(EquipmentViewerComponent, (prevProps, nextProps) => {
+  // Only re-render if URLs or critical props change
+  return (
+    prevProps.avatarUrl === nextProps.avatarUrl &&
+    prevProps.equipmentUrl === nextProps.equipmentUrl &&
+    prevProps.equipmentSlot === nextProps.equipmentSlot &&
+    prevProps.showSkeleton === nextProps.showSkeleton &&
+    prevProps.weaponType === nextProps.weaponType &&
+    prevProps.isAnimating === nextProps.isAnimating &&
+    prevProps.animationType === nextProps.animationType &&
+    prevProps.scaleOverride === nextProps.scaleOverride &&
+    prevProps.gripOffset?.x === nextProps.gripOffset?.x &&
+    prevProps.gripOffset?.y === nextProps.gripOffset?.y &&
+    prevProps.gripOffset?.z === nextProps.gripOffset?.z &&
+    prevProps.orientationOffset?.x === nextProps.orientationOffset?.x &&
+    prevProps.orientationOffset?.y === nextProps.orientationOffset?.y &&
+    prevProps.orientationOffset?.z === nextProps.orientationOffset?.z &&
+    prevProps.positionOffset?.x === nextProps.positionOffset?.x &&
+    prevProps.positionOffset?.y === nextProps.positionOffset?.y &&
+    prevProps.positionOffset?.z === nextProps.positionOffset?.z
+  )
 })
 
 EquipmentViewer.displayName = 'EquipmentViewer'

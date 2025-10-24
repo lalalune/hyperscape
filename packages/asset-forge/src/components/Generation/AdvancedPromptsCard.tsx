@@ -1,6 +1,7 @@
 import { Brain, ChevronRight, Plus, Trash2, Sparkles, Save, Edit2, Palette, Wand2, Check, FileText, Layers, X } from 'lucide-react'
 import React, { useState } from 'react'
 
+import type { GameStylePrompt, PromptsResponse } from '../../services/api/PromptService'
 import { cn } from '../../styles'
 import { CustomAssetType } from '../../types/generation'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
@@ -22,7 +23,7 @@ interface AdvancedPromptsCardProps {
   gameStyle?: string
   customStyle?: string | null
   currentStylePrompt?: string
-  gameStylePrompts?: any // Add proper type later
+  gameStylePrompts?: PromptsResponse<Record<string, GameStylePrompt>>
   onToggleAdvancedPrompts: () => void
   onToggleAssetTypeEditor: () => void
   onCustomGamePromptChange: (value: string) => void
@@ -176,7 +177,7 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
                     <div className="grid grid-cols-1 gap-3">
                       {Object.entries(gameStylePrompts.custom).map(([id, style]) => (
                         <CustomStyleCard
-                          key={id}
+                          key={`style-${id}`}
                           id={id}
                           style={style}
                           onDelete={onDeleteCustomGameStyle}
@@ -356,30 +357,30 @@ const PromptSection: React.FC<{
   </div>
 )
 
-// Empty State Component
-const _EmptyState: React.FC<{
-  icon: React.ReactNode
-  title: string
-  description: string
-  actionLabel: string
-  onAction: () => void
-}> = ({ icon, title, description, actionLabel, onAction }) => (
-  <div className="text-center py-12">
-    <div className="inline-flex p-4 bg-bg-secondary rounded-full text-text-tertiary mb-4">
-      {icon}
-    </div>
-    <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
-    <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">{description}</p>
-    <Button
-      variant="primary"
-      onClick={onAction}
-      className="gap-2"
-    >
-      <Plus className="w-4 h-4" />
-      {actionLabel}
-    </Button>
-  </div>
-)
+// Empty State Component (commented out - not in use)
+// const _EmptyState: React.FC<{
+//   icon: React.ReactNode
+//   title: string
+//   description: string
+//   actionLabel: string
+//   onAction: () => void
+// }> = ({ icon, title, description, actionLabel, onAction }) => (
+//   <div className="text-center py-12">
+//     <div className="inline-flex p-4 bg-bg-secondary rounded-full text-text-tertiary mb-4">
+//       {icon}
+//     </div>
+//     <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
+//     <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">{description}</p>
+//     <Button
+//       variant="primary"
+//       onClick={onAction}
+//       className="gap-2"
+//     >
+//       <Plus className="w-4 h-4" />
+//       {actionLabel}
+//     </Button>
+//   </div>
+// )
 
 // Style Creator Component
 const StyleCreator: React.FC<{
@@ -512,7 +513,7 @@ const TypesEditor: React.FC<{
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {defaultAssetTypes.map(type => (
             <TypeCard
-              key={type}
+              key={`default-${type}`}
               type={type}
               value={assetTypePrompts[type] || ''}
               onChange={(value) => {
@@ -537,7 +538,7 @@ const TypesEditor: React.FC<{
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {savedCustomTypes.map(([key, prompt]) => (
               <TypeCard
-                key={key}
+                key={`custom-${key}`}
                 type={key}
                 value={prompt}
                 onChange={(value) => {
@@ -547,8 +548,8 @@ const TypesEditor: React.FC<{
                   })
                 }}
                 isCustom
-                onDelete={generationType && onDeleteCustomAssetType ? 
-                  () => onDeleteCustomAssetType(key, generationType as 'avatar' | 'item') 
+                onDelete={generationType && onDeleteCustomAssetType ?
+                  () => onDeleteCustomAssetType(key, generationType as 'avatar' | 'item')
                   : undefined
                 }
               />
@@ -571,12 +572,12 @@ const TypesEditor: React.FC<{
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-text-secondary">New Types</h3>
           {customAssetTypes.map((type, index) => (
-            <div key={index} className="flex gap-2">
+            <div key={`new-type-${index}-${type.name || 'empty'}`} className="flex gap-2">
               <Input
                 placeholder="Name"
                 value={type.name}
                 onChange={(e) => {
-                  const updated = customAssetTypes.map((t, i) => 
+                  const updated = customAssetTypes.map((t, i) =>
                     i === index ? { ...t, name: e.target.value } : t
                   )
                   onCustomAssetTypesChange?.(updated)
@@ -587,7 +588,7 @@ const TypesEditor: React.FC<{
                 placeholder="Prompt"
                 value={type.prompt}
                 onChange={(e) => {
-                  const updated = customAssetTypes.map((t, i) => 
+                  const updated = customAssetTypes.map((t, i) =>
                     i === index ? { ...t, prompt: e.target.value } : t
                   )
                   onCustomAssetTypesChange?.(updated)
@@ -639,7 +640,7 @@ const TypesEditor: React.FC<{
 // Custom Style Card Component
 const CustomStyleCard: React.FC<{
   id: string
-  style: any
+  style: GameStylePrompt
   onDelete?: (id: string) => Promise<boolean>
 }> = ({ id, style, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false)

@@ -15,11 +15,6 @@ export function formatAssetName(name: string): string {
     parts.pop() // Remove 'base' from parts
   }
   
-  // Check if it's a variant (has material at the end)
-  const materials = ['bronze', 'steel', 'mithril', 'iron', 'wood', 'oak', 'willow', 'leather']
-  const _lastPart = parts[parts.length - 1]
-  const _hasMaterial = materials.includes(_lastPart)
-  
   // Format the name
   let formatted = parts
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))

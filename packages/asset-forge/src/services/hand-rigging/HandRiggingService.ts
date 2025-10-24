@@ -3,7 +3,7 @@
  * Main service that orchestrates the entire hand rigging process
  */
 
-import * as THREE from 'three'
+import { Bone, BufferGeometry, Matrix4, Object3D, Skeleton, SkinnedMesh, Vector3 } from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
@@ -75,7 +75,7 @@ export class HandRiggingService {
       // Log available bones for debugging
       console.log('❌ No wrist bones found. Available bones:')
       model.traverse((child) => {
-        if (child instanceof THREE.Bone) {
+        if (child instanceof Bone) {
           console.log(`  - ${child.name}`)
         }
       })
@@ -147,7 +147,7 @@ export class HandRiggingService {
    * Process a single hand
    */
   private async processHand(
-    model: THREE.Object3D,
+    model: Object3D,
     wristInfo: WristBoneInfo,
     options: RequiredHandRiggingOptions
   ): Promise<{
@@ -183,14 +183,14 @@ export class HandRiggingService {
               imageData: captures.leftHandCloseup.getContext('2d')!.getImageData(
                 0, 0, captures.leftHandCloseup.width, captures.leftHandCloseup.height
               ),
-              cameraMatrix: new THREE.Matrix4(),
-              projectionMatrix: new THREE.Matrix4(),
+              cameraMatrix: new Matrix4(),
+              projectionMatrix: new Matrix4(),
               worldBounds: {
-                min: new THREE.Vector3(-0.1, -0.1, -0.1),
-                max: new THREE.Vector3(0.1, 0.1, 0.1)
+                min: new Vector3(-0.1, -0.1, -0.1),
+                max: new Vector3(0.1, 0.1, 0.1)
               },
-              wristPosition: new THREE.Vector3(0, 0, 0),
-              handNormal: new THREE.Vector3(0, 0, 1),
+              wristPosition: new Vector3(0, 0, 0),
+              handNormal: new Vector3(0, 0, 1),
               side: wristInfo.side
             }
             
@@ -212,14 +212,14 @@ export class HandRiggingService {
               imageData: captures.rightHandCloseup.getContext('2d')!.getImageData(
                 0, 0, captures.rightHandCloseup.width, captures.rightHandCloseup.height
               ),
-              cameraMatrix: new THREE.Matrix4(),
-              projectionMatrix: new THREE.Matrix4(),
+              cameraMatrix: new Matrix4(),
+              projectionMatrix: new Matrix4(),
               worldBounds: {
-                min: new THREE.Vector3(-0.1, -0.1, -0.1),
-                max: new THREE.Vector3(0.1, 0.1, 0.1)
+                min: new Vector3(-0.1, -0.1, -0.1),
+                max: new Vector3(0.1, 0.1, 0.1)
               },
-              wristPosition: new THREE.Vector3(0, 0, 0),
-              handNormal: new THREE.Vector3(0, 0, 1),
+              wristPosition: new Vector3(0, 0, 0),
+              handNormal: new Vector3(0, 0, 1),
               side: wristInfo.side
             }
             
@@ -256,14 +256,14 @@ export class HandRiggingService {
                 imageData: captures.topView.getContext('2d')!.getImageData(
                   0, 0, captures.topView.width, captures.topView.height
                 ),
-                cameraMatrix: new THREE.Matrix4(),
-                projectionMatrix: new THREE.Matrix4(),
+                cameraMatrix: new Matrix4(),
+                projectionMatrix: new Matrix4(),
                 worldBounds: {
-                  min: new THREE.Vector3(-0.1, -0.1, -0.1),
-                  max: new THREE.Vector3(0.1, 0.1, 0.1)
+                  min: new Vector3(-0.1, -0.1, -0.1),
+                  max: new Vector3(0.1, 0.1, 0.1)
                 },
-                wristPosition: new THREE.Vector3(0, 0, 0),
-                handNormal: new THREE.Vector3(0, 0, 1),
+                wristPosition: new Vector3(0, 0, 0),
+                handNormal: new Vector3(0, 0, 1),
                 side: wristInfo.side
               }
               
@@ -293,14 +293,14 @@ export class HandRiggingService {
                 imageData: captures.frontView.getContext('2d')!.getImageData(
                   0, 0, captures.frontView.width, captures.frontView.height
                 ),
-                cameraMatrix: new THREE.Matrix4(),
-                projectionMatrix: new THREE.Matrix4(),
+                cameraMatrix: new Matrix4(),
+                projectionMatrix: new Matrix4(),
                 worldBounds: {
-                  min: new THREE.Vector3(-0.1, -0.1, -0.1),
-                  max: new THREE.Vector3(0.1, 0.1, 0.1)
+                  min: new Vector3(-0.1, -0.1, -0.1),
+                  max: new Vector3(0.1, 0.1, 0.1)
                 },
-                wristPosition: new THREE.Vector3(0, 0, 0),
-                handNormal: new THREE.Vector3(0, 0, 1),
+                wristPosition: new Vector3(0, 0, 0),
+                handNormal: new Vector3(0, 0, 1),
                 side: wristInfo.side
               }
               
@@ -461,7 +461,7 @@ export class HandRiggingService {
     // Use the 3D landmarks if available
     if (hand.worldLandmarks) {
       // Calculate appropriate scale based on wrist bone size
-      const wristWorldPos = new THREE.Vector3()
+      const wristWorldPos = new Vector3()
       wristInfo.bone.getWorldPosition(wristWorldPos)
       
       // Estimate hand size from model - typically wrist to middle finger tip is ~18-20cm
@@ -472,7 +472,7 @@ export class HandRiggingService {
       return hand.worldLandmarks.map(landmark => {
         // MediaPipe provides landmarks in a normalized coordinate system
         // We need to transform them to our world space
-        const localPos = new THREE.Vector3(
+        const localPos = new Vector3(
           landmark.x * scale,
           -landmark.y * scale, // Flip Y
           -landmark.z * scale  // Flip Z
@@ -532,7 +532,7 @@ export class HandRiggingService {
    * Create hand bone hierarchy
    */
   private createHandBones(
-    wristBone: THREE.Bone,
+    wristBone: Bone,
     landmarks3D: Point3D[],
     side: 'left' | 'right'
   ): HandBoneStructure {
@@ -555,18 +555,18 @@ export class HandRiggingService {
     )
     
     // Create palm bone (optional, helps with weighting)
-    const _palmPos = new THREE.Vector3(
-      landmarks3D[0].x,
-      landmarks3D[0].y,
-      landmarks3D[0].z
-    )
+    // const _palmPos = new Vector3(
+    //   landmarks3D[0].x,
+    //   landmarks3D[0].y,
+    //   landmarks3D[0].z
+    // )
     
     // Find the skeleton that contains this wrist bone
-    let skeleton: THREE.Skeleton | null = null
+    let skeleton: Skeleton | null = null
     
     // First, check if there's a SkinnedMesh in the scene that has this bone
-    const findSkeletonInScene = (obj: THREE.Object3D): THREE.Skeleton | null => {
-      if (obj instanceof THREE.SkinnedMesh && obj.skeleton) {
+    const findSkeletonInScene = (obj: Object3D): Skeleton | null => {
+      if (obj instanceof SkinnedMesh && obj.skeleton) {
         if (obj.skeleton.bones.includes(wristBone)) {
           return obj.skeleton
         }
@@ -581,7 +581,7 @@ export class HandRiggingService {
     }
     
     // Start from the root of the scene
-    let root = wristBone as THREE.Object3D
+    let root = wristBone as Object3D
     while (root.parent) {
       root = root.parent
     }
@@ -598,14 +598,14 @@ export class HandRiggingService {
       let parentBone = wristBone
       
       for (let i = 1; i < positions.length; i++) {
-        const bone = new THREE.Bone()
+        const bone = new Bone()
         bone.name = names[i - 1]
         
         // Set position relative to parent
-        const parentWorldPos = new THREE.Vector3()
+        const parentWorldPos = new Vector3()
         parentBone.getWorldPosition(parentWorldPos)
         
-        const boneWorldPos = new THREE.Vector3(
+        const boneWorldPos = new Vector3(
           positions[i].x,
           positions[i].y,
           positions[i].z
@@ -643,7 +643,7 @@ export class HandRiggingService {
    * Apply hand weights to skinned mesh
    */
   private async applyHandWeights(
-    mesh: THREE.SkinnedMesh,
+    mesh: SkinnedMesh,
     handBones: HandBoneStructure,
     segmentation: FingerSegmentation,
     capture: HandCaptureResult,
@@ -662,7 +662,7 @@ export class HandRiggingService {
     const skinWeights = geometry.attributes.skinWeight
     
     // Get bone indices in skeleton
-    const _boneIndices = this.getBoneIndices(mesh.skeleton, handBones)
+//     const _boneIndices = this.getBoneIndices(mesh.skeleton, handBones)
     
     // Count affected vertices
     let affectedVertices = 0
@@ -739,12 +739,12 @@ export class HandRiggingService {
    */
   private calculateFingerWeights(
     vertexIdx: number,
-    fingerBones: THREE.Bone[],
-    geometry: THREE.BufferGeometry,
-    skeleton: THREE.Skeleton
+    fingerBones: Bone[],
+    geometry: BufferGeometry,
+    skeleton: Skeleton
   ): Array<{ boneIndex: number, weight: number }> {
     const position = geometry.attributes.position
-    const vertex = new THREE.Vector3(
+    const vertex = new Vector3(
       position.getX(vertexIdx),
       position.getY(vertexIdx),
       position.getZ(vertexIdx)
@@ -757,7 +757,7 @@ export class HandRiggingService {
       if (boneIndex === -1) return
       
       // Get bone world position
-      const bonePos = new THREE.Vector3()
+      const bonePos = new Vector3()
       bone.getWorldPosition(bonePos)
       
       // Calculate distance-based weight
@@ -804,14 +804,14 @@ export class HandRiggingService {
    * Smooth skin weights
    */
   private smoothWeights(
-    geometry: THREE.BufferGeometry,
+    geometry: BufferGeometry,
     iterations: number
   ): void {
     const skinWeights = geometry.attributes.skinWeight
     const positions = geometry.attributes.position
     
     // Build vertex neighbors (simplified - could use proper topology)
-    const _neighbors: Map<number, number[]> = new Map()
+//     const _neighbors: Map<number, number[]> = new Map()
     
     // For now, just smooth based on spatial proximity
     for (let iter = 0; iter < iterations; iter++) {
@@ -840,52 +840,13 @@ export class HandRiggingService {
   }
   
   /**
-   * Get bone indices for hand bones
-   */
-  private getBoneIndices(
-    skeleton: THREE.Skeleton,
-    handBones: HandBoneStructure
-  ): Map<THREE.Bone, number> {
-    const indices = new Map<THREE.Bone, number>()
-    
-    // Add wrist
-    const wristIdx = skeleton.bones.indexOf(handBones.wrist)
-    if (wristIdx !== -1) {
-      indices.set(handBones.wrist, wristIdx)
-    }
-    
-    // Add finger bones
-    Object.values(handBones.fingers).forEach(fingerBones => {
-      fingerBones.forEach(bone => {
-        let idx = skeleton.bones.indexOf(bone)
-        
-        // If bone not in skeleton, add it
-        if (idx === -1 && bone instanceof THREE.Bone) {
-          skeleton.bones.push(bone)
-          idx = skeleton.bones.length - 1
-          console.log(`Added bone ${bone.name} to skeleton at index ${idx}`)
-        }
-        
-        if (idx !== -1) {
-          indices.set(bone, idx)
-        }
-      })
-    })
-    
-    // Update skeleton after adding bones
-    skeleton.update()
-    
-    return indices
-  }
-  
-  /**
    * Find all skinned meshes in model
    */
-  private findSkinnedMeshes(model: THREE.Object3D): THREE.SkinnedMesh[] {
-    const meshes: THREE.SkinnedMesh[] = []
+  private findSkinnedMeshes(model: Object3D): SkinnedMesh[] {
+    const meshes: SkinnedMesh[] = []
     
     model.traverse(child => {
-      if (child instanceof THREE.SkinnedMesh) {
+      if (child instanceof SkinnedMesh) {
         meshes.push(child)
       }
     })
@@ -896,10 +857,10 @@ export class HandRiggingService {
   /**
    * Count bones in model
    */
-  private countBones(model: THREE.Object3D): number {
+  private countBones(model: Object3D): number {
     let count = 0
     model.traverse(child => {
-      if (child instanceof THREE.Bone) {
+      if (child instanceof Bone) {
         count++
       }
     })
@@ -922,7 +883,7 @@ export class HandRiggingService {
   /**
    * Export model as GLB
    */
-  private async exportModel(model: THREE.Object3D): Promise<ArrayBuffer> {
+  private async exportModel(model: Object3D): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
       this.exporter.parse(
         model,

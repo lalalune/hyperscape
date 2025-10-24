@@ -1,9 +1,9 @@
 import { MutableRefObject } from 'react'
-import * as THREE from 'three'
+import { Bone, BufferGeometry, Euler, Material, Object3D, Scene, SkinnedMesh, Vector3 } from 'three'
 
-import { MeshFittingService } from '../../../../services/fitting/MeshFittingService'
-import { ExtendedMesh } from '../../../../types'
-import { notify } from '../../../../utils/notify'
+import { MeshFittingService } from '@/services/fitting/MeshFittingService'
+import { ExtendedMesh } from '@/types'
+import { notify } from '@/utils/notify'
 import {
     storeWorldTransform,
     applyWorldTransform,
@@ -15,13 +15,13 @@ import {
 } from '../utils'
 
 interface HelmetFittingProps {
-    sceneRef: MutableRefObject<THREE.Scene | null>
-    avatarMeshRef: MutableRefObject<THREE.SkinnedMesh | null>
+    sceneRef: MutableRefObject<Scene | null>
+    avatarMeshRef: MutableRefObject<SkinnedMesh | null>
     helmetMeshRef: MutableRefObject<ExtendedMesh | null>
     originalHelmetTransformRef: MutableRefObject<{
-        position: THREE.Vector3
-        rotation: THREE.Euler
-        scale: THREE.Vector3
+        position: Vector3
+        rotation: Euler
+        scale: Vector3
     } | null>
     fittingService: MutableRefObject<MeshFittingService>
     
@@ -81,7 +81,7 @@ export function useHelmetFitting({
                     fitTightness: helmetFitTightness,
                     verticalOffset: helmetVerticalOffset,
                     forwardOffset: helmetForwardOffset,
-                    rotation: new THREE.Euler(
+                    rotation: new Euler(
                         helmetRotation.x * Math.PI / 180,
                         helmetRotation.y * Math.PI / 180,
                         helmetRotation.z * Math.PI / 180
@@ -143,10 +143,10 @@ export function useHelmetFitting({
         const originalTransform = storeWorldTransform(helmetMeshRef.current)
         console.log('Helmet world position:', originalTransform.position)
         console.log('Helmet world scale:', originalTransform.scale)
-        console.log('Head bone world scale:', headInfo.headBone.getWorldScale(new THREE.Vector3()))
+        console.log('Head bone world scale:', headInfo.headBone.getWorldScale(new Vector3()))
 
         // Check bone scale
-        const boneScale = headInfo.headBone.getWorldScale(new THREE.Vector3())
+        const boneScale = headInfo.headBone.getWorldScale(new Vector3())
         
         if (boneScale.x < 0.1) {
             console.log('Bone has extreme scale - applying visibility workaround')
@@ -178,8 +178,8 @@ export function useHelmetFitting({
 
         // Debug: Log transforms after attachment
         console.log('=== AFTER ATTACHMENT ===')
-        console.log('Helmet world position:', helmetMeshRef.current.getWorldPosition(new THREE.Vector3()))
-        console.log('Helmet world scale:', helmetMeshRef.current.getWorldScale(new THREE.Vector3()))
+        console.log('Helmet world position:', helmetMeshRef.current.getWorldPosition(new Vector3()))
+        console.log('Helmet world scale:', helmetMeshRef.current.getWorldScale(new Vector3()))
         console.log('Helmet parent:', helmetMeshRef.current.parent?.name || 'none')
 
         // Update flags
@@ -203,7 +203,7 @@ export function useHelmetFitting({
 
         // Make original helmet visible again
         helmetMeshRef.current.visible = true
-        helmetMeshRef.current.traverse((child: THREE.Object3D) => {
+        helmetMeshRef.current.traverse((child: Object3D) => {
             child.visible = true
         })
 
@@ -227,12 +227,12 @@ export function useHelmetFitting({
 
 // Helper functions specific to helmet fitting
 
-function logBoneHierarchy(avatarMesh: THREE.SkinnedMesh) {
+function logBoneHierarchy(avatarMesh: SkinnedMesh) {
     const bones: Array<{ name: string, depth: number, path: string }> = []
     
-    const getBonePath = (bone: THREE.Object3D): string => {
+    const getBonePath = (bone: Object3D): string => {
         const path: string[] = []
-        let current: THREE.Object3D | null = bone
+        let current: Object3D | null = bone
         while (current) {
             path.unshift(current.name || 'unnamed')
             current = current.parent
@@ -240,8 +240,8 @@ function logBoneHierarchy(avatarMesh: THREE.SkinnedMesh) {
         return path.join(' > ')
     }
 
-    const collectBones = (obj: THREE.Object3D, depth: number = 0) => {
-        if (obj instanceof THREE.Bone) {
+    const collectBones = (obj: Object3D, depth: number = 0) => {
+        if (obj instanceof Bone) {
             bones.push({
                 name: obj.name,
                 depth,
@@ -286,12 +286,12 @@ function cleanupRenderHelper(helmetMesh: ExtendedMesh) {
         // Remove helper from scene
         renderHelper.parent.remove(renderHelper)
         if ('geometry' in renderHelper && renderHelper.geometry) {
-            (renderHelper.geometry as THREE.BufferGeometry).dispose()
+            (renderHelper.geometry as BufferGeometry).dispose()
         }
         if ('material' in renderHelper && renderHelper.material) {
             const materials = Array.isArray(renderHelper.material) 
-                ? renderHelper.material as THREE.Material[]
-                : [renderHelper.material as THREE.Material]
+                ? renderHelper.material as Material[]
+                : [renderHelper.material as Material]
             materials.forEach((mat) => mat.dispose())
         }
 

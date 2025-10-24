@@ -7,16 +7,15 @@ import { notify } from '../utils/notify'
 import { apiFetch } from '@/utils/api'
 
 export function useMaterialPresets() {
-  const {
-    materialPresets,
-    customMaterials,
-    selectedMaterials,
-    setMaterialPresets,
-    setCustomMaterials,
-    setSelectedMaterials,
-    setEditingPreset,
-    setShowDeleteConfirm
-  } = useGenerationStore()
+  // Selective subscriptions for performance
+  const materialPresets = useGenerationStore(state => state.materialPresets)
+  const customMaterials = useGenerationStore(state => state.customMaterials)
+  const selectedMaterials = useGenerationStore(state => state.selectedMaterials)
+  const setMaterialPresets = useGenerationStore(state => state.setMaterialPresets)
+  const setCustomMaterials = useGenerationStore(state => state.setCustomMaterials)
+  const setSelectedMaterials = useGenerationStore(state => state.setSelectedMaterials)
+  const setEditingPreset = useGenerationStore(state => state.setEditingPreset)
+  const setShowDeleteConfirm = useGenerationStore(state => state.setShowDeleteConfirm)
 
   const handleSaveCustomMaterials = useCallback(async () => {
     try {

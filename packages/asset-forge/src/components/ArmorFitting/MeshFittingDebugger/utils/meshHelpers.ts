@@ -1,16 +1,23 @@
-import * as THREE from 'three'
+import {
+  Bone, BufferGeometry, Material, Mesh, Object3D, Scene, Skeleton, SkinnedMesh,
+  Vector3
+} from 'three'
+
+import { createLogger } from '@/utils/logger'
+
+const logger = createLogger('MeshHelpers')
 
 /**
  * Dispose of geometry and materials properly
  */
-export function disposeMesh(mesh: THREE.Object3D) {
+export function disposeMesh(mesh: Object3D) {
     mesh.traverse((child) => {
         if ('geometry' in child && child.geometry) {
-            (child.geometry as THREE.BufferGeometry).dispose()
+            (child.geometry as BufferGeometry).dispose()
         }
         if ('material' in child && child.material) {
             const materials = Array.isArray(child.material) ? child.material : [child.material]
-            materials.forEach((m: THREE.Material) => m.dispose())
+            materials.forEach((m: Material) => m.dispose())
         }
     })
 }
@@ -19,10 +26,10 @@ export function disposeMesh(mesh: THREE.Object3D) {
  * Find meshes by userData properties
  */
 export function findMeshesByUserData(
-    scene: THREE.Scene,
-    predicate: (userData: any) => boolean
-): THREE.Object3D[] {
-    const results: THREE.Object3D[] = []
+    scene: Scene,
+    predicate: (userData: Record<string, unknown>) => boolean
+): Object3D[] {
+    const results: Object3D[] = []
     scene.traverse((child) => {
         if (predicate(child.userData)) {
             results.push(child)
@@ -35,12 +42,12 @@ export function findMeshesByUserData(
  * Remove objects from scene with cleanup
  */
 export function removeObjectsFromScene(
-    scene: THREE.Scene,
-    objects: THREE.Object3D[]
+//     scene: Scene,
+    objects: Object3D[]
 ) {
     const uniqueObjects = Array.from(new Set(objects))
     uniqueObjects.forEach(obj => {
-        console.log('Removing object:', obj.name || 'unnamed', obj.type)
+        logger.debug('Removing object', { name: obj.name || 'unnamed', type: obj.type })
         if (obj.parent) {
             obj.parent.remove(obj)
         }
@@ -52,8 +59,8 @@ export function removeObjectsFromScene(
  * Check if object contains any of the given refs
  */
 export function containsRefs(
-    object: THREE.Object3D,
-    refs: (THREE.Object3D | null)[]
+    object: Object3D,
+    refs: (Object3D | null)[]
 ): boolean {
     let contains = false
     object.traverse((child) => {
@@ -68,9 +75,9 @@ export function containsRefs(
  * Find bones by name patterns
  */
 export function findBonesByPattern(
-    skeleton: THREE.Skeleton,
+    skeleton: Skeleton,
     patterns: string[]
-): THREE.Bone[] {
+): Bone[] {
     return skeleton.bones.filter(bone => {
         const boneName = bone.name.toLowerCase()
         return patterns.some(pattern => boneName.includes(pattern))
@@ -80,15 +87,15 @@ export function findBonesByPattern(
 /**
  * Get bone world position safely
  */
-export function getBoneWorldPosition(bone: THREE.Bone): THREE.Vector3 {
+export function getBoneWorldPosition(bone: Bone): Vector3 {
     bone.updateMatrixWorld(true)
-    return bone.getWorldPosition(new THREE.Vector3())
+    return bone.getWorldPosition(new Vector3())
 }
 
 /**
  * Find head bone from skeleton
  */
-export function findHeadBone(skeleton: THREE.Skeleton): THREE.Bone | null {
+export function findHeadBone(skeleton: Skeleton): Bone | null {
     const headPatterns = ['head', 'bip_head', 'bip01_head', 'mixamorig:head']
     const bones = findBonesByPattern(skeleton, headPatterns)
     
@@ -105,9 +112,9 @@ export function findHeadBone(skeleton: THREE.Skeleton): THREE.Bone | null {
 /**
  * Get skeleton from skinned mesh
  */
-export function getSkeletonFromMesh(mesh: THREE.SkinnedMesh): THREE.Skeleton | null {
+export function getSkeletonFromMesh(mesh: SkinnedMesh): Skeleton | null {
     if (!mesh.skeleton) {
-        console.warn('Mesh has no skeleton')
+        logger.warn('Mesh has no skeleton')
         return null
     }
     return mesh.skeleton
@@ -116,10 +123,10 @@ export function getSkeletonFromMesh(mesh: THREE.SkinnedMesh): THREE.Skeleton | n
 /**
  * Update scene matrices recursively
  */
-export function updateSceneMatrices(scene: THREE.Scene) {
+export function updateSceneMatrices(scene: Scene) {
     scene.updateMatrixWorld(true)
     scene.traverse((obj) => {
-        if (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) {
+        if (obj instanceof Mesh || obj instanceof SkinnedMesh) {
             obj.updateMatrix()
             obj.updateMatrixWorld(true)
         }

@@ -1,4 +1,7 @@
-import * as THREE from 'three'
+import {
+  Bone, Box3, Float32BufferAttribute, Matrix4, Mesh, Object3D, Skeleton, SkinnedMesh,
+  Vector3
+} from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
@@ -58,7 +61,7 @@ export class SimpleHandRiggingService {
       const BONE_SCALE_FIX = 100 // The bones are 0.01 scale, so we need 100x
       
       model.traverse((child) => {
-        if (child instanceof THREE.SkinnedMesh) {
+        if (child instanceof SkinnedMesh) {
           console.log(`  Found SkinnedMesh: ${child.name}`)
           
           // Scale the geometry to match bone scale
@@ -94,8 +97,8 @@ export class SimpleHandRiggingService {
       model.updateMatrixWorld(true)
       
       // Final size check
-      const finalBounds = new THREE.Box3().setFromObject(model)
-      const finalSize = new THREE.Vector3()
+      const finalBounds = new Box3().setFromObject(model)
+      const finalSize = new Vector3()
       finalBounds.getSize(finalSize)
       console.log(`📏 Final model size after fixes: ${finalSize.x.toFixed(3)} x ${finalSize.y.toFixed(3)} x ${finalSize.z.toFixed(3)}`)
       
@@ -103,19 +106,19 @@ export class SimpleHandRiggingService {
       console.log('🧹 Removing orphaned bones before hand rigging...')
       // Don't remove head bones - they're valid bones!
       const problematicBoneNames: string[] = [] // Empty list - no bones are inherently problematic
-      const bonesToDelete: THREE.Bone[] = []
+      const bonesToDelete: Bone[] = []
       
       // Find all orphaned bones (bones not in any skeleton)
-      const bonesInSkeletons = new Set<THREE.Bone>()
+      const bonesInSkeletons = new Set<Bone>()
       model.traverse((child) => {
-        if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+        if (child instanceof SkinnedMesh && child.skeleton) {
           child.skeleton.bones.forEach(bone => bonesInSkeletons.add(bone))
         }
       })
       
       // Collect bones to delete - only remove truly orphaned bones that have no parent
       model.traverse((node) => {
-        if (node instanceof THREE.Bone) {
+        if (node instanceof Bone) {
           // Only remove bones that are in the problematic list (currently empty)
           // Don't remove bones just because they're not in a skeleton - they might be valid hierarchy bones
           if (problematicBoneNames.includes(node.name)) {
@@ -153,7 +156,7 @@ export class SimpleHandRiggingService {
         
         // CRITICAL: Also remove these bones from any skeleton's bone array
         model.traverse((child) => {
-          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+          if (child instanceof SkinnedMesh && child.skeleton) {
             const skeleton = child.skeleton
             const bonesArray = skeleton.bones
             const inversesArray = skeleton.boneInverses
@@ -304,12 +307,12 @@ export class SimpleHandRiggingService {
    * Create simple hand bones (palm and finger bones)
    */
   private async createSimpleHandBones(
-    model: THREE.Object3D,
-    wristBone: THREE.Bone,
+    model: Object3D,
+    wristBone: Bone,
     palmBoneLength: number,
     fingerBoneLength: number,
     debugMode: boolean
-  ): Promise<THREE.Bone[] | null> {
+  ): Promise<Bone[] | null> {
     try {
       const isLeft = wristBone.name.toLowerCase().includes('left')
       const side = isLeft ? 'left' : 'right'
@@ -320,8 +323,8 @@ export class SimpleHandRiggingService {
       console.log(`\n🖐️ Creating simple hand bones for ${side} hand...`)
 
       // Get wrist world position and matrix
-      const wristWorldPos = new THREE.Vector3()
-      const wristWorldMatrix = new THREE.Matrix4()
+      const wristWorldPos = new Vector3()
+      const wristWorldMatrix = new Matrix4()
       wristBone.getWorldPosition(wristWorldPos)
       wristBone.updateWorldMatrix(true, false)
       wristWorldMatrix.copy(wristBone.matrixWorld)
@@ -342,8 +345,8 @@ export class SimpleHandRiggingService {
       // 4. Viewer scales it up ~416x
       
       // Get parent bone's world scale to understand the transform
-      const parentWorldScale = new THREE.Vector3()
-      if (wristBone.parent && wristBone.parent instanceof THREE.Bone) {
+      const parentWorldScale = new Vector3()
+      if (wristBone.parent && wristBone.parent instanceof Bone) {
         wristBone.parent.getWorldScale(parentWorldScale)
       } else {
         parentWorldScale.set(1, 1, 1)
@@ -382,7 +385,7 @@ export class SimpleHandRiggingService {
       console.log(`  Using local space lengths - Palm: ${localPalmLength}, Finger: ${localFingerLength}`)
       
       // Create palm bone (wrist to palm center)
-      const palmBone = new THREE.Bone()
+      const palmBone = new Bone()
       palmBone.name = `${wristBone.name}_Palm`
       
       // Position palm bone at end of wrist (in local space of wrist bone)
@@ -390,7 +393,7 @@ export class SimpleHandRiggingService {
       palmBone.position.copy(palmPosition)
       
       // Create finger bone (palm center to fingertips)
-      const fingerBone = new THREE.Bone()
+      const fingerBone = new Bone()
       fingerBone.name = `${wristBone.name}_Fingers`
       
       // Position finger bone at end of palm bone (in local space of palm bone)
@@ -411,8 +414,8 @@ export class SimpleHandRiggingService {
       fingerBone.updateMatrixWorld(true)
       
       // Debug: Check world positions after adding to hierarchy
-      const palmWorldPos = new THREE.Vector3()
-      const fingerWorldPos = new THREE.Vector3()
+      const palmWorldPos = new Vector3()
+      const fingerWorldPos = new Vector3()
       palmBone.getWorldPosition(palmWorldPos)
       fingerBone.getWorldPosition(fingerWorldPos)
       
@@ -442,16 +445,16 @@ export class SimpleHandRiggingService {
       
       // Rebuild skeletons with new bones
       // IMPORTANT: We need to create a SINGLE skeleton that all meshes will share
-      let sharedSkeleton: THREE.Skeleton | null = null
-      let skeletonBones: THREE.Bone[] = []
-      let skeletonInverses: THREE.Matrix4[] = []
-      const processedBones = new Set<THREE.Bone>()
+      let sharedSkeleton: Skeleton | null = null
+      let skeletonBones: Bone[] = []
+      let skeletonInverses: Matrix4[] = []
+      const processedBones = new Set<Bone>()
       
       // First, collect ALL bones in the model (not just from skeletons)
-      const allBonesInModel: THREE.Bone[] = []
+      const allBonesInModel: Bone[] = []
       
       model.traverse((child) => {
-        if (child instanceof THREE.Bone) {
+        if (child instanceof Bone) {
           // Only collect bones that have a valid parent chain to the model
           if (this.isBoneInScene(child, model)) {
             allBonesInModel.push(child)
@@ -463,11 +466,11 @@ export class SimpleHandRiggingService {
       console.log(`  Found ${allBonesInModel.length} total bones in model`)
       
       // Get the original skeleton as reference for bone order
-      let referenceSkeleton: THREE.Skeleton | undefined
-      const skinnedMeshes: THREE.SkinnedMesh[] = []
+      let referenceSkeleton: Skeleton | undefined
+      const skinnedMeshes: SkinnedMesh[] = []
       
       model.traverse((child) => {
-        if (child instanceof THREE.SkinnedMesh) {
+        if (child instanceof SkinnedMesh) {
           skinnedMeshes.push(child)
           if (!referenceSkeleton && child.skeleton) {
             referenceSkeleton = child.skeleton
@@ -485,7 +488,7 @@ export class SimpleHandRiggingService {
           if (bone && !processedBones.has(bone) && this.isBoneInScene(bone, model)) {
             processedBones.add(bone)
             skeletonBones.push(bone)
-            skeletonInverses.push(referenceSkeleton.boneInverses[i] || new THREE.Matrix4())
+            skeletonInverses.push(referenceSkeleton.boneInverses[i] || new Matrix4())
           } else if (bone && !this.isBoneInScene(bone, model)) {
             console.warn(`  ⚠️ Skipping bone not in scene: ${bone.name}`)
           }
@@ -498,7 +501,7 @@ export class SimpleHandRiggingService {
       if (!processedBones.has(palmBone)) {
         processedBones.add(palmBone)
         skeletonBones.push(palmBone)
-            const palmInverse = new THREE.Matrix4()
+            const palmInverse = new Matrix4()
             palmBone.updateWorldMatrix(true, false)
             palmInverse.copy(palmBone.matrixWorld).invert()
         skeletonInverses.push(palmInverse)
@@ -507,7 +510,7 @@ export class SimpleHandRiggingService {
       if (!processedBones.has(fingerBone)) {
         processedBones.add(fingerBone)
         skeletonBones.push(fingerBone)
-            const fingerInverse = new THREE.Matrix4()
+            const fingerInverse = new Matrix4()
             fingerBone.updateWorldMatrix(true, false)
             fingerInverse.copy(fingerBone.matrixWorld).invert()
         skeletonInverses.push(fingerInverse)
@@ -520,7 +523,7 @@ export class SimpleHandRiggingService {
           console.warn(`  Adding bone not in original skeleton: ${bone.name}`)
           processedBones.add(bone)
           skeletonBones.push(bone)
-          const inverse = new THREE.Matrix4()
+          const inverse = new Matrix4()
           bone.updateWorldMatrix(true, false)
           inverse.copy(bone.matrixWorld).invert()
           skeletonInverses.push(inverse)
@@ -532,13 +535,13 @@ export class SimpleHandRiggingService {
       console.log(`  Total bones for new skeleton: ${skeletonBones.length}`)
       
       // CRITICAL FIX: Remove any non-bone nodes that might have been included
-      const validBones: THREE.Bone[] = []
-      const validInverses: THREE.Matrix4[] = []
+      const validBones: Bone[] = []
+      const validInverses: Matrix4[] = []
       
       for (let i = 0; i < skeletonBones.length; i++) {
         const bone = skeletonBones[i]
         // Double-check this is actually a bone
-        if (bone && bone instanceof THREE.Bone && bone.isBone === true) {
+        if (bone && bone instanceof Bone && bone.isBone === true) {
           validBones.push(bone)
           validInverses.push(skeletonInverses[i])
         } else {
@@ -549,10 +552,10 @@ export class SimpleHandRiggingService {
       console.log(`  Filtered to ${validBones.length} valid bones`)
       
       // Sort bones by hierarchy depth to ensure parents come before children
-      const getBoneDepth = (bone: THREE.Bone): number => {
+      const getBoneDepth = (bone: Bone): number => {
         let depth = 0
         let current = bone.parent
-        while (current && current instanceof THREE.Bone) {
+        while (current && current instanceof Bone) {
           depth++
           current = current.parent
         }
@@ -560,8 +563,8 @@ export class SimpleHandRiggingService {
       }
       
       // Create index map for bone reordering
-      const sortedBones: THREE.Bone[] = [...validBones].sort((a, b) => getBoneDepth(a) - getBoneDepth(b))
-      const sortedInverses: THREE.Matrix4[] = sortedBones.map(bone => {
+      const sortedBones: Bone[] = [...validBones].sort((a, b) => getBoneDepth(a) - getBoneDepth(b))
+      const sortedInverses: Matrix4[] = sortedBones.map(bone => {
         const index = validBones.indexOf(bone)
         return validInverses[index]
       })
@@ -570,7 +573,7 @@ export class SimpleHandRiggingService {
       console.log('  Verifying bone hierarchy...')
       for (let i = 0; i < sortedBones.length; i++) {
         const bone = sortedBones[i]
-        if (bone.parent && bone.parent instanceof THREE.Bone) {
+        if (bone.parent && bone.parent instanceof Bone) {
           const parentIndex = sortedBones.indexOf(bone.parent)
           if (parentIndex === -1) {
             console.error(`  ❌ Bone ${bone.name} has parent ${bone.parent.name} not in skeleton!`)
@@ -581,13 +584,13 @@ export class SimpleHandRiggingService {
       }
       
       // Create the shared skeleton
-      sharedSkeleton = new THREE.Skeleton(sortedBones, sortedInverses)
+      sharedSkeleton = new Skeleton(sortedBones, sortedInverses)
       console.log(`  Created shared skeleton with ${sortedBones.length} bones`)
       console.log(`  Bone names: ${sortedBones.map(b => b.name).join(', ')}`)
       
       // Second pass: bind all skinned meshes to the shared skeleton
       model.traverse((child) => {
-        if (child instanceof THREE.SkinnedMesh) {
+        if (child instanceof SkinnedMesh) {
           const oldSkeleton = child.skeleton
           
           // Create mapping from old bone indices to new bone indices
@@ -638,7 +641,7 @@ export class SimpleHandRiggingService {
           }
           
           // Bind to shared skeleton
-          child.bind(sharedSkeleton, child.bindMatrix || new THREE.Matrix4())
+          child.bind(sharedSkeleton, child.bindMatrix || new Matrix4())
           
           // Force update
           child.skeleton.calculateInverses()
@@ -669,40 +672,40 @@ export class SimpleHandRiggingService {
    * Get the forward direction for the hand (from wrist towards fingers)
    */
   private getHandForwardDirection(
-    model: THREE.Object3D,
-    wristBone: THREE.Bone,
+    model: Object3D,
+    wristBone: Bone,
     _isLeft: boolean
-  ): THREE.Vector3 {
+  ): Vector3 {
     console.log(`    Detecting hand forward direction for ${wristBone.name}`)
     
     // Method 1: Try to find the direction from elbow/forearm to wrist
-    const parentBone = wristBone.parent as THREE.Bone
+    const parentBone = wristBone.parent as Bone
     if (parentBone && parentBone.isBone) {
       console.log(`    Found parent bone: ${parentBone.name}`)
       
       // Get positions in world space
-      const parentWorldPos = new THREE.Vector3()
-      const wristWorldPos = new THREE.Vector3()
+      const parentWorldPos = new Vector3()
+      const wristWorldPos = new Vector3()
       parentBone.getWorldPosition(parentWorldPos)
       wristBone.getWorldPosition(wristWorldPos)
       
       // Direction from parent (forearm/elbow) to wrist
-      const armDirection = new THREE.Vector3()
+      const armDirection = new Vector3()
         .subVectors(wristWorldPos, parentWorldPos)
         .normalize()
       
       console.log(`    Arm direction (world): ${armDirection.toArray()}`)
       
       // Convert to wrist's local space
-      const wristWorldMatrix = new THREE.Matrix4()
+      const wristWorldMatrix = new Matrix4()
       wristBone.updateWorldMatrix(true, false)
       wristWorldMatrix.copy(wristBone.matrixWorld)
       
-      const wristWorldMatrixInverse = new THREE.Matrix4()
+      const wristWorldMatrixInverse = new Matrix4()
       wristWorldMatrixInverse.copy(wristWorldMatrix).invert()
       
       // Apply only the rotation part (not translation)
-      const rotationOnly = new THREE.Matrix4()
+      const rotationOnly = new Matrix4()
       rotationOnly.extractRotation(wristWorldMatrixInverse)
       
       armDirection.applyMatrix4(rotationOnly)
@@ -719,14 +722,14 @@ export class SimpleHandRiggingService {
     
     if (handVertices.length > 10) {  // Need enough vertices for reliable direction
       // Calculate average position of hand vertices
-      const avgPos = new THREE.Vector3()
+      const avgPos = new Vector3()
       for (const vertex of handVertices) {
         avgPos.add(vertex)
       }
       avgPos.divideScalar(handVertices.length)
 
       // Get wrist world position
-      const wristPos = new THREE.Vector3()
+      const wristPos = new Vector3()
       wristBone.getWorldPosition(wristPos)
 
       // Direction from wrist to hand center
@@ -736,15 +739,15 @@ export class SimpleHandRiggingService {
       console.log(`    Hand center direction (world): ${direction.toArray()}`)
       
       // Convert to local space of wrist bone
-      const wristWorldMatrix = new THREE.Matrix4()
+      const wristWorldMatrix = new Matrix4()
       wristBone.updateWorldMatrix(true, false)
       wristWorldMatrix.copy(wristBone.matrixWorld)
       
-      const wristWorldMatrixInverse = new THREE.Matrix4()
+      const wristWorldMatrixInverse = new Matrix4()
       wristWorldMatrixInverse.copy(wristWorldMatrix).invert()
       
       // Apply only the rotation part
-      const rotationOnly = new THREE.Matrix4()
+      const rotationOnly = new Matrix4()
       rotationOnly.extractRotation(wristWorldMatrixInverse)
       
       direction.applyMatrix4(rotationOnly)
@@ -760,27 +763,27 @@ export class SimpleHandRiggingService {
     
     // Most rigs have hands extending along one of the bone's local axes
     // We'll test each axis and see which makes most sense
-    const _axes = [
-      new THREE.Vector3(1, 0, 0),   // +X
-      new THREE.Vector3(-1, 0, 0),  // -X
-      new THREE.Vector3(0, 1, 0),   // +Y
-      new THREE.Vector3(0, -1, 0),  // -Y
-      new THREE.Vector3(0, 0, 1),   // +Z
-      new THREE.Vector3(0, 0, -1),  // -Z
-    ]
+    // const _axes = [
+    //   new Vector3(1, 0, 0),   // +X
+    //   new Vector3(-1, 0, 0),  // -X
+    //   new Vector3(0, 1, 0),   // +Y
+    //   new Vector3(0, -1, 0),  // -Y
+    //   new Vector3(0, 0, 1),   // +Z
+    //   new Vector3(0, 0, -1),  // -Z
+    // ]
     
     // For most humanoid rigs, hands extend along Y axis
     // But some use X or Z, so we return the most likely
-    let bestAxis = new THREE.Vector3(0, 1, 0)
+    let bestAxis = new Vector3(0, 1, 0)
     
     // Check if bone name gives us hints
     const boneName = wristBone.name.toLowerCase()
     if (boneName.includes('_l') || boneName.includes('left')) {
       // Left hands often point along +Y or +X
-      bestAxis = new THREE.Vector3(0, 1, 0)
+      bestAxis = new Vector3(0, 1, 0)
     } else if (boneName.includes('_r') || boneName.includes('right')) {
       // Right hands often point along +Y or -X
-      bestAxis = new THREE.Vector3(0, 1, 0)
+      bestAxis = new Vector3(0, 1, 0)
     }
     
     console.log(`    Fallback direction: ${bestAxis.toArray()}`)
@@ -792,10 +795,10 @@ export class SimpleHandRiggingService {
    * Find vertices that belong to the hand
    */
   private findHandVertices(
-    model: THREE.Object3D,
-    wristBone: THREE.Bone
-  ): THREE.Vector3[] {
-    const handVertices: THREE.Vector3[] = []
+    model: Object3D,
+    wristBone: Bone
+  ): Vector3[] {
+    const handVertices: Vector3[] = []
     const wristIndex = this.findBoneIndex(model, wristBone)
     
     if (wristIndex === -1) {
@@ -806,14 +809,14 @@ export class SimpleHandRiggingService {
     console.log(`    Finding hand vertices for wrist bone index: ${wristIndex}`)
     
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.geometry) {
+      if (child instanceof SkinnedMesh && child.geometry) {
         const positions = child.geometry.attributes.position
         const skinIndices = child.geometry.attributes.skinIndex
         const skinWeights = child.geometry.attributes.skinWeight
         
         if (!positions || !skinIndices || !skinWeights) return
         
-        const vertex = new THREE.Vector3()
+        const vertex = new Vector3()
         let foundCount = 0
         
         for (let i = 0; i < positions.count; i++) {
@@ -847,10 +850,10 @@ export class SimpleHandRiggingService {
    * that are clearly in the hand/finger region, not the entire arm
    */
   private async applySimpleWeights(
-    model: THREE.Object3D,
-    wristBone: THREE.Bone,
-    palmBone: THREE.Bone,
-    fingerBone: THREE.Bone,
+    model: Object3D,
+    wristBone: Bone,
+    palmBone: Bone,
+    fingerBone: Bone,
     isLeft: boolean
   ): Promise<void> {
     console.log(`Applying simple weights for ${isLeft ? 'left' : 'right'} hand`)
@@ -860,9 +863,9 @@ export class SimpleHandRiggingService {
     const fingerLocalPos = fingerBone.position.clone()
     
     // For world space calculations (for debugging)
-    const wristWorldPos = new THREE.Vector3()
-    const palmWorldPos = new THREE.Vector3()
-    const fingerWorldPos = new THREE.Vector3()
+    const wristWorldPos = new Vector3()
+    const palmWorldPos = new Vector3()
+    const fingerWorldPos = new Vector3()
     
     wristBone.getWorldPosition(wristWorldPos)
     palmBone.getWorldPosition(palmWorldPos)
@@ -874,7 +877,7 @@ export class SimpleHandRiggingService {
     console.log(`    Finger - local: ${fingerLocalPos.toArray()}, world: ${fingerWorldPos.toArray()}`)
     
     // Get the hand direction and actual bone lengths
-    const handDirection = new THREE.Vector3().subVectors(fingerWorldPos, wristWorldPos).normalize()
+    const handDirection = new Vector3().subVectors(fingerWorldPos, wristWorldPos).normalize()
     const actualPalmLength = wristWorldPos.distanceTo(palmWorldPos)
     const actualFingerLength = palmWorldPos.distanceTo(fingerWorldPos)
     const handLength = actualPalmLength + actualFingerLength
@@ -890,7 +893,7 @@ export class SimpleHandRiggingService {
     }
 
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.geometry) {
+      if (child instanceof SkinnedMesh && child.geometry) {
         const positions = child.geometry.attributes.position
         const skinIndices = child.geometry.attributes.skinIndex
         const skinWeights = child.geometry.attributes.skinWeight
@@ -926,7 +929,7 @@ export class SimpleHandRiggingService {
         }
         
         // Get the inverse of the skinned mesh transform to convert bone positions to mesh space
-        const meshInverseMatrix = new THREE.Matrix4()
+        const meshInverseMatrix = new Matrix4()
         meshInverseMatrix.copy(child.matrixWorld).invert()
         
         // Convert bone world positions to mesh local space
@@ -946,8 +949,8 @@ export class SimpleHandRiggingService {
         
         console.log(`  🎯 Smart weight assignment for hand vertices...`)
         
-        const vertex = new THREE.Vector3()
-        const handDirMesh = new THREE.Vector3().subVectors(fingerMeshPos, wristMeshPos).normalize()
+        const vertex = new Vector3()
+        const handDirMesh = new Vector3().subVectors(fingerMeshPos, wristMeshPos).normalize()
         const handLengthMesh = wristMeshPos.distanceTo(fingerMeshPos)
         
         console.log(`  Hand direction in mesh space: ${handDirMesh.toArray()}`)
@@ -1015,7 +1018,7 @@ export class SimpleHandRiggingService {
           vertex.fromBufferAttribute(positions, i)
           
           // Calculate position relative to wrist
-          const toVertex = new THREE.Vector3().subVectors(vertex, wristMeshPos)
+          const toVertex = new Vector3().subVectors(vertex, wristMeshPos)
           const projectionLength = toVertex.dot(handDirMesh)
           
           // Track projection range
@@ -1174,7 +1177,7 @@ export class SimpleHandRiggingService {
             vertex.fromBufferAttribute(positions, i)
             
             // Recalculate projection with inverted direction
-            const toVertex = new THREE.Vector3().subVectors(vertex, wristMeshPos)
+            const toVertex = new Vector3().subVectors(vertex, wristMeshPos)
             const projectionLength = toVertex.dot(handDirMesh)
             
             // Check if this vertex is influenced by wrist
@@ -1298,7 +1301,7 @@ export class SimpleHandRiggingService {
             vertex.fromBufferAttribute(positions, i)
             
             // Recalculate projection with inverted direction
-            const toVertex = new THREE.Vector3().subVectors(vertex, wristMeshPos)
+            const toVertex = new Vector3().subVectors(vertex, wristMeshPos)
             const projectionLength = toVertex.dot(handDirMesh)
             
             // Check if this vertex is influenced by wrist
@@ -1376,8 +1379,8 @@ export class SimpleHandRiggingService {
         
         if (modifiedCount > 0) {
           // Update the geometry attributes
-          child.geometry.setAttribute('skinIndex', new THREE.Float32BufferAttribute(newIndices, 4))
-          child.geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(newWeights, 4))
+          child.geometry.setAttribute('skinIndex', new Float32BufferAttribute(newIndices, 4))
+          child.geometry.setAttribute('skinWeight', new Float32BufferAttribute(newWeights, 4))
           
           // Mark as needing update
           child.geometry.attributes.skinIndex.needsUpdate = true
@@ -1394,11 +1397,11 @@ export class SimpleHandRiggingService {
   /**
    * Find bone index in skeleton
    */
-  private findBoneIndex(model: THREE.Object3D, bone: THREE.Bone): number {
+  private findBoneIndex(model: Object3D, bone: Bone): number {
     let index = -1
     
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton && index === -1) {
+      if (child instanceof SkinnedMesh && child.skeleton && index === -1) {
         const foundIndex = child.skeleton.bones.indexOf(bone)
         if (foundIndex !== -1) {
           index = foundIndex
@@ -1412,9 +1415,9 @@ export class SimpleHandRiggingService {
   /**
    * Force skeleton update on all skinned meshes
    */
-  private updateAllSkeletons(model: THREE.Object3D): void {
+  private updateAllSkeletons(model: Object3D): void {
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         // Force recalculation of bone matrices
         child.skeleton.bones.forEach(bone => {
           bone.updateMatrixWorld(true)
@@ -1443,11 +1446,11 @@ export class SimpleHandRiggingService {
   /**
    * Find wrist bones in the model
    */
-  private findWristBones(model: THREE.Object3D): THREE.Bone[] {
-    const wristBones: THREE.Bone[] = []
+  private findWristBones(model: Object3D): Bone[] {
+    const wristBones: Bone[] = []
 
     model.traverse((child) => {
-      if (child instanceof THREE.Bone && 
+      if (child instanceof Bone && 
           (child.name.toLowerCase().includes('hand') || 
            child.name.toLowerCase().includes('wrist'))) {
           wristBones.push(child)
@@ -1458,9 +1461,9 @@ export class SimpleHandRiggingService {
   }
   
   // Helper function to check if a bone is actually in the scene
-  private isBoneInScene(bone: THREE.Bone, model: THREE.Object3D): boolean {
+  private isBoneInScene(bone: Bone, model: Object3D): boolean {
     // Check if the bone has a valid parent chain up to the model root
-    let current: THREE.Object3D | null = bone
+    let current: Object3D | null = bone
     while (current) {
       if (current === model) {
         return true // Found valid parent chain to model
@@ -1478,10 +1481,10 @@ export class SimpleHandRiggingService {
   /**
    * Count total bones in model
    */
-  private countBones(model: THREE.Object3D): number {
+  private countBones(model: Object3D): number {
     let count = 0
     model.traverse((child) => {
-      if (child instanceof THREE.Bone) {
+      if (child instanceof Bone) {
         count++
       }
     })
@@ -1491,7 +1494,7 @@ export class SimpleHandRiggingService {
   /**
    * Load model from file
    */
-  private async loadModel(modelFile: File | string): Promise<THREE.Object3D> {
+  private async loadModel(modelFile: File | string): Promise<Object3D> {
     return new Promise((resolve, reject) => {
       const url = typeof modelFile === 'string' ? modelFile : URL.createObjectURL(modelFile)
       
@@ -1519,12 +1522,12 @@ export class SimpleHandRiggingService {
   /**
    * Export model to GLB
    */
-  private async exportModel(model: THREE.Object3D, debugMode: boolean): Promise<ArrayBuffer> {
+  private async exportModel(model: Object3D, debugMode: boolean): Promise<ArrayBuffer> {
     console.log('📦 Preparing model for export...')
     
     // Debug: Check model scale before export
-    const modelBounds = new THREE.Box3().setFromObject(model)
-    const modelSize = new THREE.Vector3()
+    const modelBounds = new Box3().setFromObject(model)
+    const modelSize = new Vector3()
     modelBounds.getSize(modelSize)
     console.log(`  Model size before export: ${modelSize.x.toFixed(3)} x ${modelSize.y.toFixed(3)} x ${modelSize.z.toFixed(3)}`)
     console.log(`  Model scale: ${model.scale.x}, ${model.scale.y}, ${model.scale.z}`)
@@ -1532,7 +1535,7 @@ export class SimpleHandRiggingService {
     // Check if any child meshes have non-unit scale
     let hasScaleIssues = false
     model.traverse((child) => {
-      if ((child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) && 
+      if ((child instanceof Mesh || child instanceof SkinnedMesh) && 
           (child.scale.x !== 1 || child.scale.y !== 1 || child.scale.z !== 1)) {
         hasScaleIssues = true
         console.log(`  ⚠️ Found scaled mesh: ${child.name} with scale ${child.scale.x}, ${child.scale.y}, ${child.scale.z}`)
@@ -1548,15 +1551,15 @@ export class SimpleHandRiggingService {
     
     // CRITICAL: Validate bone hierarchy to prevent GLTF export errors
     console.log('  🔍 Validating bone hierarchy before export...')
-    const allBonesInScene = new Set<THREE.Bone>()
-    const rootBones = new Set<THREE.Bone>()
+    const allBonesInScene = new Set<Bone>()
+    const rootBones = new Set<Bone>()
     
     // First, collect all bones in the scene
     model.traverse((child) => {
-      if (child instanceof THREE.Bone) {
+      if (child instanceof Bone) {
         allBonesInScene.add(child)
         // Check if this is a root bone (no bone parent)
-        if (!child.parent || !(child.parent instanceof THREE.Bone)) {
+        if (!child.parent || !(child.parent instanceof Bone)) {
           rootBones.add(child)
         }
       }
@@ -1566,7 +1569,7 @@ export class SimpleHandRiggingService {
     
     // Now validate each skeleton
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         const skeleton = child.skeleton
         console.log(`  Validating skeleton for ${child.name || 'mesh'} with ${skeleton.bones.length} bones`)
         
@@ -1576,8 +1579,8 @@ export class SimpleHandRiggingService {
           if (!bone) {
             console.error(`    ❌ Bone at index ${index} is null/undefined!`)
             invalidBones.push(index)
-          } else if (!(bone instanceof THREE.Bone)) {
-            console.error(`    ❌ Bone at index ${index} is not a THREE.Bone!`)
+          } else if (!(bone instanceof Bone)) {
+            console.error(`    ❌ Bone at index ${index} is not a Bone!`)
             invalidBones.push(index)
           } else if (!allBonesInScene.has(bone)) {
             console.error(`    ❌ Bone at index ${index} (${bone.name}) is not in the scene!`)
@@ -1592,7 +1595,7 @@ export class SimpleHandRiggingService {
                 invalidBones.push(index)
                 break
               }
-              if (parent instanceof THREE.Bone && !allBonesInScene.has(parent)) {
+              if (parent instanceof Bone && !allBonesInScene.has(parent)) {
                 console.error(`    ❌ Bone ${bone.name} has parent ${parent.name} not in scene!`)
                 invalidBones.push(index)
                 break
@@ -1608,15 +1611,15 @@ export class SimpleHandRiggingService {
           console.warn(`  ⚠️ Found ${invalidBones.length} invalid bones, rebuilding skeleton...`)
           
           // Create a clean skeleton with only valid bones
-        const validBones: THREE.Bone[] = []
-        const validInverses: THREE.Matrix4[] = []
+        const validBones: Bone[] = []
+        const validInverses: Matrix4[] = []
           const oldToNewIndex = new Map<number, number>()
         
         skeleton.bones.forEach((bone, oldIndex) => {
-            if (bone && bone instanceof THREE.Bone && allBonesInScene.has(bone)) {
+            if (bone && bone instanceof Bone && allBonesInScene.has(bone)) {
             const newIndex = validBones.length
             validBones.push(bone)
-            validInverses.push(skeleton.boneInverses[oldIndex] || new THREE.Matrix4())
+            validInverses.push(skeleton.boneInverses[oldIndex] || new Matrix4())
               oldToNewIndex.set(oldIndex, newIndex)
           }
         })
@@ -1657,7 +1660,7 @@ export class SimpleHandRiggingService {
           }
           
           // Create new skeleton with valid bones only
-          const newSkeleton = new THREE.Skeleton(validBones, validInverses)
+          const newSkeleton = new Skeleton(validBones, validInverses)
           
           // Dispose old skeleton
           if (skeleton.boneTexture) {
@@ -1665,7 +1668,7 @@ export class SimpleHandRiggingService {
           }
           
           // Bind to new skeleton
-          child.bind(newSkeleton, child.bindMatrix || new THREE.Matrix4())
+          child.bind(newSkeleton, child.bindMatrix || new Matrix4())
           
           console.log(`  ✅ Successfully rebuilt skeleton with ${validBones.length} bones`)
         }
@@ -1680,13 +1683,13 @@ export class SimpleHandRiggingService {
         
         // Ensure bind matrix is valid
         if (!child.bindMatrix || child.bindMatrix.elements.every(e => e === 0)) {
-          child.bindMatrix = new THREE.Matrix4()
+          child.bindMatrix = new Matrix4()
           child.bindMatrix.identity()
         }
         
         // Ensure bind matrix inverse is computed
         if (!child.bindMatrixInverse || child.bindMatrixInverse.elements.every(e => e === 0)) {
-          child.bindMatrixInverse = new THREE.Matrix4()
+          child.bindMatrixInverse = new Matrix4()
           child.bindMatrixInverse.copy(child.bindMatrix).invert()
         }
       }
@@ -1694,11 +1697,11 @@ export class SimpleHandRiggingService {
     
     // FINAL VALIDATION: Ensure all skeletons only reference bones that exist in the scene
     console.log('  🔍 Final skeleton validation before GLTF export...')
-    const allValidBones = new Set<THREE.Bone>()
+    const allValidBones = new Set<Bone>()
     
     // Collect ALL bones in the model
     model.traverse((child) => {
-      if (child instanceof THREE.Bone) {
+      if (child instanceof Bone) {
         allValidBones.add(child)
       }
     })
@@ -1707,7 +1710,7 @@ export class SimpleHandRiggingService {
     
     // Check each skeleton one more time
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         const skeleton = child.skeleton
         console.log(`  Checking skeleton for ${child.name}: ${skeleton.bones.length} bones`)
         
@@ -1730,7 +1733,7 @@ export class SimpleHandRiggingService {
           console.warn('  🚨 Emergency fix: Creating minimal skeleton...')
           const rootBone = Array.from(allValidBones)[0]
           if (rootBone) {
-            const emergencySkeleton = new THREE.Skeleton([rootBone])
+            const emergencySkeleton = new Skeleton([rootBone])
             child.bind(emergencySkeleton)
             console.log('  ✅ Bound to emergency skeleton with single root bone')
           }
@@ -1745,7 +1748,7 @@ export class SimpleHandRiggingService {
     console.log('  🔧 Validating skin indices...')
     
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         const skeleton = child.skeleton
         
         if (child.geometry && child.geometry.attributes.skinIndex) {
@@ -1807,11 +1810,11 @@ export class SimpleHandRiggingService {
     
     // DEBUG: Log the bone to node index mapping
     console.log('  🔍 Analyzing bone-to-node mapping...')
-    const allNodes: THREE.Object3D[] = []
+    const allNodes: Object3D[] = []
     model.traverse((node) => allNodes.push(node))
     
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         console.log(`  Skeleton bones for ${child.name}:`)
         child.skeleton.bones.forEach((bone, boneIdx) => {
           const nodeIdx = allNodes.indexOf(bone)
@@ -1828,7 +1831,7 @@ export class SimpleHandRiggingService {
     // If a bone is at node index > 30, the GLTF will have invalid references
     let needsReorganization = false
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         child.skeleton.bones.forEach((bone) => {
           const nodeIdx = allNodes.indexOf(bone)
           if (nodeIdx > 30) {
@@ -1843,12 +1846,12 @@ export class SimpleHandRiggingService {
       console.log('  🔧 Attempting to fix by removing orphaned nodes...')
       
       // Remove any non-essential nodes that come before bones
-      const nodesToRemove: THREE.Object3D[] = []
+      const nodesToRemove: Object3D[] = []
       model.traverse((node) => {
         // Don't remove bones, meshes, or the main groups
-        if (!(node instanceof THREE.Bone) && 
-            !(node instanceof THREE.Mesh) && 
-            !(node instanceof THREE.SkinnedMesh) &&
+        if (!(node instanceof Bone) && 
+            !(node instanceof Mesh) && 
+            !(node instanceof SkinnedMesh) &&
             node.name !== 'Scene' && 
             node.name !== 'AuxScene' &&
             node.name !== 'Armature' &&
@@ -1857,9 +1860,9 @@ export class SimpleHandRiggingService {
           let hasImportantChildren = false
           node.traverse((child) => {
             if (child !== node && (
-              child instanceof THREE.Bone || 
-              child instanceof THREE.Mesh ||
-              child instanceof THREE.SkinnedMesh)) {
+              child instanceof Bone || 
+              child instanceof Mesh ||
+              child instanceof SkinnedMesh)) {
               hasImportantChildren = true
             }
           })
@@ -1880,12 +1883,12 @@ export class SimpleHandRiggingService {
     }
     
     // CRITICAL: Remove any bones that aren't part of a skeleton
-    const bonesInSkeletons = new Set<THREE.Bone>()
-    const skinnedMeshes: THREE.SkinnedMesh[] = []
+    const bonesInSkeletons = new Set<Bone>()
+    const skinnedMeshes: SkinnedMesh[] = []
     
     // Collect all bones that are actually in skeletons
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         skinnedMeshes.push(child)
         child.skeleton.bones.forEach(bone => {
           if (bone) bonesInSkeletons.add(bone)
@@ -1896,10 +1899,10 @@ export class SimpleHandRiggingService {
     console.log(`  Found ${bonesInSkeletons.size} bones in skeletons`)
     
     // Find orphaned bones but DON'T remove them - just warn
-    const orphanedBones: THREE.Bone[] = []
+    const orphanedBones: Bone[] = []
     
     model.traverse((child) => {
-      if (child instanceof THREE.Bone) {
+      if (child instanceof Bone) {
         if (!bonesInSkeletons.has(child)) {
           orphanedBones.push(child)
         }
@@ -2013,11 +2016,11 @@ export class SimpleHandRiggingService {
   /**
    * Validate model structure before export
    */
-  private validateModelStructure(model: THREE.Object3D): { isValid: boolean; errors: string[] } {
+  private validateModelStructure(model: Object3D): { isValid: boolean; errors: string[] } {
     const issues: string[] = []
     
     model.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+      if (child instanceof SkinnedMesh && child.skeleton) {
         // Check for null bones
         child.skeleton.bones.forEach((bone, index) => {
           if (!bone) {

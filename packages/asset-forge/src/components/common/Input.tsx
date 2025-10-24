@@ -123,7 +123,7 @@ export interface FormFieldProps {
   error?: string
   helperText?: string
   required?: boolean
-  children: React.ReactElement
+  children: React.ReactElement<{ id?: string; error?: boolean }>
 }
 
 const FormField: React.FC<FormFieldProps> = ({
@@ -133,8 +133,8 @@ const FormField: React.FC<FormFieldProps> = ({
   required = false,
   children
 }) => {
-  const childWithError = React.cloneElement(children, { error: !!error })
-  
+  const childWithError = React.cloneElement(children, { error: !!error } as Partial<{ error: boolean }>)
+
   return (
     <div className="stack gap-1">
       {label && (

@@ -1,8 +1,8 @@
 import { Grid3x3, CheckCircle, AlertCircle, Loader2, Download, Package, RefreshCw, Eye } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 
-import { spriteGeneratorClient } from '../../utils/sprite-generator-client'
 import { Asset } from '../../types'
+import { spriteGeneratorClient } from '../../utils/sprite-generator-client'
 import { Modal, ModalHeader, ModalBody, ModalFooter, ModalSection, Button, Select, Badge } from '../common'
 
 import { apiFetch } from '@/utils/api'
@@ -43,14 +43,24 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
     resolution: 256,
     backgroundColor: 'transparent'
   })
-  
+
   const [status, setStatus] = useState<'idle' | 'loading' | 'viewing' | 'generating' | 'success' | 'error'>('loading')
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState('')
   const [sprites, setSprites] = useState<SpriteResult[]>([])
   const [isSaving, setIsSaving] = useState(false)
-  const [hasExistingSprites, setHasExistingSprites] = useState(false)
+  const [_hasExistingSprites, setHasExistingSprites] = useState(false)
   const [existingMetadata, setExistingMetadata] = useState<ExistingSpriteMetadata | null>(null)
+  const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Load existing sprites on mount
   useEffect(() => {
@@ -160,7 +170,7 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
       }
 
       setMessage('Sprites saved successfully!')
-      setTimeout(() => {
+      saveTimeoutRef.current = setTimeout(() => {
         onComplete()
       }, 1000)
       
@@ -173,7 +183,7 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
   }
 
   const handleDownloadAll = () => {
-    sprites.forEach((sprite, index) => {
+    sprites.forEach((sprite) => {
       const link = document.createElement('a')
       link.href = sprite.imageUrl
       link.download = `${asset.id}-${sprite.angle}deg.png`
@@ -232,8 +242,8 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
 
                 {/* Sprite Grid */}
                 <div className={`grid ${config.angles === 8 ? 'grid-cols-4' : 'grid-cols-2'} gap-4`}>
-                  {sprites.map((sprite, index) => (
-                    <div key={index} className="group relative">
+                  {sprites.map((sprite) => (
+                    <div key={`sprite-view-${sprite.angle}`} className="group relative">
                       <div className="aspect-square bg-bg-tertiary rounded-lg p-2 overflow-hidden border border-border-primary">
                         <img 
                           src={sprite.imageUrl} 
@@ -398,8 +408,8 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
 
                 {/* Sprite Grid */}
                 <div className={`grid ${config.angles === 8 ? 'grid-cols-4' : 'grid-cols-2'} gap-4`}>
-                  {sprites.map((sprite, index) => (
-                    <div key={index} className="group relative">
+                  {sprites.map((sprite) => (
+                    <div key={`sprite-success-${sprite.angle}`} className="group relative">
                       <div className="aspect-square bg-bg-tertiary rounded-lg p-2 overflow-hidden border border-border-primary">
                         <img 
                           src={sprite.imageUrl} 

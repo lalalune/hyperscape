@@ -1,11 +1,12 @@
-import { useCallback, RefObject } from 'react'
+import { useCallback, RefObject, useRef, useEffect } from 'react'
 
-import { API_ENDPOINTS } from '../constants'
+import { API_ENDPOINTS } from '../constants/api'
 import { useAssetsStore } from '../store'
 import { Asset } from '../types'
 
 import { ThreeViewerRef } from '@/components/shared/ThreeViewer'
 import { apiFetch } from '@/utils/api'
+import { AssetService } from '@/services/api/AssetService'
 
 
 interface UseAssetActionsOptions {
@@ -16,13 +17,20 @@ interface UseAssetActionsOptions {
 }
 
 export function useAssetActions({ viewerRef, reloadAssets, forceReload, assets }: UseAssetActionsOptions) {
-  const {
-    selectedAsset,
-    setSelectedAsset,
-    setShowEditModal,
-    setIsTransitioning,
-    clearSelection
-  } = useAssetsStore()
+  // Selective subscriptions - each property gets its own subscription
+  const selectedAsset = useAssetsStore(state => state.selectedAsset)
+  const setSelectedAsset = useAssetsStore(state => state.setSelectedAsset)
+  const setShowEditModal = useAssetsStore(state => state.setShowEditModal)
+  const setIsTransitioning = useAssetsStore(state => state.setIsTransitioning)
+  const clearSelection = useAssetsStore(state => state.clearSelection)
+
+  const isMountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const handleViewerReset = useCallback(() => {
     viewerRef.current?.resetCamera()
@@ -58,8 +66,11 @@ export function useAssetActions({ viewerRef, reloadAssets, forceReload, assets }
 
       deletionSuccessful = true
 
+      // Invalidate cache for this asset
+      AssetService.invalidateAssetCache(asset.id)
+
       // If deleting a variant and we had cleared the selection, select the base model
-      if (!includeVariants && !selectedAsset && asset.metadata.isVariant) {
+      if (!includeVariants && !selectedAsset && asset.metadata?.isVariant) {
         const variantMetadata = asset.metadata as import('../types').VariantAssetMetadata
         const baseAsset = assets.find(a => a.id === variantMetadata.parentBaseModel)
         if (baseAsset) {
@@ -69,16 +80,25 @@ export function useAssetActions({ viewerRef, reloadAssets, forceReload, assets }
 
     } catch (error) {
       console.error('Error deleting asset:', error)
-      // Still try to reload in case the deletion succeeded on the backend
-      deletionSuccessful = true
+      // Deletion failed - do not reload
+      deletionSuccessful = false
     }
 
     if (deletionSuccessful) {
       // Add a small delay to ensure the deletion is complete on the filesystem
-      await new Promise(resolve => setTimeout(resolve, 500))
+      await new Promise(resolve => {
+        const timeoutId = setTimeout(() => {
+          if (isMountedRef.current) {
+            resolve(undefined)
+          }
+        }, 500)
+        return () => clearTimeout(timeoutId)
+      })
 
       // Force reload assets to refresh the list (clears list first)
-      await forceReload()
+      if (isMountedRef.current) {
+        await forceReload()
+      }
     } else {
       // If deletion failed and we cleared the selection, restore it
       if (!selectedAsset && asset) {
@@ -104,6 +124,14 @@ export function useAssetActions({ viewerRef, reloadAssets, forceReload, assets }
       // Get the updated asset from the response
       const savedAsset = await response.json()
 
+      // Invalidate cache for this asset
+      if (updatedAsset.id) {
+        AssetService.invalidateAssetCache(updatedAsset.id)
+      }
+      if (savedAsset.id !== updatedAsset.id) {
+        AssetService.invalidateAssetCache(savedAsset.id)
+      }
+
       // If the asset was renamed, update the selected asset
       if (savedAsset.id !== updatedAsset.id) {
         setIsTransitioning(true)
@@ -118,7 +146,11 @@ export function useAssetActions({ viewerRef, reloadAssets, forceReload, assets }
 
       // Clear transitioning state after a brief delay
       if (savedAsset.id !== updatedAsset.id) {
-        setTimeout(() => setIsTransitioning(false), 500)
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            setIsTransitioning(false)
+          }
+        }, 500)
       }
 
       return savedAsset

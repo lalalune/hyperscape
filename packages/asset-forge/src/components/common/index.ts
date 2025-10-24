@@ -49,4 +49,6 @@ export {
 export type { ProgressProps, CircularProgressProps } from './Progress' 
 export { ErrorNotification } from './ErrorNotification'
 export { EmptyState } from './EmptyState'
-export { RangeInput } from './RangeInput' 
+export { RangeInput } from './RangeInput'
+export { ModelSelector } from './ModelSelector'
+export { GlobalSearch } from './GlobalSearch' 

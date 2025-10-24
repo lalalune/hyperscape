@@ -5,6 +5,9 @@ import { immer } from 'zustand/middleware/immer'
 import { ArmorFittingViewerRef } from '../components/ArmorFitting/ArmorFittingViewer'
 import { FittingConfig, BodyRegion, CollisionPoint } from '../services/fitting/ArmorFittingService'
 import { Asset } from '../types'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('ArmorFittingStore')
 
 interface HistoryEntry {
   fittingConfig: FittingConfig
@@ -91,7 +94,7 @@ interface ArmorFittingActions {
 
   // Options
   setEnableWeightTransfer: (enabled: boolean) => void
-  setEquipmentSlot: (slot: string, viewerRef?: React.RefObject<ArmorFittingViewerRef>) => void
+  setEquipmentSlot: (slot: string, viewerRef?: React.RefObject<ArmorFittingViewerRef | null>) => void
 
   // Visualization
   setVisualizationMode: (mode: ArmorFittingState['visualizationMode']) => void
@@ -126,15 +129,15 @@ interface ArmorFittingActions {
   canRedo: () => boolean
 
   // Complex actions
-  performFitting: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
-  bindArmorToSkeleton: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
+  performFitting: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
+  bindArmorToSkeleton: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
   resetFitting: () => void
-  performHelmetFitting: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
-  attachHelmetToHead: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
-  detachHelmetFromHead: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
-  exportFittedArmor: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
-  exportEquippedAvatar: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
-  resetScene: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => void
+  performHelmetFitting: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
+  attachHelmetToHead: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
+  detachHelmetFromHead: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
+  exportFittedArmor: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
+  exportEquippedAvatar: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
+  resetScene: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => void
   saveConfiguration: () => Promise<void>
   loadConfiguration: (file: File) => Promise<void>
 
@@ -307,17 +310,17 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
           }),
           setEquipmentSlot: (slot, viewerRef) => {
             const prevSlot = get().equipmentSlot
-            console.log(`=== SWITCHING EQUIPMENT SLOT: ${prevSlot} -> ${slot} ===`)
+            logger.info('Switching equipment slot', { from: prevSlot, to: slot })
 
             // Clear meshes from scene based on what we're leaving
             if (viewerRef?.current && prevSlot !== slot) {
               if (prevSlot === 'Head' && slot !== 'Head') {
                 // Leaving helmet mode - clear helmet mesh
-                console.log('Leaving helmet mode - clearing helmet from scene')
+                logger.info('Leaving helmet mode - clearing helmet from scene')
                 viewerRef.current.clearHelmet()
               } else if (prevSlot === 'Spine2' && slot !== 'Spine2') {
                 // Leaving armor mode - clear armor mesh
-                console.log('Leaving armor mode - clearing armor from scene')
+                logger.info('Leaving armor mode - clearing armor from scene')
                 viewerRef.current.clearArmor()
               }
             }
@@ -473,7 +476,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
 
             // Ensure we're not already processing
             if (isFitting) {
-              console.warn('Already processing a fitting operation')
+              logger.warn('Already processing a fitting operation')
               return
             }
 
@@ -486,7 +489,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
             try {
               // Using shrinkwrap fitting from MeshFittingDebugger
               set((state) => { state.fittingProgress = 25 })
-              console.log('🎯 ArmorFittingLab: Performing shrinkwrap-based armor fitting')
+              logger.info('Performing shrinkwrap-based armor fitting')
 
               // Create fitting parameters matching MeshFittingParameters interface
               const shrinkwrapParams = {
@@ -504,7 +507,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
                 pushInteriorVertices: fittingConfig.pushInteriorVertices || false
               }
 
-              console.log('Shrinkwrap parameters:', shrinkwrapParams)
+              logger.debug('Shrinkwrap parameters', shrinkwrapParams)
 
               // Perform the fitting
               set((state) => { state.fittingProgress = 50 })
@@ -517,7 +520,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               // Weight transfer if enabled
               if (enableWeightTransfer) {
                 set((state) => { state.fittingProgress = 90 })
-                console.log('🎯 ArmorFittingLab: Transferring vertex weights from avatar to armor')
+                logger.info('Transferring vertex weights from avatar to armor')
                 viewerRef.current.transferWeights?.()
                 await new Promise(resolve => setTimeout(resolve, 800))
               }
@@ -534,7 +537,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               get().saveToHistory()
 
             } catch (error) {
-              console.error('Fitting failed:', error)
+              logger.error('Fitting failed', { error: (error as Error).message })
               set((state) => {
                 state.lastError = `Fitting failed: ${(error as Error).message}`
               })
@@ -559,7 +562,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
 
             // Ensure we're not already processing
             if (isFitting) {
-              console.warn('Already processing a binding operation')
+              logger.warn('Already processing a binding operation')
               return
             }
 
@@ -570,7 +573,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
             })
 
             try {
-              console.log('🎯 ArmorFittingLab: Binding armor to skeleton')
+              logger.info('Binding armor to skeleton')
 
               // Call viewer's transferWeights method
               viewerRef.current.transferWeights()
@@ -580,10 +583,10 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
                 state.fittingProgress = 100
               })
 
-              console.log('✅ ArmorFittingLab: Armor bound to skeleton')
+              logger.info('Armor bound to skeleton successfully')
 
             } catch (error) {
-              console.error('Binding failed:', error)
+              logger.error('Binding failed', { error: (error as Error).message })
               set((state) => {
                 state.lastError = `Binding failed: ${(error as Error).message}`
               })
@@ -646,11 +649,11 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
                 state.isHelmetFitted = true
               })
             } catch (error) {
-              console.error('Helmet fitting failed:', error)
+              logger.error('Helmet fitting failed', { error: (error as Error).message })
               set((state) => {
                 state.lastError = `Helmet fitting failed: ${(error as Error).message}`
               })
-            } finally {
+            } finally{
               set((state) => {
                 state.isFitting = false
               })
@@ -666,7 +669,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
                 state.isHelmetAttached = true
               })
             } catch (error) {
-              console.error('Helmet attachment failed:', error)
+              logger.error('Helmet attachment failed', { error: (error as Error).message })
               set((state) => {
                 state.lastError = `Helmet attachment failed: ${(error as Error).message}`
               })
@@ -682,7 +685,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
                 state.isHelmetAttached = false
               })
             } catch (error) {
-              console.error('Helmet detachment failed:', error)
+              logger.error('Helmet detachment failed', { error: (error as Error).message })
               set((state) => {
                 state.lastError = `Helmet detachment failed: ${(error as Error).message}`
               })
@@ -707,7 +710,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               a.click()
               URL.revokeObjectURL(url)
             } catch (error) {
-              console.error('Export failed:', error)
+              logger.error('Export failed', { error: (error as Error).message })
               set((state) => {
                 state.lastError = `Export failed: ${(error as Error).message}`
               })
@@ -736,7 +739,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               a.click()
               URL.revokeObjectURL(url)
             } catch (error) {
-              console.error('Export failed:', error)
+              logger.error('Export failed', { error: (error as Error).message })
               set((state) => {
                 state.lastError = `Export failed: ${(error as Error).message}`
               })
@@ -750,10 +753,10 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
           resetScene: (viewerRef) => {
             const { equipmentSlot } = get()
 
-            console.log('=== RESETTING SCENE ===')
+            logger.info('Resetting scene')
 
             if (!viewerRef?.current) {
-              console.error('No viewer ref available for reset')
+              logger.error('No viewer ref available for reset')
               return
             }
 
@@ -806,7 +809,7 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
               }
             })
 
-            console.log('=== SCENE RESET COMPLETE ===')
+            logger.info('Scene reset complete')
           },
 
           saveConfiguration: async () => {

@@ -1,30 +1,43 @@
-import { 
-  Grid3X3, 
-  Box, 
-  Info, 
+import {
+  Grid3X3,
+  Box,
+  Info,
   RotateCw,
-
   Download,
   Keyboard,
   X,
-  Hand
+  Hand,
+  Play,
+  Pause,
+  RotateCcw,
+  Activity,
+  Loader2,
+  Eye,
+  FileText
 } from 'lucide-react'
-import { useRef, useImperativeHandle, forwardRef, useEffect, useState, useCallback } from 'react'
-import * as THREE from 'three'
+import React, { useRef, useImperativeHandle, forwardRef, useEffect, useState, useCallback } from 'react'
+import {
+  ACESFilmicToneMapping, AmbientLight, AnimationAction, AnimationClip, AnimationMixer, Bone, Box3, Box3Helper,
+  Clock, Color, DirectionalLight, Fog, GridHelper, Group, LineBasicMaterial, LoopRepeat,
+  Material, Mesh, Object3D, PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry, Quaternion, SRGBColorSpace,
+  Scene, ShadowMaterial, SkeletonHelper, SkinnedMesh, Texture, Vector2, Vector3, WebGLRenderer
+} from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js'
+import { formatNumber, formatFileSize } from '../../utils/formatting'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 
 import { getTierColor } from '../../constants/materials'
 import { ENVIRONMENTS } from '../../constants/three'
 import { ExtendedWindow } from '../../types'
+import { Button, Modal } from '../common'
 
 
-interface ThreeViewerProps {
+export interface ThreeViewerProps {
   modelUrl?: string
   isWireframe?: boolean
   showGroundPlane?: boolean
@@ -42,6 +55,16 @@ interface ThreeViewerProps {
     characterHeight?: number // Expected character height in meters
   }
   isAnimationPlayer?: boolean // Hide certain UI elements when used in AnimationPlayer
+  // Animation control props
+  animationFiles?: {
+    basic?: {
+      walking?: string
+      running?: string
+      tpose?: string
+    }
+  }
+  showAnimationControls?: boolean // When true, show animation UI
+  assetId?: string // For constructing animation URLs
 }
 
 export interface ThreeViewerRef {
@@ -51,8 +74,8 @@ export interface ThreeViewerRef {
     topView: HTMLCanvasElement
     frontView: HTMLCanvasElement
     handPositions: {
-      left?: { screen: THREE.Vector2, world: THREE.Vector3 }
-      right?: { screen: THREE.Vector2, world: THREE.Vector3 }
+      left?: { screen: Vector2, world: Vector3 }
+      right?: { screen: Vector2, world: Vector3 }
     }
   }>
   loadAnimation: (url: string, name: string) => Promise<void>
@@ -68,7 +91,7 @@ export interface ThreeViewerRef {
   refreshSkeleton: () => void
 }
 
-const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
+const ThreeViewer = React.memo(forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   modelUrl,
   isWireframe = false,
   showGroundPlane = false,
@@ -76,20 +99,23 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   lightMode = false,
   onModelLoad,
   assetInfo,
-  isAnimationPlayer = false
+  isAnimationPlayer = false,
+  animationFiles,
+  showAnimationControls = false,
+  assetId
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const sceneRef = useRef<THREE.Scene | null>(null)
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  const sceneRef = useRef<Scene | null>(null)
+  const rendererRef = useRef<WebGLRenderer | null>(null)
+  const cameraRef = useRef<PerspectiveCamera | null>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
   const composerRef = useRef<EffectComposer | null>(null)
-  const modelRef = useRef<THREE.Object3D | null>(null)
-  const mixerRef = useRef<THREE.AnimationMixer | null>(null)
-  const clockRef = useRef<THREE.Clock | null>(null)
+  const modelRef = useRef<Object3D | null>(null)
+  const mixerRef = useRef<AnimationMixer | null>(null)
+  const clockRef = useRef<Clock | null>(null)
   const frameIdRef = useRef<number | null>(null)
-  const gridRef = useRef<THREE.GridHelper | null>(null)
-  const skeletonHelperRef = useRef<THREE.SkeletonHelper | null>(null)
+  const gridRef = useRef<GridHelper | null>(null)
+  const skeletonHelperRef = useRef<SkeletonHelper | null>(null)
   // Removed: animatedModelsRef and animationTypesRef - no longer needed
   
   const [loading, setLoading] = useState(false)
@@ -100,7 +126,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   const [showStats, setShowStats] = useState(false)
   const [autoRotate, setAutoRotate] = useState(false)
   const [currentEnvironment, setCurrentEnvironment] = useState<keyof typeof ENVIRONMENTS>('neutral')
-  const [animations, setAnimations] = useState<THREE.AnimationClip[]>([])
+  const [animations, setAnimations] = useState<AnimationClip[]>([])
   const [_currentAnimation, setCurrentAnimation] = useState<number>(-1)
   const [isPlaying, setIsPlaying] = useState(true)
   const [showSkeleton, setShowSkeleton] = useState(false)
@@ -110,10 +136,10 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   const mountedRef = useRef(false)  // Track if component is mounted
   const currentModelUrlRef = useRef<string | null>(null)  // Track current model URL
   const [handBones, setHandBones] = useState<{
-    leftPalm?: THREE.Bone
-    leftFingers?: THREE.Bone
-    rightPalm?: THREE.Bone
-    rightFingers?: THREE.Bone
+    leftPalm?: Bone
+    leftFingers?: Bone
+    rightPalm?: Bone
+    rightFingers?: Bone
   }>({})
   const [handRotations, setHandRotations] = useState({
     leftPalm: 0,
@@ -131,7 +157,15 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   const rotationAxisRef = useRef(rotationAxis)
   const shouldReframeOnResizeRef = useRef(false)
 
-  const computeDistanceToFit = (size: THREE.Vector3, camera: THREE.PerspectiveCamera) => {
+  // Animation control state
+  const [currentAnimationFile, setCurrentAnimationFile] = useState<string>('')
+  const [isAnimationPlaying, setIsAnimationPlaying] = useState(false)
+  const [showingSkeleton, setShowingSkeleton] = useState(false)
+  const [showBonesModal, setShowBonesModal] = useState(false)
+  const [bonesData, setBonesData] = useState<{ name: string; parent: string }[]>([])
+  const [isLoadingAnimation, setIsLoadingAnimation] = useState(false)
+
+  const computeDistanceToFit = (size: Vector3, camera: PerspectiveCamera) => {
     const aspect = camera.aspect || 1
     const fov = camera.fov * (Math.PI / 180)
     const halfFov = fov / 2
@@ -146,9 +180,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     const camera = cameraRef.current
     const controls = controlsRef.current
     if (!model || !camera || !controls) return
-    const finalBox = new THREE.Box3().setFromObject(model)
-    const finalCenter = finalBox.getCenter(new THREE.Vector3())
-    const finalSize = finalBox.getSize(new THREE.Vector3())
+    const finalBox = new Box3().setFromObject(model)
+    const finalCenter = finalBox.getCenter(new Vector3())
+    const finalSize = finalBox.getSize(new Vector3())
     const distance = computeDistanceToFit(finalSize, camera)
     if (assetInfo?.isAnimationFile && assetInfo?.characterHeight) {
       camera.position.set(
@@ -169,13 +203,6 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   }, [assetInfo])
   
   // Helper functions
-  
-  const formatFileSize = (bytes?: number): string => {
-    if (!bytes) return 'N/A'
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(1024))
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`
-  }
   
     // Export T-pose model function
   const exportTPoseModel = useCallback(() => {
@@ -209,7 +236,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     console.log("Using fallback export method for local model...")
       
       // Create a new root group with proper name
-      const exportRoot = new THREE.Group()
+      const exportRoot = new Group()
       exportRoot.name = assetInfo?.name || 'Model'
       
       // CRITICAL FIX: Don't clone the model as it breaks skeleton bone references
@@ -228,8 +255,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       // CRITICAL: Normalize scale to reasonable size
       // The model has been scaled up 100x during hand rigging and then by viewer scaling
       // We need to export at a reasonable scale (around 1-2 meters tall)
-      const bbox = new THREE.Box3().setFromObject(modelToExport)
-      const size = bbox.getSize(new THREE.Vector3())
+      const bbox = new Box3().setFromObject(modelToExport)
+      const size = bbox.getSize(new Vector3())
       const height = size.y
       
       // Target height of ~1.8 meters (typical human height)
@@ -245,11 +272,11 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       // CRITICAL: Remove problematic bones that cause Three.js Editor import errors
       console.log("🧹 Cleaning up problematic bones before export...")
       const problematicBoneNames = ['head_end', 'headfront', 'Head_end', 'Head_End', 'HeadEnd']
-      const bonesToRemove: THREE.Bone[] = []
+      const bonesToRemove: Bone[] = []
       
       // Find all problematic bones
       exportRoot.traverse((node) => {
-        if (node instanceof THREE.Bone && problematicBoneNames.includes(node.name)) {
+        if (node instanceof Bone && problematicBoneNames.includes(node.name)) {
           bonesToRemove.push(node)
         }
       })
@@ -260,7 +287,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         
         // First, remove from all skeleton bone arrays
         exportRoot.traverse((child) => {
-          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+          if (child instanceof SkinnedMesh && child.skeleton) {
             const skeleton = child.skeleton
             const bones = skeleton.bones
             const inverses = skeleton.boneInverses
@@ -330,8 +357,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       let totalBones = 0
       let totalSkinnedMeshes = 0
       exportRoot.traverse((child) => {
-        if (child instanceof THREE.Bone) totalBones++
-        if (child instanceof THREE.SkinnedMesh) totalSkinnedMeshes++
+        if (child instanceof Bone) totalBones++
+        if (child instanceof SkinnedMesh) totalSkinnedMeshes++
       })
       
       console.log(`  ✅ Export validation: ${totalBones} bones, ${totalSkinnedMeshes} skinned meshes`)
@@ -350,16 +377,15 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         if (child.scale && (child.scale.x !== 1 || child.scale.y !== 1 || child.scale.z !== 1)) {
           console.log(`Normalizing scale for ${child.name}: ${child.scale.x}, ${child.scale.y}, ${child.scale.z} -> 1, 1, 1`)
           // For meshes, we want to preserve the visual size but normalize the scale
-          if (child instanceof THREE.Mesh && child.geometry) {
-            // Apply scale to geometry
-            child.geometry = child.geometry.clone()
+          if (child instanceof Mesh && child.geometry) {
+            // Apply scale to geometry IN PLACE (no clone needed for export)
             child.geometry.scale(child.scale.x, child.scale.y, child.scale.z)
           }
           // Reset scale to 1,1,1
           child.scale.set(1, 1, 1)
         }
         
-        if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+        if (child instanceof SkinnedMesh && child.skeleton) {
           // Clone the skeleton to avoid modifying the original
           const clonedSkeleton = child.skeleton.clone()
           
@@ -370,7 +396,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             }
             // Also ensure bone's parent has a name if it exists
             if (bone.parent && (!bone.parent.name || bone.parent.name === '')) {
-              bone.parent.name = bone.parent instanceof THREE.Bone ? `Bone_parent_${index}` : 'Armature'
+              bone.parent.name = bone.parent instanceof Bone ? `Bone_parent_${index}` : 'Armature'
             }
           })
           
@@ -383,7 +409,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         }
         
         // Ensure materials are properly set and have names
-        if (child instanceof THREE.Mesh && child.material) {
+        if (child instanceof Mesh && child.material) {
           const materials = Array.isArray(child.material) ? child.material : [child.material]
           materials.forEach((mat, index) => {
             if (!mat.name || mat.name === '') {
@@ -415,7 +441,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       
       // Count final nodes that will be exported
       let nodeCount = 0
-      const nodeMap = new Map<THREE.Object3D, number>()
+      const nodeMap = new Map<Object3D, number>()
       exportRoot.traverse((node) => {
         nodeMap.set(node, nodeCount++)
       })
@@ -423,7 +449,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       
       // Log skeleton structure
       exportRoot.traverse((child) => {
-        if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+        if (child instanceof SkinnedMesh && child.skeleton) {
           console.log(`📦 ${child.name} skeleton:`)
           console.log(`  - Bones: ${child.skeleton.bones.length}`)
           child.skeleton.bones.forEach((bone, idx) => {
@@ -490,13 +516,119 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     )
   }, [assetInfo, modelUrl])
 
+  // Animation switching handler for animation controls
+  const handleAnimationSwitch = useCallback(async (animationFile: string, animationType: 'tpose' | 'walking' | 'running') => {
+    if (!assetId) return
+
+    setIsLoadingAnimation(true)
+    setCurrentAnimationFile(animationFile)
+
+    // Wait a tiny bit for the loading state to render
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // The modelUrl prop change will trigger the existing model loading logic
+    // For now, we just track state - the parent component would need to update the modelUrl prop
+    // Or we could trigger a reload internally if needed
+
+    // Update playing state based on animation type
+    if (animationType === 'tpose') {
+      setIsAnimationPlaying(false)
+    } else {
+      setIsAnimationPlaying(true)
+    }
+
+    setIsLoadingAnimation(false)
+  }, [assetId])
+
+  // Toggle skeleton visualization
+  const handleToggleSkeleton = useCallback(() => {
+    if (mixerRef.current) {
+      // Use the existing toggleSkeleton ref method
+      const skeletonHelper = skeletonHelperRef.current
+      if (skeletonHelper && sceneRef.current) {
+        sceneRef.current.remove(skeletonHelper)
+        skeletonHelperRef.current = null
+        setShowingSkeleton(false)
+      } else if (modelRef.current && sceneRef.current) {
+        const helper = new SkeletonHelper(modelRef.current)
+        sceneRef.current.add(helper)
+        skeletonHelperRef.current = helper
+        setShowingSkeleton(true)
+      }
+    }
+  }, [])
+
+  // Show bone structure modal
+  const handleShowBoneStructure = useCallback(() => {
+    if (modelRef.current) {
+      const bones: { name: string; parent: string }[] = []
+
+      modelRef.current.traverse((child) => {
+        if (child instanceof SkinnedMesh && child.skeleton) {
+          child.skeleton.bones.forEach((bone) => {
+            bones.push({
+              name: bone.name || 'unnamed',
+              parent: bone.parent?.name || 'root'
+            })
+          })
+        }
+      })
+
+      if (bones.length > 0) {
+        setBonesData(bones)
+        setShowBonesModal(true)
+      }
+    }
+  }, [])
+
+  // Export T-pose model
+  const handleExportTPose = useCallback(() => {
+    // Use the existing exportTPoseModel method
+    if (modelRef.current && sceneRef.current) {
+      // Stop all animations first
+      if (mixerRef.current) {
+        const mixer = mixerRef.current as AnimationMixer & { _actions?: AnimationAction[] }
+        const actions = mixer._actions || []
+        actions.forEach((action: AnimationAction) => {
+          action.stop()
+        })
+      }
+
+      // Reset skeleton to T-pose
+      modelRef.current.traverse((child) => {
+        if (child instanceof SkinnedMesh && child.skeleton) {
+          child.skeleton.pose()
+        }
+      })
+
+      // Trigger export (this would use the existing exportTPoseModel logic)
+      const exporter = new GLTFExporter()
+      exporter.parse(
+        modelRef.current,
+        (result) => {
+          const blob = new Blob([JSON.stringify(result)], { type: 'application/json' })
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `${assetInfo?.name || 'model'}-tpose.glb`
+          link.click()
+          URL.revokeObjectURL(url)
+        },
+        (error) => {
+          console.error('Export error:', error)
+        },
+        { binary: false }
+      )
+    }
+  }, [assetInfo])
+
   // Expose methods for external control
   useImperativeHandle(ref, () => ({
     resetCamera: () => {
       if (modelRef.current && cameraRef.current && controlsRef.current) {
-        const box = new THREE.Box3().setFromObject(modelRef.current)
-        const center = box.getCenter(new THREE.Vector3())
-        const size = box.getSize(new THREE.Vector3())
+        const box = new Box3().setFromObject(modelRef.current)
+        const center = box.getCenter(new Vector3())
+        const size = box.getSize(new Vector3())
         
         console.log('📷 Manual camera reset:')
         console.log(`   Model size: ${size.x.toFixed(2)}m x ${size.y.toFixed(2)}m x ${size.z.toFixed(2)}m`)
@@ -556,7 +688,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     takeScreenshot: () => {
       if (rendererRef.current && sceneRef.current && cameraRef.current && composerRef.current) {
         // Render at higher resolution for screenshot
-        const originalSize = new THREE.Vector2()
+        const originalSize = new Vector2()
         rendererRef.current.getSize(originalSize)
         rendererRef.current.setSize(originalSize.x * 2, originalSize.y * 2)
         composerRef.current.setSize(originalSize.x * 2, originalSize.y * 2)
@@ -592,8 +724,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       
       // Find hand bones
       const handBones: { 
-        left?: { bone: THREE.Bone, position: THREE.Vector3 }
-        right?: { bone: THREE.Bone, position: THREE.Vector3 }
+        left?: { bone: Bone, position: Vector3 }
+        right?: { bone: Bone, position: Vector3 }
       } = {}
       
       const handBoneNames = [
@@ -604,9 +736,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       ]
       
       model.traverse((child) => {
-        if (child instanceof THREE.Bone) {
+        if (child instanceof Bone) {
           if (handBoneNames.includes(child.name)) {
-            const worldPos = new THREE.Vector3()
+            const worldPos = new Vector3()
             child.getWorldPosition(worldPos)
             
             const isLeft = child.name.toLowerCase().includes('left')
@@ -622,22 +754,22 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       
       // Save current camera state
       const originalPosition = camera.position.clone()
-      const originalTarget = controlsRef.current?.target.clone() || new THREE.Vector3()
-      const originalFov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 50
+      const originalTarget = controlsRef.current?.target.clone() || new Vector3()
+      const originalFov = camera instanceof PerspectiveCamera ? camera.fov : 50
       
       // Ensure proper lighting for capture
       const originalShadows = renderer.shadowMap.enabled
       renderer.shadowMap.enabled = false
       
       // Helper function to capture a specific hand region
-      const captureHandRegion = (side: 'left' | 'right', handInfo: { bone: THREE.Bone, position: THREE.Vector3 }) => {
+      const captureHandRegion = (side: 'left' | 'right', handInfo: { bone: Bone, position: Vector3 }) => {
         const canvas = document.createElement('canvas')
         const captureSize = 512 // Fixed size for hand captures
         canvas.width = captureSize
         canvas.height = captureSize
         
         // Create a temporary renderer for hand capture
-        const tempRenderer = new THREE.WebGLRenderer({ 
+        const tempRenderer = new WebGLRenderer({ 
           canvas, 
           antialias: true,
           alpha: true
@@ -646,7 +778,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         tempRenderer.setClearColor(0xffffff, 1)
         
         // Create temporary camera for close-up hand capture
-        const tempCamera = new THREE.PerspectiveCamera(30, 1, 0.01, 10)
+        const tempCamera = new PerspectiveCamera(30, 1, 0.01, 10)
         
         // Position camera to focus on the hand
         const handPos = handInfo.position.clone()
@@ -689,9 +821,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       }
       
       // Also capture full body views for context
-      const box = new THREE.Box3().setFromObject(model)
-      const center = box.getCenter(new THREE.Vector3())
-      const size = box.getSize(new THREE.Vector3())
+      const box = new Box3().setFromObject(model)
+      const center = box.getCenter(new Vector3())
+      const size = box.getSize(new Vector3())
       const maxDim = Math.max(size.x, size.y, size.z)
       
       // Top view of full model
@@ -730,7 +862,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         controlsRef.current.target.copy(originalTarget)
         controlsRef.current.update()
       }
-      if (camera instanceof THREE.PerspectiveCamera) {
+      if (camera instanceof PerspectiveCamera) {
         camera.fov = originalFov
       }
       camera.updateProjectionMatrix()
@@ -742,8 +874,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         topView: topCanvas,
         frontView: frontCanvas,
         handPositions: {
-          left: handBones.left ? { screen: new THREE.Vector2(256, 256), world: handBones.left.position } : undefined,
-          right: handBones.right ? { screen: new THREE.Vector2(256, 256), world: handBones.right.position } : undefined
+          left: handBones.left ? { screen: new Vector2(256, 256), world: handBones.left.position } : undefined,
+          right: handBones.right ? { screen: new Vector2(256, 256), world: handBones.right.position } : undefined
         },
         leftHandCloseup: handCaptures.leftHand,
         rightHandCloseup: handCaptures.rightHand,
@@ -764,7 +896,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           
           // Initialize mixer with the current model if not already done
           if (!mixerRef.current) {
-            mixerRef.current = new THREE.AnimationMixer(modelRef.current)
+            mixerRef.current = new AnimationMixer(modelRef.current)
           }
           
           // For character animations, we need to handle skeleton mapping
@@ -808,12 +940,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           mixerRef.current.stopAllAction()
           const action = mixerRef.current.clipAction(firstAnimation)
           action.reset()
-          action.setLoop(THREE.LoopRepeat, Infinity)
+          action.setLoop(LoopRepeat, Infinity)
           action.play()
           setCurrentAnimation(0)
           setIsPlaying(true)
           if (!clockRef.current) {
-            clockRef.current = new THREE.Clock()
+            clockRef.current = new Clock()
           }
         }
         return
@@ -826,12 +958,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       mixerRef.current.stopAllAction()
       const action = mixerRef.current.clipAction(animation)
       action.reset()
-      action.setLoop(THREE.LoopRepeat, Infinity)
+      action.setLoop(LoopRepeat, Infinity)
       action.play()
       setCurrentAnimation(animations.indexOf(animation))
       setIsPlaying(true)
       if (!clockRef.current) {
-        clockRef.current = new THREE.Clock()
+        clockRef.current = new Clock()
       }
       
       console.log(`Animation started. Model children count after play: ${modelRef.current?.children.length}`)
@@ -845,7 +977,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       if (modelRef.current) {
         // Store the current model scale and any Armature scales before resetting
         const modelScale = modelRef.current.scale.clone()
-        const armatureScales = new Map<THREE.Object3D, THREE.Vector3>()
+        const armatureScales = new Map<Object3D, Vector3>()
         
         // Preserve scales for all objects, especially Armatures
         modelRef.current.traverse((child) => {
@@ -856,7 +988,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         
         // Reset skeletons to bind pose
         modelRef.current.traverse((child) => {
-          if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+          if (child instanceof SkinnedMesh && child.skeleton) {
             child.skeleton.pose()
             child.skeleton.calculateInverses()
             child.skeleton.computeBoneTexture()
@@ -910,7 +1042,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         
         // Restore model opacity
         modelRef.current.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.material) {
+          if (child instanceof Mesh && child.material) {
             if (Array.isArray(child.material)) {
               child.material.forEach(mat => {
                 mat.transparent = false
@@ -926,9 +1058,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         })
       } else {
         // Find all SkinnedMesh objects in the model
-        const skinnedMeshes: THREE.SkinnedMesh[] = []
+        const skinnedMeshes: SkinnedMesh[] = []
         modelRef.current.traverse((child) => {
-          if (child instanceof THREE.SkinnedMesh) {
+          if (child instanceof SkinnedMesh) {
             skinnedMeshes.push(child)
           }
         })
@@ -936,8 +1068,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         // Also check for animated models if we're in animation mode
         const animatedModel = sceneRef.current.getObjectByName('animatedModel')
         if (animatedModel && skinnedMeshes.length === 0) {
-          animatedModel.traverse((child: THREE.Object3D) => {
-            if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+          animatedModel.traverse((child: Object3D) => {
+            if (child instanceof SkinnedMesh && child.skeleton) {
               skinnedMeshes.push(child)
             }
           })
@@ -947,12 +1079,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           // Create skeleton helper for the first skinned mesh with bones
           const meshWithBones = skinnedMeshes.find(mesh => mesh.skeleton.bones.length > 0)
           if (meshWithBones) {
-            const helper = new THREE.SkeletonHelper(modelRef.current)
+            const helper = new SkeletonHelper(modelRef.current)
             helper.visible = true
             
             // Make skeleton lines thicker and brighter for better visibility
-            const material = helper.material as THREE.LineBasicMaterial
-            material.color = new THREE.Color(0x00ff00)  // Bright green
+            const material = helper.material as LineBasicMaterial
+            material.color = new Color(0x00ff00)  // Bright green
             material.linewidth = 3
             material.depthTest = true
             material.depthWrite = true
@@ -967,7 +1099,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             
             // Make model semi-transparent with proper depth handling
             modelRef.current.traverse((child) => {
-              if (child instanceof THREE.Mesh && child.material) {
+              if (child instanceof Mesh && child.material) {
                 if (Array.isArray(child.material)) {
                   child.material.forEach(mat => {
                     mat.transparent = true
@@ -1002,11 +1134,11 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       // Find all SkinnedMesh objects and their bones
       let foundBones = false
       modelRef.current.traverse((child) => {
-        if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+        if (child instanceof SkinnedMesh && child.skeleton) {
           foundBones = true
           result.meshes.push(child.name || 'unnamed')
           
-          child.skeleton.bones.forEach((bone: THREE.Bone, index: number) => {
+          child.skeleton.bones.forEach((bone: Bone, index: number) => {
             const parentName = bone.parent && bone.parent.name ? bone.parent.name : 'root'
             result.bones.push({
               name: bone.name || `Bone ${index}`,
@@ -1030,13 +1162,13 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       }
       
       console.log("=== Scene Contents Debug ===")
-      const meshes: THREE.Mesh[] = []
-      const skinnedMeshes: THREE.SkinnedMesh[] = []
+      const meshes: Mesh[] = []
+      const skinnedMeshes: SkinnedMesh[] = []
       
       sceneRef.current.traverse((child) => {
-        if (child instanceof THREE.SkinnedMesh) {
+        if (child instanceof SkinnedMesh) {
           skinnedMeshes.push(child)
-        } else if (child instanceof THREE.Mesh) {
+        } else if (child instanceof Mesh) {
           meshes.push(child)
         }
       })
@@ -1069,9 +1201,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       // If skeleton was showing, recreate it
       if (showSkeleton) {
         // Find all SkinnedMesh objects in the model
-        const skinnedMeshes: THREE.SkinnedMesh[] = []
+        const skinnedMeshes: SkinnedMesh[] = []
         modelRef.current.traverse((child) => {
-          if (child instanceof THREE.SkinnedMesh) {
+          if (child instanceof SkinnedMesh) {
             skinnedMeshes.push(child)
           }
         })
@@ -1081,12 +1213,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           const meshWithBones = skinnedMeshes.find(mesh => mesh.skeleton.bones.length > 0)
           if (meshWithBones) {
             // Pass the model root to show all bones
-            const helper = new THREE.SkeletonHelper(modelRef.current)
+            const helper = new SkeletonHelper(modelRef.current)
             helper.visible = true
             
             // Make skeleton lines thicker and brighter for better visibility
-            const material = helper.material as THREE.LineBasicMaterial
-            material.color = new THREE.Color(0x00ff00)  // Bright green
+            const material = helper.material as LineBasicMaterial
+            material.color = new Color(0x00ff00)  // Bright green
             material.linewidth = 3
             material.depthTest = true
             material.depthWrite = true
@@ -1116,13 +1248,13 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     const initialWidth = Math.max(1, containerRef.current.clientWidth || 0)
     const initialHeight = Math.max(1, containerRef.current.clientHeight || 0)
     // Scene setup
-    const scene = new THREE.Scene()
-    scene.background = new THREE.Color(isLightBackground ? '#e8e8e8' : '#0a0a0a')
-    scene.fog = new THREE.Fog(scene.background, 50, 100)
+    const scene = new Scene()
+    scene.background = new Color(isLightBackground ? '#e8e8e8' : '#0a0a0a')
+    scene.fog = new Fog(scene.background, 50, 100)
     sceneRef.current = scene
     
     // Camera setup
-    const camera = new THREE.PerspectiveCamera(
+    const camera = new PerspectiveCamera(
       45,
       initialWidth / initialHeight,
       0.1,
@@ -1132,7 +1264,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     cameraRef.current = camera
     
     // Renderer setup with high quality settings
-    const renderer = new THREE.WebGLRenderer({ 
+    const renderer = new WebGLRenderer({ 
       antialias: true,
       alpha: true,
       preserveDrawingBuffer: true,
@@ -1143,10 +1275,10 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio))
     renderer.setSize(initialWidth, initialHeight)
     renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.shadowMap.type = PCFSoftShadowMap
+    renderer.toneMapping = ACESFilmicToneMapping
     renderer.toneMappingExposure = 1
-    renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.outputColorSpace = SRGBColorSpace
     containerRef.current.appendChild(renderer.domElement)
     rendererRef.current = renderer
     
@@ -1163,7 +1295,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     composer.addPass(ssaoPass)
     
     const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(initialWidth, initialHeight),
+      new Vector2(initialWidth, initialHeight),
       0.4, 0.35, 0.85
     )
     composer.addPass(bloomPass)
@@ -1183,12 +1315,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     controlsRef.current = controls
     
     // Professional lighting setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+    const ambientLight = new AmbientLight(0xffffff, 0.5)
     ambientLight.name = 'ambientLight'
     scene.add(ambientLight)
     
     // Key light
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1)
+    const keyLight = new DirectionalLight(0xffffff, 1)
     keyLight.name = 'keyLight'
     keyLight.position.set(5, 10, 5)
     keyLight.castShadow = true
@@ -1204,13 +1336,13 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     scene.add(keyLight)
     
     // Fill light
-    const fillLight = new THREE.DirectionalLight(0x4080ff, 0.5)
+    const fillLight = new DirectionalLight(0x4080ff, 0.5)
     fillLight.name = 'fillLight'
     fillLight.position.set(-5, 5, -5)
     scene.add(fillLight)
     
     // Rim light
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.3)
+    const rimLight = new DirectionalLight(0xffffff, 0.3)
     rimLight.name = 'rimLight'
     rimLight.position.set(0, 10, -10)
     scene.add(rimLight)
@@ -1255,7 +1387,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           if (handBonesRef.current.leftPalm && modelRef.current) {
             let foundInSkeleton = false
             modelRef.current.traverse((child) => {
-              if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+              if (child instanceof SkinnedMesh && child.skeleton) {
                 const boneIndex = child.skeleton.bones.indexOf(handBonesRef.current.leftPalm!)
                 if (boneIndex !== -1) {
                   foundInSkeleton = true
@@ -1350,7 +1482,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           }
           
           modelRef.current.traverse((child) => {
-            if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+            if (child instanceof SkinnedMesh && child.skeleton) {
               // Update all bone matrices
               child.skeleton.bones.forEach(bone => {
                 bone.updateMatrixWorld(true)
@@ -1432,9 +1564,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         case 'f':
           if (modelRef.current && cameraRef.current && controlsRef.current) {
             // Focus on model with proper framing
-            const box = new THREE.Box3().setFromObject(modelRef.current)
-            const center = box.getCenter(new THREE.Vector3())
-            const size = box.getSize(new THREE.Vector3())
+            const box = new Box3().setFromObject(modelRef.current)
+            const center = box.getCenter(new Vector3())
+            const size = box.getSize(new Vector3())
             
             // Calculate distance based on FOV and model size
             const fov = cameraRef.current.fov * (Math.PI / 180)
@@ -1469,9 +1601,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         case 'r':
           if (controlsRef.current && modelRef.current && cameraRef.current) {
             // Reset with proper framing
-            const box = new THREE.Box3().setFromObject(modelRef.current)
-            const center = box.getCenter(new THREE.Vector3())
-            const size = box.getSize(new THREE.Vector3())
+            const box = new Box3().setFromObject(modelRef.current)
+            const center = box.getCenter(new Vector3())
+            const size = box.getSize(new Vector3())
             
             const fov = cameraRef.current.fov * (Math.PI / 180)
             const cameraAspect = cameraRef.current.aspect
@@ -1515,9 +1647,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         case '1':
           // Front view
           if (cameraRef.current && controlsRef.current && modelRef.current) {
-            const box = new THREE.Box3().setFromObject(modelRef.current)
-            const center = box.getCenter(new THREE.Vector3())
-            const size = box.getSize(new THREE.Vector3())
+            const box = new Box3().setFromObject(modelRef.current)
+            const center = box.getCenter(new Vector3())
+            const size = box.getSize(new Vector3())
             
             const fov = cameraRef.current.fov * (Math.PI / 180)
             const cameraAspect = cameraRef.current.aspect
@@ -1547,9 +1679,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         case '2':
           // Side view
           if (cameraRef.current && controlsRef.current && modelRef.current) {
-            const box = new THREE.Box3().setFromObject(modelRef.current)
-            const center = box.getCenter(new THREE.Vector3())
-            const size = box.getSize(new THREE.Vector3())
+            const box = new Box3().setFromObject(modelRef.current)
+            const center = box.getCenter(new Vector3())
+            const size = box.getSize(new Vector3())
             
             const fov = cameraRef.current.fov * (Math.PI / 180)
             const cameraAspect = cameraRef.current.aspect
@@ -1580,9 +1712,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         case 't':
           // Top view
           if (cameraRef.current && controlsRef.current && modelRef.current) {
-            const box = new THREE.Box3().setFromObject(modelRef.current)
-            const center = box.getCenter(new THREE.Vector3())
-            const size = box.getSize(new THREE.Vector3())
+            const box = new Box3().setFromObject(modelRef.current)
+            const center = box.getCenter(new Vector3())
+            const size = box.getSize(new Vector3())
             const maxDim = Math.max(size.x, size.y, size.z)
             
             cameraRef.current.position.set(center.x, center.y + maxDim * 2, center.z)
@@ -1612,9 +1744,40 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       window.removeEventListener('keydown', handleKeydown)
       if (resizeObserver) resizeObserver.disconnect()
       if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current)
+
+      // Comprehensive scene cleanup - dispose all geometries, materials, and textures
+      if (scene) {
+        scene.traverse((object) => {
+          if (object instanceof Mesh || object instanceof SkinnedMesh) {
+            // Dispose geometry
+            if (object.geometry) {
+              object.geometry.dispose()
+            }
+
+            // Dispose materials and their textures
+            if (object.material) {
+              const materials = Array.isArray(object.material) ? object.material : [object.material]
+              materials.forEach(material => {
+                // Dispose all textures in the material
+                Object.keys(material).forEach(key => {
+                  const value = material[key as keyof typeof material]
+                  if (value && value instanceof Texture) {
+                    value.dispose()
+                  }
+                })
+                material.dispose()
+              })
+            }
+          }
+        })
+      }
+
+      // Dispose renderer and controls
       renderer.dispose()
       if (composerRef.current) composerRef.current.dispose()
       controls.dispose()
+
+      // Remove DOM element
       if (containerEl && renderer.domElement) {
         containerEl.removeChild(renderer.domElement)
       }
@@ -1649,9 +1812,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     if (!sceneRef.current) return
     
     const env = ENVIRONMENTS[currentEnvironment]
-    const color = new THREE.Color(isLightBackground ? '#e8e8e8' : env.bgColor)
+    const color = new Color(isLightBackground ? '#e8e8e8' : env.bgColor)
     sceneRef.current.background = color
-    sceneRef.current.fog = new THREE.Fog(color, 50, 100)
+    sceneRef.current.fog = new Fog(color, 50, 100)
     
     // Adjust renderer exposure for light mode
     if (rendererRef.current) {
@@ -1669,30 +1832,30 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     const lightModeFactor = isLightBackground ? 0.6 : 1
     
     // Update ambient light
-    const ambientLight = sceneRef.current.getObjectByName('ambientLight') as THREE.AmbientLight
+    const ambientLight = sceneRef.current.getObjectByName('ambientLight') as AmbientLight
     if (ambientLight) {
-      ambientLight.color = new THREE.Color(env.ambientColor)
+      ambientLight.color = new Color(env.ambientColor)
       ambientLight.intensity = env.ambientIntensity * lightModeFactor
     }
     
     // Update key light
-    const keyLight = sceneRef.current.getObjectByName('keyLight') as THREE.DirectionalLight
+    const keyLight = sceneRef.current.getObjectByName('keyLight') as DirectionalLight
     if (keyLight) {
-      keyLight.color = new THREE.Color(env.keyLightColor)
+      keyLight.color = new Color(env.keyLightColor)
       keyLight.intensity = env.keyLightIntensity * lightModeFactor * 0.8
     }
     
     // Update fill light
-    const fillLight = sceneRef.current.getObjectByName('fillLight') as THREE.DirectionalLight
+    const fillLight = sceneRef.current.getObjectByName('fillLight') as DirectionalLight
     if (fillLight) {
-      fillLight.color = new THREE.Color(env.fillLightColor)
+      fillLight.color = new Color(env.fillLightColor)
       fillLight.intensity = env.fillLightIntensity * lightModeFactor * 0.7
     }
     
     // Update rim light
-    const rimLight = sceneRef.current.getObjectByName('rimLight') as THREE.DirectionalLight
+    const rimLight = sceneRef.current.getObjectByName('rimLight') as DirectionalLight
     if (rimLight) {
-      rimLight.color = new THREE.Color(env.rimLightColor)
+      rimLight.color = new Color(env.rimLightColor)
       rimLight.intensity = env.rimLightIntensity * lightModeFactor * 0.6
     }
     
@@ -1749,7 +1912,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         // First, let's see what's actually in the scene
         const allMeshes: string[] = []
         sceneRef.current.traverse((child) => {
-          if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh || child instanceof THREE.Group) {
+          if (child instanceof Mesh || child instanceof SkinnedMesh || child instanceof Group) {
             allMeshes.push(`${child.type}: ${child.name || 'unnamed'}`)
           }
         })
@@ -1757,7 +1920,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         allMeshes.forEach(m => console.log(`  - ${m}`))
         
         // Remove all objects that aren't lights, helpers, or the ground plane
-        const objectsToRemove: THREE.Object3D[] = []
+        const objectsToRemove: Object3D[] = []
         sceneRef.current.traverse((child) => {
           if (child.type === 'Mesh' || child.type === 'Group' || child.type === 'SkinnedMesh') {
             // Don't remove ground plane or grid
@@ -1774,13 +1937,29 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           if (obj.parent) {
             obj.parent.remove(obj)
           }
-          // Dispose of geometries and materials
-          if (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) {
+          // Dispose of geometries, materials, and textures
+          if (obj instanceof Mesh || obj instanceof SkinnedMesh) {
             obj.geometry?.dispose()
             if (Array.isArray(obj.material)) {
-              obj.material.forEach(mat => mat.dispose())
-            } else {
-              obj.material?.dispose()
+              obj.material.forEach(mat => {
+                // Dispose all textures in the material
+                Object.keys(mat).forEach(key => {
+                  const value = mat[key as keyof typeof mat]
+                  if (value && value instanceof Texture) {
+                    value.dispose()
+                  }
+                })
+                mat.dispose()
+              })
+            } else if (obj.material) {
+              // Dispose all textures in the material
+              Object.keys(obj.material).forEach(key => {
+                const value = obj.material[key as keyof typeof obj.material]
+                if (value && value instanceof Texture) {
+                  value.dispose()
+                }
+              })
+              obj.material.dispose()
             }
           }
         })
@@ -1855,17 +2034,17 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           const debugScaleIssues = false // Set to true to enable verbose scale logging
           if (debugScaleIssues) {
             console.log('🔍 Full hierarchy inspection:')
-            const inspectHierarchy = (obj: THREE.Object3D, depth: number = 0) => {
+            const inspectHierarchy = (obj: Object3D, depth: number = 0) => {
               const indent = '  '.repeat(depth)
-              const worldScale = new THREE.Vector3()
+              const worldScale = new Vector3()
               obj.getWorldScale(worldScale)
               console.log(`${indent}${obj.type} "${obj.name}": localScale=(${obj.scale.x.toFixed(3)}, ${obj.scale.y.toFixed(3)}, ${obj.scale.z.toFixed(3)}), worldScale=(${worldScale.x.toFixed(3)}, ${worldScale.y.toFixed(3)}, ${worldScale.z.toFixed(3)})`)
               
               // Check for any scale in the matrix
               if (obj.matrix) {
-                const matrixScale = new THREE.Vector3()
-                const pos = new THREE.Vector3()
-                const quat = new THREE.Quaternion()
+                const matrixScale = new Vector3()
+                const pos = new Vector3()
+                const quat = new Quaternion()
                 obj.matrix.decompose(pos, quat, matrixScale)
                 if (Math.abs(matrixScale.x - 1) > 0.001 || Math.abs(matrixScale.y - 1) > 0.001 || Math.abs(matrixScale.z - 1) > 0.001) {
                   console.log(`${indent}  ⚠️ Matrix has scale: (${matrixScale.x.toFixed(3)}, ${matrixScale.y.toFixed(3)}, ${matrixScale.z.toFixed(3)})`)
@@ -1910,7 +2089,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                   console.log(`  Found scale on ${child.type} "${child.name}": (${child.scale.x}, ${child.scale.y}, ${child.scale.z})`)
                 }
                 // Only reset scales on non-animated models
-                if (!(child instanceof THREE.Bone) && child.name !== 'Armature') {
+                if (!(child instanceof Bone) && child.name !== 'Armature') {
                   if (debugScaleIssues) {
                     console.log(`  Resetting to (1, 1, 1)`)
                   }
@@ -1926,7 +2105,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           // List mesh info
           if (debugScaleIssues) {
             model.traverse((child) => {
-              if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
+              if (child instanceof Mesh || child instanceof SkinnedMesh) {
                 console.log(`  - ${child.type}: ${child.name || 'unnamed'} (scale: ${child.scale.x}, ${child.scale.y}, ${child.scale.z})`)
               }
             })
@@ -1940,18 +2119,18 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           })
           
           // Get initial bounding box for scaling calculations
-          let box: THREE.Box3
-          let size: THREE.Vector3
+          let box: Box3
+          let size: Vector3
           
           try {
-            box = new THREE.Box3().setFromObject(model)
-            size = box.getSize(new THREE.Vector3())
+            box = new Box3().setFromObject(model)
+            size = box.getSize(new Vector3())
           } catch (error) {
             console.warn('Error calculating bounding box, using fallback:', error)
             // Fallback: manually calculate from mesh vertices
-            box = new THREE.Box3()
+            box = new Box3()
             model.traverse((child) => {
-              if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
+              if (child instanceof Mesh || child instanceof SkinnedMesh) {
                 if (child.geometry && child.geometry.attributes.position) {
                   const geometry = child.geometry
                   geometry.computeBoundingBox()
@@ -1961,7 +2140,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                 }
               }
             })
-            size = box.getSize(new THREE.Vector3())
+            size = box.getSize(new Vector3())
           }
           
           // Debug: Show raw bounding box BEFORE any transformations
@@ -2010,8 +2189,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             if (assetInfo?.isAnimationFile && assetInfo?.characterHeight) {
               model.updateMatrixWorld(true)
               try {
-                const verifyBox = new THREE.Box3().setFromObject(model)
-                const verifySize = verifyBox.getSize(new THREE.Vector3())
+                const verifyBox = new Box3().setFromObject(model)
+                const verifySize = verifyBox.getSize(new Vector3())
                 console.log(`✅ Final model height after scaling: ${verifySize.y.toFixed(3)}m (target: ${assetInfo.characterHeight}m)`)
               } catch (error) {
                 console.warn('Error verifying final model size:', error)
@@ -2022,8 +2201,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           model.updateMatrixWorld(true)
           
           // Now center the model AFTER scaling
-          const scaledBox = new THREE.Box3().setFromObject(model)
-          const scaledCenter = scaledBox.getCenter(new THREE.Vector3())
+          const scaledBox = new Box3().setFromObject(model)
+          const scaledCenter = scaledBox.getCenter(new Vector3())
           model.position.sub(scaledCenter)
           
           // Update world matrix again after repositioning
@@ -2033,8 +2212,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           if (debugScaleIssues) {
             console.log(`🔍 Checking scale propagation:`)
             model.traverse((child) => {
-              if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
-                const worldScale = new THREE.Vector3()
+              if (child instanceof Mesh || child instanceof SkinnedMesh) {
+                const worldScale = new Vector3()
                 child.getWorldScale(worldScale)
                 console.log(`   ${child.type} "${child.name}": worldScale=(${worldScale.x.toFixed(3)}, ${worldScale.y.toFixed(3)}, ${worldScale.z.toFixed(3)})`)
               }
@@ -2043,11 +2222,11 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           
           // Position model so it sits on the ground (y=0)
           box.setFromObject(model) // Recalculate after scaling
-          const newCenter = box.getCenter(new THREE.Vector3())
+          const newCenter = box.getCenter(new Vector3())
           const minY = box.min.y
           
           // Verify the scale was applied correctly
-          const scaledSize = box.getSize(new THREE.Vector3())
+          const scaledSize = box.getSize(new Vector3())
           console.log(`📊 After scale applied - new size: ${scaledSize.x.toFixed(3)} x ${scaledSize.y.toFixed(3)} x ${scaledSize.z.toFixed(3)}`)
           if (assetInfo?.isAnimationFile && Math.abs(scaledSize.y - 1.7) > 0.1) {
             console.warn(`⚠️ Scale application issue - expected ~1.7m height, got ${scaledSize.y.toFixed(3)}m`)
@@ -2059,19 +2238,19 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           model.position.y = -minY // This places the bottom of the model at y=0
           
           // Log final dimensions after all transformations
-          const finalBox = new THREE.Box3().setFromObject(model)
-          const finalSize = finalBox.getSize(new THREE.Vector3())
+          const finalBox = new Box3().setFromObject(model)
+          const finalSize = finalBox.getSize(new Vector3())
           console.log(`📐 Final model dimensions: ${finalSize.x.toFixed(3)} x ${finalSize.y.toFixed(3)} x ${finalSize.z.toFixed(3)}`)
           
           // Count vertices, faces, and materials
           let vertices = 0
           let faces = 0
-          const materials = new Set<THREE.Material>()
+          const materials = new Set<Material>()
           let hasSkinnedMesh = false
           const handBonesFound: typeof handBones = {}
           
           model.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
+            if (child instanceof Mesh) {
               const geo = child.geometry
               vertices += geo.attributes.position?.count || 0
               if (geo.index) {
@@ -2090,7 +2269,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             }
             
             // Check if we have a skinned mesh (rigged model)
-            if (child instanceof THREE.SkinnedMesh) {
+            if (child instanceof SkinnedMesh) {
               hasSkinnedMesh = true
               console.log(`Found SkinnedMesh: ${child.name || 'unnamed'}, bones: ${child.skeleton?.bones.length || 0}`)
               
@@ -2173,7 +2352,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
               console.log('Animation file detected - setting up for T-pose display')
               
               // Create mixer but don't play anything
-              const mixer = new THREE.AnimationMixer(model)
+              const mixer = new AnimationMixer(model)
               mixerRef.current = mixer
               
               // Also ensure rigged model is detected for animation files
@@ -2198,7 +2377,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                   // Important: Reset the model to bind pose (T-pose)
                   // Some GLTF files might have the model in an animated pose by default
                   model.traverse((child) => {
-                    if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+                    if (child instanceof SkinnedMesh && child.skeleton) {
                       console.log(`🦴 Resetting skeleton to bind pose for: ${child.name}`)
                       
                       // Reset to bind pose
@@ -2215,8 +2394,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                       console.log(`   Bones: ${child.skeleton.bones.length}, Root: ${child.skeleton.bones[0]?.name || 'unnamed'}`)
                       
                       // Debug: Check T-pose bounding box
-                      const tposeBox = new THREE.Box3().setFromObject(child)
-                      const tposeSize = tposeBox.getSize(new THREE.Vector3())
+                      const tposeBox = new Box3().setFromObject(child)
+                      const tposeSize = tposeBox.getSize(new Vector3())
                       console.log(`   T-pose bounds: ${tposeSize.x.toFixed(3)} x ${tposeSize.y.toFixed(3)} x ${tposeSize.z.toFixed(3)}`)
                     }
                   })
@@ -2226,7 +2405,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                   
                   // Auto-play animations for animation files
                   if (!clockRef.current) {
-                    clockRef.current = new THREE.Clock()
+                    clockRef.current = new Clock()
                   }
                   
                   // For walking/running GLBs, auto-play their embedded animation
@@ -2234,7 +2413,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                     console.log(`Auto-playing animation for ${modelUrl}`)
                     const action = mixer.clipAction(animationClip)
                     action.reset()
-                    action.setLoop(THREE.LoopRepeat, Infinity)
+                    action.setLoop(LoopRepeat, Infinity)
                     action.play()
                     setCurrentAnimation(0)
                     setIsPlaying(true)
@@ -2252,7 +2431,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
               gltf.animations = []
             } else {
               // Normal animation setup for non-rigged models
-              const mixer = new THREE.AnimationMixer(model)
+              const mixer = new AnimationMixer(model)
               mixerRef.current = mixer
               setAnimations(gltf.animations)
               
@@ -2270,9 +2449,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           }
           
           // Final safety check: Remove ANY existing models before adding the new one
-          const existingModels: THREE.Object3D[] = []
+          const existingModels: Object3D[] = []
           sceneRef.current!.traverse((child) => {
-            if ((child instanceof THREE.Group || child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) && 
+            if ((child instanceof Group || child instanceof Mesh || child instanceof SkinnedMesh) && 
                 child.name !== 'groundPlane' && 
                 child.parent === sceneRef.current) {
               existingModels.push(child)
@@ -2284,7 +2463,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             existingModels.forEach(obj => {
               sceneRef.current!.remove(obj)
               // Also dispose of the object
-              if (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) {
+              if (obj instanceof Mesh || obj instanceof SkinnedMesh) {
                 obj.geometry?.dispose()
                 if (Array.isArray(obj.material)) {
                   obj.material.forEach(mat => mat.dispose())
@@ -2298,7 +2477,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           // Nuclear option: If we're loading an animation file, clear EVERYTHING except lights
           if (assetInfo?.isAnimationFile) {
             console.log('🔥 Nuclear cleanup for animation file...')
-            const toRemove: THREE.Object3D[] = []
+            const toRemove: Object3D[] = []
             sceneRef.current!.children.forEach(child => {
               if (child.type !== 'DirectionalLight' && 
                   child.type !== 'AmbientLight' && 
@@ -2324,10 +2503,10 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           console.log('=== After adding model to scene ===')
           const finalMeshes: string[] = []
           sceneRef.current!.traverse((child) => {
-            if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh || child instanceof THREE.Group) {
+            if (child instanceof Mesh || child instanceof SkinnedMesh || child instanceof Group) {
               if (child.name !== 'groundPlane') {
                 // Get world scale to see actual scale including parent transforms
-                const worldScale = new THREE.Vector3()
+                const worldScale = new Vector3()
                 child.getWorldScale(worldScale)
                 finalMeshes.push(`${child.type}: ${child.name || 'unnamed'} (visible: ${child.visible}, worldScale: ${worldScale.x.toFixed(3)}, ${worldScale.y.toFixed(3)}, ${worldScale.z.toFixed(3)})`)
               }
@@ -2338,22 +2517,22 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           
           // Debug: Check actual visible size
           if (modelRef.current) {
-            const worldBox = new THREE.Box3().setFromObject(modelRef.current)
-            const worldSize = worldBox.getSize(new THREE.Vector3())
+            const worldBox = new Box3().setFromObject(modelRef.current)
+            const worldSize = worldBox.getSize(new Vector3())
             console.log(`🌍 World bounding box size: width=${worldSize.x.toFixed(3)}m, height=${worldSize.y.toFixed(3)}m, depth=${worldSize.z.toFixed(3)}m`)
             
             // For animation files, also check the SkinnedMesh directly
             if (assetInfo?.isAnimationFile) {
-              let skinnedMesh: THREE.SkinnedMesh | null = null
+              let skinnedMesh: SkinnedMesh | null = null
               modelRef.current.traverse((child) => {
-                if (child instanceof THREE.SkinnedMesh && !skinnedMesh) {
+                if (child instanceof SkinnedMesh && !skinnedMesh) {
                   skinnedMesh = child
                 }
               })
               
               if (skinnedMesh) {
-                const meshBox = new THREE.Box3().setFromObject(skinnedMesh)
-                const meshSize = meshBox.getSize(new THREE.Vector3())
+                const meshBox = new Box3().setFromObject(skinnedMesh)
+                const meshSize = meshBox.getSize(new Vector3())
                 console.log(`🦴 SkinnedMesh-only bounding box: width=${meshSize.x.toFixed(3)}m, height=${meshSize.y.toFixed(3)}m, depth=${meshSize.z.toFixed(3)}m`)
                 
                 // Check if there's a mismatch
@@ -2376,7 +2555,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           // Apply wireframe if enabled
           if (isWireframe) {
             model.traverse((child) => {
-              if (child instanceof THREE.Mesh) {
+              if (child instanceof Mesh) {
                 if (Array.isArray(child.material)) {
                   child.material.forEach(mat => {
                     mat.wireframe = true
@@ -2390,8 +2569,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           
           // Apply bounding box if enabled
           if (showBounds) {
-            const box = new THREE.Box3().setFromObject(model)
-            const helper = new THREE.Box3Helper(box, 0x00ff00)
+            const box = new Box3().setFromObject(model)
+            const helper = new Box3Helper(box, 0x00ff00)
             helper.name = 'boundingBox'
             sceneRef.current!.add(helper)
           }
@@ -2401,9 +2580,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             console.log('🦴 Restoring skeleton helper...')
             
             // Find all SkinnedMesh objects in the model
-            const skinnedMeshes: THREE.SkinnedMesh[] = []
+            const skinnedMeshes: SkinnedMesh[] = []
             model.traverse((child) => {
-              if (child instanceof THREE.SkinnedMesh) {
+              if (child instanceof SkinnedMesh) {
                 skinnedMeshes.push(child)
               }
             })
@@ -2412,12 +2591,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
               // Create skeleton helper for the first skinned mesh with bones
               const meshWithBones = skinnedMeshes.find(mesh => mesh.skeleton.bones.length > 0)
               if (meshWithBones) {
-                const helper = new THREE.SkeletonHelper(model)
+                const helper = new SkeletonHelper(model)
                 helper.visible = true
                 
                 // Make skeleton lines thicker and brighter for better visibility
-                const material = helper.material as THREE.LineBasicMaterial
-                material.color = new THREE.Color(0x00ff00)  // Bright green
+                const material = helper.material as LineBasicMaterial
+                material.color = new Color(0x00ff00)  // Bright green
                 material.linewidth = 3
                 material.depthTest = true
                 material.depthWrite = true
@@ -2432,7 +2611,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                 
                 // Make model semi-transparent with proper depth handling
                 model.traverse((child) => {
-                  if (child instanceof THREE.Mesh && child.material) {
+                  if (child instanceof Mesh && child.material) {
                     if (Array.isArray(child.material)) {
                       child.material.forEach(mat => {
                         mat.transparent = true
@@ -2454,9 +2633,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           // Auto-fit camera to model with better framing
           if (cameraRef.current && controlsRef.current) {
             // IMPORTANT: Recalculate bounding box AFTER all scaling and positioning
-            const finalBox = new THREE.Box3().setFromObject(model)
-            const finalCenter = finalBox.getCenter(new THREE.Vector3())
-            const finalSize = finalBox.getSize(new THREE.Vector3())
+            const finalBox = new Box3().setFromObject(model)
+            const finalCenter = finalBox.getCenter(new Vector3())
+            const finalSize = finalBox.getSize(new Vector3())
             
             console.log(`📷 Camera framing: center=(${finalCenter.x.toFixed(2)}, ${finalCenter.y.toFixed(2)}, ${finalCenter.z.toFixed(2)}), size=(${finalSize.x.toFixed(2)}, ${finalSize.y.toFixed(2)}, ${finalSize.z.toFixed(2)})`)
             
@@ -2506,9 +2685,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           // Final verification of model size
           setTimeout(() => {
             if (modelRef.current && sceneRef.current) {
-              const finalWorldBox = new THREE.Box3().setFromObject(modelRef.current)
-              const finalWorldSize = finalWorldBox.getSize(new THREE.Vector3())
-              const finalWorldCenter = finalWorldBox.getCenter(new THREE.Vector3())
+              const finalWorldBox = new Box3().setFromObject(modelRef.current)
+              const finalWorldSize = finalWorldBox.getSize(new Vector3())
+              const finalWorldCenter = finalWorldBox.getCenter(new Vector3())
               
               console.log(`✅ FINAL VERIFICATION (after 100ms):`)
               console.log(`   World size: ${finalWorldSize.x.toFixed(3)}m x ${finalWorldSize.y.toFixed(3)}m x ${finalWorldSize.z.toFixed(3)}m`)
@@ -2604,7 +2783,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     if (!modelRef.current) return
     
       modelRef.current.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
+        if (child instanceof Mesh) {
           if (Array.isArray(child.material)) {
           child.material.forEach(mat => {
             mat.wireframe = isWireframe
@@ -2626,7 +2805,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     }
     
     if (showGrid) {
-      const grid = new THREE.GridHelper(20, 20, 0x444444, 0x222222)
+      const grid = new GridHelper(20, 20, 0x444444, 0x222222)
       grid.position.y = 0 // Grid at ground level
       sceneRef.current.add(grid)
       gridRef.current = grid
@@ -2643,8 +2822,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     }
     
     if (showBounds) {
-      const box = new THREE.Box3().setFromObject(modelRef.current)
-      const helper = new THREE.Box3Helper(box, 0x00ff00)
+      const box = new Box3().setFromObject(modelRef.current)
+      const helper = new Box3Helper(box, 0x00ff00)
       helper.name = 'boundingBox'
       sceneRef.current.add(helper)
     }
@@ -2660,13 +2839,13 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     }
     
     if (showGroundPlane) {
-      const groundGeometry = new THREE.PlaneGeometry(40, 40)
-      const groundMaterial = new THREE.ShadowMaterial({ 
+      const groundGeometry = new PlaneGeometry(40, 40)
+      const groundMaterial = new ShadowMaterial({ 
         opacity: 0.3,
         color: 0x000000,
         transparent: true
       })
-      const ground = new THREE.Mesh(groundGeometry, groundMaterial)
+      const ground = new Mesh(groundGeometry, groundMaterial)
       ground.name = 'groundPlane'
       ground.rotation.x = -Math.PI / 2
       ground.position.y = -0.01 // Just slightly below ground to avoid z-fighting
@@ -2676,26 +2855,26 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   }, [showGroundPlane])
   
   // Play animation
-  const _playAnimation = useCallback((index: number) => {
-    if (!mixerRef.current || !animations[index]) return
-    
-    mixerRef.current.stopAllAction()
-    const action = mixerRef.current.clipAction(animations[index])
-    action.play()
-    setCurrentAnimation(index)
-    setIsPlaying(true)
-  }, [animations])
-  
-  const _togglePlayPause = useCallback(() => {
-    if (!mixerRef.current) return
-    
-    if (isPlaying) {
-      mixerRef.current.timeScale = 0
-    } else {
-      mixerRef.current.timeScale = 1
-    }
-          setIsPlaying(!isPlaying)
-    }, [isPlaying])
+  // const _playAnimation = useCallback((index: number) => {
+  //   if (!mixerRef.current || !animations[index]) return
+  //
+  //   mixerRef.current.stopAllAction()
+  //   const action = mixerRef.current.clipAction(animations[index])
+  //   action.play()
+  //   setCurrentAnimation(index)
+  //   setIsPlaying(true)
+  // }, [animations])
+
+  // const _togglePlayPause = useCallback(() => {
+  //   if (!mixerRef.current) return
+  //
+  //   if (isPlaying) {
+  //     mixerRef.current.timeScale = 0
+  //   } else {
+  //     mixerRef.current.timeScale = 1
+  //   }
+  //   setIsPlaying(!isPlaying)
+  // }, [isPlaying])
   
   return (
     <div className="relative w-full h-full bg-bg-secondary rounded-lg overflow-hidden">
@@ -2768,11 +2947,11 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             <div className="space-y-1">
               <div className="flex justify-between gap-4">
                 <span className="text-text-tertiary">Vertices:</span>
-                <span className="text-text-primary font-mono">{modelInfo.vertices.toLocaleString()}</span>
+                <span className="text-text-primary font-mono">{formatNumber(modelInfo.vertices)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-text-tertiary">Polygons:</span>
-                <span className="text-text-primary font-mono">{modelInfo.faces.toLocaleString()}</span>
+                <span className="text-text-primary font-mono">{formatNumber(modelInfo.faces)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-text-tertiary">Materials:</span>
@@ -3043,12 +3222,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
               console.log('=== Hand Bone Diagnostics ===')
               
               modelRef.current.traverse((child) => {
-                if (child instanceof THREE.SkinnedMesh) {
+                if (child instanceof SkinnedMesh) {
                   console.log(`\nSkinnedMesh: ${child.name}`)
                   console.log(`  Total bones: ${child.skeleton.bones.length}`)
                   
                   // Check our hand bones
-                  const checkBone = (bone: THREE.Bone | undefined, name: string) => {
+                  const checkBone = (bone: Bone | undefined, name: string) => {
                     if (!bone) return
                     
                     const boneIndex = child.skeleton.bones.indexOf(bone)
@@ -3057,7 +3236,7 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
                     console.log(`    - Parent: ${bone.parent?.name || 'none'}`)
                     console.log(`    - Position: ${bone.position.toArray()}`)
                     console.log(`    - World Position: ${(() => {
-                      const wp = new THREE.Vector3()
+                      const wp = new Vector3()
                       bone.getWorldPosition(wp)
                       return wp.toArray()
                     })()}`)
@@ -3100,9 +3279,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         <button
           onClick={() => {
             if (cameraRef.current && controlsRef.current && modelRef.current) {
-              const box = new THREE.Box3().setFromObject(modelRef.current)
-              const center = box.getCenter(new THREE.Vector3())
-              const size = box.getSize(new THREE.Vector3())
+              const box = new Box3().setFromObject(modelRef.current)
+              const center = box.getCenter(new Vector3())
+              const size = box.getSize(new Vector3())
               
               // Calculate proper distance for front view
               const fov = cameraRef.current.fov * (Math.PI / 180)
@@ -3139,9 +3318,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         <button
           onClick={() => {
             if (cameraRef.current && controlsRef.current && modelRef.current) {
-              const box = new THREE.Box3().setFromObject(modelRef.current)
-              const center = box.getCenter(new THREE.Vector3())
-              const size = box.getSize(new THREE.Vector3())
+              const box = new Box3().setFromObject(modelRef.current)
+              const center = box.getCenter(new Vector3())
+              const size = box.getSize(new Vector3())
               
               // Calculate proper distance for side view
               const fov = cameraRef.current.fov * (Math.PI / 180)
@@ -3178,9 +3357,9 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         <button
           onClick={() => {
             if (cameraRef.current && controlsRef.current && modelRef.current) {
-              const box = new THREE.Box3().setFromObject(modelRef.current)
-              const center = box.getCenter(new THREE.Vector3())
-              const size = box.getSize(new THREE.Vector3())
+              const box = new Box3().setFromObject(modelRef.current)
+              const center = box.getCenter(new Vector3())
+              const size = box.getSize(new Vector3())
               const maxDim = Math.max(size.x, size.y, size.z)
               
               cameraRef.current.position.set(center.x, center.y + maxDim * 2, center.z)
@@ -3281,7 +3460,167 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           </div>
         </div>
       )}
+
+      {/* Animation Controls - Only shown when showAnimationControls is true */}
+      {showAnimationControls && animationFiles && assetId && (
+        <>
+          {/* Animation Toolbar - Top Left */}
+          <div className="absolute top-4 left-4 flex gap-2 z-10">
+            <div className="flex bg-bg-secondary/90 backdrop-blur-sm rounded-lg shadow-lg p-1 border border-border-primary gap-1">
+              <button
+                onClick={handleToggleSkeleton}
+                className={`p-2 rounded transition-all duration-200 ${
+                  showingSkeleton
+                    ? 'bg-primary bg-opacity-20 text-primary'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                }`}
+                title="Toggle skeleton visualization"
+                aria-label="Toggle skeleton visualization"
+              >
+                <Eye size={18} />
+              </button>
+
+              <button
+                onClick={handleShowBoneStructure}
+                className="p-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-all duration-200"
+                title="View bone structure"
+                aria-label="View bone structure"
+              >
+                <FileText size={18} />
+              </button>
+
+              <button
+                onClick={handleExportTPose}
+                className="p-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-all duration-200"
+                title="Export T-pose model"
+                aria-label="Export T-pose model"
+              >
+                <Download size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Animation Control Bar - Bottom */}
+          <div className="absolute bottom-4 left-4 right-4 bg-bg-primary/90 backdrop-blur-sm rounded-lg p-3 border border-border-primary z-10">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" aria-hidden="true" />
+                <span className="text-sm font-medium text-text-primary">Animations</span>
+                {isLoadingAnimation && (
+                  <Loader2 className="w-3 h-3 text-text-secondary animate-spin" aria-label="Loading animation" />
+                )}
+              </div>
+
+              <div className="flex items-center gap-1" role="group" aria-label="Animation controls">
+                {/* T-Pose Button */}
+                {animationFiles.basic?.tpose && (
+                  <Button
+                    size="sm"
+                    variant={currentAnimationFile === animationFiles.basic.tpose ? 'primary' : 'secondary'}
+                    onClick={() => handleAnimationSwitch(animationFiles.basic!.tpose!, 'tpose')}
+                    className="text-xs"
+                    aria-label="T-Pose animation"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span className="ml-1">T-Pose</span>
+                  </Button>
+                )}
+
+                {/* Walking Button */}
+                {animationFiles.basic?.walking && (
+                  <Button
+                    size="sm"
+                    variant={currentAnimationFile === animationFiles.basic.walking ? 'primary' : 'secondary'}
+                    onClick={() => handleAnimationSwitch(animationFiles.basic!.walking!, 'walking')}
+                    className="text-xs"
+                    aria-label="Walking animation"
+                  >
+                    {currentAnimationFile === animationFiles.basic.walking && isAnimationPlaying ? (
+                      <Pause className="w-3 h-3" />
+                    ) : (
+                      <Play className="w-3 h-3" />
+                    )}
+                    <span className="ml-1">Walking</span>
+                  </Button>
+                )}
+
+                {/* Running Button */}
+                {animationFiles.basic?.running && (
+                  <Button
+                    size="sm"
+                    variant={currentAnimationFile === animationFiles.basic.running ? 'primary' : 'secondary'}
+                    onClick={() => handleAnimationSwitch(animationFiles.basic!.running!, 'running')}
+                    className="text-xs"
+                    aria-label="Running animation"
+                  >
+                    {currentAnimationFile === animationFiles.basic.running && isAnimationPlaying ? (
+                      <Pause className="w-3 h-3" />
+                    ) : (
+                      <Play className="w-3 h-3" />
+                    )}
+                    <span className="ml-1">Running</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bone Structure Modal */}
+          <Modal
+            open={showBonesModal}
+            onClose={() => setShowBonesModal(false)}
+            size="lg"
+          >
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-text-primary">Bone Structure</h2>
+                <button
+                  onClick={() => setShowBonesModal(false)}
+                  className="p-1 hover:bg-bg-primary rounded transition-colors"
+                  aria-label="Close modal"
+                >
+                  <X size={20} className="text-text-muted" />
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="text-sm text-text-secondary mb-2">
+                  Total bones: {bonesData.length}
+                </div>
+
+                {bonesData.length > 0 ? (
+                  <div className="font-mono text-xs space-y-1">
+                    {bonesData.map((bone, index) => (
+                      <div key={index} className="flex gap-2 p-2 bg-bg-secondary rounded">
+                        <span className="text-text-muted min-w-[3rem]">[{index}]</span>
+                        <span className="text-text-primary flex-1">{bone.name}</span>
+                        <span className="text-text-tertiary">→ {bone.parent}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-text-tertiary text-center py-8">
+                    No bones found in the model
+                  </div>
+                )}
+              </div>
+            </div>
+          </Modal>
+        </>
+      )}
     </div>
+  )
+}), (prevProps, nextProps) => {
+  // Custom comparison for React.memo - return true if props are equal (skip re-render)
+  return (
+    prevProps.modelUrl === nextProps.modelUrl &&
+    prevProps.isWireframe === nextProps.isWireframe &&
+    prevProps.showGroundPlane === nextProps.showGroundPlane &&
+    prevProps.isLightBackground === nextProps.isLightBackground &&
+    prevProps.lightMode === nextProps.lightMode &&
+    prevProps.assetId === nextProps.assetId &&
+    prevProps.showAnimationControls === nextProps.showAnimationControls &&
+    prevProps.isAnimationPlayer === nextProps.isAnimationPlayer
   )
 })
 

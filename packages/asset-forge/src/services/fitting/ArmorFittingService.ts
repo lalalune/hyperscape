@@ -1,8 +1,16 @@
-import * as THREE from 'three'
-import { Vector3, Box3, SkinnedMesh, Mesh, BufferGeometry, BufferAttribute, Skeleton, Bone } from 'three'
+import {
+  AmbientLight, AttachedBindMode, Bone, Box3, BufferAttribute, BufferGeometry, DirectionalLight, Group,
+  MathUtils, Matrix4, Mesh, MeshBasicMaterial, Quaternion, Raycaster, Scene, Skeleton,
+  SkinnedMesh, Vector3
+} from 'three'
 
-import { MeshFittingService } from './MeshFittingService'
-import { WeightTransferService } from './WeightTransferService'
+import { safeScale, safeDivide } from '../../utils/safe-math'
+import { cloneGeometryForModification, cloneMaterialForModification } from '../../utils/three-geometry-sharing'
+
+// Reserved for future enhancement: generic mesh fitting and weight transfer
+// See GitHub issue #141 for planned implementation
+// import { MeshFittingService } from './MeshFittingService'
+// import { WeightTransferService } from './WeightTransferService'
 
 export interface BodyRegion {
   name: string
@@ -49,28 +57,16 @@ export interface FittingConfig {
   pushInteriorVertices?: boolean
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface FittingParameters {
-  iterations?: number
-  stepSize?: number
-  smoothingRadius?: number
-  smoothingStrength?: number
-  targetOffset?: number
-  useBodyHull?: boolean
-  deformationMethod?: 'shrinkwrap' | 'rbf' | 'cage'
-  rbfRadius?: number
-  preserveFeatures?: boolean
-  featureAngleThreshold?: number
-  preserveOpenings?: boolean
-}
-
 export class ArmorFittingService {
-  private genericFittingService: MeshFittingService
-  private weightTransferService: WeightTransferService
+  // Reserved for future enhancement: generic mesh fitting and weight transfer
+  // See GitHub issue #141 for planned implementation
+  // private genericFittingService: MeshFittingService
+  // private weightTransferService: WeightTransferService
 
   constructor() {
-    this.genericFittingService = new MeshFittingService()
-    this.weightTransferService = new WeightTransferService()
+    // Service initialization reserved for future implementation
+    // this.genericFittingService = new MeshFittingService()
+    // this.weightTransferService = new WeightTransferService()
   }
 
   /**
@@ -232,8 +228,9 @@ export class ArmorFittingService {
             if (newSize.y < avatarSize.y * 0.4) {
               const currentCenter = boundingBox.getCenter(new Vector3())
               const targetHeight = avatarSize.y * 0.4
-              boundingBox.min.y = currentCenter.y - targetHeight / 2
-              boundingBox.max.y = currentCenter.y + targetHeight / 2
+              const halfHeight = targetHeight / 2 // Safe: targetHeight is always positive
+              boundingBox.min.y = currentCenter.y - halfHeight
+              boundingBox.max.y = currentCenter.y + halfHeight
             }
             
             // Ensure torso is positioned in the middle of the avatar, not at the top
@@ -298,10 +295,11 @@ export class ArmorFittingService {
     
     // Calculate scale to fit armor to body with margin
     const targetSize = bodySize.clone().addScalar(margin * 2)
-    
-    let scaleX = targetSize.x / armorSize.x
-    let scaleY = targetSize.y / armorSize.y
-    let scaleZ = targetSize.z / armorSize.z
+
+    // Use safe division to prevent division by zero
+    let scaleX = safeScale(targetSize.x, armorSize.x, 1)
+    let scaleY = safeScale(targetSize.y, armorSize.y, 1)
+    let scaleZ = safeScale(targetSize.z, armorSize.z, 1)
     
     console.log('🎯 ArmorFittingService: Scale factors - X:', scaleX.toFixed(3), 'Y:', scaleY.toFixed(3), 'Z:', scaleZ.toFixed(3))
     
@@ -385,7 +383,7 @@ export class ArmorFittingService {
     const armorGeometry = armorMesh.geometry as BufferGeometry
     const armorPosition = armorGeometry.attributes.position as BufferAttribute
     
-    const raycaster = new THREE.Raycaster()
+    const raycaster = new Raycaster()
     raycaster.near = 0
     raycaster.far = 0.1 // Only check nearby collisions
     
@@ -464,7 +462,7 @@ export class ArmorFittingService {
           
           const distance = nearbyPos.distanceTo(vertexPos)
           if (distance < influenceRadius) {
-            const weight = 1 - (distance / influenceRadius)
+            const weight = 1 - safeDivide(distance, influenceRadius, 0)
             const smoothedDisplacement = displacement.clone().multiplyScalar(weight * 0.5)
             
             if (!displacementMap.has(j)) {
@@ -544,9 +542,9 @@ export class ArmorFittingService {
           avgPos.divideScalar(neighbors.length + 2) // +2 for the 2x weight on current
           
           // Blend towards average position
-          smoothedPositions[idx] = THREE.MathUtils.lerp(positions[idx], avgPos.x, strength)
-          smoothedPositions[idx + 1] = THREE.MathUtils.lerp(positions[idx + 1], avgPos.y, strength)
-          smoothedPositions[idx + 2] = THREE.MathUtils.lerp(positions[idx + 2], avgPos.z, strength)
+          smoothedPositions[idx] = MathUtils.lerp(positions[idx], avgPos.x, strength)
+          smoothedPositions[idx + 1] = MathUtils.lerp(positions[idx + 1], avgPos.y, strength)
+          smoothedPositions[idx + 2] = MathUtils.lerp(positions[idx + 2], avgPos.z, strength)
         }
       }
       
@@ -698,14 +696,14 @@ export class ArmorFittingService {
     geometry.computeVertexNormals()
     geometry.computeBoundingBox()
     
-    const material = new THREE.MeshBasicMaterial({
+    const material = new MeshBasicMaterial({
       color: 0x00ff00,
       wireframe: true,
       transparent: true,
       opacity: 0.5
     })
     
-    return new THREE.Mesh(geometry, material)
+    return new Mesh(geometry, material)
   }
 
   /**
@@ -713,13 +711,13 @@ export class ArmorFittingService {
    * This allows the armor to deform with character animations
    */
   bindArmorToSkeleton(
-    armorMesh: THREE.Mesh,
-    avatarMesh: THREE.SkinnedMesh,
+    armorMesh: Mesh,
+    avatarMesh: SkinnedMesh,
     options: {
       searchRadius?: number
       applyGeometryTransform?: boolean  // Whether to bake transform into geometry
     } = {}
-  ): THREE.SkinnedMesh {
+  ): SkinnedMesh {
     const {
       searchRadius = 0.05, // 5cm search radius - reduced since we align meshes
       applyGeometryTransform = true // Bake transform for cleaner result
@@ -774,12 +772,12 @@ export class ArmorFittingService {
     armorMesh.updateMatrixWorld(true)
     
     console.log('Working in aligned state for weight transfer')
-    console.log('- Avatar world pos:', avatarMesh.getWorldPosition(new THREE.Vector3()))
-    console.log('- Armor world pos:', armorMesh.getWorldPosition(new THREE.Vector3()))
+    console.log('- Avatar world pos:', avatarMesh.getWorldPosition(new Vector3()))
+    console.log('- Armor world pos:', armorMesh.getWorldPosition(new Vector3()))
     
     // Get current bounds to verify alignment
-    const alignedArmorBounds = new THREE.Box3().setFromObject(armorMesh)
-    const alignedArmorCenter = alignedArmorBounds.getCenter(new THREE.Vector3())
+    const alignedArmorBounds = new Box3().setFromObject(armorMesh)
+    const alignedArmorCenter = alignedArmorBounds.getCenter(new Vector3())
     console.log('- Aligned armor center:', alignedArmorCenter)
     
     const avatarVertexTree = new Map<string, number[]>()
@@ -794,7 +792,7 @@ export class ArmorFittingService {
     }
     
     // Build spatial index - avatar vertices in avatar local space
-    const tempAvatarVertex = new THREE.Vector3()
+    const tempAvatarVertex = new Vector3()
     
     for (let i = 0; i < avatarPositions.count; i++) {
       tempAvatarVertex.fromBufferAttribute(avatarPositions, i)
@@ -809,8 +807,8 @@ export class ArmorFittingService {
     
     // Debug: Log sample vertices in local space (meshes are aligned)
     if (avatarPositions.count > 0 && armorPositions.count > 0) {
-      const sampleAvatar = new THREE.Vector3()
-      const sampleArmor = new THREE.Vector3()
+      const sampleAvatar = new Vector3()
+      const sampleArmor = new Vector3()
       
       sampleAvatar.fromBufferAttribute(avatarPositions, 0)
       sampleArmor.fromBufferAttribute(armorPositions, 0)
@@ -872,8 +870,8 @@ export class ArmorFittingService {
     if (unmappedVertices > 0) {
       console.log(`Attempting nearest-neighbor fallback for ${unmappedVertices} unmapped vertices...`)
       
-      const tempArmorVertex = new THREE.Vector3()
-      const tempAvatarVertex = new THREE.Vector3()
+      const tempArmorVertex = new Vector3()
+      const tempAvatarVertex = new Vector3()
       let additionalMapped = 0
       
       for (let i = 0; i < armorVertexCount; i++) {
@@ -915,7 +913,8 @@ export class ArmorFittingService {
     
     console.log('\n=== WEIGHT TRANSFER RESULTS ===')
     console.log(`Total vertices: ${armorVertexCount}`)
-    console.log(`Successfully mapped: ${mappedVertices} (${(mappedVertices / armorVertexCount * 100).toFixed(1)}%)`)
+    const successPercentage = safeDivide(mappedVertices * 100, armorVertexCount, 0)
+    console.log(`Successfully mapped: ${mappedVertices} (${successPercentage.toFixed(1)}%)`)
     console.log(`- Projection mapped: ${projectionMapped}`)
     console.log(`- Nearest neighbor: ${nearestMapped}`)
     console.log(`- Bone distance fallback: ${boneFallback}`)
@@ -923,25 +922,25 @@ export class ArmorFittingService {
     
     // ADD SKINNING ATTRIBUTES TO GEOMETRY
     console.log('Adding skinning attributes to fitted geometry...')
-    const skinIndexAttr = new THREE.BufferAttribute(skinIndices, 4)
-    const skinWeightAttr = new THREE.BufferAttribute(skinWeights, 4)
+    const skinIndexAttr = new BufferAttribute(skinIndices, 4)
+    const skinWeightAttr = new BufferAttribute(skinWeights, 4)
     
     // Store the armor's current fitted transform
     armorMesh.updateMatrixWorld(true)
-    const _fittedWorldMatrix = armorMesh.matrixWorld.clone()
+//     const _fittedWorldMatrix = armorMesh.matrixWorld.clone()
     const fittedLocalPosition = armorMesh.position.clone()
     const fittedLocalRotation = armorMesh.quaternion.clone()
     const fittedLocalScale = armorMesh.scale.clone()
     const originalParent = armorMesh.parent
     
     // Variables for alignment (declared here so they're in scope later)
-    let alignmentOffset: THREE.Vector3
-    let originalArmorPos: THREE.Vector3
-    let originalArmorScale: THREE.Vector3
+    let alignmentOffset: Vector3
+    let originalArmorPos: Vector3
+    let originalArmorScale: Vector3
     
     // Store the fitted world position BEFORE any transformations
-    const fittedWorldPosition = armorMesh.getWorldPosition(new THREE.Vector3()).clone()
-    const _fittedWorldScale = armorMesh.getWorldScale(new THREE.Vector3()).clone()
+    const fittedWorldPosition = armorMesh.getWorldPosition(new Vector3()).clone()
+//     const _fittedWorldScale = armorMesh.getWorldScale(new Vector3()).clone()
     
     console.log('Storing fitted armor transform:')
     console.log('- World position:', fittedWorldPosition)
@@ -952,21 +951,21 @@ export class ArmorFittingService {
     console.log('=== FINDING TORSO REGION FOR BINDING ===')
     
     // Calculate avatar's torso center (not just origin)
-    const avatarBounds = new THREE.Box3().setFromObject(avatarMesh)
+    const avatarBounds = new Box3().setFromObject(avatarMesh)
     const avatarHeight = avatarBounds.max.y - avatarBounds.min.y
     
     // Torso is typically from 25% to 75% of height
     const torsoBottom = avatarBounds.min.y + avatarHeight * 0.25
     const torsoTop = avatarBounds.min.y + avatarHeight * 0.75
-    const torsoCenterY = (torsoBottom + torsoTop) / 2
+    const torsoCenterY = (torsoBottom + torsoTop) / 2 // Safe: arithmetic mean
     
     console.log('Avatar bounds Y:', avatarBounds.min.y, 'to', avatarBounds.max.y)
     console.log('Torso region Y:', torsoBottom, 'to', torsoTop)
     console.log('Torso center Y:', torsoCenterY)
     
     // Get armor's current center
-    const armorBounds = new THREE.Box3().setFromObject(armorMesh)
-    const armorCenter = armorBounds.getCenter(new THREE.Vector3())
+    const armorBounds = new Box3().setFromObject(armorMesh)
+    const armorCenter = armorBounds.getCenter(new Vector3())
     console.log('Armor center before alignment:', armorCenter)
     
     // Check if armor overlaps with torso region
@@ -985,14 +984,14 @@ export class ArmorFittingService {
     // Only align if armor doesn't overlap with torso at all
     if (!hasOverlap || overlapAmount < torsoHeight * 0.2) {
       console.log('Armor has insufficient overlap with torso, aligning...')
-      alignmentOffset = new THREE.Vector3(
+      alignmentOffset = new Vector3(
         0, // Keep X aligned
         torsoCenterY - armorCenter.y, // Align Y to torso center
         0  // Keep Z aligned
       )
     } else {
       console.log('Armor already overlaps with torso, skipping alignment')
-      alignmentOffset = new THREE.Vector3(0, 0, 0)
+      alignmentOffset = new Vector3(0, 0, 0)
     }
     
     // Store original armor transform
@@ -1006,7 +1005,7 @@ export class ArmorFittingService {
     console.log('Aligned armor with avatar torso for binding')
     console.log('- Alignment offset:', alignmentOffset)
     console.log('- Armor position after alignment:', armorMesh.position)
-    console.log('- Armor center after alignment:', new THREE.Box3().setFromObject(armorMesh).getCenter(new THREE.Vector3()))
+    console.log('- Armor center after alignment:', new Box3().setFromObject(armorMesh).getCenter(new Vector3()))
     
     // Clone the geometry and add skinning attributes
     const skinnedGeometry = armorGeometry.clone()
@@ -1014,10 +1013,10 @@ export class ArmorFittingService {
     skinnedGeometry.setAttribute('skinWeight', skinWeightAttr)
     
     // Find the Armature for bind matrix calculation
-    const _armature = avatarMesh.parent
+//     const _armature = avatarMesh.parent
     
     // Create SkinnedMesh - initially at origin
-    const skinnedArmorMesh = new THREE.SkinnedMesh(skinnedGeometry, armorMesh.material)
+    const skinnedArmorMesh = new SkinnedMesh(skinnedGeometry, armorMesh.material)
     
     // Position the skinned mesh at the fitted position
     skinnedArmorMesh.position.copy(fittedLocalPosition)
@@ -1030,7 +1029,7 @@ export class ArmorFittingService {
       console.log('Applying transform to geometry for cleaner rigging')
       
       // Store world positions before transform
-      const worldPosBefore = skinnedArmorMesh.getWorldPosition(new THREE.Vector3())
+      const worldPosBefore = skinnedArmorMesh.getWorldPosition(new Vector3())
       
       // Ensure world matrix is up to date
       skinnedArmorMesh.updateMatrixWorld(true)
@@ -1055,7 +1054,7 @@ export class ArmorFittingService {
     
     // Debug: Check world position before binding
     skinnedArmorMesh.updateMatrixWorld(true)
-    const beforeBindWorldPos = skinnedArmorMesh.getWorldPosition(new THREE.Vector3())
+    const beforeBindWorldPos = skinnedArmorMesh.getWorldPosition(new Vector3())
     console.log('- World position before binding:', beforeBindWorldPos)
     
     // Copy all other properties
@@ -1071,7 +1070,7 @@ export class ArmorFittingService {
     
     // Calculate bind matrix at the correct position
     // Following Unity's approach: bindPose = bone.worldToLocalMatrix * mesh.localToWorldMatrix
-    const bindMatrix = new THREE.Matrix4()
+    const bindMatrix = new Matrix4()
     
     skinnedArmorMesh.updateMatrixWorld(true)
       
@@ -1082,7 +1081,7 @@ export class ArmorFittingService {
     console.log('Calculated bind matrix at target position')
     
     // Set bind mode to attached (default) - mesh shares same world space as skeleton
-    skinnedArmorMesh.bindMode = THREE.AttachedBindMode
+    skinnedArmorMesh.bindMode = AttachedBindMode
     
     // Bind to skeleton
     skinnedArmorMesh.bind(skeleton, bindMatrix)
@@ -1122,7 +1121,7 @@ export class ArmorFittingService {
     console.log('Intended world position stored:', fittedWorldPosition)
     
     // Also store the current skinned mesh position for debugging
-    const finalSkinnedPos = skinnedArmorMesh.getWorldPosition(new THREE.Vector3())
+    const finalSkinnedPos = skinnedArmorMesh.getWorldPosition(new Vector3())
     console.log('Skinned mesh world position after binding:', finalSkinnedPos)
     console.log('Position matches target?', finalSkinnedPos.distanceTo(fittedWorldPosition) < 0.01)
     
@@ -1145,8 +1144,8 @@ export class ArmorFittingService {
    * Projects armor vertices towards avatar center to find corresponding surface points
    */
   private static projectiveWeightTransfer(
-    armorMesh: THREE.Mesh,
-    avatarMesh: THREE.SkinnedMesh,
+    armorMesh: Mesh,
+    avatarMesh: SkinnedMesh,
     armorVertexIndex: number,
     skinIndices: Float32Array,
     skinWeights: Float32Array,
@@ -1160,30 +1159,30 @@ export class ArmorFittingService {
       fallbackToBoneDistance = true
     } = options
 
-    const armorGeometry = armorMesh.geometry as THREE.BufferGeometry
-    const avatarGeometry = avatarMesh.geometry as THREE.BufferGeometry
+    const armorGeometry = armorMesh.geometry as BufferGeometry
+    const avatarGeometry = avatarMesh.geometry as BufferGeometry
     
     const armorPositions = armorGeometry.attributes.position
-    const _avatarPositions = avatarGeometry.attributes.position
+//     const _avatarPositions = avatarGeometry.attributes.position
     const avatarSkinWeights = avatarGeometry.attributes.skinWeight
     const avatarSkinIndices = avatarGeometry.attributes.skinIndex
     
     if (!avatarSkinWeights || !avatarSkinIndices) return false
     
     // Get armor vertex in world space
-    const armorVertex = new THREE.Vector3()
+    const armorVertex = new Vector3()
     armorVertex.fromBufferAttribute(armorPositions, armorVertexIndex)
     armorVertex.applyMatrix4(armorMesh.matrixWorld)
     
     // Get avatar center in world space
-    const avatarBounds = new THREE.Box3().setFromObject(avatarMesh)
-    const avatarCenter = avatarBounds.getCenter(new THREE.Vector3())
+    const avatarBounds = new Box3().setFromObject(avatarMesh)
+    const avatarCenter = avatarBounds.getCenter(new Vector3())
     
     // Create ray from armor vertex towards avatar center
-    const direction = new THREE.Vector3()
+    const direction = new Vector3()
     direction.subVectors(avatarCenter, armorVertex).normalize()
     
-    const raycaster = new THREE.Raycaster(armorVertex, direction)
+    const raycaster = new Raycaster(armorVertex, direction)
     raycaster.far = maxProjectionDistance
     
     // Cast ray to find intersection with avatar mesh
@@ -1281,9 +1280,9 @@ export class ArmorFittingService {
    * Fallback weighting based on distance to bones
    */
   private static boneDistanceWeighting(
-    worldVertex: THREE.Vector3,
+    worldVertex: Vector3,
     vertexIndex: number,
-    skeleton: THREE.Skeleton,
+    skeleton: Skeleton,
     skinIndices: Float32Array,
     skinWeights: Float32Array,
     maxInfluences: number = 4
@@ -1293,7 +1292,7 @@ export class ArmorFittingService {
     
     // Calculate distance to each bone
     bones.forEach((bone, index) => {
-      const boneWorldPos = bone.getWorldPosition(new THREE.Vector3())
+      const boneWorldPos = bone.getWorldPosition(new Vector3())
       const distance = worldVertex.distanceTo(boneWorldPos)
       boneDistances.push({ index, distance })
     })
@@ -1306,16 +1305,17 @@ export class ArmorFittingService {
     const weights = closestBones.map(({ distance }) => {
       // Use gaussian-like falloff
       const sigma = 0.3 // Adjust for sharper/softer falloff
-      return Math.exp(-(distance * distance) / (2 * sigma * sigma))
+      const denominator = 2 * sigma * sigma // Always positive
+      return Math.exp(-(distance * distance) / denominator)
     })
     
     // Normalize weights
     const totalWeight = weights.reduce((sum, w) => sum + w, 0)
-    
+
     if (totalWeight > 0) {
       closestBones.forEach(({ index }, i) => {
         skinIndices[vertexIndex * 4 + i] = index
-        skinWeights[vertexIndex * 4 + i] = weights[i] / totalWeight
+        skinWeights[vertexIndex * 4 + i] = safeDivide(weights[i], totalWeight, 0)
       })
       
       // Fill remaining slots
@@ -1335,7 +1335,7 @@ export class ArmorFittingService {
    * This ensures the armor maintains its fitted shape in external viewers
    */
   async exportFittedArmor(
-    skinnedArmorMesh: THREE.SkinnedMesh,
+    skinnedArmorMesh: SkinnedMesh,
     options: {
       method?: 'minimal' | 'full' | 'static'
     } = {}
@@ -1368,13 +1368,13 @@ export class ArmorFittingService {
     }
     
     // Create export scene
-    const exportScene = new THREE.Scene()
-    
-    // Clone the mesh and its geometry
-    const exportGeometry = skinnedArmorMesh.geometry.clone()
+    const exportScene = new Scene()
+
+    // Clone the mesh and its geometry for export
+    const exportGeometry = cloneGeometryForModification(skinnedArmorMesh.geometry, 'armor export')
     const exportMaterial = Array.isArray(skinnedArmorMesh.material)
-      ? skinnedArmorMesh.material.map(m => m.clone())
-      : skinnedArmorMesh.material.clone()
+      ? skinnedArmorMesh.material.map(m => cloneMaterialForModification(m, 'armor export'))
+      : cloneMaterialForModification(skinnedArmorMesh.material, 'armor export')
     
     // For all methods, we only export bones that the armor actually uses
     const skeleton = skinnedArmorMesh.skeleton
@@ -1389,7 +1389,7 @@ export class ArmorFittingService {
       while (currentIndex >= 0) {
         requiredBoneIndices.add(currentIndex)
         const bone = skeleton.bones[currentIndex]
-        if (bone.parent && bone.parent instanceof THREE.Bone) {
+        if (bone.parent && bone.parent instanceof Bone) {
           currentIndex = skeleton.bones.indexOf(bone.parent)
         } else {
           break
@@ -1418,14 +1418,14 @@ export class ArmorFittingService {
     if (method === 'full') {
       // "Full" means we keep the original bone names and hierarchy, but still only export used bones
       const sortedIndices = Array.from(requiredBoneIndices).sort((a, b) => a - b)
-      const newBones: THREE.Bone[] = []
+      const newBones: Bone[] = []
       const oldToNew = new Map<number, number>()
-      const oldToNewBone = new Map<THREE.Bone, THREE.Bone>()
+      const oldToNewBone = new Map<Bone, Bone>()
       
       // First pass: Create all bones without hierarchy
       sortedIndices.forEach((oldIndex, newIndex) => {
         const oldBone = skeleton.bones[oldIndex]
-        const newBone = new THREE.Bone()
+        const newBone = new Bone()
         newBone.name = oldBone.name
         
         // Don't set any transforms yet
@@ -1439,7 +1439,7 @@ export class ArmorFittingService {
         const oldBone = skeleton.bones[oldIndex]
         const newBone = oldToNewBone.get(oldBone)!
         
-        if (oldBone.parent && oldBone.parent instanceof THREE.Bone) {
+        if (oldBone.parent && oldBone.parent instanceof Bone) {
           const parentNewBone = oldToNewBone.get(oldBone.parent)
           if (parentNewBone) {
             parentNewBone.add(newBone)
@@ -1453,18 +1453,18 @@ export class ArmorFittingService {
         const newBone = newBones[newIndex]
         
         // Get world position of old bone
-        const worldPos = new THREE.Vector3()
-        const worldQuat = new THREE.Quaternion()
-        const worldScale = new THREE.Vector3()
+        const worldPos = new Vector3()
+        const worldQuat = new Quaternion()
+        const worldScale = new Vector3()
         oldBone.matrixWorld.decompose(worldPos, worldQuat, worldScale)
         
         // Scale world position
         worldPos.multiplyScalar(CM_TO_METERS)
         
         // If bone has parent, convert to local space
-        if (newBone.parent && newBone.parent instanceof THREE.Bone) {
+        if (newBone.parent && newBone.parent instanceof Bone) {
           // Get parent world matrix
-          const parentWorldMatrix = new THREE.Matrix4()
+          const parentWorldMatrix = new Matrix4()
           newBone.parent.updateMatrixWorld()
           parentWorldMatrix.copy(newBone.parent.matrixWorld)
           
@@ -1473,7 +1473,7 @@ export class ArmorFittingService {
           worldPos.applyMatrix4(parentInverse)
           
           // Apply rotation relative to parent
-          const parentWorldQuat = new THREE.Quaternion()
+          const parentWorldQuat = new Quaternion()
           newBone.parent.getWorldQuaternion(parentWorldQuat)
           const localQuat = parentWorldQuat.conjugate().multiply(worldQuat)
           
@@ -1498,7 +1498,7 @@ export class ArmorFittingService {
       rootBones.forEach(root => root.updateMatrixWorld(true))
       
       // Create skeleton with pre-scaled bones
-      const newSkeleton = new THREE.Skeleton(newBones)
+      const newSkeleton = new Skeleton(newBones)
       
       // Update skin indices
       const skinIndices = exportGeometry.attributes.skinIndex
@@ -1512,7 +1512,7 @@ export class ArmorFittingService {
         }
       }
       
-      exportGeometry.setAttribute('skinIndex', new THREE.BufferAttribute(newSkinIndices, 4))
+      exportGeometry.setAttribute('skinIndex', new BufferAttribute(newSkinIndices, 4))
       
       // Scale the geometry vertices to match bone scale
       const positions = exportGeometry.attributes.position
@@ -1531,16 +1531,16 @@ export class ArmorFittingService {
       exportGeometry.computeBoundingSphere()
       
       // Create and bind mesh
-      const exportMesh = new THREE.SkinnedMesh(exportGeometry, exportMaterial)
+      const exportMesh = new SkinnedMesh(exportGeometry, exportMaterial)
       exportMesh.name = skinnedArmorMesh.name || 'Armor'
       
       // Calculate proper bind matrix for the scaled skeleton
       // The bind matrix should transform from mesh space to skeleton space
-      const bindMatrix = new THREE.Matrix4()
+      const bindMatrix = new Matrix4()
       bindMatrix.copy(skinnedArmorMesh.bindMatrix)
       
       // Apply scaling to the bind matrix
-      const scaleMatrix = new THREE.Matrix4().makeScale(CM_TO_METERS, CM_TO_METERS, CM_TO_METERS)
+      const scaleMatrix = new Matrix4().makeScale(CM_TO_METERS, CM_TO_METERS, CM_TO_METERS)
       bindMatrix.premultiply(scaleMatrix)
       
       // Bind the mesh to the skeleton
@@ -1555,7 +1555,7 @@ export class ArmorFittingService {
       // Log final bone world positions
       console.log('Final bone world positions:')
       newBones.forEach((bone, _idx) => {
-        const worldPos = new THREE.Vector3()
+        const worldPos = new Vector3()
         bone.getWorldPosition(worldPos)
         console.log(`  ${bone.name}: world=${worldPos.toArray().map(v => v.toFixed(3))}`)
       })
@@ -1576,13 +1576,13 @@ export class ArmorFittingService {
       
       // Create pose-corrected skeleton
       const sortedIndices = Array.from(requiredBoneIndices).sort((a, b) => a - b)
-      const newBones: THREE.Bone[] = []
+      const newBones: Bone[] = []
       const oldToNew = new Map<number, number>()
       
       // Create bones with scaled transforms from the start
       sortedIndices.forEach((oldIndex, newIndex) => {
         const oldBone = skeleton.bones[oldIndex]
-        const newBone = new THREE.Bone()
+        const newBone = new Bone()
         newBone.name = oldBone.name
         
         // Scale position to meters from the start
@@ -1606,7 +1606,7 @@ export class ArmorFittingService {
         const oldBone = skeleton.bones[oldIndex]
         const newBone = newBones[i]
         
-        if (oldBone.parent && oldBone.parent instanceof THREE.Bone) {
+        if (oldBone.parent && oldBone.parent instanceof Bone) {
           const parentOldIndex = skeleton.bones.indexOf(oldBone.parent)
           const parentNewIndex = oldToNew.get(parentOldIndex)
           if (parentNewIndex !== undefined) {
@@ -1625,7 +1625,7 @@ export class ArmorFittingService {
       rootBones.forEach(root => root.updateMatrixWorld(true))
       
       // Create skeleton with pre-scaled bones
-      const newSkeleton = new THREE.Skeleton(newBones)
+      const newSkeleton = new Skeleton(newBones)
       
       // Update skin indices
       const skinIndices = exportGeometry.attributes.skinIndex
@@ -1639,7 +1639,7 @@ export class ArmorFittingService {
         }
       }
       
-      exportGeometry.setAttribute('skinIndex', new THREE.BufferAttribute(newSkinIndices, 4))
+      exportGeometry.setAttribute('skinIndex', new BufferAttribute(newSkinIndices, 4))
       
       // Scale the geometry vertices to match bone scale
       const positions = exportGeometry.attributes.position
@@ -1658,15 +1658,15 @@ export class ArmorFittingService {
       exportGeometry.computeBoundingSphere()
       
       // Create and bind mesh
-      const exportMesh = new THREE.SkinnedMesh(exportGeometry, exportMaterial)
+      const exportMesh = new SkinnedMesh(exportGeometry, exportMaterial)
       exportMesh.name = skinnedArmorMesh.name || 'Armor'
       
       // Calculate proper bind matrix for the scaled skeleton
-      const bindMatrix = new THREE.Matrix4()
+      const bindMatrix = new Matrix4()
       bindMatrix.copy(skinnedArmorMesh.bindMatrix)
       
       // Apply scaling to the bind matrix
-      const scaleMatrix = new THREE.Matrix4().makeScale(CM_TO_METERS, CM_TO_METERS, CM_TO_METERS)
+      const scaleMatrix = new Matrix4().makeScale(CM_TO_METERS, CM_TO_METERS, CM_TO_METERS)
       bindMatrix.premultiply(scaleMatrix)
       
       // Bind the mesh to the skeleton
@@ -1692,11 +1692,11 @@ export class ArmorFittingService {
     }
     
     // Create a wrapper scene with uniform scaling
-    const wrapperScene = new THREE.Scene()
+    const wrapperScene = new Scene()
     wrapperScene.name = 'Scene'
     
     // Create a root group that scales everything
-    const scaleGroup = new THREE.Group()
+    const scaleGroup = new Group()
     scaleGroup.name = 'ScaleWrapper'
     
     // Move everything from exportScene to scaleGroup
@@ -1719,11 +1719,11 @@ export class ArmorFittingService {
       nodeCount++
       // Ensure all nodes have names
       if (!node.name || node.name.trim() === '') {
-        if (node instanceof THREE.Bone) {
+        if (node instanceof Bone) {
           node.name = `Bone_${nodeCount}`
-        } else if (node instanceof THREE.Mesh) {
+        } else if (node instanceof Mesh) {
           node.name = `Mesh_${nodeCount}`
-        } else if (node instanceof THREE.Group) {
+        } else if (node instanceof Group) {
           node.name = `Group_${nodeCount}`
         } else {
           node.name = `Node_${nodeCount}`
@@ -1771,7 +1771,7 @@ export class ArmorFittingService {
    * This version prioritizes compatibility over optimization
    */
   async exportSkinnedArmorSimple(
-    skinnedArmorMesh: THREE.SkinnedMesh,
+    skinnedArmorMesh: SkinnedMesh,
     options: {
       includeFullSkeleton?: boolean
     } = {}
@@ -1781,7 +1781,7 @@ export class ArmorFittingService {
     console.log('=== SIMPLE ARMOR EXPORT ===')
     
     // Create export scene
-    const exportScene = new THREE.Scene()
+    const exportScene = new Scene()
     
     // Clone the entire setup
     const clonedMesh = skinnedArmorMesh.clone()
@@ -1790,21 +1790,21 @@ export class ArmorFittingService {
     if (includeFullSkeleton && skinnedArmorMesh.skeleton) {
       // Export with full skeleton for maximum compatibility
       const bones = skinnedArmorMesh.skeleton.bones
-      const rootBone = bones.find(b => !b.parent || !(b.parent instanceof THREE.Bone))
+      const rootBone = bones.find(b => !b.parent || !(b.parent instanceof Bone))
       
       if (rootBone) {
         const clonedRoot = rootBone.clone(true)
         exportScene.add(clonedRoot)
         
         // Recreate skeleton from cloned bones
-        const clonedBones: THREE.Bone[] = []
+        const clonedBones: Bone[] = []
         clonedRoot.traverse((node) => {
-          if (node instanceof THREE.Bone) {
+          if (node instanceof Bone) {
             clonedBones.push(node)
           }
         })
         
-        const newSkeleton = new THREE.Skeleton(clonedBones)
+        const newSkeleton = new Skeleton(clonedBones)
         clonedMesh.bind(newSkeleton, skinnedArmorMesh.bindMatrix)
       }
     }
@@ -1820,12 +1820,12 @@ export class ArmorFittingService {
     // Export
     const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
-    
+
     const gltf = await exporter.parseAsync(exportScene, {
       binary: true,
       embedImages: true
     })
-    
+
     console.log('Simple export complete')
     return gltf as ArrayBuffer
   }
@@ -1834,15 +1834,15 @@ export class ArmorFittingService {
    * Export armor as static mesh (no skinning) for debugging
    */
   async exportArmorAsStaticMesh(
-    skinnedArmorMesh: THREE.SkinnedMesh
+    skinnedArmorMesh: SkinnedMesh
   ): Promise<ArrayBuffer> {
     console.log('=== STATIC MESH EXPORT (DEBUG) ===')
     
     // Create export scene
-    const exportScene = new THREE.Scene()
-    
-    // Create static mesh from skinned mesh
-    const geometry = skinnedArmorMesh.geometry.clone()
+    const exportScene = new Scene()
+
+    // Create static mesh from skinned mesh (clone for export)
+    const geometry = cloneGeometryForModification(skinnedArmorMesh.geometry, 'static mesh export')
     
     // Apply current pose to geometry if needed
     if (skinnedArmorMesh.skeleton) {
@@ -1860,20 +1860,20 @@ export class ArmorFittingService {
         
         // Transform each vertex
         for (let i = 0; i < positionAttribute.count; i++) {
-          const vertex = new THREE.Vector3(
+          const vertex = new Vector3(
             positionAttribute.getX(i),
             positionAttribute.getY(i),
             positionAttribute.getZ(i)
           )
           
-          const transformed = new THREE.Vector3(0, 0, 0)
+          const transformed = new Vector3(0, 0, 0)
           
           for (let j = 0; j < 4; j++) {
             const boneIndex = skinIndexAttribute.getComponent(i, j)
             const weight = skinWeightAttribute.getComponent(i, j)
             
             if (weight > 0) {
-              const matrix = new THREE.Matrix4()
+              const matrix = new Matrix4()
               matrix.fromArray(boneMatrices, boneIndex * 16)
               
               const tempVertex = vertex.clone()
@@ -1890,7 +1890,7 @@ export class ArmorFittingService {
         }
         
         // Update geometry with transformed positions
-        geometry.setAttribute('position', new THREE.BufferAttribute(transformedPositions, 3))
+        geometry.setAttribute('position', new BufferAttribute(transformedPositions, 3))
       }
     }
     
@@ -1904,11 +1904,11 @@ export class ArmorFittingService {
     }
     
     // Create static mesh
-    const material = Array.isArray(skinnedArmorMesh.material) 
-      ? skinnedArmorMesh.material[0].clone() 
-      : skinnedArmorMesh.material.clone()
+    const material = Array.isArray(skinnedArmorMesh.material)
+      ? cloneMaterialForModification(skinnedArmorMesh.material[0], 'static mesh export')
+      : cloneMaterialForModification(skinnedArmorMesh.material, 'static mesh export')
     
-    const staticMesh = new THREE.Mesh(geometry, material)
+    const staticMesh = new Mesh(geometry, material)
     staticMesh.name = (skinnedArmorMesh.name || 'Armor') + '_static'
     
     // Position at origin
@@ -1919,20 +1919,20 @@ export class ArmorFittingService {
     exportScene.add(staticMesh)
     
     // Add a light to ensure visibility
-    const light = new THREE.DirectionalLight(0xffffff, 1)
+    const light = new DirectionalLight(0xffffff, 1)
     light.position.set(5, 5, 5)
     exportScene.add(light)
-    exportScene.add(new THREE.AmbientLight(0x404040))
-    
+    exportScene.add(new AmbientLight(0x404040))
+
     // Export
     const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
-    
+
     const gltf = await exporter.parseAsync(exportScene, {
       binary: true,
       embedImages: true
     })
-    
+
     console.log('Static mesh export complete')
     console.log(`- Vertices: ${geometry.attributes.position.count}`)
     console.log(`- Has normals: ${!!geometry.attributes.normal}`)
@@ -1956,7 +1956,7 @@ export class ArmorFittingService {
    * @returns Promise<ArrayBuffer> - The exported GLB data
    */
   async exportSkinnedArmorForGame(
-    skinnedArmorMesh: THREE.SkinnedMesh,
+    skinnedArmorMesh: SkinnedMesh,
     options: {
       // includeNormals?: boolean
       // includeTangents?: boolean
@@ -1987,9 +1987,9 @@ export class ArmorFittingService {
     console.log(`Armor uses ${usedBoneIndices.size} bones out of ${skeleton.bones.length}`)
 
     // Create a minimal skeleton with only the bones needed for this armor
-    // const usedBones: THREE.Bone[] = []
+    // const usedBones: Bone[] = []
     const boneMapping = new Map<number, number>() // oldIndex -> newIndex
-    const newBones: THREE.Bone[] = []
+    const newBones: Bone[] = []
     
     // First, collect all used bones and their ancestors (to maintain hierarchy)
     const requiredBoneIndices = new Set<number>()
@@ -1998,7 +1998,7 @@ export class ArmorFittingService {
       
       // Add all ancestors to maintain proper hierarchy
       let bone = skeleton.bones[boneIndex]
-      while (bone.parent && bone.parent instanceof THREE.Bone) {
+      while (bone.parent && bone.parent instanceof Bone) {
         const parentIndex = skeleton.bones.indexOf(bone.parent)
         if (parentIndex !== -1) {
           requiredBoneIndices.add(parentIndex)
@@ -2016,8 +2016,8 @@ export class ArmorFittingService {
     
     // Create new bones preserving hierarchy AND world transforms
     const sortedIndices = Array.from(requiredBoneIndices).sort((a, b) => a - b)
-    const oldToNewBone = new Map<THREE.Bone, THREE.Bone>()
-    const oldBoneWorldMatrices = new Map<THREE.Bone, THREE.Matrix4>()
+    const oldToNewBone = new Map<Bone, Bone>()
+    const oldBoneWorldMatrices = new Map<Bone, Matrix4>()
     
     // First pass: store world matrices of old bones
     sortedIndices.forEach(oldIndex => {
@@ -2028,7 +2028,7 @@ export class ArmorFittingService {
     
     sortedIndices.forEach((oldIndex, newIndex) => {
       const oldBone = skeleton.bones[oldIndex]
-      const newBone = new THREE.Bone()
+      const newBone = new Bone()
       newBone.name = boneNameMapping[oldBone.name] || oldBone.name
       
       // Copy local transforms initially
@@ -2047,7 +2047,7 @@ export class ArmorFittingService {
       const oldBone = skeleton.bones[oldIndex]
       const newBone = oldToNewBone.get(oldBone)!
       
-      if (oldBone.parent && oldBone.parent instanceof THREE.Bone) {
+      if (oldBone.parent && oldBone.parent instanceof Bone) {
         const parentNewBone = oldToNewBone.get(oldBone.parent)
         if (parentNewBone) {
           parentNewBone.add(newBone)
@@ -2056,27 +2056,27 @@ export class ArmorFittingService {
     })
 
     // Find root bones (bones without parents in our subset)
-    const rootBones = newBones.filter(bone => !bone.parent || !(bone.parent instanceof THREE.Bone))
+    const rootBones = newBones.filter(bone => !bone.parent || !(bone.parent instanceof Bone))
     
     // Update world matrices for new bones
     rootBones.forEach(root => root.updateMatrixWorld(true))
     
     // Create inverse bind matrices that preserve the fitted shape
-    const boneInverses: THREE.Matrix4[] = []
+    const boneInverses: Matrix4[] = []
     sortedIndices.forEach((oldIndex) => {
       const oldBoneWorldMatrix = oldBoneWorldMatrices.get(skeleton.bones[oldIndex])!
       
       // The inverse bind matrix should transform from the bone's current world space to local space
-      const inverseBindMatrix = new THREE.Matrix4()
+      const inverseBindMatrix = new Matrix4()
       inverseBindMatrix.copy(oldBoneWorldMatrix).invert()
       boneInverses.push(inverseBindMatrix)
     })
     
     // Create minimal skeleton with custom bind matrices
-    const minimalSkeleton = new THREE.Skeleton(newBones, boneInverses)
-    
-    // Clone geometry and update skin indices
-    const exportGeometry = geometry.clone()
+    const minimalSkeleton = new Skeleton(newBones, boneInverses)
+
+    // Clone geometry for export and update skin indices
+    const exportGeometry = cloneGeometryForModification(geometry, 'minimal skeleton export')
     const skinIndices = exportGeometry.attributes.skinIndex
     const newSkinIndices = new Float32Array(skinIndices.array.length)
     
@@ -2089,11 +2089,11 @@ export class ArmorFittingService {
       }
     }
     
-    exportGeometry.setAttribute('skinIndex', new THREE.BufferAttribute(newSkinIndices, 4))
+    exportGeometry.setAttribute('skinIndex', new BufferAttribute(newSkinIndices, 4))
 
     // Create the export scene with a root node
-    const exportScene = new THREE.Scene()
-    const rootNode = new THREE.Group()
+    const exportScene = new Scene()
+    const rootNode = new Group()
     rootNode.name = 'ArmatureRoot'
     exportScene.add(rootNode)
     
@@ -2109,7 +2109,7 @@ export class ArmorFittingService {
     }
     
     // Create skinned mesh for export
-    const exportMesh = new THREE.SkinnedMesh(exportGeometry, exportMaterial)
+    const exportMesh = new SkinnedMesh(exportGeometry, exportMaterial)
     exportMesh.name = skinnedArmorMesh.name || 'Armor'
     
     // Set mesh transform to match the original
@@ -2119,7 +2119,7 @@ export class ArmorFittingService {
     exportMesh.scale.copy(skinnedArmorMesh.scale)
     
     // IMPORTANT: Use identity bind matrix since our skeleton is already in the fitted pose
-    const bindMatrix = new THREE.Matrix4()
+    const bindMatrix = new Matrix4()
     bindMatrix.identity()
     
     // Bind to the minimal skeleton with identity bind matrix
@@ -2156,7 +2156,7 @@ export class ArmorFittingService {
     // Use GLTFExporter to export
     const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
     const exporter = new GLTFExporter()
-    
+
     // Log debug info
     console.log('Export mesh details:')
     console.log(`- Position: ${exportMesh.position.toArray()}`)
@@ -2197,26 +2197,26 @@ export class ArmorFittingService {
    * Calculate average distance between bones to detect unit scale issues
    * @private
    */
-  private calculateAverageBoneDistance(skeleton: THREE.Skeleton): number {
+  private calculateAverageBoneDistance(skeleton: Skeleton): number {
     let totalDistance = 0
     let count = 0
     
     skeleton.bones.forEach(bone => {
-      if (bone.parent && bone.parent instanceof THREE.Bone) {
+      if (bone.parent && bone.parent instanceof Bone) {
         const distance = bone.position.length()
         totalDistance += distance
         count++
       }
     })
-    
-    return count > 0 ? totalDistance / count : 0
+
+    return safeDivide(totalDistance, count, 0)
   }
 
   /**
    * Get which bones are actually used by the mesh
    * @private
    */
-  private getUsedBones(geometry: THREE.BufferGeometry): Set<number> {
+  private getUsedBones(geometry: BufferGeometry): Set<number> {
     const usedBones = new Set<number>()
     const skinIndices = geometry.attributes.skinIndex
     const skinWeights = geometry.attributes.skinWeight
@@ -2245,14 +2245,14 @@ export class ArmorFittingService {
    * @param options - Equip options
    */
   equipArmorToCharacter(
-    loadedArmor: THREE.Group | THREE.Scene,
-    characterMesh: THREE.SkinnedMesh,
+    loadedArmor: Group | Scene,
+    characterMesh: SkinnedMesh,
     options: {
       autoMatch?: boolean // Automatically match bones by name
       boneNameMapping?: Record<string, string> // Manual bone name mapping
       parentToCharacter?: boolean // Parent armor to character's root
     } = {}
-  ): THREE.SkinnedMesh | null {
+  ): SkinnedMesh | null {
     const {
       autoMatch = true,
       boneNameMapping = {},
@@ -2262,10 +2262,10 @@ export class ArmorFittingService {
     console.log('=== EQUIPPING ARMOR TO CHARACTER ===')
 
     // Find the armor mesh in the loaded group
-    let armorMesh: THREE.SkinnedMesh | null = null
+    let armorMesh: SkinnedMesh | null = null
     loadedArmor.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && !armorMesh) {
-        armorMesh = child as THREE.SkinnedMesh
+      if (child instanceof SkinnedMesh && !armorMesh) {
+        armorMesh = child as SkinnedMesh
       }
     })
 
@@ -2275,7 +2275,7 @@ export class ArmorFittingService {
     }
     
     // TypeScript type guard
-    const armor = armorMesh as THREE.SkinnedMesh
+    const armor = armorMesh as SkinnedMesh
 
     const characterSkeleton = characterMesh.skeleton
     if (!characterSkeleton) {
@@ -2287,7 +2287,7 @@ export class ArmorFittingService {
     console.log(`Character has ${characterSkeleton.bones.length} bones`)
 
     // Create bone mapping from armor bones to character bones
-    const armorToCharacterBoneMap = new Map<THREE.Bone, THREE.Bone>()
+    const armorToCharacterBoneMap = new Map<Bone, Bone>()
     
     armor.skeleton.bones.forEach(armorBone => {
       // Try exact name match first
@@ -2325,8 +2325,8 @@ export class ArmorFittingService {
     console.log(`Successfully matched ${armorToCharacterBoneMap.size}/${armor.skeleton.bones.length} bones`)
 
     // Update armor skeleton to use character's bones
-    const newBones: THREE.Bone[] = []
-    const newInverses: THREE.Matrix4[] = []
+    const newBones: Bone[] = []
+    const newInverses: Matrix4[] = []
     const boneIndexMap = new Map<number, number>()
     
     armor.skeleton.bones.forEach((armorBone, armorIndex) => {
@@ -2354,7 +2354,7 @@ export class ArmorFittingService {
       }
     }
     
-    geometry.setAttribute('skinIndex', new THREE.BufferAttribute(newSkinIndices, 4))
+    geometry.setAttribute('skinIndex', new BufferAttribute(newSkinIndices, 4))
 
     // Bind armor to character's skeleton
     armor.bind(characterSkeleton, armor.bindMatrix)
@@ -2379,13 +2379,13 @@ export class ArmorFittingService {
    * Use equipArmorToCharacter for game-style equipment systems
    */
   bindImportedArmorToSkeleton(
-    armorMesh: THREE.Mesh,
-    targetSkeleton: THREE.Skeleton,
+    armorMesh: Mesh,
+    targetSkeleton: Skeleton,
     options: {
       boneNameMapping?: Record<string, string> // Map from armor bone names to target skeleton bone names
       autoDetectMapping?: boolean // Try to automatically match bone names
     } = {}
-  ): THREE.SkinnedMesh {
+  ): SkinnedMesh {
     const {
       boneNameMapping = {},
       autoDetectMapping = true
@@ -2465,14 +2465,17 @@ export class ArmorFittingService {
         }
       }
     }
-    
-    // Create new skinned mesh
-    const skinnedMesh = new THREE.SkinnedMesh(geometry.clone(), armorMesh.material)
+
+    // Create new skinned mesh (clone geometry as it will be modified)
+    const skinnedMesh = new SkinnedMesh(
+      cloneGeometryForModification(geometry, 'armor skeleton binding'),
+      armorMesh.material
+    )
     
     // Update skin indices
     skinnedMesh.geometry.setAttribute(
       'skinIndex',
-      new THREE.BufferAttribute(newSkinIndices, 4)
+      new BufferAttribute(newSkinIndices, 4)
     )
     
     // Restore bind matrix inverse

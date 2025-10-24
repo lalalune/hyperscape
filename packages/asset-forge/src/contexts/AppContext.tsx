@@ -3,7 +3,7 @@
  * Provides centralized state management for the application
  */
 
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react'
 
 interface AppContextType {
   loading: boolean
@@ -21,12 +21,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notification, setNotification] = useState<AppContextType['notification']>(null)
+  const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    // Clear any existing timeout
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current)
+    }
+
     setNotification({ message, type })
+
     // Auto-clear after 5 seconds
-    setTimeout(() => {
+    notificationTimeoutRef.current = setTimeout(() => {
       setNotification(null)
+      notificationTimeoutRef.current = null
     }, 5000)
   }
 
@@ -34,16 +51,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNotification(null)
   }
 
+  const contextValue = useMemo<AppContextType>(() => ({
+    loading,
+    setLoading,
+    error,
+    setError,
+    notification,
+    showNotification,
+    clearNotification
+  }), [loading, error, notification])
+
   return (
-    <AppContext.Provider value={{
-      loading,
-      setLoading,
-      error,
-      setError,
-      notification,
-      showNotification,
-      clearNotification
-    }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   )

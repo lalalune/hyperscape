@@ -1,10 +1,10 @@
 import { MutableRefObject } from 'react'
-import * as THREE from 'three'
+import { Box3, BoxGeometry, Mesh, Scene, SphereGeometry, Vector3 } from 'three'
 
-import { MeshFittingService, MeshFittingParameters } from '../../../../services/fitting/MeshFittingService'
+import { MeshFittingService, MeshFittingParameters } from '@/services/fitting/MeshFittingService'
 
 interface BasicDemoFittingProps {
-    sceneRef: MutableRefObject<THREE.Scene | null>
+    sceneRef: MutableRefObject<Scene | null>
     fittingService: MutableRefObject<MeshFittingService>
     
     setIsProcessing: (value: boolean) => void
@@ -20,7 +20,17 @@ export function useBasicDemoFitting({
     isProcessing,
     fittingParameters
 }: BasicDemoFittingProps) {
-    
+    const timeoutRefs: { current: ReturnType<typeof setTimeout> | null }[] = []
+
+    const cleanupTimeouts = () => {
+        timeoutRefs.forEach(ref => {
+            if (ref.current) {
+                clearTimeout(ref.current)
+                ref.current = null
+            }
+        })
+    }
+
     const performBasicDemoFitting = (direction: 'cubeToSphere' | 'sphereToCube') => {
         if (!sceneRef.current) return
 
@@ -36,23 +46,23 @@ export function useBasicDemoFitting({
         setIsProcessing(true)
 
         // Find source and target meshes based on direction
-        let sourceMesh: THREE.Mesh | undefined
-        let targetMesh: THREE.Mesh | undefined
+        let sourceMesh: Mesh | undefined
+        let targetMesh: Mesh | undefined
 
         scene.traverse((obj) => {
-            if (obj instanceof THREE.Mesh && obj.geometry) {
+            if (obj instanceof Mesh && obj.geometry) {
                 if (direction === 'cubeToSphere') {
                     // For cube to sphere: source is cube, target is sphere
-                    if (obj.userData.isSource && obj.geometry instanceof THREE.BoxGeometry) {
+                    if (obj.userData.isSource && obj.geometry instanceof BoxGeometry) {
                         sourceMesh = obj
-                    } else if (obj.userData.isTarget && obj.geometry instanceof THREE.SphereGeometry) {
+                    } else if (obj.userData.isTarget && obj.geometry instanceof SphereGeometry) {
                         targetMesh = obj
                     }
                 } else {
                     // For sphere to cube: source is sphere, target is cube  
-                    if (obj.userData.isSource && obj.geometry instanceof THREE.SphereGeometry) {
+                    if (obj.userData.isSource && obj.geometry instanceof SphereGeometry) {
                         sourceMesh = obj
-                    } else if (obj.userData.isTarget && obj.geometry instanceof THREE.BoxGeometry) {
+                    } else if (obj.userData.isTarget && obj.geometry instanceof BoxGeometry) {
                         targetMesh = obj
                     }
                 }
@@ -65,8 +75,8 @@ export function useBasicDemoFitting({
             const targetParent = targetMesh.parent
 
             // Get world positions before detaching
-            const sourceWorldPos = new THREE.Vector3()
-            const targetWorldPos = new THREE.Vector3()
+            const sourceWorldPos = new Vector3()
+            const targetWorldPos = new Vector3()
             sourceMesh.getWorldPosition(sourceWorldPos)
             targetMesh.getWorldPosition(targetWorldPos)
 
@@ -87,8 +97,8 @@ export function useBasicDemoFitting({
             console.log('Target mesh position:', targetMesh.position)
 
             // Log initial bounds
-            const sourceBounds = new THREE.Box3().setFromObject(sourceMesh)
-            const targetBounds = new THREE.Box3().setFromObject(targetMesh)
+            const sourceBounds = new Box3().setFromObject(sourceMesh)
+            const targetBounds = new Box3().setFromObject(targetMesh)
             console.log('Source bounds:', sourceBounds.min, sourceBounds.max)
             console.log('Target bounds:', targetBounds.min, targetBounds.max)
 
@@ -119,10 +129,16 @@ export function useBasicDemoFitting({
             console.error('Could not find source or target mesh for direction:', direction)
         }
 
-        setTimeout(() => setIsProcessing(false), 100)
+        const timeoutRef = { current: null as ReturnType<typeof setTimeout> | null }
+        timeoutRefs.push(timeoutRef)
+        timeoutRef.current = setTimeout(() => {
+            setIsProcessing(false)
+            timeoutRef.current = null
+        }, 100)
     }
 
     return {
-        performBasicDemoFitting
+        performBasicDemoFitting,
+        cleanupTimeouts
     }
 }

@@ -5,6 +5,7 @@
 
 import { MIN_WEAPON_SIZES, MAX_WEAPON_SIZES, BASE_WEAPON_PROPORTIONS } from '../../constants'
 import { CREATURE_SIZE_CATEGORIES, getCreatureCategory } from '../../types/NormalizationConventions'
+import { safeScale } from '../../utils/safe-math'
 
 export interface WeaponScaleResult {
   scaleFactor: number
@@ -39,22 +40,22 @@ export class CreatureScalingService {
     
     // Calculate ideal weapon length
     const idealWeaponLength = creatureHeight * adaptiveProportion
-    
-    // Calculate scale factor
-    let scaleFactor = idealWeaponLength / currentWeaponLength
-    
+
+    // Calculate scale factor (protected against division by zero)
+    let scaleFactor = safeScale(idealWeaponLength, currentWeaponLength, 1)
+
     // Apply constraints
     const minSize = MIN_WEAPON_SIZES[weaponType.toLowerCase()] || 0.1
     const maxSize = MAX_WEAPON_SIZES[weaponType.toLowerCase()] || 5.0
-    
+
     const scaledLength = currentWeaponLength * scaleFactor
     let constraintApplied = false
-    
+
     if (scaledLength < minSize) {
-      scaleFactor = minSize / currentWeaponLength
+      scaleFactor = safeScale(minSize, currentWeaponLength, 1)
       constraintApplied = true
     } else if (scaledLength > maxSize) {
-      scaleFactor = maxSize / currentWeaponLength
+      scaleFactor = safeScale(maxSize, currentWeaponLength, 1)
       constraintApplied = true
     }
     
@@ -72,8 +73,8 @@ export class CreatureScalingService {
       category,
       reasoning,
       constraints: {
-        min: minSize / currentWeaponLength,
-        max: maxSize / currentWeaponLength,
+        min: safeScale(minSize, currentWeaponLength, 1),
+        max: safeScale(maxSize, currentWeaponLength, 1),
         applied: constraintApplied
       }
     }

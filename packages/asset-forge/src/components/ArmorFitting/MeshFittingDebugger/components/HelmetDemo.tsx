@@ -1,9 +1,13 @@
 import { useGLTF, Html, Text as DreiText } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import React, { useRef, useState, useEffect, useMemo } from 'react'
-import * as THREE from 'three'
+import {
+  AnimationClip, AnimationMixer, Bone, Group, LoopRepeat, Material, Mesh,
+  MeshStandardMaterial, Skeleton, SkinnedMesh
+} from 'three'
 
 import { HelmetDemoProps } from '../types'
+import { cloneGeometryForModification, cloneMaterialForModification } from '../../../../utils/three-geometry-sharing'
 
 export const HelmetDemo: React.FC<HelmetDemoProps> = ({ 
     onReady, 
@@ -15,14 +19,14 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
     showHeadBounds, 
     headBoundsHelperRef 
 }) => {
-    const avatarRef = useRef<THREE.Group>(null)
-    const helmetRef = useRef<THREE.Group>(null)
+    const avatarRef = useRef<Group>(null)
+    const helmetRef = useRef<Group>(null)
     const [isLoaded, setIsLoaded] = useState(false)
 
-    const _mixer = useRef<THREE.AnimationMixer>()
-    const _lastTime = useRef(0)
-    const _activeAction = useRef<THREE.AnimationAction | null>(null)
-    const _animationFrame = useRef<number>()
+//     const _mixer = useRef<AnimationMixer>()
+//     const _lastTime = useRef(0)
+//     const _activeAction = useRef<AnimationAction | null>(null)
+//     const _animationFrame = useRef<number>()
 
     // Check if paths are valid before attempting to load
     const hasValidPaths = avatarPath && helmetPath && avatarPath !== '' && helmetPath !== ''
@@ -78,39 +82,39 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
         const clone = avatar.scene.clone()
 
         // Handle SkinnedMesh skeleton setup
-        const skinnedMeshes: THREE.SkinnedMesh[] = []
-        const bones: THREE.Bone[] = []
+        const skinnedMeshes: SkinnedMesh[] = []
+        const bones: Bone[] = []
 
         clone.traverse((child) => {
-            if (child instanceof THREE.Bone) {
+            if (child instanceof Bone) {
                 bones.push(child)
-            } else if (child instanceof THREE.SkinnedMesh) {
+            } else if (child instanceof SkinnedMesh) {
                 skinnedMeshes.push(child)
             }
         })
 
-        // Clone materials and geometries, setup skeleton
+        // Clone materials and geometries for fitting, setup skeleton
         clone.traverse((child) => {
-            if (child instanceof THREE.SkinnedMesh) {
-                // Clone material and geometry
+            if (child instanceof SkinnedMesh) {
+                // Clone material and geometry for fitting
                 if (child.material) {
-                    child.material = (child.material as THREE.Material).clone()
+                    child.material = cloneMaterialForModification(child.material as Material, 'helmet demo fitting')
                 }
                 if (child.geometry) {
-                    child.geometry = child.geometry.clone()
+                    child.geometry = cloneGeometryForModification(child.geometry, 'helmet demo fitting')
                 }
 
                 // Create new skeleton for the cloned mesh
                 if (bones.length > 0) {
-                    const newSkeleton = new THREE.Skeleton(bones)
+                    const newSkeleton = new Skeleton(bones)
                     child.bind(newSkeleton, child.bindMatrix)
                 }
-            } else if (child instanceof THREE.Mesh) {
+            } else if (child instanceof Mesh) {
                 if (child.material) {
-                    child.material = (child.material as THREE.Material).clone()
+                    child.material = cloneMaterialForModification(child.material as Material, 'helmet demo fitting')
                 }
                 if (child.geometry) {
-                    child.geometry = child.geometry.clone()
+                    child.geometry = cloneGeometryForModification(child.geometry, 'helmet demo fitting')
                 }
             }
         })
@@ -127,8 +131,8 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
         clone.name = 'HelmetClone'
         
         clone.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
-                child.material = child.material.clone()
+            if (child instanceof Mesh) {
+                child.material = cloneMaterialForModification(child.material as Material, 'helmet clone')
                 child.userData.isHelmet = true
             }
         })
@@ -144,18 +148,18 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
     useEffect(() => {
         if (avatarClone) {
             avatarClone.traverse((child) => {
-                if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
+                if (child instanceof Mesh || child instanceof SkinnedMesh) {
                     if (child.material) {
-                        (child.material as THREE.MeshStandardMaterial).wireframe = showWireframe
+                        (child.material as MeshStandardMaterial).wireframe = showWireframe
                     }
                 }
             })
         }
         if (helmetClone) {
             helmetClone.traverse((child) => {
-                if (child instanceof THREE.Mesh) {
+                if (child instanceof Mesh) {
                     if (child.material) {
-                        (child.material as THREE.MeshStandardMaterial).wireframe = showWireframe
+                        (child.material as MeshStandardMaterial).wireframe = showWireframe
                     }
                 }
             })
@@ -166,17 +170,17 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
     useEffect(() => {
         if (!avatarClone || !helmetClone) return
 
-        let avatarMesh: THREE.SkinnedMesh | null = null
-        let helmetMesh: THREE.Mesh | null = null
+        let avatarMesh: SkinnedMesh | null = null
+        let helmetMesh: Mesh | null = null
 
         avatarClone.traverse((child) => {
-            if (child instanceof THREE.SkinnedMesh && !avatarMesh) {
+            if (child instanceof SkinnedMesh && !avatarMesh) {
                 avatarMesh = child
             }
         })
 
         helmetClone.traverse((child) => {
-            if (child instanceof THREE.Mesh && !helmetMesh) {
+            if (child instanceof Mesh && !helmetMesh) {
                 helmetMesh = child
             }
         })
@@ -189,16 +193,16 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
     }, [avatarClone, helmetClone, onReady])
 
     // Animation mixer ref
-    const mixerRef = useRef<THREE.AnimationMixer | null>(null)
+    const mixerRef = useRef<AnimationMixer | null>(null)
 
     // Handle animation playback
     useEffect(() => {
         if (!avatar || !avatarClone || !isLoaded) return
 
         // Find the avatar mesh
-        let avatarMesh: THREE.SkinnedMesh | null = null
+        let avatarMesh: SkinnedMesh | null = null
         avatarClone.traverse((child) => {
-            if (child instanceof THREE.SkinnedMesh && !avatarMesh) {
+            if (child instanceof SkinnedMesh && !avatarMesh) {
                 avatarMesh = child
             }
         })
@@ -222,13 +226,13 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
         }
 
         // Create animation mixer if needed - always create new one for new model
-        mixerRef.current = new THREE.AnimationMixer(avatarClone)
+        mixerRef.current = new AnimationMixer(avatarClone)
         const mixer = mixerRef.current
 
         // Handle animation state
         if (isAnimationPlaying && currentAnimation !== 'tpose') {
             // Find the specific animation by name
-            let targetClip: THREE.AnimationClip | undefined
+            let targetClip: AnimationClip | undefined
 
             // Try to find animation by name patterns - be more specific
             for (const clip of animations) {
@@ -264,7 +268,7 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
             if (targetClip) {
                 const action = mixer.clipAction(targetClip)
                 action.reset()
-                action.setLoop(THREE.LoopRepeat, Infinity)
+                action.setLoop(LoopRepeat, Infinity)
                 action.play()
                 console.log('Playing animation:', targetClip.name)
             }
@@ -284,7 +288,7 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
 
     // Animation update loop  
     const frameCountRef = useRef(0)
-    useFrame((state, delta) => {
+    useFrame((_state, delta) => {
         if (mixerRef.current && isAnimationPlaying && currentAnimation !== 'tpose') {
             mixerRef.current.update(delta)
 

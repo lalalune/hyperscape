@@ -1,18 +1,9 @@
-import * as THREE from 'three'
-import { 
-  BufferGeometry, 
-  BufferAttribute,
-  Vector3,
-  Mesh,
-  Box3,
-  Raycaster,
-  BoxGeometry,
-  Triangle,
-  Quaternion,
-  Euler,
-  Bone,
-  SkinnedMesh
+import {
+  ArrowHelper, Bone, Box3, BoxGeometry, BufferAttribute, BufferGeometry, Color, Euler, Group,
+  Mesh, Quaternion, Raycaster, Skeleton, SkinnedMesh, Triangle, Vector3
 } from 'three'
+
+import { safeDivide } from '../../utils/safe-math'
 
 export interface MeshFittingParameters {
   iterations: number
@@ -39,9 +30,9 @@ export interface MeshFittingParameters {
 
 export class MeshFittingService {
   private raycaster: Raycaster = new Raycaster()
-  private tempVertex = new Vector3()
-  private tempTarget = new Vector3()
-  private debugArrowGroup: THREE.Group | null = null
+//   private tempVertex = new Vector3()
+//   private tempTarget = new Vector3()
+  private debugArrowGroup: Group | null = null
   private debugData: {
     displacements: Float32Array
     vertices: Float32Array
@@ -51,7 +42,7 @@ export class MeshFittingService {
   /**
    * Set the debug arrow group for visualization
    */
-  setDebugArrowGroup(group: THREE.Group | null): void {
+  setDebugArrowGroup(group: Group | null): void {
     this.debugArrowGroup = group
   }
   
@@ -84,24 +75,24 @@ export class MeshFittingService {
     this.debugArrowGroup.clear()
     
     // Color based on mode
-    const getArrowColor = (index: number, displacement: Vector3): THREE.Color => {
+    const getArrowColor = (index: number, displacement: Vector3): Color => {
       if (parameters.debugColorMode === 'magnitude') {
         // Color by magnitude: blue (small) -> green -> yellow -> red (large)
         const mag = displacement.length()
-        const normalized = Math.min(mag / 0.1, 1) // Normalize to 0-1 based on 10cm max
+        const normalized = Math.min(mag / 0.1, 1) // Safe: 0.1 is constant
         const r = normalized
         const g = 1 - Math.abs(normalized - 0.5) * 2
         const b = 1 - normalized
-        return new THREE.Color(r, g, b)
+        return new Color(r, g, b)
       } else if (parameters.debugColorMode === 'sidedness') {
         // Color by vertex sidedness
         const sidedness = this.debugData?.sidedness[index] || 'unknown'
         switch (sidedness) {
-          case 'front': return new THREE.Color(0, 1, 0)  // Green
-          case 'back': return new THREE.Color(1, 0, 0)   // Red
-          case 'left': return new THREE.Color(0, 0, 1)   // Blue
-          case 'right': return new THREE.Color(1, 1, 0)  // Yellow
-          default: return new THREE.Color(0.5, 0.5, 0.5) // Gray
+          case 'front': return new Color(0, 1, 0)  // Green
+          case 'back': return new Color(1, 0, 0)   // Red
+          case 'left': return new Color(0, 0, 1)   // Blue
+          case 'right': return new Color(1, 1, 0)  // Yellow
+          default: return new Color(0.5, 0.5, 0.5) // Gray
         }
       } else {
         // Default: color by direction
@@ -112,13 +103,13 @@ export class MeshFittingService {
         
         if (absZ > absX && absZ > absY) {
           // Moving primarily forward/backward
-          return worldDisp.z > 0 ? new THREE.Color(1, 0, 0) : new THREE.Color(0, 1, 0) // Red = forward, Green = backward
+          return worldDisp.z > 0 ? new Color(1, 0, 0) : new Color(0, 1, 0) // Red = forward, Green = backward
         } else if (absY > absX) {
           // Moving primarily up/down
-          return new THREE.Color(0, 0, 1) // Blue
+          return new Color(0, 0, 1) // Blue
         } else {
           // Moving primarily sideways
-          return new THREE.Color(1, 1, 0) // Yellow
+          return new Color(1, 1, 0) // Yellow
         }
       }
     }
@@ -156,7 +147,7 @@ export class MeshFittingService {
       const length = Math.min(magnitude * 5, 0.1) // Scale up for visibility, cap at 10cm
       const color = getArrowColor(i, displacement)
       
-      const arrow = new THREE.ArrowHelper(direction, origin, length, color, length * 0.3, length * 0.2)
+      const arrow = new ArrowHelper(direction, origin, length, color, length * 0.3, length * 0.2)
       this.debugArrowGroup.add(arrow)
     }
     
@@ -285,7 +276,7 @@ export class MeshFittingService {
    * Check if a point is inside a skinned mesh by raycasting in multiple directions
    * A point is considered inside if most rays hit the mesh from the inside (backfaces)
    */
-  private isPointInsideSkinnedMesh(point: Vector3, mesh: THREE.SkinnedMesh): boolean {
+  private isPointInsideSkinnedMesh(point: Vector3, mesh: SkinnedMesh): boolean {
     // Cast rays in multiple directions
     const directions = [
       new Vector3(1, 0, 0),   // +X
@@ -322,9 +313,10 @@ export class MeshFittingService {
         }
       }
     }
-    
+
+
     // Consider inside if more than half of the hits are backfaces
-    return totalHits > 0 && (insideCount / totalHits) > 0.5
+    return totalHits > 0 && safeDivide(insideCount, totalHits, 0) > 0.5
   }
   
   /**
@@ -332,7 +324,7 @@ export class MeshFittingService {
    */
   private pushInteriorVerticesOut(
     sourceMesh: Mesh,
-    targetMesh: Mesh | THREE.SkinnedMesh,
+    targetMesh: Mesh | SkinnedMesh,
     originalPositions: Float32Array,
     blendFactor: number = 1.0
   ): number {
@@ -357,7 +349,7 @@ export class MeshFittingService {
       
       // Check if inside target mesh
       let isInside = false
-      if (targetMesh instanceof THREE.SkinnedMesh) {
+      if (targetMesh instanceof SkinnedMesh) {
         isInside = this.isPointInsideSkinnedMesh(vertex, targetMesh)
       } else {
         isInside = this.isPointInsideMesh(vertex, targetMesh)
@@ -423,10 +415,12 @@ export class MeshFittingService {
         position.getY(i),
         position.getZ(i)
       )
-      
-      // Calculate relative position
-      const relativeY = (vertex.y - bounds.min.y) / size.y
-      const relativeX = Math.abs(vertex.x - center.x) / (size.x / 2)
+
+
+      // Calculate relative position (protected against division by zero)
+      const relativeY = safeDivide(vertex.y - bounds.min.y, size.y, 0)
+      const halfSizeX = size.x / 2 // Safe: constant division
+      const relativeX = safeDivide(Math.abs(vertex.x - center.x), halfSizeX, 0)
       
       // Arm holes are typically:
       // - At 60-90% height (shoulder area)
@@ -460,7 +454,7 @@ export class MeshFittingService {
     console.log('Parameters:', parameters)
     
     // Warn about performance with SkinnedMesh targets
-    if (targetMesh instanceof THREE.SkinnedMesh) {
+    if (targetMesh instanceof SkinnedMesh) {
       console.warn('⚠️ Target is a SkinnedMesh - this may be slower than regular meshes')
       console.warn('Consider reducing iterations or sample rate for better performance')
     }
@@ -489,15 +483,15 @@ export class MeshFittingService {
     
     // Only detect intersections for armor meshes being fitted to SkinnedMesh avatars
     const isArmorToAvatar = (sourceMesh.userData.isArmor || vertexCount > 1000) && 
-                           targetMesh instanceof THREE.SkinnedMesh && 
+                           targetMesh instanceof SkinnedMesh && 
                            parameters.preserveOpenings !== false
     
-    if (isArmorToAvatar && targetMesh instanceof THREE.SkinnedMesh) {
+    if (isArmorToAvatar && targetMesh instanceof SkinnedMesh) {
       console.log('🎯 Detected armor-to-avatar fitting - detecting neck/arm intersections')
       
       const skeleton = targetMesh.skeleton
       if (skeleton) {
-        lockedVertices = this.detectIntersectingVertices(sourceMesh, targetMesh, skeleton)
+        lockedVertices = this.detectIntersectingVertices(sourceMesh, skeleton)
         
         // Calculate influence radius based on mesh size
         const meshSize = new Box3().setFromObject(sourceMesh).getSize(new Vector3())
@@ -551,9 +545,9 @@ export class MeshFittingService {
     
     // For sphere detection (common case in debugger)
     const targetSize = targetBounds.getSize(new Vector3())
-    const isSphere = Math.abs(targetSize.x - targetSize.y) < 0.01 && 
+    const isSphere = Math.abs(targetSize.x - targetSize.y) < 0.01 &&
                      Math.abs(targetSize.y - targetSize.z) < 0.01
-    const sphereRadius = isSphere ? targetSize.x / 2 : 0
+    const sphereRadius = isSphere ? targetSize.x / 2 : 0 // Safe: constant division
     
     // Check if target is a box geometry
     const isBox = this.detectFlatFaces(targetMesh)
@@ -592,7 +586,7 @@ export class MeshFittingService {
     
     // Also classify for armor fitting even without debug mode
     const isArmorFitting = sourceMesh.userData.originalGeometry && 
-                           targetMesh instanceof THREE.SkinnedMesh &&
+                           targetMesh instanceof SkinnedMesh &&
                            vertexCount > 1000
     
     if (isArmorFitting && vertexSidedness.length === 0) {
@@ -620,7 +614,7 @@ export class MeshFittingService {
       
       // Report progress
       if (parameters.onProgress) {
-        const progress = (iter / parameters.iterations) * 100
+        const progress = safeDivide(iter * 100, parameters.iterations, 0)
         parameters.onProgress(progress, `Fitting iteration ${iter + 1} of ${parameters.iterations}`)
       }
       
@@ -758,15 +752,17 @@ export class MeshFittingService {
             
             // NEW: For armor fitting, use directional awareness
             const isArmorFitting = sourceMesh.userData.originalGeometry && 
-                                   targetMesh instanceof THREE.SkinnedMesh &&
+                                   targetMesh instanceof SkinnedMesh &&
                                    vertexCount > 1000
             
             if (isArmorFitting && vertexSidedness.length > 0) {
               // Get the vertex sidedness
               const sidedness = vertexSidedness[vertexIndex] || 'unknown'
-              
+
+
               // Calculate relative height for various adjustments
-              const relativeY = (vertex.y - sourceBounds.min.y) / (sourceBounds.max.y - sourceBounds.min.y)
+              const heightRange = sourceBounds.max.y - sourceBounds.min.y
+              const relativeY = safeDivide(vertex.y - sourceBounds.min.y, heightRange, 0)
               
               // Determine ray direction based on vertex classification
               let rayDirection = new Vector3()
@@ -1070,7 +1066,8 @@ export class MeshFittingService {
         // Apply special constraints for armor fitting
         if (isArmorFitting && vertexSidedness.length > 0) {
           const sidedness = vertexSidedness[vertexIndex] || 'unknown'
-          const relativeY = (vertex.y - sourceBounds.min.y) / (sourceBounds.max.y - sourceBounds.min.y)
+          const heightRange = sourceBounds.max.y - sourceBounds.min.y
+          const relativeY = safeDivide(vertex.y - sourceBounds.min.y, heightRange, 0)
           
           // Shoulder region constraints
           if (relativeY > 0.6 && (sidedness === 'left' || sidedness === 'right')) {
@@ -1132,7 +1129,8 @@ export class MeshFittingService {
             
             if (isArmorFitting && vertexSidedness.length > 0) {
               const sidedness = vertexSidedness[vertexIndex] || 'unknown'
-              const relativeY = (vertex.y - sourceBounds.min.y) / (sourceBounds.max.y - sourceBounds.min.y)
+              const heightRange = sourceBounds.max.y - sourceBounds.min.y
+              const relativeY = safeDivide(vertex.y - sourceBounds.min.y, heightRange, 0)
               
               if (sidedness === 'back') {
                 // Larger offset for back vertices, especially lower back
@@ -1391,7 +1389,7 @@ export class MeshFittingService {
     
     // Push out any vertices that ended up inside the target mesh
     // This prevents armor from collapsing through the body
-    if (parameters.pushInteriorVertices && (targetMesh instanceof THREE.SkinnedMesh || vertexCount > 1000)) {
+    if (parameters.pushInteriorVertices && (targetMesh instanceof SkinnedMesh || vertexCount > 1000)) {
       if (preIterationPositions) {
         const pushedCount = this.pushInteriorVerticesOut(
           sourceMesh, 
@@ -1550,12 +1548,10 @@ export class MeshFittingService {
     const vertexCount = position.count
     
     // Store original positions for reference
-    const _originalPositions = new Float32Array(position.array)
-    
+//     const _originalPositions = new Float32Array(position.array)
+
     // Get centers
-    const sourceBounds = new Box3().setFromObject(sourceMesh)
     const targetBounds = new Box3().setFromObject(targetMesh)
-    const _sourceCenter = sourceBounds.getCenter(new Vector3())
     const targetCenter = targetBounds.getCenter(new Vector3())
     
     // Check if target is a box
@@ -1881,223 +1877,68 @@ export class MeshFittingService {
    * Detect edge vertices that form openings (neck hole, arm holes)
    * Returns a Set of vertex indices that are on edges
    */
-  private detectEdgeVertices(geometry: BufferGeometry): { 
-    edgeVertices: Set<number>, 
-    edgeLoops: Array<{name: string, vertices: number[]}> 
-  } {
-    console.log('🔍 Detecting edge vertices for openings...')
-    
-    const position = geometry.attributes.position as BufferAttribute
-    const index = geometry.index
-    
-    if (!index) {
-      console.warn('⚠️ Mesh has no index buffer, edge detection may be incomplete')
-      return { edgeVertices: new Set(), edgeLoops: [] }
-    }
-    
-    // Map to track how many faces each edge belongs to
-    const edgeMap = new Map<string, { count: number, vertices: [number, number] }>()
-    
-    // Build edge map
-    const indices = index.array
-    for (let i = 0; i < indices.length; i += 3) {
-      const v0 = indices[i]
-      const v1 = indices[i + 1]
-      const v2 = indices[i + 2]
-      
-      // Three edges per triangle
-      const edges: [number, number][] = [
-        [Math.min(v0, v1), Math.max(v0, v1)],
-        [Math.min(v1, v2), Math.max(v1, v2)],
-        [Math.min(v2, v0), Math.max(v2, v0)]
-      ]
-      
-      for (const [a, b] of edges) {
-        const key = `${a}_${b}`
-        const edge = edgeMap.get(key)
-        if (edge) {
-          edge.count++
-        } else {
-          edgeMap.set(key, { count: 1, vertices: [a, b] })
-        }
-      }
-    }
-    
-    // Find boundary edges (edges that belong to only one face)
-    const boundaryEdges: Array<[number, number]> = []
-    const edgeVertices = new Set<number>()
-    
-    for (const [_key, edge] of edgeMap) {
-      if (edge.count === 1) {
-        boundaryEdges.push(edge.vertices)
-        edgeVertices.add(edge.vertices[0])
-        edgeVertices.add(edge.vertices[1])
-      }
-    }
-    
-    console.log(`Found ${edgeVertices.size} edge vertices forming ${boundaryEdges.length} boundary edges`)
-    
-    // Group edge vertices into loops
-    const edgeLoops = this.groupEdgeVerticesIntoLoops(boundaryEdges, position)
-    
-    return { edgeVertices, edgeLoops }
-  }
-  
-  /**
-   * Group boundary edges into continuous loops and classify them
-   */
-  private groupEdgeVerticesIntoLoops(
-    boundaryEdges: Array<[number, number]>, 
-    positionAttribute: BufferAttribute
-  ): Array<{name: string, vertices: number[]}> {
-    const loops: Array<{name: string, vertices: number[]}> = []
-    const processedEdges = new Set<string>()
-    
-    // Build adjacency map
-    const adjacency = new Map<number, Set<number>>()
-    for (const [a, b] of boundaryEdges) {
-      if (!adjacency.has(a)) adjacency.set(a, new Set())
-      if (!adjacency.has(b)) adjacency.set(b, new Set())
-      adjacency.get(a)!.add(b)
-      adjacency.get(b)!.add(a)
-    }
-    
-    // Extract loops
-    for (const [a, b] of boundaryEdges) {
-      const edgeKey = `${Math.min(a, b)}_${Math.max(a, b)}`
-      if (processedEdges.has(edgeKey)) continue
-      
-      // Trace the loop
-      const loop: number[] = []
-      const visited = new Set<number>()
-      let current = a
-      
-      while (!visited.has(current)) {
-        visited.add(current)
-        loop.push(current)
-        
-        const neighbors = adjacency.get(current)
-        if (!neighbors || neighbors.size === 0) break
-        
-        // Find unvisited neighbor
-        let next: number | null = null
-        for (const neighbor of neighbors) {
-          if (!visited.has(neighbor)) {
-            next = neighbor
-            break
-          }
-        }
-        
-        if (next === null) {
-          // Check if we can close the loop
-          if (neighbors.has(a) && loop.length > 2) {
-            break // Loop is complete
-          }
-          // Otherwise, find any neighbor
-          const firstNeighbor = neighbors.values().next().value
-          if (firstNeighbor !== undefined) {
-            next = firstNeighbor
-          } else {
-            break // No more neighbors
-          }
-        }
-        
-        if (next === null) break
-        
-        const key = `${Math.min(current, next)}_${Math.max(current, next)}`
-        processedEdges.add(key)
-        current = next
-      }
-      
-      if (loop.length > 0) {
-        // Classify the loop based on its position and size
-        const loopName = this.classifyEdgeLoop(loop, positionAttribute)
-        loops.push({ name: loopName, vertices: loop })
-      }
-    }
-    
-    console.log(`Grouped edge vertices into ${loops.length} loops:`)
-    loops.forEach(loop => {
-      console.log(`  - ${loop.name}: ${loop.vertices.length} vertices`)
-    })
-    
-    return loops
-  }
-  
-  /**
-   * Classify an edge loop based on its position (neck, left arm, right arm)
-   */
-  private classifyEdgeLoop(vertices: number[], positionAttribute: BufferAttribute): string {
-    // Calculate loop center and bounds
-    const center = new Vector3()
-    const min = new Vector3(Infinity, Infinity, Infinity)
-    const max = new Vector3(-Infinity, -Infinity, -Infinity)
-    
-    for (const vertexIndex of vertices) {
-      const x = positionAttribute.getX(vertexIndex)
-      const y = positionAttribute.getY(vertexIndex)
-      const z = positionAttribute.getZ(vertexIndex)
-      
-      center.x += x
-      center.y += y
-      center.z += z
-      
-      min.x = Math.min(min.x, x)
-      min.y = Math.min(min.y, y)
-      min.z = Math.min(min.z, z)
-      max.x = Math.max(max.x, x)
-      max.y = Math.max(max.y, y)
-      max.z = Math.max(max.z, z)
-    }
-    
-    center.divideScalar(vertices.length)
-    const size = max.clone().sub(min)
-    
-    // Get overall mesh bounds for relative positioning
-    let meshMin = new Vector3(Infinity, Infinity, Infinity)
-    let meshMax = new Vector3(-Infinity, -Infinity, -Infinity)
-    for (let i = 0; i < positionAttribute.count; i++) {
-      meshMin.x = Math.min(meshMin.x, positionAttribute.getX(i))
-      meshMin.y = Math.min(meshMin.y, positionAttribute.getY(i))
-      meshMin.z = Math.min(meshMin.z, positionAttribute.getZ(i))
-      meshMax.x = Math.max(meshMax.x, positionAttribute.getX(i))
-      meshMax.y = Math.max(meshMax.y, positionAttribute.getY(i))
-      meshMax.z = Math.max(meshMax.z, positionAttribute.getZ(i))
-    }
-    
-    const meshSize = meshMax.clone().sub(meshMin)
-    const meshCenter = meshMin.clone().add(meshMax).multiplyScalar(0.5)
-    
-    // Classify based on relative position within the mesh
-    // Neck hole: top 25% of mesh height, centered on X axis
-    // Arm holes: middle 50-75% height, offset on X axis
-    
-    const relativeY = (center.y - meshMin.y) / meshSize.y
-    const relativeX = (center.x - meshCenter.x) / (meshSize.x * 0.5) // -1 to 1
-    
-    // Size-based classification
-    const loopDiameter = Math.max(size.x, size.z) // Horizontal size
-    const isLargeOpening = loopDiameter > meshSize.x * 0.3 // Large openings are likely neck or bottom
-    
-    console.log(`Loop analysis: center Y=${relativeY.toFixed(2)}, X=${relativeX.toFixed(2)}, diameter=${loopDiameter.toFixed(3)}`)
-    
-    if (relativeY > 0.75 && Math.abs(relativeX) < 0.3 && isLargeOpening) {
-      return 'neck'
-    } else if (relativeY > 0.4 && relativeY < 0.8) {
-      // Arm holes are in the upper-middle section
-      if (relativeX < -0.3) {
-        return 'leftArm'
-      } else if (relativeX > 0.3) {
-        return 'rightArm'
-      }
-    } else if (relativeY < 0.15) {
-      return 'bottom' // Bottom opening of armor
-    }
-    
-    // Could be other openings or details
-    return 'other'
-  }
-  
+//   private detectEdgeVertices(geometry: BufferGeometry): {
+//     edgeVertices: Set<number>,
+//     edgeLoops: Array<{name: string, vertices: number[]}>
+//   } {
+//     console.log('🔍 Detecting edge vertices for openings...')
+//
+//     const position = geometry.attributes.position as BufferAttribute
+//     const index = geometry.index
+//
+//     if (!index) {
+//       console.warn('⚠️ Mesh has no index buffer, edge detection may be incomplete')
+//       return { edgeVertices: new Set(), edgeLoops: [] }
+//     }
+//
+//     // Map to track how many faces each edge belongs to
+//     const edgeMap = new Map<string, { count: number, vertices: [number, number] }>()
+//
+//     // Build edge map
+//     const indices = index.array
+//     for (let i = 0; i < indices.length; i += 3) {
+//       const v0 = indices[i]
+//       const v1 = indices[i + 1]
+//       const v2 = indices[i + 2]
+//
+//       // Three edges per triangle
+//       const edges: [number, number][] = [
+//         [Math.min(v0, v1), Math.max(v0, v1)],
+//         [Math.min(v1, v2), Math.max(v1, v2)],
+//         [Math.min(v2, v0), Math.max(v2, v0)]
+//       ]
+//
+//       for (const [a, b] of edges) {
+//         const key = `${a}_${b}`
+//         const edge = edgeMap.get(key)
+//         if (edge) {
+//           edge.count++
+//         } else {
+//           edgeMap.set(key, { count: 1, vertices: [a, b] })
+//         }
+//       }
+//     }
+//
+//     // Find boundary edges (edges that belong to only one face)
+//     const boundaryEdges: Array<[number, number]> = []
+//     const edgeVertices = new Set<number>()
+//
+//     for (const [_key, edge] of edgeMap) {
+//       if (edge.count === 1) {
+//         boundaryEdges.push(edge.vertices)
+//         edgeVertices.add(edge.vertices[0])
+//         edgeVertices.add(edge.vertices[1])
+//       }
+//     }
+//
+//     console.log(`Found ${edgeVertices.size} edge vertices forming ${boundaryEdges.length} boundary edges`)
+//
+//     // Group edge vertices into loops
+//     const edgeLoops = this.groupEdgeVerticesIntoLoops(boundaryEdges, position)
+//
+//     return { edgeVertices, edgeLoops }
+//   }
+
   /**
    * Find the nearest point on a mesh surface to a given point
    */
@@ -2211,154 +2052,154 @@ export class MeshFittingService {
   /**
    * Apply smoothing pass to vertex positions
    */
-  private applySmoothingPass(
-    positions: Float32Array,
-    vertexCount: number,
-    radius: number,
-    strength: number,
-    worldMatrix: THREE.Matrix4,
-    preserveFeatures: boolean = false,
-    featureAngleThreshold: number = 30
-  ): void {
-    // Create a copy for reading original positions
-    const originalPositions = new Float32Array(positions)
-    
-    // If preserving features, we need to compute vertex normals first
-    let vertexNormals: Float32Array | null = null
-    if (preserveFeatures) {
-      vertexNormals = this.computeVertexNormals(originalPositions, vertexCount)
-    }
-    
-    const angleThresholdRad = (featureAngleThreshold * Math.PI) / 180
-    
-    // For each vertex, average with nearby vertices
-    for (let i = 0; i < vertexCount; i++) {
-      const centerX = originalPositions[i * 3]
-      const centerY = originalPositions[i * 3 + 1]
-      const centerZ = originalPositions[i * 3 + 2]
-      
-      let totalWeight = 1.0 // Include self
-      let avgX = centerX
-      let avgY = centerY
-      let avgZ = centerZ
-      
-      // Get normal for current vertex if preserving features
-      let centerNormal: Vector3 | null = null
-      if (preserveFeatures && vertexNormals) {
-        centerNormal = new Vector3(
-          vertexNormals[i * 3],
-          vertexNormals[i * 3 + 1],
-          vertexNormals[i * 3 + 2]
-        )
-      }
-      
-      // Check nearby vertices
-      for (let j = 0; j < vertexCount; j++) {
-        if (i === j) continue
-        
-        const dx = originalPositions[j * 3] - centerX
-        const dy = originalPositions[j * 3 + 1] - centerY
-        const dz = originalPositions[j * 3 + 2] - centerZ
-        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-        
-        if (distance < radius && distance > 0) {
-          // Check if we should include this vertex based on feature preservation
-          let includeVertex = true
-          
-          if (preserveFeatures && centerNormal && vertexNormals) {
-            const neighborNormal = new Vector3(
-              vertexNormals[j * 3],
-              vertexNormals[j * 3 + 1],
-              vertexNormals[j * 3 + 2]
-            )
-            
-            // Calculate angle between normals
-            const dotProduct = centerNormal.dot(neighborNormal)
-            const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct)))
-            
-            // If angle is too large, these vertices are on different surfaces
-            if (angle > angleThresholdRad) {
-              includeVertex = false
-            }
-          }
-          
-          if (includeVertex) {
-          // Gaussian weight
-          const weight = Math.exp(-(distance * distance) / (2 * radius * radius))
-          
-          avgX += originalPositions[j * 3] * weight
-          avgY += originalPositions[j * 3 + 1] * weight
-          avgZ += originalPositions[j * 3 + 2] * weight
-          totalWeight += weight
-          }
-        }
-      }
-      
-      // Apply smoothed position
-      if (totalWeight > 0) {
-        avgX /= totalWeight
-        avgY /= totalWeight
-        avgZ /= totalWeight
-        
-        // Blend between original and smoothed based on strength
-        positions[i * 3] = centerX * (1 - strength) + avgX * strength
-        positions[i * 3 + 1] = centerY * (1 - strength) + avgY * strength
-        positions[i * 3 + 2] = centerZ * (1 - strength) + avgZ * strength
-      }
-    }
-  }
+//   private applySmoothingPass(
+//     positions: Float32Array,
+//     vertexCount: number,
+//     radius: number,
+//     strength: number,
+// //     worldMatrix: Matrix4,
+//     preserveFeatures: boolean = false,
+//     featureAngleThreshold: number = 30
+//   ): void {
+//     // Create a copy for reading original positions
+//     const originalPositions = new Float32Array(positions)
+//     
+//     // If preserving features, we need to compute vertex normals first
+//     let vertexNormals: Float32Array | null = null
+//     if (preserveFeatures) {
+//       vertexNormals = this.computeVertexNormals(originalPositions, vertexCount)
+//     }
+//     
+//     const angleThresholdRad = (featureAngleThreshold * Math.PI) / 180
+//     
+//     // For each vertex, average with nearby vertices
+//     for (let i = 0; i < vertexCount; i++) {
+//       const centerX = originalPositions[i * 3]
+//       const centerY = originalPositions[i * 3 + 1]
+//       const centerZ = originalPositions[i * 3 + 2]
+//       
+//       let totalWeight = 1.0 // Include self
+//       let avgX = centerX
+//       let avgY = centerY
+//       let avgZ = centerZ
+//       
+//       // Get normal for current vertex if preserving features
+//       let centerNormal: Vector3 | null = null
+//       if (preserveFeatures && vertexNormals) {
+//         centerNormal = new Vector3(
+//           vertexNormals[i * 3],
+//           vertexNormals[i * 3 + 1],
+//           vertexNormals[i * 3 + 2]
+//         )
+//       }
+//       
+//       // Check nearby vertices
+//       for (let j = 0; j < vertexCount; j++) {
+//         if (i === j) continue
+//         
+//         const dx = originalPositions[j * 3] - centerX
+//         const dy = originalPositions[j * 3 + 1] - centerY
+//         const dz = originalPositions[j * 3 + 2] - centerZ
+//         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+//         
+//         if (distance < radius && distance > 0) {
+//           // Check if we should include this vertex based on feature preservation
+//           let includeVertex = true
+//           
+//           if (preserveFeatures && centerNormal && vertexNormals) {
+//             const neighborNormal = new Vector3(
+//               vertexNormals[j * 3],
+//               vertexNormals[j * 3 + 1],
+//               vertexNormals[j * 3 + 2]
+//             )
+//             
+//             // Calculate angle between normals
+//             const dotProduct = centerNormal.dot(neighborNormal)
+//             const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct)))
+//             
+//             // If angle is too large, these vertices are on different surfaces
+//             if (angle > angleThresholdRad) {
+//               includeVertex = false
+//             }
+//           }
+//           
+//           if (includeVertex) {
+//           // Gaussian weight
+//           const weight = Math.exp(-(distance * distance) / (2 * radius * radius))
+//           
+//           avgX += originalPositions[j * 3] * weight
+//           avgY += originalPositions[j * 3 + 1] * weight
+//           avgZ += originalPositions[j * 3 + 2] * weight
+//           totalWeight += weight
+//           }
+//         }
+//       }
+//       
+//       // Apply smoothed position
+//       if (totalWeight > 0) {
+//         avgX /= totalWeight
+//         avgY /= totalWeight
+//         avgZ /= totalWeight
+//         
+//         // Blend between original and smoothed based on strength
+//         positions[i * 3] = centerX * (1 - strength) + avgX * strength
+//         positions[i * 3 + 1] = centerY * (1 - strength) + avgY * strength
+//         positions[i * 3 + 2] = centerZ * (1 - strength) + avgZ * strength
+//       }
+//     }
+//   }
   
   /**
    * Project vertices back onto the target surface after smoothing
    */
-  private projectVerticesToSurface(
-    positions: Float32Array,
-    vertexCount: number,
-    sourceMesh: Mesh,
-    targetMesh: Mesh,
-    targetOffset: number
-  ): void {
-    for (let i = 0; i < vertexCount; i++) {
-      const vertex = new Vector3(
-        positions[i * 3],
-        positions[i * 3 + 1],
-        positions[i * 3 + 2]
-      )
-      
-      // Transform to world space
-      vertex.applyMatrix4(sourceMesh.matrixWorld)
-      
-      // Find the nearest point on the target surface
-      const nearest = this.findNearestSurfacePoint(vertex, targetMesh)
-      
-      if (nearest) {
-        // Calculate the desired position based on the target offset
-        const desiredPoint = nearest.point.clone().add(
-          nearest.normal.clone().multiplyScalar(targetOffset)
-        )
-        
-        // Calculate movement
-        const movement = desiredPoint.clone().sub(vertex)
-        
-        // Apply the movement to the vertex
-        const newWorldPos = vertex.clone().add(movement)
-        
-        // Transform back to local space
-        const newLocalPos = newWorldPos.clone()
-        const inverseMatrix = sourceMesh.matrixWorld.clone().invert()
-        newLocalPos.applyMatrix4(inverseMatrix)
-        
-        // Update the position in the source geometry
-        positions[i * 3] = newLocalPos.x
-        positions[i * 3 + 1] = newLocalPos.y
-        positions[i * 3 + 2] = newLocalPos.z
-      } else {
-        // Fallback if projection fails (e.g., no intersection found)
-        // This should ideally not happen if findNearestSurfacePoint works correctly
-        console.warn(`Could not project vertex ${i} back to surface. Keeping original position.`)
-      }
-    }
-  }
+//   private projectVerticesToSurface(
+//     positions: Float32Array,
+//     vertexCount: number,
+//     sourceMesh: Mesh,
+//     targetMesh: Mesh,
+//     targetOffset: number
+//   ): void {
+//     for (let i = 0; i < vertexCount; i++) {
+//       const vertex = new Vector3(
+//         positions[i * 3],
+//         positions[i * 3 + 1],
+//         positions[i * 3 + 2]
+//       )
+//       
+//       // Transform to world space
+//       vertex.applyMatrix4(sourceMesh.matrixWorld)
+//       
+//       // Find the nearest point on the target surface
+//       const nearest = this.findNearestSurfacePoint(vertex, targetMesh)
+//       
+//       if (nearest) {
+//         // Calculate the desired position based on the target offset
+//         const desiredPoint = nearest.point.clone().add(
+//           nearest.normal.clone().multiplyScalar(targetOffset)
+//         )
+//         
+//         // Calculate movement
+//         const movement = desiredPoint.clone().sub(vertex)
+//         
+//         // Apply the movement to the vertex
+//         const newWorldPos = vertex.clone().add(movement)
+//         
+//         // Transform back to local space
+//         const newLocalPos = newWorldPos.clone()
+//         const inverseMatrix = sourceMesh.matrixWorld.clone().invert()
+//         newLocalPos.applyMatrix4(inverseMatrix)
+//         
+//         // Update the position in the source geometry
+//         positions[i * 3] = newLocalPos.x
+//         positions[i * 3 + 1] = newLocalPos.y
+//         positions[i * 3 + 2] = newLocalPos.z
+//       } else {
+//         // Fallback if projection fails (e.g., no intersection found)
+//         // This should ideally not happen if findNearestSurfacePoint works correctly
+//         console.warn(`Could not project vertex ${i} back to surface. Keeping original position.`)
+//       }
+//     }
+//   }
   
   /**
    * Compute vertex normals from positions
@@ -2771,8 +2612,7 @@ export class MeshFittingService {
    */
   private detectIntersectingVertices(
     armorMesh: Mesh,
-    avatarMesh: THREE.SkinnedMesh,
-    skeleton: THREE.Skeleton
+    skeleton: Skeleton
   ): Set<number> {
     console.log('🔍 Detecting armor vertices intersecting with neck and arms...')
     
@@ -2781,9 +2621,9 @@ export class MeshFittingService {
     const position = armorGeometry.attributes.position as BufferAttribute
     
     // Find neck and arm bones
-    const neckBones: THREE.Bone[] = []
-    const leftArmBones: THREE.Bone[] = []
-    const rightArmBones: THREE.Bone[] = []
+    const neckBones: Bone[] = []
+    const leftArmBones: Bone[] = []
+    const rightArmBones: Bone[] = []
     
     skeleton.bones.forEach(bone => {
       const boneName = bone.name.toLowerCase()
@@ -2808,17 +2648,17 @@ export class MeshFittingService {
     console.log(`Found ${neckBones.length} neck bones, ${leftArmBones.length} left arm bones, ${rightArmBones.length} right arm bones`)
     
     // Create influence volumes around these bones
-    const createBoneVolume = (bones: THREE.Bone[], radius: number): THREE.Box3 | null => {
+    const createBoneVolume = (bones: Bone[], radius: number): Box3 | null => {
       if (bones.length === 0) return null
       
-      const box = new THREE.Box3()
+      const box = new Box3()
       bones.forEach(bone => {
-        const bonePos = new THREE.Vector3()
+        const bonePos = new Vector3()
         bone.getWorldPosition(bonePos)
         
         // Expand box by radius around bone position
-        box.expandByPoint(bonePos.clone().add(new THREE.Vector3(radius, radius, radius)))
-        box.expandByPoint(bonePos.clone().sub(new THREE.Vector3(radius, radius, radius)))
+        box.expandByPoint(bonePos.clone().add(new Vector3(radius, radius, radius)))
+        box.expandByPoint(bonePos.clone().sub(new Vector3(radius, radius, radius)))
       })
       
       return box
@@ -2831,7 +2671,7 @@ export class MeshFittingService {
     
     // Check each armor vertex
     for (let i = 0; i < position.count; i++) {
-      const vertex = new THREE.Vector3(
+      const vertex = new Vector3(
         position.getX(i),
         position.getY(i),
         position.getZ(i)
@@ -2865,7 +2705,7 @@ export class MeshFittingService {
     for (let i = 0; i < position.count; i++) {
       if (lockedVertices.has(i)) continue
       
-      const vertex = new THREE.Vector3(
+      const vertex = new Vector3(
         position.getX(i),
         position.getY(i),
         position.getZ(i)
@@ -2874,7 +2714,7 @@ export class MeshFittingService {
       // Check distance to locked vertices
       let nearLocked = false
       for (const lockedIdx of lockedVertices) {
-        const lockedVertex = new THREE.Vector3(
+        const lockedVertex = new Vector3(
           position.getX(lockedIdx),
           position.getY(lockedIdx),
           position.getZ(lockedIdx)
@@ -3112,7 +2952,7 @@ export class MeshFittingService {
       scale: number
     }
     headInfo: {
-      headBone: THREE.Bone | null
+      headBone: Bone | null
       headBounds: Box3
       headCenter: Vector3
     }
@@ -3127,7 +2967,7 @@ export class MeshFittingService {
       fitTightness = 0.85,
       verticalOffset = 0,
       forwardOffset = 0,
-      rotation = new THREE.Euler(0, 0, 0),
+      rotation = new Euler(0, 0, 0),
       onProgress
     } = parameters
     
@@ -3145,7 +2985,6 @@ export class MeshFittingService {
       
       const optimalTransform = this.calculateOptimalHelmetTransform(
         helmetMesh,
-        avatarMesh,
         headInfo,
         sizeMultiplier,
         fitTightness
@@ -3223,7 +3062,6 @@ export class MeshFittingService {
   
   private calculateOptimalHelmetTransform(
     helmetMesh: Mesh,
-    avatarMesh: SkinnedMesh,
     headInfo: ReturnType<typeof this.detectHeadRegion>,
     sizeMultiplier: number,
     fitTightness: number = 0.85
@@ -3235,7 +3073,7 @@ export class MeshFittingService {
     // DEAD SIMPLE APPROACH - HELMET BOUNDS MUST CONTAIN HEAD BOUNDS
     
     // Store original state
-    const _originalMatrix = helmetMesh.matrix.clone()
+//     const _originalMatrix = helmetMesh.matrix.clone()
     const originalPosition = helmetMesh.position.clone()
     const originalScale = helmetMesh.scale.clone()
     const originalRotation = helmetMesh.rotation.clone()
@@ -3430,7 +3268,7 @@ export class MeshFittingService {
   
   private adjustHelmetForCollisions(
     helmetMesh: Mesh,
-    avatarMesh: THREE.SkinnedMesh,
+    avatarMesh: SkinnedMesh,
     headInfo: ReturnType<typeof this.detectHeadRegion>
   ): {
     hasCollision: boolean
@@ -3477,7 +3315,7 @@ export class MeshFittingService {
   
   private checkHelmetCollisions(
     helmetMesh: Mesh,
-    avatarMesh: THREE.SkinnedMesh
+    avatarMesh: SkinnedMesh
   ): {
     hasCollision: boolean
     penetrationDepth: number

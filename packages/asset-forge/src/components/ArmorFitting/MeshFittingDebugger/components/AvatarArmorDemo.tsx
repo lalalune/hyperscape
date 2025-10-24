@@ -1,9 +1,13 @@
 import { useGLTF, Html, Text as DreiText } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import React, { useRef, useState, useEffect, useMemo } from 'react'
-import * as THREE from 'three'
+import {
+  AnimationClip, AnimationMixer, Bone, Box3, Group, LoopRepeat, Material,
+  Mesh, MeshStandardMaterial, Object3D, Skeleton, SkinnedMesh, Vector3
+} from 'three'
 
 import { AvatarArmorDemoProps } from '../types'
+import { cloneGeometryForModification, cloneMaterialForModification } from '../../../../utils/three-geometry-sharing'
 
 export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({ 
     onReady, 
@@ -13,14 +17,14 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
     currentAnimation, 
     isAnimationPlaying 
 }) => {
-    const avatarRef = useRef<THREE.Group>(null)
-    const armorRef = useRef<THREE.Group>(null)
+    const avatarRef = useRef<Group>(null)
+    const armorRef = useRef<Group>(null)
     const [isLoaded, setIsLoaded] = useState(false)
 
-    const _mixer = useRef<THREE.AnimationMixer>()
-    const _lastTime = useRef(0)
-    const _activeAction = useRef<THREE.AnimationAction | null>(null)
-    const _animationFrame = useRef<number>()
+//     const _mixer = useRef<AnimationMixer>()
+//     const _lastTime = useRef(0)
+//     const _activeAction = useRef<AnimationAction | null>(null)
+//     const _animationFrame = useRef<number>()
 
     // Check if paths are valid before attempting to load
     const hasValidPaths = avatarPath && armorPath && avatarPath !== '' && armorPath !== ''
@@ -74,7 +78,7 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
     useEffect(() => {
         if (avatar && avatar.animations.length > 0) {
             console.log('=== Available animations in base model ===')
-            avatar.animations.forEach((clip: THREE.AnimationClip, index: number) => {
+            avatar.animations.forEach((clip: AnimationClip, index: number) => {
                 console.log(`${index}: ${clip.name} (${clip.duration}s)`)
             })
         }
@@ -86,39 +90,39 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
         const clone = avatar.scene.clone()
 
         // Handle SkinnedMesh skeleton setup
-        const skinnedMeshes: THREE.SkinnedMesh[] = []
-        const bones: THREE.Bone[] = []
+        const skinnedMeshes: SkinnedMesh[] = []
+        const bones: Bone[] = []
 
         clone.traverse((child) => {
-            if (child instanceof THREE.Bone) {
+            if (child instanceof Bone) {
                 bones.push(child)
-            } else if (child instanceof THREE.SkinnedMesh) {
+            } else if (child instanceof SkinnedMesh) {
                 skinnedMeshes.push(child)
             }
         })
 
         // Clone materials and geometries, setup skeleton
         clone.traverse((child) => {
-            if (child instanceof THREE.SkinnedMesh) {
-                // Clone material and geometry
+            if (child instanceof SkinnedMesh) {
+                // Clone material and geometry for fitting
                 if (child.material) {
-                    child.material = (child.material as THREE.Material).clone()
+                    child.material = cloneMaterialForModification(child.material as Material, 'avatar armor demo fitting')
                 }
                 if (child.geometry) {
-                    child.geometry = child.geometry.clone()
+                    child.geometry = cloneGeometryForModification(child.geometry, 'avatar armor demo fitting')
                 }
 
                 // Create new skeleton for the cloned mesh
                 if (bones.length > 0) {
-                    const newSkeleton = new THREE.Skeleton(bones)
+                    const newSkeleton = new Skeleton(bones)
                     child.bind(newSkeleton, child.bindMatrix)
                 }
-            } else if (child instanceof THREE.Mesh) {
+            } else if (child instanceof Mesh) {
                 if (child.material) {
-                    child.material = (child.material as THREE.Material).clone()
+                    child.material = cloneMaterialForModification(child.material as Material, 'avatar armor demo fitting')
                 }
                 if (child.geometry) {
-                    child.geometry = child.geometry.clone()
+                    child.geometry = cloneGeometryForModification(child.geometry, 'avatar armor demo fitting')
                 }
             }
         })
@@ -134,15 +138,15 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
         clone.userData.isArmor = true
         clone.name = 'ArmorClone'
         
-        // Also clone materials and geometries to ensure complete separation
+        // Clone materials and geometries for fitting to ensure complete separation
         clone.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
+            if (child instanceof Mesh) {
                 child.userData.isArmor = true
                 if (child.material) {
-                    child.material = (child.material as THREE.Material).clone()
+                    child.material = cloneMaterialForModification(child.material as Material, 'armor clone')
                 }
                 if (child.geometry) {
-                    child.geometry = child.geometry.clone()
+                    child.geometry = cloneGeometryForModification(child.geometry, 'armor clone')
                 }
             }
         })
@@ -158,9 +162,9 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
     useEffect(() => {
         if (armorClone) {
             armorClone.traverse((child) => {
-                if (child instanceof THREE.Mesh) {
+                if (child instanceof Mesh) {
                     if (child.material) {
-                        (child.material as THREE.MeshStandardMaterial).wireframe = showWireframe
+                        (child.material as MeshStandardMaterial).wireframe = showWireframe
                     }
                 }
             })
@@ -170,13 +174,13 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
     useEffect(() => {
         if (avatarClone && armorClone && !isLoaded) {
             // Find the SkinnedMesh in the cloned avatar
-            let avatarMesh: THREE.SkinnedMesh | null = null
-            avatarClone.traverse((child: THREE.Object3D) => {
-                if (child instanceof THREE.SkinnedMesh && !avatarMesh) {
+            let avatarMesh: SkinnedMesh | null = null
+            avatarClone.traverse((child: Object3D) => {
+                if (child instanceof SkinnedMesh && !avatarMesh) {
                     avatarMesh = child
                     // Set avatar material to be semi-transparent
                     if (avatarMesh.material) {
-                        const material = avatarMesh.material as THREE.MeshStandardMaterial
+                        const material = avatarMesh.material as MeshStandardMaterial
                         material.transparent = true
                         material.opacity = 0.7
                     }
@@ -184,9 +188,9 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
             })
 
             // Find the Mesh in the cloned armor
-            let armorMesh: THREE.Mesh | null = null
-            armorClone.traverse((child: THREE.Object3D) => {
-                if (child instanceof THREE.Mesh && !armorMesh) {
+            let armorMesh: Mesh | null = null
+            armorClone.traverse((child: Object3D) => {
+                if (child instanceof Mesh && !armorMesh) {
                     armorMesh = child
 
                     // No need to clear userData - we have a fresh clone!
@@ -194,7 +198,7 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
 
                     // Set armor material to wireframe
                     if (armorMesh.material) {
-                        const material = armorMesh.material as THREE.MeshStandardMaterial
+                        const material = armorMesh.material as MeshStandardMaterial
                         material.color.set('#4472C4')
                         material.transparent = true
                         material.opacity = 0.8
@@ -204,8 +208,8 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
 
             if (avatarMesh && armorMesh) {
                 // TypeScript needs explicit reassignment for proper type narrowing
-                const finalAvatarMesh = avatarMesh as THREE.SkinnedMesh
-                const finalArmorMesh = armorMesh as THREE.Mesh
+                const finalAvatarMesh = avatarMesh as SkinnedMesh
+                const finalArmorMesh = armorMesh as Mesh
 
                 console.log('AvatarArmorDemo: Setting up meshes')
                 console.log('Avatar mesh found:', finalAvatarMesh)
@@ -213,7 +217,7 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
 
                 // Ensure avatar stands on the grid
                 avatarClone.updateMatrixWorld(true)
-                const initialAvatarBounds = new THREE.Box3().setFromObject(avatarClone)
+                const initialAvatarBounds = new Box3().setFromObject(avatarClone)
                 const avatarMinY = initialAvatarBounds.min.y
 
                 if (avatarMinY !== 0) {
@@ -231,8 +235,8 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
                 // finalArmorMesh.userData.originalGeometry = { current: finalArmorMesh.geometry.clone() }
 
                 // Basic scale normalization - scale both to same size
-                const avatarBounds = new THREE.Box3().setFromObject(finalAvatarMesh)
-                const avatarHeight = avatarBounds.getSize(new THREE.Vector3()).y
+                const avatarBounds = new Box3().setFromObject(finalAvatarMesh)
+                const avatarHeight = avatarBounds.getSize(new Vector3()).y
                 const scale = 2 / avatarHeight // Normalize avatar to ~2 units tall
 
                 console.log('=== INITIAL MODEL SETUP ===')
@@ -247,10 +251,10 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
                 armorClone.updateMatrixWorld(true)
 
                 // Log final setup state
-                const setupAvatarBounds = new THREE.Box3().setFromObject(avatarClone)
-                const setupArmorBounds = new THREE.Box3().setFromObject(armorClone)
-                console.log('Avatar setup bounds:', setupAvatarBounds.getSize(new THREE.Vector3()))
-                console.log('Armor setup bounds:', setupArmorBounds.getSize(new THREE.Vector3()))
+                const setupAvatarBounds = new Box3().setFromObject(avatarClone)
+                const setupArmorBounds = new Box3().setFromObject(armorClone)
+                console.log('Avatar setup bounds:', setupAvatarBounds.getSize(new Vector3()))
+                console.log('Armor setup bounds:', setupArmorBounds.getSize(new Vector3()))
                 console.log('========================')
 
                 // Don't do complex scaling here - let the fitting function handle it
@@ -269,8 +273,8 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
                 console.log('Armor world matrix:', armorClone.matrixWorld.elements)
 
                 // Verify final bounds
-                const finalAvatarBounds = new THREE.Box3().setFromObject(finalAvatarMesh)
-                const finalArmorBounds = new THREE.Box3().setFromObject(finalArmorMesh)
+                const finalAvatarBounds = new Box3().setFromObject(finalAvatarMesh)
+                const finalArmorBounds = new Box3().setFromObject(finalArmorMesh)
                 console.log('Final avatar bounds:', finalAvatarBounds)
                 console.log('Final armor bounds:', finalArmorBounds)
 
@@ -283,9 +287,9 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
     // Update wireframe when prop changes
     useEffect(() => {
         if (armorClone) {
-            armorClone.traverse((child: THREE.Object3D) => {
-                if (child instanceof THREE.Mesh && child.userData.isArmor) {
-                    const material = child.material as THREE.MeshStandardMaterial
+            armorClone.traverse((child: Object3D) => {
+                if (child instanceof Mesh && child.userData.isArmor) {
+                    const material = child.material as MeshStandardMaterial
                     if (material) {
                         material.wireframe = showWireframe
                     }
@@ -295,16 +299,16 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
     }, [showWireframe, armorClone])
 
     // Animation mixer ref
-    const mixerRef = useRef<THREE.AnimationMixer | null>(null)
+    const mixerRef = useRef<AnimationMixer | null>(null)
 
     // Handle animation playback
     useEffect(() => {
         if (!avatar || !avatarClone || !isLoaded) return
 
         // Find the avatar mesh
-        let avatarMesh: THREE.SkinnedMesh | null = null
+        let avatarMesh: SkinnedMesh | null = null
         avatarClone.traverse((child) => {
-            if (child instanceof THREE.SkinnedMesh && !avatarMesh) {
+            if (child instanceof SkinnedMesh && !avatarMesh) {
                 avatarMesh = child
             }
         })
@@ -328,13 +332,13 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
         }
 
         // Create animation mixer if needed - always create new one for new model
-        mixerRef.current = new THREE.AnimationMixer(avatarClone)
+        mixerRef.current = new AnimationMixer(avatarClone)
         const mixer = mixerRef.current
 
         // Handle animation state
         if (isAnimationPlaying && currentAnimation !== 'tpose') {
             // Find the specific animation by name
-            let targetClip: THREE.AnimationClip | undefined
+            let targetClip: AnimationClip | undefined
 
             // Try to find animation by name patterns - be more specific
             for (const clip of animations) {
@@ -370,7 +374,7 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
             if (targetClip) {
                 const action = mixer.clipAction(targetClip)
                 action.reset()
-                action.setLoop(THREE.LoopRepeat, Infinity)
+                action.setLoop(LoopRepeat, Infinity)
                 action.play()
                 console.log('Playing animation:', targetClip.name)
             }
@@ -390,7 +394,7 @@ export const AvatarArmorDemo: React.FC<AvatarArmorDemoProps> = ({
 
     // Animation update loop  
     const frameCountRef = useRef(0)
-    useFrame((state, delta) => {
+    useFrame((_state, delta) => {
         if (mixerRef.current && isAnimationPlaying && currentAnimation !== 'tpose') {
             mixerRef.current.update(delta)
 

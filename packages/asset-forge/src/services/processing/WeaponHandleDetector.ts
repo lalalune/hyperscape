@@ -1,4 +1,7 @@
-import * as THREE from 'three'
+import {
+  AmbientLight, Box3, Color, DirectionalLight, Light, Mesh, Object3D, OrthographicCamera,
+  Raycaster, Scene, Texture, Vector2, Vector3, WebGLRenderer
+} from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
@@ -7,8 +10,8 @@ import { GripBounds, GripCoordinates, GripDetectionData } from '../../types'
 import { apiFetch } from '@/utils/api'
 
 interface HandleDetectionResult {
-  gripPoint: THREE.Vector3
-  vertices: THREE.Vector3[]
+  gripPoint: Vector3
+  vertices: Vector3[]
   confidence: number
   annotatedImage: string
   redBoxBounds?: GripBounds
@@ -25,14 +28,14 @@ interface RedPixelBounds {
 }
 
 export class WeaponHandleDetector {
-  private renderer: THREE.WebGLRenderer
-  private scene: THREE.Scene
-  private camera: THREE.OrthographicCamera
+  private renderer: WebGLRenderer
+  private scene: Scene
+  private camera: OrthographicCamera
   private loader: GLTFLoader
   
   constructor() {
     // Initialize Three.js components
-    this.renderer = new THREE.WebGLRenderer({ 
+    this.renderer = new WebGLRenderer({ 
       antialias: true,
       alpha: true,
       preserveDrawingBuffer: true
@@ -40,10 +43,10 @@ export class WeaponHandleDetector {
     this.renderer.setSize(512, 512)
     this.renderer.setClearColor(0x1a1a1a, 1)
     
-    this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(0x1a1a1a)
+    this.scene = new Scene()
+    this.scene.background = new Color(0x1a1a1a)
     
-    this.camera = new THREE.OrthographicCamera(
+    this.camera = new OrthographicCamera(
       -1, 1, 1, -1, 0.1, 100
     )
     
@@ -119,8 +122,8 @@ export class WeaponHandleDetector {
     const gripPoint = this.calculateGripCenter(handle3DRegion)
     
     // Validate the grip point
-    const modelBounds = new THREE.Box3().setFromObject(model)
-    const modelSize = new THREE.Vector3()
+    const modelBounds = new Box3().setFromObject(model)
+    const modelSize = new Vector3()
     modelBounds.getSize(modelSize)
     
     // Check if grip point is within reasonable bounds
@@ -149,9 +152,9 @@ export class WeaponHandleDetector {
     }
     
     // Remove all lights
-    const lightsToRemove: THREE.Light[] = []
+    const lightsToRemove: Light[] = []
     this.scene.traverse((child) => {
-      if (child instanceof THREE.Light) {
+      if (child instanceof Light) {
         lightsToRemove.push(child)
       }
     })
@@ -178,7 +181,7 @@ export class WeaponHandleDetector {
     outputPath?: string
   ): Promise<{
     normalizedGlb: ArrayBuffer
-    originalGripPoint: THREE.Vector3
+    originalGripPoint: Vector3
     dimensions: { length: number; width: number; height: number }
     orientationFlipped: boolean
   }> {
@@ -204,14 +207,12 @@ export class WeaponHandleDetector {
     model.updateMatrixWorld(true)
     
     // Step 5: Bake transforms into geometry
+    // NOTE: Modifying geometry IN PLACE for export (no clone needed)
     model.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.geometry) {
-        // Clone geometry to avoid modifying shared
-        child.geometry = child.geometry.clone()
-        
-        // Apply world matrix to geometry
+      if (child instanceof Mesh && child.geometry) {
+        // Apply world matrix to geometry IN PLACE (no clone needed for export)
         child.geometry.applyMatrix4(child.matrixWorld)
-        
+
         // Reset transforms
         child.position.set(0, 0, 0)
         child.rotation.set(0, 0, 0)
@@ -227,8 +228,8 @@ export class WeaponHandleDetector {
     model.updateMatrixWorld(true)
     
     // Step 6: Get final dimensions
-    const box = new THREE.Box3().setFromObject(model)
-    const size = box.getSize(new THREE.Vector3())
+    const box = new Box3().setFromObject(model)
+    const size = box.getSize(new Vector3())
     
     console.log(`📏 Normalized weapon dimensions: ${size.x.toFixed(3)} x ${size.y.toFixed(3)} x ${size.z.toFixed(3)}`)
     
@@ -266,7 +267,7 @@ export class WeaponHandleDetector {
     }
   }
   
-  private async loadModel(modelUrl: string): Promise<THREE.Object3D> {
+  private async loadModel(modelUrl: string): Promise<Object3D> {
     console.log('📦 Loading model from:', modelUrl)
     
     try {
@@ -283,7 +284,7 @@ export class WeaponHandleDetector {
       // Log model info
       let meshCount = 0
       model.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
+        if (child instanceof Mesh) {
           meshCount++
         }
       })
@@ -297,13 +298,13 @@ export class WeaponHandleDetector {
     }
   }
   
-  private async setupOrthographicCamera(model: THREE.Object3D): Promise<boolean> {
+  private async setupOrthographicCamera(model: Object3D): Promise<boolean> {
     console.log('📐 Setting up orthographic camera for weapon')
     
-    const box = new THREE.Box3().setFromObject(model)
-    const size = new THREE.Vector3()
+    const box = new Box3().setFromObject(model)
+    const size = new Vector3()
     box.getSize(size)
-    const center = new THREE.Vector3()
+    const center = new Vector3()
     box.getCenter(center)
     
     console.log('Model dimensions:', { x: size.x, y: size.y, z: size.z })
@@ -340,18 +341,18 @@ export class WeaponHandleDetector {
     }
     
     // Add lighting for better visibility
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
+    const ambientLight = new AmbientLight(0xffffff, 0.8)
     this.scene.add(ambientLight)
     
-    const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.6)
+    const directionalLight1 = new DirectionalLight(0xffffff, 0.6)
     directionalLight1.position.set(1, 1, 1)
     this.scene.add(directionalLight1)
     
-    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4)
+    const directionalLight2 = new DirectionalLight(0xffffff, 0.4)
     directionalLight2.position.set(-1, 0.5, -1)
     this.scene.add(directionalLight2)
     
-    const cameraLight = new THREE.DirectionalLight(0xffffff, 0.3)
+    const cameraLight = new DirectionalLight(0xffffff, 0.3)
     cameraLight.position.copy(this.camera.position)
     this.scene.add(cameraLight)
     
@@ -408,7 +409,7 @@ export class WeaponHandleDetector {
     return false
   }
   
-  private renderToCanvas(_model: THREE.Object3D): HTMLCanvasElement {
+  private renderToCanvas(_model: Object3D): HTMLCanvasElement {
     // Model is already added to scene in setupOrthographicCamera
     
     // Create offscreen canvas
@@ -584,13 +585,17 @@ export class WeaponHandleDetector {
       }
       
       const data = await response.json()
-      if (!data.success || !data.gripData) {
+      if (!data?.success || !data?.gripData) {
         throw new Error('Invalid response from handle detection API')
       }
-      
+
       // Validate the detected bounds
       const gripData = data.gripData
-      const bounds = gripData.gripBounds
+      const bounds = gripData?.gripBounds
+
+      if (!bounds) {
+        throw new Error('No grip bounds found in response')
+      }
       
       // If it's a sword, use our specialized detector
       if (gripData.weaponType === 'sword' || gripData.weaponType === 'dagger') {
@@ -683,11 +688,15 @@ export class WeaponHandleDetector {
         
         if (response.ok) {
           const data = await response.json()
-          if (data.success && data.gripData) {
+          if (data?.success && data?.gripData) {
             const gripData = data.gripData
-            
+
             // Validate this detection
-            const bounds = gripData.gripBounds
+            const bounds = gripData?.gripBounds
+
+            if (!bounds) {
+              continue
+            }
             const isValidDetection = bounds.minY > 200 && // Not in top 40% (blade area)
                                     bounds.maxY < 500 && // Not at very bottom (pommel)
                                     (bounds.maxX - bounds.minX) < 150 && // Not too wide
@@ -825,12 +834,12 @@ export class WeaponHandleDetector {
   
   private backProjectTo3D(
     redBoxBounds: RedPixelBounds,
-    model: THREE.Object3D
-  ): THREE.Vector3[] {
+    model: Object3D
+  ): Vector3[] {
     console.log('🎯 Starting back-projection with bounds:', redBoxBounds)
     
-    const vertices: THREE.Vector3[] = []
-    const raycaster = new THREE.Raycaster()
+    const vertices: Vector3[] = []
+    const raycaster = new Raycaster()
     
     // Ensure the model and all its children are updated
     model.updateMatrixWorld(true)
@@ -840,9 +849,9 @@ export class WeaponHandleDetector {
     this.camera.updateProjectionMatrix()
     
     // Get all meshes in the model
-    const meshes: THREE.Mesh[] = []
+    const meshes: Mesh[] = []
     model.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
+      if (child instanceof Mesh) {
         child.updateMatrixWorld(true)
         meshes.push(child)
       }
@@ -852,7 +861,7 @@ export class WeaponHandleDetector {
     
     // Debug: Check mesh bounds
     if (meshes.length > 0) {
-      const meshBounds = new THREE.Box3().setFromObject(meshes[0])
+      const meshBounds = new Box3().setFromObject(meshes[0])
       console.log('First mesh bounds:', {
         min: { x: meshBounds.min.x, y: meshBounds.min.y, z: meshBounds.min.z },
         max: { x: meshBounds.max.x, y: meshBounds.max.y, z: meshBounds.max.z }
@@ -866,12 +875,12 @@ export class WeaponHandleDetector {
       })
       
       // Test direct ray from camera to mesh center
-      const meshCenter = new THREE.Vector3()
+      const meshCenter = new Vector3()
       meshBounds.getCenter(meshCenter)
       console.log('Mesh center:', { x: meshCenter.x, y: meshCenter.y, z: meshCenter.z })
       
       // Shoot a test ray directly at mesh center
-      const testRaycaster = new THREE.Raycaster()
+      const testRaycaster = new Raycaster()
       const rayOrigin = this.camera.position.clone()
       const rayDir = meshCenter.clone().sub(rayOrigin).normalize()
       
@@ -909,7 +918,7 @@ export class WeaponHandleDetector {
         const ndcY = 1 - (screenY * 2) // Flip Y
         
         // Use Three.js built-in method which handles orthographic cameras correctly
-        raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
+        raycaster.setFromCamera(new Vector2(ndcX, ndcY), this.camera)
         
         // Find intersections with all meshes
         const intersects = raycaster.intersectObjects(meshes, true)
@@ -938,7 +947,7 @@ export class WeaponHandleDetector {
       const ndcX = (centerX * 2) - 1
       const ndcY = 1 - (centerY * 2)
       
-      raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
+      raycaster.setFromCamera(new Vector2(ndcX, ndcY), this.camera)
       const centerIntersects = raycaster.intersectObjects(meshes, true)
       
       if (centerIntersects.length > 0) {
@@ -953,14 +962,14 @@ export class WeaponHandleDetector {
     return vertices
   }
   
-  private calculateGripCenter(vertices: THREE.Vector3[]): THREE.Vector3 {
+  private calculateGripCenter(vertices: Vector3[]): Vector3 {
     if (vertices.length === 0) {
       console.warn('No vertices found for grip center calculation')
-      return new THREE.Vector3(0, 0, 0)
+      return new Vector3(0, 0, 0)
     }
     
     // First, calculate the initial center
-    const initialCenter = new THREE.Vector3()
+    const initialCenter = new Vector3()
     for (const vertex of vertices) {
       initialCenter.add(vertex)
     }
@@ -979,7 +988,7 @@ export class WeaponHandleDetector {
       : vertices
     
     // Calculate the final center from filtered vertices
-    const center = new THREE.Vector3()
+    const center = new Vector3()
     for (const vertex of finalVertices) {
       center.add(vertex)
     }
@@ -996,7 +1005,7 @@ export class WeaponHandleDetector {
     return center
   }
   
-  private renderMultipleAngles(model: THREE.Object3D): { angle: string, canvas: HTMLCanvasElement }[] {
+  private renderMultipleAngles(model: Object3D): { angle: string, canvas: HTMLCanvasElement }[] {
     const angles = [
       { name: 'side', rotation: 0 },
       { name: 'front', rotation: Math.PI / 2 },
@@ -1136,8 +1145,8 @@ export class WeaponHandleDetector {
       }
       
       const data = await response.json()
-      if (data.success && data.needsFlip) {
-        console.log('AI detected weapon needs flipping:', data.reason)
+      if (data?.success && data?.needsFlip) {
+        console.log('AI detected weapon needs flipping:', data.reason ?? 'No reason provided')
         return true
       }
       
@@ -1196,36 +1205,42 @@ export class WeaponHandleDetector {
   
   // Cleanup method
   dispose(): void {
-    // Clean up Three.js resources
+    // Clean up Three.js resources with comprehensive texture disposal
     this.scene.traverse((object) => {
-      if (object instanceof THREE.Mesh) {
+      if (object instanceof Mesh) {
         if (object.geometry) {
           object.geometry.dispose()
         }
         if (object.material) {
-          if (Array.isArray(object.material)) {
-            object.material.forEach(material => material.dispose())
-          } else {
-            object.material.dispose()
-          }
+          const materials = Array.isArray(object.material) ? object.material : [object.material]
+          materials.forEach(material => {
+            // Dispose all textures in the material
+            Object.keys(material).forEach(key => {
+              const value = material[key as keyof typeof material]
+              if (value && value instanceof Texture) {
+                value.dispose()
+              }
+            })
+            material.dispose()
+          })
         }
       }
     })
-    
+
     // Clear the scene
     while(this.scene.children.length > 0) {
       this.scene.remove(this.scene.children[0])
     }
-    
+
     this.renderer.dispose()
   }
 
   /**
    * Dispose of Three.js resources
    */
-  private disposeModel(object: THREE.Object3D): void {
+  private disposeModel(object: Object3D): void {
     object.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
+      if (child instanceof Mesh) {
         if (child.geometry) {
           child.geometry.dispose()
         }

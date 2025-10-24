@@ -6,7 +6,17 @@ export const NAVIGATION_VIEWS = {
   GENERATION: 'generation',
   EQUIPMENT: 'equipment',
   HAND_RIGGING: 'handRigging',
-  ARMOR_FITTING: 'armorFitting'
+  ARMOR_FITTING: 'armorFitting',
+  GAME_DATA: 'gameData',
+  CONTENT_BUILDER: 'contentBuilder',
+  VOICE: 'voice',
+  VOICE_STANDALONE: 'voice-standalone',
+  VOICE_MANIFESTS: 'voice-manifests',
+  DASHBOARD: 'dashboard',
+  ADMIN: 'admin',
+  PROJECTS: 'projects',
+  PROFILE: 'profile',
+  TEAM: 'team'
 } as const satisfies Record<string, NavigationView>
 
 // Grid background styles for the app

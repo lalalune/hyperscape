@@ -3,9 +3,31 @@
  * Renders 2D sprites from 3D models at various angles
  */
 
-import * as THREE from 'three'
+import {
+  AmbientLight, Box3, DirectionalLight, Mesh, OrthographicCamera, PCFSoftShadowMap, Scene, SkinnedMesh,
+  Texture, Vector3, WebGLRenderer
+} from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import {
+  CANVAS_SIZE_LARGE,
+  DEFAULT_SPRITE_SIZE,
+  DEFAULT_PADDING,
+  AMBIENT_LIGHT_INTENSITY,
+  DIRECTIONAL_LIGHT_INTENSITY,
+  CAMERA_NEAR_CLIP,
+  CAMERA_FAR_CLIP,
+  SHADOW_CAMERA_FAR,
+  SHADOW_CAMERA_BOUNDS,
+  DEFAULT_CAMERA_DISTANCE,
+  DEFAULT_CAMERA_Y_POSITION,
+  ISOMETRIC_CAMERA_DISTANCE,
+  FRUSTUM_SIZE,
+  ISOMETRIC_ANGLE,
+  SPRITE_ANGLES_8_DIR,
+  SPRITE_ANGLES_4_DIR,
+  CANVAS_SIZE_SMALL
+} from '@/constants/dimensions'
 
 export interface SpriteGenerationOptions {
   modelPath: string
@@ -23,52 +45,51 @@ export interface SpriteResult {
 }
 
 export class SpriteGenerationService {
-  private renderer: THREE.WebGLRenderer
-  private scene: THREE.Scene
-  private camera: THREE.OrthographicCamera
+  private renderer: WebGLRenderer
+  private scene: Scene
+  private camera: OrthographicCamera
   private loader: GLTFLoader
   
   constructor() {
     // Create renderer
-    this.renderer = new THREE.WebGLRenderer({ 
-      antialias: true, 
+    this.renderer = new WebGLRenderer({
+      antialias: true,
       alpha: true,
-      preserveDrawingBuffer: true 
+      preserveDrawingBuffer: true
     })
-    this.renderer.setSize(512, 512)
+    this.renderer.setSize(CANVAS_SIZE_LARGE, CANVAS_SIZE_LARGE)
     this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    
+    this.renderer.shadowMap.type = PCFSoftShadowMap
+
     // Create scene
-    this.scene = new THREE.Scene()
-    
+    this.scene = new Scene()
+
     // Create camera
     const aspect = 1
-    const frustumSize = 5
-    this.camera = new THREE.OrthographicCamera(
-      frustumSize * aspect / -2,
-      frustumSize * aspect / 2,
-      frustumSize / 2,
-      frustumSize / -2,
-      0.1,
-      1000
+    this.camera = new OrthographicCamera(
+      FRUSTUM_SIZE * aspect / -2,
+      FRUSTUM_SIZE * aspect / 2,
+      FRUSTUM_SIZE / 2,
+      FRUSTUM_SIZE / -2,
+      CAMERA_NEAR_CLIP,
+      CAMERA_FAR_CLIP
     )
-    this.camera.position.set(5, 5, 5)
+    this.camera.position.set(DEFAULT_CAMERA_DISTANCE, DEFAULT_CAMERA_DISTANCE, DEFAULT_CAMERA_DISTANCE)
     this.camera.lookAt(0, 0, 0)
-    
+
     // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+    const ambientLight = new AmbientLight(0xffffff, AMBIENT_LIGHT_INTENSITY)
     this.scene.add(ambientLight)
-    
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
-    directionalLight.position.set(5, 10, 5)
+
+    const directionalLight = new DirectionalLight(0xffffff, DIRECTIONAL_LIGHT_INTENSITY)
+    directionalLight.position.set(DEFAULT_CAMERA_DISTANCE, 10, DEFAULT_CAMERA_DISTANCE)
     directionalLight.castShadow = true
-    directionalLight.shadow.camera.near = 0.1
-    directionalLight.shadow.camera.far = 50
-    directionalLight.shadow.camera.left = -10
-    directionalLight.shadow.camera.right = 10
-    directionalLight.shadow.camera.top = 10
-    directionalLight.shadow.camera.bottom = -10
+    directionalLight.shadow.camera.near = CAMERA_NEAR_CLIP
+    directionalLight.shadow.camera.far = SHADOW_CAMERA_FAR
+    directionalLight.shadow.camera.left = -SHADOW_CAMERA_BOUNDS
+    directionalLight.shadow.camera.right = SHADOW_CAMERA_BOUNDS
+    directionalLight.shadow.camera.top = SHADOW_CAMERA_BOUNDS
+    directionalLight.shadow.camera.bottom = -SHADOW_CAMERA_BOUNDS
     this.scene.add(directionalLight)
     
     // Create loader
@@ -81,10 +102,10 @@ export class SpriteGenerationService {
   async generateSprites(options: SpriteGenerationOptions): Promise<SpriteResult[]> {
     const {
       modelPath,
-      outputSize = 256,
-      angles = [0, 45, 90, 135, 180, 225, 270, 315],
+      outputSize = DEFAULT_SPRITE_SIZE,
+      angles = SPRITE_ANGLES_8_DIR,
       backgroundColor = 'transparent',
-      padding = 0.1
+      padding = DEFAULT_PADDING
     } = options
     
     // Update renderer size
@@ -102,9 +123,9 @@ export class SpriteGenerationService {
     const model = gltf.scene
     
     // Center and scale model
-    const box = new THREE.Box3().setFromObject(model)
-    const center = box.getCenter(new THREE.Vector3())
-    const size = box.getSize(new THREE.Vector3())
+    const box = new Box3().setFromObject(model)
+    const center = box.getCenter(new Vector3())
+    const size = box.getSize(new Vector3())
     
     // Move model to origin
     model.position.sub(center)
@@ -123,10 +144,9 @@ export class SpriteGenerationService {
     for (const angle of angles) {
       // Rotate camera around Y axis
       const radian = (angle * Math.PI) / 180
-      const distance = 7
-      this.camera.position.x = Math.sin(radian) * distance
-      this.camera.position.z = Math.cos(radian) * distance
-      this.camera.position.y = 5
+      this.camera.position.x = Math.sin(radian) * ISOMETRIC_CAMERA_DISTANCE
+      this.camera.position.z = Math.cos(radian) * ISOMETRIC_CAMERA_DISTANCE
+      this.camera.position.y = DEFAULT_CAMERA_Y_POSITION
       this.camera.lookAt(0, 0, 0)
       
       // Render
@@ -168,17 +188,16 @@ export class SpriteGenerationService {
    */
   async generateIsometricSprites(
     modelPath: string,
-    outputSize: number = 128
+    outputSize: number = CANVAS_SIZE_SMALL
   ): Promise<SpriteResult[]> {
     // Set isometric camera
-    const angle = Math.PI / 6 // 30 degrees
-    this.camera.position.set(5, 5 * Math.tan(angle), 5)
+    this.camera.position.set(DEFAULT_CAMERA_DISTANCE, DEFAULT_CAMERA_DISTANCE * Math.tan(ISOMETRIC_ANGLE), DEFAULT_CAMERA_DISTANCE)
     this.camera.lookAt(0, 0, 0)
-    
+
     return this.generateSprites({
       modelPath,
       outputSize,
-      angles: [0, 45, 90, 135, 180, 225, 270, 315],
+      angles: SPRITE_ANGLES_8_DIR,
       backgroundColor: 'transparent'
     })
   }
@@ -188,18 +207,18 @@ export class SpriteGenerationService {
    */
   async generateCharacterSprites(
     modelPath: string,
-    animations?: string[],
-    outputSize: number = 256
+//     animations?: string[],
+    outputSize: number = DEFAULT_SPRITE_SIZE
   ): Promise<Record<string, SpriteResult[]>> {
-    // TODO: Implement animation frame extraction
+    // GitHub Issue #8: Implement animation frame extraction for sprite generation
     // For now, just return idle poses
     const idleSprites = await this.generateSprites({
       modelPath,
       outputSize,
-      angles: [0, 90, 180, 270], // Front, right, back, left
+      angles: SPRITE_ANGLES_4_DIR,
       backgroundColor: 'transparent'
     })
-    
+
     return {
       idle: idleSprites
     }
@@ -209,6 +228,32 @@ export class SpriteGenerationService {
    * Cleanup resources
    */
   dispose(): void {
+    // Dispose of all scene objects
+    this.scene.traverse((object) => {
+      if (object instanceof Mesh || object instanceof SkinnedMesh) {
+        // Dispose geometry
+        if (object.geometry) {
+          object.geometry.dispose()
+        }
+
+        // Dispose materials and their textures
+        if (object.material) {
+          const materials = Array.isArray(object.material) ? object.material : [object.material]
+          materials.forEach(material => {
+            // Dispose all textures in the material
+            Object.keys(material).forEach(key => {
+              const value = material[key as keyof typeof material]
+              if (value && value instanceof Texture) {
+                value.dispose()
+              }
+            })
+            material.dispose()
+          })
+        }
+      }
+    })
+
+    // Dispose renderer
     this.renderer.dispose()
   }
 }

@@ -1,12 +1,13 @@
-import { 
-  X, Package, Hash, Tag, Calendar, Layers, Palette, Box, 
+import {
+  X, Package, Hash, Tag, Calendar, Layers, Palette, Box,
   FileCode, ChevronRight, Copy, Check,
   Sparkles, AlertCircle, Download, Share2, Code
 } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 
 import { getTierColor } from '../../constants'
 import { Asset } from '../../types'
+import { formatFileSize, formatNumber } from '../../utils/formatting'
 
 interface AssetDetailsPanelProps {
   asset: Asset
@@ -15,24 +16,54 @@ interface AssetDetailsPanelProps {
   modelInfo?: { vertices: number, faces: number, materials: number, fileSize?: number } | null
 }
 
-const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, onClose, modelInfo }) => {
+const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = React.memo(({ asset, isOpen, onClose, modelInfo }) => {
   const [copiedId, setCopiedId] = useState(false)
   const [activeTab, setActiveTab] = useState<'info' | 'metadata' | 'actions'>('info')
-  
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  
-  const copyToClipboard = (text: string) => {
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const copyToClipboard = useCallback((text: string) => {
+    // Clear any existing timeout
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current)
+    }
+
     navigator.clipboard.writeText(text)
     setCopiedId(true)
-    setTimeout(() => setCopiedId(false), 2000)
-  }
-  
-  const formatFileSize = (bytes?: number): string => {
-    if (!bytes) return 'Unknown'
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(1024))
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`
-  }
+    copyTimeoutRef.current = setTimeout(() => {
+      setCopiedId(false)
+      copyTimeoutRef.current = null
+    }, 2000)
+  }, [])
+
+
+  // Memoize filtered metadata entries to avoid recalculation on every render
+  const filteredMetadata = useMemo(() => {
+    return Object.entries(asset.metadata)
+      .filter(([key]) => !['tier', 'subtype', 'isPlaceholder', 'generatedAt', 'polygon_count', 'file_size', 'format', 'lod_count'].includes(key))
+  }, [asset.metadata])
+
+  // Memoize formatted date
+  const formattedDate = useMemo(() => {
+    if (!asset.metadata.generatedAt) return null
+    return new Date(asset.metadata.generatedAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }, [asset.metadata.generatedAt])
+
+  // Memoize tier color
+  const tierColor = useMemo(() => {
+    return asset.metadata.tier ? getTierColor(asset.metadata.tier) : null
+  }, [asset.metadata.tier])
 
   return (
     <div className={`absolute top-0 right-0 h-full w-80 bg-bg-primary bg-opacity-95 backdrop-blur-md shadow-2xl transform transition-all duration-300 ease-out z-20 ${
@@ -66,13 +97,13 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
             
             {/* Tags */}
             <div className="flex flex-wrap gap-1.5 mt-3">
-              {asset.metadata.tier && (
-                <div 
+              {asset.metadata.tier && tierColor && (
+                <div
                   className="px-2 py-1 rounded-full text-[0.625rem] font-medium flex items-center gap-1"
-                  style={{ 
-                    backgroundColor: `${getTierColor(asset.metadata.tier)}20`,
-                    color: getTierColor(asset.metadata.tier),
-                    border: `1px solid ${getTierColor(asset.metadata.tier)}40`
+                  style={{
+                    backgroundColor: `${tierColor}20`,
+                    color: tierColor,
+                    border: `1px solid ${tierColor}40`
                   }}
                 >
                   <Layers size={10} />
@@ -154,6 +185,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
                       <button
                         onClick={() => copyToClipboard(asset.id)}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={copiedId ? "Asset ID copied" : "Copy asset ID to clipboard"}
                       >
                         {copiedId ? (
                           <Check size={12} className="text-success" />
@@ -183,17 +215,13 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
                   </div>
                 )}
                 
-                {asset.metadata.generatedAt && (
+                {formattedDate && (
                   <div className="flex items-start gap-3">
                     <Calendar className="text-text-muted mt-0.5" size={14} />
                     <div className="flex-1">
                       <p className="text-[0.625rem] text-text-tertiary uppercase tracking-wider">Created</p>
                       <p className="text-xs text-text-secondary">
-                        {new Date(asset.metadata.generatedAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
+                        {formattedDate}
                       </p>
                     </div>
                   </div>
@@ -211,7 +239,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
                     <div>
                       <p className="text-text-tertiary text-[0.625rem]">Polygons</p>
                       <p className="text-text-secondary font-medium">
-                        {modelInfo?.faces ? modelInfo.faces.toLocaleString() : 'Loading...'}
+                        {modelInfo?.faces ? formatNumber(modelInfo.faces) : 'Loading...'}
                       </p>
                     </div>
                     <div>
@@ -229,7 +257,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
                     <div>
                       <p className="text-text-tertiary text-[0.625rem]">Vertices</p>
                       <p className="text-text-secondary font-medium">
-                        {modelInfo?.vertices ? modelInfo.vertices.toLocaleString() : 'Loading...'}
+                        {modelInfo?.vertices ? formatNumber(modelInfo.vertices) : 'Loading...'}
                       </p>
                     </div>
                   </div>
@@ -241,11 +269,9 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
           {/* Metadata Tab */}
           {activeTab === 'metadata' && (
             <div className="p-5">
-              {Object.keys(asset.metadata).length > 0 ? (
+              {filteredMetadata.length > 0 ? (
                 <div className="space-y-2">
-                  {Object.entries(asset.metadata)
-                    .filter(([key]) => !['tier', 'subtype', 'isPlaceholder', 'generatedAt', 'polygon_count', 'file_size', 'format', 'lod_count'].includes(key))
-                    .map(([key, value]) => (
+                  {filteredMetadata.map(([key, value]) => (
                       <div key={key} className="py-2 border-b border-border-primary last:border-0">
                         <p className="text-[0.625rem] text-text-tertiary uppercase tracking-wider mb-1">
                           {key.replace(/([A-Z])/g, ' $1').trim()}
@@ -306,6 +332,15 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({ asset, isOpen, on
       </div>
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.asset.id === nextProps.asset.id &&
+    prevProps.isOpen === nextProps.isOpen &&
+    prevProps.modelInfo?.vertices === nextProps.modelInfo?.vertices &&
+    prevProps.modelInfo?.faces === nextProps.modelInfo?.faces &&
+    prevProps.modelInfo?.materials === nextProps.modelInfo?.materials &&
+    prevProps.modelInfo?.fileSize === nextProps.modelInfo?.fileSize
+  )
+})
 
 export default AssetDetailsPanel

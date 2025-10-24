@@ -1,5 +1,6 @@
-import * as THREE from 'three'
-import { SkinnedMesh, Mesh, Skeleton, Vector3, BufferGeometry, BufferAttribute, Matrix4 } from 'three'
+import { BufferAttribute, BufferGeometry, Matrix4, Mesh, Raycaster, Skeleton, SkinnedMesh, Vector3 } from 'three'
+
+import { cloneGeometryForModification } from '../../utils/three-geometry-sharing'
 
 export interface WeightTransferOptions {
   method: 'nearest' | 'projected' | 'inpainted'
@@ -101,8 +102,9 @@ export class WeightTransferService {
     if (mesh instanceof SkinnedMesh) {
       return mesh
     }
-    
-    const geometry = mesh.geometry.clone()
+
+    // Clone geometry for modification (adding skin attributes)
+    const geometry = cloneGeometryForModification(mesh.geometry, 'weight transfer')
     
     // Add skinning attributes if missing
     if (!geometry.attributes.skinIndex) {
@@ -151,7 +153,7 @@ export class WeightTransferService {
     const armorSkinIndex = armorGeometry.attributes.skinIndex as BufferAttribute
     const armorSkinWeight = armorGeometry.attributes.skinWeight as BufferAttribute
     
-    const _armorInverseMatrix = armorMatrix.clone().invert()
+//     const _armorInverseMatrix = armorMatrix.clone().invert()
     
     // For each armor vertex
     for (let i = 0; i < armorPosition.count; i++) {
@@ -235,8 +237,8 @@ export class WeightTransferService {
     result: WeightTransferResult
   ): void {
     // Similar to nearest but projects along normal
-    const raycaster = new THREE.Raycaster()
-    const bodyMeshTemp = new THREE.Mesh(bodyGeometry)
+    const raycaster = new Raycaster()
+    const bodyMeshTemp = new Mesh(bodyGeometry)
     bodyMeshTemp.matrixWorld = bodyMatrix
     
     const armorPosition = armorGeometry.attributes.position as BufferAttribute

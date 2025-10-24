@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import { Bone, BufferGeometry, MeshBasicMaterial, Scene, Skeleton, SkinnedMesh, Vector3 } from 'three'
 
 import { GLTFExportResult, GLTFNode } from '../../types/gltf'
 
@@ -9,12 +9,12 @@ export class BoneDiagnostics {
   /**
    * Analyze a skeleton and provide detailed diagnostics
    */
-  static analyzeSkeletonForExport(skeleton: THREE.Skeleton, name: string = 'Skeleton'): void {
+  static analyzeSkeletonForExport(skeleton: Skeleton, name: string = 'Skeleton'): void {
     console.log(`\n=== BONE DIAGNOSTICS: ${name} ===`)
     
     // Calculate various metrics
     const bones = skeleton.bones
-    const rootBones = bones.filter(b => !b.parent || !(b.parent instanceof THREE.Bone))
+    const rootBones = bones.filter(b => !b.parent || !(b.parent instanceof Bone))
     
     console.log(`Total bones: ${bones.length}`)
     console.log(`Root bones: ${rootBones.length}`)
@@ -24,7 +24,7 @@ export class BoneDiagnostics {
     bones.forEach(bone => {
       if (bone.children.length > 0) {
         bone.children.forEach(child => {
-          if (child instanceof THREE.Bone) {
+          if (child instanceof Bone) {
             const dist = bone.position.distanceTo(child.position)
             distances.push(dist)
           }
@@ -55,8 +55,8 @@ export class BoneDiagnostics {
     // Analyze world transforms
     console.log(`\nRoot Bone World Transforms:`)
     rootBones.forEach(bone => {
-      const worldPos = new THREE.Vector3()
-      const worldScale = new THREE.Vector3()
+      const worldPos = new Vector3()
+      const worldScale = new Vector3()
       bone.getWorldPosition(worldPos)
       bone.getWorldScale(worldScale)
       
@@ -87,26 +87,26 @@ export class BoneDiagnostics {
   /**
    * Create a test skeleton with known dimensions
    */
-  static createTestSkeleton(scale: 'meters' | 'centimeters' = 'meters'): THREE.Skeleton {
+  static createTestSkeleton(scale: 'meters' | 'centimeters' = 'meters'): Skeleton {
     const scaleFactor = scale === 'meters' ? 1 : 100
     
     // Create a simple 3-bone chain
-    const root = new THREE.Bone()
+    const root = new Bone()
     root.name = 'TestRoot'
     root.position.set(0, 0, 0)
     
-    const middle = new THREE.Bone()
+    const middle = new Bone()
     middle.name = 'TestMiddle'
     middle.position.set(0, 0.5 * scaleFactor, 0) // 50cm or 0.5m
     root.add(middle)
     
-    const end = new THREE.Bone()
+    const end = new Bone()
     end.name = 'TestEnd'
     end.position.set(0, 0.3 * scaleFactor, 0) // 30cm or 0.3m
     middle.add(end)
     
     const bones = [root, middle, end]
-    const skeleton = new THREE.Skeleton(bones)
+    const skeleton = new Skeleton(bones)
     
     console.log(`Created test skeleton in ${scale}:`)
     console.log(`  Root->Middle: ${middle.position.y} units`)
@@ -118,7 +118,7 @@ export class BoneDiagnostics {
   /**
    * Compare two skeletons to understand scaling differences
    */
-  static compareSkeletons(skeleton1: THREE.Skeleton, name1: string, skeleton2: THREE.Skeleton, name2: string): void {
+  static compareSkeletons(skeleton1: Skeleton, name1: string, skeleton2: Skeleton, name2: string): void {
     console.log(`\n=== SKELETON COMPARISON ===`)
     console.log(`Comparing "${name1}" vs "${name2}"`)
     
@@ -128,11 +128,11 @@ export class BoneDiagnostics {
     console.log(`  ${name2}: ${skeleton2.bones.length} bones`)
     
     // Compare average bone distances
-    const getAvgDistance = (skeleton: THREE.Skeleton): number => {
+    const getAvgDistance = (skeleton: Skeleton): number => {
       const distances: number[] = []
       skeleton.bones.forEach(bone => {
         bone.children.forEach(child => {
-          if (child instanceof THREE.Bone) {
+          if (child instanceof Bone) {
             distances.push(bone.position.distanceTo(child.position))
           }
         })
@@ -154,14 +154,14 @@ export class BoneDiagnostics {
   /**
    * Test how GLTFExporter handles different skeleton configurations
    */
-  static async testGLTFExport(skeleton: THREE.Skeleton, geometry: THREE.BufferGeometry): Promise<void> {
+  static async testGLTFExport(skeleton: Skeleton, geometry: BufferGeometry): Promise<void> {
     console.log(`\n=== GLTF EXPORT TEST ===`)
     
-    const scene = new THREE.Scene()
-    const material = new THREE.MeshBasicMaterial()
+    const scene = new Scene()
+    const material = new MeshBasicMaterial()
     
     // Create skinned mesh
-    const mesh = new THREE.SkinnedMesh(geometry, material)
+    const mesh = new SkinnedMesh(geometry, material)
     mesh.bind(skeleton)
     
     // Add to scene

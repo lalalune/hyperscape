@@ -36,10 +36,10 @@ export interface RiggingMetadata {
 
 // Extended metadata that includes rigging
 // Type for the animation property structure
-type _AnimationProperty = {
-  basic?: AnimationSet
-  advanced?: AnimationSet
-}
+// type _AnimationProperty = {
+//   basic?: AnimationSet
+//   advanced?: AnimationSet
+// }
 
 // ExtendedAssetMetadata is now simply AssetMetadata (which already includes RiggingMetadata)
 // This type alias is kept for backward compatibility

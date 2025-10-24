@@ -1,19 +1,19 @@
-import * as THREE from 'three'
+import { DoubleSide, FrontSide, Material, Mesh, MeshStandardMaterial, SkinnedMesh } from 'three'
 
 /**
  * Type guard for material checks
  */
-export function isMeshStandardMaterial(material: THREE.Material | THREE.Material[]): material is THREE.MeshStandardMaterial {
+export function isMeshStandardMaterial(material: Material | Material[]): material is MeshStandardMaterial {
     const mat = Array.isArray(material) ? material[0] : material
-    return mat instanceof THREE.MeshStandardMaterial
+    return mat instanceof MeshStandardMaterial
 }
 
 /**
  * Helper to safely update material properties
  */
 export function updateMaterialProperties(
-    mesh: THREE.Mesh | THREE.SkinnedMesh, 
-    properties: Partial<THREE.MeshStandardMaterial>
+    mesh: Mesh | SkinnedMesh, 
+    properties: Partial<MeshStandardMaterial>
 ) {
     if (mesh.material) {
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
@@ -29,31 +29,31 @@ export function updateMaterialProperties(
 /**
  * Reset material to default state
  */
-export function resetMaterialToDefaults(mesh: THREE.Mesh | THREE.SkinnedMesh) {
+export function resetMaterialToDefaults(mesh: Mesh | SkinnedMesh) {
     updateMaterialProperties(mesh, {
         opacity: 1,
         transparent: false,
         wireframe: false,
         depthWrite: true,
         depthTest: true,
-        side: THREE.FrontSide
+        side: FrontSide
     })
 }
 
 /**
  * Apply extreme scale material workarounds
  */
-export function applyExtremeScaleMaterialFixes(mesh: THREE.Mesh | THREE.SkinnedMesh) {
+export function applyExtremeScaleMaterialFixes(mesh: Mesh | SkinnedMesh) {
     mesh.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material) {
+        if (child instanceof Mesh && child.material) {
             const materials = Array.isArray(child.material) ? child.material : [child.material]
             materials.forEach(mat => {
-                mat.side = THREE.DoubleSide
+                mat.side = DoubleSide
                 mat.depthWrite = true
                 mat.depthTest = true
                 mat.needsUpdate = true
 
-                if (mat instanceof THREE.MeshStandardMaterial) {
+                if (mat instanceof MeshStandardMaterial) {
                     mat.metalness = 0.5
                     mat.roughness = 0.5
                 }

@@ -1,32 +1,31 @@
 import { MutableRefObject } from 'react'
-import * as THREE from 'three'
+import { Box3, BufferGeometry, Group, Mesh, Scene, SkinnedMesh, Vector3 } from 'three'
 
-import { ArmorFittingService } from '../../../../services/fitting/ArmorFittingService'
-import { MeshFittingService, MeshFittingParameters } from '../../../../services/fitting/MeshFittingService'
-import { ExtendedMesh } from '../../../../types'
+import { ArmorFittingService } from '@/services/fitting/ArmorFittingService'
+import { MeshFittingService, MeshFittingParameters } from '@/services/fitting/MeshFittingService'
+import { ExtendedMesh } from '@/types'
 import {
     calculateScaleRatio,
-    calculateFittingScale,
     calculateVolumeBasedScale,
     updateSceneMatrices,
     isMeshStandardMaterial
 } from '../utils'
 
 interface ArmorFittingProps {
-    sceneRef: MutableRefObject<THREE.Scene | null>
-    avatarMeshRef: MutableRefObject<THREE.SkinnedMesh | null>
+    sceneRef: MutableRefObject<Scene | null>
+    avatarMeshRef: MutableRefObject<SkinnedMesh | null>
     armorMeshRef: MutableRefObject<ExtendedMesh | null>
-    originalArmorGeometryRef: MutableRefObject<THREE.BufferGeometry | null>
-    debugArrowGroupRef: MutableRefObject<THREE.Group | null>
-    hullMeshRef: MutableRefObject<THREE.Mesh | null>
+    originalArmorGeometryRef: MutableRefObject<BufferGeometry | null>
+    debugArrowGroupRef: MutableRefObject<Group | null>
+    hullMeshRef: MutableRefObject<Mesh | null>
     fittingService: MutableRefObject<MeshFittingService>
     armorFittingService: MutableRefObject<ArmorFittingService>
     
     setIsProcessing: (value: boolean) => void
     setIsArmorFitted: (value: boolean) => void
     setIsArmorBound: (value: boolean) => void
-    setBoundArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
-    setSkinnedArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
+    setBoundArmorMesh: (mesh: SkinnedMesh | null) => void
+    setSkinnedArmorMesh: (mesh: SkinnedMesh | null) => void
     setError: (value: string) => void
     
     isProcessing: boolean
@@ -55,7 +54,17 @@ export function useArmorFitting({
     fittingParameters,
     selectedAvatar
 }: ArmorFittingProps) {
-    
+    const timeoutRefs: { current: ReturnType<typeof setTimeout> | null }[] = []
+
+    const cleanupTimeouts = () => {
+        timeoutRefs.forEach(ref => {
+            if (ref.current) {
+                clearTimeout(ref.current)
+                ref.current = null
+            }
+        })
+    }
+
     const performArmorFitting = () => {
         if (!sceneRef.current || !armorMeshRef.current || !avatarMeshRef.current) {
             console.error('Scene, armor, or avatar not available')
@@ -185,7 +194,12 @@ export function useArmorFitting({
                 armorParent.add(armorMesh)
             }
 
-            setTimeout(() => setIsProcessing(false), 100)
+            const timeoutRef = { current: null as ReturnType<typeof setTimeout> | null }
+            timeoutRefs.push(timeoutRef)
+            timeoutRef.current = setTimeout(() => {
+                setIsProcessing(false)
+                timeoutRef.current = null
+            }, 100)
         }
     }
 
@@ -207,9 +221,9 @@ export function useArmorFitting({
 
             // Store the current world transform
             currentArmorMesh.updateMatrixWorld(true)
-            const perfectWorldPosition = currentArmorMesh.getWorldPosition(new THREE.Vector3())
-            const _perfectWorldQuaternion = currentArmorMesh.getWorldQuaternion(new THREE.Quaternion())
-            const perfectWorldScale = currentArmorMesh.getWorldScale(new THREE.Vector3())
+            const perfectWorldPosition = currentArmorMesh.getWorldPosition(new Vector3())
+//             const _perfectWorldQuaternion = currentArmorMesh.getWorldQuaternion(new Quaternion())
+            const perfectWorldScale = currentArmorMesh.getWorldScale(new Vector3())
 
             console.log('=== FITTED ARMOR WORLD TRANSFORM ===')
             console.log('World position:', perfectWorldPosition)
@@ -257,7 +271,7 @@ export function useArmorFitting({
             skinnedArmor.updateMatrixWorld(true)
 
             // Verify position
-            const finalWorldPos = skinnedArmor.getWorldPosition(new THREE.Vector3())
+            const finalWorldPos = skinnedArmor.getWorldPosition(new Vector3())
             const positionDrift = finalWorldPos.distanceTo(perfectWorldPosition)
             
             if (positionDrift > 0.01) {
@@ -269,12 +283,12 @@ export function useArmorFitting({
             }
 
             // Check for extreme scales
-            const armatureScale = skinnedArmor.parent?.getWorldScale(new THREE.Vector3()) || new THREE.Vector3(1, 1, 1)
+            const armatureScale = skinnedArmor.parent?.getWorldScale(new Vector3()) || new Vector3(1, 1, 1)
             if (armatureScale.x < 0.1) {
                 console.log('Armature has extreme scale - applying visibility workaround')
                 skinnedArmor.frustumCulled = false
                 skinnedArmor.traverse((child) => {
-                    if (child instanceof THREE.Mesh) {
+                    if (child instanceof Mesh) {
                         child.frustumCulled = false
                     }
                 })
@@ -287,7 +301,7 @@ export function useArmorFitting({
             // Clean up extra armor meshes
             let armorCount = 0
             scene.traverse((obj) => {
-                if (obj.userData.isArmor && obj instanceof THREE.Mesh) {
+                if (obj.userData.isArmor && obj instanceof Mesh) {
                     armorCount++
                     if (obj !== skinnedArmor) {
                         console.warn('Found extra armor mesh, removing:', obj.name)
@@ -315,20 +329,21 @@ export function useArmorFitting({
 
     return {
         performArmorFitting,
-        bindArmorToSkeleton
+        bindArmorToSkeleton,
+        cleanupTimeouts
     }
 }
 
 // Helper functions specific to armor fitting
 
-function calculateTorsoBounds(avatarMesh: THREE.SkinnedMesh): {
-    torsoCenter: THREE.Vector3
-    torsoSize: THREE.Vector3
-    torsoBounds: THREE.Box3
+function calculateTorsoBounds(avatarMesh: SkinnedMesh): {
+    torsoCenter: Vector3
+    torsoSize: Vector3
+    torsoBounds: Box3
 } | null {
-    const avatarBounds = new THREE.Box3().setFromObject(avatarMesh)
-    const avatarSize = avatarBounds.getSize(new THREE.Vector3())
-    const avatarCenter = avatarBounds.getCenter(new THREE.Vector3())
+    const avatarBounds = new Box3().setFromObject(avatarMesh)
+    const avatarSize = avatarBounds.getSize(new Vector3())
+    const avatarCenter = avatarBounds.getCenter(new Vector3())
     
     console.log('Avatar bounds:', avatarBounds)
     console.log('Avatar height:', avatarSize.y)
@@ -355,7 +370,7 @@ function calculateTorsoBounds(avatarMesh: THREE.SkinnedMesh): {
     
     skeleton.bones.forEach(bone => {
         const boneName = bone.name.toLowerCase()
-        const bonePos = new THREE.Vector3()
+        const bonePos = new Vector3()
         bone.getWorldPosition(bonePos)
         
         if (boneName.includes('head') && !boneName.includes('end')) {
@@ -395,17 +410,17 @@ function calculateTorsoBounds(avatarMesh: THREE.SkinnedMesh): {
         torsoTop = avatarBounds.min.y + avatarSize.y * 0.6
     }
     
-    const torsoCenter = new THREE.Vector3(
+    const torsoCenter = new Vector3(
         avatarCenter.x,
         (torsoBottom + torsoTop) / 2,
         avatarCenter.z
     )
-    const torsoSize = new THREE.Vector3(
+    const torsoSize = new Vector3(
         avatarSize.x * 0.6,
         torsoTop - torsoBottom,
         avatarSize.z * 0.5
     )
-    const torsoBounds = new THREE.Box3()
+    const torsoBounds = new Box3()
     torsoBounds.setFromCenterAndSize(torsoCenter, torsoSize)
     
     console.log('Torso Y range:', torsoBounds.min.y.toFixed(3), 'to', torsoBounds.max.y.toFixed(3))
@@ -416,18 +431,18 @@ function calculateTorsoBounds(avatarMesh: THREE.SkinnedMesh): {
 }
 
 function scaleAndPositionArmor(
-    armorMesh: THREE.Mesh,
-    torsoCenter: THREE.Vector3,
-    torsoSize: THREE.Vector3,
-    originalArmorGeometryRef: MutableRefObject<THREE.BufferGeometry | null>,
+    armorMesh: Mesh,
+    torsoCenter: Vector3,
+    torsoSize: Vector3,
+    originalArmorGeometryRef: MutableRefObject<BufferGeometry | null>,
     selectedAvatar: { name: string } | null
 ): boolean {
     console.log('=== SCALING AND POSITIONING ARMOR ===')
     
     // Get armor bounds
-    const armorBounds = new THREE.Box3().setFromObject(armorMesh)
-    const armorSize = armorBounds.getSize(new THREE.Vector3())
-    const armorCenter = armorBounds.getCenter(new THREE.Vector3())
+    const armorBounds = new Box3().setFromObject(armorMesh)
+    const armorSize = armorBounds.getSize(new Vector3())
+    const armorCenter = armorBounds.getCenter(new Vector3())
     
     console.log('Initial armor center:', armorCenter)
     console.log('Initial armor size:', armorSize)
@@ -435,9 +450,7 @@ function scaleAndPositionArmor(
     console.log('Target torso size:', torsoSize)
     
     // Calculate scales
-    const targetScale = calculateFittingScale(armorSize, torsoSize)
     const minScale = 0.5
-    const _finalScale = Math.max(targetScale, minScale)
     
     // Get character-specific adjustments
     const characterProfile = selectedAvatar?.name?.toLowerCase().includes('goblin') 
@@ -465,8 +478,8 @@ function scaleAndPositionArmor(
     armorMesh.updateMatrixWorld(true)
     
     // Get new bounds after scaling
-    const scaledBounds = new THREE.Box3().setFromObject(armorMesh)
-    const scaledCenter = scaledBounds.getCenter(new THREE.Vector3())
+    const scaledBounds = new Box3().setFromObject(armorMesh)
+    const scaledCenter = scaledBounds.getCenter(new Vector3())
     
     // Center armor on torso
     const currentMeshPos = armorMesh.position.clone()

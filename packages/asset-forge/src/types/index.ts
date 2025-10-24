@@ -277,6 +277,12 @@ export * from './three'
 export * from './common'
 export * from './generation'
 export * from './hand-rigging'
+export * from './manifests'
+export * from './content-generation'
+export * from './action-handlers'
+export * from './quest-tracking'
+export * from './npc-scripts'
+export * from './relationships'
 
 // Explicitly re-export GLTFAnimation, GLTFNode, and GLTFSkin as types for isolatedModules compatibility
 export type {

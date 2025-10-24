@@ -229,7 +229,7 @@ const MaterialPromptOverrides: React.FC<{
       {selectedMaterials.map(matId => {
         const preset = materialPresets.find(p => p.id === matId)
         return (
-          <div key={matId} className="space-y-1">
+          <div key={`mat-override-${matId}`} className="space-y-1">
             <label className="text-xs font-medium text-text-tertiary">
               {preset?.displayName || matId.replace(/-/g, ' ')}
             </label>
@@ -275,7 +275,7 @@ const CustomMaterialsSection: React.FC<{
       </div>
       <div className="space-y-3">
         {customMaterials.map((mat, index) => (
-          <Card key={index} className="bg-gradient-to-br from-bg-secondary to-bg-tertiary border-border-primary">
+          <Card key={`custom-mat-${index}-${mat.name || 'empty'}`} className="bg-gradient-to-br from-bg-secondary to-bg-tertiary border-border-primary">
             <CardContent className="p-4 space-y-3">
               <div className="flex gap-2">
                 <Input

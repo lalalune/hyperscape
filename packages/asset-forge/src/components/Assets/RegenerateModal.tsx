@@ -4,7 +4,7 @@
  */
 
 import { RefreshCw, CheckCircle, AlertCircle, Loader2, AlertTriangle } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 
 import { Asset } from '../../types'
 import { formatAssetName } from '../../utils/formatAssetName'
@@ -28,6 +28,21 @@ const RegenerateModal: React.FC<RegenerateModalProps> = ({
   const [message, setMessage] = useState('')
   const [progress, setProgress] = useState(0)
 
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+      }
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const handleRegenerate = async () => {
     setIsRegenerating(true)
     setStatus('processing')
@@ -36,7 +51,7 @@ const RegenerateModal: React.FC<RegenerateModalProps> = ({
 
     try {
       // Simulate progress updates
-      const progressInterval = setInterval(() => {
+      progressIntervalRef.current = setInterval(() => {
         setProgress(prev => {
           if (prev >= 90) return prev
           return prev + Math.random() * 10
@@ -47,23 +62,30 @@ const RegenerateModal: React.FC<RegenerateModalProps> = ({
         method: 'POST'
       })
 
-      clearInterval(progressInterval)
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
 
       if (!response.ok) {
         throw new Error('Regeneration failed')
       }
 
       const result = await response.json()
-      
+
       setProgress(100)
       setStatus('success')
       setMessage(result.message || 'Base model regenerated successfully!')
-      
+
       // Show success for 2 seconds then close
-      setTimeout(() => {
+      successTimeoutRef.current = setTimeout(() => {
         onComplete()
       }, 2000)
     } catch (error) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
       setStatus('error')
       setMessage(error instanceof Error ? error.message : 'Regeneration failed')
       setProgress(0)

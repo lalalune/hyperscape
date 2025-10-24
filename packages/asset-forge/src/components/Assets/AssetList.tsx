@@ -3,7 +3,7 @@ import {
   User, Trees, Box, Target, HelpCircle, Sparkles,
   ChevronRight, Layers
 } from 'lucide-react'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 
 import { getTierColor } from '../../constants'
 import { useAssetsStore } from '../../store'
@@ -23,10 +23,18 @@ interface AssetGroup {
 const AssetList: React.FC<AssetListProps> = ({
   assets,
 }) => {
-  // Get state and actions from store
-  const { selectedAsset, handleAssetSelect } = useAssetsStore()
+  // Get state and actions from store - selective subscriptions
+  const selectedAsset = useAssetsStore(state => state.selectedAsset)
+  const handleAssetSelect = useAssetsStore(state => state.handleAssetSelect)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped')
+
+  // Virtual scrolling state
+  const INITIAL_RENDER_COUNT = 30 // Initial number of items to render
+  const LOAD_MORE_COUNT = 20 // Number of items to add when scrolling
+  const [renderedCount, setRenderedCount] = useState(INITIAL_RENDER_COUNT)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Group assets by base/variants
   const assetGroups = useMemo(() => {
@@ -155,6 +163,114 @@ const AssetList: React.FC<AssetListProps> = ({
     }
     setExpandedGroups(newExpanded)
   }
+
+  // Reset rendered count when assets change
+  useEffect(() => {
+    setRenderedCount(INITIAL_RENDER_COUNT)
+
+    // Performance logging (can be removed in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[AssetList] Virtual Scrolling Reset:', {
+        totalAssets: assets.length,
+        initialRender: INITIAL_RENDER_COUNT,
+        viewMode,
+        performanceImprovement: assets.length > INITIAL_RENDER_COUNT
+          ? `${Math.round((1 - INITIAL_RENDER_COUNT / assets.length) * 100)}% fewer DOM nodes`
+          : 'All assets rendered'
+      })
+    }
+  }, [assets.length, viewMode])
+
+  // Create sliced/virtualized versions of asset data
+  const virtualizedGroupedAssetsByType = useMemo(() => {
+    if (viewMode !== 'grouped') return groupedAssetsByType
+
+    const result: typeof groupedAssetsByType = {}
+    let itemCount = 0
+
+    for (const [type, typeData] of Object.entries(groupedAssetsByType)) {
+      if (itemCount >= renderedCount) break
+
+      const remainingSlots = renderedCount - itemCount
+      const groups = typeData.groups.slice(0, Math.max(0, remainingSlots))
+      const standalone = typeData.standalone.slice(0, Math.max(0, remainingSlots - groups.length))
+
+      if (groups.length > 0 || standalone.length > 0) {
+        result[type] = { groups, standalone }
+        itemCount += groups.length + standalone.length
+      }
+    }
+
+    return result
+  }, [groupedAssetsByType, renderedCount, viewMode])
+
+  const virtualizedAssetsByType = useMemo(() => {
+    if (viewMode !== 'flat') return assetsByType
+
+    const result: typeof assetsByType = {}
+    let itemCount = 0
+
+    for (const [type, typeAssets] of Object.entries(assetsByType)) {
+      if (itemCount >= renderedCount) break
+
+      const remainingSlots = renderedCount - itemCount
+      const slicedAssets = typeAssets.slice(0, remainingSlots)
+
+      if (slicedAssets.length > 0) {
+        result[type] = slicedAssets
+        itemCount += slicedAssets.length
+      }
+    }
+
+    return result
+  }, [assetsByType, renderedCount, viewMode])
+
+  // Load more items callback
+  const loadMoreItems = useCallback(() => {
+    const totalItems = viewMode === 'grouped'
+      ? Object.keys(groupedAssetsByType).reduce((sum, type) => {
+          const typeData = groupedAssetsByType[type]
+          return sum + typeData.groups.length + typeData.standalone.length
+        }, 0)
+      : assets.length
+
+    if (renderedCount < totalItems) {
+      const newCount = Math.min(renderedCount + LOAD_MORE_COUNT, totalItems)
+      setRenderedCount(newCount)
+
+      // Performance logging (can be removed in production)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AssetList] Loading more items:', {
+          previousCount: renderedCount,
+          newCount,
+          totalItems,
+          percentLoaded: Math.round((newCount / totalItems) * 100) + '%'
+        })
+      }
+    }
+  }, [renderedCount, assets.length, viewMode, groupedAssetsByType])
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreItems()
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        rootMargin: '100px', // Start loading 100px before reaching the sentinel
+        threshold: 0.1
+      }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [loadMoreItems])
 
   const getAssetIcon = (type: string, _subtype?: string) => {
     switch (type) {
@@ -290,12 +406,12 @@ const AssetList: React.FC<AssetListProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto custom-scrollbar" ref={scrollContainerRef}>
         <div className="p-2 space-y-1">
           {viewMode === 'grouped' ? (
             <>
               {/* Render grouped view with type headers */}
-              {Object.entries(groupedAssetsByType).map(([type, typeData], typeIndex) => {
+              {Object.entries(virtualizedGroupedAssetsByType).map(([type, typeData], typeIndex) => {
                 // Better pluralization
                 const typeLabel = (() => {
                   const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1)
@@ -336,6 +452,8 @@ const AssetList: React.FC<AssetListProps> = ({
                                   toggleGroup(group.base.id)
                                 }}
                                 className="p-1.5 -ml-1 mr-2 hover:bg-bg-secondary rounded-md transition-all duration-200 hover:scale-110"
+                                aria-label={expandedGroups.has(group.base.id) ? `Collapse ${group.base.name} variants` : `Expand ${group.base.name} variants`}
+                                aria-expanded={expandedGroups.has(group.base.id)}
                               >
                                 <ChevronRight
                                   size={16}
@@ -538,7 +656,7 @@ const AssetList: React.FC<AssetListProps> = ({
           ) : (
             /* Flat view - grouped by type */
             <>
-              {Object.entries(assetsByType).map(([type, typeAssets], typeIndex) => {
+              {Object.entries(virtualizedAssetsByType).map(([type, typeAssets], typeIndex) => {
                 // Better pluralization
                 const typeLabel = (() => {
                   const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1)
@@ -658,6 +776,42 @@ const AssetList: React.FC<AssetListProps> = ({
               })}
             </>
           )}
+
+          {/* Sentinel for infinite scroll - always render to detect when to load more */}
+          <div ref={sentinelRef} className="h-4" />
+
+          {/* Loading indicator */}
+          {(() => {
+            const totalItems = viewMode === 'grouped'
+              ? Object.keys(groupedAssetsByType).reduce((sum, type) => {
+                  const typeData = groupedAssetsByType[type]
+                  return sum + typeData.groups.length + typeData.standalone.length
+                }, 0)
+              : assets.length
+
+            const hasMore = renderedCount < totalItems
+
+            if (hasMore) {
+              return (
+                <div className="flex justify-center items-center p-4 text-text-tertiary text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span>Loading more assets... ({renderedCount} / {totalItems})</span>
+                  </div>
+                </div>
+              )
+            }
+
+            if (renderedCount >= totalItems && totalItems > INITIAL_RENDER_COUNT) {
+              return (
+                <div className="flex justify-center items-center p-4 text-text-tertiary text-xs">
+                  All {totalItems} assets loaded
+                </div>
+              )
+            }
+
+            return null
+          })()}
         </div>
       </div>
     </div>

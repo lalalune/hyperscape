@@ -15,7 +15,7 @@ interface ViewportSectionProps {
   equipmentSlot: string
   showSkeleton: boolean
   setShowSkeleton: (show: boolean) => void
-  viewerRef: React.RefObject<EquipmentViewerRef>
+  viewerRef: React.RefObject<EquipmentViewerRef | null>
   handleDetectionResult: HandleDetectionResult | null
   avatarHeight: number
   autoScaleWeapon: boolean
@@ -100,6 +100,7 @@ export const ViewportSection: React.FC<ViewportSectionProps> = ({
                 onClick={() => setShowSkeleton(!showSkeleton)}
                 title="Toggle skeleton"
                 className="backdrop-blur-sm"
+                aria-label="Toggle skeleton visibility"
               >
                 <Grid3X3 size={18} />
               </Button>
@@ -109,6 +110,7 @@ export const ViewportSection: React.FC<ViewportSectionProps> = ({
                 onClick={() => viewerRef.current?.resetCamera?.()}
                 title="Reset camera"
                 className="backdrop-blur-sm"
+                aria-label="Reset camera position"
               >
                 <Camera size={18} />
               </Button>

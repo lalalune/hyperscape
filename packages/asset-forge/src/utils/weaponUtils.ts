@@ -1,4 +1,6 @@
-import * as THREE from 'three'
+import { Bone, Box3, Group, Object3D, SkinnedMesh, Vector3 } from 'three'
+
+import { safeScale } from './safe-math.ts'
 
 /**
  * Bone mapping for different naming conventions
@@ -51,7 +53,7 @@ export const WEAPON_OFFSETS: Record<string, {
 /**
  * Calculate avatar height from model
  */
-export function calculateAvatarHeight(avatar: THREE.Object3D): number {
+export function calculateAvatarHeight(avatar: Object3D): number {
   // Update world matrices first
   avatar.updateMatrixWorld(true)
   
@@ -61,11 +63,11 @@ export function calculateAvatarHeight(avatar: THREE.Object3D): number {
   let foundMesh = false
   
   avatar.traverse((child) => {
-    if (child instanceof THREE.SkinnedMesh) {
+    if (child instanceof SkinnedMesh) {
       foundMesh = true
       
       // Get world space bounding box
-      const box = new THREE.Box3()
+      const box = new Box3()
       box.setFromObject(child)
       
       minY = Math.min(minY, box.min.y)
@@ -75,7 +77,7 @@ export function calculateAvatarHeight(avatar: THREE.Object3D): number {
   
   if (!foundMesh) {
     // Fallback to overall bounding box
-    const box = new THREE.Box3().setFromObject(avatar)
+    const box = new Box3().setFromObject(avatar)
     minY = box.min.y
     maxY = box.max.y
   }
@@ -95,8 +97,8 @@ export function calculateAvatarHeight(avatar: THREE.Object3D): number {
  * Calculate appropriate weapon scale based on avatar size
  */
 export function calculateWeaponScale(
-  weapon: THREE.Object3D, 
-  avatar: THREE.Object3D, 
+  weapon: Object3D, 
+//   avatar: Object3D, 
   weaponType: string,
   avatarHeight: number
 ): number {
@@ -104,8 +106,8 @@ export function calculateWeaponScale(
   weapon.updateMatrixWorld(true)
   
   // Measure the entire weapon object
-  const weaponBox = new THREE.Box3().setFromObject(weapon)
-  const weaponSize = new THREE.Vector3()
+  const weaponBox = new Box3().setFromObject(weapon)
+  const weaponSize = new Vector3()
   weaponBox.getSize(weaponSize)
   const weaponLength = Math.max(weaponSize.x, weaponSize.y, weaponSize.z)
   
@@ -135,8 +137,10 @@ export function calculateWeaponScale(
   }
   
   const targetWeaponLength = avatarHeight * targetProportion
-  const scaleFactor = targetWeaponLength / weaponLength
-  
+
+  // Use safe division to prevent division by zero
+  const scaleFactor = safeScale(targetWeaponLength, weaponLength, 1)
+
   return scaleFactor
 }
 
@@ -144,18 +148,18 @@ export function calculateWeaponScale(
  * Create a normalized weapon where grip point is at origin
  */
 export function createNormalizedWeapon(
-  originalMesh: THREE.Object3D, 
-  gripPoint: THREE.Vector3
-): THREE.Object3D {
+  originalMesh: Object3D, 
+  gripPoint: Vector3
+): Object3D {
   // Clone the weapon so we don't modify the original
   const normalizedWeapon = originalMesh.clone()
   
   // Transform grip point if weapon was rotated during detection
-  const transformedGrip = new THREE.Vector3()
+  const transformedGrip = new Vector3()
   
   // Check weapon dimensions to determine if it was rotated during detection
-  const weaponBox = new THREE.Box3().setFromObject(originalMesh)
-  const weaponSize = new THREE.Vector3()
+  const weaponBox = new Box3().setFromObject(originalMesh)
+  const weaponSize = new Vector3()
   weaponBox.getSize(weaponSize)
   
   if (weaponSize.z > weaponSize.x && weaponSize.z > weaponSize.y) {
@@ -176,7 +180,7 @@ export function createNormalizedWeapon(
   }
   
   // Create a group to hold the transformed weapon
-  const weaponGroup = new THREE.Group()
+  const weaponGroup = new Group()
   weaponGroup.name = 'NormalizedWeapon'
   weaponGroup.userData.isNormalized = true
   
@@ -199,13 +203,13 @@ export function createNormalizedWeapon(
 /**
  * Find bone in avatar skeleton
  */
-export function findBone(object: THREE.Object3D, boneName: string): THREE.Bone | null {
+export function findBone(object: Object3D, boneName: string): Bone | null {
   const possibleNames = BONE_MAPPING[boneName] || [boneName]
-  let foundBone: THREE.Bone | null = null
+  let foundBone: Bone | null = null
   
   // Search through all SkinnedMesh objects and their skeletons
   object.traverse((child) => {
-    if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+    if (child instanceof SkinnedMesh && child.skeleton) {
       child.skeleton.bones.forEach(bone => {
         // Check exact matches first
         if (possibleNames.includes(bone.name)) {
@@ -231,8 +235,8 @@ export function findBone(object: THREE.Object3D, boneName: string): THREE.Bone |
 /**
  * Get accumulated world scale of an object
  */
-export function getWorldScale(object: THREE.Object3D): THREE.Vector3 {
-  const worldScale = new THREE.Vector3()
+export function getWorldScale(object: Object3D): Vector3 {
+  const worldScale = new Vector3()
   object.getWorldScale(worldScale)
   return worldScale
 }
@@ -240,10 +244,10 @@ export function getWorldScale(object: THREE.Object3D): THREE.Vector3 {
 /**
  * Get the bone that equipment is attached to (handling wrapper groups)
  */
-export function getAttachedBone(equipment: THREE.Object3D): THREE.Bone | null {
+export function getAttachedBone(equipment: Object3D): Bone | null {
   let parent = equipment.parent
   while (parent) {
-    if (parent instanceof THREE.Bone) {
+    if (parent instanceof Bone) {
       return parent
     }
     parent = parent.parent

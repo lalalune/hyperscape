@@ -1,8 +1,11 @@
 import { MutableRefObject } from 'react'
-import * as THREE from 'three'
+import {
+  Bone, BufferGeometry, Euler, Group, Mesh, Object3D, Quaternion, Scene,
+  SkinnedMesh, Vector3
+} from 'three'
 
-import { MeshFittingService } from '../../../../services/fitting/MeshFittingService'
-import { ExtendedMesh } from '../../../../types'
+import { MeshFittingService } from '@/services/fitting/MeshFittingService'
+import { ExtendedMesh } from '@/types'
 import {
     disposeMesh,
     findMeshesByUserData,
@@ -13,26 +16,26 @@ import {
 } from '../utils'
 
 interface ResetHandlersProps {
-    sceneRef: MutableRefObject<THREE.Scene | null>
-    avatarMeshRef: MutableRefObject<THREE.SkinnedMesh | null>
+    sceneRef: MutableRefObject<Scene | null>
+    avatarMeshRef: MutableRefObject<SkinnedMesh | null>
     armorMeshRef: MutableRefObject<ExtendedMesh | null>
     helmetMeshRef: MutableRefObject<ExtendedMesh | null>
-    originalArmorGeometryRef: MutableRefObject<THREE.BufferGeometry | null>
+    originalArmorGeometryRef: MutableRefObject<BufferGeometry | null>
     originalHelmetTransformRef: MutableRefObject<{
-        position: THREE.Vector3
-        rotation: THREE.Euler
-        scale: THREE.Vector3
+        position: Vector3
+        rotation: Euler
+        scale: Vector3
     } | null>
-    debugArrowGroupRef: MutableRefObject<THREE.Group | null>
-    hullMeshRef: MutableRefObject<THREE.Mesh | null>
+    debugArrowGroupRef: MutableRefObject<Group | null>
+    hullMeshRef: MutableRefObject<Mesh | null>
     fittingService: MutableRefObject<MeshFittingService>
     
     setIsArmorFitted: (value: boolean) => void
     setIsArmorBound: (value: boolean) => void
     setIsHelmetFitted: (value: boolean) => void
     setIsHelmetAttached: (value: boolean) => void
-    setBoundArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
-    setSkinnedArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
+    setBoundArmorMesh: (mesh: SkinnedMesh | null) => void
+    setSkinnedArmorMesh: (mesh: SkinnedMesh | null) => void
     setError: (value: string) => void
     resetProcessingStates: () => void
     detachHelmetFromHead: () => void
@@ -106,14 +109,20 @@ export function useResetHandlers({
         
         // Explicitly remove armor meshes if in helmet fitting mode
         if (viewMode === 'helmetFitting') {
-            const armorMeshes = findMeshesByUserData(scene, userData => userData?.isArmor === true)
-            removeObjectsFromScene(scene, armorMeshes)
+            const armorMeshes = findMeshesByUserData(scene, (userData) => {
+                const isArmor = userData?.isArmor
+                return typeof isArmor === 'boolean' && isArmor
+            })
+            removeObjectsFromScene(armorMeshes)
         }
-        
+
         // Explicitly remove helmet meshes if in armor fitting mode
         if (viewMode === 'avatarArmor') {
-            const helmetMeshes = findMeshesByUserData(scene, userData => userData?.isHelmet === true)
-            removeObjectsFromScene(scene, helmetMeshes)
+            const helmetMeshes = findMeshesByUserData(scene, (userData) => {
+                const isHelmet = userData?.isHelmet
+                return typeof isHelmet === 'boolean' && isHelmet
+            })
+            removeObjectsFromScene(helmetMeshes)
         }
 
         // Reset armor mesh only if in avatar/armor mode
@@ -170,12 +179,12 @@ export function useResetHandlers({
 
 // Helper functions for reset operations
 
-function resetBasicDemo(scene: THREE.Scene) {
+function resetBasicDemo(scene: Scene) {
     console.log('Resetting Basic Demo geometries')
     
     // Reset all source meshes (spheres/cubes)
     scene.traverse((obj) => {
-        if (obj instanceof THREE.Mesh && obj.userData.isSource && !obj.userData.isArmor) {
+        if (obj instanceof Mesh && obj.userData.isSource && !obj.userData.isArmor) {
             const originalGeoRef = obj.userData.originalGeometry
             
             if (originalGeoRef?.current) {
@@ -185,7 +194,7 @@ function resetBasicDemo(scene: THREE.Scene) {
                 obj.geometry.computeVertexNormals()
                 obj.geometry.computeBoundingBox()
                 obj.geometry.computeBoundingSphere()
-            } else if (originalGeoRef instanceof THREE.BufferGeometry) {
+            } else if (originalGeoRef instanceof BufferGeometry) {
                 console.log('Resetting geometry using direct reference')
                 obj.geometry.dispose()
                 obj.geometry = originalGeoRef.clone()
@@ -201,8 +210,8 @@ function resetBasicDemo(scene: THREE.Scene) {
     console.log('=== BASIC DEMO RESET COMPLETE ===')
 }
 
-function cleanupSceneObjects(scene: THREE.Scene, currentRefs: (THREE.Object3D | null)[]) {
-    const objectsToRemove: THREE.Object3D[] = []
+function cleanupSceneObjects(scene: Scene, currentRefs: (Object3D | null)[]) {
+    const objectsToRemove: Object3D[] = []
     
     scene.traverse((child) => {
         // Skip current refs
@@ -230,10 +239,10 @@ function cleanupSceneObjects(scene: THREE.Scene, currentRefs: (THREE.Object3D | 
         }
     })
     
-    removeObjectsFromScene(scene, objectsToRemove)
+    removeObjectsFromScene(objectsToRemove)
 }
 
-function clearDebugGroups(scene: THREE.Scene, debugArrowGroupRef: MutableRefObject<THREE.Group | null>) {
+function clearDebugGroups(scene: Scene, debugArrowGroupRef: MutableRefObject<Group | null>) {
     const debugGroups = scene.children.filter(child =>
         child.name === 'debugArrows' ||
         child.userData.isDebug ||
@@ -255,7 +264,7 @@ function clearDebugGroups(scene: THREE.Scene, debugArrowGroupRef: MutableRefObje
     }
 }
 
-function removeDebugObjectsByName(scene: THREE.Scene) {
+function removeDebugObjectsByName(scene: Scene) {
     const debugObjectNames = [
         'TorsoDebugBox',
         'TorsoCenterSphere',
@@ -276,9 +285,9 @@ function removeDebugObjectsByName(scene: THREE.Scene) {
 }
 
 function resetArmorMesh(
-    armorMesh: THREE.Mesh,
-    scene: THREE.Scene,
-    originalArmorGeometryRef: MutableRefObject<THREE.BufferGeometry | null>,
+    armorMesh: Mesh,
+    scene: Scene,
+    originalArmorGeometryRef: MutableRefObject<BufferGeometry | null>,
     setIsArmorFitted: (value: boolean) => void,
     setIsArmorBound: (value: boolean) => void
 ) {
@@ -298,9 +307,9 @@ function resetArmorMesh(
         console.log('Detaching armor from parent:', armorMesh.parent.name)
         
         const worldTransform = {
-            position: armorMesh.getWorldPosition(new THREE.Vector3()),
-            quaternion: armorMesh.getWorldQuaternion(new THREE.Quaternion()),
-            scale: armorMesh.getWorldScale(new THREE.Vector3())
+            position: armorMesh.getWorldPosition(new Vector3()),
+            quaternion: armorMesh.getWorldQuaternion(new Quaternion()),
+            scale: armorMesh.getWorldScale(new Vector3())
         }
         
         armorMesh.removeFromParent()
@@ -319,7 +328,7 @@ function resetArmorMesh(
 
     // Reset material properties
     armorMesh.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
+        if (child instanceof Mesh) {
             resetMaterialToDefaults(child)
         }
     })
@@ -336,11 +345,11 @@ function resetArmorMesh(
 
 function resetHelmetMesh(
     helmetMesh: ExtendedMesh,
-    scene: THREE.Scene,
+    scene: Scene,
     originalHelmetTransform: {
-        position: THREE.Vector3
-        rotation: THREE.Euler
-        scale: THREE.Vector3
+        position: Vector3
+        rotation: Euler
+        scale: Vector3
     },
     detachHelmetFromHead: () => void,
     setIsHelmetAttached: (value: boolean) => void,
@@ -348,7 +357,7 @@ function resetHelmetMesh(
 ) {
     console.log('=== RESETTING HELMET ===')
     
-    const isAttachedToBone = helmetMesh.parent && helmetMesh.parent instanceof THREE.Bone
+    const isAttachedToBone = helmetMesh.parent && helmetMesh.parent instanceof Bone
     const isAttachedSomewhere = helmetMesh.parent && helmetMesh.parent !== scene
     
     if (isAttachedToBone || isAttachedSomewhere) {
@@ -402,7 +411,7 @@ function resetHelmetMesh(
     helmetMesh.visible = true
     helmetMesh.traverse((child) => {
         child.visible = true
-        if (child instanceof THREE.Mesh) {
+        if (child instanceof Mesh) {
             resetMaterialToDefaults(child)
         }
     })
@@ -440,17 +449,17 @@ function resetHelmetMesh(
     console.log('=== HELMET RESET FINISHED ===')
 }
 
-function resetAvatarMaterials(avatarMesh: THREE.SkinnedMesh) {
+function resetAvatarMaterials(avatarMesh: SkinnedMesh) {
     console.log('Resetting avatar mesh materials')
     avatarMesh.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
+        if (child instanceof Mesh || child instanceof SkinnedMesh) {
             resetMaterialToDefaults(child)
         }
     })
     avatarMesh.updateMatrixWorld(true)
 }
 
-function clearHullMesh(hullMeshRef: MutableRefObject<THREE.Mesh | null>) {
+function clearHullMesh(hullMeshRef: MutableRefObject<Mesh | null>) {
     if (hullMeshRef.current) {
         if (hullMeshRef.current.parent) {
             hullMeshRef.current.parent.remove(hullMeshRef.current)
@@ -460,11 +469,15 @@ function clearHullMesh(hullMeshRef: MutableRefObject<THREE.Mesh | null>) {
     }
 }
 
-function removeBoundArmorMeshes(scene: THREE.Scene) {
-    const boundArmorMeshes = findMeshesByUserData(scene, 
-        userData => userData?.isBoundArmor || userData?.isSkinnedArmor
+function removeBoundArmorMeshes(scene: Scene) {
+    const boundArmorMeshes = findMeshesByUserData(scene,
+        (userData) => {
+            const isBound = userData?.isBoundArmor
+            const isSkinned = userData?.isSkinnedArmor
+            return (typeof isBound === 'boolean' && isBound) || (typeof isSkinned === 'boolean' && isSkinned)
+        }
     )
-    
+
     boundArmorMeshes.forEach(mesh => {
         console.log('Removing bound/skinned armor mesh:', mesh.name || 'unnamed')
         scene.remove(mesh)
@@ -472,12 +485,12 @@ function removeBoundArmorMeshes(scene: THREE.Scene) {
     })
 }
 
-function logRemainingObjects(scene: THREE.Scene) {
+function logRemainingObjects(scene: Scene) {
     console.log('Scene fully updated after reset')
     console.log('Remaining scene children:', scene.children.length)
     
     scene.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
+        if (child instanceof Mesh || child instanceof SkinnedMesh) {
             console.log('Remaining mesh:', child.name || 'unnamed', child.type)
         }
     })
