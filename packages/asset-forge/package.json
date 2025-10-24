@@ -72,6 +72,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.35",
     "@ai-sdk/openai": "^2.0.53",
+    "@aws-sdk/client-s3": "^3.917.0",
     "@elevenlabs/elevenlabs-js": "^2.20.1",
     "@mediapipe/hands": "^0.4.1675469240",
     "@neondatabase/serverless": "^1.0.2",
@@ -105,8 +106,10 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.525.0",
     "node-fetch": "^3.3.2",
+    "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "redis": "^5.9.0",
     "tailwind-merge": "^3.3.1",
     "three": "^0.178.0",
     "three-mesh-bvh": "^0.9.1",

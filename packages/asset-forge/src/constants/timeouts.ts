@@ -32,3 +32,13 @@ export const SEARCH_DEBOUNCE_DELAY = 300
  * Debounce delay for auto-save (1 second)
  */
 export const AUTOSAVE_DEBOUNCE_DELAY = 1000
+
+/**
+ * Rate limit window (15 minutes)
+ */
+export const RATE_LIMIT_WINDOW = 900000
+
+/**
+ * Graceful shutdown timeout (5 seconds)
+ */
+export const SHUTDOWN_TIMEOUT = 5000

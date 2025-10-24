@@ -3,6 +3,8 @@
 
 app = "asset-forge"
 primary_region = "sjc"  # San Jose, California - change as needed
+kill_signal = "SIGINT"
+kill_timeout = "15s"
 
 # Build configuration
 [build]

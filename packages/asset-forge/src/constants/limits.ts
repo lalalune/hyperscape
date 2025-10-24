@@ -21,3 +21,18 @@ export const MAX_CONCURRENT_REQUESTS = 6
  * Maximum number of items to display per page
  */
 export const MAX_ITEMS_PER_PAGE = 50
+
+/**
+ * Maximum number of requests per rate limit window
+ */
+export const RATE_LIMIT_MAX_REQUESTS = 100
+
+/**
+ * Maximum tokens for medium-length responses
+ */
+export const MAX_TOKENS_MEDIUM = 2000
+
+/**
+ * Maximum tokens for short responses
+ */
+export const MAX_TOKENS_SHORT = 500

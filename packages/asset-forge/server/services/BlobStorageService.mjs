@@ -1,73 +1,143 @@
 /**
- * Blob Storage Service
+ * Tigris S3 Storage Service
  *
- * Provides unified interface for file storage that works both locally and on Vercel.
+ * Provides unified interface for file storage that works both locally and on Tigris Data (S3-compatible).
  * - In development: Uses local filesystem
- * - In production: Uses Vercel Blob storage
+ * - In production: Uses Tigris Data S3 storage via Fly.io
  *
  * Features:
  * - Automatic environment detection
  * - Transparent API for local vs cloud storage
- * - Support for 3D models, images, audio files
+ * - Support for 3D models, images, audio files, manifests
  * - Folder-like organization with prefixes
+ * - S3-compatible with AWS SDK
+ * - CDN integration for global asset delivery
  */
 
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { put, del, list, head } from '@vercel/blob'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand, CopyObjectCommand } from '@aws-sdk/client-s3'
 import { createLogger } from '../utils/logger.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const logger = createLogger('BlobStorageService')
+const logger = createLogger('TigrisStorageService')
 
 export class BlobStorageService {
   constructor() {
-    // Detect environment - use Blob if token is available
-    const hasToken = !!process.env.HYPER_READ_WRITE_TOKEN
-    this.isProduction = hasToken || process.env.VERCEL === '1'
+    // Detect environment - use Tigris S3 if credentials are available
+    const hasCredentials = !!(
+      process.env.AWS_ACCESS_KEY_ID &&
+      process.env.AWS_SECRET_ACCESS_KEY &&
+      process.env.BUCKET_NAME
+    )
+    this.isProduction = hasCredentials || process.env.FLY_APP_NAME
     this.localStoragePath = path.join(__dirname, '../../gdd-assets')
+    this.bucketName = process.env.BUCKET_NAME || 'hyperscape-assets'
+    this.cdnUrl = process.env.PUBLIC_CDN_URL
 
-    if (this.isProduction && !hasToken) {
-      logger.warn('Running in production but HYPER_READ_WRITE_TOKEN not found - falling back to local storage')
+    if (this.isProduction && !hasCredentials) {
+      logger.warn('Running in production but Tigris credentials not found - falling back to local storage')
       this.isProduction = false
     }
 
-    logger.info('BlobStorageService initialized', {
-      mode: this.isProduction ? 'Vercel Blob' : 'Local Filesystem',
-      hasToken,
+    // Initialize S3 client for Tigris
+    if (this.isProduction) {
+      this.s3Client = new S3Client({
+        region: 'auto',
+        endpoint: process.env.AWS_ENDPOINT_URL_S3 || 'https://fly.storage.tigris.dev',
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+        },
+        forcePathStyle: false
+      })
+    }
+
+    logger.info('TigrisStorageService initialized', {
+      mode: this.isProduction ? 'Tigris S3' : 'Local Filesystem',
+      hasCredentials,
+      bucketName: this.bucketName,
+      cdnUrl: this.cdnUrl,
       localPath: this.localStoragePath
     })
   }
 
   /**
+   * Get content type from file extension
+   * @private
+   */
+  _getContentType(filePath) {
+    const ext = path.extname(filePath).toLowerCase()
+    const types = {
+      '.glb': 'model/gltf-binary',
+      '.gltf': 'model/gltf+json',
+      '.fbx': 'application/octet-stream',
+      '.obj': 'text/plain',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp',
+      '.mp3': 'audio/mpeg',
+      '.wav': 'audio/wav',
+      '.ogg': 'audio/ogg'
+    }
+    return types[ext] || 'application/octet-stream'
+  }
+
+  /**
    * Store a file (text, binary, or buffer)
    *
-   * @param {string} filePath - Virtual file path (e.g., "assets/sword-001/model.glb")
+   * @param {string} filePath - Virtual file path (e.g., "models/sword-001/sword-001.glb")
    * @param {string|Buffer|Blob} content - File content
    * @param {object} options - Additional options
-   * @param {string} options.contentType - MIME type
-   * @param {boolean} options.access - 'public' or 'private' (default: 'public')
+   * @param {string} options.contentType - MIME type (auto-detected if not provided)
+   * @param {string} options.cacheControl - Cache-Control header (default: immutable for models)
    * @returns {Promise<{url: string, pathname: string}>}
    */
   async put(filePath, content, options = {}) {
-    const { contentType, access = 'public' } = options
+    const contentType = options.contentType || this._getContentType(filePath)
+    const cacheControl = options.cacheControl || (
+      filePath.endsWith('.glb') || filePath.endsWith('.png')
+        ? 'public, max-age=31536000, immutable'  // 1 year for assets
+        : 'public, max-age=300'  // 5 minutes for manifests/metadata
+    )
 
     if (this.isProduction) {
-      // Use Vercel Blob
-      logger.info('Storing file in Vercel Blob', { filePath, contentType })
+      // Use Tigris S3
+      logger.info('Storing file in Tigris S3', { filePath, contentType, bucket: this.bucketName })
 
-      const result = await put(filePath, content, {
-        access,
-        contentType,
-        addRandomSuffix: false // Keep clean paths
+      // Convert content to Buffer if needed
+      let body = content
+      if (content instanceof Blob) {
+        body = Buffer.from(await content.arrayBuffer())
+      } else if (typeof content === 'string') {
+        body = Buffer.from(content, 'utf-8')
+      }
+
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: filePath,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: cacheControl
       })
 
+      await this.s3Client.send(command)
+
+      // Generate CDN URL
+      const url = this.cdnUrl
+        ? `${this.cdnUrl}/${filePath}`
+        : `https://${this.bucketName}.fly.storage.tigris.dev/${filePath}`
+
+      logger.debug('Stored file in Tigris', { url, key: filePath })
+
       return {
-        url: result.url,
-        pathname: result.pathname
+        url,
+        pathname: filePath
       }
     } else {
       // Use local filesystem
@@ -105,11 +175,21 @@ export class BlobStorageService {
    */
   async head(filePath) {
     if (this.isProduction) {
-      const result = await head(filePath)
+      const command = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: filePath
+      })
+
+      const result = await this.s3Client.send(command)
+
+      const url = this.cdnUrl
+        ? `${this.cdnUrl}/${filePath}`
+        : `https://${this.bucketName}.fly.storage.tigris.dev/${filePath}`
+
       return {
-        url: result.url,
-        size: result.size,
-        uploadedAt: result.uploadedAt
+        url,
+        size: result.ContentLength,
+        uploadedAt: result.LastModified
       }
     } else {
       const localPath = path.join(this.localStoragePath, filePath)
@@ -126,12 +206,19 @@ export class BlobStorageService {
   /**
    * Delete a file
    *
-   * @param {string} filePath - Virtual file path or URL
+   * @param {string} filePath - Virtual file path
    */
   async delete(filePath) {
     if (this.isProduction) {
-      logger.info('Deleting from Vercel Blob', { filePath })
-      await del(filePath)
+      logger.info('Deleting from Tigris S3', { filePath, bucket: this.bucketName })
+
+      const command = new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: filePath
+      })
+
+      await this.s3Client.send(command)
+      logger.debug('Deleted file from Tigris', { key: filePath })
     } else {
       const localPath = path.join(this.localStoragePath, filePath)
       await fs.unlink(localPath)
@@ -142,18 +229,31 @@ export class BlobStorageService {
   /**
    * List files with a prefix (like a folder)
    *
-   * @param {string} prefix - Path prefix (e.g., "assets/sword-001/")
+   * @param {string} prefix - Path prefix (e.g., "models/sword-001/")
    * @param {object} options - List options
    * @returns {Promise<Array<{url: string, pathname: string, size: number}>>}
    */
   async list(prefix, options = {}) {
     if (this.isProduction) {
-      const result = await list({ prefix, ...options })
-      return result.blobs.map(blob => ({
-        url: blob.url,
-        pathname: blob.pathname,
-        size: blob.size,
-        uploadedAt: blob.uploadedAt
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucketName,
+        Prefix: prefix,
+        MaxKeys: options.limit || 1000
+      })
+
+      const result = await this.s3Client.send(command)
+
+      if (!result.Contents) {
+        return []
+      }
+
+      return result.Contents.map(obj => ({
+        url: this.cdnUrl
+          ? `${this.cdnUrl}/${obj.Key}`
+          : `https://${this.bucketName}.fly.storage.tigris.dev/${obj.Key}`,
+        pathname: obj.Key,
+        size: obj.Size,
+        uploadedAt: obj.LastModified
       }))
     } else {
       const localDir = path.join(this.localStoragePath, prefix)
@@ -164,7 +264,7 @@ export class BlobStorageService {
 
         for (const entry of entries) {
           if (entry.isFile()) {
-            const filePath = path.join(prefix, entry.name)
+            const filePath = path.join(prefix, entry.name).replace(/\\/g, '/')
             const fullPath = path.join(localDir, entry.name)
             const stats = await fs.stat(fullPath)
 
@@ -195,14 +295,23 @@ export class BlobStorageService {
    */
   async copy(sourcePath, destPath) {
     if (this.isProduction) {
-      // Read from source and write to destination
-      const sourceUrl = sourcePath.startsWith('http') ? sourcePath : (await this.head(sourcePath)).url
-      const response = await fetch(sourceUrl)
-      const content = await response.blob()
-
-      return this.put(destPath, content, {
-        contentType: response.headers.get('content-type')
+      // Use S3 CopyObject command for efficient server-side copy
+      const command = new CopyObjectCommand({
+        Bucket: this.bucketName,
+        CopySource: `${this.bucketName}/${sourcePath}`,
+        Key: destPath
       })
+
+      await this.s3Client.send(command)
+
+      const url = this.cdnUrl
+        ? `${this.cdnUrl}/${destPath}`
+        : `https://${this.bucketName}.fly.storage.tigris.dev/${destPath}`
+
+      return {
+        url,
+        pathname: destPath
+      }
     } else {
       const sourceLocalPath = path.join(this.localStoragePath, sourcePath)
       const destLocalPath = path.join(this.localStoragePath, destPath)
@@ -226,8 +335,13 @@ export class BlobStorageService {
   async deleteFolder(prefix) {
     if (this.isProduction) {
       const files = await this.list(prefix)
-      await Promise.all(files.map(file => this.delete(file.url)))
-      logger.info('Deleted folder from Vercel Blob', { prefix, count: files.length })
+      // Delete in batches to avoid overwhelming S3
+      const batchSize = 100
+      for (let i = 0; i < files.length; i += batchSize) {
+        const batch = files.slice(i, i + batchSize)
+        await Promise.all(batch.map(file => this.delete(file.pathname)))
+      }
+      logger.info('Deleted folder from Tigris S3', { prefix, count: files.length })
     } else {
       const localDir = path.join(this.localStoragePath, prefix)
       await fs.rm(localDir, { recursive: true, force: true })
@@ -258,8 +372,9 @@ export class BlobStorageService {
    */
   async getUrl(filePath) {
     if (this.isProduction) {
-      const metadata = await this.head(filePath)
-      return metadata.url
+      return this.cdnUrl
+        ? `${this.cdnUrl}/${filePath}`
+        : `https://${this.bucketName}.fly.storage.tigris.dev/${filePath}`
     } else {
       return `/api/assets/${filePath}`
     }

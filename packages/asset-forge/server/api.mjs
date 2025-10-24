@@ -11,8 +11,8 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 import { fileURLToPath } from 'url'
 import { errorHandler } from './middleware/errorHandler.mjs'
-// TODO: Implement auth middleware
-// import { authenticateUser, optionalAuth } from './middleware/auth.mjs'
+import { authenticateUser, optionalAuth, requireAdmin } from './middleware/auth.mjs'
+// TODO: Implement Privy config validation
 // import { validatePrivyConfig } from './auth/privy.mjs'
 import { AssetService } from './services/AssetService.mjs'
 import { RetextureService } from './services/RetextureService.mjs'
@@ -1119,10 +1119,11 @@ app.get('/api/admin/activity', authenticateUser, requireAdmin, (req, res) => {
 app.use(errorHandler)
 
 // Start server
-const PORT = process.env.API_PORT || DEFAULT_API_PORT
-const server = app.listen(PORT, () => {
-  console.log(`🚀 API Server running on http://localhost:${PORT}`)
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`)
+const PORT = process.env.PORT || process.env.API_PORT || DEFAULT_API_PORT
+const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'
+const server = app.listen(PORT, HOST, () => {
+  console.log(`🚀 API Server running on http://${HOST}:${PORT}`)
+  console.log(`📊 Health check: http://${HOST}:${PORT}/api/health`)
 
   if (!process.env.MESHY_API_KEY) {
     console.warn('⚠️  MESHY_API_KEY not found - retexturing will fail')
