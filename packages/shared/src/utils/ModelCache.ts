@@ -8,7 +8,7 @@
  */
 
 import THREE from '../extras/three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { World } from '../World';
 
 interface CachedModel {
