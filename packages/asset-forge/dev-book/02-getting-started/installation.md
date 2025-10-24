@@ -178,7 +178,70 @@ MESHY_MODEL_DEFAULT=meshy-5
 - Backend uses unprefixed keys
 - Never commit `.env` file to git
 
-### Step 5: Verify Installation
+### Step 5: Configure Authentication
+
+Asset Forge requires Privy for authentication and user management.
+
+**1. Create Privy Account**
+
+Visit [https://privy.io](https://privy.io) and:
+- Sign up for a free account
+- Create a new app from the dashboard
+- Choose appropriate login methods (wallet, email, social)
+
+**2. Get Credentials**
+
+From your Privy dashboard:
+- Copy your **App ID** (shown on dashboard)
+- Go to Settings → API Keys
+- Copy your **App Secret** (keep this secret!)
+
+**3. Generate Security Keys**
+
+Generate secure random keys for JWT signing and encryption:
+
+```bash
+# Generate JWT secret (for signing tokens)
+openssl rand -base64 32
+
+# Generate encryption key (for encrypting user API keys)
+openssl rand -base64 32
+```
+
+**4. Update .env**
+
+Add authentication configuration to `.env`:
+
+```bash
+# Authentication (REQUIRED)
+PRIVY_APP_ID=your_privy_app_id_from_dashboard
+PRIVY_APP_SECRET=your_privy_app_secret_from_settings
+VITE_PUBLIC_PRIVY_APP_ID=your_privy_app_id_from_dashboard
+
+# Security (REQUIRED)
+JWT_SECRET=paste_generated_jwt_secret_here
+ENCRYPTION_KEY=paste_generated_encryption_key_here
+```
+
+**Security Notes:**
+- `PRIVY_APP_ID` is public (safe in frontend)
+- `PRIVY_APP_SECRET` must remain secret (server-side only)
+- Use different secrets for development and production
+- Never commit these values to version control
+
+**5. Optional: Configure Blob Storage**
+
+If using Vercel Blob Storage for production:
+
+```bash
+# Get token from Vercel dashboard
+BLOB_READ_WRITE_TOKEN=your_vercel_blob_token
+USE_BLOB_STORAGE=true
+```
+
+For local development, blob storage is optional.
+
+### Step 6: Verify Installation
 
 Run the type checker:
 
@@ -210,14 +273,14 @@ npm run dev
 ```
 
 **This starts:**
-- Frontend dev server on [http://localhost:3003](http://localhost:3003)
+- Frontend dev server on [http://localhost:3000](http://localhost:3000)
 - Backend API server on [http://localhost:3004](http://localhost:3004)
 - Image server on [http://localhost:8081](http://localhost:8081)
 
 **You should see:**
 ```
 [frontend] VITE v6.0.0  ready in 500 ms
-[frontend] ➜  Local:   http://localhost:3003/
+[frontend] ➜  Local:   http://localhost:3000/
 [backend]  API server running on http://localhost:3004
 [images]   Image server running on http://localhost:8081
 ```
@@ -254,7 +317,7 @@ npm run start
 
 ### 1. Open the Application
 
-Visit [http://localhost:3003](http://localhost:3003) in your browser.
+Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 **You should see:**
 - Asset Forge interface
@@ -400,13 +463,13 @@ IMAGE_SERVER_URL=https://your-bucket.r2.dev
 
 **Error:**
 ```
-Error: listen EADDRINUSE: address already in use :::3003
+Error: listen EADDRINUSE: address already in use :::3000
 ```
 
 **Solution:**
 ```bash
 # Find process using port
-lsof -i :3003
+lsof -i :3000
 
 # Kill process
 kill -9 <PID>
