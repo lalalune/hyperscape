@@ -153,27 +153,48 @@ const app = express()
 
 // CORS configuration - no wildcards in production
 app.use((req, res, next) => {
-  // In production, FRONTEND_URL is required (validated above)
-  // In development, allow localhost origins
-  const origin = process.env.NODE_ENV === 'production'
-    ? process.env.FRONTEND_URL
-    : req.headers.origin || DEFAULT_FRONTEND_URL
+  // Trusted origins for CORS (production and development)
+  const PROD_ORIGIN = process.env.FRONTEND_URL;
+  const DEV_ORIGINS = [
+    DEFAULT_FRONTEND_URL,
+    'http://localhost',
+    'http://localhost:3000',
+    'http://127.0.0.1',
+    'http://127.0.0.1:3000',
+  ];
 
-  res.header('Access-Control-Allow-Origin', origin)
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
-  res.header('Access-Control-Allow-Credentials', 'true')
-
-  // Security headers (basic OWASP without helmet)
-  res.header('X-Content-Type-Options', 'nosniff')
-  res.header('X-Frame-Options', 'DENY')
-  res.header('X-XSS-Protection', '1; mode=block')
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200)
+  let allowedOrigin;
+  if (process.env.NODE_ENV === 'production') {
+    // Strictly use production origin
+    if (req.headers.origin === PROD_ORIGIN) {
+      allowedOrigin = PROD_ORIGIN;
+    }
+  } else {
+    // Allow dev/test localhost origins only, never reflect arbitrary origins
+    if (req.headers.origin && DEV_ORIGINS.includes(req.headers.origin)) {
+      allowedOrigin = req.headers.origin;
+    } else {
+      allowedOrigin = DEFAULT_FRONTEND_URL; // fallback for dev tools requests
+    }
   }
 
-  next()
+  if (allowedOrigin) {
+    res.header('Access-Control-Allow-Origin', allowedOrigin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+  // Security headers (basic OWASP without helmet)
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  res.header('X-XSS-Protection', '1; mode=block');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+
+  next();
 })
 
 // Body parsing (allow larger payloads for base64 images)
