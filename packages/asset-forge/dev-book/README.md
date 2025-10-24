@@ -86,6 +86,15 @@ Build new features:
 - [Adding Asset Types](11-development/adding-asset-types.md) - Extend types
 - [Debugging](11-development/debugging.md) - Debug techniques
 
+#### Migration Guides
+Adopt new patterns from Wave 1-3 refactoring:
+- [Migration Overview](11-development/migrations/README.md) - Complete migration guide
+- [Console to Logger](11-development/migrations/console-to-logger.md) - Structured logging
+- [Safe Math Utilities](11-development/migrations/safe-math-utilities.md) - Division by zero protection
+- [Standardized Error Codes](11-development/migrations/standardized-error-codes.md) - Error handling
+- [Memory Leak Prevention](11-development/migrations/memory-leak-prevention.md) - Resource cleanup
+- [Race Condition Prevention](11-development/migrations/race-condition-prevention.md) - Async safety
+
 ### 📚 API Reference
 Complete API documentation:
 - [REST API](12-api-reference/rest-api.md) - All HTTP endpoints
@@ -100,6 +109,8 @@ Testing strategies:
 
 ### 🚀 Deployment
 Production deployment:
+- [Vercel Deployment Guide](14-deployment/vercel-deployment-guide.md) - **Deploy to Vercel with manifests and auth**
+- [Manifest API Implementation](14-deployment/manifest-api-implementation.md) - Serve manifests from server package
 - [Build Process](14-deployment/build-process.md) - Production builds
 - [Environment Setup](14-deployment/environment-setup.md) - Server setup
 - [Monitoring](14-deployment/monitoring.md) - Performance tracking
@@ -190,11 +201,11 @@ cp env.example .env
 npm run dev
 
 # Or run separately:
-npm run dev:frontend  # Port 3003
+npm run dev:frontend  # Port 3000
 npm run dev:backend   # Port 3004 + 8081
 ```
 
-Visit [http://localhost:3003](http://localhost:3003) to access Asset Forge.
+Visit [http://localhost:3000](http://localhost:3000) to access Asset Forge.
 
 ### Generate Your First Asset
 
@@ -210,8 +221,9 @@ Visit [http://localhost:3003](http://localhost:3003) to access Asset Forge.
 
 ## 📈 Documentation Stats
 
-- **Total Pages**: 60+ markdown files
-- **Code Examples**: 200+ examples
+- **Total Pages**: 66+ markdown files
+- **Code Examples**: 250+ examples
+- **Migration Guides**: 5 comprehensive guides
 - **Components Documented**: 77
 - **Services Documented**: 17
 - **Stores Documented**: 5
@@ -240,5 +252,5 @@ Part of the Hyperscape project.
 
 ---
 
-**Last Updated**: 2025-10-21
-**Version**: 1.0.0
+**Last Updated**: 2025-10-24
+**Version**: 1.1.0
