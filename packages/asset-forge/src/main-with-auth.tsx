@@ -23,6 +23,16 @@ if (!globalThis.Buffer) {
   (globalThis as typeof globalThis & { Buffer?: typeof Buffer }).Buffer = Buffer
 }
 
+// Unregister any existing service workers to prevent caching issues
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(registration => {
+      console.log('[Asset Forge] Unregistering service worker:', registration.scope)
+      registration.unregister()
+    })
+  })
+}
+
 // Log environment info for debugging deployment issues
 console.log('[Asset Forge] Initializing...')
 console.log('[Asset Forge] Environment:', import.meta.env.MODE)
