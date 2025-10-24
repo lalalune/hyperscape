@@ -30,6 +30,11 @@ class EventEmitter {
       }
     }
   }
+
+  // Alias for removeListener (Node.js EventEmitter compatibility)
+  off(event: string, handler: (...args: unknown[]) => void): void {
+    this.removeListener(event, handler)
+  }
 }
 
 interface User {

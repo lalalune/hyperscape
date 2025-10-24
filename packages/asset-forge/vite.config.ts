@@ -24,9 +24,11 @@ export default defineConfig({
     })
   ],
   resolve: {
-    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'three'],
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'three', '@react-three/fiber', '@react-three/drei'],
     alias: {
-      '@': path.resolve(__dirname, 'src')
+      '@': path.resolve(__dirname, 'src'),
+      // Force all Three.js imports to use the same instance
+      'three': path.resolve(__dirname, 'node_modules/three')
     }
   },
   optimizeDeps: {
