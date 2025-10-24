@@ -4,9 +4,6 @@
   "framework": "vite",
   "devCommand": "npm run dev:frontend",
   "installCommand": "npm install",
-  "env": {
-    "VITE_PUBLIC_PRIVY_APP_ID": "@vite_public_privy_app_id"
-  },
   "headers": [
     {
       "source": "/(.*)",
