@@ -1,0 +1,67 @@
+# Fly.io Configuration for Asset Forge
+# AI-Powered 3D Asset Generation System
+
+app = "asset-forge"
+primary_region = "sjc"  # San Jose, California - change as needed
+
+# Build configuration
+[build]
+  [build.args]
+    NODE_VERSION = "22"
+
+# Environment variables (non-sensitive)
+[env]
+  NODE_ENV = "production"
+  API_PORT = "3004"
+  PORT = "8080"  # Internal port for Fly.io
+
+# HTTP service configuration
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "10s"
+    grace_period = "5s"
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "5s"
+    method = "GET"
+    path = "/api/health"
+    protocol = "http"
+
+# Persistent storage for 3D models and generated assets
+[[mounts]]
+  source = "asset_storage"
+  destination = "/app/gdd-assets"
+  initial_size = "10gb"
+
+# VM resources
+[vm]
+  memory = '2gb'
+  cpus = 2
+
+# Automatically restart if health checks fail
+[restart]
+  policy = "on-failure"
+  max_retries = 3
