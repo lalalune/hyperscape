@@ -177,3 +177,4 @@ gdd-assets/
 temp-images/
 
 .vercel
+.env*.local
