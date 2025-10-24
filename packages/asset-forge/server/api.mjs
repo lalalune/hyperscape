@@ -53,24 +53,59 @@ const manifestRateLimiter = rateLimit({
   legacyHeaders: false,
 })
 
+// Strict rate limiter for authentication endpoints
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 requests per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many authentication attempts, please try again later.',
+})
+
+// Rate limiter for API key operations
+const apiKeyRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 10, // limit each IP to 10 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 // Initialize Express app with security middleware
 const app = express()
 
-// Basic CORS headers (simplified without cors package)
+// Secure CORS configuration
+// When credentials are enabled, origin cannot be wildcard
+const allowedOrigins = [
+  'http://localhost:3003',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+].filter(Boolean)
+
 app.use((req, res, next) => {
-  const origin = process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL || '*'
-    : req.headers.origin || 'http://localhost:3003'
+  const origin = req.headers.origin
   
+  // Only set CORS headers if origin is allowed
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin)
+    res.header('Access-Control-Allow-Credentials', 'true')
+  } else if (process.env.NODE_ENV === 'development') {
+    // In development, allow localhost origins with credentials
+    if (origin && origin.includes('localhost')) {
   res.header('Access-Control-Allow-Origin', origin)
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
-  res.header('Access-Control-Allow-Credentials', 'true')
+      res.header('Access-Control-Allow-Credentials', 'true')
+    }
+  }
   
-  // Security headers (basic OWASP without helmet)
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  
+  // Security headers (OWASP best practices)
   res.header('X-Content-Type-Options', 'nosniff')
   res.header('X-Frame-Options', 'DENY')
   res.header('X-XSS-Protection', '1; mode=block')
+  res.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
   
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200)
@@ -804,6 +839,16 @@ app.post('/api/voice/manifest/bulk-assign', (req, res) => {
 app.post('/api/voice/manifest/generate-sample', (req, res) => {
   generateManifestSampleDialogue(req, res)
 })
+
+// =====================================================================
+// AUTHENTICATION ROUTES (when implemented, use these rate limiters)
+// =====================================================================
+// Example usage:
+// app.post('/api/auth/login', authRateLimiter, (req, res) => { ... })
+// app.post('/api/auth/register', authRateLimiter, (req, res) => { ... })
+// app.post('/api/auth/refresh', authRateLimiter, (req, res) => { ... })
+// app.put('/api/user/api-keys/:id', apiKeyRateLimiter, authenticateUser, (req, res) => { ... })
+// app.post('/api/user/api-keys', apiKeyRateLimiter, authenticateUser, (req, res) => { ... })
 
 // Error handling middleware
 app.use(errorHandler)
