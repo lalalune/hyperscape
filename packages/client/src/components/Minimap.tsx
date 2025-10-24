@@ -43,6 +43,7 @@ export function Minimap({
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const [entityPips, setEntityPips] = useState<EntityPip[]>([]);
+  const entityPipsRefForRender = useRef<EntityPip[]>([]);
   const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
   const entityCacheRef = useRef<Map<string, EntityPip>>(new Map());
   const rendererInitializedRef = useRef<boolean>(false);
@@ -90,7 +91,7 @@ export function Minimap({
     const overlayCanvas = overlayCanvasRef.current;
     if (!webglCanvas || !overlayCanvas) return;
 
-    console.log('[Minimap] Initializing renderer...');
+    // console.log('[Minimap] Initializing renderer...');
 
     // Create orthographic camera for overhead view - much higher up
     const camera = new THREE.OrthographicCamera(
@@ -121,7 +122,7 @@ export function Minimap({
 
     // Only create renderer if it doesn't exist
     if (!rendererRef.current || !rendererInitializedRef.current) {
-      console.log('[Minimap] Creating new renderer');
+      // console.log('[Minimap] Creating new renderer');
       const mounted = true;
       createRenderer({
         canvas: webglCanvas,
@@ -144,20 +145,20 @@ export function Minimap({
 
           rendererRef.current = renderer;
           rendererInitializedRef.current = true;
-          console.log('[Minimap] Renderer initialized successfully');
+          // console.log('[Minimap] Renderer initialized successfully');
         })
         .catch((error) => {
-          console.error("[Minimap] Failed to create renderer:", error);
+          // console.error("[Minimap] Failed to create renderer:", error);
           rendererRef.current = null;
           rendererInitializedRef.current = false;
         });
     } else {
-      console.log('[Minimap] Reusing existing renderer');
+      // console.log('[Minimap] Reusing existing renderer');
       // Update renderer size when reusing
       if (rendererRef.current) {
         rendererRef.current.setSize(width, height);
       }
-      console.log('[Minimap] Renderer size updated');
+      // console.log('[Minimap] Renderer size updated');
     }
 
     // Ensure both canvases have the correct backing size
@@ -170,7 +171,7 @@ export function Minimap({
       // Don't dispose renderer on unmount - we want to reuse it
       // Only dispose if component is actually being destroyed
       if (rendererRef.current && rendererInitializedRef.current && !isVisible) {
-        console.log('[Minimap] Pausing renderer (component hidden)');
+        // console.log('[Minimap] Pausing renderer (component hidden)');
         // Pause rendering when hidden
         if ('setAnimationLoop' in rendererRef.current) {
           (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
@@ -194,13 +195,13 @@ export function Minimap({
     if (!rendererRef.current) return;
     
     if (isVisible) {
-      console.log('[Minimap] Resuming renderer (component visible)');
+      // console.log('[Minimap] Resuming renderer (component visible)');
       // Resume rendering when visible
       if ('setAnimationLoop' in rendererRef.current) {
         (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
       }
     } else {
-      console.log('[Minimap] Pausing renderer (component hidden)');
+      // console.log('[Minimap] Pausing renderer (component hidden)');
       // Pause rendering when hidden
       if ('setAnimationLoop' in rendererRef.current) {
         (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
@@ -212,7 +213,7 @@ export function Minimap({
   useEffect(() => {
     return () => {
       if (rendererRef.current && rendererInitializedRef.current) {
-        console.log('[Minimap] Disposing renderer on component unmount');
+        // console.log('[Minimap] Disposing renderer on component unmount');
         if ('dispose' in rendererRef.current) {
           (rendererRef.current as { dispose: () => void }).dispose();
         }
@@ -289,7 +290,7 @@ export function Minimap({
   useEffect(() => {
     if (!world.entities || !isVisible) return;
 
-    console.log('[Minimap] Starting entity detection updates');
+    // console.log('[Minimap] Starting entity detection updates');
     let intervalId: number | null = null;
     const update = () => {
       const pips: EntityPip[] = [];
@@ -444,7 +445,7 @@ export function Minimap({
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
-        console.log('[Minimap] Stopped entity detection updates');
+        // console.log('[Minimap] Stopped entity detection updates');
       }
     };
   }, [world, isVisible]);
@@ -482,8 +483,8 @@ export function Minimap({
           ctx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         }
 
-        // Draw entity pips
-        entityPips.forEach((pip) => {
+        // Draw entity pips (use ref to avoid re-creating the render loop)
+        entityPipsRefForRender.current.forEach((pip) => {
           // Convert world position to screen position
           if (cameraRef.current) {
             const vector = pip.position.clone();
@@ -597,32 +598,28 @@ export function Minimap({
       }
       
       // Log performance every 60 frames (approximately 1 second)
-      if (frameCount % 60 === 0) {
-        console.log(`[Minimap] Render frame ${frameCount}, visible: ${isVisible}, entities: ${entityPips.length}`);
-      }
+             // if (frameCount % 60 === 0) {
+             //   console.log(`[Minimap] Render frame ${frameCount}, visible: ${isVisible}, entities: ${entityPipsRefForRender.current.length}`);
+             // }
       
       rafId = requestAnimationFrame(render);
     };
     
-    console.log('[Minimap] Starting render loop');
+           // console.log('[Minimap] Starting render loop');
     rafId = requestAnimationFrame(render);
     
     return () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-        console.log('[Minimap] Stopping render loop');
-      }
+             if (rafId !== null) {
+               window.cancelAnimationFrame(rafId);
+               // console.log('[Minimap] Stopping render loop');
+             }
     };
-  }, [
-    entityPips,
-    width,
-    height,
-    clickIndicator,
-    world,
-    lastDestinationWorld,
-    lastMinimapClickScreen,
-    isVisible,
-  ]);
+  }, [isVisible]);
+
+  // Keep latest pips in a ref so the render loop doesn't restart
+  useEffect(() => {
+    entityPipsRefForRender.current = entityPips;
+  }, [entityPips]);
 
   // Convert a click in the minimap to a world XZ position
   const screenToWorldXZ = useCallback(

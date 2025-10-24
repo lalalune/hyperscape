@@ -182,8 +182,8 @@ export class ClientGraphics extends System {
     
     // Configure renderer
     configureRenderer(this.renderer, {
-      clearColor: 0xffffff,
-      clearAlpha: 0,
+      clearColor: 0x000000, // Black - sky mesh should cover everything
+      clearAlpha: 1,
       pixelRatio: this.world.prefs?.dpr || 1,
       width: this.width,
       height: this.height,

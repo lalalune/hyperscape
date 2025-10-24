@@ -80,7 +80,7 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
           theme: 'dark',
           accentColor: '#d4af37',
           logo: '/assets/images/logo.png',
-          walletList: ['metamask', 'coinbase_wallet', 'rainbow', 'detected_wallets'],
+          walletList: ['phantom', 'metamask', 'coinbase_wallet', 'rainbow', 'detected_wallets'],
         },
         embeddedWallets: {
           ethereum: {

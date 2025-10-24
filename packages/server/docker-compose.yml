@@ -9,7 +9,7 @@ services:
       - "8080:8080"
     volumes:
       # Mount world assets directly into nginx html directory
-      - ../../assets:/usr/share/nginx/html/assets:ro
+      - ${HYPERSCAPE_ASSETS_DIR:-../../assets}:/usr/share/nginx/html/assets:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]

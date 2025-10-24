@@ -713,9 +713,9 @@ export class World extends EventEmitter {
     
     // Create perspective camera with carefully tuned near/far planes:
     // - near (0.2): Slightly smaller than spherecast to prevent clipping
-    // - far (1200): Slightly larger than skybox to include all visible geometry
+    // - far (10000): Large enough to render 8000-unit sky sphere
     // This prevents z-fighting without needing expensive logarithmic depth buffers
-    this.camera = new THREE.PerspectiveCamera(70, 16/9, 0.2, 1200);
+    this.camera = new THREE.PerspectiveCamera(70, 16/9, 0.2, 10000);
     this.rig.add(this.camera);
 
     // Register core systems in dependency order
