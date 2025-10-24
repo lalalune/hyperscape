@@ -65,7 +65,7 @@ import { Client } from './world-client'
 import { CharacterSelectPage } from './components/CharacterSelectPage'
 import { LoginScreen } from './components/LoginScreen'
 import { PrivyAuthProvider } from './components/PrivyAuthProvider'
-import { privyAuthManager } from './PrivyAuthManager'
+import { privyAuthManager } from './auth'
 
 // Farcaster Frame v2
 import { injectFarcasterMetaTags } from './farcaster-frame-config'

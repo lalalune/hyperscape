@@ -8,41 +8,171 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import fs from 'fs'
+import rateLimit from 'express-rate-limit'
 import { fileURLToPath } from 'url'
 import { errorHandler } from './middleware/errorHandler.mjs'
+import { authenticateUser, optionalAuth } from './middleware/auth.mjs'
+import { validatePrivyConfig } from './auth/privy.mjs'
 import { AssetService } from './services/AssetService.mjs'
 import { RetextureService } from './services/RetextureService.mjs'
 import { GenerationService } from './services/GenerationService.mjs'
 import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
+import { validateBase64Image, validateImageBuffer, validateTotalSize, FileValidationError } from './utils/fileValidation.mjs'
+import { validateAssetId, validatePipelineId } from './utils/validators.mjs'
+import { closeDatabase } from './db/index.mjs'
 import promptRoutes from './routes/promptRoutes.mjs'
+import { POST as generateDialogue } from './routes/generate-dialogue.mjs'
+import { POST as generateNPC } from './routes/generate-npc.mjs'
+import { POST as generateQuest } from './routes/generate-quest.mjs'
+import { POST as generateNPCCollaboration } from './routes/generate-npc-collaboration.mjs'
+import { POST as generatePlaytesterSwarm, GET as getPlaytesterPersonas } from './routes/generate-playtester-swarm.mjs'
+import { getSeedContent } from './data/seed-content.mjs'
+import {
+  GET_library as getVoiceLibrary,
+  POST_generate as generateVoice,
+  POST_batch as generateVoiceBatch,
+  GET_profile as getVoiceProfile,
+  DELETE_voice as deleteVoice,
+  POST_estimate as estimateVoiceCost,
+  GET_subscription as getVoiceSubscription,
+  GET_models as getVoiceModels
+} from './routes/generate-voice.mjs'
+import {
+  POST_assign as assignVoiceToManifest,
+  GET_assignment as getManifestVoiceAssignment,
+  GET_bulk as getBulkManifestVoiceAssignments,
+  DELETE_assignment as deleteManifestVoiceAssignment,
+  POST_bulkAssign as bulkAssignManifestVoices,
+  POST_generateSample as generateManifestSampleDialogue
+} from './routes/voice-manifest.mjs'
+
+// Auth routes
+import { POST_login, GET_me, POST_logout } from './routes/auth.mjs'
+
+// Admin routes
+import {
+  POST_addToWhitelist,
+  POST_removeFromWhitelist,
+  GET_whitelist,
+  GET_allUsers,
+  GET_stats,
+  GET_activity,
+  requireAdmin
+} from './routes/admin.mjs'
+
+// User routes
+import {
+  GET_profile,
+  PUT_profile,
+  GET_usage,
+  GET_history,
+  DELETE_account,
+  POST_export
+} from './routes/user.mjs'
+
+// API Keys routes
+import {
+  POST_addApiKey,
+  GET_apiKeys,
+  PUT_updateApiKey,
+  DELETE_apiKey
+} from './routes/api-keys.mjs'
+
+// Projects routes
+import {
+  POST_createProject,
+  GET_projects,
+  GET_project,
+  PUT_updateProject,
+  DELETE_project,
+  POST_shareProject
+} from './routes/projects.mjs'
+
+// Teams routes
+import {
+  POST_createTeam,
+  GET_teamPreview,
+  POST_joinTeam,
+  GET_myTeam,
+  GET_teamMembers,
+  POST_leaveTeam,
+  DELETE_team,
+  PUT_updateTeam,
+  DELETE_removeMember,
+  POST_transferOwnership
+} from './routes/teams.mjs'
+
+// Import constants
+import {
+  DEFAULT_API_PORT,
+  DEFAULT_IMAGE_SERVER_URL,
+  DEFAULT_FRONTEND_URL
+} from '../src/constants/network.ts'
+import {
+  RATE_LIMIT_WINDOW,
+  SHUTDOWN_TIMEOUT
+} from '../src/constants/timeouts.ts'
+import {
+  RATE_LIMIT_MAX_REQUESTS,
+  MAX_TOKENS_MEDIUM,
+  MAX_TOKENS_SHORT
+} from '../src/constants/limits.ts'
+import {
+  MEDIUM_TEMPERATURE,
+  LOW_TEMPERATURE
+} from '../src/constants/dimensions.ts'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const ROOT_DIR = path.join(__dirname, '..')
 
+// Validate critical configuration at startup
+try {
+  validatePrivyConfig()
+} catch (error) {
+  console.error('\n' + error.message + '\n')
+  process.exit(1)
+}
+
+// Rate limiter for manifest download endpoint
+const manifestRateLimiter = rateLimit({
+  windowMs: RATE_LIMIT_WINDOW,
+  max: RATE_LIMIT_MAX_REQUESTS,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+// Validate required environment variables in production
+if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
+  console.error('FATAL: FRONTEND_URL is required in production for CORS security')
+  process.exit(1)
+}
+
 // Initialize Express app with security middleware
 const app = express()
 
-// Basic CORS headers (simplified without cors package)
+// CORS configuration - no wildcards in production
 app.use((req, res, next) => {
-  const origin = process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL || '*'
-    : req.headers.origin || 'http://localhost:3003'
-  
+  // In production, FRONTEND_URL is required (validated above)
+  // In development, allow localhost origins
+  const origin = process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL
+    : req.headers.origin || DEFAULT_FRONTEND_URL
+
   res.header('Access-Control-Allow-Origin', origin)
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
   res.header('Access-Control-Allow-Credentials', 'true')
-  
+
   // Security headers (basic OWASP without helmet)
   res.header('X-Content-Type-Options', 'nosniff')
   res.header('X-Frame-Options', 'DENY')
   res.header('X-XSS-Protection', '1; mode=block')
-  
+
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200)
   }
-  
+
   next()
 })
 
@@ -60,7 +190,7 @@ app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
 const assetService = new AssetService(path.join(ROOT_DIR, 'gdd-assets'))
 const retextureService = new RetextureService({
   meshyApiKey: process.env.MESHY_API_KEY || '',
-  imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8080'
+  imageServerBaseUrl: process.env.IMAGE_SERVER_URL || DEFAULT_IMAGE_SERVER_URL
 })
 const generationService = new GenerationService()
 
@@ -69,12 +199,13 @@ app.use('/api', promptRoutes)
 
 // Routes
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
       meshy: !!process.env.MESHY_API_KEY,
-      openai: !!process.env.OPENAI_API_KEY
+      openai: !!process.env.OPENAI_API_KEY,
+      elevenlabs: !!process.env.ELEVENLABS_API_KEY
     }
   })
 })
@@ -97,11 +228,13 @@ app.get('/api/assets', async (req, res, next) => {
 
 app.head('/api/assets/:id/model', async (req, res, next) => {
   try {
-    const modelPath = await assetService.getModelPath(req.params.id)
+    // Validate asset ID to prevent path traversal
+    const assetId = validateAssetId(req.params.id)
+    const modelPath = await assetService.getModelPath(assetId)
     // Just send headers, no body for HEAD request
     res.status(200).end()
   } catch (error) {
-    if (error.message.includes('not found')) {
+    if (error.message.includes('not found') || error.message.includes('Invalid asset ID')) {
       res.status(404).end()
     } else {
       res.status(500).end()
@@ -111,10 +244,12 @@ app.head('/api/assets/:id/model', async (req, res, next) => {
 
 app.get('/api/assets/:id/model', async (req, res, next) => {
   try {
-    const modelPath = await assetService.getModelPath(req.params.id)
+    // Validate asset ID to prevent path traversal
+    const assetId = validateAssetId(req.params.id)
+    const modelPath = await assetService.getModelPath(assetId)
     res.sendFile(modelPath)
   } catch (error) {
-    if (error.message.includes('not found')) {
+    if (error.message.includes('not found') || error.message.includes('Invalid asset ID')) {
       res.status(404).json({ error: error.message })
     } else {
       next(error)
@@ -122,28 +257,54 @@ app.get('/api/assets/:id/model', async (req, res, next) => {
   }
 })
 
+// Serve manifests from Hyperscape server world/assets/manifests
+app.get('/api/manifests/:type.json', manifestRateLimiter, async (req, res, next) => {
+  try {
+    const manifestType = req.params.type
+    
+    // Security check - only allow specific manifest types
+    const allowedTypes = ['items', 'mobs', 'npcs', 'resources', 'world-areas', 'biomes', 'zones', 'banks', 'stores']
+    if (!allowedTypes.includes(manifestType)) {
+      return res.status(403).json({ error: 'Invalid manifest type' })
+    }
+    
+    const manifestPath = path.join(ROOT_DIR, '..', 'server', 'world', 'assets', 'manifests', `${manifestType}.json`)
+
+    // Check if file exists
+    try {
+      await fs.promises.access(manifestPath)
+      res.sendFile(manifestPath)
+    } catch {
+      return res.status(404).json({ error: 'Manifest not found' })
+    }
+  } catch (error) {
+    next(error)
+  }
+})
+
 // Serve any file from an asset directory (including animations)
 app.get('/api/assets/:id/*', async (req, res, next) => {
   try {
-    const assetId = req.params.id
+    // Validate asset ID to prevent path traversal
+    const assetId = validateAssetId(req.params.id)
     const filePath = req.params[0] // Gets everything after the asset ID
-    
+
     const fullPath = path.join(ROOT_DIR, 'gdd-assets', assetId, filePath)
-    
+
     // Security check to prevent directory traversal
     const normalizedPath = path.normalize(fullPath)
     const assetDir = path.join(ROOT_DIR, 'gdd-assets', assetId)
     if (!normalizedPath.startsWith(assetDir)) {
       return res.status(403).json({ error: 'Access denied' })
     }
-    
+
     // Check if file exists
     try {
       await fs.promises.access(fullPath)
     } catch {
       return res.status(404).json({ error: 'File not found' })
     }
-    
+
     res.sendFile(fullPath)
   } catch (error) {
     next(error)
@@ -189,16 +350,17 @@ app.get('/api/assets/:id/vertex-colors.json', async (req, res, next) => {
 */
 
 // DELETE endpoint
-app.delete('/api/assets/:id', async (req, res, next) => {
+app.delete('/api/assets/:id', authenticateUser, async (req, res, next) => {
   try {
-    const { id } = req.params
+    // Validate asset ID to prevent path traversal
+    const assetId = validateAssetId(req.params.id)
     const { includeVariants } = req.query
-    
-    await assetService.deleteAsset(id, includeVariants === 'true')
-    
-    res.json({ 
-      success: true, 
-      message: `Asset ${id} deleted successfully` 
+
+    await assetService.deleteAsset(assetId, includeVariants === 'true')
+
+    res.json({
+      success: true,
+      message: `Asset ${assetId} deleted successfully`
     })
   } catch (error) {
     // If the error is "Asset not found", return 404
@@ -210,17 +372,18 @@ app.delete('/api/assets/:id', async (req, res, next) => {
 })
 
 // Update asset metadata
-app.patch('/api/assets/:id', async (req, res, next) => {
+app.patch('/api/assets/:id', authenticateUser, async (req, res, next) => {
   try {
-    const { id } = req.params
+    // Validate asset ID to prevent path traversal
+    const assetId = validateAssetId(req.params.id)
     const updates = req.body
-    
-    const updatedAsset = await assetService.updateAsset(id, updates)
-    
+
+    const updatedAsset = await assetService.updateAsset(assetId, updates)
+
     if (!updatedAsset) {
       return res.status(404).json({ error: 'Asset not found' })
     }
-    
+
     res.json(updatedAsset)
   } catch (error) {
     next(error)
@@ -228,19 +391,20 @@ app.patch('/api/assets/:id', async (req, res, next) => {
 })
 
 // Save sprites for an asset
-app.post('/api/assets/:id/sprites', async (req, res, next) => {
+app.post('/api/assets/:id/sprites', authenticateUser, async (req, res, next) => {
   try {
-    const { id } = req.params
+    // Validate asset ID to prevent path traversal
+    const assetId = validateAssetId(req.params.id)
     const { sprites, config } = req.body
-    
-    console.log(`[Sprites] Saving ${sprites?.length || 0} sprites for asset: ${id}`)
-    
+
+    console.log(`[Sprites] Saving ${sprites?.length || 0} sprites for asset: ${assetId}`)
+
     if (!sprites || !Array.isArray(sprites)) {
       return res.status(400).json({ error: 'Invalid sprites data' })
     }
-    
+
     // Create sprites directory
-    const assetDir = path.join(ROOT_DIR, 'gdd-assets', id)
+    const assetDir = path.join(ROOT_DIR, 'gdd-assets', assetId)
     const spritesDir = path.join(assetDir, 'sprites')
     
     console.log(`[Sprites] Creating directory: ${spritesDir}`)
@@ -249,11 +413,21 @@ app.post('/api/assets/:id/sprites', async (req, res, next) => {
     // Save each sprite image
     for (const sprite of sprites) {
       const { angle, imageData } = sprite
-      
-      // Extract base64 data from data URL
+
+      // Validate base64 size before decode (max 20MB)
       const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
+      const estimatedSize = (base64Data.length * 3) / 4 // Base64 decoding size estimate
+      const MAX_IMAGE_SIZE = 20 * 1024 * 1024 // 20MB
+
+      if (estimatedSize > MAX_IMAGE_SIZE) {
+        return res.status(400).json({
+          error: `Invalid input: Sprite image at angle ${angle} exceeds maximum size of 20MB`,
+          imageSize: `${(estimatedSize / 1024 / 1024).toFixed(2)}MB`
+        })
+      }
+
       const buffer = Buffer.from(base64Data, 'base64')
-      
+
       // Save as PNG file
       const filename = `${angle}deg.png`
       const filepath = path.join(spritesDir, filename)
@@ -263,7 +437,7 @@ app.post('/api/assets/:id/sprites', async (req, res, next) => {
     
     // Save sprite metadata
     const spriteMetadata = {
-      assetId: id,
+      assetId: assetId,
       config: config || {},
       angles: sprites.map(s => s.angle),
       spriteCount: sprites.length,
@@ -293,10 +467,10 @@ app.post('/api/assets/:id/sprites', async (req, res, next) => {
     await fs.promises.writeFile(assetMetadataPath, JSON.stringify(updatedMetadata, null, 2))
     console.log(`[Sprites] Updated asset metadata with sprite info`)
     
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `${sprites.length} sprites saved successfully`,
-      spritesDir: `gdd-assets/${id}/sprites`,
+      spritesDir: `gdd-assets/${assetId}/sprites`,
       spriteFiles: sprites.map(s => `${s.angle}deg.png`)
     })
   } catch (error) {
@@ -315,7 +489,7 @@ app.get('/api/material-presets', async (req, res, next) => {
   }
 })
 
-app.post('/api/material-presets', async (req, res, next) => {
+app.post('/api/material-presets', authenticateUser, async (req, res, next) => {
   try {
     const presets = req.body
     
@@ -341,7 +515,7 @@ app.post('/api/material-presets', async (req, res, next) => {
   }
 })
 
-app.post('/api/retexture', async (req, res, next) => {
+app.post('/api/retexture', authenticateUser, async (req, res, next) => {
   try {
     const { baseAssetId, materialPreset, outputName } = req.body
     
@@ -365,10 +539,11 @@ app.post('/api/retexture', async (req, res, next) => {
   }
 })
 
-app.post('/api/regenerate-base/:baseAssetId', async (req, res, next) => {
+app.post('/api/regenerate-base/:baseAssetId', authenticateUser, async (req, res, next) => {
   try {
-    const { baseAssetId } = req.params
-    
+    // Validate asset ID to prevent path traversal
+    const baseAssetId = validateAssetId(req.params.baseAssetId)
+
     const result = await retextureService.regenerateBase({
       baseAssetId,
       assetsDir: path.join(ROOT_DIR, 'gdd-assets')
@@ -381,7 +556,7 @@ app.post('/api/regenerate-base/:baseAssetId', async (req, res, next) => {
 })
 
 // Generation pipeline endpoints
-app.post('/api/generation/pipeline', async (req, res, next) => {
+app.post('/api/generation/pipeline', authenticateUser, async (req, res, next) => {
   try {
     const config = req.body
     
@@ -399,13 +574,14 @@ app.post('/api/generation/pipeline', async (req, res, next) => {
   }
 })
 
-app.get('/api/generation/pipeline/:pipelineId', async (req, res, next) => {
+app.get('/api/generation/pipeline/:pipelineId', authenticateUser, async (req, res, next) => {
   try {
-    const { pipelineId } = req.params
+    // Validate pipeline ID to prevent injection attacks
+    const pipelineId = validatePipelineId(req.params.pipelineId)
     const status = await generationService.getPipelineStatus(pipelineId)
     res.json(status)
   } catch (error) {
-    if (error.message.includes('not found')) {
+    if (error.message.includes('not found') || error.message.includes('Invalid pipeline ID')) {
       res.status(404).json({ error: error.message })
     } else {
       next(error)
@@ -414,7 +590,7 @@ app.get('/api/generation/pipeline/:pipelineId', async (req, res, next) => {
 })
 
 // Weapon handle detection endpoint
-app.post('/api/weapon-handle-detect', async (req, res) => {
+app.post('/api/weapon-handle-detect', authenticateUser, async (req, res) => {
   try {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OpenAI API key not configured')
@@ -519,8 +695,8 @@ ONLY select the cylindrical grip area where fingers would wrap around.`
             ]
           }
         ],
-        max_tokens: 300,
-        temperature: 0.3, // Lower temperature for more consistent results
+        max_tokens: MAX_TOKENS_MEDIUM,
+        temperature: MEDIUM_TEMPERATURE,
         response_format: { type: "json_object" }
       })
     })
@@ -558,7 +734,7 @@ ONLY select the cylindrical grip area where fingers would wrap around.`
 })
 
 // Weapon orientation detection endpoint
-app.post('/api/weapon-orientation-detect', async (req, res) => {
+app.post('/api/weapon-orientation-detect', authenticateUser, async (req, res) => {
   try {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OpenAI API key not configured')
@@ -617,8 +793,8 @@ Respond with ONLY a JSON object:
             ]
           }
         ],
-        max_tokens: 200,
-        temperature: 0.2,
+        max_tokens: MAX_TOKENS_SHORT,
+        temperature: LOW_TEMPERATURE,
         response_format: { type: "json_object" }
       })
     })
@@ -651,19 +827,375 @@ Respond with ONLY a JSON object:
   }
 })
 
+// AI generation routes
+app.post('/api/generate-dialogue', authenticateUser, (req, res) => {
+  generateDialogue(req, res)
+})
+
+app.post('/api/generate-npc', authenticateUser, (req, res) => {
+  generateNPC(req, res)
+})
+
+app.post('/api/generate-quest', authenticateUser, (req, res) => {
+  generateQuest(req, res)
+})
+
+// Multi-agent AI routes
+app.post('/api/generate-npc-collaboration', authenticateUser, (req, res) => {
+  generateNPCCollaboration(req, res)
+})
+
+app.post('/api/generate-playtester-swarm', authenticateUser, (req, res) => {
+  generatePlaytesterSwarm(req, res)
+})
+
+app.get('/api/playtester-personas', authenticateUser, (req, res) => {
+  getPlaytesterPersonas(req, res)
+})
+
+// Seed content route - pre-generated quests, NPCs, and lore
+app.get('/api/seed-content', (req, res) => {
+  try {
+    const seedData = getSeedContent()
+    res.json(seedData)
+  } catch (error) {
+    console.error('Error loading seed content:', error)
+    res.status(500).json({ error: 'Failed to load seed content' })
+  }
+})
+
+// Voice generation routes
+app.get('/api/voice/library', optionalAuth, (req, res) => {
+  getVoiceLibrary(req, res)
+})
+
+app.post('/api/voice/generate', authenticateUser, (req, res) => {
+  generateVoice(req, res)
+})
+
+app.post('/api/voice/batch', authenticateUser, (req, res) => {
+  generateVoiceBatch(req, res)
+})
+
+app.get('/api/voice/profile/:npcId', optionalAuth, (req, res) => {
+  getVoiceProfile(req, res)
+})
+
+app.delete('/api/voice/:npcId', authenticateUser, (req, res) => {
+  deleteVoice(req, res)
+})
+
+app.post('/api/voice/estimate', optionalAuth, (req, res) => {
+  estimateVoiceCost(req, res)
+})
+
+app.get('/api/voice/subscription', authenticateUser, (req, res) => {
+  getVoiceSubscription(req, res)
+})
+
+app.get('/api/voice/models', optionalAuth, (req, res) => {
+  getVoiceModels(req, res)
+})
+
+// Voice manifest routes (new endpoints for manifest entity voice assignments)
+app.post('/api/voice/manifest/assign', authenticateUser, (req, res) => {
+  assignVoiceToManifest(req, res)
+})
+
+app.get('/api/voice/manifest/bulk', authenticateUser, (req, res) => {
+  getBulkManifestVoiceAssignments(req, res)
+})
+
+app.get('/api/voice/manifest/:manifestType/:entityId', authenticateUser, (req, res) => {
+  getManifestVoiceAssignment(req, res)
+})
+
+app.delete('/api/voice/manifest/:manifestType/:entityId', authenticateUser, (req, res) => {
+  deleteManifestVoiceAssignment(req, res)
+})
+
+app.post('/api/voice/manifest/bulk-assign', authenticateUser, (req, res) => {
+  bulkAssignManifestVoices(req, res)
+})
+
+app.post('/api/voice/manifest/generate-sample', authenticateUser, (req, res) => {
+  generateManifestSampleDialogue(req, res)
+})
+
+
+// =====================================================================
+// AUTHENTICATION ROUTES
+// =====================================================================
+
+app.post('/api/auth/login', (req, res) => {
+  POST_login(req, res)
+})
+
+app.get('/api/auth/me', authenticateUser, (req, res) => {
+  GET_me(req, res)
+})
+
+app.post('/api/auth/logout', (req, res) => {
+  POST_logout(req, res)
+})
+
+// =====================================================================
+// USER ROUTES
+// =====================================================================
+
+app.get('/api/user/profile', authenticateUser, (req, res) => {
+  GET_profile(req, res)
+})
+
+app.put('/api/user/profile', authenticateUser, (req, res) => {
+  PUT_profile(req, res)
+})
+
+app.get('/api/user/usage', authenticateUser, (req, res) => {
+  GET_usage(req, res)
+})
+
+app.get('/api/user/history', authenticateUser, (req, res) => {
+  GET_history(req, res)
+})
+
+app.delete('/api/user/account', authenticateUser, (req, res) => {
+  DELETE_account(req, res)
+})
+
+app.post('/api/user/export', authenticateUser, (req, res) => {
+  POST_export(req, res)
+})
+
+// =====================================================================
+// API KEYS ROUTES
+// =====================================================================
+
+app.post('/api/user/api-keys', authenticateUser, (req, res) => {
+  POST_addApiKey(req, res)
+})
+
+app.get('/api/user/api-keys', authenticateUser, (req, res) => {
+  GET_apiKeys(req, res)
+})
+
+app.put('/api/user/api-keys/:id', authenticateUser, (req, res) => {
+  PUT_updateApiKey(req, res)
+})
+
+app.delete('/api/user/api-keys/:id', authenticateUser, (req, res) => {
+  DELETE_apiKey(req, res)
+})
+
+// =====================================================================
+// PROJECTS ROUTES
+// =====================================================================
+
+app.post('/api/projects', authenticateUser, (req, res) => {
+  POST_createProject(req, res)
+})
+
+app.get('/api/projects', authenticateUser, (req, res) => {
+  GET_projects(req, res)
+})
+
+app.get('/api/projects/:id', authenticateUser, (req, res) => {
+  GET_project(req, res)
+})
+
+app.put('/api/projects/:id', authenticateUser, (req, res) => {
+  PUT_updateProject(req, res)
+})
+
+app.delete('/api/projects/:id', authenticateUser, (req, res) => {
+  DELETE_project(req, res)
+})
+
+app.post('/api/projects/:id/share', authenticateUser, (req, res) => {
+  POST_shareProject(req, res)
+})
+
+// =====================================================================
+// TEAMS ROUTES
+// =====================================================================
+
+app.post('/api/teams/create', authenticateUser, (req, res) => {
+  POST_createTeam(req, res)
+})
+
+app.get('/api/teams/preview/:inviteCode', (req, res) => {
+  GET_teamPreview(req, res)
+})
+
+app.post('/api/teams/join', authenticateUser, (req, res) => {
+  POST_joinTeam(req, res)
+})
+
+app.get('/api/teams/my-team', authenticateUser, (req, res) => {
+  GET_myTeam(req, res)
+})
+
+app.get('/api/teams/:teamId/members', authenticateUser, (req, res) => {
+  GET_teamMembers(req, res)
+})
+
+app.post('/api/teams/:teamId/leave', authenticateUser, (req, res) => {
+  POST_leaveTeam(req, res)
+})
+
+app.delete('/api/teams/:teamId', authenticateUser, (req, res) => {
+  DELETE_team(req, res)
+})
+
+app.put('/api/teams/:teamId', authenticateUser, (req, res) => {
+  PUT_updateTeam(req, res)
+})
+
+app.delete('/api/teams/:teamId/members/:memberId', authenticateUser, (req, res) => {
+  DELETE_removeMember(req, res)
+})
+
+app.post('/api/teams/:teamId/transfer-ownership', authenticateUser, (req, res) => {
+  POST_transferOwnership(req, res)
+})
+
+// =====================================================================
+// ADMIN ROUTES
+// =====================================================================
+
+app.post('/api/admin/whitelist/add', authenticateUser, requireAdmin, (req, res) => {
+  POST_addToWhitelist(req, res)
+})
+
+app.post('/api/admin/whitelist/remove', authenticateUser, requireAdmin, (req, res) => {
+  POST_removeFromWhitelist(req, res)
+})
+
+app.get('/api/admin/whitelist', authenticateUser, requireAdmin, (req, res) => {
+  GET_whitelist(req, res)
+})
+
+app.get('/api/admin/users', authenticateUser, requireAdmin, (req, res) => {
+  GET_allUsers(req, res)
+})
+
+app.get('/api/admin/stats', authenticateUser, requireAdmin, (req, res) => {
+  GET_stats(req, res)
+})
+
+app.get('/api/admin/activity', authenticateUser, requireAdmin, (req, res) => {
+  GET_activity(req, res)
+})
+
 // Error handling middleware
 app.use(errorHandler)
 
 // Start server
-const PORT = process.env.API_PORT || 3004
-app.listen(PORT, () => {
+const PORT = process.env.API_PORT || DEFAULT_API_PORT
+const server = app.listen(PORT, () => {
   console.log(`🚀 API Server running on http://localhost:${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`)
-  
+
   if (!process.env.MESHY_API_KEY) {
     console.warn('⚠️  MESHY_API_KEY not found - retexturing will fail')
   }
   if (!process.env.OPENAI_API_KEY) {
     console.warn('⚠️  OPENAI_API_KEY not found - base regeneration will fail')
   }
+  if (!process.env.ELEVENLABS_API_KEY) {
+    console.warn('⚠️  ELEVENLABS_API_KEY not found - voice generation will fail')
+  }
 })
+
+// Graceful shutdown handler
+async function gracefulShutdown(signal) {
+  console.log(`\n${signal} received. Starting graceful shutdown...`)
+
+  const shutdownTimeout = setTimeout(() => {
+    console.error('Shutdown timeout exceeded, forcing exit')
+    process.exit(1)
+  }, SHUTDOWN_TIMEOUT)
+
+  try {
+    // Close server to stop accepting new connections
+    if (server) {
+      await new Promise((resolve, reject) => {
+        server.close((err) => {
+          if (err) reject(err)
+          else resolve()
+        })
+      })
+      console.log('HTTP server closed')
+    }
+
+    // Shutdown services
+    if (generationService) {
+      generationService.shutdown()
+      console.log('Generation service shut down')
+    }
+
+    // Cleanup retexture service
+    if (retextureService) {
+      retextureService.destroy()
+      console.log('Retexture service cleaned up')
+    }
+
+    // Close database connection
+    try {
+      closeDatabase()
+      console.log('Database connection closed')
+    } catch (error) {
+      console.error('Error closing database:', error)
+    }
+
+    clearTimeout(shutdownTimeout)
+    console.log('Graceful shutdown complete')
+    process.exit(0)
+  } catch (error) {
+    console.error('Error during graceful shutdown:', error)
+    clearTimeout(shutdownTimeout)
+    process.exit(1)
+  }
+}
+
+// Listen for shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')) // nodemon restart
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error)
+  gracefulShutdown('UNCAUGHT_EXCEPTION')
+})
+
+// Enhanced unhandled rejection handler with detailed logging
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('='.repeat(80))
+  console.error('CRITICAL: Unhandled Promise Rejection Detected')
+  console.error('='.repeat(80))
+  console.error('Promise:', promise)
+  console.error('Reason:', reason)
+
+  // Log stack trace if available
+  if (reason && reason.stack) {
+    console.error('Stack trace:', reason.stack)
+  }
+
+  // Log additional context
+  console.error('Time:', new Date().toISOString())
+  console.error('Environment:', process.env.NODE_ENV || 'development')
+  console.error('='.repeat(80))
+
+  // In production, trigger graceful shutdown to prevent undefined state
+  // In development, keep running to aid debugging
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Initiating graceful shutdown due to unhandled rejection in production')
+    gracefulShutdown('UNHANDLED_REJECTION')
+  } else {
+    console.error('WARNING: Continuing execution in development mode - this would crash in production!')
+  }
+})
+
+// Export app for Vercel serverless functions
+export default app
