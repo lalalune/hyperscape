@@ -5,6 +5,7 @@
  * and smooth animations. Matches the current UI aesthetic.
  */
 
+import { useCallback } from 'react'
 import { Menu, X } from 'lucide-react'
 import { useCallback } from 'react'
 

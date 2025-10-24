@@ -4,6 +4,12 @@
   "framework": "vite",
   "devCommand": "bun run dev:frontend",
   "installCommand": "bun install",
+  "functions": {
+    "api/index.mjs": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -37,6 +43,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

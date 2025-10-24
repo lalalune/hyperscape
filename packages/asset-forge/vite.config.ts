@@ -24,7 +24,7 @@ export default defineConfig({
     })
   ],
   resolve: {
-    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'three', '@react-three/fiber', '@react-three/drei'],
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'three', '@react-three/fiber', '@react-three/drei', 'lucide-react'],
     alias: {
       '@': path.resolve(__dirname, 'src'),
       // Force all Three.js imports to use the same instance
@@ -32,7 +32,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime', 'three', '@react-three/fiber', '@react-three/drei'],
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'three', '@react-three/fiber', '@react-three/drei', 'lucide-react'],
     exclude: ['.eslintrc.cjs', 'tailwind.config.cjs', 'postcss.config.cjs'],
     esbuildOptions: {
       resolveExtensions: ['.mjs', '.js', '.jsx', '.json', '.ts', '.tsx']
@@ -41,6 +41,29 @@ export default defineConfig({
     force: false
   },
   build: {
+    modulePreload: {
+      polyfill: true,
+      resolveDependencies: (filename, deps) => {
+        // Ensure vendor-react loads before vendor-icons to prevent undefined React errors
+        // This only affects build-time dependency ordering, not runtime performance
+        if (filename.includes('vendor-icons')) {
+          const reactDeps: string[] = []
+          const otherDeps: string[] = []
+          
+          for (const dep of deps) {
+            if (dep.includes('vendor-react')) {
+              reactDeps.push(dep)
+            } else {
+              otherDeps.push(dep)
+            }
+          }
+          
+          // Return other deps first, then React deps (ensures React loads first)
+          return [...otherDeps, ...reactDeps]
+        }
+        return deps
+      }
+    },
     rollupOptions: {
       output: {
         // Preserve module execution order to avoid circular dependency issues

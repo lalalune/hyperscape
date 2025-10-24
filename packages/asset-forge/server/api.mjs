@@ -853,19 +853,24 @@ app.post('/api/voice/manifest/generate-sample', (req, res) => {
 // Error handling middleware
 app.use(errorHandler)
 
-// Start server
-const PORT = process.env.API_PORT || 3004
-app.listen(PORT, () => {
-  console.log(`🚀 API Server running on http://localhost:${PORT}`)
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`)
-  
-  if (!process.env.MESHY_API_KEY) {
-    console.warn('⚠️  MESHY_API_KEY not found - retexturing will fail')
-  }
-  if (!process.env.OPENAI_API_KEY) {
-    console.warn('⚠️  OPENAI_API_KEY not found - base regeneration will fail')
-  }
-  if (!process.env.ELEVENLABS_API_KEY) {
-    console.warn('⚠️  ELEVENLABS_API_KEY not found - voice generation will fail')
-  }
-})
+// Export app for serverless functions (Vercel)
+export default app
+
+// Start server (only when running directly, not in serverless)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const PORT = process.env.API_PORT || 3004
+  app.listen(PORT, () => {
+    console.log(`🚀 API Server running on http://localhost:${PORT}`)
+    console.log(`📊 Health check: http://localhost:${PORT}/api/health`)
+
+    if (!process.env.MESHY_API_KEY) {
+      console.warn('⚠️  MESHY_API_KEY not found - retexturing will fail')
+    }
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('⚠️  OPENAI_API_KEY not found - base regeneration will fail')
+    }
+    if (!process.env.ELEVENLABS_API_KEY) {
+      console.warn('⚠️  ELEVENLABS_API_KEY not found - voice generation will fail')
+    }
+  })
+}
