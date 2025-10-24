@@ -8,8 +8,9 @@
   - [useGenerationStore](#usegenerationstore)
   - [useAssetsStore](#useassetsstore)
   - [useHandRiggingStore](#usehandriggingstore)
-  - [useArmorFittingStore](#usearmorfit tingstore)
+  - [useArmorFittingStore](#usearmorfittingstore)
   - [useDebuggerStore](#usedebuggerstore)
+  - [useMultiAgentStore](#usemultiagentstore)
 - [State Persistence Strategy](#state-persistence-strategy)
 - [Store Interactions](#store-interactions)
 - [Best Practices](#best-practices)
@@ -34,12 +35,13 @@ Asset Forge uses **Zustand 5.0.6** for state management, providing a lightweight
 ### Store Distribution
 
 ```
-Total State: ~2,661 lines of TypeScript
-├── useGenerationStore    (608 LOC) - 23% - Generation pipeline
-├── useArmorFittingStore  (936 LOC) - 35% - Armor fitting workflow
+Total State: ~2,800 lines of TypeScript
+├── useGenerationStore    (608 LOC) - 22% - Generation pipeline
+├── useArmorFittingStore  (936 LOC) - 33% - Armor fitting workflow
 ├── useHandRiggingStore   (298 LOC) - 11% - Hand rigging workflow
 ├── useAssetsStore        (245 LOC) - 9%  - Asset library management
-└── useDebuggerStore      (574 LOC) - 22% - Mesh fitting debugger
+├── useDebuggerStore      (574 LOC) - 20% - Mesh fitting debugger
+└── useMultiAgentStore    (143 LOC) - 5%  - Multi-agent AI systems
 ```
 
 ---
@@ -853,6 +855,116 @@ interface DebuggerState {
   lastError: string | null
 }
 ```
+
+---
+
+### useMultiAgentStore
+
+**Purpose**: Multi-agent AI system state for NPC collaborations and playtester swarms
+
+**Size**: 143 lines (5% of total state)
+
+**Location**: `src/store/useMultiAgentStore.ts`
+
+**State Shape**:
+
+```typescript
+interface MultiAgentState {
+  // NPC Collaboration
+  collaborations: CollaborationSession[]
+  activeCollaboration: CollaborationSession | null
+  isCollaborating: boolean
+  collaborationError: string | null
+
+  // Playtester Swarm
+  playtestSessions: PlaytestSession[]
+  activePlaytest: PlaytestSession | null
+  isTesting: boolean
+  testError: string | null
+
+  // Cached Personas
+  availablePersonas: PlaytesterPersonasResponse | null
+  loadingPersonas: boolean
+}
+```
+
+**Key Actions**:
+
+```typescript
+// NPC Collaboration
+addCollaboration: (session: CollaborationSession) => void
+setActiveCollaboration: (session: CollaborationSession | null) => void
+deleteCollaboration: (sessionId: string) => void
+setCollaborating: (isCollaborating: boolean) => void
+setCollaborationError: (error: string | null) => void
+clearCollaborations: () => void
+
+// Playtester Swarm
+addPlaytestSession: (session: PlaytestSession) => void
+setActivePlaytest: (session: PlaytestSession | null) => void
+deletePlaytestSession: (sessionId: string) => void
+setTesting: (isTesting: boolean) => void
+setTestError: (error: string | null) => void
+clearPlaytestSessions: () => void
+
+// Personas
+setAvailablePersonas: (personas: PlaytesterPersonasResponse) => void
+setLoadingPersonas: (loading: boolean) => void
+
+// Utility
+reset: () => void
+```
+
+**Usage Example**:
+
+```typescript
+import { useMultiAgentStore } from '@/store/useMultiAgentStore'
+
+function NPCCollaborationPanel() {
+  const {
+    collaborations,
+    activeCollaboration,
+    isCollaborating,
+    addCollaboration,
+    setActiveCollaboration
+  } = useMultiAgentStore()
+
+  const runCollaboration = async (request) => {
+    setCollaborating(true)
+    try {
+      const response = await fetch('/api/generate-npc-collaboration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request)
+      })
+      const session = await response.json()
+      addCollaboration(session)  // Adds and sets as active
+    } finally {
+      setCollaborating(false)
+    }
+  }
+
+  return (
+    <div>
+      <NPCCollaborationBuilder onSubmit={runCollaboration} />
+      {activeCollaboration && (
+        <CollaborationResultViewer session={activeCollaboration} />
+      )}
+    </div>
+  )
+}
+```
+
+**Features**:
+
+1. **Session Management**: Stores collaboration and playtest sessions in arrays
+2. **Active Session**: Tracks which session is currently displayed
+3. **Loading States**: Manages isCollaborating and isTesting flags
+4. **Error Handling**: Stores and displays error messages
+5. **Persona Caching**: Caches playtester personas from server to avoid repeated fetches
+6. **Auto-activation**: addCollaboration() and addPlaytestSession() automatically set the new session as active
+
+**No Persistence**: This store does NOT persist to localStorage. Sessions are lost on page refresh.
 
 ---
 

@@ -244,7 +244,7 @@ const response = await fetch(url, {
 
 **Config:**
 ```javascript
-res.header('Access-Control-Allow-Origin', 'http://localhost:3003')
+res.header('Access-Control-Allow-Origin', 'http://localhost:3000')
 res.header('Access-Control-Allow-Credentials', 'true')
 ```
 
