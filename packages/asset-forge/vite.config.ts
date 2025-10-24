@@ -36,7 +36,9 @@ export default defineConfig({
     exclude: ['.eslintrc.cjs', 'tailwind.config.cjs', 'postcss.config.cjs'],
     esbuildOptions: {
       resolveExtensions: ['.mjs', '.js', '.jsx', '.json', '.ts', '.tsx']
-    }
+    },
+    // Force optimizeDeps to rebuild and use single Three.js instance
+    force: false
   },
   build: {
     rollupOptions: {
