@@ -1,24 +1,21 @@
 # Asset Forge - Fly.io Dockerfile
-# Simplified single-stage build
+# Using Bun for fast builds and runtime
 
-FROM node:22-alpine
+FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-# Install build dependencies for native modules
-RUN apk add --no-cache python3 make g++
-
 # Copy package files
-COPY package.json ./
+COPY package.json bun.lock* ./
 
-# Install all dependencies with legacy-peer-deps to handle React 19
-RUN npm install --legacy-peer-deps
+# Install dependencies
+RUN bun install --frozen-lockfile --production
 
 # Copy source code
 COPY . .
 
-# Build frontend (if build script exists)
-RUN npm run build || echo "No build needed"
+# Build frontend
+RUN bun run build || echo "No build needed"
 
 # Create directory for asset storage
 RUN mkdir -p /app/gdd-assets /app/temp-images
@@ -32,7 +29,7 @@ EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8080/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
 
-# Start application
-CMD ["node", "--experimental-strip-types", "server/api.mjs"]
+# Start application with Bun
+CMD ["bun", "run", "server/api.mjs"]
