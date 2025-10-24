@@ -7,10 +7,10 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json bun.lockb ./
+COPY package*.json ./
 
 # Install dependencies (use npm for Fly.io compatibility)
-RUN npm install --production=false
+RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
@@ -25,7 +25,7 @@ WORKDIR /app
 
 # Install production dependencies only
 COPY package*.json ./
-RUN npm install --production
+RUN npm ci --omit=dev
 
 # Copy built assets from builder
 COPY --from=builder /app/dist ./dist
