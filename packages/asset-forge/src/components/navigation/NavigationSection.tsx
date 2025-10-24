@@ -5,12 +5,15 @@
  * Supports single links, groups, and collapsible sections.
  */
 
-import { useCallback, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import type { NavigationSection as NavigationSectionType } from '../../types/navigation'
-import { useNavigationStore } from '../../store/useNavigationStore'
-import NavigationItem from './NavigationItem'
+import { useCallback, useMemo } from 'react'
+
 import { isNavLink } from '../../config/navigation-config'
+import { useNavigationStore } from '../../store/useNavigationStore'
+import type { NavigationSection as NavigationSectionType } from '../../types/navigation'
+
+import NavigationItem from './NavigationItem'
+
 
 interface NavigationSectionProps {
   section: NavigationSectionType
@@ -73,28 +76,28 @@ export default function NavigationSection({ section }: NavigationSectionProps) {
   const sectionColor = getSectionColor(section.id)
 
   return (
-    <div className="mb-2">
+    <div className="mb-3">
       {/* Section Header */}
       {section.type === 'collapsible' && (
         <button
           onClick={handleToggle}
           className={`
-            w-full flex items-center gap-2 px-3 py-2 rounded-md
-            text-xs font-semibold uppercase tracking-wide
-            ${sectionColor} hover:brightness-110
-            transition-all duration-base
+            w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg
+            text-xs font-semibold uppercase tracking-wider
+            ${sectionColor} hover:bg-bg-tertiary/50
+            transition-all duration-200
             ${collapsed ? 'justify-center' : 'justify-between'}
           `}
           title={collapsed ? section.label : undefined}
           data-testid={`nav-section-${section.id}`}
         >
-          <div className="flex items-center gap-2">
-            {section.icon && <section.icon size={16} />}
-            {!collapsed && <span>{section.label}</span>}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {section.icon && <section.icon size={collapsed ? 18 : 16} className="flex-shrink-0" />}
+            {!collapsed && <span className="truncate">{section.label}</span>}
           </div>
 
           {!collapsed && section.collapsible && (
-            <div className="transition-transform duration-base">
+            <div className="transition-transform duration-200 flex-shrink-0">
               {isExpanded ? (
                 <ChevronDown size={14} />
               ) : (
@@ -107,7 +110,7 @@ export default function NavigationSection({ section }: NavigationSectionProps) {
 
       {/* Section Items */}
       {(!section.collapsible || isExpanded || collapsed) && (
-        <div className={`space-y-1 ${section.type === 'collapsible' && !collapsed ? 'mt-1' : ''}`}>
+        <div className={`space-y-0.5 ${section.type === 'collapsible' && !collapsed ? 'mt-1.5 ml-1' : ''}`}>
           {section.items.map((item) => {
             if (!isNavLink(item)) return null
             return <NavigationItem key={item.id} item={item} />

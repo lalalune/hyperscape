@@ -1,11 +1,27 @@
 import type { LucideIcon } from 'lucide-react'
+
 import type { RoutePath } from '../constants/routes'
 
 // ============================================================================
 // LEGACY TYPES (for compatibility during migration)
 // ============================================================================
 
-export type NavigationView = 'assets' | 'generation' | 'equipment' | 'handRigging' | 'armorFitting' | 'gameData' | 'contentBuilder' | 'voice'
+export type NavigationView =
+  | 'assets'
+  | 'generation'
+  | 'equipment'
+  | 'handRigging'
+  | 'armorFitting'
+  | 'gameData'
+  | 'contentBuilder'
+  | 'voice'
+  | 'voice-standalone'
+  | 'voice-manifests'
+  | 'dashboard'
+  | 'admin'
+  | 'projects'
+  | 'profile'
+  | 'team'
 
 export interface NavigationState {
   currentView: NavigationView
@@ -139,6 +155,8 @@ export interface NavigationSection {
   tooltip?: string
   /** Keywords for search */
   keywords?: string[]
+  /** Admin only - only show for admin users */
+  adminOnly?: boolean
 }
 
 /**

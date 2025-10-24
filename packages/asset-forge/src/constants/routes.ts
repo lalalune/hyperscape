@@ -6,6 +6,7 @@
 export const ROUTES = {
   // Main pages
   HOME: '/',
+  DASHBOARD: '/dashboard',
 
   // Asset Creation
   GENERATION: '/generate',
@@ -33,6 +34,14 @@ export const ROUTES = {
 
   // Data & Reference
   GAME_DATA: '/game-data',
+
+  // User & Team Management
+  PROJECTS: '/projects',
+  TEAM: '/team',
+  PROFILE: '/profile',
+
+  // Admin
+  ADMIN: '/admin',
 
   // System
   SETTINGS: '/settings',
@@ -68,6 +77,11 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
   [ROUTES.HOME]: {
     path: ROUTES.HOME,
     title: 'Home',
+  },
+  [ROUTES.DASHBOARD]: {
+    path: ROUTES.DASHBOARD,
+    title: 'Dashboard',
+    breadcrumb: 'Dashboard',
   },
   [ROUTES.GENERATION]: {
     path: ROUTES.GENERATION,
@@ -154,6 +168,26 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
     path: ROUTES.GAME_DATA,
     title: 'Game Manifests',
     breadcrumb: 'Game Data',
+  },
+  [ROUTES.PROJECTS]: {
+    path: ROUTES.PROJECTS,
+    title: 'Projects',
+    breadcrumb: 'Projects',
+  },
+  [ROUTES.TEAM]: {
+    path: ROUTES.TEAM,
+    title: 'Team',
+    breadcrumb: 'Team',
+  },
+  [ROUTES.PROFILE]: {
+    path: ROUTES.PROFILE,
+    title: 'Profile',
+    breadcrumb: 'Profile',
+  },
+  [ROUTES.ADMIN]: {
+    path: ROUTES.ADMIN,
+    title: 'Admin Dashboard',
+    breadcrumb: 'Admin',
   },
   [ROUTES.SETTINGS]: {
     path: ROUTES.SETTINGS,

@@ -1,30 +1,32 @@
 import { Text as DreiText } from '@react-three/drei'
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import * as THREE from 'three'
+import { BufferGeometry, Mesh, MeshStandardMaterial } from 'three'
+
+import { cloneGeometryForModification } from '../../../../utils/three-geometry-sharing'
 
 interface BasicDemoProps {
     showWireframe: boolean
 }
 
 export interface BasicDemoRef {
-    sourceCubeRef: React.RefObject<THREE.Mesh>
-    sourceSphereRef: React.RefObject<THREE.Mesh>
-    targetCubeRef: React.RefObject<THREE.Mesh>
-    targetSphereRef: React.RefObject<THREE.Mesh>
+    sourceCubeRef: React.RefObject<Mesh | null>
+    sourceSphereRef: React.RefObject<Mesh | null>
+    targetCubeRef: React.RefObject<Mesh | null>
+    targetSphereRef: React.RefObject<Mesh | null>
 }
 
 export const BasicDemo = forwardRef<BasicDemoRef, BasicDemoProps>(({ showWireframe }, ref) => {
     // Source meshes (the ones being deformed)
-    const sourceCubeRef = useRef<THREE.Mesh>(null)
-    const sourceSphereRef = useRef<THREE.Mesh>(null)
+    const sourceCubeRef = useRef<Mesh | null>(null)
+    const sourceSphereRef = useRef<Mesh | null>(null)
 
     // Target meshes (the ones being fitted to)
-    const targetSphereRef = useRef<THREE.Mesh>(null)
-    const targetCubeRef = useRef<THREE.Mesh>(null)
+    const targetSphereRef = useRef<Mesh | null>(null)
+    const targetCubeRef = useRef<Mesh | null>(null)
 
     // Store original geometries
-    const originalSourceCubeGeometry = useRef<THREE.BufferGeometry | null>(null)
-    const originalSourceSphereGeometry = useRef<THREE.BufferGeometry | null>(null)
+    const originalSourceCubeGeometry = useRef<BufferGeometry | null>(null)
+    const originalSourceSphereGeometry = useRef<BufferGeometry | null>(null)
 
     // Expose refs to parent
     useImperativeHandle(ref, () => ({
@@ -34,23 +36,29 @@ export const BasicDemo = forwardRef<BasicDemoRef, BasicDemoProps>(({ showWirefra
         targetSphereRef
     }))
 
-    // Store original geometries on mount
+    // Store original geometries on mount (for reset functionality)
     useEffect(() => {
         if (sourceCubeRef.current && !originalSourceCubeGeometry.current) {
-            originalSourceCubeGeometry.current = sourceCubeRef.current.geometry.clone()
+            originalSourceCubeGeometry.current = cloneGeometryForModification(
+                sourceCubeRef.current.geometry,
+                'backup original cube'
+            )
             console.log('Stored original cube geometry')
         }
         if (sourceSphereRef.current && !originalSourceSphereGeometry.current) {
-            originalSourceSphereGeometry.current = sourceSphereRef.current.geometry.clone()
+            originalSourceSphereGeometry.current = cloneGeometryForModification(
+                sourceSphereRef.current.geometry,
+                'backup original sphere'
+            )
             console.log('Stored original sphere geometry')
         }
     }, [])
 
     // Update wireframe
     useEffect(() => {
-        const updateMeshWireframe = (mesh: THREE.Mesh | null) => {
+        const updateMeshWireframe = (mesh: Mesh | null) => {
             if (mesh && mesh.material) {
-                (mesh.material as THREE.MeshStandardMaterial).wireframe = showWireframe
+                (mesh.material as MeshStandardMaterial).wireframe = showWireframe
             }
         }
 

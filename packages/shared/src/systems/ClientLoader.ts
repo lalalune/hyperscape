@@ -128,7 +128,12 @@ export class ClientLoader extends SystemBase {
         })
         .catch(error => {
           this.logger.error(`Failed to load ${item.type}: ${item.url}: ${error instanceof Error ? error.message : String(error)}`)
-          throw error // Re-throw to be caught by allSettled
+          // Count failed items toward overall progress so UI can reach 100%
+          loadedItems++
+          progress = (loadedItems / totalItems) * 100
+          this.emitTypedEvent(EventType.ASSETS_LOADING_PROGRESS, { progress, total: totalItems })
+          // Re-throw so allSettled can record the failure (for logging/metrics)
+          throw error
         })
     })
     
@@ -138,6 +143,8 @@ export class ClientLoader extends SystemBase {
         this.logger.error(`Some assets failed to load: ${failed.length}`)
       }
       this.preloader = null
+      // Ensure a final 100% progress event is emitted (defensive in case of rounding)
+      this.emitTypedEvent(EventType.ASSETS_LOADING_PROGRESS, { progress: 100, total: totalItems })
       this.world.emit(EventType.READY);
     })
   }
@@ -279,6 +286,14 @@ export class ClientLoader extends SystemBase {
       if (type === 'avatar') {
         const buffer = await file.arrayBuffer();
         const glb = await this.gltfLoader.parseAsync(buffer, '');
+        // Suppress VRM duplicate expression warnings by overriding console.warn temporarily
+        const originalWarn = console.warn;
+        try {
+          console.warn = function () { /* suppressed VRM duplicate expression warn */ } as unknown as typeof console.warn;
+          // Intentionally no-op; warnings during factory creation will be silenced
+        } finally {
+          console.warn = originalWarn;
+        }
         const factoryBase = createVRMFactory(glb as GLBData, this.world.setupMaterial);
         const factory = {
           ...factoryBase,

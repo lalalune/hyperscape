@@ -6,16 +6,24 @@
 import { Users, Sparkles } from 'lucide-react'
 import React, { useState } from 'react'
 
-import type { GeneratedNPC } from '../../types/content-generation'
-import { useContentGenerationStore } from '../../store/useContentGenerationStore'
-import { useRelationshipsStore } from '../../store/useRelationshipsStore'
-import { usePreviewManifestsStore } from '../../store/usePreviewManifestsStore'
 import { API_ENDPOINTS } from '../../config/api'
+import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { usePreviewManifestsStore } from '../../store/usePreviewManifestsStore'
+import { useRelationshipsStore } from '../../store/useRelationshipsStore'
+import type { GeneratedNPC } from '../../types/content-generation'
+import type { NPCManifest } from '../../types/manifests'
+import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
-import { Badge } from '../common/Badge'
 import { ModelSelector } from '../common/ModelSelector'
+
+interface NPCReuseValidation {
+  shouldReuse: boolean
+  canReuse?: NPCManifest
+  justification: string
+  reuseScore?: number
+}
 
 interface NPCScriptGeneratorProps {
   onNPCGenerated: (npc: GeneratedNPC) => void
@@ -26,8 +34,9 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
   onNPCGenerated,
   onAIGenerate
 }) => {
-  // Get store data for context-aware generation
-  const { quests, npcs: generatedNPCs } = useContentGenerationStore()
+  // Get store data for context-aware generation - selective subscriptions
+  const quests = useContentGenerationStore(state => state.quests)
+  const generatedNPCs = useContentGenerationStore(state => state.npcs)
   const { relationships } = useRelationshipsStore()
   const { addPreviews } = usePreviewManifestsStore()
 
@@ -37,7 +46,7 @@ export const NPCScriptGenerator: React.FC<NPCScriptGeneratorProps> = ({
   const [services, setServices] = useState<string[]>([])
   const [assignedQuests, setAssignedQuests] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
-  const [_reuseValidation, setReuseValidation] = useState<any>(null)
+  const [_reuseValidation, setReuseValidation] = useState<NPCReuseValidation | null>(null)
   
   // AI Generation
   const [showAIGenerator, setShowAIGenerator] = useState(false)

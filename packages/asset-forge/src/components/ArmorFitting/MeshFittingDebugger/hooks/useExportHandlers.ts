@@ -1,10 +1,14 @@
-import * as THREE from 'three'
+import {
+  Bone, BoxGeometry, GridHelper, Matrix4, Mesh, MeshBasicMaterial, Scene, Skeleton,
+  SkinnedMesh
+} from 'three'
 
-import { ArmorFittingService } from '../../../../services/fitting/ArmorFittingService'
+import { ArmorFittingService } from '@/services/fitting/ArmorFittingService'
 import { ExportType } from '../types'
+import { cloneGeometryForModification } from '../../../../utils/three-geometry-sharing'
 
 interface ExportHandlersProps {
-    boundArmorMesh: THREE.SkinnedMesh | null
+    boundArmorMesh: SkinnedMesh | null
     selectedArmor: { name: string } | null
     setIsProcessing: (value: boolean) => void
     setError: (value: string) => void
@@ -50,7 +54,7 @@ export function useExportHandlers({
 
                 case 'debug': {
                     // Debug export with bone visualization
-                    const exportScene = new THREE.Scene()
+                    const exportScene = new Scene()
                     const mesh = boundArmorMesh.clone()
 
                     // Scale factor for cm to meters
@@ -58,12 +62,12 @@ export function useExportHandlers({
 
                     if (mesh.skeleton) {
                         // Create properly scaled skeleton with visualization
-                        const scaledBones: THREE.Bone[] = []
-                        const oldToNew = new Map<THREE.Bone, THREE.Bone>()
+                        const scaledBones: Bone[] = []
+                        const oldToNew = new Map<Bone, Bone>()
 
                         // Clone bones with scaled positions
                         mesh.skeleton.bones.forEach(oldBone => {
-                            const newBone = new THREE.Bone()
+                            const newBone = new Bone()
                             newBone.name = oldBone.name
 
                             // Scale position
@@ -80,7 +84,7 @@ export function useExportHandlers({
                         // Rebuild hierarchy
                         mesh.skeleton.bones.forEach((oldBone, idx) => {
                             const newBone = scaledBones[idx]
-                            if (oldBone.parent && oldBone.parent instanceof THREE.Bone) {
+                            if (oldBone.parent && oldBone.parent instanceof Bone) {
                                 const parentNewBone = oldToNew.get(oldBone.parent)
                                 if (parentNewBone) {
                                     parentNewBone.add(newBone)
@@ -90,17 +94,17 @@ export function useExportHandlers({
 
                         // Add visualization
                         scaledBones.forEach(bone => {
-                            const helper = new THREE.BoxGeometry(0.02, 0.02, 0.02)
-                            const material = new THREE.MeshBasicMaterial({ color: 0xff0000 })
-                            const box = new THREE.Mesh(helper, material)
+                            const helper = new BoxGeometry(0.02, 0.02, 0.02)
+                            const material = new MeshBasicMaterial({ color: 0xff0000 })
+                            const box = new Mesh(helper, material)
                             bone.add(box)
                         })
 
                         // Create new skeleton
-                        const scaledSkeleton = new THREE.Skeleton(scaledBones)
+                        const scaledSkeleton = new Skeleton(scaledBones)
 
-                        // Clone mesh with scaled geometry
-                        const scaledGeometry = mesh.geometry.clone()
+                        // Clone mesh geometry for export scaling
+                        const scaledGeometry = cloneGeometryForModification(mesh.geometry, 'export scaling')
                         const positions = scaledGeometry.attributes.position
                         for (let i = 0; i < positions.count; i++) {
                             positions.setXYZ(
@@ -115,12 +119,12 @@ export function useExportHandlers({
                         scaledGeometry.computeBoundingSphere()
 
                         // Create new mesh
-                        const scaledMesh = new THREE.SkinnedMesh(scaledGeometry, mesh.material)
+                        const scaledMesh = new SkinnedMesh(scaledGeometry, mesh.material)
                         scaledMesh.name = mesh.name
 
                         // Bind with scaled matrix
                         const bindMatrix = mesh.bindMatrix.clone()
-                        const scaleMatrix = new THREE.Matrix4().makeScale(CM_TO_METERS, CM_TO_METERS, CM_TO_METERS)
+                        const scaleMatrix = new Matrix4().makeScale(CM_TO_METERS, CM_TO_METERS, CM_TO_METERS)
                         bindMatrix.premultiply(scaleMatrix)
 
                         scaledMesh.bind(scaledSkeleton, bindMatrix)
@@ -134,7 +138,7 @@ export function useExportHandlers({
                     }
 
                     // Add reference grid (2m in meters)
-                    const grid = new THREE.GridHelper(2, 20)
+                    const grid = new GridHelper(2, 20)
                     exportScene.add(grid)
 
                     // Export
@@ -151,7 +155,7 @@ export function useExportHandlers({
                 }
 
                 case 'scale-fixed': {
-                    const { ArmorScaleFixer } = await import('../../../../services/fitting/ArmorScaleFixer')
+                    const { ArmorScaleFixer } = await import('@/services/fitting/ArmorScaleFixer')
 
                     if (ArmorScaleFixer.hasScaleIssues(boundArmorMesh.skeleton)) {
                         console.log('Scale issues detected! Applying fix...')

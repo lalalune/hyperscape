@@ -1,9 +1,8 @@
 import { Box, Download } from 'lucide-react'
-import React from 'react'
+import React, { useMemo } from 'react'
 
 import { GeneratedAsset, hasAnimations } from '../../types'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../common'
-import { AnimationPlayer } from '../shared/AnimationPlayer'
 import ThreeViewer from '../shared/ThreeViewer'
 
 interface AssetPreviewCardProps {
@@ -11,21 +10,32 @@ interface AssetPreviewCardProps {
   generationType: 'item' | 'avatar' | undefined
 }
 
-export const AssetPreviewCard: React.FC<AssetPreviewCardProps> = ({
+export const AssetPreviewCard: React.FC<AssetPreviewCardProps> = React.memo(({
   selectedAsset,
   generationType
 }) => {
   if (!selectedAsset) return null
 
-  const hasModel = selectedAsset.hasModel || selectedAsset.modelUrl || selectedAsset.metadata?.hasModel
-  const modelUrl = selectedAsset.modelUrl || `/api/assets/${selectedAsset.id}/model`
-  
-  const isRiggedAvatar = generationType === 'avatar' && 
-    selectedAsset && 
-    'isRigged' in selectedAsset.metadata && 
-    selectedAsset.metadata.isRigged && 
-    'animations' in selectedAsset.metadata && 
-    selectedAsset.metadata.animations
+  // Memoize expensive computations
+  const hasModel = useMemo(() =>
+    selectedAsset.hasModel || selectedAsset.modelUrl || selectedAsset.metadata?.hasModel,
+    [selectedAsset.hasModel, selectedAsset.modelUrl, selectedAsset.metadata?.hasModel]
+  )
+
+  const modelUrl = useMemo(() =>
+    selectedAsset.modelUrl || `/api/assets/${selectedAsset.id}/model`,
+    [selectedAsset.modelUrl, selectedAsset.id]
+  )
+
+  const isRiggedAvatar = useMemo(() =>
+    generationType === 'avatar' &&
+    selectedAsset &&
+    'isRigged' in selectedAsset.metadata &&
+    selectedAsset.metadata.isRigged &&
+    'animations' in selectedAsset.metadata &&
+    selectedAsset.metadata.animations,
+    [generationType, selectedAsset]
+  )
 
   return (
     <Card className="overflow-hidden shadow-xl hover:shadow-2xl transition-shadow">
@@ -36,26 +46,18 @@ export const AssetPreviewCard: React.FC<AssetPreviewCardProps> = ({
       <CardContent className="p-0">
         <div className="aspect-video bg-gradient-to-br from-bg-secondary to-bg-tertiary relative">
           {hasModel ? (
-            <>
-              {isRiggedAvatar ? (
-                <AnimationPlayer
-                  modelUrl={modelUrl}
-                  animations={
-                    hasAnimations(selectedAsset) ? selectedAsset.metadata.animations : { basic: {} }
-                  }
-                  assetId={selectedAsset.id}
-                  className="w-full h-full"
-                />
-              ) : (
-                <ThreeViewer
-                  modelUrl={modelUrl}
-                  assetInfo={{
-                    name: selectedAsset.name,
-                    type: selectedAsset.type || 'character'
-                  }}
-                />
-              )}
-            </>
+            <ThreeViewer
+              modelUrl={modelUrl}
+              showAnimationControls={!!isRiggedAvatar}
+              animationFiles={
+                hasAnimations(selectedAsset) ? selectedAsset.metadata.animations : undefined
+              }
+              assetId={selectedAsset.id}
+              assetInfo={{
+                name: selectedAsset.name,
+                type: selectedAsset.type || 'character'
+              }}
+            />
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -80,6 +82,11 @@ export const AssetPreviewCard: React.FC<AssetPreviewCardProps> = ({
       )}
     </Card>
   )
-}
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.selectedAsset?.id === nextProps.selectedAsset?.id &&
+    prevProps.generationType === nextProps.generationType
+  )
+})
 
 export default AssetPreviewCard 

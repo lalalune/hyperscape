@@ -1,111 +1,148 @@
 /**
  * Asset Hooks
- * Clean, reusable hooks for asset operations
+ *
+ * Clean, reusable React hooks for asset operations including
+ * fetching, retexturing, and material preset management.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useDataFetch } from './useDataFetch'
+import { useAsyncOperation } from './useAsyncOperation'
 
-import { useApp } from '../contexts/AppContext'
+import { AssetService, RetextureRequest, RetextureResponse } from '@/services/api/AssetService'
 
-import { AssetService, Asset, MaterialPreset, RetextureRequest, RetextureResponse } from '@/services/api/AssetService'
+// Re-export types for convenience
+export type { Asset, MaterialPreset } from '@/services/api/AssetService'
 
+/**
+ * React hook for managing asset data fetching and reloading.
+ *
+ * Provides automatic asset loading on mount with proper cleanup
+ * and memory leak protection using mounted refs.
+ *
+ * @returns Object containing assets array, loading state, and reload functions
+ *
+ * @example
+ * ```typescript
+ * function AssetList() {
+ *   const { assets, loading, reloadAssets } = useAssets()
+ *
+ *   if (loading) return <div>Loading...</div>
+ *
+ *   return (
+ *     <div>
+ *       {assets.map(asset => <AssetCard key={asset.id} asset={asset} />)}
+ *       <button onClick={reloadAssets}>Refresh</button>
+ *     </div>
+ *   )
+ * }
+ * ```
+ */
 export const useAssets = () => {
-  const [assets, setAssets] = useState<Asset[]>([])
-  const [loading, setLoading] = useState(true)
-  const { showNotification } = useApp()
-
-  const fetchAssets = useCallback(async () => {
-    try {
-      setLoading(true)
-      const data = await AssetService.listAssets()
-      setAssets(data)
-    } catch (_err) {
-      showNotification(
-        _err instanceof Error ? _err.message : 'Failed to load assets',
-        'error'
-      )
-    } finally {
-      setLoading(false)
+  const { data, loading, refetch, forceReload } = useDataFetch(
+    async (bypassCache) => AssetService.listAssets(bypassCache),
+    {
+      fetchOnMount: true,
+      errorMessage: 'Failed to load assets'
     }
-  }, [showNotification])
+  )
 
-  const forceReload = useCallback(async () => {
-    // Clear assets first to ensure UI updates
-    setAssets([])
-    await fetchAssets()
-  }, [fetchAssets])
-
-  useEffect(() => {
-    fetchAssets()
-  }, [fetchAssets])
-
-  return { 
-    assets, 
-    loading, 
-    reloadAssets: fetchAssets,
+  return {
+    assets: data || [],
+    loading,
+    reloadAssets: refetch,
     forceReload
   }
 }
 
+/**
+ * React hook for managing material preset data.
+ *
+ * Fetches and caches material presets for use in texture generation
+ * and customization workflows. Includes error handling and mounted
+ * state protection.
+ *
+ * @returns Object containing presets array, loading state, and refetch function
+ *
+ * @example
+ * ```typescript
+ * function MaterialSelector() {
+ *   const { presets, loading, refetch } = useMaterialPresets()
+ *
+ *   if (loading) return <div>Loading presets...</div>
+ *
+ *   return (
+ *     <select>
+ *       {presets.map(preset => (
+ *         <option key={preset.id} value={preset.id}>
+ *           {preset.name}
+ *         </option>
+ *       ))}
+ *     </select>
+ *   )
+ * }
+ * ```
+ */
 export const useMaterialPresets = () => {
-  const [presets, setPresets] = useState<MaterialPreset[]>([])
-  const [loading, setLoading] = useState(true)
-  const { showNotification } = useApp()
-
-  const fetchPresets = useCallback(async () => {
-    try {
-      setLoading(true)
-      const data = await AssetService.getMaterialPresets()
-      setPresets(data)
-    } catch {
-      showNotification(
-        'Failed to load material presets',
-        'error'
-      )
-    } finally {
-      setLoading(false)
+  const { data, loading, refetch } = useDataFetch(
+    async () => AssetService.getMaterialPresets(),
+    {
+      fetchOnMount: true,
+      errorMessage: 'Failed to load material presets'
     }
-  }, [showNotification])
+  )
 
-  useEffect(() => {
-    fetchPresets()
-  }, [fetchPresets])
-
-  return { 
-    presets, 
-    loading, 
-    refetch: fetchPresets 
+  return {
+    presets: data || [],
+    loading,
+    refetch
   }
 }
 
+/**
+ * React hook for asset retexturing operations.
+ *
+ * Provides retexturing functionality with loading state management,
+ * error handling, and user notifications. Safely handles async operations
+ * with mounted state checking.
+ *
+ * @returns Object containing retextureAsset function and loading state
+ *
+ * @example
+ * ```typescript
+ * function RetexturePanel({ assetId }: { assetId: string }) {
+ *   const { retextureAsset, isRetexturing } = useRetexturing()
+ *
+ *   const handleRetexture = async () => {
+ *     const result = await retextureAsset({
+ *       assetId,
+ *       materialPreset: 'gold',
+ *       prompt: 'Add weathering and scratches'
+ *     })
+ *     if (result) {
+ *       console.log('Retexturing complete:', result.newAssetUrl)
+ *     }
+ *   }
+ *
+ *   return (
+ *     <button onClick={handleRetexture} disabled={isRetexturing}>
+ *       {isRetexturing ? 'Retexturing...' : 'Apply Texture'}
+ *     </button>
+ *   )
+ * }
+ * ```
+ */
 export const useRetexturing = () => {
-  const [isRetexturing, setIsRetexturing] = useState(false)
-  const { showNotification } = useApp()
-
-  const retextureAsset = useCallback(async (
-    request: RetextureRequest
-  ): Promise<RetextureResponse | null> => {
-    setIsRetexturing(true)
-    try {
-      const result = await AssetService.retexture(request)
-      showNotification(
-        result.message || 'Asset retextured successfully',
-        'success'
-      )
-      return result
-    } catch (err) {
-      showNotification(
-        err instanceof Error ? err.message : 'Retexturing failed',
-        'error'
-      )
-      return null
-    } finally {
-      setIsRetexturing(false)
+  const { execute, loading } = useAsyncOperation<RetextureResponse>(
+    async (request: RetextureRequest) => AssetService.retexture(request),
+    {
+      showSuccessNotification: true,
+      showErrorNotification: true,
+      errorMessage: 'Retexturing failed'
     }
-  }, [showNotification])
+  )
 
-  return { 
-    retextureAsset, 
-    isRetexturing 
+  return {
+    retextureAsset: execute,
+    isRetexturing: loading
   }
 }

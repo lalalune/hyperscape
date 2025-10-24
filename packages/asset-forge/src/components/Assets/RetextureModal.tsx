@@ -296,50 +296,46 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
 
         {/* Material Grid */}
         <div className="grid grid-cols-4 gap-4 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded-lg">
-          {filteredPresets.map((preset, index) => {
-            // Create a unique key by combining multiple properties
-            const uniqueKey = `${preset.category}-${preset.id}-${preset.tier}-${index}`
-            
-            return (
-              <Card
-                key={uniqueKey}
-                variant={selectedPresets.includes(preset) ? 'hover' : 'interactive'}
-                className={cn(
-                  "cursor-pointer text-center relative",
-                  patterns.clickable,
-                  selectedPresets.includes(preset) && "ring-2 ring-primary ring-offset-2"
-                )}
-                onClick={() => {
-                  setSelectedPresets(prev => 
-                    prev.includes(preset)
-                      ? prev.filter(p => p.id !== preset.id)
-                      : [...prev, preset]
-                  )
-                }}
-              >
-              <CardContent className="p-4">
-                <div
-                  className="w-16 h-16 rounded-full mx-auto mb-3 shadow-lg border-2 border-white"
-                  style={{ backgroundColor: preset.color }}
-                />
-                <h5 className="font-medium text-sm text-gray-900 mb-1">
-                  {preset.displayName}
-                </h5>
-                <Badge variant="secondary" size="sm">
-                  T{preset.tier}
-                </Badge>
-                
-                {selectedPresets.includes(preset) && (
-                  <div className={cn(
-                    "absolute top-3 right-3 opacity-100 transform scale-100",
-                    "transition-all duration-200 bg-primary-600 text-white rounded-full p-1"
-                  )}>
-                    <CheckCircle size={16} />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )})}
+          {filteredPresets.map((preset) => (
+            <Card
+              key={`${preset.category}-${preset.id}-${preset.tier}`}
+              variant={selectedPresets.includes(preset) ? 'hover' : 'interactive'}
+              className={cn(
+                "cursor-pointer text-center relative",
+                patterns.clickable,
+                selectedPresets.includes(preset) && "ring-2 ring-primary ring-offset-2"
+              )}
+              onClick={() => {
+                setSelectedPresets(prev =>
+                  prev.includes(preset)
+                    ? prev.filter(p => p.id !== preset.id)
+                    : [...prev, preset]
+                )
+              }}
+            >
+            <CardContent className="p-4">
+              <div
+                className="w-16 h-16 rounded-full mx-auto mb-3 shadow-lg border-2 border-white"
+                style={{ backgroundColor: preset.color }}
+              />
+              <h5 className="font-medium text-sm text-gray-900 mb-1">
+                {preset.displayName}
+              </h5>
+              <Badge variant="secondary" size="sm">
+                T{preset.tier}
+              </Badge>
+
+              {selectedPresets.includes(preset) && (
+                <div className={cn(
+                  "absolute top-3 right-3 opacity-100 transform scale-100",
+                  "transition-all duration-200 bg-primary-600 text-white rounded-full p-1"
+                )}>
+                  <CheckCircle size={16} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          ))}
         </div>
 
         {/* Selected Materials Summary */}
@@ -350,8 +346,8 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
                 Selected Materials ({selectedPresets.length})
               </h4>
               <div className="flex flex-wrap gap-2">
-                {selectedPresets.map((preset, index) => (
-                  <Badge key={`selected-${preset.category}-${preset.id}-${index}`} variant="primary" size="sm">
+                {selectedPresets.map((preset) => (
+                  <Badge key={`selected-${preset.category}-${preset.id}`} variant="primary" size="sm">
                     {preset.displayName}
                     <div
                       className="w-3 h-3 rounded-full ml-2 border border-white"
@@ -556,12 +552,12 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
                 }, 1000)
                 
               } else if (workflowMode === 'custom') {
-                // TODO: Implement custom prompt retexturing
+                // GitHub Issue #3: Implement custom prompt retexturing workflow
                 console.error('Custom prompt retexturing not yet implemented')
                 setStatus('idle')
-                
+
               } else if (workflowMode === 'image') {
-                // TODO: Implement image-based retexturing
+                // GitHub Issue #4: Implement image-based retexturing workflow
                 console.error('Image-based retexturing not yet implemented')
                 setStatus('idle')
               }

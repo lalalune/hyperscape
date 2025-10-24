@@ -4,6 +4,8 @@
  * Type definitions for NPC Collaboration and Playtester Swarm features.
  */
 
+import type { GeneratedQuest, LoreEntry } from './content-generation'
+
 // ============================================================================
 // NPC Collaboration Types
 // ============================================================================
@@ -25,9 +27,9 @@ export interface CollaborationContext {
   location?: string
   situation?: string
   questSeed?: string
-  quests?: any[]
-  relationships?: any[]
-  lore?: any[]
+  quests?: GeneratedQuest[]
+  relationships?: EmergentRelationship[]
+  lore?: LoreEntry[]
   description?: string
 }
 
@@ -52,13 +54,19 @@ export interface EmergentRelationship {
 
 export interface EmergentContent {
   relationships: EmergentRelationship[]
-  questIdeas?: any[]
-  loreFragments?: any[]
+  questIdeas?: GeneratedQuest[]
+  loreFragments?: LoreEntry[]
   dialogueSnippets?: Array<{
     agent: string
     samples: string[]
   }>
-  structuredOutput?: any
+  structuredOutput?: Record<string, unknown>
+}
+
+export interface ValidationDetail {
+  validator: string
+  score: number
+  feedback: string
 }
 
 export interface ValidationResult {
@@ -70,7 +78,7 @@ export interface ValidationResult {
     quality: number
   }
   validatorCount?: number
-  details?: any[]
+  details?: ValidationDetail[]
   note?: string
 }
 
@@ -310,8 +318,7 @@ export interface PlaytestRequest {
     description?: string
     objectives?: string[]
     rewards?: string[]
-    [key: string]: any
-  }
+  } & Record<string, unknown>
   contentType: 'quest' | 'dialogue' | 'npc' | 'combat' | 'puzzle'
   testerProfiles: Array<TesterArchetype | TesterProfile>
   testConfig?: {

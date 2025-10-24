@@ -7,8 +7,8 @@
  * Based on pipeline project's ai-router.ts
  */
 
-import { createOpenAI } from '@ai-sdk/openai'
 import { anthropic } from '@ai-sdk/anthropic'
+import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel } from 'ai'
 
 export type TaskType =
@@ -52,17 +52,12 @@ const MODEL_MATRIX: Record<TaskType, ModelConfig> = {
 let openrouterClient: ReturnType<typeof createOpenAI> | null = null
 let openaiClient: ReturnType<typeof createOpenAI> | null = null
 
-// Check which API provider is configured
+// Check which API provider is configured (server-side only)
 function getConfiguredProvider(): 'openrouter' | 'openai' | 'anthropic' | null {
   if (typeof process !== 'undefined' && process.env?.OPENROUTER_API_KEY) return 'openrouter'
   if (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY) return 'openai'
   if (typeof process !== 'undefined' && process.env?.ANTHROPIC_API_KEY) return 'anthropic'
-  
-  // Fallback to import.meta.env for Vite
-  if (import.meta.env?.VITE_OPENROUTER_API_KEY) return 'openrouter'
-  if (import.meta.env?.VITE_OPENAI_API_KEY) return 'openai'
-  if (import.meta.env?.VITE_ANTHROPIC_API_KEY) return 'anthropic'
-  
+
   return null
 }
 
@@ -71,13 +66,12 @@ function getOpenRouterClient(): ReturnType<typeof createOpenAI> {
     return openrouterClient
   }
 
-  const OPENROUTER_API_KEY = 
-    (typeof process !== 'undefined' && process.env?.OPENROUTER_API_KEY) ||
-    import.meta.env?.VITE_OPENROUTER_API_KEY
+  const OPENROUTER_API_KEY =
+    (typeof process !== 'undefined' && process.env?.OPENROUTER_API_KEY)
 
   if (!OPENROUTER_API_KEY) {
     throw new Error(
-      'OPENROUTER_API_KEY not found. Set VITE_OPENROUTER_API_KEY in .env'
+      'OPENROUTER_API_KEY not found. Set OPENROUTER_API_KEY in server .env'
     )
   }
 
@@ -95,11 +89,10 @@ function getOpenAIClient(): ReturnType<typeof createOpenAI> {
   }
 
   const OPENAI_API_KEY =
-    (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY) ||
-    import.meta.env?.VITE_OPENAI_API_KEY
+    (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY)
 
   if (!OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY not found. Set VITE_OPENAI_API_KEY in .env')
+    throw new Error('OPENAI_API_KEY not found. Set OPENAI_API_KEY in server .env')
   }
 
   openaiClient = createOpenAI({
@@ -126,7 +119,7 @@ export function getModelForTask(
 
   if (!provider) {
     throw new Error(
-      'No AI provider configured. Set one of: VITE_OPENROUTER_API_KEY, VITE_OPENAI_API_KEY, or VITE_ANTHROPIC_API_KEY'
+      'No AI provider configured. This should be configured on the server. Contact administrator.'
     )
   }
 
@@ -147,22 +140,21 @@ export function getModelForTask(
   // If using Anthropic and model is Anthropic
   if (provider === 'anthropic' && modelId.startsWith('anthropic/')) {
     const ANTHROPIC_API_KEY =
-      (typeof process !== 'undefined' && process.env?.ANTHROPIC_API_KEY) ||
-      import.meta.env?.VITE_ANTHROPIC_API_KEY
+      (typeof process !== 'undefined' && process.env?.ANTHROPIC_API_KEY)
 
     if (!ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY not found')
+      throw new Error('ANTHROPIC_API_KEY not found. Set ANTHROPIC_API_KEY in server .env')
     }
     // Remove the "anthropic/" prefix
     const directModelId = modelId.replace('anthropic/', '')
-    return anthropic(directModelId, { apiKey: ANTHROPIC_API_KEY })
+    return anthropic(directModelId)
   }
 
   // Fallback: if we have OpenAI key but model is not OpenAI, warn and use default
   if (provider === 'openai') {
     console.warn(
       `Model ${modelId} requested but only OpenAI is configured. Falling back to gpt-4o-mini. ` +
-        `For full model support, set VITE_OPENROUTER_API_KEY.`
+        `For full model support, configure OPENROUTER_API_KEY on server.`
     )
     const openai = getOpenAIClient()
     return openai('gpt-4o-mini')

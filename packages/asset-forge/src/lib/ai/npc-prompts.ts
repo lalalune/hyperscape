@@ -187,10 +187,14 @@ Generate NPC:
 export const parseNPCGenerationResponse = (text: string) => {
   // Try to extract JSON from response
   const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
+  if (!jsonMatch?.[0]) {
     throw new Error('No JSON found in response')
   }
-  
-  return JSON.parse(jsonMatch[0])
+
+  try {
+    return JSON.parse(jsonMatch[0])
+  } catch (error) {
+    throw new Error(`Failed to parse JSON response: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 

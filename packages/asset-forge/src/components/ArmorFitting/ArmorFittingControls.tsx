@@ -71,7 +71,7 @@ interface ArmorFittingControlsProps {
   onToggleAnimation?: () => void
 }
 
-const RangeInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => {
+const RangeInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { 'aria-label'?: string }> = (props) => {
   return (
     <input
       type="range"
@@ -228,6 +228,7 @@ export const ArmorFittingControls: React.FC<ArmorFittingControlsProps> = ({
                   step="0.01"
                   value={helmetSizeMultiplier}
                   onChange={(e) => onHelmetSizeMultiplierChange?.(parseFloat(e.target.value))}
+                  aria-label="Helmet size multiplier"
                 />
               </div>
 
@@ -245,6 +246,7 @@ export const ArmorFittingControls: React.FC<ArmorFittingControlsProps> = ({
                   step="0.01"
                   value={helmetFitTightness}
                   onChange={(e) => onHelmetFitTightnessChange?.(parseFloat(e.target.value))}
+                  aria-label="Helmet fit tightness"
                 />
                 <p className="text-xs text-text-tertiary mt-1">How snug the helmet fits (lower = tighter)</p>
               </div>

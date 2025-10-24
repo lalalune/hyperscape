@@ -176,7 +176,7 @@ export class Entities extends SystemBase implements IEntities {
     // Check if entity already exists to prevent duplicates
     const existingEntity = this.items.get(data.id);
     if (existingEntity) {
-      console.warn(`[Entities] Entity ${data.id} already exists, skipping duplicate creation`);
+      // Duplicate add detected; return existing without logging per-frame
       return existingEntity;
     }
 

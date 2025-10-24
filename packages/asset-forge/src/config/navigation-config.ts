@@ -25,13 +25,13 @@ import {
   ListChecks,
   Settings,
   HelpCircle,
-  Star,
-  Clock,
   Sparkles,
+  Folder,
+  User,
 } from 'lucide-react'
 
-import type { NavigationConfig, NavigationLink } from '../types/navigation'
 import { ROUTES } from '../constants/routes'
+import type { NavigationConfig, NavigationLink } from '../types/navigation'
 
 /**
  * Primary navigation configuration
@@ -39,50 +39,34 @@ import { ROUTES } from '../constants/routes'
  */
 export const navigationConfig: NavigationConfig = {
   sections: [
-    // Home
+    // Dashboard
     {
-      id: 'home',
-      label: 'Home',
+      id: 'dashboard',
+      label: 'Dashboard',
       icon: Home,
       type: 'single',
-      path: ROUTES.HOME,
+      path: ROUTES.DASHBOARD,
+      tooltip: 'Main dashboard',
+      keywords: ['dashboard', 'home', 'overview'],
     },
 
-    // Quick Access
+    // Projects
     {
-      id: 'quick-access',
-      label: 'Quick Access',
-      type: 'collapsible',
-      collapsible: true,
-      defaultExpanded: false,
-      items: [
-        {
-          id: 'recent',
-          type: 'link',
-          label: 'Recent Assets',
-          icon: Clock,
-          path: ROUTES.ASSETS,
-          tooltip: 'Recently accessed assets',
-          keywords: ['recent', 'history', 'last'],
-        },
-        {
-          id: 'favorites',
-          type: 'link',
-          label: 'Favorites',
-          icon: Star,
-          path: ROUTES.ASSETS,
-          tooltip: 'Your favorite assets',
-          keywords: ['favorites', 'starred', 'bookmarks'],
-        },
-      ],
+      id: 'projects',
+      label: 'Projects',
+      icon: Folder,
+      type: 'single',
+      path: ROUTES.PROJECTS,
+      tooltip: 'Manage your projects',
+      keywords: ['projects', 'organize', 'folders'],
     },
 
     // Asset Creation
     {
       id: 'asset-creation',
-      label: 'Creation',
+      label: 'Assets',
       type: 'collapsible',
-      icon: Wand2,
+      icon: Database,
       collapsible: true,
       defaultExpanded: true,
       items: [
@@ -90,7 +74,7 @@ export const navigationConfig: NavigationConfig = {
           id: 'generate',
           type: 'link',
           path: ROUTES.GENERATION,
-          label: 'Generate',
+          label: 'Generate New',
           icon: Wand2,
           tooltip: 'Create new 3D assets with AI',
           keywords: ['generate', 'create', 'ai', 'meshy', 'new asset'],
@@ -100,7 +84,7 @@ export const navigationConfig: NavigationConfig = {
           id: 'assets',
           type: 'link',
           path: ROUTES.ASSETS,
-          label: 'Asset Library',
+          label: 'Browse Library',
           icon: Database,
           tooltip: 'Browse and manage your assets',
           keywords: ['assets', 'library', 'browse', 'manage', 'models'],
@@ -112,7 +96,7 @@ export const navigationConfig: NavigationConfig = {
     // Tools
     {
       id: 'fitting-rigging',
-      label: 'Fitting & Rigging',
+      label: 'Tools',
       type: 'collapsible',
       icon: Wrench,
       collapsible: true,
@@ -132,7 +116,7 @@ export const navigationConfig: NavigationConfig = {
           id: 'equipment',
           type: 'link',
           path: ROUTES.EQUIPMENT,
-          label: 'Equipment Fitting',
+          label: 'Equipment',
           icon: Wrench,
           tooltip: 'Fit equipment to character models',
           keywords: ['equipment', 'fitting', 'attach', 'equip'],
@@ -142,7 +126,7 @@ export const navigationConfig: NavigationConfig = {
           id: 'armor',
           type: 'link',
           path: ROUTES.ARMOR_FITTING,
-          label: 'Armor Fitting',
+          label: 'Armor',
           icon: Shield,
           tooltip: 'Fit armor pieces to character models',
           keywords: ['armor', 'fitting', 'character', 'body'],
@@ -153,7 +137,7 @@ export const navigationConfig: NavigationConfig = {
     // Game Content
     {
       id: 'game-content',
-      label: 'Game Content',
+      label: 'Content',
       type: 'collapsible',
       icon: Scroll,
       collapsible: true,
@@ -193,26 +177,16 @@ export const navigationConfig: NavigationConfig = {
           id: 'scripts',
           type: 'link',
           path: ROUTES.CONTENT_SCRIPTS,
-          label: 'NPC Scripts',
+          label: 'Scripts',
           icon: FileCode,
           tooltip: 'Manage NPC behavior scripts',
           keywords: ['script', 'code', 'npc', 'behavior'],
         },
         {
-          id: 'voice',
-          type: 'link',
-          path: ROUTES.CONTENT_VOICE,
-          label: 'Voice Generation',
-          icon: Mic,
-          tooltip: 'Generate voice clips with ElevenLabs',
-          keywords: ['voice', 'audio', 'elevenlabs', 'speech', 'tts'],
-          isNew: true,
-        },
-        {
           id: 'tracking',
           type: 'link',
           path: ROUTES.CONTENT_TRACKING,
-          label: 'Quest Tracker',
+          label: 'Tracker',
           icon: ListChecks,
           tooltip: 'Quest execution and tracking system',
           keywords: ['tracking', 'quest', 'objectives', 'progress'],
@@ -223,7 +197,7 @@ export const navigationConfig: NavigationConfig = {
     // Voice Generation (dedicated section)
     {
       id: 'voice-generation',
-      label: 'Voice Generation',
+      label: 'Voice',
       type: 'collapsible',
       icon: Mic,
       collapsible: true,
@@ -243,7 +217,7 @@ export const navigationConfig: NavigationConfig = {
           id: 'voice-manifests',
           type: 'link',
           path: ROUTES.VOICE_MANIFESTS,
-          label: 'Assign to Manifests',
+          label: 'Manifests',
           icon: Users,
           tooltip: 'Assign voices to NPCs and mobs from manifests',
           keywords: ['voice', 'manifest', 'npc', 'mob', 'assign'],
@@ -253,7 +227,7 @@ export const navigationConfig: NavigationConfig = {
           id: 'voice-dialogue',
           type: 'link',
           path: ROUTES.CONTENT_VOICE,
-          label: 'Dialogue Trees',
+          label: 'Dialogue',
           icon: MessageSquare,
           tooltip: 'Generate voices for NPC dialogue scripts',
           keywords: ['voice', 'dialogue', 'script', 'npc'],
@@ -264,17 +238,51 @@ export const navigationConfig: NavigationConfig = {
     // Game Data
     {
       id: 'game-data',
-      label: 'Game Manifests',
+      label: 'Manifests',
       icon: FileJson,
       type: 'single',
       path: ROUTES.GAME_DATA,
       tooltip: 'Browse game data manifests',
       keywords: ['manifest', 'data', 'items', 'mobs', 'resources'],
     },
+
+    // Team
+    {
+      id: 'team',
+      label: 'Team',
+      icon: Users,
+      type: 'single',
+      path: ROUTES.TEAM,
+      tooltip: 'Team management and collaboration',
+      keywords: ['team', 'collaborate', 'members', 'invite'],
+    },
+
+    // Profile
+    {
+      id: 'profile',
+      label: 'Profile',
+      icon: User,
+      type: 'single',
+      path: ROUTES.PROFILE,
+      tooltip: 'User profile and settings',
+      keywords: ['profile', 'account', 'settings', 'user'],
+    },
+
+    // Admin (admin only)
+    {
+      id: 'admin',
+      label: 'Admin',
+      icon: Shield,
+      type: 'single',
+      path: ROUTES.ADMIN,
+      tooltip: 'Admin dashboard',
+      keywords: ['admin', 'management', 'users', 'whitelist'],
+      adminOnly: true,
+    },
   ],
 
   quickAccess: {
-    enabled: true,
+    enabled: false,
     maxItems: 5,
     showRecent: true,
     showFavorites: true,
@@ -314,8 +322,8 @@ export const navigationConfig: NavigationConfig = {
 /**
  * Check if a navigation item is a link (has a route)
  */
-export function isNavLink(item: any): item is NavigationLink {
-  return item.type === 'link' && 'path' in item
+export function isNavLink(item: unknown): item is NavigationLink {
+  return typeof item === 'object' && item !== null && 'type' in item && item.type === 'link' && 'path' in item
 }
 
 // Cached nav items for performance

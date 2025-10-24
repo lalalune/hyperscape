@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { cn } from '../../../../styles'
+import { cn } from '@/styles'
 
 export const RangeInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => {
     return (

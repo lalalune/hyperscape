@@ -5,6 +5,7 @@
  */
 
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+
 import { useNavigationStore } from '../../store/useNavigationStore'
 
 export default function CollapseButton() {

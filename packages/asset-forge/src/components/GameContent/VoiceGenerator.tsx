@@ -14,20 +14,21 @@
  * Used by: NPCScriptBuilder Voice tab
  */
 
-import React, { useState, useEffect } from 'react'
-import { Mic, Download, Trash2, Play, Sparkles, DollarSign, RotateCcw } from 'lucide-react'
 import JSZip from 'jszip'
-import { Card, CardHeader, CardContent } from '../common/Card'
-import { Button } from '../common/Button'
-import { Badge } from '../common/Badge'
-import { Progress } from '../common/Progress'
-import { RangeInput } from '../common/RangeInput'
-import { VoiceLibraryBrowser } from './VoiceLibraryBrowser'
-import { useVoiceGenerationStore } from '../../store/useVoiceGenerationStore'
-import { voiceGenerationService } from '../../services/VoiceGenerationService'
+import { Mic, Download, Trash2, Play, Sparkles, DollarSign, RotateCcw } from 'lucide-react'
+import React, { useState, useEffect, memo, useCallback, useMemo } from 'react'
+
 import { CDN_URL } from '../../config/api'
+import { voiceGenerationService } from '../../services/VoiceGenerationService'
+import { useVoiceGenerationStore } from '../../store/useVoiceGenerationStore'
 import type { NPCScript, DialogueNode } from '../../types/npc-scripts'
 import type { VoiceClip } from '../../types/voice-generation'
+import { VoiceBrowser } from '../Voice/VoiceBrowser'
+import { Badge } from '../common/Badge'
+import { Button } from '../common/Button'
+import { Card, CardHeader, CardContent } from '../common/Card'
+import { Progress } from '../common/Progress'
+import { RangeInput } from '../common/RangeInput'
 
 interface VoiceGeneratorProps {
   npcScript?: NPCScript
@@ -38,7 +39,7 @@ interface VoiceGeneratorProps {
   onVoiceGenerated?: () => void
 }
 
-export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
+export const VoiceGenerator: React.FC<VoiceGeneratorProps> = memo(({
   npcScript,
   dialogueTree: standaloneDialogueTree,
   npcId: standaloneNpcId,
@@ -48,28 +49,40 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
   // Support both modes: full npcScript OR standalone props
   const npcId = npcScript?.npcId || standaloneNpcId || 'standalone'
   const npcName = npcScript?.npcName || standaloneNpcName || 'Voice Generation'
-  const dialogueNodes = npcScript?.dialogueTree.nodes || standaloneDialogueTree || []
-  const {
-    selectedVoiceId,
-    currentSettings,
-    setSelectedVoice,
-    setCurrentSettings,
-    isGenerating,
-    generationProgress,
-    generationError,
-    setGenerating,
-    setGenerationProgress,
-    setGenerationError,
-    getNPCVoiceConfig,
-    updateNPCVoiceConfig,
-    assignVoiceToNPC
-  } = useVoiceGenerationStore()
+  const dialogueNodes = useMemo(() => npcScript?.dialogueTree.nodes || standaloneDialogueTree || [], [npcScript?.dialogueTree.nodes, standaloneDialogueTree])
+  // Selective subscriptions for performance
+  const selectedVoiceId = useVoiceGenerationStore(state => state.selectedVoiceId)
+  const currentSettings = useVoiceGenerationStore(state => state.currentSettings)
+  const setSelectedVoice = useVoiceGenerationStore(state => state.setSelectedVoice)
+  const setCurrentSettings = useVoiceGenerationStore(state => state.setCurrentSettings)
+  const isGenerating = useVoiceGenerationStore(state => state.isGenerating)
+  const generationProgress = useVoiceGenerationStore(state => state.generationProgress)
+  const generationError = useVoiceGenerationStore(state => state.generationError)
+  const setGenerating = useVoiceGenerationStore(state => state.setGenerating)
+  const setGenerationProgress = useVoiceGenerationStore(state => state.setGenerationProgress)
+  const setGenerationError = useVoiceGenerationStore(state => state.setGenerationError)
+  const getNPCVoiceConfig = useVoiceGenerationStore(state => state.getNPCVoiceConfig)
+  const updateNPCVoiceConfig = useVoiceGenerationStore(state => state.updateNPCVoiceConfig)
+  const assignVoiceToNPC = useVoiceGenerationStore(state => state.assignVoiceToNPC)
 
   const [showVoiceLibrary, setShowVoiceLibrary] = useState(false)
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('')
   const [costEstimate, setCostEstimate] = useState<{ characterCount: number; cost: string } | null>(null)
 
   const voiceConfig = getNPCVoiceConfig(npcId)
+
+  // Memoize voice selection handler
+  const handleVoiceSelect = useCallback((voiceId: string, voiceName: string) => {
+    setSelectedVoice(voiceId)
+    setSelectedVoiceName(voiceName)
+    assignVoiceToNPC(npcId, voiceId, voiceName)
+    setShowVoiceLibrary(false)
+  }, [setSelectedVoice, assignVoiceToNPC, npcId])
+
+  // Memoize generated clips data
+  const generatedClips = useMemo(() => voiceConfig?.clips || {}, [voiceConfig?.clips])
+  const generatedCount = useMemo(() => Object.keys(generatedClips).length, [generatedClips])
+  const totalNodes = useMemo(() => dialogueNodes.length, [dialogueNodes.length])
 
   // Load existing voice config
   useEffect(() => {
@@ -78,7 +91,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       setSelectedVoiceName(voiceConfig.voiceName)
       setCurrentSettings(voiceConfig.settings)
     }
-  }, [npcId, voiceConfig, setSelectedVoice, setSelectedVoiceName, setCurrentSettings])
+  }, [npcId, voiceConfig, setSelectedVoice, setCurrentSettings])
 
   // Calculate cost estimate
   useEffect(() => {
@@ -95,14 +108,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
     }
   }, [dialogueNodes, currentSettings.modelId])
 
-  const handleVoiceSelect = (voiceId: string, voiceName: string) => {
-    setSelectedVoice(voiceId)
-    setSelectedVoiceName(voiceName)
-    assignVoiceToNPC(npcId, voiceId, voiceName)
-    setShowVoiceLibrary(false)
-  }
-
-  const handleGenerateAll = async () => {
+  const handleGenerateAll = useCallback(async () => {
     if (!selectedVoiceId) {
       setGenerationError('Please select a voice first')
       return
@@ -158,7 +164,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
     } finally {
       setGenerating(false)
     }
-  }
+  }, [selectedVoiceId, dialogueNodes, npcId, currentSettings, setGenerating, setGenerationError, setGenerationProgress, updateNPCVoiceConfig, onVoiceGenerated])
 
   // BUG FIX: Move audio state to component level to properly cleanup blob URLs
   const currentAudioRef = React.useRef<{ audio: HTMLAudioElement; url: string } | null>(null)
@@ -174,7 +180,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
     }
   }, [])
 
-  const handlePlayClip = async (clip: VoiceClip) => {
+  const handlePlayClip = useCallback(async (clip: VoiceClip) => {
     try {
       // Validate audioUrl exists
       if (!clip.audioUrl) {
@@ -209,9 +215,9 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       console.error('Failed to play clip:', error)
       setGenerationError(error instanceof Error ? error.message : 'Failed to play audio clip')
     }
-  }
+  }, [npcId, setGenerationError])
 
-  const handleDownloadClip = async (nodeId: string, clip: VoiceClip) => {
+  const handleDownloadClip = useCallback(async (nodeId: string, clip: VoiceClip) => {
     try {
       const response = await fetch(`${CDN_URL}/gdd-assets/${npcId}/${clip.audioUrl}`)
       if (!response.ok) throw new Error('Failed to fetch audio')
@@ -226,14 +232,9 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       console.error('Failed to download clip:', error)
       setGenerationError('Failed to download audio clip')
     }
-  }
+  }, [npcId, setGenerationError])
 
-  // BUG FIX: Define these variables before they're used in handleDownloadAllZip
-  const generatedClips = voiceConfig?.clips || {}
-  const generatedCount = Object.keys(generatedClips).length
-  const totalNodes = dialogueNodes.length
-
-  const handleDownloadAllZip = async () => {
+  const handleDownloadAllZip = useCallback(async () => {
     try {
       const zip = new JSZip()
       const voiceFolder = zip.folder('voices')
@@ -273,9 +274,9 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       console.error('Failed to create ZIP:', error)
       setGenerationError('Failed to create ZIP file')
     }
-  }
+  }, [generatedClips, npcId, npcName, selectedVoiceId, selectedVoiceName, currentSettings, generatedCount, setGenerationError])
 
-  const handleDeleteAllClips = async () => {
+  const handleDeleteAllClips = useCallback(async () => {
     if (!confirm(`Delete all ${generatedCount} voice clips for ${npcName}? This cannot be undone.`)) return
 
     try {
@@ -294,9 +295,9 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
     } finally {
       setGenerating(false)
     }
-  }
+  }, [generatedCount, npcName, npcId, setGenerating, updateNPCVoiceConfig, setGenerationError])
 
-  const handleRetryClip = async (node: DialogueNode) => {
+  const handleRetryClip = useCallback(async (node: DialogueNode) => {
     if (!selectedVoiceId) return
 
     setGenerating(true)
@@ -319,9 +320,7 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
     } finally {
       setGenerating(false)
     }
-  }
-
-  // Variables already defined above before handleDownloadAllZip (lines 197-199)
+  }, [selectedVoiceId, npcId, currentSettings, generatedClips, setGenerating, setGenerationError, updateNPCVoiceConfig])
 
   return (
     <div className="space-y-6">
@@ -355,17 +354,30 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
 
       {/* Voice Library Modal */}
       {showVoiceLibrary && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-8">
-          <div className="bg-gray-900 rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-auto">
+        <div
+          className="fixed inset-0 flex items-center justify-center p-8"
+          style={{
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 1)'
+          }}
+        >
+          <div
+            className="bg-gray-50 rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-auto shadow-2xl border border-gray-200"
+            style={{
+              position: 'relative',
+              zIndex: 10000
+            }}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Voice Library</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Voice Library</h2>
               <Button variant="ghost" onClick={() => setShowVoiceLibrary(false)}>
                 Close
               </Button>
             </div>
-            <VoiceLibraryBrowser
+            <VoiceBrowser
               onSelect={handleVoiceSelect}
               selectedVoiceId={selectedVoiceId}
+              useStore={true}
             />
           </div>
         </div>
@@ -619,4 +631,15 @@ export const VoiceGenerator: React.FC<VoiceGeneratorProps> = ({
       )}
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if critical props change
+  return (
+    prevProps.npcScript?.npcId === nextProps.npcScript?.npcId &&
+    prevProps.npcId === nextProps.npcId &&
+    prevProps.npcName === nextProps.npcName &&
+    prevProps.dialogueTree?.length === nextProps.dialogueTree?.length &&
+    prevProps.npcScript?.dialogueTree.nodes.length === nextProps.npcScript?.dialogueTree.nodes.length
+  )
+})
+
+VoiceGenerator.displayName = 'VoiceGenerator'

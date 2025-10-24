@@ -93,7 +93,7 @@ export const parseDialogueResponse = (resp: string) => {
     const responsesStr = parts.find(p => p.includes('Responses:'))
     const responses = responsesStr
       ? (responsesStr.match(/\[(.*?)\]/g) || []).map(r => {
-          const cleaned = r.replace(/[\[\]]/g, '').trim()
+          const cleaned = r.replace(/[[\]]/g, '').trim()
           const [text, nextNodeId, ...condParts] = cleaned.split(':')
           return {
             id: `response_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,

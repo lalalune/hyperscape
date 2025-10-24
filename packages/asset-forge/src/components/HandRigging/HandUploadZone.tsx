@@ -1,5 +1,5 @@
 import { Upload, Box, CheckCircle, AlertCircle } from 'lucide-react'
-import React, { useRef, useCallback } from 'react'
+import React, { useRef, useCallback, useEffect } from 'react'
 
 import { useHandRiggingStore } from '../../store'
 import { cn } from '../../styles'
@@ -7,7 +7,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../co
 
 export function HandUploadZone() {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
+  const blobUrlRef = useRef<string | null>(null)
+
   const {
     selectedFile,
     error,
@@ -15,12 +16,28 @@ export function HandUploadZone() {
     setModelUrl,
     setError,
   } = useHandRiggingStore()
+
+  // Cleanup blob URL on component unmount
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
+      }
+    }
+  }, [])
   
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file && (file.name.endsWith('.glb') || file.name.endsWith('.gltf'))) {
+      // Revoke previous blob URL before creating a new one
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+      }
+      const newUrl = URL.createObjectURL(file)
+      blobUrlRef.current = newUrl
       setSelectedFile(file)
-      setModelUrl(URL.createObjectURL(file))
+      setModelUrl(newUrl)
       setError(null)
     } else {
       setError('Please select a GLB or GLTF file')
@@ -31,8 +48,14 @@ export function HandUploadZone() {
     event.preventDefault()
     const file = event.dataTransfer.files[0]
     if (file && (file.name.endsWith('.glb') || file.name.endsWith('.gltf'))) {
+      // Revoke previous blob URL before creating a new one
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+      }
+      const newUrl = URL.createObjectURL(file)
+      blobUrlRef.current = newUrl
       setSelectedFile(file)
-      setModelUrl(URL.createObjectURL(file))
+      setModelUrl(newUrl)
       setError(null)
     } else {
       setError('Please drop a GLB or GLTF file')

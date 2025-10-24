@@ -1,3 +1,11 @@
+/**
+ * Armor Fitting Hook
+ *
+ * React hook for managing armor fitting state and operations in the ArmorFittingViewer.
+ * Provides comprehensive control over avatar selection, armor selection, fitting configuration,
+ * visualization modes, and multi-phase fitting processes.
+ */
+
 import { useState, useCallback } from 'react'
 
 import { ArmorFittingViewerRef } from '../components/ArmorFitting/ArmorFittingViewer'
@@ -6,6 +14,9 @@ import { notify } from '../utils/notify'
 
 import { FittingConfig, BodyRegion, CollisionPoint } from '@/services/fitting/ArmorFittingService'
 
+/**
+ * Armor fitting state interface.
+ */
 export interface ArmorFittingState {
   // Selected items
   selectedAvatar: Asset | null
@@ -30,6 +41,9 @@ export interface ArmorFittingState {
   fittingProgress: number
 }
 
+/**
+ * Armor fitting actions interface.
+ */
 export interface ArmorFittingActions {
   setSelectedAvatar: (asset: Asset | null) => void
   setSelectedArmor: (asset: Asset | null) => void
@@ -40,12 +54,58 @@ export interface ArmorFittingActions {
   setVisualizationMode: (mode: ArmorFittingState['visualizationMode']) => void
   setSelectedBone: (bone: number) => void
   setShowWireframe: (show: boolean) => void
-  performFitting: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
+  performFitting: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
   resetFitting: () => void
-  exportFittedArmor: (viewerRef: React.RefObject<ArmorFittingViewerRef>) => Promise<void>
+  exportFittedArmor: (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => Promise<void>
   saveConfiguration: () => void
 }
 
+/**
+ * React hook for armor fitting operations.
+ *
+ * Manages the complete armor fitting workflow including:
+ * - Avatar and armor asset selection
+ * - Multi-phase fitting process (bounding box, collision, smoothing, weight transfer)
+ * - Hull-based shrinkwrap fitting algorithm
+ * - Real-time progress tracking
+ * - Visualization modes for debugging
+ * - Export and configuration save functionality
+ *
+ * @returns Combined state and actions for armor fitting
+ *
+ * @example
+ * ```typescript
+ * function ArmorFittingPanel() {
+ *   const {
+ *     selectedAvatar,
+ *     selectedArmor,
+ *     setSelectedAvatar,
+ *     setSelectedArmor,
+ *     performFitting,
+ *     isFitting,
+ *     fittingProgress,
+ *     exportFittedArmor
+ *   } = useArmorFitting()
+ *
+ *   const viewerRef = useRef<ArmorFittingViewerRef>(null)
+ *
+ *   const handleFit = async () => {
+ *     await performFitting(viewerRef)
+ *   }
+ *
+ *   return (
+ *     <div>
+ *       <AssetSelector value={selectedAvatar} onChange={setSelectedAvatar} />
+ *       <AssetSelector value={selectedArmor} onChange={setSelectedArmor} />
+ *       <button onClick={handleFit} disabled={isFitting}>
+ *         {isFitting ? `Fitting... ${fittingProgress}%` : 'Fit Armor'}
+ *       </button>
+ *       <ArmorFittingViewer ref={viewerRef} />
+ *     </div>
+ *   )
+ * }
+ * ```
+ */
 export function useArmorFitting(): ArmorFittingState & ArmorFittingActions {
   // Selected items
   const [selectedAvatar, setSelectedAvatar] = useState<Asset | null>(null)
@@ -86,7 +146,7 @@ export function useArmorFitting(): ArmorFittingState & ArmorFittingActions {
     setFittingConfig(prev => ({ ...prev, ...updates }))
   }, [])
 
-  const performFitting = useCallback(async (viewerRef: React.RefObject<ArmorFittingViewerRef>) => {
+  const performFitting = useCallback(async (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => {
     if (!viewerRef.current || !selectedAvatar || !selectedArmor) return
     
     setIsFitting(true)
@@ -222,7 +282,7 @@ export function useArmorFitting(): ArmorFittingState & ArmorFittingActions {
     setCollisions(null)
   }, [])
 
-  const exportFittedArmor = useCallback(async (viewerRef: React.RefObject<ArmorFittingViewerRef>) => {
+  const exportFittedArmor = useCallback(async (viewerRef: React.RefObject<ArmorFittingViewerRef | null>) => {
     if (!viewerRef.current) return
     
     try {

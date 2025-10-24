@@ -6,12 +6,15 @@
  */
 
 import { Menu, X } from 'lucide-react'
-import { useNavigationStore } from '../../store/useNavigationStore'
+import { useCallback } from 'react'
+
 import { navigationConfig } from '../../config/navigation-config'
+import { useNavigationStore } from '../../store/useNavigationStore'
+
+import CollapseButton from './CollapseButton'
+import NavigationFooter from './NavigationFooter'
 import NavigationSection from './NavigationSection'
 import QuickAccess from './QuickAccess'
-import NavigationFooter from './NavigationFooter'
-import CollapseButton from './CollapseButton'
 
 export default function SideNavigation() {
   const collapsed = useNavigationStore(state => state.collapsed)
@@ -50,50 +53,52 @@ export default function SideNavigation() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 h-screen bg-bg-secondary border-r border-border-primary z-50
-          flex flex-col transition-all duration-slow
+          fixed top-0 left-0 h-screen bg-bg-secondary/95 backdrop-blur-sm border-r border-border-primary z-50
+          flex flex-col transition-all duration-300 ease-in-out shadow-xl
           ${collapsed ? 'w-16' : 'w-[280px]'}
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
         aria-label="Main navigation"
       >
         {/* Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-border-primary shrink-0">
+        <div className="flex items-center justify-between h-14 px-3 border-b border-border-primary/50 shrink-0">
           {!collapsed && (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-md flex-shrink-0">
                 <span className="text-lg font-bold text-white">AF</span>
               </div>
-              <div>
-                <h1 className="text-sm font-bold text-text-primary">Asset Forge</h1>
-                <p className="text-xs text-text-secondary">AI-Powered 3D</p>
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-text-primary truncate">Asset Forge</h1>
+                <p className="text-[10px] text-text-secondary/70 truncate">AI-Powered 3D</p>
               </div>
             </div>
           )}
 
           {collapsed && (
-            <div className="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+            <div className="w-9 h-9 mx-auto rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-md">
               <span className="text-lg font-bold text-white">AF</span>
             </div>
           )}
 
           {/* Desktop Collapse Button */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block flex-shrink-0">
             <CollapseButton />
           </div>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <nav className="p-2">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+          <nav className="p-2 space-y-1">
             {/* Main Sections */}
             {navigationConfig.sections.map((section) => (
               <NavigationSection key={section.id} section={section} />
             ))}
 
             {/* Quick Access */}
-            {navigationConfig.quickAccess.enabled && (
-              <QuickAccess />
+            {navigationConfig.quickAccess.enabled && !collapsed && (
+              <div className="pt-2 border-t border-border-primary/30 mt-2">
+                <QuickAccess />
+              </div>
             )}
           </nav>
         </div>

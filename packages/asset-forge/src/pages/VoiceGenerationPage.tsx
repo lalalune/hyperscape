@@ -4,8 +4,9 @@
  * Users can generate voice clips directly without needing to create NPCs first
  */
 
-import { Mic, Download, Play, _Pause, Volume2, Settings } from 'lucide-react'
-import React, { useState, _useEffect } from 'react'
+import { Mic, Download, Play, Volume2, Settings } from 'lucide-react'
+import React, { useState } from 'react'
+
 import { VoiceGenerator } from '../components/GameContent/VoiceGenerator'
 import { Card } from '../components/common'
 

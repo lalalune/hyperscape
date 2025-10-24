@@ -15,9 +15,9 @@
  * Used by: ContentGenerationPage, QuestTracker
  */
 
+import { ACTION_HANDLERS, actionRequiresTarget } from '../types/action-handlers'
 import type { GeneratedQuest } from '../types/content-generation'
 import type { QuestValidationResult } from '../types/quest-tracking'
-import { ACTION_HANDLERS, actionRequiresTarget } from '../types/action-handlers'
 
 export function validateQuest(quest: GeneratedQuest): QuestValidationResult {
   const errors: string[] = []

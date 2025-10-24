@@ -1,11 +1,11 @@
-import * as THREE from 'three'
-import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter'
+import { Mesh, Scene } from 'three'
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 
 export function useArmorExport(params: {
-  sceneRef: React.RefObject<THREE.Scene | null>
+  sceneRef: React.RefObject<Scene | null>
   equipmentSlot: 'Head' | 'Spine2' | 'Pelvis'
-  helmetMeshRef: React.RefObject<THREE.Mesh | null>
-  armorMeshRef: React.RefObject<THREE.Mesh | null>
+  helmetMeshRef: React.RefObject<Mesh | null>
+  armorMeshRef: React.RefObject<Mesh | null>
 }) {
   const { sceneRef, equipmentSlot, helmetMeshRef, armorMeshRef } = params
 
@@ -19,7 +19,7 @@ export function useArmorExport(params: {
       throw new Error('No mesh to export')
     }
 
-    const exportScene = new THREE.Scene()
+    const exportScene = new Scene()
     const meshClone = meshToExport.clone()
     exportScene.add(meshClone)
 

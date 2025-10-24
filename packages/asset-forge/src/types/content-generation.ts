@@ -3,8 +3,8 @@
  * Types for quest, NPC, and lore generation using real game manifests
  */
 
-import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from './manifests'
 import type { ActionHandlerName } from './action-handlers'
+import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from './manifests'
 
 // Quest Types
 export type QuestObjectiveType = 'combat' | 'gathering' | 'processing' | 'economy' | 'social' | 'delivery'

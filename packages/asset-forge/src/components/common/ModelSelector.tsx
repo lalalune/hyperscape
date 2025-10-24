@@ -4,8 +4,9 @@
  * Dropdown for selecting AI models with cost/quality/speed indicators
  */
 
-import React from 'react'
 import { Zap, DollarSign, Sparkles } from 'lucide-react'
+import React from 'react'
+
 import { AVAILABLE_MODELS } from '../../lib/ai-router'
 
 interface ModelSelectorProps {

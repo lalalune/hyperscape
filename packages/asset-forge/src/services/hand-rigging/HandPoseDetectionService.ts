@@ -1,16 +1,17 @@
 /**
  * Hand Pose Detection Service
  * Uses TensorFlow.js and MediaPipe Hands to detect hand landmarks in 2D/3D
+ *
+ * OPTIMIZATION: Uses lazy loading for TensorFlow (~2MB savings until hand rigging is used)
  */
 
-import * as tf from '@tensorflow/tfjs'
-import * as handPoseDetection from '@tensorflow-models/hand-pose-detection'
-import '@tensorflow/tfjs-backend-webgl'
-import '@mediapipe/hands'
-import * as THREE from 'three'
+import { Matrix4, Vector4 } from 'three'
+import type * as handPoseDetection from '@tensorflow-models/hand-pose-detection'
+import type * as tf from '@tensorflow/tfjs'
 
 import { HAND_LANDMARKS, FINGER_JOINTS } from '../../constants'
 import { TensorFlowHand, TensorFlowKeypoint } from '../../types/service-types'
+import { loadHandPoseDetection, loadTensorFlow } from '../../utils/ml-lazy-loaders'
 
 export interface Point2D {
   x: number
@@ -47,35 +48,41 @@ export interface FingerJoints {
 export class HandPoseDetectionService {
   private detector: handPoseDetection.HandDetector | null = null
   private isInitialized = false
-  
+  private tfModule: typeof tf | null = null
+  private handPoseModule: typeof handPoseDetection | null = null
 
-  
   /**
    * Initialize the hand pose detection model
+   * LAZY LOADS TensorFlow and MediaPipe on first use (~2MB bundle savings)
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) return
-    
-    console.log('🤖 Initializing hand pose detection...')
-    
+
+    console.log('🤖 Initializing hand pose detection (lazy loading TensorFlow...)')
+
     try {
+      // Lazy load TensorFlow and HandPoseDetection modules
+      const { handPoseDetection: hpd, tf: tfModule } = await loadHandPoseDetection()
+      this.tfModule = tfModule
+      this.handPoseModule = hpd
+
       // Wait for TensorFlow.js to be ready
-      await tf.ready()
-      console.log('✅ TensorFlow.js ready, backend:', tf.getBackend())
-      
+      await tfModule.ready()
+      console.log('✅ TensorFlow.js ready, backend:', tfModule.getBackend())
+
       // Create the detector with MediaPipe Hands
-      const model = handPoseDetection.SupportedModels.MediaPipeHands
+      const model = hpd.SupportedModels.MediaPipeHands
       const detectorConfig: handPoseDetection.MediaPipeHandsMediaPipeModelConfig = {
         runtime: 'mediapipe',
         solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
         modelType: 'full',
         maxHands: 2
       }
-      
-      this.detector = await handPoseDetection.createDetector(model, detectorConfig)
+
+      this.detector = await hpd.createDetector(model, detectorConfig)
       this.isInitialized = true
-      
-      console.log('✅ Hand pose detector initialized')
+
+      console.log('✅ Hand pose detector initialized (TensorFlow loaded dynamically)')
     } catch (error) {
       console.error('❌ Failed to initialize hand pose detection:', error)
       throw error
@@ -150,8 +157,8 @@ export class HandPoseDetectionService {
    */
   convertTo3DCoordinates(
     landmarks2D: Point2D[],
-    cameraMatrix: THREE.Matrix4,
-    projectionMatrix: THREE.Matrix4,
+    cameraMatrix: Matrix4,
+    projectionMatrix: Matrix4,
     depthEstimates?: number[]
   ): Point3D[] {
     const landmarks3D: Point3D[] = []
@@ -169,7 +176,7 @@ export class HandPoseDetectionService {
       const depth = depthEstimates?.[i] || 0.5
       
       // Create point in clip space
-      const clipSpace = new THREE.Vector4(ndcX, ndcY, depth, 1)
+      const clipSpace = new Vector4(ndcX, ndcY, depth, 1)
       
       // Transform to world space
       clipSpace.applyMatrix4(invProjection)

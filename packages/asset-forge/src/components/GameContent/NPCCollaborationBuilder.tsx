@@ -9,20 +9,20 @@
 import { Plus, X, Users, Sparkles, AlertCircle } from 'lucide-react'
 import React, { useState } from 'react'
 
+import { API_ENDPOINTS } from '../../config/api'
+import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { useMultiAgentStore } from '../../store/useMultiAgentStore'
+import type { GeneratedNPC } from '../../types/content-generation'
 import type {
   NPCPersona,
   CollaborationType,
   CollaborationRequest,
   CollaborationSession,
 } from '../../types/multi-agent'
-import type { GeneratedNPC } from '../../types/content-generation'
-import { API_ENDPOINTS } from '../../config/api'
-import { useMultiAgentStore } from '../../store/useMultiAgentStore'
-import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
-import { Badge } from '../common/Badge'
 import { ModelSelector } from '../common/ModelSelector'
 
 interface NPCCollaborationBuilderProps {
@@ -72,7 +72,8 @@ export const NPCCollaborationBuilder: React.FC<NPCCollaborationBuilderProps> = (
     addCollaboration,
   } = useMultiAgentStore()
 
-  const { npcs: generatedNPCs } = useContentGenerationStore()
+  // Selective subscription for performance
+  const generatedNPCs = useContentGenerationStore(state => state.npcs)
 
   // NPC Personas
   const [npcPersonas, setNpcPersonas] = useState<NPCPersona[]>([])

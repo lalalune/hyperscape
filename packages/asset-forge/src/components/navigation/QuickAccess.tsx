@@ -5,13 +5,13 @@
  * and favorited items for faster navigation.
  */
 
-import React, { useCallback } from 'react'
 import { Clock, Star, Trash2 } from 'lucide-react'
-import { useNavigationStore } from '../../store/useNavigationStore'
+import React, { useCallback } from 'react'
+
 import { getNavItemForRoute } from '../../config/navigation-config'
 import { isRouteActive } from '../../config/navigation-config'
-
 import type { RoutePath } from '../../constants/routes'
+import { useNavigationStore } from '../../store/useNavigationStore'
 
 // Memoized QuickAccessItem to prevent unnecessary re-renders
 const QuickAccessItem = React.memo(({

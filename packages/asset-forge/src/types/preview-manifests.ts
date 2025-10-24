@@ -6,7 +6,6 @@
  */
 
 import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest, ManifestType, AnyManifest } from './manifests'
-import type { GeneratedQuest, GeneratedNPC } from './content-generation'
 
 export type ManifestState = 'canonical' | 'preview' | 'staging' | 'rejected'
 
@@ -65,7 +64,6 @@ export interface ManifestGap {
   suggestedId: string
   suggestedName: string
   tier: string
-  tierLevel: { min: number; max: number }
   requiredBy: string // Quest/NPC ID that needs it
   requiredByType: 'quest' | 'npc' | 'lore'
   priority: 'low' | 'medium' | 'high' | 'critical'

@@ -21,8 +21,9 @@
  */
 
 import { create } from 'zustand'
-import type { NPCScript, DialogueNode, DialogueResponse, ShopItem } from '../types/npc-scripts'
+
 import type { GeneratedNPC } from '../types/content-generation'
+import type { NPCScript, DialogueNode, DialogueResponse, ShopItem, DialogueEffect } from '../types/npc-scripts'
 
 interface NPCScriptsState {
   // Data
@@ -335,14 +336,14 @@ export const useNPCScriptsStore = create<NPCScriptsState>((set, get) => ({
             id: `response_${idx}`,
             text: r.text,
             nextNodeId: r.nextNodeId,
-            effects: r.effects,
+            effects: r.effects as DialogueEffect[] | undefined,
             questReference: r.questReference
           }))
         }))
       },
       questsOffered: npc.personality.questsOffered || [],
       questRequirements: {},
-      services: npc.services || [],
+      services: (npc.services || []) as Array<'bank' | 'shop' | 'quest' | 'training'>,
       shopInventory: npc.inventory?.map(item => ({
         itemId: item.itemId,
         itemName: item.itemData?.name || item.itemId,
@@ -364,7 +365,7 @@ export const useNPCScriptsStore = create<NPCScriptsState>((set, get) => ({
         tags: []
       }
     }
-    
+
     return script
   }
 }))

@@ -19,6 +19,7 @@
  */
 
 import React, { useState } from 'react'
+
 import type { ActionHandlerName, ActionCategory } from '../../types/action-handlers'
 import { ACTION_HANDLERS, ACTION_CATEGORIES, getActionsByCategory } from '../../types/action-handlers'
 import { Badge } from '../common/Badge'

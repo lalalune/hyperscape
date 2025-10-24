@@ -11,7 +11,11 @@
  */
 
 import { create } from 'zustand'
+
 import type { VoiceSettings } from '../types/voice-generation'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('VoicePresetsStore')
 
 export interface VoicePreset {
   id: string
@@ -122,7 +126,7 @@ export const useVoicePresetsStore = create<VoicePresetsState>((set, get) => ({
         set({ presets: [...BUILT_IN_PRESETS, ...customPresets] })
       }
     } catch (error) {
-      console.error('Error loading presets:', error)
+      logger.error('Error loading presets', { error: (error as Error).message })
     }
   },
 
@@ -149,7 +153,7 @@ export const useVoicePresetsStore = create<VoicePresetsState>((set, get) => ({
   deletePreset: (id) => {
     const preset = get().presets.find(p => p.id === id)
     if (preset?.isBuiltIn) {
-      console.warn('Cannot delete built-in preset')
+      logger.warn('Cannot delete built-in preset')
       return
     }
 

@@ -11,39 +11,37 @@ import { ManifestPreviewPanel } from '../components/GameContent/ManifestPreviewP
 import { Button, Card } from '../components/common'
 import { Badge } from '../components/common/Badge'
 import { useContentGenerationStore } from '../store/useContentGenerationStore'
-import { usePreviewManifestsStore } from '../store/usePreviewManifestsStore'
 import { useMultiAgentStore } from '../store/useMultiAgentStore'
+import { usePreviewManifestsStore } from '../store/usePreviewManifestsStore'
 import { validateQuest } from '../utils/quest-validator'
-import type { GeneratedQuest, GeneratedNPC, LoreEntry } from '../types/content-generation'
 
 export const ContentGenerationPage: React.FC = () => {
-  const {
-    activeTab,
-    quests,
-    npcs,
-    loreEntries,
-    selectedQuest,
-    selectedNPC,
-    selectedLore,
-    setActiveTab,
-    addQuest,
-    addNPC,
-    addLore,
-    setSelectedQuest,
-    setSelectedNPC,
-    setSelectedLore,
-    deleteQuest,
-    deleteNPC,
-    deleteLore,
-    createPack,
-    clearAll,
-    loadPlaytesterPersonas,
-    loadSeedData,
-    resetToSeedData,
-    exportToJSON,
-    importFromJSON,
-    clearCache
-  } = useContentGenerationStore()
+  // Selective subscriptions for performance
+  const activeTab = useContentGenerationStore(state => state.activeTab)
+  const quests = useContentGenerationStore(state => state.quests)
+  const npcs = useContentGenerationStore(state => state.npcs)
+  const loreEntries = useContentGenerationStore(state => state.loreEntries)
+  const selectedQuest = useContentGenerationStore(state => state.selectedQuest)
+  const selectedNPC = useContentGenerationStore(state => state.selectedNPC)
+  const selectedLore = useContentGenerationStore(state => state.selectedLore)
+  const setActiveTab = useContentGenerationStore(state => state.setActiveTab)
+  const addQuest = useContentGenerationStore(state => state.addQuest)
+  const addNPC = useContentGenerationStore(state => state.addNPC)
+  const addLore = useContentGenerationStore(state => state.addLore)
+  const setSelectedQuest = useContentGenerationStore(state => state.setSelectedQuest)
+  const setSelectedNPC = useContentGenerationStore(state => state.setSelectedNPC)
+  const setSelectedLore = useContentGenerationStore(state => state.setSelectedLore)
+  const deleteQuest = useContentGenerationStore(state => state.deleteQuest)
+  const deleteNPC = useContentGenerationStore(state => state.deleteNPC)
+  const deleteLore = useContentGenerationStore(state => state.deleteLore)
+  const createPack = useContentGenerationStore(state => state.createPack)
+  const clearAll = useContentGenerationStore(state => state.clearAll)
+  const loadPlaytesterPersonas = useContentGenerationStore(state => state.loadPlaytesterPersonas)
+  const loadSeedData = useContentGenerationStore(state => state.loadSeedData)
+  const resetToSeedData = useContentGenerationStore(state => state.resetToSeedData)
+  const exportToJSON = useContentGenerationStore(state => state.exportToJSON)
+  const importFromJSON = useContentGenerationStore(state => state.importFromJSON)
+  const clearCache = useContentGenerationStore(state => state.clearCache)
 
   const { previews } = usePreviewManifestsStore()
   const pendingCount = previews.filter(p => p.state === 'preview').length
@@ -125,10 +123,8 @@ export const ContentGenerationPage: React.FC = () => {
   const handleClearCache = () => {
     if (confirm('⚠️ This will delete ALL content and clear localStorage. Are you sure?')) {
       clearCache()
-      // Reload seed data after clearing
-      setTimeout(() => {
-        loadSeedData()
-      }, 100)
+      // Reload seed data after clearing immediately
+      loadSeedData()
     }
   }
 

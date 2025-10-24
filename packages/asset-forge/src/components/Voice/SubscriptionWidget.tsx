@@ -11,13 +11,14 @@
  * - Usage warnings
  */
 
-import React, { useState, useEffect } from 'react'
 import { DollarSign, AlertTriangle, CheckCircle, RefreshCcw } from 'lucide-react'
-import { Card, CardHeader, CardContent } from '../common/Card'
-import { Badge } from '../common/Badge'
-import { Button } from '../common/Button'
+import React, { useState, useEffect } from 'react'
+
 import { voiceGenerationService } from '../../services/VoiceGenerationService'
 import type { VoiceSubscriptionInfo } from '../../types/voice-generation'
+import { Badge } from '../common/Badge'
+import { Button } from '../common/Button'
+import { Card, CardHeader, CardContent } from '../common/Card'
 
 interface SubscriptionWidgetProps {
   compact?: boolean
@@ -44,7 +45,12 @@ export const SubscriptionWidget: React.FC<SubscriptionWidgetProps> = ({
       const data = await voiceGenerationService.getSubscriptionInfo()
       setSubscription(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load subscription')
+      // Check if it's a 503 Service Unavailable error (API key not configured)
+      if (err instanceof Error && err.message.includes('Voice generation service not available')) {
+        setError('Voice features unavailable - ElevenLabs API key not configured')
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load subscription')
+      }
       console.error('Error loading subscription:', err)
     } finally {
       setLoading(false)

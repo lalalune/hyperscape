@@ -3,17 +3,20 @@ import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 
 import { Asset } from '../services/api/AssetService'
-import { 
-  MaterialPreset, 
-  ImageGenerationResult, 
-  ModelGenerationResult, 
+import {
+  MaterialPreset,
+  ImageGenerationResult,
+  ModelGenerationResult,
   RemeshResult,
-  HardpointResult, 
-  ArmorPlacementResult, 
-  RiggingResult, 
+  HardpointResult,
+  ArmorPlacementResult,
+  RiggingResult,
   BuildingAnalysisResult,
   AssetMetadata
 } from '../types'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('GenerationStore')
 
 export interface PipelineStage {
   id: string
@@ -444,13 +447,13 @@ export const useGenerationStore = create<GenerationState>()(
           
           updatePipelineStage: (stageId, status) => set((state) => {
             const DEBUG = (import.meta as any).env?.VITE_DEBUG_PIPELINE === 'true'
-            if (DEBUG) console.log('Updating pipeline stage:', stageId, 'to status:', status)
+            if (DEBUG) logger.debug('Updating pipeline stage', { stageId, status })
             const stage = state.pipelineStages.find(s => s.id === stageId)
             if (stage) {
               stage.status = status
             } else {
-              // Don’t spam console; warn only in debug mode
-              if (DEBUG) console.warn('Stage not found:', stageId, 'Available stages:', state.pipelineStages.map(s => s.id))
+              // Don't spam console; warn only in debug mode
+              if (DEBUG) logger.warn('Stage not found', { stageId, availableStages: state.pipelineStages.map(s => s.id) })
             }
           }),
           

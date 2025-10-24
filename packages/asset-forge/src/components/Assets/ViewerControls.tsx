@@ -33,23 +33,21 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
   canRetexture = true,
   hasRigging = false
 }) => {
-  // Get state and actions from store
-  const {
-    isWireframe,
-    showGroundPlane,
-    isLightBackground,
-    showDetailsPanel,
-    showAnimationView,
-    toggleWireframe,
-    toggleGroundPlane,
-    toggleBackground,
-    toggleDetailsPanel,
-    toggleAnimationView,
-    setShowRetextureModal,
-    setShowRegenerateModal,
-    setShowEditModal,
-    setShowSpriteModal
-  } = useAssetsStore()
+  // Get state and actions from store - selective subscriptions
+  const isWireframe = useAssetsStore(state => state.isWireframe)
+  const showGroundPlane = useAssetsStore(state => state.showGroundPlane)
+  const isLightBackground = useAssetsStore(state => state.isLightBackground)
+  const showDetailsPanel = useAssetsStore(state => state.showDetailsPanel)
+  const showAnimationView = useAssetsStore(state => state.showAnimationView)
+  const toggleWireframe = useAssetsStore(state => state.toggleWireframe)
+  const toggleGroundPlane = useAssetsStore(state => state.toggleGroundPlane)
+  const toggleBackground = useAssetsStore(state => state.toggleBackground)
+  const toggleDetailsPanel = useAssetsStore(state => state.toggleDetailsPanel)
+  const toggleAnimationView = useAssetsStore(state => state.toggleAnimationView)
+  const setShowRetextureModal = useAssetsStore(state => state.setShowRetextureModal)
+  const setShowRegenerateModal = useAssetsStore(state => state.setShowRegenerateModal)
+  const setShowEditModal = useAssetsStore(state => state.setShowEditModal)
+  const setShowSpriteModal = useAssetsStore(state => state.setShowSpriteModal)
 
   return (
     <>

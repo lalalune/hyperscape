@@ -15,24 +15,28 @@
  * Used by: ContentGenerationPage "Scripts" tab
  */
 
+import { FileCode, Download, Sparkles } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
-import { FileCode, _Save, Download, Sparkles } from 'lucide-react'
-import type { DialogueNode, DialogueResponse } from '../../types/npc-scripts'
-import { useNPCScriptsStore } from '../../store/useNPCScriptsStore'
+
+import { API_ENDPOINTS } from '../../config/api'
 import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { useNPCScriptsStore } from '../../store/useNPCScriptsStore'
+import type { DialogueNode, DialogueResponse } from '../../types/npc-scripts'
+import { downloadScriptPack } from '../../utils/npc-script-exporter'
+import { validateNPCScript } from '../../utils/npc-script-validator'
+import { Badge } from '../common/Badge'
+import { Button } from '../common/Button'
+import { Card } from '../common/Card'
+import { ModelSelector } from '../common/ModelSelector'
+
 import { DialogueTreeEditor } from './DialogueTreeEditor'
 import { EventPayloadPreview } from './EventPayloadPreview'
 import { VoiceGenerator } from './VoiceGenerator'
-import { validateNPCScript } from '../../utils/npc-script-validator'
-import { downloadScriptPack } from '../../utils/npc-script-exporter'
-import { API_ENDPOINTS } from '../../config/api'
-import { Button } from '../common/Button'
-import { Card } from '../common/Card'
-import { Badge } from '../common/Badge'
-import { ModelSelector } from '../common/ModelSelector'
 
 export const NPCScriptBuilder: React.FC = () => {
-  const { npcs, quests } = useContentGenerationStore()
+  // Selective subscriptions for performance
+  const npcs = useContentGenerationStore(state => state.npcs)
+  const quests = useContentGenerationStore(state => state.quests)
   const {
     npcScripts,
     selectedScript,

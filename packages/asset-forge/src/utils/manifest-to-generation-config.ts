@@ -23,8 +23,8 @@
  * Used by: ManifestsPage Generate 3D Model button
  */
 
-import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../types/manifests'
 import type { GenerationConfig } from '../types/generation'
+import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest, AnyManifest } from '../types/manifests'
 
 export type ManifestType = ItemManifest | MobManifest | NPCManifest | ResourceManifest
 
@@ -32,21 +32,42 @@ export type ManifestType = ItemManifest | MobManifest | NPCManifest | ResourceMa
  * Convert any manifest item to generation config
  */
 export function manifestToGenerationConfig(
-  item: ManifestType
+  item: AnyManifest
 ): GenerationConfig {
   // Detect manifest type
   if ('stats' in item && 'xpReward' in item) {
     return mobToGenerationConfig(item as MobManifest)
   }
-  
+
   if ('npcType' in item && 'services' in item) {
     return npcToGenerationConfig(item as NPCManifest)
   }
-  
+
   if ('harvestSkill' in item) {
     return resourceToGenerationConfig(item as ResourceManifest)
   }
-  
+
+  // For unsupported manifest types (WorldArea, Biome, Zone, Bank, Store)
+  // Return a generic configuration
+  if ('id' in item && 'name' in item) {
+    return {
+      name: item.name,
+      type: 'misc',
+      subtype: 'type' in item ? String(item.type) : 'other',
+      description: 'description' in item ? String(item.description) : `A ${item.name} from game data`,
+      style: 'low-poly runescape style, game asset',
+      quality: 'high',
+      generationType: 'item',
+      enableRetexturing: false,
+      enableSprites: true,
+      enableGeneration: true,
+      metadata: {
+        gameId: item.id,
+        manifestSource: 'game-data',
+      }
+    }
+  }
+
   return itemToGenerationConfig(item as ItemManifest)
 }
 
@@ -114,7 +135,8 @@ function mobToGenerationConfig(mob: MobManifest): GenerationConfig {
       xpReward: mob.xpReward,
       creatureType: 'biped', // Most mobs are biped
       manifestSource: 'game-data',
-      sourceManifest: 'mobs.json',
+      sourceManifest: 'characters.json', // Unified character manifest (filtered by characterType: 'mob')
+      characterType: 'mob',
       canUpdateManifest: true
     }
   }
@@ -148,7 +170,8 @@ function npcToGenerationConfig(npc: NPCManifest): GenerationConfig {
       services: npc.services.join(','),
       creatureType: 'biped',
       manifestSource: 'game-data',
-      sourceManifest: 'npcs.json',
+      sourceManifest: 'characters.json', // Unified character manifest (filtered by characterType: 'npc')
+      characterType: 'npc',
       canUpdateManifest: true
     }
   }
@@ -279,36 +302,36 @@ function getMobHeight(mob: MobManifest): number {
 /**
  * Check if manifest item has a valid 3D model
  */
-export function hasValidModel(item: ManifestType): boolean {
+export function hasValidModel(item: AnyManifest): boolean {
   if (!('modelPath' in item) || !item.modelPath) {
     return false
   }
-  
+
   // Check if it's a placeholder or missing
-  if (item.modelPath.includes('default.glb') || 
+  if (item.modelPath.includes('default.glb') ||
       item.modelPath.includes('placeholder')) {
     return false
   }
-  
+
   return true
 }
 
 /**
  * Get generation button text based on manifest type
  */
-export function getGenerationButtonText(item: ManifestType): string {
+export function getGenerationButtonText(item: AnyManifest): string {
   if ('stats' in item && 'xpReward' in item) {
     return 'Generate Mob Model'
   }
-  
+
   if ('npcType' in item && 'services' in item) {
     return 'Generate NPC Model'
   }
-  
+
   if ('harvestSkill' in item) {
     return 'Generate Resource Model'
   }
-  
+
   return 'Generate 3D Model'
 }
 

@@ -3,7 +3,7 @@
  * Creates finger masks and segments for proper bone weight assignment
  */
 
-import * as THREE from 'three'
+import { Matrix4, SkinnedMesh, Vector3, Vector4 } from 'three'
 
 import { Point2D, Point3D, HandLandmarks } from './HandPoseDetectionService'
 
@@ -410,11 +410,11 @@ export class HandSegmentationService {
    * Convert 2D segmentation to 3D vertex assignments
    */
   segmentMeshVertices(
-    mesh: THREE.SkinnedMesh,
+    mesh: SkinnedMesh,
     fingerSegmentation: FingerSegmentation,
     handCapture: { 
-      cameraMatrix: THREE.Matrix4, 
-      projectionMatrix: THREE.Matrix4,
+      cameraMatrix: Matrix4, 
+      projectionMatrix: Matrix4,
       side: 'left' | 'right'
     }
   ): VertexSegmentation {
@@ -435,13 +435,13 @@ export class HandSegmentationService {
     mesh.updateWorldMatrix(true, false)
     
     // Combined view-projection matrix
-    const viewProjectionMatrix = new THREE.Matrix4()
+    const viewProjectionMatrix = new Matrix4()
     viewProjectionMatrix.multiplyMatrices(handCapture.projectionMatrix, handCapture.cameraMatrix)
     
     // Process each vertex
     for (let i = 0; i < positions.count; i++) {
       // Get vertex position in world space
-      const vertex = new THREE.Vector3(
+      const vertex = new Vector3(
         positions.getX(i),
         positions.getY(i),
         positions.getZ(i)
@@ -449,7 +449,7 @@ export class HandSegmentationService {
       vertex.applyMatrix4(mesh.matrixWorld)
       
       // Project to screen space
-      const projected = new THREE.Vector4(vertex.x, vertex.y, vertex.z, 1.0)
+      const projected = new Vector4(vertex.x, vertex.y, vertex.z, 1.0)
       projected.applyMatrix4(viewProjectionMatrix)
       
       // Convert to normalized device coordinates

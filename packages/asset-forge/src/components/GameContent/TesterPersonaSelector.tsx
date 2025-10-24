@@ -6,14 +6,14 @@
  */
 
 import { CheckSquare, Square, Info } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 
-import type { TesterArchetype, PlaytesterPersonasResponse } from '../../types/multi-agent'
 import { API_ENDPOINTS } from '../../config/api'
 import { useMultiAgentStore } from '../../store/useMultiAgentStore'
+import type { TesterArchetype, PlaytesterPersonasResponse } from '../../types/multi-agent'
+import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
-import { Badge } from '../common/Badge'
 
 interface TesterPersonaSelectorProps {
   selectedPersonas: TesterArchetype[]
@@ -53,13 +53,7 @@ export const TesterPersonaSelector: React.FC<TesterPersonaSelectorProps> = ({
 
   const [showInfo, setShowInfo] = useState<TesterArchetype | null>(null)
 
-  useEffect(() => {
-    if (!availablePersonas && !loadingPersonas) {
-      loadPersonas()
-    }
-  }, [])
-
-  const loadPersonas = async () => {
+  const loadPersonas = useCallback(async () => {
     setLoadingPersonas(true)
     try {
       const response = await fetch(API_ENDPOINTS.playtesterPersonas)
@@ -73,7 +67,13 @@ export const TesterPersonaSelector: React.FC<TesterPersonaSelectorProps> = ({
     } finally {
       setLoadingPersonas(false)
     }
-  }
+  }, [setLoadingPersonas, setAvailablePersonas])
+
+  useEffect(() => {
+    if (!availablePersonas && !loadingPersonas) {
+      loadPersonas()
+    }
+  }, [availablePersonas, loadingPersonas, loadPersonas])
 
   const togglePersona = (archetype: TesterArchetype) => {
     const isSelected = selectedPersonas.includes(archetype)

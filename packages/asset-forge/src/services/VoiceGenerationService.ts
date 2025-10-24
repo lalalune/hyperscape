@@ -13,7 +13,8 @@
  * Used by: VoiceGenerator, VoiceLibraryBrowser components
  */
 
-import { API_ENDPOINTS } from '../config/api'
+import { API_ENDPOINTS } from '../config/api.ts'
+import { apiFetch } from '../utils/api.ts'
 import type {
   ElevenLabsVoice,
   VoiceLibraryResponse,
@@ -30,10 +31,11 @@ import type {
 class VoiceGenerationService {
   /**
    * Fetch available voices from ElevenLabs library
+   * Uses automatic request deduplication for concurrent calls
    */
   async getVoiceLibrary(): Promise<ElevenLabsVoice[]> {
     try {
-      const response = await fetch(API_ENDPOINTS.voiceLibrary)
+      const response = await apiFetch(API_ENDPOINTS.voiceLibrary)
 
       if (!response.ok) {
         const error = await response.json()
@@ -41,7 +43,7 @@ class VoiceGenerationService {
       }
 
       const data: VoiceLibraryResponse = await response.json()
-      return data.voices
+      return data.voices ?? []
     } catch (error) {
       console.error('[VoiceGenerationService] Error fetching voice library:', error)
       throw error
@@ -54,12 +56,13 @@ class VoiceGenerationService {
    */
   async generateVoiceClip(request: VoiceGenerationRequest): Promise<Blob> {
     try {
-      const response = await fetch(API_ENDPOINTS.voiceGenerate, {
+      const response = await apiFetch(API_ENDPOINTS.voiceGenerate, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(request)
+        body: JSON.stringify(request),
+        deduplicate: false // Don't deduplicate POST requests by default
       })
 
       if (!response.ok) {
@@ -83,7 +86,7 @@ class VoiceGenerationService {
     request: VoiceBatchGenerationRequest
   ): Promise<VoiceBatchGenerationResponse> {
     try {
-      const response = await fetch(API_ENDPOINTS.voiceBatch, {
+      const response = await apiFetch(API_ENDPOINTS.voiceBatch, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -106,10 +109,11 @@ class VoiceGenerationService {
 
   /**
    * Get voice profile for an NPC
+   * Uses automatic request deduplication for concurrent calls
    */
   async getVoiceProfile(npcId: string): Promise<VoiceProfile | null> {
     try {
-      const response = await fetch(API_ENDPOINTS.voiceProfile(npcId))
+      const response = await apiFetch(API_ENDPOINTS.voiceProfile(npcId))
 
       if (response.status === 404) {
         return null // No voice profile exists
@@ -133,7 +137,7 @@ class VoiceGenerationService {
    */
   async deleteVoiceClips(npcId: string): Promise<boolean> {
     try {
-      const response = await fetch(API_ENDPOINTS.voiceDelete(npcId), {
+      const response = await apiFetch(API_ENDPOINTS.voiceDelete(npcId), {
         method: 'DELETE'
       })
 
@@ -143,7 +147,7 @@ class VoiceGenerationService {
       }
 
       const data = await response.json()
-      return data.success
+      return data.success ?? false
     } catch (error) {
       console.error('[VoiceGenerationService] Error deleting voice clips:', error)
       throw error
@@ -155,7 +159,7 @@ class VoiceGenerationService {
    */
   async estimateCost(characterCount: number, modelId?: string): Promise<VoiceCostEstimate> {
     try {
-      const response = await fetch(API_ENDPOINTS.voiceEstimate, {
+      const response = await apiFetch(API_ENDPOINTS.voiceEstimate, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -187,8 +191,12 @@ class VoiceGenerationService {
     const audioUrl = URL.createObjectURL(audioBlob)
     const audio = new Audio(audioUrl)
 
-    // Shared cleanup function
+    // Shared cleanup function that removes all listeners
     const cleanup = () => {
+      audio.removeEventListener('ended', cleanup)
+      audio.removeEventListener('error', cleanup)
+      audio.removeEventListener('pause', cleanup)
+      window.removeEventListener('beforeunload', cleanup)
       URL.revokeObjectURL(audioUrl)
     }
 
@@ -232,11 +240,12 @@ class VoiceGenerationService {
 
   /**
    * Get user subscription info (quota, usage, tier)
+   * Uses automatic request deduplication for concurrent calls
    * Official docs: https://elevenlabs.io/docs/api-reference/get-subscription-info
    */
   async getSubscriptionInfo(): Promise<VoiceSubscriptionInfo> {
     try {
-      const response = await fetch(API_ENDPOINTS.voiceSubscription)
+      const response = await apiFetch(API_ENDPOINTS.voiceSubscription)
 
       if (!response.ok) {
         const error = await response.json()
@@ -253,11 +262,12 @@ class VoiceGenerationService {
 
   /**
    * Get available TTS models
+   * Uses automatic request deduplication for concurrent calls
    * Official docs: https://elevenlabs.io/docs/api-reference/get-models
    */
   async getAvailableModels(): Promise<VoiceModel[]> {
     try {
-      const response = await fetch(API_ENDPOINTS.voiceModels)
+      const response = await apiFetch(API_ENDPOINTS.voiceModels)
 
       if (!response.ok) {
         const error = await response.json()
@@ -265,7 +275,7 @@ class VoiceGenerationService {
       }
 
       const data: VoiceModelsResponse = await response.json()
-      return data.models
+      return data.models ?? []
     } catch (error) {
       console.error('[VoiceGenerationService] Error fetching models:', error)
       throw error

@@ -5,9 +5,9 @@
  * plus app version display.
  */
 
-import { useNavigationStore } from '../../store/useNavigationStore'
 import { navigationConfig, isNavLink } from '../../config/navigation-config'
 import { isRouteActive } from '../../config/navigation-config'
+import { useNavigationStore } from '../../store/useNavigationStore'
 
 export default function NavigationFooter() {
   const { collapsed, currentPath, navigateTo } = useNavigationStore()

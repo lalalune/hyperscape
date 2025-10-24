@@ -5,14 +5,15 @@
  * Allows jumping to any item, mob, NPC, quest, or lore entry
  */
 
-import React, { useState, useEffect, useRef } from 'react'
 import { Search, X, FileJson, Sword, Users, Target, Scroll, Box } from 'lucide-react'
-import { globalSearch, type SearchResult } from '../../utils/fuzzy-search'
-import { useManifestsStore } from '../../store/useManifestsStore'
-import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+
 import { NAVIGATION_VIEWS } from '../../constants/navigation'
 import { useNavigation } from '../../hooks/useNavigation'
+import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { useManifestsStore } from '../../store/useManifestsStore'
 import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../../types/manifests'
+import { globalSearch, type SearchResult } from '../../utils/fuzzy-search'
 
 interface GlobalSearchProps {
   isOpen: boolean
@@ -24,15 +25,21 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose }) =
   const [results, setResults] = useState<SearchResult[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   
-  const { manifests, setSelectedType, setSearchQuery } = useManifestsStore()
-  const { quests, npcs: generatedNPCs, loreEntries, setActiveTab } = useContentGenerationStore()
+  // Selective subscriptions for performance
+  const manifests = useManifestsStore(state => state.manifests)
+  const setSelectedType = useManifestsStore(state => state.setSelectedType)
+  const setSearchQuery = useManifestsStore(state => state.setSearchQuery)
+  const quests = useContentGenerationStore(state => state.quests)
+  const generatedNPCs = useContentGenerationStore(state => state.npcs)
+  const loreEntries = useContentGenerationStore(state => state.loreEntries)
+  const setActiveTab = useContentGenerationStore(state => state.setActiveTab)
   const { navigateTo } = useNavigation()
-  
-  // Extract manifest arrays with proper typing
-  const items = (manifests.items || []) as ItemManifest[]
-  const mobs = (manifests.mobs || []) as MobManifest[]
-  const npcs = (manifests.npcs || []) as NPCManifest[]
-  const resources = (manifests.resources || []) as ResourceManifest[]
+
+  // Extract manifest arrays with proper typing - memoized to prevent re-renders
+  const items = useMemo(() => (manifests.items || []) as ItemManifest[], [manifests.items])
+  const mobs = useMemo(() => (manifests.mobs || []) as MobManifest[], [manifests.mobs])
+  const npcs = useMemo(() => (manifests.npcs || []) as NPCManifest[], [manifests.npcs])
+  const resources = useMemo(() => (manifests.resources || []) as ResourceManifest[], [manifests.resources])
   
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -57,7 +64,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose }) =
     })
 
     setResults(searchResults.slice(0, 20)) // Limit to top 20 results
-  }, [query, items.length, mobs.length, npcs.length, resources.length, quests.length, generatedNPCs.length, loreEntries.length])
+  }, [query, items, mobs, npcs, resources, quests, generatedNPCs, loreEntries])
   
   const getResultIcon = (type: SearchResult['type']) => {
     switch (type) {
@@ -145,10 +152,12 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose }) =
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search items, mobs, NPCs, quests, lore..."
             className="flex-1 bg-transparent text-text-primary placeholder-text-tertiary focus:outline-none"
+            aria-label="Search items, mobs, NPCs, quests, and lore"
           />
           <button
             onClick={onClose}
             className="text-text-tertiary hover:text-text-primary transition-colors"
+            aria-label="Close search dialog"
           >
             <X size={20} />
           </button>

@@ -6,18 +6,20 @@
  */
 
 import { create } from 'zustand'
+
+import type { AnyManifest } from '../types/manifests'
 import type {
   AnyPreviewManifest,
   ManifestGap,
   PreviewBatch,
   ManifestApprovalResult,
   ManifestState,
+  ManifestConflict,
 
 
 
 //   ResourceSuggestion
 } from '../types/preview-manifests'
-import type { AnyManifest } from '../types/manifests'
 
 interface PreviewManifestsState {
   // Preview items awaiting approval
@@ -104,7 +106,7 @@ export const usePreviewManifestsStore = create<PreviewManifestsState>((set, get)
 
   updatePreview: (id, updates) => set((state) => ({
     previews: state.previews.map(p =>
-      p.id === id ? { ...p, ...updates } : p
+      p.id === id ? { ...p, ...updates } as AnyPreviewManifest : p
     )
   })),
 
@@ -152,7 +154,7 @@ export const usePreviewManifestsStore = create<PreviewManifestsState>((set, get)
   approveAll: (ids) => {
     const approved: AnyManifest[] = []
     const rejected: string[] = []
-    const conflicts: any[] = []
+    const conflicts: ManifestConflict[] = []
     const warnings: string[] = []
 
     ids.forEach(id => {
@@ -218,14 +220,14 @@ export const usePreviewManifestsStore = create<PreviewManifestsState>((set, get)
       name,
       description,
       previews,
-      source: previews[0]?.metadata.source || 'manual',
+      source: previews[0]?.metadata?.source ?? 'manual',
       createdAt: new Date().toISOString(),
-      totalConflicts: previews.reduce((sum, p) => sum + p.conflicts.length, 0),
+      totalConflicts: previews.reduce((sum, p) => sum + (p.conflicts?.length ?? 0), 0),
       autoResolvable: previews.filter(p =>
-        p.conflicts.every(c => c.autoResolution !== undefined)
+        p.conflicts?.every(c => c.autoResolution !== undefined) ?? false
       ).length,
       requiresReview: previews.filter(p =>
-        p.conflicts.some(c => c.autoResolution === undefined)
+        p.conflicts?.some(c => c.autoResolution === undefined) ?? false
       ).length
     }
 

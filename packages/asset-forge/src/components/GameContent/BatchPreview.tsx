@@ -4,12 +4,12 @@
  */
 
 import { CheckCircle, Package, Users, Swords, ChevronDown, ChevronUp, AlertTriangle, Sparkles } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 
 import type { PreviewBatch } from '../../types/preview-manifests'
-import { Card, CardHeader, CardContent, CardFooter } from '../common/Card'
 import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
+import { Card, CardHeader, CardContent, CardFooter } from '../common/Card'
 
 interface BatchPreviewProps {
   batch: PreviewBatch
@@ -19,16 +19,20 @@ interface BatchPreviewProps {
 const BatchPreviewComponent: React.FC<BatchPreviewProps> = ({ batch, onApprove }) => {
   const [expanded, setExpanded] = useState(false)
 
-  // Count by type
-  const itemCount = batch.previews.filter(p => p.manifestType === 'items').length
-  const mobCount = batch.previews.filter(p => p.manifestType === 'mobs').length
-  const npcCount = batch.previews.filter(p => p.manifestType === 'npcs').length
+  // Memoize counts to avoid recalculating on every render
+  const counts = useMemo(() => {
+    const itemCount = batch.previews.filter(p => p.manifestType === 'items').length
+    const mobCount = batch.previews.filter(p => p.manifestType === 'mobs').length
+    const npcCount = batch.previews.filter(p => p.manifestType === 'npcs').length
+    const conflictCount = batch.previews.reduce((sum, p) => sum + p.conflicts.length, 0)
+    const hasBlockers = batch.previews.some(p =>
+      p.conflicts.some(c => c.severity === 'blocker')
+    )
 
-  // Count conflicts
-  const conflictCount = batch.previews.reduce((sum, p) => sum + p.conflicts.length, 0)
-  const hasBlockers = batch.previews.some(p =>
-    p.conflicts.some(c => c.severity === 'blocker')
-  )
+    return { itemCount, mobCount, npcCount, conflictCount, hasBlockers }
+  }, [batch.previews])
+
+  const { itemCount, mobCount, npcCount, conflictCount, hasBlockers } = counts
 
   // Get icon for source type
   const getSourceIcon = () => {

@@ -25,8 +25,9 @@
  */
 
 import { create } from 'zustand'
+
 import type { GeneratedQuest } from '../types/content-generation'
-import type { QuestProgress, QuestExecutionEvent } from '../types/quest-tracking'
+import type { QuestProgress, QuestExecutionEvent, QuestObjectiveProgress } from '../types/quest-tracking'
 
 interface QuestTrackingState {
   // Data
@@ -61,9 +62,9 @@ export const useQuestTrackingStore = create<QuestTrackingState>((set, get) => ({
   // Actions
   startQuest: (quest) => set((state) => {
     const activeQuests = new Map(state.activeQuests)
-    
+
     // Initialize objective progress
-    const objectives: Record<string, any> = {}
+    const objectives: Record<string, QuestObjectiveProgress> = {}
     quest.objectives.forEach(obj => {
       objectives[obj.id] = {
         completed: false,

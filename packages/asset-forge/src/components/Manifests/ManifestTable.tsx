@@ -4,12 +4,12 @@
  */
 
 import { Search, RefreshCw, Box, AlertCircle } from 'lucide-react'
-import React from 'react'
+import React, { useMemo } from 'react'
 
 import type { AnyManifest } from '../../types/manifests'
+import { hasValidModel } from '../../utils/manifest-to-generation-config'
 import { Badge } from '../common/Badge'
 import { Input } from '../common/Input'
-import { hasValidModel } from '../../utils/manifest-to-generation-config'
 
 interface ManifestTableProps {
   items: AnyManifest[]
@@ -37,22 +37,20 @@ export const ManifestTable: React.FC<ManifestTableProps> = ({
     return String(value)
   }
 
-  // Get columns based on first item
-  const getColumns = () => {
+  // Get columns based on first item - memoized to avoid recalculating on every render
+  const columns = useMemo(() => {
     if (items.length === 0) return []
-    
+
     const firstItem = items[0]
     const keys = Object.keys(firstItem)
-    
+
     // Prioritize certain columns
     const priority = ['id', 'name', 'type', 'level', 'description']
     const priorityKeys = priority.filter(k => keys.includes(k))
     const otherKeys = keys.filter(k => !priority.includes(k) && typeof firstItem[k as keyof typeof firstItem] !== 'object')
-    
-    return [...priorityKeys, ...otherKeys].slice(0, 6) // Limit to 6 columns
-  }
 
-  const columns = getColumns()
+    return [...priorityKeys, ...otherKeys].slice(0, 6) // Limit to 6 columns
+  }, [items])
 
   return (
     <div className="flex flex-col h-full bg-bg-secondary border border-border-primary rounded-xl shadow-theme-sm">
@@ -95,7 +93,7 @@ export const ManifestTable: React.FC<ManifestTableProps> = ({
           <table className="w-full">
             <thead className="sticky top-0 bg-bg-tertiary z-10">
               <tr>
-                {columns.map((col) => (
+                {columns.map((col: string) => (
                   <th
                     key={col}
                     className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider border-b border-border-primary"
@@ -124,7 +122,7 @@ export const ManifestTable: React.FC<ManifestTableProps> = ({
                       }
                     `}
                   >
-                    {columns.map((col) => (
+                    {columns.map((col: string) => (
                       <td
                         key={col}
                         className="px-4 py-3 text-sm text-text-primary whitespace-nowrap"

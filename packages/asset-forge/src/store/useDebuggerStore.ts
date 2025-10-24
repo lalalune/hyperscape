@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import type { SkinnedMesh } from 'three'
 import { create } from 'zustand'
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
@@ -73,7 +73,7 @@ interface DebuggerState {
     isArmorBound: boolean
     isHelmetFitted: boolean
     isHelmetAttached: boolean
-    boundArmorMesh: THREE.SkinnedMesh | null
+    boundArmorMesh: SkinnedMesh | null
 
     // Error Handling
     lastError: string | null
@@ -129,7 +129,7 @@ interface DebuggerActions {
     setIsArmorBound: (bound: boolean) => void
     setIsHelmetFitted: (fitted: boolean) => void
     setIsHelmetAttached: (attached: boolean) => void
-    setBoundArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
+    setBoundArmorMesh: (mesh: SkinnedMesh | null) => void
     resetProcessingStates: () => void
 
     // Error Handling

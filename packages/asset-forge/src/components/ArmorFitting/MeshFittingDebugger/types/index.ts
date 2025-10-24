@@ -1,6 +1,6 @@
-import * as THREE from 'three'
+import { Box3Helper, BufferGeometry, Euler, Group, Mesh, SkinnedMesh, Vector3 } from 'three'
 
-import { MeshFittingService } from '../../../../services/fitting/MeshFittingService'
+import { MeshFittingService } from '@/services/fitting/MeshFittingService'
 
 export interface MeshFittingDebuggerProps {
     onClose: () => void
@@ -14,25 +14,25 @@ export interface SceneProps {
     selectedAvatarPath: string
     selectedArmorPath: string
     selectedHelmetPath: string
-    avatarMeshRef: React.MutableRefObject<THREE.SkinnedMesh | null>
-    armorMeshRef: React.MutableRefObject<THREE.Mesh | null>
-    helmetMeshRef: React.MutableRefObject<THREE.Mesh | null>
-    originalArmorGeometryRef: React.MutableRefObject<THREE.BufferGeometry | null>
+    avatarMeshRef: React.MutableRefObject<SkinnedMesh | null>
+    armorMeshRef: React.MutableRefObject<Mesh | null>
+    helmetMeshRef: React.MutableRefObject<Mesh | null>
+    originalArmorGeometryRef: React.MutableRefObject<BufferGeometry | null>
     originalHelmetTransformRef: React.MutableRefObject<{
-        position: THREE.Vector3
-        rotation: THREE.Euler
-        scale: THREE.Vector3
+        position: Vector3
+        rotation: Euler
+        scale: Vector3
     } | null>
-    debugArrowGroupRef: React.MutableRefObject<THREE.Group | null>
-    headBoundsHelperRef: React.MutableRefObject<THREE.Box3Helper | null>
+    debugArrowGroupRef: React.MutableRefObject<Group | null>
+    headBoundsHelperRef: React.MutableRefObject<Box3Helper | null>
     currentAnimation: 'tpose' | 'walking' | 'running'
     isAnimationPlaying: boolean
     showHeadBounds: boolean
-    boundArmorMesh: THREE.SkinnedMesh | null
+    boundArmorMesh: SkinnedMesh | null
 }
 
 export interface AvatarArmorDemoProps {
-    onReady: (avatarMesh: THREE.SkinnedMesh, armorMesh: THREE.Mesh) => void
+    onReady: (avatarMesh: SkinnedMesh, armorMesh: Mesh) => void
     showWireframe: boolean
     avatarPath: string
     armorPath: string
@@ -41,14 +41,14 @@ export interface AvatarArmorDemoProps {
 }
 
 export interface HelmetDemoProps {
-    onReady: (avatarMesh: THREE.SkinnedMesh, helmetMesh: THREE.Mesh) => void
+    onReady: (avatarMesh: SkinnedMesh, helmetMesh: Mesh) => void
     showWireframe: boolean
     avatarPath: string
     helmetPath: string
     currentAnimation: 'tpose' | 'walking' | 'running'
     isAnimationPlaying: boolean
     showHeadBounds: boolean
-    headBoundsHelperRef: React.MutableRefObject<THREE.Box3Helper | null>
+    headBoundsHelperRef: React.MutableRefObject<Box3Helper | null>
 }
 
 export type ExportType = 'full' | 'minimal' | 'static' | 'debug' | 'scale-fixed'

@@ -18,32 +18,32 @@
  * - Optimized re-renders
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Mic, Play, Download, Sparkles, DollarSign, Settings as SettingsIcon, Volume2, Info } from 'lucide-react'
-import { Card, CardHeader, CardContent } from '../components/common/Card'
-import { Button } from '../components/common/Button'
-import { Badge } from '../components/common/Badge'
-import { RangeInput } from '../components/common/RangeInput'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+
+import { SubscriptionWidget } from '../components/Voice/SubscriptionWidget'
 import { VoiceBrowser } from '../components/Voice/VoiceBrowser'
 import { VoicePresets } from '../components/Voice/VoicePresets'
-import { SubscriptionWidget } from '../components/Voice/SubscriptionWidget'
-import { useVoiceGenerationStore } from '../store/useVoiceGenerationStore'
+import { Badge } from '../components/common/Badge'
+import { Button } from '../components/common/Button'
+import { Card, CardHeader, CardContent } from '../components/common/Card'
+import { RangeInput } from '../components/common/RangeInput'
 import { voiceGenerationService } from '../services/VoiceGenerationService'
+import { useVoiceGenerationStore } from '../store/useVoiceGenerationStore'
 
 const MAX_CHARACTERS = 5000 // ElevenLabs limit per request
 const WARNING_THRESHOLD = 4500 // Show warning at 90%
 
 export const VoiceStandalonePage: React.FC = () => {
-  const {
-    selectedVoiceId,
-    currentSettings,
-    setSelectedVoice,
-    setCurrentSettings,
-    isGenerating,
-    setGenerating,
-    generationError,
-    setGenerationError,
-  } = useVoiceGenerationStore()
+  // Selective subscriptions for performance
+  const selectedVoiceId = useVoiceGenerationStore(state => state.selectedVoiceId)
+  const currentSettings = useVoiceGenerationStore(state => state.currentSettings)
+  const setSelectedVoice = useVoiceGenerationStore(state => state.setSelectedVoice)
+  const setCurrentSettings = useVoiceGenerationStore(state => state.setCurrentSettings)
+  const isGenerating = useVoiceGenerationStore(state => state.isGenerating)
+  const setGenerating = useVoiceGenerationStore(state => state.setGenerating)
+  const generationError = useVoiceGenerationStore(state => state.generationError)
+  const setGenerationError = useVoiceGenerationStore(state => state.setGenerationError)
 
   const [inputText, setInputText] = useState('')
   const [debouncedText, setDebouncedText] = useState('')
@@ -124,7 +124,12 @@ export const VoiceStandalonePage: React.FC = () => {
       const audioBlob = await voiceGenerationService.generateVoiceClip({
         text: inputText.trim(),
         voiceId: selectedVoiceId,
-        settings: currentSettings
+        modelId: currentSettings.modelId,
+        outputFormat: currentSettings.outputFormat,
+        stability: currentSettings.stability,
+        similarityBoost: currentSettings.similarityBoost,
+        style: currentSettings.style,
+        useSpeakerBoost: currentSettings.useSpeakerBoost
       })
 
       setGeneratedAudio(audioBlob)
@@ -245,10 +250,22 @@ export const VoiceStandalonePage: React.FC = () => {
 
         {/* Voice Library Modal */}
         {showVoiceLibrary && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 sm:p-8 animate-fade-in">
-            <div className="bg-gray-900 rounded-lg p-4 sm:p-6 max-w-6xl w-full max-h-[90vh] overflow-auto shadow-2xl">
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4 sm:p-8 animate-fade-in"
+            style={{
+              zIndex: 9999,
+              backgroundColor: 'rgba(0, 0, 0, 1)'
+            }}
+          >
+            <div
+              className="bg-gray-50 rounded-lg p-4 sm:p-6 max-w-6xl w-full max-h-[90vh] overflow-auto shadow-2xl border border-gray-200"
+              style={{
+                position: 'relative',
+                zIndex: 10000
+              }}
+            >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold">Voice Library</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Voice Library</h2>
                 <Button variant="ghost" onClick={() => setShowVoiceLibrary(false)}>
                   Close
                 </Button>
@@ -256,7 +273,7 @@ export const VoiceStandalonePage: React.FC = () => {
               <VoiceBrowser
                 onSelect={handleVoiceSelect}
                 selectedVoiceId={selectedVoiceId}
-                showFavorites={true}
+                useStore={true}
               />
             </div>
           </div>

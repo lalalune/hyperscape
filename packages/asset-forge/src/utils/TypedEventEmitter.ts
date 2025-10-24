@@ -1,4 +1,4 @@
-export class TypedEventEmitter<Events extends Record<PropertyKey, any>> {
+export class TypedEventEmitter<Events extends Record<PropertyKey, unknown>> {
   private listeners: { [K in keyof Events]?: Set<(data: Events[K]) => void> } = {}
 
   on<K extends keyof Events>(event: K, listener: (data: Events[K]) => void): this {
@@ -40,5 +40,14 @@ export class TypedEventEmitter<Events extends Record<PropertyKey, any>> {
       }
     }
     return true
+  }
+
+  removeAllListeners<K extends keyof Events>(event?: K): this {
+    if (event !== undefined) {
+      delete this.listeners[event]
+    } else {
+      this.listeners = {}
+    }
+    return this
   }
 } 

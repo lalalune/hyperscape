@@ -16,8 +16,8 @@
  * Used by: ContentGenerationPage export functionality
  */
 
-import type { NPCScript, GameNPCScript, NPCEventPayload } from '../types/npc-scripts'
 import type { GeneratedQuest } from '../types/content-generation'
+import type { NPCScript, GameNPCScript, NPCEventPayload } from '../types/npc-scripts'
 
 export function exportScriptForGame(script: NPCScript): GameNPCScript {
   return {
@@ -124,9 +124,9 @@ export function generateEventPayloadPreview(
         text: r.text,
         nextNodeId: r.nextNodeId,
         offersQuest: r.questReference,
-        requiresQuest: r.conditions?.find(c => c.type === 'HAS_QUEST')?.data.questId,
+        requiresQuest: r.conditions?.find(c => c.type === 'HAS_QUEST')?.data?.questId,
         completesQuest: r.effects?.find(e => e.type === 'COMPLETE_QUEST')?.data as string | undefined,
-        requiresLevel: r.conditions?.find(c => c.type === 'LEVEL_REQUIREMENT')?.data.level
+        requiresLevel: r.conditions?.find(c => c.type === 'LEVEL_REQUIREMENT')?.data?.level
       }))
     },
     questsAvailable,

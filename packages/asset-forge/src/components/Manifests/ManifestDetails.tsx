@@ -4,17 +4,17 @@
  */
 
 import { Copy, CheckCircle, Box, Sparkles } from 'lucide-react'
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 
-import type { AnyManifest } from '../../types/manifests'
 import { CDN_URL } from '../../config/api'
+import { NAVIGATION_VIEWS } from '../../constants/navigation'
+import { useNavigation } from '../../contexts/NavigationContext'
+import { useGenerationStore } from '../../store/useGenerationStore'
+import type { AnyManifest } from '../../types/manifests'
+import { manifestToGenerationConfig, hasValidModel, getGenerationButtonText } from '../../utils/manifest-to-generation-config'
 import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import ThreeViewer, { ThreeViewerRef } from '../shared/ThreeViewer'
-import { manifestToGenerationConfig, hasValidModel, getGenerationButtonText } from '../../utils/manifest-to-generation-config'
-import { useGenerationStore } from '../../store/useGenerationStore'
-import { useNavigation } from '../../contexts/NavigationContext'
-import { NAVIGATION_VIEWS } from '../../constants/navigation'
 
 interface ManifestDetailsProps {
   item: AnyManifest | null
@@ -28,21 +28,29 @@ export const ManifestDetails: React.FC<ManifestDetailsProps> = ({
   const [copied, setCopied] = useState(false)
   const [showModel, setShowModel] = useState(false)
   const viewerRef = useRef<ThreeViewerRef>(null)
-  
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const { navigateTo } = useNavigation()
-  const {
-    setGenerationType,
-    setAssetName,
-    setAssetType,
-    setDescription,
-    setGameStyle,
-    setEnableRigging,
-    setCharacterHeight,
-    setEnableRetexturing,
-    setEnableSprites,
-    setQuality,
-    resetForm
-  } = useGenerationStore()
+  // Selective subscriptions for performance
+  const setGenerationType = useGenerationStore(state => state.setGenerationType)
+  const setAssetName = useGenerationStore(state => state.setAssetName)
+  const setAssetType = useGenerationStore(state => state.setAssetType)
+  const setDescription = useGenerationStore(state => state.setDescription)
+  const setGameStyle = useGenerationStore(state => state.setGameStyle)
+  const setEnableRigging = useGenerationStore(state => state.setEnableRigging)
+  const setCharacterHeight = useGenerationStore(state => state.setCharacterHeight)
+  const setEnableRetexturing = useGenerationStore(state => state.setEnableRetexturing)
+  const setEnableSprites = useGenerationStore(state => state.setEnableSprites)
+  const setQuality = useGenerationStore(state => state.setQuality)
+  const resetForm = useGenerationStore(state => state.resetForm)
 
   if (!item) {
     return (
@@ -53,9 +61,17 @@ export const ManifestDetails: React.FC<ManifestDetailsProps> = ({
   }
 
   const handleCopy = () => {
+    // Clear any existing timeout
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current)
+    }
+
     navigator.clipboard.writeText(JSON.stringify(item, null, 2))
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    copyTimeoutRef.current = setTimeout(() => {
+      setCopied(false)
+      copyTimeoutRef.current = null
+    }, 2000)
   }
   
   const handleGenerateModel = () => {
@@ -185,11 +201,18 @@ export const ManifestDetails: React.FC<ManifestDetailsProps> = ({
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-text-primary">
-              {'name' in item ? item.name : 'id' in item ? item.id : 'Details'}
+              {(() => {
+                if ('name' in item && item.name) return String(item.name)
+                if ('id' in item && item.id) return String(item.id)
+                return 'Details'
+              })()}
             </h3>
-            {'id' in item && (
-              <p className="text-sm text-text-tertiary font-mono mt-1">{item.id}</p>
-            )}
+            {(() => {
+              if ('id' in item && item.id) {
+                return <p className="text-sm text-text-tertiary font-mono mt-1">{String(item.id)}</p>
+              }
+              return null
+            })()}
             {needsModel && (
               <div className="mt-2">
                 <Button
@@ -255,7 +278,7 @@ export const ManifestDetails: React.FC<ManifestDetailsProps> = ({
           /* Data Fields */
           <div className="p-4">
             <div className="space-y-4">
-              {Object.entries(item as Record<string, unknown>).map(([key, value]) => (
+              {Object.entries(item).map(([key, value]) => (
                 <div key={key} className="pb-3 border-b border-border-primary last:border-0">
                   <div className="flex items-start gap-3">
                     <span className="text-sm font-semibold text-text-secondary uppercase tracking-wide min-w-[120px]">

@@ -14,7 +14,7 @@ import {
   ExportOptionsPanel
 } from '@/components/Equipment'
 import { EquipmentViewerRef } from '@/components/Equipment/EquipmentViewer'
-import { useAssets } from '@/hooks'
+import { useAssets } from '@/hooks/useAssets'
 import { WeaponHandleDetector } from '@/services/processing/WeaponHandleDetector'
 import type { HandleDetectionResult } from '@/services/processing/WeaponHandleDetector'
 
@@ -88,10 +88,8 @@ export const EquipmentPage: React.FC = () => {
         console.warn('Weapon may not be normalized - grip not at origin')
       }
 
-      // Show success message
-      setTimeout(() => {
-        notify.success('Grip point detected! Weapon is normalized with grip at origin.')
-      }, 100)
+      // Show success message immediately
+      notify.success('Grip point detected! Weapon is normalized with grip at origin.')
 
     } catch (error) {
       console.error('Handle detection failed:', error)
@@ -115,7 +113,7 @@ export const EquipmentPage: React.FC = () => {
       handleDetectionResult
     }
 
-    // TODO: Save to equipment metadata
+    // GitHub Issue #6: Persist equipment attachment configuration to metadata
     console.log('Saving attachment configuration:', config)
   }
 

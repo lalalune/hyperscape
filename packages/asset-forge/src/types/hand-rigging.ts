@@ -1,15 +1,15 @@
-import React from 'react'
-import * as THREE from 'three'
+import type React from 'react'
+import type { Bone } from 'three'
 
 export interface HandBoneStructure {
-  wrist: THREE.Bone
-  palm?: THREE.Bone
+  wrist: Bone
+  palm?: Bone
   fingers: {
-    thumb: THREE.Bone[]
-    index: THREE.Bone[]
-    middle: THREE.Bone[]
-    ring: THREE.Bone[]
-    pinky: THREE.Bone[]
+    thumb: Bone[]
+    index: Bone[]
+    middle: Bone[]
+    ring: Bone[]
+    pinky: Bone[]
   }
 }
 
@@ -57,8 +57,8 @@ export interface HandRiggingOptions {
         right?: { screen: { x: number; y: number }; world: { x: number; y: number; z: number } }
       }
       debugCaptures?: Record<string, string>
-    }> 
-  }>
+    }>
+  } | null>
 }
 
 // Extended type for required options

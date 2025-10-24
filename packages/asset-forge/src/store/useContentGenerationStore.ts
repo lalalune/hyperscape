@@ -7,9 +7,13 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { GeneratedQuest, GeneratedNPC, LoreEntry, ContentPack } from '../types/content-generation'
+
 import { API_ENDPOINTS } from '../config/api'
 import { loadSeedContent } from '../services/SeedDataService'
+import type { GeneratedQuest, GeneratedNPC, LoreEntry, ContentPack } from '../types/content-generation'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('ContentGenerationStore')
 
 interface SelectedContext {
   items: string[]
@@ -191,14 +195,14 @@ export const useContentGenerationStore = create<ContentGenerationState>()(
       const data = await response.json()
       set({ playtesterPersonas: data.personas })
     } catch (error) {
-      console.error('Failed to load playtester personas:', error)
+      logger.error('Failed to load playtester personas', { error: (error as Error).message })
       set({ playtesterPersonas: null })
     }
   },
 
   loadSeedData: async () => {
     try {
-      console.log('Loading seed content...')
+      logger.info('Loading seed content')
       const seedData = await loadSeedContent()
 
       set({
@@ -207,15 +211,19 @@ export const useContentGenerationStore = create<ContentGenerationState>()(
         loreEntries: seedData.lore
       })
 
-      console.log(`Seed data loaded: ${seedData.quests.length} quests, ${seedData.npcs.length} NPCs, ${seedData.lore.length} lore entries`)
+      logger.info('Seed data loaded', {
+        quests: seedData.quests.length,
+        npcs: seedData.npcs.length,
+        lore: seedData.lore.length
+      })
     } catch (error) {
-      console.error('Failed to load seed data:', error)
+      logger.error('Failed to load seed data', { error: (error as Error).message })
     }
   },
 
   resetToSeedData: async () => {
     try {
-      console.log('Resetting to seed data...')
+      logger.info('Resetting to seed data')
 
       // Clear everything first
       set({
@@ -237,9 +245,9 @@ export const useContentGenerationStore = create<ContentGenerationState>()(
         loreEntries: seedData.lore
       })
 
-      console.log('✅ Reset to seed data complete')
+      logger.info('Reset to seed data complete')
     } catch (error) {
-      console.error('Failed to reset to seed data:', error)
+      logger.error('Failed to reset to seed data', { error: (error as Error).message })
     }
   },
 
@@ -261,7 +269,11 @@ export const useContentGenerationStore = create<ContentGenerationState>()(
     a.click()
     URL.revokeObjectURL(url)
 
-    console.log(`✅ Exported ${exportData.quests.length} quests, ${exportData.npcs.length} NPCs, ${exportData.loreEntries.length} lore entries`)
+    logger.info('Content exported', {
+      quests: exportData.quests.length,
+      npcs: exportData.npcs.length,
+      lore: exportData.loreEntries.length
+    })
   },
 
   importFromJSON: (jsonData) => {
@@ -270,13 +282,13 @@ export const useContentGenerationStore = create<ContentGenerationState>()(
 
       // Validate structure
       if (!parsed.quests || !parsed.npcs || !parsed.loreEntries) {
-        console.error('Invalid backup file: missing required fields')
+        logger.error('Invalid backup file: missing required fields')
         return false
       }
 
       // Validate arrays
       if (!Array.isArray(parsed.quests) || !Array.isArray(parsed.npcs) || !Array.isArray(parsed.loreEntries)) {
-        console.error('Invalid backup file: fields must be arrays')
+        logger.error('Invalid backup file: fields must be arrays')
         return false
       }
 
@@ -287,10 +299,14 @@ export const useContentGenerationStore = create<ContentGenerationState>()(
         loreEntries: parsed.loreEntries
       })
 
-      console.log(`✅ Imported ${parsed.quests.length} quests, ${parsed.npcs.length} NPCs, ${parsed.loreEntries.length} lore entries`)
+      logger.info('Content imported', {
+        quests: parsed.quests.length,
+        npcs: parsed.npcs.length,
+        lore: parsed.loreEntries.length
+      })
       return true
     } catch (error) {
-      console.error('Failed to import JSON:', error)
+      logger.error('Failed to import JSON', { error: (error as Error).message })
       return false
     }
   },
@@ -299,9 +315,9 @@ export const useContentGenerationStore = create<ContentGenerationState>()(
     // Clear localStorage
     try {
       localStorage.removeItem('content-generation-cache')
-      console.log('✅ Cache cleared from localStorage')
+      logger.info('Cache cleared from localStorage')
     } catch (error) {
-      console.error('Failed to clear cache:', error)
+      logger.error('Failed to clear cache', { error: (error as Error).message })
     }
 
     // Reset store to empty state
@@ -322,7 +338,7 @@ export const useContentGenerationStore = create<ContentGenerationState>()(
       }
     })
 
-    console.log('✅ Store reset to empty state')
+    logger.info('Store reset to empty state')
   },
 
   createPack: (name, description) => {

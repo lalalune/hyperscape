@@ -6,13 +6,13 @@
 import { BookOpen, Sparkles, Plus } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 
+import { manifestService } from '../../services/ManifestService'
 import type { LoreEntry } from '../../types/content-generation'
 import type { ItemManifest, MobManifest, NPCManifest } from '../../types/manifests'
-import { manifestService } from '../../services/ManifestService'
+import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
-import { Badge } from '../common/Badge'
 
 interface LoreGeneratorProps {
   onLoreGenerated: (lore: LoreEntry) => void
@@ -190,21 +190,21 @@ export const LoreGenerator: React.FC<LoreGeneratorProps> = ({
                 className="flex-1 px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary text-sm"
               >
                 <option value="">Link entity...</option>
-                <optgroup label="Items">
+                <optgroup key="items" label="Items">
                   {items.map((item) => (
                     <option key={item.id} value={`item:${item.id}`}>
                       {item.name}
                     </option>
                   ))}
                 </optgroup>
-                <optgroup label="Mobs">
+                <optgroup key="mobs" label="Mobs">
                   {mobs.map((mob) => (
                     <option key={mob.id} value={`mob:${mob.id}`}>
                       {mob.name}
                     </option>
                   ))}
                 </optgroup>
-                <optgroup label="NPCs">
+                <optgroup key="npcs" label="NPCs">
                   {npcs.map((npc) => (
                     <option key={npc.id} value={`npc:${npc.id}`}>
                       {npc.name}

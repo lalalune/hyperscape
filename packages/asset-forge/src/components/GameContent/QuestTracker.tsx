@@ -22,14 +22,15 @@
  * Used by: ContentGenerationPage "Tracking" tab
  */
 
-import React, { useState } from 'react'
 import { CheckCircle, Circle, Target, Trophy, Play, RotateCcw } from 'lucide-react'
-import { useQuestTrackingStore } from '../../store/useQuestTrackingStore'
+import React, { useState, useEffect, useRef } from 'react'
+
 import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { useQuestTrackingStore } from '../../store/useQuestTrackingStore'
 import { validateQuest } from '../../utils/quest-validator'
-import { Card } from '../common/Card'
-import { Button } from '../common/Button'
 import { Badge } from '../common/Badge'
+import { Button } from '../common/Button'
+import { Card } from '../common/Card'
 
 export const QuestTracker: React.FC = () => {
   const {
@@ -43,26 +44,41 @@ export const QuestTracker: React.FC = () => {
     getActiveQuestCount,
     getCompletedQuestCount
   } = useQuestTrackingStore()
-  
-  const { quests } = useContentGenerationStore()
+
+  // Selective subscription for performance
+  const quests = useContentGenerationStore(state => state.quests)
   const [simulatingQuest, setSimulatingQuest] = useState<string | null>(null)
-  
+  const simulateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (simulateTimeoutRef.current) {
+        clearTimeout(simulateTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const activeQuestsArray = Array.from(activeQuests.values())
   const availableQuests = quests.filter(q => !activeQuests.has(q.id) && !completedQuests.has(q.id))
-  
+
   const handleStartQuest = (questId: string) => {
     const quest = quests.find(q => q.id === questId)
     if (quest) {
       startQuest(quest)
     }
   }
-  
+
   const handleSimulateProgress = (questId: string) => {
     const progress = activeQuests.get(questId)
     if (!progress) return
-    
+
+    // Clear any existing timeout
+    if (simulateTimeoutRef.current) {
+      clearTimeout(simulateTimeoutRef.current)
+    }
+
     setSimulatingQuest(questId)
-    
+
     // Simulate completing one objective at a time
     const objectives = Object.entries(progress.objectives).filter(([_, obj]) => !obj.completed)
     if (objectives.length > 0) {
@@ -70,8 +86,11 @@ export const QuestTracker: React.FC = () => {
       const newCurrent = Math.min(obj.current + 1, obj.required)
       updateObjectiveProgress(questId, objId, newCurrent)
     }
-    
-    setTimeout(() => setSimulatingQuest(null), 300)
+
+    simulateTimeoutRef.current = setTimeout(() => {
+      setSimulatingQuest(null)
+      simulateTimeoutRef.current = null
+    }, 300)
   }
   
   const getObjectiveProgressPercent = (current: number, required: number): number => {

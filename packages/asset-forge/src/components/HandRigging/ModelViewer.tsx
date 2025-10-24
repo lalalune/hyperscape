@@ -1,5 +1,5 @@
 import { Box, Eye, Download, Hand, Package } from 'lucide-react'
-import React from 'react'
+import React, { memo } from 'react'
 
 import { cn } from '../../styles'
 import type { Asset } from '../../types'
@@ -14,13 +14,13 @@ interface ModelViewerProps {
   leftHandData: { bonesAdded: number } | null
   rightHandData: { bonesAdded: number } | null
   processingStage: string
-  viewerRef: React.RefObject<ThreeViewerRef>
+  viewerRef: React.RefObject<ThreeViewerRef | null>
   onToggleSkeleton: () => void
   onExport: () => void
   onModelLoad: (info: { vertices: number; faces: number; materials: number }) => void
 }
 
-export const ModelViewer: React.FC<ModelViewerProps> = ({
+export const ModelViewer: React.FC<ModelViewerProps> = memo(({
   modelUrl,
   selectedAvatar,
   showSkeleton,
@@ -125,4 +125,17 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
       </CardContent>
     </Card>
   )
-} 
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if these specific props change
+  return (
+    prevProps.modelUrl === nextProps.modelUrl &&
+    prevProps.showSkeleton === nextProps.showSkeleton &&
+    prevProps.canExport === nextProps.canExport &&
+    prevProps.processingStage === nextProps.processingStage &&
+    prevProps.leftHandData?.bonesAdded === nextProps.leftHandData?.bonesAdded &&
+    prevProps.rightHandData?.bonesAdded === nextProps.rightHandData?.bonesAdded &&
+    prevProps.selectedAvatar?.name === nextProps.selectedAvatar?.name
+  )
+})
+
+ModelViewer.displayName = 'ModelViewer'

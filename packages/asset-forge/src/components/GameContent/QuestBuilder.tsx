@@ -6,27 +6,29 @@
 import { Plus, Trash2, Target, Gift, Sparkles } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 
-import type { GeneratedQuest, QuestObjective, QuestReward } from '../../types/content-generation'
-import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../../types/manifests'
+import { API_ENDPOINTS } from '../../config/api'
 import { manifestService } from '../../services/ManifestService'
 import { useContentGenerationStore } from '../../store/useContentGenerationStore'
-import { useRelationshipsStore } from '../../store/useRelationshipsStore'
 import { usePreviewManifestsStore } from '../../store/usePreviewManifestsStore'
-import { API_ENDPOINTS } from '../../config/api'
+import { useRelationshipsStore } from '../../store/useRelationshipsStore'
+import type { GeneratedQuest, QuestObjective, QuestReward } from '../../types/content-generation'
+import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../../types/manifests'
+import type { ManifestGap } from '../../types/preview-manifests'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
-import { Badge } from '../common/Badge'
-import { ActionHandlerSelector } from './ActionHandlerSelector'
 import { ModelSelector } from '../common/ModelSelector'
+
+import { ActionHandlerSelector } from './ActionHandlerSelector'
 
 interface QuestBuilderProps {
   onQuestGenerated: (quest: GeneratedQuest) => void
 }
 
 export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) => {
-  // Get store data for context-aware generation
-  const { selectedContext, quests: existingQuests } = useContentGenerationStore()
+  // Get store data for context-aware generation - selective subscriptions
+  const selectedContext = useContentGenerationStore(state => state.selectedContext)
+  const existingQuests = useContentGenerationStore(state => state.quests)
   const { relationships } = useRelationshipsStore()
   const { addGap, addPreviews } = usePreviewManifestsStore()
 
@@ -185,7 +187,7 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
       // Handle manifest gaps and suggestions
       if (data.manifestGaps && data.manifestGaps.length > 0) {
         console.log(`[QuestBuilder] Found ${data.manifestGaps.length} manifest gaps`)
-        data.manifestGaps.forEach((gap: any) => addGap(gap))
+        data.manifestGaps.forEach((gap: ManifestGap) => addGap(gap))
       }
 
       if (data.manifestSuggestions && data.manifestSuggestions.length > 0) {
@@ -446,7 +448,7 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
                       <option value="">Select Mob...</option>
                       {mobs.map((mob) => (
                         <option key={mob.id} value={mob.id}>
-                          {mob.name} (Lv{mob.stats.level}) - {mob.xpReward} XP
+                          {mob.name} (Lv{mob.stats?.level || mob.level || '?'}) - {mob.xpReward || 0} XP
                         </option>
                       ))}
                     </select>
@@ -612,7 +614,7 @@ export const QuestBuilder: React.FC<QuestBuilderProps> = ({ onQuestGenerated }) 
             </div>
             <div className="space-y-2">
               {rewards.items?.map((rewardItem, idx) => (
-                <div key={idx} className="space-y-2">
+                <div key={rewardItem.itemId || `reward-${idx}`} className="space-y-2">
                   <div className="flex items-center gap-2">
                     <select
                       value={rewardItem.itemId}

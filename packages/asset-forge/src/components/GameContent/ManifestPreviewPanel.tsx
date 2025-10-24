@@ -3,15 +3,16 @@
  * Display and manage AI-suggested manifest items before approval
  */
 
+import { Package, Swords, Users, Filter, ChevronDown, AlertCircle } from 'lucide-react'
 import React, { useState, useMemo, useCallback } from 'react'
 
-import type { AnyPreviewManifest, ManifestGap } from '../../types/preview-manifests'
 import { usePreviewManifestsStore } from '../../store/usePreviewManifestsStore'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common/Card'
 import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
-import { PreviewCard } from './PreviewCard'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common/Card'
+
 import { BatchPreview } from './BatchPreview'
+import { PreviewCard } from './PreviewCard'
 
 type ManifestFilter = 'all' | 'items' | 'mobs' | 'npcs'
 type SuggestionFilter = 'all' | 'new' | 'reuse' | 'conflicts'

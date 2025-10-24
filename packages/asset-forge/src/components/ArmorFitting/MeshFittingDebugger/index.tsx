@@ -2,14 +2,17 @@ import { useGLTF } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { X, Play, Grid3x3, Link, Activity, RotateCcw, Pause, Box, Sliders, Download, Wrench, ChevronDown, Settings, FileDown } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
-import * as THREE from 'three'
+import {
+  Box3Helper, BufferGeometry, Euler, Group, Material, Mesh, Object3D,
+  Scene as ThreeScene, SkinnedMesh, Vector3
+} from 'three'
 
-import { useAssets } from '../../../hooks/useAssets'
-import { ArmorFittingService } from '../../../services/fitting/ArmorFittingService'
-import { MeshFittingService } from '../../../services/fitting/MeshFittingService'
-import { useDebuggerStore } from '../../../store/useDebuggerStore'
-import { cn } from '../../../styles'
-import { ExtendedMesh } from '../../../types'
+import { useAssets } from '@/hooks/useAssets'
+import { ArmorFittingService } from '@/services/fitting/ArmorFittingService'
+import { MeshFittingService } from '@/services/fitting/MeshFittingService'
+import { useDebuggerStore } from '@/store/useDebuggerStore'
+import { cn } from '@/styles'
+import { ExtendedMesh } from '@/types'
 import { Checkbox } from '../../common'
 
 import { Scene, RangeInput } from './components'
@@ -21,6 +24,13 @@ import { selectClassName } from './utils'
 export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     // Get assets from the API
     const { assets, loading: _loading } = useAssets()
+    const isMountedRef = useRef(true)
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false
+        }
+    }, [])
 
     // Transform assets into the format expected by the component
     const availableAvatars = React.useMemo(() => {
@@ -159,22 +169,22 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
     // Refs (keep these as they're for Three.js objects)
     const fittingService = useRef(new MeshFittingService())
     const armorFittingService = useRef(new ArmorFittingService())
-    const sceneRef = useRef<THREE.Scene | null>(null)
-    const avatarMeshRef = useRef<THREE.SkinnedMesh | null>(null)
+    const sceneRef = useRef<ThreeScene | null>(null)
+    const avatarMeshRef = useRef<SkinnedMesh | null>(null)
     const armorMeshRef = useRef<ExtendedMesh | null>(null)
     const helmetMeshRef = useRef<ExtendedMesh | null>(null)
-    const originalArmorGeometryRef = useRef<THREE.BufferGeometry | null>(null)
+    const originalArmorGeometryRef = useRef<BufferGeometry | null>(null)
     const originalHelmetTransformRef = useRef<{
-        position: THREE.Vector3,
-        rotation: THREE.Euler,
-        scale: THREE.Vector3
+        position: Vector3,
+        rotation: Euler,
+        scale: Vector3
     } | null>(null)
-    const debugArrowGroupRef = useRef<THREE.Group | null>(null)
-    const headBoundsHelperRef = useRef<THREE.Box3Helper | null>(null)
-    const hullMeshRef = useRef<THREE.Mesh | null>(null)
+    const debugArrowGroupRef = useRef<Group | null>(null)
+    const headBoundsHelperRef = useRef<Box3Helper | null>(null)
+    const hullMeshRef = useRef<Mesh | null>(null)
 
     // Temporary state for skinned armor mesh (keep as local state for now)
-    const [/* skinnedArmorMesh */, setSkinnedArmorMesh] = useState<THREE.SkinnedMesh | null>(null)
+    const [/* skinnedArmorMesh */, setSkinnedArmorMesh] = useState<SkinnedMesh | null>(null)
     const [showExportDropdown, setShowExportDropdown] = useState(false)
     const [showDebugOptions, setShowDebugOptions] = useState(false)
 
@@ -323,15 +333,19 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         
         // Clear any errors
         setError('')
-        
+
         // Force a re-render by toggling a dummy state
         setShowDebugOptions(prev => {
             const newValue = !prev
             // Immediately set it back to maintain the current state
-            setTimeout(() => setShowDebugOptions(prev), 0)
+            setTimeout(() => {
+                if (isMountedRef.current) {
+                    setShowDebugOptions(prev)
+                }
+            }, 0)
             return newValue
         })
-        
+
         console.log('=== FULL RESET COMPLETE ===')
     }
 
@@ -345,7 +359,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
         // Clean up meshes from the scene based on what we're leaving
         if (sceneRef.current) {
             const scene = sceneRef.current
-            const objectsToRemove: THREE.Object3D[] = []
+            const objectsToRemove: Object3D[] = []
             
             // Traverse scene and collect objects to remove
             scene.traverse((obj) => {
@@ -382,11 +396,11 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                 // Dispose of geometry and materials
                 obj.traverse((child) => {
                     if ('geometry' in child && child.geometry) {
-                        (child.geometry as THREE.BufferGeometry).dispose()
+                        (child.geometry as BufferGeometry).dispose()
                     }
                     if ('material' in child && child.material) {
                         const materials = Array.isArray(child.material) ? child.material : [child.material]
-                        materials.forEach((m: THREE.Material) => m.dispose())
+                        materials.forEach((m: Material) => m.dispose())
                     }
                 })
             })

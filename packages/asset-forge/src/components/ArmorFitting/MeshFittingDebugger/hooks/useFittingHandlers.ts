@@ -1,9 +1,9 @@
 import { MutableRefObject } from 'react'
-import * as THREE from 'three'
+import { Box3Helper, BufferGeometry, Euler, Group, Mesh, Scene, SkinnedMesh, Vector3 } from 'three'
 
-import { ArmorFittingService } from '../../../../services/fitting/ArmorFittingService'
-import { MeshFittingService, MeshFittingParameters } from '../../../../services/fitting/MeshFittingService'
-import { ExtendedMesh } from '../../../../types'
+import { ArmorFittingService } from '@/services/fitting/ArmorFittingService'
+import { MeshFittingService, MeshFittingParameters } from '@/services/fitting/MeshFittingService'
+import { ExtendedMesh } from '@/types'
 
 // Import modular hooks
 import { useArmorFitting } from './useArmorFitting'
@@ -13,19 +13,19 @@ import { useResetHandlers } from './useResetHandlers'
 
 interface FittingHandlersProps {
     // Refs
-    sceneRef: MutableRefObject<THREE.Scene | null>
-    avatarMeshRef: MutableRefObject<THREE.SkinnedMesh | null>
+    sceneRef: MutableRefObject<Scene | null>
+    avatarMeshRef: MutableRefObject<SkinnedMesh | null>
     armorMeshRef: MutableRefObject<ExtendedMesh | null>
     helmetMeshRef: MutableRefObject<ExtendedMesh | null>
-    originalArmorGeometryRef: MutableRefObject<THREE.BufferGeometry | null>
+    originalArmorGeometryRef: MutableRefObject<BufferGeometry | null>
     originalHelmetTransformRef: MutableRefObject<{
-        position: THREE.Vector3
-        rotation: THREE.Euler
-        scale: THREE.Vector3
+        position: Vector3
+        rotation: Euler
+        scale: Vector3
     } | null>
-    debugArrowGroupRef: MutableRefObject<THREE.Group | null>
-    headBoundsHelperRef: MutableRefObject<THREE.Box3Helper | null>
-    hullMeshRef: MutableRefObject<THREE.Mesh | null>
+    debugArrowGroupRef: MutableRefObject<Group | null>
+    headBoundsHelperRef: MutableRefObject<Box3Helper | null>
+    hullMeshRef: MutableRefObject<Mesh | null>
     fittingService: MutableRefObject<MeshFittingService>
     armorFittingService: MutableRefObject<ArmorFittingService>
     
@@ -35,8 +35,8 @@ interface FittingHandlersProps {
     setIsArmorBound: (value: boolean) => void
     setIsHelmetFitted: (value: boolean) => void
     setIsHelmetAttached: (value: boolean) => void
-    setBoundArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
-    setSkinnedArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
+    setBoundArmorMesh: (mesh: SkinnedMesh | null) => void
+    setSkinnedArmorMesh: (mesh: SkinnedMesh | null) => void
     setError: (value: string) => void
     resetProcessingStates: () => void
     

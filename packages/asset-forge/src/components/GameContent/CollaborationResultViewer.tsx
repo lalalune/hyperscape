@@ -9,9 +9,9 @@ import { Download, MessageSquare, Heart, FileJson, CheckCircle } from 'lucide-re
 import React, { useState } from 'react'
 
 import type { CollaborationSession } from '../../types/multi-agent'
+import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
-import { Badge } from '../common/Badge'
 
 interface CollaborationResultViewerProps {
   session: CollaborationSession

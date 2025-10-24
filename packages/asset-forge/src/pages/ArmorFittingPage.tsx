@@ -15,7 +15,7 @@ import {
   MeshFittingDebugger
 } from '@/components/ArmorFitting'
 import { ErrorNotification, EmptyState } from '@/components/common'
-import { useAssets } from '@/hooks'
+import { useAssets } from '@/hooks/useAssets'
 
 
 

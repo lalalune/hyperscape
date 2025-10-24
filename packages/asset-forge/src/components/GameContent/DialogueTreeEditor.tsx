@@ -14,13 +14,14 @@
  * Used by: NPCScriptBuilder component
  */
 
-import React from 'react'
 import { Plus, Trash2, MessageSquare, ArrowRight } from 'lucide-react'
+import React, { useMemo } from 'react'
+
 import type { DialogueNode, DialogueResponse } from '../../types/npc-scripts'
+import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
 import { Input } from '../common/Input'
-import { Badge } from '../common/Badge'
 
 interface DialogueTreeEditorProps {
   nodes: DialogueNode[]
@@ -35,7 +36,142 @@ interface DialogueTreeEditorProps {
   onResponseDelete: (nodeId: string, responseId: string) => void
 }
 
-export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = ({
+// Memoized dialogue node item component
+const DialogueNodeItem = React.memo<{
+  node: DialogueNode
+  isSelected: boolean
+  isEntry: boolean
+  onSelect: () => void
+  onDelete: () => void
+}>(({ node, isSelected, isEntry, onSelect, onDelete }) => {
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full p-3 text-left rounded-lg border transition-all ${
+        isSelected
+          ? 'border-primary bg-primary bg-opacity-10'
+          : 'border-border-primary bg-bg-tertiary hover:bg-bg-secondary'
+      }`}
+    >
+      <div className="flex items-start justify-between mb-1">
+        <Badge variant={isEntry ? 'primary' : 'secondary'} className="text-xs">
+          {isEntry ? '▶ Start' : node.id}
+        </Badge>
+        {isSelected && !isEntry && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+            className="text-text-tertiary hover:text-red-400 cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation()
+                onDelete()
+              }
+            }}
+          >
+            <Trash2 size={14} />
+          </div>
+        )}
+      </div>
+      <p className="text-sm text-text-primary line-clamp-2">{node.text || 'Empty node'}</p>
+      <p className="text-xs text-text-tertiary mt-1">{node.responses.length} responses</p>
+    </button>
+  )
+}, (prev, next) => {
+  return prev.node.id === next.node.id &&
+    prev.isSelected === next.isSelected &&
+    prev.isEntry === next.isEntry &&
+    prev.node.text === next.node.text &&
+    prev.node.responses.length === next.node.responses.length
+})
+
+DialogueNodeItem.displayName = 'DialogueNodeItem'
+
+// Memoized response item component
+const ResponseItem = React.memo<{
+  response: DialogueResponse
+  nodes: DialogueNode[]
+  onUpdate: (responseId: string, updates: Partial<DialogueResponse>) => void
+  onDelete: (responseId: string) => void
+}>(({ response, nodes, onUpdate, onDelete }) => {
+  const handleTextChange = useMemo(() => (e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdate(response.id, { text: e.target.value })
+  }, [response.id, onUpdate])
+
+  const handleNextNodeChange = useMemo(() => (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onUpdate(response.id, { nextNodeId: e.target.value })
+  }, [response.id, onUpdate])
+
+  const handleDelete = useMemo(() => () => {
+    onDelete(response.id)
+  }, [response.id, onDelete])
+
+  const handleKeyDown = useMemo(() => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      onDelete(response.id)
+    }
+  }, [response.id, onDelete])
+
+  return (
+    <Card key={response.id} className="p-3 bg-bg-tertiary">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Input
+            value={response.text}
+            onChange={handleTextChange}
+            placeholder="Player response..."
+            className="flex-1 text-xs"
+          />
+          <div
+            onClick={handleDelete}
+            className="text-text-tertiary hover:text-red-400 cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+          >
+            <Trash2 size={14} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <ArrowRight size={14} className="text-text-tertiary" />
+          <select
+            value={response.nextNodeId}
+            onChange={handleNextNodeChange}
+            className="flex-1 px-2 py-1 bg-bg-secondary border border-border-primary rounded text-text-primary text-xs"
+          >
+            <option value="">Select next node...</option>
+            {nodes.map(node => (
+              <option key={node.id} value={node.id}>
+                {node.id}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {response.questReference && (
+          <Badge variant="secondary" className="text-xs">
+            Quest: {response.questReference}
+          </Badge>
+        )}
+      </div>
+    </Card>
+  )
+}, (prev, next) => {
+  return prev.response.id === next.response.id &&
+    prev.response.text === next.response.text &&
+    prev.response.nextNodeId === next.response.nextNodeId &&
+    prev.response.questReference === next.response.questReference &&
+    prev.nodes.length === next.nodes.length
+})
+
+ResponseItem.displayName = 'ResponseItem'
+
+export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = React.memo(({
   nodes,
   entryNodeId,
   selectedNodeId,
@@ -47,7 +183,7 @@ export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = ({
   onResponseUpdate,
   onResponseDelete
 }) => {
-  const selectedNode = nodes.find(n => n.id === selectedNodeId)
+  const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId])
   
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -66,42 +202,14 @@ export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = ({
         
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {nodes.map((node) => (
-            <button
+            <DialogueNodeItem
               key={node.id}
-              onClick={() => onNodeSelect(node.id)}
-              className={`w-full p-3 text-left rounded-lg border transition-all ${
-                selectedNodeId === node.id
-                  ? 'border-primary bg-primary bg-opacity-10'
-                  : 'border-border-primary bg-bg-tertiary hover:bg-bg-secondary'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-1">
-                <Badge variant={node.id === entryNodeId ? 'primary' : 'secondary'} className="text-xs">
-                  {node.id === entryNodeId ? '▶ Start' : node.id}
-                </Badge>
-                {selectedNodeId === node.id && node.id !== entryNodeId && (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onNodeDelete(node.id)
-                    }}
-                    className="text-text-tertiary hover:text-red-400 cursor-pointer"
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.stopPropagation()
-                        onNodeDelete(node.id)
-                      }
-                    }}
-                  >
-                    <Trash2 size={14} />
-                  </div>
-                )}
-              </div>
-              <p className="text-sm text-text-primary line-clamp-2">{node.text || 'Empty node'}</p>
-              <p className="text-xs text-text-tertiary mt-1">{node.responses.length} responses</p>
-            </button>
+              node={node}
+              isSelected={selectedNodeId === node.id}
+              isEntry={node.id === entryNodeId}
+              onSelect={() => onNodeSelect(node.id)}
+              onDelete={() => onNodeDelete(node.id)}
+            />
           ))}
           
           {nodes.length === 0 && (
@@ -153,57 +261,14 @@ export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = ({
               </div>
               
               <div className="space-y-2">
-                {selectedNode.responses.map((response, _idx) => (
-                  <Card key={response.id} className="p-3 bg-bg-tertiary">
-                    <div className="space-y-2">
-                      {/* Response Text */}
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={response.text}
-                          onChange={(e) => onResponseUpdate(selectedNode.id, response.id, { text: e.target.value })}
-                          placeholder="Player response..."
-                          className="flex-1 text-xs"
-                        />
-                        <div
-                          onClick={() => onResponseDelete(selectedNode.id, response.id)}
-                          className="text-text-tertiary hover:text-red-400 cursor-pointer"
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              onResponseDelete(selectedNode.id, response.id)
-                            }
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </div>
-                      </div>
-                      
-                      {/* Next Node */}
-                      <div className="flex items-center gap-2">
-                        <ArrowRight size={14} className="text-text-tertiary" />
-                        <select
-                          value={response.nextNodeId}
-                          onChange={(e) => onResponseUpdate(selectedNode.id, response.id, { nextNodeId: e.target.value })}
-                          className="flex-1 px-2 py-1 bg-bg-secondary border border-border-primary rounded text-text-primary text-xs"
-                        >
-                          <option value="">Select next node...</option>
-                          {nodes.map(node => (
-                            <option key={node.id} value={node.id}>
-                              {node.id}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {/* Quest Reference (if applicable) */}
-                      {response.questReference && (
-                        <Badge variant="secondary" className="text-xs">
-                          Quest: {response.questReference}
-                        </Badge>
-                      )}
-                    </div>
-                  </Card>
+                {selectedNode.responses.map((response) => (
+                  <ResponseItem
+                    key={response.id}
+                    response={response}
+                    nodes={nodes}
+                    onUpdate={(responseId, updates) => onResponseUpdate(selectedNode.id, responseId, updates)}
+                    onDelete={(responseId) => onResponseDelete(selectedNode.id, responseId)}
+                  />
                 ))}
                 
                 {selectedNode.responses.length === 0 && (
@@ -222,5 +287,11 @@ export const DialogueTreeEditor: React.FC<DialogueTreeEditorProps> = ({
       </Card>
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.nodes === nextProps.nodes &&
+    prevProps.entryNodeId === nextProps.entryNodeId &&
+    prevProps.selectedNodeId === nextProps.selectedNodeId
+  )
+})
 

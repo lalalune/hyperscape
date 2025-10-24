@@ -13,6 +13,8 @@
  */
 
 import { create } from 'zustand'
+
+import { voiceGenerationService } from '../services/VoiceGenerationService'
 import type {
   ElevenLabsVoice,
   NPCVoiceConfig,
@@ -21,7 +23,9 @@ import type {
   VoiceCacheEntry
 } from '../types/voice-generation'
 import { VOICE_CACHE_TTL, VOICE_CACHE_KEY } from '../types/voice-generation'
-import { voiceGenerationService } from '../services/VoiceGenerationService'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('VoiceGenerationStore')
 
 interface VoiceGenerationState {
   // Available voices from ElevenLabs library
@@ -107,7 +111,7 @@ export const useVoiceGenerationStore = create<VoiceGenerationState>((set, get) =
       if (cached) {
         const entry: VoiceCacheEntry = JSON.parse(cached)
         if (Date.now() < entry.expiresAt) {
-          console.log('[VoiceStore] Using cached voices (age:', Math.floor((Date.now() - entry.cachedAt) / 1000), 'seconds)')
+          logger.info('Using cached voices', { age: Math.floor((Date.now() - entry.cachedAt) / 1000) })
           set({
             availableVoices: entry.voices,
             voicesLoaded: true,
@@ -116,11 +120,11 @@ export const useVoiceGenerationStore = create<VoiceGenerationState>((set, get) =
           })
           return
         } else {
-          console.log('[VoiceStore] Cache expired, fetching fresh voices')
+          logger.info('Cache expired, fetching fresh voices')
         }
       }
     } catch (error) {
-      console.error('[VoiceStore] Error reading cache:', error)
+      logger.error('Error reading cache', { error: (error as Error).message })
     }
 
     // Fetch fresh data
@@ -135,7 +139,7 @@ export const useVoiceGenerationStore = create<VoiceGenerationState>((set, get) =
         expiresAt: Date.now() + VOICE_CACHE_TTL
       }
       localStorage.setItem(VOICE_CACHE_KEY, JSON.stringify(cacheEntry))
-      console.log('[VoiceStore] Cached', voices.length, 'voices (TTL: 15 minutes)')
+      logger.info('Cached voices', { count: voices.length, ttl: '15 minutes' })
 
       set({
         availableVoices: voices,
@@ -144,14 +148,14 @@ export const useVoiceGenerationStore = create<VoiceGenerationState>((set, get) =
         voicesLoading: false
       })
     } catch (error) {
-      console.error('[VoiceStore] Error fetching voices:', error)
+      logger.error('Error fetching voices', { error: (error as Error).message })
       set({ voicesLoading: false })
       throw error
     }
   },
 
   clearVoiceCache: async () => {
-    console.log('[VoiceStore] Clearing cache and fetching fresh voices')
+    logger.info('Clearing cache and fetching fresh voices')
     localStorage.removeItem(VOICE_CACHE_KEY)
     set({ voicesCachedAt: null })
     await get().fetchVoicesWithCache()

@@ -4,7 +4,7 @@ import {
   FileText, Brain, Camera, Layers,
   Loader2, User
 } from 'lucide-react'
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo } from 'react'
 
 
 import { useGenerationStore } from '../store'
@@ -38,11 +38,11 @@ import {
 import {
   Button, Card, CardContent
 } from '@/components/common'
-import { useGameStylePrompts, useAssetTypePrompts, useMaterialPromptTemplates } from '@/hooks'
-import { usePipelineStatus } from '@/hooks'
-import { useMaterialPresets } from '@/hooks'
+import { useGameStylePrompts, useAssetTypePrompts, useMaterialPromptTemplates } from '@/hooks/usePrompts'
+import { usePipelineStatus } from '@/hooks/usePipelineStatus'
+import { useMaterialPresets } from '@/hooks/useMaterialPresets'
 import { Asset, AssetService } from '@/services/api/AssetService'
-import { GenerationAPIClient } from '@/services/api/GenerationAPIClient'
+import { pipelinePollingService } from '@/services/PipelinePollingService'
 
 interface GenerationPageProps {
   onClose?: () => void
@@ -51,115 +51,111 @@ interface GenerationPageProps {
 }
 
 export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClose }) => {
-  const [apiClient] = useState(() => new GenerationAPIClient())
+  // Get all state and actions from the store - selective subscriptions for performance
+  // UI State
+  const generationType = useGenerationStore(state => state.generationType)
+  const activeView = useGenerationStore(state => state.activeView)
+  const showAdvancedPrompts = useGenerationStore(state => state.showAdvancedPrompts)
+  const showAssetTypeEditor = useGenerationStore(state => state.showAssetTypeEditor)
+  const editMaterialPrompts = useGenerationStore(state => state.editMaterialPrompts)
+  const showDeleteConfirm = useGenerationStore(state => state.showDeleteConfirm)
 
-  // Get all state and actions from the store
-  const {
-    // UI State
-    generationType,
-    activeView,
-    showAdvancedPrompts,
-    showAssetTypeEditor,
-    editMaterialPrompts,
-    showDeleteConfirm,
+  // Material State
+  const materialPresets = useGenerationStore(state => state.materialPresets)
+  const isLoadingMaterials = useGenerationStore(state => state.isLoadingMaterials)
+  const editingPreset = useGenerationStore(state => state.editingPreset)
 
-    // Material State
-    materialPresets,
-    isLoadingMaterials,
-    editingPreset,
+  // Form State
+  const assetName = useGenerationStore(state => state.assetName)
+  const assetType = useGenerationStore(state => state.assetType)
+  const description = useGenerationStore(state => state.description)
+  const gameStyle = useGenerationStore(state => state.gameStyle)
+  const customStyle = useGenerationStore(state => state.customStyle)
 
-    // Form State
-    assetName,
-    assetType,
-    description,
-    gameStyle,
-    customStyle,
+  // Custom Prompts
+  const customGamePrompt = useGenerationStore(state => state.customGamePrompt)
+  const customAssetTypePrompt = useGenerationStore(state => state.customAssetTypePrompt)
 
-    // Custom Prompts
-    customGamePrompt,
-    customAssetTypePrompt,
+  // Asset Type Management
+  const customAssetTypes = useGenerationStore(state => state.customAssetTypes)
+  const assetTypePrompts = useGenerationStore(state => state.assetTypePrompts)
 
-    // Asset Type Management
-    customAssetTypes,
-    assetTypePrompts,
+  // Pipeline Configuration
+  const useGPT4Enhancement = useGenerationStore(state => state.useGPT4Enhancement)
+  const enableRetexturing = useGenerationStore(state => state.enableRetexturing)
+  const enableSprites = useGenerationStore(state => state.enableSprites)
+  const quality = useGenerationStore(state => state.quality)
 
-    // Pipeline Configuration
-    useGPT4Enhancement,
-    enableRetexturing,
-    enableSprites,
-    quality,
+  // Avatar Configuration
+  const enableRigging = useGenerationStore(state => state.enableRigging)
+  const characterHeight = useGenerationStore(state => state.characterHeight)
 
-    // Avatar Configuration
-    enableRigging,
-    characterHeight,
-    
-    // Reference image state
-    referenceImageMode,
-    referenceImageSource,
-    referenceImageUrl,
-    referenceImageDataUrl,
+  // Reference image state
+  const referenceImageMode = useGenerationStore(state => state.referenceImageMode)
+  const referenceImageSource = useGenerationStore(state => state.referenceImageSource)
+  const referenceImageUrl = useGenerationStore(state => state.referenceImageUrl)
+  const referenceImageDataUrl = useGenerationStore(state => state.referenceImageDataUrl)
 
-    // Material Configuration
-    selectedMaterials,
-    customMaterials,
-    materialPromptOverrides,
+  // Material Configuration
+  const selectedMaterials = useGenerationStore(state => state.selectedMaterials)
+  const customMaterials = useGenerationStore(state => state.customMaterials)
+  const materialPromptOverrides = useGenerationStore(state => state.materialPromptOverrides)
 
-    // Pipeline State
-    isGenerating,
-    isGeneratingSprites,
-    pipelineStages,
+  // Pipeline State
+  const isGenerating = useGenerationStore(state => state.isGenerating)
+  const isGeneratingSprites = useGenerationStore(state => state.isGeneratingSprites)
+  const pipelineStages = useGenerationStore(state => state.pipelineStages)
 
-    // Results State
-    generatedAssets,
-    selectedAsset,
+  // Results State
+  const generatedAssets = useGenerationStore(state => state.generatedAssets)
+  const selectedAsset = useGenerationStore(state => state.selectedAsset)
 
-    // Actions
-    setGenerationType,
-    setActiveView,
-    setShowAdvancedPrompts,
-    setShowAssetTypeEditor,
-    setEditMaterialPrompts,
-    setShowDeleteConfirm,
-    setMaterialPresets,
-    setIsLoadingMaterials,
-    setEditingPreset,
-    setAssetName,
-    setAssetType,
-    setDescription,
-    setGameStyle,
-    setCustomStyle,
-    setCustomGamePrompt,
-    setCustomAssetTypePrompt,
-    setCustomAssetTypes,
-    setAssetTypePrompts,
-    addCustomAssetType,
-    setUseGPT4Enhancement,
-    setEnableRetexturing,
-    setEnableSprites,
-    setQuality,
-    setEnableRigging,
-    setCharacterHeight,
-    setReferenceImageMode,
-    setReferenceImageSource,
-    setReferenceImageUrl,
-    setReferenceImageDataUrl,
-    setSelectedMaterials,
-    setCustomMaterials,
-    setMaterialPromptOverrides,
-    addCustomMaterial,
-    toggleMaterialSelection,
-    setIsGenerating,
-    setCurrentPipelineId,
-    setIsGeneratingSprites,
-    setModelLoadError,
-    setIsModelLoading,
-    setPipelineStages,
-    setGeneratedAssets,
-    setSelectedAsset,
-    resetForm,
-    resetPipeline,
-    initializePipelineStages
-  } = useGenerationStore()
+  // Actions
+  const setGenerationType = useGenerationStore(state => state.setGenerationType)
+  const setActiveView = useGenerationStore(state => state.setActiveView)
+  const setShowAdvancedPrompts = useGenerationStore(state => state.setShowAdvancedPrompts)
+  const setShowAssetTypeEditor = useGenerationStore(state => state.setShowAssetTypeEditor)
+  const setEditMaterialPrompts = useGenerationStore(state => state.setEditMaterialPrompts)
+  const setShowDeleteConfirm = useGenerationStore(state => state.setShowDeleteConfirm)
+  const setMaterialPresets = useGenerationStore(state => state.setMaterialPresets)
+  const setIsLoadingMaterials = useGenerationStore(state => state.setIsLoadingMaterials)
+  const setEditingPreset = useGenerationStore(state => state.setEditingPreset)
+  const setAssetName = useGenerationStore(state => state.setAssetName)
+  const setAssetType = useGenerationStore(state => state.setAssetType)
+  const setDescription = useGenerationStore(state => state.setDescription)
+  const setGameStyle = useGenerationStore(state => state.setGameStyle)
+  const setCustomStyle = useGenerationStore(state => state.setCustomStyle)
+  const setCustomGamePrompt = useGenerationStore(state => state.setCustomGamePrompt)
+  const setCustomAssetTypePrompt = useGenerationStore(state => state.setCustomAssetTypePrompt)
+  const setCustomAssetTypes = useGenerationStore(state => state.setCustomAssetTypes)
+  const setAssetTypePrompts = useGenerationStore(state => state.setAssetTypePrompts)
+  const addCustomAssetType = useGenerationStore(state => state.addCustomAssetType)
+  const setUseGPT4Enhancement = useGenerationStore(state => state.setUseGPT4Enhancement)
+  const setEnableRetexturing = useGenerationStore(state => state.setEnableRetexturing)
+  const setEnableSprites = useGenerationStore(state => state.setEnableSprites)
+  const setQuality = useGenerationStore(state => state.setQuality)
+  const setEnableRigging = useGenerationStore(state => state.setEnableRigging)
+  const setCharacterHeight = useGenerationStore(state => state.setCharacterHeight)
+  const setReferenceImageMode = useGenerationStore(state => state.setReferenceImageMode)
+  const setReferenceImageSource = useGenerationStore(state => state.setReferenceImageSource)
+  const setReferenceImageUrl = useGenerationStore(state => state.setReferenceImageUrl)
+  const setReferenceImageDataUrl = useGenerationStore(state => state.setReferenceImageDataUrl)
+  const setSelectedMaterials = useGenerationStore(state => state.setSelectedMaterials)
+  const setCustomMaterials = useGenerationStore(state => state.setCustomMaterials)
+  const setMaterialPromptOverrides = useGenerationStore(state => state.setMaterialPromptOverrides)
+  const addCustomMaterial = useGenerationStore(state => state.addCustomMaterial)
+  const toggleMaterialSelection = useGenerationStore(state => state.toggleMaterialSelection)
+  const setIsGenerating = useGenerationStore(state => state.setIsGenerating)
+  const setCurrentPipelineId = useGenerationStore(state => state.setCurrentPipelineId)
+  const setIsGeneratingSprites = useGenerationStore(state => state.setIsGeneratingSprites)
+  const setModelLoadError = useGenerationStore(state => state.setModelLoadError)
+  const setIsModelLoading = useGenerationStore(state => state.setIsModelLoading)
+  const setPipelineStages = useGenerationStore(state => state.setPipelineStages)
+  const setGeneratedAssets = useGenerationStore(state => state.setGeneratedAssets)
+  const setSelectedAsset = useGenerationStore(state => state.setSelectedAsset)
+  const resetForm = useGenerationStore(state => state.resetForm)
+  const resetPipeline = useGenerationStore(state => state.resetPipeline)
+  const initializePipelineStages = useGenerationStore(state => state.initializePipelineStages)
 
   // Load prompts
   const { prompts: gameStylePrompts, loading: gameStyleLoading, saveCustomGameStyle, deleteCustomGameStyle } = useGameStylePrompts()
@@ -380,7 +376,7 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
   }, [activeView, generatedAssets, selectedAsset, setGeneratedAssets, setSelectedAsset])
 
   // Use the pipeline status hook
-  usePipelineStatus({ apiClient })
+  usePipelineStatus({})
 
   // Use the material presets hook
   const { handleSaveCustomMaterials, handleUpdatePreset, handleDeletePreset } = useMaterialPresets()
@@ -519,7 +515,7 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
     console.log('Material variants to generate:', config.materialPresets)
 
     try {
-      const pipelineId = await apiClient.startPipeline(config)
+      const pipelineId = await pipelinePollingService.startPipeline(config)
       setCurrentPipelineId(pipelineId)
     } catch (error) {
       console.error('Failed to start generation:', error)

@@ -6,23 +6,24 @@
  * assess difficulty, predict engagement, and generate comprehensive test reports.
  */
 
-import { Play, AlertTriangle, AlertCircle, Info, Download, _Filter } from 'lucide-react'
+import { Play, AlertTriangle, AlertCircle, Info, Download } from 'lucide-react'
 import React, { useState } from 'react'
 
+import { API_ENDPOINTS } from '../../config/api'
+import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { useMultiAgentStore } from '../../store/useMultiAgentStore'
+import type { GeneratedQuest } from '../../types/content-generation'
 import type {
   TesterArchetype,
   PlaytestRequest,
   PlaytestSession,
   BugSeverity,
 } from '../../types/multi-agent'
-import type { GeneratedQuest } from '../../types/content-generation'
-import { API_ENDPOINTS } from '../../config/api'
-import { useMultiAgentStore } from '../../store/useMultiAgentStore'
-import { useContentGenerationStore } from '../../store/useContentGenerationStore'
+import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 import { Card } from '../common/Card'
-import { Badge } from '../common/Badge'
 import { ModelSelector } from '../common/ModelSelector'
+
 import { TesterPersonaSelector } from './TesterPersonaSelector'
 
 interface PlaytesterSwarmPanelProps {
@@ -55,7 +56,8 @@ export const PlaytesterSwarmPanel: React.FC<PlaytesterSwarmPanelProps> = ({
     addPlaytestSession,
   } = useMultiAgentStore()
 
-  const { quests: generatedQuests } = useContentGenerationStore()
+  // Selective subscription for performance
+  const generatedQuests = useContentGenerationStore(state => state.quests)
 
   // Test Configuration
   const [selectedQuest, setSelectedQuest] = useState<GeneratedQuest | null>(null)

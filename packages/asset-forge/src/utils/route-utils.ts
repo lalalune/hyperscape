@@ -4,11 +4,12 @@
  * Helper functions for route matching, breadcrumb generation, and navigation logic.
  */
 
+import { Home } from 'lucide-react'
+
+import { getNavItemForRoute } from '../config/navigation-config'
 import type { RoutePath, RouteMetadata } from '../constants/routes'
 import { ROUTES, ROUTE_METADATA } from '../constants/routes'
 import type { BreadcrumbItem } from '../types/navigation'
-import { Home } from 'lucide-react'
-import { getNavItemForRoute } from '../config/navigation-config'
 
 /**
  * Match a route pattern with dynamic segments
@@ -130,7 +131,7 @@ export function buildBreadcrumbs(path: string): BreadcrumbItem[] {
   // Add current page (no path - it's the active page)
   const currentNavItem = getNavItemForRoute(metadata.path)
   breadcrumbs.push({
-    label: metadata.breadcrumb || metadata.title,
+    label: metadata.breadcrumb ?? metadata.title,
     icon: currentNavItem?.icon,
   })
 

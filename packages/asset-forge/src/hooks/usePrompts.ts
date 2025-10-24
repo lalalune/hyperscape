@@ -13,7 +13,8 @@ export function useGameStylePrompts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const { customGamePrompt: _customGamePrompt, setCustomGamePrompt: _setCustomGamePrompt } = useGenerationStore()
+  // Note: customGamePrompt and setCustomGamePrompt are available in the store but not used in this hook
+  // They're kept in case they're needed for future functionality
 
   useEffect(() => {
     const loadPrompts = async () => {
@@ -110,7 +111,9 @@ export function useAssetTypePrompts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const { assetTypePrompts, setAssetTypePrompts } = useGenerationStore()
+  // Selective subscriptions
+  const assetTypePrompts = useGenerationStore(state => state.assetTypePrompts)
+  const setAssetTypePrompts = useGenerationStore(state => state.setAssetTypePrompts)
 
   useEffect(() => {
     const loadPrompts = async () => {
@@ -120,8 +123,8 @@ export function useAssetTypePrompts() {
         setPrompts(data)
         
         // Update store with loaded prompts - combine both avatar and item types
-        const avatarMerged = PromptService.mergePrompts(data.avatar.default, data.avatar.custom)
-        const itemMerged = PromptService.mergePrompts(data.item.default, data.item.custom)
+        const avatarMerged = PromptService.mergePrompts(data?.avatar?.default ?? {}, data?.avatar?.custom ?? {})
+        const itemMerged = PromptService.mergePrompts(data?.item?.default ?? {}, data?.item?.custom ?? {})
         const allMerged = { ...avatarMerged, ...itemMerged }
         
         const promptsMap = Object.entries(allMerged).reduce((acc, [key, value]) => ({

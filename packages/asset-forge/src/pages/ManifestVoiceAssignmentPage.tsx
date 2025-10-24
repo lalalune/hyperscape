@@ -18,12 +18,13 @@
  * - Persists assignments via API
  */
 
+import { Users, Mic, Search, Filter, Sparkles, Save, AlertCircle, Loader2, Check } from 'lucide-react'
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Users, Mic, Search, Filter, Sparkles, Save, _Download, AlertCircle, Loader2, Check } from 'lucide-react'
-import { Card, CardHeader, CardContent } from '../components/common/Card'
-import { Button } from '../components/common/Button'
-import { Badge } from '../components/common/Badge'
+
 import { VoiceBrowser } from '../components/Voice/VoiceBrowser'
+import { Badge } from '../components/common/Badge'
+import { Button } from '../components/common/Button'
+import { Card, CardHeader, CardContent } from '../components/common/Card'
 import { useManifestsStore } from '../store/useManifestsStore'
 import { useVoiceGenerationStore } from '../store/useVoiceGenerationStore'
 import type { NPCManifest, MobManifest } from '../types/manifests'
@@ -40,8 +41,10 @@ interface VoiceAssignment {
 }
 
 export const ManifestVoiceAssignmentPage: React.FC = () => {
-  const { manifests, loading: manifestsLoading } = useManifestsStore()
-  const { selectedVoiceId } = useVoiceGenerationStore()
+  // Selective subscriptions for performance
+  const manifests = useManifestsStore(state => state.manifests)
+  const manifestsLoading = useManifestsStore(state => state.loading)
+  const selectedVoiceId = useVoiceGenerationStore(state => state.selectedVoiceId)
 
   const [selectedEntityType, setSelectedEntityType] = useState<EntityType>('npc')
   const [searchQuery, setSearchQuery] = useState('')
@@ -143,7 +146,7 @@ export const ManifestVoiceAssignmentPage: React.FC = () => {
     setSaveError(null)
 
     try {
-      // TODO: Call API to save voice assignments
+      // GitHub Issue #5: Implement API endpoint for voice assignment persistence
       // await voiceGenerationService.saveManifestVoiceAssignments(Array.from(voiceAssignments.values()))
 
       // Simulate API call
@@ -239,7 +242,7 @@ export const ManifestVoiceAssignmentPage: React.FC = () => {
                   className="input flex-1"
                 >
                   <option value="all">All Types</option>
-                  {entityTypes.map(type => (
+                  {entityTypes.map((type) => (
                     <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
@@ -370,11 +373,23 @@ export const ManifestVoiceAssignmentPage: React.FC = () => {
 
         {/* Voice Selection Modal */}
         {showVoiceModal && selectedEntity && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 sm:p-8">
-            <div className="bg-gray-900 rounded-lg p-4 sm:p-6 max-w-6xl w-full max-h-[90vh] overflow-auto shadow-2xl">
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4 sm:p-8"
+            style={{
+              zIndex: 9999,
+              backgroundColor: 'rgba(0, 0, 0, 1)'
+            }}
+          >
+            <div
+              className="bg-gray-50 rounded-lg p-4 sm:p-6 max-w-6xl w-full max-h-[90vh] overflow-auto shadow-2xl border border-gray-200"
+              style={{
+                position: 'relative',
+                zIndex: 10000
+              }}
+            >
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl sm:text-2xl font-bold">Select Voice</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Select Voice</h2>
                   <Button
                     variant="ghost"
                     onClick={() => {
@@ -385,14 +400,13 @@ export const ManifestVoiceAssignmentPage: React.FC = () => {
                     Close
                   </Button>
                 </div>
-                <p className="text-gray-400">
-                  Assign a voice to <span className="text-white font-medium">{selectedEntity.name}</span>
+                <p className="text-gray-600">
+                  Assign a voice to <span className="text-gray-900 font-medium">{selectedEntity.name}</span>
                 </p>
               </div>
               <VoiceBrowser
                 onSelect={handleVoiceSelect}
                 selectedVoiceId={selectedVoiceId}
-                showFavorites={true}
               />
             </div>
           </div>

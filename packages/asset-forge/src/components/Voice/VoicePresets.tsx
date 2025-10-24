@@ -10,13 +10,14 @@
  * - Delete custom presets
  */
 
-import React, { useState, useEffect } from 'react'
 import { Wand2, Plus, Trash2, Check } from 'lucide-react'
-import { Button } from '../common/Button'
-import { Badge } from '../common/Badge'
-import { Card } from '../common/Card'
+import React, { useState, useEffect, useMemo } from 'react'
+
 import { useVoicePresetsStore } from '../../store/useVoicePresetsStore'
 import type { VoiceSettings } from '../../types/voice-generation'
+import { Badge } from '../common/Badge'
+import { Button } from '../common/Button'
+import { Card } from '../common/Card'
 
 interface VoicePresetsProps {
   currentSettings: VoiceSettings
@@ -76,8 +77,13 @@ export const VoicePresets: React.FC<VoicePresetsProps> = ({
     }
   }
 
-  const builtInPresets = presets.filter(p => p.isBuiltIn)
-  const customPresets = presets.filter(p => !p.isBuiltIn)
+  // Memoize preset filtering
+  const { builtInPresets, customPresets } = useMemo(() => {
+    return {
+      builtInPresets: presets.filter(p => p.isBuiltIn),
+      customPresets: presets.filter(p => !p.isBuiltIn)
+    }
+  }, [presets])
 
   return (
     <div className="space-y-6">
@@ -188,7 +194,7 @@ export const VoicePresets: React.FC<VoicePresetsProps> = ({
 
               <div className="flex flex-wrap gap-1 mt-3">
                 <Badge variant="secondary" size="sm">
-                  {preset.settings.modelId.replace('eleven_', '').replace('_', ' ')}
+                  {preset.settings.modelId?.replace('eleven_', '').replace('_', ' ') || 'Default'}
                 </Badge>
                 <Badge variant="secondary" size="sm">
                   Stab: {preset.settings.stability}
@@ -249,7 +255,7 @@ export const VoicePresets: React.FC<VoicePresetsProps> = ({
                   onClick={() => handleApplyPreset(preset.id)}
                 >
                   <Badge variant="secondary" size="sm">
-                    {preset.settings.modelId.replace('eleven_', '').replace('_', ' ')}
+                    {preset.settings.modelId?.replace('eleven_', '').replace('_', ' ') || 'Default'}
                   </Badge>
                   <Badge variant="secondary" size="sm">
                     Stab: {preset.settings.stability}

@@ -8,8 +8,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Mount assets repository directly into nginx html directory
-      - ./.assets-repo:/usr/share/nginx/html:ro
+      # Mount world assets directly into nginx html directory
+      - ${HYPERSCAPE_ASSETS_DIR:-../../assets}:/usr/share/nginx/html/assets:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]

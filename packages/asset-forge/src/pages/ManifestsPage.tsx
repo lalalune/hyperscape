@@ -3,38 +3,32 @@
  * Browse and view game data manifests (items, mobs, NPCs, etc.)
  */
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useCallback } from 'react'
 
-import { ManifestSelector, ManifestTable, ManifestDetails } from '../components/Manifests'
 import { LoadingState } from '../components/Assets/LoadingState'
+import { ManifestSelector, ManifestTable, ManifestDetails } from '../components/Manifests'
 import { manifestService } from '../services/ManifestService'
 import { useManifestsStore } from '../store/useManifestsStore'
 import type { ManifestType } from '../types/manifests'
 
 export const ManifestsPage: React.FC = () => {
-  const {
-    manifests,
-    selectedType,
-    selectedItem,
-    loading,
-    error,
-    searchQuery,
-    setManifests,
-    setSelectedType,
-    setSelectedItem,
-    setLoading,
-    setError,
-    setSearchQuery,
-    getFilteredItems,
-    getStats
-  } = useManifestsStore()
+  // Selective subscriptions for performance
+  const manifests = useManifestsStore(state => state.manifests)
+  const selectedType = useManifestsStore(state => state.selectedType)
+  const selectedItem = useManifestsStore(state => state.selectedItem)
+  const loading = useManifestsStore(state => state.loading)
+  const error = useManifestsStore(state => state.error)
+  const searchQuery = useManifestsStore(state => state.searchQuery)
+  const setManifests = useManifestsStore(state => state.setManifests)
+  const setSelectedType = useManifestsStore(state => state.setSelectedType)
+  const setSelectedItem = useManifestsStore(state => state.setSelectedItem)
+  const setLoading = useManifestsStore(state => state.setLoading)
+  const setError = useManifestsStore(state => state.setError)
+  const setSearchQuery = useManifestsStore(state => state.setSearchQuery)
+  const getFilteredItems = useManifestsStore(state => state.getFilteredItems)
+  const getStats = useManifestsStore(state => state.getStats)
 
-  // Load manifests on mount
-  useEffect(() => {
-    loadManifests()
-  }, [])
-
-  const loadManifests = async () => {
+  const loadManifests = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -54,7 +48,12 @@ export const ManifestsPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedType, setManifests, setSelectedType, setLoading, setError])
+
+  // Load manifests on mount
+  useEffect(() => {
+    loadManifests()
+  }, [loadManifests])
 
   const handleRefresh = async () => {
     if (selectedType) {

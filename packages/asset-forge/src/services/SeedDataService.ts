@@ -5,8 +5,9 @@
  * Transforms server seed data into frontend types with proper IDs and timestamps.
  */
 
+import { API_ENDPOINTS } from '../config/api.ts'
+import { apiFetch } from '../utils/api.ts'
 import type { GeneratedQuest, GeneratedNPC, LoreEntry } from '../types/content-generation'
-import { API_ENDPOINTS } from '../config/api'
 
 interface SeedContentResponse {
   quests: GeneratedQuest[]
@@ -18,12 +19,13 @@ interface SeedContentResponse {
 
 /**
  * Load seed content from the backend API
+ * Uses automatic request deduplication for concurrent calls
  */
 export async function loadSeedContent(): Promise<SeedContentResponse> {
   try {
     // Construct seed content URL from API_ENDPOINTS base
     const apiUrl = API_ENDPOINTS.playtesterPersonas.replace('/api/playtester-personas', '')
-    const response = await fetch(`${apiUrl}/api/seed-content`)
+    const response = await apiFetch(`${apiUrl}/api/seed-content`)
 
     if (!response.ok) {
       throw new Error(`Failed to load seed content: ${response.statusText}`)

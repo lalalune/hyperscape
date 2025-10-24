@@ -7,9 +7,9 @@ import { CheckCircle, XCircle, AlertTriangle, Package, Users, Swords, Eye, Spark
 import React, { useState } from 'react'
 
 import type { AnyPreviewManifest, ItemSuggestion, MobSuggestion, NPCSuggestion } from '../../types/preview-manifests'
-import { Card, CardHeader, CardContent, CardFooter } from '../common/Card'
 import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
+import { Card, CardHeader, CardContent, CardFooter } from '../common/Card'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '../common/Modal'
 
 interface PreviewCardProps {

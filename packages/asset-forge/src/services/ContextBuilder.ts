@@ -13,11 +13,29 @@
  * Based on pipeline's context-builder.ts
  */
 
-import { manifestService } from './ManifestService.ts'
-import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest } from '../types/manifests'
 import type { GeneratedQuest, GeneratedNPC, LoreEntry } from '../types/content-generation'
+import type { ItemManifest, MobManifest, NPCManifest, ResourceManifest, AnyManifest } from '../types/manifests'
 import type { EntityRelationship } from '../types/relationships'
 import { getTierForDifficulty, type LevelTier } from '../utils/level-progression.ts'
+
+import { manifestService } from './ManifestService.ts'
+
+// Type guards for manifest discrimination
+function isItemManifest(manifest: AnyManifest): manifest is ItemManifest {
+  return 'value' in manifest && 'equipSlot' in manifest
+}
+
+function isMobManifest(manifest: AnyManifest): manifest is MobManifest {
+  return 'combatLevel' in manifest || ('stats' in manifest && 'level' in (manifest as MobManifest).stats)
+}
+
+function isNPCManifest(manifest: AnyManifest): manifest is NPCManifest {
+  return 'npcType' in manifest || ('type' in manifest && 'services' in manifest)
+}
+
+function isResourceManifest(manifest: AnyManifest): manifest is ResourceManifest {
+  return 'harvestSkill' in manifest && 'harvestYield' in manifest
+}
 
 export interface QuestGenerationContext {
   availableItems: ItemManifest[]
@@ -54,36 +72,42 @@ export class ContextBuilder {
     }
     relationships?: EntityRelationship[]
   }): Promise<{ context: QuestGenerationContext; formatted: string }> {
-    // Get tier for difficulty
-    const tier = getTierForDifficulty(params.difficulty)
-    
+    // Get tier for difficulty - cast to proper type
+    const validDifficulty = params.difficulty as LevelTier['difficulty']
+    const tier = getTierForDifficulty(validDifficulty)
+
     // Load all manifests
     const manifests = await manifestService.fetchAllManifests()
-    
-    // Filter by level range
+
+    // Filter by level range with type narrowing
     const availableItems = (manifests.items || []).filter(
-      item => {
-        const itemLevel = item.level || 1
+      (item): item is ItemManifest => {
+        if (!isItemManifest(item)) return false
+        const itemLevel = item.requirements?.level || 1
         return itemLevel >= tier.levelRange.min && itemLevel <= tier.levelRange.max
       }
     )
-    
+
     const availableMobs = (manifests.mobs || []).filter(
-      mob => {
-        const mobLevel = mob.combatLevel || mob.level || 1
+      (mob): mob is MobManifest => {
+        if (!isMobManifest(mob)) return false
+        const mobLevel = mob.combatLevel || mob.stats?.level || 1
         return mobLevel >= tier.levelRange.min && mobLevel <= tier.levelRange.max
       }
     )
-    
+
     const availableResources = (manifests.resources || []).filter(
-      resource => {
-        const resourceLevel = resource.level || 1
+      (resource): resource is ResourceManifest => {
+        if (!isResourceManifest(resource)) return false
+        const resourceLevel = resource.requiredLevel || 1
         return resourceLevel >= tier.levelRange.min && resourceLevel <= tier.levelRange.max
       }
     )
-    
-    const existingNPCs = manifests.npcs || []
-    
+
+    const existingNPCs = (manifests.npcs || []).filter(
+      (npc): npc is NPCManifest => isNPCManifest(npc)
+    )
+
     const context: QuestGenerationContext = {
       availableItems,
       availableMobs,
@@ -92,7 +116,7 @@ export class ContextBuilder {
       existingQuests: params.existingQuests,
       tier,
       relationships: params.relationships,
-      lore: params.selectedContext?.lore ? [] : undefined // TODO: load lore by IDs
+      lore: params.selectedContext?.lore ? [] : undefined // GitHub Issue #7: Implement lore loading by IDs
     }
     
     // Format for AI prompt
@@ -112,13 +136,15 @@ export class ContextBuilder {
     lore?: LoreEntry[]
   }): Promise<{ context: NPCGenerationContext; formatted: string }> {
     const manifests = await manifestService.fetchAllManifests()
-    
+
     const context: NPCGenerationContext = {
-      existingNPCs: (manifests.npcs || []).map(npc => ({
-        name: npc.name,
-        archetype: npc.npcType,
-        id: npc.id
-      })),
+      existingNPCs: (manifests.npcs || [])
+        .filter((npc): npc is NPCManifest => isNPCManifest(npc))
+        .map(npc => ({
+          name: npc.name,
+          archetype: npc.npcType || npc.type,
+          id: npc.id
+        })),
       generatedNPCs: params.generatedNPCs,
       availableQuests: params.availableQuests,
       relationships: params.relationships,
@@ -152,7 +178,8 @@ export class ContextBuilder {
       lines.push('ITEMS (reward IDs):')
       items.forEach(i => {
         const mark = selectedContext?.items?.includes(i.id) ? '★' : ' '
-        lines.push(`${mark} ${i.id} - ${i.name} (${i.value || 0}g, Lv${i.level || 1})`)
+        const itemLevel = i.requirements?.level || 1
+        lines.push(`${mark} ${i.id} - ${i.name} (${i.value || 0}g, Lv${itemLevel})`)
       })
       if (context.availableItems.length > 12) lines.push(`  +${context.availableItems.length - 12} more\n`)
     }
@@ -166,7 +193,9 @@ export class ContextBuilder {
       lines.push('\nMOBS (objective IDs):')
       mobs.forEach(m => {
         const mark = selectedContext?.mobs?.includes(m.id) ? '★' : ' '
-        lines.push(`${mark} ${m.id} - ${m.name} (Lv${m.combatLevel || m.level || 1}, ${m.xp || 0}xp)`)
+        const mobLevel = m.combatLevel || m.stats?.level || 1
+        const xp = m.xpReward || 0
+        lines.push(`${mark} ${m.id} - ${m.name} (Lv${mobLevel}, ${xp}xp)`)
       })
       if (context.availableMobs.length > 12) lines.push(`  +${context.availableMobs.length - 12} more\n`)
     }
@@ -175,7 +204,8 @@ export class ContextBuilder {
     if (context.availableResources.length > 0) {
       lines.push('\nRESOURCES:')
       context.availableResources.slice(0, 8).forEach(r => {
-        lines.push(`  ${r.id} - ${r.name} (Lv${r.level || 1})`)
+        const resourceLevel = r.requiredLevel || 1
+        lines.push(`  ${r.id} - ${r.name} (Lv${resourceLevel})`)
       })
     }
 
@@ -188,7 +218,8 @@ export class ContextBuilder {
       lines.push('\nNPCs (quest givers):')
       npcs.forEach(n => {
         const mark = selectedContext?.npcs?.includes(n.id) ? '★' : ' '
-        lines.push(`${mark} ${n.id} - ${n.name} (${n.npcType})`)
+        const npcType = n.npcType || n.type
+        lines.push(`${mark} ${n.id} - ${n.name} (${npcType})`)
       })
     }
 
@@ -279,7 +310,18 @@ CRITICAL INSTRUCTIONS:
       needsQuestGiver: context.availableQuests.length > 0
     }
 
-    prompt += this.formatReuseGuidelines(existingNPCs, context.generatedNPCs, role)
+    // Convert existingNPCs to NPCManifest array
+    const npcManifests: NPCManifest[] = existingNPCs.map(npc => ({
+      id: npc.id,
+      name: npc.name,
+      description: '',
+      type: npc.archetype,
+      npcType: npc.archetype,
+      modelPath: '',
+      services: []
+    }))
+
+    prompt += this.formatReuseGuidelines(npcManifests, context.generatedNPCs, role)
 
     return prompt
   }
@@ -322,11 +364,17 @@ CRITICAL INSTRUCTIONS:
   canGiveQuests(npc: NPCManifest | GeneratedNPC): boolean {
     // Check manifest NPC
     if ('services' in npc && Array.isArray(npc.services)) {
-      return npc.services.some(s =>
-        typeof s === 'string'
-          ? s.toLowerCase().includes('quest')
-          : s.type?.toLowerCase().includes('quest')
-      )
+      return npc.services.some(s => {
+        if (typeof s === 'string') {
+          return s.toLowerCase().includes('quest')
+        }
+        // Handle service objects if they exist
+        if (typeof s === 'object' && s !== null && 'type' in s) {
+          const serviceType = (s as { type?: string }).type
+          return serviceType?.toLowerCase().includes('quest') || false
+        }
+        return false
+      })
     }
 
     // Check generated NPC
@@ -365,8 +413,8 @@ CRITICAL INSTRUCTIONS:
   ): number {
     let score = 0
 
-    // Extract NPC data once
-    const npcType = ('npcType' in npc ? npc.npcType : npc.personality?.archetype) || ''
+    // Extract NPC data once with type checking
+    const npcType = ('personality' in npc ? npc.personality?.archetype : (npc.npcType || npc.type)) || ''
     const npcServices = ('services' in npc ? npc.services : []) as string[]
     const npcId = npc.id || ''
 

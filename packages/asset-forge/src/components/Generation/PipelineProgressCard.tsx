@@ -1,5 +1,5 @@
 import { CheckCircle, Loader2, XCircle, Sparkles, ChevronRight, Zap, FileText, Brain, Camera, Box, User, Layers, Grid3x3 } from 'lucide-react'
-import React from 'react'
+import React, { useMemo } from 'react'
 
 import { PipelineStage } from '../../store'
 import { cn } from '../../styles'
@@ -20,13 +20,15 @@ export const PipelineProgressCard: React.FC<PipelineProgressCardProps> = ({
   onBackToConfig,
   onBack
 }) => {
-  const filteredStages = pipelineStages.filter(stage => {
-    // Hide material variants and sprites for avatar generation
-    if (generationType === 'avatar') {
-      return stage.id !== 'retexturing' && stage.id !== 'sprites'
-    }
-    return true
-  })
+  const filteredStages = useMemo(() => {
+    return pipelineStages.filter(stage => {
+      // Hide material variants and sprites for avatar generation
+      if (generationType === 'avatar') {
+        return stage.id !== 'retexturing' && stage.id !== 'sprites'
+      }
+      return true
+    })
+  }, [pipelineStages, generationType])
 
   return (
     <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-primary/5 border-border-primary shadow-lg">
@@ -55,7 +57,7 @@ export const PipelineProgressCard: React.FC<PipelineProgressCardProps> = ({
       </CardHeader>
       <CardContent className="p-6 space-y-4">
         <div className="space-y-4">
-          {filteredStages.map((stage, index) => (
+          {filteredStages.map((stage: PipelineStage, index: number) => (
             <PipelineStageItem
               key={stage.id}
               stage={stage}

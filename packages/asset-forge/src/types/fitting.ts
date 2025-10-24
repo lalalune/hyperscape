@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import type { Box3 } from 'three'
 
 export interface MeshFittingParameters {
   iterations: number
@@ -10,7 +10,7 @@ export interface MeshFittingParameters {
   preserveFeatures: boolean
   featureAngleThreshold: number
   useImprovedShrinkwrap?: boolean
-  targetBounds?: THREE.Box3
+  targetBounds?: Box3
   preserveOpenings?: boolean  // New parameter for edge preservation
   pushInteriorVertices?: boolean  // Restore interior vertices to their pre-shrinkwrap positions
   

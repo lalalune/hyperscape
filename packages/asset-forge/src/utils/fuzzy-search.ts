@@ -5,7 +5,9 @@
  * Uses fuse.js for fast, configurable fuzzy search
  */
 
-import Fuse from 'fuse.js'
+import Fuse, { type IFuseOptions } from 'fuse.js'
+
+import type { GeneratedQuest, GeneratedNPC, LoreEntry } from '../types/content-generation'
 import type { 
   ItemManifest, 
   MobManifest, 
@@ -13,7 +15,6 @@ import type {
   ResourceManifest,
   AnyManifest 
 } from '../types/manifests'
-import type { GeneratedQuest, GeneratedNPC, LoreEntry } from '../types/content-generation'
 
 // Default fuzzy search options
 const defaultOptions = {
@@ -100,8 +101,8 @@ const searchConfigs = {
 
 export class FuzzySearch<T> {
   private fuse: Fuse<T>
-  
-  constructor(items: T[], config: Fuse.IFuseOptions<T>) {
+
+  constructor(items: T[], config: IFuseOptions<T>) {
     this.fuse = new Fuse(items, config)
   }
   
