@@ -110,13 +110,13 @@ export default defineConfig({
             return 'vendor-mediapipe'
           }
 
-          // Authentication (Privy) - Keep separate for caching
-          if (id.includes('@privy-io')) {
-            return 'vendor-auth'
-          }
+          // Authentication (Privy) - Keep WITH OTHER VENDORS to avoid circular dependency
+          // Privy may depend on zustand/immer which MUST be in same chunk
+          // COMMENTING OUT: if (id.includes('@privy-io')) { return 'vendor-auth' }
 
           // State management - DON'T split zustand/immer to avoid circular dependencies
           // Let them be bundled in vendor-other or with components that use them
+          // ALSO: Keep Privy in vendor-other since it may depend on these
 
           // AI SDK and LLM providers (used in content generation)
           if (id.includes('@ai-sdk') || id.includes('node_modules/ai/') || id.match(/node_modules\/ai$/)) {
