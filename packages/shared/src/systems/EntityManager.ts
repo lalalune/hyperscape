@@ -12,29 +12,24 @@ import { World } from '../World';
 import { Entity, EntityConfig } from '../entities/Entity';
 import { ItemEntity } from '../entities/ItemEntity';
 import { HeadstoneEntity } from '../entities/HeadstoneEntity';
-import { MobEntity } from '../entities/MobEntity';
-import { NPCEntity } from '../entities/NPCEntity';
+import { CharacterEntity } from '../entities/CharacterEntity';
 import { ResourceEntity } from '../entities/ResourceEntity';
-import type { 
-  ItemEntityConfig, 
-  ItemSpawnData, 
-  MobEntityConfig, 
-  MobSpawnData, 
-  NPCEntityConfig, 
-  NPCEntityProperties as _NPCEntityProperties, 
-  NPCSpawnData as _NPCSpawnData, 
-  ResourceEntityConfig, 
-  ResourceEntityProperties as _ResourceEntityProperties, 
+import type {
+  ItemEntityConfig,
+  ItemSpawnData,
+  CharacterEntityConfig,
+  MobSpawnData,
+  ResourceEntityConfig,
+  ResourceEntityProperties as _ResourceEntityProperties,
   ResourceSpawnData as _ResourceSpawnData,
   HeadstoneEntityConfig
 } from '../types/entities';
-import { EntityType, InteractionType, ItemRarity, MobAIState, NPCType, ResourceType } from '../types/entities';
-import { NPCBehavior, NPCState } from '../types/core';
+import { EntityType, InteractionType, ItemRarity, ResourceType } from '../types/entities';
 import { EventType } from '../types/events';
 import { TerrainSystem } from './TerrainSystem';
 import { SystemBase } from './SystemBase';
 import { getItem } from '../data/items';
-import { getMobById } from '../data/mobs';
+import { getMobById } from '../data/characters';
 import { getExternalNPC } from '../utils/ExternalAssetUtils';
 
 export class EntityManager extends SystemBase {
@@ -83,7 +78,41 @@ export class EntityManager extends SystemBase {
         quantity: typedData.quantity || 1
       });
     });
-    // EntityManager should handle spawn REQUESTS, not completed spawns
+    // Unified character spawn handler (preferred)
+    this.subscribe(EventType.CHARACTER_SPAWN_REQUEST, (data) => {
+      const typedData = data as {
+        characterId: string;
+        characterType: 'mob' | 'npc';
+        position: { x: number; y: number; z: number };
+        level?: number;
+        customId?: string;
+        services?: string[];
+        modelPath?: string;
+      };
+
+      if (typedData.characterType === 'mob') {
+        // Route to mob spawn handler
+        this.handleMobSpawn({
+          mobType: typedData.characterId,
+          position: typedData.position,
+          level: typedData.level || 1,
+          customId: typedData.customId || `mob_${Date.now()}`,
+          name: typedData.characterId
+        });
+      } else if (typedData.characterType === 'npc') {
+        // Route to NPC spawn handler
+        this.handleNPCSpawnRequest({
+          npcId: typedData.characterId,
+          name: typedData.characterId,
+          type: 'npc',
+          position: typedData.position,
+          services: typedData.services,
+          modelPath: typedData.modelPath
+        });
+      }
+    });
+
+    // Legacy spawn handlers (deprecated - use CHARACTER_SPAWN_REQUEST)
     this.subscribe(EventType.MOB_SPAWN_REQUEST, (data) => {
       const typedData = data as { mobType: string; position: { x: number; y: number; z: number }; level?: number; customId?: string };
       this.handleMobSpawn({
@@ -126,18 +155,10 @@ export class EntityManager extends SystemBase {
     });
     // NPC_INTERACTION has different structure in EventMap
     this.subscribe(EventType.NPC_INTERACTION, (data) => {
+      // Legacy NPC spawn - use CharacterSystem instead
       const typedData = data as { npcId: string };
-      this.handleNPCSpawn({ 
-        customId: typedData.npcId, 
-        name: 'NPC',
-        npcType: NPCType.QUEST_GIVER,  // Default to quest giver
-        position: { x: 0, y: 0, z: 0 },
-        model: null,
-        dialogues: [],
-        questGiver: true,
-        shopkeeper: false,
-        bankTeller: false
-      });
+      console.warn('[EntityManager] Legacy NPC_SPAWN event - use CHARACTER_SPAWN_REQUEST instead');
+      // For now, do nothing - should use CharacterSystem
     });
     this.subscribe(EventType.NPC_DIALOGUE, (data) => {
       const typedData = data as { npcId: string; playerId: string; dialogueId: string };
@@ -206,9 +227,9 @@ export class EntityManager extends SystemBase {
     if (config.position.y < -200 || config.position.y > 2000) {
       throw new Error(`Entity spawn position out of range: Y=${config.position.y} (expected 0-100)`);
     }
-    
+
     let entity: Entity;
-    
+
     switch (config.type) {
       case 'item':
         entity = new ItemEntity(this.world, config as ItemEntityConfig);
@@ -217,14 +238,12 @@ export class EntityManager extends SystemBase {
       case 'headstone':
         entity = new HeadstoneEntity(this.world, config as HeadstoneEntityConfig);
         break;
-      case 'mob':
-        entity = new MobEntity(this.world, config as MobEntityConfig);
+      case EntityType.CHARACTER:
+      case 'character':
+        entity = new CharacterEntity(this.world, config as CharacterEntityConfig);
         break;
       case 'resource':
         entity = new ResourceEntity(this.world, config as ResourceEntityConfig);
-        break;
-      case 'npc':
-        entity = new NPCEntity(this.world, config as NPCEntityConfig);
         break;
       default:
         throw new Error(`[EntityManager] Unknown entity type: ${config.type}`);
@@ -502,10 +521,11 @@ export class EntityManager extends SystemBase {
     // Only generate a new ID if customId is not provided (fallback case)
     const mobId = data.customId || `mob_${this.nextEntityId++}`;
     
-    const config: MobEntityConfig = {
+    // DEPRECATED: handleMobSpawn now creates CharacterEntity instead of MobEntity
+    const config: CharacterEntityConfig = {
       id: mobId,
       name: `Mob: ${data.name || mobType || 'Unknown'} (Lv${level})`,
-      type: EntityType.MOB,
+      type: EntityType.CHARACTER,
       position: position,
       rotation: { x: 0, y: 0, z: 0, w: 1 },
       scale: { x: 1, y: 1, z: 1 },
@@ -515,10 +535,10 @@ export class EntityManager extends SystemBase {
       interactionDistance: 5,
       description: `${mobType} (Level ${level})`,
       model: modelPath,
-      // MobEntity specific fields
-      mobType: mobType, // Mob ID from mobs.json
+      // CharacterEntity specific fields
+      characterId: mobType, // Character ID from characters.json
+      characterType: 'mob', // Mob type character
       level: level,
-      currentHealth: this.getMobMaxHealth(mobType, level),
       maxHealth: this.getMobMaxHealth(mobType, level),
       attackPower: this.getMobAttackPower(mobType, level),
       defense: this.getMobDefense(mobType, level),
@@ -526,12 +546,10 @@ export class EntityManager extends SystemBase {
       moveSpeed: this.getMobMoveSpeed(mobType),
       aggroRange: this.getMobAggroRange(mobType),
       combatRange: this.getMobCombatRange(mobType),
+      canBeAttacked: true,
+      movementType: 'wander',
       xpReward: this.getMobXPReward(mobType, level),
       lootTable: this.getMobLootTable(mobType),
-      respawnTime: 300000, // 5 minutes default
-      spawnPoint: position,
-      aiState: MobAIState.IDLE,
-      lastAttackTime: 0,
       properties: {
         movementComponent: null,
         combatComponent: null,
@@ -542,9 +560,7 @@ export class EntityManager extends SystemBase {
           max: this.getMobMaxHealth(mobType, level)
         },
         level: level,
-      },
-      targetPlayerId: null,
-      deathTime: null
+      }
     };
     
     const entity = await this.spawnEntity(config);
@@ -561,36 +577,42 @@ export class EntityManager extends SystemBase {
   }
 
   private handleMobAttacked(data: { entityId: string; damage: number; attackerId: string }): void {
-    const mob = this.entities.get(data.entityId);
-    if (!mob) {
+    const character = this.entities.get(data.entityId);
+    if (!character) {
       return;
     }
-    
-    const healthData = mob.getProperty('health');
+
+    const healthData = character.getProperty('health');
     // Strong type assumption - health is either a number or { current, max }
     const currentHealth = (healthData as { current: number }).current || (healthData as number) || 0;
-    
+
     const newHealth = Math.max(0, currentHealth - data.damage);
-    
+
     // Strong type assumption - maintain structure if it's an object, otherwise use number
     const isHealthObject = healthData && (healthData as { current?: number }).current !== undefined;
     if (isHealthObject) {
-      mob.setProperty('health', { ...healthData as { current: number; max: number }, current: newHealth });
+      character.setProperty('health', { ...healthData as { current: number; max: number }, current: newHealth });
     } else {
-      mob.setProperty('health', newHealth);
+      character.setProperty('health', newHealth);
     }
-    
+
     if (newHealth <= 0) {
-      // Let the mob entity handle its own death first to ensure proper state synchronization
-      const mobEntity = mob as MobEntity;
-      if (mobEntity && typeof mobEntity.die === 'function') {
-        // Check if mob is already dead to prevent double death
-        if (!mobEntity.isDead()) {
-          mobEntity.die();
-          // Don't destroy here - MobEntity.die() will handle destruction after network sync
+      // Let the character entity handle its own death first to ensure proper state synchronization
+      const characterEntity = character as CharacterEntity;
+      if (characterEntity && characterEntity.characterType) {
+        // Check if character is already dead to prevent double death
+        if (characterEntity.isDead && !characterEntity.isDead()) {
+          // Call protected die() method via public takeDamage with fatal damage
+          // Or emit CHARACTER_DIED event to let CharacterSystem handle it
+          this.emitTypedEvent(EventType.CHARACTER_DIED, {
+            characterId: data.entityId,
+            killerId: data.attackerId,
+            killerType: 'player',
+            position: characterEntity.getPosition()
+          });
         }
       } else {
-        // Fallback: destroy immediately if not a MobEntity
+        // Fallback: destroy immediately if not a CharacterEntity
         this.destroyEntity(data.entityId);
       }
     }
@@ -779,7 +801,9 @@ export class EntityManager extends SystemBase {
     if (!mobData) {
       return 5 + (level - 1) * 2;
     }
-    return mobData.stats.attack + (level - mobData.level) * 2;
+    // Support both unified format (top-level attackPower) and legacy format (stats.attack)
+    const baseAttack = mobData.attackPower ?? mobData.stats.attack;
+    return baseAttack + (level - mobData.level) * 2;
   }
 
   private getMobDefense(mobType: string, level: number): number {
@@ -787,7 +811,9 @@ export class EntityManager extends SystemBase {
     if (!mobData) {
       return 2 + (level - 1);
     }
-    return mobData.stats.defense + (level - mobData.level);
+    // Support both unified format (top-level defense) and legacy format (stats.defense)
+    const baseDefense = mobData.defense ?? mobData.stats.defense;
+    return baseDefense + (level - mobData.level);
   }
 
   private getMobAttackSpeed(mobType: string): number {
@@ -954,7 +980,8 @@ export class EntityManager extends SystemBase {
       }
 
   private async handleNPCSpawnRequest(data: { npcId: string; name: string; type: string; position: { x: number; y: number; z: number }; services?: string[]; modelPath?: string }): Promise<void> {
-    // Determine NPC type prefix based on services/type
+    // DEPRECATED: handleNPCSpawnRequest now creates CharacterEntity instead of NPCEntity
+    // Determine character type prefix based on services/type
     let typePrefix = 'NPC';
     if (data.type === 'bank' || data.services?.includes('banking')) {
       typePrefix = 'Bank';
@@ -965,7 +992,7 @@ export class EntityManager extends SystemBase {
     } else if (data.type === 'quest_giver') {
       typePrefix = 'Quest';
     }
-    
+
     // Try to get model path from external NPCs if not provided
     let modelPath: string | null = null;
     if (data.modelPath) {
@@ -976,11 +1003,11 @@ export class EntityManager extends SystemBase {
         modelPath = externalNPC.modelPath as string;
       }
     }
-    
-    const config: NPCEntityConfig = {
+
+    const config: CharacterEntityConfig = {
       id: `npc_${data.npcId}_${this.nextEntityId++}`,
       name: `${typePrefix}: ${data.name}`,
-      type: EntityType.NPC,
+      type: EntityType.CHARACTER,
       position: data.position,
       rotation: { x: 0, y: 0, z: 0, w: 1 },
       scale: { x: 1, y: 1, z: 1 },
@@ -990,40 +1017,24 @@ export class EntityManager extends SystemBase {
       interactionDistance: 3,
       description: data.name,
       model: modelPath,
-      npcType: this.mapTypeToNPCType(data.type),
-      npcId: data.npcId,
-      dialogueLines: [],
-      services: data.services || [],
-      inventory: [],
-      skillsOffered: [],
-      questsAvailable: [],
+      // CharacterEntity specific fields
+      characterId: data.npcId,
+      characterType: 'npc',
+      level: 1,
+      maxHealth: 100,
+      services: (data.services || []) as ('bank' | 'quest' | 'shop' | 'training')[],
+      canBeAttacked: false,
+      movementType: 'stationary',
       properties: {
         movementComponent: null,
         combatComponent: null,
         healthComponent: null,
         visualComponent: null,
         health: { current: 100, max: 100 },
-        level: 1,
-        npcComponent: {
-          behavior: NPCBehavior.FRIENDLY,
-          state: NPCState.IDLE,
-          currentTarget: null,
-          spawnPoint: data.position,
-          wanderRadius: 0,
-          aggroRange: 0,
-          isHostile: false,
-          combatLevel: 1,
-          aggressionLevel: 0,
-          dialogueLines: [],
-          dialogue: null,
-          services: data.services || []
-        },
-        dialogue: [],
-        shopInventory: [],
-        questGiver: data.type === 'quest_giver'
+        level: 1
       }
     };
-    
+
     await this.spawnEntity(config);
     
     // If it's a store, register it with the store system
@@ -1053,29 +1064,6 @@ export class EntityManager extends SystemBase {
     }
   }
   
-  private mapTypeToNPCType(type: string): NPCType {
-    switch (type) {
-      case 'bank': return NPCType.BANK;
-      case 'general_store': return NPCType.STORE;
-      case 'skill_trainer': return NPCType.TRAINER;
-      case 'quest_giver': return NPCType.QUEST_GIVER;
-      default: return NPCType.QUEST_GIVER;
-    }
-  }
-
-  private handleNPCSpawn(_data: { 
-    customId: string,
-    name: string,
-    npcType: NPCType,
-    position: { x: number, y: number, z: number },
-    model: unknown,
-    dialogues: string[],
-    questGiver: boolean,
-    shopkeeper: boolean,
-    bankTeller: boolean
-  }): void {
-    // NPC spawn logic
-      }
 
   private handleNPCDialogue(_data: { entityId: string, playerId: string, dialogueId: string }): void {
     // NPC dialogue logic

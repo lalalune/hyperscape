@@ -21,8 +21,9 @@
  * - AggroSystem: Enemy threat and aggression management
  * 
  * **World Systems:**
- * - MobSystem: Enemy creature lifecycle and behavior
- * - NPCSystem: Non-hostile character management
+ * - CharacterSystem: Unified character lifecycle (NPCs + Mobs)
+ * - BehaviorSystem: JSON-based behavior trees for character AI
+ * - DialogueSystem: Asset Forge dialogue tree execution
  * - MobSpawnerSystem: Dynamic mob population control
  * - ResourceSystem: Gathering nodes (trees, rocks, ore)
  * - ItemSpawnerSystem: Ground item management
@@ -99,7 +100,6 @@ import { InventoryInteractionSystem } from './InventoryInteractionSystem'
 import { InventorySystem } from './InventorySystem'
 import { ItemSpawnerSystem } from './ItemSpawnerSystem'
 import { MobSpawnerSystem } from './MobSpawnerSystem'
-import { MobSystem } from './MobSystem'
 import { PathfindingSystem } from './PathfindingSystem'
 import { PersistenceSystem } from './PersistenceSystem'
 import { PlayerSystem } from './PlayerSystem'
@@ -114,8 +114,10 @@ import { LootSystem } from './LootSystem'
 // CameraSystem is ClientCameraSystem
 // UI components are React-based in the client package
 
-// World Content Systems
-import { NPCSystem } from './NPCSystem'
+// Unified Character Systems
+import { CharacterSystem } from './CharacterSystem'
+import { BehaviorSystem } from './BehaviorSystem'
+import { DialogueSystem } from './DialogueSystem'
 
 import type { CameraSystem as CameraSystemInterface } from '../types/physics'
 import { ActionRegistry } from './ActionRegistry'
@@ -133,7 +135,6 @@ export interface Systems {
   skills?: SkillsSystem
   banking?: BankingSystem
   interaction?: InteractionSystem
-  mob?: MobSystem
   store?: StoreSystem
   resource?: ResourceSystem
   pathfinding?: PathfindingSystem
@@ -146,9 +147,14 @@ export interface Systems {
   loot?: LootSystem
   cameraSystem?: CameraSystemInterface
   movementSystem?: unknown
-  npc?: NPCSystem
   mobSpawner?: MobSpawnerSystem
   itemSpawner?: ItemSpawnerSystem
+
+  // Unified Character Systems (replaces mob + npc)
+  character?: CharacterSystem
+  behavior?: BehaviorSystem
+  dialogue?: DialogueSystem
+
 }
 
 /**
@@ -260,8 +266,10 @@ export async function registerSystems(world: World): Promise<void> {
     return;
   }
 
-  // 6. Mob system - Core mob management
-  world.register('mob', MobSystem)
+  // 6. Unified Character Systems
+  world.register('character', CharacterSystem)
+  world.register('behavior', BehaviorSystem)
+  world.register('dialogue', DialogueSystem)
 
   // === INTERACTION SYSTEMS ===
   // These systems handle player-world interactions
@@ -314,10 +322,6 @@ export async function registerSystems(world: World): Promise<void> {
   world.register('loot', LootSystem)
 
   // World Content Systems (server only for world management)
-  if (world.isServer) {
-    world.register('npc', NPCSystem)
-  }
-
   // DYNAMIC WORLD CONTENT SYSTEMS - FULL THREE.JS ACCESS, NO SANDBOX
   world.register('mob-spawner', MobSpawnerSystem)
   world.register('item-spawner', ItemSpawnerSystem)
@@ -329,7 +333,6 @@ export async function registerSystems(world: World): Promise<void> {
   systems.combat = getSystem(world, 'combat') as CombatSystem
   systems.inventory = getSystem(world, 'inventory') as InventorySystem
   systems.skills = getSystem(world, 'skills') as SkillsSystem
-  systems.mob = getSystem(world, 'mob') as MobSystem
   systems.banking = getSystem(world, 'banking') as BankingSystem
   systems.store = getSystem(world, 'store') as StoreSystem
   systems.resource = getSystem(world, 'resource') as ResourceSystem
@@ -347,10 +350,11 @@ export async function registerSystems(world: World): Promise<void> {
   // New MMO-style Systems
   systems.loot = getSystem(world, 'loot') as LootSystem
 
-  // World Content Systems
-  if (world.isServer) {
-    systems.npc = getSystem(world, 'npc') as NPCSystem
-  }
+  // Unified Character Systems
+  systems.character = getSystem(world, 'character') as CharacterSystem
+  systems.behavior = getSystem(world, 'behavior') as BehaviorSystem
+  systems.dialogue = getSystem(world, 'dialogue') as DialogueSystem
+
 
   // DYNAMIC WORLD CONTENT SYSTEMS
   systems.mobSpawner = getSystem(world, 'mob-spawner') as MobSpawnerSystem
@@ -510,12 +514,12 @@ function setupAPI(world: World, systems: Systems): void {
       world.emit(EventType.UI_MESSAGE, { playerId, message, type: type || 'info' })
     },
 
-    // Mob API
-    getMob: (mobId: string) => systems.mob?.getMob(mobId),
-    getAllMobs: () => systems.mob?.getAllMobs(),
-    getMobsInArea: (center: Position3D, radius: number) => systems.mob?.getMobsInArea(center, radius),
-    spawnMob: (type: string, position: Position3D) =>
-      systems.mob && world.emit(EventType.MOB_SPAWN_REQUEST, { mobType: type, position }),
+    // Character API (replaces Mob API)
+    getCharacter: (characterId: string) => systems.character?.getCharacter(characterId),
+    getCharacters: () => systems.character?.getCharacters() || [],
+    getSpawnPoints: () => systems.character?.getSpawnPoints() || [],
+    spawnCharacter: (characterId: string, position: Position3D) =>
+      systems.character && world.emit(EventType.CHARACTER_SPAWN_REQUEST, { characterId, position }),
 
     // Banking API
     getBankData: (_playerId: string, _bankId: string) => null, // Banking system doesn't expose public methods
@@ -675,12 +679,6 @@ function setupAPI(world: World, systems: Systems): void {
     // World Content API (Server only)
     getWorldAreas: () => [], // World content system doesn't expose getAllWorldAreas method
 
-    // NPC API (Server only)
-    getPlayerBankContents: (playerId: string) => systems.npc?.getPlayerBankContents(playerId),
-    getStoreInventory: () => systems.npc?.getStoreInventory(),
-    getTransactionHistory: (playerId?: string) => systems.npc?.getTransactionHistory(playerId),
-    getNPCSystemInfo: () => systems.npc?.getSystemInfo(),
-
     // System references for advanced usage - convert to Record format
     rpgSystems: Object.entries(systems).reduce(
       (acc, [key, system]) => {
@@ -801,16 +799,25 @@ function setupAPI(world: World, systems: Systems): void {
         world.emit(EventType.AGGRO_FORCE_TRIGGER, { playerId })
       },
 
-      // Mob actions
+      // Character actions (unified mob/npc spawning)
       spawnMobAtLocation: (type: string, position: Position3D) => {
+        // Use unified CHARACTER_SPAWN_REQUEST
+        world.emit(EventType.CHARACTER_SPAWN_REQUEST, { characterId: type, characterType: 'mob', position })
+        // Also emit legacy event for backward compatibility
         world.emit(EventType.MOB_SPAWN_REQUEST, { mobType: type, position })
       },
 
       spawnGDDMob: (mobType: string, position: Position3D) => {
+        // Use unified CHARACTER_SPAWN_REQUEST
+        world.emit(EventType.CHARACTER_SPAWN_REQUEST, { characterId: mobType, characterType: 'mob', position })
+        // Also emit legacy event for backward compatibility
         world.emit(EventType.MOB_SPAWN_REQUEST, { mobType, position })
       },
 
       despawnMob: (mobId: string) => {
+        // Use unified CHARACTER_DESPAWNED
+        world.emit(EventType.CHARACTER_DESPAWNED, { characterId: mobId })
+        // Also emit legacy event for backward compatibility
         world.emit(EventType.MOB_DESPAWN, mobId)
       },
 
@@ -924,6 +931,9 @@ function setupAPI(world: World, systems: Systems): void {
 
       // NPC actions
       interactWithNPC: (playerId: string, npcId: string) => {
+        // Use unified CHARACTER_INTERACTION
+        world.emit(EventType.CHARACTER_INTERACTION, { playerId, characterId: npcId })
+        // Also emit legacy event for backward compatibility
         world.emit(EventType.NPC_INTERACTION, { playerId, npcId })
       },
 
@@ -945,10 +955,16 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Mob AI actions
       attackMob: (playerId: string, mobId: string, damage: number) => {
+        // Use unified CHARACTER_DAMAGED
+        world.emit(EventType.CHARACTER_DAMAGED, { characterId: mobId, damage, attackerId: playerId })
+        // Also emit legacy event for backward compatibility
         world.emit(EventType.MOB_DAMAGED, { mobId, damage, attackerId: playerId })
       },
 
       killMob: (mobId: string, killerId: string) => {
+        // Use unified CHARACTER_DIED
+        world.emit(EventType.CHARACTER_DIED, { characterId: mobId, characterType: 'mob', level: 1, killedBy: killerId, position: { x: 0, y: 0, z: 0 } })
+        // Also emit legacy event for backward compatibility
         world.emit(EventType.MOB_DIED, { mobId, mobType: 'unknown', level: 1, killedBy: killerId, position: { x: 0, y: 0, z: 0 } })
       },
 
@@ -958,6 +974,9 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       createMobApp: (mobId: string, mobType: string, config: AppConfig) => {
+        // Use unified CHARACTER_SPAWN_REQUEST
+        world.emit(EventType.CHARACTER_SPAWN_REQUEST, { characterId: mobType, characterType: 'mob', customId: mobId, config })
+        // Also emit legacy event for backward compatibility
         world.emit(EventType.MOB_SPAWN_REQUEST, { mobId, mobType, config })
       },
 
@@ -966,6 +985,9 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       destroyMobApp: (mobId: string) => {
+        // Use unified CHARACTER_DESPAWNED
+        world.emit(EventType.CHARACTER_DESPAWNED, { characterId: mobId })
+        // Also emit legacy event for backward compatibility
         world.emit(EventType.MOB_DESTROY, { mobId })
       },
 
@@ -978,8 +1000,8 @@ function setupAPI(world: World, systems: Systems): void {
         world.emit(EventType.ITEM_SPAWN, { itemId, position, quantity })
       },
 
-      spawnMobEntity: (mobType: string, position: Position3D, _level?: number) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobType, position })
+      spawnCharacterEntity: (characterId: string, position: Position3D, _level?: number) => {
+        world.emit(EventType.CHARACTER_SPAWN_REQUEST, { characterId, position })
       },
 
       destroyEntityById: (entityId: string) => {
@@ -1031,7 +1053,7 @@ function setupAPI(world: World, systems: Systems): void {
         mesh.name = `TestGoblin_${Date.now()}`
         mesh.position.set(x, 0.8, z)
         mesh.userData = {
-          type: 'mob',
+          type: 'character',
           mobType: 'goblin',
           health: 50,
           maxHealth: 50,

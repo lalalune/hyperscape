@@ -183,14 +183,14 @@ export class ClientNetwork extends SystemBase {
   async init(options: WorldOptions): Promise<void> {
     const wsUrl = (options as { wsUrl?: string }).wsUrl
 
-    this.logger.debug(`init() called with wsUrl: ${wsUrl}`)
-    this.logger.debug('Current WebSocket state', {
+    console.log('[ClientNetwork] 🔌 init() called with wsUrl:', wsUrl);
+    console.log('[ClientNetwork] Current WebSocket state:', {
       hasExistingWs: !!this.ws,
       existingReadyState: this.ws?.readyState,
       connected: this.connected,
       id: this.id,
       initialized: this.initialized
-    } as unknown as Record<string, unknown>)
+    });
     
     const name = (options as { name?: string }).name
     const avatar = (options as { avatar?: string }).avatar
@@ -203,14 +203,14 @@ export class ClientNetwork extends SystemBase {
     // CRITICAL: If we already have a WORKING WebSocket, don't recreate
     // But if it's closed or closing, we need to reconnect
     if (this.ws && this.ws.readyState === WebSocket.OPEN && this.connected) {
-      this.logger.debug('WebSocket already connected and working, skipping init')
+      console.log('[ClientNetwork] ✅ WebSocket already connected and working, skipping init');
       this.initialized = true;
       return;
     }
     
     // Clean up any existing WebSocket (closed, closing, or connecting but failed)
     if (this.ws) {
-      this.logger.debug(`Cleaning up old WebSocket (state: ${this.ws.readyState})`)
+      console.log('[ClientNetwork] 🧹 Cleaning up old WebSocket (state:', this.ws.readyState, ')');
       try {
         this.ws.removeEventListener('message', this.onPacket);
         this.ws.removeEventListener('close', this.onClose);
@@ -218,7 +218,7 @@ export class ClientNetwork extends SystemBase {
           this.ws.close();
         }
       } catch (e) {
-        this.logger.debug('Error cleaning up old WebSocket')
+        console.warn('[ClientNetwork] Error cleaning up old WebSocket:', e);
       }
       this.ws = null;
       this.connected = false;
@@ -256,12 +256,12 @@ export class ClientNetwork extends SystemBase {
       this.ws.binaryType = 'arraybuffer'
       
       const timeout = setTimeout(() => {
-        this.logger.warn('WebSocket connection timeout')
+        console.error('[ClientNetwork] WebSocket connection timeout')
         reject(new Error('WebSocket connection timeout'))
       }, 10000)
       
       this.ws.addEventListener('open', () => {
-        this.logger.debug('WebSocket connected successfully')
+        console.log('[ClientNetwork] ✅ WebSocket connected successfully');
         this.connected = true
         this.initialized = true
         clearTimeout(timeout)
@@ -275,7 +275,7 @@ export class ClientNetwork extends SystemBase {
         clearTimeout(timeout)
         const isExpectedDisconnect = this.ws?.readyState === WebSocket.CLOSED || this.ws?.readyState === WebSocket.CLOSING
         if (!isExpectedDisconnect) {
-          this.logger.error('WebSocket error', e instanceof Error ? e : undefined)
+          console.error('[ClientNetwork] WebSocket error:', e)
           this.logger.error(`WebSocket error: ${e instanceof ErrorEvent ? e.message : String(e)}`)
           reject(e)
         }
@@ -304,7 +304,9 @@ export class ClientNetwork extends SystemBase {
       const age = now - timestamp
       if (age > staleTimeout) {
         const count = this.pendingModifications.get(entityId)?.length || 0
-        // Silent cleanup to avoid log spam
+        if (count > 0) {
+          this.logger.warn(`Cleaning up ${count} stale modifications for entity ${entityId} (age: ${(age/1000).toFixed(1)}s)`)
+        }
         this.pendingModifications.delete(entityId)
         this.pendingModificationTimestamps.delete(entityId)
         this.pendingModificationLimitReached.delete(entityId)
@@ -380,18 +382,22 @@ export class ClientNetwork extends SystemBase {
     // Auto-enter world if in character-select mode and we have a selected character
     const isCharacterSelectMode = Array.isArray(data.entities) && data.entities.length === 0 && Array.isArray((data as { characters?: unknown[] }).characters);
     
-    this.logger.debug('Snapshot received - checking character select mode')
+    console.log('[ClientNetwork] 🎮 Snapshot received - checking character select mode:', {
+      isCharacterSelectMode,
+      entitiesLength: data.entities?.length,
+      hasCharactersArray: Array.isArray((data as { characters?: unknown[] }).characters)
+    });
     
     if (isCharacterSelectMode && typeof localStorage !== 'undefined') {
       const selectedCharacterId = localStorage.getItem('selectedCharacterId');
-      this.logger.debug('Selected character ID found in localStorage')
+      console.log('[ClientNetwork] 📋 Selected character ID from localStorage:', selectedCharacterId);
       
       if (selectedCharacterId) {
         // Send enterWorld immediately so server spawns the selected character
-        this.logger.debug('Sending enterWorld with selected characterId')
+        console.log('[ClientNetwork] 🚪 Sending enterWorld with characterId:', selectedCharacterId);
         this.send('enterWorld', { characterId: selectedCharacterId });
       } else {
-        this.logger.debug('No selectedCharacterId in localStorage, cannot auto-enter world')
+        console.log('[ClientNetwork] ⚠️ No selectedCharacterId in localStorage, cannot auto-enter world');
       }
     }
     // Ensure Physics is fully initialized before processing entities
@@ -496,7 +502,7 @@ export class ClientNetwork extends SystemBase {
             // Also update server position for reconciliation
             local.updateServerPosition(pos[0], pos[1], pos[2])
           } else {
-          this.logger.warn('Local player entity not found after deserialize!')
+            console.error('[ClientNetwork] Local player entity not found after deserialize!')
           }
         }
       }
@@ -537,10 +543,10 @@ export class ClientNetwork extends SystemBase {
   }
 
   onEntityAdded = (data: EntityData) => {
-    // Add debugging for mob entities
-    if (data.type === 'mob') {
+    // Add debugging for character entities
+    if (data.type === 'character') {
     }
-    
+
     // Add entity if method exists
     const newEntity = this.world.entities.add(data)
     if (newEntity) {
@@ -575,10 +581,11 @@ export class ClientNetwork extends SystemBase {
         const firstTimestamp = this.pendingModificationTimestamps.get(id) || now
         const age = now - firstTimestamp
         if (age > 10000) {
-          // Entity never arrived, clear the stale modifications (silent)
+          // Entity never arrived, clear the stale modifications
           this.pendingModifications.delete(id)
           this.pendingModificationTimestamps.delete(id)
           this.pendingModificationLimitReached.delete(id)
+          this.logger.warn(`Dropping ${list.length} stale modifications for entity ${id} (waited ${(age/1000).toFixed(1)}s)`)
           return
         }
       }
@@ -590,11 +597,12 @@ export class ClientNetwork extends SystemBase {
         // Track timestamp of first modification
         if (list.length === 1) {
           this.pendingModificationTimestamps.set(id, now)
-          // Silence first-queue log to avoid spam
+          this.logger.info(`Queuing modification for entity ${id} - not found yet.`)
         }
       } else if (!this.pendingModificationLimitReached.has(id)) {
-        // Mark once then stop logging to avoid spam
+        // Warn ONCE when we hit the limit, then stop logging
         this.pendingModificationLimitReached.add(id)
+        this.logger.warn(`Entity ${id} hit modification queue limit (50) - further modifications will be dropped`)
       }
       // No more logging after limit is reached to prevent spam
       return

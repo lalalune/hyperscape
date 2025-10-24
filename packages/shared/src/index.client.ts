@@ -430,3 +430,24 @@ export { CircularSpawnArea } from './utils/CircularSpawnArea';
 // Export terrain system
 export { TerrainSystem } from './systems/TerrainSystem';
 
+// Export authentication module (client-safe exports only)
+// IMPORTANT: Only import from client-specific auth modules to avoid bundling server code
+export {
+  PrivyAuthManager,
+  privyAuthManager,
+  createPrivyAuthManager,
+  type PrivyAuthState,
+  type PrivyAuthConfig,
+} from './auth/PrivyAuthManager'
+
+export {
+  PrivyAuthProvider,
+  type PrivyAuthProviderProps,
+  LoginScreen,
+  type LoginScreenProps,
+  type LoginScreenBranding,
+  type LoginScreenCopy,
+  type LoginScreenFeature,
+  type LoginScreenTheme,
+} from './auth/client';
+

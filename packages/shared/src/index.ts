@@ -161,7 +161,8 @@ export { SystemBase } from './systems/SystemBase';
 
 // Export node client components directly from their source modules
 export { createNodeClientWorld } from './createNodeClientWorld';
-export { ServerLoader } from './systems/ServerLoader';
+// NOTE: ServerLoader is NOT exported here - it's server-only and uses Node.js fs-extra
+// ServerLoader is available via createServerWorld() which registers it internally
 export { NodeClient } from './systems/NodeClient';
 export { Node } from './nodes/Node';
 // Re-export commonly used node classes to satisfy API extractor
@@ -514,3 +515,33 @@ export { CircularSpawnArea } from './utils/CircularSpawnArea';
 
 // Export terrain system
 export { TerrainSystem } from './systems/TerrainSystem';
+
+// Export authentication module
+export {
+  PrivyAuthManager,
+  privyAuthManager,
+  createPrivyAuthManager,
+  type PrivyAuthState,
+  type PrivyAuthConfig,
+  PrivyAuthProvider,
+  type PrivyAuthProviderProps,
+  LoginScreen,
+  type LoginScreenProps,
+  type LoginScreenBranding,
+  type LoginScreenCopy,
+  type LoginScreenFeature,
+  type LoginScreenTheme,
+  PrivyAuthService,
+  createPrivyAuthService,
+  type PrivyUserInfo,
+  type User as AuthUser,
+  type PrivyAuthAdapter,
+  JWTService,
+  createJWTService,
+  type JWTConfig,
+  type JWTPayload,
+  createAuthMiddleware,
+  type AuthMiddleware,
+  type AuthMiddlewareConfig,
+  type AuthenticatedRequest,
+} from './auth';

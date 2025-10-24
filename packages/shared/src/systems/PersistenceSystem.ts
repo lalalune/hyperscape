@@ -362,7 +362,7 @@ export class PersistenceSystem extends SystemBase {
         safeZone: false,
         npcs: [],
         resources: [],
-        mobSpawns: [],
+        characterSpawns: [],
         connections: [],
         specialFeatures: [],
       }

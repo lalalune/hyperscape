@@ -49,7 +49,7 @@ export type {
   AuthenticationResult,
   ClickToMoveEvent,
   Inventory,
-  MobAIStateData,
+  CharacterAIStateData,
   MovementComponent,
   PlayerHealth,
   PlayerIdentity,
@@ -77,7 +77,7 @@ export { EquipmentSlotName } from './core';
 export * from './database';
 export * from './entities';
 // Explicitly export enums from entities that are commonly used
-export { EntityType, InteractionType, ItemRarity, MobAIState, NPCType, ResourceType } from './entities';
+export { EntityType, InteractionType, ItemRarity, ResourceType } from './entities';
 export * from './events';
 export * from './identifiers';
 export * from './networking';
@@ -96,7 +96,7 @@ export type {
 
 // Re-export data types (specific exports to avoid conflicts)
 export { ITEMS } from '../data/items';
-export * from '../data/mobs';
+export * from '../data/characters';
 export * from '../data/world-areas';
 
 // Types are now re-exported above in the main export block

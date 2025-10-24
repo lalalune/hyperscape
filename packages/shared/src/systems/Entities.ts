@@ -18,8 +18,7 @@
  * - PlayerEntity: Base player (server-side)
  * - PlayerLocal: Local player with input handling (client-side)
  * - PlayerRemote: Remote networked players (client-side)
- * - MobEntity: Enemy creatures with AI
- * - NPCEntity: Non-hostile characters with dialogue
+ * - CharacterEntity: Both NPCs and enemy creatures with AI, dialogue, and services
  * 
  * Component System:
  * Entities can have components attached for modular functionality:
@@ -53,7 +52,7 @@
  * 
  * Runs on: Both client and server
  * Used by: All systems that deal with entities
- * References: Entity.ts, PlayerEntity.ts, MobEntity.ts, NPCEntity.ts
+ * References: Entity.ts, PlayerEntity.ts, CharacterEntity.ts
  */
 
 import { Entity } from '../entities/Entity';
@@ -63,14 +62,13 @@ import { PlayerEntity } from '../entities/PlayerEntity';
 import type { ComponentDefinition, EntityConstructor, EntityData, Entities as IEntities, Player, World } from '../types/index';
 import { EventType } from '../types/events';
 import { SystemBase } from './SystemBase';
-import { MobEntity } from '../entities/MobEntity';
-import { NPCEntity } from '../entities/NPCEntity';
+import { CharacterEntity } from '../entities/CharacterEntity';
 import { ItemEntity } from '../entities/ItemEntity';
 import { ResourceEntity } from '../entities/ResourceEntity';
 import { HeadstoneEntity } from '../entities/HeadstoneEntity';
-import type { MobEntityConfig, NPCEntityConfig, ItemEntityConfig, ResourceEntityConfig, HeadstoneData, HeadstoneEntityConfig } from '../types/entities';
-import { EntityType, InteractionType, MobAIState, NPCType, ItemRarity, ResourceType } from '../types/entities';
-import { getMobById } from '../data/mobs';
+import type { CharacterEntityConfig, ItemEntityConfig, ResourceEntityConfig, HeadstoneData, HeadstoneEntityConfig } from '../types/entities';
+import { EntityType, InteractionType, ItemRarity, ResourceType } from '../types/entities';
+import { getMobById } from '../data/characters';
 import { NPCBehavior, NPCState } from '../types/core';
 
 /**
@@ -92,11 +90,10 @@ const EntityTypes: Record<string, EntityConstructor> = {
   player: PlayerEntity,        // Server-side player entity
   playerLocal: PlayerLocal,     // Client-side local player
   playerRemote: PlayerRemote,   // Client-side remote players
-  item: ItemEntity as unknown as EntityConstructor,             // Ground items
-  mob: MobEntity as unknown as EntityConstructor,               // Enemy entities
-  npc: NPCEntity as unknown as EntityConstructor,               // NPC entities
-  resource: ResourceEntity as unknown as EntityConstructor,     // Resource entities (trees, rocks, etc)
-  headstone: HeadstoneEntity as unknown as EntityConstructor,   // Death markers
+  item: ItemEntity as unknown as EntityConstructor,
+  character: CharacterEntity as unknown as EntityConstructor,   // Character entities (NPCs and mobs)
+  resource: ResourceEntity as unknown as EntityConstructor,
+  headstone: HeadstoneEntity as unknown as EntityConstructor
 };
 
 /**
@@ -176,7 +173,7 @@ export class Entities extends SystemBase implements IEntities {
     // Check if entity already exists to prevent duplicates
     const existingEntity = this.items.get(data.id);
     if (existingEntity) {
-      // Duplicate add detected; return existing without logging per-frame
+      console.warn(`[Entities] Entity ${data.id} already exists, skipping duplicate creation`);
       return existingEntity;
     }
 
@@ -195,71 +192,9 @@ export class Entities extends SystemBase implements IEntities {
         const isLocal = data.owner === network?.id;
         EntityClass = EntityTypes[isLocal ? 'playerLocal' : 'playerRemote'];
       }
-    } else if (data.type === 'mob') {
-      // Client-side: build a real MobEntity from snapshot data so models load
-      const positionArray = (data.position || [0, 0, 0]) as [number, number, number];
-      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [number, number, number, number];
-      // Derive mobType from name: "Mob: goblin (Lv1)" -> goblin
-      const name = data.name || 'Mob';
-      const mobTypeMatch = name.match(/Mob:\s*([^()]+)/i);
-      const derivedMobType = (mobTypeMatch ? mobTypeMatch[1].trim() : name).toLowerCase().replace(/\s+/g, '_');
-      const mobData = getMobById(derivedMobType);
-      const modelPath = mobData?.modelPath || null;
-      
-
-      const mobConfig: MobEntityConfig = {
-        id: data.id,
-        name: name,
-        type: EntityType.MOB,
-        position: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
-        rotation: { x: quaternionArray[0], y: quaternionArray[1], z: quaternionArray[2], w: quaternionArray[3] },
-        scale: { x: 1, y: 1, z: 1 },
-        visible: true,
-        interactable: true,
-        interactionType: InteractionType.ATTACK,
-        interactionDistance: 5,
-        description: name,
-        model: modelPath,
-        // Minimal required MobEntity fields with sensible defaults
-        mobType: derivedMobType, // Mob ID from mobs.json
-        level: 1,
-        currentHealth: 100,
-        maxHealth: 100,
-        attackPower: 10,
-        defense: 2,
-        attackSpeed: 1.5,
-        moveSpeed: 3.0, // Walking speed (matches player walk)
-        aggroRange: 15.0, // 15 meters detection range
-        combatRange: 1.5, // 1.5 meters melee range
-        xpReward: 10,
-        lootTable: [],
-        respawnTime: 300000,
-        spawnPoint: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
-        aiState: MobAIState.IDLE,
-        lastAttackTime: 0,
-        properties: {
-          movementComponent: null,
-          combatComponent: null,
-          healthComponent: null,
-          visualComponent: null,
-          health: { current: 100, max: 100 },
-          level: 1,
-        },
-        targetPlayerId: null,
-        deathTime: null,
-      };
-
-      // Construct specialized mob entity so it can load its 3D model on the client
-      // MobEntityConfig is compatible with MobEntity constructor
-      const entity = new MobEntity(this.world, mobConfig);
-      this.items.set(entity.id, entity);
-
-      // Initialize entity if it has an init method
-      if (entity.init) {
-        (entity.init() as Promise<void>)?.catch(err => this.logger.error(`Entity ${entity.id} async init failed`, err));
-      }
-
-      return entity;
+    } else if (data.type === 'character') {
+      // Use CharacterEntity for character type
+      EntityClass = EntityTypes.character;
     } else if (data.type === 'item') {
       // Client-side: build a real ItemEntity from snapshot data so models load
       const positionArray = (data.position || [0, 0, 0]) as [number, number, number];
@@ -326,80 +261,6 @@ export class Entities extends SystemBase implements IEntities {
       };
 
       const entity = new ItemEntity(this.world, itemConfig);
-      this.items.set(entity.id, entity);
-
-      // Initialize entity if it has an init method
-      if (entity.init) {
-        (entity.init() as Promise<void>)?.catch(err => this.logger.error(`Entity ${entity.id} async init failed`, err));
-      }
-
-      return entity;
-    } else if (data.type === 'npc') {
-      // Client-side: build a real NPCEntity from snapshot data so models load
-      const positionArray = (data.position || [0, 0, 0]) as [number, number, number];
-      const quaternionArray = (data.quaternion || [0, 0, 0, 1]) as [number, number, number, number];
-      // Derive npcType from name: "Bank: Bank Clerk Niles" -> bank, "Store: General Store Owner Mara" -> store
-      const name = data.name || 'NPC';
-      const npcTypeMatch = name.match(/^(Bank|Store|Trainer|Quest):/i);
-      let derivedNPCType: NPCType = NPCType.QUEST_GIVER;
-      if (npcTypeMatch) {
-        const prefix = npcTypeMatch[1].toLowerCase();
-        if (prefix === 'bank') derivedNPCType = NPCType.BANK;
-        else if (prefix === 'store') derivedNPCType = NPCType.STORE;
-        else if (prefix === 'trainer') derivedNPCType = NPCType.TRAINER;
-      }
-
-      const npcConfig: NPCEntityConfig = {
-        id: data.id,
-        name: name,
-        type: EntityType.NPC,
-        position: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
-        rotation: { x: quaternionArray[0], y: quaternionArray[1], z: quaternionArray[2], w: quaternionArray[3] },
-        scale: { x: 1, y: 1, z: 1 },
-        visible: true,
-        interactable: true,
-        interactionType: InteractionType.TALK,
-        interactionDistance: 3,
-        description: name,
-        model: null, // NPCs don't have models generated yet
-        // Minimal required NPCEntity fields
-        npcType: derivedNPCType,
-        npcId: data.id,
-        dialogueLines: ['Hello there!'],
-        services: [],
-        inventory: [],
-        skillsOffered: [],
-        questsAvailable: [],
-        properties: {
-          movementComponent: null,
-          combatComponent: null,
-          healthComponent: null,
-          visualComponent: null,
-          health: { current: 100, max: 100 },
-          level: 1,
-          npcComponent: {
-            behavior: NPCBehavior.FRIENDLY,
-            state: NPCState.IDLE,
-            currentTarget: null,
-            spawnPoint: { x: positionArray[0], y: positionArray[1], z: positionArray[2] },
-            wanderRadius: 0,
-            aggroRange: 0,
-            isHostile: false,
-            combatLevel: 1,
-            aggressionLevel: 0,
-            dialogueLines: ['Hello there!'],
-            dialogue: null,
-            services: []
-          },
-          dialogue: [],
-          shopInventory: [],
-          questGiver: false
-        }
-      };
-
-      // Construct specialized NPC entity so it can load its 3D model on the client when available
-      // NPCEntityConfig is compatible with NPCEntity constructor
-      const entity = new NPCEntity(this.world, npcConfig);
       this.items.set(entity.id, entity);
 
       // Initialize entity if it has an init method

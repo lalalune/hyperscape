@@ -229,6 +229,8 @@ export enum EventType {
   LOOT_DROPPED = 'loot:dropped',
   ITEM_PICKUP = 'item:picked_up',
   ITEM_PICKUP_REQUEST = 'item:pickup_request',
+  ITEM_GIVE_REQUEST = 'item:give_request',
+  ITEM_TAKE_REQUEST = 'item:take_request',
   ITEM_USED = 'item:used',
   ITEM_ACTION_SELECTED = 'item:action_selected',
   ITEMS_RETRIEVED = 'items:retrieved',
@@ -256,37 +258,78 @@ export enum EventType {
   INTERACTION_REGISTER = 'interaction:register',
   INTERACTION_UNREGISTER = 'interaction:unregister',
 
-  // NPC System
+  // NPC System (DEPRECATED - Use CHARACTER_ events instead)
+  /** @deprecated Use CHARACTER_SPAWNED with characterType: 'npc' */
   NPC_SPAWNED = 'npc:spawned',
+  /** @deprecated Use CHARACTER_SPAWN_REQUEST with characterType: 'npc' */
   NPC_SPAWN_REQUEST = 'npc:spawn_request',
+  /** @deprecated Use CHARACTER_INTERACTION */
   NPC_INTERACTION = 'npc:interaction',
+  /** @deprecated Use DIALOGUE_START */
   NPC_DIALOGUE = 'npc:dialogue',
   NPC_TRAINER_OPEN = 'trainer:open_request',
   NPC_QUEST_OPEN = 'quest:open_request',
 
   // Quest System
+  QUEST_ACCEPT_REQUEST = 'quest:accept_request',
+  QUEST_COMPLETE_REQUEST = 'quest:complete_request',
   QUEST_STARTED = 'quest:started',
   QUEST_PROGRESSED = 'quest:progressed',
   QUEST_COMPLETED = 'quest:completed',
 
-  // Mobs
+  // Mob System (DEPRECATED - Use CHARACTER_ events instead)
+  /** @deprecated Use CHARACTER_SPAWNED with characterType: 'mob' */
   MOB_SPAWNED = 'mob:spawned',
+  /** @deprecated Use CHARACTER_SPAWN_REQUEST with characterType: 'mob' */
   MOB_SPAWN_REQUEST = 'mob:spawn_request',
+  /** @deprecated Use CHARACTER_SPAWN_POINTS_REGISTERED */
   MOB_SPAWN_POINTS_REGISTERED = 'mob:spawn_points:registered',
+  /** @deprecated Use CHARACTER_DESPAWNED */
   MOB_DESPAWN = 'mob:despawn',
+  /** @deprecated Use CHARACTER_DESPAWNED */
   MOB_DESPAWNED = 'mob:despawned',
   MOB_RESPAWN_ALL = 'mob:respawn_all',
+  /** @deprecated Use CHARACTER_RESPAWNED */
   MOB_RESPAWNED = 'mob:respawn',
+  /** @deprecated Use CHARACTER_DAMAGED */
   MOB_DAMAGED = 'mob:damaged',
   MOB_POSITION_UPDATED = 'mob:position_updated',
   MOB_ATTACKED = 'mob:attacked',
+  /** @deprecated Use CHARACTER_DIED */
   MOB_DIED = 'mob:died',
   MOB_EXAMINE = 'mob:examine',
   MOB_AGGRO = 'mob:aggro',
   MOB_CHASE_STARTED = 'mob:chase:started',
   MOB_CHASE_ENDED = 'mob:chase:ended',
   MOB_MOVE_REQUEST = 'mob:move:request',
+  /** @deprecated Use CHARACTER_DESPAWNED */
   MOB_DESTROY = 'mob:destroy',
+
+  // Character System (Unified NPC + Mob) - PREFERRED
+  /** Unified event for character spawn (replaces MOB_SPAWNED and NPC_SPAWNED) */
+  CHARACTER_SPAWNED = 'character:spawned',
+  /** Unified event for character spawn request (replaces MOB_SPAWN_REQUEST and NPC_SPAWN_REQUEST) */
+  CHARACTER_SPAWN_REQUEST = 'character:spawn_request',
+  /** Unified event for character spawn points (replaces MOB_SPAWN_POINTS_REGISTERED) */
+  CHARACTER_SPAWN_POINTS_REGISTERED = 'character:spawn_points:registered',
+  /** Unified event for character despawn (replaces MOB_DESPAWN/MOB_DESPAWNED) */
+  CHARACTER_DESPAWNED = 'character:despawned',
+  /** Unified event for character interaction (replaces NPC_INTERACTION) */
+  CHARACTER_INTERACTION = 'character:interaction',
+  /** Unified event for character damage (replaces MOB_DAMAGED) */
+  CHARACTER_DAMAGED = 'character:damaged',
+  /** Unified event for character death (replaces MOB_DIED) */
+  CHARACTER_DIED = 'character:died',
+  /** Unified event for character respawn (replaces MOB_RESPAWNED) */
+  CHARACTER_RESPAWNED = 'character:respawned',
+  CHARACTER_BEHAVIOR_UPDATE = 'character:behavior_update',
+  CHARACTER_STATE_CHANGED = 'character:state_changed',
+
+  // Dialogue System
+  DIALOGUE_START = 'dialogue:start',
+  DIALOGUE_ADVANCE = 'dialogue:advance',
+  DIALOGUE_END = 'dialogue:end',
+  DIALOGUE_CHOICE = 'dialogue:choice',
 
   // Banking System
   BANK_OPEN = 'bank:open',

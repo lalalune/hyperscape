@@ -175,8 +175,6 @@ export class ClientInterface extends SystemBase {
     if (this.changes) {
       this.emit('change', this.changes)
       this.changes = null
-      // Persist settings immediately when they change
-      this.persist()
     }
   }
   
