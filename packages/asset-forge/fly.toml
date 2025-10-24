@@ -62,8 +62,3 @@ kill_timeout = "15s"
 [vm]
   memory = '2gb'
   cpus = 2
-
-# Automatically restart if health checks fail
-[restart]
-  policy = "on-failure"
-  max_retries = 3
