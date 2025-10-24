@@ -159,3 +159,5 @@ To deploy manually:
 - Check Cloudflare account has necessary permissions
 - Review deployment logs in the workflow run
 
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/HyperscapeAI/hyperscape)
