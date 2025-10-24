@@ -176,3 +176,4 @@ gdd-assets/
 *.fbx
 temp-images/
 
+.vercel

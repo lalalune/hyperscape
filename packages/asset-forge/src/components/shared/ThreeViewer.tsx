@@ -2676,26 +2676,26 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   }, [showGroundPlane])
   
   // Play animation
-//   const _playAnimation = useCallback((index: number) => {
-    if (!mixerRef.current || !animations[index]) return
-    
-    mixerRef.current.stopAllAction()
-    const action = mixerRef.current.clipAction(animations[index])
-    action.play()
-    setCurrentAnimation(index)
-    setIsPlaying(true)
-  }, [animations])
+  // const _playAnimation = useCallback((index: number) => {
+  //   if (!mixerRef.current || !animations[index]) return
+  //
+  //   mixerRef.current.stopAllAction()
+  //   const action = mixerRef.current.clipAction(animations[index])
+  //   action.play()
+  //   setCurrentAnimation(index)
+  //   setIsPlaying(true)
+  // }, [animations])
   
-//   const _togglePlayPause = useCallback(() => {
-    if (!mixerRef.current) return
-    
-    if (isPlaying) {
-      mixerRef.current.timeScale = 0
-    } else {
-      mixerRef.current.timeScale = 1
-    }
-          setIsPlaying(!isPlaying)
-    }, [isPlaying])
+  // const _togglePlayPause = useCallback(() => {
+  //   if (!mixerRef.current) return
+  //
+  //   if (isPlaying) {
+  //     mixerRef.current.timeScale = 0
+  //   } else {
+  //     mixerRef.current.timeScale = 1
+  //   }
+  //         setIsPlaying(!isPlaying)
+  //   }, [isPlaying])
   
   return (
     <div className="relative w-full h-full bg-bg-secondary rounded-lg overflow-hidden">

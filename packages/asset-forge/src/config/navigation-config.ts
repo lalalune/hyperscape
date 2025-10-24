@@ -365,12 +365,12 @@ export function getAllNavItems(): NavigationLink[] {
  * Get section for nav item by validating section.icon exists
  */
 // function getSectionIconSafely(section: any): any {
-  if (section.icon) {
-    return section.icon
-  }
-  // Return a default icon or undefined
-  return undefined
-}
+//   if (section.icon) {
+//     return section.icon
+//   }
+//   // Return a default icon or undefined
+//   return undefined
+// }
 
 /**
  * Find a nav item by ID

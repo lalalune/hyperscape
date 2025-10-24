@@ -199,15 +199,15 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
     }
   }
 
-//   const _handleReset = () => {
-    const defaultState = animations?.basic?.tpose ? 'tpose' : 'resting'
-    setCurrentAnimation(defaultState)
-    setIsPlaying(false)
-    if (viewerRef.current) {
-      viewerRef.current.stopAnimation()
-      viewerRef.current.resetCamera()
-    }
-  }
+  // const _handleReset = () => {
+  //   const defaultState = animations?.basic?.tpose ? 'tpose' : 'resting'
+  //   setCurrentAnimation(defaultState)
+  //   setIsPlaying(false)
+  //   if (viewerRef.current) {
+  //     viewerRef.current.stopAnimation()
+  //     viewerRef.current.resetCamera()
+  //   }
+  // }
   
   const handleToggleSkeleton = () => {
     if (viewerRef.current) {

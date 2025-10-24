@@ -358,28 +358,28 @@ const PromptSection: React.FC<{
 
 // Empty State Component
 // const _EmptyState: React.FC<{
-  icon: React.ReactNode
-  title: string
-  description: string
-  actionLabel: string
-  onAction: () => void
-}> = ({ icon, title, description, actionLabel, onAction }) => (
-  <div className="text-center py-12">
-    <div className="inline-flex p-4 bg-bg-secondary rounded-full text-text-tertiary mb-4">
-      {icon}
-    </div>
-    <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
-    <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">{description}</p>
-    <Button
-      variant="primary"
-      onClick={onAction}
-      className="gap-2"
-    >
-      <Plus className="w-4 h-4" />
-      {actionLabel}
-    </Button>
-  </div>
-)
+//   icon: React.ReactNode
+//   title: string
+//   description: string
+//   actionLabel: string
+//   onAction: () => void
+// }> = ({ icon, title, description, actionLabel, onAction }) => (
+//   <div className="text-center py-12">
+//     <div className="inline-flex p-4 bg-bg-secondary rounded-full text-text-tertiary mb-4">
+//       {icon}
+//     </div>
+//     <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
+//     <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">{description}</p>
+//     <Button
+//       variant="primary"
+//       onClick={onAction}
+//       className="gap-2"
+//     >
+//       <Plus className="w-4 h-4" />
+//       {actionLabel}
+//     </Button>
+//   </div>
+// )
 
 // Style Creator Component
 const StyleCreator: React.FC<{

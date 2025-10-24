@@ -3,7 +3,34 @@
  * Manages authentication state and storage
  */
 
-import { EventEmitter } from 'events'
+// Simple EventEmitter implementation for browser
+class EventEmitter {
+  private events: Map<string, Array<(...args: unknown[]) => void>> = new Map()
+
+  on(event: string, handler: (...args: unknown[]) => void): void {
+    if (!this.events.has(event)) {
+      this.events.set(event, [])
+    }
+    this.events.get(event)!.push(handler)
+  }
+
+  emit(event: string, ...args: unknown[]): void {
+    const handlers = this.events.get(event)
+    if (handlers) {
+      handlers.forEach(handler => handler(...args))
+    }
+  }
+
+  removeListener(event: string, handler: (...args: unknown[]) => void): void {
+    const handlers = this.events.get(event)
+    if (handlers) {
+      const index = handlers.indexOf(handler)
+      if (index !== -1) {
+        handlers.splice(index, 1)
+      }
+    }
+  }
+}
 
 interface User {
   id: string

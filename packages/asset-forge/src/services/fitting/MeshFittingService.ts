@@ -1881,67 +1881,67 @@ export class MeshFittingService {
    * Detect edge vertices that form openings (neck hole, arm holes)
    * Returns a Set of vertex indices that are on edges
    */
-//   private detectEdgeVertices(geometry: BufferGeometry): { 
-    edgeVertices: Set<number>, 
-    edgeLoops: Array<{name: string, vertices: number[]}> 
-  } {
-    console.log('🔍 Detecting edge vertices for openings...')
-    
-    const position = geometry.attributes.position as BufferAttribute
-    const index = geometry.index
-    
-    if (!index) {
-      console.warn('⚠️ Mesh has no index buffer, edge detection may be incomplete')
-      return { edgeVertices: new Set(), edgeLoops: [] }
-    }
-    
-    // Map to track how many faces each edge belongs to
-    const edgeMap = new Map<string, { count: number, vertices: [number, number] }>()
-    
-    // Build edge map
-    const indices = index.array
-    for (let i = 0; i < indices.length; i += 3) {
-      const v0 = indices[i]
-      const v1 = indices[i + 1]
-      const v2 = indices[i + 2]
-      
-      // Three edges per triangle
-      const edges: [number, number][] = [
-        [Math.min(v0, v1), Math.max(v0, v1)],
-        [Math.min(v1, v2), Math.max(v1, v2)],
-        [Math.min(v2, v0), Math.max(v2, v0)]
-      ]
-      
-      for (const [a, b] of edges) {
-        const key = `${a}_${b}`
-        const edge = edgeMap.get(key)
-        if (edge) {
-          edge.count++
-        } else {
-          edgeMap.set(key, { count: 1, vertices: [a, b] })
-        }
-      }
-    }
-    
-    // Find boundary edges (edges that belong to only one face)
-    const boundaryEdges: Array<[number, number]> = []
-    const edgeVertices = new Set<number>()
-    
-    for (const [_key, edge] of edgeMap) {
-      if (edge.count === 1) {
-        boundaryEdges.push(edge.vertices)
-        edgeVertices.add(edge.vertices[0])
-        edgeVertices.add(edge.vertices[1])
-      }
-    }
-    
-    console.log(`Found ${edgeVertices.size} edge vertices forming ${boundaryEdges.length} boundary edges`)
-    
-    // Group edge vertices into loops
-    const edgeLoops = this.groupEdgeVerticesIntoLoops(boundaryEdges, position)
-    
-    return { edgeVertices, edgeLoops }
-  }
+//   private detectEdgeVertices(geometry: BufferGeometry): {
+//     edgeVertices: Set<number>,
+//     edgeLoops: Array<{name: string, vertices: number[]}>
+//   } {
+//     console.log('🔍 Detecting edge vertices for openings...')
+//     
+//     const position = geometry.attributes.position as BufferAttribute
+//     const index = geometry.index
+//     
+//     if (!index) {
+//       console.warn('⚠️ Mesh has no index buffer, edge detection may be incomplete')
+//       return { edgeVertices: new Set(), edgeLoops: [] }
+//     }
+//     
+//     // Map to track how many faces each edge belongs to
+//     const edgeMap = new Map<string, { count: number, vertices: [number, number] }>()
+//     
+//     // Build edge map
+//     const indices = index.array
+//     for (let i = 0; i < indices.length; i += 3) {
+//       const v0 = indices[i]
+//       const v1 = indices[i + 1]
+//       const v2 = indices[i + 2]
+//       
+//       // Three edges per triangle
+//       const edges: [number, number][] = [
+//         [Math.min(v0, v1), Math.max(v0, v1)],
+//         [Math.min(v1, v2), Math.max(v1, v2)],
+//         [Math.min(v2, v0), Math.max(v2, v0)]
+//       ]
+//       
+//       for (const [a, b] of edges) {
+//         const key = `${a}_${b}`
+//         const edge = edgeMap.get(key)
+//         if (edge) {
+//           edge.count++
+//         } else {
+//           edgeMap.set(key, { count: 1, vertices: [a, b] })
+//         }
+//       }
+//     }
+//     
+//     // Find boundary edges (edges that belong to only one face)
+//     const boundaryEdges: Array<[number, number]> = []
+//     const edgeVertices = new Set<number>()
+//     
+//     for (const [_key, edge] of edgeMap) {
+//       if (edge.count === 1) {
+//         boundaryEdges.push(edge.vertices)
+//         edgeVertices.add(edge.vertices[0])
+//         edgeVertices.add(edge.vertices[1])
+//       }
+//     }
+//     
+//     console.log(`Found ${edgeVertices.size} edge vertices forming ${boundaryEdges.length} boundary edges`)
+//     
+//     // Group edge vertices into loops
+//     const edgeLoops = this.groupEdgeVerticesIntoLoops(boundaryEdges, position)
+//     
+//     return { edgeVertices, edgeLoops }
+//   }
   
   /**
    * Group boundary edges into continuous loops and classify them
@@ -2212,153 +2212,153 @@ export class MeshFittingService {
    * Apply smoothing pass to vertex positions
    */
 //   private applySmoothingPass(
-    positions: Float32Array,
-    vertexCount: number,
-    radius: number,
-    strength: number,
-//     worldMatrix: THREE.Matrix4,
-    preserveFeatures: boolean = false,
-    featureAngleThreshold: number = 30
-  ): void {
-    // Create a copy for reading original positions
-    const originalPositions = new Float32Array(positions)
-    
-    // If preserving features, we need to compute vertex normals first
-    let vertexNormals: Float32Array | null = null
-    if (preserveFeatures) {
-      vertexNormals = this.computeVertexNormals(originalPositions, vertexCount)
-    }
-    
-    const angleThresholdRad = (featureAngleThreshold * Math.PI) / 180
-    
-    // For each vertex, average with nearby vertices
-    for (let i = 0; i < vertexCount; i++) {
-      const centerX = originalPositions[i * 3]
-      const centerY = originalPositions[i * 3 + 1]
-      const centerZ = originalPositions[i * 3 + 2]
-      
-      let totalWeight = 1.0 // Include self
-      let avgX = centerX
-      let avgY = centerY
-      let avgZ = centerZ
-      
-      // Get normal for current vertex if preserving features
-      let centerNormal: Vector3 | null = null
-      if (preserveFeatures && vertexNormals) {
-        centerNormal = new Vector3(
-          vertexNormals[i * 3],
-          vertexNormals[i * 3 + 1],
-          vertexNormals[i * 3 + 2]
-        )
-      }
-      
-      // Check nearby vertices
-      for (let j = 0; j < vertexCount; j++) {
-        if (i === j) continue
-        
-        const dx = originalPositions[j * 3] - centerX
-        const dy = originalPositions[j * 3 + 1] - centerY
-        const dz = originalPositions[j * 3 + 2] - centerZ
-        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-        
-        if (distance < radius && distance > 0) {
-          // Check if we should include this vertex based on feature preservation
-          let includeVertex = true
-          
-          if (preserveFeatures && centerNormal && vertexNormals) {
-            const neighborNormal = new Vector3(
-              vertexNormals[j * 3],
-              vertexNormals[j * 3 + 1],
-              vertexNormals[j * 3 + 2]
-            )
-            
-            // Calculate angle between normals
-            const dotProduct = centerNormal.dot(neighborNormal)
-            const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct)))
-            
-            // If angle is too large, these vertices are on different surfaces
-            if (angle > angleThresholdRad) {
-              includeVertex = false
-            }
-          }
-          
-          if (includeVertex) {
-          // Gaussian weight
-          const weight = Math.exp(-(distance * distance) / (2 * radius * radius))
-          
-          avgX += originalPositions[j * 3] * weight
-          avgY += originalPositions[j * 3 + 1] * weight
-          avgZ += originalPositions[j * 3 + 2] * weight
-          totalWeight += weight
-          }
-        }
-      }
-      
-      // Apply smoothed position
-      if (totalWeight > 0) {
-        avgX /= totalWeight
-        avgY /= totalWeight
-        avgZ /= totalWeight
-        
-        // Blend between original and smoothed based on strength
-        positions[i * 3] = centerX * (1 - strength) + avgX * strength
-        positions[i * 3 + 1] = centerY * (1 - strength) + avgY * strength
-        positions[i * 3 + 2] = centerZ * (1 - strength) + avgZ * strength
-      }
-    }
-  }
+//     positions: Float32Array,
+//     vertexCount: number,
+//     radius: number,
+//     strength: number,
+// //     worldMatrix: THREE.Matrix4,
+//     preserveFeatures: boolean = false,
+//     featureAngleThreshold: number = 30
+//   ): void {
+//     // Create a copy for reading original positions
+//     const originalPositions = new Float32Array(positions)
+//     
+//     // If preserving features, we need to compute vertex normals first
+//     let vertexNormals: Float32Array | null = null
+//     if (preserveFeatures) {
+//       vertexNormals = this.computeVertexNormals(originalPositions, vertexCount)
+//     }
+//     
+//     const angleThresholdRad = (featureAngleThreshold * Math.PI) / 180
+//     
+//     // For each vertex, average with nearby vertices
+//     for (let i = 0; i < vertexCount; i++) {
+//       const centerX = originalPositions[i * 3]
+//       const centerY = originalPositions[i * 3 + 1]
+//       const centerZ = originalPositions[i * 3 + 2]
+//       
+//       let totalWeight = 1.0 // Include self
+//       let avgX = centerX
+//       let avgY = centerY
+//       let avgZ = centerZ
+//       
+//       // Get normal for current vertex if preserving features
+//       let centerNormal: Vector3 | null = null
+//       if (preserveFeatures && vertexNormals) {
+//         centerNormal = new Vector3(
+//           vertexNormals[i * 3],
+//           vertexNormals[i * 3 + 1],
+//           vertexNormals[i * 3 + 2]
+//         )
+//       }
+//       
+//       // Check nearby vertices
+//       for (let j = 0; j < vertexCount; j++) {
+//         if (i === j) continue
+//         
+//         const dx = originalPositions[j * 3] - centerX
+//         const dy = originalPositions[j * 3 + 1] - centerY
+//         const dz = originalPositions[j * 3 + 2] - centerZ
+//         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+//         
+//         if (distance < radius && distance > 0) {
+//           // Check if we should include this vertex based on feature preservation
+//           let includeVertex = true
+//           
+//           if (preserveFeatures && centerNormal && vertexNormals) {
+//             const neighborNormal = new Vector3(
+//               vertexNormals[j * 3],
+//               vertexNormals[j * 3 + 1],
+//               vertexNormals[j * 3 + 2]
+//             )
+//             
+//             // Calculate angle between normals
+//             const dotProduct = centerNormal.dot(neighborNormal)
+//             const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct)))
+//             
+//             // If angle is too large, these vertices are on different surfaces
+//             if (angle > angleThresholdRad) {
+//               includeVertex = false
+//             }
+//           }
+//           
+//           if (includeVertex) {
+//           // Gaussian weight
+//           const weight = Math.exp(-(distance * distance) / (2 * radius * radius))
+//           
+//           avgX += originalPositions[j * 3] * weight
+//           avgY += originalPositions[j * 3 + 1] * weight
+//           avgZ += originalPositions[j * 3 + 2] * weight
+//           totalWeight += weight
+//           }
+//         }
+//       }
+//       
+//       // Apply smoothed position
+//       if (totalWeight > 0) {
+//         avgX /= totalWeight
+//         avgY /= totalWeight
+//         avgZ /= totalWeight
+//         
+//         // Blend between original and smoothed based on strength
+//         positions[i * 3] = centerX * (1 - strength) + avgX * strength
+//         positions[i * 3 + 1] = centerY * (1 - strength) + avgY * strength
+//         positions[i * 3 + 2] = centerZ * (1 - strength) + avgZ * strength
+//       }
+//     }
+//   }
   
   /**
    * Project vertices back onto the target surface after smoothing
    */
 //   private projectVerticesToSurface(
-    positions: Float32Array,
-    vertexCount: number,
-    sourceMesh: Mesh,
-    targetMesh: Mesh,
-    targetOffset: number
-  ): void {
-    for (let i = 0; i < vertexCount; i++) {
-      const vertex = new Vector3(
-        positions[i * 3],
-        positions[i * 3 + 1],
-        positions[i * 3 + 2]
-      )
-      
-      // Transform to world space
-      vertex.applyMatrix4(sourceMesh.matrixWorld)
-      
-      // Find the nearest point on the target surface
-      const nearest = this.findNearestSurfacePoint(vertex, targetMesh)
-      
-      if (nearest) {
-        // Calculate the desired position based on the target offset
-        const desiredPoint = nearest.point.clone().add(
-          nearest.normal.clone().multiplyScalar(targetOffset)
-        )
-        
-        // Calculate movement
-        const movement = desiredPoint.clone().sub(vertex)
-        
-        // Apply the movement to the vertex
-        const newWorldPos = vertex.clone().add(movement)
-        
-        // Transform back to local space
-        const newLocalPos = newWorldPos.clone()
-        const inverseMatrix = sourceMesh.matrixWorld.clone().invert()
-        newLocalPos.applyMatrix4(inverseMatrix)
-        
-        // Update the position in the source geometry
-        positions[i * 3] = newLocalPos.x
-        positions[i * 3 + 1] = newLocalPos.y
-        positions[i * 3 + 2] = newLocalPos.z
-      } else {
-        // Fallback if projection fails (e.g., no intersection found)
-        // This should ideally not happen if findNearestSurfacePoint works correctly
-        console.warn(`Could not project vertex ${i} back to surface. Keeping original position.`)
-      }
-    }
-  }
+//     positions: Float32Array,
+//     vertexCount: number,
+//     sourceMesh: Mesh,
+//     targetMesh: Mesh,
+//     targetOffset: number
+//   ): void {
+//     for (let i = 0; i < vertexCount; i++) {
+//       const vertex = new Vector3(
+//         positions[i * 3],
+//         positions[i * 3 + 1],
+//         positions[i * 3 + 2]
+//       )
+//       
+//       // Transform to world space
+//       vertex.applyMatrix4(sourceMesh.matrixWorld)
+//       
+//       // Find the nearest point on the target surface
+//       const nearest = this.findNearestSurfacePoint(vertex, targetMesh)
+//       
+//       if (nearest) {
+//         // Calculate the desired position based on the target offset
+//         const desiredPoint = nearest.point.clone().add(
+//           nearest.normal.clone().multiplyScalar(targetOffset)
+//         )
+//         
+//         // Calculate movement
+//         const movement = desiredPoint.clone().sub(vertex)
+//         
+//         // Apply the movement to the vertex
+//         const newWorldPos = vertex.clone().add(movement)
+//         
+//         // Transform back to local space
+//         const newLocalPos = newWorldPos.clone()
+//         const inverseMatrix = sourceMesh.matrixWorld.clone().invert()
+//         newLocalPos.applyMatrix4(inverseMatrix)
+//         
+//         // Update the position in the source geometry
+//         positions[i * 3] = newLocalPos.x
+//         positions[i * 3 + 1] = newLocalPos.y
+//         positions[i * 3 + 2] = newLocalPos.z
+//       } else {
+//         // Fallback if projection fails (e.g., no intersection found)
+//         // This should ideally not happen if findNearestSurfacePoint works correctly
+//         console.warn(`Could not project vertex ${i} back to surface. Keeping original position.`)
+//       }
+//     }
+//   }
   
   /**
    * Compute vertex normals from positions
