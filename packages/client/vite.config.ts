@@ -176,16 +176,14 @@ export default defineConfig(({ mode }) => {
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      // Use client-only build of shared package to avoid Node.js module leakage
-      '@hyperscape/shared': path.resolve(__dirname, '../shared/build/framework.client.js'),
     },
     dedupe: ['three']
   },
   
   optimizeDeps: {
     include: [
-      'three', 
-      'react', 
+      'three',
+      'react',
       'react-dom'
     ],
     exclude: [
@@ -196,7 +194,8 @@ export default defineConfig(({ mode }) => {
       'path',
       'node:fs',
       'node:path',
-      'graceful-fs'
+      'graceful-fs',
+      '/public/physx-js-webidl.js'  // Exclude PhysX WASM loader (UMD converted to ESM)
     ],
     esbuildOptions: {
       target: 'esnext', // Support top-level await
