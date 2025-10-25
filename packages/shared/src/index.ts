@@ -89,7 +89,7 @@ export type {
     // Player Types
     Player,
     PlayerInput,
-    PlayerStats, Quaternion,
+    Quaternion,
     // Additional system interfaces
     Settings, Stage,
     // System Types  
@@ -140,6 +140,9 @@ export { addRole, removeRole, hasRole, serializeRoles, uuid } from './utils';
 
 // Export item helpers used by server network snapshot
 export { getItem } from './data/items';
+
+// Export game constants
+export { ITEM_ID_TO_KEY, ITEM_IDS } from './constants/GameConstants';
 
 // Export system classes to fix API extractor warnings
 export { Entities } from './systems/Entities';
@@ -301,6 +304,7 @@ export type {
   PlayerHealth,
   PlayerStamina,
   PlayerPosition,
+  PlayerStats,
   Skills,
   PlayerEquipmentItems,
   PlayerCombatData,
@@ -308,6 +312,7 @@ export type {
   SkillData,
   MovementComponent,
   InventoryItem,
+  InventorySlotItem,
   Item,
   Inventory,
   PlayerEquipment,

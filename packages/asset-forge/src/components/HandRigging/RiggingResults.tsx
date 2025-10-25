@@ -1,9 +1,10 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardContent } from '../common'
-import { cn } from '../../styles'
 import { CheckCircle } from 'lucide-react'
+import React from 'react'
+
 import type { HandRiggingResult } from '../../services/hand-rigging/HandRiggingService'
 import type { SimpleHandRiggingResult } from '../../services/hand-rigging/SimpleHandRiggingService'
+import { cn } from '../../styles'
+import { Card, CardHeader, CardTitle, CardContent } from '../common'
 
 interface RiggingResultsProps {
   riggingResult: HandRiggingResult | SimpleHandRiggingResult | null

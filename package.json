@@ -44,8 +44,13 @@
     "cdn:down": "cd packages/server && docker-compose down cdn",
     "start": "cd packages/server && bun run start",
     "test": "turbo run test",
-    "test:synpress": "playwright test tests/synpress --config=synpress.config.ts",
+    "test:e2e": "playwright test tests/e2e --config=playwright.config.ts",
+    "test:e2e:multiplayer": "playwright test tests/e2e/multiplayer-visibility.spec.ts --config=playwright.config.ts",
+    "test:e2e:debug": "playwright test tests/e2e/debug-economy-panel.spec.ts --config=playwright.config.ts",
+    "test:e2e:ui": "playwright test tests/e2e --config=playwright.config.ts --ui",
+    "test:synpress": "playwright test tests/wallet --config=synpress.config.ts",
     "test:contracts": "cd ../../contracts && forge test && cd src/hyperscape && bun run test",
+    "test:all": "bun run test && bun run test:e2e",
     "lint": "turbo run lint",
     "clean": "turbo run clean && rm -rf test-*.json test-*.png *.log **/*.log test-results packages/docs-site/docs/api",
     "ios": "cd packages/client && bun run ios",
@@ -80,6 +85,8 @@
     "jest": "^29.7.0",
     "prettier": "^3.6.2",
     "puppeteer": "^24.22.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
     "rollup": "^4.52.4",
     "ts-jest": "^29.1.1",
     "turbo": "^2.5.5",
@@ -91,7 +98,9 @@
   "overrides": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   },
   "packageManager": "bun@1.0.0",
   "dependencies": {
@@ -104,6 +113,7 @@
     "pg": "^8.16.3",
     "playwright": "^1.54.2",
     "pngjs": "^7.0.0",
+    "three": "^0.180.0",
     "wagmi": "^2.18.2",
     "ws": "^8.18.3"
   }

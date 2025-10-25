@@ -11,6 +11,16 @@ The server has been successfully migrated to PostgreSQL and is production-ready 
 - Complete persistence layer (inventory, equipment, skills, position)
 - Real-time multiplayer via WebSocket
 - 15 registered game actions
+- **Player-to-player trading system** with full server-authoritative validation
+- **Verified multiplayer visibility** - All players see each other on join
+- **Complete character selection flow** - Character list updates after creation
+
+### Recent Fixes (October 25, 2025)
+1. **Multiplayer Visibility**: Fixed snapshot to include all entities (players see each other immediately)
+2. **Character Selection**: Character list now updates after character creation  
+3. **Enter World**: New players receive all existing entities when entering world
+4. **Auto-Spawn**: Fixed foreign key constraint by creating character in DB before spawning
+5. **Trading System**: Fully tested with 8/8 integration tests passing
 
 See `FIXES-COMPLETE.md` for detailed migration changelog.
 
@@ -18,6 +28,7 @@ See `FIXES-COMPLETE.md` for detailed migration changelog.
 
 - **PostgreSQL Database** - Full persistence with automatic migrations
 - **WebSocket Support** - Real-time multiplayer via Fastify WebSockets
+- **Trading System** - Player-to-player trading with server-authoritative validation
 - **Docker Integration** - Automatic local PostgreSQL via Docker (optional)
 - **Asset Serving** - Efficient static asset delivery
 - **Character System** - Multi-character support per account

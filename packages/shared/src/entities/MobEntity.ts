@@ -788,10 +788,11 @@ export class MobEntity extends CombatantEntity {
       position: this.getPosition()
     });
 
-    if (this.config.currentHealth <= 0) {
-      this.die();
-      return true; // Mob died
-    } else {
+        if (this.config.currentHealth <= 0) {
+          // Don't call die() directly - let EntityManager handle death via MOB_ATTACKED event
+          // This prevents race conditions and double XP grants
+          return true; // Mob died
+        } else {
       // Become aggressive towards attacker
       if (attackerId && !this.config.targetPlayerId) {
         this.config.targetPlayerId = attackerId;
@@ -812,6 +813,12 @@ export class MobEntity extends CombatantEntity {
     // Update base health property for isDead() check
     this.setHealth(0);
 
+    // Immediately end combat to prevent further attacks
+    const combatSystem = this.world.getSystem('combat') as any;
+    if (combatSystem && typeof combatSystem.forceEndCombat === 'function') {
+      combatSystem.forceEndCombat(this.id);
+    }
+
     // Mark for network update to sync death state to clients
     this.markNetworkDirty();
 
@@ -830,11 +837,13 @@ export class MobEntity extends CombatantEntity {
         attackerId: this.lastAttackerId,
         targetId: this.id,
         damageDealt: this.config.maxHealth, // Total damage dealt (mob's max health)
-        attackStyle: 'melee' // Default to melee, could be enhanced to track actual attack style
+        attackStyle: 'aggressive' // Use valid attack style for XP calculation
       });
 
       // CRITICAL FIX: Don't drop loot here - LootSystem handles it via MOB_DIED event
       // this.dropLoot(this.lastAttackerId);
+    } else {
+      console.warn(`[MobEntity] ${this.id} died but no lastAttackerId found`);
     }
 
     // Hide mesh or change to corpse

@@ -63,7 +63,7 @@ export class ItemSpawnerSystem extends SystemBase {
   start(): void {
       // Wait for terrain to be ready before spawning items
     const checkTerrainAndSpawn = async () => {
-      const terrainSystem = this.world.getSystem('terrain') as { getHeightAt: (x: number, z: number) => number | null } | undefined;
+      const terrainSystem = this.world.getSystem('terrain') as unknown as { getHeightAt: (x: number, z: number) => number | null } | undefined;
       if (!terrainSystem) {
         console.warn('[ItemSpawnerSystem] Terrain system not ready, waiting...');
         setTimeout(checkTerrainAndSpawn, 500);
@@ -243,7 +243,6 @@ export class ItemSpawnerSystem extends SystemBase {
     this.#lastKnownIndex[itemData.type] = index;
     const itemId = `gdd_${itemData.id}_${location}_${index}`;
     
-    
     // Ground item to terrain - use Infinity to allow any initial height difference
     // This is safe because we're always grounding to actual terrain height
     const groundedPosition = groundToTerrain(this.world, position, 0.2, Infinity);
@@ -394,12 +393,11 @@ export class ItemSpawnerSystem extends SystemBase {
     return loot;
   }
 
-  private async spawnItemAtLocation(data: { itemId: string; position: { x: number; y: number; z: number }; quantity?: number }, index: number): Promise<void> {
+  private async spawnItemAtLocation(data: { itemId: string; position: { x: number; y: number; z: number }; quantity?: number; model?: string }, index: number): Promise<void> {
     const itemData = getItem(data.itemId);
     if (!itemData) {
       throw new Error(`[ItemSpawnerSystem] Unknown item ID: ${data.itemId}`);
     }
-    
     await this.spawnItemFromData(itemData, data.position, 'spawned', 'Dynamic Spawn', index);
   }
 

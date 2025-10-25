@@ -1,5 +1,13 @@
 import React, { createContext, useMemo, useState } from 'react'
-import type { HintContextType, HintProviderProps } from '@hyperscape/shared'
+
+interface HintContextType {
+  hint: string | null
+  setHint: (hint: string | null) => void
+}
+
+interface HintProviderProps {
+  children: React.ReactNode
+}
 
 export const HintContext = createContext<HintContextType | undefined>(undefined)
 

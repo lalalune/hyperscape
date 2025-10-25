@@ -73,8 +73,9 @@ describe("USE Action", () => {
       };
 
       let callbackContent: Content | undefined;
-      const callback = (content: Content) => {
+      const callback = async (content: Content): Promise<Memory[]> => {
         callbackContent = content;
+        return [];
       };
 
       const responses = [
@@ -118,8 +119,9 @@ describe("USE Action", () => {
       };
 
       let callbackInvoked = false;
-      const callback = () => {
+      const callback = async (): Promise<Memory[]> => {
         callbackInvoked = true;
+        return [];
       };
 
       const result = await useAction.handler(
@@ -165,7 +167,7 @@ describe("USE Action", () => {
         message,
         state,
         {},
-        null as never,
+        undefined,
         responses,
       );
 

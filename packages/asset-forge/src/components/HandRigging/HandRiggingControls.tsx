@@ -1,10 +1,11 @@
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, Button, Badge, Checkbox } from '../common'
-import { cn } from '../../styles'
 import { 
   Settings, Wand2, Brain, Check, CheckCircle, 
   Sparkles, Loader2, RotateCw, X
 } from 'lucide-react'
+
 import { useHandRiggingStore } from '../../store'
+import { cn } from '../../styles'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, Button, Badge, Checkbox } from '../common'
 
 interface HandRiggingControlsProps {
   onStartProcessing: () => void
@@ -17,7 +18,7 @@ export function HandRiggingControls({ onStartProcessing }: HandRiggingControlsPr
     useSimpleMode,
     showDebugImages,
     serviceInitialized,
-    error,
+    error: _error,
     setUseSimpleMode,
     toggleDebugImages,
     reset,
@@ -75,7 +76,7 @@ export function HandRiggingControls({ onStartProcessing }: HandRiggingControlsPr
       </CardFooter>
       
       {/* Rigging Configuration Card */}
-      <Card className={cn("overflow-hidden animate-slide-in-left [animation-delay:0.1s]")}>
+      <Card className={cn("overflow-hidden", "animate-slide-in-left")} style={{ animationDelay: '0.1s' }}>
         <CardHeader className="bg-gradient-to-r from-bg-secondary to-bg-tertiary">
           <CardTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-primary" />

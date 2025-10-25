@@ -93,6 +93,7 @@ export class PlayerSystem extends SystemBase {
   private playerAttackStyles = new Map<string, PlayerAttackStyleState>()
   private styleChangeTimers = new Map<string, NodeJS.Timeout>()
   private readonly STYLE_CHANGE_COOLDOWN = 5000 // 5 seconds between style changes
+  private skillSaveTimers = new Map<string, NodeJS.Timeout>()
 
   // Attack styles per GDD - XP percentages must total 100%
   private readonly ATTACK_STYLES: Record<string, AttackStyle> = {
@@ -337,14 +338,13 @@ export class PlayerSystem extends SystemBase {
   }
 
   private onPlayerRegister(data: { playerId: string }): void {
-    // For now, just log the registration - PlayerLocal reference will be handled elsewhere
-    // console.log('[PlayerSystem] onPlayerRegister called with data:', data, 'playerId:', data?.playerId);
     if (!data?.playerId) {
       console.error('[PlayerSystem] ERROR: playerId is undefined in registration data!', data)
       return
     }
 
-    // Initialize attack style (merged from AttackStyleSystem)
+    // Note: Skills are already loaded by ServerNetwork and passed to entity spawn
+    // No need to load again - just initialize attack style
     this.initializePlayerAttackStyle(data.playerId)
   }
 
@@ -376,8 +376,8 @@ export class PlayerSystem extends SystemBase {
     // Use userId (persistent account ID) if available, otherwise use playerId (session ID)
     const databaseId = userId || playerId
 
-    // Load player data from database using persistent userId
-    let playerData: Player | undefined
+    // Load player data from database
+    let playerData: Player | undefined;
     if (this.databaseSystem) {
       const dbData = await this.databaseSystem.getPlayerAsync(databaseId)
       console.log('[PlayerSystem] 📋 Loaded player data from DB:', {
@@ -510,20 +510,20 @@ export class PlayerSystem extends SystemBase {
     // Validate health values to prevent NaN
     const validMaxHealth = Number.isFinite(data.maxHealth) && data.maxHealth > 0 ? data.maxHealth : player.health.max
     const validCurrentHealth = Number.isFinite(data.currentHealth) ? data.currentHealth : player.health.current
-    
-    // Additional validation to prevent NaN
-    if (!Number.isFinite(validCurrentHealth)) {
-      console.error(`[PlayerSystem] WARNING: Invalid currentHealth detected: ${data.currentHealth}, using current value instead. Player health object:`, player.health)
-      player.health.current = Math.max(0, player.health.current)
-    } else {
-      player.health.current = Math.max(0, Math.min(validCurrentHealth, validMaxHealth))
-    }
-    
-    if (!Number.isFinite(validMaxHealth)) {
-      console.error(`[PlayerSystem] WARNING: Invalid maxHealth detected: ${data.maxHealth}, using current max instead. Player health object:`, player.health)
-      player.health.max = Math.max(100, player.health.max)
+
+    // Additional safety checks to prevent NaN values - validate before assignment
+    if (!Number.isFinite(validMaxHealth) || validMaxHealth <= 0) {
+      Logger.systemError('PlayerSystem', `Invalid maxHealth value: ${validMaxHealth}, using default 100`, new Error(`Invalid maxHealth: ${validMaxHealth}`))
+      player.health.max = 100
     } else {
       player.health.max = validMaxHealth
+    }
+    
+    if (!Number.isFinite(validCurrentHealth)) {
+      Logger.systemError('PlayerSystem', `Invalid currentHealth value: ${validCurrentHealth}, using maxHealth`, new Error(`Invalid currentHealth: ${validCurrentHealth}`))
+      player.health.current = player.health.max
+    } else {
+      player.health.current = Math.max(0, Math.min(validCurrentHealth, player.health.max))
     }
 
     // Check for death
@@ -1483,15 +1483,74 @@ export class PlayerSystem extends SystemBase {
 
   private handleSkillsUpdate(data: { playerId: string; skills: Skills }): void {
     const player = this.players.get(data.playerId)
-    if (!player) return
+    if (!player) {
+      console.warn('[PlayerSystem] Player not found in handleSkillsUpdate:', data.playerId);
+      return;
+    }
 
     // Update player skills
-    player.skills = data.skills
+    player.skills = data.skills;
 
     // Recalculate combat level
     player.combat.combatLevel = this.calculateCombatLevel(data.skills)
 
     // Trigger UI update to reflect skill changes
     this.emitPlayerUpdate(data.playerId)
+
+    // Persist skill XP/levels to database (debounced)
+    this.scheduleSaveSkills(data.playerId)
+  }
+
+  private scheduleSaveSkills(playerId: string): void {
+    // Save immediately for first update, then debounce subsequent updates
+    const existing = this.skillSaveTimers.get(playerId)
+    if (!existing) {
+      // First skill update - save immediately
+      this.saveSkillsToDatabase(playerId)
+    }
+    
+    // Also schedule debounced save for continuous updates
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(() => {
+      this.skillSaveTimers.delete(playerId)
+      this.saveSkillsToDatabase(playerId)
+    }, 500)
+    this.skillSaveTimers.set(playerId, timer)
+  }
+
+  private saveSkillsToDatabase(playerId: string): void {
+    if (!this.databaseSystem) return;
+    const player = this.players.get(playerId)
+    if (!player) return;
+
+    const s = player.skills
+    // Map runtime skills -> DB columns
+    const update: Record<string, number> = {
+      combatLevel: player.combat.combatLevel,
+      attackLevel: s.attack.level,
+      strengthLevel: s.strength.level,
+      defenseLevel: s.defense.level,
+      constitutionLevel: s.constitution.level,
+      rangedLevel: s.ranged.level,
+      woodcuttingLevel: s.woodcutting.level,
+      fishingLevel: s.fishing.level,
+      firemakingLevel: s.firemaking.level,
+      cookingLevel: s.cooking.level,
+      // XP
+      attackXp: Math.floor(s.attack.xp),
+      strengthXp: Math.floor(s.strength.xp),
+      defenseXp: Math.floor(s.defense.xp),
+      constitutionXp: Math.floor(s.constitution.xp),
+      rangedXp: Math.floor(s.ranged.xp),
+      woodcuttingXp: Math.floor(s.woodcutting.xp),
+      fishingXp: Math.floor(s.fishing.xp),
+      firemakingXp: Math.floor(s.firemaking.xp),
+      cookingXp: Math.floor(s.cooking.xp),
+    }
+    try {
+      this.databaseSystem.savePlayer(playerId, update)
+    } catch (err) {
+      console.error('[PlayerSystem] Failed to save skills to DB:', err);
+    }
   }
 }

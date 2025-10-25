@@ -126,10 +126,26 @@ export class DeathSystem extends SystemBase {
       return;
     }
     
-    // Get player's current position (reactive pattern)
-    const position = this.playerPositions.get(playerId);
+    // Get player's current position from cache or entity directly
+    let position = this.playerPositions.get(playerId);
+    
     if (!position) {
-      throw new Error(`[DeathSystem] Player ${playerId} has no position`);
+      // Fallback: Get position from entity if not in cache
+      const entity = this.world.entities.get(playerId);
+      if (entity && entity.position) {
+        position = {
+          x: entity.position.x,
+          y: entity.position.y,
+          z: entity.position.z
+        };
+        // Cache it for future use
+        this.playerPositions.set(playerId, position);
+      }
+    }
+    
+    if (!position) {
+      console.error(`[DeathSystem] Player ${playerId} has no position, skipping death handling`);
+      return;
     }
     
     // Mark as processing

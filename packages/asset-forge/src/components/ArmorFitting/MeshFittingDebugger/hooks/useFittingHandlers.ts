@@ -1,13 +1,14 @@
 import { MutableRefObject } from 'react'
 import * as THREE from 'three'
-import { MeshFittingService, MeshFittingParameters } from '../../../../services/fitting/MeshFittingService'
+
 import { ArmorFittingService } from '../../../../services/fitting/ArmorFittingService'
+import { MeshFittingService, MeshFittingParameters } from '../../../../services/fitting/MeshFittingService'
 import { ExtendedMesh } from '../../../../types'
 
 // Import modular hooks
 import { useArmorFitting } from './useArmorFitting'
-import { useHelmetFitting } from './useHelmetFitting'
 import { useBasicDemoFitting } from './useBasicDemoFitting'
+import { useHelmetFitting } from './useHelmetFitting'
 import { useResetHandlers } from './useResetHandlers'
 
 interface FittingHandlersProps {
@@ -62,6 +63,7 @@ export function useFittingHandlers(props: FittingHandlersProps) {
         armorMeshRef: props.armorMeshRef,
         originalArmorGeometryRef: props.originalArmorGeometryRef,
         debugArrowGroupRef: props.debugArrowGroupRef,
+        hullMeshRef: props.hullMeshRef,
         fittingService: props.fittingService,
         armorFittingService: props.armorFittingService,
         setIsProcessing: props.setIsProcessing,
@@ -69,6 +71,9 @@ export function useFittingHandlers(props: FittingHandlersProps) {
         setIsArmorBound: props.setIsArmorBound,
         setBoundArmorMesh: props.setBoundArmorMesh,
         setSkinnedArmorMesh: props.setSkinnedArmorMesh,
+        setError: props.setError,
+        isProcessing: props.isProcessing,
+        showHull: props.showHull,
         fittingParameters: props.fittingParameters,
         selectedAvatar: props.selectedAvatar
     })
@@ -78,10 +83,12 @@ export function useFittingHandlers(props: FittingHandlersProps) {
         sceneRef: props.sceneRef,
         avatarMeshRef: props.avatarMeshRef,
         helmetMeshRef: props.helmetMeshRef,
+        originalHelmetTransformRef: props.originalHelmetTransformRef,
         fittingService: props.fittingService,
         setIsProcessing: props.setIsProcessing,
         setIsHelmetFitted: props.setIsHelmetFitted,
         setIsHelmetAttached: props.setIsHelmetAttached,
+        isProcessing: props.isProcessing,
         helmetFittingMethod: props.helmetFittingMethod,
         helmetSizeMultiplier: props.helmetSizeMultiplier,
         helmetFitTightness: props.helmetFitTightness,

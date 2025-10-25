@@ -19,6 +19,8 @@ export class MobSpawnerSystem extends SystemBase {
   private spawnedMobs = new Map<string, string>(); // mobId -> entityId
   private mobIdCounter = 0;
   private terrainSystem!: TerrainSystem;
+  private lastSpawnTime = 0;
+  private readonly SPAWN_COOLDOWN = 5000; // 5 seconds between spawns
   
   constructor(world: World) {
     super(world, {

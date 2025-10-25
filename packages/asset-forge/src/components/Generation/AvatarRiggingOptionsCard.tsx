@@ -1,6 +1,7 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Input } from '../common'
 import { User } from 'lucide-react'
+import React from 'react'
+
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Input } from '../common'
 
 interface AvatarRiggingOptionsCardProps {
   characterHeight: number

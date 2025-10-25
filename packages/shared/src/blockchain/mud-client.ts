@@ -33,7 +33,8 @@ function createChainConfig(chainId: number, chainName: string, rpcUrl: string): 
 /**
  * MUD Client instance type
  */
-export type MudClient = Awaited<ReturnType<typeof setupMudClient>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type MudClient = any; // Simplified due to deep viem type recursion
 
 /**
  * Transaction receipt with typed logs
@@ -103,12 +104,13 @@ export async function setupMudClient(config?: {
   const systems = systemsJson.default || systemsJson;
   
   // Helper to find system ABI
-  function getSystemAbi(name: string) {
-    const systemsArray = (systems as any)?.systems;
+  function getSystemAbi(name: string): readonly unknown[] {
+    const systemsRecord = systems as Record<string, { systems?: Array<{ name: string; worldAbi: readonly unknown[] }> }>;
+    const systemsArray = systemsRecord.systems;
     if (!systemsArray || !Array.isArray(systemsArray)) {
       throw new Error(`Systems not loaded. Deploy contracts first: cd vendor/hyperscape/contracts-mud/mmo && npm run deploy:local`);
     }
-    const system = systemsArray.find((s: { name: string }) => s.name === name);
+    const system = systemsArray.find((s) => s.name === name);
     if (!system) {
       throw new Error(`System ${name} not found in deployed contracts`);
     }
@@ -123,12 +125,12 @@ export async function setupMudClient(config?: {
   ): Promise<TxReceipt> {
     const hash = await walletClient.writeContract({
       address: worldAddress,
-      abi: abi as never,
+      abi,
       functionName,
-      args: args as never,
+      args,
       chain,
       account
-    });
+    } as Parameters<typeof walletClient.writeContract>[0]);
     
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     
@@ -137,7 +139,11 @@ export async function setupMudClient(config?: {
       blockNumber: receipt.blockNumber,
       status: receipt.status,
       gasUsed: receipt.gasUsed,
-      logs: receipt.logs
+      logs: receipt.logs.map(log => ({
+        address: log.address,
+        topics: (log as { topics?: readonly string[] }).topics || [],
+        data: log.data
+      }))
     };
   }
   
@@ -149,10 +155,10 @@ export async function setupMudClient(config?: {
   ): Promise<unknown> {
     return publicClient.readContract({
       address: worldAddress,
-      abi: abi as never,
+      abi,
       functionName,
-      args: args as never
-    });
+      args
+    } as Parameters<typeof publicClient.readContract>[0]);
   }
   
   return {
@@ -383,7 +389,11 @@ export async function setupMudClient(config?: {
         blockNumber: receipt.blockNumber,
         status: receipt.status,
         gasUsed: receipt.gasUsed,
-        logs: receipt.logs
+        logs: receipt.logs.map(log => ({
+          address: log.address,
+          topics: (log as { topics?: readonly string[] }).topics || [],
+          data: log.data
+        }))
       };
     },
     

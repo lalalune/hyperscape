@@ -90,6 +90,29 @@ export class SkillsSystem extends SystemBase {
     this.subscribe(EventType.QUEST_COMPLETED, (data: { playerId: string; questId: string; rewards: { xp?: Record<keyof Skills, number> } }) => {
       this.handleQuestComplete(data);
     });
+    
+    // Load skills from database on player registration (mirror InventorySystem pattern)
+    this.subscribe(EventType.PLAYER_REGISTERED, async (data: { playerId: string }) => {
+      await this.loadPlayerSkillsFromDatabase(data.playerId);
+    });
+  }
+  
+  private async loadPlayerSkillsFromDatabase(playerId: string): Promise<void> {
+    // Only load on server
+    if (!this.world.isServer) return;
+    
+    const entity = this.world.entities.get(playerId) as Entity;
+    if (!entity) return;
+    
+    // Get entity's skills from data (already loaded by ServerNetwork)
+    const entityData = entity.data as { skills?: Record<string, { level: number; xp: number }> };
+    if (entityData.skills) {
+      // Emit SKILLS_UPDATED so all systems and UI get initial skills
+      this.emitTypedEvent(EventType.SKILLS_UPDATED, {
+        playerId,
+        skills: entityData.skills as unknown as Skills
+      });
+    }
   }
 
   update(_deltaTime: number): void {
@@ -105,17 +128,20 @@ export class SkillsSystem extends SystemBase {
    */
   private addXPInternal(entityId: string, skill: keyof Skills, amount: number): void {
     const entity = this.world.entities.get(entityId) as Entity;
-    if (!entity) return;
+    if (!entity) {
+      console.warn('[SkillsSystem] Entity not found:', entityId);
+      return;
+    }
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
+      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component`);
       return;
     }
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
+      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}`);
       return;
     }
 
@@ -166,86 +192,15 @@ export class SkillsSystem extends SystemBase {
   }
 
   /**
-   * Grant XP to a specific skill
+   * Grant XP to a specific skill (public API)
+   * Routes through event system to maintain consistency
    */
   public grantXP(entityId: string, skill: keyof Skills, amount: number): void {
-    // CRITICAL FIX: Validate XP amount to prevent exploits
-    if (!Number.isFinite(amount) || amount <= 0) {
-      console.warn(`[SkillsSystem] Invalid XP amount: ${amount} for ${entityId}`);
-      return;
-    }
-
-    // CRITICAL FIX: Prevent excessive XP grants (max 10,000 XP per grant)
-    if (amount > 10000) {
-      console.warn(`[SkillsSystem] XP amount too high: ${amount} for ${entityId}, capping to 10000`);
-      amount = 10000;
-    }
-
-    const entity = this.world.entities.get(entityId) as Entity;
-    if (!entity) return;
-
-    const stats = getStatsComponent(entity);
-    if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
-      return;
-    }
-
-    const skillData = stats[skill] as SkillData;
-    if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
-      return;
-    }
-
-    // Apply XP modifiers (e.g., from equipment, prayers, etc.)
-    const modifiedAmount = this.calculateModifiedXP(entity, skill, amount);
-
-    // Check XP cap
-    const oldXP = skillData.xp;
-    const newXP = Math.min(oldXP + modifiedAmount, SkillsSystem.MAX_XP);
-    const actualGain = newXP - oldXP;
-
-    if (actualGain <= 0) return;
-
-    // Update XP
-    skillData.xp = newXP;
-
-    // Check for level up
-    const oldLevel = skillData.level;
-    const newLevel = this.getLevelForXP(newXP);
-
-    if (newLevel > oldLevel) {
-      this.handleLevelUp(entity, skill, oldLevel, newLevel);
-    }
-
-    // Update combat level if it's a combat skill
-    if (SkillsSystem.COMBAT_SKILLS.includes(skill as keyof Skills)) {
-      this.updateCombatLevel(entity, stats);
-    }
-
-    // Update total level
-    this.updateTotalLevel(entity, stats);
-
-    // Add XP drop for UI
-    this.xpDrops.push({
-      entityId,
-      playerId: entityId,
-      skill,
-      amount: actualGain,
-      timestamp: Date.now(),
-      position: { x: 0, y: 0, z: 0 } // Position not used for non-visual drops
-    });
-
-    // Emit XP gained event
+    // Use event system for consistency with other XP sources
     this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
       playerId: entityId,
       skill,
-      amount: actualGain
-    });
-
-    // Emit skills updated event for UI
-    this.emitTypedEvent(EventType.SKILLS_UPDATED, {
-      playerId: entityId,
-      skills: this.getSkills(entityId) || {}
+      amount
     });
   }
 
@@ -599,33 +554,81 @@ export class SkillsSystem extends SystemBase {
     // Calculate XP based on target's hitpoints
     const baseXP = (targetStats.health?.max ?? 10) * 4; // 4 XP per hitpoint
     
-    // Grant XP based on attack style
+    // Grant XP based on attack style using the same pattern as ResourceSystem
     switch (attackStyle) {
       case 'accurate':
-        this.grantXP(attackerId, Skill.ATTACK, baseXP);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.ATTACK,
+          amount: baseXP
+        });
         break;
       case 'aggressive':
-        this.grantXP(attackerId, Skill.STRENGTH, baseXP);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.STRENGTH,
+          amount: baseXP
+        });
         break;
       case 'defensive':
-        this.grantXP(attackerId, Skill.DEFENSE, baseXP);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.DEFENSE,
+          amount: baseXP
+        });
         break;
       case 'controlled':
         // Split XP between attack, strength, and defense
-        this.grantXP(attackerId, Skill.ATTACK, baseXP / 3);
-        this.grantXP(attackerId, Skill.STRENGTH, baseXP / 3);
-        this.grantXP(attackerId, Skill.DEFENSE, baseXP / 3);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.ATTACK,
+          amount: baseXP / 3
+        });
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.STRENGTH,
+          amount: baseXP / 3
+        });
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.DEFENSE,
+          amount: baseXP / 3
+        });
         break;
       case 'ranged':
-        this.grantXP(attackerId, Skill.RANGE, baseXP);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.RANGE,
+          amount: baseXP
+        });
+        break;
+      case 'melee':
+        // Default melee attack - grant strength XP
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.STRENGTH,
+          amount: baseXP
+        });
         break;
       case 'magic':
         // Magic is not in our current Skill enum, skip for MVP
         break;
+      default:
+        console.warn(`[SkillsSystem] Unknown attack style: ${attackStyle}, defaulting to strength XP`);
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: attackerId,
+          skill: Skill.STRENGTH,
+          amount: baseXP
+        });
+        break;
     }
 
     // Always grant Constitution XP
-    this.grantXP(attackerId, Skill.CONSTITUTION, baseXP / 3);
+    this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+      playerId: attackerId,
+      skill: Skill.CONSTITUTION,
+      amount: baseXP / 3
+    });
   }
 
   private handleSkillAction(data: {

@@ -1212,20 +1212,22 @@ Hyperscape world integration service that enables agents to:
         maxUploadSize: 10 * 1024 * 1024,
       } as any,
 
-      // Chat system with proper typing
-      chat: {
+      // Chat system with proper typing - cast as any to override World type inference
+      chat: ({
         msgs: [] as ChatMessage[],
         listeners: [] as Array<(msgs: ChatMessage[]) => void>,
         add: (msg: ChatMessage, broadcast?: boolean) => {
-          minimalWorld.chat!.msgs.push(msg);
+          const chat = minimalWorld.chat as any;
+          chat.msgs.push(msg);
           // Notify listeners
-          const chatListeners = minimalWorld.chat!.listeners;
+          const chatListeners = chat.listeners as Array<(msgs: ChatMessage[]) => void>;
           for (const listener of chatListeners) {
-            listener(minimalWorld.chat!.msgs);
+            listener(chat.msgs);
           }
         },
         subscribe: ((callback: (msgs: ChatMessage[]) => void) => {
-          const chatListeners = minimalWorld.chat!.listeners;
+          const chat = minimalWorld.chat as any;
+          const chatListeners = chat.listeners as Array<(msgs: ChatMessage[]) => void>;
           chatListeners.push(callback);
           const subscription = {
             unsubscribe: () => {
@@ -1240,62 +1242,56 @@ Hyperscape world integration service that enables agents to:
           };
           return subscription;
         }) as any,
-      } as any,
+      }) as any,
 
       // Events system - 'as any' cast acceptable here (test mock context)
       // Note: Real world has properly typed event system, this is minimal mock only
-      events: Object.assign(
-        function <T extends string | symbol>(event: T) {
-          // Default listener getter for compatibility
-          return (minimalWorld.events as any).__listeners?.get(event) || [];
+      events: {
+        listeners: new Map<string, ((data: unknown) => void)[]>() as any,
+        __listeners: new Map<
+          string | symbol,
+          Set<(...args: unknown[]) => void>
+        >(),
+        emit: function <T extends string | symbol>(
+          event: T,
+          ...args: unknown[]
+        ): boolean {
+          const listeners = this.__listeners.get(event);
+          if (listeners) {
+            for (const listener of listeners) {
+              listener(...args);
+            }
+          }
+          return true;
         },
-        {
-          listeners: new Map<string, ((data: unknown) => void)[]>() as any,
-          __listeners: new Map<
-            string | symbol,
-            Set<(...args: unknown[]) => void>
-          >(),
-          emit: function <T extends string | symbol>(
-            event: T,
-            ...args: unknown[]
-          ): boolean {
+        on: function <T extends string | symbol>(
+          event: T,
+          fn: (...args: unknown[]) => void,
+          _context?: unknown,
+        ) {
+          if (!this.__listeners.has(event)) {
+            this.__listeners.set(event, new Set());
+          }
+          this.__listeners.get(event)!.add(fn);
+          return this;
+        },
+        off: function <T extends string | symbol>(
+          event: T,
+          fn?: (...args: unknown[]) => void,
+          _context?: unknown,
+          _once?: boolean,
+        ) {
+          if (fn) {
             const listeners = this.__listeners.get(event);
             if (listeners) {
-              for (const listener of listeners) {
-                listener(...args);
-              }
+              listeners.delete(fn);
             }
-            return true;
-          },
-          on: function <T extends string | symbol>(
-            event: T,
-            fn: (...args: unknown[]) => void,
-            _context?: unknown,
-          ) {
-            if (!this.__listeners.has(event)) {
-              this.__listeners.set(event, new Set());
-            }
-            this.__listeners.get(event)!.add(fn);
-            return this;
-          },
-          off: function <T extends string | symbol>(
-            event: T,
-            fn?: (...args: unknown[]) => void,
-            _context?: unknown,
-            _once?: boolean,
-          ) {
-            if (fn) {
-              const listeners = this.__listeners.get(event);
-              if (listeners) {
-                listeners.delete(fn);
-              }
-            } else {
-              this.__listeners.delete(event);
-            }
-            return this;
-          },
+          } else {
+            this.__listeners.delete(event);
+          }
+          return this;
         },
-      ) as any,
+      } as any,
 
       // Entities system - minimal mock for testing
       // Note: Real world has full entity system with proper types, this is minimal mock
@@ -1349,7 +1345,7 @@ Hyperscape world integration service that enables agents to:
         minimalWorld.physics!.controllers.set(playerId, characterController);
 
         // Create basic player entity - 'as any' cast acceptable (test mock context)
-        minimalWorld.entities!.player = {
+        minimalWorld.entities!.player = ({
           id: playerId,
           type: "player",
           data: {
@@ -1424,7 +1420,7 @@ Hyperscape world integration service that enables agents to:
               player.data.appearance.avatar = url;
             }
           },
-        } as Player; // Typed as Player instead of any
+        }) as unknown as Player; // Cast through unknown for mock context
 
         // Start physics simulation loop
         if (minimalWorld.physics?.enabled) {

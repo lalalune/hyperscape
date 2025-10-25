@@ -3,43 +3,36 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
+  forbidOnly: !!process.env.CI,
+  retries: 0,
   workers: 1,
-  timeout: 180000,
   
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'playwright-report' }],
+    ['json', { outputFile: 'test-results.json' }],
+    ['html']
   ],
   
+  timeout: 180000, // 3 minutes for 3D operations
+  
+  expect: {
+    timeout: 15000,
+  },
+  
   use: {
-    baseURL: 'http://localhost:3333',
+    baseURL: 'http://localhost:5555',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    viewport: { width: 1280, height: 720 },
+    viewport: { width: 1920, height: 1080 },
+    headless: false,
   },
-
+  
   projects: [
     {
       name: 'chromium',
-      use: { 
-        ...devices['Desktop Chrome'],
-        launchOptions: {
-          args: [
-            '--disable-blink-features=AutomationControlled',
-            '--disable-features=IsolateOrigins,site-per-process',
-          ],
-        },
-      },
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
-
-  webServer: {
-    command: 'echo "Hyperscape already running"',
-    port: 3333,
-    reuseExistingServer: true,
-  },
 });
 

@@ -45,8 +45,9 @@ describe("REPLY Action", () => {
       };
 
       let callbackContent: Content | undefined;
-      const callback = (content: Content) => {
+      const callback = async (content: Content): Promise<Memory[]> => {
         callbackContent = content;
+        return [];
       };
 
       const responses = [
@@ -92,8 +93,9 @@ describe("REPLY Action", () => {
       };
 
       let callbackInvoked = false;
-      const callback = () => {
+      const callback = async (): Promise<Memory[]> => {
         callbackInvoked = true;
+        return [];
       };
 
       // When no responses provided, handler should generate one
@@ -128,8 +130,9 @@ describe("REPLY Action", () => {
       };
 
       let callbackContent: Content | undefined;
-      const callback = (content: Content) => {
+      const callback = async (content: Content): Promise<Memory[]> => {
         callbackContent = content;
+        return [];
       };
 
       const responses = [
@@ -194,7 +197,7 @@ describe("REPLY Action", () => {
         message,
         state,
         {},
-        null as never,
+        undefined,
         responses,
       );
 
@@ -219,8 +222,9 @@ describe("REPLY Action", () => {
       };
 
       let callbackContent: Content | undefined;
-      const callback = (content: Content) => {
+      const callback = async (content: Content): Promise<Memory[]> => {
         callbackContent = content;
+        return [];
       };
 
       const responses = [

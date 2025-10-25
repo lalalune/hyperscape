@@ -530,6 +530,14 @@ export enum EventType {
   CHARACTER_CREATED = 'character:created',
   CHARACTER_SELECTED = 'character:selected',
   
+  // Trading System
+  TRADE_REQUEST_RECEIVED = 'trade:request_received',
+  TRADE_STARTED = 'trade:started',
+  TRADE_UPDATED = 'trade:updated',
+  TRADE_COMPLETED = 'trade:completed',
+  TRADE_CANCELLED = 'trade:cancelled',
+  TRADE_ERROR = 'trade:error',
+  
   // General Events
   SERVER_CORRECTION = 'serverCorrection',
   ENTITY_MODIFIED = 'entityModified',
@@ -976,6 +984,20 @@ export interface EventMap {
   [EventType.TERRAIN_GENERATE_INITIAL]: { centerX: number; centerZ: number; radius: number };
   [EventType.ENTITY_INTERACT_REQUEST]: { playerId: string; entityId: string; interactionType: string; playerPosition?: Position3D };
   [EventType.AGGRO_FORCE_TRIGGER]: { playerId: string };
+  
+  // Trading Events
+  [EventType.TRADE_REQUEST_RECEIVED]: { tradeId: string; fromPlayerId: string; fromPlayerName: string };
+  [EventType.TRADE_STARTED]: { tradeId: string; initiatorId: string; initiatorName: string; recipientId: string; recipientName: string };
+  [EventType.TRADE_UPDATED]: {
+    tradeId: string;
+    initiatorOffer: { items: Array<{ itemId: string; quantity: number; slot: number }>; coins: number };
+    recipientOffer: { items: Array<{ itemId: string; quantity: number; slot: number }>; coins: number };
+    initiatorConfirmed: boolean;
+    recipientConfirmed: boolean;
+  };
+  [EventType.TRADE_COMPLETED]: { tradeId: string; message: string };
+  [EventType.TRADE_CANCELLED]: { tradeId: string; reason: string; byPlayerId?: string };
+  [EventType.TRADE_ERROR]: { message: string };
 }
 
 /**

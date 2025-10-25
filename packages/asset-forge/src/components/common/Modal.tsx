@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+
 import { cn, focusManager } from '../../styles'
 
 export interface ModalProps {

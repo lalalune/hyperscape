@@ -158,6 +158,8 @@ export class ClientNetwork extends SystemBase {
   lastCharacterList: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> | null = null
   // Cache latest inventory per player so UI can hydrate even if it mounted late
   lastInventoryByPlayerId: Record<string, { playerId: string; items: Array<{ slot: number; itemId: string; quantity: number }>; coins: number; maxSlots: number }> = {}
+  // Cache latest skills per player so UI can hydrate even if it mounted late
+  lastSkillsByPlayerId: Record<string, Record<string, { level: number; xp: number }>> = {}
   
   // Entity interpolation for smooth remote entity movement
   private interpolationStates: Map<string, InterpolationState> = new Map()
@@ -932,6 +934,14 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.INVENTORY_UPDATED, data)
   }
 
+  onSkillsUpdated = (data: { playerId: string; skills: Record<string, { level: number; xp: number }> }) => {
+    // Cache latest snapshot for late-mounting UI
+    this.lastSkillsByPlayerId = this.lastSkillsByPlayerId || {}
+    this.lastSkillsByPlayerId[data.playerId] = data.skills
+    // Re-emit with typed event so UI updates
+    this.world.emit(EventType.SKILLS_UPDATED, data)
+  }
+
   // --- Character selection (flag-gated by server) ---
   onCharacterList = (data: { characters: Array<{ id: string; name: string; level?: number; lastLocation?: { x: number; y: number; z: number } }> }) => {
     // Cache and re-emit so UI can show the modal
@@ -961,6 +971,11 @@ export class ClientNetwork extends SystemBase {
   requestEnterWorld() {
     this.send('enterWorld', {})
   }
+
+  // Inventory actions
+  dropItem(itemId: string, slot?: number, quantity?: number) {
+    this.send('dropItem', { itemId, slot, quantity })
+  }
   
   /**
    * Update interpolation in lateUpdate (after entity updates)
@@ -980,6 +995,22 @@ export class ClientNetwork extends SystemBase {
     });
   }
   
+  onPlayerState = (data: unknown) => {
+    // Forward player state updates from server to local UI_UPDATE event
+    const playerData = data as { playerId?: string; skills?: Record<string, { level: number; xp: number }> };
+    
+    // Cache skills if provided
+    if (playerData.playerId && playerData.skills) {
+      this.lastSkillsByPlayerId = this.lastSkillsByPlayerId || {}
+      this.lastSkillsByPlayerId[playerData.playerId] = playerData.skills
+    }
+    
+    this.world.emit(EventType.UI_UPDATE, {
+      component: 'player',
+      data: data
+    });
+  }
+  
   onShowToast = (data: { playerId: string; message: string; type: string }) => {
     
     // Only show toast for local player
@@ -992,6 +1023,80 @@ export class ClientNetwork extends SystemBase {
       });
     }
   }
+
+  // ======================== TRADING SYSTEM HANDLERS ========================
+
+  onTradeRequest = (data: { tradeId: string; fromPlayerId: string; fromPlayerName: string }) => {
+    console.log('[ClientNetwork] 📨 Received trade request from:', data.fromPlayerName);
+    
+    // Emit event for UI to show trade request modal
+    this.world.emit(EventType.TRADE_REQUEST_RECEIVED, {
+      tradeId: data.tradeId,
+      fromPlayerId: data.fromPlayerId,
+      fromPlayerName: data.fromPlayerName
+    });
+  }
+
+  onTradeStarted = (data: { tradeId: string; initiatorId: string; initiatorName: string; recipientId: string; recipientName: string }) => {
+    console.log('[ClientNetwork] 🤝 Trade started:', data.tradeId);
+    
+    // Emit event for UI to open trade window
+    this.world.emit(EventType.TRADE_STARTED, data);
+  }
+
+  onTradeUpdated = (data: {
+    tradeId: string;
+    initiatorOffer: { items: Array<{ itemId: string; quantity: number; slot: number }>; coins: number };
+    recipientOffer: { items: Array<{ itemId: string; quantity: number; slot: number }>; coins: number };
+    initiatorConfirmed: boolean;
+    recipientConfirmed: boolean;
+  }) => {
+    console.log('[ClientNetwork] 🔄 Trade updated:', data.tradeId);
+    
+    // Emit event for UI to update trade window
+    this.world.emit(EventType.TRADE_UPDATED, data);
+  }
+
+  onTradeCompleted = (data: { tradeId: string; message: string }) => {
+    console.log('[ClientNetwork] ✅ Trade completed:', data.tradeId);
+    
+    // Emit event for UI to show success and close trade window
+    this.world.emit(EventType.TRADE_COMPLETED, data);
+    
+    // Show success toast
+    this.world.emit(EventType.UI_TOAST, {
+      message: 'Trade completed successfully!',
+      type: 'success'
+    });
+  }
+
+  onTradeCancelled = (data: { tradeId: string; reason: string; byPlayerId?: string }) => {
+    console.log('[ClientNetwork] ❌ Trade cancelled:', data.reason);
+    
+    // Emit event for UI to close trade window
+    this.world.emit(EventType.TRADE_CANCELLED, data);
+    
+    // Show cancellation toast
+    this.world.emit(EventType.UI_TOAST, {
+      message: `Trade cancelled: ${data.reason}`,
+      type: 'warning'
+    });
+  }
+
+  onTradeError = (data: { message: string }) => {
+    console.error('[ClientNetwork] ⚠️ Trade error:', data.message);
+    
+    // Emit event for UI to show error
+    this.world.emit(EventType.TRADE_ERROR, data);
+    
+    // Show error toast
+    this.world.emit(EventType.UI_TOAST, {
+      message: data.message,
+      type: 'error'
+    });
+  }
+
+  // ======================== END TRADING HANDLERS ========================
 
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId)

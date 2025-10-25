@@ -409,12 +409,18 @@ export class InventorySystem extends SystemBase {
   }
 
   private dropItem(data: { playerId: string; itemId: string; quantity: number; slot?: number }): void {
-    if (!data.playerId) {
-      Logger.systemError('InventorySystem', 'Cannot drop item: playerId is undefined', new Error('Cannot drop item: playerId is undefined'));
+    // Server-authoritative only
+    if (!this.world.isServer) {
       return;
     }
     
-    const removed = this.removeItem(data);
+    // Ensure valid identifiers
+    if (!isValidPlayerID(data.playerId) || !isValidItemID(String(data.itemId))) {
+      Logger.systemError('InventorySystem', 'dropItem: invalid playerId or itemId', new Error('dropItem invalid IDs'));
+      return;
+    }
+    const qty = Math.max(1, Number(data.quantity) || 1);
+    const removed = this.removeItem({ playerId: data.playerId, itemId: data.itemId, quantity: qty, slot: data.slot });
     
     if (removed) {
       const player = this.world.getPlayer(data.playerId);
@@ -424,10 +430,9 @@ export class InventorySystem extends SystemBase {
       }
       const position = player.node.position;
       
-      // Spawn item in world
-      this.emitTypedEvent(EventType.ITEM_SPAWN, {
+      this.emitTypedEvent(EventType.ITEM_SPAWN_REQUEST, {
         itemId: data.itemId,
-        quantity: data.quantity,
+        quantity: qty,
         position: {
           x: position.x + (Math.random() - 0.5) * 2,
           y: position.y,
@@ -528,6 +533,17 @@ export class InventorySystem extends SystemBase {
       return;
     }
     
+    // Validate input parameters
+    if (!data.playerId) {
+      Logger.systemError('InventorySystem', 'Cannot pickup item: playerId is undefined', new Error('Cannot pickup item: playerId is undefined'));
+      return;
+    }
+    
+    if (!data.entityId) {
+      Logger.systemError('InventorySystem', 'Cannot pickup item: entityId is undefined', new Error('Cannot pickup item: entityId is undefined'));
+      return;
+    }
+    
     // Get item entity data from entity manager
     const entityManager = getSystem(this.world, 'entity-manager') as EntityManager;
     if (!entityManager) {
@@ -556,8 +572,8 @@ export class InventorySystem extends SystemBase {
     entity.setProperty('beingPickedUp', true);
     
     // Get itemId from event data (passed from ItemEntity.handleInteraction) or from entity properties
-    const itemId = data.itemId || entity.getProperty('itemId') as string;
-    const quantity = entity.getProperty('quantity') as number || 1;
+    const itemId = data.itemId || (entity.getProperty('itemId') as string);
+    const quantity = (entity.getProperty('quantity') as number) || 1;
     
     if (!itemId) {
       // Reset the beingPickedUp flag if we can't process
@@ -566,10 +582,17 @@ export class InventorySystem extends SystemBase {
       return;
     }
     
-    // Try to add to inventory
+    // Validate that the item exists in the item database
+    const itemData = getItem(itemId);
+    if (!itemData) {
+      Logger.systemError('InventorySystem', `Item not found in database: ${itemId}`, new Error(`Item not found in database: ${itemId}`));
+      return;
+    }
+
+    // Try to add to inventory using the validated itemData
     const added = this.addItem({
       playerId: data.playerId,
-      itemId,
+      itemId: itemData.id, // Use the validated item's ID
       quantity
     });
     

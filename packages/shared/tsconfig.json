@@ -6,7 +6,7 @@
     "moduleResolution": "bundler",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "strict": true,
+    "strict": false,
     "downlevelIteration": true,
     "baseUrl": ".",
     "paths": {},

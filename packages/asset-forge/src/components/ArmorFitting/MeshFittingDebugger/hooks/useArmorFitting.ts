@@ -1,7 +1,8 @@
-import * as THREE from 'three'
 import { MutableRefObject } from 'react'
-import { MeshFittingService, MeshFittingParameters } from '../../../../services/fitting/MeshFittingService'
+import * as THREE from 'three'
+
 import { ArmorFittingService } from '../../../../services/fitting/ArmorFittingService'
+import { MeshFittingService, MeshFittingParameters } from '../../../../services/fitting/MeshFittingService'
 import { ExtendedMesh } from '../../../../types'
 import {
     calculateScaleRatio,
@@ -17,6 +18,7 @@ interface ArmorFittingProps {
     armorMeshRef: MutableRefObject<ExtendedMesh | null>
     originalArmorGeometryRef: MutableRefObject<THREE.BufferGeometry | null>
     debugArrowGroupRef: MutableRefObject<THREE.Group | null>
+    hullMeshRef: MutableRefObject<THREE.Mesh | null>
     fittingService: MutableRefObject<MeshFittingService>
     armorFittingService: MutableRefObject<ArmorFittingService>
     
@@ -25,8 +27,11 @@ interface ArmorFittingProps {
     setIsArmorBound: (value: boolean) => void
     setBoundArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
     setSkinnedArmorMesh: (mesh: THREE.SkinnedMesh | null) => void
+    setError: (value: string) => void
     
-    fittingParameters: MeshFittingParameters
+    isProcessing: boolean
+    showHull: boolean
+            fittingParameters: MeshFittingParameters
     selectedAvatar: { name: string } | null
 }
 
@@ -36,6 +41,7 @@ export function useArmorFitting({
     armorMeshRef,
     originalArmorGeometryRef,
     debugArrowGroupRef,
+    hullMeshRef: _hullMeshRef,
     fittingService,
     armorFittingService,
     setIsProcessing,
@@ -43,18 +49,32 @@ export function useArmorFitting({
     setIsArmorBound,
     setBoundArmorMesh,
     setSkinnedArmorMesh,
+    setError,
+    isProcessing,
+    showHull: _showHull,
     fittingParameters,
     selectedAvatar
 }: ArmorFittingProps) {
     
     const performArmorFitting = () => {
-        const scene = sceneRef.current!
-        const armorMesh = armorMeshRef.current!
-        const avatarMesh = avatarMeshRef.current!
+        if (!sceneRef.current || !armorMeshRef.current || !avatarMeshRef.current) {
+            console.error('Scene, armor, or avatar not available')
+            return
+        }
+
+        const scene = sceneRef.current
+        const armorMesh = armorMeshRef.current
+        const avatarMesh = avatarMeshRef.current
 
         // Update entire scene before any calculations
         updateSceneMatrices(scene)
         console.log('Updated scene matrix world before fitting')
+
+        // Ensure we're not already processing
+        if (isProcessing) {
+            console.warn('Already processing a fitting operation')
+            return
+        }
 
         setIsProcessing(true)
 
@@ -93,12 +113,17 @@ export function useArmorFitting({
         }
 
         // Calculate torso bounds
-        const torsoInfo = calculateTorsoBounds(avatarMesh)!
+        const torsoInfo = calculateTorsoBounds(avatarMesh)
+        if (!torsoInfo) {
+            console.error('Could not calculate torso bounds')
+            setIsProcessing(false)
+            return
+        }
 
-        const { torsoCenter, torsoSize } = torsoInfo
+        const { torsoCenter, torsoSize, torsoBounds: _torsoBounds } = torsoInfo
 
         // Scale and position armor
-        scaleAndPositionArmor(
+        const scaledArmor = scaleAndPositionArmor(
             armorMesh,
             torsoCenter,
             torsoSize,
@@ -106,66 +131,84 @@ export function useArmorFitting({
             selectedAvatar
         )
 
+        if (!scaledArmor) {
+            console.error('Failed to scale and position armor')
+            setIsProcessing(false)
+            return
+        }
+
         // Apply the fitting using the service
-        const shrinkwrapParams = {
-            ...fittingParameters,
-            iterations: Math.min(fittingParameters.iterations, 10),
-            stepSize: fittingParameters.stepSize || 0.1,
-            targetOffset: fittingParameters.targetOffset || 0.01,
-            sampleRate: fittingParameters.sampleRate || 1.0,
-            smoothingStrength: fittingParameters.smoothingStrength || 0.2
+        try {
+            const shrinkwrapParams = {
+                ...fittingParameters,
+                iterations: Math.min(fittingParameters.iterations, 10),
+                stepSize: fittingParameters.stepSize || 0.1,
+                targetOffset: fittingParameters.targetOffset || 0.01,
+                sampleRate: fittingParameters.sampleRate || 1.0,
+                smoothingStrength: fittingParameters.smoothingStrength || 0.2
+            }
+
+            console.log('Shrinkwrap parameters:', shrinkwrapParams)
+
+            // Clear any existing debug arrows
+            if (debugArrowGroupRef.current) {
+                debugArrowGroupRef.current.clear()
+            }
+
+            // Perform the fitting
+            fittingService.current.fitMeshToTarget(armorMesh, avatarMesh, shrinkwrapParams)
+
+            console.log('✅ Armor fitting complete!')
+
+            // Mark armor as fitted
+            armorMesh.userData.hasBeenFitted = true
+            setIsArmorFitted(true)
+            setIsArmorBound(false)
+
+            // Ensure armor is visible and properly updated
+            armorMesh.visible = true
+            armorMesh.updateMatrix()
+            armorMesh.updateMatrixWorld(true)
+
+            // Force scene update
+            scene.updateMatrixWorld(true)
+
+        } catch (error) {
+            console.error('Armor fitting failed:', error)
+            setError('Failed to fit armor to avatar')
+        } finally {
+            // Ensure meshes are properly attached to their original parents
+            if (avatarParent && !avatarMesh.parent) {
+                avatarParent.add(avatarMesh)
+            }
+            if (armorParent && !armorMesh.parent) {
+                armorParent.add(armorMesh)
+            }
+
+            setTimeout(() => setIsProcessing(false), 100)
         }
-
-        console.log('Shrinkwrap parameters:', shrinkwrapParams)
-
-        // Clear any existing debug arrows
-        const debugArrowGroup = debugArrowGroupRef.current
-        if (debugArrowGroup) {
-            debugArrowGroup.clear()
-        }
-
-        // Perform the fitting
-        fittingService.current.fitMeshToTarget(armorMesh, avatarMesh, shrinkwrapParams)
-
-        console.log('✅ Armor fitting complete!')
-
-        // Mark armor as fitted
-        armorMesh.userData.hasBeenFitted = true
-        setIsArmorFitted(true)
-        setIsArmorBound(false)
-
-        // Ensure armor is visible and properly updated
-        armorMesh.visible = true
-        armorMesh.updateMatrix()
-        armorMesh.updateMatrixWorld(true)
-
-        // Force scene update
-        scene.updateMatrixWorld(true)
-
-        // Ensure meshes are properly attached to their original parents
-        if (avatarParent && !avatarMesh.parent) {
-            avatarParent.add(avatarMesh)
-        }
-        if (armorParent && !armorMesh.parent) {
-            armorParent.add(armorMesh)
-        }
-
-        setTimeout(() => setIsProcessing(false), 100)
     }
 
     const bindArmorToSkeleton = () => {
-        const currentArmorMesh = armorMeshRef.current!
-        const avatarMesh = avatarMeshRef.current!
-        const scene = sceneRef.current!
+        if (!sceneRef.current || !avatarMeshRef.current || !armorMeshRef.current) {
+            console.error('Scene, avatar, or armor not available for binding')
+            return
+        }
 
         console.log('=== BINDING ARMOR TO SKELETON ===')
         setIsProcessing(true)
+
+        try {
+            const currentArmorMesh = armorMeshRef.current
+            const avatarMesh = avatarMeshRef.current
+            const scene = sceneRef.current
 
             console.log('Current armor mesh:', currentArmorMesh.name, 'Parent:', currentArmorMesh.parent?.name)
 
             // Store the current world transform
             currentArmorMesh.updateMatrixWorld(true)
             const perfectWorldPosition = currentArmorMesh.getWorldPosition(new THREE.Vector3())
+            const _perfectWorldQuaternion = currentArmorMesh.getWorldQuaternion(new THREE.Quaternion())
             const perfectWorldScale = currentArmorMesh.getWorldScale(new THREE.Vector3())
 
             console.log('=== FITTED ARMOR WORLD TRANSFORM ===')
@@ -263,7 +306,11 @@ export function useArmorFitting({
             // Force scene update
             scene.updateMatrixWorld(true)
 
-        setIsProcessing(false)
+        } catch (error) {
+            console.error('Failed to bind armor to skeleton:', error)
+        } finally {
+            setIsProcessing(false)
+        }
     }
 
     return {
@@ -278,7 +325,7 @@ function calculateTorsoBounds(avatarMesh: THREE.SkinnedMesh): {
     torsoCenter: THREE.Vector3
     torsoSize: THREE.Vector3
     torsoBounds: THREE.Box3
-} {
+} | null {
     const avatarBounds = new THREE.Box3().setFromObject(avatarMesh)
     const avatarSize = avatarBounds.getSize(new THREE.Vector3())
     const avatarCenter = avatarBounds.getCenter(new THREE.Vector3())
@@ -286,7 +333,11 @@ function calculateTorsoBounds(avatarMesh: THREE.SkinnedMesh): {
     console.log('Avatar bounds:', avatarBounds)
     console.log('Avatar height:', avatarSize.y)
 
-    const skeleton = avatarMesh.skeleton!
+    const skeleton = avatarMesh.skeleton
+    if (!skeleton) {
+        console.error('Avatar has no skeleton!')
+        return null
+    }
 
     // Update transforms
     avatarMesh.updateMatrix()
@@ -370,7 +421,7 @@ function scaleAndPositionArmor(
     torsoSize: THREE.Vector3,
     originalArmorGeometryRef: MutableRefObject<THREE.BufferGeometry | null>,
     selectedAvatar: { name: string } | null
-): void {
+): boolean {
     console.log('=== SCALING AND POSITIONING ARMOR ===')
     
     // Get armor bounds
@@ -383,8 +434,12 @@ function scaleAndPositionArmor(
     console.log('Target torso center:', torsoCenter)
     console.log('Target torso size:', torsoSize)
     
-    // Get character-specific adjustments
+    // Calculate scales
+    const targetScale = calculateFittingScale(armorSize, torsoSize)
     const minScale = 0.5
+    const _finalScale = Math.max(targetScale, minScale)
+    
+    // Get character-specific adjustments
     const characterProfile = selectedAvatar?.name?.toLowerCase().includes('goblin') 
         ? { scaleBoost: 0.7 } 
         : { scaleBoost: 1.0 }
@@ -446,4 +501,6 @@ function scaleAndPositionArmor(
     armorMesh.updateMatrixWorld(true)
     
     console.log('Positioned armor at:', armorMesh.position)
+    
+    return true
 }

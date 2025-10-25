@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react'
 import { Search, Filter, ChevronDown, ChevronUp, X } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+
 import { useAssetsStore } from '../../store'
+
+import { apiFetch } from '@/utils/api'
 
 interface MaterialPreset {
   id: string
@@ -34,7 +37,7 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
   
   // Load material presets
   useEffect(() => {
-    fetch('/prompts/material-presets.json')
+    apiFetch('/prompts/material-presets.json')
       .then(res => res.json())
       .then(data => {
         // Sort by tier to display in logical order

@@ -4,6 +4,7 @@
  */
 
 import * as THREE from 'three'
+
 import { Point2D, Point3D, HandLandmarks } from './HandPoseDetectionService'
 
 export interface PixelMask {
@@ -311,7 +312,7 @@ export class HandSegmentationService {
   /**
    * Fill small holes in mask
    */
-  private fillHoles(mask: Uint8Array, width: number, height: number, maxSize: number): Uint8Array {
+  private fillHoles(mask: Uint8Array, width: number, height: number, _maxSize: number): Uint8Array {
     const result = mask.slice()
     const visited = new Uint8Array(mask.length)
     

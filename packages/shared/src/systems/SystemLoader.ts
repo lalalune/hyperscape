@@ -477,7 +477,7 @@ function setupAPI(world: World, systems: Systems): void {
       // Get all skills for a player by getting the entity's stats component
       const entity = world.entities.get(playerId)
       if (!entity) return {}
-      const stats = (entity as Entity).getComponent<Component>('stats') as Skills | null
+      const stats = (entity as Entity).getComponent<Component>('stats') as unknown as Skills | null
       return stats || {}
     },
     getSkillLevel: (playerId: string, skill: string) => {
