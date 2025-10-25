@@ -77,6 +77,9 @@ import type { World } from '../World';
 import type { EntityConfig, EntityInteractionData, PlayerEntityProperties } from '../types/entities';
 import type { Quaternion } from '../types/base-types';
 import type { Position3D } from '../types/core';
+import { COMBAT_CONSTANTS } from '../constants/CombatConstants';
+import { calculateDamage } from '../utils/CombatCalculations';
+import { AttackType } from '../types/core';
 
 export interface CombatantConfig extends EntityConfig<PlayerEntityProperties> {
   rotation: Quaternion;
@@ -182,23 +185,17 @@ export abstract class CombatantEntity extends Entity {
    * Calculate damage this entity would deal to a target
    */
   public calculateDamage(target: CombatantEntity): number {
-    const baseDamage = this.attackPower;
-    const targetDefense = target.getDefense();
+    // Use centralized damage calculation for consistency
+    const attackerData = {
+      config: { attackPower: this.attackPower }
+    };
     
-    // Basic damage calculation: attack - defense, minimum 1
-    let damage = Math.max(1, baseDamage - targetDefense);
+    const targetData = {
+      config: { defense: target.getDefense() }
+    };
     
-    // Apply critical hit chance
-    if (Math.random() < this.criticalChance) {
-      damage *= 2;
-      this.emit('critical-hit', { 
-        attackerId: this.id, 
-        targetId: target.id, 
-        damage 
-      });
-    }
-    
-    return Math.floor(damage);
+    const result = calculateDamage(attackerData, targetData, AttackType.MELEE);
+    return result.damage;
   }
 
   /**
@@ -207,7 +204,9 @@ export abstract class CombatantEntity extends Entity {
   public attackTarget(target: CombatantEntity): boolean {
     const now = Date.now();
     const timeSinceLastAttack = now - this.combatLastAttackTime;
-    const attackCooldown = 1000 / this.attackSpeed; // Convert attacks per second to cooldown
+    
+    // Use consistent attack cooldown with CombatSystem
+    const attackCooldown = COMBAT_CONSTANTS.ATTACK_COOLDOWN_MS;
     
     // Check attack cooldown
     if (timeSinceLastAttack < attackCooldown) {

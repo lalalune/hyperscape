@@ -60,8 +60,8 @@ export const woodcuttingSkillProvider: Provider = {
       )?.itemId || "none";
 
     // Get nearby trees
-    const systems = world?.systems as Record<string, unknown> | undefined;
-    const resourceSystem = systems?.["resource"] as ResourceSystem | undefined;
+    const systems = world?.systems as unknown as Record<string, unknown> | undefined;
+    const resourceSystem = systems?.["resource"] as unknown as ResourceSystem | undefined;
     const allResources: ResourceItem[] = resourceSystem?.getAllResources
       ? resourceSystem.getAllResources()
       : [];

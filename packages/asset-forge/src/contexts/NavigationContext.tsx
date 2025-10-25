@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react'
-import { NavigationView, NavigationContextValue } from '../types'
+
 import { NAVIGATION_VIEWS } from '../constants'
+import { NavigationView, NavigationContextValue } from '../types'
 
 const NavigationContext = createContext<NavigationContextValue | null>(null)
 

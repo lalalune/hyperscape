@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import type { World } from '@hyperscape/shared'
 import { THREE } from '@hyperscape/shared'
+import type { ClientWorld } from '../../types'
 
 interface MinimapCompassProps {
-  world: World
+  world: ClientWorld
   onClick: () => void
   isCollapsed: boolean
 }

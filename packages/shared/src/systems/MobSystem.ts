@@ -83,7 +83,7 @@ export class MobSystem extends SystemBase {
     // ENTITY_DAMAGE_TAKEN is not in EventMap, so it receives the full event
     this.subscribe(EventType.ENTITY_DAMAGE_TAKEN, (data) => this.handleMobDamage(data as { entityId: string; damage: number; damageSource: string; entityType: 'player' | 'mob' }));
     this.subscribe<{ playerId: string }>(EventType.PLAYER_REGISTERED, (data) => this.onPlayerEnter(data));
-    this.subscribe<{ mobType: string; position: { x: number; y: number; z: number } }>(EventType.MOB_SPAWN_REQUEST, (data) => this.spawnMobAtLocation(data));
+    // Remove MOB_SPAWN_REQUEST subscription to prevent double spawning with EntityManager
     
     // Initialize spawn points (these would normally be loaded from world data)
     this.initializeSpawnPoints();

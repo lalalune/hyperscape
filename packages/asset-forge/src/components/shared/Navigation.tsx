@@ -1,7 +1,8 @@
-import React from 'react'
 import { Database, Wand2, Wrench, Hand, Shield } from 'lucide-react'
-import { NavigationView } from '../../types'
+import React from 'react'
+
 import { NAVIGATION_VIEWS } from '../../constants'
+import { NavigationView } from '../../types'
 
 interface NavigationProps {
   currentView: NavigationView

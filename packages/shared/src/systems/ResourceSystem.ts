@@ -33,10 +33,11 @@ import type {
  * Resource respawning and depletion mechanics
  */
 export class ResourceSystem extends SystemBase {
-  private resources = new Map<ResourceID, Resource>()
-  private activeGathering = new Map<PlayerID, { playerId: PlayerID; resourceId: ResourceID; startTime: number; skillCheck: number }>();
+  private resources = new Map<ResourceID, Resource>();
+  private activeGathering = new Map<PlayerID, { playerId: PlayerID; resourceId: ResourceID; startTime: number; skillCheck: number; nextAttemptAt: number; attempts: number; successes: number }>();
   private respawnTimers = new Map<ResourceID, NodeJS.Timeout>();
   private playerSkills = new Map<string, Record<string, { level: number; xp: number }>>();
+  private resourceVariants = new Map<ResourceID, string>();
   
   // CRITICAL FIX: Track which resources are being gathered to prevent race conditions
   private resourceLocks = new Map<ResourceID, PlayerID>();
@@ -49,7 +50,57 @@ export class ResourceSystem extends SystemBase {
         itemName: 'Logs',
         quantity: 1,
         chance: 1.0, // Always get logs
-        xpAmount: 25, // Woodcutting XP per log
+        xpAmount: 25, // Woodcutting XP per log (per normal tree)
+        stackable: true
+      }
+    ]],
+    ['tree_oak', [
+      {
+        itemId: 'logs',
+        itemName: 'Logs',
+        quantity: 1,
+        chance: 1.0,
+        xpAmount: 38, // Approx RS 37.5 rounded
+        stackable: true
+      }
+    ]],
+    ['tree_willow', [
+      {
+        itemId: 'logs',
+        itemName: 'Logs',
+        quantity: 1,
+        chance: 1.0,
+        xpAmount: 68, // Approx RS 67.5 rounded
+        stackable: true
+      }
+    ]],
+    ['tree_maple', [
+      {
+        itemId: 'logs',
+        itemName: 'Logs',
+        quantity: 1,
+        chance: 1.0,
+        xpAmount: 100,
+        stackable: true
+      }
+    ]],
+    ['tree_yew', [
+      {
+        itemId: 'logs',
+        itemName: 'Logs',
+        quantity: 1,
+        chance: 1.0,
+        xpAmount: 175,
+        stackable: true
+      }
+    ]],
+    ['tree_magic', [
+      {
+        itemId: 'logs',
+        itemName: 'Logs',
+        quantity: 1,
+        chance: 1.0,
+        xpAmount: 250,
         stackable: true
       }
     ]],
@@ -242,7 +293,13 @@ export class ResourceSystem extends SystemBase {
       }
       
       // Store in map for tracking
-      this.resources.set(createResourceID(resource.id), resource);
+      const rid = createResourceID(resource.id);
+      this.resources.set(rid, resource);
+      // Track variant/subtype for tuning (e.g., 'tree_oak')
+      if (resource.type === 'tree') {
+        const variant = spawnPoint.subType || 'tree_normal';
+        this.resourceVariants.set(rid, variant);
+      }
       
       // Spawn actual ResourceEntity instance
       // Create proper quaternion for random Y-axis rotation
@@ -254,7 +311,7 @@ export class ResourceSystem extends SystemBase {
         w: Math.cos(randomYRotation / 2)
       };
       
-      const resourceConfig = {
+        const resourceConfig = {
         id: resource.id,
         type: 'resource' as const,
         name: resource.name,
@@ -270,15 +327,15 @@ export class ResourceSystem extends SystemBase {
         properties: {},
         // ResourceEntity specific
         resourceType: resource.type,
-        resourceId: spawnPoint.subType || `${resource.type}_normal`,
+          resourceId: spawnPoint.subType || `${resource.type}_normal`,
         harvestSkill: resource.skillRequired,
         requiredLevel: resource.levelRequired,
         harvestTime: 3000,
-        harvestYield: resource.drops.map(drop => ({
-          itemId: drop.itemId,
-          quantity: drop.quantity,
-          chance: drop.chance
-        })),
+          harvestYield: resource.drops.map(drop => ({
+            itemId: drop.itemId,
+            quantity: drop.quantity,
+            chance: drop.chance
+          })),
         respawnTime: resource.respawnTime,
         depleted: false
       };
@@ -373,6 +430,10 @@ export class ResourceSystem extends SystemBase {
       type === 'herb' ? 'herb_patch' :
       'tree';
       
+    // Determine variant key and tuned parameters
+    const variantKey = resourceType === 'tree' ? (spawnPoint.subType || 'tree_normal') : `${resourceType}_normal`;
+    const tuned = this.getVariantTuning(variantKey);
+
     const resource: Resource = {
       id: `${type}_${position.x.toFixed(0)}_${position.z.toFixed(0)}`,
       type: resourceType,
@@ -385,12 +446,12 @@ export class ResourceSystem extends SystemBase {
         z: position.z
       },
       skillRequired,
-      levelRequired,
+      levelRequired: resourceType === 'tree' ? tuned.levelRequired : levelRequired,
       toolRequired,
-      respawnTime,
+      respawnTime: resourceType === 'tree' ? tuned.respawnMs : respawnTime,
       isAvailable: true,
       lastDepleted: 0,
-      drops: this.RESOURCE_DROPS.get(`${resourceType}_normal`) || []
+      drops: resourceType === 'tree' ? (this.RESOURCE_DROPS.get(variantKey) || this.RESOURCE_DROPS.get('tree_normal') || []) : (this.RESOURCE_DROPS.get(`${resourceType}_normal`) || [])
     };
     
     return resource;
@@ -500,8 +561,31 @@ export class ResourceSystem extends SystemBase {
       return;
     }
 
-    // Tool requirement check temporarily disabled for MVP testing
-    // Will be re-enabled once inventory and equipment systems are fully integrated
+    // Tool check (RuneScape-style: any hatchet qualifies; tier affects speed)
+    if (resource.skillRequired === 'woodcutting') {
+      const axeInfo = this.getBestAxeTier(data.playerId);
+      if (!axeInfo) {
+        this.sendChat(data.playerId, `You need an axe to chop this tree.`);
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: data.playerId,
+          message: `You need an axe to chop this tree.`,
+          type: 'error'
+        });
+        return;
+      }
+
+      // Enforce axe level requirement
+      const cached = this.playerSkills.get(data.playerId);
+      const wcLevel = cached?.[resource.skillRequired]?.level ?? 1;
+      if (wcLevel < axeInfo.levelRequired) {
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: data.playerId,
+          message: `You need level ${axeInfo.levelRequired} woodcutting to use this axe.`,
+          type: 'error'
+        });
+        return;
+      }
+    }
 
     // If player is already gathering, replace session with the latest request
     if (this.activeGathering.has(playerId)) {
@@ -533,17 +617,20 @@ export class ResourceSystem extends SystemBase {
       return;
     }
     const skillCheck = Math.floor(Math.random() * 100);
-    const gatheringDuration = Math.max(3000, Math.min(5000, 5000 - (skillCheck * 20))); // 3-5 seconds
     
     
     // Create timed session
     const sessionResourceId = createResourceID(resource.id);
     
+    // Schedule first attempt immediately (attempt loop drives cadence)
     this.activeGathering.set(playerId, {
       playerId,
       resourceId: sessionResourceId,
       startTime: Date.now(),
-      skillCheck
+      skillCheck,
+      nextAttemptAt: Date.now(),
+      attempts: 0,
+      successes: 0
     });
 
     // Emit gathering started event
@@ -593,20 +680,157 @@ export class ResourceSystem extends SystemBase {
     for (const [playerId, session] of this.activeGathering.entries()) {
       const resource = this.resources.get(session.resourceId);
       if (!resource?.isAvailable) {
-        // If resource became unavailable, complete the session immediately (client will see stump)
-        this.completeGathering(playerId, session);
+        // Resource depleted, end session
         completedSessions.push(playerId);
         continue;
       }
 
-      // Check if gathering time is complete (3-5 seconds based on skill). Clamp to [3000, 5000]
-      const raw = 5000 - (session.skillCheck * 20);
-      const gatheringTime = Math.max(3000, Math.min(5000, raw));
-      const elapsed = now - session.startTime;
-      
-      if (elapsed >= gatheringTime) {
-        this.completeGathering(playerId, session);
+      // Only process when it's time for the next attempt
+      if (now < session.nextAttemptAt) continue;
+
+      // Proximity check before attempt
+      const p = this.world.getPlayer?.(playerId as unknown as string);
+      const playerPos = p && (p as { position?: { x: number; y: number; z: number } }).position
+        ? (p as { position: { x: number; y: number; z: number } }).position
+        : null;
+      if (!playerPos || calculateDistance(playerPos, resource.position) > 4.0) {
+        this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
+          playerId: playerId as unknown as string,
+          resourceId: session.resourceId
+        });
         completedSessions.push(playerId);
+        continue;
+      }
+
+      // Inventory capacity guard - if full, stop session
+      const inventorySystem = this.world.getSystem?.('inventory') as { getInventory?: (playerId: string) => { items?: unknown[]; capacity?: number } } | null;
+      if (inventorySystem?.getInventory) {
+        const inv = inventorySystem.getInventory(playerId as unknown as string);
+        const capacity = (inv?.capacity as number) ?? 28;
+        const count = Array.isArray(inv?.items) ? inv!.items!.length : 0;
+        if (count >= capacity) {
+          this.emitTypedEvent(EventType.UI_MESSAGE, {
+            playerId: playerId as unknown as string,
+            message: 'Your inventory is too full to hold any more logs.',
+            type: 'warning'
+          });
+          this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
+            playerId: playerId as unknown as string,
+            resourceId: session.resourceId
+          });
+          completedSessions.push(playerId);
+          continue;
+        }
+      }
+
+      // Compute cycle time based on variant and skill
+      const cachedSkills = this.playerSkills.get(playerId);
+      const skillLevel = cachedSkills?.[resource.skillRequired]?.level ?? 1;
+      const variant = this.resourceVariants.get(session.resourceId) || 'tree_normal';
+      const tuned = this.getVariantTuning(variant);
+      // Apply tool tier multiplier to cycle time (faster with better axes)
+      const axe = this.getBestAxeTier(playerId as unknown as string);
+      const toolMultiplier = axe ? axe.cycleMultiplier : 1.0;
+      const cycleMs = Math.max(800, Math.floor(this.computeCycleMs(skillLevel, tuned) * toolMultiplier));
+      session.nextAttemptAt = now + cycleMs;
+      session.attempts++;
+
+      // Attempt success roll
+      const successRate = this.computeSuccessRate(skillLevel, tuned);
+      const isSuccessful = Math.random() < successRate;
+
+      if (isSuccessful) {
+        session.successes++;
+
+        // Add one log to inventory
+        this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
+          playerId: (playerId as unknown as string),
+          item: {
+            id: `inv_${playerId}_${Date.now()}_logs`,
+            itemId: 'logs',
+            quantity: 1,
+            slot: -1,
+            metadata: null
+          }
+        });
+
+        // Award XP per log immediately
+        const xpPerLog = tuned.xpPerLog;
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: (playerId as unknown as string),
+          skill: resource.skillRequired,
+          amount: xpPerLog
+        });
+
+        // Feedback
+        this.sendChat((playerId as unknown as string), `You receive 1x ${'Logs'}.`);
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: (playerId as unknown as string),
+          message: `You get some logs. (+${xpPerLog} ${resource.skillRequired} XP)`,
+          type: 'success'
+        });
+
+        // Depletion roll
+        if (Math.random() < tuned.depleteChance) {
+          // Deplete resource and schedule respawn
+          resource.isAvailable = false;
+          resource.lastDepleted = Date.now();
+
+          const resourceEntity = this.world.entities.get(session.resourceId);
+          if (resourceEntity && typeof (resourceEntity as unknown as { deplete?: () => void }).deplete === 'function') {
+            (resourceEntity as unknown as { deplete: () => void }).deplete();
+          }
+
+          this.emitTypedEvent(EventType.RESOURCE_DEPLETED, {
+            resourceId: session.resourceId,
+            position: resource.position
+          });
+          this.sendChat((playerId as unknown as string), 'The tree is chopped down.');
+          this.sendNetworkMessage('resourceDepleted', {
+            resourceId: session.resourceId,
+            position: resource.position,
+            depleted: true
+          });
+
+          const respawnTimer = this.createTimer(() => {
+            resource.isAvailable = true;
+            resource.lastDepleted = 0;
+            const ent = this.world.entities.get(session.resourceId);
+            if (ent && typeof (ent as unknown as { respawn?: () => void }).respawn === 'function') {
+              (ent as unknown as { respawn: () => void }).respawn();
+            }
+            this.emitTypedEvent(EventType.RESOURCE_RESPAWNED, {
+              resourceId: session.resourceId,
+              position: resource.position
+            });
+            this.sendNetworkMessage('resourceRespawned', {
+              resourceId: session.resourceId,
+              position: resource.position,
+              depleted: false
+            });
+            this.respawnTimers.delete(session.resourceId);
+          }, resource.respawnTime);
+          if (respawnTimer) {
+            this.respawnTimers.set(session.resourceId, respawnTimer);
+          }
+
+          // Emit completion for this session
+          this.emitTypedEvent(EventType.RESOURCE_GATHERING_COMPLETED, {
+            playerId: playerId,
+            resourceId: session.resourceId,
+            successful: true,
+            skill: resource.skillRequired
+          });
+
+          completedSessions.push(playerId);
+        }
+      } else {
+        // Failure feedback (optional gentle info)
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: (playerId as unknown as string),
+          message: `You fail to chop the tree.`,
+          type: 'info'
+        });
       }
     }
 
@@ -616,186 +840,64 @@ export class ResourceSystem extends SystemBase {
     }
   }
 
-  private completeGathering(playerId: PlayerID, session: { playerId: PlayerID; resourceId: ResourceID; startTime: number; skillCheck: number }): void {
-    const resource = this.resources.get(session.resourceId)!;
+  // Legacy completeGathering() method removed - continuous loop in updateGathering() handles all gathering now
 
-    // Proximity/cancel check - player must still be near the resource
-    const p = this.world.getPlayer?.(playerId as unknown as string);
-    const playerPos = p && (p as { position?: { x: number; y: number; z: number } }).position
-      ? (p as { position: { x: number; y: number; z: number } }).position
-      : null;
-    
-    if (!playerPos || calculateDistance(playerPos, resource.position) > 4.0) {
-      this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
-        playerId: playerId as unknown as string,
-        resourceId: session.resourceId
-      });
-      return;
+  // ===== Tuning helpers =====
+  private getVariantTuning(variantKey: string): { levelRequired: number; xpPerLog: number; baseCycleMs: number; depleteChance: number; respawnMs: number } {
+    // Defaults for normal tree
+    const defaults = { levelRequired: 1, xpPerLog: 25, baseCycleMs: 3600, depleteChance: 0.2, respawnMs: 10000 };
+    switch (variantKey) {
+      case 'tree_oak':
+        return { levelRequired: 15, xpPerLog: 38, baseCycleMs: 4000, depleteChance: 0.18, respawnMs: 15000 };
+      case 'tree_willow':
+        return { levelRequired: 30, xpPerLog: 68, baseCycleMs: 4300, depleteChance: 0.16, respawnMs: 20000 };
+      case 'tree_maple':
+        return { levelRequired: 45, xpPerLog: 100, baseCycleMs: 4600, depleteChance: 0.14, respawnMs: 25000 };
+      case 'tree_yew':
+        return { levelRequired: 60, xpPerLog: 175, baseCycleMs: 5000, depleteChance: 0.12, respawnMs: 30000 };
+      case 'tree_magic':
+        return { levelRequired: 75, xpPerLog: 250, baseCycleMs: 5400, depleteChance: 0.10, respawnMs: 40000 };
+      default:
+        return defaults;
     }
+  }
 
-    // Calculate success based on skill level and random check (reactive pattern)
-    const cachedSkills = this.playerSkills.get(playerId);
-    const skillLevel = cachedSkills?.[resource.skillRequired]?.level ?? 1;
-    
-    // Success rate: base 60% + skill level * 2% (max ~85% at high levels)
-    // For MVP, guarantee success for deterministic testing, but keep the logic for later
-    const baseSuccessRate = 60;
-    const skillBonus = skillLevel * 2;
-    const successRate = Math.min(85, baseSuccessRate + skillBonus);
-    const isSuccessful = true; // MVP: always succeed for testing
-    // const isSuccessful = session.skillCheck <= successRate; // Future: enable skill-based success
-    
+  private computeCycleMs(skillLevel: number, tuned: { levelRequired: number; baseCycleMs: number }): number {
+    const levelDelta = Math.max(0, skillLevel - tuned.levelRequired);
+    // Up to ~30% faster at high level delta
+    const levelFactor = Math.min(0.30, levelDelta * 0.005);
+    const result = Math.max(1200, Math.floor(tuned.baseCycleMs * (1 - levelFactor)));
+    return result;
+  }
 
-    if (isSuccessful) {
-      // Determine drops
-      const dropTableKey = `${resource.type}_normal`;
-      
-      const dropTable = this.RESOURCE_DROPS.get(dropTableKey);
-      
-      if (dropTable) {
-        for (const drop of dropTable) {
-          const dropRoll = Math.random();
-          
-          if (dropRoll <= drop.chance) {
-            // Add item to player inventory (emit with raw player id string for DB consistency)
-            this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
-              playerId: (playerId as unknown as string),
-              item: {
-                id: `inv_${playerId}_${Date.now()}_${drop.itemId}`,
-                itemId: drop.itemId,
-                quantity: drop.quantity,
-                slot: -1, // Let system find empty slot
-                metadata: null
-              }
-            });
-            
+  private computeSuccessRate(skillLevel: number, tuned: { levelRequired: number }): number {
+    // Base 35% at requirement, +1% per level above, clamp [0.25, 0.85]
+    const delta = skillLevel - tuned.levelRequired;
+    const base = 0.35 + Math.max(0, delta) * 0.01;
+    return Math.max(0.25, Math.min(0.85, base));
+  }
 
-            // Award XP and check for level up (reactive pattern)
-            this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
-              playerId: playerId,
-              skill: resource.skillRequired,
-              amount: drop.xpAmount
-            });
+  private getBestAxeTier(playerId: string): { id: string; levelRequired: number; cycleMultiplier: number } | null {
+    // Known axe tiers: bronze, iron, steel, mithril, adamant, rune, dragon
+    const tiers: Array<{ id: string; levelRequired: number; cycleMultiplier: number; match: (id: string) => boolean }> = [
+      { id: 'dragon_hatchet', levelRequired: 61, cycleMultiplier: 0.70, match: (id) => id.includes('dragon') && (id.includes('hatchet') || id.includes('axe')) },
+      { id: 'rune_hatchet', levelRequired: 41, cycleMultiplier: 0.78, match: (id) => id.includes('rune') && (id.includes('hatchet') || id.includes('axe')) },
+      { id: 'adamant_hatchet', levelRequired: 31, cycleMultiplier: 0.84, match: (id) => id.includes('adamant') && (id.includes('hatchet') || id.includes('axe')) },
+      { id: 'mithril_hatchet', levelRequired: 21, cycleMultiplier: 0.88, match: (id) => id.includes('mithril') && (id.includes('hatchet') || id.includes('axe')) },
+      { id: 'steel_hatchet', levelRequired: 6, cycleMultiplier: 0.92, match: (id) => id.includes('steel') && (id.includes('hatchet') || id.includes('axe')) },
+      { id: 'iron_hatchet', levelRequired: 1, cycleMultiplier: 0.96, match: (id) => id.includes('iron') && (id.includes('hatchet') || id.includes('axe')) },
+      { id: 'bronze_hatchet', levelRequired: 1, cycleMultiplier: 1.00, match: (id) => id.includes('bronze') && (id.includes('hatchet') || id.includes('axe')) },
+    ];
 
-            // Skills system will listen to XP_GAINED and emit SKILLS_UPDATED reactively
-
-            const actionName = resource.skillRequired === 'woodcutting' ? 'chop down the tree' : 
-                               resource.skillRequired === 'fishing' ? 'catch a fish' : 'gather from the resource';
-            const _resourceName = resource.name || resource.type.replace('_', ' ');
-            
-
-            // Send feedback to player via multiple channels
-            this.sendChat((playerId as unknown as string), `You receive ${drop.quantity}x ${drop.itemName}.`);
-            this.emitTypedEvent(EventType.UI_MESSAGE, {
-              playerId: (playerId as unknown as string),
-              message: `You receive ${drop.quantity}x ${drop.itemName}.`,
-              type: 'success'
-            });
-            
-            // Broadcast success message to client via network
-            this.sendNetworkMessage('showToast', {
-              playerId: playerId,
-              message: `You successfully ${actionName}! +${drop.quantity} ${drop.itemName}`,
-              type: 'success'
-            });
-
-          }
-        }
-      }
-
-      // Deplete resource temporarily
-      resource.isAvailable = false;
-      resource.lastDepleted = Date.now();
-      
-      // CRITICAL FIX: Release the resource lock
-      this.resourceLocks.delete(session.resourceId);
-
-      // Update the actual ResourceEntity to trigger visual change
-      const resourceEntity = this.world.entities.get(session.resourceId);
-      if (resourceEntity && typeof (resourceEntity as unknown as { deplete?: () => void }).deplete === 'function') {
-        (resourceEntity as unknown as { deplete: () => void }).deplete();
-      }
-
-      // Notify clients to swap to stump visual
-      this.emitTypedEvent(EventType.RESOURCE_DEPLETED, {
-        resourceId: session.resourceId,
-        position: resource.position
-      });
-      this.sendChat((playerId as unknown as string), 'The tree is chopped down.');
-      
-      // Broadcast depletion to all clients for visual updates
-      this.sendNetworkMessage('resourceDepleted', {
-        resourceId: session.resourceId,
-        position: resource.position,
-        depleted: true
-      });
-
-      // Set respawn timer using tracked timer to prevent memory leaks
-      const respawnTimer = this.createTimer(() => {
-        resource.isAvailable = true;
-        resource.lastDepleted = 0;
-        
-        // Update the actual ResourceEntity to trigger visual change
-        const resourceEntity = this.world.entities.get(session.resourceId);
-        if (resourceEntity && typeof (resourceEntity as unknown as { respawn?: () => void }).respawn === 'function') {
-          (resourceEntity as unknown as { respawn: () => void }).respawn();
-        }
-        
-        // Emit local event
-        this.emitTypedEvent(EventType.RESOURCE_RESPAWNED, {
-          resourceId: session.resourceId,
-          position: resource.position
-        });
-        
-        // Broadcast to all clients
-        this.sendNetworkMessage('resourceRespawned', {
-          resourceId: session.resourceId,
-          position: resource.position,
-          depleted: false
-        });
-        
-        // Remove from timers map
-        this.respawnTimers.delete(session.resourceId);
-      }, resource.respawnTime);
-
-      if (respawnTimer) {
-        this.respawnTimers.set(session.resourceId, respawnTimer);
-      }
-
-    } else {
-      // Failed attempt
-      const actionName = resource.skillRequired === 'woodcutting' ? 'chop the tree' : 
-                         resource.skillRequired === 'fishing' ? 'catch anything' : 'gather';
-      
-      
-      this.sendChat((playerId as unknown as string), `You fail to ${actionName}.`);
-      
-      // Broadcast failure message to client
-      this.sendNetworkMessage('showToast', {
-        playerId: playerId,
-        message: `You fail to ${actionName}.`,
-        type: 'info'
-      });
-
+    const inventorySystem = this.world.getSystem?.('inventory') as { getInventory?: (playerId: string) => { items?: Array<{ itemId?: string }>, capacity?: number } } | null;
+    const inv = inventorySystem?.getInventory ? inventorySystem.getInventory(playerId) : undefined;
+    const items = (inv?.items as Array<{ itemId?: string }> | undefined) || [];
+    let best: { id: string; levelRequired: number; cycleMultiplier: number } | null = null;
+    for (const t of tiers) {
+      const found = items.some(it => typeof it?.itemId === 'string' && t.match(it.itemId!.toLowerCase()));
+      if (found) { best = { id: t.id, levelRequired: t.levelRequired, cycleMultiplier: t.cycleMultiplier }; break; }
     }
-
-    // Emit gathering completed event
-    this.emitTypedEvent(EventType.RESOURCE_GATHERING_COMPLETED, {
-      playerId: playerId,
-      resourceId: session.resourceId,
-      successful: isSuccessful,
-      skill: resource.skillRequired
-    });
-    
-    // Broadcast completion to all clients for UI updates
-    this.sendNetworkMessage('gatheringComplete', {
-      playerId: playerId,
-      resourceId: session.resourceId,
-      successful: isSuccessful
-    });
-    
-    // NOTE: Persistence is handled by InventorySystem's auto-save mechanism
-    // ResourceSystem should not directly manipulate database or inventory internals
+    return best;
   }
 
   /**

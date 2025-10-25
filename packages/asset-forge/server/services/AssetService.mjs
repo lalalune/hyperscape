@@ -13,15 +13,7 @@ export class AssetService {
 
   async listAssets() {
     try {
-      // Check both root assetsDir and forge subdirectory
-      const forgeDir = path.join(this.assetsDir, 'forge')
-      const hasForgedir = await fs.access(forgeDir).then(() => true).catch(() => false)
-      
-      const assetDirs = hasForgedir 
-        ? await fs.readdir(forgeDir)
-        : await fs.readdir(this.assetsDir)
-      
-      const baseDir = hasForgedir ? forgeDir : this.assetsDir
+      const assetDirs = await fs.readdir(this.assetsDir)
       const assets = []
 
       for (const assetDir of assetDirs) {
@@ -29,7 +21,7 @@ export class AssetService {
           continue
         }
 
-        const assetPath = path.join(baseDir, assetDir)
+        const assetPath = path.join(this.assetsDir, assetDir)
         
         try {
           const stats = await fs.stat(assetPath)
@@ -68,10 +60,7 @@ export class AssetService {
   }
 
   async getModelPath(assetId) {
-    // Try forge subdirectory first, then root
-    const forgePath = path.join(this.assetsDir, 'forge', assetId)
-    const hasForge = await fs.access(forgePath).then(() => true).catch(() => false)
-    const assetPath = hasForge ? forgePath : path.join(this.assetsDir, assetId)
+    const assetPath = path.join(this.assetsDir, assetId)
     
     // Check if asset directory exists
     try {
@@ -111,17 +100,13 @@ export class AssetService {
   }
 
   async getAssetMetadata(assetId) {
-    const forgePath = path.join(this.assetsDir, 'forge', assetId, 'metadata.json')
-    const hasForge = await fs.access(forgePath).then(() => true).catch(() => false)
-    const metadataPath = hasForge ? forgePath : path.join(this.assetsDir, assetId, 'metadata.json')
+    const metadataPath = path.join(this.assetsDir, assetId, 'metadata.json')
     return JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
   }
   
   async loadAsset(assetId) {
     try {
-      const forgePath = path.join(this.assetsDir, 'forge', assetId)
-      const hasForge = await fs.access(forgePath).then(() => true).catch(() => false)
-      const assetPath = hasForge ? forgePath : path.join(this.assetsDir, assetId)
+      const assetPath = path.join(this.assetsDir, assetId)
       const stats = await fs.stat(assetPath)
       
       if (!stats.isDirectory()) {
@@ -151,9 +136,7 @@ export class AssetService {
   }
   
   async deleteAsset(assetId, includeVariants = false) {
-    const forgePath = path.join(this.assetsDir, 'forge', assetId)
-    const hasForge = await fs.access(forgePath).then(() => true).catch(() => false)
-    const assetPath = hasForge ? forgePath : path.join(this.assetsDir, assetId)
+    const assetPath = path.join(this.assetsDir, assetId)
     
     // Check if asset exists
     try {
@@ -188,9 +171,7 @@ export class AssetService {
   }
   
   async deleteAssetDirectory(assetId) {
-    const forgePath = path.join(this.assetsDir, 'forge', assetId)
-    const hasForge = await fs.access(forgePath).then(() => true).catch(() => false)
-    const assetPath = hasForge ? forgePath : path.join(this.assetsDir, assetId)
+    const assetPath = path.join(this.assetsDir, assetId)
     
     try {
       // Recursively delete the directory
@@ -227,9 +208,7 @@ export class AssetService {
   
   async updateAsset(assetId, updates) {
     try {
-      const forgePath = path.join(this.assetsDir, 'forge', assetId)
-      const hasForge = await fs.access(forgePath).then(() => true).catch(() => false)
-      const assetPath = hasForge ? forgePath : path.join(this.assetsDir, assetId)
+      const assetPath = path.join(this.assetsDir, assetId)
       const metadataPath = path.join(assetPath, 'metadata.json')
       
       // Check if asset exists
@@ -261,8 +240,7 @@ export class AssetService {
         updatedMetadata.gameId = updates.name
         
         // Create new directory with new name
-        const baseDir = hasForge ? path.join(this.assetsDir, 'forge') : this.assetsDir
-        const newAssetPath = path.join(baseDir, updates.name)
+        const newAssetPath = path.join(this.assetsDir, updates.name)
         
         // Check if new name already exists
         try {

@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react'
-
-import { World } from '@hyperscape/shared'
-import type { InventorySlotItem, PlayerEquipmentItems, PlayerStats } from '@hyperscape/shared'
 import { EventType } from '@hyperscape/shared'
+import type { ClientWorld, PlayerEquipmentItems, PlayerStats, InventorySlotItem } from '../types'
 import { useChatContext } from './ChatContext'
 import { HintProvider } from './Hint'
 import { Minimap } from './Minimap'
@@ -15,21 +13,14 @@ import { CombatPanel } from './panels/CombatPanel'
 import { EquipmentPanel } from './panels/EquipmentPanel'
 import { SettingsPanel } from './panels/SettingsPanel'
 import { AccountPanel } from './panels/AccountPanel'
+import { DashboardPanel } from './panels/DashboardPanel'
 
 const _mainSectionPanes = ['prefs']
 
-
-/**
- * frosted
- * 
-background: rgba(11, 10, 21, 0.85); 
-border: 0.0625rem solid #2a2b39;
-backdrop-filter: blur(5px);
- *
- */
+type InventorySlotViewItem = Pick<InventorySlotItem, 'slot' | 'itemId' | 'quantity'>
 
 interface SidebarProps {
-  world: World
+  world: ClientWorld
   ui: {
     active: boolean
     pane: string | null
@@ -37,18 +28,23 @@ interface SidebarProps {
 }
 
 export function Sidebar({ world, ui: _ui }: SidebarProps) {
-  const [_livekit, setLiveKit] = useState(() => world.livekit!.status)
-  const [inventory, setInventory] = useState<InventorySlotItem[]>([])
+  const [inventory, setInventory] = useState<InventorySlotViewItem[]>([])
   const [equipment, setEquipment] = useState<PlayerEquipmentItems | null>(null)
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null)
   const [coins, setCoins] = useState<number>(0)
   const [minimapCollapsed, setMinimapCollapsed] = useState<boolean>(false)
   const [isMobile, setIsMobile] = useState<boolean>(false)
-  const { collapsed: _chatCollapsed, active: _chatActive } = useChatContext()
+  const { collapsed: _chatCollapsed, active: _chatActive, setHasOpenWindows } = useChatContext()
 
-  // Track which windows are open
   const [openWindows, setOpenWindows] = useState<Set<string>>(new Set())
-  
+  const [windowZIndices, setWindowZIndices] = useState<Map<string, number>>(new Map())
+  const [nextZIndex, setNextZIndex] = useState(1000)
+
+  // Update chat context whenever windows open/close
+  useEffect(() => {
+    setHasOpenWindows(openWindows.size > 0)
+  }, [openWindows, setHasOpenWindows])
+
   const toggleWindow = (windowId: string) => {
     setOpenWindows(prev => {
       const next = new Set(prev)
@@ -56,85 +52,104 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         next.delete(windowId)
       } else {
         next.add(windowId)
+        // Assign z-index when opening
+        setWindowZIndices(prevIndices => {
+          const newIndices = new Map(prevIndices)
+          newIndices.set(windowId, nextZIndex)
+          return newIndices
+        })
+        setNextZIndex(prev => prev + 1)
       }
       return next
     })
   }
-  
+
   const closeWindow = (windowId: string) => {
     setOpenWindows(prev => {
       const next = new Set(prev)
       next.delete(windowId)
       return next
     })
+    // Clean up z-index when closing
+    setWindowZIndices(prev => {
+      const next = new Map(prev)
+      next.delete(windowId)
+      return next
+    })
+  }
+
+  const bringToFront = (windowId: string) => {
+    setWindowZIndices(prevIndices => {
+      const newIndices = new Map(prevIndices)
+      newIndices.set(windowId, nextZIndex)
+      return newIndices
+    })
+    setNextZIndex(prev => prev + 1)
   }
   
   useEffect(() => {
-    const onLiveKitStatus = status => {
-      setLiveKit({ ...status })
-    }
-    world.livekit!.on('status', onLiveKitStatus)
-    const onOpenPane = (data: { pane?: string | null }) => {
-      if (data?.pane) {
-        setOpenWindows(prev => new Set(prev).add(data.pane as string))
-      }
+    const onOpenPane = (d: unknown) => {
+      const data = d as { pane?: string | null }
+      if (data?.pane) setOpenWindows(prev => new Set(prev).add(data.pane as string))
     }
     world.on(EventType.UI_OPEN_PANE, onOpenPane)
+
     const onUIUpdate = (raw: unknown) => {
       const update = raw as { component: string; data: unknown }
-      if (update.component === 'player') {
-        setPlayerStats(update.data as PlayerStats)
-      }
+      if (update.component === 'player') setPlayerStats(update.data as PlayerStats)
       if (update.component === 'equipment') {
         const data = update.data as { equipment: PlayerEquipmentItems }
         setEquipment(data.equipment)
       }
     }
     const onInventory = (raw: unknown) => {
-      const data = raw as { items: InventorySlotItem[]; playerId: string; coins: number }
+      const data = raw as { items: InventorySlotViewItem[]; playerId: string; coins: number }
       setInventory(data.items)
       setCoins(data.coins)
     }
     const onCoins = (raw: unknown) => {
       const data = raw as { playerId: string; coins: number }
-      const localId = world.entities.player?.id
+      const localId = world.entities?.player?.id
       if (!localId || data.playerId === localId) setCoins(data.coins)
     }
+    const onSkillsUpdate = (raw: unknown) => {
+      const data = raw as { playerId: string; skills: PlayerStats['skills'] }
+      const localId = world.entities?.player?.id
+      if (!localId || data.playerId === localId) setPlayerStats(prev => prev ? { ...prev, skills: data.skills } : { skills: data.skills } as PlayerStats)
+    }
+
     world.on(EventType.UI_UPDATE, onUIUpdate)
     world.on(EventType.INVENTORY_UPDATED, onInventory)
     world.on(EventType.INVENTORY_UPDATE_COINS, onCoins)
-    // Request initial inventory snapshot once local player exists; hydrate from cached packet if available
+    world.on(EventType.SKILLS_UPDATED, onSkillsUpdate)
+
     const requestInitial = () => {
-      const lp = world.entities.player?.id
+      const lp = world.entities?.player?.id
       if (lp) {
-        // If network already cached an inventory packet, use it immediately
-        const network = world.network as { lastInventoryByPlayerId?: Record<string, { playerId: string; items: InventorySlotItem[]; coins: number; maxSlots: number }> }
-        const cached = network.lastInventoryByPlayerId?.[lp]
+        const cached = world.network?.lastInventoryByPlayerId?.[lp]
         if (cached && Array.isArray(cached.items)) {
           setInventory(cached.items)
           setCoins(cached.coins)
         }
-        // Ask server for authoritative snapshot in case cache is missing/stale
+        const cachedSkills = world.network?.lastSkillsByPlayerId?.[lp]
+        if (cachedSkills) setPlayerStats(prev => prev ? { ...prev, skills: cachedSkills as unknown as PlayerStats['skills'] } : { skills: cachedSkills as unknown as PlayerStats['skills'] } as PlayerStats)
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp })
         return true
       }
       return false
     }
     let timeoutId: number | null = null
-    if (!requestInitial()) {
-      timeoutId = window.setTimeout(() => requestInitial(), 400)
-    }
+    if (!requestInitial()) timeoutId = window.setTimeout(() => requestInitial(), 400)
     return () => {
       if (timeoutId !== null) window.clearTimeout(timeoutId)
-      world.livekit!.off('status', onLiveKitStatus)
       world.off(EventType.UI_OPEN_PANE, onOpenPane)
       world.off(EventType.UI_UPDATE, onUIUpdate)
       world.off(EventType.INVENTORY_UPDATED, onInventory)
       world.off(EventType.INVENTORY_UPDATE_COINS, onCoins)
+      world.off(EventType.SKILLS_UPDATED, onSkillsUpdate)
     }
   }, [])
 
-  // Detect mobile screen size
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
@@ -147,6 +162,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
 
   const menuButtons = [
     { windowId: 'combat', icon: '⚔️', label: 'Combat' },
+    { windowId: 'dashboard', icon: '📋', label: 'Dashboard' },
     { windowId: 'skills', icon: '🧠', label: 'Skills' },
     { windowId: 'inventory', icon: '🎒', label: 'Inventory' },
     { windowId: 'equipment', icon: '🛡️', label: 'Equipment' },
@@ -195,50 +211,61 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           }}
         >
           <div
-            className="relative pointer-events-none transition-all duration-300"
+            className="relative pointer-events-none"
             style={{
               width: minimapCollapsed ? 56 : minimapOuterSize,
               height: minimapCollapsed ? 56 : minimapOuterSize,
+              transition: 'width 0.3s ease-in-out, height 0.3s ease-in-out',
             }}
           >
-            {!minimapCollapsed && (
-              <>
-                <div
-                  className="absolute inset-0 border border-white/[0.08] rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all duration-300 pointer-events-auto hover:border-white/[0.15] overflow-hidden flex items-center justify-center"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(12,12,20,0.98), rgba(12,12,20,0.92))',
-                    paddingTop: '6px',
-                    paddingRight: isMobile ? '10px' : '10px',
-                    paddingBottom: '10px',
-                    paddingLeft: '6px',
-                  }}
-                >
-                  <Minimap
-                    world={world}
-                    width={minimapInnerSize}
-                    height={minimapInnerSize}
-                    zoom={minimapZoom}
-                    onCompassClick={() => setMinimapCollapsed(true)}
-                  />
-                </div>
-                {radialButtons.map((button) => (
-                  <div
-                    key={button.windowId}
-                    className="absolute pointer-events-auto z-[999]"
-                    style={button.style}
-                  >
-                    <MenuButton
-                      icon={button.icon}
-                      label={button.label}
-                      active={openWindows.has(button.windowId)}
-                      onClick={() => toggleWindow(button.windowId)}
-                      size={radialButtonSize}
-                      circular={true}
-                    />
-                  </div>
-                ))}
-              </>
-            )}
+            <div
+              className={`absolute inset-0 rounded-full pointer-events-auto overflow-hidden flex items-center justify-center ${
+                minimapCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}
+              style={{
+                background: 'linear-gradient(135deg, rgba(20, 15, 10, 0.85) 0%, rgba(15, 10, 5, 0.95) 50%, rgba(20, 15, 10, 0.85) 100%)',
+                backdropFilter: 'blur(12px)',
+                border: '2px solid rgba(139, 69, 19, 0.7)',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(139, 69, 19, 0.5), inset 0 2px 4px rgba(242, 208, 138, 0.15), inset 0 -2px 4px rgba(0, 0, 0, 0.6)',
+                paddingTop: '6px',
+                paddingRight: isMobile ? '10px' : '10px',
+                paddingBottom: '10px',
+                paddingLeft: '6px',
+                transition: 'opacity 0.3s ease-in-out, border-color 0.2s ease-in-out',
+                willChange: 'opacity',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(242, 208, 138, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(139, 69, 19, 0.7)'
+              }}
+            >
+              <Minimap
+                world={world}
+                width={minimapInnerSize}
+                height={minimapInnerSize}
+                zoom={minimapZoom}
+                onCompassClick={() => setMinimapCollapsed(true)}
+                isVisible={!minimapCollapsed}
+              />
+            </div>
+            {!minimapCollapsed && radialButtons.map((button) => (
+              <div
+                key={button.windowId}
+                className="absolute pointer-events-auto z-[999]"
+                style={button.style}
+              >
+                <MenuButton
+                  icon={button.icon}
+                  label={button.label}
+                  active={openWindows.has(button.windowId)}
+                  onClick={() => toggleWindow(button.windowId)}
+                  size={radialButtonSize}
+                  circular={true}
+                />
+              </div>
+            ))}
             
             {/* Compass - always visible on outside of ring */}
             <div
@@ -263,6 +290,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Account"
             windowId="account"
             onClose={() => closeWindow('account')}
+            zIndex={windowZIndices.get('account') || 1000}
+            onFocus={() => bringToFront('account')}
           >
             <AccountPanel world={world} />
           </GameWindow>
@@ -273,8 +302,32 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Combat"
             windowId="combat"
             onClose={() => closeWindow('combat')}
+            zIndex={windowZIndices.get('combat') || 1000}
+            onFocus={() => bringToFront('combat')}
           >
             <CombatPanel world={world} stats={playerStats} equipment={equipment} />
+          </GameWindow>
+        )}
+
+        {/* Dashboard - Fixed position below minimap */}
+        {openWindows.has('dashboard') && (
+          <GameWindow
+            title="Dashboard"
+            windowId="dashboard"
+            onClose={() => closeWindow('dashboard')}
+            zIndex={windowZIndices.get('dashboard') || 1000}
+            onFocus={() => bringToFront('dashboard')}
+            defaultX={window.innerWidth - (isMobile ? 608 : 620)}
+            defaultY={isMobile ? (minimapCollapsed ? 72 : 260) : (minimapCollapsed ? 88 : 280)}
+          >
+            <DashboardPanel
+              world={world}
+              stats={playerStats}
+              equipment={equipment}
+              inventory={inventory}
+              coins={coins}
+              onOpenWindow={toggleWindow}
+            />
           </GameWindow>
         )}
 
@@ -283,6 +336,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Skills"
             windowId="skills"
             onClose={() => closeWindow('skills')}
+            zIndex={windowZIndices.get('skills') || 1000}
+            onFocus={() => bringToFront('skills')}
           >
             <SkillsPanel world={world} stats={playerStats} />
           </GameWindow>
@@ -293,8 +348,11 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Inventory"
             windowId="inventory"
             onClose={() => closeWindow('inventory')}
+            zIndex={windowZIndices.get('inventory') || 1000}
+            onFocus={() => bringToFront('inventory')}
+            fitContent
           >
-            <InventoryPanel items={inventory} coins={coins} />
+            <InventoryPanel items={inventory} coins={coins} world={world} />
           </GameWindow>
         )}
 
@@ -303,8 +361,10 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Equipment"
             windowId="equipment"
             onClose={() => closeWindow('equipment')}
+            zIndex={windowZIndices.get('equipment') || 1000}
+            onFocus={() => bringToFront('equipment')}
           >
-            <EquipmentPanel equipment={equipment} />
+            <EquipmentPanel equipment={equipment} stats={playerStats} />
           </GameWindow>
         )}
 
@@ -313,6 +373,8 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             title="Settings"
             windowId="prefs"
             onClose={() => closeWindow('prefs')}
+            zIndex={windowZIndices.get('prefs') || 1000}
+            onFocus={() => bringToFront('prefs')}
           >
             <SettingsPanel world={world} />
           </GameWindow>

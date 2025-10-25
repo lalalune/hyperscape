@@ -1,10 +1,13 @@
-import React from 'react'
-import { Card, CardContent, Button, EmptyState } from '../common'
 import { Package, Grid3X3, Camera, Activity, RotateCw, Play, Pause } from 'lucide-react'
-import EquipmentViewer, { EquipmentViewerRef } from './EquipmentViewer'
+import React from 'react'
+
+import type { HandleDetectionResult } from '../../services/processing/WeaponHandleDetector'
 import { Asset } from '../../types'
 import { hasAnimations } from '../../types/AssetMetadata'
-import type { HandleDetectionResult } from '../../services/processing/WeaponHandleDetector'
+import { Card, CardContent, Button, EmptyState } from '../common'
+
+import EquipmentViewer, { EquipmentViewerRef } from './EquipmentViewer'
+
 
 interface ViewportSectionProps {
   selectedAvatar: Asset | null

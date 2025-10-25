@@ -105,7 +105,7 @@ export function groundToTerrain(
   maxHeightDifference: number = 2.0
 ): Position3D {
   // Get terrain system
-  const terrainSystem = world.getSystem('terrain') as
+  const terrainSystem = world.getSystem('terrain') as unknown as
     | { getHeightAt: (x: number, z: number) => number | null }
     | undefined
 

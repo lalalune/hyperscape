@@ -64,7 +64,7 @@ export class PersistenceSystem extends SystemBase {
       throw new Error('[PersistenceSystem] DatabaseSystem not found on server!');
     }
     
-    this.playerSystem = (getSystem(this.world, 'player') as IPlayerSystemForPersistence | null) || undefined;
+    this.playerSystem = (getSystem(this.world, 'player') as unknown as IPlayerSystemForPersistence | null) || undefined;
     if (!this.playerSystem) {
       this.logger.warn('PlayerSystem not found - player persistence will be limited');
     }

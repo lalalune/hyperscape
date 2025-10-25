@@ -158,7 +158,7 @@ export class InteractionSystem extends System {
     if (!positionAttribute) return;
     
     // Get terrain system for fast heightmap lookup
-    const terrainSystem = this.world.getSystem('terrain') as 
+    const terrainSystem = this.world.getSystem('terrain') as unknown as 
       { getHeightAt: (x: number, z: number) => number } | undefined;
     
     if (!terrainSystem) {
@@ -734,6 +734,14 @@ export class InteractionSystem extends System {
           icon: '⚔️',
           enabled: isAlive,
           handler: () => {
+            // Check if mob is still alive before attacking
+            const currentMobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
+            const isStillAlive = (currentMobData?.health || 0) > 0;
+            
+            if (!isStillAlive) {
+              return; // Mob is dead, don't attack
+            }
+            
             // Check for debouncing to prevent duplicate attack requests
             const attackKey = `${playerId}:${target.id}`;
             const now = Date.now();
@@ -786,6 +794,53 @@ export class InteractionSystem extends System {
         break;
       }
         
+      case 'player': {
+        // Don't allow trading with yourself
+        if (target.id !== playerId) {
+          actions.push({
+            id: 'trade',
+            label: `Trade with ${target.name}`,
+            icon: '🤝',
+            enabled: true,
+            handler: () => {
+              console.log('[InteractionSystem] Initiating trade with player:', target.id);
+              if (this.world.network?.send) {
+                this.world.network.send('tradeRequest', {
+                  targetPlayerId: target.id
+                });
+              } else {
+                console.warn('[InteractionSystem] No network.send available for trade');
+              }
+            }
+          });
+        }
+        
+        actions.push({
+          id: 'examine',
+          label: 'Examine',
+          icon: '👁️',
+          enabled: true,
+          handler: () => {
+            const entity = target.entity as { data?: { name?: string } };
+            const playerName = entity.data?.name || target.name;
+            this.world.emit(EventType.UI_MESSAGE, {
+              playerId,
+              message: `This is ${playerName}.`,
+              type: 'examine'
+            });
+          }
+        });
+        
+        actions.push({
+          id: 'walk_here',
+          label: 'Walk here',
+          icon: '🚶',
+          enabled: true,
+          handler: () => this.walkTo(target.position)
+        });
+        break;
+      }
+      
       case 'npc': {
         type NPCEntity = { config?: { services?: string[] } }
         const npcConfig = (target.entity as NPCEntity).config || {};

@@ -6,7 +6,10 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["node", "react", "react-dom", "three"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     
     /* Emit */
     "outDir": "./dist",

@@ -1,9 +1,10 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge } from '../common'
-import { cn } from '../../styles'
 import { Box, Eye, Download, Hand, Package } from 'lucide-react'
-import ThreeViewer, { ThreeViewerRef } from '../shared/ThreeViewer'
+import React from 'react'
+
+import { cn } from '../../styles'
 import type { Asset } from '../../types'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge } from '../common'
+import ThreeViewer, { ThreeViewerRef } from '../shared/ThreeViewer'
 
 interface ModelViewerProps {
   modelUrl: string | null
@@ -114,7 +115,7 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
               </Badge>
             )}
             {rightHandData && rightHandData.bonesAdded > 0 && (
-              <Badge variant="success" className={cn("shadow-lg animate-slide-in-left text-white [animation-delay:0.1s]")}>
+              <Badge variant="success" className={cn("shadow-lg", "animate-slide-in-left", "text-white")} style={{ animationDelay: '0.1s' }}>
                 <Hand className="w-3.5 h-3.5 mr-2" />
                 Right Hand: {rightHandData.bonesAdded} bones added
               </Badge>

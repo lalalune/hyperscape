@@ -1,8 +1,9 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '../common'
 import { CheckCircle, ChevronRight, Package, Clock, Sparkles } from 'lucide-react'
+import React from 'react'
+
 import { cn } from '../../styles'
 import { GeneratedAsset } from '../../types'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '../common'
 
 interface GeneratedAssetsListProps {
   generatedAssets: GeneratedAsset[]

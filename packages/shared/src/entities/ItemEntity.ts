@@ -58,6 +58,7 @@ import type { World } from '../World';
 import type { ItemType, MeshUserData, Item } from '../types/core';
 import { EquipmentSlotName, WeaponType } from '../types/core';
 import type { EntityInteractionData, ItemEntityConfig } from '../types/entities';
+import type { EntityData } from '../types';
 import { InteractableEntity, type InteractableConfig } from './InteractableEntity';
 import { EventType } from '../types/events';
 import { modelCache } from '../utils/ModelCache';
@@ -101,10 +102,11 @@ export class ItemEntity extends InteractableEntity {
       return;
     }
     
-    // Try to load 3D model if available
-    if (this.config.model && this.world.loader) {
+    // Try to load 3D model if available (model or modelPath)
+    const modelToLoad = this.config.model || this.config.modelPath || null;
+    if (modelToLoad && this.world.loader) {
       try {
-        const { scene } = await modelCache.loadModel(this.config.model, this.world);
+        const { scene } = await modelCache.loadModel(modelToLoad, this.world);
         
         this.mesh = scene;
         this.mesh.name = `Item_${this.config.itemId}`;
@@ -320,6 +322,7 @@ export class ItemEntity extends InteractableEntity {
     return {
       ...baseData,
       model: this.config.model,
+      modelPath: this.config.modelPath,
       itemId: this.config.itemId,
       itemType: this.config.itemType,
       quantity: this.config.quantity,
@@ -327,5 +330,21 @@ export class ItemEntity extends InteractableEntity {
       rarity: this.config.rarity,
       stackable: this.config.stackable
     };
+  }
+
+  // Override serialize to include model data for network sync
+  serialize(): EntityData {
+    const baseData = super.serialize();
+    return {
+      ...baseData,
+      model: this.config.model,
+      modelPath: this.config.modelPath,
+      itemId: this.config.itemId,
+      itemType: this.config.itemType,
+      quantity: this.config.quantity,
+      value: this.config.value,
+      rarity: this.config.rarity,
+      stackable: this.config.stackable
+    } as EntityData;
   }
 }

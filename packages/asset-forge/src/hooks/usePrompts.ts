@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { PromptService, GameStylePrompt, AssetTypePrompt, AssetTypePromptsByCategory, PromptsResponse } from '../services/api/PromptService'
+
 import { useGenerationStore } from '../store'
+
+import { PromptService, GameStylePrompt, AssetTypePrompt, AssetTypePromptsByCategory, PromptsResponse } from '@/services/api/PromptService'
 
 export function useGameStylePrompts() {
   const [prompts, setPrompts] = useState<PromptsResponse<Record<string, GameStylePrompt>>>({
@@ -11,39 +13,78 @@ export function useGameStylePrompts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const { customGamePrompt: _customGamePrompt, setCustomGamePrompt: _setCustomGamePrompt } = useGenerationStore()
+
   useEffect(() => {
     const loadPrompts = async () => {
-      setLoading(true)
-      const data = await PromptService.getGameStylePrompts()
-      setPrompts(data)
-      setError(null)
-      setLoading(false)
+      try {
+        setLoading(true)
+        const data = await PromptService.getGameStylePrompts()
+        setPrompts(data)
+        setError(null)
+      } catch (err) {
+        console.error('Failed to load game style prompts:', err)
+        setError('Failed to load game style prompts')
+        // Fallback to hardcoded defaults if loading fails
+        setPrompts({
+          version: '1.0.0',
+          default: {
+            runescape: {
+              name: 'RuneScape 2007',
+              base: 'Low-poly RuneScape 2007',
+              enhanced: 'low-poly RuneScape style',
+              generation: 'runescape2007'
+            },
+            generic: {
+              name: 'Generic Low-Poly',
+              base: 'low-poly 3D game asset style',
+              fallback: 'Low-poly game asset'
+            }
+          },
+          custom: {}
+        })
+      } finally {
+        setLoading(false)
+      }
     }
     loadPrompts()
   }, [])
 
-  const saveCustomGameStyle = useCallback(async (styleId: string, style: GameStylePrompt) => {
-    const updatedPrompts = {
-      ...prompts,
-      custom: {
-        ...prompts.custom,
-        [styleId]: style
+  const saveCustomGameStyle = useCallback(async (styleId: string, style: { name: string; base: string; enhanced?: string }) => {
+    try {
+      const updatedPrompts = {
+        ...prompts,
+        custom: {
+          ...prompts.custom,
+          [styleId]: style
+        }
       }
+      await PromptService.saveGameStylePrompts(updatedPrompts)
+      setPrompts(updatedPrompts)
+      return true
+    } catch (err) {
+      console.error('Failed to save custom game style:', err)
+      return false
     }
-    await PromptService.saveGameStylePrompts(updatedPrompts)
-    setPrompts(updatedPrompts)
-    return true
   }, [prompts])
 
   const deleteCustomGameStyle = useCallback(async (styleId: string) => {
-    const success = await PromptService.deleteGameStyle(styleId)
-    const { [styleId]: _, ...remainingCustom } = prompts.custom
-    const updatedPrompts = {
-      ...prompts,
-      custom: remainingCustom
+    try {
+      const success = await PromptService.deleteGameStyle(styleId)
+      if (success) {
+        const { [styleId]: _, ...remainingCustom } = prompts.custom
+        const updatedPrompts = {
+          ...prompts,
+          custom: remainingCustom
+        }
+        setPrompts(updatedPrompts)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('Failed to delete custom game style:', err)
+      return false
     }
-    setPrompts(updatedPrompts)
-    return success
   }, [prompts])
 
   // Get all available styles (default + custom)
@@ -73,67 +114,86 @@ export function useAssetTypePrompts() {
 
   useEffect(() => {
     const loadPrompts = async () => {
-      setLoading(true)
-      const data = await PromptService.getAssetTypePrompts()
-      setPrompts(data)
-      
-      // Update store with loaded prompts - combine both avatar and item types
-      const avatarMerged = PromptService.mergePrompts(data.avatar.default, data.avatar.custom)
-      const itemMerged = PromptService.mergePrompts(data.item.default, data.item.custom)
-      const allMerged = { ...avatarMerged, ...itemMerged }
-      
-      const promptsMap = Object.entries(allMerged).reduce((acc, [key, value]) => ({
-        ...acc,
-        [key]: value.prompt
-      }), {})
-      setAssetTypePrompts(promptsMap)
-      
-      setError(null)
-      setLoading(false)
+      try {
+        setLoading(true)
+        const data = await PromptService.getAssetTypePrompts()
+        setPrompts(data)
+        
+        // Update store with loaded prompts - combine both avatar and item types
+        const avatarMerged = PromptService.mergePrompts(data.avatar.default, data.avatar.custom)
+        const itemMerged = PromptService.mergePrompts(data.item.default, data.item.custom)
+        const allMerged = { ...avatarMerged, ...itemMerged }
+        
+        const promptsMap = Object.entries(allMerged).reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: value.prompt
+        }), {})
+        setAssetTypePrompts(promptsMap)
+        
+        setError(null)
+      } catch (err) {
+        console.error('Failed to load asset type prompts:', err)
+        setError('Failed to load asset type prompts')
+      } finally {
+        setLoading(false)
+      }
     }
     loadPrompts()
   }, [setAssetTypePrompts])
 
   const saveCustomAssetType = useCallback(async (typeId: string, prompt: AssetTypePrompt, generationType: 'avatar' | 'item' = 'item') => {
-    const updatedPrompts = {
-      ...prompts,
-      [generationType]: {
-        ...prompts[generationType],
-        custom: {
-          ...prompts[generationType].custom,
-          [typeId]: prompt
+    try {
+      const updatedPrompts = {
+        ...prompts,
+        [generationType]: {
+          ...prompts[generationType],
+          custom: {
+            ...prompts[generationType].custom,
+            [typeId]: prompt
+          }
         }
       }
+      await PromptService.saveAssetTypePrompts(updatedPrompts)
+      setPrompts(updatedPrompts)
+      
+      // Update store
+      setAssetTypePrompts({
+        ...assetTypePrompts,
+        [typeId]: prompt.prompt
+      })
+      
+      return true
+    } catch (err) {
+      console.error('Failed to save custom asset type:', err)
+      return false
     }
-    await PromptService.saveAssetTypePrompts(updatedPrompts)
-    setPrompts(updatedPrompts)
-    
-    // Update store
-    setAssetTypePrompts({
-      ...assetTypePrompts,
-      [typeId]: prompt.prompt
-    })
-    
-    return true
   }, [prompts, assetTypePrompts, setAssetTypePrompts])
 
   const deleteCustomAssetType = useCallback(async (typeId: string, generationType: 'avatar' | 'item' = 'item') => {
-    const success = await PromptService.deleteAssetType(typeId, generationType)
-    const { [typeId]: _, ...remainingCustom } = prompts[generationType].custom
-    const updatedPrompts = {
-      ...prompts,
-      [generationType]: {
-        ...prompts[generationType],
-        custom: remainingCustom
+    try {
+      const success = await PromptService.deleteAssetType(typeId, generationType)
+      if (success) {
+        const { [typeId]: _, ...remainingCustom } = prompts[generationType].custom
+        const updatedPrompts = {
+          ...prompts,
+          [generationType]: {
+            ...prompts[generationType],
+            custom: remainingCustom
+          }
+        }
+        setPrompts(updatedPrompts)
+        
+        // Update store
+        const { [typeId]: __, ...remainingPrompts } = assetTypePrompts
+        setAssetTypePrompts(remainingPrompts)
+        
+        return true
       }
+      return false
+    } catch (err) {
+      console.error('Failed to delete custom asset type:', err)
+      return false
     }
-    setPrompts(updatedPrompts)
-    
-    // Update store
-    const { [typeId]: __, ...remainingPrompts } = assetTypePrompts
-    setAssetTypePrompts(remainingPrompts)
-    
-    return success
   }, [prompts, assetTypePrompts, setAssetTypePrompts])
 
   // Get all available types (default + custom) for both categories
@@ -161,7 +221,7 @@ export function useAssetTypePrompts() {
 
 // Hook for material prompt templates
 export function useMaterialPromptTemplates() {
-  const [templates, setTemplates] = useState({
+  const [templates, setTemplates] = useState<{ templates: { runescape: string; generic: string } & Record<string, string>; customOverrides: Record<string, string>}>({
     templates: {
       runescape: '${materialId} texture, low-poly RuneScape style',
       generic: '${materialId} texture'
@@ -172,25 +232,35 @@ export function useMaterialPromptTemplates() {
 
   useEffect(() => {
     const loadTemplates = async () => {
-      setLoading(true)
-      const data = await PromptService.getMaterialPrompts()
-      setTemplates(data)
-      setLoading(false)
+      try {
+        setLoading(true)
+        const data = await PromptService.getMaterialPrompts()
+        setTemplates(data)
+      } catch (err) {
+        console.error('Failed to load material prompt templates:', err)
+      } finally {
+        setLoading(false)
+      }
     }
     loadTemplates()
   }, [])
 
   const saveCustomOverride = useCallback(async (materialId: string, override: string) => {
-    const updated = {
-      ...templates,
-      customOverrides: {
-        ...templates.customOverrides,
-        [materialId]: override
+    try {
+      const updated = {
+        ...templates,
+        customOverrides: {
+          ...templates.customOverrides,
+          [materialId]: override
+        }
       }
+      await PromptService.saveMaterialPrompts(updated)
+      setTemplates(updated)
+      return true
+    } catch (err) {
+      console.error('Failed to save material prompt override:', err)
+      return false
     }
-    await PromptService.saveMaterialPrompts(updated)
-    setTemplates(updated)
-    return true
   }, [templates])
 
   return {

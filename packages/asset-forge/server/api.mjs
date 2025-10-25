@@ -15,7 +15,6 @@ import { RetextureService } from './services/RetextureService.mjs'
 import { GenerationService } from './services/GenerationService.mjs'
 import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
 import promptRoutes from './routes/promptRoutes.mjs'
-import requirementsRoutes from './routes/requirements.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -47,8 +46,8 @@ app.use((req, res, next) => {
   next()
 })
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }))
+// Body parsing (allow larger payloads for base64 images)
+app.use(express.json({ limit: '25mb' }))
 
 // Static file serving with security headers
 app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
@@ -58,14 +57,7 @@ app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
 }))
 
 // Initialize services
-// Allow overriding the asset output directory so we can write directly into Hyperscape's world assets
-const ASSET_OUTPUT_DIR = process.env.ASSET_OUTPUT_DIR
-  ? (path.isAbsolute(process.env.ASSET_OUTPUT_DIR)
-      ? process.env.ASSET_OUTPUT_DIR
-      : path.join(process.cwd(), process.env.ASSET_OUTPUT_DIR))
-  : path.join(ROOT_DIR, 'gdd-assets')
-
-const assetService = new AssetService(ASSET_OUTPUT_DIR)
+const assetService = new AssetService(path.join(ROOT_DIR, 'gdd-assets'))
 const retextureService = new RetextureService({
   meshyApiKey: process.env.MESHY_API_KEY || '',
   imageServerBaseUrl: process.env.IMAGE_SERVER_URL || 'http://localhost:8088'
@@ -74,9 +66,6 @@ const generationService = new GenerationService()
 
 // Use prompt routes
 app.use('/api', promptRoutes)
-
-// Use requirements routes
-app.use('/api/requirements', requirementsRoutes)
 
 // Routes
 app.get('/api/health', (req, res) => {
@@ -234,6 +223,84 @@ app.patch('/api/assets/:id', async (req, res, next) => {
     
     res.json(updatedAsset)
   } catch (error) {
+    next(error)
+  }
+})
+
+// Save sprites for an asset
+app.post('/api/assets/:id/sprites', async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { sprites, config } = req.body
+    
+    console.log(`[Sprites] Saving ${sprites?.length || 0} sprites for asset: ${id}`)
+    
+    if (!sprites || !Array.isArray(sprites)) {
+      return res.status(400).json({ error: 'Invalid sprites data' })
+    }
+    
+    // Create sprites directory
+    const assetDir = path.join(ROOT_DIR, 'gdd-assets', id)
+    const spritesDir = path.join(assetDir, 'sprites')
+    
+    console.log(`[Sprites] Creating directory: ${spritesDir}`)
+    await fs.promises.mkdir(spritesDir, { recursive: true })
+    
+    // Save each sprite image
+    for (const sprite of sprites) {
+      const { angle, imageData } = sprite
+      
+      // Extract base64 data from data URL
+      const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      
+      // Save as PNG file
+      const filename = `${angle}deg.png`
+      const filepath = path.join(spritesDir, filename)
+      await fs.promises.writeFile(filepath, buffer)
+      console.log(`[Sprites] Saved: ${filename} (${(buffer.length / 1024).toFixed(2)} KB)`)
+    }
+    
+    // Save sprite metadata
+    const spriteMetadata = {
+      assetId: id,
+      config: config || {},
+      angles: sprites.map(s => s.angle),
+      spriteCount: sprites.length,
+      status: 'completed',
+      generatedAt: new Date().toISOString()
+    }
+    
+    const metadataPath = path.join(assetDir, 'sprite-metadata.json')
+    await fs.promises.writeFile(metadataPath, JSON.stringify(spriteMetadata, null, 2))
+    console.log(`[Sprites] Saved sprite-metadata.json`)
+    
+    // Update asset metadata to indicate sprites are available
+    // Read current metadata
+    const assetMetadataPath = path.join(assetDir, 'metadata.json')
+    const currentMetadata = JSON.parse(await fs.promises.readFile(assetMetadataPath, 'utf-8'))
+    
+    // Update with sprite info
+    const updatedMetadata = {
+      ...currentMetadata,
+      hasSpriteSheet: true,
+      spriteCount: sprites.length,
+      spriteConfig: config,
+      lastSpriteGeneration: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    
+    await fs.promises.writeFile(assetMetadataPath, JSON.stringify(updatedMetadata, null, 2))
+    console.log(`[Sprites] Updated asset metadata with sprite info`)
+    
+    res.json({ 
+      success: true, 
+      message: `${sprites.length} sprites saved successfully`,
+      spritesDir: `gdd-assets/${id}/sprites`,
+      spriteFiles: sprites.map(s => `${s.angle}deg.png`)
+    })
+  } catch (error) {
+    console.error('[Sprites] Failed to save sprites:', error)
     next(error)
   }
 })
@@ -588,7 +655,7 @@ Respond with ONLY a JSON object:
 app.use(errorHandler)
 
 // Start server
-const PORT = process.env.API_PORT || 3004
+const PORT = process.env.API_PORT || 5004
 app.listen(PORT, () => {
   console.log(`🚀 API Server running on http://localhost:${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`)

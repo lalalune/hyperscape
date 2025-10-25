@@ -1,27 +1,119 @@
-// import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon, XIcon } from 'lucide-react'
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Curve } from '@hyperscape/shared'
-import { downloadFile } from '@hyperscape/shared'
-import type { LoadingFile } from '@hyperscape/shared'
-import type {
-  FieldBtnProps,
-  FieldCurveProps,
-  FieldFileProps,
-  FieldNumberProps,
-  FieldRangeProps,
-  FieldSwitchProps,
-  FieldTextProps,
-  FieldTextareaProps,
-  FieldToggleProps,
-  FieldVec3Props,
-  SwitchOption
-} from '@hyperscape/shared'
-import { hashFile } from '@hyperscape/shared'
+import { Curve, downloadFile, hashFile } from '@hyperscape/shared'
+import type { ClientWorld } from '../types'
 import { CurvePane } from './CurvePane'
 import { CurvePreview } from './CurvePreview'
 import { HintContext } from './Hint'
 import { Portal } from './Portal'
 import { useUpdate } from './useUpdate'
+
+interface LoadingFile {
+  type: string
+  name: string
+  url: string
+}
+
+interface SwitchOption {
+  label: string
+  value: unknown
+}
+
+interface FieldTextProps {
+  label: string
+  hint?: string
+  placeholder?: string
+  value: string
+  onChange: (value: string) => void
+}
+
+interface FieldTextareaProps {
+  label: string
+  hint?: string
+  placeholder?: string
+  value: string
+  onChange: (value: string) => void
+}
+
+interface FieldSwitchProps {
+  label: string
+  hint?: string
+  options: SwitchOption[]
+  value: unknown
+  onChange: (value: unknown) => void
+}
+
+interface FieldToggleProps {
+  label: string
+  hint?: string
+  trueLabel?: string
+  falseLabel?: string
+  value: boolean
+  onChange: (value: boolean) => void
+}
+
+interface FieldRangeProps {
+  label: string
+  hint?: string
+  min?: number
+  max?: number
+  step?: number
+  instant?: boolean
+  value: number
+  onChange: (value: number) => void
+}
+
+interface FieldFileProps {
+  world: ClientWorld
+  label: string
+  hint?: string
+  kind: keyof typeof fileKinds
+  value: { type?: string; name?: string; url?: string } | null
+  onChange: (value: LoadingFile | null) => void
+}
+
+interface FieldNumberProps {
+  label: string
+  hint?: string
+  dp?: number
+  min?: number
+  max?: number
+  step?: number
+  bigStep?: number
+  value: number
+  onChange: (value: number) => void
+}
+
+interface FieldVec3Props {
+  label: string
+  hint?: string
+  dp?: number
+  min?: number
+  max?: number
+  step?: number
+  bigStep?: number
+  value: [number, number, number]
+  onChange: (value: [number, number, number]) => void
+}
+
+interface FieldCurveProps {
+  label: string
+  hint?: string
+  x: string
+  xRange?: number
+  y: string
+  yMin: number
+  yMax: number
+  value: string
+  onChange: (value: string) => void
+}
+
+interface FieldBtnProps {
+  label: string
+  note?: string
+  hint?: string
+  nav?: boolean
+  onClick: () => void
+}
 
 
 
@@ -33,7 +125,7 @@ export function FieldText({ label, hint, placeholder, value, onChange }: FieldTe
   const setHint = hintContext.setHint
   return (
     <label
-      className='field field-text block mb-2 relative'
+      className='field field-text block mb-1.5 relative'
       onPointerEnter={() => hint && setHint(hint)}
       onPointerLeave={() => hint && setHint(null)}
     >
@@ -43,7 +135,7 @@ export function FieldText({ label, hint, placeholder, value, onChange }: FieldTe
         placeholder={placeholder}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full text-sm py-1.5 px-2 bg-white/5 border border-white/10 rounded text-white hover:bg-white/10 hover:border-white/20 focus:bg-white/10 focus:border-white/30 focus:outline-none"
+        className="w-full text-[8px] py-1 px-1.5 bg-white/5 border border-white/10 rounded text-white hover:bg-white/10 hover:border-white/20 focus:bg-white/10 focus:border-white/30 focus:outline-none"
         onKeyDown={e => {
           if (e.code === 'Escape') {
             const target = e.target as HTMLInputElement
@@ -84,7 +176,7 @@ export function FieldTextarea({ label, hint, placeholder, value, onChange }: Fie
       onPointerEnter={() => hint && setHint(hint)}
       onPointerLeave={() => hint && setHint(null)}
     >
-      <div className='field-label text-[0.8125rem] mb-1.5 text-white/90 font-medium'>{label}</div>
+      <div className='field-label text-[0.8125rem] mb-1.5 text-white/70 font-medium'>{label}</div>
       <textarea
         ref={textareaRef}
         placeholder={placeholder}
@@ -129,21 +221,21 @@ export function FieldSwitch({ label, hint, options, value, onChange }: FieldSwit
   }
   return (
     <div
-      className='field field-switch mb-2'
+      className='field field-switch mb-1.5'
       onPointerEnter={() => hint && setHint(hint)}
       onPointerLeave={() => hint && setHint(null)}
     >
-      <div className='field-label text-[0.8125rem] mb-1.5 text-white/90 font-medium'>{label}</div>
-      <div className='field-switch-control flex items-center gap-2 text-sm'>
+      <div className='field-label text-[8px] mb-1 text-white/70 font-medium'>{label}</div>
+      <div className='field-switch-control flex items-center gap-1.5 text-[8px]'>
         <div
-          className='field-switch-btn w-6 h-6 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'
+          className='field-switch-btn w-5 h-5 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'
           onClick={prev}
         >
           ‹
         </div>
-        <div className='field-switch-value flex-1 text-center'>{options[idx]?.label || ''}</div>
+        <div className='field-switch-value flex-1 text-center text-white'>{options[idx]?.label || ''}</div>
         <div
-          className='field-switch-btn w-6 h-6 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'
+          className='field-switch-btn w-5 h-5 flex items-center justify-center bg-white/5 border border-white/10 rounded cursor-pointer hover:bg-white/10 hover:border-white/20'
           onClick={next}
         >
           ›
@@ -245,7 +337,7 @@ export function FieldRange({ label, hint, min = 0, max = 1, step = 0.05, instant
   
   return (
     <div
-      className={`fieldrange flex items-center h-10 px-4 ${isHovered ? 'bg-white/[0.03]' : 'bg-transparent'}`}
+      className={`fieldrange flex items-center h-7 px-2 ${isHovered ? 'bg-white/[0.03]' : 'bg-transparent'}`}
       onPointerEnter={() => {
         hint && setHint(hint)
         setIsHovered(true)
@@ -255,10 +347,10 @@ export function FieldRange({ label, hint, min = 0, max = 1, step = 0.05, instant
         setIsHovered(false)
       }}
     >
-      <div className='fieldrange-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-[0.9375rem] text-white/60 pr-4'>{label}</div>
-      <div className={`fieldrange-text text-[0.7rem] font-medium text-white/60 mr-2 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>{text}</div>
-      <div className='fieldrange-track w-28 shrink-0 h-2 rounded-sm flex items-stretch bg-white/10 cursor-pointer' ref={trackRef}>
-        <div 
+      <div className='fieldrange-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-[8px] text-white/70 pr-2'>{label}</div>
+      <div className={`fieldrange-text text-[7px] font-medium text-white mr-1.5 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>{text}</div>
+      <div className='fieldrange-track w-20 shrink-0 h-1.5 rounded-sm flex items-stretch bg-white/10 cursor-pointer' ref={trackRef}>
+        <div
           className='fieldrange-bar bg-white rounded-sm'
           style={{ width: `${barWidthPercentage}%` }}
         />
@@ -393,19 +485,19 @@ export function FieldFile({ world, label, hint, kind: kindName, value, onChange 
       onPointerLeave={() => hint && setHint(null)}
       onClick={handleDownload}
     >
-      <div className='fieldfile-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis pr-4 text-[0.9375rem] text-white/60'>{label}</div>
-      {!value && !loading && <div className='fieldfile-placeholder text-white/30'>{kind.placeholder}</div>}
-      {name && <div className='fieldfile-name text-[0.9375rem] text-right whitespace-nowrap overflow-hidden text-ellipsis max-w-36'>{name}</div>}
+      <div className='fieldfile-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis pr-4 text-[0.9375rem] text-white/70'>{label}</div>
+      {!value && !loading && <div className='fieldfile-placeholder text-white/50'>{kind.placeholder}</div>}
+      {name && <div className='fieldfile-name text-[0.9375rem] text-right whitespace-nowrap overflow-hidden text-ellipsis max-w-36 text-white'>{name}</div>}
       {!!value && !loading && (
         <div 
-          className='fieldfile-x leading-none -mr-0.5 ml-1 text-white/30 hover:text-white cursor-pointer' 
+          className='fieldfile-x leading-none -mr-0.5 ml-1 text-white/50 hover:text-white cursor-pointer' 
           onClick={remove}
         >
           ×
         </div>
       )}
       {loading && (
-        <div className='fieldfile-loading -mr-px ml-1 flex items-center justify-center'>
+        <div className='fieldfile-loading -mr-px ml-1 flex items-center justify-center text-white'>
           ⟳
         </div>
       )}
@@ -463,7 +555,7 @@ export function FieldNumber({
         setIsHovered(false)
       }}
     >
-      <div className='fieldnumber-label w-[9.4rem] shrink-0 whitespace-nowrap overflow-hidden text-ellipsis text-[0.9375rem] text-white/60'>{label}</div>
+      <div className='fieldnumber-label w-[9.4rem] shrink-0 whitespace-nowrap overflow-hidden text-ellipsis text-[0.9375rem] text-white/70'>{label}</div>
       <div className='fieldnumber-field flex-1'>
         <input
           type='text'
@@ -558,7 +650,7 @@ export function FieldVec3({
         setIsHovered(false)
       }}
     >
-      <div className='fieldvec3-label w-[9.4rem] shrink-0 whitespace-nowrap overflow-hidden text-ellipsis text-[0.9375rem] text-white/60'>{label}</div>
+      <div className='fieldvec3-label w-[9.4rem] shrink-0 whitespace-nowrap overflow-hidden text-ellipsis text-[0.9375rem] text-white/70'>{label}</div>
       <div className='fieldvec3-field flex-1 flex items-center gap-2'>
         <input
           type='text'
@@ -719,7 +811,7 @@ export function FieldCurve({ label, hint, x, xRange, y, yMin, yMax, value, onCha
           setIsHovered(false)
         }}
       >
-        <div className='fieldcurve-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis pr-4 text-[0.9375rem] text-white/60'>{label}</div>
+        <div className='fieldcurve-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis pr-4 text-[0.9375rem] text-white/70'>{label}</div>
         <div className='fieldcurve-curve w-24 h-5 relative'>
           <CurvePreview curve={curve} yMin={yMin} yMax={yMax} />
         </div>
@@ -759,7 +851,7 @@ export function FieldBtn({ label, note, hint, nav, onClick }: FieldBtnProps) {
   
   return (
     <div
-      className={`fieldbtn flex items-center h-10 px-4 cursor-pointer ${isHovered ? 'bg-white/[0.03]' : 'bg-transparent'}`}
+      className={`fieldbtn flex items-center h-7 px-2 cursor-pointer ${isHovered ? 'bg-white/[0.03]' : 'bg-transparent'}`}
       onPointerEnter={() => {
         hint && setHint(hint)
         setIsHovered(true)
@@ -770,9 +862,9 @@ export function FieldBtn({ label, note, hint, nav, onClick }: FieldBtnProps) {
       }}
       onClick={onClick}
     >
-      <div className='fieldbtn-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-[0.9375rem] text-white/60'>{label}</div>
-      {note && <div className='fieldbtn-note text-[0.9375rem] text-white/40'>{note}</div>}
-      {nav && <span className="text-2xl">›</span>}
+      <div className='fieldbtn-label flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-[8px] text-white/70'>{label}</div>
+      {note && <div className='fieldbtn-note text-[8px] text-white/50'>{note}</div>}
+      {nav && <span className="text-base text-white">›</span>}
     </div>
   )
 }

@@ -1,8 +1,9 @@
-import React from 'react'
-import { Badge, Input } from '../common'
-import { cn } from '../../styles'
 import { Search, ChevronRight, User, Sword, Shield, Box, Loader2 } from 'lucide-react'
+import React from 'react'
+
+import { cn } from '../../styles'
 import { Asset } from '../../types'
+import { Badge, Input } from '../common'
 
 interface AssetSelectionPanelProps {
   assets: Asset[]

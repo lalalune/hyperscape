@@ -20,8 +20,12 @@ async function getAllAssets(): Promise<Array<{ id: string; metadata: ExtendedAss
   
   for (const dir of dirs) {
     const metadataPath = join(assetsDir, dir, 'metadata.json')
-    const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
-    assets.push({ id: dir, metadata })
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
+      assets.push({ id: dir, metadata })
+    } catch (error) {
+      // Skip directories without metadata
+    }
   }
   
   return assets
@@ -42,29 +46,38 @@ async function normalizeWeapon(assetId: string): Promise<void> {
     return
   }
   
-  // Backup original
-  await fs.copyFile(inputPath, backupPath)
-  
-  // Use WeaponHandleDetector for weapons
-  const detector = new WeaponHandleDetector()
-  const result = await detector.exportNormalizedWeapon(inputPath, inputPath)
-  
-  // Update metadata
-  metadata.normalized = true
-  metadata.normalizationDate = new Date().toISOString()
-  metadata.dimensions = result.dimensions
-  
-  // Remove old transform data
-  delete metadata.gripPoint
-  delete metadata.transform
-  delete metadata.position
-  delete metadata.rotation
-  delete metadata.scale
-  
-  await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
-  
-  console.log(chalk.green(`    ✓ Normalized successfully`))
-  console.log(chalk.gray(`    Dimensions: ${result.dimensions.width.toFixed(2)} x ${result.dimensions.length.toFixed(2)} x ${result.dimensions.height.toFixed(2)}`))
+  try {
+    // Backup original
+    await fs.copyFile(inputPath, backupPath)
+    
+    // Use WeaponHandleDetector for weapons
+    const detector = new WeaponHandleDetector()
+    const result = await detector.exportNormalizedWeapon(inputPath, inputPath)
+    
+    // Update metadata
+    metadata.normalized = true
+    metadata.normalizationDate = new Date().toISOString()
+    metadata.dimensions = result.dimensions
+    
+    // Remove old transform data
+    delete metadata.gripPoint
+    delete metadata.transform
+    delete metadata.position
+    delete metadata.rotation
+    delete metadata.scale
+    
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+    
+    console.log(chalk.green(`    ✓ Normalized successfully`))
+    console.log(chalk.gray(`    Dimensions: ${result.dimensions.width.toFixed(2)} x ${result.dimensions.length.toFixed(2)} x ${result.dimensions.height.toFixed(2)}`))
+    
+  } catch (error) {
+    console.error(chalk.red(`    ✗ Failed: ${error}`))
+    // Restore backup if it exists
+    try {
+      await fs.copyFile(backupPath, inputPath)
+    } catch {}
+  }
 }
 
 async function normalizeCharacter(assetId: string, targetHeight: number = 1.83): Promise<void> {
@@ -82,26 +95,35 @@ async function normalizeCharacter(assetId: string, targetHeight: number = 1.83):
     return
   }
   
-  // Backup original
-  await fs.copyFile(inputPath, backupPath)
-  
-  // Use AssetNormalizationService
-  const normalizer = new AssetNormalizationService()
-  const result = await normalizer.normalizeCharacter(inputPath, targetHeight)
-  
-  // Save normalized model
-  await fs.writeFile(inputPath, Buffer.from(result.glb))
-  
-  // Update metadata
-  metadata.normalized = true
-  metadata.normalizationDate = new Date().toISOString()
-  metadata.dimensions = result.metadata.dimensions
-  metadata.characterHeight = targetHeight
-  
-  await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
-  
-  console.log(chalk.green(`    ✓ Normalized successfully`))
-  console.log(chalk.gray(`    Height: ${result.metadata.dimensions.height.toFixed(2)}m`))
+  try {
+    // Backup original
+    await fs.copyFile(inputPath, backupPath)
+    
+    // Use AssetNormalizationService
+    const normalizer = new AssetNormalizationService()
+    const result = await normalizer.normalizeCharacter(inputPath, targetHeight)
+    
+    // Save normalized model
+    await fs.writeFile(inputPath, Buffer.from(result.glb))
+    
+    // Update metadata
+    metadata.normalized = true
+    metadata.normalizationDate = new Date().toISOString()
+    metadata.dimensions = result.metadata.dimensions
+    metadata.characterHeight = targetHeight
+    
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+    
+    console.log(chalk.green(`    ✓ Normalized successfully`))
+    console.log(chalk.gray(`    Height: ${result.metadata.dimensions.height.toFixed(2)}m`))
+    
+  } catch (error) {
+    console.error(chalk.red(`    ✗ Failed: ${error}`))
+    // Restore backup if it exists
+    try {
+      await fs.copyFile(backupPath, inputPath)
+    } catch {}
+  }
 }
 
 async function normalizeArmor(assetId: string, armorType: string): Promise<void> {
@@ -119,24 +141,33 @@ async function normalizeArmor(assetId: string, armorType: string): Promise<void>
     return
   }
   
-  // Backup original
-  await fs.copyFile(inputPath, backupPath)
-  
-  // Use AssetNormalizationService
-  const normalizer = new AssetNormalizationService()
-  const result = await normalizer.normalizeArmor(inputPath, armorType)
-  
-  // Save normalized model
-  await fs.writeFile(inputPath, Buffer.from(result.glb))
-  
-  // Update metadata
-  metadata.normalized = true
-  metadata.normalizationDate = new Date().toISOString()
-  metadata.dimensions = result.metadata.dimensions
-  
-  await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
-  
-  console.log(chalk.green(`    ✓ Normalized successfully`))
+  try {
+    // Backup original
+    await fs.copyFile(inputPath, backupPath)
+    
+    // Use AssetNormalizationService
+    const normalizer = new AssetNormalizationService()
+    const result = await normalizer.normalizeArmor(inputPath, armorType)
+    
+    // Save normalized model
+    await fs.writeFile(inputPath, Buffer.from(result.glb))
+    
+    // Update metadata
+    metadata.normalized = true
+    metadata.normalizationDate = new Date().toISOString()
+    metadata.dimensions = result.metadata.dimensions
+    
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+    
+    console.log(chalk.green(`    ✓ Normalized successfully`))
+    
+  } catch (error) {
+    console.error(chalk.red(`    ✗ Failed: ${error}`))
+    // Restore backup if it exists
+    try {
+      await fs.copyFile(backupPath, inputPath)
+    } catch {}
+  }
 }
 
 async function main() {
@@ -191,6 +222,9 @@ async function main() {
 }
 
 // Run if called directly
-main()
+main().catch(error => {
+  console.error(chalk.red('Error:'), error)
+  process.exit(1)
+})
 
 export { main as normalizeAllAssets } 

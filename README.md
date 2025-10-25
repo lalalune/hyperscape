@@ -2,18 +2,43 @@
 
 A complete RuneScape-inspired MMORPG with a two-state item economy system. Everything is AI-generated: items, mobs, lore, and world content. Built with Hyperscape 3D engine (Three.js).
 
-## 🎮 Economy System - NEW!
+## 🎮 Economy & Trading System - NEW!
 
 **Status: 100% Complete** ✅
 
-The Hyperscape economy implements a **two-state item system** with NFT integration:
+The Hyperscape economy implements a **two-state item system** with NFT integration and **player-to-player trading**:
 
 ### Features
 - **Two-State Items**: Items exist as temporary (drop on death) or permanent (NFT, survive forever)
 - **One-Click Minting**: Players mint items to NFTs using server-signed EIP-712 permits
 - **Gold Claiming**: In-game gold converts to ERC-20 tokens
 - **Death Drops**: Unminted items drop on death, minted items stay in inventory
+- **Player Trading**: Secure server-authoritative trading between players
 - **Debug Tools**: F9 panel for testing + `?debug=true` auto-login
+
+### Trading System ✅
+**Fully Implemented - Server-Side Complete**
+
+**Features**:
+- Trade requests with distance validation (5 units max)
+- Item and coin offers with real-time inventory validation
+- Atomic execution (all-or-nothing trades)
+- Automatic cancellation on disconnect
+- 5-minute timeout for stale trades
+- Comprehensive server-side validation
+
+**Network Packets** (10 packets):
+- Client→Server: `tradeRequest`, `tradeResponse`, `tradeOffer`, `tradeConfirm`, `tradeCancel`
+- Server→Client: `tradeStarted`, `tradeUpdated`, `tradeCompleted`, `tradeCancelled`, `tradeError`
+
+**Security**:
+- ✅ Server validates all offers
+- ✅ Distance checks prevent remote trading
+- ✅ Inventory validated before execution
+- ✅ No duplicate trades allowed
+- ✅ Disconnect-safe
+
+**Code Location**: `packages/server/src/ServerNetwork.ts` (lines 228-238, 1954-2498)
 
 ### Smart Contracts (9/9 Tests Passing)
 - **Items.sol** - NFT minting with server signatures

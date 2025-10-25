@@ -53,11 +53,11 @@ export async function getAvailablePaymasters(minStake: bigint = MIN_STAKE_THRESH
   try {
     const client = getPublicClient();
     
-    const paymasters = await client.readContract({
+    const paymasters = (await client.readContract({
       address: PAYMASTER_FACTORY_ADDRESS,
       abi: PAYMASTER_FACTORY_ABI,
       functionName: 'getAllPaymasters',
-    }) as Address[];
+    } as unknown as Parameters<typeof client.readContract>[0])) as Address[];
 
     const paymasterDetails = await Promise.all(
       paymasters.map(async (paymasterAddr) => {
@@ -67,13 +67,13 @@ export async function getAvailablePaymasters(minStake: bigint = MIN_STAKE_THRESH
               address: paymasterAddr,
               abi: PAYMASTER_ABI,
               functionName: 'token',
-            }),
+            } as unknown as Parameters<typeof client.readContract>[0]) as Promise<Address>,
             client.readContract({
               address: PAYMASTER_FACTORY_ADDRESS,
               abi: PAYMASTER_FACTORY_ABI,
               functionName: 'paymasterStake',
               args: [paymasterAddr],
-            }),
+            } as unknown as Parameters<typeof client.readContract>[0]) as Promise<bigint>,
           ]);
 
           return {
@@ -102,19 +102,19 @@ export async function getPaymasterForToken(tokenAddress: Address): Promise<Addre
   try {
     const client = getPublicClient();
     
-    const paymaster = await client.readContract({
+    const paymaster = (await client.readContract({
       address: PAYMASTER_FACTORY_ADDRESS,
       abi: PAYMASTER_FACTORY_ABI,
       functionName: 'getPaymasterByToken',
       args: [tokenAddress],
-    }) as Address;
+    } as unknown as Parameters<typeof client.readContract>[0])) as Address;
 
-    const stake = await client.readContract({
+    const stake = (await client.readContract({
       address: PAYMASTER_FACTORY_ADDRESS,
       abi: PAYMASTER_FACTORY_ABI,
       functionName: 'paymasterStake',
       args: [paymaster],
-    }) as bigint;
+    } as unknown as Parameters<typeof client.readContract>[0])) as bigint;
 
     return stake >= MIN_STAKE_THRESHOLD ? paymaster : null;
   } catch {

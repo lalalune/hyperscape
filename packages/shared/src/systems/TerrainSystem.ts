@@ -288,7 +288,7 @@ export class TerrainSystem extends System {
 
     // Get systems references
     // Check if database system exists and has the required method
-    const dbSystem = this.world.getSystem('database') as { saveWorldChunk(chunkData: WorldChunkData): void } | undefined
+    const dbSystem = this.world.getSystem('database') as unknown as { saveWorldChunk(chunkData: WorldChunkData): void } | undefined
     if (dbSystem) {
       this.databaseSystem = dbSystem
     }

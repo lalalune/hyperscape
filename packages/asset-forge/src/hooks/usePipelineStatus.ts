@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { GenerationAPIClient } from '../services/api/GenerationAPIClient'
-import { GeneratedAsset, AssetType, BaseAssetMetadata, GenerationAssetMetadata } from '../types'
+
 import { useGenerationStore } from '../store'
+import { GeneratedAsset, AssetType, BaseAssetMetadata, GenerationAssetMetadata } from '../types'
+
+import { GenerationAPIClient } from '@/services/api/GenerationAPIClient'
 
 interface UsePipelineStatusOptions {
   apiClient: GenerationAPIClient
@@ -29,7 +31,9 @@ export function usePipelineStatus({ apiClient, onComplete }: UsePipelineStatusOp
   } = useGenerationStore()
 
   useEffect(() => {
-    console.log('Pipeline status effect triggered. currentPipelineId:', currentPipelineId)
+    const DEBUG = (import.meta as any).env?.VITE_DEBUG_PIPELINE === 'true'
+    const POLL_MS = parseInt((import.meta as any).env?.VITE_PIPELINE_POLL_INTERVAL_MS || '1500', 10)
+    if (DEBUG) console.log('Pipeline status effect triggered. currentPipelineId:', currentPipelineId)
     if (!currentPipelineId) return
     
     const stageMapping: Record<string, string> = {
@@ -44,116 +48,144 @@ export function usePipelineStatus({ apiClient, onComplete }: UsePipelineStatusOp
     }
     
     intervalRef.current = setInterval(async () => {
-      console.log('Fetching pipeline status for:', currentPipelineId)
-      const status = await apiClient.fetchPipelineStatus(currentPipelineId)
-      console.log('Received status:', status)
-      
-      // Update pipeline stages
-      Object.entries(status.stages || {}).forEach(([stageName, stageData]) => {
-        console.log('Processing stage:', stageName, stageData)
-        const uiStageId = stageMapping[stageName]
-        if (uiStageId) {
-          let uiStatus = stageData.status === 'processing' ? 'active' : stageData.status
+      try {
+        if (DEBUG) console.log('Fetching pipeline status for:', currentPipelineId)
+        const status = await apiClient.fetchPipelineStatus(currentPipelineId)
+        if (DEBUG) console.log('Received status:', status)
+        
+        if (status) {
+          // Update pipeline stages
+          Object.entries(status.stages || {}).forEach(([stageName, stageData]) => {
+            if (DEBUG) console.log('Processing stage:', stageName, stageData)
+            const uiStageId = stageMapping[stageName]
+            if (uiStageId) {
+              let uiStatus = stageData.status === 'processing' ? 'active' : stageData.status
+              
+              // Check configuration overrides
+              if (uiStageId === 'gpt4-enhancement' && !useGPT4Enhancement) uiStatus = 'skipped'
+              if (uiStageId === 'retexturing' && !enableRetexturing) uiStatus = 'skipped'
+              if (uiStageId === 'sprites' && !enableSprites) uiStatus = 'skipped'
+              
+              // Use updatePipelineStage to update individual stage
+              updatePipelineStage(uiStageId, uiStatus)
+            }
+          })
           
-          // Check configuration overrides
-          if (uiStageId === 'gpt4-enhancement' && !useGPT4Enhancement) uiStatus = 'skipped'
-          if (uiStageId === 'retexturing' && !enableRetexturing) uiStatus = 'skipped'
-          if (uiStageId === 'sprites' && !enableSprites) uiStatus = 'skipped'
-          
-          // Use updatePipelineStage to update individual stage
-          updatePipelineStage(uiStageId, uiStatus)
+          // Handle completion
+          if (status.status === 'completed') {
+            setIsGenerating(false)
+            const results = status.results
+            const config = status.config
+            const baseAssetId = config.assetId || assetName.toLowerCase().replace(/\s+/g, '-')
+            
+            // Debug logging
+            if (DEBUG) {
+              console.log('Pipeline completed with results:', results)
+              console.log('Rigging results:', results.rigging)
+            }
+            
+            const finalAsset: GeneratedAsset = {
+              id: baseAssetId,
+              name: config.name || assetName,
+              description: config.description || `${config.type || assetType} asset`,
+              type: config.type || assetType,
+              pipelineId: currentPipelineId,
+              status: 'completed',
+              modelUrl: (results.image3D?.localPath || results.rigging?.localPath) ? `/api/assets/${baseAssetId}/model` : undefined,
+              conceptArtUrl: `/api/assets/${baseAssetId}/concept-art.png`,
+              variants: results.textureGeneration?.variants || [],
+              hasSpriteMetadata: results.spriteGeneration?.status === 'metadata_created' || 
+                                 Boolean(config.enableSprites && results.image3D?.localPath),
+              hasSprites: false,
+              sprites: null,
+              hasModel: !!(results.image3D?.localPath || results.rigging?.localPath),
+              modelFile: results.rigging?.localPath || results.image3D?.localPath,
+              createdAt: new Date().toISOString(),
+              generatedAt: new Date().toISOString(),
+              metadata: {
+                id: baseAssetId,
+                gameId: baseAssetId,
+                name: config.name,
+                description: config.description,
+                type: config.type as AssetType,
+                subtype: config.subtype || '',
+                isBaseModel: true,
+                meshyTaskId: '', // Not available from pipeline results
+                generationMethod: 'gpt-image-meshy' as const,
+                variants: [],
+                variantCount: 0,
+                modelPath: results.rigging?.localPath || results.image3D?.localPath || '',
+                hasModel: !!(results.image3D?.localPath || results.rigging?.localPath),
+                hasConceptArt: true,
+                workflow: 'ai-generation',
+                gddCompliant: true,
+                isPlaceholder: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                generatedAt: new Date().toISOString(),
+                // Extended properties
+                isRigged: !!results.rigging && !!results.rigging?.localPath,
+                animations: results.rigging?.localPath ? {} : undefined,
+                riggedModelPath: results.rigging?.localPath,
+                characterHeight: generationType === 'avatar' ? characterHeight : undefined
+              } as BaseAssetMetadata & GenerationAssetMetadata
+            }
+            
+            // Only add if not already exists
+            const exists = generatedAssets.some(asset => asset.id === baseAssetId)
+            if (!exists) {
+              setGeneratedAssets([...generatedAssets, finalAsset])
+            }
+            setSelectedAsset(finalAsset)
+            setActiveView('results')
+            
+            // Call onComplete callback if provided
+            if (onComplete) {
+              onComplete(finalAsset)
+            }
+            
+            // Clear the interval
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current)
+              intervalRef.current = null
+            }
+          } else if (status.status === 'failed') {
+            setIsGenerating(false)
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current)
+              intervalRef.current = null
+            }
+          }
         }
-      })
-      
-      // Handle completion
-      if (status.status === 'completed') {
-        setIsGenerating(false)
-        const results = status.results
-        const config = status.config
-        const baseAssetId = config.assetId || assetName.toLowerCase().replace(/\s+/g, '-')
-        
-        // Debug logging
-        console.log('Pipeline completed with results:', results)
-        console.log('Rigging results:', results.rigging)
-        
-        const finalAsset: GeneratedAsset = {
-          id: baseAssetId,
-          name: config.name || assetName,
-          description: config.description || `${config.type || assetType} asset`,
-          type: config.type || assetType,
-          pipelineId: currentPipelineId,
-          status: 'completed',
-          modelUrl: (results.image3D?.localPath || results.rigging?.localPath) ? `/api/assets/${baseAssetId}/model` : undefined,
-          conceptArtUrl: `/api/assets/${baseAssetId}/concept-art.png`,
-          variants: results.textureGeneration?.variants || [],
-          hasSpriteMetadata: results.spriteGeneration?.status === 'metadata_created' || 
-                             Boolean(config.enableSprites && results.image3D?.localPath),
-          hasSprites: false,
-          sprites: null,
-          hasModel: !!(results.image3D?.localPath || results.rigging?.localPath),
-          modelFile: results.rigging?.localPath || results.image3D?.localPath,
-          createdAt: new Date().toISOString(),
-          generatedAt: new Date().toISOString(),
-          metadata: {
-            id: baseAssetId,
-            gameId: baseAssetId,
-            name: config.name,
-            description: config.description,
-            type: config.type as AssetType,
-            subtype: config.subtype || '',
-            isBaseModel: true,
-            meshyTaskId: '', // Not available from pipeline results
-            generationMethod: 'gpt-image-meshy' as const,
-            variants: [],
-            variantCount: 0,
-            modelPath: results.rigging?.localPath || results.image3D?.localPath || '',
-            hasModel: !!(results.image3D?.localPath || results.rigging?.localPath),
-            hasConceptArt: true,
-            workflow: 'ai-generation',
-            gddCompliant: true,
-            isPlaceholder: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            generatedAt: new Date().toISOString(),
-            // Extended properties
-            isRigged: !!results.rigging && !!results.rigging?.localPath,
-            animations: results.rigging?.localPath ? {} : undefined,
-            riggedModelPath: results.rigging?.localPath,
-            characterHeight: generationType === 'avatar' ? characterHeight : undefined
-          } as BaseAssetMetadata & GenerationAssetMetadata
-        }
-        
-        // Only add if not already exists
-        const exists = generatedAssets.some(asset => asset.id === baseAssetId)
-        if (!exists) {
-          setGeneratedAssets([...generatedAssets, finalAsset])
-        }
-        setSelectedAsset(finalAsset)
-        setActiveView('results')
-        
-        // Call onComplete callback if provided
-        onComplete?.(finalAsset)
-        
-        // Clear the interval
-        const interval = intervalRef.current!
-        clearInterval(interval)
-        intervalRef.current = null
-      } else if (status.status === 'failed') {
-        setIsGenerating(false)
-        const interval = intervalRef.current!
-        clearInterval(interval)
-        intervalRef.current = null
+      } catch (error) {
+        if (DEBUG) console.error('Failed to get pipeline status:', error)
       }
-    }, 500)
+    }, POLL_MS)
     
     return () => {
-      const interval = intervalRef.current
-      if (interval) {
-        clearInterval(interval)
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
         intervalRef.current = null
       }
     }
-  }, [currentPipelineId, apiClient, useGPT4Enhancement, enableRetexturing, enableSprites, assetName, updatePipelineStage, onComplete])
+  }, [
+    currentPipelineId,
+    apiClient,
+    useGPT4Enhancement,
+    enableRetexturing,
+    enableSprites,
+    assetName,
+    assetType,
+    generationType,
+    characterHeight,
+    generatedAssets,
+    setIsGenerating,
+    updatePipelineStage,
+    setGeneratedAssets,
+    setSelectedAsset,
+    setActiveView,
+    onComplete
+  ])
   
   return { intervalRef }
 } 

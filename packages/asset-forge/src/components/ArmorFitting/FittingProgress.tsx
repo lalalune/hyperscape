@@ -1,4 +1,5 @@
 import React from 'react'
+
 import { Card, CardContent } from '../common'
 
 interface FittingProgressProps {

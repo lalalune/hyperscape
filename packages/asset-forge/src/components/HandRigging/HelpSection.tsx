@@ -1,7 +1,8 @@
-import React from 'react'
-import { Card, CardContent } from '../common'
-import { cn } from '../../styles'
 import { Info, Zap, Sparkles, CheckCircle, ArrowRight } from 'lucide-react'
+import React from 'react'
+
+import { cn } from '../../styles'
+import { Card, CardContent } from '../common'
 
 interface HelpSectionProps {
   useSimpleMode: boolean

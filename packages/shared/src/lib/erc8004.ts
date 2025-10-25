@@ -51,27 +51,27 @@ export async function checkUserBan(userAddress: Address): Promise<BanCheckResult
   try {
     const client = getPublicClient();
     
-    const agentId = await client.readContract({
+    const agentId = (await client.readContract({
       address: IDENTITY_REGISTRY_ADDRESS,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgentId',
       args: [userAddress],
-    });
+    } as unknown as Parameters<typeof client.readContract>[0])) as bigint;
 
-    const isBanned = await client.readContract({
+    const isBanned = (await client.readContract({
       address: BAN_MANAGER_ADDRESS,
       abi: BAN_MANAGER_ABI,
       functionName: 'isBanned',
       args: [agentId],
-    });
+    } as unknown as Parameters<typeof client.readContract>[0])) as boolean;
 
     if (isBanned) {
-      const reason = await client.readContract({
+      const reason = (await client.readContract({
         address: BAN_MANAGER_ADDRESS,
         abi: BAN_MANAGER_ABI,
         functionName: 'getBanReason',
         args: [agentId],
-      });
+      } as unknown as Parameters<typeof client.readContract>[0])) as string;
 
       return {
         allowed: false,

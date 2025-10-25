@@ -5,6 +5,8 @@ interface ChatContextType {
   setCollapsed: (collapsed: boolean) => void
   active: boolean
   setActive: (active: boolean) => void
+  hasOpenWindows: boolean
+  setHasOpenWindows: (hasOpenWindows: boolean) => void
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
@@ -12,9 +14,10 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined)
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(true)
   const [active, setActive] = useState(false)
+  const [hasOpenWindows, setHasOpenWindows] = useState(false)
 
   return (
-    <ChatContext.Provider value={{ collapsed, setCollapsed, active, setActive }}>
+    <ChatContext.Provider value={{ collapsed, setCollapsed, active, setActive, hasOpenWindows, setHasOpenWindows }}>
       {children}
     </ChatContext.Provider>
   )

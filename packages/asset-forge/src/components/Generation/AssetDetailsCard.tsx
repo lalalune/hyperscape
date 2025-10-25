@@ -1,9 +1,10 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
 import { FileText, Layers, Package, User, ChevronRight, Gamepad2 } from 'lucide-react'
-import { cn } from '../../styles'
-import { CustomAssetType } from '../../types/generation'
+import React from 'react'
+
 import { GameStylePrompt } from '../../services/api/PromptService'
+// import { cn } from '../../styles'
+import { CustomAssetType } from '../../types/generation'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
 
 interface AssetDetailsCardProps {
   generationType: 'item' | 'avatar' | undefined
@@ -164,7 +165,7 @@ const GameStyleSelector: React.FC<{
   onGameStyleChange: (style: 'runescape' | 'custom') => void
   onCustomStyleChange: (value: string) => void
   onSaveCustomGameStyle?: (styleId: string, style: GameStylePrompt) => Promise<boolean>
-}> = ({ gameStyle, customStyle, customGameStyles = {}, onGameStyleChange, onCustomStyleChange, onSaveCustomGameStyle }) => {
+}> = ({ gameStyle, customStyle, customGameStyles = {}, onGameStyleChange, onCustomStyleChange, onSaveCustomGameStyle: _onSaveCustomGameStyle }) => {
   // Determine the current selected value for the dropdown
   const currentValue = gameStyle === 'runescape' ? 'runescape' : 
                       gameStyle === 'custom' && customStyle ? `custom:${customStyle}` : 

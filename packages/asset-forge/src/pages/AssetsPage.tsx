@@ -1,22 +1,26 @@
-import React, { useRef, useCallback } from 'react'
-import { useAssets } from '../hooks/useAssets'
-import { useAssetActions } from '../hooks/useAssetActions'
-import { useAssetsStore } from '../store'
-import AssetFilters from '../components/Assets/AssetFilters'
-import AssetList from '../components/Assets/AssetList'
-import ThreeViewer, { ThreeViewerRef } from '../components/shared/ThreeViewer'
-import { AnimationPlayer } from '../components/shared/AnimationPlayer'
-import ViewerControls from '../components/Assets/ViewerControls'
-import RetextureModal from '../components/Assets/RetextureModal'
-import RegenerateModal from '../components/Assets/RegenerateModal'
-import AssetDetailsPanel from '../components/Assets/AssetDetailsPanel'
-import { AssetEditModal } from '../components/Assets/AssetEditModal'
-import { LoadingState } from '../components/Assets/LoadingState'
-import { EmptyAssetState } from '../components/Assets/EmptyAssetState'
-import { TransitionOverlay } from '../components/Assets/TransitionOverlay'
-import { API_ENDPOINTS } from '../constants'
-
 import { Activity, Edit3, Layers } from 'lucide-react'
+import React, { useRef, useCallback } from 'react'
+
+import { API_ENDPOINTS } from '../constants'
+import { useAssetsStore } from '../store'
+
+import AssetDetailsPanel from '@/components/Assets/AssetDetailsPanel'
+import { AssetEditModal } from '@/components/Assets/AssetEditModal'
+import AssetFilters from '@/components/Assets/AssetFilters'
+import AssetList from '@/components/Assets/AssetList'
+import { EmptyAssetState } from '@/components/Assets/EmptyAssetState'
+import { LoadingState } from '@/components/Assets/LoadingState'
+import RegenerateModal from '@/components/Assets/RegenerateModal'
+import RetextureModal from '@/components/Assets/RetextureModal'
+import SpriteGenerationModal from '@/components/Assets/SpriteGenerationModal'
+import { TransitionOverlay } from '@/components/Assets/TransitionOverlay'
+import ViewerControls from '@/components/Assets/ViewerControls'
+import { AnimationPlayer } from '@/components/shared/AnimationPlayer'
+import ThreeViewer, { ThreeViewerRef } from '@/components/shared/ThreeViewer'
+import { useAssetActions } from '@/hooks'
+import { useAssets } from '@/hooks'
+
+
 
 export const AssetsPage: React.FC = () => {
   const { assets, loading, reloadAssets, forceReload } = useAssets()
@@ -31,6 +35,7 @@ export const AssetsPage: React.FC = () => {
     showRegenerateModal,
     showDetailsPanel,
     showEditModal,
+    showSpriteModal,
     isTransitioning,
     modelInfo,
     showAnimationView,
@@ -38,6 +43,7 @@ export const AssetsPage: React.FC = () => {
     setShowRegenerateModal,
     setShowDetailsPanel,
     setShowEditModal,
+    setShowSpriteModal,
     setModelInfo,
     toggleDetailsPanel,
     toggleAnimationView,
@@ -88,21 +94,15 @@ export const AssetsPage: React.FC = () => {
             {selectedAsset ? (
               <>
                 <div className="absolute inset-0">
-                  {showAnimationView && selectedAsset.type === 'character' ? (
-                    <AnimationPlayer
-                      modelUrl={selectedAsset.hasModel ? `${API_ENDPOINTS.ASSET_MODEL(selectedAsset.id)}` : ''}
-                      animations={selectedAsset.metadata?.animations || { basic: {} }}
-                      riggedModelPath={selectedAsset.metadata?.riggedModelPath ? `${API_ENDPOINTS.ASSET_FILE(selectedAsset.id, selectedAsset.metadata.riggedModelPath)}` : undefined}
-                      characterHeight={selectedAsset.metadata?.characterHeight}
-                      className="w-full h-full"
-                    />
-                  ) : (
+                  {/* Keep both viewers mounted; fade inactive one to preserve layout and canvas size */}
+                  <div className={`absolute inset-0 transition-opacity duration-200 ${showAnimationView && selectedAsset.type === 'character' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                     <ThreeViewer
                       ref={viewerRef}
                       modelUrl={selectedAsset.hasModel ? `${API_ENDPOINTS.ASSET_MODEL(selectedAsset.id)}` : undefined}
                       isWireframe={isWireframe}
                       showGroundPlane={showGroundPlane}
                       isLightBackground={isLightBackground}
+                      lightMode={true}
                       onModelLoad={handleModelLoad}
                       assetInfo={{
                         name: selectedAsset.name,
@@ -112,7 +112,16 @@ export const AssetsPage: React.FC = () => {
                         requiresAnimationStrip: selectedAsset.metadata.requiresAnimationStrip
                       }}
                     />
-                  )}
+                  </div>
+                  <div className={`absolute inset-0 transition-opacity duration-200 ${showAnimationView && selectedAsset.type === 'character' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    <AnimationPlayer
+                      modelUrl={selectedAsset.hasModel ? `${API_ENDPOINTS.ASSET_MODEL(selectedAsset.id)}` : ''}
+                      animations={selectedAsset.metadata?.animations || { basic: {} }}
+                      riggedModelPath={selectedAsset.metadata?.riggedModelPath ? `${API_ENDPOINTS.ASSET_FILE(selectedAsset.id, selectedAsset.metadata.riggedModelPath)}` : undefined}
+                      characterHeight={selectedAsset.metadata?.characterHeight}
+                      className="w-full h-full"
+                    />
+                  </div>
                 </div>
                 {isTransitioning && <TransitionOverlay />}
 
@@ -215,6 +224,17 @@ export const AssetsPage: React.FC = () => {
           onSave={handleSaveAsset}
           onDelete={handleDeleteAsset}
           hasVariants={assets.some(a => a.metadata.isVariant && a.metadata.parentBaseModel === selectedAsset.id)}
+        />
+      )}
+
+      {showSpriteModal && selectedAsset && (
+        <SpriteGenerationModal
+          asset={selectedAsset}
+          onClose={() => setShowSpriteModal(false)}
+          onComplete={() => {
+            setShowSpriteModal(false)
+            reloadAssets()
+          }}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
-import * as THREE from 'three'
 import React from 'react'
+import * as THREE from 'three'
 
 export interface HandBoneStructure {
   wrist: THREE.Bone

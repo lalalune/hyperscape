@@ -1,18 +1,16 @@
-import React, { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
 import { Brain, ChevronRight, Plus, Trash2, Sparkles, Save, Edit2, Palette, Wand2, Check, FileText, Layers, X } from 'lucide-react'
+import React, { useState } from 'react'
+
 import { cn } from '../../styles'
 import { CustomAssetType } from '../../types/generation'
-
-interface GameStylePrompts {
-  default?: Record<string, { name: string; base: string; enhanced?: string }>
-  custom?: Record<string, { name: string; base: string; enhanced?: string }>
-}
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
 
 interface AdvancedPromptsCardProps {
   showAdvancedPrompts: boolean
+  showAssetTypeEditor: boolean
   generationType: 'item' | 'avatar' | undefined
   defaultAssetTypes?: string[]
+  assetType?: string
   customGamePrompt: string
   customAssetTypePrompt: string
   assetTypePrompts?: Record<string, string>
@@ -21,9 +19,12 @@ interface AdvancedPromptsCardProps {
     avatar?: string
     item?: string
   }
+  gameStyle?: string
+  customStyle?: string | null
   currentStylePrompt?: string
-  gameStylePrompts?: GameStylePrompts
+  gameStylePrompts?: any // Add proper type later
   onToggleAdvancedPrompts: () => void
+  onToggleAssetTypeEditor: () => void
   onCustomGamePromptChange: (value: string) => void
   onCustomAssetTypePromptChange: (value: string) => void
   onAssetTypePromptsChange?: (prompts: Record<string, string>) => void
@@ -41,15 +42,20 @@ interface AdvancedPromptsCardProps {
 
 export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
   showAdvancedPrompts,
+  showAssetTypeEditor: _showAssetTypeEditor,
   generationType,
+  assetType: _assetType,
   customGamePrompt,
   customAssetTypePrompt,
   assetTypePrompts,
   customAssetTypes,
   currentStylePrompt,
   loadedPrompts,
+  gameStyle: _gameStyle,
+  customStyle: _customStyle,
   gameStylePrompts,
   onToggleAdvancedPrompts,
+  onToggleAssetTypeEditor: _onToggleAssetTypeEditor,
   onCustomGamePromptChange,
   onCustomAssetTypePromptChange,
   onAssetTypePromptsChange,
@@ -350,6 +356,31 @@ const PromptSection: React.FC<{
   </div>
 )
 
+// Empty State Component
+const _EmptyState: React.FC<{
+  icon: React.ReactNode
+  title: string
+  description: string
+  actionLabel: string
+  onAction: () => void
+}> = ({ icon, title, description, actionLabel, onAction }) => (
+  <div className="text-center py-12">
+    <div className="inline-flex p-4 bg-bg-secondary rounded-full text-text-tertiary mb-4">
+      {icon}
+    </div>
+    <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
+    <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">{description}</p>
+    <Button
+      variant="primary"
+      onClick={onAction}
+      className="gap-2"
+    >
+      <Plus className="w-4 h-4" />
+      {actionLabel}
+    </Button>
+  </div>
+)
+
 // Style Creator Component
 const StyleCreator: React.FC<{
   newStyleName: string
@@ -478,21 +509,22 @@ const TypesEditor: React.FC<{
         <h3 className="text-sm font-medium text-text-secondary mb-3">
           Default {generationType === 'avatar' ? 'Characters' : 'Assets'}
         </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {defaultAssetTypes.map(type => (
-                            <TypeCard
-                              key={type}
-                              type={type}
-                              value={assetTypePrompts[type] || ''}
-                              onChange={(value) => {
-                                onAssetTypePromptsChange?.({
-                                  ...assetTypePrompts,
-                                  [type]: value
-                                })
-                              }}
-                            />
-                          ))}
-                        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {defaultAssetTypes.map(type => (
+            <TypeCard
+              key={type}
+              type={type}
+              value={assetTypePrompts[type] || ''}
+              onChange={(value) => {
+                onAssetTypePromptsChange?.({
+                  ...assetTypePrompts,
+                  [type]: value
+                })
+              }}
+              isDefault
+            />
+          ))}
+        </div>
       </div>
 
       {/* Saved Custom Types */}
@@ -607,21 +639,24 @@ const TypesEditor: React.FC<{
 // Custom Style Card Component
 const CustomStyleCard: React.FC<{
   id: string
-  style: { name: string; base: string; enhanced?: string }
+  style: any
   onDelete?: (id: string) => Promise<boolean>
 }> = ({ id, style, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
   const handleDelete = async () => {
-    const deleteHandler = onDelete!
+    if (!onDelete) return
     
     setIsDeleting(true)
-    const success = await deleteHandler(id)
-    if (success) {
-      setShowConfirm(false)
+    try {
+      const success = await onDelete(id)
+      if (success) {
+        setShowConfirm(false)
+      }
+    } finally {
+      setIsDeleting(false)
     }
-    setIsDeleting(false)
   }
 
   return (
@@ -687,21 +722,25 @@ const TypeCard: React.FC<{
   type: string
   value: string
   onChange: (value: string) => void
+  isDefault?: boolean
   isCustom?: boolean
   onDelete?: () => Promise<boolean>
-}> = ({ type, value, onChange, isCustom, onDelete }) => {
+}> = ({ type, value, onChange, isDefault: _isDefault, isCustom, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
   const handleDelete = async () => {
-    const deleteHandler = onDelete!
+    if (!onDelete) return
     
     setIsDeleting(true)
-    const success = await deleteHandler()
-    if (success) {
-      setShowConfirm(false)
+    try {
+      const success = await onDelete()
+      if (success) {
+        setShowConfirm(false)
+      }
+    } finally {
+      setIsDeleting(false)
     }
-    setIsDeleting(false)
   }
 
   return (

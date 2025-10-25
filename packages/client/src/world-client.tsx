@@ -90,8 +90,8 @@ export function Client({ wsUrl, onSetup }: ClientProps) {
   const defaultUI = { visible: true, active: false, app: null, pane: null }
   const [ui, setUI] = useState(defaultUI)
   useEffect(() => {
-    const handleUI = (data: { visible: boolean; active: boolean; app: null; pane: null }) => {
-      setUI(data)
+    const handleUI = (data: unknown) => {
+      setUI(data as { visible: boolean; active: boolean; app: null; pane: null })
     }
     world.on(EventType.UI_UPDATE, handleUI, undefined)
     return () => {

@@ -218,7 +218,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.avatar.deactivate();
       // If avatar has an instance, destroy it to clean up VRM scene
       const avatarWithInstance = this.avatar as AvatarWithInstance;
-      avatarWithInstance.instance!.destroy();
+      if (avatarWithInstance.instance && avatarWithInstance.instance.destroy) {
+        avatarWithInstance.instance.destroy();
+      }
     }
     
     // Note: VRM hooks will be set on the avatar node before mounting

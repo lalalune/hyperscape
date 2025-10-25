@@ -1,5 +1,5 @@
-import React from 'react'
 import { Package, User } from 'lucide-react'
+import React from 'react'
 
 interface GenerationTypeSelectorProps {
   onSelectType: (type: 'item' | 'avatar') => void

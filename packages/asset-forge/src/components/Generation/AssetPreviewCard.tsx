@@ -1,9 +1,10 @@
-import React from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../common'
 import { Box, Download } from 'lucide-react'
-import ThreeViewer from '../shared/ThreeViewer'
-import { AnimationPlayer } from '../shared/AnimationPlayer'
+import React from 'react'
+
 import { GeneratedAsset, hasAnimations } from '../../types'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../common'
+import { AnimationPlayer } from '../shared/AnimationPlayer'
+import ThreeViewer from '../shared/ThreeViewer'
 
 interface AssetPreviewCardProps {
   selectedAsset: GeneratedAsset | null

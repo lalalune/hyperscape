@@ -2,7 +2,8 @@ import { RefreshCwIcon } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
 import type { ControlAction, EventMap } from '@hyperscape/shared'
-import { buttons, cls, EventType, isTouch, propToLabel, World } from '@hyperscape/shared'
+import { buttons, cls, EventType, isTouch, propToLabel } from '@hyperscape/shared'
+import type { ClientWorld } from '../types'
 import { ActionProgressBar } from './ActionProgressBar'
 import { AvatarPane } from './AvatarPane'
 import { Chat } from './Chat'
@@ -17,11 +18,12 @@ import { Sidebar } from './Sidebar'
 import { StatusBars } from './StatusBars'
 import { DebugEconomyPanel } from './debug/DebugEconomyPanel'
 import { isDebugMode } from './debug/DebugAutoLogin'
+import { TradeRequestModal, TradeWindow } from './PlayerTradeUI'
 
 // Type for icon components
 type IconComponent = React.ComponentType<{ size?: number | string }>
 
-export function CoreUI({ world }: { world: World }) {
+export function CoreUI({ world }: { world: ClientWorld }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const readyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [ready, setReady] = useState(false)
@@ -173,19 +175,49 @@ export function CoreUI({ world }: { world: World }) {
         {kicked && <KickedOverlay code={kicked} />}
         {ready && isTouch && <TouchBtns world={world} />}
         {ready && <EntityContextMenu world={world} />}
+        {ready && <TradeRequestModal world={world} />}
+        {ready && <TradeWindow world={world} />}
         {ready && showDebugPanel && (
           <DebugEconomyPanel 
             onSpawnItem={(itemId) => {
-              world.emit('debug:spawn-item', { itemId })
+              console.log('[CoreUI] Sending debug:spawn-item to server', itemId)
+              if (world.network?.send) {
+                world.network.send('entityEvent', {
+                  id: 'world',
+                  event: 'debug:spawn-item',
+                  payload: { itemId }
+                })
+              }
             }}
             onTriggerDeath={() => {
-              world.emit('debug:trigger-death', {})
+              console.log('[CoreUI] Sending debug:trigger-death to server')
+              if (world.network?.send) {
+                world.network.send('entityEvent', {
+                  id: 'world',
+                  event: 'debug:trigger-death',
+                  payload: {}
+                })
+              }
             }}
             onAddGold={(amount) => {
-              world.emit('debug:add-gold', { amount })
+              console.log('[CoreUI] Sending debug:add-gold to server', amount)
+              if (world.network?.send) {
+                world.network.send('entityEvent', {
+                  id: 'world',
+                  event: 'debug:add-gold',
+                  payload: { amount }
+                })
+              }
             }}
             onInitiateTrade={() => {
-              world.emit('debug:initiate-trade', {})
+              console.log('[CoreUI] Sending debug:initiate-trade to server')
+              if (world.network?.send) {
+                world.network.send('entityEvent', {
+                  id: 'world',
+                  event: 'debug:initiate-trade',
+                  payload: {}
+                })
+              }
             }}
           />
         )}
@@ -447,7 +479,7 @@ function KickedOverlay({ code }: { code: string }) {
   )
 }
 
-function ActionsBlock({ world }: { world: World }) {
+function ActionsBlock({ world }: { world: ClientWorld }) {
   const [showActions, setShowActions] = useState(() => world.prefs?.actions)
   useEffect(() => {
     const onPrefsChange = (changes: Record<string, { value: unknown }>) => {
@@ -469,7 +501,7 @@ function ActionsBlock({ world }: { world: World }) {
   )
 }
 
-function Actions({ world }: { world: World }) {
+function Actions({ world }: { world: ClientWorld }) {
   const [actions, setActions] = useState(() => world.controls?.actions || [])
   useEffect(() => {
     const handleActions = (data: unknown) => {
@@ -548,7 +580,7 @@ function ActionIcon({ icon }: { icon: IconComponent }) {
 }
 
 
-function Toast({ world }: { world: World }) {
+function Toast({ world }: { world: ClientWorld }) {
   const [msg, setMsg] = useState<{ text: string; id: number } | null>(null)
   useEffect(() => {
     let ids = 0
@@ -593,7 +625,7 @@ function ToastMsg({ text }: { text: string }) {
   return <div className={cls('h-[2.875rem] flex items-center justify-center px-4 bg-[rgba(11,10,21,0.85)] border border-[#2a2b39] backdrop-blur-[5px] rounded-[1.4375rem] transition-all duration-100 ease-in-out text-white text-[0.9375rem] font-medium', { 'opacity-100 translate-y-0 scale-100 animate-[toastIn_0.1s_ease-in-out]': visible, 'opacity-0 translate-y-2.5 scale-90': !visible })}>{text}</div>
 }
 
-function TouchBtns({ world }: { world: World }) {
+function TouchBtns({ world }: { world: ClientWorld }) {
   const [isAction, setIsAction] = useState(() => {
     const prefs = world.prefs as { touchAction?: boolean };
     return prefs?.touchAction;

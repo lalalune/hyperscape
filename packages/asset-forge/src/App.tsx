@@ -1,14 +1,15 @@
+import { ErrorBoundary } from './components/common/ErrorBoundary'
+import Navigation from './components/shared/Navigation'
+import NotificationBar from './components/shared/NotificationBar'
+import { NAVIGATION_VIEWS, APP_BACKGROUND_STYLES } from './constants'
 import { AppProvider } from './contexts/AppContext'
 import { NavigationProvider } from './contexts/NavigationContext'
 import { useNavigation } from './hooks/useNavigation'
-import Navigation from './components/shared/Navigation'
-import NotificationBar from './components/shared/NotificationBar'
-import { AssetsPage } from './pages/AssetsPage'
-import { GenerationPage } from './pages/GenerationPage'
-import { EquipmentPage } from './pages/EquipmentPage'
-import { HandRiggingPage } from './pages/HandRiggingPage'
 import { ArmorFittingPage } from './pages/ArmorFittingPage'
-import { NAVIGATION_VIEWS, APP_BACKGROUND_STYLES } from './constants'
+import { AssetsPage } from './pages/AssetsPage'
+import { EquipmentPage } from './pages/EquipmentPage'
+import { GenerationPage } from './pages/GenerationPage'
+import { HandRiggingPage } from './pages/HandRiggingPage'
 
 function AppContent() {
   const { currentView, navigateTo, navigateToAsset } = useNavigation()
@@ -59,7 +60,9 @@ function App() {
   return (
     <AppProvider>
       <NavigationProvider>
-        <AppContent />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </NavigationProvider>
     </AppProvider>
   )
