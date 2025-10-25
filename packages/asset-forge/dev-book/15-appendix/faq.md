@@ -513,7 +513,7 @@ A simple bronze dagger with leather handle,
 low-poly 3D model, game-ready, stylized art style
 ```
 
-If this fails, the issue is environmental (API keys, credits, services).
+If this fails, the issue is environmental (API keys, services, network).
 If this succeeds, the issue is with your custom prompt.
 
 7. **Check Logs**

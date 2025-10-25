@@ -25,6 +25,8 @@ import { PhysicsHandle } from '../types/physics'
 import { getPhysX } from '../PhysXManager'
 import { Layers } from '../extras/Layers'
 import { BIOMES } from '../data/world-structure'
+import { GrassSystem } from './GrassSystem'
+import { WaterSystem } from './WaterSystem'
 
 interface BiomeCenter {
   x: number
@@ -72,6 +74,8 @@ export class TerrainSystem extends System {
   private _tempVec2 = new THREE.Vector2();
   private _tempVec2_2 = new THREE.Vector2();
   private _tempBox3 = new THREE.Box3();
+  private grassSystem?: GrassSystem;
+  private waterSystem?: WaterSystem;
 
   // Serialization system
   private lastSerializationTime = 0
@@ -286,6 +290,11 @@ export class TerrainSystem extends System {
     // Initialize biome centers using deterministic random placement
     this.initializeBiomeCenters()
 
+    // Initialize water system (grass disabled for now)
+    // this.grassSystem = new GrassSystem(this.world)
+    this.waterSystem = new WaterSystem(this.world)
+    await this.waterSystem.init()
+
     // Get systems references
     // Check if database system exists and has the required method
     const dbSystem = this.world.getSystem('database') as unknown as { saveWorldChunk(chunkData: WorldChunkData): void } | undefined
@@ -402,6 +411,8 @@ export class TerrainSystem extends System {
     const fishGeometry = new THREE.SphereGeometry(0.6)
     const fishMaterial = new THREE.MeshLambertMaterial({ color: 0x3aa7ff, transparent: true, opacity: 0.7 })
     this.instancedMeshManager.registerMesh('fish', fishGeometry, fishMaterial, 300)
+
+    // Grass rendering now handled by GrassSystem
   }
 
   private setupServerTerrain(): void {
@@ -680,6 +691,8 @@ export class TerrainSystem extends System {
         // Generate visual features and water meshes
         this.generateVisualFeatures(tile)
         this.generateWaterMeshes(tile)
+        // DISABLED: Grass generation - needs further work to match reference quality
+        // this.generateGrassForTile(tile, BIOMES[tile.biome])
 
         // Add visible resource meshes (instanced proxies) on client
         if (tile.resources.length > 0 && tile.mesh) {
@@ -1160,6 +1173,7 @@ export class TerrainSystem extends System {
 
     this.generateTreesForTile(tile, biomeData)
     this.generateOtherResourcesForTile(tile, biomeData)
+    this.generateGrassForTile(tile, biomeData)
     // Roads are now generated using noise patterns instead of segments
   }
 
@@ -1296,6 +1310,31 @@ export class TerrainSystem extends System {
         tile.resources.push(resource)
       }
     }
+  }
+
+  private generateGrassForTile(tile: TerrainTile, biomeData: BiomeData): void {
+    if (!this.world.network?.isClient) return
+    if (!this.grassSystem) return
+
+    const grassMesh = this.grassSystem.generateGrassForTile(
+      tile,
+      this.getHeightAt.bind(this),
+      this.getNormalAt.bind(this),
+      this.calculateSlope.bind(this),
+      this.CONFIG.WATER_THRESHOLD,
+      this.CONFIG.TILE_SIZE,
+      this.createTileRng.bind(this)
+    )
+
+    if (!grassMesh) return
+
+    const stage = this.world.stage as { scene: THREE.Scene }
+    if (stage?.scene) {
+      stage.scene.add(grassMesh)
+    }
+
+    ;(tile as { grassMeshes?: THREE.InstancedMesh[] }).grassMeshes = (tile as { grassMeshes?: THREE.InstancedMesh[] }).grassMeshes || []
+    ;(tile as { grassMeshes?: THREE.InstancedMesh[] }).grassMeshes!.push(grassMesh)
   }
 
   // DEPRECATED: Roads are now generated using noise patterns instead of segments
@@ -1450,6 +1489,27 @@ export class TerrainSystem extends System {
         const _stats = this.instancedMeshManager.getPoolingStats()
               }
     }
+
+    // Animate water and grass (client-side only)
+    if (this.world.network?.isClient) {
+      const dt = typeof _deltaTime === 'number' && isFinite(_deltaTime) ? _deltaTime : 1 / 60
+      
+      // DISABLED: Grass system updates
+      // if (this.grassSystem) {
+      //   this.grassSystem.update(dt)
+      // }
+      
+      // Update water system
+      if (this.waterSystem) {
+        const allWaterMeshes: THREE.Mesh[] = []
+        for (const tile of this.terrainTiles.values()) {
+          if (tile.waterMeshes) {
+            allWaterMeshes.push(...tile.waterMeshes)
+          }
+        }
+        this.waterSystem.update(dt, allWaterMeshes)
+      }
+    }
   }
 
   private checkPlayerMovement(): void {
@@ -1533,6 +1593,18 @@ export class TerrainSystem extends System {
         }
       }
       tile.waterMeshes = []
+    }
+
+    // Clean up grass meshes
+    const grassMeshes = (tile as { grassMeshes?: THREE.InstancedMesh[] }).grassMeshes
+    if (grassMeshes) {
+      for (const grassMesh of grassMeshes) {
+        if (grassMesh.parent) {
+          grassMesh.parent.remove(grassMesh)
+        }
+        grassMesh.geometry.dispose()
+      }
+      ;(tile as { grassMeshes?: THREE.InstancedMesh[] }).grassMeshes = []
     }
 
     // Remove main tile mesh from scene
@@ -1704,29 +1776,9 @@ export class TerrainSystem extends System {
    * Simple v1: Just a flat plane at the fixed water threshold height
    */
   private generateWaterMeshes(tile: TerrainTile): void {
-    // Create a simple flat water plane covering the entire tile at water threshold height
-    const waterGeometry = new THREE.PlaneGeometry(this.CONFIG.TILE_SIZE, this.CONFIG.TILE_SIZE)
-    waterGeometry.rotateX(-Math.PI / 2)
+    if (!this.waterSystem) return
 
-    const waterMaterial = new THREE.MeshPhongMaterial({
-      color: 0x1e6ba8, // Blue water color
-      transparent: true,
-      opacity: 0.6,
-      shininess: 100,
-      specular: 0x4080ff,
-    })
-
-    const waterMesh = new THREE.Mesh(waterGeometry, waterMaterial)
-    waterMesh.position.y = this.CONFIG.WATER_THRESHOLD
-    waterMesh.name = `Water_${tile.key}`
-    waterMesh.userData = {
-      type: 'water',
-      walkable: false,
-      clickable: false,
-    }
-    
-    // Only render on front side to avoid z-fighting when looking from below
-    waterMaterial.side = THREE.FrontSide
+    const waterMesh = this.waterSystem.generateWaterMesh(tile, this.CONFIG.WATER_THRESHOLD, this.CONFIG.TILE_SIZE)
 
     if (tile.mesh) {
       tile.mesh.add(waterMesh)

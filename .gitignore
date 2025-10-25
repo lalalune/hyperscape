@@ -65,3 +65,7 @@ logs/
 # 3D Models from hyperscape/assets repository
 packages/client/src/public/models/
 packages/client/dist/models/
+
+
+.cursor/rules/kluster-code-verify.mdc
+.kluster
