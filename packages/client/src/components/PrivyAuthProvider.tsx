@@ -80,9 +80,8 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
           theme: 'dark',
           accentColor: '#d4af37',
           logo: '/assets/images/logo.png',
-          // Explicitly list wallets including Rabby
-          // 'detected_wallets' will pick up any other installed wallets like Rabby
-          walletList: ['metamask', 'rabby_wallet', 'coinbase_wallet', 'rainbow', 'wallet_connect', 'detected_wallets'],
+          // Support all major wallets - 'detected_wallets' will pick up any other installed wallets
+          walletList: ['phantom', 'metamask', 'rabby_wallet', 'coinbase_wallet', 'rainbow', 'wallet_connect', 'detected_wallets'],
         },
         embeddedWallets: {
           createOnLogin: 'users-without-wallets' as const

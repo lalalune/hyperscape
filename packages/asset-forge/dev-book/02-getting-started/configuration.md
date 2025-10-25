@@ -446,7 +446,7 @@ FRONTEND_URL=https://asset-forge.yourdomain.com
 
 **Development:**
 - Auto-detected from request origin
-- Usually `http://localhost:3003`
+- Usually `http://localhost:3000`
 
 **Production:**
 - Set this to your frontend domain
@@ -860,7 +860,7 @@ MESHY_TIMEOUT_ULTRA_MS=2400000  # 40 minutes for ultra
 **Symptoms:**
 ```
 Access to fetch at 'http://localhost:3004/api/...'
-from origin 'http://localhost:3003' has been blocked by CORS
+from origin 'http://localhost:3000' has been blocked by CORS
 ```
 
 **Solutions:**
@@ -874,7 +874,7 @@ curl http://localhost:3004/api/health
 ```typescript
 // vite.config.ts
 server: {
-  port: 3003,
+  port: 3000,
   proxy: {
     '/api': {
       target: 'http://localhost:3004',

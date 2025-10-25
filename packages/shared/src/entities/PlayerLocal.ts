@@ -1613,15 +1613,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
         instance.move(this.base.matrixWorld)
       }
       if (instance.update) {
-        // Always log first 3 calls to instance.update
-        if (this.updateCallCount <= 15) {
-        }
         instance.update(delta)
-      } else if (this.updateCallCount <= 15) {
-        console.warn(`[PlayerLocal] instance.update is not available!`)
       }
-    } else if (this.updateCallCount <= 10) {
-      console.warn(`[PlayerLocal] No avatar instance found!`)
     }
     
     // NO client-side animation calculation - server is authoritative
