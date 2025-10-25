@@ -40,6 +40,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/src ./src
 
 # Create directories for asset storage
 RUN mkdir -p /app/gdd-assets /app/temp-images
