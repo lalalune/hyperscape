@@ -65,10 +65,17 @@ export async function setupMudClient(config?: {
 }) {
   // Smart RPC detection: prefer Jeju, fall back to Anvil
   let rpcUrl = config?.rpcUrl || process.env.JEJU_RPC_URL || process.env.RPC_URL || process.env.ANVIL_RPC_URL || 'http://localhost:9545';
-  let chain = config?.chain || createChainConfig(1337, 'Jeju Localnet', rpcUrl);
+  
+  // Detect chain ID from CHAIN_ID env var or infer from RPC URL
+  const envChainId = process.env.CHAIN_ID ? parseInt(process.env.CHAIN_ID) : null;
+  const inferredChainId = rpcUrl.includes(':8545') ? 31337 : 1337; // 8545=Anvil(31337), 9545=Jeju(1337)
+  const chainId = envChainId || inferredChainId;
+  const chainName = chainId === 31337 ? 'Anvil' : 'Jeju Localnet';
+  
+  let chain = config?.chain || createChainConfig(chainId, chainName, rpcUrl);
   
   if (!chain) {
-    // Final fallback if somehow chain is still not set
+    // Final fallback
     chain = createChainConfig(31337, 'Anvil', rpcUrl || 'http://localhost:8545');
   }
   
@@ -96,25 +103,92 @@ export async function setupMudClient(config?: {
     transport: http(rpcUrl)
   }) as WalletClient;
   
-  // Load system ABIs from deployed contracts
-  // Note: This requires MUD contracts to be deployed first
-  // For now, return a minimal client without system ABIs
-  const systemsJson: Record<string, unknown> = {};
-  
-  const systems = systemsJson.default || systemsJson;
-  
-  // Helper to find system ABI
-  function getSystemAbi(name: string): readonly unknown[] {
-    const systemsRecord = systems as Record<string, { systems?: Array<{ name: string; worldAbi: readonly unknown[] }> }>;
-    const systemsArray = systemsRecord.systems;
-    if (!systemsArray || !Array.isArray(systemsArray)) {
-      throw new Error(`Systems not loaded. Deploy contracts first: cd vendor/hyperscape/contracts-mud/mmo && npm run deploy:local`);
+  // Use IWorld ABI for all contract interactions
+  // MUD combines all system ABIs into the World contract interface
+  // We only need the specific functions we call, so define them inline
+  const IWorldAbi = [
+    // PlayerSystem
+    {
+      name: 'hyperscape__register',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [{ name: 'name', type: 'string' }],
+      outputs: []
+    },
+    {
+      name: 'hyperscape__isAlive',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [{ name: 'player', type: 'address' }],
+      outputs: [{ name: '', type: 'bool' }]
+    },
+    {
+      name: 'hyperscape__getPosition',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [{ name: 'player', type: 'address' }],
+      outputs: [
+        { name: 'x', type: 'int32' },
+        { name: 'y', type: 'int32' },
+        { name: 'z', type: 'int32' }
+      ]
+    },
+    // InventorySystem
+    {
+      name: 'hyperscape__addItem',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [
+        { name: 'player', type: 'address' },
+        { name: 'itemId', type: 'uint16' },
+        { name: 'quantity', type: 'uint32' }
+      ],
+      outputs: []
+    },
+    {
+      name: 'hyperscape__removeItem',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [
+        { name: 'player', type: 'address' },
+        { name: 'slot', type: 'uint8' },
+        { name: 'quantity', type: 'uint32' }
+      ],
+      outputs: []
+    },
+    {
+      name: 'hyperscape__hasItem',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [
+        { name: 'player', type: 'address' },
+        { name: 'itemId', type: 'uint16' }
+      ],
+      outputs: [
+        { name: 'found', type: 'bool' },
+        { name: 'quantity', type: 'uint32' }
+      ]
+    },
+    // EquipmentSystem
+    {
+      name: 'hyperscape__equipItem',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [{ name: 'inventorySlot', type: 'uint8' }],
+      outputs: []
+    },
+    {
+      name: 'hyperscape__unequipItem',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [{ name: 'equipSlot', type: 'uint8' }],
+      outputs: []
     }
-    const system = systemsArray.find((s) => s.name === name);
-    if (!system) {
-      throw new Error(`System ${name} not found in deployed contracts`);
-    }
-    return system.worldAbi;
+  ] as const;
+  
+  // Helper to get IWorld ABI
+  function getSystemAbi(_name: string): readonly unknown[] {
+    return IWorldAbi;
   }
   
   // Helper to send transaction and wait

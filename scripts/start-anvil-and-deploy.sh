@@ -27,16 +27,27 @@ echo "   World: $WORLD_ADDRESS"
 echo ""
 echo "⚙️  Updating environment variables..."
 cd ../..
+
+# Update WORLD_ADDRESS in all env files
 sed -i '' "s/WORLD_ADDRESS=.*/WORLD_ADDRESS=$WORLD_ADDRESS/" .env
 sed -i '' "s/WORLD_ADDRESS=.*/WORLD_ADDRESS=$WORLD_ADDRESS/" packages/server/.env
-# Update .env.local files if they exist (they take precedence)
+
+# Critical: Update JEJU_RPC_URL to point to Anvil (otherwise it tries port 9545)
+sed -i '' "s|JEJU_RPC_URL=.*|JEJU_RPC_URL=http://localhost:8545|" packages/server/.env
+
+# Update .env.local files if they exist (they take precedence!)
 if [ -f "packages/server/.env.local" ]; then
   sed -i '' "s/WORLD_ADDRESS=.*/WORLD_ADDRESS=$WORLD_ADDRESS/" packages/server/.env.local
+  sed -i '' "s|JEJU_RPC_URL=.*|JEJU_RPC_URL=http://localhost:8545|" packages/server/.env.local
 fi
 if [ -f "packages/shared/.env.local" ]; then
   sed -i '' "s/WORLD_ADDRESS=.*/WORLD_ADDRESS=$WORLD_ADDRESS/" packages/shared/.env.local
 fi
-echo "✅ Environment updated"
+if [ -f "packages/client/.env.local" ]; then
+  sed -i '' "s/WORLD_ADDRESS=.*/WORLD_ADDRESS=$WORLD_ADDRESS/" packages/client/.env.local
+fi
+
+echo "✅ Environment updated (WORLD_ADDRESS + JEJU_RPC_URL)"
 
 echo ""
 echo "🏗️  Rebuilding packages..."
