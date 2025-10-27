@@ -1,0 +1,265 @@
+---
+alwaysApply: true
+description: Asset Forge session-specific development guidelines - October 27, 2025
+---
+
+# Asset Forge Session Rules - October 27, 2025
+
+## 🎯 Project Context
+
+**Focus**: Polishing and completing the Asset Forge application (NON-3D features only)
+
+**Deployment Information**:
+- Frontend: https://forgery-smoky.vercel.app/
+- Backend API: dairy-queen-production.up.railway.app
+- Database: PostgreSQL at postgres-production-f753.up.railway.app
+
+**Working Directory**: `/Users/home/hyperscape-4/apps/asset-forge/`
+
+## 📍 IN SCOPE - What We're Working On Today
+
+### Core Application Features
+1. **Asset Management** (Non-3D operations only)
+   - Asset listing, creation, updates
+   - Material presets and retexturing
+   - Caching strategies (memory, IndexedDB, Service Worker)
+
+2. **Content Generation System**
+   - Quest generation and management
+   - NPC generation and management
+   - Lore creation
+   - Script writing
+   - Dialogue generation
+
+3. **Voice Generation**
+   - Voice library management
+   - Voice profile creation
+   - Batch generation
+   - Manifest assignment
+   - Voice presets
+
+4. **Sound & Music**
+   - Sound effects generation
+   - Music generation
+   - Audio management
+
+5. **Manifest System**
+   - Preview manifests
+   - Manifest submissions
+   - Manifest editing and versioning
+   - Team collaboration on manifests
+
+6. **Admin Features**
+   - Submission approvals
+   - User management
+   - Error log viewing
+   - Statistics dashboard
+
+7. **Projects & Teams**
+   - Project creation and management
+   - Team collaboration
+   - Project organization
+
+### UI/UX Components (Non-3D)
+- Navigation system
+- Dashboard views
+- Forms and input components
+- Content generation pages
+- Voice generation pages
+- Admin pages
+- Project and team management pages
+
+### State Management & Services
+- All Zustand stores in `/src/stores/`
+- All API services in `/src/services/api/`
+- Business logic services (non-3D)
+- Configuration and constants
+- Authentication flows
+- Utilities and helpers (excluding Three.js)
+
+## 🚫 OUT OF SCOPE - What to SKIP
+
+### Strictly Forbidden During This Session
+1. **ALL 3D Rendering & Visualization**
+   - Armor Fitting components (`/src/components/ArmorFitting/`)
+   - Hand Rigging components (`/src/components/HandRigging/`)
+   - Equipment Viewer (`/src/components/Equipment/`)
+   - Three.js viewer components (`/src/components/shared/ThreeViewer/`)
+   - Any files importing from Three.js library
+
+2. **3D Services & Processing**
+   - ArmorFittingService
+   - HandRiggingService
+   - Mesh processing services
+   - WebGLRendererPool
+   - BufferPool
+   - three-helpers.ts
+   - three-lazy-loaders.ts
+
+3. **3D Stores & Hooks**
+   - useArmorFittingStore
+   - useHandRiggingStore
+   - useDebuggerStore
+   - All hooks in `/src/hooks/three/`
+
+4. **Web Workers** (unless non-3D processing)
+   - `/src/workers/` implementations
+
+**CRITICAL RULE**: If a file imports from `three` or `@react-three/*`, DO NOT modify it.
+
+## 📋 Tech Stack (Asset Forge Specific)
+
+- **Frontend**: React 19.2.0 + TypeScript 5.3.3
+- **Build Tool**: Vite 7.1.12
+- **State Management**: Zustand 5.0.6
+- **Styling**: TailwindCSS 3.4.1
+- **Authentication**: Privy 3.4.1
+- **Routing**: Custom navigation with useNavigationStore
+- **Deployment**: 
+  - Frontend: Vercel
+  - Backend: Railway
+  - Database: PostgreSQL on Railway
+
+## 🎯 Today's Specific Goals
+
+1. **Polish UI/UX**: Improve user experience for all non-3D pages
+2. **Complete Features**: Finish any incomplete non-3D functionality
+3. **Bug Fixes**: Address any bugs in content generation, voice, music, manifests
+4. **API Integration**: Ensure all API endpoints work correctly with Railway backend
+5. **State Management**: Verify all stores work correctly and efficiently
+6. **Error Handling**: Improve error messages and recovery
+7. **Caching**: Optimize caching strategies
+8. **Documentation**: Add comments to complex logic
+
+## 💻 Development Commands
+
+```bash
+# Asset Forge Development (from apps/asset-forge/)
+bun run dev          # Start dev server (port 5173)
+bun run build        # Production build
+bun run preview      # Preview production build
+bun run lint         # Run ESLint
+bun run typecheck    # TypeScript compiler check
+```
+
+## ✅ Code Standards (Asset Forge)
+
+### TypeScript
+- Use strict typing, no `any` types in production code
+- Define types in `/src/types/` directory
+- Import types from `/src/types/index.ts`
+
+### React Patterns
+- Use functional components with hooks only
+- One component per file
+- Colocate related components
+
+### State Management
+- Use Zustand stores for global state
+- One store per feature/domain
+- Keep stores in `/src/stores/`
+
+### Services
+- Use BaseAPIService patterns
+- One service per API domain or business logic area
+- Implement proper error handling and timeouts
+- Follow multi-layer caching: memory → IndexedDB → network
+
+### API Calls
+- Always include timeout and error handling
+- Use privyAuthManager for token management
+- Follow patterns from BaseAPIService
+
+### UI Best Practices
+1. Error Boundaries around page components
+2. Loading indicators for all async operations
+3. Cache invalidation when data changes
+4. Mobile-first responsive design
+5. Semantic HTML with proper ARIA labels
+
+## 📂 Key File Locations
+
+### Entry Points
+- `/src/main.tsx` - Application entry with auth wrapper
+- `/src/App.tsx` - Main app component with routing
+
+### Configuration
+- `/src/config/api.ts` - API endpoint configuration
+- `/src/constants/network.ts` - Network defaults
+- `/railway.json` - Railway deployment config
+- `/vercel.json` - Vercel deployment config
+
+### Core Services
+- `/src/services/api/BaseAPIService.ts` - Base API service
+- `/src/services/api/AssetService.ts` - Asset management
+- `/src/services/VoiceGenerationService.ts` - Voice generation
+- `/src/services/ManifestService.ts` - Manifest operations
+
+### State Management
+- `/src/stores/index.ts` - Store exports
+- `/src/contexts/AppContext.tsx` - App-level context
+- `/src/contexts/NavigationContext.tsx` - Navigation context
+
+### Types
+- `/src/types/index.ts` - Type exports
+- `/src/types/generation.ts` - Generation types
+- `/src/types/content-generation.ts` - Content types
+- `/src/types/manifests.ts` - Manifest types
+
+## 🔍 File Organization Patterns
+
+### Components
+```
+/src/components/
+├── common/          # Reusable UI components
+├── navigation/      # Navigation components
+├── Dashboard/       # Dashboard-specific components
+├── GameContent/     # Content generation components
+├── Admin/           # Admin panel components
+└── [avoid: ArmorFitting/, HandRigging/, Equipment/, shared/ThreeViewer/]
+```
+
+### Stores
+```
+/src/stores/
+├── useAssetsStore.ts
+├── useContentGenerationStore.ts
+├── useVoiceGenerationStore.ts
+├── useManifestsStore.ts
+└── [12+ other domain stores]
+```
+
+### Services
+```
+/src/services/
+├── api/             # API service layer
+│   ├── BaseAPIService.ts
+│   ├── AssetService.ts
+│   └── AdminService.ts
+└── [business logic services - non-3D only]
+```
+
+## ⚠️ Critical Session Constraints
+
+1. **NEVER touch 3D files** - Skip any file with Three.js imports
+2. **Focus on completing features** - Don't introduce new features
+3. **Maintain existing patterns** - Follow established conventions
+4. **Test before committing** - Verify changes work with Railway backend
+5. **No file bloat** - Don't create temporary or test files
+6. **Polish over perfection** - Focus on completing and improving existing code
+
+## 🔗 Related Documentation
+
+- Main Hyperscape docs: `/README.md`, `/CLAUDE.md`, `/LORE.md`
+- Asset Forge source: `/apps/asset-forge/src/`
+- API server: `/apps/api/server/`
+
+## 📝 Session Notes
+
+- Backend API is already deployed and running on Railway
+- Frontend is deployed on Vercel with live updates
+- Database is PostgreSQL on Railway (not SQLite)
+- This session focuses ONLY on non-3D Asset Forge features
+- All 3D visualization work is explicitly out of scope
+- Maintain consistency with existing patterns
+- Test with the live Railway backend endpoints

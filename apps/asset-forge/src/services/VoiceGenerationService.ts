@@ -25,7 +25,13 @@ import type {
   VoiceProfile,
   VoiceSubscriptionInfo,
   VoiceModel,
-  VoiceModelsResponse
+  VoiceModelsResponse,
+  SpeechToSpeechRequest,
+  VoiceDesignRequest,
+  VoiceDesignResponse,
+  CreateVoiceRequest,
+  CreateVoiceResponse,
+  RateLimitInfo
 } from '../types/voice-generation'
 
 class VoiceGenerationService {
@@ -280,6 +286,169 @@ class VoiceGenerationService {
       console.error('[VoiceGenerationService] Error fetching models:', error)
       throw error
     }
+  }
+
+  /**
+   * Get current ElevenLabs rate limit status
+   * Uses automatic request deduplication for concurrent calls
+   * Official docs: https://help.elevenlabs.io/hc/en-us/articles/14312733311761
+   */
+  async getRateLimitInfo(): Promise<RateLimitInfo> {
+    try {
+      const response = await apiFetch(API_ENDPOINTS.voiceRateLimit)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to fetch rate limit info')
+      }
+
+      const data: RateLimitInfo = await response.json()
+      return data
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error fetching rate limit:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Convert audio from one voice to another (Voice Changer)
+   * Official docs: https://elevenlabs.io/docs/api-reference/speech-to-speech/convert
+   * @param request Speech-to-speech conversion parameters
+   * @returns Converted audio blob
+   */
+  async speechToSpeech(request: SpeechToSpeechRequest): Promise<Blob> {
+    try {
+      // Convert audio to base64 if it's a File or Blob
+      let audioBase64: string
+      if (request.audio instanceof File || request.audio instanceof Blob) {
+        audioBase64 = await this.fileToBase64(request.audio)
+      } else {
+        audioBase64 = request.audio
+      }
+
+      const response = await apiFetch(API_ENDPOINTS.voiceSpeechToSpeech, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          audio: audioBase64,
+          voiceId: request.voiceId,
+          modelId: request.modelId,
+          outputFormat: request.outputFormat,
+          stability: request.stability,
+          similarityBoost: request.similarityBoost,
+          removeBackgroundNoise: request.removeBackgroundNoise,
+          seed: request.seed
+        }),
+        deduplicate: false // Don't deduplicate POST requests
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to convert audio')
+      }
+
+      // Response contains { success, audio: base64, size, format }
+      const data = await response.json()
+      
+      // Convert base64 back to blob
+      const binaryString = atob(data.audio)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      const audioBlob = new Blob([bytes], { type: 'audio/mpeg' })
+      
+      return audioBlob
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error converting audio:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Design custom voices from text descriptions
+   * Official docs: https://elevenlabs.io/docs/api-reference/text-to-voice/design
+   * @param request Voice design parameters
+   * @returns Voice previews and generated text
+   */
+  async designVoice(request: VoiceDesignRequest): Promise<VoiceDesignResponse> {
+    try {
+      const response = await apiFetch(API_ENDPOINTS.voiceDesign, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request),
+        deduplicate: false // Don't deduplicate POST requests
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to design voice')
+      }
+
+      const data: VoiceDesignResponse = await response.json()
+      return data
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error designing voice:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Save a designed voice to ElevenLabs library
+   * Official docs: https://elevenlabs.io/docs/api-reference/text-to-voice/create
+   * @param request Voice creation parameters
+   * @returns Created voice details
+   */
+  async createVoiceFromPreview(request: CreateVoiceRequest): Promise<CreateVoiceResponse> {
+    try {
+      const response = await apiFetch(API_ENDPOINTS.voiceCreateFromPreview, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request),
+        deduplicate: false // Don't deduplicate POST requests
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || error.message || 'Failed to create voice from preview')
+      }
+
+      const data: CreateVoiceResponse = await response.json()
+      return data
+    } catch (error) {
+      console.error('[VoiceGenerationService] Error creating voice:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Convert audio file to base64 string
+   * @param file Audio file or blob
+   * @returns Base64 string (without data URL prefix)
+   */
+  private async fileToBase64(file: File | Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      
+      reader.onload = () => {
+        const result = reader.result as string
+        // Strip data URL prefix (e.g., "data:audio/mpeg;base64,")
+        const base64 = result.split(',')[1]
+        resolve(base64)
+      }
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'))
+      }
+      
+      reader.readAsDataURL(file)
+    })
   }
 }
 
