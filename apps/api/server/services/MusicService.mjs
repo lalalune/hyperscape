@@ -31,18 +31,18 @@ const DEFAULT_RETRY_CONFIG = {
 }
 
 export class MusicService {
-  constructor() {
-    // Initialize ElevenLabs client
-    const apiKey = process.env.ELEVENLABS_API_KEY
+  constructor(apiKeyOverride = null) {
+    // Use provided API key or fall back to environment variable
+    const apiKey = apiKeyOverride || process.env.ELEVENLABS_API_KEY
 
     if (!apiKey) {
-      logger.warn('ELEVENLABS_API_KEY not found in environment - service unavailable')
+      logger.warn('ElevenLabs API key not found - service unavailable')
       this.client = null
     } else {
       this.client = new ElevenLabsClient({
         apiKey: apiKey
       })
-      logger.info('ElevenLabs Music client initialized successfully')
+      logger.info(`ElevenLabs Music client initialized ${apiKeyOverride ? '(user key)' : '(env var)'}`)
     }
 
     // Rate limit tracking
@@ -316,4 +316,4 @@ export class MusicService {
 }
 
 // Export singleton instance
-export const musicService = new MusicService()
+// Removed global instance - create per-user instances with API key override

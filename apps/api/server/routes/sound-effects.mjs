@@ -5,9 +5,26 @@
 
 import express from 'express'
 import { SoundEffectsService } from '../services/SoundEffectsService.mjs'
+import { getUserApiKey } from './users.mjs'
 
 const router = express.Router()
-const sfxService = new SoundEffectsService()
+
+/**
+ * Get API key for the current user (falls back to env var)
+ */
+async function getElevenLabsKey(req) {
+  const userId = req.headers['x-user-id']
+  
+  if (userId) {
+    const userKey = await getUserApiKey(userId, 'elevenlabs')
+    if (userKey) {
+      return userKey
+    }
+  }
+  
+  // Fallback to environment variable
+  return process.env.ELEVENLABS_API_KEY
+}
 
 /**
  * POST /api/sfx/generate
@@ -51,17 +68,22 @@ router.post('/generate', async (req, res) => {
       }
     }
 
-    if (!sfxService.isAvailable()) {
+    // Get API key for this user
+    const apiKey = await getElevenLabsKey(req)
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Sound effects generation service not available',
-        message: 'ELEVENLABS_API_KEY not configured',
+        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
         code: 'SFX_5030'
       })
     }
 
     console.log(`[SFX] Generating sound effect: "${text.substring(0, 50)}..."`)
 
-    const audioBuffer = await sfxService.generateSoundEffect({
+    // Create service instance with user's API key
+    const userSfxService = new SoundEffectsService(apiKey)
+    const audioBuffer = await userSfxService.generateSoundEffect({
       text,
       durationSeconds,
       promptInfluence,
@@ -128,16 +150,22 @@ router.post('/batch', async (req, res) => {
       }
     }
 
-    if (!sfxService.isAvailable()) {
+    // Get API key for this user
+    const apiKey = await getElevenLabsKey(req)
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Sound effects generation service not available',
+        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
         code: 'SFX_5030'
       })
     }
 
     console.log(`[SFX] Batch generating ${effects.length} sound effects`)
 
-    const results = await sfxService.generateSoundEffectBatch(effects)
+    // Create service instance with user's API key
+    const userSfxService = new SoundEffectsService(apiKey)
+    const results = await userSfxService.generateSoundEffectBatch(effects)
 
     // Convert audio buffers to base64 for JSON response
     const formattedResults = {

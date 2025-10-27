@@ -18,7 +18,7 @@ import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
 import promptRoutes from './routes/promptRoutes.mjs'
 import projectsRoutes from './routes/projects.mjs'
 import teamsRoutes from './routes/teams.mjs'
-import usersRoutes from './routes/users.mjs'
+import usersRoutes, { getUserApiKey } from './routes/users.mjs'
 import assetsRoutes from './routes/assets.mjs'
 import adminRoutes from './routes/admin.mjs'
 import adminModelsRoutes from './routes/admin-models.mjs'
@@ -130,10 +130,6 @@ app.use('/temp-images', express.static(path.join(ROOT_DIR, 'temp-images'), {
 // Initialize services
 const assetService = new AssetService(path.join(ROOT_DIR, 'gdd-assets'))
 const apiPort = process.env.API_PORT || 3004
-const retextureService = new RetextureService({
-  meshyApiKey: process.env.MESHY_API_KEY || '',
-  imageServerBaseUrl: process.env.IMAGE_SERVER_URL || `http://localhost:${apiPort}`
-})
 const generationService = new GenerationService()
 
 // Use routes
@@ -473,7 +469,22 @@ app.post('/api/retexture', async (req, res, next) => {
       })
     }
 
-    const result = await retextureService.retexture({
+    // Get user's Meshy API key
+    const userId = req.headers['x-user-id']
+    const meshyKey = userId ? await getUserApiKey(userId, 'meshy') : null
+    const apiKey = meshyKey || process.env.MESHY_API_KEY
+    
+    if (!apiKey) {
+      return res.status(503).json({
+        error: 'Meshy API key not configured',
+        message: 'Please add your Meshy API key in Profile settings',
+        code: 'MESHY_5030'
+      })
+    }
+
+    // Create service instance with user's API key
+    const userRetextureService = new RetextureService(apiKey)
+    const result = await userRetextureService.retexture({
       baseAssetId,
       materialPreset,
       outputName,
@@ -490,7 +501,22 @@ app.post('/api/regenerate-base/:baseAssetId', async (req, res, next) => {
   try {
     const { baseAssetId } = req.params
     
-    const result = await retextureService.regenerateBase({
+    // Get user's Meshy API key
+    const userId = req.headers['x-user-id']
+    const meshyKey = userId ? await getUserApiKey(userId, 'meshy') : null
+    const apiKey = meshyKey || process.env.MESHY_API_KEY
+    
+    if (!apiKey) {
+      return res.status(503).json({
+        error: 'Meshy API key not configured',
+        message: 'Please add your Meshy API key in Profile settings',
+        code: 'MESHY_5031'
+      })
+    }
+
+    // Create service instance with user's API key
+    const userRetextureService = new RetextureService(apiKey)
+    const result = await userRetextureService.regenerateBase({
       baseAssetId,
       assetsDir: path.join(ROOT_DIR, 'gdd-assets')
     })

@@ -4,9 +4,27 @@
  */
 
 import express from 'express'
-import { musicService } from '../services/MusicService.mjs'
+import { MusicService } from '../services/MusicService.mjs'
+import { getUserApiKey } from './users.mjs'
 
 const router = express.Router()
+
+/**
+ * Get API key for the current user (falls back to env var)
+ */
+async function getElevenLabsKey(req) {
+  const userId = req.headers['x-user-id']
+  
+  if (userId) {
+    const userKey = await getUserApiKey(userId, 'elevenlabs')
+    if (userKey) {
+      return userKey
+    }
+  }
+  
+  // Fallback to environment variable
+  return process.env.ELEVENLABS_API_KEY
+}
 
 /**
  * POST /api/music/generate
@@ -59,17 +77,22 @@ router.post('/generate', async (req, res) => {
       }
     }
 
-    if (!musicService.isAvailable()) {
+    // Get API key for this user
+    const apiKey = await getElevenLabsKey(req)
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Music generation service not available',
-        message: 'ELEVENLABS_API_KEY not configured',
+        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
         code: 'MUSIC_5030'
       })
     }
 
     console.log(`[Music] Generating music: "${prompt?.substring(0, 50) || 'from composition plan'}..."`)
 
-    const audioBuffer = await musicService.generateMusic({
+    // Create service instance with user's API key
+    const userMusicService = new MusicService(apiKey)
+    const audioBuffer = await userMusicService.generateMusic({
       prompt,
       musicLengthMs,
       compositionPlan,

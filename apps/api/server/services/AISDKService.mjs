@@ -22,15 +22,19 @@ export class AISDKService {
     this.modelConfigCache = new Map() // Cache for model configurations
     this.cacheExpiry = 5 * 60 * 1000 // 5 minutes
 
+    // Store API key overrides (for per-user keys)
+    this.openaiApiKey = config.openaiApiKey || process.env.OPENAI_API_KEY
+    this.anthropicApiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY
+
     // Check for required API keys
-    if (!this.useGateway && !process.env.OPENAI_API_KEY) {
-      console.warn('[AISDKService] Missing OPENAI_API_KEY - some features will be limited')
+    if (!this.useGateway && !this.openaiApiKey) {
+      console.warn('[AISDKService] Missing OpenAI API key - some features will be limited')
     }
 
     if (this.useGateway) {
       console.log('[AISDKService] Using Vercel AI Gateway for model access')
     } else {
-      console.log('[AISDKService] Using direct provider access')
+      console.log(`[AISDKService] Using direct provider access ${config.openaiApiKey ? '(user key)' : '(env var)'}`)
     }
   }
 
@@ -153,11 +157,19 @@ export class AISDKService {
       return gateway(gatewayModelId)
     }
 
-    // Direct provider access
+    // Direct provider access with user API keys
     if (provider === 'openai') {
-      return openai(modelId.replace('openai/', ''))
+      // Create openai provider with custom API key if available
+      const providerInstance = this.openaiApiKey 
+        ? openai.with({ apiKey: this.openaiApiKey })
+        : openai
+      return providerInstance(modelId.replace('openai/', ''))
     } else if (provider === 'anthropic') {
-      return anthropic(modelId.replace('anthropic/', ''))
+      // Create anthropic provider with custom API key if available
+      const providerInstance = this.anthropicApiKey
+        ? anthropic.with({ apiKey: this.anthropicApiKey })
+        : anthropic
+      return providerInstance(modelId.replace('anthropic/', ''))
     }
 
     throw new Error(`Unsupported provider: ${provider}`)

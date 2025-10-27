@@ -9,11 +9,24 @@ import express from 'express'
 import { generateText } from 'ai'
 import { AISDKService } from '../services/AISDKService.mjs'
 import ContentEmbedder from '../services/ContentEmbedder.mjs'
+import { getUserApiKey } from './users.mjs'
 import db from '../database/db.mjs'
 
 const router = express.Router()
-const aiService = new AISDKService()
 const embedder = new ContentEmbedder(db)
+
+/**
+ * Get AISDKService instance with user's API key if available
+ */
+async function getAIService(req) {
+  const userId = req.headers['x-user-id']
+  const openaiKey = userId ? await getUserApiKey(userId, 'openai') : null
+  
+  return new AISDKService({
+    openaiApiKey: openaiKey || process.env.OPENAI_API_KEY,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY
+  })
+}
 
 /**
  * POST /api/generate-dialogue
@@ -44,6 +57,9 @@ router.post('/generate-dialogue', async (req, res) => {
         code: 'CONTENT_4002'
       })
     }
+
+    // Get AI service with user's API key
+    const aiService = await getAIService(req)
 
     // Get configured model for dialogue generation
     const aiModel = await aiService.getConfiguredModel(
@@ -129,6 +145,9 @@ router.post('/generate-npc', async (req, res) => {
         code: 'CONTENT_4011'
       })
     }
+
+    // Get AI service with user's API key
+    const aiService = await getAIService(req)
 
     // Get configured model
     const aiModel = await aiService.getConfiguredModel(
@@ -235,6 +254,9 @@ router.post('/generate-quest', async (req, res) => {
         code: 'CONTENT_4021'
       })
     }
+
+    // Get AI service with user's API key
+    const aiService = await getAIService(req)
 
     // Get configured model
     const aiModel = await aiService.getConfiguredModel(

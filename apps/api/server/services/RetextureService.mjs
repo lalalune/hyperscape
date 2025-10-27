@@ -138,11 +138,12 @@ class MeshyClient {
 }
 
 export class RetextureService {
-  constructor() {
-    this.meshyApiKey = process.env.MESHY_API_KEY
+  constructor(apiKeyOverride = null) {
+    // Use provided API key or fall back to environment variable
+    this.meshyApiKey = apiKeyOverride || process.env.MESHY_API_KEY
     
     if (!this.meshyApiKey) {
-      console.warn('[RetextureService] MESHY_API_KEY not found - retexturing will be disabled')
+      console.warn('[RetextureService] Meshy API key not found - retexturing will be disabled')
       this.meshyClient = null
     } else {
       // Initialize MeshyClient with robust configuration
@@ -155,6 +156,7 @@ export class RetextureService {
         keepAlive: true,
         maxSockets: 10
       })
+      console.log(`[RetextureService] Initialized ${apiKeyOverride ? '(user key)' : '(env var)'}`)
     }
   }
 
