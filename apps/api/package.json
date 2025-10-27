@@ -14,6 +14,9 @@
     "count:lines": "node scripts/count-lines.mjs",
     "migrate:manifests": "node server/scripts/migrate-manifests-to-postgres.mjs",
     "seed:manifests": "node server/scripts/seed-preview-manifests.mjs",
+    "test": "node --test server/routes/__tests__/*.test.mjs",
+    "test:crypto": "node --test server/routes/__tests__/users-api-keys.test.mjs",
+    "test:auth-flow": "node --test server/routes/__tests__/auth-flow-integration.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

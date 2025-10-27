@@ -6,6 +6,13 @@
 import express from 'express'
 import { query } from '../database/db.mjs'
 import { encrypt, decrypt } from '../utils/crypto.mjs'
+import { validateBody, validateParams } from '../middleware/validation.mjs'
+import {
+  AddAPIKeyBodySchema,
+  DeleteAPIKeyParamsSchema,
+  UpdateProfileBodySchema,
+  UpdateSettingsBodySchema
+} from '../validation/user-schemas.mjs'
 
 const router = express.Router()
 
@@ -152,14 +159,18 @@ router.get('/me', async (req, res) => {
 })
 
 // PUT /api/users/me - Update user profile
-router.put('/me', async (req, res) => {
+router.put('/me', validateBody(UpdateProfileBodySchema), async (req, res) => {
+  const startTime = Date.now()
+  
   try {
     const userId = req.headers['x-user-id']
 
     if (!userId) {
+      console.warn('[Users API] PUT /me - No user ID in headers')
       return res.status(401).json({ error: 'User ID not provided in headers' })
     }
 
+    console.log(`[Users API] PUT /me - User: ${userId}`)
     const { display_name, email, avatar_url } = req.body
 
     // Build dynamic update query
@@ -221,19 +232,19 @@ router.put('/me', async (req, res) => {
 })
 
 // PUT /api/users/me/settings - Update user settings
-router.put('/me/settings', async (req, res) => {
+router.put('/me/settings', validateBody(UpdateSettingsBodySchema), async (req, res) => {
+  const startTime = Date.now()
+  
   try {
     const userId = req.headers['x-user-id']
 
     if (!userId) {
+      console.warn('[Users API] PUT /me/settings - No user ID in headers')
       return res.status(401).json({ error: 'User ID not provided in headers' })
     }
 
+    console.log(`[Users API] PUT /me/settings - User: ${userId}`)
     const { settings } = req.body
-
-    if (!settings || typeof settings !== 'object') {
-      return res.status(400).json({ error: 'Settings must be an object' })
-    }
 
     // First, get current settings to merge
     const currentResult = await query(
@@ -363,23 +374,19 @@ router.get('/me/api-keys', async (req, res) => {
 })
 
 // POST /api/users/me/api-keys - Add or update third-party API key
-router.post('/me/api-keys', async (req, res) => {
+router.post('/me/api-keys', validateBody(AddAPIKeyBodySchema), async (req, res) => {
+  const startTime = Date.now()
+  
   try {
     const userId = req.headers['x-user-id']
     const { provider, apiKey } = req.body
 
     if (!userId) {
+      console.warn('[Users API] POST /me/api-keys - No user ID in headers')
       return res.status(401).json({ error: 'User ID not provided in headers' })
     }
 
-    if (!provider || !apiKey) {
-      return res.status(400).json({ error: 'Provider and API key are required' })
-    }
-
-    const validProviders = ['openai', 'meshy', 'elevenlabs']
-    if (!validProviders.includes(provider)) {
-      return res.status(400).json({ error: `Invalid provider. Must be one of: ${validProviders.join(', ')}` })
-    }
+    console.log(`[Users API] POST /me/api-keys - User: ${userId}, Provider: ${provider}`)
 
     // Get current settings
     const currentResult = await query(
@@ -414,31 +421,35 @@ router.post('/me/api-keys', async (req, res) => {
       [JSON.stringify(mergedSettings), userId]
     )
 
+    const duration = Date.now() - startTime
+    console.log(`[Users API] POST /me/api-keys - Success (${duration}ms) - Provider: ${provider}`)
+    
     res.json({
       success: true,
       message: `${provider} API key added successfully`,
       provider
     })
   } catch (error) {
-    console.error('[Users API] Error adding API key:', error)
+    const duration = Date.now() - startTime
+    console.error(`[Users API] POST /me/api-keys - Error (${duration}ms):`, error.message)
     res.status(500).json({ error: 'Failed to add API key' })
   }
 })
 
 // DELETE /api/users/me/api-keys/:provider - Delete third-party API key
-router.delete('/me/api-keys/:provider', async (req, res) => {
+router.delete('/me/api-keys/:provider', validateParams(DeleteAPIKeyParamsSchema), async (req, res) => {
+  const startTime = Date.now()
+  
   try {
     const userId = req.headers['x-user-id']
     const { provider } = req.params
 
     if (!userId) {
+      console.warn('[Users API] DELETE /me/api-keys/:provider - No user ID in headers')
       return res.status(401).json({ error: 'User ID not provided in headers' })
     }
 
-    const validProviders = ['openai', 'meshy', 'elevenlabs']
-    if (!validProviders.includes(provider)) {
-      return res.status(400).json({ error: `Invalid provider. Must be one of: ${validProviders.join(', ')}` })
-    }
+    console.log(`[Users API] DELETE /me/api-keys/${provider} - User: ${userId}`)
 
     // Get current settings
     const currentResult = await query(
@@ -471,12 +482,16 @@ router.delete('/me/api-keys/:provider', async (req, res) => {
       [JSON.stringify(mergedSettings), userId]
     )
 
+    const duration = Date.now() - startTime
+    console.log(`[Users API] DELETE /me/api-keys/${provider} - Success (${duration}ms)`)
+    
     res.json({
       success: true,
       message: `${provider} API key deleted successfully`
     })
   } catch (error) {
-    console.error('[Users API] Error deleting API key:', error)
+    const duration = Date.now() - startTime
+    console.error(`[Users API] DELETE /me/api-keys/${provider} - Error (${duration}ms):`, error.message)
     res.status(500).json({ error: 'Failed to delete API key' })
   }
 })

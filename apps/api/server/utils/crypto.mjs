@@ -33,6 +33,8 @@ export function encrypt(text) {
     return text
   }
 
+  const startTime = Date.now()
+
   try {
     const key = deriveKey(ENCRYPTION_SECRET)
     const iv = crypto.randomBytes(IV_LENGTH)
@@ -43,13 +45,20 @@ export function encrypt(text) {
 
     const authTag = cipher.getAuthTag()
 
+    const result = iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted
+    const duration = Date.now() - startTime
+    
+    console.log(`[Crypto] Encrypted data (${duration}ms) - Length: ${text.length} → ${result.length}`)
+    
     // Return iv:authTag:encrypted (all hex encoded)
-    return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted
+    return result
   } catch (error) {
-    console.error('[Crypto] Encryption error:', error)
+    const duration = Date.now() - startTime
+    console.error(`[Crypto] Encryption error (${duration}ms):`, error.message)
+    
     // In development, return plain text if encryption fails
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[Crypto] Encryption failed, storing plaintext in development')
+      console.warn('[Crypto] ⚠️ Encryption failed, storing plaintext in development mode')
       return text
     }
     throw new Error('Failed to encrypt sensitive data')
@@ -66,16 +75,18 @@ export function decrypt(encryptedData) {
     return encryptedData
   }
 
+  const startTime = Date.now()
+
   // Check if this is already plaintext (for backward compatibility)
   if (!encryptedData.includes(':')) {
-    console.warn('[Crypto] Data appears to be plaintext, returning as-is')
+    console.warn('[Crypto] Data appears to be plaintext, returning as-is (consider re-encrypting)')
     return encryptedData
   }
 
   try {
     const parts = encryptedData.split(':')
     if (parts.length !== 3) {
-      throw new Error('Invalid encrypted data format')
+      throw new Error(`Invalid encrypted data format - expected 3 parts, got ${parts.length}`)
     }
 
     const iv = Buffer.from(parts[0], 'hex')
@@ -89,15 +100,20 @@ export function decrypt(encryptedData) {
     let decrypted = decipher.update(encrypted, 'hex', 'utf8')
     decrypted += decipher.final('utf8')
 
+    const duration = Date.now() - startTime
+    console.log(`[Crypto] Decrypted data (${duration}ms) - Length: ${encryptedData.length} → ${decrypted.length}`)
+
     return decrypted
   } catch (error) {
-    console.error('[Crypto] Decryption error:', error)
+    const duration = Date.now() - startTime
+    console.error(`[Crypto] Decryption error (${duration}ms):`, error.message)
+    
     // In development, try to return as plaintext
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[Crypto] Decryption failed, trying plaintext')
+      console.warn('[Crypto] ⚠️ Decryption failed in development, attempting plaintext fallback')
       return encryptedData
     }
-    throw new Error('Failed to decrypt sensitive data')
+    throw new Error('Failed to decrypt sensitive data - data may be corrupted')
   }
 }
 
