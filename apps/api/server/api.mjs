@@ -179,6 +179,27 @@ app.get('/api/health', (req, res) => {
   })
 })
 
+// Frontend error logging endpoint
+app.post('/api/errors/frontend', (req, res) => {
+  try {
+    const { error, errorInfo, componentStack, url, timestamp, userAgent } = req.body
+    
+    console.error('[Frontend Error]', {
+      timestamp: timestamp || new Date().toISOString(),
+      error: error || 'Unknown error',
+      url: url || 'Unknown URL',
+      userAgent: userAgent || req.headers['user-agent'],
+      errorInfo,
+      componentStack: componentStack?.substring(0, 500) // Truncate long stacks
+    })
+    
+    res.status(200).json({ success: true, message: 'Error logged' })
+  } catch (err) {
+    console.error('[Frontend Error] Failed to log:', err)
+    res.status(500).json({ success: false, error: 'Failed to log error' })
+  }
+})
+
 app.get('/api/assets', async (req, res, next) => {
   try {
     // Set no-cache headers
