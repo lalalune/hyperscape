@@ -5,26 +5,10 @@
 
 import express from 'express'
 import { SoundEffectsService } from '../services/SoundEffectsService.mjs'
-import { getUserApiKey } from './users.mjs'
+import { requireAuth } from '../middleware/auth.mjs'
+import { resolveElevenLabsKey } from '../middleware/api-key-resolver.mjs'
 
 const router = express.Router()
-
-/**
- * Get API key for the current user (falls back to env var)
- */
-async function getElevenLabsKey(req) {
-  const userId = req.headers['x-user-id']
-  
-  if (userId) {
-    const userKey = await getUserApiKey(userId, 'elevenlabs')
-    if (userKey) {
-      return userKey
-    }
-  }
-  
-  // Fallback to environment variable
-  return process.env.ELEVENLABS_API_KEY
-}
 
 /**
  * POST /api/sfx/generate
@@ -38,7 +22,7 @@ async function getElevenLabsKey(req) {
  *
  * Returns: Audio file (MP3) as binary data
  */
-router.post('/generate', async (req, res) => {
+router.post('/generate', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { text, durationSeconds, promptInfluence, loop } = req.body
 
@@ -68,16 +52,8 @@ router.post('/generate', async (req, res) => {
       }
     }
 
-    // Get API key for this user
-    const apiKey = await getElevenLabsKey(req)
-    
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'Sound effects generation service not available',
-        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
-        code: 'SFX_5030'
-      })
-    }
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
 
     console.log(`[SFX] Generating sound effect: "${text.substring(0, 50)}..."`)
 
@@ -120,7 +96,7 @@ router.post('/generate', async (req, res) => {
  *
  * Returns: JSON with results array
  */
-router.post('/batch', async (req, res) => {
+router.post('/batch', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { effects } = req.body
 
@@ -150,16 +126,8 @@ router.post('/batch', async (req, res) => {
       }
     }
 
-    // Get API key for this user
-    const apiKey = await getElevenLabsKey(req)
-    
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'Sound effects generation service not available',
-        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
-        code: 'SFX_5030'
-      })
-    }
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
 
     console.log(`[SFX] Batch generating ${effects.length} sound effects`)
 

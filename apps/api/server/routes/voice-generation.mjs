@@ -5,37 +5,21 @@
 
 import express from 'express'
 import { VoiceGenerationService } from '../services/VoiceGenerationService.mjs'
-import { getUserApiKey } from './users.mjs'
+import { requireAuth } from '../middleware/auth.mjs'
+import { resolveElevenLabsKey } from '../middleware/api-key-resolver.mjs'
 
 const router = express.Router()
-
-/**
- * Get API key for the current user (falls back to env var)
- */
-async function getElevenLabsKey(req) {
-  const userId = req.headers['x-user-id']
-  
-  if (userId) {
-    const userKey = await getUserApiKey(userId, 'elevenlabs')
-    if (userKey) {
-      return userKey
-    }
-  }
-  
-  // Fallback to environment variable
-  return process.env.ELEVENLABS_API_KEY
-}
 
 /**
  * GET /api/voice/library
  * Get available voices from ElevenLabs library
  */
-router.get('/library', async (req, res) => {
+router.get('/library', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     console.log('[Voice] GET /api/voice/library')
 
-    // Get API key for this user
-    const apiKey = await getElevenLabsKey(req)
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
     
     if (!apiKey) {
       console.warn('[Voice] No API key available - neither user key nor env var set')
@@ -70,7 +54,7 @@ router.get('/library', async (req, res) => {
  * POST /api/voice/generate
  * Generate single voice clip from text
  */
-router.post('/generate', async (req, res) => {
+router.post('/generate', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { text, voiceId, npcId, settings } = req.body
 
@@ -89,16 +73,8 @@ router.post('/generate', async (req, res) => {
       })
     }
 
-    // Get API key for this user
-    const apiKey = await getElevenLabsKey(req)
-    
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'Voice generation service not available',
-        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
-        code: 'VOICE_5030'
-      })
-    }
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
 
     console.log(`[Voice] Generating voice for NPC: ${npcId || 'unknown'}`)
 
@@ -128,7 +104,7 @@ router.post('/generate', async (req, res) => {
  * POST /api/voice/batch
  * Batch generate voices for multiple texts
  */
-router.post('/batch', async (req, res) => {
+router.post('/batch', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { texts, voiceId, npcId, settings } = req.body
 
@@ -147,16 +123,8 @@ router.post('/batch', async (req, res) => {
       })
     }
 
-    // Get API key for this user
-    const apiKey = await getElevenLabsKey(req)
-    
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'Voice generation service not available',
-        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
-        code: 'VOICE_5030'
-      })
-    }
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
 
     console.log(`[Voice] Batch generating ${texts.length} voices for NPC: ${npcId || 'unknown'}`)
 

@@ -72,7 +72,7 @@ export const UserSettingsSchema = z.object({
   language: LanguageSchema.optional(),
 
   // API Configuration
-  aiGatewayUrl: z.string().url().optional().or(z.literal('')),
+  aiGatewayUrl: z.string().url().or(z.literal('')).optional(),
 
   // API Keys (internal - not exposed via API)
   apiKeys: z.record(z.string(), z.any()).optional()
@@ -88,6 +88,8 @@ export const UpdateSettingsBodySchema = z.object({
 
 /**
  * Validate API key provider
+ * @param {unknown} provider - Provider value to validate (expected: APIKeyProvider)
+ * @returns {boolean} True if provider is one of: 'openai', 'meshy', 'elevenlabs'
  */
 export function isValidProvider(provider) {
   return APIKeyProviderSchema.safeParse(provider).success
@@ -95,6 +97,8 @@ export function isValidProvider(provider) {
 
 /**
  * Validate settings object
+ * @param {unknown} settings - Settings object to validate (expected: Partial<UserSettings>)
+ * @returns {boolean} True if settings conform to UserSettingsSchema
  */
 export function isValidSettings(settings) {
   return UserSettingsSchema.safeParse(settings).success
@@ -102,11 +106,68 @@ export function isValidSettings(settings) {
 
 /**
  * Sanitize settings to remove sensitive fields
+ * Strips apiKeys and other sensitive data before exposing settings to client
+ * @param {unknown | null} settings - Raw settings object (expected: Partial<UserSettings>)
+ * @returns {Partial<UserSettings> | Record<string, any>} Public settings object without sensitive fields
  */
 export function sanitizeSettings(settings) {
-  if (!settings) return {}
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return {}
   
   const { apiKeys, ...publicSettings } = settings
   return publicSettings
+}
+
+// =============================================================================
+// USER ID VALIDATION
+// =============================================================================
+
+/**
+ * Privy User ID Schema
+ * Format: Typically alphanumeric string that may include dashes, underscores, or colons
+ * Examples: "did:privy:abc123", "user_123", or UUID format
+ */
+export const PrivyUserIdSchema = z.string()
+  .min(1, 'User ID cannot be empty')
+  .max(256, 'User ID is too long')
+  .refine(
+    (id) => /^[a-zA-Z0-9:_-]+$/.test(id),
+    { message: 'User ID contains invalid characters. Only alphanumeric, colons, dashes, and underscores allowed.' }
+  )
+
+/**
+ * Validate and canonicalize a user ID from request header
+ * @param {string | undefined} rawUserId - Raw user ID from header
+ * @returns {{ valid: boolean, userId: string | null, error: string | null }}
+ */
+export function validateUserId(rawUserId) {
+  // Check if provided
+  if (!rawUserId) {
+    return {
+      valid: false,
+      userId: null,
+      error: 'User ID is required'
+    }
+  }
+
+  // Canonicalize: trim whitespace
+  const trimmedId = String(rawUserId).trim()
+
+  // Validate against schema
+  const result = PrivyUserIdSchema.safeParse(trimmedId)
+  
+  if (!result.success) {
+    const errorMessage = result.error.errors[0]?.message || 'Invalid user ID format'
+    return {
+      valid: false,
+      userId: null,
+      error: errorMessage
+    }
+  }
+
+  return {
+    valid: true,
+    userId: result.data,
+    error: null
+  }
 }
 

@@ -33,6 +33,11 @@ const DEFAULT_RETRY_CONFIG = {
 }
 
 export class SoundEffectsService {
+  /**
+   * Initialize the Sound Effects service with ElevenLabs API client
+   *
+   * @param {string|null} [apiKeyOverride=null] - Optional API key to use instead of environment variable
+   */
   constructor(apiKeyOverride = null) {
     // Use provided API key or fall back to environment variable
     const apiKey = apiKeyOverride || process.env.ELEVENLABS_API_KEY

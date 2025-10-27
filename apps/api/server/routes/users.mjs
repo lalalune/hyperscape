@@ -213,6 +213,7 @@ router.put('/me', validateBody(UpdateProfileBodySchema), async (req, res) => {
 
     const user = result.rows[0]
 
+    console.log(`[Users API] PUT /me - User: ${userId} - completed in ${Date.now() - startTime}ms`)
     res.json({
       id: user.id,
       privy_user_id: user.privy_user_id,
@@ -226,7 +227,7 @@ router.put('/me', validateBody(UpdateProfileBodySchema), async (req, res) => {
       updated_at: user.updated_at
     })
   } catch (error) {
-    console.error('[Users API] Error updating user profile:', error)
+    console.error(`[Users API] Error updating user profile for ${userId} - failed in ${Date.now() - startTime}ms:`, error)
     res.status(500).json({ error: 'Failed to update user profile' })
   }
 })
@@ -268,11 +269,15 @@ router.put('/me/settings', validateBody(UpdateSettingsBodySchema), async (req, r
       [JSON.stringify(mergedSettings), userId]
     )
 
+    const duration = Date.now() - startTime
+    console.log(`[Users API] PUT /me/settings - User ${userId} settings updated successfully in ${duration}ms`)
+
     res.json({
       settings: result.rows[0].settings
     })
   } catch (error) {
-    console.error('[Users API] Error updating user settings:', error)
+    const duration = Date.now() - startTime
+    console.error(`[Users API] Error updating user settings for ${userId} in PUT /me/settings - failed in ${duration}ms:`, error)
     res.status(500).json({ error: 'Failed to update user settings' })
   }
 })
@@ -335,7 +340,6 @@ router.get('/me/api-keys', async (req, res) => {
     
     if (apiKeys.openai) {
       maskedKeys.push({
-        id: 'openai',
         provider: 'openai',
         maskedKey: maskApiKey(apiKeys.openai),
         isActive: true,
@@ -346,7 +350,6 @@ router.get('/me/api-keys', async (req, res) => {
 
     if (apiKeys.meshy) {
       maskedKeys.push({
-        id: 'meshy',
         provider: 'meshy',
         maskedKey: maskApiKey(apiKeys.meshy),
         isActive: true,
@@ -357,7 +360,6 @@ router.get('/me/api-keys', async (req, res) => {
 
     if (apiKeys.elevenlabs) {
       maskedKeys.push({
-        id: 'elevenlabs',
         provider: 'elevenlabs',
         maskedKey: maskApiKey(apiKeys.elevenlabs),
         isActive: true,
@@ -499,15 +501,25 @@ router.delete('/me/api-keys/:provider', validateParams(DeleteAPIKeyParamsSchema)
 /**
  * Helper function to get decrypted API key for a provider
  * Used by services that need to actually call external APIs
+ * 
+ * SECURITY: This function enforces server-side ownership by querying the database
+ * with privy_user_id as a constraint. It only returns keys that belong to the
+ * specified user, preventing unauthorized access to other users' API keys.
+ * 
+ * @param {string} privyUserId - Validated Privy user ID (must be pre-validated)
+ * @param {string} provider - API provider (openai, meshy, elevenlabs)
+ * @returns {Promise<string|null>} Decrypted API key or null if not found
  */
 export async function getUserApiKey(privyUserId, provider) {
   try {
+    // Query enforces ownership: only returns keys for THIS specific user
     const result = await query(
       'SELECT settings FROM users WHERE privy_user_id = $1',
       [privyUserId]
     )
 
     if (result.rows.length === 0) {
+      console.log(`[Users API] No user found for userId: ${privyUserId}`)
       return null
     }
 
@@ -516,11 +528,13 @@ export async function getUserApiKey(privyUserId, provider) {
     const encryptedKey = apiKeys[provider]
 
     if (!encryptedKey) {
+      console.log(`[Users API] No ${provider} API key found for user: ${privyUserId}`)
       return null
     }
 
     // Decrypt the key
     const decryptedKey = decrypt(encryptedKey)
+    console.log(`[Users API] Successfully retrieved ${provider} API key for user: ${privyUserId}`)
     return decryptedKey
   } catch (error) {
     console.error(`[Users API] Error getting API key for ${provider}:`, error)

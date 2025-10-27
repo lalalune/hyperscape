@@ -28,8 +28,15 @@ describe('User API Keys System', () => {
   after(async () => {
     // Cleanup test user
     if (testUserId) {
+      try {
       await query('DELETE FROM users WHERE id = $1', [testUserId])
       console.log(`[Test] Deleted test user: ${testUserId}`)
+      } catch (error) {
+        console.error(`[Test] CLEANUP FAILED: Could not delete test user ${testUserId}`)
+        console.error(`[Test] Error: ${error.message}`)
+        console.error(`[Test] Stack: ${error.stack}`)
+        // Log but don't rethrow - allow other cleanup to proceed
+      }
     }
   })
 
@@ -204,6 +211,3 @@ describe('User API Keys System', () => {
     })
   })
 })
-
-console.log('✅ All User API Keys tests configured. Run with: node --test')
-

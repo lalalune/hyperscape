@@ -9,30 +9,18 @@ import express from 'express'
 import { generateText } from 'ai'
 import { AISDKService } from '../services/AISDKService.mjs'
 import ContentEmbedder from '../services/ContentEmbedder.mjs'
-import { getUserApiKey } from './users.mjs'
+import { requireAuth } from '../middleware/auth.mjs'
+import { resolveOpenAIKey } from '../middleware/api-key-resolver.mjs'
 import db from '../database/db.mjs'
 
 const router = express.Router()
 const embedder = new ContentEmbedder(db)
 
 /**
- * Get AISDKService instance with user's API key if available
- */
-async function getAIService(req) {
-  const userId = req.headers['x-user-id']
-  const openaiKey = userId ? await getUserApiKey(userId, 'openai') : null
-  
-  return new AISDKService({
-    openaiApiKey: openaiKey || process.env.OPENAI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY
-  })
-}
-
-/**
  * POST /api/generate-dialogue
  * Generate NPC dialogue tree nodes
  */
-router.post('/generate-dialogue', async (req, res) => {
+router.post('/generate-dialogue', requireAuth, resolveOpenAIKey, async (req, res) => {
   try {
     const { npcName, npcPersonality, context, existingNodes, model: customModel } = req.body
 
@@ -58,8 +46,11 @@ router.post('/generate-dialogue', async (req, res) => {
       })
     }
 
-    // Get AI service with user's API key
-    const aiService = await getAIService(req)
+    // Create AI service with resolved API key from middleware
+    const aiService = new AISDKService({
+      openaiApiKey: req.resolvedApiKeys.openai,
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY
+    })
 
     // Get configured model for dialogue generation
     const aiModel = await aiService.getConfiguredModel(
@@ -127,7 +118,7 @@ router.post('/generate-dialogue', async (req, res) => {
  * POST /api/generate-npc
  * Generate complete NPC character
  */
-router.post('/generate-npc', async (req, res) => {
+router.post('/generate-npc', requireAuth, resolveOpenAIKey, async (req, res) => {
   try {
     const { archetype, prompt, context, model: customModel } = req.body
 
@@ -146,8 +137,11 @@ router.post('/generate-npc', async (req, res) => {
       })
     }
 
-    // Get AI service with user's API key
-    const aiService = await getAIService(req)
+    // Create AI service with resolved API key from middleware
+    const aiService = new AISDKService({
+      openaiApiKey: req.resolvedApiKeys.openai,
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY
+    })
 
     // Get configured model
     const aiModel = await aiService.getConfiguredModel(
@@ -236,7 +230,7 @@ router.post('/generate-npc', async (req, res) => {
  * POST /api/generate-quest
  * Generate game quest
  */
-router.post('/generate-quest', async (req, res) => {
+router.post('/generate-quest', requireAuth, resolveOpenAIKey, async (req, res) => {
   try {
     const { questType, difficulty, theme, context, model: customModel } = req.body
 
@@ -255,8 +249,11 @@ router.post('/generate-quest', async (req, res) => {
       })
     }
 
-    // Get AI service with user's API key
-    const aiService = await getAIService(req)
+    // Create AI service with resolved API key from middleware
+    const aiService = new AISDKService({
+      openaiApiKey: req.resolvedApiKeys.openai,
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY
+    })
 
     // Get configured model
     const aiModel = await aiService.getConfiguredModel(

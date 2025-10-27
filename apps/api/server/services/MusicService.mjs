@@ -316,4 +316,19 @@ export class MusicService {
 }
 
 // Export singleton instance
-// Removed global instance - create per-user instances with API key override
+// MIGRATION NOTE: Removed global instance to support per-user API keys.
+// 
+// WHY: Each user can now provide their own OpenAI API key for music generation.
+// Services must create isolated instances per request to prevent key leakage between users.
+//
+// HOW TO USE:
+// 1. Create a new MusicService instance per request (not shared/cached)
+// 2. Pass the user's API key override via constructor options: { apiKeyOverride: userApiKey }
+// 3. Call service methods normally (generateMusic, etc.)
+// 4. The instance will use the user's key if provided, falling back to system key
+//
+// EXAMPLE USAGE (in words):
+// In your route handler, instantiate new MusicService with options object containing
+// apiKeyOverride field set to the user's OpenAI key (from resolveApiKeys middleware).
+// Then call generateMusic() or other methods. Each request gets a fresh instance with
+// the appropriate API key context.

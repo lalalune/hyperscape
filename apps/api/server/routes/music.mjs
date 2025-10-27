@@ -5,26 +5,10 @@
 
 import express from 'express'
 import { MusicService } from '../services/MusicService.mjs'
-import { getUserApiKey } from './users.mjs'
+import { requireAuth } from '../middleware/auth.mjs'
+import { resolveElevenLabsKey } from '../middleware/api-key-resolver.mjs'
 
 const router = express.Router()
-
-/**
- * Get API key for the current user (falls back to env var)
- */
-async function getElevenLabsKey(req) {
-  const userId = req.headers['x-user-id']
-  
-  if (userId) {
-    const userKey = await getUserApiKey(userId, 'elevenlabs')
-    if (userKey) {
-      return userKey
-    }
-  }
-  
-  // Fallback to environment variable
-  return process.env.ELEVENLABS_API_KEY
-}
 
 /**
  * POST /api/music/generate
@@ -40,7 +24,7 @@ async function getElevenLabsKey(req) {
  *
  * Returns: Audio file (MP3) as binary data
  */
-router.post('/generate', async (req, res) => {
+router.post('/generate', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const {
       prompt,
@@ -77,16 +61,8 @@ router.post('/generate', async (req, res) => {
       }
     }
 
-    // Get API key for this user
-    const apiKey = await getElevenLabsKey(req)
-    
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'Music generation service not available',
-        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
-        code: 'MUSIC_5030'
-      })
-    }
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
 
     console.log(`[Music] Generating music: "${prompt?.substring(0, 50) || 'from composition plan'}..."`)
 
@@ -132,7 +108,7 @@ router.post('/generate', async (req, res) => {
  *
  * Returns: JSON with { audio: base64, metadata: {...} }
  */
-router.post('/generate-detailed', async (req, res) => {
+router.post('/generate-detailed', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const {
       prompt,
@@ -152,17 +128,13 @@ router.post('/generate-detailed', async (req, res) => {
       })
     }
 
-    if (!musicService.isAvailable()) {
-      return res.status(503).json({
-        error: 'Music generation service not available',
-        message: 'ELEVENLABS_API_KEY not configured',
-        code: 'MUSIC_5030'
-      })
-    }
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
 
     console.log(`[Music] Generating detailed music: "${prompt?.substring(0, 50) || 'from composition plan'}..."`)
 
-    const result = await musicService.generateMusicDetailed({
+    const userMusicService = new MusicService(apiKey)
+    const result = await userMusicService.generateMusicDetailed({
       prompt,
       musicLengthMs,
       compositionPlan,
@@ -201,7 +173,7 @@ router.post('/generate-detailed', async (req, res) => {
  *
  * Returns: Composition plan JSON object
  */
-router.post('/plan', async (req, res) => {
+router.post('/plan', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { prompt, musicLengthMs, sourceCompositionPlan, modelId } = req.body
 
@@ -213,17 +185,13 @@ router.post('/plan', async (req, res) => {
       })
     }
 
-    if (!musicService.isAvailable()) {
-      return res.status(503).json({
-        error: 'Music generation service not available',
-        message: 'ELEVENLABS_API_KEY not configured',
-        code: 'MUSIC_5030'
-      })
-    }
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
 
     console.log(`[Music] Creating composition plan: "${prompt.substring(0, 50)}..."`)
 
-    const plan = await musicService.createCompositionPlan({
+    const userMusicService = new MusicService(apiKey)
+    const plan = await userMusicService.createCompositionPlan({
       prompt,
       musicLengthMs,
       sourceCompositionPlan,
@@ -252,7 +220,7 @@ router.post('/plan', async (req, res) => {
  *
  * Returns: JSON with results array
  */
-router.post('/batch', async (req, res) => {
+router.post('/batch', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { tracks } = req.body
 
@@ -270,17 +238,13 @@ router.post('/batch', async (req, res) => {
       })
     }
 
-    if (!musicService.isAvailable()) {
-      return res.status(503).json({
-        error: 'Music generation service not available',
-        message: 'ELEVENLABS_API_KEY not configured',
-        code: 'MUSIC_5030'
-      })
-    }
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
 
     console.log(`[Music] Batch generating ${tracks.length} tracks`)
 
-    const results = await musicService.generateBatch(tracks)
+    const userMusicService = new MusicService(apiKey)
+    const results = await userMusicService.generateBatch(tracks)
 
     // Convert audio buffers to base64 for JSON response
     const jsonResults = results.map(result => ({
@@ -314,7 +278,12 @@ router.post('/batch', async (req, res) => {
  */
 router.get('/status', (req, res) => {
   try {
-    const status = musicService.getStatus()
+    // Status endpoint just checks if service key is configured
+    const status = {
+      available: !!process.env.ELEVENLABS_API_KEY,
+      service: 'elevenlabs-music',
+      timestamp: new Date().toISOString()
+    }
     return res.json(status)
   } catch (error) {
     console.error('[Music] Status check failed:', error)

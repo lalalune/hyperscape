@@ -11,6 +11,8 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { errorHandler } from './middleware/errorHandler.mjs'
 import { requestLogger } from './middleware/requestLogger.mjs'
+import { requireAuth } from './middleware/auth.mjs'
+import { resolveMeshyKey } from './middleware/api-key-resolver.mjs'
 import { AssetService } from './services/AssetService.mjs'
 import { RetextureService } from './services/RetextureService.mjs'
 import { GenerationService } from './services/GenerationService.mjs'
@@ -18,7 +20,7 @@ import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
 import promptRoutes from './routes/promptRoutes.mjs'
 import projectsRoutes from './routes/projects.mjs'
 import teamsRoutes from './routes/teams.mjs'
-import usersRoutes, { getUserApiKey } from './routes/users.mjs'
+import usersRoutes from './routes/users.mjs'
 import assetsRoutes from './routes/assets.mjs'
 import adminRoutes from './routes/admin.mjs'
 import adminModelsRoutes from './routes/admin-models.mjs'
@@ -458,7 +460,7 @@ app.post('/api/material-presets', async (req, res, next) => {
   }
 })
 
-app.post('/api/retexture', async (req, res, next) => {
+app.post('/api/retexture', requireAuth, resolveMeshyKey, async (req, res, next) => {
   try {
     const { baseAssetId, materialPreset, outputName } = req.body
     
@@ -469,18 +471,8 @@ app.post('/api/retexture', async (req, res, next) => {
       })
     }
 
-    // Get user's Meshy API key
-    const userId = req.headers['x-user-id']
-    const meshyKey = userId ? await getUserApiKey(userId, 'meshy') : null
-    const apiKey = meshyKey || process.env.MESHY_API_KEY
-    
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'Meshy API key not configured',
-        message: 'Please add your Meshy API key in Profile settings',
-        code: 'MESHY_5030'
-      })
-    }
+    // Use resolved Meshy API key from middleware
+    const apiKey = req.resolvedApiKeys.meshy
 
     // Create service instance with user's API key
     const userRetextureService = new RetextureService(apiKey)
@@ -497,22 +489,12 @@ app.post('/api/retexture', async (req, res, next) => {
   }
 })
 
-app.post('/api/regenerate-base/:baseAssetId', async (req, res, next) => {
+app.post('/api/regenerate-base/:baseAssetId', requireAuth, resolveMeshyKey, async (req, res, next) => {
   try {
     const { baseAssetId } = req.params
     
-    // Get user's Meshy API key
-    const userId = req.headers['x-user-id']
-    const meshyKey = userId ? await getUserApiKey(userId, 'meshy') : null
-    const apiKey = meshyKey || process.env.MESHY_API_KEY
-    
-    if (!apiKey) {
-      return res.status(503).json({
-        error: 'Meshy API key not configured',
-        message: 'Please add your Meshy API key in Profile settings',
-        code: 'MESHY_5031'
-      })
-    }
+    // Use resolved Meshy API key from middleware
+    const apiKey = req.resolvedApiKeys.meshy
 
     // Create service instance with user's API key
     const userRetextureService = new RetextureService(apiKey)

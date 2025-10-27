@@ -9,7 +9,6 @@ import { useState, useEffect } from 'react'
 import { apiFetch } from '@/utils/api'
 
 interface APIKey {
-  id: string
   provider: 'openai' | 'meshy' | 'elevenlabs'
   maskedKey: string
   isActive: boolean
@@ -124,7 +123,7 @@ export function APIKeyManager() {
     }
   }
 
-  const handleDeleteKey = async (keyId: string) => {
+  const handleDeleteKey = async (provider: Provider) => {
     if (!confirm('Are you sure you want to delete this API key?')) {
       return
     }
@@ -132,7 +131,7 @@ export function APIKeyManager() {
     try {
       setError(null)
 
-      const response = await apiFetch(`/api/users/me/api-keys/${keyId}`, {
+      const response = await apiFetch(`/api/users/me/api-keys/${provider}`, {
         method: 'DELETE',
       })
 
@@ -208,7 +207,7 @@ export function APIKeyManager() {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteKey(key.id)}
+                        onClick={() => handleDeleteKey(key.provider)}
                         className="p-2 text-text-secondary hover:text-red-400 hover:bg-bg-tertiary rounded-lg transition-colors"
                         title="Delete key"
                       >

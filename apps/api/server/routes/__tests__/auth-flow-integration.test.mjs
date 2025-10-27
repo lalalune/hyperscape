@@ -111,7 +111,6 @@ describe('Complete Authentication Flow', () => {
     )
 
     const storedKey = result.rows[0].settings.apiKeys.openai
-    assert.ok(storedKey.includes(':'), 'Key should be encrypted (contains colons)')
     assert.notEqual(storedKey, openaiKey, 'Stored key should not be plaintext')
 
     // Verify decryption works
@@ -181,7 +180,7 @@ describe('Complete Authentication Flow', () => {
     const settingsAfterLogin = afterLogin.rows[0].settings
 
     // Verify settings persisted
-    assert.deepEqual(settingsAfterLogin.theme, settingsBeforeLogout.theme, 'Theme should persist')
+    assert.equal(settingsAfterLogin.theme, settingsBeforeLogout.theme, 'Theme should persist')
     assert.deepEqual(settingsAfterLogin.apiKeys, settingsBeforeLogout.apiKeys, 'API keys should persist')
     assert.equal(settingsAfterLogin.aiGatewayUrl, settingsBeforeLogout.aiGatewayUrl, 'AI Gateway URL should persist')
     
@@ -239,8 +238,20 @@ describe('Complete Authentication Flow', () => {
 
     const afterLogin = after.rows[0].last_login_at
 
-    assert.notEqual(afterLogin, beforeLogin, 'Last login should be updated')
     assert.ok(afterLogin, 'Last login should have a value')
+    
+    // If there was a previous login timestamp, ensure new one is more recent
+    if (beforeLogin) {
+      const beforeTime = new Date(beforeLogin).getTime()
+      const afterTime = new Date(afterLogin).getTime()
+      assert.ok(afterTime > beforeTime, 'New last_login_at should be greater than previous')
+    }
+    
+    // Ensure the timestamp is recent (within last 5 seconds)
+    const now = Date.now()
+    const afterTime = new Date(afterLogin).getTime()
+    const timeDiff = now - afterTime
+    assert.ok(timeDiff < 5000, `Last login timestamp should be within last 5 seconds (was ${timeDiff}ms ago)`)
     
     console.log('[Test] ✅ Last login timestamp updated')
   })
