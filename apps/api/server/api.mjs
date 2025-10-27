@@ -87,7 +87,28 @@ app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
 
 // Serve 3D models from monorepo assets directory
 // Using /models path to avoid conflict with /assets route
-const assetsWorldPath = path.resolve(ROOT_DIR, '../../assets/world')
+// Auto-detect based on environment:
+// - Railway/Docker: /app/assets/world
+// - Local dev: {workspace}/assets/world
+function getAssetsWorldPath() {
+  // Environment variable takes precedence
+  if (process.env.ASSETS_WORLD_PATH) {
+    return process.env.ASSETS_WORLD_PATH
+  }
+
+  // Check if we're in Railway/Docker (assets at /app/assets)
+  const railwayPath = '/app/assets/world'
+  if (fs.existsSync(railwayPath)) {
+    return railwayPath
+  }
+
+  // Local development - go up to workspace root, then into assets
+  // From: /apps/api/server/api.mjs
+  // To:   /assets/world
+  return path.resolve(ROOT_DIR, '../../assets/world')
+}
+
+const assetsWorldPath = getAssetsWorldPath()
 const modelsPath = path.join(assetsWorldPath, 'models')
 console.log(`[Models] Serving 3D models from: ${modelsPath}`)
 app.use('/models', express.static(modelsPath, {

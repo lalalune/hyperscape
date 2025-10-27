@@ -15,10 +15,33 @@ const __dirname = path.dirname(__filename)
 const router = express.Router()
 
 // Path to Hyperscape manifests
-// In Docker: /app/packages/server/world/assets/manifests
-// On host: /Users/home/hyperscape-3/packages/server/world/assets/manifests
-const MANIFESTS_PATH = process.env.MANIFESTS_PATH ||
-  path.join(__dirname, '../../../..', 'packages/server/world/assets/manifests')
+// Auto-detect based on environment:
+// - Railway/Docker: /app/assets/world/manifests
+// - Local dev: {workspace}/assets/world/manifests
+function getManifestsPath() {
+  // Environment variable takes precedence
+  if (process.env.MANIFESTS_PATH) {
+    return process.env.MANIFESTS_PATH
+  }
+
+  // Check if we're in Railway/Docker (assets at /app/assets)
+  const railwayPath = '/app/assets/world/manifests'
+  try {
+    if (fs.existsSync(railwayPath)) {
+      return railwayPath
+    }
+  } catch (error) {
+    // Path doesn't exist, continue
+  }
+
+  // Local development - go up to workspace root, then into assets
+  // From: /apps/api/server/routes/manifests.mjs
+  // To:   /assets/world/manifests
+  return path.join(__dirname, '../../../../assets/world/manifests')
+}
+
+const MANIFESTS_PATH = getManifestsPath()
+console.log('[Manifests API] Using manifests path:', MANIFESTS_PATH)
 
 /**
  * GET /api/manifests

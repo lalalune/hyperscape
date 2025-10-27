@@ -1,0 +1,20 @@
+# Nixpacks configuration for Railway deployment
+# Ensures we only install API dependencies, not the entire monorepo
+
+[phases.setup]
+nixPkgs = ["nodejs", "bun"]
+
+[phases.install]
+cmds = [
+  "cd apps/api",
+  "bun install --production --frozen-lockfile"
+]
+
+[phases.build]
+cmds = [
+  "echo 'No build step required for API server'"
+]
+
+[start]
+cmd = "node apps/api/server/api.mjs"
+
