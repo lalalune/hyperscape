@@ -2,7 +2,8 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "nixpacksConfigPath": "nixpacks.toml"
+    "nixpacksConfigPath": "nixpacks.toml",
+    "buildCommand": "node apps/api/server/scripts/migrate-manifests-to-postgres.mjs || true"
   },
   "deploy": {
     "startCommand": "node apps/api/server/api.mjs",

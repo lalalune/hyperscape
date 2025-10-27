@@ -12,6 +12,8 @@
     "assets:audit": "npx tsx scripts/audit-assets.ts",
     "assets:normalize": "npx tsx scripts/normalize-all-assets.ts",
     "count:lines": "node scripts/count-lines.mjs",
+    "migrate:manifests": "node server/scripts/migrate-manifests-to-postgres.mjs",
+    "seed:manifests": "node server/scripts/seed-preview-manifests.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
