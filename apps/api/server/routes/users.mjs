@@ -279,4 +279,187 @@ router.patch('/me/last-login', async (req, res) => {
   }
 })
 
+// GET /api/users/me/api-keys - Get user's third-party API keys (encrypted)
+router.get('/me/api-keys', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id']
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID not provided in headers' })
+    }
+
+    // Get user settings
+    const result = await query(
+      `SELECT settings FROM users WHERE privy_user_id = $1`,
+      [userId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const settings = result.rows[0].settings || {}
+    const apiKeys = settings.apiKeys || {}
+
+    // Return masked keys for display
+    const maskedKeys = []
+    
+    if (apiKeys.openai) {
+      maskedKeys.push({
+        id: 'openai',
+        provider: 'openai',
+        maskedKey: `${apiKeys.openai.substring(0, 7)}...${apiKeys.openai.substring(apiKeys.openai.length - 4)}`,
+        isActive: true,
+        lastUsedAt: apiKeys.openaiLastUsed || null,
+        createdAt: apiKeys.openaiCreatedAt || new Date().toISOString()
+      })
+    }
+
+    if (apiKeys.meshy) {
+      maskedKeys.push({
+        id: 'meshy',
+        provider: 'meshy',
+        maskedKey: `${apiKeys.meshy.substring(0, 7)}...${apiKeys.meshy.substring(apiKeys.meshy.length - 4)}`,
+        isActive: true,
+        lastUsedAt: apiKeys.meshyLastUsed || null,
+        createdAt: apiKeys.meshyCreatedAt || new Date().toISOString()
+      })
+    }
+
+    if (apiKeys.elevenlabs) {
+      maskedKeys.push({
+        id: 'elevenlabs',
+        provider: 'elevenlabs',
+        maskedKey: `${apiKeys.elevenlabs.substring(0, 7)}...${apiKeys.elevenlabs.substring(apiKeys.elevenlabs.length - 4)}`,
+        isActive: true,
+        lastUsedAt: apiKeys.elevenlabsLastUsed || null,
+        createdAt: apiKeys.elevenlabsCreatedAt || new Date().toISOString()
+      })
+    }
+
+    res.json(maskedKeys)
+  } catch (error) {
+    console.error('[Users API] Error fetching API keys:', error)
+    res.status(500).json({ error: 'Failed to fetch API keys' })
+  }
+})
+
+// POST /api/users/me/api-keys - Add or update third-party API key
+router.post('/me/api-keys', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id']
+    const { provider, apiKey } = req.body
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID not provided in headers' })
+    }
+
+    if (!provider || !apiKey) {
+      return res.status(400).json({ error: 'Provider and API key are required' })
+    }
+
+    const validProviders = ['openai', 'meshy', 'elevenlabs']
+    if (!validProviders.includes(provider)) {
+      return res.status(400).json({ error: `Invalid provider. Must be one of: ${validProviders.join(', ')}` })
+    }
+
+    // Get current settings
+    const currentResult = await query(
+      `SELECT settings FROM users WHERE privy_user_id = $1`,
+      [userId]
+    )
+
+    if (currentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const currentSettings = currentResult.rows[0].settings || {}
+    const apiKeys = currentSettings.apiKeys || {}
+
+    // Store the API key (in production, this should be encrypted)
+    // TODO: Add proper encryption using crypto.encrypt with a secret key
+    apiKeys[provider] = apiKey
+    apiKeys[`${provider}CreatedAt`] = new Date().toISOString()
+    apiKeys[`${provider}LastUsed`] = null
+
+    const mergedSettings = {
+      ...currentSettings,
+      apiKeys
+    }
+
+    // Update settings
+    await query(
+      `UPDATE users
+       SET settings = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE privy_user_id = $2`,
+      [JSON.stringify(mergedSettings), userId]
+    )
+
+    res.json({
+      success: true,
+      message: `${provider} API key added successfully`,
+      provider
+    })
+  } catch (error) {
+    console.error('[Users API] Error adding API key:', error)
+    res.status(500).json({ error: 'Failed to add API key' })
+  }
+})
+
+// DELETE /api/users/me/api-keys/:provider - Delete third-party API key
+router.delete('/me/api-keys/:provider', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id']
+    const { provider } = req.params
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID not provided in headers' })
+    }
+
+    const validProviders = ['openai', 'meshy', 'elevenlabs']
+    if (!validProviders.includes(provider)) {
+      return res.status(400).json({ error: `Invalid provider. Must be one of: ${validProviders.join(', ')}` })
+    }
+
+    // Get current settings
+    const currentResult = await query(
+      `SELECT settings FROM users WHERE privy_user_id = $1`,
+      [userId]
+    )
+
+    if (currentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const currentSettings = currentResult.rows[0].settings || {}
+    const apiKeys = currentSettings.apiKeys || {}
+
+    // Remove the API key
+    delete apiKeys[provider]
+    delete apiKeys[`${provider}CreatedAt`]
+    delete apiKeys[`${provider}LastUsed`]
+
+    const mergedSettings = {
+      ...currentSettings,
+      apiKeys
+    }
+
+    // Update settings
+    await query(
+      `UPDATE users
+       SET settings = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE privy_user_id = $2`,
+      [JSON.stringify(mergedSettings), userId]
+    )
+
+    res.json({
+      success: true,
+      message: `${provider} API key deleted successfully`
+    })
+  } catch (error) {
+    console.error('[Users API] Error deleting API key:', error)
+    res.status(500).json({ error: 'Failed to delete API key' })
+  }
+})
+
 export default router

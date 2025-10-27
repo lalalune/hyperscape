@@ -61,7 +61,7 @@ export function APIKeyManager() {
       setLoading(true)
       setError(null)
 
-      const response = await apiFetch('/api/user/api-keys')
+      const response = await apiFetch('/api/users/me/api-keys')
 
       if (!response.ok) {
         throw new Error('Failed to fetch API keys')
@@ -99,7 +99,7 @@ export function APIKeyManager() {
       setSaving(true)
       setError(null)
 
-      const response = await apiFetch('/api/user/api-keys', {
+      const response = await apiFetch('/api/users/me/api-keys', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +132,7 @@ export function APIKeyManager() {
     try {
       setError(null)
 
-      const response = await apiFetch(`/api/user/api-keys/${keyId}`, {
+      const response = await apiFetch(`/api/users/me/api-keys/${keyId}`, {
         method: 'DELETE',
       })
 

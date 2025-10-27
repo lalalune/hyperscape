@@ -18,11 +18,20 @@ export default function NavigationFooter() {
 
   const handleLogout = async () => {
     try {
+      console.log('[NavigationFooter] Starting logout process...')
+      
       // Clear local auth manager state first
       privyAuthManager.clearAuth()
 
+      // Clear all application state
+      localStorage.removeItem('app-settings')
+      localStorage.removeItem('asset-forge-auth')
+      sessionStorage.clear()
+
       // Clear Privy session and disconnect wallet
       await logout()
+
+      console.log('[NavigationFooter] Logout complete, redirecting...')
 
       // Force reload to landing page (Privy will show login UI)
       window.location.href = '/'
@@ -30,6 +39,8 @@ export default function NavigationFooter() {
       console.error('[NavigationFooter] Logout error:', error)
       // Still attempt to clear local state and redirect
       privyAuthManager.clearAuth()
+      localStorage.clear()
+      sessionStorage.clear()
       window.location.href = '/'
     }
   }

@@ -36,8 +36,33 @@ export function SettingsPage() {
     crashReportsEnabled: true,
 
     // Language
-    language: 'en' as 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh'
+    language: 'en' as 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh',
+
+    // API Configuration
+    aiGatewayUrl: ''
   })
+
+  // Load settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await fetch('/api/users/me', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('privy:token')}`
+          }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          if (data.settings) {
+            setSettings(prev => ({ ...prev, ...data.settings }))
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error)
+      }
+    }
+    loadSettings()
+  }, [])
 
   const handleSaveSettings = async () => {
     setIsSaving(true)
@@ -45,10 +70,22 @@ export function SettingsPage() {
     setSaveError(null)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Save to API
+      const response = await fetch('/api/users/me/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('privy:token')}`
+        },
+        body: JSON.stringify({ settings })
+      })
 
-      // In a real app, save to API/localStorage
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to save settings')
+      }
+
+      // Also save to localStorage for faster loading
       localStorage.setItem('app-settings', JSON.stringify(settings))
 
       setSaveSuccess('Settings saved successfully!')
@@ -310,6 +347,52 @@ export function SettingsPage() {
                   </button>
                 ))}
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* API Configuration */}
+        <Card className="bg-bg-secondary border-border-primary backdrop-blur-md">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              <CardTitle>API Configuration</CardTitle>
+            </div>
+            <CardDescription>Configure AI service endpoints and API keys</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label htmlFor="aiGatewayUrl" className="text-sm font-medium text-text-primary mb-2 block">
+                AI Gateway URL
+              </label>
+              <Input
+                id="aiGatewayUrl"
+                type="url"
+                value={settings.aiGatewayUrl}
+                onChange={(e) => setSettings({ ...settings, aiGatewayUrl: e.target.value })}
+                placeholder="https://api.example.com"
+                className="w-full"
+              />
+              <p className="text-xs text-text-tertiary mt-2">
+                Custom AI Gateway endpoint for routing AI requests (optional)
+              </p>
+            </div>
+
+            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2">
+                <Key className="w-4 h-4" />
+                API Key Management
+              </h4>
+              <p className="text-xs text-text-secondary mb-3">
+                Manage your OpenAI, Meshy AI, and ElevenLabs API keys in your Profile settings
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => useNavigationStore.getState().navigateTo('profile')}
+              >
+                Go to Profile Settings →
+              </Button>
             </div>
           </CardContent>
         </Card>

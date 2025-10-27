@@ -29,6 +29,19 @@ function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
           return
         }
         await privyAuthManager.setAuthenticatedUser(user as typeof user & { [key: string]: unknown }, token)
+        
+        // Update last login timestamp
+        try {
+          await fetch('/api/users/me/last-login', {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'x-user-id': user.id
+            }
+          })
+        } catch (error) {
+          console.warn('[PrivyAuthProvider] Failed to update last login:', error)
+        }
       } else if (ready && !authenticated) {
         privyAuthManager.clearAuth()
       }
