@@ -152,7 +152,7 @@
     "rollup": "^4.46.2",
     "rollup-plugin-dts": "^6.2.1",
     "sharp": "^0.33.5",
-    "tailwindcss": "^4.1.14",
+    "tailwindcss": "^4.1.16",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2",
