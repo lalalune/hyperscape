@@ -7,7 +7,7 @@ import { Upload, Play, Pause, Download, Shuffle, Settings as SettingsIcon, X } f
 import React, { useState, useRef, useCallback } from 'react'
 
 import { Card } from '../components/common'
-import { API_BASE_URL } from '../config/api'
+import { voiceGenerationService } from '../services/VoiceGenerationService'
 import type { ElevenLabsVoice, SpeechToSpeechRequest, SpeechToSpeechResponse } from '../types/voice-generation'
 
 export const VoiceChangerPage: React.FC = () => {
@@ -45,11 +45,10 @@ export const VoiceChangerPage: React.FC = () => {
   const loadVoices = async () => {
     setLoadingVoices(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/voice/library`)
-      const data = await response.json()
-      setVoices(data.voices || [])
-      if (data.voices && data.voices.length > 0) {
-        setSelectedVoiceId(data.voices[0].voiceId)
+      const voices = await voiceGenerationService.getVoiceLibrary()
+      setVoices(voices)
+      if (voices.length > 0) {
+        setSelectedVoiceId(voices[0].voiceId)
       }
     } catch (error) {
       console.error('Failed to load voices:', error)
@@ -91,50 +90,16 @@ export const VoiceChangerPage: React.FC = () => {
     setConversionError('')
 
     try {
-      // Convert file to base64
-      const reader = new FileReader()
-      reader.readAsDataURL(originalAudio)
-
-      await new Promise<void>((resolve, reject) => {
-        reader.onload = async () => {
-          try {
-            const base64Audio = reader.result as string
-            const audioBase64 = base64Audio.split(',')[1] // Remove data:audio/...;base64, prefix
-
-            const request: SpeechToSpeechRequest = {
-              audio: audioBase64,
+      const audioBlob = await voiceGenerationService.speechToSpeech({
+        audio: originalAudio,
               voiceId: selectedVoiceId,
               stability,
               similarityBoost,
               removeBackgroundNoise,
-            }
+      })
 
-            const response = await fetch(`${API_BASE_URL}/api/voice/speech-to-speech`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(request),
-            })
-
-            if (!response.ok) {
-              const error = await response.json()
-              throw new Error(error.details || error.error || 'Conversion failed')
-            }
-
-            const data: SpeechToSpeechResponse = await response.json()
-
-            // Create blob from base64 audio
-            const audioBlob = await fetch(`data:audio/mpeg;base64,${data.audio}`).then(r => r.blob())
             const audioUrl = URL.createObjectURL(audioBlob)
             setConvertedAudioUrl(audioUrl)
-
-            resolve()
-          } catch (error) {
-            reject(error)
-          }
-        }
-
-        reader.onerror = () => reject(new Error('Failed to read file'))
-      })
     } catch (error) {
       console.error('Conversion error:', error)
       setConversionError(error instanceof Error ? error.message : 'Failed to convert audio')

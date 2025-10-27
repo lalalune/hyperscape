@@ -7,7 +7,7 @@ import { Palette, Play, Pause, Save, Sparkles, RotateCw, Settings as SettingsIco
 import React, { useState, useRef, useCallback } from 'react'
 
 import { Card } from '../components/common'
-import { API_BASE_URL } from '../config/api'
+import { voiceGenerationService } from '../services/VoiceGenerationService'
 import type { VoiceDesignRequest, VoiceDesignResponse, VoicePreview, CreateVoiceRequest, CreateVoiceResponse } from '../types/voice-generation'
 
 export const VoiceDesignPage: React.FC = () => {
@@ -53,27 +53,14 @@ export const VoiceDesignPage: React.FC = () => {
     setSelectedPreviewId('')
 
     try {
-      const request: VoiceDesignRequest = {
+      const data = await voiceGenerationService.designVoice({
         voiceDescription: voiceDescription.trim(),
         text: useCustomText && customText.trim() ? customText.trim() : undefined,
         autoGenerateText: !useCustomText || !customText.trim(),
         loudness,
         guidanceScale,
         seed: seed !== null ? seed : undefined,
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/voice/design`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
       })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.details || error.error || 'Voice design failed')
-      }
-
-      const data: VoiceDesignResponse = await response.json()
 
       setPreviews(data.previews)
       setGeneratedText(data.text)
@@ -142,27 +129,14 @@ export const VoiceDesignPage: React.FC = () => {
     setSaveSuccess(false)
 
     try {
-      const request: CreateVoiceRequest = {
+      await voiceGenerationService.createVoiceFromPreview({
         voiceName: voiceName.trim(),
         voiceDescription: voiceDescription.trim(),
         generatedVoiceId: selectedPreviewId,
         playedNotSelectedVoiceIds: previews
           .filter(p => p.generatedVoiceId !== selectedPreviewId)
           .map(p => p.generatedVoiceId),
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/voice/create-from-preview`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
       })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.details || error.error || 'Failed to save voice')
-      }
-
-      const data: CreateVoiceResponse = await response.json()
 
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)

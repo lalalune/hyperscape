@@ -56,7 +56,12 @@ tmp/
 .claude-plugin/
 
 # Assets (generated/temporary)
-assets/
+# Note: assets/world/ manifests and models are needed for deployment
+assets/*
+!assets/world/
+assets/world/*
+!assets/world/manifests/
+!assets/world/models/
 
 # Cloned assets repository (too large for codebase)
 hyperscape-assets/
@@ -68,3 +73,4 @@ packages/client/dist/models/
 
 .cursor/rules/kluster-code-verify.mdc
 .kluster
+apps/api/.railway-link.json

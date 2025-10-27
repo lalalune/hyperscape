@@ -73,6 +73,13 @@ export const API_ENDPOINTS = {
   voiceSubscription: `${API_URL}/api/voice/subscription`,
   voiceModels: `${API_URL}/api/voice/models`,
 
+  // Voice Generation - Advanced Features
+  voiceSpeechToSpeech: `${API_URL}/api/voice/speech-to-speech`,
+  voiceSpeechToSpeechStream: `${API_URL}/api/voice/speech-to-speech/stream`,
+  voiceDesign: `${API_URL}/api/voice/design`,
+  voiceCreateFromPreview: `${API_URL}/api/voice/create-from-preview`,
+  voiceRateLimit: `${API_URL}/api/voice/rate-limit`,
+
   // Voice Generation - Manifest Assignment (NEW - requires backend implementation)
   voiceManifestAssign: `${API_URL}/api/voice/manifest/assign`,
   voiceManifestProfile: (manifestType: string, entityId: string) =>
