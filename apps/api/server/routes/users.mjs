@@ -5,8 +5,26 @@
 
 import express from 'express'
 import { query } from '../database/db.mjs'
+import { encrypt, decrypt } from '../utils/crypto.mjs'
 
 const router = express.Router()
+
+/**
+ * Mask an API key for display (works with both plaintext and encrypted keys)
+ */
+function maskApiKey(key) {
+  if (!key) return ''
+  
+  // Check if this is an encrypted key (format: iv:authTag:encrypted)
+  if (key.includes(':') && key.split(':').length === 3) {
+    // It's encrypted, just show that it exists
+    return '•••••••••••••••• (encrypted)'
+  }
+  
+  // Plaintext key - mask it
+  if (key.length <= 11) return key // Too short to mask properly
+  return `${key.substring(0, 7)}...${key.substring(key.length - 4)}`
+}
 
 // GET /api/users/me - Get current user profile
 router.get('/me', async (req, res) => {
@@ -301,14 +319,14 @@ router.get('/me/api-keys', async (req, res) => {
     const settings = result.rows[0].settings || {}
     const apiKeys = settings.apiKeys || {}
 
-    // Return masked keys for display
+    // Return masked keys for display (decrypts and masks)
     const maskedKeys = []
     
     if (apiKeys.openai) {
       maskedKeys.push({
         id: 'openai',
         provider: 'openai',
-        maskedKey: `${apiKeys.openai.substring(0, 7)}...${apiKeys.openai.substring(apiKeys.openai.length - 4)}`,
+        maskedKey: maskApiKey(apiKeys.openai),
         isActive: true,
         lastUsedAt: apiKeys.openaiLastUsed || null,
         createdAt: apiKeys.openaiCreatedAt || new Date().toISOString()
@@ -319,7 +337,7 @@ router.get('/me/api-keys', async (req, res) => {
       maskedKeys.push({
         id: 'meshy',
         provider: 'meshy',
-        maskedKey: `${apiKeys.meshy.substring(0, 7)}...${apiKeys.meshy.substring(apiKeys.meshy.length - 4)}`,
+        maskedKey: maskApiKey(apiKeys.meshy),
         isActive: true,
         lastUsedAt: apiKeys.meshyLastUsed || null,
         createdAt: apiKeys.meshyCreatedAt || new Date().toISOString()
@@ -330,7 +348,7 @@ router.get('/me/api-keys', async (req, res) => {
       maskedKeys.push({
         id: 'elevenlabs',
         provider: 'elevenlabs',
-        maskedKey: `${apiKeys.elevenlabs.substring(0, 7)}...${apiKeys.elevenlabs.substring(apiKeys.elevenlabs.length - 4)}`,
+        maskedKey: maskApiKey(apiKeys.elevenlabs),
         isActive: true,
         lastUsedAt: apiKeys.elevenlabsLastUsed || null,
         createdAt: apiKeys.elevenlabsCreatedAt || new Date().toISOString()
@@ -376,9 +394,10 @@ router.post('/me/api-keys', async (req, res) => {
     const currentSettings = currentResult.rows[0].settings || {}
     const apiKeys = currentSettings.apiKeys || {}
 
-    // Store the API key (in production, this should be encrypted)
-    // TODO: Add proper encryption using crypto.encrypt with a secret key
-    apiKeys[provider] = apiKey
+    // Encrypt the API key before storing (uses crypto.encrypt with ENCRYPTION_SECRET)
+    const encryptedKey = encrypt(apiKey)
+    
+    apiKeys[provider] = encryptedKey
     apiKeys[`${provider}CreatedAt`] = new Date().toISOString()
     apiKeys[`${provider}LastUsed`] = null
 
@@ -461,5 +480,74 @@ router.delete('/me/api-keys/:provider', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete API key' })
   }
 })
+
+/**
+ * Helper function to get decrypted API key for a provider
+ * Used by services that need to actually call external APIs
+ */
+export async function getUserApiKey(privyUserId, provider) {
+  try {
+    const result = await query(
+      'SELECT settings FROM users WHERE privy_user_id = $1',
+      [privyUserId]
+    )
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    const settings = result.rows[0].settings || {}
+    const apiKeys = settings.apiKeys || {}
+    const encryptedKey = apiKeys[provider]
+
+    if (!encryptedKey) {
+      return null
+    }
+
+    // Decrypt the key
+    const decryptedKey = decrypt(encryptedKey)
+    return decryptedKey
+  } catch (error) {
+    console.error(`[Users API] Error getting API key for ${provider}:`, error)
+    return null
+  }
+}
+
+/**
+ * Get all user API keys (decrypted) for services
+ * Returns: { openai: '...', meshy: '...', elevenlabs: '...' }
+ */
+export async function getUserApiKeys(privyUserId) {
+  try {
+    const result = await query(
+      'SELECT settings FROM users WHERE privy_user_id = $1',
+      [privyUserId]
+    )
+
+    if (result.rows.length === 0) {
+      return {}
+    }
+
+    const settings = result.rows[0].settings || {}
+    const apiKeys = settings.apiKeys || {}
+
+    const decryptedKeys = {}
+    
+    if (apiKeys.openai) {
+      decryptedKeys.openai = decrypt(apiKeys.openai)
+    }
+    if (apiKeys.meshy) {
+      decryptedKeys.meshy = decrypt(apiKeys.meshy)
+    }
+    if (apiKeys.elevenlabs) {
+      decryptedKeys.elevenlabs = decrypt(apiKeys.elevenlabs)
+    }
+
+    return decryptedKeys
+  } catch (error) {
+    console.error('[Users API] Error getting user API keys:', error)
+    return {}
+  }
+}
 
 export default router

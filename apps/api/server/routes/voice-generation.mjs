@@ -5,9 +5,26 @@
 
 import express from 'express'
 import { VoiceGenerationService } from '../services/VoiceGenerationService.mjs'
+import { getUserApiKey } from './users.mjs'
 
 const router = express.Router()
-const voiceService = new VoiceGenerationService()
+
+/**
+ * Get API key for the current user (falls back to env var)
+ */
+async function getElevenLabsKey(req) {
+  const userId = req.headers['x-user-id']
+  
+  if (userId) {
+    const userKey = await getUserApiKey(userId, 'elevenlabs')
+    if (userKey) {
+      return userKey
+    }
+  }
+  
+  // Fallback to environment variable
+  return process.env.ELEVENLABS_API_KEY
+}
 
 /**
  * GET /api/voice/library
@@ -17,16 +34,21 @@ router.get('/library', async (req, res) => {
   try {
     console.log('[Voice] GET /api/voice/library')
 
-    if (!voiceService.isAvailable()) {
-      console.warn('[Voice] Service unavailable - API key not configured')
+    // Get API key for this user
+    const apiKey = await getElevenLabsKey(req)
+    
+    if (!apiKey) {
+      console.warn('[Voice] No API key available - neither user key nor env var set')
       return res.status(503).json({
         error: 'Voice generation service not available',
-        message: 'ELEVENLABS_API_KEY not configured',
+        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
         code: 'VOICE_5030'
       })
     }
 
-    const voices = await voiceService.getAvailableVoices()
+    // Create service instance with user's API key
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    const voices = await userVoiceService.getAvailableVoices()
 
     console.log(`[Voice] Voice library fetched: ${voices.length} voices`)
 
@@ -67,16 +89,22 @@ router.post('/generate', async (req, res) => {
       })
     }
 
-    if (!voiceService.isAvailable()) {
+    // Get API key for this user
+    const apiKey = await getElevenLabsKey(req)
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
         code: 'VOICE_5030'
       })
     }
 
     console.log(`[Voice] Generating voice for NPC: ${npcId || 'unknown'}`)
 
-    const result = await voiceService.generateVoice({
+    // Create service instance with user's API key
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    const result = await userVoiceService.generateVoice({
       text,
       voiceId,
       npcId,
@@ -119,16 +147,22 @@ router.post('/batch', async (req, res) => {
       })
     }
 
-    if (!voiceService.isAvailable()) {
+    // Get API key for this user
+    const apiKey = await getElevenLabsKey(req)
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured. Please add your API key in Profile settings.',
         code: 'VOICE_5030'
       })
     }
 
     console.log(`[Voice] Batch generating ${texts.length} voices for NPC: ${npcId || 'unknown'}`)
 
-    const results = await voiceService.generateVoiceBatch({
+    // Create service instance with user's API key
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    const results = await userVoiceService.generateVoiceBatch({
       texts,
       voiceId,
       npcId,
