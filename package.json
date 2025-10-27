@@ -59,7 +59,7 @@
     "docs:rebuild": "bun run docs:clean && bun run docs:build"
   },
   "devDependencies": {
-    "@docusaurus/core": "^3.9.1",
+    "@docusaurus/core": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.1",
     "@eslint/js": "^9.0.0",
     "@types/node": "^24.8.0",
