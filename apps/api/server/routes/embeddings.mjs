@@ -24,9 +24,9 @@ router.get('/search', async (req, res) => {
       threshold = 0.7
     } = req.query
 
-    if (!query) {
+    if (typeof query !== 'string' || !query) {
       return res.status(400).json({
-        error: 'Missing query parameter',
+        error: 'Invalid query parameter',
         code: 'EMBED_3000'
       })
     }
