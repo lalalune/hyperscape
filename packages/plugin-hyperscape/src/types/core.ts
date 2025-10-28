@@ -1,5 +1,5 @@
 // Re-export core types and classes for convenience
-export { World, Entity, System } from "./core-types";
+export type { World, Entity, System } from "./core-types";
 export type {
   Player,
   Vector3,
