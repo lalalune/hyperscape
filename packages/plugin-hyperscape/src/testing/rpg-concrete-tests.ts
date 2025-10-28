@@ -75,9 +75,9 @@ export class ConcreteRPGTests {
 
     // Invert the result for position check (we want it to NOT equal)
     if (
-      result.stateSnapshot?.location.coordinates.x === initialPos.x &&
-      result.stateSnapshot?.location.coordinates.y === initialPos.y &&
-      result.stateSnapshot?.location.coordinates.z === initialPos.z
+      result.stateSnapshot?.location?.coordinates.x === initialPos.x &&
+      result.stateSnapshot?.location?.coordinates.y === initialPos.y &&
+      result.stateSnapshot?.location?.coordinates.z === initialPos.z
     ) {
       result.passed = false;
       result.failures.push("Player did not move from initial position");
@@ -213,9 +213,9 @@ export class ConcreteRPGTests {
     );
 
     // Check for level up
-    if (result.stateSnapshot?.skills.mining?.level > initialMiningLevel) {
+    if (result.stateSnapshot?.skills?.mining?.level > initialMiningLevel) {
       result.failures.push(
-        `Mining leveled up from ${initialMiningLevel} to ${result.stateSnapshot.skills.mining.level}`,
+        `Mining leveled up from ${initialMiningLevel} to ${result.stateSnapshot?.skills?.mining?.level}`,
       );
     }
 

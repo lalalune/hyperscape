@@ -109,7 +109,7 @@ export class ModularTestFramework {
           passed: false,
           failures: [],
           screenshots: [],
-          stateSnapshot: null,
+          stateSnapshot: {} as StateSnapshot,
           timestamp: new Date(),
           skipped: true,
         });
@@ -304,7 +304,7 @@ export class RPGTestSuiteBuilder {
           description: "Verify attacking deals damage",
           execute: async (runtime, service) => {
             const world = service.getWorld();
-            await world?.actions?.execute("ATTACK_TARGET", {
+            await world?.actions?.execute?.("ATTACK_TARGET", {
               target: "goblin",
             });
             await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -343,7 +343,7 @@ export class RPGTestSuiteBuilder {
           description: "Verify healing restores health",
           execute: async (runtime, service) => {
             const world = service.getWorld();
-            await world?.actions?.execute("USE_ITEM", {
+            await world?.actions?.execute?.("USE_ITEM", {
               item: "health_potion",
             });
             await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -383,7 +383,7 @@ export class RPGTestSuiteBuilder {
           description: "Verify items can be picked up",
           execute: async (runtime, service) => {
             const world = service.getWorld();
-            await world?.actions?.execute("PICKUP_ITEM", {
+            await world?.actions?.execute?.("PICKUP_ITEM", {
               itemId: "sword_001",
             });
             await new Promise((resolve) => setTimeout(resolve, 1000));

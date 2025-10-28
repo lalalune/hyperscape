@@ -421,10 +421,10 @@ export class RPGTestHelpers {
     return {
       type: "both",
       visualChecks: [
-        { entityType: targetEntity, expectedColor: null, shouldExist: true },
+        { entityType: targetEntity, expectedColor: 0, shouldExist: true },
         {
           entityType: "special.damage_indicator",
-          expectedColor: null,
+          expectedColor: 0,
           shouldExist: true,
         },
       ],
@@ -510,7 +510,7 @@ export class RPGTestHelpers {
       visualChecks: [
         {
           entityType: "special.player",
-          expectedColor: null,
+          expectedColor: 0,
           position: expectedPos,
           shouldExist: true,
         },

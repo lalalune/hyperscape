@@ -111,7 +111,7 @@ import type {
   RPGStateManager,
   TeleportOptions,
 } from "./types/content-types";
-import { CharacterController } from "./types/core-types";
+import { CharacterController, System } from "./types/core-types";
 import type {
   CharacterControllerOptions,
   ChatMessage,
@@ -536,7 +536,7 @@ Hyperscape world integration service that enables agents to:
     console.info("[Appearance] Avatar uploaded successfully.");
     (agentPlayer as ModifiablePlayer).setSessionAvatar(constructedHttpUrl);
 
-    await this.emoteManager.uploadEmotes();
+    await this.emoteManager!.uploadEmotes();
 
     // Assume send method exists on network
     this.world!.network.send("playerSessionAvatar", {
@@ -1340,7 +1340,7 @@ Hyperscape world integration service that enables agents to:
 
         // Create physics character controller for player
         const characterController =
-          minimalWorld.physics!.createCharacterController({
+          minimalWorld.physics!.createCharacterController!({
             id: playerId,
             position: { x: 0, y: 0, z: 0 } as Vector3,
             radius: 0.5,
@@ -1431,7 +1431,7 @@ Hyperscape world integration service that enables agents to:
         // Start physics simulation loop
         if (minimalWorld.physics?.enabled) {
           setInterval(() => {
-            minimalWorld.physics!.step(minimalWorld.physics!.timeStep);
+            minimalWorld.physics!.step!(minimalWorld.physics!.timeStep);
           }, minimalWorld.physics.timeStep * 1000); // Convert to milliseconds
         }
 

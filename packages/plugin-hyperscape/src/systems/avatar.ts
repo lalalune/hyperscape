@@ -162,7 +162,7 @@ export class AgentAvatar extends Node {
 
     // --- Name Tag Update (Partial) ---
     if (this.nametag) {
-      this.nametag.text = player.data.name;
+      this.nametag.text = player.data.name || "Player";
     } else {
       logger.info("[AgentAvatar] Nametag not available, skipping update.");
     }

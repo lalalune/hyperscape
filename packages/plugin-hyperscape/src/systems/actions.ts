@@ -36,7 +36,7 @@ export class AgentActions extends System {
   }
 
   // Implement required System interface methods
-  async init(options?: Record<string, unknown>): Promise<void> {
+  async init(_options?: unknown): Promise<void> {
     // Initialize the actions system
   }
 

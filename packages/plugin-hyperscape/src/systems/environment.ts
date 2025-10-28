@@ -198,14 +198,14 @@ export class EnvironmentSystem extends System {
       // If model has charAt property, it's a string, otherwise use base
       url = (model as string).charAt ? (model as string) : this.base.model;
     }
-    let glb = this.world.loader?.get("model", url);
+    let glb = this.world.loader?.get("model", url!);
     if (!glb) {
-      glb = await this.world.loader?.load("model", url);
+      glb = await this.world.loader?.load("model", url!);
     }
     if (this.model) {
-      (this.model as THREE.Object3D & { deactivate?: () => void }).deactivate();
+      (this.model as THREE.Object3D & { deactivate?: () => void }).deactivate?.();
     }
-    this.model = (glb as { toNodes?: () => THREE.Object3D })?.toNodes() || null;
+    this.model = (glb as { toNodes?: () => THREE.Object3D })?.toNodes?.() || null;
     if (this.model) {
       (
         this.model as THREE.Object3D & {
