@@ -161,6 +161,7 @@ export class ContentPackLoader implements IContentPackLoader {
     // Register entity colors for visual detection
     if (validated.entityColors) {
       const colorDetector = world.colorDetector;
+      if (colorDetector) {
       Object.entries(validated.entityColors).forEach(([entityType, config]) => {
         if (config.color !== undefined) {
           colorDetector.registerEntityColor(
@@ -173,6 +174,7 @@ export class ContentPackLoader implements IContentPackLoader {
           );
         }
       });
+      }
     }
 
     // Apply UI theme if provided

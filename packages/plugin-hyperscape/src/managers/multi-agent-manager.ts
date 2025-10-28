@@ -199,6 +199,7 @@ export class MultiAgentManager extends EventEmitter {
     // Set up message routing between agents
     for (const agent of this.agents.values()) {
       const messageManager = agent.service.getMessageManager();
+      if (!messageManager) continue;
 
       // Override message handler to broadcast to other agents
       const originalHandler = messageManager.handleMessage.bind(messageManager);
@@ -223,6 +224,8 @@ export class MultiAgentManager extends EventEmitter {
       if (agentId !== fromAgentId && agent.status === "connected") {
         // Simulate receiving message from another agent
         const messageManager = agent.service.getMessageManager();
+        if (!messageManager) continue;
+        
         const agentMessage = {
           ...message,
           fromId: fromAgentId,
