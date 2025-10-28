@@ -64,11 +64,23 @@ RUN groupadd --system --gid 1001 nodejs && \
 COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
 COPY --chown=appuser:nodejs server.mjs ./
 
-# Verify dist directory exists
-RUN ls -la dist/ && echo "Dist directory ready for deployment"
+# Verify dist directory exists and check permissions
+RUN ls -la . && \
+    ls -la dist/ && \
+    echo "=== Files copied and permissions set ===" && \
+    echo "dist/ owner: $(stat -c '%U:%G' dist/ 2>/dev/null || stat -f '%Su:%Sg' dist/)" && \
+    echo "server.mjs owner: $(stat -c '%U:%G' server.mjs 2>/dev/null || stat -f '%Su:%Sg' server.mjs)"
 
 # Switch to non-root user
 USER appuser
+
+# Verify appuser can read the files
+RUN echo "=== Verifying appuser permissions ===" && \
+    whoami && \
+    ls -la && \
+    test -r server.mjs && echo "✓ server.mjs is readable" && \
+    test -r dist/index.html && echo "✓ dist/index.html is readable" && \
+    echo "=== All files accessible ==="
 
 # Expose port (Railway will assign via PORT env var)
 EXPOSE 8080

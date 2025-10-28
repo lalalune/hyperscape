@@ -56,13 +56,37 @@ const ROOT_DIR = path.join(__dirname, '..')
 // Initialize Hono app
 const app = new Hono()
 
-// CORS middleware
-const origin = process.env.NODE_ENV === 'production'
-  ? (process.env.FRONTEND_URL || '*').replace(/\/$/, '') // Remove trailing slash
-  : 'http://localhost:3000'
+// CORS middleware - Allow multiple origins for flexibility
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  'https://forgery-smoky.vercel.app',
+  process.env.FRONTEND_URL
+].filter(Boolean).map(url => url.replace(/\/$/, '')) // Remove trailing slashes
+
+const corsOrigin = (origin) => {
+  // Allow requests with no origin (like mobile apps or curl)
+  if (!origin) return '*'
+
+  // Check if origin is in allowed list
+  if (allowedOrigins.includes(origin)) {
+    return origin
+  }
+
+  // In development, allow all localhost origins
+  if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost:')) {
+    return origin
+  }
+
+  // Default to first allowed origin
+  return allowedOrigins[0] || '*'
+}
+
+console.log('[CORS] Allowed origins:', allowedOrigins)
 
 app.use('*', cors({
-  origin: origin,
+  origin: corsOrigin,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control', 'Pragma', 'Expires', 'x-user-id', 'x-wallet-address'],
   credentials: true,

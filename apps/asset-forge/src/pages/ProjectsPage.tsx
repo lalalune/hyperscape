@@ -132,7 +132,7 @@ export function ProjectsPage() {
               </CardContent>
               <CardFooter className="flex items-center justify-between">
                 <Badge variant={project.status === 'active' ? 'success' : 'secondary'}>
-                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                  {project.status ? project.status.charAt(0).toUpperCase() + project.status.slice(1) : 'Unknown'}
                 </Badge>
                 <Button
                   variant="ghost"
