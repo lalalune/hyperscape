@@ -481,6 +481,8 @@ export enum EventType {
   UI_ATTACK_STYLE_GET = 'ui:attack_style:get',
   UI_ATTACK_STYLE_UPDATE = 'ui:attack_style:update',
   UI_ATTACK_STYLE_CHANGED = 'ui:attack_style:changed',
+  UI_COMBAT_TARGET_CHANGED = 'ui:combat_target:changed',
+  UI_COMBAT_TARGET_HEALTH = 'ui:combat_target:health',
   UI_MESSAGE = 'ui:message',
   UI_REQUEST = 'ui:request',
   UI_CONTEXT_ACTION = 'ui:context_action',

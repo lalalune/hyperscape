@@ -86,9 +86,11 @@ import { XR } from './systems/XR'
  * Window extension for browser testing and debugging.
  * Exposes world instance and THREE.js for console access.
  */
-interface WindowWithWorld extends Window {
-  world?: World
+declare global {
+  interface Window {
+    world?: unknown
   THREE?: typeof THREE
+  }
 }
 
 /**
@@ -206,11 +208,10 @@ export function createClientWorld() {
     
     // Update window.world and window.THREE references
     if (typeof window !== 'undefined') {
-      const windowWithWorld = window as WindowWithWorld;
-      windowWithWorld.world = world;
+      window.world = world as unknown;
       
       const stageSystem = world.stage as StageSystem;
-      windowWithWorld.THREE = stageSystem.THREE;
+      window.THREE = stageSystem.THREE;
     }
   })();
   
