@@ -2,17 +2,26 @@
   "$schema": "https://schema.railpack.com",
   "provider": "node",
   "packages": {
-    "node": "18"
+    "node": "18",
+    "bun": "1.3.1",
+    "python": "3.11"
   },
+  "buildAptPackages": [
+    "build-essential",
+    "python3",
+    "python3-dev",
+    "make",
+    "g++"
+  ],
   "steps": {
     "install": {
       "commands": [
-        "npm install --workspace=apps/api --include-workspace-root"
+        "cd /app && bun install --frozen-lockfile --backend=hardlink"
       ]
     }
   },
   "deploy": {
-    "startCommand": "npm run start --workspace=apps/api",
+    "startCommand": "cd /app/apps/api && bun run start",
     "variables": {
       "NODE_ENV": "production"
     }
