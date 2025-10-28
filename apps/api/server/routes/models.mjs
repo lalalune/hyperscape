@@ -10,12 +10,12 @@
  * - GET /api/models/:category/recommended - Get recommended models for a category
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
-import { validateParams } from '../middleware/validation.mjs'
+import { validateParams } from '../middleware/validation-hono.mjs'
 import { CategoryParamSchema } from '../validation/model-schemas.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 // Create db object wrapper for compatibility
 const db = { query }
@@ -54,7 +54,7 @@ function formatModelData(row) {
  * GET /api/models
  * Get all enabled models grouped by category
  */
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   const startTime = Date.now()
 
   try {
@@ -96,7 +96,7 @@ router.get('/', async (req, res) => {
     const duration = Date.now() - startTime
     console.log(`[Models API] Successfully fetched all models (${duration}ms)`)
 
-    res.json({
+    return c.json({
       categories: Object.keys(modelsByCategory).sort(),
       models: modelsByCategory,
       totalEnabled: result.rows.length
@@ -106,12 +106,12 @@ router.get('/', async (req, res) => {
     console.error(`[Models API] Failed to fetch enabled models (${duration}ms):`, error.message)
     console.error('[Models API] Error stack:', error.stack)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to fetch AI models',
       code: 'MODEL_2104',
       message: error.message,
       timestamp: new Date().toISOString()
-    })
+    }, 500)
   }
 })
 
@@ -120,9 +120,9 @@ router.get('/', async (req, res) => {
  * Get recommended models for a category
  * NOTE: This must come BEFORE /:category route to avoid matching "recommended" as a category
  */
-router.get('/:category/recommended', validateParams(CategoryParamSchema), async (req, res) => {
+router.get('/:category/recommended', validateParams(CategoryParamSchema), async (c) => {
   const startTime = Date.now()
-  const { category } = req.params
+  const category = c.req.param('category')
 
   try {
 
@@ -162,7 +162,7 @@ router.get('/:category/recommended', validateParams(CategoryParamSchema), async 
     const duration = Date.now() - startTime
     console.log(`[Models API] Found ${models.length} recommended models for "${category}" (${duration}ms)`)
 
-    res.json({
+    return c.json({
       category: category,
       count: models.length,
       models: models
@@ -172,13 +172,13 @@ router.get('/:category/recommended', validateParams(CategoryParamSchema), async 
     console.error(`[Models API] Failed to fetch recommended models for "${category}" (${duration}ms):`, error.message)
     console.error('[Models API] Error stack:', error.stack)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to fetch recommended models',
       code: 'MODEL_2104',
       category: category,
       message: error.message,
       timestamp: new Date().toISOString()
-    })
+    }, 500)
   }
 })
 
@@ -186,9 +186,9 @@ router.get('/:category/recommended', validateParams(CategoryParamSchema), async 
  * GET /api/models/:category
  * Get enabled models for a specific category
  */
-router.get('/:category', validateParams(CategoryParamSchema), async (req, res) => {
+router.get('/:category', validateParams(CategoryParamSchema), async (c) => {
   const startTime = Date.now()
-  const { category } = req.params
+  const category = c.req.param('category')
 
   try {
 
@@ -229,7 +229,7 @@ router.get('/:category', validateParams(CategoryParamSchema), async (req, res) =
     const duration = Date.now() - startTime
     console.log(`[Models API] Found ${models.length} models for category "${category}" (${duration}ms)`)
 
-    res.json({
+    return c.json({
       category: category,
       count: models.length,
       models: models
@@ -239,13 +239,13 @@ router.get('/:category', validateParams(CategoryParamSchema), async (req, res) =
     console.error(`[Models API] Failed to fetch models for category "${category}" (${duration}ms):`, error.message)
     console.error('[Models API] Error stack:', error.stack)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to fetch models for category',
       code: 'MODEL_2104',
       category: category,
       message: error.message,
       timestamp: new Date().toISOString()
-    })
+    }, 500)
   }
 })
 

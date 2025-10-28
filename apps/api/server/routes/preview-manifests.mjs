@@ -3,10 +3,10 @@
  * Manages user and team preview manifests for AI content generation
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 /**
  * Convert Privy user ID to internal UUID
@@ -23,19 +23,19 @@ async function getUserId(privyUserId) {
  * GET /api/preview-manifests
  * Get all user's preview manifests or filtered by type
  */
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { type } = req.query
+    const type = c.req.query('type')
 
     let result
     if (type) {
@@ -54,7 +54,7 @@ router.get('/', async (req, res) => {
       )
     }
 
-    res.json({
+    return c.json({
       count: result.rows.length,
       manifests: result.rows.map(row => ({
         id: row.id,
@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error fetching manifests:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -77,19 +77,19 @@ router.get('/', async (req, res) => {
  * Get specific manifest type's content array
  * Auto-creates if doesn't exist
  */
-router.get('/:type', async (req, res) => {
+router.get('/:type', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { type } = req.params
+    const type = c.req.param('type')
 
     // Try to get existing manifest
     let result = await query(
@@ -120,10 +120,10 @@ router.get('/:type', async (req, res) => {
 
     const manifest = result.rows[0]
     if (!manifest) {
-      return res.status(500).json({ error: 'Failed to create or retrieve manifest' })
+      return c.json({ error: 'Failed to create or retrieve manifest' }, 500)
     }
 
-    res.json({
+    return c.json({
       id: manifest.id,
       type: manifest.manifest_type,
       content: manifest.content || [],
@@ -133,7 +133,7 @@ router.get('/:type', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error getting manifest:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -142,19 +142,19 @@ router.get('/:type', async (req, res) => {
  * Get merged view: original (published) items + user's draft items
  * This is the main endpoint for viewing manifests in Asset Forge
  */
-router.get('/:type/merged', async (req, res) => {
+router.get('/:type/merged', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { type } = req.params
+    const type = c.req.param('type')
 
     // Get system user ID (owner of original manifests)
     const systemUserResult = await query(
@@ -162,7 +162,7 @@ router.get('/:type/merged', async (req, res) => {
     )
 
     if (systemUserResult.rows.length === 0) {
-      return res.status(500).json({ error: 'System manifests not initialized' })
+      return c.json({ error: 'System manifests not initialized' }, 500)
     }
 
     const systemUserId = systemUserResult.rows[0].id
@@ -215,7 +215,7 @@ router.get('/:type/merged', async (req, res) => {
 
     const mergedContent = Array.from(contentMap.values())
 
-    res.json({
+    return c.json({
       type,
       content: mergedContent,
       stats: {
@@ -232,7 +232,7 @@ router.get('/:type/merged', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error getting merged manifest:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -240,23 +240,23 @@ router.get('/:type/merged', async (req, res) => {
  * POST /api/preview-manifests/:type/item
  * Add item to preview manifest content array
  */
-router.post('/:type/item', async (req, res) => {
+router.post('/:type/item', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { type } = req.params
-    const item = req.body
+    const type = c.req.param('type')
+    const item = await c.req.json()
 
     if (!item || !item.id) {
-      return res.status(400).json({ error: 'Item must have an id field' })
+      return c.json({ error: 'Item must have an id field' }, 400)
     }
 
     // Ensure manifest exists
@@ -279,11 +279,11 @@ router.post('/:type/item', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Manifest not found' })
+      return c.json({ error: 'Manifest not found' }, 404)
     }
 
     const manifest = result.rows[0]
-    res.json({
+    return c.json({
       id: manifest.id,
       type: manifest.manifest_type,
       content: manifest.content,
@@ -292,7 +292,7 @@ router.post('/:type/item', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error adding item:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -300,23 +300,24 @@ router.post('/:type/item', async (req, res) => {
  * PUT /api/preview-manifests/:type/:itemId
  * Update item in content array
  */
-router.put('/:type/:itemId', async (req, res) => {
+router.put('/:type/:itemId', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { type, itemId } = req.params
-    const updatedItem = req.body
+    const type = c.req.param('type')
+    const itemId = c.req.param('itemId')
+    const updatedItem = await c.req.json()
 
     if (!updatedItem || !updatedItem.id) {
-      return res.status(400).json({ error: 'Updated item must have an id field' })
+      return c.json({ error: 'Updated item must have an id field' }, 400)
     }
 
     // Remove old item and add updated item
@@ -335,11 +336,11 @@ router.put('/:type/:itemId', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Manifest not found' })
+      return c.json({ error: 'Manifest not found' }, 404)
     }
 
     const manifest = result.rows[0]
-    res.json({
+    return c.json({
       id: manifest.id,
       type: manifest.manifest_type,
       content: manifest.content,
@@ -348,7 +349,7 @@ router.put('/:type/:itemId', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error updating item:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -356,19 +357,20 @@ router.put('/:type/:itemId', async (req, res) => {
  * DELETE /api/preview-manifests/:type/:itemId
  * Delete item from content array
  */
-router.delete('/:type/:itemId', async (req, res) => {
+router.delete('/:type/:itemId', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { type, itemId } = req.params
+    const type = c.req.param('type')
+    const itemId = c.req.param('itemId')
 
     // Remove item from content array
     const result = await query(
@@ -386,11 +388,11 @@ router.delete('/:type/:itemId', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Manifest not found' })
+      return c.json({ error: 'Manifest not found' }, 404)
     }
 
     const manifest = result.rows[0]
-    res.json({
+    return c.json({
       success: true,
       id: manifest.id,
       type: manifest.manifest_type,
@@ -400,7 +402,7 @@ router.delete('/:type/:itemId', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error deleting item:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -408,19 +410,19 @@ router.delete('/:type/:itemId', async (req, res) => {
  * GET /api/preview-manifests/team/:teamId
  * Get team's preview manifests
  */
-router.get('/team/:teamId', async (req, res) => {
+router.get('/team/:teamId', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { teamId } = req.params
+    const teamId = c.req.param('teamId')
 
     // Verify user is team member
     const memberCheck = await query(
@@ -429,7 +431,7 @@ router.get('/team/:teamId', async (req, res) => {
     )
 
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'You are not a member of this team' })
+      return c.json({ error: 'You are not a member of this team' }, 403)
     }
 
     // Get team manifests
@@ -440,7 +442,7 @@ router.get('/team/:teamId', async (req, res) => {
       [teamId]
     )
 
-    res.json({
+    return c.json({
       count: result.rows.length,
       teamId,
       manifests: result.rows.map(row => ({
@@ -455,7 +457,7 @@ router.get('/team/:teamId', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error fetching team manifests:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -463,23 +465,24 @@ router.get('/team/:teamId', async (req, res) => {
  * POST /api/preview-manifests/team/:teamId/:type/item
  * Add item to team preview manifest
  */
-router.post('/team/:teamId/:type/item', async (req, res) => {
+router.post('/team/:teamId/:type/item', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { teamId, type } = req.params
-    const item = req.body
+    const teamId = c.req.param('teamId')
+    const type = c.req.param('type')
+    const item = await c.req.json()
 
     if (!item || !item.id) {
-      return res.status(400).json({ error: 'Item must have an id field' })
+      return c.json({ error: 'Item must have an id field' }, 400)
     }
 
     // Verify user is team member
@@ -489,7 +492,7 @@ router.post('/team/:teamId/:type/item', async (req, res) => {
     )
 
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'You are not a member of this team' })
+      return c.json({ error: 'You are not a member of this team' }, 403)
     }
 
     // Ensure manifest exists
@@ -512,11 +515,11 @@ router.post('/team/:teamId/:type/item', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Team manifest not found' })
+      return c.json({ error: 'Team manifest not found' }, 404)
     }
 
     const manifest = result.rows[0]
-    res.json({
+    return c.json({
       id: manifest.id,
       teamId,
       type: manifest.manifest_type,
@@ -526,7 +529,7 @@ router.post('/team/:teamId/:type/item', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error adding item to team manifest:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -534,23 +537,25 @@ router.post('/team/:teamId/:type/item', async (req, res) => {
  * PUT /api/preview-manifests/team/:teamId/:type/:itemId
  * Update item in team preview manifest
  */
-router.put('/team/:teamId/:type/:itemId', async (req, res) => {
+router.put('/team/:teamId/:type/:itemId', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { teamId, type, itemId } = req.params
-    const updatedItem = req.body
+    const teamId = c.req.param('teamId')
+    const type = c.req.param('type')
+    const itemId = c.req.param('itemId')
+    const updatedItem = await c.req.json()
 
     if (!updatedItem || !updatedItem.id) {
-      return res.status(400).json({ error: 'Updated item must have an id field' })
+      return c.json({ error: 'Updated item must have an id field' }, 400)
     }
 
     // Verify user is team member
@@ -560,7 +565,7 @@ router.put('/team/:teamId/:type/:itemId', async (req, res) => {
     )
 
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'You are not a member of this team' })
+      return c.json({ error: 'You are not a member of this team' }, 403)
     }
 
     // Remove old item and add updated item
@@ -579,11 +584,11 @@ router.put('/team/:teamId/:type/:itemId', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Team manifest not found' })
+      return c.json({ error: 'Team manifest not found' }, 404)
     }
 
     const manifest = result.rows[0]
-    res.json({
+    return c.json({
       id: manifest.id,
       teamId,
       type: manifest.manifest_type,
@@ -593,7 +598,7 @@ router.put('/team/:teamId/:type/:itemId', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error updating team manifest item:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -601,19 +606,21 @@ router.put('/team/:teamId/:type/:itemId', async (req, res) => {
  * DELETE /api/preview-manifests/team/:teamId/:type/:itemId
  * Delete item from team preview manifest
  */
-router.delete('/team/:teamId/:type/:itemId', async (req, res) => {
+router.delete('/team/:teamId/:type/:itemId', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { teamId, type, itemId } = req.params
+    const teamId = c.req.param('teamId')
+    const type = c.req.param('type')
+    const itemId = c.req.param('itemId')
 
     // Verify user is team member
     const memberCheck = await query(
@@ -622,7 +629,7 @@ router.delete('/team/:teamId/:type/:itemId', async (req, res) => {
     )
 
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'You are not a member of this team' })
+      return c.json({ error: 'You are not a member of this team' }, 403)
     }
 
     // Remove item from content array
@@ -641,11 +648,11 @@ router.delete('/team/:teamId/:type/:itemId', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Team manifest not found' })
+      return c.json({ error: 'Team manifest not found' }, 404)
     }
 
     const manifest = result.rows[0]
-    res.json({
+    return c.json({
       success: true,
       id: manifest.id,
       teamId,
@@ -656,7 +663,7 @@ router.delete('/team/:teamId/:type/:itemId', async (req, res) => {
     })
   } catch (error) {
     console.error('[Preview Manifests] Error deleting team manifest item:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 

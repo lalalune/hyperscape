@@ -3,10 +3,10 @@
  * Handles user profile management
  */
 
-import express from 'express'
+import { Hono } from 'hono'
+import { zValidator } from '@hono/zod-validator'
 import { query } from '../database/db.mjs'
 import { encrypt, decrypt } from '../utils/crypto.mjs'
-import { validateBody, validateParams } from '../middleware/validation.mjs'
 import {
   AddAPIKeyBodySchema,
   DeleteAPIKeyParamsSchema,
@@ -14,33 +14,33 @@ import {
   UpdateSettingsBodySchema
 } from '../validation/user-schemas.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 /**
  * Mask an API key for display (works with both plaintext and encrypted keys)
  */
 function maskApiKey(key) {
   if (!key) return ''
-  
+
   // Check if this is an encrypted key (format: iv:authTag:encrypted)
   if (key.includes(':') && key.split(':').length === 3) {
     // It's encrypted, just show that it exists
     return '•••••••••••••••• (encrypted)'
   }
-  
+
   // Plaintext key - mask it
   if (key.length <= 11) return key // Too short to mask properly
   return `${key.substring(0, 7)}...${key.substring(key.length - 4)}`
 }
 
 // GET /api/users/me - Get current user profile
-router.get('/me', async (req, res) => {
+router.get('/me', async (c) => {
   try {
     // Get user ID from Privy authentication header
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     // Find user by Privy DID
@@ -56,7 +56,8 @@ router.get('/me', async (req, res) => {
       console.log(`[Users API] Creating new user for Privy DID: ${userId}`)
 
       // Get wallet address from request body or headers
-      const walletAddress = req.body?.wallet_address || req.headers['x-wallet-address']
+      const body = await c.req.json().catch(() => ({}))
+      const walletAddress = body?.wallet_address || c.req.header('x-wallet-address')
 
       // Check if wallet is whitelisted for admin
       let role = 'member'
@@ -81,7 +82,8 @@ router.get('/me', async (req, res) => {
     } else {
       // User exists, but check if we need to update wallet address
       const user = result.rows[0]
-      const walletAddress = req.body?.wallet_address || req.headers['x-wallet-address']
+      const body = await c.req.json().catch(() => ({}))
+      const walletAddress = body?.wallet_address || c.req.header('x-wallet-address')
 
       if (walletAddress && !user.wallet_address) {
         console.log(`[Users API] Updating wallet address for user ${userId}`)
@@ -141,7 +143,7 @@ router.get('/me', async (req, res) => {
 
     const user = result.rows[0]
 
-    res.json({
+    return c.json({
       id: user.id,
       privy_user_id: user.privy_user_id,
       email: user.email,
@@ -154,24 +156,24 @@ router.get('/me', async (req, res) => {
     })
   } catch (error) {
     console.error('[Users API] Error fetching user profile:', error)
-    res.status(500).json({ error: 'Failed to fetch user profile' })
+    return c.json({ error: 'Failed to fetch user profile' }, 500)
   }
 })
 
 // PUT /api/users/me - Update user profile
-router.put('/me', validateBody(UpdateProfileBodySchema), async (req, res) => {
+router.put('/me', zValidator('json', UpdateProfileBodySchema), async (c) => {
   const startTime = Date.now()
-  
+
   try {
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     if (!userId) {
       console.warn('[Users API] PUT /me - No user ID in headers')
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     console.log(`[Users API] PUT /me - User: ${userId}`)
-    const { display_name, email, avatar_url } = req.body
+    const { display_name, email, avatar_url } = c.req.valid('json')
 
     // Build dynamic update query
     const updates = []
@@ -192,7 +194,7 @@ router.put('/me', validateBody(UpdateProfileBodySchema), async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No updates provided' })
+      return c.json({ error: 'No updates provided' }, 400)
     }
 
     // Always update updated_at timestamp
@@ -208,13 +210,13 @@ router.put('/me', validateBody(UpdateProfileBodySchema), async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const user = result.rows[0]
 
     console.log(`[Users API] PUT /me - User: ${userId} - completed in ${Date.now() - startTime}ms`)
-    res.json({
+    return c.json({
       id: user.id,
       privy_user_id: user.privy_user_id,
       email: user.email,
@@ -227,25 +229,25 @@ router.put('/me', validateBody(UpdateProfileBodySchema), async (req, res) => {
       updated_at: user.updated_at
     })
   } catch (error) {
-    console.error(`[Users API] Error updating user profile for ${userId} - failed in ${Date.now() - startTime}ms:`, error)
-    res.status(500).json({ error: 'Failed to update user profile' })
+    console.error(`[Users API] Error updating user profile - failed in ${Date.now() - startTime}ms:`, error)
+    return c.json({ error: 'Failed to update user profile' }, 500)
   }
 })
 
 // PUT /api/users/me/settings - Update user settings
-router.put('/me/settings', validateBody(UpdateSettingsBodySchema), async (req, res) => {
+router.put('/me/settings', zValidator('json', UpdateSettingsBodySchema), async (c) => {
   const startTime = Date.now()
-  
+
   try {
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     if (!userId) {
       console.warn('[Users API] PUT /me/settings - No user ID in headers')
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     console.log(`[Users API] PUT /me/settings - User: ${userId}`)
-    const { settings } = req.body
+    const { settings } = c.req.valid('json')
 
     // First, get current settings to merge
     const currentResult = await query(
@@ -254,7 +256,7 @@ router.put('/me/settings', validateBody(UpdateSettingsBodySchema), async (req, r
     )
 
     if (currentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const currentSettings = currentResult.rows[0].settings || {}
@@ -272,23 +274,23 @@ router.put('/me/settings', validateBody(UpdateSettingsBodySchema), async (req, r
     const duration = Date.now() - startTime
     console.log(`[Users API] PUT /me/settings - User ${userId} settings updated successfully in ${duration}ms`)
 
-    res.json({
+    return c.json({
       settings: result.rows[0].settings
     })
   } catch (error) {
     const duration = Date.now() - startTime
-    console.error(`[Users API] Error updating user settings for ${userId} in PUT /me/settings - failed in ${duration}ms:`, error)
-    res.status(500).json({ error: 'Failed to update user settings' })
+    console.error(`[Users API] Error updating user settings in PUT /me/settings - failed in ${duration}ms:`, error)
+    return c.json({ error: 'Failed to update user settings' }, 500)
   }
 })
 
 // PATCH /api/users/me/last-login - Update last login timestamp
-router.patch('/me/last-login', async (req, res) => {
+router.patch('/me/last-login', async (c) => {
   try {
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     const result = await query(
@@ -300,26 +302,26 @@ router.patch('/me/last-login', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    res.json({
+    return c.json({
       success: true,
       last_login_at: result.rows[0].last_login_at
     })
   } catch (error) {
     console.error('[Users API] Error updating last login:', error)
-    res.status(500).json({ error: 'Failed to update last login' })
+    return c.json({ error: 'Failed to update last login' }, 500)
   }
 })
 
 // GET /api/users/me/api-keys - Get user's third-party API keys (encrypted)
-router.get('/me/api-keys', async (req, res) => {
+router.get('/me/api-keys', async (c) => {
   try {
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     // Get user settings
@@ -329,7 +331,7 @@ router.get('/me/api-keys', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const settings = result.rows[0].settings || {}
@@ -368,24 +370,24 @@ router.get('/me/api-keys', async (req, res) => {
       })
     }
 
-    res.json(maskedKeys)
+    return c.json(maskedKeys)
   } catch (error) {
     console.error('[Users API] Error fetching API keys:', error)
-    res.status(500).json({ error: 'Failed to fetch API keys' })
+    return c.json({ error: 'Failed to fetch API keys' }, 500)
   }
 })
 
 // POST /api/users/me/api-keys - Add or update third-party API key
-router.post('/me/api-keys', validateBody(AddAPIKeyBodySchema), async (req, res) => {
+router.post('/me/api-keys', zValidator('json', AddAPIKeyBodySchema), async (c) => {
   const startTime = Date.now()
-  
+
   try {
-    const userId = req.headers['x-user-id']
-    const { provider, apiKey } = req.body
+    const userId = c.req.header('x-user-id')
+    const { provider, apiKey } = c.req.valid('json')
 
     if (!userId) {
       console.warn('[Users API] POST /me/api-keys - No user ID in headers')
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     console.log(`[Users API] POST /me/api-keys - User: ${userId}, Provider: ${provider}`)
@@ -397,7 +399,7 @@ router.post('/me/api-keys', validateBody(AddAPIKeyBodySchema), async (req, res) 
     )
 
     if (currentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const currentSettings = currentResult.rows[0].settings || {}
@@ -405,7 +407,7 @@ router.post('/me/api-keys', validateBody(AddAPIKeyBodySchema), async (req, res) 
 
     // Encrypt the API key before storing (uses crypto.encrypt with ENCRYPTION_SECRET)
     const encryptedKey = encrypt(apiKey)
-    
+
     apiKeys[provider] = encryptedKey
     apiKeys[`${provider}CreatedAt`] = new Date().toISOString()
     apiKeys[`${provider}LastUsed`] = null
@@ -425,8 +427,8 @@ router.post('/me/api-keys', validateBody(AddAPIKeyBodySchema), async (req, res) 
 
     const duration = Date.now() - startTime
     console.log(`[Users API] POST /me/api-keys - Success (${duration}ms) - Provider: ${provider}`)
-    
-    res.json({
+
+    return c.json({
       success: true,
       message: `${provider} API key added successfully`,
       provider
@@ -434,21 +436,21 @@ router.post('/me/api-keys', validateBody(AddAPIKeyBodySchema), async (req, res) 
   } catch (error) {
     const duration = Date.now() - startTime
     console.error(`[Users API] POST /me/api-keys - Error (${duration}ms):`, error.message)
-    res.status(500).json({ error: 'Failed to add API key' })
+    return c.json({ error: 'Failed to add API key' }, 500)
   }
 })
 
 // DELETE /api/users/me/api-keys/:provider - Delete third-party API key
-router.delete('/me/api-keys/:provider', validateParams(DeleteAPIKeyParamsSchema), async (req, res) => {
+router.delete('/me/api-keys/:provider', zValidator('param', DeleteAPIKeyParamsSchema), async (c) => {
   const startTime = Date.now()
-  
+
   try {
-    const userId = req.headers['x-user-id']
-    const { provider } = req.params
+    const userId = c.req.header('x-user-id')
+    const { provider } = c.req.valid('param')
 
     if (!userId) {
       console.warn('[Users API] DELETE /me/api-keys/:provider - No user ID in headers')
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     console.log(`[Users API] DELETE /me/api-keys/${provider} - User: ${userId}`)
@@ -460,7 +462,7 @@ router.delete('/me/api-keys/:provider', validateParams(DeleteAPIKeyParamsSchema)
     )
 
     if (currentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const currentSettings = currentResult.rows[0].settings || {}
@@ -486,15 +488,15 @@ router.delete('/me/api-keys/:provider', validateParams(DeleteAPIKeyParamsSchema)
 
     const duration = Date.now() - startTime
     console.log(`[Users API] DELETE /me/api-keys/${provider} - Success (${duration}ms)`)
-    
-    res.json({
+
+    return c.json({
       success: true,
       message: `${provider} API key deleted successfully`
     })
   } catch (error) {
     const duration = Date.now() - startTime
     console.error(`[Users API] DELETE /me/api-keys/${provider} - Error (${duration}ms):`, error.message)
-    res.status(500).json({ error: 'Failed to delete API key' })
+    return c.json({ error: 'Failed to delete API key' }, 500)
   }
 })
 

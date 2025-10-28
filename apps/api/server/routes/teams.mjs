@@ -3,16 +3,16 @@
  * Handles team CRUD operations and member management
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
 import crypto from 'crypto'
 
-const router = express.Router()
+const router = new Hono()
 
 // GET /api/teams - Get all teams for a user
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
-    const userId = req.query.userId
+    const userId = c.req.query('userId')
 
     let sql = `
       SELECT
@@ -67,26 +67,26 @@ router.get('/', async (req, res) => {
       }
     }))
 
-    res.json({ teams })
+    return c.json({ teams })
   } catch (error) {
     console.error('[Teams API] Error fetching teams:', error)
-    res.status(500).json({ error: 'Failed to fetch teams' })
+    return c.json({ error: 'Failed to fetch teams' }, 500)
   }
 })
 
 // GET /api/teams/:id - Get a single team
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (c) => {
   try {
     const result = await query(
       `SELECT t.*, u.display_name as owner_name
        FROM teams t
        LEFT JOIN users u ON t.owner_id = u.id
        WHERE t.id = $1`,
-      [req.params.id]
+      [c.req.param('id')]
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Team not found' })
+      return c.json({ error: 'Team not found' }, 404)
     }
 
     const team = result.rows[0]
@@ -106,23 +106,23 @@ router.get('/:id', async (req, res) => {
       [team.id]
     )
 
-    res.json({
+    return c.json({
       ...team,
       members: membersResult.rows
     })
   } catch (error) {
     console.error('[Teams API] Error fetching team:', error)
-    res.status(500).json({ error: 'Failed to fetch team' })
+    return c.json({ error: 'Failed to fetch team' }, 500)
   }
 })
 
 // POST /api/teams - Create a new team
-router.post('/', async (req, res) => {
+router.post('/', async (c) => {
   try {
-    const { name, description, userId } = req.body
+    const { name, description, userId } = await c.req.json()
 
     if (!name || !userId) {
-      return res.status(400).json({ error: 'Name and userId are required' })
+      return c.json({ error: 'Name and userId are required' }, 400)
     }
 
     // Ensure user exists
@@ -149,7 +149,7 @@ router.post('/', async (req, res) => {
       [team.id, userId]
     )
 
-    res.status(201).json({
+    return c.json({
       id: team.id,
       name: team.name,
       description: team.description,
@@ -157,17 +157,17 @@ router.post('/', async (req, res) => {
       memberCount: 1,
       members: [],
       createdAt: team.created_at
-    })
+    }, 201)
   } catch (error) {
     console.error('[Teams API] Error creating team:', error)
-    res.status(500).json({ error: 'Failed to create team' })
+    return c.json({ error: 'Failed to create team' }, 500)
   }
 })
 
 // PATCH /api/teams/:id - Update a team
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', async (c) => {
   try {
-    const { name, description } = req.body
+    const { name, description } = await c.req.json()
     const updates = []
     const params = []
     let paramCount = 1
@@ -182,10 +182,10 @@ router.patch('/:id', async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No updates provided' })
+      return c.json({ error: 'No updates provided' }, 400)
     }
 
-    params.push(req.params.id)
+    params.push(c.req.param('id'))
 
     const result = await query(
       `UPDATE teams
@@ -196,43 +196,44 @@ router.patch('/:id', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Team not found' })
+      return c.json({ error: 'Team not found' }, 404)
     }
 
-    res.json(result.rows[0])
+    return c.json(result.rows[0])
   } catch (error) {
     console.error('[Teams API] Error updating team:', error)
-    res.status(500).json({ error: 'Failed to update team' })
+    return c.json({ error: 'Failed to update team' }, 500)
   }
 })
 
 // DELETE /api/teams/:id - Delete a team
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (c) => {
   try {
     const result = await query(
       `DELETE FROM teams WHERE id = $1 RETURNING id`,
-      [req.params.id]
+      [c.req.param('id')]
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Team not found' })
+      return c.json({ error: 'Team not found' }, 404)
     }
 
-    res.json({ success: true, message: 'Team deleted' })
+    return c.json({ success: true, message: 'Team deleted' })
   } catch (error) {
     console.error('[Teams API] Error deleting team:', error)
-    res.status(500).json({ error: 'Failed to delete team' })
+    return c.json({ error: 'Failed to delete team' }, 500)
   }
 })
 
 // POST /api/teams/:id/invite - Invite a member to a team
-router.post('/:id/invite', async (req, res) => {
+router.post('/:id/invite', async (c) => {
   try {
-    const { email } = req.body
-    const teamId = req.params.id
+    const body = await c.req.json()
+    const { email } = body
+    const teamId = c.req.param('id')
 
     if (!email) {
-      return res.status(400).json({ error: 'Email is required' })
+      return c.json({ error: 'Email is required' }, 400)
     }
 
     // Check if team exists
@@ -242,7 +243,7 @@ router.post('/:id/invite', async (req, res) => {
     )
 
     if (teamResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Team not found' })
+      return c.json({ error: 'Team not found' }, 404)
     }
 
     // Generate invitation token
@@ -250,7 +251,7 @@ router.post('/:id/invite', async (req, res) => {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
     // Assuming invited_by comes from authenticated session
-    const invitedBy = req.body.invitedBy || req.query.userId || 'system'
+    const invitedBy = body.invitedBy || c.req.query('userId') || 'system'
 
     await query(
       `INSERT INTO team_invitations (team_id, email, invited_by, token, expires_at)
@@ -258,14 +259,14 @@ router.post('/:id/invite', async (req, res) => {
       [teamId, email, invitedBy, token, expiresAt]
     )
 
-    res.status(201).json({
+    return c.json({
       success: true,
       message: 'Invitation sent',
       token
-    })
+    }, 201)
   } catch (error) {
     console.error('[Teams API] Error inviting member:', error)
-    res.status(500).json({ error: 'Failed to invite member' })
+    return c.json({ error: 'Failed to invite member' }, 500)
   }
 })
 

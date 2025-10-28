@@ -3,10 +3,10 @@
  * Handles user submissions of items for admin approval
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 /**
  * Convert Privy user ID to internal UUID
@@ -31,18 +31,19 @@ async function isAdmin(userId) {
  * POST /api/submissions
  * Submit item for approval
  */
-router.post('/', async (req, res) => {
+router.post('/', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
+    const body = await c.req.json()
     const {
       manifestType,
       itemId,
@@ -51,12 +52,12 @@ router.post('/', async (req, res) => {
       imageUrls,
       modelUrl,
       teamId
-    } = req.body
+    } = body
 
     if (!manifestType || !itemId || !itemData) {
-      return res.status(400).json({
+      return c.json({
         error: 'manifestType, itemId, and itemData are required'
-      })
+      }, 400)
     }
 
     // Validation checks
@@ -80,10 +81,10 @@ router.post('/', async (req, res) => {
     }
 
     if (validationErrors.length > 0) {
-      return res.status(400).json({
+      return c.json({
         error: 'Validation failed',
         validationErrors
-      })
+      }, 400)
     }
 
     // Insert submission
@@ -140,7 +141,7 @@ router.post('/', async (req, res) => {
       )
     }
 
-    res.status(201).json({
+    return c.json({
       success: true,
       submission: {
         id: submission.id,
@@ -150,10 +151,10 @@ router.post('/', async (req, res) => {
         status: submission.status,
         submittedAt: submission.submitted_at
       }
-    })
+    }, 201)
   } catch (error) {
     console.error('[Submissions] Error creating submission:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -161,19 +162,19 @@ router.post('/', async (req, res) => {
  * GET /api/submissions
  * Get user's submissions
  */
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { status } = req.query
+    const status = c.req.query('status')
 
     let result
     if (status) {
@@ -192,7 +193,7 @@ router.get('/', async (req, res) => {
       )
     }
 
-    res.json({
+    return c.json({
       count: result.rows.length,
       submissions: result.rows.map(row => ({
         id: row.id,
@@ -212,7 +213,7 @@ router.get('/', async (req, res) => {
     })
   } catch (error) {
     console.error('[Submissions] Error fetching submissions:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -220,19 +221,19 @@ router.get('/', async (req, res) => {
  * GET /api/submissions/:id
  * Get submission details
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { id } = req.params
+    const id = c.req.param('id')
 
     const result = await query(
       'SELECT * FROM manifest_submissions WHERE id = $1',
@@ -240,7 +241,7 @@ router.get('/:id', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Submission not found' })
+      return c.json({ error: 'Submission not found' }, 404)
     }
 
     const submission = result.rows[0]
@@ -248,10 +249,10 @@ router.get('/:id', async (req, res) => {
     // Verify user owns submission or is admin
     const userIsAdmin = await isAdmin(userId)
     if (submission.user_id !== userId && !userIsAdmin) {
-      return res.status(403).json({ error: 'Unauthorized to view this submission' })
+      return c.json({ error: 'Unauthorized to view this submission' }, 403)
     }
 
-    res.json({
+    return c.json({
       id: submission.id,
       manifestType: submission.manifest_type,
       itemId: submission.item_id,
@@ -274,7 +275,7 @@ router.get('/:id', async (req, res) => {
     })
   } catch (error) {
     console.error('[Submissions] Error fetching submission:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -282,19 +283,19 @@ router.get('/:id', async (req, res) => {
  * PUT /api/submissions/:id/withdraw
  * Withdraw pending submission
  */
-router.put('/:id/withdraw', async (req, res) => {
+router.put('/:id/withdraw', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { id } = req.params
+    const id = c.req.param('id')
 
     // Check if submission exists and is pending
     const checkResult = await query(
@@ -303,22 +304,22 @@ router.put('/:id/withdraw', async (req, res) => {
     )
 
     if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Submission not found' })
+      return c.json({ error: 'Submission not found' }, 404)
     }
 
     const submission = checkResult.rows[0]
 
     // Verify ownership
     if (submission.user_id !== userId) {
-      return res.status(403).json({ error: 'Unauthorized to withdraw this submission' })
+      return c.json({ error: 'Unauthorized to withdraw this submission' }, 403)
     }
 
     // Check if status is pending
     if (submission.status !== 'pending') {
-      return res.status(400).json({
+      return c.json({
         error: 'Only pending submissions can be withdrawn',
         currentStatus: submission.status
-      })
+      }, 400)
     }
 
     // Update status to withdrawn
@@ -330,7 +331,7 @@ router.put('/:id/withdraw', async (req, res) => {
       [id]
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Submission withdrawn successfully',
       submission: {
@@ -341,7 +342,7 @@ router.put('/:id/withdraw', async (req, res) => {
     })
   } catch (error) {
     console.error('[Submissions] Error withdrawing submission:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -349,16 +350,16 @@ router.put('/:id/withdraw', async (req, res) => {
  * GET /api/submissions/stats
  * Get user's submission statistics
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     // Get counts by status
@@ -375,7 +376,7 @@ router.get('/stats', async (req, res) => {
 
     const stats = result.rows[0]
 
-    res.json({
+    return c.json({
       total: parseInt(stats.total) || 0,
       pending: parseInt(stats.pending) || 0,
       approved: parseInt(stats.approved) || 0,
@@ -383,7 +384,7 @@ router.get('/stats', async (req, res) => {
     })
   } catch (error) {
     console.error('[Submissions] Error fetching stats:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 

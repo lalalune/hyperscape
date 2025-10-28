@@ -3,32 +3,30 @@
  * Search and manage vector embeddings for game content
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import db from '../database/db.mjs'
 import ContentEmbedder from '../services/ContentEmbedder.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 /**
  * GET /api/embeddings/search
  * Search for similar content using semantic search
  */
-router.get('/search', async (req, res) => {
+router.get('/search', async (c) => {
   const startTime = Date.now()
 
   try {
-    const {
-      q: query,
-      type: contentType,
-      limit = 10,
-      threshold = 0.7
-    } = req.query
+    const query = c.req.query('q')
+    const contentType = c.req.query('type')
+    const limit = c.req.query('limit') || 10
+    const threshold = c.req.query('threshold') || 0.7
 
     if (!query) {
-      return res.status(400).json({
+      return c.json({
         error: 'Missing query parameter',
         code: 'EMBED_3000'
-      })
+      }, 400)
     }
 
     console.log(`[Embeddings API] Searching for: "${query}" (type: ${contentType || 'all'}, limit: ${limit})`)
@@ -44,7 +42,7 @@ router.get('/search', async (req, res) => {
 
     console.log(`[Embeddings API] Found ${results.length} results (${duration}ms)`)
 
-    res.json({
+    return c.json({
       query,
       contentType: contentType || 'all',
       results,
@@ -55,11 +53,11 @@ router.get('/search', async (req, res) => {
     const duration = Date.now() - startTime
     console.error(`[Embeddings API] Search failed (${duration}ms):`, error.message)
 
-    res.status(500).json({
+    return c.json({
       error: 'Search failed',
       code: 'EMBED_3001',
       message: error.message
-    })
+    }, 500)
   }
 })
 
@@ -67,7 +65,7 @@ router.get('/search', async (req, res) => {
  * POST /api/embeddings/build-context
  * Build AI context from similar content
  */
-router.post('/build-context', async (req, res) => {
+router.post('/build-context', async (c) => {
   const startTime = Date.now()
 
   try {
@@ -76,13 +74,13 @@ router.post('/build-context', async (req, res) => {
       contentType,
       limit = 5,
       threshold = 0.7
-    } = req.body
+    } = await c.req.json()
 
     if (!query) {
-      return res.status(400).json({
+      return c.json({
         error: 'Missing query in request body',
         code: 'EMBED_3000'
-      })
+      }, 400)
     }
 
     console.log(`[Embeddings API] Building context for: "${query}"`)
@@ -98,7 +96,7 @@ router.post('/build-context', async (req, res) => {
 
     console.log(`[Embeddings API] Built context with ${context.sources.length} sources (${duration}ms)`)
 
-    res.json({
+    return c.json({
       query,
       hasContext: context.hasContext,
       context: context.context,
@@ -109,11 +107,11 @@ router.post('/build-context', async (req, res) => {
     const duration = Date.now() - startTime
     console.error(`[Embeddings API] Context building failed (${duration}ms):`, error.message)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to build context',
       code: 'EMBED_3002',
       message: error.message
-    })
+    }, 500)
   }
 })
 
@@ -121,7 +119,7 @@ router.post('/build-context', async (req, res) => {
  * GET /api/embeddings/stats
  * Get embedding statistics
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (c) => {
   const startTime = Date.now()
 
   try {
@@ -134,7 +132,7 @@ router.get('/stats', async (req, res) => {
 
     console.log(`[Embeddings API] Retrieved stats for ${stats.length} content types (${duration}ms)`)
 
-    res.json({
+    return c.json({
       stats,
       duration
     })
@@ -142,11 +140,11 @@ router.get('/stats', async (req, res) => {
     const duration = Date.now() - startTime
     console.error(`[Embeddings API] Stats fetch failed (${duration}ms):`, error.message)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to fetch stats',
       code: 'EMBED_3003',
       message: error.message
-    })
+    }, 500)
   }
 })
 
@@ -154,7 +152,7 @@ router.get('/stats', async (req, res) => {
  * POST /api/embeddings/embed
  * Manually embed content
  */
-router.post('/embed', async (req, res) => {
+router.post('/embed', async (c) => {
   const startTime = Date.now()
 
   try {
@@ -162,21 +160,21 @@ router.post('/embed', async (req, res) => {
       contentType,
       contentId,
       data
-    } = req.body
+    } = await c.req.json()
 
     if (!contentType || !contentId || !data) {
-      return res.status(400).json({
+      return c.json({
         error: 'Missing required fields: contentType, contentId, data',
         code: 'EMBED_3000'
-      })
+      }, 400)
     }
 
     const validTypes = ['lore', 'quest', 'item', 'character', 'npc', 'manifest']
     if (!validTypes.includes(contentType)) {
-      return res.status(400).json({
+      return c.json({
         error: `Invalid content type. Must be one of: ${validTypes.join(', ')}`,
         code: 'EMBED_3004'
-      })
+      }, 400)
     }
 
     console.log(`[Embeddings API] Embedding ${contentType}:${contentId}`)
@@ -209,7 +207,7 @@ router.post('/embed', async (req, res) => {
 
     console.log(`[Embeddings API] Embedded ${contentType}:${contentId} (id=${result.id}, ${duration}ms)`)
 
-    res.json({
+    return c.json({
       success: true,
       contentType,
       contentId,
@@ -220,11 +218,11 @@ router.post('/embed', async (req, res) => {
     const duration = Date.now() - startTime
     console.error(`[Embeddings API] Embedding failed (${duration}ms):`, error.message)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to embed content',
       code: 'EMBED_3005',
       message: error.message
-    })
+    }, 500)
   }
 })
 
@@ -232,17 +230,17 @@ router.post('/embed', async (req, res) => {
  * POST /api/embeddings/batch
  * Batch embed multiple items
  */
-router.post('/batch', async (req, res) => {
+router.post('/batch', async (c) => {
   const startTime = Date.now()
 
   try {
-    const { contentType, items } = req.body
+    const { contentType, items } = await c.req.json()
 
     if (!contentType || !items || !Array.isArray(items)) {
-      return res.status(400).json({
+      return c.json({
         error: 'Missing required fields: contentType, items (array)',
         code: 'EMBED_3000'
-      })
+      }, 400)
     }
 
     console.log(`[Embeddings API] Batch embedding ${items.length} ${contentType} items`)
@@ -254,7 +252,7 @@ router.post('/batch', async (req, res) => {
 
     console.log(`[Embeddings API] Batch embedded ${results.length} items (${duration}ms)`)
 
-    res.json({
+    return c.json({
       success: true,
       contentType,
       count: results.length,
@@ -264,11 +262,11 @@ router.post('/batch', async (req, res) => {
     const duration = Date.now() - startTime
     console.error(`[Embeddings API] Batch embedding failed (${duration}ms):`, error.message)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to batch embed content',
       code: 'EMBED_3006',
       message: error.message
-    })
+    }, 500)
   }
 })
 
@@ -276,11 +274,12 @@ router.post('/batch', async (req, res) => {
  * DELETE /api/embeddings/:contentType/:contentId
  * Delete embedding for content
  */
-router.delete('/:contentType/:contentId', async (req, res) => {
+router.delete('/:contentType/:contentId', async (c) => {
   const startTime = Date.now()
 
   try {
-    const { contentType, contentId } = req.params
+    const contentType = c.req.param('contentType')
+    const contentId = c.req.param('contentId')
 
     console.log(`[Embeddings API] Deleting embedding for ${contentType}:${contentId}`)
 
@@ -291,7 +290,7 @@ router.delete('/:contentType/:contentId', async (req, res) => {
 
     if (deleted) {
       console.log(`[Embeddings API] Deleted embedding for ${contentType}:${contentId} (${duration}ms)`)
-      res.json({
+      return c.json({
         success: true,
         contentType,
         contentId,
@@ -299,22 +298,22 @@ router.delete('/:contentType/:contentId', async (req, res) => {
       })
     } else {
       console.log(`[Embeddings API] Embedding not found for ${contentType}:${contentId} (${duration}ms)`)
-      res.status(404).json({
+      return c.json({
         error: 'Embedding not found',
         code: 'EMBED_3007',
         contentType,
         contentId
-      })
+      }, 404)
     }
   } catch (error) {
     const duration = Date.now() - startTime
     console.error(`[Embeddings API] Delete failed (${duration}ms):`, error.message)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to delete embedding',
       code: 'EMBED_3008',
       message: error.message
-    })
+    }, 500)
   }
 })
 

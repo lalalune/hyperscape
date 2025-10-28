@@ -18,8 +18,11 @@
  * - Statistical correlation with human player difficulty assessments
  */
 
+import { Hono } from 'hono'
 import { randomUUID } from 'crypto'
 import { PlaytesterSwarmOrchestrator } from '../services/PlaytesterSwarmOrchestrator.mjs'
+
+const router = new Hono()
 
 // Predefined playtester personas based on research
 const PLAYTESTER_PERSONAS = {
@@ -95,9 +98,9 @@ const PLAYTESTER_PERSONAS = {
   }
 }
 
-export async function POST(req, res) {
+router.post('/', async (c) => {
   try {
-    const body = req.body
+    const body = await c.req.json()
     const {
       contentToTest,
       contentType,
@@ -108,21 +111,21 @@ export async function POST(req, res) {
 
     // Input validation
     if (!contentToTest || typeof contentToTest !== 'object') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'contentToTest' must be an object (quest, dialogue, etc.)"
-      })
+      }, 400)
     }
 
     if (!contentType || !['quest', 'dialogue', 'npc', 'combat', 'puzzle'].includes(contentType)) {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'contentType' must be one of: quest, dialogue, npc, combat, puzzle"
-      })
+      }, 400)
     }
 
     if (customModel !== undefined && typeof customModel !== 'string') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'model' must be a string if provided"
-      })
+      }, 400)
     }
 
     const sessionId = `playtest_${randomUUID()}`
@@ -147,9 +150,9 @@ export async function POST(req, res) {
         // Use predefined persona
         const persona = PLAYTESTER_PERSONAS[profile]
         if (!persona) {
-          return res.status(400).json({
+          return c.json({
             error: `Invalid tester profile: ${profile}. Must be one of: ${Object.keys(PLAYTESTER_PERSONAS).join(', ')}`
-          })
+          }, 400)
         }
 
         testerConfig = {
@@ -188,7 +191,7 @@ export async function POST(req, res) {
     // Build comprehensive report
     const report = buildTestReport(results, contentType, duration)
 
-    return res.json({
+    return c.json({
       sessionId,
       contentType,
       testCount: results.testCount,
@@ -209,12 +212,12 @@ export async function POST(req, res) {
 
   } catch (error) {
     console.error('[Playtester Swarm] Generation error:', error)
-    return res.status(500).json({
+    return c.json({
       error: 'Failed to run playtester swarm',
       details: error.message
-    })
+    }, 500)
   }
-}
+})
 
 /**
  * Get appropriate knowledge level for archetype
@@ -353,11 +356,13 @@ function getTopConfusionPoints(confusionPoints, limit = 5) {
 /**
  * GET endpoint to retrieve predefined tester personas
  */
-export async function GET(req, res) {
-  return res.json({
+router.get('/', async (c) => {
+  return c.json({
     availablePersonas: Object.keys(PLAYTESTER_PERSONAS),
     personas: PLAYTESTER_PERSONAS,
     defaultSwarm: ['completionist', 'casual', 'breaker', 'speedrunner', 'explorer'],
     description: 'Predefined AI playtester personas based on common player archetypes'
   })
-}
+})
+
+export default router

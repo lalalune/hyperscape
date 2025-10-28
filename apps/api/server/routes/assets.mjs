@@ -3,15 +3,18 @@
  * Handles asset CRUD operations with project associations
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 // GET /api/assets - List assets with filters
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
-    const { userId, projectId, type, status } = req.query
+    const userId = c.req.query('userId')
+    const projectId = c.req.query('projectId')
+    const type = c.req.query('type')
+    const status = c.req.query('status')
 
     let sql = `
       SELECT
@@ -62,7 +65,7 @@ router.get('/', async (req, res) => {
 
     const result = await query(sql, params)
 
-    res.json({
+    return c.json({
       assets: result.rows.map(row => ({
         id: row.id,
         name: row.name,
@@ -90,13 +93,14 @@ router.get('/', async (req, res) => {
     })
   } catch (error) {
     console.error('[Assets API] Error fetching assets:', error)
-    res.status(500).json({ error: 'Failed to fetch assets' })
+    return c.json({ error: 'Failed to fetch assets' }, 500)
   }
 })
 
 // GET /api/assets/:id - Get single asset details
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (c) => {
   try {
+    const id = c.req.param('id')
     const result = await query(
       `SELECT
         a.*,
@@ -107,16 +111,16 @@ router.get('/:id', async (req, res) => {
        LEFT JOIN users u ON a.owner_id = u.id
        LEFT JOIN projects p ON a.project_id = p.id
        WHERE a.id = $1 AND a.status != 'deleted'`,
-      [req.params.id]
+      [id]
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Asset not found' })
+      return c.json({ error: 'Asset not found' }, 404)
     }
 
     const asset = result.rows[0]
 
-    res.json({
+    return c.json({
       id: asset.id,
       name: asset.name,
       description: asset.description,
@@ -141,12 +145,12 @@ router.get('/:id', async (req, res) => {
     })
   } catch (error) {
     console.error('[Assets API] Error fetching asset:', error)
-    res.status(500).json({ error: 'Failed to fetch asset' })
+    return c.json({ error: 'Failed to fetch asset' }, 500)
   }
 })
 
 // POST /api/assets - Create new asset
-router.post('/', async (req, res) => {
+router.post('/', async (c) => {
   try {
     const {
       name,
@@ -165,11 +169,11 @@ router.post('/', async (req, res) => {
       generationParams,
       status = 'active',
       tags = []
-    } = req.body
+    } = await c.req.json()
 
     // Validate required fields
     if (!name || !type || !userId) {
-      return res.status(400).json({ error: 'Name, type, and userId are required' })
+      return c.json({ error: 'Name, type, and userId are required' }, 400)
     }
 
     // First, ensure user exists or create them, and get their UUID
@@ -192,7 +196,7 @@ router.post('/', async (req, res) => {
       )
 
       if (projectResult.rows.length === 0) {
-        return res.status(400).json({ error: 'Invalid projectId - project not found' })
+        return c.json({ error: 'Invalid projectId - project not found' }, 400)
       }
       validatedProjectId = projectId
     }
@@ -253,7 +257,7 @@ router.post('/', async (req, res) => {
       }
     }
 
-    res.status(201).json({
+    return c.json({
       id: asset.id,
       name: asset.name,
       description: asset.description,
@@ -274,15 +278,15 @@ router.post('/', async (req, res) => {
       tags: asset.tags,
       createdAt: asset.created_at,
       updatedAt: asset.updated_at
-    })
+    }, 201)
   } catch (error) {
     console.error('[Assets API] Error creating asset:', error)
-    res.status(500).json({ error: 'Failed to create asset' })
+    return c.json({ error: 'Failed to create asset' }, 500)
   }
 })
 
 // PATCH /api/assets/:id - Update asset
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', async (c) => {
   try {
     const {
       name,
@@ -295,7 +299,7 @@ router.patch('/:id', async (req, res) => {
       category,
       fileSize,
       fileType
-    } = req.body
+    } = await c.req.json()
 
     const updates = []
     const params = []
@@ -318,7 +322,7 @@ router.patch('/:id', async (req, res) => {
         )
 
         if (projectResult.rows.length === 0) {
-          return res.status(400).json({ error: 'Invalid projectId - project not found' })
+          return c.json({ error: 'Invalid projectId - project not found' }, 400)
         }
       }
       updates.push(`project_id = $${paramCount++}`)
@@ -354,13 +358,14 @@ router.patch('/:id', async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No updates provided' })
+      return c.json({ error: 'No updates provided' }, 400)
     }
 
     // Always update the updated_at timestamp
     updates.push(`updated_at = CURRENT_TIMESTAMP`)
 
-    params.push(req.params.id)
+    const id = c.req.param('id')
+    params.push(id)
 
     const result = await query(
       `UPDATE assets
@@ -371,7 +376,7 @@ router.patch('/:id', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Asset not found' })
+      return c.json({ error: 'Asset not found' }, 404)
     }
 
     const asset = result.rows[0]
@@ -398,7 +403,7 @@ router.patch('/:id', async (req, res) => {
       }
     }
 
-    res.json({
+    return c.json({
       id: asset.id,
       name: asset.name,
       description: asset.description,
@@ -423,39 +428,40 @@ router.patch('/:id', async (req, res) => {
     })
   } catch (error) {
     console.error('[Assets API] Error updating asset:', error)
-    res.status(500).json({ error: 'Failed to update asset' })
+    return c.json({ error: 'Failed to update asset' }, 500)
   }
 })
 
 // DELETE /api/assets/:id - Soft delete
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (c) => {
   try {
+    const id = c.req.param('id')
     const result = await query(
       `UPDATE assets
        SET status = 'deleted', updated_at = CURRENT_TIMESTAMP
        WHERE id = $1 AND status != 'deleted'
        RETURNING id`,
-      [req.params.id]
+      [id]
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Asset not found' })
+      return c.json({ error: 'Asset not found' }, 404)
     }
 
-    res.json({ success: true, message: 'Asset deleted' })
+    return c.json({ success: true, message: 'Asset deleted' })
   } catch (error) {
     console.error('[Assets API] Error deleting asset:', error)
-    res.status(500).json({ error: 'Failed to delete asset' })
+    return c.json({ error: 'Failed to delete asset' }, 500)
   }
 })
 
 // POST /api/assets/bulk-delete - Bulk soft delete
-router.post('/bulk-delete', async (req, res) => {
+router.post('/bulk-delete', async (c) => {
   try {
-    const { assetIds } = req.body
+    const { assetIds } = await c.req.json()
 
     if (!assetIds || !Array.isArray(assetIds) || assetIds.length === 0) {
-      return res.status(400).json({ error: 'assetIds array is required' })
+      return c.json({ error: 'assetIds array is required' }, 400)
     }
 
     // Build placeholders for parameterized query
@@ -469,24 +475,24 @@ router.post('/bulk-delete', async (req, res) => {
       assetIds
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: `${result.rows.length} assets deleted`,
       deletedCount: result.rows.length,
     })
   } catch (error) {
     console.error('[Assets API] Error bulk deleting assets:', error)
-    res.status(500).json({ error: 'Failed to delete assets' })
+    return c.json({ error: 'Failed to delete assets' }, 500)
   }
 })
 
 // POST /api/assets/bulk-export - Bulk export assets (metadata only, no ZIP)
-router.post('/bulk-export', async (req, res) => {
+router.post('/bulk-export', async (c) => {
   try {
-    const { assetIds } = req.body
+    const { assetIds } = await c.req.json()
 
     if (!assetIds || !Array.isArray(assetIds) || assetIds.length === 0) {
-      return res.status(400).json({ error: 'assetIds array is required' })
+      return c.json({ error: 'assetIds array is required' }, 400)
     }
 
     // Build placeholders for parameterized query
@@ -522,22 +528,22 @@ router.post('/bulk-export', async (req, res) => {
     }))
 
     // Send as JSON download
-    res.setHeader('Content-Type', 'application/json')
-    res.setHeader('Content-Disposition', `attachment; filename="assets-export-${Date.now()}.json"`)
-    res.json(exportData)
+    c.header('Content-Type', 'application/json')
+    c.header('Content-Disposition', `attachment; filename="assets-export-${Date.now()}.json"`)
+    return c.json(exportData)
   } catch (error) {
     console.error('[Assets API] Error bulk exporting assets:', error)
-    res.status(500).json({ error: 'Failed to export assets' })
+    return c.json({ error: 'Failed to export assets' }, 500)
   }
 })
 
 // POST /api/assets/bulk-archive - Bulk archive assets
-router.post('/bulk-archive', async (req, res) => {
+router.post('/bulk-archive', async (c) => {
   try {
-    const { assetIds } = req.body
+    const { assetIds } = await c.req.json()
 
     if (!assetIds || !Array.isArray(assetIds) || assetIds.length === 0) {
-      return res.status(400).json({ error: 'assetIds array is required' })
+      return c.json({ error: 'assetIds array is required' }, 400)
     }
 
     // Build placeholders for parameterized query
@@ -551,14 +557,14 @@ router.post('/bulk-archive', async (req, res) => {
       assetIds
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: `${result.rows.length} assets archived`,
       archivedCount: result.rows.length,
     })
   } catch (error) {
     console.error('[Assets API] Error bulk archiving assets:', error)
-    res.status(500).json({ error: 'Failed to archive assets' })
+    return c.json({ error: 'Failed to archive assets' }, 500)
   }
 })
 

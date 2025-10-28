@@ -3,7 +3,7 @@
  * Serves actual Hyperscape game manifests for viewing and preview in Asset Forge
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -12,7 +12,7 @@ import { query } from '../database/db.mjs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const router = express.Router()
+const router = new Hono()
 
 // Path to Hyperscape manifests
 // Auto-detect based on environment:
@@ -47,7 +47,7 @@ console.log('[Manifests API] Using manifests path:', MANIFESTS_PATH)
  * GET /api/manifests
  * Get list of all available manifest files
  */
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
     const files = await fs.readdir(MANIFESTS_PATH)
     const manifestFiles = files.filter(f => f.endsWith('.json'))
@@ -67,7 +67,7 @@ router.get('/', async (req, res) => {
       })
     )
 
-    res.json({
+    return c.json({
       count: manifests.length,
       manifests,
       source: 'hyperscape-server',
@@ -75,10 +75,10 @@ router.get('/', async (req, res) => {
     })
   } catch (error) {
     console.error('[Manifests API] Error listing manifests:', error)
-    res.status(500).json({
+    return c.json({
       error: 'Failed to list manifests',
       details: error.message
-    })
+    }, 500)
   }
 })
 
@@ -87,9 +87,9 @@ router.get('/', async (req, res) => {
  * Get specific manifest by type (items, mobs, npcs, etc.)
  * Now uses preview_manifests table with fallback to JSON files
  */
-router.get('/:type', async (req, res) => {
+router.get('/:type', async (c) => {
   try {
-    const { type } = req.params
+    const type = c.req.param('type')
 
     // Try to get from preview_manifests table first (system user's original manifest)
     try {
@@ -109,7 +109,7 @@ router.get('/:type', async (req, res) => {
         if (manifestResult.rows.length > 0) {
           const manifest = manifestResult.rows[0]
 
-          return res.json({
+          return c.json({
             type,
             data: manifest.content || [],
             count: Array.isArray(manifest.content) ? manifest.content.length : 0,
@@ -132,18 +132,19 @@ router.get('/:type', async (req, res) => {
     try {
       await fs.access(filePath)
     } catch {
-      return res.status(404).json({
+      const availableFiles = await fs.readdir(MANIFESTS_PATH)
+      return c.json({
         error: `Manifest '${type}' not found`,
-        availableTypes: (await fs.readdir(MANIFESTS_PATH))
+        availableTypes: availableFiles
           .filter(f => f.endsWith('.json'))
           .map(f => f.replace('.json', ''))
-      })
+      }, 404)
     }
 
     const content = await fs.readFile(filePath, 'utf-8')
     const data = JSON.parse(content)
 
-    res.json({
+    return c.json({
       type,
       data,
       count: Array.isArray(data) ? data.length : Object.keys(data).length,
@@ -151,11 +152,11 @@ router.get('/:type', async (req, res) => {
       filePath: fileName
     })
   } catch (error) {
-    console.error(`[Manifests API] Error reading manifest ${req.params.type}:`, error)
-    res.status(500).json({
-      error: `Failed to read manifest '${req.params.type}'`,
+    console.error(`[Manifests API] Error reading manifest ${c.req.param('type')}:`, error)
+    return c.json({
+      error: `Failed to read manifest '${c.req.param('type')}'`,
       details: error.message
-    })
+    }, 500)
   }
 })
 
@@ -163,9 +164,10 @@ router.get('/:type', async (req, res) => {
  * GET /api/manifests/:type/:id
  * Get specific item from a manifest by ID
  */
-router.get('/:type/:id', async (req, res) => {
+router.get('/:type/:id', async (c) => {
   try {
-    const { type, id } = req.params
+    const type = c.req.param('type')
+    const id = c.req.param('id')
     const fileName = `${type}.json`
     const filePath = path.join(MANIFESTS_PATH, fileName)
 
@@ -173,9 +175,9 @@ router.get('/:type/:id', async (req, res) => {
     try {
       await fs.access(filePath)
     } catch {
-      return res.status(404).json({
+      return c.json({
         error: `Manifest '${type}' not found`
-      })
+      }, 404)
     }
 
     const content = await fs.readFile(filePath, 'utf-8')
@@ -190,23 +192,23 @@ router.get('/:type/:id', async (req, res) => {
     }
 
     if (!item) {
-      return res.status(404).json({
+      return c.json({
         error: `Item '${id}' not found in manifest '${type}'`
-      })
+      }, 404)
     }
 
-    res.json({
+    return c.json({
       type,
       id,
       data: item,
       source: 'hyperscape-server'
     })
   } catch (error) {
-    console.error(`[Manifests API] Error reading item ${req.params.id} from ${req.params.type}:`, error)
-    res.status(500).json({
+    console.error(`[Manifests API] Error reading item ${c.req.param('id')} from ${c.req.param('type')}:`, error)
+    return c.json({
       error: `Failed to read item from manifest`,
       details: error.message
-    })
+    }, 500)
   }
 })
 
@@ -214,13 +216,13 @@ router.get('/:type/:id', async (req, res) => {
  * POST /api/manifests/:type
  * Update a manifest file (for development/testing)
  */
-router.post('/:type', async (req, res) => {
+router.post('/:type', async (c) => {
   try {
-    const { type } = req.params
-    const { data } = req.body
+    const type = c.req.param('type')
+    const { data } = await c.req.json()
 
     if (!data) {
-      return res.status(400).json({ error: 'Manifest data is required' })
+      return c.json({ error: 'Manifest data is required' }, 400)
     }
 
     const fileName = `${type}.json`
@@ -229,18 +231,18 @@ router.post('/:type', async (req, res) => {
     // Write manifest file
     await fs.writeFile(filePath, JSON.stringify(data, null, 2))
 
-    res.json({
+    return c.json({
       success: true,
       message: `Manifest '${type}' updated successfully`,
       type,
       count: Array.isArray(data) ? data.length : Object.keys(data).length
     })
   } catch (error) {
-    console.error(`[Manifests API] Error updating manifest ${req.params.type}:`, error)
-    res.status(500).json({
-      error: `Failed to update manifest '${req.params.type}'`,
+    console.error(`[Manifests API] Error updating manifest ${c.req.param('type')}:`, error)
+    return c.json({
+      error: `Failed to update manifest '${c.req.param('type')}'`,
       details: error.message
-    })
+    }, 500)
   }
 })
 
@@ -248,13 +250,13 @@ router.post('/:type', async (req, res) => {
  * POST /api/manifests/:type/item
  * Add a new item to a manifest
  */
-router.post('/:type/item', async (req, res) => {
+router.post('/:type/item', async (c) => {
   try {
-    const { type } = req.params
-    const { item } = req.body
+    const type = c.req.param('type')
+    const { item } = await c.req.json()
 
     if (!item || !item.id) {
-      return res.status(400).json({ error: 'Item with id is required' })
+      return c.json({ error: 'Item with id is required' }, 400)
     }
 
     const fileName = `${type}.json`
@@ -273,10 +275,10 @@ router.post('/:type/item', async (req, res) => {
     if (Array.isArray(data)) {
       const existingIndex = data.findIndex(i => i.id === item.id)
       if (existingIndex >= 0) {
-        return res.status(409).json({
+        return c.json({
           error: `Item '${item.id}' already exists in manifest '${type}'`,
           suggestion: `Use PUT /api/manifests/${type}/${item.id} to update`
-        })
+        }, 409)
       }
 
       // Add item
@@ -288,18 +290,18 @@ router.post('/:type/item', async (req, res) => {
     // Save manifest
     await fs.writeFile(filePath, JSON.stringify(data, null, 2))
 
-    res.status(201).json({
+    return c.json({
       success: true,
       message: `Item '${item.id}' added to manifest '${type}'`,
       item,
       totalCount: Array.isArray(data) ? data.length : Object.keys(data).length
-    })
+    }, 201)
   } catch (error) {
-    console.error(`[Manifests API] Error adding item to manifest ${req.params.type}:`, error)
-    res.status(500).json({
+    console.error(`[Manifests API] Error adding item to manifest ${c.req.param('type')}:`, error)
+    return c.json({
       error: `Failed to add item to manifest`,
       details: error.message
-    })
+    }, 500)
   }
 })
 
@@ -307,13 +309,14 @@ router.post('/:type/item', async (req, res) => {
  * PUT /api/manifests/:type/:id
  * Update an existing item in a manifest
  */
-router.put('/:type/:id', async (req, res) => {
+router.put('/:type/:id', async (c) => {
   try {
-    const { type, id } = req.params
-    const { item } = req.body
+    const type = c.req.param('type')
+    const id = c.req.param('id')
+    const { item } = await c.req.json()
 
     if (!item) {
-      return res.status(400).json({ error: 'Item data is required' })
+      return c.json({ error: 'Item data is required' }, 400)
     }
 
     const fileName = `${type}.json`
@@ -337,25 +340,25 @@ router.put('/:type/:id', async (req, res) => {
     }
 
     if (!found) {
-      return res.status(404).json({
+      return c.json({
         error: `Item '${id}' not found in manifest '${type}'`
-      })
+      }, 404)
     }
 
     // Save manifest
     await fs.writeFile(filePath, JSON.stringify(data, null, 2))
 
-    res.json({
+    return c.json({
       success: true,
       message: `Item '${id}' updated in manifest '${type}'`,
       item: Array.isArray(data) ? data.find(i => i.id === id) : data[id]
     })
   } catch (error) {
     console.error(`[Manifests API] Error updating item in manifest:`, error)
-    res.status(500).json({
+    return c.json({
       error: `Failed to update item`,
       details: error.message
-    })
+    }, 500)
   }
 })
 

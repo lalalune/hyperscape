@@ -1,7 +1,7 @@
 {
   "name": "asset-forge-api",
   "version": "1.0.0",
-  "description": "Asset Forge API Server",
+  "description": "Asset Forge API Server - Powered by Hono",
   "type": "module",
   "private": true,
   "main": "server/api.mjs",
@@ -24,23 +24,14 @@
     "@ai-sdk/anthropic": "^2.0.37",
     "@ai-sdk/openai": "^2.0.53",
     "@elevenlabs/elevenlabs-js": "2.20.1",
+    "@hono/node-server": "^1.19.5",
+    "@hono/zod-validator": "^0.7.4",
     "ai": "^5.0.0",
     "chalk": "5.6.2",
     "cors": "^2.8.5",
     "dotenv": "17.2.3",
-    "elevenlabs": "^1.59.0",
-    "express": "5.1.0",
-    "node-fetch": "^3.3.2",
+    "hono": "^4.10.3",
     "pg": "^8.11.3",
     "zod": "^4.1.12"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "5.0.4",
-    "@types/node": "24.9.1",
-    "typescript": "^5.3.3"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }

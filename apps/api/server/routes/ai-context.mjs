@@ -3,7 +3,7 @@
  * Manages user preferences for AI context building
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -12,7 +12,7 @@ import { query } from '../database/db.mjs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const router = express.Router()
+const router = new Hono()
 
 /**
  * Convert Privy user ID to internal UUID
@@ -41,16 +41,16 @@ const DEFAULT_PREFERENCES = {
  * GET /api/ai-context/preferences
  * Get user's AI context preferences
  */
-router.get('/preferences', async (req, res) => {
+router.get('/preferences', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     // Try to get existing preferences
@@ -87,7 +87,7 @@ router.get('/preferences', async (req, res) => {
 
     const prefs = result.rows[0]
 
-    res.json({
+    return c.json({
       id: prefs.id,
       userId: prefs.user_id,
       useOwnPreview: prefs.use_own_preview,
@@ -101,7 +101,7 @@ router.get('/preferences', async (req, res) => {
     })
   } catch (error) {
     console.error('[AI Context] Error fetching preferences:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -109,18 +109,19 @@ router.get('/preferences', async (req, res) => {
  * PUT /api/ai-context/preferences
  * Update user's AI context preferences
  */
-router.put('/preferences', async (req, res) => {
+router.put('/preferences', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
+    const body = await c.req.json()
     const {
       useOwnPreview,
       useCdnContent,
@@ -128,7 +129,7 @@ router.put('/preferences', async (req, res) => {
       useAllSubmissions,
       maxContextItems,
       preferRecent
-    } = req.body
+    } = body
 
     // Check if preferences exist
     const existingResult = await query(
@@ -206,7 +207,7 @@ router.put('/preferences', async (req, res) => {
 
     const prefs = result.rows[0]
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Preferences updated successfully',
       preferences: {
@@ -222,7 +223,7 @@ router.put('/preferences', async (req, res) => {
     })
   } catch (error) {
     console.error('[AI Context] Error updating preferences:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -230,22 +231,23 @@ router.put('/preferences', async (req, res) => {
  * POST /api/ai-context/build
  * Build combined manifest context based on user preferences
  */
-router.post('/build', async (req, res) => {
+router.post('/build', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    const { manifestType } = req.body
+    const body = await c.req.json()
+    const { manifestType } = body
 
     if (!manifestType) {
-      return res.status(400).json({ error: 'manifestType is required' })
+      return c.json({ error: 'manifestType is required' }, 400)
     }
 
     // Get user's preferences
@@ -366,7 +368,7 @@ router.post('/build', async (req, res) => {
     const maxItems = prefs.max_context_items || DEFAULT_PREFERENCES.maxContextItems
     const limitedItems = uniqueItems.slice(0, maxItems)
 
-    res.json({
+    return c.json({
       manifestType,
       items: limitedItems,
       sources,
@@ -376,7 +378,7 @@ router.post('/build', async (req, res) => {
     })
   } catch (error) {
     console.error('[AI Context] Error building context:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 

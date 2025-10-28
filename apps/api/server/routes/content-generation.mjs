@@ -5,50 +5,51 @@
  * Integrated with embeddings for memory-augmented generation
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { generateText } from 'ai'
 import { AISDKService } from '../services/AISDKService.mjs'
 import ContentEmbedder from '../services/ContentEmbedder.mjs'
-import { requireAuth } from '../middleware/auth.mjs'
-import { resolveOpenAIKey } from '../middleware/api-key-resolver.mjs'
+import { requireAuth } from '../middleware/auth-hono.mjs'
+import { resolveOpenAIKey } from '../middleware/api-key-resolver-hono.mjs'
 import db from '../database/db.mjs'
 
-const router = express.Router()
+const router = new Hono()
 const embedder = new ContentEmbedder(db)
 
 /**
  * POST /api/generate-dialogue
  * Generate NPC dialogue tree nodes
  */
-router.post('/generate-dialogue', requireAuth, resolveOpenAIKey, async (req, res) => {
+router.post('/generate-dialogue', requireAuth, resolveOpenAIKey, async (c) => {
   try {
-    const { npcName, npcPersonality, context, existingNodes, model: customModel } = req.body
+    const { npcName, npcPersonality, context, existingNodes, model: customModel } = await c.req.json()
 
     // Input validation
     if (!npcName || typeof npcName !== 'string' || npcName.trim() === '') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'npcName' must be a non-empty string",
         code: 'CONTENT_4000'
-      })
+      }, 400)
     }
 
     if (!npcPersonality || typeof npcPersonality !== 'string') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'npcPersonality' must be a string",
         code: 'CONTENT_4001'
-      })
+      }, 400)
     }
 
     if (!Array.isArray(existingNodes)) {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'existingNodes' must be an array",
         code: 'CONTENT_4002'
-      })
+      }, 400)
     }
 
     // Create AI service with resolved API key from middleware
+    const resolvedApiKeys = c.get('resolvedApiKeys')
     const aiService = new AISDKService({
-      openaiApiKey: req.resolvedApiKeys.openai,
+      openaiApiKey: resolvedApiKeys.openai,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY
     })
 
@@ -99,18 +100,18 @@ router.post('/generate-dialogue', requireAuth, resolveOpenAIKey, async (req, res
 
     console.log(`[Content Generation] Generated ${nodes.length} dialogue nodes`)
 
-    return res.json({
+    return c.json({
       nodes,
       model: customModel || 'gpt-4o-mini',
       rawResponse: result.text
     })
   } catch (error) {
     console.error('[Content Generation] Dialogue generation error:', error)
-    return res.status(500).json({
+    return c.json({
       error: 'Failed to generate dialogue',
       code: 'CONTENT_5000',
       details: error.message
-    })
+    }, 500)
   }
 })
 
@@ -118,28 +119,29 @@ router.post('/generate-dialogue', requireAuth, resolveOpenAIKey, async (req, res
  * POST /api/generate-npc
  * Generate complete NPC character
  */
-router.post('/generate-npc', requireAuth, resolveOpenAIKey, async (req, res) => {
+router.post('/generate-npc', requireAuth, resolveOpenAIKey, async (c) => {
   try {
-    const { archetype, prompt, context, model: customModel } = req.body
+    const { archetype, prompt, context, model: customModel } = await c.req.json()
 
     // Input validation
     if (!archetype || typeof archetype !== 'string' || archetype.trim() === '') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'archetype' must be a non-empty string",
         code: 'CONTENT_4010'
-      })
+      }, 400)
     }
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'prompt' must be a non-empty string",
         code: 'CONTENT_4011'
-      })
+      }, 400)
     }
 
     // Create AI service with resolved API key from middleware
+    const resolvedApiKeys = c.get('resolvedApiKeys')
     const aiService = new AISDKService({
-      openaiApiKey: req.resolvedApiKeys.openai,
+      openaiApiKey: resolvedApiKeys.openai,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY
     })
 
@@ -211,18 +213,18 @@ router.post('/generate-npc', requireAuth, resolveOpenAIKey, async (req, res) => 
       // Don't fail the request if embedding fails
     }
 
-    return res.json({
+    return c.json({
       npc: completeNPC,
       model: customModel || 'gpt-4o',
       rawResponse: result.text
     })
   } catch (error) {
     console.error('[Content Generation] NPC generation error:', error)
-    return res.status(500).json({
+    return c.json({
       error: 'Failed to generate NPC',
       code: 'CONTENT_5010',
       details: error.message
-    })
+    }, 500)
   }
 })
 
@@ -230,28 +232,29 @@ router.post('/generate-npc', requireAuth, resolveOpenAIKey, async (req, res) => 
  * POST /api/generate-quest
  * Generate game quest
  */
-router.post('/generate-quest', requireAuth, resolveOpenAIKey, async (req, res) => {
+router.post('/generate-quest', requireAuth, resolveOpenAIKey, async (c) => {
   try {
-    const { questType, difficulty, theme, context, model: customModel } = req.body
+    const { questType, difficulty, theme, context, model: customModel } = await c.req.json()
 
     // Input validation
     if (!questType || typeof questType !== 'string' || questType.trim() === '') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'questType' must be a non-empty string",
         code: 'CONTENT_4020'
-      })
+      }, 400)
     }
 
     if (!difficulty || typeof difficulty !== 'string') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'difficulty' must be a string",
         code: 'CONTENT_4021'
-      })
+      }, 400)
     }
 
     // Create AI service with resolved API key from middleware
+    const resolvedApiKeys = c.get('resolvedApiKeys')
     const aiService = new AISDKService({
-      openaiApiKey: req.resolvedApiKeys.openai,
+      openaiApiKey: resolvedApiKeys.openai,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY
     })
 
@@ -324,18 +327,18 @@ router.post('/generate-quest', requireAuth, resolveOpenAIKey, async (req, res) =
       // Don't fail the request if embedding fails
     }
 
-    return res.json({
+    return c.json({
       quest: completeQuest,
       model: customModel || 'gpt-4o',
       rawResponse: result.text
     })
   } catch (error) {
     console.error('[Content Generation] Quest generation error:', error)
-    return res.status(500).json({
+    return c.json({
       error: 'Failed to generate quest',
       code: 'CONTENT_5020',
       details: error.message
-    })
+    }, 500)
   }
 })
 

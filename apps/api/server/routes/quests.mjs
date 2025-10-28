@@ -3,19 +3,19 @@
  * Endpoints for quest management and AI-powered quest fixing
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import db from '../database/db.mjs'
 import { AISDKService } from '../services/AISDKService.mjs'
 import QuestFixService from '../services/QuestFixService.mjs'
 
-const router = express.Router()
+const router = new Hono()
 const aiService = new AISDKService()
 
 /**
  * POST /api/quests/fix-with-ai
  * Fix a quest based on playtester feedback using AI
  */
-router.post('/fix-with-ai', async (req, res) => {
+router.post('/fix-with-ai', async (c) => {
   const startTime = Date.now()
 
   try {
@@ -23,21 +23,21 @@ router.post('/fix-with-ai', async (req, res) => {
       quest,
       playtestFindings,
       fixOptions = {}
-    } = req.body
+    } = await c.req.json()
 
     // Validate request
     if (!quest) {
-      return res.status(400).json({
+      return c.json({
         error: 'Missing quest data',
         code: 'QUEST_4000'
-      })
+      }, 400)
     }
 
     if (!playtestFindings) {
-      return res.status(400).json({
+      return c.json({
         error: 'Missing playtester findings',
         code: 'QUEST_4001'
-      })
+      }, 400)
     }
 
     console.log(`[Quest API] Fixing quest: ${quest.title || quest.id}`)
@@ -75,12 +75,12 @@ router.post('/fix-with-ai', async (req, res) => {
 
     if (!validation.valid) {
       console.error('[Quest API] Fixed quest validation failed:', validation.errors)
-      return res.status(500).json({
+      return c.json({
         error: 'AI generated invalid quest fixes',
         code: 'QUEST_4002',
         validationErrors: validation.errors,
         details: 'The AI-generated fixes did not pass validation'
-      })
+      }, 500)
     }
 
     if (validation.warnings.length > 0) {
@@ -94,7 +94,7 @@ router.post('/fix-with-ai', async (req, res) => {
     console.log(`[Quest API] Bugs fixed: ${fixResult.fixedIssues.bugsFixed?.length || 0}`)
     console.log(`[Quest API] Recommendations applied: ${fixResult.fixedIssues.recommendationsApplied?.length || 0}`)
 
-    res.json({
+    return c.json({
       success: true,
       ...fixResult,
       validation: {
@@ -108,12 +108,12 @@ router.post('/fix-with-ai', async (req, res) => {
     console.error(`[Quest API] Failed to fix quest (${duration}ms):`, error.message)
     console.error('[Quest API] Error stack:', error.stack)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to fix quest',
       code: 'QUEST_4003',
       message: error.message,
       duration
-    })
+    }, 500)
   }
 })
 
@@ -121,32 +121,32 @@ router.post('/fix-with-ai', async (req, res) => {
  * POST /api/quests/validate
  * Validate a quest structure
  */
-router.post('/validate', async (req, res) => {
+router.post('/validate', async (c) => {
   try {
-    const { quest } = req.body
+    const { quest } = await c.req.json()
 
     if (!quest) {
-      return res.status(400).json({
+      return c.json({
         error: 'Missing quest data',
         code: 'QUEST_4000'
-      })
+      }, 400)
     }
 
     const questFixService = new QuestFixService(db, aiService)
     const validation = questFixService.validateFixedQuest({ fixedQuest: quest, changes: [] })
 
-    res.json({
+    return c.json({
       valid: validation.valid,
       errors: validation.errors,
       warnings: validation.warnings
     })
   } catch (error) {
     console.error('[Quest API] Validation failed:', error.message)
-    res.status(500).json({
+    return c.json({
       error: 'Failed to validate quest',
       code: 'QUEST_4004',
       message: error.message
-    })
+    }, 500)
   }
 })
 

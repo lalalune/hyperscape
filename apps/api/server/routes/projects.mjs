@@ -3,17 +3,17 @@
  * Handles project CRUD operations
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 // GET /api/projects - Get all projects for a user
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
     // In production, get user_id from authenticated session
     // For now, we'll return all projects or filter by query param
-    const userId = req.query.userId
+    const userId = c.req.query('userId')
 
     let sql = `
       SELECT
@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
 
     const result = await query(sql, params)
 
-    res.json({
+    return c.json({
       projects: result.rows.map(row => ({
         id: row.id,
         name: row.name,
@@ -50,39 +50,39 @@ router.get('/', async (req, res) => {
     })
   } catch (error) {
     console.error('[Projects API] Error fetching projects:', error)
-    res.status(500).json({ error: 'Failed to fetch projects' })
+    return c.json({ error: 'Failed to fetch projects' }, 500)
   }
 })
 
 // GET /api/projects/:id - Get a single project
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (c) => {
   try {
     const result = await query(
       `SELECT p.*, u.display_name as owner_name
        FROM projects p
        LEFT JOIN users u ON p.owner_id = u.id
        WHERE p.id = $1 AND p.status != 'deleted'`,
-      [req.params.id]
+      [c.req.param('id')]
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Project not found' })
+      return c.json({ error: 'Project not found' }, 404)
     }
 
-    res.json(result.rows[0])
+    return c.json(result.rows[0])
   } catch (error) {
     console.error('[Projects API] Error fetching project:', error)
-    res.status(500).json({ error: 'Failed to fetch project' })
+    return c.json({ error: 'Failed to fetch project' }, 500)
   }
 })
 
 // POST /api/projects - Create a new project
-router.post('/', async (req, res) => {
+router.post('/', async (c) => {
   try {
-    const { name, description, userId, status = 'active' } = req.body
+    const { name, description, userId, status = 'active' } = await c.req.json()
 
     if (!name || !userId) {
-      return res.status(400).json({ error: 'Name and userId are required' })
+      return c.json({ error: 'Name and userId are required' }, 400)
     }
 
     // First, ensure user exists or create them, and get their UUID
@@ -105,7 +105,7 @@ router.post('/', async (req, res) => {
 
     const project = result.rows[0]
 
-    res.status(201).json({
+    return c.json({
       id: project.id,
       name: project.name,
       description: project.description,
@@ -114,17 +114,17 @@ router.post('/', async (req, res) => {
       lastModified: formatTimeAgo(project.updated_at),
       createdAt: project.created_at,
       userId: project.owner_id
-    })
+    }, 201)
   } catch (error) {
     console.error('[Projects API] Error creating project:', error)
-    res.status(500).json({ error: 'Failed to create project' })
+    return c.json({ error: 'Failed to create project' }, 500)
   }
 })
 
 // PATCH /api/projects/:id - Update a project
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', async (c) => {
   try {
-    const { name, description, status } = req.body
+    const { name, description, status } = await c.req.json()
     const updates = []
     const params = []
     let paramCount = 1
@@ -143,10 +143,10 @@ router.patch('/:id', async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No updates provided' })
+      return c.json({ error: 'No updates provided' }, 400)
     }
 
-    params.push(req.params.id)
+    params.push(c.req.param('id'))
 
     const result = await query(
       `UPDATE projects
@@ -157,12 +157,12 @@ router.patch('/:id', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Project not found' })
+      return c.json({ error: 'Project not found' }, 404)
     }
 
     const project = result.rows[0]
 
-    res.json({
+    return c.json({
       id: project.id,
       name: project.name,
       description: project.description,
@@ -174,29 +174,29 @@ router.patch('/:id', async (req, res) => {
     })
   } catch (error) {
     console.error('[Projects API] Error updating project:', error)
-    res.status(500).json({ error: 'Failed to update project' })
+    return c.json({ error: 'Failed to update project' }, 500)
   }
 })
 
 // DELETE /api/projects/:id - Delete a project (soft delete)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (c) => {
   try {
     const result = await query(
       `UPDATE projects
        SET status = 'deleted', archived_at = CURRENT_TIMESTAMP
        WHERE id = $1
        RETURNING id`,
-      [req.params.id]
+      [c.req.param('id')]
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Project not found' })
+      return c.json({ error: 'Project not found' }, 404)
     }
 
-    res.json({ success: true, message: 'Project deleted' })
+    return c.json({ success: true, message: 'Project deleted' })
   } catch (error) {
     console.error('[Projects API] Error deleting project:', error)
-    res.status(500).json({ error: 'Failed to delete project' })
+    return c.json({ error: 'Failed to delete project' }, 500)
   }
 })
 

@@ -17,14 +17,17 @@
  * - Modular perception → memory → reasoning → planning → execution
  */
 
+import { Hono } from 'hono'
 import { randomUUID } from 'crypto'
 import { MultiAgentOrchestrator } from '../services/MultiAgentOrchestrator.mjs'
 import { buildNPCContext } from '../utils/context-builder.mjs'
 import { makeCollaborationPrompt, makeNPCAgentPrompt } from '../utils/collaboration-prompts.mjs'
 
-export async function POST(req, res) {
+const router = new Hono()
+
+router.post('/', async (c) => {
   try {
-    const body = req.body
+    const body = await c.req.json()
     const {
       npcPersonas,
       collaborationType,
@@ -36,35 +39,35 @@ export async function POST(req, res) {
 
     // Input validation
     if (!Array.isArray(npcPersonas) || npcPersonas.length < 2) {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'npcPersonas' must be an array with at least 2 NPCs"
-      })
+      }, 400)
     }
 
     if (!collaborationType || !['dialogue', 'quest', 'lore', 'relationship', 'freeform'].includes(collaborationType)) {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'collaborationType' must be one of: dialogue, quest, lore, relationship, freeform"
-      })
+      }, 400)
     }
 
     // Validate each NPC persona
     for (const npc of npcPersonas) {
       if (!npc.name || typeof npc.name !== 'string') {
-        return res.status(400).json({
+        return c.json({
           error: "Invalid input: Each NPC must have a 'name' string"
-        })
+        }, 400)
       }
       if (!npc.personality || typeof npc.personality !== 'string') {
-        return res.status(400).json({
+        return c.json({
           error: "Invalid input: Each NPC must have a 'personality' string"
-        })
+        }, 400)
       }
     }
 
     if (customModel !== undefined && typeof customModel !== 'string') {
-      return res.status(400).json({
+      return c.json({
         error: "Invalid input: 'model' must be a string if provided"
-      })
+      }, 400)
     }
 
     const sessionId = `collab_${randomUUID()}`
@@ -137,7 +140,7 @@ export async function POST(req, res) {
     // Get orchestrator stats
     const stats = orchestrator.getStats()
 
-    return res.json({
+    return c.json({
       sessionId,
       collaborationType,
       npcCount: npcPersonas.length,
@@ -156,12 +159,12 @@ export async function POST(req, res) {
 
   } catch (error) {
     console.error('[NPC Collaboration] Generation error:', error)
-    return res.status(500).json({
+    return c.json({
       error: 'Failed to generate multi-agent NPC collaboration',
       details: error.message
-    })
+    }, 500)
   }
-}
+})
 
 /**
  * Process collaboration results into structured content
@@ -377,3 +380,5 @@ function extractDialogueTreeFromConversation(result) {
     participants: [...new Set(result.rounds.map(r => r.agentName))]
   }
 }
+
+export default router

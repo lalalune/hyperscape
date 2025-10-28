@@ -6,19 +6,19 @@
  * - Model selection helpers
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { AISDKService } from '../services/AISDKService.mjs'
 
-const router = express.Router()
+const router = new Hono()
 const aiService = new AISDKService()
 
 /**
  * GET /api/ai-gateway/status
  * Check if AI Gateway is enabled
  */
-router.get('/status', async (req, res) => {
+router.get('/status', async (c) => {
   try {
-    res.json({
+    return c.json({
       enabled: aiService.useGateway,
       provider: aiService.useGateway ? 'ai-gateway' : 'direct',
       message: aiService.useGateway
@@ -26,7 +26,7 @@ router.get('/status', async (req, res) => {
         : 'Using direct provider access (OpenAI, Anthropic)'
     })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -34,22 +34,22 @@ router.get('/status', async (req, res) => {
  * GET /api/ai-gateway/models
  * Get all available models with pricing
  */
-router.get('/models', async (req, res) => {
+router.get('/models', async (c) => {
   try {
     if (!aiService.useGateway) {
-      return res.status(400).json({
+      return c.json({
         error: 'AI Gateway not enabled. Set AI_GATEWAY_API_KEY to use this endpoint.'
-      })
+      }, 400)
     }
 
     const models = await aiService.getAvailableModels()
-    res.json({
+    return c.json({
       count: models.length,
       models: models
     })
   } catch (error) {
     console.error('Failed to fetch models:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -57,25 +57,25 @@ router.get('/models', async (req, res) => {
  * GET /api/ai-gateway/models/:modelId/pricing
  * Get pricing for a specific model
  */
-router.get('/models/:modelId/pricing', async (req, res) => {
+router.get('/models/:modelId/pricing', async (c) => {
   try {
     if (!aiService.useGateway) {
-      return res.status(400).json({
+      return c.json({
         error: 'AI Gateway not enabled. Set AI_GATEWAY_API_KEY to use this endpoint.'
-      })
+      }, 400)
     }
 
     // Replace - with / in model ID (URL encoding)
-    const modelId = req.params.modelId.replace('-', '/')
+    const modelId = c.req.param('modelId').replace('-', '/')
     const pricing = await aiService.getModelPricing(modelId)
 
-    res.json({
+    return c.json({
       modelId: modelId,
       pricing: pricing
     })
   } catch (error) {
     console.error('Failed to fetch model pricing:', error)
-    res.status(404).json({ error: error.message })
+    return c.json({ error: error.message }, 404)
   }
 })
 
@@ -83,23 +83,23 @@ router.get('/models/:modelId/pricing', async (req, res) => {
  * GET /api/ai-gateway/credits
  * Get team credit balance and usage
  */
-router.get('/credits', async (req, res) => {
+router.get('/credits', async (c) => {
   try {
     if (!aiService.useGateway) {
-      return res.status(400).json({
+      return c.json({
         error: 'AI Gateway not enabled. Set AI_GATEWAY_API_KEY to use this endpoint.'
-      })
+      }, 400)
     }
 
     const credits = await aiService.getCredits()
-    res.json({
+    return c.json({
       balance: credits.balance,
       totalUsed: credits.totalUsed,
       unit: 'USD'
     })
   } catch (error) {
     console.error('Failed to fetch credits:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -107,12 +107,12 @@ router.get('/credits', async (req, res) => {
  * GET /api/ai-gateway/providers
  * Get list of supported providers
  */
-router.get('/providers', async (req, res) => {
+router.get('/providers', async (c) => {
   try {
     if (!aiService.useGateway) {
-      return res.status(400).json({
+      return c.json({
         error: 'AI Gateway not enabled. Set AI_GATEWAY_API_KEY to use this endpoint.'
-      })
+      }, 400)
     }
 
     const models = await aiService.getAvailableModels()
@@ -120,13 +120,13 @@ router.get('/providers', async (req, res) => {
     // Extract unique providers
     const providers = [...new Set(models.map(m => m.id.split('/')[0]))]
 
-    res.json({
+    return c.json({
       count: providers.length,
       providers: providers.sort()
     })
   } catch (error) {
     console.error('Failed to fetch providers:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -141,28 +141,28 @@ router.get('/providers', async (req, res) => {
  *   "outputTokens": 500
  * }
  */
-router.post('/estimate', async (req, res) => {
+router.post('/estimate', async (c) => {
   try {
     if (!aiService.useGateway) {
-      return res.status(400).json({
+      return c.json({
         error: 'AI Gateway not enabled. Set AI_GATEWAY_API_KEY to use this endpoint.'
-      })
+      }, 400)
     }
 
-    const { model, inputTokens, outputTokens } = req.body
+    const { model, inputTokens, outputTokens } = await c.req.json()
 
     if (!model || !inputTokens || !outputTokens) {
-      return res.status(400).json({
+      return c.json({
         error: 'Missing required fields: model, inputTokens, outputTokens'
-      })
+      }, 400)
     }
 
     const pricing = await aiService.getModelPricing(model)
 
     if (!pricing) {
-      return res.status(404).json({
+      return c.json({
         error: `Pricing not available for model: ${model}`
-      })
+      }, 404)
     }
 
     const cost = {
@@ -172,7 +172,7 @@ router.post('/estimate', async (req, res) => {
     }
     cost.total = cost.input + cost.output
 
-    res.json({
+    return c.json({
       model: model,
       estimate: {
         inputTokens: inputTokens,
@@ -188,7 +188,7 @@ router.post('/estimate', async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to estimate cost:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 

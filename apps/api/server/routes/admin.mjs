@@ -3,24 +3,25 @@
  * Admin-only endpoints for platform management
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
-import { requireAdmin } from '../middleware/auth.mjs'
+import { requireAdmin } from '../middleware/auth-hono.mjs'
 import adminModelsRouter from './admin-models.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 // Mount model configuration routes (admin-only)
-router.use('/models', requireAdmin, adminModelsRouter)
+router.use('/models/*', requireAdmin)
+router.route('/models', adminModelsRouter)
 
 /**
  * GET /api/admin/users
  * Get all users (paginated)
  */
-router.get('/users', requireAdmin, async (req, res) => {
+router.get('/users', requireAdmin, async (c) => {
   try {
-    const page = parseInt(req.query.page) || 1
-    const limit = parseInt(req.query.limit) || 50
+    const page = parseInt(c.req.query('page')) || 1
+    const limit = parseInt(c.req.query('limit')) || 50
     const offset = (page - 1) * limit
 
     // Get total count
@@ -37,7 +38,7 @@ router.get('/users', requireAdmin, async (req, res) => {
       [limit, offset]
     )
 
-    res.json({
+    return c.json({
       users: result.rows,
       pagination: {
         currentPage: page,
@@ -50,7 +51,7 @@ router.get('/users', requireAdmin, async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin API] Error fetching users:', error)
-    res.status(500).json({ error: 'Failed to fetch users' })
+    return c.json({ error: 'Failed to fetch users' }, 500)
   }
 })
 
@@ -58,25 +59,26 @@ router.get('/users', requireAdmin, async (req, res) => {
  * PUT /api/admin/users/:id/role
  * Update user role
  */
-router.put('/users/:id/role', requireAdmin, async (req, res) => {
+router.put('/users/:id/role', requireAdmin, async (c) => {
   try {
-    const { id } = req.params
-    const { role } = req.body
+    const id = c.req.param('id')
+    const { role } = await c.req.json()
 
     // Validate role
     if (!role || !['admin', 'team_leader', 'member'].includes(role)) {
-      return res.status(400).json({
+      return c.json({
         error: 'Invalid role',
         message: 'Role must be "admin", "team_leader", or "member"'
-      })
+      }, 400)
     }
 
     // Prevent admin from demoting themselves
-    if (req.user.id === id && role !== 'admin') {
-      return res.status(400).json({
+    const user = c.get('user')
+    if (user.id === id && role !== 'admin') {
+      return c.json({
         error: 'Cannot demote yourself',
         message: 'You cannot change your own admin role'
-      })
+      }, 400)
     }
 
     // Update user role
@@ -89,17 +91,17 @@ router.put('/users/:id/role', requireAdmin, async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
-    res.json({
+    return c.json({
       success: true,
       message: `User role updated to ${role}`,
       user: result.rows[0]
     })
   } catch (error) {
     console.error('[Admin API] Error updating user role:', error)
-    res.status(500).json({ error: 'Failed to update user role' })
+    return c.json({ error: 'Failed to update user role' }, 500)
   }
 })
 
@@ -107,7 +109,7 @@ router.put('/users/:id/role', requireAdmin, async (req, res) => {
  * GET /api/admin/activity
  * Get recent platform activity
  */
-router.get('/activity', requireAdmin, async (req, res) => {
+router.get('/activity', requireAdmin, async (c) => {
   try {
     const events = []
 
@@ -350,10 +352,10 @@ router.get('/activity', requireAdmin, async (req, res) => {
     events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 
     // Return the most recent 25 events
-    res.json(events.slice(0, 25))
+    return c.json(events.slice(0, 25))
   } catch (error) {
     console.error('[Admin API] Error fetching activity:', error)
-    res.status(500).json({ error: 'Failed to fetch activity' })
+    return c.json({ error: 'Failed to fetch activity' }, 500)
   }
 })
 
@@ -361,7 +363,7 @@ router.get('/activity', requireAdmin, async (req, res) => {
  * GET /api/admin/stats
  * Platform statistics
  */
-router.get('/stats', requireAdmin, async (req, res) => {
+router.get('/stats', requireAdmin, async (c) => {
   try {
     // Get all stats in parallel
     const [usersResult, projectsResult, assetsResult, teamsResult, adminUsersResult] = await Promise.all([
@@ -372,7 +374,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
       query('SELECT COUNT(*) FROM users WHERE role = \'admin\'')
     ])
 
-    res.json({
+    return c.json({
       totalUsers: parseInt(usersResult.rows[0].count),
       totalProjects: parseInt(projectsResult.rows[0].count),
       totalAssets: parseInt(assetsResult.rows[0].count),
@@ -382,7 +384,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin API] Error fetching stats:', error)
-    res.status(500).json({ error: 'Failed to fetch platform statistics' })
+    return c.json({ error: 'Failed to fetch platform statistics' }, 500)
   }
 })
 
@@ -390,7 +392,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
  * GET /api/admin/whitelist
  * Get all whitelisted wallet addresses (admin reference only)
  */
-router.get('/whitelist', requireAdmin, async (req, res) => {
+router.get('/whitelist', requireAdmin, async (c) => {
   try {
     const result = await query(
       `SELECT
@@ -407,12 +409,12 @@ router.get('/whitelist', requireAdmin, async (req, res) => {
        ORDER BY w.created_at DESC`
     )
 
-    res.json({
+    return c.json({
       whitelist: result.rows
     })
   } catch (error) {
     console.error('[Admin API] Error fetching whitelist:', error)
-    res.status(500).json({ error: 'Failed to fetch whitelist' })
+    return c.json({ error: 'Failed to fetch whitelist' }, 500)
   }
 })
 
@@ -420,21 +422,21 @@ router.get('/whitelist', requireAdmin, async (req, res) => {
  * POST /api/admin/whitelist/add
  * Add wallet address to whitelist (admin reference only)
  */
-router.post('/whitelist/add', requireAdmin, async (req, res) => {
+router.post('/whitelist/add', requireAdmin, async (c) => {
   try {
-    const { walletAddress, reason } = req.body
+    const { walletAddress, reason } = await c.req.json()
 
     if (!walletAddress) {
-      return res.status(400).json({
+      return c.json({
         error: 'Wallet address is required'
-      })
+      }, 400)
     }
 
     // Validate wallet address format
     if (!walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-      return res.status(400).json({
+      return c.json({
         error: 'Invalid wallet address format. Must be a valid Ethereum address (0x...)'
-      })
+      }, 400)
     }
 
     // Check if already whitelisted
@@ -444,27 +446,28 @@ router.post('/whitelist/add', requireAdmin, async (req, res) => {
     )
 
     if (existingResult.rows.length > 0) {
-      return res.status(409).json({
+      return c.json({
         error: 'Wallet address already whitelisted'
-      })
+      }, 409)
     }
 
+    const user = c.get('user')
     // Add to whitelist
     const result = await query(
       `INSERT INTO admin_whitelist (wallet_address, added_by, reason)
        VALUES ($1, $2, $3)
        RETURNING id, wallet_address as "walletAddress", reason, created_at as "createdAt"`,
-      [walletAddress, req.user.id, reason || null]
+      [walletAddress, user.id, reason || null]
     )
 
-    res.status(201).json({
+    return c.json({
       success: true,
       message: 'Wallet added to whitelist',
       data: result.rows[0]
-    })
+    }, 201)
   } catch (error) {
     console.error('[Admin API] Error adding to whitelist:', error)
-    res.status(500).json({ error: 'Failed to add to whitelist' })
+    return c.json({ error: 'Failed to add to whitelist' }, 500)
   }
 })
 
@@ -472,14 +475,14 @@ router.post('/whitelist/add', requireAdmin, async (req, res) => {
  * POST /api/admin/whitelist/remove
  * Remove wallet address from whitelist
  */
-router.post('/whitelist/remove', requireAdmin, async (req, res) => {
+router.post('/whitelist/remove', requireAdmin, async (c) => {
   try {
-    const { walletAddress } = req.body
+    const { walletAddress } = await c.req.json()
 
     if (!walletAddress) {
-      return res.status(400).json({
+      return c.json({
         error: 'Wallet address is required'
-      })
+      }, 400)
     }
 
     const result = await query(
@@ -488,18 +491,18 @@ router.post('/whitelist/remove', requireAdmin, async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
+      return c.json({
         error: 'Wallet address not found in whitelist'
-      })
+      }, 404)
     }
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Wallet removed from whitelist'
     })
   } catch (error) {
     console.error('[Admin API] Error removing from whitelist:', error)
-    res.status(500).json({ error: 'Failed to remove from whitelist' })
+    return c.json({ error: 'Failed to remove from whitelist' }, 500)
   }
 })
 
@@ -507,24 +510,25 @@ router.post('/whitelist/remove', requireAdmin, async (req, res) => {
  * POST /api/admin/users/bulk-role
  * Bulk update user roles
  */
-router.post('/users/bulk-role', requireAdmin, async (req, res) => {
+router.post('/users/bulk-role', requireAdmin, async (c) => {
   try {
-    const { userIds, role } = req.body
+    const { userIds, role } = await c.req.json()
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-      return res.status(400).json({ error: 'userIds array is required' })
+      return c.json({ error: 'userIds array is required' }, 400)
     }
 
     if (!role || !['admin', 'team_leader', 'member'].includes(role)) {
-      return res.status(400).json({ error: 'Valid role (admin, team_leader, or member) is required' })
+      return c.json({ error: 'Valid role (admin, team_leader, or member) is required' }, 400)
     }
 
+    const user = c.get('user')
     // Prevent admin from demoting themselves
-    if (userIds.includes(req.user.id) && role !== 'admin') {
-      return res.status(400).json({
+    if (userIds.includes(user.id) && role !== 'admin') {
+      return c.json({
         error: 'Cannot demote yourself',
         message: 'You cannot change your own admin role'
-      })
+      }, 400)
     }
 
     // Build placeholders for parameterized query
@@ -538,7 +542,7 @@ router.post('/users/bulk-role', requireAdmin, async (req, res) => {
       [role, ...userIds]
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: `Updated ${result.rows.length} users to ${role}`,
       updatedCount: result.rows.length,
@@ -546,7 +550,7 @@ router.post('/users/bulk-role', requireAdmin, async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin API] Error bulk updating user roles:', error)
-    res.status(500).json({ error: 'Failed to update user roles' })
+    return c.json({ error: 'Failed to update user roles' }, 500)
   }
 })
 
@@ -554,19 +558,20 @@ router.post('/users/bulk-role', requireAdmin, async (req, res) => {
  * POST /api/admin/users/bulk-archive
  * Bulk archive/deactivate users
  */
-router.post('/users/bulk-archive', requireAdmin, async (req, res) => {
+router.post('/users/bulk-archive', requireAdmin, async (c) => {
   try {
-    const { userIds } = req.body
+    const { userIds } = await c.req.json()
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-      return res.status(400).json({ error: 'userIds array is required' })
+      return c.json({ error: 'userIds array is required' }, 400)
     }
 
+    const user = c.get('user')
     // Prevent admin from archiving themselves
-    if (userIds.includes(req.user.id)) {
-      return res.status(400).json({
+    if (userIds.includes(user.id)) {
+      return c.json({
         error: 'Cannot archive yourself'
-      })
+      }, 400)
     }
 
     // Build placeholders for parameterized query
@@ -582,14 +587,14 @@ router.post('/users/bulk-archive', requireAdmin, async (req, res) => {
       userIds
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: `Archived ${result.rows.length} users`,
       archivedCount: result.rows.length
     })
   } catch (error) {
     console.error('[Admin API] Error bulk archiving users:', error)
-    res.status(500).json({ error: 'Failed to archive users' })
+    return c.json({ error: 'Failed to archive users' }, 500)
   }
 })
 
@@ -597,12 +602,12 @@ router.post('/users/bulk-archive', requireAdmin, async (req, res) => {
  * POST /api/admin/projects/bulk-archive
  * Bulk archive projects
  */
-router.post('/projects/bulk-archive', requireAdmin, async (req, res) => {
+router.post('/projects/bulk-archive', requireAdmin, async (c) => {
   try {
-    const { projectIds } = req.body
+    const { projectIds } = await c.req.json()
 
     if (!projectIds || !Array.isArray(projectIds) || projectIds.length === 0) {
-      return res.status(400).json({ error: 'projectIds array is required' })
+      return c.json({ error: 'projectIds array is required' }, 400)
     }
 
     // Build placeholders for parameterized query
@@ -616,14 +621,14 @@ router.post('/projects/bulk-archive', requireAdmin, async (req, res) => {
       projectIds
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: `Archived ${result.rows.length} projects`,
       archivedCount: result.rows.length
     })
   } catch (error) {
     console.error('[Admin API] Error bulk archiving projects:', error)
-    res.status(500).json({ error: 'Failed to archive projects' })
+    return c.json({ error: 'Failed to archive projects' }, 500)
   }
 })
 
@@ -631,12 +636,12 @@ router.post('/projects/bulk-archive', requireAdmin, async (req, res) => {
  * POST /api/admin/projects/bulk-delete
  * Bulk delete projects
  */
-router.post('/projects/bulk-delete', requireAdmin, async (req, res) => {
+router.post('/projects/bulk-delete', requireAdmin, async (c) => {
   try {
-    const { projectIds } = req.body
+    const { projectIds } = await c.req.json()
 
     if (!projectIds || !Array.isArray(projectIds) || projectIds.length === 0) {
-      return res.status(400).json({ error: 'projectIds array is required' })
+      return c.json({ error: 'projectIds array is required' }, 400)
     }
 
     // Build placeholders for parameterized query
@@ -650,14 +655,14 @@ router.post('/projects/bulk-delete', requireAdmin, async (req, res) => {
       projectIds
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: `Deleted ${result.rows.length} projects`,
       deletedCount: result.rows.length
     })
   } catch (error) {
     console.error('[Admin API] Error bulk deleting projects:', error)
-    res.status(500).json({ error: 'Failed to delete projects' })
+    return c.json({ error: 'Failed to delete projects' }, 500)
   }
 })
 
@@ -665,16 +670,16 @@ router.post('/projects/bulk-delete', requireAdmin, async (req, res) => {
  * POST /api/admin/projects/bulk-visibility
  * Bulk change project visibility
  */
-router.post('/projects/bulk-visibility', requireAdmin, async (req, res) => {
+router.post('/projects/bulk-visibility', requireAdmin, async (c) => {
   try {
-    const { projectIds, visibility } = req.body
+    const { projectIds, visibility } = await c.req.json()
 
     if (!projectIds || !Array.isArray(projectIds) || projectIds.length === 0) {
-      return res.status(400).json({ error: 'projectIds array is required' })
+      return c.json({ error: 'projectIds array is required' }, 400)
     }
 
     if (!visibility || !['public', 'private', 'team'].includes(visibility)) {
-      return res.status(400).json({ error: 'Valid visibility (public, private, or team) is required' })
+      return c.json({ error: 'Valid visibility (public, private, or team) is required' }, 400)
     }
 
     // Build placeholders for parameterized query
@@ -689,14 +694,14 @@ router.post('/projects/bulk-visibility', requireAdmin, async (req, res) => {
       [visibility, ...projectIds]
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: `Updated visibility for ${result.rows.length} projects`,
       updatedCount: result.rows.length
     })
   } catch (error) {
     console.error('[Admin API] Error bulk updating project visibility:', error)
-    res.status(500).json({ error: 'Failed to update project visibility' })
+    return c.json({ error: 'Failed to update project visibility' }, 500)
   }
 })
 
@@ -704,7 +709,7 @@ router.post('/projects/bulk-visibility', requireAdmin, async (req, res) => {
  * GET /api/admin/teams/pending
  * Get all pending team approval requests
  */
-router.get('/teams/pending', requireAdmin, async (req, res) => {
+router.get('/teams/pending', requireAdmin, async (c) => {
   try {
     const result = await query(
       `SELECT
@@ -725,12 +730,12 @@ router.get('/teams/pending', requireAdmin, async (req, res) => {
        ORDER BY t.created_at ASC`
     )
 
-    res.json({
+    return c.json({
       teams: result.rows
     })
   } catch (error) {
     console.error('[Admin API] Error fetching pending teams:', error)
-    res.status(500).json({ error: 'Failed to fetch pending teams' })
+    return c.json({ error: 'Failed to fetch pending teams' }, 500)
   }
 })
 
@@ -738,9 +743,9 @@ router.get('/teams/pending', requireAdmin, async (req, res) => {
  * POST /api/admin/teams/:id/approve
  * Approve a team and promote owner to team_leader role
  */
-router.post('/teams/:id/approve', requireAdmin, async (req, res) => {
+router.post('/teams/:id/approve', requireAdmin, async (c) => {
   try {
-    const { id } = req.params
+    const id = c.req.param('id')
 
     // Get team details
     const teamResult = await query(
@@ -749,11 +754,12 @@ router.post('/teams/:id/approve', requireAdmin, async (req, res) => {
     )
 
     if (teamResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Team not found' })
+      return c.json({ error: 'Team not found' }, 404)
     }
 
     const team = teamResult.rows[0]
 
+    const user = c.get('user')
     // Update team approval status
     await query(
       `UPDATE teams
@@ -761,7 +767,7 @@ router.post('/teams/:id/approve', requireAdmin, async (req, res) => {
            approved_at = CURRENT_TIMESTAMP,
            approved_by = $1
        WHERE id = $2`,
-      [req.user.id, id]
+      [user.id, id]
     )
 
     // Promote team owner to team_leader role
@@ -772,13 +778,13 @@ router.post('/teams/:id/approve', requireAdmin, async (req, res) => {
       [team.owner_id]
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: `Team "${team.name}" approved and owner promoted to Team Leader`
     })
   } catch (error) {
     console.error('[Admin API] Error approving team:', error)
-    res.status(500).json({ error: 'Failed to approve team' })
+    return c.json({ error: 'Failed to approve team' }, 500)
   }
 })
 
@@ -786,10 +792,10 @@ router.post('/teams/:id/approve', requireAdmin, async (req, res) => {
  * POST /api/admin/teams/:id/reject
  * Reject a team approval request
  */
-router.post('/teams/:id/reject', requireAdmin, async (req, res) => {
+router.post('/teams/:id/reject', requireAdmin, async (c) => {
   try {
-    const { id } = req.params
-    const { reason } = req.body
+    const id = c.req.param('id')
+    const { reason } = await c.req.json()
 
     const result = await query(
       `UPDATE teams
@@ -801,16 +807,16 @@ router.post('/teams/:id/reject', requireAdmin, async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Team not found' })
+      return c.json({ error: 'Team not found' }, 404)
     }
 
-    res.json({
+    return c.json({
       success: true,
       message: `Team "${result.rows[0].name}" rejected${reason ? `: ${reason}` : ''}`
     })
   } catch (error) {
     console.error('[Admin API] Error rejecting team:', error)
-    res.status(500).json({ error: 'Failed to reject team' })
+    return c.json({ error: 'Failed to reject team' }, 500)
   }
 })
 

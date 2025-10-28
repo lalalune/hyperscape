@@ -3,12 +3,12 @@
  * Endpoints for viewing API request and error logs
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-const router = express.Router()
+const router = new Hono()
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -235,16 +235,16 @@ Verify that the fix resolves the error without breaking existing functionality.
  * GET /api/admin/logs/stats
  * Get aggregated log statistics
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (c) => {
   try {
     const stats = await parseRequestLogs()
-    res.json(stats)
+    return c.json(stats)
   } catch (error) {
     console.error('[AdminLogs] Failed to get stats:', error.message)
-    res.status(500).json({
+    return c.json({
       error: 'Failed to fetch log statistics',
       message: error.message
-    })
+    }, 500)
   }
 })
 
@@ -252,18 +252,18 @@ router.get('/stats', async (req, res) => {
  * GET /api/admin/logs/errors
  * Get recent error logs
  */
-router.get('/errors', async (req, res) => {
+router.get('/errors', async (c) => {
   try {
-    const limit = parseInt(req.query.limit || '50', 10)
+    const limit = parseInt(c.req.query('limit') || '50', 10)
     const errorLogs = await parseErrorLogs(limit)
 
-    res.json(errorLogs)
+    return c.json(errorLogs)
   } catch (error) {
     console.error('[AdminLogs] Failed to get errors:', error.message)
-    res.status(500).json({
+    return c.json({
       error: 'Failed to fetch error logs',
       message: error.message
-    })
+    }, 500)
   }
 })
 
@@ -271,31 +271,31 @@ router.get('/errors', async (req, res) => {
  * GET /api/admin/logs/error/:index/fix-prompt
  * Get AI fix prompt for a specific error
  */
-router.get('/error/:index/fix-prompt', async (req, res) => {
+router.get('/error/:index/fix-prompt', async (c) => {
   try {
-    const index = parseInt(req.params.index, 10)
+    const index = parseInt(c.req.param('index'), 10)
     const errorLogs = await parseErrorLogs(1000) // Get more errors to find the right index
 
     if (index >= errorLogs.errors.length) {
-      return res.status(404).json({
+      return c.json({
         error: 'Error not found',
         message: `No error at index ${index}`
-      })
+      }, 404)
     }
 
     const error = errorLogs.errors[index]
     const prompt = generateAIFixPrompt(error)
 
-    res.json({
+    return c.json({
       error,
       prompt
     })
   } catch (error) {
     console.error('[AdminLogs] Failed to generate fix prompt:', error.message)
-    res.status(500).json({
+    return c.json({
       error: 'Failed to generate fix prompt',
       message: error.message
-    })
+    }, 500)
   }
 })
 
@@ -303,7 +303,7 @@ router.get('/error/:index/fix-prompt', async (req, res) => {
  * DELETE /api/admin/logs/clear
  * Clear all log files
  */
-router.delete('/clear', async (req, res) => {
+router.delete('/clear', async (c) => {
   try {
     const requestLogPath = path.join(LOGS_DIR, 'api-requests.log')
     const errorLogPath = path.join(LOGS_DIR, 'api-errors.log')
@@ -320,16 +320,16 @@ router.delete('/clear', async (req, res) => {
       if (err.code !== 'ENOENT') throw err
     }
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Log files cleared'
     })
   } catch (error) {
     console.error('[AdminLogs] Failed to clear logs:', error.message)
-    res.status(500).json({
+    return c.json({
       error: 'Failed to clear logs',
       message: error.message
-    })
+    }, 500)
   }
 })
 

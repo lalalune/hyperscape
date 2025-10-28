@@ -3,17 +3,17 @@
  * Allows admins to configure which AI models are used for different tasks
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
 import { AISDKService } from '../services/AISDKService.mjs'
-import { validateBody, validateParams } from '../middleware/validation.mjs'
+import { validateBody, validateParams } from '../middleware/validation-hono.mjs'
 import {
   EnableModelBodySchema,
   UpdateModelBodySchema,
   ModelIdParamSchema
 } from '../validation/model-schemas.mjs'
 
-const router = express.Router()
+const router = new Hono()
 const aiService = new AISDKService()
 
 // Create db object wrapper for compatibility
@@ -23,7 +23,7 @@ const db = { query }
  * GET /api/admin/models
  * Get all model configurations
  */
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
     const result = await db.query(`
       SELECT
@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
       ORDER BY task_type
     `)
 
-    res.json({
+    return c.json({
       count: result.rows.length,
       models: result.rows.map(row => ({
         id: row.id,
@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to fetch model configurations:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -72,17 +72,17 @@ router.get('/', async (req, res) => {
  * GET /api/admin/models/available
  * Get available models from AI Gateway
  */
-router.get('/available', async (req, res) => {
+router.get('/available', async (c) => {
   try {
     if (!aiService.useGateway) {
-      return res.status(400).json({
+      return c.json({
         error: 'AI Gateway not enabled. Set AI_GATEWAY_API_KEY to use this feature.'
-      })
+      }, 400)
     }
 
     const models = await aiService.getAvailableModels()
 
-    res.json({
+    return c.json({
       count: models.length,
       models: models.map(m => ({
         id: m.id,
@@ -94,7 +94,7 @@ router.get('/available', async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to fetch available models:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -102,9 +102,9 @@ router.get('/available', async (req, res) => {
  * GET /api/admin/models/:taskType
  * Get model configuration for a specific task
  */
-router.get('/:taskType', async (req, res) => {
+router.get('/:taskType', async (c) => {
   try {
-    const { taskType } = req.params
+    const taskType = c.req.param('taskType')
 
     const result = await db.query(`
       SELECT
@@ -125,11 +125,11 @@ router.get('/:taskType', async (req, res) => {
     `, [taskType])
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Model configuration not found' })
+      return c.json({ error: 'Model configuration not found' }, 404)
     }
 
     const row = result.rows[0]
-    res.json({
+    return c.json({
       id: row.id,
       taskType: row.task_type,
       modelId: row.model_id,
@@ -147,7 +147,7 @@ router.get('/:taskType', async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to fetch model configuration:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -155,14 +155,14 @@ router.get('/:taskType', async (req, res) => {
  * PUT /api/admin/models/:taskType
  * Update model configuration for a specific task
  */
-router.put('/:taskType', async (req, res) => {
+router.put('/:taskType', async (c) => {
   try {
-    const { taskType } = req.params
-    const { modelId, temperature, maxTokens, isActive } = req.body
-    const userId = req.headers['x-user-id']
+    const taskType = c.req.param('taskType')
+    const { modelId, temperature, maxTokens, isActive } = await c.req.json()
+    const userId = c.req.header('x-user-id')
 
     if (!modelId) {
-      return res.status(400).json({ error: 'modelId is required' })
+      return c.json({ error: 'modelId is required' }, 400)
     }
 
     // Extract provider from modelId (e.g., 'openai/gpt-4' -> 'openai')
@@ -219,7 +219,7 @@ router.put('/:taskType', async (req, res) => {
     ])
 
     const row = result.rows[0]
-    res.json({
+    return c.json({
       id: row.id,
       taskType: row.task_type,
       modelId: row.model_id,
@@ -235,7 +235,7 @@ router.put('/:taskType', async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to update model configuration:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -243,9 +243,9 @@ router.put('/:taskType', async (req, res) => {
  * DELETE /api/admin/models/:taskType
  * Delete model configuration (reset to default)
  */
-router.delete('/:taskType', async (req, res) => {
+router.delete('/:taskType', async (c) => {
   try {
-    const { taskType } = req.params
+    const taskType = c.req.param('taskType')
 
     const result = await db.query(`
       DELETE FROM model_configurations
@@ -254,16 +254,16 @@ router.delete('/:taskType', async (req, res) => {
     `, [taskType])
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Model configuration not found' })
+      return c.json({ error: 'Model configuration not found' }, 404)
     }
 
-    res.json({
+    return c.json({
       message: 'Model configuration deleted',
       taskType: result.rows[0].task_type
     })
   } catch (error) {
     console.error('Failed to delete model configuration:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -271,7 +271,7 @@ router.delete('/:taskType', async (req, res) => {
  * GET /api/admin/settings
  * Get system settings
  */
-router.get('/settings/all', async (req, res) => {
+router.get('/settings/all', async (c) => {
   try {
     const result = await db.query(`
       SELECT
@@ -292,10 +292,10 @@ router.get('/settings/all', async (req, res) => {
       }
     })
 
-    res.json({ settings })
+    return c.json({ settings })
   } catch (error) {
     console.error('Failed to fetch system settings:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -303,14 +303,14 @@ router.get('/settings/all', async (req, res) => {
  * PUT /api/admin/settings/:key
  * Update a system setting
  */
-router.put('/settings/:key', async (req, res) => {
+router.put('/settings/:key', async (c) => {
   try {
-    const { key } = req.params
-    const { value } = req.body
-    const userId = req.headers['x-user-id']
+    const key = c.req.param('key')
+    const { value } = await c.req.json()
+    const userId = c.req.header('x-user-id')
 
     if (value === undefined) {
-      return res.status(400).json({ error: 'value is required' })
+      return c.json({ error: 'value is required' }, 400)
     }
 
     const result = await db.query(`
@@ -324,11 +324,11 @@ router.put('/settings/:key', async (req, res) => {
     `, [JSON.stringify(value), userId || null, key])
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Setting not found' })
+      return c.json({ error: 'Setting not found' }, 404)
     }
 
     const row = result.rows[0]
-    res.json({
+    return c.json({
       key: row.setting_key,
       value: row.setting_value,
       description: row.description,
@@ -336,7 +336,7 @@ router.put('/settings/:key', async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to update system setting:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -382,7 +382,7 @@ function validateModelConfig(data) {
  * GET /api/admin/models/enabled
  * Get all enabled models
  */
-router.get('/enabled/all', async (req, res) => {
+router.get('/enabled/all', async (c) => {
   const startTime = Date.now()
 
   try {
@@ -416,7 +416,7 @@ router.get('/enabled/all', async (req, res) => {
     const duration = Date.now() - startTime
     console.log(`[Admin Models] Fetched ${result.rows.length} enabled models (${duration}ms)`)
 
-    res.json({
+    return c.json({
       count: result.rows.length,
       models: result.rows.map(row => ({
         id: row.id,
@@ -449,12 +449,12 @@ router.get('/enabled/all', async (req, res) => {
     console.error(`[Admin Models] Failed to fetch enabled models (${duration}ms):`, error.message)
     console.error('[Admin Models] Error stack:', error.stack)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to fetch enabled models',
       code: 'MODEL_2104',
       message: error.message,
       timestamp: new Date().toISOString()
-    })
+    }, 500)
   }
 })
 
@@ -462,7 +462,7 @@ router.get('/enabled/all', async (req, res) => {
  * POST /api/admin/models/enabled
  * Enable a new model or update existing
  */
-router.post('/enabled', validateBody(EnableModelBodySchema), async (req, res) => {
+router.post('/enabled', validateBody(EnableModelBodySchema), async (c) => {
   const startTime = Date.now()
 
   try {
@@ -480,7 +480,7 @@ router.post('/enabled', validateBody(EnableModelBodySchema), async (req, res) =>
       isRecommended,
       defaultTemperature,
       defaultMaxTokens
-    } = req.body
+    } = await c.req.json()
 
     console.log(`[Admin Models] Enabling model: ${modelId}`)
 
@@ -495,15 +495,15 @@ router.post('/enabled', validateBody(EnableModelBodySchema), async (req, res) =>
 
     if (!validation.valid) {
       console.warn(`[Admin Models] Validation failed for ${modelId}:`, validation.errors)
-      return res.status(400).json({
+      return c.json({
         error: 'Validation failed',
         code: 'MODEL_2105',
         errors: validation.errors,
         timestamp: new Date().toISOString()
-      })
+      }, 400)
     }
 
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     const result = await db.query(`
       INSERT INTO enabled_models (
@@ -570,7 +570,7 @@ router.post('/enabled', validateBody(EnableModelBodySchema), async (req, res) =>
     console.log(`[Admin Models] Successfully enabled model ${modelId} (${duration}ms)`)
 
     const row = result.rows[0]
-    res.json({
+    return c.json({
       id: row.id,
       modelId: row.model_id,
       provider: row.provider,
@@ -586,24 +586,25 @@ router.post('/enabled', validateBody(EnableModelBodySchema), async (req, res) =>
 
     // Check for duplicate key constraint
     if (error.code === '23505') {
-      console.warn(`[Admin Models] Model already exists: ${req.body.modelId}`)
-      return res.status(409).json({
+      const body = await c.req.json()
+      console.warn(`[Admin Models] Model already exists: ${body.modelId}`)
+      return c.json({
         error: 'Model already enabled',
         code: 'MODEL_2103',
         message: error.message,
         timestamp: new Date().toISOString()
-      })
+      }, 409)
     }
 
     console.error(`[Admin Models] Failed to enable model (${duration}ms):`, error.message)
     console.error('[Admin Models] Error stack:', error.stack)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to enable model',
       code: 'MODEL_2106',
       message: error.message,
       timestamp: new Date().toISOString()
-    })
+    }, 500)
   }
 })
 
@@ -611,9 +612,9 @@ router.post('/enabled', validateBody(EnableModelBodySchema), async (req, res) =>
  * PATCH /api/admin/models/enabled/:modelId
  * Update an enabled model's settings
  */
-router.patch('/enabled/:modelId', validateParams(ModelIdParamSchema), validateBody(UpdateModelBodySchema), async (req, res) => {
+router.patch('/enabled/:modelId', validateParams(ModelIdParamSchema), validateBody(UpdateModelBodySchema), async (c) => {
   const startTime = Date.now()
-  const { modelId } = req.params
+  const modelId = c.req.param('modelId')
 
   try {
     console.log(`[Admin Models] Updating model: ${modelId}`)
@@ -627,9 +628,9 @@ router.patch('/enabled/:modelId', validateParams(ModelIdParamSchema), validateBo
       defaultTemperature,
       defaultMaxTokens,
       pricing
-    } = req.body
+    } = await c.req.json()
 
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     // Build dynamic UPDATE query
     const updates = []
@@ -676,11 +677,11 @@ router.patch('/enabled/:modelId', validateParams(ModelIdParamSchema), validateBo
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({
+      return c.json({
         error: 'No valid fields to update',
         code: 'MODEL_2105',
         timestamp: new Date().toISOString()
-      })
+      }, 400)
     }
 
     updates.push(`updated_by = $${paramCount++}`)
@@ -699,19 +700,19 @@ router.patch('/enabled/:modelId', validateParams(ModelIdParamSchema), validateBo
 
     if (result.rows.length === 0) {
       console.warn(`[Admin Models] Model not found: ${modelId}`)
-      return res.status(404).json({
+      return c.json({
         error: 'Model not found',
         code: 'MODEL_2100',
         modelId: modelId,
         timestamp: new Date().toISOString()
-      })
+      }, 404)
     }
 
     const duration = Date.now() - startTime
     console.log(`[Admin Models] Successfully updated model ${modelId} (${duration}ms)`)
 
     const row = result.rows[0]
-    res.json({
+    return c.json({
       id: row.id,
       modelId: row.model_id,
       provider: row.provider,
@@ -727,12 +728,12 @@ router.patch('/enabled/:modelId', validateParams(ModelIdParamSchema), validateBo
     console.error(`[Admin Models] Failed to update model ${modelId} (${duration}ms):`, error.message)
     console.error('[Admin Models] Error stack:', error.stack)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to update model',
       code: 'MODEL_2106',
       message: error.message,
       timestamp: new Date().toISOString()
-    })
+    }, 500)
   }
 })
 
@@ -740,14 +741,14 @@ router.patch('/enabled/:modelId', validateParams(ModelIdParamSchema), validateBo
  * DELETE /api/admin/models/enabled/:modelId
  * Disable a model (sets is_enabled = false)
  */
-router.delete('/enabled/:modelId', validateParams(ModelIdParamSchema), async (req, res) => {
+router.delete('/enabled/:modelId', validateParams(ModelIdParamSchema), async (c) => {
   const startTime = Date.now()
-  const { modelId } = req.params
+  const modelId = c.req.param('modelId')
 
   try {
     console.log(`[Admin Models] Disabling model: ${modelId}`)
 
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     const result = await db.query(`
       UPDATE enabled_models
@@ -761,18 +762,18 @@ router.delete('/enabled/:modelId', validateParams(ModelIdParamSchema), async (re
 
     if (result.rows.length === 0) {
       console.warn(`[Admin Models] Model not found: ${modelId}`)
-      return res.status(404).json({
+      return c.json({
         error: 'Model not found',
         code: 'MODEL_2100',
         modelId: modelId,
         timestamp: new Date().toISOString()
-      })
+      }, 404)
     }
 
     const duration = Date.now() - startTime
     console.log(`[Admin Models] Successfully disabled model ${modelId} (${duration}ms)`)
 
-    res.json({
+    return c.json({
       message: 'Model disabled successfully',
       modelId: result.rows[0].model_id,
       displayName: result.rows[0].display_name
@@ -782,12 +783,12 @@ router.delete('/enabled/:modelId', validateParams(ModelIdParamSchema), async (re
     console.error(`[Admin Models] Failed to disable model ${modelId} (${duration}ms):`, error.message)
     console.error('[Admin Models] Error stack:', error.stack)
 
-    res.status(500).json({
+    return c.json({
       error: 'Failed to disable model',
       code: 'MODEL_2107',
       message: error.message,
       timestamp: new Date().toISOString()
-    })
+    }, 500)
   }
 })
 

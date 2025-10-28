@@ -3,7 +3,7 @@
  * Admin-only endpoints for reviewing and approving manifest submissions
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -12,7 +12,7 @@ import { query } from '../database/db.mjs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const router = express.Router()
+const router = new Hono()
 
 /**
  * Convert Privy user ID to internal UUID
@@ -37,22 +37,22 @@ async function isAdmin(userId) {
  * GET /api/admin/submissions/pending
  * Get all pending submissions (admin only)
  */
-router.get('/pending', async (req, res) => {
+router.get('/pending', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     // Check admin status
     const userIsAdmin = await isAdmin(userId)
     if (!userIsAdmin) {
-      return res.status(403).json({ error: 'Admin access required' })
+      return c.json({ error: 'Admin access required' }, 403)
     }
 
     // Get all pending submissions with user info
@@ -67,7 +67,7 @@ router.get('/pending', async (req, res) => {
        ORDER BY s.submitted_at ASC`
     )
 
-    res.json({
+    return c.json({
       count: result.rows.length,
       submissions: result.rows.map(row => ({
         id: row.id,
@@ -91,7 +91,7 @@ router.get('/pending', async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin Approvals] Error fetching pending submissions:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -99,22 +99,22 @@ router.get('/pending', async (req, res) => {
  * GET /api/admin/submissions/stats
  * Get admin submission statistics
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     // Check admin status
     const userIsAdmin = await isAdmin(userId)
     if (!userIsAdmin) {
-      return res.status(403).json({ error: 'Admin access required' })
+      return c.json({ error: 'Admin access required' }, 403)
     }
 
     // Get pending count
@@ -143,7 +143,7 @@ router.get('/stats', async (req, res) => {
       `SELECT COUNT(*) as count FROM manifest_submissions`
     )
 
-    res.json({
+    return c.json({
       pending: parseInt(pendingResult.rows[0].count) || 0,
       approvedToday: parseInt(approvedTodayResult.rows[0].count) || 0,
       rejectedToday: parseInt(rejectedTodayResult.rows[0].count) || 0,
@@ -151,7 +151,7 @@ router.get('/stats', async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin Approvals] Error fetching stats:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -159,25 +159,25 @@ router.get('/stats', async (req, res) => {
  * GET /api/admin/submissions/:id
  * Get submission with full details (admin only)
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     // Check admin status
     const userIsAdmin = await isAdmin(userId)
     if (!userIsAdmin) {
-      return res.status(403).json({ error: 'Admin access required' })
+      return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const { id } = req.params
+    const id = c.req.param('id')
 
     const result = await query(
       `SELECT
@@ -192,12 +192,12 @@ router.get('/:id', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Submission not found' })
+      return c.json({ error: 'Submission not found' }, 404)
     }
 
     const submission = result.rows[0]
 
-    res.json({
+    return c.json({
       id: submission.id,
       manifestType: submission.manifest_type,
       itemId: submission.item_id,
@@ -225,7 +225,7 @@ router.get('/:id', async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin Approvals] Error fetching submission:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -233,29 +233,29 @@ router.get('/:id', async (req, res) => {
  * PUT /api/admin/submissions/:id/edit
  * Edit submission before approval (admin only)
  */
-router.put('/:id/edit', async (req, res) => {
+router.put('/:id/edit', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     // Check admin status
     const userIsAdmin = await isAdmin(userId)
     if (!userIsAdmin) {
-      return res.status(403).json({ error: 'Admin access required' })
+      return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const { id } = req.params
-    const { editedItemData, adminNotes } = req.body
+    const id = c.req.param('id')
+    const { editedItemData, adminNotes } = await c.req.json()
 
     if (!editedItemData) {
-      return res.status(400).json({ error: 'editedItemData is required' })
+      return c.json({ error: 'editedItemData is required' }, 400)
     }
 
     const result = await query(
@@ -270,12 +270,12 @@ router.put('/:id/edit', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Submission not found' })
+      return c.json({ error: 'Submission not found' }, 404)
     }
 
     const submission = result.rows[0]
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Submission edited successfully',
       submission: {
@@ -288,7 +288,7 @@ router.put('/:id/edit', async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin Approvals] Error editing submission:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -296,26 +296,26 @@ router.put('/:id/edit', async (req, res) => {
  * POST /api/admin/submissions/:id/approve
  * Approve submission and add to manifest (admin only)
  */
-router.post('/:id/approve', async (req, res) => {
+router.post('/:id/approve', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     // Check admin status
     const userIsAdmin = await isAdmin(userId)
     if (!userIsAdmin) {
-      return res.status(403).json({ error: 'Admin access required' })
+      return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const { id } = req.params
-    const { adminNotes } = req.body
+    const id = c.req.param('id')
+    const { adminNotes } = await c.req.json()
 
     // Get submission details
     const submissionResult = await query(
@@ -324,7 +324,7 @@ router.post('/:id/approve', async (req, res) => {
     )
 
     if (submissionResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Submission not found' })
+      return c.json({ error: 'Submission not found' }, 404)
     }
 
     const submission = submissionResult.rows[0]
@@ -352,7 +352,7 @@ router.post('/:id/approve', async (req, res) => {
     )
 
     if (systemUserResult.rows.length === 0) {
-      return res.status(500).json({ error: 'System user not found' })
+      return c.json({ error: 'System user not found' }, 500)
     }
 
     const systemUserId = systemUserResult.rows[0].id
@@ -461,7 +461,7 @@ router.post('/:id/approve', async (req, res) => {
       ]
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Submission approved and added to manifest',
       submission: {
@@ -473,7 +473,7 @@ router.post('/:id/approve', async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin Approvals] Error approving submission:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 
@@ -481,29 +481,29 @@ router.post('/:id/approve', async (req, res) => {
  * POST /api/admin/submissions/:id/reject
  * Reject submission (admin only)
  */
-router.post('/:id/reject', async (req, res) => {
+router.post('/:id/reject', async (c) => {
   try {
-    const privyUserId = req.headers['x-user-id']
+    const privyUserId = c.req.header('x-user-id')
     if (!privyUserId) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return c.json({ error: 'Unauthorized' }, 401)
     }
 
     const userId = await getUserId(privyUserId)
     if (!userId) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     // Check admin status
     const userIsAdmin = await isAdmin(userId)
     if (!userIsAdmin) {
-      return res.status(403).json({ error: 'Admin access required' })
+      return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const { id } = req.params
-    const { rejectionReason, adminNotes } = req.body
+    const id = c.req.param('id')
+    const { rejectionReason, adminNotes } = await c.req.json()
 
     if (!rejectionReason || rejectionReason.trim() === '') {
-      return res.status(400).json({ error: 'rejectionReason is required' })
+      return c.json({ error: 'rejectionReason is required' }, 400)
     }
 
     // Get submission details for notification
@@ -513,7 +513,7 @@ router.post('/:id/reject', async (req, res) => {
     )
 
     if (submissionResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Submission not found' })
+      return c.json({ error: 'Submission not found' }, 404)
     }
 
     const submission = submissionResult.rows[0]
@@ -545,7 +545,7 @@ router.post('/:id/reject', async (req, res) => {
       ]
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Submission rejected',
       submission: {
@@ -557,7 +557,7 @@ router.post('/:id/reject', async (req, res) => {
     })
   } catch (error) {
     console.error('[Admin Approvals] Error rejecting submission:', error)
-    res.status(500).json({ error: error.message })
+    return c.json({ error: error.message }, 500)
   }
 })
 

@@ -3,11 +3,11 @@
  * Handles creation, listing, and revocation of API keys for users and teams
  */
 
-import express from 'express'
+import { Hono } from 'hono'
 import crypto from 'crypto'
 import { query } from '../database/db.mjs'
 
-const router = express.Router()
+const router = new Hono()
 
 /**
  * Generate a secure API key
@@ -29,12 +29,12 @@ function hashAPIKey(apiKey) {
  * GET /api/api-keys/user
  * Get all API keys for the current user
  */
-router.get('/user', async (req, res) => {
+router.get('/user', async (c) => {
   try {
-    const userId = req.headers['x-user-id']
+    const userId = c.req.header('x-user-id')
 
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     // Get user's internal ID from Privy ID
@@ -44,7 +44,7 @@ router.get('/user', async (req, res) => {
     )
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const internalUserId = userResult.rows[0].id
@@ -65,7 +65,7 @@ router.get('/user', async (req, res) => {
       [internalUserId]
     )
 
-    res.json({
+    return c.json({
       count: result.rows.length,
       apiKeys: result.rows.map(key => ({
         id: key.id,
@@ -80,7 +80,7 @@ router.get('/user', async (req, res) => {
     })
   } catch (error) {
     console.error('[API Keys] Error fetching user API keys:', error)
-    res.status(500).json({ error: 'Failed to fetch API keys' })
+    return c.json({ error: 'Failed to fetch API keys' }, 500)
   }
 })
 
@@ -88,13 +88,13 @@ router.get('/user', async (req, res) => {
  * GET /api/api-keys/team/:teamId
  * Get all API keys for a specific team
  */
-router.get('/team/:teamId', async (req, res) => {
+router.get('/team/:teamId', async (c) => {
   try {
-    const userId = req.headers['x-user-id']
-    const { teamId } = req.params
+    const userId = c.req.header('x-user-id')
+    const teamId = c.req.param('teamId')
 
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     // Get user's internal ID
@@ -104,7 +104,7 @@ router.get('/team/:teamId', async (req, res) => {
     )
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const internalUserId = userResult.rows[0].id
@@ -117,7 +117,7 @@ router.get('/team/:teamId', async (req, res) => {
     )
 
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'You are not a member of this team' })
+      return c.json({ error: 'You are not a member of this team' }, 403)
     }
 
     const result = await query(
@@ -136,7 +136,7 @@ router.get('/team/:teamId', async (req, res) => {
       [teamId]
     )
 
-    res.json({
+    return c.json({
       count: result.rows.length,
       apiKeys: result.rows.map(key => ({
         id: key.id,
@@ -151,7 +151,7 @@ router.get('/team/:teamId', async (req, res) => {
     })
   } catch (error) {
     console.error('[API Keys] Error fetching team API keys:', error)
-    res.status(500).json({ error: 'Failed to fetch API keys' })
+    return c.json({ error: 'Failed to fetch API keys' }, 500)
   }
 })
 
@@ -159,17 +159,17 @@ router.get('/team/:teamId', async (req, res) => {
  * POST /api/api-keys/user
  * Create a new API key for the current user
  */
-router.post('/user', async (req, res) => {
+router.post('/user', async (c) => {
   try {
-    const userId = req.headers['x-user-id']
-    const { name, permissions, expiresInDays } = req.body
+    const userId = c.req.header('x-user-id')
+    const { name, permissions, expiresInDays } = await c.req.json()
 
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     if (!name) {
-      return res.status(400).json({ error: 'API key name is required' })
+      return c.json({ error: 'API key name is required' }, 400)
     }
 
     // Get user's internal ID
@@ -179,7 +179,7 @@ router.post('/user', async (req, res) => {
     )
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const internalUserId = userResult.rows[0].id
@@ -203,7 +203,7 @@ router.post('/user', async (req, res) => {
 
     const createdKey = result.rows[0]
 
-    res.status(201).json({
+    return c.json({
       id: createdKey.id,
       name: createdKey.name,
       apiKey: apiKey, // Only returned once on creation
@@ -213,10 +213,10 @@ router.post('/user', async (req, res) => {
       isActive: createdKey.is_active,
       createdAt: createdKey.created_at,
       warning: 'Save this API key securely. It will not be shown again.'
-    })
+    }, 201)
   } catch (error) {
     console.error('[API Keys] Error creating user API key:', error)
-    res.status(500).json({ error: 'Failed to create API key' })
+    return c.json({ error: 'Failed to create API key' }, 500)
   }
 })
 
@@ -224,18 +224,18 @@ router.post('/user', async (req, res) => {
  * POST /api/api-keys/team/:teamId
  * Create a new API key for a team
  */
-router.post('/team/:teamId', async (req, res) => {
+router.post('/team/:teamId', async (c) => {
   try {
-    const userId = req.headers['x-user-id']
-    const { teamId } = req.params
-    const { name, permissions, expiresInDays } = req.body
+    const userId = c.req.header('x-user-id')
+    const teamId = c.req.param('teamId')
+    const { name, permissions, expiresInDays } = await c.req.json()
 
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     if (!name) {
-      return res.status(400).json({ error: 'API key name is required' })
+      return c.json({ error: 'API key name is required' }, 400)
     }
 
     // Get user's internal ID
@@ -245,7 +245,7 @@ router.post('/team/:teamId', async (req, res) => {
     )
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const internalUserId = userResult.rows[0].id
@@ -258,12 +258,12 @@ router.post('/team/:teamId', async (req, res) => {
     )
 
     if (memberCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'You are not a member of this team' })
+      return c.json({ error: 'You are not a member of this team' }, 403)
     }
 
     const role = memberCheck.rows[0].role
     if (role !== 'owner' && role !== 'admin') {
-      return res.status(403).json({ error: 'Only team owners and admins can create API keys' })
+      return c.json({ error: 'Only team owners and admins can create API keys' }, 403)
     }
 
     // Generate API key
@@ -285,7 +285,7 @@ router.post('/team/:teamId', async (req, res) => {
 
     const createdKey = result.rows[0]
 
-    res.status(201).json({
+    return c.json({
       id: createdKey.id,
       name: createdKey.name,
       apiKey: apiKey, // Only returned once on creation
@@ -295,10 +295,10 @@ router.post('/team/:teamId', async (req, res) => {
       isActive: createdKey.is_active,
       createdAt: createdKey.created_at,
       warning: 'Save this API key securely. It will not be shown again.'
-    })
+    }, 201)
   } catch (error) {
     console.error('[API Keys] Error creating team API key:', error)
-    res.status(500).json({ error: 'Failed to create API key' })
+    return c.json({ error: 'Failed to create API key' }, 500)
   }
 })
 
@@ -306,13 +306,13 @@ router.post('/team/:teamId', async (req, res) => {
  * DELETE /api/api-keys/:keyId
  * Revoke an API key
  */
-router.delete('/:keyId', async (req, res) => {
+router.delete('/:keyId', async (c) => {
   try {
-    const userId = req.headers['x-user-id']
-    const { keyId } = req.params
+    const userId = c.req.header('x-user-id')
+    const keyId = c.req.param('keyId')
 
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not provided in headers' })
+      return c.json({ error: 'User ID not provided in headers' }, 401)
     }
 
     // Get user's internal ID
@@ -322,7 +322,7 @@ router.delete('/:keyId', async (req, res) => {
     )
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' })
+      return c.json({ error: 'User not found' }, 404)
     }
 
     const internalUserId = userResult.rows[0].id
@@ -334,14 +334,14 @@ router.delete('/:keyId', async (req, res) => {
     )
 
     if (keyCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'API key not found' })
+      return c.json({ error: 'API key not found' }, 404)
     }
 
     const key = keyCheck.rows[0]
 
     // Check if user owns the key directly
     if (key.user_id && key.user_id !== internalUserId) {
-      return res.status(403).json({ error: 'You do not have permission to revoke this API key' })
+      return c.json({ error: 'You do not have permission to revoke this API key' }, 403)
     }
 
     // If it's a team key, check if user is admin/owner
@@ -353,12 +353,12 @@ router.delete('/:keyId', async (req, res) => {
       )
 
       if (memberCheck.rows.length === 0) {
-        return res.status(403).json({ error: 'You are not a member of this team' })
+        return c.json({ error: 'You are not a member of this team' }, 403)
       }
 
       const role = memberCheck.rows[0].role
       if (role !== 'owner' && role !== 'admin') {
-        return res.status(403).json({ error: 'Only team owners and admins can revoke API keys' })
+        return c.json({ error: 'Only team owners and admins can revoke API keys' }, 403)
       }
     }
 
@@ -370,13 +370,13 @@ router.delete('/:keyId', async (req, res) => {
       [keyId]
     )
 
-    res.json({
+    return c.json({
       success: true,
       message: 'API key revoked successfully'
     })
   } catch (error) {
     console.error('[API Keys] Error revoking API key:', error)
-    res.status(500).json({ error: 'Failed to revoke API key' })
+    return c.json({ error: 'Failed to revoke API key' }, 500)
   }
 })
 
