@@ -53,7 +53,7 @@ const app = express()
 // Basic CORS headers (simplified without cors package)
 app.use((req, res, next) => {
   const origin = process.env.NODE_ENV === 'production'
-    ? process.env.FRONTEND_URL || '*'
+    ? (process.env.FRONTEND_URL || '*').replace(/\/$/, '') // Remove trailing slash
     : req.headers.origin || 'http://localhost:3000'
 
   res.header('Access-Control-Allow-Origin', origin)
