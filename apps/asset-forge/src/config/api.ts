@@ -80,7 +80,7 @@ export const API_ENDPOINTS = {
   voiceCreateFromPreview: `${API_URL}/api/voice/create-from-preview`,
   voiceRateLimit: `${API_URL}/api/voice/rate-limit`,
 
-  // Voice Generation - Manifest Assignment (NEW - requires backend implementation)
+  // Voice Generation - Manifest Assignment
   voiceManifestAssign: `${API_URL}/api/voice/manifest/assign`,
   voiceManifestProfile: (manifestType: string, entityId: string) =>
     `${API_URL}/api/voice/manifest/${manifestType}/${entityId}`,

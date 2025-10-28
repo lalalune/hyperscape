@@ -13,12 +13,6 @@ import { serve } from '@hono/node-server'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { requireAuth } from './middleware/auth-hono.mjs'
-import { resolveMeshyKey } from './middleware/api-key-resolver-hono.mjs'
-import { AssetService } from './services/AssetService.mjs'
-import { RetextureService } from './services/RetextureService.mjs'
-import { GenerationService } from './services/GenerationService.mjs'
-import { getWeaponDetectionPrompts } from './utils/promptLoader.mjs'
 
 // Route imports
 import usersRoutes from './routes/users.mjs'
@@ -46,6 +40,11 @@ import contentGenerationRoutes from './routes/content-generation.mjs'
 import voiceGenerationRoutes from './routes/voice-generation.mjs'
 import soundEffectsRoutes from './routes/sound-effects.mjs'
 import musicRoutes from './routes/music.mjs'
+import legacyAssetsRoutes from './routes/legacy-assets.mjs'
+import materialPresetsRoutes from './routes/material-presets.mjs'
+import retexturingRoutes from './routes/retexturing.mjs'
+import generationPipelineRoutes from './routes/generation-pipeline.mjs'
+import weaponDetectionRoutes from './routes/weapon-detection.mjs'
 
 // Initialize database connection
 import './database/db.mjs'
@@ -141,10 +140,8 @@ app.use('/temp-images/*', serveStatic({
   }
 }))
 
-// Initialize services
-const assetService = new AssetService(path.join(ROOT_DIR, 'gdd-assets'))
+// Server configuration
 const apiPort = process.env.API_PORT || process.env.PORT || 3004
-const generationService = new GenerationService()
 
 // Mount route modules
 app.route('/api/users', usersRoutes)
@@ -173,13 +170,21 @@ app.route('/api/sfx', soundEffectsRoutes)
 app.route('/api/music', musicRoutes)
 app.route('/api/v2/assets', assetsRoutes)
 
+// Legacy inline routes (migrated from Express backup)
+app.route('/api/assets', legacyAssetsRoutes)
+app.route('/api/material-presets', materialPresetsRoutes)
+app.route('/api', retexturingRoutes)
+app.route('/api/generation', generationPipelineRoutes)
+app.route('/api', weaponDetectionRoutes)
+
 console.log('[Server] ✓ All routes successfully mounted')
-console.log('[Server] ✓ 28 route modules migrated to Hono')
+console.log('[Server] ✓ 33 route modules migrated to Hono (28 original + 5 legacy inline routes)')
 console.log('[Server] Routes: users, prompts, multi-agent, npc-collaboration, playtester-swarm,')
 console.log('[Server]         projects, teams, admin, models, ai-gateway, api-keys, manifests,')
 console.log('[Server]         preview-manifests, submissions, admin-approvals, ai-context,')
 console.log('[Server]         embeddings, voice-assignments, quests, content-generation,')
-console.log('[Server]         voice-generation, sound-effects, music, assets')
+console.log('[Server]         voice-generation, sound-effects, music, assets, legacy-assets,')
+console.log('[Server]         material-presets, retexturing, generation-pipeline, weapon-detection')
 
 // Basic routes (health check and error logging)
 app.get('/api/health', (c) => {
