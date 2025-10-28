@@ -2,13 +2,13 @@
 nixPkgs = ['nodejs-18_x']
 
 [phases.install]
-cmds = ['npm install -g bun', 'cd apps/api && bun install']
+cmds = ['npm install -g bun', 'bun install']
 
 [phases.build]
 cmds = [
-  'cd apps/api && node server/scripts/migrate-manifests-to-postgres.mjs || true'
+  'node server/scripts/migrate-manifests-to-postgres.mjs || true'
 ]
 
 [start]
-cmd = 'cd apps/api && bun run start'
+cmd = 'bun run start'
 
