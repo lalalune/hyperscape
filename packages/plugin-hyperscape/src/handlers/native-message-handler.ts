@@ -104,7 +104,7 @@ export class NativeMessageHandler {
     } catch (error) {
       elizaLogger.error(
         `[NativeMessageHandler] Error processing message:`,
-        error,
+        error instanceof Error ? error.message : String(error),
       );
     } finally {
       onComplete?.();
@@ -184,7 +184,7 @@ export class NativeMessageHandler {
       } catch (error) {
         elizaLogger.error(
           `[NativeMessageHandler] Action ${action.name} failed:`,
-          error,
+          error instanceof Error ? error.message : String(error),
         );
         // Continue to next action on error
       }
@@ -232,7 +232,7 @@ export class NativeMessageHandler {
       );
       return Boolean(shouldRespond);
     } catch (error) {
-      elizaLogger.error("[NativeMessageHandler] Evaluator error:", error);
+      elizaLogger.error("[NativeMessageHandler] Evaluator error:", error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -297,7 +297,7 @@ export class NativeMessageHandler {
     } catch (error) {
       elizaLogger.error(
         "[NativeMessageHandler] Failed to generate response:",
-        error,
+        error instanceof Error ? error.message : String(error),
       );
 
       // Create error response memory

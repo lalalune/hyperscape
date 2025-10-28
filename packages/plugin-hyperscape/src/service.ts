@@ -349,7 +349,7 @@ Hyperscape world integration service that enables agents to:
     this.world.systems.push(livekit);
 
     const actions = new AgentActions(this.world);
-    this.world.systems.push(actions);
+    this.world.systems.push(actions as unknown as System);
 
     // Register ClientInput as controls - this provides both human and agent control
     this.world.register("controls", ClientInput);
@@ -398,7 +398,7 @@ Hyperscape world integration service that enables agents to:
     await this.loadRPGExtensions();
 
     // Access appearance data for validation
-    const appearance = this.world.entities.player.data.appearance;
+    const appearance = this.world!.entities.player!.data.appearance;
     console.debug("[Appearance] Current appearance data available");
   }
 
@@ -406,14 +406,14 @@ Hyperscape world integration service that enables agents to:
    * Detects RPG systems and dynamically loads corresponding actions and providers
    */
   private async loadRPGExtensions(): Promise<void> {
-    const rpgSystems = this.world.rpgSystems || {};
+    const rpgSystems = this.world!.rpgSystems || {};
     console.info(
       `[HyperscapeService] Checking for RPG systems...`,
       Object.keys(rpgSystems),
     );
 
     // Check for skills system - load skill-based actions
-    if (this.world.getSystem?.("skills")) {
+    if (this.world!.getSystem?.("skills")) {
       console.info(
         "[HyperscapeService] Skills system detected - loading skill actions",
       );
@@ -454,7 +454,7 @@ Hyperscape world integration service that enables agents to:
     }
 
     // Check for inventory/banking system - load inventory actions
-    if (this.world.getSystem?.("banking")) {
+    if (this.world!.getSystem?.("banking")) {
       console.info(
         "[HyperscapeService] Banking system detected - loading inventory actions",
       );
@@ -470,9 +470,9 @@ Hyperscape world integration service that enables agents to:
   }
 
   private subscribeToHyperscapeEvents(): void {
-    this.world.off("disconnect");
+    this.world!.off("disconnect");
 
-    this.world.on("disconnect", (data: Record<string, unknown> | string) => {
+    this.world!.on("disconnect", ((data: Record<string, unknown> | string) => {
       // Data is either a string reason or an object with reason property
       const reason = (data as { reason?: string }).reason || "Unknown reason";
       console.warn(`Hyperscape world disconnected: ${reason}`);
@@ -482,7 +482,7 @@ Hyperscape world integration service that enables agents to:
         data: { worldId: this._currentWorldId, reason },
       });
       this.handleDisconnect();
-    });
+    }) as (...args: unknown[]) => void);
 
     this.startChatSubscription();
   }
@@ -491,7 +491,7 @@ Hyperscape world integration service that enables agents to:
     success: boolean;
     error?: string;
   }> {
-    const agentPlayer = this.world.entities.player;
+    const agentPlayer = this.world!.entities.player!;
     const localAvatarPath = path.resolve(LOCAL_AVATAR_PATH);
 
     console.info(`[Appearance] Reading avatar file from: ${localAvatarPath}`);
@@ -508,11 +508,11 @@ Hyperscape world integration service that enables agents to:
     const hash = await hashFileBuffer(fileBuffer);
     const ext = fileName.split(".").pop()!.toLowerCase();
     const fullFileNameWithHash = `${hash}.${ext}`;
-    const baseUrl = this.world.assetsUrl.replace(/\/$/, "");
+    const baseUrl = this.world!.assetsUrl.replace(/\/$/, "");
     const constructedHttpUrl = `${baseUrl}/${fullFileNameWithHash}`;
 
     // Strong type assumption - network has upload method
-    const network = this.world.network as UploadableNetwork;
+    const network = this.world!.network as UploadableNetwork;
 
     console.info(`[Appearance] Uploading avatar to ${constructedHttpUrl}...`);
     const fileArrayBuffer = fileBuffer.buffer.slice(
@@ -539,7 +539,7 @@ Hyperscape world integration service that enables agents to:
     await this.emoteManager.uploadEmotes();
 
     // Assume send method exists on network
-    this.world.network.send("playerSessionAvatar", {
+    this.world!.network.send("playerSessionAvatar", {
       avatar: constructedHttpUrl,
     });
     console.info(
@@ -597,12 +597,12 @@ Hyperscape world integration service that enables agents to:
           );
           if (appearanceComponent) {
             appearanceComponent.data = {
-              appearance: this.world.entities.player.data.appearance,
+              appearance: this.world!.entities.player!.data.appearance,
             };
           } else {
             const newComponent: Partial<ElizaComponent> = {
               type: "appearance",
-              data: { appearance: this.world.entities.player.data.appearance },
+              data: { appearance: this.world!.entities.player!.data.appearance },
             };
             entity.components.push(newComponent as ElizaComponent);
           }
@@ -749,7 +749,7 @@ Hyperscape world integration service that enables agents to:
       }
     ).emitEvent(EventType.WORLD_LEFT, {
       runtime: this.runtime.agentId,
-      worldId: this._currentWorldId,
+      worldId: this._currentWorldId || "",
     });
 
     this.world = null;
@@ -761,7 +761,7 @@ Hyperscape world integration service that enables agents to:
   // Removed type guard - assume disconnect exists when needed
 
   async changeName(newName: string): Promise<void> {
-    const agentPlayerId = this.world.entities.player.data.id;
+    const agentPlayerId = this.world!.entities.player!.data.id;
 
     console.info(
       `[Action] Attempting to change name to "${newName}" for ID ${agentPlayerId}`,
@@ -781,11 +781,11 @@ Hyperscape world integration service that enables agents to:
     }
 
     // --- Use agentPlayer.modify for local update --- >
-    const agentPlayer = this.world.entities.player;
+    const agentPlayer = this.world!.entities.player!;
     (agentPlayer as ModifiablePlayer).modify({ name: newName });
     agentPlayer.data.name = newName;
 
-    this.world.network.send("entityModified", {
+    this.world!.network.send("entityModified", {
       id: agentPlayer.data.id,
       name: newName,
     });
@@ -801,11 +801,11 @@ Hyperscape world integration service that enables agents to:
     console.info("[HyperscapeService] Initializing chat subscription...");
 
     // Pre-populate processed IDs with existing messages
-    (this.world.chat as ChatSystem).msgs.forEach((msg: ChatMessage) => {
+    (this.world!.chat as ChatSystem).msgs.forEach((msg: ChatMessage) => {
       this.processedMsgIds.add(msg.id);
     });
 
-    this.world.chat.subscribe((msgs: ChatMessage[]) => {
+    this.world!.chat.subscribe((msgs: ChatMessage[]) => {
       const chatMessages = msgs as ChatMessage[];
 
       const newMessagesFound: ChatMessage[] = []; // Temporary list for new messages
@@ -837,7 +837,7 @@ Hyperscape world integration service that enables agents to:
         );
 
         newMessagesFound.forEach(async (msg: ChatMessage) => {
-          await this.messageManager.handleMessage(msg);
+          await this.messageManager!.handleMessage(msg);
         });
       }
     });
@@ -896,7 +896,7 @@ Hyperscape world integration service that enables agents to:
     console.info(`[HyperscapeService] Loading UGC content: ${contentId}`);
 
     // Install the content bundle
-    const instance = await contentBundle.install(this.world, this.runtime);
+    const instance = contentBundle.install ? await contentBundle.install(this.world!, this.runtime) : {};
     this.loadedContent.set(contentId, instance);
 
     // Handle actions from the content bundle
@@ -928,7 +928,7 @@ Hyperscape world integration service that enables agents to:
       );
       const discoveredActions = contentBundle.dynamicActions;
       for (const actionDescriptor of discoveredActions) {
-        await this.dynamicActionLoader.registerAction(
+        await this.dynamicActionLoader!.registerAction(
           actionDescriptor,
           this.runtime,
         );
@@ -996,7 +996,7 @@ Hyperscape world integration service that enables agents to:
         `[HyperscapeService] Unregistering ${content.dynamicActions.length} dynamic actions from ${contentId}`,
       );
       for (const actionName of content.dynamicActions) {
-        await this.dynamicActionLoader.unregisterAction(
+        await this.dynamicActionLoader!.unregisterAction(
           actionName,
           this.runtime,
         );

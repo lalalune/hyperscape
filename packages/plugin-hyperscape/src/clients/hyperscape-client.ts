@@ -199,7 +199,7 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
   }
 
   private getAvailableActions(context: Record<string, unknown>): string[] {
-    const actions = [];
+    const actions: string[] = [];
 
     actions.push("HYPERSCAPE_GOTO_ENTITY"); // Move to tasks
 

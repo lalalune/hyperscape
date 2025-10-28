@@ -51,7 +51,7 @@ export class BehaviorManager {
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
     this.service = this.getService();
-    this.world = this.service?.getWorld();
+    this.world = this.service?.getWorld() || null;
   }
 
   /**
