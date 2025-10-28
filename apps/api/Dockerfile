@@ -1,8 +1,8 @@
 # Multi-stage Docker build for Asset Forge API Server
-# Uses Bun runtime for optimal performance
+# Uses Node.js runtime for @hono/node-server compatibility
 
 # Stage 1: Base image with dependencies
-FROM oven/bun:1 AS base
+FROM node:20-slim AS base
 WORKDIR /app
 
 # Install system dependencies
@@ -18,15 +18,15 @@ WORKDIR /app
 COPY package.json ./
 
 # Install dependencies
-RUN bun install --frozen-lockfile --production
+RUN npm install --omit=dev
 
 # Stage 3: Production image
 FROM base AS runner
 WORKDIR /app
 
 # Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 apiserver
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 apiserver
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -37,10 +37,6 @@ COPY --chown=apiserver:nodejs . .
 # Create directories for runtime data
 RUN mkdir -p gdd-assets temp-images && \
     chown -R apiserver:nodejs gdd-assets temp-images
-
-# Run database setup and migrations (as root before switching users)
-RUN node scripts/setup-railway-database.mjs || true && \
-    node server/scripts/migrate-manifests-to-postgres.mjs || true
 
 # Switch to non-root user
 USER apiserver
@@ -53,7 +49,7 @@ EXPOSE 3004
 
 # Environment variables
 ENV NODE_ENV=production
-# API_PORT is set by Railway's PORT environment variable
+# PORT is set by Railway and will be used by the server
 
 # Start the server
-CMD ["bun", "run", "start"]
+CMD ["node", "scripts/startup.mjs"]
