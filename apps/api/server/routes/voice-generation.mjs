@@ -248,16 +248,21 @@ router.post('/estimate', async (req, res) => {
  * GET /api/voice/subscription
  * Get ElevenLabs subscription info
  */
-router.get('/subscription', async (req, res) => {
+router.get('/subscription', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
 
-    const subscription = await voiceService.getSubscriptionInfo()
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    const subscription = await userVoiceService.getSubscriptionInfo()
 
     return res.json(subscription)
   } catch (error) {
@@ -274,16 +279,21 @@ router.get('/subscription', async (req, res) => {
  * GET /api/voice/models
  * Get available ElevenLabs voice models
  */
-router.get('/models', async (req, res) => {
+router.get('/models', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
 
-    const models = await voiceService.getAvailableModels()
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    const models = await userVoiceService.getAvailableModels()
 
     return res.json({
       models,
