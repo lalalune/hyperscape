@@ -51,6 +51,11 @@ const getCdnUrl = (): string => {
 export const API_URL = getApiUrl()
 export const CDN_URL = getCdnUrl()
 
+// Log API configuration in production for debugging
+console.log('[API Config] API_URL:', API_URL)
+console.log('[API Config] VITE_API_URL from env:', import.meta.env?.VITE_API_URL)
+console.log('[API Config] Mode:', import.meta.env?.MODE)
+
 // Convenience export for API base URL (alias for API_URL)
 export const API_BASE_URL = API_URL
 
