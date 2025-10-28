@@ -55,7 +55,7 @@ const sceneEditOperationExtractionTemplate = `
   - "import": Add a new entity into the scene → requires:
     - "position": [x, y, z]
     - "rotation": [x, y, z, w]
-    - "target": must be a URL to the asset (e.g. https://assets.hyperscape.io/model.glb)
+    - "target": must be a URL to the asset (e.g. https://assets.hyperscape.gg/model.glb)
   
   # Output Format:
   Return a single JSON object with an **"operations"** array inside. Each item must match one of these two formats:
@@ -87,7 +87,7 @@ const sceneEditOperationExtractionTemplate = `
       {
         "success": true,
         "operation": "import",
-        "target": "https://assets.hyperscape.io/sculpture.glb",
+        "target": "https://assets.hyperscape.gg/sculpture.glb",
         "parameters": {
           "position": [0, 1, 0],
           "rotation": [0, 0, 0, 1]

@@ -142,7 +142,7 @@ hyperscape/
 
 ### Technology Stack
 
-- **[Hyperscape](https://hyperscape.io/)** - Real-time 3D metaverse engine (Three.js + PhysX)
+- **[Hyperscape](https://hyperscape.gg/)** - Real-time 3D metaverse engine (Three.js + PhysX)
 - **[ElizaOS](https://elizaos.ai/)** - AI agent framework for autonomous players
 - **TypeScript** - Type-safe development across all packages
 - **Three.js** - 3D graphics and rendering

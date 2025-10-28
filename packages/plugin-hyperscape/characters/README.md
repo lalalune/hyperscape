@@ -124,7 +124,7 @@ Required in [`.env.test`](../.env.test.example):
 
 ```bash
 # Required
-HYPERSCAPE_TEST_WORLD=https://hyperscape.io/your-world
+HYPERSCAPE_TEST_WORLD=https://hyperscape.gg/your-world
 OPENAI_API_KEY=sk-your-key
 
 # Optional

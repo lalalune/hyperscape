@@ -320,7 +320,7 @@ Hyperscape world integration service that enables agents to:
       initialAuthToken: config.authToken,
       loadPhysX,
       assetsUrl:
-        process.env.HYPERSCAPE_ASSETS_URL || "https://assets.hyperscape.io",
+        process.env.HYPERSCAPE_ASSETS_URL || "https://assets.hyperscape.gg",
       physics: true,
       networkRate: 60,
     };
@@ -329,7 +329,7 @@ Hyperscape world integration service that enables agents to:
     const mockConfig: MockWorldConfig = {
       worldId: config.worldId,
       name: `world-${config.worldId}`,
-      assets: ["https://assets.hyperscape.io"],
+      assets: ["https://assets.hyperscape.gg"],
       physics: hyperscapeConfig.physics,
     };
     this.world = this.createWorld(mockConfig);
@@ -1070,7 +1070,7 @@ Hyperscape world integration service that enables agents to:
       systems: [],
 
       // Configuration
-      assetsUrl: config.assets?.[0] || "https://assets.hyperscape.io",
+      assetsUrl: config.assets?.[0] || "https://assets.hyperscape.gg",
 
       // Physics system - 'as any' cast acceptable here (test mock context)
       // Note: This is a minimal mock world for testing only, not production code

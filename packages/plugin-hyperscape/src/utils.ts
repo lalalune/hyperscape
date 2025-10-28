@@ -201,10 +201,10 @@ export function parseHyperscapeWorldUrl(url: string): string | null {
   try {
     const urlObj = new URL(url);
     // Handle different Hyperscape URL formats
-    // e.g., https://hyperscape.io/world-name or https://custom-domain.com
+    // e.g., https://hyperscape.gg/world-name or https://custom-domain.com
     const pathParts = urlObj.pathname.split("/").filter(Boolean);
 
-    if (urlObj.hostname.includes("hyperscape.io") && pathParts.length > 0) {
+    if (urlObj.hostname.includes("hyperscape.gg") && pathParts.length > 0) {
       return pathParts[0];
     }
 

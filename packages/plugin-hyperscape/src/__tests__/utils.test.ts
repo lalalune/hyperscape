@@ -62,8 +62,8 @@ describe("Hyperscape Utility Functions", () => {
   });
 
   describe("parseHyperscapeWorldUrl", () => {
-    it("should parse standard Hyperscape.io URLs", () => {
-      const url = "https://hyperscape.io/my-world";
+    it("should parse standard Hyperscape.gg URLs", () => {
+      const url = "https://hyperscape.gg/my-world";
       expect(parseHyperscapeWorldUrl(url)).toBe("my-world");
     });
 
