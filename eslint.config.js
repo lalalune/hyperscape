@@ -135,7 +135,6 @@ export default [
         IDBKeyRange: 'readonly',
         IDBRequest: 'readonly',
         IDBCursorWithValue: 'readonly',
-        RequestPriority: 'readonly',
         Navigator: 'readonly',
         HeadersInit: 'readonly',
         RequestInit: 'readonly',

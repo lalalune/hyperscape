@@ -105,9 +105,7 @@ export const hyperscapeProvider: Provider = {
 
     const actionsSystem = world?.actions as
       | {
-          getNearby?: (
-            radius: number,
-          ) => Array<{
+          getNearby?: (radius: number) => Array<{
             label?: string;
             ctx?: {
               entity?: {

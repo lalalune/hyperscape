@@ -318,7 +318,7 @@ export class MusicService {
 // Export singleton instance
 // MIGRATION NOTE: Removed global instance to support per-user API keys.
 // 
-// WHY: Each user can now provide their own OpenAI API key for music generation.
+// WHY: Each user can now provide their own ElevenLabs API key for music generation.
 // Services must create isolated instances per request to prevent key leakage between users.
 //
 // HOW TO USE:
@@ -329,6 +329,6 @@ export class MusicService {
 //
 // EXAMPLE USAGE (in words):
 // In your route handler, instantiate new MusicService with options object containing
-// apiKeyOverride field set to the user's OpenAI key (from resolveApiKeys middleware).
+// apiKeyOverride field set to the user's ElevenLabs key (from resolveApiKeys middleware).
 // Then call generateMusic() or other methods. Each request gets a fresh instance with
 // the appropriate API key context.

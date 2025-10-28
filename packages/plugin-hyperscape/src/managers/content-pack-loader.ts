@@ -163,7 +163,14 @@ export class ContentPackLoader implements IContentPackLoader {
       const colorDetector = world.colorDetector;
       Object.entries(validated.entityColors).forEach(([entityType, config]) => {
         if (config.color !== undefined) {
-          colorDetector.registerEntityColor(entityType, config as { color: string | number; hex?: string; tolerance?: number });
+          colorDetector.registerEntityColor(
+            entityType,
+            config as {
+              color: string | number;
+              hex?: string;
+              tolerance?: number;
+            },
+          );
         }
       });
     }

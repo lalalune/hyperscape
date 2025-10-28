@@ -7,6 +7,37 @@ import { query } from '../database/db.mjs'
 import { validateUserId } from '../validation/user-schemas.mjs'
 
 /**
+ * Helper: Validates and extracts user ID from request headers
+ * Returns the canonical userId or null if validation fails
+ * Sends 401 response directly when validation fails
+ */
+function validateAndExtractUserId(req, res) {
+  const rawUserId = req.headers['x-user-id']
+
+  if (!rawUserId) {
+    res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Authentication required. Please provide x-user-id header.'
+    })
+    return null
+  }
+
+  // Validate and canonicalize user ID
+  const validation = validateUserId(rawUserId)
+  
+  if (!validation.valid) {
+    console.warn(`[Auth Middleware] Invalid user ID format: ${validation.error}`)
+    res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid user ID format. Please ensure you are using a valid authentication token.'
+    })
+    return null
+  }
+
+  return validation.userId
+}
+
+/**
  * Basic authentication check
  * Verifies user exists and attaches to req.user
  * 
@@ -15,27 +46,8 @@ import { validateUserId } from '../validation/user-schemas.mjs'
 export async function requireAuth(req, res, next) {
   try {
     // Get userId from header (set by frontend from Privy)
-    const rawUserId = req.headers['x-user-id']
-
-    if (!rawUserId) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required. Please provide x-user-id header.'
-      })
-    }
-
-    // Validate and canonicalize user ID
-    const validation = validateUserId(rawUserId)
-    
-    if (!validation.valid) {
-      console.warn(`[Auth Middleware] Invalid user ID format: ${validation.error}`)
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Invalid user ID format. Please ensure you are using a valid authentication token.'
-      })
-    }
-
-    const userId = validation.userId
+    const userId = validateAndExtractUserId(req, res)
+    if (!userId) return
 
     // Fetch user from database by privy_user_id
     const result = await query(
@@ -77,27 +89,8 @@ export async function requireAuth(req, res, next) {
 export async function requireAdmin(req, res, next) {
   try {
     // First check authentication
-    const rawUserId = req.headers['x-user-id']
-
-    if (!rawUserId) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required. Please provide x-user-id header.'
-      })
-    }
-
-    // Validate and canonicalize user ID
-    const validation = validateUserId(rawUserId)
-    
-    if (!validation.valid) {
-      console.warn(`[Auth Middleware] Invalid admin user ID format: ${validation.error}`)
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Invalid user ID format. Please ensure you are using a valid authentication token.'
-      })
-    }
-
-    const userId = validation.userId
+    const userId = validateAndExtractUserId(req, res)
+    if (!userId) return
 
     // Fetch user from database
     const result = await query(
@@ -150,27 +143,8 @@ export async function requireAdmin(req, res, next) {
 export async function requireTeamLeaderOrAdmin(req, res, next) {
   try {
     // First check authentication
-    const rawUserId = req.headers['x-user-id']
-
-    if (!rawUserId) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required. Please provide x-user-id header.'
-      })
-    }
-
-    // Validate and canonicalize user ID
-    const validation = validateUserId(rawUserId)
-    
-    if (!validation.valid) {
-      console.warn(`[Auth Middleware] Invalid team leader user ID format: ${validation.error}`)
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Invalid user ID format. Please ensure you are using a valid authentication token.'
-      })
-    }
-
-    const userId = validation.userId
+    const userId = validateAndExtractUserId(req, res)
+    if (!userId) return
 
     // Fetch user from database
     const result = await query(

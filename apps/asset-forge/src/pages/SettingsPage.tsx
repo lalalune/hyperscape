@@ -3,7 +3,7 @@
  * Application settings and preferences
  */
 
-import { Settings as SettingsIcon, Palette, Keyboard, Bell, Lock, Globe, Zap, Save, CheckCircle, AlertCircle } from 'lucide-react'
+import { Settings as SettingsIcon, Palette, Keyboard, Bell, Lock, Globe, Zap, Save, CheckCircle, AlertCircle, Key as KeyIcon } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { Key } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Checkbox, Input } from '@/components/common'
@@ -381,7 +381,7 @@ export function SettingsPage() {
 
             <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               <h4 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2">
-                <Key className="w-4 h-4" />
+                <KeyIcon className="w-4 h-4" />
                 API Key Management
               </h4>
               <p className="text-xs text-text-secondary mb-3">

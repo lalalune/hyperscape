@@ -113,6 +113,14 @@ export function getUserApiKeys(
 export function encrypt(text: string): string
 
 /**
+ * Encrypts plain text and returns a serialized string
+ * @param text - Plain text to encrypt
+ * @param serialize - When true or omitted, returns serialized "iv:authTag:encrypted" string
+ * @returns Serialized encrypted data in format "iv:authTag:encrypted"
+ */
+export function encrypt(text: string, serialize: true): string
+
+/**
  * Encrypts plain text and returns structured object
  * @param text - Plain text to encrypt
  * @param serialize - When false, returns EncryptedData object

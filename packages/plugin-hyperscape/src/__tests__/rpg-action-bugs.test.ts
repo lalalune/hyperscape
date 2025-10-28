@@ -9,9 +9,10 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import type { IAgentRuntime } from "@elizaos/core";
+import type { HyperscapeService } from "../service";
 
 // Lazy import to avoid loading Hyperscape at test discovery time
-let HyperscapeService: any;
+let HyperscapeServiceClass: any;
 
 // These tests require a real Hyperscape world connection
 // They will be skipped if HYPERSCAPE_TEST_WORLD env var is not set
@@ -20,21 +21,42 @@ const SKIP_REAL_TESTS = !TEST_WORLD;
 
 describe("RPG Action Bug Tests (Real World)", () => {
   let testRuntime: IAgentRuntime | null = null;
+  const createdRuntimes: IAgentRuntime[] = [];
 
-  // Cleanup after each test to avoid database conflicts
+  // Helper to track runtimes for cleanup
+  const trackRuntime = (runtime: IAgentRuntime): IAgentRuntime => {
+    createdRuntimes.push(runtime);
+    return runtime;
+  };
+
+  // Cleanup after each test to avoid database conflicts and resource leaks
   afterEach(async () => {
-    if (testRuntime) {
+    // Clean up all tracked runtimes
+    for (const runtime of createdRuntimes) {
       try {
-        await testRuntime.stop();
-        const adapter = testRuntime.adapter;
+        // Disconnect HyperscapeService first if it exists
+        const service = runtime.getService<HyperscapeService>(
+          HyperscapeServiceClass?.serviceName,
+        );
+        if (service && typeof service.disconnect === "function") {
+          await service.disconnect();
+        }
+
+        // Stop the runtime
+        await runtime.stop();
+
+        // Close the database adapter
+        const adapter = (runtime as any).adapter;
         if (adapter && typeof adapter.close === "function") {
           await adapter.close();
         }
       } catch (e) {
-        // Ignore cleanup errors
+        // Ignore cleanup errors but log them for debugging
+        console.error("Cleanup error:", e);
       }
-      testRuntime = null;
     }
+    createdRuntimes.length = 0;
+    testRuntime = null;
   });
 
   describe("Critical Timeout Bugs", () => {
@@ -42,17 +64,17 @@ describe("RPG Action Bug Tests (Real World)", () => {
       "chopTree must timeout after 15s if no response",
       async () => {
         // BUG: If server never sends RESOURCE_GATHERING_COMPLETED, action hangs forever
-        testRuntime = await createTestRuntime(TEST_WORLD!);
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
         const service = testRuntime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+          HyperscapeServiceClass.serviceName,
         );
 
         // Block the completion event to simulate server failure
         const world = service!.getWorld();
-        world!.off("rpg:resource:gathering:completed", () => {});
+        world!.removeAllListeners("rpg:resource:gathering:completed");
 
         const startTime = Date.now();
-        const result = await executeAction(runtime, "CHOP_TREE");
+        const result = await executeAction(testRuntime, "CHOP_TREE");
         const duration = Date.now() - startTime;
 
         // MUST fail within 15-16s, not hang forever
@@ -65,10 +87,10 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "cookFood must timeout if fire event never arrives",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
 
         const startTime = Date.now();
-        const result = await executeAction(runtime, "COOK_FOOD");
+        const result = await executeAction(testRuntime, "COOK_FOOD");
         const duration = Date.now() - startTime;
 
         // If no fire exists, must fail fast (not wait 15s)
@@ -81,10 +103,10 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "bankItems must fail if inventory empty",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
 
         // Empty inventory scenario
-        const result = await executeAction(runtime, "BANK_ITEMS");
+        const result = await executeAction(testRuntime, "BANK_ITEMS");
 
         // MUST fail immediately, not try to deposit nothing
         expect(result.success).toBe(false);
@@ -99,9 +121,9 @@ describe("RPG Action Bug Tests (Real World)", () => {
       async () => {
         // BUG: If INVENTORY_UPDATED arrives before RESOURCE_GATHERING_COMPLETED,
         // items might be recorded but success flag is false
-        const runtime = await createTestRuntime(TEST_WORLD!);
-        const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
+        const service = testRuntime.getService<HyperscapeService>(
+          HyperscapeServiceClass.serviceName,
         );
         const world = service!.getWorld();
 
@@ -111,7 +133,7 @@ describe("RPG Action Bug Tests (Real World)", () => {
           items: [{ slot: 0, itemId: "logs", quantity: 1 }],
         });
 
-        const result = await executeAction(runtime, "CHOP_TREE");
+        const result = await executeAction(testRuntime, "CHOP_TREE");
 
         // Should NOT succeed with items but no gathering completion
         if (result.values.items && result.values.items.length > 0) {
@@ -123,9 +145,9 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "catchFish must not count XP if gathering failed",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
-        const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
+        const service = testRuntime.getService<HyperscapeService>(
+          HyperscapeServiceClass.serviceName,
         );
         const world = service!.getWorld();
 
@@ -141,7 +163,7 @@ describe("RPG Action Bug Tests (Real World)", () => {
           successful: false,
         });
 
-        const result = await executeAction(runtime, "CATCH_FISH");
+        const result = await executeAction(testRuntime, "CATCH_FISH");
 
         // MUST NOT report XP if gathering failed
         expect(result.values.xpGained).toBeFalsy();
@@ -153,18 +175,22 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "chopTree validate() must fail when no axe in inventory",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
 
         // Remove axe from inventory
-        const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+        const service = testRuntime.getService<HyperscapeService>(
+          HyperscapeServiceClass.serviceName,
         );
         const world = service!.getWorld();
         const player = world!.entities!.player;
-        player.data = { inventory: { items: [] }, skills: {} };
+        player!.data = { 
+          ...player!.data,
+          inventory: { items: [] }, 
+          skills: {} 
+        };
 
         const action = (await import("../actions/chopTree")).chopTreeAction;
-        const canRun = await action.validate!(runtime, {} as any);
+        const canRun = await action.validate!(testRuntime, {} as any);
 
         // MUST return false (action should not be available)
         expect(canRun).toBe(false);
@@ -174,9 +200,9 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "lightFire must fail if no logs in inventory",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
 
-        const result = await executeAction(runtime, "LIGHT_FIRE");
+        const result = await executeAction(testRuntime, "LIGHT_FIRE");
 
         // MUST fail with missing_logs error
         expect(result.success).toBe(false);
@@ -187,11 +213,11 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "cookFood must check getPreviousResult for fire ID",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
 
         // cookFood.ts line 125: const fireId = _options?.context?.getPreviousResult?.('LIGHT_FIRE')?.values?.fireId
         // BUG: If getPreviousResult is undefined, this crashes
-        const result = await executeAction(runtime, "COOK_FOOD", {
+        const result = await executeAction(testRuntime, "COOK_FOOD", {
           context: {}, // No getPreviousResult method
         });
 
@@ -206,9 +232,9 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "chopTree must send correct gatherResource packet structure",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
-        const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
+        const service = testRuntime.getService<HyperscapeService>(
+          HyperscapeServiceClass.serviceName,
         );
         const world = service!.getWorld();
 
@@ -220,7 +246,7 @@ describe("RPG Action Bug Tests (Real World)", () => {
           return originalSend.call(world!.network, packet);
         };
 
-        await executeAction(runtime, "CHOP_TREE");
+        await executeAction(testRuntime, "CHOP_TREE");
 
         // MUST send packet with correct structure
         expect(sentPacket).toBeDefined();
@@ -233,15 +259,16 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "bankItems must include items array in deposit packet",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
-        const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
+        const service = testRuntime.getService<HyperscapeService>(
+          HyperscapeServiceClass.serviceName,
         );
         const world = service!.getWorld();
 
         // Add items to inventory first
         const player = world!.entities!.player;
-        player.data = {
+        player!.data = {
+          ...player!.data,
           inventory: {
             items: [{ itemId: "logs", quantity: 5, itemName: "Logs" }],
           },
@@ -254,7 +281,7 @@ describe("RPG Action Bug Tests (Real World)", () => {
           return originalSend.call(world!.network, packet);
         };
 
-        await executeAction(runtime, "BANK_ITEMS");
+        await executeAction(testRuntime, "BANK_ITEMS");
 
         // BUG: If items array is missing, server crashes
         expect(sentPacket).toBeDefined();
@@ -270,16 +297,16 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "chopTree must throw if world.network is null",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
-        const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
+        const service = testRuntime.getService<HyperscapeService>(
+          HyperscapeServiceClass.serviceName,
         );
         const world = service!.getWorld();
 
         // Disconnect network
-        world!.network = null;
+        (world as any).network = null;
 
-        const result = await executeAction(runtime, "CHOP_TREE");
+        const result = await executeAction(testRuntime, "CHOP_TREE");
 
         // MUST fail gracefully, not crash
         expect(result.success).toBe(false);
@@ -290,9 +317,9 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "catchFish must handle malformed event data",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
-        const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
+        const service = testRuntime.getService<HyperscapeService>(
+          HyperscapeServiceClass.serviceName,
         );
         const world = service!.getWorld();
 
@@ -303,7 +330,7 @@ describe("RPG Action Bug Tests (Real World)", () => {
           successful: true,
         });
 
-        const result = await executeAction(runtime, "CATCH_FISH");
+        const result = await executeAction(testRuntime, "CATCH_FISH");
 
         // MUST handle gracefully (per fail-fast rules: SHOULD throw)
         // According to testing_rules.mdc: "if data we critically need is wrong, we throw"
@@ -317,20 +344,21 @@ describe("RPG Action Bug Tests (Real World)", () => {
     it.skipIf(SKIP_REAL_TESTS)(
       "chopTree must reject trees above player level",
       async () => {
-        const runtime = await createTestRuntime(TEST_WORLD!);
-        const service = runtime.getService<HyperscapeService>(
-          HyperscapeService.serviceName,
+        testRuntime = trackRuntime(await createTestRuntime(TEST_WORLD!));
+        const service = testRuntime.getService<HyperscapeService>(
+          HyperscapeServiceClass.serviceName,
         );
         const world = service!.getWorld();
 
         // Set player to level 1
         const player = world!.entities!.player;
-        player.data = {
+        player!.data = {
+          ...player!.data,
           inventory: { items: [{ itemId: "bronze_hatchet", quantity: 1 }] },
           skills: { woodcutting: { level: 1, xp: 0 } },
         };
 
-        const result = await executeAction(runtime, "CHOP_TREE");
+        const result = await executeAction(testRuntime, "CHOP_TREE");
 
         // If all trees require level 15+, must fail with level_too_low
         if (result.values.error === "level_too_low") {
@@ -372,6 +400,7 @@ async function createTestRuntime(worldUrl: string): Promise<IAgentRuntime> {
   const character = {
     id: randomUUID() as any,
     name: `TestAgent_${randomUUID().slice(0, 8)}`,
+    bio: "Test agent for RPG action bug tests",
     modelProvider: "openai",
     clients: [],
     settings: {
@@ -391,13 +420,13 @@ async function createTestRuntime(worldUrl: string): Promise<IAgentRuntime> {
   await runtime.initialize();
 
   // Lazy load service type and manually register it
-  if (!HyperscapeService) {
+  if (!HyperscapeServiceClass) {
     const serviceModule = await import("../service");
-    HyperscapeService = serviceModule.HyperscapeService;
+    HyperscapeServiceClass = serviceModule.HyperscapeService;
   }
 
   // Manually register the Hyperscape service to avoid circular import
-  const service = new HyperscapeService();
+  const service = new HyperscapeServiceClass();
   runtime.registerService(service);
 
   await service.initialize(runtime);

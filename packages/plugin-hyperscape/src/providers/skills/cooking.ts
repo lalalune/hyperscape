@@ -6,6 +6,8 @@ import {
 } from "@elizaos/core";
 import { HyperscapeService } from "../../service";
 
+const MAX_FIRE_INTERACTION_DISTANCE = 15;
+
 export const cookingSkillProvider: Provider = {
   name: "COOKING_INFO",
   description:
@@ -70,7 +72,11 @@ export const cookingSkillProvider: Provider = {
             const dz = entityPos.z - playerPos.z;
             const distance = Math.sqrt(dx * dx + dz * dz);
 
-            if (distance <= 15) {
+            if (isNaN(distance)) {
+              continue;
+            }
+
+            if (distance <= MAX_FIRE_INTERACTION_DISTANCE) {
               nearbyFires.push({ id, name: entityName, distance });
             }
           }

@@ -12,6 +12,45 @@ import {
 import { HyperscapeService } from "../../service";
 import type { ResourceSystem, ResourceItem } from "../../types/resource-types";
 
+/**
+ * Valid woodcutting tool identifiers.
+ * Using a Set for O(1) lookup performance instead of O(N) array iteration.
+ */
+const WOODCUTTING_TOOLS = new Set([
+  "bronze_axe",
+  "iron_axe",
+  "steel_axe",
+  "mithril_axe",
+  "adamant_axe",
+  "rune_axe",
+  "bronze_hatchet",
+  "iron_hatchet",
+  "steel_hatchet",
+  "mithril_hatchet",
+  "adamant_hatchet",
+  "rune_hatchet",
+]);
+
+/**
+ * Checks if an item is a valid woodcutting tool.
+ * Uses O(1) Set lookup for exact matches and O(N) suffix check as fallback.
+ * @param itemId - The item identifier to check
+ * @returns true if the item is a valid woodcutting tool
+ */
+function isWoodcuttingTool(itemId: string | undefined): boolean {
+  if (!itemId) return false;
+  
+  // O(1) exact match check
+  if (WOODCUTTING_TOOLS.has(itemId)) return true;
+  
+  // O(N) suffix check for namespaced items (e.g., "custom:bronze_axe")
+  for (const tool of WOODCUTTING_TOOLS) {
+    if (itemId.endsWith(tool)) return true;
+  }
+  
+  return false;
+}
+
 export const woodcuttingSkillProvider: Provider = {
   name: "WOODCUTTING_INFO",
   description:
@@ -47,20 +86,15 @@ export const woodcuttingSkillProvider: Provider = {
     const woodcuttingLevel = woodcuttingSkill?.level ?? 1;
     const woodcuttingXP = woodcuttingSkill?.xp ?? 0;
 
-    // Check for axe in inventory
+    // Check for axe in inventory using whitelist
     const inventory = playerData?.inventory?.items || [];
-    const hasAxe = inventory.some(
-      (item) =>
-        item.itemId?.includes("hatchet") || item.itemId?.includes("axe"),
-    );
-    const axeType =
-      inventory.find(
-        (item) =>
-          item.itemId?.includes("hatchet") || item.itemId?.includes("axe"),
-      )?.itemId || "none";
+    const hasAxe = inventory.some((item) => isWoodcuttingTool(item.itemId));
+    const axeType = inventory.find((item) => isWoodcuttingTool(item.itemId))?.itemId ?? "none";
 
     // Get nearby trees
-    const systems = world?.systems as unknown as Record<string, unknown> | undefined;
+    const systems = world?.systems as unknown as
+      | Record<string, unknown>
+      | undefined;
     const resourceSystem = systems?.["resource"] as ResourceSystem | undefined;
     const allResources: ResourceItem[] = resourceSystem?.getAllResources
       ? resourceSystem.getAllResources()

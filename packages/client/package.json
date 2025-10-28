@@ -23,6 +23,7 @@
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
+    "// Note": "vitest dependency is hoisted from workspace root (@hyperscape/hyperscape)",
     "lint": "eslint src --max-warnings 22100",
     "deploy": "node scripts/deploy-cloudflare.mjs",
     "deploy:prod": "node scripts/deploy-cloudflare.mjs --production",

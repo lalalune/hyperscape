@@ -1219,13 +1219,15 @@ Hyperscape world integration service that enables agents to:
         add: (msg: ChatMessage, broadcast?: boolean) => {
           minimalWorld.chat!.msgs.push(msg);
           // Notify listeners
-          const chatListeners = minimalWorld.chat!.listeners as unknown as Array<(msgs: ChatMessage[]) => void>;
+          const chatListeners = minimalWorld.chat!
+            .listeners as unknown as Array<(msgs: ChatMessage[]) => void>;
           for (const listener of chatListeners) {
             listener(minimalWorld.chat!.msgs);
           }
         },
         subscribe: ((callback: (msgs: ChatMessage[]) => void) => {
-          const chatListeners = minimalWorld.chat!.listeners as unknown as Array<(msgs: ChatMessage[]) => void>;
+          const chatListeners = minimalWorld.chat!
+            .listeners as unknown as Array<(msgs: ChatMessage[]) => void>;
           chatListeners.push(callback);
           const subscription = {
             unsubscribe: () => {
