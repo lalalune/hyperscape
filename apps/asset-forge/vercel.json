@@ -5,6 +5,10 @@
   "installCommand": "cd ../.. && bun install && cd apps/asset-forge && bun install",
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://dairy-queen-production.up.railway.app/api/:path*"
+    },
+    {
       "source": "/:path((?!api|assets|prompts|.*\\.).+)",
       "destination": "/index.html"
     }
@@ -38,3 +42,4 @@
     }
   ]
 }
+
