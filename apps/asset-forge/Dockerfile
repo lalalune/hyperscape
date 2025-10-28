@@ -10,6 +10,22 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Accept build arguments (Railway passes all env vars as build args)
+ARG VITE_PUBLIC_PRIVY_APP_ID
+ARG VITE_API_URL
+ARG VITE_CDN_URL
+ARG VITE_GENERATION_API_URL
+ARG VITE_PIPELINE_POLL_INTERVAL_MS
+ARG VITE_DEBUG_PIPELINE
+
+# Make them available as environment variables during build
+ENV VITE_PUBLIC_PRIVY_APP_ID=${VITE_PUBLIC_PRIVY_APP_ID}
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_CDN_URL=${VITE_CDN_URL}
+ENV VITE_GENERATION_API_URL=${VITE_GENERATION_API_URL}
+ENV VITE_PIPELINE_POLL_INTERVAL_MS=${VITE_PIPELINE_POLL_INTERVAL_MS}
+ENV VITE_DEBUG_PIPELINE=${VITE_DEBUG_PIPELINE}
+
 # Copy package files
 COPY package.json ./
 
@@ -18,6 +34,12 @@ RUN npm install
 
 # Copy source code
 COPY . .
+
+# Debug: Show environment variables
+RUN echo "Build-time env vars:" && \
+    echo "VITE_PUBLIC_PRIVY_APP_ID: ${VITE_PUBLIC_PRIVY_APP_ID:+set}" && \
+    echo "VITE_API_URL: ${VITE_API_URL:+set}" && \
+    echo "VITE_CDN_URL: ${VITE_CDN_URL:+set}"
 
 # Build the application
 RUN npm run build
