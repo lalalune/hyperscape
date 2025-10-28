@@ -39,15 +39,15 @@ const WOODCUTTING_TOOLS = new Set([
  */
 function isWoodcuttingTool(itemId: string | undefined): boolean {
   if (!itemId) return false;
-  
+
   // O(1) exact match check
   if (WOODCUTTING_TOOLS.has(itemId)) return true;
-  
+
   // O(N) suffix check for namespaced items (e.g., "custom:bronze_axe")
   for (const tool of WOODCUTTING_TOOLS) {
     if (itemId.endsWith(tool)) return true;
   }
-  
+
   return false;
 }
 
@@ -89,7 +89,9 @@ export const woodcuttingSkillProvider: Provider = {
     // Check for axe in inventory using whitelist
     const inventory = playerData?.inventory?.items || [];
     const hasAxe = inventory.some((item) => isWoodcuttingTool(item.itemId));
-    const axeType = inventory.find((item) => isWoodcuttingTool(item.itemId))?.itemId ?? "none";
+    const axeType =
+      inventory.find((item) => isWoodcuttingTool(item.itemId))?.itemId ??
+      "none";
 
     // Get nearby trees
     const systems = world?.systems as unknown as

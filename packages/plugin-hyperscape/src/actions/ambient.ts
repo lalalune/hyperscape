@@ -15,7 +15,7 @@ import type { ActionHandlerOptions } from "../types/core-types";
 export async function ambient(
   runtime: IAgentRuntime,
   message: Memory,
-  state: State,
+  state: State | undefined,
   _options: ActionHandlerOptions,
   callback?: HandlerCallback,
 ): Promise<ActionResult> {

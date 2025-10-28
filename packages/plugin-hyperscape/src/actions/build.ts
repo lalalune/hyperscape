@@ -196,9 +196,9 @@ export const hyperscapeEditEntityAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state?: State,
-    options?: Record<string, string | number | boolean>,
+    _options?: unknown,
     callback?: HandlerCallback,
-    responses?: Memory[],
+    _responses?: Memory[],
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
       HyperscapeService.serviceName,
@@ -245,23 +245,23 @@ export const hyperscapeEditEntityAction: Action = {
 
       switch (operation) {
         case EditOperationType.TRANSLATE:
-          await buildManager.translate(target, parameters?.position);
+          await buildManager.translate(target!, parameters?.position);
           break;
 
         case EditOperationType.ROTATE:
-          await buildManager.rotate(target, parameters?.rotation);
+          await buildManager.rotate(target!, parameters?.rotation);
           break;
 
         case EditOperationType.SCALE:
-          await buildManager.scale(target, parameters?.scale);
+          await buildManager.scale(target!, parameters?.scale);
           break;
 
         case EditOperationType.DUPLICATE:
-          await buildManager.duplicate(target);
+          await buildManager.duplicate(target!);
           break;
 
         case EditOperationType.DELETE:
-          await buildManager.delete(target);
+          await buildManager.delete(target!);
           break;
 
         case EditOperationType.IMPORT:
@@ -285,10 +285,12 @@ export const hyperscapeEditEntityAction: Action = {
       }
       if (description) {
         const messageManager = service.getMessageManager();
+        if (messageManager) {
         messageManager.sendMessage(description);
+        }
       }
     }
-    const summaryText = operationResults.operations
+    const summaryText = operationResults!.operations
       .map((op) => {
         if (op?.success) {
           return `SUCCESS: ${op.description}`;
@@ -317,19 +319,21 @@ export const hyperscapeEditEntityAction: Action = {
       emote: response.emote || "",
     };
 
+    if (callback) {
     await callback(finalResponse);
+    }
 
     return {
       text: finalResponse.text,
       success: true,
       values: {
         success: true,
-        operationsCompleted: operationResults.operations.length,
+        operationsCompleted: operationResults!.operations.length,
         summary: summaryText,
       },
       data: {
         action: "HYPERSCAPE_EDIT_ENTITY",
-        operations: operationResults.operations,
+        operations: operationResults!.operations,
         thought: finalResponse.thought,
         emote: finalResponse.emote,
       },

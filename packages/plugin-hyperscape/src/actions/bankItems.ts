@@ -133,7 +133,7 @@ export const bankItemsAction: Action = {
         const completionHandler = (data: BankDepositCompleteData) => {
           if (data.playerId === player.id) {
             clearTimeout(timeout);
-            world.off(BANK_DEPOSIT_SUCCESS, completionHandler);
+            world.off(BANK_DEPOSIT_SUCCESS, completionHandler as (...args: unknown[]) => void);
 
             logger.info(
               `[BANK_ITEMS] Received bank completion for player ${data.playerId}`,
@@ -143,12 +143,12 @@ export const bankItemsAction: Action = {
         };
 
         const timeout = setTimeout(() => {
-          world.off(BANK_DEPOSIT_SUCCESS, completionHandler);
+          world.off(BANK_DEPOSIT_SUCCESS, completionHandler as (...args: unknown[]) => void);
           logger.error("[BANK_ITEMS] Banking timeout");
           resolve({ success: false, error: "Banking timeout" });
         }, 15000);
 
-        world.on(BANK_DEPOSIT_SUCCESS, completionHandler);
+        world.on(BANK_DEPOSIT_SUCCESS, completionHandler as (...args: unknown[]) => void);
 
         // Emit bank deposit all event
         world.emit(BANK_DEPOSIT_ALL, {

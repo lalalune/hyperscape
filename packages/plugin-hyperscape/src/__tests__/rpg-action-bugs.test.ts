@@ -183,10 +183,10 @@ describe("RPG Action Bug Tests (Real World)", () => {
         );
         const world = service!.getWorld();
         const player = world!.entities!.player;
-        player!.data = { 
+        player!.data = {
           ...player!.data,
-          inventory: { items: [] }, 
-          skills: {} 
+          inventory: { items: [] },
+          skills: {},
         };
 
         const action = (await import("../actions/chopTree")).chopTreeAction;
