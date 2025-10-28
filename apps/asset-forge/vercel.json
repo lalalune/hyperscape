@@ -3,13 +3,14 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "installCommand": "cd ../.. && bun install && cd apps/asset-forge && bun install",
+  "build": {
+    "env": {
+      "VITE_API_URL": "https://dairy-queen-production.up.railway.app"
+    }
+  },
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://dairy-queen-production.up.railway.app/api/:path*"
-    },
-    {
-      "source": "/:path((?!api|assets|prompts|.*\\.).+)",
+      "source": "/:path((?!assets|prompts|.*\\.).+)",
       "destination": "/index.html"
     }
   ],
