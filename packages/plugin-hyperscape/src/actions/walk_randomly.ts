@@ -35,7 +35,7 @@ export const hyperscapeWalkRandomlyAction: Action = {
     runtime: IAgentRuntime,
     _message: Memory,
     _state?: State,
-    _options?: unknown,
+    options?: unknown,
     callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
@@ -62,12 +62,13 @@ export const hyperscapeWalkRandomlyAction: Action = {
       };
     }
 
-    const command = options?.command || "start";
+    const typedOptions = options as { interval?: number; distance?: number; command?: "start" | "stop" } | undefined;
+    const command = typedOptions?.command || "start";
     // Use provided interval (in seconds) or default (in ms)
-    const intervalMs = options?.interval
-      ? options.interval * 1000
+    const intervalMs = typedOptions?.interval
+      ? typedOptions.interval * 1000
       : RANDOM_WALK_DEFAULT_INTERVAL;
-    const maxDistance = options?.distance || RANDOM_WALK_DEFAULT_MAX_DISTANCE;
+    const maxDistance = typedOptions?.distance || RANDOM_WALK_DEFAULT_MAX_DISTANCE;
 
     if (command === "stop") {
       if (controls.getIsWalkingRandomly()) {

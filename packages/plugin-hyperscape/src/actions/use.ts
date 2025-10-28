@@ -39,7 +39,7 @@ const useAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state?: State,
-    _params?: unknown,
+    params?: unknown,
     callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>("hyperscape");
@@ -52,6 +52,7 @@ const useAction: Action = {
       return { success: false, text: "Not in a Hyperscape world" };
     }
 
+    const typedParams = params as { target?: string } | undefined;
     const context = await composeContext({
       state: state!,
       template: `
@@ -66,7 +67,7 @@ A user wants to use an item.
 - Shield
 
 ## Target
-${params?.target}
+${typedParams?.target}
 
 Decide if this is a valid use action.
 `,

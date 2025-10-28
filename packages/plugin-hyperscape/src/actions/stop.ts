@@ -35,7 +35,7 @@ export const hyperscapeStopMovingAction: Action = {
     runtime: IAgentRuntime,
     _message: Memory,
     _state?: State,
-    _options?: unknown,
+    options?: unknown,
     callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
@@ -44,7 +44,8 @@ export const hyperscapeStopMovingAction: Action = {
     const world = service.getWorld()!;
     const controls = world.controls!;
 
-    const reason = options?.reason || "stop action called";
+    const typedOptions = options as { reason?: string } | undefined;
+    const reason = typedOptions?.reason || "stop action called";
 
     // Call the stop navigation method
     controls.stopAllActions();
