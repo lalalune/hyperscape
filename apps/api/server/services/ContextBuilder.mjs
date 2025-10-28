@@ -9,7 +9,7 @@
 
 import fetch from 'node-fetch'
 
-const API_URL = process.env.VITE_API_URL || 'http://localhost:3004'
+const API_URL = process.env.IMAGE_SERVER_URL || process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:3004'
 
 // Type guards for manifest discrimination
 function isItemManifest(manifest) {
