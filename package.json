@@ -24,6 +24,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "test -n \"$RAILWAY_ENVIRONMENT\" && echo 'Skipping Playwright install on Railway' || exit 0",
     "build": "bun run docs:generate && turbo run build",
     "build:shared": "cd packages/shared && bun run build",
     "build:client": "cd packages/client && bun run build",

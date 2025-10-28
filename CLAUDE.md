@@ -359,3 +359,5 @@ The following rules are currently active in the workspace:
 ---
 
 **Note**: This document serves as a blueprint for implementing comprehensive Cursor rules. The actual rule files should be created in the specified directories with the `.mdc` extension and proper frontmatter metadata as shown in the examples above.
+- railway no longer uses nixpacks they use theri own new Railpack. We must follow those standards when deploying
+- Always use Deepwiki when implementing anything new, fixing errors, or troubleshooting bugs and deployments

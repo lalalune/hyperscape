@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "node",
+  "packages": {
+    "node": "18"
+  },
+  "steps": {
+    "install": {
+      "commands": [
+        "npm install --workspace=apps/api --include-workspace-root"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "npm run start --workspace=apps/api",
+    "variables": {
+      "NODE_ENV": "production"
+    }
+  }
+}
