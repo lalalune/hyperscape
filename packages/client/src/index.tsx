@@ -84,7 +84,7 @@ if (!globalThis.Buffer) {
 declare global {
   interface Window {
     THREE?: typeof THREE
-    world?: InstanceType<typeof World>
+    world?: unknown
   }
 }
 
