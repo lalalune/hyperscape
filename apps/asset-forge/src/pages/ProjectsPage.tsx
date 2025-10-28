@@ -18,6 +18,7 @@ export function ProjectsPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newProject, setNewProject] = useState({ name: '', description: '' })
+  const [createError, setCreateError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchProjects()
@@ -27,6 +28,7 @@ export function ProjectsPage() {
     if (!newProject.name.trim()) return
 
     setIsCreating(true)
+    setCreateError(null)
     try {
       await createProject({
         name: newProject.name,
@@ -36,6 +38,9 @@ export function ProjectsPage() {
       })
       setShowCreateModal(false)
       setNewProject({ name: '', description: '' })
+      setCreateError(null)
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Failed to create project')
     } finally {
       setIsCreating(false)
     }
@@ -153,6 +158,11 @@ export function ProjectsPage() {
         <ModalHeader title="Create New Project" onClose={() => setShowCreateModal(false)} />
         <ModalBody>
           <div className="space-y-4">
+            {createError && (
+              <div className="p-3 bg-red-900/20 border border-red-700 rounded-lg">
+                <p className="text-red-400 text-sm">{createError}</p>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">
                 Project Name
@@ -189,6 +199,7 @@ export function ProjectsPage() {
             onClick={() => {
               setShowCreateModal(false)
               setNewProject({ name: '', description: '' })
+              setCreateError(null)
             }}
             disabled={isCreating}
           >

@@ -5,6 +5,7 @@
 
 import { create } from 'zustand'
 import { createLogger } from '../utils/logger'
+import { apiFetch } from '../utils/api'
 
 const logger = createLogger('ProjectsStore')
 
@@ -39,8 +40,11 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   fetchProjects: async () => {
     set({ isLoading: true, error: null })
     try {
-      const response = await fetch('/api/projects')
-      if (!response.ok) throw new Error('Failed to fetch projects')
+      const response = await apiFetch('/api/projects')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || errorData.error || 'Failed to fetch projects')
+      }
 
       const data = await response.json()
       set({ projects: data.projects || [], isLoading: false })
@@ -53,13 +57,16 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   createProject: async (project) => {
     set({ isLoading: true, error: null })
     try {
-      const response = await fetch('/api/projects', {
+      const response = await apiFetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(project)
       })
 
-      if (!response.ok) throw new Error('Failed to create project')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || errorData.error || 'Failed to create project')
+      }
 
       const newProject = await response.json()
       set(state => ({
@@ -69,19 +76,23 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     } catch (error) {
       logger.error('[createProject] Error:', error)
       set({ error: (error as Error).message, isLoading: false })
+      throw error // Re-throw so UI can handle it
     }
   },
 
   updateProject: async (id, updates) => {
     set({ isLoading: true, error: null })
     try {
-      const response = await fetch(`/api/projects/${id}`, {
+      const response = await apiFetch(`/api/projects/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       })
 
-      if (!response.ok) throw new Error('Failed to update project')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || errorData.error || 'Failed to update project')
+      }
 
       const updatedProject = await response.json()
       set(state => ({
@@ -91,17 +102,21 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     } catch (error) {
       logger.error('[updateProject] Error:', error)
       set({ error: (error as Error).message, isLoading: false })
+      throw error
     }
   },
 
   deleteProject: async (id) => {
     set({ isLoading: true, error: null })
     try {
-      const response = await fetch(`/api/projects/${id}`, {
+      const response = await apiFetch(`/api/projects/${id}`, {
         method: 'DELETE'
       })
 
-      if (!response.ok) throw new Error('Failed to delete project')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || errorData.error || 'Failed to delete project')
+      }
 
       set(state => ({
         projects: state.projects.filter(p => p.id !== id),
@@ -110,6 +125,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     } catch (error) {
       logger.error('[deleteProject] Error:', error)
       set({ error: (error as Error).message, isLoading: false })
+      throw error
     }
   }
 }))
