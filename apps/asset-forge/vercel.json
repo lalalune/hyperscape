@@ -2,7 +2,7 @@
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "cd ../.. && bun install && cd apps/asset-forge && bun install",
+  "installCommand": "bun install",
   "build": {
     "env": {
       "VITE_API_URL": "https://dairy-queen-production.up.railway.app"
