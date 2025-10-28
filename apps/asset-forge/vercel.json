@@ -5,7 +5,7 @@
   "installCommand": "bun install",
   "build": {
     "env": {
-      "VITE_API_URL": "https://dairy-queen-production.up.railway.app"
+      "VITE_API_URL": "$RAILWAY_API_URL"
     }
   },
   "rewrites": [

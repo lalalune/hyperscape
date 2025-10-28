@@ -52,25 +52,37 @@ const app = express()
 
 // Basic CORS headers (simplified without cors package)
 app.use((req, res, next) => {
-  const origin = process.env.NODE_ENV === 'production'
-    ? (process.env.FRONTEND_URL || '*').replace(/\/$/, '') // Remove trailing slash
-    : req.headers.origin || 'http://localhost:3000'
+  // In production, require FRONTEND_URL or ALLOWED_CORS_ORIGINS to be explicitly set
+  let origin
+  if (process.env.NODE_ENV === 'production') {
+    const allowedOrigin = process.env.FRONTEND_URL || process.env.ALLOWED_CORS_ORIGINS
+    if (!allowedOrigin) {
+      console.error('[CORS] CRITICAL: FRONTEND_URL or ALLOWED_CORS_ORIGINS not set in production')
+      return res.status(500).json({
+        error: 'Server misconfiguration',
+        message: 'CORS origins not configured'
+      })
+    }
+    origin = allowedOrigin.replace(/\/$/, '') // Remove trailing slash
+  } else {
+    origin = req.headers.origin || 'http://localhost:3000'
+  }
 
   res.header('Access-Control-Allow-Origin', origin)
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires, x-user-id, x-wallet-address')
   res.header('Access-Control-Allow-Credentials', 'true')
   res.header('Access-Control-Expose-Headers', 'Cache-Control, Pragma, Expires')
-  
+
   // Security headers (basic OWASP without helmet)
   res.header('X-Content-Type-Options', 'nosniff')
   res.header('X-Frame-Options', 'DENY')
   res.header('X-XSS-Protection', '1; mode=block')
-  
+
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200)
   }
-  
+
   next()
 })
 
@@ -89,25 +101,31 @@ app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
 
 // Serve 3D models from monorepo assets directory
 // Using /models path to avoid conflict with /assets route
-// Auto-detect based on environment:
-// - Railway/Docker: /app/assets/world
-// - Local dev: {workspace}/assets/world
+// For monorepo deployment: Railway deploys entire repo, so assets are at ../../../assets/world
+// For local dev: Same monorepo structure
 function getAssetsWorldPath() {
   // Environment variable takes precedence
   if (process.env.ASSETS_WORLD_PATH) {
     return process.env.ASSETS_WORLD_PATH
   }
 
-  // Check if we're in Railway/Docker (assets at /app/assets)
+  // Monorepo deployment (Railway deploys entire repo from root)
+  // From: /apps/api/server/api.mjs
+  // To:   /assets/world
+  const monorepoPath = path.resolve(ROOT_DIR, '../../assets/world')
+  if (fs.existsSync(monorepoPath)) {
+    return monorepoPath
+  }
+
+  // Fallback: Check Railway absolute path (in case of custom deployment)
   const railwayPath = '/app/assets/world'
   if (fs.existsSync(railwayPath)) {
     return railwayPath
   }
 
-  // Local development - go up to workspace root, then into assets
-  // From: /apps/api/server/api.mjs
-  // To:   /assets/world
-  return path.resolve(ROOT_DIR, '../../assets/world')
+  // If no path exists, return monorepo path (will log error when accessed)
+  console.warn('[Assets] Warning: assets/world directory not found at expected locations')
+  return monorepoPath
 }
 
 const assetsWorldPath = getAssetsWorldPath()

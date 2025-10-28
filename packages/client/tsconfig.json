@@ -13,6 +13,7 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "noEmit": true,
     "declaration": true,
     "declarationMap": true,
     "allowJs": true,
@@ -28,6 +29,7 @@
   "exclude": [
     "node_modules",
     "dist",
+    "src/public/**",
     "../docs-site/**",
     "../plugin-vercel-ai-gateway/**"
   ]
