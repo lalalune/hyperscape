@@ -392,10 +392,10 @@ export const catchFishAction: Action = {
 
         const cleanup = () => {
           clearTimeout(timeout);
-          world.off(RESOURCE_GATHERING_COMPLETED, completionHandler);
-          world.off(INVENTORY_UPDATED, inventoryHandler);
-          world.off(SKILLS_XP_GAINED, xpHandler);
-          world.off(SKILLS_LEVEL_UP, levelUpHandler);
+          world.off(RESOURCE_GATHERING_COMPLETED, completionHandler as (...args: unknown[]) => void);
+          world.off(INVENTORY_UPDATED, inventoryHandler as (...args: unknown[]) => void);
+          world.off(SKILLS_XP_GAINED, xpHandler as (...args: unknown[]) => void);
+          world.off(SKILLS_LEVEL_UP, levelUpHandler as (...args: unknown[]) => void);
         };
 
         // Timeout after 15 seconds
@@ -417,10 +417,10 @@ export const catchFishAction: Action = {
         }, 15000);
 
         // Register all event listeners
-        world.on(RESOURCE_GATHERING_COMPLETED, completionHandler);
-        world.on(INVENTORY_UPDATED, inventoryHandler);
-        world.on(SKILLS_XP_GAINED, xpHandler);
-        world.on(SKILLS_LEVEL_UP, levelUpHandler);
+        world.on(RESOURCE_GATHERING_COMPLETED, completionHandler as (...args: unknown[]) => void);
+        world.on(INVENTORY_UPDATED, inventoryHandler as (...args: unknown[]) => void);
+        world.on(SKILLS_XP_GAINED, xpHandler as (...args: unknown[]) => void);
+        world.on(SKILLS_LEVEL_UP, levelUpHandler as (...args: unknown[]) => void);
 
         // Also resolve after short delay when gathering succeeds
         const checkCompletion = setInterval(() => {

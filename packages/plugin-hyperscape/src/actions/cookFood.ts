@@ -184,7 +184,7 @@ export const cookFoodAction: Action = {
         const completionHandler = (data: CookingCompleteData) => {
           if (data.playerId === player.id) {
             clearTimeout(timeout);
-            world.off(COOKING_COMPLETED, completionHandler);
+            world.off(COOKING_COMPLETED, completionHandler as (...args: unknown[]) => void);
 
             logger.info(
               `[COOK_FOOD] Received cooking completion for player ${data.playerId}`,
@@ -194,12 +194,12 @@ export const cookFoodAction: Action = {
         };
 
         const timeout = setTimeout(() => {
-          world.off(COOKING_COMPLETED, completionHandler);
+          world.off(COOKING_COMPLETED, completionHandler as (...args: unknown[]) => void);
           logger.error("[COOK_FOOD] Cooking timeout");
           resolve({ success: false, error: "Cooking timeout" });
         }, 15000);
 
-        world.on(COOKING_COMPLETED, completionHandler);
+        world.on(COOKING_COMPLETED, completionHandler as (...args: unknown[]) => void);
 
         // Emit cooking request
         world.emit(PROCESSING_COOKING_REQUEST, {
