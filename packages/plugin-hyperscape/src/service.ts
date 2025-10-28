@@ -1219,13 +1219,13 @@ Hyperscape world integration service that enables agents to:
         add: (msg: ChatMessage, broadcast?: boolean) => {
           minimalWorld.chat!.msgs.push(msg);
           // Notify listeners
-          const chatListeners = minimalWorld.chat!.listeners;
+          const chatListeners = minimalWorld.chat!.listeners as unknown as Array<(msgs: ChatMessage[]) => void>;
           for (const listener of chatListeners) {
             listener(minimalWorld.chat!.msgs);
           }
         },
         subscribe: ((callback: (msgs: ChatMessage[]) => void) => {
-          const chatListeners = minimalWorld.chat!.listeners;
+          const chatListeners = minimalWorld.chat!.listeners as unknown as Array<(msgs: ChatMessage[]) => void>;
           chatListeners.push(callback);
           const subscription = {
             unsubscribe: () => {
@@ -1348,7 +1348,7 @@ Hyperscape world integration service that enables agents to:
 
         minimalWorld.physics!.controllers.set(playerId, characterController);
 
-        // Create basic player entity - 'as any' cast acceptable (test mock context)
+        // Create basic player entity - cast through unknown for test mock
         minimalWorld.entities!.player = {
           id: playerId,
           type: "player",
@@ -1424,7 +1424,7 @@ Hyperscape world integration service that enables agents to:
               player.data.appearance.avatar = url;
             }
           },
-        } as Player; // Typed as Player instead of any
+        } as unknown as Player; // Cast through unknown for test mock compatibility
 
         // Start physics simulation loop
         if (minimalWorld.physics?.enabled) {

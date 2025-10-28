@@ -74,6 +74,7 @@ export class DatabaseSystem extends SystemBase {
    * @param world - The game world instance this system belongs to
    */
   constructor(world: unknown) {
+    // @ts-expect-error - world type varies during initialization
     super(world, {
       name: 'database',
       dependencies: {

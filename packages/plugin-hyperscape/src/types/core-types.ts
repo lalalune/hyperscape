@@ -70,7 +70,7 @@ export type Entities = HyperscapeEntities;
 // Note: We extend HyperscapePhysics with controller management for AI agent use
 export interface Physics extends HyperscapePhysics {
   // Additional plugin-specific properties
-  controllers?: Map<string, CharacterController>;
+  controllers: Map<string, CharacterController>;
   rigidBodies?: Map<string, RigidBody>;
 
   // Additional plugin-specific methods

@@ -5,7 +5,7 @@
  * Converted from interfaces to classes with encapsulation and methods
  */
 
-import type { Position } from "@hyperscape/shared";
+import type { Position3D } from "@hyperscape/shared";
 
 /**
  * RPGPlayerStats - Player attribute statistics
@@ -369,7 +369,7 @@ export class PlayerState {
     public maxHealth: number = 100,
     public stamina: number = 100,
     public maxStamina: number = 100,
-    public position: Position = { x: 0, y: 0, z: 0 },
+    public position: Position3D = { x: 0, y: 0, z: 0 },
     public stats: RPGPlayerStats = new RPGPlayerStats(),
     public skills: Record<string, SkillInfo> = {},
   ) {}

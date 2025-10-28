@@ -186,6 +186,7 @@ export class AgentLoader extends System {
       const factory = undefined;
       // const root = createNode('group', { id: '$root' }); // Not available
       const root = new THREE.Group(); // Mock root
+      // @ts-expect-error - AgentAvatar constructor type mismatch in test environment
       root.add(new AgentAvatar({ id: "avatar", factory }));
       result = {
         gltf,

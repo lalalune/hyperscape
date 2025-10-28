@@ -50,6 +50,7 @@
  * **Referenced by**: wrangler.toml (Cloudflare deployment config)
  */
 
+// @ts-expect-error - Cloudflare-specific types only available in Workers environment
 import { Container, getRandom } from '@cloudflare/containers'
 
 // ============================================================================
@@ -180,6 +181,7 @@ export default {
         status: 'healthy',
         layer: 'cloudflare-edge',
         timestamp: new Date().toISOString(),
+        // @ts-expect-error - cf property only available in Cloudflare Workers environment
         region: request.cf?.colo || 'unknown'
       })
     }

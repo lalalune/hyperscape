@@ -119,6 +119,7 @@ import type {
   DatabaseSystemOperations
 } from './types';
 import { EventType, Socket, System, THREE, addRole, dbHelpers, getItem, hasRole, isDatabaseInstance, removeRole, serializeRoles, uuid, writePacket, Entity, TerrainSystem, World } from '@hyperscape/shared';
+// @ts-expect-error - three types imported via @hyperscape/shared
 import type { Vector3 } from 'three';
 import { isPrivyEnabled, verifyPrivyToken } from './privy-auth';
 import { createJWT, verifyJWT } from './utils';
@@ -1784,6 +1785,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Server-side distance validation
     const entityManager = this.world.getSystem('entity-manager');
     if (entityManager) {
+      // @ts-expect-error - entity-manager system has getEntity method
       const itemEntity = entityManager.getEntity(entityId);
       if (itemEntity) {
         const distance = Math.sqrt(

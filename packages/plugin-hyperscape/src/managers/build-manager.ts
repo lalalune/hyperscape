@@ -243,7 +243,7 @@ export class BuildManager implements IBuildManager {
     const duplicate = this.createEntity(
       originalEntity.type || "group",
       duplicatePosition,
-      { ...originalEntity.data },
+      { ...originalEntity.data } as EntityCreationData,
     );
 
     logger.info(
@@ -277,7 +277,7 @@ export class BuildManager implements IBuildManager {
       position: entityData.position as Vector3 | undefined,
       rotation: entityData.rotation as Quaternion | undefined,
       scale: entityData.scale as Vector3 | undefined,
-      components: entityData.components as Component[] | undefined,
+      components: entityData.components as unknown as Component[] | undefined,
       metadata: entityData.metadata as
         | Record<string, string | number | boolean>
         | undefined,

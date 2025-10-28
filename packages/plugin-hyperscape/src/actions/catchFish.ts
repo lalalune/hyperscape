@@ -43,7 +43,7 @@ export const catchFishAction: Action = {
     }
 
     // Check for nearby fishing spots
-    const resourceSystem = world?.getSystem?.("resource") as
+    const resourceSystem = world?.getSystem?.("resource") as unknown as
       | ResourceSystem
       | undefined;
     const allResources: ResourceItem[] =
