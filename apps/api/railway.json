@@ -1,10 +1,11 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "nixpacksConfigPath": "apps/api/nixpacks.toml"
+    "builder": "RAILPACK",
+    "buildCommand": "npm install && node scripts/setup-railway-database.mjs || true && node server/scripts/migrate-manifests-to-postgres.mjs || true"
   },
   "deploy": {
+    "startCommand": "node server/api.mjs",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/api/health",
