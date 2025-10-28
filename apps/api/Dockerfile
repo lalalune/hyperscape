@@ -38,19 +38,22 @@ COPY --chown=apiserver:nodejs . .
 RUN mkdir -p gdd-assets temp-images && \
     chown -R apiserver:nodejs gdd-assets temp-images
 
+# Run database setup and migrations (as root before switching users)
+RUN node scripts/setup-railway-database.mjs || true && \
+    node server/scripts/migrate-manifests-to-postgres.mjs || true
+
 # Switch to non-root user
 USER apiserver
 
-# Expose API port
+# Expose API port (Railway will assign actual port via PORT env var)
 EXPOSE 3004
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3004/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+# Railway handles healthchecks via railway.json configuration
+# No need for Docker HEALTHCHECK instruction
 
 # Environment variables
 ENV NODE_ENV=production
-ENV API_PORT=3004
+# API_PORT is set by Railway's PORT environment variable
 
 # Start the server
 CMD ["bun", "run", "start"]
