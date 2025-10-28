@@ -76,9 +76,15 @@ describe('User API Keys System', () => {
       await query(
         `UPDATE users
          SET settings = jsonb_set(
+           jsonb_set(
            COALESCE(settings, '{}'::jsonb),
+             '{apiKeys}',
+             COALESCE(settings->'apiKeys', '{}'::jsonb),
+             true
+           ),
            '{apiKeys,openai}',
-           to_jsonb($1::text)
+           to_jsonb($1::text),
+           true
          )
          WHERE privy_user_id = $2`,
         [encrypted, testPrivyId]
@@ -90,7 +96,9 @@ describe('User API Keys System', () => {
         [testPrivyId]
       )
 
-      const stored = result.rows[0].settings.apiKeys.openai
+      const settings = result.rows[0].settings
+      assert.ok(settings.apiKeys, 'apiKeys should exist in settings')
+      const stored = settings.apiKeys.openai
       assert.ok(isEncrypted(stored), 'Stored key should be encrypted')
       assert.notEqual(stored, testKey, 'Stored key should not be plaintext')
     })
@@ -102,9 +110,15 @@ describe('User API Keys System', () => {
       await query(
         `UPDATE users
          SET settings = jsonb_set(
+           jsonb_set(
            COALESCE(settings, '{}'::jsonb),
+             '{apiKeys}',
+             COALESCE(settings->'apiKeys', '{}'::jsonb),
+             true
+           ),
            '{apiKeys,meshy}',
-           to_jsonb($1::text)
+           to_jsonb($1::text),
+           true
          )
          WHERE privy_user_id = $2`,
         [encrypted, testPrivyId]
@@ -134,9 +148,15 @@ describe('User API Keys System', () => {
       await query(
         `UPDATE users
          SET settings = jsonb_set(
+           jsonb_set(
            COALESCE(settings, '{}'::jsonb),
+             '{apiKeys}',
+             COALESCE(settings->'apiKeys', '{}'::jsonb),
+             true
+           ),
            '{apiKeys,elevenlabs}',
-           to_jsonb($1::text)
+           to_jsonb($1::text),
+           true
          )
          WHERE privy_user_id = $2`,
         [encrypted, testPrivyId]
@@ -198,9 +218,15 @@ describe('User API Keys System', () => {
       await query(
         `UPDATE users
          SET settings = jsonb_set(
+           jsonb_set(
            COALESCE(settings, '{}'::jsonb),
+             '{apiKeys}',
+             COALESCE(settings->'apiKeys', '{}'::jsonb),
+             true
+           ),
            '{apiKeys,openai}',
-           to_jsonb($1::text)
+           to_jsonb($1::text),
+           true
          )
          WHERE privy_user_id = $2`,
         [plaintextKey, testPrivyId]

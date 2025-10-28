@@ -25,13 +25,16 @@ function deriveKey(secret) {
 
 /**
  * Encrypt sensitive data (API keys)
- * @param {string} text - Plain text to encrypt (must be a non-empty string)
- * @returns {string} - Encrypted hex string
- * @throws {TypeError} If text is null, undefined, or empty string
+ * @param {string|null|undefined} text - Plain text to encrypt
+ * @returns {string|null} - Encrypted hex string, or null/empty string for null/empty input
  */
 export function encrypt(text) {
-  if (!text) {
-    throw new TypeError('encrypt() requires a non-empty string, received: ' + typeof text)
+  // Handle null, undefined, or empty string by returning them as-is
+  if (text === null || text === undefined) {
+    return null
+  }
+  if (text === '') {
+    return ''
   }
 
   try {
@@ -73,16 +76,19 @@ export function encrypt(text) {
 
 /**
  * Decrypt sensitive data (API keys)
- * @param {string} encryptedData - Encrypted hex string (must be a non-empty string)
- * @returns {string} - Decrypted plain text
- * @throws {TypeError} If encryptedData is null, undefined, or empty string
+ * @param {string|null|undefined} encryptedData - Encrypted hex string
+ * @returns {string|null} - Decrypted plain text, or null/empty string for null/empty input
  */
 export function decrypt(encryptedData) {
   // Start timing to ensure constant-time behavior across all code paths
   const startTime = Date.now()
   
-  if (!encryptedData) {
-    throw new TypeError('decrypt() requires a non-empty string, received: ' + typeof encryptedData)
+  // Handle null, undefined, or empty string by returning them as-is
+  if (encryptedData === null || encryptedData === undefined) {
+    return null
+  }
+  if (encryptedData === '') {
+    return ''
   }
 
   // Check if this is already plaintext (for backward compatibility)
