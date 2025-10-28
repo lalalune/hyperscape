@@ -154,18 +154,23 @@ router.post('/batch', requireAuth, resolveElevenLabsKey, async (req, res) => {
  * GET /api/voice/profile/:npcId
  * Get voice profile for an NPC
  */
-router.get('/profile/:npcId', async (req, res) => {
+router.get('/profile/:npcId', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { npcId } = req.params
 
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
 
-    const profile = await voiceService.getVoiceProfile(npcId)
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    const profile = await userVoiceService.getVoiceProfile(npcId)
 
     if (!profile) {
       return res.status(404).json({
@@ -189,18 +194,23 @@ router.get('/profile/:npcId', async (req, res) => {
  * DELETE /api/voice/:npcId
  * Delete voice clips for an NPC
  */
-router.delete('/:npcId', async (req, res) => {
+router.delete('/:npcId', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { npcId } = req.params
 
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
 
-    await voiceService.deleteVoiceClips(npcId)
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    await userVoiceService.deleteVoiceClips(npcId)
 
     return res.json({
       success: true,
@@ -220,7 +230,7 @@ router.delete('/:npcId', async (req, res) => {
  * POST /api/voice/estimate
  * Estimate cost for voice generation
  */
-router.post('/estimate', async (req, res) => {
+router.post('/estimate', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     const { texts, settings } = req.body
 
@@ -231,7 +241,19 @@ router.post('/estimate', async (req, res) => {
       })
     }
 
-    const estimate = voiceService.estimateCost(texts, settings)
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
+      return res.status(503).json({
+        error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
+        code: 'VOICE_5030'
+      })
+    }
+
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    const estimate = userVoiceService.estimateCost(texts, settings)
 
     return res.json(estimate)
   } catch (error) {
@@ -313,16 +335,21 @@ router.get('/models', requireAuth, resolveElevenLabsKey, async (req, res) => {
  * GET /api/voice/rate-limit
  * Get current rate limit status
  */
-router.get('/rate-limit', async (req, res) => {
+router.get('/rate-limit', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
 
-    const rateLimitInfo = voiceService.getRateLimitInfo()
+    const userVoiceService = new VoiceGenerationService(apiKey)
+    const rateLimitInfo = userVoiceService.getRateLimitInfo()
 
     return res.json(rateLimitInfo)
   } catch (error) {
@@ -339,17 +366,22 @@ router.get('/rate-limit', async (req, res) => {
  * POST /api/voice/speech-to-speech
  * Convert audio from one voice to another (Voice Changer)
  */
-router.post('/speech-to-speech', async (req, res) => {
+router.post('/speech-to-speech', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     console.log('[Voice] POST /api/voice/speech-to-speech')
 
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
-        message: 'ELEVENLABS_API_KEY not configured',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
+
+    const userVoiceService = new VoiceGenerationService(apiKey)
 
     // Extract audio file from multipart form data
     // Note: This requires multer middleware or similar
@@ -372,7 +404,7 @@ router.post('/speech-to-speech', async (req, res) => {
 
     console.log(`[Voice] Converting audio to voice: ${voiceId}`)
 
-    const audioBuffer = await voiceService.speechToSpeech({
+    const audioBuffer = await userVoiceService.speechToSpeech({
       audio: Buffer.isBuffer(audio) ? audio : Buffer.from(audio, 'base64'),
       voiceId,
       modelId,
@@ -406,16 +438,22 @@ router.post('/speech-to-speech', async (req, res) => {
  * POST /api/voice/speech-to-speech/stream
  * Stream audio conversion (Voice Changer)
  */
-router.post('/speech-to-speech/stream', async (req, res) => {
+router.post('/speech-to-speech/stream', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     console.log('[Voice] POST /api/voice/speech-to-speech/stream')
 
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
+
+    const userVoiceService = new VoiceGenerationService(apiKey)
 
     const { audio, voiceId, modelId, outputFormat, stability, similarityBoost, removeBackgroundNoise } = req.body
 
@@ -436,7 +474,7 @@ router.post('/speech-to-speech/stream', async (req, res) => {
 
     console.log(`[Voice] Streaming audio conversion to voice: ${voiceId}`)
 
-    const audioStream = await voiceService.speechToSpeechStream({
+    const audioStream = await userVoiceService.speechToSpeechStream({
       audio: Buffer.isBuffer(audio) ? audio : Buffer.from(audio, 'base64'),
       voiceId,
       modelId,

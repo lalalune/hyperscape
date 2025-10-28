@@ -8,6 +8,7 @@ import { Save, Loader2, User as UserIcon, Mail, Wallet, Users, LogIn, LogOut } f
 import { useState, useEffect, useRef } from 'react'
 
 import { apiFetch } from '@/utils/api'
+import { privyAuthManager } from '@/auth/PrivyAuthManager'
 
 interface UserProfile {
   id: string
@@ -85,6 +86,35 @@ export function ProfileEditor() {
       setError(err instanceof Error ? err.message : 'Failed to load profile')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      console.log('[ProfileEditor] Starting logout process...')
+      
+      // Clear local auth manager state first
+      privyAuthManager.clearAuth()
+
+      // Clear all application state
+      localStorage.removeItem('app-settings')
+      localStorage.removeItem('asset-forge-auth')
+      sessionStorage.clear()
+
+      // Clear Privy session and disconnect wallet
+      await logout()
+
+      console.log('[ProfileEditor] Logout complete, redirecting...')
+
+      // Force reload to landing page (Privy will show login UI)
+      window.location.href = '/'
+    } catch (error) {
+      console.error('[ProfileEditor] Logout error:', error)
+      // Still attempt to clear local state and redirect
+      privyAuthManager.clearAuth()
+      localStorage.clear()
+      sessionStorage.clear()
+      window.location.href = '/'
     }
   }
 
@@ -394,7 +424,7 @@ export function ProfileEditor() {
 
         {/* Logout Button */}
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
         >
           <LogOut className="w-4 h-4" />
