@@ -5,7 +5,7 @@
   "installCommand": "cd ../.. && bun install && cd apps/asset-forge && bun install",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|prompts/|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],
