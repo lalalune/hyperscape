@@ -44,7 +44,7 @@ interface BehaviorResponse {
 export class BehaviorManager {
   private isRunning: boolean = false;
   public runtime: IAgentRuntime;
-  private service: HyperscapeService;
+  private service: HyperscapeService | null;
   private world: World | null = null;
   private maxIterations: number = -1; // -1 for infinite, set to limit for testing
 
@@ -273,7 +273,9 @@ Or for chat:
     console.info(`[BehaviorManager] Moving to coordinates: ${x}, ${y}, ${z}`);
 
     const controls = this.world!.systems.find(isClientInputSystem)!;
+    if (controls.goto) {
     await controls.goto(x, z); // Hyperscape typically uses x,z for ground movement
+    }
     console.info("[BehaviorManager] Movement command executed");
   }
 
