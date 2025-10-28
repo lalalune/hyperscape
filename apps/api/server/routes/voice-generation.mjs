@@ -473,16 +473,22 @@ router.post('/speech-to-speech/stream', async (req, res) => {
  * POST /api/voice/design
  * Design a voice from text description (Voice Design)
  */
-router.post('/design', async (req, res) => {
+router.post('/design', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     console.log('[Voice] POST /api/voice/design')
 
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
+
+    const userVoiceService = new VoiceGenerationService(apiKey)
 
     const {
       voiceDescription,
@@ -505,7 +511,7 @@ router.post('/design', async (req, res) => {
 
     console.log(`[Voice] Designing voice: "${voiceDescription}"`)
 
-    const result = await voiceService.designVoice({
+    const result = await userVoiceService.designVoice({
       voiceDescription,
       modelId,
       text,
@@ -533,16 +539,22 @@ router.post('/design', async (req, res) => {
  * POST /api/voice/create-from-preview
  * Save a designed voice to library
  */
-router.post('/create-from-preview', async (req, res) => {
+router.post('/create-from-preview', requireAuth, resolveElevenLabsKey, async (req, res) => {
   try {
     console.log('[Voice] POST /api/voice/create-from-preview')
 
-    if (!voiceService.isAvailable()) {
+    // Use resolved API key from middleware
+    const apiKey = req.resolvedApiKeys.elevenlabs
+    
+    if (!apiKey) {
       return res.status(503).json({
         error: 'Voice generation service not available',
+        message: 'ElevenLabs API key not configured',
         code: 'VOICE_5030'
       })
     }
+
+    const userVoiceService = new VoiceGenerationService(apiKey)
 
     const { voiceName, voiceDescription, generatedVoiceId, labels, playedNotSelectedVoiceIds } = req.body
 
@@ -570,7 +582,7 @@ router.post('/create-from-preview', async (req, res) => {
 
     console.log(`[Voice] Creating voice from preview: "${voiceName}"`)
 
-    const result = await voiceService.createVoiceFromPreview({
+    const result = await userVoiceService.createVoiceFromPreview({
       voiceName,
       voiceDescription,
       generatedVoiceId,
