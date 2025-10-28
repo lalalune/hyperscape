@@ -25,6 +25,13 @@ async function setupTestDatabase() {
     await client.connect();
     console.log('✅ Connected to database');
     
+    // Drop existing schema to start fresh
+    console.log('🧹 Dropping existing tables...');
+    await client.query('DROP SCHEMA public CASCADE');
+    await client.query('CREATE SCHEMA public');
+    await client.query('GRANT ALL ON SCHEMA public TO PUBLIC');
+    console.log('✅ Schema reset');
+    
     // Read and execute schema
     const schemaPath = join(__dirname, '../database/schema.sql');
     const schema = readFileSync(schemaPath, 'utf8');
