@@ -1,67 +1,122 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import * as THREE from 'three'
+import React, { useEffect, useRef, useState } from 'react'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import * as THREE from 'three'
 import ThreeViewer, { type ThreeViewerRef } from '../components/shared/ThreeViewer'
-import { BoneMappingInterface } from '../components/retargeting/BoneMappingInterface'
+import { useRetargetingStore, useCanRetarget } from '../store'
+import { AssetService } from '../services/api/AssetService'
 import { useAssets } from '@/hooks'
-
-type WizardStep = 'loadModel' | 'loadSkeleton' | 'editSkeleton' | 'animations' | 'export'
-type EditMode = '3d' | 'visual-mapping'
 
 export const RetargetAnimatePage: React.FC = () => {
   const viewerRef = useRef<ThreeViewerRef | null>(null)
-  const [modelUrl, setModelUrl] = useState<string | undefined>(undefined)
-  const [step, setStep] = useState<WizardStep>('loadModel')
-  const [loadedAnims, setLoadedAnims] = useState<{ name: string }[]>([])
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [skeletonDetected, setSkeletonDetected] = useState<null | boolean>(null)
-  const [selectedRig, setSelectedRig] = useState<'embedded' | 'human' | 'quadruped' | 'bird'>('embedded')
-  const [selectedRigAssetId, setSelectedRigAssetId] = useState<string>('')
-  const [rigScale, setRigScale] = useState(1.0)
-  const [targetRigLoaded, setTargetRigLoaded] = useState(false)
-  const [editMode, setEditMode] = useState<EditMode>('3d')
-  const [boneMapping, setBoneMapping] = useState<Record<string, string>>({})
-  const [sourceSkeleton, setSourceSkeleton] = useState<THREE.Skeleton | null>(null)
-  const [targetSkeleton, setTargetSkeleton] = useState<THREE.Skeleton | null>(null)
-  const [mirrorEnabled, setMirrorEnabled] = useState(false)
   const { assets, loading: assetsLoading } = useAssets()
-  const avatarAssets = useMemo(() => assets.filter((a) => a.type === 'character' && (a as any).hasModel), [assets])
-  const humanRigCandidates = useMemo(() => avatarAssets.filter(a => /human|mixamo|rig/i.test(a.name)), [avatarAssets])
-  const quadrupedRigCandidates = useMemo(() => avatarAssets.filter(a => /quad|fox|wolf|rig/i.test(a.name)), [avatarAssets])
-  const birdRigCandidates = useMemo(() => avatarAssets.filter(a => /bird|dragon|rig/i.test(a.name)), [avatarAssets])
 
-  const steps: { key: WizardStep, label: string }[] = useMemo(() => ([
-    { key: 'loadModel', label: 'Load Model' },
-    { key: 'loadSkeleton', label: 'Load Skeleton' },
-    { key: 'editSkeleton', label: 'Edit Joints' },
-    { key: 'animations', label: 'Animations' },
-    { key: 'export', label: 'Export' },
-  ]), [])
+  // Local workflow state
+  const [skeletonLoaded, setSkeletonLoaded] = useState(false)
+  const [retargetingApplied, setRetargetingApplied] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [availableAnimations, setAvailableAnimations] = useState<{ name: string, duration: number }[]>([])
+  const [selectedAnimation, setSelectedAnimation] = useState<string>('')
+  const [loadingState, setLoadingState] = useState<string>('')
 
-  const handleSelectModel = (file: File | null) => {
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setModelUrl(url)
-    setSkeletonDetected(null)
-  }
+  // Zustand state
+  const {
+    sourceModelUrl,
+    sourceModelAssetId,
+    targetRigUrl,
+    boneEditingEnabled,
+    showSkeleton,
+    mirrorEnabled,
+    transformMode,
+    transformSpace,
+    setSourceModel,
+    setTargetRig,
+    setBoneEditingEnabled,
+    setShowSkeleton,
+    setMirrorEnabled,
+    setTransformMode,
+    setTransformSpace,
+    reset
+  } = useRetargetingStore()
 
-  const handleToggleSkeleton = () => {
-    viewerRef.current?.toggleSkeleton()
-  }
+  const canRetarget = useCanRetarget()
 
-  const handleLoadAnimation = async (file: File | null) => {
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    const name = file.name.replace(/\.glb$/i, '')
-    await viewerRef.current?.loadAnimation(url, name)
-    setLoadedAnims(prev => [...prev, { name }])
-  }
+  // Filter assets for character models
+  const avatarAssets = assets.filter((a) => a.type === 'character' && (a as any).hasModel)
 
-  const handlePlay = (name?: string) => {
-    if (name === 'walking' || name === 'running') {
-      viewerRef.current?.playAnimation(name)
+  // Step 1: Select Models (source + target rig)
+  const handleLoadSkeleton = async () => {
+    if (!targetRigUrl) {
+      alert('Please select a target rig first')
+      return
     }
+
+    try {
+      setLoadingState('Loading skeleton...')
+      console.log('[RetargetAnimatePage] Loading skeleton for editing...')
+
+      // Load the target rig into the viewer
+      await viewerRef.current?.setTargetRigFromURL(targetRigUrl)
+
+      // Call the mesh2motion skeleton loading method
+      const success = await viewerRef.current?.loadSkeletonForEditing()
+
+      if (success) {
+        console.log('[RetargetAnimatePage] Skeleton loaded successfully')
+        setSkeletonLoaded(true)
+        setShowSkeleton(true) // Auto-show skeleton
+        setBoneEditingEnabled(true) // Auto-enable bone editing
+        setLoadingState('')
+      } else {
+        setLoadingState('')
+        alert('Failed to load skeleton for editing')
+      }
+    } catch (error) {
+      setLoadingState('')
+      console.error('[RetargetAnimatePage] Error loading skeleton:', error)
+      alert('Error loading skeleton: ' + (error as Error).message)
+    }
+  }
+
+  // Step 2: Apply Retargeting (after bone editing)
+  const handleApplyRetargeting = async () => {
+    try {
+      setLoadingState('Applying retargeting and calculating skin weights...')
+      console.log('[RetargetAnimatePage] Applying retargeting...')
+
+      // Disable bone editing first
+      setBoneEditingEnabled(false)
+
+      // Call the mesh2motion retargeting method
+      const success = await viewerRef.current?.applyRetargeting()
+
+      if (success) {
+        console.log('[RetargetAnimatePage] Retargeting applied successfully')
+        setRetargetingApplied(true)
+        setLoadingState('Loading animations...')
+
+        // Fetch available animations from the viewer
+        setTimeout(() => {
+          const anims = viewerRef.current?.getAvailableAnimations?.() || []
+          console.log('[RetargetAnimatePage] Fetched animations:', anims.length)
+          setAvailableAnimations(anims.map(a => ({ name: a.name, duration: a.duration })))
+          setLoadingState('')
+        }, 500) // Small delay to ensure animations are loaded
+      } else {
+        setLoadingState('')
+        alert('Failed to apply retargeting')
+      }
+    } catch (error) {
+      setLoadingState('')
+      console.error('[RetargetAnimatePage] Error applying retargeting:', error)
+      alert('Error applying retargeting: ' + (error as Error).message)
+    }
+  }
+
+  // Animation controls
+  const handlePlay = (animName: string) => {
+    viewerRef.current?.playAnimation(animName)
+    setSelectedAnimation(animName)
     setIsPlaying(true)
   }
 
@@ -78,393 +133,423 @@ export const RetargetAnimatePage: React.FC = () => {
   const handleExport = async () => {
     try {
       setExporting(true)
-      // Minimal working export: use ThreeViewer T-pose export if available
-      // Fallback: export current scene root model if accessible
       if (viewerRef.current?.exportTPoseModel) {
         viewerRef.current.exportTPoseModel()
-        setExporting(false)
-        return
+      } else {
+        // Fallback export
+        const exporter = new GLTFExporter()
+        const tmpScene = new THREE.Scene()
+        await new Promise<void>((resolve, reject) => {
+          exporter.parse(tmpScene, (result) => {
+            const blob = new Blob([result as ArrayBuffer], { type: 'application/octet-stream' })
+            const a = document.createElement('a')
+            a.href = URL.createObjectURL(blob)
+            a.download = 'retargeted-model.glb'
+            a.click()
+            resolve()
+          }, (err) => reject(err), { binary: true, onlyVisible: false, embedImages: true })
+        })
       }
-
-      // Generic fallback (best-effort): export an empty scene to keep UX non-blocking
-      const exporter = new GLTFExporter()
-      const tmpScene = new THREE.Scene()
-      await new Promise<void>((resolve, reject) => {
-        exporter.parse(tmpScene, (result) => {
-          const blob = new Blob([result as ArrayBuffer], { type: 'application/octet-stream' })
-          const a = document.createElement('a')
-          a.href = URL.createObjectURL(blob)
-          a.download = 'export.glb'
-          a.click()
-          resolve()
-        }, (err) => reject(err), { binary: true, onlyVisible: false, embedImages: true })
-      })
     } finally {
       setExporting(false)
     }
   }
 
-  // Auto-detect skeleton presence after model loads
+  // Sync bone editing state to viewer
   useEffect(() => {
-    if (!modelUrl) return
-    // slight delay to allow ThreeViewer to load
-    const id = setTimeout(() => {
-      try {
-        const info = viewerRef.current?.logBoneStructure?.()
-        setSkeletonDetected(!!info && info.bones.length > 0)
-      } catch {
-        setSkeletonDetected(null)
-      }
-    }, 500)
-    return () => clearTimeout(id)
-  }, [modelUrl])
-
-  // Load skeletons when entering editSkeleton step in visual-mapping mode
-  useEffect(() => {
-    if (step === 'editSkeleton' && editMode === 'visual-mapping') {
-      const loadSkeletons = () => {
-        console.log('[visual-mapping] Loading skeletons...')
-
-        if (viewerRef.current?.getSourceSkeleton) {
-          const source = viewerRef.current.getSourceSkeleton()
-          console.log('[visual-mapping] Source skeleton:', source ? `${source.bones.length} bones` : 'null')
-          setSourceSkeleton(source)
-
-          if (!source) {
-            console.warn('[visual-mapping] No source skeleton found! User needs to load a model first.')
-          }
-        }
-
-        if (viewerRef.current?.getTargetSkeleton) {
-          const target = viewerRef.current.getTargetSkeleton()
-          console.log('[visual-mapping] Target skeleton:', target ? `${target.bones.length} bones` : 'null')
-          setTargetSkeleton(target)
-
-          if (!target) {
-            console.warn('[visual-mapping] No target skeleton found! User needs to load target rig first (step 2).')
-          }
-        }
-      }
-
-      // Small delay to ensure skeletons are loaded
-      const id = setTimeout(loadSkeletons, 300)
-      return () => clearTimeout(id)
+    if (viewerRef.current?.enableBoneEditing) {
+      viewerRef.current.enableBoneEditing(boneEditingEnabled)
     }
-  }, [step, editMode])
+  }, [boneEditingEnabled])
+
+  // Sync skeleton visibility - handled by toggleSkeleton() manually
+  // No automatic sync needed for showSkeleton
+
+  // Sync transform controls
+  useEffect(() => {
+    if (viewerRef.current?.setBoneTransformMode) {
+      viewerRef.current.setBoneTransformMode(transformMode)
+    }
+  }, [transformMode])
+
+  useEffect(() => {
+    if (viewerRef.current?.setBoneTransformSpace) {
+      viewerRef.current.setBoneTransformSpace(transformSpace)
+    }
+  }, [transformSpace])
+
+  useEffect(() => {
+    if (viewerRef.current?.setBoneMirrorEnabled) {
+      viewerRef.current.setBoneMirrorEnabled(mirrorEnabled)
+    }
+  }, [mirrorEnabled])
 
   return (
     <div className="h-[calc(100vh-60px)] w-full flex">
       {/* Sidebar */}
       <aside className="w-80 border-r border-border-primary bg-bg-secondary p-4 flex flex-col gap-4">
         <div>
-          <h2 className="text-lg font-semibold mb-2">Retarget & Animate</h2>
-          <ol className="space-y-1">
-            {steps.map(s => (
-              <li key={s.key}>
-                <button
-                  className={`w-full text-left px-3 py-2 rounded-md transition-all ${step === s.key ? 'bg-primary/10 text-primary' : 'hover:bg-bg-tertiary text-text-secondary'}`}
-                  onClick={() => setStep(s.key)}
-                >{s.label}</button>
-              </li>
-            ))}
-          </ol>
+          <h2 className="text-lg font-semibold mb-2">Mesh2Motion Retargeting</h2>
+          <p className="text-xs text-text-tertiary mb-4">
+            Load model → Load skeleton → Edit bones → Apply retargeting → Test animations
+          </p>
+          {loadingState && (
+            <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-md">
+              <p className="text-xs text-primary animate-pulse">{loadingState}</p>
+            </div>
+          )}
         </div>
 
-        {step === 'loadModel' && (
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <label className="text-sm">Model (.glb)</label>
-              <input type="file" accept=".glb" onChange={(e) => handleSelectModel(e.target.files?.[0] ?? null)} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm">Or select existing avatar</label>
-              <select
-                className="mt-1 w-full px-2 py-1 rounded-md bg-bg-tertiary text-sm"
-                disabled={assetsLoading || avatarAssets.length === 0}
+        {/* Step 1: Select Models */}
+        <section className="space-y-3 p-3 border border-border-primary rounded-md">
+          <h3 className="text-sm font-semibold">1. Select Models</h3>
+
+          <div className="space-y-2">
+            <label className="text-xs text-text-tertiary">Source Model (Your Character with Mesh)</label>
+
+            {/* File upload option */}
+            <div className="space-y-1">
+              <input
+                type="file"
+                accept=".glb,.gltf"
+                className="w-full text-xs"
                 onChange={(e) => {
-                  const id = e.target.value
-                  const asset = avatarAssets.find(a => a.id === id)
-                  if (asset && (asset as any).hasModel) {
-                    setModelUrl(`/api/assets/${asset.id}/model`)
-                    setSkeletonDetected(null)
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    const url = URL.createObjectURL(file)
+                    setSourceModel(url, file.name)
+                    console.log('[RetargetAnimatePage] Loaded source model from file:', file.name)
                   }
                 }}
-              >
-                <option value="">{assetsLoading ? 'Loading…' : (avatarAssets.length ? 'Select an avatar…' : 'No avatars found')}</option>
-                {avatarAssets.map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
+              />
+              <p className="text-xs text-text-tertiary">Upload a GLB/GLTF file with mesh data</p>
             </div>
-            <div className="flex gap-2">
-              <button className="px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20" onClick={() => viewerRef.current?.resetCamera()}>Frame</button>
-              <button className="px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20" onClick={() => viewerRef.current?.toggleSkeleton()}>Skeleton</button>
-            </div>
-            <p className="text-xs text-text-tertiary">Use Frame to center the model. Move-to-floor/orientation controls will be added here.</p>
-          </div>
-        )}
 
-        {step === 'loadSkeleton' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Show Skeleton</span>
-              <button className="px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20" onClick={handleToggleSkeleton}>Toggle</button>
-            </div>
-            <div>
-              <label className="text-sm">Rig</label>
-              <select
-                className="mt-1 w-full px-2 py-1 rounded-md bg-bg-tertiary text-sm"
-                value={selectedRig}
-                onChange={async (e) => {
-                  const newRig = e.target.value as typeof selectedRig
-                  setSelectedRig(newRig)
-                  setTargetRigLoaded(false)
-                  // Auto-load standard rig when selected
-                  if (newRig !== 'embedded') {
-                    const rigPath = newRig === 'human' ? '/rigs/rig-human.glb'
-                      : newRig === 'quadruped' ? '/rigs/rig-fox.glb'
-                      : '/rigs/rig-bird.glb'
-                    await viewerRef.current?.setTargetRigFromURL?.(rigPath)
-                    setTargetRigLoaded(true)
-                  }
-                }}
-              >
-                <option value="embedded">Use Embedded Skeleton</option>
-                <option value="human">Standard Human</option>
-                <option value="quadruped">Standard Quadruped (Fox)</option>
-                <option value="bird">Standard Bird</option>
-              </select>
-            </div>
-            {selectedRig !== 'embedded' && targetRigLoaded && (
-              <div className="space-y-2">
-                <button
-                  className="w-full px-3 py-1 rounded-md bg-green-600/10 text-green-400 hover:bg-green-600/20"
-                  onClick={async () => {
-                    const success = await viewerRef.current?.retargetSkeletonToRig?.()
-                    if (success) {
-                      alert('Skeleton retargeted! Your avatar now uses the standard rig skeleton.')
-                    } else {
-                      alert('Retargeting failed. Check console for details.')
-                    }
-                  }}
-                >
-                  Apply Skeleton Retargeting
-                </button>
-                <span className="text-xs text-green-400">✓ Target rig ready ({selectedRig})</span>
+            {/* Or select from existing assets */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border-primary"></div>
               </div>
-            )}
-            <div>
-              <label className="text-sm">Rig Scale: {rigScale.toFixed(2)}x</label>
-              <input className="w-full" type="range" min={0.25} max={2.0} step={0.01} value={rigScale} onChange={(e) => setRigScale(parseFloat(e.target.value))} />
-              <p className="text-xs text-text-tertiary">Scale affects standard rigs; embedded skeleton scale remains unchanged.</p>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-2 bg-bg-secondary text-text-tertiary">or select from assets</span>
+              </div>
             </div>
-            <div className="text-xs text-text-tertiary">
-              {skeletonDetected === null && <span>Detecting skeleton…</span>}
-              {skeletonDetected === true && <span className="text-green-400">Skeleton detected</span>}
-              {skeletonDetected === false && <span className="text-amber-400">No skeleton detected — run Bind/Weight step (coming soon)</span>}
-            </div>
+
+            <select
+              className="w-full px-2 py-1 rounded-md bg-bg-tertiary text-sm"
+              disabled={assetsLoading}
+              value={sourceModelAssetId || ''}
+              onChange={async (e) => {
+                const assetId = e.target.value
+                const asset = avatarAssets.find(a => a.id === assetId)
+                if (asset) {
+                  // Use T-pose URL if available
+                  const modelUrl = await AssetService.getTPoseUrl(asset.id)
+                  setSourceModel(modelUrl, asset.id)
+                }
+              }}
+            >
+              <option value="">{assetsLoading ? 'Loading...' : 'Select from assets...'}</option>
+              {avatarAssets.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
           </div>
-        )}
 
-        {step === 'editSkeleton' && (
-          <div className="space-y-3">
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
-              <p className="text-xs text-amber-400 mb-2">After retargeting, the skeleton may not perfectly match your avatar's proportions. Use this step to manually adjust bone positions for a better fit.</p>
+          <div className="space-y-2">
+            <label className="text-xs text-text-tertiary">Target Rig</label>
+            <select
+              className="w-full px-2 py-1 rounded-md bg-bg-tertiary text-sm"
+              value={targetRigUrl || ''}
+              onChange={(e) => {
+                const url = e.target.value
+                if (url === '/rigs/rig-human.glb') {
+                  setTargetRig('mixamo-human', url, 'human')
+                } else if (url === '/rigs/rig-fox.glb') {
+                  setTargetRig('mixamo-quadruped', url, 'quadruped')
+                } else if (url === '/rigs/rig-bird.glb') {
+                  setTargetRig('mixamo-bird', url, 'bird')
+                }
+              }}
+            >
+              <option value="">Select target rig...</option>
+              <option value="/rigs/rig-human.glb">Human Rig</option>
+              <option value="/rigs/rig-fox.glb">Quadruped (Fox) Rig</option>
+              <option value="/rigs/rig-bird.glb">Bird Rig</option>
+            </select>
+          </div>
+
+          <button
+            className="w-full px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50"
+            disabled={!canRetarget || skeletonLoaded}
+            onClick={handleLoadSkeleton}
+          >
+            {skeletonLoaded ? '✓ Skeleton Loaded' : 'Load Skeleton for Editing'}
+          </button>
+
+          {!canRetarget && (
+            <p className="text-xs text-amber-400">Select both source model and target rig</p>
+          )}
+        </section>
+
+        {/* Step 2: Adjust Bone Positions */}
+        {skeletonLoaded && !retargetingApplied && (
+          <section className="space-y-3 p-3 border border-border-primary rounded-md">
+            <h3 className="text-sm font-semibold">2. Adjust Bone Positions</h3>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs">Show Skeleton</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={showSkeleton}
+                  onChange={(e) => setShowSkeleton(e.target.checked)}
+                />
+                <div className="w-9 h-5 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              </label>
             </div>
 
-            {/* Mode Toggle */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs">Enable Bone Editing</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={boneEditingEnabled}
+                  onChange={(e) => setBoneEditingEnabled(e.target.checked)}
+                />
+                <div className="w-9 h-5 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+
             <div>
-              <label className="text-xs text-text-tertiary mb-1 block">Edit Mode</label>
+              <label className="text-xs text-text-tertiary mb-1 block">Transform Mode</label>
               <div className="flex gap-2">
                 <button
-                  className={`flex-1 px-3 py-2 rounded-md text-sm transition-colors ${editMode === '3d' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
-                  onClick={() => {
-                    setEditMode('3d')
-                    viewerRef.current?.enableBoneEditing?.(false)
-                  }}
+                  className={`flex-1 px-3 py-1 rounded-md text-sm ${transformMode === 'translate' ? 'bg-primary/20 text-primary' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
+                  onClick={() => setTransformMode('translate')}
                 >
-                  3D Editor
+                  Move
                 </button>
                 <button
-                  className={`flex-1 px-3 py-2 rounded-md text-sm transition-colors ${editMode === 'visual-mapping' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
-                  onClick={() => {
-                    setEditMode('visual-mapping')
-                    viewerRef.current?.enableBoneEditing?.(false)
-                  }}
+                  className={`flex-1 px-3 py-1 rounded-md text-sm ${transformMode === 'rotate' ? 'bg-primary/20 text-primary' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
+                  onClick={() => setTransformMode('rotate')}
                 >
-                  Visual Mapping
+                  Rotate
                 </button>
               </div>
             </div>
 
-            {editMode === '3d' && (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Enable Bone Editing</span>
-                  <button className="px-3 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20" onClick={() => viewerRef.current?.enableBoneEditing?.(true)}>Enable</button>
-                </div>
-
-                {/* Debug button */}
+            <div>
+              <label className="text-xs text-text-tertiary mb-1 block">Transform Space</label>
+              <div className="flex gap-2">
                 <button
-                  className="w-full px-3 py-1 rounded-md bg-warning/10 text-warning hover:bg-warning/20 text-xs"
-                  onClick={() => {
-                    console.log('=== DEBUG INFO ===')
-                    viewerRef.current?.debugGizmo?.()
-                    const sourceSkel = viewerRef.current?.getSourceSkeleton?.()
-                    const targetSkel = viewerRef.current?.getTargetSkeleton?.()
-                    console.log('Source skeleton bones:', sourceSkel?.bones.length || 'null')
-                    console.log('Target skeleton bones:', targetSkel?.bones.length || 'null')
-                  }}
+                  className={`flex-1 px-3 py-1 rounded-md text-sm ${transformSpace === 'world' ? 'bg-primary/20 text-primary' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
+                  onClick={() => setTransformSpace('world')}
                 >
-                  Debug Scene
+                  World
                 </button>
-                <div>
-                  <label className="text-xs text-text-tertiary mb-1 block">Transform Mode</label>
-                  <div className="flex gap-2">
-                    <button className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20 text-sm" onClick={() => viewerRef.current?.setBoneTransformMode?.('translate')}>Translate</button>
-                    <button className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20 text-sm" onClick={() => viewerRef.current?.setBoneTransformMode?.('rotate')}>Rotate</button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-text-tertiary mb-1 block">Transform Space</label>
-                  <div className="flex gap-2">
-                    <button className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20 text-sm" onClick={() => viewerRef.current?.setBoneTransformSpace?.('world')}>World</button>
-                    <button className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20 text-sm" onClick={() => viewerRef.current?.setBoneTransformSpace?.('local')}>Local</button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Mirror X-Axis</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={mirrorEnabled}
-                      onChange={(e) => {
-                        const enabled = e.target.checked
-                        setMirrorEnabled(enabled)
-                        viewerRef.current?.setBoneMirrorEnabled?.(enabled)
-                        console.log('[RetargetAnimatePage] Mirror toggled to:', enabled)
-                      }}
-                    />
-                    <div className="w-9 h-5 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
-                </div>
-                <div className="border-t border-border-primary pt-3">
-                  <p className="text-xs text-text-tertiary mb-2">How to use:</p>
-                  <ol className="text-xs text-text-tertiary space-y-1 list-decimal pl-4">
-                    <li>Enable bone editing</li>
-                    <li>Click a joint (sphere) to select it</li>
-                    <li>Drag the gizmo to adjust position/rotation</li>
-                    <li>Fine-tune shoulders, hips, hands as needed</li>
-                    <li>Proceed to Animations when satisfied</li>
-                  </ol>
-                </div>
-              </>
-            )}
-
-            {editMode === 'visual-mapping' && (
-              <div className="space-y-3">
-                <div className="p-3 bg-info/10 border border-info/20 rounded">
-                  <p className="text-xs text-text-secondary space-y-1">
-                    <strong className="block mb-1">Visual Mapping Mode:</strong>
-                    The side-by-side skeleton view will appear in the main area.
-                  </p>
-                  <ul className="text-xs text-text-tertiary mt-2 space-y-1 list-disc pl-4">
-                    <li>If you see "No skeleton loaded", go back to Steps 1-2 first</li>
-                    <li>Click "Auto-Map" button in the interface for instant matching</li>
-                    <li>Or manually click bones to link them one by one</li>
-                    <li>Green borders = already mapped</li>
-                  </ul>
-                </div>
-
-                {/* Show mapping status */}
-                <div className="text-xs text-text-secondary">
-                  <strong>Current Mappings:</strong> {Object.keys(boneMapping).length}
-                  {Object.keys(boneMapping).length === 0 && (
-                    <span className="block text-text-tertiary mt-1">
-                      No mappings yet. Use Auto-Map or manually link bones.
-                    </span>
-                  )}
-                </div>
-
                 <button
-                  className="w-full px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
-                  disabled={Object.keys(boneMapping).length === 0}
-                  onClick={() => {
-                    // Apply the bone mapping overrides
-                    if (viewerRef.current?.setBoneMapOverrides) {
-                      viewerRef.current.setBoneMapOverrides(boneMapping)
-                      alert(`✅ Applied ${Object.keys(boneMapping).length} bone mappings!`)
-                    }
-                  }}
+                  className={`flex-1 px-3 py-1 rounded-md text-sm ${transformSpace === 'local' ? 'bg-primary/20 text-primary' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
+                  onClick={() => setTransformSpace('local')}
                 >
-                  Apply Bone Mapping {Object.keys(boneMapping).length > 0 && `(${Object.keys(boneMapping).length})`}
+                  Local
                 </button>
               </div>
-            )}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs">Mirror X-Axis</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={mirrorEnabled}
+                  onChange={(e) => setMirrorEnabled(e.target.checked)}
+                />
+                <div className="w-9 h-5 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+
+            <div className="pt-2 border-t border-border-primary">
+              <p className="text-xs text-text-tertiary mb-2">Instructions:</p>
+              <ol className="text-xs text-text-tertiary space-y-1 list-decimal pl-4">
+                <li>Enable bone editing above</li>
+                <li>Click on a bone joint (sphere) to select it</li>
+                <li>Drag the transform gizmo to adjust position/rotation</li>
+                <li>Fine-tune shoulders, hips, hands as needed</li>
+                <li>Click "Apply Retargeting" when satisfied</li>
+              </ol>
+            </div>
 
             <button
               className="w-full px-3 py-2 rounded-md bg-green-600/10 text-green-400 hover:bg-green-600/20 border border-green-600/20"
-              onClick={() => {
-                viewerRef.current?.alignToBindPose?.()
-                alert('Skeleton reset to bind pose. Re-apply retargeting from Load Skeleton if needed.')
-              }}
+              onClick={handleApplyRetargeting}
             >
-              Reset to Bind Pose
+              Apply Retargeting
             </button>
-          </div>
+          </section>
         )}
 
-        {step === 'animations' && (
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm">Add Animation (.glb)</label>
-              <input type="file" accept=".glb" onChange={(e) => handleLoadAnimation(e.target.files?.[0] ?? null)} />
-            </div>
+        {/* Step 3: Test Animations */}
+        {retargetingApplied && (
+          <section className="space-y-3 p-3 border border-border-primary rounded-md">
+            <h3 className="text-sm font-semibold">3. Test Animations</h3>
+
+            {availableAnimations.length === 0 ? (
+              <p className="text-xs text-text-tertiary">Loading animations...</p>
+            ) : (
               <div className="space-y-2">
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 rounded-md bg-primary/10 text-primary" onClick={() => viewerRef.current?.playAnimationRetargeted?.('walking')}>Play Walk</button>
-                  <button className="px-3 py-1 rounded-md bg-primary/10 text-primary" onClick={() => viewerRef.current?.playAnimationRetargeted?.('running')}>Play Run</button>
+                <div className="space-y-1">
+                  <label className="text-xs text-text-tertiary">
+                    Select Animation ({availableAnimations.length} available)
+                  </label>
+                  <select
+                    className="w-full px-2 py-1 rounded-md bg-bg-tertiary text-sm"
+                    value={selectedAnimation}
+                    onChange={(e) => handlePlay(e.target.value)}
+                  >
+                    <option value="">Choose an animation...</option>
+                    {availableAnimations.map((anim) => (
+                      <option key={anim.name} value={anim.name}>
+                        {anim.name} ({anim.duration.toFixed(2)}s)
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="flex gap-2">
-                  {!isPlaying && <button className="px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20" onClick={handleResume}>Resume</button>}
-                  {isPlaying && <button className="px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20" onClick={handlePause}>Pause</button>}
-                  <button className="px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20" onClick={() => viewerRef.current?.alignToBindPose?.()}>Reset Pose</button>
+
+                {/* Quick access to common animations */}
+                <div>
+                  <label className="text-xs text-text-tertiary mb-1 block">Quick Select</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                      onClick={() => handlePlay('Idle_Loop')}
+                    >
+                      Idle
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                      onClick={() => handlePlay('Walk_Loop')}
+                    >
+                      Walk
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                      onClick={() => handlePlay('Jog_Fwd_Loop')}
+                    >
+                      Jog
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                      onClick={() => handlePlay('Sprint_Loop')}
+                    >
+                      Sprint
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                      onClick={() => handlePlay('Jump_Start')}
+                    >
+                      Jump
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                      onClick={() => handlePlay('Dance_Loop')}
+                    >
+                      Dance
+                    </button>
+                  </div>
                 </div>
-              <ul className="text-xs text-text-tertiary list-disc pl-5">
-                {loadedAnims.map(a => (<li key={a.name}>{a.name}</li>))}
-              </ul>
-            </div>
-          </div>
+
+                {/* Playback controls */}
+                <div className="flex gap-2 pt-2 border-t border-border-primary">
+                  {!isPlaying && (
+                    <button
+                      className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20"
+                      onClick={handleResume}
+                    >
+                      Resume
+                    </button>
+                  )}
+                  {isPlaying && (
+                    <button
+                      className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20"
+                      onClick={handlePause}
+                    >
+                      Pause
+                    </button>
+                  )}
+                  <button
+                    className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20"
+                    onClick={() => viewerRef.current?.stopAnimation()}
+                  >
+                    Stop
+                  </button>
+                </div>
+
+                {selectedAnimation && (
+                  <p className="text-xs text-green-400">
+                    Playing: {selectedAnimation}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <p className="text-xs text-text-tertiary">
+              Test animations to ensure retargeting looks correct. Use the dropdown to access all {availableAnimations.length} animations.
+            </p>
+          </section>
         )}
 
-        {step === 'export' && (
-          <div className="space-y-2">
-            <button disabled={exporting} className="px-3 py-2 rounded-md bg-primary/10 text-primary disabled:opacity-50" onClick={handleExport}>
-              {exporting ? 'Exporting…' : 'Export GLB'}
+        {/* Step 4: Export */}
+        {retargetingApplied && (
+          <section className="space-y-3 p-3 border border-border-primary rounded-md">
+            <h3 className="text-sm font-semibold">4. Export</h3>
+
+            <button
+              className="w-full px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50"
+              disabled={exporting}
+              onClick={handleExport}
+            >
+              {exporting ? 'Exporting...' : 'Export Retargeted Model'}
             </button>
-            <p className="text-xs text-text-tertiary">Exports current model (TPose export wired; full animated export to follow).</p>
-          </div>
+
+            <p className="text-xs text-text-tertiary">
+              Export the retargeted model as a GLB file with the new skeleton.
+            </p>
+          </section>
         )}
+
+        {/* Utilities */}
+        <section className="space-y-2 pt-4 border-t border-border-primary">
+          <button
+            className="w-full px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20 text-sm"
+            onClick={() => viewerRef.current?.resetCamera()}
+          >
+            Reset Camera
+          </button>
+          <button
+            className="w-full px-3 py-1 rounded-md bg-warning/10 text-warning hover:bg-warning/20 text-sm"
+            onClick={() => {
+              if (confirm('Reset all settings and start over?')) {
+                reset()
+                setSkeletonLoaded(false)
+                setRetargetingApplied(false)
+              }
+            }}
+          >
+            Reset Workflow
+          </button>
+        </section>
       </aside>
 
       {/* Viewer */}
       <section className="flex-1">
-        {step === 'editSkeleton' && editMode === 'visual-mapping' ? (
-          <BoneMappingInterface
-            sourceSkeleton={sourceSkeleton}
-            targetSkeleton={targetSkeleton}
-            onMappingChange={setBoneMapping}
-            initialMapping={boneMapping}
-          />
-        ) : (
-          <ThreeViewer ref={viewerRef} modelUrl={modelUrl} isAnimationPlayer={false} />
-        )}
+        <ThreeViewer ref={viewerRef} modelUrl={sourceModelUrl || undefined} isAnimationPlayer={false} />
       </section>
     </div>
   )
 }
 
 export default RetargetAnimatePage
-
-
