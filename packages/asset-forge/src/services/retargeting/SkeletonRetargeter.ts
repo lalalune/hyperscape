@@ -250,7 +250,11 @@ export class SkeletonRetargeter {
     return offset
   }
 
-  private static createSolver(type: SolverType, geometry: THREE.BufferGeometry, bones: THREE.Bone[]) {
+  /**
+   * Create a weight solver for calculating skin weights
+   * PUBLIC: Used by ThreeViewer for manual retargeting workflow
+   */
+  static createSolver(type: SolverType, geometry: THREE.BufferGeometry, bones: THREE.Bone[]) {
     switch (type) {
       case 'distance':
         return new DistanceSolver(geometry, bones)
@@ -259,6 +263,53 @@ export class SkeletonRetargeter {
         return new DistanceChildTargetingSolver(geometry, bones)
       default:
         return new DistanceChildTargetingSolver(geometry, bones) // Use smart solver by default
+    }
+  }
+
+  /**
+   * Apply T-Pose animation to skeleton for proper binding
+   * PUBLIC: Used by ThreeViewer for manual retargeting workflow
+   */
+  static async applyTPoseToSkeleton(skeleton: THREE.Skeleton): Promise<void> {
+    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
+    const loader = new GLTFLoader()
+
+    try {
+      const gltf = await loader.loadAsync('/rigs/animations/human-base-animations.glb')
+      const tPoseAnim = gltf.animations.find(anim => anim.name === 'T-Pose' || anim.name === 'TPose')
+
+      if (!tPoseAnim) {
+        console.warn('T-Pose animation not found in human-base-animations.glb')
+        return
+      }
+
+      // Build bone map for faster lookup
+      const boneMap = new Map<string, THREE.Bone>()
+      skeleton.bones.forEach(bone => {
+        boneMap.set(bone.name, bone)
+      })
+
+      // Apply first frame of T-Pose animation to each bone
+      tPoseAnim.tracks.forEach(track => {
+        const boneName = track.name.split('.')[0]
+        const property = track.name.split('.').pop()
+        const bone = boneMap.get(boneName)
+
+        if (bone && property === 'quaternion' && track.values.length >= 4) {
+          const values = track.values
+          bone.quaternion.set(values[0], values[1], values[2], values[3])
+        } else if (bone && property === 'position' && track.values.length >= 3) {
+          const values = track.values
+          bone.position.set(values[0], values[1], values[2])
+        }
+      })
+
+      // Update matrices after applying T-pose
+      skeleton.bones.forEach(bone => bone.updateMatrixWorld(true))
+
+      console.log('✓ T-pose applied to skeleton')
+    } catch (error) {
+      console.error('Failed to apply T-pose:', error)
     }
   }
 }
