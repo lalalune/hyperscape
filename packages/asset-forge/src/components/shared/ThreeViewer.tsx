@@ -80,6 +80,8 @@ export interface ThreeViewerRef {
   setBoneTransformSpace?: (space: 'world' | 'local') => void
   setBoneMirrorEnabled?: (enabled: boolean) => void
   debugGizmo?: () => void
+  getSourceSkeleton?: () => THREE.Skeleton | null
+  getTargetSkeleton?: () => THREE.Skeleton | null
 }
 
 const ThreeViewer = forwardRef(({ 
@@ -109,6 +111,8 @@ const ThreeViewer = forwardRef(({
   const skeletonHelperRef = useRef<THREE.SkeletonHelper | CustomSkeletonHelper | null>(null)
   const boneEditHandleRef = useRef<THREE.Object3D | null>(null)
   const selectedBoneRef = useRef<THREE.Bone | null>(null)
+  const boneHighlightSphereRef = useRef<THREE.Mesh | null>(null)
+  const boneLabelsGroupRef = useRef<THREE.Group | null>(null)
   const originalBindMatricesRef = useRef<Map<THREE.SkinnedMesh, THREE.Matrix4[]>>(new Map())
   // Removed: animatedModelsRef and animationTypesRef - no longer needed
   
@@ -157,13 +161,16 @@ const ThreeViewer = forwardRef(({
   const [boneEditEnabled, setBoneEditEnabled] = useState(false)
   const boneEditEnabledRef = useRef(false) // Ref for closures
   const [boneMirrorEnabledState, setBoneMirrorEnabledState] = useState(false)
+  const boneMirrorEnabledRef = useRef(false) // Ref for closures
   const [boneTransformModeState, setBoneTransformModeState] = useState<'translate' | 'rotate'>('translate')
+  const boneTransformModeStateRef = useRef<'translate' | 'rotate'>('translate') // Ref for closures
   const [boneTransformSpaceState, setBoneTransformSpaceState] = useState<'world' | 'local'>('world')
   const [selectedBoneName, setSelectedBoneName] = useState<string | null>(null)
 
   const raycaster = useRef(new THREE.Raycaster())
   const pointer = useRef(new THREE.Vector2())
   const [selectedBone, setSelectedBone] = useState<THREE.Bone | null>(null)
+  const applyMirrorModeRef = useRef<((bone: THREE.Bone, mode: 'translate' | 'rotate') => void) | null>(null)
 
   const computeDistanceToFit = (size: THREE.Vector3, camera: THREE.PerspectiveCamera) => {
     const aspect = camera.aspect || 1
@@ -1449,37 +1456,61 @@ const ThreeViewer = forwardRef(({
       console.log(`[bone-edit] Enable bone editing: ${enabled}`)
       setBoneEditEnabled(enabled)
       boneEditEnabledRef.current = enabled // Update ref for closures
-      
+
       if (!transformControlsRef.current || !rendererRef.current) {
         console.warn('[bone-edit] TransformControls or renderer not ready')
         return
       }
-      
+
+      // CRITICAL: Ensure skeleton is visible when enabling bone editing
+      if (enabled && skeletonHelperRef.current) {
+        skeletonHelperRef.current.visible = true
+        setShowSkeleton(true)
+        console.log('[bone-edit] ✅ Skeleton helper made visible')
+      }
+
+      // Ensure we have bones to edit
+      if (enabled) {
+        const editRoot = editingSkeletonRootRef.current ?? modelRef.current
+        if (!editRoot) {
+          console.error('[bone-edit] ❌ No editable skeleton or model found!')
+          return
+        }
+
+        const bones: THREE.Bone[] = []
+        editRoot.traverse((child) => {
+          if (child instanceof THREE.Bone) bones.push(child)
+        })
+
+        console.log(`[bone-edit] Found ${bones.length} bones to edit`)
+        if (bones.length === 0) {
+          console.error('[bone-edit] ❌ No bones found in skeleton!')
+          alert('No skeleton bones found. Please load a model with a skeleton first.')
+          return
+        }
+      }
+
       transformControlsRef.current.enabled = enabled
       ;(transformControlsRef.current as unknown as THREE.Object3D).visible = enabled
-      
+
+      // Hide/show bone highlight sphere
+      if (boneHighlightSphereRef.current) {
+        if (!enabled) {
+          boneHighlightSphereRef.current.visible = false
+        }
+      }
+
+      const tcObj = transformControlsRef.current as any as THREE.Object3D
       console.log('[bone-edit] TransformControls state:')
       console.log('  - enabled:', transformControlsRef.current.enabled)
-      console.log('  - visible:', (transformControlsRef.current as unknown as THREE.Object3D).visible)
-      console.log('  - in scene:', sceneRef.current?.children.includes(transformControlsRef.current as unknown as THREE.Object3D))
-      
-      // Force gizmo helper visibility
-      const gizmo = transformControlsRef.current.getHelper()
-      if (gizmo) {
-        gizmo.visible = enabled
-        console.log('  - gizmo visible:', gizmo.visible)
-        console.log('  - gizmo in scene:', sceneRef.current?.children.includes(gizmo))
-      }
-      
-      // DEBUG: Attach to test cube when enabled to verify gizmo works
-      if (enabled && sceneRef.current) {
-        const testCube = sceneRef.current.getObjectByName('TestCube')
-        if (testCube) {
-          console.log('🧪 Attaching gizmo to test cube for verification')
-          transformControlsRef.current.attach(testCube)
-          transformControlsRef.current.size = 1.0
-          console.log('   Gizmo should now be visible on the red cube!')
-        }
+      console.log('  - visible:', tcObj.visible)
+      console.log('  - in scene:', sceneRef.current?.children.includes(tcObj))
+      console.log('  - parent:', tcObj.parent?.type)
+
+      // Detach from any object when disabling
+      if (!enabled && transformControlsRef.current.object) {
+        transformControlsRef.current.detach()
+        console.log('  - Detached from object')
       }
       
       // CRITICAL: Stop all animations when editing bones to prevent mesh deformation
@@ -1509,11 +1540,11 @@ const ThreeViewer = forwardRef(({
           const box = new THREE.Box3().setFromObject(modelRef.current)
           const size = box.getSize(new THREE.Vector3())
           const radius = Math.max(size.x, size.y, size.z)
-          // Make it HUGE - 50% of model size, minimum 5 units
-          transformControlsRef.current.size = Math.max(radius * 0.5, 5.0)
+          // Scale to 12% of model size for good visibility
+          transformControlsRef.current.size = Math.max(radius * 0.12, 0.3)
           console.log('[bone-edit] Initial gizmo size:', transformControlsRef.current.size, 'for model radius:', radius)
         } catch (e) {
-          transformControlsRef.current.size = 10.0
+          transformControlsRef.current.size = 0.5
         }
       }
       console.log('[bone-edit] TransformControls enabled set to:', enabled)
@@ -1522,8 +1553,8 @@ const ThreeViewer = forwardRef(({
       const canvas = rendererRef.current.domElement
       if (!canvas.dataset.boneClickListenerAdded) {
         canvas.dataset.boneClickListenerAdded = 'true'
-        
-        // Use pointerdown in capture phase so we attach before TransformControls handles the event
+
+        // Use pointerdown in bubble phase to avoid interfering with TransformControls
         canvas.addEventListener('pointerdown', (event: PointerEvent) => {
           console.log('[bone-edit] 🖱️ Canvas clicked! Bone editing enabled:', boneEditEnabledRef.current)
           
@@ -1591,13 +1622,30 @@ const ThreeViewer = forwardRef(({
             setSelectedBone(closestBone)
             setSelectedBoneName(closestBone.name)
             selectedBoneRef.current = closestBone
-            
+
             // Update bone world matrix first
             closestBone.updateMatrixWorld(true)
+
+            // Show highlight sphere at bone position
+            if (boneHighlightSphereRef.current) {
+              const worldPos = new THREE.Vector3()
+              closestBone.getWorldPosition(worldPos)
+              boneHighlightSphereRef.current.position.copy(worldPos)
+              boneHighlightSphereRef.current.visible = true
+              console.log(`[selection] 🔵 Highlight sphere positioned at bone location`)
+            }
             
             // Attach TransformControls to the bone
             transformControlsRef.current.attach(closestBone)
-            
+
+            // CRITICAL: Ensure the helper is in the scene after attaching
+            // TransformControls creates helper lazily on first attach
+            const helper = transformControlsRef.current.getHelper()
+            if (helper && sceneRef.current && !sceneRef.current.children.includes(helper)) {
+              console.log('[selection] 🔧 Manually adding helper to scene')
+              sceneRef.current.add(helper)
+            }
+
             // Configure gizmo with 3-axis arrows (X=Red, Y=Green, Z=Blue)
             transformControlsRef.current.showX = true
             transformControlsRef.current.showY = true
@@ -1605,85 +1653,34 @@ const ThreeViewer = forwardRef(({
             transformControlsRef.current.setMode(boneTransformModeState) // 'translate' or 'rotate'
             transformControlsRef.current.setSpace(boneTransformSpaceState) // 'local' or 'world'
             
-            // Make gizmo MASSIVELY LARGE so it's impossible to miss
+            // Scale gizmo appropriately based on model size
             if (modelRef.current) {
               const box = new THREE.Box3().setFromObject(modelRef.current)
               const size = box.getSize(new THREE.Vector3())
               const radius = Math.max(size.x, size.y, size.z)
-              // Scale gizmo to 50% of model size - HUGE arrows!
-              transformControlsRef.current.size = Math.max(radius * 0.5, 5.0)
+              // Scale gizmo to 10-15% of model size for visibility without overwhelming
+              transformControlsRef.current.size = Math.max(radius * 0.12, 0.3)
               console.log(`[selection] 📏 Gizmo size set to ${transformControlsRef.current.size.toFixed(2)} (model size: ${radius.toFixed(2)})`)
             } else {
-              // Fallback to massive size if no model
-              transformControlsRef.current.size = 10.0
+              // Fallback to reasonable size if no model
+              transformControlsRef.current.size = 0.5
             }
             
-            // Ensure visibility and rendering
-            ;(transformControlsRef.current as unknown as THREE.Object3D).visible = true
-            const helper = transformControlsRef.current.getHelper()
-            if (helper) {
-              helper.visible = true
-              helper.updateMatrixWorld(true)
-              ;(helper as any).frustumCulled = false
-              ;(helper as any).renderOrder = 999 // Render on top
-              
-              // Force all children to be visible and make materials SUPER bright
-              helper.traverse((child: THREE.Object3D) => {
-                child.visible = true
-                child.frustumCulled = false
-                child.renderOrder = 1000 // Render on top of everything
-                
-                if ('material' in child) {
-                  const mat = (child as any).material
-                  if (mat) {
-                    mat.depthTest = false
-                    mat.depthWrite = false
-                    mat.transparent = false
-                    mat.opacity = 1.0
-                    // Make it SUPER bright and always visible
-                    if ('color' in mat) {
-                      mat.color = new THREE.Color(0xffffff)
-                    }
-                    if ('emissive' in mat) {
-                      mat.emissive = new THREE.Color(0xffffff)
-                    }
-                    if ('emissiveIntensity' in mat) {
-                      mat.emissiveIntensity = 5.0
-                    }
-                    if ('toneMapped' in mat) {
-                      mat.toneMapped = false // Don't tone map - stay bright
-                    }
-                  }
-                }
-              })
-              
-              console.log(`[selection] 🎨 Gizmo helper configured:`)
-              console.log('  - Helper type:', helper.type)
-              console.log('  - Helper visible:', helper.visible)
-              console.log('  - Helper children count:', helper.children.length)
-              console.log('  - Helper in scene:', sceneRef.current?.children.includes(helper))
-              
-              // Debug: List all gizmo children (should be X/Y/Z axis meshes)
-              helper.children.forEach((child, i) => {
-                console.log(`  - Child ${i}:`, child.type, child.name, 'visible:', child.visible)
-                if (child.children.length > 0) {
-                  child.children.forEach((grandchild, j) => {
-                    console.log(`    - Grandchild ${j}:`, grandchild.type, grandchild.name, 'visible:', grandchild.visible)
-                  })
-                }
-              })
-            }
+            // Gizmo should now be visible - TransformControls handles its own rendering
+            console.log('[selection] ✅ Gizmo attached and should be visible')
 
+            const tcObj = transformControlsRef.current as any as THREE.Object3D
             console.log(`[selection] 🎯 3-Axis Gizmo attached to bone "${closestBone.name}"`)
             console.log('  - Mode:', transformControlsRef.current.mode, '(drag arrows to move)')
             console.log('  - Space:', transformControlsRef.current.space)
             console.log('  - Size:', transformControlsRef.current.size)
             console.log('  - Attached object position:', closestBone.position.toArray())
-            console.log('  - TransformControls in scene:', sceneRef.current?.children.includes(transformControlsRef.current as unknown as THREE.Object3D))
+            console.log('  - TransformControls in scene:', sceneRef.current?.children.includes(tcObj))
+            console.log('  - TransformControls parent:', tcObj.parent?.type)
           } else {
             console.log(`[selection] ❌ No bone within ${closestDistance}m`)
           }
-        }, { capture: true })
+        }, { capture: false }) // Use bubble phase
         
         // Hover-attacher: keep controls attached to the nearest bone under the pointer so axis picking works
         // No hover attach — user must click a joint to attach
@@ -1691,13 +1688,32 @@ const ThreeViewer = forwardRef(({
     },
     setBoneTransformMode: (mode: 'translate' | 'rotate') => {
       setBoneTransformModeState(mode)
+      boneTransformModeStateRef.current = mode // Update ref for closures
       if (transformControlsRef.current) transformControlsRef.current.setMode(mode)
+      console.log('[bone-edit] Transform mode set to:', mode)
     },
     setBoneTransformSpace: (space: 'world' | 'local') => {
       setBoneTransformSpaceState(space)
       if (transformControlsRef.current) transformControlsRef.current.setSpace(space)
+      console.log('[bone-edit] Transform space set to:', space)
     },
-    setBoneMirrorEnabled: (enabled: boolean) => setBoneMirrorEnabledState(enabled),
+    setBoneMirrorEnabled: (enabled: boolean) => {
+      setBoneMirrorEnabledState(enabled)
+      boneMirrorEnabledRef.current = enabled // Update ref for closures
+      console.log('[bone-edit] Mirror mode set to:', enabled)
+      console.log('[bone-edit] Mirror ref updated to:', boneMirrorEnabledRef.current)
+
+      // IMMEDIATE UX: Apply mirror to currently selected bone when enabled
+      if (enabled && selectedBoneRef.current && applyMirrorModeRef.current) {
+        console.log('[mirror] 🎯 Mirror enabled - applying immediately to current selection')
+        applyMirrorModeRef.current(selectedBoneRef.current, boneTransformModeStateRef.current)
+
+        // Update skeleton helper to show the change
+        if (skeletonHelperRef.current) {
+          skeletonHelperRef.current.updateMatrixWorld(true)
+        }
+      }
+    },
     setBoneMapOverrides: (overrides: Record<string, string>) => {
       const m = new Map<string, string>()
       Object.entries(overrides).forEach(([k, v]) => m.set(normalizeBoneName(k), v))
@@ -1717,13 +1733,15 @@ const ThreeViewer = forwardRef(({
       console.log('TransformControls ref:', !!transformControlsRef.current)
       if (transformControlsRef.current) {
         const tc = transformControlsRef.current
+        const tcObj = tc as any as THREE.Object3D
         console.log('  enabled:', tc.enabled)
-        console.log('  visible:', (tc as unknown as THREE.Object3D).visible)
+        console.log('  visible:', tcObj.visible)
         console.log('  mode:', tc.mode)
         console.log('  space:', tc.space)
         console.log('  size:', tc.size)
         console.log('  object attached:', tc.object?.name)
-        console.log('  in scene:', sceneRef.current?.children.includes(tc as unknown as THREE.Object3D))
+        console.log('  in scene:', sceneRef.current?.children.includes(tcObj))
+        console.log('  parent:', tcObj.parent?.type)
         
         const helper = tc.getHelper()
         console.log('  helper:', !!helper)
@@ -1750,6 +1768,22 @@ const ThreeViewer = forwardRef(({
         }
       }
       console.log('=== END DEBUG ===')
+    },
+    getSourceSkeleton: () => {
+      // Get skeleton from the currently loaded model
+      if (!modelRef.current) return null
+
+      let skeleton: THREE.Skeleton | null = null
+      modelRef.current.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh && child.skeleton && !skeleton) {
+          skeleton = child.skeleton
+        }
+      })
+      return skeleton
+    },
+    getTargetSkeleton: () => {
+      // Return the target rig skeleton if loaded
+      return targetSkeletonRef.current
     }
   }), [animations, assetInfo, exportTPoseModel, showSkeleton])
   
@@ -1863,33 +1897,52 @@ const ThreeViewer = forwardRef(({
     // Helper: Apply mirror mode (from Mesh2Motion)
     const applyMirrorMode = (selectedBone: THREE.Bone, transformMode: 'translate' | 'rotate') => {
       if (!editingSkeletonRootRef.current) return
-      
-      // Calculate base bone name (strip L/R suffixes)
+
+      // Calculate base bone name (strip L/R suffixes and prefixes)
+      // Handle patterns: boneName.L, boneName.R, boneNameL, boneNameR, L_boneName, R_boneName, etc.
       const baseName = selectedBone.name
-        .replace(/[_\-\.](l|r|left|right)$/i, '')
-        .replace(/^(l|r|left|right)[_\-\.]/i, '')
+        .replace(/[_\-\.]?(l|r|left|right)$/i, '')  // Remove suffix
+        .replace(/^(l|r|left|right)[_\-\.]?/i, '')  // Remove prefix
         .toLowerCase()
-      
+
+      // Determine if this is a left or right bone
+      const isLeft = /[_\-\.]?(l|left)[_\-\.]?/i.test(selectedBone.name)
+      const isRight = /[_\-\.]?(r|right)[_\-\.]?/i.test(selectedBone.name)
+
+      if (!isLeft && !isRight) {
+        console.log(`[mirror] ${selectedBone.name} is not a left/right bone (center bone), skipping`)
+        return // Center bone, no mirror
+      }
+
       // Find mirror bone
       let mirrorBone: THREE.Bone | undefined
       const allBones: THREE.Bone[] = []
       editingSkeletonRootRef.current.traverse((child) => {
         if (child instanceof THREE.Bone) allBones.push(child)
       })
-      
+
       for (const bone of allBones) {
         if (bone === selectedBone) continue
+
         const boneBaseName = bone.name
-          .replace(/[_\-\.](l|r|left|right)$/i, '')
-          .replace(/^(l|r|left|right)[_\-\.]/i, '')
+          .replace(/[_\-\.]?(l|r|left|right)$/i, '')
+          .replace(/^(l|r|left|right)[_\-\.]?/i, '')
           .toLowerCase()
-        if (boneBaseName === baseName) {
+
+        // Must have same base name but opposite side
+        const boneIsLeft = /[_\-\.]?(l|left)[_\-\.]?/i.test(bone.name)
+        const boneIsRight = /[_\-\.]?(r|right)[_\-\.]?/i.test(bone.name)
+
+        if (boneBaseName === baseName && ((isLeft && boneIsRight) || (isRight && boneIsLeft))) {
           mirrorBone = bone
           break
         }
       }
-      
-      if (!mirrorBone) return // No mirror bone (probably center bone like spine)
+
+      if (!mirrorBone) {
+        console.log(`[mirror] No mirror bone found for ${selectedBone.name}`)
+        return
+      }
       
       if (transformMode === 'translate') {
         mirrorBone.position.set(
@@ -1908,15 +1961,26 @@ const ThreeViewer = forwardRef(({
       
       mirrorBone.updateMatrix()
       mirrorBone.updateMatrixWorld(true)
-      
-      console.log(`[mirror] Mirrored ${selectedBone.name} to ${mirrorBone.name}`)
+
+      console.log(`[mirror] ✅ Mirrored ${selectedBone.name} → ${mirrorBone.name}`)
+      console.log(`[mirror]   Transform: ${transformMode}`)
+      if (transformMode === 'translate') {
+        console.log(`[mirror]   Position: (${mirrorBone.position.x.toFixed(3)}, ${mirrorBone.position.y.toFixed(3)}, ${mirrorBone.position.z.toFixed(3)})`)
+      } else {
+        console.log(`[mirror]   Rotation: (${mirrorBone.rotation.x.toFixed(3)}, ${mirrorBone.rotation.y.toFixed(3)}, ${mirrorBone.rotation.z.toFixed(3)})`)
+      }
       // Note: We're editing overlay skeleton, so mesh won't deform
     }
+
+    // Store function in ref so it can be called from imperative handle
+    applyMirrorModeRef.current = applyMirrorMode
     
     // When bone is dragged, sync the actual rig bones (Mesh2Motion pattern)
     tControls.addEventListener('change', () => {
       console.log('[bone-edit] Change event fired')
-      
+      console.log('[bone-edit] Reading ref directly inside listener:', boneMirrorEnabledRef)
+      console.log('[bone-edit] Reading ref.current:', boneMirrorEnabledRef.current)
+
       if (!selectedBoneRef.current) {
         console.log('[bone-edit] No selected bone')
         return
@@ -1934,40 +1998,59 @@ const ThreeViewer = forwardRef(({
         skeletonHelperRef.current.updateMatrixWorld(true)
       }
       
-      // Apply mirror mode if enabled
-      if (boneMirrorEnabledState && selectedBoneRef.current) {
-        applyMirrorMode(selectedBoneRef.current, boneTransformModeState)
+      // Apply mirror mode if enabled (use refs to avoid stale closure values)
+      console.log(`[bone-edit] Mirror check - enabled: ${boneMirrorEnabledRef.current}, bone: ${selectedBoneRef.current?.name}`)
+      if (boneMirrorEnabledRef.current && selectedBoneRef.current) {
+        console.log(`[mirror] Attempting to mirror ${selectedBoneRef.current.name}...`)
+        applyMirrorMode(selectedBoneRef.current, boneTransformModeStateRef.current)
+      } else {
+        if (!boneMirrorEnabledRef.current) {
+          console.log(`[mirror] Skipped - mirror mode disabled`)
+        }
+        if (!selectedBoneRef.current) {
+          console.log(`[mirror] Skipped - no bone selected`)
+        }
       }
     })
     
     // Add TransformControls to scene
-    // The TransformControls is a special object that contains the gizmo as a child
-    scene.add(tControls as unknown as THREE.Object3D)
+    // CRITICAL: Cast to any first, then to Object3D to satisfy TypeScript
+    // TransformControls extends Object3D but TypeScript doesn't know that
+    const tControlsObj = tControls as any as THREE.Object3D
+    scene.add(tControlsObj)
     transformControlsRef.current = tControls
-    
-    // DEBUG: Create a MASSIVE glowing test cube to verify gizmo rendering works
-    const testCube = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshStandardMaterial({ 
-        color: 0xff0000,
-        emissive: 0xff0000,
-        emissiveIntensity: 2.0,
-        transparent: false
-      })
-    )
-    testCube.position.set(2, 2, 0) // Offset from model
-    testCube.name = 'TestCube'
-    testCube.frustumCulled = false
-    testCube.renderOrder = 100
-    scene.add(testCube)
-    console.log('🧪 Added MASSIVE red test cube at (2, 2, 0)')
-    
+
     console.log('✅ TransformControls initialized and added to scene')
-    console.log('   TransformControls in scene:', scene.children.includes(tControls as unknown as THREE.Object3D))
+    console.log('   TransformControls type:', tControls.constructor.name)
+    console.log('   TransformControls in scene:', scene.children.includes(tControlsObj))
     console.log('   TransformControls enabled:', tControls.enabled)
     console.log('   TransformControls size:', tControls.size)
-    console.log('   🧪 Test cube added - try clicking on it when bone editing is enabled')
-    
+    console.log('   Scene children count:', scene.children.length)
+
+    // Create bone highlight sphere (will be positioned on selected bone)
+    const highlightSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 16, 16),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.6,
+        depthTest: false,
+        depthWrite: false
+      })
+    )
+    highlightSphere.visible = false
+    highlightSphere.renderOrder = 998 // Render before gizmo
+    scene.add(highlightSphere)
+    boneHighlightSphereRef.current = highlightSphere
+    console.log('✅ Bone highlight sphere created')
+
+    // Create labels group for bone names (will be populated when bones are visible)
+    const labelsGroup = new THREE.Group()
+    labelsGroup.name = 'BoneLabels'
+    scene.add(labelsGroup)
+    boneLabelsGroupRef.current = labelsGroup
+    console.log('✅ Bone labels group created')
+
     // Professional lighting setup
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
     ambientLight.name = 'ambientLight'
@@ -2162,12 +2245,22 @@ const ThreeViewer = forwardRef(({
           }
         }
       }
-      
+
+      // Update bone highlight sphere to follow selected bone
+      if (boneHighlightSphereRef.current && boneHighlightSphereRef.current.visible && selectedBoneRef.current) {
+        const worldPos = new THREE.Vector3()
+        selectedBoneRef.current.getWorldPosition(worldPos)
+        boneHighlightSphereRef.current.position.copy(worldPos)
+      }
+
       controls.update()
-      // TEMPORARY: Use raw renderer to ensure TransformControls render
-      renderer.render(scene, camera)
-      // if (composerRef.current) composerRef.current.render()
-      // else renderer.render(scene, camera)
+
+      // Render with composer if available, otherwise use raw renderer
+      if (composerRef.current) {
+        composerRef.current.render()
+      } else {
+        renderer.render(scene, camera)
+      }
     }
     animate()
     
