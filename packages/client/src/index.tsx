@@ -85,6 +85,7 @@ declare global {
   interface Window {
     THREE?: typeof THREE
     world?: unknown
+    preview?: unknown
   }
 }
 
