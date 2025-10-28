@@ -190,7 +190,7 @@ export class EnvironmentSystem extends System {
       model?: { url?: string } | string;
     };
     // Determine URL based on model type
-    let url: string;
+    let url: string | undefined;
     const model = settings?.model;
     if ((model as { url?: string })?.url) {
       url = (model as { url: string }).url;

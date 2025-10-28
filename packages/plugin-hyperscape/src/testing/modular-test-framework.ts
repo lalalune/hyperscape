@@ -6,6 +6,7 @@ import {
   VisualTestFramework,
   TestVerification,
   TestResult,
+  StateSnapshot,
 } from "./visual-test-framework";
 
 /**

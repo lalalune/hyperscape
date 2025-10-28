@@ -213,9 +213,9 @@ export class ConcreteRPGTests {
     );
 
     // Check for level up
-    if (result.stateSnapshot?.skills?.mining?.level > initialMiningLevel) {
+    if (result.stateSnapshot?.skills?.mining?.level && result.stateSnapshot.skills.mining.level > initialMiningLevel) {
       result.failures.push(
-        `Mining leveled up from ${initialMiningLevel} to ${result.stateSnapshot?.skills?.mining?.level}`,
+        `Mining leveled up from ${initialMiningLevel} to ${result.stateSnapshot.skills.mining.level}`,
       );
     }
 
