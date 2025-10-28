@@ -5,7 +5,9 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "build": "docusaurus build",
+    "build": "cd ../.. && bun run docs:generate && cd packages/docs-site && docusaurus build",
+    "build:skip-api": "docusaurus build",
+    "test": "echo 'No tests for docs package'",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",

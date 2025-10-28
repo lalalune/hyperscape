@@ -6,12 +6,16 @@
   "main": "dist/physx-js-webidl.js",
   "types": "dist/physx-js-webidl.d.ts",
   "files": [
-    "dist/"
+    "dist/",
+    "types/"
   ],
   "license": "MIT",
   "scripts": {
-    "prebuild": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && [ -f dist/physx-js-webidl.d.ts ] && echo 'PhysX already built, skipping...' || ( [ -f ../client/src/public/physx-js-webidl.js ] && [ -f ../client/src/public/physx-js-webidl.wasm ] && mkdir -p dist && cp ../client/src/public/physx-js-webidl.js dist/ && cp ../client/src/public/physx-js-webidl.wasm dist/ && cp types/physx-js-webidl.d.ts dist/ && echo 'Copied prebuilt PhysX files from client/public' || bash ./make.sh )",
-    "build": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && [ -f dist/physx-js-webidl.d.ts ] && echo 'PhysX already built, skipping...' || bash ./make.sh",
+    "prepare": "mkdir -p dist && cp types/physx-js-webidl.d.ts dist/",
+    "postinstall": "mkdir -p dist && cp types/physx-js-webidl.d.ts dist/",
+    "prebuild": "mkdir -p dist && cp types/physx-js-webidl.d.ts dist/ && ( [ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && echo 'PhysX already built, skipping...' || ( [ -f ../client/src/public/physx-js-webidl.js ] && [ -f ../client/src/public/physx-js-webidl.wasm ] && cp ../client/src/public/physx-js-webidl.js dist/ && cp ../client/src/public/physx-js-webidl.wasm dist/ && echo 'Copied prebuilt PhysX files from client/public' || echo 'PhysX binaries not built - types only mode' ) )",
+    "build": "mkdir -p dist && cp types/physx-js-webidl.d.ts dist/ && ( [ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && echo 'PhysX already built, skipping...' || bash ./make.sh )",
+    "test": "echo 'No tests for PhysX bindings package'",
     "build:force": "bash ./make.sh",
     "build:debug": "bash ./make.sh debug",
     "build:profile": "bash ./make.sh profile",

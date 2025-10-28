@@ -14,6 +14,7 @@
   "scripts": {
     "build": "bun run build.ts",
     "dev": "bun run build.ts --watch",
+    "test": "echo 'No tests for this package yet'",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
