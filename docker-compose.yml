@@ -37,11 +37,11 @@ services:
       - DB_NAME=asset_forge
       - DB_USER=asset_forge
       - DB_PASSWORD=asset_forge_dev_password_2024
-      - PORT=3004
+      - PORT=${API_PORT:-3004}
     env_file:
       - ./apps/api/.env
     ports:
-      - "3004:3004"
+      - "${API_PORT:-3004}:${API_PORT:-3004}"
     volumes:
       - ./apps/api:/app/apps/api
       - ./apps/api/gdd-assets:/app/apps/api/gdd-assets

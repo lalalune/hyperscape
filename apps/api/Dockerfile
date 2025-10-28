@@ -41,16 +41,16 @@ RUN mkdir -p gdd-assets temp-images && \
 # Switch to non-root user
 USER apiserver
 
-# Expose API port
-EXPOSE 3004
+# Expose API port (default, can be overridden)
+ARG PORT=3004
+EXPOSE ${PORT}
 
-# Health check
+# Health check (uses environment variable PORT)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3004/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+    CMD node -e "const port = process.env.PORT || 3004; require('http').get(\`http://localhost:\${port}/api/health\`, (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
 
 # Environment variables
 ENV NODE_ENV=production
-ENV API_PORT=3004
 
 # Start the server
 CMD ["bun", "run", "start"]
