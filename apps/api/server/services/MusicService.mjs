@@ -13,7 +13,7 @@
  * Used by: music.mjs API routes
  */
 
-import { ElevenLabsClient } from 'elevenlabs'
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js'
 import { asyncPool, retryWithBackoff } from '../utils/concurrency.mjs'
 import { createLogger, PerformanceTimer } from '../utils/logger.mjs'
 

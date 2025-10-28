@@ -14,7 +14,7 @@
  * Pricing: 100 credits per auto-duration, 20 credits per second for set duration
  */
 
-import { ElevenLabsClient } from 'elevenlabs'
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js'
 import { Readable } from 'stream'
 import { asyncPool, retryWithBackoff } from '../utils/concurrency.mjs'
 import { createLogger } from '../utils/logger.mjs'

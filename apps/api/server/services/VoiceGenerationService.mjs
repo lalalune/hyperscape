@@ -12,7 +12,7 @@
  * Used by: generate-voice.mjs API routes
  */
 
-import { ElevenLabsClient } from 'elevenlabs'
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
