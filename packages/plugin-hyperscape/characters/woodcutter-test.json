@@ -149,7 +149,7 @@
 
   "plugins": [
     "@elizaos/plugin-sql",
-    "@elizaos/plugin-vercel-ai-gateway",
+    "@elizaos/plugin-openai",
     "@elizaos/plugin-hyperscape"
   ],
 

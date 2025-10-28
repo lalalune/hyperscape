@@ -125,7 +125,6 @@ hyperscape/
 │   │   └── Handles multiplayer state sync
 │   ├── physx-js-webidl/     # PhysX WebAssembly bindings
 │   ├── plugin-hyperscape/   # ElizaOS AI agent plugin
-│   ├── plugin-vercel-ai-gateway/ # AI gateway integration
 │   └── docs-site/           # Docusaurus documentation
 ├── apps/
 │   ├── api/                 # API server

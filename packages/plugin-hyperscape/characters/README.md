@@ -13,10 +13,8 @@ Timber is a specialized test agent designed to verify RPG skill action mechanics
 Following [ElizaOS plugin ordering guidelines](https://github.com/elizaOS/eliza/blob/main/packages/cli/tests/unit/characters/README.md):
 
 1. **`@elizaos/plugin-sql`** - Core database functionality (loaded first)
-2. **`@elizaos/plugin-vercel-ai-gateway`** - AI gateway for routing models (loaded second)
+2. **`@elizaos/plugin-openai`** - OpenAI integration for LLM capabilities (loaded second)
 3. **`@elizaos/plugin-hyperscape`** - Custom Hyperscape integration (loaded last)
-
-**Note**: Uses vercel-ai-gateway instead of plugin-openai for more flexible model routing.
 
 ### Character Design
 
