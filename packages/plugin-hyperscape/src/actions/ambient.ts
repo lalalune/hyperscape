@@ -16,7 +16,7 @@ export async function ambient(
   runtime: IAgentRuntime,
   message: Memory,
   state: State | undefined,
-  _options: ActionHandlerOptions,
+  _options?: unknown,
   callback?: HandlerCallback,
 ): Promise<ActionResult> {
   // Lazy evaluation via callback for immediate response

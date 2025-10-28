@@ -83,7 +83,7 @@ export const hyperscapeGotoEntityAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     _state?: State,
-    options?: { entityId?: string },
+    options?: unknown,
     callback?: HandlerCallback,
     responses?: Memory[],
   ): Promise<ActionResult> => {

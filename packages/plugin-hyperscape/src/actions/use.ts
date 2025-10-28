@@ -39,7 +39,7 @@ const useAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state?: State,
-    params?: Record<string, string | number | boolean>,
+    _params?: unknown,
     callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>("hyperscape");
@@ -53,7 +53,7 @@ const useAction: Action = {
     }
 
     const context = await composeContext({
-      state: state,
+      state: state!,
       template: `
 # Use Action Validation
 

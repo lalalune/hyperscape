@@ -29,7 +29,7 @@ export const loadRPGAction: Action = {
     runtime: IAgentRuntime,
     message: Memory,
     state?: State,
-    options?: Record<string, string | number | boolean>,
+    _options?: unknown,
     callback?: HandlerCallback,
   ) => {
     // Get the Hyperscape service

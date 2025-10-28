@@ -35,11 +35,7 @@ export const hyperscapeWalkRandomlyAction: Action = {
     runtime: IAgentRuntime,
     _message: Memory,
     _state?: State,
-    options?: {
-      interval?: number;
-      distance?: number;
-      command?: "start" | "stop";
-    }, // Reverted options
+    _options?: unknown,
     callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(

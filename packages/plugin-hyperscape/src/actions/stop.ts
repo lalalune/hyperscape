@@ -35,7 +35,7 @@ export const hyperscapeStopMovingAction: Action = {
     runtime: IAgentRuntime,
     _message: Memory,
     _state?: State,
-    options?: { reason?: string }, // Optional reason for stopping
+    _options?: unknown,
     callback?: HandlerCallback,
   ): Promise<ActionResult> => {
     const service = runtime.getService<HyperscapeService>(
