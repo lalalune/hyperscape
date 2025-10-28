@@ -28,7 +28,9 @@ export const ComponentSchema = z.object({
 });
 
 // Metadata schema - only allow primitive types
-export const MetadataSchema = z.record(z.union([z.string(), z.number(), z.boolean()]));
+export const MetadataSchema = z.record(
+  z.union([z.string(), z.number(), z.boolean()]),
+);
 
 // Entity creation data schema
 export const EntityCreationDataSchema = z.object({
@@ -52,55 +54,79 @@ export const EntityUpdateDataSchema = z.object({
 
 // Visual config schemas
 export const EntityColorConfigSchema = z.object({
-  color: z.union([z.number().int().min(0).max(0xffffff), z.string().regex(/^#[0-9a-fA-F]{6}$/)]),
-  hex: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  color: z.union([
+    z.number().int().min(0).max(0xffffff),
+    z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  ]),
+  hex: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
   tolerance: z.number().min(0).max(1).optional(),
 });
 
 export const UIThemeSchema = z.object({
-  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  primaryColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
+  secondaryColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
   fonts: z.record(z.string().min(1)).optional(),
 });
 
 export const VisualConfigSchema = z.object({
   entityColors: z.record(EntityColorConfigSchema).optional(),
   uiTheme: UIThemeSchema.optional(),
-  assets: z.object({
-    models: z.array(z.string().min(1)).optional(),
-  }).optional(),
+  assets: z
+    .object({
+      models: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
 });
 
 // Response content schema
-export const ResponseContentSchema = z.object({
-  text: z.string().optional(),
-  action: z.string().optional(),
-  coordinates: z.string().optional(),
-  message: z.string().optional(),
-  // Allow additional properties but they must be primitives
-}).catchall(z.union([z.string(), z.number(), z.boolean()]));
+export const ResponseContentSchema = z
+  .object({
+    text: z.string().optional(),
+    action: z.string().optional(),
+    coordinates: z.string().optional(),
+    message: z.string().optional(),
+    // Allow additional properties but they must be primitives
+  })
+  .catchall(z.union([z.string(), z.number(), z.boolean()]));
 
 // Player and system schemas
 export const PlayerEffectSchema = z.object({
   emote: z.string().nullable().optional(),
 });
 
-export const PlayerDataSchema = z.object({
-  effect: PlayerEffectSchema.optional(),
-  avatarUrl: z.string().optional(),
-}).catchall(z.union([z.string(), z.number(), z.boolean()]));
+export const PlayerDataSchema = z
+  .object({
+    effect: PlayerEffectSchema.optional(),
+    avatarUrl: z.string().optional(),
+  })
+  .catchall(z.union([z.string(), z.number(), z.boolean()]));
 
 // Action schemas
 export const ActionContextSchema = z.object({
-  entity: z.object({
-    root: z.object({
-      position: Vector3Schema.optional(),
-    }).optional(),
-    data: z.object({
-      id: z.string().optional(),
-      name: z.string().optional(),
-    }).optional(),
-  }).optional(),
+  entity: z
+    .object({
+      root: z
+        .object({
+          position: Vector3Schema.optional(),
+        })
+        .optional(),
+      data: z
+        .object({
+          id: z.string().optional(),
+          name: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export const ActionNodeSchema = z.object({
@@ -109,84 +135,98 @@ export const ActionNodeSchema = z.object({
 });
 
 // Service and system event schemas
-export const EventDataSchema = z.record(z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.array(z.union([z.string(), z.number(), z.boolean()])),
-]));
+export const EventDataSchema = z.record(
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.array(z.union([z.string(), z.number(), z.boolean()])),
+  ]),
+);
 
-export const EventListenerSchema = z.function()
+export const EventListenerSchema = z
+  .function()
   .args(EventDataSchema)
   .returns(z.void());
 
-export const EntityDataSchema = z.object({
-  id: z.string().min(1),
-  type: z.string().min(1),
-  position: z.tuple([z.number(), z.number(), z.number()]).optional(),
-  active: z.boolean().optional(),
-  visible: z.boolean().optional(),
-  name: z.string().min(1).optional(),
-}).catchall(z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.array(z.number()),
-]));
+export const EntityDataSchema = z
+  .object({
+    id: z.string().min(1),
+    type: z.string().min(1),
+    position: z.tuple([z.number(), z.number(), z.number()]).optional(),
+    active: z.boolean().optional(),
+    visible: z.boolean().optional(),
+    name: z.string().min(1).optional(),
+  })
+  .catchall(
+    z.union([z.string(), z.number(), z.boolean(), z.array(z.number())]),
+  );
 
-export const EntityUpdateSchema = z.object({
-  id: z.string().optional(),
-  position: z.tuple([z.number(), z.number(), z.number()]).optional(),
-  rotation: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
-  velocity: z.tuple([z.number(), z.number(), z.number()]).optional(),
-  data: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
-}).catchall(z.union([z.string(), z.number(), z.boolean()]));
+export const EntityUpdateSchema = z
+  .object({
+    id: z.string().optional(),
+    position: z.tuple([z.number(), z.number(), z.number()]).optional(),
+    rotation: z
+      .tuple([z.number(), z.number(), z.number(), z.number()])
+      .optional(),
+    velocity: z.tuple([z.number(), z.number(), z.number()]).optional(),
+    data: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  })
+  .catchall(z.union([z.string(), z.number(), z.boolean()]));
 
-export const PlayerAppearanceSchema = z.object({
-  avatar: z.string().url().optional(),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  scale: z.number().positive().optional(),
-}).catchall(z.union([z.string(), z.number(), z.boolean()]));
+export const PlayerAppearanceSchema = z
+  .object({
+    avatar: z.string().url().optional(),
+    color: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/)
+      .optional(),
+    scale: z.number().positive().optional(),
+  })
+  .catchall(z.union([z.string(), z.number(), z.boolean()]));
 
 export const PlayerDataExtendedSchema = PlayerDataSchema.extend({
   appearance: PlayerAppearanceSchema.optional(),
-  inventory: z.object({
-    items: z.array(z.object({
-      itemId: z.string().min(1),
-      itemName: z.string().min(1).optional(),
-      quantity: z.number().int().min(0).optional(),
-    })).optional(),
-  }).optional(),
+  inventory: z
+    .object({
+      items: z
+        .array(
+          z.object({
+            itemId: z.string().min(1),
+            itemName: z.string().min(1).optional(),
+            quantity: z.number().int().min(0).optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
 }).catchall(z.union([z.string(), z.number(), z.boolean()]));
 
 export const ControllerInterfaceSchema = z.object({
-  walkToward: z.function()
+  walkToward: z
+    .function()
     .args(Vector3Schema, z.number())
     .returns(Vector3Schema)
     .optional(),
-  move: z.function()
-    .args(Vector3Schema)
-    .returns(z.void())
-    .optional(),
+  move: z.function().args(Vector3Schema).returns(z.void()).optional(),
   position: Vector3Schema.optional(),
   velocity: Vector3Schema.optional(),
 });
 
-export const ChatMessageDataSchema = z.object({
-  sender: z.string().min(1),
-  text: z.string().min(1),
-  timestamp: z.number().int().positive().optional(),
-  type: z.string().optional(),
-}).catchall(z.union([z.string(), z.number(), z.boolean()]));
+export const ChatMessageDataSchema = z
+  .object({
+    sender: z.string().min(1),
+    text: z.string().min(1),
+    timestamp: z.number().int().positive().optional(),
+    type: z.string().optional(),
+  })
+  .catchall(z.union([z.string(), z.number(), z.boolean()]));
 
 export const NetworkPacketSchema = z.object({
   type: z.string().min(1),
-  data: z.record(z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.array(z.number()),
-  ])),
+  data: z.record(
+    z.union([z.string(), z.number(), z.boolean(), z.array(z.number())]),
+  ),
   timestamp: z.number().int().positive().optional(),
 });
 

@@ -1782,7 +1782,6 @@ const ThreeViewer = React.memo(forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         containerEl.removeChild(renderer.domElement)
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   
   // Update refs when state changes
@@ -2775,7 +2774,6 @@ const ThreeViewer = React.memo(forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       }
     }
   // Intentionally keep dependencies minimal to avoid reloading during internal state updates
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelUrl, onModelLoad, assetInfo?.isAnimationFile, assetInfo?.requiresAnimationStrip, assetInfo?.characterHeight])
   
   // Apply wireframe mode

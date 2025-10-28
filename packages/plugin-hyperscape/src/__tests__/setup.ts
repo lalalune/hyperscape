@@ -36,22 +36,25 @@ beforeAll(async () => {
     }
   } as typeof File;
 
-  global.crypto = {
-    randomUUID: () =>
-      `test-uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    subtle: {
-      digest: async (_algorithm: string, data: BufferSource) => {
-        // Mock implementation for testing
-        return new ArrayBuffer(32); // Mock hash
+  Object.defineProperty(global, "crypto", {
+    value: {
+      randomUUID: () =>
+        `test-uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      subtle: {
+        digest: async (_algorithm: string, data: BufferSource) => {
+          return new ArrayBuffer(32);
+        },
       },
-    },
-    getRandomValues: (array: Uint8Array) => {
-      for (let i = 0; i < array.length; i++) {
-        array[i] = Math.floor(Math.random() * 256);
-      }
-      return array;
-    },
-  } as Crypto;
+      getRandomValues: (array: Uint8Array) => {
+        for (let i = 0; i < array.length; i++) {
+          array[i] = Math.floor(Math.random() * 256);
+        }
+        return array;
+      },
+    } as Crypto,
+    writable: true,
+    configurable: true,
+  });
 });
 
 afterAll(async () => {

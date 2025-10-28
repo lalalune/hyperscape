@@ -21,7 +21,7 @@ interface UseActionResponse {
 const useAction: Action = {
   name: "use",
   description: "Use, equip, or wield an item in the Hyperscape world",
-  similes: ["use", "equip", "wield", "activate", "employ"],
+  similes: ["USE", "EQUIP", "WIELD", "ACTIVATE", "EMPLOY"],
   examples: [
     [
       { name: "user", content: { text: "use sword" } },
@@ -83,11 +83,13 @@ Decide if this is a valid use action.
       const entity = findEntityByName(world, itemName);
       if (entity && entity.data?.usable) {
         const result = { success: true, text: `Used ${entity.name}` };
-        await callback({
-          text: result.text,
-          actions: ["HYPERSCAPE_USE"],
-          source: "hyperscape",
-        });
+        if (callback && typeof callback === "function") {
+          await callback({
+            text: result.text,
+            actions: ["HYPERSCAPE_USE"],
+            source: "hyperscape",
+          });
+        }
         return result;
       } else {
         return { success: false, text: `Cannot use ${itemName}` };

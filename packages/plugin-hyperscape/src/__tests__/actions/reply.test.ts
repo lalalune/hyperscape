@@ -273,7 +273,7 @@ describe("REPLY Action", () => {
       expect(Array.isArray(replyAction.similes)).toBe(true);
       expect(replyAction.similes!.length).toBeGreaterThan(0);
       expect(replyAction.similes).toContain("RESPOND");
-      expect(replyAction.similes).toContain("ANSWER");
+      expect(replyAction.similes).toContain("SEND_REPLY");
     });
   });
 

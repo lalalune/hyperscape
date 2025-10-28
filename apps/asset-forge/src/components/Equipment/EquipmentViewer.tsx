@@ -647,7 +647,6 @@ const EquipmentViewerComponent = forwardRef<EquipmentViewerRef, EquipmentViewerP
     }
     
     loadAvatar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitialized, avatarUrl])  // Only reload when URL changes, not animation state
   
   // Load equipment
@@ -803,7 +802,6 @@ const EquipmentViewerComponent = forwardRef<EquipmentViewerRef, EquipmentViewerP
     }
     
     loadEquipment()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitialized, equipmentUrl, weaponType, avatarHeight, autoScale, scaleOverride, gripOffset?.x, gripOffset?.y, gripOffset?.z])  // Use individual values to avoid object reference issues
   
   // Update equipment when avatar height or scale changes
@@ -1264,7 +1262,6 @@ const EquipmentViewerComponent = forwardRef<EquipmentViewerRef, EquipmentViewerP
   // Initialize animation ref
   useEffect(() => {
     isAnimatingRef.current = isAnimating
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   
   // Handle animation state changes

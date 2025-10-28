@@ -1029,7 +1029,6 @@ export const ArmorFittingViewer = React.memo(forwardRef<
         clearTimeout(visualizationTimeoutRef.current)
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.visualizationMode, props.selectedBone, bodyRegions, collisions])
   
   useImperativeHandle(ref, () => ({

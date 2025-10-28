@@ -214,7 +214,6 @@ export function useThreeScene(
         rendererIdRef.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerRef]) // Only run once on mount
 
   return {

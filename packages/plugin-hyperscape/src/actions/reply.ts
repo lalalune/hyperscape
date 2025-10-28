@@ -45,7 +45,7 @@ function getFirstAvailableField(
   for (const field of fields) {
     const value = obj[field];
     // Proper type guard: check if value is a non-empty string
-    if (typeof value === 'string' && value.trim() !== '') {
+    if (typeof value === "string" && value.trim() !== "") {
       return value;
     }
   }
@@ -108,25 +108,23 @@ export const replyAction = {
         .filter((reply): reply is Content => reply !== null) ?? [];
 
     if (existingReplies.length > 0) {
-      for (const reply of existingReplies) {
-        const result: ActionResult = {
-          text: reply.text || "",
-          success: true,
-          values: { replied: true, replyText: reply.text },
-          data: { source: "hyperscape", action: "REPLY" },
-        };
+      const firstReply = existingReplies[0];
+      const result: ActionResult = {
+        text: firstReply.text || "",
+        success: true,
+        values: { replied: true, replyText: firstReply.text },
+        data: { source: "hyperscape", action: "REPLY" },
+      };
+
+      if (callback && typeof callback === "function") {
         await callback({
           text: result.text,
           actions: ["HYPERSCAPE_REPLY"],
           source: "hyperscape",
         });
       }
-      return {
-        text: existingReplies[0].text || "",
-        success: true,
-        values: { replied: true, replyText: existingReplies[0].text },
-        data: { source: "hyperscape", action: "REPLY" },
-      };
+
+      return result;
     }
 
     // Only generate response using LLM if no suitable response was found
@@ -153,12 +151,14 @@ export const replyAction = {
       },
     };
 
-    await callback({
-      text: (response.message as string) || "",
-      thought: response.thought,
-      actions: ["HYPERSCAPE_REPLY"],
-      source: "hyperscape",
-    });
+    if (callback && typeof callback === "function") {
+      await callback({
+        text: (response.message as string) || "",
+        thought: response.thought,
+        actions: ["HYPERSCAPE_REPLY"],
+        source: "hyperscape",
+      });
+    }
 
     return {
       text: responseContent.text,

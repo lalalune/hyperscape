@@ -299,7 +299,6 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
     }))
 
     setPipelineStages(stagesWithIcons)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipelineStages.length])
 
   // Handle model loading state when selected asset changes
@@ -338,7 +337,6 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
     loadMaterialPresets()
     return () => { didCancel = true }
   // Intentionally run once on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Load existing assets when Results tab is accessed

@@ -164,7 +164,17 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
     });
   }
 
-  private async handleMessage(message: { type: string; data: { playerId?: string; text?: string; playerName?: string; playerEmoji?: string; timestamp?: number; [key: string]: string | number | boolean | undefined } }): Promise<void> {
+  private async handleMessage(message: {
+    type: string;
+    data: {
+      playerId?: string;
+      text?: string;
+      playerName?: string;
+      playerEmoji?: string;
+      timestamp?: number;
+      [key: string]: string | number | boolean | undefined;
+    };
+  }): Promise<void> {
     switch (message.type) {
       case "chat_message":
         // Process incoming chat message
@@ -175,11 +185,13 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
             agentId: this.agentId as UUID,
             roomId: generateUUID(),
             content: {
-              text: message.data.text as string || "",
-              playerName: message.data.playerName as string || "Unknown",
-              playerEmoji: message.data.playerEmoji as string || "",
+              text: (message.data.text as string) || "",
+              playerName: (message.data.playerName as string) || "Unknown",
+              playerEmoji: (message.data.playerEmoji as string) || "",
             },
-            createdAt: message.data.timestamp ? new Date(message.data.timestamp).getTime() : Date.now(),
+            createdAt: message.data.timestamp
+              ? new Date(message.data.timestamp).getTime()
+              : Date.now(),
           };
         }
         break;
@@ -197,7 +209,10 @@ export class HyperscapeClientInterface extends EventEmitter implements Client {
     return actions;
   }
 
-  private sendAction(action: string, data?: Record<string, string | number | boolean>): void {
+  private sendAction(
+    action: string,
+    data?: Record<string, string | number | boolean>,
+  ): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     this.ws.send(

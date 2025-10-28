@@ -292,9 +292,10 @@ describe('useVoiceGenerationStore', () => {
 
   describe('clearVoiceCache', () => {
     it('should clear cache and fetch fresh voices', async () => {
+      const oldCachedAt = Date.now() - 100000
       const cachedData = {
         voices: mockVoices,
-        cachedAt: Date.now(),
+        cachedAt: oldCachedAt,
         expiresAt: Date.now() + 900000
       }
       localStorage.setItem('elevenlabs_voices_cache', JSON.stringify(cachedData))
@@ -307,7 +308,10 @@ describe('useVoiceGenerationStore', () => {
         await result.current.clearVoiceCache()
       })
 
-      expect(localStorage.getItem('elevenlabs_voices_cache')).toBeNull()
+      const newCache = localStorage.getItem('elevenlabs_voices_cache')
+      expect(newCache).not.toBeNull()
+      const newCacheData = JSON.parse(newCache!)
+      expect(newCacheData.cachedAt).toBeGreaterThan(oldCachedAt)
       expect(mockVoiceService.getVoiceLibrary).toHaveBeenCalled()
     })
   })

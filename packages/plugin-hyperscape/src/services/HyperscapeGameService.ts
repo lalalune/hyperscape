@@ -70,7 +70,14 @@ export class HyperscapeGameService {
     const world = this.hyperscapeService.getWorld()!;
 
     // Send chat message
-    const chatSystem = world.chat as { add: (message: { id: string; entityId: string; text: string; timestamp: number }) => void };
+    const chatSystem = world.chat as {
+      add: (message: {
+        id: string;
+        entityId: string;
+        text: string;
+        timestamp: number;
+      }) => void;
+    };
     chatSystem.add({
       id: `msg-${Date.now()}`,
       entityId: playerId,
@@ -94,7 +101,17 @@ export class HyperscapeGameService {
     elizaLogger.info(`Player ${voterId} voted for ${targetId || "skip"}`);
   }
 
-  async createGameEntity(entityData: { id: string; type: string; position?: [number, number, number]; [key: string]: string | number | boolean | [number, number, number] | undefined }): Promise<void> {
+  async createGameEntity(entityData: {
+    id: string;
+    type: string;
+    position?: [number, number, number];
+    [key: string]:
+      | string
+      | number
+      | boolean
+      | [number, number, number]
+      | undefined;
+  }): Promise<void> {
     const world = this.hyperscapeService.getWorld()!;
 
     // Add entity to world
@@ -103,7 +120,9 @@ export class HyperscapeGameService {
     elizaLogger.info(`Created game entity: ${entityData.id}`);
   }
 
-  async updateGameState(stateUpdate: Record<string, string | number | boolean>): Promise<void> {
+  async updateGameState(
+    stateUpdate: Record<string, string | number | boolean>,
+  ): Promise<void> {
     const world = this.hyperscapeService.getWorld()!;
 
     // Update game state

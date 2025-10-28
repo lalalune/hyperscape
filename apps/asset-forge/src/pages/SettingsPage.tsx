@@ -4,8 +4,9 @@
  */
 
 import { Settings as SettingsIcon, Palette, Keyboard, Bell, Lock, Globe, Zap, Save, CheckCircle, AlertCircle } from 'lucide-react'
-import { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Checkbox } from '@/components/common'
+import { useState, useEffect } from 'react'
+import type { Key } from 'react'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Checkbox, Input } from '@/components/common'
 import { useNavigationStore } from '@/stores/useNavigationStore'
 
 export function SettingsPage() {

@@ -35,7 +35,7 @@
       "dependsOn": ["build"],
       "outputs": ["coverage/**"],
       "cache": true,
-      "env": ["NODE_ENV"]
+      "env": ["NODE_ENV", "DATABASE_URL"]
     },
     "lint": {
       "outputs": [],

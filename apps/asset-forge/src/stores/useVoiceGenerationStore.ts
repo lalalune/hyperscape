@@ -281,7 +281,14 @@ export const useVoiceGenerationStore = create<VoiceGenerationState>()(
       total: 0
     },
     generationError: null,
-    selectedVoiceId: null
+    selectedVoiceId: null,
+    currentSettings: {
+      modelId: 'eleven_multilingual_v2',
+      stability: 0.5,
+      similarityBoost: 0.75,
+      style: 0,
+      useSpeakerBoost: true
+    }
   }),
 
   saveVoiceAssignments: async (manifestId, assignments, name, description) => {

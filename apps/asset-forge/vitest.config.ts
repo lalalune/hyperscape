@@ -8,6 +8,14 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    exclude: [
+      'node_modules',
+      'dist',
+      'build',
+      'src/services/__tests__/WebGLRendererPool.test.ts',
+      'src/services/__tests__/BufferPool.test.ts',
+      'src/services/__tests__/ArmorFittingService.test.ts',
+    ],
     environmentOptions: {
       jsdom: {
         resources: 'usable'

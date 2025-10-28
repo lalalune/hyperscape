@@ -15,7 +15,14 @@ interface ActionNode extends THREE.Object3D {
   _duration?: number;
   _onTrigger?: (event: { playerId: string }) => void;
   _onCancel?: () => void;
-  [key: string]: string | number | boolean | ((event: { playerId: string }) => void) | (() => void) | Record<string, unknown> | undefined;
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | ((event: { playerId: string }) => void)
+    | (() => void)
+    | Record<string, unknown>
+    | undefined;
 }
 
 export class AgentActions extends System {

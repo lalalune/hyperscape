@@ -248,8 +248,10 @@ export function createMockRuntime(config?: TestRuntimeConfig): IAgentRuntime {
     getMemories: async () => [],
     emitEvent: vi.fn(),
     ensureConnection: vi.fn(),
+    useModel: vi.fn().mockResolvedValue({ text: "Mock AI response" }),
     getService: vi.fn().mockReturnValue({
       getWorld: vi.fn().mockReturnValue(createMockWorld()),
+      isConnected: vi.fn().mockReturnValue(true),
     }),
     // Add other required properties as needed
     routes: [],

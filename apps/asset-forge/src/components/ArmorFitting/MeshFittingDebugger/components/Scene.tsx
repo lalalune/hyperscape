@@ -126,7 +126,6 @@ export function Scene({
                 console.log('Removed head bounds helper from showHeadBounds effect')
             }
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showHeadBounds, viewMode, fittingService])
 
     // Set up debug arrow group
