@@ -3,22 +3,10 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "installCommand": "cd ../.. && bun install && cd apps/asset-forge && bun install",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/prompts/(.*)",
-      "dest": "/prompts/$1"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff|woff2|ttf|eot))",
-      "dest": "/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/:path((?!assets|prompts|.*\\.).+)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
