@@ -22,6 +22,8 @@ function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
   const { ready, authenticated, user, getAccessToken } = usePrivy()
 
   useEffect(() => {
+    console.log('[PrivyAuthHandler] Status:', { ready, authenticated })
+
     const handleAuth = async () => {
       if (ready && authenticated && user) {
         const token = await getAccessToken()
@@ -30,7 +32,7 @@ function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
           return
         }
         await privyAuthManager.setAuthenticatedUser(user as typeof user & { [key: string]: unknown }, token)
-        
+
         // Update last login timestamp
         try {
           await apiFetch('/api/users/me/last-login', {
@@ -40,12 +42,26 @@ function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
           console.warn('[PrivyAuthProvider] Failed to update last login:', error)
         }
       } else if (ready && !authenticated) {
+        console.log('[PrivyAuthHandler] Privy ready, user not authenticated')
         privyAuthManager.clearAuth()
       }
     }
 
     handleAuth()
   }, [ready, authenticated, user, getAccessToken])
+
+  // Show loading state while Privy initializes
+  if (!ready) {
+    console.log('[PrivyAuthHandler] Waiting for Privy to be ready...')
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="text-gray-400">Initializing authentication...</p>
+        </div>
+      </div>
+    )
+  }
 
   return <>{children}</>
 }
