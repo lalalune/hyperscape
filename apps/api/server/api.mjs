@@ -62,6 +62,7 @@ const allowedOrigins = [
   'http://localhost:3001',
   'http://localhost:5173',
   'https://forgery-smoky.vercel.app',
+  'https://frontend-production-f53f.up.railway.app',
   process.env.FRONTEND_URL
 ].filter(Boolean).map(url => url.replace(/\/$/, '')) // Remove trailing slashes
 
