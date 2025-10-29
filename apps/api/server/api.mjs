@@ -47,7 +47,7 @@ import generationPipelineRoutes from './routes/generation-pipeline.mjs'
 import weaponDetectionRoutes from './routes/weapon-detection.mjs'
 
 // Initialize database connection
-import './database/db.mjs'
+import db from './database/db.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -175,6 +175,11 @@ app.use('/temp-images/*', serveStatic({
 // Server configuration
 const apiPort = process.env.PORT || process.env.API_PORT || 3004
 
+// Debug: Log PORT variable
+console.log('[Server] PORT environment variable:', process.env.PORT)
+console.log('[Server] API_PORT environment variable:', process.env.API_PORT)
+console.log('[Server] Final apiPort value:', apiPort)
+
 // Mount route modules
 app.route('/api/users', usersRoutes)
 app.route('/api', promptRoutes)
@@ -219,13 +224,16 @@ console.log('[Server]         voice-generation, sound-effects, music, assets, le
 console.log('[Server]         material-presets, retexturing, generation-pipeline, weapon-detection')
 
 // Basic routes (health check and error logging)
-app.get('/api/health', (c) => {
+app.get('/api/health', async (c) => {
+  const dbHealthy = await db.healthCheck()
+
   return c.json({
-    status: 'healthy',
+    status: dbHealthy ? 'healthy' : 'degraded',
+    database: dbHealthy ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development'
-  })
+  }, dbHealthy ? 200 : 503)
 })
 
 app.post('/api/errors/frontend', async (c) => {
