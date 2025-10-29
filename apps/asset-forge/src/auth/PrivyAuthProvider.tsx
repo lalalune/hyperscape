@@ -9,6 +9,7 @@ import { PrivyProvider, usePrivy } from '@privy-io/react-auth'
 import React, { useEffect } from 'react'
 
 import { privyAuthManager } from './PrivyAuthManager'
+import { apiFetch } from '../utils/api'
 
 interface PrivyAuthProviderProps {
   children: React.ReactNode
@@ -32,12 +33,8 @@ function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
         
         // Update last login timestamp
         try {
-          await fetch('/api/users/me/last-login', {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'x-user-id': user.id
-            }
+          await apiFetch('/api/users/me/last-login', {
+            method: 'PATCH'
           })
         } catch (error) {
           console.warn('[PrivyAuthProvider] Failed to update last login:', error)

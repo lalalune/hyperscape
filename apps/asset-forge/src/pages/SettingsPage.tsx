@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react'
 import type { Key } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Checkbox, Input } from '@/components/common'
 import { useNavigationStore } from '@/stores/useNavigationStore'
+import { apiFetch } from '@/utils/api'
 
 export function SettingsPage() {
   // UI state
@@ -47,11 +48,7 @@ export function SettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const response = await fetch('/api/users/me', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('privy:token')}`
-          }
-        })
+        const response = await apiFetch('/api/users/me')
         if (response.ok) {
           const data = await response.json()
           if (data.settings) {
@@ -72,11 +69,10 @@ export function SettingsPage() {
 
     try {
       // Save to API
-      const response = await fetch('/api/users/me/settings', {
+      const response = await apiFetch('/api/users/me/settings', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('privy:token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ settings })
       })

@@ -54,6 +54,12 @@ export const CDN_URL = getCdnUrl()
 // Convenience export for API base URL (alias for API_URL)
 export const API_BASE_URL = API_URL
 
+// Debug logging for API configuration
+console.log('[API Config] API_URL:', API_URL)
+console.log('[API Config] CDN_URL:', CDN_URL)
+console.log('[API Config] VITE_API_URL env:', import.meta.env?.VITE_API_URL || 'not set')
+console.log('[API Config] All VITE_ env vars:', Object.keys(import.meta.env || {}).filter(k => k.startsWith('VITE_')))
+
 // API Endpoints
 export const API_ENDPOINTS = {
   generateDialogue: `${API_URL}/api/generate-dialogue`,
