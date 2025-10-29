@@ -35,13 +35,15 @@ pool.on('error', (err, client) => {
   console.error('[Database] Unexpected error on idle client', err)
 })
 
-// Test connection
+// Test connection (non-blocking - don't prevent server startup)
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error('[Database] Connection test failed:', err)
+    console.warn('[Database] Connection test failed (server will continue):', err.message)
   } else {
     console.log('[Database] Connected successfully at', res.rows[0].now)
   }
+}).catch(err => {
+  console.warn('[Database] Connection test failed (server will continue):', err.message)
 })
 
 /**
