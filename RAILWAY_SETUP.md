@@ -39,8 +39,12 @@ ALLOWED_ORIGINS=https://frontend-production-f53f.up.railway.app
 # DATABASE_URL=${{Postgres.DATABASE_URL}}
 
 # Qdrant Vector Database (for embeddings and semantic search)
-QDRANT_URL=http://qdrant.railway.internal:6333
+# Use gRPC for better performance (port 6334)
+QDRANT_URL=http://qdrant.railway.internal:6334
 QDRANT_COLLECTION=game_content
+
+# Optional: HTTP REST API (port 6333)
+# QDRANT_HTTP_URL=http://qdrant.railway.internal:6333
 
 # Required API Keys
 OPENAI_API_KEY=sk-proj-your-actual-key
