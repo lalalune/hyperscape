@@ -18,10 +18,11 @@ CREATE TABLE IF NOT EXISTS admin_whitelist (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_admin_whitelist_wallet ON admin_whitelist(wallet_address);
-CREATE INDEX idx_admin_whitelist_added_by ON admin_whitelist(added_by);
+CREATE INDEX IF NOT EXISTS idx_admin_whitelist_wallet ON admin_whitelist(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_admin_whitelist_added_by ON admin_whitelist(added_by);
 
 -- Add trigger for updated_at
+DROP TRIGGER IF EXISTS update_admin_whitelist_updated_at ON admin_whitelist;
 CREATE TRIGGER update_admin_whitelist_updated_at BEFORE UPDATE ON admin_whitelist
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -54,7 +55,7 @@ ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id) ON DELETE SET NUL
 ALTER TABLE teams
 ADD CONSTRAINT teams_approval_status_check CHECK (approval_status IN ('pending', 'approved', 'rejected'));
 
-CREATE INDEX idx_teams_approval_status ON teams(approval_status);
+CREATE INDEX IF NOT EXISTS idx_teams_approval_status ON teams(approval_status);
 
 -- =====================================================
 -- COMMENTS

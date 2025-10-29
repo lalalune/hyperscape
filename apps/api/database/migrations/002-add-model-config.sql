@@ -29,10 +29,11 @@ CREATE TABLE IF NOT EXISTS model_configurations (
 );
 
 -- Index for fast lookups
-CREATE INDEX idx_model_config_task ON model_configurations(task_type);
-CREATE INDEX idx_model_config_active ON model_configurations(is_active);
+CREATE INDEX IF NOT EXISTS idx_model_config_task ON model_configurations(task_type);
+CREATE INDEX IF NOT EXISTS idx_model_config_active ON model_configurations(is_active);
 
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_model_config_updated_at ON model_configurations;
 CREATE TRIGGER update_model_config_updated_at BEFORE UPDATE ON model_configurations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -60,9 +61,10 @@ CREATE TABLE IF NOT EXISTS system_settings (
 );
 
 -- Index for fast lookups
-CREATE INDEX idx_system_settings_key ON system_settings(setting_key);
+CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key);
 
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_system_settings_updated_at ON system_settings;
 CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

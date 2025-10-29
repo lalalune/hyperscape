@@ -23,10 +23,11 @@ CREATE TABLE IF NOT EXISTS model_configurations (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_model_configurations_task_type ON model_configurations(task_type);
-CREATE INDEX idx_model_configurations_is_active ON model_configurations(is_active);
+CREATE INDEX IF NOT EXISTS idx_model_configurations_task_type ON model_configurations(task_type);
+CREATE INDEX IF NOT EXISTS idx_model_configurations_is_active ON model_configurations(is_active);
 
 -- Add trigger for updated_at
+DROP TRIGGER IF EXISTS update_model_configurations_updated_at ON model_configurations;
 CREATE TRIGGER update_model_configurations_updated_at BEFORE UPDATE ON model_configurations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -45,9 +46,10 @@ CREATE TABLE IF NOT EXISTS system_settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_system_settings_key ON system_settings(setting_key);
+CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key);
 
 -- Add trigger for updated_at
+DROP TRIGGER IF EXISTS update_system_settings_updated_at ON system_settings;
 CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

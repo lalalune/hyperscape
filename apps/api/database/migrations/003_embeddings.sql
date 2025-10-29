@@ -52,6 +52,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS content_embeddings_updated_at ON content_embeddings;
 CREATE TRIGGER content_embeddings_updated_at
   BEFORE UPDATE ON content_embeddings
   FOR EACH ROW
