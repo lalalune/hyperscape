@@ -82,9 +82,6 @@ RUN echo "=== Verifying appuser permissions ===" && \
     test -r dist/index.html && echo "✓ dist/index.html is readable" && \
     echo "=== All files accessible ==="
 
-# Expose port (Railway will assign via PORT env var)
-EXPOSE 8080
-
 # Environment variables
 ENV NODE_ENV=production
 

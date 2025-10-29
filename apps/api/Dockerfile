@@ -41,15 +41,9 @@ RUN mkdir -p gdd-assets temp-images && \
 # Switch to non-root user
 USER apiserver
 
-# Expose API port (Railway will assign actual port via PORT env var)
-EXPOSE 3004
-
-# Railway handles healthchecks via railway.json configuration
-# No need for Docker HEALTHCHECK instruction
-
 # Environment variables
 ENV NODE_ENV=production
-# PORT is set by Railway and will be used by the server
+# Railway assigns PORT via environment variable
 
 # Start the server
 CMD ["node", "scripts/startup.mjs"]
