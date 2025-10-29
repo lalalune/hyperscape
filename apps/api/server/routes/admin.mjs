@@ -7,6 +7,7 @@ import { Hono } from 'hono'
 import { query } from '../database/db.mjs'
 import { requireAdmin } from '../middleware/auth-hono.mjs'
 import adminModelsRouter from './admin-models.mjs'
+import { isValidWalletAddress, detectChainType, getChainDisplayName } from '../utils/wallet-validation.mjs'
 
 const router = new Hono()
 
@@ -398,6 +399,7 @@ router.get('/whitelist', requireAdmin, async (c) => {
       `SELECT
         w.id,
         w.wallet_address as "walletAddress",
+        w.chain_type as "chainType",
         w.reason,
         w.created_at as "createdAt",
         json_build_object(
@@ -424,7 +426,7 @@ router.get('/whitelist', requireAdmin, async (c) => {
  */
 router.post('/whitelist/add', requireAdmin, async (c) => {
   try {
-    const { walletAddress, reason } = await c.req.json()
+    const { walletAddress, chainType, reason } = await c.req.json()
 
     if (!walletAddress) {
       return c.json({
@@ -432,37 +434,61 @@ router.post('/whitelist/add', requireAdmin, async (c) => {
       }, 400)
     }
 
-    // Validate wallet address format
-    if (!walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+    // Auto-detect chain type if not provided
+    const detectedOrProvidedChainType = chainType || detectChainType(walletAddress)
+
+    if (!detectedOrProvidedChainType) {
       return c.json({
-        error: 'Invalid wallet address format. Must be a valid Ethereum address (0x...)'
+        error: 'Unable to determine chain type. Please specify chainType parameter.',
+        supportedChains: ['ethereum', 'solana']
       }, 400)
     }
 
-    // Check if already whitelisted
+    // Normalize chain type
+    const normalizedChainType = detectedOrProvidedChainType.toLowerCase()
+
+    // Validate chain type
+    if (!['ethereum', 'solana'].includes(normalizedChainType)) {
+      return c.json({
+        error: 'Invalid chain type. Must be "ethereum" or "solana"'
+      }, 400)
+    }
+
+    // Validate wallet address format for the specified chain
+    if (!isValidWalletAddress(walletAddress, normalizedChainType)) {
+      const chainName = getChainDisplayName(normalizedChainType)
+      return c.json({
+        error: `Invalid ${chainName} wallet address format.`,
+        details: normalizedChainType === 'ethereum'
+          ? 'Ethereum addresses must start with 0x and be 42 characters long'
+          : 'Solana addresses must be 32-44 base58 characters'
+      }, 400)
+    }
+
+    // Check if already whitelisted for this chain
     const existingResult = await query(
-      'SELECT id FROM admin_whitelist WHERE wallet_address = $1',
-      [walletAddress]
+      'SELECT id FROM admin_whitelist WHERE wallet_address = $1 AND chain_type = $2',
+      [walletAddress, normalizedChainType]
     )
 
     if (existingResult.rows.length > 0) {
       return c.json({
-        error: 'Wallet address already whitelisted'
+        error: `Wallet address already whitelisted on ${getChainDisplayName(normalizedChainType)}`
       }, 409)
     }
 
     const user = c.get('user')
     // Add to whitelist
     const result = await query(
-      `INSERT INTO admin_whitelist (wallet_address, added_by, reason)
-       VALUES ($1, $2, $3)
-       RETURNING id, wallet_address as "walletAddress", reason, created_at as "createdAt"`,
-      [walletAddress, user.id, reason || null]
+      `INSERT INTO admin_whitelist (wallet_address, chain_type, added_by, reason)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, wallet_address as "walletAddress", chain_type as "chainType", reason, created_at as "createdAt"`,
+      [walletAddress, normalizedChainType, user.id, reason || null]
     )
 
     return c.json({
       success: true,
-      message: 'Wallet added to whitelist',
+      message: `${getChainDisplayName(normalizedChainType)} wallet added to whitelist`,
       data: result.rows[0]
     }, 201)
   } catch (error) {
@@ -477,7 +503,7 @@ router.post('/whitelist/add', requireAdmin, async (c) => {
  */
 router.post('/whitelist/remove', requireAdmin, async (c) => {
   try {
-    const { walletAddress } = await c.req.json()
+    const { walletAddress, chainType } = await c.req.json()
 
     if (!walletAddress) {
       return c.json({
@@ -485,10 +511,20 @@ router.post('/whitelist/remove', requireAdmin, async (c) => {
       }, 400)
     }
 
-    const result = await query(
-      'DELETE FROM admin_whitelist WHERE wallet_address = $1 RETURNING id',
-      [walletAddress]
-    )
+    // If chainType provided, delete specific chain entry
+    // Otherwise, delete all entries for this address
+    let result
+    if (chainType) {
+      result = await query(
+        'DELETE FROM admin_whitelist WHERE wallet_address = $1 AND chain_type = $2 RETURNING id, chain_type as "chainType"',
+        [walletAddress, chainType.toLowerCase()]
+      )
+    } else {
+      result = await query(
+        'DELETE FROM admin_whitelist WHERE wallet_address = $1 RETURNING id, chain_type as "chainType"',
+        [walletAddress]
+      )
+    }
 
     if (result.rows.length === 0) {
       return c.json({
@@ -496,9 +532,11 @@ router.post('/whitelist/remove', requireAdmin, async (c) => {
       }, 404)
     }
 
+    const removedChains = result.rows.map(r => getChainDisplayName(r.chainType)).join(', ')
+
     return c.json({
       success: true,
-      message: 'Wallet removed from whitelist'
+      message: `Wallet removed from whitelist (${removedChains})`
     })
   } catch (error) {
     console.error('[Admin API] Error removing from whitelist:', error)

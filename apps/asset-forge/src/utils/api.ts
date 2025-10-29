@@ -59,9 +59,20 @@ export async function apiFetch(input: string, init: RequestOptions = {}): Promis
         headers.set('x-user-id', user.id)
       }
 
-      // Add wallet address if available
+      // Add wallet address if available (legacy single wallet support)
       if (user?.wallet?.address) {
         headers.set('x-wallet-address', user.wallet.address)
+      }
+
+      // Add all wallet addresses from linkedAccounts for multi-chain support
+      if (user?.linkedAccounts) {
+        const walletAddresses = user.linkedAccounts
+          .filter((account: any) => account.type === 'wallet' && account.address)
+          .map((account: any) => account.address)
+
+        if (walletAddresses.length > 0) {
+          headers.set('x-wallet-addresses', JSON.stringify(walletAddresses))
+        }
       }
 
       // Make request

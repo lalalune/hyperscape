@@ -7,6 +7,7 @@ import { apiFetch } from '@/utils/api'
 interface WhitelistEntry {
   id: string
   walletAddress: string
+  chainType: 'ethereum' | 'solana'
   addedBy: {
     id: string
     name: string
@@ -23,6 +24,7 @@ export function WhitelistManager() {
 
   // Form state
   const [walletAddress, setWalletAddress] = useState('')
+  const [chainType, setChainType] = useState<'ethereum' | 'solana'>('ethereum')
   const [reason, setReason] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -52,10 +54,18 @@ export function WhitelistManager() {
   const handleAddWallet = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validate wallet address
-    if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
-      setError('Invalid wallet address. Must start with 0x and be 42 characters long.')
-      return
+    // Validate wallet address based on chain type
+    if (chainType === 'ethereum') {
+      if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+        setError('Invalid Ethereum address. Must start with 0x and be 42 characters long.')
+        return
+      }
+    } else if (chainType === 'solana') {
+      // Solana addresses are base58 encoded, typically 32-44 characters
+      if (walletAddress.length < 32 || walletAddress.length > 44) {
+        setError('Invalid Solana address. Must be 32-44 characters long.')
+        return
+      }
     }
 
     try {
@@ -70,6 +80,7 @@ export function WhitelistManager() {
         },
         body: JSON.stringify({
           walletAddress,
+          chainType,
           reason: reason.trim() || undefined
         })
       })
@@ -79,7 +90,7 @@ export function WhitelistManager() {
         throw new Error(data.error || 'Failed to add wallet')
       }
 
-      setSuccess('Wallet added to whitelist successfully')
+      setSuccess(`${chainType === 'ethereum' ? 'Ethereum' : 'Solana'} wallet added to whitelist successfully`)
       setWalletAddress('')
       setReason('')
       await fetchWhitelist()
@@ -104,7 +115,10 @@ export function WhitelistManager() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ walletAddress: entries.find(e => e.id === id)?.walletAddress })
+        body: JSON.stringify({
+          walletAddress: entries.find(e => e.id === id)?.walletAddress,
+          chainType: entries.find(e => e.id === id)?.chainType
+        })
       })
 
       if (!response.ok) {
@@ -143,13 +157,47 @@ export function WhitelistManager() {
           <form onSubmit={handleAddWallet} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">
+                Chain Type *
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setChainType('ethereum')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    chainType === 'ethereum'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border-primary text-text-secondary hover:border-primary/50'
+                  }`}
+                  disabled={isSubmitting}
+                >
+                  <div className="font-medium">Ethereum</div>
+                  <div className="text-xs mt-1">0x...</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChainType('solana')}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    chainType === 'solana'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border-primary text-text-secondary hover:border-primary/50'
+                  }`}
+                  disabled={isSubmitting}
+                >
+                  <div className="font-medium">Solana</div>
+                  <div className="text-xs mt-1">Base58</div>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">
                 Wallet Address *
               </label>
               <Input
                 type="text"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                placeholder="0x..."
+                placeholder={chainType === 'ethereum' ? '0x...' : 'Base58 address...'}
                 className="w-full"
                 disabled={isSubmitting}
                 required
@@ -211,6 +259,7 @@ export function WhitelistManager() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border-primary">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Chain</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Wallet Address</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Added By</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Reason</th>
@@ -221,6 +270,15 @@ export function WhitelistManager() {
                 <tbody>
                   {entries.map((entry) => (
                     <tr key={entry.id} className="border-b border-border-primary hover:bg-bg-tertiary transition-colors">
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                          entry.chainType === 'ethereum'
+                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                        }`}>
+                          {entry.chainType === 'ethereum' ? 'ETH' : 'SOL'}
+                        </span>
+                      </td>
                       <td className="py-3 px-4">
                         <code className="text-sm text-blue-400">{entry.walletAddress}</code>
                       </td>

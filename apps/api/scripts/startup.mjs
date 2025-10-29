@@ -99,7 +99,11 @@ async function main() {
       const setupScript = path.join(__dirname, 'setup-railway-database.mjs')
       await runScript(setupScript, 'Database Schema Setup')
 
-      // Step 2: Migrate manifests to PostgreSQL
+      // Step 2: Run database migrations
+      const migrationsScript = path.join(__dirname, 'run-migrations.mjs')
+      await runScript(migrationsScript, 'Database Migrations')
+
+      // Step 3: Migrate manifests to PostgreSQL
       const migrateScript = path.join(__dirname, '../server/scripts/migrate-manifests-to-postgres.mjs')
       await runScript(migrateScript, 'Manifest Migration')
     } else {

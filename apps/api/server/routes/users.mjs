@@ -13,6 +13,7 @@ import {
   UpdateProfileBodySchema,
   UpdateSettingsBodySchema
 } from '../validation/user-schemas.mjs'
+import { detectChainType } from '../utils/wallet-validation.mjs'
 
 const router = new Hono()
 
@@ -55,89 +56,114 @@ router.get('/me', async (c) => {
     if (result.rows.length === 0) {
       console.log(`[Users API] Creating new user for Privy DID: ${userId}`)
 
-      // Get wallet address from request body or headers
+      // Get wallet addresses from request body or headers
       const body = await c.req.json().catch(() => ({}))
-      const walletAddress = body?.wallet_address || c.req.header('x-wallet-address')
+      const walletAddresses = body?.wallet_addresses || []
+      const legacyWalletAddress = body?.wallet_address || c.req.header('x-wallet-address')
 
-      // Check if wallet is whitelisted for admin
+      // Get wallet addresses from header (sent by frontend as JSON array)
+      const walletAddressesHeader = c.req.header('x-wallet-addresses')
+      const headerWallets = walletAddressesHeader ? JSON.parse(walletAddressesHeader) : []
+
+      // Combine into array and dedupe
+      const allWallets = [...new Set([...walletAddresses, ...headerWallets, legacyWalletAddress].filter(Boolean))]
+
+      // Check if any wallet is whitelisted for admin
       let role = 'member'
-      if (walletAddress) {
-        const whitelistCheck = await query(
-          'SELECT id FROM admin_whitelist WHERE wallet_address = $1',
-          [walletAddress]
-        )
+      let matchedWallet = null
 
-        if (whitelistCheck.rows.length > 0) {
-          role = 'admin'
-          console.log(`[Users API] Wallet ${walletAddress} found in whitelist, creating as admin`)
+      if (allWallets.length > 0) {
+        console.log(`[Users API] Checking ${allWallets.length} wallet(s) for whitelist:`, allWallets)
+
+        for (const wallet of allWallets) {
+          const chainType = detectChainType(wallet)
+          if (!chainType) continue
+
+          const whitelistCheck = await query(
+            'SELECT id FROM admin_whitelist WHERE wallet_address = $1 AND chain_type = $2',
+            [wallet, chainType]
+          )
+
+          if (whitelistCheck.rows.length > 0) {
+            role = 'admin'
+            matchedWallet = wallet
+            console.log(`[Users API] Wallet ${wallet} (${chainType}) found in whitelist, creating as admin`)
+            break
+          }
         }
       }
+
+      // Use the primary wallet address (first one, or matched whitelisted one)
+      const primaryWallet = matchedWallet || allWallets[0] || null
 
       result = await query(
         `INSERT INTO users (privy_user_id, wallet_address, role, settings)
          VALUES ($1, $2, $3, $4)
          RETURNING id, privy_user_id, email, wallet_address, display_name, avatar_url, role, settings, created_at`,
-        [userId, walletAddress, role, JSON.stringify({})]
+        [userId, primaryWallet, role, JSON.stringify({})]
       )
     } else {
-      // User exists, but check if we need to update wallet address
+      // User exists, but check if we need to update wallet address or promote role
       const user = result.rows[0]
       const body = await c.req.json().catch(() => ({}))
-      const walletAddress = body?.wallet_address || c.req.header('x-wallet-address')
+      const walletAddresses = body?.wallet_addresses || []
+      const legacyWalletAddress = body?.wallet_address || c.req.header('x-wallet-address')
 
-      if (walletAddress && !user.wallet_address) {
+      // Get wallet addresses from header (sent by frontend as JSON array)
+      const walletAddressesHeader = c.req.header('x-wallet-addresses')
+      const headerWallets = walletAddressesHeader ? JSON.parse(walletAddressesHeader) : []
+
+      // Combine into array and dedupe
+      const allWallets = [...new Set([...walletAddresses, ...headerWallets, legacyWalletAddress].filter(Boolean))]
+
+      if (allWallets.length > 0 && !user.wallet_address) {
         console.log(`[Users API] Updating wallet address for user ${userId}`)
 
-        // Check if wallet is whitelisted and user is still a member
+        // Check if any wallet is whitelisted
+        let matchedWallet = null
+        let shouldPromote = false
+
         if (user.role === 'member') {
-          const whitelistCheck = await query(
-            'SELECT id FROM admin_whitelist WHERE wallet_address = $1',
-            [walletAddress]
-          )
+          for (const wallet of allWallets) {
+            const chainType = detectChainType(wallet)
+            if (!chainType) continue
 
-          if (whitelistCheck.rows.length > 0) {
-            console.log(`[Users API] Wallet ${walletAddress} found in whitelist, promoting to admin`)
-            await query(
-              'UPDATE users SET wallet_address = $1, role = $2 WHERE privy_user_id = $3',
-              [walletAddress, 'admin', userId]
+            const whitelistCheck = await query(
+              'SELECT id FROM admin_whitelist WHERE wallet_address = $1 AND chain_type = $2',
+              [wallet, chainType]
             )
 
-            // Re-fetch user with updated data
-            result = await query(
-              `SELECT id, privy_user_id, email, wallet_address, display_name, avatar_url, role, settings, created_at
-               FROM users
-               WHERE privy_user_id = $1`,
-              [userId]
-            )
-          } else {
-            await query(
-              'UPDATE users SET wallet_address = $1 WHERE privy_user_id = $2',
-              [walletAddress, userId]
-            )
-
-            // Re-fetch user with updated data
-            result = await query(
-              `SELECT id, privy_user_id, email, wallet_address, display_name, avatar_url, role, settings, created_at
-               FROM users
-               WHERE privy_user_id = $1`,
-              [userId]
-            )
+            if (whitelistCheck.rows.length > 0) {
+              matchedWallet = wallet
+              shouldPromote = true
+              console.log(`[Users API] Wallet ${wallet} (${chainType}) found in whitelist, promoting to admin`)
+              break
+            }
           }
+        }
+
+        // Use matched wallet or first wallet
+        const primaryWallet = matchedWallet || allWallets[0]
+
+        if (shouldPromote) {
+          await query(
+            'UPDATE users SET wallet_address = $1, role = $2 WHERE privy_user_id = $3',
+            [primaryWallet, 'admin', userId]
+          )
         } else {
-          // Just update wallet address, don't change role
           await query(
             'UPDATE users SET wallet_address = $1 WHERE privy_user_id = $2',
-            [walletAddress, userId]
-          )
-
-          // Re-fetch user with updated data
-          result = await query(
-            `SELECT id, privy_user_id, email, wallet_address, display_name, avatar_url, role, settings, created_at
-             FROM users
-             WHERE privy_user_id = $1`,
-            [userId]
+            [primaryWallet, userId]
           )
         }
+
+        // Re-fetch user with updated data
+        result = await query(
+          `SELECT id, privy_user_id, email, wallet_address, display_name, avatar_url, role, settings, created_at
+           FROM users
+           WHERE privy_user_id = $1`,
+          [userId]
+        )
       }
     }
 
