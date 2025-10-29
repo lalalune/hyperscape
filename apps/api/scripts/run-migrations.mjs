@@ -66,6 +66,7 @@ async function getMigrationFiles() {
     const files = await fs.readdir(migrationsDir)
     return files
       .filter(f => f.endsWith('.sql'))
+      .filter(f => f !== '003_embeddings.sql') // Skip pgvector migration - using Qdrant instead
       .sort() // Sort by filename (should be numbered like 001_, 002_, etc.)
   } catch (error) {
     console.warn('⚠️  Migrations directory not found or empty')

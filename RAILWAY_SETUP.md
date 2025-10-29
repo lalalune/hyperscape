@@ -9,12 +9,13 @@
 │   Port: 8080        │ network │   Port: 3004         │
 └─────────────────────┘         └──────────────────────┘
                                           │
-                                          │
-                                          v
-                                ┌──────────────────────┐
-                                │   PostgreSQL         │
-                                │   (Database)         │
-                                └──────────────────────┘
+                                          ├─────────────┐
+                                          v             v
+                                ┌──────────────────┐  ┌──────────────────┐
+                                │   PostgreSQL     │  │   Qdrant         │
+                                │   (Database)     │  │   (Vector DB)    │
+                                │   Port: 5432     │  │   Port: 6333     │
+                                └──────────────────┘  └──────────────────┘
 ```
 
 ## Required Environment Variables
@@ -36,6 +37,10 @@ ALLOWED_ORIGINS=https://frontend-production-f53f.up.railway.app
 
 # Database (Auto-injected by Railway when PostgreSQL is attached)
 # DATABASE_URL=${{Postgres.DATABASE_URL}}
+
+# Qdrant Vector Database (for embeddings and semantic search)
+QDRANT_URL=http://qdrant.railway.internal:6333
+QDRANT_COLLECTION=game_content
 
 # Required API Keys
 OPENAI_API_KEY=sk-proj-your-actual-key
