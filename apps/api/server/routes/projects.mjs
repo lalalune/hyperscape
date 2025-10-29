@@ -36,18 +36,21 @@ router.get('/', async (c) => {
 
     const result = await query(sql, params)
 
-    return c.json({
-      projects: result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        status: row.status,
-        assetCount: parseInt(row.asset_count) || 0,
-        lastModified: formatTimeAgo(row.updated_at),
-        createdAt: row.created_at,
-        userId: row.owner_id
-      }))
-    })
+    // Return array directly to match frontend expectations
+    return c.json(result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      status: row.status,
+      assetCount: parseInt(row.asset_count) || 0,
+      lastModified: formatTimeAgo(row.updated_at),
+      createdAt: row.created_at,
+      userId: row.owner_id,
+      type: 'game', // Default type
+      ownerId: row.owner_id,
+      isPublic: false, // Default value
+      updatedAt: row.updated_at
+    })))
   } catch (error) {
     console.error('[Projects API] Error fetching projects:', error)
     return c.json({ error: 'Failed to fetch projects' }, 500)
@@ -113,7 +116,11 @@ router.post('/', async (c) => {
       assetCount: 0,
       lastModified: formatTimeAgo(project.updated_at),
       createdAt: project.created_at,
-      userId: project.owner_id
+      updatedAt: project.updated_at,
+      userId: project.owner_id,
+      ownerId: project.owner_id,
+      type: 'game', // Default type
+      isPublic: false // Default value
     }, 201)
   } catch (error) {
     console.error('[Projects API] Error creating project:', error)
@@ -170,7 +177,11 @@ router.patch('/:id', async (c) => {
       assetCount: 0,
       lastModified: formatTimeAgo(project.updated_at),
       createdAt: project.created_at,
-      userId: project.owner_id
+      updatedAt: project.updated_at,
+      userId: project.owner_id,
+      ownerId: project.owner_id,
+      type: 'game', // Default type
+      isPublic: false // Default value
     })
   } catch (error) {
     console.error('[Projects API] Error updating project:', error)
