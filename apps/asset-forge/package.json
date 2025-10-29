@@ -4,9 +4,8 @@
   "description": "HyperForge Web Application",
   "type": "module",
   "private": true,
-  "packageManager": "bun@1.1.45",
   "engines": {
-    "node": "24"
+    "node": "20"
   },
   "scripts": {
     "dev": "vite",
