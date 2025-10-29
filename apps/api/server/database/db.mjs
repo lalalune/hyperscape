@@ -12,9 +12,14 @@ const dbConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      max: 20, // Maximum pool size
+      min: 2, // Minimum pool size (keep connections warm)
+      idleTimeoutMillis: 60000, // 60 seconds before closing idle connection
+      connectionTimeoutMillis: 10000, // 10 seconds to establish connection
+      allowExitOnIdle: false, // Don't exit if all connections idle
+      // Railway IPv6 private networking optimization
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000, // Start keep-alive after 10s
     }
   : {
       host: process.env.DB_HOST || 'localhost',
@@ -23,26 +28,78 @@ const dbConfig = process.env.DATABASE_URL
       user: process.env.DB_USER || 'asset_forge',
       password: process.env.DB_PASSWORD || 'asset_forge_dev_password_2024',
       max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      min: 2,
+      idleTimeoutMillis: 60000,
+      connectionTimeoutMillis: 10000,
+      allowExitOnIdle: false,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     }
 
 // Create connection pool
 export const pool = new Pool(dbConfig)
 
-// Handle pool errors
-pool.on('error', (err, client) => {
-  console.error('[Database] Unexpected error on idle client', err)
+// Handle pool errors (Railway IPv6 networking can cause intermittent disconnects)
+pool.on('error', (err) => {
+  console.error('[Database] Unexpected error on idle client:', err.message)
+
+  // Connection terminated errors are expected with Railway's private networking
+  // The pool will automatically reconnect on the next query
+  if (err.message.includes('Connection terminated')) {
+    console.log('[Database] Connection will be reestablished on next query')
+  }
 })
 
-// Test connection (non-blocking - don't prevent server startup)
-pool.query('SELECT NOW()')
-  .then(res => {
-    console.log('[Database] Connected successfully at', res.rows[0].now)
-  })
-  .catch(err => {
-    console.warn('[Database] Connection test failed (server will continue):', err.message)
-  })
+// Handle pool connection events for monitoring
+pool.on('connect', () => {
+  console.log('[Database] New client connected to pool')
+})
+
+pool.on('remove', () => {
+  console.log('[Database] Client removed from pool')
+})
+
+// Test connection with retry logic
+async function testConnection(retries = 5, delay = 1000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await pool.query('SELECT NOW()')
+      console.log(`[Database] ✅ Connected successfully at ${res.rows[0].now}`)
+      return true
+    } catch (err) {
+      console.warn(`[Database] Connection attempt ${attempt}/${retries} failed: ${err.message}`)
+
+      if (attempt === retries) {
+        console.error('[Database] ❌ All connection attempts failed. Server will continue but database operations will fail.')
+        return false
+      }
+
+      const waitTime = delay * Math.pow(2, attempt - 1) // Exponential backoff
+      console.log(`[Database] Retrying in ${waitTime}ms...`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+    }
+  }
+  return false
+}
+
+// Start connection test (non-blocking)
+testConnection().catch(err => {
+  console.error('[Database] Connection test error:', err)
+})
+
+/**
+ * Check database health
+ * @returns {Promise<boolean>} True if database is healthy
+ */
+export async function healthCheck() {
+  try {
+    const result = await pool.query('SELECT 1 as healthy')
+    return result.rows[0].healthy === 1
+  } catch (error) {
+    console.error('[Database] Health check failed:', error.message)
+    return false
+  }
+}
 
 /**
  * Execute a query
@@ -115,11 +172,21 @@ export async function transaction(callback) {
   }
 }
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('[Database] Closing connection pool...')
-  await pool.end()
-  process.exit(0)
-})
+// Graceful shutdown - handle all common shutdown signals
+const gracefulShutdown = async (signal) => {
+  console.log(`[Database] Received ${signal}, closing connection pool...`)
+  try {
+    await pool.end()
+    console.log('[Database] Connection pool closed successfully')
+    process.exit(0)
+  } catch (error) {
+    console.error('[Database] Error during shutdown:', error)
+    process.exit(1)
+  }
+}
 
-export default { pool, query, getClient, transaction }
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')) // nodemon restart signal
+
+export default { pool, query, getClient, transaction, healthCheck }
