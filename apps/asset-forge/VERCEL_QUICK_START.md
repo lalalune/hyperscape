@@ -15,8 +15,8 @@ Go to Vercel Dashboard → Your Project → Settings → Environment Variables
 
 Add these:
 ```bash
-VITE_API_URL=https://dairy-queen-production.up.railway.app
-VITE_PUBLIC_PRIVY_APP_ID=cmh5ag8yp004hl80drzj9i0g8
+VITE_API_URL=https://striking-forgiveness-production.up.railway.app
+VITE_PUBLIC_PRIVY_APP_ID=cmhbfhcm1003ml80cu47k4h2m
 ```
 
 **Important**:
@@ -88,5 +88,5 @@ See [VERCEL_DEPLOYMENT.md](../../VERCEL_DEPLOYMENT.md) for complete guide.
 
 ---
 
-**Railway API URL:** https://dairy-queen-production.up.railway.app
-**Privy App ID:** cmh5ag8yp004hl80drzj9i0g8
+**Railway API URL:** https://striking-forgiveness-production.up.railway.app
+**Privy App ID:** cmhbfhcm1003ml80cu47k4h2m

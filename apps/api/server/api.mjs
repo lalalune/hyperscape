@@ -57,13 +57,20 @@ const ROOT_DIR = path.join(__dirname, '..')
 const app = new Hono()
 
 // CORS middleware - Allow multiple origins for flexibility
+// Parse comma-separated list of allowed origins from environment
+const envOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : []
+
 const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:5173',
-  'https://forgery-smoky.vercel.app',
-  'https://frontend-production-f53f.up.railway.app',
-  process.env.FRONTEND_URL
+  ...envOrigins,
+  process.env.FRONTEND_URL,
+  // Localhost origins for development only
+  ...(process.env.NODE_ENV !== 'production' ? [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173'
+  ] : [])
 ].filter(Boolean).map(url => url.replace(/\/$/, '')) // Remove trailing slashes
 
 const corsOrigin = (origin) => {
@@ -166,7 +173,7 @@ app.use('/temp-images/*', serveStatic({
 }))
 
 // Server configuration
-const apiPort = process.env.API_PORT || process.env.PORT || 3004
+const apiPort = process.env.PORT || process.env.API_PORT || 3004
 
 // Mount route modules
 app.route('/api/users', usersRoutes)
