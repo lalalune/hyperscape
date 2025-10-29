@@ -122,13 +122,17 @@ server.on('error', (error) => {
   process.exit(1);
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+// Use IPv6 (::) for Railway, fallback to 0.0.0.0 for local
+const hostname = process.env.NODE_ENV === 'production' ? '::' : '0.0.0.0';
+
+server.listen(PORT, hostname, () => {
   console.log('='.repeat(60));
   console.log('✅ SERVER STARTED SUCCESSFULLY');
   console.log('='.repeat(60));
-  console.log(`🌐 Server running on: http://0.0.0.0:${PORT}`);
+  console.log(`🌐 Server running on: http://${hostname}:${PORT}`);
   console.log(`📁 Serving files from: ${DIST_DIR}`);
   console.log(`🕒 Started at: ${new Date().toISOString()}`);
+  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('='.repeat(60));
   console.log('Waiting for connections...');
   console.log('='.repeat(60));

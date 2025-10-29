@@ -56,6 +56,7 @@ class IndexedDBCacheClass {
   private db: IDBDatabase | null = null
   private initPromise: Promise<void> | null = null
   private isInitialized = false
+  private pruneIntervalId: ReturnType<typeof setInterval> | null = null
 
   /**
    * Initialize IndexedDB connection
@@ -408,6 +409,29 @@ class IndexedDBCacheClass {
       return 0
     }
   }
+
+  /**
+   * Cleanup and destroy the cache instance
+   * Should be called when the app is shutting down or cache is no longer needed
+   */
+  destroy(): void {
+    // Clear the prune interval
+    if (this.pruneIntervalId) {
+      clearInterval(this.pruneIntervalId)
+      this.pruneIntervalId = null
+      logger.debug('Cleared prune interval')
+    }
+
+    // Close database connection
+    if (this.db) {
+      this.db.close()
+      this.db = null
+      logger.info('Database connection closed')
+    }
+
+    this.isInitialized = false
+    this.initPromise = null
+  }
 }
 
 // Singleton instance
@@ -423,13 +447,23 @@ export async function getIndexedDBCache(): Promise<IndexedDBCacheClass> {
 
     // Setup automatic cleanup every 30 minutes
     if (typeof window !== 'undefined') {
-      setInterval(async () => {
+      const intervalId = setInterval(async () => {
         try {
           await instance?.prune()
         } catch (error) {
           logger.error('Failed to prune expired entries', error)
         }
       }, 30 * 60 * 1000)
+
+      // Store the interval ID for cleanup
+      instance['pruneIntervalId'] = intervalId
+
+      // Cleanup on page unload
+      const cleanupHandler = () => {
+        instance?.destroy()
+      }
+      window.addEventListener('beforeunload', cleanupHandler)
+      window.addEventListener('unload', cleanupHandler)
     }
   }
   return instance

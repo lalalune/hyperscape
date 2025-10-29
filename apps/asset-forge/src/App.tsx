@@ -5,6 +5,8 @@ import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { LoadingSpinner } from './components/common/LoadingSpinner'
 import { LoginScreen } from './auth/LoginScreen'
 import { createLogger } from './utils/logger'
+import { pipelinePollingService } from './services/PipelinePollingService'
+import { IndexedDBCache } from './services/IndexedDBCache'
 
 const logger = createLogger('App')
 
@@ -378,6 +380,33 @@ function AppContent() {
 function App() {
   const { ready, authenticated } = usePrivy()
   const [showApp, setShowApp] = useState(false)
+
+  // Cleanup all services on unmount
+  useEffect(() => {
+    return () => {
+      logger.info('App unmounting, cleaning up services...')
+
+      // Cleanup pipeline polling service
+      try {
+        pipelinePollingService.destroy()
+        logger.debug('PipelinePollingService cleaned up')
+      } catch (error) {
+        logger.error('Error cleaning up PipelinePollingService:', error)
+      }
+
+      // Cleanup IndexedDB cache
+      try {
+        IndexedDBCache.getInstance().then(cache => {
+          cache.destroy()
+          logger.debug('IndexedDBCache cleaned up')
+        }).catch(err => {
+          logger.error('Error cleaning up IndexedDBCache:', err)
+        })
+      } catch (error) {
+        logger.error('Error initiating IndexedDBCache cleanup:', error)
+      }
+    }
+  }, [])
 
   // Show loading while Privy initializes
   if (!ready) {
