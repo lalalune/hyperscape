@@ -276,7 +276,7 @@ serve({
 }, (info) => {
   console.log(`[Server] Hono server listening on http://${info.address}:${info.port}`)
   console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`)
-  console.log(`[Server] Frontend URL: ${origin}`)
+  console.log(`[Server] Allowed origins:`, allowedOrigins)
 })
 
 export default app
