@@ -26,6 +26,7 @@ export const RetargetAnimatePage: React.FC = () => {
     targetRigUrl,
     boneEditingEnabled,
     showSkeleton,
+    skeletonScale,
     mirrorEnabled,
     transformMode,
     transformSpace,
@@ -33,6 +34,7 @@ export const RetargetAnimatePage: React.FC = () => {
     setTargetRig,
     setBoneEditingEnabled,
     setShowSkeleton,
+    setSkeletonScale,
     setMirrorEnabled,
     setTransformMode,
     setTransformSpace,
@@ -308,6 +310,30 @@ export const RetargetAnimatePage: React.FC = () => {
                 />
                 <div className="w-9 h-5 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
               </label>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs">Skeleton Scale</span>
+                <span className="text-xs text-text-tertiary">{(skeletonScale * 100).toFixed(0)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="1.5"
+                step="0.01"
+                value={skeletonScale}
+                onChange={(e) => {
+                  const newScale = parseFloat(e.target.value)
+                  setSkeletonScale(newScale)
+                  viewerRef.current?.updateSkeletonScale?.(newScale)
+                }}
+                className="w-full h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-text-tertiary mt-0.5">
+                <span>50%</span>
+                <span>150%</span>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">

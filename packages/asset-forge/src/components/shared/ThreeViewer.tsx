@@ -70,6 +70,7 @@ export interface ThreeViewerRef {
   retargetSkeletonToRig: () => Promise<boolean>
   loadSkeletonForEditing: () => Promise<boolean>  // NEW: mesh2motion workflow step 1
   applyRetargeting: () => Promise<boolean>  // NEW: mesh2motion workflow step 2
+  updateSkeletonScale?: (scale: number) => void  // NEW: update skeleton scale in real-time
   setBoneMapOverrides?: (overrides: Record<string, string>) => void
   alignToBindPose?: () => void
   toggleSkeleton: () => void
@@ -123,6 +124,8 @@ const ThreeViewer = forwardRef(({
   const unboundGeometryRef = useRef<THREE.BufferGeometry | null>(null)  // Geometry before binding
   const unboundMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null)  // Material to use
   const editableSkeletonRef = useRef<THREE.Skeleton | null>(null)  // The skeleton being edited
+  const previewMeshRef = useRef<THREE.Mesh | null>(null)  // Preview mesh for skeleton editing
+  const skeletonScaleMultiplierRef = useRef<number>(0.95)  // User-adjustable skeleton scale (95% by default)
 
   const [loading, setLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
@@ -1286,31 +1289,52 @@ const ThreeViewer = forwardRef(({
         hasUV: !!unboundGeometryRef.current.attributes.uv
       })
 
-      // Create a preview mesh to show the character while editing bones
-      // This uses the cloned geometry in its bind pose
+      // CRITICAL: Create preview mesh - following Option A approach
+      // Geometry and skeleton must be at SAME scale during weight calculation AND binding
       const previewMesh = new THREE.Mesh(
         unboundGeometryRef.current.clone(),
         unboundMaterialRef.current
       )
       previewMesh.name = 'PreviewMesh'
 
-      // Position the preview mesh at the same location as the original model
-      if (modelRef.current) {
-        previewMesh.position.copy(modelRef.current.position)
-        previewMesh.rotation.copy(modelRef.current.rotation)
-        previewMesh.scale.copy(modelRef.current.scale)
+      // Calculate scale factor based on bind pose size
+      previewMesh.position.set(0, 0, 0)
+      previewMesh.rotation.set(0, 0, 0)
+      previewMesh.scale.set(1, 1, 1)  // Start at bind pose to measure
 
-        // Hide the original skinned model (it will be replaced after retargeting)
+      const previewBBox = new THREE.Box3().setFromObject(previewMesh)
+      const previewSize = previewBBox.getSize(new THREE.Vector3())
+      const targetSize = 5.0  // Target max dimension (same as model loading)
+      const baseScaleFactor = targetSize / Math.max(previewSize.x, previewSize.y, previewSize.z)
+
+      // Apply user's skeleton scale multiplier (e.g., 0.95 = 95%)
+      const finalScaleFactor = baseScaleFactor * skeletonScaleMultiplierRef.current
+
+      // CRITICAL: Apply the SAME scale factor to preview mesh
+      // This ensures preview mesh and skeleton are at SAME size for weight calculation
+      previewMesh.scale.set(finalScaleFactor, finalScaleFactor, finalScaleFactor)
+
+      // Store preview mesh for later updates
+      previewMeshRef.current = previewMesh
+
+      // Hide the original skinned model (it will be replaced after retargeting)
+      if (modelRef.current) {
         modelRef.current.visible = false
       }
 
       sceneRef.current.add(previewMesh)
 
-      console.log('Preview mesh created:', {
-        position: previewMesh.position.toArray(),
-        scale: previewMesh.scale.toArray(),
-        vertices: unboundGeometryRef.current.attributes.position.count
-      })
+      console.log('📐 Preview mesh scaled to match skeleton:')
+      console.log('  Bind pose size:', previewSize.toArray())
+      console.log('  Base scale factor:', baseScaleFactor)
+      console.log('  User scale multiplier:', skeletonScaleMultiplierRef.current)
+      console.log('  Final scale factor applied:', finalScaleFactor)
+      console.log('  Preview mesh scale:', previewMesh.scale.toArray())
+
+      // Verify final size
+      const finalBBox = new THREE.Box3().setFromObject(previewMesh)
+      const finalSize = finalBBox.getSize(new THREE.Vector3())
+      console.log('  Final preview size:', finalSize.toArray())
 
       // Clone the TARGET skeleton for editing (this will become the retargeted skeleton)
       const clonedSkeleton = targetSkeletonRef.current.clone()
@@ -1329,38 +1353,17 @@ const ThreeViewer = forwardRef(({
       rootBone.rotation.x = -Math.PI / 2
       rootBone.updateMatrixWorld(true)
 
-      // Auto-scale and position skeleton to fit the PREVIEW mesh (not the original hidden model)
-      const meshWorldBBox = new THREE.Box3().setFromObject(previewMesh)
-      const meshWorldSize = meshWorldBBox.getSize(new THREE.Vector3())
-      const meshWorldCenter = meshWorldBBox.getCenter(new THREE.Vector3())
+      // CRITICAL: Use the SAME scale factor for skeleton as we calculated for geometry
+      // This ensures geometry and skeleton are at matching sizes during weight calculation
+      console.log(`🎯 Applying consistent scale factor: ${finalScaleFactor.toFixed(3)}`)
 
-      console.log('Preview mesh world size:', meshWorldSize.toArray())
-      console.log('Preview mesh world center:', meshWorldCenter.toArray())
-
-      // Get skeleton bounds BEFORE scaling
-      // CRITICAL: Update all bone matrices first!
-      clonedSkeleton.bones.forEach(bone => bone.updateMatrixWorld(true))
-
-      const skelBBox = new THREE.Box3()
-      clonedSkeleton.bones.forEach(bone => {
-        const pos = new THREE.Vector3()
-        bone.getWorldPosition(pos)
-        skelBBox.expandByPoint(pos)
-      })
-      const skelSize = skelBBox.getSize(new THREE.Vector3())
-      const skelCenter = skelBBox.getCenter(new THREE.Vector3())
-
-      console.log('Skeleton size (before scaling):', skelSize.toArray())
-      console.log('Skeleton center (before scaling):', skelCenter.toArray())
-
-      // Scale skeleton to match mesh height
-      const scaleFactor = meshWorldSize.y / skelSize.y
-      rootBone.scale.set(scaleFactor, scaleFactor, scaleFactor)
+      // Scale skeleton by the SAME factor as geometry would be scaled
+      rootBone.scale.set(finalScaleFactor, finalScaleFactor, finalScaleFactor)
       rootBone.updateMatrixWorld(true)
 
-      console.log(`Skeleton scaled by ${scaleFactor.toFixed(3)} to match mesh height`)
+      // Get skeleton bounds AFTER scaling to position it correctly
+      clonedSkeleton.bones.forEach(bone => bone.updateMatrixWorld(true))
 
-      // Recalculate skeleton bounds AFTER scaling
       const scaledSkelBBox = new THREE.Box3()
       clonedSkeleton.bones.forEach(bone => {
         const pos = new THREE.Vector3()
@@ -1368,13 +1371,20 @@ const ThreeViewer = forwardRef(({
         scaledSkelBBox.expandByPoint(pos)
       })
       const scaledSkelCenter = scaledSkelBBox.getCenter(new THREE.Vector3())
+      const scaledSkelSize = scaledSkelBBox.getSize(new THREE.Vector3())
 
-      // Position skeleton to align centers
+      // Position skeleton to align with preview mesh center
+      const meshWorldBBox = new THREE.Box3().setFromObject(previewMesh)
+      const meshWorldCenter = meshWorldBBox.getCenter(new THREE.Vector3())
+
       const offset = meshWorldCenter.clone().sub(scaledSkelCenter)
       rootBone.position.add(offset)
       rootBone.updateMatrixWorld(true)
 
-      console.log(`Skeleton positioned at: (${rootBone.position.x.toFixed(2)}, ${rootBone.position.y.toFixed(2)}, ${rootBone.position.z.toFixed(2)})`)
+      console.log(`✅ Skeleton scaled and positioned:`)
+      console.log(`  Scale: ${finalScaleFactor.toFixed(3)} (SAME as geometry target scale)`)
+      console.log(`  Position: (${rootBone.position.x.toFixed(2)}, ${rootBone.position.y.toFixed(2)}, ${rootBone.position.z.toFixed(2)})`)
+      console.log(`  Final size: (${scaledSkelSize.x.toFixed(2)}, ${scaledSkelSize.y.toFixed(2)}, ${scaledSkelSize.z.toFixed(2)})`)
 
       // Store reference to editable skeleton
       editableSkeletonRef.current = clonedSkeleton
@@ -1420,13 +1430,7 @@ const ThreeViewer = forwardRef(({
 
       console.log('Final skeleton center:', finalSkelCenter.toArray())
       console.log('Final skeleton size:', finalSkelSize.toArray())
-      console.log('Preview mesh center (for comparison):', meshWorldCenter.toArray())
-      console.log('Preview mesh size (for comparison):', meshWorldSize.toArray())
-      console.log('Size match:', {
-        widthMatch: (Math.abs(finalSkelSize.x - meshWorldSize.x) / meshWorldSize.x * 100).toFixed(1) + '%',
-        heightMatch: (Math.abs(finalSkelSize.y - meshWorldSize.y) / meshWorldSize.y * 100).toFixed(1) + '%',
-        depthMatch: (Math.abs(finalSkelSize.z - meshWorldSize.z) / meshWorldSize.z * 100).toFixed(1) + '%'
-      })
+      console.log('Skeleton and geometry are at matching scale:', finalScaleFactor.toFixed(3))
 
       console.log('✅ Skeleton loaded for editing. User can now adjust bone positions.')
       console.log('   Model and skeleton should now be aligned and both visible.')
@@ -1443,89 +1447,92 @@ const ThreeViewer = forwardRef(({
 
       const { SkeletonRetargeter } = await import('../../services/retargeting/SkeletonRetargeter')
 
-      // Calculate skin weights using the EDITED skeleton
+      // CRITICAL: Get the preview mesh to extract its scale
+      const previewMeshForWeights = sceneRef.current.getObjectByName('PreviewMesh') as THREE.Mesh
+      if (!previewMeshForWeights) {
+        console.error('Preview mesh not found!')
+        return false
+      }
+
+      const previewScale = previewMeshForWeights.scale.x  // Uniform scale
+      console.log('📐 Preview mesh scale for weight calculation:', previewScale)
+
+      // CRITICAL: Create scaled geometry for weight calculation
+      // The solver needs geometry at the SAME scale as the skeleton
+      const scaledGeometry = unboundGeometryRef.current.clone()
+      const scaleMatrix = new THREE.Matrix4()
+      scaleMatrix.makeScale(previewScale, previewScale, previewScale)
+      scaledGeometry.applyMatrix4(scaleMatrix)
+
+      console.log('📐 Calculating weights with scaled geometry and scaled skeleton')
+      console.log('  Geometry scale:', previewScale)
+      console.log('  Skeleton scale:', editableSkeletonRef.current.bones[0].scale.toArray())
+
+      // Calculate skin weights using the EDITED skeleton and SCALED geometry
       const solver = SkeletonRetargeter.createSolver(
         'distance-targeting',
-        unboundGeometryRef.current,
+        scaledGeometry,  // Use scaled geometry to match skeleton scale
         editableSkeletonRef.current.bones
       )
       const { skinIndices, skinWeights } = solver.calculateWeights()
 
       console.log('Weight calculation complete:', {
-        totalVertices: unboundGeometryRef.current.attributes.position.count,
+        totalVertices: scaledGeometry.attributes.position.count,
         weightsGenerated: skinWeights.length / 4
       })
 
-      // Apply skin attributes to geometry
-      unboundGeometryRef.current.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4))
-      unboundGeometryRef.current.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4))
+      // Apply skin attributes to the SCALED geometry (same as used for weight calculation)
+      scaledGeometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4))
+      scaledGeometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4))
 
-      // CRITICAL: Scale geometry to match what the skeleton expects!
-      // The skeleton was positioned/scaled to match the PREVIEW MESH
-      // So the geometry needs to be the same size as the preview mesh was
+      // CRITICAL: Following mesh2motion-app Option A approach
+      // Geometry and skeleton BOTH at scaled size (matching weight calculation)
+      // Scale applied via geometry matrix (baked) and skeleton transform (not baked)
       const rootBone = editableSkeletonRef.current.bones[0]
-      const previewMesh = sceneRef.current.getObjectByName('PreviewMesh') as THREE.Mesh
 
-      if (!previewMesh) {
-        console.error('Preview mesh not found!')
-        return false
-      }
+      console.log('📐 Option A: Geometry and skeleton at matching scales')
+      console.log('  Geometry: Scaled by', previewScale, '(baked into vertices)')
+      console.log('  Skeleton scale (kept as transform):', rootBone.scale.toArray())
 
-      console.log('Scaling geometry to match preview mesh size...')
-      console.log('  Preview mesh scale:', previewMesh.scale.toArray())
-
-      // Scale geometry by preview mesh scale
-      const scaleMatrix = new THREE.Matrix4()
-      scaleMatrix.makeScale(previewMesh.scale.x, previewMesh.scale.y, previewMesh.scale.z)
-      unboundGeometryRef.current.applyMatrix4(scaleMatrix)
-      console.log('  ✓ Geometry scaled to match preview mesh')
-
-      // Create the final skinned mesh
-      // CRITICAL: Following mesh2motion-app approach exactly
-      const retargetedMesh = new THREE.SkinnedMesh(unboundGeometryRef.current, unboundMaterialRef.current)
+      // Create the final skinned mesh using the SCALED geometry
+      // CRITICAL: Use the same geometry we calculated weights with!
+      const retargetedMesh = new THREE.SkinnedMesh(scaledGeometry, unboundMaterialRef.current)
       retargetedMesh.name = 'RetargetedMesh'
       retargetedMesh.castShadow = true
       retargetedMesh.receiveShadow = true
 
-      console.log('Pre-binding transforms:')
+      console.log('Pre-binding transforms (Option A - scale kept as transform):')
       console.log('  Root bone position:', rootBone.position.toArray())
       console.log('  Root bone rotation:', rootBone.rotation.toArray())
       console.log('  Root bone scale:', rootBone.scale.toArray())
 
-      // CRITICAL: DON'T bake anything - keep skeleton transforms as-is!
-      // The geometry is scaled by preview mesh scale (2.941)
-      // The skeleton has its own scale (2.426) from editing
-      // Just reset position to origin, keep scale and rotation!
+      // CRITICAL: Option A approach - DO NOT bake scale!
+      // Keep scale as transform property during binding
+      // This matches mesh2motion-app's approach where scale is only baked for export
 
-      console.log('Preparing skeleton for binding...')
-      console.log('  Root bone scale (keeping):', rootBone.scale.toArray())
-      console.log('  Root bone position:', rootBone.position.toArray())
-
-      // Remove rootBone from scene
+      // Remove rootBone from scene before adding to mesh
       if (rootBone.parent) {
         rootBone.parent.remove(rootBone)
       }
 
-      // Reset position to origin, but KEEP scale and rotation!
-      rootBone.position.set(0, 0, 0)
-      // DON'T reset scale - keep it!
-      // DON'T reset rotation - keep it!
+      // Store the scale factor for potential animation keyframe scaling
+      const skeletonScaleFactor = rootBone.scale.x;
+      (retargetedMesh as any).__skeletonScaleFactor = skeletonScaleFactor;
 
-      rootBone.updateMatrixWorld(true)
+      console.log('✓ Keeping skeleton scale as transform property:', skeletonScaleFactor);
+      console.log('  Root bone scale will be preserved during binding');
 
-      console.log('After baking - Root bone transforms:')
-      console.log('  Position:', rootBone.position.toArray())
-      console.log('  Rotation:', rootBone.rotation.toArray())
-      console.log('  Scale:', rootBone.scale.toArray())
+      rootBone.updateMatrixWorld(true);
 
-      // MESH2MOTION BINDING SEQUENCE:
+      // BINDING SEQUENCE (Option A):
       // 1. Add root bone to skinned mesh as child
       retargetedMesh.add(rootBone)
 
       // 2. Keep retargetedMesh at ORIGIN with identity transforms
-      // The rootBone has the position offset, geometry is at origin
+      // Geometry is already scaled (baked into vertices)
+      // Skeleton scale is preserved as transform property
       retargetedMesh.position.set(0, 0, 0)
-      retargetedMesh.scale.set(1, 1, 1)
+      retargetedMesh.scale.set(1, 1, 1)  // Identity because geometry is pre-scaled
       retargetedMesh.rotation.set(0, 0, 0)
 
       // 3. Bind the mesh to the skeleton
@@ -1538,10 +1545,11 @@ const ThreeViewer = forwardRef(({
       console.log('  - Mesh rotation:', retargetedMesh.rotation.toArray())
       console.log('  - Skeleton bones:', editableSkeletonRef.current.bones.length)
 
-      // Remove the preview mesh (already retrieved earlier)
+      // Remove the preview mesh from the scene
+      const previewMesh = sceneRef.current.getObjectByName('PreviewMesh');
       if (previewMesh) {
-        sceneRef.current.remove(previewMesh)
-        console.log('Removed preview mesh')
+        sceneRef.current.remove(previewMesh);
+        console.log('Removed preview mesh');
       }
 
       // Replace old model in scene
@@ -1571,6 +1579,14 @@ const ThreeViewer = forwardRef(({
 
         if (gltf.animations && gltf.animations.length > 0) {
           console.log(`✅ Loaded ${gltf.animations.length} animations from base animations file`)
+
+          // CRITICAL: DO NOT scale animation keyframes!
+          // The skeleton has scale as a TRANSFORM PROPERTY (not baked)
+          // Three.js will automatically apply the skeleton's scale transform during animation
+          // Scaling keyframes would cause DOUBLE-SCALING
+          console.log(`🎬 Using animations as-is (skeleton scale: ${skeletonScaleFactor})`)
+          console.log(`   Skeleton scale transform will be applied automatically by Three.js`)
+
           setAnimations(gltf.animations)
 
           // Log all animation names
@@ -2189,6 +2205,49 @@ const ThreeViewer = forwardRef(({
     getAvailableAnimations: () => {
       // Return the current list of loaded animations
       return animations
+    },
+    updateSkeletonScale: (scale: number) => {
+      // Update the skeleton scale multiplier
+      skeletonScaleMultiplierRef.current = scale
+
+      // Update preview mesh and skeleton if they exist
+      if (previewMeshRef.current && editableSkeletonRef.current) {
+        const previewMesh = previewMeshRef.current
+        const rootBone = editableSkeletonRef.current.bones[0]
+
+        // Recalculate scale based on bind pose
+        const previewBBox = new THREE.Box3()
+        previewMesh.scale.set(1, 1, 1)  // Reset to bind pose temporarily
+        previewBBox.setFromObject(previewMesh)
+        const previewSize = previewBBox.getSize(new THREE.Vector3())
+
+        const targetSize = 5.0
+        const baseScaleFactor = targetSize / Math.max(previewSize.x, previewSize.y, previewSize.z)
+        const newScaleFactor = baseScaleFactor * scale
+
+        // Apply new scale to preview mesh
+        previewMesh.scale.set(newScaleFactor, newScaleFactor, newScaleFactor)
+
+        // Update skeleton scale
+        rootBone.scale.set(newScaleFactor, newScaleFactor, newScaleFactor)
+        rootBone.updateMatrixWorld(true)
+
+        // Reposition skeleton to match preview mesh center
+        editableSkeletonRef.current.bones.forEach(bone => bone.updateMatrixWorld(true))
+        const newSkelBBox = new THREE.Box3()
+        editableSkeletonRef.current.bones.forEach(bone => {
+          const pos = new THREE.Vector3()
+          bone.getWorldPosition(pos)
+          newSkelBBox.expandByPoint(pos)
+        })
+        const newCenter = newSkelBBox.getCenter(new THREE.Vector3())
+        const meshCenter = new THREE.Box3().setFromObject(previewMesh).getCenter(new THREE.Vector3())
+        const offset = meshCenter.clone().sub(newCenter)
+        rootBone.position.add(offset)
+        rootBone.updateMatrixWorld(true)
+
+        console.log('📐 Skeleton scale updated:', scale, '(final scale factor:', newScaleFactor, ')')
+      }
     }
   }), [animations, assetInfo, exportTPoseModel, showSkeleton])
   

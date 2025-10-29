@@ -32,6 +32,7 @@ interface RetargetingState {
   // 3D Editor UI state
   showSkeleton: boolean
   boneEditingEnabled: boolean
+  skeletonScale: number
 
   // Animation
   loadedAnimations: Array<{ name: string; url: string }>
@@ -58,6 +59,7 @@ interface RetargetingState {
   removeBoneMapping: (sourceBone: string) => void
   setShowSkeleton: (show: boolean) => void
   setBoneEditingEnabled: (enabled: boolean) => void
+  setSkeletonScale: (scale: number) => void
   setCurrentStep: (step: RetargetingStep) => void
   setMirrorEnabled: (enabled: boolean) => void
   setTransformMode: (mode: 'translate' | 'rotate') => void
@@ -90,6 +92,7 @@ const initialState = {
   boneMapping: {},
   showSkeleton: false,
   boneEditingEnabled: false,
+  skeletonScale: 0.95,
   loadedAnimations: [],
   currentAnimation: null,
   currentStep: 'select-models' as RetargetingStep,
@@ -166,6 +169,11 @@ export const useRetargetingStore = create<RetargetingState>()(
           setBoneEditingEnabled: (enabled) => set(state => {
             state.boneEditingEnabled = enabled
             console.log('[Store] Bone editing enabled:', enabled)
+          }),
+
+          setSkeletonScale: (scale) => set(state => {
+            state.skeletonScale = scale
+            console.log('[Store] Skeleton scale:', scale)
           }),
 
           setCurrentStep: (step) => set(state => {
