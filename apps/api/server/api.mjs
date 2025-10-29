@@ -274,7 +274,10 @@ app.notFound((c) => {
 })
 
 // Start server
-const hostname = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'
+// Railway requires IPv6 (::) for private networking
+// Use :: for production (supports both IPv4 and IPv6)
+// Use localhost for development
+const hostname = process.env.NODE_ENV === 'production' ? '::' : 'localhost'
 console.log(`[Server] Starting Hono server on ${hostname}:${apiPort}...`)
 
 serve({
@@ -284,6 +287,7 @@ serve({
 }, (info) => {
   console.log(`[Server] Hono server listening on http://${info.address}:${info.port}`)
   console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`)
+  console.log(`[Server] Private networking: ${process.env.NODE_ENV === 'production' ? 'Enabled (IPv6)' : 'Disabled (localhost)'}`)
   console.log(`[Server] Allowed origins:`, allowedOrigins)
 })
 

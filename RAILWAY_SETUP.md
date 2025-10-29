@@ -124,10 +124,28 @@ Should return the built React app.
 
 ---
 
-## Internal vs External URLs
+## Railway Private Networking
+
+Railway's private networking enables fast, secure communication between services within the same project using IPv6-only internal DNS.
+
+### Configuration Requirements
+
+**Server Configuration:**
+- ✅ API server listens on `::` (IPv6) in production
+- ✅ Supports dual-stack (IPv4 + IPv6) connections
+- ✅ Configured automatically via `NODE_ENV=production`
+
+**Internal Service URLs:**
+```bash
+# Format: servicename.railway.internal
+API: http://striking-forgiveness.railway.internal:3004
+Qdrant: http://qdrant.railway.internal:6333
+Frontend: http://jubilant-mercy.railway.internal:8080
+```
 
 ### When to use Internal URLs (`*.railway.internal`)
 - ✅ Frontend → API communication (within Railway)
+- ✅ API → Qdrant communication (embeddings)
 - ✅ Service-to-service communication
 - ✅ Database connections (auto-configured)
 
@@ -135,12 +153,15 @@ Should return the built React app.
 - Faster (no external network routing)
 - Free (no egress charges)
 - More secure (not exposed to internet)
+- IPv6-only for optimal performance
 
 ### When to use External URLs
 - ✅ User browser → Frontend
-- ✅ User browser → API (direct calls)
+- ✅ User browser → API (direct calls from client-side)
 - ✅ External webhooks
 - ✅ Third-party integrations (Meshy, OpenAI, etc.)
+
+**Important:** Private networking is NOT available during build phase and cannot communicate across different projects/environments.
 
 ---
 
