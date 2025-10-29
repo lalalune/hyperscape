@@ -53,6 +53,9 @@ ALTER TABLE teams
 ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE teams
+DROP CONSTRAINT IF EXISTS teams_approval_status_check;
+
+ALTER TABLE teams
 ADD CONSTRAINT teams_approval_status_check CHECK (approval_status IN ('pending', 'approved', 'rejected'));
 
 CREATE INDEX IF NOT EXISTS idx_teams_approval_status ON teams(approval_status);

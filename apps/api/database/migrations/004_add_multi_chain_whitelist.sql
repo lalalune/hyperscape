@@ -7,7 +7,7 @@ ADD COLUMN IF NOT EXISTS chain_type VARCHAR(20) DEFAULT 'ethereum';
 
 -- Update constraint to ensure chain_type is valid
 ALTER TABLE admin_whitelist
-DROP CONSTRAINT IF NOT EXISTS admin_whitelist_chain_type_check;
+DROP CONSTRAINT IF EXISTS admin_whitelist_chain_type_check;
 
 ALTER TABLE admin_whitelist
 ADD CONSTRAINT admin_whitelist_chain_type_check CHECK (chain_type IN ('ethereum', 'solana'));
