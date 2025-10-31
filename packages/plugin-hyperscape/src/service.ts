@@ -320,16 +320,23 @@ Hyperscape world integration service that enables agents to:
       networkRate: 60,
     };
 
-    // Create a minimal world with the basic structure we need
-    const mockConfig: MockWorldConfig = {
-      worldId: config.worldId,
-      name: `world-${config.worldId}`,
-      assets: ["https://assets.hyperscape.io"],
-      physics: hyperscapeConfig.physics,
-    };
-    this.world = this.createWorld(mockConfig);
-
-    console.info("[HyperscapeService] Created real Hyperscape world instance");
+    try {
+      // Create real Hyperscape World instance with WebSocket connection
+      this.world = new World(hyperscapeConfig);
+      await this.world.init();
+      console.info("[HyperscapeService] Created real Hyperscape world instance with WebSocket connection");
+    } catch (error) {
+      console.error("[HyperscapeService] Failed to create World instance, falling back to mock world:", error);
+      // Fallback to mock world for testing/development
+      const mockConfig: MockWorldConfig = {
+        worldId: config.worldId,
+        name: `world-${config.worldId}`,
+        assets: ["https://assets.hyperscape.io"],
+        physics: hyperscapeConfig.physics,
+      };
+      this.world = this.createWorld(mockConfig);
+      console.warn("[HyperscapeService] Using mock world - WebSocket connection unavailable");
+    }
 
     this.playwrightManager = new PlaywrightManager(this.runtime);
     this.emoteManager = new EmoteManager(this.runtime);
@@ -408,42 +415,85 @@ Hyperscape world integration service that enables agents to:
     if (this.world.getSystem?.('skills')) {
       console.info('[HyperscapeService] Skills system detected - loading skill actions');
 
-      // Dynamically import and register skill actions
-      const { chopTreeAction } = await import('./actions/chopTree');
-      const { catchFishAction } = await import('./actions/catchFish');
-      const { lightFireAction } = await import('./actions/lightFire');
-      const { cookFoodAction } = await import('./actions/cookFood');
+      try {
+        // Dynamically import and register skill actions
+        const skillActions = await Promise.allSettled([
+          import('./actions/chopTree').then(m => ({ name: 'chopTree', action: m.chopTreeAction })),
+          import('./actions/catchFish').then(m => ({ name: 'catchFish', action: m.catchFishAction })),
+          import('./actions/lightFire').then(m => ({ name: 'lightFire', action: m.lightFireAction })),
+          import('./actions/cookFood').then(m => ({ name: 'cookFood', action: m.cookFoodAction })),
+        ]);
 
-      await this.runtime.registerAction(chopTreeAction);
-      await this.runtime.registerAction(catchFishAction);
-      await this.runtime.registerAction(lightFireAction);
-      await this.runtime.registerAction(cookFoodAction);
+        let loadedActions = 0;
+        for (const result of skillActions) {
+          if (result.status === 'fulfilled') {
+            try {
+              await this.runtime.registerAction(result.value.action);
+              loadedActions++;
+            } catch (error) {
+              console.error(`[HyperscapeService] Failed to register ${result.value.name} action:`, error);
+            }
+          } else {
+            console.error('[HyperscapeService] Failed to import skill action:', result.reason);
+          }
+        }
 
-      // Load skill-specific providers
-      const { woodcuttingSkillProvider } = await import('./providers/skills/woodcutting');
-      const { fishingSkillProvider } = await import('./providers/skills/fishing');
-      const { firemakingSkillProvider } = await import('./providers/skills/firemaking');
-      const { cookingSkillProvider } = await import('./providers/skills/cooking');
+        // Load skill-specific providers
+        const skillProviders = await Promise.allSettled([
+          import('./providers/skills/woodcutting').then(m => ({ name: 'woodcutting', provider: m.woodcuttingSkillProvider })),
+          import('./providers/skills/fishing').then(m => ({ name: 'fishing', provider: m.fishingSkillProvider })),
+          import('./providers/skills/firemaking').then(m => ({ name: 'firemaking', provider: m.firemakingSkillProvider })),
+          import('./providers/skills/cooking').then(m => ({ name: 'cooking', provider: m.cookingSkillProvider })),
+        ]);
 
-      await this.runtime.registerProvider(woodcuttingSkillProvider);
-      await this.runtime.registerProvider(fishingSkillProvider);
-      await this.runtime.registerProvider(firemakingSkillProvider);
-      await this.runtime.registerProvider(cookingSkillProvider);
+        let loadedProviders = 0;
+        for (const result of skillProviders) {
+          if (result.status === 'fulfilled') {
+            try {
+              await this.runtime.registerProvider(result.value.provider);
+              loadedProviders++;
+            } catch (error) {
+              console.error(`[HyperscapeService] Failed to register ${result.value.name} provider:`, error);
+            }
+          } else {
+            console.error('[HyperscapeService] Failed to import skill provider:', result.reason);
+          }
+        }
 
-      console.info('[HyperscapeService] Loaded 4 skill actions and 4 skill providers');
+        console.info(`[HyperscapeService] Loaded ${loadedActions}/4 skill actions and ${loadedProviders}/4 skill providers`);
+      } catch (error) {
+        console.error('[HyperscapeService] Failed to load skill extensions:', error);
+      }
     }
 
     // Check for inventory/banking system - load inventory actions
     if (this.world.getSystem?.('banking')) {
       console.info('[HyperscapeService] Banking system detected - loading inventory actions');
 
-      const { bankItemsAction } = await import('./actions/bankItems');
-      const { checkInventoryAction } = await import('./actions/checkInventory');
+      try {
+        const bankingActions = await Promise.allSettled([
+          import('./actions/bankItems').then(m => ({ name: 'bankItems', action: m.bankItemsAction })),
+          import('./actions/checkInventory').then(m => ({ name: 'checkInventory', action: m.checkInventoryAction })),
+        ]);
 
-      await this.runtime.registerAction(bankItemsAction);
-      await this.runtime.registerAction(checkInventoryAction);
+        let loadedActions = 0;
+        for (const result of bankingActions) {
+          if (result.status === 'fulfilled') {
+            try {
+              await this.runtime.registerAction(result.value.action);
+              loadedActions++;
+            } catch (error) {
+              console.error(`[HyperscapeService] Failed to register ${result.value.name} action:`, error);
+            }
+          } else {
+            console.error('[HyperscapeService] Failed to import banking action:', result.reason);
+          }
+        }
 
-      console.info('[HyperscapeService] Loaded 2 inventory actions');
+        console.info(`[HyperscapeService] Loaded ${loadedActions}/2 inventory actions`);
+      } catch (error) {
+        console.error('[HyperscapeService] Failed to load banking extensions:', error);
+      }
     }
   }
 

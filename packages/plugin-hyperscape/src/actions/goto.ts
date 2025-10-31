@@ -13,6 +13,7 @@ import {
   type EventHandler,
 } from "@elizaos/core";
 import { HyperscapeService } from "../service";
+import { NavigationResultSchema } from "../types/validation-schemas";
 // Import THREE types if needed, e.g., for metadata typing
 // import type THREE from 'three';
 
@@ -106,15 +107,36 @@ export const hyperscapeGotoEntityAction: Action = {
       template: navigationTargetExtractionTemplate(thoughtSnippets),
     });
 
-    const navigationResult = await runtime.useModel(ModelType.OBJECT_LARGE, {
+    const rawNavigationResult = await runtime.useModel(ModelType.OBJECT_LARGE, {
       prompt,
     });
+
+    // Validate LLM response with Zod schema
+    const validationResult = NavigationResultSchema.safeParse(rawNavigationResult);
+
+    if (!validationResult.success) {
+      logger.error("[GOTO Action] Invalid navigation result from LLM:", validationResult.error);
+      return {
+        text: "I couldn't understand where you want me to go. Can you be more specific?",
+        success: false,
+        error: "Invalid navigation parameters",
+      };
+    }
+
+    const navigationResult = validationResult.data;
     logger.info("[GOTO Action] Navigation target extracted:", navigationResult);
 
     const { navigationType, parameter } = navigationResult;
 
     switch (navigationType) {
       case NavigationType.ENTITY: {
+        if (!("entityId" in parameter)) {
+          logger.error("[GOTO Action] Entity ID missing from parameter");
+          return {
+            text: "I couldn't find the entity you're referring to.",
+            success: false,
+          };
+        }
         const entityId = parameter.entityId;
 
         logger.info(`Navigating to entity ${entityId}`);
@@ -154,6 +176,13 @@ export const hyperscapeGotoEntityAction: Action = {
       }
 
       case NavigationType.POSITION: {
+        if (!("position" in parameter)) {
+          logger.error("[GOTO Action] Position missing from parameter");
+          return {
+            text: "I couldn't understand the coordinates.",
+            success: false,
+          };
+        }
         const pos = parameter.position;
 
         logger.info(`Navigating to position (${pos.x}, ${pos.z})`);

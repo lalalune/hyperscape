@@ -208,3 +208,27 @@ export type PlayerDataExtended = z.infer<typeof PlayerDataExtendedSchema>;
 export type ControllerInterface = z.infer<typeof ControllerInterfaceSchema>;
 export type ChatMessageData = z.infer<typeof ChatMessageDataSchema>;
 export type NetworkPacket = z.infer<typeof NetworkPacketSchema>;
+
+// Navigation schemas for goto action
+export const NavigationEntityParameterSchema = z.object({
+  entityId: z.string().min(1),
+});
+
+export const NavigationPositionParameterSchema = z.object({
+  position: z.object({
+    x: z.number(),
+    z: z.number(),
+  }),
+});
+
+export const NavigationResultSchema = z.object({
+  navigationType: z.enum(["entity", "position"]),
+  parameter: z.union([
+    NavigationEntityParameterSchema,
+    NavigationPositionParameterSchema,
+  ]),
+});
+
+export type NavigationEntityParameter = z.infer<typeof NavigationEntityParameterSchema>;
+export type NavigationPositionParameter = z.infer<typeof NavigationPositionParameterSchema>;
+export type NavigationResult = z.infer<typeof NavigationResultSchema>;
