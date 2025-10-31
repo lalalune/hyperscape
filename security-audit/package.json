@@ -1,0 +1,19 @@
+{
+  "name": "@hyperscape/security-audit",
+  "version": "1.0.0",
+  "description": "Competitive multi-agent bug hunting simulation with reinforcement learning",
+  "type": "module",
+  "main": "run-simulation.ts",
+  "scripts": {
+    "start": "tsx run-simulation.ts",
+    "simulation": "tsx run-simulation.ts"
+  },
+  "dependencies": {
+    "glob": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
