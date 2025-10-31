@@ -50,28 +50,40 @@ const ROOT_DIR = path.join(__dirname, '..')
 // Initialize Express app with security middleware
 const app = express()
 
-// Basic CORS headers (simplified without cors package)
+// ----- Secure CORS headers -----
+// Define whitelist of allowed origins
+const allowedOrigins = (
+  process.env.NODE_ENV === 'production'
+    ? (process.env.FRONTEND_URL || process.env.ALLOWED_CORS_ORIGINS || '').split(',').map(origin => origin.replace(/\/$/, '').trim())
+    : [
+        'http://localhost:3000',
+        // Add other local/test origins if needed
+      ]
+)
+
+// Clean up whitelist: remove empty entries, filter out 'null' origin
+const sanitizedAllowedOrigins = allowedOrigins
+  .filter(Boolean)
+  .filter(origin => origin !== 'null')
+
+// Middleware
 app.use((req, res, next) => {
-  // In production, require FRONTEND_URL or ALLOWED_CORS_ORIGINS to be explicitly set
-  let origin
-  if (process.env.NODE_ENV === 'production') {
-    const allowedOrigin = process.env.FRONTEND_URL || process.env.ALLOWED_CORS_ORIGINS
-    if (!allowedOrigin) {
-      console.error('[CORS] CRITICAL: FRONTEND_URL or ALLOWED_CORS_ORIGINS not set in production')
-      return res.status(500).json({
-        error: 'Server misconfiguration',
-        message: 'CORS origins not configured'
-      })
-    }
-    origin = allowedOrigin.replace(/\/$/, '') // Remove trailing slash
-  } else {
-    origin = req.headers.origin || 'http://localhost:3000'
+  const requestOrigin = req.headers.origin
+  let corsOrigin = null
+
+  if (requestOrigin && sanitizedAllowedOrigins.includes(requestOrigin)) {
+    corsOrigin = requestOrigin
+  } else if (!requestOrigin && process.env.NODE_ENV !== 'production') {
+    // default to first dev origin if not set
+    corsOrigin = sanitizedAllowedOrigins[0]
   }
 
-  res.header('Access-Control-Allow-Origin', origin)
+  if (corsOrigin) {
+    res.header('Access-Control-Allow-Origin', corsOrigin)
+    res.header('Access-Control-Allow-Credentials', 'true')
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires, x-user-id, x-wallet-address')
-  res.header('Access-Control-Allow-Credentials', 'true')
   res.header('Access-Control-Expose-Headers', 'Cache-Control, Pragma, Expires')
 
   // Security headers (basic OWASP without helmet)
