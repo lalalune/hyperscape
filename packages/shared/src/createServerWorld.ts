@@ -16,7 +16,7 @@
  * 2. Environment: Lighting, shadows, CSM
  * 3. Terrain: Heightmap-based terrain system
  * 4. RPG Systems: All game logic (combat, inventory, skills, etc.)
- * 5. Optional: ServerBot (if MAX_BOT_COUNT > 0 and DISABLE_BOTS != true)
+ * 5. Optional: ServerBot (if MAX_BOT_COUNT > 0 and DISABLE_BOTS !== true)
  * 
  * Network System:
  * ServerNetwork is registered separately in the server package (not here)

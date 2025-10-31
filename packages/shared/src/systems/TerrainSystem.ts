@@ -697,7 +697,7 @@ export class TerrainSystem extends System {
         // Add visible resource meshes (instanced proxies) on client
         if (tile.resources.length > 0 && tile.mesh) {
           for (const resource of tile.resources) {
-            if (resource.instanceId != null) continue
+            if (resource.instanceId !== null) continue
 
             const worldPosition = new THREE.Vector3(
               tile.x * this.CONFIG.TILE_SIZE + resource.position.x,
@@ -1575,7 +1575,7 @@ export class TerrainSystem extends System {
     // Remove instanced meshes for this tile
     if (this.instancedMeshManager) {
       for (const resource of tile.resources) {
-        if (resource.instanceId != null && resource.meshType) {
+        if (resource.instanceId !== null && resource.meshType) {
           this.instancedMeshManager.removeInstance(resource.meshType, resource.instanceId)
         }
       }

@@ -1188,7 +1188,7 @@ function isSpace(value) {
   return spaces.includes(value)
 }
 
-// pivotOffset == ( - pivotX, - pivotY )
+// pivotOffset === ( - pivotX, - pivotY )
 // i.e., the negative of whatever pivotGeometry just did.
 function getPivotOffset(pivot, width, height) {
   // The top-left corner is originally (-halfW, +halfH).

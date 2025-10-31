@@ -127,7 +127,7 @@ globalWithPolyfills.document = {
         width: 1024,
         height: 1024,
         getContext: (contextType?: string) => {
-          if (contextType === '2d' || contextType == null) {
+          if (contextType === '2d' || contextType === null) {
             // Return a mock 2D context with all required methods
             return {
               // Drawing methods

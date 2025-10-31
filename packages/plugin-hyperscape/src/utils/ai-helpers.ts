@@ -170,7 +170,7 @@ export function getChannelContext(channelId?: string): string {
 
 // Export helper functions
 export function formatContext(data: Record<string, string | number | boolean>): string {
-  const entries = Object.entries(data).filter(([_, value]) => value != null);
+  const entries = Object.entries(data).filter(([_, value]) => value !== null);
   return entries
     .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
     .join("\n");

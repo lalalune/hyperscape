@@ -292,7 +292,7 @@ export class Environment extends System {
       }
     }
 
-    if (fogNear != null && fogFar != null && fogColor) {
+    if (fogNear !== null && fogFar !== null && fogColor) {
       const color = new THREE.Color(fogColor)
       this.world.stage.scene.fog = new THREE.Fog(color, fogNear as number, fogFar as number)
     } else {
