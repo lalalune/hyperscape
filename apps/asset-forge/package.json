@@ -45,7 +45,7 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/three": "^0.178.1",
+    "@types/three": "^0.181.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "@vitejs/plugin-react": "5.1.0",
