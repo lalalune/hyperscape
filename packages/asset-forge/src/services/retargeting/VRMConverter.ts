@@ -462,9 +462,9 @@ export class VRMConverter {
       this.warnings.push(`Missing required bones: ${missingRequired.join(', ')}`)
     }
 
-    // SKIP T-pose normalization - online VRM viewers prove Meshy bind pose works fine
-    // The real issue was matrix vs TRS, which we fix in post-processing
-    console.log('🤸 Skipping T-pose normalization (preserving Meshy bind pose)...')
+    // SKIP T-pose normalization - preserve original bind pose like online VRM viewers do
+    // Our AnimationRetargeting.ts already handles bind pose compensation (lines 85-120)
+    console.log('🤸 Preserving original bind pose (matches online VRM viewers)...')
 
     // CRITICAL FIX: Ensure Hips bone has local translation
     // Hyperscape needs Hips.translation to be set for animation scaling
@@ -510,13 +510,14 @@ export class VRMConverter {
   /**
    * Normalize bind pose to T-pose
    *
-   * This fixes non-T-pose VRMs by:
-   * 1. Applying inverse rotation to Hips and compensating all children
-   * 2. Recalculating inverse bind matrices to preserve skin weights
-   * 3. Ensuring compatibility with Hyperscape's animation system
+   * This fixes non-T-pose VRMs (like A-pose from Meshy) by:
+   * 1. Setting Hips to identity (straight up)
+   * 2. Setting arm bones to T-pose (straight out to sides)
+   * 3. Compensating all children to preserve world poses
+   * 4. Recalculating inverse bind matrices to preserve skin weights
    */
   private normalizeBindPoseToTPose(): void {
-    console.log('🔧 Normalizing bind pose to T-pose...')
+    console.log('🔧 Normalizing bind pose from A-pose to T-pose...')
 
     const hipsBone = this.findBoneByName('Hips')
     if (!hipsBone) {
@@ -528,60 +529,103 @@ export class VRMConverter {
     const hipsOriginalRot = hipsBone.quaternion.clone()
     console.log(`   Hips original rotation: [${hipsOriginalRot.x.toFixed(3)}, ${hipsOriginalRot.y.toFixed(3)}, ${hipsOriginalRot.z.toFixed(3)}, ${hipsOriginalRot.w.toFixed(3)}]`)
 
-    // Preserve world rotations by transforming children's local rotations
-    // When Hips changes from rotation H to identity, children need to be updated:
-    // Old: child_world = H * child_local
-    // New: child_world = identity * child_local_new
-    // Therefore: child_local_new = H * child_local
-    const compensateChildren = (bone: THREE.Bone, parentOriginalRot: THREE.Quaternion) => {
+    // Recursively compensate all descendants when a bone's rotation changes
+    const compensateDescendants = (bone: THREE.Bone, parentDeltaRot: THREE.Quaternion) => {
       bone.children.forEach(child => {
         if (child instanceof THREE.Bone) {
           // Store original local rotation
           const childOriginalLocal = child.quaternion.clone()
 
-          // New local rotation = parent's original rotation * child's original local rotation
-          child.quaternion.copy(parentOriginalRot).multiply(childOriginalLocal)
+          // New local rotation = parentDelta * child's original local rotation
+          // This preserves the child's world rotation when parent changes
+          child.quaternion.copy(parentDeltaRot).multiply(childOriginalLocal)
 
           console.log(`      Compensated ${child.name}: [${childOriginalLocal.x.toFixed(3)}, ${childOriginalLocal.y.toFixed(3)}, ${childOriginalLocal.z.toFixed(3)}, ${childOriginalLocal.w.toFixed(3)}] -> [${child.quaternion.x.toFixed(3)}, ${child.quaternion.y.toFixed(3)}, ${child.quaternion.z.toFixed(3)}, ${child.quaternion.w.toFixed(3)}]`)
 
-          // Recursively compensate grandchildren (but with identity, since child's world rotation hasn't changed)
-          // Actually, no - we don't recurse because we're only compensating direct children of Hips
+          // Recursively compensate all descendants (with identity since this child's world rotation is preserved)
+          compensateDescendants(child, new THREE.Quaternion(0, 0, 0, 1))
         }
       })
     }
 
-    // Compensate all direct children of Hips
-    compensateChildren(hipsBone, hipsOriginalRot)
-
-    // Now set Hips to identity
+    // 1. Fix Hips to T-pose (identity rotation)
+    compensateDescendants(hipsBone, hipsOriginalRot)
     hipsBone.quaternion.set(0, 0, 0, 1)
-    console.log('   ✅ Set Hips to identity and compensated children')
+    console.log('   ✅ Set Hips to identity and compensated all descendants')
 
-    // Update world matrices
+    // Update world matrices after Hips change
     this.scene.updateMatrixWorld(true)
 
-    // Recalculate inverse bind matrices to match new bind pose
-    // This is CRITICAL - it ensures skin weights still work correctly
-    if (this.skinnedMesh.skeleton) {
-      // Store old inverse bind matrices for comparison
-      const oldInverseBindMatrices = this.skinnedMesh.skeleton.boneInverses.map(m => m.clone())
+    // 2. Fix shoulder and arm bones to T-pose (straight out to sides)
+    // In A-pose, both shoulders AND arms are rotated. We need to fix both.
+    const leftShoulderBone = this.findBoneByName('LeftShoulder')
+    const leftArmBone = this.findBoneByName('LeftArm') || this.findBoneByName('LeftUpperArm')
+    const rightShoulderBone = this.findBoneByName('RightShoulder')
+    const rightArmBone = this.findBoneByName('RightArm') || this.findBoneByName('RightUpperArm')
 
-      // Recalculate based on new bone positions/rotations
+    // Fix left shoulder first, then arm
+    if (leftShoulderBone) {
+      const leftShoulderOriginalRot = leftShoulderBone.quaternion.clone()
+      console.log(`   LeftShoulder original rotation: [${leftShoulderOriginalRot.x.toFixed(3)}, ${leftShoulderOriginalRot.y.toFixed(3)}, ${leftShoulderOriginalRot.z.toFixed(3)}, ${leftShoulderOriginalRot.w.toFixed(3)}]`)
+
+      // Compensate children before changing shoulder rotation
+      compensateDescendants(leftShoulderBone, leftShoulderOriginalRot)
+
+      // Set shoulder to T-pose (identity)
+      leftShoulderBone.quaternion.set(0, 0, 0, 1)
+      console.log('   ✅ Set LeftShoulder to T-pose and compensated descendants')
+    }
+
+    if (leftArmBone) {
+      const leftArmOriginalRot = leftArmBone.quaternion.clone()
+      console.log(`   LeftArm original rotation: [${leftArmOriginalRot.x.toFixed(3)}, ${leftArmOriginalRot.y.toFixed(3)}, ${leftArmOriginalRot.z.toFixed(3)}, ${leftArmOriginalRot.w.toFixed(3)}]`)
+
+      // Compensate children before changing arm rotation
+      compensateDescendants(leftArmBone, leftArmOriginalRot)
+
+      // Set arm to T-pose (identity - straight out)
+      leftArmBone.quaternion.set(0, 0, 0, 1)
+      console.log('   ✅ Set LeftArm to T-pose and compensated descendants')
+    } else {
+      console.warn('   ⚠️  LeftArm bone not found - skipping arm normalization')
+    }
+
+    // Fix right shoulder first, then arm
+    if (rightShoulderBone) {
+      const rightShoulderOriginalRot = rightShoulderBone.quaternion.clone()
+      console.log(`   RightShoulder original rotation: [${rightShoulderOriginalRot.x.toFixed(3)}, ${rightShoulderOriginalRot.y.toFixed(3)}, ${rightShoulderOriginalRot.z.toFixed(3)}, ${rightShoulderOriginalRot.w.toFixed(3)}]`)
+
+      // Compensate children before changing shoulder rotation
+      compensateDescendants(rightShoulderBone, rightShoulderOriginalRot)
+
+      // Set shoulder to T-pose (identity)
+      rightShoulderBone.quaternion.set(0, 0, 0, 1)
+      console.log('   ✅ Set RightShoulder to T-pose and compensated descendants')
+    }
+
+    if (rightArmBone) {
+      const rightArmOriginalRot = rightArmBone.quaternion.clone()
+      console.log(`   RightArm original rotation: [${rightArmOriginalRot.x.toFixed(3)}, ${rightArmOriginalRot.y.toFixed(3)}, ${rightArmOriginalRot.z.toFixed(3)}, ${rightArmOriginalRot.w.toFixed(3)}]`)
+
+      // Compensate children before changing arm rotation
+      compensateDescendants(rightArmBone, rightArmOriginalRot)
+
+      // Set arm to T-pose (identity - straight out)
+      rightArmBone.quaternion.set(0, 0, 0, 1)
+      console.log('   ✅ Set RightArm to T-pose and compensated descendants')
+    } else {
+      console.warn('   ⚠️  RightArm bone not found - skipping arm normalization')
+    }
+
+    // Update world matrices after all bone changes
+    this.scene.updateMatrixWorld(true)
+
+    // CRITICAL: Recalculate inverse bind matrices for the new T-pose bind pose
+    // We changed the skeleton's bind pose from A-pose to T-pose, so we MUST recalculate
+    console.log('   🔧 Recalculating inverse bind matrices for new T-pose bind pose...')
+    if (this.skinnedMesh && this.skinnedMesh.skeleton) {
       this.skinnedMesh.skeleton.calculateInverses()
-
-      console.log('   ✅ Recalculated inverse bind matrices')
-      console.log(`   Old inverse bind matrices: ${oldInverseBindMatrices.length}`)
-      console.log(`   New inverse bind matrices: ${this.skinnedMesh.skeleton.boneInverses.length}`)
-
-      // Debug: Log Hips inverse bind matrix change
-      const hipsIndex = this.bones.indexOf(hipsBone)
-      if (hipsIndex >= 0) {
-        const oldMat = oldInverseBindMatrices[hipsIndex]
-        const newMat = this.skinnedMesh.skeleton.boneInverses[hipsIndex]
-        console.log('   Hips inverse bind matrix:')
-        console.log(`     Old: [${oldMat.elements.slice(0, 4).map(v => v.toFixed(3)).join(', ')}]`)
-        console.log(`     New: [${newMat.elements.slice(0, 4).map(v => v.toFixed(3)).join(', ')}]`)
-      }
+      console.log('   ✅ Inverse bind matrices recalculated')
     }
 
     // Verify T-pose
@@ -854,6 +898,7 @@ export class VRMConverter {
       meta: {
         name: options.avatarName || 'Converted Avatar',
         version: options.version || '1.0',
+        metaVersion: '1.0',
         authors: [options.author || 'Hyperscape'],
         copyrightInformation: 'Converted from Meshy GLB',
         contactInformation: '',
