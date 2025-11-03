@@ -12,6 +12,7 @@
  */
 
 import * as THREE from 'three'
+import { createBoneMapping, MESHY_TO_MIXAMO } from './BoneMappings'
 
 export interface BoneMapping {
   [sourceBoneName: string]: string  // maps to target bone name
@@ -33,11 +34,29 @@ export class WeightTransferSolver {
     this.sourceSkeleton = sourceSkeleton
     this.targetSkeleton = targetSkeleton
 
-    // Auto-generate bone mapping if not provided
-    this.boneMapping = boneMapping || this.generateBoneMapping()
+    // Use provided mapping, or try Meshy→Mixamo, or fall back to fuzzy matching
+    if (boneMapping) {
+      this.boneMapping = boneMapping
+      console.log('🎯 Using provided bone mapping')
+    } else {
+      // Try to use semantic mapping (Meshy → Mixamo)
+      const sourceBoneNames = sourceSkeleton.bones.map(b => b.name)
+      const targetBoneNames = targetSkeleton.bones.map(b => b.name)
+
+      const semanticMapping = createBoneMapping(sourceBoneNames, targetBoneNames, MESHY_TO_MIXAMO)
+
+      if (semanticMapping.size > 0) {
+        // Convert Map to Record
+        this.boneMapping = Object.fromEntries(semanticMapping)
+        console.log('🎯 Using semantic Meshy→Mixamo bone mapping')
+      } else {
+        console.warn('⚠️  Semantic mapping failed, falling back to fuzzy matching')
+        this.boneMapping = this.generateBoneMapping()
+      }
+    }
 
     const mappingQuality = Object.keys(this.boneMapping).length / sourceSkeleton.bones.length
-    console.log('🎯 WeightTransferSolver initialized')
+    console.log('📊 WeightTransferSolver initialized')
     console.log('  Source bones:', sourceSkeleton.bones.length)
     console.log('  Target bones:', targetSkeleton.bones.length)
     console.log('  Bone mapping:', Object.keys(this.boneMapping).length, 'mapped')

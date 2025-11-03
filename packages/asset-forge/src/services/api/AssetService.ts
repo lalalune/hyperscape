@@ -119,6 +119,43 @@ class AssetServiceClass {
   getConceptArtUrl(assetId: string): string {
     return `/assets/${assetId}/concept-art.png`
   }
+
+  /**
+   * Upload VRM file to server
+   * Saves the converted VRM alongside the original asset
+   */
+  async uploadVRM(assetId: string, vrmData: ArrayBuffer, filename: string): Promise<{ success: boolean; url: string }> {
+    const formData = new FormData()
+    const blob = new Blob([vrmData], { type: 'application/octet-stream' })
+    formData.append('file', blob, filename)
+    formData.append('assetId', assetId)
+
+    const response = await apiFetch(`${this.baseUrl}/assets/upload-vrm`, {
+      method: 'POST',
+      body: formData,
+      timeoutMs: 30000,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error?.message || 'VRM upload failed')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get VRM model URL if it exists
+   */
+  getVRMUrl(assetId: string): string {
+    // Check gdd-assets for built-in assets
+    const builtInAssets = ['human', 'goblin', 'imp', 'troll', 'thug', 'quadruped', 'bird']
+    if (builtInAssets.includes(assetId)) {
+      return `/gdd-assets/${assetId}/${assetId}.vrm`
+    }
+    // User assets
+    return `/assets/${assetId}/${assetId}.vrm`
+  }
 }
 
 export const AssetService = new AssetServiceClass()

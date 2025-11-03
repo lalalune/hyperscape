@@ -1,7 +1,7 @@
-import { 
-  Grid3X3, 
-  Box, 
-  Info, 
+import {
+  Grid3X3,
+  Box,
+  Info,
   RotateCw,
 
   Download,
@@ -9,14 +9,12 @@ import {
   X,
   Hand
 } from 'lucide-react'
-import { useRef, useImperativeHandle, forwardRef, useEffect, useState, useCallback } from 'react'
-import type { Ref } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useEffect, useState, useCallback, type Ref } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { CustomSkeletonHelper } from './CustomSkeletonHelper'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js'
@@ -25,6 +23,8 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { getTierColor } from '../../constants/materials'
 import { ENVIRONMENTS } from '../../constants/three'
 import { ExtendedWindow } from '../../types'
+
+import { CustomSkeletonHelper } from './CustomSkeletonHelper'
 
 
 interface ThreeViewerProps {
@@ -85,7 +85,8 @@ export interface ThreeViewerRef {
   debugGizmo?: () => void
   getSourceSkeleton?: () => THREE.Skeleton | null
   getTargetSkeleton?: () => THREE.Skeleton | null
-  getAvailableAnimations?: () => THREE.AnimationClip[]
+  getAvailableAnimations: () => THREE.AnimationClip[]
+  retargetAnimationsToCharacter: (animationRigUrl: string, animationsUrl: string) => Promise<boolean>
 }
 
 const ThreeViewer = forwardRef(({ 
@@ -113,11 +114,11 @@ const ThreeViewer = forwardRef(({
   const frameIdRef = useRef<number | null>(null)
   const gridRef = useRef<THREE.GridHelper | null>(null)
   const skeletonHelperRef = useRef<THREE.SkeletonHelper | CustomSkeletonHelper | null>(null)
-  const boneEditHandleRef = useRef<THREE.Object3D | null>(null)
+  const _boneEditHandleRef = useRef<THREE.Object3D | null>(null)
   const selectedBoneRef = useRef<THREE.Bone | null>(null)
   const boneHighlightSphereRef = useRef<THREE.Mesh | null>(null)
   const boneLabelsGroupRef = useRef<THREE.Group | null>(null)
-  const originalBindMatricesRef = useRef<Map<THREE.SkinnedMesh, THREE.Matrix4[]>>(new Map())
+  const _originalBindMatricesRef = useRef<Map<THREE.SkinnedMesh, THREE.Matrix4[]>>(new Map())
   // Removed: animatedModelsRef and animationTypesRef - no longer needed
 
   // Mesh2Motion workflow refs - for manual retargeting
@@ -170,18 +171,18 @@ const ThreeViewer = forwardRef(({
   const targetSkeletonRef = useRef<THREE.Skeleton | null>(null)
   const sourceSkeletonRef = useRef<THREE.Skeleton | null>(null)  // Original source mesh skeleton (for weight transfer)
   // Bone editing state
-  const [boneEditEnabled, setBoneEditEnabled] = useState(false)
+  const [_boneEditEnabled, setBoneEditEnabled] = useState(false)
   const boneEditEnabledRef = useRef(false) // Ref for closures
-  const [boneMirrorEnabledState, setBoneMirrorEnabledState] = useState(false)
+  const [_boneMirrorEnabledState, setBoneMirrorEnabledState] = useState(false)
   const boneMirrorEnabledRef = useRef(false) // Ref for closures
   const [boneTransformModeState, setBoneTransformModeState] = useState<'translate' | 'rotate'>('translate')
   const boneTransformModeStateRef = useRef<'translate' | 'rotate'>('translate') // Ref for closures
   const [boneTransformSpaceState, setBoneTransformSpaceState] = useState<'world' | 'local'>('world')
-  const [selectedBoneName, setSelectedBoneName] = useState<string | null>(null)
+  const [_selectedBoneName, setSelectedBoneName] = useState<string | null>(null)
 
   const raycaster = useRef(new THREE.Raycaster())
   const pointer = useRef(new THREE.Vector2())
-  const [selectedBone, setSelectedBone] = useState<THREE.Bone | null>(null)
+  const [_selectedBone, setSelectedBone] = useState<THREE.Bone | null>(null)
   const applyMirrorModeRef = useRef<((bone: THREE.Bone, mode: 'translate' | 'rotate') => void) | null>(null)
 
   const computeDistanceToFit = (size: THREE.Vector3, camera: THREE.PerspectiveCamera) => {
@@ -200,7 +201,7 @@ const ThreeViewer = forwardRef(({
       .replace(/^mixamorig[:_]?/i, '')
       .replace(/^armature[:_\-.]?/i, '')
       .replace(/^DEF[-_]?/i, '')  // Strip DEF- prefix from Blender bones
-      .replace(/[:\.]/g, '')
+      .replace(/[:.]/g, '')
       .replace(/[-_]/g, '')  // Remove dashes and underscores for matching
       .replace(/\s+/g, '')
       .toLowerCase()
@@ -224,7 +225,7 @@ const ThreeViewer = forwardRef(({
     return map
   }, [])
 
-  const remapClipToTarget = useCallback((clip: THREE.AnimationClip): THREE.AnimationClip => {
+  const _remapClipToTarget = useCallback((clip: THREE.AnimationClip): THREE.AnimationClip => {
     // CRITICAL: Always build bone map from the CURRENT retargeted model, not the target rig!
     // The target rig has Mixamo names, but we need to map TO the retargeted model's DEF- names
     const map = buildTargetBoneMap()
@@ -1478,8 +1479,6 @@ const ThreeViewer = forwardRef(({
 
       console.log('🔄 Applying retargeting with WEIGHT TRANSFER (production technique)...')
 
-      const { WeightTransferSolver } = await import('../../services/retargeting/WeightTransferSolver')
-
       // CRITICAL: Get the preview mesh to extract its scale
       const previewMeshForWeights = sceneRef.current.getObjectByName('PreviewMesh') as THREE.Mesh
       if (!previewMeshForWeights) {
@@ -1506,17 +1505,47 @@ const ThreeViewer = forwardRef(({
       let skinIndices: number[]
       let skinWeights: number[]
 
-      // Calculate skin weights using the EDITED skeleton and SCALED geometry
-      // Using distance-based calculation
-      const { SkeletonRetargeter } = await import('../../services/retargeting/SkeletonRetargeter')
-      const solver = SkeletonRetargeter.createSolver(
-        'distance-targeting',
-        scaledGeometry,  // Use scaled geometry to match skeleton scale
-        editableSkeletonRef.current.bones
-      )
-      const result = solver.calculateWeights()
-      skinIndices = result.skinIndices
-      skinWeights = result.skinWeights
+      if (sourceSkeletonRef.current) {
+        // Try weight transfer first (preserves professional Meshy weights)
+        const { WeightTransferSolver } = await import('../../services/retargeting/WeightTransferSolver')
+        const transferSolver = new WeightTransferSolver(
+          unboundGeometryRef.current,  // Use UNSCALED geometry (has original weights)
+          sourceSkeletonRef.current,
+          editableSkeletonRef.current
+        )
+
+        // Check if bone mapping is good enough
+        if (transferSolver.isMappingQualityGood()) {
+          console.log('✅ Bone mapping quality is good - using weight transfer')
+          const transferred = transferSolver.transferWeights()
+          skinIndices = transferred.skinIndices
+          skinWeights = transferred.skinWeights
+        } else {
+          // Fallback to distance-based calculation
+          console.warn('⚠️  Bone mapping quality poor - falling back to distance calculation')
+          const { SkeletonRetargeter } = await import('../../services/retargeting/SkeletonRetargeter')
+          const solver = SkeletonRetargeter.createSolver(
+            'distance-targeting',
+            scaledGeometry,  // Use scaled geometry to match skeleton scale
+            editableSkeletonRef.current.bones
+          )
+          const result = solver.calculateWeights()
+          skinIndices = result.skinIndices
+          skinWeights = result.skinWeights
+        }
+      } else {
+        // No source skeleton - must calculate from scratch
+        console.warn('⚠️  No source skeleton - calculating weights from scratch')
+        const { SkeletonRetargeter } = await import('../../services/retargeting/SkeletonRetargeter')
+        const solver = SkeletonRetargeter.createSolver(
+          'distance-targeting',
+          scaledGeometry,
+          editableSkeletonRef.current.bones
+        )
+        const result = solver.calculateWeights()
+        skinIndices = result.skinIndices
+        skinWeights = result.skinWeights
+      }
 
       console.log('Weight processing complete:', {
         totalVertices: scaledGeometry.attributes.position.count,
@@ -1641,6 +1670,149 @@ const ThreeViewer = forwardRef(({
       }
 
       console.log('✅ Retargeting applied! Mesh bound to edited skeleton.')
+
+      return true
+    },
+    retargetAnimationsToCharacter: async (animationRigUrl: string, animationsUrl: string) => {
+      /**
+       * NEW WORKFLOW: Animation Retargeting (Industry Standard)
+       *
+       * Instead of rebinding mesh to new skeleton:
+       * 1. Keep character bound to its original skeleton
+       * 2. Load animation rig (Mixamo) and animations
+       * 3. Retarget animation bone transforms from Mixamo → Character
+       * 4. Play retargeted animations on character
+       *
+       * This is what Hyperfy, Unreal, and production tools do.
+       */
+
+      if (!modelRef.current || !sceneRef.current) {
+        console.error('No character loaded!')
+        return false
+      }
+
+      console.log('🎬 Starting Animation Retargeting workflow...')
+      console.log('  Character stays bound to original skeleton')
+      console.log('  Retargeting animations only (not mesh)')
+
+      // Get character's skeleton
+      let characterSkeleton: THREE.Skeleton | null = null
+      modelRef.current.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh && child.skeleton && !characterSkeleton) {
+          characterSkeleton = child.skeleton
+        }
+      })
+
+      if (!characterSkeleton) {
+        console.error('❌ Character has no skeleton!')
+        return false
+      }
+
+      // TypeScript type narrowing - characterSkeleton is now THREE.Skeleton (not null)
+      const charSkeleton: THREE.Skeleton = characterSkeleton
+      console.log('✅ Character skeleton:', charSkeleton.bones.length, 'bones')
+      console.log('🔍 ALL CHARACTER BONE NAMES:')
+      charSkeleton.bones.forEach((bone: THREE.Bone, i: number) => {
+        console.log(`  [${i}] ${bone.name}`)
+      })
+
+      // Load animation rig (Mixamo)
+      console.log('📦 Loading animation rig from:', animationRigUrl)
+      const loader = new GLTFLoader()
+      const rigGltf = await loader.loadAsync(animationRigUrl)
+
+      const { extractSkeletonFromGLTF } = await import('../../services/retargeting/AnimationRetargeter')
+      const animationSkeleton: THREE.Skeleton | null = extractSkeletonFromGLTF(rigGltf)
+
+      if (!animationSkeleton) {
+        console.error('❌ Animation rig has no skeleton!')
+        return false
+      }
+
+      // TypeScript now knows animationSkeleton is THREE.Skeleton (not null)
+      console.log('✅ Animation skeleton:', animationSkeleton.bones.length, 'bones')
+      console.log('🔍 ALL ANIMATION BONE NAMES:')
+      animationSkeleton.bones.forEach((bone: THREE.Bone, i: number) => {
+        console.log(`  [${i}] ${bone.name}`)
+      })
+
+      // Load animations
+      console.log('📦 Loading animations from:', animationsUrl)
+      const animGltf = await loader.loadAsync(animationsUrl)
+
+      if (!animGltf.animations || animGltf.animations.length === 0) {
+        console.error('❌ No animations found!')
+        return false
+      }
+
+      console.log('✅ Loaded', animGltf.animations.length, 'animations')
+
+      // Retarget animations
+      const { AnimationRetargeter } = await import('../../services/retargeting/AnimationRetargeter')
+      const retargeter = new AnimationRetargeter(
+        animGltf.animations,
+        animationSkeleton,  // Source: Mixamo (67 bones)
+        charSkeleton   // Target: Character (24 bones)
+      )
+
+      const retargetedAnimations = retargeter.retargetAll()
+
+      if (retargetedAnimations.length === 0) {
+        console.error('❌ Failed to retarget any animations!')
+        return false
+      }
+
+      console.log('✅ Successfully retargeted', retargetedAnimations.length, 'animations')
+
+      // Debug: Show retargeted track names for first animation
+      if (retargetedAnimations.length > 0) {
+        const firstClip = retargetedAnimations[0].clip
+        console.log('🔍 First retargeted clip track names:')
+        firstClip.tracks.slice(0, 10).forEach((track: THREE.KeyframeTrack) => {
+          console.log(`  ${track.name}`)
+        })
+      }
+
+      // Set up animation mixer on the ORIGINAL character (not a rebounded mesh)
+      if (mixerRef.current) {
+        mixerRef.current.stopAllAction()
+      }
+      mixerRef.current = new THREE.AnimationMixer(modelRef.current)
+
+      // Store retargeted clips
+      const clips = retargetedAnimations.map(r => r.clip)
+      setAnimations(clips)
+
+      // Show skeleton by default after retargeting
+      if (charSkeleton && sceneRef.current) {
+        // Create or update skeleton helper
+        if (skeletonHelperRef.current) {
+          sceneRef.current.remove(skeletonHelperRef.current)
+        }
+
+        const helper = new THREE.SkeletonHelper(modelRef.current!)
+        helper.visible = true
+
+        // Make skeleton lines visible
+        const material = helper.material as THREE.LineBasicMaterial
+        material.color = new THREE.Color(0x00ff00)  // Bright green
+        material.linewidth = 3
+        material.depthTest = true
+        material.transparent = true
+        material.opacity = 1.0
+
+        sceneRef.current.add(helper)
+        skeletonHelperRef.current = helper
+        setShowSkeleton(true)
+        setHasRiggedModel(true)
+
+        console.log('✅ Skeleton helper shown by default')
+      }
+
+      console.log('✅ Animation retargeting complete!')
+      console.log('   Character mesh: Unchanged (original skeleton)')
+      console.log('   Animations: Retargeted to character skeleton')
+      console.log('   Available animations:', clips.map(c => c.name).join(', '))
 
       return true
     },
@@ -2002,7 +2174,7 @@ const ThreeViewer = forwardRef(({
           // Scale to 12% of model size for good visibility
           transformControlsRef.current.size = Math.max(radius * 0.12, 0.3)
           console.log('[bone-edit] Initial gizmo size:', transformControlsRef.current.size, 'for model radius:', radius)
-        } catch (e) {
+        } catch {
           transformControlsRef.current.size = 0.5
         }
       }
@@ -2275,8 +2447,8 @@ const ThreeViewer = forwardRef(({
         const finalMeshSize = finalMeshBBox.getSize(new THREE.Vector3())
 
         // Calculate skeleton's natural size (need to temporarily reset to get natural size)
-        const currentScale = rootBone.scale.clone()
-        const currentPos = rootBone.position.clone()
+        const _currentScale = rootBone.scale.clone()
+        const _currentPos = rootBone.position.clone()
 
         rootBone.scale.set(1, 1, 1)
         rootBone.position.set(0, 0, 0)
@@ -2320,7 +2492,7 @@ const ThreeViewer = forwardRef(({
         console.log('  Skeleton scale factor:', skeletonScaleFactor, '(fits within mesh bounds)')
       }
     }
-  }), [animations, assetInfo, exportTPoseModel, showSkeleton])
+  }), [animations, assetInfo, exportTPoseModel, showSkeleton, boneTransformModeState, boneTransformSpaceState])
   
   // Initialize Three.js scene with professional setup
    
@@ -2436,13 +2608,13 @@ const ThreeViewer = forwardRef(({
       // Calculate base bone name (strip L/R suffixes and prefixes)
       // Handle patterns: boneName.L, boneName.R, boneNameL, boneNameR, L_boneName, R_boneName, etc.
       const baseName = selectedBone.name
-        .replace(/[_\-\.]?(l|r|left|right)$/i, '')  // Remove suffix
-        .replace(/^(l|r|left|right)[_\-\.]?/i, '')  // Remove prefix
+        .replace(/[_\-.]?(l|r|left|right)$/i, '')  // Remove suffix
+        .replace(/^(l|r|left|right)[_\-.]?/i, '')  // Remove prefix
         .toLowerCase()
 
       // Determine if this is a left or right bone
-      const isLeft = /[_\-\.]?(l|left)[_\-\.]?/i.test(selectedBone.name)
-      const isRight = /[_\-\.]?(r|right)[_\-\.]?/i.test(selectedBone.name)
+      const isLeft = /[_\-.]?(l|left)[_\-.]?/i.test(selectedBone.name)
+      const isRight = /[_\-.]?(r|right)[_\-.]?/i.test(selectedBone.name)
 
       if (!isLeft && !isRight) {
         console.log(`[mirror] ${selectedBone.name} is not a left/right bone (center bone), skipping`)
@@ -2460,13 +2632,13 @@ const ThreeViewer = forwardRef(({
         if (bone === selectedBone) continue
 
         const boneBaseName = bone.name
-          .replace(/[_\-\.]?(l|r|left|right)$/i, '')
-          .replace(/^(l|r|left|right)[_\-\.]?/i, '')
+          .replace(/[_\-.]?(l|r|left|right)$/i, '')
+          .replace(/^(l|r|left|right)[_\-.]?/i, '')
           .toLowerCase()
 
         // Must have same base name but opposite side
-        const boneIsLeft = /[_\-\.]?(l|left)[_\-\.]?/i.test(bone.name)
-        const boneIsRight = /[_\-\.]?(r|right)[_\-\.]?/i.test(bone.name)
+        const boneIsLeft = /[_\-.]?(l|left)[_\-.]?/i.test(bone.name)
+        const boneIsRight = /[_\-.]?(r|right)[_\-.]?/i.test(bone.name)
 
         if (boneBaseName === baseName && ((isLeft && boneIsRight) || (isRight && boneIsLeft))) {
           mirrorBone = bone
@@ -3256,7 +3428,6 @@ const ThreeViewer = forwardRef(({
           // IMPORTANT: DON'T reset the scene scale!
           // The scale is intentional and affects the retargeting workflow
           // If we reset it, the preview mesh will be too small
-          const originalScale = model.scale.clone()
           console.log(`  Scene scale: (${model.scale.x}, ${model.scale.y}, ${model.scale.z})`)
           // DON'T DO THIS: model.scale.set(1, 1, 1)
           
@@ -3267,7 +3438,8 @@ const ThreeViewer = forwardRef(({
           console.log(`Model children count: ${model.children.length}`)
           console.log(`Model initial scale: x=${model.scale.x}, y=${model.scale.y}, z=${model.scale.z}`)
           console.log(`Model initial position: x=${model.position.x}, y=${model.position.y}, z=${model.position.z}`)
-          
+          console.log(`Model initial rotation: x=${model.rotation.x}, y=${model.rotation.y}, z=${model.rotation.z}`)
+
           // Debug: Traverse entire hierarchy to find scale issues (disabled for performance)
           const debugScaleIssues = false // Set to true to enable verbose scale logging
           if (debugScaleIssues) {
