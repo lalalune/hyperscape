@@ -1,9 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import React, { useRef, useState } from 'react'
 import * as THREE from 'three'
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+
 import ThreeViewer, { type ThreeViewerRef } from '../components/shared/ThreeViewer'
-import { useRetargetingStore, useCanRetarget } from '../store'
+import { VRMTestViewer } from '../components/VRMTestViewer'
 import { AssetService } from '../services/api/AssetService'
+import { useRetargetingStore } from '../store'
+import { convertGLBToVRM } from '../services/retargeting/VRMConverter'
+
 import { useAssets } from '@/hooks'
 
 export const RetargetAnimatePage: React.FC = () => {
@@ -11,107 +16,155 @@ export const RetargetAnimatePage: React.FC = () => {
   const { assets, loading: assetsLoading } = useAssets()
 
   // Local workflow state
-  const [skeletonLoaded, setSkeletonLoaded] = useState(false)
+  const [vrmConverted, setVrmConverted] = useState(false)
+  const [vrmUrl, setVrmUrl] = useState<string>('')
+  const [conversionWarnings, setConversionWarnings] = useState<string[]>([])
   const [retargetingApplied, setRetargetingApplied] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [availableAnimations, setAvailableAnimations] = useState<{ name: string, duration: number }[]>([])
   const [selectedAnimation, setSelectedAnimation] = useState<string>('')
   const [loadingState, setLoadingState] = useState<string>('')
+  const [showVRMTestViewer, setShowVRMTestViewer] = useState(false)
+  const [showBones, setShowBones] = useState(false)
 
   // Zustand state
   const {
     sourceModelUrl,
     sourceModelAssetId,
-    targetRigUrl,
-    boneEditingEnabled,
-    showSkeleton,
-    skeletonScale,
-    mirrorEnabled,
-    transformMode,
-    transformSpace,
     setSourceModel,
-    setTargetRig,
-    setBoneEditingEnabled,
-    setShowSkeleton,
-    setSkeletonScale,
-    setMirrorEnabled,
-    setTransformMode,
-    setTransformSpace,
     reset
   } = useRetargetingStore()
-
-  const canRetarget = useCanRetarget()
 
   // Filter assets for character models
   const avatarAssets = assets.filter((a) => a.type === 'character' && (a as any).hasModel)
 
-  // Step 1: Select Models (source + target rig)
-  const handleLoadSkeleton = async () => {
-    if (!targetRigUrl) {
-      alert('Please select a target rig first')
+  // Convert Meshy GLB to VRM format
+  const handleConvertToVRM = async () => {
+    if (!sourceModelUrl) {
+      alert('Please select a character model first')
       return
     }
 
     try {
-      setLoadingState('Loading skeleton...')
-      console.log('[RetargetAnimatePage] Loading skeleton for editing...')
+      setLoadingState('Converting to VRM format...')
+      console.log('[RetargetAnimatePage] Starting VRM conversion...')
 
-      // Load the target rig into the viewer
-      await viewerRef.current?.setTargetRigFromURL(targetRigUrl)
+      // Load the GLB file
+      const loader = new GLTFLoader()
+      const gltf = await loader.loadAsync(sourceModelUrl)
 
-      // Call the mesh2motion skeleton loading method
-      const success = await viewerRef.current?.loadSkeletonForEditing()
+      // Convert to VRM
+      const result = await convertGLBToVRM(gltf.scene, {
+        avatarName: sourceModelAssetId || 'Converted Avatar',
+        author: 'Hyperscape',
+        version: '1.0',
+        commercialUsage: 'personalNonProfit',
+      })
 
-      if (success) {
-        console.log('[RetargetAnimatePage] Skeleton loaded successfully')
-        setSkeletonLoaded(true)
-        setShowSkeleton(true) // Auto-show skeleton
-        setBoneEditingEnabled(true) // Auto-enable bone editing
-        setLoadingState('')
+      console.log('[RetargetAnimatePage] VRM conversion complete!')
+      console.log(`  - Bones mapped: ${result.boneMappings.size}`)
+      console.log(`  - Coordinate system fixed: ${result.coordinateSystemFixed}`)
+      console.log(`  - Warnings: ${result.warnings.length}`)
+
+      // Create blob URL for the VRM file
+      const blob = new Blob([result.vrmData], { type: 'application/octet-stream' })
+      const url = URL.createObjectURL(blob)
+      setConversionWarnings(result.warnings)
+
+      // Upload VRM to server if we have an assetId
+      if (sourceModelAssetId) {
+        try {
+          setLoadingState('Uploading VRM to server...')
+          const filename = `${sourceModelAssetId}.vrm`
+          const uploadResult = await AssetService.uploadVRM(sourceModelAssetId, result.vrmData, filename)
+
+          console.log('[RetargetAnimatePage] VRM uploaded to server:', uploadResult.url)
+
+          // Use the server URL and update viewer
+          setVrmUrl(uploadResult.url)
+          setSourceModel(uploadResult.url, sourceModelAssetId)
+
+          setLoadingState('VRM uploaded successfully!')
+          setTimeout(() => setLoadingState(''), 2000)
+        } catch (uploadError) {
+          console.warn('[RetargetAnimatePage] Server upload failed, using local blob:', uploadError)
+          // Fall back to blob URL if upload fails
+          setVrmUrl(url)
+          setSourceModel(url, sourceModelAssetId || 'avatar')
+          setLoadingState('Using local VRM (upload failed)')
+          setTimeout(() => setLoadingState(''), 2000)
+        }
       } else {
+        // No asset ID, just use blob URL
+        setVrmUrl(url)
+        setSourceModel(url, 'converted-avatar')
         setLoadingState('')
-        alert('Failed to load skeleton for editing')
       }
+
+      setVrmConverted(true)
+
+      // Auto-download the VRM file as backup
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${sourceModelAssetId || 'avatar'}.vrm`
+      a.click()
+
+      alert(`VRM conversion complete! ${sourceModelAssetId ? 'File uploaded to server and downloaded.' : 'File downloaded.'} Now viewing VRM in viewer.`)
     } catch (error) {
       setLoadingState('')
-      console.error('[RetargetAnimatePage] Error loading skeleton:', error)
-      alert('Error loading skeleton: ' + (error as Error).message)
+      console.error('[RetargetAnimatePage] Error converting to VRM:', error)
+      alert('Error converting to VRM: ' + (error as Error).message)
     }
   }
 
-  // Step 2: Apply Retargeting (after bone editing)
+  // NEW WORKFLOW: Animation Retargeting (Industry Standard)
+  // Step 1: Apply Animation Retargeting (no skeleton editing needed!)
   const handleApplyRetargeting = async () => {
+    if (!sourceModelUrl) {
+      alert('Please select a character model first')
+      return
+    }
+
     try {
-      setLoadingState('Applying retargeting and calculating skin weights...')
-      console.log('[RetargetAnimatePage] Applying retargeting...')
+      setLoadingState('Retargeting animations to character...')
+      console.log('[RetargetAnimatePage] Starting animation retargeting...')
 
-      // Disable bone editing first
-      setBoneEditingEnabled(false)
+      // NEW: Use animation retargeting workflow
+      // Character stays bound to original skeleton
+      // Animations are retargeted from Mixamo → Character
+      if (!viewerRef.current) {
+        alert('Viewer not initialized')
+        return
+      }
 
-      // Call the mesh2motion retargeting method
-      const success = await viewerRef.current?.applyRetargeting()
+      const success = await viewerRef.current.retargetAnimationsToCharacter(
+        '/rigs/rig-human.glb',  // Animation rig (Mixamo)
+        '/rigs/animations/human-base-animations.glb'  // Animations
+      )
 
       if (success) {
-        console.log('[RetargetAnimatePage] Retargeting applied successfully')
+        console.log('[RetargetAnimatePage] Animation retargeting complete!')
         setRetargetingApplied(true)
         setLoadingState('Loading animations...')
 
         // Fetch available animations from the viewer
         setTimeout(() => {
-          const anims = viewerRef.current?.getAvailableAnimations?.() || []
-          console.log('[RetargetAnimatePage] Fetched animations:', anims.length)
-          setAvailableAnimations(anims.map(a => ({ name: a.name, duration: a.duration })))
+          if (viewerRef.current) {
+            const anims = viewerRef.current.getAvailableAnimations()
+            console.log('[RetargetAnimatePage] Fetched animations:', anims.length)
+            setAvailableAnimations(anims.map(a => ({ name: a.name, duration: a.duration })))
+          }
           setLoadingState('')
         }, 500) // Small delay to ensure animations are loaded
       } else {
         setLoadingState('')
-        alert('Failed to apply retargeting')
+        alert('Failed to retarget animations')
       }
     } catch (error) {
       setLoadingState('')
-      console.error('[RetargetAnimatePage] Error applying retargeting:', error)
-      alert('Error applying retargeting: ' + (error as Error).message)
+      console.error('[RetargetAnimatePage] Error retargeting animations:', error)
+      alert('Error retargeting animations: ' + (error as Error).message)
     }
   }
 
@@ -157,43 +210,14 @@ export const RetargetAnimatePage: React.FC = () => {
     }
   }
 
-  // Sync bone editing state to viewer
-  useEffect(() => {
-    if (viewerRef.current?.enableBoneEditing) {
-      viewerRef.current.enableBoneEditing(boneEditingEnabled)
-    }
-  }, [boneEditingEnabled])
-
-  // Sync skeleton visibility - handled by toggleSkeleton() manually
-  // No automatic sync needed for showSkeleton
-
-  // Sync transform controls
-  useEffect(() => {
-    if (viewerRef.current?.setBoneTransformMode) {
-      viewerRef.current.setBoneTransformMode(transformMode)
-    }
-  }, [transformMode])
-
-  useEffect(() => {
-    if (viewerRef.current?.setBoneTransformSpace) {
-      viewerRef.current.setBoneTransformSpace(transformSpace)
-    }
-  }, [transformSpace])
-
-  useEffect(() => {
-    if (viewerRef.current?.setBoneMirrorEnabled) {
-      viewerRef.current.setBoneMirrorEnabled(mirrorEnabled)
-    }
-  }, [mirrorEnabled])
-
   return (
     <div className="h-[calc(100vh-60px)] w-full flex">
       {/* Sidebar */}
       <aside className="w-80 border-r border-border-primary bg-bg-secondary p-4 flex flex-col gap-4">
         <div>
-          <h2 className="text-lg font-semibold mb-2">Mesh2Motion Retargeting</h2>
+          <h2 className="text-lg font-semibold mb-2">Animation Retargeting</h2>
           <p className="text-xs text-text-tertiary mb-4">
-            Load model → Load skeleton → Edit bones → Apply retargeting → Test animations
+            Load character → Retarget animations → Play & Test
           </p>
           {loadingState && (
             <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-md">
@@ -202,9 +226,9 @@ export const RetargetAnimatePage: React.FC = () => {
           )}
         </div>
 
-        {/* Step 1: Select Models */}
+        {/* Step 1: Select Character */}
         <section className="space-y-3 p-3 border border-border-primary rounded-md">
-          <h3 className="text-sm font-semibold">1. Select Models</h3>
+          <h3 className="text-sm font-semibold">1. Select Character</h3>
 
           <div className="space-y-2">
             <label className="text-xs text-text-tertiary">Source Model (Your Character with Mesh)</label>
@@ -220,6 +244,8 @@ export const RetargetAnimatePage: React.FC = () => {
                   if (file) {
                     const url = URL.createObjectURL(file)
                     setSourceModel(url, file.name)
+                    setVrmConverted(false)
+                    setRetargetingApplied(false)
                     console.log('[RetargetAnimatePage] Loaded source model from file:', file.name)
                   }
                 }}
@@ -259,169 +285,112 @@ export const RetargetAnimatePage: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs text-text-tertiary">Target Rig</label>
-            <select
-              className="w-full px-2 py-1 rounded-md bg-bg-tertiary text-sm"
-              value={targetRigUrl || ''}
-              onChange={(e) => {
-                const url = e.target.value
-                if (url === '/rigs/rig-human.glb') {
-                  setTargetRig('mixamo-human', url, 'human')
-                } else if (url === '/rigs/rig-fox.glb') {
-                  setTargetRig('mixamo-quadruped', url, 'quadruped')
-                } else if (url === '/rigs/rig-bird.glb') {
-                  setTargetRig('mixamo-bird', url, 'bird')
-                }
-              }}
+            <button
+              className="w-full px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!sourceModelUrl || vrmConverted}
+              onClick={handleConvertToVRM}
             >
-              <option value="">Select target rig...</option>
-              <option value="/rigs/rig-human.glb">Human Rig</option>
-              <option value="/rigs/rig-fox.glb">Quadruped (Fox) Rig</option>
-              <option value="/rigs/rig-bird.glb">Bird Rig</option>
-            </select>
+              {vrmConverted ? '✓ Converted to VRM' : '🎭 Convert to VRM Format'}
+            </button>
+
+            {vrmConverted && conversionWarnings.length > 0 && (
+              <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-md">
+                <p className="text-xs font-semibold text-amber-400 mb-1">Conversion Warnings:</p>
+                {conversionWarnings.map((warning, idx) => (
+                  <p key={idx} className="text-xs text-amber-300">• {warning}</p>
+                ))}
+              </div>
+            )}
+
+            {sourceModelUrl && !vrmConverted && (
+              <p className="text-xs text-text-tertiary">
+                Convert Meshy GLB to VRM format for standardized animation support. This fixes coordinate systems and bone naming.
+                {sourceModelAssetId && <span className="block mt-1 text-text-secondary">Will be uploaded to: /gdd-assets/{sourceModelAssetId}/{sourceModelAssetId}.vrm</span>}
+              </p>
+            )}
+
+            {vrmConverted && (
+              <div className="space-y-1">
+                <p className="text-xs text-green-400">
+                  ✓ VRM conversion complete! Now viewing VRM in viewport.
+                </p>
+                {sourceModelAssetId && vrmUrl && (
+                  <p className="text-xs text-blue-400">
+                    📁 Saved to server: {vrmUrl}
+                  </p>
+                )}
+                <p className="text-xs text-text-tertiary">
+                  File also downloaded to your computer as backup.
+                </p>
+                <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-md">
+                  <p className="text-xs font-semibold text-blue-400 mb-1">✨ VRM Benefits:</p>
+                  <ul className="text-xs text-blue-300 space-y-0.5">
+                    <li>✓ Y-up coordinate system (fixed orientation)</li>
+                    <li>✓ Standard HumanoidBone names</li>
+                    <li>✓ T-pose normalized</li>
+                    <li>✓ Ready for animation testing!</li>
+                  </ul>
+                </div>
+
+                <div className="mt-2">
+                  <button
+                    className="w-full px-3 py-2 rounded-md bg-primary text-white hover:bg-primary/90"
+                    onClick={() => {
+                      setShowVRMTestViewer(true)
+                    }}
+                  >
+                    🎭 Test VRM with Animations
+                  </button>
+                  <p className="text-xs text-text-tertiary mt-1">
+                    Opens the VRM Test Viewer with Idle, Walk, Run, and Jump animations. Click the toggle in the top-right to switch between viewers.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
-          <button
-            className="w-full px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50"
-            disabled={!canRetarget || skeletonLoaded}
-            onClick={handleLoadSkeleton}
-          >
-            {skeletonLoaded ? '✓ Skeleton Loaded' : 'Load Skeleton for Editing'}
-          </button>
+          {!vrmConverted && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border-primary"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 bg-bg-secondary text-text-tertiary">or use legacy retargeting</span>
+                </div>
+              </div>
 
-          {!canRetarget && (
-            <p className="text-xs text-amber-400">Select both source model and target rig</p>
+              <button
+                className="w-full px-3 py-2 rounded-md bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!sourceModelUrl || retargetingApplied}
+                onClick={handleApplyRetargeting}
+              >
+                {retargetingApplied ? '✓ Animations Retargeted (Legacy)' : 'Legacy: Retarget Animations'}
+              </button>
+
+              {!sourceModelUrl && (
+                <p className="text-xs text-amber-400">Select a character first</p>
+              )}
+              {sourceModelUrl && !retargetingApplied && (
+                <p className="text-xs text-text-tertiary">
+                  Legacy method: Direct animation retargeting (may have coordinate system issues)
+                </p>
+              )}
+            </>
           )}
         </section>
 
-        {/* Step 2: Adjust Bone Positions */}
-        {skeletonLoaded && !retargetingApplied && (
-          <section className="space-y-3 p-3 border border-border-primary rounded-md">
-            <h3 className="text-sm font-semibold">2. Adjust Bone Positions</h3>
-
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Show Skeleton</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={showSkeleton}
-                  onChange={(e) => setShowSkeleton(e.target.checked)}
-                />
-                <div className="w-9 h-5 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-              </label>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs">Skeleton Scale</span>
-                <span className="text-xs text-text-tertiary">{(skeletonScale * 100).toFixed(0)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0.5"
-                max="1.5"
-                step="0.01"
-                value={skeletonScale}
-                onChange={(e) => {
-                  const newScale = parseFloat(e.target.value)
-                  setSkeletonScale(newScale)
-                  viewerRef.current?.updateSkeletonScale?.(newScale)
-                }}
-                className="w-full h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              <div className="flex justify-between text-[10px] text-text-tertiary mt-0.5">
-                <span>50%</span>
-                <span>150%</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Enable Bone Editing</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={boneEditingEnabled}
-                  onChange={(e) => setBoneEditingEnabled(e.target.checked)}
-                />
-                <div className="w-9 h-5 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-              </label>
-            </div>
-
-            <div>
-              <label className="text-xs text-text-tertiary mb-1 block">Transform Mode</label>
-              <div className="flex gap-2">
-                <button
-                  className={`flex-1 px-3 py-1 rounded-md text-sm ${transformMode === 'translate' ? 'bg-primary/20 text-primary' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
-                  onClick={() => setTransformMode('translate')}
-                >
-                  Move
-                </button>
-                <button
-                  className={`flex-1 px-3 py-1 rounded-md text-sm ${transformMode === 'rotate' ? 'bg-primary/20 text-primary' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
-                  onClick={() => setTransformMode('rotate')}
-                >
-                  Rotate
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-text-tertiary mb-1 block">Transform Space</label>
-              <div className="flex gap-2">
-                <button
-                  className={`flex-1 px-3 py-1 rounded-md text-sm ${transformSpace === 'world' ? 'bg-primary/20 text-primary' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
-                  onClick={() => setTransformSpace('world')}
-                >
-                  World
-                </button>
-                <button
-                  className={`flex-1 px-3 py-1 rounded-md text-sm ${transformSpace === 'local' ? 'bg-primary/20 text-primary' : 'bg-bg-tertiary hover:bg-bg-primary/20'}`}
-                  onClick={() => setTransformSpace('local')}
-                >
-                  Local
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-xs">Mirror X-Axis</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={mirrorEnabled}
-                  onChange={(e) => setMirrorEnabled(e.target.checked)}
-                />
-                <div className="w-9 h-5 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-              </label>
-            </div>
-
-            <div className="pt-2 border-t border-border-primary">
-              <p className="text-xs text-text-tertiary mb-2">Instructions:</p>
-              <ol className="text-xs text-text-tertiary space-y-1 list-decimal pl-4">
-                <li>Enable bone editing above</li>
-                <li>Click on a bone joint (sphere) to select it</li>
-                <li>Drag the transform gizmo to adjust position/rotation</li>
-                <li>Fine-tune shoulders, hips, hands as needed</li>
-                <li>Click "Apply Retargeting" when satisfied</li>
-              </ol>
-            </div>
-
-            <button
-              className="w-full px-3 py-2 rounded-md bg-green-600/10 text-green-400 hover:bg-green-600/20 border border-green-600/20"
-              onClick={handleApplyRetargeting}
-            >
-              Apply Retargeting
-            </button>
-          </section>
-        )}
-
-        {/* Step 3: Test Animations */}
+        {/* Step 2: Test Animations */}
         {retargetingApplied && (
           <section className="space-y-3 p-3 border border-border-primary rounded-md">
-            <h3 className="text-sm font-semibold">3. Test Animations</h3>
+            <h3 className="text-sm font-semibold">2. Test Animations{vrmConverted && ' (VRM)'}</h3>
+            {vrmConverted && (
+              <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-md mb-2">
+                <p className="text-xs text-green-400">
+                  ✨ Testing VRM animations! Character should stand upright with correct orientation.
+                </p>
+              </div>
+            )}
 
             {availableAnimations.length === 0 ? (
               <p className="text-xs text-text-tertiary">Loading animations...</p>
@@ -560,8 +529,12 @@ export const RetargetAnimatePage: React.FC = () => {
             onClick={() => {
               if (confirm('Reset all settings and start over?')) {
                 reset()
-                setSkeletonLoaded(false)
+                setVrmConverted(false)
+                setVrmUrl('')
+                setConversionWarnings([])
                 setRetargetingApplied(false)
+                setAvailableAnimations([])
+                setSelectedAnimation('')
               }
             }}
           >
@@ -571,8 +544,34 @@ export const RetargetAnimatePage: React.FC = () => {
       </aside>
 
       {/* Viewer */}
-      <section className="flex-1">
-        <ThreeViewer ref={viewerRef} modelUrl={sourceModelUrl || undefined} isAnimationPlayer={false} />
+      <section className="flex-1 relative">
+        {/* Viewer Controls */}
+        <div className="absolute top-4 right-4 z-10 flex gap-2">
+          {vrmConverted && vrmUrl && (
+            <button
+              onClick={() => setShowVRMTestViewer(!showVRMTestViewer)}
+              className="px-3 py-2 rounded-md bg-bg-primary border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors text-sm"
+            >
+              {showVRMTestViewer ? '🎨 GLB Viewer' : '🎭 VRM Tester'}
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setShowBones(!showBones)
+              viewerRef.current?.toggleSkeleton()
+            }}
+            className="px-3 py-2 rounded-md bg-bg-primary border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors text-sm"
+          >
+            {showBones ? '🦴 Hide Bones' : '🦴 Show Bones'}
+          </button>
+        </div>
+
+        {/* Viewers */}
+        {showVRMTestViewer && vrmConverted && vrmUrl ? (
+          <VRMTestViewer vrmUrl={`http://localhost:3004${vrmUrl}`} />
+        ) : (
+          <ThreeViewer ref={viewerRef} modelUrl={sourceModelUrl || undefined} isAnimationPlayer={false} />
+        )}
       </section>
     </div>
   )
