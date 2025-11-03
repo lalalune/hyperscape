@@ -56,6 +56,11 @@ export function retargetAnimation(
   const version = vrm.meta?.metaVersion || '1.0'
   console.log('[AnimationRetargeting] VRM version:', version)
 
+  // NO VRM-side compensation needed!
+  // The Mixamo-side transformation (lines 128-138 below) already handles bind pose differences
+  // This matches CharacterStudio and official @pixiv/three-vrm approach
+  console.log('[AnimationRetargeting] Using Mixamo-side transformation only (no double compensation)')
+
   // Filter tracks - keep only root position and quaternions
   let haveRoot = false
   clip.tracks = clip.tracks.filter(track => {
@@ -117,12 +122,16 @@ export function retargetAnimation(
   clip.optimize()
 
   // Get bone name mapping function
+  // Use normalized bone node names for animation tracks (matches three-avatar implementation)
+  // The AnimationMixer on vrm.scene will automatically handle the normalized bone abstraction
   const getBoneName = (vrmBoneName: string): string | undefined => {
-    const node = humanoid?.getRawBoneNode(vrmBoneName as any)
-    return node?.name
+    const normalizedNode = humanoid?.getNormalizedBoneNode(vrmBoneName as any)
+    return normalizedNode?.name
   }
 
-  // Retarget tracks to VRM bone names
+  // Retarget tracks to actual skeleton bone names
+  // NOTE: We DON'T apply bind pose compensation here - the skeleton's inverse bind matrices
+  // naturally handle the bind pose transformation during skinning (matches online VRM viewers)
   const height = rootToHips
   const scaler = height * scale
 
@@ -132,7 +141,7 @@ export function retargetAnimation(
     const trackSplitted = track.name.split('.')
     const ogBoneName = trackSplitted[0]
     const vrmBoneName = normalizedBoneNames[ogBoneName]
-    const vrmNodeName = getBoneName(vrmBoneName)
+    const vrmNodeName = getBoneName(vrmBoneName)  // Get actual skeleton bone name
 
     console.log(`[AnimationRetargeting] Retargeting: ${ogBoneName} -> ${vrmBoneName} -> ${vrmNodeName}`)
 
@@ -140,11 +149,18 @@ export function retargetAnimation(
       const propertyName = trackSplitted[1]
 
       if (track instanceof THREE.QuaternionKeyframeTrack) {
+        let transformedValues = track.values
+
+        // Apply VRM 0.0 coordinate transformations
+        if (version === '0') {
+          transformedValues = track.values.map((v, i) => (i % 2 === 0 ? -v : v))
+        }
+
         retargetedTracks.push(
           new THREE.QuaternionKeyframeTrack(
             `${vrmNodeName}.${propertyName}`,
             track.times,
-            track.values.map((v, i) => (version === '0' && i % 2 === 0 ? -v : v))
+            transformedValues
           )
         )
       } else if (track instanceof THREE.VectorKeyframeTrack) {

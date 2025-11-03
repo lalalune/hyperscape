@@ -235,6 +235,11 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
 
         console.log('[VRMTestViewer] Animation retargeted successfully:', retargetedClip)
 
+        // DON'T reset normalized pose - this breaks A-pose VRMs!
+        // Online VRM viewers let the animation mixer work with the bind pose as-is.
+        // The skeleton's inverse bind matrices naturally handle the bind pose transformation.
+        console.log('[VRMTestViewer] Keeping original bind pose (matches online VRM viewers)')
+
         // Stop current animation
         if (currentAction) {
           currentAction.fadeOut(0.2)
@@ -285,8 +290,16 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
 
         console.log('[VRMTestViewer] VRM loaded successfully:', vrm)
 
-        // Rotate model 180° if needed
-        VRMUtils.rotateVRM0(vrm)
+        // Rotate VRM 0.0 models 180° (VRM 1.0 should NOT be rotated!)
+        const vrmVersion = vrm.meta?.metaVersion || (vrm.meta?.specVersion?.startsWith('0.') ? '0' : '1')
+        console.log('[VRMTestViewer] Detected VRM version:', vrmVersion, 'metaVersion:', vrm.meta?.metaVersion, 'specVersion:', vrm.meta?.specVersion)
+
+        if (vrmVersion === '0') {
+          console.log('[VRMTestViewer] Rotating VRM 0.0 model by 180°')
+          VRMUtils.rotateVRM0(vrm)
+        } else {
+          console.log('[VRMTestViewer] VRM 1.0 detected - no rotation needed')
+        }
 
         scene.add(vrm.scene)
 
@@ -305,25 +318,34 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
           return
         }
 
-        // Calculate rootToHips ONCE (this is critical for animation scaling)
+        // Calculate rootToHips from normalizedRestPose (immutable reference)
+        // This matches CharacterStudio and official @pixiv/three-vrm examples
         const humanoid = vrm.humanoid
-        const hipsNode = humanoid?.getRawBoneNode('hips')
-        if (hipsNode) {
-          const v = new THREE.Vector3()
-          hipsNode.getWorldPosition(v)
-          rootToHips = v.y
-          console.log('[VRMTestViewer] Calculated rootToHips:', rootToHips)
+        if (humanoid && (humanoid as any).normalizedRestPose?.hips) {
+          rootToHips = (humanoid as any).normalizedRestPose.hips.position[1]
+          console.log('[VRMTestViewer] Using normalizedRestPose hips height:', rootToHips)
         } else {
-          console.warn('[VRMTestViewer] Could not find hips node, using default rootToHips:', rootToHips)
+          console.warn('[VRMTestViewer] normalizedRestPose not available, falling back to runtime calculation')
+          const hipsNode = humanoid?.getRawBoneNode('hips')
+          if (hipsNode) {
+            const v = new THREE.Vector3()
+            hipsNode.getWorldPosition(v)
+            rootToHips = v.y
+            console.log('[VRMTestViewer] Calculated rootToHips from world position:', rootToHips)
+          } else {
+            console.warn('[VRMTestViewer] Could not find hips node, using default rootToHips:', rootToHips)
+          }
         }
 
         // Get VRM info
         const boneCount = humanoid ? Object.keys(humanoid.humanBones).length : 0
         setInfo(`VRM loaded\nBones: ${boneCount}\nHeight: ${rootToHips.toFixed(2)}m`)
 
-        // Setup animation mixer on SkinnedMesh (NOT scene - critical for animations to work)
-        mixer = new THREE.AnimationMixer(skinnedMesh)
-        console.log('[VRMTestViewer] Created AnimationMixer on SkinnedMesh')
+        // Setup animation mixer on vrm.scene (matches three-avatar implementation)
+        // We're using normalized bone names from getNormalizedBoneNode().name
+        // The mixer on vrm.scene will automatically handle the normalized bone abstraction
+        mixer = new THREE.AnimationMixer(vrm.scene)
+        console.log('[VRMTestViewer] Created AnimationMixer on vrm.scene')
 
         setLoading(false)
 
@@ -375,6 +397,12 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
         mixer.update(deltaTime)
       }
 
+      // Update VRM normalized bones - REQUIRED when using normalized bone animation
+      // This propagates normalized bone transforms to the actual skeleton bones
+      if (vrm) {
+        vrm.update(deltaTime)
+      }
+
       // Update skeleton bones manually (like Hyperscape does)
       if (skinnedMesh) {
         skinnedMesh.skeleton.bones.forEach(bone => bone.updateMatrixWorld())
@@ -388,12 +416,6 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
           afterMixerRot = hipsBone.quaternion.toArray().map(v => parseFloat(v.toFixed(3)))
         }
       }
-
-      // DON'T call vrm.update() - it resets animations!
-      // Hyperscape intentionally comments this out in production
-      // if (vrm) {
-      //   vrm.update(deltaTime)
-      // }
 
       if (shouldLog && skinnedMesh && currentAction) {
         const hipsIndex = skinnedMesh.skeleton.bones.findIndex(b => b.name === 'Hips')
