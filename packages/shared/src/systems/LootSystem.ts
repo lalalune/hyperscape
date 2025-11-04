@@ -19,7 +19,7 @@ import { items } from '../data/items';
 import type { DroppedItem } from '../types/system-interfaces';
 import { groundToTerrain } from '../utils/EntityUtils';
 import { EntityManager } from './EntityManager';
-import { ALL_MOBS } from '../data/mobs';
+import { ALL_NPCS } from '../data/npcs';
 
 
 export class LootSystem extends SystemBase {
