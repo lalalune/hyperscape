@@ -34,7 +34,7 @@ export class AggroSystem extends SystemBase {
       name: 'aggro',
       dependencies: {
         required: [], // Aggro system can work independently
-        optional: ['mob', 'player', 'combat', 'entity-manager'] // Better with mob and player systems
+        optional: ['mob-npc', 'player', 'combat', 'entity-manager'] // Better with mob NPC and player systems
       },
       autoCleanup: true
     });

@@ -19,7 +19,7 @@ import {
 } from "../utils/CombatCalculations";
 import { createEntityID } from "../utils/IdentifierUtils";
 import { EntityManager } from "./EntityManager";
-import { MobSystem } from "./MobSystem";
+import { MobNPCSystem } from "./MobNPCSystem";
 import { SystemBase } from "./SystemBase";
 
 export interface CombatData {
@@ -36,7 +36,7 @@ export interface CombatData {
 export class CombatSystem extends SystemBase {
   private combatStates = new Map<EntityID, CombatData>();
   private attackCooldowns = new Map<EntityID, number>();
-  private mobSystem?: MobSystem;
+  private mobSystem?: MobNPCSystem;
   private entityManager?: EntityManager;
 
   // Combat constants
@@ -46,7 +46,7 @@ export class CombatSystem extends SystemBase {
       name: "combat",
       dependencies: {
         required: ["entity-manager"], // Combat needs entity manager
-        optional: ["mob"], // Combat can work without mobs but better with them
+        optional: ["mob-npc"], // Combat can work without mob NPCs but better with them
       },
       autoCleanup: true,
     });
@@ -61,8 +61,8 @@ export class CombatSystem extends SystemBase {
       );
     }
 
-    // Get mob system - optional but recommended
-    this.mobSystem = this.world.getSystem<MobSystem>("mob");
+    // Get mob NPC system - optional but recommended
+    this.mobSystem = this.world.getSystem<MobNPCSystem>("mob-npc");
 
     // Set up event listeners - required for combat to function
     this.subscribe(
