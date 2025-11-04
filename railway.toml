@@ -1,17 +1,11 @@
 # Railway configuration for game server
 # Uses RAILPACK (Railway's new build system replacing Nixpacks)
+# RAILPACK-specific build configuration is in railpack.json
 
 [build]
 builder = "RAILPACK"
 
-# Environment variables for RAILPACK configuration
-# These need to be set in Railway service settings as well
-# RAILPACK_PACKAGES = bun@1.1.38
-# RAILPACK_INSTALL_CMD = bun install
-# RAILPACK_BUILD_CMD = bun run build:shared && bun run build:server
-
 [deploy]
-startCommand = "cd packages/server && bun dist/index.js"
 healthcheckPath = "/status"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
