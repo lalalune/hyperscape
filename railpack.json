@@ -2,7 +2,9 @@
   "$schema": "https://schema.railpack.com",
   "steps": {
     "build": {
-      "commands": ["bun run build"]
+      "commands": [
+        "turbo run build --filter=@hyperscape/server"
+      ]
     }
   },
   "deploy": {
