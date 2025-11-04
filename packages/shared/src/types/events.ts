@@ -280,7 +280,7 @@ export enum EventType {
   MOB_DAMAGED = 'mob:damaged',
   MOB_POSITION_UPDATED = 'mob:position_updated',
   MOB_ATTACKED = 'mob:attacked',
-  MOB_DIED = 'mob:died',
+  NPC_DIED = 'npc:died',
   MOB_EXAMINE = 'mob:examine',
   MOB_AGGRO = 'mob:aggro',
   MOB_CHASE_STARTED = 'mob:chase:started',
@@ -575,7 +575,7 @@ export interface InventoryItemAddedPayload {
   item: InventoryItem;
 }
 
-export interface MobDiedPayload {
+export interface NPCDiedPayload {
   mobId: string;
   killerId: string;
   loot: InventoryItem[];
@@ -994,7 +994,7 @@ export type EventPayloads = {
   [EventType.PLAYER_XP_GAINED]: PlayerXPGainedPayload
   [EventType.COMBAT_STARTED]: CombatStartedPayload
   [EventType.INVENTORY_ITEM_ADDED]: InventoryItemAddedPayload
-  [EventType.MOB_DIED]: MobDiedPayload
+  [EventType.NPC_DIED]: NPCDiedPayload
 }
 
 /**

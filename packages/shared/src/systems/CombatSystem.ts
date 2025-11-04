@@ -105,7 +105,7 @@ export class CombatSystem extends SystemBase {
     );
 
     // Listen for death events to end combat
-    this.subscribe(EventType.MOB_DIED, (data: { mobId: string }) => {
+    this.subscribe(EventType.NPC_DIED, (data: { mobId: string }) => {
       this.handleEntityDied(data.mobId, "mob");
     });
     this.subscribe(EventType.PLAYER_DIED, (data: { playerId: string }) => {
@@ -452,9 +452,9 @@ export class CombatSystem extends SystemBase {
 
         // Check if mob died
         if (newHealth <= 0) {
-          // Don't emit MOB_DIED here - let MobEntity.die() handle it
+          // Don't emit NPC_DIED here - let MobEntity.die() handle it
           // Don't emit COMBAT_KILL here either - let MobEntity.die() handle it
-          
+
           this.emitTypedEvent(EventType.UI_MESSAGE, {
             playerId: attackerId,
             message: `You have defeated the ${mobEntity.getProperty("name") || mobEntity.getProperty("mobType") || "unknown"}!`,

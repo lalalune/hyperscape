@@ -826,7 +826,7 @@ export class MobEntity extends CombatantEntity {
 
     // Emit death event with last attacker
     if (this.lastAttackerId) {
-      this.world.emit(EventType.MOB_DIED, {
+      this.world.emit(EventType.NPC_DIED, {
         mobId: this.id,
         mobType: this.config.mobType,
         level: this.config.level,
