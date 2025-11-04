@@ -8,9 +8,6 @@ dist/
 build/
 *.tsbuildinfo
 
-# Exception: Keep prebuilt PhysX files for Railway deployment
-!packages/physx-js-webidl/dist/
-
 # Serena
 .serena/
 
