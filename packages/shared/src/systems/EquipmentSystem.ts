@@ -389,24 +389,44 @@ export class EquipmentSystem extends SystemBase {
   private equipItem(data: { playerId: string; itemId: string | number; slot: string; inventorySlot?: number }): void {
     const equipment = this.playerEquipment.get(data.playerId);
     if (!equipment) return;
-    
+
     // Check for valid itemId before calling getItemData
     if (data.itemId === null || data.itemId === undefined) {
             return;
     }
-    
+
     const itemData = this.getItemData(data.itemId);
     if (!itemData) return;
-    
+
     const slot = data.slot;
     if (!this.isValidEquipmentSlot(slot)) return;
-    
+
     const equipmentSlot = equipment[slot];
     if (!equipmentSlot) {
       Logger.systemError('EquipmentSystem', `Equipment slot ${slot} is null for player ${data.playerId}`);
       return;
     }
-    
+
+    // Check for 2-handed weapon logic
+    const is2hWeapon = this.is2hWeapon(itemData);
+    const currentWeapon = equipment.weapon?.item;
+    const currentWeaponIs2h = currentWeapon ? this.is2hWeapon(currentWeapon) : false;
+
+    // If equipping a 2h weapon, unequip shield first
+    if (is2hWeapon && slot === 'weapon' && equipment.shield?.itemId) {
+      this.unequipItem({
+        playerId: data.playerId,
+        slot: 'shield'
+      });
+      this.sendMessage(data.playerId, 'Shield unequipped (2-handed weapon equipped).', 'info');
+    }
+
+    // If equipping a shield, check if 2h weapon is equipped
+    if (slot === 'shield' && currentWeaponIs2h) {
+      this.sendMessage(data.playerId, 'Cannot equip shield while wielding a 2-handed weapon.', 'warning');
+      return;
+    }
+
     // Unequip current item in slot if any
     if (equipmentSlot.itemId) {
       this.unequipItem({
@@ -414,18 +434,18 @@ export class EquipmentSystem extends SystemBase {
         slot: data.slot
       });
     }
-    
+
     // Equip new item - convert to number for slot storage
     // Strong type assumption - data.itemId is string | number per function signature
-    const itemIdNumber = (data.itemId as string).toString ? 
-      parseInt(data.itemId as string, 10) : 
+    const itemIdNumber = (data.itemId as string).toString ?
+      parseInt(data.itemId as string, 10) :
       data.itemId as number;
     equipmentSlot.itemId = itemIdNumber;
     equipmentSlot.item = itemData;
-    
+
     // Create visual representation
     this.createEquipmentVisual(data.playerId, equipmentSlot);
-    
+
     // Remove from inventory
     this.emitTypedEvent(EventType.INVENTORY_ITEM_REMOVED, {
       playerId: data.playerId,
@@ -433,19 +453,19 @@ export class EquipmentSystem extends SystemBase {
       quantity: 1,
       slot: data.inventorySlot
     });
-    
+
     // Update stats
     this.recalculateStats(data.playerId);
-    
+
     // Update combat system with new equipment (emit per-slot change for type consistency)
     this.emitTypedEvent(EventType.PLAYER_EQUIPMENT_CHANGED, {
       playerId: data.playerId,
       slot: slot as EquipmentSlotName,
       itemId: equipmentSlot.itemId !== null ? equipmentSlot.itemId.toString() : null
     });
-    
+
     this.sendMessage(data.playerId, `Equipped ${itemData.name}.`, 'info');
-    
+
     // Save to database after equipping
     this.saveEquipmentToDatabase(data.playerId);
   }
@@ -585,7 +605,20 @@ export class EquipmentSystem extends SystemBase {
     
   }
 
+  /**
+   * Check if item is a 2-handed weapon
+   * Uses equipSlot: '2h' or explicit is2h flag
+   */
+  private is2hWeapon(item: Item): boolean {
+    return item.equipSlot === '2h' || item.is2h === true;
+  }
+
   private getEquipmentSlot(itemData: Item): string | null {
+    // Handle 2-handed weapons (they go in weapon slot)
+    if (this.is2hWeapon(itemData)) {
+      return 'weapon';
+    }
+
     switch (itemData.type) {
       case ItemType.WEAPON:
         return itemData.weaponType === WeaponType.BOW || itemData.weaponType === WeaponType.CROSSBOW ? 'weapon' : 'weapon';
