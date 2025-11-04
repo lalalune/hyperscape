@@ -515,7 +515,7 @@ function setupAPI(world: World, systems: Systems): void {
     getAllMobs: () => systems.mobNpc?.getAllMobs(),
     getMobsInArea: (center: Position3D, radius: number) => systems.mobNpc?.getMobsInArea(center, radius),
     spawnMob: (type: string, position: Position3D) =>
-      systems.mobNpc && world.emit(EventType.MOB_SPAWN_REQUEST, { mobType: type, position }),
+      systems.mobNpc && world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobType: type, position }),
 
     // Banking API
     getBankData: (_playerId: string, _bankId: string) => null, // Banking system doesn't expose public methods
@@ -803,19 +803,19 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Mob actions
       spawnMobAtLocation: (type: string, position: Position3D) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobType: type, position })
+        world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobType: type, position })
       },
 
       spawnGDDMob: (mobType: string, position: Position3D) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobType, position })
+        world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobType, position })
       },
 
       despawnMob: (mobId: string) => {
-        world.emit(EventType.MOB_DESPAWN, mobId)
+        world.emit(EventType.MOB_NPC_DESPAWN, mobId)
       },
 
       respawnAllMobs: () => {
-        world.emit(EventType.MOB_RESPAWN_ALL)
+        world.emit(EventType.MOB_NPC_RESPAWN_ALL)
       },
 
       // Item actions
@@ -945,7 +945,7 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Mob AI actions
       attackMob: (playerId: string, mobId: string, damage: number) => {
-        world.emit(EventType.MOB_DAMAGED, { mobId, damage, attackerId: playerId })
+        world.emit(EventType.MOB_NPC_DAMAGED, { mobId, damage, attackerId: playerId })
       },
 
       killMob: (mobId: string, killerId: string) => {
@@ -958,7 +958,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       createMobApp: (mobId: string, mobType: string, config: AppConfig) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobId, mobType, config })
+        world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobId, mobType, config })
       },
 
       destroyPlayerApp: (playerId: string) => {
@@ -966,7 +966,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       destroyMobApp: (mobId: string) => {
-        world.emit(EventType.MOB_DESTROY, { mobId })
+        world.emit(EventType.MOB_NPC_DESTROY, { mobId })
       },
 
       // Entity management actions (Server-authoritative)
@@ -979,7 +979,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       spawnMobEntity: (mobType: string, position: Position3D, _level?: number) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobType, position })
+        world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobType, position })
       },
 
       destroyEntityById: (entityId: string) => {
