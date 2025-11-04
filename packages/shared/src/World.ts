@@ -516,7 +516,7 @@ export class World extends EventEmitter {
   movePlayer?(playerId: string, targetPosition: Position3D): unknown;
   
   // ----------------------------------------------------------------------------
-  // Mob API (added by MobSystem)
+  // Mob API (added by MobNPCSystem)
   // ----------------------------------------------------------------------------
   
   /** Get mob entity by ID */
