@@ -92,9 +92,9 @@ export class DataManager {
     // Split NPCs by category
     const npcList = npcsData.npcs || [];
 
-    // Populate ALL_MOBS with mob and boss category NPCs
+    // Populate ALL_MOBS with mob, boss, and quest category NPCs
     for (const npc of npcList) {
-      if (npc.category === 'mob' || npc.category === 'boss') {
+      if (npc.category === 'mob' || npc.category === 'boss' || npc.category === 'quest') {
         // Convert standardized NPCData to MobData format for backward compatibility
         const mobData: MobData = {
           id: npc.id,
@@ -182,98 +182,13 @@ export class DataManager {
       }
     }
 
-    // Store non-attackable NPCs separately (neutral NPCs and non-attackable quest NPCs)
+    // Store neutral NPCs separately (service NPCs like shops and banks)
     if (!(globalThis as { EXTERNAL_NPCS?: Map<string, NPCData> }).EXTERNAL_NPCS) {
       (globalThis as { EXTERNAL_NPCS?: Map<string, NPCData> }).EXTERNAL_NPCS = new Map();
     }
     for (const npc of npcList) {
-      // Store based on attackability, not just category
-      // Quest NPCs can be attackable or not, so check the combat flag
-      if (npc.category === 'neutral' || (npc.category === 'quest' && !npc.combat.attackable)) {
+      if (npc.category === 'neutral') {
         (globalThis as unknown as { EXTERNAL_NPCS: Map<string, NPCData> }).EXTERNAL_NPCS.set(npc.id, npc);
-      } else if (npc.category === 'quest' && npc.combat.attackable) {
-        // Attackable quest NPCs should be treated like mobs for combat purposes
-        // Convert to MobData format (same as lines 98-180 above)
-        const mobData: MobData = {
-          id: npc.id,
-          name: npc.name,
-          description: npc.description,
-          difficultyLevel: npc.stats.level <= 10 ? 1 : npc.stats.level <= 20 ? 2 : 3,
-          mobType: npc.category,
-          type: npc.category,
-          stats: {
-            level: npc.stats.level,
-            health: npc.stats.health,
-            attack: npc.stats.attack,
-            defense: npc.stats.defense,
-            strength: npc.stats.strength,
-            constitution: npc.stats.constitution,
-            ranged: npc.stats.ranged
-          },
-          behavior: {
-            aggressive: npc.combat.aggressive,
-            aggroRange: npc.combat.aggroRange,
-            chaseRange: npc.combat.aggroRange + 5,
-            returnToSpawn: true,
-            ignoreLowLevelPlayers: false,
-            levelThreshold: 1
-          },
-          drops: [
-            ...(npc.drops.defaultDrop.enabled ? [{
-              itemId: npc.drops.defaultDrop.itemId,
-              quantity: npc.drops.defaultDrop.quantity,
-              chance: 1.0,
-              isGuaranteed: true
-            }] : []),
-            ...npc.drops.always.map(d => ({
-              itemId: d.itemId,
-              quantity: d.minQuantity,
-              chance: d.chance,
-              isGuaranteed: true
-            })),
-            ...npc.drops.common.map(d => ({
-              itemId: d.itemId,
-              quantity: d.minQuantity,
-              chance: d.chance,
-              isGuaranteed: false
-            })),
-            ...npc.drops.uncommon.map(d => ({
-              itemId: d.itemId,
-              quantity: d.minQuantity,
-              chance: d.chance,
-              isGuaranteed: false
-            })),
-            ...npc.drops.rare.map(d => ({
-              itemId: d.itemId,
-              quantity: d.minQuantity,
-              chance: d.chance,
-              isGuaranteed: false
-            })),
-            ...npc.drops.veryRare.map(d => ({
-              itemId: d.itemId,
-              quantity: d.minQuantity,
-              chance: d.chance,
-              isGuaranteed: false
-            }))
-          ],
-          spawnBiomes: npc.spawnBiomes || [],
-          modelPath: npc.appearance.modelPath,
-          attackSpeed: npc.combat.attackSpeed,
-          moveSpeed: npc.movement.speed,
-          combatRange: npc.combat.combatRange,
-          animationSet: {
-            idle: 'idle',
-            walk: 'walk',
-            attack: 'attack',
-            death: 'death'
-          },
-          respawnTime: npc.combat.respawnTime,
-          xpReward: npc.combat.xpReward,
-          health: npc.stats.health,
-          maxHealth: npc.stats.health,
-          level: npc.stats.level
-        };
-        (ALL_MOBS as Record<string, MobData>)[npc.id] = mobData;
       }
     }
     
