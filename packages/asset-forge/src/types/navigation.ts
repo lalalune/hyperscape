@@ -1,4 +1,4 @@
-export type NavigationView = 'assets' | 'generation' | 'equipment' | 'handRigging' | 'armorFitting'
+export type NavigationView = 'assets' | 'generation' | 'equipment' | 'handRigging' | 'armorFitting' | 'retargetAnimate'
 
 export interface NavigationState {
   currentView: NavigationView
