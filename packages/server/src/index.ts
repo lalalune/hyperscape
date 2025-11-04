@@ -263,9 +263,11 @@ async function startServer() {
   
   // Register server-specific systems (they have dependencies on server package modules)
   const { DatabaseSystem: ServerDatabaseSystem } = await import('./DatabaseSystem.js');
+  const { KillTrackerSystem } = await import('./KillTrackerSystem.js');
   world.register('database', ServerDatabaseSystem);
+  world.register('kill-tracker', KillTrackerSystem);
   world.register('network', ServerNetwork);
-  
+
   // Make PostgreSQL pool and Drizzle DB available for DatabaseSystem to use
   world.pgPool = pgPool
   world.drizzleDb = drizzleDb

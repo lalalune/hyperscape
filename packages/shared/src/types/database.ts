@@ -203,6 +203,14 @@ export interface QuestProgressRow {
   completionTime: number | null
 }
 
+// NPC kills row
+export interface NPCKillsRow {
+  id: number
+  playerId: string
+  npcId: string
+  killCount: number
+}
+
 // Trade log row
 export interface TradeLogRow {
   id: number

@@ -37,6 +37,7 @@ import type {
   InventoryRow,
   InventorySaveItem,
   ItemRow,
+  NPCKillsRow,
   PlayerRow,
   PlayerSessionRow,
   WorldChunkRow
@@ -687,6 +688,90 @@ export class DatabaseSystem extends SystemBase {
   }
 
   // ============================================================================
+  // NPC KILL TRACKING
+  // ============================================================================
+  // Tracks player kill statistics for achievements, quests, and analytics.
+  // Each row stores the number of times a player has killed a specific NPC type.
+
+  /**
+   * Increment NPC kill count for a player
+   *
+   * Increments the kill count for a specific NPC type. If this is the player's
+   * first kill of this NPC type, creates a new row with killCount=1.
+   * Uses PostgreSQL's ON CONFLICT to atomically increment or insert.
+   *
+   * @param playerId - The player ID who killed the NPC
+   * @param npcId - The NPC type identifier (e.g., "goblin", "dragon")
+   */
+  async incrementNPCKillAsync(playerId: string, npcId: string): Promise<void> {
+    if (!this.db || this.isDestroying) {
+      return;
+    }
+
+    await this.db
+      .insert(schema.npcKills)
+      .values({
+        playerId,
+        npcId,
+        killCount: 1,
+      })
+      .onConflictDoUpdate({
+        target: [schema.npcKills.playerId, schema.npcKills.npcId],
+        set: {
+          killCount: sql`${schema.npcKills.killCount} + 1`,
+        },
+      });
+  }
+
+  /**
+   * Get all NPC kill statistics for a player
+   *
+   * Retrieves the complete kill count for all NPC types this player has killed.
+   * Returns empty array if player has no kills recorded.
+   *
+   * @param playerId - The player ID to fetch kill stats for
+   * @returns Array of NPC kill records
+   */
+  async getPlayerNPCKillsAsync(playerId: string): Promise<Array<{ npcId: string; killCount: number }>> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const results = await this.db
+      .select({
+        npcId: schema.npcKills.npcId,
+        killCount: schema.npcKills.killCount,
+      })
+      .from(schema.npcKills)
+      .where(eq(schema.npcKills.playerId, playerId));
+
+    return results;
+  }
+
+  /**
+   * Get kill count for a specific NPC type
+   *
+   * Returns how many times the player has killed this specific NPC type.
+   * Returns 0 if the player has never killed this NPC type.
+   *
+   * @param playerId - The player ID to check
+   * @param npcId - The NPC type identifier
+   * @returns Number of times this player has killed this NPC type
+   */
+  async getNPCKillCountAsync(playerId: string, npcId: string): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const results = await this.db
+      .select({ killCount: schema.npcKills.killCount })
+      .from(schema.npcKills)
+      .where(and(
+        eq(schema.npcKills.playerId, playerId),
+        eq(schema.npcKills.npcId, npcId)
+      ))
+      .limit(1);
+
+    return results.length > 0 ? results[0].killCount : 0;
+  }
+
+  // ============================================================================
   // SYNCHRONOUS WRAPPER METHODS (LEGACY)
   // ============================================================================
   // These methods provide synchronous interfaces for backward compatibility.
@@ -860,6 +945,17 @@ export class DatabaseSystem extends SystemBase {
   getWorldChunk(_x: number, _z: number): WorldChunkRow | null {
     console.warn('[DatabaseSystem] getWorldChunk called synchronously - use getWorldChunkAsync instead');
     return null;
+  }
+
+  incrementNPCKill(playerId: string, npcId: string): void {
+    const operation = this.incrementNPCKillAsync(playerId, npcId)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in incrementNPCKill:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
   }
 
   /**

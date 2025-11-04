@@ -59,6 +59,7 @@
  * - `worldChunks` - Persistent world modifications
  * - `playerSessions` - Login/logout tracking
  * - `chunkActivity` - Player movement through chunks
+ * - `npcKills` - Player NPC kill statistics
  * - `storage` - Key-value storage for systems
  * 
  * **Design Patterns**:
@@ -405,6 +406,34 @@ export const storage = pgTable('storage', {
 });
 
 /**
+ * NPC Kills Table - Player kill statistics
+ *
+ * Tracks how many times each player has killed each NPC type.
+ * Used for achievements, quests, and player statistics.
+ *
+ * Key columns:
+ * - `id` - Auto-incrementing primary key
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `npcId` - The NPC type identifier (e.g., "goblin", "dragon")
+ * - `killCount` - Number of times this player has killed this NPC type
+ *
+ * Design notes:
+ * - Unique constraint on (playerId, npcId) ensures one row per player per NPC type
+ * - killCount increments each time the player kills that NPC type
+ * - CASCADE DELETE ensures cleanup when character is deleted
+ * - Indexed on playerId for fast lookups of player kill stats
+ */
+export const npcKills = pgTable('npc_kills', {
+  id: serial('id').primaryKey(),
+  playerId: text('playerId').notNull().references(() => characters.id, { onDelete: 'cascade' }),
+  npcId: text('npcId').notNull(),
+  killCount: integer('killCount').default(1).notNull(),
+}, (table) => ({
+  uniquePlayerNpc: unique().on(table.playerId, table.npcId),
+  playerIdx: index('idx_npc_kills_player').on(table.playerId),
+}));
+
+/**
  * ============================================================================
  * TABLE RELATIONS
  * ============================================================================
@@ -426,6 +455,7 @@ export const charactersRelations = relations(characters, ({ many }) => ({
   equipment: many(equipment),
   sessions: many(playerSessions),
   chunkActivities: many(chunkActivity),
+  npcKills: many(npcKills),
 }));
 
 export const inventoryRelations = relations(inventory, ({ one }) => ({
@@ -452,6 +482,13 @@ export const playerSessionsRelations = relations(playerSessions, ({ one }) => ({
 export const chunkActivityRelations = relations(chunkActivity, ({ one }) => ({
   character: one(characters, {
     fields: [chunkActivity.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const npcKillsRelations = relations(npcKills, ({ one }) => ({
+  character: one(characters, {
+    fields: [npcKills.playerId],
     references: [characters.id],
   }),
 }));
