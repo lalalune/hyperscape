@@ -18,7 +18,8 @@ COPY package.json ./
 COPY bun.lock ./
 COPY turbo.json ./
 
-# Copy workspace packages needed for build (shared is a dependency of server)
+# Copy workspace packages needed for build (shared depends on physx-js-webidl, server depends on shared)
+COPY packages/physx-js-webidl ./packages/physx-js-webidl
 COPY packages/shared ./packages/shared
 COPY packages/server ./packages/server
 
