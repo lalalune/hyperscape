@@ -437,7 +437,7 @@ export class MobEntity extends CombatantEntity {
       });
     } else {
       // Default interaction - show mob info or examine
-      this.world.emit(EventType.MOB_EXAMINE, {
+      this.world.emit(EventType.MOB_NPC_EXAMINE, {
         playerId: data.playerId,
         mobId: this.id,
         mobData: this.getMobData()
@@ -589,7 +589,7 @@ export class MobEntity extends CombatantEntity {
     if (nearbyPlayer) {
       this.config.targetPlayerId = nearbyPlayer.id;
       this.config.aiState = MobAIState.CHASE;
-      this.world.emit(EventType.MOB_AGGRO, {
+      this.world.emit(EventType.MOB_NPC_AGGRO, {
         mobId: this.id,
         targetId: nearbyPlayer.id
       });
@@ -756,7 +756,7 @@ export class MobEntity extends CombatantEntity {
 
   private performAttack(target: { id: string }): void {
     // Emit attack event
-    this.world.emit(EventType.COMBAT_MOB_ATTACK, {
+    this.world.emit(EventType.COMBAT_MOB_NPC_ATTACK, {
       mobId: this.id,
       targetId: target.id,
       damage: this.config.attackPower,
@@ -903,7 +903,7 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    this.world.emit(EventType.MOB_RESPAWNED, {
+    this.world.emit(EventType.MOB_NPC_RESPAWNED, {
       mobId: this.id,
       position: this.getPosition()
     });
