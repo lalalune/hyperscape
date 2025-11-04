@@ -64,8 +64,8 @@
  * **Database**: Mob instances are NOT persisted (respawn from spawn points)
  * 
  * **Runs on**: Server (authoritative), Client (visual only)
- * **Referenced by**: MobSystem, MobSpawnerSystem, CombatSystem, AggroSystem
- * 
+ * **Referenced by**: MobNPCSystem, MobNPCSpawnerSystem, CombatSystem, AggroSystem
+ *
  * @public
  */
 
