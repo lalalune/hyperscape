@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-bun.lock
+
 package-lock.json
 yarn.lock
 
