@@ -24,7 +24,8 @@ COPY packages/shared ./packages/shared
 COPY packages/server ./packages/server
 
 # Install ALL workspace dependencies
-RUN bun install --frozen-lockfile
+# Note: Cannot use --frozen-lockfile in monorepo Docker context due to workspace resolution
+RUN bun install
 
 # Build shared package first (server depends on it)
 RUN cd packages/shared && bun run build
