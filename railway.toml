@@ -1,9 +1,15 @@
+# Railway configuration for game server
+# Uses RAILPACK (Railway's new build system replacing Nixpacks)
+
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile.server"
+builder = "RAILPACK"
+
+[build.env]
+RAILPACK_BUILD_CMD = "bun run build:shared && bun run build:server"
+RAILPACK_INSTALL_CMD = "bun install"
 
 [deploy]
-startCommand = "bun dist/index.js"
+startCommand = "cd packages/server && bun dist/index.js"
 healthcheckPath = "/status"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
