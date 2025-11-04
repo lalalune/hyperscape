@@ -983,8 +983,8 @@ export class EntityManager extends SystemBase {
       modelPath = data.modelPath;
     } else {
       const externalNPC = getExternalNPC(data.npcId);
-      if (externalNPC && externalNPC.modelPath) {
-        modelPath = externalNPC.modelPath as string;
+      if (externalNPC && externalNPC.appearance.modelPath) {
+        modelPath = externalNPC.appearance.modelPath as string;
       }
     }
     

@@ -26,7 +26,7 @@ export class MobSystem extends SystemBase {
   private entityManager?: EntityManager;
   private mobIdCounter = 0;
   
-  private readonly GLOBAL_RESPAWN_TIME = MOB_SPAWN_CONSTANTS.GLOBAL_RESPAWN_TIME;
+  private readonly GLOBAL_RESPAWN_TIME = NPC_SPAWN_CONSTANTS.GLOBAL_RESPAWN_TIME;
   
   // Mob configurations loaded from externalized data
   private readonly MOB_CONFIGS: Record<string, MobSpawnConfig> = this.createMobConfigs();
@@ -35,28 +35,31 @@ export class MobSystem extends SystemBase {
    */
   private createMobConfigs(): Record<string, MobSpawnConfig> {
     const configs: Record<string, MobSpawnConfig> = {};
-    
-    for (const [mobId, mobData] of Object.entries(ALL_MOBS)) {
-      configs[mobId] = {
-        type: mobId, // Mob ID from mobs.json
-        name: mobData.name,
-        level: mobData.stats.level,
-        stats: {
-          attack: mobData.stats.attack,
-          strength: mobData.stats.strength,
-          defense: mobData.stats.defense,
-          constitution: mobData.stats.constitution,
-          ranged: mobData.stats.ranged
-        },
-        equipment: {
-        weapon: null,
-        armor: null
-      }, // Equipment can be added later if needed
-        lootTable: `${mobId}_drops`,
-        isAggressive: mobData.behavior.aggressive,
-        aggroRange: mobData.behavior.aggroRange,
-        respawnTime: mobData.respawnTime || this.GLOBAL_RESPAWN_TIME
-      };
+
+    for (const [npcId, npcData] of ALL_NPCS.entries()) {
+      // Only include combat NPCs (mob, boss, quest)
+      if (npcData.category === 'mob' || npcData.category === 'boss' || npcData.category === 'quest') {
+        configs[npcId] = {
+          type: npcId, // NPC ID from npcs.json
+          name: npcData.name,
+          level: npcData.stats.level,
+          stats: {
+            attack: npcData.stats.attack,
+            strength: npcData.stats.strength,
+            defense: npcData.stats.defense,
+            constitution: npcData.stats.constitution,
+            ranged: npcData.stats.ranged
+          },
+          equipment: {
+            weapon: null,
+            armor: null
+          }, // Equipment can be added later if needed
+          lootTable: `${npcId}_drops`,
+          isAggressive: npcData.combat.aggressive,
+          aggroRange: npcData.combat.aggroRange,
+          respawnTime: npcData.combat.respawnTime || this.GLOBAL_RESPAWN_TIME
+        };
+      }
     }
     
     return configs;

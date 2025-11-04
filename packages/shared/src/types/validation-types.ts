@@ -59,7 +59,7 @@ export interface DataValidationResult {
   errors: string[];
   warnings: string[];
   itemCount: number;
-  mobCount: number;
+  npcCount: number;
   areaCount: number;
   treasureCount: number;
 }

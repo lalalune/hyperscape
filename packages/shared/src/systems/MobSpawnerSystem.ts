@@ -1,6 +1,6 @@
 import { ALL_NPCS } from '../data/npcs';
 import { ALL_WORLD_AREAS } from '../data/world-areas';
-import type { MobData, MobSpawnStats } from '../types/core';
+import type { NPCData, MobSpawnStats } from '../types/core';
 import { EventType } from '../types/events';
 import type { World } from '../types/index';
 import type { EntitySpawnedEvent } from '../types/system-interfaces';
@@ -143,7 +143,7 @@ export class MobSpawnerSystem extends SystemBase {
   }
 
 
-  private spawnMobFromData(mobData: MobData, position: { x: number; y: number; z: number }): void {
+  private spawnMobFromData(mobData: NPCData, position: { x: number; y: number; z: number }): void {
     const mobId = `gdd_${mobData.id}_${this.mobIdCounter++}`;
     
     // Check if we already spawned this mob to prevent duplicates
@@ -159,7 +159,7 @@ export class MobSpawnerSystem extends SystemBase {
       mobType: mobData.id,
       level: mobData.stats.level,
       position: position,
-      respawnTime: mobData.respawnTime || 300000, // 5 minutes default
+      respawnTime: mobData.combat.respawnTime || 300000, // 5 minutes default
       customId: mobId // Pass our custom ID for tracking
     });
   }
@@ -231,7 +231,7 @@ export class MobSpawnerSystem extends SystemBase {
     };
     
     for (const [mobId] of this.spawnedMobs) {
-      for (const mobType of Object.keys(ALL_MOBS)) {
+      for (const mobType of ALL_NPCS.keys()) {
         if (mobId.includes(mobType)) {
           stats.byType[mobType] = (stats.byType[mobType] || 0) + 1;
         }
@@ -295,7 +295,7 @@ export class MobSpawnerSystem extends SystemBase {
         if (Number.isFinite(th)) mobY = (th as number) + 0.1;
         
         // Directly spawn the mob instead of emitting an event back to ourselves
-        const mobData = ALL_MOBS[spawnPoint.mobId as keyof typeof ALL_MOBS];
+        const mobData = ALL_NPCS.get(spawnPoint.mobId);
         if (mobData) {
           this.spawnMobFromData(mobData, { 
             x: spawnPoint.position.x, 

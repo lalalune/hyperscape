@@ -203,8 +203,8 @@ export class Entities extends SystemBase implements IEntities {
       const name = data.name || 'Mob';
       const mobTypeMatch = name.match(/Mob:\s*([^()]+)/i);
       const derivedMobType = (mobTypeMatch ? mobTypeMatch[1].trim() : name).toLowerCase().replace(/\s+/g, '_');
-      const mobData = getMobById(derivedMobType);
-      const modelPath = mobData?.modelPath || null;
+      const npcData = getNPCById(derivedMobType);
+      const modelPath = npcData?.appearance.modelPath || null;
       
 
       const mobConfig: MobEntityConfig = {
