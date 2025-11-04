@@ -949,7 +949,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       killMob: (mobId: string, killerId: string) => {
-        world.emit(EventType.MOB_DIED, { mobId, mobType: 'unknown', level: 1, killedBy: killerId, position: { x: 0, y: 0, z: 0 } })
+        world.emit(EventType.NPC_DIED, { mobId, mobType: 'unknown', level: 1, killedBy: killerId, position: { x: 0, y: 0, z: 0 } })
       },
 
       // App management actions

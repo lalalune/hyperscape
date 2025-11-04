@@ -308,8 +308,8 @@ export class MobSystem extends SystemBase {
     // Schedule respawn per GDD (15-minute global cycle)
     const respawnTime = Date.now() + mob.respawnTime;
     this.respawnTimers.set(data.entityId, respawnTime);
-    
-    // Don't emit MOB_DIED here - let MobEntity.die() handle it
+
+    // Don't emit NPC_DIED here - let MobEntity.die() handle it
   }
 
   private respawnMob(mobId: string): void {
@@ -472,7 +472,7 @@ export class MobSystem extends SystemBase {
       return false;
     }
 
-    // Don't emit MOB_DIED here - let MobEntity.die() handle it
+    // Don't emit NPC_DIED here - let MobEntity.die() handle it
     return true;
   }
 

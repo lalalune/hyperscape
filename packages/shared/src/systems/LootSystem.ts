@@ -54,7 +54,7 @@ export class LootSystem extends SystemBase {
     
     // Subscribe to loot events using type-safe event system
     // Listen for the official mob death event (normalize various emitters)
-    this.subscribe(EventType.MOB_DIED, (event: { mobId?: string; killerId?: string; mobType?: string; level?: number; killedBy?: string; position?: { x: number; y: number; z: number } }) => {
+    this.subscribe(EventType.NPC_DIED, (event: { mobId?: string; killerId?: string; mobType?: string; level?: number; killedBy?: string; position?: { x: number; y: number; z: number } }) => {
       const d = event;
       // Backfill minimal shape expected by handleMobDeath if missing
       const payload = {

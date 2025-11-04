@@ -1,11 +1,11 @@
 /**
  * KillTrackerSystem - Tracks and persists player NPC kills
  *
- * This server-only system listens for MOB_DIED events and records kill statistics
+ * This server-only system listens for NPC_DIED events and records kill statistics
  * in the database for achievements, quests, and player analytics.
  *
  * Architecture:
- * - Subscribes to MOB_DIED events from MobEntity
+ * - Subscribes to NPC_DIED events from MobEntity
  * - Calls DatabaseSystem to increment kill counts
  * - Fire-and-forget persistence (tracked by DatabaseSystem)
  *
@@ -41,9 +41,9 @@ export class KillTrackerSystem extends SystemBase {
       throw new Error('[KillTrackerSystem] DatabaseSystem not found');
     }
 
-    // Subscribe to MOB_DIED events
+    // Subscribe to NPC_DIED events
     this.subscribe<{ mobId: string; mobType: string; killedBy: string; level?: number; position?: { x: number; y: number; z: number } }>(
-      EventType.MOB_DIED,
+      EventType.NPC_DIED,
       (data) => this.handleMobDied(data)
     );
   }
@@ -63,7 +63,7 @@ export class KillTrackerSystem extends SystemBase {
 
     // Validate data
     if (!mobType || !killedBy) {
-      console.warn('[KillTrackerSystem] MOB_DIED event missing mobType or killedBy:', data);
+      console.warn('[KillTrackerSystem] NPC_DIED event missing mobType or killedBy:', data);
       return;
     }
 
