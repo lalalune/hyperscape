@@ -4,7 +4,7 @@ import { EventType } from '../types/events';
 import type { World } from '../types/index';
 import { SystemBase } from './SystemBase';
 // World eliminated - using base World instead
-import { ALL_MOBS, MOB_SPAWN_CONSTANTS } from '../data/mobs';
+import { ALL_NPCS, NPC_SPAWN_CONSTANTS } from '../data/npcs';
 import { ALL_WORLD_AREAS } from '../data/world-areas';
 import { MobInstance, MobSpawnConfig } from '../types/core';
 import { calculateDistance, groundToTerrain } from '../utils/EntityUtils';

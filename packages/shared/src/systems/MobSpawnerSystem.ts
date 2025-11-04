@@ -1,4 +1,4 @@
-import { ALL_MOBS } from '../data/mobs';
+import { ALL_NPCS } from '../data/npcs';
 import { ALL_WORLD_AREAS } from '../data/world-areas';
 import type { MobData, MobSpawnStats } from '../types/core';
 import { EventType } from '../types/events';

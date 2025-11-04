@@ -70,7 +70,7 @@ import { ResourceEntity } from '../entities/ResourceEntity';
 import { HeadstoneEntity } from '../entities/HeadstoneEntity';
 import type { MobEntityConfig, NPCEntityConfig, ItemEntityConfig, ResourceEntityConfig, HeadstoneData, HeadstoneEntityConfig } from '../types/entities';
 import { EntityType, InteractionType, MobAIState, NPCType, ItemRarity, ResourceType } from '../types/entities';
-import { getMobById } from '../data/mobs';
+import { getNPCById } from '../data/npcs';
 import { NPCBehavior, NPCState } from '../types/core';
 
 /**

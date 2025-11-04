@@ -34,7 +34,7 @@ import { EventType } from '../types/events';
 import { TerrainSystem } from './TerrainSystem';
 import { SystemBase } from './SystemBase';
 import { getItem } from '../data/items';
-import { getMobById } from '../data/mobs';
+import { getNPCById } from '../data/npcs';
 import { getExternalNPC } from '../utils/ExternalAssetUtils';
 
 export class EntityManager extends SystemBase {
@@ -490,9 +490,9 @@ export class EntityManager extends SystemBase {
       }
     }
     
-    // Get mob data to access modelPath
-    const mobDataFromDB = getMobById(mobType);
-    const modelPath = mobDataFromDB?.modelPath;
+    // Get NPC data to access modelPath
+    const npcDataFromDB = getNPCById(mobType);
+    const modelPath = npcDataFromDB?.appearance.modelPath;
 
     if(!modelPath) {
       throw new Error(`[EntityManager] Mob ${mobType} has no model path`);
@@ -767,124 +767,135 @@ export class EntityManager extends SystemBase {
   // All values loaded from mobs.json instead of hardcoded
   
   private getMobMaxHealth(mobType: string, level: number): number {
-    const mobData = getMobById(mobType);
-    if (!mobData) {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return 100 + (level - 1) * 10;
     }
-    return mobData.maxHealth + (level - mobData.level) * 10;
+    return npcData.stats.health + (level - npcData.stats.level) * 10;
   }
 
   private getMobAttackPower(mobType: string, level: number): number {
-    const mobData = getMobById(mobType);
-    if (!mobData) {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return 5 + (level - 1) * 2;
     }
-    return mobData.stats.attack + (level - mobData.level) * 2;
+    return npcData.stats.attack + (level - npcData.stats.level) * 2;
   }
 
   private getMobDefense(mobType: string, level: number): number {
-    const mobData = getMobById(mobType);
-    if (!mobData) {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return 2 + (level - 1);
     }
-    return mobData.stats.defense + (level - mobData.level);
+    return npcData.stats.defense + (level - npcData.stats.level);
   }
 
   private getMobAttackSpeed(mobType: string): number {
-    const mobData = getMobById(mobType);
-    if (!mobData || !mobData.attackSpeed) {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return 1.5;
     }
-    return mobData.attackSpeed;
+    return npcData.combat.attackSpeed;
   }
 
   private getMobMoveSpeed(mobType: string): number {
-    const mobData = getMobById(mobType);
-    if (!mobData || !mobData.moveSpeed) {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return 3.0; // Default: 3 units/sec (walking speed, matches player walk)
     }
-    return mobData.moveSpeed;
+    return npcData.movement.speed;
   }
 
   private getMobAggroRange(mobType: string): number {
-    const mobData = getMobById(mobType);
-    if (!mobData) {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return 15.0; // Default: 15 meters detection range (increased from 10)
     }
-    return mobData.behavior.aggroRange;
+    return npcData.combat.aggroRange;
   }
 
   private getMobCombatRange(mobType: string): number {
-    const mobData = getMobById(mobType);
-    if (!mobData || !mobData.combatRange) {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return 1.5; // Default: 1.5 meters melee range
     }
-    return mobData.combatRange;
+    return npcData.combat.combatRange;
   }
 
   private getMobXPReward(mobType: string, level: number): number {
-    const mobData = getMobById(mobType);
-    if (!mobData) {
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return 10 * level;
     }
-    const levelDiff = level - mobData.level;
-    return mobData.xpReward + (levelDiff * 5);
+    const levelDiff = level - npcData.stats.level;
+    return npcData.combat.xpReward + (levelDiff * 5);
   }
 
   private getMobLootTable(mobType: string): Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }> {
-    const mobData = getMobById(mobType);
-    if (!mobData || !mobData.lootTable) {
-      if (mobData && mobData.drops && mobData.drops.length > 0) {
-        return mobData.drops.map(drop => ({
-          itemId: drop.itemId,
-          chance: drop.chance,
-          minQuantity: drop.quantity,
-          maxQuantity: drop.quantity
-        }));
-      }
+    const npcData = getNPCById(mobType);
+    if (!npcData) {
       return [{ itemId: 'coins', chance: 0.5, minQuantity: 1, maxQuantity: 5 }];
     }
-    
-    // Convert lootTable format to expected format
+
+    // Convert unified NPCData drops to expected format
     const allDrops: Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }> = [];
-    
-    // Add all drop categories
-    for (const drop of mobData.lootTable.guaranteedDrops) {
+
+    // Add default drop if enabled
+    if (npcData.drops.defaultDrop.enabled) {
+      allDrops.push({
+        itemId: npcData.drops.defaultDrop.itemId,
+        chance: 1.0,
+        minQuantity: npcData.drops.defaultDrop.quantity,
+        maxQuantity: npcData.drops.defaultDrop.quantity
+      });
+    }
+
+    // Add all drop tiers
+    for (const drop of npcData.drops.always) {
       allDrops.push({
         itemId: drop.itemId,
         chance: drop.chance,
-        minQuantity: drop.quantity,
-        maxQuantity: drop.quantity
+        minQuantity: drop.minQuantity,
+        maxQuantity: drop.maxQuantity
       });
     }
-    
-    for (const drop of mobData.lootTable.commonDrops) {
+
+    for (const drop of npcData.drops.common) {
       allDrops.push({
         itemId: drop.itemId,
         chance: drop.chance,
-        minQuantity: drop.quantity,
-        maxQuantity: drop.quantity
+        minQuantity: drop.minQuantity,
+        maxQuantity: drop.maxQuantity
       });
     }
-    
-    for (const drop of mobData.lootTable.uncommonDrops) {
+
+    for (const drop of npcData.drops.uncommon) {
       allDrops.push({
         itemId: drop.itemId,
         chance: drop.chance,
-        minQuantity: drop.quantity,
-        maxQuantity: drop.quantity
+        minQuantity: drop.minQuantity,
+        maxQuantity: drop.maxQuantity
       });
     }
-    
-    for (const drop of mobData.lootTable.rareDrops) {
+
+    for (const drop of npcData.drops.rare) {
       allDrops.push({
         itemId: drop.itemId,
         chance: drop.chance,
-        minQuantity: drop.quantity,
-        maxQuantity: drop.quantity
+        minQuantity: drop.minQuantity,
+        maxQuantity: drop.maxQuantity
       });
     }
-    
+
+    for (const drop of npcData.drops.veryRare) {
+      allDrops.push({
+        itemId: drop.itemId,
+        chance: drop.chance,
+        minQuantity: drop.minQuantity,
+        maxQuantity: drop.maxQuantity
+      });
+    }
+
     return allDrops.length > 0 ? allDrops : [{ itemId: 'coins', chance: 0.5, minQuantity: 1, maxQuantity: 5 }];
   }
 
