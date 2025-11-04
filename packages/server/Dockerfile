@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy root workspace configuration files first
 COPY package.json ./
-COPY bun.lockb ./
+COPY bun.lock ./
 COPY turbo.json ./
 
 # Copy workspace packages needed for build (shared is a dependency of server)
