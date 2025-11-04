@@ -1,31 +1,11 @@
 {
   "$schema": "https://schema.railpack.com",
-  "packages": {
-    "bun": "1.1.38"
-  },
   "steps": {
-    "install": {
-      "commands": ["bun install"],
-      "caches": ["bun-cache"]
-    },
     "build": {
-      "inputs": [{ "step": "install" }],
-      "commands": [
-        "cd packages/shared && bun run build",
-        "cd packages/server && bun run build"
-      ]
-    }
-  },
-  "caches": {
-    "bun-cache": {
-      "directory": "/root/.bun/install/cache",
-      "type": "shared"
+      "commands": ["bun run build"]
     }
   },
   "deploy": {
-    "startCommand": "cd packages/server && bun dist/index.js",
-    "base": {
-      "image": "ghcr.io/railwayapp/railpack-runtime:latest"
-    }
+    "startCommand": "bun run start"
   }
 }
