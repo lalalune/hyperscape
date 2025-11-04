@@ -416,13 +416,14 @@ export interface Item {
   maxStackSize: number        // Max stack size (999 for stackable, 1 for non-stackable)
   value: number                // Base value in coins
   weight: number              // Item weight
-  
+
   // Equipment properties
-  equipSlot: EquipmentSlotName | null           // Equipment slot (weapon, shield, helmet, etc.)
+  equipSlot: EquipmentSlotName | '2h' | null    // Equipment slot (weapon, shield, helmet, etc.) or '2h' for two-handed
   weaponType: WeaponType | null      // Type of weapon (if applicable)
   equipable: boolean          // Can be equipped
   attackType: AttackType | null      // Type of attack (melee, ranged, magic)
   attackSpeed?: number        // Attack speed in milliseconds (for weapons)
+  is2h?: boolean              // Explicit flag for 2-handed weapons (alternative to equipSlot: '2h')
   
   // Item properties
   description: string         // Item description

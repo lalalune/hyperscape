@@ -357,6 +357,26 @@ export class VRMConverter {
     } else {
       console.log('   ✅ Scale is already appropriate')
     }
+
+    // VALIDATION: Verify final height is 1.6m
+    this.scene.updateMatrixWorld(true)
+    const finalHipsPos = new THREE.Vector3()
+    const finalHeadPos = new THREE.Vector3()
+    if (hipsBone) hipsBone.getWorldPosition(finalHipsPos)
+    if (headBone) headBone.getWorldPosition(finalHeadPos)
+    const finalHeight = finalHipsPos.distanceTo(finalHeadPos)
+
+    console.log('📏 [VALIDATION] Final avatar height verification:')
+    console.log(`   Hips to Head distance: ${finalHeight.toFixed(3)}m`)
+    console.log(`   Target height: 1.600m`)
+    console.log(`   Difference: ${Math.abs(finalHeight - 1.6).toFixed(3)}m`)
+
+    if (Math.abs(finalHeight - 1.6) > 0.05) {
+      console.warn(`   ⚠️  WARNING: Final height ${finalHeight.toFixed(3)}m deviates from target 1.6m!`)
+      this.warnings.push(`Final height ${finalHeight.toFixed(3)}m deviates from target 1.6m`)
+    } else {
+      console.log('   ✅ Height normalization successful')
+    }
   }
 
   /**
