@@ -1,15 +1,20 @@
 /**
  * Data Manager - Centralized Content Database
- * 
+ *
  * Provides a single point of access to all externalized data including:
  * - Items and equipment
- * - Mobs and creatures
+ * - NPCs (categorized as: mob, boss, neutral)
  * - World areas and spawn points
  * - Treasure locations
  * - Banks and stores
  * - Starting items and equipment requirements
- * 
+ *
  * This system validates data on load and provides type-safe access methods.
+ *
+ * NPC Categories:
+ * - mob: Combat NPCs (goblins, bandits, guards)
+ * - boss: Powerful special combat encounters
+ * - neutral: Non-combat NPCs (shopkeepers, bank clerks)
  */
 
 import { BANKS, GENERAL_STORES } from './banks-stores';
@@ -26,7 +31,7 @@ const TREASURE_LOCATIONS: TreasureLocation[] = []; // Stub - data removed
 const getAllTreasureLocations = () => TREASURE_LOCATIONS;
 const getTreasureLocationsByDifficulty = (_difficulty: number) => TREASURE_LOCATIONS;
 
-import type { Item, MobData, TreasureLocation, BankEntityData, StoreData, BiomeData, ZoneData } from '../types/core';
+import type { Item, MobData, NPCData, NPCCategory, TreasureLocation, BankEntityData, StoreData, BiomeData, ZoneData } from '../types/core';
 import type { DataValidationResult } from '../types/validation-types'
 import type { MobSpawnPoint, NPCLocation, WorldArea } from './world-areas';
 import { WeaponType, EquipmentSlotName, AttackType } from '../types/core';
@@ -79,29 +84,111 @@ export class DataManager {
       (ITEMS as Map<string, Item>).set(normalized.id, normalized);
     }
     
-    // Load mobs
-    const mobsRes = await fetch(`${baseUrl}/mobs.json`);
-    const mobList = await mobsRes.json() as Array<MobData>;
-    for (const mob of mobList) {
-      (ALL_MOBS as Record<string, MobData>)[mob.id] = mob;
-    }
-    
-    // Load NPCs
+    // Load NPCs (unified standardized structure with categories: mob, boss, neutral)
     const npcsRes = await fetch(`${baseUrl}/npcs.json`);
-    const npcList = await npcsRes.json() as Array<{
-      id: string;
-      name: string;
-      description: string;
-      type: string;
-      modelPath: string;
-      services: string[];
-    }>;
-    
-    if (!(globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS) {
-      (globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS = new Map();
+    const npcsData = await npcsRes.json() as { npcs: Array<NPCData>; metadata?: unknown };
+
+    // Split NPCs by category
+    const npcList = npcsData.npcs || [];
+
+    // Populate ALL_MOBS with mob and boss category NPCs
+    for (const npc of npcList) {
+      if (npc.category === 'mob' || npc.category === 'boss') {
+        // Convert standardized NPCData to MobData format for backward compatibility
+        const mobData: MobData = {
+          id: npc.id,
+          name: npc.name,
+          description: npc.description,
+          difficultyLevel: npc.stats.level <= 10 ? 1 : npc.stats.level <= 20 ? 2 : 3,
+          mobType: npc.category, // Use category as type
+          type: npc.category,
+          stats: {
+            level: npc.stats.level,
+            health: npc.stats.health,
+            attack: npc.stats.attack,
+            defense: npc.stats.defense,
+            strength: npc.stats.strength,
+            constitution: npc.stats.constitution,
+            ranged: npc.stats.ranged
+          },
+          behavior: {
+            aggressive: npc.combat.aggressive,
+            aggroRange: npc.combat.aggroRange,
+            chaseRange: npc.combat.aggroRange + 5, // Estimated chase range
+            returnToSpawn: true,
+            ignoreLowLevelPlayers: false,
+            levelThreshold: 1
+          },
+          // Convert new drop system to old format for backward compatibility
+          drops: [
+            // Include default drop if enabled
+            ...(npc.drops.defaultDrop.enabled ? [{
+              itemId: npc.drops.defaultDrop.itemId,
+              quantity: npc.drops.defaultDrop.quantity,
+              chance: 1.0,
+              isGuaranteed: true
+            }] : []),
+            // Include all drop tiers
+            ...npc.drops.always.map(d => ({
+              itemId: d.itemId,
+              quantity: d.minQuantity,
+              chance: d.chance,
+              isGuaranteed: true
+            })),
+            ...npc.drops.common.map(d => ({
+              itemId: d.itemId,
+              quantity: d.minQuantity,
+              chance: d.chance,
+              isGuaranteed: false
+            })),
+            ...npc.drops.uncommon.map(d => ({
+              itemId: d.itemId,
+              quantity: d.minQuantity,
+              chance: d.chance,
+              isGuaranteed: false
+            })),
+            ...npc.drops.rare.map(d => ({
+              itemId: d.itemId,
+              quantity: d.minQuantity,
+              chance: d.chance,
+              isGuaranteed: false
+            })),
+            ...npc.drops.veryRare.map(d => ({
+              itemId: d.itemId,
+              quantity: d.minQuantity,
+              chance: d.chance,
+              isGuaranteed: false
+            }))
+          ],
+          spawnBiomes: npc.spawnBiomes || [],
+          modelPath: npc.appearance.modelPath,
+          attackSpeed: npc.combat.attackSpeed,
+          moveSpeed: npc.movement.speed,
+          combatRange: npc.combat.combatRange,
+          animationSet: {
+            idle: 'idle',
+            walk: 'walk',
+            attack: 'attack',
+            death: 'death'
+          },
+          respawnTime: npc.combat.respawnTime,
+          xpReward: npc.combat.xpReward,
+          health: npc.stats.health,
+          maxHealth: npc.stats.health,
+          level: npc.stats.level
+        };
+        (ALL_MOBS as Record<string, MobData>)[npc.id] = mobData;
+      }
+    }
+
+    // Store neutral NPCs separately
+    if (!(globalThis as { EXTERNAL_NPCS?: Map<string, NPCData> }).EXTERNAL_NPCS) {
+      (globalThis as { EXTERNAL_NPCS?: Map<string, NPCData> }).EXTERNAL_NPCS = new Map();
     }
     for (const npc of npcList) {
-      (globalThis as unknown as { EXTERNAL_NPCS: Map<string, unknown> }).EXTERNAL_NPCS.set(npc.id, npc);
+      if (npc.category === 'neutral') {
+        (globalThis as unknown as { EXTERNAL_NPCS: Map<string, NPCData> }).EXTERNAL_NPCS.set(npc.id, npc);
+      }
     }
     
     // Load resources
