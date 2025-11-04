@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy root workspace configuration
-COPY package.json bun.lockb turbo.json ./
+COPY package.json bun.lock turbo.json ./
 
 # Copy workspace packages (shared + server)
 COPY packages/shared ./packages/shared
