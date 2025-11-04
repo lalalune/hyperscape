@@ -95,44 +95,69 @@ export class LootSystem extends SystemBase {
    * Dynamically loaded from mob data JSON
    */
   private setupLootTables(): void {
-    // Load loot tables from mob data
-    for (const [mobId, mobData] of Object.entries(ALL_MOBS)) {
-      if (mobData.lootTable) {
-        // Use loot table from JSON if available
-        this.lootTables.set(mobId, {
-          id: `${mobId}_loot`,
-          mobType: mobId,
-          guaranteedDrops: mobData.lootTable.guaranteedDrops,
-          commonDrops: mobData.lootTable.commonDrops,
-          uncommonDrops: mobData.lootTable.uncommonDrops,
-          rareDrops: mobData.lootTable.rareDrops
-        });
-      } else if (mobData.drops && mobData.drops.length > 0) {
-        const guaranteedDrops = mobData.drops
-          .filter(drop => drop.isGuaranteed)
-          .map(drop => ({
-            itemId: drop.itemId,
-            quantity: drop.quantity,
-            chance: drop.chance
-          }));
-        
-        const otherDrops = mobData.drops
-          .filter(drop => !drop.isGuaranteed)
-          .map(drop => ({
-            itemId: drop.itemId,
-            quantity: drop.quantity,
-            chance: drop.chance
-          }));
-        
-        this.lootTables.set(mobId, {
-          id: `${mobId}_loot`,
-          mobType: mobId,
-          guaranteedDrops: guaranteedDrops,
-          commonDrops: otherDrops,
-          uncommonDrops: [],
-          rareDrops: []
+    // Load loot tables from NPC data
+    for (const [npcId, npcData] of ALL_NPCS.entries()) {
+      // Only process combat NPCs (mob, boss, quest)
+      if (npcData.category !== 'mob' && npcData.category !== 'boss' && npcData.category !== 'quest') {
+        continue;
+      }
+
+      // Convert unified drop system to loot table format
+      const guaranteedDrops: Array<{ itemId: string; quantity: number; chance: number }> = [];
+      const commonDrops: Array<{ itemId: string; quantity: number; chance: number }> = [];
+      const uncommonDrops: Array<{ itemId: string; quantity: number; chance: number }> = [];
+      const rareDrops: Array<{ itemId: string; quantity: number; chance: number }> = [];
+
+      // Add default drop if enabled
+      if (npcData.drops.defaultDrop.enabled) {
+        guaranteedDrops.push({
+          itemId: npcData.drops.defaultDrop.itemId,
+          quantity: npcData.drops.defaultDrop.quantity,
+          chance: 1.0
         });
       }
+
+      // Add all drop tiers
+      for (const drop of npcData.drops.always) {
+        guaranteedDrops.push({
+          itemId: drop.itemId,
+          quantity: drop.minQuantity,
+          chance: drop.chance
+        });
+      }
+
+      for (const drop of npcData.drops.common) {
+        commonDrops.push({
+          itemId: drop.itemId,
+          quantity: drop.minQuantity,
+          chance: drop.chance
+        });
+      }
+
+      for (const drop of npcData.drops.uncommon) {
+        uncommonDrops.push({
+          itemId: drop.itemId,
+          quantity: drop.minQuantity,
+          chance: drop.chance
+        });
+      }
+
+      for (const drop of [...npcData.drops.rare, ...npcData.drops.veryRare]) {
+        rareDrops.push({
+          itemId: drop.itemId,
+          quantity: drop.minQuantity,
+          chance: drop.chance
+        });
+      }
+
+      this.lootTables.set(npcId, {
+        id: `${npcId}_loot`,
+        mobType: npcId,
+        guaranteedDrops,
+        commonDrops,
+        uncommonDrops,
+        rareDrops
+      });
     }
     
   }
