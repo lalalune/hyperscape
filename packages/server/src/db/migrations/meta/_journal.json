@@ -8,6 +8,13 @@
       "when": 1700000000000,
       "tag": "0000_numerous_korvac",
       "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1730688000000,
+      "tag": "0001_add_npc_kills_table",
+      "breakpoints": false
     }
   ]
 }
