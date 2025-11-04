@@ -15,7 +15,8 @@ RUN apt-get update && apt-get install -y \
 # Copy root workspace configuration
 COPY package.json bun.lock turbo.json ./
 
-# Copy workspace packages (shared + server)
+# Copy workspace packages (physx-js-webidl + shared + server)
+COPY packages/physx-js-webidl ./packages/physx-js-webidl
 COPY packages/shared ./packages/shared
 COPY packages/server ./packages/server
 
