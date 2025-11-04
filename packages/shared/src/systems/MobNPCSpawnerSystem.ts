@@ -10,24 +10,25 @@ import { TerrainSystem } from './TerrainSystem';
 // Types are now imported from shared type files
 
 /**
- * MobSpawnerSystem
- * 
+ * Mob NPC Spawner System
+ *
  * Uses EntityManager to spawn mob entities instead of MobApp objects.
- * Creates and manages all mob instances across the world based on GDD specifications.
+ * Creates and manages all combat NPC instances (mobs, bosses, quest enemies)
+ * across the world based on GDD specifications.
  */
-export class MobSpawnerSystem extends SystemBase {
+export class MobNPCSpawnerSystem extends SystemBase {
   private spawnedMobs = new Map<string, string>(); // mobId -> entityId
   private mobIdCounter = 0;
   private terrainSystem!: TerrainSystem;
   private lastSpawnTime = 0;
   private readonly SPAWN_COOLDOWN = 5000; // 5 seconds between spawns
-  
+
   constructor(world: World) {
     super(world, {
-      name: 'mob-spawner',
+      name: 'mob-npc-spawner',
       dependencies: {
         required: ['entity-manager', 'terrain'], // Depends on EntityManager and terrain for placement
-        optional: ['mob'] // Better with mob system
+        optional: ['mob-npc'] // Better with mob NPC system
       },
       autoCleanup: true
     });
@@ -36,13 +37,13 @@ export class MobSpawnerSystem extends SystemBase {
   async init(): Promise<void> {
     // Get terrain system reference
     this.terrainSystem = this.world.getSystem<TerrainSystem>('terrain')!;
-    
+
     // Set up event subscriptions for mob lifecycle (do not consume MOB_SPAWN_REQUEST to avoid re-emission loops)
     this.subscribe<{ mobId: string }>(EventType.MOB_DESPAWN, (data) => {
       this.despawnMob(data.mobId);
     });
     this.subscribe(EventType.MOB_RESPAWN_ALL, (_event) => this.respawnAllMobs());
-    
+
     // Subscribe to terrain generation to spawn mobs for new tiles
     this.subscribe(EventType.TERRAIN_TILE_GENERATED, (data) => this.onTileGenerated(data as { tileX: number; tileZ: number; biome: string }));
 
@@ -53,47 +54,47 @@ export class MobSpawnerSystem extends SystemBase {
         this.handleEntitySpawned(data);
       }
     });
-    
+
   }
 
   async start(): Promise<void> {
-    
+
     // Spawn a default test mob near origin BEFORE accepting connections (server-only)
     if (this.world.isServer) {
       await this.spawnDefaultMob();
     }
-    
+
     // Mobs are now spawned reactively as terrain tiles generate
     // No need to spawn all mobs at startup - tiles will trigger spawning
   }
-  
+
   /**
    * Spawn a default test mob for initial world content
    */
   private async spawnDefaultMob(): Promise<void> {
-    
+
     // Wait for EntityManager to be ready
     let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
     let attempts = 0;
-    
+
     while ((!entityManager || !entityManager.spawnEntity) && attempts < 100) {
       await new Promise(resolve => setTimeout(resolve, 100));
       entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
       attempts++;
-      
+
       if (attempts % 10 === 0) {
       }
     }
-    
+
     if (!entityManager?.spawnEntity) {
-      console.error('[MobSpawnerSystem] ❌ EntityManager never became available after 10 seconds!');
+      console.error('[MobNPCSpawnerSystem] ❌ EntityManager never became available after 10 seconds!');
       return;
     }
-    
-    
+
+
     // Use fixed Y position for simplicity
     const y = 43;
-    
+
     const mobConfig = {
       id: 'default_goblin_1',
       type: 'mob' as const,
@@ -130,30 +131,30 @@ export class MobSpawnerSystem extends SystemBase {
       deathTime: null,
       respawnTime: 60000 // 1 minute
     };
-    
-    
+
+
     try {
       const spawnedEntity = await entityManager.spawnEntity(mobConfig) as { id?: string } | null;
-      
+
       // Verify it's in the world
       const verify = this.world.entities.get('default_goblin_1');
     } catch (err) {
-      console.error('[MobSpawnerSystem] ❌ Error spawning default goblin:', err);
+      console.error('[MobNPCSpawnerSystem] ❌ Error spawning default goblin:', err);
     }
   }
 
 
   private spawnMobFromData(mobData: NPCData, position: { x: number; y: number; z: number }): void {
     const mobId = `gdd_${mobData.id}_${this.mobIdCounter++}`;
-    
+
     // Check if we already spawned this mob to prevent duplicates
     if (this.spawnedMobs.has(mobId)) {
       return;
     }
-    
+
     // Track this spawn BEFORE emitting to prevent race conditions
     this.spawnedMobs.set(mobId, mobData.id);
-    
+
     // Use EntityManager to spawn mob via event system
     this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
       mobType: mobData.id,
@@ -165,7 +166,7 @@ export class MobSpawnerSystem extends SystemBase {
   }
 
   private handleEntitySpawned(data: EntitySpawnedEvent): void {
-    // Track mobs spawned by the EntityManager  
+    // Track mobs spawned by the EntityManager
     if (data.entityType === 'mob' && data.entityData?.mobType) {
       // Find matching request based on mob type and position
       for (const [mobId] of this.spawnedMobs) {
@@ -185,18 +186,18 @@ export class MobSpawnerSystem extends SystemBase {
     if (entityId) {
       this.emitTypedEvent(EventType.ENTITY_DEATH, { entityId });
       this.spawnedMobs.delete(mobId);
-      
+
     }
   }
 
   private respawnAllMobs(): void {
-    
+
     // Kill all existing mobs
     for (const [_mobId, entityId] of this.spawnedMobs) {
       this.emitTypedEvent(EventType.ENTITY_DEATH, { entityId });
     }
     this.spawnedMobs.clear();
-    
+
     // Mobs will respawn naturally as terrain tiles remain loaded
     // TerrainSystem will re-emit TERRAIN_TILE_GENERATED which will trigger mob spawning
   }
@@ -229,7 +230,7 @@ export class MobSpawnerSystem extends SystemBase {
       byType: {} as Record<string, number>,
       spawnedMobs: this.spawnedMobs.size
     };
-    
+
     for (const [mobId] of this.spawnedMobs) {
       for (const mobType of ALL_NPCS.keys()) {
         if (mobId.includes(mobType)) {
@@ -237,7 +238,7 @@ export class MobSpawnerSystem extends SystemBase {
         }
       }
     }
-    
+
     return stats;
   }
 
@@ -293,14 +294,14 @@ export class MobSpawnerSystem extends SystemBase {
         let mobY = spawnPoint.position.y;
         const th = this.terrainSystem.getHeightAt(spawnPoint.position.x, spawnPoint.position.z);
         if (Number.isFinite(th)) mobY = (th as number) + 0.1;
-        
+
         // Directly spawn the mob instead of emitting an event back to ourselves
         const mobData = ALL_NPCS.get(spawnPoint.mobId);
         if (mobData) {
-          this.spawnMobFromData(mobData, { 
-            x: spawnPoint.position.x, 
-            y: mobY, 
-            z: spawnPoint.position.z 
+          this.spawnMobFromData(mobData, {
+            x: spawnPoint.position.x,
+            y: mobY,
+            z: spawnPoint.position.z
           });
         }
       }
@@ -318,10 +319,10 @@ export class MobSpawnerSystem extends SystemBase {
   destroy(): void {
     // Clear all spawn tracking
     this.spawnedMobs.clear();
-    
+
     // Reset counter
     this.mobIdCounter = 0;
-    
+
     // Call parent cleanup
     super.destroy();
   }

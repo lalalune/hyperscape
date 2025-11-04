@@ -11,23 +11,30 @@ import { calculateDistance, groundToTerrain } from '../utils/EntityUtils';
 import { EntityManager } from './EntityManager';
 
 /**
- * Mob System - GDD Compliant
- * Handles mob spawning, AI behavior, and lifecycle management per GDD specifications:
+ * Mob NPC System - GDD Compliant
+ *
+ * Handles all combat-capable NPCs including mobs, bosses, and quest enemies.
+ * Manages spawning, AI behavior, respawn cycles, and lifecycle for hostile NPCs.
+ *
+ * Note: Loads from ALL_NPCS and filters for combat categories (mob/boss/quest).
+ * For service NPCs (bankers, shops, trainers), see NPCSystem.
+ *
+ * Features:
  * - 15-minute global respawn cycle
  * - Fixed spawn locations with biome-appropriate mobs
  * - Aggressive vs non-aggressive behavior based on mob type
  * - Level-based aggro (high-level players ignored by low-level aggressive mobs)
  * - Combat integration with player combat system
  */
-export class MobSystem extends SystemBase {
+export class MobNPCSystem extends SystemBase {
   private mobs = new Map<string, MobInstance>();
   private spawnPoints = new Map<string, { config: MobSpawnConfig, position: { x: number; y: number; z: number } }>();
   private respawnTimers = new Map<string, number>(); // Changed to store respawn times instead of timers
   private entityManager?: EntityManager;
   private mobIdCounter = 0;
-  
+
   private readonly GLOBAL_RESPAWN_TIME = NPC_SPAWN_CONSTANTS.GLOBAL_RESPAWN_TIME;
-  
+
   // Mob configurations loaded from externalized data
   private readonly MOB_CONFIGS: Record<string, MobSpawnConfig> = this.createMobConfigs();
   /**
@@ -61,13 +68,13 @@ export class MobSystem extends SystemBase {
         };
       }
     }
-    
+
     return configs;
   }
 
   constructor(world: World) {
     super(world, {
-      name: 'mob',
+      name: 'mob-npc',
       dependencies: {
         required: ['entity-manager'], // Needs entity manager to spawn/manage mobs
         optional: ['player', 'combat'] // Better with player and combat systems
@@ -87,16 +94,16 @@ export class MobSystem extends SystemBase {
     this.subscribe(EventType.ENTITY_DAMAGE_TAKEN, (data) => this.handleMobDamage(data as { entityId: string; damage: number; damageSource: string; entityType: 'player' | 'mob' }));
     this.subscribe<{ playerId: string }>(EventType.PLAYER_REGISTERED, (data) => this.onPlayerEnter(data));
     // Remove MOB_SPAWN_REQUEST subscription to prevent double spawning with EntityManager
-    
+
     // Initialize spawn points (these would normally be loaded from world data)
     this.initializeSpawnPoints();
   }
 
   start(): void {
-    
+
     // Get reference to EntityManager
     this.entityManager = this.world.getSystem<EntityManager>('entity-manager');
-    // DISABLED: MobSpawnerSystem already handles spawning all mobs
+    // DISABLED: MobNPCSpawnerSystem already handles spawning all mobs
     // Having both systems spawn causes duplicates and memory issues
     // if (this.entityManager) {
     //   this.spawnAllMobs();
@@ -111,7 +118,7 @@ export class MobSystem extends SystemBase {
   private initializeSpawnPoints(): void {
     // Load spawn points from externalized world areas data
     let spawnId = 1;
-    
+
     for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
       if (area.mobSpawns && area.mobSpawns.length > 0) {
         for (const mobSpawn of area.mobSpawns) {
@@ -155,12 +162,12 @@ export class MobSystem extends SystemBase {
     if (!this.entityManager) {
       return null;
     }
-    
+
     // Ground mob to terrain - use Infinity to allow any initial height difference
     const groundedPosition = groundToTerrain(this.world, position, 0.5, Infinity);
-    
+
     const mobId = `mob_${spawnId}_${Date.now()}`;
-    
+
     const mobData: MobInstance = {
       id: mobId,
       type: config.type,
@@ -181,7 +188,7 @@ export class MobSystem extends SystemBase {
       modelPath: config.modelPath || `/models/mobs/${config.type}.glb`,
       animationSet: config.animationSet || {
         idle: 'idle',
-        walk: 'walk', 
+        walk: 'walk',
         attack: 'attack',
         death: 'death'
       },
@@ -211,23 +218,23 @@ export class MobSystem extends SystemBase {
       lootTable: config.lootTable,
       lastAI: Date.now(),
       stats: {
-        level: config.level, 
+        level: config.level,
         health: (config.stats?.constitution || 10) * 10,
-        attack: config.stats?.attack || 1, 
-        strength: config.stats?.strength || 1, 
-        defense: config.stats?.defense || 1, 
-        constitution: config.stats?.constitution || 10, 
-        ranged: config.stats?.ranged || 1 
+        attack: config.stats?.attack || 1,
+        strength: config.stats?.strength || 1,
+        defense: config.stats?.defense || 1,
+        constitution: config.stats?.constitution || 10,
+        ranged: config.stats?.ranged || 1
       },
       target: null,
       wanderRadius: 5 // Default wander radius
     };
 
     this.mobs.set(mobId, mobData);
-    
+
     // EntityManager will emit MOB_SPAWNED after creating the entity
     // We don't need to emit it here anymore
-    
+
     // Wait for entity to be created by EntityManager
     await new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
@@ -237,14 +244,14 @@ export class MobSystem extends SystemBase {
           resolve();
         }
       }, 10);
-      
+
       // Timeout after 2 seconds
       setTimeout(() => {
         clearInterval(checkInterval);
         resolve();
       }, 2000);
     });
-    
+
     return mobId;
   }
 
@@ -259,28 +266,28 @@ export class MobSystem extends SystemBase {
   }
 
   private handleMobDamage(data: { entityId: string; damage: number; damageSource: string; entityType: 'player' | 'mob' }): void {
-    console.log(`[MobSystem] handleMobDamage called for ${data.entityId}: ${data.damage} damage from ${data.damageSource}`);
+    console.log(`[MobNPCSystem] handleMobDamage called for ${data.entityId}: ${data.damage} damage from ${data.damageSource}`);
     if (data.entityType !== 'mob') return;
-    
+
     // Validate entityId is defined
     if (!data.entityId) {
-      console.warn('[MobSystem] handleMobDamage called with undefined entityId');
+      console.warn('[MobNPCSystem] handleMobDamage called with undefined entityId');
       return;
     }
-    
+
     const mob = this.mobs.get(data.entityId);
     if (!mob || !mob.isAlive) return;
 
     // Apply damage
     mob.health = Math.max(0, mob.health - data.damage);
-    
+
     // Emit damage event for AI system
     this.emitTypedEvent(EventType.MOB_ATTACKED, {
       mobId: data.entityId,
       damage: data.damage,
       attackerId: data.damageSource
     });
-    
+
     // Check if mob died from damage
     if (mob.health <= 0) {
       // Let handleMobDeath emit the proper event with all data
@@ -294,17 +301,17 @@ export class MobSystem extends SystemBase {
 
   private handleMobDeath(data: { entityId: string; killedBy: string; entityType: 'player' | 'mob' }): void {
     if (data.entityType !== 'mob') return;
-    
+
     const mob = this.mobs.get(data.entityId);
     if (!mob) return;
 
     mob.isAlive = false;
     mob.aiState = 'dead';
     mob.health = 0;
-    
+
     // Loot generation is now handled by LootSystem via mob:died event
             // this.generateLoot(mob);
-    
+
     // Schedule respawn per GDD (15-minute global cycle)
     const respawnTime = Date.now() + mob.respawnTime;
     this.respawnTimers.set(data.entityId, respawnTime);
@@ -330,7 +337,7 @@ export class MobSystem extends SystemBase {
 
     // Clear respawn timer
     this.respawnTimers.delete(mobId);
-    
+
     // Request mob respawn via EntityManager
     if (this.entityManager) {
       const config = this.MOB_CONFIGS[mob.type];
@@ -397,10 +404,10 @@ export class MobSystem extends SystemBase {
 
     const timestamp = Date.now();
     const spawnId = `test_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     // spawnMobInternal now returns the actual mob ID
     const mobId = await this.spawnMobInternal(spawnId, mobConfig, position);
-    
+
     return mobId;
   }
 
@@ -423,7 +430,7 @@ export class MobSystem extends SystemBase {
     // Mark as dead and remove from active mobs
     mob.isAlive = false;
     mob.aiState = 'dead';
-    
+
     // Clear any respawn timer
     const respawnTimer = this.respawnTimers.get(mobId);
     if (respawnTimer) {
@@ -467,7 +474,7 @@ export class MobSystem extends SystemBase {
     if (!mob) {
       return false;
     }
-    
+
     if (!mob.isAlive) {
       return false;
     }
@@ -483,7 +490,7 @@ export class MobSystem extends SystemBase {
    */
   update(_dt: number): void {
     const now = Date.now();
-    
+
     // Check respawn timers
     for (const [mobId, respawnTime] of this.respawnTimers.entries()) {
       if (now >= respawnTime) {
@@ -499,17 +506,17 @@ export class MobSystem extends SystemBase {
   destroy(): void {
     // Clear all respawn timers
     this.respawnTimers.clear();
-    
+
     // Despawn all mobs
     this.despawnAllMobs();
-    
+
     // Clear all mob data
     this.mobs.clear();
     this.spawnPoints.clear();
-    
+
     // Clear system references
     this.entityManager = undefined;
-    
+
     // Call parent cleanup
     super.destroy();
   }
