@@ -93,7 +93,7 @@ export class MobNPCSystem extends SystemBase {
     // ENTITY_DAMAGE_TAKEN is not in EventMap, so it receives the full event
     this.subscribe(EventType.ENTITY_DAMAGE_TAKEN, (data) => this.handleMobDamage(data as { entityId: string; damage: number; damageSource: string; entityType: 'player' | 'mob' }));
     this.subscribe<{ playerId: string }>(EventType.PLAYER_REGISTERED, (data) => this.onPlayerEnter(data));
-    // Remove MOB_SPAWN_REQUEST subscription to prevent double spawning with EntityManager
+    // Remove MOB_NPC_SPAWN_REQUEST subscription to prevent double spawning with EntityManager
 
     // Initialize spawn points (these would normally be loaded from world data)
     this.initializeSpawnPoints();
@@ -148,7 +148,7 @@ export class MobNPCSystem extends SystemBase {
     for (const [spawnId, spawnData] of this.spawnPoints.entries()) {
       // Emit spawn request instead of directly spawning
       // This allows EntityManager to handle the actual entity creation
-      this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
+      this.emitTypedEvent(EventType.MOB_NPC_SPAWN_REQUEST, {
         mobType: spawnData.config.type,
         position: spawnData.position,
         level: spawnData.config.level,
@@ -232,7 +232,7 @@ export class MobNPCSystem extends SystemBase {
 
     this.mobs.set(mobId, mobData);
 
-    // EntityManager will emit MOB_SPAWNED after creating the entity
+    // EntityManager will emit MOB_NPC_SPAWNED after creating the entity
     // We don't need to emit it here anymore
 
     // Wait for entity to be created by EntityManager
@@ -282,7 +282,7 @@ export class MobNPCSystem extends SystemBase {
     mob.health = Math.max(0, mob.health - data.damage);
 
     // Emit damage event for AI system
-    this.emitTypedEvent(EventType.MOB_ATTACKED, {
+    this.emitTypedEvent(EventType.MOB_NPC_ATTACKED, {
       mobId: data.entityId,
       damage: data.damage,
       attackerId: data.damageSource
@@ -342,8 +342,8 @@ export class MobNPCSystem extends SystemBase {
     if (this.entityManager) {
       const config = this.MOB_CONFIGS[mob.type];
       if (config) {
-        // Emit a spawn request - EntityManager will create the entity and emit MOB_SPAWNED
-        this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
+        // Emit a spawn request - EntityManager will create the entity and emit MOB_NPC_SPAWNED
+        this.emitTypedEvent(EventType.MOB_NPC_SPAWN_REQUEST, {
           mobType: config.type,
           position: { x: groundedPosition.x, y: groundedPosition.y, z: groundedPosition.z },
           level: config.level,
@@ -441,7 +441,7 @@ export class MobNPCSystem extends SystemBase {
     this.mobs.delete(mobId);
 
     // Emit despawn event for cleanup
-    this.emitTypedEvent(EventType.MOB_DESPAWN, {
+    this.emitTypedEvent(EventType.MOB_NPC_DESPAWN, {
       mobId,
       mobType: mob.type,
       position: { x: mob.position.x, y: mob.position.y, z: mob.position.z }

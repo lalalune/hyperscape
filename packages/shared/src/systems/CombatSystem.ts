@@ -98,7 +98,7 @@ export class CombatSystem extends SystemBase {
       this.handleRangedAttack(data);
     });
     this.subscribe(
-      EventType.COMBAT_MOB_ATTACK,
+      EventType.COMBAT_MOB_NPC_ATTACK,
       (data: { mobId: string; targetId: string }) => {
         this.handleMobAttack(data);
       }
@@ -420,13 +420,13 @@ export class CombatSystem extends SystemBase {
       if (typeof mobEntity.takeDamage === "function") {
         mobEntity.takeDamage(damage, attackerId);
         
-        // Emit MOB_ATTACKED event so EntityManager can handle death
-        this.emitTypedEvent(EventType.MOB_ATTACKED, {
+        // Emit MOB_NPC_ATTACKED event so EntityManager can handle death
+        this.emitTypedEvent(EventType.MOB_NPC_ATTACKED, {
           mobId: targetId,
           damage: damage,
           attackerId: attackerId
         });
-        console.log(`[CombatSystem] 📤 Emitted MOB_ATTACKED event for ${targetId}`);
+        console.log(`[CombatSystem] 📤 Emitted MOB_NPC_ATTACKED event for ${targetId}`);
       } else {
         // Fallback for entities without takeDamage method
         const currentHealth = mobEntity.getProperty("health") as

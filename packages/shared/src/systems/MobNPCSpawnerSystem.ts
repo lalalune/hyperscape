@@ -38,11 +38,11 @@ export class MobNPCSpawnerSystem extends SystemBase {
     // Get terrain system reference
     this.terrainSystem = this.world.getSystem<TerrainSystem>('terrain')!;
 
-    // Set up event subscriptions for mob lifecycle (do not consume MOB_SPAWN_REQUEST to avoid re-emission loops)
-    this.subscribe<{ mobId: string }>(EventType.MOB_DESPAWN, (data) => {
+    // Set up event subscriptions for mob lifecycle (do not consume MOB_NPC_SPAWN_REQUEST to avoid re-emission loops)
+    this.subscribe<{ mobId: string }>(EventType.MOB_NPC_DESPAWN, (data) => {
       this.despawnMob(data.mobId);
     });
-    this.subscribe(EventType.MOB_RESPAWN_ALL, (_event) => this.respawnAllMobs());
+    this.subscribe(EventType.MOB_NPC_RESPAWN_ALL, (_event) => this.respawnAllMobs());
 
     // Subscribe to terrain generation to spawn mobs for new tiles
     this.subscribe(EventType.TERRAIN_TILE_GENERATED, (data) => this.onTileGenerated(data as { tileX: number; tileZ: number; biome: string }));
@@ -156,7 +156,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
     this.spawnedMobs.set(mobId, mobData.id);
 
     // Use EntityManager to spawn mob via event system
-    this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
+    this.emitTypedEvent(EventType.MOB_NPC_SPAWN_REQUEST, {
       mobType: mobData.id,
       level: mobData.stats.level,
       position: position,
@@ -178,7 +178,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
     }
   }
 
-  // Note: This system intentionally does not handle MOB_SPAWN_REQUEST events to prevent
+  // Note: This system intentionally does not handle MOB_NPC_SPAWN_REQUEST events to prevent
   // recursive re-emission loops. It only produces spawn requests via spawnMobFromData.
 
   private despawnMob(mobId: string): void {

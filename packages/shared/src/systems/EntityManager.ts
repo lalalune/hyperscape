@@ -84,7 +84,7 @@ export class EntityManager extends SystemBase {
       });
     });
     // EntityManager should handle spawn REQUESTS, not completed spawns
-    this.subscribe(EventType.MOB_SPAWN_REQUEST, (data) => {
+    this.subscribe(EventType.MOB_NPC_SPAWN_REQUEST, (data) => {
       const typedData = data as { mobType: string; position: { x: number; y: number; z: number }; level?: number; customId?: string };
       this.handleMobSpawn({
         mobType: typedData.mobType,
@@ -95,11 +95,11 @@ export class EntityManager extends SystemBase {
       });
     });
     this.subscribe<{ npcId: string; name: string; type: string; position: { x: number; y: number; z: number }; services?: string[]; modelPath?: string }>(EventType.NPC_SPAWN_REQUEST, (data) => this.handleNPCSpawnRequest(data));
-    this.subscribe(EventType.MOB_ATTACKED, (data) => {
+    this.subscribe(EventType.MOB_NPC_ATTACKED, (data) => {
       const typedData = data as { mobId: string; damage: number; attackerId: string };
       this.handleMobAttacked({ entityId: typedData.mobId, damage: typedData.damage, attackerId: typedData.attackerId });
     });
-    this.subscribe(EventType.COMBAT_MOB_ATTACK, (data) => {
+    this.subscribe(EventType.COMBAT_MOB_NPC_ATTACK, (data) => {
       const typedData = data as { mobId: string; targetId: string };
       this.handleMobAttack({ mobId: typedData.mobId, targetId: typedData.targetId, damage: 0 });
     });
@@ -548,11 +548,11 @@ export class EntityManager extends SystemBase {
     };
     
     const entity = await this.spawnEntity(config);
-                
-    // Emit MOB_SPAWNED event to notify other systems (like AggroSystem)
+
+    // Emit MOB_NPC_SPAWNED event to notify other systems (like AggroSystem)
     // that a mob has been successfully spawned
     if (entity) {
-      this.emitTypedEvent(EventType.MOB_SPAWNED, {
+      this.emitTypedEvent(EventType.MOB_NPC_SPAWNED, {
         mobId: config.id,
         mobType: mobType,
         position: position
