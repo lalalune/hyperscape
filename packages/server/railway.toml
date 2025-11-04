@@ -1,0 +1,13 @@
+# Railway configuration for game server
+# Tells Railway to build from monorepo root with packages/server/Dockerfile
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "packages/server/Dockerfile"
+
+[deploy]
+startCommand = "bun dist/index.js"
+healthcheckPath = "/status"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
