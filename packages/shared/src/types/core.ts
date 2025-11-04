@@ -1852,9 +1852,10 @@ export interface StoreData {
  * All characters in the game are NPCs, categorized by behavior:
  * - 'mob': Combat NPCs (goblins, bandits, guards) - aggressive entities
  * - 'boss': Powerful special combat encounters - unique bosses
- * - 'neutral': Non-combat NPCs (shopkeepers, bank clerks, quest givers)
+ * - 'neutral': Non-combat NPCs (shopkeepers, bank clerks)
+ * - 'quest': Quest-related NPCs (quest givers, quest objectives)
  */
-export type NPCCategory = 'mob' | 'boss' | 'neutral';
+export type NPCCategory = 'mob' | 'boss' | 'neutral' | 'quest';
 
 /**
  * RuneScape-style Drop Rarity Tiers
