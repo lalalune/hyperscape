@@ -260,14 +260,8 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
     // A-pose compensation is handled automatically by VRM normalized bones
     // Cloned instances have their own normalized bones for independent animation
 
-    // CRITICAL DEBUG: Add skeleton helper to visualize bones
-    const skeletonHelper = new THREE.SkeletonHelper(vrm.scene)
-    skeletonHelper.visible = true
-
     if (hooks?.scene) {
       hooks.scene.add(vrm.scene)
-      hooks.scene.add(skeletonHelper)
-
     } else if (alternateScene) {
       console.warn('[VRMFactory] WARNING: No scene in hooks, using alternate scene from node.ctx.stage.scene')
       alternateScene.add(vrm.scene)
