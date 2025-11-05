@@ -247,8 +247,13 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       return clonedNormalizedNode.name  // Returns normalized bone name
     }
 
-    vrm.scene.matrix.copy(matrix)
-    vrm.scene.matrixWorld.copy(matrix)
+    // VRM models face +Z by default, but game expects -Z forward
+    // Apply 180-degree Y-axis rotation to flip the model around
+    const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI)
+    const adjustedMatrix = new THREE.Matrix4().multiplyMatrices(matrix, rotationMatrix)
+
+    vrm.scene.matrix.copy(adjustedMatrix)
+    vrm.scene.matrixWorld.copy(adjustedMatrix)
     vrm.scene.matrixAutoUpdate = false
     vrm.scene.matrixWorldAutoUpdate = false
 
@@ -493,8 +498,11 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       move(_matrix: THREE.Matrix4) {
         matrix.copy(_matrix)
         // CRITICAL: Also update the VRM scene's transform to follow the player
-        vrm.scene.matrix.copy(_matrix)
-        vrm.scene.matrixWorld.copy(_matrix)
+        // Apply 180-degree Y-axis rotation to keep model facing correct direction
+        const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI)
+        const adjustedMatrix = new THREE.Matrix4().multiplyMatrices(_matrix, rotationMatrix)
+        vrm.scene.matrix.copy(adjustedMatrix)
+        vrm.scene.matrixWorld.copy(adjustedMatrix)
         vrm.scene.updateMatrixWorld(true) // Force update all children
         if (hooks?.octree && hooks.octree.move) {
           hooks.octree.move(sItem)

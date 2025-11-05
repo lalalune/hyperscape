@@ -206,15 +206,24 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
               )
             )
           } else if (track instanceof THREE.VectorKeyframeTrack) {
+            // Debug: Log position values
+            if (ogBoneName === 'Root' || ogBoneName === 'mixamorigHips') {
+              const first9 = track.values.slice(0, 9)
+              console.log('[AnimationRetargeting] Position track:', ogBoneName, vrmNodeName)
+              console.log('  First 3 keyframes (x,y,z):',
+                `[${first9[0]}, ${first9[1]}, ${first9[2]}]`,
+                `[${first9[3]}, ${first9[4]}, ${first9[5]}]`,
+                `[${first9[6]}, ${first9[7]}, ${first9[8]}]`
+              )
+            }
+
             tracks.push(
               new THREE.VectorKeyframeTrack(
                 `${vrmNodeName}.${propertyName}`,
                 track.times,
                 track.values.map((v, i) => {
-                  // Negate Z-axis only for forward/backward direction
-                  // i % 3: 0=X, 1=Y, 2=Z
-                  const isZ = i % 3 === 2
-                  return (isZ ? -v : v) * scaler
+                  // Scale position values - model orientation is handled by Y-axis rotation in createVRMFactory
+                  return v * scaler
                 })
               )
             )
