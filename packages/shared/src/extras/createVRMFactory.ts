@@ -153,6 +153,22 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
 
   const skeleton = skinnedMeshes[0].skeleton // should be same across all skinnedMeshes
 
+  // CRITICAL: Calculate height BEFORE posing arms down
+  // The bounding box must reflect the bind pose height (normalized to 1.6m by VRMConverter)
+  // not the posed height with arms down
+  let height = 0.5 // minimum
+  for (const mesh of skinnedMeshes) {
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
+    height = Math.max(height, mesh.geometry.boundingBox!.max.y)
+  }
+
+  console.log(`[VRMFactory] Avatar height from bounding box: ${height.toFixed(3)}m (should be ~1.6m)`)
+
+  // Warn if height deviates significantly from expected 1.6m normalized height
+  if (Math.abs(height - 1.6) > 0.2) {
+    console.warn(`[VRMFactory] WARNING: Avatar height ${height.toFixed(3)}m deviates from expected 1.6m! VRM may not have been normalized correctly.`)
+  }
+
   // pose arms down
   const normBones = humanoid?._normalizedHumanBones?.humanBones || {};
   const leftArm = normBones.leftUpperArm?.node
@@ -167,13 +183,6 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
     humanoid.update(0)
   }
   skeleton.update()
-
-  // get height
-  let height = 0.5 // minimum
-  for (const mesh of skinnedMeshes) {
-    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
-    height = Math.max(height, mesh.geometry.boundingBox!.max.y)
-  }
 
   // this.headToEyes = this.eyePosition.clone().sub(headPos)
   const headPos = normBones.head?.node?.getWorldPosition(v1) || v1.set(0,0,0)

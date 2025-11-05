@@ -56,6 +56,16 @@ app.use('/assets', express.static(path.join(ROOT_DIR, 'public/assets'), {
   }
 }))
 
+// Serve gdd-assets directory for VRM files and other generated assets
+app.use('/gdd-assets', express.static(path.join(ROOT_DIR, 'gdd-assets'), {
+  setHeaders: (res) => {
+    res.set('X-Content-Type-Options', 'nosniff')
+    res.set('Access-Control-Allow-Origin', '*')
+  }
+}))
+
+console.log('[Server] Serving gdd-assets from:', path.join(ROOT_DIR, 'gdd-assets'))
+
 // Initialize services
 const assetService = new AssetService(path.join(ROOT_DIR, 'gdd-assets'))
 const retextureService = new RetextureService({
@@ -554,6 +564,84 @@ ONLY select the cylindrical grip area where fingers would wrap around.`
   } catch (error) {
     console.error('Weapon handle detection error:', error)
     res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// VRM file upload endpoint
+app.post('/api/assets/upload-vrm', express.raw({ type: 'multipart/form-data', limit: '50mb' }), async (req, res, next) => {
+  try {
+    // Parse multipart form data manually (simple approach)
+    const boundary = req.headers['content-type']?.split('boundary=')[1]
+    if (!boundary) {
+      return res.status(400).json({ error: 'Invalid multipart request' })
+    }
+
+    // Split the body by boundary
+    const body = req.body.toString('binary')
+    const parts = body.split(`--${boundary}`)
+
+    let vrmBuffer = null
+    let assetId = null
+    let filename = null
+
+    // Parse each part
+    for (const part of parts) {
+      if (part.includes('Content-Disposition')) {
+        const nameMatch = part.match(/name="(\w+)"/)
+
+        if (nameMatch && nameMatch[1] === 'assetId') {
+          // Extract assetId
+          const dataStart = part.indexOf('\r\n\r\n') + 4
+          const dataEnd = part.lastIndexOf('\r\n')
+          assetId = part.substring(dataStart, dataEnd > dataStart ? dataEnd : undefined).trim()
+        } else if (nameMatch && nameMatch[1] === 'file') {
+          // Extract filename
+          const filenameMatch = part.match(/filename="([^"]+)"/)
+          if (filenameMatch) {
+            filename = filenameMatch[1]
+          }
+
+          // Extract file data
+          const dataStart = part.indexOf('\r\n\r\n') + 4
+          const dataEnd = part.lastIndexOf('\r\n')
+          if (dataStart > 3 && dataEnd > dataStart) {
+            vrmBuffer = Buffer.from(part.substring(dataStart, dataEnd), 'binary')
+          }
+        }
+      }
+    }
+
+    if (!vrmBuffer || !assetId || !filename) {
+      return res.status(400).json({
+        error: 'Missing required fields: file, assetId, or filename'
+      })
+    }
+
+    console.log(`[VRM Upload] Uploading ${filename} for asset: ${assetId}`)
+    console.log(`[VRM Upload] File size: ${(vrmBuffer.length / 1024 / 1024).toFixed(2)} MB`)
+
+    // Save VRM to asset directory
+    const assetDir = path.join(ROOT_DIR, 'gdd-assets', assetId)
+
+    // Create directory if it doesn't exist
+    await fs.promises.mkdir(assetDir, { recursive: true })
+
+    // Save VRM file
+    const vrmPath = path.join(assetDir, filename)
+    await fs.promises.writeFile(vrmPath, vrmBuffer)
+
+    console.log(`[VRM Upload] Saved to: ${vrmPath}`)
+
+    // Return success with URL
+    const url = `/gdd-assets/${assetId}/${filename}`
+    res.json({
+      success: true,
+      url,
+      message: `VRM uploaded successfully to ${url}`
+    })
+  } catch (error) {
+    console.error('[VRM Upload] Error:', error)
+    next(error)
   }
 })
 

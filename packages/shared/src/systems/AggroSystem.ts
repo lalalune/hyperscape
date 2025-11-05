@@ -34,7 +34,7 @@ export class AggroSystem extends SystemBase {
       name: 'aggro',
       dependencies: {
         required: [], // Aggro system can work independently
-        optional: ['mob', 'player', 'combat', 'entity-manager'] // Better with mob and player systems
+        optional: ['mob-npc', 'player', 'combat', 'entity-manager'] // Better with mob NPC and player systems
       },
       autoCleanup: true
     });
@@ -43,10 +43,10 @@ export class AggroSystem extends SystemBase {
   async init(): Promise<void> {
     
     // Set up type-safe event subscriptions for aggro mechanics
-    this.subscribe(EventType.MOB_SPAWNED, (data: { mobId: string; mobType: string; position: { x: number; y: number; z: number } }) => {
+    this.subscribe(EventType.MOB_NPC_SPAWNED, (data: { mobId: string; mobType: string; position: { x: number; y: number; z: number } }) => {
       this.registerMob({ id: data.mobId, type: data.mobType, level: 1, position: data.position });
     });
-    this.subscribe(EventType.MOB_DESPAWN, (data: { mobId: string }) => {
+    this.subscribe(EventType.MOB_NPC_DESPAWN, (data: { mobId: string }) => {
       this.unregisterMob(data.mobId);
     });
     this.subscribe(EventType.PLAYER_POSITION_UPDATED, (data: { playerId: string; position: Position3D }) => {
@@ -55,7 +55,7 @@ export class AggroSystem extends SystemBase {
     this.subscribe(EventType.COMBAT_STARTED, (data: { attackerId: string; targetId: string }) => {
       this.onCombatStarted({ attackerId: data.attackerId, targetId: data.targetId });
     });
-    this.subscribe(EventType.MOB_POSITION_UPDATED, (data: { mobId: string; position: Position3D }) => {
+    this.subscribe(EventType.MOB_NPC_POSITION_UPDATED, (data: { mobId: string; position: Position3D }) => {
       this.updateMobPosition({ entityId: data.mobId, position: data.position });
     });
     this.subscribe(
@@ -250,7 +250,7 @@ export class AggroSystem extends SystemBase {
     
     
     // Emit chase event for other systems
-    this.emitTypedEvent(EventType.MOB_CHASE_STARTED, {
+    this.emitTypedEvent(EventType.MOB_NPC_CHASE_STARTED, {
       mobId: mobState.mobId,
       targetPlayerId: playerId,
       mobPosition: {
@@ -289,7 +289,7 @@ export class AggroSystem extends SystemBase {
     
     
     // Emit chase end event
-    this.emitTypedEvent(EventType.MOB_CHASE_ENDED, {
+    this.emitTypedEvent(EventType.MOB_NPC_CHASE_ENDED, {
       mobId: mobState.mobId,
       targetPlayerId: previousTarget || ''
     });

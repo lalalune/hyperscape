@@ -70,7 +70,7 @@ import { ResourceEntity } from '../entities/ResourceEntity';
 import { HeadstoneEntity } from '../entities/HeadstoneEntity';
 import type { MobEntityConfig, NPCEntityConfig, ItemEntityConfig, ResourceEntityConfig, HeadstoneData, HeadstoneEntityConfig } from '../types/entities';
 import { EntityType, InteractionType, MobAIState, NPCType, ItemRarity, ResourceType } from '../types/entities';
-import { getMobById } from '../data/mobs';
+import { getNPCById } from '../data/npcs';
 import { NPCBehavior, NPCState } from '../types/core';
 
 /**
@@ -203,8 +203,8 @@ export class Entities extends SystemBase implements IEntities {
       const name = data.name || 'Mob';
       const mobTypeMatch = name.match(/Mob:\s*([^()]+)/i);
       const derivedMobType = (mobTypeMatch ? mobTypeMatch[1].trim() : name).toLowerCase().replace(/\s+/g, '_');
-      const mobData = getMobById(derivedMobType);
-      const modelPath = mobData?.modelPath || null;
+      const npcData = getNPCById(derivedMobType);
+      const modelPath = npcData?.appearance.modelPath || null;
       
 
       const mobConfig: MobEntityConfig = {

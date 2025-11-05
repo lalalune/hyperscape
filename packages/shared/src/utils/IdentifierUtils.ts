@@ -23,7 +23,7 @@
  * - create*ID(): Create branded ID with validation
  * - to*ID(): Safe conversion from unknown to branded type (returns null if invalid)
  * 
- * **Referenced by:** All systems that work with typed IDs (PlayerSystem, MobSystem, etc.)
+ * **Referenced by:** All systems that work with typed IDs (PlayerSystem, MobNPCSystem, etc.)
  */
 
 import { BankID, EntityID, ItemID, MobID, NPCID, PlayerID, ResourceID, SessionID, SlotNumber, StoreID } from "../types/identifiers"

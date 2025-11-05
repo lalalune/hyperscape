@@ -19,7 +19,7 @@ import {
 } from "../utils/CombatCalculations";
 import { createEntityID } from "../utils/IdentifierUtils";
 import { EntityManager } from "./EntityManager";
-import { MobSystem } from "./MobSystem";
+import { MobNPCSystem } from "./MobNPCSystem";
 import { SystemBase } from "./SystemBase";
 
 export interface CombatData {
@@ -36,7 +36,7 @@ export interface CombatData {
 export class CombatSystem extends SystemBase {
   private combatStates = new Map<EntityID, CombatData>();
   private attackCooldowns = new Map<EntityID, number>();
-  private mobSystem?: MobSystem;
+  private mobSystem?: MobNPCSystem;
   private entityManager?: EntityManager;
 
   // Combat constants
@@ -46,7 +46,7 @@ export class CombatSystem extends SystemBase {
       name: "combat",
       dependencies: {
         required: ["entity-manager"], // Combat needs entity manager
-        optional: ["mob"], // Combat can work without mobs but better with them
+        optional: ["mob-npc"], // Combat can work without mob NPCs but better with them
       },
       autoCleanup: true,
     });
@@ -61,8 +61,8 @@ export class CombatSystem extends SystemBase {
       );
     }
 
-    // Get mob system - optional but recommended
-    this.mobSystem = this.world.getSystem<MobSystem>("mob");
+    // Get mob NPC system - optional but recommended
+    this.mobSystem = this.world.getSystem<MobNPCSystem>("mob-npc");
 
     // Set up event listeners - required for combat to function
     this.subscribe(
@@ -98,14 +98,14 @@ export class CombatSystem extends SystemBase {
       this.handleRangedAttack(data);
     });
     this.subscribe(
-      EventType.COMBAT_MOB_ATTACK,
+      EventType.COMBAT_MOB_NPC_ATTACK,
       (data: { mobId: string; targetId: string }) => {
         this.handleMobAttack(data);
       }
     );
 
     // Listen for death events to end combat
-    this.subscribe(EventType.MOB_DIED, (data: { mobId: string }) => {
+    this.subscribe(EventType.NPC_DIED, (data: { mobId: string }) => {
       this.handleEntityDied(data.mobId, "mob");
     });
     this.subscribe(EventType.PLAYER_DIED, (data: { playerId: string }) => {
@@ -420,13 +420,13 @@ export class CombatSystem extends SystemBase {
       if (typeof mobEntity.takeDamage === "function") {
         mobEntity.takeDamage(damage, attackerId);
         
-        // Emit MOB_ATTACKED event so EntityManager can handle death
-        this.emitTypedEvent(EventType.MOB_ATTACKED, {
+        // Emit MOB_NPC_ATTACKED event so EntityManager can handle death
+        this.emitTypedEvent(EventType.MOB_NPC_ATTACKED, {
           mobId: targetId,
           damage: damage,
           attackerId: attackerId
         });
-        console.log(`[CombatSystem] 📤 Emitted MOB_ATTACKED event for ${targetId}`);
+        console.log(`[CombatSystem] 📤 Emitted MOB_NPC_ATTACKED event for ${targetId}`);
       } else {
         // Fallback for entities without takeDamage method
         const currentHealth = mobEntity.getProperty("health") as
@@ -452,9 +452,9 @@ export class CombatSystem extends SystemBase {
 
         // Check if mob died
         if (newHealth <= 0) {
-          // Don't emit MOB_DIED here - let MobEntity.die() handle it
+          // Don't emit NPC_DIED here - let MobEntity.die() handle it
           // Don't emit COMBAT_KILL here either - let MobEntity.die() handle it
-          
+
           this.emitTypedEvent(EventType.UI_MESSAGE, {
             playerId: attackerId,
             message: `You have defeated the ${mobEntity.getProperty("name") || mobEntity.getProperty("mobType") || "unknown"}!`,

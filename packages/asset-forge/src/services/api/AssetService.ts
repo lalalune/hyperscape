@@ -80,8 +80,81 @@ class AssetServiceClass {
     return `/assets/${assetId}/${assetId}.glb`
   }
 
+  /**
+   * Get T-pose model URL for retargeting workflow
+   * Tries to load t-pose.glb, falls back to regular model if not found
+   */
+  async getTPoseUrl(assetId: string): Promise<string> {
+    // Check if this is a built-in asset with T-pose in gdd-assets folder
+    const builtInAssets = ['human', 'goblin', 'imp', 'troll', 'thug', 'quadruped', 'bird']
+    if (builtInAssets.includes(assetId)) {
+      const tPoseUrl = `/gdd-assets/${assetId}/t-pose.glb`
+      try {
+        const response = await fetch(tPoseUrl, { method: 'HEAD' })
+        if (response.ok) {
+          console.log(`[AssetService] T-pose found for built-in asset: ${assetId}`)
+          return tPoseUrl
+        }
+      } catch (error) {
+        console.log(`[AssetService] No T-pose for built-in asset ${assetId}, using regular model`)
+      }
+    }
+
+    // Try to load t-pose.glb from user assets
+    const tPoseUrl = `/api/assets/${assetId}/t-pose`
+    try {
+      const response = await fetch(tPoseUrl, { method: 'HEAD' })
+      if (response.ok) {
+        console.log(`[AssetService] T-pose found for ${assetId}`)
+        return tPoseUrl
+      }
+    } catch (error) {
+      console.log(`[AssetService] No T-pose for ${assetId}, using regular model`)
+    }
+
+    // Fall back to regular model
+    return this.getModelUrl(assetId)
+  }
+
   getConceptArtUrl(assetId: string): string {
     return `/assets/${assetId}/concept-art.png`
+  }
+
+  /**
+   * Upload VRM file to server
+   * Saves the converted VRM alongside the original asset
+   */
+  async uploadVRM(assetId: string, vrmData: ArrayBuffer, filename: string): Promise<{ success: boolean; url: string }> {
+    const formData = new FormData()
+    const blob = new Blob([vrmData], { type: 'application/octet-stream' })
+    formData.append('file', blob, filename)
+    formData.append('assetId', assetId)
+
+    const response = await apiFetch(`${this.baseUrl}/assets/upload-vrm`, {
+      method: 'POST',
+      body: formData,
+      timeoutMs: 30000,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error?.message || 'VRM upload failed')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get VRM model URL if it exists
+   */
+  getVRMUrl(assetId: string): string {
+    // Check gdd-assets for built-in assets
+    const builtInAssets = ['human', 'goblin', 'imp', 'troll', 'thug', 'quadruped', 'bird']
+    if (builtInAssets.includes(assetId)) {
+      return `/gdd-assets/${assetId}/${assetId}.vrm`
+    }
+    // User assets
+    return `/assets/${assetId}/${assetId}.vrm`
   }
 }
 
