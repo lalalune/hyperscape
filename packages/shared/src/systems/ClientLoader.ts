@@ -299,6 +299,21 @@ export class ClientLoader extends SystemBase {
           ...factoryBase,
           uid: file.name || `avatar_${Date.now()}`
         } as unknown as AvatarFactory;
+
+        // VALIDATION: Log avatar height for debugging
+        const factoryWithHeight = factoryBase as { create: (m: THREE.Matrix4, h: unknown) => { height: number; destroy?: () => void } }
+        // Create a temporary instance to get the height
+        const tempMatrix = new THREE.Matrix4()
+        const tempInstance = factoryWithHeight.create(tempMatrix, this.vrmHooks)
+        this.logger.info(`[ClientLoader] Loaded avatar: ${file.name}`)
+        this.logger.info(`[ClientLoader] Avatar height: ${tempInstance.height.toFixed(3)}m (expected: ~1.6m)`)
+        if (Math.abs(tempInstance.height - 1.6) > 0.2) {
+          this.logger.warn(`[ClientLoader] WARNING: Avatar height ${tempInstance.height.toFixed(3)}m deviates significantly from expected 1.6m!`)
+        }
+        // Clean up temp instance
+        if (tempInstance.destroy) {
+          tempInstance.destroy()
+        }
         const hooks = this.vrmHooks;
         const node = createNode('group', { id: '$root' });
         const node2 = createNode('avatar', { id: 'avatar', factory, hooks });

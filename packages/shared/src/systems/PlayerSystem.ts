@@ -954,7 +954,7 @@ export class PlayerSystem extends SystemBase {
   private spawnAggroGoblin(playerId: string, position: { x: number; y: number; z: number }, index: number): void {
     const goblinId = `starter_goblin_${playerId}_${index}`
 
-    this.emitTypedEvent(EventType.MOB_SPAWN_REQUEST, {
+    this.emitTypedEvent(EventType.MOB_NPC_SPAWN_REQUEST, {
       mobType: 'goblin',
       position: position,
       level: 1,
@@ -975,7 +975,7 @@ export class PlayerSystem extends SystemBase {
   private cleanupPlayerMobs(playerId: string): void {
     for (let i = 0; i < 3; i++) {
       const goblinId = `starter_goblin_${playerId}_${i}`
-      this.emitTypedEvent(EventType.MOB_DESPAWN, { mobId: goblinId })
+      this.emitTypedEvent(EventType.MOB_NPC_DESPAWN, { mobId: goblinId })
     }
   }
 

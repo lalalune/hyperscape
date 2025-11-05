@@ -177,7 +177,7 @@ export enum EventType {
   COMBAT_ATTACK_FAILED = 'combat:attack_failed',
   COMBAT_MELEE_ATTACK = 'combat:melee_attack',
   COMBAT_RANGED_ATTACK = 'combat:ranged_attack',
-  COMBAT_MOB_ATTACK = 'combat:mob_attack',
+  COMBAT_MOB_NPC_ATTACK = 'combat:mob_npc_attack',
   COMBAT_DAMAGE_DEALT = 'combat:damage_dealt',
   COMBAT_DAMAGE_CALCULATE = 'combat:damage_calculate',
   COMBAT_ACCURACY_CALCULATE = 'combat:accuracy_calculate',
@@ -191,7 +191,7 @@ export enum EventType {
   // Aggro System
   AGGRO_PLAYER_LEFT = 'aggro:player_left',
   AGGRO_PLAYER_ENTERED = 'aggro:player_entered',
-  AGGRO_MOB_AGGROED = 'aggro:mob_aggroed',
+  AGGRO_MOB_NPC_AGGROED = 'aggro:mob_npc_aggroed',
 
   // Inventory Management
   INVENTORY_INITIALIZED = 'inventory:initialized',
@@ -269,24 +269,24 @@ export enum EventType {
   QUEST_PROGRESSED = 'quest:progressed',
   QUEST_COMPLETED = 'quest:completed',
 
-  // Mobs
-  MOB_SPAWNED = 'mob:spawned',
-  MOB_SPAWN_REQUEST = 'mob:spawn_request',
-  MOB_SPAWN_POINTS_REGISTERED = 'mob:spawn_points:registered',
-  MOB_DESPAWN = 'mob:despawn',
-  MOB_DESPAWNED = 'mob:despawned',
-  MOB_RESPAWN_ALL = 'mob:respawn_all',
-  MOB_RESPAWNED = 'mob:respawn',
-  MOB_DAMAGED = 'mob:damaged',
-  MOB_POSITION_UPDATED = 'mob:position_updated',
-  MOB_ATTACKED = 'mob:attacked',
-  MOB_DIED = 'mob:died',
-  MOB_EXAMINE = 'mob:examine',
-  MOB_AGGRO = 'mob:aggro',
-  MOB_CHASE_STARTED = 'mob:chase:started',
-  MOB_CHASE_ENDED = 'mob:chase:ended',
-  MOB_MOVE_REQUEST = 'mob:move:request',
-  MOB_DESTROY = 'mob:destroy',
+  // Mob NPCs
+  MOB_NPC_SPAWNED = 'mob_npc:spawned',
+  MOB_NPC_SPAWN_REQUEST = 'mob_npc:spawn_request',
+  MOB_NPC_SPAWN_POINTS_REGISTERED = 'mob_npc:spawn_points:registered',
+  MOB_NPC_DESPAWN = 'mob_npc:despawn',
+  MOB_NPC_DESPAWNED = 'mob_npc:despawned',
+  MOB_NPC_RESPAWN_ALL = 'mob_npc:respawn_all',
+  MOB_NPC_RESPAWNED = 'mob_npc:respawn',
+  MOB_NPC_DAMAGED = 'mob_npc:damaged',
+  MOB_NPC_POSITION_UPDATED = 'mob_npc:position_updated',
+  MOB_NPC_ATTACKED = 'mob_npc:attacked',
+  NPC_DIED = 'npc:died',
+  MOB_NPC_EXAMINE = 'mob_npc:examine',
+  MOB_NPC_AGGRO = 'mob_npc:aggro',
+  MOB_NPC_CHASE_STARTED = 'mob_npc:chase:started',
+  MOB_NPC_CHASE_ENDED = 'mob_npc:chase:ended',
+  MOB_NPC_MOVE_REQUEST = 'mob_npc:move:request',
+  MOB_NPC_DESTROY = 'mob_npc:destroy',
 
   // Banking System
   BANK_OPEN = 'bank:open',
@@ -575,7 +575,7 @@ export interface InventoryItemAddedPayload {
   item: InventoryItem;
 }
 
-export interface MobDiedPayload {
+export interface NPCDiedPayload {
   mobId: string;
   killerId: string;
   loot: InventoryItem[];
@@ -952,9 +952,9 @@ export interface EventMap {
   [EventType.ENTITY_HEALED]: { entityId: string; healAmount: number; newHealth: number };
   [EventType.ENTITY_LEVEL_CHANGED]: { entityId: string; newLevel: number };
   [EventType.ENTITY_INTERACTED]: { entityId: string; playerId: string; position: { x: number; y: number; z: number } };
-  [EventType.MOB_EXAMINE]: { playerId: string; mobId: string; mobData: unknown };
-  [EventType.MOB_AGGRO]: { mobId: string; targetId: string };
-  [EventType.MOB_RESPAWNED]: { mobId: string; position: Position3D };
+  [EventType.MOB_NPC_EXAMINE]: { playerId: string; mobId: string; mobData: unknown };
+  [EventType.MOB_NPC_AGGRO]: { mobId: string; targetId: string };
+  [EventType.MOB_NPC_RESPAWNED]: { mobId: string; position: Position3D };
   [EventType.NPC_TRAINER_OPEN]: { playerId: string; npcId: string; skillsOffered: string[] };
   [EventType.NPC_QUEST_OPEN]: { playerId: string; npcId: string; questsAvailable: string[] };
   [EventType.BANK_OPEN_REQUEST]: { playerId: string; npcId: string };
@@ -994,7 +994,7 @@ export type EventPayloads = {
   [EventType.PLAYER_XP_GAINED]: PlayerXPGainedPayload
   [EventType.COMBAT_STARTED]: CombatStartedPayload
   [EventType.INVENTORY_ITEM_ADDED]: InventoryItemAddedPayload
-  [EventType.MOB_DIED]: MobDiedPayload
+  [EventType.NPC_DIED]: NPCDiedPayload
 }
 
 /**

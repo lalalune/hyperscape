@@ -416,13 +416,14 @@ export interface Item {
   maxStackSize: number        // Max stack size (999 for stackable, 1 for non-stackable)
   value: number                // Base value in coins
   weight: number              // Item weight
-  
+
   // Equipment properties
-  equipSlot: EquipmentSlotName | null           // Equipment slot (weapon, shield, helmet, etc.)
+  equipSlot: EquipmentSlotName | '2h' | null    // Equipment slot (weapon, shield, helmet, etc.) or '2h' for two-handed
   weaponType: WeaponType | null      // Type of weapon (if applicable)
   equipable: boolean          // Can be equipped
   attackType: AttackType | null      // Type of attack (melee, ranged, magic)
   attackSpeed?: number        // Attack speed in milliseconds (for weapons)
+  is2h?: boolean              // Explicit flag for 2-handed weapons (alternative to equipSlot: '2h')
   
   // Item properties
   description: string         // Item description
@@ -1852,9 +1853,10 @@ export interface StoreData {
  * All characters in the game are NPCs, categorized by behavior:
  * - 'mob': Combat NPCs (goblins, bandits, guards) - aggressive entities
  * - 'boss': Powerful special combat encounters - unique bosses
- * - 'neutral': Non-combat NPCs (shopkeepers, bank clerks, quest givers)
+ * - 'neutral': Non-combat NPCs (shopkeepers, bank clerks)
+ * - 'quest': Quest-related NPCs (quest givers, quest objectives)
  */
-export type NPCCategory = 'mob' | 'boss' | 'neutral';
+export type NPCCategory = 'mob' | 'boss' | 'neutral' | 'quest';
 
 /**
  * RuneScape-style Drop Rarity Tiers

@@ -17,7 +17,7 @@
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0",
-    "npm": ">=10.0.0"
+    "bun": ">=1.1.38"
   },
   "workspaces": [
     "packages/*"
@@ -88,7 +88,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
-  "packageManager": "bun@1.0.0",
+  "packageManager": "bun@1.1.38",
   "dependencies": {
     "@rollup/rollup-darwin-x64": "^4.52.4",
     "@types/pg": "^8.15.5",

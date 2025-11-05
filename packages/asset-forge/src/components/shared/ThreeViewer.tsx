@@ -1,7 +1,7 @@
-import { 
-  Grid3X3, 
-  Box, 
-  Info, 
+import {
+  Grid3X3,
+  Box,
+  Info,
   RotateCw,
 
   Download,
@@ -9,9 +9,10 @@ import {
   X,
   Hand
 } from 'lucide-react'
-import { useRef, useImperativeHandle, forwardRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useEffect, useState, useCallback, type Ref } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
@@ -22,6 +23,8 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { getTierColor } from '../../constants/materials'
 import { ENVIRONMENTS } from '../../constants/three'
 import { ExtendedWindow } from '../../types'
+
+import { CustomSkeletonHelper } from './CustomSkeletonHelper'
 
 
 interface ThreeViewerProps {
@@ -47,7 +50,7 @@ interface ThreeViewerProps {
 export interface ThreeViewerRef {
   resetCamera: () => void
   takeScreenshot: () => void
-  captureHandViews: () => Promise<{ 
+  captureHandViews: () => Promise<{
     topView: HTMLCanvasElement
     frontView: HTMLCanvasElement
     handPositions: {
@@ -55,20 +58,38 @@ export interface ThreeViewerRef {
       right?: { screen: THREE.Vector2, world: THREE.Vector3 }
     }
   }>
-  loadAnimation: (url: string, name: string) => Promise<void>
-  playAnimation: (name: 'walking' | 'running') => void
+  loadAnimation: (url: string, name: string) => Promise<THREE.AnimationClip | null>
+  playAnimation: (name: string) => void
   stopAnimation: () => void
   pauseAnimation: () => void
   resumeAnimation: () => void
   setAnimationTimeScale: (scale: number) => void
+  playAnimationRetargeted: (nameOrClip: string | THREE.AnimationClip) => void
+  setTargetRigFromURL: (url: string) => Promise<void>
+  hasTargetRig: () => boolean
+  retargetSkeletonToRig: () => Promise<boolean>
+  loadSkeletonForEditing: () => Promise<boolean>  // NEW: mesh2motion workflow step 1
+  applyRetargeting: () => Promise<boolean>  // NEW: mesh2motion workflow step 2
+  updateSkeletonScale?: (scale: number) => void  // NEW: update skeleton scale in real-time
+  setBoneMapOverrides?: (overrides: Record<string, string>) => void
+  alignToBindPose?: () => void
   toggleSkeleton: () => void
   logBoneStructure: () => { bones: { name: string, parent: string }[], meshes: string[] } | null
   debugSceneContents: () => void
   exportTPoseModel: () => void
   refreshSkeleton: () => void
+  enableBoneEditing?: (enabled: boolean) => void
+  setBoneTransformMode?: (mode: 'translate' | 'rotate') => void
+  setBoneTransformSpace?: (space: 'world' | 'local') => void
+  setBoneMirrorEnabled?: (enabled: boolean) => void
+  debugGizmo?: () => void
+  getSourceSkeleton?: () => THREE.Skeleton | null
+  getTargetSkeleton?: () => THREE.Skeleton | null
+  getAvailableAnimations: () => THREE.AnimationClip[]
+  retargetAnimationsToCharacter: (animationRigUrl: string, animationsUrl: string) => Promise<boolean>
 }
 
-const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
+const ThreeViewer = forwardRef(({ 
   modelUrl,
   isWireframe = false,
   showGroundPlane = false,
@@ -77,21 +98,36 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   onModelLoad,
   assetInfo,
   isAnimationPlayer = false
-}, ref) => {
+}: ThreeViewerProps, ref: Ref<ThreeViewerRef>) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
+  const transformControlsRef = useRef<TransformControls | null>(null)
   const composerRef = useRef<EffectComposer | null>(null)
   const modelRef = useRef<THREE.Object3D | null>(null)
+  const activeSkinnedMeshRef = useRef<THREE.SkinnedMesh | null>(null)
+  const editingSkeletonRootRef = useRef<THREE.Object3D | null>(null)
   const mixerRef = useRef<THREE.AnimationMixer | null>(null)
   const clockRef = useRef<THREE.Clock | null>(null)
   const frameIdRef = useRef<number | null>(null)
   const gridRef = useRef<THREE.GridHelper | null>(null)
-  const skeletonHelperRef = useRef<THREE.SkeletonHelper | null>(null)
+  const skeletonHelperRef = useRef<THREE.SkeletonHelper | CustomSkeletonHelper | null>(null)
+  const _boneEditHandleRef = useRef<THREE.Object3D | null>(null)
+  const selectedBoneRef = useRef<THREE.Bone | null>(null)
+  const boneHighlightSphereRef = useRef<THREE.Mesh | null>(null)
+  const boneLabelsGroupRef = useRef<THREE.Group | null>(null)
+  const _originalBindMatricesRef = useRef<Map<THREE.SkinnedMesh, THREE.Matrix4[]>>(new Map())
   // Removed: animatedModelsRef and animationTypesRef - no longer needed
-  
+
+  // Mesh2Motion workflow refs - for manual retargeting
+  const unboundGeometryRef = useRef<THREE.BufferGeometry | null>(null)  // Geometry before binding
+  const unboundMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null)  // Material to use
+  const editableSkeletonRef = useRef<THREE.Skeleton | null>(null)  // The skeleton being edited
+  const previewMeshRef = useRef<THREE.Mesh | null>(null)  // Preview mesh for skeleton editing
+  const skeletonScaleMultiplierRef = useRef<number>(0.95)  // User-adjustable skeleton scale (95% by default)
+
   const [loading, setLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [modelInfo, setModelInfo] = useState({ vertices: 0, faces: 0, materials: 0, fileSize: 0 })
@@ -130,6 +166,24 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   const [rotationAxis, setRotationAxis] = useState<'x' | 'y' | 'z'>('x')
   const rotationAxisRef = useRef(rotationAxis)
   const shouldReframeOnResizeRef = useRef(false)
+  const targetRigMapRef = useRef<Map<string, string> | null>(null)
+  const boneOverridesRef = useRef<Map<string, string> | null>(null)
+  const targetSkeletonRef = useRef<THREE.Skeleton | null>(null)
+  const sourceSkeletonRef = useRef<THREE.Skeleton | null>(null)  // Original source mesh skeleton (for weight transfer)
+  // Bone editing state
+  const [_boneEditEnabled, setBoneEditEnabled] = useState(false)
+  const boneEditEnabledRef = useRef(false) // Ref for closures
+  const [_boneMirrorEnabledState, setBoneMirrorEnabledState] = useState(false)
+  const boneMirrorEnabledRef = useRef(false) // Ref for closures
+  const [boneTransformModeState, setBoneTransformModeState] = useState<'translate' | 'rotate'>('translate')
+  const boneTransformModeStateRef = useRef<'translate' | 'rotate'>('translate') // Ref for closures
+  const [boneTransformSpaceState, setBoneTransformSpaceState] = useState<'world' | 'local'>('world')
+  const [_selectedBoneName, setSelectedBoneName] = useState<string | null>(null)
+
+  const raycaster = useRef(new THREE.Raycaster())
+  const pointer = useRef(new THREE.Vector2())
+  const [_selectedBone, setSelectedBone] = useState<THREE.Bone | null>(null)
+  const applyMirrorModeRef = useRef<((bone: THREE.Bone, mode: 'translate' | 'rotate') => void) | null>(null)
 
   const computeDistanceToFit = (size: THREE.Vector3, camera: THREE.PerspectiveCamera) => {
     const aspect = camera.aspect || 1
@@ -140,6 +194,64 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     const target = Math.max(heightBased, widthBased) * 1.2 // 20% margin
     return target / (2 * Math.tan(halfFov))
   }
+
+  // Utilities: name normalization and clip remapping
+  const normalizeBoneName = (name: string): string => {
+    return name
+      .replace(/^mixamorig[:_]?/i, '')
+      .replace(/^armature[:_\-.]?/i, '')
+      .replace(/^DEF[-_]?/i, '')  // Strip DEF- prefix from Blender bones
+      .replace(/[:.]/g, '')
+      .replace(/[-_]/g, '')  // Remove dashes and underscores for matching
+      .replace(/\s+/g, '')
+      .toLowerCase()
+  }
+
+  const buildTargetBoneMap = useCallback((): Map<string, string> => {
+    const map = new Map<string, string>()
+    if (!modelRef.current) return map
+    const unique = new Set<string>()
+    modelRef.current.traverse((child) => {
+      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+        child.skeleton.bones.forEach((bone) => {
+          const norm = normalizeBoneName(bone.name)
+          if (!unique.has(norm)) {
+            unique.add(norm)
+            map.set(norm, bone.name)
+          }
+        })
+      }
+    })
+    return map
+  }, [])
+
+  const _remapClipToTarget = useCallback((clip: THREE.AnimationClip): THREE.AnimationClip => {
+    // CRITICAL: Always build bone map from the CURRENT retargeted model, not the target rig!
+    // The target rig has Mixamo names, but we need to map TO the retargeted model's DEF- names
+    const map = buildTargetBoneMap()
+
+    console.log('[remapClipToTarget] Bone map size:', map.size)
+    console.log('[remapClipToTarget] Full bone map:', Object.fromEntries(map))
+    console.log('[remapClipToTarget] Original clip tracks:', clip.tracks.length)
+    console.log('[remapClipToTarget] First 10 track names:', clip.tracks.slice(0, 10).map(t => t.name))
+
+    const remappedTracks: THREE.KeyframeTrack[] = clip.tracks.map((track) => {
+      const parts = track.name.split('.')
+      const node = parts[0]
+      const rest = parts.slice(1).join('.')
+      const normalized = normalizeBoneName(node)
+      const targetName = map.get(normalized) || node
+      const newName = `${targetName}.${rest}`
+
+      console.log(`[remapClipToTarget] Track: "${track.name}" -> node="${node}" -> normalized="${normalized}" -> targetName="${targetName}" -> newName="${newName}"`)
+
+      const Ctor = (track as any).constructor as new (name: string, times: ArrayLike<number>, values: ArrayLike<number>) => THREE.KeyframeTrack
+      const cloned = new Ctor(newName, (track.times as any).slice(), (track.values as any).slice())
+      cloned.setInterpolation(track.getInterpolation())
+      return cloned
+    })
+    return new THREE.AnimationClip(clip.name, clip.duration, remappedTracks)
+  }, [buildTargetBoneMap])
 
   const frameCameraToCurrentModel = useCallback(() => {
     const model = modelRef.current
@@ -494,7 +606,15 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
   useImperativeHandle(ref, () => ({
     resetCamera: () => {
       if (modelRef.current && cameraRef.current && controlsRef.current) {
+        // Calculate bounding box including model and skeleton if present
         const box = new THREE.Box3().setFromObject(modelRef.current)
+
+        // If skeleton root is in scene, include it in bounding box calculation
+        if (editingSkeletonRootRef.current && editingSkeletonRootRef.current.parent) {
+          box.expandByObject(editingSkeletonRootRef.current)
+          console.log('📷 Including skeleton in camera framing')
+        }
+
         const center = box.getCenter(new THREE.Vector3())
         const size = box.getSize(new THREE.Vector3())
         
@@ -752,21 +872,28 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     },
     loadAnimation: async (url: string, name: string) => {
       if (!modelRef.current || !sceneRef.current) throw new Error('No model loaded')
-      
+
       const loader = new GLTFLoader()
       try {
         const gltf = await loader.loadAsync(url)
-        
+
         if (gltf.animations && gltf.animations.length > 0) {
-          // Get the animation clip
-          const animationClip = gltf.animations[0]
-          animationClip.name = name
-          
+          // Find the specific animation by name (for multi-animation GLB files)
+          let animationClip = gltf.animations.find(anim => anim.name === name)
+
+          if (!animationClip) {
+            console.warn(`Animation "${name}" not found in file. Available animations:`, gltf.animations.map(a => a.name))
+            console.log(`Using first animation instead: ${gltf.animations[0].name}`)
+            animationClip = gltf.animations[0]
+          }
+
+          console.log(`Loaded animation: ${animationClip.name} with ${animationClip.tracks.length} tracks`)
+
           // Initialize mixer with the current model if not already done
           if (!mixerRef.current) {
             mixerRef.current = new THREE.AnimationMixer(modelRef.current)
           }
-          
+
           // For character animations, we need to handle skeleton mapping
           // The animation file contains the same skeleton structure, so we can apply it directly
           try {
@@ -775,16 +902,15 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
               const existing = prev.filter(anim => anim.name !== name)
               return [...existing, animationClip]
             })
-            
-            // Mark this as a direct animation (no model swapping needed)
-            // animationTypesRef.current[name] = 'direct' // Removed
-            
-            console.log(`Successfully loaded animation: ${name}`)
+
+            console.log(`Successfully loaded animation: ${animationClip.name}`)
+            return animationClip
           } catch (error) {
             console.error(`Failed to setup animation ${name}:`, error)
             throw error
           }
         }
+        return null
       } catch (error) {
         console.error(`Failed to load animation from ${url}:`, error)
         throw error
@@ -835,6 +961,860 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
       }
       
       console.log(`Animation started. Model children count after play: ${modelRef.current?.children.length}`)
+    },
+    playAnimationRetargeted: (nameOrClip: string | THREE.AnimationClip) => {
+      if (!mixerRef.current || !modelRef.current) {
+        console.error('Cannot play animation: no mixer or model')
+        return
+      }
+
+      // Get the clip - either passed directly or found by name
+      let clip: THREE.AnimationClip | undefined
+      if (typeof nameOrClip === 'string') {
+        clip = animations.find(a => a.name === nameOrClip)
+        if (!clip) {
+          console.error(`Animation "${nameOrClip}" not found in animations array`, animations.map(a => a.name))
+          return
+        }
+      } else {
+        clip = nameOrClip
+      }
+
+      console.log(`[playAnimationRetargeted] Playing animation: ${clip.name}`)
+      console.log(`[playAnimationRetargeted] Animation has ${clip.tracks.length} tracks`)
+
+      // Debug: Show what bones are available in the current model
+      const availableBones: string[] = []
+      modelRef.current.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+          child.skeleton.bones.forEach((bone) => availableBones.push(bone.name))
+        }
+      })
+      console.log('[playAnimationRetargeted] Available bones in model (first 10):', availableBones.slice(0, 10))
+      console.log('[playAnimationRetargeted] Animation track names (first 10):', clip.tracks.slice(0, 10).map(t => t.name))
+
+      // CRITICAL: The animations from human-base-animations.glb already have DEF- bone names
+      // that match the retargeted model, so we DON'T need to remap!
+      // Just play the animation directly on the model.
+
+      mixerRef.current.stopAllAction()
+      const action = mixerRef.current.clipAction(clip)
+      action.reset()
+      action.setLoop(THREE.LoopRepeat, Infinity)
+      action.play()
+      setIsPlaying(true)
+      if (!clockRef.current) clockRef.current = new THREE.Clock()
+
+      console.log('[playAnimationRetargeted] Animation action started')
+    },
+    setTargetRigFromURL: async (url: string) => {
+      console.log(`🎯 Loading target rig from: ${url}`)
+      const loader = new GLTFLoader()
+      const gltf = await loader.loadAsync(url)
+      
+      console.log('Rig GLTF loaded, scene children:', gltf.scene.children.length)
+      gltf.scene.traverse((child) => {
+        console.log(`  - ${child.type}: ${child.name}`)
+      })
+      
+      // Extract skeleton from target rig
+      const rigMap = new Map<string, string>()
+      const unique = new Set<string>()
+      let extractedSkeleton: THREE.Skeleton | null = null
+      
+      // First try to find SkinnedMesh
+      const skinnedMeshes: THREE.SkinnedMesh[] = []
+      gltf.scene.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh) {
+          skinnedMeshes.push(child)
+          console.log(`Found SkinnedMesh: ${child.name}, bones: ${child.skeleton.bones.length}`)
+        }
+      })
+      
+      if (skinnedMeshes.length > 0) {
+        const mesh = skinnedMeshes[0]
+        extractedSkeleton = mesh.skeleton.clone()
+        
+        mesh.skeleton.bones.forEach((bone) => {
+          const norm = normalizeBoneName(bone.name)
+          if (!unique.has(norm)) {
+            unique.add(norm)
+            rigMap.set(norm, bone.name)
+          }
+        })
+      } else {
+        // Fallback: try to build skeleton from bone hierarchy directly
+        console.log('No SkinnedMesh found, looking for bones...')
+        const bones: THREE.Bone[] = []
+        gltf.scene.traverse((child) => {
+          if (child instanceof THREE.Bone) {
+            bones.push(child)
+            console.log(`  Found bone: ${child.name}`)
+          }
+        })
+        
+        if (bones.length > 0) {
+          extractedSkeleton = new THREE.Skeleton(bones)
+          bones.forEach((bone) => {
+            const norm = normalizeBoneName(bone.name)
+            if (!unique.has(norm)) {
+              unique.add(norm)
+              rigMap.set(norm, bone.name)
+            }
+          })
+        }
+      }
+      
+      targetRigMapRef.current = rigMap
+      targetSkeletonRef.current = extractedSkeleton
+      console.log(`✅ Target rig loaded. Mapped ${rigMap.size} bones, skeleton: ${extractedSkeleton ? 'YES' : 'NO'}`)
+      if (extractedSkeleton) {
+        console.log(`   Skeleton has ${extractedSkeleton.bones.length} bones`)
+      }
+    },
+    hasTargetRig: () => !!targetRigMapRef.current && targetRigMapRef.current.size > 0,
+    retargetSkeletonToRig: async () => {
+      if (!modelRef.current || !sceneRef.current || !targetSkeletonRef.current) {
+        console.warn('Missing model, scene, or target skeleton for retargeting')
+        return false
+      }
+
+      const { SkeletonRetargeter } = await import('../../services/retargeting/SkeletonRetargeter')
+      
+      // Find all skinned meshes in current model
+      const sourceMeshes = SkeletonRetargeter.extractSkinnedMeshes(modelRef.current)
+      if (sourceMeshes.length === 0) {
+        console.warn('No skinned meshes found in model to retarget')
+        return false
+      }
+
+      console.log(`🔄 Starting skeleton retargeting for ${sourceMeshes.length} meshes`)
+      console.log('=== DEBUG: Source Model State ===')
+      console.log('Model scale:', modelRef.current.scale.toArray())
+      console.log('Model position:', modelRef.current.position.toArray())
+      const modelBBox = new THREE.Box3().setFromObject(modelRef.current)
+      console.log('Model world bounds:', modelBBox.min.toArray(), 'to', modelBBox.max.toArray())
+      console.log('Model world size:', modelBBox.getSize(new THREE.Vector3()).toArray())
+      
+      sourceMeshes.forEach((mesh, i) => {
+        console.log(`Source mesh ${i}: "${mesh.name}"`)
+        console.log('  World scale:', new THREE.Vector3().setFromMatrixScale(mesh.matrixWorld).toArray())
+        console.log('  Local scale:', mesh.scale.toArray())
+        console.log('  Skeleton bones:', mesh.skeleton.bones.length)
+        const meshBBox = new THREE.Box3().setFromObject(mesh)
+        console.log('  Mesh world size:', meshBBox.getSize(new THREE.Vector3()).toArray())
+      })
+      
+      console.log('=== DEBUG: Target Skeleton State ===')
+      console.log('Target skeleton bones:', targetSkeletonRef.current.bones.length)
+      const targetRoot = targetSkeletonRef.current.bones[0]
+      console.log('Root bone scale:', targetRoot.scale.toArray())
+      console.log('Root bone position:', targetRoot.position.toArray())
+      targetRoot.updateMatrixWorld(true)
+      const targetBBox = new THREE.Box3()
+      targetSkeletonRef.current.bones.forEach(bone => {
+        const pos = new THREE.Vector3()
+        bone.getWorldPosition(pos)
+        targetBBox.expandByPoint(pos)
+      })
+      console.log('Target skeleton world bounds:', targetBBox.min.toArray(), 'to', targetBBox.max.toArray())
+      console.log('Target skeleton world size:', targetBBox.getSize(new THREE.Vector3()).toArray())
+
+      // Store original model
+      const originalModel = modelRef.current
+      const originalParent = originalModel.parent
+
+      // Retarget the first skinned mesh (most models have only one)
+      const sourceMesh = sourceMeshes[0]
+      const retargetedMesh = await SkeletonRetargeter.retargetMesh(
+        sourceMesh,
+        targetSkeletonRef.current,
+        'distance-targeting' // Use smart solver with parent-aware and boundary smoothing
+      )
+
+      // CRITICAL: Copy the source mesh's LOCAL transform (not world)
+      // The skeleton is already positioned correctly in local space
+      // We only need position/rotation, NOT scale (skeleton has its own internal scale)
+      retargetedMesh.position.copy(sourceMesh.position)
+      retargetedMesh.rotation.copy(sourceMesh.rotation)
+      retargetedMesh.scale.set(1, 1, 1) // Always 1,1,1 - skeleton bones handle scale internally
+      retargetedMesh.updateMatrix()
+      retargetedMesh.updateMatrixWorld(true)
+      
+      console.log('Retargeted mesh transform:', {
+        position: retargetedMesh.position.toArray(),
+        rotation: retargetedMesh.rotation.toArray(),
+        scale: retargetedMesh.scale.toArray()
+      })
+
+      // Replace model in scene
+      if (originalParent) {
+        originalParent.remove(originalModel)
+        originalParent.add(retargetedMesh)
+      } else if (sceneRef.current) {
+        sceneRef.current.remove(originalModel)
+        sceneRef.current.add(retargetedMesh)
+      }
+
+      // Update modelRef to point to retargeted mesh
+      modelRef.current = retargetedMesh
+      // Track active skinned mesh for editing
+      activeSkinnedMeshRef.current = retargetedMesh
+
+      // Recreate mixer for retargeted mesh
+      if (mixerRef.current) {
+        mixerRef.current.stopAllAction()
+      }
+      mixerRef.current = new THREE.AnimationMixer(retargetedMesh)
+
+      // Clean up previous overlay skeleton and helper
+      if (skeletonHelperRef.current && sceneRef.current) {
+        sceneRef.current.remove(skeletonHelperRef.current)
+        if (skeletonHelperRef.current instanceof CustomSkeletonHelper) {
+          skeletonHelperRef.current.dispose()
+        }
+        skeletonHelperRef.current = null
+      }
+      
+      // Remove previous editable skeleton from scene
+      if (editingSkeletonRootRef.current && sceneRef.current) {
+        sceneRef.current.remove(editingSkeletonRootRef.current)
+        editingSkeletonRootRef.current = null
+      }
+      
+      // CRITICAL: Create a SEPARATE skeleton for editing (not bound to mesh)
+      // This prevents mesh deformation while allowing bone repositioning
+      const bones: THREE.Bone[] = []
+      retargetedMesh.traverse((child: THREE.Object3D) => {
+        if (child instanceof THREE.Bone) {
+          bones.push(child)
+        }
+      })
+      
+      const rootBone = bones.length > 0 ? bones[0] : null
+      
+      if (rootBone) {
+        // Clone the entire bone hierarchy for editing (deep clone)
+        const editableSkeleton = rootBone.clone(true) as THREE.Bone
+        editableSkeleton.name = 'EditableSkeleton'
+        
+        // Position the editable skeleton to match the actual skeleton's world position
+        rootBone.updateMatrixWorld(true)
+        const worldPos = new THREE.Vector3()
+        const worldQuat = new THREE.Quaternion()
+        const worldScale = new THREE.Vector3()
+        rootBone.matrixWorld.decompose(worldPos, worldQuat, worldScale)
+        
+        editableSkeleton.position.copy(worldPos)
+        editableSkeleton.quaternion.copy(worldQuat)
+        editableSkeleton.scale.copy(worldScale)
+        editableSkeleton.updateMatrix()
+        
+        // Add to scene (NOT as child of mesh)
+        sceneRef.current.add(editableSkeleton)
+        editingSkeletonRootRef.current = editableSkeleton
+        editableSkeleton.updateMatrixWorld(true)
+        
+        console.log(`✅ Created editable skeleton (overlay):`)
+        console.log('   Position:', worldPos.toArray())
+        console.log('   Quaternion:', worldQuat.toArray())
+        console.log('   Scale:', worldScale.toArray())
+        console.log('   Bone count:', editableSkeleton.children.length)
+        console.log('   In scene:', sceneRef.current.children.includes(editableSkeleton))
+
+        // Create CustomSkeletonHelper for the EDITABLE skeleton
+        const helper = new CustomSkeletonHelper(editableSkeleton, {
+          linewidth: 4,
+          color: 0x00ff00,
+          jointColor: 0xffffff
+        })
+        helper.visible = true
+        helper.setJointsVisible(true)
+        sceneRef.current.add(helper)
+        skeletonHelperRef.current = helper
+        setShowSkeleton(true)
+        console.log(`Created CustomSkeletonHelper with ${helper.bones.length} bones (separate editable skeleton)`)
+      } else {
+        console.warn('No root bone found for skeleton helper')
+      }
+
+      // Make mesh semi-transparent to see skeleton better
+      if (retargetedMesh.material) {
+        if (Array.isArray(retargetedMesh.material)) {
+          retargetedMesh.material.forEach(mat => {
+            mat.transparent = true
+            mat.opacity = 0.3
+            mat.depthWrite = false
+          })
+        } else {
+          retargetedMesh.material.transparent = true
+          retargetedMesh.material.opacity = 0.3
+          retargetedMesh.material.depthWrite = false
+        }
+      }
+
+      // TransformControls helper is already in scene from init - no need to re-add
+
+      console.log('✅ Skeleton retargeting complete - skeleton helper created')
+      return true
+    },
+    loadSkeletonForEditing: async () => {
+      if (!modelRef.current || !sceneRef.current || !targetSkeletonRef.current) {
+        console.warn('Missing model or target skeleton for editing')
+        return false
+      }
+
+      console.log('🎯 Loading skeleton for manual adjustment (mesh2motion workflow)')
+
+      const { SkeletonRetargeter } = await import('../../services/retargeting/SkeletonRetargeter')
+
+      // Extract the source mesh geometry (we'll bind it AFTER editing bones)
+      const sourceMeshes = SkeletonRetargeter.extractSkinnedMeshes(modelRef.current)
+
+      if (sourceMeshes.length === 0) {
+        console.warn('No skinned meshes found')
+        return false
+      }
+
+      const sourceMesh = sourceMeshes[0]
+
+      // CRITICAL: Store the original source skeleton for weight transfer
+      // This skeleton has the ORIGINAL weights from Meshy that we want to preserve!
+      if (sourceMesh.skeleton) {
+        sourceSkeletonRef.current = sourceMesh.skeleton.clone()
+        console.log('✅ Stored source skeleton:', sourceMesh.skeleton.bones.length, 'bones')
+        console.log('   Sample bone names:', sourceMesh.skeleton.bones.slice(0, 5).map(b => b.name))
+      } else {
+        console.warn('⚠️ Source mesh has no skeleton!')
+      }
+
+      // CRITICAL: Follow mesh2motion-app approach
+      // For SkinnedMesh, extract geometry and material directly WITHOUT world transform
+      // Keep geometry in its BIND POSE (as it was defined relative to the original skeleton)
+      unboundGeometryRef.current = sourceMesh.geometry.clone()
+      unboundMaterialRef.current = Array.isArray(sourceMesh.material)
+        ? sourceMesh.material.map(m => m.clone())
+        : sourceMesh.material.clone()
+
+      console.log('Stored geometry for later binding (in bind pose):', {
+        vertices: unboundGeometryRef.current.attributes.position.count,
+        hasUV: !!unboundGeometryRef.current.attributes.uv,
+        hasSkinWeights: !!unboundGeometryRef.current.attributes.skinWeight,
+        hasSkinIndices: !!unboundGeometryRef.current.attributes.skinIndex
+      })
+
+      // CRITICAL: Create preview mesh - following Option A approach
+      // Geometry and skeleton must be at SAME scale during weight calculation AND binding
+      const previewMesh = new THREE.Mesh(
+        unboundGeometryRef.current.clone(),
+        unboundMaterialRef.current
+      )
+      previewMesh.name = 'PreviewMesh'
+
+      // Calculate scale factor based on bind pose size
+      previewMesh.position.set(0, 0, 0)
+      previewMesh.rotation.set(0, 0, 0)
+      previewMesh.scale.set(1, 1, 1)  // Start at bind pose to measure
+
+      const previewBBox = new THREE.Box3().setFromObject(previewMesh)
+      const previewSize = previewBBox.getSize(new THREE.Vector3())
+      const targetSize = 5.0  // Target max dimension (same as model loading)
+      const baseScaleFactor = targetSize / Math.max(previewSize.x, previewSize.y, previewSize.z)
+
+      // Apply user's skeleton scale multiplier (e.g., 0.95 = 95%)
+      const meshScaleFactor = baseScaleFactor * skeletonScaleMultiplierRef.current
+
+      // CRITICAL: Apply scale to preview mesh FIRST
+      previewMesh.scale.set(meshScaleFactor, meshScaleFactor, meshScaleFactor)
+
+      // Store preview mesh for later updates
+      previewMeshRef.current = previewMesh
+
+      // Hide the original skinned model (it will be replaced after retargeting)
+      if (modelRef.current) {
+        modelRef.current.visible = false
+      }
+
+      sceneRef.current.add(previewMesh)
+
+      // Verify final mesh size
+      const finalMeshBBox = new THREE.Box3().setFromObject(previewMesh)
+      const finalMeshSize = finalMeshBBox.getSize(new THREE.Vector3())
+
+      console.log('📐 Preview mesh scaled:')
+      console.log('  Bind pose size:', previewSize.toArray())
+      console.log('  Base scale factor:', baseScaleFactor)
+      console.log('  User scale multiplier:', skeletonScaleMultiplierRef.current)
+      console.log('  Final mesh scale:', meshScaleFactor)
+      console.log('  Final mesh size:', finalMeshSize.toArray())
+
+      // Clone the TARGET skeleton for editing (this will become the retargeted skeleton)
+      const clonedSkeleton = targetSkeletonRef.current.clone()
+      const rootBone = clonedSkeleton.bones[0]
+
+      // Reset root bone to origin
+      rootBone.position.set(0, 0, 0)
+      rootBone.rotation.set(0, 0, 0)
+      rootBone.scale.set(1, 1, 1)
+      rootBone.updateMatrixWorld(true)
+
+      // Apply T-pose to skeleton
+      await SkeletonRetargeter.applyTPoseToSkeleton(clonedSkeleton)
+
+      // Apply Z-up to Y-up conversion
+      rootBone.rotation.x = -Math.PI / 2
+      rootBone.updateMatrixWorld(true)
+
+      // Calculate skeleton's natural size at scale 1.0
+      clonedSkeleton.bones.forEach(bone => bone.updateMatrixWorld(true))
+      const naturalSkelBBox = new THREE.Box3()
+      clonedSkeleton.bones.forEach(bone => {
+        const pos = new THREE.Vector3()
+        bone.getWorldPosition(pos)
+        naturalSkelBBox.expandByPoint(pos)
+      })
+      const naturalSkelSize = naturalSkelBBox.getSize(new THREE.Vector3())
+
+      // CRITICAL: Scale skeleton to fit WITHIN preview mesh bounds
+      // Calculate how much to scale skeleton to match mesh size (but not exceed it)
+      const skeletonScaleX = finalMeshSize.x / naturalSkelSize.x
+      const skeletonScaleY = finalMeshSize.y / naturalSkelSize.y
+      const skeletonScaleZ = finalMeshSize.z / naturalSkelSize.z
+
+      // Use the MINIMUM scale to ensure skeleton fits within mesh bounds
+      const skeletonScaleFactor = Math.min(skeletonScaleX, skeletonScaleY, skeletonScaleZ)
+
+      console.log(`🎯 Calculating skeleton scale to fit within mesh:`)
+      console.log(`  Natural skeleton size: (${naturalSkelSize.x.toFixed(2)}, ${naturalSkelSize.y.toFixed(2)}, ${naturalSkelSize.z.toFixed(2)})`)
+      console.log(`  Target mesh size: (${finalMeshSize.x.toFixed(2)}, ${finalMeshSize.y.toFixed(2)}, ${finalMeshSize.z.toFixed(2)})`)
+      console.log(`  Scale ratios: X=${skeletonScaleX.toFixed(3)}, Y=${skeletonScaleY.toFixed(3)}, Z=${skeletonScaleZ.toFixed(3)}`)
+      console.log(`  Using minimum scale: ${skeletonScaleFactor.toFixed(3)}`)
+
+      // Apply the calculated scale to skeleton
+      rootBone.scale.set(skeletonScaleFactor, skeletonScaleFactor, skeletonScaleFactor)
+      rootBone.updateMatrixWorld(true)
+
+      // Get skeleton bounds AFTER scaling to position it correctly
+      clonedSkeleton.bones.forEach(bone => bone.updateMatrixWorld(true))
+
+      const scaledSkelBBox = new THREE.Box3()
+      clonedSkeleton.bones.forEach(bone => {
+        const pos = new THREE.Vector3()
+        bone.getWorldPosition(pos)
+        scaledSkelBBox.expandByPoint(pos)
+      })
+      const scaledSkelCenter = scaledSkelBBox.getCenter(new THREE.Vector3())
+      const scaledSkelSize = scaledSkelBBox.getSize(new THREE.Vector3())
+
+      // Position skeleton to align with preview mesh center
+      const meshWorldBBox = new THREE.Box3().setFromObject(previewMesh)
+      const meshWorldCenter = meshWorldBBox.getCenter(new THREE.Vector3())
+
+      const offset = meshWorldCenter.clone().sub(scaledSkelCenter)
+      rootBone.position.add(offset)
+      rootBone.updateMatrixWorld(true)
+
+      console.log(`✅ Skeleton scaled and positioned:`)
+      console.log(`  Scale: ${skeletonScaleFactor.toFixed(3)} (fits within mesh bounds)`)
+      console.log(`  Position: (${rootBone.position.x.toFixed(2)}, ${rootBone.position.y.toFixed(2)}, ${rootBone.position.z.toFixed(2)})`)
+      console.log(`  Final skeleton size: (${scaledSkelSize.x.toFixed(2)}, ${scaledSkelSize.y.toFixed(2)}, ${scaledSkelSize.z.toFixed(2)})`)
+      console.log(`  Final mesh size: (${finalMeshSize.x.toFixed(2)}, ${finalMeshSize.y.toFixed(2)}, ${finalMeshSize.z.toFixed(2)})`)
+
+      // Store reference to editable skeleton
+      editableSkeletonRef.current = clonedSkeleton
+
+      // Create skeleton helper to visualize
+      if (skeletonHelperRef.current && sceneRef.current) {
+        sceneRef.current.remove(skeletonHelperRef.current)
+        if (skeletonHelperRef.current instanceof CustomSkeletonHelper) {
+          skeletonHelperRef.current.dispose()
+        }
+      }
+
+      const helper = new CustomSkeletonHelper(rootBone, {
+        linewidth: 4,
+        color: 0x00ff00,
+        jointColor: 0xffffff
+      })
+      helper.visible = true
+      helper.setJointsVisible(true)
+      sceneRef.current.add(helper)
+      skeletonHelperRef.current = helper
+
+      // Add root bone to scene so it's visible
+      sceneRef.current.add(rootBone)
+      editingSkeletonRootRef.current = rootBone
+
+      // Ensure the original model is visible
+      if (modelRef.current) {
+        modelRef.current.visible = true
+        console.log('Model visibility:', modelRef.current.visible)
+        console.log('Model position:', modelRef.current.position.toArray())
+      }
+
+      // Log final positions for debugging
+      const finalSkelBBox = new THREE.Box3()
+      clonedSkeleton.bones.forEach(bone => {
+        const pos = new THREE.Vector3()
+        bone.getWorldPosition(pos)
+        finalSkelBBox.expandByPoint(pos)
+      })
+      const finalSkelCenter = finalSkelBBox.getCenter(new THREE.Vector3())
+      const finalSkelSize = finalSkelBBox.getSize(new THREE.Vector3())
+
+      console.log('Final skeleton center:', finalSkelCenter.toArray())
+      console.log('Final skeleton size:', finalSkelSize.toArray())
+      console.log('Mesh scale:', meshScaleFactor.toFixed(3), '| Skeleton scale:', skeletonScaleFactor.toFixed(3))
+
+      console.log('✅ Skeleton loaded for editing. User can now adjust bone positions.')
+      console.log('   Model and skeleton should now be aligned and both visible.')
+
+      return true
+    },
+    applyRetargeting: async () => {
+      if (!editableSkeletonRef.current || !unboundGeometryRef.current || !unboundMaterialRef.current || !sceneRef.current) {
+        console.error('Missing skeleton, geometry, or material for retargeting')
+        return false
+      }
+
+      console.log('🔄 Applying retargeting with WEIGHT TRANSFER (production technique)...')
+
+      // CRITICAL: Get the preview mesh to extract its scale
+      const previewMeshForWeights = sceneRef.current.getObjectByName('PreviewMesh') as THREE.Mesh
+      if (!previewMeshForWeights) {
+        console.error('Preview mesh not found!')
+        return false
+      }
+
+      const previewScale = previewMeshForWeights.scale.x  // Uniform scale
+      console.log('📐 Preview mesh scale for geometry:', previewScale)
+
+      // CRITICAL: Create scaled geometry (same as preview mesh)
+      // This geometry will receive the TRANSFERRED weights (not recalculated!)
+      const scaledGeometry = unboundGeometryRef.current.clone()
+      const scaleMatrix = new THREE.Matrix4()
+      scaleMatrix.makeScale(previewScale, previewScale, previewScale)
+      scaledGeometry.applyMatrix4(scaleMatrix)
+
+      console.log('📊 Transferring weights from source skeleton to target skeleton...')
+      console.log('  Source skeleton:', sourceSkeletonRef.current?.bones.length, 'bones')
+      console.log('  Target skeleton:', editableSkeletonRef.current.bones.length, 'bones')
+
+      // PRODUCTION TECHNIQUE: Transfer weights instead of recalculating!
+      // This preserves the original Meshy weights - just remaps bone indices
+      let skinIndices: number[]
+      let skinWeights: number[]
+
+      if (sourceSkeletonRef.current) {
+        // Try weight transfer first (preserves professional Meshy weights)
+        const { WeightTransferSolver } = await import('../../services/retargeting/WeightTransferSolver')
+        const transferSolver = new WeightTransferSolver(
+          unboundGeometryRef.current,  // Use UNSCALED geometry (has original weights)
+          sourceSkeletonRef.current,
+          editableSkeletonRef.current
+        )
+
+        // Check if bone mapping is good enough
+        if (transferSolver.isMappingQualityGood()) {
+          console.log('✅ Bone mapping quality is good - using weight transfer')
+          const transferred = transferSolver.transferWeights()
+          skinIndices = transferred.skinIndices
+          skinWeights = transferred.skinWeights
+        } else {
+          // Fallback to distance-based calculation
+          console.warn('⚠️  Bone mapping quality poor - falling back to distance calculation')
+          const { SkeletonRetargeter } = await import('../../services/retargeting/SkeletonRetargeter')
+          const solver = SkeletonRetargeter.createSolver(
+            'distance-targeting',
+            scaledGeometry,  // Use scaled geometry to match skeleton scale
+            editableSkeletonRef.current.bones
+          )
+          const result = solver.calculateWeights()
+          skinIndices = result.skinIndices
+          skinWeights = result.skinWeights
+        }
+      } else {
+        // No source skeleton - must calculate from scratch
+        console.warn('⚠️  No source skeleton - calculating weights from scratch')
+        const { SkeletonRetargeter } = await import('../../services/retargeting/SkeletonRetargeter')
+        const solver = SkeletonRetargeter.createSolver(
+          'distance-targeting',
+          scaledGeometry,
+          editableSkeletonRef.current.bones
+        )
+        const result = solver.calculateWeights()
+        skinIndices = result.skinIndices
+        skinWeights = result.skinWeights
+      }
+
+      console.log('Weight processing complete:', {
+        totalVertices: scaledGeometry.attributes.position.count,
+        weightsGenerated: skinWeights.length / 4
+      })
+
+      // Apply skin attributes to the SCALED geometry
+      scaledGeometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4))
+      scaledGeometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4))
+
+      // CRITICAL: Following mesh2motion-app Option A approach
+      // Geometry and skeleton BOTH at scaled size (matching weight calculation)
+      // Scale applied via geometry matrix (baked) and skeleton transform (not baked)
+      const rootBone = editableSkeletonRef.current.bones[0]
+
+      console.log('📐 Option A: Geometry and skeleton at matching scales')
+      console.log('  Geometry: Scaled by', previewScale, '(baked into vertices)')
+      console.log('  Skeleton scale (kept as transform):', rootBone.scale.toArray())
+
+      // Create the final skinned mesh using the SCALED geometry
+      // CRITICAL: Use the same geometry we calculated weights with!
+      const retargetedMesh = new THREE.SkinnedMesh(scaledGeometry, unboundMaterialRef.current)
+      retargetedMesh.name = 'RetargetedMesh'
+      retargetedMesh.castShadow = true
+      retargetedMesh.receiveShadow = true
+
+      console.log('Pre-binding transforms (Option A - scale kept as transform):')
+      console.log('  Root bone position:', rootBone.position.toArray())
+      console.log('  Root bone rotation:', rootBone.rotation.toArray())
+      console.log('  Root bone scale:', rootBone.scale.toArray())
+
+      // CRITICAL: Option A approach - DO NOT bake scale!
+      // Keep scale as transform property during binding
+      // This matches mesh2motion-app's approach where scale is only baked for export
+
+      // Remove rootBone from scene before adding to mesh
+      if (rootBone.parent) {
+        rootBone.parent.remove(rootBone)
+      }
+
+      // Store the scale factor for potential animation keyframe scaling
+      const skeletonScaleFactor = rootBone.scale.x;
+      (retargetedMesh as any).__skeletonScaleFactor = skeletonScaleFactor;
+
+      console.log('✓ Keeping skeleton scale as transform property:', skeletonScaleFactor);
+      console.log('  Root bone scale will be preserved during binding');
+
+      rootBone.updateMatrixWorld(true);
+
+      // BINDING SEQUENCE (Option A):
+      // 1. Add root bone to skinned mesh as child
+      retargetedMesh.add(rootBone)
+
+      // 2. Keep retargetedMesh at ORIGIN with identity transforms
+      // Geometry is already scaled (baked into vertices)
+      // Skeleton scale is preserved as transform property
+      retargetedMesh.position.set(0, 0, 0)
+      retargetedMesh.scale.set(1, 1, 1)  // Identity because geometry is pre-scaled
+      retargetedMesh.rotation.set(0, 0, 0)
+
+      // 3. Bind the mesh to the skeleton
+      // This creates bind matrices based on current bone transforms
+      retargetedMesh.bind(editableSkeletonRef.current)
+
+      console.log('✅ Mesh bound to skeleton:')
+      console.log('  - Mesh position:', retargetedMesh.position.toArray())
+      console.log('  - Mesh scale:', retargetedMesh.scale.toArray())
+      console.log('  - Mesh rotation:', retargetedMesh.rotation.toArray())
+      console.log('  - Skeleton bones:', editableSkeletonRef.current.bones.length)
+
+      // Remove the preview mesh from the scene
+      const previewMesh = sceneRef.current.getObjectByName('PreviewMesh');
+      if (previewMesh) {
+        sceneRef.current.remove(previewMesh);
+        console.log('Removed preview mesh');
+      }
+
+      // Replace old model in scene
+      if (modelRef.current) {
+        sceneRef.current.remove(modelRef.current)
+      }
+      sceneRef.current.add(retargetedMesh)
+      modelRef.current = retargetedMesh
+      activeSkinnedMeshRef.current = retargetedMesh
+
+      // Remove the standalone root bone (it's now part of the mesh)
+      if (editingSkeletonRootRef.current && sceneRef.current.children.includes(editingSkeletonRootRef.current)) {
+        sceneRef.current.remove(editingSkeletonRootRef.current)
+      }
+
+      // Recreate mixer for animations
+      if (mixerRef.current) {
+        mixerRef.current.stopAllAction()
+      }
+      mixerRef.current = new THREE.AnimationMixer(retargetedMesh)
+
+      // Auto-load animations from human-base-animations.glb
+      try {
+        console.log('📦 Loading animations from human-base-animations.glb...')
+        const loader = new GLTFLoader()
+        const gltf = await loader.loadAsync('/rigs/animations/human-base-animations.glb')
+
+        if (gltf.animations && gltf.animations.length > 0) {
+          console.log(`✅ Loaded ${gltf.animations.length} animations from base animations file`)
+
+          // CRITICAL: DO NOT scale animation keyframes!
+          // The skeleton has scale as a TRANSFORM PROPERTY (not baked)
+          // Three.js will automatically apply the skeleton's scale transform during animation
+          // Scaling keyframes would cause DOUBLE-SCALING
+          console.log(`🎬 Using animations as-is (skeleton scale: ${skeletonScaleFactor})`)
+          console.log(`   Skeleton scale transform will be applied automatically by Three.js`)
+
+          setAnimations(gltf.animations)
+
+          // Log all animation names
+          console.log('Available animations:', gltf.animations.map(a => a.name).join(', '))
+        } else {
+          console.warn('No animations found in base animations file')
+        }
+      } catch (error) {
+        console.error('Failed to load animations:', error)
+      }
+
+      console.log('✅ Retargeting applied! Mesh bound to edited skeleton.')
+
+      return true
+    },
+    retargetAnimationsToCharacter: async (animationRigUrl: string, animationsUrl: string) => {
+      /**
+       * NEW WORKFLOW: Animation Retargeting (Industry Standard)
+       *
+       * Instead of rebinding mesh to new skeleton:
+       * 1. Keep character bound to its original skeleton
+       * 2. Load animation rig (Mixamo) and animations
+       * 3. Retarget animation bone transforms from Mixamo → Character
+       * 4. Play retargeted animations on character
+       *
+       * This is what Hyperfy, Unreal, and production tools do.
+       */
+
+      if (!modelRef.current || !sceneRef.current) {
+        console.error('No character loaded!')
+        return false
+      }
+
+      console.log('🎬 Starting Animation Retargeting workflow...')
+      console.log('  Character stays bound to original skeleton')
+      console.log('  Retargeting animations only (not mesh)')
+
+      // Get character's skeleton
+      let characterSkeleton: THREE.Skeleton | null = null
+      modelRef.current.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh && child.skeleton && !characterSkeleton) {
+          characterSkeleton = child.skeleton
+        }
+      })
+
+      if (!characterSkeleton) {
+        console.error('❌ Character has no skeleton!')
+        return false
+      }
+
+      // TypeScript type narrowing - characterSkeleton is now THREE.Skeleton (not null)
+      const charSkeleton: THREE.Skeleton = characterSkeleton
+      console.log('✅ Character skeleton:', charSkeleton.bones.length, 'bones')
+      console.log('🔍 ALL CHARACTER BONE NAMES:')
+      charSkeleton.bones.forEach((bone: THREE.Bone, i: number) => {
+        console.log(`  [${i}] ${bone.name}`)
+      })
+
+      // Load animation rig (Mixamo)
+      console.log('📦 Loading animation rig from:', animationRigUrl)
+      const loader = new GLTFLoader()
+      const rigGltf = await loader.loadAsync(animationRigUrl)
+
+      const { extractSkeletonFromGLTF } = await import('../../services/retargeting/AnimationRetargeter')
+      const animationSkeleton: THREE.Skeleton | null = extractSkeletonFromGLTF(rigGltf)
+
+      if (!animationSkeleton) {
+        console.error('❌ Animation rig has no skeleton!')
+        return false
+      }
+
+      // TypeScript now knows animationSkeleton is THREE.Skeleton (not null)
+      console.log('✅ Animation skeleton:', animationSkeleton.bones.length, 'bones')
+      console.log('🔍 ALL ANIMATION BONE NAMES:')
+      animationSkeleton.bones.forEach((bone: THREE.Bone, i: number) => {
+        console.log(`  [${i}] ${bone.name}`)
+      })
+
+      // Load animations
+      console.log('📦 Loading animations from:', animationsUrl)
+      const animGltf = await loader.loadAsync(animationsUrl)
+
+      if (!animGltf.animations || animGltf.animations.length === 0) {
+        console.error('❌ No animations found!')
+        return false
+      }
+
+      console.log('✅ Loaded', animGltf.animations.length, 'animations')
+
+      // Retarget animations
+      const { AnimationRetargeter } = await import('../../services/retargeting/AnimationRetargeter')
+      const retargeter = new AnimationRetargeter(
+        animGltf.animations,
+        animationSkeleton,  // Source: Mixamo (67 bones)
+        charSkeleton   // Target: Character (24 bones)
+      )
+
+      const retargetedAnimations = retargeter.retargetAll()
+
+      if (retargetedAnimations.length === 0) {
+        console.error('❌ Failed to retarget any animations!')
+        return false
+      }
+
+      console.log('✅ Successfully retargeted', retargetedAnimations.length, 'animations')
+
+      // Debug: Show retargeted track names for first animation
+      if (retargetedAnimations.length > 0) {
+        const firstClip = retargetedAnimations[0].clip
+        console.log('🔍 First retargeted clip track names:')
+        firstClip.tracks.slice(0, 10).forEach((track: THREE.KeyframeTrack) => {
+          console.log(`  ${track.name}`)
+        })
+      }
+
+      // Set up animation mixer on the ORIGINAL character (not a rebounded mesh)
+      if (mixerRef.current) {
+        mixerRef.current.stopAllAction()
+      }
+      mixerRef.current = new THREE.AnimationMixer(modelRef.current)
+
+      // Store retargeted clips
+      const clips = retargetedAnimations.map(r => r.clip)
+      setAnimations(clips)
+
+      // Show skeleton by default after retargeting
+      if (charSkeleton && sceneRef.current) {
+        // Create or update skeleton helper
+        if (skeletonHelperRef.current) {
+          sceneRef.current.remove(skeletonHelperRef.current)
+        }
+
+        const helper = new THREE.SkeletonHelper(modelRef.current!)
+        helper.visible = true
+
+        // Make skeleton lines visible
+        const material = helper.material as THREE.LineBasicMaterial
+        material.color = new THREE.Color(0x00ff00)  // Bright green
+        material.linewidth = 3
+        material.depthTest = true
+        material.transparent = true
+        material.opacity = 1.0
+
+        sceneRef.current.add(helper)
+        skeletonHelperRef.current = helper
+        setShowSkeleton(true)
+        setHasRiggedModel(true)
+
+        console.log('✅ Skeleton helper shown by default')
+      }
+
+      console.log('✅ Animation retargeting complete!')
+      console.log('   Character mesh: Unchanged (original skeleton)')
+      console.log('   Animations: Retargeted to character skeleton')
+      console.log('   Available animations:', clips.map(c => c.name).join(', '))
+
+      return true
     },
     stopAnimation: () => {
       if (mixerRef.current) {
@@ -1099,9 +2079,420 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             console.log(`✅ Skeleton helper refreshed with ${meshWithBones.skeleton.bones.length} bones`)
           }
         }
+    }
+    }
+    ,
+    // Bone editing controls - ONLY works when explicitly enabled
+    enableBoneEditing: (enabled: boolean) => {
+      console.log(`[bone-edit] Enable bone editing: ${enabled}`)
+      setBoneEditEnabled(enabled)
+      boneEditEnabledRef.current = enabled // Update ref for closures
+
+      if (!transformControlsRef.current || !rendererRef.current) {
+        console.warn('[bone-edit] TransformControls or renderer not ready')
+        return
+      }
+
+      // CRITICAL: Ensure skeleton is visible when enabling bone editing
+      if (enabled && skeletonHelperRef.current) {
+        skeletonHelperRef.current.visible = true
+        setShowSkeleton(true)
+        console.log('[bone-edit] ✅ Skeleton helper made visible')
+      }
+
+      // Ensure we have bones to edit
+      if (enabled) {
+        const editRoot = editingSkeletonRootRef.current ?? modelRef.current
+        if (!editRoot) {
+          console.error('[bone-edit] ❌ No editable skeleton or model found!')
+          return
+        }
+
+        const bones: THREE.Bone[] = []
+        editRoot.traverse((child) => {
+          if (child instanceof THREE.Bone) bones.push(child)
+        })
+
+        console.log(`[bone-edit] Found ${bones.length} bones to edit`)
+        if (bones.length === 0) {
+          console.error('[bone-edit] ❌ No bones found in skeleton!')
+          alert('No skeleton bones found. Please load a model with a skeleton first.')
+          return
+        }
+      }
+
+      transformControlsRef.current.enabled = enabled
+      ;(transformControlsRef.current as unknown as THREE.Object3D).visible = enabled
+
+      // Hide/show bone highlight sphere
+      if (boneHighlightSphereRef.current) {
+        if (!enabled) {
+          boneHighlightSphereRef.current.visible = false
+        }
+      }
+
+      const tcObj = transformControlsRef.current as any as THREE.Object3D
+      console.log('[bone-edit] TransformControls state:')
+      console.log('  - enabled:', transformControlsRef.current.enabled)
+      console.log('  - visible:', tcObj.visible)
+      console.log('  - in scene:', sceneRef.current?.children.includes(tcObj))
+      console.log('  - parent:', tcObj.parent?.type)
+
+      // Detach from any object when disabling
+      if (!enabled && transformControlsRef.current.object) {
+        transformControlsRef.current.detach()
+        console.log('  - Detached from object')
+      }
+      
+      // CRITICAL: Stop all animations when editing bones to prevent mesh deformation
+      if (enabled) {
+        console.log('[bone-edit] Stopping animations to prevent mesh deformation')
+        if (mixerRef.current) {
+          mixerRef.current.stopAllAction()
+          mixerRef.current.timeScale = 0
+        }
+        // Set skeleton to bind pose to ensure mesh stays static
+        if (modelRef.current) {
+          modelRef.current.traverse((child) => {
+            if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+              child.skeleton.pose() // Reset to bind pose
+              // DON'T call skeleton.update() here - it would deform the mesh
+            }
+          })
+        }
+      } else if (!enabled && mixerRef.current) {
+        // Re-enable animation when done editing
+        mixerRef.current.timeScale = 1
+      }
+      
+      // Scale gizmo based on model size so it's always visible
+      if (enabled && modelRef.current) {
+        try {
+          const box = new THREE.Box3().setFromObject(modelRef.current)
+          const size = box.getSize(new THREE.Vector3())
+          const radius = Math.max(size.x, size.y, size.z)
+          // Scale to 12% of model size for good visibility
+          transformControlsRef.current.size = Math.max(radius * 0.12, 0.3)
+          console.log('[bone-edit] Initial gizmo size:', transformControlsRef.current.size, 'for model radius:', radius)
+        } catch {
+          transformControlsRef.current.size = 0.5
+        }
+      }
+      console.log('[bone-edit] TransformControls enabled set to:', enabled)
+      
+      // Only set up click listener once
+      const canvas = rendererRef.current.domElement
+      if (!canvas.dataset.boneClickListenerAdded) {
+        canvas.dataset.boneClickListenerAdded = 'true'
+
+        // Use pointerdown in bubble phase to avoid interfering with TransformControls
+        canvas.addEventListener('pointerdown', (event: PointerEvent) => {
+          console.log('[bone-edit] 🖱️ Canvas clicked! Bone editing enabled:', boneEditEnabledRef.current)
+          
+          // ONLY respond to clicks when bone editing is enabled (use ref to avoid closure stale value)
+          if (!boneEditEnabledRef.current) {
+            console.log('[bone-edit] Click ignored - bone editing not enabled')
+            return
+          }
+          
+          console.log('[bone-edit] Processing bone selection click...')
+          
+          if (!modelRef.current || !cameraRef.current || !transformControlsRef.current) return
+          
+          // Calculate pointer position relative to canvas
+          const rect = canvas.getBoundingClientRect()
+          const x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+          const y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+          pointer.current.set(x, y)
+          
+          console.log(`[selection] Mouse down at NDC: (${x.toFixed(3)}, ${y.toFixed(3)})`)
+          
+          const bones: THREE.Bone[] = []
+          const selectionRoot = (editingSkeletonRootRef.current ?? modelRef.current)!
+          // Ensure world matrices are current before selection
+          selectionRoot.updateMatrixWorld(true)
+          selectionRoot.traverse((child) => {
+            if (child instanceof THREE.Bone) bones.push(child)
+          })
+          
+          console.log(`[selection] Found ${bones.length} bones`)
+          
+          if (bones.length === 0) {
+            console.warn('[selection] No bones found!')
+            return
+          }
+          
+          // Update matrices then raycast to bones
+          raycaster.current.setFromCamera(pointer.current, cameraRef.current)
+          
+          // Find closest bone (scale-aware)
+          let closestBone: THREE.Bone | null = null
+          let closestDistance = 0.3
+          // Scale selection radius by model size for robustness
+          if (modelRef.current) {
+            const box = new THREE.Box3().setFromObject(modelRef.current)
+            const size = box.getSize(new THREE.Vector3())
+            const radius = Math.max(size.x, size.y, size.z)
+            if (isFinite(radius) && radius > 0) {
+              closestDistance = Math.max(closestDistance, radius * 0.02)
+            }
+          }
+          
+          for (const bone of bones) {
+            const pos = new THREE.Vector3()
+            bone.getWorldPosition(pos)
+            const distance = raycaster.current.ray.distanceToPoint(pos)
+            if (distance < closestDistance) {
+              closestDistance = distance
+              closestBone = bone
+            }
+          }
+          
+          if (closestBone) {
+            console.log(`[selection] ✅ Selected "${closestBone.name}" (dist: ${closestDistance.toFixed(3)})`)
+            setSelectedBone(closestBone)
+            setSelectedBoneName(closestBone.name)
+            selectedBoneRef.current = closestBone
+
+            // Update bone world matrix first
+            closestBone.updateMatrixWorld(true)
+
+            // Show highlight sphere at bone position
+            if (boneHighlightSphereRef.current) {
+              const worldPos = new THREE.Vector3()
+              closestBone.getWorldPosition(worldPos)
+              boneHighlightSphereRef.current.position.copy(worldPos)
+              boneHighlightSphereRef.current.visible = true
+              console.log(`[selection] 🔵 Highlight sphere positioned at bone location`)
+            }
+            
+            // Attach TransformControls to the bone
+            transformControlsRef.current.attach(closestBone)
+
+            // CRITICAL: Ensure the helper is in the scene after attaching
+            // TransformControls creates helper lazily on first attach
+            const helper = transformControlsRef.current.getHelper()
+            if (helper && sceneRef.current && !sceneRef.current.children.includes(helper)) {
+              console.log('[selection] 🔧 Manually adding helper to scene')
+              sceneRef.current.add(helper)
+            }
+
+            // Configure gizmo with 3-axis arrows (X=Red, Y=Green, Z=Blue)
+            transformControlsRef.current.showX = true
+            transformControlsRef.current.showY = true
+            transformControlsRef.current.showZ = true
+            transformControlsRef.current.setMode(boneTransformModeState) // 'translate' or 'rotate'
+            transformControlsRef.current.setSpace(boneTransformSpaceState) // 'local' or 'world'
+            
+            // Scale gizmo appropriately based on model size
+            if (modelRef.current) {
+              const box = new THREE.Box3().setFromObject(modelRef.current)
+              const size = box.getSize(new THREE.Vector3())
+              const radius = Math.max(size.x, size.y, size.z)
+              // Scale gizmo to 10-15% of model size for visibility without overwhelming
+              transformControlsRef.current.size = Math.max(radius * 0.12, 0.3)
+              console.log(`[selection] 📏 Gizmo size set to ${transformControlsRef.current.size.toFixed(2)} (model size: ${radius.toFixed(2)})`)
+            } else {
+              // Fallback to reasonable size if no model
+              transformControlsRef.current.size = 0.5
+            }
+            
+            // Gizmo should now be visible - TransformControls handles its own rendering
+            console.log('[selection] ✅ Gizmo attached and should be visible')
+
+            const tcObj = transformControlsRef.current as any as THREE.Object3D
+            console.log(`[selection] 🎯 3-Axis Gizmo attached to bone "${closestBone.name}"`)
+            console.log('  - Mode:', transformControlsRef.current.mode, '(drag arrows to move)')
+            console.log('  - Space:', transformControlsRef.current.space)
+            console.log('  - Size:', transformControlsRef.current.size)
+            console.log('  - Attached object position:', closestBone.position.toArray())
+            console.log('  - TransformControls in scene:', sceneRef.current?.children.includes(tcObj))
+            console.log('  - TransformControls parent:', tcObj.parent?.type)
+          } else {
+            console.log(`[selection] ❌ No bone within ${closestDistance}m`)
+          }
+        }, { capture: false }) // Use bubble phase
+        
+        // Hover-attacher: keep controls attached to the nearest bone under the pointer so axis picking works
+        // No hover attach — user must click a joint to attach
+      }
+    },
+    setBoneTransformMode: (mode: 'translate' | 'rotate') => {
+      setBoneTransformModeState(mode)
+      boneTransformModeStateRef.current = mode // Update ref for closures
+      if (transformControlsRef.current) transformControlsRef.current.setMode(mode)
+      console.log('[bone-edit] Transform mode set to:', mode)
+    },
+    setBoneTransformSpace: (space: 'world' | 'local') => {
+      setBoneTransformSpaceState(space)
+      if (transformControlsRef.current) transformControlsRef.current.setSpace(space)
+      console.log('[bone-edit] Transform space set to:', space)
+    },
+    setBoneMirrorEnabled: (enabled: boolean) => {
+      setBoneMirrorEnabledState(enabled)
+      boneMirrorEnabledRef.current = enabled // Update ref for closures
+      console.log('[bone-edit] Mirror mode set to:', enabled)
+      console.log('[bone-edit] Mirror ref updated to:', boneMirrorEnabledRef.current)
+
+      // IMMEDIATE UX: Apply mirror to currently selected bone when enabled
+      if (enabled && selectedBoneRef.current && applyMirrorModeRef.current) {
+        console.log('[mirror] 🎯 Mirror enabled - applying immediately to current selection')
+        applyMirrorModeRef.current(selectedBoneRef.current, boneTransformModeStateRef.current)
+
+        // Update skeleton helper to show the change
+        if (skeletonHelperRef.current) {
+          skeletonHelperRef.current.updateMatrixWorld(true)
+        }
+      }
+    },
+    setBoneMapOverrides: (overrides: Record<string, string>) => {
+      const m = new Map<string, string>()
+      Object.entries(overrides).forEach(([k, v]) => m.set(normalizeBoneName(k), v))
+      boneOverridesRef.current = m
+    },
+    alignToBindPose: () => {
+      if (!modelRef.current) return
+      modelRef.current.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+          child.skeleton.pose()
+          child.updateMatrixWorld(true)
+        }
+      })
+    },
+    debugGizmo: () => {
+      console.log('=== GIZMO DEBUG ===')
+      console.log('TransformControls ref:', !!transformControlsRef.current)
+      if (transformControlsRef.current) {
+        const tc = transformControlsRef.current
+        const tcObj = tc as any as THREE.Object3D
+        console.log('  enabled:', tc.enabled)
+        console.log('  visible:', tcObj.visible)
+        console.log('  mode:', tc.mode)
+        console.log('  space:', tc.space)
+        console.log('  size:', tc.size)
+        console.log('  object attached:', tc.object?.name)
+        console.log('  in scene:', sceneRef.current?.children.includes(tcObj))
+        console.log('  parent:', tcObj.parent?.type)
+        
+        const helper = tc.getHelper()
+        console.log('  helper:', !!helper)
+        if (helper) {
+          console.log('    helper visible:', helper.visible)
+          console.log('    helper in scene:', sceneRef.current?.children.includes(helper))
+          console.log('    helper children:', helper.children.length)
+          console.log('    helper position:', helper.position.toArray())
+        }
+      }
+      
+      console.log('\n=== SCENE OBJECTS ===')
+      if (sceneRef.current) {
+        console.log('Total scene children:', sceneRef.current.children.length)
+        sceneRef.current.children.forEach((child, i) => {
+          console.log(`  ${i}: ${child.type} "${child.name}" visible:${child.visible}`)
+        })
+        
+        const testCube = sceneRef.current.getObjectByName('TestCube')
+        console.log('\nTest cube:', !!testCube)
+        if (testCube) {
+          console.log('  position:', testCube.position.toArray())
+          console.log('  visible:', testCube.visible)
+        }
+      }
+      console.log('=== END DEBUG ===')
+    },
+    getSourceSkeleton: () => {
+      // Get skeleton from the currently loaded model
+      if (!modelRef.current) return null
+
+      let skeleton: THREE.Skeleton | null = null
+      modelRef.current.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh && child.skeleton && !skeleton) {
+          skeleton = child.skeleton
+        }
+      })
+      return skeleton
+    },
+    getTargetSkeleton: () => {
+      // Return the target rig skeleton if loaded
+      return targetSkeletonRef.current
+    },
+    getAvailableAnimations: () => {
+      // Return the current list of loaded animations
+      return animations
+    },
+    updateSkeletonScale: (scale: number) => {
+      // Update the skeleton scale multiplier
+      skeletonScaleMultiplierRef.current = scale
+
+      // Update preview mesh and skeleton if they exist
+      if (previewMeshRef.current && editableSkeletonRef.current && targetSkeletonRef.current) {
+        const previewMesh = previewMeshRef.current
+        const rootBone = editableSkeletonRef.current.bones[0]
+
+        // Recalculate scale based on bind pose
+        const previewBBox = new THREE.Box3()
+        previewMesh.scale.set(1, 1, 1)  // Reset to bind pose temporarily
+        previewBBox.setFromObject(previewMesh)
+        const previewSize = previewBBox.getSize(new THREE.Vector3())
+
+        const targetSize = 5.0
+        const baseScaleFactor = targetSize / Math.max(previewSize.x, previewSize.y, previewSize.z)
+        const meshScaleFactor = baseScaleFactor * scale
+
+        // Apply new scale to preview mesh
+        previewMesh.scale.set(meshScaleFactor, meshScaleFactor, meshScaleFactor)
+
+        // Get final mesh size
+        const finalMeshBBox = new THREE.Box3().setFromObject(previewMesh)
+        const finalMeshSize = finalMeshBBox.getSize(new THREE.Vector3())
+
+        // Calculate skeleton's natural size (need to temporarily reset to get natural size)
+        const _currentScale = rootBone.scale.clone()
+        const _currentPos = rootBone.position.clone()
+
+        rootBone.scale.set(1, 1, 1)
+        rootBone.position.set(0, 0, 0)
+        rootBone.updateMatrixWorld(true)
+
+        editableSkeletonRef.current.bones.forEach(bone => bone.updateMatrixWorld(true))
+        const naturalSkelBBox = new THREE.Box3()
+        editableSkeletonRef.current.bones.forEach(bone => {
+          const pos = new THREE.Vector3()
+          bone.getWorldPosition(pos)
+          naturalSkelBBox.expandByPoint(pos)
+        })
+        const naturalSkelSize = naturalSkelBBox.getSize(new THREE.Vector3())
+
+        // Calculate skeleton scale to fit WITHIN mesh bounds
+        const skeletonScaleX = finalMeshSize.x / naturalSkelSize.x
+        const skeletonScaleY = finalMeshSize.y / naturalSkelSize.y
+        const skeletonScaleZ = finalMeshSize.z / naturalSkelSize.z
+        const skeletonScaleFactor = Math.min(skeletonScaleX, skeletonScaleY, skeletonScaleZ)
+
+        // Apply the calculated scale
+        rootBone.scale.set(skeletonScaleFactor, skeletonScaleFactor, skeletonScaleFactor)
+        rootBone.updateMatrixWorld(true)
+
+        // Reposition skeleton to match preview mesh center
+        editableSkeletonRef.current.bones.forEach(bone => bone.updateMatrixWorld(true))
+        const newSkelBBox = new THREE.Box3()
+        editableSkeletonRef.current.bones.forEach(bone => {
+          const pos = new THREE.Vector3()
+          bone.getWorldPosition(pos)
+          newSkelBBox.expandByPoint(pos)
+        })
+        const newCenter = newSkelBBox.getCenter(new THREE.Vector3())
+        const meshCenter = new THREE.Box3().setFromObject(previewMesh).getCenter(new THREE.Vector3())
+        const offset = meshCenter.clone().sub(newCenter)
+        rootBone.position.add(offset)
+        rootBone.updateMatrixWorld(true)
+
+        console.log('📐 Skeleton scale updated:', scale)
+        console.log('  Mesh scale factor:', meshScaleFactor)
+        console.log('  Skeleton scale factor:', skeletonScaleFactor, '(fits within mesh bounds)')
       }
     }
-  }), [animations, assetInfo, exportTPoseModel, showSkeleton])
+  }), [animations, assetInfo, exportTPoseModel, showSkeleton, boneTransformModeState, boneTransformSpaceState])
   
   // Initialize Three.js scene with professional setup
    
@@ -1125,8 +2516,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     const camera = new THREE.PerspectiveCamera(
       45,
       initialWidth / initialHeight,
-      0.1,
-      1000
+      0.01,
+      1e6
     )
     camera.position.set(10, 10, 10)
     cameraRef.current = camera
@@ -1181,7 +2572,192 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
     controls.autoRotate = autoRotate
     controls.autoRotateSpeed = 2
     controlsRef.current = controls
+
+    // Transform controls for bone editing - create fresh each time
+    const tControls = new TransformControls(camera, renderer.domElement)
+    tControls.enabled = false // Start disabled, enable only when user clicks "Enable Bone Editing"
+    tControls.size = 1.0 // Will be scaled based on model size when bone is selected
+    ;(tControls as unknown as THREE.Object3D).frustumCulled = false
+    tControls.setMode('translate') // 3-axis gizmo with directional arrows
+    tControls.setSpace('local') // Use local space for bone editing
+    // Ensure all 3 axes (X/Y/Z arrows) are enabled
+    tControls.showX = true
+    tControls.showY = true
+    tControls.showZ = true
     
+    tControls.addEventListener('dragging-changed', (event: any) => {
+      const isDragging = event.value
+      controls.enabled = !isDragging
+      
+      console.log(`[drag] ${isDragging ? '🎯 Started' : '✅ Stopped'} dragging bone`)
+      console.log('  - OrbitControls enabled:', controls.enabled)
+      console.log('  - TransformControls enabled:', tControls.enabled)
+      
+      if (!isDragging) {
+        // Update skeleton helper after drag completes
+        if (skeletonHelperRef.current) {
+          skeletonHelperRef.current.updateMatrixWorld(true)
+        }
+      }
+    })
+    
+    // Helper: Apply mirror mode (from Mesh2Motion)
+    const applyMirrorMode = (selectedBone: THREE.Bone, transformMode: 'translate' | 'rotate') => {
+      if (!editingSkeletonRootRef.current) return
+
+      // Calculate base bone name (strip L/R suffixes and prefixes)
+      // Handle patterns: boneName.L, boneName.R, boneNameL, boneNameR, L_boneName, R_boneName, etc.
+      const baseName = selectedBone.name
+        .replace(/[_\-.]?(l|r|left|right)$/i, '')  // Remove suffix
+        .replace(/^(l|r|left|right)[_\-.]?/i, '')  // Remove prefix
+        .toLowerCase()
+
+      // Determine if this is a left or right bone
+      const isLeft = /[_\-.]?(l|left)[_\-.]?/i.test(selectedBone.name)
+      const isRight = /[_\-.]?(r|right)[_\-.]?/i.test(selectedBone.name)
+
+      if (!isLeft && !isRight) {
+        console.log(`[mirror] ${selectedBone.name} is not a left/right bone (center bone), skipping`)
+        return // Center bone, no mirror
+      }
+
+      // Find mirror bone
+      let mirrorBone: THREE.Bone | undefined
+      const allBones: THREE.Bone[] = []
+      editingSkeletonRootRef.current.traverse((child) => {
+        if (child instanceof THREE.Bone) allBones.push(child)
+      })
+
+      for (const bone of allBones) {
+        if (bone === selectedBone) continue
+
+        const boneBaseName = bone.name
+          .replace(/[_\-.]?(l|r|left|right)$/i, '')
+          .replace(/^(l|r|left|right)[_\-.]?/i, '')
+          .toLowerCase()
+
+        // Must have same base name but opposite side
+        const boneIsLeft = /[_\-.]?(l|left)[_\-.]?/i.test(bone.name)
+        const boneIsRight = /[_\-.]?(r|right)[_\-.]?/i.test(bone.name)
+
+        if (boneBaseName === baseName && ((isLeft && boneIsRight) || (isRight && boneIsLeft))) {
+          mirrorBone = bone
+          break
+        }
+      }
+
+      if (!mirrorBone) {
+        console.log(`[mirror] No mirror bone found for ${selectedBone.name}`)
+        return
+      }
+      
+      if (transformMode === 'translate') {
+        mirrorBone.position.set(
+          -selectedBone.position.x,
+          selectedBone.position.y,
+          selectedBone.position.z
+        )
+      } else if (transformMode === 'rotate') {
+        const euler = new THREE.Euler(
+          selectedBone.rotation.x,
+          -selectedBone.rotation.y,
+          -selectedBone.rotation.z
+        )
+        mirrorBone.quaternion.setFromEuler(euler)
+      }
+      
+      mirrorBone.updateMatrix()
+      mirrorBone.updateMatrixWorld(true)
+
+      console.log(`[mirror] ✅ Mirrored ${selectedBone.name} → ${mirrorBone.name}`)
+      console.log(`[mirror]   Transform: ${transformMode}`)
+      if (transformMode === 'translate') {
+        console.log(`[mirror]   Position: (${mirrorBone.position.x.toFixed(3)}, ${mirrorBone.position.y.toFixed(3)}, ${mirrorBone.position.z.toFixed(3)})`)
+      } else {
+        console.log(`[mirror]   Rotation: (${mirrorBone.rotation.x.toFixed(3)}, ${mirrorBone.rotation.y.toFixed(3)}, ${mirrorBone.rotation.z.toFixed(3)})`)
+      }
+      // Note: We're editing overlay skeleton, so mesh won't deform
+    }
+
+    // Store function in ref so it can be called from imperative handle
+    applyMirrorModeRef.current = applyMirrorMode
+    
+    // When bone is dragged, sync the actual rig bones (Mesh2Motion pattern)
+    tControls.addEventListener('change', () => {
+      console.log('[bone-edit] Change event fired')
+      console.log('[bone-edit] Reading ref directly inside listener:', boneMirrorEnabledRef)
+      console.log('[bone-edit] Reading ref.current:', boneMirrorEnabledRef.current)
+
+      if (!selectedBoneRef.current) {
+        console.log('[bone-edit] No selected bone')
+        return
+      }
+      
+      const draggedBone = selectedBoneRef.current
+      console.log(`[bone-edit] Editing overlay bone: ${draggedBone.name}, position:`, draggedBone.position.toArray())
+      
+      // We're editing the OVERLAY skeleton (not bound to mesh)
+      // So the mesh won't deform - perfect!
+      // The TransformControls already updated the bone's local transform
+      
+      // Update skeleton helper visualization to show new bone positions
+      if (skeletonHelperRef.current) {
+        skeletonHelperRef.current.updateMatrixWorld(true)
+      }
+      
+      // Apply mirror mode if enabled (use refs to avoid stale closure values)
+      console.log(`[bone-edit] Mirror check - enabled: ${boneMirrorEnabledRef.current}, bone: ${selectedBoneRef.current?.name}`)
+      if (boneMirrorEnabledRef.current && selectedBoneRef.current) {
+        console.log(`[mirror] Attempting to mirror ${selectedBoneRef.current.name}...`)
+        applyMirrorMode(selectedBoneRef.current, boneTransformModeStateRef.current)
+      } else {
+        if (!boneMirrorEnabledRef.current) {
+          console.log(`[mirror] Skipped - mirror mode disabled`)
+        }
+        if (!selectedBoneRef.current) {
+          console.log(`[mirror] Skipped - no bone selected`)
+        }
+      }
+    })
+    
+    // Add TransformControls to scene
+    // CRITICAL: Cast to any first, then to Object3D to satisfy TypeScript
+    // TransformControls extends Object3D but TypeScript doesn't know that
+    const tControlsObj = tControls as any as THREE.Object3D
+    scene.add(tControlsObj)
+    transformControlsRef.current = tControls
+
+    console.log('✅ TransformControls initialized and added to scene')
+    console.log('   TransformControls type:', tControls.constructor.name)
+    console.log('   TransformControls in scene:', scene.children.includes(tControlsObj))
+    console.log('   TransformControls enabled:', tControls.enabled)
+    console.log('   TransformControls size:', tControls.size)
+    console.log('   Scene children count:', scene.children.length)
+
+    // Create bone highlight sphere (will be positioned on selected bone)
+    const highlightSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 16, 16),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.6,
+        depthTest: false,
+        depthWrite: false
+      })
+    )
+    highlightSphere.visible = false
+    highlightSphere.renderOrder = 998 // Render before gizmo
+    scene.add(highlightSphere)
+    boneHighlightSphereRef.current = highlightSphere
+    console.log('✅ Bone highlight sphere created')
+
+    // Create labels group for bone names (will be populated when bones are visible)
+    const labelsGroup = new THREE.Group()
+    labelsGroup.name = 'BoneLabels'
+    scene.add(labelsGroup)
+    boneLabelsGroupRef.current = labelsGroup
+    console.log('✅ Bone labels group created')
+
     // Professional lighting setup
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
     ambientLight.name = 'ambientLight'
@@ -1370,17 +2946,28 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
             }
           })
           
-          // Update skeleton helper
-          if (skeletonHelperRef.current && typeof skeletonHelperRef.current.update === 'function') {
-            console.log('  Updating skeleton helper')
-            skeletonHelperRef.current.update()
+          // Update skeleton helper (CustomSkeletonHelper updates automatically via updateMatrixWorld)
+          if (skeletonHelperRef.current) {
+            skeletonHelperRef.current.updateMatrixWorld(true)
           }
         }
       }
-      
+
+      // Update bone highlight sphere to follow selected bone
+      if (boneHighlightSphereRef.current && boneHighlightSphereRef.current.visible && selectedBoneRef.current) {
+        const worldPos = new THREE.Vector3()
+        selectedBoneRef.current.getWorldPosition(worldPos)
+        boneHighlightSphereRef.current.position.copy(worldPos)
+      }
+
       controls.update()
-      if (composerRef.current) composerRef.current.render()
-      else renderer.render(scene, camera)
+
+      // Render with composer if available, otherwise use raw renderer
+      if (composerRef.current) {
+        composerRef.current.render()
+      } else {
+        renderer.render(scene, camera)
+      }
     }
     animate()
     
@@ -1760,8 +3347,10 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
         const objectsToRemove: THREE.Object3D[] = []
         sceneRef.current.traverse((child) => {
           if (child.type === 'Mesh' || child.type === 'Group' || child.type === 'SkinnedMesh') {
-            // Don't remove ground plane or grid
-            if (child.name !== 'groundPlane' && child !== gridRef.current) {
+            // Don't remove ground plane, grid, or debug objects
+            if (child.name !== 'groundPlane' && 
+                child.name !== 'TestCube' && 
+                child !== gridRef.current) {
               objectsToRemove.push(child)
             }
           }
@@ -1835,13 +3424,12 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           
           // GLTF scenes sometimes have weird nested scales - let's normalize them
           console.log('🎯 GLTF scene loaded, checking for scale issues...')
-          
-          // First, check if the scene itself has a non-unit scale
-          if (model.scale.x !== 1 || model.scale.y !== 1 || model.scale.z !== 1) {
-            console.warn(`  Scene has non-unit scale: (${model.scale.x}, ${model.scale.y}, ${model.scale.z})`)
-            console.log(`  Resetting scene scale to (1, 1, 1)`)
-            model.scale.set(1, 1, 1)
-          }
+
+          // IMPORTANT: DON'T reset the scene scale!
+          // The scale is intentional and affects the retargeting workflow
+          // If we reset it, the preview mesh will be too small
+          console.log(`  Scene scale: (${model.scale.x}, ${model.scale.y}, ${model.scale.z})`)
+          // DON'T DO THIS: model.scale.set(1, 1, 1)
           
           // Update matrices before we start
           model.updateMatrixWorld(true)
@@ -1850,7 +3438,8 @@ const ThreeViewer = forwardRef<ThreeViewerRef, ThreeViewerProps>(({
           console.log(`Model children count: ${model.children.length}`)
           console.log(`Model initial scale: x=${model.scale.x}, y=${model.scale.y}, z=${model.scale.z}`)
           console.log(`Model initial position: x=${model.position.x}, y=${model.position.y}, z=${model.position.z}`)
-          
+          console.log(`Model initial rotation: x=${model.rotation.x}, y=${model.rotation.y}, z=${model.rotation.z}`)
+
           // Debug: Traverse entire hierarchy to find scale issues (disabled for performance)
           const debugScaleIssues = false // Set to true to enable verbose scale logging
           if (debugScaleIssues) {

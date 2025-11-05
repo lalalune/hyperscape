@@ -92,14 +92,14 @@ export async function createServerWorld(): Promise<World> {
   // - InventorySystem: Item storage and management
   // - EquipmentSystem: Weapons, armor, and gear
   // - SkillsSystem: Experience and leveling
-  // - MobSystem: Enemy spawning and AI
+  // - MobNPCSystem: Enemy spawning and AI
   // - NPCSystem: Non-hostile character management
   // - LootSystem: Item drops and rewards
   // - DeathSystem: Player/mob death handling
   // - StoreSystem: Shops and trading
   // - BankingSystem: Item and currency storage
   // - ResourceSystem: Gathering nodes (trees, rocks, etc.)
-  // - MobSpawnerSystem: Dynamic mob population
+  // - MobNPCSpawnerSystem: Dynamic mob population
   // - ItemSpawnerSystem: Ground item management
   // - PathfindingSystem: A* pathfinding for NPCs/mobs
   // - AggroSystem: Enemy aggression and threat
