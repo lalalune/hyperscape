@@ -8,6 +8,7 @@ import { ActionProgressBar } from './ActionProgressBar'
 import { AvatarPane } from './AvatarPane'
 import { Chat } from './Chat'
 import { ChatProvider } from './ChatContext'
+import { DialogueWindow } from './DialogueWindow'
 import { EntityContextMenu } from './EntityContextMenu'
 import { HandIcon } from './Icons'
 import { LoadingScreen } from './LoadingScreen'
@@ -16,6 +17,7 @@ import { MouseRightIcon } from './MouseRightIcon'
 import { MouseWheelIcon } from './MouseWheelIcon'
 import { Sidebar } from './Sidebar'
 import { StatusBars } from './StatusBars'
+import { QuestTracker } from './QuestTracker'
 
 // Type for icon components
 type IconComponent = React.ComponentType<{ size?: number | string }>
@@ -40,6 +42,13 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   const [disconnected, setDisconnected] = useState(false)
   const [kicked, setKicked] = useState<string | null>(null)
   const [characterFlowActive, setCharacterFlowActive] = useState(false)
+  const [dialogueState, setDialogueState] = useState<{
+    visible: boolean
+    npcId: string
+    npcName: string
+    dialogueTree: { entryNodeId: string; nodes: Array<{ id: string; text: string; options?: Array<{ text: string; nextNode: string }> }> }
+    questsAvailable?: string[]
+  } | null>(null)
     useEffect(() => {
     // Create handlers with proper types
     const handleReady = () => {
@@ -84,7 +93,21 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       setKicked(data.reason || 'Kicked from server')
     }
     const handleDisconnected = () => setDisconnected(true)
-    
+    const handleDialogueOpen = (data: {
+      npcId: string
+      npcName: string
+      dialogueTree: { entryNodeId: string; nodes: Array<{ id: string; text: string; options?: Array<{ text: string; nextNode: string }> }> }
+      questsAvailable?: string[]
+    }) => {
+      setDialogueState({
+        visible: true,
+        npcId: data.npcId,
+        npcName: data.npcName,
+        dialogueTree: data.dialogueTree,
+        questsAvailable: data.questsAvailable
+      })
+    }
+
     // Add listeners
     world.on(EventType.READY, handleReady)
     world.on(EventType.ASSETS_LOADING_PROGRESS, handleLoadingProgress)
@@ -101,6 +124,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     // Character selection flow (server-flagged)
     world.on('character:list', () => setCharacterFlowActive(true))
     world.on('character:selected', () => setCharacterFlowActive(false))
+    world.on('dialogue:open' as never, handleDialogueOpen as never)
     // If the packet arrived before UI mounted, consult network cache
     const network = world.network as { lastCharacterList?: unknown[] }
     if (network.lastCharacterList) setCharacterFlowActive(true)
@@ -123,6 +147,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       world.off(EventType.NETWORK_DISCONNECTED, handleDisconnected)
       world.off('character:list', () => setCharacterFlowActive(true))
       world.off('character:selected', () => setCharacterFlowActive(false))
+      world.off('dialogue:open' as never, handleDialogueOpen as never)
     }
   }, [])
 
@@ -204,6 +229,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         {ready && <Sidebar world={world} ui={ui || { active: false, pane: null }} />}
         {ready && <Chat world={world as never} />}
         {ready && <ActionProgressBar world={world} />}
+        {ready && <QuestTracker world={world} />}
         {avatar && <AvatarPane key={avatar?.hash} world={world} info={avatar} />}
         {!ready && (
           <LoadingScreen 
@@ -214,6 +240,16 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         {kicked && <KickedOverlay code={kicked} />}
         {ready && isTouch && <TouchBtns world={world} />}
         {ready && <EntityContextMenu world={world} />}
+        {dialogueState?.visible && (
+          <DialogueWindow
+            world={world}
+            npcId={dialogueState.npcId}
+            npcName={dialogueState.npcName}
+            dialogueTree={dialogueState.dialogueTree}
+            questsAvailable={dialogueState.questsAvailable}
+            onClose={() => setDialogueState(null)}
+          />
+        )}
         <div id='core-ui-portal' />
       </div>
     </ChatProvider>

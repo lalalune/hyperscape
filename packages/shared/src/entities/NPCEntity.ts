@@ -84,9 +84,9 @@ export class NPCEntity extends Entity {
     this.config = {
       ...config,
       dialogueLines: config.dialogueLines || ['Hello there!'],
-      services: config.services || []
+      services: config.services || { enabled: false, types: [] }
     };
-    
+
     // NPCs don't have health bars - they're not combatants
     // Set health to 0 to prevent health bar creation
     this.health = 0;
@@ -119,13 +119,44 @@ export class NPCEntity extends Entity {
   }
 
   private handleTalk(playerId: string): void {
-    // Send dialogue to UI system
+    const player = this.world.getPlayer(playerId);
+    if (!player) return;
+
+    const dialogueTree = this.config.services?.dialogue;
+    if (!dialogueTree) {
+      console.warn(`[NPCEntity] No dialogue tree for NPC: ${this.config.npcId}`);
+      // Fallback to simple dialogue
+      this.world.emit(EventType.NPC_DIALOGUE, {
+        playerId,
+        npcId: this.config.npcId,
+        npcName: this.config.name,
+        npcType: this.config.npcType,
+        dialogueLines: this.config.dialogueLines,
+        services: this.config.services
+      });
+      return;
+    }
+
+    // Check which quests this NPC offers
+    let questsAvailable: string[] = [];
+    const questSystem = this.world.getSystem?.('quest') as { canPlayerStartQuest?: (playerId: string, questId: string) => boolean } | undefined;
+    if (questSystem && this.config.services?.questIds) {
+      const questIds = this.config.services.questIds;
+      for (const questId of questIds) {
+        if (questSystem.canPlayerStartQuest && questSystem.canPlayerStartQuest(playerId, questId)) {
+          questsAvailable.push(questId);
+        }
+      }
+    }
+
+    // Emit dialogue with quest info
     this.world.emit(EventType.NPC_DIALOGUE, {
       playerId,
       npcId: this.config.npcId,
-      npcType: this.config.npcType,
-      dialogueLines: this.config.dialogueLines,
-      services: this.config.services
+      npcName: this.config.name,
+      dialogueTree,
+      entryNodeId: dialogueTree.entryNodeId,
+      questsAvailable
     });
   }
 
@@ -371,19 +402,23 @@ export class NPCEntity extends Entity {
 
   public addService(service: string): void {
     if (!this.world.isServer) return;
-    
-    if (!this.config.services.includes(service)) {
-      this.config.services.push(service);
+
+    if (!this.config.services.types) {
+      this.config.services.types = [];
+    }
+    if (!this.config.services.types.includes(service)) {
+      this.config.services.types.push(service);
       this.markNetworkDirty();
     }
   }
 
   public removeService(service: string): void {
     if (!this.world.isServer) return;
-    
-    const index = this.config.services.indexOf(service);
+
+    if (!this.config.services.types) return;
+    const index = this.config.services.types.indexOf(service);
     if (index > -1) {
-      this.config.services.splice(index, 1);
+      this.config.services.types.splice(index, 1);
       this.markNetworkDirty();
     }
   }

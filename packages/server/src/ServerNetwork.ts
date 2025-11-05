@@ -297,6 +297,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers['onCharacterCreate'] = this.onCharacterCreate.bind(this);
     this.handlers['onCharacterSelected'] = this.onCharacterSelected.bind(this);
     this.handlers['onEnterWorld'] = this.onEnterWorld.bind(this);
+    // Quest handlers
+    this.handlers['onStartQuest'] = this.onStartQuest.bind(this);
+    this.handlers['onCompleteQuest'] = this.onCompleteQuest.bind(this);
   }
 
   // --- Character selection infrastructure (feature-flag guarded) ---
@@ -1911,15 +1914,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   private validatePlayerPositions(): void {
     const terrain = this.world.getSystem('terrain') as InstanceType<typeof TerrainSystem> | null;
     if (!terrain) return;
-    
+
     // Iterate through all connected players via their sockets
     for (const socket of this.sockets.values()) {
       if (!socket.player) continue;
-      
+
       const player = socket.player;
       const currentY = player.position.y;
       const terrainHeight = terrain.getHeightAt(player.position.x, player.position.z);
-      
+
       // Only correct if significantly wrong
       if (!Number.isFinite(currentY) || currentY < -5 || currentY > 200) {
         // Emergency correction
@@ -1936,7 +1939,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         // Check if player drifted too far from terrain
         const expectedY = terrainHeight + 0.1;
         const errorMargin = Math.abs(currentY - expectedY);
-        
+
         if (errorMargin > 10) {
           player.position.y = expectedY;
           if (player.data) {
@@ -1949,5 +1952,56 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         }
       }
     }
+  }
+
+  /**
+   * Handle quest start request from client
+   * Emits QUEST_START_REQUEST event for QuestSystem to handle
+   */
+  private onStartQuest(socket: SocketInterface, data: unknown): void {
+    const playerEntity = socket.player;
+    if (!playerEntity) {
+      console.warn('[ServerNetwork] onStartQuest: no player entity for socket');
+      return;
+    }
+
+    const payload = data as { playerId?: string; questId?: string };
+    if (!payload.questId) {
+      console.warn('[ServerNetwork] onStartQuest: no questId in payload');
+      return;
+    }
+
+    // Emit event for QuestSystem to handle
+    this.world.emit(EventType.QUEST_START_REQUEST, {
+      playerId: playerEntity.id,
+      questId: payload.questId,
+      npcId: null,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Handle quest complete request from client
+   * Emits QUEST_COMPLETE_REQUEST event for QuestSystem to handle
+   */
+  private onCompleteQuest(socket: SocketInterface, data: unknown): void {
+    const playerEntity = socket.player;
+    if (!playerEntity) {
+      console.warn('[ServerNetwork] onCompleteQuest: no player entity for socket');
+      return;
+    }
+
+    const payload = data as { playerId?: string; questId?: string };
+    if (!payload.questId) {
+      console.warn('[ServerNetwork] onCompleteQuest: no questId in payload');
+      return;
+    }
+
+    // Emit event for QuestSystem to handle
+    this.world.emit(EventType.QUEST_COMPLETE_REQUEST, {
+      playerId: playerEntity.id,
+      questId: payload.questId,
+      timestamp: Date.now()
+    });
   }
 }

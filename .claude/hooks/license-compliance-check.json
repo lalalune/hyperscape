@@ -1,0 +1,7 @@
+{
+  "name": "license-compliance-check",
+  "event": "user-prompt-submit",
+  "description": "Checks for incompatible or risky licenses in dependencies",
+  "enabled": true,
+  "prompt": "When installing packages, check license compatibility:\n\n```\n⚖️  LICENSE COMPLIANCE CHECK\n\nScanning package licenses...\n\n⚠️  License Issues Found:\n\nPackage: [name]@[version]\nLicense: GPL-3.0\nRisk: HIGH\n\nIssue:\n• GPL requires open-sourcing derivative works\n• May be incompatible with commercial use\n• Requires legal review\n\nBlocked Licenses:\n• GPL (copyleft - requires open source)\n• AGPL (strong copyleft)\n• Commons Clause (restricted commercial use)\n\nAllowed Licenses:\n• MIT ✓\n• Apache-2.0 ✓\n• BSD ✓\n• ISC ✓\n\nActions:\n1. Find alternative with compatible license\n2. Get legal approval\n3. Use different approach\n\nProceed with GPL package? (yes/no/legal-review)\n```"
+}

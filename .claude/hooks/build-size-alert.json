@@ -1,0 +1,7 @@
+{
+  "name": "build-size-alert",
+  "event": "post-tool-use",
+  "description": "Alerts when build size exceeds thresholds",
+  "enabled": true,
+  "prompt": "After successful build commands (npm run build, yarn build, webpack, etc.), check build output size:\n\n**Thresholds:**\n- Warning: >500KB\n- Critical: >1MB\n\n**Check these files:**\n- Main bundle (app.js, main.js, index.js)\n- Vendor bundle\n- CSS files\n- Total dist/build folder size\n\n**If Over Threshold:**\n\n```\n⚠️  BUILD SIZE ALERT\n\nBundle Size Analysis:\n• main.js: 1.2MB ❌ (threshold: 500KB)\n• vendor.js: 650KB ⚠️\n• styles.css: 45KB ✓\n• Total: 1.9MB ❌ (threshold: 1MB)\n\nImpact:\n• Slow initial page load\n• Poor mobile experience\n• High bandwidth usage\n\nRecommended Actions:\n\n1. Analyze bundle:\n   npm run build -- --analyze\n\n2. Code splitting:\n   • Split vendor chunks\n   • Lazy load routes\n   • Dynamic imports\n\n3. Tree shaking:\n   • Remove unused exports\n   • Check side effects\n\n4. Optimize dependencies:\n   • Replace heavy libraries\n   • Use lighter alternatives\n   • Import only what you need\n\n5. Compression:\n   • Enable Gzip/Brotli\n   • Minification enabled?\n\nLarge Dependencies Detected:\n• moment.js (67KB) → Use date-fns instead\n• lodash (71KB) → Import specific functions\n\nProceed despite large build? (yes/no)\n```"
+}
