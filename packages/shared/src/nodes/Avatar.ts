@@ -9,10 +9,11 @@ import type { HotReloadable } from '../types'
 import type { AvatarHooks, AvatarData, VRMAvatarInstance, VRMAvatarFactory } from '../types/nodes'
 import THREE from '../extras/three'
 import { Node } from './Node'
+import { Emotes } from '../extras/playerEmotes'
 
 const defaults = {
   src: null,
-  emote: null,
+  emote: Emotes.IDLE,
   onLoad: null,
 }
 
