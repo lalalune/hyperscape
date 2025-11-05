@@ -88,7 +88,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.7.0",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.7"
   },
   "scripts": {
     "build": "bun run build.ts",
