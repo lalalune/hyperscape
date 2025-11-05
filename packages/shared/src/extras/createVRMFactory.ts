@@ -80,7 +80,6 @@ const material = new THREE.MeshBasicMaterial()
  * @returns Factory object with create() method and stats tracking
  */
 export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.Material) => void) {
-  console.log('[VRMFactory] createVRMFactory called', { hasVRM: !!glb.userData?.vrm })
   // we'll update matrix ourselves
   glb.scene.matrixAutoUpdate = false
   glb.scene.matrixWorldAutoUpdate = false
@@ -155,7 +154,6 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
   // HYBRID APPROACH: Using Asset Forge's normalized bone system for automatic A-pose handling
   // By keeping VRMHumanoidRig and using getNormalizedBoneNode() for bone names,
   // the VRM library's normalized bone abstraction layer handles bind pose compensation automatically
-  console.log('[VRMFactory] Using normalized bone system for automatic A-pose handling')
 
   // Get height from bounding box
   let height = 0.5 // minimum
@@ -235,16 +233,6 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       if (!clonedNormalizedNode) {
         console.warn('[VRMFactory.getBoneName] Cloned normalized bone not found:', normalizedName)
         return undefined
-      }
-
-      // Debug log for hips only
-      if (vrmBoneName === 'hips') {
-        console.log('[VRMFactory.getBoneName] Found normalized bone:', {
-          vrmBoneName,
-          normalizedName,
-          clonedNodeUUID: clonedNormalizedNode.uuid,
-          isInClonedScene: vrm.scene.getObjectByProperty('uuid', clonedNormalizedNode.uuid) !== undefined
-        })
       }
 
       return clonedNormalizedNode.name  // Returns normalized bone name
@@ -399,27 +387,20 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
         currentEmote = null
       }
       if (!url) {
-        console.log('[VRMFactory.setEmote] No URL provided, returning')
         return
       }
       const opts = getQueryParams(url)
       const loop = opts.l !== '0'
       const speed = parseFloat(opts.s || '1')
 
-      console.log('[VRMFactory.setEmote] Checking if emote exists in cache:', { url, exists: !!emotes[url] })
       if (emotes[url]) {
-        console.log('[VRMFactory.setEmote] Emote found in cache, playing')
         currentEmote = emotes[url]
         if (currentEmote.action) {
           currentEmote.action.clampWhenFinished = !loop
           currentEmote.action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
           currentEmote.action.reset().fadeIn(0.15).play()
-          console.log('[VRMFactory.setEmote] Animation action playing')
-        } else {
-          console.log('[VRMFactory.setEmote] Emote in cache but no action yet (still loading)')
         }
       } else {
-        console.log('[VRMFactory.setEmote] Emote not in cache, loading...', { hasLoader: !!hooks.loader })
         const newEmote: EmoteData = {
           url,
           loading: true,
@@ -427,10 +408,8 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
         }
         emotes[url] = newEmote
         currentEmote = newEmote
-        console.log('[VRMFactory.setEmote] Calling hooks.loader.load for emote:', url)
         type LoaderType = { load: (type: string, url: string) => Promise<{ toClip: (opts: unknown) => THREE.AnimationClip }> };
         (hooks.loader as LoaderType).load('emote', url).then(emo => {
-          console.log('[VRMFactory.setEmote] Emote loaded successfully:', url)
           const clip = emo.toClip({
             rootToHips,
             version,
@@ -628,8 +607,6 @@ function remapHumanoidBonesToClonedScene(
       }
     })
   }
-
-  console.log('[remapHumanoid] Remapped humanoid bones to cloned scene')
 }
 
 function getSkinnedMeshes(scene: THREE.Scene): THREE.SkinnedMesh[] {

@@ -172,9 +172,6 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
         // TODO: use vrm.bones[name] not getBoneNode
         const vrmNodeName = getBoneName(vrmBoneName)
 
-        // Debug: Log bone name mapping
-        console.log('[AnimationRetargeting] Track:', { ogBoneName, vrmBoneName, vrmNodeName })
-
         // animations come from mixamo X Bot character
         // and we scale based on height of our VRM.
         // usually this would 0.01 if our VRM was for example the X Bot
@@ -206,17 +203,6 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
               )
             )
           } else if (track instanceof THREE.VectorKeyframeTrack) {
-            // Debug: Log position values
-            if (ogBoneName === 'Root' || ogBoneName === 'mixamorigHips') {
-              const first9 = track.values.slice(0, 9)
-              console.log('[AnimationRetargeting] Position track:', ogBoneName, vrmNodeName)
-              console.log('  First 3 keyframes (x,y,z):',
-                `[${first9[0]}, ${first9[1]}, ${first9[2]}]`,
-                `[${first9[3]}, ${first9[4]}, ${first9[5]}]`,
-                `[${first9[6]}, ${first9[7]}, ${first9[8]}]`
-              )
-            }
-
             tracks.push(
               new THREE.VectorKeyframeTrack(
                 `${vrmNodeName}.${propertyName}`,
