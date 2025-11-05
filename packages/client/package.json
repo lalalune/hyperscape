@@ -43,7 +43,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@farcaster/miniapp-sdk": "^0.1.9",
+    "@farcaster/miniapp-sdk": "^0.2.1",
     "@hyperscape/physx-js-webidl": "workspace:*",
     "@hyperscape/shared": "workspace:*",
     "@pixiv/three-vrm": "^3.3.3",
@@ -56,7 +56,7 @@
     "hls.js": "^1.6.1",
     "livekit-client": "^2.9.9",
     "lodash-es": "^4.17.21",
-    "lucide-react": "^0.545.0",
+    "lucide-react": "^0.552.0",
     "moment": "^2.30.1",
     "msgpackr": "^1.11.0",
     "nanoid": "^5.0.6",
@@ -64,7 +64,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "styled-components": "^6.1.19",
-    "three": "^0.180.0",
+    "three": "^0.181.0",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",
     "yoga-layout": "^3.2.1"
@@ -100,8 +100,8 @@
     "@types/react-dom": "^19.0.0"
   },
   "engines": {
-    "npm": ">=10.0.0",
-    "node": ">=22.11.0"
+    "node": ">=22.11.0",
+    "bun": ">=1.1.38"
   },
   "overrides": {
     "three": "^0.180.0"

@@ -11,6 +11,30 @@ import { convertGLBToVRM } from '../services/retargeting/VRMConverter'
 
 import { useAssets } from '@/hooks'
 
+/**
+ * Normalize VRM URL for viewer consumption
+ * Handles blob URLs, relative paths, and absolute URLs correctly
+ */
+const normalizeVRMUrl = (vrmUrl: string): string => {
+  // Blob URLs should be used as-is
+  if (vrmUrl.startsWith('blob:')) {
+    return vrmUrl
+  }
+
+  // Full URLs should be used as-is
+  if (vrmUrl.startsWith('http://') || vrmUrl.startsWith('https://')) {
+    return vrmUrl
+  }
+
+  // Relative paths need to be prepended with the asset-forge server URL
+  if (vrmUrl.startsWith('/')) {
+    return `http://localhost:3004${vrmUrl}`
+  }
+
+  // Default: assume it's a relative path without leading slash
+  return `http://localhost:3004/${vrmUrl}`
+}
+
 export const RetargetAnimatePage: React.FC = () => {
   const viewerRef = useRef<ThreeViewerRef | null>(null)
   const { assets, loading: assetsLoading } = useAssets()
@@ -568,7 +592,7 @@ export const RetargetAnimatePage: React.FC = () => {
 
         {/* Viewers */}
         {showVRMTestViewer && vrmConverted && vrmUrl ? (
-          <VRMTestViewer vrmUrl={`http://localhost:3004${vrmUrl}`} />
+          <VRMTestViewer vrmUrl={normalizeVRMUrl(vrmUrl)} />
         ) : (
           <ThreeViewer ref={viewerRef} modelUrl={sourceModelUrl || undefined} isAnimationPlayer={false} />
         )}

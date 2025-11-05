@@ -21,9 +21,9 @@
  * - AggroSystem: Enemy threat and aggression management
  * 
  * **World Systems:**
- * - MobSystem: Enemy creature lifecycle and behavior
+ * - MobNPCSystem: Mob NPC (mob, boss, quest) lifecycle and behavior
  * - NPCSystem: Non-hostile character management
- * - MobSpawnerSystem: Dynamic mob population control
+ * - MobNPCSpawnerSystem: Dynamic mob NPC population control
  * - ResourceSystem: Gathering nodes (trees, rocks, ore)
  * - ItemSpawnerSystem: Ground item management
  * - PathfindingSystem: A* pathfinding for AI movement
@@ -98,8 +98,8 @@ import { EquipmentSystem } from './EquipmentSystem'
 import { InventoryInteractionSystem } from './InventoryInteractionSystem'
 import { InventorySystem } from './InventorySystem'
 import { ItemSpawnerSystem } from './ItemSpawnerSystem'
-import { MobSpawnerSystem } from './MobSpawnerSystem'
-import { MobSystem } from './MobSystem'
+import { MobNPCSpawnerSystem } from './MobNPCSpawnerSystem'
+import { MobNPCSystem } from './MobNPCSystem'
 import { PathfindingSystem } from './PathfindingSystem'
 import { PersistenceSystem } from './PersistenceSystem'
 import { PlayerSystem } from './PlayerSystem'
@@ -133,7 +133,7 @@ export interface Systems {
   skills?: SkillsSystem
   banking?: BankingSystem
   interaction?: InteractionSystem
-  mob?: MobSystem
+  mobNpc?: MobNPCSystem
   store?: StoreSystem
   resource?: ResourceSystem
   pathfinding?: PathfindingSystem
@@ -147,7 +147,7 @@ export interface Systems {
   cameraSystem?: CameraSystemInterface
   movementSystem?: unknown
   npc?: NPCSystem
-  mobSpawner?: MobSpawnerSystem
+  mobNpcSpawner?: MobNPCSpawnerSystem
   itemSpawner?: ItemSpawnerSystem
 }
 
@@ -260,8 +260,8 @@ export async function registerSystems(world: World): Promise<void> {
     return;
   }
 
-  // 6. Mob system - Core mob management
-  world.register('mob', MobSystem)
+  // 6. Mob NPC system - Core mob NPC management (mobs, bosses, quest enemies)
+  world.register('mob-npc', MobNPCSystem)
 
   // === INTERACTION SYSTEMS ===
   // These systems handle player-world interactions
@@ -319,7 +319,7 @@ export async function registerSystems(world: World): Promise<void> {
   }
 
   // DYNAMIC WORLD CONTENT SYSTEMS - FULL THREE.JS ACCESS, NO SANDBOX
-  world.register('mob-spawner', MobSpawnerSystem)
+  world.register('mob-npc-spawner', MobNPCSpawnerSystem)
   world.register('item-spawner', ItemSpawnerSystem)
 
   // Get system instances after world initialization
@@ -329,7 +329,7 @@ export async function registerSystems(world: World): Promise<void> {
   systems.combat = getSystem(world, 'combat') as CombatSystem
   systems.inventory = getSystem(world, 'inventory') as InventorySystem
   systems.skills = getSystem(world, 'skills') as SkillsSystem
-  systems.mob = getSystem(world, 'mob') as MobSystem
+  systems.mobNpc = getSystem(world, 'mob-npc') as MobNPCSystem
   systems.banking = getSystem(world, 'banking') as BankingSystem
   systems.store = getSystem(world, 'store') as StoreSystem
   systems.resource = getSystem(world, 'resource') as ResourceSystem
@@ -353,7 +353,7 @@ export async function registerSystems(world: World): Promise<void> {
   }
 
   // DYNAMIC WORLD CONTENT SYSTEMS
-  systems.mobSpawner = getSystem(world, 'mob-spawner') as MobSpawnerSystem
+  systems.mobNpcSpawner = getSystem(world, 'mob-npc-spawner') as MobNPCSpawnerSystem
   systems.itemSpawner = getSystem(world, 'item-spawner') as ItemSpawnerSystem
 
   // Set up API for apps to access functionality
@@ -511,11 +511,11 @@ function setupAPI(world: World, systems: Systems): void {
     },
 
     // Mob API
-    getMob: (mobId: string) => systems.mob?.getMob(mobId),
-    getAllMobs: () => systems.mob?.getAllMobs(),
-    getMobsInArea: (center: Position3D, radius: number) => systems.mob?.getMobsInArea(center, radius),
+    getMob: (mobId: string) => systems.mobNpc?.getMob(mobId),
+    getAllMobs: () => systems.mobNpc?.getAllMobs(),
+    getMobsInArea: (center: Position3D, radius: number) => systems.mobNpc?.getMobsInArea(center, radius),
     spawnMob: (type: string, position: Position3D) =>
-      systems.mob && world.emit(EventType.MOB_SPAWN_REQUEST, { mobType: type, position }),
+      systems.mobNpc && world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobType: type, position }),
 
     // Banking API
     getBankData: (_playerId: string, _bankId: string) => null, // Banking system doesn't expose public methods
@@ -560,10 +560,10 @@ function setupAPI(world: World, systems: Systems): void {
     getHeightAtWorldPosition: (_x: number, _z: number) => 0, // Terrain system doesn't expose this method
 
     // Dynamic World Content API (Full THREE.js Access)
-    getSpawnedMobs: () => systems.mobSpawner?.getSpawnedMobs(),
-    getMobCount: () => systems.mobSpawner?.getMobCount(),
-    getMobsByType: (mobType: string) => systems.mobSpawner?.getMobsByType(mobType),
-    getMobStats: () => systems.mobSpawner?.getMobStats(),
+    getSpawnedMobs: () => systems.mobNpcSpawner?.getSpawnedMobs(),
+    getMobCount: () => systems.mobNpcSpawner?.getMobCount(),
+    getMobsByType: (mobType: string) => systems.mobNpcSpawner?.getMobsByType(mobType),
+    getMobStats: () => systems.mobNpcSpawner?.getMobStats(),
     getSpawnedItems: () => systems.itemSpawner?.getSpawnedItems(),
     getItemCount: () => systems.itemSpawner?.getItemCount(),
     getItemsByType: (itemType: string) => systems.itemSpawner?.getItemsByType(itemType),
@@ -803,19 +803,19 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Mob actions
       spawnMobAtLocation: (type: string, position: Position3D) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobType: type, position })
+        world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobType: type, position })
       },
 
       spawnGDDMob: (mobType: string, position: Position3D) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobType, position })
+        world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobType, position })
       },
 
       despawnMob: (mobId: string) => {
-        world.emit(EventType.MOB_DESPAWN, mobId)
+        world.emit(EventType.MOB_NPC_DESPAWN, mobId)
       },
 
       respawnAllMobs: () => {
-        world.emit(EventType.MOB_RESPAWN_ALL)
+        world.emit(EventType.MOB_NPC_RESPAWN_ALL)
       },
 
       // Item actions
@@ -945,11 +945,11 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Mob AI actions
       attackMob: (playerId: string, mobId: string, damage: number) => {
-        world.emit(EventType.MOB_DAMAGED, { mobId, damage, attackerId: playerId })
+        world.emit(EventType.MOB_NPC_DAMAGED, { mobId, damage, attackerId: playerId })
       },
 
       killMob: (mobId: string, killerId: string) => {
-        world.emit(EventType.MOB_DIED, { mobId, mobType: 'unknown', level: 1, killedBy: killerId, position: { x: 0, y: 0, z: 0 } })
+        world.emit(EventType.NPC_DIED, { mobId, mobType: 'unknown', level: 1, killedBy: killerId, position: { x: 0, y: 0, z: 0 } })
       },
 
       // App management actions
@@ -958,7 +958,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       createMobApp: (mobId: string, mobType: string, config: AppConfig) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobId, mobType, config })
+        world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobId, mobType, config })
       },
 
       destroyPlayerApp: (playerId: string) => {
@@ -966,7 +966,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       destroyMobApp: (mobId: string) => {
-        world.emit(EventType.MOB_DESTROY, { mobId })
+        world.emit(EventType.MOB_NPC_DESTROY, { mobId })
       },
 
       // Entity management actions (Server-authoritative)
@@ -979,7 +979,7 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       spawnMobEntity: (mobType: string, position: Position3D, _level?: number) => {
-        world.emit(EventType.MOB_SPAWN_REQUEST, { mobType, position })
+        world.emit(EventType.MOB_NPC_SPAWN_REQUEST, { mobType, position })
       },
 
       destroyEntityById: (entityId: string) => {

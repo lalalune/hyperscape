@@ -1,21 +1,27 @@
 /**
  * Data Manager - Centralized Content Database
- * 
+ *
  * Provides a single point of access to all externalized data including:
  * - Items and equipment
- * - Mobs and creatures
+ * - NPCs (categorized as: mob, boss, neutral, quest)
  * - World areas and spawn points
  * - Treasure locations
  * - Banks and stores
  * - Starting items and equipment requirements
- * 
+ *
  * This system validates data on load and provides type-safe access methods.
+ *
+ * NPC Categories:
+ * - mob: Combat NPCs (goblins, bandits, guards)
+ * - boss: Powerful special combat encounters
+ * - neutral: Non-combat NPCs (shopkeepers, bank clerks)
+ * - quest: Quest-related NPCs (quest givers, quest objectives)
  */
 
 import { BANKS, GENERAL_STORES } from './banks-stores';
 import equipmentRequirementsData from './equipment-requirements.json';
 import { ITEMS } from './items';
-import { ALL_MOBS, getMobById, getMobsByDifficulty } from './mobs';
+import { ALL_NPCS } from './npcs';
 import { ALL_WORLD_AREAS, STARTER_TOWNS, getMobSpawnsInArea, getNPCsInArea } from './world-areas';
 import { BIOMES, WORLD_ZONES } from './world-structure';
 
@@ -26,7 +32,7 @@ const TREASURE_LOCATIONS: TreasureLocation[] = []; // Stub - data removed
 const getAllTreasureLocations = () => TREASURE_LOCATIONS;
 const getTreasureLocationsByDifficulty = (_difficulty: number) => TREASURE_LOCATIONS;
 
-import type { Item, MobData, TreasureLocation, BankEntityData, StoreData, BiomeData, ZoneData } from '../types/core';
+import type { Item, NPCData, NPCCategory, TreasureLocation, BankEntityData, StoreData, BiomeData, ZoneData } from '../types/core';
 import type { DataValidationResult } from '../types/validation-types'
 import type { MobSpawnPoint, NPCLocation, WorldArea } from './world-areas';
 import { WeaponType, EquipmentSlotName, AttackType } from '../types/core';
@@ -79,29 +85,14 @@ export class DataManager {
       (ITEMS as Map<string, Item>).set(normalized.id, normalized);
     }
     
-    // Load mobs
-    const mobsRes = await fetch(`${baseUrl}/mobs.json`);
-    const mobList = await mobsRes.json() as Array<MobData>;
-    for (const mob of mobList) {
-      (ALL_MOBS as Record<string, MobData>)[mob.id] = mob;
-    }
-    
-    // Load NPCs
+    // Load NPCs (unified standardized structure with categories: mob, boss, neutral, quest)
     const npcsRes = await fetch(`${baseUrl}/npcs.json`);
-    const npcList = await npcsRes.json() as Array<{
-      id: string;
-      name: string;
-      description: string;
-      type: string;
-      modelPath: string;
-      services: string[];
-    }>;
-    
-    if (!(globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS) {
-      (globalThis as { EXTERNAL_NPCS?: Map<string, unknown> }).EXTERNAL_NPCS = new Map();
-    }
+    const npcsData = await npcsRes.json() as { npcs: Array<NPCData>; metadata?: unknown };
+
+    // Store all NPCs in unified collection
+    const npcList = npcsData.npcs || [];
     for (const npc of npcList) {
-      (globalThis as unknown as { EXTERNAL_NPCS: Map<string, unknown> }).EXTERNAL_NPCS.set(npc.id, npc);
+      (ALL_NPCS as Map<string, NPCData>).set(npc.id, npc);
     }
     
     // Load resources
@@ -237,10 +228,10 @@ export class DataManager {
       warnings.push('No items loaded from manifests yet');
     }
 
-    // Validate mobs (warning only - manifests might be loading)
-    const mobCount = Object.keys(ALL_MOBS).length;
-    if (mobCount === 0) {
-      warnings.push('No mobs loaded from manifests yet');
+    // Validate NPCs (warning only - manifests might be loading)
+    const npcCount = ALL_NPCS.size;
+    if (npcCount === 0) {
+      warnings.push('No NPCs loaded from manifests yet');
     }
 
     // Validate world areas
@@ -256,7 +247,7 @@ export class DataManager {
     }
 
     // Validate cross-references (only if we have data)
-    if (itemCount > 0 && mobCount > 0) {
+    if (itemCount > 0 && npcCount > 0) {
       this.validateCrossReferences(errors, warnings);
     }
 
@@ -265,7 +256,7 @@ export class DataManager {
       errors,
       warnings,
       itemCount,
-      mobCount,
+      npcCount,
       areaCount,
       treasureCount
     };
@@ -279,8 +270,8 @@ export class DataManager {
     for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
       if (area.mobSpawns) {
         for (const mobSpawn of area.mobSpawns) {
-          if (!ALL_MOBS[mobSpawn.mobId]) {
-            errors.push(`Area ${areaId} references unknown mob: ${mobSpawn.mobId}`);
+          if (!ALL_NPCS.has(mobSpawn.mobId)) {
+            errors.push(`Area ${areaId} references unknown NPC: ${mobSpawn.mobId}`);
           }
         }
       }
@@ -327,28 +318,28 @@ export class DataManager {
   }
 
   // =============================================================================
-  // MOB DATA ACCESS METHODS
+  // NPC DATA ACCESS METHODS
   // =============================================================================
 
   /**
-   * Get all mobs
+   * Get all NPCs
    */
-  public getAllMobs(): Record<string, MobData> {
-    return ALL_MOBS;
+  public getAllNPCs(): Map<string, NPCData> {
+    return ALL_NPCS;
   }
 
   /**
-   * Get mob by ID
+   * Get NPC by ID
    */
-  public getMob(mobId: string): MobData | null {
-    return getMobById(mobId);
+  public getNPC(npcId: string): NPCData | null {
+    return ALL_NPCS.get(npcId) || null;
   }
 
   /**
-   * Get mobs by difficulty level
+   * Get NPCs by category
    */
-  public getMobsByDifficulty(difficulty: 1 | 2 | 3): MobData[] {
-    return getMobsByDifficulty(difficulty);
+  public getNPCsByCategory(category: NPCCategory): NPCData[] {
+    return Array.from(ALL_NPCS.values()).filter(npc => npc.category === category);
   }
 
   // =============================================================================
@@ -472,7 +463,7 @@ export class DataManager {
 
     return {
       items: ITEMS.size,
-      mobs: Object.keys(ALL_MOBS).length,
+      npcs: ALL_NPCS.size,
       worldAreas: Object.keys(ALL_WORLD_AREAS).length,
       treasureLocations: TREASURE_LOCATIONS.length,
       stores: Object.keys(GENERAL_STORES).length,

@@ -213,7 +213,7 @@ export interface PlayerSystem extends System {
   getPlayer(playerId: string): Player | null
 }
 
-export interface MobSystem extends System {
+export interface MobNPCSystem extends System {
   getMob(mobId: string): Entity | null
   spawnMob(config: unknown): Promise<unknown>
   getMobCount(): number
@@ -565,7 +565,7 @@ export function isPhysicsSystem(system: System): system is PhysicsSystem {
   return 'scene' in system && 'createLayerMask' in system
 }
 
-export function isMobSystem(system: System): system is MobSystem {
+export function isMobNPCSystem(system: System): system is MobNPCSystem {
   return 'getMob' in system && 'spawnMob' in system
 }
 

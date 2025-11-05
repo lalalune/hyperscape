@@ -96,7 +96,7 @@ export type {
 
 // Re-export data types (specific exports to avoid conflicts)
 export { ITEMS } from '../data/items';
-export * from '../data/mobs';
+export * from '../data/npcs';
 export * from '../data/world-areas';
 
 // Types are now re-exported above in the main export block

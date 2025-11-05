@@ -3,15 +3,8 @@
  * Helper functions to access assets loaded from 3D Asset Forge manifests
  */
 
-interface ExternalNPC {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  modelPath: string;
-  animations?: { idle?: string; talk?: string };
-  services: string[];
-}
+import { ALL_NPCS } from '../data/npcs';
+import type { NPCData } from '../types/core';
 
 interface ExternalResource {
   id: string;
@@ -47,19 +40,17 @@ interface ExternalAvatar {
 }
 
 /**
- * Get all external NPCs loaded from manifests
+ * Get all NPCs loaded from manifests
  */
-export function getExternalNPCs(): Map<string, ExternalNPC> {
-  const npcs = (globalThis as { EXTERNAL_NPCS?: Map<string, ExternalNPC> }).EXTERNAL_NPCS;
-  return npcs || new Map();
+export function getExternalNPCs(): Map<string, NPCData> {
+  return ALL_NPCS;
 }
 
 /**
- * Get external NPC by ID
+ * Get NPC by ID
  */
-export function getExternalNPC(id: string): ExternalNPC | null {
-  const npcs = getExternalNPCs();
-  return npcs.get(id) || null;
+export function getExternalNPC(id: string): NPCData | null {
+  return ALL_NPCS.get(id) || null;
 }
 
 /**

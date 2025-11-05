@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "build": {
+      "commands": [
+        "turbo run build --filter=@hyperscape/server"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "bun run start"
+  }
+}

@@ -6,10 +6,10 @@
 
 export * from './ResourceSystem';
 export * from './StoreSystem';
-export * from './MobSystem';
+export * from './MobNPCSystem';
 // Use ClientCameraSystem for all camera functionality
 // QuestSystem not yet implemented
-export * from './MobSpawnerSystem';
+export * from './MobNPCSpawnerSystem';
 export * from './LootSystem';
 export * from './EntityManager';
 export * from './PlayerSystem';
