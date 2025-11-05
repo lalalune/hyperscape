@@ -156,7 +156,7 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2",
-    "vite": "^6.3.5",
+    "vite": "^7.1.12",
     "vitest": "^4.0.6"
   },
   "peerDependencies": {
