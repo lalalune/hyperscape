@@ -301,7 +301,7 @@ export class ClientLoader extends SystemBase {
         } as unknown as AvatarFactory;
 
         // VALIDATION: Log avatar height for debugging
-        const factoryWithHeight = factoryBase as { create: (m: THREE.Matrix4, h: unknown) => { height: number } }
+        const factoryWithHeight = factoryBase as { create: (m: THREE.Matrix4, h: unknown) => { height: number; destroy?: () => void } }
         // Create a temporary instance to get the height
         const tempMatrix = new THREE.Matrix4()
         const tempInstance = factoryWithHeight.create(tempMatrix, this.vrmHooks)
@@ -311,8 +311,8 @@ export class ClientLoader extends SystemBase {
           this.logger.warn(`[ClientLoader] WARNING: Avatar height ${tempInstance.height.toFixed(3)}m deviates significantly from expected 1.6m!`)
         }
         // Clean up temp instance
-        if ((tempInstance as { destroy?: () => void }).destroy) {
-          (tempInstance as { destroy: () => void }).destroy()
+        if (tempInstance.destroy) {
+          tempInstance.destroy()
         }
         const hooks = this.vrmHooks;
         const node = createNode('group', { id: '$root' });
