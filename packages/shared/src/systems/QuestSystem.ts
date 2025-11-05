@@ -199,12 +199,16 @@ export class QuestSystem extends SystemBase {
     // Add quest to player's active quests
     playerQuestMap.set(questId, progress);
 
+    // Calculate initial completion percentage (should be 0% at start)
+    const completionPercentage = this.calculateQuestCompletion(progress);
+
     // Emit quest started event
     this.emitTypedEvent(EventType.QUEST_STARTED, {
       playerId,
       questId,
       quest: questDef,
-      progress
+      progress,
+      completionPercentage
     });
 
     this.logger.info(`Player ${playerId} started quest: ${questDef.name}`);
@@ -270,6 +274,9 @@ export class QuestSystem extends SystemBase {
     // Check if objective is now complete
     const isComplete = objective.current >= objective.required;
 
+    // Calculate completion percentage for the entire quest
+    const completionPercentage = this.calculateQuestCompletion(progress);
+
     // Emit progress update
     this.emitTypedEvent(EventType.QUEST_PROGRESSED, {
       playerId,
@@ -278,7 +285,8 @@ export class QuestSystem extends SystemBase {
       previousProgress,
       currentProgress: objective.current,
       required: objective.required,
-      isComplete
+      isComplete,
+      completionPercentage
     });
 
     // Check if all objectives are complete
@@ -292,6 +300,24 @@ export class QuestSystem extends SystemBase {
    */
   private areAllObjectivesComplete(progress: QuestProgress): boolean {
     return progress.objectives.every(obj => obj.current >= obj.required);
+  }
+
+  /**
+   * Calculate overall quest completion percentage
+   */
+  private calculateQuestCompletion(progress: QuestProgress): number {
+    if (progress.objectives.length === 0) {
+      return 0;
+    }
+
+    // Calculate total progress across all objectives
+    const totalProgress = progress.objectives.reduce((sum, obj) => {
+      const objectiveProgress = Math.min(obj.current / obj.required, 1);
+      return sum + objectiveProgress;
+    }, 0);
+
+    // Return percentage (0-100)
+    return Math.round((totalProgress / progress.objectives.length) * 100);
   }
 
   /**
