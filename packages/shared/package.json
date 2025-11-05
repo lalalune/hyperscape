@@ -157,7 +157,7 @@
     "tsx": "^4.20.3",
     "typescript": "^5.9.2",
     "vite": "^6.3.5",
-    "vitest": "^1.6.0"
+    "vitest": "^4.0.7"
   },
   "peerDependencies": {
     "@types/react": "^19.0.0",
