@@ -43,15 +43,24 @@ export class Avatar extends Node {
   }
 
   async mount() {
+    console.log('[Avatar] mount() called', { src: this._src, hasLoader: !!this.ctx?.loader })
     this.needsRebuild = false
     if (this._src && this.ctx?.loader) {
       const n = ++this.n
+      console.log('[Avatar] Loading avatar from:', this._src)
       let avatar = this.ctx.loader.get('avatar', this._src)
-      if (!avatar) avatar = await this.ctx.loader.load('avatar', this._src)
+      if (!avatar) {
+        console.log('[Avatar] Avatar not in cache, loading...')
+        avatar = await this.ctx.loader.load('avatar', this._src)
+        console.log('[Avatar] Avatar loaded successfully')
+      } else {
+        console.log('[Avatar] Avatar found in cache')
+      }
       if (this.n !== n) return
       // Avatar loaded from loader is a different type - use type assertion based on context
       const avatarData = avatar as { factory?: VRMAvatarFactory; hooks?: AvatarHooks }
       this.factory = avatarData?.factory ?? null
+      console.log('[Avatar] Factory set:', { hasFactory: !!this.factory })
       // Only update hooks from avatarData if we don't have any hooks at all
       // This preserves hooks that were manually set on this node
       if (!this.hooks) {
@@ -59,18 +68,21 @@ export class Avatar extends Node {
       }
     }
     if (this.factory) {
+      console.log('[Avatar] Factory exists, creating instance...', { hasInstance: !!this.instance })
       // Only create instance if we don't already have one
       if (!this.instance) {
                         const _vrmHooks = this.hooks as unknown as { scene?: unknown; octree?: unknown; [key: string]: unknown }
-                                
+
         // CRITICAL: Update matrix before passing to factory
         // The avatar node needs its world transform updated to match its parent
         this.updateTransform()
         const worldPos = v1
         worldPos.setFromMatrixPosition(this.matrixWorld)
-                
+
         // Factory has typed create(matrix, hooks, node)
+        console.log('[Avatar] Calling factory.create()', { emote: this._emote })
         this.instance = this.factory.create(this.matrixWorld, this.hooks ?? undefined, this)
+        console.log('[Avatar] Instance created:', { hasInstance: !!this.instance })
         this.instance?.setEmote(this._emote)
         if (this._disableRateCheck && this.instance) {
           this.instance.disableRateCheck()
@@ -148,9 +160,11 @@ export class Avatar extends Node {
 
   set emote(value: string | null) {
     if (!value) value = defaults.emote
-    
+
+    console.log('[Avatar] emote setter called:', { value, currentEmote: this._emote, hasInstance: !!this.instance })
     if (this._emote === value) return
     this._emote = value
+    console.log('[Avatar] Setting emote on instance:', value)
     this.instance?.setEmote(value)
   }
 

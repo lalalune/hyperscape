@@ -282,10 +282,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.nametag.active = true;
     }
     this.avatarUrl = avatarUrl;
-    
+
     // Ensure a default idle emote after mount so avatar isn't frozen
+    console.log('[PlayerRemote.applyAvatar] Setting idle emote:', Emotes.IDLE);
     (this.avatar as Avatar).setEmote(Emotes.IDLE);
     this.lastEmote = Emotes.IDLE;
+    console.log('[PlayerRemote.applyAvatar] Idle emote set');
   }
 
   getAnchorMatrix() {

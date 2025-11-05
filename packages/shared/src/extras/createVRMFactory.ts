@@ -80,15 +80,16 @@ const material = new THREE.MeshBasicMaterial()
  * @returns Factory object with create() method and stats tracking
  */
 export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.Material) => void) {
+  console.log('[VRMFactory] createVRMFactory called', { hasVRM: !!glb.userData?.vrm })
   // we'll update matrix ourselves
   glb.scene.matrixAutoUpdate = false
   glb.scene.matrixWorldAutoUpdate = false
   // remove expressions from scene
   const expressions = glb.scene.children.filter(n => n.type === 'VRMExpression') // prettier-ignore
   for (const node of expressions) node.removeFromParent()
-  // remove VRMHumanoidRig
-  const vrmHumanoidRigs = glb.scene.children.filter(n => n.name === 'VRMHumanoidRig') // prettier-ignore
-  for (const node of vrmHumanoidRigs) node.removeFromParent()
+  // KEEP VRMHumanoidRig - we need normalized bones for A-pose support (Asset Forge approach)
+  // const vrmHumanoidRigs = glb.scene.children.filter(n => n.name === 'VRMHumanoidRig') // prettier-ignore
+  // for (const node of vrmHumanoidRigs) node.removeFromParent()
   // remove secondary
   const secondaries = glb.scene.children.filter(n => n.name === 'secondary') // prettier-ignore
   for (const node of secondaries) node.removeFromParent()
@@ -99,29 +100,28 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       obj.receiveShadow = true
     }
   })
-  // calculate root to hips
+  // MMO APPROACH: Use cloning with raw bones for memory efficiency
   const humanoid = glb.userData?.vrm?.humanoid;
   const bones = humanoid?._rawHumanBones?.humanBones || {};
+  const normBones = humanoid?._normalizedHumanBones?.humanBones || {};
+
+  // Calculate root to hips offset (needed for animation retargeting)
   const hipsPosition = v1.setFromMatrixPosition(bones.hips?.node?.matrixWorld || new THREE.Matrix4())
-  const rootPosition = v2.set(0, 0, 0) //setFromMatrixPosition(bones.root.node.matrixWorld)
+  const rootPosition = v2.set(0, 0, 0)
   const rootToHips = hipsPosition.y - rootPosition.y
-  // get vrm version
+
+  // Get VRM version
   const vrmData = glb.userData?.vrm;
   const version = vrmData?.meta?.metaVersion
-  // convert skinned mesh to detached bind mode
-  // this lets us remove root bone from scene and then only perform matrix updates on the whole skeleton
-  // when we actually need to  for massive performance
+
+  // Setup skinned meshes with NORMAL bind mode (for normalized bone compatibility)
+  // DetachedBindMode is incompatible with normalized bones in scene graph
   const skinnedMeshes: THREE.SkinnedMesh[] = []
   glb.scene.traverse(node => {
     if (node instanceof THREE.SkinnedMesh) {
       const skinnedMesh = node;
-      skinnedMesh.bindMode = THREE.DetachedBindMode
-      skinnedMesh.bindMatrix.copy(skinnedMesh.matrixWorld)
-      skinnedMesh.bindMatrixInverse.copy(skinnedMesh.bindMatrix).invert()
-      // CRITICAL: Must recalculate inverse matrices after changing bindMode
-      if (skinnedMesh.skeleton) {
-        skinnedMesh.skeleton.calculateInverses();
-      }
+      // Use default bind mode (NormalBindMode) - compatible with normalized bones
+      // DetachedBindMode requires bones to be detached, but we keep them in scene for vrm.humanoid.update()
       skinnedMeshes.push(skinnedMesh)
     }
     if (node instanceof THREE.Mesh) {
@@ -146,44 +146,24 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       }
     }
   })
-  // remove root bone from scene
-  // const rootBone = glb.scene.getObjectByName('RootBone')
-  // rootBone.parent.remove(rootBone)
-  // rootBone.updateMatrixWorld(true)
 
-  const skeleton = skinnedMeshes[0].skeleton // should be same across all skinnedMeshes
+  const skeleton = skinnedMeshes[0].skeleton
 
-  // pose arms down
-  const normBones = humanoid?._normalizedHumanBones?.humanBones || {};
-  const leftArm = normBones.leftUpperArm?.node
-  if (leftArm) {
-    leftArm.rotation.z = 75 * DEG2RAD
-  }
-  const rightArm = normBones.rightUpperArm?.node
-  if (rightArm) {
-    rightArm.rotation.z = -75 * DEG2RAD
-  }
-  if (humanoid?.update) {
-    humanoid.update(0)
-  }
-  skeleton.update()
+  // HYBRID APPROACH: Using Asset Forge's normalized bone system for automatic A-pose handling
+  // By keeping VRMHumanoidRig and using getNormalizedBoneNode() for bone names,
+  // the VRM library's normalized bone abstraction layer handles bind pose compensation automatically
+  console.log('[VRMFactory] Using normalized bone system for automatic A-pose handling')
 
-  // get height
+  // Get height from bounding box
   let height = 0.5 // minimum
   for (const mesh of skinnedMeshes) {
     if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
     height = Math.max(height, mesh.geometry.boundingBox!.max.y)
   }
 
-  // this.headToEyes = this.eyePosition.clone().sub(headPos)
+  // Calculate head to height for camera positioning
   const headPos = normBones.head?.node?.getWorldPosition(v1) || v1.set(0,0,0)
   const headToHeight = height - headPos.y
-
-  const getBoneName = (vrmBoneName: string): string | undefined => {
-    if (!humanoid) return undefined
-    const node = humanoid.getRawBoneNode?.(vrmBoneName)
-    return node?.name
-  }
 
   const noop = () => {
     // ...
@@ -213,34 +193,80 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
   }
 
   function create(matrix: THREE.Matrix4, hooks: VRMHooks, node?: { ctx?: { entity?: unknown } }) {
-                
+
     const nodeWithCtx = node as unknown as { ctx?: { stage?: { scene?: THREE.Scene } } }
     const alternateScene = nodeWithCtx?.ctx?.stage?.scene
-    
+
+    // MMO APPROACH: Clone the VRM for each player instance
+    // This is memory efficient - shared geometry/textures, only skeleton is duplicated
+    // VRM humanoid is shared (only used for bone lookup, not for animation updates)
     const vrm = cloneGLB(glb)
     const _tvrm = vrm.userData?.vrm
+
     const skinnedMeshes = getSkinnedMeshes(vrm.scene as THREE.Scene)
     const skeleton = skinnedMeshes[0].skeleton
     const rootBone = skeleton.bones[0]
-    rootBone.parent?.remove(rootBone)
+    // CRITICAL: Keep rootBone in scene graph for normalized bone system to work
+    // Detaching breaks normalized bones → raw bone propagation
+    // rootBone.parent?.remove(rootBone)  // REMOVED - keep in scene
     rootBone.updateMatrixWorld(true)
+
+    // HYBRID APPROACH: Use NORMALIZED bone names (Asset Forge method)
+    // This allows VRM library's automatic bind pose handling to work
+    // Normalized bones are cloned with the scene, so each instance has its own
+    const getBoneName = (vrmBoneName: string): string | undefined => {
+      if (!humanoid) return undefined
+
+      // Get normalized bone node - this handles A-pose automatically
+      const normalizedNode = humanoid.getNormalizedBoneNode?.(vrmBoneName as any)
+      if (!normalizedNode) {
+        console.warn('[VRMFactory.getBoneName] Normalized bone not found:', vrmBoneName)
+        return undefined
+      }
+
+      // The normalized node name (e.g., "Normalized_Hips")
+      const normalizedName = normalizedNode.name
+
+      // Find this normalized node in the CLONED scene
+      const clonedNormalizedNode = vrm.scene.getObjectByName(normalizedName)
+      if (!clonedNormalizedNode) {
+        console.warn('[VRMFactory.getBoneName] Cloned normalized bone not found:', normalizedName)
+        return undefined
+      }
+
+      // Debug log for hips only
+      if (vrmBoneName === 'hips') {
+        console.log('[VRMFactory.getBoneName] Found normalized bone:', {
+          vrmBoneName,
+          normalizedName,
+          clonedNodeUUID: clonedNormalizedNode.uuid,
+          isInClonedScene: vrm.scene.getObjectByProperty('uuid', clonedNormalizedNode.uuid) !== undefined
+        })
+      }
+
+      return clonedNormalizedNode.name  // Returns normalized bone name
+    }
+
     vrm.scene.matrix.copy(matrix)
     vrm.scene.matrixWorld.copy(matrix)
     vrm.scene.matrixAutoUpdate = false
     vrm.scene.matrixWorldAutoUpdate = false
-    
+
+    // A-pose compensation is handled automatically by VRM normalized bones
+    // Cloned instances have their own normalized bones for independent animation
+
     // CRITICAL DEBUG: Add skeleton helper to visualize bones
     const skeletonHelper = new THREE.SkeletonHelper(vrm.scene)
     skeletonHelper.visible = true
-    
+
     if (hooks?.scene) {
       hooks.scene.add(vrm.scene)
       hooks.scene.add(skeletonHelper)
-      
+
     } else if (alternateScene) {
       console.warn('[VRMFactory] WARNING: No scene in hooks, using alternate scene from node.ctx.stage.scene')
       alternateScene.add(vrm.scene)
-          } else {
+    } else {
       console.error('[VRMFactory] ERROR: No scene available, VRM will not be visible!')
     }
 
@@ -281,9 +307,12 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       })
     })
 
-    // i have no idea how but the mixer only needs one of the skinned meshes
-    // and if i set it to vrm.scene it no longer works with detached bind mode
-    const mixer = new THREE.AnimationMixer(skinnedMeshes[0])
+    // HYBRID APPROACH: AnimationMixer on vrm.scene (Asset Forge method)
+    // Animations target normalized bone names (Normalized_Hips, Normalized_Spine, etc.)
+    // VRM library's normalized bone system handles A-pose automatically via vrm.humanoid.update()
+    // Each clone has its own vrm.scene with cloned normalized bones
+    // CRITICAL: Mixer must be on vrm.scene where normalized bones live
+    const mixer = new THREE.AnimationMixer(vrm.scene)
 
     // IDEA: we should use a global frame "budget" to distribute across avatars
     // https://chatgpt.com/c/4bbd469d-982e-4987-ad30-97e9c5ee6729
@@ -313,19 +342,25 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       }
       
       if (should) {
+        // HYBRID APPROACH - Asset Forge animation pipeline:
+
+        // Step 1: Update AnimationMixer (animates normalized bones)
         if (mixer) {
           mixer.update(elapsed)
         }
+
+        // Step 2: CRITICAL - Propagate normalized bone transforms to raw bones
+        // This is where the VRM library's automatic A-pose handling happens
+        // Without this, normalized bone changes never reach the visible skeleton
+        if (_tvrm?.humanoid?.update) {
+          _tvrm.humanoid.update(elapsed)
+        }
+
+        // Step 3: Update skeleton matrices for skinning
         skeleton.bones.forEach(bone => bone.updateMatrixWorld())
-        
-        // Update the skeleton after updating bones
         skeleton.update()
-        
-        skeleton.update = THREE.Skeleton.prototype.update
-        // tvrm.humanoid.update(elapsed)
+
         elapsed = 0
-      } else {
-        skeleton.update = noop
       }
     }
     // world.updater.add(update)
@@ -346,8 +381,10 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
     let setEmoteCallCount = 0
     const setEmote = url => {
       setEmoteCallCount++
-      
+      console.log('[VRMFactory.setEmote] Called:', { url, callCount: setEmoteCallCount })
+
       if (currentEmote?.url === url) {
+        console.log('[VRMFactory.setEmote] Already playing this emote, skipping')
         return
       }
       if (currentEmote) {
@@ -355,20 +392,27 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
         currentEmote = null
       }
       if (!url) {
+        console.log('[VRMFactory.setEmote] No URL provided, returning')
         return
       }
       const opts = getQueryParams(url)
       const loop = opts.l !== '0'
       const speed = parseFloat(opts.s || '1')
 
+      console.log('[VRMFactory.setEmote] Checking if emote exists in cache:', { url, exists: !!emotes[url] })
       if (emotes[url]) {
+        console.log('[VRMFactory.setEmote] Emote found in cache, playing')
         currentEmote = emotes[url]
         if (currentEmote.action) {
           currentEmote.action.clampWhenFinished = !loop
           currentEmote.action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
           currentEmote.action.reset().fadeIn(0.15).play()
+          console.log('[VRMFactory.setEmote] Animation action playing')
+        } else {
+          console.log('[VRMFactory.setEmote] Emote in cache but no action yet (still loading)')
         }
       } else {
+        console.log('[VRMFactory.setEmote] Emote not in cache, loading...', { hasLoader: !!hooks.loader })
         const newEmote: EmoteData = {
           url,
           loading: true,
@@ -376,8 +420,10 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
         }
         emotes[url] = newEmote
         currentEmote = newEmote
+        console.log('[VRMFactory.setEmote] Calling hooks.loader.load for emote:', url)
         type LoaderType = { load: (type: string, url: string) => Promise<{ toClip: (opts: unknown) => THREE.AnimationClip }> };
         (hooks.loader as LoaderType).load('emote', url).then(emo => {
+          console.log('[VRMFactory.setEmote] Emote loaded successfully:', url)
           const clip = emo.toClip({
             rootToHips,
             version,
@@ -470,10 +516,107 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
   }
 }
 
+/**
+ * Clone GLB data for multiple instances (HYBRID APPROACH)
+ *
+ * Uses SkeletonUtils.clone() for efficient cloning:
+ * - Shares geometries and textures (memory efficient)
+ * - Duplicates skeleton (independent animations)
+ * - CLONES VRM humanoid and remaps bone references (for vrm.humanoid.update())
+ *
+ * This hybrid approach combines:
+ * - Asset Forge: normalized bones + vrm.humanoid.update()
+ * - Hyperscape: efficient cloning for multiple instances
+ */
 function cloneGLB(glb: GLBData): GLBData {
-  // returns a shallow clone of the gltf but a deep clone of the scene.
-  // uses SkeletonUtils.clone which is the same as Object3D.clone except also clones skinned meshes etc
-  return { ...glb, scene: SkeletonUtils.clone(glb.scene) as THREE.Scene }
+  // Deep clone the scene (including skeleton and skinned meshes)
+  const clonedScene = SkeletonUtils.clone(glb.scene) as THREE.Scene
+
+  const originalVRM = glb.userData?.vrm
+
+  // If no VRM or no humanoid, just return cloned scene
+  if (!originalVRM?.humanoid?.clone) {
+    return { ...glb, scene: clonedScene }
+  }
+
+  // Clone the VRM humanoid
+  const clonedHumanoid = originalVRM.humanoid.clone()
+
+  // CRITICAL: Remap humanoid bone references to cloned scene
+  remapHumanoidBonesToClonedScene(clonedHumanoid, clonedScene)
+
+  // Create cloned VRM with remapped humanoid
+  const clonedVRM = {
+    ...originalVRM,
+    scene: clonedScene,
+    humanoid: clonedHumanoid
+  }
+
+  return {
+    ...glb,
+    scene: clonedScene,
+    userData: { vrm: clonedVRM }
+  }
+}
+
+/**
+ * Remap VRM humanoid bone references to cloned scene
+ *
+ * After SkeletonUtils.clone(), bones are cloned but VRM humanoid still references
+ * original bones. This function updates the humanoid's internal bone references
+ * to point to the cloned bones instead.
+ */
+function remapHumanoidBonesToClonedScene(
+  humanoid: any,
+  clonedScene: THREE.Scene
+): void {
+  // Build map of cloned bones by name
+  const clonedBonesByName = new Map<string, THREE.Bone>()
+  const clonedObjectsByName = new Map<string, THREE.Object3D>()
+
+  clonedScene.traverse(obj => {
+    if (obj instanceof THREE.Bone) {
+      clonedBonesByName.set(obj.name, obj)
+    }
+    // Also track all objects for normalized bones
+    if (obj.name) {
+      clonedObjectsByName.set(obj.name, obj)
+    }
+  })
+
+  // Remap raw human bones (actual skeleton bones)
+  const rawBones = humanoid._rawHumanBones
+  if (rawBones?.humanBones) {
+    Object.values(rawBones.humanBones).forEach((boneData: any) => {
+      if (boneData?.node) {
+        const boneName = boneData.node.name
+        const clonedBone = clonedBonesByName.get(boneName)
+        if (clonedBone) {
+          boneData.node = clonedBone
+        } else {
+          console.warn('[remapHumanoid] Raw bone not found in cloned scene:', boneName)
+        }
+      }
+    })
+  }
+
+  // Remap normalized human bones (VRMHumanoidRig nodes)
+  const normBones = humanoid._normalizedHumanBones
+  if (normBones?.humanBones) {
+    Object.values(normBones.humanBones).forEach((boneData: any) => {
+      if (boneData?.node) {
+        const nodeName = boneData.node.name
+        const clonedNode = clonedObjectsByName.get(nodeName)
+        if (clonedNode) {
+          boneData.node = clonedNode
+        } else {
+          console.warn('[remapHumanoid] Normalized bone not found in cloned scene:', nodeName)
+        }
+      }
+    })
+  }
+
+  console.log('[remapHumanoid] Remapped humanoid bones to cloned scene')
 }
 
 function getSkinnedMeshes(scene: THREE.Scene): THREE.SkinnedMesh[] {

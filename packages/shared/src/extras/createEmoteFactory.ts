@@ -49,9 +49,23 @@ const parentRestWorldRotation = new THREE.Quaternion()
  * @param _url - Animation URL (unused but kept for debugging)
  * @returns Factory object with toClip() method
  */
+/**
+ * HYBRID APPROACH: Normalized Bones for Automatic A-pose Handling
+ *
+ * Previously, we manually compensated for A-pose vs T-pose differences with offsets.
+ * Now, we use the VRM library's normalized bone system which handles this automatically.
+ *
+ * How it works:
+ * 1. Animation targets normalized bones (Normalized_Hips, etc.)
+ * 2. vrm.humanoid.update() propagates normalized → raw bones with inverse bind transforms
+ * 3. Works for any VRM bind pose (A-pose, T-pose, etc.) automatically
+ *
+ * No manual compensation needed!
+ */
+
 export function createEmoteFactory(glb: GLBData, _url: string) {
   // console.time('emote-init')
-  
+
   if (!glb.animations || glb.animations.length === 0) {
     throw new Error('[createEmoteFactory] GLB has no animations');
   }
@@ -146,6 +160,11 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
 
       const tracks: THREE.KeyframeTrack[] = []
 
+      // Temp quaternions for A-pose compensation
+      const animQuat = new THREE.Quaternion()
+      const offsetQuat = new THREE.Quaternion()
+      const resultQuat = new THREE.Quaternion()
+
       clip.tracks.forEach(track => {
         const trackSplitted = track.name.split('.')
         const ogBoneName = trackSplitted[0]
@@ -153,6 +172,8 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
         // TODO: use vrm.bones[name] not getBoneNode
         const vrmNodeName = getBoneName(vrmBoneName)
 
+        // Debug: Log bone name mapping
+        console.log('[AnimationRetargeting] Track:', { ogBoneName, vrmBoneName, vrmNodeName })
 
         // animations come from mixamo X Bot character
         // and we scale based on height of our VRM.
@@ -167,11 +188,21 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
           const propertyName = trackSplitted[1]
 
           if (track instanceof THREE.QuaternionKeyframeTrack) {
+            let values = track.values
+
+            // Apply VRM 0.0 coordinate transformation
+            if (version === '0') {
+              values = values.map((v, i) => (i % 2 === 0 ? -v : v))
+            }
+
+            // No A-pose compensation needed - normalized bones handle this automatically!
+            // The VRM library's vrm.humanoid.update() applies the correct inverse bind transforms
+
             tracks.push(
               new THREE.QuaternionKeyframeTrack(
                 `${vrmNodeName}.${propertyName}`,
                 track.times,
-                track.values.map((v, i) => (version === '0' && i % 2 === 0 ? -v : v))
+                values
               )
             )
           } else if (track instanceof THREE.VectorKeyframeTrack) {
@@ -180,7 +211,9 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
                 `${vrmNodeName}.${propertyName}`,
                 track.times,
                 track.values.map((v, i) => {
-                  return (version === '0' && i % 3 !== 1 ? -v : v) * scaler
+                  // Don't invert - use values directly for VRM 1.0
+                  // Normalized bones handle coordinate space conversion
+                  return v * scaler
                 })
               )
             )
