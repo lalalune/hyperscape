@@ -1129,6 +1129,7 @@ export interface GLBData {
     vrm?: {
       humanoid?: {
         getRawBoneNode?: (boneName: string) => THREE.Object3D | null;
+        getNormalizedBoneNode?: (boneName: string) => THREE.Object3D | undefined;
         _rawHumanBones?: {
           humanBones?: Record<string, { node?: THREE.Object3D }>;
         };
@@ -1136,6 +1137,7 @@ export interface GLBData {
           humanBones?: Record<string, { node?: THREE.Object3D }>;
         };
         update?: (delta: number) => void;
+        clone?: () => any; // Returns a cloned VRMHumanoid instance
       };
       meta?: {
         metaVersion?: string;
