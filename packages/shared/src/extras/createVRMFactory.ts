@@ -155,12 +155,29 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
   // By keeping VRMHumanoidRig and using getNormalizedBoneNode() for bone names,
   // the VRM library's normalized bone abstraction layer handles bind pose compensation automatically
 
-  // Get height from bounding box
-  let height = 0.5 // minimum
+  // Get height from bounding box BEFORE normalization
+  let originalHeight = 0.5 // minimum
   for (const mesh of skinnedMeshes) {
     if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
-    height = Math.max(height, mesh.geometry.boundingBox!.max.y)
+    originalHeight = Math.max(originalHeight, mesh.geometry.boundingBox!.max.y)
   }
+
+  // Normalize avatar height to 1.6m (standard human height)
+  const targetHeight = 1.6
+  const scaleFactor = targetHeight / originalHeight
+
+  // Apply scale to entire scene
+  glb.scene.scale.setScalar(scaleFactor)
+  glb.scene.updateMatrixWorld(true)
+
+  // Update bounding boxes after scaling
+  for (const mesh of skinnedMeshes) {
+    mesh.geometry.computeBoundingBox()
+  }
+
+  const height = targetHeight
+
+  console.log(`[VRMFactory] Normalized avatar from ${originalHeight.toFixed(3)}m to ${height.toFixed(3)}m (scale: ${scaleFactor.toFixed(3)})`)
 
   // Calculate head to height for camera positioning
   const headPos = normBones.head?.node?.getWorldPosition(v1) || v1.set(0,0,0)
@@ -247,6 +264,11 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI)
       finalMatrix = new THREE.Matrix4().multiplyMatrices(matrix, rotationMatrix)
     }
+
+    // CRITICAL: Compose scale into the matrix to preserve height normalization
+    // The cloned scene has scale set, but direct matrix assignment would ignore it
+    const scaleMatrix = new THREE.Matrix4().makeScale(vrm.scene.scale.x, vrm.scene.scale.y, vrm.scene.scale.z)
+    finalMatrix = new THREE.Matrix4().multiplyMatrices(finalMatrix, scaleMatrix)
 
     vrm.scene.matrix.copy(finalMatrix)
     vrm.scene.matrixWorld.copy(finalMatrix)
@@ -485,6 +507,10 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
           const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI)
           finalMatrix = new THREE.Matrix4().multiplyMatrices(_matrix, rotationMatrix)
         }
+        // CRITICAL: Compose scale into the matrix to preserve height normalization
+        const scaleMatrix = new THREE.Matrix4().makeScale(vrm.scene.scale.x, vrm.scene.scale.y, vrm.scene.scale.z)
+        finalMatrix = new THREE.Matrix4().multiplyMatrices(finalMatrix, scaleMatrix)
+
         vrm.scene.matrix.copy(finalMatrix)
         vrm.scene.matrixWorld.copy(finalMatrix)
         vrm.scene.updateMatrixWorld(true) // Force update all children
@@ -523,6 +549,10 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
 function cloneGLB(glb: GLBData): GLBData {
   // Deep clone the scene (including skeleton and skinned meshes)
   const clonedScene = SkeletonUtils.clone(glb.scene) as THREE.Scene
+
+  // CRITICAL: Preserve scale from original scene (height normalization)
+  clonedScene.scale.copy(glb.scene.scale)
+  clonedScene.updateMatrixWorld(true)
 
   const originalVRM = glb.userData?.vrm
 
