@@ -9,10 +9,11 @@ import type { HotReloadable } from '../types'
 import type { AvatarHooks, AvatarData, VRMAvatarInstance, VRMAvatarFactory } from '../types/nodes'
 import THREE from '../extras/three'
 import { Node } from './Node'
+import { Emotes } from '../extras/playerEmotes'
 
 const defaults = {
   src: null,
-  emote: null,
+  emote: Emotes.IDLE,
   onLoad: null,
 }
 
@@ -47,7 +48,9 @@ export class Avatar extends Node {
     if (this._src && this.ctx?.loader) {
       const n = ++this.n
       let avatar = this.ctx.loader.get('avatar', this._src)
-      if (!avatar) avatar = await this.ctx.loader.load('avatar', this._src)
+      if (!avatar) {
+        avatar = await this.ctx.loader.load('avatar', this._src)
+      }
       if (this.n !== n) return
       // Avatar loaded from loader is a different type - use type assertion based on context
       const avatarData = avatar as { factory?: VRMAvatarFactory; hooks?: AvatarHooks }
@@ -62,13 +65,13 @@ export class Avatar extends Node {
       // Only create instance if we don't already have one
       if (!this.instance) {
                         const _vrmHooks = this.hooks as unknown as { scene?: unknown; octree?: unknown; [key: string]: unknown }
-                                
+
         // CRITICAL: Update matrix before passing to factory
         // The avatar node needs its world transform updated to match its parent
         this.updateTransform()
         const worldPos = v1
         worldPos.setFromMatrixPosition(this.matrixWorld)
-                
+
         // Factory has typed create(matrix, hooks, node)
         this.instance = this.factory.create(this.matrixWorld, this.hooks ?? undefined, this)
         this.instance?.setEmote(this._emote)
@@ -148,7 +151,6 @@ export class Avatar extends Node {
 
   set emote(value: string | null) {
     if (!value) value = defaults.emote
-    
     if (this._emote === value) return
     this._emote = value
     this.instance?.setEmote(value)

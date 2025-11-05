@@ -103,15 +103,18 @@ declare module '*/three-vrm/index.js' {
   export class VRMHumanoid {
     humanBones: VRMHumanBones;
     restPose: VRMPose;
-    
+
     getBone(name: VRMHumanBoneName): VRMHumanBone | undefined;
     getBoneNode(name: VRMHumanBoneName): THREE.Object3D | undefined;
     getRawBone(name: VRMHumanBoneName): { node: THREE.Object3D } | undefined;
-    
+    getNormalizedBoneNode(name: VRMHumanBoneName): THREE.Object3D | undefined;
+    getRawBoneNode(name: VRMHumanBoneName): THREE.Object3D | null;
+
     resetPose(): void;
     setRawPose(pose: VRMPose): void;
     getPose(): VRMPose;
     setPose(pose: VRMPose): void;
+    update(deltaTime: number): void;
   }
   
   export interface VRMHumanBones {
