@@ -10,7 +10,7 @@
   ],
   "license": "MIT",
   "scripts": {
-    "prebuild": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && [ -f dist/physx-js-webidl.d.ts ] && echo 'PhysX already built, skipping...' || ( [ -f ../hyperscape/src/server/public/physx-js-webidl.js ] && [ -f ../hyperscape/src/server/public/physx-js-webidl.wasm ] && mkdir -p dist && cp ../hyperscape/src/server/public/physx-js-webidl.js dist/ && cp ../hyperscape/src/server/public/physx-js-webidl.wasm dist/ && ( [ -f types/physx-js-webidl.d.ts ] && cp types/physx-js-webidl.d.ts dist/ || true ) && echo 'Copied prebuilt PhysX files' || bash ./make.sh )",
+    "prebuild": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && [ -f dist/physx-js-webidl.d.ts ] && echo 'PhysX already built, skipping...' || ( [ -f ../client/src/public/physx-js-webidl.js ] && [ -f ../client/src/public/physx-js-webidl.wasm ] && mkdir -p dist && cp ../client/src/public/physx-js-webidl.js dist/ && cp ../client/src/public/physx-js-webidl.wasm dist/ && ( [ -f types/physx-js-webidl.d.ts ] && cp types/physx-js-webidl.d.ts dist/ || true ) && echo 'Copied prebuilt PhysX files from client package' || bash ./make.sh )",
     "build": "[ -f dist/physx-js-webidl.js ] && [ -f dist/physx-js-webidl.wasm ] && [ -f dist/physx-js-webidl.d.ts ] && echo 'PhysX already built, skipping...' || bash ./make.sh",
     "build:force": "bash ./make.sh",
     "build:debug": "bash ./make.sh debug",

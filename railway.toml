@@ -1,0 +1,12 @@
+# Railway configuration for game server
+# Uses RAILPACK (Railway's new build system replacing Nixpacks)
+# RAILPACK-specific build configuration is in railpack.json
+
+[build]
+builder = "RAILPACK"
+
+[deploy]
+healthcheckPath = "/status"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

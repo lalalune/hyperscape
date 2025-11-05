@@ -416,13 +416,14 @@ export interface Item {
   maxStackSize: number        // Max stack size (999 for stackable, 1 for non-stackable)
   value: number                // Base value in coins
   weight: number              // Item weight
-  
+
   // Equipment properties
-  equipSlot: EquipmentSlotName | null           // Equipment slot (weapon, shield, helmet, etc.)
+  equipSlot: EquipmentSlotName | '2h' | null    // Equipment slot (weapon, shield, helmet, etc.) or '2h' for two-handed
   weaponType: WeaponType | null      // Type of weapon (if applicable)
   equipable: boolean          // Can be equipped
   attackType: AttackType | null      // Type of attack (melee, ranged, magic)
   attackSpeed?: number        // Attack speed in milliseconds (for weapons)
+  is2h?: boolean              // Explicit flag for 2-handed weapons (alternative to equipSlot: '2h')
   
   // Item properties
   description: string         // Item description
@@ -1845,8 +1846,181 @@ export interface StoreData {
   description: string;
 }
 
-// ============== MOB INTERFACES ==============
+// ============== NPC AND MOB INTERFACES ==============
 
+/**
+ * NPC Category Classification
+ * All characters in the game are NPCs, categorized by behavior:
+ * - 'mob': Combat NPCs (goblins, bandits, guards) - aggressive entities
+ * - 'boss': Powerful special combat encounters - unique bosses
+ * - 'neutral': Non-combat NPCs (shopkeepers, bank clerks)
+ * - 'quest': Quest-related NPCs (quest givers, quest objectives)
+ */
+export type NPCCategory = 'mob' | 'boss' | 'neutral' | 'quest';
+
+/**
+ * RuneScape-style Drop Rarity Tiers
+ */
+export type DropRarity = 'always' | 'common' | 'uncommon' | 'rare' | 'very_rare';
+
+/**
+ * Drop Table Entry - RuneScape-style loot system
+ */
+export interface DropTableEntry {
+  itemId: string;
+  minQuantity: number;
+  maxQuantity: number;
+  chance: number;  // 0-1 probability (1 = 100%, 0.01 = 1%)
+  rarity: DropRarity;
+  noted?: boolean;  // Whether item drops in noted form
+}
+
+/**
+ * Default Drops Configuration
+ * Every NPC type has a default drop (bones, ashes, etc.)
+ */
+export interface DefaultDropConfig {
+  itemId: string;  // e.g., 'bones', 'big_bones', 'dragon_bones', 'ashes'
+  quantity: number;
+  enabled: boolean;  // Flag to disable default drop if needed
+}
+
+/**
+ * NPC Stats - Unified across all NPCs
+ */
+export interface NPCStats {
+  level: number;
+  health: number;
+  attack: number;
+  strength: number;
+  defense: number;
+  constitution: number;
+  ranged: number;
+  magic: number;
+}
+
+/**
+ * NPC Combat Configuration - All NPCs can potentially fight
+ */
+export interface NPCCombatConfig {
+  attackable: boolean;       // Can players attack this NPC?
+  aggressive: boolean;        // Does NPC attack players on sight?
+  retaliates: boolean;       // Fights back when attacked?
+  aggroRange: number;        // Detection range (0 = non-aggressive)
+  combatRange: number;       // Attack range
+  attackSpeed: number;       // Seconds between attacks
+  respawnTime: number;       // Milliseconds to respawn
+  xpReward: number;          // XP rewarded on kill
+  poisonous: boolean;        // Can poison players?
+  immuneToPoison: boolean;   // Immune to poison damage?
+}
+
+/**
+ * NPC Movement Configuration
+ */
+export interface NPCMovementConfig {
+  type: 'stationary' | 'wander' | 'patrol';
+  speed: number;
+  wanderRadius: number;      // Radius for wander behavior
+  patrolPath?: Position3D[]; // Waypoints for patrol behavior
+  roaming: boolean;          // Can leave spawn area?
+}
+
+/**
+ * NPC Drops - RuneScape-style tiered drop system
+ * ALL NPCs drop something (at minimum, bones/ashes)
+ */
+export interface NPCDrops {
+  defaultDrop: DefaultDropConfig;     // Always drops (bones, ashes, etc.)
+  always: DropTableEntry[];          // 100% drop rate items
+  common: DropTableEntry[];          // Common drops (1/4 - 1/10)
+  uncommon: DropTableEntry[];        // Uncommon drops (1/10 - 1/50)
+  rare: DropTableEntry[];            // Rare drops (1/50 - 1/500)
+  veryRare: DropTableEntry[];        // Very rare drops (1/500+)
+  rareDropTable: boolean;            // Access to rare drop table?
+  rareDropTableChance?: number;      // Chance to roll RDT (if enabled)
+}
+
+/**
+ * NPC Services Configuration
+ */
+export interface NPCServicesConfig {
+  enabled: boolean;
+  types: ('bank' | 'shop' | 'quest' | 'skill_trainer' | 'teleport')[];
+  shopInventory?: Array<{ itemId: string; quantity: number; price: number; stockRefreshTime?: number }>;
+  dialogue?: unknown;  // Dialogue tree structure
+  questIds?: string[]; // Quest IDs this NPC is involved in
+}
+
+/**
+ * NPC Behavior AI Configuration
+ */
+export interface NPCBehaviorConfig {
+  enabled: boolean;
+  config?: unknown;  // Complex behavior tree (kept as unknown for flexibility)
+}
+
+/**
+ * NPC Appearance Configuration
+ */
+export interface NPCAppearanceConfig {
+  modelPath: string;
+  iconPath?: string;
+  scale: number;
+  tint?: string;  // Hex color tint
+}
+
+/**
+ * NPC Data - UNIFIED STRUCTURE FOR ALL NPCs
+ *
+ * This is the single, standardized interface for ALL non-player characters.
+ * Every NPC uses the same structure with flags to enable/disable features.
+ *
+ * Key Design Principles:
+ * - All NPCs can be attacked (flag to disable)
+ * - All NPCs drop something (minimum: bones/ashes)
+ * - All NPCs have stats (even if passive)
+ * - All NPCs can move (flag to disable)
+ * - Flexible drop system with RuneScape-style rarity tiers
+ */
+export interface NPCData {
+  // ========== CORE IDENTITY ==========
+  id: string;
+  name: string;
+  description: string;
+  category: NPCCategory;  // 'mob' | 'boss' | 'neutral'
+  faction: string;        // Group affiliation
+
+  // ========== STATS (ALL NPCs) ==========
+  stats: NPCStats;
+
+  // ========== COMBAT (ALL NPCs - use flags to disable) ==========
+  combat: NPCCombatConfig;
+
+  // ========== MOVEMENT (ALL NPCs - use flags to disable) ==========
+  movement: NPCMovementConfig;
+
+  // ========== DROPS (ALL NPCs - everyone drops something) ==========
+  drops: NPCDrops;
+
+  // ========== SERVICES (Optional - mainly for neutral NPCs) ==========
+  services: NPCServicesConfig;
+
+  // ========== BEHAVIOR AI (Optional - for complex behaviors) ==========
+  behavior: NPCBehaviorConfig;
+
+  // ========== APPEARANCE ==========
+  appearance: NPCAppearanceConfig;
+
+  // ========== SPAWN INFO ==========
+  position: Position3D;
+  spawnBiomes?: string[];  // Which biomes this NPC can spawn in
+}
+
+/**
+ * Mob Stats
+ * Used by MobData for backward compatibility with existing mob systems
+ */
 export interface MobStats {
   level: number;
   health: number;
@@ -1883,6 +2057,11 @@ export interface MobBehavior {
   levelThreshold: number;
 }
 
+/**
+ * Mob Data - Legacy interface for mob/boss category NPCs
+ * This is populated from NPCs with category='mob' or category='boss'
+ * Maintained for backward compatibility with existing mob systems
+ */
 export interface MobData {
   id: string;
   name: string;
