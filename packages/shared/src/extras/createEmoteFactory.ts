@@ -211,9 +211,10 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
                 `${vrmNodeName}.${propertyName}`,
                 track.times,
                 track.values.map((v, i) => {
-                  // Don't invert - use values directly for VRM 1.0
-                  // Normalized bones handle coordinate space conversion
-                  return v * scaler
+                  // Negate Z-axis only for forward/backward direction
+                  // i % 3: 0=X, 1=Y, 2=Z
+                  const isZ = i % 3 === 2
+                  return (isZ ? -v : v) * scaler
                 })
               )
             )
