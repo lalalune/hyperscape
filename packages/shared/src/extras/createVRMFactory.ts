@@ -113,6 +113,9 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
   // Get VRM version
   const vrmData = glb.userData?.vrm;
   const version = vrmData?.meta?.metaVersion
+  // VRM 1.0+ check: version string starts with "1" or higher
+  const isVRM1OrHigher = version !== '0' && (!version || (typeof version === 'string' && !version.startsWith('0.')))
+  console.log('[VRMFactory] VRM version detected:', { version, isVRM1OrHigher }, '(will apply 180° rotation for VRM 1.0+)')
 
   // Setup skinned meshes with NORMAL bind mode (for normalized bone compatibility)
   // DetachedBindMode is incompatible with normalized bones in scene graph
@@ -247,13 +250,18 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       return clonedNormalizedNode.name  // Returns normalized bone name
     }
 
-    // VRM models face +Z by default, but game expects -Z forward
-    // Apply 180-degree Y-axis rotation to flip the model around
-    const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI)
-    const adjustedMatrix = new THREE.Matrix4().multiplyMatrices(matrix, rotationMatrix)
+    // VRM 1.0+ models face +Z by default, but game expects -Z forward
+    // Apply 180-degree Y-axis rotation only for VRM 1.0+
+    // VRM 0.x models already face the correct direction
+    let finalMatrix = matrix
+    if (isVRM1OrHigher) {
+      console.log('[VRMFactory] Applying 180° rotation for VRM 1.0+ model')
+      const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI)
+      finalMatrix = new THREE.Matrix4().multiplyMatrices(matrix, rotationMatrix)
+    }
 
-    vrm.scene.matrix.copy(adjustedMatrix)
-    vrm.scene.matrixWorld.copy(adjustedMatrix)
+    vrm.scene.matrix.copy(finalMatrix)
+    vrm.scene.matrixWorld.copy(finalMatrix)
     vrm.scene.matrixAutoUpdate = false
     vrm.scene.matrixWorldAutoUpdate = false
 
@@ -492,11 +500,14 @@ export function createVRMFactory(glb: GLBData, setupMaterial?: (material: THREE.
       move(_matrix: THREE.Matrix4) {
         matrix.copy(_matrix)
         // CRITICAL: Also update the VRM scene's transform to follow the player
-        // Apply 180-degree Y-axis rotation to keep model facing correct direction
-        const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI)
-        const adjustedMatrix = new THREE.Matrix4().multiplyMatrices(_matrix, rotationMatrix)
-        vrm.scene.matrix.copy(adjustedMatrix)
-        vrm.scene.matrixWorld.copy(adjustedMatrix)
+        // Apply 180-degree Y-axis rotation only for VRM 1.0+ models
+        let finalMatrix = _matrix
+        if (isVRM1OrHigher) {
+          const rotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI)
+          finalMatrix = new THREE.Matrix4().multiplyMatrices(_matrix, rotationMatrix)
+        }
+        vrm.scene.matrix.copy(finalMatrix)
+        vrm.scene.matrixWorld.copy(finalMatrix)
         vrm.scene.updateMatrixWorld(true) // Force update all children
         if (hooks?.octree && hooks.octree.move) {
           hooks.octree.move(sItem)

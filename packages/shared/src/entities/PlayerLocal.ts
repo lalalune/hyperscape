@@ -490,11 +490,17 @@ export class PlayerLocal extends Entity implements HotReloadable {
   ) {
     super(world, { ...data, type: 'player' }, local)
     this.isPlayer = true
-    
+
     // Initialize Player interface properties
     this._playerHealth = { current: 100, max: 100 };
     this.hyperscapePlayerId = data.id || '';
-    
+
+    // Initialize emote to idle if not provided
+    if (!this.emote && !data.e) {
+      this.emote = 'idle';
+      this.data.emote = 'idle';
+    }
+
     // CRITICAL: Initialize server position BEFORE anything else
     // Server position is ABSOLUTE TRUTH - use it or crash
     if (data.position && Array.isArray(data.position) && data.position.length === 3) {
