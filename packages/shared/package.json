@@ -96,7 +96,7 @@
     "livekit-client": "^2.9.9",
     "livekit-server-sdk": "^2.11.0",
     "lodash-es": "^4.17.21",
-    "lucide-react": "^0.469.0",
+    "lucide-react": "^0.552.0",
     "moment": "^2.30.1",
     "msgpackr": "^1.11.0",
     "nanoid": "^5.0.6",
