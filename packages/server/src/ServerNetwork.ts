@@ -538,6 +538,21 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.send('entityAdded', socket.player.serialize(), socket.id);
         // And also to the originating socket so their client receives their own entity
         this.sendTo(socket.id, 'entityAdded', socket.player.serialize());
+
+        // CRITICAL: Send all existing entities (mobs, items, NPCs) to new client
+        // These entities were spawned before this player connected
+        if (this.world.entities?.items) {
+          let entityCount = 0;
+          for (const [entityId, entity] of this.world.entities.items.entries()) {
+            // Skip the player we just added
+            if (entityId !== socket.player.id) {
+              this.sendTo(socket.id, 'entityAdded', entity.serialize());
+              entityCount++;
+            }
+          }
+          console.log(`[ServerNetwork] 📤 Sent ${entityCount} existing entities to new player ${socket.player.id}`);
+        }
+
         // Immediately reinforce authoritative transform to avoid initial client-side default pose
         this.sendTo(socket.id, 'entityModified', {
           id: socket.player.id,
@@ -1416,8 +1431,27 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         maxUploadSize: process.env.PUBLIC_MAX_UPLOAD_SIZE,
         settings: this.world.settings.serialize() || {},
         chat: this.world.chat.serialize() || [],
-        // Include empty entities array in character select mode (player spawns later via enterWorld)
-        entities: socket.player ? [socket.player.serialize()] : [],
+        // Include ALL entities (player + mobs + items) in snapshot
+        // BUT only if player exists (to preserve character select mode detection)
+        entities: (() => {
+          const allEntities: unknown[] = [];
+          // Always include the player if spawned
+          if (socket.player) {
+            allEntities.push(socket.player.serialize());
+
+            // Only include other entities if player is spawned
+            // This preserves character select mode (empty entities array)
+            if (this.world.entities?.items) {
+              for (const [entityId, entity] of this.world.entities.items.entries()) {
+                if (entityId !== socket.player.id) {
+                  allEntities.push(entity.serialize());
+                }
+              }
+            }
+          }
+          console.log(`[ServerNetwork] Sending snapshot with ${allEntities.length} entities (player: ${socket.player ? 'YES' : 'NO'})`);
+          return allEntities;
+        })(),
         livekit,
         authToken: authToken || '',
         account: { accountId: user.id, name: user.name, providers: { privyUserId: (user as User & { privyUserId?: string }).privyUserId || null } },

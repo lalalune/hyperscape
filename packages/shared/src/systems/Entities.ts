@@ -204,8 +204,18 @@ export class Entities extends SystemBase implements IEntities {
       const mobTypeMatch = name.match(/Mob:\s*([^()]+)/i);
       const derivedMobType = (mobTypeMatch ? mobTypeMatch[1].trim() : name).toLowerCase().replace(/\s+/g, '_');
       const npcData = getNPCById(derivedMobType);
-      const modelPath = npcData?.appearance.modelPath || null;
-      
+      const fallbackModelPath = npcData?.appearance.modelPath || null;
+
+      // CRITICAL: Use server's model path if provided, only derive from NPC data as fallback
+      const networkModel = (data as { model?: string }).model;
+      const finalModelPath = networkModel || fallbackModelPath;
+
+      console.log(`[Entities] Creating mob entity:`, {
+        mobType: derivedMobType,
+        networkModel,
+        fallbackModelPath,
+        finalModelPath
+      });
 
       const mobConfig: MobEntityConfig = {
         id: data.id,
@@ -219,7 +229,7 @@ export class Entities extends SystemBase implements IEntities {
         interactionType: InteractionType.ATTACK,
         interactionDistance: 5,
         description: name,
-        model: modelPath,
+        model: finalModelPath,
         // Minimal required MobEntity fields with sensible defaults
         mobType: derivedMobType, // Mob ID from mobs.json
         level: 1,

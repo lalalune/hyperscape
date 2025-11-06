@@ -983,8 +983,9 @@ export class Entity implements IEntity {
       console.warn(`[Entity] ⚠️  Entity ${this.name} (${this.type}) has no mesh - may be server-side`);
     }
     
-    // Check mesh is added to node
-    if (this.mesh && !this.node.children.includes(this.mesh)) {
+    // Check mesh is added to node (skip for VRM entities which manage their own positioning)
+    const isVRM = this.config?.model?.endsWith('.vrm');
+    if (this.mesh && !this.node.children.includes(this.mesh) && !isVRM) {
       console.error(`[Entity] ⚠️  WARNING: Entity ${this.name} mesh is not a child of node`);
     }
     
