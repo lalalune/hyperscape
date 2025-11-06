@@ -170,3 +170,6 @@ temp-images/*
 # pnpm-lock.yaml
 
 SCRATCHPAD.md
+
+.cursor/rules/kluster-code-verify.mdc
+.kluster

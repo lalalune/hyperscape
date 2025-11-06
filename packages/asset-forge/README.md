@@ -36,7 +36,8 @@ A comprehensive React/Vite application for AI-powered 3D asset generation, riggi
 - **State Management**: Zustand, Immer
 - **AI Integration**: OpenAI API, Meshy.ai API
 - **ML/Computer Vision**: TensorFlow.js, MediaPipe (hand detection)
-- **Backend**: Express.js, Node.js
+- **Backend**: Elysia (Bun-native framework)
+- **API Client**: Eden Treaty (type-safe API client with end-to-end type safety)
 - **Styling**: Tailwind CSS
 - **Build Tool**: Bun [[memory:4609218]]
 
@@ -87,15 +88,17 @@ The app will be available at `http://localhost:3003`
 ## Project Structure
 
 ```
-generation/
+asset-forge/
 ├── src/                    # React application source
 │   ├── components/         # UI components
 │   ├── services/          # Core services (AI, fitting, rigging)
 │   ├── pages/             # Main application pages
 │   ├── hooks/             # Custom React hooks
+│   ├── lib/               # Utilities and API client
+│   │   └── api-client.ts  # Type-safe Eden Treaty client
 │   └── store/             # Zustand state management
-├── server/                # Express.js backend
-│   ├── api.mjs           # API endpoints
+├── server/                # Elysia backend
+│   ├── api-elysia.ts     # Elysia API server (type-safe)
 │   └── services/         # Backend services
 ├── gdd-assets/           # Generated 3D assets [[memory:3843922]]
 │   └── [asset-name]/     # Individual asset folders
@@ -137,14 +140,126 @@ generation/
 - Automatic grip point calculation
 - Export rigged weapons
 
+## Type-Safe API Client
+
+This project includes a fully type-safe API client using Elysia's Eden Treaty. The client provides end-to-end type safety with automatic TypeScript autocomplete, compile-time type checking, and zero manual type definitions.
+
+### Benefits over fetch()
+
+1. **Automatic Type Inference**: Request and response types are automatically inferred from the Elysia server
+2. **Compile-Time Safety**: Catch typos, missing parameters, and type mismatches before runtime
+3. **Full Autocomplete**: Your IDE suggests all available routes, methods, and parameters
+4. **No Manual Types**: Types are generated from your server code automatically
+5. **Better Performance**: Ultra-fast Bun runtime with Elysia (2.4M req/s)
+
+### Usage
+
+Import the client from `src/lib/api-client.ts`:
+
+```typescript
+import { api } from '@/lib/api-client'
+
+// Health check - fully typed response
+const { data, error } = await api.api.health.get()
+if (data) {
+  console.log('Status:', data.status)
+  console.log('Services:', data.services.meshy, data.services.openai)
+}
+
+// List all assets
+const { data: assets } = await api.api.assets.get()
+
+// Get single asset model
+const { data: model } = await api.api.assets({ id: 'sword-001' }).model.get()
+
+// Delete an asset with query parameters
+const { data } = await api.api.assets({ id: 'sword-001' }).delete({
+  query: { includeVariants: 'true' }
+})
+
+// Update asset metadata
+const { data: updated } = await api.api.assets({ id: 'sword-001' }).patch({
+  name: 'Updated Sword',
+  tier: 3
+})
+
+// Start retexture job
+const { data: result } = await api.api.retexture.post({
+  baseAssetId: 'sword-001',
+  materialPreset: 'steel',
+  outputName: 'steel-sword'
+})
+
+// Start generation pipeline
+const { data: pipeline } = await api.api.generation.pipeline.post({
+  name: 'Iron Sword',
+  type: 'weapon',
+  subtype: 'sword',
+  tier: 1
+})
+
+// Check pipeline status
+const { data: status } = await api.api.generation
+  .pipeline({ pipelineId: '123' })
+  .get()
+
+// Weapon handle detection with GPT-4 Vision
+const { data: gripData } = await api.api['weapon-handle-detect'].post({
+  image: 'data:image/png;base64,...',
+  angle: 'side',
+  promptHint: 'medieval sword'
+})
+
+// Save sprites for an asset
+const { data: result } = await api.api.assets({ id: 'sword-001' })
+  .sprites.post({
+    sprites: [
+      { angle: 0, imageData: 'data:image/png;base64,...' },
+      { angle: 45, imageData: 'data:image/png;base64,...' }
+    ],
+    config: { resolution: 512, angles: 8 }
+  })
+```
+
+### Configuration
+
+The API client automatically detects the API server URL from environment variables:
+
+```env
+VITE_API_PORT=3004
+VITE_API_URL=http://localhost:3004  # Optional, defaults to localhost
+```
+
 ## API Endpoints
 
+### Assets
 - `GET /api/assets` - List all assets
 - `GET /api/assets/:id/model` - Download asset model
-- `POST /api/generation/start` - Start new generation
-- `POST /api/retexture/start` - Generate material variants
-- `POST /api/fitting/preview` - Preview armor fitting
-- `POST /api/hand-rigging/process` - Process hand rigging
+- `GET /api/assets/:id/*` - Get any file from asset directory
+- `HEAD /api/assets/:id/model` - Check if model exists
+- `DELETE /api/assets/:id` - Delete asset (with optional variants)
+- `PATCH /api/assets/:id` - Update asset metadata
+- `POST /api/assets/:id/sprites` - Save sprite images for asset
+- `POST /api/assets/upload-vrm` - Upload VRM character file
+
+### Generation
+- `POST /api/generation/pipeline` - Start new generation pipeline
+- `GET /api/generation/pipeline/:pipelineId` - Get pipeline status
+
+### Retexturing
+- `POST /api/retexture` - Generate material variants
+- `POST /api/regenerate-base/:baseAssetId` - Regenerate base model
+
+### Material Presets
+- `GET /api/material-presets` - Get all material presets
+- `POST /api/material-presets` - Save material presets
+
+### AI Vision
+- `POST /api/weapon-handle-detect` - Detect weapon grip location with GPT-4 Vision
+- `POST /api/weapon-orientation-detect` - Detect if weapon is upside down
+
+### Health
+- `GET /api/health` - Health check and service status
 
 ## Scripts
 
