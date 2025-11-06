@@ -6,11 +6,13 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { OrbitControls } from 'three-stdlib'
-import { GLTFLoader } from 'three-stdlib'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import styled from 'styled-components'
 import { retargetAnimation } from '../services/retargeting/AnimationRetargeting'
+
+// Import OrbitControls from three addons (not three-stdlib to avoid type conflicts)
+import { OrbitControls as OrbitControlsImpl } from 'three/addons/controls/OrbitControls.js'
 
 const Container = styled.div`
   width: 100%;
@@ -179,7 +181,7 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
     renderer.setPixelRatio(window.devicePixelRatio)
 
     // Orbit controls
-    const controls = new OrbitControls(camera, canvas)
+    const controls = new OrbitControlsImpl(camera, canvas)
     controls.target.set(0, 1, 0)
     controls.update()
 
