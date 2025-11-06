@@ -84,6 +84,8 @@ import type { World } from '../World';
 import { CombatantEntity, type CombatantConfig } from './CombatantEntity';
 import { modelCache } from '../utils/ModelCache';
 import type { EntityManager } from '../systems/EntityManager';
+import type { VRMAvatarInstance, LoadedAvatar, AvatarHooks } from '../types/nodes';
+import { Emotes } from '../extras/playerEmotes';
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === 'undefined') {
@@ -109,16 +111,30 @@ export class MobEntity extends CombatantEntity {
   private patrolPoints: Array<{ x: number; z: number }> = [];
   private currentPatrolIndex = 0;
   private lastAttackerId: string | null = null;
+  private _avatarInstance: VRMAvatarInstance | null = null;
+  private _currentEmote: string | null = null;
+  private _tempMatrix = new THREE.Matrix4();
+  private _tempScale = new THREE.Vector3(1, 1, 1);
+  private _terrainWarningLogged = false;
+  private _hasValidTerrainHeight = false;
 
   async init(): Promise<void> {
     await super.init();
-    
+
+    // Register for update loop (both client and server)
+    // Client: VRM animations via clientUpdate()
+    // Server: AI behavior via serverUpdate()
+    this.world.setHot(this, true);
+    console.log(`[MobEntity] ✅ Registered entity as hot for updates (isClient: ${this.world.isClient})`);
+
     // TODO: Server-side validation disabled due to ProgressEvent polyfill issues
     // Validation happens on client side instead (see clientUpdate)
   }
   
 
   constructor(world: World, config: MobEntityConfig) {
+    console.log(`[MobEntity] 🔨 Constructor called for ${config.mobType} with model: ${config.model}`);
+
     // Convert MobEntityConfig to CombatantConfig format with proper type assertion
     const combatConfig = {
       ...config,
@@ -134,7 +150,7 @@ export class MobEntity extends CombatantEntity {
         attackRange: config.combatRange
       }
     } as unknown as CombatantConfig;
-    
+
     super(world, combatConfig);
     this.config = config;
     this.generatePatrolPoints();
@@ -233,6 +249,114 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
+   * Load VRM model and create avatar instance
+   */
+  private async loadVRMModel(): Promise<void> {
+    console.log(`[MobEntity] 🔄 Loading VRM for ${this.config.mobType}: ${this.config.model}`);
+
+    if (!this.world.loader) {
+      console.error(`[MobEntity] ❌ No loader available for ${this.config.mobType}`);
+      return;
+    }
+
+    if (!this.config.model) {
+      console.error(`[MobEntity] ❌ No model path for ${this.config.mobType}`);
+      return;
+    }
+
+    if (!this.world.stage?.scene) {
+      console.error(`[MobEntity] ❌ No world.stage.scene available for ${this.config.mobType}`);
+      return;
+    }
+
+    // Create VRM hooks with scene reference (CRITICAL for visibility!)
+    const vrmHooks = {
+      scene: this.world.stage.scene,
+      octree: this.world.stage?.octree,
+      camera: this.world.camera,
+      loader: this.world.loader
+    };
+
+    console.log(`[MobEntity] 🔄 Loading avatar from loader...`);
+
+    // Load the VRM avatar using the same loader as players
+    const src = await this.world.loader.load('avatar', this.config.model) as LoadedAvatar;
+
+    console.log(`[MobEntity] ✅ Avatar loaded, converting to nodes...`);
+
+    // Convert to nodes
+    const nodeMap = src.toNodes(vrmHooks);
+    const avatarNode = nodeMap.get('avatar') || nodeMap.get('root');
+
+    console.log(`[MobEntity] Avatar node keys:`, Array.from(nodeMap.keys()));
+
+    if (!avatarNode) {
+      console.error(`[MobEntity] ❌ No avatar node found in nodeMap`);
+      return;
+    }
+
+    // Get the factory from the avatar node
+    const avatarNodeWithFactory = avatarNode as { factory?: { create: (matrix: THREE.Matrix4, hooks?: unknown) => VRMAvatarInstance } };
+
+    if (!avatarNodeWithFactory?.factory) {
+      console.error(`[MobEntity] ❌ No factory found on avatar node for ${this.config.mobType}`);
+      return;
+    }
+
+    console.log(`[MobEntity] 🔄 Creating VRM instance from factory...`);
+
+    // Update our node's transform
+    this.node.updateMatrix();
+    this.node.updateMatrixWorld(true);
+
+    // Create the VRM instance using the factory
+    this._avatarInstance = avatarNodeWithFactory.factory.create(this.node.matrixWorld, vrmHooks);
+
+    console.log(`[MobEntity] ✅ VRM instance created`);
+
+    // Set initial emote to idle
+    this._currentEmote = Emotes.IDLE;
+    this._avatarInstance.setEmote(this._currentEmote);
+
+    // NOTE: Don't register VRM instance as hot - the MobEntity itself is registered
+    // The entity's clientUpdate() will call avatarInstance.update()
+
+    // Get the scene from the VRM instance
+    const instanceWithRaw = this._avatarInstance as { raw?: { scene?: THREE.Object3D } };
+    if (instanceWithRaw?.raw?.scene) {
+      this.mesh = instanceWithRaw.raw.scene;
+      this.mesh.name = `Mob_VRM_${this.config.mobType}_${this.id}`;
+
+      // Set up userData for interaction detection
+      const userData: MeshUserData = {
+        type: 'mob',
+        entityId: this.id,
+        name: this.config.name,
+        interactable: true,
+        mobData: {
+          id: this.id,
+          name: this.config.name,
+          type: this.config.mobType,
+          level: this.config.level,
+          health: this.config.currentHealth,
+          maxHealth: this.config.maxHealth
+        }
+      };
+      this.mesh.userData = { ...userData };
+
+      // VRM instances manage their own positioning via move() - do NOT parent to node
+      // The factory already added the scene to world.stage.scene
+      // We'll use avatarInstance.move() to position it each frame
+
+      console.log(`[MobEntity] ✅ Loaded VRM for ${this.config.mobType} at position:`, this.node.position.toArray());
+      console.log(`[MobEntity] VRM scene parent:`, this.mesh.parent?.name || 'no parent');
+      console.log(`[MobEntity] VRM scene visible:`, this.mesh.visible);
+    } else {
+      console.error(`[MobEntity] ❌ No scene in VRM instance for ${this.config.mobType}`);
+    }
+  }
+
+  /**
    * Load external animation files (walking.glb, running.glb, etc.)
    * These are custom animations made specifically for the mob models
    */
@@ -310,15 +434,27 @@ export class MobEntity extends CombatantEntity {
   }
 
   protected async createMesh(): Promise<void> {
+    console.log(`[MobEntity] 🎨 createMesh() called for ${this.config.mobType}, isServer: ${this.world.isServer}, model: ${this.config.model}`);
+
     if (this.world.isServer) {
+      console.log(`[MobEntity] ⏭️ Skipping createMesh (server-side)`);
       return;
     }
-    
+
     // Try to load 3D model if available
     if (this.config.model && this.world.loader) {
+      console.log(`[MobEntity] 📦 Model and loader available, model type: ${this.config.model.endsWith('.vrm') ? 'VRM' : 'GLB'}`);
       try {
+        // Check if this is a VRM file
+        if (this.config.model.endsWith('.vrm')) {
+          console.log(`[MobEntity] 🔄 Calling loadVRMModel()...`);
+          await this.loadVRMModel();
+          return;
+        }
+
+        // Otherwise load as GLB (existing code path)
         const { scene, animations } = await modelCache.loadModel(this.config.model, this.world);
-        
+
         this.mesh = scene;
         this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
         
@@ -459,21 +595,52 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
+   * Map AI state to emote URL for VRM animations
+   */
+  private getEmoteForAIState(aiState: MobAIState): string {
+    switch (aiState) {
+      case MobAIState.PATROL:
+      case MobAIState.CHASE:
+        return Emotes.WALK;
+      case MobAIState.ATTACK:
+        return Emotes.IDLE; // TODO: Add attack emote when available
+      case MobAIState.FLEE:
+        return Emotes.RUN;
+      case MobAIState.DEAD:
+        return Emotes.IDLE; // Dead state doesn't need animation
+      case MobAIState.IDLE:
+      default:
+        return Emotes.IDLE;
+    }
+  }
+
+  /**
    * Switch animation based on AI state
    */
   private updateAnimation(): void {
+    // VRM path: Use emote-based animation
+    if (this._avatarInstance) {
+      const targetEmote = this.getEmoteForAIState(this.config.aiState);
+      if (this._currentEmote !== targetEmote) {
+        this._currentEmote = targetEmote;
+        this._avatarInstance.setEmote(targetEmote);
+      }
+      return;
+    }
+
+    // GLB path: Use mixer-based animation
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
     const clips = (this as { animationClips?: { idle?: THREE.AnimationClip; walk?: THREE.AnimationClip } }).animationClips;
     const currentAction = (this as { currentAction?: THREE.AnimationAction }).currentAction;
-    
+
     if (!mixer || !clips) {
       return;
     }
-    
+
     // Determine which animation should be playing based on AI state
     let targetClip: THREE.AnimationClip | undefined;
-    
-    if (this.config.aiState === MobAIState.PATROL || 
+
+    if (this.config.aiState === MobAIState.PATROL ||
         this.config.aiState === MobAIState.CHASE) {
       // Moving states - play walk animation
       targetClip = clips.walk || clips.idle;
@@ -481,7 +648,7 @@ export class MobEntity extends CombatantEntity {
       // Idle, attack, flee, or dead - play idle animation
       targetClip = clips.idle || clips.walk;
     }
-    
+
     // Switch animation if needed
     if (targetClip && currentAction?.getClip() !== targetClip) {
       currentAction?.fadeOut(0.2);
@@ -504,31 +671,81 @@ export class MobEntity extends CombatantEntity {
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
     this.clientUpdateCalls++;
-    
+
+    // VRM path: Use avatar instance update (handles everything)
+    if (this._avatarInstance) {
+      // Switch animation based on AI state (walk when patrolling/chasing, idle otherwise)
+      const targetEmote = this.getEmoteForAIState(this.config.aiState);
+      if (this._currentEmote !== targetEmote) {
+        console.log(`[MobEntity] Switching emote from ${this._currentEmote} to ${targetEmote} (AI state: ${this.config.aiState})`);
+        this._currentEmote = targetEmote;
+        this._avatarInstance.setEmote(targetEmote);
+      }
+
+      // CRITICAL: Snap to terrain EVERY frame (server doesn't have terrain system)
+      // Keep trying until terrain tile is generated, then snap every frame
+      const terrain = this.world.getSystem('terrain');
+      if (terrain && 'getHeightAt' in terrain) {
+        try {
+          // CRITICAL: Must call method on terrain object to preserve 'this' context
+          const terrainHeight = (terrain as { getHeightAt: (x: number, z: number) => number }).getHeightAt(this.node.position.x, this.node.position.z);
+          if (Number.isFinite(terrainHeight)) {
+            if (!this._hasValidTerrainHeight) {
+              console.log(`[MobEntity] First valid terrain height: ${terrainHeight.toFixed(2)} at position (${this.node.position.x.toFixed(1)}, ${this.node.position.z.toFixed(1)})`);
+              this._hasValidTerrainHeight = true;
+            }
+            this.node.position.y = terrainHeight + 0.1;
+            this.position.y = terrainHeight + 0.1;
+          }
+        } catch (err) {
+          // Terrain tile not generated yet - keep current Y and retry next frame
+          if (this.clientUpdateCalls === 10 && !this._hasValidTerrainHeight) {
+            console.warn(`[MobEntity] Waiting for terrain tile to generate at (${this.node.position.x.toFixed(1)}, ${this.node.position.z.toFixed(1)})`);
+          }
+        }
+      }
+
+      // Update node transform matrices
+      // NOTE: ClientNetwork updates XZ from server, we calculate Y from client terrain
+      this.node.updateMatrix();
+      this.node.updateMatrixWorld(true);
+
+      // CRITICAL: Use move() to sync VRM - it preserves the VRM's internal scale
+      // move() applies vrm.scene.scale to maintain height normalization
+      this._avatarInstance.move(this.node.matrixWorld);
+
+      // Update VRM animations (mixer + humanoid + skeleton)
+      this._avatarInstance.update(deltaTime);
+
+      // VRM handles all animation internally
+      return;
+    }
+
+    // GLB path: Existing animation code for non-VRM mobs
     // Update animations based on AI state
     this.updateAnimation();
-    
+
     // Update animation mixer
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
-    
+
     // EXPECT: Mixer should exist after animations loaded
     if (this.clientUpdateCalls === 10 && !mixer) {
       throw new Error(`[MobEntity] NO MIXER on update #10: ${this.config.mobType}`);
     }
-    
+
     if (mixer) {
       mixer.update(deltaTime);
-      
+
       // Update skeleton bones
       if (this.mesh) {
         this.mesh.traverse((child) => {
           if (child instanceof THREE.SkinnedMesh && child.skeleton) {
             const skeleton = child.skeleton;
-            
+
             // Update bone matrices
             skeleton.bones.forEach(bone => bone.updateMatrixWorld());
             skeleton.update();
-            
+
             // VALIDATION: Check if bones are actually transforming
             if (this.clientUpdateCalls === 1) {
               const hipsBone = skeleton.bones.find(b => b.name.toLowerCase().includes('hips'));
@@ -948,21 +1165,32 @@ export class MobEntity extends CombatantEntity {
       const terrain = this.world.getSystem('terrain');
       if (terrain && 'getHeightAt' in terrain) {
         try {
-          const getHeight = terrain.getHeightAt as (x: number, z: number) => number;
-          const terrainHeight = getHeight(newPos.x, newPos.z);
+          // CRITICAL: Must call method on terrain object to preserve 'this' context
+          const terrainHeight = (terrain as { getHeightAt: (x: number, z: number) => number }).getHeightAt(newPos.x, newPos.z);
           if (Number.isFinite(terrainHeight)) {
-            newPos.y = terrainHeight + 0.5;
+            newPos.y = terrainHeight + 0.1;
+          } else if (!this._terrainWarningLogged) {
+            console.warn(`[MobEntity] Server terrain height not finite at (${newPos.x.toFixed(1)}, ${newPos.z.toFixed(1)})`);
+            this._terrainWarningLogged = true;
           }
         } catch (err) {
-          // Terrain not initialized yet - keep current Y
+          if (!this._terrainWarningLogged) {
+            console.warn(`[MobEntity] Server terrain getHeightAt failed:`, err);
+            this._terrainWarningLogged = true;
+          }
         }
+      } else if (!this._terrainWarningLogged) {
+        console.warn(`[MobEntity] Server has no terrain system`);
+        this._terrainWarningLogged = true;
       }
 
       // Calculate rotation to face movement direction
-      const angle = Math.atan2(direction.x, direction.z);
+      // VRM 1.0+ models are rotated 180° by the factory (see createVRMFactory.ts:264)
+      // so we need to add PI to compensate and face the correct direction
+      const angle = Math.atan2(direction.x, direction.z) + Math.PI;
       const targetQuaternion = new THREE.Quaternion();
       targetQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-      
+
       // Smoothly rotate towards target direction
       this.node.quaternion.slerp(targetQuaternion, 0.1);
 
@@ -1052,11 +1280,27 @@ export class MobEntity extends CombatantEntity {
     };
   }
 
+  // Override serialize to include model path for client
+  override serialize(): EntityData {
+    const baseData = super.serialize();
+    return {
+      ...baseData,
+      model: this.config.model, // CRITICAL: Include model path for client VRM loading
+      mobType: this.config.mobType,
+      level: this.config.level,
+      currentHealth: this.config.currentHealth,
+      maxHealth: this.config.maxHealth,
+      aiState: this.config.aiState,
+      targetPlayerId: this.config.targetPlayerId,
+    };
+  }
+
   // Network data override
   getNetworkData(): Record<string, unknown> {
     const baseData = super.getNetworkData();
-    return {
+    const networkData: Record<string, unknown> = {
       ...baseData,
+      model: this.config.model, // CRITICAL: Include model path
       mobType: this.config.mobType,
       level: this.config.level,
       currentHealth: this.config.currentHealth,
@@ -1064,6 +1308,13 @@ export class MobEntity extends CombatantEntity {
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId
     };
+
+    // Include emote if using VRM
+    if (this._avatarInstance && this._currentEmote) {
+      networkData.e = this._currentEmote;
+    }
+
+    return networkData;
   }
   
   /**
@@ -1073,24 +1324,36 @@ export class MobEntity extends CombatantEntity {
     // Update AI state from server
     if ('aiState' in data) {
       const newState = data.aiState as MobAIState;
+      if (this.config.aiState !== newState) {
+        console.log(`[MobEntity] AI state changed: ${this.config.aiState} → ${newState}`);
+      }
       this.config.aiState = newState;
     }
-    
+
     // Update health from server
     if ('currentHealth' in data) {
       this.config.currentHealth = data.currentHealth as number;
     }
-    
+
     // Update max health from server
     if ('maxHealth' in data) {
       this.config.maxHealth = data.maxHealth as number;
     }
-    
+
     // Update target from server
     if ('targetPlayerId' in data) {
       this.config.targetPlayerId = data.targetPlayerId as string | null;
     }
-    
+
+    // Handle emote from server (like PlayerRemote does)
+    if ('e' in data && data.e !== undefined && this._avatarInstance) {
+      const emoteUrl = data.e as string;
+      if (this._currentEmote !== emoteUrl) {
+        this._currentEmote = emoteUrl;
+        this._avatarInstance.setEmote(emoteUrl);
+      }
+    }
+
     // Call parent modify for standard properties (position, rotation, etc.)
     super.modify(data);
   }
@@ -1099,13 +1362,22 @@ export class MobEntity extends CombatantEntity {
    * Override destroy to clean up animations
    */
   override destroy(): void {
-    // Clean up animation mixer
+    // Unregister entity from hot updates
+    this.world.setHot(this, false);
+
+    // Clean up VRM instance
+    if (this._avatarInstance) {
+      this._avatarInstance.destroy();
+      this._avatarInstance = null;
+    }
+
+    // Clean up animation mixer (for GLB models)
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
     if (mixer) {
       mixer.stopAllAction();
       (this as { mixer?: THREE.AnimationMixer }).mixer = undefined;
     }
-    
+
     // Parent will handle mesh removal (mesh is child of node)
     super.destroy();
   }
