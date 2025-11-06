@@ -6,8 +6,8 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { OrbitControls } from 'three-stdlib'
+import { GLTFLoader } from 'three-stdlib'
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import styled from 'styled-components'
 import { retargetAnimation } from '../services/retargeting/AnimationRetargeting'
