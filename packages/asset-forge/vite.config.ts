@@ -16,7 +16,16 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime', 'three', '@react-three/fiber', '@react-three/drei'],
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+      'three',
+      '@react-three/fiber',
+      '@react-three/drei',
+      'three/addons/controls/OrbitControls.js',
+      'three/examples/jsm/loaders/GLTFLoader.js'
+    ],
     esbuildOptions: {
       resolveExtensions: ['.mjs', '.js', '.jsx', '.json', '.ts', '.tsx']
     }
