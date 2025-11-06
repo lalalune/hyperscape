@@ -27,7 +27,7 @@
     <script type="module">
       import * as THREE from "three";
       import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-      import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
+      import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
       import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
       import { VRMLoaderPlugin } from "@pixiv/three-vrm";
       import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
@@ -57,7 +57,7 @@
       window.MaterialLoader = THREE.MaterialLoader;
       window.TextureLoader = new THREE.TextureLoader();
       window.GLTFExporter = GLTFExporter;
-      window.HDRLoader = HDRLoader;
+      window.RGBELoader = RGBELoader;
       window.SkeletonUtils = SkeletonUtils;
     </script>
   </body>
