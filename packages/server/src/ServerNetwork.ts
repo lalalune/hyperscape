@@ -449,6 +449,22 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             console.log('[ServerNetwork] ✅ Found character:', characterData);
           } else {
             console.warn(`[ServerNetwork] ❌ Character ${characterId} not found for account ${accountId}`)
+            console.log('[ServerNetwork] 🎭 Auto-creating character with ID:', characterId);
+            // Auto-create the character if it doesn't exist
+            const created = await databaseSystem.createCharacter(accountId, characterId, 'Adventurer')
+            if (created) {
+              console.log('[ServerNetwork] ✅ Character auto-created successfully');
+              characterData = { id: characterId, name: 'Adventurer' }
+              name = 'Adventurer'
+            } else {
+              console.error('[ServerNetwork] ❌ Failed to auto-create character');
+              // Reject the enter world request
+              this.sendTo(socket.id, 'showToast', {
+                message: 'Failed to create character - please try again',
+                type: 'error'
+              })
+              return
+            }
           }
         }
       } catch (err) {
