@@ -2,7 +2,7 @@ import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 import Hls from 'hls.js/dist/hls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { GLTFParser } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { createEmoteFactory } from '../extras/createEmoteFactory'
 import { createNode } from '../extras/createNode'
 import { createVRMFactory } from '../extras/createVRMFactory'
@@ -51,7 +51,7 @@ function nodeToINode(node: Node): INode {
  * - **Avatars**: .vrm (VRM humanoid avatars with VRMLoaderPlugin)
  * - **Emotes**: .glb animations (retargetable to VRM skeletons)
  * - **Textures**: .jpg, .png, .webp (via TextureLoader)
- * - **HDR**: .hdr (RGBE environment maps via HDRLoader)
+ * - **HDR**: .hdr (RGBE environment maps via RGBELoader)
  * - **Images**: Raw image elements
  * - **Video**: .mp4, .webm, .m3u8 (HLS with hls.js polyfill)
  * - **Audio**: .mp3, .ogg, .wav (decoded via Web Audio API)
@@ -60,7 +60,7 @@ export class ClientLoader extends SystemBase {
   files: Map<string, File>
   promises: Map<string, Promise<LoaderResult>>
   results: Map<string, LoaderResult>
-  hdrLoader: HDRLoader
+  hdrLoader: RGBELoader
   texLoader: THREE.TextureLoader
   gltfLoader: GLTFLoader
   preloadItems: Array<{ type: string; url: string }> = []
@@ -71,7 +71,7 @@ export class ClientLoader extends SystemBase {
         this.files = new Map()
     this.promises = new Map()
     this.results = new Map()
-    this.hdrLoader = new HDRLoader()
+    this.hdrLoader = new RGBELoader()
     this.texLoader = new THREE.TextureLoader()
     this.gltfLoader = new GLTFLoader()
     // Register VRM loader plugin with proper parser typing
@@ -299,21 +299,6 @@ export class ClientLoader extends SystemBase {
           ...factoryBase,
           uid: file.name || `avatar_${Date.now()}`
         } as unknown as AvatarFactory;
-
-        // VALIDATION: Log avatar height for debugging
-        const factoryWithHeight = factoryBase as { create: (m: THREE.Matrix4, h: unknown) => { height: number; destroy?: () => void } }
-        // Create a temporary instance to get the height
-        const tempMatrix = new THREE.Matrix4()
-        const tempInstance = factoryWithHeight.create(tempMatrix, this.vrmHooks)
-        this.logger.info(`[ClientLoader] Loaded avatar: ${file.name}`)
-        this.logger.info(`[ClientLoader] Avatar height: ${tempInstance.height.toFixed(3)}m (expected: ~1.6m)`)
-        if (Math.abs(tempInstance.height - 1.6) > 0.2) {
-          this.logger.warn(`[ClientLoader] WARNING: Avatar height ${tempInstance.height.toFixed(3)}m deviates significantly from expected 1.6m!`)
-        }
-        // Clean up temp instance
-        if (tempInstance.destroy) {
-          tempInstance.destroy()
-        }
         const hooks = this.vrmHooks;
         const node = createNode('group', { id: '$root' });
         const node2 = createNode('avatar', { id: 'avatar', factory, hooks });
