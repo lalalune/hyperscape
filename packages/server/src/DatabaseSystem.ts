@@ -772,6 +772,119 @@ export class DatabaseSystem extends SystemBase {
   }
 
   // ============================================================================
+  // FACTION REPUTATION TRACKING
+  // ============================================================================
+  // Tracks player reputation with different factions in the game world.
+  // Used for faction-specific quests, dialogue, and rewards.
+
+  /**
+   * Initialize faction reputation for a new player
+   *
+   * Creates a new faction reputation record with all factions at 0 (neutral).
+   * Should be called when a player is first registered in the world.
+   * If the player already has faction reputation, this is a no-op.
+   *
+   * @param playerId - The player ID to initialize reputation for
+   */
+  async initializeFactionReputation(playerId: string): Promise<void> {
+    if (!this.db || this.isDestroying) {
+      return;
+    }
+
+    try {
+      await this.db
+        .insert(schema.playerFactions)
+        .values({
+          playerId,
+          harmonyCouncil: 0,
+          purists: 0,
+          freelancers: 0,
+          updatedAt: Date.now(),
+        })
+        .onConflictDoNothing(); // If already exists, do nothing
+    } catch (err) {
+      console.error('[DatabaseSystem] Error initializing faction reputation:', err);
+    }
+  }
+
+  /**
+   * Update faction reputation for a player
+   *
+   * Increments (or decrements if amount is negative) the reputation with a specific faction.
+   * Creates a reputation record if one doesn't exist yet.
+   * Uses PostgreSQL's ON CONFLICT to atomically update or insert.
+   *
+   * @param playerId - The player ID to update reputation for
+   * @param faction - The faction identifier (harmonyCouncil, purists, freelancers)
+   * @param amount - The amount to change reputation by (positive or negative)
+   */
+  async updateFactionReputation(playerId: string, faction: string, amount: number): Promise<void> {
+    if (!this.db || this.isDestroying) {
+      return;
+    }
+
+    // Build the update dynamically based on faction name
+    const factionField = faction as 'harmonyCouncil' | 'purists' | 'freelancers';
+
+    try {
+      // Try to insert first (in case it doesn't exist)
+      const initialValues = {
+        playerId,
+        harmonyCouncil: faction === 'harmonyCouncil' ? amount : 0,
+        purists: faction === 'purists' ? amount : 0,
+        freelancers: faction === 'freelancers' ? amount : 0,
+        updatedAt: Date.now(),
+      };
+
+      await this.db
+        .insert(schema.playerFactions)
+        .values(initialValues)
+        .onConflictDoUpdate({
+          target: schema.playerFactions.playerId,
+          set: {
+            [factionField]: sql`${schema.playerFactions[factionField]} + ${amount}`,
+            updatedAt: Date.now(),
+          },
+        });
+    } catch (err) {
+      console.error('[DatabaseSystem] Error updating faction reputation:', err);
+    }
+  }
+
+  /**
+   * Get faction reputation for a player
+   *
+   * Retrieves all faction reputation values for a player.
+   * Returns all zeros if the player has no faction reputation record yet.
+   *
+   * @param playerId - The player ID to get reputation for
+   * @returns Faction reputation object with harmonyCouncil, purists, freelancers values
+   */
+  async getFactionReputation(playerId: string): Promise<{
+    harmonyCouncil: number;
+    purists: number;
+    freelancers: number;
+  }> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const results = await this.db
+      .select({
+        harmonyCouncil: schema.playerFactions.harmonyCouncil,
+        purists: schema.playerFactions.purists,
+        freelancers: schema.playerFactions.freelancers,
+      })
+      .from(schema.playerFactions)
+      .where(eq(schema.playerFactions.playerId, playerId))
+      .limit(1);
+
+    if (results.length === 0) {
+      return { harmonyCouncil: 0, purists: 0, freelancers: 0 };
+    }
+
+    return results[0];
+  }
+
+  // ============================================================================
   // SYNCHRONOUS WRAPPER METHODS (LEGACY)
   // ============================================================================
   // These methods provide synchronous interfaces for backward compatibility.

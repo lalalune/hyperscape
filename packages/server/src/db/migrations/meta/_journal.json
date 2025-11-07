@@ -15,6 +15,13 @@
       "when": 1730688000000,
       "tag": "0001_add_npc_kills_table",
       "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1730851200000,
+      "tag": "0002_add_player_factions_table",
+      "breakpoints": false
     }
   ]
 }

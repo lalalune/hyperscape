@@ -366,7 +366,7 @@ export class Entities extends SystemBase implements IEntities {
         npcType: derivedNPCType,
         npcId: data.id,
         dialogueLines: ['Hello there!'],
-        services: [],
+        services: { enabled: false, types: [] },
         inventory: [],
         skillsOffered: [],
         questsAvailable: [],

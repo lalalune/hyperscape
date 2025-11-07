@@ -434,6 +434,98 @@ export const npcKills = pgTable('npc_kills', {
 }));
 
 /**
+ * Player Quests Table - Active and completed quests
+ *
+ * Tracks player quest progress for active quests.
+ * Each row represents one quest for one player.
+ *
+ * Key columns:
+ * - `id` - Auto-incrementing primary key
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `questId` - The quest identifier (e.g., "tutorial_welcome", "goblin_slayer_1")
+ * - `status` - Quest status ("active", "completed", "failed")
+ * - `objectives` - JSON string containing quest objective progress
+ * - `startedAt` - When quest was started (Unix milliseconds)
+ * - `completedAt` - When quest was completed (null if not completed)
+ *
+ * Design notes:
+ * - Unique constraint on (playerId, questId) ensures one active instance per player
+ * - objectives stored as JSONB for flexible querying
+ * - CASCADE DELETE ensures cleanup when character is deleted
+ * - Indexed on playerId for fast lookups of player quests
+ */
+export const playerQuests = pgTable('player_quests', {
+  id: serial('id').primaryKey(),
+  playerId: text('playerId').notNull().references(() => characters.id, { onDelete: 'cascade' }),
+  questId: text('questId').notNull(),
+  status: text('status').notNull().default('active'),
+  objectives: text('objectives').notNull(),
+  startedAt: bigint('startedAt', { mode: 'number' }).notNull(),
+  completedAt: bigint('completedAt', { mode: 'number' }),
+}, (table) => ({
+  playerQuestIdx: index('idx_player_quests_player').on(table.playerId),
+  uniquePlayerQuest: unique().on(table.playerId, table.questId),
+}));
+
+/**
+ * Quest History Table - Completed quests log
+ *
+ * Records all completed quests for analytics and achievements.
+ * This table maintains a permanent history of quest completions.
+ *
+ * Key columns:
+ * - `id` - Auto-incrementing primary key
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `questId` - The quest identifier
+ * - `questName` - Quest display name (stored for historical record)
+ * - `completedAt` - When quest was completed (Unix milliseconds)
+ * - `duration` - Time taken to complete quest (milliseconds)
+ * - `rewardsGiven` - JSON string of rewards granted
+ *
+ * Design notes:
+ * - No unique constraint (allows tracking repeated completions)
+ * - Indexed on playerId for analytics queries
+ * - CASCADE DELETE ensures cleanup when character is deleted
+ */
+export const questHistory = pgTable('quest_history', {
+  id: serial('id').primaryKey(),
+  playerId: text('playerId').notNull().references(() => characters.id, { onDelete: 'cascade' }),
+  questId: text('questId').notNull(),
+  questName: text('questName').notNull(),
+  completedAt: bigint('completedAt', { mode: 'number' }).notNull(),
+  duration: bigint('duration', { mode: 'number' }),
+  rewardsGiven: text('rewardsGiven'),
+}, (table) => ({
+  playerIdx: index('idx_quest_history_player').on(table.playerId),
+}));
+
+/**
+ * Player Factions Table - Faction reputation tracking
+ *
+ * Tracks player reputation with different factions in the game world.
+ * Used for faction-specific quests, dialogue, and rewards.
+ *
+ * Key columns:
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `harmonyCouncil` - Reputation with pro-agent faction (default 0)
+ * - `purists` - Reputation with anti-agent faction (default 0)
+ * - `freelancers` - Reputation with neutral faction (default 0)
+ *
+ * Design notes:
+ * - One row per player with all faction reputations
+ * - Reputation starts at 0 (neutral)
+ * - Positive values indicate favor, negative indicate hostility
+ * - CASCADE DELETE ensures cleanup when character is deleted
+ */
+export const playerFactions = pgTable('player_factions', {
+  playerId: text('playerId').primaryKey().references(() => characters.id, { onDelete: 'cascade' }),
+  harmonyCouncil: integer('harmonyCouncil').default(0).notNull(),
+  purists: integer('purists').default(0).notNull(),
+  freelancers: integer('freelancers').default(0).notNull(),
+  updatedAt: bigint('updatedAt', { mode: 'number' }).default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+});
+
+/**
  * ============================================================================
  * TABLE RELATIONS
  * ============================================================================
@@ -456,6 +548,9 @@ export const charactersRelations = relations(characters, ({ many }) => ({
   sessions: many(playerSessions),
   chunkActivities: many(chunkActivity),
   npcKills: many(npcKills),
+  quests: many(playerQuests),
+  questHistory: many(questHistory),
+  factions: many(playerFactions),
 }));
 
 export const inventoryRelations = relations(inventory, ({ one }) => ({
@@ -489,6 +584,27 @@ export const chunkActivityRelations = relations(chunkActivity, ({ one }) => ({
 export const npcKillsRelations = relations(npcKills, ({ one }) => ({
   character: one(characters, {
     fields: [npcKills.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const playerQuestsRelations = relations(playerQuests, ({ one }) => ({
+  character: one(characters, {
+    fields: [playerQuests.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const questHistoryRelations = relations(questHistory, ({ one }) => ({
+  character: one(characters, {
+    fields: [questHistory.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const playerFactionsRelations = relations(playerFactions, ({ one }) => ({
+  character: one(characters, {
+    fields: [playerFactions.playerId],
     references: [characters.id],
   }),
 }));

@@ -75,7 +75,7 @@ import {
   ControllerInterfaceSchema,
   ChatMessageDataSchema,
   type EventData,
-  type EntityData as ValidatedEntityData,
+  type EntityData,
   type EntityUpdate,
   type PlayerAppearance,
   type ControllerInterface,
@@ -124,26 +124,12 @@ import type {
   WorldConfig,
 } from "./types/core-types";
 
-/**
- * EntityData interface for agent-created entities
- * Defines the structure for entities the agent can spawn or modify
- */
-interface EntityData {
-  id: string;
-  type: string;
-  position?: [number, number, number] | { x: number; y: number; z: number };
-  quaternion?:
-    | [number, number, number, number]
-    | { x: number; y: number; z: number; w: number };
-  [key: string]: string | number | boolean | number[] | { x: number; y: number; z: number } | { x: number; y: number; z: number; w: number } | undefined;
-}
-
 import type { NetworkEventData } from "./types/event-types";
 import type { MockWorldConfig } from "./types/hyperscape-types";
 import { getModuleDirectory, hashFileBuffer } from "./utils";
 
 const moduleDirPath = getModuleDirectory();
-const LOCAL_AVATAR_PATH = `${moduleDirPath}/avatars/avatar.vrm`;
+const LOCAL_AVATAR_PATH = `${moduleDirPath}/.assets-repo/avatars/avatar.vrm`;
 
 import { AGENT_CONFIG, NETWORK_CONFIG } from "./config/constants";
 
@@ -454,11 +440,16 @@ Hyperscape world integration service that enables agents to:
       // Data is either a string reason or an object with reason property
       const reason = (data as { reason?: string }).reason || "Unknown reason";
       console.warn(`Hyperscape world disconnected: ${reason}`);
-      this.runtime.emitEvent(EventType.WORLD_LEFT, {
-        runtime: this.runtime,
+
+      // Validate event data with Zod schema
+      const eventData = EventDataSchema.parse({
+        runtime: this.runtime.agentId,
         eventName: "HYPERSCAPE_DISCONNECTED",
-        data: { worldId: this._currentWorldId, reason },
+        worldId: this._currentWorldId || "",
+        reason,
       });
+
+      this.runtime.emitEvent(EventType.WORLD_LEFT, eventData);
       this.handleDisconnect();
     });
 
@@ -573,14 +564,29 @@ Hyperscape world integration service that enables agents to:
           const appearanceComponent = entity.components.find(
             (c) => c.type === "appearance",
           );
+
+          // Validate full player data with PlayerDataExtendedSchema (includes appearance + inventory + effect)
+          const playerData = this.world.entities.player.data;
+          const validatedPlayerData = PlayerDataExtendedSchema.parse({
+            appearance: playerData.appearance || {},
+            inventory: playerData.inventory || { items: [] },
+            effect: playerData.effect || {},
+          });
+
           if (appearanceComponent) {
             appearanceComponent.data = {
-              appearance: this.world.entities.player.data.appearance,
+              appearance: validatedPlayerData.appearance,
+              inventory: validatedPlayerData.inventory,
+              effect: validatedPlayerData.effect,
             };
           } else {
             const newComponent: Partial<ElizaComponent> = {
               type: "appearance",
-              data: { appearance: this.world.entities.player.data.appearance },
+              data: {
+                appearance: validatedPlayerData.appearance,
+                inventory: validatedPlayerData.inventory,
+                effect: validatedPlayerData.effect,
+              },
             };
             entity.components.push(newComponent as ElizaComponent);
           }
@@ -718,15 +724,17 @@ Hyperscape world integration service that enables agents to:
     );
     await this.handleDisconnect();
 
-    // Assume emitEvent is a function - use Zod validated EventData
+    // Validate event data with Zod schema before emitting
+    const eventData = EventDataSchema.parse({
+      runtime: this.runtime.agentId,
+      worldId: this._currentWorldId || "",
+    });
+
     (
       this.runtime as {
         emitEvent: (type: EventType, data: EventData) => void;
       }
-    ).emitEvent(EventType.WORLD_LEFT, {
-      runtime: this.runtime.agentId,
-      worldId: this._currentWorldId,
-    });
+    ).emitEvent(EventType.WORLD_LEFT, eventData);
 
     this.world = null;
     this.isServiceConnected = false;
@@ -761,10 +769,13 @@ Hyperscape world integration service that enables agents to:
     (agentPlayer as ModifiablePlayer).modify({ name: newName });
     agentPlayer.data.name = newName;
 
-    this.world.network.send("entityModified", {
+    // Validate entity update with Zod schema before sending
+    const entityUpdate = EntityUpdateSchema.parse({
       id: agentPlayer.data.id,
-      name: newName,
+      data: { name: newName },
     });
+
+    this.world.network.send("entityModified", entityUpdate);
     console.debug(`[Action] Called agentPlayer.modify({ name: "${newName}" })`);
   }
 
@@ -813,7 +824,19 @@ Hyperscape world integration service that enables agents to:
         );
 
         newMessagesFound.forEach(async (msg: ChatMessage) => {
-          await this.messageManager.handleMessage(msg);
+          // Validate chat message with Zod schema before handling
+          try {
+            const validatedMsg = ChatMessageDataSchema.parse({
+              sender: msg.from || msg.fromId || msg.userName || msg.username || "unknown",
+              text: msg.text || msg.body || msg.message || "",
+              timestamp: msg.timestamp,
+              type: "chat",
+            });
+            console.debug("[Chat] Validated message:", validatedMsg);
+            await this.messageManager.handleMessage(msg);
+          } catch (err) {
+            console.error("[Chat] Message validation failed:", err);
+          }
         });
       }
     });
@@ -911,18 +934,17 @@ Hyperscape world integration service that enables agents to:
       }
     }
 
-    // Emit event for content loaded
-    this.runtime.emitEvent(EventType.WORLD_JOINED, {
-      runtime: this.runtime,
+    // Validate and emit event for content loaded
+    const loadEventData = EventDataSchema.parse({
+      runtime: this.runtime.agentId,
       eventName: "UGC_CONTENT_LOADED",
-      data: {
-        contentId: contentId,
-        contentName: contentBundle.name || contentId,
-        features: contentBundle.config?.features || {},
-        actionsCount: contentBundle.actions?.length || 0,
-        providersCount: contentBundle.providers?.length || 0,
-      },
+      contentId: contentId,
+      contentName: contentBundle.name || contentId,
+      actionsCount: contentBundle.actions?.length || 0,
+      providersCount: contentBundle.providers?.length || 0,
     });
+
+    this.runtime.emitEvent(EventType.WORLD_JOINED, loadEventData);
 
     console.info(
       `[HyperscapeService] UGC content ${contentId} loaded successfully`,
@@ -984,14 +1006,14 @@ Hyperscape world integration service that enables agents to:
 
     this.loadedContent.delete(contentId);
 
-    // Emit event for content unloaded
-    this.runtime.emitEvent(EventType.WORLD_LEFT, {
-      runtime: this.runtime,
+    // Validate and emit event for content unloaded
+    const unloadEventData = EventDataSchema.parse({
+      runtime: this.runtime.agentId,
       eventName: "UGC_CONTENT_UNLOADED",
-      data: {
-        contentId: contentId,
-      },
+      contentId: contentId,
     });
+
+    this.runtime.emitEvent(EventType.WORLD_LEFT, unloadEventData);
 
     console.info(
       `[HyperscapeService] UGC content ${contentId} unloaded successfully`,
@@ -1148,6 +1170,22 @@ Hyperscape world integration service that enables agents to:
             }
           };
 
+          // Validate controller implements ControllerInterface schema
+          const controllerInterface = {
+            walkToward: controller.walkToward,
+            move: controller.move,
+            position: controller.position,
+            velocity: controller.velocity,
+          };
+
+          try {
+            // Validate the controller interface conforms to schema
+            ControllerInterfaceSchema.parse(controllerInterface);
+            console.debug("[Physics] Controller validated successfully");
+          } catch (err) {
+            console.error("[Physics] Controller validation failed:", err);
+          }
+
           // Store controller for physics updates
           minimalWorld.physics!.controllers.set(controllerId, controller);
 
@@ -1288,11 +1326,31 @@ Hyperscape world integration service that enables agents to:
           // Handle both Entity objects and EntityData
           let entity: Entity;
           if (!(data instanceof Entity)) {
-            // Create a mock entity if data is EntityData
-            entity = {
+            // Normalize position to tuple format for validation
+            let positionTuple: [number, number, number] | undefined;
+            if (data.position) {
+              if (Array.isArray(data.position)) {
+                positionTuple = data.position;
+              } else if (typeof data.position === 'object' && 'x' in data.position) {
+                positionTuple = [data.position.x, data.position.y, data.position.z];
+              }
+            }
+
+            // Validate EntityData with Zod schema before creating entity
+            const validatedData = EntityDataSchema.parse({
               id: data.id || `entity-${Date.now()}`,
               type: data.type || "generic",
-              position: data.position || { x: 0, y: 0, z: 0 },
+              position: positionTuple,
+              name: data.name,
+              active: data.active,
+              visible: data.visible,
+            });
+
+            // Create a mock entity if data is EntityData
+            entity = {
+              id: validatedData.id,
+              type: validatedData.type,
+              position: validatedData.position ? { x: validatedData.position[0], y: validatedData.position[1], z: validatedData.position[2] } : { x: 0, y: 0, z: 0 },
               data: data,
             } as Entity;
           } else {

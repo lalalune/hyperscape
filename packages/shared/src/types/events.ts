@@ -268,6 +268,11 @@ export enum EventType {
   QUEST_STARTED = 'quest:started',
   QUEST_PROGRESSED = 'quest:progressed',
   QUEST_COMPLETED = 'quest:completed',
+  QUEST_START_REQUEST = 'quest:start_request',
+  QUEST_COMPLETE_REQUEST = 'quest:complete_request',
+
+  // Faction System
+  FACTION_REPUTATION_CHANGED = 'faction:reputation_changed',
 
   // Mob NPCs
   MOB_NPC_SPAWNED = 'mob_npc:spawned',
@@ -957,6 +962,12 @@ export interface EventMap {
   [EventType.MOB_NPC_RESPAWNED]: { mobId: string; position: Position3D };
   [EventType.NPC_TRAINER_OPEN]: { playerId: string; npcId: string; skillsOffered: string[] };
   [EventType.NPC_QUEST_OPEN]: { playerId: string; npcId: string; questsAvailable: string[] };
+  [EventType.QUEST_START_REQUEST]: { playerId: string; questId: string; npcId: string | null; timestamp: number };
+  [EventType.QUEST_COMPLETE_REQUEST]: { playerId: string; questId: string; timestamp: number };
+  [EventType.QUEST_STARTED]: { playerId: string; questId: string };
+  [EventType.QUEST_PROGRESSED]: { playerId: string; questId: string; progress: unknown };
+  [EventType.QUEST_COMPLETED]: { playerId: string; questId: string; rewards: unknown };
+  [EventType.FACTION_REPUTATION_CHANGED]: { playerId: string; faction: string; amount: number };
   [EventType.BANK_OPEN_REQUEST]: { playerId: string; npcId: string };
   [EventType.STORE_OPEN_REQUEST]: { playerId: string; npcId: string; inventory: unknown[] };
   [EventType.CORPSE_EMPTY]: { corpseId: string };

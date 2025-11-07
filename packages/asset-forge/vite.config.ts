@@ -11,12 +11,21 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
       'react': path.resolve(__dirname, '../../node_modules/react'),
       'react-dom': path.resolve(__dirname, '../../node_modules/react-dom'),
-      'react/jsx-runtime': path.resolve(__dirname, '../../node_modules/react/jsx-runtime'),
-      'three': path.resolve(__dirname, '../../node_modules/three')
+      'react/jsx-runtime': path.resolve(__dirname, '../../node_modules/react/jsx-runtime')
+      // Remove three alias - let Bun/Vite resolve it naturally
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime', 'three', '@react-three/fiber', '@react-three/drei'],
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+      'three',
+      '@react-three/fiber',
+      '@react-three/drei',
+      'three/addons/controls/OrbitControls.js',
+      'three/examples/jsm/loaders/GLTFLoader.js'
+    ],
     esbuildOptions: {
       resolveExtensions: ['.mjs', '.js', '.jsx', '.json', '.ts', '.tsx']
     }

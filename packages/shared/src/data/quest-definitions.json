@@ -1,0 +1,626 @@
+{
+  "quests": {
+    "tutorial_welcome": {
+      "id": "tutorial_welcome",
+      "name": "Welcome to Hyperscape",
+      "description": "Learn the basics of Hyperscape by talking to the Bank Clerk and exploring your surroundings.",
+      "category": "tutorial",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "bank_clerk_lumbridge",
+      "objectives": [
+        {
+          "id": "talk_to_clerk",
+          "type": "talk_to_npc",
+          "target": "bank_clerk_lumbridge",
+          "description": "Talk to the Bank Clerk",
+          "required": 1,
+          "current": 0
+        },
+        {
+          "id": "open_inventory",
+          "type": "reach_location",
+          "target": "starter_area",
+          "description": "Explore the starter area",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "attack": 50,
+          "defense": 50
+        },
+        "coins": 25,
+        "items": []
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "goblin_slayer_1": {
+      "id": "goblin_slayer_1",
+      "name": "Goblin Menace",
+      "description": "The town is being threatened by goblins. Help defend it by defeating 5 goblins in the nearby forest.",
+      "category": "combat",
+      "difficulty": 1,
+      "minLevel": 3,
+      "questGiver": "guard_captain",
+      "objectives": [
+        {
+          "id": "kill_goblins",
+          "type": "kill_mob",
+          "target": "goblin",
+          "description": "Defeat 5 goblins",
+          "required": 5,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "attack": 150,
+          "strength": 150,
+          "defense": 100
+        },
+        "coins": 100,
+        "items": [
+          {
+            "itemId": "bronze_sword",
+            "quantity": 1
+          }
+        ]
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "woodcutter_basics": {
+      "id": "woodcutter_basics",
+      "name": "Lumberjack's First Day",
+      "description": "Learn the art of woodcutting by gathering logs from trees. The local carpenter needs wood for repairs.",
+      "category": "gathering",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "master_carpenter",
+      "objectives": [
+        {
+          "id": "gather_logs",
+          "type": "gather_resource",
+          "target": "tree_normal",
+          "description": "Gather 10 logs from trees",
+          "required": 10,
+          "current": 0
+        },
+        {
+          "id": "return_to_carpenter",
+          "type": "talk_to_npc",
+          "target": "master_carpenter",
+          "description": "Return to the Master Carpenter",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "woodcutting": 200
+        },
+        "coins": 50,
+        "items": [
+          {
+            "itemId": "bronze_axe",
+            "quantity": 1
+          }
+        ]
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "fishing_introduction": {
+      "id": "fishing_introduction",
+      "name": "Gone Fishing",
+      "description": "The fishing master wants to teach you the basics of fishing. Catch some fish to prove your skills.",
+      "category": "gathering",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "fishing_master",
+      "objectives": [
+        {
+          "id": "catch_shrimp",
+          "type": "collect_item",
+          "target": "raw_shrimp",
+          "description": "Catch 5 raw shrimp",
+          "required": 5,
+          "current": 0
+        },
+        {
+          "id": "cook_shrimp",
+          "type": "collect_item",
+          "target": "cooked_shrimp",
+          "description": "Cook 3 shrimp",
+          "required": 3,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "fishing": 150,
+          "cooking": 100
+        },
+        "coins": 75,
+        "items": []
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "bandit_threat": {
+      "id": "bandit_threat",
+      "name": "Bandit Camp Raid",
+      "description": "A group of bandits has set up camp near the town. Eliminate their leader and bring back stolen goods.",
+      "category": "combat",
+      "difficulty": 2,
+      "minLevel": 10,
+      "questGiver": "town_mayor",
+      "objectives": [
+        {
+          "id": "kill_bandits",
+          "type": "kill_mob",
+          "target": "bandit",
+          "description": "Defeat 8 bandits",
+          "required": 8,
+          "current": 0
+        },
+        {
+          "id": "kill_bandit_leader",
+          "type": "kill_mob",
+          "target": "bandit_leader",
+          "description": "Defeat the Bandit Leader",
+          "required": 1,
+          "current": 0
+        },
+        {
+          "id": "collect_stolen_goods",
+          "type": "collect_item",
+          "target": "stolen_goods",
+          "description": "Recover the stolen goods",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "attack": 500,
+          "strength": 500,
+          "defense": 300
+        },
+        "coins": 500,
+        "items": [
+          {
+            "itemId": "iron_sword",
+            "quantity": 1
+          },
+          {
+            "itemId": "leather_armor",
+            "quantity": 1
+          }
+        ]
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "harmony_woodcutting": {
+      "id": "harmony_woodcutting",
+      "name": "Path of Patience",
+      "description": "Elder Thornwick teaches that woodcutting connects us to nature's cycles. Gather willow logs to learn this meditative art.",
+      "category": "gathering",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "elder_thornwick",
+      "faction": "harmonyCouncil",
+      "objectives": [
+        {
+          "id": "gather_willow",
+          "type": "gather_resource",
+          "target": "tree_willow",
+          "description": "Gather 15 willow logs",
+          "required": 15,
+          "current": 0
+        },
+        {
+          "id": "return_to_elder",
+          "type": "talk_to_npc",
+          "target": "elder_thornwick",
+          "description": "Return to Elder Thornwick",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "woodcutting": 250
+        },
+        "coins": 75,
+        "items": [],
+        "factionReputation": {
+          "harmonyCouncil": 50
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "harmony_fishing": {
+      "id": "harmony_fishing",
+      "name": "Flow of Life",
+      "description": "Fishing teaches us to work with the natural flow of life, not against it. Catch salmon to understand this harmony.",
+      "category": "gathering",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "elder_thornwick",
+      "faction": "harmonyCouncil",
+      "objectives": [
+        {
+          "id": "catch_salmon",
+          "type": "collect_item",
+          "target": "raw_salmon",
+          "description": "Catch 10 raw salmon",
+          "required": 10,
+          "current": 0
+        },
+        {
+          "id": "return_to_elder",
+          "type": "talk_to_npc",
+          "target": "elder_thornwick",
+          "description": "Return to Elder Thornwick",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "fishing": 300
+        },
+        "coins": 100,
+        "items": [
+          {
+            "itemId": "fishing_rod",
+            "quantity": 1
+          }
+        ],
+        "factionReputation": {
+          "harmonyCouncil": 50
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "harmony_firemaking": {
+      "id": "harmony_firemaking",
+      "name": "Sacred Flames",
+      "description": "The Harmony Council maintains sacred flames as symbols of enlightenment. Help tend these fires to spread their message of unity.",
+      "category": "gathering",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "elder_thornwick",
+      "faction": "harmonyCouncil",
+      "objectives": [
+        {
+          "id": "light_fires",
+          "type": "gather_resource",
+          "target": "fire",
+          "description": "Light 20 fires",
+          "required": 20,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "firemaking": 400
+        },
+        "coins": 125,
+        "items": [
+          {
+            "itemId": "tinderbox",
+            "quantity": 1
+          }
+        ],
+        "factionReputation": {
+          "harmonyCouncil": 75
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "purist_combat": {
+      "id": "purist_combat",
+      "name": "Trial of Strength",
+      "description": "Master Aldric demands you prove your worth in honest combat. Face the goblins with your own strength, no agent assistance.",
+      "category": "combat",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "master_aldric",
+      "faction": "purists",
+      "objectives": [
+        {
+          "id": "defeat_goblins",
+          "type": "kill_mob",
+          "target": "goblin",
+          "description": "Defeat 10 goblins in honorable combat",
+          "required": 10,
+          "current": 0
+        },
+        {
+          "id": "return_to_master",
+          "type": "talk_to_npc",
+          "target": "master_aldric",
+          "description": "Return to Master Aldric",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "attack": 200,
+          "strength": 200,
+          "defense": 150
+        },
+        "coins": 150,
+        "items": [
+          {
+            "itemId": "iron_sword",
+            "quantity": 1
+          }
+        ],
+        "factionReputation": {
+          "purists": 50
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "purist_cooking": {
+      "id": "purist_cooking",
+      "name": "Trial of Self-Sufficiency",
+      "description": "A true warrior provides for themselves. Catch fish and cook them yourself to prove your self-reliance.",
+      "category": "gathering",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "master_aldric",
+      "faction": "purists",
+      "objectives": [
+        {
+          "id": "catch_trout",
+          "type": "collect_item",
+          "target": "raw_trout",
+          "description": "Catch 8 raw trout",
+          "required": 8,
+          "current": 0
+        },
+        {
+          "id": "cook_trout",
+          "type": "collect_item",
+          "target": "cooked_trout",
+          "description": "Cook 8 trout",
+          "required": 8,
+          "current": 0
+        },
+        {
+          "id": "return_to_master",
+          "type": "talk_to_npc",
+          "target": "master_aldric",
+          "description": "Return to Master Aldric",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "fishing": 250,
+          "cooking": 250
+        },
+        "coins": 100,
+        "items": [],
+        "factionReputation": {
+          "purists": 50
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "purist_prayer": {
+      "id": "purist_prayer",
+      "name": "Trial of Faith",
+      "description": "Commune with the divine through your own spirit, not through agent guidance. Master prayer to prove your spiritual strength.",
+      "category": "social",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "master_aldric",
+      "faction": "purists",
+      "objectives": [
+        {
+          "id": "bury_bones",
+          "type": "collect_item",
+          "target": "bones_buried",
+          "description": "Bury 15 sets of bones",
+          "required": 15,
+          "current": 0
+        },
+        {
+          "id": "return_to_master",
+          "type": "talk_to_npc",
+          "target": "master_aldric",
+          "description": "Return to Master Aldric",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "prayer": 500
+        },
+        "coins": 200,
+        "items": [],
+        "factionReputation": {
+          "purists": 75
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "freelancer_gathering": {
+      "id": "freelancer_gathering",
+      "name": "Practical Lumber",
+      "description": "Warden Lyssa needs oak logs for town repairs. No philosophy required - just get the job done.",
+      "category": "gathering",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "warden_lyssa",
+      "faction": "freelancers",
+      "objectives": [
+        {
+          "id": "gather_oak",
+          "type": "gather_resource",
+          "target": "tree_oak",
+          "description": "Gather 20 oak logs",
+          "required": 20,
+          "current": 0
+        },
+        {
+          "id": "return_to_warden",
+          "type": "talk_to_npc",
+          "target": "warden_lyssa",
+          "description": "Return to Warden Lyssa",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "woodcutting": 350
+        },
+        "coins": 150,
+        "items": [
+          {
+            "itemId": "steel_axe",
+            "quantity": 1
+          }
+        ],
+        "factionReputation": {
+          "freelancers": 50
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "freelancer_hunting": {
+      "id": "freelancer_hunting",
+      "name": "Practical Hunting",
+      "description": "The town needs meat. Hunt chickens or rabbits - Warden Lyssa doesn't care which, as long as you get results.",
+      "category": "combat",
+      "difficulty": 1,
+      "minLevel": 1,
+      "questGiver": "warden_lyssa",
+      "faction": "freelancers",
+      "objectives": [
+        {
+          "id": "hunt_animals",
+          "type": "kill_mob",
+          "target": "chicken",
+          "description": "Hunt 15 chickens or rabbits",
+          "required": 15,
+          "current": 0
+        },
+        {
+          "id": "collect_meat",
+          "type": "collect_item",
+          "target": "raw_chicken",
+          "description": "Collect 10 pieces of raw meat",
+          "required": 10,
+          "current": 0
+        },
+        {
+          "id": "return_to_warden",
+          "type": "talk_to_npc",
+          "target": "warden_lyssa",
+          "description": "Return to Warden Lyssa",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "attack": 150,
+          "strength": 150,
+          "constitution": 100
+        },
+        "coins": 100,
+        "items": [],
+        "factionReputation": {
+          "freelancers": 50
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    },
+    "freelancer_versatility": {
+      "id": "freelancer_versatility",
+      "name": "Prove Your Worth",
+      "description": "Warden Lyssa needs versatile people who can handle anything. Prove you can fight, gather, and adapt.",
+      "category": "exploration",
+      "difficulty": 2,
+      "minLevel": 3,
+      "questGiver": "warden_lyssa",
+      "faction": "freelancers",
+      "objectives": [
+        {
+          "id": "defeat_enemies",
+          "type": "kill_mob",
+          "target": "goblin",
+          "description": "Defeat 5 enemies",
+          "required": 5,
+          "current": 0
+        },
+        {
+          "id": "gather_resources",
+          "type": "gather_resource",
+          "target": "tree_normal",
+          "description": "Gather 10 logs",
+          "required": 10,
+          "current": 0
+        },
+        {
+          "id": "catch_fish",
+          "type": "collect_item",
+          "target": "raw_shrimp",
+          "description": "Catch 5 fish",
+          "required": 5,
+          "current": 0
+        },
+        {
+          "id": "return_to_warden",
+          "type": "talk_to_npc",
+          "target": "warden_lyssa",
+          "description": "Return to Warden Lyssa",
+          "required": 1,
+          "current": 0
+        }
+      ],
+      "rewards": {
+        "xp": {
+          "attack": 200,
+          "strength": 200,
+          "woodcutting": 200,
+          "fishing": 200
+        },
+        "coins": 250,
+        "items": [
+          {
+            "itemId": "steel_sword",
+            "quantity": 1
+          }
+        ],
+        "factionReputation": {
+          "freelancers": 100
+        }
+      },
+      "isRepeatable": false,
+      "autoComplete": false
+    }
+  }
+}

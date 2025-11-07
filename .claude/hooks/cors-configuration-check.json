@@ -1,0 +1,7 @@
+{
+  "name": "cors-configuration-check",
+  "event": "user-prompt-submit",
+  "description": "Validates CORS configuration for APIs",
+  "enabled": true,
+  "prompt": "When configuring or deploying APIs, validate CORS settings:\n\n```\n🌐 CORS CONFIGURATION CHECK\n\nCurrent CORS Configuration:\n\nOrigin: [value]\nMethods: [list]\nHeaders: [list]\nCredentials: [true/false]\n\n⚠️  SECURITY ISSUES:\n\n1. Wildcard Origin with Credentials\n   Current: origin: '*', credentials: true\n   Risk: CRITICAL\n   Issue: Allows any origin to make authenticated requests\n\n   Fix:\n   ❌ app.use(cors({ origin: '*', credentials: true }))\n   ✅ app.use(cors({\n       origin: ['https://app.example.com'],\n       credentials: true\n     }))\n\n2. Overly Permissive Methods\n   Current: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']\n   Risk: MEDIUM\n   Recommendation: Only allow needed methods\n\n3. Exposed Sensitive Headers\n   Current: Exposes Authorization headers\n   Risk: MEDIUM\n\nRecommended Configuration:\n\nProduction:\n```javascript\napp.use(cors({\n  origin: process.env.ALLOWED_ORIGINS.split(','),\n  methods: ['GET', 'POST'],\n  allowedHeaders: ['Content-Type'],\n  credentials: true,\n  maxAge: 86400\n}));\n```\n\nDevelopment:\n```javascript\nif (process.env.NODE_ENV !== 'production') {\n  app.use(cors());\n}\n```\n\nProceed with current CORS config? (yes/no/fix)\n```"
+}

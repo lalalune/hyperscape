@@ -82,6 +82,7 @@ export * from './events';
 export * from './identifiers';
 export * from './networking';
 export * from './nodes';
+export * from './quest';
 
 // Import AvatarFactory from nodes for use in LoadedAvatar type below
 import type { AvatarFactory as AvatarFactoryType } from './nodes';

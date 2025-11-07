@@ -196,7 +196,30 @@ export interface NPCEntityConfig extends EntityConfig<NPCEntityProperties> {
   npcType: NPCType;
   npcId: string;
   dialogueLines: string[];
-  services: string[];
+  services: {
+    enabled?: boolean;
+    types?: string[];
+    shopInventory?: Array<{
+      itemId: string;
+      quantity: number;
+      price: number;
+    }>;
+    dialogue?: {
+      entryNodeId: string;
+      nodes: Array<{
+        id: string;
+        text: string;
+        responses: Array<{
+          text: string;
+          nextNodeId: string | null;
+          icon?: string;
+          action?: string;
+          questId?: string;
+        }>;
+      }>;
+    };
+    questIds?: string[];
+  };
   inventory: Array<{
     itemId: string;
     quantity: number;

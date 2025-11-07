@@ -1,0 +1,7 @@
+{
+  "name": "security-headers-check",
+  "event": "user-prompt-submit",
+  "description": "Ensures security headers are configured for web apps",
+  "enabled": true,
+  "prompt": "When deploying web applications, check security headers:\n\n```\n🛡️  SECURITY HEADERS CHECK\n\nChecking web server configuration...\n\nRequired Security Headers:\n\n❌ Missing:\n  • Content-Security-Policy\n  • X-Frame-Options\n  • X-Content-Type-Options\n\n✓ Present:\n  • Strict-Transport-Security\n\nRecommended Configuration:\n\nContent-Security-Policy:\n  default-src 'self';\n  script-src 'self' 'unsafe-inline' 'unsafe-eval';\n  style-src 'self' 'unsafe-inline';\n  img-src 'self' data: https:;\n\nX-Frame-Options: DENY\n\nX-Content-Type-Options: nosniff\n\nReferrer-Policy: strict-origin-when-cross-origin\n\nPermissions-Policy:\n  geolocation=(),\n  microphone=(),\n  camera=()\n\nImplementation:\n[Provide framework-specific code]\n\nProceed without security headers? (yes/no)\n```"
+}

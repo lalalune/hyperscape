@@ -1012,7 +1012,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   getAvatarUrl(): string {
-    return (this.data.sessionAvatar as string) || (this.data.avatar as string) || 'asset://avatar.vrm'
+    return (this.data.sessionAvatar as string) || (this.data.avatar as string) || '/Users/home/hype/hyperscape/assets/avatar.vrm'
   }
 
   async applyAvatar(): Promise<void> {

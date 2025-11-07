@@ -1004,7 +1004,7 @@ export class EntityManager extends SystemBase {
       npcType: this.mapTypeToNPCType(data.type),
       npcId: data.npcId,
       dialogueLines: [],
-      services: data.services || [],
+      services: { enabled: true, types: data.services || [] },
       inventory: [],
       skillsOffered: [],
       questsAvailable: [],
