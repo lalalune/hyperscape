@@ -113,6 +113,7 @@ export class MobEntity extends CombatantEntity {
   private lastAttackerId: string | null = null;
   private _avatarInstance: VRMAvatarInstance | null = null;
   private _currentEmote: string | null = null;
+  private _serverEmote: string | null = null; // Server-forced one-shot emote (e.g., combat)
   private _manualEmoteOverrideUntil: number = 0; // Timestamp until which manual emote override is active
   private _tempMatrix = new THREE.Matrix4();
   private _tempScale = new THREE.Vector3(1, 1, 1);
@@ -693,6 +694,11 @@ export class MobEntity extends CombatantEntity {
 
     // VRM path: Use avatar instance update (handles everything)
     if (this._avatarInstance) {
+      // DEBUG: Log animation state every 60 frames (~1 second)
+      if (this.clientUpdateCalls % 60 === 0) {
+        console.log(`[MobEntity] Animation debug: aiState=${this.config.aiState}, currentEmote=${this._currentEmote}, targetEmote=${this.getEmoteForAIState(this.config.aiState)}, override=${this._manualEmoteOverrideUntil}, now=${Date.now()}`);
+      }
+
       // Skip AI-based emote updates if manual override is active (for one-shot attack animations)
       const now = Date.now();
       if (now >= this._manualEmoteOverrideUntil) {
@@ -892,8 +898,15 @@ export class MobEntity extends CombatantEntity {
 
     // Check for nearby players every tick (RuneScape-style: instant aggro detection)
     const nearbyPlayer = this.findNearbyPlayer();
+
+    // DEBUG: Log player detection attempts periodically
+    if (this._stateLogCounter % 60 === 0) {
+      const players = this.world.getPlayers();
+      console.log(`[MobEntity] IDLE state player check: found ${players.length} players, nearbyPlayer=${nearbyPlayer ? nearbyPlayer.id : 'null'}, aggroRange=${this.config.aggroRange}`);
+    }
+
     if (nearbyPlayer) {
-      console.log(`[MobEntity] ${this.config.mobType} detected player, switching to CHASE`);
+      console.log(`[MobEntity] ${this.config.mobType} detected player in IDLE, switching to CHASE`);
       this.config.targetPlayerId = nearbyPlayer.id;
       this.config.aiState = MobAIState.CHASE;
       this.world.emit(EventType.MOB_NPC_AGGRO, {
@@ -1119,6 +1132,7 @@ export class MobEntity extends CombatantEntity {
       console.log(`[MobEntity] ${this.config.mobType} reached spawn, switching to IDLE (2D distance: ${spawnDistance.toFixed(3)})`);
       this.config.aiState = MobAIState.IDLE;
       this.config.currentHealth = this.config.maxHealth;
+      this.config.lastAttackTime = 0; // Reset attack cooldown for next combat
       this._stuckTimer = 0;
       this._lastPosition = null;
       this._idleStartTime = 0; // Force fresh idle state
@@ -1508,12 +1522,23 @@ export class MobEntity extends CombatantEntity {
       targetPlayerId: this.config.targetPlayerId
     };
 
-    // Include emote if using VRM
-    if (this._avatarInstance && this._currentEmote) {
-      networkData.e = this._currentEmote;
+    // Only broadcast server-forced emotes (e.g., one-shot combat animation)
+    // After broadcasting once, clear it so we don't spam it every frame
+    if (this._serverEmote) {
+      networkData.e = this._serverEmote;
+      this._serverEmote = null; // Clear after sending once
     }
 
     return networkData;
+  }
+
+  /**
+   * Set a one-shot emote from server (e.g., combat animation)
+   * This will be broadcast once, then cleared automatically
+   */
+  setServerEmote(emote: string): void {
+    this._serverEmote = emote;
+    this.markNetworkDirty();
   }
   
   /**

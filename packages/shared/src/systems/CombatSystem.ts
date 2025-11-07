@@ -573,21 +573,12 @@ export class CombatSystem extends SystemBase {
         console.log(`[CombatSystem] Set COMBAT emote for player ${entityId}`);
       }
     } else if (entityType === "mob") {
-      // For mobs, override the AI state emote temporarily for one-shot attack animation
+      // For mobs, send one-shot combat animation via setServerEmote()
+      // This will be broadcast once, then client returns to AI-state-based animation
       const mobEntity = this.world.entities.get(entityId);
-      if (mobEntity) {
-        // Set combat emote URL (not just string 'combat')
-        if ((mobEntity as any).emote !== undefined) {
-          (mobEntity as any).emote = Emotes.COMBAT;
-        }
-        if ((mobEntity as any).data) {
-          (mobEntity as any).data.e = Emotes.COMBAT;
-        }
-        if ((mobEntity as any).avatar?.setEmote) {
-          (mobEntity as any).avatar.setEmote(Emotes.COMBAT);
-        }
-        (mobEntity as any).markNetworkDirty?.();
-        console.log(`[CombatSystem] Set COMBAT emote for mob ${entityId}`);
+      if (mobEntity && typeof (mobEntity as any).setServerEmote === 'function') {
+        (mobEntity as any).setServerEmote(Emotes.COMBAT);
+        console.log(`[CombatSystem] Set one-shot COMBAT emote for mob ${entityId}`);
       }
     }
   }
@@ -611,21 +602,11 @@ export class CombatSystem extends SystemBase {
         console.log(`[CombatSystem] Reset to IDLE emote for player ${entityId}`);
       }
     } else if (entityType === "mob") {
-      const mobEntity = this.world.entities.get(entityId);
-      if (mobEntity) {
-        // Reset to idle URL (not just string 'idle')
-        if ((mobEntity as any).emote !== undefined) {
-          (mobEntity as any).emote = Emotes.IDLE;
-        }
-        if ((mobEntity as any).data) {
-          (mobEntity as any).data.e = Emotes.IDLE;
-        }
-        if ((mobEntity as any).avatar?.setEmote) {
-          (mobEntity as any).avatar.setEmote(Emotes.IDLE);
-        }
-        (mobEntity as any).markNetworkDirty?.();
-        console.log(`[CombatSystem] Reset to IDLE emote for mob ${entityId}`);
-      }
+      // DON'T reset mob emotes - let client's AI-state-based animation handle it
+      // Mobs use AI state (IDLE, WANDER, CHASE, ATTACK) to determine animations
+      // Resetting to idle here overrides the client's walk animation
+      // The manual override in MobEntity expires after 700ms, naturally returning to AI-state animation
+      console.log(`[CombatSystem] Skipping idle reset for mob ${entityId} (AI state controls animation)`);
     }
   }
 
