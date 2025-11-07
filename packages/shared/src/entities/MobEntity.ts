@@ -705,11 +705,30 @@ export class MobEntity extends CombatantEntity {
         }
       }
 
+      // COMBAT ROTATION: Rotate to face target when in ATTACK state (RuneScape-style)
+      if (this.config.aiState === MobAIState.ATTACK && this.config.targetPlayerId) {
+        const targetPlayer = this.world.getPlayer?.(this.config.targetPlayerId);
+        if (targetPlayer && targetPlayer.position) {
+          const dx = targetPlayer.position.x - this.position.x;
+          const dz = targetPlayer.position.z - this.position.z;
+          let angle = Math.atan2(dx, dz);
+
+          // VRM 1.0+ models have 180° base rotation, so we need to compensate
+          // Otherwise entities face AWAY from each other instead of towards
+          angle += Math.PI;
+
+          // Apply rotation to node quaternion
+          const tempQuat = new THREE.Quaternion();
+          tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+          this.node.quaternion.copy(tempQuat);
+        }
+      }
+
       // CRITICAL: Snap to terrain EVERY frame (server doesn't have terrain system)
       // Keep trying until terrain tile is generated, then snap every frame
-      // EXCEPT during ATTACK state to preserve animation root motion
+      // This also counteracts VRM animation root motion that would push character into ground
       const terrain = this.world.getSystem('terrain');
-      if (terrain && 'getHeightAt' in terrain && this.config.aiState !== MobAIState.ATTACK) {
+      if (terrain && 'getHeightAt' in terrain) {
         try {
           // CRITICAL: Must call method on terrain object to preserve 'this' context
           const terrainHeight = (terrain as { getHeightAt: (x: number, z: number) => number }).getHeightAt(this.node.position.x, this.node.position.z);
@@ -740,6 +759,25 @@ export class MobEntity extends CombatantEntity {
 
       // Update VRM animations (mixer + humanoid + skeleton)
       this._avatarInstance.update(deltaTime);
+
+      // CRITICAL: Re-snap to terrain AFTER animation update to counteract root motion
+      // Animation root motion can push character down/back, so we fix position after it applies
+      if (terrain && 'getHeightAt' in terrain) {
+        try {
+          const terrainHeight = (terrain as { getHeightAt: (x: number, z: number) => number }).getHeightAt(this.node.position.x, this.node.position.z);
+          if (Number.isFinite(terrainHeight)) {
+            this.node.position.y = terrainHeight + 0.1;
+            this.position.y = terrainHeight + 0.1;
+
+            // CRITICAL: Update matrices and call move() again to apply corrected Y position to VRM
+            this.node.updateMatrix();
+            this.node.updateMatrixWorld(true);
+            this._avatarInstance.move(this.node.matrixWorld);
+          }
+        } catch (err) {
+          // Terrain tile not generated yet
+        }
+      }
 
       // VRM handles all animation internally
       return;
@@ -1045,6 +1083,20 @@ export class MobEntity extends CombatantEntity {
   }
 
   private handleReturnState(deltaTime: number): void {
+    // Check for nearby players even while returning (RuneScape-style: re-aggro if player comes back)
+    const nearbyPlayer = this.findNearbyPlayer();
+    if (nearbyPlayer) {
+      console.log(`[MobEntity] ${this.config.mobType} detected player while returning, re-aggroing`);
+      this.config.targetPlayerId = nearbyPlayer.id;
+      this.config.aiState = MobAIState.CHASE;
+      this.world.emit(EventType.MOB_NPC_AGGRO, {
+        mobId: this.id,
+        targetId: nearbyPlayer.id
+      });
+      this.markNetworkDirty();
+      return;
+    }
+
     // Use 2D distance (XZ only) for spawn checks to avoid Y terrain height issues
     const spawnDistance = this.getDistance2D(this.config.spawnPoint);
 
