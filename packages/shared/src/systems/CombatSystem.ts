@@ -488,19 +488,25 @@ export class CombatSystem extends SystemBase {
   private syncCombatStateToEntity(entityId: string, targetId: string, entityType: "player" | "mob"): void {
     if (entityType === "player") {
       const playerEntity = this.world.getPlayer?.(entityId);
+      console.log(`[CombatSystem] syncCombatStateToPlayer called for ${entityId}, found player:`, !!playerEntity);
       if (playerEntity && (playerEntity as any).combat) {
         // Set combat state so client knows we're in combat
         (playerEntity as any).combat.inCombat = true;
         (playerEntity as any).combat.combatTarget = targetId;
 
+        console.log(`[CombatSystem] Set combat object: inCombat=${(playerEntity as any).combat.inCombat}, target=${(playerEntity as any).combat.combatTarget}`);
+
         // Also set in data for network sync
         if ((playerEntity as any).data) {
           (playerEntity as any).data.inCombat = true;
           (playerEntity as any).data.combatTarget = targetId;
+          console.log(`[CombatSystem] Set data object: inCombat=${(playerEntity as any).data.inCombat}, target=${(playerEntity as any).data.combatTarget}`);
+        } else {
+          console.warn(`[CombatSystem] Player ${entityId} has no data object!`);
         }
 
         (playerEntity as any).markNetworkDirty?.();
-        console.log(`[CombatSystem] Synced combat state to player ${entityId}: inCombat=true, target=${targetId}`);
+        console.log(`[CombatSystem] Called markNetworkDirty for player ${entityId}`);
       }
     }
   }
@@ -647,7 +653,11 @@ export class CombatSystem extends SystemBase {
     // Calculate angle to target (XZ plane only)
     const dx = targetPos.x - entityPos.x;
     const dz = targetPos.z - entityPos.z;
-    const angle = Math.atan2(dx, dz);
+    let angle = Math.atan2(dx, dz);
+
+    // VRM 1.0+ models have 180° base rotation, so we need to compensate
+    // Otherwise entities face AWAY from each other instead of towards
+    angle += Math.PI;
 
     // Set rotation differently based on entity type
     if (entityType === "player" && (entity as any).base?.quaternion) {
@@ -996,6 +1006,9 @@ export class CombatSystem extends SystemBase {
 
     // All checks passed - execute auto-attack
     console.log(`[CombatSystem] ⚔️ Executing auto-attack: ${combatState.attackerType} ${attackerId} → ${combatState.targetType} ${targetId}`);
+
+    // Note: Rotation handled client-side in PlayerLocal/PlayerRemote/MobEntity clientUpdate
+    // They check inCombat/combatTarget and rotate every frame for smooth tracking
 
     // Play attack animation once (will reset to idle after 600ms)
     this.setCombatEmote(attackerId, combatState.attackerType);

@@ -1601,20 +1601,43 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
-    if (this.combat.inCombat && this.combat.combatTarget) {
-      const targetEntity = this.world.entities.get(this.combat.combatTarget) || this.world.getPlayer?.(this.combat.combatTarget);
-      if (targetEntity && targetEntity.position) {
-        // Calculate angle to target (XZ plane only, like RuneScape)
-        const dx = targetEntity.position.x - this.position.x;
-        const dz = targetEntity.position.z - this.position.z;
-        const angle = Math.atan2(dx, dz);
+    // Check if any nearby mobs are targeting us (since combat state isn't synced from server)
+    let combatTarget: { position: { x: number; z: number }; id: string } | null = null;
 
-        // Apply instant rotation (RuneScape doesn't lerp combat rotation)
-        if (this.base) {
-          const tempQuat = new THREE.Quaternion();
-          tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-          this.base.quaternion.copy(tempQuat);
+    // Look for mobs that are attacking us
+    for (const entity of this.world.entities.items.values()) {
+      if (entity.type === 'mob' && entity.position) {
+        const mobEntity = entity as any;
+        // Check if mob is in ATTACK state and targeting this player
+        if (mobEntity.config?.aiState === 'attack' && mobEntity.config?.targetPlayerId === this.id) {
+          const dx = entity.position.x - this.position.x;
+          const dz = entity.position.z - this.position.z;
+          const distance2D = Math.sqrt(dx * dx + dz * dz);
+
+          // Only rotate if mob is within reasonable combat range
+          if (distance2D <= 3) {
+            combatTarget = { position: entity.position, id: entity.id };
+            break; // Only face one mob at a time
+          }
         }
+      }
+    }
+
+    if (combatTarget) {
+      // Calculate angle to target (XZ plane only, like RuneScape)
+      const dx = combatTarget.position.x - this.position.x;
+      const dz = combatTarget.position.z - this.position.z;
+      let angle = Math.atan2(dx, dz);
+
+      // VRM 1.0+ models have 180° base rotation, so we need to compensate
+      // Otherwise entities face AWAY from each other instead of towards
+      angle += Math.PI;
+
+      // Apply instant rotation (RuneScape doesn't lerp combat rotation)
+      if (this.base) {
+        const tempQuat = new THREE.Quaternion();
+        tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+        this.base.quaternion.copy(tempQuat);
       }
     }
 
