@@ -113,10 +113,26 @@ export class MobEntity extends CombatantEntity {
   private lastAttackerId: string | null = null;
   private _avatarInstance: VRMAvatarInstance | null = null;
   private _currentEmote: string | null = null;
+  private _manualEmoteOverrideUntil: number = 0; // Timestamp until which manual emote override is active
   private _tempMatrix = new THREE.Matrix4();
   private _tempScale = new THREE.Vector3(1, 1, 1);
   private _terrainWarningLogged = false;
   private _hasValidTerrainHeight = false;
+
+  // RuneScape-style AI timing and behavior
+  private _idleStartTime = 0;
+  private _idleDuration = 0;
+  private _wanderTarget: { x: number; z: number } | null = null;
+  private _lastPosition: THREE.Vector3 | null = null;
+  private _stuckTimer = 0;
+
+  // RuneScape behavior constants
+  private readonly IDLE_MIN_DURATION = 3000;    // 3 seconds minimum idle
+  private readonly IDLE_MAX_DURATION = 8000;    // 8 seconds maximum idle
+  private readonly WANDER_MIN_DISTANCE = 1;     // Minimum wander distance
+  private readonly WANDER_MAX_DISTANCE = 5;     // Maximum wander distance
+  private readonly STUCK_TIMEOUT = 3000;        // Give up after 3 seconds stuck
+  private readonly RETURN_TELEPORT_DISTANCE = 50; // Teleport if somehow this far from spawn
 
   async init(): Promise<void> {
     await super.init();
@@ -599,13 +615,15 @@ export class MobEntity extends CombatantEntity {
    */
   private getEmoteForAIState(aiState: MobAIState): string {
     switch (aiState) {
-      case MobAIState.PATROL:
+      case MobAIState.WANDER:
       case MobAIState.CHASE:
         return Emotes.WALK;
       case MobAIState.ATTACK:
-        return Emotes.IDLE; // TODO: Add attack emote when available
-      case MobAIState.FLEE:
-        return Emotes.RUN;
+        // Return IDLE for attack state - CombatSystem handles one-shot attack animations
+        // This prevents AI from continuously looping the combat animation
+        return Emotes.IDLE;
+      case MobAIState.RETURN:
+        return Emotes.WALK; // Walk back to spawn
       case MobAIState.DEAD:
         return Emotes.IDLE; // Dead state doesn't need animation
       case MobAIState.IDLE:
@@ -640,12 +658,13 @@ export class MobEntity extends CombatantEntity {
     // Determine which animation should be playing based on AI state
     let targetClip: THREE.AnimationClip | undefined;
 
-    if (this.config.aiState === MobAIState.PATROL ||
-        this.config.aiState === MobAIState.CHASE) {
+    if (this.config.aiState === MobAIState.WANDER ||
+        this.config.aiState === MobAIState.CHASE ||
+        this.config.aiState === MobAIState.RETURN) {
       // Moving states - play walk animation
       targetClip = clips.walk || clips.idle;
     } else {
-      // Idle, attack, flee, or dead - play idle animation
+      // Idle, attack, or dead - play idle animation
       targetClip = clips.idle || clips.walk;
     }
 
@@ -674,18 +693,23 @@ export class MobEntity extends CombatantEntity {
 
     // VRM path: Use avatar instance update (handles everything)
     if (this._avatarInstance) {
-      // Switch animation based on AI state (walk when patrolling/chasing, idle otherwise)
-      const targetEmote = this.getEmoteForAIState(this.config.aiState);
-      if (this._currentEmote !== targetEmote) {
-        console.log(`[MobEntity] Switching emote from ${this._currentEmote} to ${targetEmote} (AI state: ${this.config.aiState})`);
-        this._currentEmote = targetEmote;
-        this._avatarInstance.setEmote(targetEmote);
+      // Skip AI-based emote updates if manual override is active (for one-shot attack animations)
+      const now = Date.now();
+      if (now >= this._manualEmoteOverrideUntil) {
+        // Switch animation based on AI state (walk when patrolling/chasing, idle otherwise)
+        const targetEmote = this.getEmoteForAIState(this.config.aiState);
+        if (this._currentEmote !== targetEmote) {
+          console.log(`[MobEntity] Switching emote from ${this._currentEmote} to ${targetEmote} (AI state: ${this.config.aiState})`);
+          this._currentEmote = targetEmote;
+          this._avatarInstance.setEmote(targetEmote);
+        }
       }
 
       // CRITICAL: Snap to terrain EVERY frame (server doesn't have terrain system)
       // Keep trying until terrain tile is generated, then snap every frame
+      // EXCEPT during ATTACK state to preserve animation root motion
       const terrain = this.world.getSystem('terrain');
-      if (terrain && 'getHeightAt' in terrain) {
+      if (terrain && 'getHeightAt' in terrain && this.config.aiState !== MobAIState.ATTACK) {
         try {
           // CRITICAL: Must call method on terrain object to preserve 'this' context
           const terrainHeight = (terrain as { getHeightAt: (x: number, z: number) => number }).getHeightAt(this.node.position.x, this.node.position.z);
@@ -775,15 +799,32 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
+  private _lastLoggedState: MobAIState | null = null;
+  private _stateLogCounter = 0;
+
   private updateAI(deltaTime: number): void {
     const now = this.world.getTime();
+
+    // Log state changes
+    if (this.config.aiState !== this._lastLoggedState) {
+      console.log(`[MobEntity] ${this.config.mobType} state: ${this._lastLoggedState} → ${this.config.aiState}`);
+      this._lastLoggedState = this.config.aiState;
+      this._stateLogCounter = 0;
+    }
+
+    // Log periodically in same state to detect stuck loops
+    this._stateLogCounter++;
+    if (this._stateLogCounter % 60 === 0) { // Every ~1 second at 60fps
+      const pos = this.getPosition();
+      console.log(`[MobEntity] ${this.config.mobType} still in ${this.config.aiState} state (pos: ${pos.x.toFixed(1)}, ${pos.z.toFixed(1)})`);
+    }
 
     switch (this.config.aiState) {
       case MobAIState.IDLE:
         this.handleIdleState();
         break;
-      case MobAIState.PATROL:
-        this.handlePatrolState(deltaTime);
+      case MobAIState.WANDER:
+        this.handleWanderState(deltaTime);
         break;
       case MobAIState.CHASE:
         this.handleChaseState(deltaTime);
@@ -791,8 +832,8 @@ export class MobEntity extends CombatantEntity {
       case MobAIState.ATTACK:
         this.handleAttackState(now);
         break;
-      case MobAIState.FLEE:
-        this.handleFleeState(deltaTime);
+      case MobAIState.RETURN:
+        this.handleReturnState(deltaTime);
         break;
       case MobAIState.DEAD:
         this.handleDeadState(deltaTime);
@@ -801,60 +842,113 @@ export class MobEntity extends CombatantEntity {
   }
 
   private handleIdleState(): void {
-    // Look for nearby players
+    const now = this.world.getTime();
+
+    // Initialize idle duration if just entered this state
+    if (this._idleStartTime === 0) {
+      this._idleStartTime = now;
+      this._idleDuration = this.IDLE_MIN_DURATION +
+        Math.random() * (this.IDLE_MAX_DURATION - this.IDLE_MIN_DURATION);
+      console.log(`[MobEntity] ${this.config.mobType} entered IDLE, will idle for ${(this._idleDuration/1000).toFixed(1)}s`);
+    }
+
+    // Check for nearby players every tick (RuneScape-style: instant aggro detection)
     const nearbyPlayer = this.findNearbyPlayer();
     if (nearbyPlayer) {
+      console.log(`[MobEntity] ${this.config.mobType} detected player, switching to CHASE`);
       this.config.targetPlayerId = nearbyPlayer.id;
       this.config.aiState = MobAIState.CHASE;
       this.world.emit(EventType.MOB_NPC_AGGRO, {
         mobId: this.id,
         targetId: nearbyPlayer.id
       });
+      this._idleStartTime = 0; // Reset for next idle
       this.markNetworkDirty();
       return;
     }
 
-    // Start patrolling if no player found
-    if (Math.random() < 0.01) { // 1% chance to start patrolling each update
-      this.config.aiState = MobAIState.PATROL;
+    // After idle duration expires, start wandering (RuneScape-style natural timing)
+    if (now - this._idleStartTime > this._idleDuration) {
+      console.log(`[MobEntity] ${this.config.mobType} idle expired, switching to WANDER`);
+      this.config.aiState = MobAIState.WANDER;
+      this._wanderTarget = null; // Will pick new target in handleWanderState
+      this._idleStartTime = 0; // Reset for next idle
       this.markNetworkDirty();
     }
   }
 
-  private handlePatrolState(deltaTime: number): void {
-    // Check for players while patrolling
+  private handleWanderState(deltaTime: number): void {
+    // Check for nearby players every tick while wandering (RuneScape-style: instant aggro)
     const nearbyPlayer = this.findNearbyPlayer();
     if (nearbyPlayer) {
       this.config.targetPlayerId = nearbyPlayer.id;
       this.config.aiState = MobAIState.CHASE;
-      this.markNetworkDirty(); // Sync state change to clients
+      this._wanderTarget = null;
+      this.markNetworkDirty();
       return;
     }
 
-    // Move towards current patrol point
-    if (this.patrolPoints.length > 0) {
-      const targetPoint = this.patrolPoints[this.currentPatrolIndex];
+    // Pick a random wander target if we don't have one (RuneScape-style: short random walks)
+    if (!this._wanderTarget) {
+      // Pick a random direction and distance from current position (not spawn)
       const currentPos = this.getPosition();
-      const targetPos = { x: targetPoint.x, y: currentPos.y, z: targetPoint.z };
+      const angle = Math.random() * Math.PI * 2;
+      const distance = this.WANDER_MIN_DISTANCE +
+        Math.random() * (this.WANDER_MAX_DISTANCE - this.WANDER_MIN_DISTANCE);
 
-      const distance = this.getDistanceTo(targetPos);
-      if (distance < 1) {
-        // Reached patrol point, move to next
-        this.currentPatrolIndex = (this.currentPatrolIndex + 1) % this.patrolPoints.length;
-      } else {
-        // Move towards patrol point
-        this.moveTowardsTarget(targetPos, deltaTime);
+      let targetX = currentPos.x + Math.cos(angle) * distance;
+      let targetZ = currentPos.z + Math.sin(angle) * distance;
+
+      // Ensure target is within wander radius from spawn point
+      const distFromSpawn = Math.sqrt(
+        Math.pow(targetX - this.config.spawnPoint.x, 2) +
+        Math.pow(targetZ - this.config.spawnPoint.z, 2)
+      );
+
+      if (distFromSpawn > this.config.wanderRadius) {
+        // Clamp to wander radius boundary
+        const toTargetX = targetX - this.config.spawnPoint.x;
+        const toTargetZ = targetZ - this.config.spawnPoint.z;
+        const scale = this.config.wanderRadius / distFromSpawn;
+        targetX = this.config.spawnPoint.x + toTargetX * scale;
+        targetZ = this.config.spawnPoint.z + toTargetZ * scale;
       }
+
+      this._wanderTarget = { x: targetX, z: targetZ };
     }
 
-    // Random chance to stop patrolling
-    if (Math.random() < 0.05) { // 5% chance to stop
+    // Move towards wander target
+    const currentPos = this.getPosition();
+    const distanceToTarget = Math.sqrt(
+      Math.pow(this._wanderTarget.x - currentPos.x, 2) +
+      Math.pow(this._wanderTarget.z - currentPos.z, 2)
+    );
+
+    if (distanceToTarget < 0.5) {
+      // Reached wander target - return to idle (RuneScape-style: idle between wanders)
+      this._wanderTarget = null;
       this.config.aiState = MobAIState.IDLE;
-      this.markNetworkDirty(); // Sync state change to clients
+      this.markNetworkDirty();
+      return;
     }
+
+    // Move towards wander target
+    this.moveTowardsTarget({ x: this._wanderTarget.x, y: currentPos.y, z: this._wanderTarget.z }, deltaTime);
   }
 
   private handleChaseState(deltaTime: number): void {
+    // FIRST: Check wander radius boundary (RuneScape-style: immediate leashing)
+    // Use 2D distance to avoid Y terrain height causing incorrect leashing
+    const spawnDistance = this.getDistance2D(this.config.spawnPoint);
+    if (spawnDistance > this.config.wanderRadius) {
+      this.config.aiState = MobAIState.RETURN;
+      this.config.targetPlayerId = null;
+      this._wanderTarget = null; // Clean up state
+      this.markNetworkDirty();
+      return;
+    }
+
+    // Validate target player still exists
     if (!this.config.targetPlayerId) {
       this.config.aiState = MobAIState.IDLE;
       this.markNetworkDirty();
@@ -862,103 +956,127 @@ export class MobEntity extends CombatantEntity {
     }
 
     const targetPlayer = this.getPlayer(this.config.targetPlayerId);
-    if (!targetPlayer) {
+    if (!targetPlayer || !targetPlayer.position) {
       this.config.targetPlayerId = null;
-      this.config.aiState = MobAIState.FLEE;
+      this.config.aiState = MobAIState.RETURN;
+      this._wanderTarget = null;
       this.markNetworkDirty();
       return;
     }
 
     const targetPos = targetPlayer.position;
-    if (!targetPos) {
-      this.config.aiState = MobAIState.FLEE;
-      this.markNetworkDirty();
-      return;
-    }
+    const distance3D = this.getDistanceTo(targetPos);
+    const distance2D = this.getDistance2D(targetPos);
 
-    const distance = this.getDistanceTo(targetPos);
-    const spawnDistance = this.getDistanceTo(this.config.spawnPoint);
-
-    // Mob is actively chasing
-
-    // Too far from spawn - return home (allow 5x aggro range leash distance)
-    if (spawnDistance > this.config.aggroRange * 5.0) {
-      this.config.aiState = MobAIState.FLEE;
-      this.config.targetPlayerId = null;
-      this.markNetworkDirty();
-      return;
-    }
-
-    // Player too far - give up chase (allow them to chase 3x aggro range for persistence)
-    if (distance > this.config.aggroRange * 3.0) {
-      this.config.aiState = MobAIState.FLEE;
-      this.config.targetPlayerId = null;
-      this.markNetworkDirty();
-      return;
-    }
-
-    // Close enough to attack
-    if (distance <= this.config.combatRange) {
+    // Switch to attack if in melee range (RuneScape-style)
+    // Use 2D distance to avoid Y height differences preventing combat
+    if (distance2D <= this.config.combatRange) {
+      console.log(`[MobEntity] ${this.config.mobType} entering ATTACK (2D: ${distance2D.toFixed(2)}, 3D: ${distance3D.toFixed(2)})`);
       this.config.aiState = MobAIState.ATTACK;
       this.markNetworkDirty();
       return;
     }
 
-    // Move towards player
+    // Chase the player (within wander radius boundary)
     this.moveTowardsTarget(targetPos, deltaTime);
   }
 
   private handleAttackState(currentTime: number): void {
+    // FIRST: Check wander radius boundary even while attacking (RuneScape-style: strict boundary)
+    // Use 2D distance to avoid Y terrain height causing incorrect leashing
+    const spawnDistance = this.getDistance2D(this.config.spawnPoint);
+    if (spawnDistance > this.config.wanderRadius) {
+      this.config.aiState = MobAIState.RETURN;
+      this.config.targetPlayerId = null;
+      this._wanderTarget = null;
+      this.markNetworkDirty();
+      return;
+    }
+
+    // Validate target
     if (!this.config.targetPlayerId) {
       this.config.aiState = MobAIState.IDLE;
-      this.markNetworkDirty(); // Sync state change to clients
+      this.markNetworkDirty();
       return;
     }
 
     const targetPlayer = this.getPlayer(this.config.targetPlayerId);
-    if (!targetPlayer) {
+    if (!targetPlayer || !targetPlayer.position) {
       this.config.targetPlayerId = null;
       this.config.aiState = MobAIState.IDLE;
-      this.markNetworkDirty(); // Sync state change to clients
+      this.markNetworkDirty();
       return;
     }
 
     const targetPos = targetPlayer.position;
-    if (!targetPos) {
+    const distance2D = this.getDistance2D(targetPos);
+
+    // Player moved out of melee range - chase them (RuneScape-style)
+    // Use 2D distance to avoid Y height differences
+    if (distance2D > this.config.combatRange) {
       this.config.aiState = MobAIState.CHASE;
-      this.markNetworkDirty(); // Sync state change to clients
+      this.markNetworkDirty();
       return;
     }
 
-    const distance = this.getDistanceTo(targetPos);
-
-    // Player moved out of range
-    if (distance > this.config.combatRange) {
-      this.config.aiState = MobAIState.CHASE;
-      this.markNetworkDirty(); // Sync state change to clients
-      return;
-    }
-
-    // Check attack cooldown
+    // Attack on cooldown (RuneScape-style: regular attack intervals)
+    // Allow first attack immediately if lastAttackTime is 0 or very old
     const timeSinceLastAttack = currentTime - this.config.lastAttackTime;
-    if (timeSinceLastAttack >= this.config.attackSpeed) {
+    const canAttack = this.config.lastAttackTime === 0 || timeSinceLastAttack >= this.config.attackSpeed;
+
+    // Only log when we can attack (reduce spam)
+    if (canAttack) {
+      console.log(`[MobEntity] ⚔️⚔️⚔️ ${this.config.mobType} PERFORMING ATTACK on ${targetPlayer.id} ⚔️⚔️⚔️`);
       this.performAttack(targetPlayer);
       this.config.lastAttackTime = currentTime;
     }
+    // Don't log every frame when on cooldown - too spammy
   }
 
-  private handleFleeState(deltaTime: number): void {
-    const spawnDistance = this.getDistanceTo(this.config.spawnPoint);
-    
-    if (spawnDistance < 1) {
-      // Reached spawn point
+  /**
+   * Calculate 2D horizontal distance (XZ plane only, ignoring Y)
+   * Used for spawn/wander radius checks to avoid Y-axis terrain height issues
+   */
+  private getDistance2D(point: Position3D): number {
+    const pos = this.getPosition();
+    const dx = pos.x - point.x;
+    const dz = pos.z - point.z;
+    return Math.sqrt(dx * dx + dz * dz);
+  }
+
+  private handleReturnState(deltaTime: number): void {
+    // Use 2D distance (XZ only) for spawn checks to avoid Y terrain height issues
+    const spawnDistance = this.getDistance2D(this.config.spawnPoint);
+
+    // Safety: If somehow extremely far from spawn, teleport back (production safety)
+    if (spawnDistance > this.RETURN_TELEPORT_DISTANCE) {
+      console.warn(`[MobEntity] Mob ${this.id} too far from spawn (${spawnDistance.toFixed(1)}), teleporting`);
+      this.setPosition(this.config.spawnPoint.x, this.config.spawnPoint.y, this.config.spawnPoint.z);
       this.config.aiState = MobAIState.IDLE;
-      this.config.currentHealth = this.config.maxHealth; // Heal when returning home
-      this.markNetworkDirty(); // Sync state and health to clients
+      this.config.currentHealth = this.config.maxHealth;
+      this._stuckTimer = 0;
+      this._lastPosition = null;
+      this._idleStartTime = 0; // Force fresh idle state
+      this._wanderTarget = null;
+      this.markNetworkDirty();
       return;
     }
 
-    // Move towards spawn point
+    // Reached spawn point - return to idle and heal (RuneScape-style: full heal on return)
+    if (spawnDistance < 0.5) {
+      console.log(`[MobEntity] ${this.config.mobType} reached spawn, switching to IDLE (2D distance: ${spawnDistance.toFixed(3)})`);
+      this.config.aiState = MobAIState.IDLE;
+      this.config.currentHealth = this.config.maxHealth;
+      this._stuckTimer = 0;
+      this._lastPosition = null;
+      this._idleStartTime = 0; // Force fresh idle state
+      this._wanderTarget = null; // Clear any old wander target
+      this.markNetworkDirty();
+      return;
+    }
+
+    // Walk back to spawn point (RuneScape-style: walk speed return)
+    console.log(`[MobEntity] ${this.config.mobType} returning to spawn (2D distance: ${spawnDistance.toFixed(2)})`);
     this.moveTowardsTarget(this.config.spawnPoint, deltaTime);
   }
 
@@ -971,7 +1089,10 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
-  private performAttack(target: { id: string }): void {
+  private performAttack(target: { id: string; position: Position3D }): void {
+    const distance = this.getDistance2D(target.position);
+    console.log(`[MobEntity] ${this.config.mobType} emitting COMBAT_MOB_NPC_ATTACK (mobId: ${this.id}, targetId: ${target.id}, distance: ${distance.toFixed(2)})`);
+
     // Emit attack event
     this.world.emit(EventType.COMBAT_MOB_NPC_ATTACK, {
       mobId: this.id,
@@ -1194,27 +1315,66 @@ export class MobEntity extends CombatantEntity {
       // Smoothly rotate towards target direction
       this.node.quaternion.slerp(targetQuaternion, 0.1);
 
-      // Movement happening - position will be synced via network
+      // Stuck detection: Only check when actively moving (RuneScape-style: give up if stuck)
+      // This prevents false positives during IDLE and ATTACK states
+      const isMovingState = this.config.aiState === MobAIState.WANDER ||
+                           this.config.aiState === MobAIState.CHASE ||
+                           this.config.aiState === MobAIState.RETURN;
 
+      if (isMovingState) {
+        if (this._lastPosition) {
+          const moved = this.position.distanceTo(this._lastPosition);
+          if (moved < 0.01) {
+            // Barely moved - increment stuck timer
+            this._stuckTimer += deltaTime;
+            if (this._stuckTimer > this.STUCK_TIMEOUT) {
+              // Stuck for too long - give up and return home (production safety)
+              console.warn(`[MobEntity] ${this.config.mobType} stuck for ${(this.STUCK_TIMEOUT/1000).toFixed(1)}s at (${currentPos.x.toFixed(1)}, ${currentPos.z.toFixed(1)}), returning to spawn`);
+              this.config.aiState = MobAIState.RETURN;
+              this.config.targetPlayerId = null;
+              this._wanderTarget = null;
+              this._stuckTimer = 0;
+              this._lastPosition = null;
+              this.markNetworkDirty();
+              return;
+            }
+          } else {
+            // Moving normally - reset stuck timer
+            this._stuckTimer = 0;
+          }
+        }
+        this._lastPosition = this.position.clone();
+      }
+
+      // Update position (will be synced to clients via network)
       this.setPosition(newPos.x, newPos.y, newPos.z);
       this.markNetworkDirty();
     }
   }
 
+  /**
+   * Find nearby player within aggro range (RuneScape-style)
+   * Returns first player found within range for simplicity
+   */
   private findNearbyPlayer(): { id: string; position: Position3D } | null {
     const players = this.world.getPlayers();
-    
+
+    // Early exit if no players
+    if (players.length === 0) return null;
+
+    const currentPos = this.getPosition();
+
     for (const player of players) {
       const playerPos = player.node?.position;
       if (!playerPos) continue;
-      
-      const distance = this.getDistanceTo({
-        x: playerPos.x,
-        y: playerPos.y,
-        z: playerPos.z
-      });
-      
-      if (distance <= this.config.aggroRange) {
+
+      // Quick distance check (RuneScape-style: first player in range)
+      const dx = playerPos.x - currentPos.x;
+      const dz = playerPos.z - currentPos.z;
+      const distSquared = dx * dx + dz * dz;
+      const aggroRangeSquared = this.config.aggroRange * this.config.aggroRange;
+
+      if (distSquared <= aggroRangeSquared) {
         return {
           id: player.id,
           position: {
@@ -1242,23 +1402,10 @@ export class MobEntity extends CombatantEntity {
     };
   }
 
-  // Map internal AI states to interface expected states
-  private mapAIStateToInterface(internalState: string): 'idle' | 'patrol' | 'chase' | 'attack' | 'flee' | 'dead' {
-    switch (internalState) {
-      case 'patrolling':
-        return 'patrol';
-      case 'chasing':
-        return 'chase';
-      case 'attacking':
-        return 'attack';
-      case 'returning':
-        return 'flee';
-      case 'idle':
-      case 'dead':
-        return internalState as 'idle' | 'dead';
-      default:
-        return 'idle';
-    }
+  // Map internal AI states to interface expected states (RuneScape-style)
+  private mapAIStateToInterface(internalState: string): 'idle' | 'wander' | 'chase' | 'attack' | 'return' | 'dead' {
+    // Direct mapping - internal states match interface states
+    return (internalState as 'idle' | 'wander' | 'chase' | 'attack' | 'return' | 'dead') || 'idle';
   }
 
   // Get mob data for systems
@@ -1351,6 +1498,16 @@ export class MobEntity extends CombatantEntity {
       if (this._currentEmote !== emoteUrl) {
         this._currentEmote = emoteUrl;
         this._avatarInstance.setEmote(emoteUrl);
+
+        // If receiving combat emote, set override to prevent AI from changing it for 700ms (one-shot animation)
+        // If receiving idle emote after combat, clear the override immediately
+        if (emoteUrl.includes('combat') || emoteUrl.includes('punching')) {
+          this._manualEmoteOverrideUntil = Date.now() + 700; // 700ms for animation to play
+          console.log(`[MobEntity] Manual combat emote set, override until ${this._manualEmoteOverrideUntil}`);
+        } else if (emoteUrl.includes('idle')) {
+          this._manualEmoteOverrideUntil = 0; // Clear override when reset to idle
+          console.log(`[MobEntity] Manual idle emote set, clearing override`);
+        }
       }
     }
 

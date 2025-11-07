@@ -685,11 +685,23 @@ export class PlayerLocal extends Entity implements HotReloadable {
   // Override modify to handle shorthand network keys like PlayerRemote does
   override modify(data: Partial<EntityData>): void {
     // Map shorthand keys to full property names
+    // Handle combat state updates
+    if ('inCombat' in data) {
+      this.combat.inCombat = data.inCombat as boolean;
+      console.log(`[PlayerLocal.modify] Combat state: ${this.combat.inCombat}`);
+    }
+    if ('combatTarget' in data) {
+      this.combat.combatTarget = data.combatTarget as string | null;
+      console.log(`[PlayerLocal.modify] Combat target: ${this.combat.combatTarget}`);
+    }
+
     if ('e' in data && data.e !== undefined) {
+      console.log(`[PlayerLocal.modify] 📥 Received emote update: ${data.e}`);
+
       // Map 'e' to 'emote' for animation state
       this.data.emote = data.e as string;
       this.emote = data.e as string;
-      
+
       // Immediately apply animation to avatar
       if (this._avatar) {
         const avatarNode = this._avatar as AvatarNode;
@@ -697,9 +709,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
           'idle': Emotes.IDLE,
           'walk': Emotes.WALK,
           'run': Emotes.RUN,
+          'combat': Emotes.COMBAT,
         };
         const emoteUrl = emoteMap[this.emote] || Emotes.IDLE;
-        
+
+        console.log(`[PlayerLocal.modify] 🎬 Setting avatar emote to: ${emoteUrl}`);
+
         if (avatarNode.setEmote) {
           avatarNode.setEmote(emoteUrl);
         } else if (avatarNode.emote !== undefined) {
@@ -1580,11 +1595,29 @@ export class PlayerLocal extends Entity implements HotReloadable {
   
   update(delta: number): void {
     this.updateCallCount++
-    
+
     // ALWAYS log first 10 updates with high visibility
     if (this.updateCallCount <= 10) {
     }
-    
+
+    // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
+    if (this.combat.inCombat && this.combat.combatTarget) {
+      const targetEntity = this.world.entities.get(this.combat.combatTarget) || this.world.getPlayer?.(this.combat.combatTarget);
+      if (targetEntity && targetEntity.position) {
+        // Calculate angle to target (XZ plane only, like RuneScape)
+        const dx = targetEntity.position.x - this.position.x;
+        const dz = targetEntity.position.z - this.position.z;
+        const angle = Math.atan2(dx, dz);
+
+        // Apply instant rotation (RuneScape doesn't lerp combat rotation)
+        if (this.base) {
+          const tempQuat = new THREE.Quaternion();
+          tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+          this.base.quaternion.copy(tempQuat);
+        }
+      }
+    }
+
     // Server-authoritative movement: minimal updates only
     // Position updates come from modify() when server sends them
     
