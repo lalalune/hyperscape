@@ -241,6 +241,7 @@ export class Entities extends SystemBase implements IEntities {
         moveSpeed: 3.0, // Walking speed (matches player walk)
         aggroRange: 15.0, // 15 meters detection range
         combatRange: 1.5, // 1.5 meters melee range
+        wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
         xpReward: 10,
         lootTable: [],
         respawnTime: 300000,

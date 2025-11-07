@@ -697,7 +697,7 @@ export interface MobEntityData {
   attackPower: number;
   defense: number;
   xpReward: number;
-  aiState: 'idle' | 'patrol' | 'chase' | 'attack' | 'flee' | 'dead';
+  aiState: 'idle' | 'wander' | 'chase' | 'attack' | 'return' | 'dead';
   targetPlayerId: string | null;
   spawnPoint: Position3D;
   position: Position3D;

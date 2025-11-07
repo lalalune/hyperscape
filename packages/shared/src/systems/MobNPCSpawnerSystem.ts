@@ -137,6 +137,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
       spawnPoint: { x: 2, y: y, z: 2 },
       aggroRange: 8,
       combatRange: 1.5,
+      wanderRadius: 10,
       aiState: 'idle',
       targetPlayerId: null,
       lastAttackTime: 0,

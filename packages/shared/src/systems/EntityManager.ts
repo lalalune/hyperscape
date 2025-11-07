@@ -526,6 +526,7 @@ export class EntityManager extends SystemBase {
       moveSpeed: this.getMobMoveSpeed(mobType),
       aggroRange: this.getMobAggroRange(mobType),
       combatRange: this.getMobCombatRange(mobType),
+      wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
       xpReward: this.getMobXPReward(mobType, level),
       lootTable: this.getMobLootTable(mobType),
       respawnTime: 300000, // 5 minutes default
@@ -640,25 +641,47 @@ export class EntityManager extends SystemBase {
       this.networkDirtyEntities.clear();
       return;
     }
-    
+
+    if (this.networkDirtyEntities.size > 0) {
+      console.log(`[EntityManager.sendNetworkUpdates] Syncing ${this.networkDirtyEntities.size} dirty entities:`, Array.from(this.networkDirtyEntities));
+    }
+
     const network = this.world.network as { send?: (method: string, data: unknown, excludeId?: string) => void };
-    
+
     if (!network || !network.send) {
       // No network system, clear dirty entities and return
       this.networkDirtyEntities.clear();
       return;
     }
-    
+
     this.networkDirtyEntities.forEach(entityId => {
-      const entity = this.entities.get(entityId);
+      // CRITICAL FIX: Players are in world.players, not EntityManager.entities
+      // Check both locations to find the entity
+      let entity = this.entities.get(entityId);
+      if (!entity && this.world.getPlayer) {
+        const playerEntity = this.world.getPlayer(entityId);
+        if (playerEntity) {
+          entity = playerEntity;
+          console.log(`[EntityManager] 📍 Found player ${entityId} in world.players (not in EntityManager.entities)`);
+        }
+      }
+
       if (entity) {
         // Get current position from entity
         const pos = entity.position;
         const rot = entity.node?.quaternion;
-        
+
         // Get network data from entity (includes health and other properties)
         const networkData = entity.getNetworkData();
-      
+
+        // ALWAYS log network data for players to debug
+        if (entity.type === 'player') {
+          console.log(`[EntityManager] 📤 Syncing player ${entityId}`);
+          console.log(`[EntityManager] 📤 networkData keys:`, Object.keys(networkData));
+          console.log(`[EntityManager] 📤 networkData.e:`, (networkData as any).e);
+          console.log(`[EntityManager] 📤 Full networkData:`, JSON.stringify(networkData, null, 2));
+        }
+
         // Send entityModified packet with position/rotation changes
         // Call directly on network object to preserve 'this' context
         // Non-null assertion safe because we checked network.send exists above
@@ -670,6 +693,8 @@ export class EntityManager extends SystemBase {
             ...networkData // Include all entity-specific data (health, aiState, etc.)
           }
         });
+      } else {
+        console.warn(`[EntityManager] ⚠️ Cannot sync ${entityId}: entity not found in EntityManager.entities or world.players`);
       }
     });
     
