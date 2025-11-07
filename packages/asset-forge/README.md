@@ -85,6 +85,73 @@ bun run dev:backend   # Terminal 2: Backend services
 
 The app will be available at `http://localhost:3003`
 
+## Authentication
+
+Asset Forge uses **Privy** for authentication, providing secure user management with Web3 wallet integration. Authentication is shared with the Hyperscape game client for seamless access across the ecosystem.
+
+### Setup
+
+1. **Get Privy Credentials**: Sign up at [dashboard.privy.io](https://dashboard.privy.io/) and create an app
+2. **Configure Environment**: Add your Privy credentials to `.env`:
+   ```env
+   # Backend (Server-Side)
+   PRIVY_APP_ID=your_privy_app_id
+   PRIVY_APP_SECRET=your_privy_app_secret
+
+   # Database (Required for user management)
+   DATABASE_URL=postgresql://user:password@localhost:5432/asset_forge
+   ```
+
+3. **Configure Client**: If using the frontend separately, add to your client `.env`:
+   ```env
+   PUBLIC_PRIVY_APP_ID=your_privy_app_id  # Same as backend
+   ```
+
+### How It Works
+
+1. **Automatic Authentication**: The API client (`src/lib/api-client.ts`) automatically includes JWT tokens from Privy in all requests
+2. **User Creation**: First-time users are automatically created in PostgreSQL via Drizzle ORM
+3. **Ownership Tracking**: Assets are linked to users for permission management
+4. **Optional Auth**: Public endpoints work without authentication; authenticated users get ownership tracking
+
+### Database Schema
+
+Asset Forge uses Drizzle ORM with PostgreSQL for:
+- User profiles and authentication
+- Asset ownership and permissions
+- Project organization
+- Activity logging and audit trails
+
+Run migrations:
+```bash
+bun run db:migrate
+```
+
+### API Client Usage
+
+The Eden Treaty client automatically includes authentication:
+
+```typescript
+import { api } from '@/lib/api-client'
+
+// Public endpoint (no auth required)
+const { data: health } = await api.api.health.get()
+
+// Authenticated endpoint (automatic JWT inclusion)
+const { data } = await api.api.assets({ id: 'sword-001' }).delete({
+  query: { includeVariants: 'true' }
+})
+// ✅ Only succeeds if user owns the asset or is an admin
+```
+
+### Admin Access
+
+Admins can be managed via the database `admin_whitelist` table or through admin routes. Admin users can:
+- Delete any asset
+- Update any asset metadata
+- View system statistics
+- Manage users
+
 ## Project Structure
 
 ```

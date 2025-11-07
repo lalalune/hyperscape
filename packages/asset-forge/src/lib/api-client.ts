@@ -21,7 +21,35 @@ const API_PORT = import.meta.env.VITE_API_PORT || 3004
 const API_BASE_URL = import.meta.env.VITE_API_URL || `http://localhost:${API_PORT}`
 
 /**
- * Type-safe API client
+ * Get authentication headers with Privy JWT token
+ * Retrieves the token from PrivyAuthManager (singleton from client package)
+ */
+function getAuthHeaders(): Record<string, string> {
+  // Try to get token from PrivyAuthManager if available
+  try {
+    // Check if we're in a browser environment with PrivyAuthManager
+    const privyAuthManager = (window as any).privyAuthManager
+    if (privyAuthManager && typeof privyAuthManager.getToken === 'function') {
+      const token = privyAuthManager.getToken()
+      if (token) {
+        return {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    }
+  } catch (error) {
+    // PrivyAuthManager not available (server-side or not initialized)
+    console.debug('[API Client] PrivyAuthManager not available, making unauthenticated request')
+  }
+
+  return {}
+}
+
+/**
+ * Type-safe API client with automatic Privy authentication
+ *
+ * This client automatically includes JWT tokens from Privy authentication
+ * when available, enabling authenticated requests to the asset-forge backend.
  *
  * Usage examples:
  *
@@ -99,11 +127,15 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || `http://localhost:${API_POR
  * })
  * ```
  */
-export const api = treaty<App>(API_BASE_URL)
+export const api = treaty<App>(API_BASE_URL, {
+  // Add authentication headers to all requests
+  headers: getAuthHeaders()
+})
 
 /**
- * Type-safe fetch wrapper for non-Eden endpoints
+ * Type-safe fetch wrapper for non-Eden endpoints with automatic authentication
  * Use this if you need to make requests outside the Eden Treaty client
+ * Automatically includes Privy JWT token when available
  */
 export const apiFetch = async <T = unknown>(
   endpoint: string,
@@ -114,6 +146,7 @@ export const apiFetch = async <T = unknown>(
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
         ...options?.headers,
       },
     })

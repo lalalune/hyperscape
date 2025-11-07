@@ -44,9 +44,13 @@ function PrivyAuthHandler({ children }: { children: React.ReactNode }) {
       privyAuthManager.clearAuth()
     }
 
-    // Expose logout globally for debugging
-    const windowWithLogout = window as typeof window & { privyLogout: () => void }
-    windowWithLogout.privyLogout = handleLogout
+    // Expose auth manager and logout globally
+    const windowWithAuth = window as typeof window & {
+      privyLogout: () => void
+      privyAuthManager: typeof privyAuthManager
+    }
+    windowWithAuth.privyLogout = handleLogout
+    windowWithAuth.privyAuthManager = privyAuthManager
   }, [logout])
 
   return <>{children}</>
