@@ -203,16 +203,12 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
               )
             )
           } else if (track instanceof THREE.VectorKeyframeTrack) {
-            tracks.push(
-              new THREE.VectorKeyframeTrack(
-                `${vrmNodeName}.${propertyName}`,
-                track.times,
-                track.values.map((v, i) => {
-                  // Scale position values - model orientation is handled by Y-axis rotation in createVRMFactory
-                  return v * scaler
-                })
-              )
-            )
+            // SKIP position tracks entirely - don't add them to the animation
+            // This prevents root motion (sliding, bobbing, sinking)
+            // VRM skeleton will use its bind pose position instead
+            // Character position is controlled by game engine, not animation
+            console.log(`[EmoteFactory] Skipping position track for ${ogBoneName} → ${vrmBoneName} (removing root motion)`);
+            // Don't push this track - effectively removes position animation
           }
         }
       })
