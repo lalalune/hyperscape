@@ -90,6 +90,7 @@ import { DeathStateManager } from './components/DeathStateManager';
 import { CombatStateManager } from './components/CombatStateManager';
 import { AIStateMachine, type AIStateContext } from './components/AIStateMachine';
 import { RespawnManager } from './components/RespawnManager';
+import { AggroManager } from './components/AggroManager';
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === 'undefined') {
@@ -108,8 +109,6 @@ if (typeof ProgressEvent === 'undefined') {
   };
 }
 
-
-
 export class MobEntity extends CombatantEntity {
   protected config: MobEntityConfig;
 
@@ -118,6 +117,7 @@ export class MobEntity extends CombatantEntity {
   private combatManager: CombatStateManager;
   private aiStateMachine: AIStateMachine;
   private respawnManager: RespawnManager;
+  private aggroManager: AggroManager;
 
   // ===== RENDERING =====
   private _avatarInstance: VRMAvatarInstance | null = null;
@@ -223,6 +223,12 @@ export class MobEntity extends CombatantEntity {
 
     // AI State Machine
     this.aiStateMachine = new AIStateMachine();
+
+    // Aggro Manager - handles targeting and aggro detection
+    this.aggroManager = new AggroManager({
+      aggroRange: this.config.aggroRange,
+      combatRange: this.config.combatRange
+    });
 
     // Respawn Manager - handles spawn area and respawn locations
     this.respawnManager = new RespawnManager({
@@ -705,6 +711,11 @@ export class MobEntity extends CombatantEntity {
       getCurrentTarget: () => this.config.targetPlayerId,
       setTarget: (playerId) => {
         this.config.targetPlayerId = playerId;
+        if (playerId) {
+          this.aggroManager.setTarget(playerId);
+        } else {
+          this.aggroManager.clearTarget();
+        }
       },
 
       // Combat
@@ -790,6 +801,9 @@ export class MobEntity extends CombatantEntity {
     this.config.aiState = MobAIState.IDLE;
     this.config.targetPlayerId = null;
     this.config.deathTime = null;
+
+    // Clear aggro target
+    this.aggroManager.clearTarget();
 
     // CRITICAL: Reset DeathStateManager BEFORE network sync
     // Without this, getNetworkData() thinks mob is still dead and strips position from network packet!
@@ -1285,10 +1299,11 @@ export class MobEntity extends CombatantEntity {
       this.die();
       return true; // Mob died
     } else {
-      // Become aggressive towards attacker
+      // Become aggressive towards attacker (use AggroManager for target management)
       if (attackerId && !this.config.targetPlayerId) {
         console.log(`[MobEntity] ${this.config.mobType} aggroing on ${attackerId}`);
         this.config.targetPlayerId = attackerId;
+        this.aggroManager.setTargetIfNone(attackerId);
         this.aiStateMachine.forceState(MobAIState.CHASE, this.createAIContext());
       }
     }
@@ -1315,6 +1330,9 @@ export class MobEntity extends CombatantEntity {
     this.config.deathTime = currentTime;
     this.config.targetPlayerId = null;
     this.config.currentHealth = 0;
+
+    // Clear aggro target
+    this.aggroManager.clearTarget();
 
     // Update base health property for isDead() check
     this.setHealth(0);
@@ -1459,6 +1477,7 @@ export class MobEntity extends CombatantEntity {
               console.warn(`[MobEntity] ${this.config.mobType} stuck for ${(this.STUCK_TIMEOUT/1000).toFixed(1)}s at (${currentPos.x.toFixed(1)}, ${currentPos.z.toFixed(1)}), returning to spawn`);
               this.config.aiState = MobAIState.RETURN;
               this.config.targetPlayerId = null;
+              this.aggroManager.clearTarget();
               this._wanderTarget = null;
               this._stuckTimer = 0;
               this._lastPosition = null;
@@ -1481,52 +1500,19 @@ export class MobEntity extends CombatantEntity {
 
   /**
    * Find nearby player within aggro range (RuneScape-style)
-   * Returns first player found within range for simplicity
+   * Delegates to AggroManager component
    */
   private findNearbyPlayer(): { id: string; position: Position3D } | null {
-    const players = this.world.getPlayers();
-
-    // Early exit if no players
-    if (players.length === 0) return null;
-
     const currentPos = this.getPosition();
-
-    for (const player of players) {
-      const playerPos = player.node?.position;
-      if (!playerPos) continue;
-
-      // Quick distance check (RuneScape-style: first player in range)
-      const dx = playerPos.x - currentPos.x;
-      const dz = playerPos.z - currentPos.z;
-      const distSquared = dx * dx + dz * dz;
-      const aggroRangeSquared = this.config.aggroRange * this.config.aggroRange;
-
-      if (distSquared <= aggroRangeSquared) {
-        return {
-          id: player.id,
-          position: {
-            x: playerPos.x,
-            y: playerPos.y,
-            z: playerPos.z
-          }
-        };
-      }
-    }
-    return null;
+    const players = this.world.getPlayers();
+    return this.aggroManager.findNearbyPlayer(currentPos, players);
   }
 
+  /**
+   * Get player by ID (delegates to AggroManager)
+   */
   private getPlayer(playerId: string): { id: string; position: Position3D } | null {
-    const player = this.world.getPlayer(playerId);
-    if (!player || !player.node?.position) return null;
-    
-    return {
-      id: player.id,
-      position: {
-        x: player.node.position.x,
-        y: player.node.position.y,
-        z: player.node.position.z
-      }
-    };
+    return this.aggroManager.getPlayer(playerId, (id) => this.world.getPlayer(id));
   }
 
   // Map internal AI states to interface expected states (RuneScape-style)
