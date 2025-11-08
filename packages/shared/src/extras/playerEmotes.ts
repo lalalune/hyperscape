@@ -44,7 +44,13 @@ export const Emotes = {
   
   /** Talking/gesturing animation */
   TALK: 'asset://emotes/emote-talk.glb',
+
+  /** Combat/attack animation (punching) */
+  COMBAT: 'asset://emotes/emote-punching.glb',
+
+  /** Death animation */
+  DEATH: 'asset://emotes/emote-death.glb',
 }
 
 /** Array of all emote URLs (for preloading) */
-export const emoteUrls = [Emotes.IDLE, Emotes.WALK, Emotes.RUN, Emotes.FLOAT, Emotes.FALL, Emotes.FLIP, Emotes.TALK]
+export const emoteUrls = [Emotes.IDLE, Emotes.WALK, Emotes.RUN, Emotes.FLOAT, Emotes.FALL, Emotes.FLIP, Emotes.TALK, Emotes.COMBAT, Emotes.DEATH]

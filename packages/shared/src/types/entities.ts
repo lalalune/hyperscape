@@ -54,10 +54,10 @@ export enum PlayerCombatStyle {
 
 export enum MobAIState {
   IDLE = 'idle',
-  PATROL = 'patrol',
+  WANDER = 'wander',
   CHASE = 'chase',
   ATTACK = 'attack',
-  FLEE = 'flee',
+  RETURN = 'return',
   DEAD = 'dead'
 }
 
@@ -181,6 +181,7 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   moveSpeed: number;
   aggroRange: number;
   combatRange: number;
+  wanderRadius: number; // Fixed distance from spawn point (RuneScape-style)
   respawnTime: number;
   xpReward: number;
   lootTable: Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }>;

@@ -526,6 +526,7 @@ export class EntityManager extends SystemBase {
       moveSpeed: this.getMobMoveSpeed(mobType),
       aggroRange: this.getMobAggroRange(mobType),
       combatRange: this.getMobCombatRange(mobType),
+      wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
       xpReward: this.getMobXPReward(mobType, level),
       lootTable: this.getMobLootTable(mobType),
       respawnTime: 300000, // 5 minutes default
@@ -560,40 +561,10 @@ export class EntityManager extends SystemBase {
     }
   }
 
-  private handleMobAttacked(data: { entityId: string; damage: number; attackerId: string }): void {
-    const mob = this.entities.get(data.entityId);
-    if (!mob) {
-      return;
-    }
-    
-    const healthData = mob.getProperty('health');
-    // Strong type assumption - health is either a number or { current, max }
-    const currentHealth = (healthData as { current: number }).current || (healthData as number) || 0;
-    
-    const newHealth = Math.max(0, currentHealth - data.damage);
-    
-    // Strong type assumption - maintain structure if it's an object, otherwise use number
-    const isHealthObject = healthData && (healthData as { current?: number }).current !== undefined;
-    if (isHealthObject) {
-      mob.setProperty('health', { ...healthData as { current: number; max: number }, current: newHealth });
-    } else {
-      mob.setProperty('health', newHealth);
-    }
-    
-    if (newHealth <= 0) {
-      // Let the mob entity handle its own death first to ensure proper state synchronization
-      const mobEntity = mob as MobEntity;
-      if (mobEntity && typeof mobEntity.die === 'function') {
-        // Check if mob is already dead to prevent double death
-        if (!mobEntity.isDead()) {
-          mobEntity.die();
-          // Don't destroy here - MobEntity.die() will handle destruction after network sync
-        }
-      } else {
-        // Fallback: destroy immediately if not a MobEntity
-        this.destroyEntity(data.entityId);
-      }
-    }
+  private handleMobAttacked(_data: { entityId: string; damage: number; attackerId: string }): void {
+    // NO-OP: MobEntity.takeDamage() now calls die() directly when health reaches 0
+    // This event handler is kept for backward compatibility but does nothing
+    // Event chain: CombatSystem → takeDamage() → die() (no EntityManager involved)
   }
 
   private handleMobAttack(data: { mobId: string; targetId: string; damage: number }): void {
@@ -640,25 +611,48 @@ export class EntityManager extends SystemBase {
       this.networkDirtyEntities.clear();
       return;
     }
-    
+
+    // Disabled - too spammy
+    // if (this.networkDirtyEntities.size > 0) {
+    //   console.log(`[EntityManager.sendNetworkUpdates] Syncing ${this.networkDirtyEntities.size} dirty entities:`, Array.from(this.networkDirtyEntities));
+    // }
+
     const network = this.world.network as { send?: (method: string, data: unknown, excludeId?: string) => void };
-    
+
     if (!network || !network.send) {
       // No network system, clear dirty entities and return
       this.networkDirtyEntities.clear();
       return;
     }
-    
+
     this.networkDirtyEntities.forEach(entityId => {
-      const entity = this.entities.get(entityId);
+      // CRITICAL FIX: Players are in world.players, not EntityManager.entities
+      // Check both locations to find the entity
+      let entity = this.entities.get(entityId);
+      if (!entity && this.world.getPlayer) {
+        const playerEntity = this.world.getPlayer(entityId);
+        if (playerEntity) {
+          entity = playerEntity;
+          console.log(`[EntityManager] 📍 Found player ${entityId} in world.players (not in EntityManager.entities)`);
+        }
+      }
+
       if (entity) {
         // Get current position from entity
         const pos = entity.position;
         const rot = entity.node?.quaternion;
-        
+
         // Get network data from entity (includes health and other properties)
         const networkData = entity.getNetworkData();
-      
+
+        // Disabled verbose player logging (too spammy)
+        // if (entity.type === 'player') {
+        //   console.log(`[EntityManager] 📤 Syncing player ${entityId}`);
+        //   console.log(`[EntityManager] 📤 networkData keys:`, Object.keys(networkData));
+        //   console.log(`[EntityManager] 📤 networkData.e:`, (networkData as any).e);
+        //   console.log(`[EntityManager] 📤 Full networkData:`, JSON.stringify(networkData, null, 2));
+        // }
+
         // Send entityModified packet with position/rotation changes
         // Call directly on network object to preserve 'this' context
         // Non-null assertion safe because we checked network.send exists above
@@ -670,6 +664,8 @@ export class EntityManager extends SystemBase {
             ...networkData // Include all entity-specific data (health, aiState, etc.)
           }
         });
+      } else {
+        console.warn(`[EntityManager] ⚠️ Cannot sync ${entityId}: entity not found in EntityManager.entities or world.players`);
       }
     });
     

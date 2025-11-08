@@ -983,8 +983,9 @@ export class Entity implements IEntity {
       console.warn(`[Entity] ⚠️  Entity ${this.name} (${this.type}) has no mesh - may be server-side`);
     }
     
-    // Check mesh is added to node
-    if (this.mesh && !this.node.children.includes(this.mesh)) {
+    // Check mesh is added to node (skip for VRM entities which manage their own positioning)
+    const isVRM = this.config?.model?.endsWith('.vrm');
+    if (this.mesh && !this.node.children.includes(this.mesh) && !isVRM) {
       console.error(`[Entity] ⚠️  WARNING: Entity ${this.name} mesh is not a child of node`);
     }
     
@@ -1223,6 +1224,18 @@ export class Entity implements IEntity {
   markNetworkDirty(): void {
     this.networkDirty = true
     this.networkVersion++
+
+    // CRITICAL: Directly add to EntityManager's dirty set
+    // Players are managed by PlayerSystem, not EntityManager's update loop
+    // So we must explicitly notify EntityManager when players are dirty
+    if (this.world.isServer) {
+      const entityManager = this.world.getSystem('entity-manager') as any;
+      if (entityManager?.networkDirtyEntities) {
+        entityManager.networkDirtyEntities.add(this.id);
+        // Disabled - too spammy
+        // console.log(`[Entity.markNetworkDirty] Added ${this.type} ${this.id} to dirty set`);
+      }
+    }
   }
 
   // Get data for network synchronization
@@ -1230,6 +1243,26 @@ export class Entity implements IEntity {
     const position = toPosition3D(this.node.position)
     const rotation = this.node.quaternion
     const scale = { x: this.node.scale.x, y: this.node.scale.y, z: this.node.scale.z }
+
+    // Include all data fields (e.g., emote 'e') for network sync
+    // Filter out position/quaternion/scale since EntityManager handles those separately as p/q
+    const dataFields: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(this.data)) {
+      // Skip position/quaternion/scale arrays - EntityManager sends them as p/q
+      if (key !== 'position' && key !== 'quaternion' && key !== 'scale' && key !== 'id' && key !== 'type' && key !== 'name') {
+        dataFields[key] = value
+      }
+    }
+
+    // Debug logging for players only
+    if (this.type === 'player') {
+      console.log(`[Entity.getNetworkData] Player ${this.id}`);
+      console.log(`  this.data keys:`, Object.keys(this.data));
+      console.log(`  dataFields:`, dataFields);
+      console.log(`  inCombat:`, dataFields.inCombat);
+      console.log(`  combatTarget:`, dataFields.combatTarget);
+      console.log(`  emote (e):`, dataFields.e);
+    }
 
     return {
       id: this.id,
@@ -1241,6 +1274,7 @@ export class Entity implements IEntity {
       visible: this.node.visible,
       networkVersion: this.networkVersion,
       properties: this.config.properties || {},
+      ...dataFields, // Include emote ('e'), inCombat, combatTarget, health, and other data fields
     }
   }
 

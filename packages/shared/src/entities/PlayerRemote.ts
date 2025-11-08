@@ -111,6 +111,12 @@ export class PlayerRemote extends Entity implements HotReloadable {
   public enableInterpolation: boolean = false; // Disabled - ensure basic movement works first
   private _tempMatrix1 = new THREE.Matrix4();
   private _tempVector3_1 = new THREE.Vector3();
+
+  // Combat state for RuneScape-style auto-retaliate
+  combat = {
+    inCombat: false,
+    combatTarget: null as string | null
+  };
   
   constructor(world: World, data: EntityData, local?: boolean) {
     super(world, data, local)
@@ -310,7 +316,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
       // Update lerp values
       this.lerpPosition.update(delta)
       this.lerpQuaternion.update(delta)
-      
+
       // FORCE APPLY POSITION - no interpolation bullshit
       if (!this.enableInterpolation) {
         // Get the target position directly from lerp.current and apply it
@@ -320,7 +326,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
           this.position.copy(targetPos)
           // Position applied directly without interpolation
         }
-        
+
         const targetRot = this.lerpQuaternion.current
         if (targetRot) {
           this.node.quaternion.copy(targetRot)
@@ -331,6 +337,45 @@ export class PlayerRemote extends Entity implements HotReloadable {
         this.position.copy(this.lerpPosition.value)
         this.node.quaternion.copy(this.lerpQuaternion.value)
       }
+    }
+
+    // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
+    // Check if any nearby mobs are targeting us (since combat state isn't synced from server)
+    let combatTarget: { position: { x: number; z: number }; id: string } | null = null;
+
+    // Look for mobs that are attacking us
+    for (const entity of this.world.entities.items.values()) {
+      if (entity.type === 'mob' && entity.position) {
+        const mobEntity = entity as any;
+        // Check if mob is in ATTACK state and targeting this player
+        if (mobEntity.config?.aiState === 'attack' && mobEntity.config?.targetPlayerId === this.id) {
+          const dx = entity.position.x - this.position.x;
+          const dz = entity.position.z - this.position.z;
+          const distance2D = Math.sqrt(dx * dx + dz * dz);
+
+          // Only rotate if mob is within reasonable combat range
+          if (distance2D <= 3) {
+            combatTarget = { position: entity.position, id: entity.id };
+            break; // Only face one mob at a time
+          }
+        }
+      }
+    }
+
+    if (combatTarget) {
+      // Calculate angle to target (XZ plane only, like RuneScape)
+      const dx = combatTarget.position.x - this.position.x;
+      const dz = combatTarget.position.z - this.position.z;
+      let angle = Math.atan2(dx, dz);
+
+      // VRM 1.0+ models have 180° base rotation, so we need to compensate
+      // Otherwise entities face AWAY from each other instead of towards
+      angle += Math.PI;
+
+      // Apply rotation to node quaternion
+      const tempQuat = new THREE.Quaternion();
+      tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+      this.node.quaternion.copy(tempQuat);
     }
 
     // Update node matrices for rendering
@@ -399,6 +444,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
             fall: Emotes.FALL,
             flip: Emotes.FLIP,
             talk: Emotes.TALK,
+            combat: Emotes.COMBAT,
           }
           desiredUrl = emoteMap[serverEmote] || Emotes.IDLE
         }
@@ -496,8 +542,8 @@ export class PlayerRemote extends Entity implements HotReloadable {
     if (data.health !== undefined) {
       this.data.health = data.health as number
       this.nametag.health = data.health as number
-      this.world.emit(EventType.PLAYER_HEALTH_UPDATED, { 
-        playerId: this.data.id, 
+      this.world.emit(EventType.PLAYER_HEALTH_UPDATED, {
+        playerId: this.data.id,
         health: data.health as number,
         maxHealth: (this.data.maxHealth as number) || 100
       })
@@ -517,6 +563,15 @@ export class PlayerRemote extends Entity implements HotReloadable {
       // Strong type assumption - v is a 3-element array when provided
       const vel = data.v as number[]
       this.velocity.set(vel[0], vel[1], vel[2]);
+    }
+    // Handle combat state updates for RuneScape-style auto-retaliate rotation
+    if ('inCombat' in data) {
+      this.combat.inCombat = data.inCombat as boolean;
+      console.log(`[PlayerRemote.modify] ${this.id} combat state: ${this.combat.inCombat}`);
+    }
+    if ('combatTarget' in data) {
+      this.combat.combatTarget = data.combatTarget as string | null;
+      console.log(`[PlayerRemote.modify] ${this.id} combat target: ${this.combat.combatTarget}`);
     }
     if (avatarChanged) {
       this.applyAvatar();
