@@ -1,7 +1,0 @@
-{
-  "name": "slow-test-detection",
-  "event": "post-tool-use",
-  "description": "Detects and reports slow tests that impact CI/CD",
-  "enabled": true,
-  "prompt": "After test execution, analyze test duration and identify slow tests:\n\n**Thresholds:**\n- Unit test: >100ms per test\n- Integration test: >1s per test\n- E2E test: >10s per test\n\n**If Slow Tests Detected:**\n\n```\n🐌 SLOW TESTS DETECTED\n\nTest Suite Performance:\n• Total duration: 2m 34s\n• Tests run: 456\n• Average: 340ms per test\n\nSlowest Tests:\n\n1. UserService integration tests: 12.4s ❌\n   • database setup: 8.2s\n   • teardown: 3.1s\n   • actual tests: 1.1s\n\n2. Payment processing E2E: 8.7s ⚠️\n   • external API calls: 6.2s\n   • validation: 2.5s\n\n3. File upload unit test: 450ms ⚠️\n   • mock file generation: 380ms\n   • test logic: 70ms\n\nRecommendations:\n\n1. Database Tests:\n   • Use in-memory database for tests\n   • Share database connection\n   • Transaction rollback instead of cleanup\n\n2. External APIs:\n   • Mock external services\n   • Use VCR/nock for recordings\n   • Avoid real HTTP calls in tests\n\n3. File Operations:\n   • Mock filesystem\n   • Use memory streams\n   • Generate smaller test data\n\n4. General:\n   • Run slow tests separately\n   • Parallel test execution\n   • Test-specific optimization\n\nEstimated CI Time Savings:\n• Current: 2m 34s\n• Optimized: 45s (71% faster)\n\nWould you like to:\n1. Mark slow tests for optimization\n2. See detailed test timing\n3. Generate optimization guide\n```"
-}

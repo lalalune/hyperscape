@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+globs: *.ts,*.tsx,*.js,*.jsx
+---
+# TypeScript Strong Typing Rules
+
+## Core Principles
+- NO `any` or `unknown` types
+- Prefer classes over interfaces for type definitions
+- Share types across modules from types/core.ts
+- Avoid property checks on polymorphic objects
+- Make strong type assumptions based on context
+
+## Required Patterns
+- Use non-null assertions: `value!`
+- Define return types explicitly on public methods
+- Use discriminated unions for variant types
+- Import types with `import type { TypeName }`
+
+## Forbidden Patterns
+- `as any` - NEVER use this
+- Property existence checks like `'property' in object`
+- Optional chaining for type narrowing

@@ -1,0 +1,24 @@
+---
+alwaysApply: true
+description: Development workflow and file management
+---
+# Development Workflow Rules
+
+## File Management
+- NEVER create new files unless absolutely necessary
+- Revise existing files instead of creating _v2.ts
+- Delete old files completely when replacing
+- Update all imports in dependent files
+- Clean up orphaned files immediately
+
+## Code Quality
+- Write production code only - no examples or shortcuts
+- Implement complete functionality, no TODOs
+- Don't work around problems - fix root causes
+- Research Hyperscape systems before creating new ones
+
+## Environment Setup
+- Use environment variables in .env with dotenv
+- Keep Hyperscape isolated from RPG code
+- Make each package self-contained and modular
+- Use workspace imports for package communication

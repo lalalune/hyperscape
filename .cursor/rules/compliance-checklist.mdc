@@ -1,0 +1,22 @@
+---
+alwaysApply: true
+description: Security and compliance checklist
+---
+# Compliance Checklist
+
+## Pre-Deployment Checklist
+- [ ] All tests pass (no failing tests allowed)
+- [ ] No `any` types in production code
+- [ ] All features have comprehensive tests
+- [ ] Error logs are properly handled
+- [ ] API keys are in environment variables
+- [ ] No hardcoded data in source code
+- [ ] File dependencies are updated
+- [ ] Documentation is current
+
+## Code Review Requirements
+- [ ] TypeScript strict typing enforced
+- [ ] Real tests implemented (no mocks)
+- [ ] Performance impact assessed
+- [ ] Security implications reviewed
+- [ ] Backward compatibility maintained

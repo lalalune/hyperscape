@@ -140,6 +140,9 @@ bower_components/
 *.sqlite3
 *.db
 
+# Qdrant vector storage
+qdrant_storage/
+
 # Generated files
 generated/
 auto-generated/

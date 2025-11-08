@@ -1,0 +1,22 @@
+---
+globs: *.ts,*.tsx
+description: Performance optimization standards
+---
+# Performance Guidelines
+
+## Hyperscape Optimization
+- Use Hyperscape abstractions where possible
+- Minimize test-specific code and objects
+- Optimize for 50-100 concurrent players
+- Monitor memory usage (4GB+ recommended)
+
+## Three.js Best Practices
+- Leverage Hyperscape's 3D abstractions
+- Use existing scene hierarchy patterns
+- Optimize rendering for multiplayer scenarios
+- Implement proper cleanup on unmount
+
+## Database Performance
+- SQLite handles thousands of players efficiently
+- Use proper indexing for player data
+- Optimize queries for real-time updates

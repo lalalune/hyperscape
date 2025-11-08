@@ -54,6 +54,9 @@ tmp/
 .turbo/
 .claude-plugin/
 
+# Claude Code local settings (not committed)
+.claude/settings.local.json
+
 # Assets (generated/temporary)
 assets/
 
@@ -68,3 +71,6 @@ packages/client/dist/models/
 .assets-repo
 .assets-repo
 .assets-repo
+
+# Claude hooks logs
+.claude/logs/

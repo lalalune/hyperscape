@@ -1,0 +1,22 @@
+---
+description: API versioning and documentation standards
+---
+# API Standards
+
+## REST API Endpoints
+- GET /api/state - Available state queries
+- GET /api/state/player-stats?playerId=123 - Player information
+- POST /api/actions/attack - Execute player actions
+- GET /api/actions/available?playerId=123 - Available actions
+
+## Documentation Requirements
+- Document all API endpoints thoroughly
+- Include request/response examples
+- Specify required parameters and authentication
+- Maintain API versioning for breaking changes
+
+## Error Handling
+- Implement comprehensive error handling
+- Provide meaningful error messages
+- Log errors to /logs folder for debugging
+- Handle edge cases gracefully

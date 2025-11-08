@@ -1,0 +1,205 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bun .claude/statusline.ts",
+    "padding": 0
+  },
+  "extraKnownMarketplaces": {
+    "hyperscape-5": {
+      "source": {
+        "source": "directory",
+        "path": "./.claude/plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "hyperscape-5/core-dev": true,
+    "hyperscape-5/asset-forge": true,
+    "hyperscape-5/elizaos-dev": true,
+    "hyperscape-5/deployment-tools": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/session-start.ts",
+            "timeout": 3000
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/user-prompt-submit.ts",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/pre-tool-bash.ts",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/pre-tool-write.ts",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/pre-tool-edit.ts",
+            "timeout": 3000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/post-tool-write.ts",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/post-tool-edit.ts",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/post-tool-read.ts",
+            "timeout": 2000
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/post-tool-grep.ts",
+            "timeout": 2000
+          }
+        ]
+      },
+      {
+        "matcher": "Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/post-tool-glob.ts",
+            "timeout": 2000
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/pre-compact.ts",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/stop.ts",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/subagent-stop.ts",
+            "timeout": 3000
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scripts/session-end.ts",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(cat:*)",
+      "Bash(git log:*)",
+      "Bash(git fetch:*)",
+      "Bash(awk:*)",
+      "Bash(psql:*)",
+      "Bash(bun test:*)",
+      "Bash(bun run:*)",
+      "Read(//Users/home/Downloads/assets-main/**)",
+      "Bash(echo:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:docs.privy.io)",
+      "WebSearch",
+      "Bash(bun pm ls:*)",
+      "mcp__deepwiki__ask_question",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(bun tsc:*)",
+      "Bash(for:*)",
+      "Bash(do )",
+      "Bash(done)",
+      "Bash(./analyze.ts --help)",
+      "Bash(./create-migration.ts --help)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

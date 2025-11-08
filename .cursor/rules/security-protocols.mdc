@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+description: Security requirements and practices
+---
+# Security Protocols
+
+## API Keys and Credentials
+- Store API keys in root .env file
+- Use dotenv package for environment variable access
+- Never hardcode credentials in source code
+- Document all required API keys and credentials
+
+## Data Protection
+- All authentication handled by Privy (industry-standard)
+- JWT tokens for secure session management
+- No passwords stored on Hyperscape servers
+- Automatic session refresh and token rotation
+
+## Web3 Security
+- Maintain flexibility for both Web3 and traditional auth
+- Implement proper wallet connection strategies
+- Support blockchain interactions securely
+- Ensure proper transaction handling

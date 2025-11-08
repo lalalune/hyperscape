@@ -1,0 +1,25 @@
+---
+alwaysApply: true
+description: Hyperscape architecture and development patterns
+---
+# Hyperscape Architecture Patterns
+
+## Tech Stack
+- Hyperscape (packages/hypefy) - 3D multiplayer game engine
+- ElizaOS - AI agent framework with plugin-hyperscape
+- Three.js - 3D graphics library
+- Playwright - Browser automation for testing
+- SQLite - Persistence layer
+
+## Core Principles
+- Always make features self-contained and modular
+- Build toward the general case, not specific examples
+- Separate data from logic - no hardcoded data
+- Use existing Hyperscape systems instead of new abstractions
+- Keep RPG isolated from Hyperscape core as standalone .hyp app
+
+## File Organization
+- Define types in types.ts files
+- Use existing types before creating new ones
+- Make packages self-contained with workspace imports
+- Avoid circular dependencies
