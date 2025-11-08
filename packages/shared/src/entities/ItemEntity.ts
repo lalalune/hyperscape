@@ -107,13 +107,13 @@ export class ItemEntity extends InteractableEntity {
     if (modelToLoad && this.world.loader) {
       try {
         const { scene } = await modelCache.loadModel(modelToLoad, this.world);
-        
+
         this.mesh = scene;
         this.mesh.name = `Item_${this.config.itemId}`;
         this.mesh.castShadow = false;
         this.mesh.receiveShadow = false;
         this.mesh.scale.set(0.3, 0.3, 0.3); // Scale down items
-        
+
         // Set up userData for interaction detection
         this.mesh.userData = {
           type: 'item',
@@ -128,7 +128,7 @@ export class ItemEntity extends InteractableEntity {
             quantity: this.config.quantity
           }
         };
-        
+
         this.node.add(this.mesh);
         return;
       } catch (error) {
