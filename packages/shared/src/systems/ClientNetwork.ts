@@ -620,9 +620,32 @@ export class ClientNetwork extends SystemBase {
       entity.modify(changes);
     } else {
       // Remote entities - use interpolation for smooth movement
-      if (hasP) {
+      // CRITICAL: If mob is DEAD (or entering DEAD state), clear interpolation buffer
+      // This prevents sliding from stale snapshots that were added before death
+      const entityData = entity.serialize();
+
+      // CRITICAL FIX: Use NEW state if present, otherwise use current state
+      // This ensures when mob respawns (changes.aiState='idle'), it's treated as alive
+      // and position updates are applied correctly
+      const newState = changes.aiState || entityData.aiState;
+      const isDead = newState === 'dead';
+
+      // DEBUG: Log all mob state changes
+      if (entityData.type === 'mob' && changes.aiState) {
+        console.log(`[ClientNetwork] 🔍 Mob ${id}: changes.aiState=${changes.aiState}, current=${entityData.aiState}, isDead=${isDead}, hasP=${hasP}`);
+      }
+
+      // Clear interpolation buffer for ANY dead mob (defense in depth)
+      if (isDead && this.interpolationStates.has(id)) {
+        this.interpolationStates.delete(id);
+        console.log(`[ClientNetwork] ✅ Cleared interpolation buffer for dead mob ${id}`);
+      }
+
+      // Skip adding new interpolation snapshots for dead mobs
+      if (hasP && !isDead) {
         this.addInterpolationSnapshot(id, changes as { p?: [number, number, number]; q?: [number, number, number, number]; v?: [number, number, number] })
       }
+
       // Still apply non-transform changes immediately
       entity.modify(changes)
     }
@@ -712,20 +735,29 @@ export class ClientNetwork extends SystemBase {
   private updateInterpolation(delta: number): void {
     const now = performance.now()
     const renderTime = now - this.interpolationDelay
-    
+
     for (const [entityId, state] of this.interpolationStates) {
       // Skip local player
       if (entityId === this.world.entities.player?.id) {
         this.interpolationStates.delete(entityId)
         continue
       }
-      
+
       const entity = this.world.entities.get(entityId)
       if (!entity) {
         this.interpolationStates.delete(entityId)
         continue
       }
-      
+
+      // CRITICAL: Skip interpolation for dead mobs to prevent death animation sliding
+      // Dead mobs lock their position client-side for RuneScape-style stationary death
+      // Check if entity has aiState property (indicates it's a MobEntity)
+      const mobData = entity.serialize();
+      if (mobData.aiState === 'dead') {
+        console.log(`[ClientNetwork] ⏭️ Skipping interpolation for dead mob ${entityId}`);
+        continue; // Don't interpolate - let MobEntity maintain locked death position
+      }
+
       this.interpolateEntityPosition(entity, state, renderTime, now, delta)
     }
   }
