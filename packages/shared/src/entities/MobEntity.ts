@@ -84,6 +84,13 @@ import type { World } from '../World';
 import { CombatantEntity, type CombatantConfig } from './CombatantEntity';
 import { modelCache } from '../utils/ModelCache';
 import type { EntityManager } from '../systems/EntityManager';
+import type { VRMAvatarInstance, LoadedAvatar, AvatarHooks } from '../types/nodes';
+import { Emotes } from '../extras/playerEmotes';
+import { DeathStateManager } from './components/DeathStateManager';
+import { CombatStateManager } from './components/CombatStateManager';
+import { AIStateMachine, type AIStateContext } from './components/AIStateMachine';
+import { RespawnManager } from './components/RespawnManager';
+import { AggroManager } from './components/AggroManager';
 
 // Polyfill ProgressEvent for Node.js server environment
 if (typeof ProgressEvent === 'undefined') {
@@ -102,23 +109,63 @@ if (typeof ProgressEvent === 'undefined') {
   };
 }
 
-
-
 export class MobEntity extends CombatantEntity {
   protected config: MobEntityConfig;
+
+  // ===== COMPONENTS (Clean Separation of Concerns) =====
+  private deathManager: DeathStateManager;
+  private combatManager: CombatStateManager;
+  private aiStateMachine: AIStateMachine;
+  private respawnManager: RespawnManager;
+  private aggroManager: AggroManager;
+
+  // ===== RENDERING =====
+  private _avatarInstance: VRMAvatarInstance | null = null;
+  private _currentEmote: string | null = null;
+  private _serverEmote: string | null = null; // Server-forced one-shot emote (e.g., combat)
+  private _manualEmoteOverrideUntil: number = 0; // Timestamp until which manual emote override is active
+  private _tempMatrix = new THREE.Matrix4();
+  private _tempScale = new THREE.Vector3(1, 1, 1);
+  private _terrainWarningLogged = false;
+  private _hasValidTerrainHeight = false;
+
+  // ===== PATROL SYSTEM (Can be componentized later) =====
   private patrolPoints: Array<{ x: number; z: number }> = [];
   private currentPatrolIndex = 0;
-  private lastAttackerId: string | null = null;
+
+  // ===== MOVEMENT (Can be componentized later) =====
+  private _wanderTarget: { x: number; z: number } | null = null;
+  private _lastPosition: THREE.Vector3 | null = null;
+  private _stuckTimer = 0;
+  private readonly WANDER_MIN_DISTANCE = 1;     // Minimum wander distance
+  private readonly WANDER_MAX_DISTANCE = 5;     // Maximum wander distance
+  private readonly STUCK_TIMEOUT = 3000;        // Give up after 3 seconds stuck
+
+  // ===== SPAWN TRACKING =====
+  // Track the mob's CURRENT spawn location (changes on respawn)
+  // This is different from respawnManager.getSpawnAreaCenter() which is fixed
+  private _currentSpawnPoint: Position3D;
+
+  // ===== DEBUG TRACKING =====
+  private _justRespawned = false; // Track if we just respawned (for one-time logging)
 
   async init(): Promise<void> {
     await super.init();
-    
+
+    // Register for update loop (both client and server)
+    // Client: VRM animations via clientUpdate()
+    // Server: AI behavior via serverUpdate()
+    this.world.setHot(this, true);
+    console.log(`[MobEntity] ✅ Registered entity as hot for updates (isClient: ${this.world.isClient})`);
+
     // TODO: Server-side validation disabled due to ProgressEvent polyfill issues
     // Validation happens on client side instead (see clientUpdate)
   }
   
 
   constructor(world: World, config: MobEntityConfig) {
+    console.log(`[MobEntity] 🔨 Constructor called for ${config.mobType} with model: ${config.model}`);
+
     // Convert MobEntityConfig to CombatantConfig format with proper type assertion
     const combatConfig = {
       ...config,
@@ -134,9 +181,83 @@ export class MobEntity extends CombatantEntity {
         attackRange: config.combatRange
       }
     } as unknown as CombatantConfig;
-    
+
     super(world, combatConfig);
     this.config = config;
+
+    // Ensure respawnTime is at least 15 seconds (RuneScape-style)
+    if (!this.config.respawnTime || this.config.respawnTime < 15000) {
+      console.warn(`[MobEntity] respawnTime was ${this.config.respawnTime}, setting to 15000ms (15 seconds)`);
+      this.config.respawnTime = 15000; // 15 seconds minimum
+    }
+
+    // ===== INITIALIZE COMPONENTS =====
+
+    // Death State Manager
+    this.deathManager = new DeathStateManager({
+      respawnTime: this.config.respawnTime,
+      deathAnimationDuration: 4500, // 4.5 seconds
+      spawnPoint: this.config.spawnPoint
+    });
+
+    // Wire up death manager callbacks (handles visibility during death animation only)
+    this.deathManager.onMeshVisibilityChange((visible) => {
+      if (this.mesh) {
+        this.mesh.visible = visible;
+      }
+    });
+
+    // NOTE: Respawn callback is now handled by RespawnManager, not DeathStateManager
+
+    // Combat State Manager
+    this.combatManager = new CombatStateManager({
+      attackPower: this.config.attackPower,
+      attackSpeed: this.config.attackSpeed,
+      attackRange: this.config.combatRange
+    });
+
+    // Wire up combat manager callbacks
+    this.combatManager.onAttack((targetId) => {
+      this.performAttackAction(targetId);
+    });
+
+    // AI State Machine
+    this.aiStateMachine = new AIStateMachine();
+
+    // Aggro Manager - handles targeting and aggro detection
+    this.aggroManager = new AggroManager({
+      aggroRange: this.config.aggroRange,
+      combatRange: this.config.combatRange
+    });
+
+    // Respawn Manager - handles spawn area and respawn locations
+    this.respawnManager = new RespawnManager({
+      spawnAreaCenter: this.config.spawnPoint, // Use spawnPoint as center of spawn area
+      spawnAreaRadius: this.config.wanderRadius || this.config.aggroRange, // Spawn anywhere within wander/aggro range
+      respawnTimeMin: this.config.respawnTime,
+      respawnTimeMax: this.config.respawnTime + 5000 // Add 5s randomness
+    });
+
+    // Wire up respawn manager callback
+    this.respawnManager.onRespawn((spawnPoint) => {
+      this.handleRespawn(spawnPoint);
+    });
+
+    // CRITICAL: Use RespawnManager for INITIAL spawn too (not just respawn)
+    // This ensures the mob spawns at a random location within the spawn area
+    // instead of always at the same fixed point
+    const initialSpawnPoint = this.respawnManager.generateSpawnPoint();
+    console.log(`[MobEntity] 🎲 Initial spawn point: (${initialSpawnPoint.x.toFixed(2)}, ${initialSpawnPoint.y.toFixed(2)}, ${initialSpawnPoint.z.toFixed(2)})`);
+
+    // Track current spawn location for AI (patrol, leashing, return)
+    this._currentSpawnPoint = { ...initialSpawnPoint };
+
+    this.setPosition(initialSpawnPoint.x, initialSpawnPoint.y, initialSpawnPoint.z);
+    this.node.position.set(initialSpawnPoint.x, initialSpawnPoint.y, initialSpawnPoint.z);
+
+    console.log(`[MobEntity] After setPosition, this.position is: (${this.position.x.toFixed(2)}, ${this.position.y.toFixed(2)}, ${this.position.z.toFixed(2)})`);
+    console.log(`[MobEntity] After setPosition, this.node.position is: (${this.node.position.x.toFixed(2)}, ${this.node.position.y.toFixed(2)}, ${this.node.position.z.toFixed(2)})`);
+
     this.generatePatrolPoints();
     
     // Set entity properties for systems to access
@@ -233,6 +354,114 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
+   * Load VRM model and create avatar instance
+   */
+  private async loadVRMModel(): Promise<void> {
+    console.log(`[MobEntity] 🔄 Loading VRM for ${this.config.mobType}: ${this.config.model}`);
+
+    if (!this.world.loader) {
+      console.error(`[MobEntity] ❌ No loader available for ${this.config.mobType}`);
+      return;
+    }
+
+    if (!this.config.model) {
+      console.error(`[MobEntity] ❌ No model path for ${this.config.mobType}`);
+      return;
+    }
+
+    if (!this.world.stage?.scene) {
+      console.error(`[MobEntity] ❌ No world.stage.scene available for ${this.config.mobType}`);
+      return;
+    }
+
+    // Create VRM hooks with scene reference (CRITICAL for visibility!)
+    const vrmHooks = {
+      scene: this.world.stage.scene,
+      octree: this.world.stage?.octree,
+      camera: this.world.camera,
+      loader: this.world.loader
+    };
+
+    console.log(`[MobEntity] 🔄 Loading avatar from loader...`);
+
+    // Load the VRM avatar using the same loader as players
+    const src = await this.world.loader.load('avatar', this.config.model) as LoadedAvatar;
+
+    console.log(`[MobEntity] ✅ Avatar loaded, converting to nodes...`);
+
+    // Convert to nodes
+    const nodeMap = src.toNodes(vrmHooks);
+    const avatarNode = nodeMap.get('avatar') || nodeMap.get('root');
+
+    console.log(`[MobEntity] Avatar node keys:`, Array.from(nodeMap.keys()));
+
+    if (!avatarNode) {
+      console.error(`[MobEntity] ❌ No avatar node found in nodeMap`);
+      return;
+    }
+
+    // Get the factory from the avatar node
+    const avatarNodeWithFactory = avatarNode as { factory?: { create: (matrix: THREE.Matrix4, hooks?: unknown) => VRMAvatarInstance } };
+
+    if (!avatarNodeWithFactory?.factory) {
+      console.error(`[MobEntity] ❌ No factory found on avatar node for ${this.config.mobType}`);
+      return;
+    }
+
+    console.log(`[MobEntity] 🔄 Creating VRM instance from factory...`);
+
+    // Update our node's transform
+    this.node.updateMatrix();
+    this.node.updateMatrixWorld(true);
+
+    // Create the VRM instance using the factory
+    this._avatarInstance = avatarNodeWithFactory.factory.create(this.node.matrixWorld, vrmHooks);
+
+    console.log(`[MobEntity] ✅ VRM instance created`);
+
+    // Set initial emote to idle
+    this._currentEmote = Emotes.IDLE;
+    this._avatarInstance.setEmote(this._currentEmote);
+
+    // NOTE: Don't register VRM instance as hot - the MobEntity itself is registered
+    // The entity's clientUpdate() will call avatarInstance.update()
+
+    // Get the scene from the VRM instance
+    const instanceWithRaw = this._avatarInstance as { raw?: { scene?: THREE.Object3D } };
+    if (instanceWithRaw?.raw?.scene) {
+      this.mesh = instanceWithRaw.raw.scene;
+      this.mesh.name = `Mob_VRM_${this.config.mobType}_${this.id}`;
+
+      // Set up userData for interaction detection
+      const userData: MeshUserData = {
+        type: 'mob',
+        entityId: this.id,
+        name: this.config.name,
+        interactable: true,
+        mobData: {
+          id: this.id,
+          name: this.config.name,
+          type: this.config.mobType,
+          level: this.config.level,
+          health: this.config.currentHealth,
+          maxHealth: this.config.maxHealth
+        }
+      };
+      this.mesh.userData = { ...userData };
+
+      // VRM instances manage their own positioning via move() - do NOT parent to node
+      // The factory already added the scene to world.stage.scene
+      // We'll use avatarInstance.move() to position it each frame
+
+      console.log(`[MobEntity] ✅ Loaded VRM for ${this.config.mobType} at position:`, this.node.position.toArray());
+      console.log(`[MobEntity] VRM scene parent:`, this.mesh.parent?.name || 'no parent');
+      console.log(`[MobEntity] VRM scene visible:`, this.mesh.visible);
+    } else {
+      console.error(`[MobEntity] ❌ No scene in VRM instance for ${this.config.mobType}`);
+    }
+  }
+
+  /**
    * Load external animation files (walking.glb, running.glb, etc.)
    * These are custom animations made specifically for the mob models
    */
@@ -310,15 +539,27 @@ export class MobEntity extends CombatantEntity {
   }
 
   protected async createMesh(): Promise<void> {
+    console.log(`[MobEntity] 🎨 createMesh() called for ${this.config.mobType}, isServer: ${this.world.isServer}, model: ${this.config.model}`);
+
     if (this.world.isServer) {
+      console.log(`[MobEntity] ⏭️ Skipping createMesh (server-side)`);
       return;
     }
-    
+
     // Try to load 3D model if available
     if (this.config.model && this.world.loader) {
+      console.log(`[MobEntity] 📦 Model and loader available, model type: ${this.config.model.endsWith('.vrm') ? 'VRM' : 'GLB'}`);
       try {
+        // Check if this is a VRM file
+        if (this.config.model.endsWith('.vrm')) {
+          console.log(`[MobEntity] 🔄 Calling loadVRMModel()...`);
+          await this.loadVRMModel();
+          return;
+        }
+
+        // Otherwise load as GLB (existing code path)
         const { scene, animations } = await modelCache.loadModel(this.config.model, this.world);
-        
+
         this.mesh = scene;
         this.mesh.name = `Mob_${this.config.mobType}_${this.id}`;
         
@@ -446,15 +687,273 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
+   * Create AI State Context for the state machine
+   * This provides all the methods the AI states need to interact with the mob
+   */
+  private createAIContext(): AIStateContext {
+    return {
+      // Position & Movement
+      getPosition: () => this.getPosition(),
+      moveTowards: (target, deltaTime) => this.moveTowardsTarget(target, deltaTime),
+      teleportTo: (position) => {
+        this.setPosition(position.x, position.y, position.z);
+        this.config.aiState = MobAIState.IDLE;
+        this.config.currentHealth = this.config.maxHealth;
+        this.setHealth(this.config.maxHealth);
+        this.setProperty('health', { current: this.config.maxHealth, max: this.config.maxHealth });
+        this.combatManager.exitCombat();
+        this.markNetworkDirty();
+      },
+
+      // Targeting
+      findNearbyPlayer: () => this.findNearbyPlayer(),
+      getPlayer: (playerId) => this.getPlayer(playerId),
+      getCurrentTarget: () => this.config.targetPlayerId,
+      setTarget: (playerId) => {
+        this.config.targetPlayerId = playerId;
+        if (playerId) {
+          this.aggroManager.setTarget(playerId);
+        } else {
+          this.aggroManager.clearTarget();
+        }
+      },
+
+      // Combat
+      canAttack: (currentTime) => this.combatManager.canAttack(currentTime),
+      performAttack: (targetId, currentTime) => {
+        this.combatManager.performAttack(targetId, currentTime);
+      },
+      isInCombat: () => this.combatManager.isInCombat(),
+
+      // Spawn & Leashing (use CURRENT spawn location, not area center)
+      // CRITICAL: Return mob's current spawn point (changes on respawn)
+      // NOT the spawn area center (which is fixed)
+      getSpawnPoint: () => this._currentSpawnPoint,
+      getDistanceFromSpawn: () => this.getDistance2D(this._currentSpawnPoint),
+      getWanderRadius: () => this.respawnManager.getSpawnAreaRadius(),
+      getCombatRange: () => this.config.combatRange,
+
+      // Wander
+      getWanderTarget: () => this._wanderTarget ? { ...this._wanderTarget, y: this.getPosition().y } : null,
+      setWanderTarget: (target) => {
+        this._wanderTarget = target ? { x: target.x, z: target.z } : null;
+      },
+      generateWanderTarget: () => this.generateWanderTarget(),
+
+      // Timing (CRITICAL: Use Date.now() for consistent milliseconds, NOT world.getTime())
+      getTime: () => Date.now(),
+
+      // State management
+      markNetworkDirty: () => this.markNetworkDirty(),
+      emitEvent: (eventType, data) => {
+        this.world.emit(eventType as EventType, data);
+      }
+    };
+  }
+
+  /**
+   * Generate a random wander target within wander radius
+   * Uses CURRENT spawn point (changes on respawn), not fixed config.spawnPoint
+   */
+  private generateWanderTarget(): Position3D {
+    const currentPos = this.getPosition();
+    const angle = Math.random() * Math.PI * 2;
+    const distance = this.WANDER_MIN_DISTANCE +
+      Math.random() * (this.WANDER_MAX_DISTANCE - this.WANDER_MIN_DISTANCE);
+
+    let targetX = currentPos.x + Math.cos(angle) * distance;
+    let targetZ = currentPos.z + Math.sin(angle) * distance;
+
+    // Ensure target is within wander radius from CURRENT spawn point
+    const distFromSpawn = Math.sqrt(
+      Math.pow(targetX - this._currentSpawnPoint.x, 2) +
+      Math.pow(targetZ - this._currentSpawnPoint.z, 2)
+    );
+
+    if (distFromSpawn > this.config.wanderRadius) {
+      // Clamp to wander radius boundary
+      const toTargetX = targetX - this._currentSpawnPoint.x;
+      const toTargetZ = targetZ - this._currentSpawnPoint.z;
+      const scale = this.config.wanderRadius / distFromSpawn;
+      targetX = this._currentSpawnPoint.x + toTargetX * scale;
+      targetZ = this._currentSpawnPoint.z + toTargetZ * scale;
+    }
+
+    return { x: targetX, y: currentPos.y, z: targetZ };
+  }
+
+  /**
+   * Handle respawn callback from RespawnManager (SERVER-SIDE)
+   * Handles game logic: health reset, state changes, position teleport
+   * Visual restoration happens on client side in handleClientRespawn()
+   *
+   * @param spawnPoint - Random spawn point generated by RespawnManager
+   */
+  private handleRespawn(spawnPoint: Position3D): void {
+    console.log(`[MobEntity] [SERVER] handleRespawn() called at (${spawnPoint.x.toFixed(2)}, ${spawnPoint.y.toFixed(2)}, ${spawnPoint.z.toFixed(2)})`);
+
+    // Reset health and state
+    this.config.currentHealth = this.config.maxHealth;
+    this.setHealth(this.config.maxHealth);
+    this.setProperty('health', { current: this.config.maxHealth, max: this.config.maxHealth });
+
+    // Reset AI state - set to IDLE first, then force AI state machine to IDLE
+    this.config.aiState = MobAIState.IDLE;
+    this.config.targetPlayerId = null;
+    this.config.deathTime = null;
+
+    // Clear aggro target
+    this.aggroManager.clearTarget();
+
+    // CRITICAL: Reset DeathStateManager BEFORE network sync
+    // Without this, getNetworkData() thinks mob is still dead and strips position from network packet!
+    this.deathManager.reset();
+    console.log(`[MobEntity] [SERVER] 🔄 Reset DeathStateManager - mob is now alive`);
+
+    // CRITICAL: Force AI state machine to IDLE state after respawn
+    this.aiStateMachine.forceState(MobAIState.IDLE, this.createAIContext());
+
+    // Clear combat state
+    this.combatManager.exitCombat();
+
+    // Clear any combat state in CombatSystem
+    const combatSystem = this.world.getSystem('combat') as any;
+    if (combatSystem && typeof combatSystem.forceEndCombat === 'function') {
+      combatSystem.forceEndCombat(this.id);
+    }
+
+    // CRITICAL: Update current spawn point to NEW random location
+    // This ensures AI (patrol, leashing, return) uses the new spawn location
+    this._currentSpawnPoint = { ...spawnPoint };
+    console.log(`[MobEntity] [SERVER] 🎯 Updated _currentSpawnPoint to: (${this._currentSpawnPoint.x.toFixed(2)}, ${this._currentSpawnPoint.y.toFixed(2)}, ${this._currentSpawnPoint.z.toFixed(2)})`);
+
+    // Regenerate patrol points around NEW spawn location
+    this.patrolPoints = [];
+    this.generatePatrolPoints();
+
+    // Teleport to NEW random spawn point (generated by RespawnManager)
+    this.setPosition(spawnPoint.x, spawnPoint.y, spawnPoint.z);
+    console.log(`[MobEntity] [SERVER] 📍 Set position to spawn: (${spawnPoint.x.toFixed(2)}, ${spawnPoint.y.toFixed(2)}, ${spawnPoint.z.toFixed(2)})`);
+
+    // CRITICAL: Force update node position (setPosition might only update this.position)
+    this.node.position.set(spawnPoint.x, spawnPoint.y, spawnPoint.z);
+    this.position.set(spawnPoint.x, spawnPoint.y, spawnPoint.z);
+    console.log(`[MobEntity] [SERVER] 📍 Verified: this.position=(${this.position.x.toFixed(2)}, ${this.position.y.toFixed(2)}, ${this.position.z.toFixed(2)}), this.node.position=(${this.node.position.x.toFixed(2)}, ${this.node.position.y.toFixed(2)}, ${this.node.position.z.toFixed(2)})`);
+
+    // Update userData
+    if (this.mesh?.userData) {
+      const userData = this.mesh.userData as MeshUserData;
+      if (userData.mobData) {
+        userData.mobData.health = this.config.currentHealth;
+      }
+    }
+
+    // Emit respawn event
+    this.world.emit(EventType.MOB_NPC_RESPAWNED, {
+      mobId: this.id,
+      position: this.getPosition()
+    });
+
+    // Set flag to log next network sync (one-time only)
+    this._justRespawned = true;
+
+    console.log(`[MobEntity] [SERVER] 📡 Marking network dirty - will send aiState=IDLE + position to client`);
+    this.markNetworkDirty();
+
+    console.log(`[MobEntity] [SERVER] ✅ Respawn complete - mob is now IDLE at spawn`);
+  }
+
+  // NOTE: Client-side respawn restoration is now handled inline in modify()
+  // AFTER super.modify() updates the position from server
+  // This ensures the VRM is moved to the correct spawn location, not the death location
+
+  /**
+   * Perform attack action (called by CombatStateManager)
+   */
+  private performAttackAction(targetId: string): void {
+    this.world.emit(EventType.COMBAT_MOB_NPC_ATTACK, {
+      mobId: this.id,
+      targetId: targetId,
+      damage: this.config.attackPower,
+      attackerType: 'mob',
+      targetType: 'player'
+    });
+  }
+
+  /**
    * SERVER-SIDE UPDATE
    * Handles AI logic, pathfinding, combat, and state management
    * Changes are synced to clients via getNetworkData() and markNetworkDirty()
    */
+  private serverUpdateCalls = 0;
+
   protected serverUpdate(deltaTime: number): void {
     super.serverUpdate(deltaTime);
+    this.serverUpdateCalls++;
 
-    if (this.config.aiState !== MobAIState.DEAD) {
-      this.updateAI(deltaTime);
+    // ===== COMPONENT-BASED UPDATE LOGIC =====
+
+    // Handle death state (position locking during death animation)
+    if (this.deathManager.isCurrentlyDead()) {
+      // Use Date.now() for consistent millisecond timing (world.getTime() has inconsistent units)
+      const currentTime = Date.now();
+
+      // Lock position to death location (prevent any movement)
+      const lockedPos = this.deathManager.getLockedPosition();
+      if (lockedPos) {
+        // Forcefully lock position every frame (defense in depth)
+        if (this.position.x !== lockedPos.x ||
+            this.position.y !== lockedPos.y ||
+            this.position.z !== lockedPos.z) {
+          console.warn(`[MobEntity] ⚠️ Server position moved while dead! Restoring lock.`);
+          this.position.copy(lockedPos);
+          this.node.position.copy(lockedPos);
+        }
+      }
+
+      // Update death manager (handles death animation timing only, not respawn)
+      this.deathManager.update(deltaTime, currentTime);
+
+      // Update respawn manager (handles respawn timer and location)
+      if (this.respawnManager.isRespawnTimerActive()) {
+        this.respawnManager.update(currentTime);
+
+        // DEBUG: Log every 60 frames to track respawn timer
+        if (this.serverUpdateCalls % 60 === 0) {
+          const timeUntilRespawn = this.respawnManager.getTimeUntilRespawn(currentTime);
+          console.log(`[MobEntity] [SERVER] Respawn in ${(timeUntilRespawn / 1000).toFixed(1)}s`);
+        }
+      }
+
+      return; // Don't run AI when dead
+    }
+
+    // Update AI state machine
+    this.aiStateMachine.update(this.createAIContext(), deltaTime);
+
+    // Sync config.aiState with AI state machine current state
+    this.config.aiState = this.aiStateMachine.getCurrentState();
+  }
+
+  /**
+   * Map AI state to emote URL for VRM animations
+   */
+  private getEmoteForAIState(aiState: MobAIState): string {
+    switch (aiState) {
+      case MobAIState.WANDER:
+      case MobAIState.CHASE:
+        return Emotes.WALK;
+      case MobAIState.ATTACK:
+        // Return IDLE for attack state - CombatSystem handles one-shot attack animations
+        // This prevents AI from continuously looping the combat animation
+        return Emotes.IDLE;
+      case MobAIState.RETURN:
+        return Emotes.WALK; // Walk back to spawn
+      case MobAIState.DEAD:
+        return Emotes.DEATH; // Death animation
+      case MobAIState.IDLE:
+      default:
+        return Emotes.IDLE;
     }
   }
 
@@ -462,26 +961,38 @@ export class MobEntity extends CombatantEntity {
    * Switch animation based on AI state
    */
   private updateAnimation(): void {
+    // VRM path: Use emote-based animation
+    if (this._avatarInstance) {
+      const targetEmote = this.getEmoteForAIState(this.config.aiState);
+      if (this._currentEmote !== targetEmote) {
+        this._currentEmote = targetEmote;
+        this._avatarInstance.setEmote(targetEmote);
+      }
+      return;
+    }
+
+    // GLB path: Use mixer-based animation
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
     const clips = (this as { animationClips?: { idle?: THREE.AnimationClip; walk?: THREE.AnimationClip } }).animationClips;
     const currentAction = (this as { currentAction?: THREE.AnimationAction }).currentAction;
-    
+
     if (!mixer || !clips) {
       return;
     }
-    
+
     // Determine which animation should be playing based on AI state
     let targetClip: THREE.AnimationClip | undefined;
-    
-    if (this.config.aiState === MobAIState.PATROL || 
-        this.config.aiState === MobAIState.CHASE) {
+
+    if (this.config.aiState === MobAIState.WANDER ||
+        this.config.aiState === MobAIState.CHASE ||
+        this.config.aiState === MobAIState.RETURN) {
       // Moving states - play walk animation
       targetClip = clips.walk || clips.idle;
     } else {
-      // Idle, attack, flee, or dead - play idle animation
+      // Idle, attack, or dead - play idle animation
       targetClip = clips.idle || clips.walk;
     }
-    
+
     // Switch animation if needed
     if (targetClip && currentAction?.getClip() !== targetClip) {
       currentAction?.fadeOut(0.2);
@@ -501,34 +1012,211 @@ export class MobEntity extends CombatantEntity {
   private clientUpdateCalls = 0;
   private initialBonePosition: THREE.Vector3 | null = null;
   
+  // Track when death animation started on client (in Date.now() milliseconds)
+  private clientDeathStartTime: number | null = null;
+
   protected clientUpdate(deltaTime: number): void {
     super.clientUpdate(deltaTime);
     this.clientUpdateCalls++;
-    
+
+    // Handle dead state on client (hide mesh and stop VRM animation after death animation)
+    if (this.config.aiState === MobAIState.DEAD) {
+      // Start tracking client-side death time when we first see DEAD state
+      if (!this.clientDeathStartTime) {
+        this.clientDeathStartTime = Date.now();
+        console.log(`[MobEntity] [CLIENT] 💀 Death detected, starting client death timer at ${this.clientDeathStartTime}`);
+      }
+
+      const currentTime = Date.now();
+      const timeSinceDeath = currentTime - this.clientDeathStartTime;
+
+      // DEBUG: Log death timing every 60 frames
+      if (this.clientUpdateCalls % 60 === 0) {
+        console.log(`[MobEntity] [CLIENT] DEATH DEBUG: currentTime=${currentTime}, deathStartTime=${this.clientDeathStartTime}, timeSinceDeath=${timeSinceDeath}ms, threshold=4500ms`);
+      }
+
+      // Hide mesh and VRM after death animation finishes (4.5 seconds = 4500ms)
+      if (timeSinceDeath >= 4500) {
+        // Hide the mesh
+        if (this.mesh && this.mesh.visible) {
+          this.mesh.visible = false;
+          console.log(`[MobEntity] [CLIENT] Death animation finished (timeSinceDeath=${timeSinceDeath}ms), hiding mesh for ${this.config.mobType}`);
+        }
+        // Hide the node (contains VRM scene)
+        if (this.node && this.node.visible) {
+          this.node.visible = false;
+          console.log(`[MobEntity] [CLIENT] Hiding node to stop VRM rendering`);
+        }
+        // CRITICAL: Stop the VRM animation mixer by clearing the emote
+        // This prevents the death animation from looping
+        if (this._avatarInstance && this._currentEmote === Emotes.DEATH) {
+          this._currentEmote = ''; // Clear emote to stop mixer
+          this._avatarInstance.setEmote(''); // Stop animation playback
+          this._manualEmoteOverrideUntil = 0; // Clear override
+          console.log(`[MobEntity] [CLIENT] Stopped death animation mixer`);
+        }
+        // Skip all further updates while dead and invisible
+        return;
+      }
+    } else {
+      // Not dead anymore - this is handled in modify() when state changes
+      // No need for duplicate logic here
+    }
+
+    // VRM path: Use avatar instance update (handles everything)
+    if (this._avatarInstance) {
+      // DEBUG: Log animation state every 60 frames (~1 second)
+      if (this.clientUpdateCalls % 60 === 0) {
+        const timeSinceDeath = this.clientDeathStartTime ? Date.now() - this.clientDeathStartTime : -1;
+        console.log(`[MobEntity] Animation debug: aiState=${this.config.aiState}, timeSinceDeath=${timeSinceDeath}ms, currentEmote=${this._currentEmote}, targetEmote=${this.getEmoteForAIState(this.config.aiState)}, override=${this._manualEmoteOverrideUntil}, now=${Date.now()}`);
+      }
+
+      // CRITICAL: Don't switch emotes while in DEAD state
+      // The death animation was already set via server emote, just let it play
+      // After 4.5s the node will be hidden above
+      if (this.config.aiState !== MobAIState.DEAD) {
+        // Skip AI-based emote updates if manual override is active (for one-shot attack animations)
+        const now = Date.now();
+        if (now >= this._manualEmoteOverrideUntil) {
+          // Switch animation based on AI state (walk when patrolling/chasing, idle otherwise)
+          const targetEmote = this.getEmoteForAIState(this.config.aiState);
+          if (this._currentEmote !== targetEmote) {
+            console.log(`[MobEntity] Switching emote from ${this._currentEmote} to ${targetEmote} (AI state: ${this.config.aiState})`);
+            this._currentEmote = targetEmote;
+            this._avatarInstance.setEmote(targetEmote);
+          }
+        }
+      }
+
+      // COMBAT ROTATION: Rotate to face target when in ATTACK state (RuneScape-style)
+      if (this.config.aiState === MobAIState.ATTACK && this.config.targetPlayerId) {
+        const targetPlayer = this.world.getPlayer?.(this.config.targetPlayerId);
+        if (targetPlayer && targetPlayer.position) {
+          const dx = targetPlayer.position.x - this.position.x;
+          const dz = targetPlayer.position.z - this.position.z;
+          let angle = Math.atan2(dx, dz);
+
+          // VRM 1.0+ models have 180° base rotation, so we need to compensate
+          // Otherwise entities face AWAY from each other instead of towards
+          angle += Math.PI;
+
+          // Apply rotation to node quaternion
+          const tempQuat = new THREE.Quaternion();
+          tempQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+          this.node.quaternion.copy(tempQuat);
+        }
+      }
+
+      // If mob is dead, lock position to prevent death animation from sliding
+      const lockedPos = this.deathManager.getLockedPosition();
+      if (lockedPos) {
+        this.node.position.copy(lockedPos);
+        this.position.copy(lockedPos);
+      } else {
+        // CRITICAL: Snap to terrain EVERY frame (server doesn't have terrain system)
+        // Keep trying until terrain tile is generated, then snap every frame
+        // This also counteracts VRM animation root motion that would push character into ground
+        const terrain = this.world.getSystem('terrain');
+        if (terrain && 'getHeightAt' in terrain) {
+          try {
+            // CRITICAL: Must call method on terrain object to preserve 'this' context
+            const terrainHeight = (terrain as { getHeightAt: (x: number, z: number) => number }).getHeightAt(this.node.position.x, this.node.position.z);
+            if (Number.isFinite(terrainHeight)) {
+              if (!this._hasValidTerrainHeight) {
+                console.log(`[MobEntity] First valid terrain height: ${terrainHeight.toFixed(2)} at position (${this.node.position.x.toFixed(1)}, ${this.node.position.z.toFixed(1)})`);
+                this._hasValidTerrainHeight = true;
+              }
+              this.node.position.y = terrainHeight + 0.1;
+              this.position.y = terrainHeight + 0.1;
+            }
+          } catch (err) {
+            // Terrain tile not generated yet - keep current Y and retry next frame
+            if (this.clientUpdateCalls === 10 && !this._hasValidTerrainHeight) {
+              console.warn(`[MobEntity] Waiting for terrain tile to generate at (${this.node.position.x.toFixed(1)}, ${this.node.position.z.toFixed(1)})`);
+            }
+          }
+        }
+      }
+
+      // Update node transform matrices
+      // NOTE: ClientNetwork updates XZ from server, we calculate Y from client terrain
+      this.node.updateMatrix();
+      this.node.updateMatrixWorld(true);
+
+      // SPECIAL HANDLING FOR DEATH: Lock position, let animation play
+      const deathLockedPos = this.deathManager.getLockedPosition();
+      if (deathLockedPos) {
+        // Lock the node position to death position (prevents teleporting)
+        this.node.position.copy(deathLockedPos);
+        this.position.copy(deathLockedPos);
+        this.node.updateMatrix();
+        this.node.updateMatrixWorld(true);
+
+        // DON'T call move() - it causes sliding due to internal interpolation
+        // VRM scene was positioned once in modify() when entering death state
+        // Just update the animation, VRM scene stays locked
+        this._avatarInstance.update(deltaTime);
+      } else {
+        // NORMAL PATH: Use move() to sync VRM - it preserves the VRM's internal scale
+        // move() applies vrm.scene.scale to maintain height normalization
+        this._avatarInstance.move(this.node.matrixWorld);
+
+        // Update VRM animations (mixer + humanoid + skeleton)
+        this._avatarInstance.update(deltaTime);
+      }
+
+      // Post-animation position locking for non-death states
+      if (this.config.aiState !== MobAIState.DEAD) {
+        // CRITICAL: Re-snap to terrain AFTER animation update to counteract root motion
+        // Animation root motion can push character down/back, so we fix position after it applies
+        const terrain = this.world.getSystem('terrain');
+        if (terrain && 'getHeightAt' in terrain) {
+          try {
+            const terrainHeight = (terrain as { getHeightAt: (x: number, z: number) => number }).getHeightAt(this.node.position.x, this.node.position.z);
+            if (Number.isFinite(terrainHeight)) {
+              this.node.position.y = terrainHeight + 0.1;
+              this.position.y = terrainHeight + 0.1;
+
+              // CRITICAL: Update matrices and call move() again to apply corrected Y position to VRM
+              this.node.updateMatrix();
+              this.node.updateMatrixWorld(true);
+              this._avatarInstance.move(this.node.matrixWorld);
+            }
+          } catch (err) {
+            // Terrain tile not generated yet
+          }
+        }
+      }
+
+      // VRM handles all animation internally
+      return;
+    }
+
+    // GLB path: Existing animation code for non-VRM mobs
     // Update animations based on AI state
     this.updateAnimation();
-    
+
     // Update animation mixer
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
-    
+
     // EXPECT: Mixer should exist after animations loaded
     if (this.clientUpdateCalls === 10 && !mixer) {
       throw new Error(`[MobEntity] NO MIXER on update #10: ${this.config.mobType}`);
     }
-    
+
     if (mixer) {
       mixer.update(deltaTime);
-      
+
       // Update skeleton bones
       if (this.mesh) {
         this.mesh.traverse((child) => {
           if (child instanceof THREE.SkinnedMesh && child.skeleton) {
             const skeleton = child.skeleton;
-            
+
             // Update bone matrices
             skeleton.bones.forEach(bone => bone.updateMatrixWorld());
             skeleton.update();
-            
+
             // VALIDATION: Check if bones are actually transforming
             if (this.clientUpdateCalls === 1) {
               const hipsBone = skeleton.bones.find(b => b.name.toLowerCase().includes('hips'));
@@ -558,224 +1246,39 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
-  private updateAI(deltaTime: number): void {
-    const now = this.world.getTime();
-
-    switch (this.config.aiState) {
-      case MobAIState.IDLE:
-        this.handleIdleState();
-        break;
-      case MobAIState.PATROL:
-        this.handlePatrolState(deltaTime);
-        break;
-      case MobAIState.CHASE:
-        this.handleChaseState(deltaTime);
-        break;
-      case MobAIState.ATTACK:
-        this.handleAttackState(now);
-        break;
-      case MobAIState.FLEE:
-        this.handleFleeState(deltaTime);
-        break;
-      case MobAIState.DEAD:
-        this.handleDeadState(deltaTime);
-        break;
-    }
-  }
-
-  private handleIdleState(): void {
-    // Look for nearby players
-    const nearbyPlayer = this.findNearbyPlayer();
-    if (nearbyPlayer) {
-      this.config.targetPlayerId = nearbyPlayer.id;
-      this.config.aiState = MobAIState.CHASE;
-      this.world.emit(EventType.MOB_NPC_AGGRO, {
-        mobId: this.id,
-        targetId: nearbyPlayer.id
-      });
-      this.markNetworkDirty();
-      return;
-    }
-
-    // Start patrolling if no player found
-    if (Math.random() < 0.01) { // 1% chance to start patrolling each update
-      this.config.aiState = MobAIState.PATROL;
-      this.markNetworkDirty();
-    }
-  }
-
-  private handlePatrolState(deltaTime: number): void {
-    // Check for players while patrolling
-    const nearbyPlayer = this.findNearbyPlayer();
-    if (nearbyPlayer) {
-      this.config.targetPlayerId = nearbyPlayer.id;
-      this.config.aiState = MobAIState.CHASE;
-      this.markNetworkDirty(); // Sync state change to clients
-      return;
-    }
-
-    // Move towards current patrol point
-    if (this.patrolPoints.length > 0) {
-      const targetPoint = this.patrolPoints[this.currentPatrolIndex];
-      const currentPos = this.getPosition();
-      const targetPos = { x: targetPoint.x, y: currentPos.y, z: targetPoint.z };
-
-      const distance = this.getDistanceTo(targetPos);
-      if (distance < 1) {
-        // Reached patrol point, move to next
-        this.currentPatrolIndex = (this.currentPatrolIndex + 1) % this.patrolPoints.length;
-      } else {
-        // Move towards patrol point
-        this.moveTowardsTarget(targetPos, deltaTime);
-      }
-    }
-
-    // Random chance to stop patrolling
-    if (Math.random() < 0.05) { // 5% chance to stop
-      this.config.aiState = MobAIState.IDLE;
-      this.markNetworkDirty(); // Sync state change to clients
-    }
-  }
-
-  private handleChaseState(deltaTime: number): void {
-    if (!this.config.targetPlayerId) {
-      this.config.aiState = MobAIState.IDLE;
-      this.markNetworkDirty();
-      return;
-    }
-
-    const targetPlayer = this.getPlayer(this.config.targetPlayerId);
-    if (!targetPlayer) {
-      this.config.targetPlayerId = null;
-      this.config.aiState = MobAIState.FLEE;
-      this.markNetworkDirty();
-      return;
-    }
-
-    const targetPos = targetPlayer.position;
-    if (!targetPos) {
-      this.config.aiState = MobAIState.FLEE;
-      this.markNetworkDirty();
-      return;
-    }
-
-    const distance = this.getDistanceTo(targetPos);
-    const spawnDistance = this.getDistanceTo(this.config.spawnPoint);
-
-    // Mob is actively chasing
-
-    // Too far from spawn - return home (allow 5x aggro range leash distance)
-    if (spawnDistance > this.config.aggroRange * 5.0) {
-      this.config.aiState = MobAIState.FLEE;
-      this.config.targetPlayerId = null;
-      this.markNetworkDirty();
-      return;
-    }
-
-    // Player too far - give up chase (allow them to chase 3x aggro range for persistence)
-    if (distance > this.config.aggroRange * 3.0) {
-      this.config.aiState = MobAIState.FLEE;
-      this.config.targetPlayerId = null;
-      this.markNetworkDirty();
-      return;
-    }
-
-    // Close enough to attack
-    if (distance <= this.config.combatRange) {
-      this.config.aiState = MobAIState.ATTACK;
-      this.markNetworkDirty();
-      return;
-    }
-
-    // Move towards player
-    this.moveTowardsTarget(targetPos, deltaTime);
-  }
-
-  private handleAttackState(currentTime: number): void {
-    if (!this.config.targetPlayerId) {
-      this.config.aiState = MobAIState.IDLE;
-      this.markNetworkDirty(); // Sync state change to clients
-      return;
-    }
-
-    const targetPlayer = this.getPlayer(this.config.targetPlayerId);
-    if (!targetPlayer) {
-      this.config.targetPlayerId = null;
-      this.config.aiState = MobAIState.IDLE;
-      this.markNetworkDirty(); // Sync state change to clients
-      return;
-    }
-
-    const targetPos = targetPlayer.position;
-    if (!targetPos) {
-      this.config.aiState = MobAIState.CHASE;
-      this.markNetworkDirty(); // Sync state change to clients
-      return;
-    }
-
-    const distance = this.getDistanceTo(targetPos);
-
-    // Player moved out of range
-    if (distance > this.config.combatRange) {
-      this.config.aiState = MobAIState.CHASE;
-      this.markNetworkDirty(); // Sync state change to clients
-      return;
-    }
-
-    // Check attack cooldown
-    const timeSinceLastAttack = currentTime - this.config.lastAttackTime;
-    if (timeSinceLastAttack >= this.config.attackSpeed) {
-      this.performAttack(targetPlayer);
-      this.config.lastAttackTime = currentTime;
-    }
-  }
-
-  private handleFleeState(deltaTime: number): void {
-    const spawnDistance = this.getDistanceTo(this.config.spawnPoint);
-    
-    if (spawnDistance < 1) {
-      // Reached spawn point
-      this.config.aiState = MobAIState.IDLE;
-      this.config.currentHealth = this.config.maxHealth; // Heal when returning home
-      this.markNetworkDirty(); // Sync state and health to clients
-      return;
-    }
-
-    // Move towards spawn point
-    this.moveTowardsTarget(this.config.spawnPoint, deltaTime);
-  }
-
-  private handleDeadState(_deltaTime: number): void {
-    if (!this.config.deathTime) return;
-
-    const timeSinceDeath = this.world.getTime() - this.config.deathTime;
-    if (timeSinceDeath >= this.config.respawnTime) {
-      this.respawn();
-    }
-  }
-
-  private performAttack(target: { id: string }): void {
-    // Emit attack event
-    this.world.emit(EventType.COMBAT_MOB_NPC_ATTACK, {
-      mobId: this.id,
-      targetId: target.id,
-      damage: this.config.attackPower,
-      attackerType: 'mob',
-      targetType: 'player'
-    });
+  /**
+   * Calculate 2D horizontal distance (XZ plane only, ignoring Y)
+   * Used for spawn/wander radius checks to avoid Y-axis terrain height issues
+   */
+  private getDistance2D(point: Position3D): number {
+    const pos = this.getPosition();
+    const dx = pos.x - point.x;
+    const dz = pos.z - point.z;
+    return Math.sqrt(dx * dx + dz * dz);
   }
 
   takeDamage(damage: number, attackerId?: string): boolean {
-    if (this.config.aiState === MobAIState.DEAD) return false;
+    // ===== COMPONENT-BASED DAMAGE HANDLING =====
 
-    // Track attacker for death event
-    if (attackerId) {
-      this.lastAttackerId = attackerId;
+    // Already dead - ignore damage
+    if (this.deathManager.isCurrentlyDead()) {
+      console.log(`[MobEntity] ${this.config.mobType} already dead, ignoring ${damage} damage`);
+      return false;
     }
 
+    // Enter combat (prevents safety teleport while fighting)
+    this.combatManager.enterCombat(attackerId);
+
+    // Apply damage
+    const oldHealth = this.config.currentHealth;
     this.config.currentHealth = Math.max(0, this.config.currentHealth - damage);
-    
-    // Update userData
+    console.log(`[MobEntity] 💥 ${this.config.mobType} took ${damage} damage: ${oldHealth} → ${this.config.currentHealth}/${this.config.maxHealth}`);
+
+    // Sync all health fields (single source of truth)
+    this.setHealth(this.config.currentHealth);
+    this.setProperty('health', { current: this.config.currentHealth, max: this.config.maxHealth });
+
+    // Update userData for mesh
     if (this.mesh?.userData) {
       const userData = this.mesh.userData as MeshUserData;
       if (userData.mobData) {
@@ -790,15 +1293,18 @@ export class MobEntity extends CombatantEntity {
       position: this.getPosition()
     });
 
-        if (this.config.currentHealth <= 0) {
-          // Don't call die() directly - let EntityManager handle death via MOB_ATTACKED event
-          // This prevents race conditions and double XP grants
-          return true; // Mob died
-        } else {
-      // Become aggressive towards attacker
+    // Check if mob died
+    if (this.config.currentHealth <= 0) {
+      console.log(`[MobEntity] 💀 ${this.config.mobType} health reached 0, calling die()`);
+      this.die();
+      return true; // Mob died
+    } else {
+      // Become aggressive towards attacker (use AggroManager for target management)
       if (attackerId && !this.config.targetPlayerId) {
+        console.log(`[MobEntity] ${this.config.mobType} aggroing on ${attackerId}`);
         this.config.targetPlayerId = attackerId;
-        this.config.aiState = MobAIState.CHASE;
+        this.aggroManager.setTargetIfNone(attackerId);
+        this.aiStateMachine.forceState(MobAIState.CHASE, this.createAIContext());
       }
     }
 
@@ -807,58 +1313,65 @@ export class MobEntity extends CombatantEntity {
   }
 
   die(): void {
+    // ===== COMPONENT-BASED DEATH HANDLING =====
+
+    // Use Date.now() for consistent millisecond timing (world.getTime() has inconsistent units)
+    const currentTime = Date.now();
+    const deathPosition = this.getPosition();
+
+    // Delegate death logic to DeathStateManager (position locking, death animation timing)
+    this.deathManager.die(deathPosition, currentTime);
+
+    // Start respawn timer with RespawnManager (generates NEW random spawn point - NOT death location!)
+    this.respawnManager.startRespawnTimer(currentTime, deathPosition);
+
+    // Update config state for network sync
     this.config.aiState = MobAIState.DEAD;
-    this.config.deathTime = this.world.getTime();
+    this.config.deathTime = currentTime;
     this.config.targetPlayerId = null;
-    this.config.currentHealth = 0; // Ensure health is 0
-    
+    this.config.currentHealth = 0;
+
+    // Clear aggro target
+    this.aggroManager.clearTarget();
+
     // Update base health property for isDead() check
     this.setHealth(0);
 
-    // Immediately end combat to prevent further attacks
+    // End combat
     const combatSystem = this.world.getSystem('combat') as any;
     if (combatSystem && typeof combatSystem.forceEndCombat === 'function') {
       combatSystem.forceEndCombat(this.id);
     }
 
+    // Play death animation via server emote broadcast
+    this.setServerEmote(Emotes.DEATH);
+
     // Mark for network update to sync death state to clients
     this.markNetworkDirty();
 
     // Emit death event with last attacker
-    if (this.lastAttackerId) {
+    const lastAttackerId = this.combatManager.getLastAttackerId();
+    if (lastAttackerId) {
       this.world.emit(EventType.NPC_DIED, {
         mobId: this.id,
         mobType: this.config.mobType,
         level: this.config.level,
-        killedBy: this.lastAttackerId,
+        killedBy: lastAttackerId,
         position: this.getPosition()
       });
 
       // Emit COMBAT_KILL event for SkillsSystem to grant combat XP
       this.world.emit(EventType.COMBAT_KILL, {
-        attackerId: this.lastAttackerId,
+        attackerId: lastAttackerId,
         targetId: this.id,
-        damageDealt: this.config.maxHealth, // Total damage dealt (mob's max health)
-        attackStyle: 'aggressive' // Use valid attack style for XP calculation
+        damageDealt: this.config.maxHealth,
+        attackStyle: 'aggressive'
       });
 
-      this.dropLoot(this.lastAttackerId);
+      this.dropLoot(lastAttackerId);
     } else {
       console.warn(`[MobEntity] ${this.id} died but no lastAttackerId found`);
     }
-
-    // Hide mesh or change to corpse
-    if (this.mesh) {
-      this.mesh.visible = false;
-    }
-
-    // Schedule entity destruction after a brief delay to allow network sync
-    setTimeout(() => {
-      const entityManager = this.world.getSystem('entity-manager') as EntityManager;
-      if (entityManager && typeof entityManager.destroyEntity === 'function') {
-        entityManager.destroyEntity(this.id);
-      }
-    }, 100); // 100ms delay to ensure network update is sent
   }
 
   private dropLoot(killerId: string): void {
@@ -880,39 +1393,9 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
-  public respawn(): void {
-    // Reset health and state
-    this.config.currentHealth = this.config.maxHealth;
-    this.config.aiState = MobAIState.IDLE;
-    this.config.targetPlayerId = null;
-    this.config.deathTime = null;
-
-    // Reset position to spawn point
-    this.setPosition(this.config.spawnPoint.x, this.config.spawnPoint.y, this.config.spawnPoint.z);
-
-    // Show mesh
-    if (this.mesh) {
-      this.mesh.visible = true;
-    }
-
-    // Update userData
-    if (this.mesh?.userData) {
-      const userData = this.mesh.userData as MeshUserData;
-      if (userData.mobData) {
-        userData.mobData.health = this.config.currentHealth;
-      }
-    }
-
-    this.world.emit(EventType.MOB_NPC_RESPAWNED, {
-      mobId: this.id,
-      position: this.getPosition()
-    });
-
-    this.markNetworkDirty();
-  }
-
   private generatePatrolPoints(): void {
-    const spawnPos = this.config.spawnPoint;
+    // Use CURRENT spawn point (changes on respawn), not fixed config.spawnPoint
+    const spawnPos = this._currentSpawnPoint;
     const patrolRadius = 5; // 5 meter patrol radius
 
     for (let i = 0; i < 4; i++) {
@@ -948,89 +1431,94 @@ export class MobEntity extends CombatantEntity {
       const terrain = this.world.getSystem('terrain');
       if (terrain && 'getHeightAt' in terrain) {
         try {
-          const getHeight = terrain.getHeightAt as (x: number, z: number) => number;
-          const terrainHeight = getHeight(newPos.x, newPos.z);
+          // CRITICAL: Must call method on terrain object to preserve 'this' context
+          const terrainHeight = (terrain as { getHeightAt: (x: number, z: number) => number }).getHeightAt(newPos.x, newPos.z);
           if (Number.isFinite(terrainHeight)) {
-            newPos.y = terrainHeight + 0.5;
+            newPos.y = terrainHeight + 0.1;
+          } else if (!this._terrainWarningLogged) {
+            console.warn(`[MobEntity] Server terrain height not finite at (${newPos.x.toFixed(1)}, ${newPos.z.toFixed(1)})`);
+            this._terrainWarningLogged = true;
           }
         } catch (err) {
-          // Terrain not initialized yet - keep current Y
+          if (!this._terrainWarningLogged) {
+            console.warn(`[MobEntity] Server terrain getHeightAt failed:`, err);
+            this._terrainWarningLogged = true;
+          }
         }
+      } else if (!this._terrainWarningLogged) {
+        console.warn(`[MobEntity] Server has no terrain system`);
+        this._terrainWarningLogged = true;
       }
 
       // Calculate rotation to face movement direction
-      const angle = Math.atan2(direction.x, direction.z);
+      // VRM 1.0+ models are rotated 180° by the factory (see createVRMFactory.ts:264)
+      // so we need to add PI to compensate and face the correct direction
+      const angle = Math.atan2(direction.x, direction.z) + Math.PI;
       const targetQuaternion = new THREE.Quaternion();
       targetQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-      
+
       // Smoothly rotate towards target direction
       this.node.quaternion.slerp(targetQuaternion, 0.1);
 
-      // Movement happening - position will be synced via network
+      // Stuck detection: Only check when actively moving (RuneScape-style: give up if stuck)
+      // This prevents false positives during IDLE and ATTACK states
+      const isMovingState = this.config.aiState === MobAIState.WANDER ||
+                           this.config.aiState === MobAIState.CHASE ||
+                           this.config.aiState === MobAIState.RETURN;
 
+      if (isMovingState) {
+        if (this._lastPosition) {
+          const moved = this.position.distanceTo(this._lastPosition);
+          if (moved < 0.01) {
+            // Barely moved - increment stuck timer
+            this._stuckTimer += deltaTime;
+            if (this._stuckTimer > this.STUCK_TIMEOUT) {
+              // Stuck for too long - give up and return home (production safety)
+              console.warn(`[MobEntity] ${this.config.mobType} stuck for ${(this.STUCK_TIMEOUT/1000).toFixed(1)}s at (${currentPos.x.toFixed(1)}, ${currentPos.z.toFixed(1)}), returning to spawn`);
+              this.config.aiState = MobAIState.RETURN;
+              this.config.targetPlayerId = null;
+              this.aggroManager.clearTarget();
+              this._wanderTarget = null;
+              this._stuckTimer = 0;
+              this._lastPosition = null;
+              this.markNetworkDirty();
+              return;
+            }
+          } else {
+            // Moving normally - reset stuck timer
+            this._stuckTimer = 0;
+          }
+        }
+        this._lastPosition = this.position.clone();
+      }
+
+      // Update position (will be synced to clients via network)
       this.setPosition(newPos.x, newPos.y, newPos.z);
       this.markNetworkDirty();
     }
   }
 
+  /**
+   * Find nearby player within aggro range (RuneScape-style)
+   * Delegates to AggroManager component
+   */
   private findNearbyPlayer(): { id: string; position: Position3D } | null {
+    const currentPos = this.getPosition();
     const players = this.world.getPlayers();
-    
-    for (const player of players) {
-      const playerPos = player.node?.position;
-      if (!playerPos) continue;
-      
-      const distance = this.getDistanceTo({
-        x: playerPos.x,
-        y: playerPos.y,
-        z: playerPos.z
-      });
-      
-      if (distance <= this.config.aggroRange) {
-        return {
-          id: player.id,
-          position: {
-            x: playerPos.x,
-            y: playerPos.y,
-            z: playerPos.z
-          }
-        };
-      }
-    }
-    return null;
+    return this.aggroManager.findNearbyPlayer(currentPos, players);
   }
 
+  /**
+   * Get player by ID (delegates to AggroManager)
+   */
   private getPlayer(playerId: string): { id: string; position: Position3D } | null {
-    const player = this.world.getPlayer(playerId);
-    if (!player || !player.node?.position) return null;
-    
-    return {
-      id: player.id,
-      position: {
-        x: player.node.position.x,
-        y: player.node.position.y,
-        z: player.node.position.z
-      }
-    };
+    return this.aggroManager.getPlayer(playerId, (id) => this.world.getPlayer(id));
   }
 
-  // Map internal AI states to interface expected states
-  private mapAIStateToInterface(internalState: string): 'idle' | 'patrol' | 'chase' | 'attack' | 'flee' | 'dead' {
-    switch (internalState) {
-      case 'patrolling':
-        return 'patrol';
-      case 'chasing':
-        return 'chase';
-      case 'attacking':
-        return 'attack';
-      case 'returning':
-        return 'flee';
-      case 'idle':
-      case 'dead':
-        return internalState as 'idle' | 'dead';
-      default:
-        return 'idle';
-    }
+  // Map internal AI states to interface expected states (RuneScape-style)
+  private mapAIStateToInterface(internalState: string): 'idle' | 'wander' | 'chase' | 'attack' | 'return' | 'dead' {
+    // Direct mapping - internal states match interface states
+    return (internalState as 'idle' | 'wander' | 'chase' | 'attack' | 'return' | 'dead') || 'idle';
   }
 
   // Get mob data for systems
@@ -1052,11 +1540,71 @@ export class MobEntity extends CombatantEntity {
     };
   }
 
+  // Override serialize to include model path for client
+  override serialize(): EntityData {
+    const baseData = super.serialize();
+    return {
+      ...baseData,
+      model: this.config.model, // CRITICAL: Include model path for client VRM loading
+      mobType: this.config.mobType,
+      level: this.config.level,
+      currentHealth: this.config.currentHealth,
+      maxHealth: this.config.maxHealth,
+      aiState: this.config.aiState,
+      targetPlayerId: this.config.targetPlayerId,
+    };
+  }
+
   // Network data override
   getNetworkData(): Record<string, unknown> {
     const baseData = super.getNetworkData();
-    return {
+
+    // ===== COMPONENT-BASED NETWORK SYNC =====
+
+    // Handle death state separately
+    if (this.deathManager.isCurrentlyDead()) {
+      // Remove ALL position data from baseData
+      delete baseData.x;
+      delete baseData.y;
+      delete baseData.z;
+      delete baseData.p;
+      delete baseData.position;
+
+      const networkData: Record<string, unknown> = {
+        ...baseData,
+        model: this.config.model,
+        mobType: this.config.mobType,
+        level: this.config.level,
+        currentHealth: this.config.currentHealth,
+        maxHealth: this.config.maxHealth,
+        aiState: this.config.aiState,
+        targetPlayerId: this.config.targetPlayerId,
+        deathTime: this.deathManager.getDeathTime()
+      };
+
+      // Send death emote once
+      if (this._serverEmote) {
+        networkData.e = this._serverEmote;
+        this._serverEmote = null;
+      }
+
+      // Send locked death position on first update only
+      const deathPos = this.deathManager.getDeathPosition();
+      if (!this.deathManager.hasSentDeathState() && deathPos) {
+        networkData.p = [deathPos.x, deathPos.y, deathPos.z];
+        this.deathManager.markDeathStateSent();
+        console.log(`[MobEntity] 📡 Sending FIRST death state with LOCKED position`);
+      } else {
+        console.log(`[MobEntity] 📡 Sending death state (no position, client maintains lock)`);
+      }
+
+      return networkData;
+    }
+
+    // Normal path for living mobs
+    const networkData: Record<string, unknown> = {
       ...baseData,
+      model: this.config.model,
       mobType: this.config.mobType,
       level: this.config.level,
       currentHealth: this.config.currentHealth,
@@ -1064,48 +1612,239 @@ export class MobEntity extends CombatantEntity {
       aiState: this.config.aiState,
       targetPlayerId: this.config.targetPlayerId
     };
+
+    // CRITICAL: Force position to be included if not present
+    // Parent class may omit position to save bandwidth, but we always need it for mobs
+    if (!networkData.p || !Array.isArray(networkData.p)) {
+      const pos = this.getPosition();
+      networkData.p = [pos.x, pos.y, pos.z];
+      if (this._justRespawned) {
+        console.log(`[MobEntity] 📡 [SERVER] ⚠️ Position missing from baseData, manually adding: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`);
+      }
+    }
+
+    // Only broadcast server-forced emotes
+    if (this._serverEmote) {
+      networkData.e = this._serverEmote;
+      this._serverEmote = null;
+    }
+
+    // DEBUG: Log ONLY immediately after respawn (one-time)
+    if (this._justRespawned) {
+      this._justRespawned = false; // Clear flag after first log
+
+      if (networkData.p && Array.isArray(networkData.p)) {
+        console.log(`[MobEntity] 📡 [SERVER] 🟢 RESPAWN: Sending position: (${networkData.p[0]?.toFixed(2)}, ${networkData.p[1]?.toFixed(2)}, ${networkData.p[2]?.toFixed(2)}) aiState=${this.config.aiState} _currentSpawnPoint=(${this._currentSpawnPoint.x.toFixed(2)}, ${this._currentSpawnPoint.y.toFixed(2)}, ${this._currentSpawnPoint.z.toFixed(2)})`);
+      } else {
+        console.log(`[MobEntity] 📡 [SERVER] ⚠️ CRITICAL: RESPAWN but NO POSITION! aiState=${this.config.aiState}`);
+      }
+    }
+
+    return networkData;
+  }
+
+  /**
+   * Set a one-shot emote from server (e.g., combat animation)
+   * This will be broadcast once, then cleared automatically
+   */
+  setServerEmote(emote: string): void {
+    this._serverEmote = emote;
+    this.markNetworkDirty();
   }
   
   /**
    * Override modify to handle network updates from server
    */
   override modify(data: Partial<EntityData>): void {
-    // Update AI state from server
+    // ===== COMPONENT-BASED CLIENT-SIDE NETWORK UPDATES =====
+
+    // CRITICAL DEBUG: Log modify calls with state/position changes
+    if (this.world.isClient && ('aiState' in data || 'p' in data)) {
+      console.log(`[MobEntity] [CLIENT] 🔵 modify() - aiState: ${data.aiState} (was ${this.config.aiState}), hasPos: ${'p' in data}, pos: ${data.p ? `(${data.p[0].toFixed(2)}, ${data.p[1].toFixed(2)}, ${data.p[2].toFixed(2)})` : 'none'}, deathMgr: ${this.deathManager.isCurrentlyDead()}`);
+    }
+
+    // Handle AI state changes
     if ('aiState' in data) {
       const newState = data.aiState as MobAIState;
+
+      // If entering DEAD state on client, apply death position from server
+      if (newState === MobAIState.DEAD && !this.deathManager.isCurrentlyDead()) {
+        if (this.config.aiState !== newState) {
+          console.log(`[MobEntity] [CLIENT] AI state changed: ${this.config.aiState} → ${newState}`);
+        }
+
+        if ('p' in data && Array.isArray(data.p) && data.p.length === 3) {
+          // Use server's authoritative death position
+          const deathPos = new THREE.Vector3(data.p[0], data.p[1], data.p[2]);
+          this.deathManager.applyDeathPositionFromServer(deathPos);
+
+          // Position VRM scene ONCE at death position
+          if (this._avatarInstance) {
+            this.node.position.copy(deathPos);
+            this.node.updateMatrix();
+            this.node.updateMatrixWorld(true);
+            this._avatarInstance.move(this.node.matrixWorld);
+            console.log(`[MobEntity] [CLIENT] 🎯 Positioned VRM at death location`);
+          }
+        } else {
+          console.warn(`[MobEntity] [CLIENT] ⚠️ No server death position in death state update`);
+        }
+      }
+
+      // CRITICAL: ALWAYS check if death manager should be reset (not just on state change!)
+      // Server might send multiple updates with same state (aiState=idle, idle, idle...)
+      // We need to reset death manager on ANY update where server says NOT DEAD
+      if (newState !== MobAIState.DEAD && this.deathManager.isCurrentlyDead()) {
+        console.log(`[MobEntity] [CLIENT] 🔄 Server says NOT DEAD (state=${newState}), but death manager locked. Resetting DeathStateManager!`);
+        this.clientDeathStartTime = null;
+        this.deathManager.reset();
+
+        // Mark that we need to restore visibility AFTER position update
+        (this as any)._pendingRespawnRestore = true;
+      }
+
+      // Log state change if it actually changed
+      if (this.config.aiState !== newState) {
+        console.log(`[MobEntity] [CLIENT] AI state changed: ${this.config.aiState} → ${newState}`);
+      }
+
       this.config.aiState = newState;
     }
-    
+
     // Update health from server
     if ('currentHealth' in data) {
       this.config.currentHealth = data.currentHealth as number;
     }
-    
+
     // Update max health from server
     if ('maxHealth' in data) {
       this.config.maxHealth = data.maxHealth as number;
     }
-    
+
     // Update target from server
     if ('targetPlayerId' in data) {
       this.config.targetPlayerId = data.targetPlayerId as string | null;
     }
-    
+
+    // Update death time from server
+    if ('deathTime' in data) {
+      this.config.deathTime = data.deathTime as number | null;
+      this.deathManager.setDeathTime(data.deathTime as number | null);
+    }
+
+    // Handle emote from server (like PlayerRemote does)
+    if ('e' in data && data.e !== undefined && this._avatarInstance) {
+      const emoteUrl = data.e as string;
+      if (this._currentEmote !== emoteUrl) {
+        this._currentEmote = emoteUrl;
+        this._avatarInstance.setEmote(emoteUrl);
+
+        // Set override durations for one-shot animations
+        if (emoteUrl.includes('combat') || emoteUrl.includes('punching')) {
+          this._manualEmoteOverrideUntil = Date.now() + 700; // 700ms for combat animation
+          console.log(`[MobEntity] Manual combat emote set, override until ${this._manualEmoteOverrideUntil}`);
+        } else if (emoteUrl.includes('death')) {
+          this._manualEmoteOverrideUntil = Date.now() + 4500; // 4500ms for full death animation (4.5 seconds)
+          console.log(`[MobEntity] 💀 Death emote set, animation will play for 4.5s`);
+        } else if (emoteUrl.includes('idle')) {
+          this._manualEmoteOverrideUntil = 0; // Clear override when reset to idle
+          console.log(`[MobEntity] Manual idle emote set, clearing override`);
+        }
+      }
+    }
+
     // Call parent modify for standard properties (position, rotation, etc.)
-    super.modify(data);
+    // But if dead, don't let server position updates override our locked death position
+    if (this.deathManager.shouldLockPosition()) {
+      const lockedPos = this.deathManager.getLockedPosition();
+      if (lockedPos) {
+        console.log(`[MobEntity] [CLIENT] ⚠️ Death manager is locking position to: (${lockedPos.x.toFixed(2)}, ${lockedPos.y.toFixed(2)}, ${lockedPos.z.toFixed(2)})`);
+        // Remove position data to prevent parent from overriding
+        const dataWithoutPosition = { ...data };
+        delete dataWithoutPosition.p;
+        delete dataWithoutPosition.x;
+        delete dataWithoutPosition.y;
+        delete dataWithoutPosition.z;
+        delete dataWithoutPosition.position;
+        super.modify(dataWithoutPosition);
+        // Restore locked death position (defense in depth)
+        this.node.position.copy(lockedPos);
+        this.position.copy(lockedPos);
+      } else {
+        super.modify(data);
+      }
+    } else {
+      // Position NOT locked - process normally
+      if ('p' in data && Array.isArray(data.p)) {
+        console.log(`[MobEntity] [CLIENT] 📍 Receiving position from server: (${data.p[0].toFixed(2)}, ${data.p[1].toFixed(2)}, ${data.p[2].toFixed(2)}) aiState=${data.aiState}`);
+      }
+      super.modify(data);
+    }
+
+    // CRITICAL: Restore visibility AFTER position has been updated from server
+    // This ensures VRM is moved to the correct spawn location, not death location
+    if ((this as any)._pendingRespawnRestore) {
+      (this as any)._pendingRespawnRestore = false;
+
+      console.log(`[MobEntity] [CLIENT] 🔄 Restoring visibility at NEW position: (${this.node.position.x.toFixed(2)}, ${this.node.position.y.toFixed(2)}, ${this.node.position.z.toFixed(2)})`);
+
+      // CRITICAL: Update client's _currentSpawnPoint to match new position from server
+      // This ensures client and server are in sync (defense in depth)
+      this._currentSpawnPoint = {
+        x: this.node.position.x,
+        y: this.node.position.y,
+        z: this.node.position.z
+      };
+      console.log(`[MobEntity] [CLIENT] 🎯 Updated _currentSpawnPoint to match respawn position`);
+
+      // Restore node visibility
+      if (this.node && !this.node.visible) {
+        this.node.visible = true;
+      }
+
+      // Restore mesh visibility
+      if (this.mesh && !this.mesh.visible) {
+        this.mesh.visible = true;
+      }
+
+      // Reset VRM animation and move to UPDATED position (from server)
+      if (this._avatarInstance) {
+        this._currentEmote = Emotes.IDLE;
+        this._avatarInstance.setEmote(Emotes.IDLE);
+        this._manualEmoteOverrideUntil = 0;
+
+        // CRITICAL: Position has NOW been updated by super.modify() above
+        // So this.node.position is the NEW spawn point from server, not death location!
+        this.node.updateMatrix();
+        this.node.updateMatrixWorld(true);
+        this._avatarInstance.move(this.node.matrixWorld);
+        console.log(`[MobEntity] [CLIENT] 📍 Moved VRM to RESPAWN position: (${this.node.position.x.toFixed(2)}, ${this.node.position.y.toFixed(2)}, ${this.node.position.z.toFixed(2)})`);
+      }
+
+      console.log(`[MobEntity] [CLIENT] ✅ Respawn restore complete`);
+    }
   }
   
   /**
    * Override destroy to clean up animations
    */
   override destroy(): void {
-    // Clean up animation mixer
+    // Unregister entity from hot updates
+    this.world.setHot(this, false);
+
+    // Clean up VRM instance
+    if (this._avatarInstance) {
+      this._avatarInstance.destroy();
+      this._avatarInstance = null;
+    }
+
+    // Clean up animation mixer (for GLB models)
     const mixer = (this as { mixer?: THREE.AnimationMixer }).mixer;
     if (mixer) {
       mixer.stopAllAction();
       (this as { mixer?: THREE.AnimationMixer }).mixer = undefined;
     }
-    
+
     // Parent will handle mesh removal (mesh is child of node)
     super.destroy();
   }

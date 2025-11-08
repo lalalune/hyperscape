@@ -144,9 +144,13 @@ export function calculateDistance2D(
 
 /**
  * Check if attack is on cooldown
+ * @param lastAttackTime - Timestamp of last attack
+ * @param currentTime - Current timestamp
+ * @param attackSpeed - Optional attack speed in ms (defaults to standard 2400ms)
  */
-export function isAttackOnCooldown(lastAttackTime: number, currentTime: number): boolean {
-  return currentTime - lastAttackTime < COMBAT_CONSTANTS.ATTACK_COOLDOWN_MS;
+export function isAttackOnCooldown(lastAttackTime: number, currentTime: number, attackSpeed?: number): boolean {
+  const cooldown = attackSpeed ?? COMBAT_CONSTANTS.ATTACK_COOLDOWN_MS;
+  return currentTime - lastAttackTime < cooldown;
 }
 
 /**
