@@ -198,67 +198,16 @@ export class ResourceSystem extends SystemBase {
   }
 
   async start(): Promise<void> {
-    
-    // TEST: Spawn a test tree directly to verify entity spawning works
-    if (this.world.isServer) {
-      await this.spawnTestTree();
-    }
-    
     // Resources will be spawned procedurally by TerrainSystem across all terrain tiles
     // No need for manual default spawning - TerrainSystem generates resources based on biome
-    
+
     // Only run gathering update loop on server (server-authoritative)
     if (this.world.isServer) {
       const interval = this.createInterval(() => this.updateGathering(), 500); // Check every 500ms
     } else {
     }
   }
-  
-  /**
-   * Spawn a single test tree to verify entity spawning pipeline works
-   */
-  private async spawnTestTree(): Promise<void> {
-    // Wait for EntityManager
-    let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
-    let attempts = 0;
-    
-    while ((!entityManager || !entityManager.spawnEntity) && attempts < 50) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
-      attempts++;
-    }
-    
-    if (!entityManager?.spawnEntity) {
-      console.error('[ResourceSystem] EntityManager not available!');
-      return;
-    }
-    
-    const testTreeConfig = {
-      id: 'test_tree_origin',
-      type: 'resource' as const,
-      name: 'Test Tree',
-      position: { x: 5, y: 43, z: 5 },
-      rotation: { x: 0, y: 0, z: 0, w: 1 }, // Identity quaternion (no rotation)
-      scale: { x: 1, y: 1, z: 1 },
-      visible: true,
-      interactable: true,
-      interactionType: 'harvest',
-      interactionDistance: 3,
-      description: 'A test tree at origin',
-      model: 'asset://models/basic-tree/basic-tree.glb',
-      properties: {},
-      resourceType: 'tree',
-      resourceId: 'normal_tree',
-      harvestSkill: 'woodcutting',
-      requiredLevel: 1,
-      harvestTime: 3000,
-      harvestYield: [{ itemId: 'logs', quantity: 1, chance: 1.0 }],
-      respawnTime: 60000,
-      depleted: false
-    };
-    
-    const spawned = await entityManager.spawnEntity(testTreeConfig);
-  }
+
   /**
    * Handle terrain system resource registration (new procedural system)
    */
