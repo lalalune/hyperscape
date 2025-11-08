@@ -188,11 +188,18 @@ export class EntityManager extends SystemBase {
   }
 
   async spawnEntity(config: EntityConfig): Promise<Entity | null> {
+    // CRITICAL: Only server should spawn entities
+    // Clients receive entities via snapshot/network sync
+    if (!this.world.isServer) {
+      console.warn(`[EntityManager] Client attempted to spawn entity ${config.id || 'unknown'} - blocked (entities come from server)`);
+      return null;
+    }
+
     // Generate entity ID if not provided
     if (!config.id) {
       config.id = `entity_${this.nextEntityId++}`;
     }
-    
+
     // Check if entity already exists
     if (this.entities.has(config.id)) {
       return this.entities.get(config.id) || null;
