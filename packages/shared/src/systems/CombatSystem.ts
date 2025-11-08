@@ -185,10 +185,13 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
-    // Check attack cooldown
+    // Check attack cooldown with entity's actual attack speed
     const now = Date.now();
     const lastAttack = this.attackCooldowns.get(typedAttackerId) || 0;
-    if (isAttackOnCooldown(lastAttack, now)) {
+    const entityType = attacker.type === 'mob' ? 'mob' : 'player';
+    const attackSpeed = this.getAttackSpeed(typedAttackerId, entityType);
+
+    if (isAttackOnCooldown(lastAttack, now, attackSpeed)) {
       return; // Still on cooldown
     }
 
@@ -253,10 +256,13 @@ export class CombatSystem extends SystemBase {
       // For now, assume arrows are available
     }
 
-    // Check attack cooldown
+    // Check attack cooldown with entity's actual attack speed
     const now = Date.now();
     const lastAttack = this.attackCooldowns.get(typedAttackerId) || 0;
-    if (isAttackOnCooldown(lastAttack, now)) {
+    const entityType = attacker.type === 'mob' ? 'mob' : 'player';
+    const attackSpeed = this.getAttackSpeed(typedAttackerId, entityType);
+
+    if (isAttackOnCooldown(lastAttack, now, attackSpeed)) {
       return; // Still on cooldown
     }
 
@@ -694,8 +700,15 @@ export class CombatSystem extends SystemBase {
     console.log(`[CombatSystem] ✓ Created combat state for attacker ${attackerId}`);
 
     // Set combat state for target (auto-retaliate)
-    // ALTERNATING ATTACKS: Offset target's lastAttackTime by half cooldown so attacks alternate
-    // This creates RuneScape-style back-and-forth combat (goblin -> player -> goblin -> etc.)
+    // ALTERNATING ATTACKS: Offset target's lastAttackTime so attacks alternate
+    // Calculate offset based on BOTH combatants' attack speeds for proper alternation
+    const attackerSpeed = this.getAttackSpeed(attackerId, attackerType);
+    const targetSpeed = this.getAttackSpeed(targetId, targetType);
+    const averageSpeed = (attackerSpeed + targetSpeed) / 2;
+    const attackOffset = averageSpeed / 2; // Target attacks halfway between attacker's attacks
+
+    console.log(`[CombatSystem] Attack timing: attacker=${attackerSpeed}ms, target=${targetSpeed}ms, offset=${attackOffset}ms`);
+
     this.combatStates.set(targetId, {
       attackerId: targetId,
       targetId: attackerId,
@@ -703,7 +716,7 @@ export class CombatSystem extends SystemBase {
       targetType: attackerType,
       weaponType: AttackType.MELEE,
       inCombat: true,
-      lastAttackTime: now - (COMBAT_CONSTANTS.ATTACK_COOLDOWN_MS / 2), // Wait half cooldown before retaliating
+      lastAttackTime: now - attackOffset, // Offset based on actual attack speeds
       combatEndTime,
     });
 
@@ -933,7 +946,10 @@ export class CombatSystem extends SystemBase {
     // Use combatState.lastAttackTime for cooldown check to respect alternating attack offset
     const lastAttack = combatState.lastAttackTime;
 
-    if (isAttackOnCooldown(lastAttack, now)) {
+    // CRITICAL: Use entity's ACTUAL attack speed for cooldown check
+    const attackSpeed = this.getAttackSpeed(combatState.attackerId, combatState.attackerType);
+
+    if (isAttackOnCooldown(lastAttack, now, attackSpeed)) {
       return; // Still on cooldown
     }
 

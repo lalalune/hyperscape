@@ -142,7 +142,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
       targetPlayerId: null,
       lastAttackTime: 0,
       deathTime: null,
-      respawnTime: 60000 // 1 minute
+      respawnTime: 15000 // 15 seconds (RuneScape-style)
     };
 
     console.log(`[MobNPCSpawnerSystem] 📋 Mob config:`, mobConfig);
@@ -150,7 +150,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
     try {
       console.log(`[MobNPCSpawnerSystem] 🔄 Calling entityManager.spawnEntity()...`);
       const spawnedEntity = await entityManager.spawnEntity(mobConfig) as { id?: string } | null;
-      console.log(`[MobNPCSpawnerSystem] ✅ spawnEntity returned:`, spawnedEntity);
+      console.log(`[MobNPCSpawnerSystem] ✅ spawnEntity returned id:`, spawnedEntity?.id);
 
       // Verify it's in the world
       const verify = this.world.entities.get('default_goblin_1');

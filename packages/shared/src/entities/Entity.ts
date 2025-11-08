@@ -1232,7 +1232,8 @@ export class Entity implements IEntity {
       const entityManager = this.world.getSystem('entity-manager') as any;
       if (entityManager?.networkDirtyEntities) {
         entityManager.networkDirtyEntities.add(this.id);
-        console.log(`[Entity.markNetworkDirty] Added ${this.type} ${this.id} to dirty set`);
+        // Disabled - too spammy
+        // console.log(`[Entity.markNetworkDirty] Added ${this.type} ${this.id} to dirty set`);
       }
     }
   }

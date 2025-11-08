@@ -561,40 +561,10 @@ export class EntityManager extends SystemBase {
     }
   }
 
-  private handleMobAttacked(data: { entityId: string; damage: number; attackerId: string }): void {
-    const mob = this.entities.get(data.entityId);
-    if (!mob) {
-      return;
-    }
-    
-    const healthData = mob.getProperty('health');
-    // Strong type assumption - health is either a number or { current, max }
-    const currentHealth = (healthData as { current: number }).current || (healthData as number) || 0;
-    
-    const newHealth = Math.max(0, currentHealth - data.damage);
-    
-    // Strong type assumption - maintain structure if it's an object, otherwise use number
-    const isHealthObject = healthData && (healthData as { current?: number }).current !== undefined;
-    if (isHealthObject) {
-      mob.setProperty('health', { ...healthData as { current: number; max: number }, current: newHealth });
-    } else {
-      mob.setProperty('health', newHealth);
-    }
-    
-    if (newHealth <= 0) {
-      // Let the mob entity handle its own death first to ensure proper state synchronization
-      const mobEntity = mob as MobEntity;
-      if (mobEntity && typeof mobEntity.die === 'function') {
-        // Check if mob is already dead to prevent double death
-        if (!mobEntity.isDead()) {
-          mobEntity.die();
-          // Don't destroy here - MobEntity.die() will handle destruction after network sync
-        }
-      } else {
-        // Fallback: destroy immediately if not a MobEntity
-        this.destroyEntity(data.entityId);
-      }
-    }
+  private handleMobAttacked(_data: { entityId: string; damage: number; attackerId: string }): void {
+    // NO-OP: MobEntity.takeDamage() now calls die() directly when health reaches 0
+    // This event handler is kept for backward compatibility but does nothing
+    // Event chain: CombatSystem → takeDamage() → die() (no EntityManager involved)
   }
 
   private handleMobAttack(data: { mobId: string; targetId: string; damage: number }): void {
@@ -642,9 +612,10 @@ export class EntityManager extends SystemBase {
       return;
     }
 
-    if (this.networkDirtyEntities.size > 0) {
-      console.log(`[EntityManager.sendNetworkUpdates] Syncing ${this.networkDirtyEntities.size} dirty entities:`, Array.from(this.networkDirtyEntities));
-    }
+    // Disabled - too spammy
+    // if (this.networkDirtyEntities.size > 0) {
+    //   console.log(`[EntityManager.sendNetworkUpdates] Syncing ${this.networkDirtyEntities.size} dirty entities:`, Array.from(this.networkDirtyEntities));
+    // }
 
     const network = this.world.network as { send?: (method: string, data: unknown, excludeId?: string) => void };
 
@@ -674,13 +645,13 @@ export class EntityManager extends SystemBase {
         // Get network data from entity (includes health and other properties)
         const networkData = entity.getNetworkData();
 
-        // ALWAYS log network data for players to debug
-        if (entity.type === 'player') {
-          console.log(`[EntityManager] 📤 Syncing player ${entityId}`);
-          console.log(`[EntityManager] 📤 networkData keys:`, Object.keys(networkData));
-          console.log(`[EntityManager] 📤 networkData.e:`, (networkData as any).e);
-          console.log(`[EntityManager] 📤 Full networkData:`, JSON.stringify(networkData, null, 2));
-        }
+        // Disabled verbose player logging (too spammy)
+        // if (entity.type === 'player') {
+        //   console.log(`[EntityManager] 📤 Syncing player ${entityId}`);
+        //   console.log(`[EntityManager] 📤 networkData keys:`, Object.keys(networkData));
+        //   console.log(`[EntityManager] 📤 networkData.e:`, (networkData as any).e);
+        //   console.log(`[EntityManager] 📤 Full networkData:`, JSON.stringify(networkData, null, 2));
+        // }
 
         // Send entityModified packet with position/rotation changes
         // Call directly on network object to preserve 'this' context
