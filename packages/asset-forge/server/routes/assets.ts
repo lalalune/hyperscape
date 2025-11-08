@@ -101,7 +101,7 @@ export const createAssetRoutes = (rootDir: string, assetService: AssetService) =
         }
 
         const includeVariants = query.includeVariants === 'true'
-        await assetService.deleteAsset(id, includeVariants)
+        await assetService.deleteAsset(id, includeVariants, user?.id)
 
         return {
           success: true,
@@ -141,7 +141,7 @@ export const createAssetRoutes = (rootDir: string, assetService: AssetService) =
           return { error: 'Permission denied. You can only update your own assets. Admins can update any asset.' }
         }
 
-        const updatedAsset = await assetService.updateAsset(id, body)
+        const updatedAsset = await assetService.updateAsset(id, body, user?.id)
 
         if (!updatedAsset) {
           set.status = 404

@@ -3,7 +3,6 @@ import {
   Box,
   Info,
   RotateCw,
-
   Download,
   Keyboard,
   X,
@@ -3319,11 +3318,25 @@ const ThreeViewer = forwardRef(({
     currentModelUrlRef.current = modelUrl
     setLoading(true)
     setLoadingProgress(0)
-    
-    console.log(`🎬 Starting model load: ${modelUrl}`)
-    
+
     const loader = new GLTFLoader()
-    
+
+    // Helper function to position model on ground (Y=0)
+    const positionModelOnGround = (model: THREE.Object3D, label: string = 'model') => {
+      const box = new THREE.Box3().setFromObject(model)
+      const center = box.getCenter(new THREE.Vector3())
+      const minY = box.min.y
+
+      // Center horizontally (X and Z)
+      model.position.x = -center.x
+      model.position.z = -center.z
+      // Place lowest point at ground level (Y=0)
+      model.position.y = -minY
+
+      // Update matrices after positioning
+      model.updateMatrixWorld(true)
+    }
+
     // Function to load the model
     const loadModel = (fileSize?: number) => {
       // Store skeleton state before cleanup
@@ -3331,34 +3344,20 @@ const ThreeViewer = forwardRef(({
       
       // Clean up ALL previous models more thoroughly
       if (sceneRef.current) {
-        console.log('=== Model Cleanup Starting ===')
-        
-        // First, let's see what's actually in the scene
-        const allMeshes: string[] = []
-        sceneRef.current.traverse((child) => {
-          if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh || child instanceof THREE.Group) {
-            allMeshes.push(`${child.type}: ${child.name || 'unnamed'}`)
-          }
-        })
-        console.log(`Scene contents before cleanup: ${allMeshes.length} objects`)
-        allMeshes.forEach(m => console.log(`  - ${m}`))
-        
         // Remove all objects that aren't lights, helpers, or the ground plane
         const objectsToRemove: THREE.Object3D[] = []
         sceneRef.current.traverse((child) => {
           if (child.type === 'Mesh' || child.type === 'Group' || child.type === 'SkinnedMesh') {
             // Don't remove ground plane, grid, or debug objects
-            if (child.name !== 'groundPlane' && 
-                child.name !== 'TestCube' && 
+            if (child.name !== 'groundPlane' &&
+                child.name !== 'TestCube' &&
                 child !== gridRef.current) {
               objectsToRemove.push(child)
             }
           }
         })
-        
-        console.log(`Removing ${objectsToRemove.length} objects from scene`)
-        objectsToRemove.forEach((obj, i) => {
-          console.log(`  Removing ${i}: ${obj.type} "${obj.name || 'unnamed'}"`)
+
+        objectsToRemove.forEach((obj) => {
           // Remove from parent instead of scene to handle nested objects
           if (obj.parent) {
             obj.parent.remove(obj)
@@ -3373,8 +3372,6 @@ const ThreeViewer = forwardRef(({
             }
           }
         })
-        
-        console.log('=== Model Cleanup Complete ===')
         
         // Clear refs
         modelRef.current = null
@@ -3553,104 +3550,58 @@ const ThreeViewer = forwardRef(({
             size = box.getSize(new THREE.Vector3())
           }
           
-          // Debug: Show raw bounding box BEFORE any transformations
-          console.log(`📦 Raw bounding box (before scaling):`)
-          console.log(`   Size: width=${size.x.toFixed(3)}, height=${size.y.toFixed(3)}, depth=${size.z.toFixed(3)}`)
-          
           const maxDim = Math.max(size.x, size.y, size.z)
           let scale = 5 / maxDim  // Default scaling
-          
-          // Special handling for animation files with character height
-          if (assetInfo?.isAnimationFile && assetInfo?.characterHeight) {
-            // Just scale to match target height - same as walking/running animations
+
+          // Check if this is a character/avatar model (has SkinnedMesh)
+          let isCharacterModel = false
+          model.traverse((child) => {
+            if (child instanceof THREE.SkinnedMesh) {
+              isCharacterModel = true
+            }
+          })
+
+          // Scale to character height if provided, or use default for rigged characters
+          if (assetInfo?.characterHeight || (isCharacterModel && !assetInfo?.isAnimationFile)) {
             const currentHeight = size.y
-            const targetHeight = assetInfo.characterHeight
+            const targetHeight = assetInfo?.characterHeight || 1.7  // Default character height: 1.7m
             scale = targetHeight / currentHeight
-            
-            console.log(`🎯 Animation file scaling:`)
-            console.log(`   Current height: ${currentHeight.toFixed(3)}m`)
-            console.log(`   Target height: ${targetHeight}m`)
-            console.log(`   Scale factor: ${scale.toFixed(3)}`)
-            
-          } else if (!assetInfo?.isAnimationFile) {
-            // For non-animation files, use the standard scaling
+            console.log(`🎯 Character scaled: ${currentHeight.toFixed(2)}m → ${targetHeight}m (${scale.toFixed(2)}x)`)
+          } else {
             scale = 5 / maxDim
-            console.log(`📐 Standard scaling: ${scale.toFixed(3)} (maxDim: ${maxDim.toFixed(3)})`)
           }
-          
-          console.log(`🔢 About to apply scale: ${scale} to model with current scale (${model.scale.x}, ${model.scale.y}, ${model.scale.z})`)
-          
+
           // Store reference scale for animation files
           if (assetInfo?.isAnimationFile && !referenceScaleRef.current) {
             referenceScaleRef.current = {
               height: size.y * scale,
               scale: scale
             }
-            console.log(`💾 Stored reference scale: height=${(size.y * scale).toFixed(3)}m, scale=${scale.toFixed(3)}`)
           }
-          
+
           // Apply scale to model
           model.scale.multiplyScalar(scale)
-          
-          // Debug: Verify scale was applied
-          console.log(`📏 Model scale after applying: x=${model.scale.x.toFixed(3)}, y=${model.scale.y.toFixed(3)}, z=${model.scale.z.toFixed(3)}`)
-          
-                      // Verify final size if animation file
-            if (assetInfo?.isAnimationFile && assetInfo?.characterHeight) {
-              model.updateMatrixWorld(true)
-              try {
-                const verifyBox = new THREE.Box3().setFromObject(model)
-                const verifySize = verifyBox.getSize(new THREE.Vector3())
-                console.log(`✅ Final model height after scaling: ${verifySize.y.toFixed(3)}m (target: ${assetInfo.characterHeight}m)`)
-              } catch (error) {
-                console.warn('Error verifying final model size:', error)
+
+          // Verify final size for character models
+          if (isCharacterModel || assetInfo?.characterHeight) {
+            model.updateMatrixWorld(true)
+            try {
+              const verifyBox = new THREE.Box3().setFromObject(model)
+              const verifySize = verifyBox.getSize(new THREE.Vector3())
+              const targetHeight = assetInfo?.characterHeight || 1.7
+              if (Math.abs(verifySize.y - targetHeight) > 0.05) {
+                console.warn(`⚠️ Scale mismatch: expected ${targetHeight}m, got ${verifySize.y.toFixed(3)}m`)
               }
+            } catch (error) {
+              console.warn('Error verifying final model size:', error)
             }
+          }
           
           // Force update of world matrix to ensure scale is applied
           model.updateMatrixWorld(true)
           
-          // Now center the model AFTER scaling
-          const scaledBox = new THREE.Box3().setFromObject(model)
-          const scaledCenter = scaledBox.getCenter(new THREE.Vector3())
-          model.position.sub(scaledCenter)
-          
-          // Update world matrix again after repositioning
-          model.updateMatrixWorld(true)
-          
-          // Debug: Check if children also got the scale
-          if (debugScaleIssues) {
-            console.log(`🔍 Checking scale propagation:`)
-            model.traverse((child) => {
-              if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
-                const worldScale = new THREE.Vector3()
-                child.getWorldScale(worldScale)
-                console.log(`   ${child.type} "${child.name}": worldScale=(${worldScale.x.toFixed(3)}, ${worldScale.y.toFixed(3)}, ${worldScale.z.toFixed(3)})`)
-              }
-            })
-          }
-          
           // Position model so it sits on the ground (y=0)
-          box.setFromObject(model) // Recalculate after scaling
-          const newCenter = box.getCenter(new THREE.Vector3())
-          const minY = box.min.y
-          
-          // Verify the scale was applied correctly
-          const scaledSize = box.getSize(new THREE.Vector3())
-          console.log(`📊 After scale applied - new size: ${scaledSize.x.toFixed(3)} x ${scaledSize.y.toFixed(3)} x ${scaledSize.z.toFixed(3)}`)
-          if (assetInfo?.isAnimationFile && Math.abs(scaledSize.y - 1.7) > 0.1) {
-            console.warn(`⚠️ Scale application issue - expected ~1.7m height, got ${scaledSize.y.toFixed(3)}m`)
-          }
-          
-          // Recalculate final dimensions
-          model.position.x = -newCenter.x
-          model.position.z = -newCenter.z
-          model.position.y = -minY // This places the bottom of the model at y=0
-          
-          // Log final dimensions after all transformations
-          const finalBox = new THREE.Box3().setFromObject(model)
-          const finalSize = finalBox.getSize(new THREE.Vector3())
-          console.log(`📐 Final model dimensions: ${finalSize.x.toFixed(3)} x ${finalSize.y.toFixed(3)} x ${finalSize.z.toFixed(3)}`)
+          positionModelOnGround(model, 'initial')
           
           // Count vertices, faces, and materials
           let vertices = 0
@@ -3681,37 +3632,24 @@ const ThreeViewer = forwardRef(({
             // Check if we have a skinned mesh (rigged model)
             if (child instanceof THREE.SkinnedMesh) {
               hasSkinnedMesh = true
-              console.log(`Found SkinnedMesh: ${child.name || 'unnamed'}, bones: ${child.skeleton?.bones.length || 0}`)
-              
+
               // Look for hand bones we added
               if (child.skeleton) {
-                console.log('🔍 Searching for hand bones in skeleton...')
-                child.skeleton.bones.forEach((bone, index) => {
+                child.skeleton.bones.forEach((bone) => {
                   const boneName = bone.name
                   const lowerName = boneName.toLowerCase()
-                  
-                  // Debug log bones that might be hand bones
-                  if (boneName.includes('Hand') || boneName.includes('Palm') || boneName.includes('Finger')) {
-                    console.log(`  Bone ${index}: ${boneName}`)
-                  }
-                  
+
                   if (boneName.includes('_Palm')) {
-                    console.log(`  ✓ Found palm bone: ${boneName}`)
                     if (lowerName.includes('left')) {
                       handBonesFound.leftPalm = bone
-                      console.log('    -> Assigned to leftPalm')
                     } else if (lowerName.includes('right')) {
                       handBonesFound.rightPalm = bone
-                      console.log('    -> Assigned to rightPalm')
                     }
                   } else if (boneName.includes('_Fingers')) {
-                    console.log(`  ✓ Found fingers bone: ${boneName}`)
                     if (lowerName.includes('left')) {
                       handBonesFound.leftFingers = bone
-                      console.log('    -> Assigned to leftFingers')
                     } else if (lowerName.includes('right')) {
                       handBonesFound.rightFingers = bone
-                      console.log('    -> Assigned to rightFingers')
                     }
                   }
                 })
@@ -3721,11 +3659,7 @@ const ThreeViewer = forwardRef(({
           
           // Update hand bones state
           if (Object.keys(handBonesFound).length > 0) {
-            console.log('Found hand bones:', Object.keys(handBonesFound))
             setHandBones(handBonesFound)
-            // Don't automatically show hand controls - let user toggle it
-            // setShowHandControls(true)
-            // Enable skeleton view to see the bones
             setShowSkeleton(true)
           } else {
             setHandBones({})
@@ -3886,11 +3820,10 @@ const ThreeViewer = forwardRef(({
           
           // Nuclear option: If we're loading an animation file, clear EVERYTHING except lights
           if (assetInfo?.isAnimationFile) {
-            console.log('🔥 Nuclear cleanup for animation file...')
             const toRemove: THREE.Object3D[] = []
             sceneRef.current!.children.forEach(child => {
-              if (child.type !== 'DirectionalLight' && 
-                  child.type !== 'AmbientLight' && 
+              if (child.type !== 'DirectionalLight' &&
+                  child.type !== 'AmbientLight' &&
                   child.type !== 'HemisphereLight' &&
                   child.name !== 'groundPlane') {
                 toRemove.push(child)
@@ -3898,7 +3831,6 @@ const ThreeViewer = forwardRef(({
             })
             toRemove.forEach(obj => {
               sceneRef.current!.remove(obj)
-              console.log(`   Removed: ${obj.type} "${obj.name || 'unnamed'}"`)
             })
           }
           
@@ -3908,50 +3840,6 @@ const ThreeViewer = forwardRef(({
           
           // Force another matrix update after adding to scene
           model.updateMatrixWorld(true)
-          
-          // Debug: Check what's in the scene after adding the model
-          console.log('=== After adding model to scene ===')
-          const finalMeshes: string[] = []
-          sceneRef.current!.traverse((child) => {
-            if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh || child instanceof THREE.Group) {
-              if (child.name !== 'groundPlane') {
-                // Get world scale to see actual scale including parent transforms
-                const worldScale = new THREE.Vector3()
-                child.getWorldScale(worldScale)
-                finalMeshes.push(`${child.type}: ${child.name || 'unnamed'} (visible: ${child.visible}, worldScale: ${worldScale.x.toFixed(3)}, ${worldScale.y.toFixed(3)}, ${worldScale.z.toFixed(3)})`)
-              }
-            }
-          })
-          console.log(`Scene now contains ${finalMeshes.length} models:`)
-          finalMeshes.forEach(m => console.log(`  - ${m}`))
-          
-          // Debug: Check actual visible size
-          if (modelRef.current) {
-            const worldBox = new THREE.Box3().setFromObject(modelRef.current)
-            const worldSize = worldBox.getSize(new THREE.Vector3())
-            console.log(`🌍 World bounding box size: width=${worldSize.x.toFixed(3)}m, height=${worldSize.y.toFixed(3)}m, depth=${worldSize.z.toFixed(3)}m`)
-            
-            // For animation files, also check the SkinnedMesh directly
-            if (assetInfo?.isAnimationFile) {
-              let skinnedMesh: THREE.SkinnedMesh | null = null
-              modelRef.current.traverse((child) => {
-                if (child instanceof THREE.SkinnedMesh && !skinnedMesh) {
-                  skinnedMesh = child
-                }
-              })
-              
-              if (skinnedMesh) {
-                const meshBox = new THREE.Box3().setFromObject(skinnedMesh)
-                const meshSize = meshBox.getSize(new THREE.Vector3())
-                console.log(`🦴 SkinnedMesh-only bounding box: width=${meshSize.x.toFixed(3)}m, height=${meshSize.y.toFixed(3)}m, depth=${meshSize.z.toFixed(3)}m`)
-                
-                // Check if there's a mismatch
-                if (Math.abs(worldSize.y - meshSize.y) > 0.1) {
-                  console.warn(`⚠️ Size mismatch! Model reports ${worldSize.y.toFixed(3)}m but SkinnedMesh is ${meshSize.y.toFixed(3)}m`)
-                }
-              }
-            }
-          }
           
           // Reapply viewer settings to new model
           // This ensures all viewer settings persist when switching assets:
@@ -3987,8 +3875,6 @@ const ThreeViewer = forwardRef(({
           
           // Restore skeleton helper if it was enabled
           if (wasShowingSkeleton) {
-            console.log('🦴 Restoring skeleton helper...')
-            
             // Find all SkinnedMesh objects in the model
             const skinnedMeshes: THREE.SkinnedMesh[] = []
             model.traverse((child) => {
@@ -4035,7 +3921,6 @@ const ThreeViewer = forwardRef(({
                     }
                   }
                 })
-                console.log(`✅ Skeleton helper restored with ${meshWithBones.skeleton.bones.length} bones`)
               }
             }
           }
@@ -4046,27 +3931,23 @@ const ThreeViewer = forwardRef(({
             const finalBox = new THREE.Box3().setFromObject(model)
             const finalCenter = finalBox.getCenter(new THREE.Vector3())
             const finalSize = finalBox.getSize(new THREE.Vector3())
-            
-            console.log(`📷 Camera framing: center=(${finalCenter.x.toFixed(2)}, ${finalCenter.y.toFixed(2)}, ${finalCenter.z.toFixed(2)}), size=(${finalSize.x.toFixed(2)}, ${finalSize.y.toFixed(2)}, ${finalSize.z.toFixed(2)})`)
-            
+
             // Compute camera distance to fit model regardless of aspect
             let distance = computeDistanceToFit(finalSize, cameraRef.current)
-            
+
             // For smaller models (like characters), reduce minimum distance
             const maxDim = Math.max(finalSize.x, finalSize.y, finalSize.z)
             if (assetInfo?.isAnimationFile && maxDim < 3) {
               const characterMinDistance = 4
               distance = Math.max(distance, characterMinDistance)
-              console.log(`📷 Using character minimum distance: ${characterMinDistance}m`)
             }
-            
+
             // Special handling for character models
             if (assetInfo?.isAnimationFile && assetInfo?.characterHeight) {
               // For a 1.7m character, we want the camera about 3-4m away
               const characterDistance = assetInfo.characterHeight * 2.5
               distance = characterDistance
-              console.log(`🎭 Character-specific camera distance: ${distance.toFixed(2)}m for ${assetInfo.characterHeight}m tall character`)
-              
+
               // Also adjust the camera height to frame the character better
               cameraRef.current.position.set(
                 finalCenter.x + distance * 0.5,
@@ -4078,8 +3959,6 @@ const ThreeViewer = forwardRef(({
               controlsRef.current.update()
             } else {
               // Normal camera positioning
-              console.log(`📷 Camera distance: ${distance.toFixed(2)}m (maxDim: ${maxDim.toFixed(2)})`)
-              
               // Position camera at a nice angle
               cameraRef.current.position.set(
                 finalCenter.x + distance * 0.7,
@@ -4098,19 +3977,12 @@ const ThreeViewer = forwardRef(({
               const finalWorldBox = new THREE.Box3().setFromObject(modelRef.current)
               const finalWorldSize = finalWorldBox.getSize(new THREE.Vector3())
               const finalWorldCenter = finalWorldBox.getCenter(new THREE.Vector3())
-              
-              console.log(`✅ FINAL VERIFICATION (after 100ms):`)
-              console.log(`   World size: ${finalWorldSize.x.toFixed(3)}m x ${finalWorldSize.y.toFixed(3)}m x ${finalWorldSize.z.toFixed(3)}m`)
-              console.log(`   World center: (${finalWorldCenter.x.toFixed(3)}, ${finalWorldCenter.y.toFixed(3)}, ${finalWorldCenter.z.toFixed(3)})`)
-              console.log(`   Camera position: (${cameraRef.current?.position.x.toFixed(2)}, ${cameraRef.current?.position.y.toFixed(2)}, ${cameraRef.current?.position.z.toFixed(2)})`)
-              console.log(`   Controls target: (${controlsRef.current?.target.x.toFixed(2)}, ${controlsRef.current?.target.y.toFixed(2)}, ${controlsRef.current?.target.z.toFixed(2)})`)
-              
+
               // If target drifted to origin (or far from model center), recenter the view
               if (controlsRef.current && cameraRef.current) {
                 const target = controlsRef.current.target.clone()
                 const distanceFromCenter = target.sub(finalWorldCenter).length()
                 if (distanceFromCenter > 0.5) {
-                  console.warn('⚠️ Controls target off-center after load. Recentering on model.')
                   controlsRef.current.target.copy(finalWorldCenter)
                   cameraRef.current.lookAt(finalWorldCenter)
                   controlsRef.current.update()
@@ -4119,8 +3991,8 @@ const ThreeViewer = forwardRef(({
 
               // If the model is still tiny, try to fix it
               if (assetInfo?.isAnimationFile && assetInfo?.characterHeight && finalWorldSize.y < assetInfo.characterHeight * 0.9) {
-                console.error(`❌ Model is still too small! Expected ${assetInfo.characterHeight}m, got ${finalWorldSize.y.toFixed(3)}m`)
-                
+                console.error(`❌ Model scale error: expected ${assetInfo.characterHeight}m, got ${finalWorldSize.y.toFixed(3)}m`)
+
                 // Force camera to look at the model properly
                 if (cameraRef.current && controlsRef.current) {
                   const distance = 5
@@ -4132,7 +4004,6 @@ const ThreeViewer = forwardRef(({
                   cameraRef.current.lookAt(finalWorldCenter)
                   controlsRef.current.target.copy(finalWorldCenter)
                   controlsRef.current.update()
-                  console.log(`🔧 Forced camera reposition to distance ${distance}m`)
                 }
               }
 

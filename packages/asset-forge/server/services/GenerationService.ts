@@ -7,7 +7,9 @@ import EventEmitter from 'events'
 import type { UserContextType } from '../models'
 import { AICreationService } from './AICreationService'
 import { ImageHostingService } from './ImageHostingService'
+import { assetDatabaseService } from './AssetDatabaseService'
 import { getGenerationPrompts, getGPT4EnhancementPrompts } from '../utils/promptLoader'
+import { userService } from './UserService'
 import type { Static } from 'elysia'
 import { MaterialPreset } from '../models'
 import fs from 'fs/promises'
@@ -186,7 +188,7 @@ export class GenerationService extends EventEmitter {
     this.activePipelines = new Map()
 
     // Check for required API keys
-    if (!process.env.OPENAI_API_KEY || !process.env.MESHY_API_KEY) {
+    if ((!process.env.AI_GATEWAY_API_KEY && !process.env.OPENAI_API_KEY) || !process.env.MESHY_API_KEY) {
       console.warn('[GenerationService] Missing API keys - generation features will be limited')
     }
 
@@ -595,6 +597,21 @@ export class GenerationService extends EventEmitter {
           JSON.stringify(metadata, null, 2)
         )
 
+        // Create database record for the asset
+        if (pipeline.config.user?.userId) {
+          try {
+            await assetDatabaseService.createAssetRecord(
+              pipeline.config.assetId,
+              metadata as any,
+              pipeline.config.user.userId,
+              `${pipeline.config.assetId}/${pipeline.config.assetId}.glb`
+            )
+          } catch (error) {
+            console.error('[GenerationService] Failed to create database record for asset:', error)
+            // Continue - don't fail pipeline if DB creation fails
+          }
+        }
+
         pipeline.stages.image3D.status = 'completed'
         pipeline.stages.image3D.progress = 100
         pipeline.stages.image3D.result = {
@@ -923,6 +940,28 @@ export class GenerationService extends EventEmitter {
       pipeline.completedAt = new Date().toISOString()
       pipeline.progress = 100
 
+      // Log asset creation activity
+      if (pipeline.config.user?.userId) {
+        try {
+          await userService.logActivity(
+            pipeline.config.user.userId,
+            'asset',
+            'created',
+            {
+              assetId: pipeline.config.assetId,
+              type: pipeline.config.type,
+              subtype: pipeline.config.subtype,
+              hasVariants: (pipeline.results.textureGeneration?.variants?.length || 0) > 0,
+              variantCount: pipeline.results.textureGeneration?.variants?.length || 0,
+              isRigged: !!pipeline.results.rigging
+            },
+            pipeline.config.assetId
+          )
+        } catch (error) {
+          console.error('[GenerationService] Failed to log creation activity:', error)
+        }
+      }
+
       // Compile final asset info
       pipeline.finalAsset = {
         id: pipeline.config.assetId,
@@ -940,11 +979,15 @@ export class GenerationService extends EventEmitter {
   }
 
   /**
-   * Enhance prompt with GPT-4
+   * Enhance prompt with GPT-4 (via Vercel AI Gateway or direct OpenAI)
    */
   private async enhancePromptWithGPT4(config: PipelineConfig): Promise<PromptEnhancementResult> {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY required for GPT-4 enhancement')
+    // Check for AI Gateway or direct OpenAI API key
+    const useAIGateway = !!process.env.AI_GATEWAY_API_KEY
+    const useDirectOpenAI = !!process.env.OPENAI_API_KEY
+
+    if (!useAIGateway && !useDirectOpenAI) {
+      throw new Error('AI_GATEWAY_API_KEY or OPENAI_API_KEY required for GPT-4 enhancement')
     }
 
     // Load GPT-4 enhancement prompts
@@ -1003,14 +1046,29 @@ Your task is to enhance the user's description to create better results with ima
       : `Enhance this ${config.type} asset description for 3D generation: "${baseDescription}"`
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Select endpoint and auth based on available API keys
+      const endpoint = useAIGateway
+        ? 'https://ai-gateway.vercel.sh/v1/chat/completions'
+        : 'https://api.openai.com/v1/chat/completions'
+
+      const apiKey = useAIGateway
+        ? process.env.AI_GATEWAY_API_KEY!
+        : process.env.OPENAI_API_KEY!
+
+      const modelName = useAIGateway
+        ? 'openai/gpt-4o'  // AI Gateway uses provider/model format
+        : 'gpt-4'          // Direct OpenAI uses just the model name
+
+      console.log(`🤖 Using ${useAIGateway ? 'Vercel AI Gateway' : 'direct OpenAI API'} for GPT-4 enhancement`)
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'gpt-4',
+          model: modelName,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }

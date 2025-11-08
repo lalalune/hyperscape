@@ -35,13 +35,18 @@ const AssetList: React.FC<AssetListProps> = ({
 
     // First pass: identify base models
     assets.forEach(asset => {
-      if (asset.metadata.isBaseModel) {
+      if (asset.metadata?.isBaseModel) {
         groups[asset.id] = { base: asset, variants: [] }
       }
     })
 
     // Second pass: assign variants to their base models
     assets.forEach(asset => {
+      if (!asset.metadata) {
+        standaloneAssets.push(asset)
+        return
+      }
+
       if (asset.metadata.isVariant && asset.metadata.parentBaseModel) {
         const baseId = asset.metadata.parentBaseModel
         if (groups[baseId]) {
@@ -58,8 +63,8 @@ const AssetList: React.FC<AssetListProps> = ({
     Object.values(groups).forEach(group => {
       group.variants.sort((a, b) => {
         const tierOrder = ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'wood', 'oak', 'willow', 'leather', 'standard']
-        const aIndex = tierOrder.indexOf(a.metadata.tier || '')
-        const bIndex = tierOrder.indexOf(b.metadata.tier || '')
+        const aIndex = tierOrder.indexOf(a.metadata?.tier || '')
+        const bIndex = tierOrder.indexOf(b.metadata?.tier || '')
         return aIndex - bIndex
       })
     })
@@ -355,7 +360,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                   ? 'bg-primary bg-opacity-10 text-text-primary shadow-sm ring-2 ring-primary'
                                   : 'bg-bg-secondary bg-opacity-70 text-text-tertiary group-hover:bg-bg-tertiary group-hover:text-text-secondary'
                                 }`}>
-                                {React.cloneElement(getAssetIcon(group.base.type, group.base.metadata.subtype), { size: 18 })}
+                                {React.cloneElement(getAssetIcon(group.base.type, group.base.metadata?.subtype), { size: 18 })}
                               </div>
 
                               <div className="flex-1 min-w-0">
@@ -410,7 +415,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                       ? 'bg-primary bg-opacity-10 text-text-primary ring-2 ring-primary'
                                       : 'bg-bg-secondary bg-opacity-50 text-text-tertiary group-hover:bg-bg-tertiary group-hover:text-text-secondary'
                                     }`}>
-                                    {React.cloneElement(getAssetIcon(variant.type, variant.metadata.subtype), { size: 16 })}
+                                    {React.cloneElement(getAssetIcon(variant.type, variant.metadata?.subtype), { size: 16 })}
                                   </div>
 
                                   <div className="flex-1 min-w-0">
@@ -418,7 +423,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                       {cleanAssetName(variant.name)}
                                     </h3>
 
-                                    {variant.metadata.tier && (
+                                    {variant.metadata?.tier && (
                                       <div className="flex items-center gap-1.5 mt-0.5">
                                         <div
                                           className="w-2 h-2 rounded-full shadow-sm"
@@ -470,13 +475,13 @@ const AssetList: React.FC<AssetListProps> = ({
                               ? 'bg-primary bg-opacity-10 text-text-primary shadow-sm ring-2 ring-primary'
                               : 'bg-bg-secondary bg-opacity-70 text-text-tertiary'
                             }`}>
-                            {React.cloneElement(getAssetIcon(asset.type, asset.metadata.subtype), { size: 18 })}
+                            {React.cloneElement(getAssetIcon(asset.type, asset.metadata?.subtype), { size: 18 })}
                           </div>
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <h3 className="font-medium text-sm text-text-primary truncate">
-                                {cleanAssetName(asset.name, asset.metadata.isBaseModel)}
+                                {cleanAssetName(asset.name, asset.metadata?.isBaseModel)}
                               </h3>
                               {asset.hasModel && (
                                 <Sparkles size={12} className="text-success flex-shrink-0" />
@@ -484,7 +489,7 @@ const AssetList: React.FC<AssetListProps> = ({
                             </div>
 
                             <div className="flex items-center gap-2 text-[0.6875rem] mt-0.5">
-                              {asset.metadata.isBaseModel && (
+                              {asset.metadata?.isBaseModel && (
                                 <>
                                   <span className="px-1.5 py-0.5 bg-primary bg-opacity-20 text-primary rounded text-[0.625rem] font-medium">
                                     BASE
@@ -494,7 +499,7 @@ const AssetList: React.FC<AssetListProps> = ({
                               )}
                               <span className="text-text-tertiary capitalize">{asset.type}</span>
 
-                              {asset.metadata.tier && asset.metadata.tier !== 'base' && (
+                              {asset.metadata?.tier && asset.metadata.tier !== 'base' && (
                                 <>
                                   <span className="text-text-muted">•</span>
                                   <div className="flex items-center gap-1">
@@ -512,7 +517,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                 </>
                               )}
 
-                              {asset.metadata.isPlaceholder && (
+                              {asset.metadata?.isPlaceholder && (
                                 <>
                                   <span className="text-text-muted">•</span>
                                   <span className="bg-warning bg-opacity-15 text-warning px-1.5 py-0.5 rounded text-[0.625rem] font-medium">
@@ -561,7 +566,7 @@ const AssetList: React.FC<AssetListProps> = ({
 
                     {/* Assets in this type */}
                     {typeAssets.map((asset, index) => {
-                      const isBase = asset.metadata.isBaseModel
+                      const isBase = asset.metadata?.isBaseModel
                       const variantCount = isBase ? assetGroups.groups.find(g => g.base.id === asset.id)?.variants.length || 0 : 0
 
                       return (
@@ -581,13 +586,13 @@ const AssetList: React.FC<AssetListProps> = ({
                                 ? 'bg-primary bg-opacity-10 text-text-primary shadow-sm ring-2 ring-primary'
                                 : 'bg-bg-secondary bg-opacity-70 text-text-tertiary'
                               }`}>
-                              {React.cloneElement(getAssetIcon(asset.type, asset.metadata.subtype), { size: 18 })}
+                              {React.cloneElement(getAssetIcon(asset.type, asset.metadata?.subtype), { size: 18 })}
                             </div>
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <h3 className="font-medium text-sm text-text-primary truncate">
-                                  {cleanAssetName(asset.name, asset.metadata.isBaseModel)}
+                                  {cleanAssetName(asset.name, asset.metadata?.isBaseModel)}
                                 </h3>
                                 {asset.hasModel && (
                                   <Sparkles size={12} className="text-success flex-shrink-0" />
@@ -595,7 +600,7 @@ const AssetList: React.FC<AssetListProps> = ({
                               </div>
 
                               <div className="flex items-center gap-2 text-[0.6875rem] mt-0.5">
-                                {asset.metadata.isBaseModel && (
+                                {asset.metadata?.isBaseModel && (
                                   <>
                                     <span className="px-1.5 py-0.5 bg-primary bg-opacity-20 text-primary rounded text-[0.625rem] font-medium">
                                       BASE
@@ -605,7 +610,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                 )}
                                 <span className="text-text-tertiary capitalize">{asset.type}</span>
 
-                                {asset.metadata.isBaseModel && variantCount > 0 && (
+                                {asset.metadata?.isBaseModel && variantCount > 0 && (
                                   <>
                                     <span className="text-text-muted">•</span>
                                     <span className="text-text-secondary flex items-center gap-1">
@@ -615,7 +620,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                   </>
                                 )}
 
-                                {asset.metadata.tier && asset.metadata.tier !== 'base' && (
+                                {asset.metadata?.tier && asset.metadata.tier !== 'base' && (
                                   <>
                                     <span className="text-text-muted">•</span>
                                     <div className="flex items-center gap-1">
@@ -633,7 +638,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                   </>
                                 )}
 
-                                {asset.metadata.isPlaceholder && (
+                                {asset.metadata?.isPlaceholder && (
                                   <>
                                     <span className="text-text-muted">•</span>
                                     <span className="bg-warning bg-opacity-15 text-warning px-1.5 py-0.5 rounded text-[0.625rem] font-medium">

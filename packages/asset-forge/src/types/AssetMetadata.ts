@@ -65,12 +65,15 @@ export interface BaseAssetMetadata extends RiggingMetadata {
   updatedAt: string
   generatedAt?: string
   completedAt?: string
-  
+
   // Additional properties used in UI
   tier?: string
   format?: string
   gripDetected?: boolean  // For weapons
   requiresAnimationStrip?: boolean
+
+  // Project Management
+  projectId?: string
 }
 
 /**
@@ -129,12 +132,15 @@ export interface VariantAssetMetadata extends RiggingMetadata {
   completedAt?: string
   createdAt?: string
   updatedAt?: string
-  
+
   // Additional properties used in UI
   tier?: string
   format?: string
   gripDetected?: boolean  // For weapons
   requiresAnimationStrip?: boolean
+
+  // Project Management
+  projectId?: string
 }
 
 /**
@@ -159,7 +165,7 @@ export type AssetWithAnimations = {
 /**
  * Type guard to check if asset metadata has animations
  */
-export function hasAnimations(asset: { 
+export function hasAnimations(asset: {
   id: string
   name: string
   description: string
@@ -169,7 +175,7 @@ export function hasAnimations(asset: {
   modelFile?: string
   generatedAt: string
 }): asset is AssetWithAnimations {
-  return 'animations' in asset.metadata
+  return asset.metadata != null && 'animations' in asset.metadata
 }
 
 /**

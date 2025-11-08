@@ -6,7 +6,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import styled from 'styled-components'
 import { retargetAnimation } from '../services/retargeting/AnimationRetargeting'
@@ -145,12 +145,13 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
     }
   }
 
-  // Animation URLs (using Hyperscape CDN)
+  // Animation URLs (served from asset-forge public directory)
+  const API_PORT = import.meta.env.VITE_API_PORT || '3004'
   const animations = {
-    idle: 'http://localhost:8080/emotes/emote-idle.glb',
-    walk: 'http://localhost:8080/emotes/emote-walk.glb',
-    run: 'http://localhost:8080/emotes/emote-run.glb',
-    jump: 'http://localhost:8080/emotes/emote-jump.glb',
+    idle: `http://localhost:${API_PORT}/emotes/emote-idle.glb`,
+    walk: `http://localhost:${API_PORT}/emotes/emote-walk.glb`,
+    run: `http://localhost:${API_PORT}/emotes/emote-run.glb`,
+    jump: `http://localhost:${API_PORT}/emotes/emote-jump.glb`,
   }
 
   useEffect(() => {
@@ -319,6 +320,59 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
         }
 
         scene.add(vrm.scene)
+
+        // Normalize VRM display height to 1.6m for consistent viewing
+        // (This only affects the viewer display, not the actual VRM file)
+        const humanoidForDisplay = vrm.humanoid
+        if (humanoidForDisplay) {
+          const headNode = humanoidForDisplay.getRawBoneNode('head')
+          const hipsNode = humanoidForDisplay.getRawBoneNode('hips')
+
+          if (headNode) {
+            // Calculate total height from ground to head
+            const headWorldPos = new THREE.Vector3()
+            headNode.getWorldPosition(headWorldPos)
+            const totalHeight = headWorldPos.y
+
+            console.log('[VRMTestViewer] VRM display normalization:')
+            console.log('  - Total height (ground to head):', totalHeight.toFixed(3), 'm')
+
+            // Target display height is 1.6m
+            const targetHeight = 1.6
+            const displayScale = targetHeight / totalHeight
+
+            // Only scale if significantly off (more than 5% difference)
+            if (Math.abs(displayScale - 1.0) > 0.05) {
+              console.log('  - Target display height:', targetHeight.toFixed(3), 'm')
+              console.log('  - Display scale factor:', displayScale.toFixed(3))
+              vrm.scene.scale.setScalar(displayScale)
+              console.log('  ✓ VRM display scaled to 1.6m for consistent viewing')
+            } else {
+              console.log('  ✓ VRM already at correct display height')
+            }
+
+            // Position VRM so feet are on the ground (Y=0)
+            // Calculate bounding box to find lowest point
+            const bbox = new THREE.Box3().setFromObject(vrm.scene)
+            const minY = bbox.min.y
+
+            console.log('[VRMTestViewer] Ground positioning:')
+            console.log('  - Bounding box min Y:', minY.toFixed(3), 'm')
+
+            // Offset the entire scene to place lowest point at Y=0
+            vrm.scene.position.y = -minY
+            console.log('  - VRM offset Y:', (-minY).toFixed(3), 'm')
+            console.log('  ✓ VRM positioned with feet on ground')
+
+            // Update camera and controls target for properly scaled and positioned model
+            const scaledHipsHeight = hipsNode ? hipsNode.position.y * displayScale : totalHeight * 0.5
+            camera.position.set(0, scaledHipsHeight, 3)
+            controls.target.set(0, scaledHipsHeight * 0.7, 0)
+            controls.update()
+          } else {
+            console.warn('[VRMTestViewer] Could not find head bone for height normalization')
+          }
+        }
 
         // Find the skinned mesh (required for animation mixer)
         vrm.scene.traverse((obj: THREE.Object3D) => {

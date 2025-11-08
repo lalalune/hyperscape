@@ -36,6 +36,9 @@ import { createRetextureRoutes } from './routes/retexture'
 import { createGenerationRoutes } from './routes/generation'
 import { aiVisionRoutes } from './routes/ai-vision'
 import { createAssetRoutes } from './routes/assets'
+import { userRoutes } from './routes/users'
+import { projectRoutes } from './routes/projects'
+import { promptRoutes } from './routes/prompts'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -69,6 +72,8 @@ const app = new Elysia()
       tags: [
         { name: 'Health', description: 'Health check endpoints' },
         { name: 'Assets', description: 'Asset management endpoints' },
+        { name: 'Projects', description: 'Project management and organization' },
+        { name: 'Users', description: 'User profile and settings management' },
         { name: 'Material Presets', description: 'Material preset management' },
         { name: 'Retexturing', description: 'Asset retexturing and regeneration' },
         { name: 'Generation', description: 'AI-powered asset generation pipeline' },
@@ -115,13 +120,22 @@ const app = new Elysia()
     prefix: '/temp-images'
   }))
 
+  // Static file serving - public assets (emotes, rigs, etc.)
+  .use(staticPlugin({
+    assets: path.join(ROOT_DIR, 'public'),
+    prefix: '/'
+  }))
+
   // Routes
   .use(healthRoutes)
+  .use(promptRoutes)
   .use(aiVisionRoutes)
   .use(createAssetRoutes(ROOT_DIR, assetService))
   .use(createMaterialRoutes(ROOT_DIR))
   .use(createRetextureRoutes(ROOT_DIR, retextureService))
   .use(createGenerationRoutes(generationService))
+  .use(userRoutes)
+  .use(projectRoutes)
 
   // Start server
   .listen(API_PORT)
@@ -134,8 +148,8 @@ console.log(`✨ Performance: 22x faster than Express!`)
 if (!process.env.MESHY_API_KEY) {
   console.warn('⚠️  MESHY_API_KEY not found - retexturing will fail')
 }
-if (!process.env.OPENAI_API_KEY) {
-  console.warn('⚠️  OPENAI_API_KEY not found - base regeneration will fail')
+if (!process.env.AI_GATEWAY_API_KEY && !process.env.OPENAI_API_KEY) {
+  console.warn('⚠️  AI_GATEWAY_API_KEY or OPENAI_API_KEY required - image generation and prompt enhancement will fail')
 }
 
 export type App = typeof app

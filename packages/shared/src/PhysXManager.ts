@@ -318,7 +318,8 @@ class PhysXManager extends EventEmitter {
       // Use dynamic path construction to prevent bundler from trying to resolve this
       // eslint-disable-next-line @typescript-eslint/no-implied-eval
       const importPath = new Function('return "./PhysXManager.server"')();
-      const serverModule = await import(importPath);
+      // @vite-ignore - Intentional dynamic import for server-only code
+      const serverModule = await import(/* @vite-ignore */ importPath);
       const wasmBuffer = await serverModule.loadPhysXWasmForNode();
       
       // Provide the WASM module directly

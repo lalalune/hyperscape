@@ -3,100 +3,110 @@
     "id": "bronze",
     "name": "bronze",
     "displayName": "Bronze",
+    "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
+    "description": "Basic copper-brown metal, entry-level equipment",
     "category": "metal",
     "tier": 1,
-    "color": "#CD7F32",
-    "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
-    "description": "Basic copper-brown metal, entry-level equipment"
+    "color": "#CD7F32"
   },
   {
     "id": "steel",
     "name": "steel",
     "displayName": "Steel",
+    "stylePrompt": "steel metal texture, silver gray color, polished metallic finish, RuneScape 2007 style",
+    "description": "Silver-gray metal, intermediate quality equipment",
     "category": "metal",
     "tier": 2,
-    "color": "#C0C0C0",
-    "stylePrompt": "steel metal texture, silver gray color, polished metallic finish, RuneScape 2007 style",
-    "description": "Silver-gray metal, intermediate quality equipment"
+    "color": "#C0C0C0"
   },
   {
     "id": "mithril",
     "name": "mithril",
     "displayName": "Mithril",
+    "stylePrompt": "mithril metal texture, blue-gray color with magical shimmer, fantasy metallic finish, RuneScape 2007 style",
+    "description": "Magical blue-gray metal, high-quality equipment",
     "category": "metal",
     "tier": 3,
-    "color": "#4169E1",
-    "stylePrompt": "mithril metal texture, blue-gray color with magical shimmer, fantasy metallic finish, RuneScape 2007 style",
-    "description": "Magical blue-gray metal, high-quality equipment"
+    "color": "#4169E1"
   },
   {
     "id": "leather",
     "name": "leather",
     "displayName": "Leather",
+    "stylePrompt": "brown leather texture, natural cowhide, worn leather finish, RuneScape 2007 style",
+    "description": "Basic brown leather, entry-level armor",
     "category": "leather",
     "tier": 1,
-    "color": "#8B4513",
-    "stylePrompt": "brown leather texture, natural cowhide, worn leather finish, RuneScape 2007 style",
-    "description": "Basic brown leather, entry-level armor"
+    "color": "#8B4513"
   },
   {
     "id": "hard-leather",
     "name": "hard-leather",
     "displayName": "Hard Leather",
+    "stylePrompt": "hardened brown leather texture, reinforced cowhide, sturdy leather finish, RuneScape 2007 style",
+    "description": "Reinforced leather, improved protection",
     "category": "leather",
     "tier": 2,
-    "color": "#654321",
-    "stylePrompt": "hardened brown leather texture, reinforced cowhide, sturdy leather finish, RuneScape 2007 style",
-    "description": "Reinforced leather, improved protection"
+    "color": "#654321"
   },
   {
     "id": "studded-leather",
     "name": "studded-leather",
     "displayName": "Studded Leather",
+    "stylePrompt": "studded leather texture, brown leather with metal studs, reinforced leather finish, RuneScape 2007 style",
+    "description": "Leather reinforced with metal studs",
     "category": "leather",
     "tier": 3,
-    "color": "#8B4513",
-    "stylePrompt": "studded leather texture, brown leather with metal studs, reinforced leather finish, RuneScape 2007 style",
-    "description": "Leather reinforced with metal studs"
+    "color": "#8B4513"
   },
   {
     "id": "wood",
     "name": "wood",
     "displayName": "Wood",
+    "stylePrompt": "light wood texture, natural pine color, basic wooden finish, RuneScape 2007 style",
+    "description": "Basic light wood, entry-level equipment",
     "category": "wood",
     "tier": 1,
-    "color": "#DEB887",
-    "stylePrompt": "light wood texture, natural pine color, basic wooden finish, RuneScape 2007 style",
-    "description": "Basic light wood, entry-level equipment"
+    "color": "#DEB887"
   },
   {
     "id": "oak",
     "name": "oak",
     "displayName": "Oak",
+    "stylePrompt": "oak wood texture, medium brown color, solid wooden finish, RuneScape 2007 style",
+    "description": "Strong oak wood, intermediate quality",
     "category": "wood",
     "tier": 2,
-    "color": "#8B4513",
-    "stylePrompt": "oak wood texture, medium brown color, solid wooden finish, RuneScape 2007 style",
-    "description": "Strong oak wood, intermediate quality"
+    "color": "#8B4513"
   },
   {
     "id": "willow",
     "name": "willow",
     "displayName": "Willow",
+    "stylePrompt": "willow wood texture, pale yellow-green color, flexible wooden finish, RuneScape 2007 style",
+    "description": "Flexible willow wood, good for bows",
     "category": "wood",
     "tier": 3,
-    "color": "#9ACD32",
-    "stylePrompt": "willow wood texture, pale yellow-green color, flexible wooden finish, RuneScape 2007 style",
-    "description": "Flexible willow wood, good for bows"
+    "color": "#9ACD32"
   },
   {
     "id": "dragon",
     "name": "dragon",
     "displayName": "Dragon",
+    "stylePrompt": "Dragon metal texture, red with matte finish, RuneScape 2007 style",
+    "description": "Custom material",
     "category": "custom",
     "tier": 10,
-    "color": "#fa0000",
-    "stylePrompt": "Dragon metal texture, red with matte finish, RuneScape 2007 style",
-    "description": "Custom material"
+    "color": "#fa0000"
+  },
+  {
+    "id": "gold",
+    "name": "gold",
+    "displayName": "gold",
+    "stylePrompt": "gold leaf",
+    "description": "Custom material",
+    "category": "custom",
+    "tier": 11,
+    "color": "#e6d200"
   }
 ]

@@ -1,5 +1,5 @@
 import { Activity, Edit3, Layers } from 'lucide-react'
-import React, { useRef, useCallback } from 'react'
+import React, { useRef, useCallback, useState } from 'react'
 
 import { API_ENDPOINTS } from '../constants'
 import { useAssetsStore } from '../store'
@@ -10,6 +10,8 @@ import AssetFilters from '@/components/Assets/AssetFilters'
 import AssetList from '@/components/Assets/AssetList'
 import { EmptyAssetState } from '@/components/Assets/EmptyAssetState'
 import { LoadingState } from '@/components/Assets/LoadingState'
+import { ProjectModal } from '@/components/ProjectModal'
+import { ProjectSelector } from '@/components/ProjectSelector'
 import RegenerateModal from '@/components/Assets/RegenerateModal'
 import RetextureModal from '@/components/Assets/RetextureModal'
 import SpriteGenerationModal from '@/components/Assets/SpriteGenerationModal'
@@ -24,6 +26,11 @@ import { useAssets } from '@/hooks'
 
 export const AssetsPage: React.FC = () => {
   const { assets, loading, reloadAssets, forceReload } = useAssets()
+
+  // Project state
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [showProjectModal, setShowProjectModal] = useState(false)
+  const [editingProject, setEditingProject] = useState<any>(null)
 
   // Get state and actions from store
   const {
@@ -60,8 +67,11 @@ export const AssetsPage: React.FC = () => {
     assets
   })
 
-  // Filter assets based on current filters
-  const filteredAssets = getFilteredAssets(assets)
+  // Filter assets based on current filters and project
+  const filteredAssets = getFilteredAssets(assets).filter(asset => {
+    if (!selectedProjectId) return true
+    return asset.metadata?.projectId === selectedProjectId
+  })
 
   const handleModelLoad = useCallback((info: { vertices: number, faces: number, materials: number, fileSize?: number }) => {
     setModelInfo(info)
@@ -76,6 +86,16 @@ export const AssetsPage: React.FC = () => {
       <div className="flex-1 flex gap-4 p-4 overflow-hidden min-h-0">
         {/* Sidebar - Made narrower */}
         <div className="flex flex-col gap-3 w-72 min-w-[18rem] animate-slide-in-left">
+          {/* Project Selector */}
+          <ProjectSelector
+            selectedProjectId={selectedProjectId}
+            onProjectChange={setSelectedProjectId}
+            onCreateNew={() => {
+              setEditingProject(null)
+              setShowProjectModal(true)
+            }}
+          />
+
           {/* Filters */}
           <AssetFilters
             totalAssets={assets.length}
@@ -237,6 +257,19 @@ export const AssetsPage: React.FC = () => {
           }}
         />
       )}
+
+      <ProjectModal
+        open={showProjectModal}
+        onClose={() => {
+          setShowProjectModal(false)
+          setEditingProject(null)
+        }}
+        onSave={() => {
+          // Refresh will happen via ProjectSelector
+          reloadAssets()
+        }}
+        project={editingProject}
+      />
     </div>
   )
 }

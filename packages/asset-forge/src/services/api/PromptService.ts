@@ -1,4 +1,5 @@
 import { apiFetch } from '@/utils/api'
+import { ExtendedImportMeta } from '../../types'
 
 export interface GameStylePrompt {
   id?: string
@@ -32,7 +33,14 @@ export type MaterialPromptTemplate = {
 }
 
 class PromptServiceClass {
-  private baseUrl = '/api/prompts'
+  private baseUrl: string
+
+  constructor() {
+    // Use environment variable if available, otherwise default to localhost
+    const envApiUrl = (import.meta as ExtendedImportMeta).env?.VITE_GENERATION_API_URL
+    const apiBaseUrl = envApiUrl || 'http://localhost:3004/api'
+    this.baseUrl = `${apiBaseUrl}/prompts`
+  }
 
   async getGameStylePrompts(): Promise<PromptsResponse<Record<string, GameStylePrompt>>> {
     const response = await apiFetch(`${this.baseUrl}/game-styles`, { timeoutMs: 10000 })

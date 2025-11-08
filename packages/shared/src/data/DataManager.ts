@@ -76,13 +76,22 @@ export class DataManager {
       cdnUrl = process.env.PUBLIC_CDN_URL;
     }
     const baseUrl = `${cdnUrl}/manifests`;
-    
-    // Load items
-    const itemsRes = await fetch(`${baseUrl}/items.json`);
-    const list = await itemsRes.json() as Array<Item>;
-    for (const it of list) {
-      const normalized = this.normalizeItem(it);
-      (ITEMS as Map<string, Item>).set(normalized.id, normalized);
+
+    // Load items (gracefully handle missing manifests for local dev)
+    try {
+      const itemsRes = await fetch(`${baseUrl}/items.json`);
+      if (!itemsRes.ok) {
+        console.warn(`[DataManager] Could not load items.json from ${baseUrl} (${itemsRes.status})`);
+        return; // Gracefully exit if manifests aren't available
+      }
+      const list = await itemsRes.json() as Array<Item>;
+      for (const it of list) {
+        const normalized = this.normalizeItem(it);
+        (ITEMS as Map<string, Item>).set(normalized.id, normalized);
+      }
+    } catch (error) {
+      console.warn('[DataManager] Failed to load items from CDN:', error instanceof Error ? error.message : error);
+      return; // Gracefully exit - validation will warn about missing data
     }
     
     // Load NPCs (unified standardized structure with categories: mob, boss, neutral, quest)

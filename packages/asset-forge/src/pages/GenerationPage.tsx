@@ -35,6 +35,8 @@ import {
   NoAssetSelected,
   ReferenceImageCard
 } from '@/components/Generation'
+import { ProjectModal } from '@/components/ProjectModal'
+import { ProjectSelector } from '@/components/ProjectSelector'
 import {
   Button, Card, CardContent
 } from '@/components/common'
@@ -52,6 +54,10 @@ interface GenerationPageProps {
 
 export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClose }) => {
   const [apiClient] = useState(() => new GenerationAPIClient())
+
+  // Project state
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [showProjectModal, setShowProjectModal] = useState(false)
 
   // Get all state and actions from the store
   const {
@@ -92,7 +98,7 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
     // Avatar Configuration
     enableRigging,
     characterHeight,
-    
+
     // Reference image state
     referenceImageMode,
     referenceImageSource,
@@ -515,6 +521,14 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
       }
     }
 
+    // Attach projectId to metadata if selected
+    if (selectedProjectId) {
+      ;(config as any).metadata = {
+        ...(config as any).metadata,
+        projectId: selectedProjectId
+      }
+    }
+
     console.log('Starting generation with config:', config)
     console.log('Material variants to generate:', config.materialPresets)
 
@@ -651,6 +665,23 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
 
                 {/* Sidebar */}
                 <div className="space-y-8">
+                  {/* Project Selection */}
+                  <Card>
+                    <CardContent className="p-4">
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Project
+                      </label>
+                      <ProjectSelector
+                        selectedProjectId={selectedProjectId}
+                        onProjectChange={setSelectedProjectId}
+                        onCreateNew={() => setShowProjectModal(true)}
+                      />
+                      <p className="text-xs text-text-tertiary mt-2">
+                        Optional: Assign this asset to a project
+                      </p>
+                    </CardContent>
+                  </Card>
+
                   {/* Pipeline Options */}
                   <PipelineOptionsCard
                     generationType={generationType}
@@ -849,6 +880,16 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
           onConfirm={handleDeletePreset}
         />
       )}
+
+      {/* Project Modal */}
+      <ProjectModal
+        open={showProjectModal}
+        onClose={() => setShowProjectModal(false)}
+        onSave={() => {
+          // ProjectSelector will refresh automatically
+        }}
+        project={null}
+      />
     </div>
   )
 }

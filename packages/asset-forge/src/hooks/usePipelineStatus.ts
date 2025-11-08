@@ -32,7 +32,7 @@ export function usePipelineStatus({ apiClient, onComplete }: UsePipelineStatusOp
 
   useEffect(() => {
     const DEBUG = (import.meta as any).env?.VITE_DEBUG_PIPELINE === 'true'
-    const POLL_MS = parseInt((import.meta as any).env?.VITE_PIPELINE_POLL_INTERVAL_MS || '1500', 10)
+    const POLL_MS = parseInt((import.meta as any).env?.VITE_PIPELINE_POLL_INTERVAL_MS || '3000', 10)
     if (DEBUG) console.log('Pipeline status effect triggered. currentPipelineId:', currentPipelineId)
     if (!currentPipelineId) return
     

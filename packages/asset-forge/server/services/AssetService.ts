@@ -6,6 +6,8 @@
 import fs from 'fs/promises'
 import path from 'path'
 import type { UserContextType, AssetMetadataType } from '../models'
+import { userService } from './UserService'
+import { assetDatabaseService } from './AssetDatabaseService'
 
 interface AssetUpdate {
   name?: string
@@ -164,7 +166,7 @@ export class AssetService {
     }
   }
 
-  async deleteAsset(assetId: string, includeVariants = false): Promise<boolean> {
+  async deleteAsset(assetId: string, includeVariants = false, userId?: string): Promise<boolean> {
     const assetPath = path.join(this.assetsDir, assetId)
 
     // Check if asset exists
@@ -196,6 +198,25 @@ export class AssetService {
     // Update dependencies file if it exists
     await this.updateDependenciesAfterDelete(assetId)
 
+    // Log deletion activity
+    if (userId) {
+      try {
+        await userService.logActivity(
+          userId,
+          'asset',
+          'deleted',
+          {
+            assetId,
+            includeVariants,
+            variantCount: includeVariants ? variants.length : 0
+          },
+          assetId
+        )
+      } catch (error) {
+        console.error('[AssetService] Failed to log deletion activity:', error)
+      }
+    }
+
     return true
   }
 
@@ -206,6 +227,14 @@ export class AssetService {
       // Recursively delete the directory
       await fs.rm(assetPath, { recursive: true, force: true })
       console.log(`Deleted asset directory: ${assetId}`)
+
+      // Delete from database
+      try {
+        await assetDatabaseService.deleteAssetRecord(assetId)
+      } catch (error) {
+        console.error('[AssetService] Failed to delete asset from database:', error)
+        // Continue - file deletion succeeded
+      }
     } catch (error) {
       console.error(`Failed to delete asset ${assetId}:`, error)
       throw new Error(`Failed to delete asset ${assetId}`)
@@ -235,7 +264,7 @@ export class AssetService {
     }
   }
 
-  async updateAsset(assetId: string, updates: AssetUpdate, userContext: UserContextType | null = null): Promise<Asset | null> {
+  async updateAsset(assetId: string, updates: AssetUpdate, userId?: string): Promise<Asset | null> {
     try {
       const assetPath = path.join(this.assetsDir, assetId)
       const metadataPath = path.join(assetPath, 'metadata.json')
@@ -256,17 +285,6 @@ export class AssetService {
         ...updates.metadata,
         lastModified: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      }
-
-      // Preserve ownership fields or set them if provided
-      if (userContext) {
-        // Only set ownership if not already set (don't override existing ownership)
-        if (!currentMetadata.createdBy && userContext.privyId) {
-          updatedMetadata.createdBy = userContext.privyId
-        }
-        if (!currentMetadata.walletAddress && userContext.walletAddress) {
-          updatedMetadata.walletAddress = userContext.walletAddress
-        }
       }
 
       // Default isPublic to true if not set
@@ -313,10 +331,60 @@ export class AssetService {
         // Update dependencies if needed
         await this.updateDependenciesAfterRename(assetId, updates.name)
 
+        // Log update activity
+        if (userId) {
+          try {
+            await userService.logActivity(
+              userId,
+              'asset',
+              'updated',
+              {
+                assetId: updates.name || assetId,
+                changes: Object.keys(updates)
+              },
+              assetId
+            )
+          } catch (error) {
+            console.error('[AssetService] Failed to log update activity:', error)
+          }
+        }
+
         return this.loadAsset(updates.name)
       } else {
         // Just update metadata
         await fs.writeFile(metadataPath, JSON.stringify(updatedMetadata, null, 2))
+
+        // Update database record
+        try {
+          await assetDatabaseService.updateAssetRecord(assetId, {
+            name: updatedMetadata.name,
+            description: updatedMetadata.description,
+            type: updatedMetadata.type,
+            metadata: updatedMetadata as any
+          })
+        } catch (error) {
+          console.error('[AssetService] Failed to update asset in database:', error)
+          // Continue - file update succeeded
+        }
+
+        // Log update activity
+        if (userId) {
+          try {
+            await userService.logActivity(
+              userId,
+              'asset',
+              'updated',
+              {
+                assetId: updates.name || assetId,
+                changes: Object.keys(updates)
+              },
+              assetId
+            )
+          } catch (error) {
+            console.error('[AssetService] Failed to log update activity:', error)
+          }
+        }
+
         return this.loadAsset(assetId)
       }
     } catch (error) {
