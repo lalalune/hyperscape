@@ -1,23 +1,23 @@
-import { defineConfig } from 'cypress';
+import { defineConfig } from "cypress";
 
 export default defineConfig({
   component: {
     devServer: {
-      framework: 'react',
-      bundler: 'vite',
+      framework: "react",
+      bundler: "vite",
     },
-    specPattern: 'cypress/component/**/*.cy.{js,jsx,ts,tsx}',
-    supportFile: 'cypress/support/component.ts',
-    indexHtmlFile: 'cypress/support/component-index.html',
+    specPattern: "cypress/component/**/*.cy.{js,jsx,ts,tsx}",
+    supportFile: "cypress/support/component.ts",
+    indexHtmlFile: "cypress/support/component-index.html",
     screenshotOnRunFailure: true,
-    screenshotsFolder: 'cypress/screenshots/component',
+    screenshotsFolder: "cypress/screenshots/component",
     video: false,
-    videosFolder: 'cypress/videos/component',
+    videosFolder: "cypress/videos/component",
   },
   e2e: {
-    baseUrl: 'http://localhost:5555',
-    supportFile: 'cypress/support/e2e.ts',
-    specPattern: 'cypress/e2e/**/*.cy.{js,jsx,ts,tsx}',
+    baseUrl: "http://localhost:5555",
+    supportFile: "cypress/support/e2e.ts",
+    specPattern: "cypress/e2e/**/*.cy.{js,jsx,ts,tsx}",
     video: false,
     screenshotOnRunFailure: true,
     viewportWidth: 1280,

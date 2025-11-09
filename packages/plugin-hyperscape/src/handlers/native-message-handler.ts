@@ -59,7 +59,9 @@ export class NativeMessageHandler {
     const { runtime, message, callback, onComplete } = options;
 
     try {
-      elizaLogger.info(`[NativeMessageHandler] Processing message: ${message.id}`);
+      elizaLogger.info(
+        `[NativeMessageHandler] Processing message: ${message.id}`,
+      );
 
       // Compose state from message
       const state = await runtime.composeState(message);
@@ -67,14 +69,20 @@ export class NativeMessageHandler {
       // Check if we should respond
       const shouldRespond = await this.shouldRespond(runtime, message, state);
       if (!shouldRespond) {
-        elizaLogger.debug(`[NativeMessageHandler] Skipping message (should not respond)`);
+        elizaLogger.debug(
+          `[NativeMessageHandler] Skipping message (should not respond)`,
+        );
         onComplete?.();
         return;
       }
 
       // Process actions - execute only the FIRST matching action
       // This prevents multiple actions from running simultaneously
-      const actionResult = await this.processRuntimeActions(runtime, message, state);
+      const actionResult = await this.processRuntimeActions(
+        runtime,
+        message,
+        state,
+      );
 
       if (actionResult) {
         // An action was executed, use its response
@@ -90,9 +98,14 @@ export class NativeMessageHandler {
         }
       }
 
-      elizaLogger.success(`[NativeMessageHandler] Message processed successfully`);
+      elizaLogger.success(
+        `[NativeMessageHandler] Message processed successfully`,
+      );
     } catch (error) {
-      elizaLogger.error(`[NativeMessageHandler] Error processing message:`, error);
+      elizaLogger.error(
+        `[NativeMessageHandler] Error processing message:`,
+        error,
+      );
     } finally {
       onComplete?.();
     }
@@ -117,26 +130,34 @@ export class NativeMessageHandler {
         const isValid = await action.validate(runtime, message, state);
         if (!isValid) continue;
 
-        elizaLogger.debug(`[NativeMessageHandler] Executing action: ${action.name}`);
+        elizaLogger.debug(
+          `[NativeMessageHandler] Executing action: ${action.name}`,
+        );
 
         let actionResponse: Memory | null = null;
 
         // Execute action handler
-        const result = await action.handler(runtime, message, state, {}, async (content: Content) => {
-          // Action callback - convert to memory
-          actionResponse = {
-            id: crypto.randomUUID(),
-            agentId: runtime.agentId,
-            entityId: runtime.agentId,
-            roomId: message.roomId,
-            content,
-            createdAt: Date.now(),
-          };
-          return [];
-        });
+        const result = await action.handler(
+          runtime,
+          message,
+          state,
+          {},
+          async (content: Content) => {
+            // Action callback - convert to memory
+            actionResponse = {
+              id: crypto.randomUUID(),
+              agentId: runtime.agentId,
+              entityId: runtime.agentId,
+              roomId: message.roomId,
+              content,
+              createdAt: Date.now(),
+            };
+            return [];
+          },
+        );
 
         // If handler returned a result directly, use it
-        if (result && typeof result === 'object' && 'text' in result) {
+        if (result && typeof result === "object" && "text" in result) {
           actionResponse = {
             id: crypto.randomUUID(),
             agentId: runtime.agentId,
@@ -144,7 +165,10 @@ export class NativeMessageHandler {
             roomId: message.roomId,
             content: {
               text: (result as { text: string }).text,
-              action: 'action' in result ? (result as { action: string }).action : undefined,
+              action:
+                "action" in result
+                  ? (result as { action: string }).action
+                  : undefined,
             } as Content,
             createdAt: Date.now(),
           };
@@ -152,11 +176,16 @@ export class NativeMessageHandler {
 
         // Return first successful action result
         if (actionResponse) {
-          elizaLogger.success(`[NativeMessageHandler] Action ${action.name} executed successfully`);
+          elizaLogger.success(
+            `[NativeMessageHandler] Action ${action.name} executed successfully`,
+          );
           return actionResponse;
         }
       } catch (error) {
-        elizaLogger.error(`[NativeMessageHandler] Action ${action.name} failed:`, error);
+        elizaLogger.error(
+          `[NativeMessageHandler] Action ${action.name} failed:`,
+          error,
+        );
         // Continue to next action on error
       }
     }
@@ -176,7 +205,9 @@ export class NativeMessageHandler {
     // Basic heuristics for responding
     const text = message.content.text?.toLowerCase() || "";
     const agentName = runtime.character.name;
-    const nameToCheck = Array.isArray(agentName) ? agentName[0].toLowerCase() : agentName.toLowerCase();
+    const nameToCheck = Array.isArray(agentName)
+      ? agentName[0].toLowerCase()
+      : agentName.toLowerCase();
 
     // Always respond if mentioned by name
     if (text.includes(nameToCheck)) {
@@ -194,10 +225,14 @@ export class NativeMessageHandler {
       if (evaluators.length === 0) return true; // Default to responding
 
       // Actually run the first evaluator to determine if we should respond
-      const shouldRespond = await evaluators[0].handler(runtime, message, state);
+      const shouldRespond = await evaluators[0].handler(
+        runtime,
+        message,
+        state,
+      );
       return Boolean(shouldRespond);
     } catch (error) {
-      elizaLogger.error('[NativeMessageHandler] Evaluator error:', error);
+      elizaLogger.error("[NativeMessageHandler] Evaluator error:", error);
       return false;
     }
   }
@@ -227,11 +262,14 @@ export class NativeMessageHandler {
       });
 
       // Ensure responseText is a string before parsing
-      const textContent = typeof responseText === 'string'
-        ? responseText
-        : (responseText && typeof responseText === 'object' && 'text' in responseText)
-          ? String((responseText as { text: unknown }).text)
-          : String(responseText);
+      const textContent =
+        typeof responseText === "string"
+          ? responseText
+          : responseText &&
+              typeof responseText === "object" &&
+              "text" in responseText
+            ? String((responseText as { text: unknown }).text)
+            : String(responseText);
 
       // Parse response for actions/emotes
       const parsedResponse = this.parseResponse(textContent);
@@ -257,7 +295,10 @@ export class NativeMessageHandler {
 
       return responseMemory;
     } catch (error) {
-      elizaLogger.error('[NativeMessageHandler] Failed to generate response:', error);
+      elizaLogger.error(
+        "[NativeMessageHandler] Failed to generate response:",
+        error,
+      );
 
       // Create error response memory
       const errorMemory: Memory = {
@@ -298,7 +339,7 @@ export class NativeMessageHandler {
     let context = `You are ${characterName}. ${characterBio}\n\n`;
 
     // Add world context if available
-    if (world && typeof world === 'object' && 'entities' in world) {
+    if (world && typeof world === "object" && "entities" in world) {
       const worldObj = world as {
         entities?: {
           player?: {
@@ -306,7 +347,10 @@ export class NativeMessageHandler {
             data?: Record<string, unknown>;
           };
         };
-        getNearbyEntities?: (position: { x: number; y: number; z: number }, radius: number) => unknown[];
+        getNearbyEntities?: (
+          position: { x: number; y: number; z: number },
+          radius: number,
+        ) => unknown[];
       };
 
       const player = worldObj.entities?.player;
@@ -316,12 +360,15 @@ export class NativeMessageHandler {
 
         // Add nearby entities count if available
         if (worldObj.getNearbyEntities) {
-          const nearbyEntities = worldObj.getNearbyEntities(player.position, 10);
+          const nearbyEntities = worldObj.getNearbyEntities(
+            player.position,
+            10,
+          );
           if (nearbyEntities && nearbyEntities.length > 0) {
             context += `Nearby Entities: ${nearbyEntities.length}\n`;
           }
         }
-        context += '\n';
+        context += "\n";
       }
     }
 
@@ -373,6 +420,8 @@ export class NativeMessageHandler {
 /**
  * Convenience function for handling messages
  */
-export async function handleMessage(options: MessageHandlerOptions): Promise<void> {
+export async function handleMessage(
+  options: MessageHandlerOptions,
+): Promise<void> {
   return NativeMessageHandler.handle(options);
 }

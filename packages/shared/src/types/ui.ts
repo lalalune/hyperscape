@@ -1,77 +1,84 @@
 /**
  * UI-related type definitions
- * 
+ *
  * Shared types for UI elements and interfaces
  */
 
-import THREE from '../extras/three'
-import type { ReactNode, CSSProperties } from 'react'
-import type { World } from './index'
-import type { Curve } from '../extras/Curve'
+import THREE from "../extras/three";
+import type { ReactNode, CSSProperties } from "react";
+import type { World } from "./index";
+import type { Curve } from "../extras/Curve";
 
 // Nametag interfaces (UI handle for manipulation)
 export interface NametagHandle {
-  idx: number
-  name: string
-  health: number
-  matrix: THREE.Matrix4
-  move: (newMatrix: THREE.Matrix4) => void
-  setName: (name: string) => void
-  setHealth: (health: number) => void
-  destroy: () => void
+  idx: number;
+  name: string;
+  health: number;
+  matrix: THREE.Matrix4;
+  move: (newMatrix: THREE.Matrix4) => void;
+  setName: (name: string) => void;
+  setHealth: (health: number) => void;
+  destroy: () => void;
 }
 
 // Equipment UI interfaces
 export interface PlayerWithEquipmentSupport {
-  position: THREE.Vector3
-  getBoneTransform: (boneName: string) => THREE.Matrix4
+  position: THREE.Vector3;
+  getBoneTransform: (boneName: string) => THREE.Matrix4;
 }
 
 // Action test interfaces (for item interaction testing)
 export interface ActionTestData {
-  testId: string
-  itemId: string
-  itemType: string
-  playerId: string
-  startTime: number
-  phase: 'setup' | 'right_click' | 'verify_menu' | 'test_actions' | 'verify_results' | 'completed' | 'failed'
-  rightClicked: boolean
-  menuShown: boolean
-  actionsAvailable: string[]
-  actionsExpected: string[]
-  actionsTested: string[]
-  actionsSuccessful: string[]
-  menuDisappeared: boolean
-  visualFeedbackReceived: boolean
-  errors: string[]
+  testId: string;
+  itemId: string;
+  itemType: string;
+  playerId: string;
+  startTime: number;
+  phase:
+    | "setup"
+    | "right_click"
+    | "verify_menu"
+    | "test_actions"
+    | "verify_results"
+    | "completed"
+    | "failed";
+  rightClicked: boolean;
+  menuShown: boolean;
+  actionsAvailable: string[];
+  actionsExpected: string[];
+  actionsTested: string[];
+  actionsSuccessful: string[];
+  menuDisappeared: boolean;
+  visualFeedbackReceived: boolean;
+  errors: string[];
 }
 
 // Context menu interfaces
 export interface ContextMenuAction {
-  id: string
-  label: string
-  icon?: string
-  enabled: boolean
-  onClick: () => void
+  id: string;
+  label: string;
+  icon?: string;
+  enabled: boolean;
+  onClick: () => void;
 }
 
 export interface ContextMenuProps {
-  visible: boolean
-  position: { x: number; y: number }
-  actions: ContextMenuAction[]
-  onClose: () => void
-  title?: string
+  visible: boolean;
+  position: { x: number; y: number };
+  actions: ContextMenuAction[];
+  onClose: () => void;
+  title?: string;
 }
 
 // Draggable window interfaces
 export interface DraggableWindowProps {
-  children: ReactNode
-  initialPosition?: { x: number; y: number }
-  dragHandle?: ReactNode
-  onPositionChange?: (position: { x: number; y: number }) => void
-  className?: string
-  style?: CSSProperties
-  enabled?: boolean
+  children: ReactNode;
+  initialPosition?: { x: number; y: number };
+  dragHandle?: ReactNode;
+  onPositionChange?: (position: { x: number; y: number }) => void;
+  className?: string;
+  style?: CSSProperties;
+  enabled?: boolean;
 }
 
 // Curve component interfaces
@@ -333,7 +340,7 @@ export interface ContextMenuState {
  */
 export interface EntityPip {
   id: string;
-  type: 'player' | 'enemy' | 'building' | 'item' | 'resource';
+  type: "player" | "enemy" | "building" | "item" | "resource";
   position: THREE.Vector3;
   color: string;
 }
@@ -359,7 +366,9 @@ export interface HierarchyNode {
   name?: string;
   constructor?: { name: string };
   children?: HierarchyNode[];
-  position?: { x: number; y: number; z: number } | { getHexString?: () => string };
+  position?:
+    | { x: number; y: number; z: number }
+    | { getHexString?: () => string };
   rotation?: { x: number; y: number; z: number };
   scale?: { x: number; y: number; z: number };
   material?: {

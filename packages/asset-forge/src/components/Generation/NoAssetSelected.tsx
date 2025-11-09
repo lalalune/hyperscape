@@ -1,7 +1,7 @@
-import { Package } from 'lucide-react'
-import React from 'react'
+import { Package } from "lucide-react";
+import React from "react";
 
-import { Card } from '../common'
+import { Card } from "../common";
 
 export const NoAssetSelected: React.FC = () => {
   return (
@@ -16,5 +16,5 @@ export const NoAssetSelected: React.FC = () => {
         </p>
       </div>
     </Card>
-  )
-} 
+  );
+};

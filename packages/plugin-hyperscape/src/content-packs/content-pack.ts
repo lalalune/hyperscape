@@ -236,12 +236,10 @@ export const RunescapeRPGPack: IContentPack = {
       // - BankingSystem (banking)
       // - StoreSystem (trading)
       // - And all other 48+ systems we polished
-
     }
   },
 
-  onUnload: async (runtime: IAgentRuntime, world: World) => {
-  },
+  onUnload: async (runtime: IAgentRuntime, world: World) => {},
 };
 
 export default RunescapeRPGPack;

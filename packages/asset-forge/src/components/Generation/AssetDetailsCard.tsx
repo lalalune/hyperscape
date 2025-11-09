@@ -1,27 +1,46 @@
-import { FileText, Layers, Package, User, ChevronRight, Gamepad2 } from 'lucide-react'
-import React from 'react'
+import {
+  FileText,
+  Layers,
+  Package,
+  User,
+  ChevronRight,
+  Gamepad2,
+} from "lucide-react";
+import React from "react";
 
-import { GameStylePrompt } from '../../services/api/PromptService'
+import { GameStylePrompt } from "../../services/api/PromptService";
 // import { cn } from '../../styles'
-import { CustomAssetType } from '../../types/generation'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input, Textarea } from '../common'
+import { CustomAssetType } from "../../types/generation";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Button,
+  Input,
+  Textarea,
+} from "../common";
 
 interface AssetDetailsCardProps {
-  generationType: 'item' | 'avatar' | undefined
-  assetName: string
-  assetType: string
-  description: string
-  gameStyle: string
-  customStyle: string
-  customAssetTypes: CustomAssetType[]
-  customGameStyles?: Record<string, GameStylePrompt>
-  onAssetNameChange: (value: string) => void
-  onAssetTypeChange: (value: string) => void
-  onDescriptionChange: (value: string) => void
-  onGameStyleChange: (style: 'runescape' | 'custom') => void
-  onCustomStyleChange: (value: string) => void
-  onBack: () => void
-  onSaveCustomGameStyle?: (styleId: string, style: GameStylePrompt) => Promise<boolean>
+  generationType: "item" | "avatar" | undefined;
+  assetName: string;
+  assetType: string;
+  description: string;
+  gameStyle: string;
+  customStyle: string;
+  customAssetTypes: CustomAssetType[];
+  customGameStyles?: Record<string, GameStylePrompt>;
+  onAssetNameChange: (value: string) => void;
+  onAssetTypeChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onGameStyleChange: (style: "runescape" | "custom") => void;
+  onCustomStyleChange: (value: string) => void;
+  onBack: () => void;
+  onSaveCustomGameStyle?: (
+    styleId: string,
+    style: GameStylePrompt,
+  ) => Promise<boolean>;
 }
 
 export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
@@ -39,7 +58,7 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
   onGameStyleChange,
   onCustomStyleChange,
   onBack,
-  onSaveCustomGameStyle
+  onSaveCustomGameStyle,
 }) => {
   return (
     <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-primary/5 border-border-primary shadow-lg">
@@ -47,7 +66,7 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-primary/10 rounded-xl">
-              {generationType === 'avatar' ? (
+              {generationType === "avatar" ? (
                 <User className="w-5 h-5 text-primary" />
               ) : (
                 <Package className="w-5 h-5 text-primary" />
@@ -55,9 +74,13 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
             </div>
             <div>
               <CardTitle className="text-lg font-semibold">
-                {generationType === 'avatar' ? 'Avatar Details' : 'Asset Details'}
+                {generationType === "avatar"
+                  ? "Avatar Details"
+                  : "Asset Details"}
               </CardTitle>
-              <CardDescription className="text-xs mt-0.5">Define what you want to create</CardDescription>
+              <CardDescription className="text-xs mt-0.5">
+                Define what you want to create
+              </CardDescription>
             </div>
           </div>
           <Button
@@ -79,16 +102,20 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
               <div className="p-1.5 bg-primary/10 rounded-lg">
                 <FileText className="w-3.5 h-3.5 text-primary" />
               </div>
-              {generationType === 'avatar' ? 'Avatar Name' : 'Asset Name'}
+              {generationType === "avatar" ? "Avatar Name" : "Asset Name"}
             </label>
             <Input
               value={assetName}
               onChange={(e) => onAssetNameChange(e.target.value)}
-              placeholder={generationType === 'avatar' ? "e.g., Goblin Warrior" : "e.g., Dragon Sword"}
+              placeholder={
+                generationType === "avatar"
+                  ? "e.g., Goblin Warrior"
+                  : "e.g., Dragon Sword"
+              }
               className="w-full bg-bg-secondary/70 border-border-primary/50 focus:border-primary"
             />
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary flex items-center gap-2">
               <div className="p-1.5 bg-primary/10 rounded-lg">
@@ -101,7 +128,7 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
               onChange={(e) => onAssetTypeChange(e.target.value)}
               className="w-full px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-20 transition-all appearance-none cursor-pointer [&>option]:bg-bg-primary [&>option]:text-text-primary"
             >
-              {generationType === 'avatar' ? (
+              {generationType === "avatar" ? (
                 <>
                   <option value="character">👤 Character</option>
                   <option value="humanoid">🧍 Humanoid</option>
@@ -118,15 +145,17 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
                   <option value="resource">💎 Resource</option>
                 </>
               )}
-              {customAssetTypes.filter(t => t.name).map(type => (
-                <option key={type.name} value={type.name.toLowerCase()}>
-                  ✨ {type.name}
-                </option>
-              ))}
+              {customAssetTypes
+                .filter((t) => t.name)
+                .map((type) => (
+                  <option key={type.name} value={type.name.toLowerCase()}>
+                    ✨ {type.name}
+                  </option>
+                ))}
             </select>
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <label className="text-sm font-medium text-text-primary flex items-center gap-2">
             <div className="p-1.5 bg-primary/10 rounded-lg">
@@ -142,7 +171,7 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
             className="w-full resize-none bg-bg-secondary/70 border-border-primary/50 focus:border-primary"
           />
         </div>
-        
+
         {/* Game Style Selection */}
         <GameStyleSelector
           gameStyle={gameStyle}
@@ -154,32 +183,45 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
         />
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
 // Sub-component for game style selection
 const GameStyleSelector: React.FC<{
-  gameStyle: string
-  customStyle: string
-  customGameStyles?: Record<string, GameStylePrompt>
-  onGameStyleChange: (style: 'runescape' | 'custom') => void
-  onCustomStyleChange: (value: string) => void
-  onSaveCustomGameStyle?: (styleId: string, style: GameStylePrompt) => Promise<boolean>
-}> = ({ gameStyle, customStyle, customGameStyles = {}, onGameStyleChange, onCustomStyleChange, onSaveCustomGameStyle: _onSaveCustomGameStyle }) => {
+  gameStyle: string;
+  customStyle: string;
+  customGameStyles?: Record<string, GameStylePrompt>;
+  onGameStyleChange: (style: "runescape" | "custom") => void;
+  onCustomStyleChange: (value: string) => void;
+  onSaveCustomGameStyle?: (
+    styleId: string,
+    style: GameStylePrompt,
+  ) => Promise<boolean>;
+}> = ({
+  gameStyle,
+  customStyle,
+  customGameStyles = {},
+  onGameStyleChange,
+  onCustomStyleChange,
+  onSaveCustomGameStyle: _onSaveCustomGameStyle,
+}) => {
   // Determine the current selected value for the dropdown
-  const currentValue = gameStyle === 'runescape' ? 'runescape' : 
-                      gameStyle === 'custom' && customStyle ? `custom:${customStyle}` : 
-                      'runescape'
+  const currentValue =
+    gameStyle === "runescape"
+      ? "runescape"
+      : gameStyle === "custom" && customStyle
+        ? `custom:${customStyle}`
+        : "runescape";
 
   const handleChange = (value: string) => {
-    if (value === 'runescape') {
-      onGameStyleChange('runescape')
-    } else if (value.startsWith('custom:')) {
-      const styleId = value.replace('custom:', '')
-      onGameStyleChange('custom')
-      onCustomStyleChange(styleId)
+    if (value === "runescape") {
+      onGameStyleChange("runescape");
+    } else if (value.startsWith("custom:")) {
+      const styleId = value.replace("custom:", "");
+      onGameStyleChange("custom");
+      onCustomStyleChange(styleId);
     }
-  }
+  };
 
   return (
     <div className="space-y-2">
@@ -202,18 +244,22 @@ const GameStyleSelector: React.FC<{
         ))}
       </select>
       {/* Show style details below the dropdown */}
-      {gameStyle === 'runescape' && (
+      {gameStyle === "runescape" && (
         <div className="px-3 py-2 bg-primary/5 border border-primary/10 rounded-lg">
           <p className="text-xs text-text-secondary">Classic low-poly style</p>
         </div>
       )}
-      {gameStyle === 'custom' && customStyle && customGameStyles[customStyle] && (
-        <div className="px-3 py-2 bg-primary/5 border border-primary/10 rounded-lg">
-          <p className="text-xs text-text-secondary">{customGameStyles[customStyle].base}</p>
-        </div>
-      )}
+      {gameStyle === "custom" &&
+        customStyle &&
+        customGameStyles[customStyle] && (
+          <div className="px-3 py-2 bg-primary/5 border border-primary/10 rounded-lg">
+            <p className="text-xs text-text-secondary">
+              {customGameStyles[customStyle].base}
+            </p>
+          </div>
+        )}
     </div>
-  )
-}
+  );
+};
 
-export default AssetDetailsCard
+export default AssetDetailsCard;

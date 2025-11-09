@@ -1,20 +1,20 @@
-import { Undo, Redo } from 'lucide-react'
-import React from 'react'
+import { Undo, Redo } from "lucide-react";
+import React from "react";
 
-import { cn } from '../../styles'
+import { cn } from "../../styles";
 
 interface UndoRedoControlsProps {
-  canUndo: boolean
-  canRedo: boolean
-  onUndo: () => void
-  onRedo: () => void
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 export const UndoRedoControls: React.FC<UndoRedoControlsProps> = ({
   canUndo,
   canRedo,
   onUndo,
-  onRedo
+  onRedo,
 }) => {
   return (
     <div className="absolute top-4 left-4 flex gap-2">
@@ -25,7 +25,7 @@ export const UndoRedoControls: React.FC<UndoRedoControlsProps> = ({
           "p-2 rounded-lg backdrop-blur-sm transition-all",
           canUndo
             ? "bg-bg-tertiary/50 text-text-secondary hover:text-text-primary"
-            : "bg-bg-tertiary/20 text-text-muted cursor-not-allowed"
+            : "bg-bg-tertiary/20 text-text-muted cursor-not-allowed",
         )}
         title="Undo (Ctrl+Z)"
       >
@@ -38,14 +38,14 @@ export const UndoRedoControls: React.FC<UndoRedoControlsProps> = ({
           "p-2 rounded-lg backdrop-blur-sm transition-all",
           canRedo
             ? "bg-bg-tertiary/50 text-text-secondary hover:text-text-primary"
-            : "bg-bg-tertiary/20 text-text-muted cursor-not-allowed"
+            : "bg-bg-tertiary/20 text-text-muted cursor-not-allowed",
         )}
         title="Redo (Ctrl+Y)"
       >
         <Redo size={18} />
       </button>
     </div>
-  )
-}
+  );
+};
 
-export default UndoRedoControls 
+export default UndoRedoControls;

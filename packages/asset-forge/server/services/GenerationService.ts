@@ -346,8 +346,8 @@ export class GenerationService extends EventEmitter {
 
           pipeline.stages.promptOptimization.status = "completed";
           pipeline.stages.promptOptimization.progress = 100;
-          pipeline.stages.promptOptimization.result = {...optimizationResult};
-          pipeline.results.promptOptimization = {...optimizationResult};
+          pipeline.stages.promptOptimization.result = { ...optimizationResult };
+          pipeline.results.promptOptimization = { ...optimizationResult };
         } catch (error) {
           console.warn(
             "GPT-4 enhancement failed, using original prompt:",
@@ -373,12 +373,12 @@ export class GenerationService extends EventEmitter {
         (pipeline.config.referenceImage.url ||
           pipeline.config.referenceImage.dataUrl)
       );
-      console.log('[Pipeline Debug] Reference image check:', {
+      console.log("[Pipeline Debug] Reference image check:", {
         hasReferenceImage: !!pipeline.config.referenceImage,
         hasUrl: !!pipeline.config.referenceImage?.url,
         hasDataUrl: !!pipeline.config.referenceImage?.dataUrl,
         hasUserRef,
-        referenceImage: pipeline.config.referenceImage
+        referenceImage: pipeline.config.referenceImage,
       });
       if (hasUserRef) {
         // Use user-provided reference image; skip auto image generation
@@ -404,7 +404,7 @@ export class GenerationService extends EventEmitter {
           // Also, if HQ cues are present, sanitize prompt from low-poly cues and add HQ details
           const effectiveStyle =
             pipeline.config.customPrompts &&
-              pipeline.config.customPrompts.gameStyle
+            pipeline.config.customPrompts.gameStyle
               ? pipeline.config.customPrompts.gameStyle
               : pipeline.config.style || "game-ready";
 
@@ -447,18 +447,16 @@ export class GenerationService extends EventEmitter {
             }
           }
 
-          const imageResult = await this.aiService.getImageService().generateImage(
-            imagePrompt,
-            pipeline.config.type,
-            effectiveStyle,
-          );
+          const imageResult = await this.aiService
+            .getImageService()
+            .generateImage(imagePrompt, pipeline.config.type, effectiveStyle);
 
           imageUrl = imageResult.imageUrl;
 
           pipeline.stages.imageGeneration.status = "completed";
           pipeline.stages.imageGeneration.progress = 100;
-          pipeline.stages.imageGeneration.result = {...imageResult};
-          pipeline.results.imageGeneration = {...imageResult};
+          pipeline.stages.imageGeneration.result = { ...imageResult };
+          pipeline.results.imageGeneration = { ...imageResult };
           pipeline.progress = 25;
         } catch (error) {
           console.error("Image generation failed:", error);
@@ -555,17 +553,19 @@ export class GenerationService extends EventEmitter {
           process.env.MESHY_MODEL_DEFAULT;
         const aiModel = aiModelEnv || "meshy-5";
 
-        const meshyTaskIdResult = await this.aiService.getMeshyService().startImageTo3D(
-          imageUrlForMeshy,
-          {
+        const meshyTaskIdResult = await this.aiService
+          .getMeshyService()
+          .startImageTo3D(imageUrlForMeshy, {
             enable_pbr: enablePbr,
             ai_model: aiModel,
             topology: "quad",
             targetPolycount: targetPolycount,
             texture_resolution: textureResolution,
-          },
-        );
-        meshyTaskId = typeof meshyTaskIdResult === 'string' ? meshyTaskIdResult : (meshyTaskIdResult.task_id || meshyTaskIdResult.id || null);
+          });
+        meshyTaskId =
+          typeof meshyTaskIdResult === "string"
+            ? meshyTaskIdResult
+            : meshyTaskIdResult.task_id || meshyTaskIdResult.id || null;
 
         // Poll for completion
         let meshyResult: MeshyResult | null = null;
@@ -576,8 +576,8 @@ export class GenerationService extends EventEmitter {
         );
         const timeoutMs = parseInt(
           process.env[`MESHY_TIMEOUT_${qualityUpper}_MS`] ||
-          process.env.MESHY_TIMEOUT_MS ||
-          "300000",
+            process.env.MESHY_TIMEOUT_MS ||
+            "300000",
           10,
         );
         const maxAttempts = Math.max(1, Math.ceil(timeoutMs / pollIntervalMs));
@@ -593,8 +593,9 @@ export class GenerationService extends EventEmitter {
             throw new Error("Meshy task ID is null");
           }
 
-          const status =
-            await this.aiService.getMeshyService().getTaskStatus(meshyTaskId);
+          const status = await this.aiService
+            .getMeshyService()
+            .getTaskStatus(meshyTaskId);
           pipeline.stages.image3D.progress =
             status.progress || (attempts / maxAttempts) * 100;
 
@@ -816,8 +817,9 @@ export class GenerationService extends EventEmitter {
             );
 
             // Use Meshy retexture API
-            const retextureTaskIdResult =
-              await this.aiService.getMeshyService().startRetextureTask(
+            const retextureTaskIdResult = await this.aiService
+              .getMeshyService()
+              .startRetextureTask(
                 { inputTaskId: meshyTaskId! },
                 { textStylePrompt: preset.stylePrompt },
                 {
@@ -826,7 +828,12 @@ export class GenerationService extends EventEmitter {
                   enableOriginalUV: true,
                 },
               );
-            const retextureTaskId = typeof retextureTaskIdResult === 'string' ? retextureTaskIdResult : (retextureTaskIdResult.task_id || retextureTaskIdResult.id || '');
+            const retextureTaskId =
+              typeof retextureTaskIdResult === "string"
+                ? retextureTaskIdResult
+                : retextureTaskIdResult.task_id ||
+                  retextureTaskIdResult.id ||
+                  "";
 
             // Wait for completion
             let retextureResult: RetextureResult | null = null;
@@ -836,10 +843,9 @@ export class GenerationService extends EventEmitter {
             while (retextureAttempts < maxRetextureAttempts) {
               await new Promise((resolve) => setTimeout(resolve, 5000));
 
-              const status =
-                await this.aiService.getMeshyService().getRetextureTaskStatus(
-                  retextureTaskId,
-                );
+              const status = await this.aiService
+                .getMeshyService()
+                .getRetextureTaskStatus(retextureTaskId);
 
               if (status.status === "SUCCEEDED") {
                 retextureResult = status as RetextureResult;
@@ -994,15 +1000,19 @@ export class GenerationService extends EventEmitter {
           console.log("🦴 Starting auto-rigging for avatar...");
 
           // Start rigging task
-          const riggingTaskIdResult =
-            await this.aiService.getMeshyService().startRiggingTask(
+          const riggingTaskIdResult = await this.aiService
+            .getMeshyService()
+            .startRiggingTask(
               { inputTaskId: meshyTaskId },
               {
                 heightMeters:
                   pipeline.config.riggingOptions?.heightMeters || 1.7,
               },
             );
-          const riggingTaskId = typeof riggingTaskIdResult === 'string' ? riggingTaskIdResult : (riggingTaskIdResult.task_id || riggingTaskIdResult.id || '');
+          const riggingTaskId =
+            typeof riggingTaskIdResult === "string"
+              ? riggingTaskIdResult
+              : riggingTaskIdResult.task_id || riggingTaskIdResult.id || "";
 
           console.log(`Rigging task started: ${riggingTaskId}`);
 
@@ -1014,10 +1024,9 @@ export class GenerationService extends EventEmitter {
           while (riggingAttempts < maxRiggingAttempts) {
             await new Promise((resolve) => setTimeout(resolve, 5000));
 
-            const status =
-              await this.aiService.getMeshyService().getRiggingTaskStatus(
-                riggingTaskId,
-              );
+            const status = await this.aiService
+              .getMeshyService()
+              .getRiggingTaskStatus(riggingTaskId);
             pipeline.stages.rigging!.progress =
               status.progress || (riggingAttempts / maxRiggingAttempts) * 100;
 
@@ -1187,7 +1196,9 @@ export class GenerationService extends EventEmitter {
         name: pipeline.config.name,
         modelUrl: `/assets/${pipeline.config.assetId}/${pipeline.config.assetId}.glb`,
         conceptArtUrl: `/assets/${pipeline.config.assetId}/concept-art.png`,
-        variants: (pipeline.results.textureGeneration as Record<string, unknown>)?.variants as FinalAssetVariant[] || [],
+        variants:
+          ((pipeline.results.textureGeneration as Record<string, unknown>)
+            ?.variants as FinalAssetVariant[]) || [],
       };
     } catch (error) {
       pipeline.status = "failed";
@@ -1302,8 +1313,8 @@ Your task is to enhance the user's description to create better results with ima
     const baseDescription = `${stylePrefix}${config.description}`;
     const userPrompt = isArmor
       ? (gpt4Prompts?.typeSpecific?.armor?.enhancementPrefix ||
-        `Enhance this armor piece description for 3D generation. CRITICAL: The armor must be SHAPED FOR A T-POSE BODY - shoulder openings must point STRAIGHT SIDEWAYS at 90 degrees (like a scarecrow), NOT angled downward! Should look like a wide "T" shape. Ends at shoulders (no arm extensions), hollow openings, no armor stand: `) +
-      `"${baseDescription}"`
+          `Enhance this armor piece description for 3D generation. CRITICAL: The armor must be SHAPED FOR A T-POSE BODY - shoulder openings must point STRAIGHT SIDEWAYS at 90 degrees (like a scarecrow), NOT angled downward! Should look like a wide "T" shape. Ends at shoulders (no arm extensions), hollow openings, no armor stand: `) +
+        `"${baseDescription}"`
       : `Enhance this ${config.type} asset description for 3D generation: "${baseDescription}"`;
 
     try {
@@ -1536,8 +1547,15 @@ Your task is to enhance the user's description to create better results with ima
 setInterval(
   () => {
     const globalWithService = global as Record<string, unknown>;
-    if (globalWithService.generationService && typeof (globalWithService.generationService as Record<string, unknown>).cleanupOldPipelines === 'function') {
-      ((globalWithService.generationService as Record<string, unknown>).cleanupOldPipelines as () => void)();
+    if (
+      globalWithService.generationService &&
+      typeof (globalWithService.generationService as Record<string, unknown>)
+        .cleanupOldPipelines === "function"
+    ) {
+      (
+        (globalWithService.generationService as Record<string, unknown>)
+          .cleanupOldPipelines as () => void
+      )();
     }
   },
   30 * 60 * 1000,

@@ -1,11 +1,11 @@
-import { Component } from '../components/Component';
-import { Entity } from '../entities/Entity';
-import THREE from '../extras/three';
-import { Avatar } from '../nodes';
-import type { Node as NodeClass } from '../nodes/Node';
-import { System } from '../systems/System';
-import { World } from '../World';
-import type { EntityData, Position2D, Position3D } from './base-types';
+import { Component } from "../components/Component";
+import { Entity } from "../entities/Entity";
+import THREE from "../extras/three";
+import { Avatar } from "../nodes";
+import type { Node as NodeClass } from "../nodes/Node";
+import { System } from "../systems/System";
+import { World } from "../World";
+import type { EntityData, Position2D, Position3D } from "./base-types";
 
 // Re-enable core imports - circular dependency should be resolved
 import type {
@@ -13,35 +13,35 @@ import type {
   PlayerEquipmentItems,
   PlayerHealth,
   PlayerStats,
-  SystemConfig
-} from './core';
+  SystemConfig,
+} from "./core";
 
 // Import database types for use within this file
-import type { SystemDatabase } from './database';
+import type { SystemDatabase } from "./database";
 
 // Position3D, Position2D, and EntityData are exported from base-types.ts
 
 /**
  * Central Types Export
  * Single source of truth for all type definitions
- * 
+ *
  * Import and re-export types to maintain consistency across the codebase.
  * Avoid duplicating types that exist in other files - import and re-export instead.
  * Use strongly typed interfaces without optional properties or unknown types.
  */
 
 // Re-export core Hyperscape types
-export { SystemBase } from '../systems/SystemBase';
+export { SystemBase } from "../systems/SystemBase";
 
 // Import types needed from other modules
-export type { World } from '../World';
+export type { World } from "../World";
 
 // Re-export base types first to establish fundamental types
-export * from './base-types';
+export * from "./base-types";
 
 // Re-export core types that are commonly used
 // Export base types (already available from base-types export but also explicit for convenience)
-export type { EntityData, Position2D, Position3D } from './base-types';
+export type { EntityData, Position2D, Position3D } from "./base-types";
 
 // Export core types that were imported above
 export type {
@@ -54,50 +54,74 @@ export type {
   PlayerHealth,
   PlayerIdentity,
   PlayerStats,
-  SystemConfig
-} from './core';
+  SystemConfig,
+} from "./core";
 
 // Re-export additional core types that are needed by many modules
-export {
-  AttackType, CombatStyle, ItemType,
-  WeaponType
-} from './core';
+export { AttackType, CombatStyle, ItemType, WeaponType } from "./core";
 
 export type {
-  AnimationTask, BankData, BankEntityData, CombatBonuses, CombatTarget, DialogueNode,
-  DialogueSession, EquipmentComponent, EquipmentSlot, InteractionAction, InventoryItem, InventorySlotItem, LootTable, MeshUserData, MobEntityData, PrayerComponent, RespawnTask, SkillData, Spawner, SpawnPoint, StatsComponent
-} from './core';
+  AnimationTask,
+  BankData,
+  BankEntityData,
+  CombatBonuses,
+  CombatTarget,
+  DialogueNode,
+  DialogueSession,
+  EquipmentComponent,
+  EquipmentSlot,
+  InteractionAction,
+  InventoryItem,
+  InventorySlotItem,
+  LootTable,
+  MeshUserData,
+  MobEntityData,
+  PrayerComponent,
+  RespawnTask,
+  SkillData,
+  Spawner,
+  SpawnPoint,
+  StatsComponent,
+} from "./core";
 
 export type PlayerEquipment = PlayerEquipmentItems;
 
 // Export additional types needed by combat and other systems
-export { EquipmentSlotName } from './core';
+export { EquipmentSlotName } from "./core";
 
 // Re-export other types (using specific exports to avoid circular dependencies)
-export * from './database';
-export * from './entities';
+export * from "./database";
+export * from "./entities";
 // Explicitly export enums from entities that are commonly used
-export { EntityType, InteractionType, ItemRarity, MobAIState, NPCType, ResourceType } from './entities';
-export * from './events';
-export * from './identifiers';
-export * from './networking';
-export * from './nodes';
+export {
+  EntityType,
+  InteractionType,
+  ItemRarity,
+  MobAIState,
+  NPCType,
+  ResourceType,
+} from "./entities";
+export * from "./events";
+export * from "./identifiers";
+export * from "./networking";
+export * from "./nodes";
 
 // Import AvatarFactory from nodes for use in LoadedAvatar type below
-import type { AvatarFactory as AvatarFactoryType } from './nodes';
+import type { AvatarFactory as AvatarFactoryType } from "./nodes";
 type AvatarFactory = AvatarFactoryType;
 
-export type Player = PlayerEntity
+export type Player = PlayerEntity;
 
 // Re-export system-specific types
 export type {
-  ClientInterfaceSystem, ItemRegistrySystem
-} from './system-interfaces';
+  ClientInterfaceSystem,
+  ItemRegistrySystem,
+} from "./system-interfaces";
 
 // Re-export data types (specific exports to avoid conflicts)
-export { ITEMS } from '../data/items';
-export * from '../data/npcs';
-export * from '../data/world-areas';
+export { ITEMS } from "../data/items";
+export * from "../data/npcs";
+export * from "../data/world-areas";
 
 // Types are now re-exported above in the main export block
 
@@ -133,7 +157,7 @@ export interface CombatEventData extends BaseEventData {
   attackerId: string;
   targetId: string;
   damage: number;
-  attackType: 'melee' | 'ranged' | 'magic';
+  attackType: "melee" | "ranged" | "magic";
 }
 
 // System state interfaces
@@ -154,7 +178,9 @@ export interface TestSystemState extends SystemState {
 // Utility types
 export type Callback<T = void> = (result: T) => void;
 export type AsyncCallback<T = void> = (result: T) => Promise<void>;
-export type EventCallback<T extends BaseEventData = BaseEventData> = (data: T) => void;
+export type EventCallback<T extends BaseEventData = BaseEventData> = (
+  data: T,
+) => void;
 
 // Constants
 export const CONSTANTS = {
@@ -164,30 +190,30 @@ export const CONSTANTS = {
   DEFAULT_STAMINA: 100,
   COMBAT_TIMEOUT_MS: 10000,
   RESPAWN_TIME_MS: 30000,
-  SAVE_INTERVAL_MS: 60000
+  SAVE_INTERVAL_MS: 60000,
 } as const;
 
 // Error codes for type safety
 export const ERROR_CODES = {
-  SYSTEM_ERROR: 'SYSTEM_ERROR',
-  PLAYER_ERROR: 'PLAYER_ERROR',
-  ITEM_ERROR: 'ITEM_ERROR',
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  NETWORK_ERROR: 'NETWORK_ERROR',
-  DATABASE_ERROR: 'DATABASE_ERROR'
+  SYSTEM_ERROR: "SYSTEM_ERROR",
+  PLAYER_ERROR: "PLAYER_ERROR",
+  ITEM_ERROR: "ITEM_ERROR",
+  VALIDATION_ERROR: "VALIDATION_ERROR",
+  NETWORK_ERROR: "NETWORK_ERROR",
+  DATABASE_ERROR: "DATABASE_ERROR",
 } as const;
 
-export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
 // Error types
 export class HyperscapeError extends Error {
   constructor(
     message: string,
     public readonly code: ErrorCode,
-    public readonly context: Record<string, string | number | boolean> = {}
+    public readonly context: Record<string, string | number | boolean> = {},
   ) {
     super(message);
-    this.name = 'HyperscapeError';
+    this.name = "HyperscapeError";
   }
 }
 
@@ -195,10 +221,13 @@ export class SystemError extends HyperscapeError {
   constructor(
     systemName: string,
     message: string,
-    context: Record<string, string | number | boolean> = {}
+    context: Record<string, string | number | boolean> = {},
   ) {
-    super(`[${systemName}] ${message}`, ERROR_CODES.SYSTEM_ERROR, { system: systemName, ...context });
-    this.name = 'SystemError';
+    super(`[${systemName}] ${message}`, ERROR_CODES.SYSTEM_ERROR, {
+      system: systemName,
+      ...context,
+    });
+    this.name = "SystemError";
   }
 }
 
@@ -206,10 +235,13 @@ export class PlayerError extends HyperscapeError {
   constructor(
     playerId: string,
     message: string,
-    context: Record<string, string | number | boolean> = {}
+    context: Record<string, string | number | boolean> = {},
   ) {
-    super(`Player ${playerId}: ${message}`, ERROR_CODES.PLAYER_ERROR, { playerId, ...context });
-    this.name = 'PlayerError';
+    super(`Player ${playerId}: ${message}`, ERROR_CODES.PLAYER_ERROR, {
+      playerId,
+      ...context,
+    });
+    this.name = "PlayerError";
   }
 }
 
@@ -217,22 +249,50 @@ export class ItemError extends HyperscapeError {
   constructor(
     itemId: string,
     message: string,
-    context: Record<string, string | number | boolean> = {}
+    context: Record<string, string | number | boolean> = {},
   ) {
-    super(`Item ${itemId}: ${message}`, ERROR_CODES.ITEM_ERROR, { itemId, ...context });
-    this.name = 'ItemError';
+    super(`Item ${itemId}: ${message}`, ERROR_CODES.ITEM_ERROR, {
+      itemId,
+      ...context,
+    });
+    this.name = "ItemError";
   }
 }
 
 // Logger interface
 export interface Logger {
-  debug(message: string, context?: Record<string, string | number | boolean>): void;
-  info(message: string, context?: Record<string, string | number | boolean>): void;
-  warn(message: string, context?: Record<string, string | number | boolean>): void;
-  error(message: string, error?: Error, context?: Record<string, string | number | boolean>): void;
-  system(systemName: string, message: string, context?: Record<string, string | number | boolean>): void;
-  player(playerId: string, message: string, context?: Record<string, string | number | boolean>): void;
-  test(testName: string, message: string, context?: Record<string, string | number | boolean>): void;
+  debug(
+    message: string,
+    context?: Record<string, string | number | boolean>,
+  ): void;
+  info(
+    message: string,
+    context?: Record<string, string | number | boolean>,
+  ): void;
+  warn(
+    message: string,
+    context?: Record<string, string | number | boolean>,
+  ): void;
+  error(
+    message: string,
+    error?: Error,
+    context?: Record<string, string | number | boolean>,
+  ): void;
+  system(
+    systemName: string,
+    message: string,
+    context?: Record<string, string | number | boolean>,
+  ): void;
+  player(
+    playerId: string,
+    message: string,
+    context?: Record<string, string | number | boolean>,
+  ): void;
+  test(
+    testName: string,
+    message: string,
+    context?: Record<string, string | number | boolean>,
+  ): void;
 }
 
 // Export core types that are being imported by other files
@@ -251,7 +311,7 @@ export interface EntityConstructor {
 // Action system types
 export interface ActionParameter {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'object';
+  type: "string" | "number" | "boolean" | "object";
   required?: boolean;
   description?: string;
 }
@@ -261,7 +321,10 @@ export interface ActionDefinition {
   description: string;
   parameters: ActionParameter[];
   validate?: (context: ActionContext) => boolean;
-  execute: (context: ActionContext, params: Record<string, unknown>) => Promise<unknown>;
+  execute: (
+    context: ActionContext,
+    params: Record<string, unknown>,
+  ) => Promise<unknown>;
 }
 
 export interface ActionContext {
@@ -275,26 +338,26 @@ export interface ActionParams {
   // Combat parameters
   targetId?: string;
   attackStyle?: string;
-  
+
   // Item parameters
   itemId?: string;
   slot?: number;
   quantity?: number;
-  
+
   // Movement parameters
   destination?: Position3D;
   x?: number;
   y?: number;
   z?: number;
-  
+
   // Banking/Store parameters
   bankId?: string;
   storeId?: string;
-  
+
   // Skill parameters
   skill?: string;
   resourceId?: string;
-  
+
   // Generic parameters
   [key: string]: string | number | boolean | Position3D | undefined;
 }
@@ -304,11 +367,11 @@ export interface Entities extends System {
   add(data: EntityData, local?: boolean): Entity;
   serialize?(): unknown;
   deserialize(data: EntityData[]): Promise<void>;
-  
+
   player?: Entity;
   items?: Map<string, Entity>;
   players?: Map<string, Entity>;
-  
+
   // Entity management methods
   values?(): IterableIterator<Entity>;
   remove(id: string): boolean;
@@ -316,7 +379,7 @@ export interface Entities extends System {
   create?(type: string, data: EntityData): Entity | null;
   destroyEntity?(id: string): boolean;
   getAll(): Entity[];
-  
+
   // Player-specific methods
   getPlayer?(id: string): PlayerEntity | null;
   getLocalPlayer?(): PlayerEntity | null;
@@ -347,27 +410,27 @@ export interface ChatMessage {
 export type ExtendedChatMessage = ChatMessage;
 
 // Import actual system classes
-export { Chat } from '../systems/Chat';
-export { ClientActions } from '../systems/ClientActions';
-export { ClientAudio } from '../systems/ClientAudio';
-export { ClientInput } from '../systems/ClientInput'; // Keyboard, mouse, touch, XR input handling
-export { ClientGraphics } from '../systems/ClientGraphics';
-export { ClientLiveKit } from '../systems/ClientLiveKit';
-export { ClientLoader } from '../systems/ClientLoader';
-export { ClientNetwork } from '../systems/ClientNetwork';
-export { ClientInterface } from '../systems/ClientInterface'; // UI state, preferences, stats display
-export { ClientRuntime } from '../systems/ClientRuntime'; // Client lifecycle and diagnostics
+export { Chat } from "../systems/Chat";
+export { ClientActions } from "../systems/ClientActions";
+export { ClientAudio } from "../systems/ClientAudio";
+export { ClientInput } from "../systems/ClientInput"; // Keyboard, mouse, touch, XR input handling
+export { ClientGraphics } from "../systems/ClientGraphics";
+export { ClientLiveKit } from "../systems/ClientLiveKit";
+export { ClientLoader } from "../systems/ClientLoader";
+export { ClientNetwork } from "../systems/ClientNetwork";
+export { ClientInterface } from "../systems/ClientInterface"; // UI state, preferences, stats display
+export { ClientRuntime } from "../systems/ClientRuntime"; // Client lifecycle and diagnostics
 // ServerRuntime is server-only and should not be exported for client use
 // It's available only in the main index (server-side)
 // ServerNetwork is server-only and should not be exported for client use
 // Use type-only import if needed: import type { ServerNetwork } from '../systems/ServerNetwork';
-export { Settings } from '../systems/Settings';
-export { XR as XRSystem } from '../systems/XR';
+export { Settings } from "../systems/Settings";
+export { XR as XRSystem } from "../systems/XR";
 
 // Export missing core system types
-export { Anchors } from '../systems/Anchors';
-export { Events } from '../systems/Events';
-export { Stage } from '../systems/Stage';
+export { Anchors } from "../systems/Anchors";
+export { Events } from "../systems/Events";
+export { Stage } from "../systems/Stage";
 
 // Basic input types
 export interface InputState {
@@ -392,7 +455,7 @@ export interface WorldOptions {
   assetsDir?: string;
   assetsUrl?: string;
   physics?: boolean;
-  renderer?: 'webgl' | 'webgl2' | 'headless';
+  renderer?: "webgl" | "webgl2" | "headless";
   networkRate?: number;
   maxDeltaTime?: number;
   fixedDeltaTime?: number;
@@ -408,28 +471,6 @@ export interface WorldOptions {
 
 // Client System Types - Now imported from actual system classes
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ServerDB interface kept as there's no corresponding system class
 export interface ServerDB extends System {
   db: unknown;
@@ -438,7 +479,7 @@ export interface ServerDB extends System {
   all(query: string, params?: unknown[]): Promise<unknown[]>;
 }
 
-// ClientMonitor interface kept as there's no corresponding client monitor system class  
+// ClientMonitor interface kept as there's no corresponding client monitor system class
 export interface ClientMonitor extends System {
   stats: unknown;
   show(): void;
@@ -469,13 +510,13 @@ export interface ControlBinding {
     setActions(value: unknown): void;
     release(): void;
   };
-  
+
   // Direct release method
   release(): void;
-  
+
   // Allow dynamic properties for control types
   [key: string]: unknown;
-  
+
   // Control properties with input state
   keyI?: ButtonEntry;
   keyE?: ButtonEntry;
@@ -501,7 +542,7 @@ export interface ControlBinding {
   touchB?: ButtonEntry;
   xrLeftTrigger?: ButtonEntry;
   xrRightTrigger?: ButtonEntry;
-  
+
   // Special control objects
   pointer?: {
     locked?: boolean;
@@ -522,7 +563,7 @@ export interface Control {
   id: string;
   playerId: string;
   enabled: boolean;
-  
+
   // Key controls
   keyA?: InputState;
   keyB?: InputState;
@@ -550,13 +591,13 @@ export interface Control {
   keyX?: InputState;
   keyY?: InputState;
   keyZ?: InputState;
-  
+
   // Arrow keys
   arrowUp?: InputState;
   arrowDown?: InputState;
   arrowLeft?: InputState;
   arrowRight?: InputState;
-  
+
   // Special keys
   space?: InputState;
   shiftLeft?: InputState;
@@ -568,7 +609,7 @@ export interface Control {
   enter?: InputState;
   escape?: InputState;
   tab?: InputState;
-  
+
   // Number keys
   digit0?: InputState;
   digit1?: InputState;
@@ -580,13 +621,13 @@ export interface Control {
   digit7?: InputState;
   digit8?: InputState;
   digit9?: InputState;
-  
+
   // Mouse controls
   mouseLeft?: MouseInput;
   mouseRight?: MouseInput;
   mouseMiddle?: MouseInput;
   mouseWheel?: MouseInput;
-  
+
   // Screen and camera
   screen?: {
     width: number;
@@ -598,7 +639,7 @@ export interface Control {
     zoom: number;
     write?: boolean | ((camera: unknown) => void);
   };
-  
+
   // Pointer
   pointer?: {
     locked: boolean;
@@ -607,7 +648,7 @@ export interface Control {
     position?: Vector3;
     delta?: Vector2;
   };
-  
+
   // XR controls
   xrLeftStick?: {
     value: { x: number; z: number };
@@ -621,7 +662,7 @@ export interface Control {
   xrRightTrigger?: InputState;
   xrRightBtn1?: InputState;
   xrRightBtn2?: InputState;
-  
+
   // Touch controls
   touchA?: InputState;
   touchB?: InputState;
@@ -629,7 +670,7 @@ export interface Control {
     value: { x: number; y: number };
     delta: { x: number; y: number };
   };
-  
+
   // Scroll
   scrollDelta?: {
     value: number;
@@ -718,13 +759,13 @@ export interface PhysicsOptions {
 }
 
 export interface RigidBody {
-  type: 'static' | 'dynamic' | 'kinematic';
+  type: "static" | "dynamic" | "kinematic";
   mass: number;
   position: Vector3;
   rotation: Quaternion;
   velocity: Vector3;
   angularVelocity: Vector3;
-  
+
   applyForce(force: Vector3, point?: Vector3): void;
   applyImpulse(impulse: Vector3, point?: Vector3): void;
   setLinearVelocity(velocity: Vector3): void;
@@ -732,10 +773,10 @@ export interface RigidBody {
 }
 
 export interface Collider {
-  type: 'box' | 'sphere' | 'capsule' | 'mesh';
+  type: "box" | "sphere" | "capsule" | "mesh";
   isTrigger: boolean;
   material?: PhysicsMaterial;
-  
+
   onCollisionEnter?: (other: Collider) => void;
   onCollisionStay?: (other: Collider) => void;
   onCollisionExit?: (other: Collider) => void;
@@ -762,7 +803,7 @@ export interface CharacterController {
   jump: () => void;
   walkToward: (
     targetPosition: { x: number; y?: number; z: number },
-    speed?: number
+    speed?: number,
   ) => Vector3;
   walk?: (direction: { x: number; z: number }, speed?: number) => Vector3;
   setPosition: (position: Vector3) => void;
@@ -780,7 +821,7 @@ export interface CharacterControllerOptions {
   jump?: () => void;
   walkToward?: (
     targetPosition: { x: number; y?: number; z: number },
-    speed?: number
+    speed?: number,
   ) => Vector3;
   walk?: (direction: { x: number; z: number }, speed?: number) => Vector3;
   setPosition?: (position: Vector3) => void;
@@ -791,28 +832,57 @@ export interface CharacterControllerOptions {
 // Physics system interface
 export interface Physics {
   // Core physics methods
-  createRigidBody(type: 'static' | 'dynamic' | 'kinematic', position?: Vector3, rotation?: Quaternion): RigidBody;
-  createCollider(geometry: unknown, material?: PhysicsMaterial, isTrigger?: boolean): unknown;
-  createMaterial(staticFriction?: number, dynamicFriction?: number, restitution?: number): PhysicsMaterial;
+  createRigidBody(
+    type: "static" | "dynamic" | "kinematic",
+    position?: Vector3,
+    rotation?: Quaternion,
+  ): RigidBody;
+  createCollider(
+    geometry: unknown,
+    material?: PhysicsMaterial,
+    isTrigger?: boolean,
+  ): unknown;
+  createMaterial(
+    staticFriction?: number,
+    dynamicFriction?: number,
+    restitution?: number,
+  ): PhysicsMaterial;
   createLayerMask(...layers: string[]): number;
-  
+
   // Casting methods
-  sphereCast(origin: Vector3, radius: number, direction: Vector3, maxDistance?: number, layerMask?: number): RaycastHit | null;
-  raycast(origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number): RaycastHit | null;
-  sweep(geometry: unknown, origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number): RaycastHit | null;
-  
+  sphereCast(
+    origin: Vector3,
+    radius: number,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ): RaycastHit | null;
+  raycast(
+    origin: Vector3,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ): RaycastHit | null;
+  sweep(
+    geometry: unknown,
+    origin: Vector3,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ): RaycastHit | null;
+
   // Simulation
   simulate(deltaTime: number): void;
-  
+
   // Cleanup methods
   removeCollider(collider: unknown): void;
   removeActor(actor: unknown): void;
-  
+
   // PhysX integration properties
   world?: unknown; // PhysX world instance
   physics?: unknown; // PhysX physics instance
   scene?: unknown; // PhysX scene instance
-  
+
   // Actor management
   addActor(actor: unknown, handle?: unknown): unknown;
 
@@ -822,9 +892,10 @@ export interface Physics {
   gravity?: Vector3;
   controllers?: Map<string, CharacterController>;
   step?: (deltaTime: number) => void;
-  createCharacterController?: (options: CharacterControllerOptions) => CharacterController;
+  createCharacterController?: (
+    options: CharacterControllerOptions,
+  ) => CharacterController;
 }
-
 
 // Network Types
 export interface NetworkPacket {
@@ -837,7 +908,7 @@ export interface NetworkPacket {
 export interface NetworkConnection {
   id: string;
   latency: number;
-  
+
   send(packet: NetworkPacket): void;
   disconnect(): void;
 }
@@ -890,19 +961,19 @@ export type PlayerEntity = Entity & {
   avatarUrl: string;
   metadata?: Record<string, unknown>;
   username: string;
-  
+
   // RPG-specific properties that may be added dynamically
   health: PlayerHealth;
   inventory: Inventory;
   equipment: PlayerEquipment;
-  
+
   // Player-specific methods
   spawn(position: Vector3): void;
   respawn(): void;
   damage(amount: number, source?: Entity): void;
   heal(amount: number): void;
   chat(text: string): void;
-}
+};
 
 export interface PlayerInput {
   movement: Vector3;
@@ -946,7 +1017,7 @@ export interface CameraTarget {
   position: THREE.Vector3;
   quaternion?: THREE.Quaternion;
   base?: { position: THREE.Vector3; quaternion: THREE.Quaternion };
-  data?: { 
+  data?: {
     id: string;
     roles?: string[];
     [key: string]: unknown;
@@ -1001,7 +1072,12 @@ export interface PointerEntry {
   unlock: () => void;
 }
 
-export type ControlEntry = ButtonEntry | VectorEntry | ValueEntry | ScreenEntry | PointerEntry;
+export type ControlEntry =
+  | ButtonEntry
+  | VectorEntry
+  | ValueEntry
+  | ScreenEntry
+  | PointerEntry;
 
 export interface ControlAction {
   id?: number;
@@ -1026,7 +1102,7 @@ export interface ControlsBinding {
 }
 
 export interface XRInputSource {
-  handedness: 'left' | 'right' | 'none';
+  handedness: "left" | "right" | "none";
   gamepad?: {
     axes: readonly number[];
     buttons: readonly { pressed: boolean }[];
@@ -1088,13 +1164,22 @@ export interface LoadedEmote {
   toNodes: () => Map<string, HSNode>;
   getStats: () => { fileBytes?: number; [key: string]: unknown };
   // Match createEmoteFactory toClip signature (VRM retarget options)
-  toClip: (options?: { rootToHips?: number; version?: string; getBoneName?: (name: string) => string }) => THREE.AnimationClip | null;
+  toClip: (options?: {
+    rootToHips?: number;
+    version?: string;
+    getBoneName?: (name: string) => string;
+  }) => THREE.AnimationClip | null;
 }
 
 export interface LoadedAvatar {
   uid: string;
   factory: AvatarFactory;
-  toNodes: (customHooks?: { scene: THREE.Scene; octree?: unknown; camera?: unknown; loader?: unknown }) => Map<string, HSNode>;
+  toNodes: (customHooks?: {
+    scene: THREE.Scene;
+    octree?: unknown;
+    camera?: unknown;
+    loader?: unknown;
+  }) => Map<string, HSNode>;
   getStats: () => { fileBytes?: number; [key: string]: unknown };
 }
 
@@ -1119,7 +1204,15 @@ export interface VideoFactory {
   get: (key: string) => VideoSource;
 }
 
-export type LoaderResult = THREE.Texture | THREE.DataTexture | VideoFactory | LoadedModel | LoadedEmote | LoadedAvatar | HTMLImageElement | AudioBuffer;
+export type LoaderResult =
+  | THREE.Texture
+  | THREE.DataTexture
+  | VideoFactory
+  | LoadedModel
+  | LoadedEmote
+  | LoadedAvatar
+  | HTMLImageElement
+  | AudioBuffer;
 
 // GLTF/GLB Data Types
 export interface GLBData {
@@ -1129,7 +1222,9 @@ export interface GLBData {
     vrm?: {
       humanoid?: {
         getRawBoneNode?: (boneName: string) => THREE.Object3D | null;
-        getNormalizedBoneNode?: (boneName: string) => THREE.Object3D | undefined;
+        getNormalizedBoneNode?: (
+          boneName: string,
+        ) => THREE.Object3D | undefined;
         _rawHumanBones?: {
           humanBones?: Record<string, { node?: THREE.Object3D }>;
         };
@@ -1174,7 +1269,7 @@ export interface SettingsData {
 export interface Asset {
   id: string;
   url: string;
-  type: 'model' | 'texture' | 'audio' | 'video' | 'script';
+  type: "model" | "texture" | "audio" | "video" | "script";
   data?: unknown;
   loaded: boolean;
   loading: boolean;
@@ -1197,7 +1292,6 @@ export interface HotReloadable {
   lateUpdate(delta: number): void;
   postLateUpdate(delta: number): void;
 }
-
 
 // Touch input
 export interface Touch {

@@ -1,6 +1,6 @@
 /**
  * Validation system types
- * 
+ *
  * These types are used for system validation, terrain validation,
  * and other testing/validation functionality across the engine.
  */
@@ -20,9 +20,15 @@ export interface ValidationResult {
  * Terrain validation error
  */
 export interface TerrainValidationError {
-  type: 'height_discontinuity' | 'physx_mismatch' | 'underground_entity' | 'invalid_slope' | 'missing_collision' | 'resource_placement_error';
+  type:
+    | "height_discontinuity"
+    | "physx_mismatch"
+    | "underground_entity"
+    | "invalid_slope"
+    | "missing_collision"
+    | "resource_placement_error";
   position: { x: number; y: number; z: number };
-  severity: 'critical' | 'warning' | 'info';
+  severity: "critical" | "warning" | "info";
   message: string;
   timestamp: number;
   additionalData: unknown;
@@ -38,7 +44,7 @@ export interface WalkabilityData {
   isWalkable: boolean;
   navMeshDistance: number;
   biome: string;
-  surfaceType: 'solid' | 'water' | 'void';
+  surfaceType: "solid" | "water" | "void";
 }
 
 /**
@@ -77,10 +83,18 @@ export interface TerrainChunk {
  * Terrain NaN test data
  */
 export interface TerrainNaNTestData {
-  testType: 'terrain_getHeightAt' | 'player_spawn' | 'entity_spawn' | 'ground_positioning' | 'comprehensive';
+  testType:
+    | "terrain_getHeightAt"
+    | "player_spawn"
+    | "entity_spawn"
+    | "ground_positioning"
+    | "comprehensive";
   startTime: number;
   nanInputsDetected: number;
-  validatedPositions: Array<{ input: { x: number; y: number; z: number }; output: { x: number; y: number; z: number } }>;
+  validatedPositions: Array<{
+    input: { x: number; y: number; z: number };
+    output: { x: number; y: number; z: number };
+  }>;
   errors: string[];
   consoleErrors: string[];
 }

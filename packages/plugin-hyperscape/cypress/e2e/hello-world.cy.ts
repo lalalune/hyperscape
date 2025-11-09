@@ -1,30 +1,32 @@
-describe('Plugin Starter Hello World', () => {
-  it('should verify the server is running', () => {
+describe("Plugin Starter Hello World", () => {
+  it("should verify the server is running", () => {
     // Visit the base URL
-    cy.visit('/', { failOnStatusCode: false });
+    cy.visit("/", { failOnStatusCode: false });
 
     // Check that we get a page (even if it's a 404 page)
-    cy.get('body').should('exist');
+    cy.get("body").should("exist");
   });
 
-  it('should check server response', () => {
+  it("should check server response", () => {
     // Make a request to the server
     cy.request({
-      url: '/',
+      url: "/",
       failOnStatusCode: false,
     }).then((response) => {
       // Any response means the server is up
-      expect(response).to.have.property('status');
+      expect(response).to.have.property("status");
       cy.log(`Server responded with status: ${response.status}`);
     });
   });
 
-  it('should verify API endpoint', () => {
+  it("should verify API endpoint", () => {
     // Try to access a basic API endpoint
-    const apiBase = String(Cypress.env('PUBLIC_API_URL') || Cypress.config('baseUrl') || '');
-    const url = `${apiBase.replace(/\/$/, '')}/health`;
+    const apiBase = String(
+      Cypress.env("PUBLIC_API_URL") || Cypress.config("baseUrl") || "",
+    );
+    const url = `${apiBase.replace(/\/$/, "")}/health`;
     cy.request({
-      method: 'GET',
+      method: "GET",
       url,
       failOnStatusCode: false,
     }).then((response) => {

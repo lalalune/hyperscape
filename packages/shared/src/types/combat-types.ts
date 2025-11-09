@@ -1,10 +1,10 @@
 /**
  * Combat system types
- * 
+ *
  * These types are used across various combat-related systems and utilities.
  */
 
-import type { SkillData, PlayerHealth } from './core';
+import type { SkillData, PlayerHealth } from "./core";
 
 /**
  * Stats component for entities that participate in combat
@@ -22,7 +22,7 @@ export interface CombatStats {
  * Re-export StatsComponent from core types to maintain consistency
  * @deprecated Use StatsComponent from '../types/core' instead
  */
-export type { StatsComponent } from './core';
+export type { StatsComponent } from "./core";
 
 /**
  * Result of a combat attack execution

@@ -1,17 +1,17 @@
 /**
  * glbToNodes.ts - GLB to Hyperscape Node Converter
- * 
+ *
  * Converts GLTF/GLB scene graphs into Hyperscape's custom Node system.
  * This enables GLB files exported from Blender to work with Hyperscape's physics,
  * networking, and lifecycle systems.
- * 
+ *
  * Conversion Process:
  * 1. Parse GLB scene hierarchy (THREE.Scene/Group/Mesh objects)
  * 2. Convert each THREE object to appropriate Node type
  * 3. Preserve hierarchy, transforms, and custom properties
  * 4. Set up physics for rigidbody/collider nodes
  * 5. Configure LOD levels if specified
- * 
+ *
  * Supported Node Types:
  * - Scene/Group/Object3D → 'group' node (container)
  * - Mesh → 'mesh' node (renderable geometry)
@@ -19,7 +19,7 @@
  * - Custom: node="rigidbody" → Physics-enabled object
  * - Custom: node="collider" → Collision shape
  * - Custom: node="lod" → Level-of-detail container
- * 
+ *
  * Custom Properties (set in Blender via Custom Properties panel):
  * - node: 'rigidbody' | 'collider' | 'lod' (type override)
  * - type: 'static' | 'dynamic' | 'kinematic' (rigidbody type)
@@ -29,52 +29,57 @@
  * - maxDistance: number (LOD distance threshold)
  * - scaleAware: boolean (LOD uses scale for distance)
  * - exp_splatmap: boolean (terrain splatmap shader)
- * 
+ *
  * Usage:
  * ```ts
  * const glb = await loader.load('model', 'asset://models/building.glb');
  * const root = glbToNodes(glb, world);
  * root.activate(world);
  * ```
- * 
+ *
  * Referenced by: ClientLoader, asset loading pipeline
  */
 
-import { createNode } from './createNode'
-import THREE from './three'
-import CustomShaderMaterial from '../libs/three-custom-shader-material'
-import { World } from '../World';
-import type { Node } from '../nodes/Node';
-import type { NodeData, GLBData } from '../types';
-import type { MeshData, SkinnedMeshData, LODData } from '../types/nodes';
+import { createNode } from "./createNode";
+import THREE from "./three";
+import CustomShaderMaterial from "../libs/three-custom-shader-material";
+import { World } from "../World";
+import type { Node } from "../nodes/Node";
+import type { NodeData, GLBData } from "../types";
+import type { MeshData, SkinnedMeshData, LODData } from "../types/nodes";
 
 /** THREE.js object types that map to Group nodes */
-const groupTypes = ['Scene', 'Group', 'Object3D']
+const groupTypes = ["Scene", "Group", "Object3D"];
 
 /** Union type for all possible node data configurations during GLB parsing */
-type GLBNodeData = NodeData | MeshData | SkinnedMeshData | LODData | (NodeData & {
-  object3d?: THREE.Object3D;
-  animations?: unknown[];
-  mass?: number;
-  maxDistance?: number;
-  convex?: boolean;
-  trigger?: boolean;
-  geometry?: THREE.BufferGeometry;
-});
+type GLBNodeData =
+  | NodeData
+  | MeshData
+  | SkinnedMeshData
+  | LODData
+  | (NodeData & {
+      object3d?: THREE.Object3D;
+      animations?: unknown[];
+      mass?: number;
+      maxDistance?: number;
+      convex?: boolean;
+      trigger?: boolean;
+      geometry?: THREE.BufferGeometry;
+    });
 
 /**
  * Convert GLB Scene Graph to Hyperscape Nodes
- * 
+ *
  * Recursively processes a GLB's THREE.js scene graph and converts it to Nodes.
- * 
+ *
  * @param glb - Loaded GLB data (scene, animations, userData)
  * @param world - World instance for context
  * @returns Root group node containing entire hierarchy
  */
 export function glbToNodes(glb: GLBData, world: World) {
   function registerNode(name: string, data: GLBNodeData) {
-    const node = createNode(name, data)
-    return node
+    const node = createNode(name, data);
+    return node;
   }
   interface ParentNode {
     name: string;
@@ -88,23 +93,28 @@ export function glbToNodes(glb: GLBData, world: World) {
       add: (childNode: Node) => node.add(childNode),
       insert: (childNode: Node, distance: number) => {
         // Only LOD nodes have insert method
-        if ('insert' in node) {
+        if ("insert" in node) {
           // Assume insert method exists on LOD nodes
-          (node as Node & { insert: (child: Node, distance: number) => void }).insert(childNode, distance)
+          (
+            node as Node & { insert: (child: Node, distance: number) => void }
+          ).insert(childNode, distance);
         } else {
-          node.add(childNode)
+          node.add(childNode);
         }
-      }
-    }
+      },
+    };
   }
 
   function parse(object3ds: THREE.Object3D[], parentNode: ParentNode) {
     for (const object3d of object3ds) {
-      const props = object3d.userData || {}
-      const isSkinnedMeshRoot = !!object3d.children.find(c => (c as THREE.Object3D & { isSkinnedMesh?: boolean }).isSkinnedMesh)
+      const props = object3d.userData || {};
+      const isSkinnedMeshRoot = !!object3d.children.find(
+        (c) =>
+          (c as THREE.Object3D & { isSkinnedMesh?: boolean }).isSkinnedMesh,
+      );
       // SkinnedMesh (root)
       if (isSkinnedMeshRoot) {
-        const node = registerNode('skinnedmesh', {
+        const node = registerNode("skinnedmesh", {
           id: object3d.name,
           object3d,
           animations: glb.animations || [],
@@ -112,83 +122,111 @@ export function glbToNodes(glb: GLBData, world: World) {
           receiveShadow: props.receiveShadow,
           active: props.active,
           position: object3d.position.toArray() as [number, number, number],
-          quaternion: [object3d.quaternion.x, object3d.quaternion.y, object3d.quaternion.z, object3d.quaternion.w] as [number, number, number, number],
+          quaternion: [
+            object3d.quaternion.x,
+            object3d.quaternion.y,
+            object3d.quaternion.z,
+            object3d.quaternion.w,
+          ] as [number, number, number, number],
           scale: object3d.scale.toArray() as [number, number, number],
-        })
-        if (parentNode.name === 'lod' && props.maxDistance) {
-          parentNode.insert(node, props.maxDistance)
+        });
+        if (parentNode.name === "lod" && props.maxDistance) {
+          parentNode.insert(node, props.maxDistance);
         } else {
-          parentNode.add(node)
+          parentNode.add(node);
         }
         // parse(object3d.children, node)
       }
       // LOD (custom node)
-      else if (props.node === 'lod') {
-        const node = registerNode('lod', {
+      else if (props.node === "lod") {
+        const node = registerNode("lod", {
           id: object3d.name,
           position: object3d.position.toArray() as [number, number, number],
-          quaternion: [object3d.quaternion.x, object3d.quaternion.y, object3d.quaternion.z, object3d.quaternion.w] as [number, number, number, number],
+          quaternion: [
+            object3d.quaternion.x,
+            object3d.quaternion.y,
+            object3d.quaternion.z,
+            object3d.quaternion.w,
+          ] as [number, number, number, number],
           scale: object3d.scale.toArray() as [number, number, number],
           scaleAware: props.scaleAware,
-        })
-        parentNode.add(node)
+        });
+        parentNode.add(node);
         // object3d.children is already typed as THREE.Object3D[]
-      parse(object3d.children as THREE.Object3D[], wrapNodeAsParent(node))
+        parse(object3d.children as THREE.Object3D[], wrapNodeAsParent(node));
       }
       // RigidBody (custom node)
-      else if (props.node === 'rigidbody') {
-        const node = registerNode('rigidbody', {
+      else if (props.node === "rigidbody") {
+        const node = registerNode("rigidbody", {
           id: object3d.name,
           type: props.type,
           mass: props.mass,
           position: object3d.position.toArray() as [number, number, number],
-          quaternion: [object3d.quaternion.x, object3d.quaternion.y, object3d.quaternion.z, object3d.quaternion.w] as [number, number, number, number],
+          quaternion: [
+            object3d.quaternion.x,
+            object3d.quaternion.y,
+            object3d.quaternion.z,
+            object3d.quaternion.w,
+          ] as [number, number, number, number],
           scale: object3d.scale.toArray() as [number, number, number],
-        })
-        parentNode.add(node)
+        });
+        parentNode.add(node);
         // object3d.children is already typed as THREE.Object3D[]
-      parse(object3d.children as THREE.Object3D[], wrapNodeAsParent(node))
+        parse(object3d.children as THREE.Object3D[], wrapNodeAsParent(node));
       }
       // Collider (custom node)
-      else if (props.node === 'collider' && (object3d instanceof THREE.Mesh)) {
+      else if (props.node === "collider" && object3d instanceof THREE.Mesh) {
         // NOTE: in blender if you export a single object with node:collider but it has multiple materials, it converts this into a Group with one Mesh for each material.
         // but since the Group is the one that has the collider custom property, it won't work as expected. we could hack to fix this, but i think it adds a layer of indirection.
         // colliders should not have materials on them.
         // console.error('TODO: glbToNodes collider for box/sphere in blender?')
-        const mesh = object3d
-        const node = registerNode('collider', {
+        const mesh = object3d;
+        const node = registerNode("collider", {
           id: mesh.name,
-          type: 'geometry',
+          type: "geometry",
           geometry: mesh.geometry,
           convex: props.convex,
           trigger: props.trigger,
           position: mesh.position.toArray() as [number, number, number],
-          quaternion: [mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w] as [number, number, number, number],
+          quaternion: [
+            mesh.quaternion.x,
+            mesh.quaternion.y,
+            mesh.quaternion.z,
+            mesh.quaternion.w,
+          ] as [number, number, number, number],
           scale: mesh.scale.toArray() as [number, number, number],
-        })
-        parentNode.add(node)
-                  // mesh.children is already typed as THREE.Object3D[]
-          parse(mesh.children as THREE.Object3D[], wrapNodeAsParent(node))
+        });
+        parentNode.add(node);
+        // mesh.children is already typed as THREE.Object3D[]
+        parse(mesh.children as THREE.Object3D[], wrapNodeAsParent(node));
       }
       // Mesh
-      else if (object3d.type === 'Mesh') {
+      else if (object3d.type === "Mesh") {
         if (!(object3d instanceof THREE.Mesh)) {
           // Not a mesh instance, skip
-          continue
+          continue;
         }
-        const mesh = object3d
+        const mesh = object3d;
         // experimental splatmaps
         if (props.exp_splatmap && !world.network.isServer) {
-          setupSplatmap(mesh)
+          setupSplatmap(mesh);
         }
         // wind effect
         // else if ((mesh.material as THREE.Material & { userData: { wind?: boolean } }).userData.wind) {
         //   addWind(mesh, world)
         // }
-        const hasMorphTargets = (mesh as THREE.Mesh & { morphTargetDictionary?: unknown; morphTargetInfluences?: unknown[] }).morphTargetDictionary || ((mesh as THREE.Mesh & { morphTargetInfluences?: unknown[] }).morphTargetInfluences?.length ?? 0) > 0
-        const node = registerNode('mesh', {
+        const hasMorphTargets =
+          (
+            mesh as THREE.Mesh & {
+              morphTargetDictionary?: unknown;
+              morphTargetInfluences?: unknown[];
+            }
+          ).morphTargetDictionary ||
+          ((mesh as THREE.Mesh & { morphTargetInfluences?: unknown[] })
+            .morphTargetInfluences?.length ?? 0) > 0;
+        const node = registerNode("mesh", {
           id: mesh.name,
-          type: 'geometry',
+          type: "geometry",
           geometry: mesh.geometry,
           material: mesh.material,
           linked: !hasMorphTargets,
@@ -197,41 +235,51 @@ export function glbToNodes(glb: GLBData, world: World) {
           visible: props.visible, // DEPRECATED: use Node.active
           active: props.active,
           position: mesh.position.toArray() as [number, number, number],
-          quaternion: [mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w] as [number, number, number, number],
+          quaternion: [
+            mesh.quaternion.x,
+            mesh.quaternion.y,
+            mesh.quaternion.z,
+            mesh.quaternion.w,
+          ] as [number, number, number, number],
           scale: mesh.scale.toArray() as [number, number, number],
-        })
-        if (parentNode.name === 'lod' && props.maxDistance) {
-          parentNode.insert(node, props.maxDistance)
+        });
+        if (parentNode.name === "lod" && props.maxDistance) {
+          parentNode.insert(node, props.maxDistance);
         } else {
-          parentNode.add(node)
+          parentNode.add(node);
         }
-                  // mesh.children is already typed as THREE.Object3D[]
-          parse(mesh.children as THREE.Object3D[], wrapNodeAsParent(node))
+        // mesh.children is already typed as THREE.Object3D[]
+        parse(mesh.children as THREE.Object3D[], wrapNodeAsParent(node));
       }
       // SkinnedMesh
-      else if (object3d.type === 'SkinnedMesh') {
+      else if (object3d.type === "SkinnedMesh") {
         // ...
       }
       // Object3D / Group / Scene
       else if (groupTypes.includes(object3d.type)) {
-        const node = registerNode('group', {
+        const node = registerNode("group", {
           id: object3d.name,
           position: object3d.position.toArray() as [number, number, number],
-          quaternion: [object3d.quaternion.x, object3d.quaternion.y, object3d.quaternion.z, object3d.quaternion.w] as [number, number, number, number],
+          quaternion: [
+            object3d.quaternion.x,
+            object3d.quaternion.y,
+            object3d.quaternion.z,
+            object3d.quaternion.w,
+          ] as [number, number, number, number],
           scale: object3d.scale.toArray() as [number, number, number],
-        })
-        parentNode.add(node)
+        });
+        parentNode.add(node);
         // object3d.children is already typed as THREE.Object3D[]
-      parse(object3d.children as THREE.Object3D[], wrapNodeAsParent(node))
+        parse(object3d.children as THREE.Object3D[], wrapNodeAsParent(node));
       }
     }
   }
-  const root = registerNode('group', {
-    id: '$root',
-  })
+  const root = registerNode("group", {
+    id: "$root",
+  });
   // glb.scene.children is already typed as THREE.Object3D[]
-  parse(glb.scene.children as THREE.Object3D[], wrapNodeAsParent(root))
-  return root
+  parse(glb.scene.children as THREE.Object3D[], wrapNodeAsParent(root));
+  return root;
 }
 
 // function addWind(mesh: THREE.Mesh, world: World) {
@@ -394,7 +442,7 @@ const _snoise = `
   return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), 
                                 dot(p2,x2), dot(p3,x3) ) );
   }
-`
+`;
 
 function setupSplatmap(mesh: THREE.Mesh) {
   /**
@@ -415,11 +463,14 @@ function setupSplatmap(mesh: THREE.Mesh) {
     normalMap?: THREE.Texture;
   }
 
-  const original = mesh.material as MaterialWithTextures
-  if (original.specularIntensityMap) original.specularIntensityMap.colorSpace = THREE.SRGBColorSpace
-  if (original.transmissionMap) original.transmissionMap.colorSpace = THREE.SRGBColorSpace
-  if (original.emissiveMap) original.emissiveMap.colorSpace = THREE.SRGBColorSpace
-  if (original.normalMap) original.normalMap.colorSpace = THREE.SRGBColorSpace
+  const original = mesh.material as MaterialWithTextures;
+  if (original.specularIntensityMap)
+    original.specularIntensityMap.colorSpace = THREE.SRGBColorSpace;
+  if (original.transmissionMap)
+    original.transmissionMap.colorSpace = THREE.SRGBColorSpace;
+  if (original.emissiveMap)
+    original.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+  if (original.normalMap) original.normalMap.colorSpace = THREE.SRGBColorSpace;
   const uniforms = {
     splatTex: { value: original.map },
     rTex: { value: original.specularIntensityMap },
@@ -430,7 +481,7 @@ function setupSplatmap(mesh: THREE.Mesh) {
     gScale: { value: mesh.userData.green_scale || 1 },
     bScale: { value: mesh.userData.blue_scale || 1 },
     aScale: { value: mesh.userData.alpha_scale || 1 },
-  }
+  };
   // if (mesh.geometry.hasAttribute('_color')) {
   //   terrain.geometry.setAttribute('color', terrain.geometry.attributes._color)
   //   terrain.geometry.deleteAttribute('_color')
@@ -443,9 +494,11 @@ function setupSplatmap(mesh: THREE.Mesh) {
     uniforms: Record<string, { value: unknown }>;
     vertexShader: string;
     fragmentShader: string;
-  }
+  };
 
-  mesh.material = new (CustomShaderMaterial as unknown as new (opts: CustomShaderMaterialOptions) => THREE.Material)({
+  mesh.material = new (CustomShaderMaterial as unknown as new (
+    opts: CustomShaderMaterialOptions,
+  ) => THREE.Material)({
     baseMaterial: THREE.MeshStandardMaterial,
     roughness: 1,
     metalness: 0,
@@ -504,5 +557,5 @@ function setupSplatmap(mesh: THREE.Mesh) {
           csm_DiffuseColor *= result;
       }
     `,
-  })
+  });
 }

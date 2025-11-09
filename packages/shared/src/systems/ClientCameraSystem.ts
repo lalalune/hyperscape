@@ -6,12 +6,12 @@
  * - Top-down/RTS (pan, zoom, click-to-move)
  */
 
-import THREE from '../extras/three';
-import { SystemBase } from './SystemBase';
+import THREE from "../extras/three";
+import { SystemBase } from "./SystemBase";
 
-import type { CameraTarget, System, World } from '../types';
-import { EventType } from '../types/events';
-import { clamp } from '../utils';
+import type { CameraTarget, System, World } from "../types";
+import { EventType } from "../types/events";
+import { clamp } from "../utils";
 // CameraTarget interface moved to shared types
 
 // Define TerrainSystem interface for type checking
@@ -20,20 +20,20 @@ interface TerrainSystem extends System {
   getNormalAt(x: number, z: number): { x: number; y: number; z: number };
 }
 
-const _v3_1 = new THREE.Vector3()
-const _v3_2 = new THREE.Vector3()
-const _v3_3 = new THREE.Vector3()
-const _q_1 = new THREE.Quaternion()
-const _sph_1 = new THREE.Spherical()
+const _v3_1 = new THREE.Vector3();
+const _v3_2 = new THREE.Vector3();
+const _v3_3 = new THREE.Vector3();
+const _q_1 = new THREE.Quaternion();
+const _sph_1 = new THREE.Spherical();
 // Pre-allocated arrays for getCameraInfo to avoid allocations
-const _cameraInfoOffset: number[] = [0, 0, 0]
-const _cameraInfoPosition: number[] = [0, 0, 0]
+const _cameraInfoOffset: number[] = [0, 0, 0];
+const _cameraInfoPosition: number[] = [0, 0, 0];
 
 export class ClientCameraSystem extends SystemBase {
   private camera: THREE.PerspectiveCamera | null = null;
   private target: CameraTarget | null = null;
   private canvas: HTMLCanvasElement | null = null;
-  
+
   // Camera state for different modes
   private spherical = new THREE.Spherical(6, Math.PI * 0.42, 0); // current radius, phi, theta
   private targetSpherical = new THREE.Spherical(6, Math.PI * 0.42, 0); // target spherical for smoothing
@@ -47,33 +47,33 @@ export class ClientCameraSystem extends SystemBase {
   // Zoom handling flags to make zoom move instantly with no easing
   private zoomDirty = false;
   private lastDesiredRadius = this.spherical.radius;
-  
+
   // Control settings
   private readonly settings = {
-      // RS3-like zoom bounds (further min to avoid getting too close)
-      minDistance: 2.0,
-      maxDistance: 15.0,
-      // Over-the-shoulder pitch limits: more horizontal for better forward view
-      minPolarAngle: Math.PI * 0.35,
-      maxPolarAngle: Math.PI * 0.48,
-      // RS3-like feel
-      rotateSpeed: 0.9,
-      zoomSpeed: 1.2,
-      panSpeed: 2.0,
-      // Separate damping for crisp zoom vs smooth rotation
-      rotationDampingFactor: 0.12,
-      zoomDampingFactor: 0.22,
-      // Damping for radius changes to avoid snap on MMB press
-      radiusDampingFactor: 0.18,
-      cameraLerpFactor: 0.1,
-      invertY: false,
-      // Discrete zoom step per wheel notch (world units)
-      zoomStep: 0.6,
-      // Over-the-shoulder offset: character moves to left when zoomed in (like Fortnite)
-      shoulderOffsetMax: 0.15, // Max horizontal offset when fully zoomed in
-      shoulderOffsetSide: -1 // -1 = left, 1 = right
+    // RS3-like zoom bounds (further min to avoid getting too close)
+    minDistance: 2.0,
+    maxDistance: 15.0,
+    // Over-the-shoulder pitch limits: more horizontal for better forward view
+    minPolarAngle: Math.PI * 0.35,
+    maxPolarAngle: Math.PI * 0.48,
+    // RS3-like feel
+    rotateSpeed: 0.9,
+    zoomSpeed: 1.2,
+    panSpeed: 2.0,
+    // Separate damping for crisp zoom vs smooth rotation
+    rotationDampingFactor: 0.12,
+    zoomDampingFactor: 0.22,
+    // Damping for radius changes to avoid snap on MMB press
+    radiusDampingFactor: 0.18,
+    cameraLerpFactor: 0.1,
+    invertY: false,
+    // Discrete zoom step per wheel notch (world units)
+    zoomStep: 0.6,
+    // Over-the-shoulder offset: character moves to left when zoomed in (like Fortnite)
+    shoulderOffsetMax: 0.15, // Max horizontal offset when fully zoomed in
+    shoulderOffsetSide: -1, // -1 = left, 1 = right
   };
-  
+
   // Mouse state
   private mouseState = {
     rightDown: false,
@@ -83,25 +83,25 @@ export class ClientCameraSystem extends SystemBase {
     delta: new THREE.Vector2(),
     leftDownPosition: new THREE.Vector2(), // Track where left click started
     hasDragged: false, // Track if significant drag occurred
-    lastDragEndTime: 0 // Track when last drag ended to suppress click events
+    lastDragEndTime: 0, // Track when last drag ended to suppress click events
   };
   // Touch state for mobile
   private touchState = {
     active: false,
     touchId: -1,
     startPosition: new THREE.Vector2(),
-    lastPosition: new THREE.Vector2()
+    lastPosition: new THREE.Vector2(),
   };
   // Two-finger touch state for pinch zoom
   private pinchState = {
     active: false,
     initialDistance: 0,
-    lastDistance: 0
+    lastDistance: 0,
   };
   // Orbit state to prevent press-down snap until actual drag movement
   private orbitingActive = false;
   private orbitingPrimed = false;
-  
+
   // Bound event handlers for cleanup
   private boundHandlers = {
     mouseDown: this.onMouseDown.bind(this),
@@ -114,26 +114,46 @@ export class ClientCameraSystem extends SystemBase {
     keyUp: this.onKeyUp.bind(this),
     touchStart: this.onTouchStart.bind(this),
     touchMove: this.onTouchMove.bind(this),
-    touchEnd: this.onTouchEnd.bind(this)
+    touchEnd: this.onTouchEnd.bind(this),
   };
 
   constructor(world: World) {
-    super(world, { name: 'client-camera', dependencies: { required: [], optional: [] }, autoCleanup: true });
+    super(world, {
+      name: "client-camera",
+      dependencies: { required: [], optional: [] },
+      autoCleanup: true,
+    });
   }
 
   async init(): Promise<void> {
     if (!this.world.isClient) return;
-    
+
     // Listen for camera events via event bus (typed)
-    this.subscribe(EventType.CAMERA_SET_TARGET, (data: { target: { position: THREE.Vector3 } }) => this.onSetTarget({ target: { position: data.target.position } as CameraTarget }));
+    this.subscribe(
+      EventType.CAMERA_SET_TARGET,
+      (data: { target: { position: THREE.Vector3 } }) =>
+        this.onSetTarget({
+          target: { position: data.target.position } as CameraTarget,
+        }),
+    );
     this.subscribe(EventType.CAMERA_RESET, () => this.resetCamera());
 
     // Listen for player events
-    this.subscribe(EventType.PLAYER_AVATAR_READY, (data: { playerId: string; avatar: unknown; camHeight: number }) => this.onAvatarReady({ playerId: data.playerId, avatar: (data.avatar as { base?: THREE.Object3D } ).base ?? ({} as THREE.Object3D), camHeight: data.camHeight }));
-    
+    this.subscribe(
+      EventType.PLAYER_AVATAR_READY,
+      (data: { playerId: string; avatar: unknown; camHeight: number }) =>
+        this.onAvatarReady({
+          playerId: data.playerId,
+          avatar:
+            (data.avatar as { base?: THREE.Object3D }).base ??
+            ({} as THREE.Object3D),
+          camHeight: data.camHeight,
+        }),
+    );
+
     // Don't detect camera mode here - wait until systems are fully loaded
   }
-  
+
   start(): void {
     if (!this.world.isClient) return;
     this.tryInitialize();
@@ -142,30 +162,34 @@ export class ClientCameraSystem extends SystemBase {
 
   private detachCameraFromRig(): void {
     if (!this.camera || !this.world.stage?.scene) return;
-    
+
     // Remove camera from rig if it's attached
     if (this.camera.parent === this.world.rig) {
-      
       // Get world position and rotation before removing from parent
-      const worldPos = _v3_1
-      const worldQuat = _q_1
+      const worldPos = _v3_1;
+      const worldQuat = _q_1;
       this.camera.getWorldPosition(worldPos);
       this.camera.getWorldQuaternion(worldQuat);
-      
+
       // Remove from rig
       if (this.world.rig) {
         this.world.rig.remove(this.camera);
       }
-      
+
       // Add directly to scene
       this.world.stage.scene.add(this.camera);
-      
+
       // Restore world transform
       this.camera.position.copy(worldPos);
       this.camera.quaternion.copy(worldQuat);
-      
-    } else if (this.camera.parent && this.camera.parent !== this.world.stage.scene) {
-      console.warn('[ClientCameraSystem] Camera has unexpected parent:', this.camera.parent);
+    } else if (
+      this.camera.parent &&
+      this.camera.parent !== this.world.stage.scene
+    ) {
+      console.warn(
+        "[ClientCameraSystem] Camera has unexpected parent:",
+        this.camera.parent,
+      );
     }
   }
 
@@ -180,82 +204,134 @@ export class ClientCameraSystem extends SystemBase {
 
     // Ensure camera is detached from rig once it's available
     this.detachCameraFromRig();
-    
+
     // Initialize camera position to avoid starting at origin
     if (this.camera.position.lengthSq() < 0.01) {
       this.camera.position.set(0, 10, 10); // Start above and behind origin
     }
 
     this.setupEventListeners();
-  
-    
+
     // Try to follow local player - check once, then rely on player:ready event
     this.initializePlayerTarget();
-      }
+  }
 
   private initializePlayerTarget(): void {
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id) {
       this.logger.info(`Setting player as camera target: ${localPlayer.id}`);
       this.onSetTarget({ target: localPlayer as CameraTarget });
-      
-        this.initializeCameraPosition();
+
+      this.initializeCameraPosition();
     } else {
-      this.logger.info('No local player found yet, waiting for player:ready event');
+      this.logger.info(
+        "No local player found yet, waiting for player:ready event",
+      );
     }
   }
-  
+
   private setupEventListeners(): void {
     if (!this.canvas) return;
 
     // Use capture phase for mouse events so camera runs before other interaction systems
-    this.canvas.addEventListener('mousedown', this.boundHandlers.mouseDown as EventListener, true);
-    this.canvas.addEventListener('mousemove', this.boundHandlers.mouseMove as EventListener, true);
-    this.canvas.addEventListener('mouseup', this.boundHandlers.mouseUp as EventListener, true);
-    this.canvas.addEventListener('wheel', this.boundHandlers.mouseWheel as EventListener, true);
-    this.canvas.addEventListener('mouseleave', this.boundHandlers.mouseLeave as EventListener, true);
-    
+    this.canvas.addEventListener(
+      "mousedown",
+      this.boundHandlers.mouseDown as EventListener,
+      true,
+    );
+    this.canvas.addEventListener(
+      "mousemove",
+      this.boundHandlers.mouseMove as EventListener,
+      true,
+    );
+    this.canvas.addEventListener(
+      "mouseup",
+      this.boundHandlers.mouseUp as EventListener,
+      true,
+    );
+    this.canvas.addEventListener(
+      "wheel",
+      this.boundHandlers.mouseWheel as EventListener,
+      true,
+    );
+    this.canvas.addEventListener(
+      "mouseleave",
+      this.boundHandlers.mouseLeave as EventListener,
+      true,
+    );
+
     // Listen to click events to suppress them after drags
-    this.canvas.addEventListener('click', this.onClickCapture.bind(this) as EventListener, true);
-    
+    this.canvas.addEventListener(
+      "click",
+      this.onClickCapture.bind(this) as EventListener,
+      true,
+    );
+
     // Listen to contextmenu to mark when we're handling camera rotation
     // Use capture phase to run before InteractionSystem
-    this.canvas.addEventListener('contextmenu', this.boundHandlers.contextMenu as EventListener, true);
-    
-    document.addEventListener('keydown', this.boundHandlers.keyDown as EventListener);
-    document.addEventListener('keyup', this.boundHandlers.keyUp as EventListener);
-    
+    this.canvas.addEventListener(
+      "contextmenu",
+      this.boundHandlers.contextMenu as EventListener,
+      true,
+    );
+
+    document.addEventListener(
+      "keydown",
+      this.boundHandlers.keyDown as EventListener,
+    );
+    document.addEventListener(
+      "keyup",
+      this.boundHandlers.keyUp as EventListener,
+    );
+
     // Touch events for mobile camera control
-    this.canvas.addEventListener('touchstart', this.boundHandlers.touchStart as EventListener, { passive: false });
-    this.canvas.addEventListener('touchmove', this.boundHandlers.touchMove as EventListener, { passive: false });
-    this.canvas.addEventListener('touchend', this.boundHandlers.touchEnd as EventListener);
-    this.canvas.addEventListener('touchcancel', this.boundHandlers.touchEnd as EventListener);
+    this.canvas.addEventListener(
+      "touchstart",
+      this.boundHandlers.touchStart as EventListener,
+      { passive: false },
+    );
+    this.canvas.addEventListener(
+      "touchmove",
+      this.boundHandlers.touchMove as EventListener,
+      { passive: false },
+    );
+    this.canvas.addEventListener(
+      "touchend",
+      this.boundHandlers.touchEnd as EventListener,
+    );
+    this.canvas.addEventListener(
+      "touchcancel",
+      this.boundHandlers.touchEnd as EventListener,
+    );
   }
 
   private onMouseDown(event: MouseEvent): void {
     // Handle camera controls in capture phase before other systems
-    
-    if (event.button === 2) { // Right mouse button - context menu (optional, could disable)
+
+    if (event.button === 2) {
+      // Right mouse button - context menu (optional, could disable)
       event.preventDefault(); // Prevent context menu
       event.stopPropagation(); // Stop event from reaching other systems
       this.mouseState.rightDown = true;
-    } else if (event.button === 1) { // Middle mouse button for zoom
+    } else if (event.button === 1) {
+      // Middle mouse button for zoom
       event.preventDefault();
       event.stopPropagation(); // Stop event from reaching other systems
       this.mouseState.middleDown = true;
-      this.canvas!.style.cursor = 'grabbing';
-    } else if (event.button === 0) { // Left mouse button - drag to rotate OR click to move
+      this.canvas!.style.cursor = "grabbing";
+    } else if (event.button === 0) {
+      // Left mouse button - drag to rotate OR click to move
       this.mouseState.leftDown = true;
       this.mouseState.leftDownPosition.set(event.clientX, event.clientY);
       this.mouseState.hasDragged = false;
-      
+
       // Align targets to current spherical to avoid any initial jump
       this.targetSpherical.theta = this.spherical.theta;
       this.targetSpherical.phi = this.spherical.phi;
       // Prime orbiting; activate only after passing small drag threshold
       this.orbitingPrimed = true;
       this.orbitingActive = false;
-      
+
       // Don't prevent default yet - wait to see if user drags or just clicks
     }
 
@@ -267,44 +343,45 @@ export class ClientCameraSystem extends SystemBase {
     if (this.mouseState.middleDown) {
       event.preventDefault();
       event.stopPropagation();
-      
+
       const deltaY = event.clientY - this.mouseState.lastPosition.y;
-      
+
       // Vertical drag changes zoom: drag down = zoom out, drag up = zoom in
       const zoomSensitivity = 0.02;
       this.targetSpherical.radius += deltaY * zoomSensitivity;
       this.targetSpherical.radius = clamp(
         this.targetSpherical.radius,
         this.settings.minDistance,
-        this.settings.maxDistance
+        this.settings.maxDistance,
       );
-      
+
       // Snap zoom immediately for responsive feel
       this.spherical.radius = this.targetSpherical.radius;
       this.effectiveRadius = this.targetSpherical.radius;
       this.zoomDirty = true;
       this.lastDesiredRadius = this.spherical.radius;
-      
+
       this.mouseState.lastPosition.set(event.clientX, event.clientY);
       return;
     }
-    
+
     // Left-click drag for camera rotation
     if (!this.mouseState.leftDown) return;
 
     this.mouseState.delta.set(
       event.clientX - this.mouseState.lastPosition.x,
-      event.clientY - this.mouseState.lastPosition.y
+      event.clientY - this.mouseState.lastPosition.y,
     );
 
     // Check if user has dragged enough to be considered a drag (not a click)
     if (!this.mouseState.hasDragged) {
       const totalDrag = Math.hypot(
         event.clientX - this.mouseState.leftDownPosition.x,
-        event.clientY - this.mouseState.leftDownPosition.y
+        event.clientY - this.mouseState.leftDownPosition.y,
       );
-      
-      if (totalDrag > 5) { // 5px threshold
+
+      if (totalDrag > 5) {
+        // 5px threshold
         // User is dragging - mark as dragged and prevent click-to-move
         this.mouseState.hasDragged = true;
         event.preventDefault();
@@ -316,22 +393,23 @@ export class ClientCameraSystem extends SystemBase {
     if (this.mouseState.hasDragged) {
       event.preventDefault();
       event.stopPropagation();
-      
+
       // Activate orbiting only after surpassing a small movement threshold
       if (!this.orbitingActive) {
-        const drag = Math.abs(this.mouseState.delta.x) + Math.abs(this.mouseState.delta.y);
+        const drag =
+          Math.abs(this.mouseState.delta.x) + Math.abs(this.mouseState.delta.y);
         if (drag > 3) {
           this.orbitingActive = true;
           this.orbitingPrimed = false;
-          this.canvas!.style.cursor = 'grabbing';
+          this.canvas!.style.cursor = "grabbing";
         }
       }
-      
+
       if (!this.orbitingActive) {
         this.mouseState.lastPosition.set(event.clientX, event.clientY);
         return;
       }
-      
+
       const invert = this.settings.invertY === true ? -1 : 1;
       // RS3-like: keep rotation responsive when fully zoomed out
       const minR = this.settings.minDistance;
@@ -345,7 +423,7 @@ export class ClientCameraSystem extends SystemBase {
       this.targetSpherical.phi = clamp(
         this.targetSpherical.phi,
         this.settings.minPolarAngle,
-        this.settings.maxPolarAngle
+        this.settings.maxPolarAngle,
       );
     }
 
@@ -353,35 +431,38 @@ export class ClientCameraSystem extends SystemBase {
   }
 
   private onMouseUp(event: MouseEvent): void {
-    if (event.button === 2) { // Right mouse button
+    if (event.button === 2) {
+      // Right mouse button
       event.preventDefault();
       event.stopPropagation();
       this.mouseState.rightDown = false;
     }
-    
-    if (event.button === 1) { // Middle mouse button
+
+    if (event.button === 1) {
+      // Middle mouse button
       event.preventDefault();
       event.stopPropagation();
       this.mouseState.middleDown = false;
-      this.canvas!.style.cursor = 'default';
+      this.canvas!.style.cursor = "default";
     }
-    
-    if (event.button === 0) { // Left mouse button
+
+    if (event.button === 0) {
+      // Left mouse button
       // If user dragged, prevent click-to-move from triggering
       if (this.mouseState.hasDragged) {
         event.preventDefault();
         event.stopPropagation();
-        
+
         // Mark time of drag end to suppress subsequent click event
         this.mouseState.lastDragEndTime = performance.now();
-        
+
         // Freeze target to current to avoid any snap when stopping rotation
         this.targetSpherical.theta = this.spherical.theta;
         this.targetSpherical.phi = this.spherical.phi;
-        this.canvas!.style.cursor = 'default';
+        this.canvas!.style.cursor = "default";
       }
       // Otherwise, let the click event propagate to InteractionSystem for click-to-move
-      
+
       this.mouseState.leftDown = false;
       this.mouseState.hasDragged = false;
       this.orbitingActive = false;
@@ -391,7 +472,8 @@ export class ClientCameraSystem extends SystemBase {
 
   private onClickCapture(event: MouseEvent): void {
     // If a drag just ended (within last 50ms), suppress the click event
-    const timeSinceDragEnd = performance.now() - this.mouseState.lastDragEndTime;
+    const timeSinceDragEnd =
+      performance.now() - this.mouseState.lastDragEndTime;
     if (timeSinceDragEnd < 50) {
       event.preventDefault();
       event.stopPropagation();
@@ -402,7 +484,7 @@ export class ClientCameraSystem extends SystemBase {
   private onMouseWheel(event: WheelEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    
+
     // Check if this is a pinch gesture (trackpad two-finger pinch)
     if (event.ctrlKey) {
       // Trackpad pinch: deltaY is proportional to pinch amount
@@ -414,12 +496,19 @@ export class ClientCameraSystem extends SystemBase {
       const sign = Math.sign(event.deltaY);
       if (sign !== 0) {
         // Discrete notches with modest scaling for trackpads/high-res wheels
-        const steps = Math.max(1, Math.min(5, Math.round(Math.abs(event.deltaY) / 100)));
+        const steps = Math.max(
+          1,
+          Math.min(5, Math.round(Math.abs(event.deltaY) / 100)),
+        );
         this.targetSpherical.radius += sign * steps * this.settings.zoomStep;
       }
     }
-    
-    this.targetSpherical.radius = clamp(this.targetSpherical.radius, this.settings.minDistance, this.settings.maxDistance);
+
+    this.targetSpherical.radius = clamp(
+      this.targetSpherical.radius,
+      this.settings.minDistance,
+      this.settings.maxDistance,
+    );
     // RS-style: snap zoom immediately (no swooping)
     this.spherical.radius = this.targetSpherical.radius;
     this.effectiveRadius = this.targetSpherical.radius;
@@ -435,7 +524,7 @@ export class ClientCameraSystem extends SystemBase {
     this.orbitingActive = false;
     this.orbitingPrimed = false;
     if (this.canvas) {
-      this.canvas.style.cursor = 'default';
+      this.canvas.style.cursor = "default";
     }
   }
 
@@ -443,31 +532,31 @@ export class ClientCameraSystem extends SystemBase {
     // Check if clicking on an entity - if so, let InteractionSystem handle it
     // Raycast to check if clicking on an entity
     if (this.world.camera && this.canvas) {
-      const rect = this.canvas.getBoundingClientRect()
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-      
-      const raycaster = new THREE.Raycaster()
-      raycaster.setFromCamera(new THREE.Vector2(x, y), this.world.camera)
-      
-      const scene = this.world.stage?.scene
+      const rect = this.canvas.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(x, y), this.world.camera);
+
+      const scene = this.world.stage?.scene;
       if (scene) {
-        const intersects = raycaster.intersectObjects(scene.children, true)
-        
+        const intersects = raycaster.intersectObjects(scene.children, true);
+
         // Check if any intersected object has entity userData
         for (const intersect of intersects) {
-          let obj = intersect.object
+          let obj = intersect.object;
           while (obj) {
             if (obj.userData && obj.userData.entityId) {
               // Clicking on entity - let InteractionSystem handle it
-              return
+              return;
             }
-            obj = obj.parent as THREE.Object3D
+            obj = obj.parent as THREE.Object3D;
           }
         }
       }
     }
-    
+
     // Not clicking on entity - prevent default context menu
     event.preventDefault();
     event.stopPropagation();
@@ -476,38 +565,38 @@ export class ClientCameraSystem extends SystemBase {
   private onKeyDown(event: KeyboardEvent): void {
     // RS-style camera control via arrow keys: rotate around character only
     const rotateStep = 0.06;
-    if (event.code === 'ArrowLeft') {
+    if (event.code === "ArrowLeft") {
       event.preventDefault();
       // ArrowLeft should rotate view left: decrease theta
       this.targetSpherical.theta -= rotateStep;
       return;
     }
-    if (event.code === 'ArrowRight') {
+    if (event.code === "ArrowRight") {
       event.preventDefault();
       // ArrowRight should rotate view right: increase theta
       this.targetSpherical.theta += rotateStep;
       return;
     }
-    if (event.code === 'ArrowUp') {
+    if (event.code === "ArrowUp") {
       event.preventDefault();
       this.targetSpherical.phi = clamp(
         this.targetSpherical.phi - rotateStep,
         this.settings.minPolarAngle,
-        this.settings.maxPolarAngle
+        this.settings.maxPolarAngle,
       );
       return;
     }
-    if (event.code === 'ArrowDown') {
+    if (event.code === "ArrowDown") {
       event.preventDefault();
       this.targetSpherical.phi = clamp(
         this.targetSpherical.phi + rotateStep,
         this.settings.minPolarAngle,
-        this.settings.maxPolarAngle
+        this.settings.maxPolarAngle,
       );
       return;
     }
 
-    if (event.code === 'Home' || event.code === 'NumpadHome') {
+    if (event.code === "Home" || event.code === "NumpadHome") {
       this.resetCamera();
       event.preventDefault();
     }
@@ -519,11 +608,11 @@ export class ClientCameraSystem extends SystemBase {
 
   private onTouchStart(event: TouchEvent): void {
     // Ignore touches that start on UI elements (so UI remains interactive on mobile)
-    const first = event.touches[0]
+    const first = event.touches[0];
     if (first) {
-      const topEl = document.elementFromPoint(first.clientX, first.clientY)
+      const topEl = document.elementFromPoint(first.clientX, first.clientY);
       if (topEl && this.canvas && topEl !== this.canvas) {
-        return
+        return;
       }
     }
     // Handle two-finger pinch zoom
@@ -534,35 +623,35 @@ export class ClientCameraSystem extends SystemBase {
       const touch2 = event.touches[1];
       const distance = Math.hypot(
         touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
+        touch2.clientY - touch1.clientY,
       );
-      
+
       this.pinchState.active = true;
       this.pinchState.initialDistance = distance;
       this.pinchState.lastDistance = distance;
-      
+
       // Deactivate single-touch rotation when pinching
       this.touchState.active = false;
       this.orbitingActive = false;
       this.orbitingPrimed = false;
       return;
     }
-    
+
     // Only handle single-finger touch for camera rotation or tap-to-move
     if (event.touches.length !== 1) return;
-    
+
     const touch = event.touches[0];
     this.touchState.active = true;
     this.touchState.touchId = touch.identifier;
     this.touchState.startPosition.set(touch.clientX, touch.clientY);
     this.touchState.lastPosition.set(touch.clientX, touch.clientY);
-    
+
     // Align targets to current spherical to avoid any initial jump
     this.targetSpherical.theta = this.spherical.theta;
     this.targetSpherical.phi = this.spherical.phi;
     this.orbitingPrimed = true;
     this.orbitingActive = false;
-    
+
     // Don't prevent default yet - let taps go through
   }
 
@@ -577,7 +666,10 @@ export class ClientCameraSystem extends SystemBase {
       }
       if (!touch) return;
 
-      const totalDragDistance = Math.hypot(touch.clientX - this.touchState.startPosition.x, touch.clientY - this.touchState.startPosition.y);
+      const totalDragDistance = Math.hypot(
+        touch.clientX - this.touchState.startPosition.x,
+        touch.clientY - this.touchState.startPosition.y,
+      );
       if (!this.orbitingActive && totalDragDistance > 10) {
         this.orbitingActive = true;
         this.orbitingPrimed = false;
@@ -591,18 +683,29 @@ export class ClientCameraSystem extends SystemBase {
         const inputScale = this.settings.rotateSpeed * 0.008;
         this.targetSpherical.theta -= deltaX * inputScale;
         this.targetSpherical.phi -= invert * deltaY * inputScale;
-        this.targetSpherical.phi = clamp(this.targetSpherical.phi, this.settings.minPolarAngle, this.settings.maxPolarAngle);
+        this.targetSpherical.phi = clamp(
+          this.targetSpherical.phi,
+          this.settings.minPolarAngle,
+          this.settings.maxPolarAngle,
+        );
       }
       this.touchState.lastPosition.set(touch.clientX, touch.clientY);
     } else if (this.pinchState.active && event.touches.length === 2) {
       event.preventDefault();
       const touch1 = event.touches[0];
       const touch2 = event.touches[1];
-      const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY,
+      );
       const distanceDelta = this.pinchState.lastDistance - distance;
       const pinchSensitivity = 0.01;
       this.targetSpherical.radius += distanceDelta * pinchSensitivity;
-      this.targetSpherical.radius = clamp(this.targetSpherical.radius, this.settings.minDistance, this.settings.maxDistance);
+      this.targetSpherical.radius = clamp(
+        this.targetSpherical.radius,
+        this.settings.minDistance,
+        this.settings.maxDistance,
+      );
       this.spherical.radius = this.targetSpherical.radius;
       this.effectiveRadius = this.targetSpherical.radius;
       this.zoomDirty = true;
@@ -615,7 +718,7 @@ export class ClientCameraSystem extends SystemBase {
     if (this.touchState.active && !this.orbitingActive) {
       this.world.emit(EventType.CAMERA_TAP, {
         x: this.touchState.startPosition.x,
-        y: this.touchState.startPosition.y
+        y: this.touchState.startPosition.y,
       });
     }
 
@@ -625,17 +728,17 @@ export class ClientCameraSystem extends SystemBase {
 
     let touchFound = false;
     for (let i = 0; i < event.touches.length; i++) {
-        if (event.touches[i].identifier === this.touchState.touchId) {
-            touchFound = true;
-            break;
-        }
+      if (event.touches[i].identifier === this.touchState.touchId) {
+        touchFound = true;
+        break;
+      }
     }
 
     if (!touchFound) {
-        this.touchState.active = false;
-        this.touchState.touchId = -1;
-        this.orbitingActive = false;
-        this.orbitingPrimed = false;
+      this.touchState.active = false;
+      this.touchState.touchId = -1;
+      this.orbitingActive = false;
+      this.orbitingPrimed = false;
     }
   }
 
@@ -643,22 +746,24 @@ export class ClientCameraSystem extends SystemBase {
     if (!this.camera || !this.target) return;
 
     // Simple pan: move the camera offset in world space based on current camera orientation
-    const cameraRight = _v3_1
-    const cameraForward = _v3_2
+    const cameraRight = _v3_1;
+    const cameraForward = _v3_2;
 
     // Get camera right vector
     cameraRight.setFromMatrixColumn(this.camera.matrix, 0).normalize();
-    
+
     // Get camera forward vector projected on XZ plane
     this.camera.getWorldDirection(cameraForward);
     cameraForward.y = 0;
     cameraForward.normalize();
 
     const panSpeed = this.settings.panSpeed * 0.01;
-    
+
     // Apply pan to camera offset
-    this.cameraOffset.x -= deltaX * panSpeed * cameraRight.x + deltaY * panSpeed * cameraForward.x;
-    this.cameraOffset.z -= deltaX * panSpeed * cameraRight.z + deltaY * panSpeed * cameraForward.z;
+    this.cameraOffset.x -=
+      deltaX * panSpeed * cameraRight.x + deltaY * panSpeed * cameraForward.x;
+    this.cameraOffset.z -=
+      deltaX * panSpeed * cameraRight.z + deltaY * panSpeed * cameraForward.z;
   }
 
   private resetCamera(): void {
@@ -676,17 +781,25 @@ export class ClientCameraSystem extends SystemBase {
 
   private onSetTarget(event: { target: CameraTarget }): void {
     this.target = event.target;
-    this.logger.info('Target set', { x: this.target.position.x, y: this.target.position.y, z: this.target.position.z });
-    
+    this.logger.info("Target set", {
+      x: this.target.position.x,
+      y: this.target.position.y,
+      z: this.target.position.z,
+    });
+
     if (this.target) {
       this.initializeCameraPosition();
     }
   }
-  
-  private onAvatarReady(event: { playerId: string; avatar: THREE.Object3D; camHeight: number }): void {
+
+  private onAvatarReady(event: {
+    playerId: string;
+    avatar: THREE.Object3D;
+    camHeight: number;
+  }): void {
     // Use avatar height directly without extra offset since player is at terrain level
     this.cameraOffset.y = event.camHeight || 1.6;
-    
+
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === event.playerId && !this.target) {
       this.onSetTarget({ target: localPlayer as CameraTarget });
@@ -703,32 +816,38 @@ export class ClientCameraSystem extends SystemBase {
     this.detachCameraFromRig();
 
     // Set up orbit center in world space
-    const orbitCenter = _v3_1.set(targetPos.x, targetPos.y + this.cameraOffset.y, targetPos.z);
-    
+    const orbitCenter = _v3_1.set(
+      targetPos.x,
+      targetPos.y + this.cameraOffset.y,
+      targetPos.z,
+    );
+
     this.cameraPosition.setFromSpherical(this.spherical);
     this.cameraPosition.add(orbitCenter);
-    
+
     // Set camera world position directly (no parent transforms)
     this.camera.position.copy(this.cameraPosition);
     this.camera.lookAt(orbitCenter);
-    
+
     // Force update matrices since camera has no parent
     this.camera.updateMatrixWorld(true);
   }
 
   update(_deltaTime: number): void {
-    if(!this.target || !this.target.position) return;
-    if(!this.camera) return;
-    
+    if (!this.target || !this.target.position) return;
+    if (!this.camera) return;
+
     // Safety check: ensure camera is still detached from rig
     if (this.camera.parent === this.world.rig) {
-      console.warn('[ClientCameraSystem] Camera re-attached to rig, detaching again');
+      console.warn(
+        "[ClientCameraSystem] Camera re-attached to rig, detaching again",
+      );
       this.detachCameraFromRig();
     }
-    
+
     // Get target position in world space
     const targetPos = this.target.position;
-    
+
     // Optionally validate player terrain position (commented out to avoid errors)
     // this.validatePlayerOnTerrain(targetPos);
 
@@ -736,15 +855,18 @@ export class ClientCameraSystem extends SystemBase {
     // This prevents jitter when server sends instant position updates
     this.targetPosition.copy(targetPos);
     this.targetPosition.add(this.cameraOffset);
-    
+
     // RS3: no target smoothing; follow the player position directly to avoid any lag/jitter
     this.smoothedTarget.copy(this.targetPosition);
 
     // Apply spherical smoothing only while orbiting. When not orbiting, snap to target to avoid drift.
     const rotationDamping = this.settings.rotationDampingFactor;
     if (this.mouseState.rightDown || this.touchState.active) {
-      const phiDelta = (this.targetSpherical.phi - this.spherical.phi);
-      const thetaDelta = this.shortestAngleDelta(this.spherical.theta, this.targetSpherical.theta);
+      const phiDelta = this.targetSpherical.phi - this.spherical.phi;
+      const thetaDelta = this.shortestAngleDelta(
+        this.spherical.theta,
+        this.targetSpherical.theta,
+      );
       if (Math.abs(phiDelta) > 1e-5) {
         this.spherical.phi += phiDelta * rotationDamping;
       } else {
@@ -764,23 +886,29 @@ export class ClientCameraSystem extends SystemBase {
     this.spherical.radius = clamp(
       this.spherical.radius,
       this.settings.minDistance,
-      this.settings.maxDistance
+      this.settings.maxDistance,
     );
 
     // Collision-aware effective radius with smoothing to avoid snap on MMB press
     const desiredDistance = this.spherical.radius;
-    const collidedDistance = this.computeCollisionAdjustedDistance(desiredDistance);
+    const collidedDistance =
+      this.computeCollisionAdjustedDistance(desiredDistance);
     const targetEffective = Math.min(desiredDistance, collidedDistance);
     if (this.zoomDirty || this.orbitingActive) {
       // When zoom just changed, honor immediate response
       this.effectiveRadius = targetEffective;
     } else {
       const radiusDamping = this.settings.radiusDampingFactor ?? 0.18;
-      this.effectiveRadius += (targetEffective - this.effectiveRadius) * radiusDamping;
+      this.effectiveRadius +=
+        (targetEffective - this.effectiveRadius) * radiusDamping;
     }
 
     // Calculate camera position from spherical coordinates using effective radius
-    const tempSpherical = _sph_1.set(this.effectiveRadius, this.spherical.phi, this.spherical.theta);
+    const tempSpherical = _sph_1.set(
+      this.effectiveRadius,
+      this.spherical.phi,
+      this.spherical.theta,
+    );
     this.cameraPosition.setFromSpherical(tempSpherical);
     this.cameraPosition.add(this.smoothedTarget);
 
@@ -788,36 +916,37 @@ export class ClientCameraSystem extends SystemBase {
     this.lookAtTarget.copy(this.smoothedTarget);
     // Over-the-shoulder: look at shoulder/upper chest height
     this.lookAtTarget.y = this.smoothedTarget.y + 0.2;
-    
+
     // Apply over-the-shoulder offset (Fortnite-style)
     // When zoomed in close, offset the look-at target horizontally so character appears on left/right
     const zoomFactor = THREE.MathUtils.clamp(
-      (this.settings.maxDistance - this.effectiveRadius) / (this.settings.maxDistance - this.settings.minDistance),
+      (this.settings.maxDistance - this.effectiveRadius) /
+        (this.settings.maxDistance - this.settings.minDistance),
       0,
-      1
+      1,
     );
     const shoulderOffset = this.settings.shoulderOffsetMax * zoomFactor;
-    
+
     // Calculate the right vector relative to camera's current orientation
-    const cameraRight = _v3_1.set(
-      Math.cos(this.spherical.theta),
-      0,
-      Math.sin(this.spherical.theta)
-    ).normalize();
-    
+    const cameraRight = _v3_1
+      .set(Math.cos(this.spherical.theta), 0, Math.sin(this.spherical.theta))
+      .normalize();
+
     // Apply horizontal offset to look-at target
-    this.lookAtTarget.x += cameraRight.x * shoulderOffset * this.settings.shoulderOffsetSide;
-    this.lookAtTarget.z += cameraRight.z * shoulderOffset * this.settings.shoulderOffsetSide;
+    this.lookAtTarget.x +=
+      cameraRight.x * shoulderOffset * this.settings.shoulderOffsetSide;
+    this.lookAtTarget.z +=
+      cameraRight.z * shoulderOffset * this.settings.shoulderOffsetSide;
 
     // Follow target. If zoom changed this frame, snap position instantly for straight-in/out motion
     // RS3: move camera directly with no positional lerp to avoid swoop or lag
     this.camera.position.copy(this.cameraPosition);
     this.zoomDirty = false;
-    
+
     // Camera always looks at the lookAt target
     // This keeps the player centered regardless of avatar rotation
     this.camera.lookAt(this.lookAtTarget);
-    
+
     // Update camera matrices since it has no parent transform to inherit from
     this.camera.updateMatrixWorld(true);
 
@@ -828,20 +957,29 @@ export class ClientCameraSystem extends SystemBase {
     if (!this.camera || !this.target) return desiredDistance;
 
     // Direction from orbit center (smoothed target) to ideal camera position
-    const dir = _v3_3.set(
-      this.cameraPosition.x - this.smoothedTarget.x,
-      this.cameraPosition.y - this.smoothedTarget.y,
-      this.cameraPosition.z - this.smoothedTarget.z
-    ).normalize();
+    const dir = _v3_3
+      .set(
+        this.cameraPosition.x - this.smoothedTarget.x,
+        this.cameraPosition.y - this.smoothedTarget.y,
+        this.cameraPosition.z - this.smoothedTarget.z,
+      )
+      .normalize();
 
-    const origin = _v3_2.set(this.smoothedTarget.x, this.smoothedTarget.y, this.smoothedTarget.z);
-    const mask = this.world.createLayerMask('environment');
+    const origin = _v3_2.set(
+      this.smoothedTarget.x,
+      this.smoothedTarget.y,
+      this.smoothedTarget.z,
+    );
+    const mask = this.world.createLayerMask("environment");
     const hit = this.world.raycast(origin, dir, desiredDistance, mask);
     // Strong type assumption - RaycastHit.distance is always number
     if (hit && hit.distance > 0) {
       const minDist = this.settings.minDistance;
       const margin = 0.4;
-      return Math.max(Math.min(desiredDistance, hit.distance - margin), minDist);
+      return Math.max(
+        Math.min(desiredDistance, hit.distance - margin),
+        minDist,
+      );
     }
     return desiredDistance;
   }
@@ -853,23 +991,24 @@ export class ClientCameraSystem extends SystemBase {
     return delta;
   }
 
-
-  private validatePlayerOnTerrain(playerPos: THREE.Vector3 | { x: number; y: number; z: number }): void {
+  private validatePlayerOnTerrain(
+    playerPos: THREE.Vector3 | { x: number; y: number; z: number },
+  ): void {
     // Get terrain system
-    const terrainSystem = this.world.getSystem<TerrainSystem>('terrain');
+    const terrainSystem = this.world.getSystem<TerrainSystem>("terrain");
     if (!terrainSystem) {
       // No terrain system available
       return;
     }
 
     // Get player coordinates
-    const px = 'x' in playerPos ? playerPos.x : (playerPos as THREE.Vector3).x;
-    const py = 'y' in playerPos ? playerPos.y : (playerPos as THREE.Vector3).y;
-    const pz = 'z' in playerPos ? playerPos.z : (playerPos as THREE.Vector3).z;
+    const px = "x" in playerPos ? playerPos.x : (playerPos as THREE.Vector3).x;
+    const py = "y" in playerPos ? playerPos.y : (playerPos as THREE.Vector3).y;
+    const pz = "z" in playerPos ? playerPos.z : (playerPos as THREE.Vector3).z;
 
     // Get terrain height at player position
     const terrainHeight = terrainSystem.getHeightAt(px, pz);
-    
+
     // Check if terrain height is valid
     if (!isFinite(terrainHeight) || isNaN(terrainHeight)) {
       const errorMsg = `[CRITICAL] Invalid terrain height at player position: x=${px}, z=${pz}, terrainHeight=${terrainHeight}`;
@@ -880,13 +1019,13 @@ export class ClientCameraSystem extends SystemBase {
     // Check if player is properly positioned on terrain
     // Allow some tolerance for player height above terrain (0.0 to 5.0 units)
     const heightDifference = py - terrainHeight;
-    
+
     if (heightDifference < -0.5) {
       const errorMsg = `[CRITICAL] Player is BELOW terrain! Player Y: ${py}, Terrain Height: ${terrainHeight}, Difference: ${heightDifference}`;
       console.error(errorMsg);
       throw new Error(errorMsg);
     }
-    
+
     if (heightDifference > 10.0) {
       const errorMsg = `[CRITICAL] Player is FLOATING above terrain! Player Y: ${py}, Terrain Height: ${terrainHeight}, Difference: ${heightDifference}`;
       console.error(errorMsg);
@@ -901,7 +1040,8 @@ export class ClientCameraSystem extends SystemBase {
     }
 
     // Log successful validation periodically (every 60 frames)
-    if (Math.random() < 0.0167) { // ~1/60 chance
+    if (Math.random() < 0.0167) {
+      // ~1/60 chance
     }
   }
 
@@ -911,8 +1051,8 @@ export class ClientCameraSystem extends SystemBase {
     this.emitTypedEvent(EventType.CAMERA_TARGET_CHANGED, { target });
   }
 
-  public getCameraInfo(): { 
-    camera: THREE.PerspectiveCamera | null; 
+  public getCameraInfo(): {
+    camera: THREE.PerspectiveCamera | null;
     target: CameraTarget | null;
     offset: number[];
     position: number[] | null;
@@ -923,7 +1063,7 @@ export class ClientCameraSystem extends SystemBase {
     _cameraInfoOffset[0] = this.cameraOffset.x;
     _cameraInfoOffset[1] = this.cameraOffset.y;
     _cameraInfoOffset[2] = this.cameraOffset.z;
-    
+
     let position: number[] | null = null;
     if (this.camera) {
       _cameraInfoPosition[0] = this.camera.position.x;
@@ -931,39 +1071,85 @@ export class ClientCameraSystem extends SystemBase {
       _cameraInfoPosition[2] = this.camera.position.z;
       position = _cameraInfoPosition;
     }
-    
+
     return {
       camera: this.camera,
       target: this.target,
       offset: _cameraInfoOffset,
       position: position,
       isControlling: this.mouseState.rightDown || this.touchState.active,
-      spherical: { radius: this.spherical.radius, phi: this.spherical.phi, theta: this.spherical.theta }
+      spherical: {
+        radius: this.spherical.radius,
+        phi: this.spherical.phi,
+        theta: this.spherical.theta,
+      },
     };
   }
 
   destroy(): void {
     if (this.canvas) {
       // Remove capture phase listeners
-      this.canvas.removeEventListener('mousedown', this.boundHandlers.mouseDown as EventListener, true);
-      this.canvas.removeEventListener('mousemove', this.boundHandlers.mouseMove as EventListener, true);
-      this.canvas.removeEventListener('mouseup', this.boundHandlers.mouseUp as EventListener, true);
-      this.canvas.removeEventListener('wheel', this.boundHandlers.mouseWheel as EventListener, true);
-      this.canvas.removeEventListener('mouseleave', this.boundHandlers.mouseLeave as EventListener, true);
+      this.canvas.removeEventListener(
+        "mousedown",
+        this.boundHandlers.mouseDown as EventListener,
+        true,
+      );
+      this.canvas.removeEventListener(
+        "mousemove",
+        this.boundHandlers.mouseMove as EventListener,
+        true,
+      );
+      this.canvas.removeEventListener(
+        "mouseup",
+        this.boundHandlers.mouseUp as EventListener,
+        true,
+      );
+      this.canvas.removeEventListener(
+        "wheel",
+        this.boundHandlers.mouseWheel as EventListener,
+        true,
+      );
+      this.canvas.removeEventListener(
+        "mouseleave",
+        this.boundHandlers.mouseLeave as EventListener,
+        true,
+      );
       // Note: can't remove onClickCapture because it was bound inline - that's okay, canvas cleanup will handle it
-      this.canvas.removeEventListener('contextmenu', this.boundHandlers.contextMenu as EventListener, true);
-      document.removeEventListener('keydown', this.boundHandlers.keyDown as EventListener);
-      document.removeEventListener('keyup', this.boundHandlers.keyUp as EventListener);
-      
+      this.canvas.removeEventListener(
+        "contextmenu",
+        this.boundHandlers.contextMenu as EventListener,
+        true,
+      );
+      document.removeEventListener(
+        "keydown",
+        this.boundHandlers.keyDown as EventListener,
+      );
+      document.removeEventListener(
+        "keyup",
+        this.boundHandlers.keyUp as EventListener,
+      );
+
       // Clean up touch events
-      this.canvas.removeEventListener('touchstart', this.boundHandlers.touchStart as EventListener);
-      this.canvas.removeEventListener('touchmove', this.boundHandlers.touchMove as EventListener);
-      this.canvas.removeEventListener('touchend', this.boundHandlers.touchEnd as EventListener);
-      this.canvas.removeEventListener('touchcancel', this.boundHandlers.touchEnd as EventListener);
-      
-      this.canvas.style.cursor = 'default';
+      this.canvas.removeEventListener(
+        "touchstart",
+        this.boundHandlers.touchStart as EventListener,
+      );
+      this.canvas.removeEventListener(
+        "touchmove",
+        this.boundHandlers.touchMove as EventListener,
+      );
+      this.canvas.removeEventListener(
+        "touchend",
+        this.boundHandlers.touchEnd as EventListener,
+      );
+      this.canvas.removeEventListener(
+        "touchcancel",
+        this.boundHandlers.touchEnd as EventListener,
+      );
+
+      this.canvas.style.cursor = "default";
     }
-    
+
     this.camera = null;
     this.target = null;
     this.canvas = null;

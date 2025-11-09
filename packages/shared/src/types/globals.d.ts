@@ -1,19 +1,19 @@
 /**
  * Global Type Declarations
- * 
+ *
  * Type definitions for browser APIs, WebXR, PhysX, and environment variables.
  */
 
-import THREE from '../extras/three';
-import { World } from '../World';
+import THREE from "../extras/three";
+import { World } from "../World";
 
 // ============================================================================
 // GLOBAL AUGMENTATIONS
 // ============================================================================
 
 declare global {
-  const PHYSX: PhysXModule | undefined
-  
+  const PHYSX: PhysXModule | undefined;
+
   interface Window {
     THREE?: typeof THREE;
     world?: World;
@@ -25,36 +25,50 @@ declare global {
     gc?: () => void; // Garbage collection function
     PARTICLES_PATH?: string;
   }
-  
+
   // WebXR ambient typings
   interface Navigator {
     xr?: XRSystem;
   }
 
-  type XRSessionMode = 'inline' | 'immersive-vr' | 'immersive-ar'
+  type XRSessionMode = "inline" | "immersive-vr" | "immersive-ar";
 
   interface XRSystem {
-    isSessionSupported(mode: XRSessionMode): Promise<boolean>
-    requestSession(mode: XRSessionMode, options?: XRSessionInit): Promise<XRSession>
+    isSessionSupported(mode: XRSessionMode): Promise<boolean>;
+    requestSession(
+      mode: XRSessionMode,
+      options?: XRSessionInit,
+    ): Promise<XRSession>;
   }
 
   interface XRSession extends EventTarget {
-    updateTargetFrameRate?(rate: number): void
-    addEventListener?(type: string, listener: (event?: Event) => void): void
+    updateTargetFrameRate?(rate: number): void;
+    addEventListener?(type: string, listener: (event?: Event) => void): void;
     inputSources?: ReadonlyArray<{
-      handedness: 'left' | 'right' | 'none'
-      gamepad?: { axes: readonly number[]; buttons: readonly { pressed: boolean }[] }
-    }>
+      handedness: "left" | "right" | "none";
+      gamepad?: {
+        axes: readonly number[];
+        buttons: readonly { pressed: boolean }[];
+      };
+    }>;
     renderState?: {
-      baseLayer?: { framebufferWidth?: number; framebufferHeight?: number }
-      layers?: Array<{ framebufferWidth?: number; framebufferHeight?: number }>
-    }
+      baseLayer?: { framebufferWidth?: number; framebufferHeight?: number };
+      layers?: Array<{ framebufferWidth?: number; framebufferHeight?: number }>;
+    };
   }
 
   // Node.js/Browser timer functions
-  function setTimeout(callback: (...args: unknown[]) => void, ms?: number, ...args: unknown[]): NodeJS.Timeout;
+  function setTimeout(
+    callback: (...args: unknown[]) => void,
+    ms?: number,
+    ...args: unknown[]
+  ): NodeJS.Timeout;
   function clearTimeout(timeoutId: NodeJS.Timeout): void;
-  function setInterval(callback: (...args: unknown[]) => void, ms?: number, ...args: unknown[]): NodeJS.Timeout;
+  function setInterval(
+    callback: (...args: unknown[]) => void,
+    ms?: number,
+    ...args: unknown[]
+  ): NodeJS.Timeout;
   function clearInterval(intervalId: NodeJS.Timeout): void;
 
   interface NodeJS {
@@ -97,7 +111,12 @@ declare interface Touch {
 }
 
 // WebXR Reference Space Types
-declare type XRReferenceSpaceType = 'viewer' | 'local' | 'local-floor' | 'bounded-floor' | 'unbounded';
+declare type XRReferenceSpaceType =
+  | "viewer"
+  | "local"
+  | "local-floor"
+  | "bounded-floor"
+  | "unbounded";
 
 // Database item row type (for system interfaces)
 declare interface ItemRow {
@@ -109,4 +128,4 @@ declare interface ItemRow {
   equipped: boolean;
 }
 
-export {}
+export {};

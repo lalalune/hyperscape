@@ -3,8 +3,8 @@
  * Helper functions to access assets loaded from 3D Asset Forge manifests
  */
 
-import { ALL_NPCS } from '../data/npcs';
-import type { NPCData } from '../types/core';
+import { ALL_NPCS } from "../data/npcs";
+import type { NPCData } from "../types/core";
 
 interface ExternalResource {
   id: string;
@@ -57,7 +57,9 @@ export function getExternalNPC(id: string): NPCData | null {
  * Get all external resources loaded from manifests
  */
 export function getExternalResources(): Map<string, ExternalResource> {
-  const resources = (globalThis as { EXTERNAL_RESOURCES?: Map<string, ExternalResource> }).EXTERNAL_RESOURCES;
+  const resources = (
+    globalThis as { EXTERNAL_RESOURCES?: Map<string, ExternalResource> }
+  ).EXTERNAL_RESOURCES;
   return resources || new Map();
 }
 
@@ -73,7 +75,9 @@ export function getExternalResource(id: string): ExternalResource | null {
  * Get all external buildings loaded from manifests
  */
 export function getExternalBuildings(): Map<string, ExternalBuilding> {
-  const buildings = (globalThis as { EXTERNAL_BUILDINGS?: Map<string, ExternalBuilding> }).EXTERNAL_BUILDINGS;
+  const buildings = (
+    globalThis as { EXTERNAL_BUILDINGS?: Map<string, ExternalBuilding> }
+  ).EXTERNAL_BUILDINGS;
   return buildings || new Map();
 }
 
@@ -89,7 +93,9 @@ export function getExternalBuilding(id: string): ExternalBuilding | null {
  * Get all external avatars loaded from manifests
  */
 export function getExternalAvatars(): Map<string, ExternalAvatar> {
-  const avatars = (globalThis as { EXTERNAL_AVATARS?: Map<string, ExternalAvatar> }).EXTERNAL_AVATARS;
+  const avatars = (
+    globalThis as { EXTERNAL_AVATARS?: Map<string, ExternalAvatar> }
+  ).EXTERNAL_AVATARS;
   return avatars || new Map();
 }
 
@@ -105,10 +111,12 @@ export function getExternalAvatar(id: string): ExternalAvatar | null {
  * Check if external assets are loaded
  */
 export function hasExternalAssets(): boolean {
-  return getExternalNPCs().size > 0 || 
-         getExternalResources().size > 0 || 
-         getExternalBuildings().size > 0 ||
-         getExternalAvatars().size > 0;
+  return (
+    getExternalNPCs().size > 0 ||
+    getExternalResources().size > 0 ||
+    getExternalBuildings().size > 0 ||
+    getExternalAvatars().size > 0
+  );
 }
 
 /**
@@ -126,7 +134,10 @@ export function getExternalAssetsSummary(): {
     resources: getExternalResources().size,
     buildings: getExternalBuildings().size,
     avatars: getExternalAvatars().size,
-    total: getExternalNPCs().size + getExternalResources().size + getExternalBuildings().size + getExternalAvatars().size
+    total:
+      getExternalNPCs().size +
+      getExternalResources().size +
+      getExternalBuildings().size +
+      getExternalAvatars().size,
   };
 }
-

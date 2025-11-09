@@ -1,10 +1,10 @@
-import { System } from './System';
-import type { World } from '../World';
-import type { Position3D } from '../types/base-types';
-import { AttackType } from '../types/core';
-import { EventType } from '../types/events';
-import type { Entity } from '../entities/Entity';
-import * as THREE from 'three';
+import { System } from "./System";
+import type { World } from "../World";
+import type { Position3D } from "../types/base-types";
+import { AttackType } from "../types/core";
+import { EventType } from "../types/events";
+import type { Entity } from "../entities/Entity";
+import * as THREE from "three";
 
 interface InteractionAction {
   id: string;
@@ -19,9 +19,9 @@ const _mouse = new THREE.Vector2();
 
 /**
  * Interaction System
- * 
+ *
  * Handles click-to-move and right-click context menus for entities.
- * 
+ *
  * Features:
  * - Click-to-move with visual target marker
  * - Right-click context menus for items, resources, mobs, NPCs, corpses
@@ -54,7 +54,10 @@ export class InteractionSystem extends System {
   private readonly RESOURCE_DEBOUNCE_TIME = 1000; // 1 second
 
   // Auto-pickup tracking
-  private pendingPickups = new Map<string, { itemId: string; position: Position3D }>();
+  private pendingPickups = new Map<
+    string,
+    { itemId: string; position: Position3D }
+  >();
 
   constructor(world: World) {
     super(world);
@@ -75,13 +78,13 @@ export class InteractionSystem extends System {
     this.onTouchEnd = this.onTouchEnd.bind(this);
 
     // Add event listeners with capture phase for context menu priority
-    this.canvas.addEventListener('click', this.onCanvasClick, false);
-    this.canvas.addEventListener('contextmenu', this.onContextMenu, true);
-    this.canvas.addEventListener('mousemove', this.onMouseMove, false);
-    this.canvas.addEventListener('mousedown', this.onMouseDown, true);
-    this.canvas.addEventListener('mouseup', this.onMouseUp, false);
-    this.canvas.addEventListener('touchstart', this.onTouchStart, true);
-    this.canvas.addEventListener('touchend', this.onTouchEnd, true);
+    this.canvas.addEventListener("click", this.onCanvasClick, false);
+    this.canvas.addEventListener("contextmenu", this.onContextMenu, true);
+    this.canvas.addEventListener("mousemove", this.onMouseMove, false);
+    this.canvas.addEventListener("mousedown", this.onMouseDown, true);
+    this.canvas.addEventListener("mouseup", this.onMouseUp, false);
+    this.canvas.addEventListener("touchstart", this.onTouchStart, true);
+    this.canvas.addEventListener("touchend", this.onTouchEnd, true);
 
     // Listen for camera tap events on mobile
     this.world.on(EventType.CAMERA_TAP, this.onCameraTap);
@@ -127,7 +130,10 @@ export class InteractionSystem extends System {
       indices.push(i2, i3, i4);
     }
 
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(vertices, 3),
+    );
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
@@ -137,7 +143,7 @@ export class InteractionSystem extends System {
       transparent: true,
       opacity: 0.7,
       depthWrite: false,
-      depthTest: true
+      depthTest: true,
     });
 
     this.targetMarker = new THREE.Mesh(geometry, material);
@@ -149,17 +155,24 @@ export class InteractionSystem extends System {
     }
   }
 
-  private projectMarkerOntoTerrain(centerX: number, centerZ: number, fallbackY: number): void {
+  private projectMarkerOntoTerrain(
+    centerX: number,
+    centerZ: number,
+    fallbackY: number,
+  ): void {
     if (!this.targetMarker) return;
 
     const geometry = this.targetMarker.geometry as THREE.BufferGeometry;
-    const positionAttribute = geometry.getAttribute('position') as THREE.BufferAttribute;
+    const positionAttribute = geometry.getAttribute(
+      "position",
+    ) as THREE.BufferAttribute;
 
     if (!positionAttribute) return;
 
     // Get terrain system for fast heightmap lookup
-    const terrainSystem = this.world.getSystem('terrain') as
-      { getHeightAt: (x: number, z: number) => number } | undefined;
+    const terrainSystem = this.world.getSystem("terrain") as
+      | { getHeightAt: (x: number, z: number) => number }
+      | undefined;
 
     if (!terrainSystem) {
       this.targetMarker.position.setY(fallbackY);
@@ -245,7 +258,7 @@ export class InteractionSystem extends System {
     this.clearTarget();
   };
 
-  private onCameraTap = (event: { x: number, y: number }): void => {
+  private onCameraTap = (event: { x: number; y: number }): void => {
     if (!this.canvas || !this.world.camera) return;
 
     // Check if tapping on an entity first
@@ -260,7 +273,7 @@ export class InteractionSystem extends System {
     _mouse.y = -((event.y - rect.top) / rect.height) * 2 + 1;
 
     this.handleMoveRequest(_mouse);
-  }
+  };
 
   private clearTarget(): void {
     if (this.targetMarker) {
@@ -270,9 +283,9 @@ export class InteractionSystem extends System {
 
     // Send cancel movement to server
     if (this.world.network?.send) {
-      this.world.network.send('moveRequest', {
+      this.world.network.send("moveRequest", {
         target: null,
-        cancel: true
+        cancel: true,
       });
     }
   }
@@ -288,12 +301,15 @@ export class InteractionSystem extends System {
     const target = this.getEntityAtPosition(event.clientX, event.clientY);
     if (target) {
       // Handle item pickup with left-click
-      if (target.type === 'item') {
+      if (target.type === "item") {
         event.preventDefault();
         const localPlayer = this.world.getPlayer();
         if (localPlayer) {
           // Check distance to item
-          const distance = this.calculateDistance(localPlayer.position, target.position);
+          const distance = this.calculateDistance(
+            localPlayer.position,
+            target.position,
+          );
           const pickupRange = 2.0; // Same as ItemEntity interaction range
 
           if (distance > pickupRange) {
@@ -377,7 +393,11 @@ export class InteractionSystem extends System {
         const dist = flatDir.length();
         if (dist > this.maxClickDistance) {
           flatDir.normalize().multiplyScalar(this.maxClickDistance);
-          target = new THREE.Vector3(p.x + flatDir.x, target.y, p.z + flatDir.z);
+          target = new THREE.Vector3(
+            p.x + flatDir.x,
+            target.y,
+            p.z + flatDir.z,
+          );
         }
       }
 
@@ -394,29 +414,35 @@ export class InteractionSystem extends System {
       // Server is completely authoritative for movement
       if (this.world.network?.send) {
         // Cancel any previous movement first to ensure server resets pathing
-        this.world.network.send('moveRequest', { target: null, cancel: true })
+        this.world.network.send("moveRequest", { target: null, cancel: true });
         // Read player's runMode toggle if available; otherwise, use shift key status
         let runMode = isShiftDown;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const player = (this.world as any).entities?.player as { runMode?: boolean };
-        if (player && typeof player.runMode === 'boolean') {
+        const player = (this.world as any).entities?.player as {
+          runMode?: boolean;
+        };
+        if (player && typeof player.runMode === "boolean") {
           runMode = player.runMode;
         }
-        this.world.network.send('moveRequest', {
+        this.world.network.send("moveRequest", {
           target: [target.x, target.y, target.z],
           runMode,
-          cancel: false  // Explicitly not cancelling
+          cancel: false, // Explicitly not cancelling
         });
       }
     }
-  };
+  }
 
   private onMouseMove = (event: MouseEvent): void => {
     if (!this.canvas) return;
     if (this.mouseDownButton === null || !this.mouseDownClientPos) return;
     const dx = event.clientX - this.mouseDownClientPos.x;
     const dy = event.clientY - this.mouseDownClientPos.y;
-    if (!this.isDragging && (Math.abs(dx) > this.dragThresholdPx || Math.abs(dy) > this.dragThresholdPx)) {
+    if (
+      !this.isDragging &&
+      (Math.abs(dx) > this.dragThresholdPx ||
+        Math.abs(dy) > this.dragThresholdPx)
+    ) {
       this.isDragging = true;
     }
   };
@@ -433,7 +459,7 @@ export class InteractionSystem extends System {
       }
     } else {
       // Close any open menus on left-click
-      window.dispatchEvent(new CustomEvent('contextmenu:close'));
+      window.dispatchEvent(new CustomEvent("contextmenu:close"));
     }
 
     this.isDragging = false;
@@ -454,12 +480,15 @@ export class InteractionSystem extends System {
     this.touchStart = {
       x: touch.clientX,
       y: touch.clientY,
-      time: Date.now()
+      time: Date.now(),
     };
 
     this.longPressTimer = setTimeout(() => {
       if (this.touchStart) {
-        const target = this.getEntityAtPosition(this.touchStart.x, this.touchStart.y);
+        const target = this.getEntityAtPosition(
+          this.touchStart.x,
+          this.touchStart.y,
+        );
         if (target) {
           event.preventDefault();
           event.stopPropagation();
@@ -476,7 +505,10 @@ export class InteractionSystem extends System {
       this.longPressTimer = null;
     }
 
-    if (this.touchStart && Date.now() - this.touchStart.time < this.LONG_PRESS_DURATION) {
+    if (
+      this.touchStart &&
+      Date.now() - this.touchStart.time < this.LONG_PRESS_DURATION
+    ) {
       this.touchStart = null;
       return;
     }
@@ -507,14 +539,18 @@ export class InteractionSystem extends System {
 
   // === CONTEXT MENU METHODS (merged from EntityInteractionSystem) ===
 
-  private getEntityAtPosition(screenX: number, screenY: number): {
+  private getEntityAtPosition(
+    screenX: number,
+    screenY: number,
+  ): {
     id: string;
     type: string;
     name: string;
     entity: unknown;
-    position: Position3D
+    position: Position3D;
   } | null {
-    if (!this.canvas || !this.world.camera || !this.world.stage?.scene) return null;
+    if (!this.canvas || !this.world.camera || !this.world.stage?.scene)
+      return null;
 
     const rect = this.canvas.getBoundingClientRect();
     const x = ((screenX - rect.left) / rect.width) * 2 - 1;
@@ -522,7 +558,10 @@ export class InteractionSystem extends System {
 
     this.raycaster.setFromCamera(this._tempVec2.set(x, y), this.world.camera);
 
-    const intersects = this.raycaster.intersectObjects(this.world.stage.scene.children, true);
+    const intersects = this.raycaster.intersectObjects(
+      this.world.stage.scene.children,
+      true,
+    );
 
     for (const intersect of intersects) {
       if (intersect.distance > 200) continue;
@@ -531,7 +570,11 @@ export class InteractionSystem extends System {
       while (obj) {
         const userData = obj.userData;
         // Look for any entity identifier - entityId, mobId, resourceId, or itemId
-        const entityId = userData?.entityId || userData?.mobId || userData?.resourceId || userData?.itemId;
+        const entityId =
+          userData?.entityId ||
+          userData?.mobId ||
+          userData?.resourceId ||
+          userData?.itemId;
 
         if (entityId) {
           const entity = this.world.entities.get(entityId);
@@ -541,10 +584,10 @@ export class InteractionSystem extends System {
 
             return {
               id: entityId,
-              type: entity.type || userData.type || 'unknown',
-              name: entity.name || userData.name || 'Entity',
+              type: entity.type || userData.type || "unknown",
+              name: entity.name || userData.name || "Entity",
               entity,
-              position: { x: worldPos.x, y: worldPos.y, z: worldPos.z }
+              position: { x: worldPos.x, y: worldPos.y, z: worldPos.z },
             };
           }
         }
@@ -556,32 +599,42 @@ export class InteractionSystem extends System {
     return null;
   }
 
-  private showContextMenu(target: { id: string; type: string; name: string; entity: unknown; position: Position3D }, screenX: number, screenY: number): void {
+  private showContextMenu(
+    target: {
+      id: string;
+      type: string;
+      name: string;
+      entity: unknown;
+      position: Position3D;
+    },
+    screenX: number,
+    screenY: number,
+  ): void {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
 
     const actions = this.getActionsForEntityType(target, localPlayer.id);
 
     if (actions.length === 0) {
-      console.warn('[InteractionSystem] No actions available for', target.type);
+      console.warn("[InteractionSystem] No actions available for", target.type);
       return;
     }
 
-    const evt = new CustomEvent('contextmenu', {
+    const evt = new CustomEvent("contextmenu", {
       detail: {
         target: {
           id: target.id,
           type: target.type,
           name: target.name,
-          position: target.position
+          position: target.position,
         },
         mousePosition: { x: screenX, y: screenY },
-        items: actions.map(action => ({
+        items: actions.map((action) => ({
           id: action.id,
           label: action.label,
-          enabled: action.enabled
-        }))
-      }
+          enabled: action.enabled,
+        })),
+      },
     });
     window.dispatchEvent(evt);
 
@@ -592,33 +645,50 @@ export class InteractionSystem extends System {
         return;
       }
 
-      window.removeEventListener('contextmenu:select', onSelect as EventListener);
+      window.removeEventListener(
+        "contextmenu:select",
+        onSelect as EventListener,
+      );
 
-      const action = actions.find(a => a.id === ce.detail.actionId);
+      const action = actions.find((a) => a.id === ce.detail.actionId);
 
       if (action) {
         action.handler();
       }
     };
-    window.addEventListener('contextmenu:select', onSelect as EventListener, { once: true });
+    window.addEventListener("contextmenu:select", onSelect as EventListener, {
+      once: true,
+    });
   }
 
-  private getActionsForEntityType(target: { id: string; type: string; name: string; entity: unknown; position: Position3D }, playerId: string): InteractionAction[] {
+  private getActionsForEntityType(
+    target: {
+      id: string;
+      type: string;
+      name: string;
+      entity: unknown;
+      position: Position3D;
+    },
+    playerId: string,
+  ): InteractionAction[] {
     const actions: InteractionAction[] = [];
 
     switch (target.type) {
-      case 'item':
+      case "item":
         actions.push({
-          id: 'pickup',
+          id: "pickup",
           label: `Take ${target.name}`,
-          icon: '🎒',
+          icon: "🎒",
           enabled: true,
           handler: () => {
             const player = this.world.getPlayer();
             if (!player) return;
 
             // Check distance to item
-            const distance = this.calculateDistance(player.position, target.position);
+            const distance = this.calculateDistance(
+              player.position,
+              target.position,
+            );
             const pickupRange = 2.0; // Same as ItemEntity interaction range
 
             if (distance > pickupRange) {
@@ -629,113 +699,123 @@ export class InteractionSystem extends System {
 
             // Close enough - proceed with pickup
             this.attemptPickup(player, target);
-          }
+          },
         });
         actions.push({
-          id: 'examine',
-          label: 'Examine',
-          icon: '👁️',
+          id: "examine",
+          label: "Examine",
+          icon: "👁️",
           enabled: true,
           handler: () => {
             this.world.emit(EventType.UI_MESSAGE, {
               playerId,
               message: `It's ${target.name.toLowerCase()}.`,
-              type: 'examine'
+              type: "examine",
             });
-          }
+          },
         });
         break;
 
-      case 'headstone':
-      case 'corpse':
+      case "headstone":
+      case "corpse":
         actions.push({
-          id: 'loot',
+          id: "loot",
           label: `Loot ${target.name}`,
-          icon: '💀',
+          icon: "💀",
           enabled: true,
           handler: () => {
             this.world.emit(EventType.CORPSE_CLICK, {
               corpseId: target.id,
               playerId,
-              position: target.position
+              position: target.position,
             });
-          }
+          },
         });
         actions.push({
-          id: 'examine',
-          label: 'Examine',
-          icon: '👁️',
+          id: "examine",
+          label: "Examine",
+          icon: "👁️",
           enabled: true,
           handler: () => {
             this.world.emit(EventType.UI_MESSAGE, {
               playerId,
               message: `The corpse of a ${target.name.toLowerCase()}.`,
-              type: 'examine'
+              type: "examine",
             });
-          }
+          },
         });
         break;
 
-      case 'resource': {
-        type ResourceEntity = { config?: { resourceType?: string } }
-        const resourceType = (target.entity as ResourceEntity).config?.resourceType || 'tree';
+      case "resource": {
+        type ResourceEntity = { config?: { resourceType?: string } };
+        const resourceType =
+          (target.entity as ResourceEntity).config?.resourceType || "tree";
 
-        if (resourceType.includes('tree')) {
+        if (resourceType.includes("tree")) {
           actions.push({
-            id: 'chop',
-            label: 'Chop',
-            icon: '🪓',
+            id: "chop",
+            label: "Chop",
+            icon: "🪓",
             enabled: true,
-            handler: () => this.handleResourceAction(target.id, 'chop')
+            handler: () => this.handleResourceAction(target.id, "chop"),
           });
-        } else if (resourceType.includes('rock') || resourceType.includes('ore')) {
+        } else if (
+          resourceType.includes("rock") ||
+          resourceType.includes("ore")
+        ) {
           actions.push({
-            id: 'mine',
-            label: 'Mine',
-            icon: '⛏️',
+            id: "mine",
+            label: "Mine",
+            icon: "⛏️",
             enabled: true,
-            handler: () => this.handleResourceAction(target.id, 'mine')
+            handler: () => this.handleResourceAction(target.id, "mine"),
           });
-        } else if (resourceType.includes('fish')) {
+        } else if (resourceType.includes("fish")) {
           actions.push({
-            id: 'fish',
-            label: 'Fish',
-            icon: '🎣',
+            id: "fish",
+            label: "Fish",
+            icon: "🎣",
             enabled: true,
-            handler: () => this.handleResourceAction(target.id, 'fish')
+            handler: () => this.handleResourceAction(target.id, "fish"),
           });
         }
 
         actions.push({
-          id: 'walk_here',
-          label: 'Walk here',
-          icon: '🚶',
+          id: "walk_here",
+          label: "Walk here",
+          icon: "🚶",
           enabled: true,
-          handler: () => this.walkTo(target.position)
+          handler: () => this.walkTo(target.position),
         });
         actions.push({
-          id: 'examine',
-          label: 'Examine',
-          icon: '👁️',
+          id: "examine",
+          label: "Examine",
+          icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId)
+          handler: () => this.examineEntity(target, playerId),
         });
         break;
       }
 
-      case 'mob': {
-        type MobEntity = { getMobData?: () => { health?: number; level?: number } | null }
-        const mobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
+      case "mob": {
+        type MobEntity = {
+          getMobData?: () => { health?: number; level?: number } | null;
+        };
+        const mobData = (target.entity as MobEntity).getMobData
+          ? (target.entity as MobEntity).getMobData!()
+          : null;
         const isAlive = (mobData?.health || 0) > 0;
 
         actions.push({
-          id: 'attack',
+          id: "attack",
           label: `Attack ${target.name} (Lv${mobData?.level || 1})`,
-          icon: '⚔️',
+          icon: "⚔️",
           enabled: isAlive,
           handler: () => {
             // Check if mob is still alive before attacking
-            const currentMobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
+            const currentMobData = (target.entity as MobEntity).getMobData
+              ? (target.entity as MobEntity).getMobData!()
+              : null;
             const isStillAlive = (currentMobData?.health || 0) > 0;
 
             if (!isStillAlive) {
@@ -747,7 +827,7 @@ export class InteractionSystem extends System {
             const now = Date.now();
             const lastRequest = this.recentAttackRequests.get(attackKey);
 
-            if (lastRequest && (now - lastRequest) < this.ATTACK_DEBOUNCE_TIME) {
+            if (lastRequest && now - lastRequest < this.ATTACK_DEBOUNCE_TIME) {
               return;
             }
 
@@ -755,101 +835,106 @@ export class InteractionSystem extends System {
             this.recentAttackRequests.set(attackKey, now);
 
             // Clean up old entries (older than 5 seconds)
-            for (const [key, timestamp] of this.recentAttackRequests.entries()) {
+            for (const [
+              key,
+              timestamp,
+            ] of this.recentAttackRequests.entries()) {
               if (now - timestamp > 5000) {
                 this.recentAttackRequests.delete(key);
               }
             }
 
             if (this.world.network?.send) {
-              this.world.network.send('attackMob', {
+              this.world.network.send("attackMob", {
                 mobId: target.id,
-                attackType: 'melee'
+                attackType: "melee",
               });
             } else {
-              console.warn('[InteractionSystem] No network.send available for attack');
+              console.warn(
+                "[InteractionSystem] No network.send available for attack",
+              );
               // Fallback for single-player
               this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
                 playerId,
                 targetId: target.id,
-                attackType: AttackType.MELEE
+                attackType: AttackType.MELEE,
               });
             }
-          }
+          },
         });
         actions.push({
-          id: 'walk_here',
-          label: 'Walk here',
-          icon: '🚶',
+          id: "walk_here",
+          label: "Walk here",
+          icon: "🚶",
           enabled: true,
-          handler: () => this.walkTo(target.position)
+          handler: () => this.walkTo(target.position),
         });
         actions.push({
-          id: 'examine',
-          label: 'Examine',
-          icon: '👁️',
+          id: "examine",
+          label: "Examine",
+          icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId)
+          handler: () => this.examineEntity(target, playerId),
         });
         break;
       }
 
-      case 'npc': {
-        type NPCEntity = { config?: { services?: string[] } }
+      case "npc": {
+        type NPCEntity = { config?: { services?: string[] } };
         const npcConfig = (target.entity as NPCEntity).config || {};
         const services = npcConfig.services || [];
 
-        if (services.includes('bank')) {
+        if (services.includes("bank")) {
           actions.push({
-            id: 'open-bank',
-            label: 'Open Bank',
-            icon: '🏦',
+            id: "open-bank",
+            label: "Open Bank",
+            icon: "🏦",
             enabled: true,
             handler: () => {
               this.world.emit(EventType.BANK_OPEN, {
                 playerId,
                 bankId: target.id,
-                position: target.position
+                position: target.position,
               });
-            }
+            },
           });
         }
 
-        if (services.includes('store')) {
+        if (services.includes("store")) {
           actions.push({
-            id: 'open-store',
-            label: 'Trade',
-            icon: '🏪',
+            id: "open-store",
+            label: "Trade",
+            icon: "🏪",
             enabled: true,
             handler: () => {
               this.world.emit(EventType.STORE_OPEN, {
                 playerId,
                 storeId: target.id,
-                position: target.position
+                position: target.position,
               });
-            }
+            },
           });
         }
 
         actions.push({
-          id: 'talk',
-          label: 'Talk',
-          icon: '💬',
+          id: "talk",
+          label: "Talk",
+          icon: "💬",
           enabled: true,
           handler: () => {
             this.world.emit(EventType.NPC_DIALOGUE, {
               playerId,
-              npcId: target.id
+              npcId: target.id,
             });
-          }
+          },
         });
 
         actions.push({
-          id: 'examine',
-          label: 'Examine',
-          icon: '👁️',
+          id: "examine",
+          label: "Examine",
+          icon: "👁️",
           enabled: true,
-          handler: () => this.examineEntity(target, playerId)
+          handler: () => this.examineEntity(target, playerId),
         });
         break;
       }
@@ -865,7 +950,10 @@ export class InteractionSystem extends System {
     // Get the resource entity to check distance
     const resourceEntity = this.world.entities.get(resourceId);
     if (!resourceEntity) {
-      console.warn('[InteractionSystem] Resource entity not found:', resourceId);
+      console.warn(
+        "[InteractionSystem] Resource entity not found:",
+        resourceId,
+      );
       return;
     }
 
@@ -874,26 +962,28 @@ export class InteractionSystem extends System {
     const playerPos = localPlayer.position;
     const distance = Math.sqrt(
       Math.pow(resourcePos.x - playerPos.x, 2) +
-      Math.pow(resourcePos.z - playerPos.z, 2)
+        Math.pow(resourcePos.z - playerPos.z, 2),
     );
 
     const interactionDistance = 3.0; // Must be within 3 meters
 
     if (distance > interactionDistance) {
       // Too far - walk to resource first (RuneScape behavior)
-      console.log(`[InteractionSystem] 🚶 Walking to ${action} (distance: ${distance.toFixed(1)}m)`);
+      console.log(
+        `[InteractionSystem] 🚶 Walking to ${action} (distance: ${distance.toFixed(1)}m)`,
+      );
 
       // Walk to just outside interaction range
       const targetDistance = interactionDistance - 0.5; // Stop 0.5m before max range
       const direction = {
         x: (resourcePos.x - playerPos.x) / distance,
-        z: (resourcePos.z - playerPos.z) / distance
+        z: (resourcePos.z - playerPos.z) / distance,
       };
 
       const targetPos = {
         x: resourcePos.x - direction.x * targetDistance,
         y: resourcePos.y,
-        z: resourcePos.z - direction.z * targetDistance
+        z: resourcePos.z - direction.z * targetDistance,
       };
 
       this.walkTo(targetPos);
@@ -903,14 +993,16 @@ export class InteractionSystem extends System {
         // Re-check distance after walking
         const newDistance = Math.sqrt(
           Math.pow(resourcePos.x - localPlayer.position.x, 2) +
-          Math.pow(resourcePos.z - localPlayer.position.z, 2)
+            Math.pow(resourcePos.z - localPlayer.position.z, 2),
         );
 
         if (newDistance <= interactionDistance + 0.5) {
           // Close enough now - execute the action
           this.executeResourceAction(resourceId, action);
         } else {
-          console.warn('[InteractionSystem] Still too far after walking, skipping action');
+          console.warn(
+            "[InteractionSystem] Still too far after walking, skipping action",
+          );
         }
       }, 2000); // Wait 2 seconds for walking
 
@@ -930,7 +1022,7 @@ export class InteractionSystem extends System {
     const now = Date.now();
     const lastRequest = this.recentResourceRequests.get(resourceKey);
 
-    if (lastRequest && (now - lastRequest) < this.RESOURCE_DEBOUNCE_TIME) {
+    if (lastRequest && now - lastRequest < this.RESOURCE_DEBOUNCE_TIME) {
       return;
     }
 
@@ -946,16 +1038,18 @@ export class InteractionSystem extends System {
 
     // Send network packet to server to start gathering
     if (this.world.network?.send) {
-      this.world.network.send('resourceGather', {
+      this.world.network.send("resourceGather", {
         resourceId,
         playerPosition: {
           x: localPlayer.position.x,
           y: localPlayer.position.y,
-          z: localPlayer.position.z
-        }
+          z: localPlayer.position.z,
+        },
       });
     } else {
-      console.warn('[InteractionSystem] No network.send available for resource gathering');
+      console.warn(
+        "[InteractionSystem] No network.send available for resource gathering",
+      );
       // Fallback for single-player - emit RESOURCE_GATHER directly
       this.world.emit(EventType.RESOURCE_GATHER, {
         playerId: localPlayer.id,
@@ -963,45 +1057,53 @@ export class InteractionSystem extends System {
         playerPosition: {
           x: localPlayer.position.x,
           y: localPlayer.position.y,
-          z: localPlayer.position.z
-        }
+          z: localPlayer.position.z,
+        },
       });
     }
   }
 
   private walkTo(position: Position3D): void {
     if (this.world.network?.send) {
-      this.world.network.send('moveRequest', {
+      this.world.network.send("moveRequest", {
         target: [position.x, position.y || 0, position.z],
         runMode: true,
-        cancel: false
+        cancel: false,
       });
     }
   }
 
-  private examineEntity(target: { type: string; name: string; entity: unknown }, playerId: string): void {
+  private examineEntity(
+    target: { type: string; name: string; entity: unknown },
+    playerId: string,
+  ): void {
     let message = `It's ${target.name.toLowerCase()}.`;
 
-    if (target.type === 'mob') {
-      type MobEntity = { getMobData?: () => { health?: number; level?: number } | null }
-      const mobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
-      message = `A level ${mobData?.level || 1} ${target.name}. ${(mobData?.health || 0) > 0 ? 'It looks dangerous!' : 'It is dead.'}`;
-    } else if (target.type === 'resource') {
-      type ResourceEntity = { config?: { resourceType?: string } }
-      const resourceType = (target.entity as ResourceEntity).config?.resourceType || 'tree';
-      if (resourceType.includes('tree')) {
-        message = 'A tree. I can chop it down with a hatchet.';
-      } else if (resourceType.includes('rock')) {
-        message = 'A rock containing ore. I could mine it with a pickaxe.';
-      } else if (resourceType.includes('fish')) {
-        message = 'Fish are swimming in the water here.';
+    if (target.type === "mob") {
+      type MobEntity = {
+        getMobData?: () => { health?: number; level?: number } | null;
+      };
+      const mobData = (target.entity as MobEntity).getMobData
+        ? (target.entity as MobEntity).getMobData!()
+        : null;
+      message = `A level ${mobData?.level || 1} ${target.name}. ${(mobData?.health || 0) > 0 ? "It looks dangerous!" : "It is dead."}`;
+    } else if (target.type === "resource") {
+      type ResourceEntity = { config?: { resourceType?: string } };
+      const resourceType =
+        (target.entity as ResourceEntity).config?.resourceType || "tree";
+      if (resourceType.includes("tree")) {
+        message = "A tree. I can chop it down with a hatchet.";
+      } else if (resourceType.includes("rock")) {
+        message = "A rock containing ore. I could mine it with a pickaxe.";
+      } else if (resourceType.includes("fish")) {
+        message = "Fish are swimming in the water here.";
       }
     }
 
     this.world.emit(EventType.UI_MESSAGE, {
       playerId,
       message,
-      type: 'examine'
+      type: "examine",
     });
   }
 
@@ -1019,39 +1121,45 @@ export class InteractionSystem extends System {
   /**
    * Move player towards an item
    */
-  private moveToItem(player: Entity, target: { id: string; position: Position3D }): void {
+  private moveToItem(
+    player: Entity,
+    target: { id: string; position: Position3D },
+  ): void {
     // Track this pickup for auto-completion when movement finishes
     this.pendingPickups.set(player.id, {
       itemId: target.id,
-      position: target.position
+      position: target.position,
     });
 
     // Send move request to get closer to the item
     if (this.world.network?.send) {
-      this.world.network.send('moveRequest', {
+      this.world.network.send("moveRequest", {
         target: [target.position.x, target.position.y, target.position.z],
-        runMode: false
+        runMode: false,
       });
     }
 
     // Show feedback message
     this.world.emit(EventType.UI_MESSAGE, {
       playerId: player.id,
-      message: 'Moving towards the item...',
-      type: 'info'
+      message: "Moving towards the item...",
+      type: "info",
     });
   }
 
   /**
    * Attempt to pickup an item (with debouncing)
    */
-  private attemptPickup(player: Entity, target: { id: string; position: Position3D; entity: unknown }): void {
+  private attemptPickup(
+    player: Entity,
+    target: { id: string; position: Position3D; entity: unknown },
+  ): void {
     // Check for debouncing to prevent duplicate pickup requests
     const pickupKey = `${player.id}:${target.id}`;
     const now = Date.now();
     const lastRequest = this.recentPickupRequests.get(pickupKey);
 
-    if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
+    if (lastRequest && now - lastRequest < this.PICKUP_DEBOUNCE_TIME) {
       return;
     }
 
@@ -1066,16 +1174,18 @@ export class InteractionSystem extends System {
     }
 
     if (this.world.network?.send) {
-      this.world.network.send('pickupItem', { itemId: target.id });
+      this.world.network.send("pickupItem", { itemId: target.id });
     } else {
-      console.warn('[InteractionSystem] No network.send available for pickup');
+      console.warn("[InteractionSystem] No network.send available for pickup");
       // Fallback for single-player
-      const entity = target.entity as { handleInteraction?: (data: unknown) => Promise<void> };
+      const entity = target.entity as {
+        handleInteraction?: (data: unknown) => Promise<void>;
+      };
       if (entity?.handleInteraction) {
         entity.handleInteraction({
           entityId: target.id,
           playerId: player.id,
-          playerPosition: player.position
+          playerPosition: player.position,
         });
       }
     }
@@ -1090,16 +1200,22 @@ export class InteractionSystem extends System {
   /**
    * Handle entity modification events to detect movement completion
    */
-  private onEntityModified(data: { id: string; changes: { e?: string; p?: number[] } }): void {
+  private onEntityModified(data: {
+    id: string;
+    changes: { e?: string; p?: number[] };
+  }): void {
     // Check if this is a movement completion event (idle state)
-    if (data.changes.e === 'idle') {
+    if (data.changes.e === "idle") {
       const player = this.world.getPlayer();
       if (player && player.id === data.id) {
         // Check if we have a pending pickup for this player
         const pendingPickup = this.pendingPickups.get(player.id);
         if (pendingPickup) {
           // Check if we're close enough to the item now
-          const distance = this.calculateDistance(player.position, pendingPickup.position);
+          const distance = this.calculateDistance(
+            player.position,
+            pendingPickup.position,
+          );
           const pickupRange = 2.0;
 
           if (distance <= pickupRange) {
@@ -1107,7 +1223,7 @@ export class InteractionSystem extends System {
             const target = {
               id: pendingPickup.itemId,
               position: pendingPickup.position,
-              entity: null // We don't have the entity reference here
+              entity: null, // We don't have the entity reference here
             };
             this.attemptPickup(player, target);
           }

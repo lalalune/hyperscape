@@ -18,24 +18,39 @@
  * - quest: Quest-related NPCs (quest givers, quest objectives)
  */
 
-import { BANKS, GENERAL_STORES } from './banks-stores';
-import equipmentRequirementsData from './equipment-requirements.json';
-import { ITEMS } from './items';
-import { ALL_NPCS } from './npcs';
-import { ALL_WORLD_AREAS, STARTER_TOWNS, getMobSpawnsInArea, getNPCsInArea } from './world-areas';
-import { BIOMES, WORLD_ZONES } from './world-structure';
+import { BANKS, GENERAL_STORES } from "./banks-stores";
+import equipmentRequirementsData from "./equipment-requirements.json";
+import { ITEMS } from "./items";
+import { ALL_NPCS } from "./npcs";
+import {
+  ALL_WORLD_AREAS,
+  STARTER_TOWNS,
+  getMobSpawnsInArea,
+  getNPCsInArea,
+} from "./world-areas";
+import { BIOMES, WORLD_ZONES } from "./world-structure";
 
 // Define constants from JSON data
 const equipmentRequirements = equipmentRequirementsData;
 const STARTING_ITEMS: Array<{ id: string }> = []; // Stub - data removed
 const TREASURE_LOCATIONS: TreasureLocation[] = []; // Stub - data removed
 const getAllTreasureLocations = () => TREASURE_LOCATIONS;
-const getTreasureLocationsByDifficulty = (_difficulty: number) => TREASURE_LOCATIONS;
+const getTreasureLocationsByDifficulty = (_difficulty: number) =>
+  TREASURE_LOCATIONS;
 
-import type { Item, NPCData, NPCCategory, TreasureLocation, BankEntityData, StoreData, BiomeData, ZoneData } from '../types/core';
-import type { DataValidationResult } from '../types/validation-types'
-import type { MobSpawnPoint, NPCLocation, WorldArea } from './world-areas';
-import { WeaponType, EquipmentSlotName, AttackType } from '../types/core';
+import type {
+  Item,
+  NPCData,
+  NPCCategory,
+  TreasureLocation,
+  BankEntityData,
+  StoreData,
+  BiomeData,
+  ZoneData,
+} from "../types/core";
+import type { DataValidationResult } from "../types/validation-types";
+import type { MobSpawnPoint, NPCLocation, WorldArea } from "./world-areas";
+import { WeaponType, EquipmentSlotName, AttackType } from "../types/core";
 
 /**
  * Data validation results
@@ -71,33 +86,40 @@ export class DataManager {
   private async loadManifestsFromCDN(): Promise<void> {
     // Load directly from CDN (localhost:8080 in dev, R2/S3 in prod)
     // Server uses process.env, client will use hardcoded default
-    let cdnUrl = 'http://localhost:8080';
-    if (typeof process !== 'undefined' && typeof process.env !== 'undefined' && process.env.PUBLIC_CDN_URL) {
+    let cdnUrl = "http://localhost:8080";
+    if (
+      typeof process !== "undefined" &&
+      typeof process.env !== "undefined" &&
+      process.env.PUBLIC_CDN_URL
+    ) {
       cdnUrl = process.env.PUBLIC_CDN_URL;
     }
     const baseUrl = `${cdnUrl}/manifests`;
-    
+
     // Load items
     const itemsRes = await fetch(`${baseUrl}/items.json`);
-    const list = await itemsRes.json() as Array<Item>;
+    const list = (await itemsRes.json()) as Array<Item>;
     for (const it of list) {
       const normalized = this.normalizeItem(it);
       (ITEMS as Map<string, Item>).set(normalized.id, normalized);
     }
-    
+
     // Load NPCs (unified standardized structure with categories: mob, boss, neutral, quest)
     const npcsRes = await fetch(`${baseUrl}/npcs.json`);
-    const npcsData = await npcsRes.json() as { npcs: Array<NPCData>; metadata?: unknown };
+    const npcsData = (await npcsRes.json()) as {
+      npcs: Array<NPCData>;
+      metadata?: unknown;
+    };
 
     // Store all NPCs in unified collection
     const npcList = npcsData.npcs || [];
     for (const npc of npcList) {
       (ALL_NPCS as Map<string, NPCData>).set(npc.id, npc);
     }
-    
+
     // Load resources
     const resourcesRes = await fetch(`${baseUrl}/resources.json`);
-    const resourceList = await resourcesRes.json() as Array<{
+    const resourceList = (await resourcesRes.json()) as Array<{
       id: string;
       name: string;
       type: string;
@@ -108,49 +130,62 @@ export class DataManager {
       respawnTime: number;
       harvestYield: Array<{ itemId: string; quantity: number; chance: number }>;
     }>;
-    
-    if (!(globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }).EXTERNAL_RESOURCES) {
-      (globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }).EXTERNAL_RESOURCES = new Map();
+
+    if (
+      !(globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> })
+        .EXTERNAL_RESOURCES
+    ) {
+      (
+        globalThis as { EXTERNAL_RESOURCES?: Map<string, unknown> }
+      ).EXTERNAL_RESOURCES = new Map();
     }
     for (const resource of resourceList) {
-      (globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }).EXTERNAL_RESOURCES.set(resource.id, resource);
+      (
+        globalThis as unknown as { EXTERNAL_RESOURCES: Map<string, unknown> }
+      ).EXTERNAL_RESOURCES.set(resource.id, resource);
     }
-    
+
     // Load world areas
     const worldAreasRes = await fetch(`${baseUrl}/world-areas.json`);
-    const worldAreasData = await worldAreasRes.json() as {
+    const worldAreasData = (await worldAreasRes.json()) as {
       starterTowns: Record<string, WorldArea>;
       level1Areas: Record<string, WorldArea>;
       level2Areas: Record<string, WorldArea>;
       level3Areas: Record<string, WorldArea>;
     };
-    
+
     // Merge all areas into ALL_WORLD_AREAS
-    Object.assign(ALL_WORLD_AREAS, worldAreasData.starterTowns, worldAreasData.level1Areas, worldAreasData.level2Areas, worldAreasData.level3Areas);
+    Object.assign(
+      ALL_WORLD_AREAS,
+      worldAreasData.starterTowns,
+      worldAreasData.level1Areas,
+      worldAreasData.level2Areas,
+      worldAreasData.level3Areas,
+    );
     Object.assign(STARTER_TOWNS, worldAreasData.starterTowns);
-    
+
     // Load biomes
     const biomesRes = await fetch(`${baseUrl}/biomes.json`);
-    const biomeList = await biomesRes.json() as Array<BiomeData>;
+    const biomeList = (await biomesRes.json()) as Array<BiomeData>;
     for (const biome of biomeList) {
       BIOMES[biome.id] = biome;
     }
-    
+
     // Load zones
     const zonesRes = await fetch(`${baseUrl}/zones.json`);
-    const zoneList = await zonesRes.json() as Array<ZoneData>;
+    const zoneList = (await zonesRes.json()) as Array<ZoneData>;
     WORLD_ZONES.push(...zoneList);
-    
+
     // Load banks
     const banksRes = await fetch(`${baseUrl}/banks.json`);
-    const bankList = await banksRes.json() as Array<BankEntityData>;
+    const bankList = (await banksRes.json()) as Array<BankEntityData>;
     for (const bank of bankList) {
       BANKS[bank.id] = bank;
     }
-    
+
     // Load stores
     const storesRes = await fetch(`${baseUrl}/stores.json`);
-    const storeList = await storesRes.json() as Array<StoreData>;
+    const storeList = (await storesRes.json()) as Array<StoreData>;
     for (const store of storeList) {
       GENERAL_STORES[store.id] = store;
     }
@@ -166,9 +201,9 @@ export class DataManager {
 
   private normalizeItem(item: Item): Item {
     // Ensure required fields have sane defaults and enums
-    const safeWeaponType = item.weaponType ?? WeaponType.NONE
-    const equipSlot = item.equipSlot ?? null
-    const attackType = item.attackType ?? null
+    const safeWeaponType = item.weaponType ?? WeaponType.NONE;
+    const equipSlot = item.equipSlot ?? null;
+    const attackType = item.attackType ?? null;
     const defaults = {
       quantity: 1,
       stackable: false,
@@ -176,13 +211,18 @@ export class DataManager {
       value: 0,
       weight: 0.1,
       equipable: !!equipSlot,
-      description: item.description || item.name || 'Item',
-      examine: item.examine || item.description || item.name || 'Item',
+      description: item.description || item.name || "Item",
+      examine: item.examine || item.description || item.name || "Item",
       healAmount: item.healAmount ?? 0,
       stats: item.stats || { attack: 0, defense: 0, strength: 0 },
-      bonuses: item.bonuses || { attack: 0, defense: 0, strength: 0, ranged: 0 },
+      bonuses: item.bonuses || {
+        attack: 0,
+        defense: 0,
+        strength: 0,
+        ranged: 0,
+      },
       requirements: item.requirements || { level: 1, skills: {} },
-    }
+    };
     return {
       ...item,
       type: item.type,
@@ -190,7 +230,7 @@ export class DataManager {
       equipSlot: equipSlot as EquipmentSlotName | null,
       attackType: attackType as AttackType | null,
       ...defaults,
-    }
+    };
   }
 
   /**
@@ -209,7 +249,9 @@ export class DataManager {
 
     if (this.validationResult.isValid) {
     } else {
-      throw new Error(`[DataManager] ❌ Data validation failed: ${this.validationResult.errors.join(', ')}`);
+      throw new Error(
+        `[DataManager] ❌ Data validation failed: ${this.validationResult.errors.join(", ")}`,
+      );
     }
 
     return this.validationResult;
@@ -225,25 +267,25 @@ export class DataManager {
     // Validate items (warning only - manifests might be loading)
     const itemCount = ITEMS.size;
     if (itemCount === 0) {
-      warnings.push('No items loaded from manifests yet');
+      warnings.push("No items loaded from manifests yet");
     }
 
     // Validate NPCs (warning only - manifests might be loading)
     const npcCount = ALL_NPCS.size;
     if (npcCount === 0) {
-      warnings.push('No NPCs loaded from manifests yet');
+      warnings.push("No NPCs loaded from manifests yet");
     }
 
     // Validate world areas
     const areaCount = Object.keys(ALL_WORLD_AREAS).length;
     if (areaCount === 0) {
-      errors.push('No world areas found in ALL_WORLD_AREAS');
+      errors.push("No world areas found in ALL_WORLD_AREAS");
     }
 
     // Validate treasure locations
     const treasureCount = Object.keys(TREASURE_LOCATIONS).length;
     if (treasureCount === 0) {
-      warnings.push('No treasure locations found in TREASURE_LOCATIONS');
+      warnings.push("No treasure locations found in TREASURE_LOCATIONS");
     }
 
     // Validate cross-references (only if we have data)
@@ -258,7 +300,7 @@ export class DataManager {
       itemCount,
       npcCount,
       areaCount,
-      treasureCount
+      treasureCount,
     };
   }
 
@@ -271,7 +313,9 @@ export class DataManager {
       if (area.mobSpawns) {
         for (const mobSpawn of area.mobSpawns) {
           if (!ALL_NPCS.has(mobSpawn.mobId)) {
-            errors.push(`Area ${areaId} references unknown NPC: ${mobSpawn.mobId}`);
+            errors.push(
+              `Area ${areaId} references unknown NPC: ${mobSpawn.mobId}`,
+            );
           }
         }
       }
@@ -280,7 +324,9 @@ export class DataManager {
     // Check that starter items reference valid items
     for (const startingItem of STARTING_ITEMS) {
       if (!ITEMS.has(startingItem.id)) {
-        errors.push(`Starting item references unknown item: ${startingItem.id}`);
+        errors.push(
+          `Starting item references unknown item: ${startingItem.id}`,
+        );
       }
     }
   }
@@ -314,7 +360,7 @@ export class DataManager {
    * Get items by type
    */
   public getItemsByType(itemType: string): Item[] {
-    return Array.from(ITEMS.values()).filter(item => item.type === itemType);
+    return Array.from(ITEMS.values()).filter((item) => item.type === itemType);
   }
 
   // =============================================================================
@@ -339,7 +385,9 @@ export class DataManager {
    * Get NPCs by category
    */
   public getNPCsByCategory(category: NPCCategory): NPCData[] {
-    return Array.from(ALL_NPCS.values()).filter(npc => npc.category === category);
+    return Array.from(ALL_NPCS.values()).filter(
+      (npc) => npc.category === category,
+    );
   }
 
   // =============================================================================
@@ -395,7 +443,9 @@ export class DataManager {
   /**
    * Get treasure locations by difficulty
    */
-  public getTreasureLocationsByDifficulty(difficulty: 1 | 2 | 3): TreasureLocation[] {
+  public getTreasureLocationsByDifficulty(
+    difficulty: 1 | 2 | 3,
+  ): TreasureLocation[] {
     return getTreasureLocationsByDifficulty(difficulty);
   }
 
@@ -403,7 +453,11 @@ export class DataManager {
    * Get treasure location by ID
    */
   public getTreasureLocation(locationId: string): TreasureLocation | null {
-    return TREASURE_LOCATIONS.find(loc => (loc as TreasureLocation & { id?: string }).id === locationId) || null;
+    return (
+      TREASURE_LOCATIONS.find(
+        (loc) => (loc as TreasureLocation & { id?: string }).id === locationId,
+      ) || null
+    );
   }
 
   // =============================================================================
@@ -458,7 +512,7 @@ export class DataManager {
    */
   public getDataSummary() {
     if (!this.isInitialized) {
-      return 'DataManager not initialized';
+      return "DataManager not initialized";
     }
 
     return {
@@ -469,7 +523,7 @@ export class DataManager {
       stores: Object.keys(GENERAL_STORES).length,
       banks: Object.keys(BANKS).length,
       startingItems: STARTING_ITEMS.length,
-      isValid: this.validationResult?.isValid || false
+      isValid: this.validationResult?.isValid || false,
     };
   }
 }

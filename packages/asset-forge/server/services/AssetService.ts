@@ -69,7 +69,8 @@ export class AssetService {
             metadata.isVariant &&
             (metadata as Record<string, unknown>).materialPreset
           ) {
-            const preset = (metadata as Record<string, unknown>).materialPreset as Record<string, unknown>;
+            const preset = (metadata as Record<string, unknown>)
+              .materialPreset as Record<string, unknown>;
             // Use the material ID as the tier name (e.g., "steel", "bronze", "dragon")
             metadata.tier = (preset.id as string) || (preset.tier as string);
           }

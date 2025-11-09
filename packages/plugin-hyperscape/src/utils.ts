@@ -221,7 +221,12 @@ export function parseHyperscapeWorldUrl(url: string): string | null {
  * @param entity - Entity object from Hyperscape world
  * @returns Formatted string
  */
-export function formatEntity(entity: { name?: string; position?: { x: number; y: number; z: number }; type?: string; distance?: number }): string {
+export function formatEntity(entity: {
+  name?: string;
+  position?: { x: number; y: number; z: number };
+  type?: string;
+  distance?: number;
+}): string {
   const parts = [`Entity: ${entity.name || "Unnamed"}`];
 
   if (entity.position) {
@@ -246,7 +251,15 @@ export function formatEntity(entity: { name?: string; position?: { x: number; y:
  * @param entity - Entity to check
  * @returns True if entity has interactive components
  */
-export function isInteractableEntity(entity: { app?: unknown; grabbable?: boolean; clickable?: boolean; interactable?: boolean; trigger?: boolean; seat?: boolean; portal?: boolean }): boolean {
+export function isInteractableEntity(entity: {
+  app?: unknown;
+  grabbable?: boolean;
+  clickable?: boolean;
+  interactable?: boolean;
+  trigger?: boolean;
+  seat?: boolean;
+  portal?: boolean;
+}): boolean {
   // Check for common interactive components in Hyperscape
   return !!(
     entity.app ||
@@ -295,7 +308,13 @@ export function generateAvatarConfig(
  * @param physicsData - Physics data from PhysX
  * @returns Human-readable physics information
  */
-export function formatPhysicsData(physicsData: { velocity?: { x: number; y: number; z: number }; position?: { x: number; y: number; z: number }; isGrounded?: boolean; mass?: number; grounded?: boolean }): string {
+export function formatPhysicsData(physicsData: {
+  velocity?: { x: number; y: number; z: number };
+  position?: { x: number; y: number; z: number };
+  isGrounded?: boolean;
+  mass?: number;
+  grounded?: boolean;
+}): string {
   const parts: string[] = [];
 
   if (physicsData.velocity) {

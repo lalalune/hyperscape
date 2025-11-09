@@ -1,6 +1,6 @@
 /**
  * Settings system types
- * 
+ *
  * These types are used for world settings, configuration,
  * and system initialization across the engine.
  */

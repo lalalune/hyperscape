@@ -3,17 +3,17 @@
  * Creates post-processing pipelines for WebGL or WebGPU
  */
 
-import THREE from '../extras/three';
-import type { UniversalRenderer } from './RendererFactory';
-import { isWebGLRenderer, isWebGPURenderer } from './RendererFactory';
+import THREE from "../extras/three";
+import type { UniversalRenderer } from "./RendererFactory";
+import { isWebGLRenderer, isWebGPURenderer } from "./RendererFactory";
 
 // WebGL post-processing (pmndrs/postprocessing) - imported at build time
 import {
   EffectComposer,
   RenderPass,
   EffectPass,
-  SelectiveBloomEffect
-} from 'postprocessing';
+  SelectiveBloomEffect,
+} from "postprocessing";
 
 export type PostProcessingComposer = EffectComposer & {
   bloomPass?: EffectPass;
@@ -38,14 +38,14 @@ export async function createPostProcessing(
   renderer: UniversalRenderer,
   scene: THREE.Scene,
   camera: THREE.Camera,
-  options: PostProcessingOptions = {}
+  options: PostProcessingOptions = {},
 ): Promise<PostProcessingComposer | null> {
   if (isWebGLRenderer(renderer)) {
     return createWebGLPostProcessing(renderer, scene, camera, options);
   } else if (isWebGPURenderer(renderer)) {
     return createWebGPUPostProcessing(renderer, scene, camera, options);
   }
-  
+
   return null;
 }
 
@@ -56,28 +56,28 @@ async function createWebGLPostProcessing(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
   camera: THREE.Camera,
-  options: PostProcessingOptions
+  options: PostProcessingOptions,
 ): Promise<PostProcessingComposer | null> {
   const {
     bloom = { enabled: true, intensity: 0.3, threshold: 1.0, radius: 0.5 },
     multisampling = 8,
-    frameBufferType = THREE.HalfFloatType
+    frameBufferType = THREE.HalfFloatType,
   } = options;
-  
+
   const context = renderer.getContext() as WebGL2RenderingContext;
-  const maxMultisampling = context.MAX_SAMPLES ? 
-    context.getParameter(context.MAX_SAMPLES) : 8;
-  
+  const maxMultisampling = context.MAX_SAMPLES
+    ? context.getParameter(context.MAX_SAMPLES)
+    : 8;
+
   const composer = new EffectComposer(renderer, {
     frameBufferType,
     multisampling: Math.min(multisampling, maxMultisampling),
   }) as PostProcessingComposer;
-  
-  
+
   // Render pass
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
-  
+
   // Bloom effect
   if (bloom.enabled) {
     const bloomEffect = new SelectiveBloomEffect(scene, camera, {
@@ -88,17 +88,17 @@ async function createWebGLPostProcessing(
       mipmapBlur: true,
       levels: 4,
     });
-    
+
     bloomEffect.inverted = false;
     bloomEffect.selection.layer = 14; // NO_BLOOM layer
-    
+
     const bloomPass = new EffectPass(camera, bloomEffect);
     composer.addPass(bloomPass);
     // Store bloom pass reference for enabling/disabling
     composer.bloomPass = bloomPass;
     composer.bloom = bloomEffect;
   }
-  
+
   return composer;
 }
 
@@ -109,13 +109,12 @@ async function createWebGPUPostProcessing(
   _renderer: UniversalRenderer,
   _scene: THREE.Scene,
   _camera: THREE.Camera,
-  _options: PostProcessingOptions
+  _options: PostProcessingOptions,
 ): Promise<PostProcessingComposer | null> {
-  
   // TODO: Implement when three.js TSL is stable in the version we're using
   // For now, WebGPU users get direct rendering without post-processing
   // This is acceptable since WebGPU itself provides better performance
-  
+
   return null;
 }
 
@@ -190,9 +189,12 @@ async function createWebGPUPostProcessing(
 /**
  * Enable/disable bloom effect
  */
-export function setBloomEnabled(composer: PostProcessingComposer | null, enabled: boolean): void {
+export function setBloomEnabled(
+  composer: PostProcessingComposer | null,
+  enabled: boolean,
+): void {
   if (!composer) return;
-  
+
   // WebGL post-processing (pmndrs/postprocessing)
   if (composer.bloomPass) {
     composer.bloomPass.enabled = enabled;
@@ -203,14 +205,15 @@ export function setBloomEnabled(composer: PostProcessingComposer | null, enabled
 /**
  * Dispose post-processing composer
  */
-export function disposePostProcessing(composer: PostProcessingComposer | null): void {
+export function disposePostProcessing(
+  composer: PostProcessingComposer | null,
+): void {
   if (!composer) return;
-  
+
   if (composer.dispose) {
     composer.dispose();
   }
-  
+
   // Dispose bloom effect if present
   composer.bloom?.dispose?.();
 }
-

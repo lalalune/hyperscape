@@ -38,7 +38,7 @@ export const voiceGenerationRoutes = new Elysia({
         async ({ voiceService }) => {
           const voices = await voiceService.getAvailableVoices();
           return {
-            voices: voices.map(v => ({
+            voices: voices.map((v) => ({
               voice_id: v.voice_id,
               name: v.name || "Unknown Voice",
               description: v.description,

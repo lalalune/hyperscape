@@ -1,74 +1,91 @@
-import { Search, ChevronRight, Package } from 'lucide-react'
-import React, { useState, useMemo } from 'react'
+import { Search, ChevronRight, Package } from "lucide-react";
+import React, { useState, useMemo } from "react";
 
-import { EQUIPMENT_SLOTS } from '../../constants'
-import { cn } from '../../styles'
-import { Asset } from '../../types'
-import { Card, CardContent, Badge, Input } from '../common'
+import { EQUIPMENT_SLOTS } from "../../constants";
+import { cn } from "../../styles";
+import { Asset } from "../../types";
+import { Card, CardContent, Badge, Input } from "../common";
 
 interface EquipmentListProps {
-  assets: Asset[]
-  selectedAssetId?: string | null
-  selectedSlot?: string
-  onAssetSelect: (asset: Asset) => void
-  onSlotChange?: (slot: string) => void
-  isLoading?: boolean
+  assets: Asset[];
+  selectedAssetId?: string | null;
+  selectedSlot?: string;
+  onAssetSelect: (asset: Asset) => void;
+  onSlotChange?: (slot: string) => void;
+  isLoading?: boolean;
 }
 
 export const EquipmentList: React.FC<EquipmentListProps> = ({
   assets,
   selectedAssetId,
-  selectedSlot = 'Hand_R',
+  selectedSlot = "Hand_R",
   onAssetSelect,
   onSlotChange,
-  isLoading
+  isLoading,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showFilters, setShowFilters] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(true);
 
   // Filter assets based on search and equipment type
   const filteredAssets = useMemo(() => {
-    return assets.filter(asset => {
+    return assets.filter((asset) => {
       // Filter by search query
-      if (searchQuery && !asset.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false
+      if (
+        searchQuery &&
+        !asset.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
+        return false;
       }
-      
+
       // Filter by equipment type based on selected slot
-      if (selectedSlot === 'Hand_R' || selectedSlot === 'Hand_L') {
+      if (selectedSlot === "Hand_R" || selectedSlot === "Hand_L") {
         // Hands can hold weapons and tools
-        return ['sword', 'axe', 'mace', 'bow', 'crossbow', 'shield', 'tool', 'weapon'].includes(asset.type)
-      } else if (selectedSlot === 'Head') {
+        return [
+          "sword",
+          "axe",
+          "mace",
+          "bow",
+          "crossbow",
+          "shield",
+          "tool",
+          "weapon",
+        ].includes(asset.type);
+      } else if (selectedSlot === "Head") {
         // Head slot for helmets
-        return asset.type === 'armor' && asset.name.toLowerCase().includes('helmet')
-      } else if (selectedSlot === 'Spine2') {
+        return (
+          asset.type === "armor" && asset.name.toLowerCase().includes("helmet")
+        );
+      } else if (selectedSlot === "Spine2") {
         // Chest slot for body armor
-        return asset.type === 'armor' && (
-          asset.name.toLowerCase().includes('body') || 
-          asset.name.toLowerCase().includes('chest') ||
-          asset.name.toLowerCase().includes('armor')
-        )
-      } else if (selectedSlot === 'Hips') {
+        return (
+          asset.type === "armor" &&
+          (asset.name.toLowerCase().includes("body") ||
+            asset.name.toLowerCase().includes("chest") ||
+            asset.name.toLowerCase().includes("armor"))
+        );
+      } else if (selectedSlot === "Hips") {
         // Leg slot for leg armor
-        return asset.type === 'armor' && asset.name.toLowerCase().includes('leg')
+        return (
+          asset.type === "armor" && asset.name.toLowerCase().includes("leg")
+        );
       }
-      
-      return true
-    })
-  }, [assets, searchQuery, selectedSlot])
+
+      return true;
+    });
+  }, [assets, searchQuery, selectedSlot]);
 
   // Group assets by type
   const groupedAssets = useMemo(() => {
-    const groups: Record<string, Asset[]> = {}
-    filteredAssets.forEach(asset => {
-      const type = asset.type || 'misc'
+    const groups: Record<string, Asset[]> = {};
+    filteredAssets.forEach((asset) => {
+      const type = asset.type || "misc";
       if (!groups[type]) {
-        groups[type] = []
+        groups[type] = [];
       }
-      groups[type].push(asset)
-    })
-    return groups
-  }, [filteredAssets])
+      groups[type].push(asset);
+    });
+    return groups;
+  }, [filteredAssets]);
 
   return (
     <div className="h-full flex flex-col">
@@ -90,18 +107,20 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
       {onSlotChange && (
         <div className="p-4 border-b border-border-primary">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-text-secondary">Equipment Slot</h3>
+            <h3 className="text-sm font-medium text-text-secondary">
+              Equipment Slot
+            </h3>
             <button
               onClick={() => setShowFilters(!showFilters)}
               className="text-xs text-text-secondary hover:text-text-primary"
             >
-              {showFilters ? 'Hide' : 'Show'}
+              {showFilters ? "Hide" : "Show"}
             </button>
           </div>
-          
+
           {showFilters && (
             <div className="space-y-2">
-              {EQUIPMENT_SLOTS.map(slot => (
+              {EQUIPMENT_SLOTS.map((slot) => (
                 <button
                   key={slot.id}
                   onClick={() => onSlotChange(slot.id)}
@@ -110,21 +129,25 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
                     "flex items-center gap-3 text-left",
                     selectedSlot === slot.id
                       ? "border-primary bg-primary bg-opacity-10"
-                      : "border-border-primary hover:border-border-secondary"
+                      : "border-border-primary hover:border-border-secondary",
                   )}
                 >
-                  <div className={cn(
-                    "p-2 rounded",
-                    selectedSlot === slot.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-bg-tertiary text-text-secondary"
-                  )}>
+                  <div
+                    className={cn(
+                      "p-2 rounded",
+                      selectedSlot === slot.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-bg-tertiary text-text-secondary",
+                    )}
+                  >
                     <slot.icon className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
                     <div className="font-medium text-sm">{slot.name}</div>
                     {slot.description && (
-                      <div className="text-xs text-text-secondary">{slot.description}</div>
+                      <div className="text-xs text-text-secondary">
+                        {slot.description}
+                      </div>
                     )}
                   </div>
                   {selectedSlot === slot.id && (
@@ -161,12 +184,12 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
                   {type} ({typeAssets.length})
                 </h3>
                 <div className="grid gap-2">
-                  {typeAssets.map(asset => (
+                  {typeAssets.map((asset) => (
                     <Card
                       key={asset.id}
                       className={cn(
                         "cursor-pointer transition-all hover:shadow-md",
-                        selectedAssetId === asset.id && "ring-2 ring-primary"
+                        selectedAssetId === asset.id && "ring-2 ring-primary",
                       )}
                       onClick={() => onAssetSelect(asset)}
                     >
@@ -181,14 +204,18 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   // Fallback to package icon if image fails to load
-                                  e.currentTarget.style.display = 'none'
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                                  e.currentTarget.style.display = "none";
+                                  e.currentTarget.nextElementSibling?.classList.remove(
+                                    "hidden",
+                                  );
                                 }}
                               />
                             ) : null}
-                            <Package className={`w-6 h-6 text-text-secondary ${asset.hasModel ? 'hidden' : ''}`} />
+                            <Package
+                              className={`w-6 h-6 text-text-secondary ${asset.hasModel ? "hidden" : ""}`}
+                            />
                           </div>
-                          
+
                           {/* Info */}
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm truncate">
@@ -210,7 +237,7 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
                               )}
                             </div>
                           </div>
-                          
+
                           {selectedAssetId === asset.id && (
                             <ChevronRight className="w-4 h-4 text-primary flex-shrink-0" />
                           )}
@@ -225,5 +252,5 @@ export const EquipmentList: React.FC<EquipmentListProps> = ({
         )}
       </div>
     </div>
-  )
-} 
+  );
+};

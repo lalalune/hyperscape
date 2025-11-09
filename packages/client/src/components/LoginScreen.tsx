@@ -3,62 +3,69 @@
  * Shown before world loads to authenticate users
  */
 
-import React, { useEffect, useState } from 'react'
-import { usePrivy } from '@privy-io/react-auth'
-import { useLoginToMiniApp } from '@privy-io/react-auth/farcaster'
-import miniappSdk from '@farcaster/miniapp-sdk'
+import React, { useEffect, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
+import { useLoginToMiniApp } from "@privy-io/react-auth/farcaster";
+import miniappSdk from "@farcaster/miniapp-sdk";
 
 interface LoginScreenProps {
-  onAuthenticated: () => void
+  onAuthenticated: () => void;
 }
 
 export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
-  const { ready, authenticated, login } = usePrivy()
-  const { initLoginToMiniApp, loginToMiniApp } = useLoginToMiniApp()
-  const [isFarcasterContext, setIsFarcasterContext] = useState(false)
-  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const { ready, authenticated, login } = usePrivy();
+  const { initLoginToMiniApp, loginToMiniApp } = useLoginToMiniApp();
+  const [isFarcasterContext, setIsFarcasterContext] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Check if we're in a Farcaster mini-app context
   useEffect(() => {
     const checkFarcasterContext = async () => {
       // Try to access Farcaster SDK
-      const context = await miniappSdk.context
+      const context = await miniappSdk.context;
       if (context) {
-        setIsFarcasterContext(true)
+        setIsFarcasterContext(true);
         // Signal ready to Farcaster
-        miniappSdk.actions.ready()
+        miniappSdk.actions.ready();
       }
-    }
+    };
 
-    checkFarcasterContext()
-  }, [])
+    checkFarcasterContext();
+  }, []);
 
   // Auto-login for Farcaster mini-app
   useEffect(() => {
     if (ready && !authenticated && isFarcasterContext && !isLoggingIn) {
       const autoLogin = async () => {
-        setIsLoggingIn(true)
+        setIsLoggingIn(true);
         // Initialize a new login attempt to get a nonce
-        const { nonce } = await initLoginToMiniApp()
+        const { nonce } = await initLoginToMiniApp();
         // Request a signature from Farcaster
-        const result = await miniappSdk.actions.signIn({ nonce })
+        const result = await miniappSdk.actions.signIn({ nonce });
         // Send the signature to Privy for authentication
         await loginToMiniApp({
           message: result.message,
           signature: result.signature,
-        })
-      }
+        });
+      };
 
-      autoLogin()
+      autoLogin();
     }
-  }, [ready, authenticated, isFarcasterContext, isLoggingIn, initLoginToMiniApp, loginToMiniApp])
+  }, [
+    ready,
+    authenticated,
+    isFarcasterContext,
+    isLoggingIn,
+    initLoginToMiniApp,
+    loginToMiniApp,
+  ]);
 
   // Once authenticated, notify parent
   useEffect(() => {
     if (ready && authenticated) {
-      onAuthenticated()
+      onAuthenticated();
     }
-  }, [ready, authenticated, onAuthenticated])
+  }, [ready, authenticated, onAuthenticated]);
 
   // Show loading state while Privy initializes
   if (!ready) {
@@ -116,14 +123,18 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           }
         `}</style>
         <div className="login-content">
-          <img src="/assets/images/logo.png" alt="Hyperscape" className="login-logo" />
+          <img
+            src="/assets/images/logo.png"
+            alt="Hyperscape"
+            className="login-logo"
+          />
           <div className="login-bottom">
             <div className="login-subtitle">Loading...</div>
             <div className="loading-spinner"></div>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Show login UI if not authenticated and not auto-logging in
@@ -312,9 +323,15 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         `}</style>
         <div className="login-content">
           <div>
-            <img src="/assets/images/logo.png" alt="Hyperscape" className="login-logo" />
+            <img
+              src="/assets/images/logo.png"
+              alt="Hyperscape"
+              className="login-logo"
+            />
             {!isFarcasterContext && (
-              <div className="login-tagline">A 3D multiplayer RPG adventure</div>
+              <div className="login-tagline">
+                A 3D multiplayer RPG adventure
+              </div>
             )}
           </div>
           <div className="login-bottom">
@@ -328,13 +345,13 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
               <div className="login-button-ornament"></div>
               <div className="login-button-highlight"></div>
               <button className="login-button" onClick={() => login()}>
-                {isFarcasterContext ? 'Sign in with Farcaster' : 'Enter'}
+                {isFarcasterContext ? "Sign in with Farcaster" : "Enter"}
               </button>
             </div>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Show loading during authentication
@@ -392,16 +409,20 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         }
       `}</style>
       <div className="login-content">
-        <img src="/assets/images/logo.png" alt="Hyperscape" className="login-logo" />
+        <img
+          src="/assets/images/logo.png"
+          alt="Hyperscape"
+          className="login-logo"
+        />
         <div className="login-bottom">
           <div className="login-subtitle">
-            {isFarcasterContext ? 'Authenticating with Farcaster...' : 'Entering the world...'}
+            {isFarcasterContext
+              ? "Authenticating with Farcaster..."
+              : "Entering the world..."}
           </div>
           <div className="loading-spinner"></div>
         </div>
       </div>
     </div>
-  )
+  );
 }
-
-

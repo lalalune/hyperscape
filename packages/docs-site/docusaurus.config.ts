@@ -1,28 +1,28 @@
-import {themes as prismThemes} from 'prism-react-renderer';
-import type {Config} from '@docusaurus/types';
-import type * as Preset from '@docusaurus/preset-classic';
+import { themes as prismThemes } from "prism-react-renderer";
+import type { Config } from "@docusaurus/types";
+import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
-  title: 'Hyperscape Documentation',
-  tagline: 'AI-powered virtual world with RPG elements',
-  favicon: 'img/favicon.ico',
+  title: "Hyperscape Documentation",
+  tagline: "AI-powered virtual world with RPG elements",
+  favicon: "img/favicon.ico",
 
   // Set the production url of your site here
-  url: 'https://your-username.github.io',
+  url: "https://your-username.github.io",
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/hyperscape-2/',
+  baseUrl: "/hyperscape-2/",
 
   // GitHub pages deployment config.
-  organizationName: 'your-username', // Usually your GitHub org/user name.
-  projectName: 'hyperscape-2', // Usually your repo name.
+  organizationName: "your-username", // Usually your GitHub org/user name.
+  projectName: "hyperscape-2", // Usually your repo name.
 
-  onBrokenLinks: 'warn',
-  onBrokenAnchors: 'ignore', // Ignore broken anchors in auto-generated API docs
+  onBrokenLinks: "warn",
+  onBrokenAnchors: "ignore", // Ignore broken anchors in auto-generated API docs
 
   // Markdown configuration
   markdown: {
-    format: 'mdx',
+    format: "mdx",
     mermaid: false,
     preprocessor: undefined,
     parseFrontMatter: undefined,
@@ -33,7 +33,7 @@ const config: Config = {
     },
     remarkRehypeOptions: undefined,
     hooks: {
-      onBrokenMarkdownLinks: 'warn',
+      onBrokenMarkdownLinks: "warn",
     },
   },
 
@@ -41,23 +41,23 @@ const config: Config = {
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
   i18n: {
-    defaultLocale: 'en',
-    locales: ['en'],
+    defaultLocale: "en",
+    locales: ["en"],
   },
 
   presets: [
     [
-      'classic',
+      "classic",
       {
         docs: {
-          sidebarPath: './sidebars.ts',
+          sidebarPath: "./sidebars.ts",
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/HyperscapeAI/hyperscape/tree/main/packages/docs-site/',
+            "https://github.com/HyperscapeAI/hyperscape/tree/main/packages/docs-site/",
         },
         blog: false,
         theme: {
-          customCss: './src/css/custom.css',
+          customCss: "./src/css/custom.css",
         },
       } satisfies Preset.Options,
     ],
@@ -65,45 +65,45 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
+    image: "img/docusaurus-social-card.jpg",
     navbar: {
-      title: 'Hyperscape',
+      title: "Hyperscape",
       logo: {
-        alt: 'Hyperscape Logo',
-        src: 'img/logo.svg',
+        alt: "Hyperscape Logo",
+        src: "img/logo.svg",
       },
       items: [
         {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
-          position: 'left',
-          label: 'API Documentation',
+          type: "docSidebar",
+          sidebarId: "tutorialSidebar",
+          position: "left",
+          label: "API Documentation",
         },
         {
-          href: 'https://github.com/your-username/hyperscape-2',
-          label: 'GitHub',
-          position: 'right',
+          href: "https://github.com/your-username/hyperscape-2",
+          label: "GitHub",
+          position: "right",
         },
       ],
     },
     footer: {
-      style: 'dark',
+      style: "dark",
       links: [
         {
-          title: 'Docs',
+          title: "Docs",
           items: [
             {
-              label: 'API Documentation',
-              to: '/docs/intro',
+              label: "API Documentation",
+              to: "/docs/intro",
             },
           ],
         },
         {
-          title: 'More',
+          title: "More",
           items: [
             {
-              label: 'GitHub',
-              href: 'https://github.com/your-username/hyperscape-2',
+              label: "GitHub",
+              href: "https://github.com/your-username/hyperscape-2",
             },
           ],
         },
@@ -118,4 +118,3 @@ const config: Config = {
 };
 
 export default config;
-

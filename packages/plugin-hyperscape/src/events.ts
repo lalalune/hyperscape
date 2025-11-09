@@ -30,7 +30,7 @@ export const hyperscapeEvents = {
 
   [hyperscapeEventType.VOICE_MESSAGE_RECEIVED]: [
     async (payload: MessagePayload) => {
-        await handleMessage({
+      await handleMessage({
         runtime: payload.runtime,
         message: payload.message,
         callback: payload.callback || defaultCallback,

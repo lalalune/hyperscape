@@ -8,11 +8,11 @@
  * to maintain type safety in the rest of the codebase while allowing flexibility
  * for runtime behavior.
  */
-declare module '@hyperscape/shared' {
+declare module "@hyperscape/shared" {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export interface World {
-    [key: string]: any
+    [key: string]: any;
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  export type Entity = any
+  export type Entity = any;
 }

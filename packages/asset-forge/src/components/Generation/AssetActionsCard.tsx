@@ -1,50 +1,50 @@
-import { Download, Palette, Eye, RefreshCw } from 'lucide-react'
-import React from 'react'
+import { Download, Palette, Eye, RefreshCw } from "lucide-react";
+import React from "react";
 
-import { Card, CardContent, Button } from '../common'
+import { Card, CardContent, Button } from "../common";
 
 interface AssetActionsCardProps {
-  onDownload?: () => void
-  onAddVariants?: () => void
-  onOpenInBrowser?: () => void
-  onGenerateNew?: () => void
+  onDownload?: () => void;
+  onAddVariants?: () => void;
+  onOpenInBrowser?: () => void;
+  onGenerateNew?: () => void;
 }
 
 export const AssetActionsCard: React.FC<AssetActionsCardProps> = ({
   onDownload,
   onAddVariants,
   onOpenInBrowser,
-  onGenerateNew
+  onGenerateNew,
 }) => {
   return (
     <Card className="shadow-xl">
       <CardContent className="p-6">
         <div className="flex flex-wrap gap-4">
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             className="hover:scale-[1.02] transition-all"
             onClick={onDownload}
           >
             <Download className="w-4 h-4 mr-2" />
             Download All Assets
           </Button>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             className="hover:scale-[1.02] transition-all"
             onClick={onAddVariants}
           >
             <Palette className="w-4 h-4 mr-2" />
             Add More Variants
           </Button>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             className="hover:scale-[1.02] transition-all"
             onClick={onOpenInBrowser}
           >
             <Eye className="w-4 h-4 mr-2" />
             Open in Asset Browser
           </Button>
-          <Button 
+          <Button
             variant="secondary"
             onClick={onGenerateNew}
             className="hover:scale-[1.02] transition-all"
@@ -55,5 +55,5 @@ export const AssetActionsCard: React.FC<AssetActionsCardProps> = ({
         </div>
       </CardContent>
     </Card>
-  )
-} 
+  );
+};

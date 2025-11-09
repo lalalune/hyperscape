@@ -1,5 +1,5 @@
 // Load environment variables
-import 'dotenv/config'
+import "dotenv/config";
 
 /**
  * @fileoverview AI Creation System for Hyperscape RPG
@@ -7,4 +7,4 @@ import 'dotenv/config'
  */
 
 // Types
-export * from './types' 
+export * from "./types";

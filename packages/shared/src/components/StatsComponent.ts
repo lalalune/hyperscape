@@ -1,10 +1,16 @@
-import { Component } from './Component';
-import type { Entity } from '../entities/Entity';
-import type { SkillData, PrayerComponent, EquipmentComponent, CombatBonuses, PlayerHealth } from '../types/core';
+import { Component } from "./Component";
+import type { Entity } from "../entities/Entity";
+import type {
+  SkillData,
+  PrayerComponent,
+  EquipmentComponent,
+  CombatBonuses,
+  PlayerHealth,
+} from "../types/core";
 
 /**
  * StatsComponent - Player/Entity stats and skills
- * 
+ *
  * Extends the base Component class to properly integrate with the ECS system
  * while maintaining all the stats functionality needed by the SkillsSystem.
  */
@@ -26,12 +32,16 @@ export class StatsComponent extends Component {
   public activePrayers: PrayerComponent;
   public equipment: EquipmentComponent;
   public equippedSpell: string | null;
-  public effects: { onSlayerTask: boolean; targetIsDragon: boolean; targetMagicLevel: number };
+  public effects: {
+    onSlayerTask: boolean;
+    targetIsDragon: boolean;
+    targetMagicLevel: number;
+  };
   public combatBonuses: CombatBonuses;
   public totalLevel?: number;
 
   constructor(entity: Entity, initialData: Partial<StatsComponent> = {}) {
-    super('stats', entity, initialData);
+    super("stats", entity, initialData);
 
     // Initialize default values
     const defaultSkill: SkillData = { level: 1, xp: 0 };
@@ -46,7 +56,7 @@ export class StatsComponent extends Component {
       shield: null,
       cape: null,
       amulet: null,
-      ring: null
+      ring: null,
     };
     const defaultPrayers: PrayerComponent = {
       protectFromMelee: false,
@@ -64,7 +74,7 @@ export class StatsComponent extends Component {
       augury: false,
       mysticMight: false,
       mysticLore: false,
-      mysticWill: false
+      mysticWill: false,
     };
     const defaultBonuses: CombatBonuses = {
       attack: 0,
@@ -84,9 +94,13 @@ export class StatsComponent extends Component {
       meleeStrength: 0,
       rangedStrength: 0,
       magicDamage: 0,
-      prayer: 0
+      prayer: 0,
     };
-    const defaultEffects = { onSlayerTask: false, targetIsDragon: false, targetMagicLevel: 0 };
+    const defaultEffects = {
+      onSlayerTask: false,
+      targetIsDragon: false,
+      targetMagicLevel: 0,
+    };
 
     // Set properties from initialData or defaults
     this.combatLevel = initialData.combatLevel || 3;
@@ -134,7 +148,7 @@ export class StatsComponent extends Component {
       equippedSpell: this.equippedSpell,
       effects: this.effects,
       combatBonuses: this.combatBonuses,
-      totalLevel: this.totalLevel
+      totalLevel: this.totalLevel,
     };
   }
 }

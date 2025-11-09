@@ -4,7 +4,7 @@ import {
   type Memory,
   type State,
   logger,
-} from '@elizaos/core'
+} from "@elizaos/core";
 
 /**
  * Time Provider - Provides temporal context
@@ -14,66 +14,66 @@ import {
  * time-aware responses.
  */
 export const timeProvider: Provider = {
-  name: 'TIME',
+  name: "TIME",
   description:
-    'Provides current time and date information in various formats for temporal context and time-aware responses.',
+    "Provides current time and date information in various formats for temporal context and time-aware responses.",
 
   get: async (_runtime: IAgentRuntime, _message: Memory, _state: State) => {
-    logger.debug('[TIME_PROVIDER] Generating time context')
+    logger.debug("[TIME_PROVIDER] Generating time context");
 
     try {
-      const now = new Date()
+      const now = new Date();
 
       // Format various time representations
-      const utcTime = now.toUTCString()
-      const isoTime = now.toISOString()
-      const localTime = now.toLocaleString()
-      const timestamp = now.getTime()
+      const utcTime = now.toUTCString();
+      const isoTime = now.toISOString();
+      const localTime = now.toLocaleString();
+      const timestamp = now.getTime();
 
       // Get individual components
-      const year = now.getFullYear()
-      const month = now.getMonth() + 1 // 0-indexed
-      const day = now.getDate()
-      const hour = now.getHours()
-      const minute = now.getMinutes()
-      const second = now.getSeconds()
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1; // 0-indexed
+      const day = now.getDate();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const second = now.getSeconds();
 
       // Day of week and time of day
       const daysOfWeek = [
-        'Sunday',
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-      ]
-      const dayOfWeek = daysOfWeek[now.getDay()]
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
+      const dayOfWeek = daysOfWeek[now.getDay()];
 
       const monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ]
-      const monthName = monthNames[now.getMonth()]
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+      const monthName = monthNames[now.getMonth()];
 
       // Determine time of day
-      let timeOfDay = 'morning'
+      let timeOfDay = "morning";
       if (hour >= 12 && hour < 17) {
-        timeOfDay = 'afternoon'
+        timeOfDay = "afternoon";
       } else if (hour >= 17 && hour < 21) {
-        timeOfDay = 'evening'
+        timeOfDay = "evening";
       } else if (hour >= 21 || hour < 6) {
-        timeOfDay = 'night'
+        timeOfDay = "night";
       }
 
       // Format for display
@@ -101,9 +101,9 @@ Use this information for:
 - Greeting users appropriately ("Good ${timeOfDay}")
 - Understanding temporal context
 - Scheduling and time-based operations
-- Timestamping events`
+- Timestamping events`;
 
-      logger.debug(`[TIME_PROVIDER] Current time: ${localTime}`)
+      logger.debug(`[TIME_PROVIDER] Current time: ${localTime}`);
 
       return {
         text,
@@ -124,16 +124,16 @@ Use this information for:
             timeOfDay,
           },
         },
-      }
+      };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      logger.error('[TIME_PROVIDER] Error generating time context:', errorMsg)
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error("[TIME_PROVIDER] Error generating time context:", errorMsg);
       return {
-        text: 'Error retrieving time information.',
+        text: "Error retrieving time information.",
         data: {
           error: errorMsg,
         },
-      }
+      };
     }
   },
-}
+};

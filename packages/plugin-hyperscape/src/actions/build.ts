@@ -265,7 +265,16 @@ export const hyperscapeEditEntityAction: Action = {
           break;
 
         case EditOperationType.IMPORT:
-          await buildManager.importEntity({ type: target || "group" }, parameters?.position ? { x: parameters.position[0], y: parameters.position[1], z: parameters.position[2] } : undefined);
+          await buildManager.importEntity(
+            { type: target || "group" },
+            parameters?.position
+              ? {
+                  x: parameters.position[0],
+                  y: parameters.position[1],
+                  z: parameters.position[2],
+                }
+              : undefined,
+          );
           break;
 
         default:

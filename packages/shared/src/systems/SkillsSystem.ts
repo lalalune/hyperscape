@@ -1,82 +1,88 @@
 /**
  * SkillsSystem.ts - Skills, XP, and Leveling System
- * 
+ *
  * Implements RuneScape-style skill progression system with experience points and levels.
- * 
+ *
  * **Skills Managed:**
  * - Combat: attack, strength, defense, constitution, ranged
  * - Gathering: woodcutting, fishing
  * - Artisan: firemaking, cooking
- * 
+ *
  * **XP Calculation:**
  * Uses RuneScape XP table formula:
  * - Level 1-99 (max level)
  * - XP for level N = floor(N + 300 * 2^(N/7)) / 4
  * - Example: Level 50 requires 101,333 XP
- * 
+ *
  * **Combat Level:**
  * Calculated from combat skills:
  * - Base = 0.25 * (Defense + Constitution + Ranged/2)
  * - Melee = 0.325 * (Attack + Strength)
  * - Ranged = 0.325 * (Ranged * 1.5)
  * - Combat Level = floor(Base + max(Melee, Ranged))
- * 
+ *
  * **Features:**
  * - Automatic level-up detection
  * - XP multipliers for special conditions
  * - Skill milestones (level 50, 99, etc.)
  * - XP drop tracking for visual feedback
  * - Total level calculation (sum of all skill levels)
- * 
+ *
  * **Referenced by:** CombatSystem, ResourceSystem, ProcessingSystem, all skill-based interactions
  */
 
-import { Entity } from '../entities/Entity';
-import { SkillData, Skills } from '../types/core';
-import { StatsComponent } from '../components/StatsComponent';
-import { EventType } from '../types/events';
-import type { World } from '../types/index';
-import { SystemBase } from './SystemBase';
-import { getStatsComponent, requireStatsComponent } from '../utils/ComponentUtils';
+import { Entity } from "../entities/Entity";
+import { SkillData, Skills } from "../types/core";
+import { StatsComponent } from "../components/StatsComponent";
+import { EventType } from "../types/events";
+import type { World } from "../types/index";
+import { SystemBase } from "./SystemBase";
+import {
+  getStatsComponent,
+  requireStatsComponent,
+} from "../utils/ComponentUtils";
 
 /** Skill name constants for type-safe skill references */
 const Skill = {
-  ATTACK: 'attack' as keyof Skills,
-  STRENGTH: 'strength' as keyof Skills,
-  DEFENSE: 'defense' as keyof Skills,
-  RANGE: 'ranged' as keyof Skills,
-  CONSTITUTION: 'constitution' as keyof Skills,
-  WOODCUTTING: 'woodcutting' as keyof Skills,
-  FISHING: 'fishing' as keyof Skills,
-  FIREMAKING: 'firemaking' as keyof Skills,
-  COOKING: 'cooking' as keyof Skills
+  ATTACK: "attack" as keyof Skills,
+  STRENGTH: "strength" as keyof Skills,
+  DEFENSE: "defense" as keyof Skills,
+  RANGE: "ranged" as keyof Skills,
+  CONSTITUTION: "constitution" as keyof Skills,
+  WOODCUTTING: "woodcutting" as keyof Skills,
+  FISHING: "fishing" as keyof Skills,
+  FIREMAKING: "firemaking" as keyof Skills,
+  COOKING: "cooking" as keyof Skills,
 };
 
-import type { SkillMilestone, XPDrop } from '../types/system-interfaces';
+import type { SkillMilestone, XPDrop } from "../types/system-interfaces";
 
 /**
  * SkillsSystem - Experience and Level Management
- * 
+ *
  * Manages skill progression, XP grants, level-ups, and combat level calculation.
  */
 export class SkillsSystem extends SystemBase {
   private static readonly MAX_LEVEL = 99;
   private static readonly MAX_XP = 200_000_000; // 200M XP cap
   private static readonly COMBAT_SKILLS: (keyof Skills)[] = [
-    Skill.ATTACK, Skill.STRENGTH, Skill.DEFENSE, Skill.RANGE
+    Skill.ATTACK,
+    Skill.STRENGTH,
+    Skill.DEFENSE,
+    Skill.RANGE,
   ];
-  
+
   private xpTable: number[] = [];
   private xpDrops: XPDrop[] = [];
   private skillMilestones: Map<keyof Skills, SkillMilestone[]> = new Map();
 
   constructor(world: World) {
     super(world, {
-      name: 'skills',
+      name: "skills",
       dependencies: {
-        optional: ['xp', 'combat', 'ui', 'quest']
+        optional: ["xp", "combat", "ui", "quest"],
       },
-      autoCleanup: true
+      autoCleanup: true,
     });
     this.generateXPTable();
     this.setupSkillMilestones();
@@ -84,33 +90,56 @@ export class SkillsSystem extends SystemBase {
 
   async init(): Promise<void> {
     // Subscribe to skill events using type-safe event system
-    this.subscribe<{ attackerId: string; targetId: string; damageDealt: number; attackStyle: string }>(EventType.COMBAT_KILL, (data) => this.handleCombatKill(data));
-    this.subscribe<{ entityId: string; skill: keyof Skills; xp: number }>(EventType.SKILLS_ACTION, (data) => this.handleSkillAction(data));
-    this.subscribe<{ playerId: string; skill: keyof Skills; amount: number }>(EventType.SKILLS_XP_GAINED, (data) => this.handleExternalXPGain(data));
-    this.subscribe(EventType.QUEST_COMPLETED, (data: { playerId: string; questId: string; rewards: { xp?: Record<keyof Skills, number> } }) => {
-      this.handleQuestComplete(data);
-    });
-    
+    this.subscribe<{
+      attackerId: string;
+      targetId: string;
+      damageDealt: number;
+      attackStyle: string;
+    }>(EventType.COMBAT_KILL, (data) => this.handleCombatKill(data));
+    this.subscribe<{ entityId: string; skill: keyof Skills; xp: number }>(
+      EventType.SKILLS_ACTION,
+      (data) => this.handleSkillAction(data),
+    );
+    this.subscribe<{ playerId: string; skill: keyof Skills; amount: number }>(
+      EventType.SKILLS_XP_GAINED,
+      (data) => this.handleExternalXPGain(data),
+    );
+    this.subscribe(
+      EventType.QUEST_COMPLETED,
+      (data: {
+        playerId: string;
+        questId: string;
+        rewards: { xp?: Record<keyof Skills, number> };
+      }) => {
+        this.handleQuestComplete(data);
+      },
+    );
+
     // Load skills from database on player registration (mirror InventorySystem pattern)
-    this.subscribe(EventType.PLAYER_REGISTERED, async (data: { playerId: string }) => {
-      await this.loadPlayerSkillsFromDatabase(data.playerId);
-    });
+    this.subscribe(
+      EventType.PLAYER_REGISTERED,
+      async (data: { playerId: string }) => {
+        await this.loadPlayerSkillsFromDatabase(data.playerId);
+      },
+    );
   }
-  
+
   private async loadPlayerSkillsFromDatabase(playerId: string): Promise<void> {
     // Only load on server
     if (!this.world.isServer) return;
-    
+
     const entity = this.world.entities.get(playerId) as Entity;
     if (!entity) return;
-    
+
     // Get entity's skills from data (already loaded by ServerNetwork)
-    const entityData = entity.data as { skills?: Record<string, { level: number; xp: number }> };
+    const entityData = entity.data as {
+      skills?: Record<string, { level: number; xp: number }>;
+    };
     if (entityData.skills) {
       // Emit SKILLS_UPDATED so all systems and UI get initial skills
       this.emitTypedEvent(EventType.SKILLS_UPDATED, {
         playerId,
-        skills: entityData.skills as unknown as Skills
+        skills: entityData.skills as unknown as Skills,
       });
     }
   }
@@ -118,18 +147,22 @@ export class SkillsSystem extends SystemBase {
   update(_deltaTime: number): void {
     // Clean up old XP drops (for UI)
     const currentTime = Date.now();
-    this.xpDrops = this.xpDrops.filter(drop => 
-      currentTime - drop.timestamp < 3000 // Keep for 3 seconds
+    this.xpDrops = this.xpDrops.filter(
+      (drop) => currentTime - drop.timestamp < 3000, // Keep for 3 seconds
     );
   }
 
   /**
    * Add XP internally without emitting events (used by external XP handlers)
    */
-  private addXPInternal(entityId: string, skill: keyof Skills, amount: number): void {
+  private addXPInternal(
+    entityId: string,
+    skill: keyof Skills,
+    amount: number,
+  ): void {
     const entity = this.world.entities.get(entityId) as Entity;
     if (!entity) {
-      console.warn('[SkillsSystem] Entity not found:', entityId);
+      console.warn("[SkillsSystem] Entity not found:", entityId);
       return;
     }
 
@@ -141,7 +174,9 @@ export class SkillsSystem extends SystemBase {
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}`);
+      console.warn(
+        `[SkillsSystem] Entity ${entityId} has no skill data for ${skill}`,
+      );
       return;
     }
 
@@ -181,13 +216,13 @@ export class SkillsSystem extends SystemBase {
       skill,
       amount: actualGain,
       timestamp: Date.now(),
-      position: { x: 0, y: 0, z: 0 } // Position not used for non-visual drops
+      position: { x: 0, y: 0, z: 0 }, // Position not used for non-visual drops
     });
 
     // Emit skills updated event for UI (but not XP_GAINED to avoid loops)
     this.emitTypedEvent(EventType.SKILLS_UPDATED, {
       playerId: entityId,
-      skills: this.getSkills(entityId) || {}
+      skills: this.getSkills(entityId) || {},
     });
   }
 
@@ -200,7 +235,7 @@ export class SkillsSystem extends SystemBase {
     this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
       playerId: entityId,
       skill,
-      amount
+      amount,
     });
   }
 
@@ -221,7 +256,8 @@ export class SkillsSystem extends SystemBase {
    */
   public getXPForLevel(level: number): number {
     if (level < 1) return 0;
-    if (level > SkillsSystem.MAX_LEVEL) return this.xpTable[SkillsSystem.MAX_LEVEL];
+    if (level > SkillsSystem.MAX_LEVEL)
+      return this.xpTable[SkillsSystem.MAX_LEVEL];
     return this.xpTable[level];
   }
 
@@ -230,7 +266,7 @@ export class SkillsSystem extends SystemBase {
    */
   public getXPToNextLevel(skill: SkillData): number {
     if (skill.level >= SkillsSystem.MAX_LEVEL) return 0;
-    
+
     const nextLevelXP = this.getXPForLevel(skill.level + 1);
     return nextLevelXP - skill.xp;
   }
@@ -240,19 +276,22 @@ export class SkillsSystem extends SystemBase {
    */
   public getXPProgress(skill: SkillData): number {
     if (skill.level >= SkillsSystem.MAX_LEVEL) return 100;
-    
+
     const currentLevelXP = this.getXPForLevel(skill.level);
     const nextLevelXP = this.getXPForLevel(skill.level + 1);
     const progressXP = skill.xp - currentLevelXP;
     const requiredXP = nextLevelXP - currentLevelXP;
-    
+
     return (progressXP / requiredXP) * 100;
   }
 
   /**
    * Check if entity meets skill requirements
    */
-  public meetsRequirements(entity: Entity, requirements: Partial<Record<keyof Skills, number>>): boolean {
+  public meetsRequirements(
+    entity: Entity,
+    requirements: Partial<Record<keyof Skills, number>>,
+  ): boolean {
     const stats = getStatsComponent(entity);
     if (!stats) return false;
 
@@ -280,17 +319,14 @@ export class SkillsSystem extends SystemBase {
     const strengthLevel = stats.strength?.level ?? 1;
     const rangedLevel = stats.ranged?.level ?? 1;
     const magicLevel = stats.magic?.level ?? 1;
-    
-    const base = 0.25 * (
-      defenseLevel + 
-      hitpointsLevel + 
-      Math.floor(prayerLevel / 2)
-    );
-    
+
+    const base =
+      0.25 * (defenseLevel + hitpointsLevel + Math.floor(prayerLevel / 2));
+
     const melee = 0.325 * (attackLevel + strengthLevel);
     const rangedCalc = 0.325 * Math.floor(rangedLevel * 1.5);
     const magicCalc = 0.325 * Math.floor(magicLevel * 1.5);
-    
+
     return Math.floor(base + Math.max(melee, rangedCalc, magicCalc));
   }
 
@@ -299,12 +335,18 @@ export class SkillsSystem extends SystemBase {
    */
   public getTotalLevel(stats: StatsComponent): number {
     let total = 0;
-    
+
     // Sum all skill levels
     const skills: (keyof Skills)[] = [
-      Skill.ATTACK, Skill.STRENGTH, Skill.DEFENSE, Skill.RANGE, 
-      Skill.CONSTITUTION, Skill.WOODCUTTING, Skill.FISHING,
-      Skill.FIREMAKING, Skill.COOKING
+      Skill.ATTACK,
+      Skill.STRENGTH,
+      Skill.DEFENSE,
+      Skill.RANGE,
+      Skill.CONSTITUTION,
+      Skill.WOODCUTTING,
+      Skill.FISHING,
+      Skill.FIREMAKING,
+      Skill.COOKING,
     ];
 
     for (const skill of skills) {
@@ -320,11 +362,17 @@ export class SkillsSystem extends SystemBase {
    */
   public getTotalXP(stats: StatsComponent): number {
     let total = 0;
-    
+
     const skills: (keyof Skills)[] = [
-      Skill.ATTACK, Skill.STRENGTH, Skill.DEFENSE, Skill.RANGE, 
-      Skill.CONSTITUTION, Skill.WOODCUTTING, Skill.FISHING,
-      Skill.FIREMAKING, Skill.COOKING
+      Skill.ATTACK,
+      Skill.STRENGTH,
+      Skill.DEFENSE,
+      Skill.RANGE,
+      Skill.CONSTITUTION,
+      Skill.WOODCUTTING,
+      Skill.FISHING,
+      Skill.FIREMAKING,
+      Skill.COOKING,
     ];
 
     for (const skill of skills) {
@@ -344,13 +392,19 @@ export class SkillsSystem extends SystemBase {
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
+      console.warn(
+        `[SkillsSystem] Entity ${entityId} has no stats component. Available components:`,
+        Array.from(entity.components.keys()),
+      );
       return;
     }
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
+      console.warn(
+        `[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`,
+        stats,
+      );
       return;
     }
 
@@ -366,14 +420,18 @@ export class SkillsSystem extends SystemBase {
 
     this.emitTypedEvent(EventType.SKILLS_RESET, {
       entityId,
-      skill
+      skill,
     });
   }
 
   /**
    * Set skill level directly (for admin commands)
    */
-  public setSkillLevel(entityId: string, skill: keyof Skills, level: number): void {
+  public setSkillLevel(
+    entityId: string,
+    skill: keyof Skills,
+    level: number,
+  ): void {
     if (level < 1 || level > SkillsSystem.MAX_LEVEL) {
       console.warn(`Invalid level ${level} for skill ${skill}`);
       return;
@@ -384,13 +442,19 @@ export class SkillsSystem extends SystemBase {
 
     const stats = getStatsComponent(entity);
     if (!stats) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no stats component. Available components:`, Array.from(entity.components.keys()));
+      console.warn(
+        `[SkillsSystem] Entity ${entityId} has no stats component. Available components:`,
+        Array.from(entity.components.keys()),
+      );
       return;
     }
-    
+
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`, stats);
+      console.warn(
+        `[SkillsSystem] Entity ${entityId} has no skill data for ${skill}. Stats component:`,
+        stats,
+      );
       return;
     }
 
@@ -412,11 +476,9 @@ export class SkillsSystem extends SystemBase {
 
   private generateXPTable(): void {
     this.xpTable = [0, 0]; // Levels 0 and 1
-    
+
     for (let level = 2; level <= SkillsSystem.MAX_LEVEL; level++) {
-      const xp = Math.floor(
-        (level - 1) + 300 * Math.pow(2, (level - 1) / 7)
-      ) / 4;
+      const xp = Math.floor(level - 1 + 300 * Math.pow(2, (level - 1) / 7)) / 4;
       this.xpTable.push(Math.floor(this.xpTable[level - 1] + xp));
     }
   }
@@ -424,16 +486,32 @@ export class SkillsSystem extends SystemBase {
   private setupSkillMilestones(): void {
     // Define special milestones for each skill
     const commonMilestones: SkillMilestone[] = [
-      { level: 50, name: 'Halfway', message: 'Halfway to mastery!', reward: null },
-      { level: 92, name: 'Half XP', message: 'Halfway to 99 in XP!', reward: null },
-      { level: 99, name: 'Mastery', message: 'Skill mastered!', reward: null }
+      {
+        level: 50,
+        name: "Halfway",
+        message: "Halfway to mastery!",
+        reward: null,
+      },
+      {
+        level: 92,
+        name: "Half XP",
+        message: "Halfway to 99 in XP!",
+        reward: null,
+      },
+      { level: 99, name: "Mastery", message: "Skill mastered!", reward: null },
     ];
 
     // Apply common milestones to all skills
     const skills: (keyof Skills)[] = [
-      Skill.ATTACK, Skill.STRENGTH, Skill.DEFENSE, Skill.RANGE, 
-      Skill.CONSTITUTION, Skill.WOODCUTTING, Skill.FISHING,
-      Skill.FIREMAKING, Skill.COOKING
+      Skill.ATTACK,
+      Skill.STRENGTH,
+      Skill.DEFENSE,
+      Skill.RANGE,
+      Skill.CONSTITUTION,
+      Skill.WOODCUTTING,
+      Skill.FISHING,
+      Skill.FIREMAKING,
+      Skill.COOKING,
     ];
 
     for (const skill of skills) {
@@ -443,21 +521,39 @@ export class SkillsSystem extends SystemBase {
     // Add skill-specific milestones
     const combatMilestones = this.skillMilestones.get(Skill.ATTACK)!;
     combatMilestones.push(
-      { level: 40, name: 'Rune Weapons', message: 'You can now wield rune weapons!', reward: null },
-      { level: 60, name: 'Dragon Weapons', message: 'You can now wield dragon weapons!', reward: null }
+      {
+        level: 40,
+        name: "Rune Weapons",
+        message: "You can now wield rune weapons!",
+        reward: null,
+      },
+      {
+        level: 60,
+        name: "Dragon Weapons",
+        message: "You can now wield dragon weapons!",
+        reward: null,
+      },
     );
   }
 
-  private handleLevelUp(entity: Entity, skill: keyof Skills, oldLevel: number, newLevel: number): void {
+  private handleLevelUp(
+    entity: Entity,
+    skill: keyof Skills,
+    oldLevel: number,
+    newLevel: number,
+  ): void {
     // This method is only called after verifying stats exists in grantXP and setSkillLevel
-    const stats = requireStatsComponent(entity, 'SkillsSystem.handleLevelUp');
+    const stats = requireStatsComponent(entity, "SkillsSystem.handleLevelUp");
 
     const skillData = stats[skill] as SkillData;
     if (!skillData) {
-      console.warn(`[SkillsSystem] Entity ${entity.id} has no skill data for ${skill} in handleLevelUp. Stats component:`, stats);
+      console.warn(
+        `[SkillsSystem] Entity ${entity.id} has no skill data for ${skill} in handleLevelUp. Stats component:`,
+        stats,
+      );
       return;
     }
-    
+
     skillData.level = newLevel;
 
     // Check for milestones
@@ -467,7 +563,7 @@ export class SkillsSystem extends SystemBase {
         this.emitTypedEvent(EventType.SKILLS_MILESTONE, {
           entityId: entity.id,
           skill,
-          milestone
+          milestone,
         });
       }
     }
@@ -489,7 +585,7 @@ export class SkillsSystem extends SystemBase {
       skill,
       oldLevel,
       newLevel,
-      totalLevel: stats.totalLevel
+      totalLevel: stats.totalLevel,
     });
   }
 
@@ -504,11 +600,11 @@ export class SkillsSystem extends SystemBase {
 
     if (newCombatLevel !== oldCombatLevel) {
       stats.combatLevel = newCombatLevel;
-      
+
       this.emitTypedEvent(EventType.COMBAT_LEVEL_CHANGED, {
         entityId: entity.id,
         oldLevel: oldCombatLevel,
-        newLevel: newCombatLevel
+        newLevel: newCombatLevel,
       });
     }
   }
@@ -519,32 +615,36 @@ export class SkillsSystem extends SystemBase {
 
     if (newTotalLevel !== oldTotalLevel) {
       stats.totalLevel = newTotalLevel;
-      
+
       this.emitTypedEvent(EventType.TOTAL_LEVEL_CHANGED, {
         entityId: entity.id,
         oldLevel: oldTotalLevel,
-        newLevel: newTotalLevel
+        newLevel: newTotalLevel,
       });
     }
   }
 
-  private calculateModifiedXP(entity: Entity, skill: keyof Skills, baseXP: number): number {
+  private calculateModifiedXP(
+    entity: Entity,
+    skill: keyof Skills,
+    baseXP: number,
+  ): number {
     const modifier = 1.0;
 
     // Note: inventory component access reserved for future XP bonus calculations
-    
+
     return Math.floor(baseXP * modifier);
   }
 
   // Event handlers
-  private handleCombatKill(data: { 
-    attackerId: string; 
-    targetId: string; 
+  private handleCombatKill(data: {
+    attackerId: string;
+    targetId: string;
     damageDealt: number;
     attackStyle: string;
   }): void {
     const { attackerId, targetId, attackStyle } = data;
-    
+
     const target = this.world.entities.get(targetId) as Entity;
     if (!target) return;
 
@@ -553,72 +653,74 @@ export class SkillsSystem extends SystemBase {
 
     // Calculate XP based on target's hitpoints
     const baseXP = (targetStats.health?.max ?? 10) * 4; // 4 XP per hitpoint
-    
+
     // Grant XP based on attack style using the same pattern as ResourceSystem
     switch (attackStyle) {
-      case 'accurate':
+      case "accurate":
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.ATTACK,
-          amount: baseXP
+          amount: baseXP,
         });
         break;
-      case 'aggressive':
+      case "aggressive":
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.STRENGTH,
-          amount: baseXP
+          amount: baseXP,
         });
         break;
-      case 'defensive':
+      case "defensive":
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.DEFENSE,
-          amount: baseXP
+          amount: baseXP,
         });
         break;
-      case 'controlled':
+      case "controlled":
         // Split XP between attack, strength, and defense
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.ATTACK,
-          amount: baseXP / 3
+          amount: baseXP / 3,
         });
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.STRENGTH,
-          amount: baseXP / 3
+          amount: baseXP / 3,
         });
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.DEFENSE,
-          amount: baseXP / 3
+          amount: baseXP / 3,
         });
         break;
-      case 'ranged':
+      case "ranged":
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.RANGE,
-          amount: baseXP
+          amount: baseXP,
         });
         break;
-      case 'melee':
+      case "melee":
         // Default melee attack - grant strength XP
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.STRENGTH,
-          amount: baseXP
+          amount: baseXP,
         });
         break;
-      case 'magic':
+      case "magic":
         // Magic is not in our current Skill enum, skip for MVP
         break;
       default:
-        console.warn(`[SkillsSystem] Unknown attack style: ${attackStyle}, defaulting to strength XP`);
+        console.warn(
+          `[SkillsSystem] Unknown attack style: ${attackStyle}, defaulting to strength XP`,
+        );
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.STRENGTH,
-          amount: baseXP
+          amount: baseXP,
         });
         break;
     }
@@ -627,7 +729,7 @@ export class SkillsSystem extends SystemBase {
     this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
       playerId: attackerId,
       skill: Skill.CONSTITUTION,
-      amount: baseXP / 3
+      amount: baseXP / 3,
     });
   }
 
@@ -668,13 +770,16 @@ export class SkillsSystem extends SystemBase {
     return [...this.xpDrops];
   }
 
-  public getSkillData(entityId: string, skill: keyof Skills): SkillData | undefined {
+  public getSkillData(
+    entityId: string,
+    skill: keyof Skills,
+  ): SkillData | undefined {
     const entity = this.world.entities.get(entityId) as Entity;
     if (!entity) return undefined;
 
     const stats = getStatsComponent(entity);
     if (!stats) return undefined;
-    
+
     return stats[skill] as SkillData;
   }
 
@@ -695,7 +800,7 @@ export class SkillsSystem extends SystemBase {
       woodcutting: stats.woodcutting ?? { level: 1, xp: 0 },
       fishing: stats.fishing ?? { level: 1, xp: 0 },
       firemaking: stats.firemaking ?? { level: 1, xp: 0 },
-      cooking: stats.cooking ?? { level: 1, xp: 0 }
+      cooking: stats.cooking ?? { level: 1, xp: 0 },
     };
 
     return skills;
@@ -704,16 +809,16 @@ export class SkillsSystem extends SystemBase {
   destroy(): void {
     // Clear XP drops for UI
     this.xpDrops.length = 0;
-    
+
     // Clear skill milestones
     this.skillMilestones.clear();
-    
+
     // Clear XP table
     this.xpTable.length = 0;
-    
+
     // Event cleanup is handled by parent SystemBase destroy method
-    
+
     // Call parent cleanup
     super.destroy();
   }
-} 
+}

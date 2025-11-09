@@ -1,9 +1,9 @@
 /**
  * physics.ts - PhysX Type Definitions and Re-exports
- * 
+ *
  * Centralized type definitions for the PhysX physics engine integration.
  * This file provides TypeScript types for all PhysX APIs used in Hyperscape.
- * 
+ *
  * **Type Organization:**
  * - Core types: PxVec3, PxQuat, PxTransform (math/transforms)
  * - Actor types: PxRigidDynamic, PxRigidStatic, PxRigidBody (physics objects)
@@ -11,193 +11,193 @@
  * - Controller types: PxController, PxControllerManager (character controllers)
  * - Query types: PxRaycastHit, PxSweepHit, PxOverlapHit (collision queries)
  * - Event types: PxContactPair, PxTriggerPair (collision callbacks)
- * 
+ *
  * **PhysX Integration:**
  * - Types are re-exported from @hyperscape/physx-js-webidl
  * - PhysX runs in both browser (WASM) and Node.js (native bindings)
  * - Used by Physics system, character controllers, and collision detection
- * 
+ *
  * **Custom Extensions:**
  * - PhysXInfo: Loaded PhysX instance info (foundation, physics, cooking)
  * - PhysicsHandle: Actor tracking with tags and callbacks
  * - ContactEvent, TriggerEvent: Simplified collision events for game logic
- * 
+ *
  * **Referenced by:** Physics system, character controllers, collision components
  */
 
-import type { default as PhysX } from '@hyperscape/physx-js-webidl';
-import THREE from '../extras/three';
-import type { System } from '../systems/System';
-import type { Collider, Entity, HotReloadable } from './index';
-import type { User } from './networking';
+import type { default as PhysX } from "@hyperscape/physx-js-webidl";
+import THREE from "../extras/three";
+import type { System } from "../systems/System";
+import type { Collider, Entity, HotReloadable } from "./index";
+import type { User } from "./networking";
 
 // Re-export the PhysX namespace for direct access
-export type { default as PhysX } from '@hyperscape/physx-js-webidl';
+export type { default as PhysX } from "@hyperscape/physx-js-webidl";
 
 // Re-export HotReloadable for entities
 export type { HotReloadable };
 
 /** Helper type for the loaded PhysX module instance */
-export type PhysXModule = Awaited<ReturnType<typeof PhysX>>
+export type PhysXModule = Awaited<ReturnType<typeof PhysX>>;
 
 // ============================================================================
 // CORE PHYSX TYPES
 // ============================================================================
 // Direct type aliases to avoid duplication and maintain single source of truth
-export type PxVec3 = PhysX.PxVec3
-export type PxQuat = PhysX.PxQuat  
-export type PxTransform = PhysX.PxTransform
+export type PxVec3 = PhysX.PxVec3;
+export type PxQuat = PhysX.PxQuat;
+export type PxTransform = PhysX.PxTransform;
 
 // Actor types
-export type PxActor = PhysX.PxActor
-export type PxRigidActor = PhysX.PxRigidActor
-export type PxRigidBody = PhysX.PxRigidBody
-export type PxRigidDynamic = PhysX.PxRigidDynamic
-export type PxRigidStatic = PhysX.PxRigidStatic
+export type PxActor = PhysX.PxActor;
+export type PxRigidActor = PhysX.PxRigidActor;
+export type PxRigidBody = PhysX.PxRigidBody;
+export type PxRigidDynamic = PhysX.PxRigidDynamic;
+export type PxRigidStatic = PhysX.PxRigidStatic;
 
 // Core PhysX objects
-export type PxPhysics = PhysX.PxPhysics
-export type PxScene = PhysX.PxScene
-export type PxFoundation = PhysX.PxFoundation
-export type PxTolerancesScale = PhysX.PxTolerancesScale
-export type PxCookingParams = PhysX.PxCookingParams
-export type PxDefaultAllocator = PhysX.PxDefaultAllocator
-export type PxDefaultErrorCallback = PhysX.PxDefaultErrorCallback
+export type PxPhysics = PhysX.PxPhysics;
+export type PxScene = PhysX.PxScene;
+export type PxFoundation = PhysX.PxFoundation;
+export type PxTolerancesScale = PhysX.PxTolerancesScale;
+export type PxCookingParams = PhysX.PxCookingParams;
+export type PxDefaultAllocator = PhysX.PxDefaultAllocator;
+export type PxDefaultErrorCallback = PhysX.PxDefaultErrorCallback;
 
 // Shape and material types
-export type PxShape = PhysX.PxShape
-export type PxMaterial = PhysX.PxMaterial
-export type PxFilterData = PhysX.PxFilterData
-export type PxQueryFilterData = PhysX.PxQueryFilterData
+export type PxShape = PhysX.PxShape;
+export type PxMaterial = PhysX.PxMaterial;
+export type PxFilterData = PhysX.PxFilterData;
+export type PxQueryFilterData = PhysX.PxQueryFilterData;
 
 // Geometry types
-export type PxGeometry = PhysX.PxGeometry
-export type PxBoxGeometry = PhysX.PxBoxGeometry
-export type PxSphereGeometry = PhysX.PxSphereGeometry
-export type PxCapsuleGeometry = PhysX.PxCapsuleGeometry
-export type PxPlaneGeometry = PhysX.PxPlaneGeometry
-export type PxConvexMeshGeometry = PhysX.PxConvexMeshGeometry
-export type PxTriangleMeshGeometry = PhysX.PxTriangleMeshGeometry
-export type PxHeightFieldGeometry = PhysX.PxHeightFieldGeometry
+export type PxGeometry = PhysX.PxGeometry;
+export type PxBoxGeometry = PhysX.PxBoxGeometry;
+export type PxSphereGeometry = PhysX.PxSphereGeometry;
+export type PxCapsuleGeometry = PhysX.PxCapsuleGeometry;
+export type PxPlaneGeometry = PhysX.PxPlaneGeometry;
+export type PxConvexMeshGeometry = PhysX.PxConvexMeshGeometry;
+export type PxTriangleMeshGeometry = PhysX.PxTriangleMeshGeometry;
+export type PxHeightFieldGeometry = PhysX.PxHeightFieldGeometry;
 
 // Controller types
-export type PxController = PhysX.PxController
-export type PxControllerManager = PhysX.PxControllerManager
-export type PxControllerDesc = PhysX.PxControllerDesc
-export type PxCapsuleControllerDesc = PhysX.PxCapsuleControllerDesc
-export type PxBoxControllerDesc = PhysX.PxBoxControllerDesc
-export type PxControllerFilters = PhysX.PxControllerFilters
-export type PxControllerCollisionFlags = PhysX.PxControllerCollisionFlags
-export type PxExtendedVec3 = PhysX.PxExtendedVec3
-export type PxObstacleContext = PhysX.PxObstacleContext
+export type PxController = PhysX.PxController;
+export type PxControllerManager = PhysX.PxControllerManager;
+export type PxControllerDesc = PhysX.PxControllerDesc;
+export type PxCapsuleControllerDesc = PhysX.PxCapsuleControllerDesc;
+export type PxBoxControllerDesc = PhysX.PxBoxControllerDesc;
+export type PxControllerFilters = PhysX.PxControllerFilters;
+export type PxControllerCollisionFlags = PhysX.PxControllerCollisionFlags;
+export type PxExtendedVec3 = PhysX.PxExtendedVec3;
+export type PxObstacleContext = PhysX.PxObstacleContext;
 
 // Hit result types
-export type PxRaycastHit = PhysX.PxRaycastHit
-export type PxSweepHit = PhysX.PxSweepHit
-export type PxOverlapHit = PhysX.PxOverlapHit
-export type PxRaycastResult = PhysX.PxRaycastResult
-export type PxSweepResult = PhysX.PxSweepResult
-export type PxOverlapResult = PhysX.PxOverlapResult
+export type PxRaycastHit = PhysX.PxRaycastHit;
+export type PxSweepHit = PhysX.PxSweepHit;
+export type PxOverlapHit = PhysX.PxOverlapHit;
+export type PxRaycastResult = PhysX.PxRaycastResult;
+export type PxSweepResult = PhysX.PxSweepResult;
+export type PxOverlapResult = PhysX.PxOverlapResult;
 
 // Event callback types
-export type PxSimulationEventCallback = PhysX.PxSimulationEventCallback
-export type PxContactPair = PhysX.PxContactPair
-export type PxContactPairHeader = PhysX.PxContactPairHeader
-export type PxTriggerPair = PhysX.PxTriggerPair
-export type PxContactPairPoint = PhysX.PxContactPairPoint
+export type PxSimulationEventCallback = PhysX.PxSimulationEventCallback;
+export type PxContactPair = PhysX.PxContactPair;
+export type PxContactPairHeader = PhysX.PxContactPairHeader;
+export type PxTriggerPair = PhysX.PxTriggerPair;
+export type PxContactPairPoint = PhysX.PxContactPairPoint;
 
 // Scene description types
-export type PxSceneDesc = PhysX.PxSceneDesc
-export type PxSceneFlags = PhysX.PxSceneFlags
+export type PxSceneDesc = PhysX.PxSceneDesc;
+export type PxSceneFlags = PhysX.PxSceneFlags;
 
 // Enum types
-export type PxForceModeEnum = PhysX.PxForceModeEnum
-export type PxRigidBodyFlagEnum = PhysX.PxRigidBodyFlagEnum
-export type PxShapeFlagEnum = PhysX.PxShapeFlagEnum
-export type PxActorFlagEnum = PhysX.PxActorFlagEnum
-export type PxHitFlags = PhysX.PxHitFlags
+export type PxForceModeEnum = PhysX.PxForceModeEnum;
+export type PxRigidBodyFlagEnum = PhysX.PxRigidBodyFlagEnum;
+export type PxShapeFlagEnum = PhysX.PxShapeFlagEnum;
+export type PxActorFlagEnum = PhysX.PxActorFlagEnum;
+export type PxHitFlags = PhysX.PxHitFlags;
 
 /**
  * PhysXInfo - Loaded PhysX Instance Information
- * 
+ *
  * Contains references to the core PhysX objects created during initialization.
  * Returned by PhysXManager.load() and used by the Physics system.
  */
 export interface PhysXInfo {
   /** PhysX API version number */
-  version: number
+  version: number;
   /** Memory allocator for PhysX objects */
-  allocator: PxDefaultAllocator
+  allocator: PxDefaultAllocator;
   /** Error callback handler */
-  errorCb: PxDefaultErrorCallback
+  errorCb: PxDefaultErrorCallback;
   /** PhysX foundation (manages memory and threading) */
-  foundation: PxFoundation
+  foundation: PxFoundation;
   /** Main physics simulation interface */
-  physics: PxPhysics
+  physics: PxPhysics;
   /** Cooking interface for mesh preprocessing (optional) */
-  cooking?: unknown
+  cooking?: unknown;
 }
 
 // Strong type assertions for PhysX components
 export interface PhysXRigidBodyActor extends PxRigidDynamic {
-  setGlobalPose(pose: PxTransform): void
-  getGlobalPose(): PxTransform
+  setGlobalPose(pose: PxTransform): void;
+  getGlobalPose(): PxTransform;
 }
 
 export interface PhysXController extends PxController {
-  getActor(): PxRigidDynamic
-  setFootPosition(position: PxExtendedVec3): boolean
+  getActor(): PxRigidDynamic;
+  setFootPosition(position: PxExtendedVec3): boolean;
   move(
     disp: PxVec3,
     minDist: number,
     elapsedTime: number,
     filters: PxControllerFilters,
-    obstacles?: PxObstacleContext
-  ): PxControllerCollisionFlags
+    obstacles?: PxObstacleContext,
+  ): PxControllerCollisionFlags;
 }
 
 // Collision callback interfaces - strongly typed
 // PhysX-native contact event for low-level callbacks
 export interface PhysXContactEvent {
-  bodyA: PxActor
-  bodyB: PxActor
-  shapeA: PxShape
-  shapeB: PxShape
-  contactPoints: PxContactPairPoint[]
-  eventType: 'contact_found' | 'contact_lost' | 'contact_persist'
+  bodyA: PxActor;
+  bodyB: PxActor;
+  shapeA: PxShape;
+  shapeB: PxShape;
+  contactPoints: PxContactPairPoint[];
+  eventType: "contact_found" | "contact_lost" | "contact_persist";
 }
 
 // PhysX-native trigger event for low-level callbacks
 export interface PhysXTriggerEvent {
-  triggerShape: PxShape
-  otherShape: PxShape
-  triggerActor: PxActor
-  otherActor: PxActor
-  eventType: 'trigger_enter' | 'trigger_exit'
+  triggerShape: PxShape;
+  otherShape: PxShape;
+  triggerActor: PxActor;
+  otherActor: PxActor;
+  eventType: "trigger_enter" | "trigger_exit";
 }
 
 // Additional collision callback types with Three.js integration
 export interface ContactCallbackObject {
-  bodyA: PxActor
-  bodyB: PxActor
-  shapeA: PxShape
-  shapeB: PxShape
+  bodyA: PxActor;
+  bodyB: PxActor;
+  shapeA: PxShape;
+  shapeB: PxShape;
   contactPoints: Array<{
-    position: THREE.Vector3
-    normal: THREE.Vector3
-    impulse: THREE.Vector3
-    separation: number
-  }>
-  pairFlags: number
-  eventType: string
+    position: THREE.Vector3;
+    normal: THREE.Vector3;
+    impulse: THREE.Vector3;
+    separation: number;
+  }>;
+  pairFlags: number;
+  eventType: string;
 }
 
 export interface TriggerCallbackObject {
-  triggerShape: PxShape
-  otherShape: PxShape
-  triggerActor: PxActor
-  otherActor: PxActor
-  eventType: string
+  triggerShape: PxShape;
+  otherShape: PxShape;
+  triggerActor: PxActor;
+  otherActor: PxActor;
+  eventType: string;
 }
 // Geometry to PhysX mesh conversion interfaces
 export interface GeometryPhysXMesh {
@@ -264,7 +264,12 @@ export interface WindUniforms {
 // TerrainSystem interface in system-interfaces.ts is the full system interface
 
 export interface PhysicsSystemWithRaycast extends System {
-  raycast?: (origin: THREE.Vector3, direction: THREE.Vector3, maxDistance: number, layers?: number) => unknown;
+  raycast?: (
+    origin: THREE.Vector3,
+    direction: THREE.Vector3,
+    maxDistance: number,
+    layers?: number,
+  ) => unknown;
 }
 
 export interface GroundCheckResult {
@@ -543,7 +548,10 @@ export interface BasePhysicsHandle {
 }
 
 export interface InterpolatedPhysicsHandle extends BasePhysicsHandle {
-  onInterpolate: (position: THREE.Vector3, quaternion: THREE.Quaternion) => void;
+  onInterpolate: (
+    position: THREE.Vector3,
+    quaternion: THREE.Quaternion,
+  ) => void;
   interpolation: InterpolationData;
 }
 
@@ -552,7 +560,9 @@ export interface NonInterpolatedPhysicsHandle extends BasePhysicsHandle {
   interpolation?: undefined;
 }
 
-export type PhysicsHandle = InterpolatedPhysicsHandle | NonInterpolatedPhysicsHandle;
+export type PhysicsHandle =
+  | InterpolatedPhysicsHandle
+  | NonInterpolatedPhysicsHandle;
 
 // Raycast/Sweep hits
 export interface PhysicsRaycastHit {
@@ -585,9 +595,14 @@ export interface PhysicsOverlapHit {
 
 // Collision validation and ground clamping shared types
 export interface CollisionError {
-  type: 'missing_collision' | 'height_mismatch' | 'invalid_geometry' | 'underground_entity' | 'floating_entity';
-  position: { x: number; y: number; z: number }
-  severity: 'critical' | 'warning' | 'info';
+  type:
+    | "missing_collision"
+    | "height_mismatch"
+    | "invalid_geometry"
+    | "underground_entity"
+    | "floating_entity";
+  position: { x: number; y: number; z: number };
+  severity: "critical" | "warning" | "info";
   message: string;
   timestamp: number;
   expectedHeight?: number;
@@ -618,14 +633,14 @@ export interface GroundClampingOptions {
 
 export interface EntityGroundState {
   entityId: string;
-  position: { x: number; y: number; z: number }
+  position: { x: number; y: number; z: number };
   groundHeight: number;
   isOnGround: boolean;
   isUnderground: boolean;
   isFloating: boolean;
   lastGroundContact: number;
   verticalVelocity: number;
-  groundNormal: { x: number; y: number; z: number }
+  groundNormal: { x: number; y: number; z: number };
   surfaceType: string;
 }
 

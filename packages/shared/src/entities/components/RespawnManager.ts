@@ -14,7 +14,7 @@
  * 4. Use same system for initial spawn AND respawn
  */
 
-import type { Position3D } from '../../types';
+import type { Position3D } from "../../types";
 
 export interface RespawnConfig {
   /** Center of the spawn area */
@@ -41,13 +41,13 @@ export class RespawnManager {
       ...config,
       // Enforce minimum respawn time (15 seconds)
       respawnTimeMin: Math.max(config.respawnTimeMin || 15000, 15000),
-      respawnTimeMax: Math.max(config.respawnTimeMax || 15000, 15000)
+      respawnTimeMax: Math.max(config.respawnTimeMax || 15000, 15000),
     };
 
-    console.log('[RespawnManager] Created with config:', {
+    console.log("[RespawnManager] Created with config:", {
       center: `(${config.spawnAreaCenter.x.toFixed(1)}, ${config.spawnAreaCenter.z.toFixed(1)})`,
       radius: `${config.spawnAreaRadius}m`,
-      respawnTime: `${this.config.respawnTimeMin / 1000}-${this.config.respawnTimeMax / 1000}s`
+      respawnTime: `${this.config.respawnTimeMin / 1000}-${this.config.respawnTimeMax / 1000}s`,
     });
   }
 
@@ -69,12 +69,12 @@ export class RespawnManager {
     const spawnPoint: Position3D = {
       x: center.x + Math.cos(angle) * distance,
       y: center.y, // Will be snapped to terrain
-      z: center.z + Math.sin(angle) * distance
+      z: center.z + Math.sin(angle) * distance,
     };
 
-    console.log('[RespawnManager] Generated spawn point:', {
+    console.log("[RespawnManager] Generated spawn point:", {
       point: `(${spawnPoint.x.toFixed(2)}, ${spawnPoint.y.toFixed(2)}, ${spawnPoint.z.toFixed(2)})`,
-      distanceFromCenter: distance.toFixed(2)
+      distanceFromCenter: distance.toFixed(2),
     });
 
     return spawnPoint;
@@ -101,7 +101,8 @@ export class RespawnManager {
   startRespawnTimer(currentTime: number, deathPosition?: Position3D): void {
     // Generate random respawn duration between min and max
     const randomRange = this.config.respawnTimeMax - this.config.respawnTimeMin;
-    this.respawnDuration = this.config.respawnTimeMin + Math.random() * randomRange;
+    this.respawnDuration =
+      this.config.respawnTimeMin + Math.random() * randomRange;
 
     this.respawnTimerStart = currentTime;
 
@@ -109,11 +110,18 @@ export class RespawnManager {
     // CRITICAL: This is DIFFERENT from death location!
     this.currentRespawnPoint = this.generateSpawnPoint();
 
-    console.log('[RespawnManager] ⏰ Respawn timer started:', {
+    console.log("[RespawnManager] ⏰ Respawn timer started:", {
       duration: `${(this.respawnDuration / 1000).toFixed(1)}s`,
-      deathLocation: deathPosition ? `(${deathPosition.x.toFixed(2)}, ${deathPosition.y.toFixed(2)}, ${deathPosition.z.toFixed(2)})` : 'unknown',
+      deathLocation: deathPosition
+        ? `(${deathPosition.x.toFixed(2)}, ${deathPosition.y.toFixed(2)}, ${deathPosition.z.toFixed(2)})`
+        : "unknown",
       newRespawnPoint: `(${this.currentRespawnPoint.x.toFixed(2)}, ${this.currentRespawnPoint.y.toFixed(2)}, ${this.currentRespawnPoint.z.toFixed(2)})`,
-      distanceFromDeath: deathPosition ? this.calculateDistance(deathPosition, this.currentRespawnPoint).toFixed(2) : 'N/A'
+      distanceFromDeath: deathPosition
+        ? this.calculateDistance(
+            deathPosition,
+            this.currentRespawnPoint,
+          ).toFixed(2)
+        : "N/A",
     });
   }
 
@@ -136,9 +144,9 @@ export class RespawnManager {
     const elapsed = currentTime - this.respawnTimerStart;
 
     if (elapsed >= this.respawnDuration) {
-      console.log('[RespawnManager] ⏰ Respawn timer expired:', {
+      console.log("[RespawnManager] ⏰ Respawn timer expired:", {
         elapsed: `${(elapsed / 1000).toFixed(1)}s`,
-        threshold: `${(this.respawnDuration / 1000).toFixed(1)}s`
+        threshold: `${(this.respawnDuration / 1000).toFixed(1)}s`,
       });
 
       this.triggerRespawn();
@@ -150,12 +158,12 @@ export class RespawnManager {
    */
   private triggerRespawn(): void {
     if (!this.currentRespawnPoint) {
-      console.error('[RespawnManager] No respawn point available!');
+      console.error("[RespawnManager] No respawn point available!");
       return;
     }
 
-    console.log('[RespawnManager] 🔄 Respawning at:', {
-      point: `(${this.currentRespawnPoint.x.toFixed(2)}, ${this.currentRespawnPoint.y.toFixed(2)}, ${this.currentRespawnPoint.z.toFixed(2)})`
+    console.log("[RespawnManager] 🔄 Respawning at:", {
+      point: `(${this.currentRespawnPoint.x.toFixed(2)}, ${this.currentRespawnPoint.y.toFixed(2)}, ${this.currentRespawnPoint.z.toFixed(2)})`,
     });
 
     // Reset timer
@@ -233,7 +241,8 @@ export class RespawnManager {
     const dx = position.x - center.x;
     const dz = position.z - center.z;
     const distanceSquared = dx * dx + dz * dz;
-    const radiusSquared = this.config.spawnAreaRadius * this.config.spawnAreaRadius;
+    const radiusSquared =
+      this.config.spawnAreaRadius * this.config.spawnAreaRadius;
     return distanceSquared <= radiusSquared;
   }
 }

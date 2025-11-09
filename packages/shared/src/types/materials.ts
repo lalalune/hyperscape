@@ -1,11 +1,11 @@
 /**
  * Material system types
- * 
+ *
  * These types are used across various systems that work with THREE.js materials,
  * including the Stage system and any rendering-related functionality.
  */
 
-import type THREE from '../extras/three';
+import type THREE from "../extras/three";
 
 /**
  * Type-safe material interfaces for THREE.js materials

@@ -1,6 +1,6 @@
-import type { World } from '../World'
-import THREE from '../extras/three'
-import { System } from './System'
+import type { World } from "../World";
+import THREE from "../extras/three";
+import { System } from "./System";
 
 /**
  * Anchor System
@@ -10,26 +10,26 @@ import { System } from './System'
  *
  */
 export class Anchors extends System {
-  private matrices: Map<string, THREE.Matrix4>
+  private matrices: Map<string, THREE.Matrix4>;
 
   constructor(world: World) {
-    super(world)
-    this.matrices = new Map()
+    super(world);
+    this.matrices = new Map();
   }
 
   get(id: string): THREE.Matrix4 | undefined {
-    return this.matrices.get(id)
+    return this.matrices.get(id);
   }
 
   add(id: string, matrix: THREE.Matrix4): void {
-    this.matrices.set(id, matrix)
+    this.matrices.set(id, matrix);
   }
 
   remove(id: string): void {
-    this.matrices.delete(id)
+    this.matrices.delete(id);
   }
 
   override destroy(): void {
-    this.matrices.clear()
+    this.matrices.clear();
   }
 }

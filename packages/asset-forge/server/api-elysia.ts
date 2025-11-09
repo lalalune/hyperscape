@@ -80,7 +80,7 @@ const app = new Elysia()
         {
           status: 429,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       ),
       // Skip rate limiting for health checks
       skip: (req) => new URL(req.url).pathname === "/api/health",
@@ -205,7 +205,8 @@ const app = new Elysia()
         ".svg": "image/svg+xml",
       };
 
-      set.headers["content-type"] = contentTypes[ext] || "application/octet-stream";
+      set.headers["content-type"] =
+        contentTypes[ext] || "application/octet-stream";
       set.headers["cache-control"] = "public, max-age=3600";
 
       return file;
@@ -267,7 +268,5 @@ if (!process.env.ELEVENLABS_API_KEY) {
     "⚠️  ELEVENLABS_API_KEY not found - voice, music, and sound effects generation will fail",
   );
 }
-
-
 
 export type App = typeof app;

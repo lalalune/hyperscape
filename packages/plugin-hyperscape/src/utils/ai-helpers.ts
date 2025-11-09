@@ -50,8 +50,12 @@ export function composeContext(options: ComposeContextOptions): string {
   const agentNameRaw = runtime?.character?.name || "Assistant";
 
   // Convert arrays to strings (bio and name can be string | string[])
-  const characterBio = Array.isArray(characterBioRaw) ? characterBioRaw.join(", ") : characterBioRaw;
-  const agentName = Array.isArray(agentNameRaw) ? agentNameRaw[0] || "Assistant" : agentNameRaw;
+  const characterBio = Array.isArray(characterBioRaw)
+    ? characterBioRaw.join(", ")
+    : characterBioRaw;
+  const agentName = Array.isArray(agentNameRaw)
+    ? agentNameRaw[0] || "Assistant"
+    : agentNameRaw;
 
   let context = template || "";
 
@@ -59,10 +63,12 @@ export function composeContext(options: ComposeContextOptions): string {
   const replacements: Record<string, string | number | boolean> = {
     agentName,
     characterBio,
-    currentLocation:
-      String(state?.values?.get("currentLocation") || "Unknown Location"),
-    recentMessages:
-      String(state?.values?.get("recentMessages") || "No recent messages"),
+    currentLocation: String(
+      state?.values?.get("currentLocation") || "Unknown Location",
+    ),
+    recentMessages: String(
+      state?.values?.get("recentMessages") || "No recent messages",
+    ),
     ...additionalContext,
   };
 
@@ -169,7 +175,9 @@ export function getChannelContext(channelId?: string): string {
 }
 
 // Export helper functions
-export function formatContext(data: Record<string, string | number | boolean>): string {
+export function formatContext(
+  data: Record<string, string | number | boolean>,
+): string {
   const entries = Object.entries(data).filter(([_, value]) => value != null);
   return entries
     .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
