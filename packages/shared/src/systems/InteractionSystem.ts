@@ -37,14 +37,14 @@ export class InteractionSystem extends System {
   private mouseDownClientPos: { x: number; y: number } | null = null;
   private readonly dragThresholdPx: number = 5;
   private readonly maxClickDistance: number = 100;
-  
+
   // Context menu state
   private raycaster = new THREE.Raycaster();
   private _tempVec2 = new THREE.Vector2();
   private touchStart: { x: number; y: number; time: number } | null = null;
   private longPressTimer: NodeJS.Timeout | null = null;
   private readonly LONG_PRESS_DURATION = 500;
-  
+
   // Debouncing for interactions to prevent duplicates
   private recentPickupRequests = new Map<string, number>();
   private readonly PICKUP_DEBOUNCE_TIME = 1000; // 1 second
@@ -52,18 +52,18 @@ export class InteractionSystem extends System {
   private readonly ATTACK_DEBOUNCE_TIME = 1000; // 1 second
   private recentResourceRequests = new Map<string, number>();
   private readonly RESOURCE_DEBOUNCE_TIME = 1000; // 1 second
-  
+
   // Auto-pickup tracking
   private pendingPickups = new Map<string, { itemId: string; position: Position3D }>();
-  
+
   constructor(world: World) {
     super(world);
   }
-  
+
   override start(): void {
     this.canvas = this.world.graphics?.renderer?.domElement ?? null;
     if (!this.canvas) return;
-    
+
     // Bind once so we can remove correctly on destroy
     this.onCanvasClick = this.onCanvasClick.bind(this);
     this.onRightClick = this.onRightClick.bind(this);
@@ -73,7 +73,7 @@ export class InteractionSystem extends System {
     this.onMouseUp = this.onMouseUp.bind(this);
     this.onTouchStart = this.onTouchStart.bind(this);
     this.onTouchEnd = this.onTouchEnd.bind(this);
-    
+
     // Add event listeners with capture phase for context menu priority
     this.canvas.addEventListener('click', this.onCanvasClick, false);
     this.canvas.addEventListener('contextmenu', this.onContextMenu, true);
@@ -82,85 +82,85 @@ export class InteractionSystem extends System {
     this.canvas.addEventListener('mouseup', this.onMouseUp, false);
     this.canvas.addEventListener('touchstart', this.onTouchStart, true);
     this.canvas.addEventListener('touchend', this.onTouchEnd, true);
-    
+
     // Listen for camera tap events on mobile
     this.world.on(EventType.CAMERA_TAP, this.onCameraTap);
-    
+
     // Listen for movement completion events to trigger auto-pickup
     this.world.on(EventType.ENTITY_MODIFIED, this.onEntityModified.bind(this));
-    
+
     // Create target marker (visual indicator)
     this.createTargetMarker();
   }
-  
+
   private createTargetMarker(): void {
     // Create a circle marker that projects onto terrain
     // We'll create a mesh with vertices that we can update to follow terrain contours
     const segments = 32;
     const innerRadius = 0.3;
     const outerRadius = 0.5;
-    
+
     const geometry = new THREE.BufferGeometry();
     const vertices: number[] = [];
     const indices: number[] = [];
-    
+
     // Create ring geometry with vertices we can update
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
-      
+
       // Inner vertex
       vertices.push(cos * innerRadius, 0, sin * innerRadius);
       // Outer vertex
       vertices.push(cos * outerRadius, 0, sin * outerRadius);
     }
-    
+
     // Create indices for triangles
     for (let i = 0; i < segments; i++) {
       const i1 = i * 2;
       const i2 = i1 + 1;
       const i3 = i1 + 2;
       const i4 = i1 + 3;
-      
+
       indices.push(i1, i3, i2);
       indices.push(i2, i3, i4);
     }
-    
+
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
-    
-    const material = new THREE.MeshBasicMaterial({ 
-      color: 0x00ff00, 
+
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.7,
       depthWrite: false,
       depthTest: true
     });
-    
+
     this.targetMarker = new THREE.Mesh(geometry, material);
     this.targetMarker.visible = false;
-    
+
     const scene = this.world.stage?.scene;
     if (scene) {
       scene.add(this.targetMarker);
     }
   }
-  
+
   private projectMarkerOntoTerrain(centerX: number, centerZ: number, fallbackY: number): void {
     if (!this.targetMarker) return;
-    
+
     const geometry = this.targetMarker.geometry as THREE.BufferGeometry;
     const positionAttribute = geometry.getAttribute('position') as THREE.BufferAttribute;
-    
+
     if (!positionAttribute) return;
-    
+
     // Get terrain system for fast heightmap lookup
-    const terrainSystem = this.world.getSystem('terrain') as 
+    const terrainSystem = this.world.getSystem('terrain') as
       { getHeightAt: (x: number, z: number) => number } | undefined;
-    
+
     if (!terrainSystem) {
       this.targetMarker.position.setY(fallbackY);
       for (let i = 0; i < positionAttribute.count; i++) {
@@ -169,18 +169,18 @@ export class InteractionSystem extends System {
       positionAttribute.needsUpdate = true;
       return;
     }
-    
+
     let totalTerrainY = 0;
     let validVertices = 0;
-    
+
     // Query heightmap for each vertex - this is instant!
     for (let i = 0; i < positionAttribute.count; i++) {
       const x = positionAttribute.getX(i);
       const z = positionAttribute.getZ(i);
-      
+
       // Get terrain height at this vertex position (world space)
       const terrainY = terrainSystem.getHeightAt(centerX + x, centerZ + z);
-      
+
       if (Number.isFinite(terrainY)) {
         totalTerrainY += terrainY;
         validVertices++;
@@ -191,12 +191,12 @@ export class InteractionSystem extends System {
         positionAttribute.setY(i, fallbackY + 0.05);
       }
     }
-    
+
     // Calculate average terrain height and position marker
     if (validVertices > 0) {
       const avgTerrainY = totalTerrainY / validVertices;
       this.targetMarker.position.setY(avgTerrainY);
-      
+
       // Convert all vertex Y values to local space (relative to marker)
       for (let i = 0; i < positionAttribute.count; i++) {
         const worldY = positionAttribute.getY(i);
@@ -210,11 +210,11 @@ export class InteractionSystem extends System {
         positionAttribute.setY(i, 0.05);
       }
     }
-    
+
     positionAttribute.needsUpdate = true;
     geometry.computeVertexNormals();
   }
-  
+
   private onContextMenu(event: MouseEvent): void {
     const target = this.getEntityAtPosition(event.clientX, event.clientY);
     if (target) {
@@ -224,7 +224,7 @@ export class InteractionSystem extends System {
       this.showContextMenu(target, event.clientX, event.clientY);
     }
   }
-  
+
   private onRightClick = (event: MouseEvent): void => {
     event.preventDefault();
     // If user dragged with RMB (orbit gesture for camera), suppress context action
@@ -234,40 +234,40 @@ export class InteractionSystem extends System {
       this.mouseDownClientPos = null;
       return;
     }
-    
+
     // If the event was already marked as handled by camera system, don't cancel movement
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((event as any).cameraHandled) {
       return;
     }
-    
+
     // Only cancel movement on a clean right-click (no drag, not camera rotation)
     this.clearTarget();
   };
-  
+
   private onCameraTap = (event: { x: number, y: number }): void => {
     if (!this.canvas || !this.world.camera) return;
-    
+
     // Check if tapping on an entity first
     const target = this.getEntityAtPosition(event.x, event.y);
     if (target) {
       return;
     }
-    
+
     // Calculate mouse position
     const rect = this.canvas.getBoundingClientRect();
     _mouse.x = ((event.x - rect.left) / rect.width) * 2 - 1;
     _mouse.y = -((event.y - rect.top) / rect.height) * 2 + 1;
-    
+
     this.handleMoveRequest(_mouse);
   }
-  
+
   private clearTarget(): void {
     if (this.targetMarker) {
       this.targetMarker.visible = false;
     }
     this.targetPosition = null;
-    
+
     // Send cancel movement to server
     if (this.world.network?.send) {
       this.world.network.send('moveRequest', {
@@ -276,14 +276,14 @@ export class InteractionSystem extends System {
       });
     }
   }
-  
+
   private onCanvasClick = (event: MouseEvent): void => {
     // If a drag just ended, the camera system will have suppressed this click
     if (event.defaultPrevented) return;
-    
+
     if (event.button !== 0) return; // Left click only
     if (!this.canvas || !this.world.camera) return;
-    
+
     // Check if clicking on an interactable entity (item, NPC, etc.)
     const target = this.getEntityAtPosition(event.clientX, event.clientY);
     if (target) {
@@ -295,34 +295,34 @@ export class InteractionSystem extends System {
           // Check distance to item
           const distance = this.calculateDistance(localPlayer.position, target.position);
           const pickupRange = 2.0; // Same as ItemEntity interaction range
-          
+
           if (distance > pickupRange) {
             // Too far - move towards the item first
             this.moveToItem(localPlayer, target);
             return;
           }
-          
+
           // Close enough - proceed with pickup
           this.attemptPickup(localPlayer, target);
         }
         return;
       }
-      
+
       // For other entities (mobs, NPCs, players, resources), don't show movement indicator
       // They should use context menus or other interaction methods
       return;
     }
-    
+
     // Always handle left-click movement even if another system prevented default
-    
+
     // Now prevent default for our handling
     event.preventDefault();
-    
+
     // Calculate mouse position
     const rect = this.canvas.getBoundingClientRect();
     _mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     _mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    
+
     this.handleMoveRequest(_mouse, event.shiftKey);
   };
 
@@ -331,7 +331,7 @@ export class InteractionSystem extends System {
 
     // Raycast to find click position
     _raycaster.setFromCamera(_mouse, this.world.camera);
-    
+
     // Raycast against full scene to find terrain
     const scene = this.world.stage?.scene;
     let target: THREE.Vector3 | null = null;
@@ -349,25 +349,25 @@ export class InteractionSystem extends System {
         }
       }
     }
-    
+
     // If we clicked on an entity, don't show movement indicator
     if (clickedOnEntity) {
       return;
     }
-    
+
     if (!target) {
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
       target = new THREE.Vector3();
       _raycaster.ray.intersectPlane(plane, target);
     }
-    
+
     if (target) {
       // Clear any previous target
       if (this.targetMarker && this.targetMarker.visible) {
         // Hide old marker immediately
         this.targetMarker.visible = false;
       }
-      
+
       // Clamp target distance from player on XZ plane (server will also validate)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const player = (this.world as any).entities?.player;
@@ -389,7 +389,7 @@ export class InteractionSystem extends System {
         this.projectMarkerOntoTerrain(target.x, target.z, target.y);
         this.targetMarker.visible = true;
       }
-      
+
       // ONLY send move request to server - no local movement!
       // Server is completely authoritative for movement
       if (this.world.network?.send) {
@@ -435,7 +435,7 @@ export class InteractionSystem extends System {
       // Close any open menus on left-click
       window.dispatchEvent(new CustomEvent('contextmenu:close'));
     }
-    
+
     this.isDragging = false;
     this.mouseDownButton = event.button;
     this.mouseDownClientPos = { x: event.clientX, y: event.clientY };
@@ -446,17 +446,17 @@ export class InteractionSystem extends System {
     this.mouseDownButton = null;
     this.mouseDownClientPos = null;
   };
-  
+
   private onTouchStart(event: TouchEvent): void {
     const touch = event.touches[0];
     if (!touch) return;
-    
+
     this.touchStart = {
       x: touch.clientX,
       y: touch.clientY,
       time: Date.now()
     };
-    
+
     this.longPressTimer = setTimeout(() => {
       if (this.touchStart) {
         const target = this.getEntityAtPosition(this.touchStart.x, this.touchStart.y);
@@ -469,21 +469,21 @@ export class InteractionSystem extends System {
       }
     }, this.LONG_PRESS_DURATION);
   }
-  
+
   private onTouchEnd(_event: TouchEvent): void {
     if (this.longPressTimer) {
       clearTimeout(this.longPressTimer);
       this.longPressTimer = null;
     }
-    
+
     if (this.touchStart && Date.now() - this.touchStart.time < this.LONG_PRESS_DURATION) {
       this.touchStart = null;
       return;
     }
-    
+
     this.touchStart = null;
   }
-  
+
   override update(): void {
     // Animate target marker
     if (this.targetMarker && this.targetMarker.visible) {
@@ -492,7 +492,7 @@ export class InteractionSystem extends System {
       const scale = 1 + Math.sin(time * 4) * 0.1;
       this.targetMarker.scale.set(scale, 1, scale);
       // Note: No rotation effect since marker is projected onto terrain
-      
+
       // Hide marker when player reaches target
       const player = this.world.entities.player;
       if (player && this.targetPosition) {
@@ -504,41 +504,41 @@ export class InteractionSystem extends System {
       }
     }
   }
-  
+
   // === CONTEXT MENU METHODS (merged from EntityInteractionSystem) ===
-  
-  private getEntityAtPosition(screenX: number, screenY: number): { 
-    id: string; 
-    type: string; 
-    name: string; 
+
+  private getEntityAtPosition(screenX: number, screenY: number): {
+    id: string;
+    type: string;
+    name: string;
     entity: unknown;
-    position: Position3D 
+    position: Position3D
   } | null {
     if (!this.canvas || !this.world.camera || !this.world.stage?.scene) return null;
-    
+
     const rect = this.canvas.getBoundingClientRect();
     const x = ((screenX - rect.left) / rect.width) * 2 - 1;
     const y = -((screenY - rect.top) / rect.height) * 2 + 1;
-    
+
     this.raycaster.setFromCamera(this._tempVec2.set(x, y), this.world.camera);
-    
+
     const intersects = this.raycaster.intersectObjects(this.world.stage.scene.children, true);
-    
+
     for (const intersect of intersects) {
       if (intersect.distance > 200) continue;
-      
+
       let obj: THREE.Object3D | null = intersect.object;
       while (obj) {
         const userData = obj.userData;
         // Look for any entity identifier - entityId, mobId, resourceId, or itemId
         const entityId = userData?.entityId || userData?.mobId || userData?.resourceId || userData?.itemId;
-        
+
         if (entityId) {
           const entity = this.world.entities.get(entityId);
           if (entity) {
             const worldPos = new THREE.Vector3();
             obj.getWorldPosition(worldPos);
-            
+
             return {
               id: entityId,
               type: entity.type || userData.type || 'unknown',
@@ -548,25 +548,25 @@ export class InteractionSystem extends System {
             };
           }
         }
-        
+
         obj = obj.parent as THREE.Object3D | null;
       }
     }
-    
+
     return null;
   }
 
   private showContextMenu(target: { id: string; type: string; name: string; entity: unknown; position: Position3D }, screenX: number, screenY: number): void {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
-    
+
     const actions = this.getActionsForEntityType(target, localPlayer.id);
-    
+
     if (actions.length === 0) {
       console.warn('[InteractionSystem] No actions available for', target.type);
       return;
     }
-    
+
     const evt = new CustomEvent('contextmenu', {
       detail: {
         target: {
@@ -584,18 +584,18 @@ export class InteractionSystem extends System {
       }
     });
     window.dispatchEvent(evt);
-    
+
     const onSelect = (e: Event) => {
       const ce = e as CustomEvent<{ actionId: string; targetId: string }>;
-      
+
       if (!ce?.detail || ce.detail.targetId !== target.id) {
         return;
       }
-      
+
       window.removeEventListener('contextmenu:select', onSelect as EventListener);
-      
+
       const action = actions.find(a => a.id === ce.detail.actionId);
-      
+
       if (action) {
         action.handler();
       }
@@ -605,7 +605,7 @@ export class InteractionSystem extends System {
 
   private getActionsForEntityType(target: { id: string; type: string; name: string; entity: unknown; position: Position3D }, playerId: string): InteractionAction[] {
     const actions: InteractionAction[] = [];
-    
+
     switch (target.type) {
       case 'item':
         actions.push({
@@ -616,17 +616,17 @@ export class InteractionSystem extends System {
           handler: () => {
             const player = this.world.getPlayer();
             if (!player) return;
-            
+
             // Check distance to item
             const distance = this.calculateDistance(player.position, target.position);
             const pickupRange = 2.0; // Same as ItemEntity interaction range
-            
+
             if (distance > pickupRange) {
               // Too far - move towards the item first
               this.moveToItem(player, target);
               return;
             }
-            
+
             // Close enough - proceed with pickup
             this.attemptPickup(player, target);
           }
@@ -645,7 +645,7 @@ export class InteractionSystem extends System {
           }
         });
         break;
-        
+
       case 'headstone':
       case 'corpse':
         actions.push({
@@ -675,11 +675,11 @@ export class InteractionSystem extends System {
           }
         });
         break;
-        
+
       case 'resource': {
         type ResourceEntity = { config?: { resourceType?: string } }
         const resourceType = (target.entity as ResourceEntity).config?.resourceType || 'tree';
-        
+
         if (resourceType.includes('tree')) {
           actions.push({
             id: 'chop',
@@ -705,7 +705,7 @@ export class InteractionSystem extends System {
             handler: () => this.handleResourceAction(target.id, 'fish')
           });
         }
-        
+
         actions.push({
           id: 'walk_here',
           label: 'Walk here',
@@ -722,12 +722,12 @@ export class InteractionSystem extends System {
         });
         break;
       }
-        
+
       case 'mob': {
         type MobEntity = { getMobData?: () => { health?: number; level?: number } | null }
         const mobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
         const isAlive = (mobData?.health || 0) > 0;
-        
+
         actions.push({
           id: 'attack',
           label: `Attack ${target.name} (Lv${mobData?.level || 1})`,
@@ -737,30 +737,30 @@ export class InteractionSystem extends System {
             // Check if mob is still alive before attacking
             const currentMobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
             const isStillAlive = (currentMobData?.health || 0) > 0;
-            
+
             if (!isStillAlive) {
               return; // Mob is dead, don't attack
             }
-            
+
             // Check for debouncing to prevent duplicate attack requests
             const attackKey = `${playerId}:${target.id}`;
             const now = Date.now();
             const lastRequest = this.recentAttackRequests.get(attackKey);
-            
+
             if (lastRequest && (now - lastRequest) < this.ATTACK_DEBOUNCE_TIME) {
               return;
             }
-            
+
             // Record this attack request
             this.recentAttackRequests.set(attackKey, now);
-            
+
             // Clean up old entries (older than 5 seconds)
             for (const [key, timestamp] of this.recentAttackRequests.entries()) {
               if (now - timestamp > 5000) {
                 this.recentAttackRequests.delete(key);
               }
             }
-            
+
             if (this.world.network?.send) {
               this.world.network.send('attackMob', {
                 mobId: target.id,
@@ -793,12 +793,12 @@ export class InteractionSystem extends System {
         });
         break;
       }
-        
+
       case 'npc': {
         type NPCEntity = { config?: { services?: string[] } }
         const npcConfig = (target.entity as NPCEntity).config || {};
         const services = npcConfig.services || [];
-        
+
         if (services.includes('bank')) {
           actions.push({
             id: 'open-bank',
@@ -814,7 +814,7 @@ export class InteractionSystem extends System {
             }
           });
         }
-        
+
         if (services.includes('store')) {
           actions.push({
             id: 'open-store',
@@ -830,7 +830,7 @@ export class InteractionSystem extends System {
             }
           });
         }
-        
+
         actions.push({
           id: 'talk',
           label: 'Talk',
@@ -843,7 +843,7 @@ export class InteractionSystem extends System {
             });
           }
         });
-        
+
         actions.push({
           id: 'examine',
           label: 'Examine',
@@ -854,58 +854,58 @@ export class InteractionSystem extends System {
         break;
       }
     }
-    
+
     return actions;
   }
 
   private handleResourceAction(resourceId: string, action: string): void {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
-    
+
     // Get the resource entity to check distance
     const resourceEntity = this.world.entities.get(resourceId);
     if (!resourceEntity) {
       console.warn('[InteractionSystem] Resource entity not found:', resourceId);
       return;
     }
-    
+
     // Check distance to resource (RuneScape-style: walk if too far, then interact)
     const resourcePos = resourceEntity.position;
     const playerPos = localPlayer.position;
     const distance = Math.sqrt(
-      Math.pow(resourcePos.x - playerPos.x, 2) + 
+      Math.pow(resourcePos.x - playerPos.x, 2) +
       Math.pow(resourcePos.z - playerPos.z, 2)
     );
-    
+
     const interactionDistance = 3.0; // Must be within 3 meters
-    
+
     if (distance > interactionDistance) {
       // Too far - walk to resource first (RuneScape behavior)
       console.log(`[InteractionSystem] 🚶 Walking to ${action} (distance: ${distance.toFixed(1)}m)`);
-      
+
       // Walk to just outside interaction range
       const targetDistance = interactionDistance - 0.5; // Stop 0.5m before max range
       const direction = {
         x: (resourcePos.x - playerPos.x) / distance,
         z: (resourcePos.z - playerPos.z) / distance
       };
-      
+
       const targetPos = {
         x: resourcePos.x - direction.x * targetDistance,
         y: resourcePos.y,
         z: resourcePos.z - direction.z * targetDistance
       };
-      
+
       this.walkTo(targetPos);
-      
+
       // Schedule the resource action to execute after walking
       setTimeout(() => {
         // Re-check distance after walking
         const newDistance = Math.sqrt(
-          Math.pow(resourcePos.x - localPlayer.position.x, 2) + 
+          Math.pow(resourcePos.x - localPlayer.position.x, 2) +
           Math.pow(resourcePos.z - localPlayer.position.z, 2)
         );
-        
+
         if (newDistance <= interactionDistance + 0.5) {
           // Close enough now - execute the action
           this.executeResourceAction(resourceId, action);
@@ -913,37 +913,37 @@ export class InteractionSystem extends System {
           console.warn('[InteractionSystem] Still too far after walking, skipping action');
         }
       }, 2000); // Wait 2 seconds for walking
-      
+
       return;
     }
-    
+
     // Close enough - execute immediately
     this.executeResourceAction(resourceId, action);
   }
-  
+
   private executeResourceAction(resourceId: string, action: string): void {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
-    
+
     // Check for debouncing to prevent duplicate resource requests
     const resourceKey = `${localPlayer.id}:${resourceId}`;
     const now = Date.now();
     const lastRequest = this.recentResourceRequests.get(resourceKey);
-    
+
     if (lastRequest && (now - lastRequest) < this.RESOURCE_DEBOUNCE_TIME) {
       return;
     }
-    
+
     // Record this resource request
     this.recentResourceRequests.set(resourceKey, now);
-    
+
     // Clean up old entries (older than 5 seconds)
     for (const [key, timestamp] of this.recentResourceRequests.entries()) {
       if (now - timestamp > 5000) {
         this.recentResourceRequests.delete(key);
       }
     }
-    
+
     // Send network packet to server to start gathering
     if (this.world.network?.send) {
       this.world.network.send('resourceGather', {
@@ -981,7 +981,7 @@ export class InteractionSystem extends System {
 
   private examineEntity(target: { type: string; name: string; entity: unknown }, playerId: string): void {
     let message = `It's ${target.name.toLowerCase()}.`;
-    
+
     if (target.type === 'mob') {
       type MobEntity = { getMobData?: () => { health?: number; level?: number } | null }
       const mobData = (target.entity as MobEntity).getMobData ? (target.entity as MobEntity).getMobData!() : null;
@@ -997,7 +997,7 @@ export class InteractionSystem extends System {
         message = 'Fish are swimming in the water here.';
       }
     }
-    
+
     this.world.emit(EventType.UI_MESSAGE, {
       playerId,
       message,
@@ -1025,7 +1025,7 @@ export class InteractionSystem extends System {
       itemId: target.id,
       position: target.position
     });
-    
+
     // Send move request to get closer to the item
     if (this.world.network?.send) {
       this.world.network.send('moveRequest', {
@@ -1033,7 +1033,7 @@ export class InteractionSystem extends System {
         runMode: false
       });
     }
-    
+
     // Show feedback message
     this.world.emit(EventType.UI_MESSAGE, {
       playerId: player.id,
@@ -1050,21 +1050,21 @@ export class InteractionSystem extends System {
     const pickupKey = `${player.id}:${target.id}`;
     const now = Date.now();
     const lastRequest = this.recentPickupRequests.get(pickupKey);
-    
+
     if (lastRequest && (now - lastRequest) < this.PICKUP_DEBOUNCE_TIME) {
       return;
     }
-    
+
     // Record this pickup request
     this.recentPickupRequests.set(pickupKey, now);
-    
+
     // Clean up old entries (older than 5 seconds)
     for (const [key, timestamp] of this.recentPickupRequests.entries()) {
       if (now - timestamp > 5000) {
         this.recentPickupRequests.delete(key);
       }
     }
-    
+
     if (this.world.network?.send) {
       this.world.network.send('pickupItem', { itemId: target.id });
     } else {
@@ -1101,7 +1101,7 @@ export class InteractionSystem extends System {
           // Check if we're close enough to the item now
           const distance = this.calculateDistance(player.position, pendingPickup.position);
           const pickupRange = 2.0;
-          
+
           if (distance <= pickupRange) {
             // Close enough - attempt pickup
             const target = {
@@ -1111,7 +1111,7 @@ export class InteractionSystem extends System {
             };
             this.attemptPickup(player, target);
           }
-          
+
           // Clear the pending pickup regardless
           this.pendingPickups.delete(player.id);
         }

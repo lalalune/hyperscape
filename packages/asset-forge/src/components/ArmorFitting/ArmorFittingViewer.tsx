@@ -102,16 +102,16 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
       const apiMatch = avatarUrl.match(new RegExp('^/api/assets/([^/]+)/model'))
       if (apiMatch) {
         const assetId = apiMatch[1]
-        const animFileName = currentAnimation === 'walking' ? 'anim_walk.glb' : 'anim_run.glb'
+        const animFileName = currentAnimation === 'walking' ? 'animations/walking.glb' : 'animations/running.glb'
         // Use the API endpoint to get animation files
         return `/api/assets/${assetId}/${animFileName}`
       }
-      
+
       // Handle direct gdd-assets paths (for local testing)
       const gddMatch = avatarUrl.match(new RegExp('gdd-assets/([^/]+)/'))
       if (gddMatch) {
         const characterName = gddMatch[1]
-        const animFileName = currentAnimation === 'walking' ? 'anim_walk.glb' : 'anim_run.glb'
+        const animFileName = currentAnimation === 'walking' ? 'animations/walking.glb' : 'animations/running.glb'
         return `./gdd-assets/${characterName}/${animFileName}`
       }
     }
@@ -126,42 +126,27 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
       setAnimationGltf(null)
       return
     }
-    
-    // Try to load the animation file silently
+
+    // Try to load the animation file directly (no HEAD request check)
     const loader = new GLTFLoader()
-    
-    // First check if the animation file exists by attempting a HEAD request
-    apiFetch(animationPath, { method: 'HEAD' })
-      .then(response => {
-        if (response.ok) {
-          // File exists, load it
-          console.log('Loading animation from:', animationPath)
-          loader.load(
-            animationPath,
-            (gltf: GLTF) => {
-              console.log('Animation loaded successfully:', animationPath)
-              console.log('Animation count:', gltf.animations.length)
-              setAnimationGltf(gltf as AnimatedGLTF)
-            },
-            (_progress: ProgressEvent) => {
-              // Progress callback
-            },
-            (error: unknown) => {
-              console.error('Failed to load animation file:', error)
-              setAnimationGltf(null)
-            }
-          )
-        } else {
-          // File doesn't exist - this is expected for many assets
-          console.log(`Animation file not found (404): ${animationPath} - will use built-in animations if available`)
-          setAnimationGltf(null)
-        }
-      })
-      .catch(() => {
-        // Network error or other issue
-        console.log(`Could not check animation file: ${animationPath}`)
+
+    console.log('Loading animation from:', animationPath)
+    loader.load(
+      animationPath,
+      (gltf: GLTF) => {
+        console.log('Animation loaded successfully:', animationPath)
+        console.log('Animation count:', gltf.animations.length)
+        setAnimationGltf(gltf as AnimatedGLTF)
+      },
+      (_progress: ProgressEvent) => {
+        // Progress callback
+      },
+      (error: unknown) => {
+        // File doesn't exist or failed to load - this is expected for many assets
+        console.log(`Animation file not available: ${animationPath} - will use built-in animations if available`)
         setAnimationGltf(null)
-      })
+      }
+    )
   }, [animationPath])
   
   // Load models when URLs change
@@ -465,7 +450,7 @@ const ModelDemo: React.FC<ModelDemoProps> = ({
       } else {
         console.log('No animations available for this avatar')
         // Note: Some avatars may not have built-in animations
-        // Animation files (anim_walk.glb, anim_run.glb) may need to be added to the asset directory
+        // Animation files should be placed in animations/ subdirectory (e.g., animations/walking.glb, animations/running.glb)
       }
     }
     
