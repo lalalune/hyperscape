@@ -3,7 +3,7 @@
  * TypeBox schemas for request/response validation and OpenAPI documentation
  */
 
-import { t, Static } from 'elysia'
+import { t, Static } from "elysia";
 
 // ==================== Common Models ====================
 
@@ -17,8 +17,8 @@ import { t, Static } from 'elysia'
 export const UserContext = t.Object({
   privyId: t.Optional(t.String()), // Privy DID (Decentralized Identifier) from verified JWT
   walletAddress: t.Optional(t.String()), // User's Web3 wallet address (if linked to account)
-  isAdmin: t.Optional(t.Boolean()) // Whether user is an admin (can modify any asset)
-})
+  isAdmin: t.Optional(t.Boolean()), // Whether user is an admin (can modify any asset)
+});
 
 /**
  * Base authenticated request model
@@ -34,26 +34,26 @@ export const UserContext = t.Object({
  * ])
  */
 export const AuthenticatedRequest = t.Object({
-  user: UserContext
-})
+  user: UserContext,
+});
 
 export const HealthResponse = t.Object({
   status: t.String(),
   timestamp: t.String(),
   services: t.Object({
     meshy: t.Boolean(),
-    openai: t.Boolean()
-  })
-})
+    openai: t.Boolean(),
+  }),
+});
 
 export const ErrorResponse = t.Object({
-  error: t.String()
-})
+  error: t.String(),
+});
 
 export const SuccessResponse = t.Object({
   success: t.Boolean(),
-  message: t.String()
-})
+  message: t.String(),
+});
 
 // ==================== Asset Models ====================
 
@@ -72,26 +72,44 @@ export const AssetMetadata = t.Object({
   walletAddress: t.Optional(t.String()), // User's wallet address
   isPublic: t.Optional(t.Boolean()), // Default true
   createdAt: t.Optional(t.String()),
-  updatedAt: t.Optional(t.String())
-})
+  updatedAt: t.Optional(t.String()),
+});
 
-export const AssetList = t.Array(AssetMetadata)
+export const AssetList = t.Array(AssetMetadata);
+
+/**
+ * Asset API Response
+ * Full asset structure returned by the /api/assets endpoint
+ * Includes the complete metadata object from metadata.json files
+ */
+export const AssetResponse = t.Object({
+  id: t.String(),
+  name: t.String(),
+  description: t.String(),
+  type: t.String(),
+  metadata: t.Any(), // Full metadata.json content (dynamic structure with many optional fields)
+  hasModel: t.Boolean(),
+  modelFile: t.Optional(t.String()),
+  generatedAt: t.Optional(t.String()),
+});
+
+export const AssetListResponse = t.Array(AssetResponse);
 
 export const AssetUpdate = t.Object({
   name: t.Optional(t.String()),
   type: t.Optional(t.String()),
   tier: t.Optional(t.Number()),
-  category: t.Optional(t.String())
-})
+  category: t.Optional(t.String()),
+});
 
 export const DeleteAssetQuery = t.Object({
-  includeVariants: t.Optional(t.String())
-})
+  includeVariants: t.Optional(t.String()),
+});
 
 export const DeleteAssetResponse = t.Object({
   success: t.Boolean(),
-  message: t.String()
-})
+  message: t.String(),
+});
 
 // ==================== Material Preset Models ====================
 
@@ -103,15 +121,15 @@ export const MaterialPreset = t.Object({
   description: t.Optional(t.String()),
   category: t.Optional(t.String()),
   tier: t.Optional(t.Union([t.String(), t.Number()])),
-  color: t.Optional(t.String())
-})
+  color: t.Optional(t.String()),
+});
 
-export const MaterialPresetList = t.Array(MaterialPreset)
+export const MaterialPresetList = t.Array(MaterialPreset);
 
 export const MaterialPresetSaveResponse = t.Object({
   success: t.Boolean(),
-  message: t.String()
-})
+  message: t.String(),
+});
 
 // ==================== Retexture Models ====================
 
@@ -120,22 +138,22 @@ export const RetextureRequest = t.Object({
   materialPreset: MaterialPreset,
   outputName: t.Optional(t.String()),
   // User context for ownership tracking
-  user: t.Optional(UserContext)
-})
+  user: t.Optional(UserContext),
+});
 
 export const RetextureResponse = t.Object({
   success: t.Boolean(),
   assetId: t.String(),
   url: t.String(),
-  message: t.String()
-})
+  message: t.String(),
+});
 
 export const RegenerateBaseResponse = t.Object({
   success: t.Boolean(),
   assetId: t.String(),
   url: t.String(),
-  message: t.String()
-})
+  message: t.String(),
+});
 
 // ==================== Generation Pipeline Models ====================
 
@@ -153,22 +171,26 @@ export const PipelineConfig = t.Object({
   enableRetexturing: t.Optional(t.Boolean()),
   enableSprites: t.Optional(t.Boolean()),
   materialPresets: t.Optional(t.Array(MaterialPreset)),
-  customPrompts: t.Optional(t.Object({
-    gameStyle: t.Optional(t.String())
-  })),
-  metadata: t.Optional(t.Object({
-    characterHeight: t.Optional(t.Number()),
-    useGPT4Enhancement: t.Optional(t.Boolean())
-  })),
+  customPrompts: t.Optional(
+    t.Object({
+      gameStyle: t.Optional(t.String()),
+    }),
+  ),
+  metadata: t.Optional(
+    t.Object({
+      characterHeight: t.Optional(t.Number()),
+      useGPT4Enhancement: t.Optional(t.Boolean()),
+    }),
+  ),
   // User context for ownership tracking
-  user: t.Optional(UserContext)
-})
+  user: t.Optional(UserContext),
+});
 
 export const PipelineResponse = t.Object({
   pipelineId: t.String(),
   status: t.String(),
-  message: t.String()
-})
+  message: t.String(),
+});
 
 export const PipelineStatus = t.Object({
   id: t.String(),
@@ -178,38 +200,40 @@ export const PipelineStatus = t.Object({
   results: t.Record(t.String(), t.Any()),
   error: t.Optional(t.String()),
   createdAt: t.String(),
-  completedAt: t.Optional(t.String())
-})
+  completedAt: t.Optional(t.String()),
+});
 
 // ==================== Sprite Models ====================
 
 export const SpriteData = t.Object({
   angle: t.Number(),
-  imageData: t.String({ minLength: 1 })
-})
+  imageData: t.String({ minLength: 1 }),
+});
 
 export const SpriteSaveRequest = t.Object({
   sprites: t.Array(SpriteData),
-  config: t.Optional(t.Object({
-    resolution: t.Optional(t.Number()),
-    angles: t.Optional(t.Number())
-  }))
-})
+  config: t.Optional(
+    t.Object({
+      resolution: t.Optional(t.Number()),
+      angles: t.Optional(t.Number()),
+    }),
+  ),
+});
 
 export const SpriteSaveResponse = t.Object({
   success: t.Boolean(),
   message: t.String(),
   spritesDir: t.String(),
-  spriteFiles: t.Array(t.String())
-})
+  spriteFiles: t.Array(t.String()),
+});
 
 // ==================== VRM Upload Models ====================
 
 export const VRMUploadResponse = t.Object({
   success: t.Boolean(),
   url: t.String(),
-  message: t.String()
-})
+  message: t.String(),
+});
 
 // ==================== Weapon Detection Models ====================
 
@@ -217,62 +241,66 @@ export const GripBounds = t.Object({
   minX: t.Number(),
   minY: t.Number(),
   maxX: t.Number(),
-  maxY: t.Number()
-})
+  maxY: t.Number(),
+});
 
 export const DetectedParts = t.Object({
   blade: t.Optional(t.String()),
   handle: t.Optional(t.String()),
-  guard: t.Optional(t.String())
-})
+  guard: t.Optional(t.String()),
+});
 
 export const GripData = t.Object({
   gripBounds: GripBounds,
   confidence: t.Number(),
   weaponType: t.String(),
   gripDescription: t.String(),
-  detectedParts: t.Optional(DetectedParts)
-})
+  detectedParts: t.Optional(DetectedParts),
+});
 
 export const WeaponHandleDetectRequest = t.Object({
   image: t.String({ minLength: 1 }),
   angle: t.Optional(t.String()),
-  promptHint: t.Optional(t.String())
-})
+  promptHint: t.Optional(t.String()),
+});
 
 export const WeaponHandleDetectResponse = t.Object({
   success: t.Boolean(),
   gripData: t.Optional(GripData),
   error: t.Optional(t.String()),
-  originalImage: t.Optional(t.String())
-})
+  originalImage: t.Optional(t.String()),
+});
 
 export const OrientationData = t.Object({
   needsFlip: t.Boolean(),
   currentOrientation: t.String(),
-  reason: t.String()
-})
+  reason: t.String(),
+});
 
 export const WeaponOrientationDetectRequest = t.Object({
-  image: t.String({ minLength: 1 })
-})
+  image: t.String({ minLength: 1 }),
+});
 
 export const WeaponOrientationDetectResponse = t.Object({
   success: t.Boolean(),
   needsFlip: t.Optional(t.Boolean()),
   currentOrientation: t.Optional(t.String()),
   reason: t.Optional(t.String()),
-  error: t.Optional(t.String())
-})
+  error: t.Optional(t.String()),
+});
 
 // ==================== Type Exports ====================
 // Export TypeScript types for use in implementation
 
-export type UserContextType = Static<typeof UserContext>
-export type AuthenticatedRequestType = Static<typeof AuthenticatedRequest>
-export type HealthResponseType = Static<typeof HealthResponse>
-export type AssetMetadataType = Static<typeof AssetMetadata>
-export type RetextureRequestType = Static<typeof RetextureRequest>
-export type PipelineConfigType = Static<typeof PipelineConfig>
-export type WeaponHandleDetectRequestType = Static<typeof WeaponHandleDetectRequest>
-export type WeaponOrientationDetectRequestType = Static<typeof WeaponOrientationDetectRequest>
+export type UserContextType = Static<typeof UserContext>;
+export type AuthenticatedRequestType = Static<typeof AuthenticatedRequest>;
+export type HealthResponseType = Static<typeof HealthResponse>;
+export type AssetMetadataType = Static<typeof AssetMetadata>;
+export type RetextureRequestType = Static<typeof RetextureRequest>;
+export type PipelineConfigType = Static<typeof PipelineConfig>;
+export type WeaponHandleDetectRequestType = Static<
+  typeof WeaponHandleDetectRequest
+>;
+export type WeaponOrientationDetectRequestType = Static<
+  typeof WeaponOrientationDetectRequest
+>;

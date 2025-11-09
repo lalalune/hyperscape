@@ -1,13 +1,13 @@
 /**
  * PlaytesterSwarmOrchestrator Tests
  * Comprehensive tests for AI playtester swarm orchestration
- * Uses MockLanguageModelV3 for deterministic testing without API calls
+ * Uses MockLanguageModelV2 for deterministic testing without API calls
  */
 
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { PlaytesterSwarmOrchestrator } from "./PlaytesterSwarmOrchestrator";
 import type { PlaytesterConfig } from "../utils/playtester-prompts";
-import { MockLanguageModelV3 } from "ai/test";
+import { MockLanguageModelV2 } from "ai/test";
 import { aiSDKService } from "./AISDKService";
 
 describe("PlaytesterSwarmOrchestrator", () => {
@@ -191,13 +191,13 @@ The quest was enjoyable and well-balanced. The rewards feel appropriate for the 
 
     it("should run playtest with mocked AI responses", async () => {
       // Mock the getConfiguredModel to return a mock model
-      const mockModel = new MockLanguageModelV3({
+      const mockModel = new MockLanguageModelV2({
         doGenerate: async () => ({
-          finishReason: "stop" as const,
-          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           content: [
             { type: "text" as const, text: mockSuccessfulTestResponse },
           ],
+          finishReason: "stop" as const,
+          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           warnings: [],
         }),
       });
@@ -227,13 +227,13 @@ The quest was enjoyable and well-balanced. The rewards feel appropriate for the 
     });
 
     it("should aggregate metrics correctly with multiple testers", async () => {
-      const mockModel = new MockLanguageModelV3({
+      const mockModel = new MockLanguageModelV2({
         doGenerate: async () => ({
-          finishReason: "stop" as const,
-          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           content: [
             { type: "text" as const, text: mockSuccessfulTestResponse },
           ],
+          finishReason: "stop" as const,
+          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           warnings: [],
         }),
       });
@@ -261,13 +261,13 @@ The quest was enjoyable and well-balanced. The rewards feel appropriate for the 
     });
 
     it("should provide actionable recommendations", async () => {
-      const mockModel = new MockLanguageModelV3({
+      const mockModel = new MockLanguageModelV2({
         doGenerate: async () => ({
-          finishReason: "stop" as const,
-          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           content: [
             { type: "text" as const, text: mockSuccessfulTestResponse },
           ],
+          finishReason: "stop" as const,
+          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           warnings: [],
         }),
       });
@@ -295,13 +295,13 @@ The quest was enjoyable and well-balanced. The rewards feel appropriate for the 
     });
 
     it("should build consensus from multiple testers", async () => {
-      const mockModel = new MockLanguageModelV3({
+      const mockModel = new MockLanguageModelV2({
         doGenerate: async () => ({
-          finishReason: "stop" as const,
-          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           content: [
             { type: "text" as const, text: mockSuccessfulTestResponse },
           ],
+          finishReason: "stop" as const,
+          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           warnings: [],
         }),
       });
@@ -331,7 +331,7 @@ The quest was enjoyable and well-balanced. The rewards feel appropriate for the 
   describe("Error Handling", () => {
     it("should handle AI errors gracefully", async () => {
       // Mock with error
-      const mockModel = new MockLanguageModelV3({
+      const mockModel = new MockLanguageModelV2({
         doGenerate: async () => {
           throw new Error("AI API Error");
         },
@@ -363,14 +363,14 @@ The quest was enjoyable and well-balanced. The rewards feel appropriate for the 
         parallelTests: false,
       });
 
-      const mockModel = new MockLanguageModelV3({
+      const mockModel = new MockLanguageModelV2({
         doGenerate: async () => {
           // Simulate slow response
           await new Promise((resolve) => setTimeout(resolve, 100));
           return {
+            content: [{ type: "text" as const, text: "response" }],
             finishReason: "stop" as const,
             usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
-            content: [{ type: "text" as const, text: "response" }],
             warnings: [],
           };
         },
@@ -396,13 +396,13 @@ The quest was enjoyable and well-balanced. The rewards feel appropriate for the 
 
   describe("Stats Tracking", () => {
     it("should update tester stats after playtest", async () => {
-      const mockModel = new MockLanguageModelV3({
+      const mockModel = new MockLanguageModelV2({
         doGenerate: async () => ({
-          finishReason: "stop" as const,
-          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           content: [
             { type: "text" as const, text: mockSuccessfulTestResponse },
           ],
+          finishReason: "stop" as const,
+          usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
           warnings: [],
         }),
       });

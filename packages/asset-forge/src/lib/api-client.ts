@@ -13,43 +13,23 @@
  * - Runtime errors caught at compile time
  */
 
-import { treaty } from '@elysiajs/eden'
-import type { App } from '../../server/api-elysia'
+import { treaty } from "@elysiajs/eden";
+import type { App } from "../../server/api-elysia";
 
 // Get API port from environment or use default
-const API_PORT = import.meta.env.VITE_API_PORT || 3004
-const API_BASE_URL = import.meta.env.VITE_API_URL || `http://localhost:${API_PORT}`
+const API_PORT = import.meta.env.VITE_API_PORT || 3004;
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || `http://localhost:${API_PORT}`;
 
 /**
- * Get authentication headers with Privy JWT token
- * Retrieves the token from PrivyAuthManager (singleton from client package)
+ * Get authentication headers (currently no auth)
  */
 function getAuthHeaders(): Record<string, string> {
-  // Try to get token from PrivyAuthManager if available
-  try {
-    // Check if we're in a browser environment with PrivyAuthManager
-    const privyAuthManager = (window as any).privyAuthManager
-    if (privyAuthManager && typeof privyAuthManager.getToken === 'function') {
-      const token = privyAuthManager.getToken()
-      if (token) {
-        return {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    }
-  } catch (error) {
-    // PrivyAuthManager not available (server-side or not initialized)
-    console.debug('[API Client] PrivyAuthManager not available, making unauthenticated request')
-  }
-
-  return {}
+  return {};
 }
 
 /**
- * Type-safe API client with automatic Privy authentication
- *
- * This client automatically includes JWT tokens from Privy authentication
- * when available, enabling authenticated requests to the asset-forge backend.
+ * Type-safe API client for asset-forge backend
  *
  * Usage examples:
  *
@@ -128,43 +108,45 @@ function getAuthHeaders(): Record<string, string> {
  * ```
  */
 export const api = treaty<App>(API_BASE_URL, {
-  // Add authentication headers to all requests
-  headers: getAuthHeaders()
-})
+  // Dynamic headers - auth token updated on every request
+  fetch: {
+    credentials: "include",
+    headers: () => getAuthHeaders(),
+  },
+});
 
 /**
- * Type-safe fetch wrapper for non-Eden endpoints with automatic authentication
+ * Type-safe fetch wrapper for non-Eden endpoints
  * Use this if you need to make requests outside the Eden Treaty client
- * Automatically includes Privy JWT token when available
  */
 export const apiFetch = async <T = unknown>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<{ data: T | null; error: string | null }> => {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...getAuthHeaders(),
         ...options?.headers,
       },
-    })
+    });
 
     if (!response.ok) {
-      const error = await response.text()
-      return { data: null, error: `HTTP ${response.status}: ${error}` }
+      const error = await response.text();
+      return { data: null, error: `HTTP ${response.status}: ${error}` };
     }
 
-    const data = await response.json()
-    return { data, error: null }
+    const data = await response.json();
+    return { data, error: null };
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
-}
+};
 
 // Export types for convenience
-export type { App } from '../../server/api-elysia'
+export type { App } from "../../server/api-elysia";

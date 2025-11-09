@@ -32,14 +32,25 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
   const needsAnimationFile = currentAnimation !== "tpose";
 
   // Construct animation file path based on the model if animation is needed
+  // IMPORTANT: Only load animations for paths from gdd-assets that we know have animation files
+  // Don't try to load animations for API assets (/api/assets/...) or missing files
   const animationPath = useMemo(() => {
     if (needsAnimationFile && avatarPath) {
-      const match = avatarPath.match(new RegExp("gdd-assets/([^/]+)/"));
+      // Only process paths that explicitly reference gdd-assets directory
+      const match = avatarPath.match(/gdd-assets\/([^/]+)\//);
       if (match) {
         const characterName = match[1];
         const animFileName =
-          currentAnimation === "walking" ? "anim_walk.glb" : "anim_run.glb";
-        return `./gdd-assets/${characterName}/${animFileName}`;
+          currentAnimation === "walking" ? "walking.glb" : "running.glb";
+        const path = `./gdd-assets/${characterName}/animations/${animFileName}`;
+
+        // Log the path we're attempting to load for debugging
+        console.log(`[HelmetDemo] Looking for animation file: ${path}`);
+        return path;
+      } else {
+        console.log(
+          `[HelmetDemo] Path doesn't match gdd-assets pattern, skipping animation loading for: ${avatarPath}`,
+        );
       }
     }
 
@@ -47,8 +58,19 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
   }, [avatarPath, currentAnimation, needsAnimationFile]);
 
   // Only load models if paths are valid
-  const animationGltf =
-    hasValidPaths && animationPath ? useGLTF(animationPath) : null;
+  // Use try-catch approach for animation loading since the file might not exist
+  let animationGltf = null;
+  try {
+    animationGltf =
+      hasValidPaths && animationPath ? useGLTF(animationPath) : null;
+  } catch (error) {
+    console.warn(
+      `[HelmetDemo] Animation file not found: ${animationPath}`,
+      error,
+    );
+    animationGltf = null;
+  }
+
   const avatar = hasValidPaths ? useGLTF(avatarPath) : null;
   const helmet = hasValidPaths ? useGLTF(helmetPath) : null;
 

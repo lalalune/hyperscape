@@ -1,7 +1,6 @@
 export { useApi } from './useApi'
 export { useArmorFitting } from './useArmorFitting'
 export { useAssets } from './useAssets'
-export { useAuth } from './useAuth'
 export { useNavigation } from './useNavigation'
 export { useThreeScene } from './useThreeScene'
 export { usePipelineStatus } from './usePipelineStatus'
