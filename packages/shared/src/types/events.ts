@@ -82,6 +82,8 @@ export enum EventType {
   UI_SIDEBAR_CHAT_TOGGLE = "ui:sidebar:chat:toggle",
   UI_ACTIONS_UPDATE = "ui:actions:update",
   UI_UPDATE = "ui",
+  UI_COMBAT_TARGET_CHANGED = "ui:combat_target:changed",
+  UI_COMBAT_TARGET_HEALTH = "ui:combat_target:health",
 
   // Network Communication
   NETWORK_CONNECTED = "network:connected",
@@ -925,6 +927,15 @@ export interface EventMap {
     enabled: boolean;
     hotkey: string | null;
   }>;
+  [EventType.UI_COMBAT_TARGET_CHANGED]: {
+    targetId: string | null;
+    targetName?: string;
+    targetHealth?: { current: number; max: number };
+  };
+  [EventType.UI_COMBAT_TARGET_HEALTH]: {
+    targetId: string;
+    health: { current: number; max: number };
+  };
 
   // Camera Events
   [EventType.CAMERA_SET_MODE]: {
