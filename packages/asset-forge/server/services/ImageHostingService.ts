@@ -3,7 +3,30 @@
  * Provides fallback options for hosting images publicly when local server is not accessible
  */
 
+interface UploadOptions {
+  // Future options for image upload configuration
+  maxSize?: number
+  format?: string
+}
+
+interface ImgurUploadResponse {
+  data: {
+    link: string
+    id: string
+    deletehash: string
+  }
+  success: boolean
+  status: number
+}
+
+interface ImgurUploadRequest {
+  image: string
+  type: 'base64' | 'url'
+}
+
 export class ImageHostingService {
+  private readonly imgurClientId: string | null
+
   constructor() {
     this.imgurClientId = process.env.IMGUR_CLIENT_ID || null
   }
@@ -12,7 +35,7 @@ export class ImageHostingService {
    * Upload image to a public hosting service
    * Falls back to data URI if no hosting service is available
    */
-  async uploadImage(imageDataOrPath, options = {}) {
+  async uploadImage(imageDataOrPath: string, options: UploadOptions = {}): Promise<string> {
     try {
       // If we have Imgur configured, use it
       if (this.imgurClientId) {
@@ -36,7 +59,7 @@ export class ImageHostingService {
 
       // Otherwise, we need a public hosting service
       throw new Error('No public image hosting service configured. Set IMGUR_CLIENT_ID in .env or use ngrok.')
-      
+
     } catch (error) {
       console.error('Failed to upload image:', error)
       throw error
@@ -46,13 +69,18 @@ export class ImageHostingService {
   /**
    * Upload to Imgur (free image hosting)
    */
-  async uploadToImgur(imageData) {
+  async uploadToImgur(imageData: string): Promise<string> {
     try {
       let base64Data = imageData
-      
+
       // Convert to base64 if needed
       if (imageData.startsWith('data:')) {
-        base64Data = imageData.split(',')[1]
+        base64Data = imageData.split(',')[1]!
+      }
+
+      const requestBody: ImgurUploadRequest = {
+        image: base64Data,
+        type: 'base64'
       }
 
       const response = await fetch('https://api.imgur.com/3/image', {
@@ -61,17 +89,14 @@ export class ImageHostingService {
           'Authorization': `Client-ID ${this.imgurClientId}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          image: base64Data,
-          type: 'base64'
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
         throw new Error(`Imgur upload failed: ${response.statusText}`)
       }
 
-      const data = await response.json()
+      const data = await response.json() as ImgurUploadResponse
       console.log('✅ Image uploaded to Imgur:', data.data.link)
       return data.data.link
 
@@ -84,7 +109,7 @@ export class ImageHostingService {
   /**
    * Get instructions for setting up public image hosting
    */
-  static getSetupInstructions() {
+  static getSetupInstructions(): string {
     return `
 📸 Image Hosting Setup Instructions:
 
@@ -107,4 +132,4 @@ Option 3: Use data URIs (automatic fallback)
 For production, use AWS S3, Cloudinary, or similar.
 `
   }
-} 
+}

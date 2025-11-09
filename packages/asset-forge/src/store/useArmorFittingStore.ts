@@ -380,6 +380,9 @@ export const useArmorFittingStore = create<ArmorFittingStore>()(
             // Stop animation when switching to T-pose
             if (animation === 'tpose') {
               state.isAnimationPlaying = false
+            } else {
+              // Start animation when switching to walking/running
+              state.isAnimationPlaying = true
             }
           }),
           setIsAnimationPlaying: (playing) => set((state) => {
