@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { PlayerMigration, WeaponType, EventType } from "@hyperscape/shared";
 import type {
   ClientWorld,
