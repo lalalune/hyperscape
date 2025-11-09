@@ -38,6 +38,9 @@ import { aiVisionRoutes } from "./routes/ai-vision";
 import { createAssetRoutes } from "./routes/assets";
 import { promptRoutes } from "./routes/prompts";
 import { playtesterSwarmRoutes } from "./routes/playtester-swarm";
+import { voiceGenerationRoutes } from "./routes/voice-generation";
+import { musicRoutes } from "./routes/music";
+import { soundEffectsRoutes } from "./routes/sound-effects";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -115,6 +118,18 @@ const app = new Elysia()
             name: "AI Vision",
             description: "GPT-4 Vision-powered weapon detection",
           },
+          {
+            name: "Voice Generation",
+            description: "ElevenLabs text-to-speech for NPC dialogue",
+          },
+          {
+            name: "Music Generation",
+            description: "ElevenLabs AI music generation for game soundtracks",
+          },
+          {
+            name: "Sound Effects",
+            description: "ElevenLabs text-to-sound-effects for game audio",
+          },
         ],
         components: {
           securitySchemes: {
@@ -180,6 +195,9 @@ const app = new Elysia()
   .use(createRetextureRoutes(ROOT_DIR, retextureService))
   .use(createGenerationRoutes(generationService))
   .use(playtesterSwarmRoutes)
+  .use(voiceGenerationRoutes)
+  .use(musicRoutes)
+  .use(soundEffectsRoutes)
 
   // Start server
   .listen(API_PORT);
@@ -195,6 +213,11 @@ if (!process.env.MESHY_API_KEY) {
 if (!process.env.AI_GATEWAY_API_KEY && !process.env.OPENAI_API_KEY) {
   console.warn(
     "⚠️  AI_GATEWAY_API_KEY or OPENAI_API_KEY required - image generation and prompt enhancement will fail",
+  );
+}
+if (!process.env.ELEVENLABS_API_KEY) {
+  console.warn(
+    "⚠️  ELEVENLABS_API_KEY not found - voice, music, and sound effects generation will fail",
   );
 }
 

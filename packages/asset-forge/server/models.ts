@@ -289,6 +289,121 @@ export const WeaponOrientationDetectResponse = t.Object({
   error: t.Optional(t.String()),
 });
 
+// ==================== ElevenLabs Voice Generation Models ====================
+
+export const VoiceSettings = t.Object({
+  stability: t.Optional(t.Number()),
+  similarity_boost: t.Optional(t.Number()),
+  style: t.Optional(t.Number()),
+  use_speaker_boost: t.Optional(t.Boolean()),
+});
+
+export const Voice = t.Object({
+  voice_id: t.String(),
+  name: t.String(),
+  category: t.Optional(t.String()),
+  description: t.Optional(t.String()),
+  labels: t.Optional(t.Record(t.String(), t.String())),
+  preview_url: t.Optional(t.String()),
+});
+
+export const GenerateVoiceRequest = t.Object({
+  text: t.String({ minLength: 1 }),
+  voiceId: t.String({ minLength: 1 }),
+  npcId: t.Optional(t.String()),
+  settings: t.Optional(VoiceSettings),
+});
+
+export const BatchVoiceRequest = t.Object({
+  texts: t.Array(t.String({ minLength: 1 }), { minItems: 1 }),
+  voiceId: t.String({ minLength: 1 }),
+  npcId: t.Optional(t.String()),
+  settings: t.Optional(VoiceSettings),
+});
+
+export const VoiceLibraryResponse = t.Object({
+  voices: t.Array(Voice),
+  count: t.Number(),
+});
+
+export const GenerateVoiceResponse = t.Object({
+  success: t.Boolean(),
+  audioData: t.Optional(t.String()),
+  npcId: t.Optional(t.String()),
+  error: t.Optional(t.String()),
+});
+
+export const BatchVoiceResponse = t.Object({
+  successful: t.Number(),
+  total: t.Number(),
+  results: t.Array(
+    t.Object({
+      success: t.Boolean(),
+      audioData: t.Optional(t.String()),
+      text: t.String(),
+      error: t.Optional(t.String()),
+    }),
+  ),
+});
+
+// ==================== ElevenLabs Music Generation Models ====================
+
+export const GenerateMusicRequest = t.Object({
+  prompt: t.Optional(t.String()),
+  musicLengthMs: t.Optional(t.Number({ minimum: 1000, maximum: 300000 })),
+  compositionPlan: t.Optional(t.Any()),
+  forceInstrumental: t.Optional(t.Boolean()),
+  respectSectionsDurations: t.Optional(t.Boolean()),
+  storeForInpainting: t.Optional(t.Boolean()),
+  modelId: t.Optional(t.String()),
+  outputFormat: t.Optional(t.String()),
+});
+
+export const CreateCompositionPlanRequest = t.Object({
+  prompt: t.String({ minLength: 1 }),
+  musicLengthMs: t.Optional(t.Number()),
+  sourceCompositionPlan: t.Optional(t.Any()),
+  modelId: t.Optional(t.String()),
+});
+
+export const BatchMusicRequest = t.Object({
+  tracks: t.Array(GenerateMusicRequest, { minItems: 1, maxItems: 10 }),
+});
+
+// ==================== ElevenLabs Sound Effects Models ====================
+
+export const GenerateSfxRequest = t.Object({
+  text: t.String({ minLength: 1 }),
+  durationSeconds: t.Optional(t.Number({ minimum: 0.5, maximum: 22 })),
+  promptInfluence: t.Optional(t.Number({ minimum: 0, maximum: 1 })),
+  loop: t.Optional(t.Boolean()),
+});
+
+export const BatchSfxRequest = t.Object({
+  effects: t.Array(GenerateSfxRequest, { minItems: 1, maxItems: 20 }),
+});
+
+export const BatchSfxResponse = t.Object({
+  effects: t.Array(
+    t.Object({
+      index: t.Number(),
+      success: t.Boolean(),
+      audioBuffer: t.Optional(t.String()),
+      text: t.String(),
+      size: t.Optional(t.Number()),
+      error: t.Optional(t.String()),
+    }),
+  ),
+  successful: t.Number(),
+  total: t.Number(),
+});
+
+export const SfxEstimateResponse = t.Object({
+  duration: t.Union([t.String(), t.Number()]),
+  credits: t.Number(),
+  estimatedCostUSD: t.String(),
+});
+
 // ==================== Type Exports ====================
 // Export TypeScript types for use in implementation
 
@@ -304,3 +419,6 @@ export type WeaponHandleDetectRequestType = Static<
 export type WeaponOrientationDetectRequestType = Static<
   typeof WeaponOrientationDetectRequest
 >;
+export type GenerateVoiceRequestType = Static<typeof GenerateVoiceRequest>;
+export type GenerateMusicRequestType = Static<typeof GenerateMusicRequest>;
+export type GenerateSfxRequestType = Static<typeof GenerateSfxRequest>;
