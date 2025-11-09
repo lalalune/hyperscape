@@ -1,7 +1,7 @@
-import type * as THREE from 'three';
-import type PhysX from '@hyperscape/physx-js-webidl';
+import type * as THREE from "three";
+import type PhysX from "@hyperscape/physx-js-webidl";
 
-declare module 'three' {
+declare module "three" {
   // Vector3 extensions for PhysX integration
   interface Vector3 {
     fromPxVec3?(pxVec3: PhysX.PxVec3): this;
@@ -65,7 +65,7 @@ declare module 'three' {
 
   // WebGLRenderer extensions
   interface WebGLRenderer {}
-  
+
   // WebGPU support (when available)
   interface WebGPURenderer {
     setSize(width: number, height: number): void;
@@ -91,11 +91,11 @@ declare module 'three' {
 
 // Additional type definitions for specific THREE.js patterns
 export interface HyperscapeObject3D extends THREE.Object3D {
-  position: THREE.Vector3
-  quaternion: THREE.Quaternion
-  rotation: THREE.Euler
-  add(...object: THREE.Object3D[]): this
-  remove(...object: THREE.Object3D[]): this
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  rotation: THREE.Euler;
+  add(...object: THREE.Object3D[]): this;
+  remove(...object: THREE.Object3D[]): this;
 }
 
 export interface HyperscapeMaterial extends THREE.Material {
@@ -121,7 +121,7 @@ export interface ResourceUserData {
   interactable: boolean;
 }
 
-// UserData interface for entities  
+// UserData interface for entities
 export interface EntityUserData {
   entityId: string;
   entityType: string;
@@ -136,10 +136,23 @@ export interface GameObjectUserData {
 
 // Common CSS style properties for React components
 export interface CSSStyleProperties {
-  pointerEvents?: 'auto' | 'none' | string;
-  position?: 'relative' | 'absolute' | 'fixed' | 'static' | 'sticky' | string;
-  alignItems?: 'center' | 'flex-start' | 'flex-end' | 'stretch' | 'baseline' | string;
-  justifyContent?: 'center' | 'flex-start' | 'flex-end' | 'space-between' | 'space-around' | 'space-evenly' | string;
+  pointerEvents?: "auto" | "none" | string;
+  position?: "relative" | "absolute" | "fixed" | "static" | "sticky" | string;
+  alignItems?:
+    | "center"
+    | "flex-start"
+    | "flex-end"
+    | "stretch"
+    | "baseline"
+    | string;
+  justifyContent?:
+    | "center"
+    | "flex-start"
+    | "flex-end"
+    | "space-between"
+    | "space-around"
+    | "space-evenly"
+    | string;
   [key: string]: unknown;
 }
 

@@ -1,87 +1,92 @@
-import React, { useState, useEffect } from 'react'
-import type { World } from '@hyperscape/shared'
-import type { InventoryItem } from '@hyperscape/shared'
-import { EventType } from '@hyperscape/shared'
-import { getItem } from '@hyperscape/shared'
+import React, { useState, useEffect } from "react";
+import type { World } from "@hyperscape/shared";
+import type { InventoryItem } from "@hyperscape/shared";
+import { EventType } from "@hyperscape/shared";
+import { getItem } from "@hyperscape/shared";
 
 interface LootWindowProps {
-  visible: boolean
-  corpseId: string
-  corpseName: string
-  lootItems: InventoryItem[]
-  onClose: () => void
-  world: World
+  visible: boolean;
+  corpseId: string;
+  corpseName: string;
+  lootItems: InventoryItem[];
+  onClose: () => void;
+  world: World;
 }
 
-export function LootWindow({ visible, corpseId, corpseName, lootItems, onClose, world }: LootWindowProps) {
-  const [items, setItems] = useState<InventoryItem[]>(lootItems)
+export function LootWindow({
+  visible,
+  corpseId,
+  corpseName,
+  lootItems,
+  onClose,
+  world,
+}: LootWindowProps) {
+  const [items, setItems] = useState<InventoryItem[]>(lootItems);
 
   useEffect(() => {
-    setItems(lootItems)
-  }, [lootItems, corpseId])
+    setItems(lootItems);
+  }, [lootItems, corpseId]);
 
   const handleTakeItem = (item: InventoryItem, index: number) => {
-    const localPlayer = world.getPlayer()
-    if (!localPlayer) return
+    const localPlayer = world.getPlayer();
+    if (!localPlayer) return;
 
     // Send loot request to server
     if (world.network?.send) {
-      world.network.send('entityEvent', {
-        id: 'world',
+      world.network.send("entityEvent", {
+        id: "world",
         event: EventType.CORPSE_LOOT_REQUEST,
         payload: {
           corpseId,
           playerId: localPlayer.id,
           itemId: item.itemId,
           quantity: item.quantity,
-          slot: index
-        }
-      })
+          slot: index,
+        },
+      });
     } else {
       world.emit(EventType.CORPSE_LOOT_REQUEST, {
         corpseId,
         playerId: localPlayer.id,
         itemId: item.itemId,
         quantity: item.quantity,
-        slot: index
-      })
+        slot: index,
+      });
     }
 
     // Optimistically remove item from UI
-    setItems(prev => prev.filter((_, i) => i !== index))
-  }
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleTakeAll = () => {
-    const localPlayer = world.getPlayer()
-    if (!localPlayer) return
+    const localPlayer = world.getPlayer();
+    if (!localPlayer) return;
 
     // Take each item
     items.forEach((item, index) => {
-      handleTakeItem(item, index)
-    })
-  }
+      handleTakeItem(item, index);
+    });
+  };
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <div
       className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000] pointer-events-auto"
       style={{
-        width: '32rem',
-        background: 'rgba(11, 10, 21, 0.98)',
-        border: '1px solid #2a2b39',
-        borderRadius: '0.5rem',
-        padding: '1.5rem',
-        backdropFilter: 'blur(10px)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+        width: "32rem",
+        background: "rgba(11, 10, 21, 0.98)",
+        border: "1px solid #2a2b39",
+        borderRadius: "0.5rem",
+        padding: "1.5rem",
+        backdropFilter: "blur(10px)",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
       }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
-        <h3 className="m-0 text-lg font-bold text-white">
-          {corpseName}
-        </h3>
+        <h3 className="m-0 text-lg font-bold text-white">{corpseName}</h3>
         <div className="flex gap-2">
           <button
             onClick={handleTakeAll}
@@ -107,10 +112,10 @@ export function LootWindow({ visible, corpseId, corpseName, lootItems, onClose, 
       ) : (
         <div className="grid grid-cols-4 gap-2">
           {items.map((item, index) => {
-            const itemData = getItem(item.itemId)
-            const displayName = itemData?.name || item.itemId
-            const itemType = itemData?.type || 'misc'
-            
+            const itemData = getItem(item.itemId);
+            const displayName = itemData?.name || item.itemId;
+            const itemType = itemData?.type || "misc";
+
             return (
               <div
                 key={`${item.id}-${index}`}
@@ -132,7 +137,7 @@ export function LootWindow({ visible, corpseId, corpseName, lootItems, onClose, 
                   </div>
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       )}
@@ -144,6 +149,5 @@ export function LootWindow({ visible, corpseId, corpseName, lootItems, onClose, 
         </p>
       </div>
     </div>
-  )
+  );
 }
-

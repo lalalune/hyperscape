@@ -1,14 +1,13 @@
-
-import { AttackType } from '../types/core';
-import { EventType } from '../types/events';
-import type { World } from '../types/index';
-import { SystemBase } from './SystemBase';
+import { AttackType } from "../types/core";
+import { EventType } from "../types/events";
+import type { World } from "../types/index";
+import { SystemBase } from "./SystemBase";
 // World eliminated - using base World instead
-import { ALL_NPCS, NPC_SPAWN_CONSTANTS } from '../data/npcs';
-import { ALL_WORLD_AREAS } from '../data/world-areas';
-import { MobInstance, MobSpawnConfig } from '../types/core';
-import { calculateDistance, groundToTerrain } from '../utils/EntityUtils';
-import { EntityManager } from './EntityManager';
+import { ALL_NPCS, NPC_SPAWN_CONSTANTS } from "../data/npcs";
+import { ALL_WORLD_AREAS } from "../data/world-areas";
+import { MobInstance, MobSpawnConfig } from "../types/core";
+import { calculateDistance, groundToTerrain } from "../utils/EntityUtils";
+import { EntityManager } from "./EntityManager";
 
 /**
  * Mob NPC System - GDD Compliant
@@ -28,15 +27,20 @@ import { EntityManager } from './EntityManager';
  */
 export class MobNPCSystem extends SystemBase {
   private mobs = new Map<string, MobInstance>();
-  private spawnPoints = new Map<string, { config: MobSpawnConfig, position: { x: number; y: number; z: number } }>();
+  private spawnPoints = new Map<
+    string,
+    { config: MobSpawnConfig; position: { x: number; y: number; z: number } }
+  >();
   private respawnTimers = new Map<string, number>(); // Changed to store respawn times instead of timers
   private entityManager?: EntityManager;
   private mobIdCounter = 0;
 
-  private readonly GLOBAL_RESPAWN_TIME = NPC_SPAWN_CONSTANTS.GLOBAL_RESPAWN_TIME;
+  private readonly GLOBAL_RESPAWN_TIME =
+    NPC_SPAWN_CONSTANTS.GLOBAL_RESPAWN_TIME;
 
   // Mob configurations loaded from externalized data
-  private readonly MOB_CONFIGS: Record<string, MobSpawnConfig> = this.createMobConfigs();
+  private readonly MOB_CONFIGS: Record<string, MobSpawnConfig> =
+    this.createMobConfigs();
   /**
    * Convert externalized MobData to MobSpawnConfig format
    */
@@ -45,7 +49,11 @@ export class MobNPCSystem extends SystemBase {
 
     for (const [npcId, npcData] of ALL_NPCS.entries()) {
       // Only include combat NPCs (mob, boss, quest)
-      if (npcData.category === 'mob' || npcData.category === 'boss' || npcData.category === 'quest') {
+      if (
+        npcData.category === "mob" ||
+        npcData.category === "boss" ||
+        npcData.category === "quest"
+      ) {
         configs[npcId] = {
           type: npcId, // NPC ID from npcs.json
           name: npcData.name,
@@ -55,16 +63,16 @@ export class MobNPCSystem extends SystemBase {
             strength: npcData.stats.strength,
             defense: npcData.stats.defense,
             constitution: npcData.stats.constitution,
-            ranged: npcData.stats.ranged
+            ranged: npcData.stats.ranged,
           },
           equipment: {
             weapon: null,
-            armor: null
+            armor: null,
           }, // Equipment can be added later if needed
           lootTable: `${npcId}_drops`,
           isAggressive: npcData.combat.aggressive,
           aggroRange: npcData.combat.aggroRange,
-          respawnTime: npcData.combat.respawnTime || this.GLOBAL_RESPAWN_TIME
+          respawnTime: npcData.combat.respawnTime || this.GLOBAL_RESPAWN_TIME,
         };
       }
     }
@@ -74,12 +82,12 @@ export class MobNPCSystem extends SystemBase {
 
   constructor(world: World) {
     super(world, {
-      name: 'mob-npc',
+      name: "mob-npc",
       dependencies: {
-        required: ['entity-manager'], // Needs entity manager to spawn/manage mobs
-        optional: ['player', 'combat'] // Better with player and combat systems
+        required: ["entity-manager"], // Needs entity manager to spawn/manage mobs
+        optional: ["player", "combat"], // Better with player and combat systems
       },
-      autoCleanup: true
+      autoCleanup: true,
     });
   }
 
@@ -88,11 +96,26 @@ export class MobNPCSystem extends SystemBase {
     // ENTITY_DEATH is in EventMap but only has entityId
     this.subscribe(EventType.ENTITY_DEATH, (data) => {
       const typedData = data as { entityId: string };
-      this.handleMobDeath({ entityId: typedData.entityId, killedBy: '', entityType: 'mob' });
+      this.handleMobDeath({
+        entityId: typedData.entityId,
+        killedBy: "",
+        entityType: "mob",
+      });
     });
     // ENTITY_DAMAGE_TAKEN is not in EventMap, so it receives the full event
-    this.subscribe(EventType.ENTITY_DAMAGE_TAKEN, (data) => this.handleMobDamage(data as { entityId: string; damage: number; damageSource: string; entityType: 'player' | 'mob' }));
-    this.subscribe<{ playerId: string }>(EventType.PLAYER_REGISTERED, (data) => this.onPlayerEnter(data));
+    this.subscribe(EventType.ENTITY_DAMAGE_TAKEN, (data) =>
+      this.handleMobDamage(
+        data as {
+          entityId: string;
+          damage: number;
+          damageSource: string;
+          entityType: "player" | "mob";
+        },
+      ),
+    );
+    this.subscribe<{ playerId: string }>(EventType.PLAYER_REGISTERED, (data) =>
+      this.onPlayerEnter(data),
+    );
     // Remove MOB_NPC_SPAWN_REQUEST subscription to prevent double spawning with EntityManager
 
     // Initialize spawn points (these would normally be loaded from world data)
@@ -100,9 +123,8 @@ export class MobNPCSystem extends SystemBase {
   }
 
   start(): void {
-
     // Get reference to EntityManager
-    this.entityManager = this.world.getSystem<EntityManager>('entity-manager');
+    this.entityManager = this.world.getSystem<EntityManager>("entity-manager");
     // DISABLED: MobNPCSpawnerSystem already handles spawning all mobs
     // Having both systems spawn causes duplicates and memory issues
     // if (this.entityManager) {
@@ -113,7 +135,7 @@ export class MobNPCSystem extends SystemBase {
   private onPlayerEnter(_data: unknown): void {
     // Handle player entering the world
     // Could spawn mobs around the player or adjust mob behavior
-      }
+  }
 
   private initializeSpawnPoints(): void {
     // Load spawn points from externalized world areas data
@@ -132,10 +154,13 @@ export class MobNPCSystem extends SystemBase {
               const position = {
                 x: mobSpawn.position.x + Math.cos(angle) * distance,
                 y: mobSpawn.position.y || 0, // Use specified Y or default to 0 (will be grounded to terrain)
-                z: mobSpawn.position.z + Math.sin(angle) * distance
+                z: mobSpawn.position.z + Math.sin(angle) * distance,
               };
 
-              this.spawnPoints.set(`${areaId}_spawn_${spawnId}`, { config, position });
+              this.spawnPoints.set(`${areaId}_spawn_${spawnId}`, {
+                config,
+                position,
+              });
               spawnId++;
             }
           }
@@ -153,18 +178,27 @@ export class MobNPCSystem extends SystemBase {
         position: spawnData.position,
         level: spawnData.config.level,
         name: spawnData.config.name,
-        customId: `mob_${spawnId}_${Date.now()}`
+        customId: `mob_${spawnId}_${Date.now()}`,
       });
     }
   }
 
-  private async spawnMobInternal(spawnId: string, config: MobSpawnConfig, position: { x: number; y: number; z: number }): Promise<string | null> {
+  private async spawnMobInternal(
+    spawnId: string,
+    config: MobSpawnConfig,
+    position: { x: number; y: number; z: number },
+  ): Promise<string | null> {
     if (!this.entityManager) {
       return null;
     }
 
     // Ground mob to terrain - use Infinity to allow any initial height difference
-    const groundedPosition = groundToTerrain(this.world, position, 0.5, Infinity);
+    const groundedPosition = groundToTerrain(
+      this.world,
+      position,
+      0.5,
+      Infinity,
+    );
 
     const mobId = `mob_${spawnId}_${Date.now()}`;
 
@@ -181,39 +215,58 @@ export class MobNPCSystem extends SystemBase {
         chaseRange: config.aggroRange * 2,
         returnToSpawn: true,
         ignoreLowLevelPlayers: false,
-        levelThreshold: 10
+        levelThreshold: 10,
       },
       drops: config.drops || [],
-      spawnBiomes: config.spawnBiomes || ['plains'],
+      spawnBiomes: config.spawnBiomes || ["plains"],
       modelPath: config.modelPath || `/models/mobs/${config.type}.glb`,
       animationSet: config.animationSet || {
-        idle: 'idle',
-        walk: 'walk',
-        attack: 'attack',
-        death: 'death'
+        idle: "idle",
+        walk: "walk",
+        attack: "attack",
+        death: "death",
       },
       respawnTime: config.respawnTime,
       xpReward: config.xpReward || config.level * 10,
       level: config.level,
       health: (config.stats?.constitution || 10) * 10, // Health = Constitution * 10 per GDD
       maxHealth: (config.stats?.constitution || 10) * 10,
-      position: { x: groundedPosition.x, y: groundedPosition.y, z: groundedPosition.z },
+      position: {
+        x: groundedPosition.x,
+        y: groundedPosition.y,
+        z: groundedPosition.z,
+      },
       isAlive: true,
       isAggressive: config.isAggressive,
       aggroRange: config.aggroRange,
-      aiState: 'idle' as const,
-      homePosition: { x: groundedPosition.x, y: groundedPosition.y, z: groundedPosition.z },
-      spawnLocation: { x: groundedPosition.x, y: groundedPosition.y, z: groundedPosition.z },
+      aiState: "idle" as const,
+      homePosition: {
+        x: groundedPosition.x,
+        y: groundedPosition.y,
+        z: groundedPosition.z,
+      },
+      spawnLocation: {
+        x: groundedPosition.x,
+        y: groundedPosition.y,
+        z: groundedPosition.z,
+      },
       equipment: {
-        weapon: config.equipment?.weapon ? {
-          id: 1,
-          name: config.equipment.weapon.name || 'Basic Weapon',
-          type: config.equipment.weapon.type === 'ranged' ? AttackType.RANGED : AttackType.MELEE
-        } : null,
-        armor: config.equipment?.armor ? {
-          id: 1,
-          name: config.equipment.armor.name || 'Basic Armor'
-        } : null
+        weapon: config.equipment?.weapon
+          ? {
+              id: 1,
+              name: config.equipment.weapon.name || "Basic Weapon",
+              type:
+                config.equipment.weapon.type === "ranged"
+                  ? AttackType.RANGED
+                  : AttackType.MELEE,
+            }
+          : null,
+        armor: config.equipment?.armor
+          ? {
+              id: 1,
+              name: config.equipment.armor.name || "Basic Armor",
+            }
+          : null,
       },
       lootTable: config.lootTable,
       lastAI: Date.now(),
@@ -224,10 +277,10 @@ export class MobNPCSystem extends SystemBase {
         strength: config.stats?.strength || 1,
         defense: config.stats?.defense || 1,
         constitution: config.stats?.constitution || 10,
-        ranged: config.stats?.ranged || 1
+        ranged: config.stats?.ranged || 1,
       },
       target: null,
-      wanderRadius: 5 // Default wander radius
+      wanderRadius: 5, // Default wander radius
     };
 
     this.mobs.set(mobId, mobData);
@@ -255,7 +308,10 @@ export class MobNPCSystem extends SystemBase {
     return mobId;
   }
 
-  private spawnMobAtLocation(data: { mobType: string; position: { x: number; y: number; z: number } }): void {
+  private spawnMobAtLocation(data: {
+    mobType: string;
+    position: { x: number; y: number; z: number };
+  }): void {
     const config = this.MOB_CONFIGS[data.mobType];
     if (!config) {
       return;
@@ -265,13 +321,22 @@ export class MobNPCSystem extends SystemBase {
     this.spawnMobInternal(spawnId, config, data.position);
   }
 
-  private handleMobDamage(data: { entityId: string; damage: number; damageSource: string; entityType: 'player' | 'mob' }): void {
-    console.log(`[MobNPCSystem] handleMobDamage called for ${data.entityId}: ${data.damage} damage from ${data.damageSource}`);
-    if (data.entityType !== 'mob') return;
+  private handleMobDamage(data: {
+    entityId: string;
+    damage: number;
+    damageSource: string;
+    entityType: "player" | "mob";
+  }): void {
+    console.log(
+      `[MobNPCSystem] handleMobDamage called for ${data.entityId}: ${data.damage} damage from ${data.damageSource}`,
+    );
+    if (data.entityType !== "mob") return;
 
     // Validate entityId is defined
     if (!data.entityId) {
-      console.warn('[MobNPCSystem] handleMobDamage called with undefined entityId');
+      console.warn(
+        "[MobNPCSystem] handleMobDamage called with undefined entityId",
+      );
       return;
     }
 
@@ -285,7 +350,7 @@ export class MobNPCSystem extends SystemBase {
     this.emitTypedEvent(EventType.MOB_NPC_ATTACKED, {
       mobId: data.entityId,
       damage: data.damage,
-      attackerId: data.damageSource
+      attackerId: data.damageSource,
     });
 
     // Check if mob died from damage
@@ -294,23 +359,27 @@ export class MobNPCSystem extends SystemBase {
       this.handleMobDeath({
         entityId: data.entityId,
         killedBy: data.damageSource,
-        entityType: 'mob'
+        entityType: "mob",
       });
     }
   }
 
-  private handleMobDeath(data: { entityId: string; killedBy: string; entityType: 'player' | 'mob' }): void {
-    if (data.entityType !== 'mob') return;
+  private handleMobDeath(data: {
+    entityId: string;
+    killedBy: string;
+    entityType: "player" | "mob";
+  }): void {
+    if (data.entityType !== "mob") return;
 
     const mob = this.mobs.get(data.entityId);
     if (!mob) return;
 
     mob.isAlive = false;
-    mob.aiState = 'dead';
+    mob.aiState = "dead";
     mob.health = 0;
 
     // Loot generation is now handled by LootSystem via mob:died event
-            // this.generateLoot(mob);
+    // this.generateLoot(mob);
 
     // Schedule respawn per GDD (15-minute global cycle)
     const respawnTime = Date.now() + mob.respawnTime;
@@ -324,14 +393,19 @@ export class MobNPCSystem extends SystemBase {
     if (!mob) return;
 
     // Ground spawn location to terrain before respawning - use Infinity to allow any initial height difference
-    const groundedPosition = groundToTerrain(this.world, mob.spawnLocation, 0.5, Infinity);
+    const groundedPosition = groundToTerrain(
+      this.world,
+      mob.spawnLocation,
+      0.5,
+      Infinity,
+    );
 
     // Reset mob to spawn state
     mob.isAlive = true;
     mob.health = mob.maxHealth;
     mob.position = { ...groundedPosition };
     mob.homePosition = { ...groundedPosition };
-    mob.aiState = 'idle';
+    mob.aiState = "idle";
     mob.target = null;
     mob.lastAI = Date.now();
 
@@ -345,10 +419,14 @@ export class MobNPCSystem extends SystemBase {
         // Emit a spawn request - EntityManager will create the entity and emit MOB_NPC_SPAWNED
         this.emitTypedEvent(EventType.MOB_NPC_SPAWN_REQUEST, {
           mobType: config.type,
-          position: { x: groundedPosition.x, y: groundedPosition.y, z: groundedPosition.z },
+          position: {
+            x: groundedPosition.x,
+            y: groundedPosition.y,
+            z: groundedPosition.z,
+          },
           level: config.level,
           name: config.name,
-          customId: mobId
+          customId: mobId,
         });
       }
     }
@@ -366,8 +444,11 @@ export class MobNPCSystem extends SystemBase {
     return this.mobs.get(mobId);
   }
 
-  public getMobsInArea(center: { x: number; y: number; z: number }, radius: number): MobInstance[] {
-    return Array.from(this.mobs.values()).filter(mob => {
+  public getMobsInArea(
+    center: { x: number; y: number; z: number },
+    radius: number,
+  ): MobInstance[] {
+    return Array.from(this.mobs.values()).filter((mob) => {
       if (!mob.isAlive) return false;
       const distance = calculateDistance(mob.position, center);
       return distance <= radius;
@@ -377,9 +458,10 @@ export class MobNPCSystem extends SystemBase {
   /**
    * Public method to spawn a mob for testing/dynamic purposes
    */
-  public async spawnMob(config: MobSpawnConfig, position: { x: number; y: number; z: number }): Promise<string | null> {
-
-
+  public async spawnMob(
+    config: MobSpawnConfig,
+    position: { x: number; y: number; z: number },
+  ): Promise<string | null> {
     // Convert the config to the internal MobSpawnConfig format
     const mobConfig: MobSpawnConfig = {
       type: config.type,
@@ -390,16 +472,16 @@ export class MobNPCSystem extends SystemBase {
         strength: config.level,
         defense: config.level,
         constitution: 30,
-        ranged: 1
+        ranged: 1,
       },
       equipment: {
         weapon: null,
-        armor: null
+        armor: null,
       },
-      lootTable: 'default',
+      lootTable: "default",
       isAggressive: config.isAggressive !== false, // Default to true if not specified
       aggroRange: config.aggroRange ?? 5,
-      respawnTime: config.respawnTime ?? 0
+      respawnTime: config.respawnTime ?? 0,
     };
 
     const timestamp = Date.now();
@@ -410,8 +492,6 @@ export class MobNPCSystem extends SystemBase {
 
     return mobId;
   }
-
-
 
   /**
    * Despawn a mob immediately
@@ -429,7 +509,7 @@ export class MobNPCSystem extends SystemBase {
 
     // Mark as dead and remove from active mobs
     mob.isAlive = false;
-    mob.aiState = 'dead';
+    mob.aiState = "dead";
 
     // Clear any respawn timer
     const respawnTimer = this.respawnTimers.get(mobId);
@@ -444,7 +524,7 @@ export class MobNPCSystem extends SystemBase {
     this.emitTypedEvent(EventType.MOB_NPC_DESPAWN, {
       mobId,
       mobType: mob.type,
-      position: { x: mob.position.x, y: mob.position.y, z: mob.position.z }
+      position: { x: mob.position.x, y: mob.position.y, z: mob.position.z },
     });
 
     return true;
@@ -482,7 +562,6 @@ export class MobNPCSystem extends SystemBase {
     // Don't emit NPC_DIED here - let MobEntity.die() handle it
     return true;
   }
-
 
   /**
    * Main update loop - respawn logic only

@@ -1,13 +1,13 @@
 /**
  * Component type definitions
- * 
+ *
  * These types define component interfaces for the ECS system.
  * Components that are widely used have been moved to core.ts to avoid duplication.
  * This file contains specialized component types used by specific systems.
  */
 
-import type { Position3D, CombatBonuses, EquipmentSlotName } from './core';
-import type * as THREE from 'three';
+import type { Position3D, CombatBonuses, EquipmentSlotName } from "./core";
+import type * as THREE from "three";
 
 // ECS component interfaces that were previously defined in component classes
 export interface CombatComponentData {
@@ -56,7 +56,14 @@ export interface VisualComponentData {
 export interface ItemDefinition {
   id: string;
   name: string;
-  type: 'weapon' | 'armor' | 'shield' | 'ammunition' | 'consumable' | 'tool' | 'resource';
+  type:
+    | "weapon"
+    | "armor"
+    | "shield"
+    | "ammunition"
+    | "consumable"
+    | "tool"
+    | "resource";
   bonuses: CombatBonuses | null;
   requirements: {
     level: number;
@@ -71,14 +78,14 @@ export interface ItemDefinition {
 
 // Spawn area interface for mob spawning systems
 export interface SpawnArea {
-  type: 'circular' | 'rectangular' | 'polygon';
+  type: "circular" | "rectangular" | "polygon";
   avoidOverlap: boolean;
   minSpacing: number;
   maxHeight: number;
   minHeight: number;
   center: Position3D;
   radius: number; // For circular areas
-  width: number;  // For rectangular areas
+  width: number; // For rectangular areas
   height: number; // For rectangular areas
   generatePosition(): Position3D | null;
   isValidPosition(position: Position3D): boolean;

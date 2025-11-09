@@ -3,13 +3,13 @@
  * PostgreSQL connection using Bun-optimized postgres library and Drizzle ORM
  */
 
-import postgres from 'postgres'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import { schema } from './schema'
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { schema } from "./schema";
 
 // Validate required environment variable
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required')
+  throw new Error("DATABASE_URL environment variable is required");
 }
 
 // Create postgres client (optimized for Bun)
@@ -19,28 +19,30 @@ export const queryClient = postgres(process.env.DATABASE_URL, {
   idle_timeout: 20, // Close idle connections after 20 seconds
   connect_timeout: 10, // Fail after 10 seconds if can't connect
   prepare: false, // Disable prepared statements for better compatibility
-})
+});
 
 // Create Drizzle instance with schema
-export const db = drizzle(queryClient, { schema })
+export const db = drizzle(queryClient, { schema });
 
 // Test connection
-queryClient`SELECT NOW()`.then((result) => {
-  console.log('[Database] ✓ Connected to PostgreSQL at', result[0].now)
-}).catch((error) => {
-  console.error('[Database] ✗ Connection failed:', error.message)
-  process.exit(1)
-})
+queryClient`SELECT NOW()`
+  .then((result) => {
+    console.log("[Database] ✓ Connected to PostgreSQL at", result[0].now);
+  })
+  .catch((error) => {
+    console.error("[Database] ✗ Connection failed:", error.message);
+    process.exit(1);
+  });
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('[Database] Closing connection...')
-  await queryClient.end()
-  process.exit(0)
-})
+process.on("SIGINT", async () => {
+  console.log("[Database] Closing connection...");
+  await queryClient.end();
+  process.exit(0);
+});
 
-process.on('SIGTERM', async () => {
-  console.log('[Database] Closing connection...')
-  await queryClient.end()
-  process.exit(0)
-})
+process.on("SIGTERM", async () => {
+  console.log("[Database] Closing connection...");
+  await queryClient.end();
+  process.exit(0);
+});

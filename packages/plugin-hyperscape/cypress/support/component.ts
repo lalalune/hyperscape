@@ -5,13 +5,13 @@
 // ***********************************************************
 
 // Import commands.js using ES2015 syntax:
-import './commands';
+import "./commands";
 
 // Import Testing Library Cypress commands
-import '@testing-library/cypress/add-commands';
+import "@testing-library/cypress/add-commands";
 
 // Import styles
-import '../../src/frontend/index.css';
+import "../../src/frontend/index.css";
 
 // Add custom TypeScript types
 declare global {
@@ -27,7 +27,7 @@ declare global {
 }
 
 // Import React mount function
-import { mount } from '@cypress/react';
+import { mount } from "@cypress/react";
 
 // Make mount available globally
-Cypress.Commands.add('mount', mount);
+Cypress.Commands.add("mount", mount);

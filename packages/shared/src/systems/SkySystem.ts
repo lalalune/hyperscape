@@ -9,75 +9,327 @@
  * per-frame updates in update()/lateUpdate().
  */
 
-import THREE from '../extras/three'
-import { System } from './System'
-import type { World, WorldOptions } from '../types'
-import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js'
+import THREE from "../extras/three";
+import { System } from "./System";
+import type { World, WorldOptions } from "../types";
+import { Lensflare, LensflareElement } from "three/addons/objects/Lensflare.js";
 
 // -----------------------------
 // Utility: Procedural noise textures (avoids external deps)
 // -----------------------------
 function createNoiseTexture(size = 128): THREE.DataTexture {
-  const data = new Uint8Array(size * size * 4)
+  const data = new Uint8Array(size * size * 4);
   for (let i = 0; i < size * size; i++) {
-    const v = Math.floor(Math.random() * 255)
-    const o = i * 4
-    data[o] = v
-    data[o + 1] = Math.floor(Math.random() * 255)
-    data[o + 2] = Math.floor(Math.random() * 255)
-    data[o + 3] = 255
+    const v = Math.floor(Math.random() * 255);
+    const o = i * 4;
+    data[o] = v;
+    data[o + 1] = Math.floor(Math.random() * 255);
+    data[o + 2] = Math.floor(Math.random() * 255);
+    data[o + 3] = 255;
   }
-  const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.needsUpdate = true
-  return tex
+  const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 // -----------------------------
 // Cloud data (subset from reference; enough for layered sky feel)
 // -----------------------------
 type CloudItem = {
-  textureNumber: number
-  cloudNumber: number
-  positionIndex: number
-  posY: number
-  width: number
-  height: number
-  distortionSpeed: number
-  distortionRange: number
-}
+  textureNumber: number;
+  cloudNumber: number;
+  positionIndex: number;
+  posY: number;
+  width: number;
+  height: number;
+  distortionSpeed: number;
+  distortionRange: number;
+};
 
 const cloudData: CloudItem[] = [
-  { textureNumber: 2, cloudNumber: 0, positionIndex: 4, posY: 350, width: 300, height: 200, distortionSpeed: 0.12, distortionRange: 0.1 },
-  { textureNumber: 2, cloudNumber: 6, positionIndex: 0, posY: 350, width: 300, height: 200, distortionSpeed: 0.11, distortionRange: 0.05 },
-  { textureNumber: 2, cloudNumber: 1, positionIndex: 14, posY: 350, width: 300, height: 180, distortionSpeed: 0.12, distortionRange: 0.1 },
-  { textureNumber: 2, cloudNumber: 6, positionIndex: 8, posY: 350, width: 300, height: 180, distortionSpeed: 0.1, distortionRange: 0.0 },
-  { textureNumber: 2, cloudNumber: 2, positionIndex: 28, posY: 350, width: 400, height: 200, distortionSpeed: 0.12, distortionRange: 0.1 },
-  { textureNumber: 2, cloudNumber: 6, positionIndex: 30, posY: 350, width: 400, height: 200, distortionSpeed: 0.12, distortionRange: 0.05 },
-  { textureNumber: 2, cloudNumber: 3, positionIndex: 45, posY: 350, width: 400, height: 200, distortionSpeed: 0.12, distortionRange: 0.1 },
-  { textureNumber: 2, cloudNumber: 7, positionIndex: 50, posY: 350, width: 400, height: 200, distortionSpeed: 0.1, distortionRange: 0.1 },
-  { textureNumber: 2, cloudNumber: 4, positionIndex: 69, posY: 350, width: 350, height: 175, distortionSpeed: 0.12, distortionRange: 0.1 },
-  { textureNumber: 2, cloudNumber: 6, positionIndex: 75, posY: 350, width: 350, height: 175, distortionSpeed: 0.12, distortionRange: 0.0 },
-  { textureNumber: 2, cloudNumber: 5, positionIndex: 80, posY: 350, width: 350, height: 175, distortionSpeed: 0.12, distortionRange: 0.1 },
-  { textureNumber: 2, cloudNumber: 7, positionIndex: 85, posY: 350, width: 500, height: 200, distortionSpeed: 0.1, distortionRange: 0.05 },
-  { textureNumber: 0, cloudNumber: 0, positionIndex: 0, posY: 450, width: 230, height: 115, distortionSpeed: 0.1, distortionRange: 0.5 },
-  { textureNumber: 0, cloudNumber: 1, positionIndex: 15, posY: 550, width: 180, height: 90, distortionSpeed: 0.12, distortionRange: 0.4 },
-  { textureNumber: 0, cloudNumber: 2, positionIndex: 23, posY: 650, width: 210, height: 105, distortionSpeed: 0.13, distortionRange: 0.35 },
-  { textureNumber: 0, cloudNumber: 3, positionIndex: 34, posY: 400, width: 250, height: 125, distortionSpeed: 0.15, distortionRange: 0.4 },
-  { textureNumber: 0, cloudNumber: 4, positionIndex: 46, posY: 450, width: 230, height: 115, distortionSpeed: 0.16, distortionRange: 0.35 },
-  { textureNumber: 0, cloudNumber: 5, positionIndex: 58, posY: 550, width: 290, height: 145, distortionSpeed: 0.12, distortionRange: 0.4 },
-  { textureNumber: 0, cloudNumber: 6, positionIndex: 75, posY: 475, width: 150, height: 75, distortionSpeed: 0.2, distortionRange: 0.45 },
-  { textureNumber: 0, cloudNumber: 7, positionIndex: 90, posY: 450, width: 240, height: 120, distortionSpeed: 0.17, distortionRange: 0.5 },
-  { textureNumber: 3, cloudNumber: 7, positionIndex: 60, posY: 375, width: 300, height: 150, distortionSpeed: 0.1, distortionRange: 0.5 },
-  { textureNumber: 3, cloudNumber: 6, positionIndex: 20, posY: 375, width: 200, height: 100, distortionSpeed: 0.12, distortionRange: 0.4 },
-  { textureNumber: 3, cloudNumber: 5, positionIndex: 36, posY: 550, width: 250, height: 120, distortionSpeed: 0.13, distortionRange: 0.35 },
-  { textureNumber: 3, cloudNumber: 4, positionIndex: 50, posY: 625, width: 280, height: 170, distortionSpeed: 0.15, distortionRange: 0.4 },
-  { textureNumber: 3, cloudNumber: 3, positionIndex: 69, posY: 550, width: 350, height: 200, distortionSpeed: 0.16, distortionRange: 0.35 },
-  { textureNumber: 3, cloudNumber: 2, positionIndex: 79, posY: 700, width: 390, height: 200, distortionSpeed: 0.12, distortionRange: 0.4 },
-  { textureNumber: 3, cloudNumber: 1, positionIndex: 85, posY: 525, width: 380, height: 190, distortionSpeed: 0.2, distortionRange: 0.45 },
-  { textureNumber: 3, cloudNumber: 0, positionIndex: 95, posY: 675, width: 150, height: 100, distortionSpeed: 0.17, distortionRange: 0.5 },
-]
+  {
+    textureNumber: 2,
+    cloudNumber: 0,
+    positionIndex: 4,
+    posY: 350,
+    width: 300,
+    height: 200,
+    distortionSpeed: 0.12,
+    distortionRange: 0.1,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 6,
+    positionIndex: 0,
+    posY: 350,
+    width: 300,
+    height: 200,
+    distortionSpeed: 0.11,
+    distortionRange: 0.05,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 1,
+    positionIndex: 14,
+    posY: 350,
+    width: 300,
+    height: 180,
+    distortionSpeed: 0.12,
+    distortionRange: 0.1,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 6,
+    positionIndex: 8,
+    posY: 350,
+    width: 300,
+    height: 180,
+    distortionSpeed: 0.1,
+    distortionRange: 0.0,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 2,
+    positionIndex: 28,
+    posY: 350,
+    width: 400,
+    height: 200,
+    distortionSpeed: 0.12,
+    distortionRange: 0.1,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 6,
+    positionIndex: 30,
+    posY: 350,
+    width: 400,
+    height: 200,
+    distortionSpeed: 0.12,
+    distortionRange: 0.05,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 3,
+    positionIndex: 45,
+    posY: 350,
+    width: 400,
+    height: 200,
+    distortionSpeed: 0.12,
+    distortionRange: 0.1,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 7,
+    positionIndex: 50,
+    posY: 350,
+    width: 400,
+    height: 200,
+    distortionSpeed: 0.1,
+    distortionRange: 0.1,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 4,
+    positionIndex: 69,
+    posY: 350,
+    width: 350,
+    height: 175,
+    distortionSpeed: 0.12,
+    distortionRange: 0.1,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 6,
+    positionIndex: 75,
+    posY: 350,
+    width: 350,
+    height: 175,
+    distortionSpeed: 0.12,
+    distortionRange: 0.0,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 5,
+    positionIndex: 80,
+    posY: 350,
+    width: 350,
+    height: 175,
+    distortionSpeed: 0.12,
+    distortionRange: 0.1,
+  },
+  {
+    textureNumber: 2,
+    cloudNumber: 7,
+    positionIndex: 85,
+    posY: 350,
+    width: 500,
+    height: 200,
+    distortionSpeed: 0.1,
+    distortionRange: 0.05,
+  },
+  {
+    textureNumber: 0,
+    cloudNumber: 0,
+    positionIndex: 0,
+    posY: 450,
+    width: 230,
+    height: 115,
+    distortionSpeed: 0.1,
+    distortionRange: 0.5,
+  },
+  {
+    textureNumber: 0,
+    cloudNumber: 1,
+    positionIndex: 15,
+    posY: 550,
+    width: 180,
+    height: 90,
+    distortionSpeed: 0.12,
+    distortionRange: 0.4,
+  },
+  {
+    textureNumber: 0,
+    cloudNumber: 2,
+    positionIndex: 23,
+    posY: 650,
+    width: 210,
+    height: 105,
+    distortionSpeed: 0.13,
+    distortionRange: 0.35,
+  },
+  {
+    textureNumber: 0,
+    cloudNumber: 3,
+    positionIndex: 34,
+    posY: 400,
+    width: 250,
+    height: 125,
+    distortionSpeed: 0.15,
+    distortionRange: 0.4,
+  },
+  {
+    textureNumber: 0,
+    cloudNumber: 4,
+    positionIndex: 46,
+    posY: 450,
+    width: 230,
+    height: 115,
+    distortionSpeed: 0.16,
+    distortionRange: 0.35,
+  },
+  {
+    textureNumber: 0,
+    cloudNumber: 5,
+    positionIndex: 58,
+    posY: 550,
+    width: 290,
+    height: 145,
+    distortionSpeed: 0.12,
+    distortionRange: 0.4,
+  },
+  {
+    textureNumber: 0,
+    cloudNumber: 6,
+    positionIndex: 75,
+    posY: 475,
+    width: 150,
+    height: 75,
+    distortionSpeed: 0.2,
+    distortionRange: 0.45,
+  },
+  {
+    textureNumber: 0,
+    cloudNumber: 7,
+    positionIndex: 90,
+    posY: 450,
+    width: 240,
+    height: 120,
+    distortionSpeed: 0.17,
+    distortionRange: 0.5,
+  },
+  {
+    textureNumber: 3,
+    cloudNumber: 7,
+    positionIndex: 60,
+    posY: 375,
+    width: 300,
+    height: 150,
+    distortionSpeed: 0.1,
+    distortionRange: 0.5,
+  },
+  {
+    textureNumber: 3,
+    cloudNumber: 6,
+    positionIndex: 20,
+    posY: 375,
+    width: 200,
+    height: 100,
+    distortionSpeed: 0.12,
+    distortionRange: 0.4,
+  },
+  {
+    textureNumber: 3,
+    cloudNumber: 5,
+    positionIndex: 36,
+    posY: 550,
+    width: 250,
+    height: 120,
+    distortionSpeed: 0.13,
+    distortionRange: 0.35,
+  },
+  {
+    textureNumber: 3,
+    cloudNumber: 4,
+    positionIndex: 50,
+    posY: 625,
+    width: 280,
+    height: 170,
+    distortionSpeed: 0.15,
+    distortionRange: 0.4,
+  },
+  {
+    textureNumber: 3,
+    cloudNumber: 3,
+    positionIndex: 69,
+    posY: 550,
+    width: 350,
+    height: 200,
+    distortionSpeed: 0.16,
+    distortionRange: 0.35,
+  },
+  {
+    textureNumber: 3,
+    cloudNumber: 2,
+    positionIndex: 79,
+    posY: 700,
+    width: 390,
+    height: 200,
+    distortionSpeed: 0.12,
+    distortionRange: 0.4,
+  },
+  {
+    textureNumber: 3,
+    cloudNumber: 1,
+    positionIndex: 85,
+    posY: 525,
+    width: 380,
+    height: 190,
+    distortionSpeed: 0.2,
+    distortionRange: 0.45,
+  },
+  {
+    textureNumber: 3,
+    cloudNumber: 0,
+    positionIndex: 95,
+    posY: 675,
+    width: 150,
+    height: 100,
+    distortionSpeed: 0.17,
+    distortionRange: 0.5,
+  },
+];
 
 // -----------------------------
 // Shaders
@@ -158,7 +410,7 @@ const skyVertexShader = `
 
     vColor = vec3(color);
   }
-`
+`;
 
 const skyFragmentShader = `
   varying vec3 vColor;
@@ -244,7 +496,7 @@ const skyFragmentShader = `
     
     gl_FragColor = vec4(vColor + (vec3(finalStarColor) + finalGalaxyColor.rgb) * starMask + finalmoonColor.rgb, 1.0);
   }
-`
+`;
 
 const cloudVertexShader = `\   
   attribute float textureNumber;
@@ -385,102 +637,112 @@ const cloudFragmentShader = `\
 // SkySystem
 // -----------------------------
 export class SkySystem extends System {
-  private scene: THREE.Scene | null = null
-  private group: THREE.Group | null = null
-  private skyMesh: THREE.Mesh | null = null
-  private clouds: THREE.InstancedMesh | null = null
-  private moon: THREE.Mesh | null = null
-  private sun: THREE.Mesh | null = null
-  private lensflare: Lensflare | null = null
+  private scene: THREE.Scene | null = null;
+  private group: THREE.Group | null = null;
+  private skyMesh: THREE.Mesh | null = null;
+  private clouds: THREE.InstancedMesh | null = null;
+  private moon: THREE.Mesh | null = null;
+  private sun: THREE.Mesh | null = null;
+  private lensflare: Lensflare | null = null;
 
-  private galaxyTex: THREE.Texture | null = null // reserved for future use
-  private cloud1: THREE.Texture | null = null
-  private cloud2: THREE.Texture | null = null
-  private cloud3: THREE.Texture | null = null
-  private cloud4: THREE.Texture | null = null
-  private moonTex: THREE.Texture | null = null
-  private starTex: THREE.Texture | null = null // reserved for future use
-  private flare32Tex: THREE.Texture | null = null
-  private lensflare3Tex: THREE.Texture | null = null
-  private noiseA!: THREE.Texture
-  private noiseB!: THREE.Texture
+  private galaxyTex: THREE.Texture | null = null; // reserved for future use
+  private cloud1: THREE.Texture | null = null;
+  private cloud2: THREE.Texture | null = null;
+  private cloud3: THREE.Texture | null = null;
+  private cloud4: THREE.Texture | null = null;
+  private moonTex: THREE.Texture | null = null;
+  private starTex: THREE.Texture | null = null; // reserved for future use
+  private flare32Tex: THREE.Texture | null = null;
+  private lensflare3Tex: THREE.Texture | null = null;
+  private noiseA!: THREE.Texture;
+  private noiseB!: THREE.Texture;
 
-  private elapsed = 0
-  private dayDurationSec = 240 // full day cycle in seconds
+  private elapsed = 0;
+  private dayDurationSec = 240; // full day cycle in seconds
 
   constructor(world: World) {
-    super(world)
+    super(world);
   }
 
   override getDependencies() {
-    return { required: ['stage'] }
+    return { required: ["stage"] };
   }
 
   async init(_options?: WorldOptions): Promise<void> {
     // Client-only texture loading
-    if (!this.world.isClient || typeof window === 'undefined') {
-      return
+    if (!this.world.isClient || typeof window === "undefined") {
+      return;
     }
 
-    this.noiseA = createNoiseTexture(128)
-    this.noiseB = createNoiseTexture(128)
+    this.noiseA = createNoiseTexture(128);
+    this.noiseB = createNoiseTexture(128);
 
     const loadTex = (url: string): Promise<THREE.Texture> => {
       return new Promise((resolve, reject) => {
-        const loader = new THREE.TextureLoader()
-        loader.load(url, (t) => {
-          // Repeat for procedural lookup textures
-          const shouldRepeat = /noise|star|galaxy/.test(url)
-          t.wrapS = shouldRepeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
-          t.wrapT = shouldRepeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
-          t.colorSpace = THREE.SRGBColorSpace
-          resolve(t)
-        }, undefined, (e) => reject(e))
-      })
-    }
+        const loader = new THREE.TextureLoader();
+        loader.load(
+          url,
+          (t) => {
+            // Repeat for procedural lookup textures
+            const shouldRepeat = /noise|star|galaxy/.test(url);
+            t.wrapS = shouldRepeat
+              ? THREE.RepeatWrapping
+              : THREE.ClampToEdgeWrapping;
+            t.wrapT = shouldRepeat
+              ? THREE.RepeatWrapping
+              : THREE.ClampToEdgeWrapping;
+            t.colorSpace = THREE.SRGBColorSpace;
+            resolve(t);
+          },
+          undefined,
+          (e) => reject(e),
+        );
+      });
+    };
 
     try {
-      const [c1, c2, c3, c4, galaxy, moon, star, n1, n2, flare32, lensflare3] = await Promise.all([
-        loadTex('/textures/cloud1.png'),
-        loadTex('/textures/cloud2.png'),
-        loadTex('/textures/cloud3.png'),
-        loadTex('/textures/cloud4.png'),
-        loadTex('/textures/galaxy.png'),
-        loadTex('/textures/moon2.png'),
-        loadTex('/textures/star3.png'),
-        loadTex('/textures/noise.png'),
-        loadTex('/textures/noise2.png'),
-        loadTex('/textures/Flare32.png'),
-        loadTex('/textures/lensflare3.png'),
-      ])
-      this.cloud1 = c1
-      this.cloud2 = c2
-      this.cloud3 = c3
-      this.cloud4 = c4
-      this.galaxyTex = galaxy
-      this.moonTex = moon
-      this.starTex = star
-      this.noiseA = n1
-      this.noiseB = n2
-      this.flare32Tex = flare32
-      this.lensflare3Tex = lensflare3
+      const [c1, c2, c3, c4, galaxy, moon, star, n1, n2, flare32, lensflare3] =
+        await Promise.all([
+          loadTex("/textures/cloud1.png"),
+          loadTex("/textures/cloud2.png"),
+          loadTex("/textures/cloud3.png"),
+          loadTex("/textures/cloud4.png"),
+          loadTex("/textures/galaxy.png"),
+          loadTex("/textures/moon2.png"),
+          loadTex("/textures/star3.png"),
+          loadTex("/textures/noise.png"),
+          loadTex("/textures/noise2.png"),
+          loadTex("/textures/Flare32.png"),
+          loadTex("/textures/lensflare3.png"),
+        ]);
+      this.cloud1 = c1;
+      this.cloud2 = c2;
+      this.cloud3 = c3;
+      this.cloud4 = c4;
+      this.galaxyTex = galaxy;
+      this.moonTex = moon;
+      this.starTex = star;
+      this.noiseA = n1;
+      this.noiseB = n2;
+      this.flare32Tex = flare32;
+      this.lensflare3Tex = lensflare3;
     } catch (err) {
-      console.warn('[SkySystem] Failed to load one or more sky textures:', err)
+      console.warn("[SkySystem] Failed to load one or more sky textures:", err);
     }
   }
 
   start(): void {
-    if (!this.world.isClient || typeof window === 'undefined') return
-    if (!this.world.stage?.scene) return
-    this.scene = this.world.stage.scene as THREE.Scene
+    if (!this.world.isClient || typeof window === "undefined") return;
+    if (!this.world.stage?.scene) return;
+    this.scene = this.world.stage.scene as THREE.Scene;
 
     // Root group
-    this.group = new THREE.Group()
-    this.group.name = 'SkySystemGroup'
-    this.scene.add(this.group)
+    this.group = new THREE.Group();
+    this.group.name = "SkySystemGroup";
+    this.scene.add(this.group);
 
     // Skydome (must be larger than sun/moon radius of 4000)
-    const skyGeom = new THREE.SphereGeometry(8000, 32, 32)
+    const skyGeom = new THREE.SphereGeometry(8000, 32, 32);
     const skyMat = new THREE.ShaderMaterial({
       vertexShader: skyVertexShader,
       fragmentShader: skyFragmentShader,
@@ -489,12 +751,12 @@ export class SkySystem extends System {
         uSunPosition: { value: new THREE.Vector3(0, 1, 0) },
         uDayCycleProgress: { value: 0 },
         // Reference naming for day/night colors
-        uColorDayCycleHigh: { value: new THREE.Color('#8cc8ff') },
-        uColorDayCycleLow: { value: new THREE.Color('#e0f2ff') },
-        uColorNightHigh: { value: new THREE.Color('#0a0d1a') },
-        uColorNightLow: { value: new THREE.Color('#1a2033') },
-        uColorDawn: { value: new THREE.Color('#ff7a3a') },
-        uColorSun: { value: new THREE.Color('#ffffee') },
+        uColorDayCycleHigh: { value: new THREE.Color("#8cc8ff") },
+        uColorDayCycleLow: { value: new THREE.Color("#e0f2ff") },
+        uColorNightHigh: { value: new THREE.Color("#0a0d1a") },
+        uColorNightLow: { value: new THREE.Color("#1a2033") },
+        uColorDawn: { value: new THREE.Color("#ff7a3a") },
+        uColorSun: { value: new THREE.Color("#ffffee") },
         // Atmosphere parameters for smooth gradients
         uAtmosphereElevation: { value: 0.4 },
         uAtmospherePower: { value: 2.5 },
@@ -510,104 +772,130 @@ export class SkySystem extends System {
       side: THREE.BackSide,
       depthWrite: false,
       transparent: false,
-    })
-    skyMat.toneMapped = true
-    this.skyMesh = new THREE.Mesh(skyGeom, skyMat)
-    this.skyMesh.frustumCulled = false
-    this.skyMesh.name = 'AdvancedSkydome'
-    this.group.add(this.skyMesh)
+    });
+    skyMat.toneMapped = true;
+    this.skyMesh = new THREE.Mesh(skyGeom, skyMat);
+    this.skyMesh.frustumCulled = false;
+    this.skyMesh.name = "AdvancedSkydome";
+    this.group.add(this.skyMesh);
 
     // Sun mesh (bright center, matches reference size and color)
-    const sunGeom = new THREE.CircleGeometry(150, 32)
+    const sunGeom = new THREE.CircleGeometry(150, 32);
     const sunMat = new THREE.MeshBasicMaterial({
-      color: 0xF2C88A, // Warm sun color like reference
+      color: 0xf2c88a, // Warm sun color like reference
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       transparent: true,
       opacity: 0.6, // Reduce brightness to prevent washout
-    })
-    this.sun = new THREE.Mesh(sunGeom, sunMat)
-    this.sun.name = 'SkySun'
-    this.sun.renderOrder = 2
-    this.group.add(this.sun)
+    });
+    this.sun = new THREE.Mesh(sunGeom, sunMat);
+    this.sun.name = "SkySun";
+    this.sun.renderOrder = 2;
+    this.group.add(this.sun);
 
     // Lensflare attached to sun (matches reference exactly)
-    this.lensflare = new Lensflare()
+    this.lensflare = new Lensflare();
     if (this.flare32Tex && this.lensflare3Tex) {
-      const mainFlareColor = new THREE.Color(0xffffff)
-      mainFlareColor.multiplyScalar(0.2) // Match reference opacity
-      this.lensflare.addElement(new LensflareElement(this.flare32Tex, 800, 0, mainFlareColor))
-      this.lensflare.addElement(new LensflareElement(this.lensflare3Tex, 60, 0.6))
-      this.lensflare.addElement(new LensflareElement(this.lensflare3Tex, 70, 0.7))
-      this.lensflare.addElement(new LensflareElement(this.lensflare3Tex, 120, 0.9))
-      this.lensflare.addElement(new LensflareElement(this.lensflare3Tex, 70, 1))
+      const mainFlareColor = new THREE.Color(0xffffff);
+      mainFlareColor.multiplyScalar(0.2); // Match reference opacity
+      this.lensflare.addElement(
+        new LensflareElement(this.flare32Tex, 800, 0, mainFlareColor),
+      );
+      this.lensflare.addElement(
+        new LensflareElement(this.lensflare3Tex, 60, 0.6),
+      );
+      this.lensflare.addElement(
+        new LensflareElement(this.lensflare3Tex, 70, 0.7),
+      );
+      this.lensflare.addElement(
+        new LensflareElement(this.lensflare3Tex, 120, 0.9),
+      );
+      this.lensflare.addElement(
+        new LensflareElement(this.lensflare3Tex, 70, 1),
+      );
     }
-    this.sun.add(this.lensflare)
+    this.sun.add(this.lensflare);
 
     // Moon (billboard)
-    const moonGeom = new THREE.PlaneGeometry(420, 420)
+    const moonGeom = new THREE.PlaneGeometry(420, 420);
     const moonMat = new THREE.MeshBasicMaterial({
       map: this.moonTex || null,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       depthTest: false,
       transparent: true,
-    })
-    this.moon = new THREE.Mesh(moonGeom, moonMat)
-    this.moon.name = 'SkyMoon'
-    this.moon.renderOrder = 2
-    this.group.add(this.moon)
+    });
+    this.moon = new THREE.Mesh(moonGeom, moonMat);
+    this.moon.name = "SkyMoon";
+    this.moon.renderOrder = 2;
+    this.group.add(this.moon);
 
     // Clouds (instanced billboards)
-    this.createClouds()
+    this.createClouds();
   }
 
   private createClouds(): void {
-    if (!this.group) return
-    const count = cloudData.length
-    const base = new THREE.PlaneGeometry(1, 1)
-    const geom = new THREE.BufferGeometry()
-    geom.setAttribute('position', base.attributes.position)
-    geom.setAttribute('normal', base.attributes.normal)
-    geom.setAttribute('uv', base.attributes.uv)
-    geom.setIndex(base.index!)
+    if (!this.group) return;
+    const count = cloudData.length;
+    const base = new THREE.PlaneGeometry(1, 1);
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", base.attributes.position);
+    geom.setAttribute("normal", base.attributes.normal);
+    geom.setAttribute("uv", base.attributes.uv);
+    geom.setIndex(base.index!);
 
-    const positions = new Float32Array(count * 3)
-    const textureNumber = new Float32Array(count)
-    const distortionSpeed = new Float32Array(count)
-    const distortionRange = new Float32Array(count)
-    const scales = new Float32Array(count * 2)
-    const offsets = new Float32Array(count * 2)
-    const rotationY = new Float32Array(count)
+    const positions = new Float32Array(count * 3);
+    const textureNumber = new Float32Array(count);
+    const distortionSpeed = new Float32Array(count);
+    const distortionRange = new Float32Array(count);
+    const scales = new Float32Array(count * 2);
+    const offsets = new Float32Array(count * 2);
+    const rotationY = new Float32Array(count);
 
-    const CLOUD_RADIUS = 600
+    const CLOUD_RADIUS = 600;
 
     for (let i = 0; i < count; i++) {
-      const c = cloudData[i]
-      const theta = 2 * Math.PI * (c.positionIndex / 100)
-      const x = Math.sin(theta) * CLOUD_RADIUS
-      const z = Math.cos(theta) * CLOUD_RADIUS
-      positions[i * 3 + 0] = x
-      positions[i * 3 + 1] = c.posY
-      positions[i * 3 + 2] = z
-      textureNumber[i] = c.textureNumber
-      distortionSpeed[i] = c.distortionSpeed
-      distortionRange[i] = (1 - c.distortionRange) * 2
-      scales[i * 2 + 0] = c.width
-      scales[i * 2 + 1] = c.height
-      rotationY[i] = -Math.sin(theta) * (Math.PI * 0.5) * (Math.cos(theta) > 0 ? 1 : -1)
-      const cloudNum = c.cloudNumber
-      offsets[i * 2 + 0] = (cloudNum % 2) * 0.5
-      offsets[i * 2 + 1] = 0.75 - Math.floor(cloudNum / 2) * 0.25
+      const c = cloudData[i];
+      const theta = 2 * Math.PI * (c.positionIndex / 100);
+      const x = Math.sin(theta) * CLOUD_RADIUS;
+      const z = Math.cos(theta) * CLOUD_RADIUS;
+      positions[i * 3 + 0] = x;
+      positions[i * 3 + 1] = c.posY;
+      positions[i * 3 + 2] = z;
+      textureNumber[i] = c.textureNumber;
+      distortionSpeed[i] = c.distortionSpeed;
+      distortionRange[i] = (1 - c.distortionRange) * 2;
+      scales[i * 2 + 0] = c.width;
+      scales[i * 2 + 1] = c.height;
+      rotationY[i] =
+        -Math.sin(theta) * (Math.PI * 0.5) * (Math.cos(theta) > 0 ? 1 : -1);
+      const cloudNum = c.cloudNumber;
+      offsets[i * 2 + 0] = (cloudNum % 2) * 0.5;
+      offsets[i * 2 + 1] = 0.75 - Math.floor(cloudNum / 2) * 0.25;
     }
 
-    geom.setAttribute('positions', new THREE.InstancedBufferAttribute(positions, 3))
-    geom.setAttribute('textureNumber', new THREE.InstancedBufferAttribute(textureNumber, 1))
-    geom.setAttribute('distortionSpeed', new THREE.InstancedBufferAttribute(distortionSpeed, 1))
-    geom.setAttribute('distortionRange', new THREE.InstancedBufferAttribute(distortionRange, 1))
-    geom.setAttribute('scales', new THREE.InstancedBufferAttribute(scales, 2))
-    geom.setAttribute('offset', new THREE.InstancedBufferAttribute(offsets, 2))
-    geom.setAttribute('rotationY', new THREE.InstancedBufferAttribute(rotationY, 1))
+    geom.setAttribute(
+      "positions",
+      new THREE.InstancedBufferAttribute(positions, 3),
+    );
+    geom.setAttribute(
+      "textureNumber",
+      new THREE.InstancedBufferAttribute(textureNumber, 1),
+    );
+    geom.setAttribute(
+      "distortionSpeed",
+      new THREE.InstancedBufferAttribute(distortionSpeed, 1),
+    );
+    geom.setAttribute(
+      "distortionRange",
+      new THREE.InstancedBufferAttribute(distortionRange, 1),
+    );
+    geom.setAttribute("scales", new THREE.InstancedBufferAttribute(scales, 2));
+    geom.setAttribute("offset", new THREE.InstancedBufferAttribute(offsets, 2));
+    geom.setAttribute(
+      "rotationY",
+      new THREE.InstancedBufferAttribute(rotationY, 1),
+    );
 
     const mat = new THREE.ShaderMaterial({
       vertexShader: cloudVertexShader,
@@ -626,125 +914,123 @@ export class SkySystem extends System {
       side: THREE.DoubleSide,
       transparent: true,
       depthWrite: true,
-    })
-    mat.toneMapped = false
+    });
+    mat.toneMapped = false;
 
-    this.clouds = new THREE.InstancedMesh(geom, mat, cloudData.length)
-    this.clouds.count = cloudData.length
-    this.clouds.frustumCulled = false
-    this.clouds.name = 'SkyClouds'
-    this.group.add(this.clouds)
+    this.clouds = new THREE.InstancedMesh(geom, mat, cloudData.length);
+    this.clouds.count = cloudData.length;
+    this.clouds.frustumCulled = false;
+    this.clouds.name = "SkyClouds";
+    this.group.add(this.clouds);
   }
 
   override update(delta: number): void {
-    if (!this.group || !this.skyMesh) return
-    this.elapsed += delta
+    if (!this.group || !this.skyMesh) return;
+    this.elapsed += delta;
 
     // Time-of-day (0..1) - continuous progression for smooth transitions
-    const worldTime = this.world.getTime() // seconds
-    const dayPhase = (worldTime % this.dayDurationSec) / this.dayDurationSec
-    const isDay = dayPhase < 0.5
-    const isAfterNoon = dayPhase > 0.03 && dayPhase < 0.47
+    const worldTime = this.world.getTime(); // seconds
+    const dayPhase = (worldTime % this.dayDurationSec) / this.dayDurationSec;
+    const isDay = dayPhase < 0.5;
+    const isAfterNoon = dayPhase > 0.03 && dayPhase < 0.47;
 
     // Sun direction on unit circle around scene
-    const inc = 0.01 // small elevation to reduce horizon flicker
-    const theta = Math.PI * (inc - 0.5)
-    const phi = 2 * Math.PI * (dayPhase - 0.5)
+    const inc = 0.01; // small elevation to reduce horizon flicker
+    const theta = Math.PI * (inc - 0.5);
+    const phi = 2 * Math.PI * (dayPhase - 0.5);
     const sun = new THREE.Vector3(
       Math.cos(phi),
       Math.sin(phi) * Math.sin(theta),
-      Math.sin(phi) * Math.cos(theta)
-    )
+      Math.sin(phi) * Math.cos(theta),
+    );
 
     // Position sun/moon far away (match reference radius of 4000)
-    const radius = 4000
+    const radius = 4000;
     if (this.sun) {
-      this.sun.position.set(sun.x * radius, sun.y * radius, sun.z * radius)
-      this.sun.visible = isDay
+      this.sun.position.set(sun.x * radius, sun.y * radius, sun.z * radius);
+      this.sun.visible = isDay;
       // Billboard to camera (like reference)
-      this.sun.quaternion.copy(this.world.camera.quaternion)
+      this.sun.quaternion.copy(this.world.camera.quaternion);
       // Only show lens flare during afternoon (like reference code)
       if (this.lensflare) {
-        this.lensflare.visible = isAfterNoon
+        this.lensflare.visible = isAfterNoon;
       }
     }
 
     if (this.moon) {
-      this.moon.position.set(-sun.x * radius, -sun.y * radius, -sun.z * radius)
+      this.moon.position.set(-sun.x * radius, -sun.y * radius, -sun.z * radius);
       // billboard to camera
-      this.moon.quaternion.copy(this.world.camera.quaternion)
-      this.moon.visible = true
+      this.moon.quaternion.copy(this.world.camera.quaternion);
+      this.moon.visible = true;
       // fade moon in at night, out at day
-      const moonMat = this.moon.material as THREE.MeshBasicMaterial
-      moonMat.opacity = isDay ? 0.0 : 1.0
+      const moonMat = this.moon.material as THREE.MeshBasicMaterial;
+      moonMat.opacity = isDay ? 0.0 : 1.0;
     }
 
     // Skydome uniforms - pass continuous day cycle progress
-    const mat = this.skyMesh.material as THREE.ShaderMaterial
-    mat.uniforms.uTime.value = this.elapsed
-    mat.uniforms.uSunPosition.value.copy(sun)
-    mat.uniforms.uDayCycleProgress.value = dayPhase
+    const mat = this.skyMesh.material as THREE.ShaderMaterial;
+    mat.uniforms.uTime.value = this.elapsed;
+    mat.uniforms.uSunPosition.value.copy(sun);
+    mat.uniforms.uDayCycleProgress.value = dayPhase;
 
     // Cloud uniforms
     if (this.clouds) {
-      const cmat = this.clouds.material as THREE.ShaderMaterial
-      cmat.uniforms.uTime.value = this.elapsed
+      const cmat = this.clouds.material as THREE.ShaderMaterial;
+      cmat.uniforms.uTime.value = this.elapsed;
       // player position for potential effects
       if (this.world.rig) {
-        const p = this.world.rig.position
-        cmat.uniforms.playerPos.value.set(p.x, p.y, p.z)
+        const p = this.world.rig.position;
+        cmat.uniforms.playerPos.value.set(p.x, p.y, p.z);
       }
       // sun position for cloud shading
       cmat.uniforms.sunPosition.value.set(
         sun.x * 850 + this.world.rig.position.x,
         sun.y * 850,
-        sun.z * 850 + this.world.rig.position.z
-      )
+        sun.z * 850 + this.world.rig.position.z,
+      );
       // clouds depth ordering: ensure clouds sit behind moon/sun slightly
-      if (this.sun) this.sun.renderOrder = 2
-      if (this.moon) this.moon.renderOrder = 2
+      if (this.sun) this.sun.renderOrder = 2;
+      if (this.moon) this.moon.renderOrder = 2;
     }
   }
 
   override lateUpdate(_delta: number): void {
-    if (!this.group) return
+    if (!this.group) return;
     // Keep sky centered on rig for infinite effect
-    this.group.position.x = this.world.rig.position.x
-    this.group.position.z = this.world.rig.position.z
+    this.group.position.x = this.world.rig.position.x;
+    this.group.position.z = this.world.rig.position.z;
   }
 
   override destroy(): void {
     if (this.group && this.group.parent) {
-      this.group.parent.remove(this.group)
+      this.group.parent.remove(this.group);
     }
     if (this.skyMesh) {
-      this.skyMesh.geometry.dispose()
-      ;(this.skyMesh.material as THREE.Material).dispose()
-      this.skyMesh = null
+      this.skyMesh.geometry.dispose();
+      (this.skyMesh.material as THREE.Material).dispose();
+      this.skyMesh = null;
     }
     if (this.clouds) {
-      this.clouds.geometry.dispose()
-      ;(this.clouds.material as THREE.Material).dispose()
-      this.clouds = null
+      this.clouds.geometry.dispose();
+      (this.clouds.material as THREE.Material).dispose();
+      this.clouds = null;
     }
     if (this.sun) {
       if (this.lensflare) {
-        this.lensflare.dispose()
-        this.lensflare = null
+        this.lensflare.dispose();
+        this.lensflare = null;
       }
-      this.sun.geometry.dispose()
-      ;(this.sun.material as THREE.Material).dispose()
-      this.sun = null
+      this.sun.geometry.dispose();
+      (this.sun.material as THREE.Material).dispose();
+      this.sun = null;
     }
     if (this.moon) {
-      this.moon.geometry.dispose()
-      ;(this.moon.material as THREE.Material).dispose()
-      this.moon = null
+      this.moon.geometry.dispose();
+      (this.moon.material as THREE.Material).dispose();
+      this.moon = null;
     }
-    this.group = null
+    this.group = null;
   }
 }
 
-export default SkySystem
-
-
+export default SkySystem;

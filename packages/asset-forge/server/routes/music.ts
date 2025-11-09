@@ -43,14 +43,17 @@ export const musicRoutes = new Elysia({
           const audioBuffer = await musicService.generateMusic(body);
 
           // Return audio file directly as binary
-          return new Response(new Blob([new Uint8Array(audioBuffer)], { type: "audio/mpeg" }), {
-            headers: {
-              "Content-Type": "audio/mpeg",
-              "Content-Length": audioBuffer.length.toString(),
-              "Cache-Control": "public, max-age=31536000",
-              "Content-Disposition": `attachment; filename="music-${Date.now()}.mp3"`,
+          return new Response(
+            new Blob([new Uint8Array(audioBuffer)], { type: "audio/mpeg" }),
+            {
+              headers: {
+                "Content-Type": "audio/mpeg",
+                "Content-Length": audioBuffer.length.toString(),
+                "Cache-Control": "public, max-age=31536000",
+                "Content-Disposition": `attachment; filename="music-${Date.now()}.mp3"`,
+              },
             },
-          });
+          );
         },
         {
           body: Models.GenerateMusicRequest,

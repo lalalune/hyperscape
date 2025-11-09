@@ -1,18 +1,20 @@
-import { CheckCircle } from 'lucide-react'
-import React from 'react'
+import { CheckCircle } from "lucide-react";
+import React from "react";
 
-import type { HandRiggingResult } from '../../services/hand-rigging/HandRiggingService'
-import type { SimpleHandRiggingResult } from '../../services/hand-rigging/SimpleHandRiggingService'
-import { cn } from '../../styles'
-import { Card, CardHeader, CardTitle, CardContent } from '../common'
+import type { HandRiggingResult } from "../../services/hand-rigging/HandRiggingService";
+import type { SimpleHandRiggingResult } from "../../services/hand-rigging/SimpleHandRiggingService";
+import { cn } from "../../styles";
+import { Card, CardHeader, CardTitle, CardContent } from "../common";
 
 interface RiggingResultsProps {
-  riggingResult: HandRiggingResult | SimpleHandRiggingResult | null
+  riggingResult: HandRiggingResult | SimpleHandRiggingResult | null;
 }
 
-export const RiggingResults: React.FC<RiggingResultsProps> = ({ riggingResult }) => {
-  if (!riggingResult) return null
-  
+export const RiggingResults: React.FC<RiggingResultsProps> = ({
+  riggingResult,
+}) => {
+  if (!riggingResult) return null;
+
   return (
     <Card className={cn("overflow-hidden", "animate-slide-in-up")}>
       <CardHeader className="bg-gradient-to-r from-success/10 to-success/5 border-b border-success/20">
@@ -37,15 +39,16 @@ export const RiggingResults: React.FC<RiggingResultsProps> = ({ riggingResult })
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-text-primary">
-              {riggingResult.metadata.originalBoneCount + riggingResult.metadata.addedBoneCount}
+              {riggingResult.metadata.originalBoneCount +
+                riggingResult.metadata.addedBoneCount}
             </p>
             <p className="text-sm text-text-secondary mt-1">Total Bones</p>
           </div>
         </div>
-        {'processingTime' in riggingResult.metadata && (
+        {"processingTime" in riggingResult.metadata && (
           <div className="mt-6 pt-6 border-t border-border-primary text-center">
             <p className="text-sm text-text-secondary">
-              Processing completed in{' '}
+              Processing completed in{" "}
               <span className="font-semibold text-text-primary">
                 {(riggingResult.metadata.processingTime / 1000).toFixed(1)}s
               </span>
@@ -54,5 +57,5 @@ export const RiggingResults: React.FC<RiggingResultsProps> = ({ riggingResult })
         )}
       </CardContent>
     </Card>
-  )
-} 
+  );
+};

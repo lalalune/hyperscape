@@ -1,35 +1,48 @@
-import { CheckCircle, ChevronRight, Package, Clock, Sparkles } from 'lucide-react'
-import React from 'react'
+import {
+  CheckCircle,
+  ChevronRight,
+  Package,
+  Clock,
+  Sparkles,
+} from "lucide-react";
+import React from "react";
 
-import { cn } from '../../styles'
-import { GeneratedAsset } from '../../types'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '../common'
+import { cn } from "../../styles";
+import { GeneratedAsset } from "../../types";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Button,
+} from "../common";
 
 interface GeneratedAssetsListProps {
-  generatedAssets: GeneratedAsset[]
-  selectedAsset: GeneratedAsset | null
-  onAssetSelect: (asset: GeneratedAsset) => void
-  onBack: () => void
+  generatedAssets: GeneratedAsset[];
+  selectedAsset: GeneratedAsset | null;
+  onAssetSelect: (asset: GeneratedAsset) => void;
+  onBack: () => void;
 }
 
 export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
   generatedAssets,
   selectedAsset,
   onAssetSelect,
-  onBack
+  onBack,
 }) => {
   const formatAssetName = (name: string) => {
     return name
-      .replace('-base', '')
-      .split('-')
+      .replace("-base", "")
+      .split("-")
       .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-  }
+      .join(" ");
+  };
 
   const formatDate = (date: string | undefined) => {
-    if (!date) return 'N/A'
-    return new Date(date).toLocaleTimeString()
-  }
+    if (!date) return "N/A";
+    return new Date(date).toLocaleTimeString();
+  };
 
   return (
     <Card className="lg:col-span-1 h-fit lg:sticky lg:top-20 overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-secondary/5 border-border-primary shadow-lg">
@@ -40,9 +53,12 @@ export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
               <Package className="w-5 h-5 text-secondary" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">Generated Assets</CardTitle>
+              <CardTitle className="text-lg font-semibold">
+                Generated Assets
+              </CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                {generatedAssets.length} {generatedAssets.length === 1 ? 'asset' : 'assets'} created
+                {generatedAssets.length}{" "}
+                {generatedAssets.length === 1 ? "asset" : "assets"} created
               </CardDescription>
             </div>
           </div>
@@ -68,7 +84,7 @@ export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
                 "w-full p-4 rounded-xl text-left transition-all duration-200 relative group",
                 selectedAsset?.id === asset.id
                   ? "bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary shadow-sm"
-                  : "bg-bg-secondary hover:bg-bg-secondary/80 border border-border-primary hover:border-secondary/50"
+                  : "bg-bg-secondary hover:bg-bg-secondary/80 border border-border-primary hover:border-secondary/50",
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -86,14 +102,22 @@ export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
                     </p>
                   </div>
                 </div>
-                <div className={cn(
-                  "p-2 rounded-lg transition-colors",
-                  selectedAsset?.id === asset.id ? "bg-primary/10" : "bg-success/10"
-                )}>
-                  <CheckCircle className={cn(
-                    "w-4 h-4",
-                    selectedAsset?.id === asset.id ? "text-primary" : "text-success"
-                  )} />
+                <div
+                  className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    selectedAsset?.id === asset.id
+                      ? "bg-primary/10"
+                      : "bg-success/10",
+                  )}
+                >
+                  <CheckCircle
+                    className={cn(
+                      "w-4 h-4",
+                      selectedAsset?.id === asset.id
+                        ? "text-primary"
+                        : "text-success",
+                    )}
+                  />
                 </div>
               </div>
             </button>
@@ -101,7 +125,7 @@ export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
         </div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
-export default GeneratedAssetsList 
+export default GeneratedAssetsList;

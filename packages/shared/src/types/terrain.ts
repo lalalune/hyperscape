@@ -1,26 +1,43 @@
 /**
  * Terrain and resource-related type definitions
- * 
+ *
  * These interfaces define terrain generation, resource spawning, and world tile management.
  * Common terrain types have been moved to core.ts to avoid duplication.
  */
 
-import THREE from '../extras/three';
-import type { Position3D } from './core';
-import type { PMeshHandle } from '../extras/geometryToPxMesh';
-import type { ActorHandle } from './physics';
+import THREE from "../extras/three";
+import type { Position3D } from "./core";
+import type { PMeshHandle } from "../extras/geometryToPxMesh";
+import type { ActorHandle } from "./physics";
 
 // Terrain resource interfaces
 export interface TerrainResourceSpawnPoint {
   position: Position3D;
-  type: 'tree' | 'rock' | 'ore' | 'herb' | 'fish' | 'gem' | 'rare_ore';
-  subType: 'willow' | 'oak' | 'yew' | 'coal' | 'iron' | 'mithril' | 'adamant' | 'runite' | 'copper' | 'tin';
+  type: "tree" | "rock" | "ore" | "herb" | "fish" | "gem" | "rare_ore";
+  subType:
+    | "willow"
+    | "oak"
+    | "yew"
+    | "coal"
+    | "iron"
+    | "mithril"
+    | "adamant"
+    | "runite"
+    | "copper"
+    | "tin";
 }
 
 export interface TerrainTileData {
   tileId: string;
   position: { x: number; z: number };
-  biome: 'forest' | 'plains' | 'desert' | 'mountains' | 'swamp' | 'tundra' | 'jungle';
+  biome:
+    | "forest"
+    | "plains"
+    | "desert"
+    | "mountains"
+    | "swamp"
+    | "tundra"
+    | "jungle";
   tileX: number;
   tileZ: number;
   resources: TerrainResource[];
@@ -28,7 +45,7 @@ export interface TerrainTileData {
 
 export interface TerrainResource {
   position: Position3D;
-  type: 'tree' | 'rock' | 'ore' | 'herb' | 'fish' | 'gem' | 'rare_ore';
+  type: "tree" | "rock" | "ore" | "herb" | "fish" | "gem" | "rare_ore";
   id: string;
 }
 
@@ -39,7 +56,14 @@ export interface TerrainTile {
   z: number;
   mesh: THREE.Mesh;
   collision: PMeshHandle | null;
-  biome: 'forest' | 'plains' | 'desert' | 'mountains' | 'swamp' | 'tundra' | 'jungle';
+  biome:
+    | "forest"
+    | "plains"
+    | "desert"
+    | "mountains"
+    | "swamp"
+    | "tundra"
+    | "jungle";
   resources: ResourceNode[];
   roads: RoadSegment[];
   waterMeshes: THREE.Mesh[];
@@ -56,7 +80,7 @@ export interface TerrainTile {
 
 export interface ResourceNode {
   id: string;
-  type: 'tree' | 'rock' | 'ore' | 'herb' | 'fish' | 'gem' | 'rare_ore';
+  type: "tree" | "rock" | "ore" | "herb" | "fish" | "gem" | "rare_ore";
   position: Position3D | THREE.Vector3;
   mesh?: THREE.Mesh | null; // For non-instanced meshes
   instanceId?: number | null;
@@ -73,7 +97,7 @@ export interface RoadSegment {
   end: THREE.Vector2 | { x: number; z: number };
   width: number;
   mesh: THREE.Mesh | null;
-  material: 'stone' | 'dirt' | 'cobblestone';
+  material: "stone" | "dirt" | "cobblestone";
   condition: number; // 0-100
 }
 

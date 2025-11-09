@@ -5,6 +5,6 @@
  * track goals, and monitor engagement levels.
  */
 
-export { factEvaluator } from './fact'
-export { goalEvaluator } from './goal'
-export { boredomEvaluator } from './boredom'
+export { factEvaluator } from "./fact";
+export { goalEvaluator } from "./goal";
+export { boredomEvaluator } from "./boredom";

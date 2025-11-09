@@ -15,7 +15,7 @@
  * 4. Target is cleared on death or when out of range
  */
 
-import type { Position3D } from '../../types';
+import type { Position3D } from "../../types";
 
 export interface AggroConfig {
   /** Range at which mob detects and chases players */
@@ -43,7 +43,7 @@ export class AggroManager {
    */
   findNearbyPlayer(
     currentPos: Position3D,
-    players: Array<{ id: string; node?: { position?: Position3D } }>
+    players: Array<{ id: string; node?: { position?: Position3D } }>,
   ): PlayerTarget | null {
     // Early exit if no players
     if (players.length === 0) return null;
@@ -64,8 +64,8 @@ export class AggroManager {
           position: {
             x: playerPos.x,
             y: playerPos.y,
-            z: playerPos.z
-          }
+            z: playerPos.z,
+          },
         };
       }
     }
@@ -77,7 +77,9 @@ export class AggroManager {
    */
   getPlayer(
     playerId: string,
-    getPlayerFn: (id: string) => { id: string; node?: { position?: Position3D } } | null
+    getPlayerFn: (
+      id: string,
+    ) => { id: string; node?: { position?: Position3D } } | null,
   ): PlayerTarget | null {
     const player = getPlayerFn(playerId);
     if (!player || !player.node?.position) return null;
@@ -87,8 +89,8 @@ export class AggroManager {
       position: {
         x: player.node.position.x,
         y: player.node.position.y,
-        z: player.node.position.z
-      }
+        z: player.node.position.z,
+      },
     };
   }
 

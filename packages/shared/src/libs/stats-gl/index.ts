@@ -3,7 +3,7 @@
 
 export default class StatsGL {
   dom: HTMLElement;
-  
+
   constructor(options?: {
     logsPerSecond?: number;
     samplesLog?: number;
@@ -13,9 +13,9 @@ export default class StatsGL {
     minimal?: boolean;
     mode?: number;
   }) {
-    this.dom = document.createElement('div');
+    this.dom = document.createElement("div");
   }
-  
+
   init(renderer: any, addToDOM?: boolean) {}
   addPanel(panel: any, position?: number) {}
   begin() {}

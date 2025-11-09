@@ -8,26 +8,28 @@
  * - Loot despawn timers
  */
 
-import type { World } from '../types/index';
-import { EventType } from '../types/events';
-import { LootTable, InventoryItem, ItemType } from '../types/core';
-import { EntityType, InteractionType, ItemRarity } from '../types/entities';
-import type { HeadstoneEntityConfig, ItemEntityConfig } from '../types/entities';
-import { Item } from '../types/index';
-import { SystemBase } from './SystemBase';
-import { items } from '../data/items';
-import type { DroppedItem } from '../types/system-interfaces';
-import { groundToTerrain } from '../utils/EntityUtils';
-import { EntityManager } from './EntityManager';
-import { ALL_NPCS } from '../data/npcs';
-
+import type { World } from "../types/index";
+import { EventType } from "../types/events";
+import { LootTable, InventoryItem, ItemType } from "../types/core";
+import { EntityType, InteractionType, ItemRarity } from "../types/entities";
+import type {
+  HeadstoneEntityConfig,
+  ItemEntityConfig,
+} from "../types/entities";
+import { Item } from "../types/index";
+import { SystemBase } from "./SystemBase";
+import { items } from "../data/items";
+import type { DroppedItem } from "../types/system-interfaces";
+import { groundToTerrain } from "../utils/EntityUtils";
+import { EntityManager } from "./EntityManager";
+import { ALL_NPCS } from "../data/npcs";
 
 export class LootSystem extends SystemBase {
   private lootTables = new Map<string, LootTable>(); // String key = mob ID from mobs.json
   private itemDatabase = new Map<string, Item>();
   private droppedItems = new Map<string, DroppedItem>();
   private nextItemId = 1;
-  
+
   // Loot constants per GDD
   private readonly LOOT_DESPAWN_TIME = 120000; // 2 minutes
   private readonly PICKUP_RANGE = 5; // meters
@@ -35,50 +37,69 @@ export class LootSystem extends SystemBase {
 
   constructor(world: World) {
     super(world, {
-      name: 'loot',
+      name: "loot",
       dependencies: {
         required: [], // Self-contained loot management
-        optional: ['inventory', 'entity-manager', 'ui', 'client-graphics']
+        optional: ["inventory", "entity-manager", "ui", "client-graphics"],
       },
-      autoCleanup: true
+      autoCleanup: true,
     });
   }
 
   async init(): Promise<void> {
-    
     // Load item database
     this.loadItemDatabase();
-    
+
     // Set up loot tables per GDD specifications
     this.setupLootTables();
-    
+
     // Subscribe to loot events using type-safe event system
     // Listen for the official mob death event (normalize various emitters)
-    this.subscribe(EventType.NPC_DIED, (event: { mobId?: string; killerId?: string; mobType?: string; level?: number; killedBy?: string; position?: { x: number; y: number; z: number } }) => {
-      const d = event;
-      // Backfill minimal shape expected by handleMobDeath if missing
-      const payload = {
-        mobId: d.mobId as string,
-        mobType: (d.mobType || 'unknown') as string,
-        level: (d.level ?? 1) as number,
-        killedBy: (d.killerId ?? d.killedBy ?? 'unknown') as string,
-        position: d.position ?? { x: 0, y: 0, z: 0 }
-      };
-      this.handleMobDeath(payload);
-    });
-    
+    this.subscribe(
+      EventType.NPC_DIED,
+      (event: {
+        mobId?: string;
+        killerId?: string;
+        mobType?: string;
+        level?: number;
+        killedBy?: string;
+        position?: { x: number; y: number; z: number };
+      }) => {
+        const d = event;
+        // Backfill minimal shape expected by handleMobDeath if missing
+        const payload = {
+          mobId: d.mobId as string,
+          mobType: (d.mobType || "unknown") as string,
+          level: (d.level ?? 1) as number,
+          killedBy: (d.killerId ?? d.killedBy ?? "unknown") as string,
+          position: d.position ?? { x: 0, y: 0, z: 0 },
+        };
+        this.handleMobDeath(payload);
+      },
+    );
+
     // Subscribe to corpse loot requests (separate from ground item pickup)
-    this.subscribe(EventType.CORPSE_LOOT_REQUEST, (data) => this.handleLootPickup(data as { playerId: string; itemId: string; corpseId?: string }));
-    this.subscribe(EventType.ITEM_DROPPED, (data) => this.dropItem(data as { playerId: string; itemId: string; quantity: number; position: { x: number; y: number; z: number } }));
-    
+    this.subscribe(EventType.CORPSE_LOOT_REQUEST, (data) =>
+      this.handleLootPickup(
+        data as { playerId: string; itemId: string; corpseId?: string },
+      ),
+    );
+    this.subscribe(EventType.ITEM_DROPPED, (data) =>
+      this.dropItem(
+        data as {
+          playerId: string;
+          itemId: string;
+          quantity: number;
+          position: { x: number; y: number; z: number };
+        },
+      ),
+    );
+
     // Start managed cleanup timer
     this.createInterval(() => {
       this.cleanupExpiredLoot();
     }, 30000); // Check every 30 seconds
-    
   }
-
-
 
   /**
    * Load item database from data files
@@ -98,22 +119,42 @@ export class LootSystem extends SystemBase {
     // Load loot tables from NPC data
     for (const [npcId, npcData] of ALL_NPCS.entries()) {
       // Only process combat NPCs (mob, boss, quest)
-      if (npcData.category !== 'mob' && npcData.category !== 'boss' && npcData.category !== 'quest') {
+      if (
+        npcData.category !== "mob" &&
+        npcData.category !== "boss" &&
+        npcData.category !== "quest"
+      ) {
         continue;
       }
 
       // Convert unified drop system to loot table format
-      const guaranteedDrops: Array<{ itemId: string; quantity: number; chance: number }> = [];
-      const commonDrops: Array<{ itemId: string; quantity: number; chance: number }> = [];
-      const uncommonDrops: Array<{ itemId: string; quantity: number; chance: number }> = [];
-      const rareDrops: Array<{ itemId: string; quantity: number; chance: number }> = [];
+      const guaranteedDrops: Array<{
+        itemId: string;
+        quantity: number;
+        chance: number;
+      }> = [];
+      const commonDrops: Array<{
+        itemId: string;
+        quantity: number;
+        chance: number;
+      }> = [];
+      const uncommonDrops: Array<{
+        itemId: string;
+        quantity: number;
+        chance: number;
+      }> = [];
+      const rareDrops: Array<{
+        itemId: string;
+        quantity: number;
+        chance: number;
+      }> = [];
 
       // Add default drop if enabled
       if (npcData.drops.defaultDrop.enabled) {
         guaranteedDrops.push({
           itemId: npcData.drops.defaultDrop.itemId,
           quantity: npcData.drops.defaultDrop.quantity,
-          chance: 1.0
+          chance: 1.0,
         });
       }
 
@@ -122,7 +163,7 @@ export class LootSystem extends SystemBase {
         guaranteedDrops.push({
           itemId: drop.itemId,
           quantity: drop.minQuantity,
-          chance: drop.chance
+          chance: drop.chance,
         });
       }
 
@@ -130,7 +171,7 @@ export class LootSystem extends SystemBase {
         commonDrops.push({
           itemId: drop.itemId,
           quantity: drop.minQuantity,
-          chance: drop.chance
+          chance: drop.chance,
         });
       }
 
@@ -138,7 +179,7 @@ export class LootSystem extends SystemBase {
         uncommonDrops.push({
           itemId: drop.itemId,
           quantity: drop.minQuantity,
-          chance: drop.chance
+          chance: drop.chance,
         });
       }
 
@@ -146,7 +187,7 @@ export class LootSystem extends SystemBase {
         rareDrops.push({
           itemId: drop.itemId,
           quantity: drop.minQuantity,
-          chance: drop.chance
+          chance: drop.chance,
         });
       }
 
@@ -156,17 +197,21 @@ export class LootSystem extends SystemBase {
         guaranteedDrops,
         commonDrops,
         uncommonDrops,
-        rareDrops
+        rareDrops,
       });
     }
-    
   }
 
   /**
    * Handle mob death and generate loot
    */
-  private async handleMobDeath(data: { mobId: string; mobType: string; level: number; killedBy: string; position: { x: number; y: number; z: number } }): Promise<void> {
-
+  private async handleMobDeath(data: {
+    mobId: string;
+    mobType: string;
+    level: number;
+    killedBy: string;
+    position: { x: number; y: number; z: number };
+  }): Promise<void> {
     const mobType = data.mobType; // Mob ID from mobs.json
     const lootTable = this.lootTables.get(mobType);
     if (!lootTable) {
@@ -179,14 +224,20 @@ export class LootSystem extends SystemBase {
 
     // Process guaranteed drops
     for (const entry of lootTable.guaranteedDrops) {
-      const quantity = entry.itemId === 'coins' ? this.randomizeCoins(entry.quantity) : entry.quantity;
+      const quantity =
+        entry.itemId === "coins"
+          ? this.randomizeCoins(entry.quantity)
+          : entry.quantity;
       lootItems.push({ itemId: entry.itemId, quantity });
     }
 
     // Process uncommon drops with chance rolls
     for (const entry of lootTable.uncommonDrops) {
       if (Math.random() < entry.chance) {
-        const quantity = entry.itemId === 'coins' ? this.randomizeCoins(entry.quantity) : entry.quantity;
+        const quantity =
+          entry.itemId === "coins"
+            ? this.randomizeCoins(entry.quantity)
+            : entry.quantity;
         lootItems.push({ itemId: entry.itemId, quantity });
       }
     }
@@ -194,7 +245,10 @@ export class LootSystem extends SystemBase {
     // Process rare drops with chance rolls
     for (const entry of lootTable.rareDrops) {
       if (Math.random() < entry.chance) {
-        const quantity = entry.itemId === 'coins' ? this.randomizeCoins(entry.quantity) : entry.quantity;
+        const quantity =
+          entry.itemId === "coins"
+            ? this.randomizeCoins(entry.quantity)
+            : entry.quantity;
         lootItems.push({ itemId: entry.itemId, quantity });
       }
     }
@@ -205,18 +259,25 @@ export class LootSystem extends SystemBase {
       itemId: loot.itemId,
       quantity: loot.quantity,
       slot: index,
-      metadata: null
+      metadata: null,
     }));
 
     // Create corpse entity with loot via EntityManager
-    const entityManager = this.world.getSystem<EntityManager>('entity-manager');
+    const entityManager = this.world.getSystem<EntityManager>("entity-manager");
     if (!entityManager) {
-      console.error('[LootSystem] EntityManager not found, cannot spawn corpse');
+      console.error(
+        "[LootSystem] EntityManager not found, cannot spawn corpse",
+      );
       return;
     }
 
     // Ground to terrain
-    const groundedPosition = groundToTerrain(this.world, data.position, 0.2, Infinity);
+    const groundedPosition = groundToTerrain(
+      this.world,
+      data.position,
+      0.2,
+      Infinity,
+    );
 
     const corpseConfig: HeadstoneEntityConfig = {
       id: corpseId,
@@ -239,7 +300,7 @@ export class LootSystem extends SystemBase {
         position: groundedPosition,
         items: inventoryItems,
         itemCount: inventoryItems.length,
-        despawnTime: Date.now() + this.LOOT_DESPAWN_TIME
+        despawnTime: Date.now() + this.LOOT_DESPAWN_TIME,
       },
       properties: {
         movementComponent: null,
@@ -247,26 +308,30 @@ export class LootSystem extends SystemBase {
         healthComponent: null,
         visualComponent: null,
         health: { current: 1, max: 1 },
-        level: 1
-      }
+        level: 1,
+      },
     };
 
     await entityManager.spawnEntity(corpseConfig);
-
 
     // Emit loot dropped event
     this.emitTypedEvent(EventType.LOOT_DROPPED, {
       mobId: data.mobId,
       mobType: mobType,
       items: lootItems,
-      position: data.position
+      position: data.position,
     });
   }
 
   /**
    * Spawn a dropped item in the world
    */
-  private async spawnDroppedItem(itemId: string, quantity: number, position: { x: number; y: number; z: number }, droppedBy?: string): Promise<void> {
+  private async spawnDroppedItem(
+    itemId: string,
+    quantity: number,
+    position: { x: number; y: number; z: number },
+    droppedBy?: string,
+  ): Promise<void> {
     // Check item limit
     if (this.droppedItems.size >= this.MAX_DROPPED_ITEMS) {
       this.cleanupOldestItems(100); // Remove 100 oldest items
@@ -282,18 +347,23 @@ export class LootSystem extends SystemBase {
     const now = Date.now();
 
     // Create entity for the dropped item
-    const entityManager = this.world.getSystem<EntityManager>('entity-manager');
+    const entityManager = this.world.getSystem<EntityManager>("entity-manager");
     if (!entityManager) {
       return;
     }
 
     // Ground to terrain - use Infinity to allow any initial height difference
-    const groundedPosition = groundToTerrain(this.world, position, 0.2, Infinity);
+    const groundedPosition = groundToTerrain(
+      this.world,
+      position,
+      0.2,
+      Infinity,
+    );
 
     const itemEntity = await entityManager.spawnEntity({
       id: dropId,
       name: `${item.name} (${quantity})`,
-      type: 'item',
+      type: "item",
       position: groundedPosition,
       itemId: itemId,
       itemType: this.getItemTypeString(item.type),
@@ -301,7 +371,7 @@ export class LootSystem extends SystemBase {
       stackable: item.stackable ?? false,
       value: item.value ?? 0,
       weight: 1.0,
-      rarity: ItemRarity.COMMON
+      rarity: ItemRarity.COMMON,
     } as ItemEntityConfig);
 
     if (!itemEntity) {
@@ -314,10 +384,10 @@ export class LootSystem extends SystemBase {
       quantity: quantity,
       position: groundedPosition,
       despawnTime: now + this.LOOT_DESPAWN_TIME,
-      droppedBy: droppedBy ?? 'unknown',
+      droppedBy: droppedBy ?? "unknown",
       droppedAt: now,
       entityId: dropId,
-      mesh: itemEntity.node || null
+      mesh: itemEntity.node || null,
     };
 
     this.droppedItems.set(dropId, droppedItem);
@@ -326,35 +396,47 @@ export class LootSystem extends SystemBase {
   /**
    * Handle loot drop request from mob death
    */
-  private async handleLootDropRequest(data: { position: { x: number; y: number; z: number }; items: { itemId: string; quantity: number }[] }): Promise<void> {
+  private async handleLootDropRequest(data: {
+    position: { x: number; y: number; z: number };
+    items: { itemId: string; quantity: number }[];
+  }): Promise<void> {
     // Spawn each item in the loot drop
     for (let i = 0; i < data.items.length; i++) {
       const lootItem = data.items[i];
-      
+
       // Spread items around the drop position
       const offsetX = (Math.random() - 0.5) * 2; // -1 to 1 meter spread
       const offsetZ = (Math.random() - 0.5) * 2;
-      
+
       const dropPosition = {
         x: data.position.x + offsetX,
         y: data.position.y + 0.5, // Slightly above ground
-        z: data.position.z + offsetZ
+        z: data.position.z + offsetZ,
       };
-      
-      await this.spawnDroppedItem(lootItem.itemId, lootItem.quantity, dropPosition, 'mob_drop');
+
+      await this.spawnDroppedItem(
+        lootItem.itemId,
+        lootItem.quantity,
+        dropPosition,
+        "mob_drop",
+      );
     }
 
     // Emit loot dropped event
     this.emitTypedEvent(EventType.LOOT_DROPPED, {
       items: data.items,
-      position: data.position
+      position: data.position,
     });
   }
 
   /**
    * Handle corpse loot pickup (from headstones/corpses)
    */
-  private async handleLootPickup(data: { playerId: string; itemId: string; corpseId?: string }): Promise<void> {
+  private async handleLootPickup(data: {
+    playerId: string;
+    itemId: string;
+    corpseId?: string;
+  }): Promise<void> {
     const droppedItem = this.droppedItems.get(data.itemId);
     if (!droppedItem) {
       return;
@@ -367,24 +449,28 @@ export class LootSystem extends SystemBase {
     }
 
     // Try to add item to player inventory
-    const success = await this.addItemToPlayer(data.playerId, droppedItem.itemId, droppedItem.quantity);
-    
+    const success = await this.addItemToPlayer(
+      data.playerId,
+      droppedItem.itemId,
+      droppedItem.quantity,
+    );
+
     if (success) {
       // Remove from world
       this.removeDroppedItem(data.itemId);
-      
+
       // Emit notification event (not ITEM_PICKUP to avoid confusion with ground items)
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId: data.playerId,
         message: `You looted ${droppedItem.quantity}x ${droppedItem.itemId}`,
-        type: 'success'
+        type: "success",
       });
     } else {
       // Inventory full - show message
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId: data.playerId,
-        message: 'Your inventory is full.',
-        type: 'warning'
+        message: "Your inventory is full.",
+        type: "warning",
       });
     }
   }
@@ -392,7 +478,11 @@ export class LootSystem extends SystemBase {
   /**
    * Add item to player inventory via inventory system
    */
-  private async addItemToPlayer(playerId: string, itemId: string, quantity: number): Promise<boolean> {
+  private async addItemToPlayer(
+    playerId: string,
+    itemId: string,
+    quantity: number,
+  ): Promise<boolean> {
     return new Promise((resolve) => {
       this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
         playerId: playerId,
@@ -401,8 +491,8 @@ export class LootSystem extends SystemBase {
           itemId: itemId,
           quantity: quantity,
           slot: 0,
-          metadata: null
-        }
+          metadata: null,
+        },
       });
       // Assume success - inventory system will handle validation
       resolve(true);
@@ -412,8 +502,18 @@ export class LootSystem extends SystemBase {
   /**
    * Manual item drop (from inventory)
    */
-  private async dropItem(data: { playerId: string; itemId: string; quantity: number; position: { x: number; y: number; z: number } }): Promise<void> {
-    await this.spawnDroppedItem(data.itemId, data.quantity, data.position, data.playerId);
+  private async dropItem(data: {
+    playerId: string;
+    itemId: string;
+    quantity: number;
+    position: { x: number; y: number; z: number };
+  }): Promise<void> {
+    await this.spawnDroppedItem(
+      data.itemId,
+      data.quantity,
+      data.position,
+      data.playerId,
+    );
   }
 
   /**
@@ -422,8 +522,8 @@ export class LootSystem extends SystemBase {
   private removeDroppedItem(itemId: string): void {
     const droppedItem = this.droppedItems.get(itemId);
     if (!droppedItem) return;
-    
-    const entityManager = this.world.getSystem<EntityManager>('entity-manager');
+
+    const entityManager = this.world.getSystem<EntityManager>("entity-manager");
     if (entityManager && droppedItem.entityId) {
       entityManager.destroyEntity(droppedItem.entityId);
     }
@@ -435,14 +535,22 @@ export class LootSystem extends SystemBase {
    */
   private getItemTypeString(itemType: ItemType): string {
     switch (itemType) {
-      case ItemType.WEAPON: return 'weapon';
-      case ItemType.ARMOR: return 'armor';
-      case ItemType.TOOL: return 'tool';
-      case ItemType.RESOURCE: return 'resource';
-      case ItemType.CONSUMABLE: return 'food';
-      case ItemType.CURRENCY: return 'coins';
-      case ItemType.AMMUNITION: return 'arrow';
-      default: return 'misc';
+      case ItemType.WEAPON:
+        return "weapon";
+      case ItemType.ARMOR:
+        return "armor";
+      case ItemType.TOOL:
+        return "tool";
+      case ItemType.RESOURCE:
+        return "resource";
+      case ItemType.CONSUMABLE:
+        return "food";
+      case ItemType.CURRENCY:
+        return "coins";
+      case ItemType.AMMUNITION:
+        return "arrow";
+      default:
+        return "misc";
     }
   }
 
@@ -503,16 +611,16 @@ export class LootSystem extends SystemBase {
   destroy(): void {
     // Clear all dropped items
     this.droppedItems.clear();
-    
+
     // Clear loot tables
     this.lootTables.clear();
-    
+
     // Clear item database
     this.itemDatabase.clear();
-    
+
     // Reset item ID counter
     this.nextItemId = 1;
-    
+
     // Call parent cleanup (handles event listeners and managed timers automatically)
     super.destroy();
   }

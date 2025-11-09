@@ -111,9 +111,7 @@ import type {
   RPGStateManager,
   TeleportOptions,
 } from "./types/content-types";
-import {
-  CharacterController,
-} from "./types/core-types";
+import { CharacterController } from "./types/core-types";
 import type {
   CharacterControllerOptions,
   ChatMessage,
@@ -135,7 +133,14 @@ interface EntityData {
   quaternion?:
     | [number, number, number, number]
     | { x: number; y: number; z: number; w: number };
-  [key: string]: string | number | boolean | number[] | { x: number; y: number; z: number } | { x: number; y: number; z: number; w: number } | undefined;
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | number[]
+    | { x: number; y: number; z: number }
+    | { x: number; y: number; z: number; w: number }
+    | undefined;
 }
 
 import type { NetworkEventData } from "./types/event-types";
@@ -402,17 +407,22 @@ Hyperscape world integration service that enables agents to:
    */
   private async loadRPGExtensions(): Promise<void> {
     const rpgSystems = this.world.rpgSystems || {};
-    console.info(`[HyperscapeService] Checking for RPG systems...`, Object.keys(rpgSystems));
+    console.info(
+      `[HyperscapeService] Checking for RPG systems...`,
+      Object.keys(rpgSystems),
+    );
 
     // Check for skills system - load skill-based actions
-    if (this.world.getSystem?.('skills')) {
-      console.info('[HyperscapeService] Skills system detected - loading skill actions');
+    if (this.world.getSystem?.("skills")) {
+      console.info(
+        "[HyperscapeService] Skills system detected - loading skill actions",
+      );
 
       // Dynamically import and register skill actions
-      const { chopTreeAction } = await import('./actions/chopTree');
-      const { catchFishAction } = await import('./actions/catchFish');
-      const { lightFireAction } = await import('./actions/lightFire');
-      const { cookFoodAction } = await import('./actions/cookFood');
+      const { chopTreeAction } = await import("./actions/chopTree");
+      const { catchFishAction } = await import("./actions/catchFish");
+      const { lightFireAction } = await import("./actions/lightFire");
+      const { cookFoodAction } = await import("./actions/cookFood");
 
       await this.runtime.registerAction(chopTreeAction);
       await this.runtime.registerAction(catchFishAction);
@@ -420,30 +430,42 @@ Hyperscape world integration service that enables agents to:
       await this.runtime.registerAction(cookFoodAction);
 
       // Load skill-specific providers
-      const { woodcuttingSkillProvider } = await import('./providers/skills/woodcutting');
-      const { fishingSkillProvider } = await import('./providers/skills/fishing');
-      const { firemakingSkillProvider } = await import('./providers/skills/firemaking');
-      const { cookingSkillProvider } = await import('./providers/skills/cooking');
+      const { woodcuttingSkillProvider } = await import(
+        "./providers/skills/woodcutting"
+      );
+      const { fishingSkillProvider } = await import(
+        "./providers/skills/fishing"
+      );
+      const { firemakingSkillProvider } = await import(
+        "./providers/skills/firemaking"
+      );
+      const { cookingSkillProvider } = await import(
+        "./providers/skills/cooking"
+      );
 
       await this.runtime.registerProvider(woodcuttingSkillProvider);
       await this.runtime.registerProvider(fishingSkillProvider);
       await this.runtime.registerProvider(firemakingSkillProvider);
       await this.runtime.registerProvider(cookingSkillProvider);
 
-      console.info('[HyperscapeService] Loaded 4 skill actions and 4 skill providers');
+      console.info(
+        "[HyperscapeService] Loaded 4 skill actions and 4 skill providers",
+      );
     }
 
     // Check for inventory/banking system - load inventory actions
-    if (this.world.getSystem?.('banking')) {
-      console.info('[HyperscapeService] Banking system detected - loading inventory actions');
+    if (this.world.getSystem?.("banking")) {
+      console.info(
+        "[HyperscapeService] Banking system detected - loading inventory actions",
+      );
 
-      const { bankItemsAction } = await import('./actions/bankItems');
-      const { checkInventoryAction } = await import('./actions/checkInventory');
+      const { bankItemsAction } = await import("./actions/bankItems");
+      const { checkInventoryAction } = await import("./actions/checkInventory");
 
       await this.runtime.registerAction(bankItemsAction);
       await this.runtime.registerAction(checkInventoryAction);
 
-      console.info('[HyperscapeService] Loaded 2 inventory actions');
+      console.info("[HyperscapeService] Loaded 2 inventory actions");
     }
   }
 
@@ -676,7 +698,9 @@ Hyperscape world integration service that enables agents to:
     this.stopAppearancePolling();
 
     if (this.world) {
-      console.info("[Hyperscape Cleanup] Calling world.disconnect() and world.destroy()...");
+      console.info(
+        "[Hyperscape Cleanup] Calling world.disconnect() and world.destroy()...",
+      );
       await this.world.disconnect();
       this.world.destroy();
     }
@@ -1073,14 +1097,10 @@ Hyperscape world integration service that enables agents to:
             velocity: _velocity,
             angularVelocity: _angularVelocity,
             mass: 1,
-            applyForce: (force: Vector3) => {
-            },
-            applyImpulse: (impulse: Vector3) => {
-            },
-            setLinearVelocity: (velocity: Vector3) => {
-            },
-            setAngularVelocity: (velocity: Vector3) => {
-            },
+            applyForce: (force: Vector3) => {},
+            applyImpulse: (impulse: Vector3) => {},
+            setLinearVelocity: (velocity: Vector3) => {},
+            setAngularVelocity: (velocity: Vector3) => {},
           };
         },
 
@@ -1114,31 +1134,31 @@ Hyperscape world integration service that enables agents to:
           // Override move method with custom physics logic
           const originalMove = controller.move.bind(controller);
           controller.move = (displacement: Position) => {
-              const dt = minimalWorld.physics!.timeStep;
+            const dt = minimalWorld.physics!.timeStep;
 
-              // Apply horizontal movement (velocity-based)
-              controller.velocity.x = displacement.x;
-              controller.velocity.z = displacement.z;
+            // Apply horizontal movement (velocity-based)
+            controller.velocity.x = displacement.x;
+            controller.velocity.z = displacement.z;
 
-              // Apply gravity if not grounded
-              if (!controller.isGrounded) {
-                controller.velocity.y += minimalWorld.physics!.gravity.y * dt;
-              }
+            // Apply gravity if not grounded
+            if (!controller.isGrounded) {
+              controller.velocity.y += minimalWorld.physics!.gravity.y * dt;
+            }
 
-              // Update position based on velocity
-              controller.position.x += controller.velocity.x * dt;
-              controller.position.y += controller.velocity.y * dt;
-              controller.position.z += controller.velocity.z * dt;
+            // Update position based on velocity
+            controller.position.x += controller.velocity.x * dt;
+            controller.position.y += controller.velocity.y * dt;
+            controller.position.z += controller.velocity.z * dt;
 
-              // Ground check (simple)
-              if (controller.position.y <= 0) {
-                controller.position.y = 0;
-                controller.velocity.y = 0;
-                controller.isGrounded = true;
-              } else {
-                controller.isGrounded = false;
-              }
-            };
+            // Ground check (simple)
+            if (controller.position.y <= 0) {
+              controller.position.y = 0;
+              controller.velocity.y = 0;
+              controller.isGrounded = true;
+            } else {
+              controller.isGrounded = false;
+            }
+          };
 
           // Override jump method with custom logic
           controller.jump = () => {
@@ -1182,8 +1202,7 @@ Hyperscape world integration service that enables agents to:
         id: `network-${Date.now()}`,
         isClient: true,
         isServer: false,
-        send: (type: string, data?: NetworkEventData) => {
-        },
+        send: (type: string, data?: NetworkEventData) => {},
         upload: async (file: File) => {
           return Promise.resolve(`uploaded-${Date.now()}`);
         },
@@ -1300,7 +1319,7 @@ Hyperscape world integration service that enables agents to:
           }
           minimalWorld.entities!.items.set(entity.id, entity);
           return entity;
-        }) as ((data: EntityData | Entity, local?: boolean) => Entity),
+        }) as (data: EntityData | Entity, local?: boolean) => Entity,
         remove: (entityId: string) => {
           minimalWorld.entities!.items.delete(entityId);
           minimalWorld.entities!.players.delete(entityId);
@@ -1315,7 +1334,6 @@ Hyperscape world integration service that enables agents to:
 
       // Initialize method
       init: async (initConfig?: Partial<MockWorldConfig>) => {
-
         const playerId = `player-${Date.now()}`;
 
         // Create physics character controller for player
@@ -1358,7 +1376,9 @@ Hyperscape world integration service that enables agents to:
           // Walk toward a specific position
           walkToward: (targetPosition: Position, speed: number = 5) => {
             const currentPos = minimalWorld.entities!.player!.position!;
-            const controller = minimalWorld.physics!.controllers?.get(playerId) as ControllerInterface | undefined;
+            const controller = minimalWorld.physics!.controllers?.get(
+              playerId,
+            ) as ControllerInterface | undefined;
             if (controller && controller.walkToward) {
               const direction = {
                 x: targetPosition.x - currentPos.x,
@@ -1396,7 +1416,9 @@ Hyperscape world integration service that enables agents to:
           },
 
           setSessionAvatar: (url: string) => {
-            const player = minimalWorld.entities!.player as { data?: { appearance?: PlayerAppearance } } | undefined;
+            const player = minimalWorld.entities!.player as
+              | { data?: { appearance?: PlayerAppearance } }
+              | undefined;
             if (player && player.data) {
               player.data.appearance = player.data.appearance || {};
               player.data.appearance.avatar = url;
@@ -1416,8 +1438,11 @@ Hyperscape world integration service that enables agents to:
 
       // Disconnect network
       disconnect: async () => {
-        if (minimalWorld.network && 'disconnect' in minimalWorld.network) {
-          const networkWithDisconnect = minimalWorld.network as NetworkSystem & { disconnect: () => Promise<void> };
+        if (minimalWorld.network && "disconnect" in minimalWorld.network) {
+          const networkWithDisconnect =
+            minimalWorld.network as NetworkSystem & {
+              disconnect: () => Promise<void>;
+            };
           await networkWithDisconnect.disconnect();
         }
       },

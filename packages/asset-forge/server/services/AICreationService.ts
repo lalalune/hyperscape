@@ -203,7 +203,7 @@ class ImageGenerationService {
 
     // Load generation prompts
     const generationPrompts =
-      await getGenerationPrompts() as GenerationPrompts | null;
+      (await getGenerationPrompts()) as GenerationPrompts | null;
     const promptTemplate: string =
       generationPrompts?.imageGeneration?.base ||
       '${description}. ${style || "game-ready"} style, ${assetType}, clean geometry suitable for 3D conversion.';

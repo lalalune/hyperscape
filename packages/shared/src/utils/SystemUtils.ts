@@ -4,19 +4,22 @@
  * Replaces unsafe (world as unknown as any)['system-name'] patterns
  */
 
-import type { World, System, Entity, EntityData } from '../types';
-import type THREE from '../extras/three';
-import type { PxTransform } from '../types/physics';
+import type { World, System, Entity, EntityData } from "../types";
+import type THREE from "../extras/three";
+import type { PxTransform } from "../types/physics";
 
 /**
  // eslint-disable-next-line @typescript-eslint/no-explicit-any
  * Type-safe system getter that replaces (world as unknown as any)['system-name']
  */
-export function getSystem<T extends System = System>(world: World, systemKey: string): T | null {
+export function getSystem<T extends System = System>(
+  world: World,
+  systemKey: string,
+): T | null {
   if (!world) {
-    throw new Error('World is required');
+    throw new Error("World is required");
   }
-  
+
   // Try the getSystem method if available
   return world.getSystem<T>(systemKey) || null;
 }
@@ -24,7 +27,10 @@ export function getSystem<T extends System = System>(world: World, systemKey: st
 /**
  * Type-safe system getter with error throwing for required systems
  */
-export function requireSystem<T extends System = System>(world: World, systemKey: string): T {
+export function requireSystem<T extends System = System>(
+  world: World,
+  systemKey: string,
+): T {
   const system = getSystem<T>(world, systemKey);
   if (!system) {
     throw new Error(`Required system '${systemKey}' not found in world`);
@@ -42,7 +48,9 @@ export function hasSystem(world: World, systemKey: string): boolean {
 /**
  * Type-safe access to world network
  */
-export function getWorldNetwork(world: World): { send: (type: string, data: unknown) => void } | null {
+export function getWorldNetwork(
+  world: World,
+): { send: (type: string, data: unknown) => void } | null {
   if (!world || !world.network) {
     return null;
   }
@@ -86,19 +94,24 @@ export interface EntitiesSystem extends System {
 }
 
 export function getEntitiesSystem(world: World): EntitiesSystem | null {
-  return getSystem<EntitiesSystem>(world, 'entities');
+  return getSystem<EntitiesSystem>(world, "entities");
 }
-
 
 /**
  * Chat system interface
  */
 export interface ChatSystem extends System {
-  add: (message: { id?: string; from: string; body: string; text?: string; timestamp?: number }) => void;
+  add: (message: {
+    id?: string;
+    from: string;
+    body: string;
+    text?: string;
+    timestamp?: number;
+  }) => void;
 }
 
 export function getChatSystem(world: World): ChatSystem | null {
-  return getSystem<ChatSystem>(world, 'chat');
+  return getSystem<ChatSystem>(world, "chat");
 }
 
 /**
@@ -109,7 +122,7 @@ export interface LoaderSystem extends System {
 }
 
 export function getLoaderSystem(world: World): LoaderSystem | null {
-  return getSystem<LoaderSystem>(world, 'loader');
+  return getSystem<LoaderSystem>(world, "loader");
 }
 
 /**
@@ -121,7 +134,7 @@ export interface GraphicsSystem extends System {
 }
 
 export function getGraphicsSystem(world: World): GraphicsSystem | null {
-  return getSystem<GraphicsSystem>(world, 'graphics');
+  return getSystem<GraphicsSystem>(world, "graphics");
 }
 
 /**
@@ -133,7 +146,7 @@ export interface StageSystem extends System {
 }
 
 export function getStageSystem(world: World): StageSystem | null {
-  return getSystem<StageSystem>(world, 'stage');
+  return getSystem<StageSystem>(world, "stage");
 }
 
 /**
@@ -145,7 +158,7 @@ export interface CameraSystem extends System {
 
 export function getCameraSystem(world: World): CameraSystem | null {
   // Camera system registration key: 'client-camera-system'
-  return getSystem<CameraSystem>(world, 'client-camera-system');
+  return getSystem<CameraSystem>(world, "client-camera-system");
 }
 
 /**
@@ -153,11 +166,14 @@ export function getCameraSystem(world: World): CameraSystem | null {
  */
 export interface TerrainSystem extends System {
   getHeightAt: (x: number, z: number) => number;
-  query?: (position: { x: number; y: number; z: number }) => { height: number; normal: { x: number; y: number; z: number } };
+  query?: (position: { x: number; y: number; z: number }) => {
+    height: number;
+    normal: { x: number; y: number; z: number };
+  };
 }
 
 export function getTerrainSystem(world: World): TerrainSystem | null {
-  return getSystem<TerrainSystem>(world, 'terrain');
+  return getSystem<TerrainSystem>(world, "terrain");
 }
 
 /**
@@ -166,4 +182,3 @@ export function getTerrainSystem(world: World): TerrainSystem | null {
 export interface PhysXTransformable {
   toPxTransform: (transform: PxTransform) => void;
 }
-

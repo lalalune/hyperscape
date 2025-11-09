@@ -1,12 +1,12 @@
 /**
  * Node.ts - Base Node Class
- * 
+ *
  * Base class for all nodes in Hyperscape's scene graph system. Provides transform hierarchy, lifecycle hooks, and dirty tracking.
  */
 
-import THREE from '../extras/three'
-import type { NodeData } from '../types/index'
-import type { World } from '../World'
+import THREE from "../extras/three";
+import type { NodeData } from "../types/index";
+import type { World } from "../World";
 
 export interface NodeStats {
   triangles?: number;
@@ -16,66 +16,101 @@ export interface NodeStats {
 }
 
 // Base type for all node proxies - allows extensibility
-export type NodeProxy = Record<string, unknown>
+export type NodeProxy = Record<string, unknown>;
 
 // Component properties and transform tracking constants
-const COMPONENT_PROPERTIES = new Set(['x', 'y', 'z'])
+const COMPONENT_PROPERTIES = new Set(["x", "y", "z"]);
 const TRANSFORM_MODIFYING_METHODS = new Set([
-  'set', 'setX', 'setY', 'setZ', 'copy', 'add', 'sub', 'multiply', 'divide',
-  'multiplyScalar', 'divideScalar', 'setScalar', 'setComponent', 'fromArray',
-  'addScalar', 'subScalar', 'addVectors', 'subVectors', 'multiplyVectors',
-  'addScaledVector', 'clamp', 'clampScalar', 'floor', 'ceil', 'round',
-  'roundToZero', 'negate', 'normalize', 'setLength', 'lerp', 'lerpVectors',
-  'cross', 'crossVectors', 'applyMatrix3', 'applyMatrix4', 'applyQuaternion',
-  'project', 'unproject', 'transformDirection', 'setFromMatrixPosition',
-  'setFromMatrixScale', 'setFromMatrixColumn'
-])
+  "set",
+  "setX",
+  "setY",
+  "setZ",
+  "copy",
+  "add",
+  "sub",
+  "multiply",
+  "divide",
+  "multiplyScalar",
+  "divideScalar",
+  "setScalar",
+  "setComponent",
+  "fromArray",
+  "addScalar",
+  "subScalar",
+  "addVectors",
+  "subVectors",
+  "multiplyVectors",
+  "addScaledVector",
+  "clamp",
+  "clampScalar",
+  "floor",
+  "ceil",
+  "round",
+  "roundToZero",
+  "negate",
+  "normalize",
+  "setLength",
+  "lerp",
+  "lerpVectors",
+  "cross",
+  "crossVectors",
+  "applyMatrix3",
+  "applyMatrix4",
+  "applyQuaternion",
+  "project",
+  "unproject",
+  "transformDirection",
+  "setFromMatrixPosition",
+  "setFromMatrixScale",
+  "setFromMatrixColumn",
+]);
 
-
-
-const _v1 = new THREE.Vector3()
-const _v2 = new THREE.Vector3()
-const _q1 = new THREE.Quaternion()
-const _m1 = new THREE.Matrix4()
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _q1 = new THREE.Quaternion();
+const _m1 = new THREE.Matrix4();
 
 const defaults = {
   active: true,
   position: [0, 0, 0],
   quaternion: [0, 0, 0, 1],
   scale: [1, 1, 1],
-}
+};
 
-let nodeIds = -1
+let nodeIds = -1;
 
-const EPSILON = 0.000000001
+const EPSILON = 0.000000001;
 
-const secure = { allowRef: false }
+const secure = { allowRef: false };
 export interface RefObject {
   _isRef?: boolean;
   _ref?: Node;
 }
 
 export function getRef(pNode: Node | RefObject): Node | null {
-  if (!pNode || !('_isRef' in pNode) || !pNode._isRef) return pNode as Node
-  secure.allowRef = true
-  const node = pNode._ref || null
-  secure.allowRef = false
-  return node
+  if (!pNode || !("_isRef" in pNode) || !pNode._isRef) return pNode as Node;
+  secure.allowRef = true;
+  const node = pNode._ref || null;
+  secure.allowRef = false;
+  return node;
 }
 
-export function secureRef(obj: RefObject = {}, getRef: () => Node | null): RefObject & { _isRef: true } {
+export function secureRef(
+  obj: RefObject = {},
+  getRef: () => Node | null,
+): RefObject & { _isRef: true } {
   const tpl = {
     get _ref() {
-      if (!secure.allowRef) return null
-      return getRef()
+      if (!secure.allowRef) return null;
+      return getRef();
     },
-  }
-  obj._isRef = true
-  const descriptor = Object.getOwnPropertyDescriptor(tpl, '_ref')
+  };
+  obj._isRef = true;
+  const descriptor = Object.getOwnPropertyDescriptor(tpl, "_ref");
   if (descriptor) {
-    Object.defineProperty(obj, '_ref', descriptor)
+    Object.defineProperty(obj, "_ref", descriptor);
   }
-  return obj as RefObject & { _isRef: true }
+  return obj as RefObject & { _isRef: true };
 }
 
 export class Node {
@@ -102,46 +137,54 @@ export class Node {
   isTransformed: boolean;
   mounted: boolean;
   proxy?: NodeProxy;
-  
-  constructor(data: NodeData = {}) {
-    this.id = data.id || `${++nodeIds}`
-    this.name = 'node'
 
-    this.parent = null
-    this.children = []
-    this.ctx = null
-    this._position = new THREE.Vector3()
-    this._position.fromArray(data.position || defaults.position)
-    this.quaternion = new THREE.Quaternion()
-    this.quaternion.fromArray(data.quaternion || defaults.quaternion)
-    this.rotation = new THREE.Euler().setFromQuaternion(this.quaternion)
-    this.rotation.reorder('YXZ')
-    this._scale = new THREE.Vector3()
-    this._scale.fromArray(data.scale || defaults.scale)
-    this.matrix = new THREE.Matrix4()
-    this.matrixWorld = new THREE.Matrix4()
+  constructor(data: NodeData = {}) {
+    this.id = data.id || `${++nodeIds}`;
+    this.name = "node";
+
+    this.parent = null;
+    this.children = [];
+    this.ctx = null;
+    this._position = new THREE.Vector3();
+    this._position.fromArray(data.position || defaults.position);
+    this.quaternion = new THREE.Quaternion();
+    this.quaternion.fromArray(data.quaternion || defaults.quaternion);
+    this.rotation = new THREE.Euler().setFromQuaternion(this.quaternion);
+    this.rotation.reorder("YXZ");
+    this._scale = new THREE.Vector3();
+    this._scale.fromArray(data.scale || defaults.scale);
+    this.matrix = new THREE.Matrix4();
+    this.matrixWorld = new THREE.Matrix4();
     // Note: THREE.Vector3 doesn't have native _onChange support
     // If reactive updates are needed, use ReactiveVector3 wrapper
     this.rotation._onChange!(() => {
-      this.quaternion.setFromEuler(this.rotation, false)
-      this.setTransformed()
-    })
+      this.quaternion.setFromEuler(this.rotation, false);
+      this.setTransformed();
+    });
     this.quaternion._onChange(() => {
-      this.rotation.setFromQuaternion(this.quaternion, undefined, false)
-      this.setTransformed()
-    })
+      this.rotation.setFromQuaternion(this.quaternion, undefined, false);
+      this.setTransformed();
+    });
     // Note: Scale validation needs to be done manually when setting values
     // to prevent zero scale which causes NaN in matrices
-    this._onPointerEnter = data.onPointerEnter as ((event: PointerEvent) => void) | undefined
-    this._onPointerLeave = data.onPointerLeave as ((event: PointerEvent) => void) | undefined
-    this._onPointerDown = data.onPointerDown as ((event: PointerEvent) => void) | undefined
-    this._onPointerUp = data.onPointerUp as ((event: PointerEvent) => void) | undefined
-    this._cursor = data.cursor as string | undefined
-    this._active = data.active ?? defaults.active
+    this._onPointerEnter = data.onPointerEnter as
+      | ((event: PointerEvent) => void)
+      | undefined;
+    this._onPointerLeave = data.onPointerLeave as
+      | ((event: PointerEvent) => void)
+      | undefined;
+    this._onPointerDown = data.onPointerDown as
+      | ((event: PointerEvent) => void)
+      | undefined;
+    this._onPointerUp = data.onPointerUp as
+      | ((event: PointerEvent) => void)
+      | undefined;
+    this._cursor = data.cursor as string | undefined;
+    this._active = data.active ?? defaults.active;
     // this.scale._onChange?
-    this.isDirty = false
-    this.isTransformed = true
-    this.mounted = false
+    this.isDirty = false;
+    this.isTransformed = true;
+    this.mounted = false;
   }
 
   // Position getter returns a cached proxy that intercepts property changes
@@ -149,27 +192,30 @@ export class Node {
     if (!this._positionProxy) {
       const self = this;
       this._positionProxy = new Proxy(this._position, {
-      set(target, prop, value) {
-        if (typeof prop === 'string' && COMPONENT_PROPERTIES.has(prop)) {
-          target[prop] = value;
-          self.setTransformed();
-          return true;
-        }
-        return Reflect.set(target, prop, value);
-      },
-      get(target, prop) {
-        const value = target[prop];
-        // Wrap methods to track transform changes
-        if (typeof prop === 'string' && TRANSFORM_MODIFYING_METHODS.has(prop)) {
-          return function(...args: unknown[]) {
-            const result = value.apply(target, args);
-            // Check if this method modifies the vector
+        set(target, prop, value) {
+          if (typeof prop === "string" && COMPONENT_PROPERTIES.has(prop)) {
+            target[prop] = value;
             self.setTransformed();
-            return result;
-          };
-        }
-        return value;
-      }
+            return true;
+          }
+          return Reflect.set(target, prop, value);
+        },
+        get(target, prop) {
+          const value = target[prop];
+          // Wrap methods to track transform changes
+          if (
+            typeof prop === "string" &&
+            TRANSFORM_MODIFYING_METHODS.has(prop)
+          ) {
+            return function (...args: unknown[]) {
+              const result = value.apply(target, args);
+              // Check if this method modifies the vector
+              self.setTransformed();
+              return result;
+            };
+          }
+          return value;
+        },
       });
     }
     return this._positionProxy;
@@ -180,96 +226,99 @@ export class Node {
     if (!this._scaleProxy) {
       const self = this;
       this._scaleProxy = new Proxy(this._scale, {
-      set(target, prop, value) {
-        if (typeof prop === 'string' && COMPONENT_PROPERTIES.has(prop)) {
-          // Prevent zero scale which causes NaN in matrices
-          target[prop] = value || EPSILON;
-          self.setTransformed();
-          return true;
-        }
-        return Reflect.set(target, prop, value);
-      },
-      get(target, prop) {
-        const value = target[prop];
-        // Wrap methods to track transform changes
-        if (typeof prop === 'string' && TRANSFORM_MODIFYING_METHODS.has(prop)) {
-          return function(...args: unknown[]) {
-            // For scale.set(), ensure no zero values
-            if (prop === 'set' && args.length >= 3) {
-              args[0] = args[0] || EPSILON;
-              args[1] = args[1] || EPSILON;
-              args[2] = args[2] || EPSILON;
-            }
-            const result = value.apply(target, args);
-            // Check if this method modifies the vector
+        set(target, prop, value) {
+          if (typeof prop === "string" && COMPONENT_PROPERTIES.has(prop)) {
+            // Prevent zero scale which causes NaN in matrices
+            target[prop] = value || EPSILON;
             self.setTransformed();
-            return result;
-          };
-        }
-        return value;
-      }
+            return true;
+          }
+          return Reflect.set(target, prop, value);
+        },
+        get(target, prop) {
+          const value = target[prop];
+          // Wrap methods to track transform changes
+          if (
+            typeof prop === "string" &&
+            TRANSFORM_MODIFYING_METHODS.has(prop)
+          ) {
+            return function (...args: unknown[]) {
+              // For scale.set(), ensure no zero values
+              if (prop === "set" && args.length >= 3) {
+                args[0] = args[0] || EPSILON;
+                args[1] = args[1] || EPSILON;
+                args[2] = args[2] || EPSILON;
+              }
+              const result = value.apply(target, args);
+              // Check if this method modifies the vector
+              self.setTransformed();
+              return result;
+            };
+          }
+          return value;
+        },
       });
     }
     return this._scaleProxy;
   }
 
   activate(ctx?: World | null): void {
-    if (ctx) this.ctx = ctx
-    if (!this._active) return
+    if (ctx) this.ctx = ctx;
+    if (!this._active) return;
     // top down mount
-    if (this.mounted) return
-    this.updateTransform()
-    this.mounted = true
-    this.mount()
-    const children = this.children
+    if (this.mounted) return;
+    this.updateTransform();
+    this.mounted = true;
+    this.mount();
+    const children = this.children;
     for (let i = 0, l = children.length; i < l; i++) {
-      const child = children[i]
+      const child = children[i];
       if (child && child instanceof Node) {
-        child.activate(ctx)
+        child.activate(ctx);
       }
     }
   }
 
   deactivate() {
-    if (!this.mounted) return
+    if (!this.mounted) return;
     // bottom up unmount
-    const children = this.children
+    const children = this.children;
     for (let i = 0, l = children.length; i < l; i++) {
-      const child = children[i]
+      const child = children[i];
       if (child && child instanceof Node) {
-        child.deactivate()
+        child.deactivate();
       }
     }
-    this.unmount()
-    this.isDirty = false
-    this.isTransformed = true
-    this.mounted = false
+    this.unmount();
+    this.isDirty = false;
+    this.isTransformed = true;
+    this.mounted = false;
   }
 
   add(node: Node) {
-    if (!node) return console.error('no node to add')
+    if (!node) return console.error("no node to add");
     if (!(node instanceof Node)) {
-      console.error('[Node] Attempted to add non-Node child. Ignoring.', node)
-      return this
+      console.error("[Node] Attempted to add non-Node child. Ignoring.", node);
+      return this;
     }
     if (node.parent) {
-      node.parent.remove(node)
+      node.parent.remove(node);
     }
-    node.parent = this
-    this.children.push(node)
+    node.parent = this;
+    this.children.push(node);
     if (this.mounted) {
-      node.activate(this.ctx)
+      node.activate(this.ctx);
     }
-    return this
+    return this;
   }
 
   remove(node: Node) {
-    const idx = this.children.indexOf(node)
-    if (idx === -1) return
-    node.deactivate()
-    node.parent = null
-    this.children.splice(idx, 1)
-    return this
+    const idx = this.children.indexOf(node);
+    if (idx === -1) return;
+    node.deactivate();
+    node.parent = null;
+    this.children.splice(idx, 1);
+    return this;
   }
 
   // detach(node) {
@@ -292,67 +341,67 @@ export class Node {
     // - ensure this is marked as transformed
     // - ensure this and all descendants are dirty
     // - ensure only this node is tracked dirty
-    if (this.isTransformed) return
+    if (this.isTransformed) return;
     this.traverse((node: Node) => {
       if (node === this) {
-        node.isTransformed = true
-        node.setDirty()
+        node.isTransformed = true;
+        node.setDirty();
       } else if (node.isDirty) {
         // if we come across an already dirty node we must ensure its not tracked
         // as we will clean it via this one
         if (this.ctx) {
-          this.ctx.stage?.deleteDirtyNode(node)
+          this.ctx.stage?.deleteDirtyNode(node);
         }
       }
-    })
+    });
   }
 
   setDirty() {
     // if we haven't mounted no track
-    if (!this.mounted) return
+    if (!this.mounted) return;
     // if already dirty, either this or a parent is being tracked so we're good
-    if (this.isDirty) return
-    this.isDirty = true
+    if (this.isDirty) return;
+    this.isDirty = true;
     if (this.ctx) {
-      this.ctx.stage?.addDirtyNode(this)
+      this.ctx.stage?.addDirtyNode(this);
     }
   }
 
   get active() {
-    return this._active
+    return this._active;
   }
 
   set active(value) {
-    if (this._active === value) return
-    this._active = value
+    if (this._active === value) return;
+    this._active = value;
     if (!this._active && this.mounted) {
-      this.deactivate()
+      this.deactivate();
     } else if (this._active && this.parent?.mounted) {
-      this.activate(this.parent.ctx)
+      this.activate(this.parent.ctx);
     } else if (this._active && !this.parent) {
-      this.activate(this.ctx)
+      this.activate(this.ctx);
     }
   }
 
   clean() {
-    if (!this.isDirty) return
-    let top: Node = this
+    if (!this.isDirty) return;
+    let top: Node = this;
     while (top.parent && top.parent.isDirty) {
-      top = top.parent
+      top = top.parent;
     }
-    let didTransform: boolean | undefined
+    let didTransform: boolean | undefined;
     top.traverse((node: Node) => {
       if (node.isTransformed) {
-        didTransform = true
+        didTransform = true;
       }
       if (didTransform) {
-        node.updateTransform()
+        node.updateTransform();
       }
       if (node.mounted) {
-        node.commit(didTransform || false)
+        node.commit(didTransform || false);
       }
-      node.isDirty = false
-    })
+      node.isDirty = false;
+    });
   }
 
   mount() {
@@ -370,13 +419,13 @@ export class Node {
 
   updateTransform() {
     if (this.isTransformed) {
-      this.matrix.compose(this.position, this.quaternion, this.scale)
-      this.isTransformed = false
+      this.matrix.compose(this.position, this.quaternion, this.scale);
+      this.isTransformed = false;
     }
     if (this.parent) {
-      this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix)
+      this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix);
     } else {
-      this.matrixWorld.copy(this.matrix)
+      this.matrixWorld.copy(this.matrix);
     }
     // const children = this.children
     // for (let i = 0, l = children.length; i < l; i++) {
@@ -385,64 +434,71 @@ export class Node {
   }
 
   traverse(callback: (node: Node) => void) {
-    callback(this)
-    const children = this.children
+    callback(this);
+    const children = this.children;
     for (let i = 0, l = children.length; i < l; i++) {
-      const child = children[i]
+      const child = children[i];
       if (child) {
-        child.traverse(callback)
+        child.traverse(callback);
       }
     }
   }
 
   clone(recursive?: boolean): this {
-    return new (this.constructor as new() => this)().copy(this, recursive) as this
+    return new (this.constructor as new () => this)().copy(
+      this,
+      recursive,
+    ) as this;
   }
 
   copy(source: Node, recursive?: boolean) {
-    this.id = source.id
-    this.position.copy(source.position)
-    this.quaternion.copy(source.quaternion)
-    this.scale.copy(source.scale)
-    this._onPointerEnter = source._onPointerEnter
-    this._onPointerLeave = source._onPointerLeave
-    this._onPointerDown = source._onPointerDown
-    this._onPointerUp = source._onPointerUp
-    this._cursor = source._cursor
-    this._active = source._active
+    this.id = source.id;
+    this.position.copy(source.position);
+    this.quaternion.copy(source.quaternion);
+    this.scale.copy(source.scale);
+    this._onPointerEnter = source._onPointerEnter;
+    this._onPointerLeave = source._onPointerLeave;
+    this._onPointerDown = source._onPointerDown;
+    this._onPointerUp = source._onPointerUp;
+    this._cursor = source._cursor;
+    this._active = source._active;
     if (recursive) {
       for (let i = 0; i < source.children.length; i++) {
-        const child = source.children[i]
+        const child = source.children[i];
         if (child) {
-          this.add(child.clone(recursive))
+          this.add(child.clone(recursive));
         }
       }
     }
-    return this
+    return this;
   }
 
   get(id: string): Node | null {
-    if (this.id === id) return this
+    if (this.id === id) return this;
     for (let i = 0, l = this.children.length; i < l; i++) {
-      const child = this.children[i]
+      const child = this.children[i];
       if (child) {
-        const found = child.get(id)
+        const found = child.get(id);
         if (found) {
-          return found
+          return found;
         }
       }
     }
-    return null
+    return null;
   }
 
   // todo: getWorldQuaternion etc
   getWorldPosition(vec3 = _v1) {
-    this.matrixWorld.decompose(vec3 as THREE.Vector3, _q1, _v2 as THREE.Vector3)
-    return vec3
+    this.matrixWorld.decompose(
+      vec3 as THREE.Vector3,
+      _q1,
+      _v2 as THREE.Vector3,
+    );
+    return vec3;
   }
 
   getWorldMatrix(mat = _m1) {
-    return mat.copy(this.matrixWorld)
+    return mat.copy(this.matrixWorld);
   }
 
   getStats(recursive?: boolean, stats?: NodeStats): NodeStats {
@@ -450,17 +506,17 @@ export class Node {
       stats = {
         triangles: 0,
         textureBytes: 0,
-      }
+      };
     }
     if (stats) {
-      this.applyStats(stats)
+      this.applyStats(stats);
       if (recursive) {
         for (const child of this.children) {
-          child.getStats(recursive, stats)
+          child.getStats(recursive, stats);
         }
       }
     }
-    return stats || { triangles: 0, textureBytes: 0 }
+    return stats || { triangles: 0, textureBytes: 0 };
   }
 
   applyStats(_stats: NodeStats) {
@@ -468,175 +524,175 @@ export class Node {
   }
 
   get onPointerEnter(): ((event: PointerEvent) => void) | undefined {
-    return this._onPointerEnter
+    return this._onPointerEnter;
   }
 
   set onPointerEnter(value: ((event: PointerEvent) => void) | undefined) {
-    this._onPointerEnter = value
+    this._onPointerEnter = value;
   }
 
   get onPointerLeave(): ((event: PointerEvent) => void) | undefined {
-    return this._onPointerLeave
+    return this._onPointerLeave;
   }
 
   set onPointerLeave(value: ((event: PointerEvent) => void) | undefined) {
-    this._onPointerLeave = value
+    this._onPointerLeave = value;
   }
 
   get onPointerDown(): ((event: PointerEvent) => void) | undefined {
-    return this._onPointerDown
+    return this._onPointerDown;
   }
 
   set onPointerDown(value: ((event: PointerEvent) => void) | undefined) {
-    this._onPointerDown = value
+    this._onPointerDown = value;
   }
 
   get onPointerUp(): ((event: PointerEvent) => void) | undefined {
-    return this._onPointerUp
+    return this._onPointerUp;
   }
 
   set onPointerUp(value: ((event: PointerEvent) => void) | undefined) {
-    this._onPointerUp = value
+    this._onPointerUp = value;
   }
 
   get cursor() {
-    return this._cursor
+    return this._cursor;
   }
 
   set cursor(value) {
-    this._cursor = value
+    this._cursor = value;
   }
 
   getProxy(): NodeProxy {
     if (!this.proxy) {
-      const self = this
+      const self = this;
       const proxy = {
         get id() {
-          return self.id
+          return self.id;
         },
         set id(_value) {
-          throw new Error('Setting ID not currently supported')
+          throw new Error("Setting ID not currently supported");
         },
         get name() {
-          return self.name
+          return self.name;
         },
         get position() {
-          return self.position
+          return self.position;
         },
         set position(_value) {
-          throw new Error('Cannot replace node position')
+          throw new Error("Cannot replace node position");
         },
         get quaternion() {
-          return self.quaternion
+          return self.quaternion;
         },
         set quaternion(_value) {
-          throw new Error('Cannot replace node quaternion')
+          throw new Error("Cannot replace node quaternion");
         },
         get rotation() {
-          return self.rotation
+          return self.rotation;
         },
         set rotation(_value) {
-          throw new Error('Cannot replace node position')
+          throw new Error("Cannot replace node position");
         },
         get scale() {
-          return self.scale
+          return self.scale;
         },
         set scale(_value) {
-          throw new Error('Cannot replace node scale')
+          throw new Error("Cannot replace node scale");
         },
         get matrixWorld() {
-          return self.matrixWorld
+          return self.matrixWorld;
         },
         get active() {
-          return self.active
+          return self.active;
         },
         set active(value) {
-          self.active = value
+          self.active = value;
         },
         get parent() {
-          return self.parent?.getProxy()
+          return self.parent?.getProxy();
         },
         set parent(_value) {
-          throw new Error('Cannot set parent directly')
+          throw new Error("Cannot set parent directly");
         },
         get children() {
-          return self.children.map(child => {
-            return child.getProxy()
-          })
+          return self.children.map((child) => {
+            return child.getProxy();
+          });
         },
         get(id: string) {
-          const node = self.get(id)
-          return node?.getProxy() || null
+          const node = self.get(id);
+          return node?.getProxy() || null;
         },
         getWorldMatrix(mat: THREE.Matrix4) {
-          return self.getWorldMatrix(mat)
+          return self.getWorldMatrix(mat);
         },
         add(pNode: Node) {
-          const node = getRef(pNode)
-          if (node) self.add(node)
-          return this
+          const node = getRef(pNode);
+          if (node) self.add(node);
+          return this;
         },
         remove(pNode: Node) {
-          const node = getRef(pNode)
-          if (node) self.remove(node)
-          return this
+          const node = getRef(pNode);
+          if (node) self.remove(node);
+          return this;
         },
         traverse(callback: (node: NodeProxy) => void) {
           self.traverse((node: Node) => {
-            const proxy = node.getProxy()
-            callback(proxy)
-          })
+            const proxy = node.getProxy();
+            callback(proxy);
+          });
         },
         // detach(node) {
         //   self.detach(node)
         // },
         clone(recursive?: boolean) {
-          const node = self.clone(recursive)
-          return node.getProxy()
+          const node = self.clone(recursive);
+          return node.getProxy();
         },
         clean() {
-          self.clean()
+          self.clean();
         },
         get _ref() {
-          if (!secure.allowRef) return null
-          return self
+          if (!secure.allowRef) return null;
+          return self;
         },
         get _isRef() {
-          return true
+          return true;
         },
         get onPointerEnter() {
-          return self.onPointerEnter
+          return self.onPointerEnter;
         },
         set onPointerEnter(value: ((event: PointerEvent) => void) | undefined) {
-          self.onPointerEnter = value
+          self.onPointerEnter = value;
         },
         get onPointerLeave() {
-          return self.onPointerLeave
+          return self.onPointerLeave;
         },
         set onPointerLeave(value: ((event: PointerEvent) => void) | undefined) {
-          self.onPointerLeave = value
+          self.onPointerLeave = value;
         },
         get onPointerDown() {
-          return self.onPointerDown
+          return self.onPointerDown;
         },
         set onPointerDown(value: ((event: PointerEvent) => void) | undefined) {
-          self.onPointerDown = value
+          self.onPointerDown = value;
         },
         get onPointerUp() {
-          return self.onPointerUp
+          return self.onPointerUp;
         },
         set onPointerUp(value: ((event: PointerEvent) => void) | undefined) {
-          self.onPointerUp = value
+          self.onPointerUp = value;
         },
         get cursor() {
-          return self.cursor
+          return self.cursor;
         },
         set cursor(value) {
-          self.cursor = value
+          self.cursor = value;
         },
-      } as NodeProxy
-      this.proxy = proxy
+      } as NodeProxy;
+      this.proxy = proxy;
     }
-    return this.proxy
+    return this.proxy;
   }
 }

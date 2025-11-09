@@ -79,7 +79,10 @@ export interface IVisualConfig {
 /**
  * Generic player state type for state managers
  */
-export type PlayerStateData = Record<string, string | number | boolean | string[] | number[]>;
+export type PlayerStateData = Record<
+  string,
+  string | number | boolean | string[] | number[]
+>;
 
 /**
  * State manager interface for content pack state
@@ -95,7 +98,10 @@ export interface IStateManager {
   updateState(playerId: string, updates: Partial<PlayerStateData>): void;
 
   // Subscribe to state changes
-  subscribe(playerId: string, callback: (state: PlayerStateData) => void): () => void;
+  subscribe(
+    playerId: string,
+    callback: (state: PlayerStateData) => void,
+  ): () => void;
 
   // Serialize/deserialize for persistence
   serialize(playerId: string): string;

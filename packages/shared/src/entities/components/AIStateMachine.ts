@@ -11,8 +11,8 @@
  * States are responsible for their own logic and return the next state to transition to.
  */
 
-import type { Position3D } from '../../types';
-import { MobAIState } from '../../types/entities';
+import type { Position3D } from "../../types";
+import { MobAIState } from "../../types/entities";
 
 export interface AIStateContext {
   // Position & Movement
@@ -81,14 +81,17 @@ export class IdleState implements AIState {
 
   private idleStartTime = 0;
   private idleDuration = 0;
-  private readonly IDLE_MIN_DURATION = 3000;    // 3 seconds
-  private readonly IDLE_MAX_DURATION = 8000;    // 8 seconds
+  private readonly IDLE_MIN_DURATION = 3000; // 3 seconds
+  private readonly IDLE_MAX_DURATION = 8000; // 8 seconds
 
   enter(context: AIStateContext): void {
     this.idleStartTime = context.getTime();
-    this.idleDuration = this.IDLE_MIN_DURATION +
+    this.idleDuration =
+      this.IDLE_MIN_DURATION +
       Math.random() * (this.IDLE_MAX_DURATION - this.IDLE_MIN_DURATION);
-    console.log(`[IdleState] Entered, will idle for ${(this.idleDuration/1000).toFixed(1)}s`);
+    console.log(
+      `[IdleState] Entered, will idle for ${(this.idleDuration / 1000).toFixed(1)}s`,
+    );
   }
 
   update(context: AIStateContext, _deltaTime: number): MobAIState | null {
@@ -97,7 +100,10 @@ export class IdleState implements AIState {
     if (nearbyPlayer) {
       console.log(`[IdleState] Detected player, switching to CHASE`);
       context.setTarget(nearbyPlayer.id);
-      context.emitEvent('MOB_NPC_AGGRO', { mobId: 'self', targetId: nearbyPlayer.id });
+      context.emitEvent("MOB_NPC_AGGRO", {
+        mobId: "self",
+        targetId: nearbyPlayer.id,
+      });
       return MobAIState.CHASE;
     }
 
@@ -145,7 +151,7 @@ export class WanderState implements AIState {
     const currentPos = context.getPosition();
     const distanceToTarget = Math.sqrt(
       Math.pow(wanderTarget.x - currentPos.x, 2) +
-      Math.pow(wanderTarget.z - currentPos.z, 2)
+        Math.pow(wanderTarget.z - currentPos.z, 2),
     );
 
     if (distanceToTarget < 0.5) {
@@ -203,7 +209,9 @@ export class ChaseState implements AIState {
 
     // Switch to attack if in range
     if (distance2D <= context.getCombatRange()) {
-      console.log(`[ChaseState] In combat range (${distance2D.toFixed(2)}), switching to ATTACK`);
+      console.log(
+        `[ChaseState] In combat range (${distance2D.toFixed(2)}), switching to ATTACK`,
+      );
       return MobAIState.ATTACK;
     }
 
@@ -255,7 +263,9 @@ export class AttackState implements AIState {
     const distance2D = Math.sqrt(dx * dx + dz * dz);
 
     if (distance2D > context.getCombatRange()) {
-      console.log(`[AttackState] Player out of range (${distance2D.toFixed(2)}), switching to CHASE`);
+      console.log(
+        `[AttackState] Player out of range (${distance2D.toFixed(2)}), switching to CHASE`,
+      );
       return MobAIState.CHASE;
     }
 
@@ -291,13 +301,20 @@ export class ReturnState implements AIState {
     const spawnDistance = context.getDistanceFromSpawn();
 
     // Safety: teleport if extremely far AND not in combat
-    if (spawnDistance > this.RETURN_TELEPORT_DISTANCE && !context.isInCombat()) {
-      console.warn(`[ReturnState] Too far from spawn (${spawnDistance.toFixed(1)}), teleporting (not in combat)`);
+    if (
+      spawnDistance > this.RETURN_TELEPORT_DISTANCE &&
+      !context.isInCombat()
+    ) {
+      console.warn(
+        `[ReturnState] Too far from spawn (${spawnDistance.toFixed(1)}), teleporting (not in combat)`,
+      );
       const spawnPoint = context.getSpawnPoint();
       context.teleportTo(spawnPoint);
       return MobAIState.IDLE;
     } else if (spawnDistance > this.RETURN_TELEPORT_DISTANCE) {
-      console.log(`[ReturnState] Far from spawn but IN COMBAT, walking back (no teleport)`);
+      console.log(
+        `[ReturnState] Far from spawn but IN COMBAT, walking back (no teleport)`,
+      );
     }
 
     // Reached spawn - reset to IDLE and heal

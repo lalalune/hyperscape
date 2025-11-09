@@ -1,15 +1,15 @@
-import { Download, Save } from 'lucide-react'
-import React from 'react'
+import { Download, Save } from "lucide-react";
+import React from "react";
 
-import { cn } from '../../styles'
-import { Asset } from '../../types'
+import { cn } from "../../styles";
+import { Asset } from "../../types";
 
 interface ExportOptionsPanelProps {
-  selectedAvatar: Asset | null
-  selectedEquipment: Asset | null
-  onSaveConfiguration: () => void
-  onExportAlignedModel: () => void
-  onExportEquippedAvatar: () => void
+  selectedAvatar: Asset | null;
+  selectedEquipment: Asset | null;
+  onSaveConfiguration: () => void;
+  onExportAlignedModel: () => void;
+  onExportEquippedAvatar: () => void;
 }
 
 export const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
@@ -17,7 +17,7 @@ export const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
   selectedEquipment,
   onSaveConfiguration,
   onExportAlignedModel,
-  onExportEquippedAvatar
+  onExportEquippedAvatar,
 }) => {
   return (
     <div className="bg-bg-primary/40 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
@@ -27,8 +27,12 @@ export const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
             <Download className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-text-primary">Export Options</h3>
-            <p className="text-xs text-text-secondary mt-0.5">Save your configuration</p>
+            <h3 className="text-sm font-semibold text-text-primary">
+              Export Options
+            </h3>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Save your configuration
+            </p>
           </div>
         </div>
       </div>
@@ -40,13 +44,14 @@ export const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
             "w-full px-4 py-3 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2",
             "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg hover:shadow-xl",
             "hover:scale-[1.02] active:scale-[0.98]",
-            (!selectedAvatar || !selectedEquipment) && "opacity-50 cursor-not-allowed"
+            (!selectedAvatar || !selectedEquipment) &&
+              "opacity-50 cursor-not-allowed",
           )}
         >
           <Save size={16} />
           <span>Save Configuration</span>
         </button>
-        
+
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={onExportAlignedModel}
@@ -55,13 +60,13 @@ export const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
               "px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2",
               "bg-bg-secondary/50 border border-white/10 text-text-primary",
               "hover:bg-bg-secondary/70 hover:border-white/20",
-              (!selectedEquipment) && "opacity-50 cursor-not-allowed"
+              !selectedEquipment && "opacity-50 cursor-not-allowed",
             )}
           >
             <Download size={14} />
             <span>Export Equipment</span>
           </button>
-          
+
           <button
             onClick={onExportEquippedAvatar}
             disabled={!selectedAvatar || !selectedEquipment}
@@ -69,7 +74,8 @@ export const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
               "px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2",
               "bg-bg-secondary/50 border border-white/10 text-text-primary",
               "hover:bg-bg-secondary/70 hover:border-white/20",
-              (!selectedAvatar || !selectedEquipment) && "opacity-50 cursor-not-allowed"
+              (!selectedAvatar || !selectedEquipment) &&
+                "opacity-50 cursor-not-allowed",
             )}
           >
             <Download size={14} />
@@ -78,5 +84,5 @@ export const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
         </div>
       </div>
     </div>
-  )
-} 
+  );
+};

@@ -10,21 +10,21 @@ import type { UniversalRenderer } from "@hyperscape/shared";
 import type { ClientWorld } from "../types";
 
 interface EntityPip {
-  id: string
-  type: "player" | "enemy" | "building" | "item" | "resource"
-  position: THREE.Vector3
-  color: string
+  id: string;
+  type: "player" | "enemy" | "building" | "item" | "resource";
+  position: THREE.Vector3;
+  color: string;
 }
 
 interface MinimapProps {
-  world: ClientWorld
-  width?: number
-  height?: number
-  zoom?: number
-  className?: string
-  style?: React.CSSProperties
-  onCompassClick?: () => void
-  isVisible?: boolean
+  world: ClientWorld;
+  width?: number;
+  height?: number;
+  zoom?: number;
+  className?: string;
+  style?: React.CSSProperties;
+  onCompassClick?: () => void;
+  isVisible?: boolean;
 }
 
 export function Minimap({
@@ -135,7 +135,8 @@ export function Minimap({
       })
         .then((renderer) => {
           if (!mounted) {
-            if ('dispose' in renderer) (renderer as { dispose: () => void }).dispose();
+            if ("dispose" in renderer)
+              (renderer as { dispose: () => void }).dispose();
             return;
           }
 
@@ -178,7 +179,7 @@ export function Minimap({
       if (rendererRef.current && rendererInitializedRef.current && !isVisible) {
         // console.log('[Minimap] Pausing renderer (component hidden)');
         // Pause rendering when hidden
-        if ('setAnimationLoop' in rendererRef.current) {
+        if ("setAnimationLoop" in rendererRef.current) {
           (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
         }
       }
@@ -202,13 +203,13 @@ export function Minimap({
     if (isVisible) {
       // console.log('[Minimap] Resuming renderer (component visible)');
       // Resume rendering when visible
-      if ('setAnimationLoop' in rendererRef.current) {
+      if ("setAnimationLoop" in rendererRef.current) {
         (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
       }
     } else {
       // console.log('[Minimap] Pausing renderer (component hidden)');
       // Pause rendering when hidden
-      if ('setAnimationLoop' in rendererRef.current) {
+      if ("setAnimationLoop" in rendererRef.current) {
         (rendererRef.current as THREE.WebGLRenderer).setAnimationLoop(null);
       }
     }
@@ -219,7 +220,7 @@ export function Minimap({
     return () => {
       if (rendererRef.current && rendererInitializedRef.current) {
         // console.log('[Minimap] Disposing renderer on component unmount');
-        if ('dispose' in rendererRef.current) {
+        if ("dispose" in rendererRef.current) {
           (rendererRef.current as { dispose: () => void }).dispose();
         }
         rendererRef.current = null;
@@ -300,7 +301,7 @@ export function Minimap({
     const update = () => {
       const pips: EntityPip[] = [];
       const newCache = new Map<string, EntityPip>();
-      
+
       const player = world.entities?.player as Entity | undefined;
       if (player?.node?.position) {
         const playerPip: EntityPip = {
@@ -388,7 +389,7 @@ export function Minimap({
           }
         });
       }
-      
+
       // Add pips for all known entities safely (cached)
       if (world.entities) {
         const allEntities = world.entities.getAll();
@@ -462,16 +463,16 @@ export function Minimap({
 
     let rafId: number | null = null;
     let frameCount = 0;
-    
+
     const render = () => {
       // Only render if visible
       if (!isVisible) {
         rafId = requestAnimationFrame(render);
         return;
       }
-      
+
       frameCount++;
-      
+
       // Render WebGL if available
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -601,23 +602,23 @@ export function Minimap({
           ctx.restore();
         }
       }
-      
+
       // Log performance every 60 frames (approximately 1 second)
-             // if (frameCount % 60 === 0) {
-             //   console.log(`[Minimap] Render frame ${frameCount}, visible: ${isVisible}, entities: ${entityPipsRefForRender.current.length}`);
-             // }
-      
+      // if (frameCount % 60 === 0) {
+      //   console.log(`[Minimap] Render frame ${frameCount}, visible: ${isVisible}, entities: ${entityPipsRefForRender.current.length}`);
+      // }
+
       rafId = requestAnimationFrame(render);
     };
-    
-           // console.log('[Minimap] Starting render loop');
+
+    // console.log('[Minimap] Starting render loop');
     rafId = requestAnimationFrame(render);
-    
+
     return () => {
-             if (rafId !== null) {
-               window.cancelAnimationFrame(rafId);
-               // console.log('[Minimap] Stopping render loop');
-             }
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        // console.log('[Minimap] Stopping render loop');
+      }
     };
   }, [isVisible]);
 
@@ -653,7 +654,9 @@ export function Minimap({
       const worldPos = screenToWorldXZ(clientX, clientY);
       if (!worldPos) return;
 
-      const player = world.entities?.player as { position?: { x: number; z: number }; runMode?: boolean } | undefined;
+      const player = world.entities?.player as
+        | { position?: { x: number; z: number }; runMode?: boolean }
+        | undefined;
       if (!player?.position) return;
       const dx = worldPos.x - player.position.x;
       const dz = worldPos.z - player.position.z;
@@ -814,9 +817,9 @@ export function Minimap({
               cam.up.set(0, 0, -1);
             }
             // Reorient main camera to face North (RS3-like) using camera system directly
-            const camSys = world.getSystem(
-              "client-camera-system",
-            ) as { resetCamera?: () => void } | null;
+            const camSys = world.getSystem("client-camera-system") as {
+              resetCamera?: () => void;
+            } | null;
             camSys?.resetCamera?.();
           }}
           onMouseDown={(e) => {

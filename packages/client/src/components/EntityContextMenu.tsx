@@ -1,27 +1,35 @@
-import React, { useState, useEffect } from 'react'
-import type { World } from '@hyperscape/shared'
+import React, { useState, useEffect } from "react";
+import type { World } from "@hyperscape/shared";
 
 export interface ContextMenuAction {
-  id: string
-  label: string
-  icon?: string
-  enabled: boolean
-  onClick: () => void
+  id: string;
+  label: string;
+  icon?: string;
+  enabled: boolean;
+  onClick: () => void;
 }
 
 export interface ContextMenuState {
-  visible: boolean
-  position: { x: number; y: number }
+  visible: boolean;
+  position: { x: number; y: number };
   target: {
-    id: string
-    type: 'item' | 'resource' | 'mob' | 'corpse' | 'npc' | 'bank' | 'store' | 'headstone'
-    name: string
-  } | null
-  actions: ContextMenuAction[]
+    id: string;
+    type:
+      | "item"
+      | "resource"
+      | "mob"
+      | "corpse"
+      | "npc"
+      | "bank"
+      | "store"
+      | "headstone";
+    name: string;
+  } | null;
+  actions: ContextMenuAction[];
 }
 
 interface EntityContextMenuProps {
-  world: World
+  world: World;
 }
 
 export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
@@ -29,43 +37,50 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
     visible: false,
     position: { x: 0, y: 0 },
     target: null,
-    actions: []
-  })
+    actions: [],
+  });
 
   useEffect(() => {
     // Listen for context menu requests from any system
     const handleContextMenu = (event: Event) => {
       const customEvent = event as CustomEvent<{
         target: {
-          id: string
-          type: 'item' | 'resource' | 'mob' | 'corpse' | 'npc' | 'bank' | 'store'
-          name: string
-          position?: { x: number; y: number; z: number }
-          [key: string]: unknown
-        }
-        mousePosition: { x: number; y: number }
-        items: Array<{ id: string; label: string; enabled: boolean }>
-      }>
+          id: string;
+          type:
+            | "item"
+            | "resource"
+            | "mob"
+            | "corpse"
+            | "npc"
+            | "bank"
+            | "store";
+          name: string;
+          position?: { x: number; y: number; z: number };
+          [key: string]: unknown;
+        };
+        mousePosition: { x: number; y: number };
+        items: Array<{ id: string; label: string; enabled: boolean }>;
+      }>;
 
-      if (!customEvent.detail) return
+      if (!customEvent.detail) return;
 
-      const { target, mousePosition, items } = customEvent.detail
+      const { target, mousePosition, items } = customEvent.detail;
 
       // Convert items to actions with onClick handlers
-      const actions: ContextMenuAction[] = items.map(item => ({
+      const actions: ContextMenuAction[] = items.map((item) => ({
         ...item,
         onClick: () => {
           // Dispatch selection event
-          const selectEvent = new CustomEvent('contextmenu:select', {
+          const selectEvent = new CustomEvent("contextmenu:select", {
             detail: {
               actionId: item.id,
-              targetId: target.id
-            }
-          })
-          window.dispatchEvent(selectEvent)
-          setMenu(prev => ({ ...prev, visible: false }))
-        }
-      }))
+              targetId: target.id,
+            },
+          });
+          window.dispatchEvent(selectEvent);
+          setMenu((prev) => ({ ...prev, visible: false }));
+        },
+      }));
 
       setMenu({
         visible: true,
@@ -73,42 +88,47 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
         target: {
           id: target.id,
           type: target.type,
-          name: target.name
+          name: target.name,
         },
-        actions
-      })
-    }
+        actions,
+      });
+    };
 
     // Listen for close events
     const handleClose = () => {
-      setMenu(prev => ({ ...prev, visible: false }))
-    }
+      setMenu((prev) => ({ ...prev, visible: false }));
+    };
 
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      
+      const target = event.target as HTMLElement;
+
       // Don't close if clicking inside menu
-      if (target.closest('.context-menu')) {
+      if (target.closest(".context-menu")) {
         return;
       }
-      
-      setMenu(prev => ({ ...prev, visible: false }))
-    }
 
-    window.addEventListener('contextmenu', handleContextMenu as EventListener)
-    window.addEventListener('contextmenu:close', handleClose as EventListener)
+      setMenu((prev) => ({ ...prev, visible: false }));
+    };
+
+    window.addEventListener("contextmenu", handleContextMenu as EventListener);
+    window.addEventListener("contextmenu:close", handleClose as EventListener);
     // Use click (not mousedown) to let onClick handlers fire first
-    document.addEventListener('click', handleClickOutside, false)
+    document.addEventListener("click", handleClickOutside, false);
 
     return () => {
-      window.removeEventListener('contextmenu', handleContextMenu as EventListener)
-      window.removeEventListener('contextmenu:close', handleClose as EventListener)
-      document.removeEventListener('click', handleClickOutside)
-    }
-  }, [])
+      window.removeEventListener(
+        "contextmenu",
+        handleContextMenu as EventListener,
+      );
+      window.removeEventListener(
+        "contextmenu:close",
+        handleClose as EventListener,
+      );
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
 
-  if (!menu.visible || !menu.target) return null
-
+  if (!menu.visible || !menu.target) return null;
 
   return (
     <div
@@ -116,10 +136,10 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
       style={{
         left: `${menu.position.x}px`,
         top: `${menu.position.y}px`,
-        minWidth: '160px',
-        pointerEvents: 'auto',
-        userSelect: 'none',
-        color: '#fff' // White text
+        minWidth: "160px",
+        pointerEvents: "auto",
+        userSelect: "none",
+        color: "#fff", // White text
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -131,18 +151,18 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
             key={action.id}
             className={`px-3 py-1.5 text-sm text-white transition-colors ${
               action.enabled
-                ? 'cursor-pointer hover:bg-[#2a2a2a] hover:text-white'
-                : 'cursor-not-allowed opacity-50'
+                ? "cursor-pointer hover:bg-[#2a2a2a] hover:text-white"
+                : "cursor-not-allowed opacity-50"
             }`}
-            style={{ 
-              pointerEvents: 'auto',
-              color: '#fff' // Explicit white text
+            style={{
+              pointerEvents: "auto",
+              color: "#fff", // Explicit white text
             }}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               if (action.enabled) {
-                action.onClick()
+                action.onClick();
               } else {
               }
             }}
@@ -157,6 +177,5 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
         );
       })}
     </div>
-  )
+  );
 }
-

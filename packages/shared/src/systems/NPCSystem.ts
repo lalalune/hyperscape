@@ -1,21 +1,26 @@
-
 /**
  * NPC System
  * Handles NPC interactions, banking, and store transactions
  */
 
-import type { Entity, World } from '../types/index';
-import { getEntitiesSystem, getSystem } from '../utils/SystemUtils';
-import { SHOP_ITEMS, getItem } from '../data/items';
-import type { NPCLocation } from '../data/world-areas';
-import { ALL_WORLD_AREAS, STARTER_TOWNS } from '../data/world-areas';
-import { BankTransaction, PlayerBankStorage, Position3D, StoreTransaction, Town } from '../types/core';
-import { NPCSystemInfo as SystemInfo } from '../types/system-interfaces';
-import { SystemBase } from './SystemBase';
-import { InventorySystem } from './InventorySystem';
-import { EventType } from '../types/events';
-import { TerrainSystem } from './TerrainSystem';
-import { groundToTerrain } from '../utils/EntityUtils';
+import type { Entity, World } from "../types/index";
+import { getEntitiesSystem, getSystem } from "../utils/SystemUtils";
+import { SHOP_ITEMS, getItem } from "../data/items";
+import type { NPCLocation } from "../data/world-areas";
+import { ALL_WORLD_AREAS, STARTER_TOWNS } from "../data/world-areas";
+import {
+  BankTransaction,
+  PlayerBankStorage,
+  Position3D,
+  StoreTransaction,
+  Town,
+} from "../types/core";
+import { NPCSystemInfo as SystemInfo } from "../types/system-interfaces";
+import { SystemBase } from "./SystemBase";
+import { InventorySystem } from "./InventorySystem";
+import { EventType } from "../types/events";
+import { TerrainSystem } from "./TerrainSystem";
+import { groundToTerrain } from "../utils/EntityUtils";
 
 export class NPCSystem extends SystemBase {
   private bankStorage: Map<string, PlayerBankStorage> = new Map();
@@ -30,100 +35,145 @@ export class NPCSystem extends SystemBase {
 
   constructor(world: World) {
     super(world, {
-      name: 'npc',
+      name: "npc",
       dependencies: {
-        required: ['terrain'], // Need terrain for NPC placement
-        optional: ['inventory', 'banking', 'ui', 'quest']
+        required: ["terrain"], // Need terrain for NPC placement
+        optional: ["inventory", "banking", "ui", "quest"],
       },
-      autoCleanup: true
+      autoCleanup: true,
     });
     this.initializeStoreInventory();
   }
 
   async init(): Promise<void> {
     // Get terrain system reference
-    this.terrainSystem = this.world.getSystem<TerrainSystem>('terrain')!;
-    
+    this.terrainSystem = this.world.getSystem<TerrainSystem>("terrain")!;
+
     // Subscribe to NPC interaction events using type-safe event system
-    this.subscribe(EventType.NPC_INTERACTION, (data: { playerId: string; npcId: string; npc: NPCLocation }) => this.handleNPCInteraction(data));
-    this.subscribe(EventType.BANK_DEPOSIT, (data) => this.handleBankDeposit(data as unknown as { playerId: string; itemId: string; quantity: number }));
-    this.subscribe(EventType.BANK_WITHDRAW, (data) => this.handleBankWithdraw(data as unknown as { playerId: string; itemId: string; quantity: number }));
-    this.subscribe(EventType.STORE_BUY, (data) => this.handleStoreBuy(data as unknown as { playerId: string; itemId: string; quantity: number }));
-    this.subscribe(EventType.STORE_SELL, (data) => this.handleStoreSell(data as unknown as { playerId: string; itemId: string; quantity: number }));
-    
+    this.subscribe(
+      EventType.NPC_INTERACTION,
+      (data: { playerId: string; npcId: string; npc: NPCLocation }) =>
+        this.handleNPCInteraction(data),
+    );
+    this.subscribe(EventType.BANK_DEPOSIT, (data) =>
+      this.handleBankDeposit(
+        data as unknown as {
+          playerId: string;
+          itemId: string;
+          quantity: number;
+        },
+      ),
+    );
+    this.subscribe(EventType.BANK_WITHDRAW, (data) =>
+      this.handleBankWithdraw(
+        data as unknown as {
+          playerId: string;
+          itemId: string;
+          quantity: number;
+        },
+      ),
+    );
+    this.subscribe(EventType.STORE_BUY, (data) =>
+      this.handleStoreBuy(
+        data as unknown as {
+          playerId: string;
+          itemId: string;
+          quantity: number;
+        },
+      ),
+    );
+    this.subscribe(EventType.STORE_SELL, (data) =>
+      this.handleStoreSell(
+        data as unknown as {
+          playerId: string;
+          itemId: string;
+          quantity: number;
+        },
+      ),
+    );
+
     // Subscribe to terrain generation to spawn NPCs and towns
-    this.subscribe(EventType.TERRAIN_TILE_GENERATED, (data) => this.onTileGenerated(data as { tileX: number; tileZ: number; biome: string }));
-    
+    this.subscribe(EventType.TERRAIN_TILE_GENERATED, (data) =>
+      this.onTileGenerated(
+        data as { tileX: number; tileZ: number; biome: string },
+      ),
+    );
+
     // Generate towns immediately as they are static placements
     this.generateTowns();
   }
-  
+
   async start(): Promise<void> {
     // Spawn a default test NPC (banker) near origin BEFORE accepting connections
     if (this.world.isServer) {
       await this.spawnDefaultNPC();
     }
   }
-  
+
   /**
    * Spawn a default test banker for initial world content
    */
   private async spawnDefaultNPC(): Promise<void> {
-    
     // Wait for EntityManager to be ready
-    let entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+    let entityManager = this.world.getSystem("entity-manager") as {
+      spawnEntity?: (config: unknown) => Promise<unknown>;
+    } | null;
     let attempts = 0;
-    
+
     while ((!entityManager || !entityManager.spawnEntity) && attempts < 100) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      entityManager = this.world.getSystem('entity-manager') as { spawnEntity?: (config: unknown) => Promise<unknown> } | null;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      entityManager = this.world.getSystem("entity-manager") as {
+        spawnEntity?: (config: unknown) => Promise<unknown>;
+      } | null;
       attempts++;
-      
+
       if (attempts % 10 === 0) {
       }
     }
-    
+
     if (!entityManager?.spawnEntity) {
-      console.error('[NPCSystem] ❌ EntityManager never became available after 10 seconds!');
+      console.error(
+        "[NPCSystem] ❌ EntityManager never became available after 10 seconds!",
+      );
       return;
     }
-    
-    
+
     // Use fixed Y position for simplicity
     const y = 43;
-    
+
     const npcConfig = {
-      id: 'default_banker_1',
-      type: 'npc' as const,
-      name: 'Banker',
-      position: { x: 15, y: y + 1.0, z: 5 },  // Raised Y
+      id: "default_banker_1",
+      type: "npc" as const,
+      name: "Banker",
+      position: { x: 15, y: y + 1.0, z: 5 }, // Raised Y
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      scale: { x: 100, y: 100, z: 100 },  // Scale up rigged model
+      scale: { x: 100, y: 100, z: 100 }, // Scale up rigged model
       visible: true,
       interactable: true,
-      interactionType: 'talk',
+      interactionType: "talk",
       interactionDistance: 3,
-      description: 'A friendly banker',
-      model: 'asset://models/human/human_rigged.glb',
+      description: "A friendly banker",
+      model: "asset://models/human/human_rigged.glb",
       properties: {},
       // NPCEntity specific
-      npcType: 'bank',
-      npcId: 'default_banker',
-      dialogueLines: ['Welcome to the bank!', 'How may I help you today?'],
-      services: ['bank'],
+      npcType: "bank",
+      npcId: "default_banker",
+      dialogueLines: ["Welcome to the bank!", "How may I help you today?"],
+      services: ["bank"],
       inventory: [],
       skillsOffered: [],
-      questsAvailable: []
+      questsAvailable: [],
     };
-    
-    
+
     try {
-      const spawnedEntity = await entityManager.spawnEntity(npcConfig) as { id?: string } | null;
-      
+      const spawnedEntity = (await entityManager.spawnEntity(npcConfig)) as {
+        id?: string;
+      } | null;
+
       // Verify it's in the world
-      const verify = this.world.entities.get('default_banker_1');
+      const verify = this.world.entities.get("default_banker_1");
     } catch (err) {
-      console.error('[NPCSystem] ❌ Error spawning default banker:', err);
+      console.error("[NPCSystem] ❌ Error spawning default banker:", err);
     }
   }
 
@@ -140,22 +190,25 @@ export class NPCSystem extends SystemBase {
   /**
    * Handle general NPC interaction
    */
-  private handleNPCInteraction(data: { playerId: string, npcId: string, npc: NPCLocation }): void {
+  private handleNPCInteraction(data: {
+    playerId: string;
+    npcId: string;
+    npc: NPCLocation;
+  }): void {
     const { playerId, npcId: _npcId, npc } = data;
-    
-    
+
     // Send interaction response based on NPC type
     switch (npc.type) {
-      case 'bank':
+      case "bank":
         this.sendBankInterface(playerId, npc);
         break;
-      case 'general_store':
+      case "general_store":
         this.sendStoreInterface(playerId, npc);
         break;
-      case 'skill_trainer':
+      case "skill_trainer":
         this.sendTrainerInterface(playerId, npc);
         break;
-      case 'quest_giver':
+      case "quest_giver":
         this.sendQuestInterface(playerId, npc);
         break;
       default:
@@ -168,18 +221,18 @@ export class NPCSystem extends SystemBase {
    */
   private sendBankInterface(playerId: string, npc: NPCLocation): void {
     const bankData = this.getPlayerBankStorage(playerId);
-    
+
     // Convert Map to object for transmission
     const bankItems: { [key: string]: number } = {};
     for (const [itemId, quantity] of bankData.items) {
       bankItems[itemId] = quantity;
     }
-    
+
     this.emitTypedEvent(EventType.BANK_OPEN, {
       playerId,
       npcName: npc.name,
       bankItems: bankItems,
-      services: npc.services
+      services: npc.services,
     });
   }
 
@@ -187,24 +240,26 @@ export class NPCSystem extends SystemBase {
    * Send store interface to player
    */
   private sendStoreInterface(playerId: string, npc: NPCLocation): void {
-    const storeItems: { [key: string]: { quantity: number, buyPrice: number, sellPrice: number } } = {};
-    
+    const storeItems: {
+      [key: string]: { quantity: number; buyPrice: number; sellPrice: number };
+    } = {};
+
     for (const [itemId, quantity] of this.storeInventory) {
       const item = getItem(itemId);
       if (item) {
         storeItems[itemId] = {
           quantity: quantity,
           buyPrice: Math.ceil(item.value * this.BUY_PRICE_MULTIPLIER),
-          sellPrice: Math.floor(item.value * this.SELL_PRICE_MULTIPLIER)
+          sellPrice: Math.floor(item.value * this.SELL_PRICE_MULTIPLIER),
         };
       }
     }
-    
+
     this.emitTypedEvent(EventType.STORE_OPEN, {
       playerId,
       npcName: npc.name,
       storeItems: storeItems,
-      services: npc.services
+      services: npc.services,
     });
   }
 
@@ -215,7 +270,7 @@ export class NPCSystem extends SystemBase {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
       message: `${npc.name} can help you train your combat skills.`,
-      type: 'info' as const
+      type: "info" as const,
     });
   }
 
@@ -226,7 +281,7 @@ export class NPCSystem extends SystemBase {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
       message: `${npc.name} has no quests available at this time.`,
-      type: 'info' as const
+      type: "info" as const,
     });
   }
 
@@ -237,227 +292,239 @@ export class NPCSystem extends SystemBase {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
       message: npc.description || `Hello there! I'm ${npc.name}.`,
-      type: 'info' as const
+      type: "info" as const,
     });
   }
 
   /**
    * Handle bank deposit
    */
-  private handleBankDeposit(data: { playerId: string; itemId: string; quantity: number }): void {
+  private handleBankDeposit(data: {
+    playerId: string;
+    itemId: string;
+    quantity: number;
+  }): void {
     const { playerId, itemId, quantity } = data;
-    
+
     if (quantity <= 0) {
-      this.sendError(playerId, 'Invalid quantity for deposit');
+      this.sendError(playerId, "Invalid quantity for deposit");
       return;
     }
-    
+
     // Remove item from player inventory (handled by inventory system)
     this.emitTypedEvent(EventType.INVENTORY_ITEM_REMOVED, {
       playerId,
       itemId,
-      quantity
+      quantity,
     });
-    
+
     const bankData = this.getPlayerBankStorage(playerId);
     const currentAmount = bankData.items.get(itemId) || 0;
     bankData.items.set(itemId, currentAmount + quantity);
     bankData.lastAccessed = Date.now();
-    
+
     // Record transaction
     const transaction: BankTransaction = {
-      type: 'bank_deposit',
+      type: "bank_deposit",
       itemId,
       quantity,
       playerId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
     this.transactionHistory.push(transaction);
-    
+
     // Emit success event
     this.emitTypedEvent(EventType.BANK_DEPOSIT_SUCCESS, {
       playerId,
       itemId,
       quantity,
-      newBankQuantity: bankData.items.get(itemId)
+      newBankQuantity: bankData.items.get(itemId),
     });
-    
   }
 
   /**
    * Handle bank withdrawal
    */
-  private handleBankWithdraw(data: { playerId: string, itemId: string, quantity: number }): void {
+  private handleBankWithdraw(data: {
+    playerId: string;
+    itemId: string;
+    quantity: number;
+  }): void {
     const { playerId, itemId, quantity } = data;
-    
+
     if (quantity <= 0) {
-      this.sendError(playerId, 'Invalid quantity for withdrawal');
+      this.sendError(playerId, "Invalid quantity for withdrawal");
       return;
     }
-    
+
     const bankData = this.getPlayerBankStorage(playerId);
     const currentAmount = bankData.items.get(itemId) || 0;
-    
+
     if (currentAmount < quantity) {
-      this.sendError(playerId, 'Not enough items in bank');
+      this.sendError(playerId, "Not enough items in bank");
       return;
     }
-    
+
     // Check if player has inventory space
-    const inventorySystem = getSystem<InventorySystem>(this.world, 'inventory');
+    const inventorySystem = getSystem<InventorySystem>(this.world, "inventory");
     if (inventorySystem?.isFull(playerId)) {
-      this.emitTypedEvent(EventType.UI_MESSAGE, { 
-        playerId, 
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId,
         message: `You don't have enough inventory space.`,
-        type: 'error'
+        type: "error",
       });
       return;
     }
 
-    
     bankData.items.set(itemId, currentAmount - quantity);
     if (bankData.items.get(itemId) === 0) {
       bankData.items.delete(itemId);
     }
     bankData.lastAccessed = Date.now();
-    
+
     // Record transaction
     const transaction: BankTransaction = {
-      type: 'bank_withdraw',
+      type: "bank_withdraw",
       itemId,
       quantity,
       playerId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
     this.transactionHistory.push(transaction);
-    
+
     // Emit success event
     this.emitTypedEvent(EventType.BANK_WITHDRAW_SUCCESS, {
       playerId,
       itemId,
       quantity,
-      newBankQuantity: bankData.items.get(itemId) || 0
+      newBankQuantity: bankData.items.get(itemId) || 0,
     });
-    
   }
 
   /**
    * Handle store purchase
    */
-  private handleStoreBuy(data: { playerId: string, itemId: string, quantity: number }): void {
+  private handleStoreBuy(data: {
+    playerId: string;
+    itemId: string;
+    quantity: number;
+  }): void {
     const { playerId, itemId, quantity } = data;
-    
+
     if (quantity <= 0) {
-      this.sendError(playerId, 'Invalid quantity for purchase');
+      this.sendError(playerId, "Invalid quantity for purchase");
       return;
     }
-    
+
     const item = getItem(itemId);
     if (!item) {
-      this.sendError(playerId, 'Item not found');
+      this.sendError(playerId, "Item not found");
       return;
     }
-    
+
     const storeQuantity = this.storeInventory.get(itemId) || 0;
     if (storeQuantity < quantity) {
-      this.sendError(playerId, 'Not enough items in store');
+      this.sendError(playerId, "Not enough items in store");
       return;
     }
-    
-    const totalPrice = Math.ceil(item.value * this.BUY_PRICE_MULTIPLIER) * quantity;
-    
+
+    const totalPrice =
+      Math.ceil(item.value * this.BUY_PRICE_MULTIPLIER) * quantity;
+
     // Check if player has enough coins - delegate to inventory system
-    const inventorySystem = getSystem<InventorySystem>(this.world, 'inventory');
+    const inventorySystem = getSystem<InventorySystem>(this.world, "inventory");
     const playerCoins = inventorySystem?.getCoins(playerId) || 0;
     if (playerCoins < totalPrice) {
-      this.emitTypedEvent(EventType.UI_MESSAGE, { 
-        playerId, 
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId,
         message: `You need ${totalPrice} coins but only have ${playerCoins}.`,
-        type: 'error'
+        type: "error",
       });
       return;
     }
 
-    
     // Update store inventory
     this.storeInventory.set(itemId, storeQuantity - quantity);
-    
+
     // Record transaction
     const transaction: StoreTransaction = {
-      type: 'buy',
+      type: "buy",
       itemId,
       quantity,
       totalPrice,
       playerId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
     this.transactionHistory.push(transaction);
-    
+
     // Emit success event
     this.emitTypedEvent(EventType.STORE_BUY, {
       playerId,
       itemId,
       quantity,
       totalPrice,
-      newStoreQuantity: this.storeInventory.get(itemId)
+      newStoreQuantity: this.storeInventory.get(itemId),
     });
-    
   }
 
   /**
    * Handle store sale
    */
-  private handleStoreSell(data: { playerId: string, itemId: string, quantity: number }): void {
+  private handleStoreSell(data: {
+    playerId: string;
+    itemId: string;
+    quantity: number;
+  }): void {
     const { playerId, itemId, quantity } = data;
-    
+
     if (quantity <= 0) {
-      this.sendError(playerId, 'Invalid quantity for sale');
+      this.sendError(playerId, "Invalid quantity for sale");
       return;
     }
-    
+
     const item = getItem(itemId);
     if (!item) {
-      this.sendError(playerId, 'Item not found');
+      this.sendError(playerId, "Item not found");
       return;
     }
-    
+
     // Check if player has the item in inventory
-    const inventorySystem = getSystem<InventorySystem>(this.world, 'inventory');
+    const inventorySystem = getSystem<InventorySystem>(this.world, "inventory");
     if (!inventorySystem?.hasItem(playerId, itemId, quantity)) {
-      this.emitTypedEvent(EventType.UI_MESSAGE, { 
-        playerId, 
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId,
         message: `You don't have ${quantity} ${itemId} to sell.`,
-        type: 'error'
+        type: "error",
       });
       return;
     }
-    
-    const totalPrice = Math.floor(item.value * this.SELL_PRICE_MULTIPLIER) * quantity;
-    
+
+    const totalPrice =
+      Math.floor(item.value * this.SELL_PRICE_MULTIPLIER) * quantity;
+
     // Update store inventory (store buys back items)
     const currentStoreQuantity = this.storeInventory.get(itemId) || 0;
     this.storeInventory.set(itemId, currentStoreQuantity + quantity);
-    
+
     // Record transaction
     const transaction: StoreTransaction = {
-      type: 'sell',
+      type: "sell",
       itemId,
       quantity,
       totalPrice,
       playerId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
     this.transactionHistory.push(transaction);
-    
+
     // Emit success event
     this.emitTypedEvent(EventType.STORE_SELL, {
       playerId,
       itemId,
       quantity,
       totalPrice,
-      newStoreQuantity: this.storeInventory.get(itemId)
+      newStoreQuantity: this.storeInventory.get(itemId),
     });
-    
   }
 
   /**
@@ -465,16 +532,16 @@ export class NPCSystem extends SystemBase {
    */
   private getPlayerBankStorage(playerId: string): PlayerBankStorage {
     let bankData = this.bankStorage.get(playerId);
-    
+
     if (!bankData) {
       bankData = {
         playerId,
         items: new Map(),
-        lastAccessed: Date.now()
+        lastAccessed: Date.now(),
       };
       this.bankStorage.set(playerId, bankData);
     }
-    
+
     return bankData;
   }
 
@@ -485,7 +552,7 @@ export class NPCSystem extends SystemBase {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
       message,
-      type: 'error' as const
+      type: "error" as const,
     });
   }
 
@@ -495,11 +562,11 @@ export class NPCSystem extends SystemBase {
   public getPlayerBankContents(playerId: string): { [key: string]: number } {
     const bankData = this.getPlayerBankStorage(playerId);
     const result: { [key: string]: number } = {};
-    
+
     for (const [itemId, quantity] of bankData.items) {
       result[itemId] = quantity;
     }
-    
+
     return result;
   }
 
@@ -508,20 +575,22 @@ export class NPCSystem extends SystemBase {
    */
   public getStoreInventory(): { [key: string]: number } {
     const result: { [key: string]: number } = {};
-    
+
     for (const [itemId, quantity] of this.storeInventory) {
       result[itemId] = quantity;
     }
-    
+
     return result;
   }
 
   /**
    * Get transaction history
    */
-  public getTransactionHistory(playerId?: string): Array<BankTransaction | StoreTransaction> {
+  public getTransactionHistory(
+    playerId?: string,
+  ): Array<BankTransaction | StoreTransaction> {
     if (playerId) {
-      return this.transactionHistory.filter(t => t.playerId === playerId);
+      return this.transactionHistory.filter((t) => t.playerId === playerId);
     }
     return [...this.transactionHistory];
   }
@@ -530,7 +599,7 @@ export class NPCSystem extends SystemBase {
    * Spawn an NPC entity
    * Returns the spawned NPC entity or undefined if spawn failed
    */
-  public spawnNPC(data: { 
+  public spawnNPC(data: {
     npcId: string;
     name: string;
     type: string;
@@ -543,16 +612,18 @@ export class NPCSystem extends SystemBase {
     if (!entitiesSystem) return undefined;
 
     // Create the NPC entity with proper components
-    const entity = (entitiesSystem as { spawn?: (config: unknown) => unknown }).spawn?.({
+    const entity = (
+      entitiesSystem as { spawn?: (config: unknown) => unknown }
+    ).spawn?.({
       id: `npc_${data.npcId}_${Date.now()}`,
       name: data.name,
       position: data.position,
-      type: 'npc',
+      type: "npc",
       data: {
         npcType: data.type,
         services: data.services || [],
-        modelPath: data.modelPath || 'asset://models/npcs/default.glb'
-      }
+        modelPath: data.modelPath || "asset://models/npcs/default.glb",
+      },
     });
 
     return entity as Entity | undefined;
@@ -566,21 +637,27 @@ export class NPCSystem extends SystemBase {
       bankAccounts: this.bankStorage.size,
       totalTransactions: this.transactionHistory.length,
       storeItems: this.storeInventory.size,
-      recentTransactions: this.transactionHistory.slice(-10).map(transaction => ({
-        timestamp: transaction.timestamp,
-        type: transaction.type,
-        playerId: transaction.playerId,
-        itemId: transaction.itemId,
-        quantity: transaction.quantity,
-        amount: 'totalPrice' in transaction ? transaction.totalPrice : 0
-      }))
+      recentTransactions: this.transactionHistory
+        .slice(-10)
+        .map((transaction) => ({
+          timestamp: transaction.timestamp,
+          type: transaction.type,
+          playerId: transaction.playerId,
+          itemId: transaction.itemId,
+          quantity: transaction.quantity,
+          amount: "totalPrice" in transaction ? transaction.totalPrice : 0,
+        })),
     };
   }
 
   /**
    * Handle terrain tile generation - spawn NPCs and towns for new tiles
    */
-  private onTileGenerated(tileData: { tileX: number; tileZ: number; biome: string }): void {
+  private onTileGenerated(tileData: {
+    tileX: number;
+    tileZ: number;
+    biome: string;
+  }): void {
     const TILE_SIZE = this.terrainSystem.getTileSize();
     const tileBounds = {
       minX: tileData.tileX * TILE_SIZE,
@@ -590,12 +667,18 @@ export class NPCSystem extends SystemBase {
     };
 
     // Find which world areas overlap with this new tile
-    const overlappingAreas: Array<typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS]> = [];
+    const overlappingAreas: Array<
+      (typeof ALL_WORLD_AREAS)[keyof typeof ALL_WORLD_AREAS]
+    > = [];
     for (const area of Object.values(ALL_WORLD_AREAS)) {
       const areaBounds = area.bounds;
       // Simple bounding box overlap check
-      if (tileBounds.minX < areaBounds.maxX && tileBounds.maxX > areaBounds.minX &&
-          tileBounds.minZ < areaBounds.maxZ && tileBounds.maxZ > areaBounds.minZ) {
+      if (
+        tileBounds.minX < areaBounds.maxX &&
+        tileBounds.maxX > areaBounds.minX &&
+        tileBounds.minZ < areaBounds.maxZ &&
+        tileBounds.maxZ > areaBounds.minZ
+      ) {
         overlappingAreas.push(area);
       }
     }
@@ -608,7 +691,10 @@ export class NPCSystem extends SystemBase {
   /**
    * Generate NPCs for overlapping world areas
    */
-  private generateContentForTile(tileData: { tileX: number; tileZ: number }, areas: Array<typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS]>): void {
+  private generateContentForTile(
+    tileData: { tileX: number; tileZ: number },
+    areas: Array<(typeof ALL_WORLD_AREAS)[keyof typeof ALL_WORLD_AREAS]>,
+  ): void {
     for (const area of areas) {
       // Spawn NPCs from world-areas.ts data if they fall within this tile
       this.generateNPCsForArea(area, tileData);
@@ -618,7 +704,10 @@ export class NPCSystem extends SystemBase {
   /**
    * Spawn NPCs from a world area when its tile generates
    */
-  private generateNPCsForArea(area: typeof ALL_WORLD_AREAS[keyof typeof ALL_WORLD_AREAS], tileData: { tileX: number; tileZ: number }): void {
+  private generateNPCsForArea(
+    area: (typeof ALL_WORLD_AREAS)[keyof typeof ALL_WORLD_AREAS],
+    tileData: { tileX: number; tileZ: number },
+  ): void {
     const TILE_SIZE = this.terrainSystem.getTileSize();
     for (const npc of area.npcs) {
       const npcTileX = Math.floor(npc.position.x / TILE_SIZE);
@@ -626,8 +715,13 @@ export class NPCSystem extends SystemBase {
 
       if (npcTileX === tileData.tileX && npcTileZ === tileData.tileZ) {
         // Ground NPC to terrain
-        const groundedPosition = groundToTerrain(this.world, npc.position, 0.1, Infinity);
-        
+        const groundedPosition = groundToTerrain(
+          this.world,
+          npc.position,
+          0.1,
+          Infinity,
+        );
+
         this.emitTypedEvent(EventType.NPC_SPAWN_REQUEST, {
           npcId: npc.id,
           name: npc.name,
@@ -644,21 +738,21 @@ export class NPCSystem extends SystemBase {
    * Get starter town configurations from world areas
    */
   private getStarterTownConfigs(): Town[] {
-    return Object.values(STARTER_TOWNS).map(area => ({
+    return Object.values(STARTER_TOWNS).map((area) => ({
       id: area.id,
       name: area.name,
-      position: { 
-        x: (area.bounds.minX + area.bounds.maxX) / 2, 
+      position: {
+        x: (area.bounds.minX + area.bounds.maxX) / 2,
         y: 0, // Y will be grounded to terrain
-        z: (area.bounds.minZ + area.bounds.maxZ) / 2 
+        z: (area.bounds.minZ + area.bounds.maxZ) / 2,
       },
       safeZoneRadius: Math.max(
         (area.bounds.maxX - area.bounds.minX) / 2,
-        (area.bounds.maxZ - area.bounds.minZ) / 2
+        (area.bounds.maxZ - area.bounds.minZ) / 2,
       ),
-      hasBank: area.npcs.some(npc => npc.type === 'bank'),
-      hasStore: area.npcs.some(npc => npc.type.includes('store')),
-      isRespawnPoint: area.safeZone || false
+      hasBank: area.npcs.some((npc) => npc.type === "bank"),
+      hasStore: area.npcs.some((npc) => npc.type.includes("store")),
+      isRespawnPoint: area.safeZone || false,
     }));
   }
 
@@ -677,21 +771,25 @@ export class NPCSystem extends SystemBase {
    */
   private generateTown(config: Town): void {
     this.towns.set(config.id, config);
-    
+
     // Create a safe zone using custom event (not ENTITY_SPAWNED which expects entity data)
-    this.world.emit('safezone:created', {
+    this.world.emit("safezone:created", {
       safeZoneId: `safezone_${config.id}`,
       townId: config.id,
       position: config.position,
       radius: config.safeZoneRadius,
     });
-    
+
     // Emit bank registration event (not BANK_OPEN which expects player interaction)
     if (config.hasBank) {
-      this.world.emit('bank:registered', {
+      this.world.emit("bank:registered", {
         bankId: `bank_${config.id}`,
-        position: { x: config.position.x - 8, y: config.position.y, z: config.position.z },
-        townId: config.id
+        position: {
+          x: config.position.x - 8,
+          y: config.position.y,
+          z: config.position.z,
+        },
+        townId: config.id,
       });
     }
   }
@@ -709,16 +807,16 @@ export class NPCSystem extends SystemBase {
   public getNearestTown(position: { x: number; z: number }): Town | null {
     let nearestTown: Town | null = null;
     let minDistance = Infinity;
-    
+
     for (const town of this.towns.values()) {
       const distance = this.calculateDistance2D(position, town.position);
-      
+
       if (distance < minDistance) {
         minDistance = distance;
         nearestTown = town;
       }
     }
-    
+
     return nearestTown;
   }
 
@@ -728,22 +826,24 @@ export class NPCSystem extends SystemBase {
   public isInSafeZone(position: { x: number; z: number }): boolean {
     for (const town of this.towns.values()) {
       const distance = this.calculateDistance2D(position, town.position);
-      
+
       if (distance <= town.safeZoneRadius) {
         return true;
       }
     }
-    
+
     return false;
   }
 
   /**
    * Calculate 2D distance between positions
    */
-  private calculateDistance2D(pos1: { x: number; z: number }, pos2: { x: number; z: number }): number {
+  private calculateDistance2D(
+    pos1: { x: number; z: number },
+    pos2: { x: number; z: number },
+  ): number {
     return Math.sqrt(
-      Math.pow(pos1.x - pos2.x, 2) +
-      Math.pow(pos1.z - pos2.z, 2)
+      Math.pow(pos1.x - pos2.x, 2) + Math.pow(pos1.z - pos2.z, 2),
     );
   }
 
@@ -753,7 +853,7 @@ export class NPCSystem extends SystemBase {
     this.storeInventory.clear();
     this.transactionHistory.length = 0;
     this.towns.clear();
-    
+
     // Call parent cleanup (handles event listeners automatically)
     super.destroy();
   }

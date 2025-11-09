@@ -1,102 +1,108 @@
 /**
  * getTrianglesFromGeometry.ts - Geometry Analysis Utilities
- * 
+ *
  * Functions for analyzing Three.js BufferGeometry to extract metadata.
  * Used for performance monitoring, LOD calculations, and asset statistics.
- * 
+ *
  * Functions:
  * - getTrianglesFromGeometry(): Count triangles in a geometry
  * - getTriangleVerticesFromGeometry(): Extract triangle vertex data
  * - getGeometryBounds(): Get bounding box
  * - getGeometryComplexity(): Get detailed geometry statistics
- * 
+ *
  * Use Cases:
  * - Performance budgeting (triangle count limits)
  * - LOD level selection
  * - Memory usage estimation
  * - Asset loading progress
- * 
+ *
  * Referenced by: VRM factory, asset loaders, LOD system, stats tracking
  */
 
-import THREE from './three'
+import THREE from "./three";
 
 /**
  * Count Triangles in Geometry
- * 
+ *
  * Works with both indexed and non-indexed geometries.
- * 
+ *
  * @param geometry - BufferGeometry to analyze
  * @returns Number of triangles (3 vertices = 1 triangle)
  */
-export function getTrianglesFromGeometry(geometry: THREE.BufferGeometry): number {
-  if (!geometry) return 0
-  
-  const index = geometry.index
-  const position = geometry.attributes.position
-  
-  if (!position) return 0
-  
+export function getTrianglesFromGeometry(
+  geometry: THREE.BufferGeometry,
+): number {
+  if (!geometry) return 0;
+
+  const index = geometry.index;
+  const position = geometry.attributes.position;
+
+  if (!position) return 0;
+
   if (index) {
     // Indexed geometry
-    return Math.floor(index.count / 3)
+    return Math.floor(index.count / 3);
   } else {
     // Non-indexed geometry
-    return Math.floor(position.count / 3)
+    return Math.floor(position.count / 3);
   }
 }
 
-export function getTriangleVerticesFromGeometry(geometry: THREE.BufferGeometry): Float32Array | null {
-  if (!geometry) return null
-  
-  const position = geometry.attributes.position
-  if (!position) return null
-  
-  const index = geometry.index
-  
+export function getTriangleVerticesFromGeometry(
+  geometry: THREE.BufferGeometry,
+): Float32Array | null {
+  if (!geometry) return null;
+
+  const position = geometry.attributes.position;
+  if (!position) return null;
+
+  const index = geometry.index;
+
   if (index) {
     // Indexed geometry - need to expand vertices
-    const indexArray = index.array
-    const positionArray = position.array
-    const triangleVertices = new Float32Array(indexArray.length * 3)
-    
+    const indexArray = index.array;
+    const positionArray = position.array;
+    const triangleVertices = new Float32Array(indexArray.length * 3);
+
     for (let i = 0; i < indexArray.length; i++) {
-      const vertexIndex = indexArray[i]
-      triangleVertices[i * 3] = positionArray[vertexIndex * 3]
-      triangleVertices[i * 3 + 1] = positionArray[vertexIndex * 3 + 1]
-      triangleVertices[i * 3 + 2] = positionArray[vertexIndex * 3 + 2]
+      const vertexIndex = indexArray[i];
+      triangleVertices[i * 3] = positionArray[vertexIndex * 3];
+      triangleVertices[i * 3 + 1] = positionArray[vertexIndex * 3 + 1];
+      triangleVertices[i * 3 + 2] = positionArray[vertexIndex * 3 + 2];
     }
-    
-    return triangleVertices
+
+    return triangleVertices;
   } else {
     // Non-indexed geometry - vertices are already in triangle order
-    return position.array as Float32Array
+    return position.array as Float32Array;
   }
 }
 
 export function getGeometryBounds(geometry: THREE.BufferGeometry): THREE.Box3 {
   if (!geometry.boundingBox) {
-    geometry.computeBoundingBox()
+    geometry.computeBoundingBox();
   }
-  
-  return geometry.boundingBox || new THREE.Box3()
+
+  return geometry.boundingBox || new THREE.Box3();
 }
 
 export function getGeometryComplexity(geometry: THREE.BufferGeometry): {
-  triangles: number
-  vertices: number
-  hasUVs: boolean
-  hasNormals: boolean
-  hasColors: boolean
+  triangles: number;
+  vertices: number;
+  hasUVs: boolean;
+  hasNormals: boolean;
+  hasColors: boolean;
 } {
-  const triangles = getTrianglesFromGeometry(geometry)
-  const vertices = geometry.attributes.position ? geometry.attributes.position.count : 0
-  
+  const triangles = getTrianglesFromGeometry(geometry);
+  const vertices = geometry.attributes.position
+    ? geometry.attributes.position.count
+    : 0;
+
   return {
     triangles,
     vertices,
     hasUVs: !!geometry.attributes.uv,
     hasNormals: !!geometry.attributes.normal,
-    hasColors: !!geometry.attributes.color
-  }
+    hasColors: !!geometry.attributes.color,
+  };
 }

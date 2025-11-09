@@ -1,22 +1,19 @@
-import type { World } from '../types';
-import { Store } from '../types/core';
+import type { World } from "../types";
+import { Store } from "../types/core";
 import type {
   StoreBuyEvent,
   StoreCloseEvent,
-  StoreOpenEvent
-} from '../types/events';
-import { EventType } from '../types/events';
-import { StoreID } from '../types/identifiers';
-import { calculateDistance } from '../utils/EntityUtils';
-import {
-  createItemID,
-  createStoreID
-} from '../utils/IdentifierUtils';
-import { SystemBase } from './SystemBase';
-import { GENERAL_STORES } from '../data/banks-stores';
+  StoreOpenEvent,
+} from "../types/events";
+import { EventType } from "../types/events";
+import { StoreID } from "../types/identifiers";
+import { calculateDistance } from "../utils/EntityUtils";
+import { createItemID, createStoreID } from "../utils/IdentifierUtils";
+import { SystemBase } from "./SystemBase";
+import { GENERAL_STORES } from "../data/banks-stores";
 
 /**
- * Store System  
+ * Store System
  * Manages general stores per GDD specifications:
  * - One general store per starter town
  * - Sells basic tools: Hatchet (Bronze), Fishing Rod, Tinderbox
@@ -29,17 +26,16 @@ export class StoreSystem extends SystemBase {
 
   constructor(world: World) {
     super(world, {
-      name: 'store',
+      name: "store",
       dependencies: {
         required: [], // Store system can work independently
-        optional: ['inventory', 'npc', 'ui', 'database'] // Better with inventory and NPC systems
+        optional: ["inventory", "npc", "ui", "database"], // Better with inventory and NPC systems
       },
-      autoCleanup: true
+      autoCleanup: true,
     });
   }
 
   async init(): Promise<void> {
-    
     // Initialize all stores from loaded JSON data
     for (const storeData of Object.values(GENERAL_STORES)) {
       // Convert StoreData to Store format
@@ -48,14 +44,14 @@ export class StoreSystem extends SystemBase {
         name: storeData.name,
         position: storeData.location.position,
         items: storeData.items,
-        npcName: storeData.name.replace('General Store', '').trim() || 'Shopkeeper',
+        npcName:
+          storeData.name.replace("General Store", "").trim() || "Shopkeeper",
         buyback: storeData.buyback,
-        buybackRate: storeData.buybackRate
+        buybackRate: storeData.buybackRate,
       };
       this.stores.set(createStoreID(store.id), store);
     }
-    
-    
+
     // Set up type-safe event subscriptions for store mechanics
     this.subscribe<StoreOpenEvent>(EventType.STORE_OPEN, (data) => {
       this.openStore(data);
@@ -66,27 +62,40 @@ export class StoreSystem extends SystemBase {
     this.subscribe<StoreBuyEvent>(EventType.STORE_BUY, (data) => {
       this.buyItem(data);
     });
-    this.subscribe<{ playerId: string; itemId: string; quantity: number }>(EventType.STORE_SELL, (data) => {
-      this.sellItem(data.playerId, data.itemId, data.quantity);
-    });
-    
+    this.subscribe<{ playerId: string; itemId: string; quantity: number }>(
+      EventType.STORE_SELL,
+      (data) => {
+        this.sellItem(data.playerId, data.itemId, data.quantity);
+      },
+    );
+
     // Listen for NPC registrations from world content system
-    this.subscribe<{ npcId: string; storeId: string; position: { x: number; y: number; z: number }; name: string; area: string }>(EventType.STORE_REGISTER_NPC, (data) => {
+    this.subscribe<{
+      npcId: string;
+      storeId: string;
+      position: { x: number; y: number; z: number };
+      name: string;
+      area: string;
+    }>(EventType.STORE_REGISTER_NPC, (data) => {
       this.registerStoreNPC(data);
     });
   }
 
-
-
-  private registerStoreNPC(data: { npcId: string; storeId: string; position: { x: number; y: number; z: number }; name: string; area: string }): void {
+  private registerStoreNPC(data: {
+    npcId: string;
+    storeId: string;
+    position: { x: number; y: number; z: number };
+    name: string;
+    area: string;
+  }): void {
     const storeId = createStoreID(data.storeId);
     const store = this.stores.get(storeId);
-    
+
     // Store must exist - fail if not found
     if (!store) {
       throw new Error(`Store ${data.storeId} not found for NPC ${data.npcId}`);
     }
-    
+
     // Update store position to match NPC position
     store.position = data.position;
     store.npcName = data.name;
@@ -95,32 +104,32 @@ export class StoreSystem extends SystemBase {
   private openStore(data: StoreOpenEvent): void {
     const storeId = createStoreID(data.storeId);
     const store = this.stores.get(storeId)!; // Store must exist
-    
+
     const distance = calculateDistance(data.playerPosition, store.position);
     if (distance > 3) {
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId: data.playerId,
-        message: 'You need to be closer to the shopkeeper to trade.',
-        type: 'error'
+        message: "You need to be closer to the shopkeeper to trade.",
+        type: "error",
       });
       return;
     }
-    
+
     // Send store interface data to player
     this.emitTypedEvent(EventType.STORE_OPEN, {
       playerId: data.playerId,
       storeId: data.storeId,
       storeName: store.name,
-      npcName: store.npcName,  
+      npcName: store.npcName,
       items: store.items,
-      categories: ['tools', 'ammunition', 'consumables']
+      categories: ["tools", "ammunition", "consumables"],
     });
   }
 
   private closeStore(data: StoreCloseEvent): void {
     this.emitTypedEvent(EventType.STORE_CLOSE, {
       playerId: data.playerId,
-      storeId: data.storeId
+      storeId: data.storeId,
     });
   }
 
@@ -128,20 +137,24 @@ export class StoreSystem extends SystemBase {
     const storeId = createStoreID(data.storeId);
     const store = this.stores.get(storeId)!; // Store must exist
     const itemId = createItemID(String(data.itemId));
-    
-    const item = store.items.find(item => item.id === itemId);
+
+    const item = store.items.find((item) => item.id === itemId);
     if (!item) {
       throw new Error(`Item ${itemId} not found in store ${storeId}`);
     }
-    
+
     const totalCost = item.price * data.quantity;
 
     // Check stock (if not unlimited)
-    if (item.stockQuantity !== undefined && item.stockQuantity !== -1 && item.stockQuantity < data.quantity) {
+    if (
+      item.stockQuantity !== undefined &&
+      item.stockQuantity !== -1 &&
+      item.stockQuantity < data.quantity
+    ) {
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId: data.playerId,
-        message: 'Not enough stock available.',
-        type: 'error'
+        message: "Not enough stock available.",
+        type: "error",
       });
       return;
     }
@@ -150,7 +163,7 @@ export class StoreSystem extends SystemBase {
     // Remove coins from player
     this.emitTypedEvent(EventType.INVENTORY_REMOVE_COINS, {
       playerId: data.playerId,
-      amount: totalCost
+      amount: totalCost,
     });
 
     // Add item to player inventory
@@ -161,8 +174,8 @@ export class StoreSystem extends SystemBase {
         itemId: item.id,
         quantity: data.quantity,
         slot: -1, // Let system find empty slot
-        metadata: null
-      }
+        metadata: null,
+      },
     });
 
     // Update store stock (if not unlimited)
@@ -174,7 +187,7 @@ export class StoreSystem extends SystemBase {
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId: data.playerId,
       message: `Purchased ${data.quantity}x ${item.name} for ${totalCost} coins.`,
-      type: 'success'
+      type: "success",
     });
   }
 
@@ -182,13 +195,21 @@ export class StoreSystem extends SystemBase {
    * Public API method for selling items (used by tests and internal events)
    * Compatible with test system signature: sellItem(playerId, itemId, quantity, expectedPrice)
    */
-  public sellItem(playerId: string, itemId: string, quantity: number, _expectedPrice?: number): boolean {
+  public sellItem(
+    playerId: string,
+    itemId: string,
+    quantity: number,
+    _expectedPrice?: number,
+  ): boolean {
     const validItemId = createItemID(itemId);
-    
+
     // Find a store that buys the item
     let targetStore: Store | undefined;
     for (const store of this.stores.values()) {
-      if (store.buyback && store.items.find(item => item.id === validItemId)) {
+      if (
+        store.buyback &&
+        store.items.find((item) => item.id === validItemId)
+      ) {
         targetStore = store;
         break;
       }
@@ -198,7 +219,9 @@ export class StoreSystem extends SystemBase {
       throw new Error(`No store buys item: ${itemId}`);
     }
 
-    const storeItem = targetStore.items.find(item => item.id === validItemId)!;
+    const storeItem = targetStore.items.find(
+      (item) => item.id === validItemId,
+    )!;
     const buybackRate = targetStore.buybackRate ?? 0.5;
     const sellPrice = Math.floor(storeItem.price * buybackRate);
     const totalValue = sellPrice * quantity;
@@ -208,22 +231,22 @@ export class StoreSystem extends SystemBase {
     this.emitTypedEvent(EventType.INVENTORY_REMOVE_ITEM, {
       playerId: playerId,
       itemId: itemId,
-      quantity: quantity
+      quantity: quantity,
     });
 
     // Add coins to player
     this.emitTypedEvent(EventType.INVENTORY_ADD_COINS, {
       playerId: playerId,
-      amount: totalValue
+      amount: totalValue,
     });
 
     // Send success message
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId: playerId,
       message: `Sold ${quantity}x ${storeItem.name} for ${totalValue} coins.`,
-      type: 'success'
+      type: "success",
     });
-    
+
     return true;
   }
 
@@ -233,7 +256,7 @@ export class StoreSystem extends SystemBase {
   destroy(): void {
     // Clear all store data
     this.stores.clear();
-    
+
     // Call parent cleanup
     super.destroy();
   }
@@ -247,11 +270,15 @@ export class StoreSystem extends SystemBase {
     return this.stores.get(createStoreID(storeId));
   }
 
-  public getStoreLocations(): Array<{ id: string; name: string; position: { x: number; y: number; z: number } }> {
-    return Array.from(this.stores.values()).map(store => ({
+  public getStoreLocations(): Array<{
+    id: string;
+    name: string;
+    position: { x: number; y: number; z: number };
+  }> {
+    return Array.from(this.stores.values()).map((store) => ({
       id: store.id,
       name: store.name,
-      position: store.position
+      position: store.position,
     }));
   }
 
@@ -259,17 +286,22 @@ export class StoreSystem extends SystemBase {
    * Public API method for purchasing items (used by tests)
    * Compatible with test system signature: purchaseItem(playerId, itemId, quantity, expectedPrice)
    */
-  public purchaseItem(playerId: string, itemId: string, quantity: number = 1, _expectedPrice?: number): boolean {
+  public purchaseItem(
+    playerId: string,
+    itemId: string,
+    quantity: number = 1,
+    _expectedPrice?: number,
+  ): boolean {
     // Use default store for tests
-    const storeId = 'store_town_0';
-    
+    const storeId = "store_town_0";
+
     this.buyItem({
       playerId,
       storeId,
       itemId: createItemID(itemId),
-      quantity
+      quantity,
     });
-    
+
     return true;
   }
 }

@@ -2,11 +2,17 @@
  * Node-related type definitions
  */
 
-import type * as YogaTypes from 'yoga-layout';
-import THREE from '../extras/three';
-import type { Node } from '../nodes/Node';
-import type { Entity, HotReloadable, NodeData } from './index';
-import type { ActorHandle as EngineActorHandle, PxRigidBodyFlagEnum, PxShape, PxTransform, PxVec3 } from './physics';
+import type * as YogaTypes from "yoga-layout";
+import THREE from "../extras/three";
+import type { Node } from "../nodes/Node";
+import type { Entity, HotReloadable, NodeData } from "./index";
+import type {
+  ActorHandle as EngineActorHandle,
+  PxRigidBodyFlagEnum,
+  PxShape,
+  PxTransform,
+  PxVec3,
+} from "./physics";
 
 // Custom pointer event for internal use (to avoid conflicts with browser PointerEvent)
 export interface CustomPointerEvent {
@@ -51,20 +57,29 @@ export interface NodeStats {
 export interface AvatarFactory {
   uid: string;
   // Factory create signature used by Avatar node at runtime
-  create: (matrix: THREE.Matrix4, hooks?: AvatarHooks, node?: Node) => VRMAvatarInstance;
+  create: (
+    matrix: THREE.Matrix4,
+    hooks?: AvatarHooks,
+    node?: Node,
+  ) => VRMAvatarInstance;
 }
 
 // VRM-specific avatar factory used by Avatar node at runtime
 export interface VRMAvatarFactory {
   uid: string;
-  create: (matrix: THREE.Matrix4, hooks?: AvatarHooks, node?: Node) => VRMAvatarInstance;
+  create: (
+    matrix: THREE.Matrix4,
+    hooks?: AvatarHooks,
+    node?: Node,
+  ) => VRMAvatarInstance;
 }
 
 export interface AvatarHooks {
   onFrame?: (delta: number) => void;
 }
 
-export interface AvatarInstance<T = Record<string, unknown>> extends HotReloadable {
+export interface AvatarInstance<T = Record<string, unknown>>
+  extends HotReloadable {
   hooks?: AvatarHooks;
   destroy: () => void;
   set?: <K extends keyof T>(key: K, value: T[K]) => void;
@@ -80,14 +95,18 @@ export interface LoadedAvatar {
 
 // Loader result types for node-based assets
 export interface LoadedModel {
-  toNodes: () => Map<string, import('../nodes/Node').Node>;
+  toNodes: () => Map<string, import("../nodes/Node").Node>;
   getStats: () => { fileBytes?: number; [key: string]: unknown };
 }
 
 export interface LoadedEmote {
-  toNodes: () => Map<string, import('../nodes/Node').Node>;
+  toNodes: () => Map<string, import("../nodes/Node").Node>;
   getStats: () => { fileBytes?: number; [key: string]: unknown };
-  toClip: (options?: { rootToHips?: number; version?: string; getBoneName?: (name: string) => string }) => THREE.AnimationClip | null;
+  toClip: (options?: {
+    rootToHips?: number;
+    version?: string;
+    getBoneName?: (name: string) => string;
+  }) => THREE.AnimationClip | null;
 }
 
 // Image interfaces
@@ -99,8 +118,6 @@ export interface ImageSceneItem {
   node: Node;
 }
 
-
-
 // Nametag interfaces
 export interface NametagHandle {
   text: string;
@@ -110,8 +127,6 @@ export interface NametagHandle {
   offset: number;
   destroy: () => void;
 }
-
-
 
 // Joint interfaces
 export interface PxSpring {
@@ -133,14 +148,14 @@ export interface PxJointAngularLimitPair {
 
 export interface JointLimits {
   linear?: {
-    x?: { lower: number; upper: number; };
-    y?: { lower: number; upper: number; };
-    z?: { lower: number; upper: number; };
+    x?: { lower: number; upper: number };
+    y?: { lower: number; upper: number };
+    z?: { lower: number; upper: number };
   };
   angular?: {
-    x?: { lower: number; upper: number; };
-    y?: { lower: number; upper: number; };
-    z?: { lower: number; upper: number; };
+    x?: { lower: number; upper: number };
+    y?: { lower: number; upper: number };
+    z?: { lower: number; upper: number };
   };
   distance?: {
     min: number;
@@ -150,9 +165,9 @@ export interface JointLimits {
 }
 
 export interface JointDrive {
-  position?: { x?: number; y?: number; z?: number; };
-  velocity?: { x?: number; y?: number; z?: number; };
-  angularVelocity?: { x?: number; y?: number; z?: number; };
+  position?: { x?: number; y?: number; z?: number };
+  velocity?: { x?: number; y?: number; z?: number };
+  angularVelocity?: { x?: number; y?: number; z?: number };
   stiffness?: number;
   damping?: number;
   forceLimit?: number;
@@ -168,7 +183,7 @@ export enum PxConstraintFlag {
   eIMPROVED_SLERP = 1 << 7,
   eDISABLE_PREPROCESSING = 1 << 8,
   eENABLE_EXTENDED_LIMITS = 1 << 9,
-  eGPU_COMPATIBLE = 1 << 10
+  eGPU_COMPATIBLE = 1 << 10,
 }
 
 export interface PhysXJoint {
@@ -214,7 +229,7 @@ export interface QuaternionWithPxTransform extends THREE.Quaternion {
 }
 
 export interface JointData extends NodeData {
-  type?: 'fixed' | 'distance' | 'spherical' | 'revolute' | 'prismatic' | 'd6';
+  type?: "fixed" | "distance" | "spherical" | "revolute" | "prismatic" | "d6";
   connectedBody?: string;
   breakForce?: number;
   breakTorque?: number;
@@ -232,14 +247,17 @@ export enum PxRigidBodyFlag {
   eENABLE_POSE_INTEGRATION_PREVIEW = 1 << 4,
   eENABLE_SPECULATIVE_CCD = 1 << 5,
   eENABLE_CCD_MAX_CONTACT_IMPULSE = 1 << 6,
-  eRETAIN_ACCELERATIONS = 1 << 7
+  eRETAIN_ACCELERATIONS = 1 << 7,
 }
 
 // RigidBody interfaces
 export interface PhysXActor<T = unknown> {
   getGlobalPose: () => PxTransform;
   setGlobalPose: (pose: PxTransform, wakeup?: boolean) => void;
-  setRigidBodyFlag?: (flag: PxRigidBodyFlagEnum | number, value: boolean) => void;
+  setRigidBodyFlag?: (
+    flag: PxRigidBodyFlagEnum | number,
+    value: boolean,
+  ) => void;
   setLinearVelocity?: (velocity: PxVec3, wakeup?: boolean) => void;
   getLinearVelocity?: () => PxVec3;
   setAngularVelocity?: (velocity: PxVec3, wakeup?: boolean) => void;
@@ -278,7 +296,7 @@ export interface PhysicsTriggerEvent {
 }
 
 export interface RigidBodyData extends Record<string, unknown> {
-  type?: 'static' | 'dynamic' | 'kinematic' | string;
+  type?: "static" | "dynamic" | "kinematic" | string;
   mass?: number;
   linearDamping?: number;
   angularDamping?: number;
@@ -334,7 +352,12 @@ export interface UIPointerEvent {
   face?: THREE.Face;
   coords?: { x: number; y: number };
   target?: Node;
-  type: 'pointerenter' | 'pointerleave' | 'pointerdown' | 'pointerup' | 'pointerclick';
+  type:
+    | "pointerenter"
+    | "pointerleave"
+    | "pointerdown"
+    | "pointerup"
+    | "pointerclick";
   button?: number;
   shiftKey?: boolean;
   ctrlKey?: boolean;
@@ -363,7 +386,7 @@ export interface UIData extends NodeData {
   height?: number;
   size?: number;
   res?: number;
-  
+
   lit?: boolean;
   doubleside?: boolean;
   billboard?: string;
@@ -371,7 +394,7 @@ export interface UIData extends NodeData {
   offset?: number[];
   scaler?: number[] | null;
   pointerEvents?: boolean;
-  
+
   transparent?: boolean;
   backgroundColor?: string | null;
   borderWidth?: number;
@@ -384,7 +407,7 @@ export interface UIData extends NodeData {
   alignContent?: string;
   flexWrap?: string;
   gap?: number;
-  
+
   onPointerEnter?: (event: UIPointerEvent) => void;
   onPointerLeave?: (event: UIPointerEvent) => void;
   onPointerDown?: (event: UIPointerEvent) => void;
@@ -392,9 +415,9 @@ export interface UIData extends NodeData {
   onPointerClick?: (event: UIPointerEvent) => void;
   onWheel?: (event: UIWheelEvent) => void;
   onContextMenu?: (event: UIPointerEvent) => void;
-  
+
   [key: string]: unknown;
-  
+
   // Alternative properties for compatibility
   pixelSize?: number;
   interactive?: boolean;
@@ -448,7 +471,7 @@ export interface LODNode {
 
 // Controller interfaces
 export interface ControllerData extends NodeData {
-  type?: 'capsule' | 'box';
+  type?: "capsule" | "box";
   height?: number;
   radius?: number;
   stepOffset?: number;
@@ -463,8 +486,6 @@ export interface ControllerData extends NodeData {
   onContactEnd?: ((event: PhysicsContactEvent) => void) | null;
 }
 
-
-
 // Action interfaces
 export interface ActionData extends NodeData {
   label?: string | number;
@@ -476,8 +497,8 @@ export interface ActionData extends NodeData {
 }
 
 // Audio type enums
-export type DistanceModelType = 'linear' | 'inverse' | 'exponential';
-export type GroupType = 'music' | 'sfx';
+export type DistanceModelType = "linear" | "inverse" | "exponential";
+export type GroupType = "music" | "sfx";
 
 // Enhanced Audio interfaces
 export interface AudioData extends NodeData {
@@ -541,7 +562,7 @@ export interface ColliderData extends NodeData {
   restitution?: number;
 }
 
-// Enhanced Image interfaces  
+// Enhanced Image interfaces
 export interface ImageData extends NodeData {
   src?: string | null;
   width?: number | null;
@@ -632,10 +653,10 @@ export interface SkyData extends NodeData {
 }
 
 // UI Text type definitions
-export type DisplayType = 'flex' | 'none';
-export type TextAlign = 'left' | 'center' | 'right';
+export type DisplayType = "flex" | "none";
+export type TextAlign = "left" | "center" | "right";
 export type FontWeight = string | number;
-export type FlexBasis = number | 'auto' | `${number}%`;
+export type FlexBasis = number | "auto" | `${number}%`;
 export type EdgeValue = number | [number, number, number, number];
 
 // Enhanced UI Text interfaces
@@ -700,7 +721,7 @@ export interface UIImageData extends NodeData {
   right?: number | null;
   bottom?: number | null;
   left?: number | null;
-  objectFit?: 'fill' | 'contain' | 'cover' | 'none' | 'scale-down' | string;
+  objectFit?: "fill" | "contain" | "cover" | "none" | "scale-down" | string;
   backgroundColor?: string | null;
   borderRadius?: number | null;
   margin?: number | number[] | null;
@@ -729,8 +750,8 @@ export interface UIYogaNodeContext {
       width: number,
       widthMode: number,
       height: number,
-      heightMode: number
-    ) => { width: number; height: number }
+      heightMode: number,
+    ) => { width: number; height: number },
   ) => void;
 }
 
@@ -754,7 +775,11 @@ export interface UIBoxNodeContext {
 
 // UIImage interfaces
 export interface YogaNode extends YogaTypes.Node {
-  calculateLayout: (width?: number | 'auto', height?: number | 'auto', direction?: YogaTypes.Direction) => void;
+  calculateLayout: (
+    width?: number | "auto",
+    height?: number | "auto",
+    direction?: YogaTypes.Direction,
+  ) => void;
 }
 
 export interface UINode {
@@ -776,5 +801,3 @@ export interface UIBoxNode {
   height: number;
   color: string;
 }
-
-

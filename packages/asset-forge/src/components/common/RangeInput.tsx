@@ -1,8 +1,10 @@
-import React from 'react'
+import React from "react";
 
-import { cn } from '../../styles'
+import { cn } from "../../styles";
 
-export const RangeInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => {
+export const RangeInput: React.FC<
+  React.InputHTMLAttributes<HTMLInputElement>
+> = (props) => {
   return (
     <input
       type="range"
@@ -17,8 +19,8 @@ export const RangeInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> =
         "[&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:rounded-full",
         "[&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none",
         "[&::-moz-range-thumb]:shadow-md",
-        props.className
+        props.className,
       )}
     />
-  )
-} 
+  );
+};

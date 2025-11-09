@@ -4,35 +4,44 @@
  * React component for previewing VRM avatars in 3D before selecting.
  */
 
-import { THREE, Emotes, createRenderer, configureRenderer } from "@hyperscape/shared";
+import {
+  THREE,
+  Emotes,
+  createRenderer,
+  configureRenderer,
+} from "@hyperscape/shared";
 import type { LoadedAvatar, UniversalRenderer } from "@hyperscape/shared";
 import type { ClientWorld } from "./types";
 
 interface AvatarNode {
   instance?: {
     raw?: {
-      scene?: THREE.Group
-      userData?: { vrm?: { humanoid?: { getRawBone: (name: string) => { node: THREE.Bone } } } }
-    }
-    update?: (delta: number) => void
-  }
-  activate: (world: ClientWorld) => void
-  deactivate: () => void
-  setEmote: (emote: string) => void
+      scene?: THREE.Group;
+      userData?: {
+        vrm?: {
+          humanoid?: { getRawBone: (name: string) => { node: THREE.Bone } };
+        };
+      };
+    };
+    update?: (delta: number) => void;
+  };
+  activate: (world: ClientWorld) => void;
+  deactivate: () => void;
+  setEmote: (emote: string) => void;
 }
 
 interface BoundsSpec {
-  rank: number
-  fileSize: number
-  triangles: number
-  draws: number
-  bones: number
-  bounds: [number, number, number]
+  rank: number;
+  fileSize: number;
+  triangles: number;
+  draws: number;
+  bones: number;
+  bounds: [number, number, number];
 }
 
 interface AvatarInfo {
-  rank: number
-  stats: Record<string, { value: number | number[]; rank: number }>
+  rank: number;
+  stats: Record<string, { value: number | number[]; rank: number }>;
 }
 
 const MAX_UPLOAD_SIZE = 1000000000000; // TODO
@@ -454,7 +463,8 @@ export class AvatarPreview {
     this.node?.deactivate();
     this.viewport.removeChild(this.renderer.domElement);
     this.renderer.setAnimationLoop?.(null);
-    if ('clear' in this.renderer) (this.renderer as { clear: () => void }).clear();
+    if ("clear" in this.renderer)
+      (this.renderer as { clear: () => void }).clear();
   }
 }
 

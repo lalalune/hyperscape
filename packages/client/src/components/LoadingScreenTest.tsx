@@ -82,7 +82,9 @@ export function LoadingScreenTest() {
           fontFamily: "monospace",
         }}
       >
-        <div style={{ marginBottom: "10px", fontSize: "14px", fontWeight: "bold" }}>
+        <div
+          style={{ marginBottom: "10px", fontSize: "14px", fontWeight: "bold" }}
+        >
           Loading Screen Test
         </div>
         <div style={{ fontSize: "12px" }}>

@@ -1,6 +1,6 @@
 /**
  * Networking Types
- * 
+ *
  * Type definitions for network communication:
  * - Movement and input commands (Source Engine-inspired)
  * - State snapshots and prediction
@@ -9,8 +9,8 @@
  * - Packet system
  */
 
-import type { Vector3, Quaternion } from 'three';
-import type { EntityData, Entity } from './index';
+import type { Vector3, Quaternion } from "three";
+import type { EntityData, Entity } from "./index";
 
 // ============================================================================
 // INPUT & MOVEMENT COMMANDS
@@ -23,25 +23,25 @@ import type { EntityData, Entity } from './index';
 export interface InputCommand {
   /** Monotonically increasing sequence number */
   sequence: number;
-  
+
   /** Client timestamp when input was captured */
   timestamp: number;
-  
+
   /** Server timestamp when received (set by server) */
   serverTimestamp?: number;
-  
+
   /** Time since last input in seconds */
   deltaTime: number;
-  
+
   /** Normalized movement direction in world space */
   moveVector: Vector3;
-  
+
   /** Bit flags for buttons/actions */
   buttons: number;
-  
+
   /** Camera/look direction */
   viewAngles: Quaternion;
-  
+
   /** Checksum for validation (prevents tampering) */
   checksum?: number;
 }
@@ -62,7 +62,7 @@ export enum InputButtons {
   ATTACK1 = 1 << 8,
   ATTACK2 = 1 << 9,
   RELOAD = 1 << 10,
-  WALK = 1 << 11
+  WALK = 1 << 11,
 }
 
 // ============================================================================
@@ -83,7 +83,7 @@ export enum MoveState {
   SLIDING = 7,
   CLIMBING = 8,
   SWIMMING = 9,
-  FLYING = 10
+  FLYING = 10,
 }
 
 /**
@@ -102,14 +102,14 @@ export interface StatusEffects {
  * Types of effects that can be applied
  */
 export enum EffectType {
-  SPEED_BOOST = 'speed_boost',
-  SLOW = 'slow',
-  ROOT = 'root',
-  STUN = 'stun',
-  LEVITATE = 'levitate',
-  HASTE = 'haste',
-  SNARE = 'snare',
-  FREEZE = 'freeze'
+  SPEED_BOOST = "speed_boost",
+  SLOW = "slow",
+  ROOT = "root",
+  STUN = "stun",
+  LEVITATE = "levitate",
+  HASTE = "haste",
+  SNARE = "snare",
+  FREEZE = "freeze",
 }
 
 /**
@@ -150,12 +150,12 @@ export interface PredictionFrame {
  * Network packet types for movement
  */
 export enum MovementPacketType {
-  INPUT = 'input',
-  STATE_UPDATE = 'state_update',
-  DELTA_UPDATE = 'delta_update',
-  FULL_SNAPSHOT = 'full_snapshot',
-  INPUT_ACK = 'input_ack',
-  CORRECTION = 'correction'
+  INPUT = "input",
+  STATE_UPDATE = "state_update",
+  DELTA_UPDATE = "delta_update",
+  FULL_SNAPSHOT = "full_snapshot",
+  INPUT_ACK = "input_ack",
+  CORRECTION = "correction",
 }
 
 /**
@@ -185,12 +185,12 @@ export interface ServerCorrection {
  * Reasons for server corrections
  */
 export enum CorrectionReason {
-  POSITION_ERROR = 'position_error',
-  VELOCITY_ERROR = 'velocity_error',
-  ILLEGAL_MOVE = 'illegal_move',
-  COLLISION = 'collision',
-  TELEPORT = 'teleport',
-  EFFECT_APPLIED = 'effect_applied'
+  POSITION_ERROR = "position_error",
+  VELOCITY_ERROR = "velocity_error",
+  ILLEGAL_MOVE = "illegal_move",
+  COLLISION = "collision",
+  TELEPORT = "teleport",
+  EFFECT_APPLIED = "effect_applied",
 }
 
 // ============================================================================
@@ -258,7 +258,9 @@ export interface NetworkMessageMap {
 /**
  * Type helper for message handlers
  */
-export type MessageHandler<K extends keyof NetworkMessageMap> = (message: NetworkMessageMap[K]) => void;
+export type MessageHandler<K extends keyof NetworkMessageMap> = (
+  message: NetworkMessageMap[K],
+) => void;
 
 /**
  * Connection interface
@@ -267,7 +269,7 @@ export interface NetworkConnection {
   id: string;
   latency: number;
   connected: boolean;
-  
+
   send<K extends keyof NetworkMessageMap>(message: NetworkMessageMap[K]): void;
   send(message: NetworkMessage): void;
   disconnect(): void;
@@ -324,7 +326,7 @@ export interface SocketOptions {
   id: string;
   ws: NodeWebSocket;
   network: NetworkWithSocket;
-  player?: import('./index').Entity;
+  player?: import("./index").Entity;
 }
 
 // ============================================================================
@@ -360,7 +362,7 @@ export enum ViolationSeverity {
   MINOR = 0,
   MODERATE = 1,
   MAJOR = 2,
-  CRITICAL = 3
+  CRITICAL = 3,
 }
 
 // ============================================================================
@@ -384,7 +386,7 @@ export interface MovementConfig {
   jumpHeight: number;
   stepHeight: number;
   slopeLimit: number;
-  
+
   // Networking
   serverTickRate: number;
   clientTickRate: number;
@@ -392,12 +394,12 @@ export interface MovementConfig {
   extrapolationLimit: number;
   positionErrorThreshold: number;
   rotationErrorThreshold: number;
-  
+
   // Buffers
   inputBufferSize: number;
   stateBufferSize: number;
   snapshotRate: number;
-  
+
   // Anti-cheat
   maxSpeedTolerance: number;
   teleportThreshold: number;
@@ -456,18 +458,34 @@ export interface PacketInfo {
  * Type guards for runtime validation
  */
 export function isInputCommand(obj: unknown): obj is InputCommand {
-  return typeof obj === 'object' && obj !== null &&
-    'sequence' in obj && typeof (obj as { sequence?: unknown }).sequence === 'number' &&
-    'timestamp' in obj && typeof (obj as { timestamp?: unknown }).timestamp === 'number';
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    "sequence" in obj &&
+    typeof (obj as { sequence?: unknown }).sequence === "number" &&
+    "timestamp" in obj &&
+    typeof (obj as { timestamp?: unknown }).timestamp === "number"
+  );
 }
 
-export function isPlayerStateSnapshot(obj: unknown): obj is PlayerStateSnapshot {
-  return typeof obj === 'object' && obj !== null &&
-    'sequence' in obj && 'position' in obj && 'velocity' in obj;
+export function isPlayerStateSnapshot(
+  obj: unknown,
+): obj is PlayerStateSnapshot {
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    "sequence" in obj &&
+    "position" in obj &&
+    "velocity" in obj
+  );
 }
 
 export function isDeltaUpdate(obj: unknown): obj is DeltaUpdate {
-  return typeof obj === 'object' && obj !== null &&
-    'baseSequence' in obj && 'targetSequence' in obj &&
-    'changedFields' in obj;
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    "baseSequence" in obj &&
+    "targetSequence" in obj &&
+    "changedFields" in obj
+  );
 }

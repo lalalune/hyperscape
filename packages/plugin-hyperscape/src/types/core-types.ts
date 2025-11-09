@@ -75,7 +75,9 @@ export interface Physics extends HyperscapePhysics {
 
   // Additional plugin-specific methods
   step?: (deltaTime: number) => void;
-  createCharacterController?: (options: CharacterControllerOptions) => CharacterController;
+  createCharacterController?: (
+    options: CharacterControllerOptions,
+  ) => CharacterController;
 }
 
 // Extended Player type with movement methods for plugin use
@@ -163,7 +165,7 @@ export class NetworkSystem {
   }
 
   broadcast(event: string, data?: NetworkData): void {
-    this.connections.forEach(connection => {
+    this.connections.forEach((connection) => {
       if (connection.socket?.readyState === WebSocket.OPEN) {
         connection.socket.send(JSON.stringify({ event, data }));
       }
@@ -179,15 +181,15 @@ export class NetworkSystem {
     if (file.size > this.maxUploadSize) {
       throw new ServiceError(
         `File size ${file.size} exceeds max upload size ${this.maxUploadSize}`,
-        'FILE_TOO_LARGE'
+        "FILE_TOO_LARGE",
       );
     }
     // Override in implementation
-    throw new ServiceError('Upload not implemented', 'NOT_IMPLEMENTED');
+    throw new ServiceError("Upload not implemented", "NOT_IMPLEMENTED");
   }
 
   async disconnect(): Promise<void> {
-    this.connections.forEach(connection => {
+    this.connections.forEach((connection) => {
       connection.socket?.close();
     });
     this.connections.clear();
@@ -202,7 +204,9 @@ export class NetworkSystem {
   }
 
   getActiveConnections(): NetworkConnection[] {
-    return Array.from(this.connections.values()).filter(conn => conn.isAlive());
+    return Array.from(this.connections.values()).filter((conn) =>
+      conn.isAlive(),
+    );
   }
 }
 
@@ -240,34 +244,46 @@ export class ChatSystem {
   }
 
   private notifyListeners(): void {
-    this.listeners.forEach(listener => listener([...this.msgs]));
+    this.listeners.forEach((listener) => listener([...this.msgs]));
   }
 }
 
 // EventData is imported from event-types.ts (re-exported via index)
 // Event system types - plugin-specific class with event management
 export class EventSystem {
-  public listeners: Map<string, ((data: Record<string, string | number | boolean>) => void)[]>;
+  public listeners: Map<
+    string,
+    ((data: Record<string, string | number | boolean>) => void)[]
+  >;
 
   constructor() {
     this.listeners = new Map();
   }
 
-  emit(eventName: string, data?: Record<string, string | number | boolean>): void {
+  emit(
+    eventName: string,
+    data?: Record<string, string | number | boolean>,
+  ): void {
     const callbacks = this.listeners.get(eventName);
     if (callbacks) {
-      callbacks.forEach(callback => callback(data || {}));
+      callbacks.forEach((callback) => callback(data || {}));
     }
   }
 
-  on(eventName: string, callback: (data: Record<string, string | number | boolean>) => void): void {
+  on(
+    eventName: string,
+    callback: (data: Record<string, string | number | boolean>) => void,
+  ): void {
     if (!this.listeners.has(eventName)) {
       this.listeners.set(eventName, []);
     }
     this.listeners.get(eventName)!.push(callback);
   }
 
-  off(eventName: string, callback?: (data: Record<string, string | number | boolean>) => void): void {
+  off(
+    eventName: string,
+    callback?: (data: Record<string, string | number | boolean>) => void,
+  ): void {
     if (!callback) {
       this.listeners.delete(eventName);
       return;
@@ -307,13 +323,22 @@ export interface MockElement {
   removeChild: (child: HTMLElement | MockElement) => void;
   offsetWidth: number;
   offsetHeight: number;
-  addEventListener: (event: string, handler: EventListener | ((event: Event) => void)) => void;
-  removeEventListener: (event: string, handler: EventListener | ((event: Event) => void)) => void;
+  addEventListener: (
+    event: string,
+    handler: EventListener | ((event: Event) => void),
+  ) => void;
+  removeEventListener: (
+    event: string,
+    handler: EventListener | ((event: Event) => void),
+  ) => void;
   style: Record<string, string | number>;
 }
 
 // Content bundle configuration type
-export type ContentBundleConfig = Record<string, string | number | boolean | Record<string, string | number | boolean>>;
+export type ContentBundleConfig = Record<
+  string,
+  string | number | boolean | Record<string, string | number | boolean>
+>;
 
 // Event handler function type
 export type NetworkEventHandler = (data: NetworkData) => void;
@@ -404,13 +429,20 @@ export class ResponseContent {
     this.data[key] = value;
   }
 
-  toJSON(): Record<string, string | number | boolean | Record<string, string | number | boolean> | undefined> {
+  toJSON(): Record<
+    string,
+    | string
+    | number
+    | boolean
+    | Record<string, string | number | boolean>
+    | undefined
+  > {
     return {
       text: this.text,
       action: this.action,
       emote: this.emote,
       thought: this.thought,
-      ...(this.data || {})
+      ...(this.data || {}),
     };
   }
 }
@@ -434,7 +466,7 @@ export class AgentInstance {
     id: UUID,
     runtime: IAgentRuntime,
     service: Service,
-    name: string
+    name: string,
   ) {
     this.id = id;
     this.runtime = runtime;
@@ -444,7 +476,9 @@ export class AgentInstance {
     this.lastUpdate = Date.now();
   }
 
-  updateStatus(status: "connecting" | "connected" | "disconnected" | "error"): void {
+  updateStatus(
+    status: "connecting" | "connected" | "disconnected" | "error",
+  ): void {
     this.status = status;
     this.lastUpdate = Date.now();
   }
@@ -492,10 +526,10 @@ export class ServiceError extends Error {
   constructor(
     message: string,
     code?: string,
-    details?: Record<string, string | number | boolean>
+    details?: Record<string, string | number | boolean>,
   ) {
     super(message);
-    this.name = 'ServiceError';
+    this.name = "ServiceError";
     this.code = code;
     this.details = details;
 
@@ -523,10 +557,7 @@ export class CharacterController {
   public height: number;
   public maxSpeed: number;
 
-  constructor(
-    id: string,
-    options: CharacterControllerOptions = {}
-  ) {
+  constructor(id: string, options: CharacterControllerOptions = {}) {
     this.id = id;
     this.position = { x: 0, y: 0, z: 0 };
     this.velocity = { x: 0, y: 0, z: 0 };
@@ -551,7 +582,7 @@ export class CharacterController {
 
   walkToward(
     targetPosition: { x: number; y?: number; z: number },
-    speed: number = this.maxSpeed
+    speed: number = this.maxSpeed,
   ): Position {
     const dx = targetPosition.x - this.position.x;
     const dz = targetPosition.z - this.position.z;
@@ -568,7 +599,10 @@ export class CharacterController {
     return this.position;
   }
 
-  walk(direction: { x: number; z: number }, speed: number = this.maxSpeed): Position {
+  walk(
+    direction: { x: number; z: number },
+    speed: number = this.maxSpeed,
+  ): Position {
     this.position.x += direction.x * speed * 0.016;
     this.position.z += direction.z * speed * 0.016;
     return this.position;

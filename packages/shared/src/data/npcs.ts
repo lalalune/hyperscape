@@ -20,7 +20,7 @@
  * DO NOT add NPC data here - keep it in JSON!
  */
 
-import type { NPCData, NPCCategory } from '../types/core';
+import type { NPCData, NPCCategory } from "../types/core";
 
 /**
  * NPC Database - Populated at runtime from JSON manifests
@@ -39,34 +39,42 @@ export function getNPCById(npcId: string): NPCData | null {
 
 // Get NPCs by category
 export function getNPCsByCategory(category: NPCCategory): NPCData[] {
-  return Array.from(ALL_NPCS.values()).filter(npc => npc.category === category);
+  return Array.from(ALL_NPCS.values()).filter(
+    (npc) => npc.category === category,
+  );
 }
 
 // Get NPCs by biome
 export function getNPCsByBiome(biome: string): NPCData[] {
-  return Array.from(ALL_NPCS.values()).filter(npc =>
-    npc.spawnBiomes?.includes(biome)
+  return Array.from(ALL_NPCS.values()).filter((npc) =>
+    npc.spawnBiomes?.includes(biome),
   );
 }
 
 // Get NPCs by level range
-export function getNPCsByLevelRange(minLevel: number, maxLevel: number): NPCData[] {
-  return Array.from(ALL_NPCS.values()).filter(npc =>
-    npc.stats.level >= minLevel && npc.stats.level <= maxLevel
+export function getNPCsByLevelRange(
+  minLevel: number,
+  maxLevel: number,
+): NPCData[] {
+  return Array.from(ALL_NPCS.values()).filter(
+    (npc) => npc.stats.level >= minLevel && npc.stats.level <= maxLevel,
   );
 }
 
 // Get combat NPCs (mob, boss, quest with combat)
 export function getCombatNPCs(): NPCData[] {
-  return Array.from(ALL_NPCS.values()).filter(npc =>
-    npc.category === 'mob' || npc.category === 'boss' || npc.category === 'quest'
+  return Array.from(ALL_NPCS.values()).filter(
+    (npc) =>
+      npc.category === "mob" ||
+      npc.category === "boss" ||
+      npc.category === "quest",
   );
 }
 
 // Get service NPCs (neutral)
 export function getServiceNPCs(): NPCData[] {
-  return Array.from(ALL_NPCS.values()).filter(npc =>
-    npc.category === 'neutral'
+  return Array.from(ALL_NPCS.values()).filter(
+    (npc) => npc.category === "neutral",
   );
 }
 
@@ -76,7 +84,10 @@ export function canNPCDropItem(npcId: string, itemId: string): boolean {
   if (!npc) return false;
 
   // Check default drop
-  if (npc.drops.defaultDrop.enabled && npc.drops.defaultDrop.itemId === itemId) {
+  if (
+    npc.drops.defaultDrop.enabled &&
+    npc.drops.defaultDrop.itemId === itemId
+  ) {
     return true;
   }
 
@@ -86,14 +97,16 @@ export function canNPCDropItem(npcId: string, itemId: string): boolean {
     ...npc.drops.common,
     ...npc.drops.uncommon,
     ...npc.drops.rare,
-    ...npc.drops.veryRare
+    ...npc.drops.veryRare,
   ];
 
-  return allDrops.some(drop => drop.itemId === itemId);
+  return allDrops.some((drop) => drop.itemId === itemId);
 }
 
 // Calculate NPC drops with RNG
-export function calculateNPCDrops(npcId: string): Array<{ itemId: string; quantity: number }> {
+export function calculateNPCDrops(
+  npcId: string,
+): Array<{ itemId: string; quantity: number }> {
   const npc = getNPCById(npcId);
   if (!npc) return [];
 
@@ -103,15 +116,21 @@ export function calculateNPCDrops(npcId: string): Array<{ itemId: string; quanti
   if (npc.drops.defaultDrop.enabled) {
     drops.push({
       itemId: npc.drops.defaultDrop.itemId,
-      quantity: npc.drops.defaultDrop.quantity
+      quantity: npc.drops.defaultDrop.quantity,
     });
   }
 
   // Process all drop tiers
-  const processDrop = (drop: { itemId: string; minQuantity: number; maxQuantity: number; chance: number }) => {
+  const processDrop = (drop: {
+    itemId: string;
+    minQuantity: number;
+    maxQuantity: number;
+    chance: number;
+  }) => {
     if (Math.random() < drop.chance) {
       const quantity = Math.floor(
-        Math.random() * (drop.maxQuantity - drop.minQuantity + 1) + drop.minQuantity
+        Math.random() * (drop.maxQuantity - drop.minQuantity + 1) +
+          drop.minQuantity,
       );
       drops.push({ itemId: drop.itemId, quantity });
     }
@@ -143,7 +162,7 @@ export function calculateNPCCombatLevel(npc: NPCData): number {
 
   const combatLevel = Math.floor(
     (defense + constitution + Math.floor(ranged / 2)) * 0.25 +
-    Math.max(attack + strength, ranged * 2 / 3) * 0.325
+      Math.max(attack + strength, (ranged * 2) / 3) * 0.325,
   );
 
   return Math.max(3, combatLevel);

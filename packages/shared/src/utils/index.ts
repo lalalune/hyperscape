@@ -17,8 +17,8 @@ export {
   detectRenderingCapabilities,
   type UniversalRenderer,
   type RendererOptions,
-  type RendererCapabilities
-} from './RendererFactory';
+  type RendererCapabilities,
+} from "./RendererFactory";
 
 // Post-processing utilities
 export {
@@ -26,16 +26,16 @@ export {
   setBloomEnabled,
   disposePostProcessing,
   type PostProcessingComposer,
-  type PostProcessingOptions
-} from './PostProcessingFactory';
+  type PostProcessingOptions,
+} from "./PostProcessingFactory";
 
 // Material and mesh optimizations
 export {
   createOptimizedInstancedMesh,
   optimizeMaterialForWebGPU,
   getWebGPUCapabilities,
-  logWebGPUInfo
-} from './RendererFactory';
+  logWebGPUInfo,
+} from "./RendererFactory";
 
 // Validation utilities
 export {
@@ -48,8 +48,8 @@ export {
   isValidUrl,
   validatePosition,
   calculateDistance,
-  calculateDistance2D
-} from './ValidationUtils';
+  calculateDistance2D,
+} from "./ValidationUtils";
 
 // System utilities
 export {
@@ -74,6 +74,5 @@ export {
   type GraphicsSystem,
   type StageSystem,
   type CameraSystem,
-  type TerrainSystem
-} from './SystemUtils';
-
+  type TerrainSystem,
+} from "./SystemUtils";

@@ -1,9 +1,9 @@
 /**
  * Physics.ts - PhysX Physics System
- * 
+ *
  * Provides realistic physics simulation using NVIDIA PhysX engine.
  * Manages rigid bodies, colliders, raycasts, and character controllers.
- * 
+ *
  * Key Features:
  * - **Rigid Body Dynamics**: Static, kinematic, and dynamic actors
  * - **Collision Detection**: Continuous collision detection with contact callbacks
@@ -13,21 +13,21 @@
  * - **Sweep Tests**: Moving collision detection
  * - **Triggers**: Volume-based events (enter/exit)
  * - **Physics Materials**: Friction, restitution, and bounce
- * 
+ *
  * Architecture:
  * - Uses PhysX WASM module on client (browser)
  * - Uses PhysX Node.js bindings on server
  * - Deterministic fixed-timestep simulation (30 FPS)
  * - Server is authoritative for all physics state
  * - Client runs local physics for immediate feedback (validated by server)
- * 
+ *
  * PhysX Integration:
  * - PxFoundation: Core PhysX singleton
  * - PxPhysics: Physics SDK instance
  * - PxScene: Physics world simulation
  * - PxCpuDispatcher: Multi-threaded simulation
  * - PxControllerManager: Character controller factory
- * 
+ *
  * Collision Layers:
  * Uses Layers system for filtering:
  * - Default (0): General environment geometry
@@ -36,18 +36,18 @@
  * - Interactables (3): Objects that can be clicked
  * - Projectiles (4): Arrows, magic projectiles
  * - Triggers (5): Volume-based event areas
- * 
+ *
  * Coordinate System:
  * - Uses three.js coordinate system (Y-up, right-handed)
  * - PhysX also uses Y-up, matches three.js
  * - Position/rotation kept in sync between three.js and PhysX
- * 
+ *
  * Performance:
  * - Fixed timestep ensures deterministic simulation
  * - CPU dispatcher enables multi-threading
  * - Broad-phase culling reduces collision checks
  * - Sleeping actors don't simulate until moved
- * 
+ *
  * Usage:
  * ```typescript
  * // Add rigid body to entity
@@ -59,14 +59,14 @@
  *   mass: 75,
  *   type: 'dynamic'
  * });
- * 
+ *
  * // Raycast for ground detection
  * const hit = world.physics.raycast({
  *   origin: { x: 0, y: 10, z: 0 },
  *   direction: { x: 0, y: -1, z: 0 },
  *   maxDistance: 20
  * });
- * 
+ *
  * // Character controller for player movement
  * const controller = world.physics.createCharacterController({
  *   height: 1.8,
@@ -74,28 +74,39 @@
  *   position: { x: 0, y: 0, z: 0 }
  * });
  * ```
- * 
+ *
  * Related Systems:
  * - Entities: Physics bodies attached to entities
  * - ClientInput: Movement input drives character controllers
  * - CombatSystem: Uses raycasts for hit detection
  * - TerrainSystem: Static collision mesh for ground
- * 
+ *
  * @see PhysXManager.ts for PhysX initialization
  * @see PhysicsUtils.ts for helper functions
  */
 
-import type { Collider, Physics as IPhysics, RaycastHit as IRaycastHit, PhysicsMaterial, Quaternion, RigidBody, Vector3, World, CharacterController, CharacterControllerOptions } from '../types/index';
+import type {
+  Collider,
+  Physics as IPhysics,
+  RaycastHit as IRaycastHit,
+  PhysicsMaterial,
+  Quaternion,
+  RigidBody,
+  Vector3,
+  World,
+  CharacterController,
+  CharacterControllerOptions,
+} from "../types/index";
 
-import { Layers } from '../extras/Layers.js';
-import THREE from '../extras/three.js';
+import { Layers } from "../extras/Layers.js";
+import THREE from "../extras/three.js";
 import {
   createCpuDispatcher,
   getActorsFromHeader,
   cleanupPxVec3,
-  vector3ToPxVec3
-} from '../utils/PhysicsUtils.js';
-import { getPhysX, waitForPhysX } from '../PhysXManager.js';
+  vector3ToPxVec3,
+} from "../utils/PhysicsUtils.js";
+import { getPhysX, waitForPhysX } from "../PhysXManager.js";
 import type {
   ActorHandle,
   ContactEvent,
@@ -104,20 +115,20 @@ import type {
   PhysicsOverlapHit,
   PhysicsRaycastHit,
   PhysicsSweepHit,
-  TriggerEvent
-} from '../types/physics.js';
-import type { SystemDependencies } from './System.js';
-import { SystemBase } from './SystemBase.js';
+  TriggerEvent,
+} from "../types/physics.js";
+import type { SystemDependencies } from "./System.js";
+import { SystemBase } from "./SystemBase.js";
 
-const _v3_1 = new THREE.Vector3()
-const _v3_2 = new THREE.Vector3()
-const _v3_3 = new THREE.Vector3()
-const _contact_pos = new THREE.Vector3()
-const _contact_nor = new THREE.Vector3()
-const _contact_imp = new THREE.Vector3()
+const _v3_1 = new THREE.Vector3();
+const _v3_2 = new THREE.Vector3();
+const _v3_3 = new THREE.Vector3();
+const _contact_pos = new THREE.Vector3();
+const _contact_nor = new THREE.Vector3();
+const _contact_imp = new THREE.Vector3();
 
 // Import PhysX types
-import type PhysX from '@hyperscape/physx-js-webidl';
+import type PhysX from "@hyperscape/physx-js-webidl";
 // Use physx-js-webidl types directly to avoid conflicts
 import type {
   PxActor,
@@ -143,8 +154,8 @@ import type {
   PxTolerancesScale,
   PxTransform,
   PxTriggerPair,
-  PxVec3
-} from '../types/physics.js';
+  PxVec3,
+} from "../types/physics.js";
 
 // All PhysX type extensions are now imported from physx-runtime.d.ts
 
@@ -155,15 +166,26 @@ import type {
 
 // Re-export shared physics types for backward compatibility
 export type {
-  ActorHandle, BasePhysicsHandle, ContactEvent, ContactInfo, InterpolatedPhysicsHandle, InterpolationData, NonInterpolatedPhysicsHandle, PhysicsHandle, PhysicsOverlapHit, PhysicsRaycastHit,
-  PhysicsSweepHit, TriggerEvent, TriggerInfo
-} from '../types/physics.js';
+  ActorHandle,
+  BasePhysicsHandle,
+  ContactEvent,
+  ContactInfo,
+  InterpolatedPhysicsHandle,
+  InterpolationData,
+  NonInterpolatedPhysicsHandle,
+  PhysicsHandle,
+  PhysicsOverlapHit,
+  PhysicsRaycastHit,
+  PhysicsSweepHit,
+  TriggerEvent,
+  TriggerInfo,
+} from "../types/physics.js";
 
 // PhysX type aliases for backward compatibility
 export type PhysXActor = PxActor;
 export type PhysXTransform = PxTransform;
 export type PhysXShape = PxShape;
-import type { GeometryPhysXMesh } from '../types/physics.js';
+import type { GeometryPhysXMesh } from "../types/physics.js";
 export type PhysXMesh = GeometryPhysXMesh;
 export type PhysXMaterial = PxMaterial;
 export type PhysXRigidActor = PxActor;
@@ -200,10 +222,12 @@ type PhysXModule = typeof PhysX & {
 };
 
 // Lightweight object pool used for callback structs to minimize allocations
-function createPool<T extends { release?: () => void }>(factory: () => T): () => T {
+function createPool<T extends { release?: () => void }>(
+  factory: () => T,
+): () => T {
   const pool: T[] = [];
   return () => {
-    const item = (pool.pop() || factory());
+    const item = pool.pop() || factory();
     // Attach a release method that returns the object to the pool
     item.release = () => {
       pool.push(item);
@@ -223,7 +247,7 @@ function convertHitResult(hit: PhysX.PxRaycastHit | PhysX.PxSweepHit): {
     actor: hit.actor,
     position: hit.position,
     normal: hit.normal,
-    distance: hit.distance
+    distance: hit.distance,
   };
 }
 
@@ -235,11 +259,11 @@ function convertHitResult(hit: PhysX.PxRaycastHit | PhysX.PxSweepHit): {
 // Extend ContactEvent/TriggerEvent at runtime with tagging metadata used by our systems
 export interface ExtendedContactEvent extends ContactEvent {
   contacts: {
-    position: THREE.Vector3
-    normal: THREE.Vector3
-    impulse: THREE.Vector3
-    separation?: number
-  }[]
+    position: THREE.Vector3;
+    normal: THREE.Vector3;
+    impulse: THREE.Vector3;
+    separation?: number;
+  }[];
 }
 
 export interface ExtendedTriggerEvent extends TriggerEvent {
@@ -253,7 +277,11 @@ export interface InternalContactCallback {
   event0: ExtendedContactEvent;
   fn1: ((event: ContactEvent) => void) | null;
   event1: ExtendedContactEvent;
-  addContact(position: THREE.Vector3, normal: THREE.Vector3, impulse: THREE.Vector3): void;
+  addContact(
+    position: THREE.Vector3,
+    normal: THREE.Vector3,
+    impulse: THREE.Vector3,
+  ): void;
   init(start: boolean): this;
   exec(): void;
   release(): void;
@@ -273,9 +301,9 @@ export type OverlapHit = PhysicsOverlapHit;
 
 // Placeholder collider for uninitialized hits
 const placeholderCollider: Collider = {
-  type: 'box',
+  type: "box",
   isTrigger: false,
-  material: undefined
+  material: undefined,
 };
 
 // Static hit objects - initialized with placeholder values
@@ -337,7 +365,9 @@ export class Physics extends SystemBase implements IPhysics {
   gravity: Vector3 = new THREE.Vector3(0, -9.81, 0);
   controllers: Map<string, CharacterController> = new Map();
   step?: (deltaTime: number) => void;
-  createCharacterController?: (options: CharacterControllerOptions) => CharacterController;
+  createCharacterController?: (
+    options: CharacterControllerOptions,
+  ) => CharacterController;
   active: Set<PhysicsHandle> = new Set();
   materials: Record<string, PxMaterial> = {};
   raycastResult: PxRaycastResult | null = null;
@@ -354,7 +384,11 @@ export class Physics extends SystemBase implements IPhysics {
   ignoreSetGlobalPose = false;
 
   constructor(world: World) {
-    super(world, { name: 'physics', dependencies: { required: [], optional: [] }, autoCleanup: true });
+    super(world, {
+      name: "physics",
+      dependencies: { required: [], optional: [] },
+      autoCleanup: true,
+    });
   }
 
   getDependencies(): SystemDependencies {
@@ -364,7 +398,7 @@ export class Physics extends SystemBase implements IPhysics {
 
   async init(): Promise<void> {
     // Use waitForPhysX to ensure PhysX is loaded
-    const info = await waitForPhysX('Physics', 30000); // 30 second timeout
+    const info = await waitForPhysX("Physics", 30000); // 30 second timeout
     this.version = info.version;
     this.allocator = info.allocator;
     this.errorCb = info.errorCb;
@@ -376,7 +410,7 @@ export class Physics extends SystemBase implements IPhysics {
     // Create physics-specific objects (not shared with other systems)
     this.tolerances = new PHYSX.PxTolerancesScale();
     this.cookingParams = new PHYSX.PxCookingParams(this.tolerances!);
-    
+
     // Use the physics instance from PhysXManager
     this.physics = info.physics;
     this.cooking = info.cooking; // Initialize cooking (optional)
@@ -386,22 +420,30 @@ export class Physics extends SystemBase implements IPhysics {
     this.setupScene();
     this.setupQueryObjects();
     this.setupControllerManager();
-    
+
     // Mark physics as initialized
     this.initialized = true;
-    
+
     // Emit ready event for other systems
-    this.emitTypedEvent('physics:ready', {} as Record<string, unknown>);
-    
-    this.logger.info('System initialized successfully with PhysX');
+    this.emitTypedEvent("physics:ready", {} as Record<string, unknown>);
+
+    this.logger.info("System initialized successfully with PhysX");
   }
 
   private setupCallbacks(): void {
     // Contact callbacks
     this.getContactCallback = createPool<InternalContactCallback>(() => {
       const _loggerRef = this.logger;
-      const contactPool: Array<{ position: THREE.Vector3; normal: THREE.Vector3; impulse: THREE.Vector3 }> = [];
-      const contacts: Array<{ position: THREE.Vector3; normal: THREE.Vector3; impulse: THREE.Vector3 }> = [];
+      const contactPool: Array<{
+        position: THREE.Vector3;
+        normal: THREE.Vector3;
+        impulse: THREE.Vector3;
+      }> = [];
+      const contacts: Array<{
+        position: THREE.Vector3;
+        normal: THREE.Vector3;
+        impulse: THREE.Vector3;
+      }> = [];
       let idx = 0;
       return {
         start: false,
@@ -413,7 +455,7 @@ export class Physics extends SystemBase implements IPhysics {
           shapeA: {} as PxShape,
           shapeB: {} as PxShape,
           contacts: [],
-          eventType: 'contact_found',
+          eventType: "contact_found",
           tag: null,
           playerId: null,
         } as ExtendedContactEvent,
@@ -424,11 +466,15 @@ export class Physics extends SystemBase implements IPhysics {
           shapeA: {} as PxShape,
           shapeB: {} as PxShape,
           contacts: [],
-          eventType: 'contact_found',
+          eventType: "contact_found",
           tag: null,
           playerId: null,
         } as ExtendedContactEvent,
-        addContact(position: THREE.Vector3, normal: THREE.Vector3, impulse: THREE.Vector3) {
+        addContact(
+          position: THREE.Vector3,
+          normal: THREE.Vector3,
+          impulse: THREE.Vector3,
+        ) {
           if (!contactPool[idx]) {
             contactPool[idx] = {
               position: new THREE.Vector3(),
@@ -442,8 +488,18 @@ export class Physics extends SystemBase implements IPhysics {
           contact.impulse.copy(impulse);
           // Mirror data into ContactEvent.contacts as vector triplets
           // Cast to satisfy type without bringing in specific PhysX point type
-          ;(this.event0 as ExtendedContactEvent).contacts.push({ position, normal, impulse, separation: 0 });
-          ;(this.event1 as ExtendedContactEvent).contacts.push({ position, normal, impulse, separation: 0 });
+          (this.event0 as ExtendedContactEvent).contacts.push({
+            position,
+            normal,
+            impulse,
+            separation: 0,
+          });
+          (this.event1 as ExtendedContactEvent).contacts.push({
+            position,
+            normal,
+            impulse,
+            separation: 0,
+          });
           contacts.push(contact);
           idx++;
         },
@@ -463,8 +519,10 @@ export class Physics extends SystemBase implements IPhysics {
             this.fn1(this.event1);
           }
           // reset contacts after exec
-          if (this.event0.contacts) (this.event0 as ExtendedContactEvent).contacts.length = 0;
-          if (this.event1.contacts) (this.event1 as ExtendedContactEvent).contacts.length = 0;
+          if (this.event0.contacts)
+            (this.event0 as ExtendedContactEvent).contacts.length = 0;
+          if (this.event1.contacts)
+            (this.event1 as ExtendedContactEvent).contacts.length = 0;
           this.release();
         },
         release: () => {}, // Set by pool
@@ -492,7 +550,7 @@ export class Physics extends SystemBase implements IPhysics {
           otherShape: {} as PxShape,
           triggerActor: {} as PxActor,
           otherActor: {} as PxActor,
-          eventType: 'trigger_enter',
+          eventType: "trigger_enter",
           tag: null,
           playerId: null,
         } as ExtendedTriggerEvent,
@@ -519,41 +577,65 @@ export class Physics extends SystemBase implements IPhysics {
   private setupScene(): void {
     const PHYSX = getPhysX();
     if (!PHYSX) {
-      throw new Error('[Physics] Cannot setup scene - PHYSX not loaded');
+      throw new Error("[Physics] Cannot setup scene - PHYSX not loaded");
     }
-    
+
     const contactPoints = new PHYSX.PxArray_PxContactPairPoint(64);
     const simulationEventCallback = new PHYSX.PxSimulationEventCallbackImpl();
-    
-        // Contact callback
-    simulationEventCallback.onContact = (pairHeaderPtr: unknown, pairs: PxContactPair, count: number) => {
+
+    // Contact callback
+    simulationEventCallback.onContact = (
+      pairHeaderPtr: unknown,
+      pairs: PxContactPair,
+      count: number,
+    ) => {
       const physxModule = PHYSX as PhysXModule;
-      const pairHeader = physxModule.wrapPointer!(pairHeaderPtr as number, physxModule.PxContactPairHeader);
+      const pairHeader = physxModule.wrapPointer!(
+        pairHeaderPtr as number,
+        physxModule.PxContactPairHeader,
+      );
       const [actor0, actor1] = getActorsFromHeader(pairHeader);
       if (!actor0 || !actor1) return;
       const actor0Address = getActorAddress(actor0);
       const actor1Address = getActorAddress(actor1);
       if (actor0Address === undefined || actor1Address === undefined) return;
-      
+
       const handle0 = this.handles.get(actor0Address);
       const handle1 = this.handles.get(actor1Address);
       if (!handle0 || !handle1) return;
-      
+
       for (let i = 0; i < count; i++) {
-        const pair = (PHYSX as PhysXModule).NativeArrayHelpers.prototype.getContactPairAt(pairs, i);
+        const pair = (
+          PHYSX as PhysXModule
+        ).NativeArrayHelpers.prototype.getContactPairAt(pairs, i);
         if (pair.events.isSet(PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND)) {
           const getCallback = this.getContactCallback;
           if (!getCallback) continue;
           const contactCallback = getCallback().init(true);
           this.contactCallbacks.push(contactCallback);
-          const pxContactPoints = pair.extractContacts(contactPoints.begin(), 64);
+          const pxContactPoints = pair.extractContacts(
+            contactPoints.begin(),
+            64,
+          );
           if (pxContactPoints > 0) {
             for (let j = 0; j < pxContactPoints; j++) {
               const contact = contactPoints.get(j);
               contactCallback.addContact(
-                _contact_pos.set(contact.position.x, contact.position.y, contact.position.z),
-                _contact_nor.set(contact.normal.x, contact.normal.y, contact.normal.z),
-                _contact_imp.set(contact.impulse.x, contact.impulse.y, contact.impulse.z),
+                _contact_pos.set(
+                  contact.position.x,
+                  contact.position.y,
+                  contact.position.z,
+                ),
+                _contact_nor.set(
+                  contact.normal.x,
+                  contact.normal.y,
+                  contact.normal.z,
+                ),
+                _contact_imp.set(
+                  contact.impulse.x,
+                  contact.impulse.y,
+                  contact.impulse.z,
+                ),
               );
             }
           }
@@ -573,7 +655,11 @@ export class Physics extends SystemBase implements IPhysics {
             }
             handle1.contactedHandles.add(handle0);
           }
-        } else if (pair.events.isSet((PHYSX as PhysXModule).PxPairFlagEnum.eNOTIFY_TOUCH_LOST)) {
+        } else if (
+          pair.events.isSet(
+            (PHYSX as PhysXModule).PxPairFlagEnum.eNOTIFY_TOUCH_LOST,
+          )
+        ) {
           const getCallback = this.getContactCallback;
           if (!getCallback) continue;
           const contactCallback = getCallback().init(false);
@@ -601,45 +687,62 @@ export class Physics extends SystemBase implements IPhysics {
     // Trigger callback
     simulationEventCallback.onTrigger = (pairs: unknown, count: number) => {
       const physxModule = getPhysX()!;
-      pairs = (physxModule as PhysXModule).wrapPointer?.(pairs as number, PHYSX.PxTriggerPair);
+      pairs = (physxModule as PhysXModule).wrapPointer?.(
+        pairs as number,
+        PHYSX.PxTriggerPair,
+      );
       for (let i = 0; i < count; i++) {
         const pair = pairs as PxTriggerPair;
         // Ignore pairs if a shape was deleted
         if (
-          pair.flags.isSet((PHYSX as PhysXModule).PxTriggerPairFlagEnum.eREMOVED_SHAPE_TRIGGER) ||
-          pair.flags.isSet((PHYSX as PhysXModule).PxTriggerPairFlagEnum.eREMOVED_SHAPE_OTHER)
+          pair.flags.isSet(
+            (PHYSX as PhysXModule).PxTriggerPairFlagEnum.eREMOVED_SHAPE_TRIGGER,
+          ) ||
+          pair.flags.isSet(
+            (PHYSX as PhysXModule).PxTriggerPairFlagEnum.eREMOVED_SHAPE_OTHER,
+          )
         ) {
           continue;
         }
         const triggerActor = pair.triggerShape.getActor();
         const otherActor = pair.otherShape.getActor();
-        const triggerAddress = triggerActor ? getActorAddress(triggerActor) : undefined;
-        const otherAddress = otherActor ? getActorAddress(otherActor) : undefined;
+        const triggerAddress = triggerActor
+          ? getActorAddress(triggerActor)
+          : undefined;
+        const otherAddress = otherActor
+          ? getActorAddress(otherActor)
+          : undefined;
         if (!triggerAddress || !otherAddress) continue;
         const triggerHandle = this.handles.get(triggerAddress);
         const otherHandle = this.handles.get(otherAddress);
         if (!triggerHandle || !otherHandle) continue;
-        
-        if (pair.status === (PHYSX as PhysXModule).PxPairFlagEnum.eNOTIFY_TOUCH_FOUND) {
+
+        if (
+          pair.status ===
+          (PHYSX as PhysXModule).PxPairFlagEnum.eNOTIFY_TOUCH_FOUND
+        ) {
           if (!otherHandle.triggeredHandles.has(triggerHandle)) {
             if (triggerHandle.onTriggerEnter) {
               const getCallback = this.getTriggerCallback;
               if (!getCallback) continue;
               const cb = getCallback();
-              cb.fn = triggerHandle.onTriggerEnter ;
+              cb.fn = triggerHandle.onTriggerEnter;
               cb.event.tag = otherHandle.tag ?? null;
               cb.event.playerId = otherHandle.playerId ?? null;
               this.triggerCallbacks.push(cb);
             }
             otherHandle.triggeredHandles.add(triggerHandle);
           }
-        } else if (pair.status === (PHYSX as PhysXModule).PxPairFlagEnum.eNOTIFY_TOUCH_LOST) {
+        } else if (
+          pair.status ===
+          (PHYSX as PhysXModule).PxPairFlagEnum.eNOTIFY_TOUCH_LOST
+        ) {
           if (otherHandle.triggeredHandles.has(triggerHandle)) {
             if (triggerHandle.onTriggerLeave) {
               const getCallback = this.getTriggerCallback;
               if (!getCallback) continue;
               const cb = getCallback();
-              cb.fn = triggerHandle.onTriggerLeave ;
+              cb.fn = triggerHandle.onTriggerLeave;
               cb.event.tag = otherHandle.tag ?? null;
               cb.event.playerId = otherHandle.playerId ?? null;
               this.triggerCallbacks.push(cb);
@@ -650,7 +753,10 @@ export class Physics extends SystemBase implements IPhysics {
       }
     };
 
-          simulationEventCallback.onConstraintBreak = (_constraint: unknown, _flags: unknown) => {
+    simulationEventCallback.onConstraintBreak = (
+      _constraint: unknown,
+      _flags: unknown,
+    ) => {
       // Constraint break events are not currently handled
       // This callback can be implemented when constraint physics are added
     };
@@ -660,10 +766,16 @@ export class Physics extends SystemBase implements IPhysics {
     sceneDesc.gravity = new PHYSX.PxVec3(0, -9.81, 0);
     const physxModule = getPhysX()!;
     sceneDesc.cpuDispatcher = createCpuDispatcher(physxModule, 0);
-    const physxWithTopLevel = PHYSX as typeof PhysX & { DefaultFilterShader(): PhysX.PxSimulationFilterShader };
+    const physxWithTopLevel = PHYSX as typeof PhysX & {
+      DefaultFilterShader(): PhysX.PxSimulationFilterShader;
+    };
     sceneDesc.filterShader = physxWithTopLevel.DefaultFilterShader();
-    (sceneDesc.flags as { raise: (flag: number, value: boolean) => void }).raise(PHYSX.PxSceneFlagEnum.eENABLE_CCD, true);
-        (sceneDesc.flags as { raise: (flag: number, value: boolean) => void }).raise(PHYSX.PxSceneFlagEnum.eENABLE_ACTIVE_ACTORS, true);
+    (
+      sceneDesc.flags as { raise: (flag: number, value: boolean) => void }
+    ).raise(PHYSX.PxSceneFlagEnum.eENABLE_CCD, true);
+    (
+      sceneDesc.flags as { raise: (flag: number, value: boolean) => void }
+    ).raise(PHYSX.PxSceneFlagEnum.eENABLE_ACTIVE_ACTORS, true);
     sceneDesc.solverType = PHYSX.PxSolverTypeEnum.eTGS;
     sceneDesc.simulationEventCallback = simulationEventCallback;
     sceneDesc.broadPhaseType = PHYSX.PxBroadPhaseTypeEnum.eGPU;
@@ -673,57 +785,90 @@ export class Physics extends SystemBase implements IPhysics {
   private setupQueryObjects(): void {
     const PHYSX = getPhysX();
     if (!PHYSX) {
-      throw new Error('[Physics] Cannot setup query objects - PHYSX not loaded');
+      throw new Error(
+        "[Physics] Cannot setup query objects - PHYSX not loaded",
+      );
     }
-    
+
     this.raycastResult = new PHYSX.PxRaycastResult();
-    this.sweepPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity) as PxTransform;
+    this.sweepPose = new PHYSX.PxTransform(
+      PHYSX.PxIDENTITYEnum.PxIdentity,
+    ) as PxTransform;
     this.sweepResult = new PHYSX.PxSweepResult();
-    this.overlapPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity) as PxTransform;
+    this.overlapPose = new PHYSX.PxTransform(
+      PHYSX.PxIDENTITYEnum.PxIdentity,
+    ) as PxTransform;
     this.overlapResult = new PHYSX.PxOverlapResult();
     this.queryFilterData = new PHYSX.PxQueryFilterData();
 
     this._pv1 = new PHYSX.PxVec3() as PxVec3;
     this._pv2 = new PHYSX.PxVec3() as PxVec3;
-    this.transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity) as PxTransform;
+    this.transform = new PHYSX.PxTransform(
+      PHYSX.PxIDENTITYEnum.PxIdentity,
+    ) as PxTransform;
   }
 
   private setupControllerManager(): void {
     const PHYSX = getPhysX();
     if (!PHYSX) {
-      throw new Error('[Physics] Cannot setup controller manager - PHYSX not loaded');
+      throw new Error(
+        "[Physics] Cannot setup controller manager - PHYSX not loaded",
+      );
     }
-    
+
     // Top-level functions are exposed directly on the PHYSX module in WebIDL bindings
     const physxWithFunctions = PHYSX as PhysXModule & {
-      CreateControllerManager: (scene: PxScene, lockingEnabled?: boolean) => PxControllerManager;
+      CreateControllerManager: (
+        scene: PxScene,
+        lockingEnabled?: boolean,
+      ) => PxControllerManager;
     };
-    
-    this.controllerManager = physxWithFunctions.CreateControllerManager(this.scene!);
+
+    this.controllerManager = physxWithFunctions.CreateControllerManager(
+      this.scene!,
+    );
     this.controllerFilters = new PHYSX.PxControllerFilters();
     if (this.controllerFilters) {
-      const filterData = new PHYSX.PxFilterData(Layers.player!.group, Layers.player!.mask, 0, 0);
+      const filterData = new PHYSX.PxFilterData(
+        Layers.player!.group,
+        Layers.player!.mask,
+        0,
+        0,
+      );
       this.controllerFilters.mFilterData = filterData;
-      
+
       const filterCallback = {
-        simplePreFilter: (filterDataPtr: unknown, shapePtr: unknown, _actor: unknown) => {
+        simplePreFilter: (
+          filterDataPtr: unknown,
+          shapePtr: unknown,
+          _actor: unknown,
+        ) => {
           const physxModule = getPhysX()!;
-          const filterData = (physxModule as PhysXModule).wrapPointer?.(filterDataPtr as number, PHYSX.PxFilterData);
-          const shape = (physxModule as PhysXModule).wrapPointer?.(shapePtr as number, PHYSX.PxShape);
+          const filterData = (physxModule as PhysXModule).wrapPointer?.(
+            filterDataPtr as number,
+            PHYSX.PxFilterData,
+          );
+          const shape = (physxModule as PhysXModule).wrapPointer?.(
+            shapePtr as number,
+            PHYSX.PxShape,
+          );
           if (!shape || !filterData) return PHYSX.PxQueryHitType.eNONE;
           const shapeFilterData = shape.getQueryFilterData();
-          if (filterData.word0 & shapeFilterData.word1 && shapeFilterData.word0 & filterData.word1) {
+          if (
+            filterData.word0 & shapeFilterData.word1 &&
+            shapeFilterData.word0 & filterData.word1
+          ) {
             return PHYSX.PxQueryHitType.eBLOCK;
           }
           return PHYSX.PxQueryHitType.eNONE;
-        }
+        },
       };
-      
+
       const cctFilterCallback = new PHYSX.PxControllerFilterCallbackImpl();
-            cctFilterCallback.filter = (_aPtr: unknown, _bPtr: unknown) => {
+      cctFilterCallback.filter = (_aPtr: unknown, _bPtr: unknown) => {
         return true; // For now ALL CCTs collide
       };
-      
+
       this.controllerFilters.mFilterCallback = filterCallback;
       this.controllerFilters.mCCTFilterCallback = cctFilterCallback;
     }
@@ -733,17 +878,22 @@ export class Physics extends SystemBase implements IPhysics {
     const PHYSX = getPhysX();
     // Check if PhysX is loaded before attempting to use it
     if (!PHYSX || !this.physics || !this.scene) {
-      this.logger.info('Skipping ground plane creation - PhysX not loaded');
+      this.logger.info("Skipping ground plane creation - PhysX not loaded");
       return;
     }
 
     // Create ground plane (large static box) but keep it off gameplay masks
     const size = 1000;
     const halfExtents = new PHYSX.PxVec3(size / 2, 1 / 2, size / 2);
-    const geometry = new PHYSX.PxBoxGeometry(halfExtents.x, halfExtents.y, halfExtents.z);
+    const geometry = new PHYSX.PxBoxGeometry(
+      halfExtents.x,
+      halfExtents.y,
+      halfExtents.z,
+    );
     const material = this.physics.createMaterial(0.6, 0.6, 0);
     const _flags = new PHYSX.PxShapeFlags(
-      PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
+      PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
+        PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE,
     );
     const shape = this.physics.createShape(geometry, material, true, _flags);
     // Keep ground helper isolated from gameplay queries/collisions
@@ -752,24 +902,27 @@ export class Physics extends SystemBase implements IPhysics {
     const filterData = new PHYSX.PxFilterData(layer.group, 0, 0, 0);
     shape.setQueryFilterData(filterData);
     shape.setSimulationFilterData(filterData);
-    
-        const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity);
+
+    const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity);
     transform.p.y = -0.5;
     const body = this.physics.createRigidStatic(transform);
     body.attachShape(shape);
     this.scene.addActor(body);
   }
 
-  addActor(actor: PxActor | PxRigidDynamic, handle: PhysicsHandle): ActorHandle | null {
+  addActor(
+    actor: PxActor | PxRigidDynamic,
+    handle: PhysicsHandle,
+  ): ActorHandle | null {
     if (!this.scene) {
-      this.logger.warn('Cannot add actor - Physics not initialized');
+      this.logger.warn("Cannot add actor - Physics not initialized");
       return null;
     }
-    
+
     handle.actor = actor;
     handle.contactedHandles = new Set();
     handle.triggeredHandles = new Set();
-    
+
     // Type guard to ensure interpolation is only set up when onInterpolate exists
     if (handle.onInterpolate) {
       // TypeScript now knows this is an InterpolatedPhysicsHandle
@@ -788,7 +941,10 @@ export class Physics extends SystemBase implements IPhysics {
           quaternion: new THREE.Quaternion(),
         },
       };
-      const pose = 'getGlobalPose' in actor ? (actor as PxRigidDynamic).getGlobalPose() : null;
+      const pose =
+        "getGlobalPose" in actor
+          ? (actor as PxRigidDynamic).getGlobalPose()
+          : null;
       if (pose && pose.p && pose.q) {
         interpolatedHandle.interpolation.prev.position.copy(pose.p);
         interpolatedHandle.interpolation.prev.quaternion.copy(pose.q);
@@ -797,10 +953,10 @@ export class Physics extends SystemBase implements IPhysics {
         interpolatedHandle.interpolation.curr.position.copy(pose.p);
         interpolatedHandle.interpolation.curr.quaternion.copy(pose.q);
       } else {
-        this.logger.warn('Actor pose not available during interpolation setup');
+        this.logger.warn("Actor pose not available during interpolation setup");
       }
     }
-    
+
     const actorAddress = getActorAddress(actor);
     if (actorAddress !== undefined) {
       this.handles.set(actorAddress, handle);
@@ -808,7 +964,7 @@ export class Physics extends SystemBase implements IPhysics {
     if (!handle.controller) {
       this.scene.addActor(actor);
     }
-    
+
     return {
       move: (matrix: THREE.Matrix4) => {
         if (this.ignoreSetGlobalPose) {
@@ -817,7 +973,9 @@ export class Physics extends SystemBase implements IPhysics {
           if (dynamicActor.getRigidBodyFlags) {
             const PHYSX = getPhysX();
             if (PHYSX) {
-              const isDynamic = !dynamicActor.getRigidBodyFlags().isSet(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC);
+              const isDynamic = !dynamicActor
+                .getRigidBodyFlags()
+                .isSet(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC);
               if (isDynamic) return;
             }
           }
@@ -825,16 +983,16 @@ export class Physics extends SystemBase implements IPhysics {
         }
         // Assume toPxTransform extension is available
         matrix.toPxTransform!(this.transform);
-        if ('setGlobalPose' in actor) {
+        if ("setGlobalPose" in actor) {
           (actor as PxRigidDynamic).setGlobalPose(this.transform);
         }
       },
       snap: (pose: PxTransform) => {
         if (!pose || !pose.p || !pose.q) {
-          this.logger.warn('Invalid pose provided to snap function');
+          this.logger.warn("Invalid pose provided to snap function");
           return;
         }
-        if ('setGlobalPose' in actor) {
+        if ("setGlobalPose" in actor) {
           (actor as PxRigidDynamic).setGlobalPose(pose);
         }
         // Type guard: if handle has onInterpolate, it must have interpolation
@@ -853,7 +1011,8 @@ export class Physics extends SystemBase implements IPhysics {
         // End any contacts
         if (handle.contactedHandles.size) {
           const getCallback = this.getContactCallback;
-          if (!getCallback) return { move: () => {}, snap: () => {}, destroy: () => {} };
+          if (!getCallback)
+            return { move: () => {}, snap: () => {}, destroy: () => {} };
           const cb = getCallback().init(false);
           for (const otherHandle of handle.contactedHandles) {
             if (otherHandle.onContactEnd) {
@@ -872,7 +1031,7 @@ export class Physics extends SystemBase implements IPhysics {
             const cb = getCallback();
             for (const triggerHandle of handle.triggeredHandles) {
               if (triggerHandle.onTriggerLeave) {
-                cb.fn = triggerHandle.onTriggerLeave ;
+                cb.fn = triggerHandle.onTriggerLeave;
                 cb.event.tag = handle.tag ?? null;
                 cb.event.playerId = handle.playerId ?? null;
                 cb.exec();
@@ -902,7 +1061,7 @@ export class Physics extends SystemBase implements IPhysics {
     if (!this.scene) return; // Skip if physics not initialized
     this.scene.simulate(delta);
     this.scene.fetchResults(true);
-    
+
     // Log physics step periodically
     // Commented out verbose physics stepping log
     // if (Math.random() < 0.01) { // Log ~1% of frames
@@ -910,21 +1069,27 @@ export class Physics extends SystemBase implements IPhysics {
     // }
     if (this.processContactCallbacks) this.processContactCallbacks();
     if (this.processTriggerCallbacks) this.processTriggerCallbacks();
-    
+
     const PHYSX = getPhysX();
     if (!this.scene || !PHYSX) return; // Skip if physics not initialized
-    
+
     // Check if PhysX has the SupportFunctions module
     if (!PHYSX.SupportFunctions?.PxScene_getActiveActors) return;
-    
-    const activeActorsAny = PHYSX.SupportFunctions.PxScene_getActiveActors(this.scene) as unknown;
-    const activeActors = activeActorsAny as { size(): number; get(index: number): { _address: number | bigint } };
+
+    const activeActorsAny = PHYSX.SupportFunctions.PxScene_getActiveActors(
+      this.scene,
+    ) as unknown;
+    const activeActors = activeActorsAny as {
+      size(): number;
+      get(index: number): { _address: number | bigint };
+    };
     const size = activeActors.size();
-    
+
     // Log active actors periodically
-    if (Math.random() < 0.01) { // Log ~1% of frames
+    if (Math.random() < 0.01) {
+      // Log ~1% of frames
     }
-    
+
     for (let i = 0; i < size; i++) {
       const actorPtr = activeActors.get(i)._address;
       const handle = this.handles.get(actorPtr);
@@ -934,19 +1099,20 @@ export class Physics extends SystemBase implements IPhysics {
       // TypeScript knows this is an InterpolatedPhysicsHandle
       const interpolatedHandle = handle as InterpolatedPhysicsHandle;
       const lerp = interpolatedHandle.interpolation;
-      
+
       // No need for runtime checks - TypeScript guarantees these exist
       lerp.prev.position.copy(lerp.next.position);
       lerp.prev.quaternion.copy(lerp.next.quaternion);
-      const pose = interpolatedHandle.actor && 'getGlobalPose' in interpolatedHandle.actor 
-        ? (interpolatedHandle.actor as PxRigidDynamic).getGlobalPose() 
-        : null;
+      const pose =
+        interpolatedHandle.actor && "getGlobalPose" in interpolatedHandle.actor
+          ? (interpolatedHandle.actor as PxRigidDynamic).getGlobalPose()
+          : null;
       if (pose && pose.p && pose.q) {
         lerp.next.position.copy(pose.p);
         lerp.next.quaternion.copy(pose.q);
         this.active.add(interpolatedHandle);
       } else {
-        this.logger.warn('Actor pose not available in postFixedUpdate');
+        this.logger.warn("Actor pose not available in postFixedUpdate");
       }
     }
   }
@@ -955,20 +1121,31 @@ export class Physics extends SystemBase implements IPhysics {
     for (const handle of this.active) {
       // Type guard: only handles with onInterpolate have interpolation
       if (!handle.onInterpolate) continue;
-      
+
       // TypeScript now knows this is an InterpolatedPhysicsHandle
       const interpolatedHandle = handle as InterpolatedPhysicsHandle;
       const lerp = interpolatedHandle.interpolation;
-      
+
       if (lerp.skip) {
         lerp.skip = false;
         continue;
       }
-      
+
       // No need for runtime checks - TypeScript guarantees these exist
-      lerp.curr.position.lerpVectors(lerp.prev.position, lerp.next.position, alpha);
-      lerp.curr.quaternion.slerpQuaternions(lerp.prev.quaternion, lerp.next.quaternion, alpha);
-      interpolatedHandle.onInterpolate(lerp.curr.position, lerp.curr.quaternion);
+      lerp.curr.position.lerpVectors(
+        lerp.prev.position,
+        lerp.next.position,
+        alpha,
+      );
+      lerp.curr.quaternion.slerpQuaternions(
+        lerp.prev.quaternion,
+        lerp.next.quaternion,
+        alpha,
+      );
+      interpolatedHandle.onInterpolate(
+        lerp.curr.position,
+        lerp.curr.quaternion,
+      );
     }
     // Finalize any physics updates immediately
     // but don't listen to any loopback commits from those actor moves
@@ -979,41 +1156,68 @@ export class Physics extends SystemBase implements IPhysics {
   }
 
   // Internal raycast method with layer mask support
-  private _raycast(origin: THREE.Vector3, direction: THREE.Vector3, maxDistance: number = Infinity, layerMask: number = 0xFFFFFFFF): PhysicsRaycastHit | null {
+  private _raycast(
+    origin: THREE.Vector3,
+    direction: THREE.Vector3,
+    maxDistance: number = Infinity,
+    layerMask: number = 0xffffffff,
+  ): PhysicsRaycastHit | null {
     // Early return if PhysX is not available
     if (!this.initialized || !this.scene) {
       return null;
     }
     // Validate inputs and normalize direction to satisfy PhysX requirement (unit vector)
-    if (!Number.isFinite(origin.x) || !Number.isFinite(origin.y) || !Number.isFinite(origin.z)) {
-      throw new Error('[Physics.raycast] Origin contains non-finite values');
+    if (
+      !Number.isFinite(origin.x) ||
+      !Number.isFinite(origin.y) ||
+      !Number.isFinite(origin.z)
+    ) {
+      throw new Error("[Physics.raycast] Origin contains non-finite values");
     }
-    if (!Number.isFinite(direction.x) || !Number.isFinite(direction.y) || !Number.isFinite(direction.z)) {
-      throw new Error('[Physics.raycast] Direction contains non-finite values');
+    if (
+      !Number.isFinite(direction.x) ||
+      !Number.isFinite(direction.y) ||
+      !Number.isFinite(direction.z)
+    ) {
+      throw new Error("[Physics.raycast] Direction contains non-finite values");
     }
-    const dirLen = Math.sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+    const dirLen = Math.sqrt(
+      direction.x * direction.x +
+        direction.y * direction.y +
+        direction.z * direction.z,
+    );
     if (dirLen <= 1e-6) {
-      throw new Error('[Physics.raycast] Direction vector is too small to normalize');
+      throw new Error(
+        "[Physics.raycast] Direction vector is too small to normalize",
+      );
     }
-    const dirNormalized = new THREE.Vector3(direction.x / dirLen, direction.y / dirLen, direction.z / dirLen);
-    
+    const dirNormalized = new THREE.Vector3(
+      direction.x / dirLen,
+      direction.y / dirLen,
+      direction.z / dirLen,
+    );
+
     if (this.queryFilterData) {
       // Set both word0 (query group) and word1 (query mask) to the desired layer mask
       // This satisfies standard PhysX query checks:
       // (query.word0 & shape.word1) && (shape.word0 & query.word1)
-      const filterData = this.queryFilterData as { data: { word0: number; word1: number } };
+      const filterData = this.queryFilterData as {
+        data: { word0: number; word1: number };
+      };
       if (filterData.data) {
         filterData.data.word0 = layerMask;
         filterData.data.word1 = layerMask;
       }
     }
-    
+
     // Try to use enhanced Vector3 methods first
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let pxOrigin: PxVec3 | null = (origin as any).toPxVec3?.(this._pv1 || undefined) || null;
+    let pxOrigin: PxVec3 | null =
+      (origin as any).toPxVec3?.(this._pv1 || undefined) || null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let pxDirection: PxVec3 | null = (dirNormalized as any).toPxVec3?.(this._pv2 || undefined) || null;
-    
+    let pxDirection: PxVec3 | null =
+      (dirNormalized as any).toPxVec3?.(this._pv2 || undefined) || null;
+
     // If the enhanced method didn't work, create PxVec3 manually
     if (!pxOrigin) {
       const PHYSX = getPhysX();
@@ -1025,52 +1229,84 @@ export class Physics extends SystemBase implements IPhysics {
     if (!pxDirection) {
       const PHYSX = getPhysX();
       if (PHYSX) {
-        const vec = new PHYSX.PxVec3(dirNormalized.x, dirNormalized.y, dirNormalized.z);
+        const vec = new PHYSX.PxVec3(
+          dirNormalized.x,
+          dirNormalized.y,
+          dirNormalized.z,
+        );
         pxDirection = vec;
       }
     }
-    
+
     if (!pxOrigin || !pxDirection) {
       return null;
     }
 
     const PHYSX = getPhysX();
     if (!PHYSX) return null;
-    
+
     // Request full hit data to avoid zeroed position results
     // Request position and normal; distance is always provided for hits
     const hitFlags = new PHYSX.PxHitFlags(
-      (PHYSX.PxHitFlagEnum.ePOSITION |
-       PHYSX.PxHitFlagEnum.eNORMAL)
-    )
-    const didHit = this.scene?.raycast(
-      pxOrigin,
-      pxDirection,
-      maxDistance,
-      this.raycastResult!,
-      hitFlags,
-      this.queryFilterData || undefined
-    ) || false;
-    
+      PHYSX.PxHitFlagEnum.ePOSITION | PHYSX.PxHitFlagEnum.eNORMAL,
+    );
+    const didHit =
+      this.scene?.raycast(
+        pxOrigin,
+        pxDirection,
+        maxDistance,
+        this.raycastResult!,
+        hitFlags,
+        this.queryFilterData || undefined,
+      ) || false;
+
     if (didHit && this.raycastResult) {
-      const numHits = (this.raycastResult as PxRaycastResult & { getNbAnyHits: () => number }).getNbAnyHits();
-      let hit: { actor: PxActor; position: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number }; distance: number } | null = null;
+      const numHits = (
+        this.raycastResult as PxRaycastResult & { getNbAnyHits: () => number }
+      ).getNbAnyHits();
+      let hit: {
+        actor: PxActor;
+        position: { x: number; y: number; z: number };
+        normal: { x: number; y: number; z: number };
+        distance: number;
+      } | null = null;
       for (let n = 0; n < numHits; n++) {
-        const nHit = (this.raycastResult as PxRaycastResult & { getAnyHit: (index: number) => PhysX.PxRaycastHit }).getAnyHit(n);
-        const convertedHit = convertHitResult(nHit) as { actor: PxActor; position: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number }; distance: number };
+        const nHit = (
+          this.raycastResult as PxRaycastResult & {
+            getAnyHit: (index: number) => PhysX.PxRaycastHit;
+          }
+        ).getAnyHit(n);
+        const convertedHit = convertHitResult(nHit) as {
+          actor: PxActor;
+          position: { x: number; y: number; z: number };
+          normal: { x: number; y: number; z: number };
+          distance: number;
+        };
         if (!hit || hit.distance > convertedHit.distance) {
           hit = convertedHit;
         }
       }
       if (hit) {
         const actorAddress = getActorAddress(hit.actor);
-        _raycastHit.handle = actorAddress !== undefined ? this.handles.get(actorAddress) : undefined;
-        
+        _raycastHit.handle =
+          actorAddress !== undefined
+            ? this.handles.get(actorAddress)
+            : undefined;
+
         // Debug: Check if position is valid
-        if (!hit.position || (hit.position.x === 0 && hit.position.y === 0 && hit.position.z === 0 && hit.distance > 1)) {
-          console.warn('[Physics] Suspicious hit position at origin with distance:', hit.distance);
+        if (
+          !hit.position ||
+          (hit.position.x === 0 &&
+            hit.position.y === 0 &&
+            hit.position.z === 0 &&
+            hit.distance > 1)
+        ) {
+          console.warn(
+            "[Physics] Suspicious hit position at origin with distance:",
+            hit.distance,
+          );
         }
-        
+
         _raycastHit.point.set(hit.position.x, hit.position.y, hit.position.z);
         _raycastHit.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
         _raycastHit.distance = hit.distance;
@@ -1081,10 +1317,20 @@ export class Physics extends SystemBase implements IPhysics {
   }
 
   // Interface-compliant raycast method
-  raycast(origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number): IRaycastHit | null {
-    const hit = this._raycast(origin as THREE.Vector3, direction as THREE.Vector3, maxDistance || Infinity, layerMask ?? 0xFFFFFFFF);
+  raycast(
+    origin: Vector3,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ): IRaycastHit | null {
+    const hit = this._raycast(
+      origin as THREE.Vector3,
+      direction as THREE.Vector3,
+      maxDistance || Infinity,
+      layerMask ?? 0xffffffff,
+    );
     if (!hit) return null;
-    
+
     // Convert internal RaycastHit to interface-compliant RaycastHit
     return {
       point: hit.point,
@@ -1096,47 +1342,81 @@ export class Physics extends SystemBase implements IPhysics {
   }
 
   // raycast with layer mask (not in interface)
-  raycastWithMask(origin: THREE.Vector3, direction: THREE.Vector3, maxDistance: number, layerMask: number): PhysicsRaycastHit | null {
+  raycastWithMask(
+    origin: THREE.Vector3,
+    direction: THREE.Vector3,
+    maxDistance: number,
+    layerMask: number,
+  ): PhysicsRaycastHit | null {
     return this._raycast(origin, direction, maxDistance, layerMask);
   }
 
-  sweep(geometry: unknown, origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number): IRaycastHit | null {
+  sweep(
+    geometry: unknown,
+    origin: Vector3,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ): IRaycastHit | null {
     const PHYSX = getPhysX();
     if (!PHYSX) return null; // Early return if PhysX is not available
-    
+
     const maxDist = maxDistance !== undefined ? maxDistance : 1000; // Use finite default instead of Infinity
-    const mask = layerMask !== undefined ? layerMask : 0xFFFFFFFF;
-    
+    const mask = layerMask !== undefined ? layerMask : 0xffffffff;
+
     // Set sweep position
     if (this.sweepPose.p) {
-      const pxOrigin = vector3ToPxVec3(origin as THREE.Vector3, this.sweepPose.p as PxVec3);
+      const pxOrigin = vector3ToPxVec3(
+        origin as THREE.Vector3,
+        this.sweepPose.p as PxVec3,
+      );
       if (!pxOrigin) return null; // Return null if conversion failed
     }
-    const sweepDirection = vector3ToPxVec3(direction as THREE.Vector3, this._pv2 || undefined);
+    const sweepDirection = vector3ToPxVec3(
+      direction as THREE.Vector3,
+      this._pv2 || undefined,
+    );
     if (!sweepDirection) return null; // Return null if conversion failed
-    
+
     if (this.queryFilterData) {
       this.queryFilterData.data.word0 = mask;
       this.queryFilterData.data.word1 = mask;
     }
-    
-    const sweepFlags = new PHYSX.PxHitFlags(PHYSX.PxHitFlagEnum.eDEFAULT)
-    const didHit = this.scene?.sweep(
-      geometry as PxGeometry,
-      this.sweepPose,
-      sweepDirection,
-      maxDist,
-      this.sweepResult as PxSweepResult,
-      sweepFlags,
-      this.queryFilterData || undefined
-    ) || false;
-    
+
+    const sweepFlags = new PHYSX.PxHitFlags(PHYSX.PxHitFlagEnum.eDEFAULT);
+    const didHit =
+      this.scene?.sweep(
+        geometry as PxGeometry,
+        this.sweepPose,
+        sweepDirection,
+        maxDist,
+        this.sweepResult as PxSweepResult,
+        sweepFlags,
+        this.queryFilterData || undefined,
+      ) || false;
+
     if (didHit && this.sweepResult) {
-      const numHits = (this.sweepResult as PxSweepResult & { getNbAnyHits: () => number }).getNbAnyHits();
-      let hit: { actor: PxActor; position: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number }; distance: number } | null = null;
+      const numHits = (
+        this.sweepResult as PxSweepResult & { getNbAnyHits: () => number }
+      ).getNbAnyHits();
+      let hit: {
+        actor: PxActor;
+        position: { x: number; y: number; z: number };
+        normal: { x: number; y: number; z: number };
+        distance: number;
+      } | null = null;
       for (let n = 0; n < numHits; n++) {
-        const nHit = (this.sweepResult as PxSweepResult & { getAnyHit: (index: number) => PhysX.PxSweepHit }).getAnyHit(n);
-        const convertedHit = convertHitResult(nHit) as { actor: PxActor; position: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number }; distance: number };
+        const nHit = (
+          this.sweepResult as PxSweepResult & {
+            getAnyHit: (index: number) => PhysX.PxSweepHit;
+          }
+        ).getAnyHit(n);
+        const convertedHit = convertHitResult(nHit) as {
+          actor: PxActor;
+          position: { x: number; y: number; z: number };
+          normal: { x: number; y: number; z: number };
+          distance: number;
+        };
         if (!hit || hit.distance > convertedHit.distance) {
           hit = convertedHit;
         }
@@ -1147,7 +1427,7 @@ export class Physics extends SystemBase implements IPhysics {
         _sweepHit.normal.set(hit.normal.x, hit.normal.y, hit.normal.z);
         _sweepHit.distance = hit.distance;
         _sweepHit.collider = placeholderCollider;
-        
+
         // Convert to RaycastHit format
         return {
           point: _sweepHit.point,
@@ -1162,7 +1442,11 @@ export class Physics extends SystemBase implements IPhysics {
   }
 
   // Internal overlap sphere method with layer mask support
-  private _overlapSphere(radius: number, origin: THREE.Vector3, layerMask: number = 0xFFFFFFFF): OverlapHit[] {
+  private _overlapSphere(
+    radius: number,
+    origin: THREE.Vector3,
+    layerMask: number = 0xffffffff,
+  ): OverlapHit[] {
     // Use the enhanced Vector3 method if available, otherwise set position manually
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((origin as any).toPxVec3 && this.overlapPose.p) {
@@ -1173,24 +1457,39 @@ export class Physics extends SystemBase implements IPhysics {
       this.overlapPose.p.y = origin.y;
       this.overlapPose.p.z = origin.z;
     }
-    
+
     const geometry = getSphereGeometry(radius);
     if (this.queryFilterData) {
       this.queryFilterData.data.word0 = layerMask;
       this.queryFilterData.data.word1 = layerMask;
     }
-    
-    const didHit = this.scene?.overlap(geometry, this.overlapPose, this.overlapResult!, this.queryFilterData || undefined) || false;
+
+    const didHit =
+      this.scene?.overlap(
+        geometry,
+        this.overlapPose,
+        this.overlapResult!,
+        this.queryFilterData || undefined,
+      ) || false;
     if (!didHit || !this.overlapResult) return [];
-    
+
     overlapHits.length = 0;
-    const numHits = (this.overlapResult as PxOverlapResult & { getNbAnyHits: () => number }).getNbAnyHits();
+    const numHits = (
+      this.overlapResult as PxOverlapResult & { getNbAnyHits: () => number }
+    ).getNbAnyHits();
     for (let n = 0; n < numHits; n++) {
-      const nHit = (this.overlapResult as PxOverlapResult & { getAnyHit: (index: number) => { actor: PxActor } }).getAnyHit(n);
+      const nHit = (
+        this.overlapResult as PxOverlapResult & {
+          getAnyHit: (index: number) => { actor: PxActor };
+        }
+      ).getAnyHit(n);
       const hit = getOrCreateOverlapHit(n);
       hit.actor = nHit.actor;
       const actorAddress = getActorAddress(nHit.actor);
-      hit.handle = actorAddress !== undefined ? this.handles.get(actorAddress) ?? null : null;
+      hit.handle =
+        actorAddress !== undefined
+          ? (this.handles.get(actorAddress) ?? null)
+          : null;
       overlapHits.push(hit);
     }
     return overlapHits;
@@ -1204,49 +1503,91 @@ export class Physics extends SystemBase implements IPhysics {
   }
 
   // overlap sphere with layer mask (not in interface)
-  overlapSphereWithMask(radius: number, origin: THREE.Vector3, layerMask: number): OverlapHit[] {
+  overlapSphereWithMask(
+    radius: number,
+    origin: THREE.Vector3,
+    layerMask: number,
+  ): OverlapHit[] {
     return this._overlapSphere(radius, origin, layerMask);
   }
 
-  getMaterial(staticFriction: number, dynamicFriction: number, restitution: number): PxMaterial | null {
+  getMaterial(
+    staticFriction: number,
+    dynamicFriction: number,
+    restitution: number,
+  ): PxMaterial | null {
     if (!this.physics) {
-      console.warn('[Physics] Cannot create material - Physics not initialized');
+      console.warn(
+        "[Physics] Cannot create material - Physics not initialized",
+      );
       return null;
     }
-    
+
     // Cache and re-use materials as PhysX has a limit of 64k
     const id = `${staticFriction}${dynamicFriction}${restitution}`;
     let material = this.materials[id];
     if (!material) {
-      material = this.physics.createMaterial(staticFriction, dynamicFriction, restitution);
+      material = this.physics.createMaterial(
+        staticFriction,
+        dynamicFriction,
+        restitution,
+      );
       this.materials[id] = material;
     }
     return material;
   }
 
   // IPhysics interface methods
-  createRigidBody(_type: 'static' | 'dynamic' | 'kinematic', _position?: Vector3, _rotation?: Quaternion): RigidBody {
-    throw new Error('Not implemented - use addActor instead');
+  createRigidBody(
+    _type: "static" | "dynamic" | "kinematic",
+    _position?: Vector3,
+    _rotation?: Quaternion,
+  ): RigidBody {
+    throw new Error("Not implemented - use addActor instead");
   }
 
-  createCollider(_geometry: PxGeometry, _material?: PhysicsMaterial, _isTrigger?: boolean): PxShape | null {
-    throw new Error('Not implemented - use PhysX geometry directly');
+  createCollider(
+    _geometry: PxGeometry,
+    _material?: PhysicsMaterial,
+    _isTrigger?: boolean,
+  ): PxShape | null {
+    throw new Error("Not implemented - use PhysX geometry directly");
   }
 
-  createMaterial(staticFriction?: number, dynamicFriction?: number, restitution?: number): PhysicsMaterial {
-    const _material = this.getMaterial(staticFriction || 0.5, dynamicFriction || 0.5, restitution || 0.5);
+  createMaterial(
+    staticFriction?: number,
+    dynamicFriction?: number,
+    restitution?: number,
+  ): PhysicsMaterial {
+    const _material = this.getMaterial(
+      staticFriction || 0.5,
+      dynamicFriction || 0.5,
+      restitution || 0.5,
+    );
     // Convert PhysXMaterial to PhysicsMaterial interface
     return {
       friction: staticFriction || 0.5,
-      restitution: restitution || 0.5
+      restitution: restitution || 0.5,
     };
   }
 
-  sphereCast(origin: Vector3, radius: number, direction: Vector3, maxDistance?: number, layerMask?: number): import('../types/index.js').RaycastHit | null {
+  sphereCast(
+    origin: Vector3,
+    radius: number,
+    direction: Vector3,
+    maxDistance?: number,
+    layerMask?: number,
+  ): import("../types/index.js").RaycastHit | null {
     const geometry = getSphereGeometry(radius);
-    const hit = this.sweep(geometry, origin, direction, maxDistance || 1000, layerMask || 0xFFFFFFFF);
+    const hit = this.sweep(
+      geometry,
+      origin,
+      direction,
+      maxDistance || 1000,
+      layerMask || 0xffffffff,
+    );
     if (!hit) return null;
-    
+
     // Convert SweepHit to RaycastHit interface
     return {
       point: hit.point,
@@ -1280,7 +1621,9 @@ export class Physics extends SystemBase implements IPhysics {
   removeCollider(_collider: PxShape): void {
     // Note: In PhysX, shapes don't have direct references to actors
     // The ColliderComponent should manage the actor removal
-    console.warn('[Physics] removeCollider called but shapes do not have actor references - use removeActor instead');
+    console.warn(
+      "[Physics] removeCollider called but shapes do not have actor references - use removeActor instead",
+    );
   }
 
   // Add missing methods from IPhysics interface
@@ -1288,7 +1631,7 @@ export class Physics extends SystemBase implements IPhysics {
     if (actor) {
       const actorAddress = getActorAddress(actor);
       if (actorAddress === undefined) return;
-      
+
       const handle = this.handles.get(actorAddress);
       if (handle) {
         this.scene?.removeActor(actor);
@@ -1306,7 +1649,7 @@ export class Physics extends SystemBase implements IPhysics {
       }
     }
   }
-  
+
   // Missing lifecycle methods
   preTick(): void {}
   fixedUpdate(_dt: number): void {}
@@ -1321,11 +1664,11 @@ export class Physics extends SystemBase implements IPhysics {
 function getSphereGeometry(radius: number): PxSphereGeometry {
   const PHYSX = getPhysX();
   if (!PHYSX) {
-    throw new Error('PhysX not loaded');
+    throw new Error("PhysX not loaded");
   }
-  const geo = new PHYSX.PxSphereGeometry(radius)
+  const geo = new PHYSX.PxSphereGeometry(radius);
   if (!geo) {
-    throw new Error('Failed to create sphere geometry');
+    throw new Error("Failed to create sphere geometry");
   }
   return geo;
 }

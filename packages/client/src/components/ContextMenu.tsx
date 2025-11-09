@@ -1,45 +1,57 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from "react";
 
 interface ContextMenuProps {
-  visible: boolean
-  position: { x: number; y: number }
-  actions: Array<{ id: string; label: string; icon?: string; enabled: boolean; onClick: () => void }>
-  onClose: () => void
-  title?: string
+  visible: boolean;
+  position: { x: number; y: number };
+  actions: Array<{
+    id: string;
+    label: string;
+    icon?: string;
+    enabled: boolean;
+    onClick: () => void;
+  }>;
+  onClose: () => void;
+  title?: string;
 }
 
-export function ContextMenu({ visible, position, actions, onClose, title }: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null)
+export function ContextMenu({
+  visible,
+  position,
+  actions,
+  onClose,
+  title,
+}: ContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose()
+        onClose();
       }
-    }
+    };
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
+      if (event.key === "Escape") {
+        onClose();
       }
-    }
+    };
 
     if (visible) {
-      document.addEventListener('mousedown', handleClickOutside)
-      document.addEventListener('keydown', handleEscape)
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleEscape)
-    }
-  }, [visible, onClose])
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [visible, onClose]);
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
-    <div 
-      ref={menuRef} 
+    <div
+      ref={menuRef}
       className="fixed bg-dark-bg border border-dark-border backdrop-blur-md rounded-lg py-2 min-w-[150px] z-[2000] text-sm text-white/90 shadow-lg pointer-events-auto"
       style={{
         left: position.x,
@@ -51,34 +63,32 @@ export function ContextMenu({ visible, position, actions, onClose, title }: Cont
           {title}
         </div>
       )}
-      {actions.map(action => (
+      {actions.map((action) => (
         <button
           key={action.id}
           disabled={!action.enabled}
           onClick={(e) => {
             // Prevent bubbling to canvas/document which could trigger movement
-            e.stopPropagation()
+            e.stopPropagation();
             if (action.enabled) {
-              action.onClick()
-              onClose()
+              action.onClick();
+              onClose();
             }
           }}
           className={`w-full py-2 px-4 border-none bg-transparent text-sm flex items-center gap-2 transition-colors duration-200 ${
-            action.enabled 
-              ? 'text-white/90 cursor-pointer hover:bg-white/10' 
-              : 'text-white/40 cursor-not-allowed'
+            action.enabled
+              ? "text-white/90 cursor-pointer hover:bg-white/10"
+              : "text-white/40 cursor-not-allowed"
           }`}
           onMouseDown={(e) => {
             // Prevent this click from bubbling to the canvas/document and triggering movement
-            e.stopPropagation()
+            e.stopPropagation();
           }}
         >
-          {action.icon && (
-            <span className="text-base">{action.icon}</span>
-          )}
+          {action.icon && <span className="text-base">{action.icon}</span>}
           {action.label}
         </button>
       ))}
     </div>
-  )
+  );
 }

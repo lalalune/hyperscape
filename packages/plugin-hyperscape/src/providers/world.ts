@@ -103,26 +103,54 @@ export const hyperscapeProvider: Provider = {
       categorizedSummary += `\n\n## ${type[0].toUpperCase() + type.slice(1)} Entities (${lines.length})\n${lines.join("\n")}`;
     }
 
-    const actionsSystem = world?.actions as { getNearby?: (radius: number) => Array<{ label?: string; ctx?: { entity?: { root?: { position?: { x: number; y: number; z: number } }; data?: { id?: string; name?: string } } } }>; currentNode?: { label?: string; ctx?: { entity?: { data?: { id?: string; name?: string } } } } } | undefined;
+    const actionsSystem = world?.actions as
+      | {
+          getNearby?: (
+            radius: number,
+          ) => Array<{
+            label?: string;
+            ctx?: {
+              entity?: {
+                root?: { position?: { x: number; y: number; z: number } };
+                data?: { id?: string; name?: string };
+              };
+            };
+          }>;
+          currentNode?: {
+            label?: string;
+            ctx?: { entity?: { data?: { id?: string; name?: string } } };
+          };
+        }
+      | undefined;
     const nearbyActions = actionsSystem?.getNearby
       ? actionsSystem.getNearby(50)
       : [];
     const currentAction = actionsSystem?.currentNode;
 
-    const actionLines = nearbyActions.map((action: { label?: string; ctx?: { entity?: { root?: { position?: { x: number; y: number; z: number } }; data?: { id?: string; name?: string } } } }) => {
-      const entity = action.ctx?.entity;
-      const pos = entity?.root?.position;
-      // Strong type assumption: if position exists, it has x, y, z
-      const posStr = pos
-        ? `[${[pos.x, pos.y, pos.z].map((p) => Number(p).toFixed(2)).join(", ")}]`
-        : "N/A";
+    const actionLines = nearbyActions.map(
+      (action: {
+        label?: string;
+        ctx?: {
+          entity?: {
+            root?: { position?: { x: number; y: number; z: number } };
+            data?: { id?: string; name?: string };
+          };
+        };
+      }) => {
+        const entity = action.ctx?.entity;
+        const pos = entity?.root?.position;
+        // Strong type assumption: if position exists, it has x, y, z
+        const posStr = pos
+          ? `[${[pos.x, pos.y, pos.z].map((p) => Number(p).toFixed(2)).join(", ")}]`
+          : "N/A";
 
-      const label = action.label ?? "Unnamed Action";
-      const entityId = entity?.data?.id ?? "unknown";
-      const entityName = entity?.data?.name ?? "Unnamed";
+        const label = action.label ?? "Unnamed Action";
+        const entityId = entity?.data?.id ?? "unknown";
+        const entityName = entity?.data?.name ?? "Unnamed";
 
-      return `- Entity ID: ${entityId}, Entity Name: ${entityName}, Action: ${label}, Position: ${posStr}`;
-    });
+        return `- Entity ID: ${entityId}, Entity Name: ${entityName}, Action: ${label}, Position: ${posStr}`;
+      },
+    );
 
     const actionHeader = `## Nearby Interactable Objects (${actionLines.length})`;
     const actionBody =

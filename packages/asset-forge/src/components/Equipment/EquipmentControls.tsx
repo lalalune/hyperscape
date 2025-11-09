@@ -1,57 +1,67 @@
-import { 
-  Sliders, Target, RotateCw, Move, RefreshCw, 
-  Eye, Download, Save, Play, Pause,
-  CheckCircle
-} from 'lucide-react'
-import React from 'react'
+import {
+  Sliders,
+  Target,
+  RotateCw,
+  Move,
+  RefreshCw,
+  Eye,
+  Download,
+  Save,
+  Play,
+  Pause,
+  CheckCircle,
+} from "lucide-react";
+import React from "react";
 
-import { Card, CardHeader, CardTitle, CardContent, Button } from '../common'
+import { Card, CardHeader, CardTitle, CardContent, Button } from "../common";
 
 interface Vector3 {
-  x: number
-  y: number
-  z: number
+  x: number;
+  y: number;
+  z: number;
 }
 
 interface EquipmentControlsProps {
   // Scale controls
-  scale: number
-  autoScale: boolean
-  onScaleChange: (scale: number) => void
-  onAutoScaleChange: (enabled: boolean) => void
-  
+  scale: number;
+  autoScale: boolean;
+  onScaleChange: (scale: number) => void;
+  onAutoScaleChange: (enabled: boolean) => void;
+
   // Position controls
-  position: Vector3
-  onPositionChange: (position: Vector3) => void
-  
+  position: Vector3;
+  onPositionChange: (position: Vector3) => void;
+
   // Rotation controls
-  rotation: Vector3
-  onRotationChange: (rotation: Vector3) => void
-  
+  rotation: Vector3;
+  onRotationChange: (rotation: Vector3) => void;
+
   // Skeleton controls
-  showSkeleton: boolean
-  onShowSkeletonChange: (show: boolean) => void
-  
+  showSkeleton: boolean;
+  onShowSkeletonChange: (show: boolean) => void;
+
   // Animation controls
-  isAnimating: boolean
-  animationType: 'tpose' | 'walking' | 'running'
-  onAnimationToggle: () => void
-  onAnimationTypeChange: (type: 'tpose' | 'walking' | 'running') => void
-  
+  isAnimating: boolean;
+  animationType: "tpose" | "walking" | "running";
+  onAnimationToggle: () => void;
+  onAnimationTypeChange: (type: "tpose" | "walking" | "running") => void;
+
   // Actions
-  onDetectGripPoint?: () => void
-  onReset: () => void
-  onExportEquipped?: () => void
-  onExportAligned?: () => void
-  onSaveConfiguration?: () => void
-  
+  onDetectGripPoint?: () => void;
+  onReset: () => void;
+  onExportEquipped?: () => void;
+  onExportAligned?: () => void;
+  onSaveConfiguration?: () => void;
+
   // Status
-  gripPointDetected?: boolean
-  isDetecting?: boolean
-  autoScaleMessage?: string
+  gripPointDetected?: boolean;
+  isDetecting?: boolean;
+  autoScaleMessage?: string;
 }
 
-const RangeInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => {
+const RangeInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (
+  props,
+) => {
   return (
     <div className="relative">
       <input
@@ -60,8 +70,8 @@ const RangeInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props
         {...props}
       />
     </div>
-  )
-}
+  );
+};
 
 export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
   scale,
@@ -85,7 +95,7 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
   onSaveConfiguration,
   gripPointDetected,
   isDetecting,
-  autoScaleMessage
+  autoScaleMessage,
 }) => {
   return (
     <div className="space-y-4">
@@ -111,17 +121,19 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
                 <div className="w-11 h-6 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
-            
+
             {autoScaleMessage && (
               <div className="text-xs text-text-secondary bg-bg-tertiary rounded p-2">
                 {autoScaleMessage}
               </div>
             )}
-            
+
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium">Manual Scale</label>
-                <span className="text-xs text-text-secondary">{scale.toFixed(2)}x</span>
+                <span className="text-xs text-text-secondary">
+                  {scale.toFixed(2)}x
+                </span>
               </div>
               <RangeInput
                 min="0.1"
@@ -146,10 +158,12 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {(['x', 'y', 'z'] as const).map((axis) => (
+            {(["x", "y", "z"] as const).map((axis) => (
               <div key={axis}>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm font-medium uppercase">{axis}</label>
+                  <label className="text-sm font-medium uppercase">
+                    {axis}
+                  </label>
                   <span className="text-xs text-text-secondary">
                     {position[axis].toFixed(3)}m
                   </span>
@@ -159,10 +173,12 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
                   max="0.5"
                   step="0.01"
                   value={position[axis]}
-                  onChange={(e) => onPositionChange({
-                    ...position,
-                    [axis]: parseFloat(e.target.value)
-                  })}
+                  onChange={(e) =>
+                    onPositionChange({
+                      ...position,
+                      [axis]: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
             ))}
@@ -180,10 +196,12 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {(['x', 'y', 'z'] as const).map((axis) => (
+            {(["x", "y", "z"] as const).map((axis) => (
               <div key={axis}>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm font-medium uppercase">{axis}</label>
+                  <label className="text-sm font-medium uppercase">
+                    {axis}
+                  </label>
                   <span className="text-xs text-text-secondary">
                     {rotation[axis].toFixed(0)}°
                   </span>
@@ -193,10 +211,12 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
                   max="180"
                   step="5"
                   value={rotation[axis]}
-                  onChange={(e) => onRotationChange({
-                    ...rotation,
-                    [axis]: parseFloat(e.target.value)
-                  })}
+                  onChange={(e) =>
+                    onRotationChange({
+                      ...rotation,
+                      [axis]: parseFloat(e.target.value),
+                    })
+                  }
                 />
               </div>
             ))}
@@ -208,7 +228,11 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            {isAnimating ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            {isAnimating ? (
+              <Pause className="w-4 h-4" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
             Animation
           </CardTitle>
         </CardHeader>
@@ -219,21 +243,23 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
               variant={isAnimating ? "secondary" : "primary"}
               className="w-full"
             >
-              {isAnimating ? 'Stop Animation' : 'Play Animation'}
+              {isAnimating ? "Stop Animation" : "Play Animation"}
             </Button>
-            
+
             <div className="grid grid-cols-3 gap-2">
-              {(['tpose', 'walking', 'running'] as const).map((type) => (
+              {(["tpose", "walking", "running"] as const).map((type) => (
                 <button
                   key={type}
                   onClick={() => onAnimationTypeChange(type)}
                   className={`px-3 py-2 text-xs rounded-md transition-colors ${
                     animationType === type
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
                   }`}
                 >
-                  {type === 'tpose' ? 'T-Pose' : type.charAt(0).toUpperCase() + type.slice(1)}
+                  {type === "tpose"
+                    ? "T-Pose"
+                    : type.charAt(0).toUpperCase() + type.slice(1)}
                 </button>
               ))}
             </div>
@@ -271,16 +297,16 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
                 )}
               </Button>
             )}
-            
+
             <Button
               onClick={() => onShowSkeletonChange(!showSkeleton)}
               variant="secondary"
               className="w-full justify-start"
             >
               <Eye className="w-4 h-4 mr-2" />
-              {showSkeleton ? 'Hide' : 'Show'} Skeleton
+              {showSkeleton ? "Hide" : "Show"} Skeleton
             </Button>
-            
+
             <Button
               onClick={onReset}
               variant="secondary"
@@ -289,7 +315,7 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset All
             </Button>
-            
+
             {onSaveConfiguration && (
               <Button
                 onClick={onSaveConfiguration}
@@ -300,7 +326,7 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
                 Save Configuration
               </Button>
             )}
-            
+
             {onExportAligned && (
               <Button
                 onClick={onExportAligned}
@@ -311,7 +337,7 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
                 Export Aligned Model
               </Button>
             )}
-            
+
             {onExportEquipped && (
               <Button
                 onClick={onExportEquipped}
@@ -326,5 +352,5 @@ export const EquipmentControls: React.FC<EquipmentControlsProps> = ({
         </CardContent>
       </Card>
     </div>
-  )
-} 
+  );
+};

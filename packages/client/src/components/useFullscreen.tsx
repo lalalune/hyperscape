@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { isBoolean } from 'lodash-es'
+import React, { useEffect, useMemo, useState } from "react";
+import { isBoolean } from "lodash-es";
 
 // Extend global types to include vendor-prefixed properties
 declare global {
@@ -8,7 +8,7 @@ declare global {
     mozRequestFullScreen?: () => Promise<void>;
     msRequestFullscreen?: () => Promise<void>;
   }
-  
+
   interface Document {
     webkitExitFullscreen?: () => Promise<void>;
     mozCancelFullScreen?: () => Promise<void>;
@@ -19,43 +19,45 @@ declare global {
   }
 }
 
-export function useFullscreen(targetRef: React.RefObject<HTMLElement>): [boolean, boolean, (value?: boolean) => void] {
-  const [enabled, setEnabled] = useState(false)
+export function useFullscreen(
+  targetRef: React.RefObject<HTMLElement>,
+): [boolean, boolean, (value?: boolean) => void] {
+  const [enabled, setEnabled] = useState(false);
 
   const supported = useMemo(() => {
-    const docEl = document.documentElement
+    const docEl = document.documentElement;
     return !!(
       docEl.requestFullscreen ||
       docEl.webkitRequestFullscreen ||
       docEl.mozRequestFullScreen ||
       docEl.msRequestFullscreen
-    )
-  }, [])
+    );
+  }, []);
 
   const toggle = (value?: boolean) => {
-    const element = targetRef?.current || document.documentElement
-    const shouldEnable = isBoolean(value) ? value : !enabled
+    const element = targetRef?.current || document.documentElement;
+    const shouldEnable = isBoolean(value) ? value : !enabled;
 
-    if (!supported) return
+    if (!supported) return;
 
     if (shouldEnable) {
       const request =
         element.requestFullscreen ||
         element.webkitRequestFullscreen ||
         element.mozRequestFullScreen ||
-        element.msRequestFullscreen
+        element.msRequestFullscreen;
 
-      request?.call(element)
+      request?.call(element);
     } else {
       const exit =
         document.exitFullscreen ||
         document.webkitExitFullscreen ||
         document.mozCancelFullScreen ||
-        document.msExitFullscreen
+        document.msExitFullscreen;
 
-      exit?.call(document)
+      exit?.call(document);
     }
-  }
+  };
 
   useEffect(() => {
     const handleChange = () => {
@@ -63,23 +65,23 @@ export function useFullscreen(targetRef: React.RefObject<HTMLElement>): [boolean
         document.fullscreenElement ||
         document.webkitFullscreenElement ||
         document.mozFullScreenElement ||
-        document.msFullscreenElement
+        document.msFullscreenElement;
 
-      setEnabled(!!isFullscreen)
-    }
+      setEnabled(!!isFullscreen);
+    };
 
-    document.addEventListener('fullscreenchange', handleChange)
-    document.addEventListener('webkitfullscreenchange', handleChange)
-    document.addEventListener('mozfullscreenchange', handleChange)
-    document.addEventListener('MSFullscreenChange', handleChange)
+    document.addEventListener("fullscreenchange", handleChange);
+    document.addEventListener("webkitfullscreenchange", handleChange);
+    document.addEventListener("mozfullscreenchange", handleChange);
+    document.addEventListener("MSFullscreenChange", handleChange);
 
     return () => {
-      document.removeEventListener('fullscreenchange', handleChange)
-      document.removeEventListener('webkitfullscreenchange', handleChange)
-      document.removeEventListener('mozfullscreenchange', handleChange)
-      document.removeEventListener('MSFullscreenChange', handleChange)
-    }
-  }, [])
+      document.removeEventListener("fullscreenchange", handleChange);
+      document.removeEventListener("webkitfullscreenchange", handleChange);
+      document.removeEventListener("mozfullscreenchange", handleChange);
+      document.removeEventListener("MSFullscreenChange", handleChange);
+    };
+  }, []);
 
-  return [supported, enabled, toggle]
+  return [supported, enabled, toggle];
 }

@@ -11,141 +11,145 @@ type Character = { id: string; name: string };
 
 // Music preference manager - syncs with game prefs
 const getMusicEnabled = (): boolean => {
-  const stored = localStorage.getItem('music_enabled')
-  if (stored === null) return true // Default to enabled
-  return stored === 'true'
-}
+  const stored = localStorage.getItem("music_enabled");
+  if (stored === null) return true; // Default to enabled
+  return stored === "true";
+};
 
 const setMusicEnabled = (enabled: boolean): void => {
-  localStorage.setItem('music_enabled', String(enabled))
+  localStorage.setItem("music_enabled", String(enabled));
   // Also update prefs if they exist (storage.get returns parsed object)
-  const prefs = storage.get('prefs') as Record<string, unknown> | null
+  const prefs = storage.get("prefs") as Record<string, unknown> | null;
   if (prefs) {
-    const updated = { ...prefs, music: enabled ? 0.5 : 0 }
-    storage.set('prefs', updated)
+    const updated = { ...prefs, music: enabled ? 0.5 : 0 };
+    storage.set("prefs", updated);
   }
-}
+};
 
 // Intro Music Player Hook
 const useIntroMusic = (enabled: boolean) => {
-  const audioContextRef = React.useRef<AudioContext | null>(null)
-  const sourceRef = React.useRef<AudioBufferSourceNode | null>(null)
-  const gainNodeRef = React.useRef<GainNode | null>(null)
-  const [isPlaying, setIsPlaying] = React.useState(false)
-  const [currentTrack, setCurrentTrack] = React.useState<string | null>(null)
+  const audioContextRef = React.useRef<AudioContext | null>(null);
+  const sourceRef = React.useRef<AudioBufferSourceNode | null>(null);
+  const gainNodeRef = React.useRef<GainNode | null>(null);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [currentTrack, setCurrentTrack] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!enabled) {
       // Stop music if disabled
       if (sourceRef.current) {
-        sourceRef.current.stop()
-        sourceRef.current.disconnect()
-        sourceRef.current = null
+        sourceRef.current.stop();
+        sourceRef.current.disconnect();
+        sourceRef.current = null;
       }
-      setIsPlaying(false)
-      return
+      setIsPlaying(false);
+      return;
     }
 
     // Initialize audio context
     if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext()
-      gainNodeRef.current = audioContextRef.current.createGain()
-      gainNodeRef.current.connect(audioContextRef.current.destination)
-      gainNodeRef.current.gain.value = 0.3 // 30% volume
+      audioContextRef.current = new AudioContext();
+      gainNodeRef.current = audioContextRef.current.createGain();
+      gainNodeRef.current.connect(audioContextRef.current.destination);
+      gainNodeRef.current.gain.value = 0.3; // 30% volume
     }
 
-    const ctx = audioContextRef.current
-    const gainNode = gainNodeRef.current!
+    const ctx = audioContextRef.current;
+    const gainNode = gainNodeRef.current!;
 
     // Load and play intro music
     const playIntroMusic = async () => {
       // Randomly select between intro tracks
-      const track = Math.random() > 0.5 ? '1.mp3' : '2.mp3'
-      setCurrentTrack(track)
+      const track = Math.random() > 0.5 ? "1.mp3" : "2.mp3";
+      setCurrentTrack(track);
 
-      const cdnUrl = 'http://localhost:8080' // CDN URL
-      const musicPath = `${cdnUrl}/music/intro/${track}`
+      const cdnUrl = "http://localhost:8080"; // CDN URL
+      const musicPath = `${cdnUrl}/music/intro/${track}`;
 
       // Resume audio context if suspended (browser autoplay policy)
-      if (ctx.state === 'suspended') {
+      if (ctx.state === "suspended") {
         const resumeAudio = async () => {
-          await ctx.resume()
-          document.removeEventListener('click', resumeAudio)
-          document.removeEventListener('keydown', resumeAudio)
-        }
-        document.addEventListener('click', resumeAudio)
-        document.addEventListener('keydown', resumeAudio)
+          await ctx.resume();
+          document.removeEventListener("click", resumeAudio);
+          document.removeEventListener("keydown", resumeAudio);
+        };
+        document.addEventListener("click", resumeAudio);
+        document.addEventListener("keydown", resumeAudio);
       }
 
       // Load audio buffer
-      const response = await fetch(musicPath)
-      const arrayBuffer = await response.arrayBuffer()
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+      const response = await fetch(musicPath);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
 
       // Create source and connect
-      const source = ctx.createBufferSource()
-      source.buffer = audioBuffer
-      source.loop = true // Loop the intro music
-      source.connect(gainNode)
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.loop = true; // Loop the intro music
+      source.connect(gainNode);
 
       // Fade in
-      const now = ctx.currentTime
-      gainNode.gain.setValueAtTime(0, now)
-      gainNode.gain.linearRampToValueAtTime(0.3, now + 2) // 2 second fade in
+      const now = ctx.currentTime;
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.3, now + 2); // 2 second fade in
 
-      source.start(0)
-      sourceRef.current = source
-      setIsPlaying(true)
+      source.start(0);
+      sourceRef.current = source;
+      setIsPlaying(true);
+    };
 
-    }
-
-    playIntroMusic()
+    playIntroMusic();
 
     // Cleanup on unmount
     return () => {
       if (sourceRef.current) {
-        const src = sourceRef.current
-        const ctx = audioContextRef.current!
-        const now = ctx.currentTime
-        
-        // Fade out
-        gainNodeRef.current!.gain.setValueAtTime(gainNodeRef.current!.gain.value, now)
-        gainNodeRef.current!.gain.linearRampToValueAtTime(0, now + 1)
-        
-        setTimeout(() => {
-          src.stop()
-          src.disconnect()
-        }, 1000)
-      }
-    }
-  }, [enabled])
+        const src = sourceRef.current;
+        const ctx = audioContextRef.current!;
+        const now = ctx.currentTime;
 
-  return { isPlaying, currentTrack }
-}
+        // Fade out
+        gainNodeRef.current!.gain.setValueAtTime(
+          gainNodeRef.current!.gain.value,
+          now,
+        );
+        gainNodeRef.current!.gain.linearRampToValueAtTime(0, now + 1);
+
+        setTimeout(() => {
+          src.stop();
+          src.disconnect();
+        }, 1000);
+      }
+    };
+  }, [enabled]);
+
+  return { isPlaying, currentTrack };
+};
 
 // Music Toggle Button Component
 const MusicToggleButton = () => {
-  const [enabled, setEnabled] = React.useState(getMusicEnabled())
-  
-  useIntroMusic(enabled)
+  const [enabled, setEnabled] = React.useState(getMusicEnabled());
+
+  useIntroMusic(enabled);
 
   const toggleMusic = () => {
-    const newEnabled = !enabled
-    setEnabled(newEnabled)
-    setMusicEnabled(newEnabled)
-  }
+    const newEnabled = !enabled;
+    setEnabled(newEnabled);
+    setMusicEnabled(newEnabled);
+  };
 
   return (
     <button
       onClick={toggleMusic}
       className="fixed top-4 left-4 z-50 bg-black/60 hover:bg-black/80 text-white rounded-lg px-4 py-2 border border-white/20 transition-all flex items-center gap-2 backdrop-blur-sm"
-      title={enabled ? 'Disable music' : 'Enable music'}
+      title={enabled ? "Disable music" : "Enable music"}
     >
-      <span className="text-xl">{enabled ? '🔊' : '🔇'}</span>
-      <span className="text-sm font-medium">{enabled ? 'Music On' : 'Music Off'}</span>
+      <span className="text-xl">{enabled ? "🔊" : "🔇"}</span>
+      <span className="text-sm font-medium">
+        {enabled ? "Music On" : "Music Off"}
+      </span>
     </button>
-  )
-}
+  );
+};
 
 export function CharacterSelectPage({
   wsUrl,
@@ -213,32 +217,31 @@ export function CharacterSelectPage({
   }, [authDeps.token, authDeps.privyUserId]);
 
   // Debug logging for state changes
-  React.useEffect(() => {
-      }, [wsReady, showCreate, characters]);
+  React.useEffect(() => {}, [wsReady, showCreate, characters]);
 
   React.useEffect(() => {
     // Wait until Privy auth values are present
     const token = authDeps.token;
     const privyUserId = authDeps.privyUserId;
     if (!token || !privyUserId) {
-            setWsReady(false);
+      setWsReady(false);
       return;
     }
     let url = `${wsUrl}?authToken=${encodeURIComponent(token)}`;
     if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
-                    const ws = new WebSocket(url);
+    const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     preWsRef.current = ws;
     setWsReady(false);
     ws.addEventListener("open", () => {
-            setWsReady(true);
-            // Request character list from server
+      setWsReady(true);
+      // Request character list from server
       const packet = writePacket("characterListRequest", {});
-            ws.send(packet);
-            // Flush any pending create
+      ws.send(packet);
+      // Flush any pending create
       const pending = pendingActionRef.current;
       if (pending && pending.type === "create") {
-                ws.send(writePacket("characterCreate", { name: pending.name }));
+        ws.send(writePacket("characterCreate", { name: pending.name }));
         pendingActionRef.current = null;
       }
     });
@@ -246,7 +249,7 @@ export function CharacterSelectPage({
       console.error("[CharacterSelect] ❌ WebSocket ERROR:", err);
     });
     ws.addEventListener("close", (e) => {
-            setWsReady(false);
+      setWsReady(false);
     });
     ws.addEventListener("message", (e) => {
       const result = readPacket(e.data);
@@ -259,21 +262,27 @@ export function CharacterSelectPage({
       if (method === "onSnapshot") {
         // Extract characters from snapshot
         const snap = data as { characters?: Character[] };
-        console.log('[CharacterSelect] 📋 Received snapshot with characters:', snap.characters);
+        console.log(
+          "[CharacterSelect] 📋 Received snapshot with characters:",
+          snap.characters,
+        );
         if (snap.characters && Array.isArray(snap.characters)) {
-                    setCharacters(snap.characters);
+          setCharacters(snap.characters);
         }
       } else if (method === "onCharacterList") {
         const listData = data as { characters: Character[] };
-        console.log('[CharacterSelect] 📋 Received character list:', listData.characters);
-                setCharacters(listData.characters);
+        console.log(
+          "[CharacterSelect] 📋 Received character list:",
+          listData.characters,
+        );
+        setCharacters(listData.characters);
       } else if (method === "onCharacterCreated") {
         const c = data as Character;
-        console.log('[CharacterSelect] ✅ Character created response:', c);
-                setCharacters((prev) => {
-                              const newList = [...prev, c];
-                    console.log('[CharacterSelect] Updated character list:', newList);
-                    return newList;
+        console.log("[CharacterSelect] ✅ Character created response:", c);
+        setCharacters((prev) => {
+          const newList = [...prev, c];
+          console.log("[CharacterSelect] Updated character list:", newList);
+          return newList;
         });
         // Immediately select newly created character and go to confirm view
         setSelectedCharacterId(c.id);
@@ -281,11 +290,11 @@ export function CharacterSelectPage({
         setShowCreate(false);
         const ws = preWsRef.current!;
         if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(writePacket("characterSelected", { characterId: c.id }));
+          ws.send(writePacket("characterSelected", { characterId: c.id }));
         }
       } else if (method === "onCharacterSelected") {
         const payload = data as { characterId: string | null };
-                setSelectedCharacterId(payload.characterId || null);
+        setSelectedCharacterId(payload.characterId || null);
         if (payload.characterId) setView("confirm");
       } else if (method === "onEntityEvent") {
         const evt = data as {
@@ -297,7 +306,7 @@ export function CharacterSelectPage({
         if (evt?.name === "character:list") {
           const list =
             (evt.data as { characters?: Character[] })?.characters || [];
-                    setCharacters(list);
+          setCharacters(list);
         }
       } else if (method === "onShowToast") {
         const toast = data as { message?: string; type?: string };
@@ -308,7 +317,7 @@ export function CharacterSelectPage({
         // These are real-time position/rotation/velocity updates that happen in the world
         // Silently ignore them
       } else {
-              }
+      }
     });
     return () => {
       ws.close();
@@ -317,7 +326,7 @@ export function CharacterSelectPage({
   }, [wsUrl, authDeps.token, authDeps.privyUserId]);
 
   const selectCharacter = React.useCallback((id: string) => {
-        setSelectedCharacterId(id);
+    setSelectedCharacterId(id);
     setView("confirm");
     const ws = preWsRef.current!;
     if (ws.readyState !== WebSocket.OPEN) return;
@@ -325,8 +334,8 @@ export function CharacterSelectPage({
   }, []);
 
   const createCharacter = React.useCallback(() => {
-        const name = newCharacterName.trim().slice(0, 20);
-    
+    const name = newCharacterName.trim().slice(0, 20);
+
     if (!name || name.length < 3) {
       console.warn(
         "[CharacterSelect] ❌ Name validation failed - must be 3-20 characters",
@@ -350,15 +359,15 @@ export function CharacterSelectPage({
       return;
     }
 
-        const packet = writePacket("characterCreate", { name });
-        ws.send(packet);
-    
+    const packet = writePacket("characterCreate", { name });
+    ws.send(packet);
+
     setNewCharacterName("");
     // Don't hide the create form yet - wait for server response
-      }, [newCharacterName]);
+  }, [newCharacterName]);
 
   const enterWorld = React.useCallback(() => {
-        onPlay(selectedCharacterId);
+    onPlay(selectedCharacterId);
   }, [selectedCharacterId, onPlay]);
 
   const GoldRule = ({
@@ -445,12 +454,10 @@ export function CharacterSelectPage({
                         onClick={() => selectCharacter(c.id)}
                         className="w-full px-4 py-2 text-center bg-black/40 hover:bg-black/50 focus:outline-none focus:ring-1 ring-yellow-400/60 rounded-sm"
                         style={{
-                          color: '#f2d08a',
+                          color: "#f2d08a",
                         }}
                       >
-                        <span className="font-semibold text-xl">
-                          {c.name}
-                        </span>
+                        <span className="font-semibold text-xl">{c.name}</span>
                       </button>
                       <GoldRule thick className="pointer-events-none" />
                     </div>
@@ -485,9 +492,7 @@ export function CharacterSelectPage({
                       onClick={() => setShowCreate(true)}
                       className="w-full px-4 py-2 text-left bg-black/40 hover:bg-black/50 focus:outline-none focus:ring-1 ring-yellow-400/60 rounded-sm"
                     >
-                      <span className="font-semibold text-xl">
-                        Create New
-                      </span>
+                      <span className="font-semibold text-xl">Create New</span>
                     </button>
                     <GoldRule thick className="pointer-events-none" />
                   </div>
@@ -496,94 +501,92 @@ export function CharacterSelectPage({
 
               {/* Character creation form */}
               {showCreate && (
-                  <div className="w-full space-y-2 mt-3">
-                    <form
-                      className="w-full rounded bg-white/5"
-                      onSubmit={(e) => {
-                                                e.preventDefault();
-                        createCharacter();
-                      }}
-                    >
-                      <GoldRule thick />
-                      <div className="flex items-center gap-2 p-3 h-16">
-                        <div className="flex-1">
-                          <input
-                            className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-white outline-none text-sm"
-                            placeholder="Name (3–20 chars)"
-                            value={newCharacterName}
-                            onChange={(e) => {
-                                                            setNewCharacterName(e.target.value);
-                            }}
-                            maxLength={20}
-                            autoFocus
-                          />
-                        </div>
-                        <img
-                          src="/stock_character.png"
-                          alt=""
-                          className="w-12 h-12 rounded-sm object-cover"
+                <div className="w-full space-y-2 mt-3">
+                  <form
+                    className="w-full rounded bg-white/5"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      createCharacter();
+                    }}
+                  >
+                    <GoldRule thick />
+                    <div className="flex items-center gap-2 p-3 h-16">
+                      <div className="flex-1">
+                        <input
+                          className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-white outline-none text-sm"
+                          placeholder="Name (3–20 chars)"
+                          value={newCharacterName}
+                          onChange={(e) => {
+                            setNewCharacterName(e.target.value);
+                          }}
+                          maxLength={20}
+                          autoFocus
                         />
-
-                        <button
-                          type="submit"
-                          className={`px-3 py-1.5 rounded font-bold text-sm ${wsReady && newCharacterName.trim().length >= 3 ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/20 cursor-not-allowed"}`}
-                          disabled={
-                            !wsReady || newCharacterName.trim().length < 3
-                          }
-                          onClick={(e) => {
-                                                        console.log(
-                              "[CharacterSelect] Button state - wsReady:",
-                              wsReady,
-                              "nameLength:",
-                              newCharacterName.trim().length,
-                            );
-                                                      }}
-                        >
-                          Create
-                        </button>
                       </div>
-                      <GoldRule thick />
-                      <div className="px-3 pb-1.5 text-xs opacity-60">
-                        WS Ready: {wsReady ? "✅" : "❌"} | Name Length:{" "}
-                        {newCharacterName.trim().length}
-                      </div>
-                    </form>
+                      <img
+                        src="/stock_character.png"
+                        alt=""
+                        className="w-12 h-12 rounded-sm object-cover"
+                      />
 
-                    {/* EMERGENCY DEBUG BUTTON - BYPASSES FORM */}
-                    <button
-                      className="w-full px-4 py-2 bg-red-600 text-white font-bold text-sm rounded"
-                      onClick={() => {
-                                                                        createCharacter();
-                      }}
-                    >
-                      🚨 DEBUG: FORCE CREATE CHARACTER
-                    </button>
-
-                    {/* TEST CONNECTION BUTTON */}
-                    <button
-                      className="w-full px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded"
-                      onClick={() => {
-                                                const ws = preWsRef.current;
-                        if (!ws) {
-                          console.error(
-                            "[CharacterSelect] ❌ No WebSocket ref!",
-                          );
-                          return;
+                      <button
+                        type="submit"
+                        className={`px-3 py-1.5 rounded font-bold text-sm ${wsReady && newCharacterName.trim().length >= 3 ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/20 cursor-not-allowed"}`}
+                        disabled={
+                          !wsReady || newCharacterName.trim().length < 3
                         }
-                                                                        const packet = writePacket("characterListRequest", {});
-                                                ws.send(packet);
+                        onClick={(e) => {
+                          console.log(
+                            "[CharacterSelect] Button state - wsReady:",
+                            wsReady,
+                            "nameLength:",
+                            newCharacterName.trim().length,
+                          );
+                        }}
+                      >
+                        Create
+                      </button>
+                    </div>
+                    <GoldRule thick />
+                    <div className="px-3 pb-1.5 text-xs opacity-60">
+                      WS Ready: {wsReady ? "✅" : "❌"} | Name Length:{" "}
+                      {newCharacterName.trim().length}
+                    </div>
+                  </form>
 
-                        // Now try characterCreate
-                                                const packet2 = writePacket("characterCreate", {
-                          name: "TestChar",
-                        });
-                                                ws.send(packet2);
-                                              }}
-                    >
-                      🔵 TEST: Send List + Create Packets
-                    </button>
-                  </div>
-                )}
+                  {/* EMERGENCY DEBUG BUTTON - BYPASSES FORM */}
+                  <button
+                    className="w-full px-4 py-2 bg-red-600 text-white font-bold text-sm rounded"
+                    onClick={() => {
+                      createCharacter();
+                    }}
+                  >
+                    🚨 DEBUG: FORCE CREATE CHARACTER
+                  </button>
+
+                  {/* TEST CONNECTION BUTTON */}
+                  <button
+                    className="w-full px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded"
+                    onClick={() => {
+                      const ws = preWsRef.current;
+                      if (!ws) {
+                        console.error("[CharacterSelect] ❌ No WebSocket ref!");
+                        return;
+                      }
+                      const packet = writePacket("characterListRequest", {});
+                      ws.send(packet);
+
+                      // Now try characterCreate
+                      const packet2 = writePacket("characterCreate", {
+                        name: "TestChar",
+                      });
+                      ws.send(packet2);
+                    }}
+                  >
+                    🔵 TEST: Send List + Create Packets
+                  </button>
+                </div>
+              )}
 
               {!wsReady && (
                 <div className="text-xs opacity-60 mt-2">Connecting…</div>
@@ -595,9 +598,11 @@ export function CharacterSelectPage({
                     className="w-full px-6 py-3 text-center bg-transparent hover:bg-black/20 focus:outline-none transition-all rounded-sm"
                     onClick={onLogout}
                     style={{
-                      color: '#f2d08a',
-                      textShadow: '0 0 12px rgba(242, 208, 138, 0.5), 0 0 25px rgba(242, 208, 138, 0.3)',
-                      filter: 'drop-shadow(0 8px 20px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6))',
+                      color: "#f2d08a",
+                      textShadow:
+                        "0 0 12px rgba(242, 208, 138, 0.5), 0 0 25px rgba(242, 208, 138, 0.3)",
+                      filter:
+                        "drop-shadow(0 8px 20px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6))",
                     }}
                   >
                     <span className="font-semibold text-lg uppercase tracking-[0.2em]">
@@ -627,12 +632,17 @@ export function CharacterSelectPage({
                   <div className="absolute inset-x-0 bottom-0">
                     <GoldRule />
                     <div className="flex items-center justify-between px-5 py-3 bg-black/50 backdrop-blur">
-                      <div className="font-semibold text-xl" style={{ color: '#f2d08a' }}>
+                      <div
+                        className="font-semibold text-xl"
+                        style={{ color: "#f2d08a" }}
+                      >
                         {characters.find((c) => c.id === selectedCharacterId)
                           ?.name || "Unnamed"}
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="text-xl" style={{ color: '#f2d08a' }}>✓</div>
+                        <div className="text-xl" style={{ color: "#f2d08a" }}>
+                          ✓
+                        </div>
                       </div>
                     </div>
                     <GoldRule />
@@ -647,11 +657,13 @@ export function CharacterSelectPage({
                     disabled={!selectedCharacterId}
                     onClick={enterWorld}
                     style={{
-                      color: '#f2d08a',
-                      textShadow: '0 0 12px rgba(242, 208, 138, 0.5), 0 0 25px rgba(242, 208, 138, 0.3)',
-                      filter: 'drop-shadow(0 8px 20px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6))',
+                      color: "#f2d08a",
+                      textShadow:
+                        "0 0 12px rgba(242, 208, 138, 0.5), 0 0 25px rgba(242, 208, 138, 0.3)",
+                      filter:
+                        "drop-shadow(0 8px 20px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6))",
                       opacity: selectedCharacterId ? 1 : 0.5,
-                      cursor: selectedCharacterId ? 'pointer' : 'not-allowed',
+                      cursor: selectedCharacterId ? "pointer" : "not-allowed",
                     }}
                   >
                     <span className="font-semibold text-lg uppercase tracking-[0.2em]">
@@ -666,8 +678,8 @@ export function CharacterSelectPage({
                   className="px-6 py-2 bg-transparent hover:bg-black/20 focus:outline-none transition-all rounded-sm border border-[#f2d08a]/30"
                   onClick={() => setView("select")}
                   style={{
-                    color: '#f2d08a',
-                    textShadow: '0 0 8px rgba(242, 208, 138, 0.4)',
+                    color: "#f2d08a",
+                    textShadow: "0 0 8px rgba(242, 208, 138, 0.4)",
                   }}
                 >
                   <span className="font-medium text-sm uppercase tracking-[0.15em]">

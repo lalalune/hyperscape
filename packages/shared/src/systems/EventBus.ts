@@ -1,9 +1,9 @@
 /**
  * Event Bus System
- * 
+ *
  * Type-safe event bus for inter-system communication.
  * Provides subscription management, event history, and request-response patterns.
- * 
+ *
  * Features:
  * - Type-safe event emission and subscription
  * - Automatic subscription cleanup
@@ -12,9 +12,13 @@
  * - Active subscription tracking
  */
 
-import EventEmitter from 'eventemitter3';
-import { AnyEvent, EventPayloads, EventType } from '../types/events';
-import type { SystemEvent, EventHandler, EventSubscription } from '../types/events';
+import EventEmitter from "eventemitter3";
+import { AnyEvent, EventPayloads, EventType } from "../types/events";
+import type {
+  SystemEvent,
+  EventHandler,
+  EventSubscription,
+} from "../types/events";
 
 // Types moved to shared event-system.ts
 
@@ -30,13 +34,17 @@ export class EventBus extends EventEmitter {
   /**
    * Emit a typed event
    */
-  emitEvent<T extends AnyEvent>(type: EventType | string, data: T, source: string = 'unknown'): void {
+  emitEvent<T extends AnyEvent>(
+    type: EventType | string,
+    data: T,
+    source: string = "unknown",
+  ): void {
     const event: SystemEvent<T> = {
       type: type as EventType,
       data,
       source,
       timestamp: Date.now(),
-      id: `${source}-${type}-${++this.subscriptionCounter}`
+      id: `${source}-${type}-${++this.subscriptionCounter}`,
     };
 
     // Add to history for debugging
@@ -55,29 +63,31 @@ export class EventBus extends EventEmitter {
   subscribe<K extends keyof EventPayloads>(
     type: K,
     handler: EventHandler<EventPayloads[K]>,
-    once?: boolean
+    once?: boolean,
   ): EventSubscription;
   subscribe<T extends AnyEvent>(
     type: string,
     handler: EventHandler<T>,
-    once?: boolean
+    once?: boolean,
   ): EventSubscription;
   subscribe(
-    type: string | keyof EventPayloads, 
+    type: string | keyof EventPayloads,
     handler: EventHandler<AnyEvent | EventPayloads[keyof EventPayloads]>,
-    once: boolean = false
+    once: boolean = false,
   ): EventSubscription {
     const subscriptionId = `sub-${++this.subscriptionCounter}`;
     let active = true;
 
-    const wrappedHandler = (event: SystemEvent<AnyEvent | EventPayloads[keyof EventPayloads]>) => {
+    const wrappedHandler = (
+      event: SystemEvent<AnyEvent | EventPayloads[keyof EventPayloads]>,
+    ) => {
       if (!active) return;
-      
+
       const result = handler(event);
-      
+
       // Handle async handlers
       if (result instanceof Promise) {
-        result;  // Let promise rejection propagate naturally
+        result; // Let promise rejection propagate naturally
       }
 
       if (once) {
@@ -101,7 +111,7 @@ export class EventBus extends EventEmitter {
       },
       get active() {
         return active;
-      }
+      },
     };
 
     this.activeSubscriptions.set(subscriptionId, subscription);
@@ -113,48 +123,64 @@ export class EventBus extends EventEmitter {
    */
   subscribeOnce<K extends keyof EventPayloads>(
     type: K,
-    handler: EventHandler<EventPayloads[K]>
+    handler: EventHandler<EventPayloads[K]>,
   ): EventSubscription;
   subscribeOnce<T extends AnyEvent>(
     type: string,
-    handler: EventHandler<T>
+    handler: EventHandler<T>,
   ): EventSubscription;
   subscribeOnce(
-    type: string | keyof EventPayloads, 
-    handler: EventHandler<AnyEvent | EventPayloads[keyof EventPayloads]>
+    type: string | keyof EventPayloads,
+    handler: EventHandler<AnyEvent | EventPayloads[keyof EventPayloads]>,
   ): EventSubscription {
-    return this.subscribe(type as string, handler as EventHandler<AnyEvent>, true);
+    return this.subscribe(
+      type as string,
+      handler as EventHandler<AnyEvent>,
+      true,
+    );
   }
 
   /**
    * Request-response pattern with timeout
    */
-  async request<TRequest extends AnyEvent = AnyEvent, TResponse extends AnyEvent = AnyEvent>(
+  async request<
+    TRequest extends AnyEvent = AnyEvent,
+    TResponse extends AnyEvent = AnyEvent,
+  >(
     requestType: string,
     data: TRequest,
     source: string,
-    timeout: number = 5000
+    timeout: number = 5000,
   ): Promise<TResponse> {
     return new Promise((resolve, reject) => {
       const responseType = `${requestType}:response`;
       const requestId = `req-${++this.subscriptionCounter}`;
-      
+
       const timeoutHandle = setTimeout(() => {
         subscription.unsubscribe();
-        reject(new Error(`Request ${requestType} timed out after ${timeout}ms`));
+        reject(
+          new Error(`Request ${requestType} timed out after ${timeout}ms`),
+        );
       }, timeout);
 
-      const subscription = this.subscribeOnce<TResponse>(responseType, (event) => {
-        clearTimeout(timeoutHandle);
-        resolve(event.data);
-      });
+      const subscription = this.subscribeOnce<TResponse>(
+        responseType,
+        (event) => {
+          clearTimeout(timeoutHandle);
+          resolve(event.data);
+        },
+      );
 
       // Emit the request with response info
-      this.emitEvent(requestType as EventType, {
-        ...data,
-        _requestId: requestId,
-        _responseType: responseType
-      } as TRequest, source);
+      this.emitEvent(
+        requestType as EventType,
+        {
+          ...data,
+          _requestId: requestId,
+          _responseType: responseType,
+        } as TRequest,
+        source,
+      );
     });
   }
 
@@ -164,10 +190,13 @@ export class EventBus extends EventEmitter {
   respond<T extends AnyEvent>(
     originalEvent: SystemEvent<{ _responseType?: string; _requestId?: string }>,
     responseData: T,
-    source: string
+    source: string,
   ): void {
     if (!originalEvent.data._responseType || !originalEvent.data._requestId) {
-      console.warn('[EventBus] Attempted to respond to non-request event:', originalEvent);
+      console.warn(
+        "[EventBus] Attempted to respond to non-request event:",
+        originalEvent,
+      );
       return;
     }
 
@@ -179,7 +208,7 @@ export class EventBus extends EventEmitter {
    */
   getEventHistory(filterByType?: string): SystemEvent[] {
     if (filterByType) {
-      return this.eventHistory.filter(event => event.type === filterByType);
+      return this.eventHistory.filter((event) => event.type === filterByType);
     }
     return [...this.eventHistory];
   }
@@ -195,7 +224,7 @@ export class EventBus extends EventEmitter {
    * Cleanup all subscriptions
    */
   cleanup(): void {
-    this.activeSubscriptions.forEach(subscription => {
+    this.activeSubscriptions.forEach((subscription) => {
       subscription.unsubscribe();
     });
     this.activeSubscriptions.clear();

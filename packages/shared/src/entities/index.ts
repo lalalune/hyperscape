@@ -20,20 +20,20 @@ export type {
   EntityCombatComponent,
   VisualComponent,
   BankStorageItem,
-  Component
-} from '../types/entities';
+  Component,
+} from "../types/entities";
 
 // Export entity classes
-export { Entity } from './Entity';
+export { Entity } from "./Entity";
 
 // Specialized base classes
-export { CombatantEntity } from './CombatantEntity';
-export { InteractableEntity } from './InteractableEntity';
+export { CombatantEntity } from "./CombatantEntity";
+export { InteractableEntity } from "./InteractableEntity";
 
 // Concrete entity classes
-export { ItemEntity } from './ItemEntity';
-export { HeadstoneEntity } from './HeadstoneEntity';
-export { MobEntity } from './MobEntity';
-export { ResourceEntity } from './ResourceEntity';
-export { NPCEntity } from './NPCEntity';
-export { PlayerEntity } from './PlayerEntity';
+export { ItemEntity } from "./ItemEntity";
+export { HeadstoneEntity } from "./HeadstoneEntity";
+export { MobEntity } from "./MobEntity";
+export { ResourceEntity } from "./ResourceEntity";
+export { NPCEntity } from "./NPCEntity";
+export { PlayerEntity } from "./PlayerEntity";

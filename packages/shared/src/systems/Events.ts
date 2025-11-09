@@ -1,13 +1,22 @@
-import { System } from './System';
-import type { World } from '../types/index';
-import { EventBus, type EventSubscription } from './EventBus';
+import { System } from "./System";
+import type { World } from "../types/index";
+import { EventBus, type EventSubscription } from "./EventBus";
 
 type EventCallback = (data?: unknown, extra?: unknown) => void;
 
 export interface IEventsInterface extends System {
   emit<T extends string | symbol>(event: T, ...args: unknown[]): boolean;
-  on<T extends string | symbol>(event: T, fn: (...args: unknown[]) => void, context?: unknown): this;
-  off<T extends string | symbol>(event: T, fn?: (...args: unknown[]) => void, context?: unknown, once?: boolean): this;
+  on<T extends string | symbol>(
+    event: T,
+    fn: (...args: unknown[]) => void,
+    context?: unknown,
+  ): this;
+  off<T extends string | symbol>(
+    event: T,
+    fn?: (...args: unknown[]) => void,
+    context?: unknown,
+    once?: boolean,
+  ): this;
 
   // Plugin-specific array-like methods
   push?: (callback: (data: unknown) => void) => void;
@@ -30,7 +39,10 @@ export interface IEventsInterface extends System {
 export class Events extends System implements IEventsInterface {
   private bus: EventBus;
   private eventListeners: Map<string | symbol, Set<EventCallback>> = new Map();
-  private busListenerMap: Map<string | symbol, Map<EventCallback, EventSubscription>> = new Map();
+  private busListenerMap: Map<
+    string | symbol,
+    Map<EventCallback, EventSubscription>
+  > = new Map();
 
   constructor(world: World) {
     super(world);
@@ -42,18 +54,26 @@ export class Events extends System implements IEventsInterface {
     const [data, extra] = args;
     const callbacks = this.eventListeners.get(event);
     if (!callbacks) return false;
-    
+
     for (const callback of callbacks) {
       callback(data, extra);
     }
     // Bridge world.emit -> EventBus for string events
-    if (typeof event === 'string') {
-      this.bus.emitEvent(event, (data as Record<string, unknown>) as unknown as Record<string, unknown>, 'world');
+    if (typeof event === "string") {
+      this.bus.emitEvent(
+        event,
+        data as Record<string, unknown> as unknown as Record<string, unknown>,
+        "world",
+      );
     }
     return true;
   }
 
-  on<T extends string | symbol>(event: T, fn: (...args: unknown[]) => void, _context?: unknown): this {
+  on<T extends string | symbol>(
+    event: T,
+    fn: (...args: unknown[]) => void,
+    _context?: unknown,
+  ): this {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
@@ -61,7 +81,7 @@ export class Events extends System implements IEventsInterface {
     const handler = _context ? fn.bind(_context) : fn;
     this.eventListeners.get(event)!.add(handler);
     // Bridge EventBus -> world.on for string events
-    if (typeof event === 'string') {
+    if (typeof event === "string") {
       let mapForEvent = this.busListenerMap.get(event);
       if (!mapForEvent) {
         mapForEvent = new Map();
@@ -75,11 +95,16 @@ export class Events extends System implements IEventsInterface {
     return this;
   }
 
-  off<T extends string | symbol>(event: T, fn?: (...args: unknown[]) => void, _context?: unknown, _once?: boolean): this {
+  off<T extends string | symbol>(
+    event: T,
+    fn?: (...args: unknown[]) => void,
+    _context?: unknown,
+    _once?: boolean,
+  ): this {
     if (!fn) {
       // Remove all listeners for this event
       this.eventListeners.delete(event);
-      if (typeof event === 'string') {
+      if (typeof event === "string") {
         // Unsubscribe all bridged subscriptions for this event
         const mapForEvent = this.busListenerMap.get(event);
         if (mapForEvent) {
@@ -91,7 +116,7 @@ export class Events extends System implements IEventsInterface {
       }
       return this;
     }
-    
+
     const callbacks = this.eventListeners.get(event);
     if (callbacks) {
       // If context was provided, we need to find the bound version
@@ -101,7 +126,7 @@ export class Events extends System implements IEventsInterface {
         this.eventListeners.delete(event);
       }
     }
-    if (typeof event === 'string') {
+    if (typeof event === "string") {
       const mapForEvent = this.busListenerMap.get(event);
       if (mapForEvent) {
         const sub = mapForEvent.get(fn);
@@ -120,16 +145,16 @@ export class Events extends System implements IEventsInterface {
   // Plugin-specific array-like methods for compatibility
   push(_callback: (data: unknown) => void): void {
     // This is a no-op for the Map-based implementation
-    console.warn('Events.push() called on Map-based Events system');
+    console.warn("Events.push() called on Map-based Events system");
   }
 
   indexOf(_callback: (data: unknown) => void): number {
-    console.warn('Events.indexOf() called on Map-based Events system');
+    console.warn("Events.indexOf() called on Map-based Events system");
     return -1;
   }
 
   splice(_index: number, _count: number): void {
-    console.warn('Events.splice() called on Map-based Events system');
+    console.warn("Events.splice() called on Map-based Events system");
   }
 
   clear(): void {
@@ -158,4 +183,4 @@ export class Events extends System implements IEventsInterface {
   override destroy(): void {
     this.eventListeners.clear();
   }
-} 
+}

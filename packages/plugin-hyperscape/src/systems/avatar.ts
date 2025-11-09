@@ -1,7 +1,11 @@
 import { logger } from "@elizaos/core";
 import { THREE } from "@hyperscape/shared";
 import type { World, Player } from "../types/core-types";
-import { PlayerEffectSchema, type PlayerEffect, type PlayerData } from "../types/validation-schemas";
+import {
+  PlayerEffectSchema,
+  type PlayerEffect,
+  type PlayerData,
+} from "../types/validation-schemas";
 
 interface NodeContext {
   entity?: {
@@ -48,7 +52,12 @@ class Node extends THREE.Object3D {
 
 interface AnimationFactory {
   toClip?(target: THREE.Object3D): THREE.AnimationClip | null;
-  [key: string]: ((target: THREE.Object3D) => THREE.AnimationClip | null) | string | number | boolean | undefined;
+  [key: string]:
+    | ((target: THREE.Object3D) => THREE.AnimationClip | null)
+    | string
+    | number
+    | boolean
+    | undefined;
 }
 
 interface EmotePlayerNode extends THREE.Group {
@@ -198,7 +207,8 @@ export class AgentAvatar extends Node {
 
       // Emote handling with Zod validation
       if (this.player) {
-        const rawEffect = (this.player as { data?: { effect?: unknown } }).data?.effect;
+        const rawEffect = (this.player as { data?: { effect?: unknown } }).data
+          ?.effect;
         const parseResult = PlayerEffectSchema.safeParse(rawEffect);
         const effect = parseResult.success ? parseResult.data : undefined;
         if (effect?.emote !== this.emote) {

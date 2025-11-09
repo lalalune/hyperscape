@@ -3,8 +3,8 @@
  * These types are shared across all entity implementations
  */
 
-import type THREE from '../extras/three';
-import type { EntityData, Position3D, Quaternion } from './base-types';
+import type THREE from "../extras/three";
+import type { EntityData, Position3D, Quaternion } from "./base-types";
 import type {
   EquipmentComponent,
   InventoryComponent,
@@ -15,72 +15,72 @@ import type {
   PlayerHealth,
   PlayerStamina,
   PrayerComponent,
-  StatsComponent
-} from './core';
+  StatsComponent,
+} from "./core";
 
 // Enums for better type safety instead of string literals
 export enum EntityType {
-  PLAYER = 'player',
-  MOB = 'mob',
-  ITEM = 'item',
-  NPC = 'npc',
-  RESOURCE = 'resource',
-  HEADSTONE = 'headstone',
-  STATIC = 'static'
+  PLAYER = "player",
+  MOB = "mob",
+  ITEM = "item",
+  NPC = "npc",
+  RESOURCE = "resource",
+  HEADSTONE = "headstone",
+  STATIC = "static",
 }
 
 export enum InteractionType {
-  ATTACK = 'attack',
-  PICKUP = 'pickup',
-  TALK = 'talk',
-  GATHER = 'gather',
-  USE = 'use',
-  LOOT = 'loot',
-  BANK = 'bank',
-  TRADE = 'trade',
-  TRAIN = 'train',
-  QUEST = 'quest'
+  ATTACK = "attack",
+  PICKUP = "pickup",
+  TALK = "talk",
+  GATHER = "gather",
+  USE = "use",
+  LOOT = "loot",
+  BANK = "bank",
+  TRADE = "trade",
+  TRAIN = "train",
+  QUEST = "quest",
 }
 
 export enum PlayerCombatStyle {
-  ATTACK = 'attack',
-  STRENGTH = 'strength',
-  DEFENSE = 'defense',
-  RANGED = 'ranged'
+  ATTACK = "attack",
+  STRENGTH = "strength",
+  DEFENSE = "defense",
+  RANGED = "ranged",
 }
 
 // Mob types are now fully data-driven from mobs.json
 // No enum needed - use string type with mob IDs from JSON
 
 export enum MobAIState {
-  IDLE = 'idle',
-  WANDER = 'wander',
-  CHASE = 'chase',
-  ATTACK = 'attack',
-  RETURN = 'return',
-  DEAD = 'dead'
+  IDLE = "idle",
+  WANDER = "wander",
+  CHASE = "chase",
+  ATTACK = "attack",
+  RETURN = "return",
+  DEAD = "dead",
 }
 
 export enum NPCType {
-  BANK = 'bank',
-  STORE = 'store',
-  QUEST_GIVER = 'quest_giver',
-  TRAINER = 'trainer'
+  BANK = "bank",
+  STORE = "store",
+  QUEST_GIVER = "quest_giver",
+  TRAINER = "trainer",
 }
 
 export enum ResourceType {
-  TREE = 'tree',
-  FISHING_SPOT = 'fishing_spot',
-  MINING_ROCK = 'mining_rock'
+  TREE = "tree",
+  FISHING_SPOT = "fishing_spot",
+  MINING_ROCK = "mining_rock",
 }
 
 export enum ItemRarity {
-  ALWAYS = 'always',
-  COMMON = 'common',
-  UNCOMMON = 'uncommon',
-  RARE = 'rare',
-  EPIC = 'epic',
-  LEGENDARY = 'legendary'
+  ALWAYS = "always",
+  COMMON = "common",
+  UNCOMMON = "uncommon",
+  RARE = "rare",
+  EPIC = "epic",
+  LEGENDARY = "legendary",
 }
 
 // Re-export for convenience
@@ -139,7 +139,7 @@ export interface PlayerEntityData extends BaseEntityData {
   skills: Record<string, { level: number; xp: number }>;
 }
 
-// Bank entity data  
+// Bank entity data
 export interface BankEntityData extends BaseEntityData {
   bankId: string;
   townId: string;
@@ -161,7 +161,7 @@ export interface ItemEntityConfig extends EntityConfig<ItemEntityProperties> {
   requirements: Record<string, number>;
   effects: Array<{ type: string; value: number; duration: number }>;
   armorSlot: string | null;
-  // Additional properties needed for Item compatibility  
+  // Additional properties needed for Item compatibility
   examine?: string;
   modelPath?: string;
   iconPath?: string;
@@ -184,7 +184,12 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   wanderRadius: number; // Fixed distance from spawn point (RuneScape-style)
   respawnTime: number;
   xpReward: number;
-  lootTable: Array<{ itemId: string; chance: number; minQuantity: number; maxQuantity: number }>;
+  lootTable: Array<{
+    itemId: string;
+    chance: number;
+    minQuantity: number;
+    maxQuantity: number;
+  }>;
   spawnPoint: Position3D;
   aiState: MobAIState;
   targetPlayerId: string | null;
@@ -208,7 +213,8 @@ export interface NPCEntityConfig extends EntityConfig<NPCEntityProperties> {
 }
 
 // Resource entity config
-export interface ResourceEntityConfig extends EntityConfig<ResourceEntityProperties> {
+export interface ResourceEntityConfig
+  extends EntityConfig<ResourceEntityProperties> {
   resourceType: ResourceType;
   resourceId: string;
   harvestSkill: string;
@@ -263,7 +269,7 @@ export interface BaseEntityProperties {
   healthComponent: HealthComponent | null;
   visualComponent: VisualComponent | null;
   // Basic entity data that all entities have
-  health: PlayerHealth;  // Health format with current and max values
+  health: PlayerHealth; // Health format with current and max values
   level: number;
 }
 
@@ -274,11 +280,11 @@ export interface PlayerEntityProperties extends BaseEntityProperties {
   equipmentComponent: EquipmentComponent;
   prayerComponent: PrayerComponent | null;
   // Player specific data
-  health: PlayerHealth;  // Health format with current and max values
+  health: PlayerHealth; // Health format with current and max values
   level: number;
   playerId: string;
   playerName: string;
-  stamina: PlayerStamina;  // Changed from separate stamina/maxStamina to use PlayerStamina
+  stamina: PlayerStamina; // Changed from separate stamina/maxStamina to use PlayerStamina
   combatStyle: PlayerCombatStyle;
 }
 
@@ -342,13 +348,14 @@ export interface HeadstoneData {
   despawnTime: number;
 }
 
-export interface LocalHeadstoneData extends Omit<HeadstoneData, 'deathTime'> {
+export interface LocalHeadstoneData extends Omit<HeadstoneData, "deathTime"> {
   id: string;
   createdAt: number;
 }
 
 // Headstone entity config
-export interface HeadstoneEntityConfig extends EntityConfig<BaseEntityProperties> {
+export interface HeadstoneEntityConfig
+  extends EntityConfig<BaseEntityProperties> {
   headstoneData: HeadstoneData;
 }
 
@@ -366,15 +373,15 @@ export interface ItemSpawnData {
 }
 
 export interface ItemSpawnerStats {
-  totalItems: number
-  shopItems: number
-  treasureItems: number
-  chestItems: number
-  resourceItems: number
-  lootItems: number
-  byType: Record<string, number>
-  byLocation?: Record<string, number>
-  spawnedItems?: number
+  totalItems: number;
+  shopItems: number;
+  treasureItems: number;
+  chestItems: number;
+  resourceItems: number;
+  lootItems: number;
+  byType: Record<string, number>;
+  byLocation?: Record<string, number>;
+  spawnedItems?: number;
 }
 
 export interface MobSpawnData {

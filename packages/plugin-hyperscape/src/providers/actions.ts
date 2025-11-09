@@ -58,7 +58,10 @@ export const hyperscapeActionsProvider: Provider = {
         : "";
     const actionExamples =
       actionsData.length > 0
-        ? addHeader("# Action Examples", composeActionExamples(actionsData as Action[], 10))
+        ? addHeader(
+            "# Action Examples",
+            composeActionExamples(actionsData as Action[], 10),
+          )
         : "";
 
     const data = { actionsData };

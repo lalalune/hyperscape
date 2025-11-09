@@ -1,82 +1,82 @@
 /**
  * Branded type identifiers for compile-time type safety
- * 
+ *
  * These types use the "brand" pattern to create distinct types at compile time
  * that are still strings at runtime. This prevents accidentally passing the
  * wrong type of ID to a function.
  */
 
 // Branded types for IDs
-export type PlayerID = string & { readonly __brand: 'PlayerID' }
-export type ItemID = string & { readonly __brand: 'ItemID' }
-export type MobID = string & { readonly __brand: 'MobID' }
-export type EntityID = string & { readonly __brand: 'EntityID' }
-export type StoreID = string & { readonly __brand: 'StoreID' }
-export type BankID = string & { readonly __brand: 'BankID' }
-export type ResourceID = string & { readonly __brand: 'ResourceID' }
-export type NPCID = string & { readonly __brand: 'NPCID' }
-export type SessionID = string & { readonly __brand: 'SessionID' }
-export type QuestID = string & { readonly __brand: 'QuestID' }
-export type SkillID = string & { readonly __brand: 'SkillID' }
-export type ZoneID = string & { readonly __brand: 'ZoneID' }
-export type ChunkID = string & { readonly __brand: 'ChunkID' }
-export type SlotNumber = number & { readonly __brand: 'SlotNumber' }
+export type PlayerID = string & { readonly __brand: "PlayerID" };
+export type ItemID = string & { readonly __brand: "ItemID" };
+export type MobID = string & { readonly __brand: "MobID" };
+export type EntityID = string & { readonly __brand: "EntityID" };
+export type StoreID = string & { readonly __brand: "StoreID" };
+export type BankID = string & { readonly __brand: "BankID" };
+export type ResourceID = string & { readonly __brand: "ResourceID" };
+export type NPCID = string & { readonly __brand: "NPCID" };
+export type SessionID = string & { readonly __brand: "SessionID" };
+export type QuestID = string & { readonly __brand: "QuestID" };
+export type SkillID = string & { readonly __brand: "SkillID" };
+export type ZoneID = string & { readonly __brand: "ZoneID" };
+export type ChunkID = string & { readonly __brand: "ChunkID" };
+export type SlotNumber = number & { readonly __brand: "SlotNumber" };
 
 // Validation functions
 export function isValidPlayerID(id: unknown): id is PlayerID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidMobID(id: unknown): id is MobID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidEntityID(id: unknown): id is EntityID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidItemID(id: unknown): id is ItemID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidStoreID(id: unknown): id is StoreID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidBankID(id: unknown): id is BankID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidResourceID(id: unknown): id is ResourceID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidNPCID(id: unknown): id is NPCID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidSessionID(id: unknown): id is SessionID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidSlotNumber(slot: unknown): slot is SlotNumber {
-  return typeof slot === 'number' && slot >= 0 && Number.isInteger(slot);
+  return typeof slot === "number" && slot >= 0 && Number.isInteger(slot);
 }
 
 export function isValidQuestID(id: unknown): id is QuestID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidSkillID(id: unknown): id is SkillID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidZoneID(id: unknown): id is ZoneID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 export function isValidChunkID(id: unknown): id is ChunkID {
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === "string" && id.length > 0;
 }
 
 // Creation functions with validation

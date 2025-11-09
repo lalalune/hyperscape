@@ -195,7 +195,11 @@ function getTopConfusionPoints(confusionPoints: string[], limit = 5) {
 /**
  * Build comprehensive test report
  */
-function buildTestReport(results: SwarmPlaytestResult, contentType: string, duration: number) {
+function buildTestReport(
+  results: SwarmPlaytestResult,
+  contentType: string,
+  duration: number,
+) {
   const metrics = results.aggregatedMetrics;
   const consensus = results.consensus;
 
@@ -251,12 +255,14 @@ function buildTestReport(results: SwarmPlaytestResult, contentType: string, dura
       major: metrics.majorBugs,
       minor: metrics.minorBugs,
       total: metrics.uniqueBugs,
-      topIssues: (metrics.bugReports as DedupedBugReport[]).slice(0, 5).map((bug) => ({
-        description: bug.description,
-        severity: bug.severity,
-        reportedBy: bug.reporters,
-        reportCount: bug.reportCount,
-      })),
+      topIssues: (metrics.bugReports as DedupedBugReport[])
+        .slice(0, 5)
+        .map((bug) => ({
+          description: bug.description,
+          severity: bug.severity,
+          reportedBy: bug.reporters,
+          reportCount: bug.reportCount,
+        })),
     },
 
     playerFeedback: {

@@ -1,6 +1,6 @@
-import { System } from './System';
-import type { World } from '../types';
-import type { LODNode } from '../types/nodes'
+import { System } from "./System";
+import type { World } from "../types";
+import type { LODNode } from "../types/nodes";
 
 const BATCH_SIZE = 1000;
 
@@ -33,7 +33,7 @@ export class LODs extends System {
     const idx = this.nodes.indexOf(node);
     if (idx === -1) return;
     this.nodes.splice(idx, 1);
-    
+
     // Adjust cursor if necessary to prevent out of bounds
     if (this.cursor >= this.nodes.length && this.nodes.length > 0) {
       this.cursor = this.cursor % this.nodes.length;
@@ -42,7 +42,7 @@ export class LODs extends System {
 
   override update(_delta: number): void {
     if (this.nodes.length === 0) return;
-    
+
     // check if lods need to switch (batched over multiple frames)
     const size = Math.min(this.nodes.length, BATCH_SIZE);
     for (let i = 0; i < size; i++) {
@@ -51,7 +51,7 @@ export class LODs extends System {
       if (!node) continue;
       node.check();
     }
-    
+
     if (size) {
       this.cursor = (this.cursor + size) % this.nodes.length;
     }
@@ -60,4 +60,4 @@ export class LODs extends System {
   override destroy(): void {
     this.nodes = [];
   }
-} 
+}

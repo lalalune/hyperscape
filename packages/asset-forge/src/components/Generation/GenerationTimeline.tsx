@@ -1,7 +1,13 @@
-import { Clock } from 'lucide-react'
-import React from 'react'
+import { Clock } from "lucide-react";
+import React from "react";
 
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../common'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "../common";
 
 export const GenerationTimeline: React.FC = () => {
   return (
@@ -12,8 +18,12 @@ export const GenerationTimeline: React.FC = () => {
             <Clock className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-lg font-semibold">Generation Timeline</CardTitle>
-            <CardDescription className="text-xs mt-0.5">Track your generation progress</CardDescription>
+            <CardTitle className="text-lg font-semibold">
+              Generation Timeline
+            </CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Track your generation progress
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -26,7 +36,9 @@ export const GenerationTimeline: React.FC = () => {
             </span>
           </div>
           <div className="flex justify-between items-center p-3 bg-bg-secondary/50 rounded-lg border border-border-primary/50">
-            <span className="text-sm text-text-secondary">Estimated completion</span>
+            <span className="text-sm text-text-secondary">
+              Estimated completion
+            </span>
             <span className="text-sm font-medium text-primary">
               ~5-10 minutes
             </span>
@@ -34,5 +46,5 @@ export const GenerationTimeline: React.FC = () => {
         </div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};

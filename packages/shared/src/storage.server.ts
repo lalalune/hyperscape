@@ -1,14 +1,14 @@
 /**
  * Server-specific storage implementation
- * 
+ *
  * This module handles Node.js file-based storage.
  * It should only be imported on the server side.
  */
 
 export class NodeStorage {
-  file: string = '';
+  file: string = "";
   data: Record<string, unknown> = {};
-  private fs: typeof import('node:fs/promises') | null = null;
+  private fs: typeof import("node:fs/promises") | null = null;
   private path: {
     join: (...paths: string[]) => string;
     dirname: (path: string) => string;
@@ -16,32 +16,34 @@ export class NodeStorage {
   private initialized: boolean = false;
 
   constructor() {
-    this.initialize()
+    this.initialize();
   }
 
   private async initialize() {
     if (this.initialized) return;
-    
-    const { promises: fs } = await import('fs');
-    const path = await import('path');
+
+    const { promises: fs } = await import("fs");
+    const path = await import("path");
     this.fs = fs;
     this.path = path;
-    
+
     // Use environment variable or current working directory
     const dataDir = process.env.HYPERSCAPE_DATA_DIR || process.cwd();
-    this.file = this.path!.join(dataDir, '.hyperscape-storage.json');
-    
+    this.file = this.path!.join(dataDir, ".hyperscape-storage.json");
+
     // Load existing data
-    const exists = await this.fs!.access(this.file).then(() => true).catch(() => false);
+    const exists = await this.fs!.access(this.file)
+      .then(() => true)
+      .catch(() => false);
     if (exists) {
-      const content = await this.fs!.readFile(this.file, { encoding: 'utf8' });
+      const content = await this.fs!.readFile(this.file, { encoding: "utf8" });
       this.data = JSON.parse(content);
     } else {
       // Create empty file
       this.data = {};
       await this.save();
     }
-    
+
     this.initialized = true;
   }
 
@@ -57,8 +59,8 @@ export class NodeStorage {
   async get(key: string): Promise<unknown> {
     if (!this.initialized) await this.initialize();
     const value = this.data[key];
-    if (value === undefined) return null
-    return value
+    if (value === undefined) return null;
+    return value;
   }
 
   async set(key: string, value: unknown): Promise<void> {
@@ -73,4 +75,3 @@ export class NodeStorage {
     await this.save();
   }
 }
-

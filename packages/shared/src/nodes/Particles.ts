@@ -1,18 +1,26 @@
 /**
  * Particles.ts - Particle Emitter Node
- * 
+ *
  * GPU-accelerated particle effects with curves and bursts.
  */
 
-import { every, isArray, isNumber, isString } from 'lodash-es'
-import { Node } from './Node'
-import { World } from '../World'
-import type { ParticlesData, ParticleEmitter } from '../types/nodes'
+import { every, isArray, isNumber, isString } from "lodash-es";
+import { Node } from "./Node";
+import { World } from "../World";
+import type { ParticlesData, ParticleEmitter } from "../types/nodes";
 
-const shapeTypes = ['point', 'sphere', 'hemisphere', 'cone', 'box', 'circle', 'rectangle']
-const spaces = ['local', 'world']
-const blendings = ['additive', 'normal']
-const billboards = ['full', 'y', 'direction']
+const shapeTypes = [
+  "point",
+  "sphere",
+  "hemisphere",
+  "cone",
+  "box",
+  "circle",
+  "rectangle",
+];
+const spaces = ["local", "world"];
+const blendings = ["additive", "normal"];
+const billboards = ["full", "y", "direction"];
 
 // shape types
 // -------------
@@ -84,8 +92,6 @@ const defaults = {
   onEnd: null,
 }
 
-
-
 export class Particles extends Node {
   emitter?: ParticleEmitter | null;
   needsRebuild?: boolean;
@@ -122,65 +128,65 @@ export class Particles extends Node {
   _alphaOverLife?: string | null;
   _emissiveOverLife?: string | null;
   _onEnd?: (() => void) | null;
-  
+
   constructor(data: ParticlesData = {}) {
-    super(data)
-    this.name = 'particles'
+    super(data);
+    this.name = "particles";
 
-    this.emitting = data.emitting
-    this.shape = data.shape
-    this.direction = data.direction
-    this.rate = data.rate
-    this.bursts = data.bursts
-    this.duration = data.duration
-    this.loop = data.loop
-    this.max = data.max ?? defaults.max
-    this.timescale = data.timescale
+    this.emitting = data.emitting;
+    this.shape = data.shape;
+    this.direction = data.direction;
+    this.rate = data.rate;
+    this.bursts = data.bursts;
+    this.duration = data.duration;
+    this.loop = data.loop;
+    this.max = data.max ?? defaults.max;
+    this.timescale = data.timescale;
 
-    this.life = data.life
-    this.speed = data.speed
-    this.size = data.size
-    this.rotate = data.rotate
-    this.color = data.color
-    this.alpha = data.alpha
-    this.emissive = data.emissive
+    this.life = data.life;
+    this.speed = data.speed;
+    this.size = data.size;
+    this.rotate = data.rotate;
+    this.color = data.color;
+    this.alpha = data.alpha;
+    this.emissive = data.emissive;
 
-    this.image = data.image
-    this.spritesheet = data.spritesheet
-    this.blending = data.blending
-    this.lit = data.lit
-    this.billboard = data.billboard
-    this.space = data.space
+    this.image = data.image;
+    this.spritesheet = data.spritesheet;
+    this.blending = data.blending;
+    this.lit = data.lit;
+    this.billboard = data.billboard;
+    this.space = data.space;
 
-    this.force = data.force
-    this.velocityLinear = data.velocityLinear
-    this.velocityOrbital = data.velocityOrbital
-    this.velocityRadial = data.velocityRadial
+    this.force = data.force;
+    this.velocityLinear = data.velocityLinear;
+    this.velocityOrbital = data.velocityOrbital;
+    this.velocityRadial = data.velocityRadial;
 
-    this.rateOverDistance = data.rateOverDistance
-    this.sizeOverLife = data.sizeOverLife
-    this.rotateOverLife = data.rotateOverLife
-    this.colorOverLife = data.colorOverLife
-    this.alphaOverLife = data.alphaOverLife
-    this.emissiveOverLife = data.emissiveOverLife
+    this.rateOverDistance = data.rateOverDistance;
+    this.sizeOverLife = data.sizeOverLife;
+    this.rotateOverLife = data.rotateOverLife;
+    this.colorOverLife = data.colorOverLife;
+    this.alphaOverLife = data.alphaOverLife;
+    this.emissiveOverLife = data.emissiveOverLife;
 
-    this.onEnd = data.onEnd
+    this.onEnd = data.onEnd;
   }
 
   mount() {
-    this.needsRebuild = false
-    const world = this.ctx as World
+    this.needsRebuild = false;
+    const world = this.ctx as World;
     if (world.particles) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.emitter = world.particles.register(this as any)
+      this.emitter = world.particles.register(this as any);
     }
   }
 
   commit(didMove) {
     if (this.needsRebuild) {
-      this.unmount()
-      this.mount()
-      return
+      this.unmount();
+      this.mount();
+      return;
     }
     if (didMove) {
       // emitter tracks matrixWorld automatically
@@ -189,54 +195,54 @@ export class Particles extends Node {
 
   unmount() {
     if (this.emitter && this.emitter.destroy) {
-      this.emitter.destroy()
+      this.emitter.destroy();
     }
-    this.emitter = null
+    this.emitter = null;
   }
 
   copy(source, recursive) {
-    super.copy(source, recursive)
+    super.copy(source, recursive);
 
-    this._emitting = source._emitting
-    this._shape = source._shape
-    this._direction = source._direction
-    this._rate = source._rate
-    this._bursts = source._bursts
-    this._duration = source._duration
-    this._loop = source._loop
-    this._max = source._max
-    this._timescale = source._timescale
+    this._emitting = source._emitting;
+    this._shape = source._shape;
+    this._direction = source._direction;
+    this._rate = source._rate;
+    this._bursts = source._bursts;
+    this._duration = source._duration;
+    this._loop = source._loop;
+    this._max = source._max;
+    this._timescale = source._timescale;
 
-    this._life = source._life
-    this._speed = source._speed
-    this._size = source._size
-    this._rotate = source._rotate
-    this._color = source._color
-    this._alpha = source._alpha
-    this._emissive = source._emissive
+    this._life = source._life;
+    this._speed = source._speed;
+    this._size = source._size;
+    this._rotate = source._rotate;
+    this._color = source._color;
+    this._alpha = source._alpha;
+    this._emissive = source._emissive;
 
-    this._image = source._image
-    this._spritesheet = source._spritesheet
-    this._blending = source._blending
-    this._lit = source._lit
-    this._billboard = source._billboard
-    this._space = source._space
+    this._image = source._image;
+    this._spritesheet = source._spritesheet;
+    this._blending = source._blending;
+    this._lit = source._lit;
+    this._billboard = source._billboard;
+    this._space = source._space;
 
-    this._force = source._force
-    this._velocityLinear = source._velocityLinear
-    this._velocityOrbital = source._velocityOrbital
-    this._velocityRadial = source._velocityRadial
+    this._force = source._force;
+    this._velocityLinear = source._velocityLinear;
+    this._velocityOrbital = source._velocityOrbital;
+    this._velocityRadial = source._velocityRadial;
 
-    this._rateOverDistance = source._rateOverDistance
-    this._sizeOverLife = source._sizeOverLife
-    this._rotateOverLife = source._rotateOverLife
-    this._colorOverLife = source._colorOverLife
-    this._alphaOverLife = source._alphaOverLife
-    this._emissiveOverLife = source._emissiveOverLife
+    this._rateOverDistance = source._rateOverDistance;
+    this._sizeOverLife = source._sizeOverLife;
+    this._rotateOverLife = source._rotateOverLife;
+    this._colorOverLife = source._colorOverLife;
+    this._alphaOverLife = source._alphaOverLife;
+    this._emissiveOverLife = source._emissiveOverLife;
 
-    this._onEnd = source._onEnd
+    this._onEnd = source._onEnd;
 
-    return this
+    return this;
   }
 
   getConfig() {
@@ -277,679 +283,685 @@ export class Particles extends Node {
       colorOverLife: this._colorOverLife,
       alphaOverLife: this._alphaOverLife,
       emissiveOverLife: this._emissiveOverLife,
-    }
-    return config
+    };
+    return config;
   }
 
   get emitting() {
-    return this._emitting
+    return this._emitting;
   }
 
   set emitting(value) {
     if (value === undefined) value = defaults.emitting;
 
-    if (this._emitting === value) return
-    this._emitting = value
+    if (this._emitting === value) return;
+    this._emitting = value;
     if (this.emitter && this.emitter.setEmitting) {
-      this.emitter.setEmitting(value)
+      this.emitter.setEmitting(value);
     }
   }
 
   get shape() {
-    return this._shape
+    return this._shape;
   }
 
   set shape(value) {
     if (value === undefined) value = defaults.shape;
     if (!isShape(value)) {
-      throw new Error('[particles] shape invalid')
+      throw new Error("[particles] shape invalid");
     }
-    this._shape = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._shape = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get direction() {
-    return this._direction
+    return this._direction;
   }
 
   set direction(value) {
     if (value === undefined) value = defaults.direction;
 
-    this._direction = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._direction = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get rate() {
-    return this._rate
+    return this._rate;
   }
 
   set rate(value) {
     if (value === undefined) value = defaults.rate;
 
-    this._rate = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._rate = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get bursts() {
-    return this._bursts
+    return this._bursts;
   }
 
   set bursts(value) {
     if (value === undefined) value = defaults.bursts;
     if (!isBursts(value)) {
-      throw new Error('[particles] bursts invalid')
+      throw new Error("[particles] bursts invalid");
     }
-    this._bursts = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._bursts = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get duration() {
-    return this._duration
+    return this._duration;
   }
 
   set duration(value) {
     if (value === undefined) value = defaults.duration;
 
-    this._duration = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._duration = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get loop() {
-    return this._loop
+    return this._loop;
   }
 
   set loop(value) {
     if (value === undefined) value = defaults.loop;
 
-    this._loop = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._loop = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get max() {
-    return this._max
+    return this._max;
   }
 
   set max(value: number) {
     if (value === undefined) value = defaults.max;
 
-    this._max = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._max = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get timescale() {
-    return this._timescale
+    return this._timescale;
   }
 
   set timescale(value) {
     if (value === undefined) value = defaults.timescale;
 
-    this._timescale = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._timescale = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get life() {
-    return this._life
+    return this._life;
   }
 
   set life(value) {
     if (value === undefined) value = defaults.life;
     if (!isStartNumeric(value)) {
-      throw new Error('[particles] life invalid')
+      throw new Error("[particles] life invalid");
     }
-    this._life = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._life = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get speed() {
-    return this._speed
+    return this._speed;
   }
 
   set speed(value) {
     if (value === undefined) value = defaults.speed;
     if (!isStartNumeric(value)) {
-      throw new Error('[particles] speed invalid')
+      throw new Error("[particles] speed invalid");
     }
-    this._speed = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._speed = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get size() {
-    return this._size
+    return this._size;
   }
 
   set size(value) {
     if (value === undefined) value = defaults.size;
     if (!isStartNumeric(value)) {
-      throw new Error('[particles] size invalid')
+      throw new Error("[particles] size invalid");
     }
-    this._size = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._size = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get rotate() {
-    return this._rotate
+    return this._rotate;
   }
 
   set rotate(value) {
     if (value === undefined) value = defaults.rotate;
     if (!isStartNumeric(value)) {
-      throw new Error('[particles] rotate invalid')
+      throw new Error("[particles] rotate invalid");
     }
-    this._rotate = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._rotate = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get color() {
-    return this._color
+    return this._color;
   }
 
   set color(value) {
     if (value === undefined) value = defaults.color;
     if (!isStartColor(value)) {
-      throw new Error('[particles] color invalid')
+      throw new Error("[particles] color invalid");
     }
-    this._color = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._color = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get alpha() {
-    return this._alpha
+    return this._alpha;
   }
 
   set alpha(value) {
     if (value === undefined) value = defaults.alpha;
     if (!isStartNumeric(value)) {
-      throw new Error('[particles] alpha invalid')
+      throw new Error("[particles] alpha invalid");
     }
-    this._alpha = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._alpha = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get emissive() {
-    return this._emissive
+    return this._emissive;
   }
 
   set emissive(value) {
     if (value === undefined) value = defaults.emissive;
     if (!isStartNumeric(value)) {
-      throw new Error('[particles] emissive invalid')
+      throw new Error("[particles] emissive invalid");
     }
-    this._emissive = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._emissive = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get image() {
-    return this._image
+    return this._image;
   }
 
   set image(value) {
     if (value === undefined) value = defaults.image;
     if (!isString(value)) {
-      throw new Error('[particles] image not a string')
+      throw new Error("[particles] image not a string");
     }
-    this._image = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._image = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get spritesheet() {
-    return this._spritesheet
+    return this._spritesheet;
   }
 
   set spritesheet(value) {
     if (value === undefined) value = defaults.spritesheet;
     if (value !== null && !isSpritesheet(value)) {
-      throw new Error('[particles] spritesheet invalid')
+      throw new Error("[particles] spritesheet invalid");
     }
-    this._spritesheet = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._spritesheet = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get blending() {
-    return this._blending
+    return this._blending;
   }
 
   set blending(value) {
     if (value === undefined) value = defaults.blending;
     if (!isBlending(value)) {
-      throw new Error('[particles] blending invalid')
+      throw new Error("[particles] blending invalid");
     }
-    this._blending = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._blending = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get lit() {
-    return this._lit
+    return this._lit;
   }
 
   set lit(value) {
     if (value === undefined) value = defaults.lit;
 
-    this._lit = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._lit = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get billboard() {
-    return this._billboard
+    return this._billboard;
   }
 
   set billboard(value) {
     if (value === undefined) value = defaults.billboard;
     if (!isBillboard(value)) {
-      throw new Error('[particles] billboard invalid')
+      throw new Error("[particles] billboard invalid");
     }
-    this._billboard = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._billboard = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get space() {
-    return this._space
+    return this._space;
   }
 
   set space(value) {
     if (value === undefined) value = defaults.space;
     if (value !== null && !isSpace(value)) {
-      throw new Error('[particles] space invalid')
+      throw new Error("[particles] space invalid");
     }
-    this._space = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._space = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get force() {
-    return this._force
+    return this._force;
   }
 
   set force(value) {
     if (value === undefined) value = defaults.force;
     if (value !== null && !Array.isArray(value)) {
-      throw new Error('[particles] force not an array')
+      throw new Error("[particles] force not an array");
     }
-    this._force = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._force = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get velocityLinear() {
-    return this._velocityLinear
+    return this._velocityLinear;
   }
 
   set velocityLinear(value) {
     if (value === undefined) value = defaults.velocityLinear;
     if (value !== null && !Array.isArray(value)) {
-      throw new Error('[particles] velocityLinear not an array')
+      throw new Error("[particles] velocityLinear not an array");
     }
-    this._velocityLinear = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._velocityLinear = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get velocityOrbital() {
-    return this._velocityOrbital
+    return this._velocityOrbital;
   }
 
   set velocityOrbital(value) {
     if (value === undefined) value = defaults.velocityOrbital;
     if (value !== null && !Array.isArray(value)) {
-      throw new Error('[particles] velocityOrbital not an array')
+      throw new Error("[particles] velocityOrbital not an array");
     }
-    this._velocityOrbital = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._velocityOrbital = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get velocityRadial() {
-    return this._velocityRadial
+    return this._velocityRadial;
   }
 
   set velocityRadial(value) {
     if (value === undefined) value = defaults.velocityRadial;
 
-    this._velocityRadial = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._velocityRadial = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get rateOverDistance() {
-    return this._rateOverDistance
+    return this._rateOverDistance;
   }
 
   set rateOverDistance(value) {
     if (value === undefined) value = defaults.rateOverDistance;
 
-    this._rateOverDistance = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._rateOverDistance = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get sizeOverLife() {
-    return this._sizeOverLife
+    return this._sizeOverLife;
   }
 
   set sizeOverLife(value) {
     if (value === undefined) value = defaults.sizeOverLife;
 
-    this._sizeOverLife = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._sizeOverLife = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get rotateOverLife() {
-    return this._rotateOverLife
+    return this._rotateOverLife;
   }
 
   set rotateOverLife(value) {
     if (value === undefined) value = defaults.rotateOverLife;
 
-    this._rotateOverLife = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._rotateOverLife = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get colorOverLife() {
-    return this._colorOverLife
+    return this._colorOverLife;
   }
 
   set colorOverLife(value) {
     if (value === undefined) value = defaults.colorOverLife;
 
-    this._colorOverLife = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._colorOverLife = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get alphaOverLife() {
-    return this._alphaOverLife
+    return this._alphaOverLife;
   }
 
   set alphaOverLife(value) {
     if (value === undefined) value = defaults.alphaOverLife;
 
-    this._alphaOverLife = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._alphaOverLife = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get emissiveOverLife() {
-    return this._emissiveOverLife
+    return this._emissiveOverLife;
   }
 
   set emissiveOverLife(value) {
     if (value === undefined) value = defaults.emissiveOverLife;
 
-    this._emissiveOverLife = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._emissiveOverLife = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   get onEnd() {
-    return this._onEnd
+    return this._onEnd;
   }
 
   set onEnd(value) {
     if (value === undefined) value = defaults.onEnd;
-    this._onEnd = value
-    this.needsRebuild = true
-    this.setDirty()
+    this._onEnd = value;
+    this.needsRebuild = true;
+    this.setDirty();
   }
 
   getProxy() {
-    const self = this
+    const self = this;
     if (!this.proxy) {
       let proxy = {
         get emitting() {
-          return self.emitting
+          return self.emitting;
         },
         set emitting(value) {
-          self.emitting = value
+          self.emitting = value;
         },
         get shape() {
-          return self.shape
+          return self.shape;
         },
         set shape(value) {
-          self.shape = value
+          self.shape = value;
         },
         get direction() {
-          return self.direction
+          return self.direction;
         },
         set direction(value) {
-          self.direction = value
+          self.direction = value;
         },
         get rate() {
-          return self.rate
+          return self.rate;
         },
         set rate(value) {
-          self.rate = value
+          self.rate = value;
         },
         get bursts() {
-          return self.bursts
+          return self.bursts;
         },
         set bursts(value) {
-          self.bursts = value
+          self.bursts = value;
         },
         get duration() {
-          return self.duration
+          return self.duration;
         },
         set duration(value) {
-          self.duration = value
+          self.duration = value;
         },
         get loop() {
-          return self.loop
+          return self.loop;
         },
         set loop(value) {
-          self.loop = value
+          self.loop = value;
         },
         get max() {
-          return self.max
+          return self.max;
         },
         set max(value) {
-          self.max = value
+          self.max = value;
         },
         get timescale() {
-          return self.timescale
+          return self.timescale;
         },
         set timescale(value) {
-          self.timescale = value
+          self.timescale = value;
         },
         get life() {
-          return self.life
+          return self.life;
         },
         set life(value) {
-          self.life = value
+          self.life = value;
         },
         get speed() {
-          return self.speed
+          return self.speed;
         },
         set speed(value) {
-          self.speed = value
+          self.speed = value;
         },
         get size() {
-          return self.size
+          return self.size;
         },
         set size(value) {
-          self.size = value
+          self.size = value;
         },
         get rotate() {
-          return self.rotate
+          return self.rotate;
         },
         set rotate(value) {
-          self.rotate = value
+          self.rotate = value;
         },
         get color() {
-          return self.color
+          return self.color;
         },
         set color(value) {
-          self.color = value
+          self.color = value;
         },
         get alpha() {
-          return self.alpha
+          return self.alpha;
         },
         set alpha(value) {
-          self.alpha = value
+          self.alpha = value;
         },
         get emissive() {
-          return self.emissive
+          return self.emissive;
         },
         set emissive(value) {
-          self.emissive = value
+          self.emissive = value;
         },
         get image() {
-          return self.image
+          return self.image;
         },
         set image(value) {
-          self.image = value
+          self.image = value;
         },
         get spritesheet() {
-          return self.spritesheet
+          return self.spritesheet;
         },
         set spritesheet(value) {
-          self.spritesheet = value
+          self.spritesheet = value;
         },
         get blending() {
-          return self.blending
+          return self.blending;
         },
         set blending(value) {
-          self.blending = value
+          self.blending = value;
         },
         get lit() {
-          return self.lit
+          return self.lit;
         },
         set lit(value) {
-          self.lit = value
+          self.lit = value;
         },
         get billboard() {
-          return self.billboard
+          return self.billboard;
         },
         set billboard(value) {
-          self.billboard = value
+          self.billboard = value;
         },
         get space() {
-          return self.space
+          return self.space;
         },
         set space(value) {
-          self.space = value
+          self.space = value;
         },
         get force() {
-          return self.force
+          return self.force;
         },
         set force(value) {
-          self.force = value
+          self.force = value;
         },
         get velocityLinear() {
-          return self.velocityLinear
+          return self.velocityLinear;
         },
         set velocityLinear(value) {
-          self.velocityLinear = value
+          self.velocityLinear = value;
         },
         get velocityOrbital() {
-          return self.velocityOrbital
+          return self.velocityOrbital;
         },
         set velocityOrbital(value) {
-          self.velocityOrbital = value
+          self.velocityOrbital = value;
         },
         get velocityRadial() {
-          return self.velocityRadial
+          return self.velocityRadial;
         },
         set velocityRadial(value) {
-          self.velocityRadial = value
+          self.velocityRadial = value;
         },
         get rateOverDistance() {
-          return self.rateOverDistance
+          return self.rateOverDistance;
         },
         set rateOverDistance(value) {
-          self.rateOverDistance = value
+          self.rateOverDistance = value;
         },
         get sizeOverLife() {
-          return self.sizeOverLife
+          return self.sizeOverLife;
         },
         set sizeOverLife(value) {
-          self.sizeOverLife = value
+          self.sizeOverLife = value;
         },
         get rotateOverLife() {
-          return self.rotateOverLife
+          return self.rotateOverLife;
         },
         set rotateOverLife(value) {
-          self.rotateOverLife = value
+          self.rotateOverLife = value;
         },
         get colorOverLife() {
-          return self.colorOverLife
+          return self.colorOverLife;
         },
         set colorOverLife(value) {
-          self.colorOverLife = value
+          self.colorOverLife = value;
         },
         get alphaOverLife() {
-          return self.alphaOverLife
+          return self.alphaOverLife;
         },
         set alphaOverLife(value) {
-          self.alphaOverLife = value
+          self.alphaOverLife = value;
         },
         get emissiveOverLife() {
-          return self.emissiveOverLife
+          return self.emissiveOverLife;
         },
         set emissiveOverLife(value) {
-          self.emissiveOverLife = value
+          self.emissiveOverLife = value;
         },
         get onEnd() {
-          return self.onEnd
+          return self.onEnd;
         },
         set onEnd(value) {
-          self.onEnd = value
+          self.onEnd = value;
         },
-      }
-      proxy = Object.defineProperties(proxy, Object.getOwnPropertyDescriptors(super.getProxy())) // inherit Node properties
-      this.proxy = proxy
+      };
+      proxy = Object.defineProperties(
+        proxy,
+        Object.getOwnPropertyDescriptors(super.getProxy()),
+      ); // inherit Node properties
+      this.proxy = proxy;
     }
-    return this.proxy
+    return this.proxy;
   }
 }
 
 function isShape(value) {
-  return isArray(value) && shapeTypes.includes(value[0])
+  return isArray(value) && shapeTypes.includes(value[0]);
 }
 
 function isBursts(value) {
-  return isArray(value) && every(value, item => isNumber(item.time) && isNumber(item.count))
+  return (
+    isArray(value) &&
+    every(value, (item) => isNumber(item.time) && isNumber(item.count))
+  );
 }
 
 function isStartNumeric(value) {
-  return isString(value)
+  return isString(value);
 }
 
 function isStartColor(value) {
-  return isString(value)
+  return isString(value);
 }
 
 function isSpritesheet(value) {
-  return isArray(value) && value.length === 4
+  return isArray(value) && value.length === 4;
 }
 
 function isBlending(value) {
-  return blendings.includes(value)
+  return blendings.includes(value);
 }
 
 function isSpace(value) {
-  return spaces.includes(value)
+  return spaces.includes(value);
 }
 
 function isBillboard(value) {
-  return billboards.includes(value)
+  return billboards.includes(value);
 }
