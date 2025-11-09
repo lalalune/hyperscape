@@ -36,7 +36,7 @@ export const HelmetDemo: React.FC<HelmetDemoProps> = ({
             const match = avatarPath.match(new RegExp('gdd-assets/([^/]+)/'));
             if (match) {
                 const characterName = match[1];
-                const animFileName = currentAnimation === 'walking' ? 'anim_walk.glb' : 'anim_run.glb';
+                const animFileName = currentAnimation === 'walking' ? 'animations/walking.glb' : 'animations/running.glb';
                 return `./gdd-assets/${characterName}/${animFileName}`;
             }
         }

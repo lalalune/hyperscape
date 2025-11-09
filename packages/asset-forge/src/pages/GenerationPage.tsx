@@ -503,6 +503,15 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
     })
 
     // Attach reference image into config when selected
+    console.log('[Frontend Debug] Reference image state:', {
+      mode: referenceImageMode,
+      source: referenceImageSource,
+      hasUrl: !!referenceImageUrl,
+      hasDataUrl: !!referenceImageDataUrl,
+      urlLength: referenceImageUrl?.length,
+      dataUrlLength: referenceImageDataUrl?.length
+    })
+
     if (referenceImageMode === 'custom') {
       const imgUrl = (referenceImageSource === 'url' && referenceImageUrl) ? referenceImageUrl : null
       const dataUrl = (referenceImageSource === 'upload' && referenceImageDataUrl) ? referenceImageDataUrl : null
@@ -512,6 +521,7 @@ export const GenerationPage: React.FC<GenerationPageProps> = ({ onClose: _onClos
           url: imgUrl || undefined,
           dataUrl: dataUrl || undefined
         }
+        console.log('[Frontend Debug] Attached reference image to config:', (config as any).referenceImage)
       }
     }
 
