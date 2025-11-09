@@ -577,7 +577,7 @@ export const ArmorFittingControls: React.FC<ArmorFittingControlsProps> = ({
         <CardContent className="space-y-3">
           {/* Note about animations */}
           <div className="text-xs text-text-tertiary bg-bg-tertiary/30 p-2 rounded">
-            Note: Animations use built-in avatar animations or separate animation files (anim_walk.glb, anim_run.glb) if available
+            Note: Animations use built-in avatar animations or separate animation files in animations/ subdirectory (animations/walking.glb, animations/running.glb) if available
           </div>
           <div className="grid grid-cols-3 gap-2">
             <button
