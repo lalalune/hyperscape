@@ -6,7 +6,7 @@
 import THREE from "../extras/three";
 import type { PlayerRow } from "./database";
 import type { Position3D } from "./base-types";
-import type { Item } from "./item-types";
+import type { Item, EquipmentSlot } from "./item-types";
 import type { Skills, SkillData } from "./entity-types";
 
 // Core position and health structures
@@ -431,48 +431,12 @@ export interface PlayerInventory {
 // Player equipment with stats
 export interface PlayerEquipment {
   playerId: string;
-  weapon: {
-    id: string;
-    name: string;
-    slot: string;
-    itemId: string | number | null;
-    item: Item | null;
-  } | null;
-  shield: {
-    id: string;
-    name: string;
-    slot: string;
-    itemId: string | number | null;
-    item: Item | null;
-  } | null;
-  helmet: {
-    id: string;
-    name: string;
-    slot: string;
-    itemId: string | number | null;
-    item: Item | null;
-  } | null;
-  body: {
-    id: string;
-    name: string;
-    slot: string;
-    itemId: string | number | null;
-    item: Item | null;
-  } | null;
-  legs: {
-    id: string;
-    name: string;
-    slot: string;
-    itemId: string | number | null;
-    item: Item | null;
-  } | null;
-  arrows: {
-    id: string;
-    name: string;
-    slot: string;
-    itemId: string | number | null;
-    item: Item | null;
-  } | null;
+  weapon: EquipmentSlot | null;
+  shield: EquipmentSlot | null;
+  helmet: EquipmentSlot | null;
+  body: EquipmentSlot | null;
+  legs: EquipmentSlot | null;
+  arrows: EquipmentSlot | null;
   totalStats: {
     attack: number;
     strength: number;
