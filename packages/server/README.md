@@ -17,10 +17,14 @@ The server has been successfully migrated to PostgreSQL and is production-ready 
 
 ### Recent Fixes (October 25, 2025)
 1. **Multiplayer Visibility**: Fixed snapshot to include all entities (players see each other immediately)
-2. **Character Selection**: Character list now updates after character creation  
+2. **Character Selection**: Character list always loads and updates after character creation  
 3. **Enter World**: New players receive all existing entities when entering world
 4. **Auto-Spawn**: Fixed foreign key constraint by creating character in DB before spawning
-5. **Trading System**: Fully tested with 8/8 integration tests passing
+5. **Trading System**: Fully tested with 7/7 integration tests passing
+6. **Right-Click Trade**: Fixed VRM avatar userData so players can right-click others to trade
+7. **Wallet Support**: Added Rabby wallet and WalletConnect to Privy login options
+
+**Technical Detail - Right-Click Fix**: Player avatars use VRM models that are added directly to the scene. The raycaster was hitting the VRM but couldn't identify it as a player entity because `userData.entityId` wasn't set on the VRM scene object. Fixed by setting userData on `vrmInstance.raw.scene` and all its children after avatar mount in both PlayerLocal and PlayerRemote.
 
 See `FIXES-COMPLETE.md` for detailed migration changelog.
 

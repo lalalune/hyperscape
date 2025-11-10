@@ -217,11 +217,15 @@ export class InteractionSystem extends System {
   
   private onContextMenu(event: MouseEvent): void {
     const target = this.getEntityAtPosition(event.clientX, event.clientY);
+    console.log('[InteractionSystem] Right-click detected, target found:', target ? `${target.type} - ${target.name} (${target.id})` : 'NONE');
     if (target) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
+      console.log('[InteractionSystem] Showing context menu for:', target.type, target.name);
       this.showContextMenu(target, event.clientX, event.clientY);
+    } else {
+      console.log('[InteractionSystem] No entity found at click position');
     }
   }
   
@@ -524,20 +528,33 @@ export class InteractionSystem extends System {
     
     const intersects = this.raycaster.intersectObjects(this.world.stage.scene.children, true);
     
+    console.log(`[InteractionSystem] Raycast found ${intersects.length} intersections`);
+    
     for (const intersect of intersects) {
       if (intersect.distance > 200) continue;
       
       let obj: THREE.Object3D | null = intersect.object;
-      while (obj) {
+      let depth = 0;
+      while (obj && depth < 20) {
         const userData = obj.userData;
+        console.log(`[InteractionSystem] Checking object "${obj.name}" (depth ${depth}):`, {
+          hasUserData: !!userData,
+          entityId: userData?.entityId,
+          type: userData?.type,
+          interactable: userData?.interactable
+        });
+        
         // Look for any entity identifier - entityId, mobId, resourceId, or itemId
         const entityId = userData?.entityId || userData?.mobId || userData?.resourceId || userData?.itemId;
         
         if (entityId) {
+          console.log(`[InteractionSystem] Found entityId: ${entityId}, looking up in entities...`);
           const entity = this.world.entities.get(entityId);
           if (entity) {
             const worldPos = new THREE.Vector3();
             obj.getWorldPosition(worldPos);
+            
+            console.log(`[InteractionSystem] ✅ Entity found! Type: ${entity.type}, Name: ${entity.name}`);
             
             return {
               id: entityId,
@@ -546,13 +563,17 @@ export class InteractionSystem extends System {
               entity,
               position: { x: worldPos.x, y: worldPos.y, z: worldPos.z }
             };
+          } else {
+            console.warn(`[InteractionSystem] ❌ EntityId ${entityId} found in userData but not in world.entities`);
           }
         }
         
         obj = obj.parent as THREE.Object3D | null;
+        depth++;
       }
     }
     
+    console.log('[InteractionSystem] No entity found after checking all intersections');
     return null;
   }
 

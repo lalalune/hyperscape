@@ -934,6 +934,151 @@ export class DatabaseSystem extends SystemBase {
     return null;
   }
 
+  // ============================================================================
+  // MAINTENANCE METHODS
+  // ============================================================================
+  // Methods for cleaning up old data and getting database statistics
+
+  /**
+   * Clean up old player sessions from the database
+   * 
+   * @param daysOld - Delete sessions older than this many days
+   * @returns Number of sessions deleted
+   */
+  async cleanupOldSessionsAsync(daysOld: number): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const cutoffTime = Date.now() - (daysOld * 24 * 60 * 60 * 1000);
+    
+    const result = await this.db
+      .delete(schema.playerSessions)
+      .where(sql`${schema.playerSessions.sessionEnd} IS NOT NULL AND ${schema.playerSessions.sessionEnd} < ${cutoffTime}`);
+    
+    return result.rowCount || 0;
+  }
+
+  cleanupOldSessions(daysOld: number): number {
+    console.warn('[DatabaseSystem] cleanupOldSessions called synchronously - use cleanupOldSessionsAsync instead');
+    const operation = this.cleanupOldSessionsAsync(daysOld)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in cleanupOldSessions:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+    return 0; // Can't return real count from async operation
+  }
+
+  /**
+   * Clean up old chunk activity records
+   * 
+   * @param daysOld - Delete activity records older than this many days
+   * @returns Number of records deleted
+   */
+  async cleanupOldChunkActivityAsync(daysOld: number): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const cutoffTime = Date.now() - (daysOld * 24 * 60 * 60 * 1000);
+    
+    const result = await this.db
+      .delete(schema.worldChunks)
+      .where(sql`${schema.worldChunks.lastActive} < ${cutoffTime} AND ${schema.worldChunks.playerCount} = 0`);
+    
+    return result.rowCount || 0;
+  }
+
+  cleanupOldChunkActivity(daysOld: number): number {
+    console.warn('[DatabaseSystem] cleanupOldChunkActivity called synchronously - use cleanupOldChunkActivityAsync instead');
+    const operation = this.cleanupOldChunkActivityAsync(daysOld)
+      .catch(err => {
+        console.error('[DatabaseSystem] Error in cleanupOldChunkActivity:', err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+    return 0; // Can't return real count from async operation
+  }
+
+  /**
+   * Get database statistics
+   * 
+   * @returns Object containing various database counts
+   */
+  async getDatabaseStatsAsync(): Promise<{
+    playerCount: number;
+    activeSessionCount: number;
+    chunkCount: number;
+    activeChunkCount: number;
+    totalActivityRecords: number;
+  }> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const [playerCountResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.characters);
+    
+    const [activeSessionResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.playerSessions)
+      .where(sql`${schema.playerSessions.sessionEnd} IS NULL`);
+    
+    const [chunkCountResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.worldChunks);
+    
+    const [activeChunkResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.worldChunks)
+      .where(sql`${schema.worldChunks.playerCount} > 0`);
+    
+    return {
+      playerCount: Number(playerCountResult.count),
+      activeSessionCount: Number(activeSessionResult.count),
+      chunkCount: Number(chunkCountResult.count),
+      activeChunkCount: Number(activeChunkResult.count),
+      totalActivityRecords: Number(chunkCountResult.count),
+    };
+  }
+
+  getDatabaseStats(): {
+    playerCount: number;
+    activeSessionCount: number;
+    chunkCount: number;
+    activeChunkCount: number;
+    totalActivityRecords: number;
+  } {
+    console.warn('[DatabaseSystem] getDatabaseStats called synchronously - use getDatabaseStatsAsync instead');
+    return {
+      playerCount: 0,
+      activeSessionCount: 0,
+      chunkCount: 0,
+      activeChunkCount: 0,
+      totalActivityRecords: 0,
+    };
+  }
+
+  // Helper method for blockchain integration
+  private mapItemIdToNumber(itemId: string): number | null {
+    // Map string item IDs to numeric IDs for blockchain contracts
+    // This is a simple implementation - could be extended with a lookup table
+    const itemMap: Record<string, number> = {
+      'bronze_sword': 1,
+      'steel_sword': 2,
+      'mithril_sword': 3,
+      'bronze_bow': 10,
+      'oak_bow': 11,
+      'willow_bow': 12,
+      'arrows': 20,
+      'logs': 30,
+      'raw_fish': 40,
+      'cooked_fish': 41,
+      // Add more mappings as needed
+    };
+    return itemMap[itemId] || null;
+  }
+
   /**
    * Clean up database system resources
    * 
