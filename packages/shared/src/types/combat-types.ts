@@ -1,42 +1,87 @@
 /**
- * Combat system types
- *
- * These types are used across various combat-related systems and utilities.
+ * Combat Types
+ * All combat-related type definitions
  */
 
-import type { SkillData, PlayerHealth } from "./core";
+import type { Position3D } from "./base-types";
+import type { AttackType } from "./item-types";
 
-/**
- * Stats component for entities that participate in combat
- * This represents the combat-relevant stats of any entity
- */
-export interface CombatStats {
-  health: PlayerHealth;
-  attack: SkillData;
-  strength: SkillData;
-  defense: SkillData;
+export enum CombatStyle {
+  AGGRESSIVE = "aggressive",
+  CONTROLLED = "controlled",
+  DEFENSIVE = "defensive",
+  ACCURATE = "accurate",
+  LONGRANGE = "longrange",
+}
+
+export interface CombatData {
+  attackerId: string;
+  targetId: string;
+  attackerType: "player" | "mob";
+  targetType: "player" | "mob";
+  startTime: number;
+  lastAttackTime: number;
+  combatStyle: CombatStyle | null;
+}
+
+export interface CombatStateData {
+  isInCombat: boolean;
+  target: string | null;
+  lastAttackTime: number;
+  attackCooldown: number;
+  damage: number;
   range: number;
 }
 
-/**
- * Re-export StatsComponent from core types to maintain consistency
- * @deprecated Use StatsComponent from '../types/core' instead
- */
-export type { StatsComponent } from "./core";
-
-/**
- * Result of a combat attack execution
- */
-export interface CombatAttackResult {
-  success: boolean;
-  damage?: number;
-  reason?: string;
+export interface CombatTarget {
+  entityId: string;
+  entityType: "player" | "mob";
+  distance: number;
+  playerId: string;
+  threat: number;
+  position: Position3D;
+  lastSeen: number;
 }
 
-/**
- * Result of checking if an entity can attack
- */
+// Attack style interfaces
+export interface AttackStyle {
+  id: string;
+  name: string;
+  description: string;
+  xpDistribution: {
+    attack: number;
+    strength: number;
+    defense: number;
+    constitution: number;
+  };
+  damageModifier: number; // Multiplier for damage calculation
+  accuracyModifier: number; // Multiplier for hit chance
+  icon: string;
+}
+
+// Animation system types
+export interface AnimationTask {
+  id: string;
+  entityId: string;
+  targetId?: string;
+  animationName: string;
+  duration: number;
+  attackType: AttackType;
+  style: CombatStyle;
+  damage?: number;
+  startTime: number;
+  progress: number;
+  cancelled?: boolean;
+}
+
+// Combat utility result types
 export interface CanAttackResult {
   canAttack: boolean;
   reason?: string;
+}
+
+export interface CombatAttackResult {
+  success: boolean;
+  reason?: string;
+  damage?: number;
 }
