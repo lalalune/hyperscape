@@ -89,6 +89,21 @@ export type PlayerEquipment = PlayerEquipmentItems;
 // Export additional types needed by combat and other systems
 export { EquipmentSlotName } from "./core";
 
+// Re-export modular type files
+export * from "./player-types";
+export * from "./item-types";
+export * from "./entity-types";
+export * from "./combat-types";
+export * from "./misc-types";
+export * from "./world-types";
+export * from "./npc-mob-types";
+export * from "./inventory-types";
+export * from "./resource-processing-types";
+export * from "./interaction-types";
+export * from "./animation-dialogue-types";
+export * from "./spawning-types";
+export * from "./system-types";
+
 // Re-export other types (using specific exports to avoid circular dependencies)
 export * from "./database";
 export * from "./entities";
@@ -101,7 +116,7 @@ export {
   NPCType,
   ResourceType,
 } from "./entities";
-export * from "./events";
+export * from "./events"; // Re-exports event-types.ts and event-payloads.ts
 export * from "./identifiers";
 export * from "./networking";
 export * from "./nodes";
