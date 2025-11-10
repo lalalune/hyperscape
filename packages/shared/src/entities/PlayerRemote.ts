@@ -133,16 +133,43 @@ export class PlayerRemote extends Entity implements HotReloadable {
     this.base = createNode('group') as Group
     // Position and rotation are now handled by Entity base class
     // Use entity's position/rotation properties instead of data
+    
+    // CRITICAL: Set userData for right-click interaction detection
+    const playerUserData = {
+      type: 'player',
+      entityId: this.id,
+      name: this.data.name || 'Player',
+      interactable: true,
+      entity: this,
+      playerId: this.id
+    };
+    
+    // Set userData on the base group node (cast to THREE.Object3D to access userData)
+    const baseObj = this.base as unknown as THREE.Object3D;
+    if (baseObj.userData) {
+      Object.assign(baseObj.userData, playerUserData);
+    }
 
     this.body = createNode('rigidbody', { type: 'kinematic' }) as Mesh
     this.body.active = (this.data.effect as PlayerEffect)?.anchorId ? false : true
+    // Set userData on body for raycast detection (cast to THREE.Object3D)
+    const bodyObj = this.body as unknown as THREE.Object3D;
+    if (bodyObj.userData) {
+      Object.assign(bodyObj.userData, playerUserData);
+    }
     this.base.add(this.body)
+    
     this.collider = createNode('collider', {
       type: 'geometry',
       convex: true,
       geometry: capsuleGeometry,
       layer: 'player',
     }) as Mesh
+    // Set userData on collider for raycast detection (cast to THREE.Object3D)
+    const colliderObj = this.collider as unknown as THREE.Object3D;
+    if (colliderObj.userData) {
+      Object.assign(colliderObj.userData, playerUserData);
+    }
     this.body.add(this.collider)
 
     // this.caps = createNode('mesh', {
@@ -269,8 +296,49 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // The avatar instance will be managed by the VRM factory
     // Don't add anything to base - the VRM scene is added to world.stage.scene
     
-    // Disable distance-based LOD throttling for smooth animations
+    // CRITICAL: Set userData on the VRM model for right-click detection
+    // The VRM is added to world.stage.scene, so raycasts hit it directly
     const avatarWithInstance = nodeToUse as unknown as AvatarWithInstance;
+    console.log(`[PlayerRemote] 🔍 Checking VRM instance for player ${this.id}:`, {
+      hasInstance: !!avatarWithInstance.instance,
+      hasRaw: !!avatarWithInstance.instance?.raw,
+      hasScene: !!avatarWithInstance.instance?.raw?.scene
+    });
+    
+    if (avatarWithInstance.instance?.raw?.scene) {
+      const vrmScene = avatarWithInstance.instance.raw.scene;
+      
+      const userData = {
+        type: 'player',
+        entityId: this.id,
+        name: this.data.name || 'Player',
+        interactable: true,
+        entity: this,
+        playerId: this.id
+      };
+      
+      console.log(`[PlayerRemote] 📝 Setting userData on VRM scene root for player ${this.id}`);
+      vrmScene.userData = { ...userData };
+      
+      // CRITICAL: Set userData on ALL VRM children (includes CombinedMesh_standard)
+      let childCount = 0;
+      vrmScene.traverse((child: THREE.Object3D) => {
+        // Merge with existing userData to preserve other properties
+        child.userData = {
+          ...child.userData,
+          ...userData
+        };
+        childCount++;
+      });
+      
+      console.log(`[PlayerRemote] ✅ Set userData on ${childCount} VRM objects for player ${this.id} (${this.data.name})`);
+      console.log(`[PlayerRemote] Sample userData from first child:`, vrmScene.children[0]?.userData);
+    } else {
+      console.error(`[PlayerRemote] ❌ VRM scene not accessible for player ${this.id}`);
+      console.error(`[PlayerRemote] Available instance properties:`, Object.keys(avatarWithInstance.instance || {}));
+    }
+    
+    // Disable distance-based LOD throttling for smooth animations
     if (avatarWithInstance.instance && avatarWithInstance.instance.disableRateCheck) {
       avatarWithInstance.instance.disableRateCheck();
     }

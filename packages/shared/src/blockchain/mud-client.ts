@@ -90,18 +90,18 @@ export async function setupMudClient(config?: {
     );
   }
   
-  // Create clients
+  // Create clients (avoid type inference issues by using explicit parameters)
   const publicClient = createPublicClient({
     chain,
     transport: http(rpcUrl)
-  }) as PublicClient;
+  });
   
   const account = privateKeyToAccount(privateKey);
   const walletClient = createWalletClient({
     account,
     chain,
     transport: http(rpcUrl)
-  }) as WalletClient;
+  });
   
   // Use IWorld ABI for all contract interactions
   // MUD combines all system ABIs into the World contract interface

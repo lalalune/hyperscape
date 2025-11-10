@@ -822,6 +822,16 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.base = new THREE.Group()
     if (this.base) {
       this.base.name = 'player-base'
+      
+      // CRITICAL: Set userData for right-click detection (local player)
+      this.base.userData = {
+        type: 'player',
+        entityId: this.id,
+        name: this.data.name || 'You',
+        interactable: false, // Don't show trade menu when clicking yourself
+        entity: this,
+        playerId: this.id
+      };
     }
     if (!this.base) {
       throw new Error('Failed to create base node for PlayerLocal')
@@ -1166,6 +1176,32 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
     if (!parent || parent !== this.world.stage.scene) {
       throw new Error('[PlayerLocal] Avatar VRM scene NOT in world scene graph!');
+    }
+    
+    // CRITICAL: Set userData on VRM scene for right-click detection (local player)
+    // Note: Local player is NOT interactable (can't trade with yourself)
+    const vrmScene = vrmInstance!.raw.scene;
+    if (vrmScene) {
+      vrmScene.userData = {
+        type: 'player',
+        entityId: this.id,
+        name: this.data.name || 'You',
+        interactable: false, // Don't show trade menu on yourself
+        entity: this,
+        playerId: this.id
+      };
+      
+      // Also set on all VRM children for reliable detection
+      vrmScene.traverse((child: THREE.Object3D) => {
+        child.userData = {
+          type: 'player',
+          entityId: this.id,
+          name: this.data.name || 'You',
+          interactable: false,
+          entity: this,
+          playerId: this.id
+        };
+      });
     }
 
     this.avatarUrl = avatarUrl;
