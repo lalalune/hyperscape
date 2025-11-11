@@ -5,7 +5,7 @@ import { CurvePane } from "./CurvePane";
 import { CurvePreview } from "./CurvePreview";
 import { HintContext } from "./Hint";
 import { Portal } from "./Portal";
-import { useUpdate } from "./useUpdate";
+import { useUpdate } from "../hooks/useUpdate";
 
 interface LoadingFile {
   type: string;
