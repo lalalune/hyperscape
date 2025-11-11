@@ -24,6 +24,7 @@
 
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
+import rateLimit from "@fastify/rate-limit";
 import statics from "@fastify/static";
 import fastifyWebSocket from "@fastify/websocket";
 import Fastify, {
@@ -34,6 +35,10 @@ import Fastify, {
 import fs from "fs-extra";
 import path from "path";
 import type { ServerConfig } from "./config.js";
+import {
+  getGlobalRateLimit,
+  isRateLimitEnabled,
+} from "../infrastructure/rate-limit/rate-limit-config.js";
 
 /**
  * Create and configure Fastify HTTP server
@@ -70,6 +75,16 @@ export async function createHttpServer(
     methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
   });
   console.log("[HTTP] ✅ CORS configured");
+
+  // Configure rate limiting for production security
+  if (isRateLimitEnabled()) {
+    await fastify.register(rateLimit, getGlobalRateLimit());
+    console.log(
+      "[HTTP] ✅ Rate limiting enabled (100 requests/min per IP globally)",
+    );
+  } else {
+    console.log("[HTTP] ⚠️  Rate limiting disabled (development mode)");
+  }
 
   // Serve index.html for root path (SPA routing)
   await registerIndexHtmlRoute(fastify, config);

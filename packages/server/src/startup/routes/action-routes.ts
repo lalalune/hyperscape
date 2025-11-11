@@ -19,6 +19,10 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { World } from "@hyperscape/shared";
+import {
+  getActionRateLimit,
+  isRateLimitEnabled,
+} from "../../infrastructure/rate-limit/rate-limit-config.js";
 
 // JSON value type for proper typing
 type JSONValue =
@@ -53,6 +57,11 @@ export function registerActionRoutes(
   fastify: FastifyInstance,
   world: World,
 ): void {
+  // Build route config with rate limiting if enabled
+  const actionRouteConfig = isRateLimitEnabled()
+    ? { config: { rateLimit: getActionRateLimit() } }
+    : {};
+
   // Get all available actions
   fastify.get(
     "/api/actions",
@@ -88,9 +97,10 @@ export function registerActionRoutes(
     },
   );
 
-  // Execute action
+  // Execute action (with rate limiting to prevent action spam)
   fastify.post<{ Params: ActionRouteParams; Body: ActionRouteBody }>(
     "/api/actions/:name",
+    actionRouteConfig,
     async (request, reply) => {
       const actionName = request.params.name;
       const body = request.body as { params: Record<string, unknown> };
