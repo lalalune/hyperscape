@@ -29,7 +29,7 @@ import { SystemBase } from "@hyperscape/shared";
 import type { World } from "@hyperscape/shared";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type pg from "pg";
-import * as schema from "./db/schema";
+import * as schema from "../../database/schema";
 import type {
   EquipmentRow,
   EquipmentSaveItem,
@@ -39,7 +39,7 @@ import type {
   PlayerRow,
   PlayerSessionRow,
   WorldChunkRow,
-} from "./types";
+} from "../../shared/types";
 import {
   CharacterRepository,
   PlayerRepository,
@@ -48,7 +48,7 @@ import {
   SessionRepository,
   WorldChunkRepository,
   NPCKillRepository,
-} from "./db/repositories";
+} from "../../database/repositories";
 
 /**
  * DatabaseSystem class

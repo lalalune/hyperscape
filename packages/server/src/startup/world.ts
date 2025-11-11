@@ -27,7 +27,7 @@ import {
 } from "@hyperscape/shared";
 import { NodeStorage as Storage } from "@hyperscape/shared";
 import type { World, SystemDatabase } from "@hyperscape/shared";
-import { ServerNetwork } from "../ServerNetwork/index.js";
+import { ServerNetwork } from "../systems/ServerNetwork/index.js";
 import type { ServerConfig } from "./config.js";
 import type { DatabaseContext } from "./database.js";
 
@@ -75,9 +75,11 @@ export async function initializeWorld(
   // Register server-specific systems
   console.log("[World] Registering server systems...");
   const { DatabaseSystem: ServerDatabaseSystem } = await import(
-    "../DatabaseSystem.js"
+    "../systems/DatabaseSystem/index.js"
   );
-  const { KillTrackerSystem } = await import("../KillTrackerSystem.js");
+  const { KillTrackerSystem } = await import(
+    "../systems/KillTrackerSystem/index.js"
+  );
 
   world.register("database", ServerDatabaseSystem);
   world.register("kill-tracker", KillTrackerSystem);

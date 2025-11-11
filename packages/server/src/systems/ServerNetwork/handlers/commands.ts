@@ -5,7 +5,11 @@
  */
 
 import moment from "moment";
-import type { ServerSocket, SystemDatabase, ServerStats } from "../../types";
+import type {
+  ServerSocket,
+  SystemDatabase,
+  ServerStats,
+} from "../../../shared/types";
 import {
   uuid,
   hasRole,

@@ -15,7 +15,7 @@
 import { eq } from "drizzle-orm";
 import { BaseRepository } from "./BaseRepository";
 import * as schema from "../schema";
-import type { EquipmentRow, EquipmentSaveItem } from "../../types";
+import type { EquipmentRow, EquipmentSaveItem } from "../../shared/types";
 
 /**
  * EquipmentRepository class

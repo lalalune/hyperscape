@@ -43,7 +43,7 @@ import type {
   WorldOptions,
   SystemDatabase,
   ServerSocket,
-} from "../types";
+} from "../../shared/types";
 import {
   Socket,
   System,

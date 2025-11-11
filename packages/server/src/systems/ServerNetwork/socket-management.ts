@@ -10,7 +10,7 @@
  * to improve maintainability and separation of concerns.
  */
 
-import type { ServerSocket } from "../types";
+import type { ServerSocket } from "../../shared/types";
 import { EventType, World } from "@hyperscape/shared";
 
 const WS_PING_INTERVAL_SEC = parseInt(

@@ -16,7 +16,7 @@
 import { eq } from "drizzle-orm";
 import { BaseRepository } from "./BaseRepository";
 import * as schema from "../schema";
-import type { PlayerRow } from "../../types";
+import type { PlayerRow } from "../../shared/types";
 
 /**
  * PlayerRepository class

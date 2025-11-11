@@ -43,7 +43,7 @@ export interface ServerConfig {
   /** Built-in assets directory */
   builtInAssetsDir: string;
 
-  /** Current file directory (__dirname equivalent) */
+  /** Package root directory (for public/ and world/ access) */
   __dirname: string;
 
   /** Use local PostgreSQL via Docker */
@@ -152,7 +152,7 @@ export async function loadConfig(): Promise<ServerConfig> {
     assetsDir,
     hyperscapeRoot,
     builtInAssetsDir,
-    __dirname: path.dirname(__dirname), // Parent of startup/ = src/
+    __dirname: hyperscapeRoot, // Package root (for public/ access)
     useLocalPostgres: USE_LOCAL_POSTGRES,
     databaseUrl: DATABASE_URL,
     cdnUrl: CDN_URL,

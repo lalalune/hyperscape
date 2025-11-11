@@ -17,7 +17,7 @@
 import { SystemBase } from "@hyperscape/shared";
 import type { World } from "@hyperscape/shared";
 import { EventType } from "@hyperscape/shared";
-import type { DatabaseSystem } from "./DatabaseSystem";
+import type { DatabaseSystem } from "../DatabaseSystem/index.js";
 
 export class KillTrackerSystem extends SystemBase {
   private databaseSystem!: DatabaseSystem;

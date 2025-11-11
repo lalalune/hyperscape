@@ -24,7 +24,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import fs from "fs-extra";
 import path from "path";
-import { hashFile } from "../../utils.js";
+import { hashFile } from "../../shared/utils.js";
 import type { ServerConfig } from "../config.js";
 
 /**

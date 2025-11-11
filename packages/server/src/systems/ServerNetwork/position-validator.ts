@@ -20,7 +20,7 @@
 
 import type { World } from "@hyperscape/shared";
 import { TerrainSystem } from "@hyperscape/shared";
-import type { ServerSocket } from "../types";
+import type { ServerSocket } from "../../shared/types";
 import type { BroadcastManager } from "./broadcast";
 
 /**

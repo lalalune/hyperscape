@@ -20,7 +20,7 @@
  * ```
  */
 
-import type { ServerSocket } from "../types";
+import type { ServerSocket } from "../../shared/types";
 import { writePacket } from "@hyperscape/shared";
 
 /**

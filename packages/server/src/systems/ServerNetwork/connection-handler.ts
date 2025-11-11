@@ -44,7 +44,7 @@ import type {
   ResourceSystem,
   NetworkWithSocket,
   SystemDatabase,
-} from "../types";
+} from "../../shared/types";
 import { authenticateUser } from "./authentication";
 import { loadCharacterList } from "./character-selection";
 import type { BroadcastManager } from "./broadcast";
