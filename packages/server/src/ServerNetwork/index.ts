@@ -198,6 +198,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.sockets,
       this.broadcastManager,
       () => this.spawn,
+      this.db,
     );
 
     // Register handlers
