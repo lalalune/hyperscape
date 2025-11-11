@@ -56,7 +56,7 @@
 // ============================================================================
 // Load polyfills before ANY other imports to set up browser-like globals
 // for Three.js and other client libraries running on the server.
-import "./polyfills.js";
+import "./shared/polyfills.js";
 
 // Import startup modules
 import { loadConfig } from "./startup/config.js";
