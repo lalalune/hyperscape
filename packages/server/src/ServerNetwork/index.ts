@@ -20,11 +20,19 @@
  * - character-selection.ts - Character management and spawning
  * - movement.ts - Server-authoritative movement system
  * - socket-management.ts - WebSocket health monitoring
+ * - broadcast.ts - Network message broadcasting
+ * - save-manager.ts - Periodic state persistence
+ * - position-validator.ts - Anti-cheat position validation
+ * - event-bridge.ts - World event to network message bridge
+ * - initialization.ts - Startup state loading
+ * - connection-handler.ts - WebSocket connection flow
  * - handlers/* - Individual packet handlers (chat, combat, inventory, etc.)
  *
  * @see {@link ServerNetwork/authentication} for authentication logic
  * @see {@link ServerNetwork/movement} for movement system
  * @see {@link ServerNetwork/socket-management} for connection health
+ * @see {@link ServerNetwork/broadcast} for message broadcasting
+ * @see {@link ServerNetwork/connection-handler} for connection flow
  */
 
 import type {
@@ -35,24 +43,17 @@ import type {
   WorldOptions,
   SystemDatabase,
   ServerSocket,
-  ResourceSystem,
 } from "../types";
 import {
-  EventType,
   Socket,
   System,
-  dbHelpers,
   hasRole,
   isDatabaseInstance,
-  writePacket,
-  TerrainSystem,
   World,
 } from "@hyperscape/shared";
 
 // Import modular components
-import { authenticateUser } from "./authentication";
 import {
-  loadCharacterList,
   handleCharacterListRequest,
   handleCharacterCreate,
   handleCharacterSelected,
@@ -60,6 +61,12 @@ import {
 } from "./character-selection";
 import { MovementManager } from "./movement";
 import { SocketManager } from "./socket-management";
+import { BroadcastManager } from "./broadcast";
+import { SaveManager } from "./save-manager";
+import { PositionValidator } from "./position-validator";
+import { EventBridge } from "./event-bridge";
+import { InitializationManager } from "./initialization";
+import { ConnectionHandler } from "./connection-handler";
 import { handleChatAdded } from "./handlers/chat";
 import { handleAttackMob } from "./handlers/combat";
 import { handlePickupItem, handleDropItem } from "./handlers/inventory";
@@ -72,8 +79,7 @@ import {
 } from "./handlers/entities";
 import { handleCommand } from "./handlers/commands";
 
-const SAVE_INTERVAL = parseInt(process.env.SAVE_INTERVAL || "60"); // seconds
-const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }'; // Safe default height
+const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';
 
 type QueueItem = [ServerSocket, string, unknown];
 
@@ -102,9 +108,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   /** Map of all active WebSocket connections by socket ID */
   sockets: Map<string, ServerSocket>;
 
-  /** Interval handle for periodic player data saves */
-  saveTimerId: NodeJS.Timeout | null;
-
   /** Flag indicating this is the server network (true) */
   isServer: boolean;
 
@@ -123,44 +126,97 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   /** Maximum upload file size in bytes */
   maxUploadSize: number;
 
-  // Position validation
-  private lastValidationTime = 0;
-  private validationInterval = 100; // Start aggressive, then slow to 1000ms
-  private systemUptime = 0;
-
-  // Handler method registry
+  /** Handler method registry */
   private handlers: Record<string, NetworkHandler> = {};
 
-  // Modular managers
+  /** Modular managers */
   private movementManager!: MovementManager;
   private socketManager!: SocketManager;
+  private broadcastManager!: BroadcastManager;
+  private saveManager!: SaveManager;
+  private positionValidator!: PositionValidator;
+  private eventBridge!: EventBridge;
+  private initializationManager!: InitializationManager;
+  private connectionHandler!: ConnectionHandler;
 
   constructor(world: World) {
     super(world);
     this.id = 0;
     this.ids = -1;
     this.sockets = new Map();
-    this.saveTimerId = null;
     this.isServer = true;
     this.isClient = false;
     this.queue = [];
     this.spawn = JSON.parse(defaultSpawn);
     this.maxUploadSize = 50; // Default 50MB upload limit
 
-    // Initialize managers (after world is set)
+    // Initialize managers will happen in init() after world.db is set
+  }
+
+  /**
+   * Initialize managers after database is available
+   *
+   * Managers need access to world and database, so we initialize them
+   * after world.init() sets world.db.
+   */
+  private initializeManagers(): void {
+    // Broadcast manager (needed by many others)
+    this.broadcastManager = new BroadcastManager(this.sockets);
+
+    // Movement manager
     this.movementManager = new MovementManager(
       this.world,
-      this.send.bind(this),
+      this.broadcastManager.sendToAll.bind(this.broadcastManager),
     );
+
+    // Socket manager
     this.socketManager = new SocketManager(
       this.sockets,
       this.world,
-      this.send.bind(this),
+      this.broadcastManager.sendToAll.bind(this.broadcastManager),
     );
 
-    // Register handler methods (delegates to modular handlers)
+    // Save manager
+    this.saveManager = new SaveManager(this.world, this.db);
+
+    // Position validator
+    this.positionValidator = new PositionValidator(
+      this.world,
+      this.sockets,
+      this.broadcastManager,
+    );
+
+    // Event bridge
+    this.eventBridge = new EventBridge(this.world, this.broadcastManager);
+
+    // Initialization manager
+    this.initializationManager = new InitializationManager(this.world, this.db);
+
+    // Connection handler
+    this.connectionHandler = new ConnectionHandler(
+      this.world,
+      this.sockets,
+      this.broadcastManager,
+      () => this.spawn,
+    );
+
+    // Register handlers
+    this.registerHandlers();
+  }
+
+  /**
+   * Register all packet handlers
+   *
+   * Sets up the handler registry with delegates to modular handlers.
+   */
+  private registerHandlers(): void {
     this.handlers["onChatAdded"] = (socket, data) =>
-      handleChatAdded(socket, data, this.world, this.send.bind(this));
+      handleChatAdded(
+        socket,
+        data,
+        this.world,
+        this.broadcastManager.sendToAll.bind(this.broadcastManager),
+      );
 
     this.handlers["onCommand"] = (socket, data) =>
       handleCommand(
@@ -168,12 +224,17 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         data,
         this.world,
         this.db,
-        this.send.bind(this),
+        this.broadcastManager.sendToAll.bind(this.broadcastManager),
         this.isBuilder.bind(this),
       );
 
     this.handlers["onEntityModified"] = (socket, data) =>
-      handleEntityModified(socket, data, this.world, this.send.bind(this));
+      handleEntityModified(
+        socket,
+        data,
+        this.world,
+        this.broadcastManager.sendToAll.bind(this.broadcastManager),
+      );
 
     this.handlers["onEntityEvent"] = (socket, data) =>
       handleEntityEvent(socket, data, this.world);
@@ -207,10 +268,19 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       handleCharacterListRequest(socket, this.world);
 
     this.handlers["onCharacterCreate"] = (socket, data) =>
-      handleCharacterCreate(socket, data, this.world, this.sendTo.bind(this));
+      handleCharacterCreate(
+        socket,
+        data,
+        this.world,
+        this.broadcastManager.sendToSocket.bind(this.broadcastManager),
+      );
 
     this.handlers["onCharacterSelected"] = (socket, data) =>
-      handleCharacterSelected(socket, data, this.sendTo.bind(this));
+      handleCharacterSelected(
+        socket,
+        data,
+        this.broadcastManager.sendToSocket.bind(this.broadcastManager),
+      );
 
     this.handlers["onEnterWorld"] = (socket, data) =>
       handleEnterWorld(
@@ -218,8 +288,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         data,
         this.world,
         this.spawn,
-        this.send.bind(this),
-        this.sendTo.bind(this),
+        this.broadcastManager.sendToAll.bind(this.broadcastManager),
+        this.broadcastManager.sendToSocket.bind(this.broadcastManager),
       );
   }
 
@@ -232,6 +302,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
 
     this.db = options.db;
+
+    // Initialize managers now that db is available
+    this.initializeManagers();
   }
 
   async start(): Promise<void> {
@@ -239,130 +312,26 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       throw new Error("[ServerNetwork] Database not available in start method");
     }
 
-    // get spawn
-    const spawnRow = (await this.db("config").where("key", "spawn").first()) as
-      | { value?: string }
-      | undefined;
-    const spawnValue = spawnRow?.value || defaultSpawn;
-    this.spawn = JSON.parse(spawnValue);
+    // Load spawn configuration
+    this.spawn = await this.initializationManager.loadSpawnPoint();
 
-    // hydrate entities
-    const entities = await this.db("entities");
-    if (entities && Array.isArray(entities)) {
-      for (const entity of entities) {
-        const entityWithData = entity as { data: string };
-        const data = JSON.parse(entityWithData.data);
-        data.state = {};
-        if (this.world.entities.add) {
-          this.world.entities.add(data, true);
-        }
-      }
-    }
+    // Hydrate entities from database
+    await this.initializationManager.hydrateEntities();
 
-    // hydrate settings
-    const settingsRow = (await this.db("config")
-      .where("key", "settings")
-      .first()) as { value?: string } | undefined;
-    try {
-      const settings = JSON.parse(settingsRow?.value || "{}");
-      if (this.world.settings.deserialize) {
-        this.world.settings.deserialize(settings);
-      }
-    } catch (_err) {
-      console.error(_err);
-    }
+    // Load world settings
+    await this.initializationManager.loadSettings();
 
-    // watch settings changes
-    if (this.world.settings.on) {
-      this.world.settings.on("change", this.saveSettings);
-    }
+    // Start save manager (timer + settings watcher)
+    this.saveManager.start();
 
-    // queue first save
-    if (SAVE_INTERVAL) {
-      this.saveTimerId = setTimeout(this.save, SAVE_INTERVAL * 1000);
-    }
-
-    // Bridge important resource events to all clients
-    try {
-      this.world.on(EventType.RESOURCE_DEPLETED, (...args: unknown[]) =>
-        this.send("resourceDepleted", args[0]),
-      );
-      this.world.on(EventType.RESOURCE_RESPAWNED, (...args: unknown[]) =>
-        this.send("resourceRespawned", args[0]),
-      );
-      this.world.on(EventType.RESOURCE_SPAWNED, (...args: unknown[]) =>
-        this.send("resourceSpawned", args[0]),
-      );
-      this.world.on(
-        EventType.RESOURCE_SPAWN_POINTS_REGISTERED,
-        (...args: unknown[]) => this.send("resourceSpawnPoints", args[0]),
-      );
-      this.world.on(EventType.INVENTORY_UPDATED, (...args: unknown[]) => {
-        this.send("inventoryUpdated", args[0]);
-      });
-      this.world.on(EventType.SKILLS_UPDATED, (payload: unknown) => {
-        const data = payload as { playerId?: string; skills?: unknown };
-        if (data?.playerId) {
-          this.sendToPlayerId(data.playerId, "skillsUpdated", data);
-        } else {
-          this.send("skillsUpdated", payload);
-        }
-      });
-      this.world.on(EventType.UI_UPDATE, (payload: unknown) => {
-        const data = payload as
-          | { component?: string; data?: { playerId?: string } }
-          | undefined;
-        if (data?.component === "player" && data.data?.playerId) {
-          this.sendToPlayerId(data.data.playerId, "playerState", data.data);
-        }
-      });
-      this.world.on(EventType.INVENTORY_INITIALIZED, (payload: unknown) => {
-        const data = payload as {
-          playerId: string;
-          inventory: { items: unknown[]; coins: number; maxSlots: number };
-        };
-        const packet = {
-          playerId: data.playerId,
-          items: data.inventory.items,
-          coins: data.inventory.coins,
-          maxSlots: data.inventory.maxSlots,
-        };
-        this.sendToPlayerId(data.playerId, "inventoryUpdated", packet);
-      });
-      this.world.on(EventType.INVENTORY_REQUEST, (payload: unknown) => {
-        const data = payload as { playerId: string };
-        try {
-          const invSystem = this.world.getSystem?.("inventory") as
-            | {
-                getInventoryData?: (id: string) => {
-                  items: unknown[];
-                  coins: number;
-                  maxSlots: number;
-                };
-              }
-            | undefined;
-          const inv = invSystem?.getInventoryData
-            ? invSystem.getInventoryData(data.playerId)
-            : { items: [], coins: 0, maxSlots: 28 };
-          const packet = {
-            playerId: data.playerId,
-            items: inv.items,
-            coins: inv.coins,
-            maxSlots: inv.maxSlots,
-          };
-          this.sendToPlayerId(data.playerId, "inventoryUpdated", packet);
-        } catch {}
-      });
-    } catch (_err) {}
+    // Setup event bridge (world events → network messages)
+    this.eventBridge.setupEventListeners();
   }
 
   override destroy(): void {
     this.socketManager.destroy();
-    if (this.saveTimerId) {
-      clearTimeout(this.saveTimerId);
-      this.saveTimerId = null;
-    }
-    this.world.settings.off("change", this.saveSettings);
+    this.saveManager.destroy();
+
     for (const [_id, socket] of this.sockets) {
       socket.close?.();
     }
@@ -374,52 +343,29 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   }
 
   override update(dt: number): void {
-    // Track uptime for validation interval adjustment
-    this.systemUptime += dt;
-    if (this.systemUptime > 10 && this.validationInterval < 1000) {
-      this.validationInterval = 1000; // Slow down after 10 seconds
-    }
-
     // Validate player positions periodically
-    this.lastValidationTime += dt * 1000;
-    if (this.lastValidationTime >= this.validationInterval) {
-      this.validatePlayerPositions();
-      this.lastValidationTime = 0;
-    }
+    this.positionValidator.update(dt);
 
     // Delegate movement updates to MovementManager
     this.movementManager.update(dt);
   }
 
+  /**
+   * Broadcast message to all connected clients
+   *
+   * Delegates to BroadcastManager.
+   */
   send<T = unknown>(name: string, data: T, ignoreSocketId?: string): void {
-    const packet = writePacket(name, data);
-    let sentCount = 0;
-    this.sockets.forEach((socket) => {
-      if (socket.id === ignoreSocketId) {
-        return;
-      }
-      socket.sendPacket(packet);
-      sentCount++;
-    });
+    this.broadcastManager.sendToAll(name, data, ignoreSocketId);
   }
 
+  /**
+   * Send message to specific socket
+   *
+   * Delegates to BroadcastManager.
+   */
   sendTo<T = unknown>(socketId: string, name: string, data: T): void {
-    const socket = this.sockets.get(socketId);
-    socket?.send(name, data);
-  }
-
-  private sendToPlayerId<T = unknown>(
-    playerId: string,
-    name: string,
-    data: T,
-  ): boolean {
-    for (const socket of this.sockets.values()) {
-      if (socket.player && socket.player.id === playerId) {
-        socket.send(name, data);
-        return true;
-      }
-    }
-    return false;
+    this.broadcastManager.sendToSocket(socketId, name, data);
   }
 
   /**
@@ -464,18 +410,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     return performance.now() / 1000; // seconds
   }
 
-  save = async (): Promise<void> => {
-    this.saveTimerId = setTimeout(this.save, SAVE_INTERVAL * 1000);
-  };
-
-  saveSettings = async (): Promise<void> => {
-    const data = this.world.settings.serialize
-      ? this.world.settings.serialize()
-      : {};
-    const value = JSON.stringify(data);
-    await dbHelpers.setConfig(this.db, "settings", value);
-  };
-
   isAdmin(player: { data?: { roles?: string[] } }): boolean {
     return hasRole(player.data?.roles as string[] | undefined, "admin");
   }
@@ -484,271 +418,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     return this.world.settings.public || this.isAdmin(player);
   }
 
+  /**
+   * Handle incoming WebSocket connection
+   *
+   * Delegates to ConnectionHandler for the full connection flow.
+   */
   async onConnection(
     ws: NodeWebSocket,
     params: ConnectionParams,
   ): Promise<void> {
-    try {
-      if (!ws || typeof ws.close !== "function") {
-        console.error(
-          "[ServerNetwork] Invalid websocket provided to onConnection",
-        );
-        return;
-      }
-
-      // Check player limit
-      const playerLimit = this.world.settings.playerLimit;
-      if (
-        typeof playerLimit === "number" &&
-        playerLimit > 0 &&
-        this.sockets.size >= playerLimit
-      ) {
-        const packet = writePacket("kick", "player_limit");
-        ws.send(packet);
-        ws.close();
-        return;
-      }
-
-      // Delegate authentication to authentication module
-      const { user, authToken, userWithPrivy } = await authenticateUser(
-        params,
-        this.db,
-      );
-
-      // Get LiveKit options if available
-      const livekit = await this.world.livekit?.getPlayerOpts?.(user.id);
-
-      // Create socket
-      const socketId = require("@hyperscape/shared").uuid();
-      const socket = new Socket({
-        id: socketId,
-        ws,
-        network: this,
-        player: undefined,
-      }) as ServerSocket;
-      socket.accountId = user.id;
-
-      // Wait for terrain system to be ready
-      const terrain = this.world.getSystem("terrain") as InstanceType<
-        typeof TerrainSystem
-      > | null;
-      if (terrain) {
-        let terrainReady = false;
-        for (let i = 0; i < 100; i++) {
-          if (terrain.isReady && terrain.isReady()) {
-            terrainReady = true;
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-        if (!terrainReady) {
-          console.error(
-            "[ServerNetwork] ❌ Terrain system not ready after 10 seconds!",
-          );
-          if (ws && typeof ws.close === "function") {
-            ws.close(1001, "Server terrain not ready");
-          }
-          return;
-        }
-      }
-
-      // Load character list
-      const characters = await loadCharacterList(user.id, this.world);
-
-      // Ground spawn position to terrain
-      const databaseSystem = this.world.getSystem("database") as
-        | import("../DatabaseSystem").DatabaseSystem
-        | undefined;
-      let spawnPosition: [number, number, number] = Array.isArray(
-        this.spawn.position,
-      )
-        ? [
-            Number(this.spawn.position[0]) || 0,
-            Number(this.spawn.position[1] ?? 50),
-            Number(this.spawn.position[2]) || 0,
-          ]
-        : [0, 50, 0];
-
-      // Try to load saved position
-      if (databaseSystem) {
-        try {
-          const playerRow = await databaseSystem.getPlayerAsync(socketId);
-          if (playerRow && playerRow.positionX !== undefined) {
-            const savedY =
-              playerRow.positionY !== undefined && playerRow.positionY !== null
-                ? Number(playerRow.positionY)
-                : 50;
-            if (savedY >= -5 && savedY <= 200) {
-              spawnPosition = [
-                Number(playerRow.positionX) || 0,
-                savedY,
-                Number(playerRow.positionZ) || 0,
-              ];
-            }
-          }
-        } catch {}
-      }
-
-      // Ground to terrain
-      if (terrain && terrain.isReady && terrain.isReady()) {
-        const terrainHeight = terrain.getHeightAt(
-          spawnPosition[0],
-          spawnPosition[2],
-        );
-        if (
-          Number.isFinite(terrainHeight) &&
-          terrainHeight > -100 &&
-          terrainHeight < 1000
-        ) {
-          spawnPosition[1] = terrainHeight + 0.1;
-        } else {
-          spawnPosition[1] = 10;
-        }
-      } else {
-        spawnPosition[1] = 10;
-      }
-
-      // Create snapshot
-      const baseSnapshot = {
-        id: socket.id,
-        serverTime: performance.now(),
-        assetsUrl: this.world.assetsUrl,
-        apiUrl: process.env.PUBLIC_API_URL,
-        maxUploadSize: process.env.PUBLIC_MAX_UPLOAD_SIZE,
-        settings: this.world.settings.serialize() || {},
-        chat: this.world.chat.serialize() || [],
-        entities: (() => {
-          const allEntities: unknown[] = [];
-          if (socket.player) {
-            allEntities.push(socket.player.serialize());
-            if (this.world.entities?.items) {
-              for (const [
-                entityId,
-                entity,
-              ] of this.world.entities.items.entries()) {
-                if (entityId !== socket.player.id) {
-                  allEntities.push(entity.serialize());
-                }
-              }
-            }
-          }
-          return allEntities;
-        })(),
-        livekit,
-        authToken: authToken || "",
-        account: {
-          accountId: user.id,
-          name: user.name,
-          providers: {
-            privyUserId: userWithPrivy?.privyUserId || null,
-          },
-        },
-        characters,
-      };
-
-      socket.send("snapshot", baseSnapshot);
-
-      // Send resource snapshot
-      try {
-        const resourceSystem = this.world.getSystem?.("resource") as
-          | ResourceSystem
-          | undefined;
-        const resources = resourceSystem?.getAllResources?.() || [];
-        const payload = {
-          resources: resources.map((r) => ({
-            id: r.id,
-            type: r.type,
-            position: r.position,
-            isAvailable: r.isAvailable,
-            respawnAt:
-              !r.isAvailable && r.lastDepleted && r.respawnTime
-                ? r.lastDepleted + r.respawnTime
-                : undefined,
-          })),
-        };
-        this.sendTo(socket.id, "resourceSnapshot", payload);
-      } catch (_err) {}
-
-      this.sockets.set(socket.id, socket);
-
-      // Emit player joined event if player was created
-      if (socket.player) {
-        const playerId = socket.player.data.id as string;
-        this.world.emit(EventType.PLAYER_JOINED, {
-          playerId,
-          player:
-            socket.player as unknown as import("@hyperscape/shared").PlayerLocal,
-        });
-        try {
-          this.send("entityAdded", socket.player.serialize(), socket.id);
-        } catch (err) {
-          console.error(
-            "[ServerNetwork] Failed to broadcast entityAdded for new player:",
-            err,
-          );
-        }
-      }
-    } catch (_err) {
-      console.error(_err);
-    }
-  }
-
-  /**
-   * Validate all player positions against terrain
-   */
-  private validatePlayerPositions(): void {
-    const terrain = this.world.getSystem("terrain") as InstanceType<
-      typeof TerrainSystem
-    > | null;
-    if (!terrain) return;
-
-    for (const socket of this.sockets.values()) {
-      if (!socket.player) continue;
-
-      const player = socket.player;
-      const currentY = player.position.y;
-      const terrainHeight = terrain.getHeightAt(
-        player.position.x,
-        player.position.z,
-      );
-
-      // Only correct if significantly wrong
-      if (!Number.isFinite(currentY) || currentY < -5 || currentY > 200) {
-        // Emergency correction
-        const correctedY = Number.isFinite(terrainHeight)
-          ? terrainHeight + 0.1
-          : 10;
-        player.position.y = correctedY;
-        if (player.data) {
-          player.data.position = [
-            player.position.x,
-            correctedY,
-            player.position.z,
-          ];
-        }
-        this.send("entityModified", {
-          id: player.id,
-          changes: { p: [player.position.x, correctedY, player.position.z] },
-        });
-      } else if (Number.isFinite(terrainHeight)) {
-        const expectedY = terrainHeight + 0.1;
-        const errorMargin = Math.abs(currentY - expectedY);
-
-        if (errorMargin > 10) {
-          player.position.y = expectedY;
-          if (player.data) {
-            player.data.position = [
-              player.position.x,
-              expectedY,
-              player.position.z,
-            ];
-          }
-          this.send("entityModified", {
-            id: player.id,
-            changes: { p: [player.position.x, expectedY, player.position.z] },
-          });
-        }
-      }
-    }
+    await this.connectionHandler.handleConnection(ws, params);
   }
 }
