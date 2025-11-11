@@ -26,6 +26,10 @@ import fs from "fs-extra";
 import path from "path";
 import { hashFile } from "../../shared/utils.js";
 import type { ServerConfig } from "../config.js";
+import {
+  getUploadRateLimit,
+  isRateLimitEnabled,
+} from "../../infrastructure/rate-limit/rate-limit-config.js";
 
 /**
  * Register upload endpoints
@@ -41,8 +45,13 @@ export function registerUploadRoutes(
   fastify: FastifyInstance,
   config: ServerConfig,
 ): void {
+  // Build route config with rate limiting if enabled
+  const uploadRouteConfig = isRateLimitEnabled()
+    ? { config: { rateLimit: getUploadRateLimit() } }
+    : {};
+
   // File upload endpoint
-  fastify.post("/api/upload", async (req, _reply) => {
+  fastify.post("/api/upload", uploadRouteConfig, async (req, _reply) => {
     const file = await req.file();
     if (!file) {
       throw new Error("No file uploaded");
