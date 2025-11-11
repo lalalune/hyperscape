@@ -63,12 +63,14 @@ export class ConnectionHandler {
    * @param sockets - Map of active sockets (modified by reference)
    * @param broadcast - Broadcast manager for sending messages
    * @param getSpawn - Function to get current spawn point
+   * @param db - Database instance for authentication
    */
   constructor(
     private world: World,
     private sockets: Map<string, ServerSocket>,
     private broadcast: BroadcastManager,
     private getSpawn: () => SpawnData,
+    private db: SystemDatabase,
   ) {}
 
   /**
@@ -101,7 +103,7 @@ export class ConnectionHandler {
       // Authenticate user
       const { user, authToken, userWithPrivy } = await authenticateUser(
         params,
-        this.world.db as unknown as SystemDatabase,
+        this.db,
       );
 
       // Get LiveKit options if available
