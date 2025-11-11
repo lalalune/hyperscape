@@ -13,32 +13,27 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "declaration": true,
-    "declarationMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": false,
     "allowJs": true,
     "checkJs": false,
     "noImplicitAny": false,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": ["node", "bun-types"],
+    "types": ["node", "bun-types", "vite/client"],
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   },
   "include": [
-    "packages/client/src/**/*",
-    "packages/server/src/**/*",
-    "packages/asset-forge/src/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "**/node_modules",
-    "**/dist",
-    "**/build",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "**/test-*.ts",
-    "**/public/**"
+    "dist",
+    "build",
+    "../shared/src",
+    "../shared/build"
   ]
 }
-
