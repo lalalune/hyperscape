@@ -4,18 +4,18 @@
  * This system provides a comprehensive interface for all database operations in Hyperscape.
  * It uses PostgreSQL with Drizzle ORM for type-safe queries and migrations.
  *
+ * Architecture (Refactored):
+ * - DatabaseSystem acts as a facade/coordinator
+ * - Domain-specific operations delegated to repositories
+ * - Each repository handles one area (players, inventory, equipment, etc.)
+ * - Maintains backward compatibility with all existing methods
+ *
  * Key responsibilities:
  * - Character management (create, load, save character data)
  * - Player persistence (stats, position, levels, XP)
  * - Inventory and equipment storage
  * - Session tracking (login/logout times, playtime)
  * - World chunk persistence (terrain modifications, entities)
- *
- * Architecture:
- * - Wraps Drizzle ORM with game-specific APIs
- * - Provides both async (preferred) and sync (legacy) methods
- * - Tracks pending operations for graceful shutdown
- * - Automatically attached to World via ServerNetwork initialization
  *
  * Usage:
  * ```typescript
@@ -27,7 +27,6 @@
 
 import { SystemBase } from "@hyperscape/shared";
 import type { World } from "@hyperscape/shared";
-import { eq, and, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type pg from "pg";
 import * as schema from "./db/schema";
@@ -37,18 +36,25 @@ import type {
   InventoryRow,
   InventorySaveItem,
   ItemRow,
-  NPCKillsRow,
   PlayerRow,
   PlayerSessionRow,
   WorldChunkRow,
 } from "./types";
+import {
+  CharacterRepository,
+  PlayerRepository,
+  InventoryRepository,
+  EquipmentRepository,
+  SessionRepository,
+  WorldChunkRepository,
+  NPCKillRepository,
+} from "./db/repositories";
 
 /**
  * DatabaseSystem class
  *
  * Extends SystemBase to integrate with Hyperscape's ECS architecture.
- * The system is initialized with a Drizzle database instance and PostgreSQL pool
- * that are attached to the World object during server startup.
+ * Acts as a facade that delegates to domain-specific repositories.
  */
 export class DatabaseSystem extends SystemBase {
   /** Drizzle database instance for type-safe queries */
@@ -66,6 +72,15 @@ export class DatabaseSystem extends SystemBase {
   /** Flag to indicate the system is being destroyed - prevents new operations */
   private isDestroying: boolean = false;
 
+  // Repository instances
+  private characterRepository!: CharacterRepository;
+  private playerRepository!: PlayerRepository;
+  private inventoryRepository!: InventoryRepository;
+  private equipmentRepository!: EquipmentRepository;
+  private sessionRepository!: SessionRepository;
+  private worldChunkRepository!: WorldChunkRepository;
+  private npcKillRepository!: NPCKillRepository;
+
   /**
    * Constructor
    *
@@ -74,7 +89,7 @@ export class DatabaseSystem extends SystemBase {
    *
    * @param world - The game world instance this system belongs to
    */
-  constructor(world: unknown) {
+  constructor(world: World) {
     super(world, {
       name: "database",
       dependencies: {
@@ -89,7 +104,7 @@ export class DatabaseSystem extends SystemBase {
    * Initialize the database system
    *
    * Retrieves the Drizzle database instance and PostgreSQL pool from the World object.
-   * These are attached during server startup in index.ts after database initialization.
+   * Instantiates all repositories with the database connections.
    *
    * @throws Error if database instances are not available on the world object
    */
@@ -103,6 +118,15 @@ export class DatabaseSystem extends SystemBase {
     if (serverWorld.drizzleDb && serverWorld.pgPool) {
       this.db = serverWorld.drizzleDb;
       this.pool = serverWorld.pgPool;
+
+      // Initialize all repositories
+      this.characterRepository = new CharacterRepository(this.db, this.pool);
+      this.playerRepository = new PlayerRepository(this.db, this.pool);
+      this.inventoryRepository = new InventoryRepository(this.db, this.pool);
+      this.equipmentRepository = new EquipmentRepository(this.db, this.pool);
+      this.sessionRepository = new SessionRepository(this.db, this.pool);
+      this.worldChunkRepository = new WorldChunkRepository(this.db, this.pool);
+      this.npcKillRepository = new NPCKillRepository(this.db, this.pool);
     } else {
       throw new Error(
         "[DatabaseSystem] Drizzle database not provided on world object",
@@ -131,6 +155,15 @@ export class DatabaseSystem extends SystemBase {
     // Set flag to prevent new operations during shutdown
     this.isDestroying = true;
 
+    // Mark all repositories as destroying
+    this.characterRepository.markDestroying();
+    this.playerRepository.markDestroying();
+    this.inventoryRepository.markDestroying();
+    this.equipmentRepository.markDestroying();
+    this.sessionRepository.markDestroying();
+    this.worldChunkRepository.markDestroying();
+    this.npcKillRepository.markDestroying();
+
     if (this.pendingOperations.size === 0) {
       return;
     }
@@ -142,714 +175,294 @@ export class DatabaseSystem extends SystemBase {
     await Promise.allSettled(operations);
   }
 
+  /**
+   * Helper method to track fire-and-forget async operations
+   *
+   * Used by sync wrapper methods to ensure operations complete before shutdown.
+   * Prevents new operations during shutdown and handles errors gracefully.
+   *
+   * @param operation - The async operation to track
+   * @private
+   */
+  private trackAsyncOperation<T>(operation: Promise<T>): void {
+    if (this.isDestroying) return; // Skip during shutdown
+
+    const tracked = operation
+      .catch((err) => {
+        console.error("[DatabaseSystem] Error in tracked operation:", err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(tracked);
+      });
+
+    this.pendingOperations.add(tracked);
+  }
+
   // ============================================================================
   // CHARACTER MANAGEMENT
   // ============================================================================
-  // Characters represent individual player avatars in the game.
-  // Each account (user) can have multiple characters.
-  // Used by the character selection system before spawning into the world.
 
   /**
    * Get all characters for an account
-   *
-   * Retrieves a list of all characters (avatars) owned by a specific account.
-   * Used to populate the character selection screen.
-   *
-   * @param accountId - The account/user ID to fetch characters for
-   * @returns Array of characters with id and name
+   * Delegates to CharacterRepository
    */
   async getCharactersAsync(
     accountId: string,
   ): Promise<Array<{ id: string; name: string }>> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    console.log(
-      "[DatabaseSystem] 📋 Loading characters for accountId:",
-      accountId,
-    );
-
-    const results = await this.db
-      .select({ id: schema.characters.id, name: schema.characters.name })
-      .from(schema.characters)
-      .where(eq(schema.characters.accountId, accountId));
-
-    console.log(
-      "[DatabaseSystem] 📋 Found",
-      results.length,
-      "characters:",
-      results,
-    );
-
-    return results;
+    return this.characterRepository.getCharactersAsync(accountId);
   }
 
   /**
    * Create a new character
-   *
-   * Creates a new character (avatar) for an account with default starting stats.
-   * Characters start at level 1 in all skills with initial health and position.
-   *
-   * @param accountId - The account that owns this character
-   * @param id - Unique character ID (usually a UUID)
-   * @param name - Display name for the character (validated by caller)
-   * @returns true if created successfully, false if character ID already exists
+   * Delegates to CharacterRepository
    */
   async createCharacter(
     accountId: string,
     id: string,
     name: string,
   ): Promise<boolean> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const now = Date.now();
-
-    console.log("[DatabaseSystem] 🎭 Creating character:", {
-      id,
-      accountId,
-      name,
-      timestamp: now,
-    });
-
-    try {
-      await this.db.insert(schema.characters).values({
-        id,
-        accountId,
-        name,
-        createdAt: now,
-        lastLogin: now,
-      });
-
-      console.log("[DatabaseSystem] ✅ Character created successfully in DB");
-
-      // Verify it was saved
-      const verify = await this.db
-        .select()
-        .from(schema.characters)
-        .where(eq(schema.characters.id, id))
-        .limit(1);
-
-      console.log("[DatabaseSystem] 🔍 Verification query result:", verify);
-
-      return true;
-    } catch (error) {
-      console.error("[DatabaseSystem] ❌ Error creating character:", error);
-      // Character already exists (PostgreSQL unique constraint violation code)
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "23505"
-      ) {
-        console.log(
-          "[DatabaseSystem] Character already exists (duplicate key)",
-        );
-        return false;
-      }
-      throw error;
-    }
+    return this.characterRepository.createCharacter(accountId, id, name);
   }
 
   // ============================================================================
   // PLAYER DATA PERSISTENCE
   // ============================================================================
-  // Player data includes stats, levels, XP, health, coins, and position.
-  // This is the core persistence for character progression.
 
   /**
    * Load player data from database
-   *
-   * Retrieves all persistent data for a player including stats, levels, position,
-   * and currency. Returns null if the player doesn't exist in the database yet.
-   *
-   * @param playerId - The character/player ID to load
-   * @returns Player data or null if not found
+   * Delegates to PlayerRepository
    */
   async getPlayerAsync(playerId: string): Promise<PlayerRow | null> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const results = await this.db
-      .select()
-      .from(schema.characters)
-      .where(eq(schema.characters.id, playerId))
-      .limit(1);
-
-    if (results.length === 0) return null;
-
-    const row = results[0];
-    return {
-      ...row,
-      playerId: row.id,
-      createdAt: row.createdAt || Date.now(),
-      lastLogin: row.lastLogin || Date.now(),
-    } as PlayerRow;
+    return this.playerRepository.getPlayerAsync(playerId);
   }
 
   /**
    * Save player data to database
-   *
-   * Updates existing player data ONLY. Does NOT create new characters.
-   * Characters must be created explicitly via createCharacter().
-   * Only the fields provided in the data parameter are updated; others remain unchanged.
-   * This allows for partial updates (e.g., just updating health without touching XP).
-   *
-   * @param playerId - The character/player ID to save
-   * @param data - Partial player data to save (only provided fields are updated)
+   * Delegates to PlayerRepository
    */
   async savePlayerAsync(
     playerId: string,
     data: Partial<PlayerRow>,
   ): Promise<void> {
-    if (!this.db || this.isDestroying) {
-      // Gracefully skip during shutdown
-      return;
-    }
-
-    type CharacterUpdate = Partial<
-      Omit<typeof schema.characters.$inferInsert, "id" | "accountId">
-    >;
-
-    // Build the update data (ONLY fields that were actually provided in data param)
-    const updateData: CharacterUpdate = {};
-
-    // Map PlayerRow fields to schema fields
-    // NOTE: Don't overwrite character name once it's set - names come from createCharacter()
-    // Only update name if explicitly provided and non-empty
-    if (data.name && data.name.trim().length > 0) {
-      updateData.name = data.name;
-    }
-    if (data.combatLevel !== undefined) {
-      updateData.combatLevel = data.combatLevel;
-    }
-    if (data.attackLevel !== undefined) {
-      updateData.attackLevel = data.attackLevel;
-    }
-    if (data.strengthLevel !== undefined) {
-      updateData.strengthLevel = data.strengthLevel;
-    }
-    if (data.defenseLevel !== undefined) {
-      updateData.defenseLevel = data.defenseLevel;
-    }
-    if (data.constitutionLevel !== undefined) {
-      updateData.constitutionLevel = data.constitutionLevel;
-    }
-    if (data.rangedLevel !== undefined) {
-      updateData.rangedLevel = data.rangedLevel;
-    }
-    if (data.woodcuttingLevel !== undefined) {
-      updateData.woodcuttingLevel = data.woodcuttingLevel;
-    }
-    if (data.fishingLevel !== undefined) {
-      updateData.fishingLevel = data.fishingLevel;
-    }
-    if (data.firemakingLevel !== undefined) {
-      updateData.firemakingLevel = data.firemakingLevel;
-    }
-    if (data.cookingLevel !== undefined) {
-      updateData.cookingLevel = data.cookingLevel;
-    }
-    // XP fields
-    if (data.attackXp !== undefined) {
-      updateData.attackXp = data.attackXp;
-    }
-    if (data.strengthXp !== undefined) {
-      updateData.strengthXp = data.strengthXp;
-    }
-    if (data.defenseXp !== undefined) {
-      updateData.defenseXp = data.defenseXp;
-    }
-    if (data.constitutionXp !== undefined) {
-      updateData.constitutionXp = data.constitutionXp;
-    }
-    if (data.rangedXp !== undefined) {
-      updateData.rangedXp = data.rangedXp;
-    }
-    if (data.woodcuttingXp !== undefined) {
-      updateData.woodcuttingXp = data.woodcuttingXp;
-    }
-    if (data.fishingXp !== undefined) {
-      updateData.fishingXp = data.fishingXp;
-    }
-    if (data.firemakingXp !== undefined) {
-      updateData.firemakingXp = data.firemakingXp;
-    }
-    if (data.cookingXp !== undefined) {
-      updateData.cookingXp = data.cookingXp;
-    }
-    if (data.health !== undefined) {
-      updateData.health = data.health;
-    }
-    if (data.maxHealth !== undefined) {
-      updateData.maxHealth = data.maxHealth;
-    }
-    if (data.coins !== undefined) {
-      updateData.coins = data.coins;
-    }
-    if (data.positionX !== undefined) {
-      updateData.positionX = data.positionX;
-    }
-    if (data.positionY !== undefined) {
-      updateData.positionY = data.positionY;
-    }
-    if (data.positionZ !== undefined) {
-      updateData.positionZ = data.positionZ;
-    }
-
-    // If no update data provided, skip silently (character doesn't need updating)
-    if (Object.keys(updateData).length === 0) {
-      return;
-    }
-
-    // UPDATE ONLY - does NOT create characters
-    // Characters must be explicitly created via createCharacter() first
-    try {
-      await this.db
-        .update(schema.characters)
-        .set(updateData)
-        .where(eq(schema.characters.id, playerId));
-    } catch (err) {
-      console.error("[DatabaseSystem] UPDATE FAILED:", err);
-      throw err;
-    }
+    return this.playerRepository.savePlayerAsync(playerId, data);
   }
 
   // ============================================================================
   // INVENTORY MANAGEMENT
   // ============================================================================
-  // Player inventory stores items in 28 slots (like RuneScape classic).
-  // Each item has an ID, quantity, slot index, and optional metadata.
 
   /**
    * Load player inventory from database
-   *
-   * Retrieves all items in a player's inventory, ordered by slot index.
-   * Metadata is automatically parsed from JSON string to object.
-   *
-   * @param playerId - The player ID to fetch inventory for
-   * @returns Array of inventory items
+   * Delegates to InventoryRepository
    */
   async getPlayerInventoryAsync(playerId: string): Promise<InventoryRow[]> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const results = await this.db
-      .select()
-      .from(schema.inventory)
-      .where(eq(schema.inventory.playerId, playerId))
-      .orderBy(schema.inventory.slotIndex);
-
-    return results.map((row) => ({
-      ...row,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
-    })) as InventoryRow[];
+    return this.inventoryRepository.getPlayerInventoryAsync(playerId);
   }
 
+  /**
+   * Save player inventory to database
+   * Delegates to InventoryRepository
+   */
   async savePlayerInventoryAsync(
     playerId: string,
     items: InventorySaveItem[],
   ): Promise<void> {
-    if (!this.db || this.isDestroying) {
-      // Gracefully skip during shutdown
-      return;
-    }
-
-    // Perform atomic replace using a transaction to avoid data loss on hot reload/crash
-    await this.db.transaction(async (tx) => {
-      // Delete existing inventory
-      await tx
-        .delete(schema.inventory)
-        .where(eq(schema.inventory.playerId, playerId));
-      // Insert new items
-      if (items.length > 0) {
-        await tx.insert(schema.inventory).values(
-          items.map((item) => ({
-            playerId,
-            itemId: item.itemId,
-            quantity: item.quantity,
-            slotIndex: item.slotIndex ?? -1,
-            metadata: item.metadata ? JSON.stringify(item.metadata) : null,
-          })),
-        );
-      }
-    });
+    return this.inventoryRepository.savePlayerInventoryAsync(playerId, items);
   }
 
   // ============================================================================
   // EQUIPMENT MANAGEMENT
   // ============================================================================
-  // Equipment represents items worn/wielded by the player (weapons, armor, etc.).
-  // Each slot type (e.g., "weapon", "helmet") can hold one item.
 
   /**
    * Load player equipment from database
-   *
-   * Retrieves all equipped items for a player across all equipment slots.
-   * Returns empty array if player has no equipped items.
-   *
-   * @param playerId - The player ID to fetch equipment for
-   * @returns Array of equipped items by slot
+   * Delegates to EquipmentRepository
    */
   async getPlayerEquipmentAsync(playerId: string): Promise<EquipmentRow[]> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const results = await this.db
-      .select()
-      .from(schema.equipment)
-      .where(eq(schema.equipment.playerId, playerId));
-
-    return results as EquipmentRow[];
+    return this.equipmentRepository.getPlayerEquipmentAsync(playerId);
   }
 
+  /**
+   * Save player equipment to database
+   * Delegates to EquipmentRepository
+   */
   async savePlayerEquipmentAsync(
     playerId: string,
     items: EquipmentSaveItem[],
   ): Promise<void> {
-    if (!this.db || this.isDestroying) {
-      // Gracefully skip during shutdown
-      return;
-    }
-
-    // Delete existing equipment
-    await this.db
-      .delete(schema.equipment)
-      .where(eq(schema.equipment.playerId, playerId));
-
-    // Insert new equipment
-    if (items.length > 0) {
-      await this.db.insert(schema.equipment).values(
-        items.map((item) => ({
-          playerId,
-          slotType: item.slotType,
-          itemId: item.itemId || null,
-          quantity: item.quantity ?? 1,
-        })),
-      );
-    }
+    return this.equipmentRepository.savePlayerEquipmentAsync(playerId, items);
   }
 
   // ============================================================================
   // SESSION TRACKING
   // ============================================================================
-  // Sessions track when players log in/out and their total playtime.
-  // Used for analytics, idle timeout detection, and player activity monitoring.
 
   /**
    * Create a new player session
-   *
-   * Records when a player logs in. Session remains active (sessionEnd=null) until
-   * they disconnect. Used for tracking playtime and detecting idle players.
-   *
-   * @param sessionData - Session information (playerId, start time, etc.)
-   * @param sessionId - Optional session ID (generated if not provided)
-   * @returns The session ID for tracking this session
+   * Delegates to SessionRepository
    */
   async createPlayerSessionAsync(
     sessionData: Omit<PlayerSessionRow, "id" | "sessionId">,
     sessionId?: string,
   ): Promise<string> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const id =
-      sessionId ||
-      `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    await this.db.insert(schema.playerSessions).values({
-      id,
-      playerId: sessionData.playerId,
-      sessionStart: sessionData.sessionStart,
-      sessionEnd: sessionData.sessionEnd ?? null,
-      playtimeMinutes: sessionData.playtimeMinutes ?? 0,
-      reason: sessionData.reason ?? null,
-      lastActivity: sessionData.lastActivity ?? Date.now(),
-    });
-
-    return id;
+    return this.sessionRepository.createPlayerSessionAsync(
+      sessionData,
+      sessionId,
+    );
   }
 
+  /**
+   * Update an existing player session
+   * Delegates to SessionRepository
+   */
   async updatePlayerSessionAsync(
     sessionId: string,
     updates: Partial<PlayerSessionRow>,
   ): Promise<void> {
-    if (!this.db || this.isDestroying) {
-      // Gracefully skip during shutdown
-      return;
-    }
-
-    type SessionUpdate = Partial<typeof schema.playerSessions.$inferInsert>;
-    const updateData: SessionUpdate = {};
-    if (updates.sessionEnd !== undefined)
-      updateData.sessionEnd = updates.sessionEnd;
-    if (updates.playtimeMinutes !== undefined)
-      updateData.playtimeMinutes = updates.playtimeMinutes;
-    if (updates.reason !== undefined) updateData.reason = updates.reason;
-    if (updates.lastActivity !== undefined)
-      updateData.lastActivity = updates.lastActivity;
-
-    await this.db
-      .update(schema.playerSessions)
-      .set(updateData)
-      .where(eq(schema.playerSessions.id, sessionId));
+    return this.sessionRepository.updatePlayerSessionAsync(sessionId, updates);
   }
 
+  /**
+   * Get all active player sessions
+   * Delegates to SessionRepository
+   */
   async getActivePlayerSessionsAsync(): Promise<PlayerSessionRow[]> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const results = await this.db
-      .select()
-      .from(schema.playerSessions)
-      .where(sql`${schema.playerSessions.sessionEnd} IS NULL`);
-
-    return results.map((row) => ({
-      ...row,
-      id: row.id,
-      sessionId: row.id,
-      sessionEnd: row.sessionEnd ?? null,
-      reason: row.reason ?? null,
-    })) as PlayerSessionRow[];
+    return this.sessionRepository.getActivePlayerSessionsAsync();
   }
 
+  /**
+   * End a player session
+   * Delegates to SessionRepository
+   */
   async endPlayerSessionAsync(
     sessionId: string,
     reason?: string,
   ): Promise<void> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    await this.db
-      .update(schema.playerSessions)
-      .set({
-        sessionEnd: Date.now(),
-        reason: reason || "normal",
-      })
-      .where(eq(schema.playerSessions.id, sessionId));
+    return this.sessionRepository.endPlayerSessionAsync(sessionId, reason);
   }
 
   // ============================================================================
   // WORLD CHUNK PERSISTENCE
   // ============================================================================
-  // World chunks store persistent modifications to the terrain and entities.
-  // Each chunk is identified by its X,Z coordinates and contains serialized data.
 
   /**
    * Load world chunk data from database
-   *
-   * Retrieves persistent modifications for a specific chunk (resources, buildings, etc.).
-   * Returns null if chunk has no persistent data (meaning it uses default generation).
-   *
-   * @param chunkX - Chunk X coordinate
-   * @param chunkZ - Chunk Z coordinate
-   * @returns Chunk data or null if not found
+   * Delegates to WorldChunkRepository
    */
   async getWorldChunkAsync(
     chunkX: number,
     chunkZ: number,
   ): Promise<WorldChunkRow | null> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const results = await this.db
-      .select()
-      .from(schema.worldChunks)
-      .where(
-        and(
-          eq(schema.worldChunks.chunkX, chunkX),
-          eq(schema.worldChunks.chunkZ, chunkZ),
-        ),
-      )
-      .limit(1);
-
-    if (results.length === 0) return null;
-
-    return results[0] as WorldChunkRow;
+    return this.worldChunkRepository.getWorldChunkAsync(chunkX, chunkZ);
   }
 
+  /**
+   * Save world chunk data to database
+   * Delegates to WorldChunkRepository
+   */
   async saveWorldChunkAsync(chunkData: {
     chunkX: number;
     chunkZ: number;
     data: string;
   }): Promise<void> {
-    if (!this.db || this.isDestroying) {
-      // Gracefully skip during shutdown
-      return;
-    }
-
-    await this.db
-      .insert(schema.worldChunks)
-      .values({
-        chunkX: chunkData.chunkX,
-        chunkZ: chunkData.chunkZ,
-        data: chunkData.data,
-        lastActive: Date.now(),
-      })
-      .onConflictDoUpdate({
-        target: [schema.worldChunks.chunkX, schema.worldChunks.chunkZ],
-        set: {
-          data: chunkData.data,
-          lastActive: Date.now(),
-        },
-      });
+    return this.worldChunkRepository.saveWorldChunkAsync(chunkData);
   }
 
+  /**
+   * Get world items for a chunk
+   * Delegates to WorldChunkRepository
+   */
   async getWorldItemsAsync(
     _chunkX: number,
     _chunkZ: number,
   ): Promise<ItemRow[]> {
-    console.warn("[DatabaseSystem] getWorldItemsAsync not yet implemented");
-    return [];
+    return this.worldChunkRepository.getWorldItemsAsync(_chunkX, _chunkZ);
   }
 
+  /**
+   * Save world items for a chunk
+   * Delegates to WorldChunkRepository
+   */
   async saveWorldItemsAsync(
     _chunkX: number,
     _chunkZ: number,
     _items: ItemRow[],
   ): Promise<void> {
-    console.warn("[DatabaseSystem] saveWorldItemsAsync not yet implemented");
+    return this.worldChunkRepository.saveWorldItemsAsync(
+      _chunkX,
+      _chunkZ,
+      _items,
+    );
   }
 
+  /**
+   * Get inactive chunks
+   * Delegates to WorldChunkRepository
+   */
   async getInactiveChunksAsync(minutes: number): Promise<WorldChunkRow[]> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const cutoffTime = Date.now() - minutes * 60 * 1000;
-
-    const results = await this.db
-      .select()
-      .from(schema.worldChunks)
-      .where(sql`${schema.worldChunks.lastActive} < ${cutoffTime}`);
-
-    return results as WorldChunkRow[];
+    return this.worldChunkRepository.getInactiveChunksAsync(minutes);
   }
 
+  /**
+   * Update chunk player count
+   * Delegates to WorldChunkRepository
+   */
   async updateChunkPlayerCountAsync(
     chunkX: number,
     chunkZ: number,
     playerCount: number,
   ): Promise<void> {
-    if (!this.db || this.isDestroying) {
-      // Gracefully skip during shutdown
-      return;
-    }
-
-    await this.db
-      .update(schema.worldChunks)
-      .set({ playerCount })
-      .where(
-        and(
-          eq(schema.worldChunks.chunkX, chunkX),
-          eq(schema.worldChunks.chunkZ, chunkZ),
-        ),
-      );
+    return this.worldChunkRepository.updateChunkPlayerCountAsync(
+      chunkX,
+      chunkZ,
+      playerCount,
+    );
   }
 
+  /**
+   * Mark chunk for reset
+   * Delegates to WorldChunkRepository
+   */
   async markChunkForResetAsync(chunkX: number, chunkZ: number): Promise<void> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    await this.db
-      .update(schema.worldChunks)
-      .set({ needsReset: 1 })
-      .where(
-        and(
-          eq(schema.worldChunks.chunkX, chunkX),
-          eq(schema.worldChunks.chunkZ, chunkZ),
-        ),
-      );
+    return this.worldChunkRepository.markChunkForResetAsync(chunkX, chunkZ);
   }
 
+  /**
+   * Reset chunk
+   * Delegates to WorldChunkRepository
+   */
   async resetChunkAsync(chunkX: number, chunkZ: number): Promise<void> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    // Delete the chunk to allow it to regenerate
-    await this.db
-      .delete(schema.worldChunks)
-      .where(
-        and(
-          eq(schema.worldChunks.chunkX, chunkX),
-          eq(schema.worldChunks.chunkZ, chunkZ),
-        ),
-      );
+    return this.worldChunkRepository.resetChunkAsync(chunkX, chunkZ);
   }
 
   // ============================================================================
   // NPC KILL TRACKING
   // ============================================================================
-  // Tracks player kill statistics for achievements, quests, and analytics.
-  // Each row stores the number of times a player has killed a specific NPC type.
 
   /**
    * Increment NPC kill count for a player
-   *
-   * Increments the kill count for a specific NPC type. If this is the player's
-   * first kill of this NPC type, creates a new row with killCount=1.
-   * Uses PostgreSQL's ON CONFLICT to atomically increment or insert.
-   *
-   * @param playerId - The player ID who killed the NPC
-   * @param npcId - The NPC type identifier (e.g., "goblin", "dragon")
+   * Delegates to NPCKillRepository
    */
   async incrementNPCKillAsync(playerId: string, npcId: string): Promise<void> {
-    if (!this.db || this.isDestroying) {
-      return;
-    }
-
-    await this.db
-      .insert(schema.npcKills)
-      .values({
-        playerId,
-        npcId,
-        killCount: 1,
-      })
-      .onConflictDoUpdate({
-        target: [schema.npcKills.playerId, schema.npcKills.npcId],
-        set: {
-          killCount: sql`${schema.npcKills.killCount} + 1`,
-        },
-      });
+    return this.npcKillRepository.incrementNPCKillAsync(playerId, npcId);
   }
 
   /**
    * Get all NPC kill statistics for a player
-   *
-   * Retrieves the complete kill count for all NPC types this player has killed.
-   * Returns empty array if player has no kills recorded.
-   *
-   * @param playerId - The player ID to fetch kill stats for
-   * @returns Array of NPC kill records
+   * Delegates to NPCKillRepository
    */
   async getPlayerNPCKillsAsync(
     playerId: string,
   ): Promise<Array<{ npcId: string; killCount: number }>> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const results = await this.db
-      .select({
-        npcId: schema.npcKills.npcId,
-        killCount: schema.npcKills.killCount,
-      })
-      .from(schema.npcKills)
-      .where(eq(schema.npcKills.playerId, playerId));
-
-    return results;
+    return this.npcKillRepository.getPlayerNPCKillsAsync(playerId);
   }
 
   /**
    * Get kill count for a specific NPC type
-   *
-   * Returns how many times the player has killed this specific NPC type.
-   * Returns 0 if the player has never killed this NPC type.
-   *
-   * @param playerId - The player ID to check
-   * @param npcId - The NPC type identifier
-   * @returns Number of times this player has killed this NPC type
+   * Delegates to NPCKillRepository
    */
   async getNPCKillCountAsync(playerId: string, npcId: string): Promise<number> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    const results = await this.db
-      .select({ killCount: schema.npcKills.killCount })
-      .from(schema.npcKills)
-      .where(
-        and(
-          eq(schema.npcKills.playerId, playerId),
-          eq(schema.npcKills.npcId, npcId),
-        ),
-      )
-      .limit(1);
-
-    return results.length > 0 ? results[0].killCount : 0;
+    return this.npcKillRepository.getNPCKillCountAsync(playerId, npcId);
   }
 
   // ============================================================================
@@ -872,6 +485,10 @@ export class DatabaseSystem extends SystemBase {
     return [];
   }
 
+  /**
+   * @deprecated Use getPlayerAsync instead
+   * @returns null (use async method to get real data)
+   */
   getPlayer(_playerId: string): PlayerRow | null {
     console.warn(
       "[DatabaseSystem] getPlayer called synchronously - use getPlayerAsync instead",
@@ -879,17 +496,18 @@ export class DatabaseSystem extends SystemBase {
     return null;
   }
 
+  /**
+   * Save player data (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   savePlayer(playerId: string, data: Partial<PlayerRow>): void {
-    const operation = this.savePlayerAsync(playerId, data)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in savePlayer:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.savePlayerAsync(playerId, data));
   }
 
+  /**
+   * @deprecated Use getPlayerInventoryAsync instead
+   * @returns Empty array (use async method to get real data)
+   */
   getPlayerInventory(_playerId: string): InventoryRow[] {
     console.warn(
       "[DatabaseSystem] getPlayerInventory called synchronously - use getPlayerInventoryAsync instead",
@@ -897,17 +515,18 @@ export class DatabaseSystem extends SystemBase {
     return [];
   }
 
+  /**
+   * Save player inventory (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   savePlayerInventory(playerId: string, items: InventorySaveItem[]): void {
-    const operation = this.savePlayerInventoryAsync(playerId, items)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in savePlayerInventory:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.savePlayerInventoryAsync(playerId, items));
   }
 
+  /**
+   * @deprecated Use getPlayerEquipmentAsync instead
+   * @returns Empty array (use async method to get real data)
+   */
   getPlayerEquipment(_playerId: string): EquipmentRow[] {
     console.warn(
       "[DatabaseSystem] getPlayerEquipment called synchronously - use getPlayerEquipmentAsync instead",
@@ -915,46 +534,43 @@ export class DatabaseSystem extends SystemBase {
     return [];
   }
 
+  /**
+   * Save player equipment (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   savePlayerEquipment(playerId: string, items: EquipmentSaveItem[]): void {
-    const operation = this.savePlayerEquipmentAsync(playerId, items)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in savePlayerEquipment:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.savePlayerEquipmentAsync(playerId, items));
   }
 
+  /**
+   * Create player session (fire-and-forget)
+   * Returns a session ID synchronously, tracks the operation for graceful shutdown
+   */
   createPlayerSession(
     sessionData: Omit<PlayerSessionRow, "id" | "sessionId">,
   ): string {
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const operation = this.createPlayerSessionAsync(sessionData, sessionId)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in createPlayerSession:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    this.trackAsyncOperation(
+      this.createPlayerSessionAsync(sessionData, sessionId),
+    );
     return sessionId;
   }
 
+  /**
+   * Update player session (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   updatePlayerSession(
     sessionId: string,
     updates: Partial<PlayerSessionRow>,
   ): void {
-    const operation = this.updatePlayerSessionAsync(sessionId, updates)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in updatePlayerSession:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.updatePlayerSessionAsync(sessionId, updates));
   }
 
+  /**
+   * @deprecated Use getActivePlayerSessionsAsync instead
+   * @returns Empty array (use async method to get real data)
+   */
   getActivePlayerSessions(): PlayerSessionRow[] {
     console.warn(
       "[DatabaseSystem] getActivePlayerSessions called synchronously - use getActivePlayerSessionsAsync instead",
@@ -962,32 +578,30 @@ export class DatabaseSystem extends SystemBase {
     return [];
   }
 
+  /**
+   * End player session (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   endPlayerSession(sessionId: string, reason?: string): void {
-    const operation = this.endPlayerSessionAsync(sessionId, reason)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in endPlayerSession:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.endPlayerSessionAsync(sessionId, reason));
   }
 
+  /**
+   * Save world chunk (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   saveWorldChunk(chunkData: {
     chunkX: number;
     chunkZ: number;
     data: string;
   }): void {
-    const operation = this.saveWorldChunkAsync(chunkData)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in saveWorldChunk:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.saveWorldChunkAsync(chunkData));
   }
 
+  /**
+   * @deprecated Use getWorldItemsAsync instead
+   * @returns Empty array (use async method to get real data)
+   */
   getWorldItems(_chunkX: number, _chunkZ: number): ItemRow[] {
     console.warn(
       "[DatabaseSystem] getWorldItems called synchronously - use getWorldItemsAsync instead",
@@ -995,17 +609,18 @@ export class DatabaseSystem extends SystemBase {
     return [];
   }
 
+  /**
+   * Save world items (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   saveWorldItems(chunkX: number, chunkZ: number, items: ItemRow[]): void {
-    const operation = this.saveWorldItemsAsync(chunkX, chunkZ, items)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in saveWorldItems:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.saveWorldItemsAsync(chunkX, chunkZ, items));
   }
 
+  /**
+   * @deprecated Use getInactiveChunksAsync instead
+   * @returns Empty array (use async method to get real data)
+   */
   getInactiveChunks(_minutes: number): WorldChunkRow[] {
     console.warn(
       "[DatabaseSystem] getInactiveChunks called synchronously - use getInactiveChunksAsync instead",
@@ -1013,47 +628,40 @@ export class DatabaseSystem extends SystemBase {
     return [];
   }
 
+  /**
+   * Update chunk player count (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   updateChunkPlayerCount(
     chunkX: number,
     chunkZ: number,
     playerCount: number,
   ): void {
-    const operation = this.updateChunkPlayerCountAsync(
-      chunkX,
-      chunkZ,
-      playerCount,
-    )
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in updateChunkPlayerCount:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(
+      this.updateChunkPlayerCountAsync(chunkX, chunkZ, playerCount),
+    );
   }
 
+  /**
+   * Mark chunk for reset (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   markChunkForReset(chunkX: number, chunkZ: number): void {
-    const operation = this.markChunkForResetAsync(chunkX, chunkZ)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in markChunkForReset:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.markChunkForResetAsync(chunkX, chunkZ));
   }
 
+  /**
+   * Reset chunk (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   resetChunk(chunkX: number, chunkZ: number): void {
-    const operation = this.resetChunkAsync(chunkX, chunkZ)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in resetChunk:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.resetChunkAsync(chunkX, chunkZ));
   }
 
+  /**
+   * @deprecated Use getWorldChunkAsync instead
+   * @returns null (use async method to get real data)
+   */
   getWorldChunk(_x: number, _z: number): WorldChunkRow | null {
     console.warn(
       "[DatabaseSystem] getWorldChunk called synchronously - use getWorldChunkAsync instead",
@@ -1061,15 +669,12 @@ export class DatabaseSystem extends SystemBase {
     return null;
   }
 
+  /**
+   * Increment NPC kill (fire-and-forget)
+   * Tracks the operation for graceful shutdown
+   */
   incrementNPCKill(playerId: string, npcId: string): void {
-    const operation = this.incrementNPCKillAsync(playerId, npcId)
-      .catch((err) => {
-        console.error("[DatabaseSystem] Error in incrementNPCKill:", err);
-      })
-      .finally(() => {
-        this.pendingOperations.delete(operation);
-      });
-    this.pendingOperations.add(operation);
+    this.trackAsyncOperation(this.incrementNPCKillAsync(playerId, npcId));
   }
 
   /**
