@@ -144,7 +144,7 @@ import {
   type DockerManager,
 } from "./docker-manager.js";
 import { NodeStorage as Storage } from "@hyperscape/shared";
-import { ServerNetwork } from "./ServerNetwork.js";
+import { ServerNetwork } from "./ServerNetwork/index.js";
 import { DatabaseSystem } from "./DatabaseSystem.js";
 import type { NodeWebSocket } from "./types.js";
 
@@ -549,17 +549,15 @@ async function startServer() {
         }
       }
 
-      return reply
-        .code(404)
-        .send({
-          error: "Music file not found",
-          tried: [
-            primaryPath,
-            ...pubCandidates.map((r) =>
-              path.join(r, "music", category, filename),
-            ),
-          ],
-        });
+      return reply.code(404).send({
+        error: "Music file not found",
+        tried: [
+          primaryPath,
+          ...pubCandidates.map((r) =>
+            path.join(r, "music", category, filename),
+          ),
+        ],
+      });
     },
   );
   fastify.log.info(`[Server] ✅ Registered manual music route`);
