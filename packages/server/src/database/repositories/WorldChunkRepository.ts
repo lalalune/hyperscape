@@ -16,7 +16,7 @@
 import { eq, and, sql } from "drizzle-orm";
 import { BaseRepository } from "./BaseRepository";
 import * as schema from "../schema";
-import type { WorldChunkRow, ItemRow } from "../../types";
+import type { WorldChunkRow, ItemRow } from "../../shared/types";
 
 /**
  * WorldChunkRepository class

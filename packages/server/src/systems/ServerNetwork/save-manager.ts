@@ -20,7 +20,7 @@
 
 import type { World } from "@hyperscape/shared";
 import { dbHelpers } from "@hyperscape/shared";
-import type { SystemDatabase } from "../types";
+import type { SystemDatabase } from "../../shared/types";
 
 // Read interval from environment or default to 60 seconds
 const SAVE_INTERVAL = parseInt(process.env.SAVE_INTERVAL || "60");

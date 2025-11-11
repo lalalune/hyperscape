@@ -15,7 +15,7 @@ import type {
   ServerSocket,
   SpawnData,
   DatabaseSystemOperations,
-} from "../types";
+} from "../../shared/types";
 import {
   EventType,
   uuid,

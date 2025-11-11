@@ -24,9 +24,9 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import {
   createDefaultDockerManager,
   type DockerManager,
-} from "../docker-manager.js";
+} from "../infrastructure/docker/docker-manager.js";
 import type { ServerConfig } from "./config.js";
-import type * as schema from "../db/schema.js";
+import type * as schema from "../database/schema.js";
 
 /**
  * Database context returned by initialization
@@ -93,13 +93,15 @@ export async function initializeDatabase(
 
   // Initialize Drizzle database
   console.log("[Database] Initializing Drizzle ORM...");
-  const { initializeDatabase: initDrizzle } = await import("../db/client.js");
+  const { initializeDatabase: initDrizzle } = await import(
+    "../database/client.js"
+  );
   const { db: drizzleDb, pool: pgPool } = await initDrizzle(connectionString);
   console.log("[Database] ✅ Drizzle ORM initialized");
 
   // Create adapter for systems that need the old database interface
   console.log("[Database] Creating legacy adapter...");
-  const { createDrizzleAdapter } = await import("../db/drizzle-adapter.js");
+  const { createDrizzleAdapter } = await import("../database/adapter.js");
   const db = createDrizzleAdapter(drizzleDb as NodePgDatabase<typeof schema>);
   console.log("[Database] ✅ Legacy adapter created");
 
@@ -121,7 +123,9 @@ export async function initializeDatabase(
  */
 export async function closeDatabase(): Promise<void> {
   console.log("[Database] Closing database connections...");
-  const { closeDatabase: closeDatabaseUtil } = await import("../db/client.js");
+  const { closeDatabase: closeDatabaseUtil } = await import(
+    "../database/client.js"
+  );
   await closeDatabaseUtil();
   console.log("[Database] ✅ Database connections closed");
 }

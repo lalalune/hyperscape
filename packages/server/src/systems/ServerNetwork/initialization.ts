@@ -20,7 +20,7 @@
  */
 
 import type { World } from "@hyperscape/shared";
-import type { SystemDatabase, SpawnData } from "../types";
+import type { SystemDatabase, SpawnData } from "../../shared/types";
 
 // Default spawn point (safe height above terrain)
 const DEFAULT_SPAWN = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';

@@ -28,7 +28,7 @@
 
 import type { FastifyInstance } from "fastify";
 import type { World } from "@hyperscape/shared";
-import { DatabaseSystem } from "../DatabaseSystem.js";
+import { DatabaseSystem } from "../systems/DatabaseSystem/index.js";
 import type { DatabaseContext } from "./database.js";
 import { closeDatabase } from "./database.js";
 

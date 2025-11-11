@@ -15,7 +15,7 @@
 import { eq } from "drizzle-orm";
 import { BaseRepository } from "./BaseRepository";
 import * as schema from "../schema";
-import type { InventoryRow, InventorySaveItem } from "../../types";
+import type { InventoryRow, InventorySaveItem } from "../../shared/types";
 
 /**
  * InventoryRepository class

@@ -4,7 +4,7 @@
  * Handles entity modification and event broadcasting
  */
 
-import type { ServerSocket } from "../../types";
+import type { ServerSocket } from "../../../shared/types";
 import type { World } from "@hyperscape/shared";
 
 export function handleEntityModified(

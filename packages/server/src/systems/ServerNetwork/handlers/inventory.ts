@@ -4,7 +4,7 @@
  * Handles item pickup and drop actions from clients
  */
 
-import type { ServerSocket } from "../../types";
+import type { ServerSocket } from "../../../shared/types";
 import { EventType, World } from "@hyperscape/shared";
 
 export function handlePickupItem(

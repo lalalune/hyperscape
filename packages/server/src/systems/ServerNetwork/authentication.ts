@@ -10,9 +10,16 @@
  * to improve maintainability and testability.
  */
 
-import type { ConnectionParams, User, SystemDatabase } from "../types";
-import { isPrivyEnabled, verifyPrivyToken } from "../privy-auth";
-import { createJWT, verifyJWT } from "../utils";
+import type {
+  ConnectionParams,
+  User,
+  SystemDatabase,
+} from "../../shared/types";
+import {
+  isPrivyEnabled,
+  verifyPrivyToken,
+} from "../../infrastructure/auth/privy-auth";
+import { createJWT, verifyJWT } from "../../shared/utils";
 import { uuid } from "@hyperscape/shared";
 
 /**

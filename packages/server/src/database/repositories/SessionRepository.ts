@@ -16,7 +16,7 @@
 import { eq, sql } from "drizzle-orm";
 import { BaseRepository } from "./BaseRepository";
 import * as schema from "../schema";
-import type { PlayerSessionRow } from "../../types";
+import type { PlayerSessionRow } from "../../shared/types";
 
 /**
  * SessionRepository class

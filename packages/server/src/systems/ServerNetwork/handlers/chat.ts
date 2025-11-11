@@ -4,7 +4,7 @@
  * Handles chat message broadcasting to all connected clients
  */
 
-import type { ServerSocket, ChatMessage } from "../../types";
+import type { ServerSocket, ChatMessage } from "../../../shared/types";
 import type { World } from "@hyperscape/shared";
 
 export function handleChatAdded(

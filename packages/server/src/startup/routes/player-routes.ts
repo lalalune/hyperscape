@@ -41,7 +41,7 @@ export function registerPlayerRoutes(
     fastify.log.info({ body }, "[API] player/disconnect");
 
     const network =
-      world.network as unknown as import("../../types.js").ServerNetworkWithSockets;
+      world.network as unknown as import("../../shared/types/index.js").ServerNetworkWithSockets;
     const socket = network.sockets.get(body.playerId);
 
     if (socket) {

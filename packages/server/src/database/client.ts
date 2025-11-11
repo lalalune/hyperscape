@@ -13,16 +13,16 @@
  * **Architecture**:
  * - Uses node-postgres (pg) for connection pooling
  * - Wraps pg with Drizzle ORM for type-safe queries
- * - Runs migrations from /src/db/migrations/ on startup
+ * - Runs migrations from /src/database/migrations/ on startup
  * - Searches multiple paths to support both development and production builds
  *
  * **Migration System**:
  * The migration system searches for the `meta/_journal.json` file in these locations (in order):
- * 1. process.cwd()/src/db/migrations (development from server package)
- * 2. process.cwd()/packages/server/src/db/migrations (development from workspace root)
+ * 1. process.cwd()/src/database/migrations (development from server package)
+ * 2. process.cwd()/packages/server/src/database/migrations (development from workspace root)
  * 3. __dirname/migrations (production build)
- * 4. __dirname/db/migrations (alternative build structure)
- * 5. __dirname/../src/db/migrations (alternative build structure)
+ * 4. __dirname/database/migrations (alternative build structure)
+ * 5. __dirname/../src/database/migrations (alternative build structure)
  *
  * **Connection Pooling**:
  * - Max 20 connections per pool (min 2)
@@ -118,12 +118,12 @@ export async function initializeDatabase(connectionString: string) {
     // Try multiple possible locations
     const possiblePaths = [
       // Development: from server package root
-      path.join(process.cwd(), "src/db/migrations"),
+      path.join(process.cwd(), "src/database/migrations"),
       // Development: from workspace root
-      path.join(process.cwd(), "packages/server/src/db/migrations"),
+      path.join(process.cwd(), "packages/server/src/database/migrations"),
       path.join(__dirname, "migrations"),
-      path.join(__dirname, "db/migrations"),
-      path.join(__dirname, "../src/db/migrations"),
+      path.join(__dirname, "database/migrations"),
+      path.join(__dirname, "../src/database/migrations"),
     ];
 
     let migrationsFolder: string | null = null;
