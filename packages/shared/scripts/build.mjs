@@ -67,6 +67,7 @@ async function buildLibrary() {
       '.tsx': 'tsx',
     },
     // Mark server-specific modules as external so they can be dynamically imported
+    // These paths are relative to the build output location
     external: [
       './PhysXManager.server',
       './PhysXManager.server.js',
@@ -83,7 +84,7 @@ async function buildLibrary() {
   // Build server-specific modules separately
   console.log('Building server-specific modules...')
   const ctxServerPhysX = await esbuild.context({
-    entryPoints: ['src/PhysXManager.server.ts'],
+    entryPoints: ['src/physics/PhysXManager.server.ts'],
     outfile: 'build/PhysXManager.server.js',
     platform: 'node',
     format: 'esm',
@@ -93,9 +94,9 @@ async function buildLibrary() {
   })
   await ctxServerPhysX.rebuild()
   await ctxServerPhysX.dispose()
-  
+
   const ctxServerStorage = await esbuild.context({
-    entryPoints: ['src/storage.server.ts'],
+    entryPoints: ['src/platform/server/storage.server.ts'],
     outfile: 'build/storage.server.js',
     platform: 'node',
     format: 'esm',
@@ -125,6 +126,7 @@ async function buildLibrary() {
       '.tsx': 'tsx',
     },
     // Mark server-specific modules as external so they're not bundled
+    // These paths are relative to the build output location
     external: [
       './PhysXManager.server',
       './PhysXManager.server.js',

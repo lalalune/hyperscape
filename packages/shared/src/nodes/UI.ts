@@ -6,9 +6,9 @@
 
 import { every, isArray, isBoolean, isNumber, isString } from "lodash-es";
 import Yoga from "yoga-layout";
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 import type { Entity } from "../entities/Entity";
-import { fillRoundRect } from "../extras/roundRect";
+import { fillRoundRect } from "../extras/ui/roundRect";
 import {
   AlignContent,
   AlignItems,
@@ -20,7 +20,7 @@ import {
   isFlexWrap,
   isJustifyContent,
   JustifyContent,
-} from "../extras/yoga";
+} from "../extras/ui/yoga";
 import { Node } from "./Node";
 
 import type {
@@ -29,9 +29,9 @@ import type {
   UIData,
   UIProxy,
   UIYogaNode,
-} from "../types/nodes";
+} from "../types/rendering/nodes";
 import type { HotReloadable } from "../types";
-import { borderRoundRect } from "../extras/borderRoundRect";
+import { borderRoundRect } from "../extras/ui/borderRoundRect";
 import { clamp } from "../utils";
 
 const v1 = new THREE.Vector3();

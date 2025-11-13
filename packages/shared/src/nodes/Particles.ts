@@ -6,8 +6,8 @@
 
 import { every, isArray, isNumber, isString } from "lodash-es";
 import { Node } from "./Node";
-import { World } from "../World";
-import type { ParticlesData, ParticleEmitter } from "../types/nodes";
+import { World } from "../core/World";
+import type { ParticlesData, ParticleEmitter } from "../types/rendering/nodes";
 
 const shapeTypes = [
   "point",

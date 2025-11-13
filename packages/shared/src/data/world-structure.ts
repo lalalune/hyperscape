@@ -15,11 +15,11 @@
  * DO NOT add biome/zone data here - keep it in JSON!
  */
 
-import type { BiomeData, ZoneData } from "../types/core";
-import { calculateDistance2D } from "../utils/EntityUtils";
+import type { BiomeData, ZoneData } from "../types/core/core";
+import { calculateDistance2D } from "../utils/game/EntityUtils";
 
 // Re-export types for external use
-export type { DeathLocationData } from "../types/core";
+export type { DeathLocationData } from "../types/core/core";
 
 /**
  * Biome Database - Populated at runtime from JSON manifests
@@ -34,9 +34,10 @@ export const BIOMES: Record<string, BiomeData> = {};
 export const WORLD_ZONES: ZoneData[] = [];
 
 /**
- * Starter Towns - Computed from loaded zones
+ * Starter Zones - Computed from loaded zones (ZoneData[] type)
+ * Note: This is different from STARTER_TOWNS in world-areas.ts which uses WorldArea type
  */
-export const STARTER_TOWNS: ZoneData[] = [];
+export const STARTER_ZONES: ZoneData[] = [];
 
 /**
  * Helper Functions
@@ -110,9 +111,10 @@ export function getTerrainHeight(_x: number, _z: number): number {
 }
 
 /**
- * World Constants per GDD
+ * World Structure Constants (grid, terrain, zones)
+ * Note: Different from WORLD_GENERATION_CONSTANTS in world-areas.ts
  */
-export const WORLD_CONSTANTS = {
+export const WORLD_STRUCTURE_CONSTANTS = {
   GRID_SIZE: 4, // Block size for grid-based movement
   DEFAULT_SPAWN_HEIGHT: 2,
   WATER_LEVEL: 0,

@@ -66,9 +66,9 @@
  */
 
 import { Entity } from "./Entity";
-import type { World } from "../World";
+import type { World } from "../core/World";
 import type { EntityConfig, EntityInteractionData } from "../types/entities";
-import type { Position3D } from "../types/core";
+import type { Position3D } from "../types/core/core";
 
 export interface InteractableConfig extends EntityConfig {
   interaction?: {

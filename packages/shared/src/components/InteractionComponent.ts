@@ -4,7 +4,7 @@
  */
 
 import { Component } from "./Component";
-import type { InteractionComponentData } from "../types/components";
+import type { InteractionComponentData } from "../types/entities/components";
 import type { Entity } from "../entities/Entity";
 
 // Type moved to shared types/components.ts

@@ -34,3 +34,21 @@ export function calculateDistance2D(pos1: Vector3, pos2: Vector3): number {
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
+
+/**
+ * Generates a random number within a range with optional decimal precision
+ *
+ * @param min - Minimum value (inclusive)
+ * @param max - Maximum value (inclusive)
+ * @param dp - Decimal places (default: 0 for integers)
+ * @returns Random number in range [min, max]
+ *
+ * @example
+ * num(1, 10)       // => 7 (random integer between 1-10)
+ * num(0, 1, 2)     // => 0.73 (random float with 2 decimal places)
+ * num(100, 200, 1) // => 156.4 (random float with 1 decimal place)
+ */
+export function num(min: number, max: number, dp: number = 0): number {
+  const value = Math.random() * (max - min) + min;
+  return parseFloat(value.toFixed(dp));
+}
