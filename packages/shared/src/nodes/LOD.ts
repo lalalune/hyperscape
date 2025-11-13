@@ -4,9 +4,9 @@
  * Container that shows/hides children based on camera distance.
  */
 
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 
-import type { LODData, LODItem } from "../types/nodes";
+import type { LODData, LODItem } from "../types/rendering/nodes";
 import { isBoolean } from "../utils/ValidationUtils";
 import { getRef, Node } from "./Node";
 

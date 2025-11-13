@@ -20,7 +20,7 @@
  * DO NOT add NPC data here - keep it in JSON!
  */
 
-import type { NPCData, NPCCategory } from "../types/core";
+import type { NPCData, NPCCategory } from "../types/core/core";
 
 /**
  * NPC Database - Populated at runtime from JSON manifests

@@ -56,20 +56,16 @@
  * Used by: Client package, Server package, Plugin-Hyperscape package
  */
 
-export { createClientWorld } from "./createClientWorld";
-export { createServerWorld } from "./createServerWorld";
-export { createViewerWorld } from "./createViewerWorld";
-export { World } from "./World";
-export type { World as WorldType } from "./World";
+// Export world factories from runtime/
+export * from "./runtime";
+
+// Export core classes
+export * from "./core";
 
 // Export entity classes
-export { Entity } from "./entities/Entity";
+export { PlayerLocal } from "./entities/player/PlayerLocal";
+export { PlayerRemote } from "./entities/player/PlayerRemote";
 export type { EventCallback } from "./entities/Entity";
-export { PlayerLocal } from "./entities/PlayerLocal";
-export { PlayerRemote } from "./entities/PlayerRemote";
-
-// Export System class from core systems
-export { System } from "./systems/System";
 
 // Export all types from types/index.ts
 export type {
@@ -119,10 +115,10 @@ export type {
   NetworkMetrics,
   MovementValidationResult,
   MovementConfig,
-} from "./types/networking";
+} from "./types/network/networking";
 
 // Export Socket class
-export { Socket } from "./Socket";
+export { Socket } from "./platform/shared/Socket";
 
 // Export database types for server use
 
@@ -130,46 +126,51 @@ export { Socket } from "./Socket";
 export { EventType } from "./types/events";
 
 // Export PlayerMigration class
-export { PlayerMigration } from "./types/core";
+export { PlayerMigration } from "./types/core/core";
 
 // Export enums (these are values, not types)
-export { WeaponType, EquipmentSlotName } from "./types/core";
+export { WeaponType, EquipmentSlotName } from "./types/core/core";
 
 // Export db helpers and type guards for server usage
-export { dbHelpers, isDatabaseInstance } from "./types/database";
+export { dbHelpers, isDatabaseInstance } from "./types/network/database";
 
 // Export role utilities
-export { addRole, removeRole, hasRole, serializeRoles, uuid } from "./utils";
+export {
+  addRole,
+  removeRole,
+  hasRole,
+  serializeRoles,
+  uuid,
+} from "./utils/index";
 
 // Export item helpers used by server network snapshot
 export { getItem } from "./data/items";
 
-// Export system classes to fix API extractor warnings
-export { Entities } from "./systems/Entities";
-export { Physics } from "./systems/Physics";
-export { Particles } from "./systems/Particles";
-export { LODs } from "./systems/LODs";
-export { ClientInterface } from "./systems/ClientInterface"; // UI state, preferences, stats display
-export { ClientLoader } from "./systems/ClientLoader";
-// ServerNetwork removed from main exports - import directly from ./systems/ServerNetwork when needed on server side
-export { Environment } from "./systems/Environment";
-export { ClientNetwork } from "./systems/ClientNetwork";
-export { ClientGraphics } from "./systems/ClientGraphics";
-export { ClientRuntime } from "./systems/ClientRuntime"; // Client lifecycle and diagnostics
-export { ClientAudio } from "./systems/ClientAudio";
-export { ClientLiveKit } from "./systems/ClientLiveKit";
-export { ClientInput } from "./systems/ClientInput"; // Keyboard, mouse, touch, XR input handling
-export { ServerRuntime } from "./systems/ServerRuntime"; // Server lifecycle and monitoring
-export { ClientActions } from "./systems/ClientActions";
-export { XR } from "./systems/XR";
-export { EventBus } from "./systems/EventBus";
-export { System as SystemClass } from "./systems/System";
-export { SystemBase } from "./systems/SystemBase";
+// Export systems (organized by platform for tree-shaking)
+export { Entities } from "./systems/shared";
+export { Physics } from "./systems/shared";
+export { Particles } from "./systems/shared";
+export { LODs } from "./systems/shared";
+export { ClientInterface } from "./systems/client/ClientInterface"; // UI state, preferences, stats display
+export { ClientLoader } from "./systems/client/ClientLoader";
+// ServerNetwork removed from main exports - import directly from ./systems/server when needed on server side
+export { Environment } from "./systems/shared";
+export { ClientNetwork } from "./systems/client/ClientNetwork";
+export { ClientGraphics } from "./systems/client/ClientGraphics";
+export { ClientRuntime } from "./systems/client/ClientRuntime"; // Client lifecycle and diagnostics
+export { ClientAudio } from "./systems/client/ClientAudio";
+export { ClientLiveKit } from "./systems/client/ClientLiveKit";
+export { ClientInput } from "./systems/client/ClientInput"; // Keyboard, mouse, touch, XR input handling
+export { ServerRuntime } from "./systems/server/ServerRuntime"; // Server lifecycle and monitoring
+export { ClientActions } from "./systems/client/ClientActions";
+export { XR } from "./systems/client/XR";
+export { EventBus } from "./systems/shared";
+export { System as SystemClass } from "./systems/shared";
+export { SystemBase } from "./systems/shared";
 
-// Export node client components directly from their source modules
-export { createNodeClientWorld } from "./createNodeClientWorld";
-export { ServerLoader } from "./systems/ServerLoader";
-export { NodeClient } from "./systems/NodeClient";
+// Export node client components
+export { ServerLoader } from "./systems/server/ServerLoader";
+export { NodeClient } from "./systems/client/NodeClient";
 export { Node } from "./nodes/Node";
 // Re-export commonly used node classes to satisfy API extractor
 export { UI } from "./nodes/UI";
@@ -179,13 +180,13 @@ export { UIText } from "./nodes/UIText";
 export { Group } from "./nodes/Group";
 export { Mesh } from "./nodes/Mesh";
 export { Avatar } from "./nodes/Avatar";
-export { storage } from "./storage";
+export { storage } from "./platform/shared/storage";
 export {
   loadPhysX,
   waitForPhysX,
   getPhysX,
   isPhysXReady,
-} from "./PhysXManager";
+} from "./physics/PhysXManager";
 
 // Export renderer utilities
 export {
@@ -199,14 +200,14 @@ export {
   detectRenderingCapabilities,
   type UniversalRenderer,
   type RendererOptions,
-} from "./utils/RendererFactory";
+} from "./utils/rendering/RendererFactory";
 
 export {
   createPostProcessing,
   setBloomEnabled,
   disposePostProcessing,
   type PostProcessingComposer,
-} from "./utils/PostProcessingFactory";
+} from "./utils/rendering/PostProcessingFactory";
 
 // Material and mesh optimizations
 export {
@@ -214,7 +215,7 @@ export {
   createOptimizedInstancedMesh,
   getWebGPUCapabilities,
   logWebGPUInfo,
-} from "./utils/RendererFactory";
+} from "./utils/rendering/RendererFactory";
 
 export {
   isNumber,
@@ -229,16 +230,16 @@ export {
   calculateDistance2D,
 } from "./utils/ValidationUtils";
 
-export { isTouch, cls, hashFile } from "./utils-client";
-export { ReactiveVector3 } from "./extras/ReactiveVector3";
-export { createEmoteFactory } from "./extras/createEmoteFactory";
-export { createNode } from "./extras/createNode";
-export { glbToNodes } from "./extras/glbToNodes";
-export { Emotes } from "./extras/playerEmotes";
-export { ControlPriorities } from "./extras/ControlPriorities";
-export { downloadFile } from "./extras/downloadFile";
-export { Curve } from "./extras/Curve";
-export { buttons, propToLabel } from "./extras/buttons";
+export { isTouch, cls, hashFile } from "./platform/client/utils-client";
+export { ReactiveVector3 } from "./extras/animation/ReactiveVector3";
+export { createEmoteFactory } from "./extras/three/createEmoteFactory";
+export { createNode } from "./extras/three/createNode";
+export { glbToNodes } from "./extras/three/glbToNodes";
+export { Emotes } from "./data/playerEmotes";
+export { ControlPriorities } from "./systems/client/ControlPriorities";
+export { downloadFile } from "./utils/downloadFile";
+export { Curve } from "./extras/animation/Curve";
+export { buttons, propToLabel } from "./extras/ui/buttons";
 // GLTFLoader export disabled due to TypeScript declaration generation issues
 // Users can import it directly: import { GLTFLoader } from './libs/gltfloader/GLTFLoader';
 export { CSM } from "./libs/csm/CSM";
@@ -262,7 +263,7 @@ export function getPhysXAssetPath(assetName: string): string {
 }
 
 // Export THREE namespace as a default-only module export
-export { default as THREE } from "./extras/three";
+export { default as THREE } from "./extras/three/three";
 
 // Export Vector3 compatibility utilities for plugin use
 export {
@@ -272,7 +273,7 @@ export {
   createVector3,
   toVector3Object,
   isVector3Like,
-} from "./extras/vector3-compatibility";
+} from "./extras/animation/vector3-compatibility";
 
 // Export PhysX types
 export type {
@@ -281,7 +282,7 @@ export type {
   PxQuat,
   PxSphereGeometry,
   PxCapsuleGeometry,
-} from "./types/physics";
+} from "./types/systems/physics";
 export type {
   PxScene,
   PxFoundation,
@@ -303,14 +304,14 @@ export type {
   PxDefaultAllocator,
   PxDefaultErrorCallback,
   PxQueryFilterData,
-} from "./types/physics";
+} from "./types/systems/physics";
 
 // Re-export types referenced by API Extractor warnings
-export type { PhysXInfo, PhysXModule } from "./types/physics";
+export type { PhysXInfo, PhysXModule } from "./types/systems/physics";
 export type {
   InterpolatedPhysicsHandle,
   NonInterpolatedPhysicsHandle,
-} from "./types/physics";
+} from "./types/systems/physics";
 // Re-export specific core types referenced by entity declarations
 export type {
   PlayerDeathData,
@@ -336,7 +337,7 @@ export type {
   ItemRarity,
   CombatBonuses,
   EquipmentSlot,
-} from "./types/core";
+} from "./types/core/core";
 export type { Physics as PhysicsInterface } from "./types/index";
 // Re-export UI-related types used by UIView/UIText/UI
 export type {
@@ -348,11 +349,11 @@ export type {
   UIContext,
   UISceneItem,
   UIYogaNode,
-} from "./types/nodes";
+} from "./types/rendering/nodes";
 export type { NodeData, Position3D } from "./types/index";
 // Re-export extras used by PlayerRemote and others
-export { LerpVector3 } from "./extras/LerpVector3";
-export { LerpQuaternion } from "./extras/LerpQuaternion";
+export { LerpVector3 } from "./extras/animation/LerpVector3";
+export { LerpQuaternion } from "./extras/animation/LerpQuaternion";
 // Re-export core utility types referenced by declarations
 export type { RaycastHit, NetworkData } from "./types/index";
 // Re-export entity configuration types
@@ -360,9 +361,10 @@ export type { EntityConfig, EntityInteractionData } from "./types/entities";
 // Re-export GLB typing used by createEmoteFactory
 export type { GLBData } from "./types/index";
 // Re-export storage types
-export type { Storage } from "./storage";
-export { LocalStorage } from "./storage";
+export type { Storage } from "./platform/shared/storage";
+export { LocalStorage } from "./platform/shared/storage";
 // Export server-side NodeStorage from storage.server
+// Note: This import uses the build-time path (relative to build directory)
 export { NodeStorage } from "./storage.server";
 // Export file-based Storage class (for server use)
 // export { Storage as FileStorage } from './systems/Storage'; // Disabled: file doesn't exist
@@ -410,14 +412,14 @@ export type {
   PhysXMoveFlags,
   AudioData,
   ImageData,
-} from "./types/nodes";
+} from "./types/rendering/nodes";
 
 export type {
   ActorHandle,
   PxControllerCollisionFlags,
   PxRigidBodyFlagEnum,
-} from "./types/physics";
-export type { PhysXShape, PhysXMesh } from "./systems/Physics";
+} from "./types/systems/physics";
+export type { PhysXShape, PhysXMesh } from "./systems/shared";
 
 // Export Node internal types
 export type { NodeProxy, NodeStats } from "./nodes/Node";
@@ -427,15 +429,15 @@ export type {
   LooseOctreeNode,
   OctreeHelper,
   LooseOctreeOptions,
-} from "./extras/LooseOctree";
+} from "./utils/physics/LooseOctree";
 
 // Export additional system and event types
-export type { SystemConstructor, SystemDependencies } from "./systems/System";
+export type { SystemConstructor, SystemDependencies } from "./systems/shared";
 export type {
   EventSubscription,
   SystemEvent,
   EventHandler,
-} from "./systems/EventBus";
+} from "./systems/shared";
 export type { EventMap } from "./types/events";
 export type {
   AnyEvent,
@@ -448,8 +450,8 @@ export type { Entities as EntitiesInterface } from "./types/index";
 export type { SystemLogger } from "./utils/Logger";
 
 // Export network/system interface types
-export type { NetworkSystem } from "./types/system-interfaces";
-export type { IEventsInterface } from "./systems/Events";
+export type { NetworkSystem } from "./types/systems/system-interfaces";
+export type { IEventsInterface } from "./systems/shared";
 
 // Export Client Interface types
 export type {
@@ -457,19 +459,19 @@ export type {
   PrefsKey,
   PrefsValue,
   ClientPrefsData,
-} from "./systems/ClientInterface";
-export type { ChatListener } from "./systems/Chat";
-export type { UIProxy } from "./types/nodes";
+} from "./systems/client/ClientInterface";
+export type { ChatListener } from "./systems/shared";
+export type { UIProxy } from "./types/rendering/nodes";
 
 // Export Panel utility
 export { default as Panel } from "./libs/stats-gl/panel";
 
 // Export ClientActions internal handler type
-export type { ClientActionHandler } from "./systems/ClientActions";
+export type { ClientActionHandler } from "./systems/client/ClientActions";
 
 // Export alternate HotReloadable and RaycastHit for nodes/UI references
 // Export MinimalHotReloadable from physics (renamed to avoid conflict)
-export type { MinimalHotReloadable } from "./types/physics";
+export type { MinimalHotReloadable } from "./types/systems/physics";
 
 // Export environment and stage types
 export type {
@@ -479,25 +481,25 @@ export type {
   SkyInfo,
   SkyNode,
 } from "./types/index";
-export { LooseOctree } from "./extras/LooseOctree";
+export { LooseOctree } from "./utils/physics/LooseOctree";
 export type {
   MaterialWrapper,
   InsertOptions,
   StageHandle,
   MaterialOptions,
-} from "./systems/Stage";
+} from "./systems/shared";
 export type {
   OctreeItem,
   ExtendedIntersection,
   RenderHelperItem,
   GeometryPhysXMesh,
-} from "./types/physics";
+} from "./types/systems/physics";
 export type {
   ParticleEmitter,
   EmitterNode,
   ParticleMessage,
   ParticleMessageData,
-} from "./types/particles";
+} from "./types/rendering/particles";
 
 // Export client audio types
 export type { AudioGroupGains } from "./types/index";
@@ -529,14 +531,14 @@ export type {
 export * as Payloads from "./types/events";
 
 // Export additional core types
-export type { SkillsData } from "./types/system-interfaces";
+export type { SkillsData } from "./types/systems/system-interfaces";
 export type {
   HealthComponent,
   VisualComponent,
   EntityCombatComponent,
   PlayerCombatStyle,
 } from "./types/entities";
-export type { GroupType } from "./types/nodes";
+export type { GroupType } from "./types/rendering/nodes";
 export type { InventoryItemInfo } from "./types/events";
 
 // Export database/event types
@@ -574,7 +576,7 @@ export type {
   WorldChunkRow,
   InventorySaveItem,
   EquipmentSaveItem,
-} from "./types/database";
+} from "./types/network/database";
 
 // Export entity types
 export type {
@@ -596,7 +598,7 @@ export type {
 } from "./types/index";
 
 // Export player touch/stick types used by PlayerLocal
-export type { PlayerTouch, PlayerStickState } from "./types/physics";
+export type { PlayerTouch, PlayerStickState } from "./types/systems/physics";
 // Export additional physics handle types referenced in declarations
 export type {
   PhysicsHandle,
@@ -606,7 +608,7 @@ export type {
   InterpolationData,
   ContactEvent,
   TriggerEvent,
-} from "./types/physics";
+} from "./types/systems/physics";
 export type { Collider, RigidBody, PhysicsMaterial } from "./types/index";
 export type {
   InternalContactCallback,
@@ -614,14 +616,14 @@ export type {
   ExtendedContactEvent,
   ExtendedTriggerEvent,
   OverlapHit,
-} from "./systems/Physics";
-export { writePacket, readPacket } from "./packets";
+} from "./systems/shared";
+export { writePacket, readPacket } from "./platform/shared/packets";
 
 // Export physics utilities
-export { installThreeJSExtensions } from "./utils/PhysicsUtils";
+export { installThreeJSExtensions } from "./utils/physics/PhysicsUtils";
 
 // Export spawn utilities
-export { CircularSpawnArea } from "./utils/CircularSpawnArea";
+export { CircularSpawnArea } from "./utils/physics/CircularSpawnArea";
 
 // Export terrain system
-export { TerrainSystem } from "./systems/TerrainSystem";
+export { TerrainSystem } from "./systems/shared";

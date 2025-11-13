@@ -15,7 +15,7 @@
  * DO NOT add bank/store data here - keep it in JSON!
  */
 
-import type { BankEntityData, StoreData } from "../types/core";
+import type { BankEntityData, StoreData } from "../types/core/core";
 
 /**
  * Banking System - Populated from JSON manifests
