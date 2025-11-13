@@ -5,12 +5,18 @@
  * Components are pure data containers - logic belongs in Systems.
  */
 
+// Re-export all components
 export { Component, type IComponent } from "./Component";
 export { TransformComponent } from "./TransformComponent";
 export { MeshComponent } from "./MeshComponent";
 export { HealthComponent } from "./HealthComponent";
 export { ColliderComponent } from "./ColliderComponent";
 export { StatsComponent } from "./StatsComponent";
+export { VisualComponent } from "./VisualComponent";
+export { CombatComponent } from "./CombatComponent";
+export { DataComponent } from "./DataComponent";
+export { InteractionComponent } from "./InteractionComponent";
+export { UsageComponent } from "./UsageComponent";
 
 // Component type registry for dynamic creation
 import { Component } from "./Component";

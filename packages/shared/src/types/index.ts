@@ -1,11 +1,11 @@
 import { Component } from "../components/Component";
 import { Entity } from "../entities/Entity";
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 import { Avatar } from "../nodes";
 import type { Node as NodeClass } from "../nodes/Node";
-import { System } from "../systems/System";
-import { World } from "../World";
-import type { EntityData, Position2D, Position3D } from "./base-types";
+import { System } from "../systems/shared";
+import { World } from "../core/World";
+import type { EntityData, Position2D, Position3D } from "./core/base-types";
 
 // Re-enable core imports - circular dependency should be resolved
 import type {
@@ -14,10 +14,10 @@ import type {
   PlayerHealth,
   PlayerStats,
   SystemConfig,
-} from "./core";
+} from "./core/core";
 
 // Import database types for use within this file
-import type { SystemDatabase } from "./database";
+import type { SystemDatabase } from "./network/database";
 
 // Position3D, Position2D, and EntityData are exported from base-types.ts
 
@@ -31,17 +31,17 @@ import type { SystemDatabase } from "./database";
  */
 
 // Re-export core Hyperscape types
-export { SystemBase } from "../systems/SystemBase";
+export { SystemBase } from "../systems/shared";
 
 // Import types needed from other modules
-export type { World } from "../World";
+export type { World } from "../core/World";
 
 // Re-export base types first to establish fundamental types
-export * from "./base-types";
+export * from "./core/base-types";
 
 // Re-export core types that are commonly used
 // Export base types (already available from base-types export but also explicit for convenience)
-export type { EntityData, Position2D, Position3D } from "./base-types";
+export type { EntityData, Position2D, Position3D } from "./core/base-types";
 
 // Export core types that were imported above
 export type {
@@ -55,10 +55,10 @@ export type {
   PlayerIdentity,
   PlayerStats,
   SystemConfig,
-} from "./core";
+} from "./core/core";
 
 // Re-export additional core types that are needed by many modules
-export { AttackType, CombatStyle, ItemType, WeaponType } from "./core";
+export { AttackType, CombatStyle, ItemType, WeaponType } from "./core/core";
 
 export type {
   AnimationTask,
@@ -82,31 +82,31 @@ export type {
   Spawner,
   SpawnPoint,
   StatsComponent,
-} from "./core";
+} from "./core/core";
 
 export type PlayerEquipment = PlayerEquipmentItems;
 
 // Export additional types needed by combat and other systems
-export { EquipmentSlotName } from "./core";
+export { EquipmentSlotName } from "./core/core";
 
-// Re-export modular type files
-export * from "./player-types";
-export * from "./item-types";
-export * from "./entity-types";
-export * from "./combat-types";
-export * from "./misc-types";
-export * from "./world-types";
-export * from "./npc-mob-types";
-export * from "./inventory-types";
-export * from "./resource-processing-types";
-export * from "./interaction-types";
-export * from "./animation-dialogue-types";
-export * from "./spawning-types";
-export * from "./system-types";
+// Re-export modular type files (all flat now)
+export * from "./entities/player-types";
+export * from "./game/item-types";
+export * from "./entities/entity-types";
+export * from "./game/combat-types";
+export * from "./core/misc-types";
+export * from "./world/world-types";
+export * from "./entities/npc-mob-types";
+export * from "./game/inventory-types";
+export * from "./game/resource-processing-types";
+export * from "./game/interaction-types";
+export * from "./game/animation-dialogue-types";
+export * from "./game/spawning-types";
+export * from "./systems/system-types";
 
 // Re-export other types (using specific exports to avoid circular dependencies)
-export * from "./database";
-export * from "./entities";
+export * from "./network/database";
+export * from "./entities/entities";
 // Explicitly export enums from entities that are commonly used
 export {
   EntityType,
@@ -115,14 +115,14 @@ export {
   MobAIState,
   NPCType,
   ResourceType,
-} from "./entities";
+} from "./entities/entities";
 export * from "./events"; // Re-exports event-types.ts and event-payloads.ts
-export * from "./identifiers";
-export * from "./networking";
-export * from "./nodes";
+export * from "./core/identifiers";
+export * from "./network/networking";
+export * from "./rendering/nodes";
 
 // Import AvatarFactory from nodes for use in LoadedAvatar type below
-import type { AvatarFactory as AvatarFactoryType } from "./nodes";
+import type { AvatarFactory as AvatarFactoryType } from "./rendering/nodes";
 type AvatarFactory = AvatarFactoryType;
 
 export type Player = PlayerEntity;
@@ -131,7 +131,7 @@ export type Player = PlayerEntity;
 export type {
   ClientInterfaceSystem,
   ItemRegistrySystem,
-} from "./system-interfaces";
+} from "./systems/system-interfaces";
 
 // Re-export data types (specific exports to avoid conflicts)
 export { ITEMS } from "../data/items";
@@ -425,27 +425,27 @@ export interface ChatMessage {
 export type ExtendedChatMessage = ChatMessage;
 
 // Import actual system classes
-export { Chat } from "../systems/Chat";
-export { ClientActions } from "../systems/ClientActions";
-export { ClientAudio } from "../systems/ClientAudio";
-export { ClientInput } from "../systems/ClientInput"; // Keyboard, mouse, touch, XR input handling
-export { ClientGraphics } from "../systems/ClientGraphics";
-export { ClientLiveKit } from "../systems/ClientLiveKit";
-export { ClientLoader } from "../systems/ClientLoader";
-export { ClientNetwork } from "../systems/ClientNetwork";
-export { ClientInterface } from "../systems/ClientInterface"; // UI state, preferences, stats display
-export { ClientRuntime } from "../systems/ClientRuntime"; // Client lifecycle and diagnostics
+export { Chat } from "../systems/shared";
+export { ClientActions } from "../systems/client/ClientActions";
+export { ClientAudio } from "../systems/client/ClientAudio";
+export { ClientInput } from "../systems/client/ClientInput"; // Keyboard, mouse, touch, XR input handling
+export { ClientGraphics } from "../systems/client/ClientGraphics";
+export { ClientLiveKit } from "../systems/client/ClientLiveKit";
+export { ClientLoader } from "../systems/client/ClientLoader";
+export { ClientNetwork } from "../systems/client/ClientNetwork";
+export { ClientInterface } from "../systems/client/ClientInterface"; // UI state, preferences, stats display
+export { ClientRuntime } from "../systems/client/ClientRuntime"; // Client lifecycle and diagnostics
 // ServerRuntime is server-only and should not be exported for client use
 // It's available only in the main index (server-side)
 // ServerNetwork is server-only and should not be exported for client use
-// Use type-only import if needed: import type { ServerNetwork } from '../systems/ServerNetwork';
-export { Settings } from "../systems/Settings";
-export { XR as XRSystem } from "../systems/XR";
+// Use type-only import if needed: import type { ServerNetwork } from '../systems/server/ServerRuntime';
+export { Settings } from "../systems/shared";
+export { XR as XRSystem } from "../systems/client/XR";
 
 // Export missing core system types
-export { Anchors } from "../systems/Anchors";
-export { Events } from "../systems/Events";
-export { Stage } from "../systems/Stage";
+export { Anchors } from "../systems/shared";
+export { Events } from "../systems/shared";
+export { Stage } from "../systems/shared";
 
 // Basic input types
 export interface InputState {
@@ -791,6 +791,7 @@ export interface Collider {
   type: "box" | "sphere" | "capsule" | "mesh";
   isTrigger: boolean;
   material?: PhysicsMaterial;
+  [key: string]: unknown;
 
   onCollisionEnter?: (other: Collider) => void;
   onCollisionStay?: (other: Collider) => void;
@@ -1348,3 +1349,8 @@ export interface RaycastHit {
 }
 
 // SystemDatabase type - re-exported from database.ts via the export * statement above
+
+// Re-export from organized subdirectories
+export * from "./game";
+export * from "./systems";
+export * from "./entities";

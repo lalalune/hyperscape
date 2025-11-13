@@ -37,7 +37,7 @@ import {
   SessionID,
   SlotNumber,
   StoreID,
-} from "../types/identifiers";
+} from "../types/core/identifiers";
 
 // ============================================================================
 // VALIDATION FUNCTIONS (Type Guards)

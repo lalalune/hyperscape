@@ -81,20 +81,20 @@
 import type { Entity as IEntity, Quaternion, Vector3 } from "../types";
 import type { EntityData } from "../types/index";
 import { Component, createComponent } from "../components";
-import THREE from "../extras/three";
-import { getPhysX } from "../PhysXManager";
-import { type PhysXRigidDynamic } from "../systems/Physics";
+import THREE from "../extras/three/three";
+import { getPhysX } from "../physics/PhysXManager";
+import { type PhysXRigidDynamic } from "../systems/shared";
 import { getWorldNetwork } from "../utils/SystemUtils";
-import type { World } from "../World";
+import type { World } from "../core/World";
 import { EventType } from "../types/events";
 import { GAME_CONSTANTS } from "../constants/GameConstants";
-import type { MeshUserData } from "../types/core";
+import type { MeshUserData } from "../types/core/core";
 import type { Position3D } from "../types/index";
 import type { EntityInteractionData, EntityConfig } from "../types/entities";
 import { EntityType } from "../types/entities";
-import { toPosition3D } from "../types/utilities";
-import { UIRenderer } from "../utils/UIRenderer";
-import { modelCache } from "../utils/ModelCache";
+import { toPosition3D } from "../types/core/utilities";
+import { UIRenderer } from "../utils/rendering/UIRenderer";
+import { modelCache } from "../utils/rendering/ModelCache";
 
 // Re-export types for external use
 export type { EntityConfig };
@@ -747,8 +747,8 @@ export class Entity implements IEntity {
       isInCombat: false,
       target: null,
       lastAttackTime: 0,
-      attackCooldown: GAME_CONSTANTS.COMBAT.ATTACK_COOLDOWN,
-      damage: GAME_CONSTANTS.COMBAT.DEFAULT_DAMAGE,
+      attackCooldown: GAME_CONSTANTS.COMBAT.ATTACK_COOLDOWN_MS,
+      damage: GAME_CONSTANTS.COMBAT.MIN_DAMAGE,
       range: GAME_CONSTANTS.COMBAT.MELEE_RANGE,
     });
   }

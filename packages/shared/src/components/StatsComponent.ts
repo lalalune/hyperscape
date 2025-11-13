@@ -6,7 +6,7 @@ import type {
   EquipmentComponent,
   CombatBonuses,
   PlayerHealth,
-} from "../types/core";
+} from "../types/core/core";
 
 /**
  * StatsComponent - Player/Entity stats and skills

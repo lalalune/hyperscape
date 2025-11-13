@@ -4,11 +4,11 @@
  * Represents a context-sensitive player action with progress tracking.
  */
 
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 
 import { Node } from "./Node";
-import type { ActionsSystem } from "../types/system-interfaces";
-import type { ActionData } from "../types/nodes";
+import type { ActionsSystem } from "../types/systems/system-interfaces";
+import type { ActionData } from "../types/rendering/nodes";
 
 const defaults = {
   label: "Interact",
@@ -45,8 +45,13 @@ export class Action extends Node {
 
   mount() {
     // Register with actions system
-    const actionsSystem = this.ctx!.findSystem!("actions") as ActionsSystem;
-    if (actionsSystem) {
+    const system = this.ctx!.findSystem!("actions");
+    if (
+      system &&
+      "register" in system &&
+      typeof system.register === "function"
+    ) {
+      const actionsSystem = system as ActionsSystem;
       actionsSystem.register(this);
     }
     this.worldPos.setFromMatrixPosition(this.matrixWorld);
@@ -60,8 +65,13 @@ export class Action extends Node {
 
   unmount() {
     // Unregister with actions system
-    const actionsSystem = this.ctx!.findSystem!("actions") as ActionsSystem;
-    if (actionsSystem) {
+    const system = this.ctx!.findSystem!("actions");
+    if (
+      system &&
+      "unregister" in system &&
+      typeof system.unregister === "function"
+    ) {
+      const actionsSystem = system as ActionsSystem;
       actionsSystem.unregister(this.id);
     }
   }
