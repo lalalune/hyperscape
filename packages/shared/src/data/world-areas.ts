@@ -19,7 +19,7 @@ import type {
   NPCLocation,
   MobSpawnPoint,
   WorldArea,
-} from "../types/core";
+} from "../types/core/core";
 
 // Re-export types from core
 export type {
@@ -27,7 +27,7 @@ export type {
   BiomeResource,
   NPCLocation,
   MobSpawnPoint,
-} from "../types/core";
+} from "../types/core/core";
 
 /**
  * World Areas Database - Populated at runtime from JSON manifests
@@ -170,9 +170,10 @@ export function getRandomSpawnPoint(): WorldPosition {
 }
 
 /**
- * World Generation Constants
+ * World Generation Constants (areas, spawning, resources)
+ * Note: Different from WORLD_STRUCTURE_CONSTANTS in world-structure.ts
  */
-export const WORLD_CONSTANTS = {
+export const WORLD_GENERATION_CONSTANTS = {
   TOTAL_WORLD_SIZE: 500, // 500x500 meter world
   SAFE_ZONE_RADIUS: 25, // 25 meter radius around spawn points
   RESOURCE_RESPAWN_VARIANCE: 0.2, // ±20% respawn time variance

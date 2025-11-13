@@ -4,10 +4,10 @@
  * Displays character names and health bars above entities.
  */
 
-import type { Nametags as NametagsSystem } from "../systems/Nametags";
-import type { NametagData } from "../types/nodes";
+import type { Nametags as NametagsSystem } from "../systems/client/Nametags";
+import type { NametagData } from "../types/rendering/nodes";
 import { Node } from "./Node";
-import THREE from "../extras/three";
+import THREE from "../extras/three/three";
 
 const defaults = {
   label: "...",

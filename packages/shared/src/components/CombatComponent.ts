@@ -4,7 +4,7 @@
  */
 
 import type { Entity } from "../entities/Entity";
-import type { CombatComponentData } from "../types/components";
+import type { CombatComponentData } from "../types/entities/components";
 import { Component } from "./Component";
 
 // Type moved to shared types/components.ts

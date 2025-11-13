@@ -2,7 +2,7 @@
  * Node context utilities and strong typing for mounted nodes
  */
 
-import type { World } from "../World";
+import type { World } from "../core/World";
 import type { Node } from "./Node";
 
 /**
