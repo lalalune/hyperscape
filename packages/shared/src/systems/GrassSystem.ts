@@ -55,12 +55,17 @@ export class GrassSystem {
    * Initialize grass material and textures
    */
   async init(): Promise<void> {
-    if (this.world.isServer) return;
+    if (this.world.isServer) {
+      console.log("[GrassSystem] Server mode - skipping grass initialization");
+      return;
+    }
 
     const cdnUrl =
       typeof window !== "undefined"
         ? (window as any).__CDN_URL || "http://localhost:8088"
         : "http://localhost:8088";
+
+    console.log("[GrassSystem] Initializing grass textures from CDN:", cdnUrl);
 
     const loader = new THREE.TextureLoader();
     const noiseTexture = await loader.loadAsync(
@@ -79,11 +84,15 @@ export class GrassSystem {
     grassTexture.wrapS = THREE.ClampToEdgeWrapping;
     grassTexture.wrapT = THREE.ClampToEdgeWrapping;
 
+    console.log("[GrassSystem] ✅ Grass textures loaded successfully");
+
     this.grassMaterial = this.createGrassMaterial(
       noiseTexture,
       waveNoiseTexture,
       grassTexture,
     );
+
+    console.log("[GrassSystem] ✅ Grass material created successfully");
   }
 
   private createGrassMaterial(
@@ -322,6 +331,9 @@ export class GrassSystem {
     }
 
     if (grassInstances.length > 0) {
+      console.log(
+        `[GrassSystem] 🌱 Generating ${grassInstances.length} grass instances for tile (${tile.x}, ${tile.z})`,
+      );
       const grassMesh = this.createGrassMesh(grassInstances);
       (tile as TerrainTile & { grassMeshes?: THREE.Mesh[] }).grassMeshes = [
         grassMesh,
@@ -329,7 +341,14 @@ export class GrassSystem {
       const stage = this.world.stage as { scene: THREE.Scene };
       if (stage?.scene) {
         stage.scene.add(grassMesh);
+        console.log(
+          `[GrassSystem] ✅ Added grass mesh to scene for tile (${tile.x}, ${tile.z})`,
+        );
       }
+    } else {
+      console.log(
+        `[GrassSystem] ⚠️  No grass instances generated for tile (${tile.x}, ${tile.z})`,
+      );
     }
   }
 
