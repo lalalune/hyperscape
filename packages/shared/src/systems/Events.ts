@@ -2,30 +2,39 @@ import { System } from "./System";
 import type { World } from "../types/index";
 import { EventBus, type EventSubscription } from "./EventBus";
 
-type EventCallback = (data?: unknown, extra?: unknown) => void;
+type EventCallback<T = Record<string, unknown>> = (
+  data?: T,
+  extra?: Record<string, unknown>,
+) => void;
 
 export interface IEventsInterface extends System {
-  emit<T extends string | symbol>(event: T, ...args: unknown[]): boolean;
+  emit<T extends string | symbol>(
+    event: T,
+    ...args: Record<string, unknown>[]
+  ): boolean;
   on<T extends string | symbol>(
     event: T,
-    fn: (...args: unknown[]) => void,
-    context?: unknown,
+    fn: (...args: Record<string, unknown>[]) => void,
+    context?: Record<string, unknown>,
   ): this;
   off<T extends string | symbol>(
     event: T,
-    fn?: (...args: unknown[]) => void,
-    context?: unknown,
+    fn?: (...args: Record<string, unknown>[]) => void,
+    context?: Record<string, unknown>,
     once?: boolean,
   ): this;
 
   // Plugin-specific array-like methods
-  push?: (callback: (data: unknown) => void) => void;
-  indexOf?: (callback: (data: unknown) => void) => number;
+  push?: (callback: (data: Record<string, unknown>) => void) => void;
+  indexOf?: (callback: (data: Record<string, unknown>) => void) => number;
   splice?: (index: number, count: number) => void;
   clear?: () => void;
-  get?: (eventName: string) => ((data: unknown) => void)[];
+  get?: (eventName: string) => ((data: Record<string, unknown>) => void)[];
   has?: (eventName: string) => boolean;
-  set?: (eventName: string, callback: (data: unknown) => void) => void;
+  set?: (
+    eventName: string,
+    callback: (data: Record<string, unknown>) => void,
+  ) => void;
   delete?: (eventName: string) => void;
 }
 
@@ -38,10 +47,13 @@ export interface IEventsInterface extends System {
  */
 export class Events extends System implements IEventsInterface {
   private bus: EventBus;
-  private eventListeners: Map<string | symbol, Set<EventCallback>> = new Map();
+  private eventListeners: Map<
+    string | symbol,
+    Set<EventCallback<Record<string, unknown>>>
+  > = new Map();
   private busListenerMap: Map<
     string | symbol,
-    Map<EventCallback, EventSubscription>
+    Map<EventCallback<Record<string, unknown>>, EventSubscription>
   > = new Map();
 
   constructor(world: World) {
@@ -49,7 +61,10 @@ export class Events extends System implements IEventsInterface {
     this.bus = new EventBus();
   }
 
-  emit<T extends string | symbol>(event: T, ...args: unknown[]): boolean {
+  emit<T extends string | symbol>(
+    event: T,
+    ...args: Record<string, unknown>[]
+  ): boolean {
     // Extract data and extra from args for backward compatibility
     const [data, extra] = args;
     const callbacks = this.eventListeners.get(event);
@@ -60,26 +75,24 @@ export class Events extends System implements IEventsInterface {
     }
     // Bridge world.emit -> EventBus for string events
     if (typeof event === "string") {
-      this.bus.emitEvent(
-        event,
-        data as Record<string, unknown> as unknown as Record<string, unknown>,
-        "world",
-      );
+      this.bus.emitEvent(event, data || {}, "world");
     }
     return true;
   }
 
   on<T extends string | symbol>(
     event: T,
-    fn: (...args: unknown[]) => void,
-    _context?: unknown,
+    fn: (...args: Record<string, unknown>[]) => void,
+    _context?: Record<string, unknown>,
   ): this {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
     // Wrap the function to handle the context if provided
     const handler = _context ? fn.bind(_context) : fn;
-    this.eventListeners.get(event)!.add(handler);
+    this.eventListeners
+      .get(event)!
+      .add(handler as EventCallback<Record<string, unknown>>);
     // Bridge EventBus -> world.on for string events
     if (typeof event === "string") {
       let mapForEvent = this.busListenerMap.get(event);
@@ -90,15 +103,15 @@ export class Events extends System implements IEventsInterface {
       const sub = this.bus.subscribe(event, (evt) => {
         handler(evt.data);
       });
-      mapForEvent.set(handler, sub);
+      mapForEvent.set(handler as EventCallback<Record<string, unknown>>, sub);
     }
     return this;
   }
 
   off<T extends string | symbol>(
     event: T,
-    fn?: (...args: unknown[]) => void,
-    _context?: unknown,
+    fn?: (...args: Record<string, unknown>[]) => void,
+    _context?: Record<string, unknown>,
     _once?: boolean,
   ): this {
     if (!fn) {
@@ -143,12 +156,12 @@ export class Events extends System implements IEventsInterface {
   }
 
   // Plugin-specific array-like methods for compatibility
-  push(_callback: (data: unknown) => void): void {
+  push(_callback: (data: Record<string, unknown>) => void): void {
     // This is a no-op for the Map-based implementation
     console.warn("Events.push() called on Map-based Events system");
   }
 
-  indexOf(_callback: (data: unknown) => void): number {
+  indexOf(_callback: (data: Record<string, unknown>) => void): number {
     console.warn("Events.indexOf() called on Map-based Events system");
     return -1;
   }
@@ -161,7 +174,7 @@ export class Events extends System implements IEventsInterface {
     this.eventListeners.clear();
   }
 
-  get(eventName: string): ((data: unknown) => void)[] {
+  get(eventName: string): ((data: Record<string, unknown>) => void)[] {
     return Array.from(this.eventListeners.get(eventName) || []);
   }
 
@@ -169,11 +182,16 @@ export class Events extends System implements IEventsInterface {
     return this.eventListeners.has(eventName);
   }
 
-  set(eventName: string, callback: (data: unknown) => void): void {
+  set(
+    eventName: string,
+    callback: (data: Record<string, unknown>) => void,
+  ): void {
     if (!this.eventListeners.has(eventName)) {
       this.eventListeners.set(eventName, new Set());
     }
-    this.eventListeners.get(eventName)!.add(callback);
+    this.eventListeners
+      .get(eventName)!
+      .add(callback as EventCallback<Record<string, unknown>>);
   }
 
   delete(eventName: string): void {

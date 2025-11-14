@@ -56,7 +56,6 @@ export function GameWindow({
   // Get responsive dimensions
   const dimensions = windowManager.getWindowDimensions();
   const maxWidth = windowManager.getMaxWindowWidth();
-  const minWidth = windowManager.getMinWindowWidth();
 
   // Mobile: bottom sheet style with backdrop
   if (isMobile) {

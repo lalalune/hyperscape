@@ -1,6 +1,14 @@
 import type { World } from "../types";
 import { EventType } from "../types/events";
 import type { BankDepositEvent, BankWithdrawEvent } from "../types/events";
+import type {
+  PlayerRegisteredEvent,
+  PlayerUnregisteredEvent,
+  BankOpenEvent,
+  BankCloseEvent,
+  InventoryUpdatedEvent,
+  InventoryCoinsUpdatedEvent,
+} from "../types/event-handler-types";
 import { BANKING_CONSTANTS } from "../constants/BankingConstants";
 import { BankData, InventoryItem } from "../types/core";
 import { BankID, PlayerID } from "../types/identifiers";
@@ -81,68 +89,64 @@ export class BankingSystem extends SystemBase {
   async init(): Promise<void> {
     // Subscribe to banking events with proper type casting
     // Listen to PLAYER_REGISTERED for all players (real and test)
-    this.subscribe(EventType.PLAYER_REGISTERED, (data) =>
-      this.initializePlayerBanks({
-        id: (data as { playerId: string }).playerId,
-      }),
+    this.subscribe<PlayerRegisteredEvent>(EventType.PLAYER_REGISTERED, (data) =>
+      this.initializePlayerBanks({ id: data.playerId }),
     );
-    this.subscribe(EventType.PLAYER_UNREGISTERED, (data) => {
-      this.cleanupPlayerBanks((data as { playerId: string }).playerId);
-    });
-    this.subscribe(EventType.BANK_OPEN, (data) =>
-      this.openBank(
-        data as {
-          playerId: string;
-          bankId: string;
-          playerPosition?: { x: number; y: number; z: number };
-        },
-      ),
+    this.subscribe<PlayerUnregisteredEvent>(
+      EventType.PLAYER_UNREGISTERED,
+      (data) => {
+        this.cleanupPlayerBanks(data.playerId);
+      },
     );
-    this.subscribe(EventType.BANK_CLOSE, (data) =>
-      this.closeBank(data as { playerId: string; bankId: string }),
+    this.subscribe<BankOpenEvent>(EventType.BANK_OPEN, (data) =>
+      this.openBank(data),
     );
-    this.subscribe(EventType.BANK_DEPOSIT, (data) =>
-      this.depositItem(data as unknown as BankDepositEvent),
+    this.subscribe<BankCloseEvent>(EventType.BANK_CLOSE, (data) =>
+      this.closeBank(data),
     );
-    this.subscribe(EventType.BANK_WITHDRAW, (data) =>
-      this.withdrawItem(data as unknown as BankWithdrawEvent),
+    this.subscribe<BankDepositEvent>(EventType.BANK_DEPOSIT, (data) =>
+      this.depositItem(data),
     );
-    this.subscribe(EventType.BANK_DEPOSIT_ALL, (data) =>
-      this.depositAllItems(data as { playerId: string; bankId: string }),
+    this.subscribe<BankWithdrawEvent>(EventType.BANK_WITHDRAW, (data) =>
+      this.withdrawItem(data),
+    );
+    this.subscribe<{ playerId: string; bankId: string }>(
+      EventType.BANK_DEPOSIT_ALL,
+      (data) => this.depositAllItems(data),
     );
 
     // Listen to inventory updates for reactive pattern
-    this.subscribe(EventType.INVENTORY_UPDATED, (data) => {
-      const typedData = data as {
-        playerId: string;
-        items: Array<{ slot: number; itemId: string; quantity: number }>;
-        coins: number;
-      };
-      const playerId = createPlayerID(typedData.playerId);
-      const inventory = this.playerInventories.get(playerId) || {
-        items: [],
-        coins: 0,
-      };
-      inventory.items = typedData.items.map((item) => ({
-        id: `${playerId}_${item.itemId}_${item.slot}`,
-        itemId: item.itemId,
-        quantity: item.quantity,
-        slot: item.slot,
-        metadata: null,
-      }));
-      this.playerInventories.set(playerId, inventory);
-    });
+    this.subscribe<InventoryUpdatedEvent>(
+      EventType.INVENTORY_UPDATED,
+      (data) => {
+        const playerId = createPlayerID(data.playerId);
+        const inventory = this.playerInventories.get(playerId) || {
+          items: [],
+          coins: 0,
+        };
+        inventory.items = data.items.map((item) => ({
+          id: `${playerId}_${item.itemId}_${item.slot}`,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          slot: item.slot,
+          metadata: null,
+        }));
+        this.playerInventories.set(playerId, inventory);
+      },
+    );
 
-    this.subscribe(EventType.INVENTORY_COINS_UPDATED, (data) => {
-      const typedData = data as { playerId: string; newAmount: number };
-      const playerId = createPlayerID(typedData.playerId);
-      const inventory = this.playerInventories.get(playerId) || {
-        items: [],
-        coins: 0,
-      };
-      inventory.coins = typedData.newAmount;
-      this.playerInventories.set(playerId, inventory);
-    });
+    this.subscribe<InventoryCoinsUpdatedEvent>(
+      EventType.INVENTORY_COINS_UPDATED,
+      (data) => {
+        const playerId = createPlayerID(data.playerId);
+        const inventory = this.playerInventories.get(playerId) || {
+          items: [],
+          coins: 0,
+        };
+        inventory.coins = data.newAmount;
+        this.playerInventories.set(playerId, inventory);
+      },
+    );
   }
 
   private initializePlayerBanks(playerData: { id: string }): void {

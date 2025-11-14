@@ -10,6 +10,34 @@ import type { Position3D } from "./core";
 import type { PMeshHandle } from "../extras/geometryToPxMesh";
 import type { ActorHandle } from "./physics";
 
+export interface Heightfield {
+  // Core elevation
+  height: number;
+  liquidHeight: number;
+
+  // Classification
+  biome: string;
+  liquidType: "none" | "ocean" | "river" | "lava";
+
+  // Geometry
+  slope: number;
+  normal: { x: number; y: number; z: number };
+
+  // Materials (up to 4 blended)
+  materials: [number, number, number, number]; // Material indices
+  materialsWeights: [number, number, number, number]; // Blend weights
+
+  // Instance data
+  hash: number; // Random seed for this position
+  wetness: number; // Moisture level (0-1)
+  treeVisibility: number;
+  rockVisibility: number;
+  stoneVisibility: number;
+  grassVisibility: number;
+  flowerVisibility: number;
+  flowDirection: number; // For water
+}
+
 // Terrain resource interfaces
 export interface TerrainResourceSpawnPoint {
   position: Position3D;
@@ -80,7 +108,15 @@ export interface TerrainTile {
 
 export interface ResourceNode {
   id: string;
-  type: "tree" | "rock" | "ore" | "herb" | "fish" | "gem" | "rare_ore";
+  type:
+    | "tree"
+    | "rock"
+    | "ore"
+    | "herb"
+    | "fish"
+    | "gem"
+    | "rare_ore"
+    | "stone";
   position: Position3D | THREE.Vector3;
   mesh?: THREE.Mesh | null; // For non-instanced meshes
   instanceId?: number | null;
@@ -90,6 +126,9 @@ export interface ResourceNode {
   respawnTime: number;
   harvestable: boolean;
   requiredLevel: number;
+  variation?: number;
+  rotation?: THREE.Euler;
+  scale?: THREE.Vector3;
 }
 
 export interface RoadSegment {

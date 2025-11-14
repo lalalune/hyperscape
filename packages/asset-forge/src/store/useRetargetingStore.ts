@@ -1,7 +1,7 @@
+import * as THREE from "three";
 import { create } from "zustand";
 import { devtools, persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import * as THREE from "three";
 
 export type RetargetingStep = "select-models" | "adjust-bones" | "export";
 export type RigType =

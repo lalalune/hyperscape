@@ -235,7 +235,8 @@ export class UI extends Node implements HotReloadable {
           matrix: this.mesh.matrixWorld,
           geometry: this.geometry,
           material: this.material,
-          getEntity: () => (this.ctx!.entity as Entity | undefined) || null,
+          getEntity: () =>
+            (this.ctx!.entity as unknown as Entity | undefined) || null,
           node: this,
         };
         if (this.sItem) {

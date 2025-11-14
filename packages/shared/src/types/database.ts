@@ -151,8 +151,8 @@ export interface CombatLogRow {
   targetId: string;
   targetType: "player" | "mob";
   damage: number;
-  weaponType: string; // TODO: Use AttackType union
-  combatStyle: string; // TODO: Use CombatStyle union
+  weaponType: "melee" | "ranged" | "magic";
+  combatStyle: "attack" | "strength" | "defense" | "ranged";
   timestamp: number;
   sessionId: string;
 }

@@ -17,7 +17,12 @@ const mockWorld = {
   resolveURL: (url: string) => url,
   on: () => {},
   off: () => {},
-} as any;
+} as {
+  settings: { title: null; description: null; image: null };
+  resolveURL: (url: string) => string;
+  on: () => void;
+  off: () => void;
+};
 
 export function LoadingScreenTest() {
   const [progress, setProgress] = React.useState(0);

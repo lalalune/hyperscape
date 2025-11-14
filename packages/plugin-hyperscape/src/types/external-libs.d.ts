@@ -9,10 +9,9 @@
  * for runtime behavior.
  */
 declare module "@hyperscape/shared" {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export interface World {
     [key: string]: any;
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   export type Entity = any;
 }

@@ -125,7 +125,9 @@ export class VisualTestFramework {
     // Initialize ColorDetector if available
     const world = this.service.getWorld();
     if (world && typeof world === "object" && "colorDetector" in world) {
-      const worldWithDetector = world as { colorDetector?: ColorDetector };
+      const worldWithDetector = world as unknown as {
+        colorDetector?: ColorDetector;
+      };
       this.colorDetector = worldWithDetector.colorDetector || null;
     } else {
       logger.warn("[VisualTestFramework] ColorDetector not available in world");

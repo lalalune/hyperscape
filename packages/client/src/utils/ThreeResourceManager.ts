@@ -76,7 +76,7 @@ export class ThreeResourceManager {
 
     // Remove from parent if requested
     if (removeFromParent && object.parent) {
-      object.parent.remove(object as never);
+      object.parent.remove(object);
     }
 
     // Mark as disposed

@@ -7,7 +7,31 @@
 
 import THREE from "../extras/three";
 import type { World } from "../types";
-import type { TerrainTile } from "../types/terrain";
+import type { Heightfield, TerrainTile } from "../types/terrain";
+import type { NoiseGenerator } from "../utils/NoiseGenerator";
+import type { TerrainConfig } from "../types/settings";
+
+interface GrassInstance {
+  position: THREE.Vector3;
+  rotation: THREE.Euler;
+  scale: THREE.Vector3;
+  materials: number[];
+  materialsWeights: number[];
+  hash: number;
+  normal: { x: number; y: number; z: number };
+}
+
+interface TerrainContext {
+  CONFIG: TerrainConfig;
+  noise: NoiseGenerator;
+  seedRngFromFloat: (seed: number) => () => number;
+  getHeightfieldAt: (
+    worldX: number,
+    worldZ: number,
+    tile: TerrainTile,
+    heightfields: Heightfield[],
+  ) => Heightfield | null;
+}
 
 export class GrassSystem {
   private world: World;
@@ -31,81 +55,78 @@ export class GrassSystem {
    * Initialize grass material and textures
    */
   async init(): Promise<void> {
-    // Only load textures on client (server has no DOM/document)
-    if (this.world.isServer) {
-      console.log("[GrassSystem] Skipping texture load on server");
-      return;
-    }
+    if (this.world.isServer) return;
 
-    // Load grass texture from local assets
-    console.log("[GrassSystem] Loading grass texture...");
-    const grassUrl = "/textures/terrain-grass.png";
+    const cdnUrl =
+      typeof window !== "undefined"
+        ? (window as any).__CDN_URL || "http://localhost:8088"
+        : "http://localhost:8088";
+
     const loader = new THREE.TextureLoader();
-    const loadedGrassTex = loader.load(
-      grassUrl,
-      (tex) => {
-        console.log(
-          "[GrassSystem] Grass texture loaded! Size:",
-          tex.image?.width,
-          "x",
-          tex.image?.height,
-        );
-        tex.wrapS = THREE.ClampToEdgeWrapping;
-        tex.wrapT = THREE.ClampToEdgeWrapping;
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.needsUpdate = true;
-        if (this.grassUniforms) {
-          this.grassUniforms.grassTexture.value = tex;
-          console.log("[GrassSystem] Texture assigned to uniform");
-        }
-      },
-      undefined,
-      (err) => {
-        console.error("[GrassSystem] Grass texture error:", err);
-      },
+    const noiseTexture = await loader.loadAsync(
+      `${cdnUrl}/noise/simplex-noise.png`,
     );
+    noiseTexture.wrapS = THREE.RepeatWrapping;
+    noiseTexture.wrapT = THREE.RepeatWrapping;
 
-    // Create placeholder noise textures
-    const createWhiteTexture = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 1;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, 1, 1);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      return tex;
-    };
+    const waveNoiseTexture = await loader.loadAsync(
+      `${cdnUrl}/noise/simplex-noise.png`,
+    );
+    waveNoiseTexture.wrapS = THREE.RepeatWrapping;
+    waveNoiseTexture.wrapT = THREE.RepeatWrapping;
 
-    // Grass uniforms matching reference
+    const grassTexture = await loader.loadAsync("/textures/terrain-grass.png");
+    grassTexture.wrapS = THREE.ClampToEdgeWrapping;
+    grassTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+    this.grassMaterial = this.createGrassMaterial(
+      noiseTexture,
+      waveNoiseTexture,
+      grassTexture,
+    );
+  }
+
+  private createGrassMaterial(
+    noiseTexture: THREE.Texture,
+    waveNoiseTexture: THREE.Texture,
+    grassTexture: THREE.Texture,
+  ): THREE.ShaderMaterial {
     this.grassUniforms = {
       uTime: { value: 0 },
       fadePosition: { value: 0 },
       playerPosition: { value: new THREE.Vector3() },
       eye: { value: new THREE.Vector3() },
-      noiseTexture: { value: createWhiteTexture() },
-      waveNoiseTexture: { value: createWhiteTexture() },
-      grassTexture: { value: loadedGrassTex },
+      noiseTexture: { value: noiseTexture },
+      waveNoiseTexture: { value: waveNoiseTexture },
+      grassTexture: { value: grassTexture },
     };
 
-    // Create grass material with reference shader
-    this.grassMaterial = new THREE.ShaderMaterial({
+    return new THREE.ShaderMaterial({
       uniforms: this.grassUniforms,
-      vertexShader: `
-        attribute vec3 positions;
-        attribute vec3 slopes;
+      vertexShader: /* glsl */ `
+        // Per-instance attributes
+        attribute vec3 positions;      // World position
+        attribute vec3 slopes;         // Surface normal
+        attribute vec4 materials;      // Material indices (as float for WebGPU)
+        attribute vec4 materialsWeights; // Material weights
+        attribute vec4 grassProps;     // (hash, hash, hash, heightScale)
+        
         uniform float uTime;
-        uniform float fadePosition;
+        uniform vec3 playerPosition;
         uniform sampler2D noiseTexture;
         uniform sampler2D waveNoiseTexture;
-        uniform vec3 playerPosition;
+        
         varying vec2 vUv;
         varying float vWave;
+        varying vec4 vMaterialsWeights;
+        varying vec4 vMaterials;
         
         #define PI 3.14159265359
         
         void main() {
           vUv = uv;
+          vMaterials = materials;
+          vMaterialsWeights = materialsWeights;
           
           // Y-axis rotation from noise
           float rotNoiseUvScale = 0.1;
@@ -128,11 +149,12 @@ export class GrassSystem {
           float scaleNoise = texture2D(noiseTexture, scaleNoiseUv).r;
           scaleNoise = (0.5 + scaleNoise * 2.0) * 0.24;
           pos *= scaleNoise;
-          pos.y *= 1.2;
+          
+          // Apply custom height scale
+          float heightScale = grassProps.w;
+          pos.y *= heightScale;
           
           pos += positions;
-          pos.y -= fadePosition;
-          pos.y -= 0.15;
           
           // Player push
           float dis = distance(playerPosition, pos);
@@ -169,23 +191,53 @@ export class GrassSystem {
           gl_Position = projectionMatrix * viewMatrix * vec4(pos, 1.0);
         }
       `,
-      fragmentShader: `
+      fragmentShader: /* glsl */ `
+        precision highp float;
+        
         uniform sampler2D grassTexture;
+        
         varying vec2 vUv;
         varying float vWave;
+        varying vec4 vMaterialsWeights;
+        varying vec4 vMaterials;
+        
+        vec3 getGrassColor(float materialIndex) {
+          int matIdx = int(materialIndex);
+          vec3 grassColorGrass = vec3(0.0, 0.94, 0.44); // Bright grass green
+          vec3 grassColorDirt = vec3(0.6, 1.0, 0.0);    // Yellow-green for dirt
+          
+          if(matIdx == 0) return grassColorGrass; // Grass on grass
+          if(matIdx == 1) return grassColorDirt;  // Grass on dirt
+          if(matIdx == 2) return grassColorDirt;  // Grass on rock
+          if(matIdx == 3) return grassColorDirt;  // Grass on snow
+          return grassColorGrass;
+        }
         
         void main() {
           // Sample texture
           vec4 tex = texture2D(grassTexture, vUv);
           
-          // Alpha cutout (inverted for this texture)
-          if (tex.a > 0.5) discard;
+          // Alpha cutout
+          if (tex.a < 0.5) discard;
           
-          // Apply color gradient (darker, richer greens)
+          // Blend material colors
+          vec3 grassColor = vec3(0.0);
+          float totalWeight = 0.0;
+          for (int i = 0; i < 4; i++) {
+            if (vMaterialsWeights[i] > 0.01) {
+              grassColor += getGrassColor(vMaterials[i]) * vMaterialsWeights[i];
+              totalWeight += vMaterialsWeights[i];
+            }
+          }
+          if (totalWeight > 0.0) {
+            grassColor /= totalWeight;
+          }
+          
+          // Apply color gradient (darker at base)
           float colorLerp = smoothstep(0.2, 1.8, 1.0 - vUv.y);
-          vec3 grassColor = mix(vec3(0.25, 0.45, 0.02), vec3(0.45, 0.65, 0.08), colorLerp);
+          grassColor = mix(grassColor * 0.5, grassColor, colorLerp);
           
-          // Modulate by texture for detail
+          // Modulate by texture
           grassColor *= tex.rgb * 1.4;
           
           // Add wave brightness
@@ -199,8 +251,6 @@ export class GrassSystem {
       transparent: true,
       depthWrite: false,
     });
-
-    console.log("[GrassSystem] Grass material created");
   }
 
   /**
@@ -208,88 +258,150 @@ export class GrassSystem {
    */
   generateGrassForTile(
     tile: TerrainTile,
-    getHeightAt: (x: number, z: number) => number,
-    getNormalAt: (x: number, z: number) => THREE.Vector3,
-    calculateSlope: (x: number, z: number) => number,
-    waterThreshold: number,
-    tileSize: number,
-    createTileRng: (x: number, z: number, salt: string) => () => number,
-  ): THREE.InstancedMesh | null {
-    if (!this.grassMaterial) return null;
+    heightfields: Heightfield[],
+    _biomeData: { [key: string]: unknown },
+    context: TerrainContext,
+  ): void {
+    const grassInstances: GrassInstance[] = [];
+    const MAX_GRASS_PER_CHUNK = 2048;
+    const CHUNK_SIZE = 16;
+    const tileSize = Number(context.CONFIG.TILE_SIZE);
+    const chunksPerSide = Math.floor(tileSize / CHUNK_SIZE);
+    const GRASS_THRESHOLD = 0.05;
 
-    const biomeName = tile.biome as string;
-    const baseDensity = 0.3;
-    const densityMul =
-      biomeName === "plains" ? 1.2 : biomeName === "forest" ? 0.8 : 1.0;
-    const density = baseDensity * densityMul;
+    for (let cz = 0; cz < chunksPerSide; cz++) {
+      for (let cx = 0; cx < chunksPerSide; cx++) {
+        const chunkWorldX = tile.x * tileSize + cx * CHUNK_SIZE;
+        const chunkWorldZ = tile.z * tileSize + cz * CHUNK_SIZE;
 
-    const area = tileSize * tileSize;
-    const targetCount = Math.min(3000, Math.floor(area * density));
-    const rng = createTileRng(tile.x, tile.z, "grass");
+        const chunkSeed = context.noise.hashNoise(chunkWorldX, chunkWorldZ);
+        const chunkRng = context.seedRngFromFloat(chunkSeed);
 
-    const positions: number[] = [];
-    const slopes: number[] = [];
+        for (let i = 0; i < MAX_GRASS_PER_CHUNK; i++) {
+          const offsetX = chunkRng() * CHUNK_SIZE;
+          const offsetZ = chunkRng() * CHUNK_SIZE;
+          const worldX = chunkWorldX + offsetX;
+          const worldZ = chunkWorldZ + offsetZ;
 
-    for (let i = 0; i < targetCount; i++) {
-      const localX = (rng() - 0.5) * (tileSize * 0.95);
-      const localZ = (rng() - 0.5) * (tileSize * 0.95);
-      const worldX = tile.x * tileSize + localX;
-      const worldZ = tile.z * tileSize + localZ;
-      const height = getHeightAt(worldX, worldZ);
+          const heightfield = context.getHeightfieldAt(
+            worldX,
+            worldZ,
+            tile,
+            heightfields,
+          );
+          if (!heightfield) continue;
 
-      if (height < waterThreshold) continue;
-      const slope = calculateSlope(worldX, worldZ);
-      if (slope > 0.6) continue;
+          if (heightfield.grassVisibility > GRASS_THRESHOLD) {
+            if (
+              heightfield.liquidType === "none" &&
+              heightfield.slope < 0.13 &&
+              heightfield.rockVisibility < 0.95
+            ) {
+              const simplexm10 = context.noise.simplex2D(
+                worldX * 10,
+                worldZ * 10,
+              );
+              const heightScale = 1.4 + simplexm10 * 0.5;
+              const rotation = context.noise.rotationNoise(worldX, worldZ);
+              const scaleNoise = context.noise.scaleNoise(worldX, worldZ);
+              const scale = 0.8 + scaleNoise * 0.2;
 
-      positions.push(worldX, height + 0.02, worldZ);
-      const normal = getNormalAt(worldX, worldZ);
-      slopes.push(normal.x, normal.y, normal.z);
+              grassInstances.push({
+                position: new THREE.Vector3(worldX, heightfield.height, worldZ),
+                rotation: new THREE.Euler(0, rotation.y * Math.PI * 2, 0),
+                scale: new THREE.Vector3(scale, heightScale, scale),
+                materials: heightfield.materials,
+                materialsWeights: heightfield.materialsWeights,
+                hash: heightfield.hash,
+                normal: heightfield.normal,
+              });
+            }
+          }
+        }
+      }
     }
 
-    const actualCount = positions.length / 3;
-    if (actualCount === 0) return null;
+    if (grassInstances.length > 0) {
+      const grassMesh = this.createGrassMesh(grassInstances);
+      (tile as TerrainTile & { grassMeshes?: THREE.Mesh[] }).grassMeshes = [
+        grassMesh,
+      ];
+      const stage = this.world.stage as { scene: THREE.Scene };
+      if (stage?.scene) {
+        stage.scene.add(grassMesh);
+      }
+    }
+  }
 
-    console.log(
-      `[GrassSystem] Creating grass mesh with ${actualCount} blades for tile ${tile.key}`,
-    );
+  createGrassMesh(instances: GrassInstance[]): THREE.InstancedMesh {
+    const baseGeometry = new THREE.PlaneGeometry(0.6, 1.5, 1, 1);
+    baseGeometry.translate(0, 0.75, 0);
 
-    // Create instanced geometry with positions/slopes attributes
-    const grassBaseGeom = new THREE.PlaneGeometry(0.6, 1.5, 1, 1);
-    grassBaseGeom.translate(0, 0.75, 0);
+    const positions = new Float32Array(instances.length * 3);
+    const slopes = new Float32Array(instances.length * 3);
+    const materials = new Float32Array(instances.length * 4);
+    const materialsWeights = new Float32Array(instances.length * 4);
+    const grassProps = new Float32Array(instances.length * 4);
 
-    const grassGeom = new THREE.BufferGeometry();
-    grassGeom.setAttribute("position", grassBaseGeom.attributes.position);
-    grassGeom.setAttribute("normal", grassBaseGeom.attributes.normal);
-    grassGeom.setAttribute("uv", grassBaseGeom.attributes.uv);
-    grassGeom.setIndex(grassBaseGeom.index);
-    grassGeom.setAttribute(
+    for (let i = 0; i < instances.length; i++) {
+      const inst = instances[i];
+      positions[i * 3 + 0] = inst.position.x;
+      positions[i * 3 + 1] = inst.position.y;
+      positions[i * 3 + 2] = inst.position.z;
+
+      slopes[i * 3 + 0] = inst.normal.x;
+      slopes[i * 3 + 1] = inst.normal.y;
+      slopes[i * 3 + 2] = inst.normal.z;
+
+      for (let j = 0; j < 4; j++) {
+        materials[i * 4 + j] = inst.materials[j];
+        materialsWeights[i * 4 + j] = inst.materialsWeights[j];
+      }
+
+      grassProps[i * 4 + 0] = inst.hash;
+      grassProps[i * 4 + 1] = inst.hash;
+      grassProps[i * 4 + 2] = inst.hash;
+      grassProps[i * 4 + 3] = inst.scale.y;
+    }
+
+    const geometry = new THREE.InstancedBufferGeometry();
+    geometry.index = baseGeometry.index;
+    geometry.attributes.position = baseGeometry.attributes.position;
+    geometry.attributes.normal = baseGeometry.attributes.normal;
+    geometry.attributes.uv = baseGeometry.attributes.uv;
+
+    geometry.setAttribute(
       "positions",
-      new THREE.InstancedBufferAttribute(new Float32Array(positions), 3),
+      new THREE.InstancedBufferAttribute(positions, 3),
     );
-    grassGeom.setAttribute(
+    geometry.setAttribute(
       "slopes",
-      new THREE.InstancedBufferAttribute(new Float32Array(slopes), 3),
+      new THREE.InstancedBufferAttribute(slopes, 3),
+    );
+    geometry.setAttribute(
+      "materials",
+      new THREE.InstancedBufferAttribute(materials, 4),
+    );
+    geometry.setAttribute(
+      "materialsWeights",
+      new THREE.InstancedBufferAttribute(materialsWeights, 4),
+    );
+    geometry.setAttribute(
+      "grassProps",
+      new THREE.InstancedBufferAttribute(grassProps, 4),
     );
 
-    const grassMesh = new THREE.InstancedMesh(
-      grassGeom,
-      this.grassMaterial,
-      actualCount,
-    );
-    grassMesh.frustumCulled = false;
-    grassMesh.receiveShadow = true;
-    grassMesh.castShadow = false;
-    grassMesh.count = actualCount;
-    grassMesh.name = `Grass_${tile.key}`;
-    grassMesh.visible = true;
-
-    const mat = grassMesh.material as THREE.ShaderMaterial;
-    const texUniform = mat.uniforms.grassTexture;
-    console.log(
-      `[GrassSystem] Created: ${grassMesh.name}, count=${grassMesh.count}, texture=${texUniform?.value?.image ? "LOADED" : "NULL"}`,
+    const mesh = new THREE.InstancedMesh(
+      geometry,
+      this.grassMaterial!,
+      instances.length,
     );
 
-    return grassMesh;
+    mesh.frustumCulled = false;
+    mesh.receiveShadow = true;
+    mesh.castShadow = false;
+
+    return mesh;
   }
 
   /**

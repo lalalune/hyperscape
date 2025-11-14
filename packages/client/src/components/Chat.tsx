@@ -173,7 +173,6 @@ export function Chat({ world }: { world: ChatWorld }) {
   };
 
   const panelWidth = isTouch ? 386 : 720;
-  const panelPadding = isTouch ? "0.85rem" : "1.1rem";
   const dividerGradient =
     "linear-gradient(90deg, rgba(242,208,138,0), rgba(242,208,138,0.4) 14%, rgba(255,215,128,0.95) 50%, rgba(242,208,138,0.4) 86%, rgba(242,208,138,0))";
 
@@ -768,42 +767,43 @@ function Message({ msg }: { msg: ChatMessage }) {
   );
 }
 
-function MiniMessages({ world }: { world: ChatWorld }) {
-  const [msg, setMsg] = useState<ChatMessage | null>(null);
+// MiniMessages component - currently unused but kept for future mini chat feature
+// function MiniMessages({ world }: { world: ChatWorld }) {
+//   const [msg, setMsg] = useState<ChatMessage | null>(null);
 
-  useEffect(() => {
-    let init = false;
-    return world.chat.subscribe((msgs: unknown[]) => {
-      if (!init) {
-        init = true;
-        return;
-      }
-      const latest = msgs[msgs.length - 1] as ChatMessage;
-      if (latest.fromId === world.network.id) return;
-      setMsg(latest);
-    });
-  }, [world]);
+//   useEffect(() => {
+//     let init = false;
+//     return world.chat.subscribe((msgs: unknown[]) => {
+//       if (!init) {
+//         init = true;
+//         return;
+//       }
+//       const latest = msgs[msgs.length - 1] as ChatMessage;
+//       if (latest.fromId === world.network.id) return;
+//       setMsg(latest);
+//     });
+//   }, [world]);
 
-  if (!msg) {
-    return (
-      <div
-        className="text-xs italic text-center"
-        style={{ color: "rgba(244, 239, 230, 0.55)" }}
-      >
-        Tap to open chat
-      </div>
-    );
-  }
+//   if (!msg) {
+//     return (
+//       <div
+//         className="text-xs italic text-center"
+//         style={{ color: "rgba(244, 239, 230, 0.55)" }}
+//       >
+//         Tap to open chat
+//       </div>
+//     );
+//   }
 
-  return (
-    <div className="flex flex-col gap-1">
-      <div
-        className="text-[0.7rem] uppercase tracking-[0.18em]"
-        style={{ fontFamily: CHAT_HEADER_FONT, color: CHAT_ACCENT_COLOR }}
-      >
-        New message
-      </div>
-      <Message msg={msg} />
-    </div>
-  );
-}
+//   return (
+//     <div className="flex flex-col gap-1">
+//       <div
+//         className="text-[0.7rem] uppercase tracking-[0.18em]"
+//         style={{ fontFamily: CHAT_HEADER_FONT, color: CHAT_ACCENT_COLOR }}
+//       >
+//         New message
+//       </div>
+//       <Message msg={msg} />
+//     </div>
+//   );
+// }

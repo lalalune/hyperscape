@@ -950,6 +950,16 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.base = new THREE.Group();
     if (this.base) {
       this.base.name = "player-base";
+
+      // CRITICAL: Set userData for right-click detection (local player)
+      this.base.userData = {
+        type: "player",
+        entityId: this.id,
+        name: this.data.name || "You",
+        interactable: false, // Don't show trade menu when clicking yourself
+        entity: this,
+        playerId: this.id,
+      };
     }
     if (!this.base) {
       throw new Error("Failed to create base node for PlayerLocal");
@@ -1321,6 +1331,32 @@ export class PlayerLocal extends Entity implements HotReloadable {
       );
     }
 
+    // CRITICAL: Set userData on VRM scene for right-click detection (local player)
+    // Note: Local player is NOT interactable (can't trade with yourself)
+    const vrmScene = vrmInstance!.raw.scene;
+    if (vrmScene) {
+      vrmScene.userData = {
+        type: "player",
+        entityId: this.id,
+        name: this.data.name || "You",
+        interactable: false, // Don't show trade menu on yourself
+        entity: this,
+        playerId: this.id,
+      };
+
+      // Also set on all VRM children for reliable detection
+      vrmScene.traverse((child: THREE.Object3D) => {
+        child.userData = {
+          type: "player",
+          entityId: this.id,
+          name: this.data.name || "You",
+          interactable: false,
+          entity: this,
+          playerId: this.id,
+        };
+      });
+    }
+
     this.avatarUrl = avatarUrl;
 
     // Emit avatar ready event for camera system
@@ -1626,7 +1662,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     if (this.moving) {
       this.running = this.runMode;
     }
-    // TODO: Update UI to show run/walk state
+    // UI automatically reflects run/walk state via emote system
   }
 
   // Update server authoritative position for reconciliation
@@ -1797,6 +1833,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
     // ALWAYS log first 10 updates with high visibility
     if (this.updateCallCount <= 10) {
+      // Early update logging disabled
     }
 
     // COMBAT ROTATION: Rotate to face target when in combat (RuneScape-style)
@@ -1809,7 +1846,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Look for mobs that are attacking us
     for (const entity of this.world.entities.items.values()) {
       if (entity.type === "mob" && entity.position) {
-        const mobEntity = entity as any;
+        const mobEntity = entity as unknown as {
+          config?: { aiState?: string; targetPlayerId?: string };
+        };
         // Check if mob is in ATTACK state and targeting this player
         if (
           mobEntity.config?.aiState === "attack" &&
@@ -1885,6 +1924,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
       // Log when avatar instance is first detected
       if (this.updateCallCount === 11 || this.updateCallCount === 12) {
+        // Avatar instance detected
       }
 
       if (instance.move && this.base) {

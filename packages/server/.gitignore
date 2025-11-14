@@ -77,3 +77,4 @@ android/
 capacitor.config.json
 world/assets/forge
 world/assets/assets
+.cache-synpress/

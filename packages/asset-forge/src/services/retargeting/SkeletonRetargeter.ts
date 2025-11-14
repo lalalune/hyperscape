@@ -4,8 +4,9 @@
  */
 
 import * as THREE from "three";
-import { DistanceSolver } from "./DistanceSolver";
+
 import { DistanceChildTargetingSolver } from "./DistanceChildTargetingSolver";
+import { DistanceSolver } from "./DistanceSolver";
 
 export type SolverType = "distance" | "distance-child" | "distance-targeting";
 
@@ -38,7 +39,7 @@ export class SkeletonRetargeter {
     sourceMesh: THREE.SkinnedMesh,
     targetSkeleton: THREE.Skeleton,
     solverType: SolverType = "distance",
-    useKeypointAlignment: boolean = true,
+    _useKeypointAlignment: boolean = true,
   ): THREE.SkinnedMesh {
     console.log(
       `🔄 Retargeting mesh "${sourceMesh.name}" to new skeleton with ${targetSkeleton.bones.length} bones`,

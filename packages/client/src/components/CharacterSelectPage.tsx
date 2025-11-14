@@ -63,7 +63,7 @@ const useIntroMusic = (enabled: boolean) => {
       const track = Math.random() > 0.5 ? "1.mp3" : "2.mp3";
       setCurrentTrack(track);
 
-      const cdnUrl = "http://localhost:8080"; // CDN URL
+      const cdnUrl = "http://localhost:8088"; // CDN URL
       const musicPath = `${cdnUrl}/music/intro/${track}`;
 
       // Resume audio context if suspended (browser autoplay policy)
@@ -248,7 +248,7 @@ export function CharacterSelectPage({
     ws.addEventListener("error", (err) => {
       console.error("[CharacterSelect] ❌ WebSocket ERROR:", err);
     });
-    ws.addEventListener("close", (e) => {
+    ws.addEventListener("close", () => {
       setWsReady(false);
     });
     ws.addEventListener("message", (e) => {
@@ -317,6 +317,7 @@ export function CharacterSelectPage({
         // These are real-time position/rotation/velocity updates that happen in the world
         // Silently ignore them
       } else {
+        // Other packet types not relevant to character selection
       }
     });
     return () => {
@@ -535,7 +536,7 @@ export function CharacterSelectPage({
                         disabled={
                           !wsReady || newCharacterName.trim().length < 3
                         }
-                        onClick={(e) => {
+                        onClick={() => {
                           console.log(
                             "[CharacterSelect] Button state - wsReady:",
                             wsReady,

@@ -129,7 +129,7 @@ export class Mesh extends Node {
         getEntity: () => ctx.entity!,
         node: this,
       };
-      ctx.stage.octree.insert(this.sItem as never);
+      ctx.stage.octree.insert(this.sItem);
     }
   }
 

@@ -107,7 +107,7 @@ class AssetServiceClass {
           );
           return tPoseUrl;
         }
-      } catch (error) {
+      } catch {
         console.log(
           `[AssetService] No T-pose for built-in asset ${assetId}, using regular model`,
         );
@@ -122,7 +122,7 @@ class AssetServiceClass {
         console.log(`[AssetService] T-pose found for ${assetId}`);
         return tPoseUrl;
       }
-    } catch (error) {
+    } catch {
       console.log(
         `[AssetService] No T-pose for ${assetId}, using regular model`,
       );

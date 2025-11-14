@@ -1,0 +1,24 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "hyperscape",
+  "displayName": "Hyperscape 3D Engine",
+  "version": "1.0.0",
+  "type": "vendor",
+  "description": "3D game engine with ElizaOS integration and procedural world generation",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start"
+  },
+  "ports": {
+    "main": 3333,
+    "game": 3333,
+    "api": 5555
+  },
+  "dependencies": [],
+  "optional": true,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["game", "3d", "engine", "elizaos"]
+}
+

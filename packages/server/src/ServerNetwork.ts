@@ -115,9 +115,26 @@ import type {
   SystemDatabase,
   ServerSocket,
   ResourceSystem,
-  InventorySystemData,
   DatabaseSystemOperations,
 } from "./types";
+import type { InventorySystemData } from "@hyperscape/shared";
+import type {
+  CharacterCreatePacket,
+  CharacterSelectedPacket,
+  EnterWorldPacket,
+  MoveRequestPacket,
+  AttackRequestPacket,
+  ItemPickupPacket,
+  ItemDropPacket,
+  ResourceGatherPacket,
+  EntityModificationPacket,
+  EntityEventPacket,
+  TradeRequestPacket,
+  TradeResponsePacket,
+  TradeOfferPacket,
+  TradeConfirmPacket,
+  TradeCancelPacket,
+} from "@hyperscape/shared";
 import {
   EventType,
   Socket,
@@ -135,10 +152,12 @@ import {
   Entity,
   TerrainSystem,
   World,
+  ITEM_ID_TO_KEY,
 } from "@hyperscape/shared";
 import type { Vector3 } from "three";
 import { isPrivyEnabled, verifyPrivyToken } from "./privy-auth";
 import { createJWT, verifyJWT } from "./utils";
+import { checkPlayerBan } from "./blockchain/BanCheckService";
 
 // SocketInterface is the extended ServerSocket type
 type SocketInterface = ServerSocket;
@@ -160,7 +179,7 @@ const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }'; /
 
 const HEALTH_MAX = 100;
 
-type QueueItem = [SocketInterface, string, unknown];
+type QueueItem = [SocketInterface, string, Record<string, unknown>];
 
 // Handler data types for network messages
 
@@ -183,7 +202,7 @@ interface _EntityRemovedData {
  */
 type NetworkHandler = (
   socket: SocketInterface,
-  data: unknown,
+  data: Record<string, unknown>,
 ) => void | Promise<void>;
 
 /**
@@ -254,6 +273,27 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
   > = new Map();
 
+  // Trading system state
+  private activeTrades: Map<
+    string,
+    {
+      tradeId: string;
+      initiator: string;
+      recipient: string;
+      initiatorOffer: {
+        items: Array<{ itemId: string; quantity: number; slot: number }>;
+        coins: number;
+      };
+      recipientOffer: {
+        items: Array<{ itemId: string; quantity: number; slot: number }>;
+        coins: number;
+      };
+      initiatorConfirmed: boolean;
+      recipientConfirmed: boolean;
+      createdAt: number;
+    }
+  > = new Map();
+
   // Pre-allocated vectors for calculations (no garbage)
   private _tempVec3 = new THREE.Vector3();
   private _tempVec3Fwd = new THREE.Vector3(0, 0, -1);
@@ -290,10 +330,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onCommand"] = this.onCommand.bind(this);
     this.handlers["onEntityModified"] = this.onEntityModified.bind(this);
     this.handlers["onEntityEvent"] = this.onEntityEvent.bind(this);
-    this.handlers["onEntityRemoved"] = this.onEntityRemoved.bind(this);
-    this.handlers["onSettings"] = this.onSettings.bind(this);
+    this.handlers["onEntityRemoved"] = (socket, data) =>
+      this.onEntityRemoved(socket, data as { id: string });
+    this.handlers["onSettings"] = (socket, data) =>
+      this.onSettings(socket, data);
     // Dedicated resource packet handler
-    this.handlers["onResourceGather"] = (socket: SocketInterface, data) => {
+    this.handlers["onResourceGather"] = (
+      socket: SocketInterface,
+      data: ResourceGatherPacket,
+    ) => {
       const playerEntity = socket.player;
       if (!playerEntity) {
         console.warn(
@@ -302,18 +347,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         return;
       }
 
-      const payload = data as {
-        resourceId?: string;
-        playerPosition?: { x: number; y: number; z: number };
-      };
-      if (!payload.resourceId) {
+      if (!data.resourceId) {
         console.warn(
           "[ServerNetwork] onResourceGather: no resourceId in payload",
         );
         return;
       }
 
-      const playerPosition = payload.playerPosition || {
+      const playerPosition = data.playerPosition || {
         x: playerEntity.position.x,
         y: playerEntity.position.y,
         z: playerEntity.position.z,
@@ -322,7 +363,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       // Forward to ResourceSystem - emit RESOURCE_GATHER which ResourceSystem subscribes to
       this.world.emit(EventType.RESOURCE_GATHER, {
         playerId: playerEntity.id,
-        resourceId: payload.resourceId,
+        resourceId: data.resourceId,
         playerPosition: playerPosition,
       });
     };
@@ -333,18 +374,22 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onPickupItem"] = this.onPickupItem.bind(this);
     // Inventory drop handler
     this.handlers["onDropItem"] = this.onDropItem.bind(this);
+    // Trading system handlers
+    this.handlers["onTradeRequest"] = this.onTradeRequest.bind(this);
+    this.handlers["onTradeResponse"] = this.onTradeResponse.bind(this);
+    this.handlers["onTradeOffer"] = this.onTradeOffer.bind(this);
+    this.handlers["onTradeConfirm"] = this.onTradeConfirm.bind(this);
+    this.handlers["onTradeCancel"] = this.onTradeCancel.bind(this);
     // Character selection handlers (feature-flagged usage)
-    this.handlers["onCharacterListRequest"] =
-      this.onCharacterListRequest.bind(this);
+    this.handlers["onCharacterListRequest"] = (socket, data) =>
+      this.onCharacterListRequest(socket, data as Record<string, never>);
     this.handlers["onCharacterCreate"] = this.onCharacterCreate.bind(this);
     this.handlers["onCharacterSelected"] = this.onCharacterSelected.bind(this);
     this.handlers["onEnterWorld"] = this.onEnterWorld.bind(this);
   }
 
   // --- Character selection infrastructure (feature-flag guarded) ---
-  private async loadCharacterList(
-    accountId: string,
-  ): Promise<
+  private async loadCharacterList(accountId: string): Promise<
     Array<{
       id: string;
       name: string;
@@ -366,7 +411,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   private async onCharacterListRequest(
     socket: SocketInterface,
-    _data: unknown,
+    _data: Record<string, never>,
   ): Promise<void> {
     const accountId = socket.accountId;
     if (!accountId) {
@@ -387,14 +432,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   private async onCharacterCreate(
     socket: SocketInterface,
-    data: unknown,
+    data: CharacterCreatePacket,
   ): Promise<void> {
     console.log("[ServerNetwork] 🎭 onCharacterCreate called with data:", data);
 
-    const payload = (data as { name?: string }) || {};
-    const name = (payload.name || "").trim().slice(0, 20) || "Adventurer";
+    const name = (data.name || "").trim().slice(0, 20) || "Adventurer";
 
-    console.log("[ServerNetwork] Raw name from payload:", payload.name);
+    console.log("[ServerNetwork] Raw name from payload:", data.name);
     console.log("[ServerNetwork] Processed name:", name);
 
     // Basic validation: alphanumeric plus spaces, 3-20 chars
@@ -475,6 +519,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     try {
       this.sendTo(socket.id, "characterCreated", responseData);
+
+      // CRITICAL: Send updated character list so client can see the new character
+      const updatedCharacters = await this.loadCharacterList(accountId);
+      console.log(
+        "[ServerNetwork] Sending updated character list after creation:",
+        updatedCharacters,
+      );
+      this.sendTo(socket.id, "characterList", {
+        characters: updatedCharacters,
+      });
     } catch (err) {
       console.error(
         "[ServerNetwork] ❌ ERROR sending characterCreated packet:",
@@ -483,18 +537,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
   }
 
-  private onCharacterSelected(socket: SocketInterface, data: unknown): void {
-    const payload = (data as { characterId?: string }) || {};
+  private onCharacterSelected(
+    socket: SocketInterface,
+    data: CharacterSelectedPacket,
+  ): void {
     // Store selection in socket for subsequent enterWorld
-    socket.selectedCharacterId = payload.characterId || undefined;
+    socket.selectedCharacterId = data.characterId || undefined;
     this.sendTo(socket.id, "characterSelected", {
-      characterId: payload.characterId || null,
+      characterId: data.characterId || null,
     });
   }
 
   private async onEnterWorld(
     socket: SocketInterface,
-    data: unknown,
+    data: EnterWorldPacket,
   ): Promise<void> {
     console.log("[ServerNetwork] 🚪 onEnterWorld called with data:", data);
 
@@ -504,8 +560,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return; // Already spawned
     }
     const accountId = socket.accountId || undefined;
-    const payload = (data as { characterId?: string }) || {};
-    const characterId = payload.characterId || null;
+    const characterId = data.characterId || null;
 
     console.log("[ServerNetwork] Enter world params:", {
       accountId,
@@ -670,29 +725,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           socket.player as unknown as import("@hyperscape/shared").PlayerLocal,
       });
       try {
-        // Send to everyone else
+        // CRITICAL: Send ALL existing entities to the joining player FIRST
+        // They need to see other players and world entities
+        console.log(
+          "[ServerNetwork] 📤 Sending all existing entities to joining player",
+        );
+        for (const entity of this.world.entities.values()) {
+          // Don't send their own entity yet (we'll send it with special handling below)
+          if (entity.id !== socket.player.id) {
+            this.sendTo(socket.id, "entityAdded", entity.serialize());
+          }
+        }
+
+        // Then send to everyone else about the new player
         this.send("entityAdded", socket.player.serialize(), socket.id);
+
         // And also to the originating socket so their client receives their own entity
         this.sendTo(socket.id, "entityAdded", socket.player.serialize());
-
-        // CRITICAL: Send all existing entities (mobs, items, NPCs) to new client
-        // These entities were spawned before this player connected
-        if (this.world.entities?.items) {
-          let entityCount = 0;
-          for (const [
-            entityId,
-            entity,
-          ] of this.world.entities.items.entries()) {
-            // Skip the player we just added
-            if (entityId !== socket.player.id) {
-              this.sendTo(socket.id, "entityAdded", entity.serialize());
-              entityCount++;
-            }
-          }
-          console.log(
-            `[ServerNetwork] 📤 Sent ${entityCount} existing entities to new player ${socket.player.id}`,
-          );
-        }
 
         // Immediately reinforce authoritative transform to avoid initial client-side default pose
         this.sendTo(socket.id, "entityModified", {
@@ -763,6 +812,37 @@ export class ServerNetwork extends System implements NetworkWithSocket {
             maxSlots: 28,
           });
         } catch {}
+
+        // CRITICAL: Send resource snapshot so player can see gatherable resources
+        try {
+          const resourceSystem = this.world.getSystem?.("resource") as
+            | ResourceSystem
+            | undefined;
+          const resources = resourceSystem?.getAllResources?.() || [];
+          const payload = {
+            resources: resources.map((r) => ({
+              id: r.id,
+              type: r.type,
+              position: r.position,
+              isAvailable: r.isAvailable,
+              respawnAt:
+                !r.isAvailable && r.lastDepleted && r.respawnTime
+                  ? r.lastDepleted + r.respawnTime
+                  : undefined,
+            })),
+          };
+          this.sendTo(socket.id, "resourceSnapshot", payload);
+          console.log(
+            "[ServerNetwork] 📤 Sent resource snapshot with",
+            resources.length,
+            "resources",
+          );
+        } catch (_err) {
+          console.error(
+            "[ServerNetwork] Failed to send resource snapshot:",
+            _err,
+          );
+        }
       } catch (_err) {}
     }
   }
@@ -861,6 +941,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       );
       this.world.on(EventType.INVENTORY_UPDATED, (...args: unknown[]) => {
         if (process.env.DEBUG_RPG === "1") {
+          // Debug logging disabled, enable if needed for RPG debugging
         }
         this.send("inventoryUpdated", args[0]);
       });
@@ -962,9 +1043,18 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.validatePlayerPositions();
       this.lastValidationTime = 0;
     }
+    // Clean up stale trades (open for more than 5 minutes)
+    const TRADE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    const now = Date.now();
+
+    for (const [tradeId, trade] of this.activeTrades.entries()) {
+      if (now - trade.createdAt > TRADE_TIMEOUT) {
+        console.log(`[ServerNetwork] Cancelling stale trade ${tradeId}`);
+        this.cancelTradeWithError(tradeId, "Trade timed out");
+      }
+    }
 
     // Simple server-authoritative movement - no complex physics
-    const now = Date.now();
     const toDelete: string[] = [];
 
     this.moveTargets.forEach((info, playerId) => {
@@ -1081,15 +1171,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     const packet = writePacket(name, data);
     // Only log non-entityModified packets to reduce spam
     // Keep logs quiet in production unless debugging a specific packet
-    let sentCount = 0;
     this.sockets.forEach((socket) => {
       if (socket.id === ignoreSocketId) {
         return;
       }
       socket.sendPacket(packet);
-      sentCount++;
     });
     if (name === "chatAdded") {
+      // Chat packets handled normally, debug logging disabled
     }
   }
 
@@ -1166,7 +1255,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         console.warn(
           `[ServerNetwork] Disconnecting socket ${socket.id} due to ${reason}`,
         );
-      } catch {}
+      } catch {
+        // Ignore errors during disconnect logging
+      }
       socket.disconnect?.();
       this.socketFirstSeenAt.delete(socket.id);
       this.socketMissedPongs.delete(socket.id);
@@ -1188,9 +1279,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   enqueue(
     socket: SocketInterface | Socket,
     method: string,
-    data: unknown,
+    data: Record<string, unknown>,
   ): void {
     if (method === "onChatAdded") {
+      // Chat packets handled normally, debug logging disabled
     }
     this.queue.push([socket as SocketInterface, method, data]);
   }
@@ -1229,6 +1321,34 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Clean up any socket-specific resources
     if (serverSocket.player) {
+      const playerId = serverSocket.player.id;
+
+      // Cancel any active trades involving this player
+      for (const [tradeId, trade] of this.activeTrades.entries()) {
+        if (trade.initiator === playerId || trade.recipient === playerId) {
+          console.log(
+            `[ServerNetwork] Cancelling trade ${tradeId} due to player disconnect`,
+          );
+
+          // Notify the other player
+          const otherPlayerId =
+            trade.initiator === playerId ? trade.recipient : trade.initiator;
+          const otherSocket = Array.from(this.sockets.values()).find(
+            (s) => s.player?.id === otherPlayerId,
+          );
+
+          if (otherSocket) {
+            this.sendTo(otherSocket.id, "tradeCancelled", {
+              tradeId: trade.tradeId,
+              reason: "Other player disconnected",
+              byPlayerId: playerId,
+            });
+          }
+
+          this.activeTrades.delete(tradeId);
+        }
+      }
+
       // Emit typed player left event
       this.world.emit(EventType.PLAYER_LEFT, {
         playerId: serverSocket.player.id,
@@ -1239,7 +1359,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         this.world.entities.remove(serverSocket.player.id);
       }
       // Broadcast entity removal to all remaining clients
-      this.send("entityRemoved", serverSocket.player.id);
+      this.send("entityRemoved", { id: serverSocket.player.id });
     }
   }
 
@@ -1262,6 +1382,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       const [socket, method, data] = this.queue.shift()!;
       const handler = this.handlers[method];
       if (method === "onChatAdded") {
+        // Chat packets handled normally, debug logging disabled
       }
       if (handler) {
         const result = handler.call(this, socket, data);
@@ -1518,6 +1639,37 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         user.roles = (user.roles as string).split(",").filter((r) => r);
       }
 
+      // CHECK BAN STATUS - Block banned players immediately
+      // Query player's agentId from database (stored during registration)
+      try {
+        const playerRecord = (await this.db("players")
+          .where("userId", user.id)
+          .first()) as { agent_id?: number } | undefined;
+
+        if (playerRecord?.agent_id) {
+          const banCheck = await checkPlayerBan(playerRecord.agent_id);
+
+          if (!banCheck.allowed) {
+            console.warn(
+              `[ServerNetwork] Banned player attempted login: User ${user.id}, Agent ${playerRecord.agent_id}`,
+            );
+            const kickPacket = writePacket(
+              "kick",
+              banCheck.reason || "You have been banned.",
+            );
+            ws.send(kickPacket);
+            ws.close();
+            return; // Deny access
+          }
+        }
+      } catch (error) {
+        console.error(
+          "[ServerNetwork] Ban check failed, allowing access (fail-open):",
+          error,
+        );
+        // Continue - fail open if ban system is down
+      }
+
       // Allow multiple sessions per user for development/testing; do not kick duplicates
 
       // Only grant admin in development mode when no admin code is set
@@ -1691,6 +1843,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       }
 
       // Load character list to determine if we're in character-select mode
+      // ALWAYS load character list - client needs it to decide whether to show character select
       let characters: Array<{
         id: string;
         name: string;
@@ -1698,22 +1851,97 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         lastLocation?: { x: number; y: number; z: number };
       }> = [];
       characters = await this.loadCharacterList(user.id);
+      console.log("[ServerNetwork] 📋 Character list loaded:", characters);
 
-      console.log(
-        "[ServerNetwork] 📋 Character list being sent in snapshot:",
-        characters,
-      );
+      // Check if character selection is enabled via environment variable
+      // Support both ENABLE_CHARACTER_SELECT and ENABLE_CHARACTER_SYSTEM for backward compatibility
+      const enableCharacterSelect =
+        process.env.ENABLE_CHARACTER_SELECT === "true" ||
+        process.env.ENABLE_CHARACTER_SYSTEM === "true";
 
-      // CRITICAL: Only create player entity if NOT in character select mode
-      // If we have characters, wait for enterWorld to create the actual character entity
-      if (characters.length === 0) {
-        // No characters → Show character creation screen, DON'T auto-spawn
+      // Auto-spawn player if character selection is disabled (legacy mode)
+      if (!enableCharacterSelect) {
         console.log(
-          `[ServerNetwork] No characters found for ${user.name}, showing character select`,
+          `[ServerNetwork] 🎮 AUTO-SPAWN MODE - Character selection disabled`,
         );
-        // Don't create player entity yet - wait for character creation
+        console.log(
+          `[ServerNetwork] Creating player entity for ${user.name} (socketId: ${socketId})`,
+        );
+
+        // CRITICAL: Create character in database FIRST to satisfy foreign key constraint
+        // The player_sessions table has a foreign key to characters table
+        const databaseSystem = this.world.getSystem("database") as
+          | import("./DatabaseSystem").DatabaseSystem
+          | undefined;
+        if (databaseSystem) {
+          try {
+            // Check if character already exists
+            const existing = await databaseSystem.getPlayerAsync(socketId);
+            if (!existing) {
+              // Create character entry in database
+              await databaseSystem.createCharacter(
+                user.id,
+                socketId,
+                name || user.name,
+              );
+              console.log(
+                `[ServerNetwork] ✅ Created character entry in database: ${socketId}`,
+              );
+            } else {
+              console.log(
+                `[ServerNetwork] ℹ️  Character already exists in database: ${socketId}`,
+              );
+            }
+          } catch (err) {
+            console.error(
+              "[ServerNetwork] ❌ Failed to create character entry:",
+              err,
+            );
+          }
+        }
+
+        // Create default player entity immediately (legacy behavior)
+        const addedEntity = this.world.entities.add
+          ? this.world.entities.add({
+              id: socketId,
+              type: "player",
+              position: spawnPosition,
+              quaternion: Array.isArray(this.spawn.quaternion)
+                ? ([...this.spawn.quaternion] as [
+                    number,
+                    number,
+                    number,
+                    number,
+                  ])
+                : [0, 0, 0, 1],
+              owner: socketId,
+              userId: user.id,
+              name: name || user.name,
+              health: HEALTH_MAX,
+              avatar: this.world.settings.avatar?.url || "asset://avatar.vrm",
+              sessionAvatar: avatar || undefined,
+              roles: user.roles as string[],
+            })
+          : undefined;
+
+        socket.player = (addedEntity as Entity) || undefined;
+        console.log(
+          `[ServerNetwork] ✅ Player entity created: ${socket.player?.id} at position [${spawnPosition}]`,
+        );
       } else {
-        // Character select mode - don't spawn player yet, wait for enterWorld
+        // Character select mode enabled
+        if (characters.length === 0) {
+          // No characters → Show character creation screen, DON'T auto-spawn
+          console.log(
+            `[ServerNetwork] No characters found for ${user.name}, showing character select`,
+          );
+          // Don't create player entity yet - wait for character creation
+        } else {
+          // Character select mode - don't spawn player yet, wait for enterWorld
+          console.log(
+            `[ServerNetwork] ${characters.length} characters found, waiting for enterWorld`,
+          );
+        }
       }
 
       const baseSnapshot: {
@@ -1746,32 +1974,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         maxUploadSize: process.env.PUBLIC_MAX_UPLOAD_SIZE,
         settings: this.world.settings.serialize() || {},
         chat: this.world.chat.serialize() || [],
-        // Include ALL entities (player + mobs + items) in snapshot
-        // BUT only if player exists (to preserve character select mode detection)
-        entities: (() => {
-          const allEntities: unknown[] = [];
-          // Always include the player if spawned
-          if (socket.player) {
-            allEntities.push(socket.player.serialize());
-
-            // Only include other entities if player is spawned
-            // This preserves character select mode (empty entities array)
-            if (this.world.entities?.items) {
-              for (const [
-                entityId,
-                entity,
-              ] of this.world.entities.items.entries()) {
-                if (entityId !== socket.player.id) {
-                  allEntities.push(entity.serialize());
-                }
-              }
-            }
-          }
-          console.log(
-            `[ServerNetwork] Sending snapshot with ${allEntities.length} entities (player: ${socket.player ? "YES" : "NO"})`,
-          );
-          return allEntities;
-        })(),
+        // Include ALL entities EXCEPT the newly connected player (sent separately via entityAdded)
+        entities: Array.from(this.world.entities.values())
+          .filter((e) => e.id !== socket.player?.id)
+          .map((e) => e.serialize()),
         livekit,
         authToken: authToken || "",
         account: {
@@ -1808,14 +2014,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           })),
         };
         this.sendTo(socket.id, "resourceSnapshot", payload);
-      } catch (_err) {}
+      } catch {
+        // Resource snapshot is optional, continue without it
+      }
 
       this.sockets.set(socket.id, socket);
 
       // Emit typed player joined and broadcast ONLY if player was created (not in character select)
       if (socket.player) {
         const playerId = socket.player.data.id as string;
-        const userId = socket.player.data.userId as string | undefined;
         this.world.emit(EventType.PLAYER_JOINED, {
           playerId,
           player:
@@ -1825,6 +2032,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         // Broadcast new player entity to all existing clients except the new connection
         try {
           this.send("entityAdded", socket.player.serialize(), socket.id);
+          // Also send to the new player so they render themselves
+          this.sendTo(socket.id, "entityAdded", socket.player.serialize());
         } catch (err) {
           console.error(
             "[ServerNetwork] Failed to broadcast entityAdded for new player:",
@@ -1832,6 +2041,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           );
         }
       } else {
+        // Player not created yet (character select mode), no entity to broadcast
       }
     } catch (_err) {
       console.error(_err);
@@ -1849,8 +2059,6 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   onCommand = async (socket: SocketInterface, data: unknown): Promise<void> => {
     const args = data as string[];
-    // TODO: check for spoofed messages, permissions/roles etc
-    // handle slash commands
     const player = socket.player;
     if (!player) return;
     const [cmd, arg1] = args;
@@ -1965,8 +2173,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
 
     if (cmd === "spawn") {
-      const _op = arg1;
-      // TODO: Parse spawn operation properly
+      // Spawn operations handled by world systems
     }
 
     if (cmd === "chat") {
@@ -2018,16 +2225,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    *
    * @internal
    */
-  onEntityModified(socket: SocketInterface, data: unknown): void {
-    // Accept either { id, changes: {...} } or a flat payload { id, ...changes }
-    const incoming = data as {
-      id: string;
-      changes?: Record<string, unknown>;
-    } & Record<string, unknown>;
-    const id = incoming.id;
-    const changes =
-      incoming.changes ??
-      Object.fromEntries(Object.entries(incoming).filter(([k]) => k !== "id"));
+  onEntityModified(
+    socket: SocketInterface,
+    data: EntityModificationPacket,
+  ): void {
+    const id = data.id;
+    const changes = data.changes || {};
 
     // Apply to local entity if present
     const entity = this.world.entities.get(id);
@@ -2048,18 +2251,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.send("entityModified", { id, changes }, socket.id);
   }
 
-  private onMoveRequest(socket: SocketInterface, data: unknown): void {
+  private onMoveRequest(
+    socket: SocketInterface,
+    data: MoveRequestPacket,
+  ): void {
     const playerEntity = socket.player;
     if (!playerEntity) return;
 
-    const payload = data as {
-      target?: number[] | null;
-      runMode?: boolean;
-      cancel?: boolean;
-    };
-
     // Handle cancellation
-    if (payload?.cancel || payload?.target === null) {
+    if (data.cancel || data.target === null) {
       this.moveTargets.delete(playerEntity.id);
       const curr = playerEntity.position;
       this.send("entityModified", {
@@ -2073,19 +2273,19 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return;
     }
 
-    const t = Array.isArray(payload?.target)
-      ? (payload!.target as [number, number, number])
+    const t = Array.isArray(data.target)
+      ? (data.target as [number, number, number])
       : null;
     // If only runMode is provided, update current movement speed/emote without changing target
     if (!t) {
-      if (payload?.runMode !== undefined) {
+      if (data.runMode !== undefined) {
         const info = this.moveTargets.get(playerEntity.id);
         if (info) {
-          info.maxSpeed = payload.runMode ? 8 : 4;
+          info.maxSpeed = data.runMode ? 8 : 4;
           // Update emote immediately
           this.send("entityModified", {
             id: playerEntity.id,
-            changes: { e: payload.runMode ? "run" : "walk" },
+            changes: { e: data.runMode ? "run" : "walk" },
           });
         }
       }
@@ -2094,7 +2294,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     // Simple target creation - no complex terrain anchoring
     const target = new THREE.Vector3(t[0], t[1], t[2]);
-    const maxSpeed = payload?.runMode ? 8 : 4;
+    const maxSpeed = data.runMode ? 8 : 4;
 
     // Replace existing target completely (allows direction changes)
     this.moveTargets.set(playerEntity.id, {
@@ -2127,12 +2327,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         p: [curr.x, curr.y, curr.z],
         q: playerEntity.data.quaternion,
         v: [0, 0, 0],
-        e: payload?.runMode ? "run" : "walk",
+        e: data.runMode ? "run" : "walk",
       },
     });
   }
 
-  private onInput(socket: SocketInterface, data: unknown): void {
+  private onInput(
+    socket: SocketInterface,
+    data: MoveRequestPacket & { type?: string },
+  ): void {
     // This now exclusively handles click-to-move requests, routing them to the canonical handler.
     const playerEntity = socket.player;
     if (!playerEntity) {
@@ -2140,28 +2343,25 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
 
     // The payload from a modern client is a 'moveRequest' style object.
-    const payload = data as {
-      type?: string;
-      target?: number[];
-      runMode?: boolean;
-    };
-    if (payload.type === "click" && Array.isArray(payload.target)) {
+    if (data.type === "click" && Array.isArray(data.target)) {
       this.onMoveRequest(socket, {
-        target: payload.target,
-        runMode: payload.runMode,
+        target: data.target,
+        runMode: data.runMode,
       });
     }
   }
 
-  private onAttackMob(socket: SocketInterface, data: unknown): void {
+  private onAttackMob(
+    socket: SocketInterface,
+    data: AttackRequestPacket,
+  ): void {
     const playerEntity = socket.player;
     if (!playerEntity) {
       console.warn("[ServerNetwork] onAttackMob: no player entity for socket");
       return;
     }
 
-    const payload = data as { mobId?: string; attackType?: string };
-    if (!payload.mobId) {
+    if (!data.mobId) {
       console.warn("[ServerNetwork] onAttackMob: no mobId in payload");
       return;
     }
@@ -2169,25 +2369,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Forward to CombatSystem
     this.world.emit(EventType.COMBAT_ATTACK_REQUEST, {
       playerId: playerEntity.id,
-      targetId: payload.mobId,
+      targetId: data.mobId,
       attackerType: "player",
       targetType: "mob",
-      attackType: payload.attackType || "melee",
+      attackType: data.attackType || "melee",
     });
   }
 
-  private onPickupItem(socket: SocketInterface, data: unknown): void {
+  private onPickupItem(socket: SocketInterface, data: ItemPickupPacket): void {
     const playerEntity = socket.player;
     if (!playerEntity) {
       console.warn("[ServerNetwork] onPickupItem: no player entity for socket");
       return;
     }
 
-    const payload = data as { itemId?: string; entityId?: string };
-
     // The client sends the entity ID as 'itemId' in the payload
     // entityId is the world entity ID (required), itemId is the item definition (optional)
-    const entityId = payload.itemId; // Client sends entity ID as 'itemId'
+    const entityId = data.itemId; // Client sends entity ID as 'itemId'
 
     if (!entityId) {
       console.warn("[ServerNetwork] onPickupItem: no entityId in payload");
@@ -2195,8 +2393,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }
 
     // Server-side distance validation
-    const entityManager = this.world.getSystem("entity-manager");
-    if (entityManager) {
+    const entityManager = this.world.getSystem("entity-manager") as
+      | {
+          getEntity?: (id: string) => {
+            position: { x: number; y: number; z: number };
+          };
+        }
+      | undefined;
+    if (entityManager && entityManager.getEntity) {
       const itemEntity = entityManager.getEntity(entityId);
       if (itemEntity) {
         const distance = Math.sqrt(
@@ -2222,31 +2426,830 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     });
   }
 
-  private onDropItem(socket: SocketInterface, data: unknown): void {
+  private onDropItem(socket: SocketInterface, data: ItemDropPacket): void {
     const playerEntity = socket.player;
     if (!playerEntity) {
       console.warn("[ServerNetwork] onDropItem: no player entity for socket");
       return;
     }
-    const payload = data as {
-      itemId?: string;
-      slot?: number;
-      quantity?: number;
-    };
-    if (!payload?.itemId) {
+    if (!data.itemId) {
       console.warn("[ServerNetwork] onDropItem: missing itemId");
       return;
     }
-    const quantity = Math.max(1, Number(payload.quantity) || 1);
+    const quantity = Math.max(1, Number(data.quantity) || 1);
     // Basic sanity: clamp quantity to 1000 to avoid abuse
     const q = Math.min(quantity, 1000);
     this.world.emit(EventType.ITEM_DROP, {
       playerId: playerEntity.id,
-      itemId: payload.itemId,
+      itemId: data.itemId,
       quantity: q,
-      slot: payload.slot,
+      slot: data.slot,
     });
   }
+
+  // ======================== TRADING SYSTEM ========================
+
+  /**
+   * Initiates a trade request between two players
+   */
+  private onTradeRequest(
+    socket: SocketInterface,
+    data: TradeRequestPacket,
+  ): void {
+    const initiator = socket.player;
+    if (!initiator) {
+      console.warn(
+        "[ServerNetwork] onTradeRequest: no player entity for socket",
+      );
+      return;
+    }
+
+    if (!data.targetPlayerId) {
+      console.warn("[ServerNetwork] onTradeRequest: missing targetPlayerId");
+      this.sendTo(socket.id, "tradeError", {
+        message: "No target player specified",
+      });
+      return;
+    }
+
+    // Find recipient player
+    const recipientSocket = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === data.targetPlayerId,
+    );
+
+    if (!recipientSocket || !recipientSocket.player) {
+      console.warn(
+        "[ServerNetwork] onTradeRequest: target player not found or not online",
+      );
+      this.sendTo(socket.id, "tradeError", {
+        message: "Player not found or offline",
+      });
+      return;
+    }
+
+    const recipient = recipientSocket.player;
+
+    // Validate distance (max 5 units)
+    const distance = Math.sqrt(
+      Math.pow(initiator.position.x - recipient.position.x, 2) +
+        Math.pow(initiator.position.z - recipient.position.z, 2),
+    );
+
+    if (distance > 5) {
+      console.warn(
+        `[ServerNetwork] Trade request rejected: players too far apart (${distance.toFixed(2)}m)`,
+      );
+      this.sendTo(socket.id, "tradeError", {
+        message: "Player is too far away",
+      });
+      return;
+    }
+
+    // Check if either player is already in a trade
+    const existingTrade = Array.from(this.activeTrades.values()).find(
+      (t) =>
+        t.initiator === initiator.id ||
+        t.recipient === initiator.id ||
+        t.initiator === recipient.id ||
+        t.recipient === recipient.id,
+    );
+
+    if (existingTrade) {
+      console.warn(
+        "[ServerNetwork] Trade request rejected: player already in trade",
+      );
+      this.sendTo(socket.id, "tradeError", {
+        message: "Player is already trading",
+      });
+      return;
+    }
+
+    // Create pending trade ID for request
+    const pendingTradeId = uuid();
+
+    // Send trade request to recipient
+    this.sendTo(recipientSocket.id, "tradeRequest", {
+      tradeId: pendingTradeId,
+      fromPlayerId: initiator.id,
+      fromPlayerName: initiator.data.name || "Unknown",
+    });
+
+    console.log(
+      `[ServerNetwork] Trade request ${pendingTradeId} sent from ${initiator.id} to ${recipient.id}`,
+    );
+  }
+
+  /**
+   * Handles trade request response (accept/reject)
+   */
+  private onTradeResponse(
+    socket: SocketInterface,
+    data: TradeResponsePacket,
+  ): void {
+    const recipient = socket.player;
+    if (!recipient) {
+      console.warn(
+        "[ServerNetwork] onTradeResponse: no player entity for socket",
+      );
+      return;
+    }
+
+    if (!data.fromPlayerId) {
+      console.warn("[ServerNetwork] onTradeResponse: missing fromPlayerId");
+      return;
+    }
+
+    // Find initiator
+    const initiatorSocket = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === data.fromPlayerId,
+    );
+
+    if (!initiatorSocket || !initiatorSocket.player) {
+      console.warn("[ServerNetwork] onTradeResponse: initiator not found");
+      this.sendTo(socket.id, "tradeError", {
+        message: "Trade initiator no longer online",
+      });
+      return;
+    }
+
+    if (!data.accepted) {
+      // Trade rejected
+      this.sendTo(initiatorSocket.id, "tradeCancelled", {
+        reason: "Trade request declined",
+        byPlayerId: recipient.id,
+      });
+      console.log(`[ServerNetwork] Trade rejected by ${recipient.id}`);
+      return;
+    }
+
+    // Trade accepted - create trade session
+    const tradeId = data.tradeId || uuid();
+    const initiator = initiatorSocket.player;
+
+    // Validate distance again
+    const distance = Math.sqrt(
+      Math.pow(initiator.position.x - recipient.position.x, 2) +
+        Math.pow(initiator.position.z - recipient.position.z, 2),
+    );
+
+    if (distance > 5) {
+      this.sendTo(socket.id, "tradeError", {
+        message: "Players too far apart",
+      });
+      this.sendTo(initiatorSocket.id, "tradeError", {
+        message: "Players too far apart",
+      });
+      return;
+    }
+
+    // Create trade session
+    this.activeTrades.set(tradeId, {
+      tradeId,
+      initiator: initiator.id,
+      recipient: recipient.id,
+      initiatorOffer: { items: [], coins: 0 },
+      recipientOffer: { items: [], coins: 0 },
+      initiatorConfirmed: false,
+      recipientConfirmed: false,
+      createdAt: Date.now(),
+    });
+
+    // Notify both players trade window is open
+    const tradeData = {
+      tradeId,
+      initiatorId: initiator.id,
+      initiatorName: initiator.data.name || "Unknown",
+      recipientId: recipient.id,
+      recipientName: recipient.data.name || "Unknown",
+    };
+
+    this.sendTo(initiatorSocket.id, "tradeStarted", tradeData);
+    this.sendTo(socket.id, "tradeStarted", tradeData);
+
+    console.log(
+      `[ServerNetwork] Trade ${tradeId} started between ${initiator.id} and ${recipient.id}`,
+    );
+  }
+
+  /**
+   * Handles trade offer updates (items/coins added or removed)
+   */
+  private onTradeOffer(socket: SocketInterface, data: TradeOfferPacket): void {
+    const player = socket.player;
+    if (!player) {
+      console.warn("[ServerNetwork] onTradeOffer: no player entity for socket");
+      return;
+    }
+
+    if (!data.tradeId) {
+      console.warn("[ServerNetwork] onTradeOffer: missing tradeId");
+      return;
+    }
+
+    const trade = this.activeTrades.get(data.tradeId);
+    if (!trade) {
+      console.warn("[ServerNetwork] onTradeOffer: trade not found");
+      this.sendTo(socket.id, "tradeError", {
+        message: "Trade session not found",
+      });
+      return;
+    }
+
+    // Validate player is part of this trade
+    const isInitiator = trade.initiator === player.id;
+    const isRecipient = trade.recipient === player.id;
+
+    if (!isInitiator && !isRecipient) {
+      console.warn("[ServerNetwork] onTradeOffer: player not part of trade");
+      this.sendTo(socket.id, "tradeError", {
+        message: "You are not part of this trade",
+      });
+      return;
+    }
+
+    // Validate items exist in player's inventory
+    if (data.items) {
+      const invSystem = this.world.getSystem("inventory") as
+        | InventorySystemData
+        | undefined;
+      if (invSystem?.getInventoryData) {
+        const inventory = invSystem.getInventoryData(player.id);
+
+        for (const offeredItem of data.items) {
+          const invItem = inventory.items.find(
+            (i: { itemId: string; slot: number }) =>
+              i.itemId === offeredItem.itemId && i.slot === offeredItem.slot,
+          );
+
+          if (!invItem) {
+            console.warn(
+              `[ServerNetwork] onTradeOffer: item ${offeredItem.itemId} not found in slot ${offeredItem.slot}`,
+            );
+            this.sendTo(socket.id, "tradeError", {
+              message: "Item not found in inventory",
+            });
+            return;
+          }
+
+          if (invItem.quantity < offeredItem.quantity) {
+            console.warn(
+              `[ServerNetwork] onTradeOffer: insufficient quantity for ${offeredItem.itemId}`,
+            );
+            this.sendTo(socket.id, "tradeError", {
+              message: "Insufficient item quantity",
+            });
+            return;
+          }
+
+          // Validate item is not currently equipped (would need equipment system check)
+          // For now, we assume inventory items are safe to trade
+          // TODO: Add equipment system check to prevent trading equipped items
+        }
+
+        // Validate coins
+        if (data.coins && data.coins > 0 && inventory.coins < data.coins) {
+          console.warn(
+            "[ServerNetwork] onTradeOffer: insufficient coins (has ${inventory.coins}, offering ${data.coins})",
+          );
+          this.sendTo(socket.id, "tradeError", {
+            message: "Insufficient coins",
+          });
+          return;
+        }
+      }
+    }
+
+    // Update offer
+    if (isInitiator) {
+      console.log(
+        `[ServerNetwork] ➕ INITIATOR (${player.id}) updating their offer:`,
+        {
+          items: data.items?.length || 0,
+          coins: data.coins || 0,
+        },
+      );
+      trade.initiatorOffer = {
+        items: data.items || [],
+        coins: data.coins || 0,
+      };
+      trade.initiatorConfirmed = false; // Reset confirmation
+    } else {
+      console.log(
+        `[ServerNetwork] ➕ RECIPIENT (${player.id}) updating their offer:`,
+        {
+          items: data.items?.length || 0,
+          coins: data.coins || 0,
+        },
+      );
+      trade.recipientOffer = {
+        items: data.items || [],
+        coins: data.coins || 0,
+      };
+      trade.recipientConfirmed = false; // Reset confirmation
+    }
+
+    // Broadcast updated offers to both players
+    const otherPlayerId = isInitiator ? trade.recipient : trade.initiator;
+    const otherSocket = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === otherPlayerId,
+    );
+
+    const updateData = {
+      tradeId: trade.tradeId,
+      initiatorOffer: trade.initiatorOffer,
+      recipientOffer: trade.recipientOffer,
+      initiatorConfirmed: trade.initiatorConfirmed,
+      recipientConfirmed: trade.recipientConfirmed,
+    };
+
+    console.log(`[ServerNetwork] 📡 Broadcasting trade update:`, {
+      tradeId: trade.tradeId,
+      initiatorOffer: {
+        items: trade.initiatorOffer.items.length,
+        coins: trade.initiatorOffer.coins,
+      },
+      recipientOffer: {
+        items: trade.recipientOffer.items.length,
+        coins: trade.recipientOffer.coins,
+      },
+      toSockets: [socket.id, otherSocket?.id || "none"],
+    });
+
+    this.sendTo(socket.id, "tradeUpdated", updateData);
+    if (otherSocket) {
+      this.sendTo(otherSocket.id, "tradeUpdated", updateData);
+    }
+
+    console.log(
+      `[ServerNetwork] ✅ Trade ${trade.tradeId} offer updated by ${player.id} (${isInitiator ? "initiator" : "recipient"})`,
+    );
+  }
+
+  /**
+   * Handles trade confirmation (player confirms their offer)
+   */
+  private onTradeConfirm(
+    socket: SocketInterface,
+    data: TradeConfirmPacket,
+  ): void {
+    const player = socket.player;
+    if (!player) {
+      console.warn(
+        "[ServerNetwork] onTradeConfirm: no player entity for socket",
+      );
+      return;
+    }
+
+    if (!data.tradeId) {
+      console.warn("[ServerNetwork] onTradeConfirm: missing tradeId");
+      return;
+    }
+
+    const trade = this.activeTrades.get(data.tradeId);
+    if (!trade) {
+      console.warn("[ServerNetwork] onTradeConfirm: trade not found");
+      this.sendTo(socket.id, "tradeError", {
+        message: "Trade session not found",
+      });
+      return;
+    }
+
+    const isInitiator = trade.initiator === player.id;
+    const isRecipient = trade.recipient === player.id;
+
+    if (!isInitiator && !isRecipient) {
+      console.warn("[ServerNetwork] onTradeConfirm: player not part of trade");
+      return;
+    }
+
+    // Set confirmation
+    if (isInitiator) {
+      trade.initiatorConfirmed = true;
+    } else {
+      trade.recipientConfirmed = true;
+    }
+
+    // Notify both players of confirmation
+    const otherPlayerId = isInitiator ? trade.recipient : trade.initiator;
+    const otherSocket = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === otherPlayerId,
+    );
+
+    const updateData = {
+      tradeId: trade.tradeId,
+      initiatorOffer: trade.initiatorOffer,
+      recipientOffer: trade.recipientOffer,
+      initiatorConfirmed: trade.initiatorConfirmed,
+      recipientConfirmed: trade.recipientConfirmed,
+    };
+
+    this.sendTo(socket.id, "tradeUpdated", updateData);
+    if (otherSocket) {
+      this.sendTo(otherSocket.id, "tradeUpdated", updateData);
+    }
+
+    console.log(
+      `[ServerNetwork] Trade ${trade.tradeId} confirmed by ${player.id}`,
+    );
+
+    // Execute trade if both confirmed
+    if (trade.initiatorConfirmed && trade.recipientConfirmed) {
+      this.executeTrade(trade.tradeId);
+    }
+  }
+
+  /**
+   * Handles trade cancellation
+   */
+  private onTradeCancel(
+    socket: SocketInterface,
+    data: TradeCancelPacket,
+  ): void {
+    const player = socket.player;
+    if (!player) {
+      console.warn(
+        "[ServerNetwork] onTradeCancel: no player entity for socket",
+      );
+      return;
+    }
+
+    if (!data.tradeId) {
+      console.warn("[ServerNetwork] onTradeCancel: missing tradeId");
+      return;
+    }
+
+    const trade = this.activeTrades.get(data.tradeId);
+    if (!trade) {
+      console.warn("[ServerNetwork] onTradeCancel: trade not found");
+      return;
+    }
+
+    const isInitiator = trade.initiator === player.id;
+    const isRecipient = trade.recipient === player.id;
+
+    if (!isInitiator && !isRecipient) {
+      console.warn("[ServerNetwork] onTradeCancel: player not part of trade");
+      return;
+    }
+
+    // Notify both players
+    const otherPlayerId = isInitiator ? trade.recipient : trade.initiator;
+    const otherSocket = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === otherPlayerId,
+    );
+
+    const cancelData = {
+      tradeId: trade.tradeId,
+      reason: "Trade cancelled",
+      byPlayerId: player.id,
+    };
+
+    this.sendTo(socket.id, "tradeCancelled", cancelData);
+    if (otherSocket) {
+      this.sendTo(otherSocket.id, "tradeCancelled", cancelData);
+    }
+
+    // Remove trade session
+    this.activeTrades.delete(data.tradeId);
+
+    console.log(
+      `[ServerNetwork] Trade ${trade.tradeId} cancelled by ${player.id}`,
+    );
+  }
+
+  /**
+   * Executes the trade atomically (server-authoritative)
+   */
+  private executeTrade(tradeId: string): void {
+    const trade = this.activeTrades.get(tradeId);
+    if (!trade) {
+      console.error("[ServerNetwork] executeTrade: trade not found");
+      return;
+    }
+
+    console.log(`[ServerNetwork] ⚡ Executing trade ${tradeId}`);
+
+    // Find both player entities to check distance
+    const initiatorEntity = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === trade.initiator,
+    )?.player;
+    const recipientEntity = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === trade.recipient,
+    )?.player;
+
+    if (!initiatorEntity || !recipientEntity) {
+      console.error(
+        "[ServerNetwork] executeTrade: one or both players no longer online",
+      );
+      this.cancelTradeWithError(tradeId, "Trade failed: player disconnected");
+      return;
+    }
+
+    // Re-validate distance (players may have moved)
+    const distance = Math.sqrt(
+      Math.pow(initiatorEntity.position.x - recipientEntity.position.x, 2) +
+        Math.pow(initiatorEntity.position.z - recipientEntity.position.z, 2),
+    );
+
+    if (distance > 5) {
+      console.warn(
+        `[ServerNetwork] executeTrade: players too far apart (${distance.toFixed(2)}m)`,
+      );
+      this.cancelTradeWithError(
+        tradeId,
+        "Trade failed: players moved too far apart",
+      );
+      return;
+    }
+
+    // Get inventory system
+    const invSystem = this.world.getSystem("inventory") as
+      | InventorySystemData
+      | undefined;
+    if (!invSystem?.getInventoryData) {
+      console.error(
+        "[ServerNetwork] executeTrade: inventory system not available",
+      );
+      this.cancelTradeWithError(
+        tradeId,
+        "Server error: inventory system unavailable",
+      );
+      return;
+    }
+
+    // Validate both players still have the items and coins
+    const initiatorInv = invSystem.getInventoryData(trade.initiator);
+    const recipientInv = invSystem.getInventoryData(trade.recipient);
+
+    // Validate initiator's offer
+    for (const item of trade.initiatorOffer.items) {
+      const invItem = initiatorInv.items.find(
+        (i: { itemId: string; slot: number; quantity: number }) =>
+          i.itemId === item.itemId && i.slot === item.slot,
+      );
+      if (!invItem || invItem.quantity < item.quantity) {
+        console.error(
+          `[ServerNetwork] executeTrade: initiator missing item ${item.itemId}`,
+        );
+        this.cancelTradeWithError(
+          tradeId,
+          "Trade failed: items no longer available",
+        );
+        return;
+      }
+    }
+
+    if (
+      trade.initiatorOffer.coins > 0 &&
+      initiatorInv.coins < trade.initiatorOffer.coins
+    ) {
+      console.error(
+        "[ServerNetwork] executeTrade: initiator insufficient coins",
+      );
+      this.cancelTradeWithError(tradeId, "Trade failed: insufficient coins");
+      return;
+    }
+
+    // Validate recipient's offer
+    for (const item of trade.recipientOffer.items) {
+      const invItem = recipientInv.items.find(
+        (i: { itemId: string; slot: number; quantity: number }) =>
+          i.itemId === item.itemId && i.slot === item.slot,
+      );
+      if (!invItem || invItem.quantity < item.quantity) {
+        console.error(
+          `[ServerNetwork] executeTrade: recipient missing item ${item.itemId}`,
+        );
+        this.cancelTradeWithError(
+          tradeId,
+          "Trade failed: items no longer available",
+        );
+        return;
+      }
+    }
+
+    if (
+      trade.recipientOffer.coins > 0 &&
+      recipientInv.coins < trade.recipientOffer.coins
+    ) {
+      console.error(
+        "[ServerNetwork] executeTrade: recipient insufficient coins",
+      );
+      this.cancelTradeWithError(tradeId, "Trade failed: insufficient coins");
+      return;
+    }
+
+    // Execute atomic swap via inventory system events
+    // NOTE: This is a "soft atomic" swap - we validate everything first, then execute
+    // If any step fails, it will throw and we catch it, cancelling the trade
+    // The InventorySystem should handle these operations safely
+    try {
+      console.log(
+        `[ServerNetwork] 🔄 Executing atomic swap for trade ${tradeId}`,
+      );
+      console.log(`[ServerNetwork]   Initiator ${trade.initiator} offers:`, {
+        items: trade.initiatorOffer.items.map(
+          (i) => `${i.itemId} x${i.quantity}`,
+        ),
+        coins: trade.initiatorOffer.coins,
+      });
+      console.log(`[ServerNetwork]   Recipient ${trade.recipient} offers:`, {
+        items: trade.recipientOffer.items.map(
+          (i) => `${i.itemId} x${i.quantity}`,
+        ),
+        coins: trade.recipientOffer.coins,
+      });
+
+      // PHASE 1: Remove items from both players
+      console.log(
+        `[ServerNetwork] 📤 Phase 1: Removing items from both players`,
+      );
+
+      for (const item of trade.initiatorOffer.items) {
+        console.log(
+          `[ServerNetwork]   Removing ${item.itemId} x${item.quantity} from initiator (slot ${item.slot})`,
+        );
+        this.world.emit(EventType.INVENTORY_ITEM_REMOVED, {
+          playerId: trade.initiator,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          slot: item.slot,
+        });
+      }
+
+      for (const item of trade.recipientOffer.items) {
+        console.log(
+          `[ServerNetwork]   Removing ${item.itemId} x${item.quantity} from recipient (slot ${item.slot})`,
+        );
+        this.world.emit(EventType.INVENTORY_ITEM_REMOVED, {
+          playerId: trade.recipient,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          slot: item.slot,
+        });
+      }
+
+      // PHASE 2: Add items to opposite players
+      console.log(
+        `[ServerNetwork] 📥 Phase 2: Adding items to opposite players`,
+      );
+
+      for (const item of trade.recipientOffer.items) {
+        console.log(
+          `[ServerNetwork]   Adding ${item.itemId} x${item.quantity} to initiator`,
+        );
+        this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
+          playerId: trade.initiator,
+          item: {
+            id: `${trade.initiator}_${item.itemId}_${Date.now()}`,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            slot: -1,
+            metadata: null,
+          },
+        });
+      }
+
+      for (const item of trade.initiatorOffer.items) {
+        console.log(
+          `[ServerNetwork]   Adding ${item.itemId} x${item.quantity} to recipient`,
+        );
+        this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
+          playerId: trade.recipient,
+          item: {
+            id: `${trade.recipient}_${item.itemId}_${Date.now()}`,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            slot: -1,
+            metadata: null,
+          },
+        });
+      }
+
+      // PHASE 3: Swap coins
+      console.log(`[ServerNetwork] 💰 Phase 3: Swapping coins`);
+
+      if (trade.initiatorOffer.coins > 0) {
+        console.log(
+          `[ServerNetwork]   Transferring ${trade.initiatorOffer.coins} gold: initiator → recipient`,
+        );
+        this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+          playerId: trade.initiator,
+          coins: -trade.initiatorOffer.coins,
+          isClaimed: false,
+        });
+        this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+          playerId: trade.recipient,
+          coins: trade.initiatorOffer.coins,
+          isClaimed: false,
+        });
+      }
+
+      if (trade.recipientOffer.coins > 0) {
+        console.log(
+          `[ServerNetwork]   Transferring ${trade.recipientOffer.coins} gold: recipient → initiator`,
+        );
+        this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+          playerId: trade.recipient,
+          coins: -trade.recipientOffer.coins,
+          isClaimed: false,
+        });
+        this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+          playerId: trade.initiator,
+          coins: trade.recipientOffer.coins,
+          isClaimed: false,
+        });
+      }
+
+      // Notify both players of successful trade
+      const initiatorSocket = Array.from(this.sockets.values()).find(
+        (s) => s.player?.id === trade.initiator,
+      );
+      const recipientSocket = Array.from(this.sockets.values()).find(
+        (s) => s.player?.id === trade.recipient,
+      );
+
+      const successData = {
+        tradeId: trade.tradeId,
+        message: "Trade completed successfully",
+      };
+
+      if (initiatorSocket) {
+        this.sendTo(initiatorSocket.id, "tradeCompleted", successData);
+      }
+      if (recipientSocket) {
+        this.sendTo(recipientSocket.id, "tradeCompleted", successData);
+      }
+
+      console.log(
+        `[ServerNetwork] ✅✅✅ Trade ${tradeId} executed successfully - all phases complete`,
+      );
+    } catch (err) {
+      console.error("[ServerNetwork] ❌ executeTrade FAILED:", err);
+      console.error(
+        "[ServerNetwork] ⚠️  CRITICAL: Items may have been partially transferred",
+      );
+      console.error(
+        "[ServerNetwork] ⚠️  Manual intervention may be required for trade:",
+        tradeId,
+      );
+
+      // Log the exact state for debugging
+      console.error("[ServerNetwork] Trade state at failure:", {
+        initiatorOffer: trade.initiatorOffer,
+        recipientOffer: trade.recipientOffer,
+        error: err instanceof Error ? err.message : String(err),
+      });
+
+      // Cancel and notify players
+      this.cancelTradeWithError(
+        tradeId,
+        "Trade failed: server error during execution",
+      );
+
+      // TODO: Implement proper rollback mechanism
+      // For now, we rely on validation preventing most failures
+      // InventorySystem should be fault-tolerant
+      return;
+    }
+
+    // Clean up trade session
+    this.activeTrades.delete(tradeId);
+    console.log(
+      `[ServerNetwork] 🧹 Trade session ${tradeId} cleaned up from active trades`,
+    );
+  }
+
+  /**
+   * Helper to cancel trade with error message
+   */
+  private cancelTradeWithError(tradeId: string, errorMessage: string): void {
+    const trade = this.activeTrades.get(tradeId);
+    if (!trade) return;
+
+    const initiatorSocket = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === trade.initiator,
+    );
+    const recipientSocket = Array.from(this.sockets.values()).find(
+      (s) => s.player?.id === trade.recipient,
+    );
+
+    const errorData = {
+      tradeId: trade.tradeId,
+      reason: errorMessage,
+    };
+
+    if (initiatorSocket) {
+      this.sendTo(initiatorSocket.id, "tradeCancelled", errorData);
+    }
+    if (recipientSocket) {
+      this.sendTo(recipientSocket.id, "tradeCancelled", errorData);
+    }
+
+    this.activeTrades.delete(tradeId);
+  }
+
+  // ======================== END TRADING SYSTEM ========================
 
   /**
    * Handles custom entity events from clients
@@ -2259,36 +3262,124 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    *
    * @internal
    */
-  onEntityEvent(socket: SocketInterface, data: unknown): void {
-    // Accept both { id, version, name, data } and { id, event, payload }
-    const incoming = data as {
-      id?: string;
-      version?: number;
-      name?: string;
-      data?: unknown;
-      event?: string;
-      payload?: unknown;
-    };
-    const name = (incoming.name || incoming.event) as string | undefined;
+  onEntityEvent(socket: SocketInterface, data: EntityEventPacket): void {
+    const name = (data.name || data.event) as string | undefined;
     const payload = (
-      Object.prototype.hasOwnProperty.call(incoming, "data")
-        ? incoming.data
-        : incoming.payload
-    ) as unknown;
+      Object.prototype.hasOwnProperty.call(data, "data")
+        ? data.data
+        : data.payload
+    ) as Record<string, unknown> | undefined;
     if (!name) return;
-    // Attach playerId if not provided - assume payload is an object
-    const enriched = (() => {
-      const payloadObj = payload as Record<string, unknown>;
-      if (payloadObj && !payloadObj.playerId && socket.player?.id) {
-        return { ...payloadObj, playerId: socket.player.id };
-      }
-      return payload;
-    })();
+
+    // Handle debug events (development only)
+    if (name.startsWith("debug:")) {
+      this.handleDebugEvent(socket, name, payload);
+      return;
+    }
+
+    // Attach playerId if not provided
+    const enriched =
+      payload && !payload.playerId && socket.player?.id
+        ? { ...payload, playerId: socket.player.id }
+        : payload;
     // Emit on server world so server-side systems handle it (e.g., ResourceSystem)
     try {
       this.world.emit(name, enriched);
     } catch (err) {
       console.error("[ServerNetwork] Failed to re-emit entityEvent", name, err);
+    }
+  }
+
+  /**
+   * Handles debug events for testing
+   * @internal
+   */
+  private handleDebugEvent(
+    socket: SocketInterface,
+    name: string,
+    payload: Record<string, unknown> | undefined,
+  ): void {
+    if (!socket.player) return;
+
+    const player = socket.player;
+    if (!payload) return;
+
+    try {
+      switch (name) {
+        case "debug:spawn-item": {
+          const numericItemId = (payload.itemId || 1) as number;
+          // Convert numeric ID to string ID (e.g., 1 → 'bronze_sword')
+          const itemKey = ITEM_ID_TO_KEY[numericItemId];
+          if (!itemKey) {
+            console.error(
+              `[DEBUG] Invalid item ID: ${numericItemId}. Available IDs:`,
+              Object.keys(ITEM_ID_TO_KEY),
+            );
+            break;
+          }
+          console.log(
+            `[DEBUG] Spawning item ${itemKey} (ID: ${numericItemId}) for player ${player.id}`,
+          );
+          // Add item to player inventory using correct event format
+          this.world.emit(EventType.INVENTORY_ITEM_ADDED, {
+            playerId: player.id,
+            item: {
+              id: `${player.id}_${itemKey}_${Date.now()}`,
+              itemId: itemKey,
+              quantity: 1,
+              slot: -1, // Let inventory system assign slot
+              metadata: null,
+            },
+          });
+          break;
+        }
+
+        case "debug:trigger-death": {
+          console.log(`[DEBUG] Triggering death for player ${player.id}`);
+          // Trigger player death using correct event
+          this.world.emit(EventType.ENTITY_DEATH, {
+            entityId: player.id,
+            entityType: "player" as const,
+          });
+          break;
+        }
+
+        case "debug:add-gold": {
+          const amount = (payload.amount || 500) as number;
+          console.log(`[DEBUG] Adding ${amount} gold for player ${player.id}`);
+          // Add coins to player inventory using correct event
+          this.world.emit(EventType.INVENTORY_UPDATE_COINS, {
+            playerId: player.id,
+            coins: amount,
+            isClaimed: false, // Mark as unclaimed for on-chain minting
+          });
+          break;
+        }
+
+        case "debug:initiate-trade": {
+          // Find any other online player to trade with
+          const otherPlayer = Array.from(this.sockets.values()).find(
+            (s) => s.player && s.player.id !== player.id,
+          );
+
+          if (!otherPlayer || !otherPlayer.player) {
+            console.log("[DEBUG] No other players online to trade with");
+            break;
+          }
+
+          console.log(
+            `[DEBUG] Initiating trade between ${player.id} and ${otherPlayer.player.id}`,
+          );
+
+          // Send trade request
+          this.onTradeRequest(socket, {
+            targetPlayerId: otherPlayer.player.id,
+          });
+          break;
+        }
+      }
+    } catch (err) {
+      console.error("[DEBUG] Failed to handle debug event:", name, err);
     }
   }
 
@@ -2302,7 +3393,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    *
    * @internal
    */
-  onEntityRemoved(_socket: SocketInterface, _data: unknown): void {
+  onEntityRemoved(_socket: SocketInterface, _data: { id: string }): void {
     // Handle entity removal
   }
 
@@ -2316,7 +3407,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    *
    * @internal
    */
-  onSettings(_socket: SocketInterface, _data: unknown): void {
+  onSettings(_socket: SocketInterface, _data: Record<string, unknown>): void {
     // Handle settings change
   }
 

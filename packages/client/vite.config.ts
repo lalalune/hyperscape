@@ -175,7 +175,7 @@ export default defineConfig(({ mode }) => {
       "process.env.NODE_ENV": JSON.stringify(mode),
       "process.env.DEBUG_RPG": JSON.stringify(env.DEBUG_RPG || ""),
       "process.env.PUBLIC_CDN_URL": JSON.stringify(
-        env.PUBLIC_CDN_URL || "http://localhost:8080",
+        env.PUBLIC_CDN_URL || "http://localhost:8088",
       ),
       "process.env.PUBLIC_STARTER_ITEMS": JSON.stringify(
         env.PUBLIC_STARTER_ITEMS || "",

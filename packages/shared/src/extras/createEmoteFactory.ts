@@ -160,20 +160,14 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
         getBoneName = (name: string) => name,
       } = options;
       // we're going to resize animation to match vrm height
-      const height = rootToHips;
+      const _height = rootToHips;
 
       const tracks: THREE.KeyframeTrack[] = [];
-
-      // Temp quaternions for A-pose compensation
-      const animQuat = new THREE.Quaternion();
-      const offsetQuat = new THREE.Quaternion();
-      const resultQuat = new THREE.Quaternion();
 
       clip.tracks.forEach((track) => {
         const trackSplitted = track.name.split(".");
         const ogBoneName = trackSplitted[0];
         const vrmBoneName = normalizedBoneNames[ogBoneName];
-        // TODO: use vrm.bones[name] not getBoneNode
         const vrmNodeName = getBoneName(vrmBoneName);
 
         // animations come from mixamo X Bot character
@@ -183,7 +177,7 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
         // need to scale it by height too.
         // i found that feet-to-hips height scales animations almost perfectly
         // and ensures feet stay on the ground
-        const scaler = height * scale;
+        // const scaler = height * scale; // Unused for now
 
         if (vrmNodeName !== undefined) {
           const propertyName = trackSplitted[1];

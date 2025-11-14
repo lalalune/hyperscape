@@ -126,9 +126,7 @@ export class NPCSystem extends SystemBase {
         spawnEntity?: (config: unknown) => Promise<unknown>;
       } | null;
       attempts++;
-
-      if (attempts % 10 === 0) {
-      }
+      // Wait for entity manager to become available
     }
 
     if (!entityManager?.spawnEntity) {
@@ -166,12 +164,12 @@ export class NPCSystem extends SystemBase {
     };
 
     try {
-      const spawnedEntity = (await entityManager.spawnEntity(npcConfig)) as {
+      const _spawnedEntity = (await entityManager.spawnEntity(npcConfig)) as {
         id?: string;
       } | null;
 
       // Verify it's in the world
-      const verify = this.world.entities.get("default_banker_1");
+      const _verify = this.world.entities.get("default_banker_1");
     } catch (err) {
       console.error("[NPCSystem] ❌ Error spawning default banker:", err);
     }

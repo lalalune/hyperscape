@@ -145,7 +145,7 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
         e.stopPropagation();
       }}
     >
-      {menu.actions.map((action, index) => {
+      {menu.actions.map((action) => {
         return (
           <div
             key={action.id}
@@ -164,6 +164,7 @@ export function EntityContextMenu({ world: _world }: EntityContextMenuProps) {
               if (action.enabled) {
                 action.onClick();
               } else {
+                // Action is disabled, do nothing
               }
             }}
             onMouseDown={(e) => {

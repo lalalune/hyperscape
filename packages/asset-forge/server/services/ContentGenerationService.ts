@@ -77,12 +77,12 @@ export class ContentGenerationService {
   constructor() {
     // Verify AI Gateway API key is configured
     if (!process.env.AI_GATEWAY_API_KEY) {
-      throw new Error(
-        "AI_GATEWAY_API_KEY required for Content Generation Service",
+      console.warn(
+        "[ContentGenerationService] Warning: AI_GATEWAY_API_KEY not configured - content generation features may not work",
       );
+    } else {
+      console.log("[ContentGenerationService] Initialized with AI Gateway");
     }
-
-    console.log("[ContentGenerationService] Initialized with AI Gateway");
   }
 
   /**

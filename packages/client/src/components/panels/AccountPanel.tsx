@@ -280,6 +280,22 @@ export function AccountPanel({ world }: AccountPanelProps) {
           </div>
         )}
 
+        {/* Logout Button */}
+        {authenticated && (
+          <button
+            onClick={handleLogout}
+            className="rounded-md py-2 px-3 cursor-pointer text-sm font-medium"
+            style={{
+              backgroundColor: "rgba(139, 69, 19, 0.4)",
+              borderWidth: "1px",
+              borderStyle: "solid",
+              borderColor: "rgba(139, 69, 19, 0.6)",
+              color: "#f2d08a",
+            }}
+          >
+            Logout
+          </button>
+        )}
         {/* Farcaster Card */}
         {authenticated && farcasterFid && (
           <div

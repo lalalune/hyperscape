@@ -97,8 +97,6 @@ import {
   isXRPresenting,
   type UniversalRenderer,
   isWebGLRenderer,
-  logWebGPUInfo,
-  getWebGPUCapabilities,
 } from "../utils/RendererFactory";
 import {
   createPostProcessing,
@@ -309,7 +307,6 @@ export class ClientGraphics extends System {
       return;
     }
 
-    const oldAspect = this.aspect;
     this.width = width;
     this.height = height;
     this.aspect = this.width / this.height;

@@ -3,7 +3,6 @@
  * Each vertex is 100% influenced by its closest bone
  */
 
-import * as THREE from "three";
 import { AutoSkinSolver } from "./AutoSkinSolver";
 
 export class DistanceSolver extends AutoSkinSolver {

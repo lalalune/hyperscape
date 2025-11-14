@@ -5,10 +5,9 @@
 import { EventType } from "../types/events";
 import type { World } from "../World";
 import { COMBAT_CONSTANTS } from "../constants/CombatConstants";
-import { AttackType, MobInstance } from "../types/core";
+import { AttackType } from "../types/core";
 import { EntityID } from "../types/identifiers";
 import { MobEntity } from "../entities/MobEntity";
-import { MobAIState } from "../types/entities";
 import { Entity } from "../entities/Entity";
 import { PlayerSystem } from "./PlayerSystem";
 import {
@@ -23,6 +22,26 @@ import { EntityManager } from "./EntityManager";
 import { MobNPCSystem } from "./MobNPCSystem";
 import { SystemBase } from "./SystemBase";
 import { Emotes } from "../extras/playerEmotes";
+
+// Runtime entity types with dynamic properties
+type EntityWithCombat = Entity & {
+  combat?: { inCombat: boolean; combatTarget: string | null };
+  data?: { inCombat?: boolean; combatTarget?: string | null; e?: string };
+  markNetworkDirty?: () => void;
+  emote?: string;
+  position?: { x: number; y: number; z: number };
+  getPosition?: () => { x: number; y: number; z: number };
+  base?: {
+    quaternion: { set: (x: number, y: number, z: number, w: number) => void };
+  };
+  node?: {
+    quaternion: {
+      set: (x: number, y: number, z: number, w: number) => void;
+      copy: (q: unknown) => void;
+    };
+  };
+  setServerEmote?: (emote: string) => void;
+};
 
 export interface CombatData {
   attackerId: EntityID;
@@ -508,32 +527,34 @@ export class CombatSystem extends SystemBase {
     entityType: "player" | "mob",
   ): void {
     if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(entityId);
+      const playerEntity = this.world.getPlayer?.(
+        entityId,
+      ) as EntityWithCombat | null;
       console.log(
         `[CombatSystem] syncCombatStateToPlayer called for ${entityId}, found player:`,
         !!playerEntity,
       );
-      if (playerEntity && (playerEntity as any).combat) {
+      if (playerEntity?.combat) {
         // Set combat state so client knows we're in combat
-        (playerEntity as any).combat.inCombat = true;
-        (playerEntity as any).combat.combatTarget = targetId;
+        playerEntity.combat.inCombat = true;
+        playerEntity.combat.combatTarget = targetId;
 
         console.log(
-          `[CombatSystem] Set combat object: inCombat=${(playerEntity as any).combat.inCombat}, target=${(playerEntity as any).combat.combatTarget}`,
+          `[CombatSystem] Set combat object: inCombat=${playerEntity.combat.inCombat}, target=${playerEntity.combat.combatTarget}`,
         );
 
         // Also set in data for network sync
-        if ((playerEntity as any).data) {
-          (playerEntity as any).data.inCombat = true;
-          (playerEntity as any).data.combatTarget = targetId;
+        if (playerEntity.data) {
+          playerEntity.data.inCombat = true;
+          playerEntity.data.combatTarget = targetId;
           console.log(
-            `[CombatSystem] Set data object: inCombat=${(playerEntity as any).data.inCombat}, target=${(playerEntity as any).data.combatTarget}`,
+            `[CombatSystem] Set data object: inCombat=${playerEntity.data.inCombat}, target=${playerEntity.data.combatTarget}`,
           );
         } else {
           console.warn(`[CombatSystem] Player ${entityId} has no data object!`);
         }
 
-        (playerEntity as any).markNetworkDirty?.();
+        playerEntity.markNetworkDirty?.();
         console.log(
           `[CombatSystem] Called markNetworkDirty for player ${entityId}`,
         );
@@ -549,18 +570,20 @@ export class CombatSystem extends SystemBase {
     entityType: "player" | "mob",
   ): void {
     if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(entityId);
-      if (playerEntity && (playerEntity as any).combat) {
-        (playerEntity as any).combat.inCombat = false;
-        (playerEntity as any).combat.combatTarget = null;
+      const playerEntity = this.world.getPlayer?.(
+        entityId,
+      ) as EntityWithCombat | null;
+      if (playerEntity?.combat) {
+        playerEntity.combat.inCombat = false;
+        playerEntity.combat.combatTarget = null;
 
         // Also clear in data for network sync
-        if ((playerEntity as any).data) {
-          (playerEntity as any).data.inCombat = false;
-          (playerEntity as any).data.combatTarget = null;
+        if (playerEntity.data) {
+          playerEntity.data.inCombat = false;
+          playerEntity.data.combatTarget = null;
         }
 
-        (playerEntity as any).markNetworkDirty?.();
+        playerEntity.markNetworkDirty?.();
         console.log(
           `[CombatSystem] Cleared combat state from player ${entityId}`,
         );
@@ -574,27 +597,29 @@ export class CombatSystem extends SystemBase {
   private setCombatEmote(entityId: string, entityType: "player" | "mob"): void {
     if (entityType === "player") {
       // For players, use the player entity from PlayerSystem
-      const playerEntity = this.world.getPlayer?.(entityId);
+      const playerEntity = this.world.getPlayer?.(
+        entityId,
+      ) as EntityWithCombat | null;
       if (playerEntity) {
         console.log(`[CombatSystem] Player entity structure:`, {
           hasEmoteProperty: "emote" in playerEntity,
           hasDataProperty: "data" in playerEntity,
-          dataEBefore: (playerEntity as any).data?.e,
+          dataEBefore: playerEntity.data?.e,
           hasMarkNetworkDirty: "markNetworkDirty" in playerEntity,
         });
 
         // Set emote STRING KEY (players use 'combat' string which gets mapped to URL)
-        if ((playerEntity as any).emote !== undefined) {
-          (playerEntity as any).emote = "combat";
+        if (playerEntity.emote !== undefined) {
+          playerEntity.emote = "combat";
         }
-        if ((playerEntity as any).data) {
-          (playerEntity as any).data.e = "combat";
+        if (playerEntity.data) {
+          playerEntity.data.e = "combat";
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
 
         console.log(`[CombatSystem] After setting:`, {
-          emote: (playerEntity as any).emote,
-          dataE: (playerEntity as any).data?.e,
+          emote: playerEntity.emote,
+          dataE: playerEntity.data?.e,
         });
 
         // Check if player is in world.entities
@@ -609,18 +634,17 @@ export class CombatSystem extends SystemBase {
           );
         }
 
-        (playerEntity as any).markNetworkDirty?.();
+        playerEntity.markNetworkDirty?.();
         console.log(`[CombatSystem] Set COMBAT emote for player ${entityId}`);
       }
     } else if (entityType === "mob") {
       // For mobs, send one-shot combat animation via setServerEmote()
       // This will be broadcast once, then client returns to AI-state-based animation
-      const mobEntity = this.world.entities.get(entityId);
-      if (
-        mobEntity &&
-        typeof (mobEntity as any).setServerEmote === "function"
-      ) {
-        (mobEntity as any).setServerEmote(Emotes.COMBAT);
+      const mobEntity = this.world.entities.get(entityId) as
+        | EntityWithCombat
+        | undefined;
+      if (mobEntity?.setServerEmote) {
+        mobEntity.setServerEmote(Emotes.COMBAT as string);
         console.log(
           `[CombatSystem] Set one-shot COMBAT emote for mob ${entityId}`,
         );
@@ -633,17 +657,19 @@ export class CombatSystem extends SystemBase {
    */
   private resetEmote(entityId: string, entityType: "player" | "mob"): void {
     if (entityType === "player") {
-      const playerEntity = this.world.getPlayer?.(entityId);
+      const playerEntity = this.world.getPlayer?.(
+        entityId,
+      ) as EntityWithCombat | null;
       if (playerEntity) {
         // Reset to idle STRING KEY (players use 'idle' string which gets mapped to URL)
-        if ((playerEntity as any).emote !== undefined) {
-          (playerEntity as any).emote = "idle";
+        if (playerEntity.emote !== undefined) {
+          playerEntity.emote = "idle";
         }
-        if ((playerEntity as any).data) {
-          (playerEntity as any).data.e = "idle";
+        if (playerEntity.data) {
+          playerEntity.data.e = "idle";
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
-        (playerEntity as any).markNetworkDirty?.();
+        playerEntity.markNetworkDirty?.();
         console.log(
           `[CombatSystem] Reset to IDLE emote for player ${entityId}`,
         );
@@ -682,22 +708,25 @@ export class CombatSystem extends SystemBase {
         ? this.world.getPlayer?.(targetId)
         : this.world.entities.get(targetId);
 
+    const entityWithPos = entity as EntityWithCombat | undefined;
+    const targetWithPos = target as EntityWithCombat | undefined;
+
     console.log(
       `[CombatSystem] Entity found:`,
       !!entity,
       entity
-        ? `at (${(entity as any).position?.x}, ${(entity as any).position?.z})`
+        ? `at (${entityWithPos?.position?.x}, ${entityWithPos?.position?.z})`
         : "null",
     );
     console.log(
       `[CombatSystem] Target found:`,
       !!target,
       target
-        ? `at (${(target as any).position?.x}, ${(target as any).position?.z})`
+        ? `at (${targetWithPos?.position?.x}, ${targetWithPos?.position?.z})`
         : "null",
     );
 
-    if (!entity || !target) {
+    if (!entityWithPos || !targetWithPos) {
       console.warn(
         `[CombatSystem] ❌ Cannot rotate: entity or target not found`,
       );
@@ -705,9 +734,9 @@ export class CombatSystem extends SystemBase {
     }
 
     const entityPos =
-      entity.position || (entity as any).getPosition?.() || entity;
+      entityWithPos.position || entityWithPos.getPosition?.() || entityWithPos;
     const targetPos =
-      target.position || (target as any).getPosition?.() || target;
+      targetWithPos.position || targetWithPos.getPosition?.() || targetWithPos;
 
     // Calculate angle to target (XZ plane only)
     const dx = targetPos.x - entityPos.x;
@@ -719,7 +748,7 @@ export class CombatSystem extends SystemBase {
     angle += Math.PI;
 
     // Set rotation differently based on entity type
-    if (entityType === "player" && (entity as any).base?.quaternion) {
+    if (entityType === "player" && entityWithPos.base?.quaternion) {
       // For players, set on base and node
       const tempQuat = {
         x: 0,
@@ -727,19 +756,19 @@ export class CombatSystem extends SystemBase {
         z: 0,
         w: Math.cos(angle / 2),
       };
-      (entity as any).base.quaternion.set(
+      entityWithPos.base.quaternion.set(
         tempQuat.x,
         tempQuat.y,
         tempQuat.z,
         tempQuat.w,
       );
-      if ((entity as any).node?.quaternion) {
-        (entity as any).node.quaternion.copy((entity as any).base.quaternion);
+      if (entityWithPos.node?.quaternion) {
+        entityWithPos.node.quaternion.copy(entityWithPos.base.quaternion);
       }
       console.log(
         `[CombatSystem] Rotated player ${entityId} to face target (angle: ${((angle * 180) / Math.PI).toFixed(1)}°)`,
       );
-    } else if (entity && (entity as any).node?.quaternion) {
+    } else if (entityWithPos.node?.quaternion) {
       // For mobs and other entities, set on node
       const tempQuat = {
         x: 0,
@@ -747,7 +776,7 @@ export class CombatSystem extends SystemBase {
         z: 0,
         w: Math.cos(angle / 2),
       };
-      (entity as any).node.quaternion.set(
+      entityWithPos.node.quaternion.set(
         tempQuat.x,
         tempQuat.y,
         tempQuat.z,
@@ -759,7 +788,7 @@ export class CombatSystem extends SystemBase {
     }
 
     // Mark network dirty
-    (entity as any).markNetworkDirty?.();
+    entityWithPos.markNetworkDirty?.();
   }
 
   private enterCombat(attackerId: EntityID, targetId: EntityID): void {

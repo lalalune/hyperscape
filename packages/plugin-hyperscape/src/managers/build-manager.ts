@@ -240,10 +240,16 @@ export class BuildManager implements IBuildManager {
     );
 
     // Create new entity with same type and modified position
+    const entityData = originalEntity.data || {};
+    const cleanedData = { ...entityData } as Record<string, unknown>;
+    // Remove position if it's in array format to avoid type conflicts
+    if (Array.isArray(cleanedData.position)) {
+      delete cleanedData.position;
+    }
     const duplicate = this.createEntity(
       originalEntity.type || "group",
       duplicatePosition,
-      { ...originalEntity.data },
+      cleanedData,
     );
 
     logger.info(
@@ -271,13 +277,31 @@ export class BuildManager implements IBuildManager {
     const importPosition = position || this._tempVec3.set(0, 0, 0);
 
     // Create entity from imported data with proper typing
+    const posData = entityData.position as
+      | [number, number, number]
+      | { x: number; y: number; z: number }
+      | undefined;
+    const posObj = posData
+      ? Array.isArray(posData)
+        ? { x: posData[0], y: posData[1], z: posData[2] }
+        : posData
+      : undefined;
+
+    const comps = entityData.components as
+      | Array<{ type?: string; data?: Record<string, unknown> }>
+      | undefined;
+    const compsTyped = comps?.map((c) => ({
+      type: c.type,
+      data: c.data as Record<string, string | number | boolean>,
+    }));
+
     const creationData: EntityCreationData = {
       type: (entityData.type as string) || "group",
       name: entityData.name as string | undefined,
-      position: entityData.position as Vector3 | undefined,
+      position: posObj,
       rotation: entityData.rotation as Quaternion | undefined,
       scale: entityData.scale as Vector3 | undefined,
-      components: entityData.components as Component[] | undefined,
+      components: compsTyped,
       metadata: entityData.metadata as
         | Record<string, string | number | boolean>
         | undefined,

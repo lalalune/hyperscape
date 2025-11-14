@@ -183,13 +183,16 @@ export class AgentLoader extends System {
         },
       };
     } else if (type === "avatar") {
-      const factory = undefined;
+      // Create a minimal mock factory for avatar loading context
+      const mockFactory = {
+        toClip: () => null,
+      } as any;
       // const root = createNode('group', { id: '$root' }); // Not available
       const root = new THREE.Group(); // Mock root
-      root.add(new AgentAvatar({ id: "avatar", factory }));
+      root.add(new AgentAvatar({ id: "avatar" as any, factory: mockFactory }));
       result = {
         gltf,
-        factory,
+        factory: mockFactory,
         toNodes() {
           return root.clone(true);
         },

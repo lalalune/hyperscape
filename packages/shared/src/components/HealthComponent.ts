@@ -162,6 +162,12 @@ export class HealthComponent extends Component {
       this.entity.world.emit(EventType.ENTITY_DEATH, {
         entityId: this.entity.id,
         sourceId: source?.id,
+        killedBy: source?.id,
+        entityType: (this.entity.type === "player"
+          ? "player"
+          : this.entity.type === "mob"
+            ? "mob"
+            : "npc") as "player" | "mob" | "npc",
       });
     }
   }
@@ -184,6 +190,11 @@ export class HealthComponent extends Component {
     this.entity.world.emit(EventType.ENTITY_DEATH, {
       entityId: this.entity.id,
       lastDamageTime: this.lastDamageTime,
+      entityType: (this.entity.type === "player"
+        ? "player"
+        : this.entity.type === "mob"
+          ? "mob"
+          : "npc") as "player" | "mob" | "npc",
     });
   }
 

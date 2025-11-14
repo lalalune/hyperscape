@@ -6,6 +6,9 @@ import { System } from "./System";
 import { EventType } from "../types/events";
 import { NoiseGenerator } from "../utils/NoiseGenerator";
 import { InstancedMeshManager } from "../utils/InstancedMeshManager";
+import { TextureAtlasManager } from "../utils/TextureAtlasManager";
+import { TriplanarTerrainMaterial } from "../materials/TriplanarTerrainMaterial";
+import { TerrainLODManager } from "./TerrainLODManager";
 
 /**
  * Terrain System
@@ -20,13 +23,14 @@ import { InstancedMeshManager } from "../utils/InstancedMeshManager";
  */
 
 import type { BiomeData } from "../types/core";
-import type { ResourceNode, TerrainTile } from "../types/terrain";
+import type { Heightfield, ResourceNode, TerrainTile } from "../types/terrain";
 import { PhysicsHandle } from "../types/physics";
 import { getPhysX } from "../PhysXManager";
 import { Layers } from "../extras/Layers";
 import { BIOMES } from "../data/world-structure";
 import { GrassSystem } from "./GrassSystem";
 import { WaterSystem } from "./WaterSystem";
+import type { DatabaseSystem } from "../types/system-interfaces";
 
 interface BiomeCenter {
   x: number;
@@ -42,28 +46,28 @@ export class TerrainSystem extends System {
   private _terrainInitialized = false;
   private _initialTilesReady = false; // Track when initial tiles are loaded
   private lastPlayerTile = { x: 0, z: 0 };
-  private updateTimer = 0;
   private noise!: NoiseGenerator;
   private biomeCenters: BiomeCenter[] = [];
-  private databaseSystem!: {
-    saveWorldChunk(chunkData: WorldChunkData): void;
-  }; // DatabaseSystem reference
+  private databaseSystem!: DatabaseSystem; // DatabaseSystem reference
   private chunkSaveInterval?: NodeJS.Timeout;
   private terrainUpdateIntervalId?: NodeJS.Timeout;
   private serializationIntervalId?: NodeJS.Timeout;
   private boundingBoxIntervalId?: NodeJS.Timeout;
   private activeChunks = new Set<string>();
 
-  private coreChunkRange = 2; // 9 core chunks (5x5 grid)
-  private ringChunkRange = 3; // Additional ring around core chunks
-  private terrainOnlyChunkRange = 5; // Furthest ring with only terrain geometry
-  private unloadPadding = 1; // Hysteresis padding for unloading beyond ring range
+  // Chunk tracking for multiplayer and serialization
   private playerChunks = new Map<string, Set<string>>(); // player -> chunk keys
   private simulatedChunks = new Set<string>(); // chunks with active simulation
   private isGenerating = false; // Track if terrain generation is in progress
   private chunkPlayerCounts = new Map<string, number>(); // chunk -> player count
   // Smooth generation queue to avoid main-thread spikes when player moves
-  private pendingTileKeys: string[] = [];
+  private pendingTileKeys: Array<{
+    key: string;
+    tileX: number;
+    tileZ: number;
+    lod: number;
+    lodArray: [number, number];
+  }> = [];
   private pendingTileSet = new Set<string>();
   private pendingCollisionKeys: string[] = [];
   private pendingCollisionSet = new Set<string>();
@@ -76,6 +80,9 @@ export class TerrainSystem extends System {
   private _tempBox3 = new THREE.Box3();
   private grassSystem?: GrassSystem;
   private waterSystem?: WaterSystem;
+  private textureAtlasManager!: TextureAtlasManager;
+  private terrainMaterial!: TriplanarTerrainMaterial;
+  private lodManager!: TerrainLODManager;
 
   // Serialization system
   private lastSerializationTime = 0;
@@ -177,12 +184,14 @@ export class TerrainSystem extends System {
   private enqueueTileForGeneration(
     tileX: number,
     tileZ: number,
-    _generateContent = true,
+    lod: number,
+    lodArray: [number, number],
   ): void {
-    const key = `${tileX}_${tileZ}`;
+    const key = `${tileX}_${tileZ}_${lod}`;
     if (this.terrainTiles.has(key) || this.pendingTileSet.has(key)) return;
+
     this.pendingTileSet.add(key);
-    this.pendingTileKeys.push(key);
+    this.pendingTileKeys.push({ key, tileX, tileZ, lod, lodArray });
   }
 
   /**
@@ -199,11 +208,16 @@ export class TerrainSystem extends System {
     while (this.pendingTileKeys.length > 0) {
       if (generated >= this.maxTilesPerFrame) break;
       if (nowFn() - start > this.generationBudgetMsPerFrame) break;
-      const key = this.pendingTileKeys.shift()!;
-      this.pendingTileSet.delete(key);
-      const [x, z] = key.split("_").map(Number);
+      const tileData = this.pendingTileKeys.shift()!;
+      this.pendingTileSet.delete(tileData.key);
 
-      this.generateTile(x, z);
+      this.generateTile(
+        tileData.tileX,
+        tileData.tileZ,
+        true,
+        tileData.lod,
+        tileData.lodArray,
+      );
       generated++;
     }
   }
@@ -321,19 +335,41 @@ export class TerrainSystem extends System {
     // Initialize biome centers using deterministic random placement
     this.initializeBiomeCenters();
 
-    // Initialize water system (grass disabled for now)
-    // this.grassSystem = new GrassSystem(this.world)
+    // Initialize texture atlas manager on client
+    if (this.world.isClient) {
+      console.log("[TerrainSystem] Initializing texture atlas on client...");
+      this.textureAtlasManager = new TextureAtlasManager();
+      await this.textureAtlasManager.init();
+      console.log("[TerrainSystem] Texture atlas initialized");
+
+      const cdnUrl =
+        typeof window !== "undefined"
+          ? (window as any).__CDN_URL || "http://localhost:8088"
+          : "http://localhost:8088";
+
+      const noiseTexture = await new THREE.TextureLoader().loadAsync(
+        `${cdnUrl}/noise/simplex-noise.png`,
+      );
+      noiseTexture.wrapS = THREE.RepeatWrapping;
+      noiseTexture.wrapT = THREE.RepeatWrapping;
+
+      this.terrainMaterial = new TriplanarTerrainMaterial(
+        this.textureAtlasManager.getAtlas()!,
+        this.textureAtlasManager.getNormalAtlas()!,
+        noiseTexture,
+        this.textureAtlasManager.getMaterialScales(),
+      );
+      console.log("[TerrainSystem] Triplanar material created successfully");
+    }
+
+    // Initialize grass and water systems
+    this.grassSystem = new GrassSystem(this.world);
+    await this.grassSystem.init();
     this.waterSystem = new WaterSystem(this.world);
     await this.waterSystem.init();
 
     // Get systems references
-    // Check if database system exists and has the required method
-    const dbSystem = this.world.getSystem("database") as
-      | { saveWorldChunk(chunkData: WorldChunkData): void }
-      | undefined;
-    if (dbSystem) {
-      this.databaseSystem = dbSystem;
-    }
+    this.databaseSystem = this.world.getSystem("database") as DatabaseSystem;
 
     // Initialize chunk loading system
     this.initializeChunkLoadingSystem();
@@ -367,7 +403,7 @@ export class TerrainSystem extends System {
     const isClient = this.world.isClient;
 
     if (isClient) {
-      this.setupClientTerrain();
+      await this.setupClientTerrain();
     } else if (isServer) {
       this.setupServerTerrain();
     } else {
@@ -379,16 +415,20 @@ export class TerrainSystem extends System {
       console.error("[TerrainSystem] world.isClient:", this.world.isClient);
       console.error("[TerrainSystem] world.isServer:", this.world.isServer);
       // Default to client mode to avoid blocking
-      this.setupClientTerrain();
+      await this.setupClientTerrain();
     }
 
-    // Load initial tiles
-    this.loadInitialTiles();
-
-    // Start player-based terrain update loop
+    // Start player-based terrain update loop (this will load initial tiles via LOD)
     this.terrainUpdateIntervalId = setInterval(() => {
-      this.updatePlayerBasedTerrain();
-    }, 1000); // Update every second
+      this.updateLODBasedTerrain();
+    }, 500); // Update twice per second
+
+    // Force immediate LOD update to load initial tiles
+    if (this.world.isClient && this.lodManager) {
+      setTimeout(() => {
+        this.updateLODBasedTerrain();
+      }, 100);
+    }
 
     // Start serialization loop
     this.serializationIntervalId = setInterval(() => {
@@ -401,7 +441,7 @@ export class TerrainSystem extends System {
     }, 30000); // Verify every 30 seconds
   }
 
-  private setupClientTerrain(): void {
+  private async setupClientTerrain(): Promise<void> {
     const stage = this.world.stage as { scene: THREE.Scene };
     const scene = stage.scene;
 
@@ -412,73 +452,238 @@ export class TerrainSystem extends System {
 
     // Initialize InstancedMeshManager
     this.instancedMeshManager = new InstancedMeshManager(scene, this.world);
-    this.registerInstancedMeshes();
+    await this.registerInstancedMeshes();
 
     // Setup initial camera only if no client camera system controls it
     // Leave control to ClientCameraSystem for third-person follow
 
     // Initial tiles will be loaded in start() method
+
+    this.lodManager = new TerrainLODManager(this);
   }
 
-  private registerInstancedMeshes(): void {
-    // Register tree mesh - now with automatic pooling (1000 visible max)
-    const treeSize = { x: 1.2, y: 3.0, z: 1.2 };
-    const treeGeometry = new THREE.BoxGeometry(
-      treeSize.x,
-      treeSize.y,
-      treeSize.z,
-    );
-    const treeMaterial = new THREE.MeshStandardMaterial({ color: 0x2f7d32 });
-    this.instancedMeshManager.registerMesh(
-      "tree",
-      treeGeometry,
-      treeMaterial,
-      1000,
-    );
+  private async registerInstancedMeshes(): Promise<void> {
+    const extractGeometryAndMaterial = (
+      obj: THREE.Object3D,
+    ): { geometry: THREE.BufferGeometry; material: THREE.Material } | null => {
+      let mesh: THREE.Mesh | null = null;
 
-    // Register rock mesh - pooled to 500 visible instances
-    const rockSize = { x: 1.0, y: 1.0, z: 1.0 };
-    const rockGeometry = new THREE.BoxGeometry(
-      rockSize.x,
-      rockSize.y,
-      rockSize.z,
-    );
-    const rockMaterial = new THREE.MeshLambertMaterial({ color: 0x8a8a8a });
-    this.instancedMeshManager.registerMesh(
-      "rock",
-      rockGeometry,
-      rockMaterial,
-      500,
-    );
-    this.instancedMeshManager.registerMesh(
-      "ore",
-      rockGeometry,
-      rockMaterial,
-      500,
-    );
-    this.instancedMeshManager.registerMesh(
-      "rare_ore",
-      rockGeometry,
-      rockMaterial,
-      200,
-    );
+      obj.traverse((child) => {
+        if (!mesh && child instanceof THREE.Mesh && child.geometry) {
+          mesh = child;
+        }
+      });
 
-    // Register herb mesh - pooled to 800 visible instances
-    const herbSize = { x: 0.6, y: 0.8, z: 0.6 };
-    const herbGeometry = new THREE.BoxGeometry(
-      herbSize.x,
-      herbSize.y,
-      herbSize.z,
-    );
-    const herbMaterial = new THREE.MeshLambertMaterial({ color: 0x66bb6a });
-    this.instancedMeshManager.registerMesh(
-      "herb",
-      herbGeometry,
-      herbMaterial,
-      800,
-    );
+      if (mesh?.geometry) {
+        return {
+          geometry: mesh.geometry.clone(),
+          material:
+            mesh.material instanceof THREE.Material
+              ? mesh.material.clone()
+              : new THREE.MeshStandardMaterial(),
+        };
+      }
+      return null;
+    };
 
-    // Register fish mesh (using a simple sphere) - pooled to 300 visible instances
+    const loadModelFromNodes = async (
+      path: string,
+    ): Promise<THREE.Object3D | null> => {
+      try {
+        const loadedModel = (await this.world.loader.load("model", path)) as {
+          toNodes: () => Map<string, THREE.Object3D>;
+        };
+        if (!loadedModel || !loadedModel.toNodes) {
+          console.warn(
+            `[TerrainSystem] Loaded model from ${path} doesn't have toNodes method`,
+          );
+          return null;
+        }
+
+        const nodeMap = loadedModel.toNodes();
+        const rootNode = nodeMap.get("root");
+
+        if (!rootNode || !(rootNode instanceof THREE.Object3D)) {
+          console.warn(`[TerrainSystem] No valid root node found in ${path}`);
+          return null;
+        }
+
+        return rootNode;
+      } catch (e) {
+        console.warn(`[TerrainSystem] Failed to load model from ${path}:`, e);
+        return null;
+      }
+    };
+
+    // Load jungle tree model (medium variant - most common)
+    try {
+      const treeModel = await loadModelFromNodes(
+        "asset://vegetation/jungle-trees/jungle_tree_1_variant_texta.glb",
+      );
+      if (treeModel) {
+        const extracted = extractGeometryAndMaterial(treeModel);
+        if (extracted) {
+          this.instancedMeshManager.registerMesh(
+            "tree",
+            extracted.geometry,
+            extracted.material,
+            2000,
+          );
+          console.log("[TerrainSystem] Registered jungle tree mesh from GLB");
+        } else {
+          throw new Error("No mesh found in tree model");
+        }
+      } else {
+        throw new Error("Failed to load tree model nodes");
+      }
+    } catch (e) {
+      console.warn(
+        "[TerrainSystem] Failed to load tree model, using placeholder:",
+        e,
+      );
+      const treeGeometry = new THREE.BoxGeometry(1.2, 3.0, 1.2);
+      const treeMaterial = new THREE.MeshStandardMaterial({ color: 0x2f7d32 });
+      this.instancedMeshManager.registerMesh(
+        "tree",
+        treeGeometry,
+        treeMaterial,
+        2000,
+      );
+    }
+
+    // Load big rock model
+    try {
+      const rockModel = await loadModelFromNodes(
+        "asset://rocks/big_rock_v2.glb",
+      );
+      if (rockModel) {
+        const extracted = extractGeometryAndMaterial(rockModel);
+        if (extracted) {
+          this.instancedMeshManager.registerMesh(
+            "rock",
+            extracted.geometry,
+            extracted.material,
+            1000,
+          );
+          this.instancedMeshManager.registerMesh(
+            "ore",
+            extracted.geometry,
+            extracted.material,
+            500,
+          );
+          this.instancedMeshManager.registerMesh(
+            "rare_ore",
+            extracted.geometry,
+            extracted.material,
+            200,
+          );
+          console.log("[TerrainSystem] Registered big rock mesh from GLB");
+        } else {
+          throw new Error("No mesh found in rock model");
+        }
+      } else {
+        throw new Error("Failed to load rock model nodes");
+      }
+    } catch (e) {
+      console.warn(
+        "[TerrainSystem] Failed to load rock model, using placeholder:",
+        e,
+      );
+      const rockGeometry = new THREE.BoxGeometry(1.0, 1.0, 1.0);
+      const rockMaterial = new THREE.MeshLambertMaterial({ color: 0x8a8a8a });
+      this.instancedMeshManager.registerMesh(
+        "rock",
+        rockGeometry,
+        rockMaterial,
+        1000,
+      );
+      this.instancedMeshManager.registerMesh(
+        "ore",
+        rockGeometry,
+        rockMaterial,
+        500,
+      );
+      this.instancedMeshManager.registerMesh(
+        "rare_ore",
+        rockGeometry,
+        rockMaterial,
+        200,
+      );
+    }
+
+    // Register herb/bush mesh
+    try {
+      const bushModel = await loadModelFromNodes(
+        "asset://vegetation/bushes/bush_1_dream.glb",
+      );
+      if (bushModel) {
+        const extracted = extractGeometryAndMaterial(bushModel);
+        if (extracted) {
+          this.instancedMeshManager.registerMesh(
+            "herb",
+            extracted.geometry,
+            extracted.material,
+            800,
+          );
+          console.log("[TerrainSystem] Registered herb mesh from GLB");
+        } else {
+          throw new Error("No mesh found in bush model");
+        }
+      } else {
+        throw new Error("Failed to load bush model nodes");
+      }
+    } catch (e) {
+      console.warn(
+        "[TerrainSystem] Failed to load bush model, using placeholder:",
+        e,
+      );
+      const herbGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.6);
+      const herbMaterial = new THREE.MeshLambertMaterial({ color: 0x66bb6a });
+      this.instancedMeshManager.registerMesh(
+        "herb",
+        herbGeometry,
+        herbMaterial,
+        800,
+      );
+    }
+
+    // Load medium rock for stones (smaller rocks around big rocks)
+    try {
+      const stoneModel = await loadModelFromNodes(
+        "asset://rocks/med_rock_v2.glb",
+      );
+      if (stoneModel) {
+        const extracted = extractGeometryAndMaterial(stoneModel);
+        if (extracted) {
+          this.instancedMeshManager.registerMesh(
+            "stone",
+            extracted.geometry,
+            extracted.material,
+            1000,
+          );
+          console.log("[TerrainSystem] Registered stone mesh from GLB");
+        } else {
+          throw new Error("No mesh found in stone model");
+        }
+      } else {
+        throw new Error("Failed to load stone model nodes");
+      }
+    } catch (e) {
+      console.warn(
+        "[TerrainSystem] Failed to load stone model, using placeholder:",
+        e,
+      );
+      const stoneGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+      const stoneMaterial = new THREE.MeshLambertMaterial({ color: 0x999999 });
+      this.instancedMeshManager.registerMesh(
+        "stone",
+        stoneGeometry,
+        stoneMaterial,
+        1000,
+      );
+    }
+
+    // Register fish mesh
     const fishGeometry = new THREE.SphereGeometry(0.6);
     const fishMaterial = new THREE.MeshLambertMaterial({
       color: 0x3aa7ff,
@@ -491,8 +696,6 @@ export class TerrainSystem extends System {
       fishMaterial,
       300,
     );
-
-    // Grass rendering now handled by GrassSystem
   }
 
   private setupServerTerrain(): void {
@@ -503,7 +706,8 @@ export class TerrainSystem extends System {
       }, 30000); // Save every 30 seconds
     }
 
-    // Initial tiles will be loaded in start() method
+    // Load initial tiles so terrain system becomes ready
+    this.loadInitialTiles();
   }
 
   private loadInitialTiles(): void {
@@ -544,89 +748,62 @@ export class TerrainSystem extends System {
     tileX: number,
     tileZ: number,
     generateContent = true,
+    lod = 1,
+    lodArray: [number, number] = [1, 1],
   ): TerrainTile {
-    const key = `${tileX}_${tileZ}`;
+    const key = `${tileX}_${tileZ}_${lod}`;
 
     // Check if tile already exists
     if (this.terrainTiles.has(key)) {
       return this.terrainTiles.get(key)!;
     }
 
+    // Check if ANY tile exists at this position (different LOD)
+    const existingAtPosition = Array.from(this.terrainTiles.values()).find(
+      (t) => t.x === tileX && t.z === tileZ,
+    );
+
+    if (existingAtPosition) {
+      console.log(
+        `[TerrainSystem] Tile already exists at ${tileX},${tileZ} with key ${existingAtPosition.key}, skipping new tile ${key}`,
+      );
+      return existingAtPosition;
+    }
+
     // Create geometry for this tile
-    const geometry = this.createTileGeometry(tileX, tileZ);
+    const geometry = this.createTileGeometry(tileX, tileZ, lod, lodArray);
 
-    // Create material with vertex colors and tri-planar slope shading
-    const material = new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      wireframe: false,
-      metalness: 0.1,
-      roughness: 0.9,
-    });
-
-    // Add tri-planar slope coloring via onBeforeCompile (most performant approach)
-    material.onBeforeCompile = (shader) => {
-      // Add uniforms for slope coloring
-      shader.uniforms.uSlopeColor = { value: new THREE.Color(0x6b6560) }; // Gray-brown rock
-      shader.uniforms.uSlopeThreshold = { value: 0.6 }; // Normal Y threshold
-      shader.uniforms.uSlopeBlend = { value: 0.2 }; // Blend smoothness
-
-      // Inject varying declaration for normal in vertex shader
-      shader.vertexShader = shader.vertexShader.replace(
-        "#include <common>",
-        `#include <common>
-        varying vec3 vWorldNormal;`,
+    // Create material (client only)
+    let material: THREE.Material;
+    if (
+      this.world.isClient &&
+      this.textureAtlasManager &&
+      this.terrainMaterial
+    ) {
+      const noiseTexture = (this.terrainMaterial as THREE.ShaderMaterial)
+        .uniforms.uNoiseTexture.value;
+      material = new TriplanarTerrainMaterial(
+        this.textureAtlasManager.getAtlas()!,
+        this.textureAtlasManager.getNormalAtlas()!,
+        noiseTexture,
+        this.textureAtlasManager.getMaterialScales(),
       );
-
-      // Calculate world normal in vertex shader
-      shader.vertexShader = shader.vertexShader.replace(
-        "#include <worldpos_vertex>",
-        `#include <worldpos_vertex>
-        vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);`,
+    } else {
+      // Fallback - use visible green material for debugging
+      console.warn(
+        "[TerrainSystem] Using fallback material - textures not loaded. isClient:",
+        this.world.isClient,
+        "hasAtlas:",
+        !!this.textureAtlasManager,
+        "hasMaterial:",
+        !!this.terrainMaterial,
       );
-
-      // Inject uniform declarations and tri-planar logic in fragment shader
-      shader.fragmentShader = shader.fragmentShader.replace(
-        "#include <common>",
-        `#include <common>
-        uniform vec3 uSlopeColor;
-        uniform float uSlopeThreshold;
-        uniform float uSlopeBlend;
-        varying vec3 vWorldNormal;`,
-      );
-
-      // Apply slope coloring to diffuse color
-      shader.fragmentShader = shader.fragmentShader.replace(
-        "#include <color_fragment>",
-        `#include <color_fragment>
-        
-        // Calculate slope factor (0 = flat, 1 = vertical)
-        float slopeFactor = 1.0 - abs(vWorldNormal.y);
-        
-        // Tri-planar blending weights based on world normal
-        vec3 blendWeights = abs(vWorldNormal);
-        blendWeights = pow(blendWeights, vec3(3.0));
-        blendWeights = blendWeights / (blendWeights.x + blendWeights.y + blendWeights.z);
-        
-        // Smooth slope color blending
-        float slopeBlendFactor = smoothstep(
-          uSlopeThreshold - uSlopeBlend,
-          uSlopeThreshold + uSlopeBlend,
-          slopeFactor
-        );
-        
-        // Blend base color with slope color on steep surfaces
-        vec3 finalColor = mix(diffuseColor.rgb, uSlopeColor, slopeBlendFactor * 0.7);
-        
-        // Apply subtle tri-planar directional variation
-        vec3 xColor = finalColor * (0.95 + 0.05 * blendWeights.x);
-        vec3 yColor = finalColor;
-        vec3 zColor = finalColor * (0.92 + 0.08 * blendWeights.z);
-        
-        diffuseColor.rgb = xColor * blendWeights.x + 
-                          yColor * blendWeights.y + 
-                          zColor * blendWeights.z;`,
-      );
-    };
+      material = new THREE.MeshStandardMaterial({
+        color: 0x228b22,
+        wireframe: false,
+        side: THREE.DoubleSide,
+      });
+    }
 
     // Create mesh
     const mesh = new THREE.Mesh(geometry, material);
@@ -636,6 +813,8 @@ export class TerrainSystem extends System {
       tileZ * this.CONFIG.TILE_SIZE,
     );
     mesh.name = `Terrain_${key}`;
+    mesh.visible = true;
+    mesh.frustumCulled = false; // Always render terrain
 
     // Enable shadow receiving for CSM
     mesh.receiveShadow = true;
@@ -656,10 +835,10 @@ export class TerrainSystem extends System {
     const collision: PMeshHandle | null = null;
     const isServer = this.world.network?.isServer || false;
     if (isServer) {
-      const collisionKey = `${tileX}_${tileZ}`;
-      if (!this.pendingCollisionSet.has(collisionKey)) {
-        this.pendingCollisionSet.add(collisionKey);
-        this.pendingCollisionKeys.push(collisionKey);
+      // Use full key with LOD to match terrainTiles Map
+      if (!this.pendingCollisionSet.has(key)) {
+        this.pendingCollisionSet.add(key);
+        this.pendingCollisionKeys.push(key);
       }
     }
 
@@ -778,7 +957,30 @@ export class TerrainSystem extends System {
 
     // Add to scene if client-side
     if (this.terrainContainer) {
+      // Check if another tile already exists at this exact position
+      const existingAtPosition = Array.from(this.terrainTiles.values()).find(
+        (t) =>
+          t.key !== key &&
+          t.mesh.position.x === mesh.position.x &&
+          t.mesh.position.z === mesh.position.z,
+      );
+
+      if (existingAtPosition) {
+        console.warn("[TerrainSystem] Duplicate tile detected!", {
+          newKey: key,
+          existingKey: existingAtPosition.key,
+          position: mesh.position,
+        });
+        // Don't add duplicate
+        return tile;
+      }
+
       this.terrainContainer.add(mesh);
+      console.log("[TerrainSystem] Added terrain mesh to scene:", {
+        key,
+        position: mesh.position,
+        totalTilesInScene: this.terrainContainer.children.length,
+      });
     }
 
     if (generateContent) {
@@ -800,8 +1002,9 @@ export class TerrainSystem extends System {
         // Generate visual features and water meshes
         this.generateVisualFeatures(tile);
         this.generateWaterMeshes(tile);
-        // DISABLED: Grass generation - needs further work to match reference quality
-        // this.generateGrassForTile(tile, BIOMES[tile.biome])
+
+        // Generate grass for this tile
+        this.generateGrassForTile(tile, BIOMES[tile.biome]);
 
         // Add visible resource meshes (instanced proxies) on client
         if (tile.resources.length > 0 && tile.mesh) {
@@ -818,6 +1021,8 @@ export class TerrainSystem extends System {
               resource.type,
               resource.id,
               worldPosition,
+              resource.rotation,
+              resource.scale,
             );
 
             if (instanceId !== null) {
@@ -839,6 +1044,14 @@ export class TerrainSystem extends System {
               });
             }
           }
+        }
+
+        // Force immediate visibility update for this tile's resources
+        if (tile.resources.length > 0) {
+          this.instancedMeshManager.updateAllInstanceVisibility(true);
+          console.log(
+            `[TerrainSystem] Forced visibility update after adding ${tile.resources.length} resources`,
+          );
         }
       }
     }
@@ -915,147 +1128,237 @@ export class TerrainSystem extends System {
   private createTileGeometry(
     tileX: number,
     tileZ: number,
+    lod = 1,
+    _lodArray: [number, number] = [1, 1],
   ): THREE.PlaneGeometry {
+    const baseResolution = this.CONFIG.TILE_RESOLUTION;
+    const lodScale = 2 ** (lod - 1);
+    const resolution = Math.max(2, Math.floor(baseResolution / lodScale));
+
     const geometry = new THREE.PlaneGeometry(
-      this.CONFIG.TILE_SIZE,
-      this.CONFIG.TILE_SIZE,
-      this.CONFIG.TILE_RESOLUTION - 1,
-      this.CONFIG.TILE_RESOLUTION - 1,
+      this.CONFIG.TILE_SIZE * lodScale,
+      this.CONFIG.TILE_SIZE * lodScale,
+      resolution - 1,
+      resolution - 1,
     );
 
     // Rotate to be horizontal
     geometry.rotateX(-Math.PI / 2);
 
     const positions = geometry.attributes.position;
-    const colors = new Float32Array(positions.count * 3);
-    const heightData: number[] = [];
-    const biomeIds = new Float32Array(positions.count);
+    const vertexCount = positions.count;
 
-    const defaultBiomeData = BIOMES["plains"] || {
-      color: 0x7fb069,
-      name: "Plains",
-    };
+    // Store heightfields for this tile
+    const heightfields: Heightfield[] = [];
+    const materials = new Int32Array(vertexCount * 4);
+    const materialsWeights = new Float32Array(vertexCount * 4);
 
     // Generate heightmap and vertex colors
-    for (let i = 0; i < positions.count; i++) {
+    for (let i = 0; i < vertexCount; i++) {
       const localX = positions.getX(i);
       const localZ = positions.getZ(i);
 
-      // Ensure edge vertices align exactly between tiles
-      // Snap edge vertices to exact tile boundaries to prevent seams
-      let x = localX + tileX * this.CONFIG.TILE_SIZE;
-      let z = localZ + tileZ * this.CONFIG.TILE_SIZE;
+      // Calculate world coordinates
+      const x = localX + tileX * this.CONFIG.TILE_SIZE;
+      const z = localZ + tileZ * this.CONFIG.TILE_SIZE;
 
-      // Snap to grid at tile boundaries for seamless edges
-      const epsilon = 0.001;
-      const tileMinX = tileX * this.CONFIG.TILE_SIZE;
-      const tileMaxX = (tileX + 1) * this.CONFIG.TILE_SIZE;
-      const tileMinZ = tileZ * this.CONFIG.TILE_SIZE;
-      const tileMaxZ = (tileZ + 1) * this.CONFIG.TILE_SIZE;
+      // Generate complete heightfield
+      const heightfield = this.generateHeightfield(x, z);
+      heightfields.push(heightfield);
 
-      if (Math.abs(x - tileMinX) < epsilon) x = tileMinX;
-      if (Math.abs(x - tileMaxX) < epsilon) x = tileMaxX;
-      if (Math.abs(z - tileMinZ) < epsilon) z = tileMinZ;
-      if (Math.abs(z - tileMaxZ) < epsilon) z = tileMaxZ;
+      // Set height
+      positions.setY(i, heightfield.height);
 
-      // Generate height using our improved noise function
-      const height = this.getHeightAt(x, z);
-
-      positions.setY(i, height);
-      heightData.push(height);
-
-      // Get biome influences for smooth color blending
-      const biomeInfluences = this.getBiomeInfluencesAtPosition(x, z);
-      const normalizedHeight = height / 80; // Max height is 80
-
-      // Store dominant biome ID for shader
-      const dominantBiome = biomeInfluences[0].type;
-      biomeIds[i] = this.getBiomeId(dominantBiome);
-
-      // Blend biome colors based on influences
-      const color = new THREE.Color(0, 0, 0);
-
-      for (const influence of biomeInfluences) {
-        const biomeData = BIOMES[influence.type] || defaultBiomeData;
-        const biomeColor = new THREE.Color(biomeData.color);
-
-        // Weight the color contribution (keep in linear space)
-        color.r += biomeColor.r * influence.weight;
-        color.g += biomeColor.g * influence.weight;
-        color.b += biomeColor.b * influence.weight;
+      // Set materials
+      for (let j = 0; j < 4; j++) {
+        materials[i * 4 + j] = heightfield.materials[j];
+        materialsWeights[i * 4 + j] = heightfield.materialsWeights[j];
       }
-
-      // Apply height-based environmental effects BEFORE brightness adjustments
-      // Snow on high peaks
-      if (normalizedHeight > 0.7) {
-        const snowColor = new THREE.Color(0xffffff); // Pure white snow
-        const snowFactor = Math.pow((normalizedHeight - 0.7) / 0.3, 1.5);
-        color.lerp(snowColor, snowFactor * 0.7);
-      }
-      // Water tinting for low areas
-      else if (normalizedHeight < 0.18) {
-        const waterColor = new THREE.Color(0x2a5580); // Deep water blue
-        const depth = Math.max(0, 0.18 - normalizedHeight);
-        color.lerp(waterColor, Math.min(0.8, depth * 4.0));
-      }
-
-      // Boost saturation AFTER environmental effects but BEFORE brightness
-      const hsl = { h: 0, s: 0, l: 0 };
-      color.getHSL(hsl);
-      hsl.s = Math.min(1.0, hsl.s * 1.8); // 80% saturation boost
-      hsl.l = Math.max(0.2, Math.min(0.8, hsl.l)); // Clamp lightness
-      color.setHSL(hsl.h, hsl.s, hsl.l);
-
-      // Subtle height-based ambient occlusion (darken valleys slightly)
-      const ambientOcclusion = 0.85 + normalizedHeight * 0.15;
-      color.multiplyScalar(ambientOcclusion);
-
-      // Very subtle organic variation (reduced from 8% to 3%)
-      const noiseScale = 0.008;
-      const colorNoise = this.noise.simplex2D(x * noiseScale, z * noiseScale);
-      const colorVariation = 1.0 + colorNoise * 0.03;
-      color.multiplyScalar(colorVariation);
-
-      // Apply road-like patterns using noise (no actual road segments)
-      // Create organic path-like patterns
-      const roadNoiseScale = 0.002;
-      const roadPattern1 = this.noise.simplex2D(
-        x * roadNoiseScale,
-        z * roadNoiseScale * 0.5,
-      );
-      const roadPattern2 = this.noise.simplex2D(
-        x * roadNoiseScale * 0.5,
-        z * roadNoiseScale,
-      );
-
-      // Create path-like patterns that connect areas
-      const pathInfluence =
-        Math.max(
-          0,
-          Math.pow(Math.max(0, 1.0 - Math.abs(roadPattern1) * 4), 3) +
-            Math.pow(Math.max(0, 1.0 - Math.abs(roadPattern2) * 4), 3),
-        ) * 0.5;
-
-      if (pathInfluence > 0.1 && normalizedHeight < 0.5) {
-        // Only on lower terrain
-        const pathColor = new THREE.Color(0x6b5840); // Darker dirt path
-        color.lerp(pathColor, pathInfluence * 0.5);
-      }
-
-      // Store color in linear space (THREE.js expects this)
-      colors[i * 3] = color.r;
-      colors[i * 3 + 1] = color.g;
-      colors[i * 3 + 2] = color.b;
     }
 
-    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-    geometry.setAttribute("biomeId", new THREE.BufferAttribute(biomeIds, 1));
+    // Add custom attributes (Int32 for materials, Float32 for weights)
+    geometry.setAttribute(
+      "materials",
+      new THREE.Int32BufferAttribute(materials, 4),
+    );
+    geometry.setAttribute(
+      "materialsWeights",
+      new THREE.Float32BufferAttribute(materialsWeights, 4),
+    );
+
     geometry.computeVertexNormals();
 
-    // Store height data for persistence
-    this.storeHeightData(tileX, tileZ, heightData);
+    // Store heightfields for instance generation
+    (
+      geometry as THREE.BufferGeometry & { heightfields: Heightfield[] }
+    ).heightfields = heightfields;
 
     return geometry;
+  }
+
+  private generateHeightfield(worldX: number, worldZ: number): Heightfield {
+    // 1. Calculate height using improved noise
+    const height = this.getHeightAt(worldX, worldZ);
+
+    // 2. Determine biome influences
+    const _temp = this.noise.temperatureNoise(worldX, worldZ);
+    const _humidity = this.noise.humidityNoise(worldX, worldZ);
+    // TODO: Implement getBiomeFromTempHumidity
+    const biome = this.getBiomeAtWorldPosition(worldX, worldZ);
+
+    // 3. Calculate liquid
+    const oceanValue = this.noise.oceanNoise(worldX, worldZ);
+    const riverValue = this.noise.riverNoise(worldX, worldZ, oceanValue);
+    // TODO: Implement determineLiquidType and calculateLiquidHeight
+    const liquidType =
+      height < this.CONFIG.WATER_THRESHOLD
+        ? oceanValue > 0.5
+          ? "ocean"
+          : riverValue > 0.7
+            ? "river"
+            : "none"
+        : "none";
+    const liquidHeight =
+      liquidType !== "none" ? this.CONFIG.WATER_THRESHOLD : 0;
+
+    // 4. Calculate slope and normal
+    const slope = this.calculateSlope(worldX, worldZ);
+    const normal = this.getNormalAt(worldX, worldZ);
+
+    // 5. Determine materials based on height, slope, biome
+    const materials = this.calculateMaterials(
+      height,
+      slope,
+      biome,
+      liquidType,
+      worldX,
+      worldZ,
+    );
+
+    // 6. Calculate instance visibility
+    const wetness = this.noise.wetnessNoise(worldX, worldZ);
+    const heightfield: Heightfield = {
+      height,
+      liquidHeight,
+      biome,
+      liquidType,
+      slope,
+      normal: { x: normal.x, y: normal.y, z: normal.z },
+      materials: materials.indices,
+      materialsWeights: materials.weights,
+      hash: this.noise.hashNoise(worldX, worldZ),
+      wetness,
+      treeVisibility: this.noise.treeVisibility(worldX, worldZ, wetness),
+      rockVisibility: this.noise.rockVisibility(worldX, worldZ),
+      stoneVisibility: this.noise.stoneVisibility(worldX, worldZ),
+      grassVisibility: this.noise.grassVisibility(worldX, worldZ, wetness),
+      flowerVisibility: 0, // Calculated after grass
+      flowDirection:
+        liquidType !== "none" ? this.noise.flowNoise(worldX, worldZ) : 0,
+    };
+
+    // Flowers only where grass exists
+    if (heightfield.grassVisibility > 0) {
+      heightfield.flowerVisibility = this.noise.flowerVisibility(
+        worldX,
+        worldZ,
+        heightfield.grassVisibility,
+      );
+    }
+
+    return heightfield;
+  }
+
+  private calculateMaterials(
+    height: number,
+    slope: number,
+    _biome: string,
+    liquidType: string,
+    worldX: number,
+    worldZ: number,
+  ): {
+    indices: [number, number, number, number];
+    weights: [number, number, number, number];
+  } {
+    const materials = [0, 0, 0, 0];
+    const weights = [0, 0, 0, 0];
+
+    // Water gets no materials
+    if (liquidType !== "none") {
+      materials[0] = 1; // Dirt/sand under water
+      weights[0] = 1.0;
+      return {
+        indices: materials as [number, number, number, number],
+        weights: weights as [number, number, number, number],
+      };
+    }
+
+    // Add noise variation for more natural blending
+    const detailNoise = this.noise.simplex2D(worldX * 0.05, worldZ * 0.05);
+    const adjustedHeight = height + detailNoise * 2.0;
+    const adjustedSlope = slope + detailNoise * 0.05;
+
+    // Material 0: Grass (low elevation, flat)
+    let grassWeight = 1.0 - Math.min(1.0, adjustedHeight / 15.0);
+    grassWeight *= 1.0 - Math.min(1.0, adjustedSlope / 0.5);
+    grassWeight = Math.max(0, grassWeight);
+
+    // Material 1: Dirt (mid elevation)
+    let dirtWeight = 1.0 - Math.abs(adjustedHeight - 8.0) / 10.0;
+    dirtWeight = Math.max(0, Math.min(1.0, dirtWeight));
+
+    // Material 2: Rock (steep slopes or high elevation)
+    let rockWeight = Math.max(
+      adjustedSlope / 0.6,
+      Math.max(0, (adjustedHeight - 12.0) / 8.0),
+    );
+    rockWeight = Math.min(1.0, rockWeight);
+
+    // Material 3: Snow (very high elevation)
+    let snowWeight = Math.max(0, (adjustedHeight - 18.0) / 10.0);
+    snowWeight = Math.min(1.0, snowWeight);
+
+    // Store weights
+    weights[0] = grassWeight;
+    weights[1] = dirtWeight;
+    weights[2] = rockWeight;
+    weights[3] = snowWeight;
+
+    // Add roads - blend in more dirt
+    const pathNoise = this.noise.simplex2D(worldX * 0.002, worldZ * 0.002);
+    const pathInfluence = Math.pow(
+      Math.max(0, 1.0 - Math.abs(pathNoise) * 4),
+      3,
+    );
+
+    if (pathInfluence > 0.3) {
+      // Blend dirt into the mix for roads
+      weights[1] += pathInfluence * 0.7;
+      weights[0] *= 1.0 - pathInfluence * 0.5;
+    }
+
+    // Normalize weights
+    let totalWeight = weights[0] + weights[1] + weights[2] + weights[3];
+    if (totalWeight < 0.01) {
+      // Fallback to grass
+      weights[0] = 1.0;
+      totalWeight = 1.0;
+    }
+
+    for (let i = 0; i < 4; i++) {
+      weights[i] /= totalWeight;
+    }
+
+    // Set material indices
+    materials[0] = 0; // Grass
+    materials[1] = 1; // Dirt
+    materials[2] = 2; // Rock
+    materials[3] = 3; // Snow
+
+    return {
+      indices: materials as [number, number, number, number],
+      weights: weights as [number, number, number, number],
+    };
   }
 
   /**
@@ -1356,25 +1659,70 @@ export class TerrainSystem extends System {
   }
 
   private generateTileResources(tile: TerrainTile): void {
-    const biomeData = BIOMES[tile.biome];
+    let biomeData = BIOMES[tile.biome];
+    const heightfields = (
+      tile.mesh.geometry as THREE.BufferGeometry & {
+        heightfields: Heightfield[];
+      }
+    ).heightfields;
 
-    // Guard against undefined biome data
+    // Fallback biome data if JSON not loaded
     if (!biomeData) {
       console.warn(
-        `[TerrainSystem] Biome data not found for biome: ${tile.biome}`,
+        `[TerrainSystem] BIOMES[${tile.biome}] not found - using fallback. Available biomes:`,
+        Object.keys(BIOMES),
       );
+      biomeData = {
+        id: tile.biome,
+        name: tile.biome,
+        description: "Fallback biome data",
+        difficultyLevel: 1,
+        terrain: "plains",
+        resources: ["tree", "rock", "herb"],
+        mobs: [],
+        fogIntensity: 0.1,
+        ambientSound: "",
+        colorScheme: {
+          primary: "#88cc88",
+          secondary: "#66aa66",
+          fog: "#aacccc",
+        },
+        color: 0x88cc88,
+        heightRange: [0, 10],
+        terrainMultiplier: 1.0,
+        waterLevel: 0,
+        maxSlope: 0.5,
+        mobTypes: [],
+        difficulty: 1,
+        baseHeight: 0,
+        heightVariation: 5.0,
+        resourceDensity: 0.5,
+        resourceTypes: ["tree", "rock", "herb"],
+      };
+    }
+
+    if (!heightfields) {
+      console.warn(`[TerrainSystem] No heightfields for tile ${tile.key}`);
       return;
     }
 
-    this.generateTreesForTile(tile, biomeData);
+    console.log(
+      `[TerrainSystem] Generating resources for tile ${tile.key}, biome: ${tile.biome}, resources: [${biomeData.resources.join(", ")}]`,
+    );
+    this.generateTreesForTile(tile, biomeData, heightfields);
+    this.generateRocksForTile(tile, biomeData, heightfields);
     this.generateOtherResourcesForTile(tile, biomeData);
     this.generateGrassForTile(tile, biomeData);
-    // Roads are now generated using noise patterns instead of segments
+    console.log(
+      `[TerrainSystem] Generated ${tile.resources.length} resources for tile ${tile.key}`,
+    );
   }
 
-  private generateTreesForTile(tile: TerrainTile, biomeData: BiomeData): void {
-    // Trees generation based on biome type
-    // Check both 'tree' and 'trees' for compatibility with JSON data
+  private generateTreesForTile(
+    tile: TerrainTile,
+    biomeData: BiomeData,
+    heightfields: Heightfield[],
+  ): void {
     const hasTrees =
       biomeData.resources.includes("tree") ||
       biomeData.resources.includes("trees");
@@ -1382,71 +1730,198 @@ export class TerrainSystem extends System {
       return;
     }
 
-    let treeDensity = this.CONFIG.RESOURCE_DENSITY;
+    const CHUNK_SIZE = 16; // meters per chunk
+    const chunksPerSide = Math.floor(this.CONFIG.TILE_SIZE / CHUNK_SIZE);
+    const MAX_TREES_PER_CHUNK = 12;
+    const TREE_THRESHOLD = 0.3;
 
-    // Adjust density based on biome
-    const biomeName = tile.biome as string;
-    switch (biomeName) {
-      case "forest":
-        treeDensity = this.CONFIG.TREE_DENSITY; // Higher density in forests
-        break;
-      case "plains":
-      case "valley":
-        treeDensity = this.CONFIG.RESOURCE_DENSITY * 0.5; // Lower density in open areas
-        break;
-      case "tundra":
-      case "desert":
-        treeDensity = this.CONFIG.RESOURCE_DENSITY * 0.2; // Very few trees in harsh areas
-        break;
+    for (let cz = 0; cz < chunksPerSide; cz++) {
+      for (let cx = 0; cx < chunksPerSide; cx++) {
+        const chunkWorldX = tile.x * this.CONFIG.TILE_SIZE + cx * CHUNK_SIZE;
+        const chunkWorldZ = tile.z * this.CONFIG.TILE_SIZE + cz * CHUNK_SIZE;
+
+        const chunkSeed = this.noise.hashNoise(chunkWorldX, chunkWorldZ);
+        const chunkRng = this.seedRngFromFloat(chunkSeed);
+
+        for (let i = 0; i < MAX_TREES_PER_CHUNK; i++) {
+          const offsetX = chunkRng() * CHUNK_SIZE;
+          const offsetZ = chunkRng() * CHUNK_SIZE;
+          const worldX = chunkWorldX + offsetX;
+          const worldZ = chunkWorldZ + offsetZ;
+
+          const heightfield = this.getHeightfieldAt(
+            worldX,
+            worldZ,
+            tile,
+            heightfields,
+          );
+          if (!heightfield) continue;
+
+          if (heightfield.treeVisibility > TREE_THRESHOLD) {
+            if (
+              heightfield.liquidType === "none" &&
+              heightfield.slope < 0.13 &&
+              heightfield.height >= this.CONFIG.WATER_THRESHOLD
+            ) {
+              const variationSeed = this.noise.hashNoise(
+                worldX * 5,
+                worldZ * 5,
+              );
+              const treeVariation = Math.floor(variationSeed * 3);
+
+              const scaleNoise = this.noise.scaleNoise(worldX, worldZ);
+              const scale = 1.0 + scaleNoise * 0.4;
+
+              const rotation = this.noise.rotationNoise(worldX, worldZ);
+
+              const tree: ResourceNode = {
+                id: `${tile.key}_tree_${cx}_${cz}_${i}`,
+                type: "tree",
+                variation: treeVariation,
+                position: new THREE.Vector3(
+                  worldX - tile.x * this.CONFIG.TILE_SIZE,
+                  heightfield.height,
+                  worldZ - tile.z * this.CONFIG.TILE_SIZE,
+                ),
+                rotation: new THREE.Euler(0, rotation.y * Math.PI * 2, 0),
+                scale: new THREE.Vector3(scale, scale, scale),
+                mesh: null,
+                health: 100,
+                maxHealth: 100,
+                respawnTime: 300000,
+                harvestable: true,
+                requiredLevel: 1,
+              };
+              tile.resources.push(tree);
+            }
+          }
+        }
+      }
     }
+  }
 
-    const treeCount = Math.floor(
-      (this.CONFIG.TILE_SIZE / 10) ** 2 * treeDensity,
-    );
-    const rng = this.createTileRng(tile.x, tile.z, "trees");
-    let treesAdded = 0;
+  private generateRocksForTile(
+    tile: TerrainTile,
+    biomeData: BiomeData,
+    heightfields: Heightfield[],
+  ) {
+    const hasRocks = biomeData.resources.includes("rock");
+    if (!hasRocks) return;
 
-    for (let i = 0; i < treeCount; i++) {
-      const worldX =
-        tile.x * this.CONFIG.TILE_SIZE + (rng() - 0.5) * this.CONFIG.TILE_SIZE;
-      const worldZ =
-        tile.z * this.CONFIG.TILE_SIZE + (rng() - 0.5) * this.CONFIG.TILE_SIZE;
+    const CHUNK_SIZE = 16;
+    const chunksPerSide = Math.floor(this.CONFIG.TILE_SIZE / CHUNK_SIZE);
+    const MAX_ROCKS_PER_CHUNK = 10;
+    const ROCK_THRESHOLD = 0.5;
 
-      const height = this.getHeightAt(worldX, worldZ);
+    for (let cz = 0; cz < chunksPerSide; cz++) {
+      for (let cx = 0; cx < chunksPerSide; cx++) {
+        const chunkWorldX = tile.x * this.CONFIG.TILE_SIZE + cx * CHUNK_SIZE;
+        const chunkWorldZ = tile.z * this.CONFIG.TILE_SIZE + cz * CHUNK_SIZE;
 
-      // Get biome influences at this exact position
-      const biomeInfluences = this.getBiomeInfluencesAtPosition(worldX, worldZ);
-      const dominantBiomeType = biomeInfluences[0]?.type || "plains";
+        const chunkSeed = this.noise.hashNoise(chunkWorldX, chunkWorldZ);
+        const chunkRng = this.seedRngFromFloat(chunkSeed);
 
-      // Never spawn trees in lakes biome
-      if (dominantBiomeType === "lakes") continue;
+        for (let i = 0; i < MAX_ROCKS_PER_CHUNK; i++) {
+          const offsetX = chunkRng() * CHUNK_SIZE;
+          const offsetZ = chunkRng() * CHUNK_SIZE;
+          const worldX = chunkWorldX + offsetX;
+          const worldZ = chunkWorldZ + offsetZ;
 
-      // Check if underwater - use consistent water threshold
-      if (height < this.CONFIG.WATER_THRESHOLD) continue;
+          const heightfield = this.getHeightfieldAt(
+            worldX,
+            worldZ,
+            tile,
+            heightfields,
+          );
+          if (!heightfield) continue;
 
-      // Check if position is walkable (don't place trees on steep slopes)
-      const walkableCheck = this.isPositionWalkable(worldX, worldZ);
-      if (!walkableCheck.walkable) continue;
-      const position = this._tempVec3.set(
-        worldX - tile.x * this.CONFIG.TILE_SIZE,
-        height,
-        worldZ - tile.z * this.CONFIG.TILE_SIZE,
-      );
+          if (heightfield.rockVisibility > ROCK_THRESHOLD) {
+            if (heightfield.liquidType === "none" && heightfield.slope < 0.13) {
+              const scale = 0.85 + this.noise.scaleNoise(worldX, worldZ) * 0.25;
+              const rotation = this.noise.rotationNoise(worldX, worldZ);
 
-      const tree: ResourceNode = {
-        id: `${tile.key}_tree_${i}`,
-        type: "tree",
-        position,
+              const rock: ResourceNode = {
+                id: `${tile.key}_rock_${cx}_${cz}_${i}`,
+                type: "rock",
+                position: new THREE.Vector3(
+                  worldX - tile.x * this.CONFIG.TILE_SIZE,
+                  heightfield.height,
+                  worldZ - tile.z * this.CONFIG.TILE_SIZE,
+                ),
+                rotation: new THREE.Euler(0, rotation.y * Math.PI * 2, 0),
+                scale: new THREE.Vector3(scale, scale, scale),
+                mesh: null,
+                health: 100,
+                maxHealth: 100,
+                respawnTime: 300000,
+                harvestable: true,
+                requiredLevel: 1,
+              };
+              tile.resources.push(rock);
+
+              this.generateSurroundingStones(
+                tile,
+                cx,
+                cz,
+                worldX,
+                worldZ,
+                heightfield.height,
+                chunkRng,
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private generateSurroundingStones(
+    tile: TerrainTile,
+    cx: number,
+    cz: number,
+    centerX: number,
+    centerZ: number,
+    _centerHeight: number,
+    rng: () => number,
+  ): void {
+    const NUM_STONES = 4;
+    const BASE_OFFSET = 15.0;
+    const OFFSET_RANGE = 3.0;
+
+    for (let i = 0; i < NUM_STONES; i++) {
+      const offsetX = rng() * 2 - 1;
+      const offsetZ = rng() * 2 - 1;
+
+      const signX = offsetX >= 0 ? 1 : -1;
+      const signZ = offsetZ >= 0 ? 1 : -1;
+
+      const stoneX = centerX + BASE_OFFSET * signX + offsetX * OFFSET_RANGE;
+      const stoneZ = centerZ + BASE_OFFSET * signZ + offsetZ * OFFSET_RANGE;
+
+      const stoneHeight = this.getHeightAt(stoneX, stoneZ);
+
+      const scale = 0.8 + rng() * 0.2;
+      const rotation = rng() * Math.PI * 2;
+
+      const stone: ResourceNode = {
+        id: `${tile.key}_stone_${cx}_${cz}_${i}`,
+        type: "stone",
+        position: new THREE.Vector3(
+          stoneX - tile.x * this.CONFIG.TILE_SIZE,
+          stoneHeight,
+          stoneZ - tile.z * this.CONFIG.TILE_SIZE,
+        ),
+        rotation: new THREE.Euler(0, rotation, 0),
+        scale: new THREE.Vector3(scale, scale, scale),
         mesh: null,
-        health: 100,
-        maxHealth: 100,
-        respawnTime: 300000, // 5 minutes
+        health: 50,
+        maxHealth: 50,
+        respawnTime: 180000,
         harvestable: true,
         requiredLevel: 1,
       };
 
-      tile.resources.push(tree);
-      treesAdded++;
+      tile.resources.push(stone);
     }
   }
 
@@ -1526,28 +2001,54 @@ export class TerrainSystem extends System {
     if (!this.world.network?.isClient) return;
     if (!this.grassSystem) return;
 
-    const grassMesh = this.grassSystem.generateGrassForTile(
+    this.grassSystem.generateGrassForTile(
       tile,
-      this.getHeightAt.bind(this),
-      this.getNormalAt.bind(this),
-      this.calculateSlope.bind(this),
-      this.CONFIG.WATER_THRESHOLD,
-      this.CONFIG.TILE_SIZE,
-      this.createTileRng.bind(this),
+      (
+        tile.mesh.geometry as THREE.BufferGeometry & {
+          heightfields: Heightfield[];
+        }
+      ).heightfields,
+      biomeData as { [key: string]: unknown },
+      {
+        CONFIG: this.CONFIG,
+        noise: this.noise,
+        seedRngFromFloat: this.seedRngFromFloat.bind(this),
+        getHeightfieldAt: this.getHeightfieldAt.bind(this),
+      },
     );
+  }
 
-    if (!grassMesh) return;
+  private getHeightfieldAt(
+    worldX: number,
+    worldZ: number,
+    tile: TerrainTile,
+    heightfields: Heightfield[],
+  ): Heightfield | null {
+    const localX = worldX - tile.x * this.CONFIG.TILE_SIZE;
+    const localZ = worldZ - tile.z * this.CONFIG.TILE_SIZE;
 
-    const stage = this.world.stage as { scene: THREE.Scene };
-    if (stage?.scene) {
-      stage.scene.add(grassMesh);
+    const resolution = this.CONFIG.TILE_RESOLUTION;
+    const step = this.CONFIG.TILE_SIZE / (resolution - 1);
+
+    // Calculate grid indices
+    const gridX = Math.round((localX + this.CONFIG.TILE_SIZE / 2) / step);
+    const gridZ = Math.round((localZ + this.CONFIG.TILE_SIZE / 2) / step);
+
+    const index = gridZ * resolution + gridX;
+
+    if (index >= 0 && index < heightfields.length) {
+      return heightfields[index];
     }
 
-    (tile as { grassMeshes?: THREE.InstancedMesh[] }).grassMeshes =
-      (tile as { grassMeshes?: THREE.InstancedMesh[] }).grassMeshes || [];
-    (tile as { grassMeshes?: THREE.InstancedMesh[] }).grassMeshes!.push(
-      grassMesh,
-    );
+    return null; // Out of bounds
+  }
+
+  private seedRngFromFloat(seed: number): () => number {
+    let state = Math.floor(seed * 0xffffffff);
+    return () => {
+      state = (1664525 * state + 1013904223) >>> 0;
+      return state / 0xffffffff;
+    };
   }
 
   // DEPRECATED: Roads are now generated using noise patterns instead of segments
@@ -1569,7 +2070,7 @@ export class TerrainSystem extends System {
       key: `temp_${tileX}_${tileZ}`,
       x: tileX,
       z: tileZ,
-      mesh: null as unknown as THREE.Mesh,
+      mesh: null!,
       biome: this.getBiomeAt(tileX, tileZ) as TerrainTile["biome"],
       resources: [],
       roads: [],
@@ -1739,10 +2240,9 @@ export class TerrainSystem extends System {
           ? _deltaTime
           : 1 / 60;
 
-      // DISABLED: Grass system updates
-      // if (this.grassSystem) {
-      //   this.grassSystem.update(dt)
-      // }
+      if (this.grassSystem) {
+        this.grassSystem.update(dt);
+      }
 
       // Update water system
       if (this.waterSystem) {
@@ -1906,6 +2406,12 @@ export class TerrainSystem extends System {
     const tileZ = Math.floor(worldZ / this.CONFIG.TILE_SIZE);
     const biome = this.getBiomeAt(tileX, tileZ);
     const biomeData = BIOMES[biome];
+
+    // Guard against missing biome data
+    if (!biomeData) {
+      console.warn(`[TerrainSystem] Biome data not found for biome: ${biome}`);
+      return { walkable: true }; // Default to walkable if biome data missing
+    }
 
     // Get height at position
     const height = this.getHeightAt(worldX, worldZ);
@@ -2150,8 +2656,12 @@ export class TerrainSystem extends System {
     const biome = this.getBiomeAt(tileX, tileZ);
     const biomeData = BIOMES[biome];
 
-    // Don't spawn mobs in safe zones
-    if (biomeData.difficulty === 0 || biomeData.mobTypes.length === 0) {
+    // Guard against missing biome data or safe zones
+    if (
+      !biomeData ||
+      biomeData.difficulty === 0 ||
+      biomeData.mobTypes.length === 0
+    ) {
       return [];
     }
 
@@ -2321,7 +2831,11 @@ export class TerrainSystem extends System {
     for (const [_key, tile] of this.terrainTiles.entries()) {
       const biomeData = BIOMES[tile.biome];
 
-      if (biomeData.difficulty > 0 && biomeData.mobTypes.length > 0) {
+      if (
+        biomeData &&
+        biomeData.difficulty > 0 &&
+        biomeData.mobTypes.length > 0
+      ) {
         const spawnPositions = this.getMobSpawnPositionsForTile(
           tile.x,
           tile.z,
@@ -2498,14 +3012,11 @@ export class TerrainSystem extends System {
   // ===== MMOCHUNK LOADING AND SIMULATION SYSTEM =====
 
   /**
-   * Initialize chunk loading system with 9 core + ring strategy
+   * Initialize chunk loading system
+   * Uses LOD-based loading controlled by TerrainLODManager
    */
   private initializeChunkLoadingSystem(): void {
-    // Balanced load radius to reduce generation spikes when moving
-    this.coreChunkRange = 2; // 5x5 core grid
-    this.ringChunkRange = 3; // Preload ring up to ~7x7
-
-    // Initialize tracking maps
+    // Initialize tracking maps for multiplayer
     this.playerChunks.clear();
     this.simulatedChunks.clear();
     this.chunkPlayerCounts.clear();
@@ -2539,176 +3050,52 @@ export class TerrainSystem extends System {
   }
 
   /**
-   * Player-based terrain update with 9 core + ring strategy
+   * LOD-based terrain update system
+   * Updates terrain tiles based on player position and LOD requirements
    */
-  private updatePlayerBasedTerrain(): void {
+  private updateLODBasedTerrain(): void {
     if (this.isGenerating) return;
+    if (!this.lodManager) return; // Server doesn't have LOD manager
 
-    // Get all players
     const players = this.world.getPlayers() || [];
+    if (players.length === 0) return;
 
-    // Clear previous player chunk tracking
-    this.playerChunks.clear();
-    this.chunkPlayerCounts.clear();
+    const player = players[0];
+    const playerPos = player.node.position as THREE.Vector3;
 
-    // Track which tiles are needed based on 9 core + ring strategy
-    const neededTiles = new Set<string>();
-    const simulationTiles = new Set<string>();
+    const { toAdd, toRemove } = this.lodManager.update(playerPos);
 
-    for (const player of players) {
-      const playerPos = player.node.position;
-
-      const playerId =
-        (player as { playerId?: string; id?: string }).playerId ||
-        (player as { playerId?: string; id?: string }).id ||
-        "unknown";
-
-      const x = playerPos.x;
-      const z = playerPos.z;
-
-      // Calculate tile position
-      const tileX = Math.floor(x / this.CONFIG.TILE_SIZE);
-      const tileZ = Math.floor(z / this.CONFIG.TILE_SIZE);
-
-      // 9 core chunks (5x5 grid) - these get full simulation
-      const coreChunks = new Set<string>();
-      for (let dx = -this.coreChunkRange; dx <= this.coreChunkRange; dx++) {
-        for (let dz = -this.coreChunkRange; dz <= this.coreChunkRange; dz++) {
-          const tx = tileX + dx;
-          const tz = tileZ + dz;
-          const key = `${tx}_${tz}`;
-          coreChunks.add(key);
-          neededTiles.add(key);
-          simulationTiles.add(key);
-        }
-      }
-
-      // Ring chunks around core - these are loaded but not simulated
-      for (let dx = -this.ringChunkRange; dx <= this.ringChunkRange; dx++) {
-        for (let dz = -this.ringChunkRange; dz <= this.ringChunkRange; dz++) {
-          // Skip core chunks
-          if (
-            Math.abs(dx) <= this.coreChunkRange &&
-            Math.abs(dz) <= this.coreChunkRange
-          ) {
-            continue;
-          }
-
-          const tx = tileX + dx;
-          const tz = tileZ + dz;
-          const key = `${tx}_${tz}`;
-          neededTiles.add(key);
-        }
-      }
-
-      // Terrain-only chunks for the horizon
-      for (
-        let dx = -this.terrainOnlyChunkRange;
-        dx <= this.terrainOnlyChunkRange;
-        dx++
-      ) {
-        for (
-          let dz = -this.terrainOnlyChunkRange;
-          dz <= this.terrainOnlyChunkRange;
-          dz++
-        ) {
-          if (
-            Math.abs(dx) <= this.ringChunkRange &&
-            Math.abs(dz) <= this.ringChunkRange
-          ) {
-            continue;
-          }
-
-          const tx = tileX + dx;
-          const tz = tileZ + dz;
-          const key = `${tx}_${tz}`;
-          neededTiles.add(key);
-        }
-      }
-
-      // Track player chunks for shared world simulation
-      this.playerChunks.set(playerId, coreChunks);
-
-      // Count players per chunk for shared simulation
-      for (const chunkKey of coreChunks) {
-        const currentCount = this.chunkPlayerCounts.get(chunkKey) || 0;
-        this.chunkPlayerCounts.set(chunkKey, currentCount + 1);
+    for (const chunk of toRemove) {
+      const tile = this.terrainTiles.get(chunk.key);
+      if (tile) {
+        this.unloadTile(tile);
       }
     }
 
-    // Update simulated chunks - only chunks with players get simulation
-    this.simulatedChunks.clear();
-    for (const chunkKey of simulationTiles) {
-      if (this.chunkPlayerCounts.get(chunkKey)! > 0) {
-        this.simulatedChunks.add(chunkKey);
-      }
-    }
+    for (const chunk of toAdd) {
+      // Remove any existing tiles at this position with different LOD first
+      const existingKeys = Array.from(this.terrainTiles.keys()).filter(
+        (key) => {
+          const parts = key.split("_");
+          return (
+            parts[0] === chunk.x.toString() && parts[1] === chunk.z.toString()
+          );
+        },
+      );
 
-    // Approximate each player's center from their core chunk set
-    const playerCenters: Array<{ x: number; z: number }> = [];
-    for (const player of players) {
-      const playerPos = player.node.position;
-      if (playerPos) {
-        const tileX = Math.floor(playerPos.x / this.CONFIG.TILE_SIZE);
-        const tileZ = Math.floor(playerPos.z / this.CONFIG.TILE_SIZE);
-        playerCenters.push({ x: tileX, z: tileZ });
-      }
-    }
-
-    // Queue missing tiles for smooth generation
-    for (const tileKey of neededTiles) {
-      if (!this.terrainTiles.has(tileKey)) {
-        const [x, z] = tileKey.split("_").map(Number);
-
-        let generateContent = true;
-
-        if (playerCenters.length > 0) {
-          let minChebyshev = Infinity;
-          for (const c of playerCenters) {
-            const d = Math.max(Math.abs(x - c.x), Math.abs(z - c.z));
-            if (d < minChebyshev) minChebyshev = d;
-          }
-          if (minChebyshev > this.ringChunkRange) {
-            generateContent = false;
-          }
-        }
-
-        this.enqueueTileForGeneration(x, z, generateContent);
-      }
-    }
-
-    // Remove tiles that are no longer needed, with hysteresis padding
-    // Approximate each player's center from their core chunk set
-    for (const [tileKey, tile] of this.terrainTiles) {
-      if (!neededTiles.has(tileKey)) {
-        let minChebyshev = Infinity;
-        for (const c of playerCenters) {
-          const d = Math.max(Math.abs(tile.x - c.x), Math.abs(tile.z - c.z));
-          if (d < minChebyshev) minChebyshev = d;
-        }
-        if (minChebyshev > this.terrainOnlyChunkRange + this.unloadPadding) {
-          this.unloadTile(tile);
+      for (const existingKey of existingKeys) {
+        const existingTile = this.terrainTiles.get(existingKey);
+        if (existingTile && existingKey !== chunk.key) {
+          this.unloadTile(existingTile);
         }
       }
-    }
 
-    // Log simulation status every 10 updates
-    if (Math.random() < 0.1) {
-      const _totalPlayers = players.length;
-      const _simulatedChunkCount = this.simulatedChunks.size;
-      const _loadedChunkCount = this.terrainTiles.size;
-
-      // Simulation status tracked for debugging
-
-      // Log shared world status
-      const sharedChunks = Array.from(this.chunkPlayerCounts.entries())
-        .filter(([_, count]) => count > 1)
-        .map(([key, count]) => `${key}(${count})`)
-        .join(", ");
-
-      if (sharedChunks) {
-        // Multiple players sharing chunks - enhanced simulation active
-      }
+      this.enqueueTileForGeneration(
+        chunk.x,
+        chunk.z,
+        chunk.lod,
+        chunk.lodArray,
+      );
     }
   }
 
@@ -2936,5 +3323,9 @@ export class TerrainSystem extends System {
 
   public getTileSize(): number {
     return this.CONFIG.TILE_SIZE;
+  }
+
+  public getWaterLevel(): number {
+    return this.CONFIG.WATER_THRESHOLD;
   }
 }

@@ -6,8 +6,7 @@ import { getSystem } from "../utils/SystemUtils";
 import type { World } from "../types";
 import type { InventoryItemAddedPayload } from "../types/events";
 import { EventType } from "../types/events";
-import { getItem, ITEMS } from "../data/items";
-import { dataManager } from "../data/DataManager";
+import { getItem } from "../data/items";
 import type { PlayerInventory } from "../types/core";
 import type {
   InventoryCanAddEvent,
@@ -48,22 +47,17 @@ export class InventorySystem extends SystemBase {
   }
 
   async init(): Promise<void> {
-    const isServer = this.world.network?.isServer || false;
-    const isClient = this.world.network?.isClient || false;
-    if (typeof process !== "undefined" && process.env.DEBUG_RPG === "1") {
-    }
+    // Environment checks for server/client mode
+    const _isServer = this.world.network?.isServer || false;
+    const _isClient = this.world.network?.isClient || false;
 
     // Subscribe to inventory events
     this.subscribe(
       EventType.PLAYER_REGISTERED,
       async (data: { playerId: string }) => {
-        if (process.env.DEBUG_RPG === "1") {
-        }
         // Use async method to properly load from database
         const loaded = await this.loadPersistedInventoryAsync(data.playerId);
         if (!loaded) {
-          if (process.env.DEBUG_RPG === "1") {
-          }
           console.log(
             "[InventorySystem] Creating fresh inventory for player:",
             data.playerId,
@@ -320,9 +314,6 @@ export class InventorySystem extends SystemBase {
         new Error(`Item not found: ${itemId}`),
       );
       return false;
-    }
-
-    if (process.env.DEBUG_RPG === "1") {
     }
 
     // Special handling for coins
@@ -710,8 +701,8 @@ export class InventorySystem extends SystemBase {
           `Failed to destroy item entity ${data.entityId}`,
           new Error(`Failed to destroy item entity ${data.entityId}`),
         );
-      } else {
       }
+      // Entity destruction succeeded
     } else {
       // Could not add (inventory full, etc.)
       Logger.system(
@@ -1097,7 +1088,7 @@ export class InventorySystem extends SystemBase {
     return true;
   }
 
-  private loadPersistedInventory(playerId: string): boolean {
+  private loadPersistedInventory(_playerId: string): boolean {
     // This is now a sync wrapper that always returns false to trigger async load
     // The actual loading happens in the async init flow
     return false;
@@ -1276,7 +1267,7 @@ export class InventorySystem extends SystemBase {
       return;
     }
 
-    const result = this.addItem({ playerId, itemId, quantity });
+    const _result = this.addItem({ playerId, itemId, quantity });
   }
 
   /**

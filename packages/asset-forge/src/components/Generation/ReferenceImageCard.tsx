@@ -1,13 +1,13 @@
 import {
   Image as ImageIcon,
   Link as LinkIcon,
-  Upload as UploadIcon,
   X as XIcon,
   Info,
 } from "lucide-react";
 import React, { useCallback } from "react";
 
 import { cn } from "../../styles";
+
 import {
   Card,
   CardContent,
@@ -33,7 +33,7 @@ interface ReferenceImageCardProps {
 export const ReferenceImageCard: React.FC<ReferenceImageCardProps> = ({
   generationType,
   mode,
-  source,
+  _source,
   url,
   dataUrl,
   onModeChange,

@@ -1,0 +1,9 @@
+{
+  "schema": "./server/db/schema/*.ts",
+  "out": "./server/db/migrations",
+  "dialect": "postgresql",
+  "dbCredentials": {
+    "url": "postgresql://hyperscape:hyperscape_dev@localhost:5432/asset_forge_dev"
+  }
+}
+

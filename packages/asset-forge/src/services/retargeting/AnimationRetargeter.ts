@@ -14,11 +14,8 @@
  */
 
 import * as THREE from "three";
-import {
-  createBoneMapping,
-  MESHY_TO_MIXAMO,
-  MIXAMO_TO_MESHY,
-} from "./BoneMappings";
+
+import { createBoneMapping, MIXAMO_TO_MESHY } from "./BoneMappings";
 
 export interface RetargetedAnimation {
   clip: THREE.AnimationClip;

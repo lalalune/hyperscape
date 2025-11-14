@@ -740,8 +740,8 @@ export class Entities extends SystemBase implements IEntities {
           );
           console.error(`[Entities] Entity ${entity.id} init() failed:`, err);
         });
-    } else {
     }
+    // No else needed - init happens in spawn() if it exists
 
     return entity;
   }

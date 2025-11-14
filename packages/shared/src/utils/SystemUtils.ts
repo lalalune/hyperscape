@@ -82,7 +82,7 @@ export interface NetworkSystem extends System {
 
 export function getNetworkSystem(world: World): NetworkSystem | null {
   const network = getWorldNetwork(world);
-  return network as NetworkSystem | null;
+  return network as unknown as NetworkSystem | null;
 }
 
 /**

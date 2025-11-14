@@ -36,8 +36,7 @@ export async function loadPhysXWasmForNode(): Promise<Buffer> {
   const { readFileSync, writeFileSync, existsSync, mkdirSync } = await import(
     "node:fs"
   );
-  const { fileURLToPath } = await import("node:url");
-  const { dirname, join } = await import("node:path");
+  const { join } = await import("node:path");
   const { tmpdir } = await import("node:os");
 
   // Try local assets/web/ directory first (for development and direct workspace access)
@@ -67,7 +66,7 @@ export async function loadPhysXWasmForNode(): Promise<Buffer> {
   }
 
   // Fetch from CDN
-  const cdnUrl = process.env["PUBLIC_CDN_URL"] || "http://localhost:8080";
+  const cdnUrl = process.env["PUBLIC_CDN_URL"] || "http://localhost:8088";
   const wasmUrl = `${cdnUrl}/web/physx-js-webidl.wasm`;
 
   const response = await fetch(wasmUrl);

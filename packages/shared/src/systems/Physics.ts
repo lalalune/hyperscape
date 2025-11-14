@@ -1211,12 +1211,16 @@ export class Physics extends SystemBase implements IPhysics {
     }
 
     // Try to use enhanced Vector3 methods first
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type Vector3WithPxVec3 = THREE.Vector3 & {
+      toPxVec3?: (v?: PxVec3) => PxVec3;
+    };
+
     let pxOrigin: PxVec3 | null =
-      (origin as any).toPxVec3?.(this._pv1 || undefined) || null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (origin as Vector3WithPxVec3).toPxVec3?.(this._pv1 || undefined) || null;
+
     let pxDirection: PxVec3 | null =
-      (dirNormalized as any).toPxVec3?.(this._pv2 || undefined) || null;
+      (dirNormalized as Vector3WithPxVec3).toPxVec3?.(this._pv2 || undefined) ||
+      null;
 
     // If the enhanced method didn't work, create PxVec3 manually
     if (!pxOrigin) {

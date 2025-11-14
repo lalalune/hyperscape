@@ -4,6 +4,10 @@
  * This is the main export file for the Hyperscape 3D multiplayer game engine.
  * It provides a comprehensive public API for building 3D multiplayer games and applications.
  *
+ * Blockchain Integration:
+ * The shared package includes blockchain utilities for hybrid on-chain/off-chain games.
+ * These are exported for use by server-side code only.
+ *
  * Package Purpose:
  * Hyperscape is a full-featured 3D multiplayer game engine built on three.js and PhysX.
  * It provides client-server architecture with authoritative physics, real-time voice chat,
@@ -129,6 +133,68 @@ export { Socket } from "./Socket";
 // Export EventType enum
 export { EventType } from "./types/events";
 
+// Export network packet types
+export type {
+  CharacterCreatePacket,
+  CharacterSelectedPacket,
+  EnterWorldPacket,
+  MoveRequestPacket,
+  AttackRequestPacket,
+  ItemPickupPacket,
+  ItemDropPacket,
+  ResourceGatherPacket,
+  EntityModificationPacket,
+  EntityEventPacket,
+  TradeRequestPacket,
+  TradeResponsePacket,
+  TradeOfferPacket,
+  TradeConfirmPacket,
+  TradeCancelPacket,
+  InventoryUpdatePacket,
+  SkillsUpdatePacket,
+  ResourceSnapshotPacket,
+  ResourceStatePacket,
+  CharacterListPacket,
+  CharacterCreatedPacket,
+  PlayerStatePacket,
+  ShowToastPacket,
+  TradeRequestReceivedPacket,
+  TradeStartedPacket,
+  TradeUpdatedPacket,
+  TradeCompletedPacket,
+  TradeCancelledPacket,
+  TradeErrorPacket,
+  SnapshotPacket,
+} from "./types/network-types";
+
+// Export event handler types
+export type {
+  PlayerRegisteredEvent,
+  PlayerJoinedEvent,
+  PlayerLeftEvent,
+  PlayerUnregisteredEvent,
+  InventoryUpdatedEvent,
+  InventoryCoinsUpdatedEvent,
+  BankOpenEvent,
+  BankCloseEvent,
+} from "./types/event-handler-types";
+
+// Export window extension types
+export type { WindowWithWorld } from "./types/window-types";
+
+// Export system interface types
+export type {
+  TerrainSystemInterface,
+  NetworkSystemInterface,
+} from "./types/system-types";
+
+// Export inventory types
+export type {
+  InventoryItemData,
+  InventoryData,
+  InventorySystemData,
+} from "./types/inventory-types";
+
 // Export PlayerMigration class
 export { PlayerMigration } from "./types/core";
 
@@ -143,6 +209,9 @@ export { addRole, removeRole, hasRole, serializeRoles, uuid } from "./utils";
 
 // Export item helpers used by server network snapshot
 export { getItem } from "./data/items";
+
+// Export game constants
+export { ITEM_ID_TO_KEY, ITEM_IDS } from "./constants/GameConstants";
 
 // Export system classes to fix API extractor warnings
 export { Entities } from "./systems/Entities";
@@ -625,3 +694,12 @@ export { CircularSpawnArea } from "./utils/CircularSpawnArea";
 
 // Export terrain system
 export { TerrainSystem } from "./systems/TerrainSystem";
+
+// Export blockchain integration utilities (server-side only)
+export {
+  setupMudClient,
+  batchInventoryOperations,
+  isMudClientAvailable,
+  getMudClientOrThrow,
+} from "./blockchain/mud-client";
+export type { MudClient, TxReceipt } from "./blockchain/mud-client";

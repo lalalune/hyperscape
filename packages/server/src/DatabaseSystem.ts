@@ -26,7 +26,6 @@
  */
 
 import { SystemBase } from "@hyperscape/shared";
-import type { World } from "@hyperscape/shared";
 import { eq, and, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type pg from "pg";
@@ -37,7 +36,6 @@ import type {
   InventoryRow,
   InventorySaveItem,
   ItemRow,
-  NPCKillsRow,
   PlayerRow,
   PlayerSessionRow,
   WorldChunkRow,
@@ -57,6 +55,33 @@ export class DatabaseSystem extends SystemBase {
   /** PostgreSQL connection pool for low-level operations if needed */
   private pool: pg.Pool | null = null;
 
+  /** Blockchain gateway for hybrid sync (critical state to blockchain) */
+  private blockchainGateway?: {
+    isEnabled: () => boolean;
+    registerPlayer: (name: string) => Promise<{
+      txHash: string;
+      blockNumber: bigint;
+    } | null>;
+    addItem: (
+      address: string,
+      itemId: number,
+      qty: number,
+      opts?: { batch?: boolean },
+    ) => Promise<{ txHash?: string; batched?: boolean }>;
+    removeItem: (
+      address: string,
+      slot: number,
+      qty: number,
+    ) => Promise<{ txHash?: string }>;
+    equipItem: (slot: number) => Promise<{ txHash: string }>;
+    unequipItem: (slot: number) => Promise<{ txHash: string }>;
+    recordMobKill: (mobId: string) => Promise<{ txHash: string }>;
+    recordResourceGathered: (
+      resourceId: string,
+      type: "tree" | "fish",
+    ) => Promise<{ txHash: string }>;
+  };
+
   /**
    * Tracks all pending database operations to ensure graceful shutdown.
    * Operations are added when sync methods fire-and-forget async work.
@@ -65,6 +90,9 @@ export class DatabaseSystem extends SystemBase {
 
   /** Flag to indicate the system is being destroyed - prevents new operations */
   private isDestroying: boolean = false;
+
+  // CRITICAL FIX: Track ongoing saves to prevent concurrent saves for same player
+  private ongoingSaves = new Map<string, Promise<void>>();
 
   /**
    * Constructor
@@ -94,6 +122,20 @@ export class DatabaseSystem extends SystemBase {
    * @throws Error if database instances are not available on the world object
    */
   async init(): Promise<void> {
+    // Get BlockchainGateway for hybrid sync
+    const gateway = this.world.getSystem?.("blockchain-gateway");
+    if (gateway && typeof gateway === "object" && "isEnabled" in gateway) {
+      this.blockchainGateway = gateway as typeof this.blockchainGateway;
+      console.log(
+        "[DatabaseSystem] ✅ BlockchainGateway integrated - hybrid mode enabled",
+      );
+      console.log(
+        "[DatabaseSystem] ℹ️  Critical state will sync to blockchain",
+      );
+    } else {
+      console.log("[DatabaseSystem] ℹ️  PostgreSQL-only mode (no blockchain)");
+    }
+
     // Cast world to access server-specific properties
     const serverWorld = this.world as {
       pgPool?: pg.Pool;
@@ -880,14 +922,47 @@ export class DatabaseSystem extends SystemBase {
   }
 
   savePlayer(playerId: string, data: Partial<PlayerRow>): void {
+    // CRITICAL FIX: Prevent concurrent saves for the same player
+    const existingSave = this.ongoingSaves.get(playerId);
+    if (existingSave) {
+      // Queue this save to run after the current one completes
+      existingSave.finally(() => {
+        this.savePlayer(playerId, data);
+      });
+      return;
+    }
+
     const operation = this.savePlayerAsync(playerId, data)
+      // HYBRID: Also sync critical state to blockchain if available
+      .then(async () => {
+        if (this.blockchainGateway?.isEnabled() && data.name) {
+          // Player registration on blockchain (once per character)
+          try {
+            const txResult = await this.blockchainGateway.registerPlayer(
+              data.name,
+            );
+            if (txResult) {
+              console.log(
+                `[DatabaseSystem] ✅ Player synced to blockchain: ${txResult.txHash}`,
+              );
+            }
+          } catch {
+            console.log(
+              "[DatabaseSystem] ℹ️  Player already registered on-chain",
+            );
+          }
+        }
+      })
       .catch((err) => {
         console.error("[DatabaseSystem] Error in savePlayer:", err);
       })
       .finally(() => {
         this.pendingOperations.delete(operation);
+        this.ongoingSaves.delete(playerId);
       });
+
     this.pendingOperations.add(operation);
+    this.ongoingSaves.set(playerId, operation);
   }
 
   getPlayerInventory(_playerId: string): InventoryRow[] {
@@ -899,6 +974,30 @@ export class DatabaseSystem extends SystemBase {
 
   savePlayerInventory(playerId: string, items: InventorySaveItem[]): void {
     const operation = this.savePlayerInventoryAsync(playerId, items)
+      // HYBRID: Sync inventory to blockchain (batched for gas optimization)
+      .then(async () => {
+        if (this.blockchainGateway?.isEnabled() && playerId.startsWith("0x")) {
+          // Sync each new item to blockchain (batched automatically by BlockchainGateway)
+          for (const item of items) {
+            if (item.itemId && item.quantity) {
+              // Map string itemId to numeric ID for contracts
+              const itemIdNum = this.mapItemIdToNumber(item.itemId);
+              if (itemIdNum) {
+                this.blockchainGateway
+                  .addItem(
+                    playerId as `0x${string}`,
+                    itemIdNum,
+                    item.quantity,
+                    {
+                      batch: true,
+                    },
+                  ) // Enable batching
+                  .catch(() => {}); // Non-blocking
+              }
+            }
+          }
+        }
+      })
       .catch((err) => {
         console.error("[DatabaseSystem] Error in savePlayerInventory:", err);
       })
@@ -1061,6 +1160,10 @@ export class DatabaseSystem extends SystemBase {
     return null;
   }
 
+  // ============================================================================
+  // NPC KILL TRACKING (continued)
+  // ============================================================================
+
   incrementNPCKill(playerId: string, npcId: string): void {
     const operation = this.incrementNPCKillAsync(playerId, npcId)
       .catch((err) => {
@@ -1070,6 +1173,164 @@ export class DatabaseSystem extends SystemBase {
         this.pendingOperations.delete(operation);
       });
     this.pendingOperations.add(operation);
+  }
+
+  // ============================================================================
+  // MAINTENANCE METHODS
+  // ============================================================================
+  // Methods for cleaning up old data and getting database statistics
+
+  /**
+   * Clean up old player sessions from the database
+   *
+   * @param daysOld - Delete sessions older than this many days
+   * @returns Number of sessions deleted
+   */
+  async cleanupOldSessionsAsync(daysOld: number): Promise<number> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000;
+
+    const result = await this.db
+      .delete(schema.playerSessions)
+      .where(
+        sql`${schema.playerSessions.sessionEnd} IS NOT NULL AND ${schema.playerSessions.sessionEnd} < ${cutoffTime}`,
+      );
+
+    return result.rowCount || 0;
+  }
+
+  cleanupOldSessions(daysOld: number): number {
+    console.warn(
+      "[DatabaseSystem] cleanupOldSessions called synchronously - use cleanupOldSessionsAsync instead",
+    );
+    const operation = this.cleanupOldSessionsAsync(daysOld)
+      .catch((err) => {
+        console.error("[DatabaseSystem] Error in cleanupOldSessions:", err);
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+    return 0; // Can't return real count from async operation
+  }
+
+  /**
+   * Clean up old chunk activity records
+   *
+   * @param daysOld - Delete activity records older than this many days
+   * @returns Number of records deleted
+   */
+  async cleanupOldChunkActivityAsync(daysOld: number): Promise<number> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000;
+
+    const result = await this.db
+      .delete(schema.worldChunks)
+      .where(
+        sql`${schema.worldChunks.lastActive} < ${cutoffTime} AND ${schema.worldChunks.playerCount} = 0`,
+      );
+
+    return result.rowCount || 0;
+  }
+
+  cleanupOldChunkActivity(daysOld: number): number {
+    console.warn(
+      "[DatabaseSystem] cleanupOldChunkActivity called synchronously - use cleanupOldChunkActivityAsync instead",
+    );
+    const operation = this.cleanupOldChunkActivityAsync(daysOld)
+      .catch((err) => {
+        console.error(
+          "[DatabaseSystem] Error in cleanupOldChunkActivity:",
+          err,
+        );
+      })
+      .finally(() => {
+        this.pendingOperations.delete(operation);
+      });
+    this.pendingOperations.add(operation);
+    return 0; // Can't return real count from async operation
+  }
+
+  /**
+   * Get database statistics
+   *
+   * @returns Object containing various database counts
+   */
+  async getDatabaseStatsAsync(): Promise<{
+    playerCount: number;
+    activeSessionCount: number;
+    chunkCount: number;
+    activeChunkCount: number;
+    totalActivityRecords: number;
+  }> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const [playerCountResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.characters);
+
+    const [activeSessionResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.playerSessions)
+      .where(sql`${schema.playerSessions.sessionEnd} IS NULL`);
+
+    const [chunkCountResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.worldChunks);
+
+    const [activeChunkResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.worldChunks)
+      .where(sql`${schema.worldChunks.playerCount} > 0`);
+
+    return {
+      playerCount: Number(playerCountResult.count),
+      activeSessionCount: Number(activeSessionResult.count),
+      chunkCount: Number(chunkCountResult.count),
+      activeChunkCount: Number(activeChunkResult.count),
+      totalActivityRecords: Number(chunkCountResult.count),
+    };
+  }
+
+  getDatabaseStats(): {
+    playerCount: number;
+    activeSessionCount: number;
+    chunkCount: number;
+    activeChunkCount: number;
+    totalActivityRecords: number;
+  } {
+    console.warn(
+      "[DatabaseSystem] getDatabaseStats called synchronously - use getDatabaseStatsAsync instead",
+    );
+    return {
+      playerCount: 0,
+      activeSessionCount: 0,
+      chunkCount: 0,
+      activeChunkCount: 0,
+      totalActivityRecords: 0,
+    };
+  }
+
+  // Helper method for blockchain integration
+  private mapItemIdToNumber(itemId: string): number | null {
+    // Map string item IDs to numeric IDs for blockchain contracts
+    // This is a simple implementation - could be extended with a lookup table
+    const itemMap: Record<string, number> = {
+      bronze_sword: 1,
+      steel_sword: 2,
+      mithril_sword: 3,
+      bronze_bow: 10,
+      oak_bow: 11,
+      willow_bow: 12,
+      arrows: 20,
+      logs: 30,
+      raw_fish: 40,
+      cooked_fish: 41,
+      // Add more mappings as needed
+    };
+    return itemMap[itemId] || null;
   }
 
   /**

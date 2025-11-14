@@ -107,8 +107,10 @@ interface ImportMetaEnv {
   readonly PUBLIC_API_URL?: string;
 }
 
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
+declare global {
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
 }
 
 installThreeJSExtensions();
@@ -144,8 +146,8 @@ function App() {
   // Pre-world WebSocket is handled inside CharacterSelectPage to avoid duplication
 
   React.useEffect(() => {
-    const token = playerTokenManager.getOrCreatePlayerToken("Player");
-    const session = playerTokenManager.startSession();
+    playerTokenManager.getOrCreatePlayerToken("Player");
+    playerTokenManager.startSession();
 
     return () => {
       playerTokenManager.endSession();
@@ -197,11 +199,6 @@ function App() {
       globalWindow.testChat = () => {
         const chat = world.getSystem("chat") as {
           send?: (msg: string) => void;
-        } | null;
-        const network = world.getSystem("network") as {
-          id?: string;
-          isClient?: boolean;
-          send?: unknown;
         } | null;
 
         const testMsg =

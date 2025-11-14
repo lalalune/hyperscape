@@ -22,6 +22,23 @@ type InventorySlotViewItem = Pick<
   "slot" | "itemId" | "quantity"
 >;
 
+// Economy integration components
+import { MintItemButton } from "../inventory/MintItemButton";
+import { ItemStatusBadge } from "../inventory/ItemStatusBadge";
+
+// Safe wagmi hook wrapper
+function useWalletAddress(): string | undefined {
+  try {
+    // Dynamic import to avoid errors if wagmi not configured
+    // eslint-disable-next-line no-undef
+    const { useAccount } = require("wagmi");
+    const { address } = useAccount();
+    return address;
+  } catch {
+    return undefined;
+  }
+}
+
 interface InventoryPanelProps {
   items: InventorySlotViewItem[];
   coins: number;
@@ -39,6 +56,7 @@ interface DraggableItemProps {
 const SLOTS_PER_PAGE = 24; // 3 rows × 8 cols on mobile, 4 rows × 6 cols on desktop
 
 function DraggableInventorySlot({ item, index }: DraggableItemProps) {
+  const address = useWalletAddress();
   const {
     attributes,
     listeners,
@@ -98,6 +116,12 @@ function DraggableInventorySlot({ item, index }: DraggableItemProps) {
     return itemId.substring(0, 2).toUpperCase();
   };
 
+  // Calculate instance ID for this item
+  const instanceId =
+    item && address
+      ? `0x${Buffer.from(`${address}${item.itemId}${index}hyperscape`).toString("hex").slice(0, 64).padEnd(64, "0")}`
+      : undefined;
+
   return (
     <button
       ref={setNodeRef}
@@ -126,6 +150,7 @@ function DraggableInventorySlot({ item, index }: DraggableItemProps) {
         window.dispatchEvent(evt);
       }}
       title={item ? `${item.itemId} (${item.quantity})` : "Empty slot"}
+      data-testid={`inventory-slot-${index}`}
       style={{
         ...style,
         borderColor: isEmpty
@@ -186,6 +211,28 @@ function DraggableInventorySlot({ item, index }: DraggableItemProps) {
               "radial-gradient(circle at center, rgba(242, 208, 138, 0.1) 0%, transparent 70%)",
           }}
         />
+      )}
+
+      {/* Economy features */}
+      {item && instanceId && (
+        <>
+          <div className="absolute top-0.5 left-0.5">
+            <ItemStatusBadge
+              instanceId={instanceId as `0x${string}`}
+              itemsContract={
+                (process.env.NEXT_PUBLIC_ITEMS_CONTRACT ||
+                  "0x5FbDB2315678afecb367f032d93F642f64180aa3") as `0x${string}`
+              }
+            />
+          </div>
+          <div className="absolute top-0.5 right-0.5">
+            <MintItemButton
+              itemId={parseInt(item.itemId, 16)}
+              amount={item.quantity}
+              slot={index}
+            />
+          </div>
+        </>
       )}
     </button>
   );
@@ -494,6 +541,7 @@ export function InventoryPanel({
               borderColor: "rgba(251, 191, 36, 0.4)",
               boxShadow: "0 1px 3px rgba(251, 191, 36, 0.2)",
             }}
+            data-testid="gold-display"
           >
             <div className="flex items-center gap-0.5 sm:gap-1">
               <span className="text-sm sm:text-base">💰</span>
@@ -510,6 +558,7 @@ export function InventoryPanel({
                 color: "#fbbf24",
                 textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
               }}
+              data-testid="gold-amount"
             >
               {coins.toLocaleString()}
             </span>

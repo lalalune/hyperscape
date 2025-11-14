@@ -22,6 +22,9 @@ import { MouseRightIcon } from "./MouseRightIcon";
 import { MouseWheelIcon } from "./MouseWheelIcon";
 import { Sidebar } from "./Sidebar";
 import { StatusBars } from "./StatusBars";
+import { DebugEconomyPanel } from "./debug/DebugEconomyPanel";
+import { isDebugMode } from "./debug/DebugAutoLogin";
+import { TradeRequestModal, TradeWindow } from "./PlayerTradeUI";
 
 // Type for icon components
 type IconComponent = React.ComponentType<{ size?: number | string }>;
@@ -30,14 +33,13 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const readyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [ready, setReady] = useState(false);
-  const [loadingComplete, setLoadingComplete] = useState(false);
-  // Track system and asset progress separately to gate presentation on assets
-  const [systemsComplete, setSystemsComplete] = useState(false);
-  const [assetsProgress, setAssetsProgress] = useState(0);
+  const [_loadingComplete, setLoadingComplete] = useState(false);
+  const [_systemsComplete, setSystemsComplete] = useState(false);
+  const [_assetsProgress, setAssetsProgress] = useState(0);
   // Presentation gating flags
   const [playerReady, setPlayerReady] = useState(() => !!world.entities.player);
-  const [physReady, setPhysReady] = useState(false);
-  const [terrainReady, setTerrainReady] = useState(false);
+  const [_physReady, setPhysReady] = useState(false);
+  const [_terrainReady, setTerrainReady] = useState(false);
   const [_player, setPlayer] = useState(() => world.entities.player);
   const [ui, setUI] = useState(world.ui?.state);
   const [_menu, setMenu] = useState(null);
@@ -52,6 +54,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   const [disconnected, setDisconnected] = useState(false);
   const [kicked, setKicked] = useState<string | null>(null);
   const [characterFlowActive, setCharacterFlowActive] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(isDebugMode());
   useEffect(() => {
     // Create handlers with proper types
     const handleReady = () => {
@@ -210,6 +213,17 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       world.prefs?.off("change", onChange);
     };
   }, []);
+
+  // F9 to toggle debug panel
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "F9") {
+        setShowDebugPanel((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, []);
   return (
     <ChatProvider>
       <div
@@ -223,7 +237,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         {ready && (
           <Sidebar world={world} ui={ui || { active: false, pane: null }} />
         )}
-        {ready && <Chat world={world as never} />}
+        {ready && <Chat world={world} />}
         {ready && <ActionProgressBar world={world} />}
         {avatar && (
           <AvatarPane key={avatar?.hash} world={world} info={avatar} />
@@ -239,6 +253,55 @@ export function CoreUI({ world }: { world: ClientWorld }) {
         {kicked && <KickedOverlay code={kicked} />}
         {ready && isTouch && <TouchBtns world={world} />}
         {ready && <EntityContextMenu world={world} />}
+        {ready && <TradeRequestModal world={world} />}
+        {ready && <TradeWindow world={world} />}
+        {ready && showDebugPanel && (
+          <DebugEconomyPanel
+            onSpawnItem={(itemId) => {
+              console.log(
+                "[CoreUI] Sending debug:spawn-item to server",
+                itemId,
+              );
+              if (world.network?.send) {
+                world.network.send("entityEvent", {
+                  id: "world",
+                  event: "debug:spawn-item",
+                  payload: { itemId },
+                });
+              }
+            }}
+            onTriggerDeath={() => {
+              console.log("[CoreUI] Sending debug:trigger-death to server");
+              if (world.network?.send) {
+                world.network.send("entityEvent", {
+                  id: "world",
+                  event: "debug:trigger-death",
+                  payload: {},
+                });
+              }
+            }}
+            onAddGold={(amount) => {
+              console.log("[CoreUI] Sending debug:add-gold to server", amount);
+              if (world.network?.send) {
+                world.network.send("entityEvent", {
+                  id: "world",
+                  event: "debug:add-gold",
+                  payload: { amount },
+                });
+              }
+            }}
+            onInitiateTrade={() => {
+              console.log("[CoreUI] Sending debug:initiate-trade to server");
+              if (world.network?.send) {
+                world.network.send("entityEvent", {
+                  id: "world",
+                  event: "debug:initiate-trade",
+                  payload: {},
+                });
+              }
+            }}
+          />
+        )}
         <div id="core-ui-portal" />
       </div>
     </ChatProvider>

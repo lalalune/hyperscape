@@ -40,7 +40,7 @@
  * - `PORT` - Server port (default: 5555)
  * - `DATABASE_URL` - PostgreSQL connection string (or use local Docker)
  * - `USE_LOCAL_POSTGRES` - Auto-start PostgreSQL via Docker (default: true in dev)
- * - `PUBLIC_CDN_URL` - Asset CDN base URL (default: http://localhost:8080)
+ * - `PUBLIC_CDN_URL` - Asset CDN base URL (default: http://localhost:8088)
  * - `PRIVY_APP_ID`, `PRIVY_APP_SECRET` - Privy authentication credentials
  * - `ADMIN_CODE` - Server admin password (optional)
  * - `JWT_SECRET` - JWT signing secret (generated if not set)
@@ -120,6 +120,8 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import statics from "@fastify/static";
 import fastifyWebSocket from "@fastify/websocket";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUI from "@fastify/swagger-ui";
 import dotenv from "dotenv";
 import Fastify, {
   type FastifyInstance,
@@ -131,9 +133,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createServerWorld } from "@hyperscape/shared";
 import { installThreeJSExtensions } from "@hyperscape/shared";
-import type pg from "pg";
 
 import { hashFile } from "./utils.js";
+import { initializeBlockchainIntegration } from "./blockchain/index.js";
 
 // Load environment variables from multiple possible locations
 dotenv.config({ path: ".env" });
@@ -147,6 +149,9 @@ import { NodeStorage as Storage } from "@hyperscape/shared";
 import { ServerNetwork } from "./ServerNetwork.js";
 import { DatabaseSystem } from "./DatabaseSystem.js";
 import type { NodeWebSocket } from "./types.js";
+import { A2AServer } from "./a2a/server.js";
+import { autoRegisterToRegistry } from "./a2a/registry.js";
+import { mintItemEndpoint, claimGoldEndpoint } from "./api/nft-endpoints.js";
 
 // JSON value type for proper typing
 type JSONValue =
@@ -167,7 +172,6 @@ interface ActionRouteGenericInterface {
 
 // Global instances for cleanup
 let dockerManager: DockerManager | undefined;
-let globalPgPool: pg.Pool | undefined;
 
 /**
  * Starts the Hyperscape server
@@ -214,8 +218,10 @@ async function startServer() {
     if (!isPostgresRunning) {
       await dockerManager.startPostgres();
     } else {
+      // Postgres container already running
     }
   } else {
+    // Using external database from DATABASE_URL
   }
 
   // Set default values for required environment variables
@@ -269,9 +275,6 @@ async function startServer() {
   const { db: drizzleDb, pool: pgPool } =
     await initializeDatabase(connectionString);
 
-  // Store pool globally for cleanup
-  globalPgPool = pgPool;
-
   // Create adapter for systems that need the old database interface
   const { createDrizzleAdapter } = await import("./db/drizzle-adapter.js");
   // Cast drizzleDb to the proper schema type since initializeDatabase returns a union type
@@ -287,12 +290,14 @@ async function startServer() {
   const world = await createServerWorld();
 
   // Register server-specific systems (they have dependencies on server package modules)
+  // IMPORTANT: Register BlockchainGateway BEFORE network so network can use it in init()
+  const { BlockchainGateway } = await import("./BlockchainGateway.js");
   const { DatabaseSystem: ServerDatabaseSystem } = await import(
     "./DatabaseSystem.js"
   );
-  const { KillTrackerSystem } = await import("./KillTrackerSystem.js");
+
+  world.register("blockchain-gateway", BlockchainGateway);
   world.register("database", ServerDatabaseSystem);
-  world.register("kill-tracker", KillTrackerSystem);
   world.register("network", ServerNetwork);
 
   // Make PostgreSQL pool and Drizzle DB available for DatabaseSystem to use
@@ -305,9 +310,9 @@ async function startServer() {
   };
 
   // Configure assets URL before world.init()
-  // Point to CDN root (localhost:8080 in dev, R2/S3 in prod)
+  // Point to CDN root (localhost:8088 in dev, R2/S3 in prod)
   // CDN serves from /assets directory mounted at nginx root, so paths are like /music/, /models/, /world/
-  const cdnUrl = process.env["PUBLIC_CDN_URL"] || "http://localhost:8080";
+  const cdnUrl = process.env["PUBLIC_CDN_URL"] || "http://localhost:8088";
   const assetsUrl = `${cdnUrl}/`;
 
   // Initialize world
@@ -327,6 +332,9 @@ async function startServer() {
 
   // Note: world.start() is called automatically by world.init()
   // Don't call it again here or systems will initialize twice
+
+  // Initialize blockchain integration (if enabled)
+  initializeBlockchainIntegration(world);
 
   // Entities spawn automatically from world.json if present
   await loadWorldEntities();
@@ -380,55 +388,79 @@ async function startServer() {
     methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
   });
 
-  // Temporarily disable compression to debug "premature close" errors
-  // TODO: Re-enable compression after fixing the issue
-  /*
-  try {
-    await fastify.register(compress, {
-      global: true,
-      // Exclude specific content types that shouldn't be compressed
-      encodings: ['gzip', 'deflate'],
-      customTypes: /^text\/|^application\/(json|javascript|xml)/
-    })
-  } catch (error) {
-    console.error('[Server] Error registering compress:', error)
-    // Continue without compression rather than failing startup
-  }
-  */
+  // Register Swagger plugin
+  await fastify.register(fastifySwagger, {
+    openapi: {
+      openapi: "3.0.3",
+      info: {
+        title: "Hyperscape Server API",
+        description:
+          "API for Hyperscape 3D multiplayer game engine with AI agents, WebSocket gameplay, and asset management",
+        version: "0.13.0",
+      },
+      servers: [
+        {
+          url: `http://localhost:${PORT}`,
+          description: "Hyperscape server",
+        },
+      ],
+      tags: [
+        { name: "health", description: "Health and status endpoints" },
+        { name: "actions", description: "Game action endpoints" },
+        { name: "assets", description: "Asset management endpoints" },
+        { name: "a2a", description: "Agent-to-Agent protocol endpoints" },
+      ],
+      components: {
+        schemas: {
+          Action: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              description: { type: "string" },
+              parameters: { type: "object" },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  await fastify.register(fastifySwaggerUI, {
+    routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: true,
+    },
+    staticCSP: true,
+    transformStaticCSP: (header: string) => header,
+  });
+
+  // Compression disabled - not needed for local development and causes issues with some clients
   // Serve index.html for root path (SPA routing)
+  const simpleHtml =
+    "<!DOCTYPE html><html><head><title>Hyperscape Server</title></head><body><h1>Hyperscape Server Running</h1></body></html>";
+
   fastify.get("/", async (_req: FastifyRequest, reply: FastifyReply) => {
-    const filePath = path.join(__dirname, "public", "index.html");
-
-    fastify.log.info({ filePath }, "[Server] Serving index.html");
-
-    const html = await fs.promises.readFile(filePath, "utf-8");
-    fastify.log.info({ length: html.length }, "[Server] HTML content length");
-
     return reply
+      .code(200)
       .type("text/html; charset=utf-8")
       .header("Cache-Control", "no-cache, no-store, must-revalidate")
       .header("Pragma", "no-cache")
       .header("Expires", "0")
-      .send(html);
+      .send(simpleHtml);
   });
 
   // Also handle /index.html explicitly
   fastify.get(
     "/index.html",
     async (_req: FastifyRequest, reply: FastifyReply) => {
-      const filePath = path.join(__dirname, "public", "index.html");
-
-      fastify.log.info({ filePath }, "[Server] Serving index.html");
-
-      const html = await fs.promises.readFile(filePath, "utf-8");
-      fastify.log.info({ length: html.length }, "[Server] HTML content length");
-
       return reply
+        .code(200)
         .type("text/html; charset=utf-8")
         .header("Cache-Control", "no-cache, no-store, must-revalidate")
         .header("Pragma", "no-cache")
         .header("Expires", "0")
-        .send(html);
+        .send(simpleHtml);
     },
   );
 
@@ -536,7 +568,7 @@ async function startServer() {
 
       for (const pubRoot of pubCandidates) {
         const altPath = path.join(pubRoot, "music", category, filename);
-        // eslint-disable-next-line no-await-in-loop
+
         const altExists = await fs.pathExists(altPath);
         fastify.log.info(
           `[Music Route] Trying alternate path: ${altPath} exists=${altExists}`,
@@ -549,17 +581,15 @@ async function startServer() {
         }
       }
 
-      return reply
-        .code(404)
-        .send({
-          error: "Music file not found",
-          tried: [
-            primaryPath,
-            ...pubCandidates.map((r) =>
-              path.join(r, "music", category, filename),
-            ),
-          ],
-        });
+      return reply.code(404).send({
+        error: "Music file not found",
+        tried: [
+          primaryPath,
+          ...pubCandidates.map((r) =>
+            path.join(r, "music", category, filename),
+          ),
+        ],
+      });
     },
   );
   fastify.log.info(`[Server] ✅ Registered manual music route`);
@@ -678,8 +708,10 @@ async function startServer() {
   // Log authentication status
   if (publicEnvs.PUBLIC_PRIVY_APP_ID) {
     if (publicEnvs.PUBLIC_ENABLE_FARCASTER === "true") {
+      // Farcaster authentication enabled
     }
   } else {
+    // Using anonymous authentication
   }
 
   // Expose plugin paths to client for systems loading
@@ -852,13 +884,51 @@ async function startServer() {
     return reply.send({ success: true, logged: true });
   });
 
+  // NFT Economy API endpoints
+  fastify.post("/api/mint-item", mintItemEndpoint);
+  fastify.post("/api/claim-gold", claimGoldEndpoint);
+
   fastify.setErrorHandler((err, _req, reply) => {
     fastify.log.error(err);
     reply.status(500).send();
   });
 
+  // Initialize A2A Server for agent discovery
+  const SERVER_URL =
+    process.env.SERVER_URL ||
+    process.env.PUBLIC_WS_URL?.replace("/ws", "")
+      .replace("wss://", "https://")
+      .replace("ws://", "http://") ||
+    `http://localhost:${PORT}`;
+  const a2aServer = new A2AServer(world, SERVER_URL);
+  await a2aServer.registerRoutes(fastify);
+  fastify.log.info(
+    `[A2A] Agent Card available at ${SERVER_URL}/.well-known/agent-card.json`,
+  );
+
   await fastify.listen({ port: PORT, host: "0.0.0.0" });
   fastify.log.info(`[Server] Server listening on http://0.0.0.0:${PORT}`);
+
+  // Always try to register to ERC-8004 (smart detection: Jeju → Anvil → graceful skip)
+  autoRegisterToRegistry(SERVER_URL, "Hyperscape RPG")
+    .then((result) => {
+      if (result.registered) {
+        fastify.log.info(
+          `[ERC-8004] ✅ Registered as Agent #${result.agentId}`,
+        );
+      } else if (result.error && !result.error.includes("not configured")) {
+        fastify.log.warn(`[ERC-8004] Registration skipped: ${result.error}`);
+      }
+    })
+    .catch((error) => {
+      // Silent fallback - game works without blockchain
+      if (!error.message?.includes("not configured")) {
+        fastify.log.debug(
+          "[ERC-8004] Registration unavailable:",
+          error.message,
+        );
+      }
+    });
 
   // Track if we're shutting down
   let isShuttingDown = false;
@@ -905,7 +975,6 @@ async function startServer() {
       // reusing closed connections on hot reload
       const { closeDatabase } = await import("./db/client.js");
       await closeDatabase();
-      globalPgPool = undefined;
     } catch (err) {
       console.error("[Server] Error closing database:", err);
     }
@@ -957,6 +1026,7 @@ async function startServer() {
 
   // Log that hot reload is supported
   if (process.env.NODE_ENV === "development") {
+    // Hot reload supported via SIGUSR2 signal
   }
 }
 

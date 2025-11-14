@@ -123,6 +123,7 @@ export async function createServerWorld(): Promise<World> {
   if (enableBots) {
     world.register("server-bot", ServerBot);
   } else {
+    // Bots disabled via DISABLE_BOTS env var
   }
 
   return world;

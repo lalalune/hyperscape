@@ -11,6 +11,20 @@ The server has been successfully migrated to PostgreSQL and is production-ready 
 - Complete persistence layer (inventory, equipment, skills, position)
 - Real-time multiplayer via WebSocket
 - 15 registered game actions
+- **Player-to-player trading system** with full server-authoritative validation
+- **Verified multiplayer visibility** - All players see each other on join
+- **Complete character selection flow** - Character list updates after creation
+
+### Recent Fixes (October 25, 2025)
+1. **Multiplayer Visibility**: Fixed snapshot to include all entities (players see each other immediately)
+2. **Character Selection**: Character list always loads and updates after character creation  
+3. **Enter World**: New players receive all existing entities when entering world
+4. **Auto-Spawn**: Fixed foreign key constraint by creating character in DB before spawning
+5. **Trading System**: Fully tested with 7/7 integration tests passing
+6. **Right-Click Trade**: Fixed VRM avatar userData so players can right-click others to trade
+7. **Wallet Support**: Added Rabby wallet and WalletConnect to Privy login options
+
+**Technical Detail - Right-Click Fix**: Player avatars use VRM models that are added directly to the scene. The raycaster was hitting the VRM but couldn't identify it as a player entity because `userData.entityId` wasn't set on the VRM scene object. Fixed by setting userData on `vrmInstance.raw.scene` and all its children after avatar mount in both PlayerLocal and PlayerRemote.
 
 See `FIXES-COMPLETE.md` for detailed migration changelog.
 
@@ -18,6 +32,7 @@ See `FIXES-COMPLETE.md` for detailed migration changelog.
 
 - **PostgreSQL Database** - Full persistence with automatic migrations
 - **WebSocket Support** - Real-time multiplayer via Fastify WebSockets
+- **Trading System** - Player-to-player trading with server-authoritative validation
 - **Docker Integration** - Automatic local PostgreSQL via Docker (optional)
 - **Asset Serving** - Efficient static asset delivery
 - **Character System** - Multi-character support per account
@@ -64,7 +79,7 @@ USE_LOCAL_POSTGRES=false
 bun run dev
 ```
 This automatically starts:
-- CDN Server (nginx on port 8080) - via Docker
+- CDN Server (nginx on port 8088) - via Docker
 - Game Server (Fastify on port 5555)
 - Client (Vite on port 3333)
 - 3D Asset Forge API (port 3001) & UI (port 3003)
@@ -82,8 +97,8 @@ The development script automatically manages a local CDN server via Docker:
 **Automatic Management:**
 - Starts when you run `bun run dev`
 - Stops when you exit the dev server (Ctrl+C)
-- Serves game assets from `../../assets/` on port 8080
-- Health check at `http://localhost:8080/health`
+- Serves game assets from `../../assets/` on port 8088
+- Health check at `http://localhost:8088/health`
 
 **Manual CDN Management:**
 ```bash
@@ -105,7 +120,7 @@ bun run cdn:verify
 - If Docker is not available, the dev script will skip CDN startup and warn you
 
 **Asset Access:**
-- All assets served directly from CDN: `http://localhost:8080/assets/world/music/normal/1.mp3`
+- All assets served directly from CDN: `http://localhost:8088/assets/world/music/normal/1.mp3`
 - No proxying - client fetches directly from CDN
 
 ## Database
@@ -239,7 +254,7 @@ DATABASE_URL=postgresql://user:pass@host:5432/dbname
 ### Assets
 
 ```env
-PUBLIC_CDN_URL=http://localhost:8080    # CDN URL for static assets
+PUBLIC_CDN_URL=http://localhost:8088    # CDN URL for static assets
 PUBLIC_WS_URL=ws://localhost:5555/ws # WebSocket URL
 ```
 

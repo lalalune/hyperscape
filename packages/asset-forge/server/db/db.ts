@@ -3,18 +3,19 @@
  * PostgreSQL connection using Bun-optimized postgres library and Drizzle ORM
  */
 
+import "dotenv/config";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { schema } from "./schema";
 
-// Validate required environment variable
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is required");
-}
+// Use DATABASE_URL from environment or default to local dev database
+const DATABASE_URL =
+  process.env.DATABASE_URL ||
+  "postgresql://hyperscape:hyperscape_dev@localhost:5432/asset_forge_dev";
 
 // Create postgres client (optimized for Bun)
 // Using connection pool with sensible defaults
-export const queryClient = postgres(process.env.DATABASE_URL, {
+export const queryClient = postgres(DATABASE_URL, {
   max: 20, // Maximum number of connections
   idle_timeout: 20, // Close idle connections after 20 seconds
   connect_timeout: 10, // Fail after 10 seconds if can't connect

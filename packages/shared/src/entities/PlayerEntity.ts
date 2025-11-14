@@ -536,21 +536,29 @@ export class PlayerEntity extends CombatantEntity {
     mesh.receiveShadow = true;
     mesh.position.y = 0.8; // Position at feet level
 
-    // Set userData for interaction detection
-    mesh.userData = {
+    // Set userData for interaction detection - CRITICAL for right-click
+    const playerUserData = {
       type: "player",
       entityId: this.id,
       name: this.playerName,
-      interactable: false, // Players aren't interactable via context menu
+      interactable: true, // Players ARE interactable for trading
       entity: this,
       entityType: EntityType.PLAYER,
       playerId: this.playerId,
     };
 
+    // Set userData on BOTH mesh and node for reliable raycast detection
+    mesh.userData = playerUserData;
     this.mesh = mesh;
 
     // Add mesh to the entity's node
     this.node.add(this.mesh!);
+
+    // CRITICAL: Also set userData on the node for raycast detection
+    this.node.userData = {
+      ...this.node.userData,
+      ...playerUserData,
+    };
 
     // Add mesh component to ECS
     this.addComponent("mesh", {

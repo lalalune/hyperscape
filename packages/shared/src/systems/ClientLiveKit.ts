@@ -80,7 +80,6 @@ export class ClientLiveKit extends System {
     }
     const { token, wsUrl } = opts;
     this.status.available = true;
-    // TODO: check if the token has expired
     this.room = new Room({
       audioCaptureDefaults: {
         autoGainControl: true,
