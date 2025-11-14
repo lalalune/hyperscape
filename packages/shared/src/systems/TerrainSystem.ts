@@ -518,7 +518,7 @@ export class TerrainSystem extends System {
     // Load jungle tree model (medium variant - most common)
     try {
       const treeModel = await loadModelFromNodes(
-        "asset://vegetation/jungle-trees/jungle_tree_1_variant_texta.glb",
+        "asset://vegetation/jungle-trees/jungle_tree_1.glb",
       );
       if (treeModel) {
         const extracted = extractGeometryAndMaterial(treeModel);
@@ -614,7 +614,7 @@ export class TerrainSystem extends System {
     // Register herb/bush mesh
     try {
       const bushModel = await loadModelFromNodes(
-        "asset://vegetation/bushes/bush_1_dream.glb",
+        "asset://vegetation/bushes/bush_1.glb",
       );
       if (bushModel) {
         const extracted = extractGeometryAndMaterial(bushModel);
