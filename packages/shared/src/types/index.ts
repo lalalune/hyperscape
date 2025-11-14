@@ -92,6 +92,12 @@ export { EquipmentSlotName } from "./core";
 // Re-export other types (using specific exports to avoid circular dependencies)
 export * from "./database";
 export * from "./entities";
+export * from "./network-types";
+export * from "./window-types";
+export * from "./system-types";
+export * from "./inventory-types";
+// Export event-handler-types last to avoid conflicts with events.ts
+// export * from "./event-handler-types";
 // Explicitly export enums from entities that are commonly used
 export {
   EntityType,
@@ -1232,7 +1238,7 @@ export interface GLBData {
           humanBones?: Record<string, { node?: THREE.Object3D }>;
         };
         update?: (delta: number) => void;
-        clone?: () => any; // Returns a cloned VRMHumanoid instance
+        clone?: () => { [key: string]: unknown }; // Returns a cloned VRMHumanoid instance
       };
       meta?: {
         metaVersion?: string;

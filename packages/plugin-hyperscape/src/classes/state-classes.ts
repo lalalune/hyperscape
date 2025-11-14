@@ -5,7 +5,7 @@
  * Converted from interfaces to classes with encapsulation and methods
  */
 
-import type { Position } from "@hyperscape/shared";
+import type { Position3D as Position } from "@hyperscape/shared";
 
 /**
  * RPGPlayerStats - Player attribute statistics

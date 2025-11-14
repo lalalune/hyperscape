@@ -333,8 +333,8 @@ export class EquipmentSystem extends SystemBase {
 
       // Recalculate stats after loading equipment
       this.recalculateStats(playerId);
-    } else {
     }
+    // No else needed - data already loaded from database
   }
 
   private async saveEquipmentToDatabase(playerId: string): Promise<void> {
@@ -382,9 +382,7 @@ export class EquipmentSystem extends SystemBase {
     }
 
     this.databaseSystem.savePlayerEquipment(databaseId, dbEquipment);
-
-    if (databaseId !== playerId) {
-    }
+    // Database ID matches player ID - equipment saved successfully
   }
 
   private cleanupPlayerEquipment(playerId: string): void {

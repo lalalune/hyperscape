@@ -50,7 +50,7 @@ export const chopTreeAction: Action = {
     }
 
     // Check for nearby trees
-    const resourceSystem = world?.getSystem?.("resource") as
+    const resourceSystem = world?.getSystem?.("resource") as unknown as
       | ResourceSystem
       | undefined;
     const allResources = resourceSystem?.getAllResources?.() || [];

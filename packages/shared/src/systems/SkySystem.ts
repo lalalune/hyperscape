@@ -498,7 +498,7 @@ const skyFragmentShader = `
   }
 `;
 
-const cloudVertexShader = `\   
+const cloudVertexShader = `
   attribute float textureNumber;
   attribute float distortionSpeed;
   attribute float distortionRange;

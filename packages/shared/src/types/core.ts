@@ -139,6 +139,9 @@ export interface PlayerInventory {
   playerId: string;
   items: InventorySlotItem[];
   coins: number;
+  claimedCoins?: number; // Minted as HyperscapeGold ERC-20 tokens
+  unclaimedCoins?: number; // Not yet minted, available to claim
+  lastClaimTime?: number; // Timestamp of last claim
 }
 
 // Removed type alias - use InventoryItem directly
@@ -156,6 +159,7 @@ export enum EquipmentSlotName {
   AMULET = "amulet",
   RING = "ring",
   ARROWS = "arrows",
+  "2h" = "2h",
 }
 
 // Type alias for equipment slot values - use this for type safety
@@ -420,12 +424,13 @@ export interface Item {
   weight: number; // Item weight
 
   // Equipment properties
-  equipSlot: EquipmentSlotName | "2h" | null; // Equipment slot (weapon, shield, helmet, etc.) or '2h' for two-handed
+  equipSlot: EquipmentSlotName | null; // Equipment slot (weapon, shield, helmet, etc.)
   weaponType: WeaponType | null; // Type of weapon (if applicable)
   equipable: boolean; // Can be equipped
   attackType: AttackType | null; // Type of attack (melee, ranged, magic)
   attackSpeed?: number; // Attack speed in milliseconds (for weapons)
-  is2h?: boolean; // Explicit flag for 2-handed weapons (alternative to equipSlot: '2h')
+  twoHanded?: boolean; // Whether weapon requires both hands (conflicts with shield)
+  is2h?: boolean;
 
   // Item properties
   description: string; // Item description
@@ -1703,6 +1708,8 @@ export interface PlayerInventoryState {
   playerId: string;
   items: InventoryItem[];
   coins: number;
+  claimedCoins?: number;
+  unclaimedCoins?: number;
 }
 
 export interface InventoryDataState {
@@ -1779,6 +1786,7 @@ export interface InteractionSystem extends System {
 // ============== WORLD STRUCTURE INTERFACES ==============
 
 export interface BiomeData {
+  [key: string]: unknown;
   id: string;
   name: string;
   description: string;

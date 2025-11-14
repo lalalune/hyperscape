@@ -10,6 +10,7 @@
  */
 
 import * as THREE from "three";
+
 import { AutoSkinSolver } from "./AutoSkinSolver";
 
 export class DistanceChildTargetingSolver extends AutoSkinSolver {
@@ -71,7 +72,7 @@ export class DistanceChildTargetingSolver extends AutoSkinSolver {
   private reassignToParentBones(
     assignments: number[],
     skinIndices: number[],
-    skinWeights: number[],
+    _skinWeights: number[],
   ): void {
     const vertexCount = this.getVertexCount();
 

@@ -267,15 +267,12 @@ export function DraggableWindow({
     }
   };
 
-  const handleWindowClick = useCallback(
-    (e: React.MouseEvent) => {
-      // Bring window to front when clicked
-      if (onFocus) {
-        onFocus();
-      }
-    },
-    [onFocus],
-  );
+  const handleWindowClick = useCallback(() => {
+    // Bring window to front when clicked
+    if (onFocus) {
+      onFocus();
+    }
+  }, [onFocus]);
 
   return (
     <div

@@ -83,12 +83,7 @@ import { EventType } from "../types/events";
 import type { World } from "../World";
 import { CombatantEntity, type CombatantConfig } from "./CombatantEntity";
 import { modelCache } from "../utils/ModelCache";
-import type { EntityManager } from "../systems/EntityManager";
-import type {
-  VRMAvatarInstance,
-  LoadedAvatar,
-  AvatarHooks,
-} from "../types/nodes";
+import type { VRMAvatarInstance, LoadedAvatar } from "../types/nodes";
 import { Emotes } from "../extras/playerEmotes";
 import { DeathStateManager } from "./components/DeathStateManager";
 import { CombatStateManager } from "./components/CombatStateManager";
@@ -162,14 +157,7 @@ export class MobEntity extends CombatantEntity {
 
   async init(): Promise<void> {
     await super.init();
-
-    // Register for update loop (both client and server)
-    // Client: VRM animations via clientUpdate()
-    // Server: AI behavior via serverUpdate()
-    this.world.setHot(this, true);
-
-    // TODO: Server-side validation disabled due to ProgressEvent polyfill issues
-    // Validation happens on client side instead (see clientUpdate)
+    // Entity init handles mesh creation, visuals, and interaction setup
   }
 
   constructor(world: World, config: MobEntityConfig) {
@@ -276,6 +264,7 @@ export class MobEntity extends CombatantEntity {
     // Set entity properties for systems to access
     this.setProperty("mobType", config.mobType);
     this.setProperty("level", config.level);
+    this.setProperty("attackPower", config.attackPower);
     this.setProperty("health", {
       current: config.currentHealth,
       max: config.maxHealth,
@@ -546,7 +535,7 @@ export class MobEntity extends CombatantEntity {
           animationClips[name as "walk" | "run"] = clip;
           if (name === "walk") animationClips.idle = clip; // Use walk as idle
         }
-      } catch (err) {
+      } catch {
         // Animation file not found - skip
       }
     }
@@ -868,7 +857,9 @@ export class MobEntity extends CombatantEntity {
     this.combatManager.exitCombat();
 
     // Clear any combat state in CombatSystem
-    const combatSystem = this.world.getSystem("combat") as any;
+    const combatSystem = this.world.getSystem("combat") as {
+      forceEndCombat?: (entityId: string) => void;
+    } | null;
     if (combatSystem && typeof combatSystem.forceEndCombat === "function") {
       combatSystem.forceEndCombat(this.id);
     }
@@ -1169,7 +1160,7 @@ export class MobEntity extends CombatantEntity {
               this.node.position.y = terrainHeight + 0.1;
               this.position.y = terrainHeight + 0.1;
             }
-          } catch (err) {
+          } catch {
             // Terrain tile not generated yet - keep current Y and retry next frame
             if (this.clientUpdateCalls === 10 && !this._hasValidTerrainHeight) {
               console.warn(
@@ -1226,7 +1217,7 @@ export class MobEntity extends CombatantEntity {
               this.node.updateMatrixWorld(true);
               this._avatarInstance.move(this.node.matrixWorld);
             }
-          } catch (err) {
+          } catch {
             // Terrain tile not generated yet
           }
         }
@@ -1390,7 +1381,9 @@ export class MobEntity extends CombatantEntity {
     this.setHealth(0);
 
     // End combat
-    const combatSystem = this.world.getSystem("combat") as any;
+    const combatSystem = this.world.getSystem("combat") as {
+      forceEndCombat?: (entityId: string) => void;
+    } | null;
     if (combatSystem && typeof combatSystem.forceEndCombat === "function") {
       combatSystem.forceEndCombat(this.id);
     }
@@ -1420,7 +1413,8 @@ export class MobEntity extends CombatantEntity {
         attackStyle: "aggressive",
       });
 
-      this.dropLoot(lastAttackerId);
+      // CRITICAL FIX: Don't drop loot here - LootSystem handles it via NPC_DIED event
+      // this.dropLoot(lastAttackerId);
     } else {
       console.warn(`[MobEntity] ${this.id} died but no lastAttackerId found`);
     }
@@ -1475,7 +1469,7 @@ export class MobEntity extends CombatantEntity {
       direction.z /= length;
 
       const moveDistance = this.config.moveSpeed * deltaTime;
-      let newPos = {
+      const newPos = {
         x: currentPos.x + direction.x * moveDistance,
         y: currentPos.y,
         z: currentPos.z + direction.z * moveDistance,
@@ -1594,6 +1588,31 @@ export class MobEntity extends CombatantEntity {
         | "return"
         | "dead") || "idle"
     );
+  }
+
+  // CRITICAL FIX: Override health methods to use mob's own health data
+  override getHealth(): number {
+    return this.config.currentHealth;
+  }
+
+  override getMaxHealth(): number {
+    return this.config.maxHealth;
+  }
+
+  override isDead(): boolean {
+    return (
+      this.config.currentHealth <= 0 || this.config.aiState === MobAIState.DEAD
+    );
+  }
+
+  // CRITICAL FIX: Override setHealth to sync with mob config
+  override setHealth(newHealth: number): void {
+    this.config.currentHealth = Math.max(
+      0,
+      Math.min(newHealth, this.config.maxHealth),
+    );
+    // Also update base health for compatibility
+    super.setHealth(this.config.currentHealth);
   }
 
   // Get mob data for systems
@@ -1757,7 +1776,8 @@ export class MobEntity extends CombatantEntity {
         this.deathManager.reset();
 
         // Mark that we need to restore visibility AFTER position update
-        (this as any)._pendingRespawnRestore = true;
+        (this as { _pendingRespawnRestore?: boolean })._pendingRespawnRestore =
+          true;
       }
 
       this.config.aiState = newState;
@@ -1828,8 +1848,9 @@ export class MobEntity extends CombatantEntity {
 
     // CRITICAL: Restore visibility AFTER position has been updated from server
     // This ensures VRM is moved to the correct spawn location, not death location
-    if ((this as any)._pendingRespawnRestore) {
-      (this as any)._pendingRespawnRestore = false;
+    if ((this as { _pendingRespawnRestore?: boolean })._pendingRespawnRestore) {
+      (this as { _pendingRespawnRestore?: boolean })._pendingRespawnRestore =
+        false;
 
       // CRITICAL: Update client's _currentSpawnPoint to match new position from server
       // This ensures client and server are in sync (defense in depth)

@@ -45,6 +45,8 @@ A comprehensive React/Vite application for AI-powered 3D asset generation, riggi
 ### Prerequisites
 - Node.js 18+ or Bun runtime
 - API keys for OpenAI and Meshy.ai
+- PostgreSQL database (or use existing hyperscape-postgres container)
+- Docker (if using containerized database)
 
 ### Installation
 
@@ -59,15 +61,41 @@ cd packages/generation
 bun install
 ```
 
-3. Create a `.env` file from the example
+3. Set up the database
+
+If using the existing hyperscape-postgres container:
+```bash
+# Create the database
+docker exec hyperscape-postgres psql -U hyperscape -c "CREATE DATABASE asset_forge_dev;"
+
+# Run migrations
+bun run db:push
+```
+
+Or start a new PostgreSQL instance:
+```bash
+docker run -d \
+  --name asset-forge-postgres \
+  -e POSTGRES_USER=hyperscape \
+  -e POSTGRES_PASSWORD=hyperscape_dev \
+  -e POSTGRES_DB=asset_forge_dev \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+4. Create a `.env` file from the example
 ```bash
 cp env.example .env
 ```
 
-4. Add your API keys to `.env`
+5. Add your API keys and database connection to `.env`
 ```
+# API Keys
 VITE_OPENAI_API_KEY=your-openai-api-key
 VITE_MESHY_API_KEY=your-meshy-api-key
+
+# Database (defaults to hyperscape-postgres container)
+DATABASE_URL=postgresql://hyperscape:hyperscape_dev@localhost:5432/asset_forge_dev
 ```
 
 ### Running the Application

@@ -44,8 +44,8 @@ interface AvatarInfo {
   stats: Record<string, { value: number | number[]; rank: number }>;
 }
 
-const MAX_UPLOAD_SIZE = 1000000000000; // TODO
-const MAX_UPLOAD_SIZE_LABEL = "1LOLS";
+const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_UPLOAD_SIZE_LABEL = "100MB";
 
 const FOV = 70;
 const PLANE_ASPECT_RATIO = 16 / 9;
@@ -116,11 +116,11 @@ export class AvatarPreview {
     this.sun = new THREE.DirectionalLight(0xffffff, 3);
     this.sun.position.fromArray([200, 400, 200]);
     this.sun.target.position.copy(this.camera.position);
-    this.scene.add(this.sun as never);
-    this.scene.add(this.sun.target as never);
+    this.scene.add(this.sun);
+    this.scene.add(this.sun.target);
     this.rig = new THREE.Object3D();
     this.rig.rotation.y = 180 * DEG2RAD;
-    this.scene.add(this.rig as never);
+    this.scene.add(this.rig);
 
     // Initialize renderer asynchronously
     this.initPromise = this.initRenderer();

@@ -145,17 +145,44 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // Position and rotation are now handled by Entity base class
     // Use entity's position/rotation properties instead of data
 
+    // CRITICAL: Set userData for right-click interaction detection
+    const playerUserData = {
+      type: "player",
+      entityId: this.id,
+      name: this.data.name || "Player",
+      interactable: true,
+      entity: this,
+      playerId: this.id,
+    };
+
+    // Set userData on the base group node (cast to THREE.Object3D to access userData)
+    const baseObj = this.base as unknown as THREE.Object3D;
+    if (baseObj.userData) {
+      Object.assign(baseObj.userData, playerUserData);
+    }
+
     this.body = createNode("rigidbody", { type: "kinematic" }) as Mesh;
     this.body.active = (this.data.effect as PlayerEffect)?.anchorId
       ? false
       : true;
+    // Set userData on body for raycast detection (cast to THREE.Object3D)
+    const bodyObj = this.body as unknown as THREE.Object3D;
+    if (bodyObj.userData) {
+      Object.assign(bodyObj.userData, playerUserData);
+    }
     this.base.add(this.body);
+
     this.collider = createNode("collider", {
       type: "geometry",
       convex: true,
       geometry: capsuleGeometry,
       layer: "player",
     }) as Mesh;
+    // Set userData on collider for raycast detection (cast to THREE.Object3D)
+    const colliderObj = this.collider as unknown as THREE.Object3D;
+    if (colliderObj.userData) {
+      Object.assign(colliderObj.userData, playerUserData);
+    }
     this.body.add(this.collider);
 
     // this.caps = createNode('mesh', {
@@ -244,7 +271,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
       this.avatar.deactivate();
       // If avatar has an instance, destroy it to clean up VRM scene
       const avatarWithInstance = this.avatar as AvatarWithInstance;
-      avatarWithInstance.instance!.destroy();
+      if (avatarWithInstance.instance && avatarWithInstance.instance.destroy) {
+        avatarWithInstance.instance.destroy();
+      }
     }
 
     // Note: VRM hooks will be set on the avatar node before mounting
@@ -296,8 +325,73 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // The avatar instance will be managed by the VRM factory
     // Don't add anything to base - the VRM scene is added to world.stage.scene
 
-    // Disable distance-based LOD throttling for smooth animations
+    // CRITICAL: Set userData on the VRM model for right-click detection
+    // The VRM is added to world.stage.scene, so raycasts hit it directly
     const avatarWithInstance = nodeToUse as unknown as AvatarWithInstance;
+    console.log(
+      `[PlayerRemote] 🔍 Checking VRM instance for player ${this.id}:`,
+      {
+        hasInstance: !!avatarWithInstance.instance,
+        hasRaw: !!(avatarWithInstance.instance as { raw?: unknown })?.raw,
+        hasScene: !!(
+          avatarWithInstance.instance as { raw?: { scene?: unknown } }
+        )?.raw?.scene,
+      },
+    );
+
+    if (
+      (avatarWithInstance.instance as { raw?: { scene?: THREE.Object3D } })?.raw
+        ?.scene
+    ) {
+      const vrmScene = (
+        avatarWithInstance.instance as unknown as {
+          raw: { scene: THREE.Object3D };
+        }
+      ).raw.scene;
+
+      const userData = {
+        type: "player",
+        entityId: this.id,
+        name: this.data.name || "Player",
+        interactable: true,
+        entity: this,
+        playerId: this.id,
+      };
+
+      console.log(
+        `[PlayerRemote] 📝 Setting userData on VRM scene root for player ${this.id}`,
+      );
+      vrmScene.userData = { ...userData };
+
+      // CRITICAL: Set userData on ALL VRM children (includes CombinedMesh_standard)
+      let childCount = 0;
+      vrmScene.traverse((child: THREE.Object3D) => {
+        // Merge with existing userData to preserve other properties
+        child.userData = {
+          ...child.userData,
+          ...userData,
+        };
+        childCount++;
+      });
+
+      console.log(
+        `[PlayerRemote] ✅ Set userData on ${childCount} VRM objects for player ${this.id} (${this.data.name})`,
+      );
+      console.log(
+        `[PlayerRemote] Sample userData from first child:`,
+        vrmScene.children[0]?.userData,
+      );
+    } else {
+      console.error(
+        `[PlayerRemote] ❌ VRM scene not accessible for player ${this.id}`,
+      );
+      console.error(
+        `[PlayerRemote] Available instance properties:`,
+        Object.keys(avatarWithInstance.instance || {}),
+      );
+    }
+
+    // Disable distance-based LOD throttling for smooth animations
     if (
       avatarWithInstance.instance &&
       avatarWithInstance.instance.disableRateCheck
@@ -375,7 +469,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // Look for mobs that are attacking us
     for (const entity of this.world.entities.items.values()) {
       if (entity.type === "mob" && entity.position) {
-        const mobEntity = entity as any;
+        const mobEntity = entity as unknown as {
+          config?: { aiState?: string; targetPlayerId?: string };
+        };
         // Check if mob is in ATTACK state and targeting this player
         if (
           mobEntity.config?.aiState === "attack" &&
@@ -642,7 +738,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     this.world.entities.remove(this.data.id);
     // if removed locally we need to broadcast to server/clients
     if (local) {
-      this.world.network.send("entityRemoved", this.data.id);
+      this.world.network.send("entityRemoved", { id: this.data.id });
     }
   }
 

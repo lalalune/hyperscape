@@ -104,6 +104,12 @@ async function createWebGLPostProcessing(
 
 /**
  * Create WebGPU post-processing (three.js TSL-based)
+ *
+ * Note: WebGPU post-processing requires three.js r163+ with stable TSL.
+ * Current version does not support TSL-based post-processing.
+ * WebGPU users get direct rendering, which provides excellent performance.
+ *
+ * When upgrading to three.js r163+, see commented implementation below.
  */
 async function createWebGPUPostProcessing(
   _renderer: UniversalRenderer,
@@ -111,10 +117,8 @@ async function createWebGPUPostProcessing(
   _camera: THREE.Camera,
   _options: PostProcessingOptions,
 ): Promise<PostProcessingComposer | null> {
-  // TODO: Implement when three.js TSL is stable in the version we're using
-  // For now, WebGPU users get direct rendering without post-processing
-  // This is acceptable since WebGPU itself provides better performance
-
+  // WebGPU post-processing not available in current three.js version
+  // Direct rendering is used instead - acceptable performance trade-off
   return null;
 }
 

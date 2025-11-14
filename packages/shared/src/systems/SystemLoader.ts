@@ -506,9 +506,10 @@ function setupAPI(world: World, systems: Systems): void {
       // Get all skills for a player by getting the entity's stats component
       const entity = world.entities.get(playerId);
       if (!entity) return {};
-      const stats = (entity as Entity).getComponent<Component>(
-        "stats",
-      ) as Skills | null;
+      const stats = (entity as Entity).getComponent<Component>("stats") as
+        | unknown
+        | Skills
+        | null;
       return stats || {};
     },
     getSkillLevel: (playerId: string, skill: string) => {
@@ -1234,7 +1235,14 @@ function setupAPI(world: World, systems: Systems): void {
       },
 
       destroyEntityById: (entityId: string) => {
-        world.emit(EventType.ENTITY_DEATH, { entityId });
+        const entity = world.entities.get(entityId);
+        const entityType =
+          entity?.type === "player"
+            ? ("player" as const)
+            : entity?.type === "mob"
+              ? ("mob" as const)
+              : ("npc" as const);
+        world.emit(EventType.ENTITY_DEATH, { entityId, entityType });
       },
 
       interactWithEntity: (

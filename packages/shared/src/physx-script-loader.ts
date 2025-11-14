@@ -30,7 +30,7 @@ export async function loadPhysXScript(
     const script = document.createElement("script");
     // Load from CDN (always absolute URL to avoid Vite conflicts)
     const windowWithCdn = window as Window & { __CDN_URL?: string };
-    const cdnUrl = windowWithCdn.__CDN_URL || "http://localhost:8080";
+    const cdnUrl = windowWithCdn.__CDN_URL || "http://localhost:8088";
     const scriptUrl = `${cdnUrl}/web/physx-js-webidl.js`;
 
     script.src = scriptUrl;

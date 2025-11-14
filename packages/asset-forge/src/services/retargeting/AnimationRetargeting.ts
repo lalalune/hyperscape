@@ -5,14 +5,12 @@
  * Retargets Mixamo animations to VRM skeletons.
  */
 
-import * as THREE from "three";
 import type { VRM } from "@pixiv/three-vrm";
+import * as THREE from "three";
 
 const q1 = new THREE.Quaternion();
 const restRotationInverse = new THREE.Quaternion();
 const parentRestWorldRotation = new THREE.Quaternion();
-const v1 = new THREE.Vector3();
-const v2 = new THREE.Vector3();
 
 /**
  * Retarget Mixamo animation to VRM skeleton
@@ -67,13 +65,11 @@ export function retargetAnimation(
   );
 
   // Filter tracks - keep only root position and quaternions
-  let haveRoot = false;
   clip.tracks = clip.tracks.filter((track) => {
     if (track instanceof THREE.VectorKeyframeTrack) {
       const [name, type] = track.name.split(".");
       if (type !== "position") return false;
       if (name === "Root") {
-        haveRoot = true;
         return true;
       }
       if (name === "mixamorigHips") {

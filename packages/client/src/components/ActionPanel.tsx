@@ -32,7 +32,7 @@ export function ActionPanel({ items, onItemUse }: ActionPanelProps) {
   // Fill empty slots to maintain consistent size
   const slots = [...visibleItems];
   while (slots.length < slotsPerPage) {
-    slots.push(null as any);
+    slots.push(null);
   }
 
   const handlePrevious = () => {

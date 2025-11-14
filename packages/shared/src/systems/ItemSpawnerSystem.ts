@@ -84,12 +84,20 @@ export class ItemSpawnerSystem extends SystemBase {
   }
 
   start(): void {
+    // Only spawn items on server - clients receive entities via network sync
+    if (!this.world.isServer) {
+      console.log(
+        "[ItemSpawnerSystem] Client mode - skipping item spawning (entities come from server)",
+      );
+      return;
+    }
+
     // Wait for terrain to be ready before spawning items
     const checkTerrainAndSpawn = async () => {
-      const terrainSystem = this.world.getSystem("terrain") as
-        | { getHeightAt: (x: number, z: number) => number | null }
-        | undefined;
-      if (!terrainSystem) {
+      const terrainSystem = this.world.getSystem("terrain") as {
+        getHeightAt?: (x: number, z: number) => number;
+      } | null;
+      if (!terrainSystem || typeof terrainSystem.getHeightAt !== "function") {
         console.warn(
           "[ItemSpawnerSystem] Terrain system not ready, waiting...",
         );

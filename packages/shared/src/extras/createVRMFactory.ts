@@ -43,9 +43,6 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { GLBData } from "../types";
 import type { VRMHooks } from "../types/physics";
 
-/** Degrees to radians conversion */
-const DEG2RAD = Math.PI / 180;
-
 import { getTextureBytesFromMaterial } from "./getTextureBytesFromMaterial";
 import { getTrianglesFromGeometry } from "./getTrianglesFromGeometry";
 import THREE from "./three";
@@ -163,8 +160,6 @@ export function createVRMFactory(
     }
   });
 
-  const skeleton = skinnedMeshes[0].skeleton;
-
   // HYBRID APPROACH: Using Asset Forge's normalized bone system for automatic A-pose handling
   // By keeping VRMHumanoidRig and using getNormalizedBoneNode() for bone names,
   // the VRM library's normalized bone abstraction layer handles bind pose compensation automatically
@@ -198,10 +193,6 @@ export function createVRMFactory(
   // Calculate head to height for camera positioning
   const headPos = normBones.head?.node?.getWorldPosition(v1) || v1.set(0, 0, 0);
   const headToHeight = height - headPos.y;
-
-  const noop = () => {
-    // ...
-  };
 
   return {
     create,
@@ -265,7 +256,7 @@ export function createVRMFactory(
 
       // Get normalized bone node - this handles A-pose automatically
       const normalizedNode = humanoid.getNormalizedBoneNode?.(
-        vrmBoneName as any,
+        vrmBoneName as string,
       );
       if (!normalizedNode) {
         console.warn(
@@ -388,9 +379,7 @@ export function createVRMFactory(
     let rate = 0;
     let rateCheckedAt = 999;
     let rateCheck = true;
-    let updateCallCount = 0;
-    const update = (delta) => {
-      updateCallCount++;
+    const update = (delta: number) => {
       elapsed += delta;
       let should = true;
       if (rateCheck) {
@@ -667,7 +656,14 @@ function cloneGLB(glb: GLBData): GLBData {
  * to point to the cloned bones instead.
  */
 function remapHumanoidBonesToClonedScene(
-  humanoid: any,
+  humanoid: {
+    _rawHumanBones?: {
+      humanBones?: Record<string, { node?: { name: string } }>;
+    };
+    _normalizedHumanBones?: {
+      humanBones?: Record<string, { node?: { name: string } }>;
+    };
+  },
   clonedScene: THREE.Scene,
 ): void {
   // Build map of cloned bones by name
@@ -687,39 +683,43 @@ function remapHumanoidBonesToClonedScene(
   // Remap raw human bones (actual skeleton bones)
   const rawBones = humanoid._rawHumanBones;
   if (rawBones?.humanBones) {
-    Object.values(rawBones.humanBones).forEach((boneData: any) => {
-      if (boneData?.node) {
-        const boneName = boneData.node.name;
-        const clonedBone = clonedBonesByName.get(boneName);
-        if (clonedBone) {
-          boneData.node = clonedBone;
-        } else {
-          console.warn(
-            "[remapHumanoid] Raw bone not found in cloned scene:",
-            boneName,
-          );
+    Object.values(rawBones.humanBones).forEach(
+      (boneData: { node?: { name: string } }) => {
+        if (boneData?.node) {
+          const boneName = boneData.node.name;
+          const clonedBone = clonedBonesByName.get(boneName);
+          if (clonedBone) {
+            boneData.node = clonedBone;
+          } else {
+            console.warn(
+              "[remapHumanoid] Raw bone not found in cloned scene:",
+              boneName,
+            );
+          }
         }
-      }
-    });
+      },
+    );
   }
 
   // Remap normalized human bones (VRMHumanoidRig nodes)
   const normBones = humanoid._normalizedHumanBones;
   if (normBones?.humanBones) {
-    Object.values(normBones.humanBones).forEach((boneData: any) => {
-      if (boneData?.node) {
-        const nodeName = boneData.node.name;
-        const clonedNode = clonedObjectsByName.get(nodeName);
-        if (clonedNode) {
-          boneData.node = clonedNode;
-        } else {
-          console.warn(
-            "[remapHumanoid] Normalized bone not found in cloned scene:",
-            nodeName,
-          );
+    Object.values(normBones.humanBones).forEach(
+      (boneData: { node?: { name: string } }) => {
+        if (boneData?.node) {
+          const nodeName = boneData.node.name;
+          const clonedNode = clonedObjectsByName.get(nodeName);
+          if (clonedNode) {
+            boneData.node = clonedNode;
+          } else {
+            console.warn(
+              "[remapHumanoid] Normalized bone not found in cloned scene:",
+              nodeName,
+            );
+          }
         }
-      }
-    });
+      },
+    );
   }
 }
 

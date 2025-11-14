@@ -11,7 +11,6 @@
 import { Entity } from "../entities/Entity";
 import { PlayerLocal } from "../entities/PlayerLocal";
 import { Skills, InventoryItem, Position3D } from "./core";
-import type { Resource } from "./core";
 import type { Item } from "./core";
 import type { EntitySpawnedEvent } from "./system-interfaces";
 
@@ -222,11 +221,18 @@ export enum EventType {
   ITEM_DESPAWN = "item:despawn",
   ITEM_DESPAWNED = "item:despawned",
   ITEM_RESPAWN_SHOPS = "item:respawn_shops",
+  ITEM_RESPAWN = "item:respawn",
   ITEM_DROPPED = "item:dropped",
   ITEM_DROP = "item:drop",
   LOOT_DROPPED = "loot:dropped",
   ITEM_PICKUP = "item:picked_up",
   ITEM_PICKUP_REQUEST = "item:pickup_request",
+  ITEM_PICKUP_ATTEMPT = "item:pickup_attempt",
+  ITEM_PICKUP_SUCCESS = "item:pickup_success",
+  ITEM_PICKUP_FAILED = "item:pickup_failed",
+  ITEM_INSTANCE_CREATED = "item:instance_created",
+  ITEM_MINTED_AS_NFT = "item:minted_as_nft",
+  ITEM_NFT_BURNED = "item:nft_burned",
   ITEM_USED = "item:used",
   ITEM_ACTION_SELECTED = "item:action_selected",
   ITEMS_RETRIEVED = "items:retrieved",
@@ -520,6 +526,14 @@ export enum EventType {
   CHARACTER_LIST = "character:list",
   CHARACTER_CREATED = "character:created",
   CHARACTER_SELECTED = "character:selected",
+
+  // Trading System
+  TRADE_REQUEST_RECEIVED = "trade:request_received",
+  TRADE_STARTED = "trade:started",
+  TRADE_UPDATED = "trade:updated",
+  TRADE_COMPLETED = "trade:completed",
+  TRADE_CANCELLED = "trade:cancelled",
+  TRADE_ERROR = "trade:error",
 
   // General Events
   SERVER_CORRECTION = "serverCorrection",
@@ -889,6 +903,8 @@ export interface EventMap {
   [EventType.ENTITY_CREATED]: EntityCreatedPayload;
   [EventType.ENTITY_DEATH]: {
     entityId: string;
+    killedBy?: string;
+    entityType: "player" | "mob" | "npc";
     sourceId?: string;
     lastDamageTime?: number;
   };
@@ -975,7 +991,11 @@ export interface EventMap {
     entityId: string;
     position?: Position3D;
   };
-  [EventType.INVENTORY_UPDATE_COINS]: { playerId: string; coins: number };
+  [EventType.INVENTORY_UPDATE_COINS]: {
+    playerId: string;
+    coins: number;
+    isClaimed?: boolean;
+  };
   [EventType.INVENTORY_MOVE]: {
     playerId: string;
     fromSlot?: number;
@@ -1128,6 +1148,40 @@ export interface EventMap {
     playerPosition?: Position3D;
   };
   [EventType.AGGRO_FORCE_TRIGGER]: { playerId: string };
+
+  // Trading Events
+  [EventType.TRADE_REQUEST_RECEIVED]: {
+    tradeId: string;
+    fromPlayerId: string;
+    fromPlayerName: string;
+  };
+  [EventType.TRADE_STARTED]: {
+    tradeId: string;
+    initiatorId: string;
+    initiatorName: string;
+    recipientId: string;
+    recipientName: string;
+  };
+  [EventType.TRADE_UPDATED]: {
+    tradeId: string;
+    initiatorOffer: {
+      items: Array<{ itemId: string; quantity: number; slot: number }>;
+      coins: number;
+    };
+    recipientOffer: {
+      items: Array<{ itemId: string; quantity: number; slot: number }>;
+      coins: number;
+    };
+    initiatorConfirmed: boolean;
+    recipientConfirmed: boolean;
+  };
+  [EventType.TRADE_COMPLETED]: { tradeId: string; message: string };
+  [EventType.TRADE_CANCELLED]: {
+    tradeId: string;
+    reason: string;
+    byPlayerId?: string;
+  };
+  [EventType.TRADE_ERROR]: { message: string };
 }
 
 /**

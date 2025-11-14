@@ -108,11 +108,11 @@ export function groundToTerrain(
   maxHeightDifference: number = 2.0,
 ): Position3D {
   // Get terrain system
-  const terrainSystem = world.getSystem("terrain") as
-    | { getHeightAt: (x: number, z: number) => number | null }
-    | undefined;
+  const terrainSystem = world.getSystem("terrain") as {
+    getHeightAt?: (x: number, z: number) => number;
+  } | null;
 
-  if (!terrainSystem) {
+  if (!terrainSystem || typeof terrainSystem.getHeightAt !== "function") {
     console.error(
       `[EntityUtils] CRITICAL: Cannot ground entity - terrain system not available! ` +
         `Position: (${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)})`,

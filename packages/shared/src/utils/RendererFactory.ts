@@ -207,10 +207,7 @@ export function configureRenderer(
 
   // Output color space (both support this)
   renderer.outputColorSpace = outputColorSpace;
-
-  // WebGPU-specific: Enable sRGB encoding optimizations
-  if (isWebGPURenderer(renderer)) {
-  }
+  // WebGPU renderers automatically handle sRGB encoding
 }
 
 /**
@@ -250,8 +247,12 @@ export function configureXR(
   renderer: UniversalRenderer,
   options: {
     enabled?: boolean;
-    // eslint-disable-next-line no-undef
-    referenceSpaceType?: XRReferenceSpaceType;
+    referenceSpaceType?:
+      | "viewer"
+      | "local"
+      | "local-floor"
+      | "bounded-floor"
+      | "unbounded";
     foveation?: number;
   } = {},
 ): void {

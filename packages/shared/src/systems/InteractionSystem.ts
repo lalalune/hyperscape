@@ -14,6 +14,16 @@ interface InteractionAction {
   handler: () => void;
 }
 
+interface TerrainSystemWithHeight extends System {
+  getHeightAt: (x: number, z: number) => number;
+}
+
+function isTerrainSystemWithHeight(
+  system: System | undefined,
+): system is TerrainSystemWithHeight {
+  return (system as TerrainSystemWithHeight)?.getHeightAt !== undefined;
+}
+
 const _raycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
 
@@ -170,11 +180,9 @@ export class InteractionSystem extends System {
     if (!positionAttribute) return;
 
     // Get terrain system for fast heightmap lookup
-    const terrainSystem = this.world.getSystem("terrain") as
-      | { getHeightAt: (x: number, z: number) => number }
-      | undefined;
+    const terrainSystem = this.world.getSystem("terrain");
 
-    if (!terrainSystem) {
+    if (!isTerrainSystemWithHeight(terrainSystem)) {
       this.targetMarker.position.setY(fallbackY);
       for (let i = 0; i < positionAttribute.count; i++) {
         positionAttribute.setY(i, 0.05);
@@ -1013,7 +1021,7 @@ export class InteractionSystem extends System {
     this.executeResourceAction(resourceId, action);
   }
 
-  private executeResourceAction(resourceId: string, action: string): void {
+  private executeResourceAction(resourceId: string, _action: string): void {
     const localPlayer = this.world.getPlayer();
     if (!localPlayer) return;
 

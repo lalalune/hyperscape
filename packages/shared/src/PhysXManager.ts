@@ -337,9 +337,9 @@ class PhysXManager extends EventEmitter {
       // Dynamically import server-specific loading utilities
       // This keeps Node.js modules out of the client bundle
       // Use dynamic path construction to prevent bundler from trying to resolve this
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+
       const importPath = new Function('return "./PhysXManager.server"')();
-      const serverModule = await import(importPath);
+      const serverModule = await import(/* @vite-ignore */ importPath);
       const wasmBuffer = await serverModule.loadPhysXWasmForNode();
 
       // Provide the WASM module directly
@@ -350,7 +350,7 @@ class PhysXManager extends EventEmitter {
         if (wasmFileName.endsWith(".wasm")) {
           // Use window.__CDN_URL if set by the application
           const windowWithCdn = window as Window & { __CDN_URL?: string };
-          const cdnBaseUrl = windowWithCdn.__CDN_URL || "http://localhost:8080";
+          const cdnBaseUrl = windowWithCdn.__CDN_URL || "http://localhost:8088";
           const url = `${cdnBaseUrl}/web/${wasmFileName}`;
           return url;
         }

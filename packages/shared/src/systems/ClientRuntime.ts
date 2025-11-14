@@ -160,22 +160,20 @@ export class ClientRuntime extends System {
     const avatar = this.localPlayer.avatar;
     if (avatar) {
       // Count meshes efficiently
-      let meshCount = 0;
+      let _meshCount = 0;
       avatar.traverse?.((child) => {
-        if (child instanceof THREE.Mesh) meshCount++;
+        if (child instanceof THREE.Mesh) _meshCount++;
       });
     }
 
     // Physics capsule
     const capsule = this.localPlayer.capsule;
     if (capsule?.getGlobalPose) {
-      const pose = capsule.getGlobalPose();
+      const _pose = capsule.getGlobalPose();
     }
 
     // Camera position
-    const camera = this.world.camera;
-    if (camera) {
-    }
+    const _camera = this.world.camera;
 
     // Scene statistics (cache and update periodically)
     if (this.world.stage?.scene) {

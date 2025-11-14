@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Entity, THREE, createRenderer } from "@hyperscape/shared";
 import type { UniversalRenderer } from "@hyperscape/shared";
+import type { WindowWithWorld } from "@hyperscape/shared/types/window-types";
 import type { ClientWorld } from "../types";
 
 interface EntityPip {
@@ -126,7 +127,6 @@ export function Minimap({
     // Only create renderer if it doesn't exist
     if (!rendererRef.current || !rendererInitializedRef.current) {
       // console.log('[Minimap] Creating new renderer');
-      const mounted = true;
       createRenderer({
         canvas: webglCanvas,
         alpha: true,
@@ -151,8 +151,8 @@ export function Minimap({
           rendererInitializedRef.current = true;
           // console.log('[Minimap] Renderer initialized successfully');
         })
-        .catch((error) => {
-          // console.error("[Minimap] Failed to create renderer:", error);
+        .catch(() => {
+          // console.error("[Minimap] Failed to create renderer");
           rendererRef.current = null;
           rendererInitializedRef.current = false;
         });
@@ -462,7 +462,6 @@ export function Minimap({
     if (!overlayCanvas || !isVisible) return;
 
     let rafId: number | null = null;
-    let frameCount = 0;
 
     const render = () => {
       // Only render if visible
@@ -470,8 +469,6 @@ export function Minimap({
         rafId = requestAnimationFrame(render);
         return;
       }
-
-      frameCount++;
 
       // Render WebGL if available
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
@@ -603,21 +600,14 @@ export function Minimap({
         }
       }
 
-      // Log performance every 60 frames (approximately 1 second)
-      // if (frameCount % 60 === 0) {
-      //   console.log(`[Minimap] Render frame ${frameCount}, visible: ${isVisible}, entities: ${entityPipsRefForRender.current.length}`);
-      // }
-
       rafId = requestAnimationFrame(render);
     };
 
-    // console.log('[Minimap] Starting render loop');
     rafId = requestAnimationFrame(render);
 
     return () => {
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);
-        // console.log('[Minimap] Stopping render loop');
       }
     };
   }, [isVisible]);
@@ -682,7 +672,9 @@ export function Minimap({
       // Send server-authoritative move request instead of local movement
       const currentRun = (player as { runMode: boolean }).runMode === true;
       const worldWithNetwork = world as {
-        network: { send: (method: string, data: unknown) => void };
+        network: {
+          send: (method: string, data: Record<string, unknown>) => void;
+        };
       };
       worldWithNetwork.network.send("moveRequest", {
         target: [targetX, targetY, targetZ],
@@ -693,14 +685,7 @@ export function Minimap({
       // Persist destination dot until arrival (no auto-fade)
       setLastDestinationWorld({ x: targetX, z: targetZ });
       // Expose same diagnostic target used by world clicks so minimap renders dot identically
-      const windowWithTarget = window as unknown as {
-        __lastRaycastTarget: {
-          x: number;
-          y: number;
-          z: number;
-          method: string;
-        };
-      };
+      const windowWithTarget = window as WindowWithWorld;
       windowWithTarget.__lastRaycastTarget = {
         x: targetX,
         y: targetY,

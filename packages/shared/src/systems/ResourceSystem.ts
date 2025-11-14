@@ -264,9 +264,9 @@ export class ResourceSystem extends SystemBase {
 
     // Only run gathering update loop on server (server-authoritative)
     if (this.world.isServer) {
-      const interval = this.createInterval(() => this.updateGathering(), 500); // Check every 500ms
-    } else {
+      const _interval = this.createInterval(() => this.updateGathering(), 500); // Check every 500ms
     }
+    // Client doesn't run gathering update loop
   }
 
   /**
@@ -295,13 +295,13 @@ export class ResourceSystem extends SystemBase {
       return;
     }
 
-    let spawned = 0;
-    let failed = 0;
+    let _spawned = 0;
+    let _failed = 0;
 
     for (const spawnPoint of spawnPoints) {
       const resource = this.createResourceFromSpawnPoint(spawnPoint);
       if (!resource) {
-        failed++;
+        _failed++;
         continue;
       }
 
@@ -362,27 +362,25 @@ export class ResourceSystem extends SystemBase {
           resourceConfig,
         )) as { id?: string } | null;
         if (spawnedEntity) {
-          spawned++;
+          _spawned++;
         } else {
-          failed++;
+          _failed++;
         }
       } catch (err) {
-        failed++;
+        _failed++;
         console.error(
           `[ResourceSystem] Failed to spawn resource entity ${resource.id}:`,
           err,
         );
       }
     }
-
-    if (spawned > 0) {
-    }
+    // Resource spawning completed
   }
 
   /**
    * Get model path for resource type
    */
-  private getModelPathForResource(type: string, subType?: string): string {
+  private getModelPathForResource(type: string, _subType?: string): string {
     switch (type) {
       case "tree":
         // Use the high-quality Meshy-generated tree model

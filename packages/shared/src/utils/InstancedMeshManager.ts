@@ -268,12 +268,21 @@ export class InstancedMeshManager {
    * Update which instances are visible based on distance from player.
    * Shows the closest N instances up to maxVisibleInstances.
    */
-  private updateInstanceVisibility(type: string): void {
+  private updateInstanceVisibility(
+    type: string,
+    playerPos?: THREE.Vector3,
+  ): void {
     const data = this.instancedMeshes.get(type);
     if (!data || data.allInstances.size === 0) return;
 
-    const playerPos = this.getPlayerPosition();
-    if (!playerPos) return;
+    // Use provided position or get player position
+    if (!playerPos) {
+      playerPos = this.getPlayerPosition() || undefined;
+      if (!playerPos) {
+        // Use origin as fallback
+        playerPos = new THREE.Vector3(0, 0, 0);
+      }
+    }
 
     // Calculate distances for all instances and filter by cull distance
     const instancesWithDistance: Array<
@@ -349,12 +358,15 @@ export class InstancedMeshManager {
     }
     this.lastUpdateTime = now;
 
-    const playerPos = this.getPlayerPosition();
+    let playerPos = this.getPlayerPosition();
+
+    // If no player exists yet, use origin (0, 0, 0) as default position
+    // This ensures instances near spawn are visible even before player spawns
     if (!playerPos) {
-      console.warn(
-        "[InstancedMeshManager] No player position for visibility update",
+      console.log(
+        "[InstancedMeshManager] No player yet, using origin for visibility update",
       );
-      return;
+      playerPos = this._tempVec3.set(0, 0, 0);
     }
 
     // Force one full update the first time we have a player position
@@ -365,7 +377,7 @@ export class InstancedMeshManager {
         playerPos,
       );
       for (const type of this.instancedMeshes.keys()) {
-        this.updateInstanceVisibility(type);
+        this.updateInstanceVisibility(type, playerPos);
         const data = this.instancedMeshes.get(type);
         console.log(
           `[InstancedMeshManager] ${type}: ${data?.mesh.count}/${data?.allInstances.size} visible`,
@@ -380,7 +392,7 @@ export class InstancedMeshManager {
 
       // Update visibility for all types
       for (const type of this.instancedMeshes.keys()) {
-        this.updateInstanceVisibility(type);
+        this.updateInstanceVisibility(type, playerPos);
       }
     }
   }

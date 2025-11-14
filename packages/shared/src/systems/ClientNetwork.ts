@@ -93,13 +93,27 @@ import { emoteUrls } from "../extras/playerEmotes";
 import THREE from "../extras/three";
 import { readPacket, writePacket } from "../packets";
 import { storage } from "../storage";
+import type { ChatMessage, EntityData, World, WorldOptions } from "../types";
 import type {
-  ChatMessage,
-  EntityData,
-  SnapshotData,
-  World,
-  WorldOptions,
-} from "../types";
+  EntityModificationPacket,
+  InventoryUpdatePacket,
+  SkillsUpdatePacket,
+  ResourceSnapshotPacket,
+  ResourceStatePacket,
+  CharacterListPacket,
+  CharacterCreatedPacket,
+  CharacterSelectedPacket,
+  PlayerStatePacket,
+  ShowToastPacket,
+  TradeRequestReceivedPacket,
+  TradeStartedPacket,
+  TradeUpdatedPacket,
+  TradeCompletedPacket,
+  TradeCancelledPacket,
+  TradeErrorPacket,
+  SnapshotPacket,
+  EntityEventPacket,
+} from "../types/network-types";
 import type { Entity } from "../entities/Entity";
 import { EventType } from "../types/events";
 import { uuid } from "../utils";
@@ -156,9 +170,11 @@ export class ClientNetwork extends SystemBase {
   queue: Array<[string, unknown]>;
   serverTimeOffset: number;
   maxUploadSize: number;
-  pendingModifications: Map<string, Array<Record<string, unknown>>> = new Map();
+  pendingModifications: Map<string, Array<EntityModificationPacket>> =
+    new Map();
   pendingModificationTimestamps: Map<string, number> = new Map(); // Track when modifications were first queued
   pendingModificationLimitReached: Set<string> = new Set(); // Track entities that hit the limit (to avoid log spam)
+  destroyedEntities: Set<string> = new Set(); // Track entities that have been destroyed
   // Cache character list so UI can render even if it mounts after the packet arrives
   lastCharacterList: Array<{
     id: string;
@@ -250,7 +266,7 @@ export class ClientNetwork extends SystemBase {
         ) {
           this.ws.close();
         }
-      } catch (e) {
+      } catch {
         this.logger.debug("Error cleaning up old WebSocket");
       }
       this.ws = null;
@@ -346,7 +362,6 @@ export class ClientNetwork extends SystemBase {
     ] of this.pendingModificationTimestamps.entries()) {
       const age = now - timestamp;
       if (age > staleTimeout) {
-        const count = this.pendingModifications.get(entityId)?.length || 0;
         // Silent cleanup to avoid log spam
         this.pendingModifications.delete(entityId);
         this.pendingModificationTimestamps.delete(entityId);
@@ -414,7 +429,7 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
-  async onSnapshot(data: SnapshotData) {
+  async onSnapshot(data: SnapshotPacket) {
     this.id = data.id; // Store our network ID
     this.connected = true; // Mark as connected when we get the snapshot
 
@@ -465,7 +480,10 @@ export class ClientNetwork extends SystemBase {
     // Already set above
     this.serverTimeOffset = data.serverTime - performance.now();
     this.apiUrl = data.apiUrl || null;
-    this.maxUploadSize = data.maxUploadSize || 10 * 1024 * 1024; // Default 10MB
+    this.maxUploadSize =
+      typeof data.maxUploadSize === "number"
+        ? data.maxUploadSize
+        : 10 * 1024 * 1024; // Default 10MB
 
     // Use assetsUrl from server (always absolute URL to CDN)
     this.world.assetsUrl = data.assetsUrl || "/";
@@ -509,7 +527,7 @@ export class ClientNetwork extends SystemBase {
     }
 
     if (data.chat) {
-      this.world.chat.deserialize(data.chat);
+      this.world.chat.deserialize(data.chat as ChatMessage[]);
     }
     // Deserialize entities if method exists
     if (data.entities) {
@@ -602,7 +620,10 @@ export class ClientNetwork extends SystemBase {
     storage?.set("authToken", data.authToken);
   }
 
-  onSettingsModified = (data: { key: string; value: unknown }) => {
+  onSettingsModified = (data: {
+    key: string;
+    value: string | number | boolean | Record<string, unknown>;
+  }) => {
     this.world.settings.set(data.key, data.value);
   };
 
@@ -617,10 +638,6 @@ export class ClientNetwork extends SystemBase {
   };
 
   onEntityAdded = (data: EntityData) => {
-    // Add debugging for mob entities
-    if (data.type === "mob") {
-    }
-
     // Add entity if method exists
     const newEntity = this.world.entities.add(data);
     if (newEntity) {
@@ -653,15 +670,17 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
-  onEntityModified = (
-    data: { id: string; changes?: Record<string, unknown> } & Record<
-      string,
-      unknown
-    >,
-  ) => {
+  onEntityModified = (data: EntityModificationPacket) => {
     const { id } = data;
     const entity = this.world.entities.get(id);
     if (!entity) {
+      // Check if this entity was previously destroyed
+      if (this.destroyedEntities.has(id)) {
+        // Entity was destroyed, ignore modifications
+        this.logger.debug(`Ignoring modification for destroyed entity ${id}`);
+        return;
+      }
+
       // Limit queued modifications per entity to avoid unbounded growth
       const list = this.pendingModifications.get(id) || [];
       const now = performance.now();
@@ -758,11 +777,15 @@ export class ClientNetwork extends SystemBase {
       }
 
       // Still apply non-transform changes immediately
-      entity.modify(changes);
-    }
+      const changesCopy: Record<string, unknown> = {};
+      for (const key in changes) {
+        changesCopy[key] = (changes as Record<string, unknown>)[key];
+      }
+      entity.modify(changesCopy);
 
-    // Re-emit normalized change event so other systems can react
-    this.world.emit(EventType.ENTITY_MODIFIED, { id, changes });
+      // Re-emit normalized change event so other systems can react
+      this.world.emit(EventType.ENTITY_MODIFIED, { id, changes });
+    }
   };
 
   /**
@@ -1019,12 +1042,7 @@ export class ClientNetwork extends SystemBase {
     }
   }
 
-  onEntityEvent = (event: {
-    id: string;
-    version: number;
-    name: string;
-    data?: unknown;
-  }) => {
+  onEntityEvent = (event: EntityEventPacket) => {
     const { id, version, name, data } = event;
     // If event is broadcast world event, re-emit on world so systems can react
     if (id === "world") {
@@ -1038,15 +1056,7 @@ export class ClientNetwork extends SystemBase {
   };
 
   // Dedicated resource packet handlers
-  onResourceSnapshot = (data: {
-    resources: Array<{
-      id: string;
-      type: string;
-      position: { x: number; y: number; z: number };
-      isAvailable: boolean;
-      respawnAt?: number;
-    }>;
-  }) => {
+  onResourceSnapshot = (data: ResourceSnapshotPacket) => {
     for (const r of data.resources) {
       this.world.emit(EventType.RESOURCE_SPAWNED, {
         id: r.id,
@@ -1060,14 +1070,18 @@ export class ClientNetwork extends SystemBase {
         });
     }
   };
-  onResourceSpawnPoints = (data: {
-    spawnPoints: Array<{
-      id: string;
-      type: string;
-      position: { x: number; y: number; z: number };
-    }>;
-  }) => {
-    this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, data);
+  onResourceSpawnPoints = (
+    data: ResourceSnapshotPacket & {
+      spawnPoints?: Array<{
+        id: string;
+        type: string;
+        position: { x: number; y: number; z: number };
+      }>;
+    },
+  ) => {
+    this.world.emit(EventType.RESOURCE_SPAWN_POINTS_REGISTERED, {
+      spawnPoints: data.spawnPoints || [],
+    });
   };
   onResourceSpawned = (data: {
     id: string;
@@ -1076,11 +1090,7 @@ export class ClientNetwork extends SystemBase {
   }) => {
     this.world.emit(EventType.RESOURCE_SPAWNED, data);
   };
-  onResourceDepleted = (data: {
-    resourceId: string;
-    position?: { x: number; y: number; z: number };
-    depleted?: boolean;
-  }) => {
+  onResourceDepleted = (data: ResourceStatePacket) => {
     console.log("[ClientNetwork] 🪵 Resource depleted:", data.resourceId);
 
     // Update the ResourceEntity visual
@@ -1104,11 +1114,7 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.RESOURCE_DEPLETED, data);
   };
 
-  onResourceRespawned = (data: {
-    resourceId: string;
-    position?: { x: number; y: number; z: number };
-    depleted?: boolean;
-  }) => {
+  onResourceRespawned = (data: ResourceStatePacket) => {
     console.log("[ClientNetwork] 🌳 Resource respawned:", data.resourceId);
 
     // Update the ResourceEntity visual
@@ -1132,17 +1138,13 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.RESOURCE_RESPAWNED, data);
   };
 
-  onInventoryUpdated = (data: {
-    playerId: string;
-    items: Array<{ slot: number; itemId: string; quantity: number }>;
-    coins: number;
-    maxSlots: number;
-  }) => {
+  onInventoryUpdated = (data: InventoryUpdatePacket) => {
     type WindowWithDebug = { DEBUG_RPG?: string };
     if (
       (window as WindowWithDebug).DEBUG_RPG === "1" ||
       process.env?.DEBUG_RPG === "1"
     ) {
+      // Debug logging disabled
     }
     // Cache latest snapshot for late-mounting UI
     this.lastInventoryByPlayerId[data.playerId] = data;
@@ -1150,10 +1152,7 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.INVENTORY_UPDATED, data);
   };
 
-  onSkillsUpdated = (data: {
-    playerId: string;
-    skills: Record<string, { level: number; xp: number }>;
-  }) => {
+  onSkillsUpdated = (data: SkillsUpdatePacket) => {
     // Cache latest snapshot for late-mounting UI
     this.lastSkillsByPlayerId = this.lastSkillsByPlayerId || {};
     this.lastSkillsByPlayerId[data.playerId] = data.skills;
@@ -1162,14 +1161,7 @@ export class ClientNetwork extends SystemBase {
   };
 
   // --- Character selection (flag-gated by server) ---
-  onCharacterList = (data: {
-    characters: Array<{
-      id: string;
-      name: string;
-      level?: number;
-      lastLocation?: { x: number; y: number; z: number };
-    }>;
-  }) => {
+  onCharacterList = (data: CharacterListPacket) => {
     // Cache and re-emit so UI can show the modal
     this.lastCharacterList = data.characters || [];
     this.world.emit(EventType.CHARACTER_LIST, data);
@@ -1186,11 +1178,11 @@ export class ClientNetwork extends SystemBase {
       this.requestCharacterSelect(storedId);
     }
   };
-  onCharacterCreated = (data: { id: string; name: string }) => {
+  onCharacterCreated = (data: CharacterCreatedPacket) => {
     // Re-emit for UI to update lists
     this.world.emit(EventType.CHARACTER_CREATED, data);
   };
-  onCharacterSelected = (data: { characterId: string | null }) => {
+  onCharacterSelected = (data: CharacterSelectedPacket) => {
     this.world.emit(EventType.CHARACTER_SELECTED, data);
   };
 
@@ -1210,15 +1202,33 @@ export class ClientNetwork extends SystemBase {
     this.send("dropItem", { itemId, slot, quantity });
   }
 
-  onEntityRemoved = (id: string) => {
+  onEntityRemoved = (data: { id: string }) => {
+    const { id } = data;
+    // Mark entity as destroyed to prevent future modifications
+    this.destroyedEntities.add(id);
+
     // Remove from interpolation tracking
     this.interpolationStates.delete(id);
+
     // Clean up pending modifications tracking
     this.pendingModifications.delete(id);
     this.pendingModificationTimestamps.delete(id);
     this.pendingModificationLimitReached.delete(id);
+
     // Remove from entities system
     this.world.entities.remove(id);
+
+    this.logger.debug(`Entity ${id} marked as destroyed`);
+
+    // Clean up destroyed entities set periodically to prevent memory leaks
+    // We don't track timestamps for destroyed entities, so we'll clean up
+    // when the set gets too large (more than 1000 entities)
+    if (this.destroyedEntities.size > 1000) {
+      this.destroyedEntities.clear();
+      this.logger.debug(
+        "Cleared destroyed entities set to prevent memory leak",
+      );
+    }
   };
 
   /**
@@ -1242,12 +1252,9 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
-  onPlayerState = (data: unknown) => {
+  onPlayerState = (data: PlayerStatePacket) => {
     // Forward player state updates from server to local UI_UPDATE event
-    const playerData = data as {
-      playerId?: string;
-      skills?: Record<string, { level: number; xp: number }>;
-    };
+    const playerData = data;
 
     // Cache skills if provided
     if (playerData.playerId && playerData.skills) {
@@ -1261,7 +1268,7 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
-  onShowToast = (data: { playerId: string; message: string; type: string }) => {
+  onShowToast = (data: ShowToastPacket) => {
     // Only show toast for local player
     const localPlayer = this.world.getPlayer();
     if (localPlayer && localPlayer.id === data.playerId) {
@@ -1272,6 +1279,77 @@ export class ClientNetwork extends SystemBase {
       });
     }
   };
+
+  // ======================== TRADING SYSTEM HANDLERS ========================
+
+  onTradeRequest = (data: TradeRequestReceivedPacket) => {
+    console.log(
+      "[ClientNetwork] 📨 Received trade request from:",
+      data.fromPlayerName,
+    );
+
+    // Emit event for UI to show trade request modal
+    this.world.emit(EventType.TRADE_REQUEST_RECEIVED, {
+      tradeId: data.tradeId,
+      fromPlayerId: data.fromPlayerId,
+      fromPlayerName: data.fromPlayerName,
+    });
+  };
+
+  onTradeStarted = (data: TradeStartedPacket) => {
+    console.log("[ClientNetwork] 🤝 Trade started:", data.tradeId);
+
+    // Emit event for UI to open trade window
+    this.world.emit(EventType.TRADE_STARTED, data);
+  };
+
+  onTradeUpdated = (data: TradeUpdatedPacket) => {
+    console.log("[ClientNetwork] 🔄 Trade updated:", data.tradeId);
+
+    // Emit event for UI to update trade window
+    this.world.emit(EventType.TRADE_UPDATED, data);
+  };
+
+  onTradeCompleted = (data: TradeCompletedPacket) => {
+    console.log("[ClientNetwork] ✅ Trade completed:", data.tradeId);
+
+    // Emit event for UI to show success and close trade window
+    this.world.emit(EventType.TRADE_COMPLETED, data);
+
+    // Show success toast
+    this.world.emit(EventType.UI_TOAST, {
+      message: "Trade completed successfully!",
+      type: "success",
+    });
+  };
+
+  onTradeCancelled = (data: TradeCancelledPacket) => {
+    console.log("[ClientNetwork] ❌ Trade cancelled:", data.reason);
+
+    // Emit event for UI to close trade window
+    this.world.emit(EventType.TRADE_CANCELLED, data);
+
+    // Show cancellation toast
+    this.world.emit(EventType.UI_TOAST, {
+      message: `Trade cancelled: ${data.reason}`,
+      type: "warning",
+    });
+  };
+
+  onTradeError = (data: TradeErrorPacket) => {
+    console.error("[ClientNetwork] ⚠️ Trade error:", data.message);
+
+    // Emit event for UI to show error
+    this.world.emit(EventType.TRADE_ERROR, data);
+
+    // Show error toast
+    this.world.emit(EventType.UI_TOAST, {
+      message: data.message,
+      type: "error",
+    });
+  };
+
+  // ======================== END TRADING HANDLERS ========================
 
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId);

@@ -67,8 +67,10 @@ export class PersistenceSystem extends SystemBase {
     }
 
     this.playerSystem =
-      (getSystem(this.world, "player") as IPlayerSystemForPersistence | null) ||
-      undefined;
+      (getSystem(
+        this.world,
+        "player",
+      ) as unknown as IPlayerSystemForPersistence | null) || undefined;
     if (!this.playerSystem) {
       this.logger.warn(
         "PlayerSystem not found - player persistence will be limited",

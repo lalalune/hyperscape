@@ -215,8 +215,78 @@ export class NoiseGenerator {
     return height;
   }
 
+  // Biome noise
+  temperatureNoise(x: number, z: number): number {
+    const p = this.fractal2D(x * 0.001, z * 0.001, 3);
+    return (p + 1) / 2; // to 0-1 range
+  }
+  humidityNoise(x: number, z: number): number {
+    const p = this.fractal2D(x * 0.001 + 100, z * 0.001 + 100, 3);
+    return (p + 1) / 2; // to 0-1 range
+  }
+  oceanNoise(x: number, z: number): number {
+    const p = this.fractal2D(x * 0.0005, z * 0.0005, 1);
+    return (p + 1) / 2;
+  }
+  riverNoise(x: number, z: number, oceanValue: number): number {
+    if (oceanValue > 0.5) return 0;
+    const p = this.ridgeNoise2D(x * 0.003, z * 0.003);
+    return p;
+  }
+
+  // Material visibility
+  rockVisibility(x: number, z: number): number {
+    const p = this.fractal2D(x * 0.01, z * 0.01, 2);
+    return (p + 1) / 2;
+  }
+  stoneVisibility(x: number, z: number): number {
+    const p = this.fractal2D(x * 0.02, z * 0.02, 3);
+    return (p + 1) / 2;
+  }
+  wetnessNoise(x: number, z: number): number {
+    const p = this.fractal2D(x * 0.005, z * 0.005, 4);
+    return (p + 1) / 2;
+  }
+
+  // Instance placement
+  treeVisibility(x: number, z: number, wetness: number): number {
+    const p = this.fractal2D(x * 0.01, z * 0.01, 2);
+    return ((p + 1) / 2) * wetness;
+  }
+  grassVisibility(x: number, z: number, wetness: number): number {
+    const p = this.fractal2D(x * 0.05, z * 0.05, 3);
+    return ((p + 1) / 2) * wetness;
+  }
+  flowerVisibility(x: number, z: number, grass: number): number {
+    const p = this.fractal2D(x * 0.1, z * 0.1, 2);
+    return ((p + 1) / 2) * grass;
+  }
+
+  // Variation noise
+  hashNoise(x: number, z: number): number {
+    const p = this.perlin2D(x * 10, z * 10);
+    return (p + 1) / 2;
+  }
+  scaleNoise(x: number, z: number): number {
+    const p = this.perlin2D(x * 2, z * 2);
+    return (p + 1) / 2;
+  }
+  rotationNoise(x: number, z: number): { x: number; y: number; z: number } {
+    const y = this.perlin2D(x * 0.5, z * 0.5);
+    return { x: 0, y: (y + 1) / 2, z: 0 };
+  }
+  colorNoise(x: number, z: number): { r: number; g: number; b: number } {
+    const r = (this.perlin2D(x * 0.1, z * 0.1) + 1) / 2;
+    const g = (this.perlin2D(x * 0.1 + 10, z * 0.1 + 10) + 1) / 2;
+    const b = (this.perlin2D(x * 0.1 + 20, z * 0.1 + 20) + 1) / 2;
+    return { r, g, b };
+  }
+  flowNoise(x: number, z: number): number {
+    return this.perlin2D(x * 0.01, z * 0.01);
+  }
+
   /**
-   * Temperature Map - For biome generation
+   * Temperature Map - For biome generation -- DEPRECATED
    */
   temperatureMap(x: number, y: number, latitude: number = 0): number {
     // Base temperature decreases with latitude (distance from equator)
@@ -229,7 +299,7 @@ export class NoiseGenerator {
   }
 
   /**
-   * Moisture Map - For biome generation
+   * Moisture Map - For biome generation -- DEPRECATED
    */
   moistureMap(x: number, y: number): number {
     return (this.fractal2D(x * 0.002, y * 0.002, 4) + 1) * 0.5;
@@ -287,7 +357,7 @@ export class NoiseGenerator {
 }
 
 /**
- * Terrain Feature Generator
+ * Terrain Feature Generator -- DEPRECATED
  * Generates specific terrain features like rivers, lakes, mountain ranges
  */
 export class TerrainFeatureGenerator {

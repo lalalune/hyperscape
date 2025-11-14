@@ -30,13 +30,16 @@
 
 import * as THREE from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+
 import { MESHY_VARIATIONS } from "./BoneMappings";
 
 /**
  * VRM HumanoidBone names (VRM 1.0 standard)
  * These are the standardized bone names used by VRM format
+ * Used as type definition for VRM bone mapping
  */
-const VRM_HUMANOID_BONES = {
+type VRMHumanoidBones = Record<string, string>;
+const _VRM_HUMANOID_BONES: VRMHumanoidBones = {
   // Torso
   hips: "hips",
   spine: "spine",
@@ -929,7 +932,7 @@ export class VRMConverter {
     let convertedCount = 0;
 
     if (gltfJson.nodes) {
-      gltfJson.nodes.forEach((node: any, index: number) => {
+      gltfJson.nodes.forEach((node: any, _index: number) => {
         if (node.matrix) {
           matrixCount++;
 

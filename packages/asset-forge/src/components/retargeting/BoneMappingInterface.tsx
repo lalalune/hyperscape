@@ -1,5 +1,5 @@
+import { X, Save, Upload, Download, Link2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { X, Save, Upload, Download, Link2, Trash2 } from "lucide-react";
 import * as THREE from "three";
 
 interface BoneMappingInterfaceProps {
@@ -99,7 +99,6 @@ export function BoneMappingInterface({
     if (!sourceSkeleton || !targetSkeleton) return;
 
     const autoMapping: Record<string, string> = {};
-    const targetNames = targetSkeleton.bones.map((b) => b.name.toLowerCase());
 
     sourceSkeleton.bones.forEach((sourceBone) => {
       const sourceName = sourceBone.name.toLowerCase();
@@ -178,7 +177,7 @@ export function BoneMappingInterface({
         const importedMapping = JSON.parse(e.target?.result as string);
         setMapping(importedMapping);
         onMappingChange(importedMapping);
-      } catch (error) {
+      } catch {
         alert("Invalid mapping file");
       }
     };

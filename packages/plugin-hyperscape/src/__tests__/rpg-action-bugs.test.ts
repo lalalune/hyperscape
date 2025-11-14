@@ -30,7 +30,7 @@ describe("RPG Action Bug Tests (Real World)", () => {
         if (adapter && typeof adapter.close === "function") {
           await adapter.close();
         }
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors
       }
       testRuntime = null;

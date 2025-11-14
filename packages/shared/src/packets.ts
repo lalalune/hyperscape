@@ -57,6 +57,18 @@
  * - `characterSelected`: Client selects a character
  * - `enterWorld`: Client enters world with selected character
  *
+ * **Trading System Packets**:
+ * - `tradeRequest`: Client initiates trade with target player
+ * - `tradeResponse`: Client accepts/declines trade request
+ * - `tradeOffer`: Client updates their trade offer (items/coins)
+ * - `tradeConfirm`: Client confirms their offer
+ * - `tradeCancel`: Client cancels trade
+ * - `tradeStarted`: Server notifies trade window opened
+ * - `tradeUpdated`: Server syncs trade offers/confirmations
+ * - `tradeCompleted`: Server confirms successful trade
+ * - `tradeCancelled`: Server notifies trade was cancelled
+ * - `tradeError`: Server sends trade error message
+ *
  * **Adding New Packets**:
  * 1. Add packet name to the `names` array (order matters!)
  * 2. Packet ID is automatically assigned based on array index
@@ -134,6 +146,17 @@ const names = [
   'characterCreated',
   'characterSelected',
   'enterWorld',
+  // Trading system packets
+  'tradeRequest',
+  'tradeResponse',
+  'tradeOffer',
+  'tradeConfirm',
+  'tradeCancel',
+  'tradeStarted',
+  'tradeUpdated',
+  'tradeCompleted',
+  'tradeCancelled',
+  'tradeError',
 ]
 
 const byName: Record<string, PacketInfo> = {};

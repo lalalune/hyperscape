@@ -158,7 +158,6 @@ npm run config:check  # Desktop development
 npm run config:check:mobile  # Mobile development
 ```
 
-See [CONFIG.md](./CONFIG.md) for complete configuration documentation.
 
 ### Mobile Development
 
@@ -179,7 +178,6 @@ npm run dev
 npm run ios:dev      # or android:dev
 ```
 
-See [MOBILE-QUICKSTART.md](./MOBILE-QUICKSTART.md) for quick reference or [MOBILE.md](./MOBILE.md) for complete documentation.
 
 ### Farcaster Frame v2 Deployment
 

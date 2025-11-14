@@ -88,18 +88,19 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
           theme: "dark",
           accentColor: "#d4af37",
           logo: "/assets/images/logo.png",
+          // Support all major wallets - 'detected_wallets' will pick up any other installed wallets
           walletList: [
             "phantom",
             "metamask",
+            "rabby_wallet",
             "coinbase_wallet",
             "rainbow",
+            "wallet_connect",
             "detected_wallets",
           ],
         },
         embeddedWallets: {
-          ethereum: {
-            createOnLogin: "users-without-wallets" as const,
-          },
+          createOnLogin: "users-without-wallets" as const,
         },
         mfa: {
           noPromptOnMfaRequired: false,

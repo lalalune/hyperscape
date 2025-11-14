@@ -20,7 +20,6 @@ export function LoadingScreen({
   const [loadingStage, setLoadingStage] = useState(
     message || "Initializing...",
   );
-  const { title, desc, image } = world.settings;
 
   useEffect(() => {
     let systemsComplete = false;

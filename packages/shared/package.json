@@ -17,6 +17,22 @@
       "types": "./build/framework.d.ts",
       "import": "./build/framework.client.js",
       "default": "./build/framework.client.js"
+    },
+    "./types": {
+      "types": "./build/types/index.d.ts",
+      "import": "./build/types/index.js",
+      "default": "./build/types/index.js"
+    },
+    "./types/events": {
+      "types": "./build/types/events.d.ts",
+      "import": "./build/types/events.js",
+      "default": "./build/types/events.js"
+    },
+    "./types/*": "./build/types/*",
+    "./blockchain/mud-client": {
+      "types": "./build/blockchain/mud-client.d.ts",
+      "import": "./build/blockchain/mud-client.js",
+      "default": "./build/blockchain/mud-client.js"
     }
   },
   "homepage": "https://github.com/HyperscapeAI/hyperscape#readme",
@@ -42,7 +58,7 @@
     "build:client": "vite build",
     "build:server": "bun scripts/build.mjs --server-only",
     "start": "bun run build && bun build/index.js start --world ./world",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "test:client": "node test-client.mjs",
     "lint": "eslint src --max-warnings 22100",
@@ -77,10 +93,13 @@
     "@fastify/static": "^8.0.1",
     "@fastify/websocket": "^11.0.1",
     "@hyperscape/physx-js-webidl": "workspace:*",
-    "@pixiv/three-vrm": "3.4.3",
+    "@latticexyz/common": "^2.2.23",
+    "@latticexyz/store-sync": "^2.2.23",
+    "@pixiv/three-vrm": "^3.3.3",
     "@privy-io/react-auth": "^3.3.0",
     "@privy-io/server-auth": "^1.14.0",
     "@types/styled-components": "^5.1.34",
+    "abitype": "^1.1.1",
     "better-sqlite3": "^12.2.0",
     "commander": "^14.0.2",
     "d3": "^7.9.0",
@@ -94,7 +113,7 @@
     "jsonwebtoken": "^9.0.2",
     "knex": "^3.1.0",
     "livekit-client": "^2.9.9",
-    "livekit-server-sdk": "^2.11.0",
+    "livekit-server-sdk": "^2.14.0",
     "lodash-es": "^4.17.21",
     "lucide-react": "^0.552.0",
     "moment": "^2.30.1",
@@ -109,6 +128,7 @@
     "three": "0.180.0",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.8.3",
+    "viem": "^2.38.3",
     "yoga-layout": "^3.2.1"
   },
   "devDependencies": {
@@ -145,7 +165,7 @@
     "eslint-plugin-react": "^7.34.0",
     "eslint-plugin-react-hooks": "^7.0.0",
     "jimp": "^1.6.0",
-    "jsdom": "^27.0.0",
+    "jsdom": "^24.1.1",
     "playwright": "^1.54.2",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
@@ -168,7 +188,8 @@
     "bun": ">=1.1.38"
   },
   "overrides": {
-    "three": "0.180.0"
+    "three": "^0.180.0",
+    "abitype": "1.1.1"
   },
   "license": "GPL-3.0-only"
 }

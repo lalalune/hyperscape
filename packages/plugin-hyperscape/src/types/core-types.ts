@@ -70,7 +70,7 @@ export type Entities = HyperscapeEntities;
 // Note: We extend HyperscapePhysics with controller management for AI agent use
 export interface Physics extends HyperscapePhysics {
   // Additional plugin-specific properties
-  controllers?: Map<string, CharacterController>;
+  controllers: Map<string, CharacterController>;
   rigidBodies?: Map<string, RigidBody>;
 
   // Additional plugin-specific methods
@@ -533,8 +533,8 @@ export class ServiceError extends Error {
     this.code = code;
     this.details = details;
 
-    // Maintains proper stack trace for where error was thrown
-    if (Error.captureStackTrace) {
+    // Maintains proper stack trace for where error was thrown (Node.js only)
+    if (typeof Error.captureStackTrace === "function") {
       Error.captureStackTrace(this, ServiceError);
     }
   }

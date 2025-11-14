@@ -165,6 +165,7 @@ export async function initializeDatabase(connectionString: string) {
         errorWithCause.message.includes("already exists"));
 
     if (isExistsError) {
+      // Table already exists, this is fine
     } else {
       console.error("[DB] ❌ Migration failed:", error);
       throw error;
