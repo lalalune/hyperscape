@@ -1273,6 +1273,42 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
+  onDeathScreen = (data: {
+    playerId: string;
+    message: string;
+    killedBy: string;
+    respawnTime: number;
+  }) => {
+    // Only show death screen for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received deathScreen, forwarding to UI:",
+        data,
+      );
+      // Forward to local event system for death screen display
+      this.world.emit(EventType.UI_DEATH_SCREEN, {
+        message: data.message,
+        killedBy: data.killedBy,
+        respawnTime: data.respawnTime,
+      });
+    }
+  };
+
+  onDeathScreenClose = (data: { playerId: string }) => {
+    // Only close death screen for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received deathScreenClose, forwarding to UI",
+      );
+      // Forward to local event system to close death screen
+      this.world.emit(EventType.UI_DEATH_SCREEN_CLOSE, {
+        playerId: data.playerId,
+      });
+    }
+  };
+
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId);
     if (pending && pending.length > 0) {
@@ -1292,14 +1328,23 @@ export class ClientNetwork extends SystemBase {
     playerId: string;
     position: [number, number, number];
   }) => {
+    console.log(`[ClientNetwork] Received playerTeleport packet:`, data);
     const player = this.world.entities.player;
+    console.log(
+      `[ClientNetwork] Player entity exists:`,
+      !!player,
+      `Is PlayerLocal:`,
+      player instanceof PlayerLocal,
+    );
     if (player instanceof PlayerLocal) {
       const pos = _v3_1.set(
         data.position[0],
         data.position[1],
         data.position[2],
       );
+      console.log(`[ClientNetwork] Teleporting player to:`, pos);
       player.teleport(pos);
+      console.log(`[ClientNetwork] Teleport complete`);
     }
   };
 

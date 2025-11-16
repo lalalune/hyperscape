@@ -5,4 +5,5 @@
 
 export * from "./CombatSystem";
 export * from "./AggroSystem";
-export * from "./DeathSystem";
+export * from "./PlayerDeathSystem";
+export * from "./MobDeathSystem";

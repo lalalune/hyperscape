@@ -36,6 +36,7 @@
 
 import { getItem } from "../../../data/items";
 import type { PlayerLocal } from "../../../entities/player/PlayerLocal";
+import type { PlayerEntity } from "../../../entities/player/PlayerEntity";
 import { Position3D } from "../../../types";
 import {
   AttackStyle,
@@ -198,15 +199,22 @@ export class PlayerSystem extends SystemBase {
         damageData.source,
       );
     });
+    this.subscribe(EventType.PLAYER_DAMAGE_TAKEN, (data) => {
+      this.takeDamage(data as { playerId: string; damage: number });
+    });
     this.subscribe<PlayerDeathEvent>(EventType.PLAYER_DIED, (data) => {
       this.handleDeath(data);
     });
-    this.subscribe<{ playerId: string }>(
-      EventType.PLAYER_RESPAWN_REQUEST,
-      (data) => {
-        this.respawnPlayer(data.playerId);
-      },
-    );
+    // Subscribe to PLAYER_RESPAWNED from DeathSystem to update our player data
+    this.subscribe(EventType.PLAYER_RESPAWNED, (data) => {
+      this.handlePlayerRespawn(
+        data as {
+          playerId: string;
+          spawnPosition: { x: number; y: number; z: number };
+          townName?: string;
+        },
+      );
+    });
     this.subscribe<PlayerLevelUpEvent>(EventType.PLAYER_LEVEL_UP, (data) => {
       this.updateCombatLevel(data);
     });
@@ -501,6 +509,32 @@ export class PlayerSystem extends SystemBase {
       (playerData as Player & { userId?: string }).userId = data.userId;
     }
 
+    // Ensure health equals constitution level (per user requirement)
+    const constitutionLevel =
+      Number.isFinite(playerData.skills.constitution.level) &&
+      playerData.skills.constitution.level > 0
+        ? playerData.skills.constitution.level
+        : 10;
+
+    // Always set maxHealth to constitution level
+    playerData.health.max = constitutionLevel;
+
+    // Validate and fix health values
+    if (
+      !Number.isFinite(playerData.health.current) ||
+      playerData.health.current <= 0 // FIX: Changed < to <= (0 health means dead!)
+    ) {
+      // Player is dead or has invalid health - restore to full
+      playerData.health.current = playerData.health.max;
+      playerData.alive = true; // Ensure player is alive
+    } else {
+      // Clamp current health to maxHealth
+      playerData.health.current = Math.min(
+        playerData.health.current,
+        playerData.health.max,
+      );
+    }
+
     // Add to our system using entity ID for runtime lookups
     this.players.set(data.playerId, playerData);
 
@@ -611,90 +645,128 @@ export class PlayerSystem extends SystemBase {
   }
 
   private handleDeath(data: PlayerDeathEvent): void {
-    const player = this.players.get(data.playerId)!;
+    console.log(
+      `[PlayerSystem] handleDeath called for ${data.playerId}, cause: ${data.cause}`,
+    );
 
+    const player = this.players.get(data.playerId);
+    if (!player) {
+      console.warn(
+        `[PlayerSystem] Player ${data.playerId} not found in handleDeath`,
+      );
+      return; // Player not found, ignore
+    }
+
+    // Prevent infinite recursion: if player is already dead, don't process again
+    if (!player.alive) {
+      console.log(
+        `[PlayerSystem] Player ${data.playerId} already dead, ignoring duplicate death event`,
+      );
+      return; // Already dead, ignore duplicate death events
+    }
+
+    console.log(
+      `[PlayerSystem] Marking player ${data.playerId} as dead, emitting ENTITY_DEATH`,
+    );
+
+    // Mark player as dead in PlayerSystem data
     player.alive = false;
     player.death.deathLocation = { ...player.position };
     player.death.respawnTime = Date.now() + this.RESPAWN_TIME;
 
-    // Start respawn timer
-    const timer = this.createTimer(() => {
-      this.respawnPlayer(data.playerId);
-      this.respawnTimers.delete(data.playerId);
-    }, this.RESPAWN_TIME);
-
-    this.respawnTimers.set(data.playerId, timer!);
-
-    // Emit death event
-    this.emitTypedEvent(EventType.PLAYER_DIED, {
-      playerId: data.playerId,
-      deathLocation: {
-        x: player.death.deathLocation?.x ?? 0,
-        y: player.death.deathLocation?.y ?? 2,
-        z: player.death.deathLocation?.z ?? 0,
-      },
-    });
-
-    // Also emit ENTITY_DEATH for the death system
+    // Emit ENTITY_DEATH for DeathSystem to handle (headstones, loot, respawn)
+    // DeathSystem will handle the full death flow including respawn
     this.emitTypedEvent(EventType.ENTITY_DEATH, {
       entityId: data.playerId,
-      killedBy: "unknown", // Could be passed in if we track the source
+      killedBy: data.cause || "unknown",
       entityType: "player" as const,
+    });
+
+    console.log(`[PlayerSystem] ENTITY_DEATH emitted for ${data.playerId}`);
+
+    this.emitPlayerUpdate(data.playerId);
+  }
+
+  /**
+   * Apply damage to a player and update health
+   */
+  private takeDamage(data: { playerId: string; damage: number }): void {
+    const player = this.players.get(data.playerId);
+    if (!player) {
+      return;
+    }
+
+    // Apply damage
+    const newHealth = Math.max(0, player.health.current - data.damage);
+    player.health.current = newHealth;
+
+    // Update player entity if it exists
+    const playerEntity = this.world.entities.get(
+      data.playerId,
+    ) as PlayerEntity | null;
+    if (playerEntity && "setHealth" in playerEntity) {
+      playerEntity.setHealth(newHealth);
+    }
+
+    // Check for death
+    if (newHealth <= 0) {
+      this.handleDeath({
+        playerId: data.playerId,
+        deathLocation: player.position,
+        cause: "combat",
+      });
+    }
+
+    // Emit health update
+    this.emitTypedEvent(EventType.ENTITY_HEALTH_CHANGED, {
+      entityId: data.playerId,
+      health: newHealth,
+      maxHealth: player.health.max,
     });
 
     this.emitPlayerUpdate(data.playerId);
   }
 
-  private respawnPlayer(playerId: string): void {
-    const player = this.players.get(playerId)!;
-
-    // Get spawn position - default to origin then ground to terrain
-    const spawnPosition = { x: 0, y: 0.1, z: 0 };
-    const terrain = this.world.getSystem<TerrainSystem>("terrain");
-    if (terrain) {
-      const h = terrain.getHeightAt(spawnPosition.x, spawnPosition.z);
-      if (Number.isFinite(h)) {
-        spawnPosition.y = h + 0.1;
-      }
+  /**
+   * Handle player respawn (called by DeathSystem via PLAYER_RESPAWNED event)
+   * DeathSystem handles the full respawn logic, we just update PlayerSystem data
+   */
+  private handlePlayerRespawn(data: {
+    playerId: string;
+    spawnPosition: { x: number; y: number; z: number };
+    townName?: string;
+  }): void {
+    const player = this.players.get(data.playerId);
+    if (!player) {
+      return;
     }
 
-    // Reset player state
+    // Reset player state to alive
     player.alive = true;
     player.health.current = player.health.max;
-    player.position = spawnPosition;
+    player.position = data.spawnPosition;
     player.death.respawnTime = 0;
+    player.death.deathLocation = null;
 
-    // Clear respawn timer
-    const timer = this.respawnTimers.get(playerId);
-    if (timer) {
-      clearTimeout(timer);
-      this.respawnTimers.delete(playerId);
+    // Update PlayerEntity health if it exists
+    const playerEntity = this.world.getPlayer?.(
+      data.playerId,
+    ) as PlayerEntity | null;
+    if (playerEntity) {
+      playerEntity.setHealth(player.health.max);
     }
 
     // Update PlayerLocal position if available
-    const playerLocal = this.playerLocalRefs.get(playerId);
+    const playerLocal = this.playerLocalRefs.get(data.playerId);
     if (playerLocal) {
       playerLocal.position.set(
-        spawnPosition.x,
-        spawnPosition.y,
-        spawnPosition.z,
+        data.spawnPosition.x,
+        data.spawnPosition.y,
+        data.spawnPosition.z,
       );
     }
 
-    // Force client snap to server-grounded respawn
-    this.emitTypedEvent(EventType.PLAYER_TELEPORT_REQUEST, {
-      playerId,
-      position: spawnPosition,
-    });
-
-    // Emit respawn event
-    this.emitTypedEvent(EventType.PLAYER_RESPAWNED, {
-      playerId,
-      spawnPosition,
-      townName: "Lumbridge", // Default town
-    });
-
-    this.emitPlayerUpdate(playerId);
+    this.emitPlayerUpdate(data.playerId);
   }
 
   private updateCombatLevel(data: PlayerLevelUpEvent): void {
@@ -933,7 +1005,59 @@ export class PlayerSystem extends SystemBase {
     const player = this.players.get(playerId);
     if (!player || !player.alive) return false;
 
-    player.health.current = Math.max(0, player.health.current - amount);
+    // Validate amount to prevent NaN
+    const validAmount = Number.isFinite(amount) && amount > 0 ? amount : 0;
+    if (validAmount <= 0) return false;
+
+    // Validate current health before applying damage
+    const currentHealth =
+      Number.isFinite(player.health.current) && player.health.current > 0
+        ? player.health.current
+        : player.health.max;
+
+    player.health.current = Math.max(0, currentHealth - validAmount);
+
+    // Sync damage to PlayerEntity if it exists
+    const playerEntity = this.world.getPlayer?.(
+      playerId,
+    ) as PlayerEntity | null;
+    if (playerEntity) {
+      // Update Entity's health using setHealth method (which updates health bar)
+      playerEntity.setHealth(player.health.current);
+
+      // Update health component
+      const healthComponent = playerEntity.getComponent("health");
+      if (healthComponent && healthComponent.data) {
+        (
+          healthComponent.data as { current?: number; isDead?: boolean }
+        ).current = player.health.current;
+        (healthComponent.data as { isDead?: boolean }).isDead =
+          player.health.current <= 0;
+      }
+
+      // Update stats component health
+      const statsComponent = playerEntity.getComponent("stats");
+      if (statsComponent && statsComponent.data && statsComponent.data.health) {
+        const healthData = statsComponent.data.health as {
+          current: number;
+          max: number;
+        };
+        healthData.current = player.health.current;
+      }
+
+      // Emit combat damage event for damage splatter (red for damage > 0, blue for 0)
+      const playerPosition =
+        playerEntity.position || playerEntity.getPosition();
+      this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
+        attackerId: _source || "unknown",
+        targetId: playerId,
+        damage: validAmount,
+        targetType: "player",
+        position: playerPosition
+          ? { x: playerPosition.x, y: playerPosition.y, z: playerPosition.z }
+          : { x: 0, y: 0, z: 0 },
+      });
+    }
 
     this.emitTypedEvent(EventType.PLAYER_HEALTH_UPDATED, {
       playerId,
@@ -941,7 +1065,14 @@ export class PlayerSystem extends SystemBase {
       maxHealth: player.health.max,
     });
 
+    console.log(
+      `[PlayerSystem] damagePlayer: ${playerId} health now ${player.health.current}/${player.health.max}, alive: ${player.alive}`,
+    );
+
     if (player.health.current <= 0) {
+      console.log(
+        `[PlayerSystem] Player ${playerId} health <= 0, calling handleDeath`,
+      );
       this.handleDeath({
         playerId,
         deathLocation: player.position,

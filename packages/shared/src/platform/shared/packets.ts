@@ -127,6 +127,10 @@ const names = [
   'skillsUpdated',
   // UI feedback packets
   'showToast',
+  // Death screen packets
+  'deathScreen',
+  'deathScreenClose',
+  'requestRespawn',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',

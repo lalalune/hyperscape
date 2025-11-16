@@ -413,6 +413,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
     };
   }
 
+  // Expose playerData as a getter for UI access (StatusBars reads player.playerData)
+  get playerData(): Player {
+    return this.getPlayerData();
+  }
+
   // Bridge avatar between Entity (Avatar class) and Player interface
   get avatar():
     | {
@@ -554,7 +559,30 @@ export class PlayerLocal extends Entity implements HotReloadable {
     this.isPlayer = true;
 
     // Initialize Player interface properties
-    this._playerHealth = { current: 100, max: 100 };
+    // Health should equal constitution level - use actual entity health values
+    // If health is provided in data, use it; otherwise use entity's health after super() call
+    const healthFromData = (data as { health?: number }).health;
+    const maxHealthFromData = (data as { maxHealth?: number }).maxHealth;
+    const currentHealth =
+      Number.isFinite(healthFromData) &&
+      healthFromData !== undefined &&
+      healthFromData > 0
+        ? healthFromData
+        : Number.isFinite(this.health) && this.health > 0
+          ? this.health
+          : 10;
+    const maxHealth =
+      Number.isFinite(maxHealthFromData) &&
+      maxHealthFromData !== undefined &&
+      maxHealthFromData > 0
+        ? maxHealthFromData
+        : Number.isFinite(this.maxHealth) && this.maxHealth > 0
+          ? this.maxHealth
+          : 10;
+    this._playerHealth = {
+      current: currentHealth,
+      max: maxHealth,
+    };
     this.hyperscapePlayerId = data.id || "";
 
     // Initialize emote to idle if not provided
@@ -791,18 +819,12 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Handle combat state updates
     if ("inCombat" in data) {
       this.combat.inCombat = data.inCombat as boolean;
-      console.log(`[PlayerLocal.modify] Combat state: ${this.combat.inCombat}`);
     }
     if ("combatTarget" in data) {
       this.combat.combatTarget = data.combatTarget as string | null;
-      console.log(
-        `[PlayerLocal.modify] Combat target: ${this.combat.combatTarget}`,
-      );
     }
 
     if ("e" in data && data.e !== undefined) {
-      console.log(`[PlayerLocal.modify] 📥 Received emote update: ${data.e}`);
-
       // Map 'e' to 'emote' for animation state
       this.data.emote = data.e as string;
       this.emote = data.e as string;
@@ -880,6 +902,23 @@ export class PlayerLocal extends Entity implements HotReloadable {
       if (vel.length === 3) {
         this.velocity.set(vel[0], vel[1], vel[2]);
       }
+    }
+
+    // Handle health updates from server
+    if ("health" in data && data.health !== undefined) {
+      const newHealth = data.health as number;
+      this.setHealth(newHealth);
+      // Update _playerHealth for getPlayerData() which the UI reads
+      this._playerHealth.current = newHealth;
+      if (this.nametag) {
+        this.nametag.health = newHealth;
+      }
+    }
+    if ("maxHealth" in data && data.maxHealth !== undefined) {
+      this.maxHealth = data.maxHealth as number;
+      this.data.maxHealth = this.maxHealth;
+      // Update _playerHealth for getPlayerData() which the UI reads
+      this._playerHealth.max = this.maxHealth;
     }
 
     // Call parent modify for other properties

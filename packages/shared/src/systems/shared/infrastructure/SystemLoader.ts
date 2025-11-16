@@ -17,7 +17,8 @@
  *
  * **Combat Systems:**
  * - CombatSystem: Melee, ranged, and magic combat mechanics
- * - DeathSystem: Handles player/mob death and respawning
+ * - PlayerDeathSystem: Handles player death and respawning
+ * - MobDeathSystem: Handles mob death and despawning
  * - AggroSystem: Enemy threat and aggression management
  *
  * **World Systems:**
@@ -91,7 +92,7 @@ import { AggroSystem } from "..";
 import { BankingSystem } from "..";
 import { CombatSystem } from "..";
 import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
-import { DeathSystem } from "..";
+import { PlayerDeathSystem, MobDeathSystem } from "..";
 import { EntityManager } from "..";
 import { EquipmentSystem } from "..";
 import { InventoryInteractionSystem } from "..";
@@ -138,7 +139,8 @@ export interface Systems {
   equipment?: EquipmentSystem;
   processing?: ProcessingSystem;
   entityManager?: EntityManager;
-  death?: DeathSystem;
+  playerDeath?: PlayerDeathSystem;
+  mobDeath?: MobDeathSystem;
   inventoryInteraction?: InventoryInteractionSystem;
   loot?: LootSystem;
   cameraSystem?: CameraSystemInterface;
@@ -297,10 +299,13 @@ export async function registerSystems(world: World): Promise<void> {
   // === GAMEPLAY SYSTEMS ===
   // These systems provide advanced gameplay mechanics
 
-  // 19. Death system - Death and respawn mechanics (depends on player system)
-  world.register("death", DeathSystem);
+  // 19. Player death system - Player death and respawn mechanics (depends on player system)
+  world.register("player-death", PlayerDeathSystem);
 
-  // 20. Aggro system - AI aggression management (depends on mob & combat systems)
+  // 20. Mob death system - Mob death handling (depends on mob system)
+  world.register("mob-death", MobDeathSystem);
+
+  // 21. Aggro system - AI aggression management (depends on mob & combat systems)
   world.register("aggro", AggroSystem);
 
   // Client-only inventory drag & drop
@@ -339,7 +344,8 @@ export async function registerSystems(world: World): Promise<void> {
   systems.aggro = getSystem(world, "aggro") as AggroSystem;
   systems.equipment = getSystem(world, "equipment") as EquipmentSystem;
   systems.processing = getSystem(world, "processing") as ProcessingSystem;
-  systems.death = getSystem(world, "death") as DeathSystem;
+  systems.playerDeath = getSystem(world, "player-death") as PlayerDeathSystem;
+  systems.mobDeath = getSystem(world, "mob-death") as MobDeathSystem;
 
   // Client-only systems
   if (world.isClient) {
@@ -617,16 +623,18 @@ function setupAPI(world: World, systems: Systems): void {
         }
       )?.movePlayer?.(playerId, targetPosition),
 
-    // Death API
+    // Player Death API
     getDeathLocation: (playerId: string) =>
-      systems.death?.getDeathLocation(playerId),
-    getAllDeathLocations: () => systems.death?.getAllDeathLocations(),
-    isPlayerDead: (playerId: string) => systems.death?.isPlayerDead(playerId),
+      systems.playerDeath?.getDeathLocation(playerId),
+    getAllDeathLocations: () => systems.playerDeath?.getAllDeathLocations(),
+    isPlayerDead: (playerId: string) =>
+      systems.playerDeath?.isPlayerDead(playerId),
     getRemainingRespawnTime: (playerId: string) =>
-      systems.death?.getRemainingRespawnTime(playerId),
+      systems.playerDeath?.getRemainingRespawnTime(playerId),
     getRemainingDespawnTime: (playerId: string) =>
-      systems.death?.getRemainingDespawnTime(playerId),
-    forceRespawn: (playerId: string) => systems.death?.forceRespawn(playerId),
+      systems.playerDeath?.getRemainingDespawnTime(playerId),
+    forceRespawn: (playerId: string) =>
+      systems.playerDeath?.forceRespawn(playerId),
 
     // Terrain API (Terrain System)
     getHeightAtPosition: (_worldX: number, _worldZ: number) => 0, // Terrain system doesn't expose this method

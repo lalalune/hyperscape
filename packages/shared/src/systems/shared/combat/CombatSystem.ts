@@ -208,6 +208,16 @@ export class CombatSystem extends SystemBase {
     // Apply damage
     this.applyDamage(targetId, targetType, damage, attackerId);
 
+    // Emit damage splatter event even for 0 damage (blue splatter)
+    const targetPosition = target.position || target.getPosition();
+    this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
+      attackerId,
+      targetId,
+      damage,
+      targetType,
+      position: targetPosition,
+    });
+
     // Set attack cooldown
     this.attackCooldowns.set(typedAttackerId, now);
 
@@ -278,6 +288,16 @@ export class CombatSystem extends SystemBase {
 
     // Apply damage
     this.applyDamage(targetId, targetType, damage, attackerId);
+
+    // Emit damage splatter event even for 0 damage (blue splatter)
+    const targetPosition = target.position || target.getPosition();
+    this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
+      attackerId,
+      targetId,
+      damage,
+      targetType,
+      position: targetPosition,
+    });
 
     // Set attack cooldown
     this.attackCooldowns.set(typedAttackerId, now);
@@ -490,13 +510,9 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
-    // Emit combat damage event for visual effects (damage numbers)
-    this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
-      attackerId,
-      targetId,
-      damage,
-      targetType,
-    });
+    // Note: Damage splatter events are now emitted at the call sites
+    // (handleMeleeAttack, handleRangedAttack, processAutoAttack) to ensure
+    // they're emitted even for 0 damage hits
   }
 
   /**
@@ -769,6 +785,30 @@ export class CombatSystem extends SystemBase {
     // Detect entity types (don't assume attacker is always player!)
     const attackerEntity = this.world.entities.get(String(attackerId));
     const targetEntity = this.world.entities.get(String(targetId));
+
+    // Don't enter combat if target is dead
+    if (
+      targetEntity &&
+      "health" in targetEntity &&
+      (targetEntity as any).health <= 0
+    ) {
+      console.log(
+        `[CombatSystem] Target ${targetId} is dead (health ${(targetEntity as any).health}), aborting combat`,
+      );
+      return;
+    }
+
+    // Also check if target is a player marked as dead
+    const playerSystem = this.world.getSystem?.("player") as any;
+    if (playerSystem?.players) {
+      const targetPlayer = playerSystem.players.get(String(targetId));
+      if (targetPlayer && !targetPlayer.alive) {
+        console.log(
+          `[CombatSystem] Target player ${targetId} is dead (alive=${targetPlayer.alive}), aborting combat`,
+        );
+        return;
+      }
+    }
 
     const attackerType =
       attackerEntity?.type === "mob" ? ("mob" as const) : ("player" as const);
@@ -1162,6 +1202,16 @@ export class CombatSystem extends SystemBase {
     console.log(`[CombatSystem] Calculated damage: ${damage}`);
 
     this.applyDamage(targetId, combatState.targetType, damage, attackerId);
+
+    // Emit damage splatter event even for 0 damage (blue splatter)
+    const targetPosition = target.position || target.getPosition();
+    this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
+      attackerId,
+      targetId,
+      damage,
+      targetType: combatState.targetType,
+      position: targetPosition,
+    });
 
     // Set attack cooldown to prevent bypass
     this.attackCooldowns.set(typedAttackerId, now);
