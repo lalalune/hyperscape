@@ -724,11 +724,65 @@ export class InteractionSystem extends System {
           icon: "💀",
           enabled: true,
           handler: () => {
-            this.world.emit(EventType.CORPSE_CLICK, {
-              corpseId: target.id,
-              playerId,
-              position: target.position,
-            });
+            const player = this.world.getPlayer();
+            if (!player) return;
+
+            // Check distance to gravestone (RuneScape-style: walk if too far, then loot)
+            const distance = this.calculateDistance(
+              player.position,
+              target.position,
+            );
+            const lootRange = 2.0; // Must be within 2 meters to loot
+
+            if (distance > lootRange) {
+              // Too far - walk to gravestone first
+              console.log(
+                `[InteractionSystem] 🚶 Walking to loot gravestone (distance: ${distance.toFixed(1)}m)`,
+              );
+
+              this.walkTo(target.position);
+
+              // Schedule loot action after walking (RuneScape behavior)
+              setTimeout(() => {
+                // Re-check distance after walking
+                const newDistance = this.calculateDistance(
+                  player.position,
+                  target.position,
+                );
+
+                if (newDistance <= lootRange + 0.5) {
+                  // Close enough now - trigger entity interaction
+                  const entity = target.entity as {
+                    handleInteraction?: (data: unknown) => Promise<void>;
+                  };
+                  if (entity?.handleInteraction) {
+                    entity.handleInteraction({
+                      entityId: target.id,
+                      playerId,
+                      playerPosition: player.position,
+                    });
+                  }
+                } else {
+                  console.warn(
+                    "[InteractionSystem] Still too far from gravestone after walking",
+                  );
+                }
+              }, 2000); // Wait 2 seconds for walking
+
+              return;
+            }
+
+            // Close enough - trigger entity interaction immediately
+            const entity = target.entity as {
+              handleInteraction?: (data: unknown) => Promise<void>;
+            };
+            if (entity?.handleInteraction) {
+              entity.handleInteraction({
+                entityId: target.id,
+                playerId,
+                playerPosition: player.position,
+              });
+            }
           },
         });
         actions.push({
