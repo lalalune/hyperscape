@@ -163,10 +163,11 @@ export class InventoryInteractionSystem extends SystemBase {
       this.handleActionSelected(data),
     );
     this.subscribe<{
+      corpseId: string;
       playerId: string;
-      itemId: string;
+      lootItems?: Array<{ itemId: string; quantity: number }>;
       position: { x: number; y: number; z: number };
-    }>(EventType.CORPSE_CLICK, (data) => this.handleGroundItemClick(data));
+    }>(EventType.CORPSE_CLICK, (data) => this.handleCorpseClick(data));
   }
 
   start(): void {}
@@ -1184,57 +1185,21 @@ export class InventoryInteractionSystem extends SystemBase {
   }
 
   /**
-   * Handle ground item click
+   * Handle corpse/gravestone click - opens loot UI (handled by client Sidebar.tsx)
+   * This handler is kept for logging/debugging purposes
    */
-  private handleGroundItemClick(event: {
+  private handleCorpseClick(event: {
+    corpseId: string;
     playerId: string;
-    itemId: string;
-    position?: { x: number; y: number };
+    lootItems?: Array<{ itemId: string; quantity: number }>;
+    position: { x: number; y: number; z: number };
   }): void {
-    let groundItem: Item | null = null;
-    this.emitTypedEvent(EventType.UI_MESSAGE, {
-      itemId: event.itemId,
-      callback: (item: Item) => {
-        groundItem = item;
-      },
-    });
-    if (!groundItem) {
-      Logger.system(
-        "InventoryInteractionSystem",
-        `Ground item not found: ${event.itemId}`,
-      );
-      return;
-    }
-
-    const groundActions = this.itemActions.get("ground") || [];
-    const availableActions = groundActions.filter(
-      (action) =>
-        !action.condition || action.condition(groundItem!, event.playerId),
+    Logger.system(
+      "InventoryInteractionSystem",
+      `CORPSE_CLICK event received for ${event.corpseId} with ${event.lootItems?.length || 0} items - LootWindow should open in client UI`,
     );
-
-    if (availableActions.length === 0) {
-      this.emitTypedEvent(EventType.ITEM_PICKUP, {
-        playerId: event.playerId,
-        itemId: event.itemId,
-      });
-      return;
-    }
-
-    const contextMenu: ItemContextMenu = {
-      playerId: event.playerId,
-      itemId: event.itemId,
-      slot: null,
-      actions: availableActions,
-      position: event.position || { x: 0, y: 0 },
-      visible: true,
-    };
-
-    this.contextMenus.set(event.playerId, contextMenu);
-
-    this.emitTypedEvent(EventType.UI_OPEN_MENU, {
-      playerId: event.playerId,
-      actions: availableActions.map((action) => action.label),
-    });
+    // Note: The actual loot UI (LootWindow) is rendered in the client's Sidebar.tsx
+    // which listens to this event and displays the loot interface
   }
 
   /**
