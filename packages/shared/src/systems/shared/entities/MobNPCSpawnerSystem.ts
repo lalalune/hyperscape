@@ -147,11 +147,11 @@ export class MobNPCSpawnerSystem extends SystemBase {
       // MobEntity specific
       mobType: "goblin",
       level: 2,
-      currentHealth: 30,
-      maxHealth: 30,
-      attackPower: 5,
-      defense: 2,
-      attackSpeed: 2000,
+      currentHealth: 10,
+      maxHealth: 10,
+      attackPower: 25, // TEMPORARY: Increased for quick death testing
+      defense: 1,
+      attackSpeed: 1500, // TEMPORARY: Faster attacks for death testing
       moveSpeed: 2,
       xpReward: 15,
       lootTable: [

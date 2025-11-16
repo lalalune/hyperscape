@@ -9,18 +9,25 @@ export const COMBAT_CONSTANTS = {
   RANGED_RANGE: 10,
 
   // Attack timing (RuneScape-style speeds)
-  ATTACK_COOLDOWN_MS: 2400, // 2.4 seconds - standard weapon attack speed
+  ATTACK_COOLDOWN_MS: 2400, // 2.4 seconds - standard weapon attack speed (4 ticks)
   COMBAT_TIMEOUT_MS: 10000, // 10 seconds without attacks ends combat
 
-  // Damage calculations
+  // OSRS Constants
+  TICK_DURATION_MS: 600, // 0.6 seconds per game tick
+  BASE_CONSTANT: 64, // Added to equipment bonuses in formulas
+  EFFECTIVE_LEVEL_CONSTANT: 8, // Added to effective levels
+  DAMAGE_DIVISOR: 640, // Used in max hit calculation
+
+  // Damage calculations (DEPRECATED - keeping for backward compatibility)
   DAMAGE_MULTIPLIERS: {
-    MELEE_ATTACK: 0.5,
-    RANGED_ATTACK: 0.5,
-    DEFENSE_REDUCTION: 0.25,
+    MELEE_ATTACK: 0.5, // Deprecated - use OSRS formula
+    RANGED_ATTACK: 0.5, // Deprecated - use OSRS formula
+    DEFENSE_REDUCTION: 0.25, // Deprecated - defense doesn't reduce damage in OSRS
   },
 
   // Minimum values
-  MIN_DAMAGE: 1,
+  MIN_DAMAGE: 0, // OSRS: Can hit 0 (miss)
+  MAX_DAMAGE: 200, // OSRS damage cap
 
   // Combat states
   COMBAT_STATES: {
