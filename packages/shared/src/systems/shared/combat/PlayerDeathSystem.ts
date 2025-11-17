@@ -55,6 +55,10 @@ export class PlayerDeathSystem extends SystemBase {
     { items: InventoryItem[]; coins: number }
   >();
 
+  // Rate limiter to prevent death spam exploits
+  private lastDeathTime = new Map<string, number>();
+  private readonly DEATH_COOLDOWN = 10000; // 10 seconds
+
   // Modular death system components
   private zoneDetection!: ZoneDetectionSystem;
   private groundItemManager!: GroundItemManager;
@@ -121,6 +125,11 @@ export class PlayerDeathSystem extends SystemBase {
       EventType.DEATH_HEADSTONE_EXPIRED,
       (data: { headstoneId: string; playerId: string }) =>
         this.handleHeadstoneExpired(data),
+    );
+    // CRITICAL: Validate death state on player reconnect
+    // Prevents item duplication when player disconnects during death
+    this.subscribe(EventType.PLAYER_JOINED, (data: { playerId: string }) =>
+      this.handlePlayerReconnect(data),
     );
 
     // Listen to position updates for reactive patterns
@@ -247,76 +256,173 @@ export class PlayerDeathSystem extends SystemBase {
     deathPosition: { x: number; y: number; z: number },
     killedBy: string,
   ): Promise<void> {
+    // CRITICAL: Server authority check - prevent client from triggering death events
+    if (!this.world.isServer) {
+      console.error(
+        `[PlayerDeathSystem] ⚠️  Client attempted server-only death processing for ${playerId} - BLOCKED`,
+      );
+      return;
+    }
+
+    // CRITICAL: Rate limiter - prevent death spam exploits
+    const lastDeath = this.lastDeathTime.get(playerId) || 0;
+    const timeSinceDeath = Date.now() - lastDeath;
+
+    if (timeSinceDeath < this.DEATH_COOLDOWN) {
+      console.warn(
+        `[PlayerDeathSystem] ⚠️  Death spam detected for ${playerId} - ` +
+          `${timeSinceDeath}ms since last death (cooldown: ${this.DEATH_COOLDOWN}ms) - BLOCKED`,
+      );
+      return;
+    }
+
+    // CRITICAL: Check for active death lock - prevents duplicate deaths
+    // This checks both in-memory AND database (for reconnect scenarios)
+    const hasActiveDeathLock =
+      await this.deathStateManager.hasActiveDeathLock(playerId);
+    if (hasActiveDeathLock) {
+      console.warn(
+        `[PlayerDeathSystem] ⚠️  Player ${playerId} already has active death lock - ` +
+          `cannot die again until resolved - BLOCKED`,
+      );
+      return;
+    }
+
+    // Update last death time
+    this.lastDeathTime.set(playerId, Date.now());
+
     console.log(
       `[PlayerDeathSystem] processPlayerDeath starting for ${playerId} at position:`,
       deathPosition,
     );
 
-    // Get inventory system for immediate clearing
+    // Get database system for transaction support
+    const databaseSystem = this.world.getSystem("database") as any;
+    if (!databaseSystem || !databaseSystem.executeInTransaction) {
+      console.error(
+        "[PlayerDeathSystem] DatabaseSystem not available - cannot use transaction!",
+      );
+      return;
+    }
+
+    // Get inventory system
     const inventorySystem = this.world.getSystem<InventorySystem>("inventory");
     if (!inventorySystem) {
       console.error("[PlayerDeathSystem] InventorySystem not available");
       return;
     }
 
-    // Get all items directly from InventorySystem BEFORE clearing (production-quality: don't rely on cache)
-    const inventory = inventorySystem.getInventory(playerId);
-    if (!inventory) {
-      console.warn(
-        `[PlayerDeathSystem] No inventory found for ${playerId}, cannot drop items`,
+    let itemsToDrop: InventoryItem[] = [];
+
+    try {
+      // CRITICAL: Wrap entire death flow in transaction for atomicity
+      await databaseSystem.executeInTransaction(async (tx: any) => {
+        console.log(
+          `[PlayerDeathSystem] ✓ Starting death transaction for ${playerId}`,
+        );
+
+        // Step 1: Get inventory items (read-only, non-destructive)
+        const inventory = inventorySystem.getInventory(playerId);
+        if (!inventory) {
+          console.warn(
+            `[PlayerDeathSystem] No inventory found for ${playerId}, cannot drop items`,
+          );
+          // Continue with empty items - still need to process death
+        }
+
+        itemsToDrop =
+          inventory?.items.map((item, index) => ({
+            id: `death_${playerId}_${Date.now()}_${index}`,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            slot: item.slot,
+            metadata: null,
+          })) || [];
+
+        console.log(
+          `[PlayerDeathSystem] Player has ${itemsToDrop.length} items to drop:`,
+          itemsToDrop
+            .map((item) => `${item.itemId} x${item.quantity}`)
+            .join(", ") || "(none)",
+        );
+
+        // Step 2: Detect zone type (safe vs wilderness)
+        const zoneType = this.zoneDetection.getZoneType(deathPosition);
+        console.log(`[PlayerDeathSystem] Death in zone type: ${zoneType}`);
+
+        // Step 3: Delegate to appropriate handler (spawn gravestone/ground items + create death lock)
+        if (zoneType === ZoneType.SAFE_AREA) {
+          console.log(
+            `[PlayerDeathSystem] Delegating to SafeAreaDeathHandler (with transaction)`,
+          );
+          await this.safeAreaHandler.handleDeath(
+            playerId,
+            deathPosition,
+            itemsToDrop,
+            killedBy,
+            tx, // Pass transaction context
+          );
+        } else {
+          console.log(
+            `[PlayerDeathSystem] Delegating to WildernessDeathHandler (with transaction)`,
+          );
+          await this.wildernessHandler.handleDeath(
+            playerId,
+            deathPosition,
+            itemsToDrop,
+            killedBy,
+            zoneType,
+            tx, // Pass transaction context
+          );
+        }
+
+        // Step 4: CRITICAL - Clear inventory LAST (safest point for destructive operation)
+        // If we crash before this point, transaction rolls back and inventory is NOT cleared
+        console.log(
+          `[PlayerDeathSystem] ✓ Gravestone/ground items spawned, clearing inventory for ${playerId}`,
+        );
+        await inventorySystem.clearInventoryImmediate(playerId);
+
+        console.log(
+          `[PlayerDeathSystem] ✓ Transaction complete for ${playerId}, committing...`,
+        );
+        // Transaction will auto-commit here if all succeeded
+      });
+
+      console.log(
+        `[PlayerDeathSystem] ✓ Death transaction committed successfully for ${playerId}`,
       );
-      // Still need to handle death even if no inventory (respawn, etc.)
+
+      // Post-transaction cleanup (memory-only operations, not part of transaction)
+      this.postDeathCleanup(playerId, deathPosition, itemsToDrop, killedBy);
+    } catch (error) {
+      console.error(
+        `[PlayerDeathSystem] ❌ Death transaction failed for ${playerId}, rolled back:`,
+        error,
+      );
+      // Transaction automatically rolled back
+      // Inventory NOT cleared - player keeps items
+      // Can retry death processing
+      throw error;
     }
+  }
 
-    const itemsToDrop: InventoryItem[] =
-      inventory?.items.map((item, index) => ({
-        id: `death_${playerId}_${Date.now()}_${index}`,
-        itemId: item.itemId,
-        quantity: item.quantity,
-        slot: item.slot,
-        metadata: null,
-      })) || [];
-
+  /**
+   * Post-death cleanup (memory-only operations)
+   * Called after successful death transaction commit
+   * NOT part of transaction - these are local state updates
+   */
+  private postDeathCleanup(
+    playerId: string,
+    deathPosition: { x: number; y: number; z: number },
+    itemsToDrop: InventoryItem[],
+    killedBy: string,
+  ): void {
     console.log(
-      `[PlayerDeathSystem] Player has ${itemsToDrop.length} items to drop:`,
-      itemsToDrop
-        .map((item) => `${item.itemId} x${item.quantity}`)
-        .join(", ") || "(none)",
+      `[PlayerDeathSystem] Running post-death cleanup for ${playerId}`,
     );
 
-    // CRITICAL: Clear inventory IMMEDIATELY with database persist (anti-duplication)
-    console.log(
-      `[PlayerDeathSystem] Clearing inventory immediately for ${playerId}`,
-    );
-    await inventorySystem.clearInventoryImmediate(playerId);
-
-    // Detect zone type (safe vs wilderness)
-    const zoneType = this.zoneDetection.getZoneType(deathPosition);
-    console.log(`[PlayerDeathSystem] Death in zone type: ${zoneType}`);
-
-    // Delegate to appropriate handler based on zone type
-    if (zoneType === ZoneType.SAFE_AREA) {
-      // Safe area: Spawn gravestone
-      console.log(`[PlayerDeathSystem] Delegating to SafeAreaDeathHandler`);
-      await this.safeAreaHandler.handleDeath(
-        playerId,
-        deathPosition,
-        itemsToDrop,
-        killedBy,
-      );
-    } else {
-      // Wilderness/PvP: Immediate ground item drop
-      console.log(`[PlayerDeathSystem] Delegating to WildernessDeathHandler`);
-      await this.wildernessHandler.handleDeath(
-        playerId,
-        deathPosition,
-        itemsToDrop,
-        killedBy,
-        zoneType,
-      );
-    }
-
-    // Store death location for tracking
+    // Store death location for tracking (memory only)
     const deathData: DeathLocationData = {
       playerId,
       deathPosition,
@@ -332,38 +438,56 @@ export class PlayerDeathSystem extends SystemBase {
       deathPosition,
     });
 
-    // Hide player visually (dead state)
+    // Play death animation (same as mobs) - keep player VISIBLE during animation
     const playerEntity = this.world.entities?.get?.(playerId);
     if (playerEntity && "data" in playerEntity) {
       const entityData = playerEntity.data as { e?: string; visible?: boolean };
-      entityData.visible = false;
+      // IMPORTANT: Keep visible during death animation
+      entityData.visible = true;
+
+      // Set emote STRING KEY (players use 'death' string which gets mapped to URL)
+      // This matches how CombatSystem sets 'combat' emote
+      if ((playerEntity as any).emote !== undefined) {
+        (playerEntity as any).emote = "death";
+      }
+      if ((playerEntity as any).data) {
+        (playerEntity as any).data.e = "death";
+      }
 
       if ("markNetworkDirty" in playerEntity) {
         (playerEntity as { markNetworkDirty: () => void }).markNetworkDirty();
       }
-      console.log(`[PlayerDeathSystem] Hid player ${playerId} (dead)`);
+      console.log(
+        `[PlayerDeathSystem] Playing death animation for ${playerId}`,
+      );
     }
 
-    // Start auto-respawn timer (5 minutes as fallback)
-    const AUTO_RESPAWN_FALLBACK_TIME = 5 * 60 * 1000;
+    // RuneScape-style: Just play animation, then teleport to spawn
+    // NO loading screen - player sees the death animation, then they're at spawn
+    // Death animation is 4.5 seconds (same as mobs)
+    const DEATH_ANIMATION_DURATION = 4500; // 4.5 seconds to match mob death animation
     const respawnTimer = setTimeout(() => {
       console.log(
-        `[PlayerDeathSystem] Auto-respawn fallback triggered for ${playerId}`,
+        `[PlayerDeathSystem] Death animation complete, respawning ${playerId} (RuneScape-style)`,
       );
+
+      // Hide player after death animation completes
+      if (playerEntity && "data" in playerEntity) {
+        const entityData = playerEntity.data as {
+          e?: string;
+          visible?: boolean;
+        };
+        entityData.visible = false;
+        if ("markNetworkDirty" in playerEntity) {
+          (playerEntity as { markNetworkDirty: () => void }).markNetworkDirty();
+        }
+      }
+
       this.initiateRespawn(playerId);
-    }, AUTO_RESPAWN_FALLBACK_TIME);
+    }, DEATH_ANIMATION_DURATION);
 
     this.respawnTimers.set(playerId, respawnTimer);
 
-    // Notify player of death (show death screen)
-    console.log(`[PlayerDeathSystem] Emitting UI_DEATH_SCREEN for ${playerId}`);
-    this.emitTypedEvent(EventType.UI_DEATH_SCREEN, {
-      playerId,
-      message: `Click the button below to respawn at Central Haven.`,
-      deathLocation: deathPosition,
-      killedBy,
-      respawnTime: 0, // Instant respawn on button click
-    });
     console.log(
       `[PlayerDeathSystem] Death processing completed for ${playerId}`,
     );
@@ -637,16 +761,19 @@ export class PlayerDeathSystem extends SystemBase {
     });
     console.log(`[PlayerDeathSystem] Set player alive state`);
 
-    // Notify player of respawn
+    // Notify player of respawn (RuneScape-style message)
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
-      message: `You have respawned in ${townName}. Your items remain at your death location.`,
+      message: `You have respawned in ${townName}. Your items are where you died.`,
       type: "info",
     });
 
-    // Close death screen
-    this.emitTypedEvent(EventType.UI_DEATH_SCREEN_CLOSE, { playerId });
-    console.log(`[PlayerDeathSystem] Emitted UI_DEATH_SCREEN_CLOSE`);
+    // CRITICAL: Clear death lock after successful respawn
+    // This prevents stale death locks from blocking future logins
+    this.deathStateManager.clearDeathLock(playerId);
+    console.log(
+      `[PlayerDeathSystem] ✓ Cleared death lock for ${playerId} after respawn`,
+    );
   }
 
   private handleRespawnRequest(data: { playerId: string }): void {
@@ -667,6 +794,97 @@ export class PlayerDeathSystem extends SystemBase {
         `[PlayerDeathSystem] No active respawn timer for ${data.playerId} (already respawned?)`,
       );
     }
+  }
+
+  /**
+   * Handle PLAYER_JOINED event (player reconnect)
+   * Delegates to onPlayerReconnect for death state validation
+   */
+  private async handlePlayerReconnect(data: {
+    playerId: string;
+  }): Promise<void> {
+    if (!this.world.isServer) {
+      return; // Only server validates death state
+    }
+
+    await this.onPlayerReconnect(data.playerId);
+  }
+
+  /**
+   * Handle player reconnect - validate death state
+   * CRITICAL: Prevents item duplication when player disconnects during death
+   *
+   * Called when player reconnects to server
+   * - Checks for active death lock in database
+   * - Restores death screen UI if death lock exists
+   * - Prevents inventory load until respawn
+   *
+   * Can be called by other systems (e.g., PlayerSystem) to validate death state
+   */
+  async onPlayerReconnect(playerId: string): Promise<{
+    blockInventoryLoad: boolean;
+  }> {
+    console.log(
+      `[PlayerDeathSystem] Player ${playerId} reconnected, checking for active death lock...`,
+    );
+
+    // Check for active death lock (checks both memory and database)
+    const deathLock = await this.deathStateManager.getDeathLock(playerId);
+
+    if (deathLock) {
+      // Check if death lock is stale (older than 1 hour)
+      // Stale death locks should be cleared, not restored
+      const MAX_DEATH_LOCK_AGE = 60 * 60 * 1000; // 1 hour
+      const deathAge = Date.now() - deathLock.timestamp;
+
+      if (deathAge > MAX_DEATH_LOCK_AGE) {
+        console.log(
+          `[PlayerDeathSystem] ⚠️  Found STALE death lock for ${playerId} (age: ${Math.round(deathAge / 1000 / 60)} minutes)`,
+        );
+        console.log(
+          `[PlayerDeathSystem] ✓ Clearing stale death lock and allowing normal login`,
+        );
+        await this.deathStateManager.clearDeathLock(playerId);
+        return { blockInventoryLoad: false };
+      }
+
+      console.log(
+        `[PlayerDeathSystem] ⚠️  Player ${playerId} reconnected with active death lock!`,
+      );
+      console.log(
+        `[PlayerDeathSystem] Death location: (${deathLock.position.x}, ${deathLock.position.y}, ${deathLock.position.z})`,
+      );
+      console.log(
+        `[PlayerDeathSystem] Zone: ${deathLock.zoneType}, Items: ${deathLock.itemCount}, Age: ${Math.round(deathAge / 1000)}s`,
+      );
+
+      // Restore death location to memory
+      this.deathLocations.set(playerId, {
+        playerId,
+        deathPosition: deathLock.position,
+        timestamp: deathLock.timestamp,
+        items: [], // Items are in gravestone/ground, not in memory
+      });
+
+      // Immediately trigger respawn (RuneScape-style - no waiting, no screen)
+      console.log(
+        `[PlayerDeathSystem] ✓ Triggering immediate respawn for ${playerId} on reconnect`,
+      );
+
+      // Very short delay, then auto-respawn (just enough for world to load)
+      setTimeout(() => {
+        this.initiateRespawn(playerId);
+      }, 500); // 0.5 second delay
+
+      // CRITICAL: Block inventory load until respawn
+      // This prevents inventory items from appearing when player is dead
+      return { blockInventoryLoad: true };
+    }
+
+    console.log(
+      `[PlayerDeathSystem] ✓ No active death lock for ${playerId}, normal login`,
+    );
+    return { blockInventoryLoad: false };
   }
 
   private handleLootCollection(data: { playerId: string }): void {

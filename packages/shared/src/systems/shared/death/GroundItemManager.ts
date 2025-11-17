@@ -39,6 +39,14 @@ export class GroundItemManager {
     position: { x: number; y: number; z: number },
     options: GroundItemOptions,
   ): Promise<string> {
+    // CRITICAL: Server authority check - prevent client from spawning arbitrary items
+    if (!this.world.isServer) {
+      console.error(
+        `[GroundItemManager] ⚠️  Client attempted server-only ground item spawn - BLOCKED`,
+      );
+      return "";
+    }
+
     const item = getItem(itemId);
     if (!item) {
       console.warn(`[GroundItemManager] Unknown item: ${itemId}`);
@@ -142,6 +150,14 @@ export class GroundItemManager {
     position: { x: number; y: number; z: number },
     options: GroundItemOptions,
   ): Promise<string[]> {
+    // CRITICAL: Server authority check - prevent client from mass-spawning items
+    if (!this.world.isServer) {
+      console.error(
+        `[GroundItemManager] ⚠️  Client attempted server-only ground items spawn - BLOCKED`,
+      );
+      return [];
+    }
+
     const entityIds: string[] = [];
 
     for (let i = 0; i < items.length; i++) {

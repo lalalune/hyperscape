@@ -479,6 +479,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
             flip: Emotes.FLIP,
             talk: Emotes.TALK,
             combat: Emotes.COMBAT,
+            death: Emotes.DEATH,
           };
           desiredUrl = emoteMap[serverEmote] || Emotes.IDLE;
         }
