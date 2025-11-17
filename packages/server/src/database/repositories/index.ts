@@ -18,3 +18,4 @@ export { EquipmentRepository } from "./EquipmentRepository";
 export { SessionRepository } from "./SessionRepository";
 export { WorldChunkRepository } from "./WorldChunkRepository";
 export { NPCKillRepository } from "./NPCKillRepository";
+export { DeathRepository } from "./DeathRepository";

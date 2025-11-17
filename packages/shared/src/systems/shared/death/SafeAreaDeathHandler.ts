@@ -30,15 +30,30 @@ export class SafeAreaDeathHandler {
 
   /**
    * Handle player death in safe area
+   *
+   * @param playerId - The player who died
+   * @param position - Death position
+   * @param items - Items to drop in gravestone
+   * @param killedBy - Who/what killed the player
+   * @param tx - Optional transaction context for atomic operations
    */
   async handleDeath(
     playerId: string,
     position: { x: number; y: number; z: number },
     items: InventoryItem[],
     killedBy: string,
+    tx?: any, // Transaction context for atomic death processing
   ): Promise<void> {
+    // CRITICAL: Server authority check - prevent client from spawning fake gravestones
+    if (!this.world.isServer) {
+      console.error(
+        `[SafeAreaDeathHandler] ⚠️  Client attempted server-only death handling for ${playerId} - BLOCKED`,
+      );
+      return;
+    }
+
     console.log(
-      `[SafeAreaDeathHandler] Handling safe area death for ${playerId} at (${position.x}, ${position.y}, ${position.z})`,
+      `[SafeAreaDeathHandler] Handling safe area death for ${playerId} at (${position.x}, ${position.y}, ${position.z})${tx ? " (in transaction)" : ""}`,
     );
     console.log(
       `[SafeAreaDeathHandler] Received ${items.length} items to put in gravestone:`,
@@ -62,19 +77,26 @@ export class SafeAreaDeathHandler {
     );
 
     if (!gravestoneId) {
-      console.error(
-        `[SafeAreaDeathHandler] Failed to spawn gravestone for ${playerId}`,
-      );
+      const errorMsg = `Failed to spawn gravestone for ${playerId}`;
+      console.error(`[SafeAreaDeathHandler] ${errorMsg}`);
+      // If in transaction, throw to trigger rollback
+      if (tx) {
+        throw new Error(errorMsg);
+      }
       return;
     }
 
-    // Create death lock in database
-    await this.deathStateManager.createDeathLock(playerId, {
-      gravestoneId: gravestoneId,
-      position: position,
-      zoneType: ZoneType.SAFE_AREA,
-      itemCount: items.length,
-    });
+    // Create death lock in database (with transaction if provided)
+    await this.deathStateManager.createDeathLock(
+      playerId,
+      {
+        gravestoneId: gravestoneId,
+        position: position,
+        zoneType: ZoneType.SAFE_AREA,
+        itemCount: items.length,
+      },
+      tx, // Pass transaction context
+    );
 
     // Schedule gravestone expiration (5 minutes)
     this.scheduleGravestoneExpiration(playerId, gravestoneId, position, items);
@@ -123,6 +145,9 @@ export class SafeAreaDeathHandler {
         items: items,
         itemCount: items.length,
         despawnTime: despawnTime,
+        // Safe area - no loot protection (anyone can loot immediately)
+        lootProtectionUntil: 0,
+        protectedFor: undefined,
       },
       properties: {
         movementComponent: null,
