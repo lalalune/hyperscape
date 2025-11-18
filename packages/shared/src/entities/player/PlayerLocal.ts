@@ -1181,6 +1181,14 @@ export class PlayerLocal extends Entity implements HotReloadable {
       EventType.PLAYER_TELEPORT_REQUEST,
       this.handleTeleport.bind(this),
     );
+    this.world.on(
+      EventType.PLAYER_SET_DEAD,
+      this.handlePlayerSetDead.bind(this),
+    );
+    this.world.on(
+      EventType.PLAYER_RESPAWNED,
+      this.handlePlayerRespawned.bind(this),
+    );
 
     // Signal to UI that the world is ready
     this.world.emit(EventType.READY);
@@ -1746,6 +1754,16 @@ export class PlayerLocal extends Entity implements HotReloadable {
   public setClickMoveTarget(
     target: { x: number; y: number; z: number } | null,
   ): void {
+    // CRITICAL: Block ALL movement during death
+    if (
+      (this as any).isDying ||
+      (this.data as any).isDying ||
+      this.health <= 0
+    ) {
+      console.log("[PlayerLocal] Movement blocked - player is dying/dead");
+      return;
+    }
+
     if (target) {
       // Always create a new vector or reuse existing one
       if (!this.clickMoveTarget) {
@@ -2145,6 +2163,101 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
   }
 
+  /**
+   * Handle PLAYER_SET_DEAD event from server
+   * CRITICAL: This is the entry point to death flow - blocks all input and movement
+   */
+  handlePlayerSetDead(event: any): void {
+    if (event.playerId !== this.data.id) return;
+
+    console.log("[PlayerLocal] ========== DEATH STATE ENTERED ==========");
+    console.log(
+      "[PlayerLocal] Received PLAYER_SET_DEAD event, blocking all input and movement",
+    );
+
+    // Set isDying flag (blocks all input)
+    (this as any).isDying = true;
+    (this.data as any).isDying = true;
+
+    // CRITICAL: Clear ALL movement state immediately to stop camera following
+    console.log("[PlayerLocal] Clearing all movement state...");
+    this.clickMoveTarget = null;
+    this.moveDir.set(0, 0, 0);
+    this.moving = false;
+    this.running = false;
+    if (this.velocity) {
+      this.velocity.set(0, 0, 0);
+    }
+
+    // Clear any queued movement (defensive - clear everything)
+    if ((this as any).movementTarget) (this as any).movementTarget = null;
+    if ((this as any).path) (this as any).path = null;
+    if ((this as any).destination) (this as any).destination = null;
+
+    // CRITICAL: Freeze physics capsule (make it KINEMATIC = frozen, no forces applied)
+    if (this.capsule && (globalThis as any).PHYSX) {
+      const PHYSX = (globalThis as any).PHYSX;
+      console.log("[PlayerLocal] Freezing physics capsule...");
+
+      // Zero out all velocities
+      const zeroVec = new PHYSX.PxVec3(0, 0, 0);
+      this.capsule.setLinearVelocity(zeroVec);
+      this.capsule.setAngularVelocity(zeroVec);
+
+      // Set to KINEMATIC mode (frozen in place, position-driven)
+      this.capsule.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true);
+      console.log("[PlayerLocal] ✅ Physics frozen (KINEMATIC mode)");
+    } else {
+      console.warn(
+        "[PlayerLocal] ⚠️  No physics capsule - cannot freeze physics",
+      );
+    }
+
+    console.log(
+      "[PlayerLocal] ✅ Death state applied - all movement blocked for 4.5s death animation",
+    );
+  }
+
+  /**
+   * Handle PLAYER_RESPAWNED event from server
+   * Exits death state and allows normal gameplay
+   */
+  handlePlayerRespawned(event: any): void {
+    if (event.playerId !== this.data.id) return;
+
+    console.log("[PlayerLocal] ========== DEATH STATE EXITED ==========");
+    console.log(
+      "[PlayerLocal] Received PLAYER_RESPAWNED event, restoring normal gameplay",
+    );
+
+    // Clear isDying flag (allows input again)
+    (this as any).isDying = false;
+    (this.data as any).isDying = false;
+
+    // Unfreeze physics capsule (make it DYNAMIC again)
+    if (this.capsule && (globalThis as any).PHYSX) {
+      const PHYSX = (globalThis as any).PHYSX;
+      console.log("[PlayerLocal] Unfreezing physics capsule...");
+
+      // Set back to DYNAMIC mode (normal physics)
+      this.capsule.setRigidBodyFlag(
+        PHYSX.PxRigidBodyFlagEnum.eKINEMATIC,
+        false,
+      );
+
+      // Zero out velocities to prevent sudden movements
+      const zeroVec = new PHYSX.PxVec3(0, 0, 0);
+      this.capsule.setLinearVelocity(zeroVec);
+      this.capsule.setAngularVelocity(zeroVec);
+
+      console.log("[PlayerLocal] ✅ Physics unfrozen (DYNAMIC mode)");
+    }
+
+    console.log(
+      "[PlayerLocal] ✅ Respawn complete - player can move and act normally",
+    );
+  }
+
   // Required System lifecycle methods
   override destroy(): void {
     // Mark as inactive to prevent further operations
@@ -2164,6 +2277,8 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Remove event listeners
     this.world.off(EventType.PLAYER_HEALTH_UPDATED, this.handleHealthChange);
     this.world.off(EventType.PLAYER_TELEPORT_REQUEST, this.handleTeleport);
+    this.world.off(EventType.PLAYER_SET_DEAD, this.handlePlayerSetDead);
+    this.world.off(EventType.PLAYER_RESPAWNED, this.handlePlayerRespawned);
 
     // Clean up physics
     if (this.capsule && this.capsuleHandle) {
