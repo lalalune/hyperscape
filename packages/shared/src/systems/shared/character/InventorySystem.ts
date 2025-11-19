@@ -332,6 +332,13 @@ export class InventorySystem extends SystemBase {
         playerId: playerId,
         coins: inventory.coins,
       });
+
+      // Sync inventory to client (updates UI immediately)
+      const playerIdKey = toPlayerID(playerId);
+      if (playerIdKey) {
+        this.emitInventoryUpdate(playerIdKey);
+      }
+
       this.scheduleInventoryPersist(playerId);
       return true;
     }
