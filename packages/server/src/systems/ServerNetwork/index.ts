@@ -50,6 +50,7 @@ import {
   hasRole,
   isDatabaseInstance,
   World,
+  EventType,
 } from "@hyperscape/shared";
 
 // Import modular components
@@ -263,6 +264,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onDropItem"] = (socket, data) =>
       handleDropItem(socket, data, this.world);
+
+    // Death/respawn handlers
+    this.handlers["onRequestRespawn"] = (socket, data) => {
+      const playerEntity = socket.player;
+      if (playerEntity) {
+        console.log(
+          `[ServerNetwork] Received respawn request from player ${playerEntity.id}`,
+        );
+        this.world.emit(EventType.PLAYER_RESPAWN_REQUEST, {
+          playerId: playerEntity.id,
+        });
+      } else {
+        console.warn(
+          "[ServerNetwork] onRequestRespawn: no player entity on socket",
+        );
+      }
+    };
 
     // Character selection handlers
     this.handlers["onCharacterListRequest"] = (socket) =>

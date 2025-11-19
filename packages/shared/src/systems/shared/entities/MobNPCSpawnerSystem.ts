@@ -63,20 +63,9 @@ export class MobNPCSpawnerSystem extends SystemBase {
   }
 
   async start(): Promise<void> {
-    console.log(
-      `[MobNPCSpawnerSystem] 🚀 start() called, isServer: ${this.world.isServer}`,
-    );
-
     // Spawn a default test mob near origin BEFORE accepting connections (server-only)
     if (this.world.isServer) {
-      console.log(
-        `[MobNPCSpawnerSystem] 🎯 Server detected, calling spawnDefaultMob()`,
-      );
       await this.spawnDefaultMob();
-    } else {
-      console.log(
-        `[MobNPCSpawnerSystem] ⏭️ Client detected, skipping spawnDefaultMob()`,
-      );
     }
 
     // Mobs are now spawned reactively as terrain tiles generate
@@ -87,15 +76,11 @@ export class MobNPCSpawnerSystem extends SystemBase {
    * Spawn a default test mob for initial world content
    */
   private async spawnDefaultMob(): Promise<void> {
-    console.log(`[MobNPCSpawnerSystem] 🔨 spawnDefaultMob() called`);
-
     // Wait for EntityManager to be ready
     let entityManager = this.world.getSystem("entity-manager") as {
       spawnEntity?: (config: unknown) => Promise<unknown>;
     } | null;
     let attempts = 0;
-
-    console.log(`[MobNPCSpawnerSystem] ⏳ Waiting for EntityManager...`);
 
     while ((!entityManager || !entityManager.spawnEntity) && attempts < 100) {
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -103,12 +88,6 @@ export class MobNPCSpawnerSystem extends SystemBase {
         spawnEntity?: (config: unknown) => Promise<unknown>;
       } | null;
       attempts++;
-
-      if (attempts % 10 === 0) {
-        console.log(
-          `[MobNPCSpawnerSystem] Still waiting for EntityManager... (attempt ${attempts})`,
-        );
-      }
     }
 
     if (!entityManager?.spawnEntity) {
@@ -118,16 +97,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
       return;
     }
 
-    console.log(
-      `[MobNPCSpawnerSystem] ✅ EntityManager ready after ${attempts} attempts`,
-    );
-
     // Use reasonable Y position (server will adjust to terrain)
-    const terrain = this.world.getSystem("terrain");
-    console.log(
-      `[MobNPCSpawnerSystem] Server terrain system available:`,
-      !!terrain,
-    );
     const y = 40;
 
     const mobConfig = {
@@ -147,11 +117,11 @@ export class MobNPCSpawnerSystem extends SystemBase {
       // MobEntity specific
       mobType: "goblin",
       level: 2,
-      currentHealth: 30,
-      maxHealth: 30,
-      attackPower: 5,
-      defense: 2,
-      attackSpeed: 2000,
+      currentHealth: 10,
+      maxHealth: 10,
+      attackPower: 25, // TEMPORARY: Increased for quick death testing
+      defense: 1,
+      attackSpeed: 1500, // TEMPORARY: Faster attacks for death testing
       moveSpeed: 2,
       xpReward: 15,
       lootTable: [
@@ -168,26 +138,8 @@ export class MobNPCSpawnerSystem extends SystemBase {
       respawnTime: 15000, // 15 seconds (RuneScape-style)
     };
 
-    console.log(`[MobNPCSpawnerSystem] 📋 Mob config:`, mobConfig);
-
     try {
-      console.log(
-        `[MobNPCSpawnerSystem] 🔄 Calling entityManager.spawnEntity()...`,
-      );
-      const spawnedEntity = (await entityManager.spawnEntity(mobConfig)) as {
-        id?: string;
-      } | null;
-      console.log(
-        `[MobNPCSpawnerSystem] ✅ spawnEntity returned id:`,
-        spawnedEntity?.id,
-      );
-
-      // Verify it's in the world
-      const verify = this.world.entities.get("default_goblin_1");
-      console.log(
-        `[MobNPCSpawnerSystem] 🔍 Entity in world.entities:`,
-        verify ? "YES" : "NO",
-      );
+      await entityManager.spawnEntity(mobConfig);
     } catch (err) {
       console.error(
         "[MobNPCSpawnerSystem] ❌ Error spawning default goblin:",

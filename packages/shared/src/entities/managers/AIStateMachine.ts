@@ -89,16 +89,16 @@ export class IdleState implements AIState {
     this.idleDuration =
       this.IDLE_MIN_DURATION +
       Math.random() * (this.IDLE_MAX_DURATION - this.IDLE_MIN_DURATION);
-    console.log(
-      `[IdleState] Entered, will idle for ${(this.idleDuration / 1000).toFixed(1)}s`,
-    );
+    //console.log(
+    //  `[IdleState] Entered, will idle for ${(this.idleDuration / 1000).toFixed(1)}s`,
+    //);
   }
 
   update(context: AIStateContext, _deltaTime: number): MobAIState | null {
     // Check for nearby players (instant aggro)
     const nearbyPlayer = context.findNearbyPlayer();
     if (nearbyPlayer) {
-      console.log(`[IdleState] Detected player, switching to CHASE`);
+      //console.log(`[IdleState] Detected player, switching to CHASE`);
       context.setTarget(nearbyPlayer.id);
       context.emitEvent("MOB_NPC_AGGRO", {
         mobId: "self",
@@ -110,7 +110,7 @@ export class IdleState implements AIState {
     // After idle duration, start wandering
     const now = context.getTime();
     if (now - this.idleStartTime > this.idleDuration) {
-      console.log(`[IdleState] Idle expired, switching to WANDER`);
+      //console.log(`[IdleState] Idle expired, switching to WANDER`);
       return MobAIState.WANDER;
     }
 
@@ -129,7 +129,7 @@ export class WanderState implements AIState {
   readonly name = MobAIState.WANDER;
 
   enter(_context: AIStateContext): void {
-    console.log(`[WanderState] Entered`);
+    //console.log(`[WanderState] Entered`);
   }
 
   update(context: AIStateContext, deltaTime: number): MobAIState | null {
@@ -373,11 +373,11 @@ export class AIStateMachine {
     const nextStateInstance = this.states.get(newState);
 
     if (!nextStateInstance) {
-      console.error(`[AIStateMachine] Invalid state: ${newState}`);
+      //console.error(`[AIStateMachine] Invalid state: ${newState}`);
       return;
     }
 
-    console.log(`[AIStateMachine] ${oldState.name} → ${newState}`);
+    //console.log(`[AIStateMachine] ${oldState.name} → ${newState}`);
 
     // Exit old state
     oldState.exit(context);

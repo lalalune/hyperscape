@@ -206,6 +206,59 @@ export class EventBridge {
           );
         }
       });
+
+      // Forward death screen events to specific player
+      this.world.on(EventType.UI_DEATH_SCREEN, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          message: string;
+          killedBy: string;
+          respawnTime: number;
+        };
+
+        if (data.playerId) {
+          console.log(
+            `[EventBridge] Forwarding UI_DEATH_SCREEN to player ${data.playerId}`,
+          );
+          this.broadcast.sendToPlayer(data.playerId, "deathScreen", data);
+        }
+      });
+
+      // Forward death screen close events to specific player
+      this.world.on(EventType.UI_DEATH_SCREEN_CLOSE, (payload: unknown) => {
+        const data = payload as { playerId: string };
+
+        if (data.playerId) {
+          console.log(
+            `[EventBridge] Forwarding UI_DEATH_SCREEN_CLOSE to player ${data.playerId}`,
+          );
+          this.broadcast.sendToPlayer(data.playerId, "deathScreenClose", data);
+        }
+      });
+
+      // Forward player death state changes to clients
+      this.world.on(EventType.PLAYER_SET_DEAD, (payload: unknown) => {
+        const data = payload as { playerId: string; isDead: boolean };
+
+        if (data.playerId) {
+          console.log(
+            `[EventBridge] Forwarding PLAYER_SET_DEAD to player ${data.playerId}, isDead:${data.isDead}`,
+          );
+          this.broadcast.sendToPlayer(data.playerId, "playerSetDead", data);
+        }
+      });
+
+      // Forward player respawn events to clients
+      this.world.on(EventType.PLAYER_RESPAWNED, (payload: unknown) => {
+        const data = payload as { playerId: string; spawnPosition: number[] };
+
+        if (data.playerId) {
+          console.log(
+            `[EventBridge] Forwarding PLAYER_RESPAWNED to player ${data.playerId}`,
+          );
+          this.broadcast.sendToPlayer(data.playerId, "playerRespawned", data);
+        }
+      });
     } catch (_err) {
       console.error("[EventBridge] Error setting up UI events:", _err);
     }

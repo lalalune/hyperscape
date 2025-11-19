@@ -730,12 +730,7 @@ export class ClientNetwork extends SystemBase {
       const newState = changes.aiState || entityData.aiState;
       const isDead = newState === "dead";
 
-      // DEBUG: Log all mob state changes
-      if (entityData.type === "mob" && changes.aiState) {
-        console.log(
-          `[ClientNetwork] 🔍 Mob ${id}: changes.aiState=${changes.aiState}, current=${entityData.aiState}, isDead=${isDead}, hasP=${hasP}`,
-        );
-      }
+      // Mob AI state tracking (no logging needed in production)
 
       // Clear interpolation buffer for ANY dead mob (defense in depth)
       if (isDead && this.interpolationStates.has(id)) {
@@ -1273,6 +1268,97 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
+  onDeathScreen = (data: {
+    playerId: string;
+    message: string;
+    killedBy: string;
+    respawnTime: number;
+  }) => {
+    // Only show death screen for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received deathScreen, forwarding to UI:",
+        data,
+      );
+      // Forward to local event system for death screen display
+      this.world.emit(EventType.UI_DEATH_SCREEN, {
+        message: data.message,
+        killedBy: data.killedBy,
+        respawnTime: data.respawnTime,
+      });
+    }
+  };
+
+  onDeathScreenClose = (data: { playerId: string }) => {
+    // Only close death screen for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received deathScreenClose, forwarding to UI",
+      );
+      // Forward to local event system to close death screen
+      this.world.emit(EventType.UI_DEATH_SCREEN_CLOSE, {
+        playerId: data.playerId,
+      });
+    }
+  };
+
+  onPlayerSetDead = (data: {
+    playerId: string;
+    isDead: boolean;
+    deathPosition?: number[];
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        `[ClientNetwork] Received playerSetDead for local player, isDead:${data.isDead}, forwarding to event system`,
+      );
+      // Forward to local event system so PlayerLocal can handle it
+      this.world.emit(EventType.PLAYER_SET_DEAD, {
+        playerId: data.playerId,
+        isDead: data.isDead,
+        deathPosition: data.deathPosition,
+      });
+    }
+  };
+
+  onPlayerRespawned = (data: {
+    playerId: string;
+    spawnPosition: number[];
+    townName?: string;
+    deathLocation?: number[];
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received playerRespawned for local player, forwarding to event system",
+      );
+      // Forward to local event system so PlayerLocal can handle it
+      this.world.emit(EventType.PLAYER_RESPAWNED, {
+        playerId: data.playerId,
+        spawnPosition: data.spawnPosition,
+        townName: data.townName,
+        deathLocation: data.deathLocation,
+      });
+    }
+  };
+
+  onCorpseLoot = (data: {
+    corpseId: string;
+    playerId: string;
+    lootItems: Array<{ itemId: string; quantity: number }>;
+    position: { x: number; y: number; z: number };
+  }) => {
+    console.log(
+      `[ClientNetwork] Received corpseLoot packet for ${data.corpseId} with ${data.lootItems?.length || 0} items`,
+    );
+    // Forward to local event system so UI can open loot window
+    this.world.emit(EventType.CORPSE_CLICK, data);
+  };
+
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId);
     if (pending && pending.length > 0) {
@@ -1292,14 +1378,23 @@ export class ClientNetwork extends SystemBase {
     playerId: string;
     position: [number, number, number];
   }) => {
+    console.log(`[ClientNetwork] Received playerTeleport packet:`, data);
     const player = this.world.entities.player;
+    console.log(
+      `[ClientNetwork] Player entity exists:`,
+      !!player,
+      `Is PlayerLocal:`,
+      player instanceof PlayerLocal,
+    );
     if (player instanceof PlayerLocal) {
       const pos = _v3_1.set(
         data.position[0],
         data.position[1],
         data.position[2],
       );
+      console.log(`[ClientNetwork] Teleporting player to:`, pos);
       player.teleport(pos);
+      console.log(`[ClientNetwork] Teleport complete`);
     }
   };
 
