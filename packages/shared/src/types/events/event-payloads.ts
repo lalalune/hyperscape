@@ -375,6 +375,8 @@ export interface EventMap {
     entityId: string;
     sourceId?: string;
     lastDamageTime?: number;
+    killedBy?: string;
+    entityType?: "player" | "mob";
   };
   [EventType.ENTITY_REVIVED]: { entityId: string; newHealth?: number };
   [EventType.ENTITY_UPDATED]: {
