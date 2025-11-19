@@ -261,8 +261,16 @@ export class DatabaseSystem extends SystemBase {
     accountId: string,
     id: string,
     name: string,
+    avatar?: string,
+    wallet?: string,
   ): Promise<boolean> {
-    return this.characterRepository.createCharacter(accountId, id, name);
+    return this.characterRepository.createCharacter(
+      accountId,
+      id,
+      name,
+      avatar,
+      wallet,
+    );
   }
 
   // ============================================================================

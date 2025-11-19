@@ -25,12 +25,6 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       }
-    },
-    "./frontend": {
-      "import": {
-        "types": "./dist/frontend/index.d.ts",
-        "default": "./dist/frontend/index.js"
-      }
     }
   },
   "files": [
@@ -40,8 +34,10 @@
   ],
   "dependencies": {
     "@elizaos/core": "^1.2.9",
+    "@elizaos/plugin-openrouter": "^1.5.15",
     "@hyperscape/shared": "workspace:*",
     "clsx": "^2.1.1",
+    "jsonwebtoken": "^9.0.2",
     "lodash-es": "^4.17.21",
     "lucide-react": "^0.525.0",
     "react": "^19.2.0",
@@ -51,6 +47,8 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@elizaos/cli": "^1.6.4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.8.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

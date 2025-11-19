@@ -217,9 +217,14 @@ export const characters = pgTable(
     positionZ: real("positionZ").default(0),
 
     lastLogin: bigint("lastLogin", { mode: "number" }).default(0),
+
+    // Avatar and wallet
+    avatar: text("avatar"),
+    wallet: text("wallet"),
   },
   (table) => ({
     accountIdx: index("idx_characters_account").on(table.accountId),
+    walletIdx: index("idx_characters_wallet").on(table.wallet),
   }),
 );
 

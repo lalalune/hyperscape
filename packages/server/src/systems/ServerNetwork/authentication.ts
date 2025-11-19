@@ -61,6 +61,7 @@ export async function authenticateUser(
       const privyInfo = await verifyPrivyToken(authToken);
 
       if (privyInfo && privyInfo.privyUserId === privyUserId) {
+        console.log("[Authentication] 🔐 Verifying Privy User:", privyUserId);
         let dbResult: User | undefined;
         try {
           dbResult = (await db("users")
@@ -74,6 +75,7 @@ export async function authenticateUser(
 
         if (dbResult) {
           // Existing Privy user
+          console.log("[Authentication] ✅ Found existing user:", dbResult.id);
           userWithPrivy = dbResult as User & {
             privyUserId?: string | null;
             farcasterFid?: string | null;
@@ -81,6 +83,10 @@ export async function authenticateUser(
           user = userWithPrivy;
         } else {
           // New Privy user - create account with stable id equal to privyUserId
+          console.log(
+            "[Authentication] 🆕 Creating new user for Privy ID:",
+            privyInfo.privyUserId,
+          );
           const timestamp = new Date().toISOString();
           const newUser: {
             id: string;

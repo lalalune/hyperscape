@@ -34,7 +34,14 @@ export class CharacterRepository extends BaseRepository {
    */
   async getCharactersAsync(
     accountId: string,
-  ): Promise<Array<{ id: string; name: string }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      avatar?: string | null;
+      wallet?: string | null;
+    }>
+  > {
     this.ensureDatabase();
 
     console.log(
@@ -43,7 +50,12 @@ export class CharacterRepository extends BaseRepository {
     );
 
     const results = await this.db
-      .select({ id: schema.characters.id, name: schema.characters.name })
+      .select({
+        id: schema.characters.id,
+        name: schema.characters.name,
+        avatar: schema.characters.avatar,
+        wallet: schema.characters.wallet,
+      })
       .from(schema.characters)
       .where(eq(schema.characters.accountId, accountId));
 
@@ -72,6 +84,8 @@ export class CharacterRepository extends BaseRepository {
     accountId: string,
     id: string,
     name: string,
+    avatar?: string,
+    wallet?: string,
   ): Promise<boolean> {
     this.ensureDatabase();
 
@@ -81,6 +95,8 @@ export class CharacterRepository extends BaseRepository {
       id,
       accountId,
       name,
+      avatar,
+      wallet,
       timestamp: now,
     });
 
@@ -89,6 +105,8 @@ export class CharacterRepository extends BaseRepository {
         id,
         accountId,
         name,
+        avatar,
+        wallet,
         createdAt: now,
         lastLogin: now,
       });

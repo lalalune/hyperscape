@@ -17,8 +17,8 @@ import { TerrainSystem } from "..";
  * across the world based on GDD specifications.
  */
 export class MobNPCSpawnerSystem extends SystemBase {
-  private spawnedMobs = new Map<string, string>(); // mobId -> entityId
-  private mobIdCounter = 0;
+  private spawnedMobs = new Map<string, string>(); // mobId -> entityId (or "pending" placeholder)
+  private spawnedTiles = new Set<string>(); // Track tiles that have spawned mobs (tileX_tileZ)
   private terrainSystem!: TerrainSystem;
   private lastSpawnTime = 0;
   private readonly SPAWN_COOLDOWN = 5000; // 5 seconds between spawns
@@ -63,11 +63,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
   }
 
   async start(): Promise<void> {
-    // Spawn a default test mob near origin BEFORE accepting connections (server-only)
-    if (this.world.isServer) {
-      await this.spawnDefaultMob();
-    }
-
+    // Removed default goblin spawn - too many goblins spawning
     // Mobs are now spawned reactively as terrain tiles generate
     // No need to spawn all mobs at startup - tiles will trigger spawning
   }
@@ -151,8 +147,13 @@ export class MobNPCSpawnerSystem extends SystemBase {
   private spawnMobFromData(
     mobData: NPCData,
     position: { x: number; y: number; z: number },
+    customId?: string, // Optional stable ID based on position
   ): void {
-    const mobId = `gdd_${mobData.id}_${this.mobIdCounter++}`;
+    // Use position-based stable ID to prevent duplicates when tiles regenerate
+    // Format: gdd_mobType_X_Z_I (I is index if multiple mobs at same position)
+    const mobId =
+      customId ||
+      `gdd_${mobData.id}_${Math.floor(position.x)}_${Math.floor(position.z)}_0`;
 
     // Check if we already spawned this mob to prevent duplicates
     if (this.spawnedMobs.has(mobId)) {
@@ -160,7 +161,8 @@ export class MobNPCSpawnerSystem extends SystemBase {
     }
 
     // Track this spawn BEFORE emitting to prevent race conditions
-    this.spawnedMobs.set(mobId, mobData.id);
+    // Use "pending" placeholder - will be updated with actual entityId in handleEntitySpawned()
+    this.spawnedMobs.set(mobId, "pending");
 
     // Use EntityManager to spawn mob via event system
     this.emitTypedEvent(EventType.MOB_NPC_SPAWN_REQUEST, {
@@ -174,15 +176,18 @@ export class MobNPCSpawnerSystem extends SystemBase {
 
   private handleEntitySpawned(data: EntitySpawnedEvent): void {
     // Track mobs spawned by the EntityManager
-    if (data.entityType === "mob" && data.entityData?.mobType) {
-      // Find matching request based on mob type and position
-      for (const [mobId] of this.spawnedMobs) {
-        if (
-          !this.spawnedMobs.get(mobId) &&
-          mobId.includes(data.entityData.mobType as string)
-        ) {
-          this.spawnedMobs.set(mobId, data.entityId!);
-          break;
+    // Update pending entries with actual entityId
+    if (
+      data.entityType === "mob" &&
+      data.entityData?.mobType &&
+      data.entityId
+    ) {
+      const mobType = data.entityData.mobType as string;
+      // Find the first pending entry for this mob type and update it with entityId
+      for (const [mobId, value] of this.spawnedMobs) {
+        if (value === "pending" && mobId.includes(mobType)) {
+          this.spawnedMobs.set(mobId, data.entityId);
+          break; // Only update one pending entry per spawn
         }
       }
     }
@@ -193,18 +198,23 @@ export class MobNPCSpawnerSystem extends SystemBase {
 
   private despawnMob(mobId: string): void {
     const entityId = this.spawnedMobs.get(mobId);
-    if (entityId) {
+    // Only emit death event if we have a real entityId (not "pending")
+    if (entityId && entityId !== "pending") {
       this.emitTypedEvent(EventType.ENTITY_DEATH, { entityId });
-      this.spawnedMobs.delete(mobId);
     }
+    this.spawnedMobs.delete(mobId);
   }
 
   private respawnAllMobs(): void {
     // Kill all existing mobs
     for (const [_mobId, entityId] of this.spawnedMobs) {
-      this.emitTypedEvent(EventType.ENTITY_DEATH, { entityId });
+      if (entityId && entityId !== "pending") {
+        this.emitTypedEvent(EventType.ENTITY_DEATH, { entityId });
+      }
     }
     this.spawnedMobs.clear();
+    // Clear spawned tiles so they can respawn mobs
+    this.spawnedTiles.clear();
 
     // Mobs will respawn naturally as terrain tiles remain loaded
     // TerrainSystem will re-emit TERRAIN_TILE_GENERATED which will trigger mob spawning
@@ -222,7 +232,8 @@ export class MobNPCSpawnerSystem extends SystemBase {
   getMobsByType(mobType: string): string[] {
     const mobEntityIds: string[] = [];
     for (const [id, entityId] of this.spawnedMobs) {
-      if (id.includes(mobType)) {
+      // Skip pending entries (not yet spawned)
+      if (entityId !== "pending" && id.includes(mobType)) {
         mobEntityIds.push(entityId);
       }
     }
@@ -258,6 +269,13 @@ export class MobNPCSpawnerSystem extends SystemBase {
     tileZ: number;
     biome: string;
   }): void {
+    // CRITICAL: Prevent duplicate spawns if tile generates multiple times
+    const tileKey = `${tileData.tileX}_${tileData.tileZ}`;
+    if (this.spawnedTiles.has(tileKey)) {
+      // This tile already spawned mobs - skip to prevent duplicates
+      return;
+    }
+
     const TILE_SIZE = this.terrainSystem.getTileSize();
     const tileBounds = {
       minX: tileData.tileX * TILE_SIZE,
@@ -285,6 +303,8 @@ export class MobNPCSpawnerSystem extends SystemBase {
 
     if (overlappingAreas.length > 0) {
       this.generateContentForTile(tileData, overlappingAreas);
+      // Mark this tile as spawned AFTER generating content
+      this.spawnedTiles.add(tileKey);
     }
   }
 
@@ -325,11 +345,22 @@ export class MobNPCSpawnerSystem extends SystemBase {
         // Directly spawn the mob instead of emitting an event back to ourselves
         const mobData = ALL_NPCS.get(spawnPoint.mobId);
         if (mobData) {
-          this.spawnMobFromData(mobData, {
-            x: spawnPoint.position.x,
-            y: mobY,
-            z: spawnPoint.position.z,
-          });
+          // Generate stable ID based on spawn point position and index
+          // Format: gdd_mobType_X_Z_I (I is index for multiple mobs at same spawn point)
+          const TILE_SIZE = this.terrainSystem.getTileSize();
+          const spawnTileX = Math.floor(spawnPoint.position.x / TILE_SIZE);
+          const spawnTileZ = Math.floor(spawnPoint.position.z / TILE_SIZE);
+          const stableId = `gdd_${spawnPoint.mobId}_${spawnTileX}_${spawnTileZ}_0`;
+
+          this.spawnMobFromData(
+            mobData,
+            {
+              x: spawnPoint.position.x,
+              y: mobY,
+              z: spawnPoint.position.z,
+            },
+            stableId, // Pass stable ID to prevent duplicates
+          );
         }
       }
     }
@@ -346,9 +377,7 @@ export class MobNPCSpawnerSystem extends SystemBase {
   destroy(): void {
     // Clear all spawn tracking
     this.spawnedMobs.clear();
-
-    // Reset counter
-    this.mobIdCounter = 0;
+    this.spawnedTiles.clear();
 
     // Call parent cleanup
     super.destroy();

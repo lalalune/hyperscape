@@ -66,6 +66,10 @@ export async function handleCharacterListRequest(
     socket.send("characterList", { characters: [] });
     return;
   }
+  console.log(
+    "[CharacterSelection] 📋 Loading characters for accountId:",
+    accountId,
+  );
   try {
     const characters = await loadCharacterList(accountId, world);
     socket.send("characterList", { characters });
@@ -89,11 +93,22 @@ export async function handleCharacterCreate(
     data,
   );
 
-  const payload = (data as { name?: string }) || {};
+  const payload =
+    (data as { name?: string; avatar?: string; wallet?: string }) || {};
   const name = (payload.name || "").trim().slice(0, 20) || "Adventurer";
+  const avatar = payload.avatar || undefined;
+  const wallet = payload.wallet || undefined;
 
-  console.log("[CharacterSelection] Raw name from payload:", payload.name);
-  console.log("[CharacterSelection] Processed name:", name);
+  console.log("[CharacterSelection] Raw data from payload:", {
+    name: payload.name,
+    avatar: payload.avatar,
+    wallet: payload.wallet,
+  });
+  console.log("[CharacterSelection] Processed values:", {
+    name,
+    avatar,
+    wallet,
+  });
 
   // Basic validation: alphanumeric plus spaces, 3-20 chars
   const safeName = name.replace(/[^a-zA-Z0-9 ]/g, "").trim();
@@ -108,6 +123,8 @@ export async function handleCharacterCreate(
     characterId: id,
     accountId,
     finalName,
+    avatar,
+    wallet,
   });
 
   if (!accountId) {
@@ -139,6 +156,8 @@ export async function handleCharacterCreate(
       accountId,
       id,
       finalName,
+      avatar,
+      wallet,
     );
 
     if (!result) {

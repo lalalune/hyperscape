@@ -6,8 +6,13 @@
 
 import { readPacket, writePacket, storage } from "@hyperscape/shared";
 import React from "react";
+import { CharacterPreview } from "../components/CharacterPreview";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { deriveCharacterWallet } from "../utils/wallet";
+import { createWalletClient, custom } from "viem";
+import { mainnet } from "viem/chains";
 
-type Character = { id: string; name: string };
+type Character = { id: string; name: string; wallet?: string };
 
 // Music preference manager - syncs with game prefs
 const getMusicEnabled = (): boolean => {
@@ -166,9 +171,22 @@ export function CharacterSelectScreen({
   >(null);
   const [newCharacterName, setNewCharacterName] = React.useState("");
   const [wsReady, setWsReady] = React.useState(false);
-  const [view, setView] = React.useState<"select" | "confirm">("select");
+  const [view, setView] = React.useState<"select" | "confirm" | "create">(
+    "select",
+  );
   const [showCreate, setShowCreate] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [selectedAvatarIndex, setSelectedAvatarIndex] = React.useState(0);
+  const [creatingCharacter, setCreatingCharacter] = React.useState(false);
+
+  // Available VRM avatars
+  const avatarOptions = [
+    { name: "Default Avatar", url: "http://localhost:8080/avatar.vrm" },
+  ];
+
+  // Privy hooks
+  const { user } = usePrivy();
+  const { wallets } = useWallets();
   const preWsRef = React.useRef<WebSocket | null>(null);
   const pendingActionRef = React.useRef<null | {
     type: "create";
@@ -207,7 +225,10 @@ export function CharacterSelectScreen({
       const token = localStorage.getItem("privy_auth_token") || "";
       const privyUserId = localStorage.getItem("privy_user_id") || "";
       if (token && privyUserId) {
-        setAuthDeps({ token, privyUserId });
+        // Only update if values actually changed
+        if (token !== authDeps.token || privyUserId !== authDeps.privyUserId) {
+          setAuthDeps({ token, privyUserId });
+        }
         window.clearInterval(id);
       } else if (++attempts > 50) {
         window.clearInterval(id);
@@ -225,10 +246,13 @@ export function CharacterSelectScreen({
     const privyUserId = authDeps.privyUserId;
     if (!token || !privyUserId) {
       setWsReady(false);
-      return;
+      return; // Don't create websocket without auth
     }
+
     let url = `${wsUrl}?authToken=${encodeURIComponent(token)}`;
     if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
+
+    console.log("[CharacterSelect] 🔌 Creating WebSocket connection to:", url);
     const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     preWsRef.current = ws;
@@ -322,7 +346,7 @@ export function CharacterSelectScreen({
     ws.send(writePacket("characterSelected", { characterId: id }));
   }, []);
 
-  const createCharacter = React.useCallback(() => {
+  const createCharacter = React.useCallback(async () => {
     const name = newCharacterName.trim().slice(0, 20);
 
     if (!name || name.length < 3) {
@@ -333,22 +357,75 @@ export function CharacterSelectScreen({
       return;
     }
 
-    const ws = preWsRef.current;
+    setCreatingCharacter(true);
+    setErrorMessage(null);
 
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn(
-        "[CharacterSelect] ⚠️ WebSocket not ready, queueing create request",
-      );
-      pendingActionRef.current = { type: "create", name };
-      return;
+    try {
+      // Derive wallet for character
+      let walletAddress: string | undefined;
+
+      if (wallets.length > 0 && user) {
+        const wallet = wallets[0];
+        const provider = await wallet.getEthereumProvider();
+
+        const walletClient = createWalletClient({
+          chain: mainnet,
+          transport: custom(provider),
+        });
+
+        const characterIndex = characters.length; // Use current count as index
+        const derived = await deriveCharacterWallet(
+          walletClient,
+          wallet.address,
+          name,
+          characterIndex,
+        );
+
+        walletAddress = derived.address;
+        console.log(
+          "[CharacterSelect] ✅ Derived wallet for character:",
+          walletAddress,
+        );
+      } else {
+        console.warn(
+          "[CharacterSelect] ⚠️ No wallet available, character will have no wallet",
+        );
+      }
+
+      const ws = preWsRef.current;
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.warn(
+          "[CharacterSelect] ⚠️ WebSocket not ready, queueing create request",
+        );
+        pendingActionRef.current = { type: "create", name };
+        setCreatingCharacter(false);
+        return;
+      }
+
+      const packet = writePacket("characterCreate", {
+        name,
+        wallet: walletAddress,
+        avatar: avatarOptions[selectedAvatarIndex].url,
+      });
+      ws.send(packet);
+
+      setNewCharacterName("");
+      // Don't hide the create form yet - wait for server response
+    } catch (error) {
+      console.error("[CharacterSelect] ❌ Failed to create character:", error);
+      setErrorMessage("Failed to create character. Please try again.");
+    } finally {
+      setCreatingCharacter(false);
     }
-
-    const packet = writePacket("characterCreate", { name });
-    ws.send(packet);
-
-    setNewCharacterName("");
-    // Don't hide the create form yet - wait for server response
-  }, [newCharacterName]);
+  }, [
+    newCharacterName,
+    wallets,
+    user,
+    characters.length,
+    selectedAvatarIndex,
+    avatarOptions,
+  ]);
 
   const enterWorld = React.useCallback(() => {
     onPlay(selectedCharacterId);
@@ -483,9 +560,47 @@ export function CharacterSelectScreen({
                 </div>
               )}
 
-              {/* Character creation form */}
+              {/* Character creation form with 3D preview */}
               {showCreate && (
-                <div className="w-full space-y-2 mt-3">
+                <div className="w-full space-y-3 mt-3">
+                  {/* 3D Preview Section */}
+                  <div className="relative w-full h-96 bg-black/60 rounded-lg overflow-hidden border border-[#f2d08a]/30">
+                    <CharacterPreview
+                      vrmUrl={avatarOptions[selectedAvatarIndex].url}
+                      className="w-full h-full"
+                    />
+
+                    {/* Avatar Selector Overlay */}
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-black/80 rounded-lg px-4 py-2 backdrop-blur">
+                      <button
+                        onClick={() =>
+                          setSelectedAvatarIndex(
+                            (prev) =>
+                              (prev - 1 + avatarOptions.length) %
+                              avatarOptions.length,
+                          )
+                        }
+                        className="px-3 py-1 bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded transition-colors"
+                      >
+                        ‹
+                      </button>
+                      <span className="text-[#f2d08a] text-sm font-medium min-w-[120px] text-center">
+                        {avatarOptions[selectedAvatarIndex].name}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setSelectedAvatarIndex(
+                            (prev) => (prev + 1) % avatarOptions.length,
+                          )
+                        }
+                        className="px-3 py-1 bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded transition-colors"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Name Input Form */}
                   <form
                     className="w-full rounded bg-white/5"
                     onSubmit={(e) => {
@@ -505,61 +620,35 @@ export function CharacterSelectScreen({
                           }}
                           maxLength={20}
                           autoFocus
+                          disabled={creatingCharacter}
                         />
                       </div>
-                      <img
-                        src="/images/stock_character.png"
-                        alt=""
-                        className="w-12 h-12 rounded-sm object-cover"
-                      />
 
                       <button
                         type="submit"
-                        className={`px-3 py-1.5 rounded font-bold text-sm ${wsReady && newCharacterName.trim().length >= 3 ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/20 cursor-not-allowed"}`}
+                        className={`px-3 py-1.5 rounded font-bold text-sm ${wsReady && newCharacterName.trim().length >= 3 && !creatingCharacter ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/20 cursor-not-allowed"}`}
                         disabled={
-                          !wsReady || newCharacterName.trim().length < 3
+                          !wsReady ||
+                          newCharacterName.trim().length < 3 ||
+                          creatingCharacter
                         }
                       >
-                        Create
+                        {creatingCharacter ? "Creating..." : "Create"}
                       </button>
                     </div>
                     <GoldRule thick />
-                    <div className="px-3 pb-1.5 text-xs opacity-60">
-                      WS Ready: {wsReady ? "✅" : "❌"} | Name Length:{" "}
-                      {newCharacterName.trim().length}
-                    </div>
                   </form>
 
-                  {/* EMERGENCY DEBUG BUTTON - BYPASSES FORM */}
+                  {/* Back Button */}
                   <button
-                    className="w-full px-4 py-2 bg-red-600 text-white font-bold text-sm rounded"
+                    className="w-full px-4 py-2 bg-black/40 hover:bg-black/50 text-[#f2d08a] rounded border border-[#f2d08a]/30 transition-colors"
                     onClick={() => {
-                      createCharacter();
+                      setShowCreate(false);
+                      setNewCharacterName("");
+                      setSelectedAvatarIndex(0);
                     }}
                   >
-                    🚨 DEBUG: FORCE CREATE CHARACTER
-                  </button>
-
-                  {/* TEST CONNECTION BUTTON */}
-                  <button
-                    className="w-full px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded"
-                    onClick={() => {
-                      const ws = preWsRef.current;
-                      if (!ws) {
-                        console.error("[CharacterSelect] ❌ No WebSocket ref!");
-                        return;
-                      }
-                      const packet = writePacket("characterListRequest", {});
-                      ws.send(packet);
-
-                      // Now try characterCreate
-                      const packet2 = writePacket("characterCreate", {
-                        name: "TestChar",
-                      });
-                      ws.send(packet2);
-                    }}
-                  >
-                    🔵 TEST: Send List + Create Packets
+                    Cancel
                   </button>
                 </div>
               )}

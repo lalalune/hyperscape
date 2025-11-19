@@ -23,11 +23,47 @@ import { injectFarcasterMetaTags } from "./lib/farcaster-frame-config";
 import { GameClient } from "./screens/GameClient";
 import { LoginScreen } from "./screens/LoginScreen";
 import { CharacterSelectScreen } from "./screens/CharacterSelectScreen";
+import { EmbeddedGameClient } from "./components/EmbeddedGameClient";
+import { isEmbeddedMode } from "./types/embeddedConfig";
 
 // Buffer polyfill for Privy (required for crypto operations in browser)
 import { Buffer } from "buffer";
 if (!globalThis.Buffer) {
   (globalThis as { Buffer?: typeof Buffer }).Buffer = Buffer;
+}
+
+// setImmediate polyfill for Privy/Viem
+if (!globalThis.setImmediate) {
+  (globalThis as any).setImmediate = (
+    cb: (...args: any[]) => void,
+    ...args: any[]
+  ) => setTimeout(cb, 0, ...args);
+}
+
+// Parse URL parameters for embedded configuration
+const urlParams = new URLSearchParams(window.location.search);
+const isEmbedded = urlParams.get("embedded") === "true";
+
+if (isEmbedded) {
+  (window as any).__HYPERSCAPE_EMBEDDED__ = true;
+
+  // Construct config from URL params
+  const config = {
+    agentId: urlParams.get("agentId") || "",
+    authToken: urlParams.get("authToken") || "",
+    characterId: urlParams.get("characterId") || undefined,
+    wsUrl: urlParams.get("wsUrl") || "ws://localhost:5555/ws",
+    mode: (urlParams.get("mode") as any) || "spectator",
+    followEntity: urlParams.get("followEntity") || undefined,
+    hiddenUI: urlParams.get("hiddenUI")
+      ? urlParams.get("hiddenUI")?.split(",")
+      : undefined,
+    quality: (urlParams.get("quality") as any) || "medium",
+    sessionToken: urlParams.get("sessionToken") || "",
+  };
+
+  (window as any).__HYPERSCAPE_CONFIG__ = config;
+  console.log("[Hyperscape] Configured from URL params:", config);
 }
 
 // Set global environment flags
@@ -173,17 +209,49 @@ function App() {
   );
 }
 
+import { DashboardScreen } from "./screens/DashboardScreen";
+
+// ... existing imports ...
+
 function mountApp() {
   const rootElement = document.getElementById("root")!;
   const root = ReactDOM.createRoot(rootElement);
 
-  root.render(
-    <ErrorBoundary>
-      <PrivyAuthProvider>
-        <App />
-      </PrivyAuthProvider>
-    </ErrorBoundary>,
-  );
+  // Check if running in embedded viewport mode
+  if (isEmbeddedMode()) {
+    console.log(
+      "[Hyperscape] Embedded mode detected - rendering EmbeddedGameClient",
+    );
+
+    // Render embedded game client directly (no auth screens)
+    root.render(
+      <ErrorBoundary>
+        <EmbeddedGameClient />
+      </ErrorBoundary>,
+    );
+  } else {
+    // Check for dashboard mode
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("page") === "dashboard") {
+      console.log(
+        "[Hyperscape] Dashboard mode detected - rendering DashboardScreen",
+      );
+      root.render(
+        <ErrorBoundary>
+          <DashboardScreen />
+        </ErrorBoundary>,
+      );
+    } else {
+      // Normal mode - render full app with auth
+      root.render(
+        <ErrorBoundary>
+          <PrivyAuthProvider>
+            <App />
+          </PrivyAuthProvider>
+        </ErrorBoundary>,
+      );
+    }
+  }
 
   // Verify render completion
   const verifyRender = (attempts = 0) => {
