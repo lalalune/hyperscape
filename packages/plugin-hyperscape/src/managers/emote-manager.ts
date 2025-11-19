@@ -49,7 +49,7 @@ export class EmoteManager {
         emoteBuffer.byteOffset + emoteBuffer.byteLength,
       ) as ArrayBuffer;
       const emoteFile = new File(
-        [emoteArrayBuffer],
+        [new Uint8Array(emoteArrayBuffer)],
         path.basename(emote.path),
         {
           type: emoteMimeType,

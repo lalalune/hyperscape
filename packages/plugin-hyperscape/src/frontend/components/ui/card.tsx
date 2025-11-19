@@ -1,40 +1,77 @@
-import React from "react";
+/**
+ * Card UI Components for Hyperscape Plugin
+ *
+ * Simple, functional card components styled with Tailwind CSS.
+ * Used throughout the Hyperscape dashboard and UI.
+ */
+import type { ReactNode } from "react";
+import { cn } from "../../utils/cn";
 
-export const Card: React.FC<{
-  children: React.ReactNode;
+export interface CardProps {
+  children?: ReactNode;
   className?: string;
-}> = ({ children, className = "" }) => (
-  <div className={`bg-white rounded-lg shadow ${className}`}>{children}</div>
-);
+}
 
-export const CardHeader: React.FC<{
-  children: React.ReactNode;
+export interface CardHeaderProps {
+  children?: ReactNode;
   className?: string;
-}> = ({ children, className = "" }) => (
-  <div className={`px-6 py-4 border-b border-gray-200 ${className}`}>
-    {children}
-  </div>
-);
+}
 
-export const CardTitle: React.FC<{
-  children: React.ReactNode;
+export interface CardTitleProps {
+  children?: ReactNode;
   className?: string;
-}> = ({ children, className = "" }) => (
-  <h3 className={`text-lg font-semibold text-gray-900 ${className}`}>
-    {children}
-  </h3>
-);
+}
 
-export const CardDescription: React.FC<{
-  children: React.ReactNode;
+export interface CardDescriptionProps {
+  children?: ReactNode;
   className?: string;
-}> = ({ children, className = "" }) => (
-  <p className={`mt-1 text-sm text-gray-500 ${className}`}>{children}</p>
-);
+}
 
-export const CardContent: React.FC<{
-  children: React.ReactNode;
+export interface CardContentProps {
+  children?: ReactNode;
   className?: string;
-}> = ({ children, className = "" }) => (
-  <div className={`px-6 py-4 ${className}`}>{children}</div>
-);
+}
+
+export function Card({ children, className }: CardProps) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border bg-card text-card-foreground shadow-sm",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function CardHeader({ children, className }: CardHeaderProps) {
+  return (
+    <div className={cn("flex flex-col space-y-1.5 p-6", className)}>
+      {children}
+    </div>
+  );
+}
+
+export function CardTitle({ children, className }: CardTitleProps) {
+  return (
+    <h3
+      className={cn(
+        "text-2xl font-semibold leading-none tracking-tight",
+        className,
+      )}
+    >
+      {children}
+    </h3>
+  );
+}
+
+export function CardDescription({ children, className }: CardDescriptionProps) {
+  return (
+    <p className={cn("text-sm text-muted-foreground", className)}>{children}</p>
+  );
+}
+
+export function CardContent({ children, className }: CardContentProps) {
+  return <div className={cn("p-6 pt-0", className)}>{children}</div>;
+}
