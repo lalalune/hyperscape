@@ -34,72 +34,74 @@ export function calculateDamage(
   target: { stats?: CombatStats; config?: { defense?: number } },
   attackType: AttackType,
 ): DamageResult {
-  // Get base damage based on attack type
-  let baseDamage = 1;
+  // OSRS-inspired damage calculation
+  // Uses STRENGTH for damage (not attack), defense doesn't reduce damage
+
+  let maxHit = 1;
 
   if (attackType === AttackType.MELEE) {
-    const attackStat = attacker.stats?.attack || 0;
+    // Use STRENGTH stat for damage calculation (OSRS-correct)
+    const strengthStat = attacker.stats?.strength || 0;
     const attackPower = attacker.config?.attackPower || 0;
 
-    if (attackStat > 0) {
-      baseDamage =
-        Math.floor(
-          attackStat * COMBAT_CONSTANTS.DAMAGE_MULTIPLIERS.MELEE_ATTACK,
-        ) + 1;
+    if (strengthStat > 0) {
+      // Simplified OSRS formula: effective strength determines max hit
+      // effectiveStrength = strengthLevel + 8 (simplified, no prayers/potions)
+      const effectiveStrength = strengthStat + 8;
+      // maxHit = floor(0.5 + effectiveStrength * (strengthBonus + 64) / 640)
+      // Simplified: assuming no equipment bonus for now
+      const strengthBonus = 0; // TODO: Get from equipment
+      maxHit = Math.floor(
+        0.5 + (effectiveStrength * (strengthBonus + 64)) / 640,
+      );
+
+      // Ensure reasonable minimum
+      if (maxHit < 1) maxHit = Math.max(1, Math.floor(strengthStat / 10));
     } else if (attackPower > 0) {
-      baseDamage = attackPower;
+      maxHit = attackPower;
     } else {
-      baseDamage = 5; // Default melee damage
+      maxHit = 5; // Default melee damage
     }
   } else if (attackType === AttackType.RANGED) {
     const rangedStat = attacker.stats?.ranged || 0;
     const attackPower = attacker.config?.attackPower || 0;
 
     if (rangedStat > 0) {
-      baseDamage =
-        Math.floor(
-          rangedStat * COMBAT_CONSTANTS.DAMAGE_MULTIPLIERS.RANGED_ATTACK,
-        ) + 1;
+      // Use ranged stat for max hit calculation
+      const effectiveRanged = rangedStat + 8;
+      const rangedBonus = 0; // TODO: Get from equipment
+      maxHit = Math.floor(0.5 + (effectiveRanged * (rangedBonus + 64)) / 640);
+
+      if (maxHit < 1) maxHit = Math.max(1, Math.floor(rangedStat / 10));
     } else if (attackPower > 0) {
-      baseDamage = attackPower;
+      maxHit = attackPower;
     } else {
-      baseDamage = 3; // Default ranged damage
+      maxHit = 3; // Default ranged damage
     }
   }
 
-  // Ensure baseDamage is valid
-  if (!Number.isFinite(baseDamage) || baseDamage < 1) {
-    baseDamage = 5;
+  // Ensure maxHit is valid
+  if (!Number.isFinite(maxHit) || maxHit < 1) {
+    maxHit = 5;
   }
 
-  // Apply defense reduction
-  const defense = getDefenseValue(target);
-  const damageReduction = Math.floor(
-    defense * COMBAT_CONSTANTS.DAMAGE_MULTIPLIERS.DEFENSE_REDUCTION,
-  );
-
-  // Calculate final damage with randomization
-  const finalDamage = Math.max(
-    COMBAT_CONSTANTS.MIN_DAMAGE,
-    baseDamage - damageReduction,
-  );
-  const damage = Math.floor(Math.random() * finalDamage) + 1;
+  // OSRS: Defense does NOT reduce damage, only affects hit chance
+  // Roll damage from 0 to maxHit (can hit 0)
+  const damage = Math.floor(Math.random() * (maxHit + 1));
 
   // Ensure damage is valid
-  if (!Number.isFinite(damage) || damage < 1) {
+  if (!Number.isFinite(damage) || damage < 0) {
     return {
-      damage: 1,
+      damage: 0,
       isCritical: false,
       damageType: attackType,
     };
   }
 
-  // Simple critical hit chance (10%)
-  const isCritical = Math.random() < 0.1;
-
+  // OSRS: No critical hit system
   return {
-    damage: isCritical ? damage * 2 : damage,
-    isCritical,
+    damage,
+    isCritical: false,
     damageType: attackType,
   };
 }

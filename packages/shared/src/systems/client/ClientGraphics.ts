@@ -151,6 +151,7 @@ export class ClientGraphics extends System {
   aspect: number = 0;
   worldToScreenFactor: number = 0;
   isWebGPU: boolean = false;
+  private damageSplatterHandler?: (data: unknown) => void;
 
   constructor(world: World) {
     // Reuse System since ClientGraphics doesn't use SystemBase helpers heavily; but keep name for logs
@@ -288,6 +289,101 @@ export class ClientGraphics extends System {
 
   override start() {
     this.world.on(EventType.XR_SESSION, this.onXRSession);
+
+    // Subscribe to damage events to show damage splatters
+    if (!this.world.isServer) {
+      this.damageSplatterHandler = (data: unknown) => {
+        const damageData = data as {
+          attackerId: string;
+          targetId: string;
+          damage: number;
+          targetType: "player" | "mob";
+          position: { x: number; y: number; z: number };
+        };
+        this.showDamageSplatter(damageData);
+      };
+      this.world.on(EventType.COMBAT_DAMAGE_DEALT, this.damageSplatterHandler);
+    }
+  }
+
+  private showDamageSplatter(data: {
+    attackerId: string;
+    targetId: string;
+    damage: number;
+    targetType: "player" | "mob";
+    position: { x: number; y: number; z: number };
+  }): void {
+    if (!this.world.stage?.scene) return;
+
+    // Create canvas for damage number
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Set text style - red for damage > 0, blue for 0 damage (miss)
+    const color = data.damage > 0 ? "#ff0000" : "#0088ff";
+    const text = data.damage > 0 ? `-${data.damage}` : "MISS";
+
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = "bold 32px Arial";
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    // Create sprite
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      alphaTest: 0.1,
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(1, 0.5, 1);
+
+    // Position sprite at damage location
+    sprite.position.set(data.position.x, data.position.y + 1, data.position.z);
+
+    // Add to scene
+    this.world.stage.scene.add(sprite);
+
+    // Animate: float upward and fade out
+    const startTime = Date.now();
+    const duration = 1000; // 1 second
+    const startY = sprite.position.y;
+    const endY = startY + 2; // Float up 2 units
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Float upward
+      sprite.position.y = startY + (endY - startY) * progress;
+
+      // Fade out
+      material.opacity = 1 - progress;
+
+      // Always face camera
+      if (this.world.camera) {
+        sprite.lookAt(this.world.camera.position);
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Remove sprite when animation completes
+        this.world.stage.scene.remove(sprite);
+        material.dispose();
+        texture.dispose();
+      }
+    };
+
+    animate();
   }
 
   resize(width: number, height: number) {
@@ -447,6 +543,10 @@ export class ClientGraphics extends System {
     this.world.prefs?.off("change", this.onPrefsChange);
     // Remove XR session listener
     this.world.off(EventType.XR_SESSION, this.onXRSession);
+    // Remove damage splatter listener
+    if (!this.world.isServer && this.damageSplatterHandler) {
+      this.world.off(EventType.COMBAT_DAMAGE_DEALT, this.damageSplatterHandler);
+    }
     // Ensure animation loop is stopped
     if (this.renderer) {
       this.renderer.setAnimationLoop?.(null as unknown as () => void);

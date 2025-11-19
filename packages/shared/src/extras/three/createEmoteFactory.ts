@@ -211,9 +211,6 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
             // This prevents root motion (sliding, bobbing, sinking)
             // VRM skeleton will use its bind pose position instead
             // Character position is controlled by game engine, not animation
-            console.log(
-              `[EmoteFactory] Skipping position track for ${ogBoneName} → ${vrmBoneName} (removing root motion)`,
-            );
             // Don't push this track - effectively removes position animation
           }
         }
