@@ -131,6 +131,9 @@ const names = [
   'deathScreen',
   'deathScreenClose',
   'requestRespawn',
+  // Death state packets
+  'playerSetDead',
+  'playerRespawned',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',

@@ -1309,6 +1309,48 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
+  onPlayerSetDead = (data: {
+    playerId: string;
+    isDead: boolean;
+    deathPosition?: number[];
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        `[ClientNetwork] Received playerSetDead for local player, isDead:${data.isDead}, forwarding to event system`,
+      );
+      // Forward to local event system so PlayerLocal can handle it
+      this.world.emit(EventType.PLAYER_SET_DEAD, {
+        playerId: data.playerId,
+        isDead: data.isDead,
+        deathPosition: data.deathPosition,
+      });
+    }
+  };
+
+  onPlayerRespawned = (data: {
+    playerId: string;
+    spawnPosition: number[];
+    townName?: string;
+    deathLocation?: number[];
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received playerRespawned for local player, forwarding to event system",
+      );
+      // Forward to local event system so PlayerLocal can handle it
+      this.world.emit(EventType.PLAYER_RESPAWNED, {
+        playerId: data.playerId,
+        spawnPosition: data.spawnPosition,
+        townName: data.townName,
+        deathLocation: data.deathLocation,
+      });
+    }
+  };
+
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId);
     if (pending && pending.length > 0) {
