@@ -518,6 +518,15 @@ export class ClientInput extends SystemBase {
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.defaultPrevented || e.repeat || this.isInputFocused()) return;
 
+    // CRITICAL: Block ALL input during death
+    const player = (this.world as any).player;
+    if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
+      console.log(
+        "[ClientInput] Blocked keydown during death - player is dying",
+      );
+      return;
+    }
+
     if (e.code === "Tab") e.preventDefault();
 
     const prop = codeToProp[e.code];
@@ -565,6 +574,16 @@ export class ClientInput extends SystemBase {
   private onPointerDown = (e: PointerEvent) => {
     type ExtendedPointerEvent = PointerEvent & { isCoreUI?: boolean };
     if ((e as ExtendedPointerEvent).isCoreUI) return;
+
+    // CRITICAL: Block ALL pointer input during death
+    const player = (this.world as any).player;
+    if (player && ((player as any).isDying || (player.data as any)?.isDying)) {
+      console.log(
+        "[ClientInput] Blocked pointer click during death - player is dying",
+      );
+      return;
+    }
+
     this.checkPointerChanges(e);
   };
 

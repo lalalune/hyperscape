@@ -44,6 +44,11 @@ export function CoreUI({ world }: { world: ClientWorld }) {
   const [disconnected, setDisconnected] = useState(false);
   const [kicked, setKicked] = useState<string | null>(null);
   const [characterFlowActive, setCharacterFlowActive] = useState(false);
+  const [deathScreen, setDeathScreen] = useState<{
+    message: string;
+    killedBy: string;
+    respawnTime: number;
+  } | null>(null);
   useEffect(() => {
     // Create handlers with proper types
     const handleReady = () => {
@@ -87,6 +92,18 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       setKicked(data.reason || "Kicked from server");
     };
     const handleDisconnected = () => setDisconnected(true);
+    const handleDeathScreen = (data: {
+      message: string;
+      killedBy: string;
+      respawnTime: number;
+    }) => {
+      console.log("[CoreUI] Death screen triggered:", data);
+      setDeathScreen(data);
+    };
+    const handleDeathScreenClose = () => {
+      console.log("[CoreUI] Death screen closed");
+      setDeathScreen(null);
+    };
 
     // Add listeners
     world.on(EventType.READY, handleReady);
@@ -100,6 +117,8 @@ export function CoreUI({ world }: { world: ClientWorld }) {
     world.on(EventType.UI_MENU, handleUIMenu);
     world.on(EventType.UI_KICK, handleUIKick);
     world.on(EventType.NETWORK_DISCONNECTED, handleDisconnected);
+    world.on(EventType.UI_DEATH_SCREEN, handleDeathScreen);
+    world.on(EventType.UI_DEATH_SCREEN_CLOSE, handleDeathScreenClose);
     // Character selection flow (server-flagged)
     world.on("character:list", () => setCharacterFlowActive(true));
     world.on("character:selected", () => setCharacterFlowActive(false));
@@ -122,6 +141,8 @@ export function CoreUI({ world }: { world: ClientWorld }) {
       world.off(EventType.UI_MENU, handleUIMenu);
       world.off(EventType.UI_KICK, handleUIKick);
       world.off(EventType.NETWORK_DISCONNECTED, handleDisconnected);
+      world.off(EventType.UI_DEATH_SCREEN, handleDeathScreen);
+      world.off(EventType.UI_DEATH_SCREEN_CLOSE, handleDeathScreenClose);
       world.off("character:list", () => setCharacterFlowActive(true));
       world.off("character:selected", () => setCharacterFlowActive(false));
     };
@@ -220,6 +241,7 @@ export function CoreUI({ world }: { world: ClientWorld }) {
           />
         )}
         {kicked && <KickedOverlay code={kicked} />}
+        {deathScreen && <DeathScreen data={deathScreen} world={world} />}
         {ready && isTouch && <TouchBtns world={world} />}
         {ready && <EntityContextMenu world={world} />}
         <div id="core-ui-portal" />
@@ -259,6 +281,79 @@ function KickedOverlay({ code }: { code: string }) {
     <div className="absolute inset-0 bg-black flex items-center justify-center pointer-events-auto">
       <div className="text-white text-lg">
         {kickMessages[code] || kickMessages.unknown}
+      </div>
+    </div>
+  );
+}
+
+function DeathScreen({
+  data,
+  world,
+}: {
+  data: { message: string; killedBy: string; respawnTime: number };
+  world: ClientWorld;
+}) {
+  const handleRespawn = () => {
+    console.log("[DeathScreen] Respawn button clicked!");
+    console.log("[DeathScreen] Player ID:", world.entities?.player?.id);
+    console.log("[DeathScreen] Network exists:", !!world.network);
+
+    // Send respawn request to server via network
+    const network = world.network as {
+      send?: (packet: string, data: unknown) => void;
+    };
+
+    if (!network) {
+      console.error("[DeathScreen] Network object is null/undefined!");
+      return;
+    }
+
+    if (!network.send) {
+      console.error("[DeathScreen] Network.send method doesn't exist!");
+      console.log(
+        "[DeathScreen] Available network methods:",
+        Object.keys(network),
+      );
+      return;
+    }
+
+    console.log("[DeathScreen] Sending requestRespawn packet...");
+    try {
+      network.send("requestRespawn", {
+        playerId: world.entities?.player?.id,
+      });
+      console.log("[DeathScreen] Packet sent successfully!");
+    } catch (err) {
+      console.error("[DeathScreen] Error sending packet:", err);
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 bg-black/80 flex items-center justify-center pointer-events-auto z-[10000]">
+      <div className="flex flex-col items-center gap-6 max-w-md p-8 bg-dark-bg border-2 border-red-600 rounded-2xl backdrop-blur-md">
+        <div className="text-4xl font-bold text-red-500">
+          Oh dear, you are dead!
+        </div>
+        <div className="text-white text-center space-y-2">
+          <p className="text-lg">
+            Killed by: <span className="text-red-400">{data.killedBy}</span>
+          </p>
+          <p className="text-base opacity-90">
+            You have lost your items at the death location.
+          </p>
+        </div>
+        <div className="flex flex-col items-center gap-4 mt-4">
+          <button
+            onClick={handleRespawn}
+            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold rounded-lg transition-colors cursor-pointer border-2 border-blue-400"
+          >
+            Click here to respawn
+          </button>
+          <div className="text-sm text-gray-400 text-center max-w-sm">
+            Your items have been dropped at your death location. You have 5
+            minutes to retrieve them before they despawn!
+          </div>
+        </div>
       </div>
     </div>
   );

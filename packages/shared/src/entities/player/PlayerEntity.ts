@@ -149,9 +149,16 @@ export class PlayerEntity extends CombatantEntity {
       model: null,
       properties: {
         // Base entity properties
+        // Health should equal constitution level (per user requirement)
         health: {
-          current: playerData.health || 100,
-          max: playerData.maxHealth || 100,
+          current:
+            Number.isFinite(playerData.health) && playerData.health > 0
+              ? playerData.health
+              : playerData.skills?.constitution?.level || 10,
+          max:
+            Number.isFinite(playerData.maxHealth) && playerData.maxHealth > 0
+              ? playerData.maxHealth
+              : playerData.skills?.constitution?.level || 10,
         },
         level: playerData.level || 1,
 
@@ -170,8 +177,14 @@ export class PlayerEntity extends CombatantEntity {
           combatLevel: playerData.level || 1,
           level: playerData.level || 1,
           health: {
-            current: playerData.health || 100,
-            max: playerData.maxHealth || 100,
+            current:
+              Number.isFinite(playerData.health) && playerData.health > 0
+                ? playerData.health
+                : playerData.skills?.constitution?.level || 10,
+            max:
+              Number.isFinite(playerData.maxHealth) && playerData.maxHealth > 0
+                ? playerData.maxHealth
+                : playerData.skills?.constitution?.level || 10,
           },
           attack: playerData.skills.attack,
           defense: playerData.skills.defense,
@@ -252,8 +265,14 @@ export class PlayerEntity extends CombatantEntity {
         combatComponent: null, // Will be set properly in parent constructor
 
         healthComponent: {
-          current: playerData.health || 100,
-          max: playerData.maxHealth || 100,
+          current:
+            Number.isFinite(playerData.health) && playerData.health > 0
+              ? playerData.health
+              : playerData.skills?.constitution?.level || 10,
+          max:
+            Number.isFinite(playerData.maxHealth) && playerData.maxHealth > 0
+              ? playerData.maxHealth
+              : playerData.skills?.constitution?.level || 10,
           regenerationRate: 1,
           isDead: false,
         },
@@ -383,9 +402,50 @@ export class PlayerEntity extends CombatantEntity {
     }
 
     // Override health component with player-specific settings
+    // Health should equal constitution level (per user requirement)
     const healthComponent = this.getComponent("health");
+    const constitutionLevel = playerData.skills.constitution.level;
+    const maxHealth =
+      Number.isFinite(constitutionLevel) && constitutionLevel > 0
+        ? constitutionLevel
+        : 10;
+    // Always use constitution level for health, ignore config.properties.health if it's the default 100
+    // Only use config health if it's already set to constitution level (from server)
+    const configHealth = this.config.properties?.health?.current;
+    const currentHealth =
+      Number.isFinite(configHealth) &&
+      configHealth !== undefined &&
+      configHealth === maxHealth
+        ? configHealth
+        : maxHealth; // Always default to maxHealth (constitution level)
+
     if (healthComponent && healthComponent.data) {
       healthComponent.data.regenerationRate = 1.0; // HP per second regen out of combat
+      // Ensure health is set to constitution level
+      const healthData = healthComponent.data as {
+        current?: number;
+        max?: number;
+        regenerationRate?: number;
+        isDead?: boolean;
+      };
+      healthData.current = currentHealth;
+      healthData.max = maxHealth;
+
+      // Also update Entity's health properties to match
+      this.health = currentHealth;
+      this.maxHealth = maxHealth;
+
+      // Update entity data for network sync (critical for initial spawn)
+      this.data.health = currentHealth;
+      (this.data as { maxHealth?: number }).maxHealth = maxHealth;
+    } else {
+      // Fallback if health component doesn't exist
+      this.health = maxHealth;
+      this.maxHealth = maxHealth;
+
+      // Update entity data for network sync (critical for initial spawn)
+      this.data.health = maxHealth;
+      (this.data as { maxHealth?: number }).maxHealth = maxHealth;
     }
 
     this.addComponent("movement", {
@@ -427,14 +487,14 @@ export class PlayerEntity extends CombatantEntity {
       // Additional stats from StatsComponent interface
       combatLevel: 3, // Will be calculated by skills system
       totalLevel: 9, // Sum of all skill levels
-      health: this.config.properties?.health || { current: 100, max: 100 },
+      health: { current: currentHealth, max: maxHealth },
       level: this.config.properties?.level || 1,
       // HP stats for combat level calculation
       hitpoints: {
-        level: 10,
-        xp: 0,
-        current: this.config.properties?.health?.current || 100,
-        max: this.config.properties?.health?.max || 100,
+        level: constitutionLevel,
+        xp: playerData.skills.constitution.xp || 0,
+        current: currentHealth,
+        max: maxHealth,
       },
       prayer: { level: 1, points: 1 },
       magic: { level: 1, xp: 0 },

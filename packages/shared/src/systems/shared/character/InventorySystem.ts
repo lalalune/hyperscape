@@ -332,6 +332,13 @@ export class InventorySystem extends SystemBase {
         playerId: playerId,
         coins: inventory.coins,
       });
+
+      // Sync inventory to client (updates UI immediately)
+      const playerIdKey = toPlayerID(playerId);
+      if (playerIdKey) {
+        this.emitInventoryUpdate(playerIdKey);
+      }
+
       this.scheduleInventoryPersist(playerId);
       return true;
     }
@@ -511,6 +518,10 @@ export class InventorySystem extends SystemBase {
     }
   }
 
+  /**
+   * Drop all items on death - ONLY clears inventory, does NOT spawn items
+   * PlayerDeathSystem handles spawning headstone with items
+   */
   private dropAllItems(data: {
     playerId: string;
     position: { x: number; y: number; z: number };
@@ -527,48 +538,22 @@ export class InventorySystem extends SystemBase {
     const playerID = createPlayerID(data.playerId);
     const inventory = this.getOrCreateInventory(playerID);
 
-    // Get all items that will be dropped
-    const droppedItems = inventory.items.map((item) => ({
-      item: {
-        id: item.itemId,
-        quantity: item.quantity,
-        slot: item.slot,
-      },
-      quantity: item.quantity,
-    }));
+    // Get all items that will be dropped (for logging)
+    const droppedItemCount = inventory.items.length;
 
-    // Clear the inventory
+    // Clear the inventory (RuneScape-style: all items go to gravestone)
     inventory.items = [];
+    // NOTE: Coins are protected and remain in coin pouch (RuneScape-style)
 
-    // Emit event for death test system to track items dropped
-    this.emitTypedEvent(EventType.ITEM_DROPPED, {
-      playerId: data.playerId,
-      items: droppedItems,
-      location: data.position,
-    });
+    // CRITICAL: Update UI by emitting inventory update event
+    this.emitInventoryUpdate(playerID);
 
-    // Spawn each item in the world at the death location
-    for (let i = 0; i < droppedItems.length; i++) {
-      const droppedItem = droppedItems[i];
-
-      // Spread items around the drop position to avoid stacking
-      const offsetX = (Math.random() - 0.5) * 3; // -1.5 to 1.5 meter spread
-      const offsetZ = (Math.random() - 0.5) * 3;
-
-      this.emitTypedEvent(EventType.ITEM_SPAWN, {
-        itemId: droppedItem.item.id,
-        quantity: droppedItem.quantity,
-        position: {
-          x: data.position.x + offsetX,
-          y: data.position.y,
-          z: data.position.z + offsetZ,
-        },
-      });
-    }
+    // CRITICAL: Persist to database immediately
+    this.scheduleInventoryPersist(data.playerId);
 
     Logger.system(
       "InventorySystem",
-      `Dropped ${droppedItems.length} items for player ${data.playerId} at death location`,
+      `Cleared inventory on death: ${droppedItemCount} items for player ${data.playerId}`,
     );
   }
 
@@ -1126,6 +1111,79 @@ export class InventorySystem extends SystemBase {
         .catch(() => {});
     }, 300);
     this.persistTimers.set(playerId, timer);
+  }
+
+  /**
+   * Persist inventory immediately without debounce
+   * CRITICAL for death system to prevent duplication exploits
+   */
+  async persistInventoryImmediate(playerId: string): Promise<void> {
+    const db = this.getDatabase();
+    if (!db) {
+      console.warn(
+        `[InventorySystem] Cannot persist inventory for ${playerId}: no database`,
+      );
+      return;
+    }
+
+    // Clear any pending debounced persist
+    const existing = this.persistTimers.get(playerId);
+    if (existing) {
+      clearTimeout(existing);
+      this.persistTimers.delete(playerId);
+    }
+
+    // Check if player exists in database
+    const playerRow = await db.getPlayerAsync(playerId);
+    if (!playerRow) {
+      console.warn(
+        `[InventorySystem] Cannot persist inventory for ${playerId}: player not in database`,
+      );
+      return;
+    }
+
+    const inv = this.getOrCreateInventory(playerId);
+    const saveItems = inv.items.map((i) => ({
+      itemId: i.itemId,
+      quantity: i.quantity,
+      slotIndex: i.slot,
+      metadata: null as null,
+    }));
+
+    // Save immediately (synchronous/atomic)
+    db.savePlayerInventory(playerId, saveItems);
+    db.savePlayer(playerId, { coins: inv.coins });
+
+    console.log(
+      `[InventorySystem] ✅ Immediately persisted inventory for ${playerId}: ${saveItems.length} items, ${inv.coins} coins`,
+    );
+  }
+
+  /**
+   * Clear inventory immediately with instant DB persist
+   * CRITICAL for death system to prevent duplication
+   */
+  async clearInventoryImmediate(playerId: string): Promise<number> {
+    const playerID = createPlayerID(playerId);
+    const inventory = this.getOrCreateInventory(playerID);
+
+    const droppedItemCount = inventory.items.length;
+
+    // Clear the inventory (RuneScape-style: all items go to gravestone)
+    inventory.items = [];
+    // NOTE: Coins are protected and remain in coin pouch (RuneScape-style)
+
+    // CRITICAL: Update UI by emitting inventory update event
+    this.emitInventoryUpdate(playerID);
+
+    // CRITICAL: Persist to database IMMEDIATELY (no debounce)
+    await this.persistInventoryImmediate(playerId);
+
+    console.log(
+      `[InventorySystem] ✅ Immediately cleared inventory for ${playerId}: ${droppedItemCount} items`,
+    );
+
+    return droppedItemCount;
   }
 
   private handleCanAdd(data: InventoryCanAddEvent): void {

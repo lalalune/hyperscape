@@ -346,6 +346,9 @@ export interface HeadstoneData {
   items: InventoryItem[];
   itemCount: number;
   despawnTime: number;
+  // Loot protection (for wilderness/PvP deaths)
+  lootProtectionUntil?: number; // Timestamp when loot protection expires
+  protectedFor?: string; // Player ID who has loot protection (killer in PvP)
 }
 
 export interface LocalHeadstoneData extends Omit<HeadstoneData, "deathTime"> {
