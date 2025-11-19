@@ -1,0 +1,105 @@
+---
+description: Configuration, templates, and utilities for Hyperscape plugin
+globs: packages/plugin-eliza/src/config/**/*.ts,packages/plugin-eliza/src/templates/**/*.ts,packages/plugin-eliza/src/utils/**/*.ts,packages/plugin-eliza/src/utils.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Config, Templates & Utils
+
+> Patterns for configuration, templates, and utility functions.
+
+## Reference Files
+
+- Config constants: @packages/plugin-eliza/src/config/constants.ts
+- Templates: @packages/plugin-eliza/src/templates/index.ts
+- Utils: @packages/plugin-eliza/src/utils.ts
+- AI helpers: @packages/plugin-eliza/src/utils/ai-helpers.ts
+
+## Configuration Pattern
+
+Use Zod schemas for config validation:
+
+```typescript
+import { z } from 'zod';
+
+const configSchema = z.object({
+  HYPERSCAPE_SERVER_URL: z
+    .string()
+    .url()
+    .optional()
+    .default('ws://localhost:3000')
+    .describe('WebSocket URL for Hyperscape server'),
+});
+
+// In plugin init
+async init(config: Record<string, string>, runtime: IAgentRuntime) {
+  const validatedConfig = await configSchema.parseAsync(config);
+  // Use validatedConfig
+}
+```
+
+## Configuration Rules
+
+- **ALWAYS** validate config with Zod schemas
+- **ALWAYS** provide sensible defaults
+- **ALWAYS** document config options in schema `.describe()`
+- **ALWAYS** set environment variables from validated config
+- **ALWAYS** use `as const` for configuration objects
+- **NEVER** hardcode values - always use environment variables
+- **NEVER** mutate config objects - they should be immutable
+
+## Template Pattern
+
+Export all templates from `index.ts`:
+
+```typescript
+// templates/index.ts
+export const templateName = `
+<task>Task description</task>
+
+<providers>
+{{providers}}
+</providers>
+
+<instructions>
+Instructions for the agent
+</instructions>
+`;
+```
+
+## Template Rules
+
+- **ALWAYS** export all templates from `index.ts`
+- **ALWAYS** use template literals with proper formatting
+- **ALWAYS** include placeholders like `{{agentName}}`, `{{providers}}`
+- **ALWAYS** document what each template is used for
+- **ALWAYS** keep templates focused and clear
+- **NEVER** hardcode agent-specific values in templates
+- **NEVER** include logic in templates - keep them pure strings
+
+## Utility Pattern
+
+Pure functions when possible:
+
+```typescript
+// utils/{name}.ts
+import type { IAgentRuntime, Memory } from '@elizaos/core';
+
+/**
+ * Utility function description
+ * @param param1 - Parameter description
+ * @returns Return value description
+ */
+export function utilityFunction(param1: Type): ReturnType {
+  // Implementation
+}
+```
+
+## Utility Rules
+
+- **ALWAYS** make utility functions pure when possible
+- **ALWAYS** export functions as named exports
+- **ALWAYS** document function parameters and return types
+- **ALWAYS** handle edge cases in utilities
+- **NEVER** perform side effects in pure utilities
+- **NEVER** depend on runtime state in utilities (pass as parameters)

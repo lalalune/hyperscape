@@ -195,25 +195,20 @@ export function randomPositionInRadius(
 /**
  * Parse Hyperscape world URL to extract world ID
  * @param url - Hyperscape world URL
- * @returns World ID or null if URL is invalid
+ * @returns World ID
  */
-export function parseHyperscapeWorldUrl(url: string): string | null {
-  try {
-    const urlObj = new URL(url);
-    // Handle different Hyperscape URL formats
-    // e.g., https://hyperscape.io/world-name or https://custom-domain.com
-    const pathParts = urlObj.pathname.split("/").filter(Boolean);
+export function parseHyperscapeWorldUrl(url: string): string {
+  const urlObj = new URL(url);
+  // Handle different Hyperscape URL formats
+  // e.g., https://hyperscape.io/world-name or https://custom-domain.com
+  const pathParts = urlObj.pathname.split("/").filter(Boolean);
 
-    if (urlObj.hostname.includes("hyperscape.io") && pathParts.length > 0) {
-      return pathParts[0];
-    }
-
-    // For custom domains, the entire domain might be the world ID
-    return urlObj.hostname;
-  } catch (error) {
-    // Invalid URL format
-    return null;
+  if (urlObj.hostname.includes("hyperscape.io") && pathParts.length > 0) {
+    return pathParts[0];
   }
+
+  // For custom domains, the entire domain might be the world ID
+  return urlObj.hostname;
 }
 
 /**
@@ -221,12 +216,7 @@ export function parseHyperscapeWorldUrl(url: string): string | null {
  * @param entity - Entity object from Hyperscape world
  * @returns Formatted string
  */
-export function formatEntity(entity: {
-  name?: string;
-  position?: { x: number; y: number; z: number };
-  type?: string;
-  distance?: number;
-}): string {
+export function formatEntity(entity: any): string {
   const parts = [`Entity: ${entity.name || "Unnamed"}`];
 
   if (entity.position) {
@@ -251,15 +241,7 @@ export function formatEntity(entity: {
  * @param entity - Entity to check
  * @returns True if entity has interactive components
  */
-export function isInteractableEntity(entity: {
-  app?: unknown;
-  grabbable?: boolean;
-  clickable?: boolean;
-  interactable?: boolean;
-  trigger?: boolean;
-  seat?: boolean;
-  portal?: boolean;
-}): boolean {
+export function isInteractableEntity(entity: any): boolean {
   // Check for common interactive components in Hyperscape
   return !!(
     entity.app ||
@@ -267,8 +249,7 @@ export function isInteractableEntity(entity: {
     entity.clickable ||
     entity.trigger ||
     entity.seat ||
-    entity.portal ||
-    entity.interactable
+    entity.portal
   );
 }
 
@@ -285,14 +266,7 @@ export function generateAvatarConfig(
     position?: { x: number; y: number; z: number };
     rotation?: { x: number; y: number; z: number };
   },
-): {
-  url: string;
-  scale: number;
-  position: { x: number; y: number; z: number };
-  rotation: { x: number; y: number; z: number };
-  vrm: boolean;
-  animations: boolean;
-} {
+): any {
   return {
     url: avatarUrl,
     scale: customization?.scale || 1,
@@ -308,13 +282,7 @@ export function generateAvatarConfig(
  * @param physicsData - Physics data from PhysX
  * @returns Human-readable physics information
  */
-export function formatPhysicsData(physicsData: {
-  velocity?: { x: number; y: number; z: number };
-  position?: { x: number; y: number; z: number };
-  isGrounded?: boolean;
-  mass?: number;
-  grounded?: boolean;
-}): string {
+export function formatPhysicsData(physicsData: any): string {
   const parts: string[] = [];
 
   if (physicsData.velocity) {

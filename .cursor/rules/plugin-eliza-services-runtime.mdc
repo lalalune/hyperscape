@@ -1,0 +1,463 @@
+---
+description: ElizaOS services runtime - background services, integrations, lifecycle
+globs: packages/plugin-eliza/src/service.ts,packages/plugin-eliza/src/services/**/*.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Services Runtime
+
+> Background services, integrations, and long-running processes.
+
+## Reference Documentation
+
+- **Services**: https://docs.elizaos.ai/runtime/services
+- **Memory**: `.cursor/memory/elizaos-services.md`
+
+## Service Interface
+
+**MANDATORY Structure:**
+```typescript
+abstract class Service {
+  static serviceType: ServiceType;
+  
+  constructor(runtime?: IAgentRuntime) {}
+  
+  abstract capabilityDescription: string;
+  config?: ServiceConfig;
+  
+  static async start(runtime: IAgentRuntime): Promise<Service> {
+    // Return new instance of service
+  }
+  
+  abstract stop(): Promise<void>;
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** extend Service abstract class
+- ✅ **ALWAYS** define static `serviceType` property
+- ✅ **ALWAYS** define `capabilityDescription` property
+- ✅ **ALWAYS** implement static `start()` method
+- ✅ **ALWAYS** implement `stop()` method
+- ✅ **NEVER** skip required methods
+
+## Service Types
+
+### Core Service Types
+
+```typescript
+const ServiceType = {
+  TASK: 'task',
+  DATABASE: 'database',
+  // ... other core types
+} as const;
+```
+
+### Plugin Service Types
+
+Plugins extend service types through module augmentation:
+
+```typescript
+declare module '@elizaos/core' {
+  interface ServiceTypeRegistry {
+    DISCORD: 'discord';
+    TELEGRAM: 'telegram';
+    TWITTER: 'twitter';
+    SEARCH: 'search';
+    // ... other plugin-specific types
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use module augmentation for plugin service types
+- ✅ **ALWAYS** use consistent naming conventions
+- ✅ **NEVER** duplicate existing service types
+
+## Service Lifecycle
+
+### Lifecycle Phases
+
+1. **Registration**: Service registered with runtime during plugin initialization
+2. **Queuing**: Service queued for startup
+3. **Initialization**: Runtime prepares service environment
+4. **Start**: Service `start()` method called
+5. **Running**: Service actively processing
+6. **Stop**: Graceful shutdown initiated
+7. **Cleanup**: Resources released
+
+**Rules:**
+- ✅ **ALWAYS** follow lifecycle phases in order
+- ✅ **ALWAYS** implement proper cleanup in stop()
+- ✅ **ALWAYS** handle initialization errors gracefully
+- ✅ **NEVER** skip cleanup steps
+
+## Common Service Patterns
+
+### Platform Integration Service
+
+```typescript
+class DiscordService extends Service {
+  static serviceType = 'discord' as const;
+  capabilityDescription = 'Discord bot integration';
+  
+  private client: Discord.Client;
+  
+  constructor(private runtime: IAgentRuntime) {
+    super(runtime);
+  }
+  
+  static async start(runtime: IAgentRuntime): Promise<Service> {
+    const service = new DiscordService(runtime);
+    await service.initialize();
+    return service;
+  }
+  
+  private async initialize() {
+    const token = this.runtime.getSetting("DISCORD_API_TOKEN");
+    if (!token) {
+      this.runtime.logger.warn("Discord token not found");
+      return;
+    }
+    
+    this.client = new Discord.Client({
+      intents: [/* Discord intents */],
+      partials: [/* Discord partials */]
+    });
+    
+    this.setupEventHandlers();
+    await this.client.login(token);
+  }
+  
+  async stop() {
+    await this.client?.destroy();
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** handle missing configuration gracefully
+- ✅ **ALWAYS** set up event handlers in initialize()
+- ✅ **ALWAYS** clean up connections in stop()
+- ✅ **NEVER** throw errors for missing optional configuration
+
+### Background Task Service
+
+```typescript
+class TaskService extends Service {
+  static serviceType = ServiceType.TASK;
+  capabilityDescription = 'Scheduled task execution';
+  
+  private interval: NodeJS.Timer;
+  private readonly TICK_INTERVAL = 60000; // 1 minute
+  
+  static async start(runtime: IAgentRuntime): Promise<Service> {
+    const service = new TaskService(runtime);
+    await service.startTimer();
+    return service;
+  }
+  
+  private async startTimer() {
+    this.interval = setInterval(async () => {
+      await this.checkTasks();
+    }, this.TICK_INTERVAL);
+  }
+  
+  async stop() {
+    if (this.interval) {
+      clearInterval(this.interval);
+    }
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** clear intervals in stop()
+- ✅ **ALWAYS** handle errors in periodic tasks
+- ✅ **ALWAYS** use appropriate intervals
+- ✅ **NEVER** forget to clear timers
+
+### Data Service
+
+```typescript
+class SearchService extends Service {
+  static serviceType = 'search' as const;
+  capabilityDescription = 'Web search capabilities';
+  
+  private searchClient: SearchClient;
+  private cache: Map<string, CachedResult>;
+  
+  static async start(runtime: IAgentRuntime): Promise<Service> {
+    const service = new SearchService(runtime);
+    await service.initialize();
+    return service;
+  }
+  
+  private async initialize() {
+    const apiKey = this.runtime.getSetting('SEARCH_API_KEY');
+    this.searchClient = new SearchClient({ apiKey, timeout: 5000 });
+    this.cache = new Map();
+    setInterval(() => this.clearOldCache(), 3600000);
+  }
+  
+  async stop() {
+    this.cache.clear();
+    await this.searchClient?.close();
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** clear caches in stop()
+- ✅ **ALWAYS** implement cache expiration
+- ✅ **ALWAYS** close connections properly
+- ✅ **NEVER** leave resources open
+
+## Service Registration
+
+### Plugin Registration
+
+```typescript
+export const discordPlugin: Plugin = {
+  name: 'discord',
+  services: [DiscordService],
+  
+  init: async (config, runtime) => {
+    // Services auto-registered and started
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** register services in plugin `services` array
+- ✅ **ALWAYS** register during plugin initialization
+- ✅ **NEVER** register services manually unless necessary
+
+### Manual Registration
+
+```typescript
+await runtime.registerService(CustomService);
+```
+
+**Rules:**
+- ✅ **ALWAYS** use plugin registration when possible
+- ✅ **ALWAYS** handle registration errors
+- ✅ **NEVER** register services multiple times
+
+## Service Management
+
+### Getting Services
+
+```typescript
+// Get service by type
+const discord = runtime.getService('discord');
+
+// Type-safe service access
+const searchService = runtime.getService<SearchService>('search');
+const results = await searchService.search('elizaOS');
+```
+
+**Rules:**
+- ✅ **ALWAYS** check for null before using service
+- ✅ **ALWAYS** use type-safe access when possible
+- ✅ **ALWAYS** handle missing services gracefully
+- ✅ **NEVER** assume service exists
+
+### Service Communication
+
+```typescript
+class NotificationService extends Service {
+  async notify(message: string) {
+    const discord = this.runtime.getService('discord');
+    if (discord) {
+      await discord.sendMessage(channelId, message);
+    }
+    
+    const telegram = this.runtime.getService('telegram');
+    if (telegram) {
+      await telegram.sendMessage(chatId, message);
+    }
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** check for service availability
+- ✅ **ALWAYS** handle missing services gracefully
+- ✅ **ALWAYS** use type-safe service access
+- ✅ **NEVER** assume services are always available
+
+## Error Handling
+
+### Graceful Initialization
+
+```typescript
+constructor(runtime: IAgentRuntime) {
+  super(runtime);
+  
+  const token = runtime.getSetting("SERVICE_TOKEN");
+  if (!token) {
+    runtime.logger.warn("Service token not configured");
+    this.client = null;
+    return;
+  }
+  
+  this.initializeClient(token);
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** handle missing configuration gracefully
+- ✅ **ALWAYS** log warnings for missing configuration
+- ✅ **ALWAYS** provide sensible defaults
+- ✅ **NEVER** throw errors for missing optional configuration
+
+### Error Recovery
+
+```typescript
+private async connectWithRetry(maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await this.client.connect();
+      this.runtime.logger.info('Service connected successfully');
+      return;
+    } catch (error) {
+      this.runtime.logger.error(`Connection attempt ${i + 1} failed:`, error);
+      
+      if (i < maxRetries - 1) {
+        const delay = Math.pow(2, i) * 1000; // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** implement retry logic for connections
+- ✅ **ALWAYS** use exponential backoff
+- ✅ **ALWAYS** log retry attempts
+- ✅ **ALWAYS** handle final failure gracefully
+
+### Graceful Shutdown
+
+```typescript
+async stop() {
+  try {
+    // Stop accepting new work
+    this.accepting = false;
+    
+    // Wait for ongoing work to complete
+    await this.waitForCompletion();
+    
+    // Close connections
+    await this.client?.disconnect();
+    
+    // Clear timers
+    if (this.interval) {
+      clearInterval(this.interval);
+    }
+    
+    // Clear caches
+    this.cache?.clear();
+    
+    this.runtime.logger.info('Service stopped gracefully');
+  } catch (error) {
+    this.runtime.logger.error('Error during service shutdown:', error);
+    this.forceCleanup();
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** stop accepting new work first
+- ✅ **ALWAYS** wait for ongoing work to complete
+- ✅ **ALWAYS** close connections properly
+- ✅ **ALWAYS** clear timers and caches
+- ✅ **ALWAYS** handle shutdown errors
+- ✅ **NEVER** skip cleanup steps
+
+## Best Practices
+
+### Service Design
+
+- **Single Responsibility**: Each service should have one clear purpose
+- **Stateless When Possible**: Avoid maintaining state that could be lost
+- **Idempotent Operations**: Operations should be safe to retry
+- **Resource Management**: Clean up resources properly
+- **Error Isolation**: Errors shouldn't crash other services
+
+### Configuration
+
+- **Environment Variables**: Use for sensitive configuration
+- **Graceful Defaults**: Provide sensible defaults
+- **Validation**: Validate configuration on startup
+- **Hot Reload**: Support configuration updates without restart
+
+### Performance
+
+- **Async Operations**: Use async/await for non-blocking operations
+- **Connection Pooling**: Reuse connections when possible
+- **Caching**: Cache frequently accessed data
+- **Rate Limiting**: Respect external API limits
+- **Monitoring**: Log performance metrics
+
+### Reliability
+
+- **Health Checks**: Implement health check endpoints
+- **Circuit Breakers**: Prevent cascade failures
+- **Retry Logic**: Handle transient failures
+- **Graceful Degradation**: Continue with reduced functionality
+- **Audit Logging**: Log important operations
+
+## Best Practices Checklist
+
+Before implementing services, verify:
+
+- [ ] Service extends Service abstract class
+- [ ] Service defines static serviceType
+- [ ] Service defines capabilityDescription
+- [ ] Service implements static start() method
+- [ ] Service implements stop() method
+- [ ] Service handles missing configuration gracefully
+- [ ] Service implements retry logic for connections
+- [ ] Service cleans up resources in stop()
+- [ ] Service handles errors gracefully
+- [ ] Service logs important operations
+
+## Forbidden Patterns
+
+❌ **NEVER**:
+- Skip required methods (start, stop)
+- Throw errors for missing optional configuration
+- Skip cleanup in stop() method
+- Assume services are always available
+- Create services without proper error handling
+- Leave resources open
+- Skip retry logic for connections
+
+## Required Patterns
+
+✅ **ALWAYS**:
+- Extend Service abstract class
+- Define static serviceType and capabilityDescription
+- Implement static start() and stop() methods
+- Handle missing configuration gracefully
+- Implement retry logic for connections
+- Clean up resources in stop()
+- Handle errors gracefully
+- Log important operations
+- Use type-safe service access
+- Check for service availability
+
+## Examples
+
+See `.cursor/memory/elizaos-services.md` for complete examples of:
+- Platform integration services
+- Background task services
+- Data services
+- Model provider services
+- Service registration patterns
+- Error handling patterns

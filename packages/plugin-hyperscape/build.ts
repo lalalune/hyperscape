@@ -27,16 +27,11 @@ async function build() {
 
   console.log(`✅ Built ${result.outputs.length} files`);
 
-  // Generate TypeScript declarations (continue on error for test files)
+  // Generate TypeScript declarations
   console.log("📝 Generating TypeScript declarations...");
-  try {
-    await $`tsc --project tsconfig.json --emitDeclarationOnly`;
-    console.log("✅ TypeScript declarations generated");
-  } catch (error) {
-    console.warn(
-      "⚠️  TypeScript declarations had errors (test files only), but build succeeded",
-    );
-  }
+  // Use the existing tsconfig.json and emit declarations only
+  await $`tsc --project tsconfig.json --emitDeclarationOnly`;
+  console.log("✅ TypeScript declarations generated");
 
   console.log("✅ Build complete!");
 }

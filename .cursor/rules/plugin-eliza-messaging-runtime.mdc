@@ -1,0 +1,454 @@
+---
+description: ElizaOS messaging runtime - Socket.IO integration, real-time messaging
+globs: packages/plugin-eliza/src/clients/**/*.ts,packages/plugin-eliza/src/service.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Messaging Runtime
+
+> Real-time messaging infrastructure and Socket.IO integration.
+
+## Reference Documentation
+
+- **Messaging**: https://docs.elizaos.ai/runtime/messaging
+- **Memory**: `.cursor/memory/elizaos-messaging.md`
+
+## Architecture
+
+### Socket.IO (Not Raw WebSockets)
+
+The project uses **Socket.IO** (not raw WebSockets) for real-time communication between clients and the Eliza server.
+
+**Flow:**
+1. Extension Service Worker → Extension Socket.IO Client
+2. Extension Socket.IO Client → emit('message') → Socket.IO Server
+3. Socket.IO Server → Process → Eliza Server
+4. Eliza Server → Response → Socket.IO Server
+5. Socket.IO Server → emit('messageBroadcast') → Socket.IO Clients
+6. Socket.IO Clients → Filter by channelId → Receive broadcast
+
+**Rules:**
+- ✅ **ALWAYS** use Socket.IO (not raw WebSockets)
+- ✅ **ALWAYS** connect to Eliza server (default: `http://localhost:3000`)
+- ✅ **ALWAYS** use channel-based communication
+- ✅ **ALWAYS** filter messages by channel/room ID
+- ✅ **NEVER** use raw WebSocket connections
+
+## Socket.IO Events and Message Types
+
+### Message Types Enum
+
+```javascript
+enum SOCKET_MESSAGE_TYPE {
+  ROOM_JOINING = 1,      // Join a channel/room
+  SEND_MESSAGE = 2,      // Send a message
+  MESSAGE = 3,           // Generic message
+  ACK = 4,              // Acknowledgment
+  THINKING = 5,         // Agent is thinking
+  CONTROL = 6           // Control messages
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use SOCKET_MESSAGE_TYPE enum
+- ✅ **ALWAYS** use ROOM_JOINING (1) to join rooms
+- ✅ **ALWAYS** use SEND_MESSAGE (2) to send messages
+- ✅ **NEVER** use magic numbers
+
+### Key Events
+
+- `messageBroadcast` - Incoming messages from agents/users
+- `messageComplete` - Message processing complete
+- `controlMessage` - UI control (enable/disable input)
+- `connection_established` - Connection confirmed
+
+**Rules:**
+- ✅ **ALWAYS** listen for `messageBroadcast` (not `message`)
+- ✅ **ALWAYS** handle `messageComplete` event
+- ✅ **ALWAYS** handle `connection_established` event
+- ✅ **NEVER** listen for `message` event (use `messageBroadcast`)
+
+## Socket.IO Client Implementation
+
+### Connection Setup
+
+```javascript
+const SOCKET_URL = 'http://localhost:3000';
+
+const socket = io(SOCKET_URL, {
+  'force new connection': true,
+  'reconnection': true,
+  'reconnectionDelay': 1000,
+  'reconnectionAttempts': 5,
+  'timeout': 20000,
+  'transports': ['polling', 'websocket']
+});
+```
+
+**Rules:**
+- ✅ **ALWAYS** configure reconnection settings
+- ✅ **ALWAYS** use both polling and websocket transports
+- ✅ **ALWAYS** set appropriate timeout
+- ✅ **NEVER** skip reconnection configuration
+
+### Room Joining (CRITICAL)
+
+```javascript
+socket.on('connect', function() {
+  console.log('[SUCCESS] Connected to Eliza, socket ID:', socket.id);
+  
+  // JOIN THE ROOM - This is required to receive broadcasts!
+  socket.emit('message', {
+    type: 1, // ROOM_JOINING
+    payload: {
+      roomId: roomId,
+      entityId: entityId
+    }
+  });
+  
+  console.log('[SENT] Room join request for room:', roomId);
+});
+```
+
+**Rules:**
+- ✅ **ALWAYS** join room on connection
+- ✅ **ALWAYS** use ROOM_JOINING (type: 1)
+- ✅ **ALWAYS** include roomId and entityId in payload
+- ✅ **ALWAYS** join room before sending messages
+- ✅ **NEVER** skip room joining step
+
+### Listening for Broadcasts
+
+```javascript
+// LISTEN FOR THE CORRECT EVENT: "messageBroadcast" (not "message")
+socket.on('messageBroadcast', function(data) {
+  console.log('[RECEIVED] Broadcast:', data);
+  
+  // Check if this message is for your room
+  if (data.roomId === roomId || data.channelId === roomId) {
+    console.log('[SUCCESS] Message is for our room!');
+    console.log('Sender:', data.senderName);
+    console.log('Text:', data.text);
+  } else {
+    console.log('[ERROR] Message is for different room:', data.roomId || data.channelId);
+  }
+});
+```
+
+**Rules:**
+- ✅ **ALWAYS** listen for `messageBroadcast` event
+- ✅ **ALWAYS** filter by roomId or channelId
+- ✅ **ALWAYS** check both roomId and channelId (backward compatibility)
+- ✅ **NEVER** listen for `message` event
+- ✅ **NEVER** skip room ID filtering
+
+### Sending Messages
+
+```javascript
+function sendMessageToEliza(text) {
+  const messagePayload = {
+    type: 2, // SEND_MESSAGE
+    payload: {
+      senderId: entityId,
+      senderName: 'Extension User',
+      message: text,
+      roomId: roomId,        // Include roomId
+      messageId: generateUUID(),
+      source: 'extension',
+      attachments: [],
+      metadata: {}
+    }
+  };
+  
+  console.log('[SENDING] Message:', messagePayload);
+  socket.emit('message', messagePayload);
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use SEND_MESSAGE (type: 2)
+- ✅ **ALWAYS** include roomId in payload
+- ✅ **ALWAYS** include senderId and senderName
+- ✅ **ALWAYS** generate unique messageId
+- ✅ **ALWAYS** include source field
+- ✅ **NEVER** skip required payload fields
+
+## Key Points to Check
+
+### 1. Event Name
+
+```javascript
+// [WRONG]
+socket.on('message', handler)
+
+// [CORRECT]
+socket.on('messageBroadcast', handler)
+```
+
+**Rules:**
+- ✅ **ALWAYS** use `messageBroadcast` for receiving messages
+- ✅ **NEVER** use `message` event for receiving
+
+### 2. Room Joining Required
+
+```javascript
+// You MUST join the room before receiving broadcasts
+socket.emit('message', {
+  type: 1, // ROOM_JOINING
+  payload: {
+    roomId: roomId,
+    entityId: entityId
+  }
+});
+```
+
+**Rules:**
+- ✅ **ALWAYS** join room on connection
+- ✅ **ALWAYS** join before sending messages
+- ✅ **NEVER** skip room joining
+
+### 3. Exact Message Format
+
+```javascript
+// The structure must be exact
+{
+  type: 2, // SEND_MESSAGE type
+  payload: {
+    senderId: entityId,
+    senderName: 'Extension User',
+    message: text,
+    roomId: roomId,
+    messageId: generateUUID(),
+    source: 'extension',
+    attachments: [],
+    metadata: {}
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use exact message structure
+- ✅ **ALWAYS** include all required fields
+- ✅ **NEVER** skip required fields
+
+## Complete Message Flow
+
+1. **Client connects** → Server accepts connection
+2. **Client joins room** → Server adds client to room
+3. **Client sends message** → Server receives and processes
+4. **Server broadcasts response** → All clients in room receive
+5. **Clients filter by room ID** → Only relevant messages shown
+
+**Rules:**
+- ✅ **ALWAYS** follow complete message flow
+- ✅ **ALWAYS** join room before sending
+- ✅ **ALWAYS** filter broadcasts by room ID
+- ✅ **NEVER** skip any step in flow
+
+## Debugging Steps
+
+### 1. Verify Events
+
+```javascript
+// For newer Socket.IO versions
+socket.onAny((eventName, ...args) => {
+  console.log('Event received:', eventName, args);
+});
+
+// For older versions
+const onevent = socket.onevent;
+socket.onevent = function(packet) {
+  console.log('Event:', packet.data);
+  onevent.call(socket, packet);
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** use onAny() for debugging
+- ✅ **ALWAYS** log all events during development
+- ✅ **ALWAYS** verify event names match
+
+### 2. Check Room ID
+
+- Ensure the room ID matches exactly between your extension and the server
+- Even a single character difference will prevent message delivery
+
+**Rules:**
+- ✅ **ALWAYS** verify room IDs match exactly
+- ✅ **ALWAYS** log room IDs for debugging
+- ✅ **NEVER** assume room IDs match
+
+### 3. CORS Issues
+
+For browser extensions, ensure your manifest includes:
+
+```json
+{
+  "permissions": ["http://localhost:3000/*"],
+  "host_permissions": ["http://localhost:3000/*"]
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** include CORS permissions
+- ✅ **ALWAYS** include host_permissions
+- ✅ **NEVER** skip CORS configuration
+
+### 4. Transport Issues
+
+If WebSocket fails, force polling:
+
+```javascript
+const socket = io(SOCKET_URL, {
+  transports: ['polling'] // Avoid WebSocket issues
+});
+```
+
+**Rules:**
+- ✅ **ALWAYS** use both transports by default
+- ✅ **ALWAYS** fallback to polling if WebSocket fails
+- ✅ **NEVER** use WebSocket only
+
+## Socket.IO Version Compatibility
+
+### Version Issues
+
+- **v1.3.0** (2015) - Very old, may have compatibility issues
+- **v4.x** (Current) - Recommended for new implementations
+
+**Rules:**
+- ✅ **ALWAYS** use Socket.IO v4.x
+- ✅ **ALWAYS** check version compatibility
+- ✅ **NEVER** use very old versions
+
+## Common Mistakes
+
+1. **Wrong event name** - Using `message` instead of `messageBroadcast`
+2. **Not joining room** - Forgetting the `ROOM_JOINING` step
+3. **ID mismatch** - Room/channel IDs don't match exactly
+4. **Missing fields** - Payload missing required fields
+5. **CORS blocked** - Extension lacks permissions
+
+**Rules:**
+- ✅ **ALWAYS** use correct event names
+- ✅ **ALWAYS** join room on connection
+- ✅ **ALWAYS** verify room IDs match
+- ✅ **ALWAYS** include all required fields
+- ✅ **ALWAYS** configure CORS properly
+
+## Server-Side Implementation
+
+The Socket.IO server handles message routing and broadcasting:
+
+```typescript
+class SocketIOService extends Service {
+  static serviceType = 'socketio' as const;
+  capabilityDescription = 'Real-time messaging via Socket.IO';
+  
+  private io: Server;
+  
+  async start(runtime: IAgentRuntime) {
+    this.io = new Server(server, {
+      cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+      }
+    });
+    
+    this.io.on('connection', (socket) => {
+      socket.on('message', async (data) => {
+        if (data.type === SOCKET_MESSAGE_TYPE.ROOM_JOINING) {
+          await this.handleRoomJoin(socket, data.payload);
+        } else if (data.type === SOCKET_MESSAGE_TYPE.SEND_MESSAGE) {
+          await this.handleMessage(socket, data.payload);
+        }
+      });
+    });
+  }
+  
+  private async handleRoomJoin(socket: Socket, payload: any) {
+    const { roomId, entityId } = payload;
+    socket.join(roomId);
+    socket.to(roomId).emit('userJoined', {
+      userId: entityId,
+      roomId: roomId
+    });
+  }
+  
+  private async handleMessage(socket: Socket, payload: any) {
+    const { roomId, message, senderId } = payload;
+    const response = await this.runtime.processMessage({
+      content: message,
+      roomId: roomId,
+      userId: senderId
+    });
+    
+    // Broadcast to all in room
+    this.io.to(roomId).emit('messageBroadcast', {
+      roomId: roomId,
+      channelId: roomId, // For backward compatibility
+      senderName: response.agentName,
+      text: response.text,
+      metadata: response.metadata
+    });
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** handle ROOM_JOINING messages
+- ✅ **ALWAYS** use socket.join() for room management
+- ✅ **ALWAYS** broadcast to room using io.to(roomId)
+- ✅ **ALWAYS** include both roomId and channelId in broadcast
+- ✅ **NEVER** skip room management
+
+## Best Practices Checklist
+
+Before implementing Socket.IO client, verify:
+
+- [ ] Using Socket.IO (not raw WebSockets)
+- [ ] Configured reconnection settings
+- [ ] Joining room on connection
+- [ ] Listening for `messageBroadcast` event
+- [ ] Filtering messages by room ID
+- [ ] Using correct message format
+- [ ] Including all required fields
+- [ ] Configuring CORS properly
+- [ ] Using Socket.IO v4.x
+- [ ] Handling connection errors
+
+## Forbidden Patterns
+
+❌ **NEVER**:
+- Use raw WebSocket connections
+- Use `message` event for receiving (use `messageBroadcast`)
+- Skip room joining step
+- Skip room ID filtering
+- Use magic numbers for message types
+- Skip required payload fields
+- Skip CORS configuration
+- Use very old Socket.IO versions
+
+## Required Patterns
+
+✅ **ALWAYS**:
+- Use Socket.IO (not raw WebSockets)
+- Configure reconnection settings
+- Join room on connection
+- Listen for `messageBroadcast` event
+- Filter messages by room ID
+- Use SOCKET_MESSAGE_TYPE enum
+- Include all required payload fields
+- Configure CORS properly
+- Use Socket.IO v4.x
+- Handle connection errors gracefully
+
+## Examples
+
+See `.cursor/memory/elizaos-messaging.md` for complete examples of:
+- Socket.IO client implementation
+- Room joining patterns
+- Message sending patterns
+- Message receiving patterns
+- Server-side implementation
+- Error handling patterns

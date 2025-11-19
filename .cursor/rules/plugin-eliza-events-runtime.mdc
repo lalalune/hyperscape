@@ -1,0 +1,530 @@
+---
+description: ElizaOS events runtime - event system, event types, event handling patterns
+globs: packages/plugin-eliza/src/events/**/*.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Events Runtime
+
+> Event system, event types, and event handling patterns.
+
+## Reference Documentation
+
+- **Events**: https://docs.elizaos.ai/runtime/events
+- **Memory**: `.cursor/memory/elizaos-events.md`
+
+## Event System
+
+The event system enables reactive programming patterns, allowing plugins and services to respond to runtime activities. Events flow through the system providing hooks for custom logic and integrations.
+
+**Event Flow:**
+1. Event Source → Runtime.emit
+2. Event Queue → Event Handlers
+3. Event Handlers → Process Event
+
+## Event Types
+
+### Core Event Types
+
+```typescript
+enum EventType {
+  // World events
+  WORLD_JOINED = 'world:joined',
+  WORLD_CONNECTED = 'world:connected',
+  WORLD_LEFT = 'world:left',
+  
+  // Entity events
+  ENTITY_JOINED = 'entity:joined',
+  ENTITY_LEFT = 'entity:left',
+  ENTITY_UPDATED = 'entity:updated',
+  
+  // Room events
+  ROOM_JOINED = 'room:joined',
+  ROOM_LEFT = 'room:left',
+  ROOM_UPDATED = 'room:updated',
+  
+  // Message events
+  MESSAGE_RECEIVED = 'message:received',
+  MESSAGE_SENT = 'message:sent',
+  MESSAGE_DELETED = 'message:deleted',
+  MESSAGE_UPDATED = 'message:updated',
+  
+  // Voice events
+  VOICE_MESSAGE_RECEIVED = 'voice:message:received',
+  VOICE_MESSAGE_SENT = 'voice:message:sent',
+  VOICE_STARTED = 'voice:started',
+  VOICE_ENDED = 'voice:ended',
+  
+  // Run events
+  RUN_STARTED = 'run:started',
+  RUN_COMPLETED = 'run:completed',
+  RUN_FAILED = 'run:failed',
+  RUN_TIMEOUT = 'run:timeout',
+  
+  // Action events
+  ACTION_STARTED = 'action:started',
+  ACTION_COMPLETED = 'action:completed',
+  ACTION_FAILED = 'action:failed',
+  
+  // Evaluator events
+  EVALUATOR_STARTED = 'evaluator:started',
+  EVALUATOR_COMPLETED = 'evaluator:completed',
+  EVALUATOR_FAILED = 'evaluator:failed',
+  
+  // Model events
+  MODEL_USED = 'model:used',
+  MODEL_FAILED = 'model:failed',
+  
+  // Service events
+  SERVICE_STARTED = 'service:started',
+  SERVICE_STOPPED = 'service:stopped',
+  SERVICE_ERROR = 'service:error'
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use EventType enum for event names
+- ✅ **ALWAYS** use consistent event naming (domain:action:status)
+- ✅ **ALWAYS** document custom event types
+- ✅ **NEVER** use string literals for event names
+
+## Event Payloads
+
+### Payload Interfaces
+
+Each event type has a specific payload structure:
+
+```typescript
+// Message event payload
+interface MessagePayload {
+  runtime: IAgentRuntime;
+  message: Memory;
+  room?: Room;
+  user?: User;
+  callback?: ResponseCallback;
+}
+
+// Action event payload
+interface ActionPayload {
+  runtime: IAgentRuntime;
+  action: Action;
+  message: Memory;
+  state: State;
+  result?: any;
+  error?: Error;
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** include runtime in payload
+- ✅ **ALWAYS** use consistent payload structures
+- ✅ **ALWAYS** type payload interfaces
+- ✅ **NEVER** skip required payload fields
+
+## Event Handlers
+
+### Handler Registration
+
+Event handlers are registered during plugin initialization:
+
+```typescript
+const myPlugin: Plugin = {
+  name: 'my-plugin',
+  events: {
+    [EventType.MESSAGE_RECEIVED]: [
+      handleMessageReceived,
+      logMessage
+    ],
+    [EventType.ACTION_COMPLETED]: [
+      processActionResult
+    ],
+    [EventType.RUN_COMPLETED]: [
+      cleanupRun
+    ]
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** register handlers in plugin `events` object
+- ✅ **ALWAYS** use EventType enum for event names
+- ✅ **ALWAYS** register multiple handlers as array
+- ✅ **ALWAYS** register during plugin initialization
+- ✅ **NEVER** register handlers manually unless necessary
+
+### Handler Implementation
+
+```typescript
+// Message handler
+async function handleMessageReceived(payload: MessagePayload) {
+  const { runtime, message, room, user, callback } = payload;
+  
+  // Process the message
+  const state = await runtime.composeState(message);
+  
+  // Check if we should respond
+  if (shouldRespond(message, state)) {
+    await runtime.processActions(message, [], state);
+  }
+  
+  // Call callback if provided
+  if (callback) {
+    await callback({
+      text: 'Message processed',
+      metadata: { processed: true }
+    });
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use async handlers
+- ✅ **ALWAYS** handle errors gracefully
+- ✅ **ALWAYS** extract payload fields
+- ✅ **ALWAYS** use callback if provided
+- ✅ **NEVER** throw unhandled errors
+- ✅ **NEVER** block event loop
+
+## Event Emission
+
+### Emitting Events
+
+```typescript
+// Emit an event from the runtime
+await runtime.emit(EventType.MESSAGE_RECEIVED, {
+  runtime,
+  message,
+  room,
+  user,
+  callback
+});
+
+// Emit from a service
+class CustomService extends Service {
+  async processData(data: any) {
+    await this.runtime.emit(EventType.CUSTOM_EVENT, {
+      runtime: this.runtime,
+      data,
+      timestamp: Date.now()
+    });
+  }
+}
+
+// Emit from an action
+const customAction: Action = {
+  name: 'CUSTOM_ACTION',
+  handler: async (runtime, message, state) => {
+    const result = await performAction();
+    
+    // Emit completion event
+    await runtime.emit(EventType.ACTION_COMPLETED, {
+      runtime,
+      action: customAction,
+      message,
+      state,
+      result
+    });
+    
+    return result;
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** use runtime.emit() for event emission
+- ✅ **ALWAYS** include runtime in payload
+- ✅ **ALWAYS** use EventType enum
+- ✅ **ALWAYS** await emit() calls
+- ✅ **NEVER** emit events without runtime
+
+## Event Listeners
+
+### Adding Event Listeners
+
+```typescript
+// Add listener to runtime
+runtime.on(EventType.MESSAGE_RECEIVED, async (payload) => {
+  console.log('Message received:', payload.message.content.text);
+});
+
+// Add multiple listeners
+runtime.on(EventType.ACTION_STARTED, logActionStart);
+runtime.on(EventType.ACTION_STARTED, trackActionMetrics);
+
+// One-time listener
+runtime.once(EventType.SERVICE_STARTED, async (payload) => {
+  console.log('Service started:', payload.service.name);
+});
+```
+
+**Rules:**
+- ✅ **ALWAYS** use async listeners
+- ✅ **ALWAYS** use EventType enum
+- ✅ **ALWAYS** handle errors in listeners
+- ✅ **ALWAYS** remove listeners when done
+- ✅ **NEVER** block event loop
+
+### Removing Event Listeners
+
+```typescript
+// Remove specific listener
+runtime.off(EventType.MESSAGE_RECEIVED, messageHandler);
+
+// Remove all listeners for an event
+runtime.removeAllListeners(EventType.MESSAGE_RECEIVED);
+
+// Remove all listeners
+runtime.removeAllListeners();
+```
+
+**Rules:**
+- ✅ **ALWAYS** remove listeners when done
+- ✅ **ALWAYS** clean up listeners in stop()
+- ✅ **NEVER** leave listeners attached
+
+## Event Patterns
+
+### Request-Response Pattern
+
+```typescript
+async function requestWithResponse(runtime: IAgentRuntime, data: any) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Response timeout'));
+    }, 5000);
+    
+    // Listen for response
+    runtime.once(EventType.RESPONSE_RECEIVED, (payload) => {
+      clearTimeout(timeout);
+      resolve(payload.response);
+    });
+    
+    // Emit request
+    runtime.emit(EventType.REQUEST_SENT, {
+      runtime,
+      data,
+      requestId: generateId()
+    });
+  });
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use timeouts for request-response
+- ✅ **ALWAYS** use once() for response listeners
+- ✅ **ALWAYS** clear timeouts
+- ✅ **NEVER** leave listeners attached
+
+### Event Chaining
+
+```typescript
+const workflowPlugin: Plugin = {
+  name: 'workflow',
+  events: {
+    [EventType.MESSAGE_RECEIVED]: [
+      async (payload) => {
+        const processed = await processMessage(payload);
+        await payload.runtime.emit(EventType.MESSAGE_PROCESSED, {
+          ...payload,
+          processed
+        });
+      }
+    ],
+    [EventType.MESSAGE_PROCESSED]: [
+      async (payload) => {
+        const response = await generateResponse(payload);
+        await payload.runtime.emit(EventType.RESPONSE_GENERATED, {
+          ...payload,
+          response
+        });
+      }
+    ]
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** chain events for workflows
+- ✅ **ALWAYS** pass payload through chain
+- ✅ **ALWAYS** handle errors in chain
+- ✅ **NEVER** create infinite loops
+
+## Custom Events
+
+### Defining Custom Events
+
+```typescript
+// Extend EventType with custom events
+declare module '@elizaos/core' {
+  interface EventTypeRegistry {
+    CUSTOM_DATA_RECEIVED: 'custom:data:received';
+    CUSTOM_PROCESS_COMPLETE: 'custom:process:complete';
+  }
+}
+
+// Define custom payload
+interface CustomDataPayload {
+  runtime: IAgentRuntime;
+  data: any;
+  source: string;
+  timestamp: number;
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use module augmentation for custom events
+- ✅ **ALWAYS** use consistent naming (domain:action:status)
+- ✅ **ALWAYS** define payload interfaces
+- ✅ **ALWAYS** document custom events
+- ✅ **NEVER** use string literals directly
+
+## Error Handling
+
+### Event Error Handling
+
+```typescript
+// Global error handler for events
+runtime.on('error', (error: Error, eventType: EventType, payload: any) => {
+  console.error(`Error in event ${eventType}:`, error);
+  
+  // Log to monitoring service
+  monitoringService.logError({
+    error: error.message,
+    stack: error.stack,
+    eventType,
+    payload: JSON.stringify(payload).slice(0, 1000)
+  });
+});
+
+// Handler with error handling
+async function safeEventHandler(payload: any) {
+  try {
+    await riskyOperation(payload);
+  } catch (error) {
+    // Emit error event
+    await payload.runtime.emit(EventType.SERVICE_ERROR, {
+      runtime: payload.runtime,
+      error,
+      originalEvent: payload
+    });
+    
+    // Don't throw - allow other handlers to run
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** handle errors gracefully
+- ✅ **ALWAYS** emit error events for monitoring
+- ✅ **ALWAYS** log errors with context
+- ✅ **ALWAYS** don't throw from handlers
+- ✅ **NEVER** crash on handler errors
+
+## Performance Considerations
+
+### Event Batching
+
+```typescript
+class EventBatcher {
+  private batch: Map<EventType, any[]> = new Map();
+  private batchSize = 100;
+  private flushInterval = 1000;
+  
+  add(eventType: EventType, payload: any) {
+    if (!this.batch.has(eventType)) {
+      this.batch.set(eventType, []);
+    }
+    
+    const events = this.batch.get(eventType);
+    events.push(payload);
+    
+    if (events.length >= this.batchSize) {
+      this.flushType(eventType);
+    }
+  }
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** batch high-frequency events
+- ✅ **ALWAYS** flush batches periodically
+- ✅ **ALWAYS** limit batch size
+- ✅ **NEVER** batch critical events
+
+### Event Throttling
+
+```typescript
+function throttleEvents(eventType: EventType, delay: number) {
+  let lastEmit = 0;
+  let pending: any = null;
+  
+  return (payload: any) => {
+    const now = Date.now();
+    
+    if (now - lastEmit >= delay) {
+      runtime.emit(eventType, payload);
+      lastEmit = now;
+    } else {
+      pending = payload;
+      // Schedule emit
+    }
+  };
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** throttle rapid events
+- ✅ **ALWAYS** use appropriate delays
+- ✅ **ALWAYS** handle pending events
+- ✅ **NEVER** throttle critical events
+
+## Best Practices Checklist
+
+Before implementing event handlers, verify:
+
+- [ ] Handler uses EventType enum
+- [ ] Handler is async
+- [ ] Handler handles errors gracefully
+- [ ] Handler doesn't block event loop
+- [ ] Handler removes listeners when done
+- [ ] Handler uses consistent payload structures
+- [ ] Handler logs important operations
+- [ ] Handler doesn't create infinite loops
+- [ ] Handler uses timeouts for long operations
+- [ ] Handler cleans up resources
+
+## Forbidden Patterns
+
+❌ **NEVER**:
+- Use string literals for event names
+- Throw unhandled errors from handlers
+- Block event loop
+- Leave listeners attached
+- Create infinite event loops
+- Skip error handling
+- Skip payload typing
+- Skip listener cleanup
+
+## Required Patterns
+
+✅ **ALWAYS**:
+- Use EventType enum for event names
+- Use async handlers
+- Handle errors gracefully
+- Remove listeners when done
+- Use consistent payload structures
+- Log important operations
+- Use timeouts for long operations
+- Clean up resources
+- Batch high-frequency events
+- Throttle rapid events
+
+## Examples
+
+See `.cursor/memory/elizaos-events.md` for complete examples of:
+- Event handler registration
+- Event emission patterns
+- Event listener patterns
+- Event chaining patterns
+- Error handling patterns
+- Performance optimization
