@@ -134,6 +134,8 @@ const names = [
   // Death state packets
   'playerSetDead',
   'playerRespawned',
+  // Loot packets
+  'corpseLoot',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',

@@ -1351,6 +1351,19 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
+  onCorpseLoot = (data: {
+    corpseId: string;
+    playerId: string;
+    lootItems: Array<{ itemId: string; quantity: number }>;
+    position: { x: number; y: number; z: number };
+  }) => {
+    console.log(
+      `[ClientNetwork] Received corpseLoot packet for ${data.corpseId} with ${data.lootItems?.length || 0} items`,
+    );
+    // Forward to local event system so UI can open loot window
+    this.world.emit(EventType.CORPSE_CLICK, data);
+  };
+
   applyPendingModifications = (entityId: string) => {
     const pending = this.pendingModifications.get(entityId);
     if (pending && pending.length > 0) {
