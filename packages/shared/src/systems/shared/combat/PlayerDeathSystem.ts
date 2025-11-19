@@ -126,6 +126,13 @@ export class PlayerDeathSystem extends SystemBase {
       (data: { headstoneId: string; playerId: string }) =>
         this.handleHeadstoneExpired(data),
     );
+    // CRITICAL: Clean up death lock when gravestone is fully looted
+    // Prevents database memory leak and ensures proper respawn state
+    this.subscribe(
+      EventType.CORPSE_EMPTY,
+      (data: { corpseId: string; playerId: string }) =>
+        this.handleCorpseEmpty(data),
+    );
     // CRITICAL: Validate death state on player reconnect
     // Prevents item duplication when player disconnects during death
     this.subscribe(EventType.PLAYER_JOINED, (data: { playerId: string }) =>
@@ -1005,6 +1012,26 @@ export class PlayerDeathSystem extends SystemBase {
     this.despawnDeathItems(data.playerId);
   }
 
+  /**
+   * Handle CORPSE_EMPTY event - called when all items are looted from gravestone
+   * CRITICAL: Clears death lock from database to prevent memory leak
+   */
+  private async handleCorpseEmpty(data: {
+    corpseId: string;
+    playerId: string;
+  }): Promise<void> {
+    console.log(
+      `[PlayerDeathSystem] Gravestone ${data.corpseId} fully looted for player ${data.playerId}, clearing death lock...`,
+    );
+
+    // Clear death lock from database (prevents duplication on server restart)
+    await this.deathStateManager.clearDeathLock(data.playerId);
+
+    console.log(
+      `[PlayerDeathSystem] ✓ Death lock cleared for ${data.playerId}`,
+    );
+  }
+
   // Public API for apps
   getDeathLocation(playerId: string): DeathLocationData | undefined {
     return this.deathLocations.get(playerId);
@@ -1057,6 +1084,7 @@ export class PlayerDeathSystem extends SystemBase {
   update(_dt: number): void {
     // HeadstoneEntity handles its own updates via EntityManager
   }
+
   postUpdate(): void {}
   lateUpdate(): void {}
   postLateUpdate(): void {}

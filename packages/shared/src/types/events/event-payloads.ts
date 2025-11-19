@@ -586,7 +586,7 @@ export interface EventMap {
     npcId: string;
     inventory: unknown[];
   };
-  [EventType.CORPSE_EMPTY]: { corpseId: string };
+  [EventType.CORPSE_EMPTY]: { corpseId: string; playerId: string };
   [EventType.CHARACTER_LIST]: {
     characters: Array<{
       id: string;
