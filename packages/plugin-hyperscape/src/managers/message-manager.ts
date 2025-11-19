@@ -86,7 +86,7 @@ export class MessageManager {
     // Convert chat message to Memory format
     const memory: Memory = {
       id: msg.id as UUID,
-      entityId: msg.id as UUID,
+      entityId: msg.userId as UUID,
       agentId: this.runtime.agentId,
       content: {
         text: msg.text,
@@ -161,7 +161,7 @@ Generate a natural chat response that fits the conversation flow.
     // Create response memory
     const responseMemory: Memory = {
       id: crypto.randomUUID() as UUID,
-      entityId: crypto.randomUUID() as UUID,
+      entityId: this.runtime.agentId,
       agentId: this.runtime.agentId,
       content: {
         text: response.text,
