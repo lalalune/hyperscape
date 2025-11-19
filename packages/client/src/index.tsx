@@ -146,8 +146,8 @@ function App() {
     );
   }
 
-  // Show character selection
-  if (showCharacterPage) {
+  // Show character selection (only if Privy enabled)
+  if (showCharacterPage && privyEnabled) {
     return (
       <div ref={appRef} data-component="app-root">
         <CharacterSelectScreen
@@ -164,7 +164,8 @@ function App() {
     );
   }
 
-  // Show game
+  // Show game (when Privy disabled, skip character selection and go straight to game)
+  // The client will automatically send enterWorld without characterId for dev mode
   return (
     <div ref={appRef} data-component="app-root">
       <GameClient wsUrl={wsUrl} onSetup={handleSetup} />
