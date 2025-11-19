@@ -1,0 +1,108 @@
+---
+description: Systems and testing patterns for Hyperscape plugin
+globs: packages/plugin-eliza/src/systems/**/*.ts,packages/plugin-eliza/src/testing/**/*.ts,packages/plugin-eliza/src/__tests__/**/*.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Systems & Testing Patterns
+
+> Patterns for implementing Hyperscape systems and testing in the plugin.
+
+## Reference Files
+
+- Actions system: @packages/plugin-eliza/src/systems/actions.ts
+- Avatar system: @packages/plugin-eliza/src/systems/avatar.ts
+- Environment system: @packages/plugin-eliza/src/systems/environment.ts
+- Visual test framework: @packages/plugin-eliza/src/testing/visual-test-framework.ts
+- Test utils: @packages/plugin-eliza/src/__tests__/test-utils.ts
+
+## System Implementation
+
+Extend `System` class from `@hyperscape/shared`:
+
+```typescript
+import { THREE, System } from '@hyperscape/shared';
+import type { World } from '@hyperscape/shared';
+
+export class SystemName extends System {
+  declare world: World;
+
+  constructor(world: World) {
+    super(world);
+  }
+
+  async init(options?: unknown): Promise<void> {
+    // Initialize system
+  }
+
+  start(): void {
+    // Start system
+  }
+
+  destroy(): void {
+    // Cleanup system
+  }
+}
+```
+
+## System Rules
+
+- **ALWAYS** extend `System` class from `@hyperscape/shared`
+- **ALWAYS** implement required System methods: `init()`, `start()`, `destroy()`
+- **ALWAYS** declare `world: World` property
+- **ALWAYS** use `@hyperscape/shared` types (`THREE`, `System`, `World`)
+- **NEVER** import from `three` directly - use `THREE` from `@hyperscape/shared`
+- **NEVER** access world directly - systems are part of world
+- **ALWAYS** handle system lifecycle properly
+
+## Testing Patterns
+
+### Unit Test Pattern
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createMockRuntime, toUUID } from '../__tests__/test-utils';
+import { actionName } from '../../actions/category';
+
+describe('ActionName', () => {
+  let mockRuntime: IAgentRuntime;
+
+  beforeEach(() => {
+    mockRuntime = createMockRuntime();
+  });
+
+  it('should validate correctly', async () => {
+    // Test validation
+  });
+});
+```
+
+### E2E Test Pattern
+```typescript
+import { createDynamicRuntime } from '../testing/test-runtime-factory';
+import { VisualTestFramework } from '../testing/visual-test-framework';
+
+export const testSuite: TestSuite = {
+  name: 'test-suite',
+  tests: [
+    {
+      name: 'test-name',
+      fn: async (runtime) => {
+        const service = runtime.getService<HyperscapeService>('hyperscapeService')!;
+        // Test implementation
+        const visualTest = new VisualTestFramework(runtime);
+        const result = await visualTest.verifyPosition({ x: 10, y: 0, z: 20 });
+        expect(result.passed).toBe(true);
+      },
+    },
+  ],
+};
+```
+
+## Testing Rules
+
+- **ALWAYS** write unit tests for actions/providers
+- **ALWAYS** use mocks from `__tests__/test-utils` for unit tests
+- **ALWAYS** use real Hyperscape worlds for E2E tests
+- **ALWAYS** use visual testing framework for position/entity verification
+- **NEVER** skip error cases in tests
+- **ALWAYS** clean up after tests

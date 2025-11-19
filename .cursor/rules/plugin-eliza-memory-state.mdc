@@ -1,0 +1,493 @@
+---
+description: ElizaOS memory and state management - creation, retrieval, composition, optimization
+globs: packages/plugin-eliza/src/**/*.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Memory and State Management
+
+> Memory creation, retrieval, composition, and state management patterns.
+
+## Reference Documentation
+
+- **Memory and State**: https://docs.elizaos.ai/agents/memory-and-state
+- **Runtime Core**: https://docs.elizaos.ai/runtime/core
+- **Memory**: `.cursor/memory/elizaos-memory-state.md`
+
+## Memory Interface
+
+**MANDATORY Structure:**
+```typescript
+interface Memory {
+  id?: UUID;                    // Unique identifier
+  entityId: UUID;               // Who created this memory (user/agent)
+  roomId: UUID;                 // Conversation context
+  worldId?: UUID;               // Broader context (e.g., server)
+  content: Content;             // The actual content
+  embedding?: number[];         // Vector representation
+  createdAt?: number;          // Timestamp
+  metadata?: MemoryMetadata;   // Additional data
+}
+
+interface Content {
+  text?: string;               // Text content
+  actions?: string[];          // Associated actions
+  inReplyTo?: UUID;           // Reference to previous memory
+  metadata?: any;             // Custom metadata
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** include `entityId` and `roomId` (required)
+- ✅ **ALWAYS** include `content` with at least `text` (required)
+- ✅ **ALWAYS** pre-compute embeddings when creating memories
+- ✅ **ALWAYS** include metadata for filtering and context
+- ✅ **NEVER** create memories without entityId or roomId
+
+## Memory Creation
+
+**Pattern:** Create memories with all metadata
+
+```typescript
+async function createRichMemory(
+  runtime: IAgentRuntime,
+  content: string,
+  context: any
+): Promise<UUID> {
+  const memory: CreateMemory = {
+    agentId: runtime.agentId,
+    entityId: context.userId,
+    roomId: context.roomId,
+    content: {
+      text: content,
+      actions: context.actions || [],
+      inReplyTo: context.replyTo,
+      metadata: {
+        source: context.source,
+        platform: context.platform,
+        sentiment: analyzeSentiment(content),
+        topics: extractTopics(content),
+        entities: extractEntities(content)
+      }
+    },
+    // Pre-compute embedding for better performance
+    embedding: await runtime.embed(content)
+  };
+  
+  return await runtime.createMemory(memory);
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use `runtime.createMemory()` for creation
+- ✅ **ALWAYS** pre-compute embeddings for better performance
+- ✅ **ALWAYS** include rich metadata for filtering
+- ✅ **ALWAYS** set agentId, entityId, and roomId
+- ✅ **ALWAYS** handle errors gracefully
+- ✅ **NEVER** create memories without proper context
+
+## Memory Retrieval
+
+### Recent Memories
+
+```typescript
+const recentMemories = await runtime.getMemories({
+  roomId: roomId,
+  count: 10,
+  unique: true  // Deduplicate similar memories
+});
+```
+
+### User Memories
+
+```typescript
+const userMemories = await runtime.getMemories({
+  entityId: userId,
+  count: 20
+});
+```
+
+### Time-Bounded Memories
+
+```typescript
+const todaysMemories = await runtime.getMemories({
+  roomId: roomId,
+  start: startOfDay,
+  end: endOfDay
+});
+```
+
+**Rules:**
+- ✅ **ALWAYS** specify `roomId` or `entityId` for retrieval
+- ✅ **ALWAYS** use `count` to limit results
+- ✅ **ALWAYS** use `unique: true` to deduplicate
+- ✅ **ALWAYS** use time bounds for temporal queries
+- ✅ **NEVER** retrieve unlimited memories (always use count)
+
+## Memory Search
+
+### Semantic Search
+
+```typescript
+async function semanticSearch(
+  runtime: IAgentRuntime,
+  query: string,
+  options: SearchOptions = {}
+): Promise<Memory[]> {
+  const embedding = await runtime.embed(query);
+  
+  return await runtime.searchMemoriesByEmbedding(embedding, {
+    match_threshold: options.threshold || 0.75,
+    count: options.limit || 10,
+    roomId: options.roomId,
+    filter: options.filter
+  });
+}
+```
+
+### Hybrid Search
+
+```typescript
+async function hybridSearch(
+  runtime: IAgentRuntime,
+  query: string
+): Promise<Memory[]> {
+  // Semantic search
+  const semantic = await semanticSearch(runtime, query);
+  
+  // Keyword search
+  const keywords = extractKeywords(query);
+  const keyword = await runtime.searchMemories({
+    text: keywords.join(' OR '),
+    count: 10
+  });
+  
+  // Combine and rank
+  return rankSearchResults([...semantic, ...keyword]);
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use semantic search for meaning-based queries
+- ✅ **ALWAYS** use keyword search for exact matches
+- ✅ **ALWAYS** use hybrid search for best results
+- ✅ **ALWAYS** set appropriate match_threshold (0.7-0.9)
+- ✅ **ALWAYS** limit results with count parameter
+
+## Context Management
+
+### Context Window
+
+```typescript
+async buildContext(roomId: UUID): Promise<State> {
+  const memories = await this.getMemories({
+    roomId,
+    count: this.#conversationLength
+  });
+  
+  // Token counting and pruning
+  let tokenCount = 0;
+  const maxTokens = 4000; // Leave room for response
+  const prunedMemories = [];
+  
+  for (const memory of memories) {
+    const tokens = estimateTokens(memory.content.text);
+    if (tokenCount + tokens > maxTokens) break;
+    tokenCount += tokens;
+    prunedMemories.push(memory);
+  }
+  
+  return this.composeState(prunedMemories);
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** respect token limits in context window
+- ✅ **ALWAYS** prune memories based on token count
+- ✅ **ALWAYS** leave room for response generation
+- ✅ **ALWAYS** use conversationLength for default count
+- ✅ **NEVER** exceed token limits
+
+### Context Selection Strategies
+
+#### Recency-Based
+
+```typescript
+const recentContext = await runtime.getMemories({
+  roomId: roomId,
+  count: 20,
+  orderBy: 'createdAt',
+  direction: 'DESC'
+});
+```
+
+#### Importance-Based
+
+```typescript
+const importantMemories = await runtime.searchMemories({
+  roomId: roomId,
+  filter: {
+    importance: { $gte: 0.8 }
+  },
+  count: 10
+});
+```
+
+#### Hybrid Approach
+
+```typescript
+async function getHybridContext(runtime: IAgentRuntime, roomId: UUID) {
+  const recent = await runtime.getMemories({ roomId, count: 10 });
+  const important = await runtime.searchMemories({
+    roomId,
+    query: "important decisions, key information, user preferences",
+    match_threshold: 0.7,
+    count: 5
+  });
+  return deduplicateMemories([...recent, ...important]);
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use recency for immediate context
+- ✅ **ALWAYS** use importance for historical context
+- ✅ **ALWAYS** use hybrid approach for best results
+- ✅ **ALWAYS** deduplicate combined results
+
+## State Composition
+
+**Pattern:** Compose state from memories and providers
+
+```typescript
+interface State {
+  messages: Memory[];           // Conversation history
+  facts: string[];              // Known facts
+  providers: ProviderData[];    // Provider contributions
+  context: string;              // Formatted context
+}
+
+// Compose state
+const state = await runtime.composeState(message, [
+  'RECENT_MESSAGES',
+  'CHARACTER',
+  'KNOWLEDGE'
+]);
+```
+
+**Rules:**
+- ✅ **ALWAYS** use `runtime.composeState()` for state composition
+- ✅ **ALWAYS** specify provider list explicitly
+- ✅ **ALWAYS** include recent messages in state
+- ✅ **ALWAYS** format context clearly for LLM
+- ✅ **NEVER** compose state without provider list
+
+## Memory Types
+
+### Short-term Memory
+
+```typescript
+class WorkingMemory {
+  private buffer: Memory[] = [];
+  private maxSize = 50;
+  
+  add(memory: Memory) {
+    this.buffer.push(memory);
+    if (this.buffer.length > this.maxSize) {
+      this.buffer.shift(); // Remove oldest
+    }
+  }
+}
+```
+
+### Long-term Memory
+
+```typescript
+interface LongTermMemory extends Memory {
+  metadata: {
+    type: 'long_term';
+    importance: number;
+    lastAccessed: number;
+    accessCount: number;
+  };
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use short-term memory for immediate context
+- ✅ **ALWAYS** mark important memories as long-term
+- ✅ **ALWAYS** preserve long-term memories from pruning
+- ✅ **ALWAYS** track importance and access patterns
+
+## Embeddings and Vectors
+
+### Embedding Generation
+
+```typescript
+async generateEmbedding(text: string): Promise<number[]> {
+  // Check cache first
+  const cached = this.cache.get(text);
+  if (cached) return cached;
+  
+  // Generate new embedding
+  const embedding = await this.model.embed(text);
+  
+  // Cache for reuse
+  this.cache.set(text, embedding);
+  
+  return embedding;
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** cache embeddings for reuse
+- ✅ **ALWAYS** pre-compute embeddings when creating memories
+- ✅ **ALWAYS** use batch processing for multiple texts
+- ✅ **NEVER** regenerate embeddings unnecessarily
+
+### Vector Search
+
+```typescript
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use cosine similarity for vector search
+- ✅ **ALWAYS** use approximate nearest neighbor indexes for performance
+- ✅ **ALWAYS** rebuild indexes periodically for new memories
+- ✅ **NEVER** use exact search for large memory sets
+
+## Performance Optimization
+
+### Memory Pruning
+
+```typescript
+// Time-based pruning
+async function pruneOldMemories(
+  runtime: IAgentRuntime,
+  maxAge: number = 30 * 24 * 60 * 60 * 1000 // 30 days
+) {
+  const cutoff = Date.now() - maxAge;
+  
+  await runtime.deleteMemories({
+    filter: {
+      createdAt: { $lt: cutoff },
+      'metadata.type': { $ne: 'long_term' }  // Preserve long-term
+    }
+  });
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** implement memory pruning for performance
+- ✅ **ALWAYS** preserve long-term memories from pruning
+- ✅ **ALWAYS** use time-based and importance-based pruning
+- ✅ **ALWAYS** monitor memory growth and implement limits
+
+### Caching Strategies
+
+```typescript
+class MemoryCache {
+  private l1Cache = new Map<UUID, Memory>();    // Hot cache (in-memory)
+  private l2Cache = new LRUCache<UUID, Memory>({  // Warm cache
+    max: 1000,
+    ttl: 5 * 60 * 1000  // 5 minutes
+  });
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** implement multi-level caching
+- ✅ **ALWAYS** use L1 cache for hot memories
+- ✅ **ALWAYS** use L2 cache for warm memories
+- ✅ **ALWAYS** manage cache size appropriately
+
+### Database Optimization
+
+```typescript
+// Batch operations
+async function batchCreateMemories(
+  runtime: IAgentRuntime,
+  memories: CreateMemory[]
+): Promise<UUID[]> {
+  // Generate embeddings in batch
+  const texts = memories.map(m => m.content.text);
+  const embeddings = await runtime.embedBatch(texts);
+  
+  // Prepare batch insert
+  const enriched = memories.map((m, i) => ({
+    ...m,
+    embedding: embeddings[i]
+  }));
+  
+  // Single database transaction
+  return await runtime.batchCreateMemories(enriched);
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** use batch operations for multiple memories
+- ✅ **ALWAYS** generate embeddings in batch
+- ✅ **ALWAYS** use database transactions for batch inserts
+- ✅ **ALWAYS** create indexes for common query patterns
+
+## Best Practices Checklist
+
+Before implementing memory operations, verify:
+
+- [ ] Memory creation includes all required fields
+- [ ] Embeddings pre-computed for new memories
+- [ ] Rich metadata included for filtering
+- [ ] Memory retrieval uses appropriate methods
+- [ ] Context window respects token limits
+- [ ] State composition includes provider list
+- [ ] Memory pruning implemented
+- [ ] Caching strategies implemented
+- [ ] Batch operations used for multiple memories
+- [ ] Indexes created for common queries
+
+## Forbidden Patterns
+
+❌ **NEVER**:
+- Create memories without entityId or roomId
+- Skip embedding generation
+- Retrieve unlimited memories
+- Exceed token limits in context window
+- Skip memory pruning
+- Skip caching for frequently accessed memories
+- Use exact search for large memory sets
+
+## Required Patterns
+
+✅ **ALWAYS**:
+- Include entityId and roomId in memories
+- Pre-compute embeddings when creating memories
+- Use count parameter for memory retrieval
+- Respect token limits in context window
+- Use runtime.composeState() for state composition
+- Implement memory pruning
+- Use multi-level caching
+- Use batch operations for multiple memories
+- Create indexes for common queries
+
+## Examples
+
+See `.cursor/memory/elizaos-memory-state.md` for complete examples of:
+- Memory creation patterns
+- Memory retrieval patterns
+- Context selection strategies
+- State composition patterns
+- Embedding generation
+- Vector search
+- Performance optimization

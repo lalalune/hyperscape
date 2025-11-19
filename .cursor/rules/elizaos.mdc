@@ -1,4 +1,24 @@
+---
+description: ElizaOS AI agent integration into Hyperscape
+alwaysApply: false
+---
+
 # ElizaOS Actions, Providers, and Services Architecture
+
+## ⚠️ CRITICAL: Official Documentation First
+
+**ALWAYS reference official ElizaOS documentation before implementing any ElizaOS functionality.**
+
+### Required Documentation Sources
+
+- **Main Documentation**: https://docs.elizaos.ai/
+- **Create a Plugin Guide**: https://docs.elizaos.ai/guides/create-a-plugin
+- **Projects Overview**: https://docs.elizaos.ai/projects/overview
+- **Environment Variables**: https://docs.elizaos.ai/projects/environment-variables
+- **Plugin Architecture**: https://docs.elizaos.ai/plugins/architecture
+- **REST API - Create Agent**: https://docs.elizaos.ai/rest-reference/agents/create-a-new-agent
+
+**Before implementing any plugin feature, verify current patterns in official documentation. Never rely on outdated examples or assumptions.**
 
 ## Table of Contents
 
@@ -424,6 +444,12 @@ The ElizaOS architecture provides a flexible framework for creating intelligent 
 Agents can engage in complex behaviors while maintaining clean separation of concerns. The Hyperscape integration demonstrates how this architecture scales to support real-time 3D virtual worlds with multiple participants, complex interactions, and persistent state.
 
 The modular design allows developers to extend functionality by adding new actions, providers, or services without modifying core systems, making ElizaOS a powerful platform for creating embodied AI agents.
-description: ElizaOS AI agent integration into Hyperscape
-alwaysApply: false
----
+
+## Documentation References
+
+When working with ElizaOS in the Hyperscape plugin, always verify current patterns using:
+
+- **Plugin Development**: https://docs.elizaos.ai/guides/create-a-plugin
+- **Plugin Architecture**: https://docs.elizaos.ai/plugins/architecture
+- **Project Configuration**: https://docs.elizaos.ai/projects/overview
+- **Environment Setup**: https://docs.elizaos.ai/projects/environment-variables

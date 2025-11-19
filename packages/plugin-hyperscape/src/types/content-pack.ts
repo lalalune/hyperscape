@@ -1,126 +1,117 @@
-import { Action, Provider, Evaluator, IAgentRuntime } from "@elizaos/core";
-import type { World } from "./core-types";
-
 /**
- * Interface for modular content packs that can be loaded into Hyperscape
+ * Content Pack Type Definitions
+ *
+ * These types define the structure for extensible content packs that can be
+ * added to the Hyperscape plugin, allowing for modular game content.
  */
-export interface IContentPack {
-  id: string;
-  name: string;
-  description: string;
-  version: string;
 
-  // Core functionality
-  actions?: Action[];
-  providers?: Provider[];
-  evaluators?: Evaluator[];
-
-  systems?: IGameSystem[];
-
-  // Visual configuration
-  visuals?: IVisualConfig;
-
-  // State management
-  stateManager?: IStateManager;
-
-  // Lifecycle hooks
-  onLoad?: (runtime: IAgentRuntime, world: World) => Promise<void>;
-  onUnload?: (runtime: IAgentRuntime, world: World) => Promise<void>;
-}
+import type { Action, Provider, Evaluator, IAgentRuntime } from "@elizaos/core";
 
 /**
- * Game system interface for modular gameplay features
- */
-export interface IGameSystem {
-  id: string;
-  name: string;
-  type: "combat" | "inventory" | "skills" | "quests" | "trading" | "custom";
-
-  // System initialization
-  init(world: World): Promise<void>;
-
-  // System update loop (if needed)
-  update?(deltaTime: number): void;
-
-  // System cleanup
-  cleanup(): void;
-}
-
-/**
- * Visual configuration for content packs
+ * Visual configuration for game entities
  */
 export interface IVisualConfig {
-  // Entity color mappings for visual detection
-  entityColors: Record<
-    string,
-    {
-      color: number;
-      hex: string;
-      tolerance?: number;
-    }
-  >;
+  /** Color mappings for different entity types */
+  entityColors: Record<string, { color: number; hex: string }>;
 
-  // UI theme overrides
+  /** Optional UI theme configuration */
   uiTheme?: {
-    primaryColor?: string;
-    secondaryColor?: string;
-    fonts?: Record<string, string>;
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
   };
 
-  // Asset manifests
+  /** Optional asset manifests */
   assets?: {
-    models?: string[];
-    textures?: string[];
-    sounds?: string[];
-    animations?: string[];
+    models?: Record<string, string>;
+    textures?: Record<string, string>;
+    sounds?: Record<string, string>;
+    animations?: Record<string, string>;
   };
 }
 
 /**
- * Generic player state type for state managers
+ * Game system interface for modular systems
  */
-export type PlayerStateData = Record<
-  string,
-  string | number | boolean | string[] | number[]
->;
+export interface IGameSystem {
+  /** Unique system identifier */
+  id: string;
 
-/**
- * State manager interface for content pack state
- */
-export interface IStateManager {
-  // Initialize state for a player
-  initPlayerState(playerId: string): PlayerStateData;
+  /** Human-readable system name */
+  name: string;
 
-  // Get current state
-  getState(playerId: string): PlayerStateData;
+  /** System type/category */
+  type:
+    | "combat"
+    | "inventory"
+    | "skills"
+    | "movement"
+    | "resource"
+    | "social"
+    | "economy"
+    | "custom";
 
-  // Update state
-  updateState(playerId: string, updates: Partial<PlayerStateData>): void;
+  /** Optional system description */
+  description?: string;
 
-  // Subscribe to state changes
-  subscribe(
-    playerId: string,
-    callback: (state: PlayerStateData) => void,
-  ): () => void;
+  /** Optional dependencies on other systems */
+  dependencies?: string[];
 
-  // Serialize/deserialize for persistence
-  serialize(playerId: string): string;
-  deserialize(playerId: string, data: string): void;
+  /** Initialize the system */
+  init: (world?: any) => Promise<void>;
+
+  /** Optional update loop */
+  update?: (deltaTime: number) => void;
+
+  /** Cleanup system resources */
+  cleanup: () => void;
 }
 
 /**
- * Content pack loader interface
+ * Content Pack interface
+ *
+ * A content pack bundles actions, providers, evaluators, systems, and visuals
+ * into a cohesive package that can be loaded into the Hyperscape plugin.
  */
-export interface IContentPackLoader {
-  // Load a content pack
-  loadPack(pack: IContentPack, runtime: IAgentRuntime): Promise<void>;
+export interface IContentPack {
+  /** Unique content pack identifier */
+  id: string;
 
-  // Unload a content pack
-  unloadPack(packId: string): Promise<void>;
+  /** Human-readable name */
+  name: string;
 
-  // Get loaded packs
-  getLoadedPacks(): IContentPack[];
+  /** Content pack description */
+  description: string;
 
-  // Check if pack is loaded
-  isPackLoaded(packId: string): boolean;
+  /** Semantic version */
+  version: string;
+
+  /** Optional actions provided by this pack */
+  actions?: Action[];
+
+  /** Optional providers for state/context */
+  providers?: Provider[];
+
+  /** Optional evaluators for decision making */
+  evaluators?: Evaluator[];
+
+  /** Optional game systems */
+  systems?: IGameSystem[];
+
+  /** Optional visual configuration */
+  visuals?: IVisualConfig;
+
+  /** Optional state manager */
+  stateManager?: {
+    save: (state: any) => Promise<void>;
+    load: () => Promise<any>;
+    clear: () => Promise<void>;
+  };
+
+  /** Called when pack is loaded */
+  onLoad?: (runtime: IAgentRuntime, world?: any) => Promise<void>;
+
+  /** Called when pack is unloaded */
+  onUnload?: (runtime: IAgentRuntime, world?: any) => Promise<void>;
 }

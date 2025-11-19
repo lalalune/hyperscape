@@ -13,30 +13,25 @@ interface AudioFrame {
 }
 
 interface ConnectOptions {
-  [key: string]: string | number | boolean;
+  [key: string]: unknown;
 }
 
 interface PublishOptions {
-  [key: string]: string | number | boolean;
+  [key: string]: unknown;
 }
 
 interface AudioTrack {
-  [key: string]: string | number | boolean | Int16Array;
+  [key: string]: unknown;
 }
 
 interface AudioSource {
-  [key: string]: string | number | boolean | Int16Array;
+  [key: string]: unknown;
 }
 
 interface Room {
   connect(url: string, token: string, options: ConnectOptions): Promise<void>;
   disconnect(): Promise<void>;
-  on(
-    event: string,
-    handler: (
-      ...args: Array<string | number | boolean | Record<string, unknown>>
-    ) => void,
-  ): void;
+  on(event: string, handler: (...args: unknown[]) => void): void;
   localParticipant: {
     publishTrack(track: AudioTrack, options: PublishOptions): Promise<void>;
   };

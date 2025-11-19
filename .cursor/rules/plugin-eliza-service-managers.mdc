@@ -1,0 +1,118 @@
+---
+description: Service and manager implementation patterns for Hyperscape plugin
+globs: packages/plugin-eliza/src/service.ts,packages/plugin-eliza/src/services/**/*.ts,packages/plugin-eliza/src/managers/**/*.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Service & Manager Patterns
+
+> Patterns for implementing services and managers in the Hyperscape plugin.
+
+## Reference Files
+
+- Main service: @packages/plugin-eliza/src/service.ts
+- Service implementation: @packages/plugin-eliza/src/services/HyperscapeService.ts
+- Behavior manager: @packages/plugin-eliza/src/managers/behavior-manager.ts
+- Message manager: @packages/plugin-eliza/src/managers/message-manager.ts
+- Plugin entry: @packages/plugin-eliza/src/index.ts
+
+## Service Implementation
+
+Extend Service base class from `@elizaos/core`:
+
+```typescript
+import { Service, IAgentRuntime, logger } from '@elizaos/core';
+import type { World, Player } from '@hyperscape/shared';
+
+export class HyperscapeService extends Service {
+  static serviceName = 'hyperscapeService';
+  serviceName = 'hyperscapeService';
+  declare runtime: IAgentRuntime;
+
+  private world: World | null = null;
+  private isConnected = false;
+
+  async initialize(runtime: IAgentRuntime): Promise<void> {
+    this.runtime = runtime;
+    // Initialize managers, connect to world
+  }
+
+  async start(): Promise<void> {
+    // Start WebSocket connection
+  }
+
+  async stop(): Promise<void> {
+    // Cleanup connections
+  }
+
+  isConnected(): boolean {
+    return this.isConnected;
+  }
+
+  getWorld(): World | null {
+    return this.world;
+  }
+}
+```
+
+## Manager Pattern
+
+Create focused managers for specific responsibilities:
+
+```typescript
+import type { IAgentRuntime } from '@elizaos/core';
+import type { HyperscapeService } from '../service';
+
+export class ManagerName {
+  private runtime: IAgentRuntime;
+  private service: HyperscapeService;
+  private isActive = false;
+
+  constructor(runtime: IAgentRuntime) {
+    this.runtime = runtime;
+    this.service = runtime.getService<HyperscapeService>('hyperscapeService')!;
+  }
+
+  async start(): Promise<void> {
+    if (this.isActive) return;
+    this.isActive = true;
+    // Start logic
+  }
+
+  async stop(): Promise<void> {
+    this.isActive = false;
+    // Cleanup logic
+  }
+}
+```
+
+## Manager Rules
+
+- **ALWAYS** inject `IAgentRuntime` in constructor
+- **ALWAYS** get service from runtime: `runtime.getService<HyperscapeService>('hyperscapeService')`
+- **ALWAYS** implement cleanup methods (`stop()`, `destroy()`, `cleanup()`)
+- **ALWAYS** handle service unavailability gracefully
+- **NEVER** store world references directly - use service
+- **NEVER** create new service instances - always get from runtime
+
+## Manager Initialization Order
+
+In `HyperscapeService.initialize()`, initialize managers in this order:
+1. PlaywrightManager (for testing)
+2. EmoteManager (for animations)
+3. MessageManager (for chat)
+4. VoiceManager (for audio)
+5. BehaviorManager (for autonomous behavior)
+6. BuildManager (for world editing)
+7. DynamicActionLoader (for content packs)
+
+## Service Rules
+
+- **ALWAYS** extend `Service` base class from `@elizaos/core`
+- **ALWAYS** implement `initialize()`, `start()`, `stop()` lifecycle methods
+- **ALWAYS** initialize managers in `initialize()` method
+- **ALWAYS** check connection state before operations
+- **ALWAYS** handle WebSocket errors and reconnection
+- **ALWAYS** cache world state, never fetch repeatedly
+- **NEVER** expose raw world object - use getter methods
+- **NEVER** perform blocking operations in event handlers

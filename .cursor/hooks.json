@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeMCPExecution": [
+      {
+        "command": "./.cursor/hooks/save-hook-payload.sh"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "./.cursor/hooks/cursor-files-reminder.sh"
+      },
+      {
+        "command": "./.cursor/hooks/research-reminder.sh"
+      },
+      {
+        "command": "./.cursor/hooks/kiss-reminder.sh"
+      },
+      {
+        "command": "./.cursor/hooks/context-gatherer.sh"
+      },
+      {
+        "command": "./.cursor/hooks/eliza-docs-hook.sh"
+      },
+      {
+        "command": "./.cursor/hooks/doc-visitor-hook.sh"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "./.cursor/hooks/enforce-plugin-rules.sh"
+      },
+      {
+        "command": "./.cursor/hooks/duplicate-checker.sh"
+      },
+      {
+        "command": "./.cursor/hooks/dependency-checker.sh"
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "./.cursor/hooks/research-check.sh"
+      },
+      {
+        "command": "./.cursor/hooks/critical-file-protection.sh"
+      },
+      {
+        "command": "./.cursor/hooks/eliza-docs-hook.sh"
+      },
+      {
+        "command": "./.cursor/hooks/doc-visitor-hook.sh"
+      }
+    ]
+  }
+}

@@ -1,84 +1,92 @@
-import {
-  type IAgentRuntime,
-  type Memory,
-  type Provider,
-  type State,
-} from "@elizaos/core";
-import { HyperscapeService } from "../service";
-
 /**
- * Main Skills Provider
- * Provides overview of all character skills and their current levels
- * This is a standard provider (always loaded) that gives the agent awareness of its skill progression
+ * skillsProvider - Supplies skill levels and XP information
+ *
+ * Provides:
+ * - All skill levels
+ * - Total level
+ * - Combat level
+ * - XP in each skill
  */
-export const hyperscapeSkillProvider: Provider = {
-  name: "SKILLS_OVERVIEW",
-  description: "Overview of all character skills and levels",
-  dynamic: false, // Standard provider - always available
-  position: 1, // After world state, before actions
-  get: async (runtime: IAgentRuntime, _message: Memory, _state: State) => {
-    const service = runtime.getService<HyperscapeService>(
-      HyperscapeService.serviceName,
-    );
 
-    if (!service || !service.isConnected()) {
+import type {
+  Provider,
+  IAgentRuntime,
+  Memory,
+  State,
+  ProviderResult,
+} from "@elizaos/core";
+import type { HyperscapeService } from "../services/HyperscapeService.js";
+import type { SkillsData } from "../types.js";
+
+export const skillsProvider: Provider = {
+  name: "skills",
+  description: "Provides skill levels and XP information",
+  dynamic: true,
+  position: 4,
+
+  get: async (
+    runtime: IAgentRuntime,
+    _message: Memory,
+    _state: State,
+  ): Promise<ProviderResult> => {
+    const service = runtime.getService<HyperscapeService>("hyperscapeService");
+    const playerEntity = service?.getPlayerEntity();
+
+    if (!playerEntity) {
       return {
-        text: "# Skills Overview\nStatus: Not connected to world",
-        values: {
-          skills_available: false,
-        },
+        text: "Skills unavailable",
+        values: {},
         data: {},
       };
     }
 
-    const world = service.getWorld();
-    const player = world?.entities?.player;
-    const playerData = player?.data as
-      | {
-          skills?: Record<string, { level: number; experience: number }>;
-        }
-      | undefined;
+    const skills = playerEntity.skills as Record<
+      string,
+      { level: number; xp: number }
+    >;
 
-    const skills = playerData?.skills || {};
-
-    // Format skills list
-    const skillsList = Object.entries(skills)
-      .map(([skillName, skillData]) => {
-        const { level, experience } = skillData;
-        return `- ${skillName}: Level ${level} (${experience} XP)`;
-      })
-      .join("\n");
-
+    // Calculate total level
     const totalLevel = Object.values(skills).reduce(
-      (sum, skill) => sum + skill.level,
+      (sum, skill) => sum + (skill as { level: number }).level,
       0,
     );
-    const skillCount = Object.keys(skills).length;
 
-    const text = `# Skills Overview
+    // Calculate combat level (simplified formula)
+    const combatLevel = Math.floor(
+      (skills.attack.level +
+        skills.strength.level +
+        skills.defense.level +
+        skills.constitution.level +
+        skills.ranged.level) /
+        5,
+    );
 
-## Character Skills (${skillCount} total)
-${skillsList || "No skills data available"}
+    const skillsData: SkillsData = {
+      skills: playerEntity.skills,
+      totalLevel,
+      combatLevel,
+    };
 
-## Total Level: ${totalLevel}
+    const skillsList = Object.entries(skills)
+      .map(
+        ([name, data]) =>
+          `  - **${name.charAt(0).toUpperCase() + name.slice(1)}**: Level ${(data as { level: number; xp: number }).level} (${(data as { level: number; xp: number }).xp} XP)`,
+      )
+      .join("\n");
 
-## Skill Categories
-- **Gathering**: Woodcutting, Fishing
-- **Production**: Firemaking, Cooking
-- **Combat**: Attack, Strength, Defense (coming soon)
+    const text = `## Your Skills
+**Total Level**: ${totalLevel}
+**Combat Level**: ${combatLevel}
 
-Use specific skill actions to train and level up your skills!`;
+${skillsList}`;
 
     return {
       text,
       values: {
-        total_level: totalLevel,
-        skill_count: skillCount,
-        skills_available: skillCount > 0,
+        totalLevel,
+        combatLevel,
       },
-      data: {
-        skills,
-      },
+      data: skillsData,
     };
   },
 };

@@ -127,6 +127,20 @@ export interface GLTFResult {
   userData: Record<string, unknown>;
 }
 
+// DOM event types for GLTF loader
+interface ProgressEvent extends Event {
+  loaded: number;
+  total: number;
+}
+
+interface ErrorEvent extends Event {
+  message: string;
+  filename?: string;
+  lineno?: number;
+  colno?: number;
+  error?: Error;
+}
+
 export interface GLTFLoader {
   load(
     url: string,

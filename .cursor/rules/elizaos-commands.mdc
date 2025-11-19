@@ -1,0 +1,172 @@
+---
+description: Custom commands for ElizaOS research and validation using Deepwiki MCP
+alwaysApply: true
+---
+
+# ElizaOS Custom Commands
+
+When the user types `/elizaos-research` or `/elizaos-validate` commands, follow these instructions.
+
+## Command Recognition
+
+Recognize these command patterns:
+- `/elizaos-research <topic>` - Research ElizaOS documentation
+- `/elizaos-validate <file or component>` - Validate code against ElizaOS patterns
+
+## `/elizaos-research` Command
+
+When user types `/elizaos-research <topic>`, you MUST:
+
+1. **Use Deepwiki MCP** (`mcp_deepwiki_ask_question`) to query ElizaOS documentation
+   - Query: The topic provided by the user
+   - Focus: Current ElizaOS patterns, not training data
+
+2. **Search for** relevant patterns:
+   - Plugin architecture
+   - Action/Provider/Service interfaces
+   - Current best practices
+   - Breaking changes or updates
+
+3. **Compare** with existing code in `packages/plugin-eliza/src/`:
+   - Check if patterns match
+   - Identify any deviations
+   - Note outdated patterns
+
+4. **Provide**:
+   - Current ElizaOS pattern from documentation
+   - Documentation references (URLs)
+   - Comparison with existing code
+   - Recommendations for implementation
+
+**Example Usage:**
+```
+User: /elizaos-research How do I create a new action?
+
+You: [Use Deepwiki MCP to query] → [Provide current Action interface] → [Compare with existing actions] → [Recommend approach]
+```
+
+## `/elizaos-validate` Command
+
+When user types `/elizaos-validate <file or component>`, you MUST:
+
+1. **Read** the specified file(s) or search for the component:
+   - If file path provided: Read the file
+   - If component name: Search codebase for it
+
+2. **Use Deepwiki MCP** (`mcp_deepwiki_ask_question`) to get current ElizaOS patterns:
+   - Query: "ElizaOS [component type] interface current structure"
+   - Examples:
+     - "ElizaOS Action interface current structure"
+     - "ElizaOS Provider interface current structure"
+     - "ElizaOS Service lifecycle current patterns"
+
+3. **Compare** implementation with current patterns:
+   - Action interface: name, similes, description, validate, handler, examples
+   - Provider interface: name, description, dynamic, position, get method
+   - Service lifecycle: initialize, start, stop, cleanup methods
+   - Event handlers: registration patterns
+   - Configuration: Zod schema patterns
+
+4. **Identify** deviations or outdated patterns:
+   - Missing required fields
+   - Wrong interface structure
+   - Outdated patterns
+   - Missing examples or flags
+
+5. **Provide** validation report:
+   - **Status**: ✅ Compliant | ⚠️ Needs Updates | ❌ Non-Compliant
+   - **Issues Found**: List specific issues
+   - **Current Pattern**: What current ElizaOS pattern is
+   - **Recommendations**: How to fix issues
+   - **Documentation Reference**: Link to relevant docs
+
+**Example Usage:**
+```
+User: /elizaos-validate packages/plugin-eliza/src/actions/movement.ts
+
+You: [Read file] → [Query Deepwiki] → [Compare] → [Report issues] → [Provide fixes]
+```
+
+## Validation Checklist
+
+When validating, check:
+
+- ✅ Action follows current Action interface
+- ✅ Provider follows current Provider interface  
+- ✅ Service follows current Service lifecycle
+- ✅ Event handlers follow current patterns
+- ✅ Configuration uses current schema patterns
+- ✅ Types match current ElizaOS types
+- ✅ Examples array present in actions
+- ✅ Dynamic flag set in providers
+- ✅ Error handling follows current patterns
+- ✅ Imports use correct packages
+
+## Deepwiki MCP Usage
+
+**ALWAYS** use Deepwiki MCP for ElizaOS queries:
+- Tool: `mcp_deepwiki_ask_question`
+- Purpose: Get current documentation (not training data)
+- Query format: "ElizaOS [specific topic]"
+
+**Common Queries:**
+- "ElizaOS plugin architecture structure"
+- "ElizaOS Action interface structure"
+- "ElizaOS Provider interface structure"
+- "ElizaOS Service lifecycle patterns"
+- "ElizaOS event handling patterns"
+- "ElizaOS plugin configuration patterns"
+
+## Integration with Rules
+
+These commands complement:
+- `.cursor/rules/plugin-eliza-*.mdc` - Plugin development rules
+- `.cursor/rules/elizaos-documentation.mdc` - Documentation enforcement
+- `.cursor/hooks/` - Automatic validation hooks
+
+**Workflow:**
+1. Research → `/elizaos-research`
+2. Implement → Follow plugin rules
+3. Validate → `/elizaos-validate`
+4. Fix → Apply recommendations
+
+## Response Format
+
+### Research Response
+```
+## ElizaOS Research: [Topic]
+
+### Current Pattern
+[From Deepwiki MCP]
+
+### Documentation References
+- [URLs from documentation]
+
+### Comparison with Existing Code
+[How it compares to packages/plugin-eliza/src/]
+
+### Recommendations
+[Implementation approach]
+```
+
+### Validation Response
+```
+## ElizaOS Validation: [File/Component]
+
+### Status
+✅ Compliant | ⚠️ Needs Updates | ❌ Non-Compliant
+
+### Issues Found
+1. [Issue 1]
+2. [Issue 2]
+
+### Current Pattern
+[From Deepwiki MCP]
+
+### Recommendations
+1. [Fix 1]
+2. [Fix 2]
+
+### Documentation Reference
+[Link to relevant docs]
+```

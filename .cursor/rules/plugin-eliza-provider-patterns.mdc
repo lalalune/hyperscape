@@ -1,0 +1,279 @@
+---
+description: ElizaOS provider patterns - conditional, aggregating, and advanced provider patterns
+globs: packages/plugin-eliza/src/providers/**/*.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Provider Patterns
+
+> Advanced provider patterns: conditional providers, aggregating providers, and real-world implementations.
+
+## Reference Documentation
+
+- **Provider Patterns**: https://docs.elizaos.ai/plugins/patterns
+- **Provider Interface**: https://docs.elizaos.ai/plugins/reference#provider-interface
+- **Runtime Providers**: https://docs.elizaos.ai/runtime/providers
+- **Memory**: `.cursor/memory/elizaos-action-patterns.md`
+
+## Provider Interface
+
+**Structure:**
+```typescript
+interface Provider {
+  name: string;
+  description: string;
+  dynamic?: boolean;      // true for real-time data
+  position?: number;      // Order in provider chain
+  private?: boolean;      // Hide from LLM if true
+  get: (runtime, message, state?) => Promise<ProviderResult>;
+}
+
+interface ProviderResult {
+  text: string;           // Formatted for LLM context
+  values: Record<string, unknown>;  // Structured data for templates
+  data: Record<string, unknown>;    // Raw data for processing
+}
+```
+
+## Conditional Providers
+
+**Pattern:** Provide data only under certain conditions
+
+```typescript
+export const conditionalProvider: Provider = {
+  name: 'PREMIUM_DATA',
+  private: true,  // Hide if unavailable
+  
+  get: async (runtime, message, state) => {
+    // Check conditions
+    const user = await runtime.getUser(message.entityId);
+    
+    if (!user.isPremium) {
+      // Return empty gracefully
+      return {
+        text: '',
+        values: {},
+        data: { available: false }
+      };
+    }
+    
+    // Provide data if conditions met
+    const premiumData = await fetchPremiumData(user);
+    
+    return {
+      text: formatPremiumData(premiumData),
+      values: premiumData,
+      data: { available: true, ...premiumData }
+    };
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** return empty data gracefully if conditions not met
+- ✅ **ALWAYS** use `private: true` if provider should be hidden when unavailable
+- ✅ **ALWAYS** check conditions before fetching expensive data
+- ✅ **ALWAYS** handle unavailable data gracefully
+- ✅ **NEVER** throw errors - return empty data instead
+
+## Aggregating Providers
+
+**Pattern:** Combine data from multiple sources
+
+```typescript
+export const aggregateProvider: Provider = {
+  name: 'MARKET_OVERVIEW',
+  position: 50,  // Run after individual providers (lower numbers run first)
+  
+  get: async (runtime, message, state) => {
+    // Fetch from multiple sources in parallel
+    const [stocks, crypto, forex] = await Promise.all([
+      fetchStockData(),
+      fetchCryptoData(),
+      fetchForexData()
+    ]);
+    
+    // Aggregate data
+    const overview = {
+      stocksUp: stocks.filter(s => s.change > 0).length,
+      stocksDown: stocks.filter(s => s.change < 0).length,
+      cryptoMarketCap: crypto.reduce((sum, c) => sum + c.marketCap, 0),
+      forexVolatility: calculateVolatility(forex)
+    };
+    
+    return {
+      text: `Market Overview:
+- Stocks: ${overview.stocksUp} up, ${overview.stocksDown} down
+- Crypto Market Cap: $${overview.cryptoMarketCap.toLocaleString()}
+- Forex Volatility: ${overview.forexVolatility}`,
+      values: overview,
+      data: { stocks, crypto, forex }
+    };
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** use `position` to control provider ordering
+- ✅ **ALWAYS** use `Promise.all` for parallel fetching
+- ✅ **ALWAYS** aggregate and format data clearly
+- ✅ **ALWAYS** return comprehensive overview
+- ✅ **ALWAYS** set position higher than individual providers (run after them)
+
+## Provider Ordering
+
+**Position Numbers:**
+- Lower numbers run first (1, 2, 3...)
+- Higher numbers run later (50, 100...)
+- Aggregating providers should have higher position numbers
+
+**Example Order:**
+```typescript
+gameStateProvider: { position: 1 }      // Foundation state
+inventoryProvider: { position: 2 }      // Depends on gameState
+nearbyEntitiesProvider: { position: 3 } // Depends on position
+aggregateProvider: { position: 50 }     // Runs after all individual providers
+```
+
+**Rules:**
+- ✅ **ALWAYS** set `position` number for provider ordering
+- ✅ **ALWAYS** set aggregating providers with higher position
+- ✅ **ALWAYS** document provider dependencies in position numbers
+
+## Provider Result Formatting
+
+**Text Format:** Formatted for LLM consumption
+```typescript
+text: `## Current State
+- Health: ${health.current}/${health.max} HP
+- Position: [${pos.x}, ${pos.y}, ${pos.z}]
+- Status: ${alive ? 'Alive' : 'Dead'}`
+```
+
+**Values Format:** Structured data for templates
+```typescript
+values: {
+  health: health.current,
+  maxHealth: health.max,
+  healthPercent: Math.round((health.current / health.max) * 100),
+  position: { x: pos.x, y: pos.y, z: pos.z },
+  alive: alive
+}
+```
+
+**Data Format:** Raw data for processing
+```typescript
+data: {
+  health: { current: 100, max: 100 },
+  position: [10, 0, 20],
+  alive: true,
+  inCombat: false
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** format `text` clearly for LLM comprehension
+- ✅ **ALWAYS** provide structured `values` for templates
+- ✅ **ALWAYS** include raw `data` for programmatic access
+- ✅ **ALWAYS** use consistent formatting across providers
+
+## Dynamic Providers
+
+**Pattern:** Real-time data that changes frequently
+
+```typescript
+export const dynamicProvider: Provider = {
+  name: 'REAL_TIME_DATA',
+  dynamic: true,  // REQUIRED for real-time data
+  
+  get: async (runtime, message, state) => {
+    // Always fetch fresh data (don't cache)
+    const currentData = await fetchCurrentData();
+    
+    return {
+      text: formatCurrentData(currentData),
+      values: currentData,
+      data: currentData
+    };
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** set `dynamic: true` for real-time data
+- ✅ **ALWAYS** fetch fresh data (never cache)
+- ✅ **ALWAYS** update data on every call
+- ✅ **NEVER** cache dynamic provider results
+
+## Provider Best Practices
+
+### 1. Always Return ProviderResult
+```typescript
+return {
+  text: 'Formatted text for LLM',
+  values: { /* structured data */ },
+  data: { /* raw data */ }
+};
+```
+
+### 2. Handle Missing Data Gracefully
+```typescript
+if (!data) {
+  return {
+    text: 'Data unavailable',
+    values: {},
+    data: { available: false }
+  };
+}
+```
+
+### 3. Use Position for Ordering
+```typescript
+position: 1  // Foundation providers
+position: 50 // Aggregating providers
+```
+
+### 4. Format Text for LLM
+```typescript
+text: `## Section Title
+- Key: ${value}
+- Status: ${status}`
+```
+
+### 5. Provide Structured Values
+```typescript
+values: {
+  key: value,
+  status: status,
+  percent: Math.round(percent)
+}
+```
+
+## Forbidden Patterns
+
+❌ **NEVER**:
+- Throw errors (return empty data instead)
+- Cache dynamic provider results
+- Skip position numbers for ordering
+- Return incomplete ProviderResult
+- Format text poorly (unclear for LLM)
+- Skip error handling
+
+## Required Patterns
+
+✅ **ALWAYS**:
+- Return complete ProviderResult (text, values, data)
+- Set `dynamic: true` for real-time data
+- Set `position` number for ordering
+- Handle missing data gracefully
+- Format text clearly for LLM
+- Use Promise.all for parallel fetching
+- Check conditions before expensive operations
+
+## Examples
+
+See `.cursor/memory/elizaos-action-patterns.md` for complete examples of:
+- Conditional providers
+- Aggregating providers
+- Dynamic providers
+- Provider ordering patterns
