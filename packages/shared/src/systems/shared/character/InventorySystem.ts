@@ -536,7 +536,7 @@ export class InventorySystem extends SystemBase {
 
     // Clear the inventory (RuneScape-style: all items go to gravestone)
     inventory.items = [];
-    inventory.coins = 0; // Also lose coins on death (can modify if needed)
+    // NOTE: Coins are protected and remain in coin pouch (RuneScape-style)
 
     // CRITICAL: Update UI by emitting inventory update event
     this.emitInventoryUpdate(playerID);
@@ -1164,7 +1164,7 @@ export class InventorySystem extends SystemBase {
 
     // Clear the inventory (RuneScape-style: all items go to gravestone)
     inventory.items = [];
-    inventory.coins = 0; // Also lose coins on death
+    // NOTE: Coins are protected and remain in coin pouch (RuneScape-style)
 
     // CRITICAL: Update UI by emitting inventory update event
     this.emitInventoryUpdate(playerID);

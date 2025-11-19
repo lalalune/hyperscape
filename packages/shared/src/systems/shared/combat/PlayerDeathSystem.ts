@@ -54,6 +54,16 @@ export class PlayerDeathSystem extends SystemBase {
     string,
     { items: InventoryItem[]; coins: number }
   >();
+  // Store gravestone spawn data until after respawn (RuneScape-style delayed spawn)
+  private pendingGravestones = new Map<
+    string,
+    {
+      position: { x: number; y: number; z: number };
+      items: InventoryItem[];
+      killedBy: string;
+      zoneType: ZoneType;
+    }
+  >();
 
   // Rate limiter to prevent death spam exploits
   private lastDeathTime = new Map<string, number>();
@@ -357,19 +367,32 @@ export class PlayerDeathSystem extends SystemBase {
         const zoneType = this.zoneDetection.getZoneType(deathPosition);
         console.log(`[PlayerDeathSystem] Death in zone type: ${zoneType}`);
 
-        // Step 3: Delegate to appropriate handler (spawn gravestone/ground items + create death lock)
+        // Step 3: Handle death based on zone type
         if (zoneType === ZoneType.SAFE_AREA) {
+          // Safe area: Store gravestone data for AFTER respawn (RuneScape-style)
           console.log(
-            `[PlayerDeathSystem] Delegating to SafeAreaDeathHandler (with transaction)`,
+            `[PlayerDeathSystem] Safe area death - storing gravestone data for after respawn`,
           );
-          await this.safeAreaHandler.handleDeath(
-            playerId,
-            deathPosition,
-            itemsToDrop,
+          this.pendingGravestones.set(playerId, {
+            position: deathPosition,
+            items: itemsToDrop,
             killedBy,
-            tx, // Pass transaction context
+            zoneType,
+          });
+
+          // Create death lock without gravestone (will spawn after respawn)
+          await this.deathStateManager.createDeathLock(
+            playerId,
+            {
+              gravestoneId: "", // No gravestone yet
+              position: deathPosition,
+              zoneType: ZoneType.SAFE_AREA,
+              itemCount: itemsToDrop.length,
+            },
+            tx,
           );
         } else {
+          // Wilderness: Immediate ground item spawn (existing behavior)
           console.log(
             `[PlayerDeathSystem] Delegating to WildernessDeathHandler (with transaction)`,
           );
@@ -616,6 +639,21 @@ export class PlayerDeathSystem extends SystemBase {
 
     // Respawn player at death spawn location (handles terrain grounding internally)
     this.respawnPlayer(playerId, DEATH_RESPAWN_POSITION, DEATH_RESPAWN_TOWN);
+
+    // IMPORTANT: Spawn gravestone AFTER player respawns (RuneScape-style)
+    const gravestoneData = this.pendingGravestones.get(playerId);
+    if (gravestoneData && gravestoneData.items.length > 0) {
+      console.log(
+        `[PlayerDeathSystem] Player respawned - now spawning gravestone at death location with ${gravestoneData.items.length} items`,
+      );
+      this.spawnGravestoneAfterRespawn(
+        playerId,
+        gravestoneData.position,
+        gravestoneData.items,
+        gravestoneData.killedBy,
+      );
+      this.pendingGravestones.delete(playerId);
+    }
   }
 
   private respawnPlayer(
@@ -780,6 +818,133 @@ export class PlayerDeathSystem extends SystemBase {
     this.deathStateManager.clearDeathLock(playerId);
     console.log(
       `[PlayerDeathSystem] ✓ Cleared death lock for ${playerId} after respawn`,
+    );
+  }
+
+  /**
+   * Spawn gravestone after player respawns (RuneScape-style delayed spawn)
+   */
+  private async spawnGravestoneAfterRespawn(
+    playerId: string,
+    position: { x: number; y: number; z: number },
+    items: InventoryItem[],
+    killedBy: string,
+  ): Promise<void> {
+    const entityManager = this.world.getSystem(
+      "entity-manager",
+    ) as EntityManager | null;
+    if (!entityManager) {
+      console.error(
+        "[PlayerDeathSystem] EntityManager not available, cannot spawn gravestone",
+      );
+      return;
+    }
+
+    const gravestoneId = `gravestone_${playerId}_${Date.now()}`;
+    const GRAVESTONE_DURATION = 5 * 60 * 1000; // 5 minutes
+    const despawnTime = Date.now() + GRAVESTONE_DURATION;
+
+    // Ground to terrain
+    const groundedPosition = groundToTerrain(
+      this.world,
+      position,
+      0.2,
+      Infinity,
+    );
+
+    // Create gravestone entity config
+    const gravestoneConfig: HeadstoneEntityConfig = {
+      id: gravestoneId,
+      name: `${playerId}'s Gravestone`,
+      type: EntityType.HEADSTONE,
+      position: groundedPosition,
+      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      scale: { x: 1, y: 1, z: 1 },
+      visible: true,
+      interactable: true,
+      interactionType: InteractionType.LOOT,
+      interactionDistance: 2,
+      description: `Gravestone of ${playerId} (killed by ${killedBy})`,
+      model: "models/environment/gravestone.glb",
+      headstoneData: {
+        playerId: playerId,
+        playerName: playerId,
+        deathTime: Date.now(),
+        deathMessage: `Slain by ${killedBy}`,
+        position: groundedPosition,
+        items: items,
+        itemCount: items.length,
+        despawnTime: despawnTime,
+        lootProtectionUntil: 0, // No loot protection (anyone can loot)
+        protectedFor: undefined,
+      },
+      properties: {
+        movementComponent: null,
+        combatComponent: null,
+        healthComponent: null,
+        visualComponent: null,
+        health: { current: 1, max: 1 },
+        level: 1,
+      },
+    };
+
+    const gravestoneEntity = await entityManager.spawnEntity(gravestoneConfig);
+
+    if (!gravestoneEntity) {
+      console.error(
+        `[PlayerDeathSystem] Failed to spawn gravestone entity: ${gravestoneId}`,
+      );
+      return;
+    }
+
+    console.log(
+      `[PlayerDeathSystem] ✓ Spawned gravestone ${gravestoneId} at death location with ${items.length} items`,
+    );
+
+    // Schedule gravestone expiration (5 minutes → ground items)
+    setTimeout(() => {
+      this.handleGravestoneExpire(
+        playerId,
+        gravestoneId,
+        groundedPosition,
+        items,
+      );
+    }, GRAVESTONE_DURATION);
+  }
+
+  /**
+   * Handle gravestone expiration (transition to ground items)
+   */
+  private async handleGravestoneExpire(
+    playerId: string,
+    gravestoneId: string,
+    position: { x: number; y: number; z: number },
+    items: InventoryItem[],
+  ): Promise<void> {
+    console.log(
+      `[PlayerDeathSystem] Gravestone ${gravestoneId} expired, transitioning to ground items`,
+    );
+
+    // Destroy gravestone entity
+    const entityManager = this.world.getSystem(
+      "entity-manager",
+    ) as EntityManager | null;
+    if (entityManager) {
+      entityManager.destroyEntity(gravestoneId);
+    }
+
+    // Spawn ground items (2 minute despawn timer)
+    const GROUND_ITEM_DURATION = 2 * 60 * 1000;
+    await this.groundItemManager.spawnGroundItems(items, position, {
+      despawnTime: GROUND_ITEM_DURATION,
+      droppedBy: playerId,
+      lootProtection: 0,
+      scatter: true,
+      scatterRadius: 2.0,
+    });
+
+    console.log(
+      `[PlayerDeathSystem] Transitioned gravestone ${gravestoneId} to ground items`,
     );
   }
 
