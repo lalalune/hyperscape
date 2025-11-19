@@ -7,9 +7,7 @@ import { resolveUrl } from "../utils";
 import type { World } from "@hyperscape/shared";
 
 // Helper to check if renderer is WebGLRenderer
-function isWebGLRenderer(
-  renderer: THREE.Renderer | THREE.WebGLRenderer,
-): renderer is THREE.WebGLRenderer {
+function isWebGLRenderer(renderer: unknown): renderer is THREE.WebGLRenderer {
   return renderer instanceof THREE.WebGLRenderer;
 }
 
@@ -26,14 +24,9 @@ interface CSM {
 interface SkyNode extends THREE.Object3D {
   sky?: {
     texture?: THREE.Texture;
-    [key: string]: THREE.Texture | string | number | boolean | undefined;
+    [key: string]: unknown;
   };
-  [key: string]:
-    | Record<string, unknown>
-    | string
-    | number
-    | boolean
-    | undefined;
+  [key: string]: unknown;
 }
 
 interface SkyHandle {
@@ -82,9 +75,9 @@ export class EnvironmentSystem extends System {
   start() {
     this.setSkyboxToBlack();
     this.base = {
-      model: "asset://base-environment.glb",
-      bg: "asset://day2-2k.jpg",
-      hdr: "asset://day2.hdr",
+      model: "asset://world/base-environment.glb",
+      bg: "asset://world/day2-2k.jpg",
+      hdr: "asset://world/day2.hdr",
       sunDirection: new THREE.Vector3(-1, -2, -2).normalize(),
       sunIntensity: 1,
       sunColor: 0xffffff,
@@ -196,7 +189,7 @@ export class EnvironmentSystem extends System {
       url = (model as { url: string }).url;
     } else {
       // If model has charAt property, it's a string, otherwise use base
-      url = (model as string).charAt ? (model as string) : this.base.model;
+      url = typeof model === "string" ? model : this.base.model || "";
     }
     let glb = this.world.loader?.get("model", url);
     if (!glb) {
@@ -205,11 +198,12 @@ export class EnvironmentSystem extends System {
     if (this.model) {
       (this.model as THREE.Object3D & { deactivate?: () => void }).deactivate();
     }
-    this.model = (glb as { toNodes?: () => THREE.Object3D })?.toNodes() || null;
+    const toNodes = (glb as { toNodes?: () => THREE.Object3D })?.toNodes;
+    this.model = toNodes ? toNodes() : null;
     if (this.model) {
       (
         this.model as THREE.Object3D & {
-          activate?: (params: { world: World; label: string }) => void;
+          activate?: (params: { world: any; label: string }) => void;
         }
       ).activate({ world: this.world, label: "base" });
     }
@@ -310,11 +304,14 @@ export class EnvironmentSystem extends System {
       bgUrl: bgUrl as string,
       hdrUrl: hdrUrl as string,
       sunDirection,
-      sunIntensity,
-      sunColor,
-      fogNear,
-      fogFar,
-      fogColor,
+      sunIntensity: typeof sunIntensity === "number" ? sunIntensity : undefined,
+      sunColor:
+        typeof sunColor === "string" || typeof sunColor === "number"
+          ? sunColor
+          : undefined,
+      fogNear: typeof fogNear === "number" ? fogNear : undefined,
+      fogFar: typeof fogFar === "number" ? fogFar : undefined,
+      fogColor: typeof fogColor === "string" ? fogColor : undefined,
     };
   }
 
