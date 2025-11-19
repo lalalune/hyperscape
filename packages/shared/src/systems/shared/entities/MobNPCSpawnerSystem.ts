@@ -119,9 +119,9 @@ export class MobNPCSpawnerSystem extends SystemBase {
       level: 2,
       currentHealth: 10,
       maxHealth: 10,
-      attackPower: 25, // TEMPORARY: Increased for quick death testing
+      attackPower: 3, // Low-level goblin damage
       defense: 1,
-      attackSpeed: 1500, // TEMPORARY: Faster attacks for death testing
+      attackSpeed: 2400, // RuneScape-style 2.4 second attack speed
       moveSpeed: 2,
       xpReward: 15,
       lootTable: [
