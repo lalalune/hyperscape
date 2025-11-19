@@ -1,0 +1,77 @@
+---
+description: Hyperscape Plugin for ElizaOS - Overview and Quick Reference
+globs: packages/plugin-eliza/**/*.ts
+alwaysApply: true
+---
+
+# Hyperscape Plugin for ElizaOS - Overview
+
+> Quick reference guide for the `@hyperscape/plugin-eliza` package. See specific rule files for detailed patterns.
+
+## Related Rules
+
+This rule provides an overview. For detailed patterns, see:
+
+- **Core Principles**: @.cursor/rules/plugin-eliza-core-principles.mdc
+- **Actions**: @.cursor/rules/plugin-eliza-actions.mdc
+- **Providers**: @.cursor/rules/plugin-eliza-providers.mdc
+- **Services & Managers**: @.cursor/rules/plugin-eliza-service-managers.mdc
+- **Systems & Testing**: @.cursor/rules/plugin-eliza-systems-testing.mdc
+- **Directory Structure**: @.cursor/rules/plugin-eliza-directory-structure.mdc
+- **Config & Templates**: @.cursor/rules/plugin-eliza-config-templates.mdc
+
+## Quick Reference
+
+### Core Principles
+
+1. **Follow ElizaOS Plugin Architecture** - Reference [ElizaOS docs](https://docs.elizaos.ai/plugins/architecture)
+2. **Use Hyperscape Types** - Import from `@hyperscape/shared`, never duplicate
+3. **Service-First Architecture** - Always access world through `HyperscapeService`
+
+### Key Patterns
+
+**Service Access**:
+```typescript
+const service = runtime.getService<HyperscapeService>('hyperscapeService');
+if (!service || !service.isConnected()) {
+  return { success: false, error: new Error('Service not available') };
+}
+```
+
+**Action Structure**: See @packages/plugin-eliza/src/actions/movement.ts
+**Provider Structure**: See @packages/plugin-eliza/src/providers/gameState.ts
+**Plugin Entry**: See @packages/plugin-eliza/src/index.ts
+
+### Forbidden Patterns
+
+❌ Direct world access (use service)
+❌ `any` types (use proper types)
+❌ Missing error handling
+❌ Actions without examples
+❌ Providers without `dynamic: true`
+❌ Hardcoded values (use config)
+
+### Required Patterns
+
+✅ Check service availability
+✅ Validate inputs with Zod
+✅ Handle errors gracefully
+✅ Document exported functions
+✅ Write tests for new features
+✅ Use proper TypeScript types
+
+## Research Before Implementation
+
+Before implementing features:
+1. Check [ElizaOS Plugin Architecture](https://docs.elizaos.ai/plugins/architecture)
+2. Review existing patterns in `packages/plugin-eliza/src/`
+3. Use Context7 MCP or web search for current best practices
+4. Review specific rule files listed above
+
+## Code Reuse & KISS
+
+- Check for existing code before creating new files
+- Reuse existing components/utilities
+- Edit existing files instead of creating new ones
+- Start with simplest solution that works
+- Avoid premature optimization
