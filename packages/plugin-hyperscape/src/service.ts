@@ -67,19 +67,6 @@ import {
   type Component as ElizaComponent,
   type UUID,
 } from "@elizaos/core";
-import {
-  EventDataSchema,
-  EntityDataSchema,
-  EntityUpdateSchema,
-  PlayerDataExtendedSchema,
-  ControllerInterfaceSchema,
-  ChatMessageDataSchema,
-  type EventData,
-  type EntityData as ValidatedEntityData,
-  type EntityUpdate,
-  type PlayerAppearance,
-  type ControllerInterface,
-} from "./types/validation-schemas";
 // Minimal implementation for now - we'll improve this once we have proper imports working
 import type { Quaternion } from "@hyperscape/shared";
 import {
@@ -90,10 +77,14 @@ import {
   type NetworkSystem,
   type World,
   type Player,
+  THREE,
+  type Position3D,
 } from "@hyperscape/shared";
 import { promises as fsPromises } from "fs";
 import path from "path";
-import { Vector3 } from "three";
+
+// Type alias for Vector3 - can be THREE.Vector3 or plain object
+type Vector3 = THREE.Vector3 | { x: number; y: number; z: number };
 import { BehaviorManager } from "./managers/behavior-manager";
 import { BuildManager } from "./managers/build-manager";
 import { DynamicActionLoader } from "./managers/dynamic-action-loader";
@@ -107,13 +98,13 @@ import { EnvironmentSystem } from "./systems/environment";
 import { AgentLiveKit } from "./systems/liveKit";
 import { AgentLoader } from "./systems/loader";
 import type {
+  CharacterControllerOptions,
   EntityModificationData,
   RPGStateManager,
   TeleportOptions,
 } from "./types/content-types";
-import { CharacterController } from "./types/core-types";
 import type {
-  CharacterControllerOptions,
+  CharacterController,
   ChatMessage,
   ContentBundle,
   ContentInstance,
@@ -133,14 +124,7 @@ interface EntityData {
   quaternion?:
     | [number, number, number, number]
     | { x: number; y: number; z: number; w: number };
-  [key: string]:
-    | string
-    | number
-    | boolean
-    | number[]
-    | { x: number; y: number; z: number }
-    | { x: number; y: number; z: number; w: number }
-    | undefined;
+  [key: string]: unknown;
 }
 
 import type { NetworkEventData } from "./types/event-types";
@@ -393,88 +377,30 @@ Hyperscape world integration service that enables agents to:
         this.runtime,
       );
     }
-
-    // Check for RPG systems and load RPG actions/providers dynamically
-    await this.loadRPGExtensions();
+    // Don't auto-load any content - it will be loaded on demand
 
     // Access appearance data for validation
-    const appearance = this.world.entities.player.data.appearance;
-    console.debug("[Appearance] Current appearance data available");
-  }
-
-  /**
-   * Detects RPG systems and dynamically loads corresponding actions and providers
-   */
-  private async loadRPGExtensions(): Promise<void> {
-    const rpgSystems = this.world.rpgSystems || {};
-    console.info(
-      `[HyperscapeService] Checking for RPG systems...`,
-      Object.keys(rpgSystems),
-    );
-
-    // Check for skills system - load skill-based actions
-    if (this.world.getSystem?.("skills")) {
-      console.info(
-        "[HyperscapeService] Skills system detected - loading skill actions",
-      );
-
-      // Dynamically import and register skill actions
-      const { chopTreeAction } = await import("./actions/chopTree");
-      const { catchFishAction } = await import("./actions/catchFish");
-      const { lightFireAction } = await import("./actions/lightFire");
-      const { cookFoodAction } = await import("./actions/cookFood");
-
-      await this.runtime.registerAction(chopTreeAction);
-      await this.runtime.registerAction(catchFishAction);
-      await this.runtime.registerAction(lightFireAction);
-      await this.runtime.registerAction(cookFoodAction);
-
-      // Load skill-specific providers
-      const { woodcuttingSkillProvider } = await import(
-        "./providers/skills/woodcutting"
-      );
-      const { fishingSkillProvider } = await import(
-        "./providers/skills/fishing"
-      );
-      const { firemakingSkillProvider } = await import(
-        "./providers/skills/firemaking"
-      );
-      const { cookingSkillProvider } = await import(
-        "./providers/skills/cooking"
-      );
-
-      await this.runtime.registerProvider(woodcuttingSkillProvider);
-      await this.runtime.registerProvider(fishingSkillProvider);
-      await this.runtime.registerProvider(firemakingSkillProvider);
-      await this.runtime.registerProvider(cookingSkillProvider);
-
-      console.info(
-        "[HyperscapeService] Loaded 4 skill actions and 4 skill providers",
-      );
-    }
-
-    // Check for inventory/banking system - load inventory actions
-    if (this.world.getSystem?.("banking")) {
-      console.info(
-        "[HyperscapeService] Banking system detected - loading inventory actions",
-      );
-
-      const { bankItemsAction } = await import("./actions/bankItems");
-      const { checkInventoryAction } = await import("./actions/checkInventory");
-
-      await this.runtime.registerAction(bankItemsAction);
-      await this.runtime.registerAction(checkInventoryAction);
-
-      console.info("[HyperscapeService] Loaded 2 inventory actions");
+    if (this.world?.entities.player?.data.appearance) {
+      const appearance = this.world.entities.player.data.appearance;
+      console.debug("[Appearance] Current appearance data available");
     }
   }
 
   private subscribeToHyperscapeEvents(): void {
+    if (!this.world) return;
     this.world.off("disconnect");
 
-    this.world.on("disconnect", (data: Record<string, unknown> | string) => {
+    this.world.on("disconnect", (data: unknown) => {
+      const disconnectData = data as Record<string, unknown> | string;
       // Data is either a string reason or an object with reason property
-      const reason = (data as { reason?: string }).reason || "Unknown reason";
+      const reason =
+        (typeof disconnectData === "object" &&
+        disconnectData !== null &&
+        "reason" in disconnectData
+          ? (disconnectData as { reason?: string }).reason
+          : typeof disconnectData === "string"
+            ? disconnectData
+            : undefined) || "Unknown reason";
       console.warn(`Hyperscape world disconnected: ${reason}`);
       this.runtime.emitEvent(EventType.WORLD_LEFT, {
         runtime: this.runtime,
@@ -491,6 +417,9 @@ Hyperscape world integration service that enables agents to:
     success: boolean;
     error?: string;
   }> {
+    if (!this.world?.entities.player) {
+      return { success: false, error: "Player entity not available" };
+    }
     const agentPlayer = this.world.entities.player;
     const localAvatarPath = path.resolve(LOCAL_AVATAR_PATH);
 
@@ -508,6 +437,9 @@ Hyperscape world integration service that enables agents to:
     const hash = await hashFileBuffer(fileBuffer);
     const ext = fileName.split(".").pop()!.toLowerCase();
     const fullFileNameWithHash = `${hash}.${ext}`;
+    if (!this.world) {
+      return { success: false, error: "World not available" };
+    }
     const baseUrl = this.world.assetsUrl.replace(/\/$/, "");
     const constructedHttpUrl = `${baseUrl}/${fullFileNameWithHash}`;
 
@@ -519,9 +451,13 @@ Hyperscape world integration service that enables agents to:
       fileBuffer.byteOffset,
       fileBuffer.byteOffset + fileBuffer.byteLength,
     ) as ArrayBuffer;
-    const fileForUpload = new File([fileArrayBuffer], fileName, {
-      type: mimeType,
-    });
+    const fileForUpload = new File(
+      [new Uint8Array(fileArrayBuffer)],
+      fileName,
+      {
+        type: mimeType,
+      },
+    );
 
     // Strong type assumption - network has upload method
     const uploadPromise = network.upload(fileForUpload);
@@ -536,15 +472,19 @@ Hyperscape world integration service that enables agents to:
     console.info("[Appearance] Avatar uploaded successfully.");
     (agentPlayer as ModifiablePlayer).setSessionAvatar(constructedHttpUrl);
 
-    await this.emoteManager.uploadEmotes();
+    if (this.emoteManager) {
+      await this.emoteManager.uploadEmotes();
+    }
 
     // Assume send method exists on network
-    this.world.network.send("playerSessionAvatar", {
-      avatar: constructedHttpUrl,
-    });
-    console.info(
-      `[Appearance] Sent playerSessionAvatar with: ${constructedHttpUrl}`,
-    );
+    if (this.world?.network) {
+      this.world.network.send("playerSessionAvatar", {
+        avatar: constructedHttpUrl,
+      });
+      console.info(
+        `[Appearance] Sent playerSessionAvatar with: ${constructedHttpUrl}`,
+      );
+    }
 
     return { success: true };
   }
@@ -585,6 +525,9 @@ Hyperscape world integration service that enables agents to:
       const networkReady = this.world?.network.id !== null;
       const assetsUrlReady = !!this.world?.assetsUrl;
 
+      console.log("agentPlayerReady", agentPlayerReady);
+      console.log("agentPlayerIdReady", agentPlayerIdReady);
+      console.log("networkReady", networkReady);
       if (agentPlayerReady && agentPlayerIdReady && networkReady) {
         const entityId = createUniqueUuid(this.runtime, this.runtime.agentId);
         const entity = await this.runtime.getEntityById(entityId);
@@ -596,19 +539,25 @@ Hyperscape world integration service that enables agents to:
             (c) => c.type === "appearance",
           );
           if (appearanceComponent) {
-            appearanceComponent.data = {
-              appearance: this.world.entities.player.data.appearance,
-            };
+            const appearance = this.world?.entities.player?.data.appearance;
+            if (appearance) {
+              appearanceComponent.data = {
+                appearance,
+              };
+            }
           } else {
-            const newComponent: Partial<ElizaComponent> = {
-              type: "appearance",
-              data: { appearance: this.world.entities.player.data.appearance },
-            };
-            entity.components.push(newComponent as ElizaComponent);
+            const appearance = this.world?.entities.player?.data.appearance;
+            if (appearance) {
+              const newComponent: Partial<ElizaComponent> = {
+                type: "appearance",
+                data: { appearance },
+              };
+              entity.components.push(newComponent as ElizaComponent);
+            }
           }
           // Cast runtime to include updateEntity and call it directly
           const runtimeWithUpdate = this.runtime as IAgentRuntime & {
-            updateEntity: (entity: Record<string, unknown>) => Promise<void>;
+            updateEntity: (entity: unknown) => Promise<void>;
           };
           await runtimeWithUpdate.updateEntity(entity);
         }
@@ -742,13 +691,13 @@ Hyperscape world integration service that enables agents to:
     );
     await this.handleDisconnect();
 
-    // Assume emitEvent is a function - use Zod validated EventData
+    // Assume emitEvent is a function
     (
       this.runtime as {
-        emitEvent: (type: EventType, data: EventData) => void;
+        emitEvent: (type: EventType, data: unknown) => void;
       }
     ).emitEvent(EventType.WORLD_LEFT, {
-      runtime: this.runtime.agentId,
+      runtime: this.runtime,
       worldId: this._currentWorldId,
     });
 
@@ -761,6 +710,9 @@ Hyperscape world integration service that enables agents to:
   // Removed type guard - assume disconnect exists when needed
 
   async changeName(newName: string): Promise<void> {
+    if (!this.world?.entities.player?.data.id) {
+      throw new Error("Player entity not available");
+    }
     const agentPlayerId = this.world.entities.player.data.id;
 
     console.info(
@@ -781,14 +733,19 @@ Hyperscape world integration service that enables agents to:
     }
 
     // --- Use agentPlayer.modify for local update --- >
-    const agentPlayer = this.world.entities.player;
+    const agentPlayer = this.world?.entities.player;
+    if (!agentPlayer) {
+      throw new Error("Player entity not available");
+    }
     (agentPlayer as ModifiablePlayer).modify({ name: newName });
     agentPlayer.data.name = newName;
 
-    this.world.network.send("entityModified", {
-      id: agentPlayer.data.id,
-      name: newName,
-    });
+    if (this.world?.network) {
+      this.world.network.send("entityModified", {
+        id: agentPlayer.data.id,
+        name: newName,
+      });
+    }
     console.debug(`[Action] Called agentPlayer.modify({ name: "${newName}" })`);
   }
 
@@ -799,6 +756,7 @@ Hyperscape world integration service that enables agents to:
 
   private startChatSubscription(): void {
     console.info("[HyperscapeService] Initializing chat subscription...");
+    if (!this.world?.chat) return;
 
     // Pre-populate processed IDs with existing messages
     (this.world.chat as ChatSystem).msgs.forEach((msg: ChatMessage) => {
@@ -837,7 +795,9 @@ Hyperscape world integration service that enables agents to:
         );
 
         newMessagesFound.forEach(async (msg: ChatMessage) => {
-          await this.messageManager.handleMessage(msg);
+          if (this.messageManager) {
+            await this.messageManager.handleMessage(msg);
+          }
         });
       }
     });
@@ -896,6 +856,12 @@ Hyperscape world integration service that enables agents to:
     console.info(`[HyperscapeService] Loading UGC content: ${contentId}`);
 
     // Install the content bundle
+    if (!this.world) {
+      throw new Error("World not available");
+    }
+    if (!contentBundle.install) {
+      throw new Error("Content bundle does not have install method");
+    }
     const instance = await contentBundle.install(this.world, this.runtime);
     this.loadedContent.set(contentId, instance);
 
@@ -928,10 +894,12 @@ Hyperscape world integration service that enables agents to:
       );
       const discoveredActions = contentBundle.dynamicActions;
       for (const actionDescriptor of discoveredActions) {
-        await this.dynamicActionLoader.registerAction(
-          actionDescriptor,
-          this.runtime,
-        );
+        if (this.dynamicActionLoader) {
+          await this.dynamicActionLoader.registerAction(
+            actionDescriptor,
+            this.runtime,
+          );
+        }
       }
     }
 
@@ -996,10 +964,12 @@ Hyperscape world integration service that enables agents to:
         `[HyperscapeService] Unregistering ${content.dynamicActions.length} dynamic actions from ${contentId}`,
       );
       for (const actionName of content.dynamicActions) {
-        await this.dynamicActionLoader.unregisterAction(
-          actionName,
-          this.runtime,
-        );
+        if (this.dynamicActionLoader) {
+          await this.dynamicActionLoader.unregisterAction(
+            actionName,
+            this.runtime,
+          );
+        }
       }
     }
 
@@ -1072,8 +1042,7 @@ Hyperscape world integration service that enables agents to:
       // Configuration
       assetsUrl: config.assets?.[0] || "https://assets.hyperscape.io",
 
-      // Physics system - 'as any' cast acceptable here (test mock context)
-      // Note: This is a minimal mock world for testing only, not production code
+      // Physics system - cast as any to avoid type issues with mock
       physics: {
         enabled: true,
         gravity: { x: 0, y: -9.81, z: 0 },
@@ -1088,8 +1057,13 @@ Hyperscape world integration service that enables agents to:
           _position?: Vector3,
           _rotation?: Quaternion,
         ): RigidBody => {
-          const _velocity = new Vector3();
-          const _angularVelocity = new Vector3();
+          console.log(
+            "[MinimalWorld Physics] Creating rigid body:",
+            _type,
+            _position,
+          );
+          const _velocity = new THREE.Vector3();
+          const _angularVelocity = new THREE.Vector3();
           return {
             type: _type,
             position: _position,
@@ -1097,10 +1071,24 @@ Hyperscape world integration service that enables agents to:
             velocity: _velocity,
             angularVelocity: _angularVelocity,
             mass: 1,
-            applyForce: (force: Vector3) => {},
-            applyImpulse: (impulse: Vector3) => {},
-            setLinearVelocity: (velocity: Vector3) => {},
-            setAngularVelocity: (velocity: Vector3) => {},
+            applyForce: (force: Vector3) => {
+              console.log("[MinimalWorld Physics] Applying force:", force);
+            },
+            applyImpulse: (impulse: Vector3) => {
+              console.log("[MinimalWorld Physics] Applying impulse:", impulse);
+            },
+            setLinearVelocity: (velocity: Vector3) => {
+              console.log(
+                "[MinimalWorld Physics] Setting linear velocity:",
+                velocity,
+              );
+            },
+            setAngularVelocity: (velocity: Vector3) => {
+              console.log(
+                "[MinimalWorld Physics] Setting angular velocity:",
+                velocity,
+              );
+            },
           };
         },
 
@@ -1112,6 +1100,10 @@ Hyperscape world integration service that enables agents to:
           },
         ) => {
           const controllerId = options.id || `controller-${Date.now()}`;
+          console.log(
+            "[MinimalWorld Physics] Creating character controller:",
+            controllerId,
+          );
 
           // Create simple position objects that satisfy the Vector3 interface
           const createVector3 = (
@@ -1122,50 +1114,82 @@ Hyperscape world integration service that enables agents to:
             return { x, y, z } as Vector3;
           };
 
-          // Create controller instance with options
-          const controller = new CharacterController(controllerId, options);
+          const controller: CharacterController = {
+            id: controllerId,
+            position: options.position || createVector3(),
+            velocity: createVector3(),
+            isGrounded: true,
+            radius: options.radius || 0.5,
+            height: options.height || 1.8,
+            maxSpeed: options.maxSpeed || 5.0,
 
-          // Override position if provided
-          if (options.position) {
-            controller.setPosition(options.position);
-          }
-          controller.isGrounded = true;
+            move: (displacement: Position) => {
+              const dt = minimalWorld.physics!.timeStep;
 
-          // Override move method with custom physics logic
-          const originalMove = controller.move.bind(controller);
-          controller.move = (displacement: Position) => {
-            const dt = minimalWorld.physics!.timeStep;
+              // Apply horizontal movement (velocity-based)
+              controller.velocity.x = displacement.x;
+              controller.velocity.z = displacement.z;
 
-            // Apply horizontal movement (velocity-based)
-            controller.velocity.x = displacement.x;
-            controller.velocity.z = displacement.z;
+              // Apply gravity if not grounded
+              if (!controller.isGrounded) {
+                controller.velocity.y += minimalWorld.physics!.gravity.y * dt;
+              }
 
-            // Apply gravity if not grounded
-            if (!controller.isGrounded) {
-              controller.velocity.y += minimalWorld.physics!.gravity.y * dt;
-            }
+              // Update position based on velocity
+              controller.position.x += controller.velocity.x * dt;
+              controller.position.y += controller.velocity.y * dt;
+              controller.position.z += controller.velocity.z * dt;
 
-            // Update position based on velocity
-            controller.position.x += controller.velocity.x * dt;
-            controller.position.y += controller.velocity.y * dt;
-            controller.position.z += controller.velocity.z * dt;
+              // Ground check (simple)
+              if (controller.position.y <= 0) {
+                controller.position.y = 0;
+                controller.velocity.y = 0;
+                controller.isGrounded = true;
+              } else {
+                controller.isGrounded = false;
+              }
 
-            // Ground check (simple)
-            if (controller.position.y <= 0) {
-              controller.position.y = 0;
-              controller.velocity.y = 0;
-              controller.isGrounded = true;
-            } else {
-              controller.isGrounded = false;
-            }
-          };
+              console.log(
+                `[Physics] Controller ${controllerId} moved to (${controller.position.x.toFixed(2)}, ${controller.position.y.toFixed(2)}, ${controller.position.z.toFixed(2)})`,
+              );
+            },
 
-          // Override jump method with custom logic
-          controller.jump = () => {
-            if (controller.isGrounded) {
-              controller.velocity.y = 10.0; // Jump velocity
-              controller.isGrounded = false;
-            }
+            jump: () => {
+              if (controller.isGrounded) {
+                controller.velocity.y = 10.0; // Jump velocity
+                controller.isGrounded = false;
+                console.log(`[Physics] Controller ${controllerId} jumped`);
+              }
+            },
+
+            walkToward: (
+              direction: { x: number; z: number },
+              speed: number = 5.0,
+            ) => {
+              // Normalize direction vector
+              const length = Math.sqrt(
+                direction.x * direction.x + direction.z * direction.z,
+              );
+              if (length > 0) {
+                const normalizedDir = {
+                  x: (direction.x / length) * speed,
+                  y: 0, // Don't move vertically when walking
+                  z: (direction.z / length) * speed,
+                };
+                controller.move(normalizedDir as Position);
+                return controller.position;
+              }
+              return controller.position;
+            },
+
+            setPosition: (position: Position) => {
+              Object.assign(controller.position, position);
+              controller.velocity = createVector3();
+              controller.isGrounded = position.y <= 0.1;
+            },
+
+            getPosition: () => controller.position,
+            getVelocity: () => controller.velocity,
           };
 
           // Store controller for physics updates
@@ -1202,30 +1226,40 @@ Hyperscape world integration service that enables agents to:
         id: `network-${Date.now()}`,
         isClient: true,
         isServer: false,
-        send: (type: string, data?: NetworkEventData) => {},
+        send: (type: string, data?: NetworkEventData) => {
+          console.log(`[MinimalWorld] Network send: ${type}`, data);
+        },
         upload: async (file: File) => {
+          console.log("[MinimalWorld] File upload requested");
           return Promise.resolve(`uploaded-${Date.now()}`);
         },
         disconnect: async () => {
+          console.log("[MinimalWorld] Network disconnect");
           return Promise.resolve();
         },
         maxUploadSize: 10 * 1024 * 1024,
       } as any,
 
-      // Chat system with proper typing
+      // Chat system - cast as any to avoid complex type issues
       chat: {
-        msgs: [] as ChatMessage[],
+        msgs: [],
         listeners: [] as Array<(msgs: ChatMessage[]) => void>,
         add: (msg: ChatMessage, broadcast?: boolean) => {
+          console.log("[MinimalWorld] Chat message added:", msg);
           minimalWorld.chat!.msgs.push(msg);
           // Notify listeners
-          const chatListeners = minimalWorld.chat!.listeners;
+          const chatListeners = (minimalWorld.chat as any).listeners as Array<
+            (msgs: ChatMessage[]) => void
+          >;
           for (const listener of chatListeners) {
             listener(minimalWorld.chat!.msgs);
           }
         },
         subscribe: ((callback: (msgs: ChatMessage[]) => void) => {
-          const chatListeners = minimalWorld.chat!.listeners;
+          console.log("[MinimalWorld] Chat subscription added");
+          const chatListeners = (minimalWorld.chat as any).listeners as Array<
+            (msgs: ChatMessage[]) => void
+          >;
           chatListeners.push(callback);
           const subscription = {
             unsubscribe: () => {
@@ -1242,8 +1276,7 @@ Hyperscape world integration service that enables agents to:
         }) as any,
       } as any,
 
-      // Events system - 'as any' cast acceptable here (test mock context)
-      // Note: Real world has properly typed event system, this is minimal mock only
+      // Events system - cast as any to avoid complex type issues
       events: Object.assign(
         function <T extends string | symbol>(event: T) {
           // Default listener getter for compatibility
@@ -1259,6 +1292,7 @@ Hyperscape world integration service that enables agents to:
             event: T,
             ...args: unknown[]
           ): boolean {
+            console.log(`[MinimalWorld] Event emitted: ${String(event)}`, args);
             const listeners = this.__listeners.get(event);
             if (listeners) {
               for (const listener of listeners) {
@@ -1272,6 +1306,9 @@ Hyperscape world integration service that enables agents to:
             fn: (...args: unknown[]) => void,
             _context?: unknown,
           ) {
+            console.log(
+              `[MinimalWorld] Event listener added: ${String(event)}`,
+            );
             if (!this.__listeners.has(event)) {
               this.__listeners.set(event, new Set());
             }
@@ -1284,6 +1321,9 @@ Hyperscape world integration service that enables agents to:
             _context?: unknown,
             _once?: boolean,
           ) {
+            console.log(
+              `[MinimalWorld] Event listener removed: ${String(event)}`,
+            );
             if (fn) {
               const listeners = this.__listeners.get(event);
               if (listeners) {
@@ -1297,15 +1337,15 @@ Hyperscape world integration service that enables agents to:
         },
       ) as any,
 
-      // Entities system - minimal mock for testing
-      // Note: Real world has full entity system with proper types, this is minimal mock
+      // Entities system - cast as any to avoid complex type issues
       entities: {
         player: null,
         players: new Map(),
         items: new Map(),
-        add: ((data: EntityData | Entity, local?: boolean) => {
+        add: ((data: any, local?: boolean) => {
+          console.log("[MinimalWorld] Entity added:", data.id || "unknown");
           // Handle both Entity objects and EntityData
-          let entity: Entity;
+          let entity = data;
           if (!(data instanceof Entity)) {
             // Create a mock entity if data is EntityData
             entity = {
@@ -1313,14 +1353,14 @@ Hyperscape world integration service that enables agents to:
               type: data.type || "generic",
               position: data.position || { x: 0, y: 0, z: 0 },
               data: data,
-            } as Entity;
-          } else {
-            entity = data;
+            };
           }
           minimalWorld.entities!.items.set(entity.id, entity);
           return entity;
-        }) as (data: EntityData | Entity, local?: boolean) => Entity,
+        }) as ((data: EntityData, local?: boolean) => Entity) &
+          ((data: unknown, local?: boolean) => unknown),
         remove: (entityId: string) => {
+          console.log("[MinimalWorld] Entity removed:", entityId);
           minimalWorld.entities!.items.delete(entityId);
           minimalWorld.entities!.players.delete(entityId);
           return true;
@@ -1334,11 +1374,16 @@ Hyperscape world integration service that enables agents to:
 
       // Initialize method
       init: async (initConfig?: Partial<MockWorldConfig>) => {
+        console.log("[MinimalWorld] Initializing with physics...");
+
         const playerId = `player-${Date.now()}`;
 
         // Create physics character controller for player
+        if (!minimalWorld.physics?.createCharacterController) {
+          throw new Error("Physics system not available");
+        }
         const characterController =
-          minimalWorld.physics!.createCharacterController({
+          minimalWorld.physics.createCharacterController({
             id: playerId,
             position: { x: 0, y: 0, z: 0 } as Vector3,
             radius: 0.5,
@@ -1346,9 +1391,11 @@ Hyperscape world integration service that enables agents to:
             maxSpeed: 5.0,
           });
 
-        minimalWorld.physics!.controllers.set(playerId, characterController);
+        if (minimalWorld.physics?.controllers) {
+          minimalWorld.physics.controllers.set(playerId, characterController);
+        }
 
-        // Create basic player entity - 'as any' cast acceptable (test mock context)
+        // Create basic player entity - cast as any to avoid type issues
         minimalWorld.entities!.player = {
           id: playerId,
           type: "player",
@@ -1367,6 +1414,7 @@ Hyperscape world integration service that enables agents to:
 
           // Physics-based movement methods
           move: (displacement: Position) => {
+            console.log("[MinimalWorld] Player physics move:", displacement);
             const controller = minimalWorld.physics!.controllers.get(playerId);
             if (controller && controller.move) {
               controller.move(displacement);
@@ -1375,23 +1423,25 @@ Hyperscape world integration service that enables agents to:
 
           // Walk toward a specific position
           walkToward: (targetPosition: Position, speed: number = 5) => {
+            console.log(
+              "[MinimalWorld] Player walking toward:",
+              targetPosition,
+            );
             const currentPos = minimalWorld.entities!.player!.position!;
-            const controller = minimalWorld.physics!.controllers?.get(
-              playerId,
-            ) as ControllerInterface | undefined;
-            if (controller && controller.walkToward) {
+            const controller = minimalWorld.physics!.controllers?.get(playerId);
+            if (controller && (controller as any).walkToward) {
               const direction = {
                 x: targetPosition.x - currentPos.x,
-                y: 0,
                 z: targetPosition.z - currentPos.z,
               };
-              return controller.walkToward(direction, speed);
+              return (controller as any).walkToward(direction, speed);
             }
             return currentPos;
           },
 
           // Teleport (instant position change) - kept for compatibility
           teleport: (options: TeleportOptions) => {
+            console.log("[MinimalWorld] Player teleport:", options);
             if (options.position) {
               // Update both entity and physics controller
               Object.assign(
@@ -1412,32 +1462,42 @@ Hyperscape world integration service that enables agents to:
           },
 
           modify: (data: EntityModificationData) => {
+            console.log("[MinimalWorld] Player modify:", data);
             Object.assign(minimalWorld.entities!.player!.data, data);
           },
 
           setSessionAvatar: (url: string) => {
-            const player = minimalWorld.entities!.player as
-              | { data?: { appearance?: PlayerAppearance } }
-              | undefined;
-            if (player && player.data) {
-              player.data.appearance = player.data.appearance || {};
-              player.data.appearance.avatar = url;
+            console.log("[MinimalWorld] Player setSessionAvatar:", url);
+            const player = minimalWorld.entities!.player;
+            if (player && (player as any).data) {
+              (player as any).data.appearance =
+                (player as any).data.appearance || {};
+              (player as any).data.appearance.avatar = url;
             }
           },
-        } as Player; // Typed as Player instead of any
+        } as any;
 
         // Start physics simulation loop
-        if (minimalWorld.physics?.enabled) {
+        if (
+          minimalWorld.physics?.enabled &&
+          minimalWorld.physics.step &&
+          minimalWorld.physics.timeStep
+        ) {
+          const timeStep = minimalWorld.physics.timeStep;
           setInterval(() => {
-            minimalWorld.physics!.step(minimalWorld.physics!.timeStep);
-          }, minimalWorld.physics.timeStep * 1000); // Convert to milliseconds
+            if (minimalWorld.physics?.step && minimalWorld.physics.timeStep) {
+              minimalWorld.physics.step(minimalWorld.physics.timeStep);
+            }
+          }, timeStep * 1000); // Convert to milliseconds
         }
 
+        console.log("[MinimalWorld] Initialized successfully");
         return Promise.resolve();
       },
 
       // Disconnect network
       disconnect: async () => {
+        console.log("[MinimalWorld] Disconnecting...");
         if (minimalWorld.network && "disconnect" in minimalWorld.network) {
           const networkWithDisconnect =
             minimalWorld.network as NetworkSystem & {
@@ -1449,6 +1509,7 @@ Hyperscape world integration service that enables agents to:
 
       // Cleanup
       destroy: () => {
+        console.log("[MinimalWorld] Destroying...");
         minimalWorld.systems = [];
         minimalWorld.entities!.players.clear();
         minimalWorld.entities!.items.clear();

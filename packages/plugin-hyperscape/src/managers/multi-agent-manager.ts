@@ -199,6 +199,7 @@ export class MultiAgentManager extends EventEmitter {
     // Set up message routing between agents
     for (const agent of this.agents.values()) {
       const messageManager = agent.service.getMessageManager();
+      if (!messageManager) continue;
 
       // Override message handler to broadcast to other agents
       const originalHandler = messageManager.handleMessage.bind(messageManager);
@@ -230,14 +231,17 @@ export class MultiAgentManager extends EventEmitter {
           isFromAgent: true,
         };
 
-        messageManager
-          .handleMessage(agentMessage)
-          .catch((error) =>
-            logger.error(
-              `Error broadcasting message to agent ${agent.name}:`,
-              error,
-            ),
-          );
+        const targetMessageManager = agent.service.getMessageManager();
+        if (targetMessageManager) {
+          targetMessageManager
+            .handleMessage(agentMessage)
+            .catch((error) =>
+              logger.error(
+                `Error broadcasting message to agent ${agent.name}:`,
+                error,
+              ),
+            );
+        }
       }
     }
   }

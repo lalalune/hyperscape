@@ -1,29 +1,26 @@
 import { logger } from "@elizaos/core";
 import { THREE } from "@hyperscape/shared";
 import type { World, Player } from "../types/core-types";
-import {
-  PlayerEffectSchema,
-  type PlayerEffect,
-  type PlayerData,
-} from "../types/validation-schemas";
 
 interface NodeContext {
   entity?: {
     data?: {
       avatarUrl?: string;
-      [key: string]: string | number | boolean | undefined;
+      [key: string]: unknown;
     };
   };
   world?: World;
   player?: Player;
-  [key: string]: World | Player | Record<string, unknown> | undefined;
+  [key: string]: unknown;
 }
 
 interface Nametag extends THREE.Object3D {
   text: string;
 }
 
-// PlayerEffect now imported from validation-schemas with Zod validation
+interface PlayerEffect {
+  emote?: string | null;
+}
 
 interface ParentNode extends THREE.Object3D {
   position: THREE.Vector3;
@@ -52,12 +49,7 @@ class Node extends THREE.Object3D {
 
 interface AnimationFactory {
   toClip?(target: THREE.Object3D): THREE.AnimationClip | null;
-  [key: string]:
-    | ((target: THREE.Object3D) => THREE.AnimationClip | null)
-    | string
-    | number
-    | boolean
-    | undefined;
+  [key: string]: unknown;
 }
 
 interface EmotePlayerNode extends THREE.Group {
@@ -161,7 +153,7 @@ export class AgentAvatar extends Node {
     // --- End Model Update ---
 
     // --- Name Tag Update (Partial) ---
-    if (this.nametag) {
+    if (this.nametag && player.data.name) {
       this.nametag.text = player.data.name;
     } else {
       logger.info("[AgentAvatar] Nametag not available, skipping update.");
@@ -205,12 +197,11 @@ export class AgentAvatar extends Node {
         // this.runClip?.setEffectiveWeight(this.isMoving ? runSpeed : 0);
       }
 
-      // Emote handling with Zod validation
+      // Emote handling
       if (this.player) {
-        const rawEffect = (this.player as { data?: { effect?: unknown } }).data
-          ?.effect;
-        const parseResult = PlayerEffectSchema.safeParse(rawEffect);
-        const effect = parseResult.success ? parseResult.data : undefined;
+        const effect = (this.player as any).data?.effect as
+          | PlayerEffect
+          | undefined;
         if (effect?.emote !== this.emote) {
           this.emote = effect?.emote || null;
           this.updateEmote();
