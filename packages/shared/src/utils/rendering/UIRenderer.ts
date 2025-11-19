@@ -288,13 +288,15 @@ export class UIRenderer {
    */
   static updateSpriteTexture(
     sprite: THREE.Sprite,
-    _canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement,
   ): void {
     if (
       sprite.material instanceof THREE.SpriteMaterial &&
       sprite.material.map
     ) {
       const texture = sprite.material.map as THREE.CanvasTexture;
+      // CRITICAL FIX: Update the texture's source canvas, not just the needsUpdate flag
+      texture.image = canvas;
       texture.needsUpdate = true;
     }
   }

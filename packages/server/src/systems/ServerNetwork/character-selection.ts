@@ -25,8 +25,6 @@ import {
   World,
 } from "@hyperscape/shared";
 
-const HEALTH_MAX = 100;
-
 interface CharacterData {
   id: string;
   name: string;
@@ -367,6 +365,13 @@ export async function handleEnterWorld(
     // Terrain not ready; use safe height
     position = [position[0], 10, position[2]];
   }
+  // Health should equal constitution level (per user requirement)
+  const constitutionLevel = savedSkills?.constitution?.level || 10;
+  const playerHealth =
+    Number.isFinite(constitutionLevel) && constitutionLevel > 0
+      ? constitutionLevel
+      : 10;
+
   const addedEntity = world.entities.add
     ? world.entities.add({
         id: entityId,
@@ -376,7 +381,8 @@ export async function handleEnterWorld(
         owner: socket.id,
         userId: accountId || undefined,
         name,
-        health: HEALTH_MAX,
+        health: playerHealth, // Use constitution level instead of HEALTH_MAX
+        maxHealth: playerHealth, // Also set maxHealth
         avatar: world.settings.avatar?.url || "asset://avatar.vrm",
         sessionAvatar: avatar || undefined,
         roles,

@@ -23,9 +23,57 @@ export function LootWindow({
 }: LootWindowProps) {
   const [items, setItems] = useState<InventoryItem[]>(lootItems);
 
+  // Update items when prop changes
   useEffect(() => {
     setItems(lootItems);
   }, [lootItems, corpseId]);
+
+  // Listen for server updates to the gravestone entity
+  // This keeps the loot window in sync when items are removed
+  useEffect(() => {
+    const updateInterval = setInterval(() => {
+      if (!visible || !corpseId) return;
+
+      // Get the gravestone entity from the world
+      const gravestoneEntity = world.entities?.get(corpseId);
+
+      // If gravestone entity no longer exists (despawned), close window immediately
+      if (!gravestoneEntity) {
+        console.log(
+          "[LootWindow] Gravestone despawned, closing window immediately...",
+        );
+        onClose();
+        return;
+      }
+
+      // Check if entity has lootItems in its data
+      const entityData = (gravestoneEntity as any).data;
+      if (entityData?.lootItems || (gravestoneEntity as any).lootItems) {
+        const serverItems =
+          entityData?.lootItems || (gravestoneEntity as any).lootItems || [];
+
+        // Update local state with server data
+        setItems([...serverItems]);
+      }
+
+      // If gravestone is empty, close the window
+      if (
+        ((gravestoneEntity as any).lootItems?.length === 0 ||
+          entityData?.lootItems?.length === 0 ||
+          entityData?.lootItemCount === 0) &&
+        items.length > 0
+      ) {
+        console.log(
+          "[LootWindow] Gravestone empty, closing window in 500ms...",
+        );
+        setTimeout(() => {
+          onClose();
+        }, 500);
+      }
+    }, 100); // Check every 100ms for updates
+
+    return () => clearInterval(updateInterval);
+  }, [visible, corpseId, world, items.length, onClose]);
 
   const handleTakeItem = (item: InventoryItem, index: number) => {
     const localPlayer = world.getPlayer();
@@ -62,10 +110,37 @@ export function LootWindow({
     const localPlayer = world.getPlayer();
     if (!localPlayer) return;
 
-    // Take each item
-    items.forEach((item, index) => {
-      handleTakeItem(item, index);
+    // Take ALL items in one batch request
+    // Copy current items array since we'll clear it optimistically
+    const itemsToTake = [...items];
+
+    // Send loot request for each item
+    itemsToTake.forEach((item, index) => {
+      if (world.network?.send) {
+        world.network.send("entityEvent", {
+          id: "world",
+          event: EventType.CORPSE_LOOT_REQUEST,
+          payload: {
+            corpseId,
+            playerId: localPlayer.id,
+            itemId: item.itemId,
+            quantity: item.quantity,
+            slot: index,
+          },
+        });
+      } else {
+        world.emit(EventType.CORPSE_LOOT_REQUEST, {
+          corpseId,
+          playerId: localPlayer.id,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          slot: index,
+        });
+      }
     });
+
+    // Optimistically clear ALL items at once
+    setItems([]);
   };
 
   if (!visible) return null;

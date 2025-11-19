@@ -242,7 +242,7 @@ export class PlayerMigration {
       attack: defaultSkill,
       strength: defaultSkill,
       defense: defaultSkill,
-      constitution: defaultSkill,
+      constitution: { level: 10, xp: 1154 }, // Constitution starts at level 10
       ranged: defaultSkill,
       woodcutting: defaultSkill,
       fishing: defaultSkill,
@@ -275,11 +275,13 @@ export class PlayerMigration {
     name: string,
   ): Player {
     const skills = this.getDefaultSkills();
+    // Health should equal constitution level (starting at 10)
+    const constitutionLevel = skills.constitution.level;
     return {
       id,
       hyperscapePlayerId,
       name,
-      health: { current: 100, max: 100 },
+      health: { current: constitutionLevel, max: constitutionLevel },
       alive: true,
       stamina: { current: 100, max: 100 },
       position: { x: 0, y: 0, z: 0 },

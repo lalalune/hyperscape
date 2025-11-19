@@ -448,15 +448,8 @@ export function createVRMFactory(
     let setEmoteCallCount = 0;
     const setEmote = (url) => {
       setEmoteCallCount++;
-      console.log("[VRMFactory.setEmote] Called:", {
-        url,
-        callCount: setEmoteCallCount,
-      });
 
       if (currentEmote?.url === url) {
-        console.log(
-          "[VRMFactory.setEmote] Already playing this emote, skipping",
-        );
         return;
       }
       if (currentEmote) {

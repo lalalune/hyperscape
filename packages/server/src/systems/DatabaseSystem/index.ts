@@ -48,6 +48,7 @@ import {
   SessionRepository,
   WorldChunkRepository,
   NPCKillRepository,
+  DeathRepository,
 } from "../../database/repositories";
 
 /**
@@ -80,6 +81,7 @@ export class DatabaseSystem extends SystemBase {
   private sessionRepository!: SessionRepository;
   private worldChunkRepository!: WorldChunkRepository;
   private npcKillRepository!: NPCKillRepository;
+  private deathRepository!: DeathRepository;
 
   /**
    * Constructor
@@ -127,6 +129,7 @@ export class DatabaseSystem extends SystemBase {
       this.sessionRepository = new SessionRepository(this.db, this.pool);
       this.worldChunkRepository = new WorldChunkRepository(this.db, this.pool);
       this.npcKillRepository = new NPCKillRepository(this.db, this.pool);
+      this.deathRepository = new DeathRepository(this.db, this.pool);
     } else {
       throw new Error(
         "[DatabaseSystem] Drizzle database not provided on world object",
@@ -196,6 +199,44 @@ export class DatabaseSystem extends SystemBase {
       });
 
     this.pendingOperations.add(tracked);
+  }
+
+  // ============================================================================
+  // TRANSACTION SUPPORT
+  // ============================================================================
+
+  /**
+   * Execute a callback within a database transaction
+   *
+   * Provides all-or-nothing execution semantics:
+   * - If callback completes successfully → automatic COMMIT
+   * - If callback throws error → automatic ROLLBACK
+   *
+   * CRITICAL FOR SECURITY: Prevents partial database states that can lead to
+   * item duplication or item loss (e.g., inventory cleared but gravestone not spawned).
+   *
+   * @param callback - Async function that receives transaction context
+   * @returns The result of the callback
+   *
+   * @example
+   * ```typescript
+   * await dbSystem.executeInTransaction(async (tx) => {
+   *   await tx.insert(table1).values({...});
+   *   await tx.insert(table2).values({...});
+   *   // If either fails, both are rolled back
+   * });
+   * ```
+   */
+  async executeInTransaction<T>(
+    callback: (tx: NodePgDatabase<typeof schema>) => Promise<T>,
+  ): Promise<T> {
+    if (!this.db) {
+      throw new Error(
+        "[DatabaseSystem] Database not initialized - cannot start transaction",
+      );
+    }
+
+    return this.db.transaction(callback);
   }
 
   // ============================================================================
@@ -463,6 +504,95 @@ export class DatabaseSystem extends SystemBase {
    */
   async getNPCKillCountAsync(playerId: string, npcId: string): Promise<number> {
     return this.npcKillRepository.getNPCKillCountAsync(playerId, npcId);
+  }
+
+  // ============================================================================
+  // DEATH LOCK MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Save or update a death lock for a player
+   * Delegates to DeathRepository
+   *
+   * CRITICAL FOR SECURITY: Prevents item duplication on server restart!
+   *
+   * @param data - Death lock data
+   * @param tx - Optional transaction context for atomic operations
+   */
+  async saveDeathLockAsync(
+    data: {
+      playerId: string;
+      gravestoneId: string | null;
+      groundItemIds: string[];
+      position: { x: number; y: number; z: number };
+      timestamp: number;
+      zoneType: string;
+      itemCount: number;
+    },
+    tx?: NodePgDatabase<typeof schema>,
+  ): Promise<void> {
+    return this.deathRepository.saveDeathLockAsync(data, tx);
+  }
+
+  /**
+   * Get active death lock for a player
+   * Delegates to DeathRepository
+   *
+   * Returns null if no active death lock exists (player is alive).
+   */
+  async getDeathLockAsync(playerId: string): Promise<{
+    playerId: string;
+    gravestoneId: string | null;
+    groundItemIds: string[];
+    position: { x: number; y: number; z: number };
+    timestamp: number;
+    zoneType: string;
+    itemCount: number;
+  } | null> {
+    return this.deathRepository.getDeathLockAsync(playerId);
+  }
+
+  /**
+   * Delete a death lock for a player
+   * Delegates to DeathRepository
+   *
+   * Called when player respawns or death is fully resolved.
+   */
+  async deleteDeathLockAsync(playerId: string): Promise<void> {
+    return this.deathRepository.deleteDeathLockAsync(playerId);
+  }
+
+  /**
+   * Get all active death locks
+   * Delegates to DeathRepository
+   *
+   * Used for server restart recovery to restore gravestones/ground items.
+   */
+  async getAllActiveDeathsAsync(): Promise<
+    Array<{
+      playerId: string;
+      gravestoneId: string | null;
+      groundItemIds: string[];
+      position: { x: number; y: number; z: number };
+      timestamp: number;
+      zoneType: string;
+      itemCount: number;
+    }>
+  > {
+    return this.deathRepository.getAllActiveDeathsAsync();
+  }
+
+  /**
+   * Update ground item IDs when gravestone expires
+   * Delegates to DeathRepository
+   *
+   * Called when gravestone transitions to ground items.
+   */
+  async updateGroundItemsAsync(
+    playerId: string,
+    groundItemIds: string[],
+  ): Promise<void> {
+    return this.deathRepository.updateGroundItemsAsync(playerId, groundItemIds);
   }
 
   // ============================================================================

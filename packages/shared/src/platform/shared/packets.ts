@@ -127,6 +127,15 @@ const names = [
   'skillsUpdated',
   // UI feedback packets
   'showToast',
+  // Death screen packets
+  'deathScreen',
+  'deathScreenClose',
+  'requestRespawn',
+  // Death state packets
+  'playerSetDead',
+  'playerRespawned',
+  // Loot packets
+  'corpseLoot',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',

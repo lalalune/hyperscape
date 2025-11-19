@@ -480,6 +480,50 @@ export const npcKills = pgTable(
 );
 
 /**
+ * Player Deaths Table - Active death lock tracking
+ *
+ * Stores death locks for players who have died and need to retrieve their items.
+ * CRITICAL: This table prevents item duplication exploits on server restart.
+ *
+ * Key columns:
+ * - `playerId` - References characters.id (CASCADE DELETE)
+ * - `gravestoneId` - ID of gravestone entity (nullable if wilderness death)
+ * - `groundItemIds` - JSON array of ground item entity IDs
+ * - `position` - JSON object {x, y, z} of death location
+ * - `timestamp` - When player died (Unix milliseconds)
+ * - `zoneType` - "safe_area" | "wilderness" | "pvp_zone"
+ * - `itemCount` - Number of items dropped (for cleanup validation)
+ *
+ * **Security**: Server restart loads these records to restore death state.
+ * Without this table, server restart = item duplication exploit.
+ *
+ * **Lifecycle**: Row created on death, deleted when player respawns or loots all items.
+ */
+export const playerDeaths = pgTable(
+  "player_deaths",
+  {
+    playerId: text("playerId")
+      .primaryKey()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    gravestoneId: text("gravestoneId"),
+    groundItemIds: text("groundItemIds"), // JSON array: ["item1", "item2", ...]
+    position: text("position").notNull(), // JSON: {"x": 0, "y": 0, "z": 0}
+    timestamp: bigint("timestamp", { mode: "number" }).notNull(),
+    zoneType: text("zoneType").notNull(), // "safe_area" | "wilderness" | "pvp_zone"
+    itemCount: integer("itemCount").default(0).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+    updatedAt: bigint("updatedAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    timestampIdx: index("idx_player_deaths_timestamp").on(table.timestamp),
+  }),
+);
+
+/**
  * ============================================================================
  * TABLE RELATIONS
  * ============================================================================
@@ -502,6 +546,7 @@ export const charactersRelations = relations(characters, ({ many }) => ({
   sessions: many(playerSessions),
   chunkActivities: many(chunkActivity),
   npcKills: many(npcKills),
+  deaths: many(playerDeaths),
 }));
 
 export const inventoryRelations = relations(inventory, ({ one }) => ({
@@ -535,6 +580,13 @@ export const chunkActivityRelations = relations(chunkActivity, ({ one }) => ({
 export const npcKillsRelations = relations(npcKills, ({ one }) => ({
   character: one(characters, {
     fields: [npcKills.playerId],
+    references: [characters.id],
+  }),
+}));
+
+export const playerDeathsRelations = relations(playerDeaths, ({ one }) => ({
+  character: one(characters, {
+    fields: [playerDeaths.playerId],
     references: [characters.id],
   }),
 }));

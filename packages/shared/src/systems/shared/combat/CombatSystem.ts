@@ -155,9 +155,6 @@ export class CombatSystem extends SystemBase {
 
     // Check entities exist
     if (!attacker || !target) {
-      console.warn(
-        `[CombatSystem] Cannot start melee attack - entity not found`,
-      );
       return;
     }
 
@@ -165,7 +162,6 @@ export class CombatSystem extends SystemBase {
     if (targetType === "mob") {
       const mobEntity = target as MobEntity;
       if (mobEntity.isDead()) {
-        console.warn(`[CombatSystem] Cannot attack dead mob ${targetId}`);
         return;
       }
     }
@@ -174,16 +170,8 @@ export class CombatSystem extends SystemBase {
     const attackerPos = attacker.position || attacker.getPosition();
     const targetPos = target.position || target.getPosition();
     const distance2D = calculateDistance2D(attackerPos, targetPos);
-    const distance3D = calculateDistance3D(attackerPos, targetPos);
-
-    console.log(
-      `[CombatSystem] Melee attack range check: 2D=${distance2D.toFixed(2)}, 3D=${distance3D.toFixed(2)}, limit=${COMBAT_CONSTANTS.MELEE_RANGE}`,
-    );
 
     if (distance2D > COMBAT_CONSTANTS.MELEE_RANGE) {
-      console.warn(
-        `[CombatSystem] Attack out of range (${distance2D.toFixed(2)} > ${COMBAT_CONSTANTS.MELEE_RANGE})`,
-      );
       this.emitTypedEvent(EventType.COMBAT_ATTACK_FAILED, {
         attackerId,
         targetId,
@@ -207,6 +195,16 @@ export class CombatSystem extends SystemBase {
 
     // Apply damage
     this.applyDamage(targetId, targetType, damage, attackerId);
+
+    // Emit damage splatter event even for 0 damage (blue splatter)
+    const targetPosition = target.position || target.getPosition();
+    this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
+      attackerId,
+      targetId,
+      damage,
+      targetType,
+      position: targetPosition,
+    });
 
     // Set attack cooldown
     this.attackCooldowns.set(typedAttackerId, now);
@@ -238,9 +236,6 @@ export class CombatSystem extends SystemBase {
 
     // Check entities exist
     if (!attacker || !target) {
-      console.warn(
-        `[CombatSystem] Cannot start ranged attack - entity not found`,
-      );
       return;
     }
 
@@ -278,6 +273,16 @@ export class CombatSystem extends SystemBase {
 
     // Apply damage
     this.applyDamage(targetId, targetType, damage, attackerId);
+
+    // Emit damage splatter event even for 0 damage (blue splatter)
+    const targetPosition = target.position || target.getPosition();
+    this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
+      attackerId,
+      targetId,
+      damage,
+      targetType,
+      position: targetPosition,
+    });
 
     // Set attack cooldown
     this.attackCooldowns.set(typedAttackerId, now);
@@ -490,13 +495,9 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
-    // Emit combat damage event for visual effects (damage numbers)
-    this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
-      attackerId,
-      targetId,
-      damage,
-      targetType,
-    });
+    // Note: Damage splatter events are now emitted at the call sites
+    // (handleMeleeAttack, handleRangedAttack, processAutoAttack) to ensure
+    // they're emitted even for 0 damage hits
   }
 
   /**
@@ -509,34 +510,18 @@ export class CombatSystem extends SystemBase {
   ): void {
     if (entityType === "player") {
       const playerEntity = this.world.getPlayer?.(entityId);
-      console.log(
-        `[CombatSystem] syncCombatStateToPlayer called for ${entityId}, found player:`,
-        !!playerEntity,
-      );
       if (playerEntity && (playerEntity as any).combat) {
         // Set combat state so client knows we're in combat
         (playerEntity as any).combat.inCombat = true;
         (playerEntity as any).combat.combatTarget = targetId;
 
-        console.log(
-          `[CombatSystem] Set combat object: inCombat=${(playerEntity as any).combat.inCombat}, target=${(playerEntity as any).combat.combatTarget}`,
-        );
-
         // Also set in data for network sync
         if ((playerEntity as any).data) {
           (playerEntity as any).data.inCombat = true;
           (playerEntity as any).data.combatTarget = targetId;
-          console.log(
-            `[CombatSystem] Set data object: inCombat=${(playerEntity as any).data.inCombat}, target=${(playerEntity as any).data.combatTarget}`,
-          );
-        } else {
-          console.warn(`[CombatSystem] Player ${entityId} has no data object!`);
         }
 
         (playerEntity as any).markNetworkDirty?.();
-        console.log(
-          `[CombatSystem] Called markNetworkDirty for player ${entityId}`,
-        );
       }
     }
   }
@@ -561,9 +546,6 @@ export class CombatSystem extends SystemBase {
         }
 
         (playerEntity as any).markNetworkDirty?.();
-        console.log(
-          `[CombatSystem] Cleared combat state from player ${entityId}`,
-        );
       }
     }
   }
@@ -576,13 +558,6 @@ export class CombatSystem extends SystemBase {
       // For players, use the player entity from PlayerSystem
       const playerEntity = this.world.getPlayer?.(entityId);
       if (playerEntity) {
-        console.log(`[CombatSystem] Player entity structure:`, {
-          hasEmoteProperty: "emote" in playerEntity,
-          hasDataProperty: "data" in playerEntity,
-          dataEBefore: (playerEntity as any).data?.e,
-          hasMarkNetworkDirty: "markNetworkDirty" in playerEntity,
-        });
-
         // Set emote STRING KEY (players use 'combat' string which gets mapped to URL)
         if ((playerEntity as any).emote !== undefined) {
           (playerEntity as any).emote = "combat";
@@ -592,25 +567,7 @@ export class CombatSystem extends SystemBase {
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
 
-        console.log(`[CombatSystem] After setting:`, {
-          emote: (playerEntity as any).emote,
-          dataE: (playerEntity as any).data?.e,
-        });
-
-        // Check if player is in world.entities
-        const inEntities = this.world.entities.has(entityId);
-        console.log(
-          `[CombatSystem] Player ${entityId} in world.entities:`,
-          inEntities,
-        );
-        if (!inEntities) {
-          console.log(
-            `[CombatSystem] ❌ Player ${entityId} NOT in world.entities! Network sync will fail.`,
-          );
-        }
-
         (playerEntity as any).markNetworkDirty?.();
-        console.log(`[CombatSystem] Set COMBAT emote for player ${entityId}`);
       }
     } else if (entityType === "mob") {
       // For mobs, send one-shot combat animation via setServerEmote()
@@ -621,9 +578,6 @@ export class CombatSystem extends SystemBase {
         typeof (mobEntity as any).setServerEmote === "function"
       ) {
         (mobEntity as any).setServerEmote(Emotes.COMBAT);
-        console.log(
-          `[CombatSystem] Set one-shot COMBAT emote for mob ${entityId}`,
-        );
       }
     }
   }
@@ -644,19 +598,10 @@ export class CombatSystem extends SystemBase {
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
         (playerEntity as any).markNetworkDirty?.();
-        console.log(
-          `[CombatSystem] Reset to IDLE emote for player ${entityId}`,
-        );
       }
-    } else if (entityType === "mob") {
-      // DON'T reset mob emotes - let client's AI-state-based animation handle it
-      // Mobs use AI state (IDLE, WANDER, CHASE, ATTACK) to determine animations
-      // Resetting to idle here overrides the client's walk animation
-      // The manual override in MobEntity expires after 700ms, naturally returning to AI-state animation
-      console.log(
-        `[CombatSystem] Skipping idle reset for mob ${entityId} (AI state controls animation)`,
-      );
     }
+    // DON'T reset mob emotes - let client's AI-state-based animation handle it
+    // Mobs use AI state (IDLE, WANDER, CHASE, ATTACK) to determine animations
   }
 
   /**
@@ -668,10 +613,6 @@ export class CombatSystem extends SystemBase {
     entityType: "player" | "mob",
     targetType: "player" | "mob",
   ): void {
-    console.log(
-      `[CombatSystem] rotateTowardsTarget called: ${entityType} ${entityId} → ${targetType} ${targetId}`,
-    );
-
     // Get entities properly based on type
     const entity =
       entityType === "player"
@@ -682,25 +623,7 @@ export class CombatSystem extends SystemBase {
         ? this.world.getPlayer?.(targetId)
         : this.world.entities.get(targetId);
 
-    console.log(
-      `[CombatSystem] Entity found:`,
-      !!entity,
-      entity
-        ? `at (${(entity as any).position?.x}, ${(entity as any).position?.z})`
-        : "null",
-    );
-    console.log(
-      `[CombatSystem] Target found:`,
-      !!target,
-      target
-        ? `at (${(target as any).position?.x}, ${(target as any).position?.z})`
-        : "null",
-    );
-
     if (!entity || !target) {
-      console.warn(
-        `[CombatSystem] ❌ Cannot rotate: entity or target not found`,
-      );
       return;
     }
 
@@ -736,9 +659,6 @@ export class CombatSystem extends SystemBase {
       if ((entity as any).node?.quaternion) {
         (entity as any).node.quaternion.copy((entity as any).base.quaternion);
       }
-      console.log(
-        `[CombatSystem] Rotated player ${entityId} to face target (angle: ${((angle * 180) / Math.PI).toFixed(1)}°)`,
-      );
     } else if (entity && (entity as any).node?.quaternion) {
       // For mobs and other entities, set on node
       const tempQuat = {
@@ -752,9 +672,6 @@ export class CombatSystem extends SystemBase {
         tempQuat.y,
         tempQuat.z,
         tempQuat.w,
-      );
-      console.log(
-        `[CombatSystem] Rotated mob ${entityId} to face target (angle: ${((angle * 180) / Math.PI).toFixed(1)}°)`,
       );
     }
 
@@ -770,16 +687,34 @@ export class CombatSystem extends SystemBase {
     const attackerEntity = this.world.entities.get(String(attackerId));
     const targetEntity = this.world.entities.get(String(targetId));
 
+    // Don't enter combat if target is dead
+    if (
+      targetEntity &&
+      "health" in targetEntity &&
+      (targetEntity as any).health <= 0
+    ) {
+      console.log(
+        `[CombatSystem] Target ${targetId} is dead (health ${(targetEntity as any).health}), aborting combat`,
+      );
+      return;
+    }
+
+    // Also check if target is a player marked as dead
+    const playerSystem = this.world.getSystem?.("player") as any;
+    if (playerSystem?.players) {
+      const targetPlayer = playerSystem.players.get(String(targetId));
+      if (targetPlayer && !targetPlayer.alive) {
+        console.log(
+          `[CombatSystem] Target player ${targetId} is dead (alive=${targetPlayer.alive}), aborting combat`,
+        );
+        return;
+      }
+    }
+
     const attackerType =
       attackerEntity?.type === "mob" ? ("mob" as const) : ("player" as const);
     const targetType =
       targetEntity?.type === "mob" ? ("mob" as const) : ("player" as const);
-
-    console.log(`[CombatSystem] ============ ENTER COMBAT ============`);
-    console.log(`[CombatSystem] Attacker: ${attackerType} ${attackerId}`);
-    console.log(`[CombatSystem] Target: ${targetType} ${targetId}`);
-    console.log(`[CombatSystem] AttackerEntity exists:`, !!attackerEntity);
-    console.log(`[CombatSystem] TargetEntity exists:`, !!targetEntity);
 
     // Set combat state for attacker
     this.combatStates.set(attackerId, {
@@ -793,10 +728,6 @@ export class CombatSystem extends SystemBase {
       combatEndTime,
     });
 
-    console.log(
-      `[CombatSystem] ✓ Created combat state for attacker ${attackerId}`,
-    );
-
     // Set combat state for target (auto-retaliate)
     // ALTERNATING ATTACKS: Offset target's lastAttackTime so attacks alternate
     // Calculate offset based on BOTH combatants' attack speeds for proper alternation
@@ -804,10 +735,6 @@ export class CombatSystem extends SystemBase {
     const targetSpeed = this.getAttackSpeed(targetId, targetType);
     const averageSpeed = (attackerSpeed + targetSpeed) / 2;
     const attackOffset = averageSpeed / 2; // Target attacks halfway between attacker's attacks
-
-    console.log(
-      `[CombatSystem] Attack timing: attacker=${attackerSpeed}ms, target=${targetSpeed}ms, offset=${attackOffset}ms`,
-    );
 
     this.combatStates.set(targetId, {
       attackerId: targetId,
@@ -819,10 +746,6 @@ export class CombatSystem extends SystemBase {
       lastAttackTime: now - attackOffset, // Offset based on actual attack speeds
       combatEndTime,
     });
-
-    console.log(
-      `[CombatSystem] ✓ Created auto-retaliate combat state for target ${targetId}`,
-    );
 
     // Rotate both entities to face each other (RuneScape-style)
     this.rotateTowardsTarget(
@@ -889,10 +812,6 @@ export class CombatSystem extends SystemBase {
     const combatState = this.combatStates.get(typedEntityId);
     if (!combatState) return;
 
-    console.log(
-      `[CombatSystem] endCombat: ${combatState.attackerType} ${data.entityId}`,
-    );
-
     // Reset emotes for both entities
     this.resetEmote(data.entityId, combatState.attackerType);
     this.resetEmote(String(combatState.targetId), combatState.targetType);
@@ -928,9 +847,6 @@ export class CombatSystem extends SystemBase {
    * Handle entity death - end all combat involving this entity
    */
   private handleEntityDied(entityId: string, entityType: string): void {
-    console.log(
-      `[CombatSystem] Entity ${entityId} (${entityType}) died, ending combat`,
-    );
     const typedEntityId = createEntityID(entityId);
 
     // End combat for this entity
@@ -1086,10 +1002,6 @@ export class CombatSystem extends SystemBase {
     // Also update the global cooldown map for consistency
     const typedAttackerId = combatState.attackerId;
 
-    console.log(
-      `[CombatSystem] processAutoAttack: ${combatState.attackerType} ${combatState.attackerId} → ${combatState.targetType} ${combatState.targetId}`,
-    );
-
     // Get attacker and target entities
     const attackerId = String(combatState.attackerId);
     const targetId = String(combatState.targetId);
@@ -1105,9 +1017,6 @@ export class CombatSystem extends SystemBase {
 
     // Check if attacker is still alive (prevent dead attackers from auto-attacking)
     if (!this.isEntityAlive(attacker, combatState.attackerType)) {
-      console.log(
-        `[CombatSystem] Attacker ${attackerId} is dead, ending combat`,
-      );
       this.endCombat({ entityId: attackerId });
       return;
     }
@@ -1129,18 +1038,10 @@ export class CombatSystem extends SystemBase {
         : COMBAT_CONSTANTS.MELEE_RANGE;
 
     if (distance2D > maxRange) {
-      console.log(
-        `[CombatSystem] Auto-attack out of range (${distance2D.toFixed(2)} > ${maxRange})`,
-      );
       // Out of range - don't end combat, just skip this attack
       // Player might be moving back into range
       return;
     }
-
-    // All checks passed - execute auto-attack
-    console.log(
-      `[CombatSystem] ⚔️ Executing auto-attack: ${combatState.attackerType} ${attackerId} → ${combatState.targetType} ${targetId}`,
-    );
 
     // Note: Rotation handled client-side in PlayerLocal/PlayerRemote/MobEntity clientUpdate
     // They check inCombat/combatTarget and rotate every frame for smooth tracking
@@ -1159,9 +1060,17 @@ export class CombatSystem extends SystemBase {
         ? this.calculateRangedDamage(attacker, target)
         : this.calculateMeleeDamage(attacker, target);
 
-    console.log(`[CombatSystem] Calculated damage: ${damage}`);
-
     this.applyDamage(targetId, combatState.targetType, damage, attackerId);
+
+    // Emit damage splatter event even for 0 damage (blue splatter)
+    const targetPosition = target.position || target.getPosition();
+    this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
+      attackerId,
+      targetId,
+      damage,
+      targetType: combatState.targetType,
+      position: targetPosition,
+    });
 
     // Set attack cooldown to prevent bypass
     this.attackCooldowns.set(typedAttackerId, now);
@@ -1259,31 +1168,22 @@ export class CombatSystem extends SystemBase {
     }
 
     if (entityType === "mob") {
-      // Check mob health - but don't log death messages here
-      // Death detection and cleanup is handled by EntityManager
+      // Check mob health
       const mob = entity as MobEntity;
 
       // Check if mob is marked as dead
       if (mob.isDead()) {
-        console.log(`[CombatSystem] Mob ${mob.id} is dead (isDead() check)`);
         return false;
       }
 
       // Check mob data if available
       if (mob.getMobData) {
         const mobData = mob.getMobData();
-        const isAlive = mobData.health > 0;
-        console.log(
-          `[CombatSystem] Mob ${mob.id} health check: ${mobData.health} (alive: ${isAlive})`,
-        );
-        return isAlive;
+        return mobData.health > 0;
       }
 
       // Fallback to health check
       const mobHealth = mob.getHealth();
-      console.log(
-        `[CombatSystem] Mob ${mob.id} fallback health check: ${mobHealth}`,
-      );
       return mobHealth > 0;
     }
 

@@ -47,6 +47,10 @@ export class HealthComponent extends Component {
   }
 
   set currentHealth(value: number) {
+    // CRITICAL: Check if entity was alive BEFORE setting new health
+    // Fixes rare 0 HP bug where isDead check happens after value is set
+    const wasAlive = !this.isDead;
+
     const newHealth = Math.max(0, Math.min(value, this.maxHealth));
     this.set("currentHealth", newHealth);
 
@@ -58,8 +62,9 @@ export class HealthComponent extends Component {
       isDead: newHealth <= 0,
     });
 
-    // Check for death
-    if (newHealth <= 0 && !this.isDead) {
+    // Check for death using PREVIOUS alive state
+    // This prevents the race condition where isDead becomes true before the check
+    if (newHealth <= 0 && wasAlive) {
       this.handleDeath();
     }
   }
@@ -102,9 +107,6 @@ export class HealthComponent extends Component {
 
   // Apply damage to the entity
   damage(amount: number, source?: Entity, damageType?: string): boolean {
-    console.log(
-      `[HealthComponent] damage called on ${this.entity.id}: ${amount} damage from ${source?.id || "unknown"} (${damageType || "unknown type"})`,
-    );
     if (this.invulnerable || this.isDead || amount <= 0) {
       return false;
     }
@@ -158,10 +160,14 @@ export class HealthComponent extends Component {
     if (!this.isDead) {
       this.currentHealth = 0;
 
-      // Emit death event
+      // Determine entity type for proper death handling
+      const entityType = this.getEntityType();
+
+      // Emit death event with complete data (fixes rare 0 HP bug)
       this.entity.world.emit(EventType.ENTITY_DEATH, {
         entityId: this.entity.id,
-        sourceId: source?.id,
+        killedBy: source?.id || "unknown",
+        entityType: entityType,
       });
     }
   }
@@ -180,11 +186,41 @@ export class HealthComponent extends Component {
   }
 
   private handleDeath(): void {
-    // Emit death event
+    // Determine entity type for proper death handling
+    const entityType = this.getEntityType();
+
+    // Emit death event with complete data (fixes rare 0 HP bug)
     this.entity.world.emit(EventType.ENTITY_DEATH, {
       entityId: this.entity.id,
       lastDamageTime: this.lastDamageTime,
+      killedBy: "unknown",
+      entityType: entityType,
     });
+  }
+
+  /**
+   * Determine if this entity is a player or mob
+   * Fixes rare bug where HealthComponent deaths don't include entityType
+   */
+  private getEntityType(): "player" | "mob" {
+    // Check entity data type field first
+    if (this.entity.data?.type === "player") {
+      return "player";
+    }
+
+    // Fallback: check entity ID patterns
+    const id = this.entity.id;
+    if (
+      id.includes("player_") ||
+      id.includes("user_") ||
+      id.startsWith("player-") ||
+      id.startsWith("user-")
+    ) {
+      return "player";
+    }
+
+    // Default to mob
+    return "mob";
   }
 
   // Regeneration update (called by systems)

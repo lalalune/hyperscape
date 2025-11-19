@@ -19,6 +19,7 @@ import { EquipmentPanel } from "./panels/EquipmentPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
 import { AccountPanel } from "./panels/AccountPanel";
 import { DashboardPanel } from "./panels/DashboardPanel";
+import { LootWindow } from "./panels/LootWindow";
 
 type InventorySlotViewItem = Pick<
   InventorySlotItem,
@@ -51,6 +52,14 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     new Map(),
   );
   const [nextZIndex, setNextZIndex] = useState(1000);
+
+  // Loot window state
+  const [lootWindowData, setLootWindowData] = useState<{
+    visible: boolean;
+    corpseId: string;
+    corpseName: string;
+    lootItems: InventorySlotViewItem[];
+  } | null>(null);
 
   // Update chat context whenever windows open/close
   useEffect(() => {
@@ -141,10 +150,44 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         );
     };
 
+    const onCorpseClick = (raw: unknown) => {
+      const data = raw as {
+        corpseId: string;
+        playerId: string;
+        lootItems?: Array<{ itemId: string; quantity: number }>;
+        position: { x: number; y: number; z: number };
+      };
+
+      console.log(
+        `[Sidebar] CORPSE_CLICK received for ${data.corpseId} with ${data.lootItems?.length || 0} items:`,
+        data.lootItems
+          ?.map((item) => `${item.itemId} x${item.quantity}`)
+          .join(", ") || "(none)",
+      );
+
+      // Open loot window with corpse items
+      setLootWindowData({
+        visible: true,
+        corpseId: data.corpseId,
+        corpseName: `Gravestone`, // TODO: Get actual corpse name
+        lootItems:
+          data.lootItems?.map((item, index) => ({
+            slot: index,
+            itemId: item.itemId,
+            quantity: item.quantity,
+          })) || [],
+      });
+
+      console.log(
+        `[Sidebar] LootWindow opened with ${data.lootItems?.length || 0} items`,
+      );
+    };
+
     world.on(EventType.UI_UPDATE, onUIUpdate);
     world.on(EventType.INVENTORY_UPDATED, onInventory);
     world.on(EventType.INVENTORY_UPDATE_COINS, onCoins);
     world.on(EventType.SKILLS_UPDATED, onSkillsUpdate);
+    world.on(EventType.CORPSE_CLICK, onCorpseClick);
 
     const requestInitial = () => {
       const lp = world.entities?.player?.id;
@@ -181,6 +224,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       world.off(EventType.INVENTORY_UPDATED, onInventory);
       world.off(EventType.INVENTORY_UPDATE_COINS, onCoins);
       world.off(EventType.SKILLS_UPDATED, onSkillsUpdate);
+      world.off(EventType.CORPSE_CLICK, onCorpseClick);
     };
   }, []);
 
@@ -430,6 +474,18 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           >
             <SettingsPanel world={world} />
           </GameWindow>
+        )}
+
+        {/* Loot Window */}
+        {lootWindowData && (
+          <LootWindow
+            visible={lootWindowData.visible}
+            corpseId={lootWindowData.corpseId}
+            corpseName={lootWindowData.corpseName}
+            lootItems={lootWindowData.lootItems}
+            onClose={() => setLootWindowData(null)}
+            world={world}
+          />
         )}
       </div>
     </HintProvider>
