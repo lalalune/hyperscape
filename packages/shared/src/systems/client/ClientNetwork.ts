@@ -730,12 +730,7 @@ export class ClientNetwork extends SystemBase {
       const newState = changes.aiState || entityData.aiState;
       const isDead = newState === "dead";
 
-      // DEBUG: Log all mob state changes
-      if (entityData.type === "mob" && changes.aiState) {
-        console.log(
-          `[ClientNetwork] 🔍 Mob ${id}: changes.aiState=${changes.aiState}, current=${entityData.aiState}, isDead=${isDead}, hasP=${hasP}`,
-        );
-      }
+      // Mob AI state tracking (no logging needed in production)
 
       // Clear interpolation buffer for ANY dead mob (defense in depth)
       if (isDead && this.interpolationStates.has(id)) {

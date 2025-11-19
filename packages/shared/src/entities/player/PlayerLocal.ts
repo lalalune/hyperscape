@@ -833,15 +833,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
       const shouldBlockEmote = isDyingState && newEmote !== "death";
 
       if (shouldBlockEmote) {
-        console.log(
-          `[PlayerLocal.modify] Blocked emote change to "${newEmote}" during death - keeping death animation`,
-        );
         // Skip this emote change but continue processing other updates
       } else {
         // Apply emote (normal emotes or death emote during death)
-        if (isDyingState && newEmote === "death") {
-          console.log(`[PlayerLocal.modify] Allowing death emote through`);
-        }
 
         this.data.emote = newEmote;
         this.emote = newEmote;
@@ -857,10 +851,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
             death: Emotes.DEATH,
           };
           const emoteUrl = emoteMap[this.emote] || Emotes.IDLE;
-
-          console.log(
-            `[PlayerLocal.modify] 🎬 Setting avatar emote to: ${emoteUrl}`,
-          );
 
           if (avatarNode.setEmote) {
             avatarNode.setEmote(emoteUrl);
@@ -879,9 +869,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         // Server might still be sending position packets from queued movement
         // BUT continue processing other updates (like emote for death animation!)
         if ((this as any).isDying || (this.data as any).isDying) {
-          console.log(
-            "[PlayerLocal.modify] Blocked position update during death - ignoring server position",
-          );
+          // Ignore position updates during death
         } else {
           // Store as server position for reference
           this.serverPosition.set(pos[0], pos[1], pos[2]);
@@ -931,9 +919,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         // CRITICAL: Block velocity updates during death
         // BUT continue processing other updates (like emote for death animation!)
         if ((this as any).isDying || (this.data as any).isDying) {
-          console.log(
-            "[PlayerLocal.modify] Blocked velocity update during death",
-          );
+          // Ignore velocity updates during death
         } else {
           this.velocity.set(vel[0], vel[1], vel[2]);
         }
@@ -2209,10 +2195,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // isDead:true = entering death state, isDead:false = exiting death state
     if (event.isDead === false) {
       // Player is being restored to alive (after respawn)
-      console.log(
-        "[PlayerLocal] ========== DEATH STATE EXITED (via PLAYER_SET_DEAD) ==========",
-      );
-      console.log("[PlayerLocal] Restoring alive state after respawn");
 
       // Clear isDying flag (same as handlePlayerRespawned)
       (this as any).isDying = false;
@@ -2231,17 +2213,11 @@ export class PlayerLocal extends Entity implements HotReloadable {
     }
 
     // isDead:true = player is dying
-    console.log("[PlayerLocal] ========== DEATH STATE ENTERED ==========");
-    console.log(
-      "[PlayerLocal] Received PLAYER_SET_DEAD event, blocking all input and movement",
-    );
-
     // Set isDying flag (blocks all input)
     (this as any).isDying = true;
     (this.data as any).isDying = true;
 
     // CRITICAL: Clear ALL movement state immediately to stop camera following
-    console.log("[PlayerLocal] Clearing all movement state...");
     this.clickMoveTarget = null;
     this.moveDir.set(0, 0, 0);
     this.moving = false;
@@ -2286,11 +2262,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
   handlePlayerRespawned(event: any): void {
     if (event.playerId !== this.data.id) return;
 
-    console.log("[PlayerLocal] ========== DEATH STATE EXITED ==========");
-    console.log(
-      "[PlayerLocal] Received PLAYER_RESPAWNED event, restoring normal gameplay",
-    );
-
     // Clear isDying flag (allows input again)
     (this as any).isDying = false;
     (this.data as any).isDying = false;
@@ -2298,7 +2269,6 @@ export class PlayerLocal extends Entity implements HotReloadable {
     // Unfreeze physics capsule (make it DYNAMIC again)
     if (this.capsule && (globalThis as any).PHYSX) {
       const PHYSX = (globalThis as any).PHYSX;
-      console.log("[PlayerLocal] Unfreezing physics capsule...");
 
       // Set back to DYNAMIC mode (normal physics)
       this.capsule.setRigidBodyFlag(
