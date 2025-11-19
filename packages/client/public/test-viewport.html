@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hyperscape Viewport Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 40px;
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-size: 32px;
+    }
+    .agent-card {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .agent-info {
+      flex: 1;
+    }
+    .agent-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    .agent-status {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+    }
+    button, a.button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover, a.button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .btn-login {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-viewport {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+    }
+    .info-box {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 Hyperscape Agent Viewport Test</h1>
+
+    <div class="info-box">
+      <strong>📺 Test the embedded viewport functionality</strong><br>
+      This page demonstrates the agent viewport feature. Click the "View" button to open an embedded 3D viewport showing an agent's gameplay in real-time.
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-info">
+        <div class="agent-name">HyperscapeAgent</div>
+        <div class="agent-status">Status: Ready</div>
+        <div class="agent-status">ID: <span class="code">test-agent-123</span></div>
+      </div>
+      <div class="button-group">
+        <a href="http://localhost:3000/hyperscape/auth?agentId=test-agent-123"
+           class="button btn-login"
+           target="_blank">
+          🔐 Login
+        </a>
+        <button class="btn-viewport" onclick="openViewport('test-agent-123')">
+          📺 View
+        </button>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>🔧 How it works:</strong><br>
+      1. The viewport opens as a draggable iframe overlay<br>
+      2. It loads the Hyperscape client in embedded mode<br>
+      3. Camera auto-follows the agent's character<br>
+      4. Controls are disabled (spectator mode)<br>
+      5. Drag the header to move, click expand to resize
+    </div>
+
+    <div class="info-box">
+      <strong>🌐 Available Endpoints:</strong><br>
+      • Viewport Route: <span class="code">http://localhost:3000/hyperscape/viewport/:agentId</span><br>
+      • UI Injector: <span class="code">http://localhost:3000/hyperscape/control-injector.js</span><br>
+      • Login Page: <span class="code">http://localhost:3000/hyperscape/auth</span>
+    </div>
+  </div>
+
+  <script>
+    // Function to open viewport iframe
+    function openViewport(agentId) {
+      // Check if viewport already exists
+      let viewportContainer = document.getElementById('hyperscape-viewport-' + agentId);
+
+      if (viewportContainer) {
+        // Toggle visibility
+        const isHidden = viewportContainer.style.display === 'none';
+        viewportContainer.style.display = isHidden ? 'block' : 'none';
+        return;
+      }
+
+      // Create viewport container
+      viewportContainer = document.createElement('div');
+      viewportContainer.id = 'hyperscape-viewport-' + agentId;
+      viewportContainer.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 640px;
+        height: 480px;
+        background: #1f2937;
+        border: 2px solid #667eea;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+      `;
+
+      // Create header
+      const header = document.createElement('div');
+      header.style.cssText = `
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: move;
+        user-select: none;
+      `;
+      header.innerHTML = `
+        <span style="font-size: 14px; font-weight: 600;">🎮 Agent Viewport - ${agentId}</span>
+        <div style="display: flex; gap: 6px;">
+          <button id="expand-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">⛶</button>
+          <button id="close-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">✕</button>
+        </div>
+      `;
+
+      // Create iframe
+      const iframe = document.createElement('iframe');
+      iframe.src = 'http://localhost:3000/hyperscape/viewport/' + encodeURIComponent(agentId);
+      iframe.style.cssText = `
+        width: 100%;
+        height: 100%;
+        border: none;
+        flex: 1;
+        background: #000;
+      `;
+      iframe.allow = 'autoplay; fullscreen';
+
+      viewportContainer.appendChild(header);
+      viewportContainer.appendChild(iframe);
+      document.body.appendChild(viewportContainer);
+
+      // Make draggable
+      let isDragging = false;
+      let currentX, currentY, initialX, initialY;
+
+      header.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        initialX = e.clientX - viewportContainer.offsetLeft;
+        initialY = e.clientY - viewportContainer.offsetTop;
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+        viewportContainer.style.left = currentX + 'px';
+        viewportContainer.style.top = currentY + 'px';
+        viewportContainer.style.right = 'auto';
+        viewportContainer.style.bottom = 'auto';
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // Close button
+      header.querySelector('#close-btn').addEventListener('click', () => {
+        viewportContainer.style.display = 'none';
+      });
+
+      // Expand button
+      let isExpanded = false;
+      header.querySelector('#expand-btn').addEventListener('click', () => {
+        if (isExpanded) {
+          viewportContainer.style.width = '640px';
+          viewportContainer.style.height = '480px';
+          isExpanded = false;
+        } else {
+          viewportContainer.style.width = '1024px';
+          viewportContainer.style.height = '768px';
+          isExpanded = true;
+        }
+      });
+
+      console.log('✅ Viewport opened for agent:', agentId);
+    }
+  </script>
+</body>
+</html>

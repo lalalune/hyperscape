@@ -19,6 +19,7 @@ This document outlines all port assignments for the Hyperscape ecosystem to ensu
 |---------|------|----------|-------------|
 | **ElizaOS Server** | `3000` | HTTP | ElizaOS API server (if running) |
 | **ElizaOS UI** | `4000` | HTTP | ElizaOS frontend UI (if running) |
+| **Plugin Frontend Dev** | `3001` | HTTP | Plugin frontend dev server (for testing components) |
 
 ## WebSocket Endpoints
 

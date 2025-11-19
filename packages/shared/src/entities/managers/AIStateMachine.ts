@@ -15,6 +15,9 @@ import type { Position3D } from "../../types";
 import { MobAIState } from "../../types/entities";
 
 export interface AIStateContext {
+  // Entity Info
+  getEntityId(): string;
+
   // Position & Movement
   getPosition(): Position3D;
   moveTowards(target: Position3D, deltaTime: number): void;
@@ -28,7 +31,7 @@ export interface AIStateContext {
 
   // Combat
   canAttack(currentTime: number): boolean;
-  performAttack(targetId: string, currentTime: number): void;
+  performAttack(targetId: string, currentTime: number): boolean;
   isInCombat(): boolean;
 
   // Spawn & Leashing
@@ -272,8 +275,14 @@ export class AttackState implements AIState {
     // Perform attack if cooldown ready
     const currentTime = context.getTime();
     if (context.canAttack(currentTime)) {
-      console.log(`[AttackState] ⚔️ Performing attack on ${targetId}`);
-      context.performAttack(targetId, currentTime);
+      // Only log when attack is actually performed (not just when cooldown is ready)
+      const attackPerformed = context.performAttack(targetId, currentTime);
+      if (attackPerformed) {
+        const mobId = context.getEntityId();
+        console.log(
+          `[AttackState] ⚔️ ${mobId} performing attack on ${targetId}`,
+        );
+      }
     }
 
     return null; // Stay in ATTACK

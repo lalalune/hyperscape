@@ -43,9 +43,11 @@ export class HyperscapeService
   private eventHandlers: Map<EventType, Array<(data: unknown) => void>>;
   private reconnectInterval: NodeJS.Timeout | null = null;
   private autoReconnect: boolean = true;
+  private authToken: string | undefined;
+  private privyUserId: string | undefined;
 
-  constructor() {
-    super();
+  constructor(runtime?: IAgentRuntime) {
+    super(runtime);
 
     this.gameState = {
       playerEntity: null,
@@ -63,19 +65,43 @@ export class HyperscapeService
     };
 
     this.eventHandlers = new Map();
+    this.logBuffer = [];
   }
 
-  async start(runtime: IAgentRuntime): Promise<void> {
-    this.runtime = runtime;
-    logger.info("[HyperscapeService] Service started");
+  private logBuffer: Array<{ timestamp: number; type: string; data: any }>;
+
+  static async start(runtime: IAgentRuntime): Promise<Service> {
+    logger.info("[HyperscapeService] Starting service");
+    const service = new HyperscapeService(runtime);
 
     // Get server URL from environment or use default
     const serverUrl =
-      process.env.HYPERSCAPE_SERVER_URL || "ws://localhost:3000";
-    this.autoReconnect = process.env.HYPERSCAPE_AUTO_RECONNECT !== "false";
+      process.env.HYPERSCAPE_SERVER_URL || "ws://localhost:5555/ws";
+    service.autoReconnect = process.env.HYPERSCAPE_AUTO_RECONNECT !== "false";
+
+    // Get auth tokens from environment or agent settings
+    service.authToken = process.env.HYPERSCAPE_AUTH_TOKEN;
+    service.privyUserId = process.env.HYPERSCAPE_PRIVY_USER_ID;
+
+    // Try to get from agent settings if not in env
+    if (!service.authToken && runtime.agentId) {
+      const settings = runtime.getSetting("HYPERSCAPE_AUTH_TOKEN");
+      if (settings) {
+        service.authToken = String(settings);
+      }
+    }
+    if (!service.privyUserId && runtime.agentId) {
+      const settings = runtime.getSetting("HYPERSCAPE_PRIVY_USER_ID");
+      if (settings) {
+        service.privyUserId = String(settings);
+      }
+    }
 
     // Connect to server
-    await this.connect(serverUrl);
+    await service.connect(serverUrl);
+
+    logger.info("[HyperscapeService] Service started and connected");
+    return service;
   }
 
   async stop(): Promise<void> {
@@ -104,7 +130,20 @@ export class HyperscapeService
 
     return new Promise((resolve, reject) => {
       try {
-        this.ws = new WebSocket(serverUrl);
+        // Build WebSocket URL with auth tokens as query params (matching Hyperscape client pattern)
+        let wsUrl = serverUrl;
+        if (this.authToken) {
+          const separator = serverUrl.includes("?") ? "&" : "?";
+          wsUrl = `${serverUrl}${separator}authToken=${encodeURIComponent(this.authToken)}`;
+          if (this.privyUserId) {
+            wsUrl += `&privyUserId=${encodeURIComponent(this.privyUserId)}`;
+          }
+        }
+
+        logger.info(
+          `[HyperscapeService] Connecting to ${wsUrl.replace(/authToken=[^&]+/, "authToken=***")}`,
+        );
+        this.ws = new WebSocket(wsUrl);
 
         this.ws.on("open", () => {
           this.connectionState.connected = true;
@@ -144,6 +183,30 @@ export class HyperscapeService
         reject(error);
       }
     });
+  }
+
+  /**
+   * Build WebSocket URL with auth tokens as query parameters
+   */
+  private buildWebSocketUrl(baseUrl: string): string {
+    if (!this.authToken) {
+      return baseUrl;
+    }
+    const separator = baseUrl.includes("?") ? "&" : "?";
+    let url = `${baseUrl}${separator}authToken=${encodeURIComponent(this.authToken)}`;
+    if (this.privyUserId) {
+      url += `&privyUserId=${encodeURIComponent(this.privyUserId)}`;
+    }
+    return url;
+  }
+
+  /**
+   * Set authentication tokens for future connections
+   */
+  setAuthToken(authToken: string, privyUserId?: string): void {
+    this.authToken = authToken;
+    this.privyUserId = privyUserId;
+    logger.info("[HyperscapeService] Auth token updated");
   }
 
   /**
@@ -187,11 +250,15 @@ export class HyperscapeService
       this.connectionState.reconnectAttempts++;
 
       try {
-        const serverUrl =
-          process.env.HYPERSCAPE_SERVER_URL || "ws://localhost:3000";
+        const baseUrl =
+          process.env.HYPERSCAPE_SERVER_URL || "ws://localhost:5555/ws";
+        const serverUrl = this.buildWebSocketUrl(baseUrl);
         await this.connect(serverUrl);
       } catch (error) {
-        logger.error({ error }, "[HyperscapeService] Reconnection failed:");
+        logger.error(
+          "[HyperscapeService] Reconnection failed:",
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }, backoffMs);
   }
@@ -201,7 +268,30 @@ export class HyperscapeService
    */
   private handleMessage(data: WebSocket.Data): void {
     try {
-      const message = JSON.parse(data.toString()) as NetworkEvent;
+      // Check if data is binary (Buffer or ArrayBuffer)
+      // Hyperscape uses binary msgpackr protocol, so we skip binary messages
+      if (Buffer.isBuffer(data) || data instanceof ArrayBuffer) {
+        // Binary data - skip parsing (Hyperscape uses msgpackr binary protocol)
+        // These are likely game state updates, snapshots, or other binary packets
+        // We'll handle them when we implement proper msgpackr decoding
+        return;
+      }
+
+      // Try to parse as text/JSON
+      const text = data.toString();
+
+      // Skip empty messages
+      if (!text || text.trim().length === 0) {
+        return;
+      }
+
+      // Check if it looks like JSON (starts with { or [)
+      if (!text.trim().startsWith("{") && !text.trim().startsWith("[")) {
+        // Not JSON, likely binary data converted to string (contains '�')
+        return;
+      }
+
+      const message = JSON.parse(text) as NetworkEvent;
 
       // Update game state based on event type
       this.updateGameState(message);
@@ -209,10 +299,20 @@ export class HyperscapeService
       // Broadcast to registered event handlers
       this.broadcastEvent(message.type, message.data);
     } catch (error) {
-      logger.error(
-        "[HyperscapeService] Failed to parse message:",
-        error instanceof Error ? error.message : String(error),
-      );
+      // Only log errors for actual JSON parse failures, not binary data
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      // Skip logging binary data parse errors (they contain "Unrecognized token" and "�")
+      if (
+        !errorMessage.includes("Unrecognized token") &&
+        !errorMessage.includes("�")
+      ) {
+        logger.error(
+          "[HyperscapeService] Failed to parse message:",
+          errorMessage,
+        );
+      }
+      // Silently ignore binary data parse errors
     }
   }
 
@@ -267,6 +367,18 @@ export class HyperscapeService
    * Broadcast event to registered handlers
    */
   private broadcastEvent(eventType: EventType, data: unknown): void {
+    // Store in log buffer
+    this.logBuffer.unshift({
+      timestamp: Date.now(),
+      type: eventType,
+      data,
+    });
+
+    // Keep buffer size limited
+    if (this.logBuffer.length > 100) {
+      this.logBuffer.pop();
+    }
+
     const handlers = this.eventHandlers.get(eventType);
     if (handlers) {
       handlers.forEach((handler) => {
@@ -324,6 +436,13 @@ export class HyperscapeService
    */
   getGameState(): GameStateCache {
     return { ...this.gameState };
+  }
+
+  /**
+   * Get recent game logs
+   */
+  getLogs(): Array<{ timestamp: number; type: string; data: any }> {
+    return [...this.logBuffer];
   }
 
   /**

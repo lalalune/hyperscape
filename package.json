@@ -29,7 +29,9 @@
     "build:server": "cd packages/server && bun run build",
     "build:all": "bun run build",
     "predev": "bun scripts/dev-setup.mjs",
-    "dev": "turbo run dev --filter='!3d-asset-forge'",
+    "dev": "bun scripts/dev-with-elizaos.mjs",
+    "dev:turbo": "turbo run dev --filter='!3d-asset-forge'",
+    "dev:elizaos": "START_ELIZAOS=true bun scripts/dev-with-elizaos.mjs",
     "dev:all": "turbo run dev --filter='!3d-asset-forge'",
     "dev:shared": "cd packages/shared && bun run dev",
     "dev:client": "cd packages/client && bun run dev",
@@ -61,6 +63,7 @@
   "devDependencies": {
     "@docusaurus/core": "^3.9.1",
     "@docusaurus/preset-classic": "^3.9.1",
+    "@elizaos/cli": "^1.6.4",
     "@eslint/js": "^9.0.0",
     "@types/node": "^24.8.0",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
@@ -100,6 +103,7 @@
     "*.{js,jsx}": "prettier --write"
   },
   "dependencies": {
+    "@hyperscape/plugin-hyperscape": "workspace:*",
     "@rollup/rollup-darwin-x64": "^4.52.4",
     "@types/pg": "^8.15.5",
     "better-sqlite3": "^12.2.0",

@@ -1,8 +1,11 @@
 /**
- * Direct script loader for PhysX
- * This loads PhysX by directly injecting the script tag
+ * PhysX ES Module Loader
+ *
+ * Loads PhysX using dynamic import() since the PhysX build is an ES module.
+ * ES modules cannot be loaded via regular script tags - they must use import()
+ * or script tags with type="module". This loader uses dynamic import() and
+ * attaches the PhysX function to window.PhysX for compatibility.
  */
-
 import type PhysX from "@hyperscape/physx-js-webidl";
 import type { PhysXModule } from "../types/systems/physics";
 
@@ -20,60 +23,43 @@ export async function loadPhysXScript(
     return w.PhysX!(options);
   }
 
-  return new Promise((resolve, reject) => {
-    // Check again in case it was loaded while we were waiting
-    if (w.PhysX) {
-      w.PhysX!(options).then(resolve).catch(reject);
-      return;
+  // Get CDN URL
+  const windowWithCdn = window as Window & { __CDN_URL?: string };
+  const cdnUrl = windowWithCdn.__CDN_URL || "http://localhost:8080";
+  const scriptUrl = `${cdnUrl}/web/physx-js-webidl.js`;
+
+  try {
+    // Use dynamic import for ES modules
+    // The PhysX build is an ES module, so we need to use import() instead of script tags
+    const physxModule = await import(/* @vite-ignore */ scriptUrl);
+    const PhysXFn = physxModule.default || physxModule;
+
+    if (typeof PhysXFn !== "function") {
+      throw new Error(
+        "PhysX module did not export a function. Got: " + typeof PhysXFn,
+      );
     }
 
-    const script = document.createElement("script");
-    // Load from CDN (always absolute URL to avoid Vite conflicts)
-    const windowWithCdn = window as Window & { __CDN_URL?: string };
-    const cdnUrl = windowWithCdn.__CDN_URL || "http://localhost:8080";
-    const scriptUrl = `${cdnUrl}/web/physx-js-webidl.js`;
+    // Attach to window for future lookups
+    if (!w.PhysX) {
+      w.PhysX = PhysXFn as typeof PhysX;
+    }
 
-    script.src = scriptUrl;
-    script.async = true;
-
-    script.onload = () => {
-      // Give it a moment to initialize
-      setTimeout(() => {
-        const w2 = window as PhysXWindow;
-        if (w2.PhysX) {
-          const PhysXFn = w2.PhysX!;
-          PhysXFn(options)
-            .then((physx) => {
-              resolve(physx);
-            })
-            .catch((error) => {
-              console.error(
-                "[physx-script-loader] PhysX initialization failed:",
-                error,
-              );
-              reject(error);
-            });
-        } else {
-          console.error(
-            "[physx-script-loader] PhysX function not found after script load",
-          );
-          reject(
-            new Error("PhysX global function not found after script load"),
-          );
-        }
-      }, 100);
-    };
-
-    script.onerror = (error) => {
-      console.error(
-        "[physx-script-loader] Failed to load PhysX script:",
-        error,
-      );
-      reject(new Error("Failed to load PhysX script"));
-    };
-
-    document.head.appendChild(script);
-  });
+    // Initialize PhysX with options
+    const physx = await PhysXFn(options);
+    return physx;
+  } catch (error) {
+    console.error(
+      "[physx-script-loader] Failed to load PhysX via dynamic import:",
+      error,
+    );
+    // Re-throw with more context
+    throw new Error(
+      `Failed to load PhysX module from ${scriptUrl}. ` +
+        `The PhysX build must be an ES module. ` +
+        `Original error: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 export default loadPhysXScript;
