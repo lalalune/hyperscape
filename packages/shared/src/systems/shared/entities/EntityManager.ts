@@ -614,15 +614,10 @@ export class EntityManager extends SystemBase {
 
     // Get NPC data to access modelPath
     const npcDataFromDB = getNPCById(mobType);
-    let modelPath = npcDataFromDB?.appearance.modelPath;
+    const modelPath = npcDataFromDB?.appearance.modelPath;
 
     if (!modelPath) {
       throw new Error(`[EntityManager] Mob ${mobType} has no model path`);
-    }
-
-    // CRITICAL: Always use VRM for goblins (override NPC data which may specify GLB)
-    if (mobType === "goblin") {
-      modelPath = "asset://models/goblin/goblin.vrm";
     }
 
     // CRITICAL FIX: Always use the provided customId to ensure client/server ID consistency
