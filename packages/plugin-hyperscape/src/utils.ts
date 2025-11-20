@@ -195,20 +195,24 @@ export function randomPositionInRadius(
 /**
  * Parse Hyperscape world URL to extract world ID
  * @param url - Hyperscape world URL
- * @returns World ID
+ * @returns World ID or null if invalid URL
  */
-export function parseHyperscapeWorldUrl(url: string): string {
-  const urlObj = new URL(url);
-  // Handle different Hyperscape URL formats
-  // e.g., https://hyperscape.io/world-name or https://custom-domain.com
-  const pathParts = urlObj.pathname.split("/").filter(Boolean);
+export function parseHyperscapeWorldUrl(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    // Handle different Hyperscape URL formats
+    // e.g., https://hyperscape.io/world-name or https://custom-domain.com
+    const pathParts = urlObj.pathname.split("/").filter(Boolean);
 
-  if (urlObj.hostname.includes("hyperscape.io") && pathParts.length > 0) {
-    return pathParts[0];
+    if (urlObj.hostname.includes("hyperscape.io") && pathParts.length > 0) {
+      return pathParts[0];
+    }
+
+    // For custom domains, the entire domain might be the world ID
+    return urlObj.hostname;
+  } catch (_error) {
+    return null;
   }
-
-  // For custom domains, the entire domain might be the world ID
-  return urlObj.hostname;
 }
 
 /**
