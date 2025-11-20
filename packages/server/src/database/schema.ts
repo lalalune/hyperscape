@@ -221,10 +221,14 @@ export const characters = pgTable(
     // Avatar and wallet
     avatar: text("avatar"),
     wallet: text("wallet"),
+
+    // Agent flag - true if this character is controlled by an AI agent (ElizaOS)
+    isAgent: integer("isAgent").default(0).notNull(), // SQLite: 0=false, 1=true
   },
   (table) => ({
     accountIdx: index("idx_characters_account").on(table.accountId),
     walletIdx: index("idx_characters_wallet").on(table.wallet),
+    isAgentIdx: index("idx_characters_is_agent").on(table.isAgent),
   }),
 );
 

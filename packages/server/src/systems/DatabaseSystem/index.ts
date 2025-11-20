@@ -263,6 +263,7 @@ export class DatabaseSystem extends SystemBase {
     name: string,
     avatar?: string,
     wallet?: string,
+    isAgent?: boolean,
   ): Promise<boolean> {
     return this.characterRepository.createCharacter(
       accountId,
@@ -270,6 +271,7 @@ export class DatabaseSystem extends SystemBase {
       name,
       avatar,
       wallet,
+      isAgent,
     );
   }
 

@@ -80,6 +80,9 @@ export {
 // Export item helpers used by server network snapshot
 export { getItem } from "./data/items";
 
+// Export avatar options for character creation
+export { AVATAR_OPTIONS } from "./data/avatars";
+
 // Export CLIENT system classes only (NO SERVER SYSTEMS)
 export { Entities } from "./systems/shared";
 export { Physics } from "./systems/shared";

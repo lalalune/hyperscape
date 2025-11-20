@@ -145,16 +145,32 @@ export async function authenticateUser(
     }
   }
 
-  // Fall back to legacy JWT authentication if Privy didn't work
+  // Fall back to Hyperscape JWT authentication if Privy didn't work
   if (!user && authToken) {
     try {
       const jwtPayload = await verifyJWT(authToken);
       if (jwtPayload && jwtPayload.userId) {
+        // Check if this is an agent token
+        const isAgent = jwtPayload.isAgent === true;
+        const characterId = jwtPayload.characterId as string | undefined;
+
+        if (isAgent && characterId) {
+          console.log(
+            `[Authentication] 🤖 Agent JWT detected for character: ${characterId}`,
+          );
+        } else {
+          console.log("[Authentication] 🔐 Hyperscape JWT detected");
+        }
+
+        // Look up user account
         const dbResult = await db("users")
           .where("id", jwtPayload.userId as string)
           .first();
         if (dbResult) {
           user = dbResult as User;
+          console.log(
+            `[Authentication] ✅ JWT verified for ${isAgent ? "agent" : "user"}: ${user.id}`,
+          );
         }
       }
     } catch (err) {

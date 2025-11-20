@@ -210,8 +210,7 @@ function App() {
 }
 
 import { DashboardScreen } from "./screens/DashboardScreen";
-
-// ... existing imports ...
+import { CharacterEditorScreen } from "./screens/CharacterEditorScreen";
 
 function mountApp() {
   const rootElement = document.getElementById("root")!;
@@ -230,15 +229,26 @@ function mountApp() {
       </ErrorBoundary>,
     );
   } else {
-    // Check for dashboard mode
+    // Check for special page modes
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("page") === "dashboard") {
+    const page = urlParams.get("page");
+
+    if (page === "dashboard") {
       console.log(
         "[Hyperscape] Dashboard mode detected - rendering DashboardScreen",
       );
       root.render(
         <ErrorBoundary>
           <DashboardScreen />
+        </ErrorBoundary>,
+      );
+    } else if (page === "character-editor") {
+      console.log(
+        "[Hyperscape] Character editor mode detected - rendering CharacterEditorScreen",
+      );
+      root.render(
+        <ErrorBoundary>
+          <CharacterEditorScreen />
         </ErrorBoundary>,
       );
     } else {

@@ -7,14 +7,28 @@
       "version": "7",
       "when": 1700000000000,
       "tag": "0000_numerous_korvac",
-      "breakpoints": false
+      "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
       "when": 1730688000000,
       "tag": "0001_add_npc_kills_table",
-      "breakpoints": false
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1732056660000,
+      "tag": "0002_add_character_avatar_wallet",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1763611532580,
+      "tag": "0003_add_is_agent_column",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,8 @@ interface DashboardLayoutProps {
   selectedAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
   onCreateAgent: () => void;
+  onStartAgent: (agentId: string) => void;
+  onStopAgent: (agentId: string) => void;
   children: React.ReactNode;
 }
 
@@ -15,6 +17,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   selectedAgentId,
   onSelectAgent,
   onCreateAgent,
+  onStartAgent,
+  onStopAgent,
   children,
 }) => {
   return (
@@ -25,6 +29,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         selectedAgentId={selectedAgentId}
         onSelectAgent={onSelectAgent}
         onCreateAgent={onCreateAgent}
+        onStartAgent={onStartAgent}
+        onStopAgent={onStopAgent}
       />
 
       {/* Main Content Area */}

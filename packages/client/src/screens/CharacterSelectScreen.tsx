@@ -2,15 +2,36 @@
  * CharacterSelectScreen.tsx - Character Selection Screen
  *
  * UI for selecting or creating a character before entering the world.
+ *
+ * ## Wallet Architecture (Privy HD Wallets)
+ *
+ * This screen uses Privy's Hierarchical Deterministic (HD) wallet system.
+ * Each user has ONE seed phrase that derives multiple wallets:
+ *
+ * - HD Index 0: User's main wallet (created automatically on first login via Privy config)
+ * - HD Index 1: First character's wallet
+ * - HD Index 2: Second character's wallet
+ * - HD Index N: Nth character's wallet
+ *
+ * All wallets are:
+ * - Derived from the same BIP-44 seed: m/44'/60'/0'/0/{index}
+ * - Backed up automatically by Privy
+ * - Recoverable from the user's main wallet
+ * - Managed by Privy (no manual private key handling)
+ *
+ * This means users authenticate ONCE, then all character wallets are
+ * created seamlessly without additional signatures or prompts.
  */
 
-import { readPacket, writePacket, storage } from "@hyperscape/shared";
+import {
+  readPacket,
+  writePacket,
+  storage,
+  AVATAR_OPTIONS,
+} from "@hyperscape/shared";
 import React from "react";
 import { CharacterPreview } from "../components/CharacterPreview";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { deriveCharacterWallet } from "../utils/wallet";
-import { createWalletClient, custom } from "viem";
-import { mainnet } from "viem/chains";
+import { usePrivy, useCreateWallet } from "@privy-io/react-auth";
 
 type Character = { id: string; name: string; wallet?: string };
 
@@ -156,6 +177,22 @@ const MusicToggleButton = () => {
   );
 };
 
+// Agent Dashboard Button Component
+const AgentDashboardButton = () => {
+  return (
+    <a
+      href="http://localhost:3333/?page=dashboard"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="fixed bottom-4 right-4 z-50 bg-black/60 hover:bg-black/80 text-[#f2d08a] rounded-lg px-4 py-2 border border-[#f2d08a]/30 hover:border-[#f2d08a]/60 transition-all flex items-center gap-2 backdrop-blur-sm shadow-lg"
+      title="Open Agent Dashboard"
+    >
+      <span className="text-xl">⚔️</span>
+      <span className="text-sm font-medium">Agent Dashboard</span>
+    </a>
+  );
+};
+
 export function CharacterSelectScreen({
   wsUrl,
   onPlay,
@@ -178,15 +215,65 @@ export function CharacterSelectScreen({
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [selectedAvatarIndex, setSelectedAvatarIndex] = React.useState(0);
   const [creatingCharacter, setCreatingCharacter] = React.useState(false);
+  // Check if we're creating an agent from dashboard
+  const urlParams = new URLSearchParams(window.location.search);
+  const createAgentMode = urlParams.get("createAgent") === "true";
 
-  // Available VRM avatars
-  const avatarOptions = [
-    { name: "Default Avatar", url: "http://localhost:8080/avatar.vrm" },
-  ];
+  const [characterType, setCharacterType] = React.useState<"human" | "agent">(
+    createAgentMode ? "agent" : "human",
+  );
+  const [elizaOSAvailable, setElizaOSAvailable] = React.useState(false);
+  const [checkingElizaOS, setCheckingElizaOS] = React.useState(true);
 
   // Privy hooks
   const { user } = usePrivy();
-  const { wallets } = useWallets();
+  const { createWallet } = useCreateWallet();
+
+  // Check if ElizaOS is available with Hyperscape plugin
+  React.useEffect(() => {
+    const checkElizaOS = async () => {
+      try {
+        // Check if ElizaOS API is running
+        const response = await fetch("http://localhost:3000/api/agents", {
+          method: "GET",
+        });
+
+        if (!response.ok) {
+          setElizaOSAvailable(false);
+          setCheckingElizaOS(false);
+          return;
+        }
+
+        // ElizaOS is running - assume Hyperscape plugin is available
+        // (Plugin availability is verified during agent creation)
+        setElizaOSAvailable(true);
+        console.log("[CharacterSelect] ✅ ElizaOS detected and available");
+      } catch (error) {
+        console.log(
+          "[CharacterSelect] ℹ️ ElizaOS not detected (AI agents disabled)",
+        );
+        setElizaOSAvailable(false);
+      } finally {
+        setCheckingElizaOS(false);
+      }
+    };
+
+    checkElizaOS();
+  }, []);
+
+  // Auto-open create form if in createAgent mode
+  React.useEffect(() => {
+    if (createAgentMode && !showCreate && !checkingElizaOS) {
+      if (elizaOSAvailable) {
+        setShowCreate(true);
+      } else {
+        // ElizaOS not available, show error
+        setErrorMessage(
+          "ElizaOS is not running. Please start ElizaOS to create AI agents.",
+        );
+      }
+    }
+  }, [createAgentMode, showCreate, checkingElizaOS, elizaOSAvailable]);
   const preWsRef = React.useRef<WebSocket | null>(null);
   const pendingActionRef = React.useRef<null | {
     type: "create";
@@ -298,9 +385,30 @@ export function CharacterSelectScreen({
           const newList = [...prev, c];
           return newList;
         });
-        // Immediately select newly created character and go to confirm view
+
+        // AGENT FLOW: Redirect to character editor to customize agent personality
+        // HUMAN FLOW: Show "Enter World" confirmation screen
+        if (characterType === "agent") {
+          console.log(
+            "[CharacterSelect] 🤖 Agent character created, redirecting to character editor...",
+          );
+
+          // Redirect to character editor with character details
+          const params = new URLSearchParams({
+            characterId: c.id,
+            name: c.name,
+            wallet: c.wallet || "",
+            avatar: AVATAR_OPTIONS[selectedAvatarIndex]?.url || "",
+          });
+
+          window.location.href = `/?page=character-editor&${params.toString()}`;
+          return; // Exit early - agents go to character editor, NOT to "Enter World"
+        }
+
+        // HUMAN FLOW: Show "Enter World" confirmation screen
+        // This ONLY runs for human players (agents exit early above)
         setSelectedCharacterId(c.id);
-        setView("confirm");
+        setView("confirm"); // Show the "Enter World" confirmation screen
         setShowCreate(false);
         const ws = preWsRef.current!;
         if (ws.readyState === WebSocket.OPEN) {
@@ -357,39 +465,56 @@ export function CharacterSelectScreen({
       return;
     }
 
+    // Prevent agent creation if ElizaOS is not available
+    if (characterType === "agent" && !elizaOSAvailable) {
+      setErrorMessage(
+        "Cannot create AI agent: ElizaOS is not running. Please start ElizaOS first.",
+      );
+      return;
+    }
+
     setCreatingCharacter(true);
     setErrorMessage(null);
 
     try {
-      // Derive wallet for character
+      // Create HD wallet for character using Privy's native HD wallet system
       let walletAddress: string | undefined;
 
-      if (wallets.length > 0 && user) {
-        const wallet = wallets[0];
-        const provider = await wallet.getEthereumProvider();
-
-        const walletClient = createWalletClient({
-          chain: mainnet,
-          transport: custom(provider),
-        });
-
-        const characterIndex = characters.length; // Use current count as index
-        const derived = await deriveCharacterWallet(
-          walletClient,
-          wallet.address,
-          name,
-          characterIndex,
-        );
-
-        walletAddress = derived.address;
+      if (user) {
+        // Privy's HD wallet system creates additional wallets sequentially
+        // The first call creates wallet at index 0, subsequent calls create wallets at indices 1, 2, 3, etc.
+        // All wallets use Privy's BIP-44 derivation path: m/44'/60'/0'/0/{index}
         console.log(
-          "[CharacterSelect] ✅ Derived wallet for character:",
-          walletAddress,
+          `[CharacterSelect] 🔑 Creating additional HD wallet for character "${name}"`,
         );
+
+        try {
+          // Create an additional HD wallet in the sequence
+          // Privy manages the index internally - we just request a new wallet
+          const characterWallet = await createWallet({
+            createAdditional: true,
+          });
+
+          walletAddress = characterWallet.address;
+          console.log(`[CharacterSelect] ✅ HD wallet created:`, walletAddress);
+        } catch (walletError) {
+          console.error(
+            "[CharacterSelect] ❌ Failed to create HD wallet:",
+            walletError,
+          );
+          setErrorMessage(
+            "Failed to create wallet for character. Please try again.",
+          );
+          setCreatingCharacter(false);
+          return;
+        }
       } else {
         console.warn(
-          "[CharacterSelect] ⚠️ No wallet available, character will have no wallet",
+          "[CharacterSelect] ⚠️ No user authenticated, character will have no wallet",
         );
+        setErrorMessage("You must be logged in to create a character.");
+        setCreatingCharacter(false);
+        return;
       }
 
       const ws = preWsRef.current;
@@ -406,7 +531,8 @@ export function CharacterSelectScreen({
       const packet = writePacket("characterCreate", {
         name,
         wallet: walletAddress,
-        avatar: avatarOptions[selectedAvatarIndex].url,
+        avatar: AVATAR_OPTIONS[selectedAvatarIndex].url,
+        isAgent: characterType === "agent",
       });
       ws.send(packet);
 
@@ -420,11 +546,12 @@ export function CharacterSelectScreen({
     }
   }, [
     newCharacterName,
-    wallets,
     user,
     characters.length,
     selectedAvatarIndex,
-    avatarOptions,
+    createWallet,
+    characterType,
+    elizaOSAvailable,
   ]);
 
   const enterWorld = React.useCallback(() => {
@@ -446,6 +573,7 @@ export function CharacterSelectScreen({
   return (
     <div className="absolute inset-0 overflow-hidden">
       <MusicToggleButton />
+      <AgentDashboardButton />
       <div
         className="absolute inset-0"
         style={{
@@ -566,7 +694,7 @@ export function CharacterSelectScreen({
                   {/* 3D Preview Section */}
                   <div className="relative w-full h-96 bg-black/60 rounded-lg overflow-hidden border border-[#f2d08a]/30">
                     <CharacterPreview
-                      vrmUrl={avatarOptions[selectedAvatarIndex].url}
+                      vrmUrl={AVATAR_OPTIONS[selectedAvatarIndex].previewUrl}
                       className="w-full h-full"
                     />
 
@@ -576,8 +704,8 @@ export function CharacterSelectScreen({
                         onClick={() =>
                           setSelectedAvatarIndex(
                             (prev) =>
-                              (prev - 1 + avatarOptions.length) %
-                              avatarOptions.length,
+                              (prev - 1 + AVATAR_OPTIONS.length) %
+                              AVATAR_OPTIONS.length,
                           )
                         }
                         className="px-3 py-1 bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded transition-colors"
@@ -585,12 +713,12 @@ export function CharacterSelectScreen({
                         ‹
                       </button>
                       <span className="text-[#f2d08a] text-sm font-medium min-w-[120px] text-center">
-                        {avatarOptions[selectedAvatarIndex].name}
+                        {AVATAR_OPTIONS[selectedAvatarIndex].name}
                       </span>
                       <button
                         onClick={() =>
                           setSelectedAvatarIndex(
-                            (prev) => (prev + 1) % avatarOptions.length,
+                            (prev) => (prev + 1) % AVATAR_OPTIONS.length,
                           )
                         }
                         className="px-3 py-1 bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded transition-colors"
@@ -599,6 +727,81 @@ export function CharacterSelectScreen({
                       </button>
                     </div>
                   </div>
+
+                  {/* Character Type Selection */}
+                  {!checkingElizaOS && (
+                    <div className="w-full rounded bg-black/60 border border-[#f2d08a]/30 p-4">
+                      <div className="text-[#f2d08a] text-sm font-semibold mb-3">
+                        Character Type
+                      </div>
+                      <div className="flex gap-4">
+                        <label className="flex-1 flex items-center gap-3 p-3 rounded-lg border-2 border-[#f2d08a]/30 bg-black/40 cursor-pointer transition-all hover:border-[#f2d08a]/60 hover:bg-black/60">
+                          <input
+                            type="radio"
+                            name="characterType"
+                            value="human"
+                            checked={characterType === "human"}
+                            onChange={(e) =>
+                              setCharacterType(
+                                e.target.value as "human" | "agent",
+                              )
+                            }
+                            className="w-4 h-4 text-[#f2d08a] accent-[#f2d08a]"
+                          />
+                          <div className="flex-1">
+                            <div className="text-[#f2d08a] font-medium">
+                              🎮 Human Player
+                            </div>
+                            <div className="text-[#e8ebf4]/60 text-xs mt-1">
+                              Play yourself
+                            </div>
+                          </div>
+                        </label>
+                        {elizaOSAvailable ? (
+                          <label className="flex-1 flex items-center gap-3 p-3 rounded-lg border-2 border-[#f2d08a]/30 bg-black/40 cursor-pointer transition-all hover:border-[#f2d08a]/60 hover:bg-black/60">
+                            <input
+                              type="radio"
+                              name="characterType"
+                              value="agent"
+                              checked={characterType === "agent"}
+                              onChange={(e) =>
+                                setCharacterType(
+                                  e.target.value as "human" | "agent",
+                                )
+                              }
+                              className="w-4 h-4 text-[#f2d08a] accent-[#f2d08a]"
+                            />
+                            <div className="flex-1">
+                              <div className="text-[#f2d08a] font-medium">
+                                🤖 AI Agent
+                              </div>
+                              <div className="text-[#e8ebf4]/60 text-xs mt-1">
+                                Autonomous AI
+                              </div>
+                            </div>
+                          </label>
+                        ) : (
+                          <div className="flex-1 flex items-center gap-3 p-3 rounded-lg border-2 border-[#8b4513]/20 bg-black/20 opacity-50">
+                            <input
+                              type="radio"
+                              name="characterType"
+                              value="agent"
+                              disabled
+                              className="w-4 h-4 text-gray-500 accent-gray-500"
+                            />
+                            <div className="flex-1">
+                              <div className="text-[#e8ebf4]/40 font-medium">
+                                🤖 AI Agent
+                              </div>
+                              <div className="text-[#e8ebf4]/30 text-xs mt-1">
+                                Requires ElizaOS
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Name Input Form */}
                   <form
@@ -646,6 +849,7 @@ export function CharacterSelectScreen({
                       setShowCreate(false);
                       setNewCharacterName("");
                       setSelectedAvatarIndex(0);
+                      setCharacterType("human"); // Reset to default
                     }}
                   >
                     Cancel
