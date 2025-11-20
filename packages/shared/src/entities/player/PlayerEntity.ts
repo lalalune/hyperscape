@@ -473,7 +473,7 @@ export class PlayerEntity extends CombatantEntity {
     });
 
     this.addComponent("stats", {
-      // Combat skills - use loaded values from playerData.skills (guaranteed to exist)
+      // Combat skills - store FULL SkillData objects for SkillsSystem
       attack: playerData.skills.attack,
       strength: playerData.skills.strength,
       defense: playerData.skills.defense,

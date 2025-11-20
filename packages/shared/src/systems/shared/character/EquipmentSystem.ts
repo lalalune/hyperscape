@@ -296,23 +296,66 @@ export class EquipmentSystem extends SystemBase {
   }
 
   private equipStartingItems(playerId: string): void {
+    console.log(
+      "[EquipmentSystem] ⚠️ equipStartingItems() called for:",
+      playerId,
+    );
+    console.log(
+      "[EquipmentSystem] ⚠️ This should ONLY happen for NEW players with NO saved equipment!",
+    );
+    console.trace("[EquipmentSystem] Stack trace for equipStartingItems:");
+
     // Per GDD, players start with bronze sword equipped
     const bronzeSword = this.getItemData("bronze_sword");
     if (bronzeSword) {
+      console.log(
+        "[EquipmentSystem] 🗡️ Force-equipping bronze sword for new player:",
+        playerId,
+      );
       this.forceEquipItem(playerId, bronzeSword, "weapon");
     }
   }
 
   private async loadEquipmentFromDatabase(playerId: string): Promise<void> {
-    if (!this.databaseSystem) return;
+    if (!this.databaseSystem) {
+      console.warn(
+        "[EquipmentSystem] ⚠️ No database system - cannot load equipment for:",
+        playerId,
+      );
+      return;
+    }
+
+    console.log(
+      "[EquipmentSystem] 📂 Loading equipment from database for:",
+      playerId,
+    );
 
     // Use playerId directly - database layer handles character ID mapping
     const dbEquipment =
       await this.databaseSystem.getPlayerEquipmentAsync(playerId);
 
+    console.log(
+      "[EquipmentSystem] 📦 Database returned:",
+      dbEquipment?.length || 0,
+      "equipment items for player:",
+      playerId,
+    );
+    if (dbEquipment && dbEquipment.length > 0) {
+      console.log(
+        "[EquipmentSystem] 📋 Equipment items from DB:",
+        dbEquipment.map((e) => `${e.slotType}: ${e.itemId}`).join(", "),
+      );
+    }
+
     if (dbEquipment && dbEquipment.length > 0) {
       const equipment = this.playerEquipment.get(playerId);
-      if (!equipment) return;
+      if (!equipment) {
+        console.error(
+          "[EquipmentSystem] ❌ Equipment object not found for player:",
+          playerId,
+        );
+        return;
+      }
 
       // Load equipped items from database
       for (const dbItem of dbEquipment) {
@@ -320,6 +363,9 @@ export class EquipmentSystem extends SystemBase {
 
         const itemData = this.getItemData(dbItem.itemId);
         if (itemData && dbItem.slotType) {
+          console.log(
+            `[EquipmentSystem] ✅ Loading ${dbItem.slotType}: ${dbItem.itemId} (${itemData.name})`,
+          );
           const slot = equipment[dbItem.slotType as keyof PlayerEquipment];
           // Strong type assumption - slot is EquipmentSlot if it exists
           if (
@@ -332,6 +378,10 @@ export class EquipmentSystem extends SystemBase {
             equipSlot.itemId = dbItem.itemId;
             equipSlot.item = itemData;
           }
+        } else {
+          console.warn(
+            `[EquipmentSystem] ⚠️ Failed to load item: ${dbItem.itemId} for slot: ${dbItem.slotType}`,
+          );
         }
       }
 
@@ -354,12 +404,12 @@ export class EquipmentSystem extends SystemBase {
       console.log(
         "[EquipmentSystem] No equipment found in database for player:",
         playerId,
-        "- equipping starting items",
+        "- starting with empty equipment",
       );
-      // New player - equip starting items (bronze sword)
-      this.equipStartingItems(playerId);
+      // NEW PLAYERS START WITH EMPTY EQUIPMENT
+      // Starting items (like bronze sword) should be in INVENTORY, not equipped
 
-      // Send starting equipment to client
+      // Send empty equipment to client
       if (this.world.isServer && this.world.network?.send) {
         const equipmentData = this.getPlayerEquipment(playerId);
         this.world.network.send("equipmentUpdated", {
@@ -371,10 +421,22 @@ export class EquipmentSystem extends SystemBase {
   }
 
   private async saveEquipmentToDatabase(playerId: string): Promise<void> {
-    if (!this.databaseSystem) return;
+    if (!this.databaseSystem) {
+      console.warn(
+        "[EquipmentSystem] 💾 Cannot save - no database system for:",
+        playerId,
+      );
+      return;
+    }
 
     const equipment = this.playerEquipment.get(playerId);
-    if (!equipment) return;
+    if (!equipment) {
+      console.warn(
+        "[EquipmentSystem] 💾 Cannot save - no equipment data for:",
+        playerId,
+      );
+      return;
+    }
 
     // Convert to database format
     const dbEquipment: Array<{
@@ -402,6 +464,9 @@ export class EquipmentSystem extends SystemBase {
       ) {
         const typedSlot = equipSlot as EquipmentSlot;
         if (typedSlot.itemId) {
+          console.log(
+            `[EquipmentSystem] 💾 Preparing to save ${slot}: ${typedSlot.itemId} (${typedSlot.item?.name || "unknown"})`,
+          );
           dbEquipment.push({
             slotType: slot,
             itemId: String(typedSlot.itemId),
@@ -411,8 +476,25 @@ export class EquipmentSystem extends SystemBase {
       }
     }
 
+    console.log(
+      "[EquipmentSystem] 💾 Saving equipment to database for:",
+      playerId,
+      "- Items:",
+      dbEquipment.length,
+    );
+    console.log(
+      "[EquipmentSystem] 💾 Equipment to save:",
+      dbEquipment.map((e) => `${e.slotType}:${e.itemId}`).join(", "),
+    );
+
     // Use playerId directly - database layer handles character ID mapping
-    this.databaseSystem.savePlayerEquipment(playerId, dbEquipment);
+    // CRITICAL: Use async method to ensure save completes before returning
+    await this.databaseSystem.savePlayerEquipmentAsync(playerId, dbEquipment);
+
+    console.log(
+      "[EquipmentSystem] ✅ Equipment saved to database for:",
+      playerId,
+    );
   }
 
   private cleanupPlayerEquipment(playerId: string): void {

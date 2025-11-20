@@ -488,6 +488,58 @@ export async function handleEnterWorld(
           maxSlots: 28,
         });
       } catch {}
+
+      // CRITICAL: Send equipment snapshot immediately from persistence to avoid races
+      // Load equipment BEFORE PLAYER_JOINED event fires to prevent bronze sword bug
+      try {
+        const dbSys = world.getSystem?.("database") as
+          | DatabaseSystemOperations
+          | undefined;
+        const persistenceId = characterId || socket.player.id;
+        const equipmentRows = dbSys?.getPlayerEquipmentAsync
+          ? await dbSys.getPlayerEquipmentAsync(persistenceId)
+          : [];
+
+        console.log(
+          `[CharacterSelection] 📂 Loaded equipment from DB for ${persistenceId}:`,
+          equipmentRows.length,
+          "items",
+        );
+
+        if (equipmentRows.length > 0) {
+          const equipmentData: Record<string, unknown> = {};
+          for (const row of equipmentRows) {
+            if (row.itemId && row.slotType) {
+              const itemDef = getItem(String(row.itemId));
+              if (itemDef) {
+                equipmentData[row.slotType] = {
+                  item: itemDef,
+                  itemId: String(row.itemId),
+                };
+                console.log(
+                  `[CharacterSelection] ✅ Loaded equipment: ${row.slotType} = ${itemDef.name} (${row.itemId})`,
+                );
+              }
+            }
+          }
+
+          // Send equipment to client immediately
+          sendToFn(socket.id, "equipmentUpdated", {
+            playerId: socket.player.id,
+            equipment: equipmentData,
+          });
+
+          console.log(
+            `[CharacterSelection] 📤 Sent equipment to client for ${persistenceId}`,
+          );
+        } else {
+          console.log(
+            `[CharacterSelection] ⚠️ No equipment in DB for ${persistenceId} - will equip starting items via PLAYER_JOINED`,
+          );
+        }
+      } catch (err) {
+        console.error("[CharacterSelection] ❌ Failed to load equipment:", err);
+      }
     } catch (_err) {}
   }
 }

@@ -1736,6 +1736,24 @@ export class PlayerSystem extends SystemBase {
     // Recalculate combat level
     player.combat.combatLevel = this.calculateCombatLevel(data.skills);
 
+    // Update stats component with new skill data for SkillsSystem and combat calculations
+    const playerEntity = this.world.entities.get(data.playerId);
+    if (playerEntity) {
+      const statsComponent = playerEntity.getComponent("stats");
+      if (statsComponent) {
+        // Update skill data (full SkillData objects with level + xp) in stats component
+        statsComponent.data.attack = data.skills.attack;
+        statsComponent.data.strength = data.skills.strength;
+        statsComponent.data.defense = data.skills.defense;
+        statsComponent.data.constitution = data.skills.constitution;
+        statsComponent.data.ranged = data.skills.ranged;
+        statsComponent.data.woodcutting = data.skills.woodcutting;
+        statsComponent.data.fishing = data.skills.fishing;
+        statsComponent.data.firemaking = data.skills.firemaking;
+        statsComponent.data.cooking = data.skills.cooking;
+      }
+    }
+
     // Trigger UI update to reflect skill changes
     this.emitPlayerUpdate(data.playerId);
 

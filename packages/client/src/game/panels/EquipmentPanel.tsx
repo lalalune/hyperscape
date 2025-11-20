@@ -213,13 +213,15 @@ export function EquipmentPanel({
   const totalStats = slots.reduce(
     (acc, slot) => {
       if (slot.item) {
-        acc.attack += slot.item.stats?.attack || 0;
-        acc.defense += slot.item.stats?.defense || 0;
-        acc.strength += slot.item.stats?.strength || 0;
+        // Use bonuses field for equipment stat bonuses (not stats field)
+        acc.attack += slot.item.bonuses?.attack || 0;
+        acc.defense += slot.item.bonuses?.defense || 0;
+        acc.strength += slot.item.bonuses?.strength || 0;
+        acc.ranged += slot.item.bonuses?.ranged || 0;
       }
       return acc;
     },
-    { attack: 0, defense: 0, strength: 0 },
+    { attack: 0, defense: 0, strength: 0, ranged: 0 },
   );
 
   const handleSlotClick = (slot: EquipmentSlot) => {
@@ -481,17 +483,6 @@ export function EquipmentPanel({
                     }}
                   >
                     {attackSkill}
-                    {totalStats.attack > 0 && (
-                      <span
-                        style={{
-                          color: "#22c55e",
-                          fontSize: "clamp(0.5rem, 0.9vw, 0.563rem)",
-                        }}
-                      >
-                        {" "}
-                        +{totalStats.attack}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -523,17 +514,6 @@ export function EquipmentPanel({
                     }}
                   >
                     {strengthSkill}
-                    {totalStats.strength > 0 && (
-                      <span
-                        style={{
-                          color: "#22c55e",
-                          fontSize: "clamp(0.5rem, 0.9vw, 0.563rem)",
-                        }}
-                      >
-                        {" "}
-                        +{totalStats.strength}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -565,17 +545,6 @@ export function EquipmentPanel({
                     }}
                   >
                     {defenseSkill}
-                    {totalStats.defense > 0 && (
-                      <span
-                        style={{
-                          color: "#22c55e",
-                          fontSize: "clamp(0.5rem, 0.9vw, 0.563rem)",
-                        }}
-                      >
-                        {" "}
-                        +{totalStats.defense}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -654,6 +623,25 @@ export function EquipmentPanel({
                       }}
                     >
                       +{totalStats.strength}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span
+                      style={{
+                        fontSize: "clamp(0.563rem, 1vw, 0.625rem)",
+                        color: "rgba(242, 208, 138, 0.8)",
+                      }}
+                    >
+                      🏹 Ranged Bonus
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "clamp(0.563rem, 1vw, 0.625rem)",
+                        color: "#22c55e",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      +{totalStats.ranged}
                     </span>
                   </div>
                 </div>
