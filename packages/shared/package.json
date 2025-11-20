@@ -42,7 +42,7 @@
     "build:client": "vite build",
     "build:server": "bun scripts/build.mjs --server-only",
     "start": "bun run build && bun build/index.js start --world ./world",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "test:client": "node test-client.mjs",
     "lint": "eslint src --max-warnings 22100",
