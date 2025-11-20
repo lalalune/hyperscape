@@ -33,6 +33,12 @@ export function calculateDamage(
   attacker: { stats?: CombatStats; config?: { attackPower?: number } },
   target: { stats?: CombatStats; config?: { defense?: number } },
   attackType: AttackType,
+  equipmentStats?: {
+    attack: number;
+    strength: number;
+    defense: number;
+    ranged: number;
+  },
 ): DamageResult {
   // OSRS-inspired damage calculation
   // Uses STRENGTH for damage (not attack), defense doesn't reduce damage
@@ -49,10 +55,14 @@ export function calculateDamage(
       // effectiveStrength = strengthLevel + 8 (simplified, no prayers/potions)
       const effectiveStrength = strengthStat + 8;
       // maxHit = floor(0.5 + effectiveStrength * (strengthBonus + 64) / 640)
-      // Simplified: assuming no equipment bonus for now
-      const strengthBonus = 0; // TODO: Get from equipment
+      // Get strength bonus from equipment (e.g., steel sword gives +6 strength)
+      const strengthBonus = equipmentStats?.strength || 0;
       maxHit = Math.floor(
         0.5 + (effectiveStrength * (strengthBonus + 64)) / 640,
+      );
+
+      console.log(
+        `[CombatCalc] Melee damage: strength=${strengthStat}, bonus=${strengthBonus}, maxHit=${maxHit}`,
       );
 
       // Ensure reasonable minimum
@@ -69,8 +79,13 @@ export function calculateDamage(
     if (rangedStat > 0) {
       // Use ranged stat for max hit calculation
       const effectiveRanged = rangedStat + 8;
-      const rangedBonus = 0; // TODO: Get from equipment
+      // Get ranged bonus from equipment (e.g., bow)
+      const rangedBonus = equipmentStats?.ranged || 0;
       maxHit = Math.floor(0.5 + (effectiveRanged * (rangedBonus + 64)) / 640);
+
+      console.log(
+        `[CombatCalc] Ranged damage: ranged=${rangedStat}, bonus=${rangedBonus}, maxHit=${maxHit}`,
+      );
 
       if (maxHit < 1) maxHit = Math.max(1, Math.floor(rangedStat / 10));
     } else if (attackPower > 0) {

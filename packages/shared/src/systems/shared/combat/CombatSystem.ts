@@ -41,6 +41,12 @@ export class CombatSystem extends SystemBase {
   private mobSystem?: MobNPCSystem;
   private entityManager?: EntityManager;
 
+  // Equipment stats cache per player for damage calculations
+  private playerEquipmentStats = new Map<
+    string,
+    { attack: number; strength: number; defense: number; ranged: number }
+  >();
+
   // Combat constants
 
   constructor(world: World) {
@@ -118,6 +124,26 @@ export class CombatSystem extends SystemBase {
       EventType.ENTITY_DEATH,
       (data: { entityId: string; entityType: string }) => {
         this.handleEntityDied(data.entityId, data.entityType);
+      },
+    );
+
+    // Listen for equipment stats updates to use bonuses in damage calculation
+    this.subscribe(
+      EventType.PLAYER_STATS_EQUIPMENT_UPDATED,
+      (data: {
+        playerId: string;
+        equipmentStats: {
+          attack: number;
+          strength: number;
+          defense: number;
+          ranged: number;
+        };
+      }) => {
+        console.log(
+          `[CombatSystem] 📊 Equipment stats updated for ${data.playerId}:`,
+          data.equipmentStats,
+        );
+        this.playerEquipmentStats.set(data.playerId, data.equipmentStats);
       },
     );
   }
@@ -323,7 +349,33 @@ export class CombatSystem extends SystemBase {
       // Handle player or other Entity - get stats from components
       const statsComponent = attacker.getComponent("stats");
       if (statsComponent?.data) {
-        attackerData = { stats: statsComponent.data };
+        // Extract .level from SkillData objects for combat calculations
+        const stats = statsComponent.data as {
+          attack?: { level: number } | number;
+          strength?: { level: number } | number;
+          defense?: { level: number } | number;
+          ranged?: { level: number } | number;
+        };
+        attackerData = {
+          stats: {
+            attack:
+              typeof stats.attack === "object"
+                ? stats.attack.level
+                : (stats.attack ?? 1),
+            strength:
+              typeof stats.strength === "object"
+                ? stats.strength.level
+                : (stats.strength ?? 1),
+            defense:
+              typeof stats.defense === "object"
+                ? stats.defense.level
+                : (stats.defense ?? 1),
+            ranged:
+              typeof stats.ranged === "object"
+                ? stats.ranged.level
+                : (stats.ranged ?? 1),
+          },
+        };
       }
     }
 
@@ -338,11 +390,51 @@ export class CombatSystem extends SystemBase {
       // Handle player or other Entity
       const statsComponent = target.getComponent("stats");
       if (statsComponent?.data) {
-        targetData = { stats: statsComponent.data };
+        // Extract .level from SkillData objects for combat calculations
+        const stats = statsComponent.data as {
+          attack?: { level: number } | number;
+          strength?: { level: number } | number;
+          defense?: { level: number } | number;
+          ranged?: { level: number } | number;
+        };
+        targetData = {
+          stats: {
+            attack:
+              typeof stats.attack === "object"
+                ? stats.attack.level
+                : (stats.attack ?? 1),
+            strength:
+              typeof stats.strength === "object"
+                ? stats.strength.level
+                : (stats.strength ?? 1),
+            defense:
+              typeof stats.defense === "object"
+                ? stats.defense.level
+                : (stats.defense ?? 1),
+            ranged:
+              typeof stats.ranged === "object"
+                ? stats.ranged.level
+                : (stats.ranged ?? 1),
+          },
+        };
       }
     }
 
-    const result = calculateDamage(attackerData, targetData, AttackType.MELEE);
+    // Get equipment stats for player attacker
+    let equipmentStats:
+      | { attack: number; strength: number; defense: number; ranged: number }
+      | undefined = undefined;
+    if (!attackerMob.getMobData) {
+      // Attacker is a player - get equipment stats
+      equipmentStats = this.playerEquipmentStats.get(attacker.id);
+    }
+
+    const result = calculateDamage(
+      attackerData,
+      targetData,
+      AttackType.MELEE,
+      equipmentStats,
+    );
     return result.damage;
   }
 
@@ -370,7 +462,33 @@ export class CombatSystem extends SystemBase {
       // Handle player or other Entity - get stats from components
       const statsComponent = attacker.getComponent("stats");
       if (statsComponent?.data) {
-        attackerData = { stats: statsComponent.data };
+        // Extract .level from SkillData objects for combat calculations
+        const stats = statsComponent.data as {
+          attack?: { level: number } | number;
+          strength?: { level: number } | number;
+          defense?: { level: number } | number;
+          ranged?: { level: number } | number;
+        };
+        attackerData = {
+          stats: {
+            attack:
+              typeof stats.attack === "object"
+                ? stats.attack.level
+                : (stats.attack ?? 1),
+            strength:
+              typeof stats.strength === "object"
+                ? stats.strength.level
+                : (stats.strength ?? 1),
+            defense:
+              typeof stats.defense === "object"
+                ? stats.defense.level
+                : (stats.defense ?? 1),
+            ranged:
+              typeof stats.ranged === "object"
+                ? stats.ranged.level
+                : (stats.ranged ?? 1),
+          },
+        };
       }
     }
 
@@ -385,11 +503,51 @@ export class CombatSystem extends SystemBase {
       // Handle player or other Entity
       const statsComponent = target.getComponent("stats");
       if (statsComponent?.data) {
-        targetData = { stats: statsComponent.data };
+        // Extract .level from SkillData objects for combat calculations
+        const stats = statsComponent.data as {
+          attack?: { level: number } | number;
+          strength?: { level: number } | number;
+          defense?: { level: number } | number;
+          ranged?: { level: number } | number;
+        };
+        targetData = {
+          stats: {
+            attack:
+              typeof stats.attack === "object"
+                ? stats.attack.level
+                : (stats.attack ?? 1),
+            strength:
+              typeof stats.strength === "object"
+                ? stats.strength.level
+                : (stats.strength ?? 1),
+            defense:
+              typeof stats.defense === "object"
+                ? stats.defense.level
+                : (stats.defense ?? 1),
+            ranged:
+              typeof stats.ranged === "object"
+                ? stats.ranged.level
+                : (stats.ranged ?? 1),
+          },
+        };
       }
     }
 
-    const result = calculateDamage(attackerData, targetData, AttackType.RANGED);
+    // Get equipment stats for player attacker
+    let equipmentStats:
+      | { attack: number; strength: number; defense: number; ranged: number }
+      | undefined = undefined;
+    if (!attackerMob.getMobData) {
+      // Attacker is a player - get equipment stats
+      equipmentStats = this.playerEquipmentStats.get(attacker.id);
+    }
+
+    const result = calculateDamage(
+      attackerData,
+      targetData,
+      AttackType.RANGED,
+      equipmentStats,
+    );
     return result.damage;
   }
 
