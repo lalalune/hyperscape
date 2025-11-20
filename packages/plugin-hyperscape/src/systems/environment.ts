@@ -293,8 +293,8 @@ export class EnvironmentSystem extends System {
     this.csm.lightDirection = sunDirection;
 
     for (const light of this.csm.lights) {
-      light.intensity = sunIntensity;
-      light.color.set(sunColor);
+      light.intensity = sunIntensity !== undefined ? sunIntensity : 1;
+      light.color.set(sunColor !== undefined ? sunColor : 0xffffff);
     }
 
     if (isNumber(fogNear) && isNumber(fogFar) && fogColor) {

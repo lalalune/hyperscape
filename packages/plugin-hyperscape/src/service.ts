@@ -1066,8 +1066,8 @@ Hyperscape world integration service that enables agents to:
           const _angularVelocity = new THREE.Vector3();
           return {
             type: _type,
-            position: _position || { x: 0, y: 0, z: 0 },
-            rotation: _rotation || { x: 0, y: 0, z: 0, w: 1 },
+            position: _position || new THREE.Vector3(0, 0, 0),
+            rotation: _rotation || new THREE.Quaternion(0, 0, 0, 1),
             velocity: _velocity,
             angularVelocity: _angularVelocity,
             mass: 1,
@@ -1110,8 +1110,8 @@ Hyperscape world integration service that enables agents to:
             x: number = 0,
             y: number = 0,
             z: number = 0,
-          ): Vector3 => {
-            return { x, y, z } as Vector3;
+          ): THREE.Vector3 => {
+            return new THREE.Vector3(x, y, z);
           };
 
           const controller: CharacterController = {
@@ -1385,7 +1385,7 @@ Hyperscape world integration service that enables agents to:
         const characterController =
           minimalWorld.physics.createCharacterController({
             id: playerId,
-            position: { x: 0, y: 0, z: 0 } as Vector3,
+            position: new THREE.Vector3(0, 0, 0),
             radius: 0.5,
             height: 1.8,
             maxSpeed: 5.0,
