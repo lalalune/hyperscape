@@ -109,7 +109,23 @@ function DraggableInventorySlot({ item, index }: DraggableItemProps) {
         e.preventDefault();
         e.stopPropagation();
         if (!item) return;
+
+        // Determine if item is equippable based on itemId
+        const isEquippable =
+          item.itemId.includes("sword") ||
+          item.itemId.includes("bow") ||
+          item.itemId.includes("shield") ||
+          item.itemId.includes("helmet") ||
+          item.itemId.includes("body") ||
+          item.itemId.includes("legs") ||
+          item.itemId.includes("arrows") ||
+          item.itemId.includes("chainbody") ||
+          item.itemId.includes("platebody");
+
         const items = [
+          ...(isEquippable
+            ? [{ id: "equip", label: `Equip ${item.itemId}`, enabled: true }]
+            : []),
           { id: "drop", label: `Drop ${item.itemId}`, enabled: true },
           { id: "examine", label: "Examine", enabled: true },
         ];
@@ -215,6 +231,29 @@ export function InventoryPanel({
       if (Number.isNaN(slotIndex)) return;
       const it = slotItems[slotIndex];
       if (!it) return;
+      if (ce.detail.actionId === "equip") {
+        // Emit INVENTORY_ITEM_RIGHT_CLICK event - EquipmentSystem listens to this
+        const localPlayer = world?.getPlayer();
+        console.log("[InventoryPanel] Equip clicked:", {
+          itemId: it.itemId,
+          slot: slotIndex,
+          hasPlayer: !!localPlayer,
+        });
+        if (localPlayer) {
+          console.log("[InventoryPanel] Emitting INVENTORY_ITEM_RIGHT_CLICK:", {
+            playerId: localPlayer.id,
+            itemId: it.itemId,
+            slot: slotIndex,
+          });
+          world?.emit(EventType.INVENTORY_ITEM_RIGHT_CLICK, {
+            playerId: localPlayer.id,
+            itemId: it.itemId,
+            slot: slotIndex,
+          });
+        } else {
+          console.error("[InventoryPanel] No local player found!");
+        }
+      }
       if (ce.detail.actionId === "drop") {
         if (world?.network?.dropItem) {
           world.network.dropItem(it.itemId, slotIndex, it.quantity || 1);

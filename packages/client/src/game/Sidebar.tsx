@@ -460,7 +460,11 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             zIndex={windowZIndices.get("equipment") || 1000}
             onFocus={() => bringToFront("equipment")}
           >
-            <EquipmentPanel equipment={equipment} stats={playerStats} />
+            <EquipmentPanel
+              equipment={equipment}
+              stats={playerStats}
+              world={world}
+            />
           </GameWindow>
         )}
 
