@@ -232,26 +232,26 @@ export function InventoryPanel({
       const it = slotItems[slotIndex];
       if (!it) return;
       if (ce.detail.actionId === "equip") {
-        // Emit INVENTORY_ITEM_RIGHT_CLICK event - EquipmentSystem listens to this
+        // Send equip request to server - EquipmentSystem listens to this
         const localPlayer = world?.getPlayer();
-        console.log("[InventoryPanel] Equip clicked:", {
+        console.log("[InventoryPanel] ⚡ Equip clicked:", {
           itemId: it.itemId,
           slot: slotIndex,
           hasPlayer: !!localPlayer,
         });
-        if (localPlayer) {
-          console.log("[InventoryPanel] Emitting INVENTORY_ITEM_RIGHT_CLICK:", {
+        if (localPlayer && world?.network?.send) {
+          console.log("[InventoryPanel] 📤 Sending equipItem to server:", {
             playerId: localPlayer.id,
             itemId: it.itemId,
             slot: slotIndex,
           });
-          world?.emit(EventType.INVENTORY_ITEM_RIGHT_CLICK, {
+          world.network.send("equipItem", {
             playerId: localPlayer.id,
             itemId: it.itemId,
-            slot: slotIndex,
+            inventorySlot: slotIndex,
           });
         } else {
-          console.error("[InventoryPanel] No local player found!");
+          console.error("[InventoryPanel] ❌ No local player or network.send!");
         }
       }
       if (ce.detail.actionId === "drop") {

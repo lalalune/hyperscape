@@ -70,7 +70,12 @@ import { InitializationManager } from "./initialization";
 import { ConnectionHandler } from "./connection-handler";
 import { handleChatAdded } from "./handlers/chat";
 import { handleAttackMob } from "./handlers/combat";
-import { handlePickupItem, handleDropItem } from "./handlers/inventory";
+import {
+  handlePickupItem,
+  handleDropItem,
+  handleEquipItem,
+  handleUnequipItem,
+} from "./handlers/inventory";
 import { handleResourceGather } from "./handlers/resources";
 import {
   handleEntityModified,
@@ -264,6 +269,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onDropItem"] = (socket, data) =>
       handleDropItem(socket, data, this.world);
+
+    this.handlers["onEquipItem"] = (socket, data) =>
+      handleEquipItem(socket, data, this.world);
+
+    this.handlers["onUnequipItem"] = (socket, data) =>
+      handleUnequipItem(socket, data, this.world);
 
     // Death/respawn handlers
     this.handlers["onRequestRespawn"] = (socket, data) => {

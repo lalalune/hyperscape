@@ -181,6 +181,8 @@ export class ClientNetwork extends SystemBase {
     string,
     Record<string, { level: number; xp: number }>
   > = {};
+  // Cache latest equipment per player so UI can hydrate even if it mounted late
+  lastEquipmentByPlayerId: Record<string, any> = {};
 
   // Entity interpolation for smooth remote entity movement
   private interpolationStates: Map<string, InterpolationState> = new Map();
@@ -1143,6 +1145,45 @@ export class ClientNetwork extends SystemBase {
     this.lastInventoryByPlayerId[data.playerId] = data;
     // Re-emit with typed event so UI updates without waiting for local add
     this.world.emit(EventType.INVENTORY_UPDATED, data);
+  };
+
+  onEquipmentUpdated = (data: { playerId: string; equipment: any }) => {
+    console.log("[ClientNetwork] 📥 Received equipmentUpdated:", data);
+
+    // Cache latest equipment for late-mounting UI
+    this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
+    this.lastEquipmentByPlayerId[data.playerId] = data.equipment;
+
+    // Re-emit as UI update event for Sidebar to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "equipment",
+      data: {
+        equipment: data.equipment,
+      },
+    });
+
+    // CRITICAL: Also emit PLAYER_EQUIPMENT_CHANGED for each slot
+    // so EquipmentVisualSystem can attach 3D models to the avatar
+    if (data.equipment) {
+      const equipment = data.equipment;
+      const slots = ["weapon", "shield", "helmet", "body", "legs", "arrows"];
+
+      for (const slot of slots) {
+        const slotData = equipment[slot];
+        if (slotData) {
+          const itemId = slotData.itemId || slotData.item?.id || null;
+          console.log(
+            `[ClientNetwork] 📤 Emitting PLAYER_EQUIPMENT_CHANGED for ${slot}:`,
+            itemId,
+          );
+          this.world.emit(EventType.PLAYER_EQUIPMENT_CHANGED, {
+            playerId: data.playerId,
+            slot: slot,
+            itemId: itemId,
+          });
+        }
+      }
+    }
   };
 
   onSkillsUpdated = (data: {
