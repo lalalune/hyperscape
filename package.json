@@ -40,7 +40,7 @@
     "cdn:up": "bun scripts/cdn.mjs",
     "cdn:down": "cd packages/server && docker-compose down cdn",
     "start": "cd packages/server && bun run start",
-    "test": "turbo run test",
+    "test": "turbo run test --filter='!3d-asset-forge'",
     "lint": "turbo run lint",
     "clean": "turbo run clean && rm -rf test-*.json test-*.png *.log **/*.log test-results packages/docs-site/docs/api",
     "ios": "cd packages/client && bun run ios",

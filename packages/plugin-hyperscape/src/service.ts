@@ -1066,8 +1066,8 @@ Hyperscape world integration service that enables agents to:
           const _angularVelocity = new THREE.Vector3();
           return {
             type: _type,
-            position: _position,
-            rotation: _rotation,
+            position: _position || { x: 0, y: 0, z: 0 },
+            rotation: _rotation || { x: 0, y: 0, z: 0, w: 1 },
             velocity: _velocity,
             angularVelocity: _angularVelocity,
             mass: 1,

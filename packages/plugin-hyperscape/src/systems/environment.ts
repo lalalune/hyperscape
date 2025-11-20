@@ -196,16 +196,24 @@ export class EnvironmentSystem extends System {
       glb = await this.world.loader?.load("model", url);
     }
     if (this.model) {
-      (this.model as THREE.Object3D & { deactivate?: () => void }).deactivate();
+      const deactivate = (
+        this.model as THREE.Object3D & { deactivate?: () => void }
+      ).deactivate;
+      if (deactivate) {
+        deactivate();
+      }
     }
     const toNodes = (glb as { toNodes?: () => THREE.Object3D })?.toNodes;
     this.model = toNodes ? toNodes() : null;
     if (this.model) {
-      (
+      const activate = (
         this.model as THREE.Object3D & {
           activate?: (params: { world: any; label: string }) => void;
         }
-      ).activate({ world: this.world, label: "base" });
+      ).activate;
+      if (activate) {
+        activate({ world: this.world, label: "base" });
+      }
     }
   }
 

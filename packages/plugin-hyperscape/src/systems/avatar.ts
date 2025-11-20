@@ -235,6 +235,11 @@ export class AgentAvatar extends Node {
       return;
     }
 
+    if (!this.model) {
+      logger.warn("[AgentAvatar] Model not available for emote");
+      return;
+    }
+
     const objects = [this.model];
     this.emotePlayer = createEmotePlayerNodes(factory, objects, true);
     this.add(this.emotePlayer);

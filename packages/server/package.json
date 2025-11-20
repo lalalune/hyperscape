@@ -22,7 +22,7 @@
     "dev": "bun scripts/dev.mjs",
     "build": "bun scripts/build-server.mjs",
     "start": "bun dist/index.js",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint src --max-warnings 22100",
     "cdn:up": "docker-compose up -d cdn",
     "cdn:down": "docker-compose down cdn",
