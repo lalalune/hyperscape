@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { COLORS } from "../../constants";
 import { useDroppable } from "@dnd-kit/core";
 import { EquipmentSlotName, EventType } from "@hyperscape/shared";
@@ -43,6 +43,29 @@ function DroppableEquipmentSlot({
     <button
       ref={setNodeRef}
       onClick={() => onSlotClick(slot)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!slot.item) return;
+
+        const items = [
+          { id: "unequip", label: `Unequip ${slot.item.name}`, enabled: true },
+          { id: "examine", label: "Examine", enabled: true },
+        ];
+
+        const evt = new CustomEvent("contextmenu", {
+          detail: {
+            target: {
+              id: `equipment_slot_${slot.key}`,
+              type: "equipment",
+              name: slot.item.name,
+            },
+            mousePosition: { x: e.clientX, y: e.clientY },
+            items,
+          },
+        });
+        window.dispatchEvent(evt);
+      }}
       className="w-full h-full rounded transition-all duration-200 cursor-pointer group relative"
       style={{
         background: isEmpty
@@ -215,6 +238,48 @@ export function EquipmentPanel({
   const attackSkill = stats?.skills?.attack?.level || 1;
   const strengthSkill = stats?.skills?.strength?.level || 1;
   const defenseSkill = stats?.skills?.defense?.level || 1;
+
+  useEffect(() => {
+    const onCtxSelect = (evt: Event) => {
+      const ce = evt as CustomEvent<{ actionId: string; targetId: string }>;
+      const target = ce.detail?.targetId || "";
+      if (!target.startsWith("equipment_slot_")) return;
+
+      const slotKey = target.replace("equipment_slot_", "");
+      const slot = slots.find((s) => s.key === slotKey);
+
+      if (!slot || !slot.item) return;
+
+      if (ce.detail.actionId === "unequip") {
+        const localPlayer = world?.getPlayer();
+        if (localPlayer && world?.network?.send) {
+          console.log("[EquipmentPanel] 📤 Sending unequipItem to server:", {
+            playerId: localPlayer.id,
+            slot: slotKey,
+          });
+          world.network.send("unequipItem", {
+            playerId: localPlayer.id,
+            slot: slotKey,
+          });
+        } else {
+          console.error("[EquipmentPanel] ❌ No local player or network.send!");
+        }
+      }
+
+      if (ce.detail.actionId === "examine") {
+        world?.emit(EventType.UI_TOAST, {
+          message: `It's a ${slot.item.name}.`,
+          type: "info",
+        });
+      }
+    };
+    window.addEventListener("contextmenu:select", onCtxSelect as EventListener);
+    return () =>
+      window.removeEventListener(
+        "contextmenu:select",
+        onCtxSelect as EventListener,
+      );
+  }, [equipment, world]);
 
   // Helper to find slot by key
   const getSlot = (key: string) => slots.find((s) => s.key === key) || null;
@@ -876,10 +941,13 @@ export function EquipmentPanel({
                 {/* Unequip Button */}
                 <button
                   onClick={() => {
-                    // Emit EQUIPMENT_UNEQUIP event
+                    // Send unequip request to server
                     const localPlayer = world?.getPlayer();
-                    if (world && selectedSlot && localPlayer) {
-                      world.emit(EventType.EQUIPMENT_UNEQUIP, {
+                    if (world?.network?.send && selectedSlot && localPlayer) {
+                      console.log(
+                        "[EquipmentPanel] 📤 Unequip button clicked, sending to server",
+                      );
+                      world.network.send("unequipItem", {
                         playerId: localPlayer.id,
                         slot: selectedSlot.key,
                       });

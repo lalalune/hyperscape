@@ -76,6 +76,10 @@ export class InventorySystem extends SystemBase {
       this.cleanupInventory({ id: data.playerId });
     });
     this.subscribe(EventType.INVENTORY_ITEM_REMOVED, (data) => {
+      console.log(
+        "[InventorySystem] 📥 Received INVENTORY_ITEM_REMOVED:",
+        data,
+      );
       this.removeItem(data);
     });
     this.subscribe(EventType.ITEM_DROP, (data) => {
@@ -109,6 +113,7 @@ export class InventorySystem extends SystemBase {
       this.handleRemoveCoins(data);
     });
     this.subscribe(EventType.INVENTORY_ITEM_ADDED, (data) => {
+      console.log("[InventorySystem] 📥 Received INVENTORY_ITEM_ADDED:", data);
       this.handleInventoryAdd(data);
     });
 
@@ -279,6 +284,13 @@ export class InventorySystem extends SystemBase {
     quantity: number;
     slot?: number;
   }): boolean {
+    console.log("[InventorySystem] 🎯 addItem called:", {
+      playerId: data.playerId,
+      itemId: data.itemId,
+      quantity: data.quantity,
+      slot: data.slot,
+    });
+
     if (!data.playerId) {
       Logger.systemError(
         "InventorySystem",
@@ -440,12 +452,26 @@ export class InventorySystem extends SystemBase {
     }
 
     // Find item
+    console.log("[InventorySystem] 🔍 Searching for item to remove:", {
+      slot: data.slot,
+      itemId: itemId,
+      inventoryItems: inventory.items.map((i) => ({
+        slot: i.slot,
+        itemId: i.itemId,
+      })),
+    });
+
     const itemIndex =
       data.slot !== undefined
         ? inventory.items.findIndex((item) => item.slot === data.slot)
         : inventory.items.findIndex((item) => item.itemId === itemId);
 
-    if (itemIndex === -1) return false;
+    console.log("[InventorySystem] 🔍 Found item at index:", itemIndex);
+
+    if (itemIndex === -1) {
+      console.error("[InventorySystem] ❌ Item not found in inventory!");
+      return false;
+    }
 
     const item = inventory.items[itemIndex];
 
@@ -455,6 +481,9 @@ export class InventorySystem extends SystemBase {
       inventory.items.splice(itemIndex, 1);
     }
 
+    console.log(
+      "[InventorySystem] ✅ Item removed successfully, emitting INVENTORY_UPDATED",
+    );
     const playerIdKey = toPlayerID(playerId);
     if (playerIdKey) {
       this.emitInventoryUpdate(playerIdKey);
@@ -812,6 +841,12 @@ export class InventorySystem extends SystemBase {
       coins: inventoryData.coins,
       maxSlots: inventoryData.maxSlots,
     };
+
+    console.log(
+      "[InventorySystem] 📤 Emitting INVENTORY_UPDATED with",
+      inventoryData.items.length,
+      "items",
+    );
 
     // Emit local event for server-side systems
     this.emitTypedEvent(EventType.INVENTORY_UPDATED, inventoryUpdateData);

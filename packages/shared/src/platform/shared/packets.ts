@@ -121,8 +121,13 @@ const names = [
   'pickupItem',
   // Inventory action packets
   'dropItem',
+  // Equipment packets
+  'equipItem',
+  'unequipItem',
   // Inventory sync packets
   'inventoryUpdated',
+  // Equipment sync packets
+  'equipmentUpdated',
   // Skills sync packets
   'skillsUpdated',
   // UI feedback packets

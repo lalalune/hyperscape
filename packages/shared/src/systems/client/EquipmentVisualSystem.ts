@@ -104,8 +104,8 @@ export class EquipmentVisualSystem extends SystemBase {
       `[EquipmentVisual] Equipment change: player=${playerId}, slot=${slot}, itemId=${itemId}`,
     );
 
-    // Skip invalid itemIds (0, null, empty string)
-    if (!itemId || itemId === "0") {
+    // Skip invalid itemIds (only "0" is invalid, null means unequip)
+    if (itemId === "0") {
       console.log(`[EquipmentVisual] ⚠️ Skipping invalid itemId: ${itemId}`);
       return;
     }
