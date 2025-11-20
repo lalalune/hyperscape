@@ -70,7 +70,21 @@ export async function initializeDatabase(
   // Initialize Docker and PostgreSQL (optional based on config)
   if (config.useLocalPostgres && !config.databaseUrl) {
     dockerManager = createDefaultDockerManager();
-    await dockerManager.checkDockerRunning();
+
+    // Check if Docker daemon is accessible (non-fatal if container already running)
+    try {
+      await dockerManager.checkDockerRunning();
+    } catch (dockerCheckError) {
+      console.warn(
+        "[Database] Docker check failed, attempting to continue anyway...",
+      );
+      console.warn(
+        "[Database] Error:",
+        dockerCheckError instanceof Error
+          ? dockerCheckError.message
+          : String(dockerCheckError),
+      );
+    }
 
     const isPostgresRunning = await dockerManager.checkPostgresRunning();
     if (!isPostgresRunning) {

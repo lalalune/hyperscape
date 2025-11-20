@@ -1,0 +1,30 @@
+---
+alwaysApply: true
+---
+# Tech Stack
+
+Hyperscape (in packages/hypefy) - A 3D multiplayer game engine built on three.js -- includes voice with LiveKit, avatars with VRM, an application abstraction for building self-contained world apps and more
+We need to make sure we build persistence into Hyperscape for our apps
+
+Playwright - Browser engine for running tests and simulating gameplay
+
+React - UI and frontend is done in React
+
+ElizaOS - Our AI agent framework. Eliza runs with 'elizaos start' and we have a plugin-hyperscape for Eliza which enables Eliza plugins to join Hyperscape worlds and call all available actions.
+
+Three.js - Our 3D graphics library -- we should try to use the Hyperscape abstractions where possible
+
+Sqlite - for persistence we will store all application data in the database, which is currently a local Sqlite instance# Tech Stack
+
+Hyperscape (in packages/hypefy) - A 3D multiplayer game engine built on three.js -- includes voice with LiveKit, avatars with VRM, an application abstraction for building self-contained world apps and more
+We need to make sure we build persistence into Hyperscape for our apps
+
+Playwright - Browser engine for running tests and simulating gameplay
+
+React - UI and frontend is done in React
+
+ElizaOS - Our AI agent framework. Eliza runs with 'elizaos start' and we have a plugin-hyperscape for Eliza which enables Eliza plugins to join Hyperscape worlds and call all available actions.
+
+Three.js - Our 3D graphics library -- we should try to use the Hyperscape abstractions where possible
+
+Sqlite - for persistence we will store all application data in the database, which is currently a local Sqlite instance

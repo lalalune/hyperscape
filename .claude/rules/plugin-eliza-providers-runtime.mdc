@@ -1,0 +1,413 @@
+---
+description: ElizaOS providers runtime - context aggregation, state composition, provider patterns
+globs: packages/plugin-eliza/src/providers/**/*.ts
+alwaysApply: false
+---
+
+# Hyperscape Plugin - Providers Runtime
+
+> Provider system for context aggregation and state composition.
+
+## Reference Documentation
+
+- **Providers**: https://docs.elizaos.ai/runtime/providers
+- **Memory**: `.cursor/memory/elizaos-providers.md`
+
+## Provider Interface
+
+**MANDATORY Structure:**
+```typescript
+interface Provider {
+  name: string;
+  description: string;
+  dynamic?: boolean;    // Only executed when explicitly requested
+  private?: boolean;    // Internal-only, not included in default state
+  position?: number;    // Execution order (lower runs first)
+  
+  get: (
+    runtime: IAgentRuntime,
+    message: Memory,
+    state?: State
+  ) => Promise<ProviderResult>;
+}
+
+interface ProviderResult {
+  values: Record<string, any>;  // Key-value pairs for templates
+  data: Record<string, any>;    // Structured data
+  text: string;                 // Textual context
+}
+```
+
+**Rules:**
+- ✅ **ALWAYS** include `name` and `description` (required)
+- ✅ **ALWAYS** implement `get` method returning `ProviderResult`
+- ✅ **ALWAYS** return `values`, `data`, and `text` in ProviderResult
+- ✅ **ALWAYS** set `dynamic: true` for optional providers
+- ✅ **ALWAYS** set `private: true` for internal-only providers
+- ✅ **ALWAYS** use `position` to control execution order
+- ✅ **NEVER** skip required fields
+
+## Provider Types
+
+### Standard Providers
+
+Included by default in state composition.
+
+**Rules:**
+- ✅ **ALWAYS** set `dynamic: false` (or omit) for standard providers
+- ✅ **ALWAYS** set `private: false` (or omit) for standard providers
+- ✅ **ALWAYS** include in default state composition
+
+### Dynamic Providers
+
+Only executed when explicitly requested.
+
+**Rules:**
+- ✅ **ALWAYS** set `dynamic: true` for dynamic providers
+- ✅ **ALWAYS** require explicit inclusion in `composeState` call
+- ✅ **ALWAYS** document when to use dynamic providers
+
+### Private Providers
+
+Internal use only, not exposed in default state.
+
+**Rules:**
+- ✅ **ALWAYS** set `private: true` for private providers
+- ✅ **ALWAYS** use for internal-only data
+- ✅ **NEVER** expose private providers in default state
+
+## Built-in Providers
+
+### Provider Summary
+
+| Provider Name        | Dynamic | Position | Default Included | Purpose                    |
+| -------------------- | ------- | -------- | ---------------- | -------------------------- |
+| **ACTIONS**          | No      | -1       | Yes              | Lists available actions    |
+| **ACTION_STATE**     | No      | 150      | Yes              | Action execution state     |
+| **CHARACTER**        | No      | Default  | Yes              | Agent personality          |
+| **RECENT_MESSAGES**  | No      | 100      | Yes              | Conversation history       |
+| **FACTS**            | Yes     | Default  | No               | Stored knowledge           |
+| **ENTITIES**         | Yes     | Default  | No               | Conversation participants  |
+| **RELATIONSHIPS**    | Yes     | Default  | No               | Social connections         |
+
+**Rules:**
+- ✅ **ALWAYS** use built-in providers when available
+- ✅ **ALWAYS** understand provider position and dynamic flags
+- ✅ **ALWAYS** include dynamic providers explicitly when needed
+
+## State Composition
+
+### Method Signature
+
+```typescript
+async composeState(
+    message: Memory,
+    includeList: string[] | null = null,
+    onlyInclude = false,
+    skipCache = false
+): Promise<State>
+```
+
+### Usage Patterns
+
+```typescript
+// Default state (all non-dynamic, non-private providers)
+const state = await runtime.composeState(message);
+
+// Include specific dynamic providers
+const state = await runtime.composeState(message, ['FACTS', 'ENTITIES']);
+
+// Only specific providers
+const state = await runtime.composeState(message, ['CHARACTER'], true);
+
+// Force fresh data (skip cache)
+const state = await runtime.composeState(message, null, false, true);
+```
+
+**Rules:**
+- ✅ **ALWAYS** use `runtime.composeState()` for state composition
+- ✅ **ALWAYS** specify `includeList` for dynamic providers
+- ✅ **ALWAYS** use `onlyInclude: true` for specific providers only
+- ✅ **ALWAYS** use `skipCache: true` for fresh data
+- ✅ **NEVER** compose state without message parameter
+
+## Provider Registration
+
+### Registering a Provider
+
+```typescript
+runtime.registerProvider(provider);
+```
+
+Providers are registered during plugin initialization:
+
+```typescript
+const myPlugin: Plugin = {
+  name: 'my-plugin',
+  providers: [customProvider],
+  
+  init: async (config, runtime) => {
+    // Providers auto-registered
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** register providers in plugin `providers` array
+- ✅ **ALWAYS** register during plugin initialization
+- ✅ **NEVER** register providers manually unless necessary
+
+### Provider Position
+
+Position determines execution order:
+
+```typescript
+const earlyProvider: Provider = {
+  name: 'EARLY',
+  position: -100,  // Runs very early
+  get: async () => {...}
+};
+
+const lateProvider: Provider = {
+  name: 'LATE',
+  position: 200,   // Runs late
+  get: async () => {...}
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** use `position` to control execution order
+- ✅ **ALWAYS** lower numbers run first
+- ✅ **ALWAYS** consider dependencies when setting position
+- ✅ **NEVER** create circular dependencies
+
+## Custom Providers
+
+### Creating a Custom Provider
+
+```typescript
+const customDataProvider: Provider = {
+  name: 'CUSTOM_DATA',
+  description: 'Custom data from external source',
+  dynamic: true,
+  position: 150,
+  
+  get: async (runtime, message, state) => {
+    try {
+      // Fetch data from service or database
+      const customData = await runtime.getService('customService')?.getData();
+      
+      if (!customData) {
+        return { values: {}, data: {}, text: '' };
+      }
+      
+      return {
+        values: { customData: customData.summary },
+        data: { customData },
+        text: `Custom data: ${customData.summary}`,
+      };
+    } catch (error) {
+      runtime.logger.error('Error in custom provider:', error);
+      return { values: {}, data: {}, text: '' };
+    }
+  },
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** handle errors gracefully
+- ✅ **ALWAYS** return empty result on failure
+- ✅ **ALWAYS** use timeouts for external calls
+- ✅ **ALWAYS** keep data size reasonable
+- ✅ **ALWAYS** use appropriate flags (dynamic, private)
+- ✅ **NEVER** throw errors from provider get method
+
+## Provider Dependencies
+
+Providers can access data from previously executed providers through the state parameter:
+
+```typescript
+const dependentProvider: Provider = {
+  name: 'DEPENDENT',
+  position: 200, // Runs after other providers
+  
+  get: async (runtime, message, state) => {
+    // Access data from earlier providers
+    const characterData = state?.data?.providers?.CHARACTER?.data;
+    
+    if (!characterData) {
+      return { values: {}, data: {}, text: '' };
+    }
+    
+    // Process based on character data
+    const processed = processCharacterData(characterData);
+    
+    return {
+      values: { processed: processed.summary },
+      data: { processed },
+      text: `Processed: ${processed.summary}`
+    };
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** use `position` to ensure dependencies run first
+- ✅ **ALWAYS** access dependent data from `state` parameter
+- ✅ **ALWAYS** check for null/undefined before accessing
+- ✅ **NEVER** create circular dependencies
+- ✅ **NEVER** call `composeState` from within provider get method
+
+## State Cache Management
+
+### Cache Usage
+
+```typescript
+// Use cached data (default behavior)
+const cachedState = await runtime.composeState(message);
+
+// Force fresh data
+const freshState = await runtime.composeState(message, null, false, true);
+```
+
+**Rules:**
+- ✅ **ALWAYS** use cache for performance (default)
+- ✅ **ALWAYS** use `skipCache: true` for fresh data when needed
+- ✅ **ALWAYS** clear old cache entries periodically
+- ✅ **NEVER** rely on cache for time-sensitive data
+
+## Performance Optimization
+
+### Parallel Execution
+
+Providers run concurrently for optimal performance:
+
+```typescript
+const results = await Promise.all(
+  providers.map(provider => 
+    provider.get(runtime, message, partialState)
+  )
+);
+```
+
+**Rules:**
+- ✅ **ALWAYS** design providers for parallel execution
+- ✅ **ALWAYS** avoid blocking operations
+- ✅ **ALWAYS** use async/await for I/O operations
+
+### Timeout Handling
+
+Implement timeouts to prevent slow providers from blocking:
+
+```typescript
+const timeoutProvider: Provider = {
+  name: 'TIMEOUT_SAFE',
+  get: async (runtime, message) => {
+    const fetchData = async () => {
+      const data = await externalAPI.fetch();
+      return formatProviderResult(data);
+    };
+    
+    return Promise.race([
+      fetchData(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      )
+    ]).catch(error => {
+      runtime.logger.warn(`Provider timeout: ${error.message}`);
+      return { values: {}, data: {}, text: '' };
+    });
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** implement timeouts for external calls
+- ✅ **ALWAYS** return empty result on timeout
+- ✅ **ALWAYS** log timeout warnings
+- ✅ **NEVER** let slow providers block state composition
+
+## Common Issues and Solutions
+
+### Circular Dependencies
+
+**BAD:**
+```typescript
+const providerA: Provider = {
+  get: async (runtime, message) => {
+    const state = await runtime.composeState(message, ['B']);
+    // Uses B's data - CIRCULAR!
+  }
+};
+```
+
+**GOOD:**
+```typescript
+const providerA: Provider = {
+  position: 100,
+  get: async (runtime, message) => {
+    return { data: { aData: 'value' } };
+  }
+};
+
+const providerB: Provider = {
+  position: 200,
+  get: async (runtime, message, state) => {
+    const aData = state?.data?.providers?.A?.data;
+    return { data: { bData: processData(aData) } };
+  }
+};
+```
+
+**Rules:**
+- ✅ **ALWAYS** use position and state parameter for dependencies
+- ✅ **NEVER** call composeState from within provider get method
+- ✅ **NEVER** create circular dependencies
+
+## Best Practices Checklist
+
+Before implementing providers, verify:
+
+- [ ] Provider has name and description
+- [ ] Provider implements get method returning ProviderResult
+- [ ] Provider returns values, data, and text
+- [ ] Provider handles errors gracefully
+- [ ] Provider uses appropriate flags (dynamic, private)
+- [ ] Provider uses position for execution order
+- [ ] Provider avoids circular dependencies
+- [ ] Provider implements timeouts for external calls
+- [ ] Provider keeps data size reasonable
+- [ ] Provider designed for parallel execution
+
+## Forbidden Patterns
+
+❌ **NEVER**:
+- Skip required fields (name, description, get method)
+- Throw errors from provider get method
+- Call composeState from within provider get method
+- Create circular dependencies
+- Block state composition with slow operations
+- Return excessive data
+- Skip error handling
+
+## Required Patterns
+
+✅ **ALWAYS**:
+- Include name, description, and get method
+- Return ProviderResult with values, data, and text
+- Handle errors gracefully
+- Use appropriate flags (dynamic, private)
+- Use position for execution order
+- Use timeouts for external calls
+- Keep data size reasonable
+- Design for parallel execution
+- Avoid circular dependencies
+
+## Examples
+
+See `.cursor/memory/elizaos-providers.md` for complete examples of:
+- Provider interface structure
+- Custom provider creation
+- Provider dependencies
+- State composition patterns
+- Performance optimization

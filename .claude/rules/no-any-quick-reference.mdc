@@ -1,0 +1,165 @@
+---
+description: Quick reference for avoiding any and unknown in common scenarios
+---
+# No-Any Quick Reference
+
+## Common Scenarios and Solutions
+
+### 1. World System Access
+```typescript
+// ❌ WRONG
+const system = world.getSystem('combat') as any;
+
+// ✅ CORRECT
+import type { CombatSystem } from '../types/core';
+const system = world.getSystem('combat') as CombatSystem;
+```
+
+### 2. Event Handlers
+```typescript
+// ❌ WRONG
+world.on('player:damage', (data: any) => {
+  console.log(data.damage);
+});
+
+// ✅ CORRECT
+type DamageEvent = {
+  playerId: string;
+  damage: number;
+  source: string;
+};
+world.on('player:damage', (data: DamageEvent) => {
+  console.log(data.damage);
+});
+```
+
+### 3. Array/Object Manipulation
+```typescript
+// ❌ WRONG
+const items = inventory.items as any[];
+const firstItem = items[0] as any;
+
+// ✅ CORRECT
+import type { InventoryItem } from '../types/core';
+const items = inventory.items as InventoryItem[];
+const firstItem = items[0]; // Type is inferred
+```
+
+### 4. Third-party Libraries
+```typescript
+// ❌ WRONG
+const result = externalLib.doSomething() as any;
+
+// ✅ CORRECT
+type ExternalResult = {
+  success: boolean;
+  data: string;
+};
+const result = externalLib.doSomething() as ExternalResult;
+```
+
+### 5. Dynamic Property Access
+```typescript
+// ❌ WRONG
+const value = (obj as any)[dynamicKey];
+
+// ✅ CORRECT
+const typedObj = obj as Record<string, string>;
+const value = typedObj[dynamicKey];
+```
+
+### 6. Function Parameters
+```typescript
+// ❌ WRONG
+function processData(data: any): any {
+  return data.value;
+}
+
+// ✅ CORRECT
+function processData<T extends { value: string }>(data: T): string {
+  return data.value;
+}
+```
+
+### 7. Promises and Async
+```typescript
+// ❌ WRONG
+async function loadData(): Promise<any> {
+  return fetch('/api/data');
+}
+
+// ✅ CORRECT
+type ApiResponse = {
+  items: Item[];
+  total: number;
+};
+async function loadData(): Promise<ApiResponse> {
+  const response = await fetch('/api/data');
+  return response.json() as Promise<ApiResponse>;
+}
+```
+
+### 8. Type Guards (Use Sparingly)
+```typescript
+// Only when dealing with truly unknown external data
+function isItem(value: unknown): value is Item {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'name' in value
+  );
+}
+
+// But prefer strong typing from the start
+const item = getItem(id) as Item; // When you know it's an item
+```
+
+### 9. Error Handling
+```typescript
+// ❌ WRONG
+try {
+  // code
+} catch (error: any) {
+  console.log(error.message);
+}
+
+// ✅ CORRECT
+try {
+  // code
+} catch (error) {
+  if (error instanceof Error) {
+    console.log(error.message);
+  }
+}
+```
+
+### 10. React Props
+```typescript
+// ❌ WRONG
+const MyComponent = (props: any) => {
+  return <div>{props.title}</div>;
+};
+
+// ✅ CORRECT
+type MyComponentProps = {
+  title: string;
+  count: number;
+};
+const MyComponent = ({ title, count }: MyComponentProps) => {
+  return <div>{title}: {count}</div>;
+};
+```
+
+## Emergency Patterns (Use Rarely)
+
+If you absolutely must bypass types temporarily:
+
+```typescript
+// Cast through unknown (not any!)
+const converted = originalValue as unknown as TargetType;
+
+// But immediately create proper types and refactor
+```
+
+Remember: Every `any` is a bug waiting to happen. Take the time to define proper types!

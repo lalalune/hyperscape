@@ -233,6 +233,45 @@ export const characters = pgTable(
 );
 
 /**
+ * Agent Mappings Table - Tracks ElizaOS agent ownership
+ *
+ * Maps ElizaOS agent UUIDs to Hyperscape users and characters.
+ * This allows the dashboard to filter agents by user since ElizaOS doesn't expose this.
+ *
+ * Key columns:
+ * - `agentId` - ElizaOS agent UUID (primary key)
+ * - `accountId` - References users.id (CASCADE DELETE)
+ * - `characterId` - References characters.id (CASCADE DELETE)
+ * - `agentName` - Agent name (denormalized for performance)
+ * - `createdAt` - When mapping was created
+ * - `updatedAt` - Last sync timestamp
+ *
+ * Design notes:
+ * - Created when user creates an AI agent through Character Editor
+ * - Deleted automatically when user/character is deleted (CASCADE)
+ * - Used by Dashboard to filter "My Agents" without relying on ElizaOS API
+ */
+export const agentMappings = pgTable(
+  "agent_mappings",
+  {
+    agentId: text("agent_id").primaryKey().notNull(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    characterId: text("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    agentName: text("agent_name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    accountIdx: index("idx_agent_mappings_account").on(table.accountId),
+    characterIdx: index("idx_agent_mappings_character").on(table.characterId),
+  }),
+);
+
+/**
  * Items Table - Item definitions and stats
  *
  * Defines all items in the game with their properties and requirements.
@@ -556,6 +595,18 @@ export const charactersRelations = relations(characters, ({ many }) => ({
   chunkActivities: many(chunkActivity),
   npcKills: many(npcKills),
   deaths: many(playerDeaths),
+  agentMappings: many(agentMappings),
+}));
+
+export const agentMappingsRelations = relations(agentMappings, ({ one }) => ({
+  user: one(users, {
+    fields: [agentMappings.accountId],
+    references: [users.id],
+  }),
+  character: one(characters, {
+    fields: [agentMappings.characterId],
+    references: [characters.id],
+  }),
 }));
 
 export const inventoryRelations = relations(inventory, ({ one }) => ({

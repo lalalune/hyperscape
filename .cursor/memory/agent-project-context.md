@@ -6,6 +6,11 @@ Complete project context for AI agent working on Hyperscape plugin development.
 
 **Hyperscape** is an AI-generated RuneScape-style MMORPG built on a 3D multiplayer game engine. The `plugin-eliza` package integrates ElizaOS AI agents into Hyperscape game worlds, enabling autonomous AI agents to play alongside human players.
 
+### ElizaOS Upstream Repository
+- **Canonical repo slug**: `elizaOS/eliza`
+- **GitHub URL**: https://github.com/elizaOS/eliza
+- This exact slug is what DeepWiki and GitHub MCP tooling expect whenever you reference ElizaOS source, so always spell it `elizaOS/eliza` (case-sensitive) when running research or validation commands.
+
 ## Key Project Facts
 
 ### Technology Stack

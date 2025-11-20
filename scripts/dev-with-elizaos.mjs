@@ -82,15 +82,16 @@ if (!checkElizaOS() && process.env.START_ELIZAOS === 'true') {
     shell: true,
   });
   
-  // Start ElizaOS with character (must run from plugin directory)
+  // Start ElizaOS from plugin directory with default Hyperscape agent
+  // The default agent acts as the bridge between ElizaOS and Hyperscape game
   const pluginDir = path.join(rootDir, 'packages', 'plugin-hyperscape');
-  const characterPath = path.join(pluginDir, 'character.json');
-  if (!fs.existsSync(characterPath)) {
-    console.error(`${colors.red}[ElizaOS] Character file not found: ${characterPath}${colors.reset}`);
-    process.exit(1);
-  }
-  console.log(`${colors.blue}[ElizaOS]${colors.reset} Starting ElizaOS dev server with character: ${characterPath}`);
-  const elizaos = spawn('elizaos', ['dev', '--character', 'character.json'], {
+
+  console.log(`${colors.blue}[ElizaOS]${colors.reset} Starting ElizaOS with default Hyperscape agent`);
+  console.log(`${colors.yellow}   → Default agent connects ElizaOS ↔ Hyperscape game${colors.reset}`);
+  console.log(`${colors.yellow}   → Additional agents created via Dashboard${colors.reset}`);
+
+  // Run from plugin directory - default character.json will load
+  const elizaos = spawn('elizaos', ['start'], {
     cwd: pluginDir,
     stdio: 'inherit',
     shell: true,

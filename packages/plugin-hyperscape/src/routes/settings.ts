@@ -39,34 +39,3 @@ export const getSettingsRoute: Route = {
     }
   },
 };
-
-export const updateSettingsRoute: Route = {
-  type: "POST",
-  path: "/hyperscape/settings/:agentId",
-  public: true,
-  handler: async (req, res, runtime) => {
-    try {
-      const agentId = req.params.agentId;
-      const newSettings = req.body;
-
-      // In a real implementation, we would update the character config here
-      // For now, we'll just log it and return success
-      logger.info(
-        `[HyperscapePlugin] Updating settings for ${agentId}:`,
-        newSettings,
-      );
-
-      res.json({
-        success: true,
-        message: "Settings updated (simulation)",
-        settings: newSettings,
-      });
-    } catch (error) {
-      logger.error(
-        "[HyperscapePlugin] Error updating settings:",
-        error instanceof Error ? error.message : String(error),
-      );
-      res.status(500).json({ success: false, error: "Internal server error" });
-    }
-  },
-};

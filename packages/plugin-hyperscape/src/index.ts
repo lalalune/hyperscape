@@ -55,7 +55,7 @@ import { registerEventHandlers } from "./events/handlers.js";
 
 // API routes
 import { callbackRoute, statusRoute } from "./routes/auth.js";
-import { getSettingsRoute, updateSettingsRoute } from "./routes/settings.js";
+import { getSettingsRoute } from "./routes/settings.js";
 import { getLogsRoute } from "./routes/logs.js";
 
 // Configuration schema
@@ -155,13 +155,7 @@ export const hyperscapePlugin: Plugin = {
   ],
 
   // HTTP API routes for agent management
-  routes: [
-    callbackRoute,
-    statusRoute,
-    getSettingsRoute,
-    updateSettingsRoute,
-    getLogsRoute,
-  ],
+  routes: [callbackRoute, statusRoute, getSettingsRoute, getLogsRoute],
 
   // Actions the agent can perform in the game
   actions: [

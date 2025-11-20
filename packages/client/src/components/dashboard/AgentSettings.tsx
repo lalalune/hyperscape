@@ -1,15 +1,21 @@
 import React from "react";
-import { Save, RefreshCw } from "lucide-react";
+import { Save, RefreshCw, Trash2 } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 
 interface AgentSettingsProps {
   agent: Agent;
+  onDelete?: (agentId: string) => Promise<void>;
 }
 
-export const AgentSettings: React.FC<AgentSettingsProps> = ({ agent }) => {
+export const AgentSettings: React.FC<AgentSettingsProps> = ({
+  agent,
+  onDelete,
+}) => {
   const [settings, setSettings] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
 
   React.useEffect(() => {
     const fetchSettings = async () => {
@@ -36,24 +42,53 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({ agent }) => {
     if (!settings) return;
     setSaving(true);
     try {
+      // Use official ElizaOS API to update agent configuration
       const response = await fetch(
-        `http://localhost:3000/hyperscape/settings/${agent.id}`,
+        `http://localhost:3000/api/agents/${agent.id}`,
         {
-          method: "POST",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(settings),
+          body: JSON.stringify({
+            name: settings.name,
+            username: settings.username,
+            bio: settings.bio,
+            lore: settings.lore,
+            topics: settings.topics,
+            style: settings.style,
+            adjectives: settings.adjectives,
+          }),
         },
       );
       if (response.ok) {
+        console.log("[AgentSettings] ✅ Settings updated successfully");
         alert("Settings saved successfully!");
       } else {
-        alert("Failed to save settings.");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("[AgentSettings] ❌ Failed to save settings:", errorData);
+        alert(
+          `Failed to save settings: ${errorData.error || response.statusText}`,
+        );
       }
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      console.error("[AgentSettings] ❌ Error saving settings:", error);
       alert("Error saving settings.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(agent.id);
+      console.log("[AgentSettings] ✅ Agent deleted successfully");
+      // Navigation will happen automatically when agent is removed from list
+    } catch (error) {
+      console.error("[AgentSettings] ❌ Error deleting agent:", error);
+      alert("Failed to delete agent. Please try again.");
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -178,25 +213,83 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({ agent }) => {
           </div>
 
           {/* Actions */}
-          <div className="pt-6 flex items-center justify-end gap-4 border-t border-[#8b4513]/30">
-            <button
-              onClick={() => window.location.reload()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#f2d08a]/30 text-[#f2d08a] hover:bg-[#f2d08a]/10 transition-colors"
-            >
-              <RefreshCw size={16} />
-              Reset
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-[#f2d08a] text-[#0b0a15] font-bold hover:bg-[#e5c07b] transition-colors shadow-lg shadow-[#f2d08a]/20 disabled:opacity-50"
-            >
-              <Save size={16} />
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
+          <div className="pt-6 flex items-center justify-between gap-4 border-t border-[#8b4513]/30">
+            <div>
+              {onDelete && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleting}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                  Delete Agent
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => window.location.reload()}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#f2d08a]/30 text-[#f2d08a] hover:bg-[#f2d08a]/10 transition-colors"
+              >
+                <RefreshCw size={16} />
+                Reset
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-2 rounded-lg bg-[#f2d08a] text-[#0b0a15] font-bold hover:bg-[#e5c07b] transition-colors shadow-lg shadow-[#f2d08a]/20 disabled:opacity-50"
+              >
+                <Save size={16} />
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#0b0a15] border-2 border-red-500/30 rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                <Trash2 className="text-red-400" size={24} />
+              </div>
+              <div>
+                <h3 className="font-bold text-[#f2d08a] text-lg">
+                  Delete Agent
+                </h3>
+                <p className="text-[#f2d08a]/60 text-sm">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+
+            <p className="text-[#e8ebf4]/80 mb-6">
+              Are you sure you want to delete{" "}
+              <span className="font-bold text-[#f2d08a]">{agent.name}</span>?
+              This will permanently remove the agent and all its data.
+            </p>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-lg border border-[#f2d08a]/30 text-[#f2d08a] hover:bg-[#f2d08a]/10 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white font-bold hover:bg-red-600 transition-colors disabled:opacity-50 shadow-lg shadow-red-500/20"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -17,11 +17,18 @@ export interface CharacterTemplate {
   knowledge?: string[];
   plugins: string[];
   settings: {
+    accountId?: string; // User's Privy account ID for dashboard filtering
+    characterType?: string; // "ai-agent" or "human-player"
     secrets: {
       HYPERSCAPE_AUTH_TOKEN?: string;
       HYPERSCAPE_CHARACTER_ID?: string;
+      HYPERSCAPE_ACCOUNT_ID?: string;
       HYPERSCAPE_SERVER_URL?: string;
       wallet?: string;
+      // LLM Provider API Keys (optional, depends on selected plugins)
+      OPENAI_API_KEY?: string;
+      ANTHROPIC_API_KEY?: string;
+      OPENROUTER_API_KEY?: string;
     };
     avatar?: string;
   };
@@ -49,17 +56,19 @@ function generateUUID(): string {
  * @param name - The character's name
  * @param wallet - Optional wallet address
  * @param avatar - Optional avatar URL
+ * @param characterId - Optional character ID (uses existing Hyperscape character ID)
  * @returns A complete character template
  */
 export function generateCharacterTemplate(
   name: string,
   wallet?: string,
   avatar?: string,
+  characterId?: string,
 ): CharacterTemplate {
   const username = name.toLowerCase().replace(/\s+/g, "_");
 
   return {
-    id: generateUUID(),
+    id: characterId || generateUUID(), // Use provided ID or generate new one
     name,
     username,
     system: `You are ${name}, an AI agent playing Hyperscape, a 3D multiplayer RPG. You can move around the world, fight enemies, gather resources, manage your inventory, and interact with other players. You are adventurous, strategic, and always ready for new challenges. Respond to situations naturally and make decisions based on your goals and the current game state.`,
@@ -139,7 +148,13 @@ export function generateCharacterTemplate(
       "Player cooperation and team strategies",
     ],
 
-    plugins: ["@hyperscape/plugin-hyperscape"],
+    plugins: [
+      "@hyperscape/plugin-hyperscape", // Required - Hyperscape game integration
+      "@elizaos/plugin-sql", // Database operations
+      "@elizaos/plugin-openrouter", // OpenRouter LLM provider
+      "@elizaos/plugin-openai", // OpenAI models (GPT-4, etc)
+      "@elizaos/plugin-anthropic", // Anthropic models (Claude)
+    ],
 
     settings: {
       secrets: {
@@ -148,6 +163,10 @@ export function generateCharacterTemplate(
         HYPERSCAPE_CHARACTER_ID: undefined,
         HYPERSCAPE_SERVER_URL: "ws://localhost:5555/ws",
         wallet,
+        // LLM Provider API Keys (users can add these in the Secrets tab)
+        OPENAI_API_KEY: "",
+        ANTHROPIC_API_KEY: "",
+        OPENROUTER_API_KEY: "",
       },
       avatar,
     },

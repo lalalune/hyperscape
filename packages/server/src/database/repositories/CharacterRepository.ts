@@ -38,6 +38,7 @@ export class CharacterRepository extends BaseRepository {
       name: string;
       avatar?: string | null;
       wallet?: string | null;
+      isAgent?: boolean;
     }>
   > {
     this.ensureDatabase();
@@ -53,6 +54,7 @@ export class CharacterRepository extends BaseRepository {
         name: schema.characters.name,
         avatar: schema.characters.avatar,
         wallet: schema.characters.wallet,
+        isAgent: schema.characters.isAgent,
       })
       .from(schema.characters)
       .where(eq(schema.characters.accountId, accountId));
@@ -64,7 +66,11 @@ export class CharacterRepository extends BaseRepository {
       results,
     );
 
-    return results;
+    // Convert isAgent from number (0/1) to boolean
+    return results.map((char) => ({
+      ...char,
+      isAgent: char.isAgent === 1,
+    }));
   }
 
   /**
@@ -149,6 +155,95 @@ export class CharacterRepository extends BaseRepository {
         );
         return false;
       }
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a character by ID
+   *
+   * Permanently removes a character from the database. This is used when
+   * users cancel agent creation or explicitly delete unwanted characters.
+   *
+   * @param characterId - The character ID to delete
+   * @returns true if character was deleted, false if not found
+   */
+  async deleteCharacter(characterId: string): Promise<boolean> {
+    this.ensureDatabase();
+
+    console.log("[CharacterRepository] 🗑️  Deleting character:", characterId);
+
+    try {
+      const result = await this.db
+        .delete(schema.characters)
+        .where(eq(schema.characters.id, characterId));
+
+      // Check if any rows were affected
+      // Drizzle returns an object with rowCount or similar depending on dialect
+      const deleted =
+        result && (result as unknown as { rowCount?: number }).rowCount !== 0;
+
+      if (deleted) {
+        console.log("[CharacterRepository] ✅ Character deleted successfully");
+      } else {
+        console.log("[CharacterRepository] ⚠️  Character not found");
+      }
+
+      return deleted;
+    } catch (error) {
+      console.error(
+        "[CharacterRepository] ❌ Error deleting character:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Update character's isAgent flag
+   *
+   * Converts a character between agent and human types. Used when users
+   * decide to convert an abandoned agent character to play themselves.
+   *
+   * @param characterId - The character ID to update
+   * @param isAgent - New value for isAgent flag
+   * @returns true if character was updated, false if not found
+   */
+  async updateCharacterIsAgent(
+    characterId: string,
+    isAgent: boolean,
+  ): Promise<boolean> {
+    this.ensureDatabase();
+
+    console.log("[CharacterRepository] 🔄 Updating character isAgent:", {
+      characterId,
+      isAgent,
+    });
+
+    try {
+      const result = await this.db
+        .update(schema.characters)
+        .set({ isAgent: isAgent ? 1 : 0 })
+        .where(eq(schema.characters.id, characterId));
+
+      // Check if any rows were affected
+      const updated =
+        result && (result as unknown as { rowCount?: number }).rowCount !== 0;
+
+      if (updated) {
+        console.log(
+          `[CharacterRepository] ✅ Character updated to ${isAgent ? "agent" : "human"}`,
+        );
+      } else {
+        console.log("[CharacterRepository] ⚠️  Character not found");
+      }
+
+      return updated;
+    } catch (error) {
+      console.error(
+        "[CharacterRepository] ❌ Error updating character:",
+        error,
+      );
       throw error;
     }
   }
