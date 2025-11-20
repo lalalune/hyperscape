@@ -7,12 +7,8 @@
 
 import { useEffect, useState } from "react";
 import { GameClient } from "../screens/GameClient";
-import {
-  type EmbeddedViewportConfig,
-  getEmbeddedConfig,
-  getViewportSettings,
-  getQualityPreset,
-} from "../types/embeddedConfig";
+import type { EmbeddedViewportConfig } from "../types/embeddedConfig";
+import { getEmbeddedConfig, getQualityPreset } from "../types/embeddedConfig";
 import type { World } from "@hyperscape/shared";
 import { EventType } from "@hyperscape/shared";
 
@@ -32,33 +28,43 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
     return;
   }
 
-  // Wait for entity manager to be ready
-  const entityManager = world.getSystem("entity-manager");
-  if (!entityManager) {
-    console.error("[EmbeddedGameClient] Entity manager not found");
-    return;
-  }
-
   // Listen for entity spawns to find agent's character
-  const handleEntityAdded = (data: {
-    entity: { id: string; characterId?: string };
+  const handleEntitySpawned = (data: {
+    entityId?: string;
+    entityType?: string;
+    position?: { x: number; y: number; z: number };
+    entityData?: Record<string, unknown>;
   }) => {
-    const entity = data.entity;
+    if (!data.entityId) return;
+
+    // Get entity manager to fetch full entity data
+    const entityManager = world.getSystem("entity-manager");
+    if (!entityManager) return;
+
+    const em = entityManager as {
+      getEntity?: (id: string) => {
+        id: string;
+        characterId?: string;
+        position?: { x: number; y: number; z: number };
+      } | null;
+    };
+
+    const entity = em.getEntity?.(data.entityId);
+    if (!entity) return;
 
     // Check if this is the entity we want to follow
     const isTargetEntity =
       entity.id === targetEntityId || entity.characterId === targetEntityId;
 
-    if (isTargetEntity) {
+    if (isTargetEntity && entity.position) {
       console.log(
         "[EmbeddedGameClient] Found target entity, locking camera:",
         entity.id,
       );
 
-      // Lock camera to this entity
+      // Lock camera to this entity's position
       world.emit(EventType.CAMERA_SET_TARGET, {
-        target: entity,
-        lock: true, // Lock camera (don't allow user control)
+        target: { position: entity.position },
       });
 
       // Disable player input controls for spectator mode
@@ -76,13 +82,29 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
     }
   };
 
-  // Subscribe to entity added events
-  world.on(EventType.ENTITY_ADDED, handleEntityAdded);
+  // Subscribe to entity spawned events
+  world.on(EventType.ENTITY_SPAWNED, handleEntitySpawned);
 
   // Also check existing entities (in case character already spawned)
   const checkExistingEntities = () => {
+    // Get entity manager (may not be ready immediately)
+    const entityManager = world.getSystem("entity-manager");
+    if (!entityManager) {
+      console.log(
+        "[EmbeddedGameClient] Entity manager not ready yet, will wait for ENTITY_SPAWNED event",
+      );
+      return;
+    }
+
     const em = entityManager as {
-      getAllEntities?: () => Map<string, { id: string; characterId?: string }>;
+      getAllEntities?: () => Map<
+        string,
+        {
+          id: string;
+          characterId?: string;
+          position?: { x: number; y: number; z: number };
+        }
+      >;
     };
 
     if (em.getAllEntities) {
@@ -90,8 +112,12 @@ function setupSpectatorCamera(world: World, config: EmbeddedViewportConfig) {
         const isTargetEntity =
           entity.id === targetEntityId || entity.characterId === targetEntityId;
 
-        if (isTargetEntity) {
-          handleEntityAdded({ entity });
+        if (isTargetEntity && entity.position) {
+          // Simulate event data structure
+          handleEntitySpawned({
+            entityId: entity.id,
+            position: entity.position,
+          });
           break;
         }
       }
@@ -119,18 +145,13 @@ function applyQualityPresets(world: World, config: EmbeddedViewportConfig) {
 
   if (graphics?.setRenderScale) {
     graphics.setRenderScale(quality.renderScale);
+    console.log(
+      `[EmbeddedGameClient] Render scale set to ${quality.renderScale}`,
+    );
   }
 
-  // Apply other quality settings
-  // Note: These would be implemented in the graphics system
-  const qualitySettings = {
-    shadows: quality.shadows,
-    antialiasing: quality.antialiasing,
-    lodDistance: quality.lodDistance,
-    maxParticles: quality.maxParticles,
-  };
-
-  world.emit(EventType.GRAPHICS_QUALITY_UPDATE, qualitySettings);
+  // Note: Other quality settings (shadows, antialiasing, etc.) would be
+  // configured through the graphics system directly if needed
 }
 
 /**
@@ -213,22 +234,12 @@ export function EmbeddedGameClient() {
     // Apply quality presets
     applyQualityPresets(world, config);
 
-    // Hide UI elements based on config
+    // Note: UI element hiding would be configured here if needed
+    // For now, the embedded viewport uses CSS to hide UI elements via iframe parameters
     if (config.hiddenUI && config.hiddenUI.length > 0) {
-      world.emit(EventType.UI_HIDE_ELEMENTS, {
-        elements: config.hiddenUI,
-      });
-      console.log("[EmbeddedGameClient] Hiding UI elements:", config.hiddenUI);
-    }
-
-    // Set target FPS for viewport
-    const viewportSettings = getViewportSettings();
-    if (viewportSettings) {
-      world.emit(EventType.GRAPHICS_SET_TARGET_FPS, {
-        fps: viewportSettings.targetFPS,
-      });
       console.log(
-        `[EmbeddedGameClient] Target FPS set to ${viewportSettings.targetFPS}`,
+        "[EmbeddedGameClient] Requested hidden UI elements:",
+        config.hiddenUI,
       );
     }
   };
