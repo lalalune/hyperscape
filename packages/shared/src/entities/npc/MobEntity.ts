@@ -458,9 +458,6 @@ export class MobEntity extends CombatantEntity {
 
     // Set initial emote to idle
     this._currentEmote = Emotes.IDLE;
-    console.log(
-      `[MobEntity] 🎬 ${this.config.mobType} (${this.id}) VRM loaded, setting initial emote: ${this._currentEmote}`,
-    );
     this._avatarInstance.setEmote(this._currentEmote);
 
     // NOTE: Don't register VRM instance as hot - the MobEntity itself is registered
@@ -741,9 +738,6 @@ export class MobEntity extends CombatantEntity {
    */
   private createAIContext(): AIStateContext {
     return {
-      // Entity Info
-      getEntityId: () => this.id,
-
       // Position & Movement
       getPosition: () => this.getPosition(),
       moveTowards: (target, deltaTime) =>
@@ -777,7 +771,7 @@ export class MobEntity extends CombatantEntity {
       // Combat
       canAttack: (currentTime) => this.combatManager.canAttack(currentTime),
       performAttack: (targetId, currentTime) => {
-        return this.combatManager.performAttack(targetId, currentTime);
+        this.combatManager.performAttack(targetId, currentTime);
       },
       isInCombat: () => this.combatManager.isInCombat(),
 
@@ -1017,9 +1011,6 @@ export class MobEntity extends CombatantEntity {
     if (this._avatarInstance) {
       const targetEmote = this.getEmoteForAIState(this.config.aiState);
       if (this._currentEmote !== targetEmote) {
-        console.log(
-          `[MobEntity] 🎬 ${this.config.mobType} (${this.id}) changing emote: ${this._currentEmote} → ${targetEmote} (AI state: ${this.config.aiState})`,
-        );
         this._currentEmote = targetEmote;
         this._avatarInstance.setEmote(targetEmote);
       }
@@ -1197,10 +1188,6 @@ export class MobEntity extends CombatantEntity {
       this.node.updateMatrix();
       this.node.updateMatrixWorld(true);
 
-      // CRITICAL: Update VRM animation based on AI state FIRST (sets correct emote)
-      // This must happen before update() so the mixer knows which animation to play
-      this.updateAnimation();
-
       // SPECIAL HANDLING FOR DEATH: Lock position, let animation play
       const deathLockedPos = this.deathManager.getLockedPosition();
       if (deathLockedPos) {
@@ -1248,7 +1235,7 @@ export class MobEntity extends CombatantEntity {
         }
       }
 
-      // VRM handles all animation internally via avatarInstance.update()
+      // VRM handles all animation internally
       return;
     }
 
@@ -1336,6 +1323,7 @@ export class MobEntity extends CombatantEntity {
     this.combatManager.enterCombat(attackerId);
 
     // Apply damage
+    const oldHealth = this.config.currentHealth;
     this.config.currentHealth = Math.max(0, this.config.currentHealth - damage);
 
     // Sync all health fields (single source of truth)
@@ -1345,6 +1333,9 @@ export class MobEntity extends CombatantEntity {
       max: this.config.maxHealth,
     });
 
+    // Update health bar visual (setHealth already does this, but ensure it's called)
+    this.updateHealthBar();
+
     // Update userData for mesh
     if (this.mesh?.userData) {
       const userData = this.mesh.userData as MeshUserData;
@@ -1353,11 +1344,14 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // Show damage numbers
+    // Show damage numbers (red for damage > 0, blue for 0 damage)
+    const targetPosition = this.getPosition();
     this.world.emit(EventType.COMBAT_DAMAGE_DEALT, {
+      attackerId: attackerId || "unknown",
       targetId: this.id,
       damage,
-      position: this.getPosition(),
+      targetType: "mob",
+      position: targetPosition,
     });
 
     // Check if mob died
@@ -1781,12 +1775,22 @@ export class MobEntity extends CombatantEntity {
 
     // Update health from server
     if ("currentHealth" in data) {
-      this.config.currentHealth = data.currentHealth as number;
+      const newHealth = data.currentHealth as number;
+      this.config.currentHealth = newHealth;
+      // CRITICAL: Update entity health and health bar by calling setHealth
+      // This ensures the health bar visual updates on the client
+      this.setHealth(newHealth);
     }
 
     // Update max health from server
     if ("maxHealth" in data) {
-      this.config.maxHealth = data.maxHealth as number;
+      const newMaxHealth = data.maxHealth as number;
+      this.config.maxHealth = newMaxHealth;
+      this.maxHealth = newMaxHealth;
+      // Update entity data for consistency
+      (this.data as { maxHealth?: number }).maxHealth = newMaxHealth;
+      // Refresh health bar to show updated max health
+      this.updateHealthBar();
     }
 
     // Update target from server

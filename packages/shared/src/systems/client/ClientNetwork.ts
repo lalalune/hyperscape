@@ -443,12 +443,9 @@ export class ClientNetwork extends SystemBase {
         this.logger.debug("Sending enterWorld with selected characterId");
         this.send("enterWorld", { characterId: selectedCharacterId });
       } else {
-        // No character selected - send enterWorld without characterId
-        // Server will spawn a default character (development mode)
         this.logger.debug(
-          "No selectedCharacterId in localStorage, sending enterWorld without characterId (dev mode)",
+          "No selectedCharacterId in localStorage, cannot auto-enter world",
         );
-        this.send("enterWorld", {});
       }
     }
     // Ensure Physics is fully initialized before processing entities
