@@ -57,10 +57,26 @@ tmp/
 # Assets (generated/temporary)
 assets/
 
-# 3D Models from hyperscape/assets repository
+# 3D Models and Avatars from hyperscape/assets repository
 packages/client/src/public/models/
 packages/client/dist/models/
+*.vrm
+!packages/server/world/assets/**/*.vrm
 
+# Claude Code and Cursor IDE development files (keep locally, not in git)
+.claude/
+.cursor/
 
-.cursor/rules/kluster-code-verify.mdc
+# Development documentation (temporary notes, not main docs)
+# Keep: README.md, CLAUDE.md, LORE.md
+CHARACTER_DASHBOARD_SYNC.md
+CHARACTER_SELECTION_ROUTING.md
+DASHBOARD_SETUP.md
+WALLET_JWT_FIX_SUMMARY.md
+clear-users.sql
+
+# Symlinks
+world
+
+# Kluster
 .kluster

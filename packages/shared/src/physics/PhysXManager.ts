@@ -351,7 +351,9 @@ class PhysXManager extends EventEmitter {
           // Use window.__CDN_URL if set by the application
           const windowWithCdn = window as Window & { __CDN_URL?: string };
           const cdnBaseUrl = windowWithCdn.__CDN_URL || "http://localhost:8080";
-          const url = `${cdnBaseUrl}/web/${wasmFileName}`;
+          // Add cache-busting parameter to force reload of correct UMD version
+          const cacheBust = Date.now();
+          const url = `${cdnBaseUrl}/web/${wasmFileName}?v=${cacheBust}`;
           return url;
         }
         return wasmFileName;

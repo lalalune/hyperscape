@@ -31,7 +31,9 @@ export async function loadPhysXScript(
     // Load from CDN (always absolute URL to avoid Vite conflicts)
     const windowWithCdn = window as Window & { __CDN_URL?: string };
     const cdnUrl = windowWithCdn.__CDN_URL || "http://localhost:8080";
-    const scriptUrl = `${cdnUrl}/web/physx-js-webidl.js`;
+    // Add cache-busting parameter to force browser to reload correct UMD version
+    const cacheBust = Date.now();
+    const scriptUrl = `${cdnUrl}/web/physx-js-webidl.js?v=${cacheBust}`;
 
     script.src = scriptUrl;
     script.async = true;

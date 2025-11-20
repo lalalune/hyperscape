@@ -434,6 +434,36 @@ export async function handleEnterWorld(
           console.warn(
             `[CharacterSelection] ❌ Character ${characterId} not found for account ${accountId}`,
           );
+
+          // Auto-create character in database to avoid foreign key violations
+          console.log(
+            `[CharacterSelection] 🆕 Creating character record for ${characterId}`,
+          );
+          try {
+            const created = await databaseSystem.createCharacter(
+              accountId,
+              characterId,
+              name,
+              avatar,
+              undefined, // wallet
+              false, // isAgent
+            );
+            if (created) {
+              console.log(
+                `[CharacterSelection] ✅ Created character record for ${characterId}`,
+              );
+              characterData = { id: characterId, name, avatar: avatar || null };
+            } else {
+              console.error(
+                `[CharacterSelection] ❌ Failed to create character record`,
+              );
+            }
+          } catch (createErr) {
+            console.error(
+              `[CharacterSelection] ❌ Error creating character:`,
+              createErr,
+            );
+          }
         }
       }
     } catch (err) {
@@ -567,7 +597,8 @@ export async function handleEnterWorld(
         name,
         health: playerHealth, // Use constitution level instead of HEALTH_MAX
         maxHealth: playerHealth, // Also set maxHealth
-        avatar: avatar || world.settings.avatar?.url || "asset://avatar.vrm", // ✅ Use character's avatar from DB
+        avatar:
+          avatar || world.settings.avatar?.url || "asset://avatar-male-01.vrm", // ✅ Use character's avatar from DB
         sessionAvatar: avatar || undefined, // ✅ Also set sessionAvatar for runtime override
         roles,
         // CRITICAL: Pass loaded skills so PlayerEntity constructor uses them instead of defaults

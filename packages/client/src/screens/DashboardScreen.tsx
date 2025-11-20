@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { DashboardLayout } from "../components/dashboard/DashboardLayout";
 import { AgentChat } from "../components/dashboard/AgentChat";
+import { AgentViewportChat } from "../components/dashboard/AgentViewportChat";
 import { AgentSettings } from "../components/dashboard/AgentSettings";
 import { AgentLogs } from "../components/dashboard/AgentLogs";
 import { AgentViewport } from "../components/dashboard/AgentViewport";
@@ -248,9 +249,12 @@ export const DashboardScreen: React.FC = () => {
       const response = await fetch(`${ELIZAOS_API}/agents/${agentId}/panels`);
 
       if (!response.ok) {
-        console.warn(
-          `[Dashboard] Failed to fetch panels: HTTP ${response.status}`,
-        );
+        // Silently handle 404 - panels endpoint may not exist on all ElizaOS versions
+        if (response.status !== 404) {
+          console.warn(
+            `[Dashboard] Failed to fetch panels: HTTP ${response.status}`,
+          );
+        }
         setAgentPanels([]);
         return;
       }
@@ -390,7 +394,9 @@ export const DashboardScreen: React.FC = () => {
 
           {/* Content Area */}
           <div className="flex-1 overflow-hidden relative">
-            {activeView === "chat" && <AgentChat agent={selectedAgent} />}
+            {activeView === "chat" && (
+              <AgentViewportChat agent={selectedAgent} />
+            )}
             {activeView === "settings" && (
               <AgentSettings agent={selectedAgent} onDelete={deleteAgent} />
             )}

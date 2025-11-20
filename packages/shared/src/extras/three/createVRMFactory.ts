@@ -558,6 +558,16 @@ export function createVRMFactory(
       setEmote,
       setFirstPerson,
       update: wrappedUpdate,
+      // Add HotReloadable stub methods so Avatar.ts registers this for updates
+      fixedUpdate: (_delta: number) => {
+        // VRM doesn't need fixed update, only regular update
+      },
+      lateUpdate: (_delta: number) => {
+        // VRM doesn't need late update, only regular update
+      },
+      postLateUpdate: (_delta: number) => {
+        // VRM doesn't need post-late update, only regular update
+      },
       getBoneTransform,
       move(_matrix: THREE.Matrix4) {
         matrix.copy(_matrix);
