@@ -17,3 +17,4 @@ export { Nametags } from "./Nametags";
 export { XR } from "./XR";
 export { NodeClient } from "./NodeClient";
 export { ControlPriorities } from "./ControlPriorities";
+export { EquipmentVisualSystem } from "./EquipmentVisualSystem";

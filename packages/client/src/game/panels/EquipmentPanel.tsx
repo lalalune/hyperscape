@@ -1,12 +1,18 @@
 import React, { useState } from "react";
 import { COLORS } from "../../constants";
 import { useDroppable } from "@dnd-kit/core";
-import { EquipmentSlotName } from "@hyperscape/shared";
-import type { PlayerEquipmentItems, Item, PlayerStats } from "../../types";
+import { EquipmentSlotName, EventType } from "@hyperscape/shared";
+import type {
+  PlayerEquipmentItems,
+  Item,
+  PlayerStats,
+  ClientWorld,
+} from "../../types";
 
 interface EquipmentPanelProps {
   equipment: PlayerEquipmentItems | null;
   stats?: PlayerStats | null;
+  world?: ClientWorld;
   onItemDrop?: (item: Item, slot: keyof typeof EquipmentSlotName) => void;
 }
 
@@ -135,6 +141,7 @@ function DroppableEquipmentSlot({
 export function EquipmentPanel({
   equipment,
   stats,
+  world,
   onItemDrop: _onItemDrop,
 }: EquipmentPanelProps) {
   const [selectedSlot, setSelectedSlot] = useState<EquipmentSlot | null>(null);
@@ -869,8 +876,14 @@ export function EquipmentPanel({
                 {/* Unequip Button */}
                 <button
                   onClick={() => {
-                    // Unequip functionality not yet implemented
-                    // Will require network protocol for item unequip action
+                    // Emit EQUIPMENT_UNEQUIP event
+                    const localPlayer = world?.getPlayer();
+                    if (world && selectedSlot && localPlayer) {
+                      world.emit(EventType.EQUIPMENT_UNEQUIP, {
+                        playerId: localPlayer.id,
+                        slot: selectedSlot.key,
+                      });
+                    }
                     setSelectedSlot(null);
                   }}
                   className="w-full mt-4 py-2 px-4 rounded transition-all duration-200 hover:scale-[1.02]"

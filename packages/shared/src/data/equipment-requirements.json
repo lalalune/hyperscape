@@ -2,7 +2,7 @@
   "levelRequirements": {
     "weapons": {
       "bronze_sword": { "attack": 1, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
-      "steel_sword": { "attack": 10, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
+      "steel_sword": { "attack": 1, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
       "mithril_sword": { "attack": 20, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
       "wood_bow": { "attack": 0, "strength": 0, "defense": 0, "ranged": 1, "constitution": 0 },
       "oak_bow": { "attack": 0, "strength": 0, "defense": 0, "ranged": 10, "constitution": 0 },

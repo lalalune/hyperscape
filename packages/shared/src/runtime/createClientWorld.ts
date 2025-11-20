@@ -78,6 +78,7 @@ import { modelCache } from "../utils/rendering/ModelCache";
 import type { StageSystem } from "../types/systems/system-interfaces";
 import { LODs } from "../systems/shared";
 import { Nametags } from "../systems/client/Nametags";
+import { EquipmentVisualSystem } from "../systems/client/EquipmentVisualSystem";
 import { Particles } from "../systems/shared";
 import { Wind } from "../systems/shared";
 import { XR } from "../systems/client/XR";
@@ -174,6 +175,7 @@ export function createClientWorld() {
 
   world.register("lods", LODs); // Level-of-detail mesh management
   world.register("nametags", Nametags); // Player/NPC name labels
+  world.register("equipment-visual", EquipmentVisualSystem); // Visual weapon/equipment attachment
   world.register("particles", Particles); // Particle effects system
   world.register("wind", Wind); // Environmental wind effects
   world.register("xr", XR); // VR/AR support
@@ -199,7 +201,29 @@ export function createClientWorld() {
   // RPG systems are loaded asynchronously to avoid blocking world creation.
 
   (async () => {
+    console.log("[createClientWorld] 🔧 About to register systems...");
     await registerSystems(world);
+    console.log("[createClientWorld] ✅ Systems registered!");
+    console.log(
+      "[createClientWorld] Equipment system exists:",
+      !!world.getSystem("equipment"),
+    );
+
+    // CRITICAL: Initialize newly registered systems
+    const equipmentSystem = world.getSystem("equipment");
+    if (equipmentSystem && !equipmentSystem.isInitialized()) {
+      console.log(
+        "[createClientWorld] 🔄 Manually initializing EquipmentSystem...",
+      );
+      // Create WorldOptions from world's current state
+      const worldOptions = {
+        storage: world.storage,
+        assetsUrl: world.assetsUrl,
+        assetsDir: world.assetsDir,
+      };
+      await equipmentSystem.init(worldOptions);
+      console.log("[createClientWorld] ✅ EquipmentSystem initialized!");
+    }
 
     // Re-expose utilities after RPG systems load (in case they were cleared)
     const anyWin = window as unknown as {
