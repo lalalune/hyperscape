@@ -94,20 +94,28 @@ export async function handleCharacterCreate(
   );
 
   const payload =
-    (data as { name?: string; avatar?: string; wallet?: string }) || {};
+    (data as {
+      name?: string;
+      avatar?: string;
+      wallet?: string;
+      isAgent?: boolean;
+    }) || {};
   const name = (payload.name || "").trim().slice(0, 20) || "Adventurer";
   const avatar = payload.avatar || undefined;
   const wallet = payload.wallet || undefined;
+  const isAgent = payload.isAgent || false;
 
   console.log("[CharacterSelection] Raw data from payload:", {
     name: payload.name,
     avatar: payload.avatar,
     wallet: payload.wallet,
+    isAgent: payload.isAgent,
   });
   console.log("[CharacterSelection] Processed values:", {
     name,
     avatar,
     wallet,
+    isAgent,
   });
 
   // Basic validation: alphanumeric plus spaces, 3-20 chars
@@ -125,6 +133,7 @@ export async function handleCharacterCreate(
     finalName,
     avatar,
     wallet,
+    isAgent,
   });
 
   if (!accountId) {
@@ -158,6 +167,7 @@ export async function handleCharacterCreate(
       finalName,
       avatar,
       wallet,
+      isAgent,
     );
 
     if (!result) {

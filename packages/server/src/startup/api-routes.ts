@@ -43,6 +43,8 @@ import { registerUploadRoutes } from "./routes/upload-routes.js";
 import { registerPlayerRoutes } from "./routes/player-routes.js";
 import { registerActionRoutes } from "./routes/action-routes.js";
 import { registerErrorRoutes } from "./routes/error-routes.js";
+import { registerCharacterRoutes } from "./routes/character-routes.js";
+import { registerAgentRoutes } from "./routes/agent-routes.js";
 
 /**
  * Register all API routes
@@ -79,6 +81,12 @@ export function registerApiRoutes(
 
   // Error reporting
   registerErrorRoutes(fastify);
+
+  // Character file management
+  registerCharacterRoutes(fastify);
+
+  // Agent credential management
+  registerAgentRoutes(fastify, world);
 
   console.log("[API] ✅ API routes registered");
 }

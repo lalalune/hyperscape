@@ -53,14 +53,8 @@ import { bankDepositAction, bankWithdrawAction } from "./actions/banking.js";
 // Event handlers
 import { registerEventHandlers } from "./events/handlers.js";
 
-// Auth routes
-import { loginRoute, callbackRoute, statusRoute } from "./routes/auth.js";
-import { loginButtonRoute } from "./routes/login-button.js";
-import { uiInjectorRoute } from "./routes/ui-injector.js";
-import { injectRoute } from "./routes/inject.js";
-import { mainUIInjectorRoute } from "./routes/main-ui-injector.js";
-import { viewportRoute } from "./routes/viewport.js";
-import { dashboardRoute } from "./routes/dashboard.js";
+// API routes
+import { callbackRoute, statusRoute } from "./routes/auth.js";
 import { getSettingsRoute, updateSettingsRoute } from "./routes/settings.js";
 import { getLogsRoute } from "./routes/logs.js";
 
@@ -160,17 +154,10 @@ export const hyperscapePlugin: Plugin = {
     availableActionsProvider, // Context-aware available actions
   ],
 
-  // HTTP routes for authentication and viewport
+  // HTTP API routes for agent management
   routes: [
-    loginRoute,
     callbackRoute,
     statusRoute,
-    loginButtonRoute,
-    uiInjectorRoute,
-    injectRoute,
-    mainUIInjectorRoute,
-    viewportRoute,
-    dashboardRoute,
     getSettingsRoute,
     updateSettingsRoute,
     getLogsRoute,

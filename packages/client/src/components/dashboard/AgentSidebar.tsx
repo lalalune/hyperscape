@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, Users, Settings, LogOut } from "lucide-react";
+import { Plus, Users, Settings, LogOut, Play, Square } from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 
 interface AgentSidebarProps {
@@ -7,6 +7,8 @@ interface AgentSidebarProps {
   selectedAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
   onCreateAgent: () => void;
+  onStartAgent: (agentId: string) => void;
+  onStopAgent: (agentId: string) => void;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
@@ -14,6 +16,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   selectedAgentId,
   onSelectAgent,
   onCreateAgent,
+  onStartAgent,
+  onStopAgent,
 }) => {
   return (
     <div className="w-64 flex flex-col border-r border-[#8b4513]/30 bg-[#0b0a15]/95 backdrop-blur-md">
@@ -37,34 +41,69 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
         </div>
 
         {agents.map((agent) => (
-          <button
+          <div
             key={agent.id}
-            onClick={() => onSelectAgent(agent.id)}
-            className={`w-full flex items-center gap-3 p-2 rounded-md transition-all border ${
+            className={`group w-full flex items-center gap-2 p-2 rounded-md transition-all border ${
               selectedAgentId === agent.id
-                ? "bg-[#f2d08a]/10 border-[#f2d08a]/50 text-[#f2d08a]"
-                : "hover:bg-[#f2d08a]/5 border-transparent text-[#e8ebf4]/80 hover:text-[#f2d08a]"
+                ? "bg-[#f2d08a]/10 border-[#f2d08a]/50"
+                : "hover:bg-[#f2d08a]/5 border-transparent"
             }`}
           >
-            <div className="relative">
-              <div className="w-8 h-8 rounded-full bg-[#1a1005] border border-[#f2d08a]/30 flex items-center justify-center text-lg">
-                🤖
+            <button
+              onClick={() => onSelectAgent(agent.id)}
+              className="flex-1 flex items-center gap-3"
+            >
+              <div className="relative">
+                <div className="w-8 h-8 rounded-full bg-[#1a1005] border border-[#f2d08a]/30 flex items-center justify-center text-lg">
+                  🤖
+                </div>
+                <div
+                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0b0a15] ${
+                    agent.status === "active" ? "bg-green-500" : "bg-gray-500"
+                  }`}
+                />
               </div>
-              <div
-                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0b0a15] ${
-                  agent.status === "active" ? "bg-green-500" : "bg-gray-500"
-                }`}
-              />
-            </div>
-            <div className="text-left truncate">
-              <div className="font-medium text-sm truncate">
-                {agent.characterName || agent.name || "Unknown"}
+              <div className="text-left truncate">
+                <div
+                  className={`font-medium text-sm truncate ${
+                    selectedAgentId === agent.id
+                      ? "text-[#f2d08a]"
+                      : "text-[#e8ebf4]/80 group-hover:text-[#f2d08a]"
+                  }`}
+                >
+                  {agent.characterName || agent.name || "Unknown"}
+                </div>
+                <div className="text-[10px] opacity-60 truncate">
+                  {agent.status === "active" ? "Active" : "Inactive"}
+                </div>
               </div>
-              <div className="text-[10px] opacity-60 truncate">
-                {agent.status === "active" ? "Active" : "Inactive"}
-              </div>
-            </div>
-          </button>
+            </button>
+
+            {/* Start/Stop Button */}
+            {agent.status === "active" ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStopAgent(agent.id);
+                }}
+                className="w-6 h-6 rounded flex items-center justify-center bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-colors"
+                title="Stop Agent"
+              >
+                <Square size={12} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartAgent(agent.id);
+                }}
+                className="w-6 h-6 rounded flex items-center justify-center bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 transition-colors"
+                title="Start Agent"
+              >
+                <Play size={12} fill="currentColor" />
+              </button>
+            )}
+          </div>
         ))}
 
         <button

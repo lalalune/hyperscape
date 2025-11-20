@@ -2,7 +2,8 @@
 node_modules/
 package-lock.json
 yarn.lock
-
+.claude/*
+.cursor/*
 # Build outputs
 dist/
 build/

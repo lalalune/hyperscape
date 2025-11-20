@@ -226,7 +226,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     const avatarUrl =
       (this.data.sessionAvatar as string) ||
       (this.data.avatar as string) ||
-      "asset://avatar.vrm";
+      "asset://avatar-male-01.vrm";
     if (this.avatarUrl === avatarUrl) return;
 
     // Skip avatar loading on server (no loader system)

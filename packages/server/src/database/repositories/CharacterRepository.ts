@@ -32,9 +32,7 @@ export class CharacterRepository extends BaseRepository {
    * @param accountId - The account/user ID to fetch characters for
    * @returns Array of characters with id and name
    */
-  async getCharactersAsync(
-    accountId: string,
-  ): Promise<
+  async getCharactersAsync(accountId: string): Promise<
     Array<{
       id: string;
       name: string;
@@ -78,6 +76,9 @@ export class CharacterRepository extends BaseRepository {
    * @param accountId - The account that owns this character
    * @param id - Unique character ID (usually a UUID)
    * @param name - Display name for the character (validated by caller)
+   * @param avatar - Avatar VRM URL
+   * @param wallet - Privy HD wallet address
+   * @param isAgent - Whether this character is controlled by an AI agent (default: false)
    * @returns true if created successfully, false if character ID already exists
    */
   async createCharacter(
@@ -86,6 +87,7 @@ export class CharacterRepository extends BaseRepository {
     name: string,
     avatar?: string,
     wallet?: string,
+    isAgent?: boolean,
   ): Promise<boolean> {
     this.ensureDatabase();
 
@@ -97,6 +99,7 @@ export class CharacterRepository extends BaseRepository {
       name,
       avatar,
       wallet,
+      isAgent: isAgent || false,
       timestamp: now,
     });
 
@@ -107,6 +110,7 @@ export class CharacterRepository extends BaseRepository {
         name,
         avatar,
         wallet,
+        isAgent: isAgent ? 1 : 0, // Convert boolean to integer for SQLite/PostgreSQL
         createdAt: now,
         lastLogin: now,
       });

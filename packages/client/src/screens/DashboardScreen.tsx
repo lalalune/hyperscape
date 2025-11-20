@@ -45,6 +45,42 @@ export const DashboardScreen: React.FC = () => {
     }
   };
 
+  const startAgent = async (agentId: string) => {
+    try {
+      console.log(`[Dashboard] Starting agent ${agentId}...`);
+      const response = await fetch(`${ELIZAOS_API}/agents/${agentId}/start`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const result = await response.json();
+      console.log(`[Dashboard] Agent started:`, result);
+
+      // Refresh agent list to update status
+      await fetchAgents();
+    } catch (error) {
+      console.error(`[Dashboard] Failed to start agent:`, error);
+    }
+  };
+
+  const stopAgent = async (agentId: string) => {
+    try {
+      console.log(`[Dashboard] Stopping agent ${agentId}...`);
+      const response = await fetch(`${ELIZAOS_API}/agents/${agentId}/stop`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const result = await response.json();
+      console.log(`[Dashboard] Agent stopped:`, result);
+
+      // Refresh agent list to update status
+      await fetchAgents();
+    } catch (error) {
+      console.error(`[Dashboard] Failed to stop agent:`, error);
+    }
+  };
+
   useEffect(() => {
     fetchAgents();
     const interval = setInterval(fetchAgents, 30000);
@@ -66,7 +102,9 @@ export const DashboardScreen: React.FC = () => {
       agents={agents}
       selectedAgentId={selectedAgentId}
       onSelectAgent={setSelectedAgentId}
-      onCreateAgent={() => window.open("http://localhost:3000", "_blank")}
+      onCreateAgent={() => (window.location.href = "/?createAgent=true")}
+      onStartAgent={startAgent}
+      onStopAgent={stopAgent}
     >
       {selectedAgent ? (
         <div className="flex flex-col h-full">
