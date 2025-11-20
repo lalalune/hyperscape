@@ -42,17 +42,23 @@ export const AgentChat: React.FC<AgentChatProps> = ({ agent }) => {
     setIsTyping(true);
 
     try {
+      // Generate UUIDs for the message
+      const messageId = crypto.randomUUID();
+      const userId = localStorage.getItem("privy_user_id") || "anonymous-user";
+      const channelId = `dashboard-chat-${agent.id}`; // Use agent-specific channel
+
       const response = await fetch(
-        `http://localhost:3000/${agent.id}/message`,
+        `http://localhost:3000/api/agents/${agent.id}/message`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            text: userMessage.text,
-            userId: "user",
-            userName: "User",
+            content: userMessage.text,
+            channelId: channelId,
+            messageId: messageId,
+            userId: userId,
           }),
         },
       );
@@ -69,7 +75,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ agent }) => {
         const agentMessage: Message = {
           id: (Date.now() + index).toString(),
           sender: "agent",
-          text: resp.text,
+          text: resp.text || resp.content || "No response",
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, agentMessage]);

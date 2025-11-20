@@ -1,11 +1,14 @@
 /**
- * Character Routes - ElizaOS Character File Management
+ * Character Routes - ElizaOS Character File Management & Database Operations
  *
- * REST API endpoints for saving and managing ElizaOS character JSON files.
- * These files define AI agent personalities and are stored in .eliza/data/characters/
+ * REST API endpoints for:
+ * 1. Saving and managing ElizaOS character JSON files (.eliza/data/characters/)
+ * 2. Database character management (delete, update isAgent flag)
  */
 
 import type { FastifyInstance } from "fastify";
+import type { World } from "@hyperscape/shared";
+import type { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,10 +35,16 @@ function getCharactersDir(): string {
  *
  * Endpoints:
  * - POST /api/characters - Save a character JSON file
+ * - DELETE /api/characters/:id - Delete a character from database
+ * - PATCH /api/characters/:id - Update character properties (isAgent flag)
  *
  * @param fastify - Fastify server instance
+ * @param world - Game world instance (optional, for database operations)
  */
-export function registerCharacterRoutes(fastify: FastifyInstance): void {
+export function registerCharacterRoutes(
+  fastify: FastifyInstance,
+  world?: World,
+): void {
   console.log("[CharacterRoutes] Registering character management routes...");
 
   /**
@@ -107,6 +116,172 @@ export function registerCharacterRoutes(fastify: FastifyInstance): void {
       });
     }
   });
+
+  // Database character management routes (require world instance)
+  if (world) {
+    const databaseSystem = world.getSystem("database") as DatabaseSystem;
+
+    if (!databaseSystem) {
+      console.warn(
+        "[CharacterRoutes] DatabaseSystem not found - database routes disabled",
+      );
+    } else {
+      /**
+       * DELETE /api/characters/:id
+       *
+       * Delete a character by ID from database.
+       * Used when users cancel agent creation or explicitly delete unwanted characters.
+       *
+       * Path Parameters:
+       *   - id: string - The character ID to delete
+       *
+       * Response:
+       * {
+       *   success: true,
+       *   message: "Character deleted successfully"
+       * }
+       */
+      fastify.delete(
+        "/api/characters/:id",
+        async (
+          request: {
+            params: {
+              id: string;
+            };
+          },
+          reply,
+        ) => {
+          const { id } = request.params;
+
+          if (!id) {
+            return reply.status(400).send({
+              success: false,
+              error: "Missing character ID parameter",
+            });
+          }
+
+          console.log(`[CharacterRoutes] 🗑️  Deleting character: ${id}`);
+
+          try {
+            const deleted = await databaseSystem.deleteCharacter(id);
+
+            if (deleted) {
+              console.log(
+                `[CharacterRoutes] ✅ Character ${id} deleted successfully`,
+              );
+              return reply.send({
+                success: true,
+                message: "Character deleted successfully",
+              });
+            } else {
+              console.log(`[CharacterRoutes] ⚠️  Character ${id} not found`);
+              return reply.status(404).send({
+                success: false,
+                error: "Character not found",
+              });
+            }
+          } catch (error) {
+            console.error(
+              `[CharacterRoutes] ❌ Error deleting character ${id}:`,
+              error,
+            );
+            return reply.status(500).send({
+              success: false,
+              error: "Failed to delete character",
+            });
+          }
+        },
+      );
+
+      /**
+       * PATCH /api/characters/:id
+       *
+       * Update a character's properties.
+       * Currently supports updating the isAgent flag to convert between agent and human types.
+       *
+       * Path Parameters:
+       *   - id: string - The character ID to update
+       *
+       * Request body:
+       * {
+       *   isAgent: boolean
+       * }
+       *
+       * Response:
+       * {
+       *   success: true,
+       *   message: "Character converted to human player successfully"
+       * }
+       */
+      fastify.patch(
+        "/api/characters/:id",
+        async (
+          request: {
+            params: {
+              id: string;
+            };
+            body: {
+              isAgent?: boolean;
+            };
+          },
+          reply,
+        ) => {
+          const { id } = request.params;
+          const { isAgent } = request.body;
+
+          if (!id) {
+            return reply.status(400).send({
+              success: false,
+              error: "Missing character ID parameter",
+            });
+          }
+
+          if (isAgent === undefined) {
+            return reply.status(400).send({
+              success: false,
+              error: "Missing isAgent field in request body",
+            });
+          }
+
+          console.log(
+            `[CharacterRoutes] 🔄 Updating character ${id} to ${isAgent ? "agent" : "human"}`,
+          );
+
+          try {
+            const updated = await databaseSystem.updateCharacterIsAgent(
+              id,
+              isAgent,
+            );
+
+            if (updated) {
+              console.log(
+                `[CharacterRoutes] ✅ Character ${id} updated to ${isAgent ? "agent" : "human"}`,
+              );
+              return reply.send({
+                success: true,
+                message: `Character converted to ${isAgent ? "agent" : "human player"} successfully`,
+              });
+            } else {
+              console.log(`[CharacterRoutes] ⚠️  Character ${id} not found`);
+              return reply.status(404).send({
+                success: false,
+                error: "Character not found",
+              });
+            }
+          } catch (error) {
+            console.error(
+              `[CharacterRoutes] ❌ Error updating character ${id}:`,
+              error,
+            );
+            return reply.status(500).send({
+              success: false,
+              error: "Failed to update character",
+            });
+          }
+        },
+      );
+    }
+  }
 
   console.log("[CharacterRoutes] ✅ Character routes registered");
 }

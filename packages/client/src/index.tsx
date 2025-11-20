@@ -23,6 +23,7 @@ import { injectFarcasterMetaTags } from "./lib/farcaster-frame-config";
 import { GameClient } from "./screens/GameClient";
 import { LoginScreen } from "./screens/LoginScreen";
 import { CharacterSelectScreen } from "./screens/CharacterSelectScreen";
+import { UsernameSelectionScreen } from "./screens/UsernameSelectionScreen";
 import { EmbeddedGameClient } from "./components/EmbeddedGameClient";
 import { isEmbeddedMode } from "./types/embeddedConfig";
 
@@ -105,6 +106,72 @@ interface ImportMeta {
 // Install Three.js extensions
 installThreeJSExtensions();
 
+/**
+ * Clean up corrupted Privy localStorage data
+ * Prevents JSON parse errors from malformed data
+ */
+function cleanupCorruptedPrivyData(): void {
+  try {
+    const corruptedKeys: string[] = [];
+
+    // Our custom keys that store plain strings (not JSON)
+    const plainStringKeys = new Set([
+      "privy_user_id",
+      "privy_auth_token",
+      "farcaster_fid",
+    ]);
+
+    // Check each localStorage key for corruption
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+
+      // Only check Privy SDK keys (not our custom plain string keys)
+      if (key.startsWith("privy:") && !plainStringKeys.has(key)) {
+        try {
+          const value = localStorage.getItem(key);
+          if (value) {
+            // Try to parse as JSON - if it fails, it's corrupted
+            JSON.parse(value);
+          }
+        } catch (parseError) {
+          // Found corrupted data
+          const errorStr =
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError);
+          if (
+            errorStr.includes("setImmedia") ||
+            errorStr.includes("Unexpected token")
+          ) {
+            console.warn(`[App] 🧹 Found corrupted localStorage key: ${key}`);
+            corruptedKeys.push(key);
+          }
+        }
+      }
+    }
+
+    // Remove corrupted keys
+    if (corruptedKeys.length > 0) {
+      console.log(
+        `[App] 🧹 Cleaning up ${corruptedKeys.length} corrupted Privy keys`,
+      );
+      corruptedKeys.forEach((key) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn(`[App] Failed to remove corrupted key ${key}:`, e);
+        }
+      });
+    }
+  } catch (error) {
+    console.error("[App] Error during localStorage cleanup:", error);
+  }
+}
+
+// Run cleanup on app load
+cleanupCorruptedPrivyData();
+
 function App() {
   // Determine Privy availability
   const appId = import.meta.env.PUBLIC_PRIVY_APP_ID || "";
@@ -114,6 +181,8 @@ function App() {
   const [authState, setAuthState] = React.useState(privyAuthManager.getState());
   const [showCharacterPage, setShowCharacterPage] =
     React.useState<boolean>(privyEnabled);
+  const [hasUsername, setHasUsername] = React.useState<boolean | null>(null); // null = checking, true/false = result
+  const [isCheckingUsername, setIsCheckingUsername] = React.useState(false);
 
   // Subscribe to auth state changes
   React.useEffect(() => {
@@ -123,10 +192,56 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // Show character page when authenticated
+  // Check if user has a username when authenticated
   React.useEffect(() => {
-    if (authState.isAuthenticated) setShowCharacterPage(true);
+    const checkUsername = async () => {
+      if (!authState.isAuthenticated) {
+        setHasUsername(null);
+        return;
+      }
+
+      const accountId = localStorage.getItem("privy_user_id");
+      if (!accountId) {
+        console.warn("[App] No privy_user_id found in localStorage");
+        setHasUsername(false);
+        return;
+      }
+
+      setIsCheckingUsername(true);
+
+      try {
+        // Check if user exists in database
+        const response = await fetch(
+          `http://localhost:5555/api/users/check?accountId=${encodeURIComponent(accountId)}`,
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasUsername(data.exists);
+          console.log(
+            `[App] User ${accountId} ${data.exists ? "has" : "does not have"} username`,
+          );
+        } else {
+          console.error("[App] Failed to check username:", response.statusText);
+          setHasUsername(false);
+        }
+      } catch (error) {
+        console.error("[App] Error checking username:", error);
+        setHasUsername(false);
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    };
+
+    checkUsername();
   }, [authState.isAuthenticated]);
+
+  // Show character page when authenticated and has username
+  React.useEffect(() => {
+    if (authState.isAuthenticated && hasUsername === true) {
+      setShowCharacterPage(true);
+    }
+  }, [authState.isAuthenticated, hasUsername]);
 
   // Initialize player token
   React.useEffect(() => {
@@ -142,14 +257,74 @@ function App() {
 
   const handleAuthenticated = React.useCallback(() => {
     setIsAuthenticated(true);
+  }, []);
+
+  const handleUsernameSelected = React.useCallback((username: string) => {
+    console.log(`[App] Username selected: ${username}`);
+    setHasUsername(true);
     setShowCharacterPage(true);
   }, []);
 
   const handleLogout = React.useCallback(() => {
-    privyAuthManager.clearAuth();
-    setIsAuthenticated(false);
-    setShowCharacterPage(false);
-    window.privyLogout?.();
+    console.log("[App] 🚪 Logging out...");
+
+    try {
+      // Clear Privy auth manager first
+      privyAuthManager.clearAuth();
+
+      // Clear potentially corrupted Privy localStorage keys
+      // This prevents JSON parse errors from corrupted data
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.startsWith("privy:") ||
+            key.startsWith("privy_") ||
+            key.includes("privy") ||
+            key.includes("wallet"))
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+
+      console.log(
+        `[App] 🧹 Clearing ${keysToRemove.length} Privy localStorage keys`,
+      );
+      keysToRemove.forEach((key) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn(`[App] Failed to remove key ${key}:`, e);
+        }
+      });
+
+      // Update React state
+      setIsAuthenticated(false);
+      setShowCharacterPage(false);
+      setHasUsername(null);
+
+      // Attempt Privy logout (wrapped in try-catch to handle errors gracefully)
+      try {
+        window.privyLogout?.();
+      } catch (privyError) {
+        console.warn(
+          "[App] ⚠️ Privy logout error (safe to ignore):",
+          privyError,
+        );
+      }
+
+      console.log("[App] ✅ Logout complete - reloading page for clean state");
+
+      // Force reload to ensure completely clean state
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
+    } catch (error) {
+      console.error("[App] ❌ Error during logout:", error);
+      // Even if logout fails, force reload for clean state
+      window.location.href = "/";
+    }
   }, []);
 
   const handleSetup = React.useCallback(
@@ -182,8 +357,22 @@ function App() {
     );
   }
 
-  // Show character selection (only if Privy enabled)
-  if (showCharacterPage && privyEnabled) {
+  // Show username selection for new users (authenticated but no username yet)
+  if (
+    privyEnabled &&
+    authState.isAuthenticated &&
+    hasUsername === false &&
+    !isCheckingUsername
+  ) {
+    return (
+      <div ref={appRef} data-component="app-root">
+        <UsernameSelectionScreen onUsernameSelected={handleUsernameSelected} />
+      </div>
+    );
+  }
+
+  // Show character selection (only if Privy enabled and user has username)
+  if (showCharacterPage && privyEnabled && hasUsername === true) {
     return (
       <div ref={appRef} data-component="app-root">
         <CharacterSelectScreen
@@ -196,6 +385,19 @@ function App() {
           }}
           onLogout={handleLogout}
         />
+      </div>
+    );
+  }
+
+  // Show loading screen while checking auth status (prevent GameClient from loading prematurely)
+  if (privyEnabled && (hasUsername === null || isCheckingUsername)) {
+    return (
+      <div
+        ref={appRef}
+        data-component="app-root"
+        className="flex items-center justify-center h-screen bg-black"
+      >
+        <div className="text-[#f2d08a] text-xl">Loading...</div>
       </div>
     );
   }

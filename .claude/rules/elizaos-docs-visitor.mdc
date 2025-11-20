@@ -1,0 +1,182 @@
+---
+description: Mandatory ElizaOS documentation visitor - ensures agent visits relevant docs
+globs: packages/plugin-eliza/**/*.ts
+alwaysApply: true
+---
+
+# ElizaOS Documentation Visitor Rule
+
+**MANDATORY**: Before implementing any ElizaOS-related feature, you MUST visit the relevant documentation pages.
+
+## Documentation Index
+
+See `.cursor/memory/elizaos-docs-index.md` for complete index of all ElizaOS documentation pages.
+
+## File/Task to Documentation Mapping
+
+### When Working on Actions (`src/actions/**/*.ts`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/guides/create-a-plugin (Action patterns)
+2. https://docs.elizaos.ai/plugins/architecture (Action interface)
+3. https://docs.elizaos.ai/plugins/components (Action component details)
+
+**Visit Before:**
+- Creating new actions
+- Modifying existing actions
+- Understanding action patterns
+
+### When Working on Providers (`src/providers/**/*.ts`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/guides/create-a-plugin (Provider patterns)
+2. https://docs.elizaos.ai/plugins/architecture (Provider interface)
+3. https://docs.elizaos.ai/runtime/providers (Provider system details)
+
+**Visit Before:**
+- Creating new providers
+- Modifying existing providers
+- Understanding provider patterns
+
+### When Working on Services (`src/service.ts`, `src/services/**/*.ts`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/guides/create-a-plugin (Service patterns)
+2. https://docs.elizaos.ai/plugins/architecture (Service interface)
+3. https://docs.elizaos.ai/runtime/services (Service lifecycle)
+
+**Visit Before:**
+- Creating new services
+- Modifying service lifecycle
+- Understanding service patterns
+
+### When Working on Plugin Entry (`src/index.ts`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/plugins/architecture (Plugin interface)
+2. https://docs.elizaos.ai/guides/create-a-plugin (Plugin structure)
+3. https://docs.elizaos.ai/projects/overview (Project structure)
+
+**Visit Before:**
+- Modifying plugin registration
+- Adding new components
+- Understanding plugin structure
+
+### When Working on Configuration (`src/config/**/*.ts`, `.env`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/projects/environment-variables (Environment variables)
+2. https://docs.elizaos.ai/plugins/architecture (Plugin configuration)
+3. https://docs.elizaos.ai/guides/create-a-plugin (Configuration patterns)
+
+**Visit Before:**
+- Adding configuration options
+- Modifying environment variables
+- Understanding config patterns
+
+### When Working on Event Handlers (`src/events/**/*.ts`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/runtime/events (Event system)
+2. https://docs.elizaos.ai/plugins/architecture (Event handlers)
+3. https://docs.elizaos.ai/guides/create-a-plugin (Event handler patterns)
+
+**Visit Before:**
+- Creating event handlers
+- Modifying event handling
+- Understanding event patterns
+
+### When Working on Tests (`src/__tests__/**/*.ts`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/guides/test-a-project (Testing strategies)
+2. https://docs.elizaos.ai/guides/create-a-plugin (Plugin testing)
+3. https://docs.elizaos.ai/plugins/development (Development workflow)
+
+**Visit Before:**
+- Writing tests
+- Understanding test patterns
+- Setting up test infrastructure
+
+### When Working on Managers (`src/managers/**/*.ts`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/runtime/services (Service patterns)
+2. https://docs.elizaos.ai/plugins/architecture (Service lifecycle)
+3. https://docs.elizaos.ai/guides/create-a-plugin (Service implementation)
+
+**Visit Before:**
+- Creating managers
+- Modifying manager lifecycle
+- Understanding manager patterns
+
+### When Working on Systems (`src/systems/**/*.ts`)
+**MANDATORY Pages:**
+1. https://docs.elizaos.ai/plugins/architecture (Plugin architecture)
+2. https://docs.elizaos.ai/runtime/core (Runtime core)
+3. https://docs.elizaos.ai/guides/create-a-plugin (Plugin patterns)
+
+**Visit Before:**
+- Creating systems
+- Modifying system behavior
+- Understanding system patterns
+
+## How to Visit Documentation
+
+### Method 1: Web Search
+```bash
+# Search for specific topic
+web_search "site:docs.elizaos.ai action interface"
+```
+
+### Method 2: Context7 MCP
+```typescript
+// Get library docs
+mcp_context7_get-library-docs({
+  context7CompatibleLibraryID: "/elizaos/docs",
+  topic: "action interface",
+  page: 1
+})
+```
+
+### Method 3: Deepwiki MCP
+```typescript
+// Query documentation
+mcp_deepwiki_ask_question({
+  question: "ElizaOS Action interface structure"
+})
+```
+
+## Hook Integration
+
+The `doc-visitor-hook.sh` hook automatically suggests relevant documentation pages based on:
+- File path being edited
+- Task being performed
+- Keywords in prompt
+
+**Hook runs:**
+- Before prompt submission (`beforeSubmitPrompt`)
+- Before reading files (`beforeReadFile`)
+
+## Verification Checklist
+
+Before implementing, verify:
+- [ ] Visited all mandatory documentation pages for the task
+- [ ] Reviewed current interface structures
+- [ ] Checked for breaking changes or updates
+- [ ] Compared with existing code patterns
+- [ ] Verified version compatibility
+
+## Documentation Index Reference
+
+For complete documentation index, see:
+- `.cursor/memory/elizaos-docs-index.md` - Full index with all pages
+- `.cursor/tools/doc-visitor.sh` - Tool that suggests relevant docs
+- `.cursor/hooks/doc-visitor-hook.sh` - Hook that enforces doc visits
+
+## Enforcement
+
+**This rule is enforced by:**
+1. `doc-visitor-hook.sh` - Automatically suggests docs
+2. `context-gatherer.sh` - Requires research before implementation
+3. `elizaos-documentation.mdc` - Documentation enforcement rules
+
+**Failure to visit docs results in:**
+- Missing current patterns
+- Outdated implementations
+- Breaking changes
+- Incompatible interfaces
+
+**ALWAYS visit documentation before implementing ElizaOS features.**

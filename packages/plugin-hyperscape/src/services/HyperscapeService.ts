@@ -11,6 +11,7 @@
 
 import { Service, logger, type IAgentRuntime } from "@elizaos/core";
 import WebSocket from "ws";
+import { Packr, Unpackr } from "msgpackr";
 import type {
   PlayerEntity,
   Entity,
@@ -27,6 +28,10 @@ import type {
   BankCommand,
   HyperscapeServiceInterface,
 } from "../types.js";
+
+// msgpackr instances for binary packet encoding/decoding
+const packr = new Packr({ structuredClone: true });
+const unpackr = new Unpackr();
 
 export class HyperscapeService
   extends Service
@@ -45,6 +50,8 @@ export class HyperscapeService
   private autoReconnect: boolean = true;
   private authToken: string | undefined;
   private privyUserId: string | undefined;
+  private characterId: string | undefined;
+  private hasReceivedSnapshot: boolean = false;
 
   constructor(runtime?: IAgentRuntime) {
     super(runtime);
@@ -96,11 +103,59 @@ export class HyperscapeService
         service.privyUserId = String(settings);
       }
     }
+    if (!service.characterId && runtime.agentId) {
+      const settings = runtime.getSetting("HYPERSCAPE_CHARACTER_ID");
+      if (settings) {
+        service.characterId = String(settings);
+        logger.info(`[HyperscapeService] Character ID: ${service.characterId}`);
+      }
+    }
 
-    // Connect to server
-    await service.connect(serverUrl);
+    if (!service.characterId) {
+      logger.warn(
+        "[HyperscapeService] No HYPERSCAPE_CHARACTER_ID found - agent will not auto-join world",
+      );
+    }
 
-    logger.info("[HyperscapeService] Service started and connected");
+    // Try to connect with retry logic (ElizaOS expects services to be ready when start() completes)
+    // Retry for up to 25 seconds (within ElizaOS's 30-second service startup timeout)
+    const maxRetries = 5;
+    const retryDelay = 5000; // 5 seconds between retries
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info(
+          `[HyperscapeService] Connection attempt ${attempt}/${maxRetries} to ${serverUrl}`,
+        );
+        await service.connect(serverUrl);
+        logger.info("[HyperscapeService] Service started and connected");
+        return service;
+      } catch (error) {
+        lastError = error as Error;
+        logger.warn(
+          `[HyperscapeService] Connection attempt ${attempt} failed: ${lastError.message}`,
+        );
+
+        if (attempt < maxRetries) {
+          logger.info(
+            `[HyperscapeService] Retrying in ${retryDelay / 1000}s...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        }
+      }
+    }
+
+    // All retries failed - log error but return service anyway
+    // Auto-reconnect will keep trying in the background
+    logger.error(
+      `[HyperscapeService] Failed to connect after ${maxRetries} attempts. ` +
+        `Service will continue retrying in background. Last error: ${lastError?.message}`,
+    );
+
+    logger.info(
+      "[HyperscapeService] Service started (will retry connection in background)",
+    );
     return service;
   }
 
@@ -268,52 +323,289 @@ export class HyperscapeService
    */
   private handleMessage(data: WebSocket.Data): void {
     try {
-      // Check if data is binary (Buffer or ArrayBuffer)
-      // Hyperscape uses binary msgpackr protocol, so we skip binary messages
-      if (Buffer.isBuffer(data) || data instanceof ArrayBuffer) {
-        // Binary data - skip parsing (Hyperscape uses msgpackr binary protocol)
-        // These are likely game state updates, snapshots, or other binary packets
-        // We'll handle them when we implement proper msgpackr decoding
+      // Convert to buffer for msgpackr
+      let buffer: Buffer;
+      if (Buffer.isBuffer(data)) {
+        buffer = data;
+      } else if (data instanceof ArrayBuffer) {
+        buffer = Buffer.from(data);
+      } else if (Array.isArray(data)) {
+        // Multiple buffers - concatenate them
+        buffer = Buffer.concat(data.map((b) => Buffer.from(b)));
+      } else {
+        // String data - try JSON parse for legacy support
+        const text = data.toString();
+        if (!text || text.trim().length === 0) return;
+        if (!text.trim().startsWith("{") && !text.trim().startsWith("["))
+          return;
+
+        const message = JSON.parse(text) as NetworkEvent;
+        this.updateGameState(message);
+        this.broadcastEvent(message.type, message.data);
         return;
       }
 
-      // Try to parse as text/JSON
-      const text = data.toString();
-
-      // Skip empty messages
-      if (!text || text.trim().length === 0) {
-        return;
+      // Decode binary msgpackr packet: [packetId, data]
+      const decoded = unpackr.unpack(buffer);
+      if (!Array.isArray(decoded) || decoded.length !== 2) {
+        return; // Invalid packet format
       }
 
-      // Check if it looks like JSON (starts with { or [)
-      if (!text.trim().startsWith("{") && !text.trim().startsWith("[")) {
-        // Not JSON, likely binary data converted to string (contains '�')
-        return;
+      const [packetId, packetData] = decoded;
+
+      // Map packet ID to packet name (from packets.ts)
+      const packetName = this.getPacketName(packetId as number);
+
+      if (!packetName) {
+        return; // Unknown packet ID
       }
 
-      const message = JSON.parse(text) as NetworkEvent;
+      // Handle snapshot packet - auto-join world
+      if (packetName === "snapshot" && !this.hasReceivedSnapshot) {
+        this.hasReceivedSnapshot = true;
+        logger.info("[HyperscapeService] 📸 Snapshot received");
+        this.handleSnapshot(packetData);
+      }
 
-      // Update game state based on event type
-      this.updateGameState(message);
+      // Update game state based on packet
+      this.updateGameStateFromPacket(packetName, packetData);
 
       // Broadcast to registered event handlers
-      this.broadcastEvent(message.type, message.data);
+      const eventType = this.packetNameToEventType(packetName);
+      if (eventType) {
+        this.broadcastEvent(eventType, packetData);
+      }
     } catch (error) {
-      // Only log errors for actual JSON parse failures, not binary data
+      // Silently ignore decode errors for unknown packet types
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      // Skip logging binary data parse errors (they contain "Unrecognized token" and "�")
-      if (
-        !errorMessage.includes("Unrecognized token") &&
-        !errorMessage.includes("�")
-      ) {
-        logger.error(
-          "[HyperscapeService] Failed to parse message:",
+      if (!errorMessage.includes("Unknown key")) {
+        logger.debug(
+          "[HyperscapeService] Failed to decode message:",
           errorMessage,
         );
       }
-      // Silently ignore binary data parse errors
     }
+  }
+
+  /**
+   * Get packet name from packet ID (matching packets.ts)
+   */
+  private getPacketName(id: number): string | null {
+    const packetNames = [
+      "snapshot",
+      "command",
+      "chatAdded",
+      "chatCleared",
+      "entityAdded",
+      "entityModified",
+      "moveRequest",
+      "entityEvent",
+      "entityRemoved",
+      "playerTeleport",
+      "playerPush",
+      "playerSessionAvatar",
+      "settingsModified",
+      "spawnModified",
+      "kick",
+      "ping",
+      "pong",
+      "input",
+      "inputAck",
+      "correction",
+      "playerState",
+      "serverStateUpdate",
+      "deltaUpdate",
+      "compressedUpdate",
+      "resourceSnapshot",
+      "resourceSpawnPoints",
+      "resourceSpawned",
+      "resourceDepleted",
+      "resourceRespawned",
+      "resourceGather",
+      "gatheringComplete",
+      "attackMob",
+      "pickupItem",
+      "dropItem",
+      "inventoryUpdated",
+      "skillsUpdated",
+      "showToast",
+      "deathScreen",
+      "deathScreenClose",
+      "requestRespawn",
+      "playerSetDead",
+      "playerRespawned",
+      "corpseLoot",
+      "characterListRequest",
+      "characterCreate",
+      "characterList",
+      "characterCreated",
+      "characterSelected",
+      "enterWorld",
+    ];
+    return packetNames[id] || null;
+  }
+
+  /**
+   * Convert packet name to event type
+   */
+  private packetNameToEventType(packetName: string): EventType | null {
+    const mapping: Record<string, EventType> = {
+      entityAdded: "ENTITY_JOINED",
+      entityModified: "ENTITY_UPDATED",
+      entityRemoved: "ENTITY_LEFT",
+      inventoryUpdated: "INVENTORY_UPDATED",
+      skillsUpdated: "SKILLS_UPDATED",
+    };
+    return mapping[packetName] || null;
+  }
+
+  /**
+   * Handle snapshot packet - auto-select character and enter world
+   */
+  private async handleSnapshot(snapshotData: any): Promise<void> {
+    try {
+      logger.info("[HyperscapeService] Processing snapshot...");
+
+      // Extract character list from snapshot
+      const characters = snapshotData?.characters || [];
+      logger.info(
+        `[HyperscapeService] Found ${characters.length} character(s)`,
+      );
+
+      if (characters.length === 0) {
+        logger.warn(
+          "[HyperscapeService] No characters found in snapshot - cannot auto-join",
+        );
+        return;
+      }
+
+      // Find character by ID if specified
+      let selectedCharacter: any | null = null;
+      if (this.characterId) {
+        selectedCharacter =
+          characters.find((c: any) => c.id === this.characterId) || null;
+        if (selectedCharacter) {
+          logger.info(
+            `[HyperscapeService] ✅ Found character by ID: ${selectedCharacter.name} (${this.characterId})`,
+          );
+        } else {
+          logger.warn(
+            `[HyperscapeService] Character ${this.characterId} not found, using first character`,
+          );
+        }
+      }
+
+      // Fall back to first character if no ID or not found
+      if (!selectedCharacter && characters.length > 0) {
+        selectedCharacter = characters[0];
+        logger.info(
+          `[HyperscapeService] Using first character: ${selectedCharacter.name} (${selectedCharacter.id})`,
+        );
+      }
+
+      // Safety check - should not happen since we checked characters.length above
+      if (!selectedCharacter) {
+        logger.error(
+          "[HyperscapeService] No character available after selection logic",
+        );
+        return;
+      }
+
+      // Store character details for logging
+      const characterName = selectedCharacter.name;
+      const characterAvatar = selectedCharacter.avatar || "default avatar";
+      const characterWallet = selectedCharacter.wallet || "no wallet";
+
+      logger.info(
+        `[HyperscapeService] 🎭 Selected character details:\n` +
+          `  Name: ${characterName}\n` +
+          `  ID: ${selectedCharacter.id}\n` +
+          `  Avatar: ${characterAvatar}\n` +
+          `  Wallet: ${characterWallet}`,
+      );
+
+      // Wait a moment for server to be ready
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Send character selected packet
+      this.sendBinaryPacket("characterSelected", {
+        characterId: selectedCharacter.id,
+      });
+      logger.info(
+        `[HyperscapeService] 📤 Sent characterSelected: ${selectedCharacter.id}`,
+      );
+
+      // Wait a moment before entering world
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Send enter world packet
+      this.sendBinaryPacket("enterWorld", {
+        characterId: selectedCharacter.id,
+      });
+      logger.info(
+        `[HyperscapeService] 🚪 Sent enterWorld: ${selectedCharacter.id}`,
+      );
+
+      logger.info(
+        `[HyperscapeService] ✅ Auto-join complete! Agent should spawn as ${characterName} with avatar: ${characterAvatar}`,
+      );
+    } catch (error) {
+      logger.error(
+        "[HyperscapeService] Failed to auto-join world:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  /**
+   * Update game state from binary packet
+   */
+  private updateGameStateFromPacket(packetName: string, data: any): void {
+    switch (packetName) {
+      case "entityAdded":
+        // Check if this is the agent's player entity
+        if (data && data.id === this.characterId) {
+          this.gameState.playerEntity = data as PlayerEntity;
+          logger.info(
+            `[HyperscapeService] 🎮 Player entity spawned: ${data.id}`,
+          );
+        } else if (data && data.id) {
+          this.gameState.nearbyEntities.set(data.id, data as Entity);
+        }
+        break;
+
+      case "entityModified":
+        // Update player or nearby entity
+        if (
+          data &&
+          data.id === this.characterId &&
+          this.gameState.playerEntity
+        ) {
+          Object.assign(this.gameState.playerEntity, data.changes || data);
+        } else if (data && data.id) {
+          const entity = this.gameState.nearbyEntities.get(data.id);
+          if (entity) {
+            Object.assign(entity, data.changes || data);
+          }
+        }
+        break;
+
+      case "entityRemoved":
+        if (data && data.id) {
+          this.gameState.nearbyEntities.delete(data.id);
+        }
+        break;
+
+      case "inventoryUpdated":
+      case "skillsUpdated":
+        if (this.gameState.playerEntity && data) {
+          Object.assign(this.gameState.playerEntity, data);
+        }
+        break;
+    }
+
+    this.gameState.lastUpdate = Date.now();
   }
 
   /**
@@ -446,20 +738,88 @@ export class HyperscapeService
   }
 
   /**
-   * Send command to server
+   * Send binary packet to server using msgpackr protocol
    */
-  private sendCommand(command: string, data: unknown): void {
+  private sendBinaryPacket(packetName: string, data: unknown): void {
     if (!this.isConnected()) {
       throw new Error("Not connected to Hyperscape server");
     }
 
-    const message = JSON.stringify({
-      type: command,
-      data,
-      timestamp: Date.now(),
-    });
+    // Get packet ID from name (matching packets.ts)
+    const packetId = this.getPacketId(packetName);
+    if (packetId === null) {
+      throw new Error(`Unknown packet name: ${packetName}`);
+    }
 
-    this.ws!.send(message);
+    // Encode as msgpackr: [packetId, data]
+    const packet = packr.pack([packetId, data]);
+    this.ws!.send(packet);
+  }
+
+  /**
+   * Get packet ID from packet name (matching packets.ts)
+   */
+  private getPacketId(name: string): number | null {
+    const packetNames = [
+      "snapshot",
+      "command",
+      "chatAdded",
+      "chatCleared",
+      "entityAdded",
+      "entityModified",
+      "moveRequest",
+      "entityEvent",
+      "entityRemoved",
+      "playerTeleport",
+      "playerPush",
+      "playerSessionAvatar",
+      "settingsModified",
+      "spawnModified",
+      "kick",
+      "ping",
+      "pong",
+      "input",
+      "inputAck",
+      "correction",
+      "playerState",
+      "serverStateUpdate",
+      "deltaUpdate",
+      "compressedUpdate",
+      "resourceSnapshot",
+      "resourceSpawnPoints",
+      "resourceSpawned",
+      "resourceDepleted",
+      "resourceRespawned",
+      "resourceGather",
+      "gatheringComplete",
+      "attackMob",
+      "pickupItem",
+      "dropItem",
+      "inventoryUpdated",
+      "skillsUpdated",
+      "showToast",
+      "deathScreen",
+      "deathScreenClose",
+      "requestRespawn",
+      "playerSetDead",
+      "playerRespawned",
+      "corpseLoot",
+      "characterListRequest",
+      "characterCreate",
+      "characterList",
+      "characterCreated",
+      "characterSelected",
+      "enterWorld",
+    ];
+    const index = packetNames.indexOf(name);
+    return index >= 0 ? index : null;
+  }
+
+  /**
+   * Send command to server (legacy method - now uses binary protocol)
+   */
+  private sendCommand(command: string, data: unknown): void {
+    this.sendBinaryPacket(command, data);
   }
 
   /**

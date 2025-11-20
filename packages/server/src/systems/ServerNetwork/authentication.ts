@@ -163,9 +163,46 @@ export async function authenticateUser(
         }
 
         // Look up user account
-        const dbResult = await db("users")
+        let dbResult = await db("users")
           .where("id", jwtPayload.userId as string)
           .first();
+
+        // If user doesn't exist and this is a Privy ID, create the user record
+        if (
+          !dbResult &&
+          (jwtPayload.userId as string).startsWith("did:privy:")
+        ) {
+          console.log(
+            `[Authentication] 🆕 Creating user record for Privy ID from JWT: ${jwtPayload.userId}`,
+          );
+          const timestamp = new Date().toISOString();
+          const newUser = {
+            id: jwtPayload.userId as string,
+            name: name || "Agent",
+            avatar: avatar || null,
+            roles: "",
+            createdAt: timestamp,
+            privyUserId: jwtPayload.userId as string,
+          };
+
+          try {
+            await db("users").insert(newUser);
+            dbResult = newUser as User;
+            console.log(
+              `[Authentication] ✅ Created user record for ${jwtPayload.userId}`,
+            );
+          } catch (insertErr) {
+            console.error(
+              "[Authentication] Failed to create user record:",
+              insertErr,
+            );
+            // Try fetching again in case of race condition
+            dbResult = await db("users")
+              .where("id", jwtPayload.userId as string)
+              .first();
+          }
+        }
+
         if (dbResult) {
           user = dbResult as User;
           console.log(

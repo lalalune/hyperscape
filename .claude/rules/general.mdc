@@ -1,0 +1,42 @@
+---
+alwaysApply: true
+---
+
+# Important notes on development
+
+- Always make sure that whatever you build has tests
+- Don't create new files to test things out or fix things
+- KEEP IT SIMPLE!
+- Always implement real working code, never examples or shortcuts-- those just cause problems in the future.
+- When writing tests, don't use mocks-- they don't work-- instead write real runtime tests and lean on visual testing, testing the three.js scene hierarchy and real data values, etc
+- Checking where things are in space is also a good way to test stuff!
+- If you're not sure, ask me about something, I know a lot about the system.
+- Don't create new files unless you need to. Revise existing files whenever possible. It makes cleanup much easier in the future.
+- Instead of creating a _v2.ts, just update the v1 file.
+- IF you write docs, store them in the /docs folder, but generally don't bother writing a bunch of markdown files
+- If you save logs, store them in the /logs folder, it could help you to read back the actual outputs since your other method of seeing them gets clipped
+- Don't change foundational code or stuff unless yuo have to, especially if it's to address the symptom of a problem
+- Always make sure you are absolutely certain and have a clear test demonstrating that something core is wrong before changing it
+- Do not make assumptions about game features-- always refer to the GDD
+- Do not add any extra features that are not covered in the GDD
+- Use environment variables in the .env with dotenv package
+- Always use Hyperscape as the game engine and backend but keep it isolated from the RPG code by making the RPG a standalone Hyperscape app (.hyp)
+- Always define types in a types.ts and use the existing types before making new ones
+- Try to make each package self-contained and modular, they can import each other through the workspace if needed (but no circular dependencies)
+- If it doesn't have a real test that starts up Playwright and actually runs the actions and screenshots the world, then it probably isnt actually working
+- So PLEASE use Playwright and make sure that every feature, item, interaction, etc is tested with every means we have
+- Tests are extremely important -- use real tests with the real files, NO MOCKS ALLOWED
+- We can create Hyperscape worlds for each test and run them individually so we don't need mocks
+- Always write production code -- instead of TODO or "will fill this out later" actually take the time to write out all of the code
+- Don't hardcode anything, always make sure yuo are building toward the general case and a system that will have many more items, players, mobs, etc
+- Don't work around problems -- fix the root cause. Don't just write code to avoid something that isn't doing what you want, lets make it work how we want it to
+- Instead of writing new abstractions, deepy research Hyperscape and how we can use the existing code and systems to achieve our goals
+- Always separate data from logic -- DON'T hardcode data or examples into the code. Move it to a JSON if necessary, and don't just make up examples
+
+## VERY IMPORTANT
+
+Don't create new files. Especialy don't create "check-*.ts", "test-*.mjs", "fix-*.js" etc. NO files like that. You can run shell commands, you can change the code and run it, but creating new files adds confusing and bloat. Don't save reports or guides or any markdown files either, OTHER than modifying the README.md when you make a significant feature change that changes the docs.
+
+You VERY rarely need to create new files, if you're creating a new file you might be accidentally recreating a file that exists or causing bloat and should do some research first.
+
+Clean up after yourself. If you do create any test files, delete them when you're done.

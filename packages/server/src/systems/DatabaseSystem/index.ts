@@ -28,6 +28,7 @@
 import { SystemBase } from "@hyperscape/shared";
 import type { World } from "@hyperscape/shared";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { eq } from "drizzle-orm";
 import type pg from "pg";
 import * as schema from "../../database/schema";
 import type {
@@ -247,9 +248,15 @@ export class DatabaseSystem extends SystemBase {
    * Get all characters for an account
    * Delegates to CharacterRepository
    */
-  async getCharactersAsync(
-    accountId: string,
-  ): Promise<Array<{ id: string; name: string }>> {
+  async getCharactersAsync(accountId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      avatar?: string | null;
+      wallet?: string | null;
+      isAgent?: boolean;
+    }>
+  > {
     return this.characterRepository.getCharactersAsync(accountId);
   }
 
@@ -273,6 +280,74 @@ export class DatabaseSystem extends SystemBase {
       wallet,
       isAgent,
     );
+  }
+
+  /**
+   * Delete a character by ID
+   * Delegates to CharacterRepository
+   *
+   * Used when users cancel agent creation or explicitly delete unwanted characters.
+   *
+   * @param characterId - The character ID to delete
+   * @returns true if character was deleted, false if not found
+   */
+  async deleteCharacter(characterId: string): Promise<boolean> {
+    return this.characterRepository.deleteCharacter(characterId);
+  }
+
+  /**
+   * Update character's isAgent flag
+   * Delegates to CharacterRepository
+   *
+   * Converts a character between agent and human types. Used when users
+   * decide to convert an abandoned agent character to play themselves.
+   *
+   * @param characterId - The character ID to update
+   * @param isAgent - New value for isAgent flag
+   * @returns true if character was updated, false if not found
+   */
+  async updateCharacterIsAgent(
+    characterId: string,
+    isAgent: boolean,
+  ): Promise<boolean> {
+    return this.characterRepository.updateCharacterIsAgent(
+      characterId,
+      isAgent,
+    );
+  }
+
+  // ============================================================================
+  // USER MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Update a user's wallet address
+   * This assigns the user's main Privy embedded wallet (HD index 0) to their user record
+   *
+   * @param accountId - The user's Privy account ID
+   * @param wallet - The wallet address to assign
+   */
+  async updateUserWallet(accountId: string, wallet: string): Promise<void> {
+    if (!this.db) {
+      throw new Error(
+        "[DatabaseSystem] Database not initialized - cannot update user wallet",
+      );
+    }
+
+    await this.db
+      .update(schema.users)
+      .set({ wallet })
+      .where(eq(schema.users.id, accountId));
+  }
+
+  /**
+   * Get the raw Drizzle database instance
+   * This allows other systems to perform custom queries
+   *
+   * @returns The Drizzle database instance or null if not initialized
+   */
+  getDb(): NodePgDatabase<typeof schema> | null {
+    return this.db;
   }
 
   // ============================================================================

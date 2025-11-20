@@ -33,7 +33,12 @@ import React from "react";
 import { CharacterPreview } from "../components/CharacterPreview";
 import { usePrivy, useCreateWallet } from "@privy-io/react-auth";
 
-type Character = { id: string; name: string; wallet?: string };
+type Character = {
+  id: string;
+  name: string;
+  wallet?: string;
+  isAgent?: boolean;
+};
 
 // Music preference manager - syncs with game prefs
 const getMusicEnabled = (): boolean => {
@@ -226,7 +231,7 @@ export function CharacterSelectScreen({
   const [checkingElizaOS, setCheckingElizaOS] = React.useState(true);
 
   // Privy hooks
-  const { user } = usePrivy();
+  const { user, ready, authenticated } = usePrivy();
   const { createWallet } = useCreateWallet();
 
   // Check if ElizaOS is available with Hyperscape plugin
@@ -328,13 +333,29 @@ export function CharacterSelectScreen({
   React.useEffect(() => {}, [wsReady, showCreate, characters]);
 
   React.useEffect(() => {
-    // Wait until Privy auth values are present
+    // Wait for Privy to finish initializing and authenticating
+    if (!ready || !authenticated) {
+      console.log(
+        `[CharacterSelect] ⏳ Waiting for Privy: ready=${ready}, authenticated=${authenticated}`,
+      );
+      setWsReady(false);
+      return; // Don't create websocket until Privy is ready
+    }
+
+    // Wait until Privy auth values are present in localStorage
     const token = authDeps.token;
     const privyUserId = authDeps.privyUserId;
     if (!token || !privyUserId) {
+      console.log(
+        "[CharacterSelect] ⏳ Waiting for localStorage auth tokens...",
+      );
       setWsReady(false);
       return; // Don't create websocket without auth
     }
+
+    console.log(
+      "[CharacterSelect] ✅ Privy ready and authenticated, connecting...",
+    );
 
     let url = `${wsUrl}?authToken=${encodeURIComponent(token)}`;
     if (privyUserId) url += `&privyUserId=${encodeURIComponent(privyUserId)}`;
@@ -386,22 +407,161 @@ export function CharacterSelectScreen({
           return newList;
         });
 
-        // AGENT FLOW: Redirect to character editor to customize agent personality
+        // AGENT FLOW: Generate JWT, create ElizaOS agent, redirect to character editor
         // HUMAN FLOW: Show "Enter World" confirmation screen
         if (characterType === "agent") {
           console.log(
-            "[CharacterSelect] 🤖 Agent character created, redirecting to character editor...",
+            "[CharacterSelect] 🤖 Agent character created, generating JWT and creating ElizaOS agent...",
           );
 
-          // Redirect to character editor with character details
-          const params = new URLSearchParams({
-            characterId: c.id,
-            name: c.name,
-            wallet: c.wallet || "",
-            avatar: AVATAR_OPTIONS[selectedAvatarIndex]?.url || "",
-          });
+          // Generate JWT and create ElizaOS agent immediately
+          const createAgentAndRedirect = async () => {
+            try {
+              const accountId = localStorage.getItem("privy_user_id");
+              if (!accountId) {
+                throw new Error("No account ID found");
+              }
 
-          window.location.href = `/?page=character-editor&${params.toString()}`;
+              // Step 1: Generate JWT
+              console.log("[CharacterSelect] 🔑 Generating JWT for agent...");
+              const credentialsResponse = await fetch(
+                "http://localhost:5555/api/agents/credentials",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    characterId: c.id,
+                    accountId,
+                  }),
+                },
+              );
+
+              if (!credentialsResponse.ok) {
+                throw new Error(
+                  `Failed to generate JWT: ${credentialsResponse.status}`,
+                );
+              }
+
+              const credentials = await credentialsResponse.json();
+              console.log("[CharacterSelect] ✅ JWT generated successfully");
+
+              // Step 2: Create ElizaOS agent with template
+              console.log(
+                "[CharacterSelect] 🤖 Creating ElizaOS agent with template...",
+              );
+
+              // Generate character template (same logic as CharacterEditorScreen)
+              // Note: Don't set 'id' - let ElizaOS generate UUID, link via HYPERSCAPE_CHARACTER_ID
+              const characterTemplate = {
+                name: c.name,
+                username: `@${c.name.toLowerCase()}`,
+                system: `You are ${c.name}, an AI agent playing in the Hyperscape world. You interact with other players, complete quests, gather resources, and explore the world autonomously.`,
+                bio: [
+                  `${c.name} is an AI agent in the Hyperscape world`,
+                  "Enjoys exploring, gathering resources, and interacting with other players",
+                ],
+                topics: ["Hyperscape", "RPG", "exploration", "quests"],
+                adjectives: ["adventurous", "curious", "friendly", "helpful"],
+                knowledge: [],
+                messageExamples: [],
+                postExamples: [],
+                style: {
+                  all: [
+                    "Be concise and natural",
+                    "Use RPG terminology when appropriate",
+                  ],
+                  chat: ["Respond to other players in a friendly manner"],
+                  post: [],
+                },
+                plugins: [
+                  "@hyperscape/plugin-hyperscape",
+                  "@elizaos/plugin-sql",
+                  "@elizaos/plugin-openrouter",
+                  "@elizaos/plugin-openai",
+                  "@elizaos/plugin-anthropic",
+                ],
+                settings: {
+                  accountId,
+                  characterType: "ai-agent",
+                  avatar: AVATAR_OPTIONS[selectedAvatarIndex]?.url || "",
+                  secrets: {
+                    HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
+                    HYPERSCAPE_CHARACTER_ID: c.id,
+                    HYPERSCAPE_ACCOUNT_ID: accountId,
+                    HYPERSCAPE_SERVER_URL: "ws://localhost:5555/ws",
+                    wallet: c.wallet || "",
+                  },
+                },
+              };
+
+              // Create agent in ElizaOS
+              const createAgentResponse = await fetch(
+                "http://localhost:3000/api/agents",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ characterJson: characterTemplate }),
+                },
+              );
+
+              if (!createAgentResponse.ok) {
+                const errorData = await createAgentResponse
+                  .json()
+                  .catch(() => ({}));
+                throw new Error(
+                  `Failed to create ElizaOS agent: ${errorData.error || createAgentResponse.statusText}`,
+                );
+              }
+
+              const agentResult = await createAgentResponse.json();
+              console.log(
+                "[CharacterSelect] ✅ ElizaOS agent creation response:",
+                agentResult,
+              );
+
+              // Extract agent ID from response (ElizaOS returns: { success: true, data: { id: "uuid", character: {...} } })
+              const agentId = agentResult.data?.id;
+
+              if (!agentId) {
+                console.error(
+                  "[CharacterSelect] ❌ No agent ID in response! Full response:",
+                  agentResult,
+                );
+                throw new Error(
+                  "Agent created but no ID was returned. Response structure may have changed.",
+                );
+              }
+
+              console.log("[CharacterSelect] ✅ Agent ID extracted:", agentId);
+
+              // Store agent ID for dashboard
+              localStorage.setItem("last_created_agent_id", agentId);
+
+              // Step 3: Redirect to character editor for customization
+              // Note: JWT is stored in agent's secrets, not passed in URL (security risk)
+              const params = new URLSearchParams({
+                characterId: c.id,
+                agentId: agentId,
+                name: c.name,
+                wallet: c.wallet || "",
+                avatar: AVATAR_OPTIONS[selectedAvatarIndex]?.url || "",
+              });
+
+              window.location.href = `/?page=character-editor&${params.toString()}`;
+            } catch (error) {
+              console.error(
+                "[CharacterSelect] ❌ Failed to create agent:",
+                error,
+              );
+              setErrorMessage(
+                error instanceof Error
+                  ? error.message
+                  : "Failed to create agent. Please try again.",
+              );
+            }
+          };
+
+          createAgentAndRedirect();
           return; // Exit early - agents go to character editor, NOT to "Enter World"
         }
 
@@ -444,15 +604,103 @@ export function CharacterSelectScreen({
       ws.close();
       if (preWsRef.current === ws) preWsRef.current = null;
     };
-  }, [wsUrl, authDeps.token, authDeps.privyUserId]);
+  }, [
+    wsUrl,
+    authDeps.token,
+    authDeps.privyUserId,
+    ready,
+    authenticated,
+    characterType,
+  ]);
 
-  const selectCharacter = React.useCallback((id: string) => {
-    setSelectedCharacterId(id);
-    setView("confirm");
-    const ws = preWsRef.current!;
-    if (ws.readyState !== WebSocket.OPEN) return;
-    ws.send(writePacket("characterSelected", { characterId: id }));
-  }, []);
+  const selectCharacter = React.useCallback(
+    async (id: string) => {
+      // Find the character to check if it's an AI agent
+      const character = characters.find((c) => c.id === id);
+
+      if (character?.isAgent) {
+        // AI AGENT: Check if agent exists in ElizaOS
+        console.log(
+          "[CharacterSelect] 🤖 AI agent selected, checking if agent exists in ElizaOS...",
+        );
+
+        try {
+          // Try to fetch agent from ElizaOS by character ID
+          const response = await fetch(`http://localhost:3000/api/agents`);
+          if (response.ok) {
+            const data = await response.json();
+            const agents = data.data?.agents || [];
+
+            // Check if agent exists for this character
+            const agentExists = agents.some(
+              (agent: {
+                name?: string;
+                settings?: { secrets?: { HYPERSCAPE_CHARACTER_ID?: string } };
+              }) =>
+                agent.settings?.secrets?.HYPERSCAPE_CHARACTER_ID === id ||
+                agent.name === character.name,
+            );
+
+            if (agentExists) {
+              // Agent exists - go to dashboard
+              console.log(
+                "[CharacterSelect] ✅ Agent exists, redirecting to dashboard...",
+              );
+              window.location.href = `/?page=dashboard`;
+            } else {
+              // Agent doesn't exist - go to character editor to create it
+              console.log(
+                "[CharacterSelect] ⚠️ Agent doesn't exist, redirecting to editor...",
+              );
+
+              // Fetch full character data from Hyperscape DB to get avatar
+              const hyperscapeResponse = await fetch(
+                `http://localhost:5555/api/characters/${accountId}`,
+              );
+
+              let avatarUrl = "";
+              if (hyperscapeResponse.ok) {
+                const hyperscapeData = await hyperscapeResponse.json();
+                const hyperscapeChar = hyperscapeData.characters?.find(
+                  (c: { id: string }) => c.id === id,
+                );
+                avatarUrl = hyperscapeChar?.avatar || "";
+                console.log(
+                  "[CharacterSelect] Loaded avatar from Hyperscape DB:",
+                  avatarUrl,
+                );
+              }
+
+              window.location.href = `/?page=character-editor&characterId=${id}&name=${character.name}&wallet=${character.wallet || ""}&avatar=${encodeURIComponent(avatarUrl)}`;
+            }
+          } else {
+            // ElizaOS not responding - show error
+            setErrorMessage(
+              "ElizaOS is not responding. Please check if it's running.",
+            );
+          }
+        } catch (error) {
+          console.error(
+            "[CharacterSelect] ❌ Failed to check agent existence:",
+            error,
+          );
+          setErrorMessage("Failed to connect to ElizaOS. Please try again.");
+        }
+        return;
+      }
+
+      // HUMAN PLAYER: Show confirmation screen to enter world
+      console.log(
+        "[CharacterSelect] 🎮 Human character selected, showing confirmation...",
+      );
+      setSelectedCharacterId(id);
+      setView("confirm");
+      const ws = preWsRef.current!;
+      if (ws.readyState !== WebSocket.OPEN) return;
+      ws.send(writePacket("characterSelected", { characterId: id }));
+    },
+    [characters],
+  );
 
   const createCharacter = React.useCallback(async () => {
     const name = newCharacterName.trim().slice(0, 20);
@@ -484,26 +732,111 @@ export function CharacterSelectScreen({
         // Privy's HD wallet system creates additional wallets sequentially
         // The first call creates wallet at index 0, subsequent calls create wallets at indices 1, 2, 3, etc.
         // All wallets use Privy's BIP-44 derivation path: m/44'/60'/0'/0/{index}
-        console.log(
-          `[CharacterSelect] 🔑 Creating additional HD wallet for character "${name}"`,
-        );
 
-        try {
-          // Create an additional HD wallet in the sequence
-          // Privy manages the index internally - we just request a new wallet
-          const characterWallet = await createWallet({
-            createAdditional: true,
+        // Helper to clear corrupted Privy state from localStorage
+        const clearPrivyState = () => {
+          console.log(
+            "[CharacterSelect] 🧹 Clearing potentially corrupted Privy wallet state...",
+          );
+          const keysToRemove: string[] = [];
+
+          // Find all Privy wallet-related keys
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (
+              key &&
+              (key.startsWith("privy:wallets") ||
+                key.startsWith("privy:embedded_wallets") ||
+                key.includes("wallet_state"))
+            ) {
+              keysToRemove.push(key);
+            }
+          }
+
+          // Remove them
+          keysToRemove.forEach((key) => {
+            console.log(`[CharacterSelect] Removing corrupted key: ${key}`);
+            localStorage.removeItem(key);
           });
 
-          walletAddress = characterWallet.address;
-          console.log(`[CharacterSelect] ✅ HD wallet created:`, walletAddress);
-        } catch (walletError) {
-          console.error(
-            "[CharacterSelect] ❌ Failed to create HD wallet:",
-            walletError,
+          console.log(
+            `[CharacterSelect] ✅ Cleared ${keysToRemove.length} corrupted Privy keys`,
           );
+        };
+
+        // Attempt wallet creation with retry logic
+        const MAX_RETRIES = 2;
+        let retryCount = 0;
+        let lastError: Error | null = null;
+
+        while (!walletAddress && retryCount < MAX_RETRIES) {
+          try {
+            console.log(
+              `[CharacterSelect] 🔑 Attempt ${retryCount + 1}/${MAX_RETRIES}: Creating HD wallet for character "${name}"`,
+            );
+
+            // Create an additional HD wallet in the sequence
+            // Privy manages the index internally - we just request a new wallet
+            const characterWallet = await createWallet({
+              createAdditional: true,
+            });
+
+            walletAddress = characterWallet.address;
+            console.log(
+              `[CharacterSelect] ✅ HD wallet created:`,
+              walletAddress,
+            );
+            break; // Success! Exit retry loop
+          } catch (walletError) {
+            lastError = walletError as Error;
+            const errorStr = String(walletError);
+            const errorMsg = lastError.message || errorStr;
+
+            console.error(
+              `[CharacterSelect] ❌ Wallet creation attempt ${retryCount + 1} failed:`,
+              walletError,
+            );
+
+            // Check if this is a Privy state corruption error (JSON parse error)
+            const isCorruptionError =
+              errorStr.includes("SyntaxError") ||
+              errorStr.includes("JSON") ||
+              errorStr.includes("setImmedia") ||
+              errorMsg.includes("JSON") ||
+              errorMsg.includes("parse");
+
+            if (isCorruptionError && retryCount < MAX_RETRIES - 1) {
+              console.log(
+                "[CharacterSelect] 🔧 Detected Privy state corruption, clearing and retrying...",
+              );
+              clearPrivyState();
+              retryCount++;
+
+              // Wait 500ms before retry to let Privy settle
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            } else {
+              // Either not a corruption error, or we've exhausted retries
+              retryCount = MAX_RETRIES; // Force exit
+            }
+          }
+        }
+
+        // If wallet creation failed after all retries
+        if (!walletAddress) {
+          console.error(
+            "[CharacterSelect] ❌ Failed to create HD wallet after all retries",
+          );
+
+          const errorMsg = lastError?.message || String(lastError);
+          const isCorruptionError =
+            errorMsg.includes("JSON") ||
+            errorMsg.includes("SyntaxError") ||
+            errorMsg.includes("setImmedia");
+
           setErrorMessage(
-            "Failed to create wallet for character. Please try again.",
+            isCorruptionError
+              ? "Wallet creation failed due to corrupted browser data. Please refresh the page and try again."
+              : `Failed to create wallet: ${errorMsg}`,
           );
           setCreatingCharacter(false);
           return;

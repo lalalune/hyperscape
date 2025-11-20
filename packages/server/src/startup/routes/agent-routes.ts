@@ -9,6 +9,9 @@
  * - Credentials are tied to specific characterId + userId pairs
  * - JWTs are server-signed and cryptographically secure
  * - Agents are clearly marked with isAgent flag
+ *
+ * Note: Dashboard on port 3333 calls ElizaOS API (port 3000) directly.
+ * No proxying is needed for localhost development.
  */
 
 import type { FastifyInstance } from "fastify";
@@ -137,6 +140,279 @@ export function registerAgentRoutes(
           error instanceof Error
             ? error.message
             : "Failed to generate credentials",
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/mappings/:accountId
+   *
+   * Get all agent mappings for a user.
+   * Returns the list of agent IDs owned by this user.
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   agentIds: ["agent-id-1", "agent-id-2", ...]
+   * }
+   */
+  fastify.get("/api/agents/mappings/:accountId", async (request, reply) => {
+    try {
+      const params = request.params as { accountId: string };
+      const { accountId } = params;
+
+      if (!accountId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required parameter: accountId",
+        });
+      }
+
+      console.log("[AgentRoutes] Fetching agent mappings for:", accountId);
+
+      // Get database system
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              select: (fields?: unknown) => {
+                from: (table: unknown) => {
+                  where: (condition: unknown) => Promise<unknown[]>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        console.error("[AgentRoutes] DatabaseSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Query agent mappings for this user
+      const mappings = (await databaseSystem.db
+        .select()
+        .from(agentMappings)
+        .where(eq(agentMappings.accountId, accountId))) as Array<{
+        agentId: string;
+        agentName: string;
+        characterId: string;
+      }>;
+
+      const agentIds = mappings.map((m) => m.agentId);
+
+      console.log(
+        `[AgentRoutes] Found ${agentIds.length} agent(s) for ${accountId}`,
+      );
+
+      return reply.send({
+        success: true,
+        agentIds,
+        count: agentIds.length,
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to fetch agent mappings:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch agent mappings",
+      });
+    }
+  });
+
+  /**
+   * POST /api/agents/mappings
+   *
+   * Save agent-to-user mapping for dashboard filtering.
+   * This allows the dashboard to show only agents owned by the current user.
+   *
+   * Request body:
+   * {
+   *   agentId: "eliza-agent-uuid",
+   *   accountId: "privy-user-id",
+   *   characterId: "character-uuid",
+   *   agentName: "Agent Name"
+   * }
+   *
+   * Response:
+   * {
+   *   success: true
+   * }
+   */
+  fastify.post("/api/agents/mappings", async (request, reply) => {
+    try {
+      const body = request.body as {
+        agentId: string;
+        accountId: string;
+        characterId: string;
+        agentName: string;
+      };
+
+      if (
+        !body.agentId ||
+        !body.accountId ||
+        !body.characterId ||
+        !body.agentName
+      ) {
+        return reply.status(400).send({
+          success: false,
+          error:
+            "Missing required fields: agentId, accountId, characterId, agentName",
+        });
+      }
+
+      const { agentId, accountId, characterId, agentName } = body;
+
+      console.log("[AgentRoutes] Saving agent mapping:", {
+        agentId,
+        accountId,
+        characterId,
+        agentName,
+      });
+
+      // Get database system
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              insert: (table: unknown) => {
+                values: (values: unknown) => {
+                  onConflictDoUpdate: (config: {
+                    target: unknown;
+                    set: unknown;
+                  }) => Promise<unknown>;
+                };
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        console.error("[AgentRoutes] DatabaseSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema
+      const { agentMappings } = await import("../../database/schema.js");
+
+      // Insert or update mapping
+      await databaseSystem.db
+        .insert(agentMappings)
+        .values({
+          agentId,
+          accountId,
+          characterId,
+          agentName,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: agentMappings.agentId,
+          set: {
+            agentName,
+            updatedAt: new Date(),
+          },
+        });
+
+      console.log(`[AgentRoutes] ✅ Agent mapping saved for: ${agentName}`);
+
+      return reply.send({
+        success: true,
+        message: `Agent mapping saved for ${agentName}`,
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to save agent mapping:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save agent mapping",
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/agents/mappings/:agentId
+   *
+   * Delete agent mapping from Hyperscape database.
+   * This removes the link between an ElizaOS agent and the user's account.
+   *
+   * Response:
+   * {
+   *   success: true,
+   *   message: "Agent mapping deleted"
+   * }
+   */
+  fastify.delete("/api/agents/mappings/:agentId", async (request, reply) => {
+    try {
+      const params = request.params as { agentId: string };
+      const { agentId } = params;
+
+      if (!agentId) {
+        return reply.status(400).send({
+          success: false,
+          error: "Missing required parameter: agentId",
+        });
+      }
+
+      console.log("[AgentRoutes] Deleting agent mapping for:", agentId);
+
+      // Get database system
+      const databaseSystem = world.getSystem("database") as
+        | {
+            db: {
+              delete: (table: unknown) => {
+                where: (condition: unknown) => Promise<unknown>;
+              };
+            };
+          }
+        | undefined;
+
+      if (!databaseSystem || !databaseSystem.db) {
+        console.error("[AgentRoutes] DatabaseSystem not available");
+        return reply.status(500).send({
+          success: false,
+          error: "Database system not available",
+        });
+      }
+
+      // Import schema and eq operator
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq } = await import("drizzle-orm");
+
+      // Delete agent mapping
+      await databaseSystem.db
+        .delete(agentMappings)
+        .where(eq(agentMappings.agentId, agentId));
+
+      console.log(`[AgentRoutes] ✅ Agent mapping deleted for: ${agentId}`);
+
+      return reply.send({
+        success: true,
+        message: "Agent mapping deleted",
+      });
+    } catch (error) {
+      console.error("[AgentRoutes] ❌ Failed to delete agent mapping:", error);
+
+      return reply.status(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete agent mapping",
       });
     }
   });

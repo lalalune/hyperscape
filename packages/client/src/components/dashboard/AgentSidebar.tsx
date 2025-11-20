@@ -1,5 +1,13 @@
 import React from "react";
-import { Plus, Users, Settings, LogOut, Play, Square } from "lucide-react";
+import {
+  Plus,
+  Users,
+  Settings,
+  LogOut,
+  Play,
+  Square,
+  Server,
+} from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 
 interface AgentSidebarProps {
@@ -9,6 +17,7 @@ interface AgentSidebarProps {
   onCreateAgent: () => void;
   onStartAgent: (agentId: string) => void;
   onStopAgent: (agentId: string) => void;
+  onDeleteAgent: (agentId: string) => Promise<void>;
 }
 
 export const AgentSidebar: React.FC<AgentSidebarProps> = ({
@@ -18,6 +27,7 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
   onCreateAgent,
   onStartAgent,
   onStopAgent,
+  onDeleteAgent,
 }) => {
   return (
     <div className="w-64 flex flex-col border-r border-[#8b4513]/30 bg-[#0b0a15]/95 backdrop-blur-md">

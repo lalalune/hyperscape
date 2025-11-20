@@ -1,0 +1,73 @@
+---
+alwaysApply: true
+---
+
+# Real code only
+For testing the RPG, we will not be using any mocks, spies, or other kinds of test framework structure -- instead we build mini-worlds where we test each feature individually, with clear structure and saving of all error logs to that after running the tests we can identify if the test passed or if there were failures or errors
+
+# Test Multimodally and Verify in Browser
+We will test these scenarios a few different ways -- first, we will evaluate the in-game world metrics we would expect
+    -> If we're testing if a player has moved, we can check the position of the player in the three.js scene
+    -> We should also build visual testing with screenshots to verify that objects are actually on screen -- to do this we need an overhead camera rig and solid color proxies for each of the objects (cube proxies)
+    -> Any other kinds of testing that actually test the real runtime and gameplay should be implemented
+    -> We want to minimize test-specific code and objects, since it leads to bugs. We want to use real objects, real items from the game, real mobs and player proxies etc
+
+# Basic Screen Testing
+Is the entire screen all white? All black? 95%+ one single color? Something might be wrong. Verify that the player object is actually visible, the camera rig actually works, the world actually loads using basic pixel  and have statistics to help yourself understand when there might be something weird
+
+# Visual Testing
+For visual testing, we will use Playwright and a testing rig that screenshots the overhead of the scenario and checks for the existing of very specific colored pixels. Each entity (items, mobs, player, etc) in our scenario tests will be represented by a cube with a specific known color which we can check for. If a blue player kills a green goblin and loots the corpse, we can check that the green pixels went away and there are now red corpse pixels, for example. We can also check the distance of cubes from each other by getting all pixels of a color and average the positions. So if we are testing melee attack, for example, we can visualize the cubes as being adjacent and test the adjacency.
+
+# Three.js Testing
+Three.js creates a hierarchy of scene objects which have known properties like position. For testing if a player has moved, we can get their current position and verify that, say, they aren't just at 0. We can also verify that they exist in the hierarchy, etc. Our testing setup should make it easy to log and get this information.
+
+# Systems and Data
+Hyperscape is an ECS engine, to verify certain things we will want to be able to introspect systems and data attached to components. So if we want to check player money, we need to go through the Hyperscape systems to see how much money they have.
+
+# LLM Based Verification
+OpenAI GPT-4o and Anthropic Claude can now see images which we screenshot from Playwright and answer questions about them or verify stuff. We should use this sparingly as it is slow and expensive, but useful for figuring out what's going wrong, especially with UI or complicated scenarios. We can build this into our screenshot testing loop for tests where we want to verify, say, that something is on screen in the UI in the right place, that the UI looks good and doesn't have overlaps, etc.
+
+# Testing Frameworks
+We will use Playwright and custom tests which set up a Hyperscape world, add all of the entities, verify they are added, runs the test and verifies everything passes with no errors
+We are using Cursor and Claude Code which most tend to swallow errors in the logs, so we need to make sure the logs are output somewhere and contain all errors, and that after running our tests we verify that the logs are empty and free of any errors.
+
+So all tests MUST use Hyperscape and Playwright, and real elements of the RPG.# Real code only
+For testing the RPG, we will not be using any mocks, spies, or other kinds of test framework structure -- instead we build mini-worlds where we test each feature individually, with clear structure and saving of all error logs to that after running the tests we can identify if the test passed or if there were failures or errors
+
+# Test Multimodally and Verify in Browser
+We will test these scenarios a few different ways -- first, we will evaluate the in-game world metrics we would expect
+    -> If we're testing if a player has moved, we can check the position of the player in the three.js scene
+    -> We should also build visual testing with screenshots to verify that objects are actually on screen -- to do this we need an overhead camera rig and solid color proxies for each of the objects (cube proxies)
+    -> Any other kinds of testing that actually test the real runtime and gameplay should be implemented
+    -> We want to minimize test-specific code and objects, since it leads to bugs. We want to use real objects, real items from the game, real mobs and player proxies etc
+
+# Basic Screen Testing
+Is the entire screen all white? All black? 95%+ one single color? Something might be wrong. Verify that the player object is actually visible, the camera rig actually works, the world actually loads using basic pixel  and have statistics to help yourself understand when there might be something weird
+
+# Visual Testing
+For visual testing, we will use Playwright and a testing rig that screenshots the overhead of the scenario and checks for the existing of very specific colored pixels. Each entity (items, mobs, player, etc) in our scenario tests will be represented by a cube with a specific known color which we can check for. If a blue player kills a green goblin and loots the corpse, we can check that the green pixels went away and there are now red corpse pixels, for example. We can also check the distance of cubes from each other by getting all pixels of a color and average the positions. So if we are testing melee attack, for example, we can visualize the cubes as being adjacent and test the adjacency.
+
+# Three.js Testing
+Three.js creates a hierarchy of scene objects which have known properties like position. For testing if a player has moved, we can get their current position and verify that, say, they aren't just at 0. We can also verify that they exist in the hierarchy, etc. Our testing setup should make it easy to log and get this information.
+
+# Systems and Data
+Hyperscape is an ECS engine, to verify certain things we will want to be able to introspect systems and data attached to components. So if we want to check player money, we need to go through the Hyperscape systems to see how much money they have.
+
+# LLM Based Verification
+OpenAI GPT-4o and Anthropic Claude can now see images which we screenshot from Playwright and answer questions about them or verify stuff. We should use this sparingly as it is slow and expensive, but useful for figuring out what's going wrong, especially with UI or complicated scenarios. We can build this into our screenshot testing loop for tests where we want to verify, say, that something is on screen in the UI in the right place, that the UI looks good and doesn't have overlaps, etc.
+
+# Testing Frameworks
+We will use Playwright and custom tests which set up a Hyperscape world, add all of the entities, verify they are added, runs the test and verifies everything passes with no errors
+We are using Cursor and Claude Code which most tend to swallow errors in the logs, so we need to make sure the logs are output somewhere and contain all errors, and that after running our tests we verify that the logs are empty and free of any errors.
+
+So all tests MUST use Hyperscape and Playwright, and real elements of the RPG to be tested. No LARP code, no fakes, no mocks, no workarounds.
+
+# All Features Must have tests
+
+This is extremely important. If you make a feature, make a test for it and make sure all tests pass
+
+# All Tests Must Pass
+It's important that we always get all tests to pass before moving on -- even "minor" ones. No tests are minor if any are failing.
+If our goal is to demonstrate something isn't working, start out by making tests that fail, then fix the underlying code so they pass
+Testing is extremely important! If it's not tested, it's probably broken.
+NEVER shortcut, simplify or skip in tests. The goal of tests is to identify bugs in the code, NOT to get the tests to pas.

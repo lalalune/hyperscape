@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Terminal, Clock, Filter, Download, Pause, Play } from "lucide-react";
+import {
+  Terminal,
+  Clock,
+  Filter,
+  Download,
+  Pause,
+  Play,
+  Trash2,
+} from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 
 interface LogEntry {
@@ -18,7 +26,33 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
   const [logs, setLogs] = React.useState<LogEntry[]>([]);
   const [filter, setFilter] = React.useState<string>("all");
   const [isPaused, setIsPaused] = React.useState(false);
+  const [deletingLogId, setDeletingLogId] = React.useState<string | null>(null);
   const logsEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Delete individual log entry
+  const deleteLog = async (logId: string) => {
+    setDeletingLogId(logId);
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/agents/${agent.id}/logs/${logId}`,
+        { method: "DELETE" },
+      );
+
+      if (response.ok) {
+        // Remove log from local state immediately
+        setLogs((prev) => prev.filter((log) => log.id !== logId));
+        console.log(`[AgentLogs] ✅ Log ${logId} deleted`);
+      } else {
+        console.error(
+          `[AgentLogs] Failed to delete log: HTTP ${response.status}`,
+        );
+      }
+    } catch (error) {
+      console.error("[AgentLogs] Error deleting log:", error);
+    } finally {
+      setDeletingLogId(null);
+    }
+  };
 
   // Fetch logs from API
   React.useEffect(() => {
@@ -26,18 +60,22 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
       if (isPaused) return;
 
       try {
+        // Use ElizaOS REST API to fetch agent logs
         const response = await fetch(
-          `http://localhost:3000/hyperscape/logs/${agent.id}`,
+          `http://localhost:3000/api/agents/${agent.id}/logs?count=100&excludeTypes=debug,trace`,
         );
         if (response.ok) {
           const data = await response.json();
-          if (data.success) {
-            const formattedLogs = data.logs.map((log: any) => ({
-              ...log,
-              timestamp: new Date(log.timestamp),
-            }));
-            setLogs(formattedLogs);
-          }
+          // ElizaOS returns array of log objects directly
+          const logs = Array.isArray(data) ? data : [];
+          const formattedLogs = logs.map((log: any) => ({
+            id: log.id || `${Date.now()}-${Math.random()}`,
+            timestamp: new Date(log.timestamp || log.createdAt || Date.now()),
+            level: log.level || log.type || "info",
+            message: log.message || log.body || log.text || "",
+            source: log.source || log.agentId || agent.name,
+          }));
+          setLogs(formattedLogs);
         }
       } catch (error) {
         console.error("Failed to fetch logs:", error);
@@ -155,6 +193,15 @@ export const AgentLogs: React.FC<AgentLogsProps> = ({ agent }) => {
                 <span className="text-[#e8ebf4]/80 flex-1 break-all">
                   {log.message}
                 </span>
+
+                <button
+                  onClick={() => deleteLog(log.id)}
+                  disabled={deletingLogId === log.id}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/10 rounded text-red-400/60 hover:text-red-400 disabled:opacity-50"
+                  title="Delete log"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             ))}
 

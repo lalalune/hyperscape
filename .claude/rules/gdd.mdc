@@ -1,0 +1,550 @@
+# RuneScape-Inspired MVP Game Design Document
+
+## Table of Contents
+
+1. [Game Overview](#1-game-overview)
+2. [World Design](#2-world-design)
+3. [Player Systems](#3-player-systems)
+4. [Combat System](#4-combat-system)
+5. [Skills System](#5-skills-system)
+6. [Items and Equipment](#6-items-and-equipment)
+7. [NPCs and Mobs](#7-npcs-and-mobs)
+8. [Economy and Trading](#8-economy-and-trading)
+9. [User Interface](#9-user-interface)
+10. [Multiplayer Architecture](#10-multiplayer-architecture)
+11. [AI Agent Integration](#11-ai-agent-integration)
+12. [Technical Implementation](#12-technical-implementation)
+13. [Testing Framework](#13-testing-framework)
+14. [MVP Scope and Future Expansions](#14-mvp-scope-and-future-expansions)
+
+---
+
+## 1. Game Overview
+
+### Core Concept
+A simplified MVP version of RuneScape built as a self-contained package using Hyperscape's Entity Component System and multiplayer architecture. The game features classic MMORPG mechanics including combat, skills, resource gathering, and progression in a persistent 3D world.
+
+### Key Features
+- Grid-based world with height-mapped terrain
+- Real-time multiplayer gameplay
+- Skill-based progression system
+- Resource gathering and crafting
+- PvE combat with loot drops
+- Banking and inventory management
+- Support for both human players and AI agents
+
+### Target Experience
+Players start with minimal equipment and must progress through combat and resource gathering to acquire better gear and increase their skills. The game emphasizes gradual progression and resource management in a shared persistent world.
+
+---
+
+## 2. World Design
+
+### World Structure
+- **Grid System**: World divided into discrete grid cells
+- **Height Map**: Vertex-colored terrain with PhysX collision
+- **Shared World**: Single persistent world for all players
+- **No Occlusions**: Entirely height-map based with no overhangs
+
+### Biome Types
+Various biomes with appropriate resources and mob spawns:
+- **Mistwood Valley**: Foggy forests with goblin camps
+- **Goblin Wastes**: Barren lands dominated by goblin tribes
+- **Darkwood Forest**: Dense, shadowy woods hiding dark warriors
+- **Northern Reaches**: Frozen tundra with ice caves
+- **Blasted Lands**: Desolate areas corrupted by dark magic
+- **Lakes**: Fishing spots along shorelines
+- **Plains**: General purpose areas with roads and camps
+
+### Difficulty Zones
+Four difficulty levels distributed across the map:
+- **Level 0**: Starter towns (safe zones)
+- **Level 1**: Low-level mob areas (Goblins, Bandits, Barbarians)
+- **Level 2**: Intermediate mob areas (Hobgoblins, Guards, Dark Warriors)
+- **Level 3**: High-level mob areas (Black Knights, Ice Warriors, Dark Rangers)
+
+### Starter Towns
+Multiple starter towns with:
+- **Bank**: Item storage facility
+- **General Store**: Basic equipment vendor
+- **Safe Zone**: No hostile mobs
+- **Random Spawn**: New players randomly assigned to different towns
+
+### Resource Distribution
+- **Trees**: Scattered throughout appropriate biomes
+- **Fishing Spots**: Along lake shorelines
+- **Mob Spawns**: Based on biome and difficulty level
+
+### Terrain Rules
+- Water bodies are impassable
+- Steep mountain slopes block movement
+- PhysX engine handles collision detection
+
+---
+
+## 3. Player Systems
+
+### Starting Conditions
+- **Equipment**: Bronze sword (equipped)
+- **Location**: Random starter town
+- **Stats**: Base level 1 in all skills
+
+### Core Stats
+- **ATK (Attack)**: Determines accuracy and weapon access
+- **STR (Strength)**: Determines damage dealt
+- **RANGE**: Ranged combat effectiveness
+- **DEF (Defense)**: Damage reduction and armor access
+- **CON (Constitution)**: Health points
+
+### Derived Stats
+- **Combat Level**: Aggregate of ATK, STR, RANGE, DEF
+- **Health Points**: Determined by Constitution level
+- **Armor Rating**: Based on Defense and equipment
+
+### Movement System
+- **Walking**: Default movement speed
+- **Running**: Faster movement, consumes stamina
+- **Stamina Bar**: Depletes while running, regenerates when walking
+- **Click-to-Move**: Orthographic overhead camera with point-and-click navigation
+
+### Death Mechanics
+- Items dropped at death location (headstone)
+- Player respawns at nearest starter town
+- Must retrieve items from death location
+
+### Level Progression
+- Experience-based leveling following RuneScape formulas
+- Skills level independently through use
+- No point allocation system
+
+---
+
+## 4. Combat System
+
+### Combat Mechanics
+- **Real-time combat**: Auto-attack when in range
+- **Attack Styles**: Player selects focus for XP distribution
+- **Damage Calculation**: Based on RuneScape formulas
+- **Hit Frequency**: Determined by Attack level and equipment
+- **Damage Amount**: Determined by Strength and weapon
+- **Ranged Combat**: Requires bow and arrows equipped
+
+### Ranged Combat Specifics
+- **Arrow Requirement**: Must have arrows equipped to use bow
+- **Arrow Consumption**: Arrows are depleted with each shot
+- **No Arrows**: Cannot attack with bow if no arrows equipped
+
+### Combat Flow
+1. Player initiates combat by attacking mob
+2. Auto-attack continues while in range
+3. XP distributed based on selected combat style
+4. Constitution XP always gained
+5. Loot drops on mob death
+
+### PvP Status
+- **MVP Scope**: PvE only
+- **Future**: PvP combat planned
+
+---
+
+## 5. Skills System
+
+### Available Skills (MVP)
+1. **Attack**: Melee accuracy and weapon requirements
+2. **Strength**: Melee damage
+3. **Defense**: Damage reduction and armor requirements
+4. **Constitution**: Health points
+5. **Range**: Ranged combat
+6. **Woodcutting**: Tree harvesting
+7. **Fishing**: Fish gathering
+8. **Firemaking**: Creating fires from logs
+9. **Cooking**: Preparing food
+
+### Skill Mechanics
+- **Experience Gain**: Through relevant actions
+- **Level Requirements**: Gate equipment and activities
+- **Level Cap**: Following RuneScape standards
+
+### Resource Gathering
+- **Woodcutting**: Click tree with hatchet equipped
+- **Fishing**: Click water edge with fishing rod equipped
+- **Success Rates**: Based on skill level
+
+### Processing Skills
+- **Firemaking**: Use tinderbox on logs in inventory
+- **Cooking**: Use raw fish on fire
+
+---
+
+## 6. Items and Equipment
+
+### Weapon Types
+1. **Swords**
+   - Bronze (Level 1+)
+   - Steel (Level 10+)
+   - Mithril (Level 20+)
+
+2. **Bows**
+   - Wood (Level 1+)
+   - Oak (Level 10+)
+   - Willow (Level 20+)
+
+3. **Shields**
+   - Bronze (Level 1+)
+   - Steel (Level 10+)
+   - Mithril (Level 20+)
+
+### Ammunition
+- **Arrows**: Required for bow usage
+- **Consumption**: Depleted on use
+- **Equipment Slot**: Dedicated arrow slot
+- **Stackable**: Can carry multiple arrows in one slot
+
+### Armor Types
+Three equipment slots:
+1. **Helmet**
+2. **Body**
+3. **Legs**
+
+Armor Materials:
+- Leather/Hard Leather/Studded Leather
+- Bronze/Steel/Mithril
+
+### Equipment Slots
+- **Weapon**: Primary weapon slot
+- **Shield**: Off-hand slot
+- **Helmet**: Head protection
+- **Body**: Torso protection
+- **Legs**: Leg protection
+- **Arrows**: Ammunition slot (required for bows)
+
+### Tools
+- **Hatchet**: Bronze only (MVP)
+- **Fishing Rod**: Standard
+- **Tinderbox**: Fire creation
+
+### Resources
+- **Logs**: From trees
+- **Raw Fish**: From fishing
+- **Cooked Fish**: Processed food
+
+### Currency
+- **Coins**: Universal currency
+- Dropped by mobs
+- Used at general store
+
+### Item Properties
+- **Stack Limit**: 28 inventory slots
+- **Bank Storage**: Unlimited slots per bank
+- **Tradeable**: All items (future feature)
+- **Requirements**: Level gates for equipment
+
+---
+
+## 7. NPCs and Mobs
+
+### Difficulty Level 1 - Beginner Enemies
+
+**Goblins**
+- **Description**: Small green humanoids with crude weapons
+- **Locations**: Mistwood Valley, Goblin Wastes
+- **Behavior**: Moderately aggressive, low aggro range
+- **Combat Stats**: Low attack/defense, minimal HP
+- **Drops**: Coins (common), bronze equipment (rare)
+- **Lore**: The classic first enemy - every adventurer remembers their first goblin kill
+
+**Men/Women (Desperate Bandits)**
+- **Description**: Humans who turned to crime after the Calamity
+- **Locations**: Near roads and town outskirts
+- **Behavior**: Aggressive to low-level players only
+- **Combat Stats**: Slightly stronger than goblins
+- **Drops**: Small amounts of coins
+- **Lore**: More desperate than evil, victims of circumstance
+
+**Barbarians**
+- **Description**: Primitive humans living in the wilderness
+- **Locations**: Forest camps and clearings
+- **Behavior**: Aggressive within camp boundaries
+- **Combat Stats**: Tougher than bandits, more HP
+- **Drops**: Coins, basic equipment (bronze tier)
+- **Lore**: Wild warriors who reject civilization
+
+### Difficulty Level 2 - Intermediate Enemies
+
+**Hobgoblins**
+- **Description**: Larger, militaristic cousins of goblins
+- **Locations**: Deeper areas of Goblin Wastes
+- **Behavior**: Highly aggressive, larger aggro range
+- **Combat Stats**: Organized fighters with better accuracy
+- **Drops**: More coins, steel equipment (uncommon)
+- **Lore**: Elite goblin warriors with military discipline
+
+**Guards (Corrupted Soldiers)**
+- **Description**: Former kingdom soldiers serving dark masters
+- **Locations**: Ancient ruins, abandoned fortresses
+- **Behavior**: Aggressive, patrol fixed areas
+- **Combat Stats**: Well-trained, balanced offense/defense
+- **Drops**: Steel equipment (common), coins
+- **Lore**: Once protectors, now enslaved by darkness
+
+**Dark Warriors**
+- **Description**: Warriors who embraced darkness after the Calamity
+- **Locations**: Depths of Darkwood Forest
+- **Behavior**: Very aggressive, ignore player level
+- **Combat Stats**: High damage, moderate defense
+- **Drops**: Steel equipment, cursed items (future content)
+- **Lore**: Fallen knights who chose power over honor
+
+### Difficulty Level 3 - Advanced Enemies
+
+**Black Knights**
+- **Description**: The most feared human enemies, masters of combat
+- **Locations**: Black Knight Fortress, dark strongholds
+- **Behavior**: Extremely aggressive, always hostile
+- **Combat Stats**: Elite warriors with high stats across the board
+- **Drops**: Mithril equipment (uncommon), substantial coins
+- **Lore**: Elite dark warriors in pitch-black armor
+
+**Ice Warriors**
+- **Description**: Ancient warriors of Valorhall, frozen but still fighting
+- **Locations**: Ice caves in the Northern Reaches
+- **Behavior**: Aggressive, slow but extremely tough
+- **Combat Stats**: Very high defense and HP
+- **Drops**: Mithril equipment, ancient treasures
+- **Lore**: Frozen champions guarding old kingdom treasures
+
+**Dark Rangers**
+- **Description**: Master bowmen who turned to darkness
+- **Locations**: Shadows of the Blasted Lands
+- **Behavior**: Aggressive at long range
+- **Combat Stats**: Deadly accuracy, high ranged damage
+- **Drops**: Mithril equipment, arrows (common)
+- **Lore**: Elite archers with powerful longbows
+
+### Mob Properties (All Enemies)
+- **Stats**: Same system as players (ATK, STR, DEF, etc.)
+- **Aggression**: Variable per mob type
+- **Aggro Range**: Distance at which aggressive mobs attack
+- **Level Check**: High-level players ignored by low-level aggressive mobs (except special cases)
+- **Chase Mechanics**: Return to spawn if player escapes range
+- **Special Cases**: Dark Warriors and higher always aggressive regardless of player level
+
+### Spawning System
+- **Global Timer**: 15-minute respawn cycle
+- **Fixed Locations**: Mobs spawn at predetermined points
+- **Biome Appropriate**: Mobs match their environment
+- **Difficulty Appropriate**: Mob level matches zone difficulty
+
+### Loot System
+- **Guaranteed Drops**: Every mob drops something
+- **Drop Tables**: 
+  - Level 1 mobs: Coins (always), bronze equipment (rare)
+  - Level 2 mobs: More coins (always), steel equipment (uncommon)
+  - Level 3 mobs: Substantial coins (always), mithril equipment (uncommon), arrows (common for Dark Rangers)
+- **Level Scaling**: Better items from harder mobs
+- **Common Drops**: Coins (most frequent)
+- **Equipment Drops**: Match mob's difficulty tier
+
+---
+
+## 8. Economy and Trading
+
+### General Store
+Available Items:
+- **Hatchet** (Bronze) - For woodcutting
+- **Fishing Rod** - For fishing
+- **Tinderbox** - For firemaking
+- **Arrows** - Ammunition for bows
+
+### Banking System
+- **Location**: One per starter town
+- **Storage**: Unlimited slots
+- **Independence**: Each bank separate (no shared storage)
+- **Interface**: Click to open, drag items to store/retrieve
+
+### Economy Flow
+1. Kill mobs for coins
+2. Purchase tools and arrows from store
+3. Gather resources with tools
+4. Process resources for consumables
+5. Use consumables to sustain combat
+
+---
+
+## 9. User Interface
+
+### HUD Elements
+- **Health Bar**: Current/Max HP
+- **Stamina Bar**: Running energy
+- **Combat Style Selector**: XP distribution choice
+- **Arrow Counter**: Shows equipped arrow count
+
+### Interface Windows
+- **Inventory**: 28-slot grid
+- **Bank**: Unlimited storage grid
+- **Skills**: Skill levels and XP
+- **Equipment**: Worn items display (including arrow slot)
+- **Map**: World overview
+
+### Control Scheme
+- **Movement**: Click-to-move (orthographic overhead view)
+- **Combat**: Click enemy to attack
+- **Interaction**: Click objects/NPCs
+- **Inventory Management**: Drag and drop
+
+---
+
+## 10. Multiplayer Architecture
+
+### Network Structure
+- **WebSocket Connection**: Real-time communication
+- **Persistent World**: Shared game state
+- **Entity Synchronization**: Via Hyperscape ECS
+
+### Player Management
+- **Authentication**: Account-based system
+- **Character Persistence**: Stats and inventory saved
+- **Concurrent Players**: Unlimited (infrastructure dependent)
+
+---
+
+## 11. AI Agent Integration
+
+### Agent Capabilities
+- **Connection**: WebSocket (same as players)
+- **Physics Simulation**: Accurate world model
+- **Vision**: Screenshot capability (future)
+- **Decision Making**: LLM-driven via ElizaOS
+
+### Agent Actions
+All player actions available:
+- Attack
+- Gather (contextual: chop/fish)
+- Interact
+- Go To
+- Equip/Unequip
+- Drop/Pick Up
+- Loot
+- Eat
+- Inventory management
+
+### Agent Interfaces
+Queryable game state:
+- Inventory contents
+- Player stats
+- Nearby entities
+- Skills and XP
+- Equipment status
+- Arrow count
+
+### Navigation
+- **Semantic**: North/South/East/West
+- **Relative**: Near/far descriptions
+- **Text-based**: MUD-like interface
+
+---
+
+## 12. Technical Implementation
+
+### Core Technology
+- **Engine**: Hyperscape (TypeScript)
+- **Networking**: LiveKit WebRTC
+- **3D Graphics**: Three.js
+- **Physics**: PhysX
+- **Avatar Format**: VRM
+- **Model Format**: GLB
+
+### Asset Pipeline
+1. **Concept**: AI-generated designs
+2. **3D Generation**: MeshyAI
+3. **Rigging**: Automatic for humanoids
+4. **Hardpoint Detection**: AI-assisted attachment points
+5. **Optimization**: 2000 triangle target
+
+### World Generation
+- **Height Maps**: Procedural generation
+- **Vertex Coloring**: Biome representation
+- **Collision Mesh**: PhysX integration
+
+### Animation System
+Shared rig for all humanoids:
+- Walk/Run cycles
+- Combat animations (melee and ranged)
+- Gathering animations
+- Generic interaction
+- Death animation
+
+---
+
+## 13. Testing Framework
+
+### Visual Testing System
+- **Camera Setup**: Overhead orthographic view
+- **Color Proxies**: Unique colors per entity type
+- **Pixel Analysis**: Verify entity positions
+- **Automation**: Playwright/Cypress integration
+
+### Test Scenarios
+Individual test worlds for:
+- Combat verification (melee and ranged)
+- Movement validation
+- Inventory management
+- Resource gathering
+- Banking operations
+- Mob spawning
+- Arrow depletion
+
+### Verification Methods
+- **Visual**: Color-based position tracking
+- **Programmatic**: Direct state queries
+- **Behavioral**: Action sequence validation
+- **Statistical**: Damage/XP calculations
+
+### Test Requirements
+- No simulation or "fake" tests
+- Real world interaction
+- Visual confirmation required
+- Automated regression testing
+
+---
+
+## 14. MVP Scope and Future Expansions
+
+### MVP Deliverables
+- Core combat system (melee and ranged)
+- Basic resource gathering (wood, fish)
+- Three equipment tiers
+- Arrow system for ranged combat
+- Simple progression system
+- Banking and inventory
+- Multiplayer support
+- AI agent compatibility
+
+### Explicit MVP Limitations
+- No PvP combat
+- Limited skills (9 total)
+- Three equipment tiers only
+- Single tool tier (bronze)
+- No trading between players
+- No quests or NPCs beyond mobs
+- Basic arrow type only
+
+### Future Expansions (NOT IN THE SCOPE OF THIS PROJECT)
+- Complete RuneScape skill set
+- Full equipment tiers
+- Multiple arrow types
+- Player trading/Grand Exchange
+- Quest system
+- PvP combat
+- Clans/guilds
+- More complex crafting
+- Additional biomes
+- Dungeons/instances
+- Mini-games
+
+### Success Metrics
+- Stable multiplayer performance
+- Functional progression loop
+- AI agents successfully playing
+- All systems visually testable
+- Complete end-to-end testing of every system with no mocks, all tests passing

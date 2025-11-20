@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Agent } from "../../screens/DashboardScreen";
 
 interface AgentViewportProps {
@@ -6,6 +6,85 @@ interface AgentViewportProps {
 }
 
 export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
+  const [authToken, setAuthToken] = useState<string>("");
+  const [characterId, setCharacterId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAgentCredentials();
+  }, [agent.id]);
+
+  const fetchAgentCredentials = async () => {
+    try {
+      // Fetch agent details from ElizaOS API
+      const response = await fetch(
+        `http://localhost:3000/api/agents/${agent.id}`,
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Extract agent object from response (may be nested in data.data or data.agent)
+        const agentData =
+          data?.data?.agent || data?.data || data?.agent || data;
+        const settings =
+          agentData?.settings?.secrets || agentData?.settings || {};
+
+        // Extract auth token and character ID from settings
+        const token = settings.HYPERSCAPE_AUTH_TOKEN || "";
+        const charId = settings.HYPERSCAPE_CHARACTER_ID || "";
+
+        setAuthToken(token);
+        setCharacterId(charId);
+
+        console.log("[AgentViewport] Loaded credentials:", {
+          hasToken: !!token,
+          characterId: charId,
+          agentName: agentData?.name,
+        });
+      } else {
+        console.warn("[AgentViewport] Failed to fetch agent details");
+      }
+    } catch (error) {
+      console.error("[AgentViewport] Error fetching credentials:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full bg-[#0b0a15]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f2d08a]"></div>
+      </div>
+    );
+  }
+
+  if (!authToken) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-[#0b0a15] text-[#f2d08a]/60">
+        <div className="text-6xl mb-4">⚠️</div>
+        <h2 className="text-xl font-bold text-[#f2d08a] mb-2">
+          Agent Not Configured
+        </h2>
+        <p className="text-center max-w-md">
+          This agent needs Hyperscape credentials. Please start the agent from
+          the dashboard to generate authentication tokens.
+        </p>
+      </div>
+    );
+  }
+
+  // Build iframe URL with all required params
+  const iframeParams = new URLSearchParams({
+    embedded: "true",
+    mode: "spectator",
+    agentId: agent.id,
+    authToken: authToken,
+    characterId: characterId,
+    hiddenUI: "chat,inventory,minimap,hotbar,stats",
+  });
+
   return (
     <div className="flex flex-col h-full bg-black relative">
       {/* Overlay Info */}
@@ -24,7 +103,7 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
       {/* Iframe Viewport */}
       <iframe
         className="w-full h-full border-none bg-[#0b0a15]"
-        src={`/?embedded=true&mode=spectator&agentId=${encodeURIComponent(agent.id)}&hiddenUI=chat,inventory,minimap,hotbar,stats`}
+        src={`/?${iframeParams.toString()}`}
         allow="autoplay; fullscreen; microphone; camera"
         title={`Viewport: ${agent.characterName || agent.name}`}
       />

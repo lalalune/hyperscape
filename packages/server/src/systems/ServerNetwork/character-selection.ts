@@ -25,9 +25,140 @@ import {
   World,
 } from "@hyperscape/shared";
 
+/**
+ * Create an ElizaOS agent record for a character
+ * This allows the character to appear in the dashboard and be managed as an agent
+ */
+async function createElizaOSAgent(
+  characterId: string,
+  accountId: string,
+  name: string,
+  avatar?: string,
+  wallet?: string,
+  isAgent?: boolean,
+): Promise<void> {
+  try {
+    const elizaOSApiUrl =
+      process.env.ELIZAOS_API_URL || "http://localhost:3000";
+
+    console.log(
+      `[CharacterSelection] 🤖 Creating ElizaOS agent for character: ${name} (${characterId})`,
+    );
+
+    // Generate ElizaOS character template
+    const username = name.toLowerCase().replace(/\s+/g, "_");
+    const characterTemplate = {
+      id: characterId, // Use same ID as Hyperscape character
+      name,
+      username,
+      system: `You are ${name}, ${isAgent ? "an AI agent" : "a character"} in Hyperscape, a 3D multiplayer RPG. ${isAgent ? "You can autonomously move around the world, fight enemies, gather resources, manage your inventory, and interact with other players." : "You are controlled by a human player but can also operate autonomously when needed."} You are adventurous, strategic, and always ready for new challenges.`,
+
+      bio: [
+        `I am ${name}, ${isAgent ? "an AI agent" : "a character"} in the world of Hyperscape.`,
+        isAgent
+          ? "I autonomously navigate 3D environments, engage in combat, and interact with other players."
+          : "I can be controlled by my human player or operate autonomously when needed.",
+        "I'm always learning and adapting to new situations in the game.",
+        "My goal is to become a skilled adventurer and help others along the way.",
+      ],
+
+      topics: [
+        "hyperscape",
+        "gaming",
+        "rpg",
+        "combat strategies",
+        "resource gathering",
+        "inventory management",
+        "multiplayer cooperation",
+      ],
+
+      adjectives: [
+        "adventurous",
+        "strategic",
+        "helpful",
+        "determined",
+        "resourceful",
+        "brave",
+      ],
+
+      plugins: [
+        "@hyperscape/plugin-hyperscape", // Hyperscape game integration
+        "@elizaos/plugin-sql", // Database operations
+        "@elizaos/plugin-bootstrap", // Bootstrap functionality
+      ],
+
+      settings: {
+        secrets: {
+          HYPERSCAPE_CHARACTER_ID: characterId,
+          HYPERSCAPE_SERVER_URL:
+            process.env.PUBLIC_WS_URL || "ws://localhost:5555/ws",
+          HYPERSCAPE_ACCOUNT_ID: accountId, // Link to user's account
+          wallet,
+        },
+        avatar,
+        characterType: isAgent ? "ai-agent" : "human-player",
+        accountId, // Store in settings for dashboard filtering
+      },
+
+      style: {
+        all: [
+          "Be conversational and natural",
+          "Show enthusiasm for the game",
+          "Be helpful and collaborative",
+        ],
+        chat: [
+          "Be friendly and approachable",
+          "Respond to questions directly",
+          "Use game-appropriate language",
+        ],
+        post: [
+          "Keep posts concise and engaging",
+          "Share tips and discoveries",
+          "Celebrate achievements",
+        ],
+      },
+    };
+
+    // Call ElizaOS API to create agent
+    const response = await fetch(`${elizaOSApiUrl}/api/agents`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        characterJson: characterTemplate,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        `[CharacterSelection] ❌ Failed to create ElizaOS agent: ${response.status} ${errorText}`,
+      );
+      return;
+    }
+
+    const result = await response.json();
+    console.log(
+      `[CharacterSelection] ✅ ElizaOS agent created successfully:`,
+      result,
+    );
+  } catch (error) {
+    console.error(
+      "[CharacterSelection] ❌ Error creating ElizaOS agent:",
+      error instanceof Error ? error.message : String(error),
+    );
+    // Don't fail character creation if ElizaOS agent creation fails
+    // The character is already in Hyperscape DB
+  }
+}
+
 interface CharacterData {
   id: string;
   name: string;
+  avatar?: string | null;
+  wallet?: string | null;
+  isAgent?: boolean;
   level?: number;
   lastLocation?: { x: number; y: number; z: number };
 }
@@ -45,7 +176,13 @@ export async function loadCharacterList(
       | undefined;
     if (!databaseSystem) return [];
     const chars = await databaseSystem.getCharactersAsync(accountId);
-    return chars.map((c) => ({ id: c.id, name: c.name }));
+    return chars.map((c) => ({
+      id: c.id,
+      name: c.name,
+      avatar: c.avatar || null,
+      wallet: c.wallet || null,
+      isAgent: c.isAgent || false, // CRITICAL: Include isAgent flag for routing
+    }));
   } catch {
     return [];
   }
@@ -184,6 +321,10 @@ export async function handleCharacterCreate(
     console.log(
       "[CharacterSelection] ✅ Character creation successful, sending response",
     );
+
+    // NOTE: AI agent creation is handled by CharacterEditorScreen
+    // User will configure the agent personality before it's created in ElizaOS
+    // This ensures proper accountId linkage and user customization
   } catch (err) {
     console.error("[CharacterSelection] ❌ EXCEPTION in createCharacter:", err);
     sendToFn(socket.id, "showToast", {
@@ -193,7 +334,12 @@ export async function handleCharacterCreate(
     return;
   }
 
-  const responseData = { id, name: finalName };
+  const responseData = {
+    id,
+    name: finalName,
+    wallet: wallet || undefined,
+    avatar: avatar || undefined,
+  };
 
   console.log(
     "[CharacterSelection] Sending characterCreated response:",
@@ -259,7 +405,12 @@ export async function handleEnterWorld(
 
   // Load character data from DB if characterId provided
   let name = "Adventurer";
-  let characterData: { id: string; name: string } | null = null;
+  let avatar: string | undefined = undefined;
+  let characterData: {
+    id: string;
+    name: string;
+    avatar?: string | null;
+  } | null = null;
   if (characterId && accountId) {
     try {
       const databaseSystem = world.getSystem("database") as
@@ -274,10 +425,11 @@ export async function handleEnterWorld(
         characterData = characters.find((c) => c.id === characterId) || null;
         if (characterData) {
           name = characterData.name;
-          console.log(
-            "[CharacterSelection] ✅ Found character:",
-            characterData,
-          );
+          avatar = characterData.avatar || undefined;
+          console.log("[CharacterSelection] ✅ Found character:", {
+            name,
+            avatar,
+          });
         } else {
           console.warn(
             `[CharacterSelection] ❌ Character ${characterId} not found for account ${accountId}`,
@@ -296,9 +448,12 @@ export async function handleEnterWorld(
     );
   }
 
-  console.log("[CharacterSelection] Will spawn player with name:", name);
-
-  const avatar = undefined;
+  console.log(
+    "[CharacterSelection] Will spawn player with name:",
+    name,
+    "avatar:",
+    avatar,
+  );
   const roles: string[] = [];
 
   // Require a characterId to ensure persistence uses stable IDs
@@ -412,8 +567,8 @@ export async function handleEnterWorld(
         name,
         health: playerHealth, // Use constitution level instead of HEALTH_MAX
         maxHealth: playerHealth, // Also set maxHealth
-        avatar: world.settings.avatar?.url || "asset://avatar.vrm",
-        sessionAvatar: avatar || undefined,
+        avatar: avatar || world.settings.avatar?.url || "asset://avatar.vrm", // ✅ Use character's avatar from DB
+        sessionAvatar: avatar || undefined, // ✅ Also set sessionAvatar for runtime override
         roles,
         // CRITICAL: Pass loaded skills so PlayerEntity constructor uses them instead of defaults
         skills: savedSkills,

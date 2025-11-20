@@ -1,0 +1,5 @@
+{
+  "name": "hyperscape-plugin",
+  "description": "Hyperscape ElizaOS Plugin - Agents created dynamically via UI",
+  "agents": []
+}
