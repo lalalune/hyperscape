@@ -38,6 +38,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build physx-js-webidl package (required dependency)
+        working-directory: packages/physx-js-webidl
+        run: bun run build
+
       - name: Build shared package
         working-directory: packages/shared
         run: bun run build
@@ -46,11 +50,18 @@ jobs:
         working-directory: packages/server
         run: bun run build
 
+      - name: Run database migrations
+        working-directory: packages/server
+        run: bunx drizzle-kit push
+        env:
+          DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
+
       - name: Start server in background
         working-directory: packages/server
         run: |
-          bun run start &
-          sleep 10
+          mkdir -p logs
+          bun run start > logs/server.log 2>&1 &
+          echo "Server PID: $!"
         env:
           DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
           NODE_ENV: test
@@ -59,6 +70,13 @@ jobs:
       - name: Run integration tests
         working-directory: packages/server
         run: bun scripts/test-integration.mjs
+
+      - name: Show server logs if test failed
+        if: failure()
+        working-directory: packages/server
+        run: |
+          echo "=== Server Logs ==="
+          cat logs/server.log || echo "No server logs found"
 
       - name: Upload test results
         if: always()
