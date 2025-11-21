@@ -145,6 +145,8 @@ const names = [
   // Attack style packets
   'attackStyleChanged',
   'attackStyleUpdate',
+  // Combat visual feedback packets
+  'combatDamageDealt',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',

@@ -1344,15 +1344,8 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // Show damage numbers (red for damage > 0, blue for 0 damage)
-    const targetPosition = this.getPosition();
-    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, {
-      attackerId: attackerId || "unknown",
-      targetId: this.id,
-      damage,
-      targetType: "mob",
-      position: targetPosition,
-    });
+    // COMBAT_DAMAGE_DEALT is emitted by CombatSystem - no need to emit here
+    // to avoid duplicate damage splats
 
     // Check if mob died
     if (this.config.currentHealth <= 0) {

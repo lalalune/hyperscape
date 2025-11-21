@@ -1052,18 +1052,8 @@ export class PlayerSystem extends SystemBase {
         healthData.current = player.health.current;
       }
 
-      // Emit combat damage event for damage splatter (red for damage > 0, blue for 0)
-      const playerPosition =
-        playerEntity.position || playerEntity.getPosition();
-      this.emitTypedEvent(EventType.COMBAT_DAMAGE_DEALT, {
-        attackerId: _source || "unknown",
-        targetId: playerId,
-        damage: validAmount,
-        targetType: "player",
-        position: playerPosition
-          ? { x: playerPosition.x, y: playerPosition.y, z: playerPosition.z }
-          : { x: 0, y: 0, z: 0 },
-      });
+      // COMBAT_DAMAGE_DEALT is emitted by CombatSystem - no need to emit here
+      // to avoid duplicate damage splats
     }
 
     this.emitTypedEvent(EventType.PLAYER_HEALTH_UPDATED, {
