@@ -69,7 +69,7 @@ import { EventBridge } from "./event-bridge";
 import { InitializationManager } from "./initialization";
 import { ConnectionHandler } from "./connection-handler";
 import { handleChatAdded } from "./handlers/chat";
-import { handleAttackMob } from "./handlers/combat";
+import { handleAttackMob, handleChangeAttackStyle } from "./handlers/combat";
 import {
   handlePickupItem,
   handleDropItem,
@@ -263,6 +263,9 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.handlers["onAttackMob"] = (socket, data) =>
       handleAttackMob(socket, data, this.world);
+
+    this.handlers["onChangeAttackStyle"] = (socket, data) =>
+      handleChangeAttackStyle(socket, data, this.world);
 
     this.handlers["onPickupItem"] = (socket, data) =>
       handlePickupItem(socket, data, this.world);

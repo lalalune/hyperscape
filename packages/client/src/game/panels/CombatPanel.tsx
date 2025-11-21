@@ -20,6 +20,11 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
   const [targetName, setTargetName] = useState<string | null>(null);
   const [targetHealth, setTargetHealth] = useState<PlayerHealth | null>(null);
 
+  // Debug logging for style changes
+  useEffect(() => {
+    console.log(`[CombatPanel] Current style state: ${style}`);
+  }, [style]);
+
   const combatLevel =
     stats?.combatLevel ||
     (stats?.skills ? PlayerMigration.calculateCombatLevel(stats.skills) : 1);
@@ -46,7 +51,12 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     actions?.actionMethods?.getAttackStyleInfo?.(
       playerId,
       (info: { style: string; cooldown?: number }) => {
+        console.log(
+          "[CombatPanel] getAttackStyleInfo callback received:",
+          info,
+        );
         if (info) {
+          console.log(`[CombatPanel] Setting initial style to: ${info.style}`);
           setStyle(info.style);
           setCooldown(info.cooldown || 0);
         }
@@ -54,13 +64,27 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     );
 
     const onUpdate = (data: unknown) => {
+      console.log("[CombatPanel] onUpdate event received:", data);
       const d = data as { playerId: string; currentStyle: { id: string } };
-      if (d.playerId !== playerId) return;
+      if (d.playerId !== playerId) {
+        console.log(
+          `[CombatPanel] Ignoring update for different player: ${d.playerId} vs ${playerId}`,
+        );
+        return;
+      }
+      console.log("[CombatPanel] Setting style to:", d.currentStyle.id);
       setStyle(d.currentStyle.id);
     };
     const onChanged = (data: unknown) => {
+      console.log("[CombatPanel] onChanged event received:", data);
       const d = data as { playerId: string; currentStyle: { id: string } };
-      if (d.playerId !== playerId) return;
+      if (d.playerId !== playerId) {
+        console.log(
+          `[CombatPanel] Ignoring change for different player: ${d.playerId} vs ${playerId}`,
+        );
+        return;
+      }
+      console.log("[CombatPanel] Setting style to:", d.currentStyle.id);
       setStyle(d.currentStyle.id);
     };
 
@@ -126,7 +150,14 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
 
   const changeStyle = (next: string) => {
     const playerId = world.entities?.player?.id;
-    if (!playerId) return;
+    console.log(
+      `[CombatPanel] changeStyle called: ${next}, playerId: ${playerId}, current: ${style}`,
+    );
+
+    if (!playerId) {
+      console.error("[CombatPanel] No playerId found!");
+      return;
+    }
 
     const actions = world.getSystem("actions") as {
       actionMethods?: {
@@ -134,7 +165,15 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
       };
     } | null;
 
-    actions?.actionMethods?.changeAttackStyle?.(playerId, next);
+    if (!actions?.actionMethods?.changeAttackStyle) {
+      console.error("[CombatPanel] changeAttackStyle action method not found!");
+      return;
+    }
+
+    console.log(
+      `[CombatPanel] Calling changeAttackStyle(${playerId}, ${next})`,
+    );
+    actions.actionMethods.changeAttackStyle(playerId, next);
   };
 
   // Determine if ranged weapon equipped; if so, limit to ranged/defense like RS
@@ -282,30 +321,40 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
       >
         Attack style
       </div>
-      <div className="grid grid-cols-2 gap-1">
+      <div className="grid grid-cols-3 gap-1">
         {styles.map((s) => (
           <button
             key={s.id}
-            onClick={() => changeStyle(s.id)}
+            onClick={() => {
+              console.log(`[CombatPanel] Changing attack style to: ${s.id}`);
+              changeStyle(s.id);
+            }}
             disabled={cooldown > 0}
-            className="rounded-md py-1 px-2 cursor-pointer transition-all text-[10px]"
+            className="rounded-md py-1 px-1 cursor-pointer transition-all text-[10px] hover:brightness-110"
             style={{
               backgroundColor:
                 style === s.id
-                  ? "rgba(242, 208, 138, 0.15)"
+                  ? "rgba(242, 208, 138, 0.2)"
                   : "rgba(0, 0, 0, 0.35)",
               borderWidth: "1px",
               borderStyle: "solid",
               borderColor:
                 style === s.id
-                  ? "rgba(242, 208, 138, 0.7)"
+                  ? "rgba(242, 208, 138, 0.8)"
                   : "rgba(242, 208, 138, 0.3)",
               color: style === s.id ? COLORS.ACCENT : "#d1d5db",
+              fontWeight: style === s.id ? "bold" : "normal",
             }}
           >
             {s.label}
           </button>
         ))}
+      </div>
+      {/* Show which skill is being trained */}
+      <div className="text-[9px] text-gray-400 italic">
+        {style === "accurate" && "Training: Attack + Hitpoints"}
+        {style === "aggressive" && "Training: Strength + Hitpoints"}
+        {style === "defensive" && "Training: Defense + Hitpoints"}
       </div>
       {cooldown > 0 && (
         <div

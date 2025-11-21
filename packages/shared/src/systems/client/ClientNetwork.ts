@@ -1387,6 +1387,41 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
+  onAttackStyleChanged = (data: {
+    playerId: string;
+    currentStyle: unknown;
+    availableStyles: unknown;
+    canChange: boolean;
+    cooldownRemaining?: number;
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received attackStyleChanged for local player, forwarding to event system",
+      );
+      // Forward to local event system so UI can update
+      this.world.emit(EventType.UI_ATTACK_STYLE_CHANGED, data);
+    }
+  };
+
+  onAttackStyleUpdate = (data: {
+    playerId: string;
+    currentStyle: unknown;
+    availableStyles: unknown;
+    canChange: boolean;
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received attackStyleUpdate for local player, forwarding to event system",
+      );
+      // Forward to local event system so UI can update
+      this.world.emit(EventType.UI_ATTACK_STYLE_UPDATE, data);
+    }
+  };
+
   onCorpseLoot = (data: {
     corpseId: string;
     playerId: string;

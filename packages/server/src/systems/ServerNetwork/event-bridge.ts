@@ -259,6 +259,45 @@ export class EventBridge {
           this.broadcast.sendToPlayer(data.playerId, "playerRespawned", data);
         }
       });
+
+      // Forward attack style change events to specific player
+      this.world.on(EventType.UI_ATTACK_STYLE_CHANGED, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          currentStyle: unknown;
+          availableStyles: unknown;
+          canChange: boolean;
+          cooldownRemaining?: number;
+        };
+
+        if (data.playerId) {
+          console.log(
+            `[EventBridge] Forwarding UI_ATTACK_STYLE_CHANGED to player ${data.playerId}`,
+          );
+          this.broadcast.sendToPlayer(
+            data.playerId,
+            "attackStyleChanged",
+            data,
+          );
+        }
+      });
+
+      // Forward attack style update events to specific player
+      this.world.on(EventType.UI_ATTACK_STYLE_UPDATE, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          currentStyle: unknown;
+          availableStyles: unknown;
+          canChange: boolean;
+        };
+
+        if (data.playerId) {
+          console.log(
+            `[EventBridge] Forwarding UI_ATTACK_STYLE_UPDATE to player ${data.playerId}`,
+          );
+          this.broadcast.sendToPlayer(data.playerId, "attackStyleUpdate", data);
+        }
+      });
     } catch (_err) {
       console.error("[EventBridge] Error setting up UI events:", _err);
     }

@@ -2,8 +2,12 @@
   "levelRequirements": {
     "weapons": {
       "bronze_sword": { "attack": 1, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
+      "iron_sword": { "attack": 1, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
       "steel_sword": { "attack": 1, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
       "mithril_sword": { "attack": 20, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
+      "adamant_sword": { "attack": 30, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
+      "rune_sword": { "attack": 40, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
+      "dragon_scimitar": { "attack": 60, "strength": 0, "defense": 0, "ranged": 0, "constitution": 0 },
       "wood_bow": { "attack": 0, "strength": 0, "defense": 0, "ranged": 1, "constitution": 0 },
       "oak_bow": { "attack": 0, "strength": 0, "defense": 0, "ranged": 10, "constitution": 0 },
       "willow_bow": { "attack": 0, "strength": 0, "defense": 0, "ranged": 20, "constitution": 0 }
