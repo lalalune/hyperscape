@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { COLORS } from "../../constants";
-import { PlayerMigration, WeaponType, EventType } from "@hyperscape/shared";
+import { WeaponType, EventType } from "@hyperscape/shared";
 import type {
   ClientWorld,
   PlayerStats,
@@ -25,9 +25,18 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
     console.log(`[CombatPanel] Current style state: ${style}`);
   }, [style]);
 
-  const combatLevel =
-    stats?.combatLevel ||
-    (stats?.skills ? PlayerMigration.calculateCombatLevel(stats.skills) : 1);
+  // Calculate combat level using OSRS formula (same as SkillsPanel)
+  const combatLevel = stats?.skills
+    ? (() => {
+        const s = stats.skills;
+        const base =
+          0.25 * ((s.defense?.level || 1) + (s.constitution?.level || 10));
+        const melee =
+          0.325 * ((s.attack?.level || 1) + (s.strength?.level || 1));
+        const ranged = 0.325 * Math.floor((s.ranged?.level || 1) * 1.5);
+        return Math.floor(base + Math.max(melee, ranged));
+      })()
+    : 1;
   const inCombat = stats?.inCombat || false;
   const health = stats?.health || { current: 100, max: 100 };
   const attackLevel = stats?.skills?.attack?.level || 1;

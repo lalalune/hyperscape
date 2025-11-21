@@ -187,6 +187,14 @@ export class PlayerSystem extends SystemBase {
     this.subscribe(EventType.PLAYER_REGISTERED, (data) => {
       this.onPlayerRegister(data as { playerId: string });
     });
+    this.subscribe(EventType.COMBAT_LEVEL_CHANGED, (data) => {
+      const combatData = data as {
+        entityId: string;
+        oldLevel: number;
+        newLevel: number;
+      };
+      this.onCombatLevelChanged(combatData);
+    });
     this.subscribe(EventType.PLAYER_DAMAGE, (data) => {
       const damageData = data as {
         playerId: string;
@@ -446,6 +454,35 @@ export class PlayerSystem extends SystemBase {
         `[PlayerSystem] ⚠️ PLAYER_REGISTERED but player data not found: ${data.playerId}`,
       );
     }
+  }
+
+  private onCombatLevelChanged(data: {
+    entityId: string;
+    oldLevel: number;
+    newLevel: number;
+  }): void {
+    // Only save on server
+    if (!this.world.isServer || !this.databaseSystem) return;
+
+    const player = this.players.get(data.entityId);
+    if (!player) return;
+
+    console.log(
+      `[PlayerSystem] 💪 Combat level changed for ${data.entityId}: ${data.oldLevel} → ${data.newLevel}`,
+    );
+
+    // Update combat level in player data (SkillsSystem already updated StatsComponent)
+    player.combat.combatLevel = data.newLevel;
+
+    // Save to database immediately
+    const databaseId = PlayerIdMapper.getDatabaseId(data.entityId);
+    this.databaseSystem.savePlayer(databaseId, {
+      combatLevel: data.newLevel,
+    });
+
+    console.log(
+      `[PlayerSystem] ✅ Combat level ${data.newLevel} saved to database for ${data.entityId}`,
+    );
   }
 
   async onPlayerEnter(data: PlayerEnterEvent): Promise<void> {
@@ -838,6 +875,7 @@ export class PlayerSystem extends SystemBase {
       playerId: playerId,
       name: player.name,
       level: player.combat.combatLevel,
+      combatLevel: player.combat.combatLevel, // Add explicit combatLevel field
       health: {
         current: player.health.current,
         max: player.health.max,
@@ -1404,14 +1442,22 @@ export class PlayerSystem extends SystemBase {
   }
 
   private calculateCombatLevel(skills: Skills): number {
-    // Formula from GDD: (Attack + Strength + Defense + Constitution + Ranged) / 4
-    const totalLevel =
-      skills.attack.level +
-      skills.strength.level +
-      skills.defense.level +
-      skills.constitution.level +
-      skills.ranged.level;
-    return Math.floor(totalLevel / 4);
+    // OSRS Combat Level Formula:
+    // base = 0.25 × (Defence + Hitpoints + floor(Prayer / 2))
+    // melee = 0.325 × (Attack + Strength)
+    // ranged = 0.325 × floor(Ranged × 1.5)
+    // magic = 0.325 × floor(Magic × 1.5)
+    // combat = base + max(melee, ranged, magic)
+
+    // Since we don't have Prayer or Magic yet, simplified formula:
+    const base = 0.25 * (skills.defense.level + skills.constitution.level);
+
+    const melee = 0.325 * (skills.attack.level + skills.strength.level);
+    const ranged = 0.325 * Math.floor(skills.ranged.level * 1.5);
+
+    const combatLevel = base + Math.max(melee, ranged);
+
+    return Math.floor(combatLevel);
   }
 
   // === ATTACK STYLE METHODS (merged from AttackStyleSystem) ===

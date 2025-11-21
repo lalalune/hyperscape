@@ -232,7 +232,18 @@ export function EquipmentPanel({
 
   // Get player stats with proper defaults
   const playerLevel = stats?.level || 1;
-  const combatLevel = stats?.combatLevel || 1;
+  // Calculate combat level using OSRS formula (same as SkillsPanel and CombatPanel)
+  const combatLevel = stats?.skills
+    ? (() => {
+        const s = stats.skills;
+        const base =
+          0.25 * ((s.defense?.level || 1) + (s.constitution?.level || 10));
+        const melee =
+          0.325 * ((s.attack?.level || 1) + (s.strength?.level || 1));
+        const ranged = 0.325 * Math.floor((s.ranged?.level || 1) * 1.5);
+        return Math.floor(base + Math.max(melee, ranged));
+      })()
+    : 1;
   const health = {
     current: stats?.health?.current ?? 100,
     max: stats?.health?.max ?? 100,
