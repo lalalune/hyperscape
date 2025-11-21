@@ -118,6 +118,9 @@ import { LootSystem } from "..";
 // World Content Systems
 import { NPCSystem } from "..";
 
+// Client-only visual systems
+import { DamageSplatSystem } from "../../client";
+
 import type { CameraSystem as CameraSystemInterface } from "../../../types/systems/physics";
 import { ActionRegistry } from "..";
 import { SkillsSystem } from "..";
@@ -312,6 +315,22 @@ export async function registerSystems(world: World): Promise<void> {
   // Client-only inventory drag & drop
   if (world.isClient) {
     world.register("inventory-interaction", InventoryInteractionSystem);
+  }
+
+  // Client-only visual effects
+  if (world.isClient) {
+    console.log("[SystemLoader] 🎨 Registering DamageSplatSystem on client...");
+    try {
+      world.register("damage-splat", DamageSplatSystem);
+      console.log(
+        "[SystemLoader] ✅ DamageSplatSystem registered successfully",
+      );
+    } catch (err) {
+      console.error(
+        "[SystemLoader] ❌ Failed to register DamageSplatSystem:",
+        err,
+      );
+    }
   }
 
   // New MMO-style Systems

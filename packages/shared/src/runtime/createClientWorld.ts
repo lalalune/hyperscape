@@ -210,19 +210,28 @@ export function createClientWorld() {
     );
 
     // CRITICAL: Initialize newly registered systems
+    const worldOptions = {
+      storage: world.storage,
+      assetsUrl: world.assetsUrl,
+      assetsDir: world.assetsDir,
+    };
+
     const equipmentSystem = world.getSystem("equipment");
     if (equipmentSystem && !equipmentSystem.isInitialized()) {
       console.log(
         "[createClientWorld] 🔄 Manually initializing EquipmentSystem...",
       );
-      // Create WorldOptions from world's current state
-      const worldOptions = {
-        storage: world.storage,
-        assetsUrl: world.assetsUrl,
-        assetsDir: world.assetsDir,
-      };
       await equipmentSystem.init(worldOptions);
       console.log("[createClientWorld] ✅ EquipmentSystem initialized!");
+    }
+
+    const damageSplatSystem = world.getSystem("damage-splat");
+    if (damageSplatSystem && !damageSplatSystem.isInitialized()) {
+      console.log(
+        "[createClientWorld] 🔄 Manually initializing DamageSplatSystem...",
+      );
+      await damageSplatSystem.init(worldOptions);
+      console.log("[createClientWorld] ✅ DamageSplatSystem initialized!");
     }
 
     // Re-expose utilities after RPG systems load (in case they were cleared)

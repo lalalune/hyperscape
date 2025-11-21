@@ -49,6 +49,7 @@ export class EventBridge {
     this.setupInventoryEvents();
     this.setupSkillEvents();
     this.setupUIEvents();
+    this.setupCombatEvents();
   }
 
   /**
@@ -300,6 +301,38 @@ export class EventBridge {
       });
     } catch (_err) {
       console.error("[EventBridge] Error setting up UI events:", _err);
+    }
+  }
+
+  /**
+   * Setup combat system event listeners
+   *
+   * Forwards combat damage events to all connected clients for visual feedback
+   * (damage splats, hit effects, etc.)
+   *
+   * @private
+   */
+  private setupCombatEvents(): void {
+    try {
+      // Forward damage dealt events to all clients for visual effects
+      this.world.on(EventType.COMBAT_DAMAGE_DEALT, (payload: unknown) => {
+        const data = payload as {
+          attackerId: string;
+          targetId: string;
+          damage: number;
+          targetType: "player" | "mob";
+          position: { x: number; y: number; z: number };
+        };
+
+        console.log(
+          `[EventBridge] Forwarding COMBAT_DAMAGE_DEALT: ${data.damage} damage to ${data.targetId}`,
+        );
+
+        // Broadcast to all clients so everyone sees the damage splat
+        this.broadcast.sendToAll("combatDamageDealt", data);
+      });
+    } catch (_err) {
+      console.error("[EventBridge] Error setting up combat events:", _err);
     }
   }
 }

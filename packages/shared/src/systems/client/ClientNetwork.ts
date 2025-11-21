@@ -1422,6 +1422,30 @@ export class ClientNetwork extends SystemBase {
     }
   };
 
+  onCombatDamageDealt = (data: {
+    attackerId: string;
+    targetId: string;
+    damage: number;
+    targetType: "player" | "mob";
+    position: { x: number; y: number; z: number };
+  }) => {
+    console.log(
+      `[ClientNetwork] Received combatDamageDealt: ${data.damage} damage to ${data.targetId}`,
+    );
+
+    // Check if DamageSplatSystem exists
+    const damageSplatSystem = this.world.getSystem("damage-splat");
+    console.log(
+      `[ClientNetwork] DamageSplatSystem found:`,
+      damageSplatSystem ? "YES ✅" : "NO ❌",
+    );
+
+    // Forward to local event system so DamageSplatSystem can show visual feedback
+    console.log(`[ClientNetwork] Emitting COMBAT_DAMAGE_DEALT event...`);
+    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, data);
+    console.log(`[ClientNetwork] Event emitted successfully`);
+  };
+
   onCorpseLoot = (data: {
     corpseId: string;
     playerId: string;
