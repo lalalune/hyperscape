@@ -50,6 +50,7 @@ export class EventBridge {
     this.setupSkillEvents();
     this.setupUIEvents();
     this.setupCombatEvents();
+    this.setupPlayerEvents();
   }
 
   /**
@@ -333,6 +334,47 @@ export class EventBridge {
       });
     } catch (_err) {
       console.error("[EventBridge] Error setting up combat events:", _err);
+    }
+  }
+
+  /**
+   * Setup player system event listeners
+   *
+   * Forwards player state updates (health, stats, etc.) to specific players
+   *
+   * @private
+   */
+  private setupPlayerEvents(): void {
+    try {
+      // Forward player updates to specific player (health, stats, etc.)
+      this.world.on(EventType.PLAYER_UPDATED, (payload: unknown) => {
+        const data = payload as {
+          playerId: string;
+          playerData?: {
+            id: string;
+            name: string;
+            level: number;
+            health: number;
+            maxHealth: number;
+            alive: boolean;
+          };
+        };
+
+        if (data.playerId && data.playerData) {
+          console.log(
+            `[EventBridge] Forwarding PLAYER_UPDATED to ${data.playerId}: health ${data.playerData.health}/${data.playerData.maxHealth}`,
+          );
+
+          // Send to specific player
+          this.broadcast.sendToPlayer(data.playerId, "playerUpdated", {
+            health: data.playerData.health,
+            maxHealth: data.playerData.maxHealth,
+            alive: data.playerData.alive,
+          });
+        }
+      });
+    } catch (_err) {
+      console.error("[EventBridge] Error setting up player events:", _err);
     }
   }
 }
