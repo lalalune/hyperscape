@@ -261,6 +261,48 @@ export class ResourceSystem extends SystemBase {
     chat.add(msg, true);
   }
 
+  /**
+   * Set gathering emote for a player
+   */
+  private setGatheringEmote(playerId: string, emote: string): void {
+    const playerEntity = this.world.getPlayer?.(playerId);
+    if (playerEntity) {
+      console.log(`[ResourceSystem] 🪓 Setting ${emote} emote for ${playerId}`);
+
+      // Set emote STRING KEY (players use emote strings which get mapped to URLs)
+      if ((playerEntity as any).emote !== undefined) {
+        (playerEntity as any).emote = emote;
+      }
+      if ((playerEntity as any).data) {
+        (playerEntity as any).data.e = emote;
+      }
+
+      (playerEntity as any).markNetworkDirty?.();
+    }
+  }
+
+  /**
+   * Reset gathering emote back to idle
+   */
+  private resetGatheringEmote(playerId: string): void {
+    const playerEntity = this.world.getPlayer?.(playerId);
+    if (playerEntity) {
+      console.log(
+        `[ResourceSystem] 🪓 Resetting emote to idle for ${playerId}`,
+      );
+
+      // Reset to idle
+      if ((playerEntity as any).emote !== undefined) {
+        (playerEntity as any).emote = "idle";
+      }
+      if ((playerEntity as any).data) {
+        (playerEntity as any).data.e = "idle";
+      }
+
+      (playerEntity as any).markNetworkDirty?.();
+    }
+  }
+
   async start(): Promise<void> {
     // Resources will be spawned procedurally by TerrainSystem across all terrain tiles
     // No need for manual default spawning - TerrainSystem generates resources based on biome
@@ -679,6 +721,11 @@ export class ResourceSystem extends SystemBase {
       successes: 0,
     });
 
+    // Set gathering emote for the player
+    if (resource.skillRequired === "woodcutting") {
+      this.setGatheringEmote(data.playerId, "chopping");
+    }
+
     // Emit gathering started event
     this.emitTypedEvent(EventType.RESOURCE_GATHERING_STARTED, {
       playerId: data.playerId,
@@ -707,6 +754,9 @@ export class ResourceSystem extends SystemBase {
     const session = this.activeGathering.get(playerId);
     if (session) {
       this.activeGathering.delete(playerId);
+
+      // Reset emote back to idle when gathering stops
+      this.resetGatheringEmote(data.playerId);
 
       this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
         playerId: data.playerId,
@@ -907,6 +957,8 @@ export class ResourceSystem extends SystemBase {
     // Clean up completed sessions
     for (const playerId of completedSessions) {
       this.activeGathering.delete(playerId);
+      // Reset emote back to idle when gathering completes
+      this.resetGatheringEmote(playerId as unknown as string);
     }
   }
 
