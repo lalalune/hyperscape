@@ -141,57 +141,49 @@ export function registerCharacterRoutes(
        *   message: "Character deleted successfully"
        * }
        */
-      fastify.delete(
-        "/api/characters/:id",
-        async (
-          request: {
-            params: {
-              id: string;
-            };
-          },
-          reply,
-        ) => {
-          const { id } = request.params;
+      fastify.delete<{
+        Params: { id: string };
+      }>("/api/characters/:id", async (request, reply) => {
+        const { id } = request.params;
 
-          if (!id) {
-            return reply.status(400).send({
-              success: false,
-              error: "Missing character ID parameter",
-            });
-          }
+        if (!id) {
+          return reply.status(400).send({
+            success: false,
+            error: "Missing character ID parameter",
+          });
+        }
 
-          console.log(`[CharacterRoutes] 🗑️  Deleting character: ${id}`);
+        console.log(`[CharacterRoutes] 🗑️  Deleting character: ${id}`);
 
-          try {
-            const deleted = await databaseSystem.deleteCharacter(id);
+        try {
+          const deleted = await databaseSystem.deleteCharacter(id);
 
-            if (deleted) {
-              console.log(
-                `[CharacterRoutes] ✅ Character ${id} deleted successfully`,
-              );
-              return reply.send({
-                success: true,
-                message: "Character deleted successfully",
-              });
-            } else {
-              console.log(`[CharacterRoutes] ⚠️  Character ${id} not found`);
-              return reply.status(404).send({
-                success: false,
-                error: "Character not found",
-              });
-            }
-          } catch (error) {
-            console.error(
-              `[CharacterRoutes] ❌ Error deleting character ${id}:`,
-              error,
+          if (deleted) {
+            console.log(
+              `[CharacterRoutes] ✅ Character ${id} deleted successfully`,
             );
-            return reply.status(500).send({
+            return reply.send({
+              success: true,
+              message: "Character deleted successfully",
+            });
+          } else {
+            console.log(`[CharacterRoutes] ⚠️  Character ${id} not found`);
+            return reply.status(404).send({
               success: false,
-              error: "Failed to delete character",
+              error: "Character not found",
             });
           }
-        },
-      );
+        } catch (error) {
+          console.error(
+            `[CharacterRoutes] ❌ Error deleting character ${id}:`,
+            error,
+          );
+          return reply.status(500).send({
+            success: false,
+            error: "Failed to delete character",
+          });
+        }
+      });
 
       /**
        * PATCH /api/characters/:id
@@ -213,73 +205,63 @@ export function registerCharacterRoutes(
        *   message: "Character converted to human player successfully"
        * }
        */
-      fastify.patch(
-        "/api/characters/:id",
-        async (
-          request: {
-            params: {
-              id: string;
-            };
-            body: {
-              isAgent?: boolean;
-            };
-          },
-          reply,
-        ) => {
-          const { id } = request.params;
-          const { isAgent } = request.body;
+      fastify.patch<{
+        Params: { id: string };
+        Body: { isAgent?: boolean };
+      }>("/api/characters/:id", async (request, reply) => {
+        const { id } = request.params;
+        const { isAgent } = request.body;
 
-          if (!id) {
-            return reply.status(400).send({
-              success: false,
-              error: "Missing character ID parameter",
-            });
-          }
+        if (!id) {
+          return reply.status(400).send({
+            success: false,
+            error: "Missing character ID parameter",
+          });
+        }
 
-          if (isAgent === undefined) {
-            return reply.status(400).send({
-              success: false,
-              error: "Missing isAgent field in request body",
-            });
-          }
+        if (isAgent === undefined) {
+          return reply.status(400).send({
+            success: false,
+            error: "Missing isAgent field in request body",
+          });
+        }
 
-          console.log(
-            `[CharacterRoutes] 🔄 Updating character ${id} to ${isAgent ? "agent" : "human"}`,
+        console.log(
+          `[CharacterRoutes] 🔄 Updating character ${id} to ${isAgent ? "agent" : "human"}`,
+        );
+
+        try {
+          const updated = await databaseSystem.updateCharacterIsAgent(
+            id,
+            isAgent,
           );
 
-          try {
-            const updated = await databaseSystem.updateCharacterIsAgent(
-              id,
-              isAgent,
+          if (updated) {
+            console.log(
+              `[CharacterRoutes] ✅ Character ${id} updated to ${isAgent ? "agent" : "human"}`,
             );
-
-            if (updated) {
-              console.log(
-                `[CharacterRoutes] ✅ Character ${id} updated to ${isAgent ? "agent" : "human"}`,
-              );
-              return reply.send({
-                success: true,
-                message: `Character converted to ${isAgent ? "agent" : "human player"} successfully`,
-              });
-            } else {
-              console.log(`[CharacterRoutes] ⚠️  Character ${id} not found`);
-              return reply.status(404).send({
-                success: false,
-                error: "Character not found",
-              });
-            }
-          } catch (error) {
-            console.error(
-              `[CharacterRoutes] ❌ Error updating character ${id}:`,
-              error,
-            );
-            return reply.status(500).send({
+            return reply.send({
+              success: true,
+              message: `Character converted to ${isAgent ? "agent" : "human player"} successfully`,
+            });
+          } else {
+            console.log(`[CharacterRoutes] ⚠️  Character ${id} not found`);
+            return reply.status(404).send({
               success: false,
-              error: "Failed to update character",
+              error: "Character not found",
             });
           }
-        },
-      );
+        } catch (error) {
+          console.error(
+            `[CharacterRoutes] ❌ Error updating character ${id}:`,
+            error,
+          );
+          return reply.status(500).send({
+            success: false,
+            error: "Failed to update character",
+          });
+        }
+      });
     }
   }
 

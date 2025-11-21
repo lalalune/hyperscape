@@ -57,13 +57,32 @@ export function setupSpectatorMode(
   // Track if we've found and locked to the target
   let isLocked = false;
 
-  // Handler for entity added events
-  const handleEntityAdded = (data: {
-    entity: { id: string; characterId?: string; node?: { position: unknown } };
-  }) => {
+  // Handler for entity spawned events
+  const handleEntitySpawned = (...args: unknown[]) => {
     if (isLocked) return;
 
-    const entity = data.entity;
+    const data = args[0] as {
+      entityId?: string;
+      entityData?: { characterId?: string };
+    };
+
+    if (!data.entityId) return;
+
+    // Get entity manager to fetch full entity data
+    const entityManager = world.getSystem("entity-manager");
+    if (!entityManager) return;
+
+    const em = entityManager as {
+      getEntity?: (id: string) => {
+        id: string;
+        characterId?: string;
+        node?: { position: unknown };
+      } | null;
+    };
+
+    const entity = em.getEntity?.(data.entityId);
+    if (!entity) return;
+
     const isTargetEntity =
       entity.id === targetEntityId || entity.characterId === targetEntityId;
 
@@ -84,8 +103,8 @@ export function setupSpectatorMode(
     }
   };
 
-  // Subscribe to entity added events
-  world.on(EventType.ENTITY_ADDED, handleEntityAdded);
+  // Subscribe to entity spawned events
+  world.on(EventType.ENTITY_SPAWNED, handleEntitySpawned);
 
   // Check existing entities
   setTimeout(() => {
@@ -100,7 +119,7 @@ export function setupSpectatorMode(
 
   // Return cleanup function
   return () => {
-    world.off(EventType.ENTITY_ADDED, handleEntityAdded);
+    world.off(EventType.ENTITY_SPAWNED, handleEntitySpawned);
     console.log("[SpectatorMode] Spectator mode cleaned up");
   };
 }
@@ -129,10 +148,16 @@ function lockCameraToEntity(
     cameraSystem.setTarget(entity, options.lock);
   } else {
     // Fallback to event emission
-    world.emit(EventType.CAMERA_SET_TARGET, {
-      target: entity,
-      lock: options.lock,
-    });
+    // Entity has node.position, but CAMERA_SET_TARGET expects target.position
+    const target = entity.node?.position
+      ? {
+          position: entity.node.position as { x: number; y: number; z: number },
+        }
+      : (entity as unknown as {
+          position: { x: number; y: number; z: number };
+        });
+
+    world.emit(EventType.CAMERA_SET_TARGET, { target });
   }
 
   // Set camera distance if specified

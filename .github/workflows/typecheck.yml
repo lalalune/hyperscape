@@ -32,11 +32,9 @@ jobs:
         working-directory: packages/shared
         run: bunx tsc --noEmit
 
-      # TODO: Re-enable after fixing pre-existing type errors in server package
-      # See: https://github.com/HyperscapeAI/hyperscape/issues/XXX
-      # - name: Type check server package
-      #   working-directory: packages/server
-      #   run: bunx tsc --noEmit
+      - name: Type check server package
+        working-directory: packages/server
+        run: bunx tsc --noEmit
 
       - name: Type check client package
         working-directory: packages/client
