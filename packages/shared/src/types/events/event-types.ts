@@ -84,6 +84,8 @@ export enum EventType {
   UI_UPDATE = "ui",
   UI_COMBAT_TARGET_CHANGED = "ui:combat_target:changed",
   UI_COMBAT_TARGET_HEALTH = "ui:combat_target:health",
+  UI_HIDE_ELEMENTS = "ui:hide_elements",
+  UI_SHOW_ELEMENTS = "ui:show_elements",
 
   // Network Communication
   NETWORK_CONNECTED = "network:connected",

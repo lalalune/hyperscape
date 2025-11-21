@@ -26,6 +26,11 @@
       "outputs": ["dist/**", "build/**"],
       "cache": true
     },
+    "client#build": {
+      "dependsOn": ["^build", "physx-js-webidl#build", "shared#build"],
+      "outputs": ["dist/**", "build/**"],
+      "cache": true
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

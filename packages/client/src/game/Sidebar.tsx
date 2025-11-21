@@ -5,6 +5,7 @@ import type {
   PlayerEquipmentItems,
   PlayerStats,
   InventorySlotItem,
+  InventoryItem,
 } from "../types";
 import { useChatContext } from "./chat/ChatContext";
 import { HintProvider } from "../components/Hint";
@@ -58,7 +59,7 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     visible: boolean;
     corpseId: string;
     corpseName: string;
-    lootItems: InventorySlotViewItem[];
+    lootItems: InventoryItem[];
   } | null>(null);
 
   // Update chat context whenever windows open/close
@@ -172,9 +173,11 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         corpseName: `Gravestone`, // TODO: Get actual corpse name
         lootItems:
           data.lootItems?.map((item, index) => ({
+            id: `${data.corpseId}-${index}`,
             slot: index,
             itemId: item.itemId,
             quantity: item.quantity,
+            metadata: null,
           })) || [],
       });
 

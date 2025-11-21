@@ -112,6 +112,7 @@ export const config = pgTable("config", {
  * - `privyUserId` - Privy authentication ID (unique, indexed)
  * - `farcasterFid` - Farcaster Frame ID if linked (indexed)
  * - `roles` - Comma-separated roles (e.g., "admin,builder")
+ * - `wallet` - Main Privy embedded wallet address (HD index 0)
  */
 export const users = pgTable(
   "users",
@@ -121,6 +122,7 @@ export const users = pgTable(
     roles: text("roles").notNull(),
     createdAt: text("createdAt").notNull(),
     avatar: text("avatar"),
+    wallet: text("wallet"),
     privyUserId: text("privyUserId").unique(),
     farcasterFid: text("farcasterFid"),
   },

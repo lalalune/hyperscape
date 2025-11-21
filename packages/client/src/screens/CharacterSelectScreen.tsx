@@ -654,6 +654,7 @@ export function CharacterSelectScreen({
               );
 
               // Fetch full character data from Hyperscape DB to get avatar
+              const accountId = localStorage.getItem("privy_user_id");
               const hyperscapeResponse = await fetch(
                 `http://localhost:5555/api/characters/${accountId}`,
               );

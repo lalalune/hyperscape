@@ -1064,9 +1064,18 @@ Hyperscape world integration service that enables agents to:
           );
           const _velocity = new THREE.Vector3();
           const _angularVelocity = new THREE.Vector3();
+
+          // Convert position to THREE.Vector3 if it's a plain object
+          const position =
+            _position instanceof THREE.Vector3
+              ? _position
+              : _position
+                ? new THREE.Vector3(_position.x, _position.y, _position.z)
+                : new THREE.Vector3(0, 0, 0);
+
           return {
             type: _type,
-            position: _position || new THREE.Vector3(0, 0, 0),
+            position,
             rotation: _rotation || new THREE.Quaternion(0, 0, 0, 1),
             velocity: _velocity,
             angularVelocity: _angularVelocity,
