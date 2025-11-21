@@ -1446,6 +1446,45 @@ export class ClientNetwork extends SystemBase {
     console.log(`[ClientNetwork] Event emitted successfully`);
   };
 
+  onPlayerUpdated = (data: {
+    health: number;
+    maxHealth: number;
+    alive: boolean;
+  }) => {
+    const localPlayer = this.world.getPlayer();
+    if (!localPlayer) {
+      console.warn("[ClientNetwork] onPlayerUpdated: No local player found");
+      return;
+    }
+
+    console.log(
+      `[ClientNetwork] 💚 Received playerUpdated: health ${data.health}/${data.maxHealth}`,
+    );
+
+    // Use modify() to update entity - this triggers PlayerLocal.modify()
+    // which updates _playerHealth (the field the UI reads)
+    localPlayer.modify({
+      health: data.health,
+      maxHealth: data.maxHealth,
+    });
+
+    // Update alive status
+    if ("alive" in localPlayer) {
+      (localPlayer as { alive: boolean }).alive = data.alive;
+    }
+
+    // Emit health update event for UI
+    this.world.emit(EventType.PLAYER_HEALTH_UPDATED, {
+      playerId: localPlayer.id,
+      health: data.health,
+      maxHealth: data.maxHealth,
+    });
+
+    console.log(
+      `[ClientNetwork] ✅ Local player health updated: ${data.health}/${data.maxHealth}`,
+    );
+  };
+
   onCorpseLoot = (data: {
     corpseId: string;
     playerId: string;
