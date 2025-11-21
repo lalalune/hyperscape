@@ -646,7 +646,7 @@ export class SkillsSystem extends SystemBase {
     damageDealt: number;
     attackStyle: string;
   }): void {
-    const { attackerId, targetId, attackStyle } = data;
+    const { attackerId, targetId, damageDealt, attackStyle } = data;
 
     const target = this.world.entities.get(targetId) as Entity;
     if (!target) return;
@@ -654,85 +654,90 @@ export class SkillsSystem extends SystemBase {
     const targetStats = getStatsComponent(target);
     if (!targetStats) return;
 
-    // Calculate XP based on target's hitpoints
-    const baseXP = (targetStats.health?.max ?? 10) * 4; // 4 XP per hitpoint
+    // OSRS Formula: 4 XP per damage for combat skills, 1.33 XP per damage for Hitpoints
+    // Use damageDealt (total damage by this player) or fallback to mob's max HP
+    const totalDamage =
+      damageDealt > 0 ? damageDealt : (targetStats.health?.max ?? 10);
+    const combatSkillXP = totalDamage * 4; // 4 XP per damage (OSRS standard)
+    const hitpointsXP = Math.floor(totalDamage * 1.33); // 1.33 XP per damage (OSRS standard)
 
-    // Grant XP based on attack style using the same pattern as ResourceSystem
+    // Grant combat skill XP based on attack style
+    // Each style trains ONE skill exclusively (except controlled)
     switch (attackStyle) {
       case "accurate":
+        // Train Attack only
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.ATTACK,
-          amount: baseXP,
+          amount: combatSkillXP,
         });
         break;
+
       case "aggressive":
+        // Train Strength only
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.STRENGTH,
-          amount: baseXP,
+          amount: combatSkillXP,
         });
         break;
+
       case "defensive":
+        // Train Defense only
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.DEFENSE,
-          amount: baseXP,
+          amount: combatSkillXP,
         });
         break;
+
       case "controlled":
-        // Split XP between attack, strength, and defense
+        // Train all three combat skills equally - split the 4 XP per damage
+        const controlledXP = Math.floor(combatSkillXP / 3);
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.ATTACK,
-          amount: baseXP / 3,
+          amount: controlledXP,
         });
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.STRENGTH,
-          amount: baseXP / 3,
+          amount: controlledXP,
         });
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.DEFENSE,
-          amount: baseXP / 3,
+          amount: controlledXP,
         });
         break;
+
       case "ranged":
+        // Train Ranged only
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.RANGE,
-          amount: baseXP,
+          amount: combatSkillXP,
         });
         break;
-      case "melee":
-        // Default melee attack - grant strength XP
-        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
-          playerId: attackerId,
-          skill: Skill.STRENGTH,
-          amount: baseXP,
-        });
-        break;
-      case "magic":
-        // Magic is not in our current Skill enum, skip for MVP
-        break;
+
       default:
+        // Unknown style - default to Strength
         console.warn(
-          `[SkillsSystem] Unknown attack style: ${attackStyle}, defaulting to strength XP`,
+          `[SkillsSystem] Unknown attack style: ${attackStyle}, defaulting to Strength`,
         );
         this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
           playerId: attackerId,
           skill: Skill.STRENGTH,
-          amount: baseXP,
+          amount: combatSkillXP,
         });
         break;
     }
 
-    // Always grant Constitution XP
+    // ALWAYS grant Hitpoints XP (Constitution) for combat - OSRS standard
     this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
       playerId: attackerId,
       skill: Skill.CONSTITUTION,
-      amount: baseXP / 3,
+      amount: hitpointsXP,
     });
   }
 

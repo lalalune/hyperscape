@@ -331,6 +331,10 @@ export class CombatSystem extends SystemBase {
     attacker: Entity | MobEntity,
     target: Entity | MobEntity,
   ): number {
+    console.log(
+      `[CombatSystem] 🎲 CALCULATING MELEE DAMAGE: ${attacker.id} -> ${target.id}`,
+    );
+
     // Extract required properties for damage calculation
     let attackerData: {
       stats?: CombatStats;
@@ -435,6 +439,11 @@ export class CombatSystem extends SystemBase {
       AttackType.MELEE,
       equipmentStats,
     );
+
+    console.log(
+      `[CombatSystem] ⚔️ MELEE RESULT: damage=${result.damage}, didHit=${result.didHit}`,
+    );
+
     return result.damage;
   }
 
@@ -557,6 +566,11 @@ export class CombatSystem extends SystemBase {
     damage: number,
     attackerId: string,
   ): void {
+    // CRITICAL DEBUG: Log all damage applications
+    console.log(
+      `[CombatSystem] 🔴 APPLYING DAMAGE: ${damage} to ${targetType} ${targetId} from ${attackerId}`,
+    );
+
     // Handle damage based on target type
     if (targetType === "player") {
       // Get player system and use its damage method

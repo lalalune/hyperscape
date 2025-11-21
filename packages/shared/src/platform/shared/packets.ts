@@ -117,6 +117,7 @@ const names = [
   'gatheringComplete',
   // Combat packets
   'attackMob',
+  'changeAttackStyle',
   // Item pickup packets
   'pickupItem',
   // Inventory action packets
@@ -141,6 +142,9 @@ const names = [
   'playerRespawned',
   // Loot packets
   'corpseLoot',
+  // Attack style packets
+  'attackStyleChanged',
+  'attackStyleUpdate',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',

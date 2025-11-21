@@ -97,17 +97,17 @@ export class PlayerSystem extends SystemBase {
   private readonly STYLE_CHANGE_COOLDOWN = 5000; // 5 seconds between style changes
   private skillSaveTimers = new Map<string, NodeJS.Timeout>();
 
-  // Attack styles per GDD - XP percentages must total 100%
+  // Attack styles per GDD - Train one skill exclusively
   private readonly ATTACK_STYLES: Record<string, AttackStyle> = {
     accurate: {
       id: "accurate",
       name: "Accurate",
-      description: "Gain more Attack XP. Higher accuracy but normal damage.",
+      description: "Train Attack only. (Hitpoints always trained separately)",
       xpDistribution: {
-        attack: 40, // 40% Attack XP
-        strength: 10, // 10% Strength XP
-        defense: 10, // 10% Defense XP
-        constitution: 40, // 40% Constitution XP (always gained)
+        attack: 100, // 100% Attack XP
+        strength: 0,
+        defense: 0,
+        constitution: 0, // Constitution always trained separately at 1.33 XP per damage
       },
       damageModifier: 1.0, // Normal damage
       accuracyModifier: 1.15, // +15% accuracy
@@ -117,12 +117,12 @@ export class PlayerSystem extends SystemBase {
     aggressive: {
       id: "aggressive",
       name: "Aggressive",
-      description: "Gain more Strength XP. Higher damage but normal accuracy.",
+      description: "Train Strength only. (Hitpoints always trained separately)",
       xpDistribution: {
-        attack: 10, // 10% Attack XP
-        strength: 40, // 40% Strength XP
-        defense: 10, // 10% Defense XP
-        constitution: 40, // 40% Constitution XP (always gained)
+        attack: 0,
+        strength: 100, // 100% Strength XP
+        defense: 0,
+        constitution: 0, // Constitution always trained separately at 1.33 XP per damage
       },
       damageModifier: 1.15, // +15% damage
       accuracyModifier: 1.0, // Normal accuracy
@@ -132,13 +132,12 @@ export class PlayerSystem extends SystemBase {
     defensive: {
       id: "defensive",
       name: "Defensive",
-      description:
-        "Gain more Defense XP. Reduced damage taken but lower damage dealt.",
+      description: "Train Defense only. (Hitpoints always trained separately)",
       xpDistribution: {
-        attack: 10, // 10% Attack XP
-        strength: 10, // 10% Strength XP
-        defense: 40, // 40% Defense XP
-        constitution: 40, // 40% Constitution XP (always gained)
+        attack: 0,
+        strength: 0,
+        defense: 100, // 100% Defense XP
+        constitution: 0, // Constitution always trained separately at 1.33 XP per damage
       },
       damageModifier: 0.85, // -15% damage dealt
       accuracyModifier: 1.0, // Normal accuracy
@@ -148,12 +147,13 @@ export class PlayerSystem extends SystemBase {
     controlled: {
       id: "controlled",
       name: "Controlled",
-      description: "Balanced XP gain across all combat skills.",
+      description:
+        "Train Attack, Strength, and Defense equally. (Hitpoints always trained separately)",
       xpDistribution: {
-        attack: 20, // 20% Attack XP
-        strength: 20, // 20% Strength XP
-        defense: 20, // 20% Defense XP
-        constitution: 40, // 40% Constitution XP (always gained)
+        attack: 33, // 33% of combat XP to Attack
+        strength: 33, // 33% of combat XP to Strength
+        defense: 34, // 34% of combat XP to Defense
+        constitution: 0, // Constitution always trained separately at 1.33 XP per damage
       },
       damageModifier: 1.0, // Normal damage
       accuracyModifier: 1.0, // Normal accuracy
@@ -401,7 +401,7 @@ export class PlayerSystem extends SystemBase {
     });
   }
 
-  private onPlayerRegister(data: { playerId: string }): void {
+  private async onPlayerRegister(data: { playerId: string }): Promise<void> {
     if (!data?.playerId) {
       console.error(
         "[PlayerSystem] ERROR: playerId is undefined in registration data!",
@@ -412,7 +412,14 @@ export class PlayerSystem extends SystemBase {
 
     // Note: Skills are already loaded by ServerNetwork and passed to entity spawn
     // No need to load again - just initialize attack style
-    this.initializePlayerAttackStyle(data.playerId);
+    // Load saved attack style from database if available
+    let savedAttackStyle: string | undefined;
+    if (this.databaseSystem) {
+      const databaseId = PlayerIdMapper.getDatabaseId(data.playerId);
+      const dbData = await this.databaseSystem.getPlayerAsync(databaseId);
+      savedAttackStyle = (dbData as { attackStyle?: string })?.attackStyle;
+    }
+    this.initializePlayerAttackStyle(data.playerId, savedAttackStyle);
   }
 
   async onPlayerEnter(data: PlayerEnterEvent): Promise<void> {
@@ -1339,6 +1346,10 @@ export class PlayerSystem extends SystemBase {
     }
     safeHealth = Math.min(safeHealth, safeMaxHealth); // Ensure current <= max
 
+    // Get player's current attack style (if set)
+    const playerAttackState = this.playerAttackStyles.get(playerId);
+    const attackStyle = playerAttackState?.selectedStyle || "accurate";
+
     this.databaseSystem.savePlayer(databaseId, {
       name: player.name,
       combatLevel: player.combat.combatLevel,
@@ -1352,6 +1363,7 @@ export class PlayerSystem extends SystemBase {
       positionX: player.position.x,
       positionY: safeY,
       positionZ: player.position.z,
+      attackStyle: attackStyle, // Save player's preferred attack style
     });
   }
 
@@ -1370,22 +1382,34 @@ export class PlayerSystem extends SystemBase {
 
   /**
    * Initialize attack style for a new player
+   * @param playerId - The player's ID
+   * @param savedStyle - The saved attack style from database (if any)
    */
-  private initializePlayerAttackStyle(playerId: string): void {
-    // Initialize player with default attack style (accurate)
+  private initializePlayerAttackStyle(
+    playerId: string,
+    savedStyle?: string,
+  ): void {
+    // Use saved style from database, or default to "accurate"
+    const initialStyle =
+      savedStyle && this.ATTACK_STYLES[savedStyle] ? savedStyle : "accurate";
+
     const playerState: PlayerAttackStyleState = {
       playerId,
-      selectedStyle: "accurate",
-      lastStyleChange: Date.now(),
+      selectedStyle: initialStyle,
+      lastStyleChange: 0, // Start at 0 so player can change style immediately
       combatStyleHistory: [],
     };
 
     this.playerAttackStyles.set(playerId, playerState);
 
+    console.log(
+      `[PlayerSystem] Initialized attack style for ${playerId}: ${initialStyle} (saved: ${savedStyle})`,
+    );
+
     // Notify UI of initial attack style
     this.emitTypedEvent(EventType.UI_ATTACK_STYLE_CHANGED, {
       playerId,
-      currentStyle: this.ATTACK_STYLES.accurate,
+      currentStyle: this.ATTACK_STYLES[initialStyle],
       availableStyles: Object.values(this.ATTACK_STYLES),
       canChange: true,
     });
@@ -1399,6 +1423,9 @@ export class PlayerSystem extends SystemBase {
     newStyle: string;
   }): void {
     const { playerId, newStyle } = data;
+    console.log(
+      `[PlayerSystem] handleStyleChange called for ${playerId}, newStyle: ${newStyle}`,
+    );
 
     const playerState = this.playerAttackStyles.get(playerId);
     if (!playerState) {
@@ -1408,9 +1435,17 @@ export class PlayerSystem extends SystemBase {
       return;
     }
 
+    console.log(
+      `[PlayerSystem] Current style: ${playerState.selectedStyle}, requested: ${newStyle}`,
+    );
+
     // Validate new style
     const style = this.ATTACK_STYLES[newStyle];
     if (!style) {
+      console.error(
+        `[PlayerSystem] Invalid style requested: ${newStyle}, available styles:`,
+        Object.keys(this.ATTACK_STYLES),
+      );
       this.emitTypedEvent(EventType.UI_MESSAGE, {
         playerId,
         message: `Invalid attack style: ${newStyle}`,
@@ -1421,7 +1456,12 @@ export class PlayerSystem extends SystemBase {
 
     // Check cooldown
     const now = Date.now();
-    if (now - playerState.lastStyleChange < this.STYLE_CHANGE_COOLDOWN) {
+    const timeSinceLastChange = now - playerState.lastStyleChange;
+    console.log(
+      `[PlayerSystem] Time since last change: ${timeSinceLastChange}ms, cooldown: ${this.STYLE_CHANGE_COOLDOWN}ms`,
+    );
+
+    if (timeSinceLastChange < this.STYLE_CHANGE_COOLDOWN) {
       const remainingCooldown = Math.ceil(
         (this.STYLE_CHANGE_COOLDOWN - (now - playerState.lastStyleChange)) /
           1000,
@@ -1468,6 +1508,9 @@ export class PlayerSystem extends SystemBase {
     this.styleChangeTimers.set(playerId, cooldownTimer);
 
     // Notify UI immediately
+    console.log(
+      `[PlayerSystem] Emitting UI_ATTACK_STYLE_CHANGED for ${playerId}, new style: ${style.id}`,
+    );
     this.emitTypedEvent(EventType.UI_ATTACK_STYLE_CHANGED, {
       playerId,
       currentStyle: style,
@@ -1475,6 +1518,9 @@ export class PlayerSystem extends SystemBase {
       canChange: false,
       cooldownRemaining: this.STYLE_CHANGE_COOLDOWN,
     });
+    console.log(
+      `[PlayerSystem] Style change complete: ${oldStyle} -> ${newStyle}`,
+    );
 
     // Notify chat
     this.emitTypedEvent(EventType.UI_MESSAGE, {
@@ -1482,6 +1528,17 @@ export class PlayerSystem extends SystemBase {
       message: `Attack style changed from ${this.ATTACK_STYLES[oldStyle].name} to ${style.name}. ${style.description}`,
       type: "info",
     });
+
+    // Persist attack style to database immediately (server-side only)
+    if (this.world.isServer && this.databaseSystem) {
+      const databaseId = PlayerIdMapper.getDatabaseId(playerId);
+      this.databaseSystem.savePlayer(databaseId, {
+        attackStyle: newStyle,
+      });
+      console.log(
+        `[PlayerSystem] Saved attack style to database: ${playerId} -> ${newStyle}`,
+      );
+    }
   }
 
   /**
@@ -1622,10 +1679,11 @@ export class PlayerSystem extends SystemBase {
     }
 
     const styleInfo = {
+      style: playerState.selectedStyle, // Return the string ID that UI expects
+      cooldown: cooldownRemaining, // Use 'cooldown' not 'cooldownRemaining'
       currentStyle,
       availableStyles: Object.values(this.ATTACK_STYLES),
       canChange,
-      cooldownRemaining,
       styleHistory: playerState.combatStyleHistory.slice(-10),
     };
 

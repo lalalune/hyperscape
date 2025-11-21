@@ -1423,11 +1423,19 @@ export class MobEntity extends CombatantEntity {
       });
 
       // Emit COMBAT_KILL event for SkillsSystem to grant combat XP
+      // Get the player's actual attack style from PlayerSystem
+      const playerSystem = this.world.getSystem("player") as {
+        getPlayerAttackStyle?: (playerId: string) => { id: string } | null;
+      } | null;
+      const attackStyleData =
+        playerSystem?.getPlayerAttackStyle?.(lastAttackerId);
+      const attackStyle = attackStyleData?.id || "aggressive"; // Default to aggressive if not found
+
       this.world.emit(EventType.COMBAT_KILL, {
         attackerId: lastAttackerId,
         targetId: this.id,
         damageDealt: this.config.maxHealth,
-        attackStyle: "aggressive",
+        attackStyle: attackStyle,
       });
 
       this.dropLoot(lastAttackerId);

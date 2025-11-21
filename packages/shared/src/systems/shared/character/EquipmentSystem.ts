@@ -13,6 +13,7 @@ import THREE from "../../../extras/three/three";
 import { EventType } from "../../../types/events";
 import { dataManager } from "../../../data/DataManager";
 import equipmentRequirementsData from "../../../data/equipment-requirements.json";
+import equipmentStatsData from "../../../data/equipment-stats.json";
 
 // Helper functions for equipment requirements (replaces deleted EquipmentRequirements class)
 const equipmentRequirements = {
@@ -999,6 +1000,16 @@ export class EquipmentSystem extends SystemBase {
     // Get player skills (simplified for MVP)
     const playerSkills = this.getPlayerSkills(playerId);
 
+    console.log(
+      `[EquipmentSystem] 🔍 Checking requirements for ${itemData.id}:`,
+    );
+    console.log(`[EquipmentSystem] 🔍 Required:`, requirements);
+    console.log(`[EquipmentSystem] 🔍 Player skills:`, playerSkills);
+    console.log(
+      `[EquipmentSystem] 🔍 Skills cache has player:`,
+      this.playerSkills.has(playerId),
+    );
+
     // Check each specific skill requirement
     const skillChecks = [
       { skill: "attack" as const, required: requirements.attack },
@@ -1010,11 +1021,18 @@ export class EquipmentSystem extends SystemBase {
 
     for (const { skill, required } of skillChecks) {
       const playerLevel = playerSkills[skill] || 1;
+      console.log(
+        `[EquipmentSystem] 🔍 ${skill}: player=${playerLevel}, required=${required}`,
+      );
       if (playerLevel < required) {
+        console.log(
+          `[EquipmentSystem] ❌ FAILED: ${skill} level ${playerLevel} < required ${required}`,
+        );
         return false;
       }
     }
 
+    console.log(`[EquipmentSystem] ✅ All requirements met!`);
     return true;
   }
 
@@ -1109,8 +1127,11 @@ export class EquipmentSystem extends SystemBase {
     if (requirements) {
       // Create basic item data for known equipment
       const itemType = this.inferItemTypeFromId(itemIdStr);
-      const inferredBonuses =
-        this.inferBonusesFromLevelRequirement(requirements);
+
+      // Get OSRS-accurate stats from equipment-stats.json
+      const osrsStats = this.getOSRSEquipmentStats(itemIdStr);
+      const bonuses =
+        osrsStats || this.inferBonusesFromLevelRequirement(requirements);
 
       return {
         id: itemIdStr,
@@ -1137,15 +1158,15 @@ export class EquipmentSystem extends SystemBase {
         iconPath: "",
         healAmount: 0,
         stats: {
-          attack: inferredBonuses.attack || 0,
-          defense: inferredBonuses.defense || 0,
-          strength: inferredBonuses.strength || 0,
+          attack: bonuses.attack || 0,
+          defense: bonuses.defense || 0,
+          strength: bonuses.strength || 0,
         },
         bonuses: {
-          attack: inferredBonuses.attack,
-          defense: inferredBonuses.defense,
-          ranged: inferredBonuses.ranged,
-          strength: inferredBonuses.strength,
+          attack: bonuses.attack,
+          defense: bonuses.defense,
+          ranged: bonuses.ranged,
+          strength: bonuses.strength,
         },
         requirements: {
           level: Math.max(
@@ -1230,14 +1251,43 @@ export class EquipmentSystem extends SystemBase {
   private inferBonusesFromLevelRequirement(
     requirements: LevelRequirement,
   ): ItemBonuses {
-    // Infer combat bonuses from level requirements
-    // Higher requirements typically mean better stats
+    // DEPRECATED: This fallback should rarely be used
+    // All equipment should have OSRS-accurate stats in equipment-stats.json
+    console.warn(
+      "[EquipmentSystem] Using fallback bonus calculation - equipment stats missing!",
+    );
     return {
       attack: Math.floor(requirements.attack * 0.8),
       defense: Math.floor(requirements.defense * 0.8),
       ranged: Math.floor(requirements.ranged * 0.8),
       strength: Math.floor(requirements.strength * 0.6),
     };
+  }
+
+  private getOSRSEquipmentStats(itemId: string): ItemBonuses | null {
+    // Get OSRS-accurate equipment stats from equipment-stats.json
+    const allStats = equipmentStatsData as {
+      weapons: Record<string, ItemBonuses>;
+      shields: Record<string, ItemBonuses>;
+      armor: Record<string, ItemBonuses>;
+    };
+
+    // Check weapons
+    if (allStats.weapons[itemId]) {
+      return allStats.weapons[itemId];
+    }
+
+    // Check shields
+    if (allStats.shields[itemId]) {
+      return allStats.shields[itemId];
+    }
+
+    // Check armor
+    if (allStats.armor[itemId]) {
+      return allStats.armor[itemId];
+    }
+
+    return null;
   }
 
   private sendMessage(
