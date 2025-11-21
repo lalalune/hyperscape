@@ -730,12 +730,68 @@ export class CombatSystem extends SystemBase {
       // For players, use the player entity from PlayerSystem
       const playerEntity = this.world.getPlayer?.(entityId);
       if (playerEntity) {
-        // Set emote STRING KEY (players use 'combat' string which gets mapped to URL)
+        // Check if player has a sword equipped - get from EquipmentSystem (source of truth)
+        let combatEmote = "combat"; // Default to punching
+
+        console.log(`[CombatSystem] 🗡️ Checking combat emote for ${entityId}`);
+
+        // Get equipment from EquipmentSystem (source of truth)
+        const equipmentSystem = this.world.getSystem("equipment") as
+          | {
+              getPlayerEquipment?: (playerId: string) => {
+                weapon?: { item?: { weaponType?: string; id?: string } };
+              };
+            }
+          | undefined;
+
+        if (equipmentSystem?.getPlayerEquipment) {
+          const equipment = equipmentSystem.getPlayerEquipment(entityId);
+          console.log(`[CombatSystem] 🗡️ Equipment from system:`, !!equipment);
+          console.log(
+            `[CombatSystem] 🗡️ Weapon from system:`,
+            !!equipment?.weapon,
+          );
+          console.log(
+            `[CombatSystem] 🗡️ Weapon item from system:`,
+            !!equipment?.weapon?.item,
+          );
+
+          if (equipment?.weapon?.item) {
+            const weaponItem = equipment.weapon.item;
+            console.log(
+              `[CombatSystem] 🗡️ Weapon item:`,
+              JSON.stringify(weaponItem, null, 2),
+            );
+            console.log(`[CombatSystem] 🗡️ weaponType:`, weaponItem.weaponType);
+
+            // Check if the weapon is a sword
+            if (weaponItem.weaponType === "SWORD") {
+              combatEmote = "sword_swing";
+              console.log(
+                `[CombatSystem] ✅ SWORD detected! Using sword_swing emote`,
+              );
+            } else {
+              console.log(
+                `[CombatSystem] ❌ Not a sword, weaponType: ${weaponItem.weaponType}`,
+              );
+            }
+          } else {
+            console.log(`[CombatSystem] ❌ No weapon equipped, using punch`);
+          }
+        } else {
+          console.warn(
+            `[CombatSystem] ⚠️ EquipmentSystem not found or missing getPlayerEquipment`,
+          );
+        }
+
+        console.log(`[CombatSystem] 🗡️ Final emote: ${combatEmote}`);
+
+        // Set emote STRING KEY (players use 'combat' or 'sword_swing' string which gets mapped to URL)
         if ((playerEntity as any).emote !== undefined) {
-          (playerEntity as any).emote = "combat";
+          (playerEntity as any).emote = combatEmote;
         }
         if ((playerEntity as any).data) {
-          (playerEntity as any).data.e = "combat";
+          (playerEntity as any).data.e = combatEmote;
         }
         // Don't set avatar directly - let PlayerLocal's modify() handle the mapping
 

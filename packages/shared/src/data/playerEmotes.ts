@@ -48,6 +48,9 @@ export const Emotes = {
   /** Combat/attack animation (punching) */
   COMBAT: "asset://emotes/emote-punching.glb",
 
+  /** Sword swing attack animation (used when sword is equipped) */
+  SWORD_SWING: "asset://emotes/emote_sword_swing.glb",
+
   /** Death animation */
   DEATH: "asset://emotes/emote-death.glb",
 };
@@ -62,5 +65,6 @@ export const emoteUrls = [
   Emotes.FLIP,
   Emotes.TALK,
   Emotes.COMBAT,
+  Emotes.SWORD_SWING,
   Emotes.DEATH,
 ];
