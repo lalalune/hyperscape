@@ -171,12 +171,14 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     const onSkillsUpdate = (raw: unknown) => {
       const data = raw as { playerId: string; skills: PlayerStats["skills"] };
       const localId = world.entities?.player?.id;
-      if (!localId || data.playerId === localId)
+      if (!localId || data.playerId === localId) {
+        // Just update skills - combat level will come from server via PLAYER_UPDATED event
         setPlayerStats((prev) =>
           prev
             ? { ...prev, skills: data.skills }
             : ({ skills: data.skills } as PlayerStats),
         );
+      }
     };
 
     const onCorpseClick = (raw: unknown) => {
@@ -227,17 +229,20 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           setCoins(cached.coins);
         }
         const cachedSkills = world.network?.lastSkillsByPlayerId?.[lp];
-        if (cachedSkills)
+        if (cachedSkills) {
+          const skills = cachedSkills as unknown as PlayerStats["skills"];
+          // Just update skills - combat level will come from server
           setPlayerStats((prev) =>
             prev
               ? {
                   ...prev,
-                  skills: cachedSkills as unknown as PlayerStats["skills"],
+                  skills,
                 }
               : ({
-                  skills: cachedSkills as unknown as PlayerStats["skills"],
+                  skills,
                 } as PlayerStats),
           );
+        }
         const cachedEquipment = world.network?.lastEquipmentByPlayerId?.[lp];
         if (cachedEquipment) {
           const rawEq = cachedEquipment;
