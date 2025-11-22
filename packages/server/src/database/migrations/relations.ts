@@ -5,6 +5,8 @@ import {
   equipment,
   inventory,
   playerSessions,
+  users,
+  agentMappings,
   npcKills,
   playerDeaths,
 } from "./schema";
@@ -21,6 +23,7 @@ export const charactersRelations = relations(characters, ({ many }) => ({
   equipment: many(equipment),
   inventories: many(inventory),
   playerSessions: many(playerSessions),
+  agentMappings: many(agentMappings),
   npcKills: many(npcKills),
   playerDeaths: many(playerDeaths),
 }));
@@ -44,6 +47,21 @@ export const playerSessionsRelations = relations(playerSessions, ({ one }) => ({
     fields: [playerSessions.playerId],
     references: [characters.id],
   }),
+}));
+
+export const agentMappingsRelations = relations(agentMappings, ({ one }) => ({
+  user: one(users, {
+    fields: [agentMappings.accountId],
+    references: [users.id],
+  }),
+  character: one(characters, {
+    fields: [agentMappings.characterId],
+    references: [characters.id],
+  }),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  agentMappings: many(agentMappings),
 }));
 
 export const npcKillsRelations = relations(npcKills, ({ one }) => ({

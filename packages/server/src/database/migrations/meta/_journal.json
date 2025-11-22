@@ -36,6 +36,13 @@
       "when": 1763649660427,
       "tag": "0004_exotic_emma_frost",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1763794800000,
+      "tag": "0005_add_users_wallet_and_attack_style",
+      "breakpoints": true
     }
   ]
 }
