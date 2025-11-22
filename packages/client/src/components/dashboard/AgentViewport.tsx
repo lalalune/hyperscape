@@ -16,35 +16,77 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
 
   const fetchAgentCredentials = async () => {
     try {
-      // Fetch agent details from ElizaOS API
-      const response = await fetch(
-        `http://localhost:3000/api/agents/${agent.id}`,
-      );
+      // Step 1: Fetch mapping data from Hyperscape (source of truth)
+      // This gives us characterId and accountId needed for credentials
+      let charId = "";
+      let accountId = "";
 
-      if (response.ok) {
-        const data = await response.json();
-
-        // Extract agent object from response (may be nested in data.data or data.agent)
-        const agentData =
-          data?.data?.agent || data?.data || data?.agent || data;
-        const settings =
-          agentData?.settings?.secrets || agentData?.settings || {};
-
-        // Extract auth token and character ID from settings
-        const token = settings.HYPERSCAPE_AUTH_TOKEN || "";
-        const charId = settings.HYPERSCAPE_CHARACTER_ID || "";
-
-        setAuthToken(token);
-        setCharacterId(charId);
-
-        console.log("[AgentViewport] Loaded credentials:", {
-          hasToken: !!token,
-          characterId: charId,
-          agentName: agentData?.name,
-        });
-      } else {
-        console.warn("[AgentViewport] Failed to fetch agent details");
+      try {
+        const mappingResponse = await fetch(
+          `http://localhost:5555/api/agents/mapping/${agent.id}`,
+        );
+        if (mappingResponse.ok) {
+          const mappingData = await mappingResponse.json();
+          charId = mappingData.characterId || "";
+          accountId = mappingData.accountId || "";
+          console.log("[AgentViewport] Got mapping:", {
+            characterId: charId,
+            accountId: accountId,
+          });
+        } else {
+          console.warn(
+            "[AgentViewport] Mapping not found, status:",
+            mappingResponse.status,
+          );
+        }
+      } catch (mappingError) {
+        console.warn("[AgentViewport] Failed to fetch mapping:", mappingError);
       }
+
+      // Step 2: Generate fresh JWT credentials for the embedded viewport
+      // This ensures the token has the correct characterId and accountId
+      let token = "";
+      if (charId && accountId) {
+        try {
+          const credentialsResponse = await fetch(
+            `http://localhost:5555/api/agents/credentials`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                characterId: charId,
+                accountId: accountId,
+              }),
+            },
+          );
+          if (credentialsResponse.ok) {
+            const credData = await credentialsResponse.json();
+            token = credData.authToken || "";
+            console.log(
+              "[AgentViewport] Generated fresh JWT for embedded viewport",
+            );
+          } else {
+            console.warn(
+              "[AgentViewport] Failed to generate credentials:",
+              credentialsResponse.status,
+            );
+          }
+        } catch (credError) {
+          console.warn(
+            "[AgentViewport] Failed to generate credentials:",
+            credError,
+          );
+        }
+      }
+
+      setAuthToken(token);
+      setCharacterId(charId);
+
+      console.log("[AgentViewport] Loaded credentials:", {
+        hasToken: !!token,
+        characterId: charId,
+        agentName: agent.name,
+      });
     } catch (error) {
       console.error("[AgentViewport] Error fetching credentials:", error);
     } finally {

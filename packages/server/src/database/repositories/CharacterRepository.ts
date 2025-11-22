@@ -39,6 +39,8 @@ export class CharacterRepository extends BaseRepository {
       avatar?: string | null;
       wallet?: string | null;
       isAgent?: boolean;
+      combatLevel?: number | null;
+      constitutionLevel?: number | null;
     }>
   > {
     this.ensureDatabase();
@@ -55,6 +57,8 @@ export class CharacterRepository extends BaseRepository {
         avatar: schema.characters.avatar,
         wallet: schema.characters.wallet,
         isAgent: schema.characters.isAgent,
+        combatLevel: schema.characters.combatLevel,
+        constitutionLevel: schema.characters.constitutionLevel,
       })
       .from(schema.characters)
       .where(eq(schema.characters.accountId, accountId));
@@ -197,6 +201,81 @@ export class CharacterRepository extends BaseRepository {
       );
       throw error;
     }
+  }
+
+  /**
+   * Get character skills
+   *
+   * Retrieves skill levels and XP for a character. Used by the dashboard
+   * to display agent skill progress in real-time.
+   *
+   * @param characterId - The character ID to fetch skills for
+   * @returns Skills object with level and xp for each skill, or null if not found
+   */
+  async getCharacterSkills(characterId: string): Promise<{
+    attack: { level: number; xp: number };
+    strength: { level: number; xp: number };
+    defense: { level: number; xp: number };
+    constitution: { level: number; xp: number };
+    ranged: { level: number; xp: number };
+    woodcutting: { level: number; xp: number };
+    fishing: { level: number; xp: number };
+    firemaking: { level: number; xp: number };
+    cooking: { level: number; xp: number };
+  } | null> {
+    this.ensureDatabase();
+
+    const results = await this.db
+      .select({
+        attackLevel: schema.characters.attackLevel,
+        strengthLevel: schema.characters.strengthLevel,
+        defenseLevel: schema.characters.defenseLevel,
+        constitutionLevel: schema.characters.constitutionLevel,
+        rangedLevel: schema.characters.rangedLevel,
+        woodcuttingLevel: schema.characters.woodcuttingLevel,
+        fishingLevel: schema.characters.fishingLevel,
+        firemakingLevel: schema.characters.firemakingLevel,
+        cookingLevel: schema.characters.cookingLevel,
+        attackXp: schema.characters.attackXp,
+        strengthXp: schema.characters.strengthXp,
+        defenseXp: schema.characters.defenseXp,
+        constitutionXp: schema.characters.constitutionXp,
+        rangedXp: schema.characters.rangedXp,
+        woodcuttingXp: schema.characters.woodcuttingXp,
+        fishingXp: schema.characters.fishingXp,
+        firemakingXp: schema.characters.firemakingXp,
+        cookingXp: schema.characters.cookingXp,
+      })
+      .from(schema.characters)
+      .where(eq(schema.characters.id, characterId))
+      .limit(1);
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    const row = results[0];
+
+    return {
+      attack: { level: row.attackLevel || 1, xp: row.attackXp || 0 },
+      strength: { level: row.strengthLevel || 1, xp: row.strengthXp || 0 },
+      defense: { level: row.defenseLevel || 1, xp: row.defenseXp || 0 },
+      constitution: {
+        level: row.constitutionLevel || 10,
+        xp: row.constitutionXp || 1154,
+      },
+      ranged: { level: row.rangedLevel || 1, xp: row.rangedXp || 0 },
+      woodcutting: {
+        level: row.woodcuttingLevel || 1,
+        xp: row.woodcuttingXp || 0,
+      },
+      fishing: { level: row.fishingLevel || 1, xp: row.fishingXp || 0 },
+      firemaking: {
+        level: row.firemakingLevel || 1,
+        xp: row.firemakingXp || 0,
+      },
+      cooking: { level: row.cookingLevel || 1, xp: row.cookingXp || 0 },
+    };
   }
 
   /**

@@ -184,7 +184,7 @@ export const characters = pgTable(
     ),
 
     // Combat stats
-    combatLevel: integer("combatLevel").default(1),
+    combatLevel: integer("combatLevel").default(3),
     attackLevel: integer("attackLevel").default(1),
     strengthLevel: integer("strengthLevel").default(1),
     defenseLevel: integer("defenseLevel").default(1),
@@ -603,6 +603,9 @@ export const characterTemplates = pgTable(
     description: text("description").notNull(),
     emoji: text("emoji").notNull(),
     templateUrl: text("templateUrl").notNull(),
+    // Full ElizaOS character configuration stored as JSON string
+    // This contains the complete character template that gets merged with user-specific data
+    templateConfig: text("templateConfig"),
     createdAt: bigint("createdAt", { mode: "number" })
       .notNull()
       .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),

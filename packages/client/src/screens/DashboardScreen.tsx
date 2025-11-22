@@ -9,6 +9,7 @@ import { AgentTimeline } from "../components/dashboard/AgentTimeline";
 import { AgentDynamicPanel } from "../components/dashboard/AgentDynamicPanel";
 import { AgentRuns } from "../components/dashboard/AgentRuns";
 import { SystemStatus } from "../components/dashboard/SystemStatus";
+import { ViewportConfirmModal } from "../components/dashboard/ViewportConfirmModal";
 import {
   MessageSquare,
   Settings,
@@ -43,6 +44,9 @@ export interface AgentPanel {
   type: string;
 }
 
+// Preference key for localStorage
+const VIEWPORT_AUTO_START_KEY = "hyperscape_viewport_auto_start";
+
 export const DashboardScreen: React.FC = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -60,6 +64,13 @@ export const DashboardScreen: React.FC = () => {
   const [userAccountId, setUserAccountId] = useState<string | null>(null);
   const [agentPanels, setAgentPanels] = useState<AgentPanel[]>([]);
   const [loadingPanels, setLoadingPanels] = useState(false);
+
+  // Viewport confirmation state
+  const [showViewportModal, setShowViewportModal] = useState(false);
+  const [pendingStartAgentId, setPendingStartAgentId] = useState<string | null>(
+    null,
+  );
+  const [viewportAgentId, setViewportAgentId] = useState<string | null>(null);
 
   const ELIZAOS_API = "http://localhost:3000/api";
 
@@ -154,6 +165,12 @@ export const DashboardScreen: React.FC = () => {
   const startAgent = async (agentId: string) => {
     try {
       console.log(`[Dashboard] Starting agent ${agentId}...`);
+
+      // Check if user wants to auto-start viewport
+      const autoStartViewport =
+        localStorage.getItem(VIEWPORT_AUTO_START_KEY) === "true";
+
+      // Start the agent
       const response = await fetch(`${ELIZAOS_API}/agents/${agentId}/start`, {
         method: "POST",
       });
@@ -164,9 +181,54 @@ export const DashboardScreen: React.FC = () => {
 
       // Refresh agent list to update status
       await fetchAgents();
+
+      // Show viewport confirmation modal if not auto-start
+      if (!autoStartViewport) {
+        setPendingStartAgentId(agentId);
+        setShowViewportModal(true);
+      } else {
+        // Auto-start viewport
+        console.log(
+          `[Dashboard] Auto-starting viewport for ${agentId} (preference enabled)`,
+        );
+        setViewportAgentId(agentId);
+        // Switch to chat view to show the viewport
+        if (selectedAgentId === agentId) {
+          setActiveView("chat");
+        }
+      }
     } catch (error) {
       console.error(`[Dashboard] Failed to start agent:`, error);
     }
+  };
+
+  const handleViewportConfirm = (dontAskAgain: boolean) => {
+    if (dontAskAgain) {
+      console.log(
+        "[Dashboard] Saving viewport auto-start preference to localStorage",
+      );
+      localStorage.setItem(VIEWPORT_AUTO_START_KEY, "true");
+    }
+
+    if (pendingStartAgentId) {
+      console.log(`[Dashboard] Starting viewport for ${pendingStartAgentId}`);
+      setViewportAgentId(pendingStartAgentId);
+      // Switch to chat view to show the viewport
+      if (selectedAgentId === pendingStartAgentId) {
+        setActiveView("chat");
+      }
+    }
+
+    setShowViewportModal(false);
+    setPendingStartAgentId(null);
+  };
+
+  const handleViewportCancel = () => {
+    console.log(
+      "[Dashboard] User declined viewport start - agent running without viewport",
+    );
+    setShowViewportModal(false);
+    setPendingStartAgentId(null);
   };
 
   const stopAgent = async (agentId: string) => {
@@ -179,6 +241,14 @@ export const DashboardScreen: React.FC = () => {
 
       const result = await response.json();
       console.log(`[Dashboard] Agent stopped:`, result);
+
+      // Clear viewport if this agent's viewport is showing
+      if (viewportAgentId === agentId) {
+        console.log(
+          `[Dashboard] Clearing viewport for stopped agent ${agentId}`,
+        );
+        setViewportAgentId(null);
+      }
 
       // Refresh agent list to update status
       await fetchAgents();
@@ -266,12 +336,20 @@ export const DashboardScreen: React.FC = () => {
 
       console.log(`[Dashboard] ✅ Agent deleted from ElizaOS`);
 
-      // STEP 4: Clear selection if deleted agent was selected
+      // STEP 4: Clear viewport if this agent's viewport is showing
+      if (viewportAgentId === agentId) {
+        console.log(
+          `[Dashboard] Clearing viewport for deleted agent ${agentId}`,
+        );
+        setViewportAgentId(null);
+      }
+
+      // STEP 5: Clear selection if deleted agent was selected
       if (selectedAgentId === agentId) {
         setSelectedAgentId(null);
       }
 
-      // STEP 5: Refresh agent list
+      // STEP 6: Refresh agent list
       await fetchAgents();
 
       console.log(`[Dashboard] ✅ Atomic deletion completed successfully`);
@@ -403,6 +481,7 @@ export const DashboardScreen: React.FC = () => {
     <DashboardLayout
       agents={agents}
       selectedAgentId={selectedAgentId}
+      viewportAgentId={viewportAgentId}
       onSelectAgent={setSelectedAgentId}
       onCreateAgent={() => (window.location.href = "/?createAgent=true")}
       onStartAgent={startAgent}
@@ -476,9 +555,12 @@ export const DashboardScreen: React.FC = () => {
 
           {/* Content Area */}
           <div className="flex-1 overflow-hidden relative">
-            {activeView === "chat" && (
-              <AgentViewportChat agent={selectedAgent} />
-            )}
+            {activeView === "chat" &&
+              (viewportAgentId === selectedAgent.id ? (
+                <AgentViewportChat agent={selectedAgent} />
+              ) : (
+                <AgentChat agent={selectedAgent} />
+              ))}
             {activeView === "settings" && (
               <AgentSettings agent={selectedAgent} onDelete={deleteAgent} />
             )}
@@ -511,6 +593,19 @@ export const DashboardScreen: React.FC = () => {
           </h2>
           <p>Select an agent from the sidebar to view details.</p>
         </div>
+      )}
+
+      {/* Viewport Confirmation Modal */}
+      {showViewportModal && pendingStartAgentId && (
+        <ViewportConfirmModal
+          agentName={
+            agents.find((a) => a.id === pendingStartAgentId)?.characterName ||
+            agents.find((a) => a.id === pendingStartAgentId)?.name ||
+            "Unknown Agent"
+          }
+          onConfirm={handleViewportConfirm}
+          onCancel={handleViewportCancel}
+        />
       )}
     </DashboardLayout>
   );

@@ -38,6 +38,8 @@ type Character = {
   name: string;
   wallet?: string;
   isAgent?: boolean;
+  combatLevel?: number;
+  constitutionLevel?: number;
 };
 
 type CharacterTemplate = {
@@ -46,6 +48,8 @@ type CharacterTemplate = {
   description: string;
   emoji: string;
   templateUrl: string;
+  // Full ElizaOS character configuration stored as JSON string in database
+  templateConfig?: string;
 };
 
 // Music preference manager - syncs with game prefs
@@ -492,9 +496,10 @@ export function CharacterSelectScreen({
           // Generate JWT and create ElizaOS agent immediately
           const createAgentAndRedirect = async () => {
             try {
-              const accountId = localStorage.getItem("privy_user_id");
+              // Use user.id from Privy hook instead of localStorage to ensure correct Privy DID
+              const accountId = user?.id;
               if (!accountId) {
-                throw new Error("No account ID found");
+                throw new Error("No account ID found - user not authenticated");
               }
 
               // Step 1: Generate JWT
@@ -520,40 +525,64 @@ export function CharacterSelectScreen({
               const credentials = await credentialsResponse.json();
               console.log("[CharacterSelect] ✅ JWT generated successfully");
 
-              // Step 2: Fetch template and create ElizaOS agent
+              // Step 2: Get template config and create ElizaOS agent
               if (!selectedTemplate) {
                 throw new Error("No character template selected");
               }
 
               console.log(
-                `[CharacterSelect] 📥 Fetching template: ${selectedTemplate.name} (${selectedTemplate.templateUrl})`,
+                `[CharacterSelect] 📥 Using template: ${selectedTemplate.name}`,
               );
 
-              // Fetch the template JSON from the server
-              const templateResponse = await fetch(
-                selectedTemplate.templateUrl,
-              );
-              if (!templateResponse.ok) {
-                throw new Error(
-                  `Failed to fetch template: ${templateResponse.status}`,
+              // Parse template config from database (stored as JSON string)
+              // This avoids a separate fetch - config is already in the templates response
+              let templateJson;
+              if (selectedTemplate.templateConfig) {
+                try {
+                  templateJson = JSON.parse(selectedTemplate.templateConfig);
+                  console.log(
+                    "[CharacterSelect] ✅ Template config parsed from database",
+                  );
+                } catch (parseError) {
+                  console.error(
+                    "[CharacterSelect] ❌ Failed to parse templateConfig:",
+                    parseError,
+                  );
+                  throw new Error("Invalid template configuration in database");
+                }
+              } else {
+                // Fallback: Fetch from templateUrl (legacy support)
+                console.log(
+                  "[CharacterSelect] ⚠️ No templateConfig in database, fetching from URL...",
                 );
+                const templateResponse = await fetch(
+                  selectedTemplate.templateUrl,
+                );
+                if (!templateResponse.ok) {
+                  throw new Error(
+                    `Failed to fetch template: ${templateResponse.status}`,
+                  );
+                }
+                templateJson = await templateResponse.json();
+                console.log("[CharacterSelect] ✅ Template fetched from URL");
               }
 
-              const templateJson = await templateResponse.json();
-              console.log("[CharacterSelect] ✅ Template fetched successfully");
-
               // Merge template with character-specific data
+              // Handle case where templateJson.settings might not exist
+              const baseSettings = templateJson.settings || {};
+              const baseSecrets = baseSettings.secrets || {};
+
               const characterTemplate = {
                 ...templateJson,
                 name: c.name, // Override template name with character name
                 username: c.name.toLowerCase().replace(/\s+/g, "_"),
                 settings: {
-                  ...templateJson.settings,
+                  ...baseSettings,
                   accountId,
                   characterType: "ai-agent",
                   avatar: AVATAR_OPTIONS[selectedAvatarIndex]?.url || "",
                   secrets: {
-                    ...templateJson.settings.secrets,
+                    ...baseSecrets,
                     HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
                     HYPERSCAPE_CHARACTER_ID: c.id,
                     HYPERSCAPE_ACCOUNT_ID: accountId,
@@ -610,7 +639,47 @@ export function CharacterSelectScreen({
               // Store agent ID for dashboard
               localStorage.setItem("last_created_agent_id", agentId);
 
-              // Step 3: Redirect to character editor for customization
+              // Step 3: Create agent mapping in Hyperscape database (CRITICAL for dashboard)
+              // This must happen BEFORE redirect so agent shows in dashboard even if user cancels editor
+              console.log(
+                "[CharacterSelect] 📝 Creating agent mapping in Hyperscape database...",
+              );
+              try {
+                const mappingResponse = await fetch(
+                  "http://localhost:5555/api/agents/mappings",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      agentId: agentId,
+                      accountId: accountId,
+                      characterId: c.id,
+                      agentName: c.name,
+                    }),
+                  },
+                );
+
+                if (!mappingResponse.ok) {
+                  console.error(
+                    "[CharacterSelect] ⚠️ Failed to create agent mapping:",
+                    mappingResponse.status,
+                  );
+                  // Don't throw - agent was created, mapping is for dashboard filtering
+                  // User can still use the agent, it just won't show in dashboard
+                } else {
+                  console.log(
+                    "[CharacterSelect] ✅ Agent mapping created successfully",
+                  );
+                }
+              } catch (mappingError) {
+                console.error(
+                  "[CharacterSelect] ⚠️ Error creating agent mapping:",
+                  mappingError,
+                );
+                // Don't throw - continue to editor even if mapping fails
+              }
+
+              // Step 4: Redirect to character editor for customization
               // Note: JWT is stored in agent's secrets, not passed in URL (security risk)
               const params = new URLSearchParams({
                 characterId: c.id,
@@ -686,6 +755,7 @@ export function CharacterSelectScreen({
     characterType,
     user,
     selectedAvatarIndex,
+    selectedTemplate,
   ]);
 
   const selectCharacter = React.useCallback(
@@ -729,7 +799,10 @@ export function CharacterSelectScreen({
               );
 
               // Fetch full character data from Hyperscape DB to get avatar
-              const accountId = localStorage.getItem("privy_user_id");
+              const accountId = user?.id;
+              if (!accountId) {
+                throw new Error("No account ID - user not authenticated");
+              }
               const hyperscapeResponse = await fetch(
                 `http://localhost:5555/api/characters/${accountId}`,
               );
@@ -1004,23 +1077,6 @@ export function CharacterSelectScreen({
             </div>
           </div>
 
-          {errorMessage && (
-            <div className="mt-6 rounded bg-red-900/30 border border-red-500/50 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-red-400 text-xl">⚠️</span>
-                  <span className="text-red-200">{errorMessage}</span>
-                </div>
-                <button
-                  onClick={() => setErrorMessage(null)}
-                  className="text-red-400 hover:text-red-300 px-2 py-1"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          )}
-
           {view === "select" && (
             <div className="mt-8">
               <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2 scrollbar-thin">
@@ -1050,12 +1106,36 @@ export function CharacterSelectScreen({
                       <GoldRule thick className="pointer-events-none" />
                       <button
                         onClick={() => selectCharacter(c.id)}
-                        className="w-full px-4 py-2 text-center bg-black/40 hover:bg-black/50 focus:outline-none focus:ring-1 ring-yellow-400/60 rounded-sm"
+                        className="w-full px-4 py-3 text-center bg-black/40 hover:bg-black/50 focus:outline-none focus:ring-1 ring-yellow-400/60 rounded-sm"
                         style={{
                           color: "#f2d08a",
                         }}
                       >
-                        <span className="font-semibold text-xl">{c.name}</span>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-2">
+                            {c.isAgent && <span className="text-lg">🤖</span>}
+                            <span className="font-semibold text-xl">
+                              {c.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs">
+                            {c.isAgent ? (
+                              <span className="text-[#60a5fa] font-medium">
+                                AI Agent
+                              </span>
+                            ) : (
+                              <>
+                                <span className="text-[#f2d08a]/80 font-medium">
+                                  Lvl {c.combatLevel ?? 3}
+                                </span>
+                                <span className="text-[#f2d08a]/60">•</span>
+                                <span className="text-[#4ade80] font-medium">
+                                  HP {c.constitutionLevel ?? 10}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </button>
                       <GoldRule thick className="pointer-events-none" />
                     </div>
@@ -1097,218 +1177,222 @@ export function CharacterSelectScreen({
                 </div>
               )}
 
-              {/* Character creation form with 3D preview */}
+              {/* Character creation form with 3D preview - Side by side layout */}
               {showCreate && (
-                <div className="w-full space-y-3 mt-3">
-                  {/* 3D Preview Section */}
-                  <div className="relative w-full h-96 bg-black/60 rounded-lg overflow-hidden border border-[#f2d08a]/30">
-                    <CharacterPreview
-                      vrmUrl={AVATAR_OPTIONS[selectedAvatarIndex].previewUrl}
-                      className="w-full h-full"
-                    />
-
-                    {/* Avatar Selector Overlay */}
-                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-black/80 rounded-lg px-4 py-2 backdrop-blur">
-                      <button
-                        onClick={() =>
-                          setSelectedAvatarIndex(
-                            (prev) =>
-                              (prev - 1 + AVATAR_OPTIONS.length) %
-                              AVATAR_OPTIONS.length,
-                          )
-                        }
-                        className="px-3 py-1 bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded transition-colors"
+                <div className="w-full mt-3">
+                  <div className="flex gap-4">
+                    {/* Left Column - Name, Type, Preview, Cancel */}
+                    <div
+                      className={`space-y-3 ${characterType === "agent" && elizaOSAvailable ? "w-1/2" : "w-full"}`}
+                    >
+                      {/* Name Input Form */}
+                      <form
+                        className="w-full rounded bg-white/5"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          createCharacter();
+                        }}
                       >
-                        ‹
-                      </button>
-                      <span className="text-[#f2d08a] text-sm font-medium min-w-[120px] text-center">
-                        {AVATAR_OPTIONS[selectedAvatarIndex].name}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setSelectedAvatarIndex(
-                            (prev) => (prev + 1) % AVATAR_OPTIONS.length,
-                          )
-                        }
-                        className="px-3 py-1 bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded transition-colors"
-                      >
-                        ›
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Character Type Selection */}
-                  {!checkingElizaOS && (
-                    <div className="w-full rounded bg-black/60 border border-[#f2d08a]/30 p-4">
-                      <div className="text-[#f2d08a] text-sm font-semibold mb-3">
-                        Character Type
-                      </div>
-                      <div className="flex gap-4">
-                        <label className="flex-1 flex items-center gap-3 p-3 rounded-lg border-2 border-[#f2d08a]/30 bg-black/40 cursor-pointer transition-all hover:border-[#f2d08a]/60 hover:bg-black/60">
-                          <input
-                            type="radio"
-                            name="characterType"
-                            value="human"
-                            checked={characterType === "human"}
-                            onChange={(e) =>
-                              setCharacterType(
-                                e.target.value as "human" | "agent",
-                              )
-                            }
-                            className="w-4 h-4 text-[#f2d08a] accent-[#f2d08a]"
-                          />
+                        <GoldRule thick />
+                        <div className="flex items-center gap-2 p-3 h-14">
                           <div className="flex-1">
-                            <div className="text-[#f2d08a] font-medium">
-                              🎮 Human Player
-                            </div>
-                            <div className="text-[#e8ebf4]/60 text-xs mt-1">
-                              Play yourself
-                            </div>
-                          </div>
-                        </label>
-                        {elizaOSAvailable ? (
-                          <label className="flex-1 flex items-center gap-3 p-3 rounded-lg border-2 border-[#f2d08a]/30 bg-black/40 cursor-pointer transition-all hover:border-[#f2d08a]/60 hover:bg-black/60">
                             <input
-                              type="radio"
-                              name="characterType"
-                              value="agent"
-                              checked={characterType === "agent"}
-                              onChange={(e) =>
-                                setCharacterType(
-                                  e.target.value as "human" | "agent",
-                                )
-                              }
-                              className="w-4 h-4 text-[#f2d08a] accent-[#f2d08a]"
+                              className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-white outline-none text-sm"
+                              placeholder="Name (3–20 chars)"
+                              value={newCharacterName}
+                              onChange={(e) => {
+                                setNewCharacterName(e.target.value);
+                                // Clear any error message when user starts typing
+                                if (errorMessage) {
+                                  setErrorMessage(null);
+                                }
+                              }}
+                              maxLength={20}
+                              autoFocus
+                              disabled={creatingCharacter}
                             />
-                            <div className="flex-1">
-                              <div className="text-[#f2d08a] font-medium">
-                                🤖 AI Agent
-                              </div>
-                              <div className="text-[#e8ebf4]/60 text-xs mt-1">
-                                Autonomous AI
-                              </div>
-                            </div>
-                          </label>
-                        ) : (
-                          <div className="flex-1 flex items-center gap-3 p-3 rounded-lg border-2 border-[#8b4513]/20 bg-black/20 opacity-50">
-                            <input
-                              type="radio"
-                              name="characterType"
-                              value="agent"
-                              disabled
-                              className="w-4 h-4 text-gray-500 accent-gray-500"
-                            />
-                            <div className="flex-1">
-                              <div className="text-[#e8ebf4]/40 font-medium">
-                                🤖 AI Agent
-                              </div>
-                              <div className="text-[#e8ebf4]/30 text-xs mt-1">
-                                Requires ElizaOS
-                              </div>
-                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Template Selection (only for AI agents) */}
-                  {characterType === "agent" &&
-                    elizaOSAvailable &&
-                    !checkingElizaOS && (
-                      <div className="w-full rounded bg-black/60 border border-[#f2d08a]/30 p-4">
-                        <div className="text-[#f2d08a] text-sm font-semibold mb-3">
-                          Agent Archetype
+                          <button
+                            type="submit"
+                            className={`px-3 py-1.5 rounded font-bold text-sm ${wsReady && newCharacterName.trim().length >= 3 && !creatingCharacter ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/20 cursor-not-allowed"}`}
+                            disabled={
+                              !wsReady ||
+                              newCharacterName.trim().length < 3 ||
+                              creatingCharacter
+                            }
+                          >
+                            {creatingCharacter ? "Creating..." : "Create"}
+                          </button>
                         </div>
-                        {loadingTemplates ? (
-                          <div className="text-center text-[#e8ebf4]/60 text-sm py-4">
-                            Loading templates...
+                        <GoldRule thick />
+                      </form>
+
+                      {/* Character Type Selection */}
+                      {!checkingElizaOS && (
+                        <div className="w-full rounded bg-black/60 border border-[#f2d08a]/30 p-3">
+                          <div className="text-[#f2d08a] text-sm font-semibold mb-2">
+                            Character Type
                           </div>
-                        ) : templates.length > 0 ? (
-                          <div className="grid grid-cols-2 gap-3">
-                            {templates.map((template) => (
-                              <button
-                                key={template.id}
-                                onClick={() => setSelectedTemplate(template)}
-                                className={`p-3 rounded-lg border-2 transition-all text-left ${
-                                  selectedTemplate?.id === template.id
-                                    ? "border-[#f2d08a] bg-[#f2d08a]/10"
-                                    : "border-[#f2d08a]/30 bg-black/40 hover:border-[#f2d08a]/60 hover:bg-black/60"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-2xl">
-                                    {template.emoji}
-                                  </span>
+                          <div className="flex gap-2">
+                            <label className="flex-1 flex items-center gap-2 p-2 rounded-lg border-2 border-[#f2d08a]/30 bg-black/40 cursor-pointer transition-all hover:border-[#f2d08a]/60 hover:bg-black/60">
+                              <input
+                                type="radio"
+                                name="characterType"
+                                value="human"
+                                checked={characterType === "human"}
+                                onChange={(e) =>
+                                  setCharacterType(
+                                    e.target.value as "human" | "agent",
+                                  )
+                                }
+                                className="w-4 h-4 text-[#f2d08a] accent-[#f2d08a]"
+                              />
+                              <div className="flex-1">
+                                <div className="text-[#f2d08a] font-medium text-sm">
+                                  🎮 Human
+                                </div>
+                              </div>
+                            </label>
+                            {elizaOSAvailable ? (
+                              <label className="flex-1 flex items-center gap-2 p-2 rounded-lg border-2 border-[#f2d08a]/30 bg-black/40 cursor-pointer transition-all hover:border-[#f2d08a]/60 hover:bg-black/60">
+                                <input
+                                  type="radio"
+                                  name="characterType"
+                                  value="agent"
+                                  checked={characterType === "agent"}
+                                  onChange={(e) =>
+                                    setCharacterType(
+                                      e.target.value as "human" | "agent",
+                                    )
+                                  }
+                                  className="w-4 h-4 text-[#f2d08a] accent-[#f2d08a]"
+                                />
+                                <div className="flex-1">
                                   <div className="text-[#f2d08a] font-medium text-sm">
-                                    {template.name}
+                                    🤖 AI Agent
                                   </div>
                                 </div>
-                                <div className="text-[#e8ebf4]/60 text-xs leading-relaxed">
-                                  {template.description}
+                              </label>
+                            ) : (
+                              <div className="flex-1 flex items-center gap-2 p-2 rounded-lg border-2 border-[#8b4513]/20 bg-black/20 opacity-50">
+                                <input
+                                  type="radio"
+                                  name="characterType"
+                                  value="agent"
+                                  disabled
+                                  className="w-4 h-4 text-gray-500 accent-gray-500"
+                                />
+                                <div className="flex-1">
+                                  <div className="text-[#e8ebf4]/40 font-medium text-sm">
+                                    🤖 AI Agent
+                                  </div>
                                 </div>
-                              </button>
-                            ))}
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="text-center text-[#e8ebf4]/60 text-sm py-4">
-                            No templates available
-                          </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
 
-                  {/* Name Input Form */}
-                  <form
-                    className="w-full rounded bg-white/5"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      createCharacter();
-                    }}
-                  >
-                    <GoldRule thick />
-                    <div className="flex items-center gap-2 p-3 h-16">
-                      <div className="flex-1">
-                        <input
-                          className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-white outline-none text-sm"
-                          placeholder="Name (3–20 chars)"
-                          value={newCharacterName}
-                          onChange={(e) => {
-                            setNewCharacterName(e.target.value);
-                          }}
-                          maxLength={20}
-                          autoFocus
-                          disabled={creatingCharacter}
+                      {/* 3D Preview Section - Compact height */}
+                      <div className="relative w-full h-48 bg-black/60 rounded-lg overflow-hidden border border-[#f2d08a]/30">
+                        <CharacterPreview
+                          vrmUrl={
+                            AVATAR_OPTIONS[selectedAvatarIndex].previewUrl
+                          }
+                          className="w-full h-full"
                         />
+
+                        {/* Avatar Selector Overlay */}
+                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-black/80 rounded-lg px-3 py-1.5 backdrop-blur">
+                          <button
+                            onClick={() =>
+                              setSelectedAvatarIndex(
+                                (prev) =>
+                                  (prev - 1 + AVATAR_OPTIONS.length) %
+                                  AVATAR_OPTIONS.length,
+                              )
+                            }
+                            className="px-2 py-0.5 bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded transition-colors text-sm"
+                          >
+                            ‹
+                          </button>
+                          <span className="text-[#f2d08a] text-xs font-medium min-w-[100px] text-center">
+                            {AVATAR_OPTIONS[selectedAvatarIndex].name}
+                          </span>
+                          <button
+                            onClick={() =>
+                              setSelectedAvatarIndex(
+                                (prev) => (prev + 1) % AVATAR_OPTIONS.length,
+                              )
+                            }
+                            className="px-2 py-0.5 bg-[#f2d08a]/20 hover:bg-[#f2d08a]/30 text-[#f2d08a] rounded transition-colors text-sm"
+                          >
+                            ›
+                          </button>
+                        </div>
                       </div>
 
+                      {/* Cancel Button */}
                       <button
-                        type="submit"
-                        className={`px-3 py-1.5 rounded font-bold text-sm ${wsReady && newCharacterName.trim().length >= 3 && !creatingCharacter ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/20 cursor-not-allowed"}`}
-                        disabled={
-                          !wsReady ||
-                          newCharacterName.trim().length < 3 ||
-                          creatingCharacter
-                        }
+                        className="w-full px-4 py-2 bg-black/40 hover:bg-black/50 text-[#f2d08a] rounded border border-[#f2d08a]/30 transition-colors text-sm"
+                        onClick={() => {
+                          setShowCreate(false);
+                          setNewCharacterName("");
+                          setSelectedAvatarIndex(0);
+                          setCharacterType("human"); // Reset to default
+                        }}
                       >
-                        {creatingCharacter ? "Creating..." : "Create"}
+                        Cancel
                       </button>
                     </div>
-                    <GoldRule thick />
-                  </form>
 
-                  {/* Back Button */}
-                  <button
-                    className="w-full px-4 py-2 bg-black/40 hover:bg-black/50 text-[#f2d08a] rounded border border-[#f2d08a]/30 transition-colors"
-                    onClick={() => {
-                      setShowCreate(false);
-                      setNewCharacterName("");
-                      setSelectedAvatarIndex(0);
-                      setCharacterType("human"); // Reset to default
-                    }}
-                  >
-                    Cancel
-                  </button>
+                    {/* Right Column - Template Selection (only for AI agents) */}
+                    {characterType === "agent" &&
+                      elizaOSAvailable &&
+                      !checkingElizaOS && (
+                        <div className="w-1/2 rounded bg-black/60 border border-[#f2d08a]/30 p-3 h-fit">
+                          <div className="text-[#f2d08a] text-sm font-semibold mb-2">
+                            Agent Archetype
+                          </div>
+                          {loadingTemplates ? (
+                            <div className="text-center text-[#e8ebf4]/60 text-sm py-4">
+                              Loading templates...
+                            </div>
+                          ) : templates.length > 0 ? (
+                            <div className="space-y-2">
+                              {templates.map((template) => (
+                                <button
+                                  key={template.id}
+                                  onClick={() => setSelectedTemplate(template)}
+                                  className={`w-full p-2.5 rounded-lg border-2 transition-all text-left ${
+                                    selectedTemplate?.id === template.id
+                                      ? "border-[#f2d08a] bg-[#f2d08a]/10"
+                                      : "border-[#f2d08a]/30 bg-black/40 hover:border-[#f2d08a]/60 hover:bg-black/60"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xl">
+                                      {template.emoji}
+                                    </span>
+                                    <div className="text-[#f2d08a] font-medium text-sm">
+                                      {template.name}
+                                    </div>
+                                  </div>
+                                  <div className="text-[#e8ebf4]/60 text-xs leading-relaxed mt-1 ml-7">
+                                    {template.description}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center text-[#e8ebf4]/60 text-sm py-4">
+                              No templates available
+                            </div>
+                          )}
+                        </div>
+                      )}
+                  </div>
                 </div>
               )}
 
@@ -1355,13 +1439,32 @@ export function CharacterSelectScreen({
                   </div>
                   <div className="absolute inset-x-0 bottom-0">
                     <GoldRule />
-                    <div className="flex items-center justify-between px-5 py-3 bg-black/50 backdrop-blur">
-                      <div
-                        className="font-semibold text-xl"
-                        style={{ color: "#f2d08a" }}
-                      >
-                        {characters.find((c) => c.id === selectedCharacterId)
-                          ?.name || "Unnamed"}
+                    <div className="flex items-center justify-between px-5 py-4 bg-black/50 backdrop-blur">
+                      <div className="flex flex-col gap-1">
+                        <div
+                          className="font-semibold text-xl"
+                          style={{ color: "#f2d08a" }}
+                        >
+                          {characters.find((c) => c.id === selectedCharacterId)
+                            ?.name || "Unnamed"}
+                        </div>
+                        {(() => {
+                          const char = characters.find(
+                            (c) => c.id === selectedCharacterId,
+                          );
+                          if (!char) return null;
+                          return (
+                            <div className="flex items-center gap-3 text-xs">
+                              <span className="text-[#f2d08a]/80 font-medium">
+                                Lvl {char.combatLevel ?? 3}
+                              </span>
+                              <span className="text-[#f2d08a]/60">•</span>
+                              <span className="text-[#4ade80] font-medium">
+                                HP {char.constitutionLevel ?? 10}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="text-xl" style={{ color: "#f2d08a" }}>

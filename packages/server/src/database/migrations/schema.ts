@@ -115,7 +115,7 @@ export const characters = pgTable(
     createdAt: bigint({ mode: "number" }).default(
       sql`((EXTRACT(epoch FROM now()) * (1000)`,
     ),
-    combatLevel: integer().default(1),
+    combatLevel: integer().default(3),
     attackLevel: integer().default(1),
     strengthLevel: integer().default(1),
     defenseLevel: integer().default(1),

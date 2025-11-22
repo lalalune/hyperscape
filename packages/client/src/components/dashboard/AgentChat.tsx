@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, Bot, User, MoreVertical, Paperclip, Mic } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  MoreVertical,
+  Paperclip,
+  Mic,
+  Monitor,
+} from "lucide-react";
 import { Agent } from "../../screens/DashboardScreen";
 
 interface Message {

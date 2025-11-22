@@ -67,6 +67,27 @@ jobs:
           NODE_ENV: test
           PORT: 5555
 
+      - name: Wait for server to be ready
+        working-directory: packages/server
+        run: |
+          echo "⏳ Waiting for server to start..."
+          MAX_RETRIES=30
+          RETRY_DELAY=1
+          for i in $(seq 1 $MAX_RETRIES); do
+            if curl -f -s http://localhost:5555/health > /dev/null 2>&1; then
+              echo "✓ Server is ready (attempt $i/$MAX_RETRIES)"
+              exit 0
+            fi
+            if [ $i -eq 1 ]; then
+              echo "  Waiting for health endpoint..."
+            fi
+            sleep $RETRY_DELAY
+          done
+          echo "❌ Server did not become ready after $MAX_RETRIES seconds"
+          echo "=== Server Logs ==="
+          cat logs/server.log || echo "No server logs found"
+          exit 1
+
       - name: Run integration tests
         working-directory: packages/server
         run: bun scripts/test-integration.mjs

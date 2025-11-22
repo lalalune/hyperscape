@@ -5,6 +5,7 @@ import { Agent } from "../../screens/DashboardScreen";
 interface DashboardLayoutProps {
   agents: Agent[];
   selectedAgentId: string | null;
+  viewportAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
   onCreateAgent: () => void;
   onStartAgent: (agentId: string) => void;
@@ -16,6 +17,7 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   agents,
   selectedAgentId,
+  viewportAgentId,
   onSelectAgent,
   onCreateAgent,
   onStartAgent,
@@ -29,6 +31,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       <AgentSidebar
         agents={agents}
         selectedAgentId={selectedAgentId}
+        viewportAgentId={viewportAgentId}
         onSelectAgent={onSelectAgent}
         onCreateAgent={onCreateAgent}
         onStartAgent={onStartAgent}

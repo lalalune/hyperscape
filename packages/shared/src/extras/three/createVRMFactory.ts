@@ -260,35 +260,35 @@ export function createVRMFactory(
     // HYBRID APPROACH: Use NORMALIZED bone names (Asset Forge method)
     // This allows VRM library's automatic bind pose handling to work
     // Normalized bones are cloned with the scene, so each instance has its own
+    // CRITICAL: Use the CLONED humanoid (_tvrm?.humanoid) for bone lookups, not the original
+    const clonedHumanoid = _tvrm?.humanoid;
     const getBoneName = (vrmBoneName: string): string | undefined => {
-      if (!humanoid) return undefined;
+      // Guard against undefined/null bone names
+      if (!vrmBoneName || !clonedHumanoid) return undefined;
 
-      // Get normalized bone node - this handles A-pose automatically
-      const normalizedNode = humanoid.getNormalizedBoneNode?.(
+      // Get normalized bone node from CLONED humanoid - this handles A-pose automatically
+      const normalizedNode = clonedHumanoid.getNormalizedBoneNode?.(
         vrmBoneName as any,
       );
       if (!normalizedNode) {
-        console.warn(
-          "[VRMFactory.getBoneName] Normalized bone not found:",
-          vrmBoneName,
-        );
+        // Don't warn for finger bones - many VRMs don't have them
+        const isFingerBone =
+          vrmBoneName.includes("Thumb") ||
+          vrmBoneName.includes("Index") ||
+          vrmBoneName.includes("Middle") ||
+          vrmBoneName.includes("Ring") ||
+          vrmBoneName.includes("Little");
+        if (!isFingerBone) {
+          console.warn(
+            "[VRMFactory.getBoneName] Normalized bone not found:",
+            vrmBoneName,
+          );
+        }
         return undefined;
       }
 
-      // The normalized node name (e.g., "Normalized_Hips")
-      const normalizedName = normalizedNode.name;
-
-      // Find this normalized node in the CLONED scene
-      const clonedNormalizedNode = vrm.scene.getObjectByName(normalizedName);
-      if (!clonedNormalizedNode) {
-        console.warn(
-          "[VRMFactory.getBoneName] Cloned normalized bone not found:",
-          normalizedName,
-        );
-        return undefined;
-      }
-
-      return clonedNormalizedNode.name; // Returns normalized bone name
+      // Return the normalized bone name directly - it's already in the cloned scene
+      return normalizedNode.name;
     };
 
     // VRM 1.0+ models face +Z by default, but game expects -Z forward
@@ -519,10 +519,11 @@ export function createVRMFactory(
     const findBone = (name) => {
       // name is the official vrm bone name eg 'leftHand'
       // actualName is the actual bone name used in the skeleton which may different across vrms
+      // CRITICAL: Use clonedHumanoid (not original humanoid) for bone lookups
       if (!bonesByName[name]) {
         let actualName = "";
-        if (humanoid) {
-          const node = humanoid.getRawBoneNode?.(name);
+        if (clonedHumanoid) {
+          const node = clonedHumanoid.getRawBoneNode?.(name);
           actualName = node?.name || "";
         }
         bonesByName[name] = skeleton.getBoneByName(actualName);
