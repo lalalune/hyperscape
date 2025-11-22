@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
+import rateLimit from "@fastify/rate-limit";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -41,11 +42,13 @@ function getCharactersDir(): string {
  * @param fastify - Fastify server instance
  * @param world - Game world instance (optional, for database operations)
  */
-export function registerCharacterRoutes(
+export async function registerCharacterRoutes(
   fastify: FastifyInstance,
   world?: World,
-): void {
+): Promise<void> {
   console.log("[CharacterRoutes] Registering character management routes...");
+  // Register rate-limit plugin if not already registered globally
+  await fastify.register(rateLimit);
 
   /**
    * POST /api/characters
@@ -65,7 +68,15 @@ export function registerCharacterRoutes(
    *   path: "/path/to/character.json"
    * }
    */
-  fastify.post("/api/characters", async (request, reply) => {
+  fastify.post("/api/characters",
+    {
+      preHandler: fastify.rateLimit({
+        max: 100, // maximum number of requests per window per IP
+        timeWindow: "15 minutes", // window size
+        // (Optional: customize error message, allowlist, etc.)
+      }),
+    },
+    async (request, reply) => {
     try {
       const body = request.body as {
         character: Record<string, unknown>;
