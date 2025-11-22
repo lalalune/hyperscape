@@ -117,10 +117,10 @@ export class MobNPCSpawnerSystem extends SystemBase {
       // MobEntity specific
       mobType: "goblin",
       level: 2,
-      currentHealth: 15, // OSRS level 2 goblin has 5 HP
-      maxHealth: 15,
-      attackPower: 100, // OSRS formula: floor(2/2) = 1 strength -> max hit 0-1
-      defense: 50, // floor(1/10) = 0 defense level (easy to hit)
+      currentHealth: 5, // OSRS level 2 goblin has 5 HP
+      maxHealth: 5,
+      attackPower: 2, // OSRS formula: floor(2/2) = 1 strength -> max hit 0-1
+      defense: 1, // floor(1/10) = 0 defense level (easy to hit)
       attackSpeed: 2400, // RuneScape-style 2.4 second attack speed
       moveSpeed: 2,
       xpReward: 15,
