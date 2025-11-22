@@ -43,6 +43,13 @@
       "when": 1763794800000,
       "tag": "0005_add_users_wallet_and_attack_style",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1763827200000,
+      "tag": "0006_update_template_urls",
+      "breakpoints": true
     }
   ]
 }

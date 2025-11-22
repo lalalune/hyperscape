@@ -40,6 +40,14 @@ type Character = {
   isAgent?: boolean;
 };
 
+type CharacterTemplate = {
+  id: number;
+  name: string;
+  description: string;
+  emoji: string;
+  templateUrl: string;
+};
+
 // Music preference manager - syncs with game prefs
 const getMusicEnabled = (): boolean => {
   const stored = localStorage.getItem("music_enabled");
@@ -230,6 +238,12 @@ export function CharacterSelectScreen({
   const [elizaOSAvailable, setElizaOSAvailable] = React.useState(false);
   const [checkingElizaOS, setCheckingElizaOS] = React.useState(true);
 
+  // Character templates
+  const [templates, setTemplates] = React.useState<CharacterTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] =
+    React.useState<CharacterTemplate | null>(null);
+  const [loadingTemplates, setLoadingTemplates] = React.useState(false);
+
   // Privy hooks
   const { user, ready, authenticated } = usePrivy();
   const { createWallet } = useCreateWallet();
@@ -279,6 +293,38 @@ export function CharacterSelectScreen({
       }
     }
   }, [createAgentMode, showCreate, checkingElizaOS, elizaOSAvailable]);
+
+  // Fetch character templates when ElizaOS is available
+  React.useEffect(() => {
+    const fetchTemplates = async () => {
+      if (!elizaOSAvailable) return;
+
+      setLoadingTemplates(true);
+      try {
+        const response = await fetch("http://localhost:5555/api/templates");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.templates) {
+            setTemplates(data.templates);
+            // Auto-select first template as default
+            if (data.templates.length > 0) {
+              setSelectedTemplate(data.templates[0]);
+            }
+            console.log(
+              "[CharacterSelect] ✅ Loaded character templates:",
+              data.templates,
+            );
+          }
+        }
+      } catch (error) {
+        console.error("[CharacterSelect] ❌ Failed to fetch templates:", error);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+
+    fetchTemplates();
+  }, [elizaOSAvailable]);
   const preWsRef = React.useRef<WebSocket | null>(null);
   const pendingActionRef = React.useRef<null | {
     type: "create";
@@ -474,46 +520,40 @@ export function CharacterSelectScreen({
               const credentials = await credentialsResponse.json();
               console.log("[CharacterSelect] ✅ JWT generated successfully");
 
-              // Step 2: Create ElizaOS agent with template
+              // Step 2: Fetch template and create ElizaOS agent
+              if (!selectedTemplate) {
+                throw new Error("No character template selected");
+              }
+
               console.log(
-                "[CharacterSelect] 🤖 Creating ElizaOS agent with template...",
+                `[CharacterSelect] 📥 Fetching template: ${selectedTemplate.name} (${selectedTemplate.templateUrl})`,
               );
 
-              // Generate character template (same logic as CharacterEditorScreen)
-              // Note: Don't set 'id' - let ElizaOS generate UUID, link via HYPERSCAPE_CHARACTER_ID
+              // Fetch the template JSON from the server
+              const templateResponse = await fetch(
+                selectedTemplate.templateUrl,
+              );
+              if (!templateResponse.ok) {
+                throw new Error(
+                  `Failed to fetch template: ${templateResponse.status}`,
+                );
+              }
+
+              const templateJson = await templateResponse.json();
+              console.log("[CharacterSelect] ✅ Template fetched successfully");
+
+              // Merge template with character-specific data
               const characterTemplate = {
-                name: c.name,
-                username: `@${c.name.toLowerCase()}`,
-                system: `You are ${c.name}, an AI agent playing in the Hyperscape world. You interact with other players, complete quests, gather resources, and explore the world autonomously.`,
-                bio: [
-                  `${c.name} is an AI agent in the Hyperscape world`,
-                  "Enjoys exploring, gathering resources, and interacting with other players",
-                ],
-                topics: ["Hyperscape", "RPG", "exploration", "quests"],
-                adjectives: ["adventurous", "curious", "friendly", "helpful"],
-                knowledge: [],
-                messageExamples: [],
-                postExamples: [],
-                style: {
-                  all: [
-                    "Be concise and natural",
-                    "Use RPG terminology when appropriate",
-                  ],
-                  chat: ["Respond to other players in a friendly manner"],
-                  post: [],
-                },
-                plugins: [
-                  "@hyperscape/plugin-hyperscape",
-                  "@elizaos/plugin-sql",
-                  "@elizaos/plugin-openrouter",
-                  "@elizaos/plugin-openai",
-                  "@elizaos/plugin-anthropic",
-                ],
+                ...templateJson,
+                name: c.name, // Override template name with character name
+                username: c.name.toLowerCase().replace(/\s+/g, "_"),
                 settings: {
+                  ...templateJson.settings,
                   accountId,
                   characterType: "ai-agent",
                   avatar: AVATAR_OPTIONS[selectedAvatarIndex]?.url || "",
                   secrets: {
+                    ...templateJson.settings.secrets,
                     HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
                     HYPERSCAPE_CHARACTER_ID: c.id,
                     HYPERSCAPE_ACCOUNT_ID: accountId,
@@ -522,6 +562,10 @@ export function CharacterSelectScreen({
                   },
                 },
               };
+
+              console.log(
+                `[CharacterSelect] 🤖 Creating ${selectedTemplate.name} agent with character-specific data...`,
+              );
 
               // Create agent in ElizaOS
               const createAgentResponse = await fetch(
@@ -1167,6 +1211,52 @@ export function CharacterSelectScreen({
                       </div>
                     </div>
                   )}
+
+                  {/* Template Selection (only for AI agents) */}
+                  {characterType === "agent" &&
+                    elizaOSAvailable &&
+                    !checkingElizaOS && (
+                      <div className="w-full rounded bg-black/60 border border-[#f2d08a]/30 p-4">
+                        <div className="text-[#f2d08a] text-sm font-semibold mb-3">
+                          Agent Archetype
+                        </div>
+                        {loadingTemplates ? (
+                          <div className="text-center text-[#e8ebf4]/60 text-sm py-4">
+                            Loading templates...
+                          </div>
+                        ) : templates.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            {templates.map((template) => (
+                              <button
+                                key={template.id}
+                                onClick={() => setSelectedTemplate(template)}
+                                className={`p-3 rounded-lg border-2 transition-all text-left ${
+                                  selectedTemplate?.id === template.id
+                                    ? "border-[#f2d08a] bg-[#f2d08a]/10"
+                                    : "border-[#f2d08a]/30 bg-black/40 hover:border-[#f2d08a]/60 hover:bg-black/60"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-2xl">
+                                    {template.emoji}
+                                  </span>
+                                  <div className="text-[#f2d08a] font-medium text-sm">
+                                    {template.name}
+                                  </div>
+                                </div>
+                                <div className="text-[#e8ebf4]/60 text-xs leading-relaxed">
+                                  {template.description}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center text-[#e8ebf4]/60 text-sm py-4">
+                            No templates available
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                   {/* Name Input Form */}
                   <form

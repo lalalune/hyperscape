@@ -46,6 +46,7 @@ import { registerErrorRoutes } from "./routes/error-routes.js";
 import { registerCharacterRoutes } from "./routes/character-routes.js";
 import { registerAgentRoutes } from "./routes/agent-routes.js";
 import { registerUserRoutes } from "./routes/user-routes.js";
+import { registerTemplateRoutes } from "./routes/template-routes.js";
 
 /**
  * Register all API routes
@@ -91,6 +92,9 @@ export function registerApiRoutes(
 
   // User management
   registerUserRoutes(fastify, world);
+
+  // Character template management
+  registerTemplateRoutes(fastify, world);
 
   console.log("[API] ✅ API routes registered");
 }
