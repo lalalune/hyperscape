@@ -577,6 +577,42 @@ export const playerDeaths = pgTable(
 );
 
 /**
+ * Character Templates Table - Pre-configured character archetypes
+ *
+ * Stores template configurations for character creation (Skiller, Ironman, etc.).
+ * Players can choose from these templates when creating a new character.
+ *
+ * Key columns:
+ * - `id` - Auto-incrementing primary key
+ * - `name` - Template name (e.g., "The Skiller", "PvM Slayer")
+ * - `description` - Template description shown in character select
+ * - `emoji` - Icon emoji for the template
+ * - `templateUrl` - URL to ElizaOS character config JSON (unique)
+ * - `createdAt` - When template was created
+ *
+ * Design notes:
+ * - Templates are seeded during initial setup
+ * - templateUrl must be unique (constraint enforced)
+ * - Used by CharacterSelectScreen to show available archetypes
+ */
+export const characterTemplates = pgTable(
+  "character_templates",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    emoji: text("emoji").notNull(),
+    templateUrl: text("templateUrl").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    uniqueTemplateUrl: unique().on(table.templateUrl),
+  }),
+);
+
+/**
  * ============================================================================
  * TABLE RELATIONS
  * ============================================================================
