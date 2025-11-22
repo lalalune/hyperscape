@@ -1344,15 +1344,8 @@ export class MobEntity extends CombatantEntity {
       }
     }
 
-    // Show damage numbers (red for damage > 0, blue for 0 damage)
-    const targetPosition = this.getPosition();
-    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, {
-      attackerId: attackerId || "unknown",
-      targetId: this.id,
-      damage,
-      targetType: "mob",
-      position: targetPosition,
-    });
+    // COMBAT_DAMAGE_DEALT is emitted by CombatSystem - no need to emit here
+    // to avoid duplicate damage splats
 
     // Check if mob died
     if (this.config.currentHealth <= 0) {
@@ -1423,11 +1416,19 @@ export class MobEntity extends CombatantEntity {
       });
 
       // Emit COMBAT_KILL event for SkillsSystem to grant combat XP
+      // Get the player's actual attack style from PlayerSystem
+      const playerSystem = this.world.getSystem("player") as {
+        getPlayerAttackStyle?: (playerId: string) => { id: string } | null;
+      } | null;
+      const attackStyleData =
+        playerSystem?.getPlayerAttackStyle?.(lastAttackerId);
+      const attackStyle = attackStyleData?.id || "aggressive"; // Default to aggressive if not found
+
       this.world.emit(EventType.COMBAT_KILL, {
         attackerId: lastAttackerId,
         targetId: this.id,
         damageDealt: this.config.maxHealth,
-        attackStyle: "aggressive",
+        attackStyle: attackStyle,
       });
 
       this.dropLoot(lastAttackerId);

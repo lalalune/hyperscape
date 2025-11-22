@@ -59,6 +59,7 @@ export interface PlayerRow {
   positionX: number;
   positionY: number;
   positionZ: number;
+  attackStyle?: string; // Combat style preference (accurate, aggressive, defensive)
   createdAt: number;
   lastLogin: number;
 }

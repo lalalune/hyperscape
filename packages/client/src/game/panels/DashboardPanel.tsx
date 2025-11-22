@@ -202,7 +202,11 @@ export function DashboardPanel({
               <InventoryPanel items={inventory} coins={coins} world={world} />
             )}
             {activeTab === "equipment" && (
-              <EquipmentPanel equipment={equipment} stats={stats} />
+              <EquipmentPanel
+                equipment={equipment}
+                stats={stats}
+                world={world}
+              />
             )}
             {activeTab === "settings" && <SettingsPanel world={world} />}
           </div>
@@ -223,7 +227,7 @@ export function DashboardPanel({
             <InventoryPanel items={inventory} coins={coins} world={world} />
           )}
           {activeTab === "equipment" && (
-            <EquipmentPanel equipment={equipment} stats={stats} />
+            <EquipmentPanel equipment={equipment} stats={stats} world={world} />
           )}
           {activeTab === "settings" && <SettingsPanel world={world} />}
         </div>

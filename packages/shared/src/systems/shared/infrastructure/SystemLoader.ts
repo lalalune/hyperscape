@@ -81,6 +81,7 @@ import { EventType } from "../../../types/events";
 import type { AppConfig, TerrainConfig } from "../../../types/core/settings";
 import { getSystem } from "../../../utils/SystemUtils";
 import type { World } from "../../../core/World";
+import { System } from "./System";
 
 // Helper function to check truthy values
 function isTruthy(value: string | undefined): boolean {
@@ -116,6 +117,9 @@ import { LootSystem } from "..";
 
 // World Content Systems
 import { NPCSystem } from "..";
+
+// Client-only visual systems
+import { DamageSplatSystem } from "../../client";
 
 import type { CameraSystem as CameraSystemInterface } from "../../../types/systems/physics";
 import { ActionRegistry } from "..";
@@ -311,6 +315,22 @@ export async function registerSystems(world: World): Promise<void> {
   // Client-only inventory drag & drop
   if (world.isClient) {
     world.register("inventory-interaction", InventoryInteractionSystem);
+  }
+
+  // Client-only visual effects
+  if (world.isClient) {
+    console.log("[SystemLoader] 🎨 Registering DamageSplatSystem on client...");
+    try {
+      world.register("damage-splat", DamageSplatSystem);
+      console.log(
+        "[SystemLoader] ✅ DamageSplatSystem registered successfully",
+      );
+    } catch (err) {
+      console.error(
+        "[SystemLoader] ❌ Failed to register DamageSplatSystem:",
+        err,
+      );
+    }
   }
 
   // New MMO-style Systems
@@ -956,10 +976,33 @@ function setupAPI(world: World, systems: Systems): void {
 
       // Attack style actions
       changeAttackStyle: (playerId: string, newStyle: string) => {
-        world.emit(EventType.COMBAT_ATTACK_STYLE_CHANGE, {
-          playerId,
-          newStyle,
-        });
+        console.log(
+          `[SystemLoader] changeAttackStyle called: ${playerId} -> ${newStyle}, isServer: ${world.isServer}`,
+        );
+
+        // On client, send packet to server
+        if (world.isClient && world.network) {
+          console.log(
+            `[SystemLoader] Sending changeAttackStyle packet to server`,
+          );
+          (
+            world.network as {
+              send?: (method: string, data: unknown) => void;
+            }
+          ).send?.("changeAttackStyle", {
+            playerId,
+            newStyle,
+          });
+        }
+
+        // On server, emit the event locally
+        if (world.isServer) {
+          console.log(`[SystemLoader] Emitting ATTACK_STYLE_CHANGED on server`);
+          world.emit(EventType.ATTACK_STYLE_CHANGED, {
+            playerId,
+            newStyle,
+          });
+        }
       },
 
       getAttackStyleInfo: (
@@ -1359,4 +1402,25 @@ function setupAPI(world: World, systems: Systems): void {
 
   // Attach all RPG API methods directly to the world object
   Object.assign(world, rpgAPI);
+
+  // Create a simple Actions system wrapper so it can be accessed via getSystem("actions")
+  class ActionsSystem extends System {
+    name = "actions";
+    actionMethods = rpgAPI.actionMethods;
+
+    constructor(world: World) {
+      super(world);
+    }
+
+    async init(_options: unknown): Promise<void> {
+      // No initialization needed
+    }
+
+    update(_dt: number): void {
+      // No update needed
+    }
+  }
+
+  // Register the actions system
+  world.register("actions", ActionsSystem);
 }
