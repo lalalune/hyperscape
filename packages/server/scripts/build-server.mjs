@@ -25,5 +25,20 @@ const serverCtx = await esbuild.context({
 
 await serverCtx.rebuild()
 await serverCtx.dispose()
+
+// Copy PhysX WASM files to assets/web/ for server-side loading
+import fs from 'fs'
+const assetsDir = path.join(rootDir, 'assets/web')
+fs.mkdirSync(assetsDir, { recursive: true })
+
+const physxWasm = path.join(rootDir, 'world/assets/web/physx-js-webidl.wasm')
+const physxJs = path.join(rootDir, 'world/assets/web/physx-js-webidl.js')
+
+if (fs.existsSync(physxWasm)) {
+  fs.copyFileSync(physxWasm, path.join(assetsDir, 'physx-js-webidl.wasm'))
+  fs.copyFileSync(physxJs, path.join(assetsDir, 'physx-js-webidl.js'))
+  console.log('✓ PhysX assets copied to assets/web/')
+}
+
 console.log('✓ Server built successfully')
 
