@@ -121,8 +121,28 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
       if (update.component === "player")
         setPlayerStats(update.data as PlayerStats);
       if (update.component === "equipment") {
-        const data = update.data as { equipment: PlayerEquipmentItems };
-        setEquipment(data.equipment);
+        // The backend sends PlayerEquipment (with slots containing items),
+        // but the UI expects PlayerEquipmentItems (just the items).
+        const data = update.data as { equipment: any };
+        const rawEq = data.equipment;
+
+        const mappedEquipment: PlayerEquipmentItems = {
+          weapon: rawEq.weapon?.item || null,
+          shield: rawEq.shield?.item || null,
+          helmet: rawEq.helmet?.item || null,
+          body: rawEq.body?.item || null,
+          legs: rawEq.legs?.item || null,
+          arrows: rawEq.arrows?.item || null,
+        };
+        console.log("[Sidebar] 🛡️ Equipment updated:", {
+          weapon: mappedEquipment.weapon?.name || "empty",
+          shield: mappedEquipment.shield?.name || "empty",
+          helmet: mappedEquipment.helmet?.name || "empty",
+          body: mappedEquipment.body?.name || "empty",
+          legs: mappedEquipment.legs?.name || "empty",
+          arrows: mappedEquipment.arrows?.name || "empty",
+        });
+        setEquipment(mappedEquipment);
       }
     };
     const onInventory = (raw: unknown) => {
@@ -131,6 +151,15 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
         playerId: string;
         coins: number;
       };
+      console.log("[Sidebar] 📥 Received INVENTORY_UPDATED:", {
+        itemCount: data.items.length,
+        coins: data.coins,
+        items: data.items.map((i) => ({
+          slot: i.slot,
+          itemId: i.itemId,
+          qty: i.quantity,
+        })),
+      });
       setInventory(data.items);
       setCoins(data.coins);
     };
@@ -142,12 +171,14 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
     const onSkillsUpdate = (raw: unknown) => {
       const data = raw as { playerId: string; skills: PlayerStats["skills"] };
       const localId = world.entities?.player?.id;
-      if (!localId || data.playerId === localId)
+      if (!localId || data.playerId === localId) {
+        // Just update skills - combat level will come from server via PLAYER_UPDATED event
         setPlayerStats((prev) =>
           prev
             ? { ...prev, skills: data.skills }
             : ({ skills: data.skills } as PlayerStats),
         );
+      }
     };
 
     const onCorpseClick = (raw: unknown) => {
@@ -198,17 +229,41 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
           setCoins(cached.coins);
         }
         const cachedSkills = world.network?.lastSkillsByPlayerId?.[lp];
-        if (cachedSkills)
+        if (cachedSkills) {
+          const skills = cachedSkills as unknown as PlayerStats["skills"];
+          // Just update skills - combat level will come from server
           setPlayerStats((prev) =>
             prev
               ? {
                   ...prev,
-                  skills: cachedSkills as unknown as PlayerStats["skills"],
+                  skills,
                 }
               : ({
-                  skills: cachedSkills as unknown as PlayerStats["skills"],
+                  skills,
                 } as PlayerStats),
           );
+        }
+        const cachedEquipment = world.network?.lastEquipmentByPlayerId?.[lp];
+        if (cachedEquipment) {
+          const rawEq = cachedEquipment;
+          const mappedEquipment: PlayerEquipmentItems = {
+            weapon: rawEq.weapon?.item || null,
+            shield: rawEq.shield?.item || null,
+            helmet: rawEq.helmet?.item || null,
+            body: rawEq.body?.item || null,
+            legs: rawEq.legs?.item || null,
+            arrows: rawEq.arrows?.item || null,
+          };
+          console.log("[Sidebar] 📦 Loaded cached equipment on mount:", {
+            weapon: mappedEquipment.weapon?.name || "empty",
+            shield: mappedEquipment.shield?.name || "empty",
+            helmet: mappedEquipment.helmet?.name || "empty",
+            body: mappedEquipment.body?.name || "empty",
+            legs: mappedEquipment.legs?.name || "empty",
+            arrows: mappedEquipment.arrows?.name || "empty",
+          });
+          setEquipment(mappedEquipment);
+        }
         world.emit(EventType.INVENTORY_REQUEST, { playerId: lp });
         return true;
       }
@@ -460,7 +515,11 @@ export function Sidebar({ world, ui: _ui }: SidebarProps) {
             zIndex={windowZIndices.get("equipment") || 1000}
             onFocus={() => bringToFront("equipment")}
           >
-            <EquipmentPanel equipment={equipment} stats={playerStats} />
+            <EquipmentPanel
+              equipment={equipment}
+              stats={playerStats}
+              world={world}
+            />
           </GameWindow>
         )}
 

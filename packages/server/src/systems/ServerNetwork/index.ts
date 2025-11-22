@@ -69,8 +69,13 @@ import { EventBridge } from "./event-bridge";
 import { InitializationManager } from "./initialization";
 import { ConnectionHandler } from "./connection-handler";
 import { handleChatAdded } from "./handlers/chat";
-import { handleAttackMob } from "./handlers/combat";
-import { handlePickupItem, handleDropItem } from "./handlers/inventory";
+import { handleAttackMob, handleChangeAttackStyle } from "./handlers/combat";
+import {
+  handlePickupItem,
+  handleDropItem,
+  handleEquipItem,
+  handleUnequipItem,
+} from "./handlers/inventory";
 import { handleResourceGather } from "./handlers/resources";
 import {
   handleEntityModified,
@@ -259,11 +264,20 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onAttackMob"] = (socket, data) =>
       handleAttackMob(socket, data, this.world);
 
+    this.handlers["onChangeAttackStyle"] = (socket, data) =>
+      handleChangeAttackStyle(socket, data, this.world);
+
     this.handlers["onPickupItem"] = (socket, data) =>
       handlePickupItem(socket, data, this.world);
 
     this.handlers["onDropItem"] = (socket, data) =>
       handleDropItem(socket, data, this.world);
+
+    this.handlers["onEquipItem"] = (socket, data) =>
+      handleEquipItem(socket, data, this.world);
+
+    this.handlers["onUnequipItem"] = (socket, data) =>
+      handleUnequipItem(socket, data, this.world);
 
     // Death/respawn handlers
     this.handlers["onRequestRespawn"] = (socket, data) => {

@@ -117,12 +117,18 @@ const names = [
   'gatheringComplete',
   // Combat packets
   'attackMob',
+  'changeAttackStyle',
   // Item pickup packets
   'pickupItem',
   // Inventory action packets
   'dropItem',
+  // Equipment packets
+  'equipItem',
+  'unequipItem',
   // Inventory sync packets
   'inventoryUpdated',
+  // Equipment sync packets
+  'equipmentUpdated',
   // Skills sync packets
   'skillsUpdated',
   // UI feedback packets
@@ -136,6 +142,13 @@ const names = [
   'playerRespawned',
   // Loot packets
   'corpseLoot',
+  // Attack style packets
+  'attackStyleChanged',
+  'attackStyleUpdate',
+  // Combat visual feedback packets
+  'combatDamageDealt',
+  // Player state packets
+  'playerUpdated',
   // Character selection packets (feature-flagged usage)
   'characterListRequest',
   'characterCreate',

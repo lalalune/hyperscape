@@ -33,3 +33,38 @@ export function handleAttackMob(
     attackType: payload.attackType || "melee",
   });
 }
+
+export function handleChangeAttackStyle(
+  socket: ServerSocket,
+  data: unknown,
+  world: World,
+): void {
+  const playerEntity = socket.player;
+  if (!playerEntity) {
+    console.warn(
+      "[Combat] handleChangeAttackStyle: no player entity for socket",
+    );
+    return;
+  }
+
+  const payload = data as {
+    type?: string;
+    playerId?: string;
+    newStyle?: string;
+  };
+
+  if (!payload.newStyle) {
+    console.warn("[Combat] handleChangeAttackStyle: no newStyle in payload");
+    return;
+  }
+
+  console.log(
+    `[Combat] handleChangeAttackStyle: ${playerEntity.id} -> ${payload.newStyle}`,
+  );
+
+  // Forward to PlayerSystem
+  world.emit(EventType.ATTACK_STYLE_CHANGED, {
+    playerId: playerEntity.id,
+    newStyle: payload.newStyle,
+  });
+}

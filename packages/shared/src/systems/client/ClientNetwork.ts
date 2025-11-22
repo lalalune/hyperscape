@@ -181,6 +181,8 @@ export class ClientNetwork extends SystemBase {
     string,
     Record<string, { level: number; xp: number }>
   > = {};
+  // Cache latest equipment per player so UI can hydrate even if it mounted late
+  lastEquipmentByPlayerId: Record<string, any> = {};
 
   // Entity interpolation for smooth remote entity movement
   private interpolationStates: Map<string, InterpolationState> = new Map();
@@ -1145,6 +1147,44 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.INVENTORY_UPDATED, data);
   };
 
+  onEquipmentUpdated = (data: { playerId: string; equipment: any }) => {
+    console.log("[ClientNetwork] 📥 Received equipmentUpdated:", data);
+
+    // Cache latest equipment for late-mounting UI
+    this.lastEquipmentByPlayerId = this.lastEquipmentByPlayerId || {};
+    this.lastEquipmentByPlayerId[data.playerId] = data.equipment;
+
+    // Re-emit as UI update event for Sidebar to handle
+    this.world.emit(EventType.UI_UPDATE, {
+      component: "equipment",
+      data: {
+        equipment: data.equipment,
+      },
+    });
+
+    // CRITICAL: Also emit PLAYER_EQUIPMENT_CHANGED for each slot
+    // so EquipmentVisualSystem can attach/remove 3D models to the avatar
+    if (data.equipment) {
+      const equipment = data.equipment;
+      const slots = ["weapon", "shield", "helmet", "body", "legs", "arrows"];
+
+      for (const slot of slots) {
+        const slotData = equipment[slot];
+        // Emit for ALL slots, including null (to remove items on death)
+        const itemId = slotData?.itemId || slotData?.item?.id || null;
+        console.log(
+          `[ClientNetwork] 📤 Emitting PLAYER_EQUIPMENT_CHANGED for ${slot}:`,
+          itemId || "null (remove)",
+        );
+        this.world.emit(EventType.PLAYER_EQUIPMENT_CHANGED, {
+          playerId: data.playerId,
+          slot: slot,
+          itemId: itemId,
+        });
+      }
+    }
+  };
+
   onSkillsUpdated = (data: {
     playerId: string;
     skills: Record<string, { level: number; xp: number }>;
@@ -1344,6 +1384,104 @@ export class ClientNetwork extends SystemBase {
         deathLocation: data.deathLocation,
       });
     }
+  };
+
+  onAttackStyleChanged = (data: {
+    playerId: string;
+    currentStyle: unknown;
+    availableStyles: unknown;
+    canChange: boolean;
+    cooldownRemaining?: number;
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received attackStyleChanged for local player, forwarding to event system",
+      );
+      // Forward to local event system so UI can update
+      this.world.emit(EventType.UI_ATTACK_STYLE_CHANGED, data);
+    }
+  };
+
+  onAttackStyleUpdate = (data: {
+    playerId: string;
+    currentStyle: unknown;
+    availableStyles: unknown;
+    canChange: boolean;
+  }) => {
+    // Only handle for local player
+    const localPlayer = this.world.getPlayer();
+    if (localPlayer && localPlayer.id === data.playerId) {
+      console.log(
+        "[ClientNetwork] Received attackStyleUpdate for local player, forwarding to event system",
+      );
+      // Forward to local event system so UI can update
+      this.world.emit(EventType.UI_ATTACK_STYLE_UPDATE, data);
+    }
+  };
+
+  onCombatDamageDealt = (data: {
+    attackerId: string;
+    targetId: string;
+    damage: number;
+    targetType: "player" | "mob";
+    position: { x: number; y: number; z: number };
+  }) => {
+    console.log(
+      `[ClientNetwork] Received combatDamageDealt: ${data.damage} damage to ${data.targetId}`,
+    );
+
+    // Check if DamageSplatSystem exists
+    const damageSplatSystem = this.world.getSystem("damage-splat");
+    console.log(
+      `[ClientNetwork] DamageSplatSystem found:`,
+      damageSplatSystem ? "YES ✅" : "NO ❌",
+    );
+
+    // Forward to local event system so DamageSplatSystem can show visual feedback
+    console.log(`[ClientNetwork] Emitting COMBAT_DAMAGE_DEALT event...`);
+    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, data);
+    console.log(`[ClientNetwork] Event emitted successfully`);
+  };
+
+  onPlayerUpdated = (data: {
+    health: number;
+    maxHealth: number;
+    alive: boolean;
+  }) => {
+    const localPlayer = this.world.getPlayer();
+    if (!localPlayer) {
+      console.warn("[ClientNetwork] onPlayerUpdated: No local player found");
+      return;
+    }
+
+    console.log(
+      `[ClientNetwork] 💚 Received playerUpdated: health ${data.health}/${data.maxHealth}`,
+    );
+
+    // Use modify() to update entity - this triggers PlayerLocal.modify()
+    // which updates _playerHealth (the field the UI reads)
+    localPlayer.modify({
+      health: data.health,
+      maxHealth: data.maxHealth,
+    });
+
+    // Update alive status
+    if ("alive" in localPlayer) {
+      (localPlayer as { alive: boolean }).alive = data.alive;
+    }
+
+    // Emit health update event for UI
+    this.world.emit(EventType.PLAYER_HEALTH_UPDATED, {
+      playerId: localPlayer.id,
+      health: data.health,
+      maxHealth: data.maxHealth,
+    });
+
+    console.log(
+      `[ClientNetwork] ✅ Local player health updated: ${data.health}/${data.maxHealth}`,
+    );
   };
 
   onCorpseLoot = (data: {

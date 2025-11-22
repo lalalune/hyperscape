@@ -1,0 +1,159 @@
+{
+  "comment": "OSRS-accurate equipment stats sourced from oldschool.runescape.wiki",
+  "weapons": {
+    "bronze_sword": {
+      "attack": 4,
+      "strength": 5,
+      "defense": 0,
+      "ranged": 0
+    },
+    "iron_sword": {
+      "attack": 6,
+      "strength": 7,
+      "defense": 0,
+      "ranged": 0
+    },
+    "steel_sword": {
+      "attack": 11,
+      "strength": 12,
+      "defense": 0,
+      "ranged": 0
+    },
+    "mithril_sword": {
+      "attack": 16,
+      "strength": 17,
+      "defense": 0,
+      "ranged": 0
+    },
+    "adamant_sword": {
+      "attack": 26,
+      "strength": 27,
+      "defense": 0,
+      "ranged": 0
+    },
+    "rune_sword": {
+      "attack": 39,
+      "strength": 40,
+      "defense": 0,
+      "ranged": 0
+    },
+    "dragon_scimitar": {
+      "attack": 67,
+      "strength": 66,
+      "defense": 0,
+      "ranged": 0
+    },
+    "wood_bow": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 0
+    },
+    "oak_bow": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 0
+    },
+    "willow_bow": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 0,
+      "ranged": 0
+    }
+  },
+  "shields": {
+    "bronze_shield": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 6,
+      "ranged": 0
+    },
+    "steel_shield": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 16,
+      "ranged": 0
+    },
+    "mithril_shield": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 21,
+      "ranged": 0
+    }
+  },
+  "armor": {
+    "bronze_helmet": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 2,
+      "ranged": 0
+    },
+    "steel_helmet": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 7,
+      "ranged": 0
+    },
+    "mithril_helmet": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 10,
+      "ranged": 0
+    },
+    "bronze_body": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 4,
+      "ranged": 0
+    },
+    "steel_body": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 15,
+      "ranged": 0
+    },
+    "mithril_body": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 19,
+      "ranged": 0
+    },
+    "leather_helmet": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 1,
+      "ranged": 0
+    },
+    "leather_body": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 4,
+      "ranged": 0
+    },
+    "hard_leather_body": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 7,
+      "ranged": 0
+    },
+    "studded_leather_body": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 10,
+      "ranged": 0
+    },
+    "hard_leather_legs": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 5,
+      "ranged": 0
+    },
+    "studded_leather_legs": {
+      "attack": 0,
+      "strength": 0,
+      "defense": 7,
+      "ranged": 0
+    }
+  }
+}

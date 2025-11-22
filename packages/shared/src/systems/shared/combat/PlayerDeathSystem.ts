@@ -272,6 +272,38 @@ export class PlayerDeathSystem extends SystemBase {
     this.processPlayerDeath(playerId, position, data.killedBy);
   }
 
+  /**
+   * Convert equipped items to InventoryItem format for death drops
+   */
+  private convertEquipmentToInventoryItems(
+    equipment: any,
+    playerId: string,
+  ): InventoryItem[] {
+    const items: InventoryItem[] = [];
+    const timestamp = Date.now();
+    const slots = ["weapon", "shield", "helmet", "body", "legs", "arrows"];
+
+    for (const slotName of slots) {
+      const equipSlot = equipment[slotName];
+      if (equipSlot && equipSlot.item) {
+        items.push({
+          id: `death_equipped_${playerId}_${slotName}_${timestamp}`,
+          itemId: equipSlot.item.id,
+          quantity: equipSlot.item.quantity || 1,
+          slot: -1, // Equipment items don't have inventory slots
+          metadata: null,
+        });
+      }
+    }
+
+    console.log(
+      `[PlayerDeathSystem] Converted ${items.length} equipped items to drop:`,
+      items.map((i) => `${i.itemId} x${i.quantity}`).join(", ") || "(none)",
+    );
+
+    return items;
+  }
+
   private async processPlayerDeath(
     playerId: string,
     deathPosition: { x: number; y: number; z: number },
@@ -328,6 +360,9 @@ export class PlayerDeathSystem extends SystemBase {
       return;
     }
 
+    // Get equipment system
+    const equipmentSystem = this.world.getSystem("equipment") as any;
+
     let itemsToDrop: InventoryItem[] = [];
 
     try {
@@ -342,7 +377,7 @@ export class PlayerDeathSystem extends SystemBase {
           // Continue with empty items - still need to process death
         }
 
-        itemsToDrop =
+        const inventoryItems =
           inventory?.items.map((item, index) => ({
             id: `death_${playerId}_${Date.now()}_${index}`,
             itemId: item.itemId,
@@ -350,6 +385,29 @@ export class PlayerDeathSystem extends SystemBase {
             slot: item.slot,
             metadata: null,
           })) || [];
+
+        // Step 1b: Get equipped items (read-only, non-destructive)
+        let equipmentItems: InventoryItem[] = [];
+        if (equipmentSystem) {
+          const equipment = equipmentSystem.getPlayerEquipment(playerId);
+          if (equipment) {
+            equipmentItems = this.convertEquipmentToInventoryItems(
+              equipment,
+              playerId,
+            );
+          }
+        } else {
+          console.warn(
+            "[PlayerDeathSystem] EquipmentSystem not available, only inventory items will drop",
+          );
+        }
+
+        // Merge inventory + equipment items
+        itemsToDrop = [...inventoryItems, ...equipmentItems];
+
+        console.log(
+          `[PlayerDeathSystem] Total items to drop: ${itemsToDrop.length} (${inventoryItems.length} inventory + ${equipmentItems.length} equipment)`,
+        );
 
         // Step 2: Detect zone type (safe vs wilderness)
         const zoneType = this.zoneDetection.getZoneType(deathPosition);
@@ -387,9 +445,17 @@ export class PlayerDeathSystem extends SystemBase {
           );
         }
 
-        // Step 4: CRITICAL - Clear inventory LAST (safest point for destructive operation)
-        // If we crash before this point, transaction rolls back and inventory is NOT cleared
+        // Step 4: CRITICAL - Clear inventory AND equipment LAST (safest point for destructive operation)
+        // If we crash before this point, transaction rolls back and nothing is cleared
         await inventorySystem.clearInventoryImmediate(playerId);
+
+        // Also clear equipment
+        if (equipmentSystem && equipmentSystem.clearEquipmentImmediate) {
+          await equipmentSystem.clearEquipmentImmediate(playerId);
+          console.log(
+            `[PlayerDeathSystem] ✅ Cleared equipment for ${playerId}`,
+          );
+        }
 
         // Transaction will auto-commit here if all succeeded
       });
