@@ -102,7 +102,7 @@ const useIntroMusic = (enabled: boolean) => {
       const track = Math.random() > 0.5 ? "1.mp3" : "2.mp3";
       setCurrentTrack(track);
 
-      const cdnUrl = import.meta.env.PUBLIC_CDN_URL || "http://localhost:8080";
+      const cdnUrl = "http://localhost:8080"; // CDN URL
       const musicPath = `${cdnUrl}/music/intro/${track}`;
 
       // Resume audio context if suspended (browser autoplay policy)
@@ -301,9 +301,7 @@ export function CharacterSelectScreen({
 
       setLoadingTemplates(true);
       try {
-        const baseUrl =
-          import.meta.env.PUBLIC_API_URL || "http://localhost:5555";
-        const response = await fetch(`${baseUrl}/templates`);
+        const response = await fetch("http://localhost:5555/api/templates");
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.templates) {
@@ -501,10 +499,8 @@ export function CharacterSelectScreen({
 
               // Step 1: Generate JWT
               console.log("[CharacterSelect] 🔑 Generating JWT for agent...");
-              const baseUrl =
-                import.meta.env.PUBLIC_API_URL || "http://localhost:5555";
               const credentialsResponse = await fetch(
-                `${baseUrl}/agents/credentials`,
+                "http://localhost:5555/api/agents/credentials",
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -547,8 +543,6 @@ export function CharacterSelectScreen({
               console.log("[CharacterSelect] ✅ Template fetched successfully");
 
               // Merge template with character-specific data
-              const wsUrl =
-                import.meta.env.PUBLIC_WS_URL || "ws://localhost:5555/ws";
               const characterTemplate = {
                 ...templateJson,
                 name: c.name, // Override template name with character name
@@ -563,7 +557,7 @@ export function CharacterSelectScreen({
                     HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
                     HYPERSCAPE_CHARACTER_ID: c.id,
                     HYPERSCAPE_ACCOUNT_ID: accountId,
-                    HYPERSCAPE_SERVER_URL: wsUrl,
+                    HYPERSCAPE_SERVER_URL: "ws://localhost:5555/ws",
                     wallet: c.wallet || "",
                   },
                 },
@@ -736,10 +730,8 @@ export function CharacterSelectScreen({
 
               // Fetch full character data from Hyperscape DB to get avatar
               const accountId = localStorage.getItem("privy_user_id");
-              const baseUrl =
-                import.meta.env.PUBLIC_API_URL || "http://localhost:5555";
               const hyperscapeResponse = await fetch(
-                `${baseUrl}/characters/${accountId}`,
+                `http://localhost:5555/api/characters/${accountId}`,
               );
 
               let avatarUrl = "";
