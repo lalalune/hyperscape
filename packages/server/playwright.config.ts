@@ -14,4 +14,17 @@ export default defineConfig({
   use: {
     trace: "on-first-retry",
   },
+  // Auto-start server before tests and shut down after
+  webServer: {
+    command: "bun run start",
+    port: 5555,
+    timeout: 120 * 1000, // 2 minutes to start
+    reuseExistingServer: !process.env.CI, // In CI, always start fresh server
+    env: {
+      NODE_ENV: "test",
+      DATABASE_URL:
+        process.env.DATABASE_URL ||
+        "postgresql://localhost:5432/hyperscape_test",
+    },
+  },
 });
