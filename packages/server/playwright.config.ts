@@ -23,6 +23,7 @@ export default defineConfig({
     env: {
       ...process.env, // Inherit all environment variables from parent (including DATABASE_URL from CI)
       NODE_ENV: "test",
+      USE_LOCAL_POSTGRES: "false", // Don't start Docker in test environment (use DATABASE_URL instead)
     },
   },
 });
